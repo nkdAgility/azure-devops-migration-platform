@@ -1,7 +1,5 @@
 ﻿using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Options;
 using MigrationPlatform.CLI.Models;
-using MigrationPlatform.CLI.Options;
 using MigrationPlatform.CLI.Services;
 using Spectre.Console;
 using Spectre.Console.Cli;
@@ -11,17 +9,15 @@ namespace MigrationPlatform.CLI.Commands
 {
     public class DiscoveryCommand : AsyncCommand<DiscoveryCommand.Settings>
     {
-        private readonly MigrationPlatformOptions _platformOptions;
         private readonly ICatalogService _catalogService;
 
-        public DiscoveryCommand(ICatalogService catalogService, IOptions<MigrationPlatformOptions> platformOptions)
+        public DiscoveryCommand(ICatalogService catalogService)
         {
             _catalogService = catalogService;
-            _platformOptions = platformOptions.Value;
         }
 
 
-        public class Settings : GlobalSettings
+        public class Settings : AdoSettings
         {
 
         }
@@ -29,6 +25,8 @@ namespace MigrationPlatform.CLI.Commands
 
         public override async Task<int> ExecuteAsync(CommandContext context, Settings settings)
         {
+
+            var builder = Host.CreateDefaultBuilder();
 
 
             var projects = await _catalogService.GetProjectsAsync(settings.Organisation, settings.Token);

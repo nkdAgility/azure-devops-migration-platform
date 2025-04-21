@@ -66,7 +66,7 @@ namespace ABB.WorkItemClone.ConsoleUI
 
                 config.AddCommand<DiscoveryCommand>("discovery")
                     .WithDescription("Discover the contents of your Azure DevOps instance")
-                    .WithExample(new[] { "discovery", "--config", "default" });
+                    .WithExample(new[] { "discovery", "--organisation", "", "--token", "" });
             });
 
             try
