@@ -14,7 +14,6 @@
 	  <PackageReference Include="Serilog" />
 	  <PackageReference Include="Spectre.Console" />
 	  <PackageReference Include="Spectre.Console.Cli" />
-		<PackageReference Include="Spectre.Console.Extensions.Hosting" />
 	</ItemGroup>
 	<ItemGroup>
 		<Reference Include="System" />

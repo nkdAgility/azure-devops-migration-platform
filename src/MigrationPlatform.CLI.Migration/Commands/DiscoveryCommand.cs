@@ -1,5 +1,7 @@
-﻿using MigrationPlatform.Abstractions.Models;
+﻿using Microsoft.Extensions.DependencyInjection;
+using MigrationPlatform.Abstractions.Models;
 using MigrationPlatform.Abstractions.Services;
+using MigrationPlatform.Infrastructure.TfsObjectModel;
 using Spectre.Console;
 using Spectre.Console.Cli;
 using System.Globalization;
@@ -8,11 +10,9 @@ namespace MigrationPlatform.CLI.Commands
 {
     public class DiscoveryCommand : AsyncCommand<DiscoveryCommand.Settings>
     {
-        private readonly ICatalogService _catalogService;
-
-        public DiscoveryCommand(ICatalogService catalogService)
+        public DiscoveryCommand()
         {
-            _catalogService = catalogService;
+
         }
 
 
@@ -24,8 +24,10 @@ namespace MigrationPlatform.CLI.Commands
 
         public override async Task<int> ExecuteAsync(CommandContext context, Settings settings)
         {
+            var host = MigrationPlatformHost.CreateDefaultBuilder().Build();
+            var catalogService = host.Services.GetRequiredService<ICatalogService>();
 
-            var projects = await _catalogService.GetProjectsAsync(settings.Organisation, settings.Token);
+            var projects = await catalogService.GetProjectsAsync(settings.Organisation, settings.Token);
 
             var table = new Table().Centered();
 
@@ -49,7 +51,7 @@ namespace MigrationPlatform.CLI.Commands
                          summaries.Add(summary);
 
                          // Work Items
-                         await foreach (var wiStat in _catalogService.CountAllWorkItemsAsync(settings.Organisation, project, settings.Token))
+                         await foreach (var wiStat in catalogService.CountAllWorkItemsAsync(settings.Organisation, project, settings.Token))
                          {
                              summary.WorkItemsCount = wiStat.WorkItemsCount;
                              summary.RevisionsCount = wiStat.RevisionsCount;

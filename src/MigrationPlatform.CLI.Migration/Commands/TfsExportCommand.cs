@@ -1,5 +1,4 @@
 ﻿using MigrationPlatform.Abstractions.Models;
-using MigrationPlatform.Abstractions.Services;
 using Spectre.Console;
 using Spectre.Console.Cli;
 using System.ComponentModel;
@@ -9,11 +8,9 @@ namespace MigrationPlatform.CLI.Commands
 {
     public class TfsExportCommand : AsyncCommand<TfsExportCommand.Settings>
     {
-        private readonly ICatalogService _catalogService;
 
-        public TfsExportCommand(ICatalogService catalogService)
+        public TfsExportCommand()
         {
-            _catalogService = catalogService;
         }
 
 

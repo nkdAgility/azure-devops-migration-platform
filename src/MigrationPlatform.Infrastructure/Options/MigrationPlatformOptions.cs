@@ -1,4 +1,4 @@
-﻿namespace MigrationPlatform.CLI.Options
+﻿namespace MigrationPlatform.Infrastructure.Options
 {
     public class MigrationPlatformOptions
     {

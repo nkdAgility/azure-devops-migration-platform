@@ -1,16 +1,8 @@
-﻿using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Hosting;
-using MigrationPlatform.Abstractions.Services;
-using MigrationPlatform.Abstractions.Utilities;
+﻿using MigrationPlatform.Abstractions.Utilities;
 using MigrationPlatform.CLI.Commands;
 using MigrationPlatform.CLI.ConfigCommands;
-using MigrationPlatform.CLI.Options;
-using MigrationPlatform.Infrastructure.Services;
-using Serilog;
 using Spectre.Console;
 using Spectre.Console.Cli;
-using Spectre.Console.Extensions.Hosting;
 
 namespace MigrationPlatform.CLI
 {
@@ -19,38 +11,16 @@ namespace MigrationPlatform.CLI
         static async Task<int> Main(string[] args)
         {
 
-            var builder = Host.CreateDefaultBuilder(args);
 
-            builder.ConfigureServices((context, services) =>
-            {
-                services.AddSingleton<IConfiguration>(context.Configuration);
-                services.AddSingleton<ILogger>(Log.Logger);
-                services.AddSingleton<ICatalogService, CatalogService>();
-
-                services.Configure<MigrationPlatformOptions>(context.Configuration.GetSection("MigrationPlatformCli"));
-            });
-
-            builder.UseConsoleLifetime(configureOptions =>
-            {
-                configureOptions.SuppressStatusMessages = true;
-            });
-
-            builder.ConfigureAppConfiguration(builder =>
-              {
-                  //builder.SetBasePath(AppContext.BaseDirectory);
-                  builder.AddJsonFile(Path.Combine(AppContext.BaseDirectory, "appsettings.json"), optional: false);
-                  builder.AddEnvironmentVariables();
-                  builder.AddCommandLine(args);
-              });
-
-            builder.UseSpectreConsole(config =>
+            var app = new CommandApp<DiscoveryCommand>();
+            app.Configure(config =>
             {
                 config.SetApplicationName("devopsmigration");
+                config.SetApplicationVersion(VersionUtilities.GetRunningVersion().versionString);
+#if DEBUG
                 config.PropagateExceptions();
                 config.ValidateExamples();
-
-                config.SetApplicationVersion(VersionUtilities.GetRunningVersion().versionString);
-
+#endif
                 config.AddBranch("config", branch =>
                 {
                     branch.SetDescription("Tools manipulating and setting up configurations");
@@ -74,9 +44,9 @@ namespace MigrationPlatform.CLI
 
             try
             {
-                AnsiConsole.Write(new FigletText("Azure DevOps Migration Platform").LeftJustified().Color(Color.Red));
+                AnsiConsole.Write(new FigletText("TFS Exporter").LeftJustified().Color(Color.Red));
                 AnsiConsole.Write(new Rule().RuleStyle("grey").LeftJustified());
-                await builder.RunConsoleAsync();
+                await app.RunAsync(args);
                 return 0;
             }
             catch (Exception ex)

@@ -1,4 +1,6 @@
-﻿using MigrationPlatform.Abstractions.Services;
+﻿using Microsoft.Extensions.DependencyInjection;
+using MigrationPlatform.Abstractions.Services;
+using MigrationPlatform.Infrastructure.TfsObjectModel;
 using Spectre.Console;
 using Spectre.Console.Cli;
 using System.ComponentModel;
@@ -7,10 +9,9 @@ namespace MigrationPlatform.CLI.Commands
 {
     public class ExportCommand : AsyncCommand<ExportCommand.Settings>
     {
-        private readonly IWorkItemExportService _workItemExportService;
-        public ExportCommand(IWorkItemExportService workItemExportService)
+        public ExportCommand()
         {
-            _workItemExportService = workItemExportService;
+
         }
 
         public class Settings : CommandSettings
@@ -80,7 +81,8 @@ namespace MigrationPlatform.CLI.Commands
                 .Padding(1, 1)
                 .BorderColor(Color.Green));
 
-
+            var host = MigrationPlatformHost.CreateDefaultBuilder().Build();
+            var workItemExportService = host.Services.GetRequiredService<IWorkItemExportService>();
 
             await AnsiConsole.Status()
                 .StartAsync("Exporting Work Items...", async ctx =>
@@ -89,7 +91,7 @@ namespace MigrationPlatform.CLI.Commands
                     ctx.SpinnerStyle(Style.Parse("green"));
 
                     // Do the export
-                    await foreach (var wiStat in _workItemExportService.ExportWorkItemsAsync(settings.TfsServer, settings.Project))
+                    await foreach (var wiStat in workItemExportService.ExportWorkItemsAsync(settings.TfsServer, settings.Project))
                     {
                         ctx.Status($"""
                             [bold yellow]WorkItem[/]: {wiStat.WorkItemId,-6} 
