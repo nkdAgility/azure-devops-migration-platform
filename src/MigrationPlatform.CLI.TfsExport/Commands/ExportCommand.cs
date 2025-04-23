@@ -1,4 +1,4 @@
-﻿using MigrationPlatform.Infrastructure.Services;
+﻿using MigrationPlatform.Abstractions.Services;
 using Spectre.Console;
 using Spectre.Console.Cli;
 using System.ComponentModel;
@@ -7,8 +7,8 @@ namespace MigrationPlatform.CLI.Commands
 {
     public class ExportCommand : AsyncCommand<ExportCommand.Settings>
     {
-        private readonly WorkItemExportService _workItemExportService;
-        public ExportCommand(WorkItemExportService workItemExportService)
+        private readonly IWorkItemExportService _workItemExportService;
+        public ExportCommand(IWorkItemExportService workItemExportService)
         {
             _workItemExportService = workItemExportService;
         }
@@ -80,11 +80,28 @@ namespace MigrationPlatform.CLI.Commands
                 .Padding(1, 1)
                 .BorderColor(Color.Green));
 
-            AnsiConsole.MarkupLineInterpolated(
-                $"✅ [green]Discovery Complete[/] File saved to [blue]discovery-summary.csv[/]"
-            );
 
-            return await Task.FromResult(0);
+
+            await AnsiConsole.Status()
+                .StartAsync("Exporting Work Items...", async ctx =>
+                {
+                    ctx.Spinner(Spinner.Known.Dots);
+                    ctx.SpinnerStyle(Style.Parse("green"));
+
+                    // Do the export
+                    await foreach (var wiStat in _workItemExportService.ExportWorkItemsAsync(settings.TfsServer, settings.Project))
+                    {
+                        ctx.Status($"Processing: WI:{wiStat.WorkItemId} R:{wiStat.RevisionIndex}");
+                    }
+
+                    // Optionally update output
+                    AnsiConsole.MarkupLine("[green]✓ Exported work items[/]");
+                });
+
+            AnsiConsole.MarkupLineInterpolated(
+                $"✅ [green]Discovery Complete[/] File saved to discovery-summary.csv"
+            );
+            return 0;
         }
     }
 }

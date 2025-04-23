@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "MigrationPlatform.CLI.TfsExport": {
+      "commandName": "Project",
+      "commandLineArgs": "--tfsserver https://dev.azure.com/JBAZMC --project \"CTSDev\""
+    }
+  }
+}

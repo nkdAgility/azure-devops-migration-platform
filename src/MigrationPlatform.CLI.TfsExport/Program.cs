@@ -1,16 +1,17 @@
 ﻿using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using MigrationPlatform.Abstractions.Repositories;
 using MigrationPlatform.Abstractions.Services;
+using MigrationPlatform.Abstractions.Utilities;
 using MigrationPlatform.CLI.Commands;
+using MigrationPlatform.Infrastructure.Repositories;
 using MigrationPlatform.Infrastructure.Services;
 using Serilog;
 using Spectre.Console;
 using Spectre.Console.Cli;
 using Spectre.Console.Extensions.Hosting;
 using System.Diagnostics;
-using System.Reflection;
-using System.Text.RegularExpressions;
 
 namespace MigrationPlatform.TfsExport
 {
@@ -31,6 +32,7 @@ namespace MigrationPlatform.TfsExport
                 services.AddSingleton<IConfiguration>(context.Configuration);
                 services.AddSingleton<ILogger>(Log.Logger);
                 services.AddSingleton<IWorkItemExportService, WorkItemExportService>();
+                services.AddSingleton<IMigrationRepository, MigrationRepository>();
             });
 
             builder.UseConsoleLifetime(configureOptions =>
@@ -53,7 +55,7 @@ namespace MigrationPlatform.TfsExport
                 config.PropagateExceptions();
                 config.ValidateExamples();
 
-                config.SetApplicationVersion(GetRunningVersion().versionString);
+                config.SetApplicationVersion(VersionUtilities.GetRunningVersion().versionString);
 
                 config.AddCommand<ExportCommand>("export")
                     .WithDescription("Exports the data from TFS")
@@ -75,15 +77,6 @@ namespace MigrationPlatform.TfsExport
                 return 1;
             }
 
-        }
-
-        public static (Version version, string PreReleaseLabel, string versionString) GetRunningVersion()
-        {
-            FileVersionInfo myFileVersionInfo = FileVersionInfo.GetVersionInfo(Assembly.GetEntryAssembly()?.Location);
-            var matches = Regex.Matches(myFileVersionInfo.ProductVersion, @"^(?<major>0|[1-9]\d*)\.(?<minor>0|[1-9]\d*)\.(?<build>0|[1-9]\d*)(?:-((?<label>:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+(?<fullEnd>[0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$");
-            Version version = new Version(myFileVersionInfo.FileVersion);
-            string textVersion = "v" + version.Major + "." + version.Minor + "." + version.Build + "-" + matches[0].Groups[1].Value;
-            return (version, matches[0].Groups[1].Value, textVersion);
         }
 
 

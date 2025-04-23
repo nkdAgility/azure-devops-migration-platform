@@ -34,5 +34,6 @@
 	<ItemGroup>
 	  <ProjectReference Include="..\MigrationPlatform.Abstractions\MigrationPlatform.Abstractions.csproj" />
 	  <ProjectReference Include="..\MigrationPlatform.Infrastructure.TfsObjectModel\MigrationPlatform.Infrastructure.TfsObjectModel.csproj" />
+	  <ProjectReference Include="..\MigrationPlatform.Infrastructure\MigrationPlatform.Infrastructure.csproj" />
 	</ItemGroup>
 </Project>

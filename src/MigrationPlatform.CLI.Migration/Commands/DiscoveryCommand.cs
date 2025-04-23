@@ -1,5 +1,4 @@
-﻿using Microsoft.Extensions.Hosting;
-using MigrationPlatform.Abstractions.Models;
+﻿using MigrationPlatform.Abstractions.Models;
 using MigrationPlatform.Abstractions.Services;
 using Spectre.Console;
 using Spectre.Console.Cli;
@@ -25,9 +24,6 @@ namespace MigrationPlatform.CLI.Commands
 
         public override async Task<int> ExecuteAsync(CommandContext context, Settings settings)
         {
-
-            var builder = Host.CreateDefaultBuilder();
-
 
             var projects = await _catalogService.GetProjectsAsync(settings.Organisation, settings.Token);
 
