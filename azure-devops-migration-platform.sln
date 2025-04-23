@@ -3,7 +3,7 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.14.35806.103
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Shared", "Shared", "{02EA681E-C7D8-13C7-8484-4AC65E1B71E8}"
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "1 Shared", "1 Shared", "{02EA681E-C7D8-13C7-8484-4AC65E1B71E8}"
 	ProjectSection(SolutionItems) = preProject
 		src\Directory.Build.props = src\Directory.Build.props
 		src\Directory.Packages.props = src\Directory.Packages.props
@@ -22,6 +22,10 @@ EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MigrationPlatform.CLI.Migration", "src\MigrationPlatform.CLI.Migration\MigrationPlatform.CLI.Migration.csproj", "{DBC88AEB-B723-5E35-DDCC-00BA1F46F8A3}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MigrationPlatform.CLI.TfsExport", "src\MigrationPlatform.CLI.TfsExport\MigrationPlatform.CLI.TfsExport.csproj", "{A6B2A7C3-C7BE-EB60-994B-A420DCD83E2C}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "AzureDevOps", "AzureDevOps", "{691431D3-1F02-4D1C-ACFF-E47A5B7FD153}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "TfsObjectModel", "TfsObjectModel", "{B526E735-D3DB-4EEB-A15E-2B4E1D286BFE}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -56,6 +60,14 @@ Global
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{8173B276-264D-1CC7-CB0D-B94AFCBA4973} = {02EA681E-C7D8-13C7-8484-4AC65E1B71E8}
+		{40248B7F-1095-499D-9366-800DD77DCC0F} = {02EA681E-C7D8-13C7-8484-4AC65E1B71E8}
+		{6F256186-933A-4C9B-A621-A28BF8CF9691} = {691431D3-1F02-4D1C-ACFF-E47A5B7FD153}
+		{C65A0FDF-3491-4EE9-8654-31389C6A3CAE} = {B526E735-D3DB-4EEB-A15E-2B4E1D286BFE}
+		{DBC88AEB-B723-5E35-DDCC-00BA1F46F8A3} = {691431D3-1F02-4D1C-ACFF-E47A5B7FD153}
+		{A6B2A7C3-C7BE-EB60-994B-A420DCD83E2C} = {B526E735-D3DB-4EEB-A15E-2B4E1D286BFE}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {6474D5CC-B090-4F91-8582-15400C0E28EC}
