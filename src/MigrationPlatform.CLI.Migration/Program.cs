@@ -6,7 +6,7 @@ using MigrationPlatform.Abstractions.Utilities;
 using MigrationPlatform.CLI.Commands;
 using MigrationPlatform.CLI.ConfigCommands;
 using MigrationPlatform.CLI.Options;
-using MigrationPlatform.CLI.Services;
+using MigrationPlatform.Infrastructure.Services;
 using Serilog;
 using Spectre.Console;
 using Spectre.Console.Cli;

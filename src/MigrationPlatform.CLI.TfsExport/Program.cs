@@ -3,7 +3,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using MigrationPlatform.Abstractions.Services;
 using MigrationPlatform.CLI.Commands;
-using MigrationPlatform.TfsExport.Services;
+using MigrationPlatform.Infrastructure.Services;
 using Serilog;
 using Spectre.Console;
 using Spectre.Console.Cli;

@@ -7,7 +7,7 @@ using MigrationPlatform.Abstractions.Models;
 using MigrationPlatform.Abstractions.Services;
 using System.Runtime.CompilerServices;
 
-namespace MigrationPlatform.CLI.Services
+namespace MigrationPlatform.Infrastructure.Services
 {
     public class CatalogService : ICatalogService
     {

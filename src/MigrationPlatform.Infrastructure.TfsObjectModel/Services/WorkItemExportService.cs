@@ -2,7 +2,7 @@
 using MigrationPlatform.Abstractions.Repositories;
 using MigrationPlatform.Abstractions.Services;
 
-namespace MigrationPlatform.TfsExport.Services
+namespace MigrationPlatform.Infrastructure.Services
 {
     public class WorkItemExportService : IWorkItemExportService
     {

@@ -29,6 +29,8 @@
 
 		<ProjectReference Include="..\MigrationPlatform.Abstractions\MigrationPlatform.Abstractions.csproj" />
 
+		<ProjectReference Include="..\MigrationPlatform.Infrastructure.AzureDevOps\MigrationPlatform.Infrastructure.AzureDevOps.csproj" />
+
 	</ItemGroup>
 
 	<ItemGroup>
