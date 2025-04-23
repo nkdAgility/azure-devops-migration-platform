@@ -10,7 +10,7 @@ namespace MigrationPlatform.Infrastructure.TfsObjectModel
 {
     public static class MigrationPlatformHost
     {
-        public static IHostBuilder CreateDefaultBuilder()
+        public static IHostBuilder CreateDefaultBuilder(string[] args, string configurationPath)
         {
             var builder = Host.CreateDefaultBuilder();
 
@@ -28,10 +28,10 @@ namespace MigrationPlatform.Infrastructure.TfsObjectModel
 
             builder.ConfigureAppConfiguration(builder =>
             {
-                //builder.SetBasePath(AppContext.BaseDirectory);
-                //builder.AddJsonFile(Path.Combine(AppContext.BaseDirectory, "appsettssings.json"), optional: false);
+                builder.SetBasePath(configurationPath);
+                builder.AddJsonFile(Path.Combine(configurationPath, "configuration.json"), optional: false);
                 builder.AddEnvironmentVariables();
-                //builder.AddCommandLine(args);
+                builder.AddCommandLine(args);
             });
             return builder;
 

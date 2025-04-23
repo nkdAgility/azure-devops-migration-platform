@@ -24,8 +24,6 @@ namespace MigrationPlatform.Infrastructure.Services
             var progressUpdate = new WorkItemMigrationProgress();
             yield return progressUpdate;
 
-            Thread.CurrentThread.GetApartmentState();
-
             WorkItemStore store;
             var creds = new VssClientCredentials(true);
             creds.PromptType = CredentialPromptType.PromptIfNeeded;
@@ -72,20 +70,6 @@ namespace MigrationPlatform.Infrastructure.Services
         }
 
 
-
-
-        public static T RunInStaThread<T>(Func<T> action)
-        {
-            T result = default!;
-            var thread = new Thread(() => result = action())
-            {
-                IsBackground = false,
-                ApartmentState = ApartmentState.STA
-            };
-            thread.Start();
-            thread.Join();
-            return result;
-        }
 
     }
 }

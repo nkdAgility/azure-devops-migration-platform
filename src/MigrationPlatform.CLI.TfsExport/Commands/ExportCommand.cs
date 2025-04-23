@@ -81,7 +81,7 @@ namespace MigrationPlatform.CLI.Commands
                 .Padding(1, 1)
                 .BorderColor(Color.Green));
 
-            var host = MigrationPlatformHost.CreateDefaultBuilder().Build();
+            var host = MigrationPlatformHost.CreateDefaultBuilder(context.Arguments.ToArray(), settings.OutputFolder).Build();
             var workItemExportService = host.Services.GetRequiredService<IWorkItemExportService>();
 
             await AnsiConsole.Status()
