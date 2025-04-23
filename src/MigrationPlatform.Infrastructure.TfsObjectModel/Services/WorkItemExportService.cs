@@ -6,6 +6,8 @@ using MigrationPlatform.Abstractions;
 using MigrationPlatform.Abstractions.Models;
 using MigrationPlatform.Abstractions.Repositories;
 using MigrationPlatform.Abstractions.Services;
+using MigrationPlatform.Infrastructure.TfsObjectModel.Extensions;
+using MigrationPlatform.Infrastructure.TfsObjectModel.Models;
 
 namespace MigrationPlatform.Infrastructure.Services
 {
@@ -35,13 +37,13 @@ namespace MigrationPlatform.Infrastructure.Services
 
 
             var allWorkItemsQuery = "SELECT * FROM WorkItems WHERE [System.TeamProject] = '" + project + "'";
-            var totalWorkItems = store.QueryCount(allWorkItemsQuery);
 
-            var workItems = store.Query("SELECT * FROM WorkItems WHERE [System.TeamProject] = '" + project + "'");
-
-            foreach (WorkItem tfsWorkItem in workItems)
+            foreach (WorkItemFromChunk chunkItem in store.QueryAllByDateChunk(allWorkItemsQuery))
             {
+                var tfsWorkItem = chunkItem.WorkItem;
+                progressUpdate.ChunkInfo = (WorkItemQueryChunk)chunkItem;
                 progressUpdate.WorkItemId = tfsWorkItem.Id;
+                progressUpdate.WorkItemsProcessed++;
                 foreach (Revision tfsWorkItemRevision in tfsWorkItem.Revisions)
                 {
                     progressUpdate.RevisionIndex = tfsWorkItemRevision.Index;
@@ -57,8 +59,10 @@ namespace MigrationPlatform.Infrastructure.Services
                         mField.ReferenceName = field.ReferenceName;
                         mField.Value = field.Value;
                         mWorkItem.Fields.Add(mField);
+                        progressUpdate.FieldsProcessed++;
                     }
-                    //_migrationRepository.AddWorkItemRevision(mWorkItem);
+                    // _migrationRepository.AddWorkItemRevision(mWorkItem); TODO: Once we know where to save it.
+                    progressUpdate.RevisionsProcessed++;
                     yield return progressUpdate;
                 }
                 // Process each work item
@@ -66,6 +70,8 @@ namespace MigrationPlatform.Infrastructure.Services
             }
 
         }
+
+
 
 
         public static T RunInStaThread<T>(Func<T> action)

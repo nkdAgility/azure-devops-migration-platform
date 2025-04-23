@@ -1,28 +1,27 @@
 ﻿using Microsoft.TeamFoundation.WorkItemTracking.Client;
+using MigrationPlatform.Infrastructure.TfsObjectModel.Models;
 
 namespace MigrationPlatform.Infrastructure.TfsObjectModel.Extensions
 {
     public static class WorkItemStoreExtensions
     {
-        public static IEnumerable<WorkItem> QueryAllByDateChunk(
-            this WorkItemStore store,
-            string project,
-            TimeSpan? initialChunkSize = null,
-            int maxItemsPerQuery = 20000)
+        public static IEnumerable<WorkItemFromChunk> QueryAllByDateChunk(
+                                             this WorkItemStore store,
+                                             string baseQuery,
+                                             TimeSpan? initialChunkSize = null,
+                                             int maxItemsPerQuery = 20000)
         {
             DateTime endDate = DateTime.UtcNow;
             TimeSpan chunkSize = initialChunkSize ?? TimeSpan.FromDays(30);
+            int queryIndex = 0;
 
             while (true)
             {
                 DateTime startDate = endDate - chunkSize;
 
-                string wiql = $@"
-                SELECT * 
-                FROM WorkItems 
-                WHERE [System.TeamProject] = '{project}' 
-                  AND [System.ChangedDate] >= '{startDate:u}' 
-                  AND [System.ChangedDate] < '{endDate:u}'";
+                string wiql = $@"{baseQuery} 
+          AND [System.CreatedDate] >= '{startDate:yyyy-MM-dd}' 
+          AND [System.CreatedDate] < '{endDate:yyyy-MM-dd}'";
 
                 WorkItemCollection workItems;
                 try
@@ -31,16 +30,12 @@ namespace MigrationPlatform.Infrastructure.TfsObjectModel.Extensions
 
                     if (workItems.Count >= maxItemsPerQuery)
                     {
-                        // Too many results — reduce range and retry
                         chunkSize = TimeSpan.FromTicks(chunkSize.Ticks / 2);
                         continue;
                     }
 
                     if (workItems.Count == 0)
-                    {
-                        // No more data — end
                         yield break;
-                    }
                 }
                 catch (Exception ex)
                 {
@@ -49,16 +44,25 @@ namespace MigrationPlatform.Infrastructure.TfsObjectModel.Extensions
                     continue;
                 }
 
-                foreach (WorkItem workItem in workItems)
+                for (int i = 0; i < workItems.Count; i++)
                 {
-                    yield return workItem;
+                    yield return new WorkItemFromChunk
+                    {
+                        WorkItem = workItems[i],
+                        ChunkStart = startDate,
+                        ChunkEnd = endDate,
+                        ChunkSize = chunkSize,
+                        QueryIndex = queryIndex,
+                        WorkItemsInChunk = workItems.Count,
+                        WorkItemIndexInChunk = i
+                    };
                 }
 
-                // Optional: Grow range again
                 if (chunkSize < TimeSpan.FromDays(30))
                     chunkSize += TimeSpan.FromDays(1);
 
                 endDate = startDate;
+                queryIndex++;
             }
         }
     }

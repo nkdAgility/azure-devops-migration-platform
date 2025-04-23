@@ -9,6 +9,9 @@
         public int LinksProcessed { get; set; }
         public int FieldsProcessed { get; set; }
 
+        public int TotalWorkItems { get; set; }
+        public int WorkItemsProcessed { get; set; }
+
         public int TotalRevisions { get; set; }
         public int RevisionsProcessed { get; set; }
 
@@ -16,6 +19,7 @@
 
         // Optional: Add a timestamp for observability
         public DateTime Timestamp { get; set; } = DateTime.UtcNow;
+        public WorkItemQueryChunk? ChunkInfo { get; set; }
     }
 
 }

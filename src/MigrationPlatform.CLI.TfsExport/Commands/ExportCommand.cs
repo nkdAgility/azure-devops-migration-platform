@@ -91,7 +91,16 @@ namespace MigrationPlatform.CLI.Commands
                     // Do the export
                     await foreach (var wiStat in _workItemExportService.ExportWorkItemsAsync(settings.TfsServer, settings.Project))
                     {
-                        ctx.Status($"Processing: WI:{wiStat.WorkItemId} R:{wiStat.RevisionIndex}");
+                        ctx.Status($"""
+                            [bold yellow]WorkItem[/]: {wiStat.WorkItemId,-6} 
+                            [bold yellow]Revision[/]: {wiStat.RevisionIndex,-3} 
+                            [bold green]TWI[/]: {wiStat.WorkItemsProcessed,-5} 
+                            [bold green]TRV[/]: {wiStat.RevisionsProcessed,-5} 
+                            [bold green]TFLD[/]: {wiStat.FieldsProcessed,-5} 
+                            [grey]Chunk[/]: {wiStat.ChunkInfo?.WorkItemsInChunk ?? 0,-5} 
+                            {wiStat.ChunkInfo?.ChunkStart:yyyy-MM-dd} → {wiStat.ChunkInfo?.ChunkEnd:yyyy-MM-dd}
+                        """);
+
                     }
 
                     // Optionally update output
