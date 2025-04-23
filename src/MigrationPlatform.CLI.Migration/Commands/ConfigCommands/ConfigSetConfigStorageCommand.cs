@@ -74,8 +74,14 @@ namespace MigrationPlatform.CLI.ConfigCommands
                             var relativePath = Path.GetRelativePath(oldPath, file);
                             var destination = Path.Combine(newPath, relativePath);
                             var destinationDir = Path.GetDirectoryName(destination);
-                            if (!Directory.Exists(destinationDir))
+                            if (destinationDir != null && !Directory.Exists(destinationDir))
+                            {
                                 Directory.CreateDirectory(destinationDir);
+                            }
+                            if (!string.IsNullOrEmpty(destinationDir) && !Directory.Exists(destinationDir))
+                            {
+                                Directory.CreateDirectory(destinationDir);
+                            }
                             File.Move(file, destination, overwrite: true);
                         }
 

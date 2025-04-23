@@ -21,9 +21,10 @@
 	</ItemGroup>
 
 	<ItemGroup>
-		<ProjectReference Include="..\MigrationPlatform.TfsExport\MigrationPlatform.TfsExport.csproj">
+		<ProjectReference Include="..\MigrationPlatform.CLI.TfsExport\MigrationPlatform.CLI.TfsExport.csproj">
 			<ReferenceOutputAssembly>false</ReferenceOutputAssembly>
-			<OutputItemType>BuildDependency</OutputItemType>
+			<SkipGetTargetFrameworkProperties>true</SkipGetTargetFrameworkProperties>
+			<TargetFramework>net481</TargetFramework>
 		</ProjectReference>
 
 		<ProjectReference Include="..\MigrationPlatform.Abstractions\MigrationPlatform.Abstractions.csproj" />
