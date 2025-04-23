@@ -1,4 +1,4 @@
-﻿namespace MigrationPlatform.CLI.Models
+﻿namespace MigrationPlatform.Abstractions.Models
 {
     public class ProjectDiscoverySummary
     {

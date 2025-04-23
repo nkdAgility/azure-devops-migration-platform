@@ -1,6 +1,6 @@
 ﻿using Microsoft.Extensions.Hosting;
-using MigrationPlatform.CLI.Models;
-using MigrationPlatform.CLI.Services;
+using MigrationPlatform.Abstractions.Models;
+using MigrationPlatform.Abstractions.Services;
 using Spectre.Console;
 using Spectre.Console.Cli;
 using System.Globalization;
@@ -48,12 +48,12 @@ namespace MigrationPlatform.CLI.Commands
 
                      foreach (var project in projects)
                      {
-                         table.AddRow(project.Name);
-                         var summary = new ProjectDiscoverySummary { ProjectName = project.Name };
+                         table.AddRow(project);
+                         var summary = new ProjectDiscoverySummary { ProjectName = project };
                          summaries.Add(summary);
 
                          // Work Items
-                         await foreach (var wiStat in _catalogService.CountAllWorkItemsAsync(settings.Organisation, project.Name, settings.Token))
+                         await foreach (var wiStat in _catalogService.CountAllWorkItemsAsync(settings.Organisation, project, settings.Token))
                          {
                              summary.WorkItemsCount = wiStat.WorkItemsCount;
                              summary.RevisionsCount = wiStat.RevisionsCount;

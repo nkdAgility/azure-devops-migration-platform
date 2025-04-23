@@ -1,4 +1,5 @@
-﻿using Spectre.Console;
+﻿using MigrationPlatform.TfsExport.Services;
+using Spectre.Console;
 using Spectre.Console.Cli;
 using System.ComponentModel;
 
@@ -6,6 +7,12 @@ namespace MigrationPlatform.CLI.Commands
 {
     public class ExportCommand : AsyncCommand<ExportCommand.Settings>
     {
+        private readonly WorkItemExportService _workItemExportService;
+        public ExportCommand(WorkItemExportService workItemExportService)
+        {
+            _workItemExportService = workItemExportService;
+        }
+
         public class Settings : CommandSettings
         {
             [CommandOption("--tfsserver <tfsserver>")]

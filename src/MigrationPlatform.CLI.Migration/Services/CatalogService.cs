@@ -3,19 +3,16 @@ using Microsoft.TeamFoundation.WorkItemTracking.WebApi;
 using Microsoft.TeamFoundation.WorkItemTracking.WebApi.Models;
 using Microsoft.VisualStudio.Services.Common;
 using Microsoft.VisualStudio.Services.WebApi;
-using MigrationPlatform.CLI.Models;
-using System;
-using System.Collections.Generic;
-using System.Linq;
+using MigrationPlatform.Abstractions.Models;
+using MigrationPlatform.Abstractions.Services;
 using System.Runtime.CompilerServices;
-using System.Threading.Tasks;
 
 namespace MigrationPlatform.CLI.Services
 {
     public class CatalogService : ICatalogService
     {
 
-        public async Task<IReadOnlyList<TeamProjectReference>> GetProjectsAsync(string orgUrl,string pat)
+        public async Task<IReadOnlyList<string>> GetProjectsAsync(string orgUrl, string pat)
         {
             var credentials = new VssBasicCredential(string.Empty, pat);
             var connection = new VssConnection(new Uri(orgUrl), credentials);
@@ -23,10 +20,8 @@ namespace MigrationPlatform.CLI.Services
             var projectClient = connection.GetClient<ProjectHttpClient>();
 
             var projects = await projectClient.GetProjects();
-            return projects.ToList();
+            return projects.Select(p => p.Name).ToList();
         }
-
-
 
 
         public async IAsyncEnumerable<ProjectDiscoverySummary> CountAllWorkItemsAsync(
@@ -53,7 +48,7 @@ namespace MigrationPlatform.CLI.Services
 
                 var workItemIds = await witClient.QueryByWiqlAsync(query, project, cancellationToken: cancellationToken);
                 var ids = workItemIds.WorkItems.Select(wi => wi.Id).ToList();
-        
+
                 batchCount = ids.Count;
                 workItemStats.WorkItemsCount += batchCount;
 
@@ -88,6 +83,6 @@ namespace MigrationPlatform.CLI.Services
             } while (batchCount == maxPerBatch);
         }
 
-        
+
     }
 }

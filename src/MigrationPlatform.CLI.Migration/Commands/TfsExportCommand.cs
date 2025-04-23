@@ -1,5 +1,5 @@
-﻿using MigrationPlatform.CLI.Models;
-using MigrationPlatform.CLI.Services;
+﻿using MigrationPlatform.Abstractions.Models;
+using MigrationPlatform.Abstractions.Services;
 using Spectre.Console;
 using Spectre.Console.Cli;
 using System.ComponentModel;
