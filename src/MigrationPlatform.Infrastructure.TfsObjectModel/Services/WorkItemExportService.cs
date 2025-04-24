@@ -52,14 +52,10 @@ namespace MigrationPlatform.Infrastructure.Services
                     mWorkItem.ChangedDate = (DateTime)tfsWorkItemRevision.Fields["System.ChangedDate"].Value;
                     foreach (Field field in tfsWorkItemRevision.Fields)
                     {
-                        var mField = new MigrationWorkItemField();
-                        mField.Name = field.Name;
-                        mField.ReferenceName = field.ReferenceName;
-                        mField.Value = field.Value;
-                        mWorkItem.Fields.Add(mField);
+                        mWorkItem.Fields.Add(new MigrationWorkItemField(field.Name, field.ReferenceName, field.Value));
                         progressUpdate.FieldsProcessed++;
                     }
-                    // _migrationRepository.AddWorkItemRevision(mWorkItem); TODO: Once we know where to save it.
+                    _migrationRepository.AddWorkItemRevision(mWorkItem); //TODO: Once we know where to save it.
                     progressUpdate.RevisionsProcessed++;
                     yield return progressUpdate;
                 }

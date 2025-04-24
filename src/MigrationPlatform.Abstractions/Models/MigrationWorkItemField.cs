@@ -2,8 +2,11 @@
 {
     public class MigrationWorkItemField
     {
-        public MigrationWorkItemField()
+        public MigrationWorkItemField(string name, string referenceName, object value)
         {
+            Name = name;
+            ReferenceName = referenceName;
+            Value = value;
         }
 
         public string Name { get; set; }

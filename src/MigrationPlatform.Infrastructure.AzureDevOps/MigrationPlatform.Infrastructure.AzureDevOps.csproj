@@ -13,6 +13,7 @@
 	<ItemGroup>
 		<PackageReference Include="Microsoft.Extensions.Hosting" />
 		<PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" />
+		<PackageReference Include="Microsoft.Identity.Client" />
 		<PackageReference Include="Microsoft.TeamFoundationServer.Client" />
 		<PackageReference Include="Microsoft.VisualStudio.Services.Client" />
 	</ItemGroup>

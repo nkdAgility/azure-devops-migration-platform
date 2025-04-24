@@ -16,5 +16,12 @@
     <ProjectReference Include="..\MigrationPlatform.Abstractions\MigrationPlatform.Abstractions.csproj" />
     <ProjectReference Include="..\MigrationPlatform.Infrastructure\MigrationPlatform.Infrastructure.csproj" />
   </ItemGroup>
+	<ItemGroup>
+		<Reference Include="System" />
+		<Reference Include="System.Core" />
+		<Reference Include="System.Xml.Linq" />
+		<Reference Include="System.Data" />
+		<Reference Include="System.Xml" />
+	</ItemGroup>
 
 </Project>

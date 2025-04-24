@@ -17,8 +17,8 @@ namespace MigrationPlatform.CLI.Commands
         public class Settings : CommandSettings
         {
             [CommandOption("--tfsserver <tfsserver>")]
-            [Description("Url to your TFS server (default: https://localhost:8080/tfs)")]
-            public string TfsServer { get; set; } = "https://localhost:8080/tfs";
+            [Description("Url to your TFS server (default: https://localhost/tfs)")]
+            public string TfsServer { get; set; } = "https://localhost/tfs";
 
             [CommandOption("--project <project>")]
             [Description("Name of the config location to use (default: default)")]
@@ -81,7 +81,7 @@ namespace MigrationPlatform.CLI.Commands
                 .Padding(1, 1)
                 .BorderColor(Color.Green));
 
-            var host = MigrationPlatformHost.CreateDefaultBuilder(context.Arguments.ToArray(), settings.OutputFolder).Build();
+            var host = MigrationPlatformHost.CreateDefaultBuilder(context.Arguments.ToArray(), new MigrationPlatformHost.Settings(new Uri(settings.TfsServer), settings.Project, settings.OutputFolder)).Build();
             var workItemExportService = host.Services.GetRequiredService<IWorkItemExportService>();
 
             await AnsiConsole.Status()
