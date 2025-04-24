@@ -1,6 +1,10 @@
 ﻿using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.TeamFoundation.Client;
+using Microsoft.TeamFoundation.WorkItemTracking.Client;
+using Microsoft.TeamFoundation.WorkItemTracking.Proxy;
+using Microsoft.VisualStudio.Services.Client;
 using MigrationPlatform.Abstractions.Options;
 using MigrationPlatform.Abstractions.Repositories;
 using MigrationPlatform.Abstractions.Services;
@@ -41,6 +45,26 @@ namespace MigrationPlatform.Infrastructure.TfsObjectModel
 
                 services.Configure<MigrationRepositoryOptions>(context.Configuration.GetSection("MigrationRepository"));
 
+                services.AddSingleton<TfsTeamProjectCollection>(_ =>
+                {
+                    var creds = new VssClientCredentials(true);
+                    var collection = new TfsTeamProjectCollection(settings.TfsServer, creds);
+                    collection.EnsureAuthenticated();
+                    return collection;
+                });
+
+                services.AddSingleton<WorkItemStore>(provider =>
+                {
+                    var collection = provider.GetRequiredService<TfsTeamProjectCollection>();
+                    return collection.GetService<WorkItemStore>();
+                });
+
+                services.AddSingleton<WorkItemServer>(provider =>
+                {
+                    var collection = provider.GetRequiredService<TfsTeamProjectCollection>();
+                    return collection.GetService<WorkItemServer>();
+                });
+
                 services.PostConfigure<MigrationRepositoryOptions>(options =>
                 {
                     options.RepositoryPath = settings.OutputFolder;
@@ -55,7 +79,7 @@ namespace MigrationPlatform.Infrastructure.TfsObjectModel
             builder.ConfigureAppConfiguration(builder =>
             {
                 builder.SetBasePath(settings.OutputFolder);
-                builder.AddJsonFile(Path.Combine(settings.OutputFolder, "configuration.json"), optional: false);
+                builder.AddJsonFile(Path.Combine(settings.OutputFolder, "configuration.json"), optional: true);
                 builder.AddEnvironmentVariables();
                 builder.AddCommandLine(args);
             });

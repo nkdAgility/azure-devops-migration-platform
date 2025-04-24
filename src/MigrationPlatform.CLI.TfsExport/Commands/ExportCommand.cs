@@ -94,11 +94,10 @@ namespace MigrationPlatform.CLI.Commands
                     await foreach (var wiStat in workItemExportService.ExportWorkItemsAsync(settings.TfsServer, settings.Project))
                     {
                         ctx.Status($"""
-                            [bold yellow]WorkItem[/]: {wiStat.WorkItemId,-6} 
-                            [bold yellow]Revision[/]: {wiStat.RevisionIndex,-3} 
-                            [bold green]TWI[/]: {wiStat.WorkItemsProcessed,-5} 
-                            [bold green]TRV[/]: {wiStat.RevisionsProcessed,-5} 
-                            [bold green]TFLD[/]: {wiStat.FieldsProcessed,-5} 
+                            [bold yellow]Total Work Items[/]: {wiStat.TotalWorkItems,-6}
+                            [bold yellow]Processed Work Items[/]: {wiStat.WorkItemsProcessed,-6}
+                            [bold yellow]Processed Revisions[/]: {wiStat.RevisionsProcessed,-6}
+                            [bold yellow]Current WorkItem[/]: {wiStat.WorkItemId,-6} 
                             [grey]Chunk[/]: {wiStat.ChunkInfo?.WorkItemsInChunk ?? 0,-5} 
                             {wiStat.ChunkInfo?.ChunkStart:yyyy-MM-dd} → {wiStat.ChunkInfo?.ChunkEnd:yyyy-MM-dd}
                         """);
