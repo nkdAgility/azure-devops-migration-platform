@@ -10,6 +10,7 @@ using MigrationPlatform.Abstractions.Repositories;
 using MigrationPlatform.Abstractions.Services;
 using MigrationPlatform.Infrastructure.Repositories;
 using MigrationPlatform.Infrastructure.Services;
+using MigrationPlatform.Infrastructure.TfsObjectModel.Services;
 
 namespace MigrationPlatform.Infrastructure.TfsObjectModel
 {
@@ -42,6 +43,8 @@ namespace MigrationPlatform.Infrastructure.TfsObjectModel
                 services.AddSingleton<IConfiguration>(context.Configuration);
                 services.AddSingleton<IWorkItemExportService, WorkItemExportService>();
                 services.AddSingleton<IMigrationRepository, MigrationRepository>();
+                services.AddSingleton<IWorkItemRevisionMapper, TfsWorkItemRevisionMapper>();
+                services.AddSingleton<IAttachmentDownloader, TfsAttachmentDownloader>();
 
                 services.Configure<MigrationRepositoryOptions>(context.Configuration.GetSection("MigrationRepository"));
 

@@ -90,8 +90,10 @@ namespace MigrationPlatform.CLI.Commands
                     ctx.Spinner(Spinner.Known.Dots);
                     ctx.SpinnerStyle(Style.Parse("green"));
 
+                    var query = $"SELECT * FROM WorkItems WHERE [System.TeamProject] = '{settings.Project}' AND [System.ChangedDate] > '2000-04-01'";
+
                     // Do the export
-                    await foreach (var wiStat in workItemExportService.ExportWorkItemsAsync(settings.TfsServer, settings.Project))
+                    await foreach (var wiStat in workItemExportService.ExportWorkItemsAsync(settings.TfsServer, settings.Project, query))
                     {
                         ctx.Status($"""
                             [bold yellow]Total Work Items[/]: {wiStat.TotalWorkItems,-6}

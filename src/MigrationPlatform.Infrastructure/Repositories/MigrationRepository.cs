@@ -3,6 +3,7 @@ using MigrationPlatform.Abstractions.Models;
 using MigrationPlatform.Abstractions.Options;
 using MigrationPlatform.Abstractions.Repositories;
 using Newtonsoft.Json;
+using System.Globalization;
 
 namespace MigrationPlatform.Infrastructure.Repositories
 {
@@ -28,7 +29,7 @@ namespace MigrationPlatform.Infrastructure.Repositories
 
         public int? GetQueryCount(string query)
         {
-            return _workItemWatermarkStore.GetQueryCount(query);
+            return null;// _workItemWatermarkStore.GetQueryCount(query);
         }
 
         public void UpdateQueryCount(string query, int count)
@@ -61,18 +62,16 @@ namespace MigrationPlatform.Infrastructure.Repositories
             _workItemWatermarkStore.UpdateWatermark(revision.workItemId, revision.Index);
         }
 
-        public void AddWorkItemRevisionAttachment(MigrationWorkItemRevision revision, string fileName, string fileLocation, string comment)
+        public void AddWorkItemRevisionAttachment(MigrationWorkItemRevision revision, string fileName, string fileLocation)
         {
             string folderPath = GetRevisionSavePath(revision);
             string filePath = Path.Combine(folderPath, fileName);
             File.Copy(fileLocation, filePath, true);
-            revision.Attachments.Add(new MigrationWorkItemAttachment(fileName, comment));
         }
 
         public string GetRevisionSavePath(MigrationWorkItemRevision revision)
         {
             var timestamp = revision.ChangedDate.UtcDateTime;
-            string folderPath = Path.Combine(_workItemRootPath, $"{revision.workItemId}", $"{revision.Index}");
             //string folderPath = Path.Combine(
             //    _workItemRootPath,
             //    timestamp.ToString("yyyy", CultureInfo.InvariantCulture),
@@ -82,6 +81,11 @@ namespace MigrationPlatform.Infrastructure.Repositories
             //    timestamp.ToString("mm", CultureInfo.InvariantCulture),
             //    $"{timestamp.Ticks}-{revision.workItemId}-{revision.Index}"
             //);
+            string folderPath = Path.Combine(
+               _workItemRootPath,
+               timestamp.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
+               $"{timestamp.Ticks}-{revision.workItemId}-{revision.Index}"
+           );
             if (!Directory.Exists(folderPath))
             {
                 Directory.CreateDirectory(folderPath);

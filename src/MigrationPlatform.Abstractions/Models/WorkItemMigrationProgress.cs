@@ -20,6 +20,7 @@
         // Optional: Add a timestamp for observability
         public DateTime Timestamp { get; set; } = DateTime.UtcNow;
         public WorkItemQueryChunk? ChunkInfo { get; set; }
+        public int AttachmentsFailed { get; set; }
     }
 
 }

@@ -9,6 +9,6 @@ namespace MigrationPlatform.Abstractions.Repositories
         public int? GetQueryCount(string query);
         public void UpdateQueryCount(string query, int count);
         int GetWatermark(int id);
-        void AddWorkItemRevisionAttachment(MigrationWorkItemRevision revision, string fileName, string fileLocation, string comment);
+        void AddWorkItemRevisionAttachment(MigrationWorkItemRevision revision, string fileName, string fileLocation);
     }
 }

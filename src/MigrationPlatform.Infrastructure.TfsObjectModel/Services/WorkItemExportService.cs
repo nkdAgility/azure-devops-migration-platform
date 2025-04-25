@@ -1,196 +1,127 @@
-﻿using Microsoft.TeamFoundation.WorkItemTracking.Client;
-using Microsoft.TeamFoundation.WorkItemTracking.Proxy;
-using MigrationPlatform.Abstractions;
+﻿using Microsoft.Extensions.Logging;
+using Microsoft.TeamFoundation.WorkItemTracking.Client;
 using MigrationPlatform.Abstractions.Models;
 using MigrationPlatform.Abstractions.Repositories;
 using MigrationPlatform.Abstractions.Services;
 using MigrationPlatform.Infrastructure.TfsObjectModel.Extensions;
 using MigrationPlatform.Infrastructure.TfsObjectModel.Models;
+using MigrationPlatform.Infrastructure.TfsObjectModel.Services;
 
 namespace MigrationPlatform.Infrastructure.Services
 {
     public class WorkItemExportService : IWorkItemExportService
     {
-
         private readonly IMigrationRepository _migrationRepository;
         private readonly WorkItemStore _workItemStore;
+        private readonly IWorkItemRevisionMapper _workItemRevisionMapper;
+        private readonly IAttachmentDownloader _attachmentDownloader;
+        private readonly ILogger<TfsAttachmentDownloader> _logger;
 
-
-        public WorkItemExportService(IMigrationRepository migrationRepository, WorkItemStore store)
+        public WorkItemExportService(
+            IMigrationRepository migrationRepository,
+            WorkItemStore store,
+            IWorkItemRevisionMapper workItemRevisionMapper, IAttachmentDownloader attachmentDownloader, ILogger<TfsAttachmentDownloader> logger)
         {
             _migrationRepository = migrationRepository;
             _workItemStore = store;
+            _workItemRevisionMapper = workItemRevisionMapper;
+            _attachmentDownloader = attachmentDownloader;
+            _logger = logger;
         }
 
-
-        public async IAsyncEnumerable<WorkItemMigrationProgress> ExportWorkItemsAsync(string tfsServer, string project)
+        public async IAsyncEnumerable<WorkItemMigrationProgress> ExportWorkItemsAsync(string tfsServer, string project, string wiqlQuery)
         {
             var progressUpdate = new WorkItemMigrationProgress();
             yield return progressUpdate;
 
+            if (string.IsNullOrEmpty(wiqlQuery))
+            {
+                wiqlQuery = "SELECT * FROM WorkItems WHERE [System.TeamProject] = @project";
+            }
 
-            var allWorkItemsQuery = $"SELECT * FROM WorkItems WHERE [System.TeamProject] = '{project}' AND [System.ChangedDate] > '2025-04-23'";
 
-            var queryCount = _migrationRepository.GetQueryCount(allWorkItemsQuery);
+
+            var queryCount = _migrationRepository.GetQueryCount(wiqlQuery);
             if (queryCount == null)
             {
-                queryCount = 0;
-                foreach (WorkItemQueryCountChunk chunkItem in _workItemStore.QueryCountAllByDateChunk(allWorkItemsQuery))
+                foreach (WorkItemQueryCountChunk chunk in _workItemStore.QueryCountAllByDateChunk(wiqlQuery))
                 {
-                    queryCount = chunkItem.TotalWorkItems;
-                    progressUpdate.TotalWorkItems = chunkItem.TotalWorkItems;
+                    queryCount = chunk.TotalWorkItems;
+                    progressUpdate.TotalWorkItems = chunk.TotalWorkItems;
                     yield return progressUpdate;
                 }
-                _migrationRepository.UpdateQueryCount(allWorkItemsQuery, queryCount ?? 0);
+                // _migrationRepository.UpdateQueryCount(query, queryCount ?? 0);
             }
-            if (queryCount.HasValue)
-            {
-                progressUpdate.TotalWorkItems = queryCount.Value;
-            }
-            else
-            {
-                progressUpdate.TotalWorkItems = 0; // Or handle the null case appropriately
-            }
+
+            progressUpdate.TotalWorkItems = queryCount ?? 0;
             yield return progressUpdate;
 
-            foreach (WorkItemFromChunk chunkItem in _workItemStore.QueryAllByDateChunk(allWorkItemsQuery))
+            foreach (WorkItemFromChunk chunkItem in _workItemStore.QueryAllByDateChunk(wiqlQuery))
             {
                 var tfsWorkItem = chunkItem.WorkItem;
                 progressUpdate.ChunkInfo = (WorkItemQueryChunk)chunkItem;
                 progressUpdate.WorkItemId = tfsWorkItem.Id;
                 progressUpdate.WorkItemsProcessed++;
+
                 if (_migrationRepository.GetWatermark(tfsWorkItem.Id) + 1 == tfsWorkItem.Revision)
                 {
                     progressUpdate.RevisionsProcessed += tfsWorkItem.Revision;
-
                     yield return progressUpdate;
                     continue;
                 }
-                Revision previousTfsRevision = null;
+
+                Revision? previousTfsRevision = null;
                 foreach (Revision tfsRevision in tfsWorkItem.Revisions)
                 {
                     if (_migrationRepository.IsRevisionProcessed(tfsWorkItem.Id, tfsRevision.Index))
                     {
                         progressUpdate.RevisionsProcessed++;
-                        continue; // Skip already processed revisions
+                        continue;
                     }
+
                     progressUpdate.RevisionIndex = tfsRevision.Index;
-                    var mWorkItem = new MigrationWorkItemRevision();
-                    mWorkItem.workItemId = tfsWorkItem.Id;
-                    mWorkItem.Index = tfsRevision.Index;
 
-                    mWorkItem.ChangedDate = (DateTime)tfsRevision.Fields["System.ChangedDate"].Value;
-
-
-
-                    var changedFields = tfsRevision.Fields
-                         .Cast<Field>()
-                         .Where(field =>
-                             previousTfsRevision == null ||
-                             !previousTfsRevision.Fields.Contains(field.Id) ||
-                             !Equals(previousTfsRevision.Fields[field.ReferenceName].Value, field.Value))
-                         .ToList();
-
-                    foreach (var field in changedFields)
-                    {
-                        mWorkItem.Fields.Add(new MigrationWorkItemField(field.Name, field.ReferenceName, field.Value));
-                        progressUpdate.FieldsProcessed++;
-                    }
-
-                    var newLinks = tfsRevision.Links
-                        .Cast<Link>()
-                        .Where(link => previousTfsRevision == null || !LinkExistsInPrevious(link, previousTfsRevision.Links))
-                        .ToList();
-                    foreach (Link link in newLinks)
-                    {
-                        if (previousTfsRevision != null && previousTfsRevision.Links.Contains(link))
-                        {
-                            continue; // Skip unchnaged link
-                        }
-                        if (link is ExternalLink externalLink)
-                        {
-                            mWorkItem.ExternalLinks.Add(new MigrationWorkItemExternalLink(link.ArtifactLinkType.ToString(), link.Comment, externalLink.LinkedArtifactUri));
-                        }
-                        else if (link is RelatedLink relatedLink)
-                        {
-                            mWorkItem.RelatedLinks.Add(new MigrationWorkItemRelatedLink(link.ArtifactLinkType.ToString(), link.Comment, relatedLink.LinkTypeEnd.ToString(), relatedLink.RelatedWorkItemId));
-                        }
-                        else if (link is Hyperlink hyperlink)
-                        {
-                            mWorkItem.Hyperlinks.Add(new MigrationWorkItemHyperlink(link.ArtifactLinkType.ToString(), link.Comment, hyperlink.Location));
-                        }
-                        else
-                        {
-                            throw new NotImplementedException($"Link type {link.GetType()} is not implemented.");
-                        }
-
-                    }
-
-
-                    var newAttachments = tfsRevision.Attachments
-                         .Cast<Attachment>()
-                         .Where(attachment =>
-                             previousTfsRevision == null ||
-                             !previousTfsRevision.Attachments
-                                 .Cast<Attachment>()
-                                 .Any(prev => prev.Name == attachment.Name))
-                         .ToList();
-
-                    foreach (var attachment in newAttachments)
-                    {
-                        var wiStore = _workItemStore.TeamProjectCollection.GetService<WorkItemServer>();
-                        var fileLocation = wiStore.DownloadFile(attachment.Id);
-
-                        _migrationRepository.AddWorkItemRevisionAttachment(
-                            mWorkItem,
-                            attachment.Name,
-                            fileLocation,
-                            attachment.Comment);
-
-                        progressUpdate.AttachmentsProcessed++;
-                    }
-
-
-                    _migrationRepository.AddWorkItemRevision(mWorkItem); //TODO: Once we know where to save it.
+                    var mappedRevision = _workItemRevisionMapper.Map(tfsWorkItem, tfsRevision, previousTfsRevision);
+                    progressUpdate.FieldsProcessed += mappedRevision.Fields.Count;
                     progressUpdate.RevisionsProcessed++;
+                    ProcessAttachments(mappedRevision, tfsRevision, previousTfsRevision, progressUpdate);
+
+                    _migrationRepository.AddWorkItemRevision(mappedRevision);
                     previousTfsRevision = tfsRevision;
                 }
-                // Process each work item
+
                 yield return progressUpdate;
+            }
+        }
+
+        private void ProcessAttachments(MigrationWorkItemRevision mappedRevision, Revision currentRevision, Revision? previousRevision, WorkItemMigrationProgress progressUpdate)
+        {
+            var newAttachments = currentRevision.Attachments
+                .Cast<Attachment>()
+                .Where(a =>
+                    previousRevision == null ||
+                    !previousRevision.Attachments.Cast<Attachment>().Any(prev => prev.Name == a.Name))
+                .ToList();
+
+            foreach (var attachment in newAttachments)
+            {
+                var result = _attachmentDownloader.DownloadAttachment(attachment.Id);
+
+                if (result.Success)
+                {
+                    _migrationRepository.AddWorkItemRevisionAttachment(mappedRevision, attachment.Name, result.FilePath);
+                    mappedRevision.Attachments.Add(new MigrationWorkItemAttachment(attachment.Name, attachment.Comment));
+                    progressUpdate.AttachmentsProcessed++;
+                }
+                else
+                {
+                    _logger.LogError(result.Error, "Attachment download failed for {AttachmentName} [ID:{AttachmentId}] on {workItemId}", attachment.Id, attachment.Name, mappedRevision.workItemId);
+                    // Maybe retry or handle it differently
+                    progressUpdate.AttachmentsFailed++;
+                }
 
             }
-
         }
-
-        private static bool LinkExistsInPrevious(Link current, LinkCollection previousLinks)
-        {
-            foreach (var previous in previousLinks.Cast<Link>())
-            {
-                if (current.BaseType != previous.BaseType) continue;
-                if (current.ArtifactLinkType != previous.ArtifactLinkType) continue;
-                if (current.Comment != previous.Comment) continue;
-
-                var currentTarget = GetComparableLinkTarget(current);
-                var previousTarget = GetComparableLinkTarget(previous);
-
-                if (currentTarget == previousTarget)
-                    return true;
-            }
-            return false;
-        }
-
-        private static string? GetComparableLinkTarget(Link link)
-        {
-            return link switch
-            {
-                ExternalLink e => e.LinkedArtifactUri,
-                RelatedLink r => r.RelatedWorkItemId.ToString(),
-                Hyperlink h => h.Location,
-                _ => null
-            };
-        }
-
-
 
     }
 }
