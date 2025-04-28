@@ -1,6 +1,8 @@
 ﻿using Microsoft.TeamFoundation.WorkItemTracking.Client;
 using MigrationPlatform.Abstractions;
 using MigrationPlatform.Abstractions.Models;
+using MigrationPlatform.Abstractions.Telemetry;
+using System.Diagnostics;
 
 namespace MigrationPlatform.Infrastructure.TfsObjectModel.Services
 {
@@ -11,6 +13,13 @@ namespace MigrationPlatform.Infrastructure.TfsObjectModel.Services
 
     public class TfsWorkItemRevisionMapper : IWorkItemRevisionMapper
     {
+        private readonly IWorkItemExportMetrics _workItemExportMetrics;
+
+        public TfsWorkItemRevisionMapper(IWorkItemExportMetrics workItemExportMetrics)
+        {
+            _workItemExportMetrics = workItemExportMetrics;
+        }
+
         public MigrationWorkItemRevision Map(WorkItem workItem, Revision revision, Revision? previousRevision)
         {
             var mapped = new MigrationWorkItemRevision
@@ -44,32 +53,49 @@ namespace MigrationPlatform.Infrastructure.TfsObjectModel.Services
 
             foreach (var link in newLinks)
             {
-                switch (link)
+                var linkStopwatch = Stopwatch.StartNew();
+
+                try
                 {
-                    case ExternalLink e:
-                        mapped.ExternalLinks.Add(new MigrationWorkItemExternalLink(
-                            e.ArtifactLinkType.ToString(),
-                            e.Comment,
-                            e.LinkedArtifactUri));
-                        break;
+                    switch (link)
+                    {
+                        case ExternalLink e:
+                            mapped.ExternalLinks.Add(new MigrationWorkItemExternalLink(
+                                e.ArtifactLinkType.ToString(),
+                                e.Comment,
+                                e.LinkedArtifactUri));
+                            break;
 
-                    case RelatedLink r:
-                        mapped.RelatedLinks.Add(new MigrationWorkItemRelatedLink(
-                            r.ArtifactLinkType.ToString(),
-                            r.Comment,
-                            r.LinkTypeEnd.ToString(),
-                            r.RelatedWorkItemId));
-                        break;
+                        case RelatedLink r:
+                            mapped.RelatedLinks.Add(new MigrationWorkItemRelatedLink(
+                                r.ArtifactLinkType.ToString(),
+                                r.Comment,
+                                r.LinkTypeEnd.ToString(),
+                                r.RelatedWorkItemId));
+                            break;
 
-                    case Hyperlink h:
-                        mapped.Hyperlinks.Add(new MigrationWorkItemHyperlink(
-                            h.ArtifactLinkType.ToString(),
-                            h.Comment,
-                            h.Location));
-                        break;
+                        case Hyperlink h:
+                            mapped.Hyperlinks.Add(new MigrationWorkItemHyperlink(
+                                h.ArtifactLinkType.ToString(),
+                                h.Comment,
+                                h.Location));
+                            break;
 
-                    default:
-                        throw new NotImplementedException($"Unhandled link type: {link.GetType()}");
+                        default:
+                            throw new NotImplementedException($"Unhandled link type: {link.GetType()}");
+                    }
+
+                    _workItemExportMetrics.RecordLinkExported(workItem.Store.TeamProjectCollection.InstanceId, workItem.Id, revision.Index);
+                }
+                catch (Exception ex)
+                {
+                    _workItemExportMetrics.RecordLinkError(workItem.Store.TeamProjectCollection.InstanceId, workItem.Id, revision.Index);
+                    throw new InvalidOperationException($"Failed to map link of type {link.GetType().Name} on WorkItem {workItem.Id} Revision {revision.Index}", ex);
+                }
+                finally
+                {
+                    linkStopwatch.Stop();
+                    _workItemExportMetrics.RecordLinkProcessingDuration(workItem.Store.TeamProjectCollection.InstanceId, workItem.Id, revision.Index, linkStopwatch.Elapsed);
                 }
             }
 
