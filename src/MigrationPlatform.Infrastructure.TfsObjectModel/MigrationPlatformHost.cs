@@ -8,9 +8,14 @@ using Microsoft.VisualStudio.Services.Client;
 using MigrationPlatform.Abstractions.Options;
 using MigrationPlatform.Abstractions.Repositories;
 using MigrationPlatform.Abstractions.Services;
+using MigrationPlatform.Abstractions.Telemetry;
 using MigrationPlatform.Infrastructure.Repositories;
 using MigrationPlatform.Infrastructure.Services;
+using MigrationPlatform.Infrastructure.Telemetry;
 using MigrationPlatform.Infrastructure.TfsObjectModel.Services;
+using OpenTelemetry.Metrics;
+using OpenTelemetry.Resources;
+using OpenTelemetry.Trace;
 
 namespace MigrationPlatform.Infrastructure.TfsObjectModel
 {
@@ -45,6 +50,8 @@ namespace MigrationPlatform.Infrastructure.TfsObjectModel
                 services.AddSingleton<IMigrationRepository, MigrationRepository>();
                 services.AddSingleton<IWorkItemRevisionMapper, TfsWorkItemRevisionMapper>();
                 services.AddSingleton<IAttachmentDownloader, TfsAttachmentDownloader>();
+                services.AddSingleton<IAttachmentDownloadMetrics, AttachmentDownloadMetrics>();
+                services.AddSingleton<IWorkItemExportMetrics, WorkItemExportMetrics>();
 
                 services.Configure<MigrationRepositoryOptions>(context.Configuration.GetSection("MigrationRepository"));
 
@@ -72,6 +79,23 @@ namespace MigrationPlatform.Infrastructure.TfsObjectModel
                 {
                     options.RepositoryPath = settings.OutputFolder;
                 });
+
+                services.AddOpenTelemetry()
+                    .ConfigureResource(builder => builder.AddService(serviceName: "TfsExportCli"))
+                    .WithTracing(builder =>
+                    {
+                        builder.AddSource(MigrationPlatformActivitySources.WorkItemExport.Name);
+                        builder.AddSource(MigrationPlatformActivitySources.WorkItemImport.Name);
+                        builder.AddSource(MigrationPlatformActivitySources.AttachmentDownload.Name);
+                        builder.AddConsoleExporter();
+                    })
+                    .WithMetrics(metricsBuilder =>
+                    {
+                        metricsBuilder.AddMeter(WorkItemExportMetrics.MeterName);
+                        metricsBuilder.AddMeter(AttachmentDownloadMetrics.MeterName);
+                        metricsBuilder.AddConsoleExporter();
+                    });
+
             });
 
             builder.UseConsoleLifetime(configureOptions =>

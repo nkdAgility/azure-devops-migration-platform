@@ -8,9 +8,9 @@
 	  <PackageReference Include="Azure.Monitor.OpenTelemetry.Exporter" />
 	  <PackageReference Include="Microsoft.Extensions.Hosting" />
 	  <PackageReference Include="Microsoft.TeamFoundationServer.ExtendedClient" />
+	  <PackageReference Include="OpenTelemetry" />
 	  <PackageReference Include="OpenTelemetry.Exporter.Console" />
 	  <PackageReference Include="OpenTelemetry.Extensions.Hosting" />
-	  <PackageReference Include="OpenTelemetry.Instrumentation.Runtime" />
 	  <PackageReference Include="Serilog" />
 	  <PackageReference Include="Spectre.Console" />
 	  <PackageReference Include="Spectre.Console.Cli" />
