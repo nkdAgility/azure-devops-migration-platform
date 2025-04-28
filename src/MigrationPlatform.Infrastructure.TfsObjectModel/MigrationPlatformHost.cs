@@ -13,6 +13,7 @@ using MigrationPlatform.Infrastructure.Repositories;
 using MigrationPlatform.Infrastructure.Services;
 using MigrationPlatform.Infrastructure.Telemetry;
 using MigrationPlatform.Infrastructure.TfsObjectModel.Services;
+using OpenTelemetry.Logs;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
@@ -93,6 +94,8 @@ namespace MigrationPlatform.Infrastructure.TfsObjectModel
                     {
                         metricsBuilder.AddMeter(WorkItemExportMetrics.MeterName);
                         metricsBuilder.AddMeter(AttachmentDownloadMetrics.MeterName);
+                        metricsBuilder.AddHttpClientInstrumentation();
+                        metricsBuilder.AddRuntimeInstrumentation();
                         metricsBuilder.AddConsoleExporter();
                     });
 
