@@ -44,37 +44,49 @@ namespace MigrationPlatform.Infrastructure.Services
             activity?.SetTag("project", project);
             activity?.SetTag("wiqlQuery", wiqlQuery);
 
+            _logger.LogInformation("Starting work item export for project {Project} on server {TfsServer}", project, tfsServer);
+
             var overallStopwatch = Stopwatch.StartNew();
             var progressUpdate = new WorkItemMigrationProgress();
             yield return progressUpdate;
 
             if (string.IsNullOrEmpty(wiqlQuery))
             {
+                _logger.LogWarning("No WIQL query provided; using default query for project {Project}", project);
                 wiqlQuery = "SELECT * FROM WorkItems WHERE [System.TeamProject] = @project";
             }
 
             using (var queryActivity = MigrationPlatformActivitySources.WorkItemExport.StartActivity("QueryCount", ActivityKind.Internal))
             {
+                _logger.LogInformation("Querying total work item count for project {Project}", project);
+
                 var queryCount = _migrationRepository.GetQueryCount(wiqlQuery);
                 if (queryCount == null)
                 {
+                    _logger.LogInformation("Work item count not cached; querying by date chunks...");
                     foreach (WorkItemQueryCountChunk chunk in _workItemStore.QueryCountAllByDateChunk(wiqlQuery))
                     {
-                        queryCount = chunk.TotalWorkItems;
-                        progressUpdate.TotalWorkItems = chunk.TotalWorkItems;
-                        queryActivity?.SetTag("chunk.totalWorkItems", chunk.TotalWorkItems);
+                        queryCount = chunk.CurrentTotal;
+                        progressUpdate.TotalWorkItems = chunk.CurrentTotal;
+                        queryActivity?.SetTag("chunk.totalWorkItems", chunk.CurrentTotal);
+                        _logger.LogDebug("Chunk count received: {ChunkWorkItemCount} work items", chunk.CurrentTotal);
                         yield return progressUpdate;
                     }
                 }
 
                 progressUpdate.TotalWorkItems = queryCount ?? 0;
+                _logger.LogInformation("Total work items to export: {TotalWorkItems}", progressUpdate.TotalWorkItems);
                 yield return progressUpdate;
             }
+
+            int workItemCounter = 0;
 
             foreach (WorkItemFromChunk chunkItem in _workItemStore.QueryAllByDateChunk(wiqlQuery))
             {
                 using var wiActivity = MigrationPlatformActivitySources.WorkItemExport.StartActivity("ProcessWorkItem", ActivityKind.Internal);
                 wiActivity?.SetTag("workItem.id", chunkItem.WorkItem.Id);
+
+
 
                 var workItemStopwatch = Stopwatch.StartNew();
                 var tfsWorkItem = chunkItem.WorkItem;
@@ -82,12 +94,22 @@ namespace MigrationPlatform.Infrastructure.Services
                 progressUpdate.WorkItemId = tfsWorkItem.Id;
                 progressUpdate.WorkItemsProcessed++;
 
+                workItemCounter++;
+                if (workItemCounter % 100 == 0)
+                {
+                    _logger.LogInformation("Processed {WorkItemsProcessed} work items so far", workItemCounter);
+                }
+
+                _logger.LogInformation("Exporting: {WorkItemId}", chunkItem.WorkItem.Id);
+
                 var collectionId = chunkItem.WorkItem.Store.TeamProjectCollection.InstanceId;
 
                 _metrics.RecordWorkItemExported(collectionId);
 
                 if (_migrationRepository.GetWatermark(tfsWorkItem.Id) + 1 == tfsWorkItem.Revision)
                 {
+                    _logger.LogDebug("Skipping revisions for unchanged work item {WorkItemId}", tfsWorkItem.Id);
+
                     progressUpdate.RevisionsProcessed += tfsWorkItem.Revision;
                     workItemStopwatch.Stop();
                     _metrics.RecordWorkItemProcessingDuration(collectionId, workItemStopwatch.Elapsed);
@@ -100,6 +122,7 @@ namespace MigrationPlatform.Infrastructure.Services
                 {
                     if (_migrationRepository.IsRevisionProcessed(tfsWorkItem.Id, tfsRevision.Index))
                     {
+                        _logger.LogDebug("Skipping already processed revision {RevisionIndex} for work item {WorkItemId}", tfsRevision.Index, tfsWorkItem.Id);
                         progressUpdate.RevisionsProcessed++;
                         continue;
                     }
@@ -108,6 +131,8 @@ namespace MigrationPlatform.Infrastructure.Services
 
                     try
                     {
+                        _logger.LogInformation("Processing revision {RevisionIndex} for work item {WorkItemId}", tfsRevision.Index, tfsWorkItem.Id);
+
                         _metrics.RecordRevisionExported(collectionId, tfsWorkItem.Id);
                         progressUpdate.RevisionIndex = tfsRevision.Index;
 
@@ -140,7 +165,10 @@ namespace MigrationPlatform.Infrastructure.Services
 
             overallStopwatch.Stop();
             _metrics.RecordProcessingDuration(overallStopwatch.Elapsed);
+
+            _logger.LogInformation("Completed export of {TotalWorkItems} work items from project {Project}", progressUpdate.TotalWorkItems, project);
         }
+
 
         private void ProcessAttachments(MigrationWorkItemRevision mappedRevision, Revision currentRevision, Revision? previousRevision, WorkItemMigrationProgress progressUpdate)
         {

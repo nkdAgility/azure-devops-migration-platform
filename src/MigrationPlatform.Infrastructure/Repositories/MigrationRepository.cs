@@ -1,4 +1,5 @@
-﻿using Microsoft.Extensions.Options;
+﻿using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using MigrationPlatform.Abstractions.Models;
 using MigrationPlatform.Abstractions.Options;
 using MigrationPlatform.Abstractions.Repositories;
@@ -12,9 +13,11 @@ namespace MigrationPlatform.Infrastructure.Repositories
         private readonly MigrationRepositoryOptions _options;
         private string _workItemRootPath;
         private readonly IWorkItemWatermarkStore _workItemWatermarkStore;
+        private readonly ILogger<MigrationRepository> _logger;
 
-        public MigrationRepository(IOptions<MigrationRepositoryOptions> options)
+        public MigrationRepository(IOptions<MigrationRepositoryOptions> options, ILogger<MigrationRepository> logger)
         {
+            _logger = logger ?? throw new ArgumentNullException(nameof(logger));
             if (options == null) throw new ArgumentNullException(nameof(options));
             if (options.Value.RepositoryPath == null) throw new ArgumentException("RepositoryPath cannot be null.", nameof(options));
             _options = options.Value;
@@ -64,10 +67,34 @@ namespace MigrationPlatform.Infrastructure.Repositories
 
         public void AddWorkItemRevisionAttachment(MigrationWorkItemRevision revision, string fileName, string fileLocation)
         {
-            string folderPath = GetRevisionSavePath(revision);
-            string filePath = Path.Combine(folderPath, fileName);
-            File.Copy(fileLocation, filePath, true);
+            try
+            {
+                string folderPath = GetRevisionSavePath(revision);
+
+                if (!Directory.Exists(folderPath))
+                {
+                    Directory.CreateDirectory(folderPath);
+                }
+
+                string filePath = Path.Combine(folderPath, fileName);
+
+                if (!File.Exists(fileLocation))
+                {
+                    _logger.LogError("Source attachment file does not exist: {FileLocation} for work item {WorkItemId}", fileLocation, revision.workItemId);
+                    return;
+                }
+
+                File.Copy(fileLocation, filePath, true);
+
+                _logger.LogInformation("Successfully copied attachment {FileName} for work item {WorkItemId} to {DestinationPath}", fileName, revision.workItemId, filePath);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to copy attachment {FileName} for work item {WorkItemId}", fileName, revision.workItemId);
+                // Optionally: Record metrics here too
+            }
         }
+
 
         public string GetRevisionSavePath(MigrationWorkItemRevision revision)
         {

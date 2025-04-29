@@ -96,6 +96,7 @@ namespace MigrationPlatform.CLI.Commands
                     await foreach (var wiStat in workItemExportService.ExportWorkItemsAsync(settings.TfsServer, settings.Project, query))
                     {
                         ctx.Status($"""
+                            Exporting Work Items
                             [bold yellow]Total Work Items[/]: {wiStat.TotalWorkItems,-6}
                             [bold yellow]Processed Work Items[/]: {wiStat.WorkItemsProcessed,-6}
                             [bold yellow]Processed Revisions[/]: {wiStat.RevisionsProcessed,-6}

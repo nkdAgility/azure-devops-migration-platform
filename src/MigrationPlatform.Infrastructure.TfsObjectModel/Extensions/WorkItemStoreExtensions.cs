@@ -16,11 +16,13 @@ namespace MigrationPlatform.Infrastructure.TfsObjectModel.Extensions
                                              int maxItemsPerQuery = 20000)
         {
             DateTime endDate = DateTime.UtcNow;
-            TimeSpan chunkSize = initialChunkSize ?? TimeSpan.FromDays(30);
+            TimeSpan chunkSize = initialChunkSize ?? TimeSpan.FromDays(120);
             int queryIndex = 0;
             WorkItemQueryCountChunk status = new WorkItemQueryCountChunk
             {
-                TotalWorkItems = 0
+                CurrentTotal = 0,
+                CurrentChunkTimespan = chunkSize,
+                CurrentChunkCount = 0
             };
 
             while (true)
@@ -33,8 +35,8 @@ namespace MigrationPlatform.Infrastructure.TfsObjectModel.Extensions
                 try
                 {
                     var returnCount = store.QueryCount(wiql);
-                    status.TotalWorkItems += returnCount;
-
+                    status.CurrentTotal += returnCount;
+                    status.CurrentChunkCount = returnCount;
                     if (returnCount >= maxItemsPerQuery)
                     {
                         chunkSize = TimeSpan.FromTicks(chunkSize.Ticks / 2);
@@ -69,7 +71,7 @@ namespace MigrationPlatform.Infrastructure.TfsObjectModel.Extensions
                                              int maxItemsPerQuery = 20000)
         {
             DateTime endDate = DateTime.UtcNow;
-            TimeSpan chunkSize = initialChunkSize ?? TimeSpan.FromDays(30);
+            TimeSpan chunkSize = initialChunkSize ?? TimeSpan.FromDays(120);
             int queryIndex = 0;
 
             while (true)

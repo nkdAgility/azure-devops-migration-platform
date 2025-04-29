@@ -1,4 +1,5 @@
-﻿using Microsoft.Extensions.Configuration;
+﻿using Azure.Monitor.OpenTelemetry.Exporter;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.TeamFoundation.Client;
@@ -9,14 +10,17 @@ using MigrationPlatform.Abstractions.Options;
 using MigrationPlatform.Abstractions.Repositories;
 using MigrationPlatform.Abstractions.Services;
 using MigrationPlatform.Abstractions.Telemetry;
+using MigrationPlatform.Abstractions.Utilities;
 using MigrationPlatform.Infrastructure.Repositories;
 using MigrationPlatform.Infrastructure.Services;
 using MigrationPlatform.Infrastructure.Telemetry;
 using MigrationPlatform.Infrastructure.TfsObjectModel.Services;
-using OpenTelemetry.Logs;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
+using Serilog;
+using Serilog.Enrichers.Span;
+using Serilog.Events;
 
 namespace MigrationPlatform.Infrastructure.TfsObjectModel
 {
@@ -43,6 +47,27 @@ namespace MigrationPlatform.Infrastructure.TfsObjectModel
         public static IHostBuilder CreateDefaultBuilder(string[] args, Settings settings)
         {
             var builder = Host.CreateDefaultBuilder();
+
+            var outputTemplate = "[{Timestamp:yyyy-MM-dd HH:mm:ss}] [{Level:u3}] [{versionString}] {Message:lj}{NewLine}{Exception}";
+            var sessionId = DateTime.UtcNow.ToString("yyyyMMddHHmmss") + "-" + Guid.NewGuid().ToString("N").Substring(0, 8);
+
+
+            builder.UseSerilog((context, services, loggerConfiguration) =>
+            {
+                var LogFolder = Path.Combine(settings.OutputFolder, "logs");
+                loggerConfiguration
+                    .ReadFrom.Configuration(context.Configuration) // Reads Serilog config from IConfiguration
+                    .Enrich.WithProperty("versionString", VersionUtilities.GetRunningVersion().versionString)
+                    .Enrich.WithProperty("SessionId", sessionId)
+                    .ReadFrom.Services(services) // Enables DI-based enrichment
+                    .Enrich.FromLogContext()
+                    .Enrich.WithProcessId()
+                    .Enrich.WithSpan()
+                    .MinimumLevel.Override("Microsoft", LogEventLevel.Warning)
+                    .WriteTo.File(Path.Combine(LogFolder, $"TfsExport-{sessionId}-errors-.log"), LogEventLevel.Error, shared: true, rollOnFileSizeLimit: true, rollingInterval: RollingInterval.Day)
+                    .WriteTo.File(Path.Combine(LogFolder, $"TfsExport-{sessionId}-.log"), LogEventLevel.Verbose, outputTemplate: outputTemplate, shared: true, rollOnFileSizeLimit: true, rollingInterval: RollingInterval.Hour)
+                    .WriteTo.Console(restrictedToMinimumLevel: LogEventLevel.Warning); // Simple console sink, can expand with file, seq, etc.
+            });
 
             builder.ConfigureServices((context, services) =>
             {
@@ -82,13 +107,25 @@ namespace MigrationPlatform.Infrastructure.TfsObjectModel
                 });
 
                 services.AddOpenTelemetry()
-                    .ConfigureResource(builder => builder.AddService(serviceName: "TfsExportCli"))
+                    .ConfigureResource(builder =>
+                    {
+                        builder.AddService(serviceName: "TfsExportCli");
+                        builder.AddAttributes(new KeyValuePair<string, object>[]
+                            {
+                            new("session.id", sessionId),
+                            new("tfs.server", settings.TfsServer.ToString()),
+                            new("tfs.project", settings.Project)
+                            });
+                    })
                     .WithTracing(builder =>
                     {
                         builder.AddSource(MigrationPlatformActivitySources.WorkItemExport.Name);
                         builder.AddSource(MigrationPlatformActivitySources.WorkItemImport.Name);
                         builder.AddSource(MigrationPlatformActivitySources.AttachmentDownload.Name);
-                        builder.AddConsoleExporter();
+                        builder.AddAzureMonitorTraceExporter(options =>
+                        {
+                            options.ConnectionString = MigrationPlatformActivitySources.ConnectionString;
+                        }); ;
                     })
                     .WithMetrics(metricsBuilder =>
                     {
@@ -96,7 +133,10 @@ namespace MigrationPlatform.Infrastructure.TfsObjectModel
                         metricsBuilder.AddMeter(AttachmentDownloadMetrics.MeterName);
                         metricsBuilder.AddHttpClientInstrumentation();
                         metricsBuilder.AddRuntimeInstrumentation();
-                        metricsBuilder.AddConsoleExporter();
+                        metricsBuilder.AddAzureMonitorMetricExporter(options =>
+                        {
+                            options.ConnectionString = MigrationPlatformActivitySources.ConnectionString;
+                        }); ;
                     });
 
             });

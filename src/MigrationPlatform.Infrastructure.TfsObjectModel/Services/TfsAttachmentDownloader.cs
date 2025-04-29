@@ -38,7 +38,7 @@ namespace MigrationPlatform.Infrastructure.TfsObjectModel.Services
                 _attachmentDownloadMetrics.RecordSuccess();
                 _attachmentDownloadMetrics.RecordDuration(stopwatch.Elapsed);
 
-                _logger.LogInformation("Successfully downloaded attachment ID {AttachmentId} to path {Path}", attachmentId, path);
+                _logger.LogDebug("Successfully downloaded attachment ID {AttachmentId} to path {Path}", attachmentId, path);
                 return AttachmentDownloadResult.Succeeded(path);
             }
             catch (Exception ex)
