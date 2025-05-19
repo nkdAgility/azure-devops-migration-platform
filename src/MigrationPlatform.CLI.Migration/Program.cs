@@ -12,7 +12,7 @@ namespace MigrationPlatform.CLI
         {
 
 
-            var app = new CommandApp<DiscoveryCommand>();
+            var app = new CommandApp();
             app.Configure(config =>
             {
                 config.SetApplicationName("devopsmigration");
@@ -33,9 +33,16 @@ namespace MigrationPlatform.CLI
 
                 });
 
-                config.AddCommand<DiscoveryCommand>("discovery")
-                    .WithDescription("Discover the contents of your Azure DevOps instance")
-                    .WithExample(new[] { "discovery", "--organisation", "", "--token", "" });
+                config.AddBranch("discovery", branch =>
+                {
+                    branch.SetDescription("Tools for finding out what we have and the implications of any migration");
+                    branch.AddCommand<DiscoveryCommand>("inventory")
+                     .WithDescription("Discover the contents of your Azure DevOps instance")
+                     .WithExample(new[] { "discovery", "inventory", "--organisation", "", "--token", "" });
+
+                });
+
+
 
                 config.AddCommand<TfsExportCommand>("tfsexport")
                    .WithDescription("Exports the data from TFS")

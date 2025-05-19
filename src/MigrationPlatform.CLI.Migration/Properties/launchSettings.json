@@ -4,10 +4,6 @@
       "commandName": "WSL2",
       "distributionName": ""
     },
-    "discovery ": {
-      "commandName": "Project",
-      "commandLineArgs": "discovery --organisation https://dev.azure.com/nkdagility-learn --token 6ma9MJ1bVg3iEWevNs0lpM2oiH5ERYpIW05m5MmrPuV4KetR0PzVJQQJ99BDACAAAAAjtRX1AAASAZDO1JO4"
-    },
     "config create": {
       "commandName": "Project",
       "commandLineArgs": "config create"
@@ -18,6 +14,14 @@
     "TfsExport": {
       "commandName": "Project",
       "commandLineArgs": "tfsexport"
+    },
+    "discovery inv ": {
+      "commandName": "Project",
+      "commandLineArgs": "discovery inventory --organisation https://dev.azure.com/nkdagility-learn --token 6ma9MJ1bVg3iEWevNs0lpM2oiH5ERYpIW05m5MmrPuV4KetR0PzVJQQJ99BDACAAAAAjtRX1AAASAZDO1JO4"
+    },
+    "discovery difffields": {
+      "commandName": "Project",
+      "commandLineArgs": "discovery difffields --organisation https://dev.azure.com/nkdagility-learn --token 6ma9MJ1bVg3iEWevNs0lpM2oiH5ERYpIW05m5MmrPuV4KetR0PzVJQQJ99BDACAAAAAjtRX1AAASAZDO1JO4"
     }
   }
 }

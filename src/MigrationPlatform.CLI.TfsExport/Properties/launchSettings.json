@@ -2,7 +2,7 @@
   "profiles": {
     "MigrationPlatform.CLI.TfsExport": {
       "commandName": "Project",
-      "commandLineArgs": "--tfsserver https://dev.azure.com/JBAZMC --project \"CTSDev\" --output C:\\Users\\MartinHinshelwoodNKD\\.AzureDevOpsMigrationPlatform\\test1"
+      "commandLineArgs": "--tfsserver https://dev.azure.com/JBAZMC --project \"CTSDev\" --output C:\\Users\\MartinHinshelwoodNKD\\.AzureDevOpsMigrationPlatform\\test2-noAttachements"
     }
   }
 }
