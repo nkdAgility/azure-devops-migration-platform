@@ -36,7 +36,7 @@ namespace MigrationPlatform.CLI
                 config.AddBranch("discovery", branch =>
                 {
                     branch.SetDescription("Tools for finding out what we have and the implications of any migration");
-                    branch.AddCommand<DiscoveryCommand>("inventory")
+                    branch.AddCommand<InventoryCommand>("inventory")
                      .WithDescription("Discover the contents of your Azure DevOps instance")
                      .WithExample(new[] { "discovery", "inventory", "--organisation", "", "--token", "" });
 

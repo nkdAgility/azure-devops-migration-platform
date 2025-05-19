@@ -8,9 +8,9 @@ using System.Globalization;
 
 namespace MigrationPlatform.CLI.Commands
 {
-    public class DiscoveryCommand : AsyncCommand<DiscoveryCommand.Settings>
+    public class InventoryCommand : AsyncCommand<InventoryCommand.Settings>
     {
-        public DiscoveryCommand()
+        public InventoryCommand()
         {
 
         }
