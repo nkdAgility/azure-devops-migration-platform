@@ -1,0 +1,21 @@
+{
+  "name": "dotnet-10-dev",
+  "image": "mcr.microsoft.com/dotnet/sdk:10.0-preview",
+  "features": {
+    "ghcr.io/devcontainers/features/dotnet:1": {
+      "version": "10.0",
+      "sdk": true
+    }
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-dotnettools.csharp",
+        "ms-azuretools.vscode-docker"
+      ]
+    }
+  },
+  "postCreateCommand": "dotnet restore",
+  "forwardPorts": [5000, 5001],
+  "remoteUser": "vscode"
+}

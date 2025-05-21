@@ -11,13 +11,8 @@
 	</ItemGroup>
 
 	<ItemGroup>
-		<ProjectReference Include="..\MigrationPlatform.CLI.TfsExport\MigrationPlatform.CLI.TfsExport.csproj">
-			<ReferenceOutputAssembly>false</ReferenceOutputAssembly>
-			<SkipGetTargetFrameworkProperties>true</SkipGetTargetFrameworkProperties>
-			<TargetFramework>net481</TargetFramework>
-		</ProjectReference>
 
-		<ProjectReference Include="..\MigrationPlatform.Abstractions\MigrationPlatform.Abstractions.csproj" />
+		<ProjectReference Include="..\..\Common\MigrationPlatform.Abstractions\MigrationPlatform.Abstractions.csproj" />
 
 		<ProjectReference Include="..\MigrationPlatform.Infrastructure.AzureDevOps\MigrationPlatform.Infrastructure.AzureDevOps.csproj" />
 

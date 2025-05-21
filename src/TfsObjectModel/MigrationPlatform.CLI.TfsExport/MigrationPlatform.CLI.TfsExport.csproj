@@ -34,8 +34,8 @@
 	  <Folder Include="Properties\" />
 	</ItemGroup>
 	<ItemGroup>
-	  <ProjectReference Include="..\MigrationPlatform.Abstractions\MigrationPlatform.Abstractions.csproj" />
+	  <ProjectReference Include="..\..\Common\MigrationPlatform.Abstractions\MigrationPlatform.Abstractions.csproj" />
 	  <ProjectReference Include="..\MigrationPlatform.Infrastructure.TfsObjectModel\MigrationPlatform.Infrastructure.TfsObjectModel.csproj" />
-	  <ProjectReference Include="..\MigrationPlatform.Infrastructure\MigrationPlatform.Infrastructure.csproj" />
+	  <ProjectReference Include="..\..\Common\MigrationPlatform.Infrastructure\MigrationPlatform.Infrastructure.csproj" />
 	</ItemGroup>
 </Project>
