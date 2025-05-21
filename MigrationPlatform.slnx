@@ -1,0 +1,22 @@
+<Solution>
+  <Folder Name="/AzureDevOps/">
+    <Project Path="src/AzureDevOps/MigrationPlatform.CLI.Migration/MigrationPlatform.CLI.Migration.csproj" />
+    <Project Path="src/AzureDevOps/MigrationPlatform.Infrastructure.AzureDevOps/MigrationPlatform.Infrastructure.AzureDevOps.csproj" />
+  </Folder>
+  <Folder Name="/Common/">
+    <Project Path="src/Common/MigrationPlatform.Abstractions.Tests/MigrationPlatform.Abstractions.Tests.csproj" />
+    <Project Path="src/Common/MigrationPlatform.Abstractions/MigrationPlatform.Abstractions.csproj" />
+    <Project Path="src/Common/MigrationPlatform.Infrastructure.Tests/MigrationPlatform.Infrastructure.Tests.csproj" />
+    <Project Path="src/Common/MigrationPlatform.Infrastructure/MigrationPlatform.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/Solution Items/">
+    <File Path="src/Directory.Build.props" />
+    <File Path="src/Directory.Packages.props" />
+  </Folder>
+  <Folder Name="/TfsObjectModel/">
+    <Project Path="src/TfsObjectModel/MigrationPlatform.CLI.TfsExport/MigrationPlatform.CLI.TfsExport.csproj">
+      <BuildType Project="Release" />
+    </Project>
+    <Project Path="src/TfsObjectModel/MigrationPlatform.Infrastructure.TfsObjectModel/MigrationPlatform.Infrastructure.TfsObjectModel.csproj" />
+  </Folder>
+</Solution>

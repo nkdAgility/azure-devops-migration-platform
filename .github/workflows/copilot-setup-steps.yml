@@ -20,12 +20,3 @@ jobs:
 
       - name: Restore dependencies
         run: dotnet restore
-
-      - name: Build solution
-        run: dotnet build --configuration Release
-
-      - name: Publish Web Application
-        run: dotnet publish ./src/ControlPlane/MigrationPlatform.ControlPlane/MigrationPlatform.ControlPlane.csproj -c Release -o ./publish/web
-
-      - name: Publish CLI Application
-        run: dotnet publish ./src/CLI/MigrationPlatform.CLI/MigrationPlatform.CLI.csproj -c Release -o ./publish/cli
