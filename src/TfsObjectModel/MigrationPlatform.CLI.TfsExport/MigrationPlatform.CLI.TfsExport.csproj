@@ -3,6 +3,7 @@
 		<TargetFramework>net481</TargetFramework>
 		<OutputType>Exe</OutputType>
 		<GenerateAssemblyInfo>true</GenerateAssemblyInfo>
+		<AssemblyName>TfsExport</AssemblyName>
 	</PropertyGroup>
 	<ItemGroup>
 	  <PackageReference Include="Azure.Monitor.OpenTelemetry.Exporter" />
