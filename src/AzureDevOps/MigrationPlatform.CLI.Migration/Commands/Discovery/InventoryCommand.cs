@@ -60,10 +60,14 @@ namespace MigrationPlatform.CLI.Commands
                              ctx.UpdateTarget(RenderTable(summaries));
                          }
 
-                         //// Repos (pseudo-code)
-                         //summary.TotalRepos = await _catalogService.CountReposAsync(project.Name);
-                         //summary.IsRepoComplete = true;
-                         //ctx.UpdateTarget(RenderTable(summaries));
+                         // Repos
+                         await foreach (var repoStat in catalogService.CountRepositoriesAsync(settings.Organisation, project, settings.Token))
+                         {
+                             summary.ReposCount = repoStat.ReposCount;
+                             summary.IsRepoComplete = repoStat.IsRepoComplete;
+                             summary.LastUpdatedUtc = repoStat.LastUpdatedUtc;
+                             ctx.UpdateTarget(RenderTable(summaries));
+                         }
 
                          //// Pipelines (pseudo-code)
                          //summary.TotalPipelines = await _catalogService.CountPipelinesAsync(project.Name);
