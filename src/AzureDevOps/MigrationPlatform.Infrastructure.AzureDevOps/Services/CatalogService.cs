@@ -1,4 +1,5 @@
 ﻿using Microsoft.TeamFoundation.Core.WebApi;
+using Microsoft.TeamFoundation.SourceControl.WebApi;
 using Microsoft.TeamFoundation.WorkItemTracking.WebApi;
 using Microsoft.TeamFoundation.WorkItemTracking.WebApi.Models;
 using Microsoft.VisualStudio.Services.Common;
@@ -83,6 +84,27 @@ namespace MigrationPlatform.Infrastructure.Services
             } while (batchCount == maxPerBatch);
         }
 
+        public async IAsyncEnumerable<ProjectDiscoverySummary> CountRepositoriesAsync(
+            string orgUrl,
+            string project,
+            string pat,
+            [EnumeratorCancellation] CancellationToken cancellationToken = default)
+        {
+            var credentials = new VssBasicCredential(string.Empty, pat);
+            var connection = new VssConnection(new Uri(orgUrl), credentials);
+            var gitClient = connection.GetClient<GitHttpClient>();
 
+            ProjectDiscoverySummary repoStats = new ProjectDiscoverySummary();
+            
+            // Get all repositories for the project
+            var repositories = await gitClient.GetRepositoriesAsync(project, cancellationToken: cancellationToken);
+            
+            // Set the repository count
+            repoStats.ReposCount = repositories.Count;
+            repoStats.IsRepoComplete = true;
+            repoStats.LastUpdatedUtc = DateTime.UtcNow;
+            
+            yield return repoStats;
+        }
     }
 }
