@@ -56,6 +56,24 @@ Module contract:
 Configuration:
 → docs/configuration.md
 
+Artefact store abstraction:
+→ docs/artefact-store.md
+
+Job contract:
+→ docs/job-contract.md
+
+Control plane:
+→ docs/control-plane.md
+
+Migration Agent (worker):
+→ docs/migration-agent.md
+
+TUI:
+→ docs/tui.md
+
+Validation:
+→ docs/validation.md
+
 ---
 
 # 🤖 Agent Guardrails (Enforced Rules)
@@ -106,8 +124,9 @@ Reject any proposal that:
 - Adds hidden state outside `Checkpoints/`.
 - Couples modules directly.
 - Performs live streaming migration.
-- Violates coding standards.
-
+- Violates coding standards.- Adds migration execution logic to the control plane.
+- References a concrete artefact store implementation inside module code.
+- Sorts `EnumerateAsync` results in memory.
 ---
 
 # 🧭 Development Flow

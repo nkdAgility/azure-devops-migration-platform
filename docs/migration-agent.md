@@ -1,0 +1,109 @@
+# Migration Agent
+
+## Purpose
+
+A **Migration Agent** is a stateless worker (typically a container) that executes migration jobs assigned by the control plane. The Migration Agent runs the same orchestrator engine used in local mode — the only difference is that it receives its job definition from the control plane and reports progress back to it rather than running inline in the TUI.
+
+The package contract, modules, and cursors are unchanged between local and Migration Agent execution.
+
+---
+
+## Responsibilities
+
+| Responsibility | Description |
+|---|---|
+| Poll for work | Call the control plane lease endpoint to receive a job. |
+| Acquire lease | Hold a time-bounded lease on the assigned job. |
+| Mount artefact store | Connect to the package URI from the job definition (filesystem or blob). See [docs/artefact-store.md](artefact-store.md). |
+| Resolve secrets | Fetch credentials from Key Vault references in the job definition before executing. |
+| Run orchestrator | Execute `ExportAsync`, `ImportAsync`, or both in sequence, exactly as in local mode. |
+| Write cursors | Write checkpoint cursors into the package's `Checkpoints/` folder after each stage, as always. |
+| Heartbeat | Signal liveness to the control plane at regular intervals. |
+| Report progress | Push cursor positions to the control plane for status display after each cursor write. |
+| Upload logs | Write logs to `Logs/` in the package. Optionally push log lines to the control plane in real time. |
+| Signal completion or failure | Call the control plane's complete or fail endpoint when the job finishes. |
+
+The Migration Agent does **not** accept job submissions, manage other Migration Agents, or store job state. All job coordination is the control plane's responsibility.
+
+---
+
+## Execution Flow
+
+```
+Poll /agents/lease
+  └─ Receive leased job definition
+       ├─ Resolve Key Vault secrets
+       ├─ Connect to artefact store (packageUri)
+       ├─ Load cursor → determine resume position
+       ├─ Start heartbeat loop (background)
+       └─ Run orchestrator
+            ├─ ExportAsync (if mode = Export or Both)
+            │    └─ After each cursor write → POST /agents/lease/{id}/progress
+            ├─ Validate package (if mode = Both)
+            └─ ImportAsync (if mode = Import or Both)
+                 └─ After each cursor write → POST /agents/lease/{id}/progress
+  ├─ Success → POST /agents/lease/{id}/complete
+  └─ Failure → POST /agents/lease/{id}/fail  (cursor preserved for resume)
+```
+
+---
+
+## Migration Agent Roles
+
+A single Migration Agent binary supports all three modes (`Export`, `Import`, `Both`) by reading `mode` from the job definition. There is no requirement to deploy separate export and import binaries.
+
+However, two Migration Agent deployments are supported for network isolation:
+
+| Role | Mode supported | Typical deployment |
+|---|---|---|
+| `ExportMigrationAgent` | `Export` | Source network zone |
+| `ImportMigrationAgent` | `Import` | Target network zone |
+| `MigrationAgent` | `Export`, `Import`, `Both` | Any zone with access to both |
+
+In the two-job pattern, the Export Migration Agent writes the package to the shared artefact store; the Import Migration Agent reads it. Both use the same package URI. The `manifest.json` and cursor files written by the Export Migration Agent are read by the Import Migration Agent without modification.
+
+---
+
+## Stateless Design
+
+Migration Agents are stateless. All durable state lives either:
+
+- In the migration package (`revision.json`, cursors, `idmap.db`, `Logs/`) via `IArtefactStore` and `IStateStore`.
+- In the control plane (job status, latest reported progress).
+
+A Migration Agent may be stopped, rescheduled, or replaced at any point. The new Migration Agent reads the cursor to determine where to resume. This makes Migration Agents safe to run in auto-scaling container environments.
+
+---
+
+## Heartbeat and Lease Expiry
+
+- Migration Agents send a heartbeat to `POST /agents/lease/{leaseId}/heartbeat` every N seconds (configurable; default 30 s).
+- The control plane's lease TTL is set to 2× the expected heartbeat interval.
+- If the control plane does not receive a heartbeat within the TTL, it returns the job to `Queued`.
+- The next Migration Agent to acquire the lease resumes from the last cursor position in the package.
+
+This means a crashed Migration Agent loses no more than one stage of work.
+
+---
+
+## Pause and Cancel
+
+- **Pause:** The control plane signals `Paused` on the job record. The Migration Agent reads this signal on the next heartbeat response. It finishes the current stage, writes the cursor, releases the lease, and exits cleanly.
+- **Cancel:** The control plane signals `Cancelled`. The Migration Agent finishes the current stage, writes the cursor, and exits. The job is not resumable after cancellation (though the package remains on disk for inspection).
+
+---
+
+## Artefact Store Access
+
+Migration Agents access the migration package exclusively through `IArtefactStore`. They never use raw filesystem calls or raw blob SDK calls inside module code. See [docs/artefact-store.md](artefact-store.md) for the abstraction and implementations.
+
+---
+
+## Logging
+
+Migration Agents write structured logs to both:
+
+- `Logs/` in the package (durable, included in zip).
+- The control plane (pushed in real time via the lease API for TUI tailing).
+
+Both outputs use the same structured format (OpenTelemetry-compatible). No `Console.WriteLine` in module code.

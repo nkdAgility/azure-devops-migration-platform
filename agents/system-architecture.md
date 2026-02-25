@@ -34,6 +34,28 @@ These rules are non-negotiable. They are distilled from the full reference set i
 10. **Validate before import.**
     In `Both` mode, a validation pass runs after export and before import. Import must not begin on a package that fails validation. Post-flight validation must also run after import. See [docs/validation.md](../docs/validation.md) for the full check list and configuration.
 
-## If in Doubt
+11. **Control plane must not execute migrations.**
+    The control plane (ASP.NET Core API) accepts, stores, and assigns jobs. It does not call source or target APIs, run orchestrator logic, read or write the migration package, or unwrap secrets. Violations break the separation between the control plane and Migration Agents.
+
+12. **Migration Agents are stateless; all durable state is in the package.**
+    Migration Agents hold no state beyond the current lease. All durable state lives in the package (`Checkpoints/`, `Logs/`, revision folders) via `IArtefactStore` and `IStateStore`. A Migration Agent that crashes is replaced by a new Migration Agent that resumes from the cursor.
+
+13. **IArtefactStore is the only permitted file abstraction.**
+    Both `FileSystemArtefactStore` and `AzureBlobArtefactStore` implement `IArtefactStore`. Module code must not reference either implementation directly. Switching from local to cloud mode must require zero module code changes.
+
+14. **EnumerateAsync must be lexicographic.**
+    Both artefact store implementations must return results from `EnumerateAsync` in strict lexicographic (ascending) order. Out-of-order enumeration breaks streaming import and chronological replay. In-memory sorting of enumerated paths is forbidden.
+
+15. **The job contract is the unit of work exchange.**
+    The TUI converts a local config file into a job contract before submission. The control plane stores and forwards the job contract. The Migration Agent executes it. Nothing else is permitted as an inter-component work handoff.
+
+16. **The TUI must not contain migration logic.**
+    The TUI parses arguments, builds a `MigrationJob`, chooses a transport (`LocalJobRunner` or `ControlPlaneClient`), and renders progress. All migration logic — module execution, cursor writes, artefact reads/writes — lives in the Job Engine. A TUI that calls a module directly, writes a cursor, or accesses `IArtefactStore` outside the Job Engine boundary is in violation.
+
+17. **The Job Engine must be hostable independently of the TUI.**
+    The Job Engine has no dependency on any console, UI framework, or interactive terminal. It receives a `MigrationJob` and an `IProgressSink`; it produces package output and cursor state. It must be runnable in-process (local), in a container (Migration Agent), or in a test harness without modification.
+
+18. **No UI coupling in the Job Engine or modules.**
+    The Job Engine and all modules must not write to `Console`, reference `System.Console`, or use any interactive input mechanism. All output goes through `IProgressSink` (progress events) or `IArtefactStore` (logs written to `Logs/`). Any violation makes the engine unrunnable as a Migration Agent.
 
 Consult [docs/architecture.md](../docs/architecture.md). If the answer is not there, the safest default is to preserve the package layout, maintain streaming behaviour, and write state only through the defined interfaces.

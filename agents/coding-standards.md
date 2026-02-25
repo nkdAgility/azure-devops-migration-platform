@@ -111,6 +111,14 @@ Preferred:
 - Hidden resume state outside Checkpoints/.
 - Cross-module direct calls.
 - .NET Framework usage outside the explicit TFS exporter boundary.
+- Calling source or target APIs from within the control plane.
+- Calling source or target APIs from within a Migration Agent outside of the orchestrator execution path.
+- Referencing `FileSystemArtefactStore` or `AzureBlobArtefactStore` directly in module code (use `IArtefactStore`).
+- Sorting `EnumerateAsync` results in memory.
+- Unwrapping Key Vault secrets in the control plane.
+- Writing to `Console` or `System.Console` from the Job Engine or any module.
+- Emitting progress as console text instead of `IProgressSink` events.
+- Placing migration execution logic in the TUI (parsing and transport selection only).
 
 ---
 
@@ -123,6 +131,11 @@ Before merging changes, verify:
 - Does this code violate module isolation?
 - Does this code bypass IArtefactStore?
 - Does this code introduce .NET Framework dependencies outside the legacy exporter?
+- Does this code add migration execution logic to the control plane?
+- Does this code reference a concrete artefact store implementation inside a module?
+- Does this code sort EnumerateAsync results in memory?
+- Does this code write to Console from the Job Engine or a module?
+- Does this code place migration logic in the TUI layer?
 
 If yes, reject.
 
