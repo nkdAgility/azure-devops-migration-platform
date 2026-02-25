@@ -32,7 +32,7 @@ These rules are non-negotiable. They are distilled from the full reference set i
    Breaking changes to config or package schema require a version increment and a corresponding upgrader. There is no backwards compatibility without an upgrader.
 
 10. **Validate before import.**
-    In `Both` mode, a validation pass runs after export and before import. Import must not begin on a package that fails validation.
+    In `Both` mode, a validation pass runs after export and before import. Import must not begin on a package that fails validation. Post-flight validation must also run after import. See [docs/validation.md](../docs/validation.md) for the full check list and configuration.
 
 ## If in Doubt
 

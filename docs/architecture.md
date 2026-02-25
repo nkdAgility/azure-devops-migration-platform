@@ -72,6 +72,7 @@ Key properties:
 | 9. Configuration model | [docs/configuration.md](configuration.md) |
 | 10. Orchestration | [docs/orchestration.md](orchestration.md) |
 | 11. Zip packaging | [docs/packaging-zip.md](packaging-zip.md) |
+| 12. Validation (pre-flight & post-flight) | [docs/validation.md](validation.md) |
 
 ## Agent Guardrails
 
