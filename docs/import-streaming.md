@@ -17,12 +17,14 @@ For each revision folder, processing proceeds through four stages in order:
 
 | Stage | Label | Action |
 |---|---|---|
-| A | `Created` | Create the work item if it does not exist, or identify it by mapped ID |
-| B | `Fields` | Apply the revision's field values |
-| C | `Links` | Apply related links, external links, and hyperlinks |
-| D | `Attachments` | Upload binary files and attach them to the work item |
+| A | `CreatedOrUpdated` | Create the work item if it does not exist, or identify it by mapped ID |
+| B | `AppliedFields` | Apply the revision's field values |
+| C | `AppliedLinks` | Apply related links, external links, and hyperlinks |
+| D | `UploadedAttachments` | Upload binary files and attach them to the work item |
 
 The cursor is updated to `Completed` after all four stages succeed.
+
+Stage label values are canonical and shared with the cursor schema. See [docs/checkpointing.md](checkpointing.md) for the full enum.
 
 ### Failure Behaviour
 
@@ -32,10 +34,10 @@ The cursor is updated to `Completed` after all four stages succeed.
 
 ### Idempotency Notes
 
-- **Stage A:** Use the ID map (`Checkpoints/idmap.db`) to detect an already-created work item. Do not create a duplicate.
-- **Stage B:** Applying the same fields again must be a no-op or result in the same state.
-- **Stage C:** Links must be checked for existence before creation.
-- **Stage D:** Attachments must be checked by SHA256 before upload.
+- **Stage A (`CreatedOrUpdated`):** Check `Checkpoints/idmap.db` for an existing `sourceId → targetId` mapping. If found, use the existing target ID and skip creation.
+- **Stage B (`AppliedFields`):** Applying the same fields again must be a no-op or result in the same state.
+- **Stage C (`AppliedLinks`):** Query the target for existing links before creation. Do not add a link that already exists.
+- **Stage D (`UploadedAttachments`):** The Azure DevOps REST API does not expose SHA256 in attachment list responses. Idempotency is therefore tracked locally: after a successful upload, record `(workItemId, revisionIndex, relativePath) → targetAttachmentId` in `Checkpoints/idmap.db`. On resume, if an entry exists for the attachment, skip re-upload. The SHA256 stored in `revision.json` is used for local file integrity verification only (export-time guarantee), not for target-side deduplication.
 
 ### Non-Negotiables
 

@@ -25,8 +25,20 @@ Checkpoints/workitems.cursor.json
 | Field | Type | Description |
 |---|---|---|
 | `lastProcessed` | string | Relative path to the last successfully processed revision folder |
-| `stage` | string | Last completed stage: `Created`, `Fields`, `Links`, `Attachments`, or `Completed` |
+| `stage` | string | Last completed stage — must be one of the canonical values below |
 | `updatedAt` | ISO 8601 string | UTC timestamp of the last cursor update |
+
+### Canonical Stage Values
+
+All modules must use these exact string values. Deviation is a schema violation.
+
+| Value | Meaning |
+|---|---|
+| `CreatedOrUpdated` | Target work item was created or identified |
+| `AppliedFields` | Revision field values were written to the target |
+| `AppliedLinks` | Related, external, and hyperlinks were applied |
+| `UploadedAttachments` | Binary files were uploaded and attached |
+| `Completed` | All stages for this revision folder succeeded |
 
 ### Cursor is a Folder Path
 
@@ -42,7 +54,7 @@ The cursor value is the relative path of the last processed revision folder — 
 ### Stage Progression
 
 ```
-Created → Fields → Links → Attachments → Completed
+CreatedOrUpdated → AppliedFields → AppliedLinks → UploadedAttachments → Completed
 ```
 
 The cursor is written after each stage completes. A crash between stages leaves the cursor at the last completed stage, enabling fine-grained resume.
@@ -58,6 +70,12 @@ Checkpoints/
   permissions.cursor.json
   builds.cursor.json
   git.cursor.json
+  idmap.db          (SQLite ID map — source workItemId → target workItemId)
+  idmap.json        (fallback for small packages or tooling)
 ```
 
 The convention is `<moduleName-lowercase>.cursor.json`. Modules must not share cursor files.
+
+### ID Map
+
+The `Checkpoints/idmap.db` (or `idmap.json`) file tracks source-to-target work item ID mappings and uploaded attachment records. It is written during Stage `CreatedOrUpdated` (work item ID) and Stage `UploadedAttachments` (attachment ID per revision). It is the sole mechanism for idempotency checks during resume. See [docs/identity-and-mapping.md](identity-and-mapping.md) for the identity mapping counterpart.

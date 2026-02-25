@@ -32,7 +32,7 @@ interface IDataTypeModule
 - Dependencies are resolved topologically before execution begins.
 - A module that depends on another module will not execute until the dependency completes successfully.
 - Modules with no declared dependencies may execute in any order (or in parallel, if the orchestrator supports it in a future version).
-- `IdentitiesModule` has no dependencies but must complete before any module that performs identity mapping.
+- `IdentitiesModule` has no dependencies (`DependsOn` is empty) but must complete before any module that performs identity mapping. Any module that maps identities must include `"IdentitiesModule"` in its own `DependsOn` list. Failure to do so is a dependency graph error that the orchestrator must detect and reject at startup.
 
 ### Storage Rule
 

@@ -1,6 +1,6 @@
 # System Architecture — Hard Guardrails
 
-These rules are non-negotiable. They are distilled from [docs/architecture.md](../docs/architecture.md) and the full reference set. In any conflict between these rules and any other source, these rules win.
+These rules are non-negotiable. They are distilled from the full reference set in [docs/](../docs/). In any conflict between these rules and any documentation in `/docs`, **these rules win**. The docs define architectural intent; the `/agents` guardrails enforce it. The binding entry point is [agents.md](../agents.md).
 
 ## Absolute Rules
 

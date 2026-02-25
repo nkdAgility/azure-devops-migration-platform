@@ -1,7 +1,9 @@
 # Architecture Overview
 
-> This document is the source of truth for design decisions and non-negotiables.
-> In any conflict between this document and other sources, this document wins.
+> This document defines architectural intent and is the primary human reference.
+> In any conflict between this document and `/agents/*.md` guardrails, **the guardrails win**.
+> See [agents/system-architecture.md](../agents/system-architecture.md) for the enforced rules.
+> See [agents.md](../agents.md) for the agent entry point that binds docs to guardrails.
 
 ## 1. System Purpose
 
@@ -56,4 +58,27 @@ Key properties:
 
 ---
 
-*For the full reference set, see [/docs](./) and the agent guardrails in [/agents](../agents/).*
+## Full Reference Set
+
+| Section | Document |
+|---|---|
+| 2. Package structure & manifest | [docs/package-format.md](package-format.md) |
+| 3. WorkItems on-disk layout | [docs/workitems-format.md](workitems-format.md) |
+| 4. Streaming import model | [docs/import-streaming.md](import-streaming.md) |
+| 5. Cursor-based checkpointing | [docs/checkpointing.md](checkpointing.md) |
+| 6. Module architecture | [docs/modules.md](modules.md) |
+| 7. Identity & mapping | [docs/identity-and-mapping.md](identity-and-mapping.md) |
+| 8. Source types | [docs/source-types.md](source-types.md) |
+| 9. Configuration model | [docs/configuration.md](configuration.md) |
+| 10. Orchestration | [docs/orchestration.md](orchestration.md) |
+| 11. Zip packaging | [docs/packaging-zip.md](packaging-zip.md) |
+
+## Agent Guardrails
+
+| Topic | Document |
+|---|---|
+| Hard architectural constraints (authoritative) | [agents/system-architecture.md](../agents/system-architecture.md) |
+| WorkItems-specific rules | [agents/workitems-rules.md](../agents/workitems-rules.md) |
+| Migration behaviour invariants | [agents/migration-rules.md](../agents/migration-rules.md) |
+| Coding standards | [agents/coding-standards.md](../agents/coding-standards.md) |
+| New module checklist | [agents/module-template.md](../agents/module-template.md) |
