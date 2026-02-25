@@ -221,11 +221,43 @@ Teams     Completed            Teams/team-0045
 
 Progress data comes from the control plane's latest cursor mirror. The authoritative resume state remains the cursor in the package.
 
+---
 
-1. Reads and validates the local config file.
-2. Computes `configHash`.
-3. Constructs a job contract ([docs/job-contract.md](job-contract.md)) from the config.
-4. Posts the job contract to `POST /jobs` on the control plane.
-5. Displays the `jobId` and returns.
+## Reconnecting After TUI Disconnection
 
-The local config file is not sent directly; it is transformed into a job contract. Secret values are replaced by Key Vault URI references before submission.
+When the TUI is closed or loses connectivity, the job continues running unaffected. The Migration Agent holds the lease independently of the TUI. To reconnect:
+
+```
+migrate status --job 550e8400-e29b-41d4-a716-446655440000
+migrate logs   --job 550e8400-e29b-41d4-a716-446655440000 --follow
+```
+
+The `jobId` is the only thing needed. It is printed by `queue` at submission time. Keep it.
+
+### If You Lost the jobId
+
+If the `jobId` was not recorded, retrieve it from the control plane by config hash:
+
+```
+migrate status --config migration.json
+```
+
+The TUI recomputes `configHash` from the config file and queries the control plane for the most recent job with that hash. If more than one job matches, all are listed with their state and timestamp.
+
+### What the TUI Reconnects To
+
+The TUI has no persistent connection to the job. It only reads from the control plane on demand. Reconnecting is always safe:
+
+- `status` is a read-only poll — it never affects the running job.
+- `logs` tails from the point the control plane has buffered — earlier lines may be in `Logs/` in the package.
+- `pause`, `resume`, `cancel` are the only commands that change job state.
+
+### Local Mode Has No Reconnection
+
+In local mode the Job Engine runs in the same process as the TUI. If the TUI exits, the Job Engine stops. Resume requires re-running the command:
+
+```
+migrate both --config migration.json
+```
+
+The cursor in the package ensures the Job Engine picks up from the last completed stage. Nothing is lost beyond the current stage.
