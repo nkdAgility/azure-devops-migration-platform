@@ -1,0 +1,135 @@
+# agents.md
+
+# Azure DevOps Migration Platform – Agent Entry Point
+
+This file is the mandatory starting point for any AI agent or contributor.
+
+It connects:
+
+- Human-readable architecture (`/docs`)
+- Enforced guardrails (`/agents`)
+
+If anything conflicts:
+- `/agents/*.md` guardrails override implementation
+- `/docs/*.md` define architectural intent
+
+---
+
+# 🎯 Mission
+
+Build a deterministic, resumable, versioned migration package platform:
+
+Source → Files → Target
+
+Modes:
+- Export
+- Import
+- Both
+
+The filesystem package is the source of truth.
+
+See:
+→ docs/architecture.md
+
+---
+
+# 📚 Canonical Specification (Read First)
+
+Architecture:
+→ docs/architecture.md
+
+Package layout:
+→ docs/package-format.md
+
+WorkItems layout:
+→ docs/workitems-format.md
+
+Streaming import:
+→ docs/import-streaming.md
+
+Checkpoint model:
+→ docs/checkpointing.md
+
+Module contract:
+→ docs/modules.md
+
+Configuration:
+→ docs/configuration.md
+
+---
+
+# 🤖 Agent Guardrails (Enforced Rules)
+
+These files define what must never be violated:
+
+## Core Architecture Constraints
+→ agents/system-architecture.md
+
+## WorkItems-Specific Rules
+→ agents/workitems-rules.md
+
+## Migration Behaviour Constraints
+→ agents/migration-rules.md
+
+## Coding Standards
+→ agents/coding-standards.md
+
+## New Module Requirements
+→ agents/module-template.md
+
+If code conflicts with these, reject the change.
+
+---
+
+# 🔒 Non-Negotiable Summary
+
+1. WorkItems layout is canonical and chronological.
+2. Import must be streaming and memory-safe.
+3. Resume must use cursor-based checkpointing.
+4. Attachments must live beside revision.json.
+5. No direct Source → Target migration.
+6. Modules must be isolated.
+7. All persistence goes through IArtefactStore and IStateStore.
+8. Determinism is mandatory.
+
+Detailed logic is in `/agents`.
+
+---
+
+# 🚨 Reject Conditions
+
+Reject any proposal that:
+
+- Breaks chronological folder ordering.
+- Introduces global attachment storage.
+- Requires loading all revisions into memory.
+- Adds hidden state outside `Checkpoints/`.
+- Couples modules directly.
+- Performs live streaming migration.
+- Violates coding standards.
+
+---
+
+# 🧭 Development Flow
+
+When implementing:
+
+1. Read relevant `/docs` file.
+2. Apply constraints from `/agents`.
+3. Implement via module abstraction.
+4. Add tests.
+5. Update schemas if required.
+
+---
+
+# Final Principle
+
+`/docs` explains the architecture.
+`/agents` enforces the architecture.
+`agents.md` binds the two.
+
+Preserve:
+- Determinism
+- Streaming
+- Portability
+- Clarity

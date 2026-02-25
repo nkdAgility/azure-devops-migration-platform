@@ -1,0 +1,103 @@
+# Package Format
+
+## 2. Package Structure (Canonical Format)
+
+```
+PackageRoot/
+  manifest.json
+  WorkItems/
+  Teams/
+  Permissions/
+  Builds/
+  Git/
+  Identities/
+  Checkpoints/
+  Logs/
+```
+
+The WorkItems layout is canonical and must not be altered:
+
+```
+WorkItems/
+  yyyy-MM-dd/
+    <ticks>-<workItemId>-<revisionIndex>/
+      revision.json
+      <attachment files>
+```
+
+Key characteristics:
+
+- Chronological ordering is guaranteed
+- No global index required
+- Streaming import is natural
+- Resume is trivial
+- Human-auditable
+
+### Naming Conventions
+
+| Segment | Format | Example |
+|---|---|---|
+| Date folder | `yyyy-MM-dd` | `2026-02-25` |
+| Revision folder | `<ticks>-<workItemId>-<revisionIndex>` | `638760123456789012-12345-17` |
+
+Folder names sort lexicographically in chronological order. This invariant enables streaming import without a global index and must be preserved.
+
+## 3. Manifest (Package Metadata)
+
+`manifest.json` at `PackageRoot/manifest.json`:
+
+```json
+{
+  "packageVersion": "1.0",
+  "toolVersion": "x.y.z",
+  "runId": "...",
+  "configHash": "...",
+  "source": {
+    "type": "AzureDevOpsServices | TeamFoundationServer",
+    "orgOrCollection": "...",
+    "project": "...",
+    "apiVersion": "..."
+  },
+  "includedTypes": [
+    "WorkItems",
+    "Teams",
+    "Permissions",
+    "Builds",
+    "Git"
+  ],
+  "schemaVersions": {
+    "WorkItems": "1.0",
+    "Teams": "1.0"
+  }
+}
+```
+
+The manifest is **not required** for streaming import, but is **required** for:
+
+- Validation
+- Compatibility checks
+- Upgrade safety
+- Tooling
+- Zip portability
+
+### Versioning Rules
+
+- `packageVersion` is incremented on breaking changes to the package layout.
+- `schemaVersions` tracks per-module schema independently.
+- An upgrader must be provided for each breaking schema change.
+- Config versioning is handled separately; see [docs/configuration.md](configuration.md).
+
+### Manifest Fields
+
+| Field | Required | Description |
+|---|---|---|
+| `packageVersion` | Yes | Package layout version |
+| `toolVersion` | Yes | Version of the tool that produced the package |
+| `runId` | Yes | Unique identifier for the export run |
+| `configHash` | Yes | Hash of the config used to produce the package |
+| `source.type` | Yes | `AzureDevOpsServices` or `TeamFoundationServer` |
+| `source.orgOrCollection` | Yes | Organisation URL or TFS collection URL |
+| `source.project` | Yes | Project name |
+| `source.apiVersion` | Yes | REST API version used during export |
+| `includedTypes` | Yes | Data type modules included in this package |
+| `schemaVersions` | Yes | Per-module schema versions |
