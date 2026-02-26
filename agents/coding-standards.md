@@ -64,15 +64,17 @@ No other component may use .NET Framework.
 
 # 🧪 Testing
 
-- MUST use MSTest.
+- MUST use MSTest as the test runner.
+- MUST use Reqnroll (`Reqnroll.MSTest`) as the BDD step-binding layer for acceptance tests. Reqnroll reads Gherkin `.feature` files directly.
 - Each module MUST have unit tests.
 - Business logic MUST be testable in isolation.
-- No integration tests may depend on live Azure DevOps unless explicitly marked.
+- No integration tests may depend on live Azure DevOps unless explicitly marked with `[TestCategory("Integration")]`.
 - Replay logic MUST have deterministic tests.
 
 Preferred:
 - TDD for new modules.
 - Explicit validation tests for package integrity.
+- Acceptance tests written as Gherkin in `tests/acceptance/` before implementation begins.
 
 ---
 

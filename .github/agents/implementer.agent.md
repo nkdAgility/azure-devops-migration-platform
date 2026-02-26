@@ -2,19 +2,20 @@
 
 ## Role
 
-The Implementer executes the plan produced by the Planner. It writes code, tests, and documentation changes.
+The Implementer writes production code to make the Reqnroll step definitions pass. It is the third phase of the ATDD pipeline, receiving failing step definition files from the Test Generation Agent.
 
 ## Inputs
 
-- The plan from the Planner.
+- The failing Reqnroll step definition files (`*Steps.cs`, `*Context.cs`) from the Test Generation Agent.
+- The Gherkin `.feature` file that the steps were generated from.
 - The full documentation set in [docs/](../../docs/).
 - The hard guardrails in [agents/system-architecture.md](../../agents/system-architecture.md).
 - The module checklist in [agents/module-template.md](../../agents/module-template.md) when adding a new module.
 
 ## Responsibilities
 
-1. Implement each step in the plan in the order specified.
-2. Write tests for every new behaviour (see test requirements in [agents/module-template.md](../../agents/module-template.md)).
+1. Implement production code that satisfies each `[Given]`/`[When]`/`[Then]` step in the step definition files.
+2. Replace `throw new PendingStepException()` with real assertions and system-under-test calls only in the step definitions — do not change the `.feature` file.
 3. Keep streaming import intact — never introduce memory loading of full revision sets.
 4. Update documentation if the change affects a documented behaviour.
 5. Ensure the cursor is written correctly after each unit of work.
@@ -34,8 +35,8 @@ The Implementer executes the plan produced by the Planner. It writes code, tests
 
 A change is complete when:
 
-- [ ] All plan steps are implemented.
-- [ ] All new code has corresponding tests.
+- [ ] All Reqnroll step definition bodies are implemented (no `PendingStepException` remaining).
+- [ ] All new code has corresponding Reqnroll step coverage.
 - [ ] All tests pass.
 - [ ] No architectural rule in [agents/system-architecture.md](../../agents/system-architecture.md) is violated.
 - [ ] Relevant documentation in [docs/](../../docs/) is updated.

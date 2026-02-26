@@ -48,6 +48,8 @@ See [docs/modules.md](../docs/modules.md) for the full `IDataTypeModule` contrac
 
 ## 7. Tests Required
 
+- [ ] Write acceptance scenarios in `tests/acceptance/<area>/<module-name>.feature` before implementation.
+- [ ] Reqnroll step definitions generated from the `.feature` file (`<ModuleName>Steps.cs` + `<ModuleName>Context.cs`).
 - [ ] Unit tests for `ValidateAsync` covering valid and invalid artefact schemas.
 - [ ] Unit tests for `ExportAsync` with a mock `IArtefactStore`.
 - [ ] Unit tests for `ImportAsync` with a mock `IArtefactStore` and `IStateStore`.
