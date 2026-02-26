@@ -30,7 +30,7 @@ public class FEATURENAMEContext
         => Sut = new MODULE_CLASS(
             ArtefactStore.Object,
             StateStore.Object
-            // , IdentityMapping.Object
+        // , IdentityMapping.Object
         );
 }
 
