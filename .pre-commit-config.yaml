@@ -1,0 +1,56 @@
+# Pre-commit hooks for Azure DevOps Migration Platform
+# Install: pip install pre-commit && pre-commit install
+# Run manually: pre-commit run --all-files
+
+repos:
+  # ── C# ─────────────────────────────────────────────────────────────────────
+  - repo: local
+    hooks:
+      - id: dotnet-format
+        name: dotnet format (C# style)
+        language: system
+        entry: dotnet
+        args: ["format", "--verify-no-changes", "--severity", "warn"]
+        pass_filenames: false
+        types: [file]
+        files: \.(cs|csproj|sln)$
+
+      - id: dotnet-build
+        name: dotnet build (compile check)
+        language: system
+        entry: dotnet
+        args: ["build", "-c", "Release", "--no-incremental", "-warnaserror"]
+        pass_filenames: false
+        always_run: false
+        files: \.(cs|csproj)$
+
+  # ── PowerShell ─────────────────────────────────────────────────────────────
+  - repo: local
+    hooks:
+      - id: psscriptanalyzer
+        name: PSScriptAnalyzer (PowerShell lint)
+        language: system
+        entry: pwsh
+        args:
+          - -Command
+          - |
+            $results = Invoke-ScriptAnalyzer -Path . -Recurse -Severity Warning,Error
+            if ($results) { $results | Format-Table -AutoSize; exit 1 }
+        pass_filenames: false
+        types: [file]
+        files: \.ps1$
+
+  # ── Secrets ────────────────────────────────────────────────────────────────
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.18.4
+    hooks:
+      - id: gitleaks
+        name: gitleaks (secret scanning)
+
+  # ── Markdown ───────────────────────────────────────────────────────────────
+  - repo: https://github.com/igorshubovych/markdownlint-cli
+    rev: v0.39.0
+    hooks:
+      - id: markdownlint
+        name: markdownlint
+        args: ["--config", ".markdownlint.json", "--ignore", "docs"]

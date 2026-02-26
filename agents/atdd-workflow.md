@@ -21,7 +21,7 @@ No session may encompass multiple acceptance scenarios. No code is committed wit
 │  1. Specification   2. Test Gen   3. Implementation   4. Review  │
 │  ─────────────────→ ────────────→ ────────────────── → ────────  │
 │  Feature file        Failing        Passing tests        Pass/   │
-│  written             MSTest code    + production code     Reject  │
+│  + 4 artifacts       Reqnroll       + unit tests         Reject  │
 │                                                                   │
 │  Orchestrator manages handoffs and logs the outcome              │
 └──────────────────────────────────────────────────────────────────┘
@@ -51,14 +51,20 @@ After all four stages have human-approved artifacts, the Specification Agent run
 ### Phase 2 — Test Generation (Test Generation Agent)
 
 **Input:** The `.feature` file from Phase 1.  
-**Output:** Failing MSTest `[TestMethod]` skeletons under `tests/<Project>.Tests/`.  
-**Gate:** Tests must compile and **fail** when run. A test that passes before implementation is wrong.
+**Output:** Failing Reqnroll `[Binding]` step definition files (`*Steps.cs` + `*Context.cs`) under `tests/<Project>.Tests/`.  
+**Gate:** Steps must compile and all scenarios must be **pending or failing** when run. A step that passes before implementation is wrong.
 
 ### Phase 3 — Implementation (Implementation Agent)
 
 **Input:** The failing Reqnroll step definition files from Phase 2 and the full docs set.  
-**Output:** Production code (and any required config, schema, or documentation updates) that causes the Phase 2 tests to pass.  
-**Gate:** All tests from Phase 2 pass. No new architectural violations.
+**Output:** Production code that causes the Phase 2 Reqnroll steps to pass, **plus unit tests** for any logic that has more than one code path, involves calculation or transformation, or could fail in ways the acceptance scenario would not catch.  
+**Gate:** All Reqnroll steps pass. All unit tests pass. Every new method with branching logic has at least one unit test per path. No new architectural violations.
+
+**Unit test placement:**
+```
+tests/<ProjectName>.Tests/<Area>/<ClassName>Tests.cs
+```
+Unit tests are plain MSTest `[TestClass]`/`[TestMethod]` classes, not Reqnroll step definitions. See [agents/testing-standards.md](../../agents/testing-standards.md) for the required coverage table.
 
 ### Phase 4 — Review (Reviewer Agent)
 

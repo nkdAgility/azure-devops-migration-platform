@@ -3,17 +3,26 @@
 
 This repository is the **Azure DevOps Migration Platform** — a versioned migration package platform with streaming chronological replay. It is not a live migration tool.
 
-## Primary References
+## Technology
 
-- **Architecture & non-negotiables:** [docs/architecture.md](../docs/architecture.md)
-- **Hard agent guardrails:** [agents/system-architecture.md](../agents/system-architecture.md)
-- **Full documentation:** [docs/](../docs/)
+- **Language:** C# 10+, .NET 9/10 (production); .NET 4.8 (TFS exporter subprocess only)
+- **Test framework:** MSTest + Reqnroll (`Reqnroll.MSTest`)
+- **Mocking:** Moq (`MockBehavior.Strict`)
+- **CLI:** PowerShell 7+ for scripts and tooling
 
-## What This System Does
+## Directory Structure
 
-- Exports Azure DevOps (REST) or TFS (.NET 4 OM subprocess) data to a portable file package.
-- Imports that package into Azure DevOps Services using streaming chronological replay.
-- Supports Export, Import, and Both modes.
+```
+src/                        ← production code, one project per layer
+tests/                      ← test projects mirroring src structure
+tests/acceptance/           ← Gherkin .feature files by functional area
+.github/agents/             ← GitHub custom agents (YAML frontmatter + rules)
+.github/skills/             ← session lifecycle skills (start-session, review, end-session, fix)
+.github/commands/           ← slash-command aliases invoking skills
+agents/                     ← architectural guardrails, coding standards, testing standards
+docs/                       ← architecture documentation (source of truth for design)
+skills/                     ← reusable instruction bundles for agents
+```
 
 ## Non-Negotiable Rules
 
@@ -33,35 +42,13 @@ This repository is the **Azure DevOps Migration Platform** — a versioned migra
 - Any module that accesses the filesystem directly instead of using `IArtefactStore`.
 - Any migration path that skips writing to the package and goes source-to-target directly.
 - Any change to the WorkItems folder naming format.
+- Any agent rule file created under `docs/` — all agent rules live in `agents/`.
 
-## Agent Roles
+## Key References
 
-### ATDD Pipeline Agents
-Agents are sequenced by the Orchestrator. One acceptance scenario per session.
-
+- Architecture & design decisions: [docs/architecture.md](../docs/architecture.md)
+- Hard guardrails (read by all agents): [agents/system-architecture.md](../agents/system-architecture.md)
+- ATDD workflow: [agents/atdd-workflow.md](../agents/atdd-workflow.md)
+- Testing standards: [agents/testing-standards.md](../agents/testing-standards.md)
 ```
-Specification Agent → Test Generation Agent → Implementation Agent → Reviewer Agent
-        ↑                                                                    |
-        └──────────────── Orchestrator manages handoffs ────────────────────┘
-```
-
-- **Specification Agent:** [.github/agents/specification-agent.agent.md](agents/specification-agent.agent.md) — converts user stories to Gherkin `.feature` files
-- **Test Generation Agent:** [.github/agents/test-generator.agent.md](agents/test-generator.agent.md) — produces failing Reqnroll step definitions (red stage)
-- **Implementation Agent:** [.github/agents/implementer.agent.md](agents/implementer.agent.md) — writes production code to pass the tests
-- **Reviewer Agent:** [.github/agents/reviewer.agent.md](agents/reviewer.agent.md) — verifies guardrail compliance and approves or rejects
-- **Orchestrator:** [.github/agents/orchestrator.agent.md](agents/orchestrator.agent.md) — manages session lifecycle and enforces one-scenario-per-session discipline
-
-## ATDD Infrastructure
-
-- **Acceptance tests:** [tests/acceptance/](../tests/acceptance/) — Gherkin `.feature` files by functional area
-- **Agent-rules:** [agents/](../agents/) — testing standards, acceptance test format, ATDD workflow (all agent rules live here)
-- **Skills:** [skills/](../skills/) — reusable instruction bundles loaded by agents
-  - `skills/parse-criteria/` — parse Gherkin and produce structured test plans
-  - `skills/test-templates/` — Reqnroll step definition and context templates
-  - `skills/refactor-patterns/` — code quality and refactoring patterns (green → refactor stage)
-  - `skills/session-hooks/` — session lifecycle logging and CI gate signals
-
-## ATDD Workflow (One Scenario Per Session)
-
-See [agents/atdd-workflow.md](../agents/atdd-workflow.md) for the full session discipline.
 ```

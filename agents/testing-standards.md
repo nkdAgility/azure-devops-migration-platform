@@ -17,12 +17,43 @@ See also: [agents/coding-standards.md](../../agents/coding-standards.md) for the
 ### How the layers fit together
 
 ```
-tests/acceptance/<area>/<feature>.feature   ← Gherkin (human-readable, Reqnroll reads this)
-tests/<Project>.Tests/<Area>/<Feature>Steps.cs  ← Reqnroll [Binding] step definitions
-tests/<Project>.Tests/<Area>/<Feature>Context.cs ← shared ScenarioContext / mocks
+tests/acceptance/<area>/<feature>.feature              ← Gherkin (human-readable, Reqnroll reads this)
+tests/<Project>.Tests/<Area>/<Feature>Steps.cs         ← Reqnroll [Binding] step definitions
+tests/<Project>.Tests/<Area>/<Feature>Context.cs       ← shared ScenarioContext / mocks
+tests/<Project>.Tests/<Area>/<ClassName>Tests.cs       ← plain MSTest unit tests for internal logic
 ```
 
 Reqnroll matches each `Given/When/Then` step in the `.feature` file to a `[Given]`/`[When]`/`[Then]` method in the corresponding `Steps.cs` file. MSTest executes the resulting test.
+
+The `*Tests.cs` files are **not** Reqnroll step definitions — they are standard `[TestClass]`/`[TestMethod]` classes that test internal logic directly. They are required for any class with branching logic, calculation, or state transformation.
+
+### Unit test naming convention
+
+- Class name: `<ClassName>Tests` (the class under test, with `Tests` suffix).
+- Method name: `<MethodName>_<Condition>_<ExpectedResult>` in PascalCase.
+- Example: `CursorReader_WhenCursorFileIsMissing_ReturnsNull`
+
+```csharp
+[TestClass]
+public class CursorReaderTests
+{
+    [TestMethod]
+    public void ReadCursor_WhenFileExists_ReturnsParsedCursor()
+    {
+        // Arrange ...
+        // Act ...
+        // Assert ...
+    }
+
+    [TestMethod]
+    public void ReadCursor_WhenFileIsMissing_ReturnsNull()
+    {
+        // Arrange ...
+        // Act ...
+        // Assert ...
+    }
+}
+```
 
 ---
 

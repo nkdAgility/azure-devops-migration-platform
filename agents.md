@@ -103,6 +103,25 @@ These files define what must never be violated:
 → agents/acceptance-test-format.md — Gherkin format, naming, prohibited patterns
 → agents/testing-standards.md — Reqnroll + MSTest conventions
 
+## ATDD Agent Profiles (GitHub Custom Agents)
+→ .github/agents/specification-agent.agent.md
+→ .github/agents/test-generator.agent.md
+→ .github/agents/implementer.agent.md
+→ .github/agents/reviewer.agent.md
+→ .github/agents/orchestrator.agent.md
+
+## Session Lifecycle Skills
+→ .github/skills/start-session.md — assemble context and invoke Specification Agent
+→ .github/skills/review.md — invoke Reviewer Agent and record verdict
+→ .github/skills/end-session.md — verify gates, finalise log, signal commit-ready
+→ .github/skills/fix.md — resume a failed or interrupted session
+
+## Session Commands (Slash-command aliases)
+→ .github/commands/start-session.md — /start-session
+→ .github/commands/review.md — /review
+→ .github/commands/end-session.md — /end-session
+→ .github/commands/fix.md — /fix
+
 If code conflicts with these, reject the change.
 
 ---
