@@ -29,7 +29,7 @@ tests/acceptance/
 
 ## Format
 
-All feature files use standard Gherkin syntax. See [docs/agent-rules/acceptance-test-format.md](../../docs/agent-rules/acceptance-test-format.md) for the required format and naming conventions.
+All feature files use standard Gherkin syntax. See [agents/acceptance-test-format.md](../../agents/acceptance-test-format.md) for the required format and naming conventions.
 
 ## Rules
 

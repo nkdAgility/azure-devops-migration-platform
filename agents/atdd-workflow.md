@@ -29,9 +29,24 @@ No session may encompass multiple acceptance scenarios. No code is committed wit
 
 ### Phase 1 — Specification (Specification Agent)
 
-**Input:** User story or feature request.  
-**Output:** A Gherkin `.feature` file under `tests/acceptance/<area>/`.  
-**Gate:** Feature file must describe at least one concrete, verifiable scenario. Ambiguous requirements surface to the human before proceeding.
+**Input:** Human-authored draft intent description.  
+**Output:** All four specification artifacts — intent description, Gherkin `.feature` file, architecture constraints, and non-functional acceptance criteria.  
+**Human gate:** The human must explicitly approve the complete specification set before Phase 2 begins.
+
+Phase 1 is a **collaborative four-step cycle** at each of four stages:
+
+| Stage | Artifact | Cycle |
+|---|---|---|
+| Intent Definition | Intent description | Human drafts → Agent critiques → Human decides → Agent refines |
+| Behaviour Specification | Gherkin `.feature` file | Agent generates → Agent finds gaps → Human approves scenarios |
+| Architecture Specification | Constraint notes (inline comments) | Agent identifies integration points → checks guardrails → Human approves |
+| Acceptance Criteria | Non-functional thresholds | Agent suggests measurables → Human approves |
+
+After all four stages have human-approved artifacts, the Specification Agent runs a **consistency validation**: checks all four artifacts for clarity, testability, scope, terminology, completeness, and conflicts. Only after this validation passes does the agent signal readiness.
+
+**Scope constraint:** One session = one thin vertical slice = one scenario. If the requirement implies more than one independently deliverable behaviour, split it before starting Phase 1.
+
+**Gate:** All four artifacts are complete, consistent, and human-approved. `"human_approved": true` must be present in the Specification Agent's output JSON.
 
 ### Phase 2 — Test Generation (Test Generation Agent)
 
@@ -41,7 +56,7 @@ No session may encompass multiple acceptance scenarios. No code is committed wit
 
 ### Phase 3 — Implementation (Implementation Agent)
 
-**Input:** The failing tests from Phase 2, the Planner's plan (if provided), and the full docs set.  
+**Input:** The failing Reqnroll step definition files from Phase 2 and the full docs set.  
 **Output:** Production code (and any required config, schema, or documentation updates) that causes the Phase 2 tests to pass.  
 **Gate:** All tests from Phase 2 pass. No new architectural violations.
 

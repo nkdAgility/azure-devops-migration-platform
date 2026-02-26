@@ -78,6 +78,8 @@ Validation:
 
 # 🤖 Agent Guardrails (Enforced Rules)
 
+All agent rules live in `/agents`. **Never create a `docs/agent-rules/` directory or any agent rule file under `/docs`.**
+
 These files define what must never be violated:
 
 ## Core Architecture Constraints
@@ -94,6 +96,12 @@ These files define what must never be violated:
 
 ## New Module Requirements
 → agents/module-template.md
+
+## ATDD Rules & Standards
+→ agents/README.md — index of all agent rule files
+→ agents/atdd-workflow.md — ATDD session lifecycle and handoff rules
+→ agents/acceptance-test-format.md — Gherkin format, naming, prohibited patterns
+→ agents/testing-standards.md — Reqnroll + MSTest conventions
 
 If code conflicts with these, reject the change.
 
@@ -124,9 +132,11 @@ Reject any proposal that:
 - Adds hidden state outside `Checkpoints/`.
 - Couples modules directly.
 - Performs live streaming migration.
-- Violates coding standards.- Adds migration execution logic to the control plane.
+- Violates coding standards.
+- Adds migration execution logic to the control plane.
 - References a concrete artefact store implementation inside module code.
 - Sorts `EnumerateAsync` results in memory.
+- Creates agent rule files under `/docs` instead of `/agents`.
 ---
 
 # 🧭 Development Flow

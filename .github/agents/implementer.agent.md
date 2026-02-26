@@ -1,4 +1,4 @@
-# Implementer Agent
+﻿# Implementer Agent
 
 ## Role
 
@@ -41,3 +41,20 @@ A change is complete when:
 - [ ] No architectural rule in [agents/system-architecture.md](../../agents/system-architecture.md) is violated.
 - [ ] Relevant documentation in [docs/](../../docs/) is updated.
 - [ ] No TODO or placeholder left in production paths.
+## Output Schema
+
+Every response from this agent MUST be valid JSON matching this schema. No prose - structured contract only.
+
+```json
+{
+  "files_changed": ["string"],
+  "docs_updated": ["string"],
+  "pending_steps_remaining": 0,
+  "tests_passing": true,
+  "notes": ["string"]
+}
+```
+
+- pending_steps_remaining: MUST be 0 before handoff to Reviewer Agent.
+- tests_passing: MUST be true before handoff to Reviewer Agent.
+- notes: empty array [] if no issues; one message string per observation.

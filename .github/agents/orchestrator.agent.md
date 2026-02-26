@@ -9,7 +9,7 @@ The Orchestrator manages the ATDD session lifecycle. It sequences agent handoffs
 
 - An incoming feature request, user story, or issue.
 - The acceptance test definitions in [tests/acceptance/](../../tests/acceptance/).
-- The agent-rules workflow in [docs/agent-rules/atdd-workflow.md](../../docs/agent-rules/atdd-workflow.md).
+- The ATDD workflow in [agents/atdd-workflow.md](../../agents/atdd-workflow.md).
 - The hard guardrails in [agents/system-architecture.md](../../agents/system-architecture.md).
 - CI feedback (test results, build status).
 
@@ -25,11 +25,13 @@ The Orchestrator manages the ATDD session lifecycle. It sequences agent handoffs
 
 For each scenario, the Orchestrator drives the following sequence:
 
-1. **Specification Agent** — converts requirement into Gherkin `.feature` file.
-2. **Test Generation Agent** — converts `.feature` file into failing MSTest code.
+1. **Specification Agent** — runs the four-stage specification cycle (Intent → Behaviour → Architecture → Acceptance Criteria). **Requires explicit human approval before proceeding.**
+2. **Test Generation Agent** — converts the approved `.feature` file into failing Reqnroll step definitions.
 3. **Implementation Agent** — implements production code to pass the tests.
 4. **Reviewer Agent** — verifies the change against architectural guardrails.
 5. **Commit** — the Orchestrator signals readiness for commit only after Reviewer approves.
+
+The Specification Agent gate is a hard stop. The Orchestrator must not invoke the Test Generation Agent until the Specification Agent's output schema includes `"human_approved": true`.
 
 ### Handoff Rules
 
@@ -37,6 +39,7 @@ For each scenario, the Orchestrator drives the following sequence:
 - If any agent returns an error or ambiguity, stop the session and surface the issue to the human.
 - If the Reviewer rejects, the session returns to the Implementation Agent — not back to specification.
 - If the Specification Agent flags architectural invalidity, escalate to a human immediately.
+- Do not invoke the Test Generation Agent until `"human_approved": true` is present in the Specification Agent's output.
 
 ### Logging
 

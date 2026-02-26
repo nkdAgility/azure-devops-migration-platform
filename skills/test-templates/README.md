@@ -13,7 +13,7 @@ Load this skill when the **Test Generation Agent** needs to produce pending/fail
 ## Input Contract
 
 - The structured test plan produced by the **Parse Criteria** skill.
-- The [docs/agent-rules/testing-standards.md](../../docs/agent-rules/testing-standards.md) naming and structure rules.
+- The [agents/testing-standards.md](../../agents/testing-standards.md) naming and structure rules.
 
 ## Available Templates
 

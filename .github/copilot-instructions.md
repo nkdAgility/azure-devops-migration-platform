@@ -54,7 +54,7 @@ Specification Agent → Test Generation Agent → Implementation Agent → Revie
 ## ATDD Infrastructure
 
 - **Acceptance tests:** [tests/acceptance/](../tests/acceptance/) — Gherkin `.feature` files by functional area
-- **Agent-rules:** [docs/agent-rules/](../docs/agent-rules/) — testing standards, acceptance test format, ATDD workflow
+- **Agent-rules:** [agents/](../agents/) — testing standards, acceptance test format, ATDD workflow (all agent rules live here)
 - **Skills:** [skills/](../skills/) — reusable instruction bundles loaded by agents
   - `skills/parse-criteria/` — parse Gherkin and produce structured test plans
   - `skills/test-templates/` — Reqnroll step definition and context templates
@@ -63,5 +63,5 @@ Specification Agent → Test Generation Agent → Implementation Agent → Revie
 
 ## ATDD Workflow (One Scenario Per Session)
 
-See [docs/agent-rules/atdd-workflow.md](../docs/agent-rules/atdd-workflow.md) for the full session discipline.
+See [agents/atdd-workflow.md](../agents/atdd-workflow.md) for the full session discipline.
 ```

@@ -20,8 +20,8 @@ Typical invocation: **Test Generation Agent** loads this skill before processing
 
 The agent must have access to:
 - The `.feature` file path.
-- The [docs/agent-rules/acceptance-test-format.md](../../docs/agent-rules/acceptance-test-format.md) conventions.
-- The [docs/agent-rules/testing-standards.md](../../docs/agent-rules/testing-standards.md) naming rules.
+- The [agents/acceptance-test-format.md](../../agents/acceptance-test-format.md) conventions.
+- The [agents/testing-standards.md](../../agents/testing-standards.md) naming rules.
 
 ## Output Contract
 

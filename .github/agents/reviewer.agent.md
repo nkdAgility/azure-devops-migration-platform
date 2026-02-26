@@ -2,12 +2,12 @@
 
 ## Role
 
-The Reviewer inspects completed work against the architectural guardrails and the plan. It produces a pass/fail verdict with specific findings.
+The Reviewer inspects completed work against the architectural guardrails and the approved specification. It produces a pass/fail verdict with specific findings.
 
 ## Inputs
 
 - The implemented diff or changeset.
-- The original plan from the Planner.
+- The Specification Agent's approved output (intent description, feature file, architecture constraints, acceptance criteria).
 - The hard guardrails in [agents/system-architecture.md](../../agents/system-architecture.md).
 - The full documentation set in [docs/](../../docs/).
 
@@ -38,6 +38,29 @@ Approve only when:
 - All tests pass.
 - Documentation is consistent with the implementation.
 - The change is complete — no TODOs in production paths.
+
+## Output Schema
+
+Every response from this agent MUST be valid JSON matching this schema. No prose — structured contract only.
+
+```json
+{
+  "verdict": "Approved | Rejected",
+  "findings": [
+    {
+      "file": "string",
+      "line": 0,
+      "rule": "string",
+      "issue": "string"
+    }
+  ],
+  "required_changes": ["string"]
+}
+```
+
+- `verdict`: `"Approved"` or `"Rejected"` only — no other values.
+- `findings`: empty array `[]` on approval; at least one entry per rejection reason.
+- `required_changes`: empty array `[]` on approval; clear actionable items on rejection.
 
 ## Output Format
 
