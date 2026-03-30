@@ -226,9 +226,11 @@ Import MUST:
 
 When source.type == "TeamFoundationServer":
 
-* Export MUST be performed by invoking the external .NET 4 OM exporter via process execution.
-* The modern runtime MUST NOT link against .NET Framework libraries.
-* The export output MUST be validated.
+* Export MUST be performed by `ITfsExporterAdapter` / `TfsExporterProcessAdapter`, which spawns `DevOpsMigrationPlatform.TfsExporter` as an isolated subprocess.
+* The .NET 10 host MUST NOT link against any .NET Framework assembly.
+* Communication with the subprocess MUST follow the process bridge protocol defined in [docs/tfs-exporter.md](../docs/tfs-exporter.md): stdin JSON, stdout NDJSON progress, stderr errors, cancellation sentinel file, exit code.
+* Credentials MUST be passed via stdin JSON — never as command-line arguments.
+* The export output MUST be validated after the subprocess exits.
 * If the legacy output does not match the canonical package format, a normalisation step MUST convert it.
 
 The external exporter is an extraction backend only.

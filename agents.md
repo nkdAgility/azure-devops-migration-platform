@@ -71,6 +71,9 @@ Migration Agent (worker):
 TUI:
 → docs/tui.md
 
+Aspire orchestration:
+→ docs/aspire-integration.md
+
 Validation:
 → docs/validation.md
 
@@ -90,6 +93,9 @@ These files define what must never be violated:
 
 ## Migration Behaviour Constraints
 → agents/migration-rules.md
+
+## Aspire Integration Guardrails
+→ agents/aspire-integration.md
 
 ## Coding Standards
 → agents/coding-standards.md

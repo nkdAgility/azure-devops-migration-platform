@@ -58,4 +58,7 @@ These rules are non-negotiable. They are distilled from the full reference set i
 18. **No UI coupling in the Job Engine or modules.**
     The Job Engine and all modules must not write to `Console`, reference `System.Console`, or use any interactive input mechanism. All output goes through `IProgressSink` (progress events) or `IArtefactStore` (logs written to `Logs/`). Any violation makes the engine unrunnable as a Migration Agent.
 
+19. **TFS Object Model runs in an isolated subprocess only.**
+    The .NET 4.x TFS exporter (`DevOpsMigrationPlatform.TfsExporter`) is a completely separate binary. The .NET 10 host communicates with it exclusively via the process bridge protocol: config JSON on stdin, NDJSON progress lines on stdout, unstructured errors on stderr, a cancellation sentinel file, and exit code. The .NET 10 host must never hold a compiled reference to the .NET 4 project, link against any .NET Framework assembly, or invoke TFS OM APIs in any form. The adapter (`TfsExporterProcessAdapter`) is the only permitted caller of the subprocess. See [docs/tfs-exporter.md](../docs/tfs-exporter.md) for the full protocol specification.
+
 Consult [docs/architecture.md](../docs/architecture.md). If the answer is not there, the safest default is to preserve the package layout, maintain streaming behaviour, and write state only through the defined interfaces.

@@ -36,14 +36,19 @@ The system supports two source types, controlled by `source.type` in the configu
 
 **Requirements:**
 
-- The .NET 9 control plane cannot call TFS Object Model APIs directly.
-- An external .NET 4 OM exporter process is invoked as a subprocess.
-- The contract between the control plane and the exporter is:
-  - Input: JSON config passed via stdin or a temp file.
-  - Output: Written to the package path specified in config.
-  - Exit code 0 = success; non-zero = failure.
-- The control plane validates and normalises the exporter's output before treating it as canonical package data.
+- The .NET 10 host cannot call TFS Object Model APIs directly.
+- The export MUST be delegated to `ITfsExporterAdapter`, implemented by `TfsExporterProcessAdapter`, which spawns the `DevOpsMigrationPlatform.TfsExporter` subprocess (built against .NET 4.8).
+- The process bridge protocol is:
+  - **stdin** — `TfsExportRequest` as UTF-8 JSON (includes credentials; never via CLI args)
+  - **stdout** — NDJSON progress lines consumed by the adapter and forwarded to `IProgressSink`
+  - **stderr** — unstructured error detail captured for failure logging
+  - **exit code** — 0 for success, 1–5 for specific failure categories
+  - **cancellation** — adapter writes a sentinel file; subprocess polls and aborts gracefully
+- The subprocess writes package files and cursor checkpoints to `packageRootPath`.
+- The adapter validates and normalises the exporter's output before treating it as canonical package data.
 - If normalisation is required (e.g., field name casing differences), it is applied transparently.
+
+See [docs/tfs-exporter.md](tfs-exporter.md) for the complete process bridge specification.
 
 ### Validation and Normalisation
 

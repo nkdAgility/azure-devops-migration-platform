@@ -47,6 +47,17 @@ The TUI routes a `MigrationJob` to one of two transports:
 
 Both transports call the same Job Engine contract. Switching from local to cloud requires no changes to the Job Engine or module code.
 
+### Microsoft Aspire Orchestration
+
+The Control Plane and Migration Agent(s) are orchestrated by Microsoft Aspire in both local development and cloud deployment scenarios:
+
+- **Local**: Aspire AppHost runs Control Plane API, Migration Agent(s), PostgreSQL, and Azurite (blob emulator) on the developer's machine
+- **Cloud**: Aspire deploys the same components to Azure Container Apps with PostgreSQL Flexible Server and Azure Blob Storage
+
+The TUI always runs locally as a standalone CLI and is never orchestrated by Aspire. It connects to the Control Plane via configuration (localhost for local dev, cloud URL for production).
+
+See [docs/aspire-integration.md](aspire-integration.md) for the complete orchestration model.
+
 ### All Stores are URI-Based
 
 The package location is expressed as a URI in the `MigrationJob`. The Job Engine resolves the URI to an `IArtefactStore` implementation:
@@ -98,24 +109,27 @@ Key properties:
 ### Phase 1 — Local-first
 
 1. `MigrationJob` model + schema
-2. Job Engine (orchestrator + modules contract + cursors)
-3. `IArtefactStore` + `FileSystemArtefactStore` (`file:///` URI)
-4. `IStateStore` / `PackageCheckpointStateStore` (`Checkpoints/` inside package)
-5. `IProgressSink` with `ConsoleProgressSink` + `PackageProgressSink`
-6. WorkItems module (REST)
-7. Identity module
-8. Legacy TFS export adapter
-9. Teams / Permissions / Builds modules
-10. TUI local commands (`prepare`, `export`, `import`, `both`, `validate`, `pack`, `unpack`)
-11. `ControlPlaneClient` stub (remote commands parse, return "not implemented")
+2. Aspire AppHost + ServiceDefaults projects
+3. Job Engine (orchestrator + modules contract + cursors)
+4. `IArtefactStore` + `FileSystemArtefactStore` (`file:///` URI)
+5. `IStateStore` / `PackageCheckpointStateStore` (`Checkpoints/` inside package)
+6. `IProgressSink` with `ConsoleProgressSink` + `PackageProgressSink`
+7. WorkItems module (REST)
+8. Identity module
+9. Legacy TFS export adapter
+10. Teams / Permissions / Builds modules
+11. TUI local commands (`prepare`, `export`, `import`, `both`, `validate`, `pack`, `unpack`)
+12. `ControlPlaneClient` stub (remote commands parse, return "not implemented")
 
 ### Phase 2 — Cloud-ready
 
-12. `AzureBlobArtefactStore` (`azureblob://` URI)
-13. Control plane API (job submission, lease, status, logs)
-14. Migration Agent container (poll, execute, heartbeat, report)
-15. `ControlPlaneProgressSink`
-16. TUI remote commands (`queue`, `status`, `logs`, `pause`, `resume`, `cancel`)
+13. `AzureBlobArtefactStore` (`azureblob://` URI) with Azurite local emulator support
+14. Control plane API (job submission, lease, status, logs)
+15. Migration Agent worker service (poll, execute, heartbeat, report)
+16. Aspire orchestration for local multi-service testing
+17. `ControlPlaneProgressSink`
+18. TUI remote commands (`queue`, `status`, `logs`, `pause`, `resume`, `cancel`)
+19. `azd` deployment templates for Azure Container Apps
 
 ### Phase 3 — Operational hardening
 
