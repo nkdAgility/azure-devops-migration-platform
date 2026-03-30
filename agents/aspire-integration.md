@@ -12,13 +12,16 @@
 - `DevOpsMigrationPlatform.ServiceDefaults` — Shared observability/resilience extensions
 - `DevOpsMigrationPlatform.ControlPlane` — ASP.NET Core Web API
 - `DevOpsMigrationPlatform.MigrationAgent` — Worker Service
+- `DevOpsMigrationPlatform.CLI.Migration` (net10.0) — Main TUI; spawns `CLI.TfsMigration` as subprocess
+- `DevOpsMigrationPlatform.CLI.TfsMigration` (net481) — TFS exporter CLI; callable as subprocess OR independently
 
 ### MUST NOT Have
 
-- TUI (CLI) added to AppHost resources — the TUI is always standalone
+- TUI (`CLI.Migration` or `CLI.TfsMigration`) added to AppHost resources — both are always standalone
 - Multiple AppHost projects — only one orchestrator per solution
 - Custom health check or metrics endpoints bypassing ServiceDefaults
 - Hardcoded URLs in Migration Agent or Control Plane code (use service discovery)
+- A direct assembly or project reference from `CLI.Migration` (net10.0) to `CLI.TfsMigration` (net481) — subprocess via `ExternalToolRunner` only
 
 ---
 
@@ -290,19 +293,37 @@ resource migrationAgent 'Microsoft.App/containerApps@2023-05-01' = {
 
 ## TUI Rules
 
-### The TUI MUST:
+### CLI.Migration (net10.0) — Main TUI MUST:
 
 - Run as a standalone CLI (not orchestrated by Aspire)
 - Read Control Plane endpoint from configuration file
 - Support both local (`http://localhost:5100`) and cloud (`https://controlplane.azurecontainerapps.io`) endpoints
 - Validate job definitions before submission
 - Display job status via Control Plane API
+- Invoke `CLI.TfsMigration` via `ExternalToolRunner` (subprocess) for TFS source exports
+- Resolve the `CLI.TfsMigration` executable path from configuration (`tfsExporter:executablePath`) — never a hardcoded relative path in production
 
-### The TUI MUST NOT:
+### CLI.Migration MUST NOT:
 
 - Be added to the Aspire AppHost
 - Use Aspire service discovery
 - Execute Job Engine logic directly (always submit to Control Plane)
+- Hold a direct project or assembly reference to `CLI.TfsMigration`
+
+### CLI.TfsMigration (net481) — TFS Exporter CLI MUST:
+
+- Be invocable as a standalone CLI without `CLI.Migration` present
+- Accept all required parameters via CLI arguments (`--tfsserver`, `--project`, `--output`, etc.)
+- Read credentials from stdin JSON when PAT authentication is required
+- Write output to the `--output` path following canonical package layouts
+- Write NDJSON progress lines to stdout (consumed by `CLI.Migration` or a calling script)
+- Exit with the standard exit codes defined in [docs/tfs-exporter.md](../docs/tfs-exporter.md)
+
+### CLI.TfsMigration MUST NOT:
+
+- Be added to the Aspire AppHost
+- Be referenced by any net10.0 project via `<ProjectReference>`
+- Accept credentials via CLI arguments (stdin JSON only)
 
 ---
 
@@ -310,7 +331,10 @@ resource migrationAgent 'Microsoft.App/containerApps@2023-05-01' = {
 
 Reject any code that:
 
-- Adds TUI to AppHost resources.
+- Adds `CLI.Migration` or `CLI.TfsMigration` to AppHost resources.
+- Adds a direct project or assembly reference from `CLI.Migration` to `CLI.TfsMigration`.
+- Hardcodes the `CLI.TfsMigration` exe path to a development-relative path in production configuration.
+- Makes `CLI.TfsMigration` non-invocable as a standalone CLI (e.g. requires the main TUI to be present).
 - Hardcodes Control Plane URLs in Migration Agent code.
 - Bypasses ServiceDefaults observability configuration.
 - Uses custom health checks without calling `AddDefaultHealthChecks()`.
@@ -326,7 +350,10 @@ Reject any code that:
 Before accepting a change, verify:
 
 - [ ] ServiceDefaults is referenced by all services (Control Plane, Agent).
-- [ ] AppHost does not include TUI project reference.
+- [ ] AppHost does not include `CLI.Migration` or `CLI.TfsMigration` project references.
+- [ ] `CLI.Migration` has no direct project reference to `CLI.TfsMigration` — subprocess via `ExternalToolRunner` only.
+- [ ] `CLI.TfsMigration` can be invoked standalone (no dependency on `CLI.Migration` being present).
+- [ ] `CLI.TfsMigration` exe path is read from configuration, not hardcoded in production.
 - [ ] Migration Agent uses service discovery for Control Plane communication.
 - [ ] TUI explicitly configures Control Plane endpoint from configuration.
 - [ ] OpenTelemetry is configured via ServiceDefaults only.
