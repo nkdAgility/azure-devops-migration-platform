@@ -26,6 +26,26 @@ Ensure:
 - MUST target .NET 9 or .NET 10.
 - All new code MUST be .NET 9/10 unless explicitly exempted.
 
+## Cross-Runtime Code Sharing (Multi-Targeting)
+
+`DevOpsMigrationPlatform.Abstractions` and `DevOpsMigrationPlatform.Infrastructure` MUST target both `net481` and `net10.0`:
+
+```xml
+<TargetFrameworks>net481;net10.0</TargetFrameworks>
+```
+
+This is the only permitted mechanism for sharing types between the .NET 10 host and the .NET 4.8 subprocess. The same source compiles independently for each runtime — no cross-runtime DLL references exist at runtime.
+
+Types permitted in multi-targeted projects:
+- Model records and DTOs (work item revisions, progress events, fields, links, attachments)
+- Interface definitions (e.g., `IWorkItemExportService`)
+- Shared utility code with no platform-specific APIs
+
+Types that MUST NOT be in multi-targeted projects:
+- `ITfsExporterAdapter`, `TfsExporterProcessAdapter` — net10.0 only
+- `IArtefactStore`, `IStateStore`, `IProgressSink` — net10.0 only
+- Any type referencing TFS OM assemblies (`Microsoft.TeamFoundation.*`) — net481 only, TfsExporter project only
+
 ## Legacy Runtime (Explicit Carve-Out)
 
 The ONLY allowed .NET Framework usage is:

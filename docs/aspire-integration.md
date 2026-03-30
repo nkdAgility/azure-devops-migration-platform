@@ -45,6 +45,10 @@ src/
   DevOpsMigrationPlatform.CLI.Migration/         ← TUI (not orchestrated by Aspire)
     Program.cs                                    ← local CLI entry point
     DevOpsMigrationPlatform.CLI.Migration.csproj
+
+  DevOpsMigrationPlatform.CLI.TfsMigration/         ← TUI (not orchestrated by Aspire)
+    Program.cs                                    ← local CLI entry point
+    DevOpsMigrationPlatform.CLI.TfsMigration.csproj
 ```
 
 ---

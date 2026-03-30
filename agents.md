@@ -71,6 +71,9 @@ Migration Agent (worker):
 TUI:
 → docs/tui.md
 
+TFS legacy process bridge:
+→ docs/tfs-exporter.md
+
 Aspire orchestration:
 → docs/aspire-integration.md
 
