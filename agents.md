@@ -7,10 +7,10 @@ This file is the mandatory starting point for any AI agent or contributor.
 It connects:
 
 - Human-readable architecture (`/docs`)
-- Enforced guardrails (`/agents`)
+- Enforced guardrails (`/ai/guardrails`)
 
 If anything conflicts:
-- `/agents/*.md` guardrails override implementation
+- `/ai/guardrails/*.md` guardrails override implementation
 - `/docs/*.md` define architectural intent
 
 ---
@@ -87,33 +87,32 @@ Validation:
 
 # 🤖 Agent Guardrails (Enforced Rules)
 
-All agent rules live in `/agents`. **Never create a `docs/agent-rules/` directory or any agent rule file under `/docs`.**
+All agent rules live in `/ai/guardrails`. **Never create a `docs/agent-rules/` directory or any agent rule file under `/docs`.**
 
 These files define what must never be violated:
 
 ## Core Architecture Constraints
-→ agents/system-architecture.md
+→ ai/guardrails/system-architecture.md
 
 ## WorkItems-Specific Rules
-→ agents/workitems-rules.md
+→ ai/guardrails/workitems-rules.md
 
 ## Migration Behaviour Constraints
-→ agents/migration-rules.md
+→ ai/guardrails/migration-rules.md
 
 ## Aspire Integration Guardrails
-→ agents/aspire-integration.md
+→ ai/guardrails/aspire-integration.md
 
 ## Coding Standards
-→ agents/coding-standards.md
+→ ai/guardrails/coding-standards.md
 
 ## New Module Requirements
-→ agents/module-template.md
+→ ai/guardrails/module-template.md
 
 ## ATDD Rules & Standards
-→ agents/README.md — index of all agent rule files
-→ agents/atdd-workflow.md — ATDD session lifecycle and handoff rules
-→ agents/acceptance-test-format.md — Gherkin format, naming, prohibited patterns
-→ agents/testing-standards.md — Reqnroll + MSTest conventions
+→ ai/guardrails/atdd-workflow.md — ATDD session lifecycle and handoff rules
+→ ai/guardrails/acceptance-test-format.md — Gherkin format, naming, prohibited patterns
+→ ai/guardrails/testing-standards.md — Reqnroll + MSTest conventions
 
 ## ATDD Agent Profiles (GitHub Custom Agents)
 → .github/agents/specification-agent.agent.md
@@ -123,10 +122,10 @@ These files define what must never be violated:
 → .github/agents/orchestrator.agent.md
 
 ## Session Lifecycle Skills
-→ .github/skills/start-session.md — assemble context and invoke Specification Agent
-→ .github/skills/review.md — invoke Reviewer Agent and record verdict
-→ .github/skills/end-session.md — verify gates, finalise log, signal commit-ready
-→ .github/skills/fix.md — resume a failed or interrupted session
+→ .github/skills/start-session/SKILL.md — assemble context and invoke Specification Agent
+→ .github/skills/review/SKILL.md — invoke Reviewer Agent and record verdict
+→ .github/skills/end-session/SKILL.md — verify gates, finalise log, signal commit-ready
+→ .github/skills/fix/SKILL.md — resume a failed or interrupted session
 
 ## Session Commands (Slash-command aliases)
 → .github/commands/start-session.md — /start-session
@@ -149,7 +148,7 @@ If code conflicts with these, reject the change.
 7. All persistence goes through IArtefactStore and IStateStore.
 8. Determinism is mandatory.
 
-Detailed logic is in `/agents`.
+Detailed logic is in `/ai/guardrails`.
 
 ---
 
@@ -167,7 +166,7 @@ Reject any proposal that:
 - Adds migration execution logic to the control plane.
 - References a concrete artefact store implementation inside module code.
 - Sorts `EnumerateAsync` results in memory.
-- Creates agent rule files under `/docs` instead of `/agents`.
+- Creates agent rule files under `/docs` instead of `/ai/guardrails`.
 ---
 
 # 🧭 Development Flow
@@ -175,7 +174,7 @@ Reject any proposal that:
 When implementing:
 
 1. Read relevant `/docs` file.
-2. Apply constraints from `/agents`.
+2. Apply constraints from `/ai/guardrails`.
 3. Implement via module abstraction.
 4. Add tests.
 5. Update schemas if required.
@@ -185,7 +184,7 @@ When implementing:
 # Final Principle
 
 `/docs` explains the architecture.
-`/agents` enforces the architecture.
+`/ai/guardrails` enforces the architecture.
 `agents.md` binds the two.
 
 Preserve:

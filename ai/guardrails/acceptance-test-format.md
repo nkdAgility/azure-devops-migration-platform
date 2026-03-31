@@ -12,11 +12,18 @@ Tiers:
 - `platform/` — architectural guarantees the platform must honour regardless of which modules are active (e.g., checkpointing, validation).
 - `services/` — shared DI services that cut across all operations and connectors (e.g., identity-mapping).
 - `export/`, `import/`, `inventory/` — module features for this operation. No connector subfolder — use `@azure-devops-rest`, `@tfs-object-model`, `@jira`, `@github` tags on scenarios to declare which connector(s) a scenario applies to. Connector-specific edge-case files sit alongside the shared file and are named `<connector>-<concern>.feature`.
+- `cli/` — CLI command-wiring behaviour. Tests that `migrate <command>` builds the correct job, invokes the correct pipeline, and reports correctly. Does **not** duplicate module outcome tests that live under `export/`/`import/`.
 
 Segments under `export/`, `import/`, `inventory/`:
 - `<module>` — `work-items`, `git-repos`, `pipelines`, `artifacts`, `teams`, `permissions`, `identities`.
 - `<sub-module>` — `revisions`, `attachments`, `links`. Omit when not applicable.
 - `<feature-name>` is kebab-case matching the `Feature:` declaration in the file (e.g., `export-work-item-revisions.feature`).
+
+Segments under `cli/`:
+- `prepare/` — `migrate prepare` config validation, dry-run output, `configHash` computation.
+- `execute/` — `migrate execute` job lifecycle: queuing, status polling, log streaming.
+- `export/` — `migrate export` CLI wiring (builds export job, delegates to export pipeline).
+- `import/` — `migrate import` CLI wiring (builds import job, delegates to import pipeline).
 
 Examples:
 ```
@@ -27,6 +34,8 @@ features/import/work-items/revisions/streaming-replay.feature
 features/platform/checkpointing/cursor-resume.feature
 features/platform/validation/package-validation.feature
 features/services/identity-mapping/identity-mapping.feature
+features/cli/prepare/prepare-validates-config.feature
+features/cli/export/export-command-wiring.feature
 ```
 
 ## Required File Structure
