@@ -2,7 +2,7 @@
 
 A versioned migration package platform with streaming chronological replay. Not a live migration tool — it produces and consumes portable, auditable, zip-friendly migration packages.
 
-**Modes:** `Export` (source → files), `Import` (files → Azure DevOps Services), `Both` (export then import in a single run).
+**Modes:** `Export` (source → files), `Import` (files → Target), `Both` (export then import in a single run).
 
 **Sources:** Azure DevOps Services (native REST) and Team Foundation Server (via .NET 4 Object Model external exporter).
 
