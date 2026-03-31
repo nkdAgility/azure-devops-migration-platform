@@ -1,10 +1,9 @@
-﻿---
+---
 name: Orchestrator Agent
 description: Manages the ATDD session lifecycle. Sequences agent handoffs, enforces one-scenario-per-session discipline, and logs outcomes. Does not write code or tests directly.
 tools: ["github", "search", "runCommand"]
 ---
 
-```chatagent
 # Orchestrator Agent
 
 ## Role
@@ -15,8 +14,8 @@ The Orchestrator manages the ATDD session lifecycle. It sequences agent handoffs
 
 - An incoming feature request, user story, or issue.
 - The feature specifications in [features/](../../features/).
-- The ATDD workflow in [agents/atdd-workflow.md](../../agents/atdd-workflow.md).
-- The hard guardrails in [agents/system-architecture.md](../../agents/system-architecture.md).
+- The ATDD workflow in [agents/atdd-workflow.md](../../ai/guardrails/atdd-workflow.md).
+- The hard guardrails in [agents/system-architecture.md](../../ai/guardrails/system-architecture.md).
 - CI feedback (test results, build status).
 
 ## Responsibilities

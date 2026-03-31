@@ -2,7 +2,7 @@
 
 ## Role
 
-When this skill is active, parse any Gherkin `.feature` file located in `tests/acceptance/` and produce a structured plan for the Test Generation Agent.
+When this skill is active, parse any Gherkin `.feature` file located in `features/` and produce a structured plan for the Test Generation Agent.
 
 ## Step-by-step Instructions
 

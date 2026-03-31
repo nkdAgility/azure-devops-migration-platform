@@ -3,6 +3,8 @@ Feature: Identities Module Export
   I want known source identities to be exported into the package
   So that identity mapping can be performed before import
 
+  @azure-devops-rest @tfs-object-model
+
   Scenario: Identity export writes known identities to the package
     Given the source project contains users "alice@source.example.com" and "bob@source.example.com"
     When the IdentitiesModule export runs

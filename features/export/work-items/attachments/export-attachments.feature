@@ -3,6 +3,8 @@ Feature: Export Attachments
   I want attachments exported alongside their owning revision
   So that each revision folder is self-contained and the package is portable
 
+  @azure-devops-rest @tfs-object-model
+
   Background:
     Given the source project contains work items with file attachments
     And the export module is configured with valid source credentials

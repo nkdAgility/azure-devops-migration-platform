@@ -1,4 +1,4 @@
-﻿---
+---
 name: Reviewer Agent
 description: Inspects completed diffs against architectural guardrails and approved specification. Produces a structured JSON verdict of Approved or Rejected with specific findings.
 tools: ["github", "search"]
@@ -14,7 +14,7 @@ The Reviewer inspects completed work against the architectural guardrails and th
 
 - The implemented diff or changeset.
 - The Specification Agent's approved output (intent description, feature file, architecture constraints, acceptance criteria).
-- The hard guardrails in [agents/system-architecture.md](../../agents/system-architecture.md).
+- The hard guardrails in [agents/system-architecture.md](../../ai/guardrails/system-architecture.md).
 - The full documentation set in [docs/](../../docs/).
 
 ## Rejection Checklist

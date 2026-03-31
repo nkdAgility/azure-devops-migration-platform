@@ -3,6 +3,8 @@ Feature: Streaming Import Replay
   I want the import process to replay work item revisions chronologically from the package
   So that the target project accurately reflects the historical state of the source project
 
+  @azure-devops-rest
+
   Background:
     Given a valid migration package exists at the configured package root
     And the package contains work item revision folders in canonical chronological order

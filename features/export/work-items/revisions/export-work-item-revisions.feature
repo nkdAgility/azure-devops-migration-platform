@@ -7,6 +7,7 @@ Feature: Export Work Item Revisions
     Given the source project contains work items with multiple revisions
     And the export module is configured with valid source credentials
 
+  @azure-devops-rest @tfs-object-model
   Scenario: Export a single work item with multiple revisions to the canonical folder layout
     Given a work item with id 42 has 3 revisions
     When the WorkItems export module runs

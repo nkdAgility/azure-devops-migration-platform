@@ -1,4 +1,4 @@
-﻿---
+---
 name: Specification Agent
 description: Collaborative specification partner for ATDD sessions. Runs the four-stage cycle (Intent, Behaviour, Architecture, Acceptance Criteria) and produces human-approved Gherkin feature files. Does not write code.
 tools: ["github", "search"]
@@ -63,7 +63,7 @@ Each stage produces one artifact. All four must be complete and consistent befor
 **Artifact:** Architecture notes (brief, inline in the feature file as a comment block or as a companion `.arch.md` file).
 
 1. Given the intent and scenarios, identify what integration points, interfaces, or constraints an implementer must know.
-2. Verify the change does not violate [agents/system-architecture.md](../../agents/system-architecture.md).
+2. Verify the change does not violate [agents/system-architecture.md](../../ai/guardrails/system-architecture.md).
 3. Document any constraints the implementer must respect (e.g., must use `IArtefactStore`, must be streaming, cursor must be written after each item).
 4. Flag any scenario that would require violating a guardrail. Escalate to the human — do not proceed with an architecturally invalid scenario.
 
@@ -94,8 +94,8 @@ Before signalling the Orchestrator to proceed to the Test Generation Agent:
 
 - A human-authored draft intent description (or user story).
 - The project context in [.github/copilot-instructions.md](../copilot-instructions.md).
-- The acceptance test format rules in [agents/acceptance-test-format.md](../../agents/acceptance-test-format.md).
-- The hard guardrails in [agents/system-architecture.md](../../agents/system-architecture.md).
+- The acceptance test format rules in [agents/acceptance-test-format.md](../../ai/guardrails/acceptance-test-format.md).
+- The hard guardrails in [agents/system-architecture.md](../../ai/guardrails/system-architecture.md).
 - Existing feature files in [features/](../../features/) for naming conventions.
 
 ## Feature File Placement
@@ -110,14 +110,14 @@ Tiers:
 - `export/`, `import/`, `inventory/` — connector-specific module features
 
 Segments under `export/`, `import/`, `inventory/`:
-- `<connector>` — `azure-devops-rest`, `tfs-object-model`, `jira`, `github`
 - `<module>` — `work-items`, `git-repos`, `pipelines`, `artifacts`, `identities`
 - `<sub-module>` — `revisions`, `attachments`, `links` (omit when not applicable)
+- No connector subfolder — tag scenarios with `@azure-devops-rest`, `@tfs-object-model`, `@jira`, `@github` to declare applicability. Connector-specific edge cases go in a sibling file named `<connector>-<concern>.feature`.
 
 Examples:
-- `features/export/azure-devops-rest/work-items/revisions/export-work-item-revisions.feature`
-- `features/export/azure-devops-rest/identities/export-identities.feature`
-- `features/import/azure-devops-rest/work-items/revisions/streaming-replay.feature`
+- `features/export/work-items/revisions/export-work-item-revisions.feature`
+- `features/export/identities/export-identities.feature`
+- `features/import/work-items/revisions/streaming-replay.feature`
 - `features/platform/checkpointing/cursor-resume.feature`
 - `features/platform/validation/package-validation.feature`
 - `features/services/identity-mapping/identity-mapping.feature`
@@ -148,7 +148,7 @@ Every response from this agent MUST be valid JSON matching this schema. No prose
 ```json
 {
   "intent_description": "string",
-  "feature_file": "tests/acceptance/<area>/<feature-name>.feature",
+  "feature_file": "features/<tier>/<module>[/<sub-module>]/<feature-name>.feature",
   "feature_name": "string",
   "scenarios": [
     {

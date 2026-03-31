@@ -5,26 +5,25 @@ This document defines the required format and naming conventions for Gherkin acc
 ## File Location and Naming
 
 ```
-features/<tier>/<concern-or-connector>[/<module>[/<sub-module>]]/<feature-name>.feature
+features/<tier>/<concern>[/<module>[/<sub-module>]]/<feature-name>.feature
 ```
 
 Tiers:
 - `platform/` — architectural guarantees the platform must honour regardless of which modules are active (e.g., checkpointing, validation).
 - `services/` — shared DI services that cut across all operations and connectors (e.g., identity-mapping).
-- `export/`, `import/`, `inventory/` — connector-specific module features, one folder per connector.
+- `export/`, `import/`, `inventory/` — module features for this operation. No connector subfolder — use `@azure-devops-rest`, `@tfs-object-model`, `@jira`, `@github` tags on scenarios to declare which connector(s) a scenario applies to. Connector-specific edge-case files sit alongside the shared file and are named `<connector>-<concern>.feature`.
 
 Segments under `export/`, `import/`, `inventory/`:
-- `<connector>` — `azure-devops-rest`, `tfs-object-model`, `jira`, `github`.
 - `<module>` — `work-items`, `git-repos`, `pipelines`, `artifacts`, `teams`, `permissions`, `identities`.
 - `<sub-module>` — `revisions`, `attachments`, `links`. Omit when not applicable.
 - `<feature-name>` is kebab-case matching the `Feature:` declaration in the file (e.g., `export-work-item-revisions.feature`).
 
 Examples:
 ```
-features/export/azure-devops-rest/work-items/revisions/export-work-item-revisions.feature
-features/export/azure-devops-rest/work-items/attachments/export-attachments.feature
-features/export/azure-devops-rest/identities/export-identities.feature
-features/import/azure-devops-rest/work-items/revisions/streaming-replay.feature
+features/export/work-items/revisions/export-work-item-revisions.feature
+features/export/work-items/attachments/export-attachments.feature
+features/export/identities/export-identities.feature
+features/import/work-items/revisions/streaming-replay.feature
 features/platform/checkpointing/cursor-resume.feature
 features/platform/validation/package-validation.feature
 features/services/identity-mapping/identity-mapping.feature

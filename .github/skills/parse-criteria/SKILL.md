@@ -2,7 +2,7 @@
 
 ## Role
 
-When this skill is active, parse any Gherkin `.feature` file located in `tests/acceptance/` and produce a structured plan for the Test Generation Agent.
+When this skill is active, parse any Gherkin `.feature` file located in `features/` and produce a structured plan for the Test Generation Agent.
 
 ## Step-by-step Instructions
 
@@ -45,11 +45,11 @@ Convert the Feature name to a `[TestClass]` name:
 
 ### Step 5 — Produce the structured plan
 
-Output the plan in the format defined in [skills/parse-criteria/README.md](README.md).
+Output the plan in the format defined in [README.md](README.md).
 
 ## Constraints
 
 - Do not infer implementation details not present in the scenario text.
 - Do not produce C# code in this step — that is the Test Generation Agent's responsibility.
 - If a step is ambiguous (e.g., "the system does the right thing"), flag it and ask for clarification.
-- Never produce a test plan that would require violating [agents/system-architecture.md](../../agents/system-architecture.md).
+- Never produce a test plan that would require violating [agents/system-architecture.md](../../ai/guardrails/system-architecture.md).

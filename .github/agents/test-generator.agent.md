@@ -1,4 +1,4 @@
-﻿---
+---
 name: Test Generation Agent
 description: Converts approved Gherkin feature files into failing Reqnroll step definition files (red stage). Produces *Steps.cs and *Context.cs. Does not write production code.
 tools: ["github", "search", "editFiles"]
@@ -15,11 +15,11 @@ Reqnroll reads the `.feature` files directly and executes the step definitions v
 
 ## Inputs
 
-- One or more `.feature` files from [tests/acceptance/](../../tests/acceptance/).
-- The testing standards in [agents/testing-standards.md](../../agents/testing-standards.md).
-- The module template checklist in [agents/module-template.md](../../agents/module-template.md).
-- The project coding standards in [agents/coding-standards.md](../../agents/coding-standards.md).
-- The hard guardrails in [agents/system-architecture.md](../../agents/system-architecture.md).
+- One or more `.feature` files from [features/](../../features/).
+- The testing standards in [agents/testing-standards.md](../../ai/guardrails/testing-standards.md).
+- The module template checklist in [agents/module-template.md](../../ai/guardrails/module-template.md).
+- The project coding standards in [agents/coding-standards.md](../../ai/guardrails/coding-standards.md).
+- The hard guardrails in [agents/system-architecture.md](../../ai/guardrails/system-architecture.md).
 - Existing test projects under [tests/](../../tests/) for structure and naming reference.
 
 ## Responsibilities
@@ -56,7 +56,7 @@ Examples:
 
 ## Output Format
 
-Produce two complete `.cs` files. See [skills/test-templates/SKILL.md](../../skills/test-templates/SKILL.md) for the standard Reqnroll step definition and context templates.
+Produce two complete `.cs` files. See [skills/test-templates/SKILL.md](../skills/test-templates/SKILL.md) for the standard Reqnroll step definition and context templates.
 
 After generating the pending step files, pass them to the **Implementation Agent** as the next step.
 
@@ -66,7 +66,7 @@ Every response from this agent MUST be valid JSON matching this schema. No prose
 
 ```json
 {
-  "feature_file": "tests/acceptance/<area>/<feature-name>.feature",
+  "feature_file": "features/<tier>/<module>[/<sub-module>]/<feature-name>.feature",
   "steps_file": "tests/<Project>.Tests/<Area>/<FeatureName>Steps.cs",
   "context_file": "tests/<Project>.Tests/<Area>/<FeatureName>Context.cs",
   "step_count": 0,
