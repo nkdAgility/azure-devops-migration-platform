@@ -15,7 +15,7 @@ This repository is the **Azure DevOps Migration Platform** — a versioned migra
 ```
 src/                        ← production code, one project per layer
 tests/                      ← test projects mirroring src structure
-tests/acceptance/           ← Gherkin .feature files by functional area
+features/                   ← Gherkin .feature files by operation/connector/module
 .github/agents/             ← GitHub custom agents (YAML frontmatter + rules)
 .github/skills/             ← session lifecycle skills (start-session, review, end-session, fix)
 .github/commands/           ← slash-command aliases invoking skills

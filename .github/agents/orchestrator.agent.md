@@ -14,7 +14,7 @@ The Orchestrator manages the ATDD session lifecycle. It sequences agent handoffs
 ## Inputs
 
 - An incoming feature request, user story, or issue.
-- The acceptance test definitions in [tests/acceptance/](../../tests/acceptance/).
+- The feature specifications in [features/](../../features/).
 - The ATDD workflow in [agents/atdd-workflow.md](../../agents/atdd-workflow.md).
 - The hard guardrails in [agents/system-architecture.md](../../agents/system-architecture.md).
 - CI feedback (test results, build status).

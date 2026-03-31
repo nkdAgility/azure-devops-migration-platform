@@ -73,7 +73,7 @@ The legacy exporter is a bounded extraction adapter only.
 
 No other component may use .NET Framework.
 
-See [docs/tfs-exporter.md](../docs/tfs-exporter.md) for the full process bridge protocol.
+See [docs/tfs-exporter.md](../../docs/tfs-exporter.md) for the full process bridge protocol.
 
 ---
 

@@ -49,7 +49,7 @@ Each stage produces one artifact. All four must be complete and consistent befor
 
 ### Stage 2 — Behavior Specification
 
-**Artifact:** Gherkin `.feature` file under `tests/acceptance/<area>/`.
+**Artifact:** Gherkin `.feature` file under `features/<operation-or-concern>[/<connector>/<module>[/<sub-module>]]/`.
 
 1. Generate initial Gherkin scenarios from the approved intent description.
 2. Immediately run a **gap-finding pass**: explicitly ask what scenarios are missing — boundary conditions, failure modes, concurrent access, and interactions with existing behaviour.
@@ -96,18 +96,31 @@ Before signalling the Orchestrator to proceed to the Test Generation Agent:
 - The project context in [.github/copilot-instructions.md](../copilot-instructions.md).
 - The acceptance test format rules in [agents/acceptance-test-format.md](../../agents/acceptance-test-format.md).
 - The hard guardrails in [agents/system-architecture.md](../../agents/system-architecture.md).
-- Existing acceptance tests in [tests/acceptance/](../../tests/acceptance/) for naming conventions.
+- Existing feature files in [features/](../../features/) for naming conventions.
 
-## Acceptance Test Placement
+## Feature File Placement
 
 ```
-tests/acceptance/<area>/<feature-name>.feature
+features/<tier>/<concern-or-connector>[/<module>[/<sub-module>]]/<feature-name>.feature
 ```
+
+Tiers:
+- `platform/` — architectural guarantees that must hold regardless of which modules are active (checkpointing, validation)
+- `services/` — shared DI services that cut across all operations and connectors (identity-mapping)
+- `export/`, `import/`, `inventory/` — connector-specific module features
+
+Segments under `export/`, `import/`, `inventory/`:
+- `<connector>` — `azure-devops-rest`, `tfs-object-model`, `jira`, `github`
+- `<module>` — `work-items`, `git-repos`, `pipelines`, `artifacts`, `identities`
+- `<sub-module>` — `revisions`, `attachments`, `links` (omit when not applicable)
 
 Examples:
-- `tests/acceptance/work-items-export/export-work-item-revisions.feature`
-- `tests/acceptance/import/streaming-replay.feature`
-- `tests/acceptance/checkpointing/cursor-resume.feature`
+- `features/export/azure-devops-rest/work-items/revisions/export-work-item-revisions.feature`
+- `features/export/azure-devops-rest/identities/export-identities.feature`
+- `features/import/azure-devops-rest/work-items/revisions/streaming-replay.feature`
+- `features/platform/checkpointing/cursor-resume.feature`
+- `features/platform/validation/package-validation.feature`
+- `features/services/identity-mapping/identity-mapping.feature`
 
 ## Gherkin Format
 

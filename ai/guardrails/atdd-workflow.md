@@ -64,7 +64,7 @@ After all four stages have human-approved artifacts, the Specification Agent run
 ```
 tests/<ProjectName>.Tests/<Area>/<ClassName>Tests.cs
 ```
-Unit tests are plain MSTest `[TestClass]`/`[TestMethod]` classes, not Reqnroll step definitions. See [agents/testing-standards.md](../../agents/testing-standards.md) for the required coverage table.
+Unit tests are plain MSTest `[TestClass]`/`[TestMethod]` classes, not Reqnroll step definitions. See [agents/testing-standards.md](./testing-standards.md) for the required coverage table.
 
 ### Phase 4 — Review (Reviewer Agent)
 

@@ -23,7 +23,7 @@ $specSchema = @"
 
     ``````json
     {
-        "feature_file": "tests/acceptance/<area>/<feature-name>.feature",
+        "feature_file": "features/<operation>[/<connector>/<module>[/<sub-module>]]/<feature-name>.feature",
         "feature_name": "string",
         "scenarios": [
         {
@@ -48,7 +48,7 @@ $testGenSchema = @"
 
     ``````json
     {
-        "feature_file": "tests/acceptance/<area>/<feature-name>.feature",
+        "feature_file": "features/<operation>[/<connector>/<module>[/<sub-module>]]/<feature-name>.feature",
         "steps_file": "tests/<Project>.Tests/<Area>/<FeatureName>Steps.cs",
         "context_file": "tests/<Project>.Tests/<Area>/<FeatureName>Context.cs",
         "step_count": 0,
