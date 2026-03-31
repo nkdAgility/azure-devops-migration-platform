@@ -71,6 +71,9 @@ Migration Agent (worker):
 TUI:
 → docs/tui.md
 
+CLI:
+→ docs/cli.md
+
 TFS legacy process bridge:
 → docs/tfs-exporter.md
 

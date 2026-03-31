@@ -91,7 +91,7 @@ The platform supports two execution modes:
 - **Local** — The TUI runs the orchestrator in-process using `FileSystemArtefactStore`. No control plane required.
 - **Remote** — The TUI submits a job to the control plane; an agent container executes it using `AzureBlobArtefactStore` or another URI-addressable store.
 
-Both modes use the same orchestrator engine, the same modules, and the same cursor-based checkpoints. The package contract is identical. See [docs/tui.md](tui.md), [docs/control-plane.md](control-plane.md), and [docs/migration-agent.md](migration-agent.md).
+Both modes use the same orchestrator engine, the same modules, and the same cursor-based checkpoints. The package contract is identical. See [docs/cli.md](cli.md), [docs/tui.md](tui.md), [docs/control-plane.md](control-plane.md), and [docs/migration-agent.md](migration-agent.md).
 
 Key properties:
 
@@ -160,7 +160,8 @@ Key properties:
 | 14. Job contract | [docs/job-contract.md](job-contract.md) |
 | 15. Control plane | [docs/control-plane.md](control-plane.md) |
 | 16. Migration Agent (worker) | [docs/migration-agent.md](migration-agent.md) |
-| 17. TUI (Terminal UI) | [docs/tui.md](tui.md) |
+| 17. CLI | [docs/cli.md](cli.md) |
+| 18. TUI (Terminal UI) | [docs/tui.md](tui.md) |
 
 ## Agent Guardrails
 
