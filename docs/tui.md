@@ -2,50 +2,9 @@
 
 ## Purpose
 
-The TUI is the operator's entry point to the migration platform. It is a **thin shell** — it parses arguments, builds a `MigrationJob`, chooses a transport, and renders progress. It contains no migration logic.
+The TUI is the visual progress layer rendered in the terminal during a migration. It subscribes to structured progress events emitted by the Job Engine and renders them as a live progress display. It contains no migration logic and no command routing.
 
-Migration logic lives exclusively in the **Job Engine**. The TUI calls the Job Engine through one of two transports:
-
-- `LocalJobRunner` — executes the Job Engine in-process (no control plane required).
-- `ControlPlaneClient` — submits the job to the control plane and polls for progress.
-
-Both transports accept the same `MigrationJob` payload. Adding the control plane later requires no changes to the Job Engine or to command parsing.
-
----
-
-## Three-Layer Architecture
-
-```
-┌─────────────────────────────────────────┐
-│  TUI Shell                              │
-│  - Parses args                          │
-│  - Loads config                         │
-│  - Builds MigrationJob                  │
-│  - Renders progress via IProgressSink   │
-└────────────────┬────────────────────────┘
-                 │  MigrationJob
-       ┌─────────┴───────────┐
-       │                     │
-┌──────▼──────┐   ┌──────────▼──────────┐
-│ LocalJob    │   │ ControlPlane        │
-│ Runner      │   │ Client              │
-│ (in-process)│   │ (stub → Phase 2)    │
-└──────┬──────┘   └──────────┬──────────┘
-       │                     │
-       └────────┬────────────┘
-                │
-┌───────────────▼─────────────────────────┐
-│  Job Engine                             │
-│  - Validates job                        │
-│  - Resolves module dependency graph     │
-│  - Runs Export / Import / Both          │
-│  - Writes package via IArtefactStore    │
-│  - Writes checkpoints via IStateStore   │
-│  - Emits progress via IProgressSink     │
-└─────────────────────────────────────────┘
-```
-
-The Job Engine has no reference to the TUI, the console, or any progress renderer. It emits structured progress events; the TUI subscribes and renders them.
+Command parsing, mode selection, and job dispatch are handled by the CLI shell. See [docs/cli.md](cli.md).
 
 ---
 
@@ -84,31 +43,7 @@ Phase 1 runs both `ConsoleProgressSink` and `PackageProgressSink` simultaneously
 
 ---
 
-## Execution Modes
-
-### Local Mode
-
-The TUI calls `LocalJobRunner`, which executes the Job Engine directly in-process.
-
-- `IArtefactStore` is `FileSystemArtefactStore`.
-- `IStateStore` is `PackageCheckpointStateStore` (writes `Checkpoints/` inside the package).
-- No control plane required.
-- Suitable for development, testing, and offline migrations.
-
-### Remote Mode
-
-The TUI calls `ControlPlaneClient`, which submits the job to the control plane.
-
-- The Job Engine runs inside a Migration Agent container.
-- `IArtefactStore` is `AzureBlobArtefactStore` (or any URI-addressable store).
-- Requires a configured control plane endpoint (`MIGRATION_API_URL` or equivalent).
-- Progress is rendered by polling the control plane.
-
-**Phase 1:** `ControlPlaneClient` is a stub that returns `NotImplementedException`. The command parses correctly; only execution is deferred.
-
----
-
-## Commands
+## Status Display (Remote Mode)
 
 ### Local Commands
 
@@ -184,25 +119,6 @@ The local config file is never sent directly anywhere. The `MigrationJob` is the
 
 ---
 
-## Local Execution as "Both" Mode
-
-Direct Azure DevOps → Azure DevOps migration in local mode:
-
-```
-migrate both --config migration.json
-```
-
-This runs the full `Source → Files → Target` pipeline in-process:
-
-1. `LocalJobRunner` receives the `MigrationJob`.
-2. Job Engine runs `ExportAsync` for each module.
-3. Job Engine runs the validation pass.
-4. Job Engine runs `ImportAsync` for each module.
-
-No control plane. No Migration Agent. Same job contract, same engine, same cursors, same package format.
-
----
-
 ## Status Display (Remote Mode)
 
 When watching a remote job, the TUI polls the control plane and renders:
@@ -223,41 +139,10 @@ Progress data comes from the control plane's latest cursor mirror. The authorita
 
 ---
 
-## Reconnecting After TUI Disconnection
+## TUI Disconnection
 
-When the TUI is closed or loses connectivity, the job continues running unaffected. The Migration Agent holds the lease independently of the TUI. To reconnect:
+The TUI has no persistent connection to the job. It only reads from the control plane on demand. When the TUI process exits or loses connectivity, the job continues running unaffected — the Migration Agent holds the lease independently.
 
-```
-migrate status --job 550e8400-e29b-41d4-a716-446655440000
-migrate logs   --job 550e8400-e29b-41d4-a716-446655440000 --follow
-```
+Reconnecting is always safe and requires only the `jobId`. See [docs/cli.md](cli.md) for the `status` and `logs` commands.
 
-The `jobId` is the only thing needed. It is printed by `queue` at submission time. Keep it.
-
-### If You Lost the jobId
-
-If the `jobId` was not recorded, retrieve it from the control plane by config hash:
-
-```
-migrate status --config migration.json
-```
-
-The TUI recomputes `configHash` from the config file and queries the control plane for the most recent job with that hash. If more than one job matches, all are listed with their state and timestamp.
-
-### What the TUI Reconnects To
-
-The TUI has no persistent connection to the job. It only reads from the control plane on demand. Reconnecting is always safe:
-
-- `status` is a read-only poll — it never affects the running job.
-- `logs` tails from the point the control plane has buffered — earlier lines may be in `Logs/` in the package.
-- `pause`, `resume`, `cancel` are the only commands that change job state.
-
-### Local Mode Has No Reconnection
-
-In local mode the Job Engine runs in the same process as the TUI. If the TUI exits, the Job Engine stops. Resume requires re-running the command:
-
-```
-migrate both --config migration.json
-```
-
-The cursor in the package ensures the Job Engine picks up from the last completed stage. Nothing is lost beyond the current stage.
+In local mode the Job Engine runs in the same process as the CLI. If the process exits, the Job Engine stops. The cursor in the package ensures the Job Engine picks up from the last completed stage when the command is re-run.
