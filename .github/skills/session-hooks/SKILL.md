@@ -1,3 +1,8 @@
+---
+name: session-hooks
+description: Manages session lifecycle events for the ATDD Orchestrator, including log writes and phase transitions.
+---
+
 # Session Hooks — Skill Instructions
 
 ## Role

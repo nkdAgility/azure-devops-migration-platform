@@ -1,3 +1,8 @@
+---
+name: test-templates
+description: Generates Reqnroll step definition files from a structured test plan using Reqnroll.MSTest.
+---
+
 # Test Templates — Skill Instructions
 
 ## Role

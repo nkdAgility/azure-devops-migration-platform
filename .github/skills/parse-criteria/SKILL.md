@@ -1,3 +1,8 @@
+---
+name: parse-criteria
+description: Parses Gherkin feature files and produces a structured test plan for the Test Generation Agent.
+---
+
 # Parse Acceptance Criteria — Skill Instructions
 
 ## Role

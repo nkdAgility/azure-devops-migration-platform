@@ -16,10 +16,10 @@ Reqnroll reads the `.feature` files directly and executes the step definitions v
 ## Inputs
 
 - One or more `.feature` files from [features/](../../features/).
-- The testing standards in [agents/testing-standards.md](../../ai/guardrails/testing-standards.md).
-- The module template checklist in [agents/module-template.md](../../ai/guardrails/module-template.md).
-- The project coding standards in [agents/coding-standards.md](../../ai/guardrails/coding-standards.md).
-- The hard guardrails in [agents/system-architecture.md](../../ai/guardrails/system-architecture.md).
+- The testing standards in [ai/guardrails/testing-standards.md](../../ai/guardrails/testing-standards.md).
+- The module template checklist in [ai/guardrails/module-template.md](../../ai/guardrails/module-template.md).
+- The project coding standards in [ai/guardrails/coding-standards.md](../../ai/guardrails/coding-standards.md).
+- The hard guardrails in [ai/guardrails/system-architecture.md](../../ai/guardrails/system-architecture.md).
 - Existing test projects under [tests/](../../tests/) for structure and naming reference.
 
 ## Responsibilities

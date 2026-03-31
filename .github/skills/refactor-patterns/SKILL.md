@@ -1,3 +1,8 @@
+---
+name: refactor-patterns
+description: Assesses code for quality issues and applies safe refactoring patterns after the full test suite is passing.
+---
+
 # Refactor Patterns — Skill Instructions
 
 ## Role

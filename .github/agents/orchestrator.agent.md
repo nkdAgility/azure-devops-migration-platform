@@ -14,8 +14,8 @@ The Orchestrator manages the ATDD session lifecycle. It sequences agent handoffs
 
 - An incoming feature request, user story, or issue.
 - The feature specifications in [features/](../../features/).
-- The ATDD workflow in [agents/atdd-workflow.md](../../ai/guardrails/atdd-workflow.md).
-- The hard guardrails in [agents/system-architecture.md](../../ai/guardrails/system-architecture.md).
+- The ATDD workflow in [ai/guardrails/atdd-workflow.md](../../ai/guardrails/atdd-workflow.md).
+- The hard guardrails in [ai/guardrails/system-architecture.md](../../ai/guardrails/system-architecture.md).
 - CI feedback (test results, build status).
 
 ## Responsibilities
