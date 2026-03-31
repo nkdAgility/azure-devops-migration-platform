@@ -2,7 +2,7 @@
 
 Use this checklist when adding a new data type module. Every item is required unless explicitly marked optional.
 
-See [docs/modules.md](../../docs/modules.md) for the full `IDataTypeModule` contract and [agents/system-architecture.md](system-architecture.md) for hard guardrails.
+See [docs/modules.md](../../docs/modules.md) for the full `IDataTypeModule` contract and [ai/guardrails/system-architecture.md](system-architecture.md) for hard guardrails.
 
 ## 1. Schema
 
