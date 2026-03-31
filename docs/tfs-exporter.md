@@ -372,4 +372,4 @@ The `DevOpsMigrationPlatform.TfsExporter` project MUST NOT:
 - [Artefact Store](artefact-store.md) — Package file abstraction
 - [Checkpointing](checkpointing.md) — Cursor model
 - [Validation](validation.md) — Post-export validation
-- [agents/coding-standards.md](../agents/coding-standards.md) — .NET runtime isolation rules
+- [ai/guardrails/coding-standards.md](../ai/guardrails/coding-standards.md) — .NET runtime isolation rules

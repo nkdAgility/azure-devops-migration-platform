@@ -1,8 +1,8 @@
 # Architecture Overview
 
 > This document defines architectural intent and is the primary human reference.
-> In any conflict between this document and `/agents/*.md` guardrails, **the guardrails win**.
-> See [agents/system-architecture.md](../agents/system-architecture.md) for the enforced rules.
+> In any conflict between this document and `/ai/guardrails/*.md` guardrails, **the guardrails win**.
+> See [ai/guardrails/system-architecture.md](../ai/guardrails/system-architecture.md) for the enforced rules.
 > See [agents.md](../agents.md) for the agent entry point that binds docs to guardrails.
 
 ## 1. System Purpose
@@ -167,8 +167,8 @@ Key properties:
 
 | Topic | Document |
 |---|---|
-| Hard architectural constraints (authoritative) | [agents/system-architecture.md](../agents/system-architecture.md) |
-| WorkItems-specific rules | [agents/workitems-rules.md](../agents/workitems-rules.md) |
-| Migration behaviour invariants | [agents/migration-rules.md](../agents/migration-rules.md) |
-| Coding standards | [agents/coding-standards.md](../agents/coding-standards.md) |
-| New module checklist | [agents/module-template.md](../agents/module-template.md) |
+| Hard architectural constraints (authoritative) | [ai/guardrails/system-architecture.md](../ai/guardrails/system-architecture.md) |
+| WorkItems-specific rules | [ai/guardrails/workitems-rules.md](../ai/guardrails/workitems-rules.md) |
+| Migration behaviour invariants | [ai/guardrails/migration-rules.md](../ai/guardrails/migration-rules.md) |
+| Coding standards | [ai/guardrails/coding-standards.md](../ai/guardrails/coding-standards.md) |
+| New module checklist | [ai/guardrails/module-template.md](../ai/guardrails/module-template.md) |

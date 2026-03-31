@@ -30,6 +30,6 @@ See [docs/architecture.md](docs/architecture.md) for the full architectural over
 
 | Topic | Document |
 |---|---|
-| Hard architectural constraints | [agents/system-architecture.md](agents/system-architecture.md) |
-| WorkItems rules | [agents/workitems-rules.md](agents/workitems-rules.md) |
-| New module checklist | [agents/module-template.md](agents/module-template.md) |
+| Hard architectural constraints | [ai/guardrails/system-architecture.md](ai/guardrails/system-architecture.md) |
+| WorkItems rules | [ai/guardrails/workitems-rules.md](ai/guardrails/workitems-rules.md) |
+| New module checklist | [ai/guardrails/module-template.md](ai/guardrails/module-template.md) |

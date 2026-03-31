@@ -43,4 +43,4 @@ Stage label values are canonical and shared with the cursor schema. See [docs/ch
 
 - Import **must** be streaming. Loading all revisions into memory before processing is forbidden.
 - Enumeration order **must** follow the lexicographic rule above. Do not sort in memory.
-- See [agents/system-architecture.md](../agents/system-architecture.md) for the hard guardrails.
+- See [ai/guardrails/system-architecture.md](../ai/guardrails/system-architecture.md) for the hard guardrails.
