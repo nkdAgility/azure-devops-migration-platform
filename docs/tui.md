@@ -8,6 +8,42 @@ Command parsing, mode selection, and job dispatch are handled by the CLI shell. 
 
 ---
 
+## Launching the TUI
+
+```
+devopsmigration tui [--url <control-plane-url>] [--job <jobId>]
+```
+
+| Flag | Description |
+|---|---|
+| `--url` | Override the control plane URL. Defaults to `MIGRATION_API_URL` or the value stored by `devopsmigration login`. |
+| `--job` | Jump directly to the progress view for a specific job, bypassing the job list. |
+
+If no URL is available and no control plane is configured, the TUI falls back to local mode and displays the most recent local package logs from the filesystem.
+
+### Authentication
+
+The TUI forwards the same credential as all other CLI commands.
+
+| Environment | Auth method |
+|---|---|
+| Entra ID (cloud or Entra-joined) | Bearer token acquired by `devopsmigration login`. Token is refreshed automatically. |
+| On-premises Active Directory | Windows Integrated Auth (Negotiate). No explicit login step. |
+| Local mode | No auth. No control plane. |
+
+The TUI never prompts for credentials itself. Run `devopsmigration login` if the token is missing or expired before launching the TUI.
+
+### Job List View
+
+On launch (without `--job`), the TUI displays the job list filtered by the caller's auth context — the same rules as `GET /jobs` on the control plane:
+
+- A regular user sees their own jobs plus any `Tenant`-visibility jobs in their tenant.
+- A Control Plane Admin sees all jobs. A tenant filter is available in the UI.
+
+Selecting a job enters the progress view.
+
+---
+
 ## Technology
 
 The TUI is built with **[Terminal.Gui](https://github.com/gui-cs/Terminal.Gui)**. All interactive terminal windows, panels, progress tables, and live-updating views are rendered through the `Terminal.Gui` widget model.

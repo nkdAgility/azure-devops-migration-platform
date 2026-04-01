@@ -30,11 +30,12 @@ The control plane does **not** run the orchestrator, call source or target APIs,
 | Method | Path | Description |
 |---|---|---|
 | `POST` | `/jobs` | Submit a new job. Body is a job definition (see [.agents/context/job-contract.md](../.agents/context/job-contract.md)). Returns `jobId`. |
-| `GET` | `/jobs/{jobId}` | Get job status and metadata. |
+| `GET` | `/jobs` | List jobs visible to the caller. Filtered server-side by auth context. Accepts `?tenantId=` (admins only) and `?state=` filters. |
+| `GET` | `/jobs/{jobId}` | Get job status and metadata. Returns 403 if the caller lacks visibility. |
 | `GET` | `/jobs/{jobId}/progress` | Get per-module, per-stage progress as last reported by the Migration Agent. |
-| `POST` | `/jobs/{jobId}/cancel` | Cancel a running or queued job. Migration Agent will receive the signal on next heartbeat. |
-| `POST` | `/jobs/{jobId}/pause` | Pause a running job. Migration Agent will checkpoint and release its lease. |
-| `POST` | `/jobs/{jobId}/resume` | Resume a paused job (makes it eligible for lease pickup). |
+| `POST` | `/jobs/{jobId}/cancel` | Cancel a running or queued job. Only the submitter or an admin may cancel. |
+| `POST` | `/jobs/{jobId}/pause` | Pause a running job. Only the submitter or an admin may pause. |
+| `POST` | `/jobs/{jobId}/resume` | Resume a paused job. Only the submitter or an admin may resume. |
 | `GET` | `/jobs/{jobId}/logs` | Tail or fetch logs uploaded by the Migration Agent. |
 
 ### Migration Agent Protocol
@@ -101,6 +102,70 @@ This mirrors the cursor schema ([.agents/context/checkpointing.md](../.agents/co
 
 ---
 
+## Authentication
+
+The control plane accepts two authentication schemes. The scheme active in a given deployment is determined by configuration (`Auth:Scheme`).
+
+| Scheme | When used | Identity claims |
+|---|---|---|
+| **Entra ID (OIDC / Bearer)** | Cloud deployments and any Entra-joined environment. The CLI/TUI acquires a token scoped to the control plane's Entra App Registration. | `tid` (tenant GUID), `oid` (user object ID), `upn` (email address) |
+| **Windows Integrated Auth (Negotiate)** | On-premises Active Directory deployments. No extra login step; the OS forwards the Kerberos/NTLM token. | `domain` (AD domain FQDN used as `tenant_id`), `sid` (used as `submitted_by_oid`), `samAccountName` (used as `submitted_by_upn`) |
+
+Local-only mode (`LocalJobRunner`) has no control plane and therefore requires no authentication.
+
+### Login
+
+For Entra ID, users authenticate with:
+
+```
+devopsmigration login [--url <control-plane-url>]
+```
+
+This performs an interactive MSAL device-code flow and caches the token locally. All subsequent CLI and TUI commands forward this credential automatically. Windows Integrated Auth requires no explicit login step.
+
+---
+
+## Authorisation
+
+### Roles
+
+| Role | How granted | Can see | Can manage |
+|---|---|---|---|
+| **Submitter** | Submitted the job | Own jobs always | Own jobs (pause / cancel / resume) |
+| **Tenant Viewer** | Authenticated in the same tenant | `Tenant`-visibility jobs in their tenant | Read-only |
+| **Control Plane Admin** | Member of the configured admin group (see below) | All jobs across all tenants | All jobs |
+
+Control Plane Admin is determined by Entra security group membership. The group is configured via `Auth:AdminGroupId`. For the nkdAgility-hosted cloud deployment this is a group in the `nkdagility.com` tenant. Self-hosted deployments configure their own group OID.
+
+For Windows AD deployments, admin group membership is resolved via the AD group name configured in `Auth:AdminGroupName`.
+
+### Job Visibility
+
+Every job has a `visibility` field set at submission time.
+
+| Value | Who can see the job |
+|---|---|
+| `User` (default) | Submitter and Control Plane Admins only |
+| `Tenant` | Any authenticated user in the same `tenant_id` (read-only) plus the submitter and admins |
+
+### `GET /jobs` Filter Rule
+
+The server enforces visibility server-side. The caller never sends a filter for their own identity — the control plane derives it from the validated token.
+
+```
+IF caller is ControlPlaneAdmin:
+    return all jobs
+    (optional: filter by ?tenantId= query parameter)
+ELSE:
+    return jobs WHERE tenant_id  = caller.tid
+               AND  (visibility  = 'Tenant'
+                     OR submitted_by_oid = caller.oid)
+```
+
+A job that exists but is not visible to the caller returns `403 Forbidden` on direct `GET /jobs/{jobId}` access — not `404`. This prevents enumeration of job IDs from leaking existence information.
+
+---
+
 ## Isolation Rule
 
 The control plane must not:
@@ -164,14 +229,20 @@ The connection string value is:
 ```sql
 -- Persists the full MigrationJob definition and tracks its lifecycle state.
 CREATE TABLE jobs (
-    job_id         UUID         PRIMARY KEY,
-    config_version TEXT         NOT NULL,
-    mode           TEXT         NOT NULL CHECK (mode IN ('Export', 'Import', 'Both')),
-    state          TEXT         NOT NULL DEFAULT 'Queued'
-                                CHECK (state IN ('Queued', 'Leased', 'Running', 'Paused', 'Completed', 'Failed', 'Cancelled')),
-    job_json       JSONB        NOT NULL,     -- full serialised MigrationJob
-    created_at     TIMESTAMPTZ  NOT NULL DEFAULT now(),
-    updated_at     TIMESTAMPTZ  NOT NULL DEFAULT now()
+    job_id            UUID         PRIMARY KEY,
+    config_version    TEXT         NOT NULL,
+    mode              TEXT         NOT NULL CHECK (mode IN ('Export', 'Import', 'Both')),
+    state             TEXT         NOT NULL DEFAULT 'Queued'
+                                   CHECK (state IN ('Queued', 'Leased', 'Running', 'Paused', 'Completed', 'Failed', 'Cancelled')),
+    job_json          JSONB        NOT NULL,     -- full serialised MigrationJob
+    -- Identity & visibility
+    tenant_id         TEXT         NOT NULL,     -- Entra tenant GUID or AD domain FQDN
+    submitted_by_oid  TEXT         NOT NULL,     -- Entra Object ID or AD SID of the submitter
+    submitted_by_upn  TEXT         NOT NULL,     -- Human-readable: user@domain.com or DOMAIN\user
+    visibility        TEXT         NOT NULL DEFAULT 'User'
+                                   CHECK (visibility IN ('User', 'Tenant')),
+    created_at        TIMESTAMPTZ  NOT NULL DEFAULT now(),
+    updated_at        TIMESTAMPTZ  NOT NULL DEFAULT now()
 );
 
 -- Tracks active and historical lease assignments.
@@ -196,7 +267,9 @@ CREATE TABLE progress_snapshots (
     PRIMARY KEY (job_id, module)
 );
 
-CREATE INDEX ix_jobs_state ON jobs(state);
+CREATE INDEX ix_jobs_state            ON jobs(state);
+CREATE INDEX ix_jobs_tenant_state     ON jobs(tenant_id, state);
+CREATE INDEX ix_jobs_submitted_by_oid ON jobs(submitted_by_oid);
 CREATE INDEX ix_leases_job_id ON leases(job_id);
 CREATE INDEX ix_leases_expires_at ON leases(expires_at) WHERE released_at IS NULL;
 ```
@@ -227,11 +300,14 @@ The control plane deliberately does **not** store:
 
 ---
 
-## Multi-Tenant Considerations (Phase 3)
+## Multi-Tenancy
 
-- Each tenant's jobs are isolated by a `tenantId` claim on the JWT.
-- Migration Agents may be scoped to a tenant or shared across tenants with RBAC controls.
-- Rate limits are applied per tenant to prevent one tenant starving others.
+Tenancy is enforced from the first job submission. There is no single-tenant phase followed by a later migration.
+
+- `tenant_id` on every job row isolates jobs by tenant. Queries are always predicated on `tenant_id` unless the caller is a Control Plane Admin.
+- Migration Agents are not tenant-scoped by default. A shared pool of agents picks up any queued job. Tenant-isolated agent pools are achievable by deploying agents with a `tenantId` affinity filter in the lease poll query.
+- Rate limits are applied per `tenant_id` to prevent one tenant starving others.
 - Artefact retention policies are configurable per tenant.
+- The nkdAgility-hosted cloud deployment isolates all customer tenants from each other. nkdAgility staff who are members of the `Auth:AdminGroupId` group in the `nkdagility.com` Entra tenant can view all jobs across all customer tenants for support purposes.
 
 See [docs/architecture.md](architecture.md) for the overall system context.

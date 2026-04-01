@@ -83,11 +83,26 @@ migrate pack     --package file:///D:/exports/run-001 --out run-001.zip
 
 All commands accept `--local` to force in-process execution regardless of environment config.
 
+### Auth Commands
+
+| Command | Description |
+|---|---|
+| `login` | Authenticate with the control plane using Entra ID (device-code flow). Caches the token locally. Not needed for Windows Integrated Auth. |
+| `logout` | Clear the cached credential. |
+
+```
+migrate login  [--url <control-plane-url>]
+migrate logout
+```
+
+For on-premises Active Directory deployments, Windows Integrated Auth is used automatically via Negotiate (Kerberos/NTLM). No `login` step is required.
+
 ### Remote Commands (Control Plane)
 
 | Command | Description |
 |---|---|
 | `queue` | Convert config to `MigrationJob`, submit to control plane, return `jobId`. |
+| `tui` | Open the interactive Terminal UI showing jobs visible to the current user. Optionally connect to a specific control plane URL. |
 | `status` | Display job state and per-module progress from the control plane. |
 | `logs` | Tail or page job logs from the control plane. |
 | `pause` | Signal the running Migration Agent to checkpoint and pause. |
@@ -95,7 +110,8 @@ All commands accept `--local` to force in-process execution regardless of enviro
 | `cancel` | Cancel a queued or running job. |
 
 ```
-migrate queue  --config migration.json
+migrate queue  --config migration.json [--visibility user|tenant]
+migrate tui    [--url <control-plane-url>] [--job <jobId>]
 migrate status --job 550e8400-e29b-41d4-a716-446655440000
 migrate logs   --job 550e8400-e29b-41d4-a716-446655440000 --follow
 migrate pause  --job 550e8400-e29b-41d4-a716-446655440000
@@ -104,6 +120,23 @@ migrate cancel --job 550e8400-e29b-41d4-a716-446655440000
 ```
 
 All remote commands call `ControlPlaneClient`. In Phase 1 they print `"Remote execution not yet implemented"` and exit with code 2.
+
+---
+
+## Job Visibility
+
+When queuing a job to the control plane, the `--visibility` flag controls who can see it:
+
+| Value | Who can see the job |
+|---|---|
+| `user` (default) | Only the submitter and Control Plane Admins |
+| `tenant` | Any authenticated user in the same Entra tenant or AD domain (read-only), plus the submitter and admins |
+
+```
+migrate queue --config migration.json --visibility tenant
+```
+
+The visibility setting is immutable after the job is submitted. If omitted, `user` is applied. This is the safest default — it does not expose job configuration or progress to colleagues until the submitter explicitly opts in.
 
 ---
 
