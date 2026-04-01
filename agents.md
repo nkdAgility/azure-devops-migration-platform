@@ -65,8 +65,14 @@ Job contract:
 Control plane:
 → docs/control-plane.md
 
+Orchestration:
+→ docs/orchestration.md
+
 Migration Agent (worker):
 → docs/migration-agent.md
+
+Module contract:
+→ docs/module-contract.md
 
 TUI:
 → docs/tui.md
@@ -82,6 +88,18 @@ Aspire orchestration:
 
 Validation:
 → docs/validation.md
+
+Identity and mapping:
+→ docs/identity-and-mapping.md
+
+Configuration reference:
+→ docs/config-reference.md
+
+Source types:
+→ docs/source-types.md
+
+Package zip/export:
+→ docs/packaging-zip.md
 
 ---
 
@@ -126,12 +144,29 @@ These files define what must never be violated:
 → .github/skills/review/SKILL.md — invoke Reviewer Agent and record verdict
 → .github/skills/end-session/SKILL.md — verify gates, finalise log, signal commit-ready
 → .github/skills/fix/SKILL.md — resume a failed or interrupted session
+→ .github/skills/parse-criteria/SKILL.md — parse Gherkin feature files into a structured test plan
+→ .github/skills/test-templates/SKILL.md — generate Reqnroll step definition files from a test plan
+→ .github/skills/session-hooks/SKILL.md — manage session lifecycle events and phase transitions
+→ .github/skills/refactor-patterns/SKILL.md — assess code quality and apply safe refactoring patterns
 
 ## Session Commands (Slash-command aliases)
 → .github/commands/start-session.md — /start-session
 → .github/commands/review.md — /review
 → .github/commands/end-session.md — /end-session
 → .github/commands/fix.md — /fix
+
+## Acceptance Test Feature Files
+All Gherkin `.feature` files live under `/features`, organised by operation and module:
+
+```
+features/
+  cli/            ← CLI-triggered operations (export, inventory, …)
+  export/         ← Export module features
+  import/         ← Import module features
+  inventory/      ← Inventory module features
+  platform/       ← Cross-cutting platform concerns (checkpointing, validation)
+  services/       ← Shared services (identity-mapping, …)
+```
 
 If code conflicts with these, reject the change.
 
