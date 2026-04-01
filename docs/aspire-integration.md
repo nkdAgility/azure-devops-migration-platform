@@ -50,7 +50,7 @@ src/
 
   DevOpsMigrationPlatform.CLI.TfsMigration/      ← TFS exporter CLI (net481, not orchestrated by Aspire)
     Program.cs                                    ← CLI entry point; receives job definition via args + stdin
-    TfsExportAgent.cs                             ← export executor: IWorkItemExportService + IMigrationRepository + SQLite cursor
+    TfsExportAgent.cs                             ← export executor: IWorkItemExportService + IArtefactStore + IStateStore + IProgressSink
     DevOpsMigrationPlatform.CLI.TfsMigration.csproj  ← TargetFramework: net481
 ```
 

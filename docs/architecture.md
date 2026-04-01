@@ -38,7 +38,7 @@ The platform separates **job coordination** (control plane) from **job execution
 | **TUI** | Terminal UI for monitoring a running migration and light interaction. Never submits jobs. |
 | **Control Plane** | Always a separate service. Accepts config from the CLI, creates a `MigrationJob`, assigns it to an available Migration Agent. Runs locally (localhost via Aspire AppHost) or in the cloud (Azure Container Apps). |
 | **Migration Agent** | Executes the job engine. Polls the control plane for assigned jobs, runs modules, writes to the package, reports progress back. |
-| **TFS Export Agent** | A .NET 4.8 standalone exporter (`CLI.TfsMigration`) spawned by the Migration Agent when the source is TFS. Contains a `TfsExportAgent` class that is the structural parallel of `MigrationAgent`: receives a job definition, connects to TFS via the TFS Object Model, writes `revision.json` and attachments directly to the package path via `IMigrationRepository`, maintains its own SQLite watermark cursor, and reports progress via NDJSON on stdout. Shares interfaces with the .NET 10 agent via multi-targeted `Abstractions`. |
+| **TFS Export Agent** | A .NET 4.8 standalone exporter (`CLI.TfsMigration`) spawned by the Migration Agent when the source is TFS. Contains a `TfsExportAgent` class that is the structural parallel of `MigrationAgent`: receives a job definition, connects to TFS via the TFS Object Model, writes to the package via `IArtefactStore` (`FileSystemArtefactStore`), maintains checkpoints via `IStateStore`, and reports progress via `IProgressSink` (`StdoutProgressSink` → NDJSON on stdout). Uses the same interfaces as the .NET 10 agent via multi-targeted `Abstractions`. |
 
 ### Flow
 

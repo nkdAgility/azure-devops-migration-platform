@@ -38,10 +38,10 @@ This document specifies the process isolation boundary, the multi-targeting stra
 │       │  constructs job definition                              │
 │       ▼                                                          │
 │  TfsExportAgent                                                  │
-│       ├─ IWorkItemExportService  (TFS OM → package)              │
-│       ├─ IMigrationRepository    (writes revision.json + files)  │
-│       ├─ SQLite watermark cursor (checkpoint / resume)           │
-│       └─ IProgressReporter       (NDJSON → stdout)               │
+│       ├─ IWorkItemExportService  (TFS OM → IArtefactStore)          │
+│       ├─ IArtefactStore          (FileSystemArtefactStore, net481)  │
+│       ├─ IStateStore             (cursor checkpoint / resume)       │
+│       └─ IProgressSink           (StdoutProgressSink → NDJSON)      │
 │                                                                  │
 │  Exits 0 (success) or non-zero (failure)                         │
 └──────────────────────────────────────────────────────────────────┘
@@ -64,7 +64,7 @@ The .NET 10 host has **no compiled reference** to the .NET 4.8 project. Coupling
 
 `DevOpsMigrationPlatform.Abstractions` and `DevOpsMigrationPlatform.Infrastructure` target both `net481` and `net10.0`. This is the key to safe code sharing:
 
-- The **`TfsExportAgent`** (net481) references `Abstractions` compiled for `net481` — it uses `IWorkItemExportService`, `IMigrationRepository`, `MigrationWorkItemRevision`, `IProgressReporter`, cursor models, etc. natively.
+- The **`TfsExportAgent`** (net481) references `Abstractions` compiled for `net481` — it uses `IWorkItemExportService`, `IArtefactStore`, `IStateStore`, `IProgressSink`, `MigrationWorkItemRevision`, cursor models, etc. natively.
 - The **`MigrationAgent`** (net10.0) references `Abstractions` compiled for `net10.0` — same types, same contracts.
 - There is **no runtime coupling**: neither binary references the other project's DLL at runtime. They share source-level contracts only.
 
@@ -82,7 +82,9 @@ Key shared types:
 
 | Type | Purpose |
 |---|---|
-| `IWorkItemExportService` | Interface implemented by TFS OM service inside subprocess |
+| `IArtefactStore` | Package read/write abstraction — used by both `MigrationAgent` and `TfsExportAgent`. `IAsyncEnumerable<T>` satisfied via `Microsoft.Bcl.AsyncInterfaces` on net481. |
+| `IStateStore` | Cursor checkpoint abstraction — used by both executors for resume. |
+| `IProgressSink` | Progress event abstraction. `StdoutProgressSink` (net481) writes NDJSON to stdout; `ControlPlaneProgressSink` (net10.0) reports to the control plane. |
 | `MigrationWorkItemRevision` | Canonical work item revision model written to `revision.json` |
 | `MigrationWorkItemField` | Field value in a revision |
 | `MigrationWorkItemRelatedLink` | Related link in a revision |
@@ -94,18 +96,18 @@ Types that are NOT shared (net10.0 host only):
 
 - `ITfsExporterAdapter` — process spawn contract; meaningless inside the subprocess
 - `TfsExporterProcessAdapter` — the process runner; only exists in the .NET 10 Infrastructure layer
-- `IArtefactStore`, `IStateStore`, `IProgressSink` — the .NET 10 orchestration-layer abstractions; the subprocess uses `IMigrationRepository` and `IProgressReporter` (the net481-compatible equivalents) from shared `Abstractions`
+- `AzureBlobArtefactStore` — Azure Blob SDK not available for net481; the subprocess always uses `FileSystemArtefactStore`
 
 ### Executor Symmetry
 
-The two executors are structural parallels. The process boundary is the only difference:
+The two executors use the same abstractions. The process boundary and the blob store are the only differences:
 
 | Executor | Runtime | Package writes | Progress reporting | Checkpoint |
 |---|---|---|---|---|
-| `MigrationAgent` | net10.0 | `IArtefactStore` | `IProgressSink` | `IStateStore` (cursor JSON) |
-| `TfsExportAgent` | net481 | `IMigrationRepository` | `IProgressReporter` (NDJSON → stdout) | SQLite watermark store |
+| `MigrationAgent` | net10.0 | `IArtefactStore` (`FileSystemArtefactStore` or `AzureBlobArtefactStore`) | `IProgressSink` | `IStateStore` |
+| `TfsExportAgent` | net481 | `IArtefactStore` (`FileSystemArtefactStore` only) | `IProgressSink` (`StdoutProgressSink` → NDJSON) | `IStateStore` |
 
-Both abstractions are defined in `DevOpsMigrationPlatform.Abstractions` and are the conceptual equivalents. Future work may unify them further, but net481 constraints (no async streams, no `System.Text.Json`) mean a direct share of the net10.0 interfaces is not always practical.
+`IArtefactStore`, `IStateStore`, and `IProgressSink` are all defined in `DevOpsMigrationPlatform.Abstractions` (multi-targeted `net481;net10.0`). The `IAsyncEnumerable<T>` dependency in `IArtefactStore` is satisfied on net481 via the `Microsoft.Bcl.AsyncInterfaces` NuGet package.
 
 ---
 
