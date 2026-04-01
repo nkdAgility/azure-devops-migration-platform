@@ -2,6 +2,7 @@
   <Folder Name="/src/">
     <Project Path="src/DevOpsMigrationPlatform.Abstractions/DevOpsMigrationPlatform.Abstractions.csproj" />
     <Project Path="src/DevOpsMigrationPlatform.CLI.Migration/DevOpsMigrationPlatform.CLI.Migration.csproj" />
+    <Project Path="src/DevOpsMigrationPlatform.CLI.TfsExport/DevOpsMigrationPlatform.CLI.TfsExport.csproj" />
     <Project Path="src/DevOpsMigrationPlatform.Infrastructure/DevOpsMigrationPlatform.Infrastructure.csproj" />
   </Folder>
   <Folder Name="/tests/">
