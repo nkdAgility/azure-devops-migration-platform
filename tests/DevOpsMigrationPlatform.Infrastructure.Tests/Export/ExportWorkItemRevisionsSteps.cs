@@ -278,6 +278,82 @@ public class ExportWorkItemRevisionsSteps
         Assert.IsNotNull(_ctx.Sut);
     }
 
+    // ── Scenario 7: links in revision.json ───────────────────────────────────
+
+    [Given("a revision with one external link, one related link, and one hyperlink")]
+    public void GivenARevisionWithAllThreeLinkTypes()
+    {
+        var date = new DateTimeOffset(2024, 3, 1, 0, 0, 0, TimeSpan.Zero);
+        _ctx.SourceRevisions = new List<WorkItemRevision>
+        {
+            new()
+            {
+                WorkItemId = 10,
+                RevisionIndex = 0,
+                ChangedDate = date,
+                ExternalLinks = new[] { new WorkItemLink { Rel = "Fixed in Changeset", Url = "vstfs:///Git/Commit/abc" } },
+                RelatedLinks = new[] { new WorkItemLink { Rel = "Child", Url = "vstfs:///WorkItemTracking/WorkItem/42" } },
+                Hyperlinks  = new[] { new WorkItemLink { Rel = "Hyperlink", Url = "https://docs.example.com" } }
+            }
+        };
+        SetupCursorNoOp();
+        SetupSource(_ctx.SourceRevisions);
+        _ctx.Sut = new WorkItemExportOrchestrator(_ctx.RealArtefactStore!, _ctx.MockCheckpointingService.Object);
+    }
+
+    [Then("{string} contains all three link types")]
+    public void ThenRevisionJsonContainsAllThreeLinkTypes(string _)
+    {
+        var rev = _ctx.SourceRevisions[0];
+        var folder = WorkItemExportOrchestrator.BuildFolderPath(rev.WorkItemId, rev.RevisionIndex, rev.ChangedDate);
+        var file = Path.Combine(_ctx.PackageRoot!, folder.Replace('/', Path.DirectorySeparatorChar), "revision.json");
+        var json = File.ReadAllText(file);
+        StringAssert.Contains(json, "externalLinks");
+        StringAssert.Contains(json, "relatedLinks");
+        StringAssert.Contains(json, "hyperlinks");
+        // Each collection has exactly one entry
+        StringAssert.Contains(json, "vstfs:///Git/Commit/abc");
+        StringAssert.Contains(json, "vstfs:///WorkItemTracking/WorkItem/42");
+        StringAssert.Contains(json, "https://docs.example.com");
+    }
+
+    // ── Scenario 8: attachments in revision.json ──────────────────────────────
+
+    [Given("a revision with two attachments named {string} and {string}")]
+    public void GivenARevisionWithTwoAttachments(string name1, string name2)
+    {
+        var date = new DateTimeOffset(2024, 3, 2, 0, 0, 0, TimeSpan.Zero);
+        _ctx.SourceRevisions = new List<WorkItemRevision>
+        {
+            new()
+            {
+                WorkItemId = 20,
+                RevisionIndex = 0,
+                ChangedDate = date,
+                Attachments = new[]
+                {
+                    new AttachmentMetadata { OriginalName = name1, RelativePath = name1 },
+                    new AttachmentMetadata { OriginalName = name2, RelativePath = name2 }
+                }
+            }
+        };
+        SetupCursorNoOp();
+        SetupSource(_ctx.SourceRevisions);
+        _ctx.Sut = new WorkItemExportOrchestrator(_ctx.RealArtefactStore!, _ctx.MockCheckpointingService.Object);
+    }
+
+    [Then("{string} lists both attachments by relative path")]
+    public void ThenRevisionJsonListsBothAttachments(string _)
+    {
+        var rev = _ctx.SourceRevisions[0];
+        var folder = WorkItemExportOrchestrator.BuildFolderPath(rev.WorkItemId, rev.RevisionIndex, rev.ChangedDate);
+        var file = Path.Combine(_ctx.PackageRoot!, folder.Replace('/', Path.DirectorySeparatorChar), "revision.json");
+        var json = File.ReadAllText(file);
+        StringAssert.Contains(json, "attachments");
+        foreach (var att in rev.Attachments)
+            StringAssert.Contains(json, att.RelativePath);
+    }
+
     // ── Cleanup ───────────────────────────────────────────────────────────────
 
     [TestCleanup]

@@ -5,7 +5,6 @@ Feature: Export Attachments
 
   Background:
     Given the source project contains work items with file attachments
-    And the export module is configured with valid source credentials
 
   @azure-devops-rest @tfs-object-model
   Scenario: Attachment is stored beside revision.json in the same revision folder

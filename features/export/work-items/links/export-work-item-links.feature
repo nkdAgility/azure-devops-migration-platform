@@ -1,11 +1,10 @@
 Feature: Export Work Item Links
   As a migration operator
-  I want links exported as a delta per revision
-  So that each revision.json captures only the links that were added in that revision
+  I want links exported as part of each revision
+  So that each revision.json faithfully captures the links that were added in that revision
 
   Background:
     Given the source project contains work items with one or more link types
-    And the export module is configured with valid source credentials
 
   @tfs-object-model
   Scenario: Only links added in the current revision are exported
