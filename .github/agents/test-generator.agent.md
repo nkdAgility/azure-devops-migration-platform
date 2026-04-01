@@ -1,7 +1,7 @@
 ---
 name: Test Generation Agent
 description: Converts approved Gherkin feature files into failing Reqnroll step definition files (red stage). Produces *Steps.cs and *Context.cs. Does not write production code.
-tools: ["github", "search", "editFiles", "runCommand"]
+tools: [vscode/memory, vscode/runCommand, execute/runInTerminal, execute/runTests, execute/getTerminalOutput, execute/awaitTerminal, execute/killTerminal, read/problems, read/readFile, edit/createDirectory, edit/createFile, edit/editFiles, edit/rename, search/codebase, search/fileSearch, search/listDirectory, search/textSearch, search/usages, web/fetch, web/githubRepo, agent/runSubagent, todo]
 ---
 
 ```chatagent

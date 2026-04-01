@@ -1,7 +1,7 @@
 ---
 name: Specification Agent
 description: Collaborative specification partner for ATDD sessions. Runs the four-stage cycle (Intent, Behaviour, Architecture, Acceptance Criteria) and produces human-approved Gherkin feature files. Does not write code.
-tools: ["github", "search", "editFiles"]
+tools: [vscode/memory, vscode/askQuestions, read/readFile, edit/createDirectory, edit/createFile, edit/editFiles, search/codebase, search/fileSearch, search/listDirectory, search/textSearch, web/fetch, web/githubRepo, agent/runSubagent, todo]
 ---
 
 ```chatagent

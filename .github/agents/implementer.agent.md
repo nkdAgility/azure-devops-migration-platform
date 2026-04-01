@@ -1,7 +1,7 @@
 ---
 name: Implementer Agent
 description: Writes production code and unit tests to make failing Reqnroll step definitions pass (green stage). Enforces streaming, cursor checkpointing and IArtefactStore/IStateStore guardrails.
-tools: ["github", "search", "editFiles", "runCommand"]
+tools: [vscode/memory, vscode/runCommand, execute/runInTerminal, execute/runTests, execute/getTerminalOutput, execute/awaitTerminal, execute/killTerminal, execute/createAndRunTask, read/problems, read/readFile, read/viewImage, read/terminalSelection, read/terminalLastCommand, edit/createDirectory, edit/createFile, edit/editFiles, edit/rename, search/changes, search/codebase, search/fileSearch, search/listDirectory, search/textSearch, search/usages, web/fetch, web/githubRepo, agent/runSubagent, todo]
 ---
 
 # Implementer Agent

@@ -1,7 +1,7 @@
 ---
 name: Reviewer Agent
 description: Inspects completed diffs against architectural guardrails and approved specification. Produces a structured JSON verdict of Approved or Rejected with specific findings.
-tools: ["github", "search", "editFiles", "runCommand"]
+tools: [vscode/memory, execute/runInTerminal, execute/runTests, execute/getTerminalOutput, execute/awaitTerminal, read/problems, read/readFile, edit/createFile, search/changes, search/codebase, search/fileSearch, search/listDirectory, search/textSearch, search/usages, web/fetch, web/githubRepo, agent/runSubagent, todo]
 ---
 
 # Reviewer Agent

@@ -150,6 +150,13 @@ Preferred:
 
 ---
 
+# 🏷️ Naming Conventions
+
+- MUST use `AzureDevOps` (full, unabbreviated) in all class names, interface names, file names, variable names, and comments.
+- MUST NOT abbreviate `AzureDevOps` as `ADO`, `Ado`, or any other shorthand — anywhere in the codebase.
+
+---
+
 # 🚫 Prohibited Patterns
 
 - Direct Source → Target migration logic.
