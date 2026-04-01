@@ -386,6 +386,138 @@ The `DevOpsMigrationPlatform.TfsExporter` project MUST NOT:
 
 ---
 
+---
+
+## Future: TFS Import Agent
+
+> **Not yet implemented.** This section documents the intended design so that a future implementer can build the TFS import capability without any structural rework to the platform.
+
+Writing to an on-premises Team Foundation Server from the package faces the same .NET runtime constraint as reading from one: the TFS Object Model is a .NET Framework 3.x/4.x SOAP library that cannot run in .NET 10. The solution is the exact mirror of the exporter pattern.
+
+### Isolation Principle (Import)
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  .NET 10 Host (Migration Agent)                                 │
+│                                                                 │
+│  WorkItemsModule                                                │
+│       │                                                         │
+│       │  calls                                                  │
+│       ▼                                                         │
+│  ITfsImporterAdapter                                            │
+│       (interface in Abstractions — compiled for net10.0)        │
+│                                                                 │
+│  TfsImporterProcessAdapter  (Infrastructure.TfsLegacy)          │
+│       │  spawns subprocess via ExternalToolRunner               │
+│       │  reads stdout (NDJSON progress lines)                   │
+│       │  reads stderr (error messages)                          │
+│       │  passes cancellation via sentinel file                  │
+└───────┼─────────────────────────────────────────────────────────┘
+        │  process execution only — no compiled reference
+┌───────▼──────────────────────────────────────────────────────────┐
+│  .NET 4.8 Subprocess (DevOpsMigrationPlatform.CLI.TfsMigration)  │
+│                                                                  │
+│  CLI entry point (ImportCommand)                                 │
+│       │  reads CLI args + stdin credentials                      │
+│       │  constructs job definition                               │
+│       ▼                                                          │
+│  TfsImportAgent                                                  │
+│       ├─ IWorkItemImportService  (IArtefactStore → TFS OM)       │
+│       ├─ IArtefactStore          (FileSystemArtefactStore, net481)│
+│       ├─ IStateStore             (cursor checkpoint / resume)    │
+│       └─ IProgressSink           (StdoutProgressSink → NDJSON)   │
+│                                                                  │
+│  Exits 0 (success) or non-zero (failure)                         │
+└──────────────────────────────────────────────────────────────────┘
+```
+
+### Projects Required (when built)
+
+No new projects are needed. All changes are additive to existing projects:
+
+| Project | Change Required |
+|---|---|
+| `DevOpsMigrationPlatform.Abstractions` | Add `ITfsImporterAdapter`, `TfsImportRequest`, `IWorkItemImportService` |
+| `DevOpsMigrationPlatform.Infrastructure.TfsLegacy` | Add `TfsImporterProcessAdapter` (wraps `ExternalToolRunner` — unchanged) |
+| `DevOpsMigrationPlatform.CLI.TfsMigration` | Add `ImportCommand` entry point + `TfsImportAgent` class |
+
+`ExternalToolRunner`, the NDJSON stdout protocol, the stdin-credentials pattern, and the sentinel-file cancellation mechanism are **all reused without modification**.
+
+### Intended Interface
+
+```csharp
+/// <summary>
+/// Runs the .NET Framework TFS importer as an isolated subprocess and
+/// streams progress events back to the caller.
+/// </summary>
+public interface ITfsImporterAdapter
+{
+    Task ImportAsync(TfsImportRequest request, IProgressSink progressSink, CancellationToken ct);
+}
+
+public sealed record TfsImportRequest
+{
+    /// <summary>Collection URL, e.g. http://tfs.internal:8080/tfs/DefaultCollection</summary>
+    public required string CollectionUrl { get; init; }
+
+    /// <summary>Project name.</summary>
+    public required string Project { get; init; }
+
+    /// <summary>Input (package root) path.</summary>
+    public required string InputPath { get; init; }
+
+    /// <summary>Whether to import links between work items.</summary>
+    public required bool IncludeLinks { get; init; }
+
+    /// <summary>Whether to import attachment files.</summary>
+    public required bool IncludeAttachments { get; init; }
+
+    /// <summary>
+    /// Credentials — passed via stdin JSON only, never as CLI arguments.
+    /// Null if using integrated Windows authentication (NTLM/Kerberos).
+    /// </summary>
+    public TfsCredentials? Credentials { get; init; }
+
+    /// <summary>Path to the cancellation sentinel file.</summary>
+    public required string CancellationSentinelPath { get; init; }
+
+    /// <summary>Resume cursor from a previous run. Null means start from the beginning.</summary>
+    public string? ResumeFromCursor { get; init; }
+}
+```
+
+### Executor Symmetry (Export vs Import)
+
+| Executor | Direction | Package access | TFS OM direction | Checkpoint file |
+|---|---|---|---|---|
+| `TfsExportAgent` | TFS → Package | Write via `IArtefactStore` | Read (TFS OM queries) | `Checkpoints/TfsExporter.cursor` |
+| `TfsImportAgent` *(future)* | Package → TFS | Read via `IArtefactStore` | Write (TFS OM mutations) | `Checkpoints/TfsImporter.cursor` |
+
+Both executors use the same `IArtefactStore`, `IStateStore`, `IProgressSink`, and NDJSON stdout protocol. The only substantive difference is TFS OM read vs write.
+
+### Constraints (inherited from the exporter pattern)
+
+The `TfsImportAgent` MUST:
+
+- Accept non-sensitive config via CLI arguments (`--tfsserver`, `--project`, `--input`, `--resume`).
+- Read credentials from stdin as UTF-8 JSON before making any TFS connection.
+- Write NDJSON progress lines to stdout, flushed after each line.
+- Write error detail to stderr.
+- Read package files from `--input` following canonical layouts (streaming — never load all revisions into memory).
+- Write cursor to `Checkpoints/TfsImporter.cursor` after each revision applied.
+- Poll the cancellation sentinel file and abort gracefully when it appears.
+- Exit with the same exit code scheme as the exporter.
+
+The `TfsImportAgent` MUST NOT:
+
+- Be referenced by any .NET 10 project.
+- Accept credentials via CLI arguments.
+- Read from any path outside `--input`.
+- Call the Control Plane or any API other than TFS OM.
+- Depend on any .NET 10-only packages.
+
+---
+
 ## See Also
 
 - [Source Types](source-types.md) — `TeamFoundationServer` config schema

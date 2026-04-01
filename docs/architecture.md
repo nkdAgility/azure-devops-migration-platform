@@ -12,7 +12,7 @@ Build a migration package platform, not just a migration tool.
 The system supports three modes:
 
 1. **Export** — Azure DevOps Services → Files, or TeamFoundationServer (via .NET 4 OM exporter) → Files
-2. **Import** — Files → Azure DevOps Services
+2. **Import** — Files → Azure DevOps Services, or Files → TeamFoundationServer (via .NET 4 OM importer — **not yet implemented**, see [docs/tfs-exporter.md](tfs-exporter.md#future-tfs-import-agent))
 3. **Both** — Export → Import in a single orchestrated run
 
 The Files layer is first-class. It is:
@@ -39,6 +39,7 @@ The platform separates **job coordination** (control plane) from **job execution
 | **Control Plane** | Always a separate service. Accepts config from the CLI, creates a `MigrationJob`, assigns it to an available Migration Agent. Runs locally (localhost via Aspire AppHost) or in the cloud (Azure Container Apps). |
 | **Migration Agent** | Executes the job engine. Polls the control plane for assigned jobs, runs modules, writes to the package, reports progress back. |
 | **TFS Export Agent** | A .NET 4.8 standalone exporter (`CLI.TfsMigration`) spawned by the Migration Agent when the source is TFS. Contains a `TfsExportAgent` class that is the structural parallel of `MigrationAgent`: receives a job definition, connects to TFS via the TFS Object Model, writes to the package via `IArtefactStore` (`FileSystemArtefactStore`), maintains checkpoints via `IStateStore`, and reports progress via `IProgressSink` (`StdoutProgressSink` → NDJSON on stdout). Uses the same interfaces as the .NET 10 agent via multi-targeted `Abstractions`. |
+| **TFS Import Agent** *(not yet implemented)* | The structural mirror of the TFS Export Agent. A .NET 4.8 importer (`CLI.TfsMigration`) that would be spawned by the Migration Agent when the target is TFS. Contains a `TfsImportAgent` class: receives a job definition, reads from the package via `IArtefactStore` (`FileSystemArtefactStore`), writes to TFS via the TFS Object Model, maintains checkpoints via `IStateStore`, and reports progress via `IProgressSink`. Reuses the same process isolation pattern, NDJSON protocol, and `ExternalToolRunner` as the exporter — no new infrastructure required. See [docs/tfs-exporter.md](tfs-exporter.md#future-tfs-import-agent). |
 
 ### Flow
 
@@ -63,6 +64,7 @@ Migration Agent
   │  runs job engine + modules
   │  writes to package
   │  [spawns TFS export agent if TFS source]
+  │  [spawns TFS import agent if TFS target — not yet implemented]
   │  Tier 3: post-flight validation (counts, links, attachments)
   ▼
 Package (file:/// or azureblob://)
