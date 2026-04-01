@@ -4,6 +4,8 @@
 
 The TFS Object Model (TFS OM) is a .NET Framework 3.x/4.x SOAP library that cannot run in .NET 9/10. The entire platform runs on .NET 10 — with one narrowly bounded exception: when the source is an on-premises Team Foundation Server, extraction must delegate to an isolated external subprocess built against .NET Framework 4.8.
 
+The subprocess is not a dumb pipe. It contains a `TfsExportAgent` class that is the structural parallel of the .NET 10 `MigrationAgent`: it receives a job definition, writes to the package using shared abstractions, maintains its own checkpoint cursor, and reports progress. The process boundary is the only seam — the contract is shared via multi-targeted `Abstractions`.
+
 This document specifies the process isolation boundary, the multi-targeting strategy for shared abstractions, the communication protocol, and the adapter contract that allow the .NET 10 host to invoke the .NET 4.8 exporter safely and without any runtime coupling.
 
 ---
@@ -12,7 +14,7 @@ This document specifies the process isolation boundary, the multi-targeting stra
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│  .NET 10 Host (Migration Agent / LocalJobRunner)                │
+│  .NET 10 Host (Migration Agent)                                 │
 │                                                                 │
 │  WorkItemsModule                                                │
 │       │                                                         │
@@ -28,19 +30,24 @@ This document specifies the process isolation boundary, the multi-targeting stra
 │       │  passes cancellation via sentinel file                  │
 └───────┼─────────────────────────────────────────────────────────┘
         │  process execution only — no compiled reference
-┌───────▼─────────────────────────────────────────────────────────┐
-│  .NET 4.8 Subprocess (DevOpsMigrationPlatform.TfsExporter)      │
-│                                                                 │
-│       Reads non-sensitive config from CLI args                  │
-│       Reads credentials from stdin (JSON, then closes)          │
-│       Writes package files to --output path                     │
-│       Writes NDJSON progress lines to stdout                    │
-│       Writes error detail to stderr                             │
-│       Exits 0 (success) or non-zero (failure)                   │
-└─────────────────────────────────────────────────────────────────┘
+┌───────▼──────────────────────────────────────────────────────────┐
+│  .NET 4.8 Subprocess (DevOpsMigrationPlatform.CLI.TfsMigration)  │
+│                                                                  │
+│  CLI entry point (ExportCommand)                                 │
+│       │  reads CLI args + stdin credentials                      │
+│       │  constructs job definition                              │
+│       ▼                                                          │
+│  TfsExportAgent                                                  │
+│       ├─ IWorkItemExportService  (TFS OM → package)              │
+│       ├─ IMigrationRepository    (writes revision.json + files)  │
+│       ├─ SQLite watermark cursor (checkpoint / resume)           │
+│       └─ IProgressReporter       (NDJSON → stdout)               │
+│                                                                  │
+│  Exits 0 (success) or non-zero (failure)                         │
+└──────────────────────────────────────────────────────────────────┘
 ```
 
-The .NET 10 host has **no compiled reference** to the .NET 4.8 project. The subprocess is an independent binary. Coupling exists only through: CLI arguments (non-sensitive config), stdin JSON (credentials), NDJSON stdout lines (progress), and the package files written to disk.
+The .NET 10 host has **no compiled reference** to the .NET 4.8 project. Coupling exists only through: CLI arguments (non-sensitive config), stdin JSON (credentials), NDJSON stdout lines (progress), and the package files written to disk by `TfsExportAgent`.
 
 ---
 
@@ -51,19 +58,19 @@ The .NET 10 host has **no compiled reference** to the .NET 4.8 project. The subp
 | `DevOpsMigrationPlatform.Abstractions` | `net481;net10.0` | Shared interfaces and models — compiles for both runtimes |
 | `DevOpsMigrationPlatform.Infrastructure` | `net481;net10.0` | Shared infrastructure (SQLite repository, utilities) — compiles for both runtimes |
 | `DevOpsMigrationPlatform.Infrastructure.TfsLegacy` | `net10.0` | `TfsExporterProcessAdapter` — spawns subprocess, reads output |
-| `DevOpsMigrationPlatform.TfsExporter` | `net481` | Standalone executable that calls the TFS Object Model |
+| `DevOpsMigrationPlatform.CLI.TfsMigration` | `net481` | CLI entry point + `TfsExportAgent` — the .NET 4.8 export executor |
 
 ### Why Multi-Targeting for Abstractions?
 
 `DevOpsMigrationPlatform.Abstractions` and `DevOpsMigrationPlatform.Infrastructure` target both `net481` and `net10.0`. This is the key to safe code sharing:
 
-- The **subprocess** (`TfsExporter`, net481) references `Abstractions` compiled for `net481` — it uses `IWorkItemExportService`, `MigrationWorkItemRevision`, `WorkItemMigrationProgress`, etc., natively.
-- The **host** (`Migration Agent`, net10.0) references `Abstractions` compiled for `net10.0` — same types, same contracts.
+- The **`TfsExportAgent`** (net481) references `Abstractions` compiled for `net481` — it uses `IWorkItemExportService`, `IMigrationRepository`, `MigrationWorkItemRevision`, `IProgressReporter`, cursor models, etc. natively.
+- The **`MigrationAgent`** (net10.0) references `Abstractions` compiled for `net10.0` — same types, same contracts.
 - There is **no runtime coupling**: neither binary references the other project's DLL at runtime. They share source-level contracts only.
 
 Multi-targeting is handled via `<TargetFrameworks>net481;net10.0</TargetFrameworks>` in the project file.
 
-The `DevOpsMigrationPlatform.TfsExporter` project MUST NOT be referenced by any .NET 10 project. It is built and deployed as a separate binary.
+The `DevOpsMigrationPlatform.CLI.TfsMigration` project MUST NOT be referenced by any .NET 10 project. It is built and deployed as a separate binary.
 
 ---
 
@@ -83,11 +90,22 @@ Key shared types:
 | `MigrationWorkItemAttachment` | Attachment descriptor |
 | `WorkItemMigrationProgress` | Progress event emitted per work item processed |
 
-Types that are NOT shared (live only in the net10.0 host):
+Types that are NOT shared (net10.0 host only):
 
 - `ITfsExporterAdapter` — process spawn contract; meaningless inside the subprocess
 - `TfsExporterProcessAdapter` — the process runner; only exists in the .NET 10 Infrastructure layer
-- `IArtefactStore`, `IStateStore`, `IProgressSink` — package and checkpoint abstractions; only relevant to the .NET 10 orchestration layer
+- `IArtefactStore`, `IStateStore`, `IProgressSink` — the .NET 10 orchestration-layer abstractions; the subprocess uses `IMigrationRepository` and `IProgressReporter` (the net481-compatible equivalents) from shared `Abstractions`
+
+### Executor Symmetry
+
+The two executors are structural parallels. The process boundary is the only difference:
+
+| Executor | Runtime | Package writes | Progress reporting | Checkpoint |
+|---|---|---|---|---|
+| `MigrationAgent` | net10.0 | `IArtefactStore` | `IProgressSink` | `IStateStore` (cursor JSON) |
+| `TfsExportAgent` | net481 | `IMigrationRepository` | `IProgressReporter` (NDJSON → stdout) | SQLite watermark store |
+
+Both abstractions are defined in `DevOpsMigrationPlatform.Abstractions` and are the conceptual equivalents. Future work may unify them further, but net481 constraints (no async streams, no `System.Text.Json`) mean a direct share of the net10.0 interfaces is not always practical.
 
 ---
 

@@ -28,39 +28,64 @@ The Files layer is first-class. It is:
 
 ## 2. Execution Model
 
-The platform separates **job coordination** from **job execution**.
+The platform separates **job coordination** (control plane) from **job execution** (migration agent).
 
-### MigrationJob is the Universal Contract
+### Components and Responsibilities
 
-A `MigrationJob` is a fully serialisable object created by the TUI from a local config file. It is the only thing that crosses boundaries between the TUI, the control plane, and Migration Agents. The config file is never passed directly to any executor.
+| Component | Role |
+|---|---|
+| **CLI** | Operator interface. Submits config to the control plane, queries status, cancels jobs. Does no execution. |
+| **TUI** | Terminal UI for monitoring a running migration and light interaction. Never submits jobs. |
+| **Control Plane** | Always a separate service. Accepts config from the CLI, creates a `MigrationJob`, assigns it to an available Migration Agent. Runs locally (localhost via Aspire AppHost) or in the cloud (Azure Container Apps). |
+| **Migration Agent** | Executes the job engine. Polls the control plane for assigned jobs, runs modules, writes to the package, reports progress back. |
+| **TFS Export Agent** | A .NET 4.8 standalone exporter (`CLI.TfsMigration`) spawned by the Migration Agent when the source is TFS. Contains a `TfsExportAgent` class that is the structural parallel of `MigrationAgent`: receives a job definition, connects to TFS via the TFS Object Model, writes `revision.json` and attachments directly to the package path via `IMigrationRepository`, maintains its own SQLite watermark cursor, and reports progress via NDJSON on stdout. Shares interfaces with the .NET 10 agent via multi-targeted `Abstractions`. |
+
+### Flow
+
+```
+Operator
+  │  (config file)
+  ▼
+CLI
+  │  Tier 0: structural validation (local, no network)
+  │  Tier 1: connectivity + permission checks (network)
+  │  → creates MigrationJob (assigns jobId, normalises URI, computes configHash)
+  │
+  ▼
+Control Plane (local or cloud)
+  │  deduplication check (jobId)
+  │  final schema validation
+  │  assigns to available agent
+  │
+  ▼
+Migration Agent
+  │  Tier 2: pre-flight validation (package structure, before import)
+  │  runs job engine + modules
+  │  writes to package
+  │  [spawns TFS export agent if TFS source]
+  │  Tier 3: post-flight validation (counts, links, attachments)
+  ▼
+Package (file:/// or azureblob://)
+```
+
+### MigrationJob is the Internal Contract
+
+The control plane creates a `MigrationJob` from the operator's config. It is the fully serialisable object that the control plane passes to a Migration Agent. The config file is never passed to the agent directly.
 
 See [docs/job-contract.md](job-contract.md).
 
-### Local Runner vs Control Plane Agent
+### The Control Plane is Always a Service
 
-The TUI routes a `MigrationJob` to one of two transports:
+The control plane is always a separate process reachable over HTTP. The CLI talks to it via a configured endpoint:
 
-| Transport | What it does |
-|---|---|
-| `LocalJobRunner` | Executes the Job Engine in-process. No control plane required. |
-| `ControlPlaneClient` | Submits the job to the control plane. A Migration Agent executes it remotely. |
+- **Standalone**: `http://localhost:5100` — the Aspire AppHost starts the control plane as a local process on the same machine
+- **Self-Hosted / Managed**: an HTTPS URL to the Azure-hosted control plane
 
-Both transports call the same Job Engine contract. Switching from local to cloud requires no changes to the Job Engine or module code.
-
-### Microsoft Aspire Orchestration
-
-The Control Plane and Migration Agent(s) are orchestrated by Microsoft Aspire in both local development and cloud deployment scenarios:
-
-- **Local**: Aspire AppHost runs Control Plane API, Migration Agent(s), PostgreSQL, and Azurite (blob emulator) on the developer's machine
-- **Cloud**: Aspire deploys the same components to Azure Container Apps with PostgreSQL Flexible Server and Azure Blob Storage
-
-The TUI always runs locally as a standalone CLI and is never orchestrated by Aspire. It connects to the Control Plane via configuration (localhost for local dev, cloud URL for production).
-
-See [docs/aspire-integration.md](aspire-integration.md) for the complete orchestration model.
+Switching from local to cloud requires only a config change in the CLI. No code changes.
 
 ### All Stores are URI-Based
 
-The package location is expressed as a URI in the `MigrationJob`. The Job Engine resolves the URI to an `IArtefactStore` implementation:
+The package location is expressed as a URI in the `MigrationJob`. The Migration Agent resolves the URI to an `IArtefactStore` implementation:
 
 | URI scheme | Implementation |
 |---|---|
@@ -69,11 +94,23 @@ The package location is expressed as a URI in the `MigrationJob`. The Job Engine
 
 Module code never references a concrete store implementation.
 
+### Cross-Environment Package Handoff
+
+Because the package is a first-class artefact identified by URI, export and import can run in completely different environments:
+
+| Scenario | Export runs on | Import runs on | Handoff |
+|---|---|---|---|
+| Standalone → Cloud | Local (Standalone control plane) | Cloud (Self-Hosted/Managed) | Operator zips package, uploads to blob, resubmits import config pointing at `azureblob://` URI |
+| Cloud → Air-gapped | Cloud | Local (Standalone) | Operator downloads package or zip, resubmits import config pointing at `file:///` URI |
+| Both, same environment | Same control plane for both phases | — | Control plane chains export → import internally |
+
+The package format is identical in all cases. See [docs/packaging-zip.md](packaging-zip.md) for the zip transfer mechanism.
+
 ### Progress is Event-Driven
 
-The Job Engine emits structured `ProgressEvent` records through `IProgressSink`. The TUI subscribes; so does the package log (`Logs/progress.jsonl`). In cloud mode, the Migration Agent subscribes a `ControlPlaneProgressSink` instead.
+The Migration Agent emits structured `ProgressEvent` records through `IProgressSink`. The TUI subscribes by polling the control plane's progress endpoint. The package log (`Logs/progress.jsonl`) is always written regardless of whether the TUI is open.
 
-The Job Engine has no knowledge of where progress is rendered.
+The job engine has no knowledge of where progress is rendered.
 
 ## 13. What This System Is
 

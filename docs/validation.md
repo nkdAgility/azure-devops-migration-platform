@@ -2,11 +2,89 @@
 
 ## 14. Validation
 
-Validation runs at two points in the lifecycle: **pre-flight** (before import begins) and **post-flight** (after import completes). Each is mandatory. Fail-fast is the default; continue-on-error must be explicitly configured.
+Validation runs at four points in the lifecycle. Fail-fast is the default at every tier; continue-on-error must be explicitly configured.
+
+| Tier | When | Who runs it | Network required |
+|---|---|---|---|
+| **0 — Structural** | Before CLI submits anything | CLI | No |
+| **1 — Connectivity** | Before CLI submits anything | CLI | Yes |
+| **2 — Pre-flight** | Before import begins | Migration Agent / Job Engine | Yes |
+| **3 — Post-flight** | After import completes | Migration Agent / Job Engine | Yes |
+
+Tiers 0 and 1 together are the **CLI pre-validation pass**. The CLI creates a `MigrationJob` and submits it to the control plane only if both tiers pass.
 
 ---
 
-## Pre-Flight Validation
+## Tier 0 — Structural Validation (no network)
+
+Runs entirely locally. No credentials are used. No network calls are made.
+
+### Required Checks
+
+| Check | Description |
+|---|---|
+| Config parses | The config file must be valid JSON. |
+| Schema version | `configVersion` must be a version supported by this CLI binary. |
+| Required fields | `mode`, `artefacts.path`, and `modules` must be present. |
+| Mode value | `mode` must be `Export`, `Import`, or `Both`. |
+| Module names | Every entry in `modules[].name` must match a module registered in the CLI binary. |
+| Module scope schema | Each module's `scopes[].parameters` must conform to the JSON Schema bundled with that module in the CLI binary. |
+| Policy ranges | Retry `max` and concurrency `maxConcurrency` must be positive integers within allowed bounds. |
+| Path normalisation | `artefacts.path` must be normalisable to a valid URI (`file:///` or `azureblob://`). |
+
+Module scope schemas are bundled inside the CLI binary — one JSON Schema file per module. This lets the CLI catch obvious config errors (missing `query` in a `wiql` scope, unknown field names) without any network call.
+
+### Failure Behaviour
+
+Any structural failure causes the CLI to exit immediately with a human-readable error message identifying the field and the violation. No control plane call is made.
+
+---
+
+## Tier 1 — Connectivity and Permission Checks (network required)
+
+Runs after Tier 0 passes. Verifies that the operator has the access needed to execute the job before committing it to the queue.
+
+### Required Checks
+
+| Check | Applies to | Description |
+|---|---|---|
+| Source reachable | `Export`, `Both` | The source org/collection URL returns a successful response. |
+| Source project exists | `Export`, `Both` | The specified source project exists in the source org. |
+| Source read permissions | `Export`, `Both` | The source credentials have at minimum read access to work items in the source project. |
+| Target reachable | `Import`, `Both` | The target org URL returns a successful response. |
+| Target project exists | `Import`, `Both` | The specified target project exists in the target org. |
+| Target write permissions | `Import`, `Both` | The target credentials have at minimum write access to work items in the target project. |
+| Package URI accessible | All | For `file:///`: the path exists (export) or is writable (import). For `azureblob://`: the container exists and credentials are valid. |
+
+### Failure Behaviour
+
+Any connectivity failure causes the CLI to exit with an actionable error message (e.g. "Source project 'MyProject' not found in collection — verify the `source.project` field and credentials"). No control plane call is made.
+
+### What Connectivity Checks Do NOT Do
+
+- They do not execute any migration work.
+- They do not verify that specific work items match the configured WIQL query (that is expensive and deferred to the agent).
+- They do not guarantee the migration will succeed — only that the prerequisites are met.
+
+---
+
+## MigrationJob Creation
+
+After Tiers 0 and 1 pass, the CLI:
+
+1. Normalises `artefacts.path` to a URI (`packageUri`).
+2. Assigns a UUID `jobId`.
+3. Computes `configHash` (SHA-256 of the normalised config JSON).
+4. Constructs the `MigrationJob`.
+5. Serialises and submits it to the control plane.
+
+The control plane performs a deduplication check on `jobId` and a final schema validation before accepting the job.
+
+---
+
+---
+
+## Tier 2 — Pre-Flight Validation
 
 Pre-flight validation runs:
 
@@ -33,7 +111,7 @@ Pre-flight validation runs:
 
 ---
 
-## Post-Flight Validation
+## Tier 3 — Post-Flight Validation
 
 Post-flight validation runs after all `ImportAsync` calls complete.
 
