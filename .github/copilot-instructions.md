@@ -19,7 +19,7 @@ features/                   ← Gherkin .feature files by operation/connector/mo
 .agents/guardrails/              ← architectural guardrails, coding standards, testing standards
 docs/                       ← architecture documentation (source of truth for design)
 .github/agents/             ← GitHub custom agents (YAML frontmatter + rules)
-.github/skills/             ← session lifecycle skills (start-session, review, end-session, fix)
+.agents/skills/             ← session lifecycle skills (start-session, review, end-session, fix)
 .github/commands/           ← slash-command aliases invoking skills
 ```
 
