@@ -157,7 +157,7 @@ Each module's `ValidateAsync` is called during the pre-flight pass. It must:
 - Fail fast on missing required fields (unless `continueOnError` is set).
 - Have no side effects on the package or the target system.
 
-See [docs/modules.md](modules.md) for the full `IDataTypeModule` contract and [ai/guardrails/module-template.md](../ai/guardrails/module-template.md) for the per-module validation checklist.
+See [docs/modules.md](modules.md) for the full `IDataTypeModule` contract and [.agents/guardrails/module-template.md](../.agents/guardrails/module-template.md) for the per-module validation checklist.
 
 ---
 

@@ -63,7 +63,7 @@ Each stage produces one artifact. All four must be complete and consistent befor
 **Artifact:** Architecture notes (brief, inline in the feature file as a comment block or as a companion `.arch.md` file).
 
 1. Given the intent and scenarios, identify what integration points, interfaces, or constraints an implementer must know.
-2. Verify the change does not violate [ai/guardrails/system-architecture.md](../../ai/guardrails/system-architecture.md).
+2. Verify the change does not violate [.agents/guardrails/system-architecture.md](../../.agents/guardrails/system-architecture.md).
 3. Document any constraints the implementer must respect (e.g., must use `IArtefactStore`, must be streaming, cursor must be written after each item).
 4. Flag any scenario that would require violating a guardrail. Escalate to the human — do not proceed with an architecturally invalid scenario.
 
@@ -94,8 +94,8 @@ Before signalling the Orchestrator to proceed to the Test Generation Agent:
 
 - A human-authored draft intent description (or user story).
 - The project context in [.github/copilot-instructions.md](../copilot-instructions.md).
-- The acceptance test format rules in [ai/guardrails/acceptance-test-format.md](../../ai/guardrails/acceptance-test-format.md).
-- The hard guardrails in [ai/guardrails/system-architecture.md](../../ai/guardrails/system-architecture.md).
+- The acceptance test format rules in [.agents/guardrails/acceptance-test-format.md](../../.agents/guardrails/acceptance-test-format.md).
+- The hard guardrails in [.agents/guardrails/system-architecture.md](../../.agents/guardrails/system-architecture.md).
 - Existing feature files in [features/](../../features/) for naming conventions.
 
 ## Feature File Placement

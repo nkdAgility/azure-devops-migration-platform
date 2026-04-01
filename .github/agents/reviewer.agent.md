@@ -14,7 +14,7 @@ The Reviewer inspects completed work against the architectural guardrails and th
 
 - The implemented diff or changeset.
 - The Specification Agent's approved output (intent description, feature file, architecture constraints, acceptance criteria).
-- The hard guardrails in [ai/guardrails/system-architecture.md](../../ai/guardrails/system-architecture.md).
+- The hard guardrails in [.agents/guardrails/system-architecture.md](../../.agents/guardrails/system-architecture.md).
 - The full documentation set in [docs/](../../docs/).
 
 ## Rejection Checklist

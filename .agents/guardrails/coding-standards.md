@@ -172,7 +172,7 @@ Preferred:
 - Placing migration execution logic in the TUI (parsing and transport selection only).
 - Using `System.Console`, ANSI escape sequences, or Spectre.Console rendering primitives inside TUI view classes (Terminal.Gui only).
 - Using `System.CommandLine`, `McMaster.Extensions.CommandLineUtils`, or any argument-parsing library other than Spectre.Console in CLI command-layer code.
-- Using SQLite, in-memory databases, or any provider other than PostgreSQL (Npgsql) for the control plane. This prohibition applies in tests, CI, and development. See [ai/guardrails/system-architecture.md](system-architecture.md) rule 20.
+- Using SQLite, in-memory databases, or any provider other than PostgreSQL (Npgsql) for the control plane. This prohibition applies in tests, CI, and development. See [.agents/guardrails/system-architecture.md](system-architecture.md) rule 20.
 
 ---
 

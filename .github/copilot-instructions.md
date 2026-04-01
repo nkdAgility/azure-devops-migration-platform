@@ -16,7 +16,7 @@ This repository is the **Azure DevOps Migration Platform** — a versioned migra
 src/                        ← production code, one project per layer
 tests/                      ← test projects mirroring src structure
 features/                   ← Gherkin .feature files by operation/connector/module
-ai/guardrails/              ← architectural guardrails, coding standards, testing standards
+.agents/guardrails/              ← architectural guardrails, coding standards, testing standards
 docs/                       ← architecture documentation (source of truth for design)
 .github/agents/             ← GitHub custom agents (YAML frontmatter + rules)
 .github/skills/             ← session lifecycle skills (start-session, review, end-session, fix)
@@ -41,13 +41,13 @@ docs/                       ← architecture documentation (source of truth for 
 - Any module that accesses the filesystem directly instead of using `IArtefactStore`.
 - Any migration path that skips writing to the package and goes source-to-target directly.
 - Any change to the WorkItems folder naming format.
-- Any agent rule file created under `docs/` — all agent rules live in `ai/guardrails/`.
+- Any agent rule file created under `docs/` — all agent rules live in `.agents/guardrails/`.
 
 ## Key References
 
 - Architecture & design decisions: [docs/architecture.md](../docs/architecture.md)
-- Hard guardrails (read by all agents): [ai/guardrails/system-architecture.md](../ai/guardrails/system-architecture.md)
-- ATDD workflow: [ai/guardrails/atdd-workflow.md](../ai/guardrails/atdd-workflow.md)
-- Testing standards: [ai/guardrails/testing-standards.md](../ai/guardrails/testing-standards.md)
+- Hard guardrails (read by all agents): [.agents/guardrails/system-architecture.md](../.agents/guardrails/system-architecture.md)
+- ATDD workflow: [.agents/guardrails/atdd-workflow.md](../.agents/guardrails/atdd-workflow.md)
+- Testing standards: [.agents/guardrails/testing-standards.md](../.agents/guardrails/testing-standards.md)
 ```
 ```

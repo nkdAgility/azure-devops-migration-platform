@@ -51,4 +51,4 @@ interface IDataTypeModule
 
 ### Adding a New Module
 
-See [ai/guardrails/module-template.md](../ai/guardrails/module-template.md) for the full checklist.
+See [.agents/guardrails/module-template.md](../.agents/guardrails/module-template.md) for the full checklist.

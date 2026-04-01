@@ -524,4 +524,4 @@ The `TfsImportAgent` MUST NOT:
 - [Artefact Store](artefact-store.md) — Package file abstraction
 - [Checkpointing](checkpointing.md) — Cursor model
 - [Validation](validation.md) — Post-export validation
-- [ai/guardrails/coding-standards.md](../ai/guardrails/coding-standards.md) — .NET runtime isolation rules
+- [.agents/guardrails/coding-standards.md](../.agents/guardrails/coding-standards.md) — .NET runtime isolation rules

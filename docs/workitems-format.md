@@ -65,4 +65,4 @@ Each revision folder corresponds to exactly one revision of one work item. Attac
 
 ### No Global Attachments Module
 
-Attachments are scoped to their revision. There is no `Attachments/` root folder in the package. This is a hard rule; see [ai/guardrails/system-architecture.md](../ai/guardrails/system-architecture.md).
+Attachments are scoped to their revision. There is no `Attachments/` root folder in the package. This is a hard rule; see [.agents/guardrails/system-architecture.md](../.agents/guardrails/system-architecture.md).

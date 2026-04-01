@@ -1,4 +1,4 @@
-# ai/guardrails/migration-rules.md
+# .agents/guardrails/migration-rules.md
 
 # Migration Rules – Azure DevOps Migration Platform
 

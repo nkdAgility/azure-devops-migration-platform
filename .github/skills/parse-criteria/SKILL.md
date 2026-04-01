@@ -57,4 +57,4 @@ Output the plan in the format defined in [README.md](README.md).
 - Do not infer implementation details not present in the scenario text.
 - Do not produce C# code in this step — that is the Test Generation Agent's responsibility.
 - If a step is ambiguous (e.g., "the system does the right thing"), flag it and ask for clarification.
-- Never produce a test plan that would require violating [agents/system-architecture.md](../../ai/guardrails/system-architecture.md).
+- Never produce a test plan that would require violating [agents/system-architecture.md](../../.agents/guardrails/system-architecture.md).

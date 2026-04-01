@@ -15,8 +15,8 @@ The Implementer writes production code to make the Reqnroll step definitions pas
 - The failing Reqnroll step definition files (`*Steps.cs`, `*Context.cs`) from the Test Generation Agent.
 - The Gherkin `.feature` file that the steps were generated from.
 - The full documentation set in [docs/](../../docs/).
-- The hard guardrails in [ai/guardrails/system-architecture.md](../../ai/guardrails/system-architecture.md).
-- The module checklist in [ai/guardrails/module-template.md](../../ai/guardrails/module-template.md) when adding a new module.
+- The hard guardrails in [.agents/guardrails/system-architecture.md](../../.agents/guardrails/system-architecture.md).
+- The module checklist in [.agents/guardrails/module-template.md](../../.agents/guardrails/module-template.md) when adding a new module.
 
 ## Responsibilities
 
@@ -28,7 +28,7 @@ The Implementer writes production code to make the Reqnroll step definitions pas
 6. Ensure the cursor is written correctly after each unit of work.
 7. Use `IArtefactStore` and `IStateStore` exclusively for storage operations in modules.
 
-**Unit test placement:** `tests/<ProjectName>.Tests/<Area>/<ClassName>Tests.cs` — plain MSTest `[TestClass]`/`[TestMethod]`, not Reqnroll step definitions. See the required coverage table in [ai/guardrails/testing-standards.md](../../ai/guardrails/testing-standards.md).
+**Unit test placement:** `tests/<ProjectName>.Tests/<Area>/<ClassName>Tests.cs` — plain MSTest `[TestClass]`/`[TestMethod]`, not Reqnroll step definitions. See the required coverage table in [.agents/guardrails/testing-standards.md](../../.agents/guardrails/testing-standards.md).
 
 ## Non-Negotiable Implementation Rules
 
@@ -46,9 +46,9 @@ A change is complete when:
 
 - [ ] All Reqnroll step definition bodies are implemented (no `PendingStepException` remaining).
 - [ ] All new logic with branching paths has unit tests in a `*Tests.cs` file covering each path.
-- [ ] The required coverage behaviours in [agents/testing-standards.md](../../ai/guardrails/testing-standards.md) are met for any new module.
+- [ ] The required coverage behaviours in [agents/testing-standards.md](../../.agents/guardrails/testing-standards.md) are met for any new module.
 - [ ] All tests pass (Reqnroll scenarios + unit tests).
-- [ ] No architectural rule in [agents/system-architecture.md](../../ai/guardrails/system-architecture.md) is violated.
+- [ ] No architectural rule in [agents/system-architecture.md](../../.agents/guardrails/system-architecture.md) is violated.
 - [ ] Relevant documentation in [docs/](../../docs/) is updated.
 - [ ] No TODO or placeholder left in production paths.
 ## Output Schema

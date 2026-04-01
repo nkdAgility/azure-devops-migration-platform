@@ -7,10 +7,10 @@ This file is the mandatory starting point for any AI agent or contributor.
 It connects:
 
 - Human-readable architecture (`/docs`)
-- Enforced guardrails (`/ai/guardrails`)
+- Enforced guardrails (`/.agents/guardrails`)
 
 If anything conflicts:
-- `/ai/guardrails/*.md` guardrails override implementation
+- `/.agents/guardrails/*.md` guardrails override implementation
 - `/docs/*.md` define architectural intent
 
 ---
@@ -105,32 +105,32 @@ Package zip/export:
 
 # 🤖 Agent Guardrails (Enforced Rules)
 
-All agent rules live in `/ai/guardrails`. **Never create a `docs/agent-rules/` directory or any agent rule file under `/docs`.**
+All agent rules live in `/.agents/guardrails`. **Never create a `docs/agent-rules/` directory or any agent rule file under `/docs`.**
 
 These files define what must never be violated:
 
 ## Core Architecture Constraints
-→ ai/guardrails/system-architecture.md
+→ .agents/guardrails/system-architecture.md
 
 ## WorkItems-Specific Rules
-→ ai/guardrails/workitems-rules.md
+→ .agents/guardrails/workitems-rules.md
 
 ## Migration Behaviour Constraints
-→ ai/guardrails/migration-rules.md
+→ .agents/guardrails/migration-rules.md
 
 ## Aspire Integration Guardrails
-→ ai/guardrails/aspire-integration.md
+→ .agents/guardrails/aspire-integration.md
 
 ## Coding Standards
-→ ai/guardrails/coding-standards.md
+→ .agents/guardrails/coding-standards.md
 
 ## New Module Requirements
-→ ai/guardrails/module-template.md
+→ .agents/guardrails/module-template.md
 
 ## ATDD Rules & Standards
-→ ai/guardrails/atdd-workflow.md — ATDD session lifecycle and handoff rules
-→ ai/guardrails/acceptance-test-format.md — Gherkin format, naming, prohibited patterns
-→ ai/guardrails/testing-standards.md — Reqnroll + MSTest conventions
+→ .agents/guardrails/atdd-workflow.md — ATDD session lifecycle and handoff rules
+→ .agents/guardrails/acceptance-test-format.md — Gherkin format, naming, prohibited patterns
+→ .agents/guardrails/testing-standards.md — Reqnroll + MSTest conventions
 
 ## ATDD Agent Profiles (GitHub Custom Agents)
 → .github/agents/specification-agent.agent.md
@@ -183,7 +183,7 @@ If code conflicts with these, reject the change.
 7. All persistence goes through IArtefactStore and IStateStore.
 8. Determinism is mandatory.
 
-Detailed logic is in `/ai/guardrails`.
+Detailed logic is in `/.agents/guardrails`.
 
 ---
 
@@ -201,7 +201,7 @@ Reject any proposal that:
 - Adds migration execution logic to the control plane.
 - References a concrete artefact store implementation inside module code.
 - Sorts `EnumerateAsync` results in memory.
-- Creates agent rule files under `/docs` instead of `/ai/guardrails`.
+- Creates agent rule files under `/docs` instead of `/.agents/guardrails`.
 ---
 
 # 🧭 Development Flow
@@ -209,7 +209,7 @@ Reject any proposal that:
 When implementing:
 
 1. Read relevant `/docs` file.
-2. Apply constraints from `/ai/guardrails`.
+2. Apply constraints from `/.agents/guardrails`.
 3. Implement via module abstraction.
 4. Add tests.
 5. Update schemas if required.
@@ -219,7 +219,7 @@ When implementing:
 # Final Principle
 
 `/docs` explains the architecture.
-`/ai/guardrails` enforces the architecture.
+`/.agents/guardrails` enforces the architecture.
 `agents.md` binds the two.
 
 Preserve:

@@ -2,7 +2,7 @@
 
 This document defines MSTest conventions, test naming rules, and test organisation for the Azure DevOps Migration Platform.
 
-See also: [ai/guardrails/coding-standards.md](./coding-standards.md) for the broader coding standards and [ai/guardrails/module-template.md](./module-template.md) for per-module test requirements.
+See also: [.agents/guardrails/coding-standards.md](./coding-standards.md) for the broader coding standards and [.agents/guardrails/module-template.md](./module-template.md) for per-module test requirements.
 
 ---
 
