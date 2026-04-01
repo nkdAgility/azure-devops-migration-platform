@@ -258,30 +258,30 @@ No control plane. No PostgreSQL. No network services. The TUI runs the Job Engin
 
 **Use when:** Simple migrations, air-gapped environments, or initial development and testing of module logic.
 
-### Mode 2 — Local Distributed (Aspire, control plane in Docker)
+### Mode 2 — Self-Hosted (Aspire, control plane on organisation infrastructure)
 
 ```
-Developer Machine
+Organisation Network
 ├─ TUI (CLI)                    ← always local, never orchestrated by Aspire
-├─ Aspire AppHost               ← orchestrates local services
-│   ├─ Control Plane API        ← local process or container
-│   ├─ Migration Agent(s)       ← local process or container
-│   ├─ PostgreSQL               ← Docker container (Aspire-managed)
-│   └─ Azurite (blob emulator)  ← Docker container (Aspire-managed)
-└─ Package Storage              ← file:/// or azureblob://localhost:10000
+├─ Aspire AppHost               ← orchestrates services (developer machine or server)
+│   ├─ Control Plane API        ← process or container
+│   ├─ Migration Agent(s)       ← process or container
+│   ├─ PostgreSQL               ← Docker container or existing on-prem instance
+│   └─ Package Storage          ← file:/// / network share / Azurite emulator
 ```
 
-The control plane runs locally. PostgreSQL runs in a Docker container spawned by Aspire. This mode exercises identical code paths to cloud deployment, including the lease protocol, heartbeat, and progress reporting.
+The organisation hosts the full control plane and agents on their own network. PostgreSQL runs on infrastructure the organisation controls — either a Docker container spawned by Aspire or an existing on-prem PostgreSQL instance. The TUI is always run locally by the operator; everything else can run on a shared server. Multiple teams and migration runs are coordinated from a single control plane.
 
-**Use when:** Testing the full distributed stack locally, validating agent behaviour, or developing control plane features.
+**Use when:** Organisations want to self-host the platform, coordinate multiple concurrent migrations, or require data residency on their own network.
 
 **Benefits:**
 
-- Identical code paths to production
-- No cloud resources required
-- Fast iteration with full observability dashboard
+- Full infrastructure control — no cloud dependency
+- Multiple migration runs from one control plane
+- Identical code paths to Managed mode
+- Suitable for air-gapped or compliance-constrained environments
 
-### Mode 3 — Cloud Distributed (Azure Container Apps)
+### Mode 3 — Managed (Azure Container Apps, hosted service)
 
 ```
 Developer Machine
@@ -294,23 +294,24 @@ Azure Subscription
 └─ Azure Blob Storage
 ```
 
-Mode 2 with Azure resources substituted for Docker containers. The Aspire AppHost declaration is unchanged — `azd up` provisions the Azure counterparts automatically.
+Mode 2 (Self-Hosted) with Azure resources substituted for organisation-managed infrastructure. The Aspire AppHost declaration is unchanged — `azd up` provisions the Azure counterparts automatically. Organisations use this without operating any servers themselves.
 
-**Use when:** Production migrations, multi-tenant scenarios, network-isolated export/import agents.
+**Use when:** A managed service is preferred, infrastructure operation is not desired, or elastic scaling across many concurrent migrations is required.
 
 **Benefits:**
 
-- Scalable execution
+- No infrastructure to operate
+- Elastic scaling (Container Apps scale-out)
 - Network isolation (export/import agents in separate zones)
-- Persistent job history
+- Multi-tenant capable with persistent job history
 
 ### Summary: Where is PostgreSQL?
 
 | Mode | PostgreSQL present? | Who runs it? |
 |---|---|---|
 | Standalone (LocalJobRunner) | **No** | N/A — no control plane |
-| Local Distributed (Aspire) | **Yes** | Docker container (Aspire-managed) |
-| Cloud Distributed | **Yes** | Azure PostgreSQL Flexible Server |
+| Self-Hosted (Aspire) | **Yes** | Organisation infrastructure (Docker or on-prem) |
+| Managed | **Yes** | Azure PostgreSQL Flexible Server |
 
 The `Checkpoints/idmap.db` SQLite file (work item ID mapping, inside the package) is present in all three modes. It is not the control plane's database.
 

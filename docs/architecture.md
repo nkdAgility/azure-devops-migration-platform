@@ -75,30 +75,25 @@ The Job Engine emits structured `ProgressEvent` records through `IProgressSink`.
 
 The Job Engine has no knowledge of where progress is rendered.
 
-## 13. What This System Is Now
-
-It is **no longer**:
-
-- A live migration tool
-- A direct source-to-target copier
-
-It **is**:
+## 13. What This System Is
 
 > A versioned migration package platform with streaming chronological replay.
+
+Operators can run export and import as separate steps, or as a single end-to-end operation (`Both` mode). Either way, the migration package is always the intermediary — providing a complete, auditable, resumable record of every change. The package is a first-class artefact, not an internal implementation detail.
 
 The platform supports three operational modes:
 
 | Mode | Transport | Control Plane | PostgreSQL | Package Store |
 |---|---|---|---|---|
 | **Standalone** | `LocalJobRunner` (in-process) | None | None | `file:///` |
-| **Local Distributed** | `ControlPlaneClient` → local control plane | Docker (Aspire) | Docker (Aspire) | `file:///` or Azurite |
-| **Cloud Distributed** | `ControlPlaneClient` → Azure control plane | Azure Container Apps | PostgreSQL Flexible Server | Azure Blob Storage |
+| **Self-Hosted** | `ControlPlaneClient` → local control plane | Docker or on-prem server | PostgreSQL on-prem | `file:///` or network share |
+| **Managed** | `ControlPlaneClient` → Azure control plane | Azure Container Apps | PostgreSQL Flexible Server | Azure Blob Storage |
 
-**Standalone mode** is the simplest path. The TUI runs the Job Engine in-process via `LocalJobRunner`. There is no control plane, no PostgreSQL, and no network dependency. The only database artifact is `Checkpoints/idmap.db` (SQLite), which lives inside the migration package itself and is scoped to work item ID mapping — it is not a control plane concern.
+**Standalone mode** is the closest to the original tool. The TUI runs the Job Engine in-process via `LocalJobRunner` on a single machine. There is no control plane, no PostgreSQL, and no network dependency. The only database artefact is `Checkpoints/idmap.db` (SQLite), which lives inside the migration package itself and is scoped to work item ID mapping — it is not a control plane concern.
 
-**Local Distributed mode** runs the full stack (control plane + migration agents) in Docker containers on the developer's machine, orchestrated by the Aspire AppHost. The control plane is backed by a PostgreSQL Docker container. This mode exercises identical code paths to cloud deployment.
+**Self-Hosted mode** allows an organisation to host the full migration platform on their own network. The control plane and migration agents run on internal infrastructure (Docker or bare-metal), orchestrated by the Aspire AppHost. Multiple migration runs can be coordinated from a shared control plane, backed by a PostgreSQL instance the organisation controls.
 
-**Cloud Distributed mode** is Local Distributed with Azure resources substituted for Docker containers. The Aspire AppHost declaration is unchanged; `azd up` provisions the Azure counterparts.
+**Managed mode** is the hosted service offering. The control plane and migration agents run in Azure Container Apps. PostgreSQL Flexible Server and Azure Blob Storage are provisioned by `azd`. Organisations use this without operating any infrastructure themselves.
 
 All three modes use the same orchestrator engine, the same modules, and the same cursor-based checkpoints. The package contract is identical. See [docs/cli.md](cli.md), [docs/tui.md](tui.md), [docs/control-plane.md](control-plane.md), and [docs/migration-agent.md](migration-agent.md).
 

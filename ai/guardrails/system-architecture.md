@@ -64,8 +64,8 @@ These rules are non-negotiable. They are distilled from the full reference set i
 20. **The control plane data store is PostgreSQL in all environments — no substitutions.**
     PostgreSQL (via EF Core + Npgsql) is the only permitted data store for the control plane. It is present in two of the three operational modes:
     - **Standalone mode** (`LocalJobRunner`, in-process): no control plane, no PostgreSQL. The `Checkpoints/idmap.db` SQLite file inside the migration package is a module-level ID mapping store, not a control plane concern.
-    - **Local Distributed mode** (Aspire AppHost): control plane runs locally; PostgreSQL runs in a Docker container managed by Aspire.
-    - **Cloud Distributed mode** (`azd up`): control plane on Azure Container Apps; PostgreSQL Flexible Server provisioned automatically from the same AppHost declaration.
+    - **Self-Hosted mode** (Aspire AppHost): control plane runs on organisation infrastructure; PostgreSQL runs on-premises or in Docker managed by Aspire.
+    - **Managed mode** (`azd up`): control plane on Azure Container Apps; PostgreSQL Flexible Server provisioned automatically from the same AppHost declaration.
     No SQLite fallback, no in-memory database, and no alternative provider are permitted for the control plane in any of these modes — including tests and CI. Test isolation is achieved by spinning up a real PostgreSQL instance (Testcontainers or the Aspire test host) and using per-test databases or transaction rollback. See [docs/control-plane.md](../../docs/control-plane.md) for the table schema and [docs/aspire-integration.md](../../docs/aspire-integration.md) for the three-mode breakdown.
 
 Consult [docs/architecture.md](../../docs/architecture.md). If the answer is not there, the safest default is to preserve the package layout, maintain streaming behaviour, and write state only through the defined interfaces.
