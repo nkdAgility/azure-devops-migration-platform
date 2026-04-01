@@ -60,4 +60,4 @@ See [docs/modules.md](../../docs/modules.md) for the full `IDataTypeModule` cont
 
 - [ ] Add a `docs/<modulename>.md` file describing the module's schema, folder layout, cursor, and any module-specific rules.
 - [ ] Add the module to the table in [docs/modules.md](../../docs/modules.md).
-- [ ] Add the module name to the `includedTypes` example in [docs/package-format.md](../../docs/package-format.md) if it is a standard module.
+- [ ] Add the module name to the `includedTypes` example in [.agents/context/package-format.md](../context/package-format.md) if it is a standard module.

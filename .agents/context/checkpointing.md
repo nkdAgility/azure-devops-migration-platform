@@ -78,4 +78,4 @@ The convention is `<moduleName-lowercase>.cursor.json`. Modules must not share c
 
 ### ID Map
 
-The `Checkpoints/idmap.db` (or `idmap.json`) file tracks source-to-target work item ID mappings and uploaded attachment records. It is written during Stage `CreatedOrUpdated` (work item ID) and Stage `UploadedAttachments` (attachment ID per revision). It is the sole mechanism for idempotency checks during resume. See [docs/identity-and-mapping.md](identity-and-mapping.md) for the identity mapping counterpart.
+The `Checkpoints/idmap.db` (or `idmap.json`) file tracks source-to-target work item ID mappings and uploaded attachment records. It is written during Stage `CreatedOrUpdated` (work item ID) and Stage `UploadedAttachments` (attachment ID per revision). It is the sole mechanism for idempotency checks during resume. See [.agents/context/identity-and-mapping.md](identity-and-mapping.md) for the identity mapping counterpart.

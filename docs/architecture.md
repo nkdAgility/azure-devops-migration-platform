@@ -74,7 +74,7 @@ Package (file:/// or azureblob://)
 
 The control plane creates a `MigrationJob` from the operator's config. It is the fully serialisable object that the control plane passes to a Migration Agent. The config file is never passed to the agent directly.
 
-See [docs/job-contract.md](job-contract.md).
+See [.agents/context/job-contract.md](../.agents/context/job-contract.md).
 
 ### The Control Plane is Always a Service
 
@@ -192,19 +192,19 @@ Key properties:
 
 | Section | Document |
 |---|---|
-| 2. Package structure & manifest | [docs/package-format.md](package-format.md) |
-| 3. WorkItems on-disk layout | [docs/workitems-format.md](workitems-format.md) |
-| 4. Streaming import model | [docs/import-streaming.md](import-streaming.md) |
-| 5. Cursor-based checkpointing | [docs/checkpointing.md](checkpointing.md) |
+| 2. Package structure & manifest | [.agents/context/package-format.md](../.agents/context/package-format.md) |
+| 3. WorkItems on-disk layout | [.agents/context/workitems-format.md](../.agents/context/workitems-format.md) |
+| 4. Streaming import model | [.agents/context/import-streaming.md](../.agents/context/import-streaming.md) |
+| 5. Cursor-based checkpointing | [.agents/context/checkpointing.md](../.agents/context/checkpointing.md) |
 | 6. Module architecture | [docs/modules.md](modules.md) |
-| 7. Identity & mapping | [docs/identity-and-mapping.md](identity-and-mapping.md) |
+| 7. Identity & mapping | [.agents/context/identity-and-mapping.md](../.agents/context/identity-and-mapping.md) |
 | 8. Source types | [docs/source-types.md](source-types.md) |
 | 9. Configuration model | [docs/configuration.md](configuration.md) |
 | 10. Orchestration | [docs/orchestration.md](orchestration.md) |
 | 11. Zip packaging | [docs/packaging-zip.md](packaging-zip.md) |
 | 12. Validation (pre-flight & post-flight) | [docs/validation.md](validation.md) |
-| 13. Artefact store abstraction | [docs/artefact-store.md](artefact-store.md) |
-| 14. Job contract | [docs/job-contract.md](job-contract.md) |
+| 13. Artefact store abstraction | [.agents/context/artefact-store.md](../.agents/context/artefact-store.md) |
+| 14. Job contract | [.agents/context/job-contract.md](../.agents/context/job-contract.md) |
 | 15. Control plane | [docs/control-plane.md](control-plane.md) |
 | 16. Migration Agent (worker) | [docs/migration-agent.md](migration-agent.md) |
 | 17. CLI | [docs/cli.md](cli.md) |

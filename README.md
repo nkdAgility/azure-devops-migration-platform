@@ -15,12 +15,12 @@ See [docs/architecture.md](docs/architecture.md) for the full architectural over
 | Topic | Document |
 |---|---|
 | Architecture & purpose | [docs/architecture.md](docs/architecture.md) |
-| Package format & manifest | [docs/package-format.md](docs/package-format.md) |
-| WorkItems on-disk layout | [docs/workitems-format.md](docs/workitems-format.md) |
-| Streaming import | [docs/import-streaming.md](docs/import-streaming.md) |
-| Checkpointing & resume | [docs/checkpointing.md](docs/checkpointing.md) |
+| Package format & manifest | [.agents/context/package-format.md](.agents/context/package-format.md) |
+| WorkItems on-disk layout | [.agents/context/workitems-format.md](.agents/context/workitems-format.md) |
+| Streaming import | [.agents/context/import-streaming.md](.agents/context/import-streaming.md) |
+| Checkpointing & resume | [.agents/context/checkpointing.md](.agents/context/checkpointing.md) |
 | Module architecture | [docs/modules.md](docs/modules.md) |
-| Identity & mapping | [docs/identity-and-mapping.md](docs/identity-and-mapping.md) |
+| Identity & mapping | [.agents/context/identity-and-mapping.md](.agents/context/identity-and-mapping.md) |
 | Source types | [docs/source-types.md](docs/source-types.md) |
 | Configuration | [docs/configuration.md](docs/configuration.md) |
 | Orchestration | [docs/orchestration.md](docs/orchestration.md) |

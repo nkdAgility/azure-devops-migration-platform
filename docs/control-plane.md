@@ -29,7 +29,7 @@ The control plane does **not** run the orchestrator, call source or target APIs,
 
 | Method | Path | Description |
 |---|---|---|
-| `POST` | `/jobs` | Submit a new job. Body is a job definition (see [docs/job-contract.md](job-contract.md)). Returns `jobId`. |
+| `POST` | `/jobs` | Submit a new job. Body is a job definition (see [.agents/context/job-contract.md](../.agents/context/job-contract.md)). Returns `jobId`. |
 | `GET` | `/jobs/{jobId}` | Get job status and metadata. |
 | `GET` | `/jobs/{jobId}/progress` | Get per-module, per-stage progress as last reported by the Migration Agent. |
 | `POST` | `/jobs/{jobId}/cancel` | Cancel a running or queued job. Migration Agent will receive the signal on next heartbeat. |
@@ -97,7 +97,7 @@ Migration Agents push module progress after each cursor write:
 }
 ```
 
-This mirrors the cursor schema ([docs/checkpointing.md](checkpointing.md)). The control plane stores the latest value per module for status display. The cursor in the package remains the authoritative resume state.
+This mirrors the cursor schema ([.agents/context/checkpointing.md](../.agents/context/checkpointing.md)). The control plane stores the latest value per module for status display. The cursor in the package remains the authoritative resume state.
 
 ---
 

@@ -13,7 +13,7 @@ Three implementations exist:
 | `FileSystemArtefactStore` | `net481;net10.0` | Local execution — Standalone mode, `TfsExportAgent`, offline migrations |
 | `AzureBlobArtefactStore` | `net10.0` only | Cloud execution — `MigrationAgent` with Azure Blob Storage |
 
-Both implementations preserve the canonical package layout. The path conventions documented in [docs/package-format.md](package-format.md) and [docs/workitems-format.md](workitems-format.md) apply identically to both.
+Both implementations preserve the canonical package layout. The path conventions documented in [.agents/context/package-format.md](package-format.md) and [.agents/context/workitems-format.md](workitems-format.md) apply identically to both.
 
 ---
 
@@ -72,7 +72,7 @@ Used for cloud (Migration Agent) execution.
 
 ### Lexicographic Guarantee for Blob Listing
 
-Azure Blob Storage lists blobs in lexicographic order by name within a given prefix. Because the WorkItems folder naming (`yyyy-MM-dd/<ticks>-<workItemId>-<revisionIndex>/`) is designed to be lexicographically chronological (see [docs/workitems-format.md](workitems-format.md)), `EnumerateAsync` over `WorkItems/` returns revision folders in chronological order without any in-memory sorting. This preserves the streaming import guarantee.
+Azure Blob Storage lists blobs in lexicographic order by name within a given prefix. Because the WorkItems folder naming (`yyyy-MM-dd/<ticks>-<workItemId>-<revisionIndex>/`) is designed to be lexicographically chronological (see [.agents/context/workitems-format.md](workitems-format.md)), `EnumerateAsync` over `WorkItems/` returns revision folders in chronological order without any in-memory sorting. This preserves the streaming import guarantee.
 
 ---
 
@@ -99,7 +99,7 @@ The orchestrator resolves the implementation at startup based on the URI scheme.
 
 `IStateStore` manages cursor files and the `idmap.db` (or `idmap.json`). Its Phase 1 implementation is `PackageCheckpointStateStore`, which writes checkpoint files into the `Checkpoints/` folder via `IArtefactStore` (i.e. the same blob container or filesystem path as the rest of the package).
 
-The Migration Agent may optionally mirror the latest cursor value to the control plane via the progress reporting API for display purposes, but the package's `Checkpoints/` folder remains the authoritative resume state. See [docs/checkpointing.md](checkpointing.md).
+The Migration Agent may optionally mirror the latest cursor value to the control plane via the progress reporting API for display purposes, but the package's `Checkpoints/` folder remains the authoritative resume state. See [.agents/context/checkpointing.md](checkpointing.md).
 
 ---
 

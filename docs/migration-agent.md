@@ -14,7 +14,7 @@ The package contract, modules, and cursors are unchanged between local and Migra
 |---|---|
 | Poll for work | Call the control plane lease endpoint to receive a job. |
 | Acquire lease | Hold a time-bounded lease on the assigned job. |
-| Mount artefact store | Connect to the package URI from the job definition (filesystem or blob). See [docs/artefact-store.md](artefact-store.md). |
+| Mount artefact store | Connect to the package URI from the job definition (filesystem or blob). See [.agents/context/artefact-store.md](../.agents/context/artefact-store.md). |
 | Resolve secrets | Fetch credentials from Key Vault references in the job definition before executing. |
 | Run orchestrator | Execute `ExportAsync`, `ImportAsync`, or both in sequence, exactly as in local mode. |
 | Write cursors | Write checkpoint cursors into the package's `Checkpoints/` folder after each stage, as always. |
@@ -95,7 +95,7 @@ This means a crashed Migration Agent loses no more than one stage of work.
 
 ## Artefact Store Access
 
-Migration Agents access the migration package exclusively through `IArtefactStore`. They never use raw filesystem calls or raw blob SDK calls inside module code. See [docs/artefact-store.md](artefact-store.md) for the abstraction and implementations.
+Migration Agents access the migration package exclusively through `IArtefactStore`. They never use raw filesystem calls or raw blob SDK calls inside module code. See [.agents/context/artefact-store.md](../.agents/context/artefact-store.md) for the abstraction and implementations.
 
 ---
 

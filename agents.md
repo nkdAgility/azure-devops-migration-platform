@@ -39,16 +39,16 @@ Architecture:
 → docs/architecture.md
 
 Package layout:
-→ docs/package-format.md
+→ .agents/context/package-format.md
 
 WorkItems layout:
-→ docs/workitems-format.md
+→ .agents/context/workitems-format.md
 
 Streaming import:
-→ docs/import-streaming.md
+→ .agents/context/import-streaming.md
 
 Checkpoint model:
-→ docs/checkpointing.md
+→ .agents/context/checkpointing.md
 
 Module contract:
 → docs/modules.md
@@ -57,10 +57,10 @@ Configuration:
 → docs/configuration.md
 
 Artefact store abstraction:
-→ docs/artefact-store.md
+→ .agents/context/artefact-store.md
 
 Job contract:
-→ docs/job-contract.md
+→ .agents/context/job-contract.md
 
 Control plane:
 → docs/control-plane.md
@@ -72,7 +72,7 @@ Migration Agent (worker):
 → docs/migration-agent.md
 
 Module contract:
-→ docs/module-contract.md
+→ docs/modules.md
 
 TUI:
 → docs/tui.md
@@ -90,10 +90,10 @@ Validation:
 → docs/validation.md
 
 Identity and mapping:
-→ docs/identity-and-mapping.md
+→ .agents/context/identity-and-mapping.md
 
 Configuration reference:
-→ docs/config-reference.md
+→ docs/configuration.md
 
 Source types:
 → docs/source-types.md

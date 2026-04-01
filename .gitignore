@@ -1,0 +1,18 @@
+# Build output
+**/bin/
+**/obj/
+
+# Visual Studio / VS Code
+.vs/
+.vscode/
+
+# User-specific
+*.user
+*.suo
+
+# NuGet
+*.nupkg
+packages/
+
+# Logs
+*.log

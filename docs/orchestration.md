@@ -4,7 +4,7 @@
 
 The **Job Engine** is the shared execution core used by both `LocalJobRunner` (TUI in-process) and Migration Agents (cloud). It receives a `MigrationJob`, resolves the execution plan, and runs modules in dependency order. It has no knowledge of the TUI, the console, or any progress renderer.
 
-See [docs/cli.md](cli.md) for how the CLI routes a job to the Job Engine. See [docs/job-contract.md](job-contract.md) for the `MigrationJob` schema.
+See [docs/cli.md](cli.md) for how the CLI routes a job to the Job Engine. See [.agents/context/job-contract.md](../.agents/context/job-contract.md) for the `MigrationJob` schema.
 
 ### Steps
 

@@ -521,7 +521,7 @@ The `TfsImportAgent` MUST NOT:
 ## See Also
 
 - [Source Types](source-types.md) — `TeamFoundationServer` config schema
-- [Artefact Store](artefact-store.md) — Package file abstraction
-- [Checkpointing](checkpointing.md) — Cursor model
+- [Artefact Store](../.agents/context/artefact-store.md) — Package file abstraction
+- [Checkpointing](../.agents/context/checkpointing.md) — Cursor model
 - [Validation](validation.md) — Post-export validation
 - [.agents/guardrails/coding-standards.md](../.agents/guardrails/coding-standards.md) — .NET runtime isolation rules

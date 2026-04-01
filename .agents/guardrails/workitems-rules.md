@@ -1,6 +1,6 @@
 # WorkItems Rules — Practical Guardrails
 
-These rules govern all work on the WorkItems module. See [docs/workitems-format.md](../../docs/workitems-format.md) and [docs/import-streaming.md](../../docs/import-streaming.md) for the full reference.
+These rules govern all work on the WorkItems module. See [.agents/context/workitems-format.md](../context/workitems-format.md) and [.agents/context/import-streaming.md](../context/import-streaming.md) for the full reference.
 
 ## Folder Naming Rules
 

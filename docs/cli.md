@@ -131,7 +131,7 @@ Before any execution, the CLI converts the local config file into a `MigrationJo
 5. Replace inline credentials with Key Vault URI references (remote mode only).
 6. Construct the `MigrationJob` with `guardrails` set to their required values.
 
-The local config file is never sent directly anywhere. The `MigrationJob` is the only artefact that crosses boundaries. See [docs/job-contract.md](job-contract.md).
+The local config file is never sent directly anywhere. The `MigrationJob` is the only artefact that crosses boundaries. See [.agents/context/job-contract.md](../.agents/context/job-contract.md).
 
 ---
 

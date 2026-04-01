@@ -24,7 +24,7 @@ For each revision folder, processing proceeds through four stages in order:
 
 The cursor is updated to `Completed` after all four stages succeed.
 
-Stage label values are canonical and shared with the cursor schema. See [docs/checkpointing.md](checkpointing.md) for the full enum.
+Stage label values are canonical and shared with the cursor schema. See [.agents/context/checkpointing.md](checkpointing.md) for the full enum.
 
 ### Failure Behaviour
 
@@ -43,4 +43,4 @@ Stage label values are canonical and shared with the cursor schema. See [docs/ch
 
 - Import **must** be streaming. Loading all revisions into memory before processing is forbidden.
 - Enumeration order **must** follow the lexicographic rule above. Do not sort in memory.
-- See [.agents/guardrails/system-architecture.md](../.agents/guardrails/system-architecture.md) for the hard guardrails.
+- See [.agents/guardrails/system-architecture.md](../guardrails/system-architecture.md) for the hard guardrails.
