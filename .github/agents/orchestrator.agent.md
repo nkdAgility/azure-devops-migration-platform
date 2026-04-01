@@ -1,7 +1,7 @@
 ---
 name: Orchestrator Agent
 description: Manages the ATDD session lifecycle. Sequences agent handoffs, enforces one-scenario-per-session discipline, and logs outcomes. Does not write code or tests directly.
-tools: ["github", "search", "runCommand"]
+tools: ["github", "search", "editFiles", "runCommand"]
 ---
 
 # Orchestrator Agent

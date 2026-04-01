@@ -1,7 +1,7 @@
 ---
 name: Reviewer Agent
 description: Inspects completed diffs against architectural guardrails and approved specification. Produces a structured JSON verdict of Approved or Rejected with specific findings.
-tools: ["github", "search"]
+tools: ["github", "search", "editFiles", "runCommand"]
 ---
 
 # Reviewer Agent

@@ -29,14 +29,18 @@ public class FileSystemArtefactStore : IArtefactStore
         return Task.FromResult<string?>(File.ReadAllText(fullPath, Encoding.UTF8));
     }
 
-    public Task WriteAsync(string path, string content, CancellationToken cancellationToken)
+    public async Task WriteAsync(string path, string content, CancellationToken cancellationToken)
     {
         var fullPath = ToFullPath(path);
         var directory = Path.GetDirectoryName(fullPath);
         if (directory != null && !Directory.Exists(directory))
             Directory.CreateDirectory(directory);
+#if NET5_0_OR_GREATER
+        await File.WriteAllTextAsync(fullPath, content, Encoding.UTF8, cancellationToken);
+#else
         File.WriteAllText(fullPath, content, Encoding.UTF8);
-        return Task.CompletedTask;
+        await Task.CompletedTask;
+#endif
     }
 
     public Task<bool> ExistsAsync(string path, CancellationToken cancellationToken)
@@ -50,20 +54,38 @@ public class FileSystemArtefactStore : IArtefactStore
         if (!Directory.Exists(rootDir))
             yield break;
 
-        // GetFiles with AllDirectories returns in the OS default order on most platforms.
-        // Sort to guarantee lexicographic ascending order as required by Rule 14.
-        var files = Directory.GetFiles(rootDir, "*", SearchOption.AllDirectories);
-        Array.Sort(files, StringComparer.Ordinal);
+        await foreach (var absolutePath in EnumerateDirectorySortedAsync(rootDir, cancellationToken))
+        {
+            var relative = absolutePath.Substring(_rootPath.Length)
+                                       .TrimStart(Path.DirectorySeparatorChar)
+                                       .Replace(Path.DirectorySeparatorChar, '/');
+            yield return relative;
+        }
+    }
 
+    // Enumerates files in lexicographic order by sorting within each directory level only,
+    // yielding paths immediately without buffering the full tree.
+    private static async IAsyncEnumerable<string> EnumerateDirectorySortedAsync(
+        string dir,
+        [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        var files = Directory.GetFiles(dir);
+        Array.Sort(files, StringComparer.Ordinal);
         foreach (var file in files)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            // Return paths relative to the store root, using forward slashes.
-            var relative = file.Substring(_rootPath.Length).TrimStart(Path.DirectorySeparatorChar)
-                               .Replace(Path.DirectorySeparatorChar, '/');
-            yield return relative;
+            yield return file;
         }
-        await Task.CompletedTask; // satisfy async enumerable requirements
+
+        var subdirs = Directory.GetDirectories(dir);
+        Array.Sort(subdirs, StringComparer.Ordinal);
+        foreach (var subdir in subdirs)
+        {
+            await foreach (var file in EnumerateDirectorySortedAsync(subdir, cancellationToken))
+                yield return file;
+        }
     }
 
     private string ToFullPath(string path)

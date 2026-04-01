@@ -15,14 +15,18 @@ public class FileSystemStateStore : IStateStore
         _rootPath = rootPath;
     }
 
-    public Task WriteAsync(string key, string value, CancellationToken cancellationToken)
+    public async Task WriteAsync(string key, string value, CancellationToken cancellationToken)
     {
         var fullPath = GetFullPath(key);
         var directory = Path.GetDirectoryName(fullPath);
         if (directory != null && !Directory.Exists(directory))
             Directory.CreateDirectory(directory);
+#if NET5_0_OR_GREATER
+        await File.WriteAllTextAsync(fullPath, value, Encoding.UTF8, cancellationToken);
+#else
         File.WriteAllText(fullPath, value, Encoding.UTF8);
-        return Task.CompletedTask;
+        await Task.CompletedTask;
+#endif
     }
 
     public Task<string?> ReadAsync(string key, CancellationToken cancellationToken)

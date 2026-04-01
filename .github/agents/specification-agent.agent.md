@@ -1,7 +1,7 @@
 ---
 name: Specification Agent
 description: Collaborative specification partner for ATDD sessions. Runs the four-stage cycle (Intent, Behaviour, Architecture, Acceptance Criteria) and produces human-approved Gherkin feature files. Does not write code.
-tools: ["github", "search"]
+tools: ["github", "search", "editFiles"]
 ---
 
 ```chatagent
