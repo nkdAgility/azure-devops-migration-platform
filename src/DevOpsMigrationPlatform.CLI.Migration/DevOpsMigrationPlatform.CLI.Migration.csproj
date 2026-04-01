@@ -5,6 +5,7 @@
     <TargetFramework>net9.0</TargetFramework>
     <AssemblyName>devopsmigration</AssemblyName>
     <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
     <LangVersion>12</LangVersion>
   </PropertyGroup>
 
