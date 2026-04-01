@@ -83,19 +83,23 @@ Operators can run export and import as separate steps, or as a single end-to-end
 
 The platform supports three operational modes:
 
-| Mode | Transport | Control Plane | PostgreSQL | Package Store |
-|---|---|---|---|---|
-| **Standalone** | `LocalJobRunner` (in-process) | None | None | `file:///` |
-| **Self-Hosted** | `ControlPlaneClient` → local control plane | Docker or on-prem server | PostgreSQL on-prem | `file:///` or network share |
-| **Managed** | `ControlPlaneClient` → Azure control plane | Azure Container Apps | PostgreSQL Flexible Server | Azure Blob Storage |
+All three modes run the same stack (control plane + PostgreSQL + migration agent). The difference is topology — where that stack runs.
 
-**Standalone mode** is the closest to the original tool. The TUI runs the Job Engine in-process via `LocalJobRunner` on a single machine. There is no control plane, no PostgreSQL, and no network dependency. The only database artefact is `Checkpoints/idmap.db` (SQLite), which lives inside the migration package itself and is scoped to work item ID mapping — it is not a control plane concern.
+| Mode | Where the stack runs | Package Store |
+|---|---|---|
+| **Standalone** | Single local machine (Aspire manages all services on-device) | `file:///` |
+| **Self-Hosted** | Customer's own Azure subscription (`azd up`, customer-operated) | Azure Blob Storage |
+| **Managed** | NKD Agility's Azure subscription (`azd up`, NKD-operated) | Azure Blob Storage |
 
-**Self-Hosted mode** allows an organisation to host the full migration platform on their own network. The control plane and migration agents run on internal infrastructure (Docker or bare-metal), orchestrated by the Aspire AppHost. Multiple migration runs can be coordinated from a shared control plane, backed by a PostgreSQL instance the organisation controls.
+**Standalone mode** runs the full stack — control plane, migration agent, and PostgreSQL — on a single local machine with zero external dependencies. PostgreSQL ships as a portable bundled binary started by the Aspire AppHost; no Docker installation or external PostgreSQL is required. Package storage uses the local filesystem (`file:///`). Every service binds to localhost. This is the closest mode to the original tool: run one command, migration executes locally.
 
-**Managed mode** is the hosted service offering. The control plane and migration agents run in Azure Container Apps. PostgreSQL Flexible Server and Azure Blob Storage are provisioned by `azd`. Organisations use this without operating any infrastructure themselves.
+**Self-Hosted mode** is architecturally identical to Managed mode. The customer runs `azd up` in their own Azure subscription, provisioning the same stack — Container Apps, PostgreSQL Flexible Server, and Azure Blob Storage. The control plane is reachable by multiple operators, and multiple migration agents can run concurrently. The only difference from Managed mode is who provisions and operates the Azure infrastructure.
+
+**Managed mode** is the hosted service offering. NKD Agility runs `azd up` in its own Azure subscription and operates the resulting infrastructure on the customer's behalf. The stack is identical to Self-Hosted; the only difference is who provisions and operates it. Organisations use this without managing any infrastructure themselves.
 
 All three modes use the same orchestrator engine, the same modules, and the same cursor-based checkpoints. The package contract is identical. See [docs/cli.md](cli.md), [docs/tui.md](tui.md), [docs/control-plane.md](control-plane.md), and [docs/migration-agent.md](migration-agent.md).
+
+> **Development and CI** is not a fourth operational mode — it is an AppHost profile used by engineers building the platform and by every CI/CD pipeline stage. It has two subprofiles (`dev-portable` and `dev-docker`) that validate the Standalone architecture and the Self-Hosted/Managed architecture respectively. Both must pass in every pipeline run. See [docs/aspire-integration.md](aspire-integration.md#development--ci-apphost).
 
 Key properties:
 

@@ -57,25 +57,138 @@ src/
 
 ## AppHost Configuration
 
-The Aspire AppHost (`DevOpsMigrationPlatform.AppHost`) orchestrates local development:
+The Aspire AppHost (`DevOpsMigrationPlatform.AppHost`) has two configurations depending on mode.
+
+### Standalone AppHost (no external dependencies)
+
+Standalone mode is fully self-contained. PostgreSQL ships as a bundled portable binary launched as a child process — no Docker, no installer. Package storage uses the local filesystem.
 
 ```csharp
 var builder = DistributedApplication.CreateBuilder(args);
 
-// PostgreSQL for control plane job storage.
-// Local: Docker container with a named data volume (persists between restarts).
-// Cloud (azd up): Azure PostgreSQL Flexible Server — provisioned automatically.
-// The same AddAzurePostgresFlexibleServer declaration drives both; RunAsContainer()
-// is the only switch required for local development.
+// Portable PostgreSQL — bundled binary, spawned as a child process.
+// No Docker or external install required.
+var postgres = builder.AddPortablePostgres("postgres")
+    .AddDatabase("controlplane-db");
+
+// Control Plane API
+var controlPlane = builder.AddProject<Projects.DevOpsMigrationPlatform_ControlPlane>("controlplane")
+    .WithReference(postgres)
+    .WithEnvironment("PackageStore__Type", "filesystem")
+    .WithHttpEndpoint(port: 5100, name: "http");
+
+// Migration Agent
+builder.AddProject<Projects.DevOpsMigrationPlatform_MigrationAgent>("migration-agent")
+    .WithReference(controlPlane)
+    .WithEnvironment("PackageStore__Type", "filesystem");
+
+builder.Build().Run();
+```
+
+`AddPortablePostgres` is a custom Aspire resource that extracts and starts the bundled PostgreSQL binary from the application's own directory. It does not call Docker.
+
+### Development / CI AppHost
+
+This profile is used by engineers building the platform and by all CI/CD pipeline stages (build, test, preview, production gate). The same profile runs identically on a developer's machine and on the CI agent — this is the CD guarantee.
+
+The AppHost supports two launch subprofiles, controlled by the `DEVOPS_MIGRATION_INFRA` environment variable (or `launchSettings.json`). Both use the same application code. The switch validates both production architectures in the same pipeline:
+
+| Subprofile | PostgreSQL | Package storage | Docker required |
+|---|---|---|---|
+| `dev-portable` | Portable binary (`AddPortablePostgres`) | `file:///` | No |
+| `dev-docker` | Docker container (`RunAsContainer`) | Azurite (`RunAsEmulator`) | Yes |
+
+```csharp
+var builder = DistributedApplication.CreateBuilder(args);
+
+var infra = builder.Configuration["DEVOPS_MIGRATION_INFRA"] ?? "portable";
+
+IResourceBuilder<IResourceWithConnectionString> postgres;
+IResourceBuilder<BlobsResource>? storage = null;
+
+if (infra == "docker")
+{
+    // Docker subprofile — full Azure API parity.
+    // PostgreSQL in Docker: identical API to Azure PostgreSQL Flexible Server.
+    postgres = builder.AddAzurePostgresFlexibleServer("postgres")
+        .RunAsContainer(c => c.WithEphemeralVolume())
+        .AddDatabase("controlplane-db");
+
+    // Azurite: same Azure SDK BlobContainerClient used in production.
+    storage = builder.AddAzureStorage("storage")
+        .RunAsEmulator()
+        .AddBlobs("packages");
+}
+else
+{
+    // Portable subprofile (default) — no Docker, validates Standalone architecture.
+    postgres = builder.AddPortablePostgres("postgres")
+        .AddDatabase("controlplane-db");
+}
+
+var controlPlane = builder.AddProject<Projects.DevOpsMigrationPlatform_ControlPlane>("controlplane")
+    .WithReference(postgres)
+    .WithEnvironment("PackageStore__Type", infra == "docker" ? "azureblob" : "filesystem")
+    .WithHttpEndpoint(port: 5100, name: "http");
+
+if (storage != null)
+    controlPlane.WithReference(storage);
+
+var agent = builder.AddProject<Projects.DevOpsMigrationPlatform_MigrationAgent>("migration-agent")
+    .WithReference(controlPlane)
+    .WithEnvironment("PackageStore__Type", infra == "docker" ? "azureblob" : "filesystem");
+
+if (storage != null)
+    agent.WithReference(storage);
+
+builder.Build().Run();
+```
+
+**launchSettings.json** defines both subprofiles so engineers can switch with one click:
+
+```json
+{
+  "profiles": {
+    "dev-portable": {
+      "commandName": "Project",
+      "environmentVariables": {
+        "DOTNET_ENVIRONMENT": "Development",
+        "DEVOPS_MIGRATION_INFRA": "portable"
+      }
+    },
+    "dev-docker": {
+      "commandName": "Project",
+      "environmentVariables": {
+        "DOTNET_ENVIRONMENT": "Development",
+        "DEVOPS_MIGRATION_INFRA": "docker"
+      }
+    }
+  }
+}
+```
+
+**CD contract:** every pipeline stage — local, preview, production gate — runs **both** subprofiles. The pipeline fails if either subprofile fails. There is no "CI-only" configuration.
+
+**What each subprofile validates:**
+- `dev-portable` — validates the Standalone operator architecture: portable PostgreSQL binary, filesystem `IArtefactStore`, zero external dependencies
+- `dev-docker` — validates the Self-Hosted/Managed architecture: real PostgreSQL via Docker (same wire protocol as Azure PostgreSQL Flexible Server), Azure Blob SDK via Azurite (same `BlobContainerClient` code runs in production unmodified)
+
+### Self-Hosted / Managed AppHost (Azure)
+
+Self-Hosted and Managed both use the Azure AppHost. `azd up` provisions the real Azure resources; locally, Aspire substitutes the Azure resources with their Azure-hosted equivalents.
+
+```csharp
+var builder = DistributedApplication.CreateBuilder(args);
+
+// Azure PostgreSQL Flexible Server.
+// Local dev: connect to Azure (or developer-supplied instance).
+// azd up: Azure PostgreSQL Flexible Server provisioned automatically.
 var postgres = builder.AddAzurePostgresFlexibleServer("postgres")
-    .RunAsContainer(container => container.WithDataVolume())
     .AddDatabase("controlplane-db");
 
 // Azure Blob Storage for migration package storage.
-// Local: Azurite emulator.
-// Cloud (azd up): Azure Blob Storage — provisioned automatically.
+// azd up: Azure Blob Storage provisioned automatically.
 var storage = builder.AddAzureStorage("storage")
-    .RunAsEmulator()
     .AddBlobs("packages");
 
 // Control Plane API
@@ -89,18 +202,10 @@ var controlPlane = builder.AddProject<Projects.DevOpsMigrationPlatform_ControlPl
 builder.AddProject<Projects.DevOpsMigrationPlatform_MigrationAgent>("migration-agent")
     .WithReference(controlPlane)
     .WithReference(storage)
-    .WithReplicas(2);  // Run 2 agents locally for testing
+    .WithReplicas(2);
 
 builder.Build().Run();
 ```
-
-### Key Features
-
-- **Service Discovery**: Migration Agents discover the Control Plane via Aspire's service discovery (`http://controlplane`)
-- **Configuration**: Connection strings automatically injected via `IConfiguration`
-- **Observability**: Built-in OpenTelemetry, Prometheus, and dashboard at `http://localhost:15888`
-- **Local Storage**: Azurite provides local blob storage for testing cloud scenarios
-- **Scaling**: Easily test multiple Migration Agent instances locally
 
 ---
 
@@ -242,44 +347,53 @@ The TUI submits jobs to `http://localhost:5100/jobs` (the Aspire-managed Control
 
 ## Operational Modes
 
-There are three distinct operational modes. Understanding which mode is in use determines whether a control plane and PostgreSQL are present.
+All three modes run the same stack. The difference is topology — where that stack runs.
 
-### Mode 1 — Standalone (LocalJobRunner, no control plane)
-
-```
-Developer Machine
-└─ TUI (CLI)
-     └─ LocalJobRunner
-          └─ Job Engine (in-process)
-               └─ Package Storage: file:///
-```
-
-No control plane. No PostgreSQL. No network services. The TUI runs the Job Engine directly in-process using `LocalJobRunner`. The only database artifact is `Checkpoints/idmap.db` (SQLite, inside the migration package), which tracks source-to-target work item ID mappings. This SQLite file is a package concern, not a control plane concern — it exists in all modes.
-
-**Use when:** Simple migrations, air-gapped environments, or initial development and testing of module logic.
-
-### Mode 2 — Self-Hosted (Aspire, control plane on organisation infrastructure)
+### Mode 1 — Standalone (full stack on a single local machine)
 
 ```
-Organisation Network
-├─ TUI (CLI)                    ← always local, never orchestrated by Aspire
-├─ Aspire AppHost               ← orchestrates services (developer machine or server)
-│   ├─ Control Plane API        ← process or container
-│   ├─ Migration Agent(s)       ← process or container
-│   ├─ PostgreSQL               ← Docker container or existing on-prem instance
-│   └─ Package Storage          ← file:/// / network share / Azurite emulator
+Single Machine
+├─ TUI (CLI)                    ← always local
+├─ Aspire AppHost               ← orchestrates all services on this machine
+│   ├─ Control Plane API        ← localhost
+│   ├─ Migration Agent(s)       ← localhost
+│   └─ PostgreSQL               ← portable binary, localhost (no Docker)
+└─ Package Storage              ← file:/// (no blob emulator needed)
 ```
 
-The organisation hosts the full control plane and agents on their own network. PostgreSQL runs on infrastructure the organisation controls — either a Docker container spawned by Aspire or an existing on-prem PostgreSQL instance. The TUI is always run locally by the operator; everything else can run on a shared server. Multiple teams and migration runs are coordinated from a single control plane.
+The full stack runs on one machine with zero external dependencies. PostgreSQL ships as a bundled portable binary (`AddPortablePostgres`) and is launched as a child process by the AppHost — no Docker, no installer, no network required. Package storage uses the local filesystem. This is the closest experience to the original migration tool: run one command, migration executes locally.
 
-**Use when:** Organisations want to self-host the platform, coordinate multiple concurrent migrations, or require data residency on their own network.
+**Use when:** Single-operator migrations, air-gapped environments, or development and testing.
 
 **Benefits:**
 
-- Full infrastructure control — no cloud dependency
+- Zero external dependencies — no Docker, no installer, no network
+- Identical stack and code paths to Self-Hosted and Managed
+- Full observability dashboard at `http://localhost:15888`
+
+### Mode 2 — Self-Hosted (same Azure stack as Managed, customer-operated)
+
+```
+Developer Machine
+└─ TUI (CLI)                    ← always local
+      ↓ HTTPS
+Customer Azure Subscription
+├─ Control Plane (Container App)
+├─ Migration Agent(s) (Container Apps)
+├─ PostgreSQL Flexible Server
+└─ Azure Blob Storage
+```
+
+The customer runs `azd up` in their own Azure subscription and operates the resulting infrastructure. The stack — Container Apps, PostgreSQL Flexible Server, and Azure Blob Storage — is identical to Managed mode. The only difference is who provisions it and who pays the Azure bill. The TUI is always run locally by the operator. Multiple teams and migration runs are coordinated from a single control plane.
+
+**Use when:** Organisations want control over their own Azure infrastructure, require data residency within their own Azure tenant, or prefer to operate the platform themselves.
+
+**Benefits:**
+
+- Full control — data stays within the organisation's Azure tenant
 - Multiple migration runs from one control plane
-- Identical code paths to Managed mode
-- Suitable for air-gapped or compliance-constrained environments
+- Identical code paths and infrastructure to Managed mode
+- No NKD Agility dependency after initial setup
 
 ### Mode 3 — Managed (Azure Container Apps, hosted service)
 
@@ -294,7 +408,7 @@ Azure Subscription
 └─ Azure Blob Storage
 ```
 
-Mode 2 (Self-Hosted) with Azure resources substituted for organisation-managed infrastructure. The Aspire AppHost declaration is unchanged — `azd up` provisions the Azure counterparts automatically. Organisations use this without operating any servers themselves.
+NKD Agility provisions and operates the Azure stack on behalf of the customer. The Aspire AppHost declaration is identical to Self-Hosted — `azd up` provisions the same Azure resources. Organisations use this without operating any infrastructure themselves.
 
 **Use when:** A managed service is preferred, infrastructure operation is not desired, or elastic scaling across many concurrent migrations is required.
 
@@ -309,9 +423,9 @@ Mode 2 (Self-Hosted) with Azure resources substituted for organisation-managed i
 
 | Mode | PostgreSQL present? | Who runs it? |
 |---|---|---|
-| Standalone (LocalJobRunner) | **No** | N/A — no control plane |
-| Self-Hosted (Aspire) | **Yes** | Organisation infrastructure (Docker or on-prem) |
-| Managed | **Yes** | Azure PostgreSQL Flexible Server |
+| Standalone | **Yes** | Portable binary (bundled, no Docker) |
+| Self-Hosted | **Yes** | Azure PostgreSQL Flexible Server (customer subscription) |
+| Managed | **Yes** | Azure PostgreSQL Flexible Server (NKD Agility subscription) |
 
 The `Checkpoints/idmap.db` SQLite file (work item ID mapping, inside the package) is present in all three modes. It is not the control plane's database.
 
