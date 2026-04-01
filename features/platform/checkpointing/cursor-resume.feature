@@ -4,7 +4,8 @@ Feature: Cursor-Based Resume and Checkpointing
   So that an interrupted run can resume from where it left off without reprocessing completed items
 
   Background:
-    Given the migration module writes cursor files to "Checkpoints/<module>.cursor.json"
+    Given the migration platform is configured to checkpoint progress after each unit of work
+    And the checkpoint location is "Checkpoints/<module>.cursor.json"
 
   Scenario: Cursor file is created on the first successful write
     Given no cursor file exists for the WorkItems module

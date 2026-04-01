@@ -8,6 +8,14 @@ Command parsing, mode selection, and job dispatch are handled by the CLI shell. 
 
 ---
 
+## Technology
+
+The TUI is built with **[Terminal.Gui](https://github.com/gui-cs/Terminal.Gui)**. All interactive terminal windows, panels, progress tables, and live-updating views are rendered through the `Terminal.Gui` widget model.
+
+Terminal.Gui is the only permitted UI rendering library in TUI code. Do not use `System.Console`, ANSI escape sequences, or Spectre.Console widgets inside TUI view classes.
+
+---
+
 ## IProgressSink
 
 Progress is event-driven. The Job Engine emits `ProgressEvent` records; sinks consume them.

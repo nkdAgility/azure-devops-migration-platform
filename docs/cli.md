@@ -6,6 +6,14 @@ The CLI is the operator's entry point to the migration platform. It is a **thin 
 
 Migration logic lives exclusively in the **Job Engine**. The CLI calls the Job Engine through one of two transports:
 
+---
+
+## Technology
+
+The CLI is built with **[Spectre.Console](https://spectreconsole.net/)** (`Spectre.Console.Cli`). All command definitions, argument/option parsing, help text, and console output formatting use Spectre.Console primitives.
+
+Spectre.Console is the only permitted CLI library in command-layer code. Do not reference `System.CommandLine`, `McMaster.Extensions.CommandLineUtils`, or any other argument-parsing library in this layer.
+
 - `LocalJobRunner` — executes the Job Engine in-process (no control plane required).
 - `ControlPlaneClient` — submits the job to the control plane and polls for progress.
 

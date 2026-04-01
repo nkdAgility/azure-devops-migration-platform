@@ -6,7 +6,7 @@ Feature: Identity Mapping and Resolution
   Background:
     Given the identities export has completed before any import module runs
 
-  Scenario: Identity is resolved via IIdentityMappingService during import
+  Scenario: Source identity is mapped to the correct target identity during import
     Given a revision.json assigns a work item to source user "jsmith@source.example.com"
     And an identity mapping exists from "jsmith@source.example.com" to "john.smith@target.example.com"
     When the WorkItems import module applies the revision

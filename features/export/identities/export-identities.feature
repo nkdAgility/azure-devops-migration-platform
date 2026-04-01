@@ -7,6 +7,6 @@ Feature: Identities Module Export
 
   Scenario: Identity export writes known identities to the package
     Given the source project contains users "alice@source.example.com" and "bob@source.example.com"
-    When the IdentitiesModule export runs
+    When the identities export runs
     Then "Identities/identities.json" is written to the package
     And it contains entries for both "alice@source.example.com" and "bob@source.example.com"

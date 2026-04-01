@@ -1,11 +1,11 @@
 Feature: TFS Export CLI Command
   As a migration operator
   I want to invoke the tfsexport command from the devopsmigration CLI
-  So that work item data from a TFS server is exported to the canonical package layout via the TFS Object Model subprocess
+  So that work item data from a TFS server is exported to the canonical package layout
 
   Background:
     Given the devopsmigration CLI is installed and on the PATH
-    And the tfsexport subprocess executable is present at the expected relative path
+    And TFS export is available and configured
 
   @tfs-object-model @cli
   Scenario: Successful export streams live progress to the terminal
@@ -35,12 +35,11 @@ Feature: TFS Export CLI Command
     And the terminal displays a validation error indicating the output folder must be provided
 
   @tfs-object-model @cli
-  Scenario: Export uses the tfsexport subprocess and streams its stdout to the console
-    Given the tfsexport subprocess is available
+  Scenario: TFS export output is streamed to the operator in real time
+    Given TFS export is available
     When the operator runs the tfsexport command
-    Then the devopsmigration CLI spawns the tfsexport subprocess
-    And each line written to the subprocess stdout appears prefixed with "[tool]" in the parent terminal
-    And each line written to the subprocess stderr appears prefixed with "[error]" in the parent terminal
+    Then output lines appear in the terminal as the export progresses
+    And error output is visually distinguished from standard output in the terminal
 
   @tfs-object-model @cli
   Scenario: A non-zero subprocess exit code is propagated as the CLI exit code
@@ -50,11 +49,11 @@ Feature: TFS Export CLI Command
     And the terminal displays an error message indicating the TFS export failed with that exit code
 
   @tfs-object-model @cli
-  Scenario: Missing subprocess executable produces a clear error before any export begins
-    Given the tfsexport subprocess executable does not exist at the expected path
+  Scenario: TFS export being unavailable produces a clear error before any export begins
+    Given TFS export is not available
     When the operator runs the tfsexport command
     Then the command exits with a non-zero exit code
-    And the terminal displays an error message identifying the missing executable path
+    And the terminal displays an error message explaining that TFS export could not be started
 
   @tfs-object-model @cli
   Scenario: Chunk progress is shown including date range and work item counts within the chunk

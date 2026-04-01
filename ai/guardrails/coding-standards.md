@@ -77,6 +77,23 @@ See [docs/tfs-exporter.md](../../docs/tfs-exporter.md) for the full process brid
 
 ---
 
+# 🖥️ UI & CLI Libraries
+
+## CLI Layer (command parsing and argument handling)
+
+- MUST use **Spectre.Console** (`Spectre.Console.Cli`) for all command definitions, argument/option binding, help-text generation, and console output formatting.
+- MUST NOT use `System.CommandLine`, `McMaster.Extensions.CommandLineUtils`, or any other argument-parsing library in command-layer code.
+
+## TUI Layer (live progress rendering)
+
+- MUST use **Terminal.Gui** for all interactive terminal windows, panels, progress tables, and live-updating views.
+- MUST NOT use `System.Console` directly, raw ANSI escape sequences, or Spectre.Console rendering primitives inside TUI view classes.
+- Terminal.Gui is the single permitted UI rendering library within the TUI layer.
+
+These boundaries are strict. The CLI layer calls into the TUI layer for display only — no migration logic crosses the boundary.
+
+---
+
 # 🧱 Architectural Rules
 
 - MUST follow SOLID principles.
@@ -153,6 +170,8 @@ Preferred:
 - Writing to `Console` or `System.Console` from the Job Engine or any module.
 - Emitting progress as console text instead of `IProgressSink` events.
 - Placing migration execution logic in the TUI (parsing and transport selection only).
+- Using `System.Console`, ANSI escape sequences, or Spectre.Console rendering primitives inside TUI view classes (Terminal.Gui only).
+- Using `System.CommandLine`, `McMaster.Extensions.CommandLineUtils`, or any argument-parsing library other than Spectre.Console in CLI command-layer code.
 - Using SQLite, in-memory databases, or any provider other than PostgreSQL (Npgsql) for the control plane. This prohibition applies in tests, CI, and development. See [ai/guardrails/system-architecture.md](system-architecture.md) rule 20.
 
 ---
@@ -174,6 +193,8 @@ Before merging changes, verify:
 - Does this code sort EnumerateAsync results in memory?
 - Does this code write to Console from the Job Engine or a module?
 - Does this code place migration logic in the TUI layer?
+- Does this code use System.Console, ANSI escapes, or Spectre.Console widgets inside a TUI view class?
+- Does this code use System.CommandLine or another argument-parsing library instead of Spectre.Console in CLI command code?
 - Does this code use SQLite, an in-memory database, or any non-PostgreSQL provider for the control plane?
 
 If yes, reject.
