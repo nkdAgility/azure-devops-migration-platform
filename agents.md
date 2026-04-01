@@ -140,14 +140,14 @@ These files define what must never be violated:
 → .github/agents/orchestrator.agent.md
 
 ## Session Lifecycle Skills
-→ .github/skills/start-session/SKILL.md — assemble context and invoke Specification Agent
-→ .github/skills/review/SKILL.md — invoke Reviewer Agent and record verdict
-→ .github/skills/end-session/SKILL.md — verify gates, finalise log, signal commit-ready
-→ .github/skills/fix/SKILL.md — resume a failed or interrupted session
-→ .github/skills/parse-criteria/SKILL.md — parse Gherkin feature files into a structured test plan
-→ .github/skills/test-templates/SKILL.md — generate Reqnroll step definition files from a test plan
-→ .github/skills/session-hooks/SKILL.md — manage session lifecycle events and phase transitions
-→ .github/skills/refactor-patterns/SKILL.md — assess code quality and apply safe refactoring patterns
+→ .agents/skills/start-session/SKILL.md — assemble context and invoke Specification Agent
+→ .agents/skills/review/SKILL.md — invoke Reviewer Agent and record verdict
+→ .agents/skills/end-session/SKILL.md — verify gates, finalise log, signal commit-ready
+→ .agents/skills/fix/SKILL.md — resume a failed or interrupted session
+→ .agents/skills/parse-criteria/SKILL.md — parse Gherkin feature files into a structured test plan
+→ .agents/skills/test-templates/SKILL.md — generate Reqnroll step definition files from a test plan
+→ .agents/skills/session-hooks/SKILL.md — manage session lifecycle events and phase transitions
+→ .agents/skills/refactor-patterns/SKILL.md — assess code quality and apply safe refactoring patterns
 
 ## Session Commands (Slash-command aliases)
 → .github/commands/start-session.md — /start-session
