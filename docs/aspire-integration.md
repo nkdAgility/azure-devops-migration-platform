@@ -428,7 +428,7 @@ NKD Agility provisions and operates the Azure stack on behalf of the customer. T
 | Self-Hosted | **Yes** | Azure PostgreSQL Flexible Server (customer subscription) |
 | Managed | **Yes** | Azure PostgreSQL Flexible Server (NKD Agility subscription) |
 
-The `Checkpoints/idmap.db` SQLite file (work item ID mapping, inside the package) is present in all three modes. It is not the control plane's database.
+The `Checkpoints/idmap.db` file (work item ID mapping, inside the package; ID state is backed by **PostgreSQL Portable** in Standalone mode or **PostgreSQL** in Self-Hosted/Managed modes) is present in all three modes. It is not the control plane's primary database.
 
 ---
 

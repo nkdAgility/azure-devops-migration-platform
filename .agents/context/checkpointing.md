@@ -70,7 +70,7 @@ Checkpoints/
   permissions.cursor.json
   builds.cursor.json
   git.cursor.json
-  idmap.db          (SQLite ID map — source workItemId → target workItemId)
+  idmap.db          (ID map — source workItemId → target workItemId; backed by PostgreSQL Portable in Standalone mode or PostgreSQL in Self-Hosted/Managed modes)
   idmap.json        (fallback for small packages or tooling)
 ```
 

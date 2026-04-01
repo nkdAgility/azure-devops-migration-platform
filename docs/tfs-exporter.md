@@ -56,7 +56,7 @@ The .NET 10 host has **no compiled reference** to the .NET 4.8 project. Coupling
 | Project | Target Frameworks | Role |
 |---|---|---|
 | `DevOpsMigrationPlatform.Abstractions` | `net481;net10.0` | Shared interfaces and models — compiles for both runtimes |
-| `DevOpsMigrationPlatform.Infrastructure` | `net481;net10.0` | Shared infrastructure (SQLite repository, utilities) — compiles for both runtimes |
+| `DevOpsMigrationPlatform.Infrastructure` | `net481;net10.0` | Shared infrastructure (file-based artefact store, utilities) — compiles for both runtimes |
 | `DevOpsMigrationPlatform.Infrastructure.TfsLegacy` | `net10.0` | `TfsExporterProcessAdapter` — spawns subprocess, reads output |
 | `DevOpsMigrationPlatform.CLI.TfsMigration` | `net481` | CLI entry point + `TfsExportAgent` — the .NET 4.8 export executor |
 
