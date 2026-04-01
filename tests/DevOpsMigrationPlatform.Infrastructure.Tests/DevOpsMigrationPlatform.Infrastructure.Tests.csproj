@@ -34,6 +34,42 @@
       <Link>Features\export-work-item-revisions.feature</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
+    <None Include="..\..\features\export\work-items\links\export-work-item-links.feature">
+      <Link>Features\export-work-item-links.feature</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="..\..\features\export\work-items\attachments\export-attachments.feature">
+      <Link>Features\export-attachments.feature</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="..\..\features\export\identities\export-identities.feature">
+      <Link>Features\export-identities.feature</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="..\..\features\services\identity-mapping\identity-mapping.feature">
+      <Link>Features\identity-mapping.feature</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="..\..\features\import\work-items\revisions\streaming-replay.feature">
+      <Link>Features\streaming-replay.feature</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="..\..\features\platform\validation\package-validation.feature">
+      <Link>Features\package-validation.feature</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="..\..\features\inventory\work-items\revisions\discover-work-items.feature">
+      <Link>Features\discover-work-items.feature</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="..\..\features\cli\inventory\workitem-inventory.feature">
+      <Link>Features\workitem-inventory.feature</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="..\..\features\cli\export\tfs-export.feature">
+      <Link>Features\tfs-export.feature</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
   </ItemGroup>
 
 </Project>

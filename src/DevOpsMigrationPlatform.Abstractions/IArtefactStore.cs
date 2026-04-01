@@ -11,6 +11,12 @@ namespace DevOpsMigrationPlatform.Abstractions;
 public interface IArtefactStore
 {
     /// <summary>
+    /// Reads the content of the file at <paramref name="path"/> within the package,
+    /// or <c>null</c> if no file exists at that path.
+    /// </summary>
+    Task<string?> ReadAsync(string path, CancellationToken cancellationToken);
+
+    /// <summary>
     /// Writes <paramref name="content"/> to the specified <paramref name="path"/> within the package.
     /// Path uses forward-slash segments, e.g. "WorkItems/2024-01-01/00000000000001-42-0/revision.json".
     /// Creates ancestor directories as needed.

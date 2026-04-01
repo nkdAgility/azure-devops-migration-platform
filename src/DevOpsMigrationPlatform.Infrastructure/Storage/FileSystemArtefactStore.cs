@@ -22,6 +22,13 @@ public class FileSystemArtefactStore : IArtefactStore
         _rootPath = rootPath;
     }
 
+    public Task<string?> ReadAsync(string path, CancellationToken cancellationToken)
+    {
+        var fullPath = ToFullPath(path);
+        if (!File.Exists(fullPath)) return Task.FromResult<string?>(null);
+        return Task.FromResult<string?>(File.ReadAllText(fullPath, Encoding.UTF8));
+    }
+
     public Task WriteAsync(string path, string content, CancellationToken cancellationToken)
     {
         var fullPath = ToFullPath(path);

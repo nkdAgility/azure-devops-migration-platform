@@ -254,7 +254,7 @@ revision.json MUST contain:
 * workItemId
 * revisionIndex
 * changedDate
-* fields (delta or snapshot, but consistent and documented)
+* fields (delta only — the source API reports only fields changed in this revision; no full-snapshot recomputation is performed)
 * links (external/related/hyperlinks)
 * attachments metadata (if enabled)
 
