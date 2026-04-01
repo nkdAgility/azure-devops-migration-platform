@@ -56,7 +56,7 @@ Examples:
 
 ## Output Format
 
-Produce two complete `.cs` files. See [skills/test-templates/SKILL.md](../skills/test-templates/SKILL.md) for the standard Reqnroll step definition and context templates.
+Produce two complete `.cs` files. See [skills/test-templates/SKILL.md](../../.agents/skills/test-templates/SKILL.md) for the standard Reqnroll step definition and context templates.
 
 After generating the pending step files, pass them to the **Implementation Agent** as the next step.
 
