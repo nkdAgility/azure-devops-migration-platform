@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
@@ -9,9 +8,9 @@ namespace DevOpsMigrationPlatform.Infrastructure.Export;
 
 /// <summary>
 /// Drives the streaming export loop for work item revisions.
-/// Writes each revision to the package via <see cref="IArtefactStore"/>,
-/// then advances the cursor via <see cref="ICheckpointingService"/>.
-/// All revisions are processed one at a time — no buffering.
+/// Receives revisions from <see cref="IWorkItemRevisionSource"/>, writes each one to the
+/// package via <see cref="IArtefactStore"/>, then advances the cursor via
+/// <see cref="ICheckpointingService"/>. All revisions are processed one at a time — no buffering.
 /// </summary>
 public class WorkItemExportOrchestrator
 {
@@ -27,33 +26,34 @@ public class WorkItemExportOrchestrator
     }
 
     /// <summary>
-    /// Exports all revisions produced by <paramref name="source"/>, respecting any existing cursor.
-    /// Writes each revision to the canonical folder path, then updates the cursor.
+    /// Streams revisions from <paramref name="source"/>, skips any already covered by the cursor,
+    /// serialises each revision to revision.json, and advances the cursor after every write.
     /// </summary>
     public async Task ExportAsync(
-        IAsyncEnumerable<RevisionFolder> source,
+        IWorkItemRevisionSource source,
         CancellationToken cancellationToken)
     {
         var cursor = await _checkpointingService
             .ReadCursorAsync("WorkItems", cancellationToken)
             .ConfigureAwait(false);
 
-        await foreach (var revision in source.WithCancellation(cancellationToken))
+        await foreach (var revision in source.GetRevisionsAsync(cancellationToken))
         {
+            var folderPath = BuildFolderPath(revision.WorkItemId, revision.RevisionIndex, revision.ChangedDate);
+
             // Skip all revisions at or before the cursor (resume logic).
             if (cursor != null &&
-                string.Compare(revision.FolderPath, cursor.LastProcessed, StringComparison.Ordinal) <= 0)
+                string.Compare(folderPath, cursor.LastProcessed, StringComparison.Ordinal) <= 0)
             {
                 continue;
             }
 
-            var revisionJsonPath = $"{revision.FolderPath}revision.json";
             var json = JsonSerializer.Serialize(revision);
-            await _artefactStore.WriteAsync(revisionJsonPath, json, cancellationToken).ConfigureAwait(false);
+            await _artefactStore.WriteAsync($"{folderPath}revision.json", json, cancellationToken).ConfigureAwait(false);
 
             var newCursor = new CursorEntry
             {
-                LastProcessed = revision.FolderPath,
+                LastProcessed = folderPath,
                 Stage = CursorStage.Completed,
                 UpdatedAt = DateTimeOffset.UtcNow
             };

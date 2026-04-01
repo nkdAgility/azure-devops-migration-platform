@@ -66,3 +66,54 @@ Each revision folder corresponds to exactly one revision of one work item. Attac
 ### No Global Attachments Module
 
 Attachments are scoped to their revision. There is no `Attachments/` root folder in the package. This is a hard rule; see [.agents/guardrails/system-architecture.md](../.agents/guardrails/system-architecture.md).
+
+---
+
+## Source Interface Contract
+
+The type serialised to `revision.json` is `WorkItemRevision`, defined in `DevOpsMigrationPlatform.Abstractions`.
+
+### WorkItemRevision
+
+```csharp
+public record WorkItemRevision
+{
+    public int WorkItemId { get; init; }
+    public int RevisionIndex { get; init; }
+    public DateTimeOffset ChangedDate { get; init; }
+    public IReadOnlyList<WorkItemField> Fields { get; init; }
+    public IReadOnlyList<WorkItemLink> ExternalLinks { get; init; }
+    public IReadOnlyList<WorkItemLink> RelatedLinks { get; init; }
+    public IReadOnlyList<WorkItemLink> Hyperlinks { get; init; }
+    public IReadOnlyList<AttachmentMetadata> Attachments { get; init; }
+}
+```
+
+`WorkItemField` carries `ReferenceName` (e.g. `"System.Title"`) and `Value` (string-serialised).
+`WorkItemLink` carries `Rel` and `Url`.
+`AttachmentMetadata` carries `OriginalName`, `RelativePath`, `Sha256`, and `Size`.
+
+### IWorkItemRevisionSource
+
+Source connectors implement `IWorkItemRevisionSource` in `DevOpsMigrationPlatform.Abstractions`:
+
+```csharp
+public interface IWorkItemRevisionSource
+{
+    IAsyncEnumerable<WorkItemRevision> GetRevisionsAsync(CancellationToken cancellationToken);
+}
+```
+
+The `WorkItemExportOrchestrator` depends on this interface. It calls `GetRevisionsAsync` in a
+streaming `await foreach` — no connector may buffer all revisions into a list before yielding.
+
+**The orchestrator computes the folder path** from the revision data using `BuildFolderPath`.
+The source does not determine or pre-compute paths.
+
+### Reject These Patterns
+
+| Pattern | Why rejected |
+|---------|-------------|
+| `ExportAsync(IAsyncEnumerable<RevisionFolder> …)` | Bypasses the source abstraction; caller constructs paths outside the orchestrator |
+| `ExportAsync(IAsyncEnumerable<WorkItemRevision> …)` | No source interface — cannot be swapped for AzureDevOps vs TFS connector |
+| Serialising `RevisionFolder` as revision.json | `RevisionFolder` is a path-calculation helper only; it has no work item data |

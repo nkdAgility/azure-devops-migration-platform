@@ -1,0 +1,22 @@
+using System;
+using System.Collections.Generic;
+
+namespace DevOpsMigrationPlatform.Abstractions;
+
+/// <summary>
+/// The full data for one revision of one work item.
+/// This is the type serialised to revision.json in the package.
+/// See .agents/context/workitems-format.md for the canonical JSON schema.
+/// </summary>
+public record WorkItemRevision
+{
+    public int WorkItemId { get; init; }
+    public int RevisionIndex { get; init; }
+    public DateTimeOffset ChangedDate { get; init; }
+
+    public IReadOnlyList<WorkItemField> Fields { get; init; } = Array.Empty<WorkItemField>();
+    public IReadOnlyList<WorkItemLink> ExternalLinks { get; init; } = Array.Empty<WorkItemLink>();
+    public IReadOnlyList<WorkItemLink> RelatedLinks { get; init; } = Array.Empty<WorkItemLink>();
+    public IReadOnlyList<WorkItemLink> Hyperlinks { get; init; } = Array.Empty<WorkItemLink>();
+    public IReadOnlyList<AttachmentMetadata> Attachments { get; init; } = Array.Empty<AttachmentMetadata>();
+}
