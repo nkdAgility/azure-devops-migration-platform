@@ -15,11 +15,11 @@ Feature: Export Work Item Revisions
     And each folder contains a "revision.json" file
     And the folders are ordered lexicographically ascending by folder name
 
-  Scenario: Export writes only via IArtefactStore and never accesses the filesystem directly
+  Scenario: Export does not write files outside the package structure
     Given the export module is configured
     When the WorkItems export module runs
-    Then all file writes go through IArtefactStore
-    And no direct System.IO calls are made inside the module
+    Then all revision data is written inside the package root
+    And no files are created outside the package folder hierarchy
 
   Scenario: Export records a cursor after each revision is written
     Given the export module begins writing revision folders

@@ -35,11 +35,11 @@ Feature: Cursor-Based Resume and Checkpointing
     Then the cursor still records the 20th folder path
     And the 21st folder is reprocessed from the beginning
 
-  Scenario: Cursor is written through IStateStore and not directly to the filesystem
+  Scenario: Cursor is persisted by the platform and not written directly by the module
     Given the WorkItems module is processing revisions
     When the cursor is updated
-    Then the cursor write goes through IStateStore
-    And no direct System.IO.File call is made for cursor persistence
+    Then the cursor is saved by the platform checkpointing service
+    And the module does not write cursor data directly to the filesystem
 
   Scenario: Multiple modules maintain independent cursors without interference
     Given both the WorkItems module and the AreaPaths module are running

@@ -32,8 +32,8 @@ Feature: Export Attachments
     When the WorkItems export module runs
     Then "WorkItems/yyyy-MM-dd/<ticks>-55-0/" contains only "revision.json"
 
-  Scenario: Attachment export writes only via IArtefactStore
+  Scenario: Attachment export does not write files outside the package structure
     Given a revision with an attachment
     When the attachment is exported
-    Then the attachment binary is written via IArtefactStore
-    And no direct file stream is opened inside the module
+    Then the attachment binary is written into the package at the correct revision path
+    And no attachment files are created outside the package folder hierarchy

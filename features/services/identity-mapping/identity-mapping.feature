@@ -4,7 +4,7 @@ Feature: Identity Mapping and Resolution
   So that work items in the target reference valid target users
 
   Background:
-    Given the IdentitiesModule has completed export before any module that maps identities
+    Given the identities export has completed before any import module runs
 
   Scenario: Identity is resolved via IIdentityMappingService during import
     Given a revision.json assigns a work item to source user "jsmith@source.example.com"
@@ -23,11 +23,11 @@ Feature: Identity Mapping and Resolution
   Scenario: No module performs inline identity resolution
     Given any module that writes user references during import
     When the module applies a revision
-    Then all identity lookups are delegated to IIdentityMappingService
-    And no direct Azure DevOps Identities API calls are made within the module
+    Then all identity lookups are handled by the central identity mapping configuration
+    And the import module does not contact the identity service directly
 
-  Scenario: IdentitiesModule must complete before WorkItems import begins
-    Given the IdentitiesModule has not yet completed
-    When the WorkItems import module is invoked
-    Then the WorkItems import module is blocked until IdentitiesModule completes
-    And the WorkItems module declares "Identities" in its DependsOn list
+  Scenario: Identities export must complete before work items import begins
+    Given the identities export has not yet completed
+    When the work items import is invoked
+    Then the work items import does not begin until the identities export is complete
+    And the work items import is configured to require the identities export as a prerequisite

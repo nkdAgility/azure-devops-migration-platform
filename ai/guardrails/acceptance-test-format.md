@@ -24,6 +24,18 @@ Segments under `cli/`:
 - `execute/` — `migrate execute` job lifecycle: queuing, status polling, log streaming.
 - `export/` — `migrate export` CLI wiring (builds export job, delegates to export pipeline).
 - `import/` — `migrate import` CLI wiring (builds import job, delegates to import pipeline).
+- `inventory/` — `discover inventory` CLI presentation: table rendering, column layout, live updates, CSV output, exit codes.
+
+### CLI tier vs capability tier split
+
+The same feature often has **two** feature files — one under `cli/` and one under the capability tier. Use this rule to decide which file a scenario belongs in:
+
+| Question | Answer → file location |
+|---|---|
+| Does the scenario assert a terminal, table, column, exit code, or output file format? | `cli/` |
+| Does the scenario assert what data the platform produces, stores, or transmits? | capability tier (`export/`, `import/`, `inventory/`, etc.) |
+
+A `cli/` scenario may reference that a command ran and succeeded; it must not re-assert the underlying data outcomes already covered by the capability-tier file. A capability-tier scenario must not describe terminal rendering, column names, or CLI flags.
 
 Examples:
 ```
@@ -82,8 +94,7 @@ Feature: <Feature Name>
 
 ### Content Rules
 - Scenarios must describe system behaviour from the outside (black-box).
-- Do not reference internal class names, method names, or line numbers in steps.
-- Do reference interface names (e.g., `IArtefactStore`, `IStateStore`) because these are observable contract boundaries.
+- Do not reference internal class names, method names, interface names, or property names in steps. These are implementation details, not observable behaviour.
 - File paths in steps should use the canonical pattern (`WorkItems/yyyy-MM-dd/...`) rather than specific generated values, unless the scenario specifically tests a known exact path.
 
 ### Scope

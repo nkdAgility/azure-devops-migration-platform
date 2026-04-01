@@ -37,9 +37,9 @@ Feature: Pre-Import and Post-Import Validation
     Then each work item in the target is checked against its final revision.json
     And any discrepancy is recorded in "Logs/post-import-validation.log"
 
-  Scenario: ValidateAsync has no side effects on the package
+  Scenario: Validation has no side effects on the package
     Given a valid package
-    When ValidateAsync is called
+    When the platform validates the package
     Then no files in the package are modified
     And no files are created in the package
     And no target API calls are made
