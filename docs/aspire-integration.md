@@ -62,12 +62,18 @@ The Aspire AppHost (`DevOpsMigrationPlatform.AppHost`) orchestrates local develo
 ```csharp
 var builder = DistributedApplication.CreateBuilder(args);
 
-// PostgreSQL for control plane job storage
-var postgres = builder.AddPostgres("postgres")
-    .WithDataVolume()
+// PostgreSQL for control plane job storage.
+// Local: Docker container with a named data volume (persists between restarts).
+// Cloud (azd up): Azure PostgreSQL Flexible Server — provisioned automatically.
+// The same AddAzurePostgresFlexibleServer declaration drives both; RunAsContainer()
+// is the only switch required for local development.
+var postgres = builder.AddAzurePostgresFlexibleServer("postgres")
+    .RunAsContainer(container => container.WithDataVolume())
     .AddDatabase("controlplane-db");
 
-// Azure Blob Storage emulator (Azurite) for package storage
+// Azure Blob Storage for migration package storage.
+// Local: Azurite emulator.
+// Cloud (azd up): Azure Blob Storage — provisioned automatically.
 var storage = builder.AddAzureStorage("storage")
     .RunAsEmulator()
     .AddBlobs("packages");
@@ -234,28 +240,48 @@ The TUI submits jobs to `http://localhost:5100/jobs` (the Aspire-managed Control
 
 ---
 
-## Local vs Cloud Execution Modes
+## Operational Modes
 
-### Local Mode (Aspire)
+There are three distinct operational modes. Understanding which mode is in use determines whether a control plane and PostgreSQL are present.
+
+### Mode 1 — Standalone (LocalJobRunner, no control plane)
 
 ```
 Developer Machine
-├─ TUI (CLI)                    ← always local
+└─ TUI (CLI)
+     └─ LocalJobRunner
+          └─ Job Engine (in-process)
+               └─ Package Storage: file:///
+```
+
+No control plane. No PostgreSQL. No network services. The TUI runs the Job Engine directly in-process using `LocalJobRunner`. The only database artifact is `Checkpoints/idmap.db` (SQLite, inside the migration package), which tracks source-to-target work item ID mappings. This SQLite file is a package concern, not a control plane concern — it exists in all modes.
+
+**Use when:** Simple migrations, air-gapped environments, or initial development and testing of module logic.
+
+### Mode 2 — Local Distributed (Aspire, control plane in Docker)
+
+```
+Developer Machine
+├─ TUI (CLI)                    ← always local, never orchestrated by Aspire
 ├─ Aspire AppHost               ← orchestrates local services
-│   ├─ Control Plane API        ← runs in local container/process
-│   ├─ Migration Agent(s)       ← runs in local container/process
-│   ├─ PostgreSQL               ← local container
-│   └─ Azurite (blob emulator)  ← local container
+│   ├─ Control Plane API        ← local process or container
+│   ├─ Migration Agent(s)       ← local process or container
+│   ├─ PostgreSQL               ← Docker container (Aspire-managed)
+│   └─ Azurite (blob emulator)  ← Docker container (Aspire-managed)
 └─ Package Storage              ← file:/// or azureblob://localhost:10000
 ```
 
-**Benefits:**
-- Full stack runs locally
-- Fast iteration
-- No cloud resources required
-- Identical code paths to production
+The control plane runs locally. PostgreSQL runs in a Docker container spawned by Aspire. This mode exercises identical code paths to cloud deployment, including the lease protocol, heartbeat, and progress reporting.
 
-### Cloud Mode (Azure Container Apps)
+**Use when:** Testing the full distributed stack locally, validating agent behaviour, or developing control plane features.
+
+**Benefits:**
+
+- Identical code paths to production
+- No cloud resources required
+- Fast iteration with full observability dashboard
+
+### Mode 3 — Cloud Distributed (Azure Container Apps)
 
 ```
 Developer Machine
@@ -268,11 +294,25 @@ Azure Subscription
 └─ Azure Blob Storage
 ```
 
+Mode 2 with Azure resources substituted for Docker containers. The Aspire AppHost declaration is unchanged — `azd up` provisions the Azure counterparts automatically.
+
+**Use when:** Production migrations, multi-tenant scenarios, network-isolated export/import agents.
+
 **Benefits:**
+
 - Scalable execution
 - Network isolation (export/import agents in separate zones)
 - Persistent job history
-- Multi-tenant capable
+
+### Summary: Where is PostgreSQL?
+
+| Mode | PostgreSQL present? | Who runs it? |
+|---|---|---|
+| Standalone (LocalJobRunner) | **No** | N/A — no control plane |
+| Local Distributed (Aspire) | **Yes** | Docker container (Aspire-managed) |
+| Cloud Distributed | **Yes** | Azure PostgreSQL Flexible Server |
+
+The `Checkpoints/idmap.db` SQLite file (work item ID mapping, inside the package) is present in all three modes. It is not the control plane's database.
 
 ---
 
@@ -307,16 +347,18 @@ services.AddHttpClient<IControlPlaneClient, ControlPlaneClient>(client =>
 
 ### Local Development
 
-Aspire manages local configuration via User Secrets and `appsettings.Development.json`:
+Aspire injects all connection strings automatically. No manual configuration is required for local development. The values it injects are:
 
 ```json
 {
   "ConnectionStrings": {
-    "controlplane-db": "Host=localhost;Database=controlplane;Username=postgres;Password=***",
-    "packages": "UseDevelopmentStorage=true"  // Azurite
+    "controlplane-db": "Host=localhost;Port=<aspire-assigned>;Database=controlplane-db;Username=postgres;Password=<aspire-generated>",
+    "packages": "UseDevelopmentStorage=true"
   }
 }
 ```
+
+These values are written to the `.NET User Secrets` store of each dependent project by Aspire at startup. Developers must not hardcode or commit them.
 
 ### Cloud Deployment
 

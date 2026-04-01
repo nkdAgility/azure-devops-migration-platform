@@ -86,12 +86,21 @@ It **is**:
 
 > A versioned migration package platform with streaming chronological replay.
 
-The platform supports two execution modes:
+The platform supports three operational modes:
 
-- **Local** — The TUI runs the orchestrator in-process using `FileSystemArtefactStore`. No control plane required.
-- **Remote** — The TUI submits a job to the control plane; an agent container executes it using `AzureBlobArtefactStore` or another URI-addressable store.
+| Mode | Transport | Control Plane | PostgreSQL | Package Store |
+|---|---|---|---|---|
+| **Standalone** | `LocalJobRunner` (in-process) | None | None | `file:///` |
+| **Local Distributed** | `ControlPlaneClient` → local control plane | Docker (Aspire) | Docker (Aspire) | `file:///` or Azurite |
+| **Cloud Distributed** | `ControlPlaneClient` → Azure control plane | Azure Container Apps | PostgreSQL Flexible Server | Azure Blob Storage |
 
-Both modes use the same orchestrator engine, the same modules, and the same cursor-based checkpoints. The package contract is identical. See [docs/cli.md](cli.md), [docs/tui.md](tui.md), [docs/control-plane.md](control-plane.md), and [docs/migration-agent.md](migration-agent.md).
+**Standalone mode** is the simplest path. The TUI runs the Job Engine in-process via `LocalJobRunner`. There is no control plane, no PostgreSQL, and no network dependency. The only database artifact is `Checkpoints/idmap.db` (SQLite), which lives inside the migration package itself and is scoped to work item ID mapping — it is not a control plane concern.
+
+**Local Distributed mode** runs the full stack (control plane + migration agents) in Docker containers on the developer's machine, orchestrated by the Aspire AppHost. The control plane is backed by a PostgreSQL Docker container. This mode exercises identical code paths to cloud deployment.
+
+**Cloud Distributed mode** is Local Distributed with Azure resources substituted for Docker containers. The Aspire AppHost declaration is unchanged; `azd up` provisions the Azure counterparts.
+
+All three modes use the same orchestrator engine, the same modules, and the same cursor-based checkpoints. The package contract is identical. See [docs/cli.md](cli.md), [docs/tui.md](tui.md), [docs/control-plane.md](control-plane.md), and [docs/migration-agent.md](migration-agent.md).
 
 Key properties:
 

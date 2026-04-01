@@ -126,6 +126,105 @@ The control plane persists:
 - Lease records
 - Log references (URIs into blob storage; logs themselves are stored in the package's `Logs/` folder by the Migration Agent)
 
+### Technology
+
+**PostgreSQL is the only permitted data store for the control plane — in all environments.**
+
+| Environment | PostgreSQL provider |
+|---|---|
+| Local development | Docker container (spawned by Aspire AppHost via `AddAzurePostgresFlexibleServer().RunAsContainer()`) |
+| Cloud (Azure) | Azure PostgreSQL Flexible Server (provisioned by `azd` from the same AppHost declaration) |
+
+There is no SQLite fallback, no in-memory substitute, and no other database provider. The same `Npgsql` / EF Core stack runs in both environments, exercising identical code paths.
+
+### ORM and Migrations
+
+The control plane uses **EF Core 9+** with the **Npgsql.EntityFrameworkCore.PostgreSQL** provider.
+
+- Migrations are managed with `dotnet ef migrations`.
+- At startup, `dbContext.Database.MigrateAsync()` is called to apply any pending migrations before the API begins accepting requests.
+
+### Connection String
+
+Aspire injects the connection string under the key `ConnectionStrings__controlplane-db` in both local and cloud environments. The control plane reads it from `IConfiguration` via the standard Aspire / Npgsql integration:
+
+```csharp
+builder.AddNpgsqlDbContext<ControlPlaneDbContext>("controlplane-db");
+```
+
+The connection string value is:
+
+| Environment | Source |
+|---|---|
+| Local | Aspire generates it from the Docker container endpoint and injects it automatically |
+| Cloud | Azure Container Apps reads it from Key Vault via a managed identity secret reference (see [docs/aspire-integration.md](aspire-integration.md)) |
+
+### Table Schema
+
+```sql
+-- Persists the full MigrationJob definition and tracks its lifecycle state.
+CREATE TABLE jobs (
+    job_id         UUID         PRIMARY KEY,
+    config_version TEXT         NOT NULL,
+    mode           TEXT         NOT NULL CHECK (mode IN ('Export', 'Import', 'Both')),
+    state          TEXT         NOT NULL DEFAULT 'Queued'
+                                CHECK (state IN ('Queued', 'Leased', 'Running', 'Paused', 'Completed', 'Failed', 'Cancelled')),
+    job_json       JSONB        NOT NULL,     -- full serialised MigrationJob
+    created_at     TIMESTAMPTZ  NOT NULL DEFAULT now(),
+    updated_at     TIMESTAMPTZ  NOT NULL DEFAULT now()
+);
+
+-- Tracks active and historical lease assignments.
+-- A job may have multiple lease rows if it is reassigned after a heartbeat timeout.
+CREATE TABLE leases (
+    lease_id      UUID         PRIMARY KEY,
+    job_id        UUID         NOT NULL REFERENCES jobs(job_id),
+    agent_id      TEXT         NOT NULL,
+    acquired_at   TIMESTAMPTZ  NOT NULL DEFAULT now(),
+    expires_at    TIMESTAMPTZ  NOT NULL,
+    released_at   TIMESTAMPTZ              -- NULL means the lease is still active
+);
+
+-- Mirrors the latest cursor position per module, as reported by Migration Agents.
+-- This is a display-only snapshot. The cursor in the package is the authoritative resume state.
+CREATE TABLE progress_snapshots (
+    job_id         UUID         NOT NULL REFERENCES jobs(job_id),
+    module         TEXT         NOT NULL,
+    last_processed TEXT         NOT NULL,   -- relative path of last processed artefact
+    stage          TEXT         NOT NULL,   -- canonical stage label
+    updated_at     TIMESTAMPTZ  NOT NULL,
+    PRIMARY KEY (job_id, module)
+);
+
+CREATE INDEX ix_jobs_state ON jobs(state);
+CREATE INDEX ix_leases_job_id ON leases(job_id);
+CREATE INDEX ix_leases_expires_at ON leases(expires_at) WHERE released_at IS NULL;
+```
+
+### Lease Expiry Query
+
+The control plane uses the `leases` table to detect stale leases:
+
+```sql
+-- Jobs whose active lease has expired (heartbeat missed)
+SELECT j.job_id
+FROM   jobs j
+JOIN   leases l ON l.job_id = j.job_id
+WHERE  j.state = 'Running'
+  AND  l.released_at IS NULL
+  AND  l.expires_at < now();
+```
+
+A background service runs this query on a configurable interval (default: every 10 seconds) and returns matching jobs to `Queued`.
+
+### What Is Not Stored
+
+The control plane deliberately does **not** store:
+
+- The migration package contents (revision files, cursors, attachments) — those live in `IArtefactStore` (filesystem or Azure Blob).
+- Log file contents — logs are written into the package's `Logs/` folder by the Migration Agent; the control plane stores only the URI prefix for the TUI to tail.
+- Source or target credentials — only Key Vault references (opaque strings) are stored in `job_json`; the actual secret is never held in the database.
+
 ---
 
 ## Multi-Tenant Considerations (Phase 3)

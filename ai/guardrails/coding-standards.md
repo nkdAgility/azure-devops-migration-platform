@@ -153,6 +153,7 @@ Preferred:
 - Writing to `Console` or `System.Console` from the Job Engine or any module.
 - Emitting progress as console text instead of `IProgressSink` events.
 - Placing migration execution logic in the TUI (parsing and transport selection only).
+- Using SQLite, in-memory databases, or any provider other than PostgreSQL (Npgsql) for the control plane. This prohibition applies in tests, CI, and development. See [ai/guardrails/system-architecture.md](system-architecture.md) rule 20.
 
 ---
 
@@ -173,6 +174,7 @@ Before merging changes, verify:
 - Does this code sort EnumerateAsync results in memory?
 - Does this code write to Console from the Job Engine or a module?
 - Does this code place migration logic in the TUI layer?
+- Does this code use SQLite, an in-memory database, or any non-PostgreSQL provider for the control plane?
 
 If yes, reject.
 
