@@ -1,0 +1,203 @@
+using DevOpsMigrationPlatform.Abstractions;
+using Microsoft.VisualStudio.TestTools.UnitTesting;
+
+namespace DevOpsMigrationPlatform.Infrastructure.Tests.Platform;
+
+/// <summary>
+/// Unit tests for the internal branching paths in <see cref="MigrationOptionsValidator"/>.
+/// These complement the Reqnroll acceptance tests by covering each individual branch
+/// in isolation and providing pinned assertions on the failure message text.
+/// </summary>
+[TestClass]
+public class MigrationOptionsValidatorTests
+{
+    private static MigrationOptionsValidator Sut() => new();
+
+    private static MigrationOptions ValidExport() => new()
+    {
+        ConfigVersion = "1.0",
+        Mode = "Export",
+        Source = new MigrationEndpointOptions
+        {
+            Type = "AzureDevOpsServices",
+            OrgOrCollection = "https://dev.azure.com/myorg",
+            Project = "MyProject"
+        },
+        Artefacts = new MigrationArtefactsOptions { Path = "D:\\exports\\run-001" }
+    };
+
+    // ── Passing cases ─────────────────────────────────────────────────────────
+
+    [TestMethod]
+    public void Validate_ValidExportConfig_Succeeds()
+    {
+        var result = Sut().Validate(null, ValidExport());
+        Assert.IsTrue(result.Succeeded);
+    }
+
+    [TestMethod]
+    public void Validate_ValidImportConfig_Succeeds()
+    {
+        var opts = new MigrationOptions
+        {
+            ConfigVersion = "1.0",
+            Mode = "Import",
+            Target = new MigrationEndpointOptions
+            {
+                Type = "AzureDevOpsServices",
+                OrgOrCollection = "https://dev.azure.com/targetorg",
+                Project = "TargetProject"
+            },
+            Artefacts = new MigrationArtefactsOptions { Path = "D:\\exports\\run-001" }
+        };
+        Assert.IsTrue(Sut().Validate(null, opts).Succeeded);
+    }
+
+    [TestMethod]
+    public void Validate_ValidBothConfig_Succeeds()
+    {
+        var opts = new MigrationOptions
+        {
+            ConfigVersion = "1.0",
+            Mode = "Both",
+            Source = new MigrationEndpointOptions { Type = "AzureDevOpsServices", OrgOrCollection = "https://dev.azure.com/myorg", Project = "P" },
+            Target = new MigrationEndpointOptions { Type = "AzureDevOpsServices", OrgOrCollection = "https://dev.azure.com/targetorg", Project = "P" },
+            Artefacts = new MigrationArtefactsOptions { Path = "D:\\exports" }
+        };
+        Assert.IsTrue(Sut().Validate(null, opts).Succeeded);
+    }
+
+    // ── ConfigVersion ─────────────────────────────────────────────────────────
+
+    [TestMethod]
+    public void Validate_UnsupportedConfigVersion_FailsWithConfigVersionInMessage()
+    {
+        var opts = ValidExport();
+        opts.ConfigVersion = "99.0";
+        var result = Sut().Validate(null, opts);
+        Assert.IsFalse(result.Succeeded);
+        StringAssert.Contains(result.FailureMessage, "ConfigVersion");
+    }
+
+    // ── Mode ─────────────────────────────────────────────────────────────────
+
+    [TestMethod]
+    public void Validate_EmptyMode_FailsWithModeInMessage()
+    {
+        var opts = ValidExport();
+        opts.Mode = "";
+        var result = Sut().Validate(null, opts);
+        Assert.IsFalse(result.Succeeded);
+        StringAssert.Contains(result.FailureMessage, "Mode");
+    }
+
+    [TestMethod]
+    public void Validate_WhitespaceMode_FailsWithModeInMessage()
+    {
+        var opts = ValidExport();
+        opts.Mode = "   ";
+        var result = Sut().Validate(null, opts);
+        Assert.IsFalse(result.Succeeded);
+        StringAssert.Contains(result.FailureMessage, "Mode");
+    }
+
+    [TestMethod]
+    public void Validate_UnrecognisedMode_FailsWithModeInMessage()
+    {
+        var opts = ValidExport();
+        opts.Mode = "Replicate";
+        var result = Sut().Validate(null, opts);
+        Assert.IsFalse(result.Succeeded);
+        StringAssert.Contains(result.FailureMessage, "Mode");
+    }
+
+    // ── Source / Target ───────────────────────────────────────────────────────
+
+    [TestMethod]
+    public void Validate_ExportModeWithoutSource_FailsWithSourceInMessage()
+    {
+        var opts = ValidExport();
+        opts.Source = null;
+        var result = Sut().Validate(null, opts);
+        Assert.IsFalse(result.Succeeded);
+        StringAssert.Contains(result.FailureMessage, "Source");
+    }
+
+    [TestMethod]
+    public void Validate_BothModeWithoutSource_FailsWithSourceInMessage()
+    {
+        var opts = ValidExport();
+        opts.Mode = "Both";
+        opts.Target = new MigrationEndpointOptions { Type = "AzureDevOpsServices", OrgOrCollection = "https://dev.azure.com/t", Project = "T" };
+        opts.Source = null;
+        var result = Sut().Validate(null, opts);
+        Assert.IsFalse(result.Succeeded);
+        StringAssert.Contains(result.FailureMessage, "Source");
+    }
+
+    [TestMethod]
+    public void Validate_ImportModeWithoutTarget_FailsWithTargetInMessage()
+    {
+        var opts = new MigrationOptions
+        {
+            ConfigVersion = "1.0",
+            Mode = "Import",
+            Target = null,
+            Artefacts = new MigrationArtefactsOptions { Path = "D:\\exports" }
+        };
+        var result = Sut().Validate(null, opts);
+        Assert.IsFalse(result.Succeeded);
+        StringAssert.Contains(result.FailureMessage, "Target");
+    }
+
+    [TestMethod]
+    public void Validate_BothModeWithoutTarget_FailsWithTargetInMessage()
+    {
+        var opts = ValidExport();
+        opts.Mode = "Both";
+        opts.Target = null;
+        var result = Sut().Validate(null, opts);
+        Assert.IsFalse(result.Succeeded);
+        StringAssert.Contains(result.FailureMessage, "Target");
+    }
+
+    // ── Artefacts ─────────────────────────────────────────────────────────────
+
+    [TestMethod]
+    public void Validate_EmptyArtefactsPath_FailsWithArtefactsInMessage()
+    {
+        var opts = ValidExport();
+        opts.Artefacts.Path = "";
+        var result = Sut().Validate(null, opts);
+        Assert.IsFalse(result.Succeeded);
+        StringAssert.Contains(result.FailureMessage, "Artefacts");
+    }
+
+    [TestMethod]
+    public void Validate_WhitespaceArtefactsPath_FailsWithArtefactsInMessage()
+    {
+        var opts = ValidExport();
+        opts.Artefacts.Path = "   ";
+        var result = Sut().Validate(null, opts);
+        Assert.IsFalse(result.Succeeded);
+        StringAssert.Contains(result.FailureMessage, "Artefacts");
+    }
+
+    // ── Multiple errors reported together ────────────────────────────────────
+
+    [TestMethod]
+    public void Validate_MultipleErrors_AllReportedInSingleResult()
+    {
+        var opts = new MigrationOptions
+        {
+            ConfigVersion = "99.0",
+            Mode = "",
+            Artefacts = new MigrationArtefactsOptions { Path = "" }
+        };
+        var result = Sut().Validate(null, opts);
+        Assert.IsFalse(result.Succeeded);
+        StringAssert.Contains(result.FailureMessage, "ConfigVersion");
+        StringAssert.Contains(result.FailureMessage, "Mode");
+        StringAssert.Contains(result.FailureMessage, "Artefacts");
+    }
+}

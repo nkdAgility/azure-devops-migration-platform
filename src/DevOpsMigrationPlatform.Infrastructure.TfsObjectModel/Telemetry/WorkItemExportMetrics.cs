@@ -7,7 +7,7 @@ namespace DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.Telemetry;
 
 public class WorkItemExportMetrics : IWorkItemExportMetrics
 {
-    public const string MeterName = "DevOpsMigrationPlatform.WorkItemExport";
+    public const string MeterName = WellKnownMeterNames.WorkItemExport;
     public const string MeterVersion = "1.0";
 
     private static readonly Meter Meter = new Meter(MeterName, MeterVersion);

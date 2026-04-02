@@ -35,4 +35,12 @@ public record ProgressEvent
 
     /// <summary>UTC timestamp when this event was emitted.</summary>
     public DateTimeOffset Timestamp { get; init; } = DateTimeOffset.UtcNow;
+
+    /// <summary>
+    /// Optional metric snapshot emitted alongside this progress event.
+    /// Populated by the TFS subprocess every N revisions (controlled by
+    /// <see cref="TelemetryOptions.SubprocessSnapshotRevisionInterval"/>; default 100).
+    /// Null when emitted by the .NET 10 Migration Agent directly.
+    /// </summary>
+    public MetricSnapshot? Metrics { get; init; }
 }

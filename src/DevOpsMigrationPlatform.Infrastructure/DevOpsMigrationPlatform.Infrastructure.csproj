@@ -10,9 +10,18 @@
     <ProjectReference Include="..\DevOpsMigrationPlatform.Abstractions\DevOpsMigrationPlatform.Abstractions.csproj" />
   </ItemGroup>
 
-  <!-- Options + config-binding — netstandard2.0, works on both net481 and net10.0 -->
-  <ItemGroup>
+  <!-- Options + config-binding -->
+  <ItemGroup Condition="'$(TargetFramework)' == 'net481'">
     <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" Version="9.0.5" />
+  </ItemGroup>
+  <ItemGroup Condition="'$(TargetFramework)' != 'net481'">
+    <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" Version="10.0.0" />
+  </ItemGroup>
+
+  <!-- OpenTelemetry — .NET 10 only; not available in the .NET 4.8 subprocess -->
+  <ItemGroup Condition="'$(TargetFramework)' != 'net481'">
+    <PackageReference Include="OpenTelemetry" Version="1.14.0" />
+    <PackageReference Include="OpenTelemetry.Extensions.Hosting" Version="1.14.0" />
   </ItemGroup>
 
   <ItemGroup Condition="'$(TargetFramework)' == 'net481'">
@@ -20,6 +29,10 @@
     <PackageReference Include="System.Text.Json" Version="9.0.4" />
   </ItemGroup>
 
-
+  <ItemGroup>
+    <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleTo">
+      <_Parameter1>DevOpsMigrationPlatform.Infrastructure.Tests</_Parameter1>
+    </AssemblyAttribute>
+  </ItemGroup>
 
 </Project>

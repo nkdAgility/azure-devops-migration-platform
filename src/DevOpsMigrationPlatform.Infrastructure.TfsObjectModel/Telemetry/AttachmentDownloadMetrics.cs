@@ -6,7 +6,7 @@ namespace DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.Telemetry;
 
 public class AttachmentDownloadMetrics : IAttachmentDownloadMetrics
 {
-    public const string MeterName = "DevOpsMigrationPlatform.AttachmentDownload";
+    public const string MeterName = WellKnownMeterNames.AttachmentDownload;
     public const string MeterVersion = "1.0";
 
     private static readonly Meter _meter = new Meter(MeterName, MeterVersion);
