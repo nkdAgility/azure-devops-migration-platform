@@ -63,9 +63,25 @@ public MetricSnapshot? Metrics { get; init; }
 
 This is purely additive — existing consumers that do not read `Metrics` continue to work unchanged.
 
----
+**Also add a `WellKnownMeterNames` static class to `DevOpsMigrationPlatform.Abstractions`** — resolves the cross-project meter name accessibility issue (Principle VI prevents `net10.0` code referencing .NET 4.8 assemblies):
 
-## 3. `TelemetryOptions` (new — `DevOpsMigrationPlatform.Abstractions`)
+```csharp
+namespace DevOpsMigrationPlatform.Abstractions;
+
+/// <summary>
+/// Meter name constants shared across the solution.
+/// Defined here so .NET 10 hosts can register meters without referencing .NET 4.8 assemblies.
+/// </summary>
+public static class WellKnownMeterNames
+{
+    public const string WorkItemExport      = "DevOpsMigrationPlatform.WorkItemExport";
+    public const string AttachmentDownload  = "DevOpsMigrationPlatform.AttachmentDownload";
+}
+```
+
+`WorkItemExportMetrics.MeterName` and `AttachmentDownloadMetrics.MeterName` in `.Infrastructure.TfsObjectModel` should reference these constants rather than re-declaring the strings.
+
+---
 
 Configuration options for all telemetry routing, bound via `IOptions<TelemetryOptions>`.
 Section name: `"Telemetry"`.
@@ -82,14 +98,10 @@ public sealed class TelemetryOptions
     public static string SectionName => "Telemetry";
 
     /// <summary>
-    /// OTLP endpoint URI (e.g. "http://localhost:4317").
-    /// Null or empty = OTLP exporter not registered.
-    /// </summary>
-    public string? OtlpEndpoint { get; init; }
-
-    /// <summary>
     /// Azure Monitor connection string (Application Insights instrumentation key URL).
     /// Null or empty = Azure Monitor exporter not registered.
+    /// OTLP export is configured via the standard OTEL_EXPORTER_OTLP_ENDPOINT environment
+    /// variable, handled by ServiceDefaults — do not duplicate it here.
     /// </summary>
     public string? AzureMonitorConnectionString { get; init; }
 

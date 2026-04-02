@@ -1,5 +1,10 @@
 using DevOpsMigrationPlatform.CLI.Commands;
 using DevOpsMigrationPlatform.CLI.Commands.Discovery;
+using DevOpsMigrationPlatform.CLI.Infrastructure;
+using DevOpsMigrationPlatform.Infrastructure;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Spectre.Console;
 using Spectre.Console.Cli;
 
@@ -9,7 +14,48 @@ internal class Program
 {
     static async Task<int> Main(string[] args)
     {
-        var app = new CommandApp();
+        // ── Step 1: Extract --config / -c from args before Spectre parses them.
+        // The config file path is needed to build IConfiguration, which must happen
+        // before the CommandApp (and its DI container) is created.
+        // Any --config / -c flag is consumed here and removed from spectreArgs so
+        // Spectre does not see an undeclared option.
+        var (configFile, spectreArgs) = ExtractConfigFileArg(args);
+
+        // ── Step 2: Build layered IConfiguration.
+        // Layer 1 — appsettings.json (bundled defaults, always present)
+        // Layer 2 — migration.json / user-specified config (optional; commands that
+        //            require it will fail validation when they access IOptions<MigrationOptions>.Value)
+        // Layer 3 — environment variables (override any of the above)
+        var configuration = new ConfigurationBuilder()
+            .SetBasePath(AppContext.BaseDirectory)
+            .AddJsonFile("appsettings.json", optional: false)
+            .AddJsonFile(configFile, optional: true, reloadOnChange: false)
+            .AddEnvironmentVariables()
+            .Build();
+
+        // ── Step 3: Build the DI container.
+        // All platform services and options are registered here.
+        // Module assemblies will add their own registrations when modules are introduced.
+        var services = new ServiceCollection();
+
+        services.AddLogging(logging =>
+        {
+            logging.AddConsole();
+            logging.SetMinimumLevel(LogLevel.Warning); // suppress noisy DI/config framework logs
+        });
+
+        services.AddSingleton<IConfiguration>(configuration);
+
+        // Registers IOptions<MigrationOptions> bound to the config root,
+        // plus MigrationOptionsValidator (runs on first .Value access).
+        services.AddMigrationPlatformOptions(configuration);
+
+        // ── Step 4: Hand the container to Spectre.Console via TypeRegistrar.
+        // Commands with constructor dependencies are resolved from DI;
+        // commands with no constructor fall back to Activator.CreateInstance.
+        var registrar = new TypeRegistrar(services);
+        var app = new CommandApp(registrar);
+
         app.Configure(config =>
         {
             config.SetApplicationName("devopsmigration");
@@ -37,7 +83,7 @@ internal class Program
         {
             AnsiConsole.Write(new FigletText("DevOps Migration").LeftJustified().Color(Color.Blue));
             AnsiConsole.Write(new Rule().RuleStyle("grey").LeftJustified());
-            return await app.RunAsync(args);
+            return await app.RunAsync(spectreArgs);
         }
         catch (Exception ex)
         {
@@ -45,5 +91,31 @@ internal class Program
             AnsiConsole.WriteException(ex, ExceptionFormats.ShortenEverything | ExceptionFormats.ShowLinks);
             return 1;
         }
+    }
+
+    /// <summary>
+    /// Scans <paramref name="args"/> for <c>--config</c> or <c>-c</c> and returns the
+    /// resolved config file path plus a new args array with those tokens removed.
+    /// If no flag is present the default <c>migration.json</c> (in the current working
+    /// directory) is returned.
+    /// </summary>
+    private static (string configFile, string[] remainingArgs) ExtractConfigFileArg(string[] args)
+    {
+        var configFile = Path.Combine(Directory.GetCurrentDirectory(), "migration.json");
+        var remaining = new List<string>(args.Length);
+
+        for (var i = 0; i < args.Length; i++)
+        {
+            if ((args[i] == "--config" || args[i] == "-c") && i + 1 < args.Length)
+            {
+                configFile = args[++i]; // consume both the flag and its value
+            }
+            else
+            {
+                remaining.Add(args[i]);
+            }
+        }
+
+        return (configFile, remaining.ToArray());
     }
 }

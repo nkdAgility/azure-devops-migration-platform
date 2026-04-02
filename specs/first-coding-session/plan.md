@@ -37,7 +37,7 @@ and `GET /jobs/{jobId}/telemetry`), and adds a `TelemetryPanel` Terminal.Gui vie
 - [x] **Streaming (II):** Import processes one revision folder at a time. No in-memory list/array of all revisions. — **N/A: no import logic**
 - [x] **WorkItems Layout (III):** Folder structure preserved. — **N/A: no package folder changes**
 - [x] **Checkpointing (IV):** Module uses cursor file. — **N/A: telemetry is stateless**
-- [x] **Module Isolation (V):** All new services use `IArtefactStore`/`IStateStore` only for migration data. New telemetry services are DI-injected via abstractions (`IMetricCollector`, `IControlPlaneTelemetryClient`). No concrete store references in module code.
+- [x] **Module Isolation (V):** All new services use `IArtefactStore`/`IStateStore` only for migration data. New telemetry services are DI-injected via abstractions (`IMetricSnapshotStore`, `IControlPlaneTelemetryClient`). No concrete store references in module code.
 - [x] **Separation of Planes (VI):** Migration Agent pushes snapshots to Control Plane via HTTP. TUI reads from Control Plane only. Control Plane stores metric snapshots — no migration logic. No `Console` writes from the Job Engine.
 - [x] **Determinism (VII):** Metric snapshots are observability data — not part of the package; skipped.
 - [x] **ATDD-First (VIII):** Each component below has at least one Given/When/Then acceptance scenario defined before implementation begins.
@@ -45,20 +45,6 @@ and `GET /jobs/{jobId}/telemetry`), and adds a `TelemetryPanel` Terminal.Gui vie
 
 **Constitution check: PASSED**
 
-
-## Project Structure
-
-### Documentation (this feature)
-
-```text
-specs/[###-feature]/
-├── plan.md              # This file (/speckit.plan command output)
-├── research.md          # Phase 0 output (/speckit.plan command)
-├── data-model.md        # Phase 1 output (/speckit.plan command)
-├── quickstart.md        # Phase 1 output (/speckit.plan command)
-├── contracts/           # Phase 1 output (/speckit.plan command)
-└── tasks.md             # Phase 2 output (/speckit.tasks command - NOT created by /speckit.plan)
-```
 
 ## Project Structure
 
@@ -104,6 +90,8 @@ src/DevOpsMigrationPlatform.Infrastructure.TfsLegacy/
 
 src/DevOpsMigrationPlatform.MigrationAgent/
 ├── MigrationAgentWorker.cs                   # MODIFY — start ControlPlaneTelemetryTimer background loop
+├── ControlPlaneTelemetryTimer.cs             # NEW — BackgroundService pushing MetricSnapshot to Control Plane
+├── ActiveLeaseState.cs                       # NEW — singleton carrying current leaseId between worker and timer
 
 src/DevOpsMigrationPlatform.ControlPlane/
 ├── Controllers/
@@ -114,10 +102,11 @@ src/DevOpsMigrationPlatform.ControlPlane/
 src/DevOpsMigrationPlatform.CLI.Migration/
 ├── Views/
 │   └── TelemetryPanel.cs                    # NEW — Terminal.Gui panel for live metrics display
+│   └── TelemetryPoller.cs                   # NEW — polls GET /jobs/{id}/telemetry, feeds TelemetryPanel
 
 tests/DevOpsMigrationPlatform.Infrastructure.Tests/
 ├── Telemetry/
-│   └── InProcessMeterListenerTests.cs        # NEW — unit tests for metric collection
+│   └── SnapshotMetricExporterTests.cs        # NEW — unit tests for OTel BaseExporter<Metric> + IMetricSnapshotStore
 │   └── ControlPlaneTelemetryClientTests.cs   # NEW — unit tests for HTTP push
 
 features/platform/
@@ -127,14 +116,6 @@ features/platform/
     └── tui-metrics-panel.feature             # NEW — ATDD acceptance scenarios
 ```
 
-**Structure Decision**: [Document the selected structure and reference the real
-directories captured above]
-
 ## Complexity Tracking
 
-> **Fill ONLY if Constitution Check has violations that must be justified**
-
-| Violation | Why Needed | Simpler Alternative Rejected Because |
-|-----------|------------|-------------------------------------|
-| [e.g., 4th project] | [current need] | [why 3 projects insufficient] |
-| [e.g., Repository pattern] | [specific problem] | [why direct DB access insufficient] |
+*No constitution violations. No additional complexity beyond what the architecture already prescribes.*
