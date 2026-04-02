@@ -28,4 +28,11 @@ public class WorkItemMigrationProgress
     public WorkItemQueryChunk? ChunkInfo { get; set; }
 
     public int AttachmentsFailed { get; set; }
+
+    /// <summary>
+    /// Optional metric snapshot. Populated by the export service every
+    /// <c>SubprocessSnapshotRevisionInterval</c> revisions; null otherwise.
+    /// Carried through to <see cref="ProgressEvent.Metrics"/> by the agent runner.
+    /// </summary>
+    public MetricSnapshot? Metrics { get; set; }
 }

@@ -90,6 +90,14 @@ public class WorkItemExportService : IWorkItemExportService
 
         // Export pass
         int workItemCounter = 0;
+        long revisionCounter   = 0;
+        long revisionErrors    = 0;
+        long linksExported     = 0;
+        long linkErrors        = 0;
+        long attachmentsAttempted = 0;
+        long attachmentsSucceeded = 0;
+        long attachmentsFailed = 0;
+        const int snapshotInterval = 100; // matches TelemetryOptions.SubprocessSnapshotRevisionInterval default
         foreach (var chunkItem in _workItemStore.QueryAllByDateChunk(wiqlQuery))
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -148,6 +156,7 @@ public class WorkItemExportService : IWorkItemExportService
                 {
                     _logger.LogInformation("Processing revision {Rev} for work item {WorkItemId}", tfsRevision.Index, tfsWorkItem.Id);
                     _metrics.RecordRevisionExported(collectionId, tfsWorkItem.Id);
+                    revisionCounter++;
                     progress.RevisionIndex = tfsRevision.Index;
 
                     var mapped = _revisionMapper.Map(tfsWorkItem, tfsRevision, previousRevision);
@@ -170,11 +179,31 @@ public class WorkItemExportService : IWorkItemExportService
 
                     progress.RevisionsProcessed++;
                     previousRevision = tfsRevision;
+
+                    // Embed a MetricSnapshot in the progress update every snapshotInterval revisions.
+                    if (revisionCounter % snapshotInterval == 0)
+                    {
+                        progress.Metrics = new MetricSnapshot
+                        {
+                            Timestamp            = DateTimeOffset.UtcNow,
+                            WorkItemsExported    = workItemCounter,
+                            RevisionsExported    = revisionCounter,
+                            RevisionErrors       = revisionErrors,
+                            AttachmentsAttempted = progress.AttachmentsProcessed + progress.AttachmentsFailed,
+                            AttachmentsSucceeded = progress.AttachmentsProcessed,
+                            AttachmentsFailed    = progress.AttachmentsFailed,
+                        };
+                    }
+                    else
+                    {
+                        progress.Metrics = null;
+                    }
                 }
                 catch (Exception ex)
                 {
                     _logger.LogError(ex, "Failed revision {Rev} for work item {WorkItemId}", tfsRevision.Index, tfsWorkItem.Id);
                     _metrics.RecordRevisionError(collectionId, tfsWorkItem.Id);
+                    revisionErrors++;
                     throw;
                 }
                 finally

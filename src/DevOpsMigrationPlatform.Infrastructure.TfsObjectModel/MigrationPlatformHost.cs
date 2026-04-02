@@ -39,6 +39,13 @@ public static class MigrationPlatformHost
         public Uri TfsServer { get; }
         public string Project { get; }
         public string OutputFolder { get; }
+
+        /// <summary>
+        /// How often (by revision count) a <see cref="MetricSnapshot"/> is embedded
+        /// in the yielded <see cref="WorkItemMigrationProgress.Metrics"/> field.
+        /// Default: 100.
+        /// </summary>
+        public int SubprocessSnapshotRevisionInterval { get; set; } = 100;
     }
 
     public static IHostBuilder CreateDefaultBuilder(string[] args, Settings settings)

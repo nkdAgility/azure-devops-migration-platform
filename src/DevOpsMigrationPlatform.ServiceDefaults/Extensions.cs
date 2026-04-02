@@ -1,3 +1,4 @@
+using Azure.Monitor.OpenTelemetry.AspNetCore;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
@@ -61,10 +62,17 @@ public static class Extensions
 
     private static IHostApplicationBuilder AddOpenTelemetryExporters(this IHostApplicationBuilder builder)
     {
+        // OTLP export is configured exclusively via the standard env var.
+        // Do NOT duplicate this via TelemetryOptions — it would register two OTLP exporters.
         var useOtlpExporter = !string.IsNullOrWhiteSpace(builder.Configuration["OTEL_EXPORTER_OTLP_ENDPOINT"]);
-
         if (useOtlpExporter)
             builder.Services.AddOpenTelemetry().UseOtlpExporter();
+
+        // Azure Monitor — opt-in via Telemetry:AzureMonitorConnectionString in appsettings.
+        var azureMonitorConnectionString = builder.Configuration["Telemetry:AzureMonitorConnectionString"];
+        if (!string.IsNullOrWhiteSpace(azureMonitorConnectionString))
+            builder.Services.AddOpenTelemetry().UseAzureMonitor(o =>
+                o.ConnectionString = azureMonitorConnectionString);
 
         return builder;
     }

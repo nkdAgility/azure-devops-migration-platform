@@ -3,7 +3,10 @@ using Spectre.Console.Cli;
 using System;
 using System.ComponentModel;
 using System.IO;
+using System.Threading;
 using System.Threading.Tasks;
+using DevOpsMigrationPlatform.CLI.Views;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace DevOpsMigrationPlatform.CLI.Commands;
 
@@ -65,10 +68,23 @@ public sealed class TfsExportCommand : AsyncCommand<TfsExportCommand.Settings>
         AnsiConsole.MarkupLineInterpolated($"[grey]Launching:[/] {exePath}");
         AnsiConsole.MarkupLineInterpolated($"[grey]Arguments:[/] {arguments}");
 
+        // Set up TUI telemetry panel (no Control Plane in standalone CLI mode).
+        var panel   = new TelemetryPanel();
+        var adapter = new TfsExporterProcessAdapter(
+            new AnsiProgressSink(),
+            NullLogger<TfsExporterProcessAdapter>.Instance);
+
+        using var cts = new CancellationTokenSource();
+        Console.CancelKeyPress += (_, e) => { e.Cancel = true; cts.Cancel(); };
+
         var exitCode = await ExternalToolRunner.RunWithStreamingAsync(
             exePath,
             arguments,
-            onOutput: line => AnsiConsole.MarkupLineInterpolated($"[grey]{line}[/]"),
+            onOutput: line =>
+            {
+                adapter.OnStdoutLine(line, cts.Token);
+                panel.Render(AnsiConsole.Console);
+            },
             onError: line => AnsiConsole.MarkupLineInterpolated($"[red]{line}[/]"));
 
         if (exitCode != 0)
@@ -100,5 +116,13 @@ public sealed class TfsExportCommand : AsyncCommand<TfsExportCommand.Settings>
             Path.Combine(assemblyDir,
                 @"..\..\..\..\DevOpsMigrationPlatform.CLI.TfsMigration\bin\Debug\net481\tfsmigration.exe"));
         return debugRelative;
+    }
+
+    /// <summary>Forwards parsed ProgressEvent as Spectre markup to AnsiConsole.</summary>
+    private sealed class AnsiProgressSink : DevOpsMigrationPlatform.Abstractions.IProgressSink
+    {
+        public void Emit(DevOpsMigrationPlatform.Abstractions.ProgressEvent evt) =>
+            AnsiConsole.MarkupLineInterpolated(
+                $"[grey]{evt.Module}[/] [dim]{evt.Stage}[/] WI={evt.WorkItemId} Rev={evt.RevisionsProcessed}/{evt.TotalWorkItems}");
     }
 }

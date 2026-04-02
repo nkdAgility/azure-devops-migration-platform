@@ -20,9 +20,20 @@
 //
 // See docs/control-plane.md, docs/cli.md, docs/aspire-integration.md.
 
+using DevOpsMigrationPlatform.ControlPlane.Services;
+using DevOpsMigrationPlatform.Infrastructure.Telemetry;
 var builder = WebApplication.CreateBuilder(args);
 builder.AddServiceDefaults();
 builder.Services.AddControllers();
+
+// Register snapshot exporter + IMetricSnapshotStore + TelemetryOptions.
+builder.Services.AddTelemetryServices(builder.Configuration);
+
+// Lease–job mapping (Phase-1 stub; replace with durable store later).
+builder.Services.AddSingleton<ILeaseJobResolver, StubLeaseJobResolver>();
+
+// Telemetry snapshot store for push (POST) and pull (GET) via TelemetryController.
+builder.Services.AddSingleton<JobTelemetryStore>();
 
 var app = builder.Build();
 app.MapDefaultEndpoints();

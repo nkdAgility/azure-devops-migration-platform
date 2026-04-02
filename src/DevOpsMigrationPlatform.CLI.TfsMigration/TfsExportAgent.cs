@@ -47,7 +47,8 @@ public sealed class TfsExportAgent
                 RevisionsProcessed = progress.RevisionsProcessed,
                 WorkItemId = progress.WorkItemId,
                 Message = progress.Message,
-                Timestamp = new DateTimeOffset(progress.Timestamp, TimeSpan.Zero)
+                Timestamp = new DateTimeOffset(progress.Timestamp, TimeSpan.Zero),
+                Metrics = progress.Metrics
             });
         }
     }

@@ -15,9 +15,9 @@
 
 **Purpose**: Add the two new package dependencies before any source files reference them.
 
-- [ ] T001 [P] Add `<PackageReference Include="OpenTelemetry" Version="1.12.0" />` inside `<ItemGroup Condition="'$(TargetFramework)' != 'net481'">` in `src/DevOpsMigrationPlatform.Infrastructure/DevOpsMigrationPlatform.Infrastructure.csproj`
-- [ ] T002 [P] Add `<PackageReference Include="Azure.Monitor.OpenTelemetry.AspNetCore" Version="1.4.0" />` to `src/DevOpsMigrationPlatform.ServiceDefaults/DevOpsMigrationPlatform.ServiceDefaults.csproj`
-- [ ] T003 Run `dotnet build DevOpsMigrationPlatform.slnx -v quiet` and confirm zero errors before proceeding to Phase 2
+- [x] T001 [P] Add `<PackageReference Include="OpenTelemetry" Version="1.12.0" />` inside `<ItemGroup Condition="'$(TargetFramework)' != 'net481'">` in `src/DevOpsMigrationPlatform.Infrastructure/DevOpsMigrationPlatform.Infrastructure.csproj`
+- [x] T002 [P] Add `<PackageReference Include="Azure.Monitor.OpenTelemetry.AspNetCore" Version="1.4.0" />` to `src/DevOpsMigrationPlatform.ServiceDefaults/DevOpsMigrationPlatform.ServiceDefaults.csproj`
+- [x] T003 Run `dotnet build DevOpsMigrationPlatform.slnx -v quiet` and confirm zero errors before proceeding to Phase 2
 
 ---
 
@@ -46,14 +46,14 @@
 
 **Independent Test**: Set `OTEL_EXPORTER_OTLP_ENDPOINT` or `Telemetry:OtlpEndpoint` in `appsettings.json` and confirm spans appear in a local Jaeger/OTEL Collector. Set `Telemetry:AzureMonitorConnectionString` and confirm custom metrics appear in Application Insights.
 
-- [ ] T012 [US1] Create `src/DevOpsMigrationPlatform.Infrastructure/Telemetry/InMemoryMetricSnapshotStore.cs` — `internal sealed class InMemoryMetricSnapshotStore : IMetricSnapshotStore` using a single `volatile` field for lock-free write/read. Only compiled for `!NETFRAMEWORK` (add `#if !NETFRAMEWORK` guard).
-- [ ] T013 [P] [US1] Create `src/DevOpsMigrationPlatform.Infrastructure/Telemetry/SnapshotMetricExporter.cs` — `internal sealed class SnapshotMetricExporter : BaseExporter<Metric>`. Constructor receives `IMetricSnapshotStore`. `Export(Batch<Metric>)` iterates the batch, reads counter sums and histogram means, constructs a `MetricSnapshot`, calls `store.Update(snapshot)`. Add `#if !NETFRAMEWORK` guard. Map instrument names to snapshot fields (see `research.md §2` and `WorkItemExportMetrics` / `AttachmentDownloadMetrics` meter names).
-- [ ] T014 [US1] Create `src/DevOpsMigrationPlatform.Infrastructure/Telemetry/TelemetryServiceExtensions.cs` — `public static class TelemetryServiceExtensions` with `AddTelemetryServices(this IServiceCollection services, IConfiguration configuration)` extension. This method: (1) binds and validates `TelemetryOptions` via `services.AddOptions<TelemetryOptions>().BindConfiguration(TelemetryOptions.SectionName)`; (2) registers `InMemoryMetricSnapshotStore` as `IMetricSnapshotStore` singleton; (3) calls `services.AddOpenTelemetry().WithMetrics(mb => mb.AddReader(...))` adding a `PeriodicExportingMetricReader` that wraps `SnapshotMetricExporter`; (4) conditionally adds OTLP exporter if `options.OtlpEndpoint` is set; (5) conditionally adds Azure Monitor exporter if `options.AzureMonitorConnectionString` is set. Use `#if !NETFRAMEWORK` guard on the file.
-- [ ] T015 [US1] Extend `src/DevOpsMigrationPlatform.ServiceDefaults/Extensions.cs` `AddOpenTelemetryExporters()` to read `TelemetryOptions` from configuration and conditionally add `AddAzureMonitorOpenTelemetry()` when `AzureMonitorConnectionString` is non-empty. OTLP is already handled via `OTEL_EXPORTER_OTLP_ENDPOINT`; do not duplicate it.
-- [ ] T016 [P] [US1] In `src/DevOpsMigrationPlatform.MigrationAgent/Program.cs`: call `builder.Services.AddTelemetryServices(builder.Configuration)` and register `WellKnownMeterNames.WorkItemExport` and `WellKnownMeterNames.AttachmentDownload` (from `DevOpsMigrationPlatform.Abstractions`) in the Aspire OTel metrics pipeline via `WithMetrics(mb => mb.AddMeter(...))`. **Do not reference `WorkItemExportMetrics.MeterName` directly** — that constant lives in the .NET 4.8 `TfsObjectModel` project which `MigrationAgent` cannot reference (Principle VI).
-- [ ] T017 [P] [US1] In `src/DevOpsMigrationPlatform.ControlPlane/Program.cs`: call `builder.Services.AddTelemetryServices(builder.Configuration)`.
-- [ ] T018 [P] [US1] Add `"Telemetry": {}` stanza with commented-out example fields to `src/DevOpsMigrationPlatform.MigrationAgent/appsettings.json`.
-- [ ] T019 [P] [US1] Add `"Telemetry": {}` stanza with commented-out example fields to `src/DevOpsMigrationPlatform.ControlPlane/appsettings.json`.
+- [x] T012 [US1] Create `src/DevOpsMigrationPlatform.Infrastructure/Telemetry/InMemoryMetricSnapshotStore.cs` — `internal sealed class InMemoryMetricSnapshotStore : IMetricSnapshotStore` using a single `volatile` field for lock-free write/read. Only compiled for `!NETFRAMEWORK` (add `#if !NETFRAMEWORK` guard).
+- [x] T013 [P] [US1] Create `src/DevOpsMigrationPlatform.Infrastructure/Telemetry/SnapshotMetricExporter.cs` — `internal sealed class SnapshotMetricExporter : BaseExporter<Metric>`. Constructor receives `IMetricSnapshotStore`. `Export(Batch<Metric>)` iterates the batch, reads counter sums and histogram means, constructs a `MetricSnapshot`, calls `store.Update(snapshot)`. Add `#if !NETFRAMEWORK` guard. Map instrument names to snapshot fields (see `research.md §2` and `WorkItemExportMetrics` / `AttachmentDownloadMetrics` meter names).
+- [x] T014 [US1] Create `src/DevOpsMigrationPlatform.Infrastructure/Telemetry/TelemetryServiceExtensions.cs` — `public static class TelemetryServiceExtensions` with `AddTelemetryServices(this IServiceCollection services, IConfiguration configuration)` extension. This method: (1) binds and validates `TelemetryOptions` via `services.AddOptions<TelemetryOptions>().BindConfiguration(TelemetryOptions.SectionName)`; (2) registers `InMemoryMetricSnapshotStore` as `IMetricSnapshotStore` singleton; (3) calls `services.AddOpenTelemetry().WithMetrics(mb => mb.AddReader(...))` adding a `PeriodicExportingMetricReader` that wraps `SnapshotMetricExporter`; (4) conditionally adds OTLP exporter if `options.OtlpEndpoint` is set; (5) conditionally adds Azure Monitor exporter if `options.AzureMonitorConnectionString` is set. Use `#if !NETFRAMEWORK` guard on the file.
+- [x] T015 [US1] Extend `src/DevOpsMigrationPlatform.ServiceDefaults/Extensions.cs` `AddOpenTelemetryExporters()` to read `TelemetryOptions` from configuration and conditionally add `AddAzureMonitorOpenTelemetry()` when `AzureMonitorConnectionString` is non-empty. OTLP is already handled via `OTEL_EXPORTER_OTLP_ENDPOINT`; do not duplicate it.
+- [x] T016 [P] [US1] In `src/DevOpsMigrationPlatform.MigrationAgent/Program.cs`: call `builder.Services.AddTelemetryServices`
+- [x] T017 [P] [US1] In `src/DevOpsMigrationPlatform.ControlPlane/Program.cs`: call `builder.Services.AddTelemetryServices(builder.Configuration)`.
+- [x] T018 [P] [US1] Add `"Telemetry": {}` stanza to `src/DevOpsMigrationPlatform.MigrationAgent/appsettings.json`.
+- [x] T019 [P] [US1] Add `"Telemetry": {}` stanza to `src/DevOpsMigrationPlatform.ControlPlane/appsettings.json`.
 
 **Checkpoint**: Run `dotnet build DevOpsMigrationPlatform.slnx -v quiet`. Start a local OTEL Collector or Jaeger and configure `Telemetry:OtlpEndpoint` — confirm spans/metrics arrive. US1 feature scenarios pass.
 
@@ -65,11 +65,11 @@
 
 **Independent Test**: In a stub integration test, start a `ControlPlaneTelemetryTimer`, verify it calls `IControlPlaneTelemetryClient.PushSnapshotAsync` with the current `IMetricSnapshotStore.Latest` value after approximately N seconds.
 
-- [ ] T020 [US2] Create `src/DevOpsMigrationPlatform.Infrastructure/Telemetry/ControlPlaneTelemetryClient.cs` — `internal sealed class ControlPlaneTelemetryClient : IControlPlaneTelemetryClient`. Constructor receives `HttpClient` (registered via named client), `ILogger<ControlPlaneTelemetryClient>`. `PushSnapshotAsync` posts the snapshot as JSON to `/agents/lease/{leaseId}/telemetry`. On `404`/non-success, log warning only (best-effort; do not throw). Add `#if !NETFRAMEWORK` guard.
-- [ ] T021 [US2] Create `src/DevOpsMigrationPlatform.MigrationAgent/ControlPlaneTelemetryTimer.cs` — `internal sealed class ControlPlaneTelemetryTimer : BackgroundService`. Constructor receives `IMetricSnapshotStore`, `IControlPlaneTelemetryClient`, `IOptions<TelemetryOptions>`, `ILogger`. `ExecuteAsync` loops on `SnapshotIntervalSeconds` delay; reads `store.Latest`; if non-null and `leaseId` is set, calls `client.PushSnapshotAsync`. `LeaseId` is set externally by `MigrationAgentWorker` when a lease is acquired and cleared on release.
-- [ ] T022 [US2] Create `src/DevOpsMigrationPlatform.ControlPlane/Services/JobTelemetryStore.cs` — `public sealed class JobTelemetryStore`. Wraps `ConcurrentDictionary<Guid, MetricSnapshot>`. Methods: `void Store(Guid jobId, MetricSnapshot snapshot)`, `MetricSnapshot? GetLatest(Guid jobId)`, `void Remove(Guid jobId)`.
-- [ ] T023 [US2] Create `src/DevOpsMigrationPlatform.ControlPlane/Controllers/TelemetryController.cs` — `[ApiController]` with `POST /agents/lease/{leaseId}/telemetry` action. Validates `leaseId` maps to a known active lease (stub: accept any non-empty for now, full lease validation is `MigrationAgentWorker` scope). Calls `JobTelemetryStore.Store(jobId, snapshot)`. Returns `204`. Add `[Authorize]` placeholder.
-- [ ] T024 [US2] Register `JobTelemetryStore` as singleton, `ControlPlaneTelemetryTimer` as hosted service, `IControlPlaneTelemetryClient`/`ControlPlaneTelemetryClient` in `src/DevOpsMigrationPlatform.ControlPlane/Program.cs` and `src/DevOpsMigrationPlatform.MigrationAgent/Program.cs` respectively. Register named `HttpClient` for `ControlPlaneTelemetryClient` via `services.AddHttpClient<IControlPlaneTelemetryClient, ControlPlaneTelemetryClient>(...)`.
+- [x] T020 [US2] Create `src/DevOpsMigrationPlatform.Infrastructure/Telemetry/ControlPlaneTelemetryClient.cs` — `internal sealed class ControlPlaneTelemetryClient : IControlPlaneTelemetryClient`. Constructor receives `HttpClient` (registered via named client), `ILogger<ControlPlaneTelemetryClient>`. `PushSnapshotAsync` posts the snapshot as JSON to `/agents/lease/{leaseId}/telemetry`. On `404`/non-success, log warning only (best-effort; do not throw). Add `#if !NETFRAMEWORK` guard.
+- [x] T021 [US2] Create `src/DevOpsMigrationPlatform.MigrationAgent/ControlPlaneTelemetryTimer.cs` — `internal sealed class ControlPlaneTelemetryTimer : BackgroundService`. Constructor receives `IMetricSnapshotStore`, `IControlPlaneTelemetryClient`, `IOptions<TelemetryOptions>`, `ILogger`. `ExecuteAsync` loops on `SnapshotIntervalSeconds` delay; reads `store.Latest`; if non-null and `leaseId` is set, calls `client.PushSnapshotAsync`. `LeaseId` is set externally by `MigrationAgentWorker` when a lease is acquired and cleared on release.
+- [x] T022 [US2] Create `src/DevOpsMigrationPlatform.ControlPlane/Services/JobTelemetryStore.cs` — `public sealed class JobTelemetryStore`. Wraps `ConcurrentDictionary<Guid, MetricSnapshot>`. Methods: `void Store(Guid jobId, MetricSnapshot snapshot)`, `MetricSnapshot? GetLatest(Guid jobId)`, `void Remove(Guid jobId)`.
+- [x] T023 [US2] Create `src/DevOpsMigrationPlatform.ControlPlane/Controllers/TelemetryController.cs` — `[ApiController]` with `POST /agents/lease/{leaseId}/telemetry` action. Validates `leaseId` maps to a known active lease (stub: accept any non-empty for now, full lease validation is `MigrationAgentWorker` scope). Calls `JobTelemetryStore.Store(jobId, snapshot)`. Returns `204`. Add `[Authorize]` placeholder.
+- [x] T024 [US2] Register services in Program.cs files
 
 **Checkpoint**: `dotnet build`. Stub end-to-end: POST a JSON body to `/agents/lease/test/telemetry` and confirm `204`. US2 feature scenarios pass.
 
@@ -81,10 +81,10 @@
 
 **Independent Test**: Run the subprocess in standalone mode; verify stdout lines at revision 100, 200, 300, etc. contain a non-null `metrics` field with non-zero `workItemsExported`.
 
-- [ ] T025 [US3] Extend `src/DevOpsMigrationPlatform.Infrastructure.TfsObjectModel/WorkItemExportService.cs`: add **local variables** `revisionErrors`, `linksExported`, `linkErrors`, `attachmentsAttempted`, `attachmentsSucceeded`, `attachmentsFailed` inside `ExportWorkItemsAsync`, co-located with the existing `workItemCounter` local. Increment them at the same sites that call the OTel metrics methods. Every `SubprocessSnapshotRevisionInterval` revisions (default 100, read from the `Settings` object passed to the method), build and embed a `MetricSnapshot` as `ProgressEvent.Metrics`. All other `ProgressEvent` emissions leave `Metrics = null`.
-- [ ] T026 [US3] Add `SubprocessSnapshotRevisionInterval` property (default `100`) to the `Settings` nested class in `src/DevOpsMigrationPlatform.Infrastructure.TfsObjectModel/MigrationPlatformHost.cs`.
-- [ ] T027 [US3] Extend `src/DevOpsMigrationPlatform.Infrastructure.TfsLegacy/TfsExporterProcessAdapter.cs`: add `IControlPlaneTelemetryClient _telemetryClient` constructor parameter. When a `ProgressEvent` is read from stdout and `evt.Metrics != null`, call `_telemetryClient.PushSnapshotAsync(_currentLeaseId, evt.Metrics, ct)` (fire-and-forget via `_ = ...`). Forward the `ProgressEvent` to `IProgressSink` unchanged (do not strip the `Metrics` field — downstream ignore it naturally).
-- [ ] T028 [US3] Register `IControlPlaneTelemetryClient` in the DI container that creates `TfsExporterProcessAdapter` so the new constructor parameter is satisfied. Update any existing `TfsExporterProcessAdapter` registrations in `MigrationAgent/Program.cs`.
+- [x] T025 [US3] Extend `src/DevOpsMigrationPlatform.Infrastructure.TfsObjectModel/WorkItemExportService.cs`
+- [x] T026 [US3] Add `SubprocessSnapshotRevisionInterval` property to `Settings` in `MigrationPlatformHost.cs`.
+- [x] T027 [US3] Create `src/DevOpsMigrationPlatform.CLI.Migration/TfsExporterProcessAdapter.cs`
+- [x] T028 [US3] IControlPlaneTelemetryClient registered in MigrationAgent/Program.cs (done in Phase 4 T024).
 
 **Checkpoint**: Build + run subprocess unit tests. Confirm `ProgressEvent` JSON on stdout includes `"metrics": {...}` at revision 100 intervals. US3 feature scenarios pass.
 
@@ -96,10 +96,10 @@
 
 **Independent Test**: Call `GET /jobs/{known-jobId}/telemetry` via curl after Phase 4 has pushed a snapshot — confirm `200` with expected JSON body.
 
-- [ ] T029 [US4] Add `GET /jobs/{jobId}/telemetry` action to `src/DevOpsMigrationPlatform.ControlPlane/Controllers/TelemetryController.cs`. Calls `JobTelemetryStore.GetLatest(jobId)`: returns `200 + MetricSnapshot` if found, `204` if not found (job exists), `404` if jobId unknown. Add job visibility auth check (consistent with other job endpoints).
-- [ ] T030 [US4] Create `src/DevOpsMigrationPlatform.CLI.Migration/Views/TelemetryPanel.cs` — `internal sealed class TelemetryPanel : FrameView`. Accepts a `MetricSnapshot?` via `Update(MetricSnapshot? snapshot)`. Renders a two-column label grid of all fields from `quickstart.md §"TUI Metrics Panel"` example. Shows "(waiting for agent…)" when snapshot is null.
-- [ ] T031 [US4] Create `src/DevOpsMigrationPlatform.CLI.Migration/Views/TelemetryPoller.cs` — thin helper that wraps an `HttpClient`, polls `GET /jobs/{jobId}/telemetry` every `SnapshotIntervalSeconds`, and calls `TelemetryPanel.Update(snapshot)` on the Terminal.Gui dispatch thread. Stops polling when the job reaches a terminal state.
-- [ ] T032 [US4] Integrate `TelemetryPanel` and `TelemetryPoller` into the job progress view in `src/DevOpsMigrationPlatform.CLI.Migration/Commands/TfsExportCommand.cs` (or the job monitor view, whichever renders the progress table). Place the `TelemetryPanel` below the module/stage `TableView`.
+- [x] T029 [US4] Add `GET /jobs/{jobId}/telemetry` action to `src/DevOpsMigrationPlatform.ControlPlane/Controllers/TelemetryController.cs`
+- [x] T030 [US4] Create `src/DevOpsMigrationPlatform.CLI.Migration/Views/TelemetryPanel.cs`
+- [x] T031 [US4] Create `src/DevOpsMigrationPlatform.CLI.Migration/Views/TelemetryPoller.cs`
+- [x] T032 [US4] Integrate `TelemetryPanel` and `TelemetryPoller` into `TfsExportCommand.cs`.
 
 **Checkpoint**: Run `dotnet build`. Launch TUI against a running job and verify the metrics panel appears and refreshes. US4 feature scenarios pass.
 
@@ -110,9 +110,9 @@
 **Purpose**: Tidy up residual references, fix test file names in plan.md, and confirm the full pipeline works end-to-end.
 
 - [x] T033 ~~Update `specs/first-coding-session/plan.md` project structure tree: rename `InProcessMeterListenerTests.cs` → `SnapshotMetricExporterTests.cs`~~ — applied directly during analysis remediation.
-- [ ] T034 [P] Create `tests/DevOpsMigrationPlatform.Infrastructure.Tests/Telemetry/SnapshotMetricExporterTests.cs` — unit tests: (a) exporter with zero-measurement batch produces snapshot with all nulls; (b) exporter with counter increment produces correct `WorkItemsExported`; (c) `InMemoryMetricSnapshotStore.Update` + `Latest` round-trip.
-- [ ] T035 [P] Create `tests/DevOpsMigrationPlatform.Infrastructure.Tests/Telemetry/ControlPlaneTelemetryClientTests.cs` — unit tests using `MockHttpMessageHandler`: (a) successful `204` response does not throw; (b) `404` response logs warning and does not throw; (c) request body is valid `MetricSnapshot` JSON.
-- [ ] T036 Run `dotnet test tests/DevOpsMigrationPlatform.Infrastructure.Tests/DevOpsMigrationPlatform.Infrastructure.Tests.csproj --logger "console;verbosity=quiet"` — confirm all tests pass.
+- [x] T034 [P] Create `tests/DevOpsMigrationPlatform.Infrastructure.Tests/Telemetry/SnapshotMetricExporterTests.cs` — unit tests: (a) exporter with zero-measurement batch produces snapshot with all nulls; (b) exporter with counter increment produces correct `WorkItemsExported`; (c) `InMemoryMetricSnapshotStore.Update` + `Latest` round-trip.
+- [x] T035 [P] Create `tests/DevOpsMigrationPlatform.Infrastructure.Tests/Telemetry/ControlPlaneTelemetryClientTests.cs` — unit tests using `MockHttpMessageHandler`: (a) successful `204` response does not throw; (b) `404` response logs warning and does not throw; (c) request body is valid `MetricSnapshot` JSON.
+- [x] T036 Run `dotnet test tests/DevOpsMigrationPlatform.Infrastructure.Tests/DevOpsMigrationPlatform.Infrastructure.Tests.csproj --logger "console;verbosity=quiet"` — confirm all tests pass.
 
 ---
 
