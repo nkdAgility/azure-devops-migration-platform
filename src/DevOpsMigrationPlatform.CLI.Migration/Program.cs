@@ -1,3 +1,4 @@
+using DevOpsMigrationPlatform.CLI.Commands;
 using DevOpsMigrationPlatform.CLI.Commands.Discovery;
 using Spectre.Console;
 using Spectre.Console.Cli;
@@ -23,6 +24,13 @@ internal class Program
                     .WithDescription("Discover the contents of your Azure DevOps organisation")
                     .WithExample("discovery", "inventory", "--organisation", "https://dev.azure.com/myorg", "--token", "<pat>");
             });
+
+            config.AddCommand<TfsExportCommand>("tfsexport")
+                .WithDescription("Export work items from an on-premises TFS / Azure DevOps Server collection")
+                .WithExample("tfsexport",
+                    "--collection", "http://tfs:8080/tfs/DefaultCollection",
+                    "--project", "MyProject",
+                    "--output", "./package");
         });
 
         try

@@ -15,8 +15,8 @@ public record WorkItemRevision
     public DateTimeOffset ChangedDate { get; init; }
 
     public IReadOnlyList<WorkItemField> Fields { get; init; } = Array.Empty<WorkItemField>();
-    public IReadOnlyList<WorkItemLink> ExternalLinks { get; init; } = Array.Empty<WorkItemLink>();
-    public IReadOnlyList<WorkItemLink> RelatedLinks { get; init; } = Array.Empty<WorkItemLink>();
-    public IReadOnlyList<WorkItemLink> Hyperlinks { get; init; } = Array.Empty<WorkItemLink>();
+    public IReadOnlyList<ExternalWorkItemLink> ExternalLinks { get; init; } = Array.Empty<ExternalWorkItemLink>();
+    public IReadOnlyList<RelatedWorkItemLink> RelatedLinks { get; init; } = Array.Empty<RelatedWorkItemLink>();
+    public IReadOnlyList<HyperlinkWorkItemLink> Hyperlinks { get; init; } = Array.Empty<HyperlinkWorkItemLink>();
     public IReadOnlyList<AttachmentMetadata> Attachments { get; init; } = Array.Empty<AttachmentMetadata>();
 }
