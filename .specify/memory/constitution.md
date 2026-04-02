@@ -1,28 +1,22 @@
 <!--
 SYNC IMPACT REPORT
 ==================
-Version change:    1.0.0 → 1.1.0
-Bump rationale:    Principle VIII expanded to integrate SpecKit outer loop with ATDD inner loop.
+Version change:    1.1.0 → 1.2.0
+Bump rationale:    Principle IX added — SOLID Design, Dependency Injection, and IOptions
+                   configuration model are now non-negotiable architectural constraints.
+
+Principles modified:
+  None
 
 Principles added:
-  I.   Package-First Migration (Non-Negotiable)
-  II.  Streaming Import & Memory Safety (Non-Negotiable)
-  III. Canonical WorkItems Layout (Non-Negotiable)
-  IV.  Cursor-Based Checkpointing & Resumability
-  V.   Module Isolation via Abstractions
-  VI.  Separation of Planes
-  VII. Determinism & Idempotency
-  VIII.ATDD-First Development (Non-Negotiable)
+  IX.  SOLID Design & Dependency Injection
 
-Principles removed:
-  None (first version)
-
-Sections added:
-  Technology Stack
-  Reject Conditions
+Sections modified:
+  Technology Stack — DI and IOptions entry added
+  Reject Conditions — DI violation conditions added
 
 Templates updated:
-  ✅ .specify/templates/plan-template.md — Constitution Check gates populated
+  ✅ .specify/templates/plan-template.md — Constitution Check gate IX added
   ✅ .specify/templates/spec-template.md — no changes required
   ✅ .specify/templates/tasks-template.md — no changes required
 
@@ -134,6 +128,35 @@ ordering and a compatible layout. Re-running Import MUST be safe to retry.
   cursor state (stage progress). A crashed Migration Agent is replaced by a
   new one that resumes from the cursor without data loss.
 
+### IX. SOLID Design & Dependency Injection (NON-NEGOTIABLE)
+
+All production code MUST follow SOLID design principles and use constructor
+injection via `Microsoft.Extensions.DependencyInjection`. Configuration MUST
+flow through the `IOptions<T>` model — never raw `IConfiguration` in services.
+
+- Every service, repository, and orchestrator MUST receive all dependencies
+  via constructor parameters. Service-locator calls, ambient statics, and
+  `new` construction of registered services inside production code are
+  forbidden.
+- Configuration MUST be consumed as `IOptions<TOptions>` or
+  `IOptionsSnapshot<TOptions>`. Direct reads of `IConfiguration`,
+  `Environment.GetEnvironmentVariable`, or `appsettings.json` keys inside
+  service or module code are forbidden.
+- Options classes MUST be `sealed`, use `init`-only properties, and declare a
+  `public static string SectionName` constant that matches the JSON section
+  key. Validation attributes (`[Required]`, `[Url]`, etc.) MUST be applied
+  where applicable.
+- Each logical group of services MUST be registered via a dedicated
+  `IServiceCollection` extension method (e.g.,
+  `AddWorkItemExportServices(this IServiceCollection)`). Inline `services.Add*`
+  calls scattered across `Program.cs` are forbidden.
+- Interfaces are defined in `DevOpsMigrationPlatform.Abstractions`.
+  Implementations in infrastructure or CLI projects MUST depend on abstractions
+  only — never on concrete types from sibling infrastructure projects.
+- Every class MUST have a single, clear reason to change (Single Responsibility
+  Principle). Classes combining orchestration, IO, and business rules MUST be
+  split along those boundaries.
+
 ### VIII. ATDD-First Development (NON-NEGOTIABLE)
 
 Development follows a two-loop cycle. The **SpecKit outer loop** captures
@@ -182,6 +205,13 @@ a tested, reviewed increment.
   definitions may appear there.
 - **CLI layer:** Spectre.Console (`Spectre.Console.Cli`). No `System.CommandLine`
   or other argument-parsing library.
+- **Dependency Injection:** `Microsoft.Extensions.DependencyInjection` with
+  `Microsoft.Extensions.Hosting` for all .NET 9/10 entry points. Constructor
+  injection only; no service locator.
+- **Configuration:** `Microsoft.Extensions.Options` (`IOptions<T>`,
+  `IOptionsSnapshot<T>`). All settings classes are sealed, use `init`-only
+  properties, and declare a `SectionName` constant. Bound and validated via
+  `services.AddOptions<T>().BindConfiguration(T.SectionName).ValidateDataAnnotations()`.
 - **TUI layer:** Terminal.Gui for all interactive terminal rendering. No raw
   ANSI, no `System.Console` inside TUI view classes.
 - **Test framework:** Reqnroll.MSTest + Moq. MSTest is the runner; Reqnroll
@@ -220,6 +250,17 @@ Reject any proposal that:
   `.agents/guardrails/`.
 - Writes tests using xUnit or NUnit.
 - Implements a new module without an accepted Gherkin `.feature` file.
+- Uses `new` to construct a registered service inside production or module code
+  instead of receiving it via constructor injection.
+- Reads configuration via raw `IConfiguration` key access or
+  `Environment.GetEnvironmentVariable` inside any service or module — use
+  `IOptions<T>` instead.
+- Defines an options/settings class that is not `sealed`, has mutable
+  properties (setters instead of `init`), or lacks a `SectionName` constant.
+- Registers services with inline `services.AddSingleton(...)` calls scattered
+  across `Program.cs` instead of a dedicated `Add*Services` extension method.
+- Places an interface definition inside an infrastructure or CLI project
+  instead of `DevOpsMigrationPlatform.Abstractions`.
 
 ## Governance
 
@@ -241,4 +282,4 @@ Reject any proposal that:
 - Runtime development guidance: `.agents/guardrails/` and
   `.agents/context/`.
 
-**Version**: 1.1.0 | **Ratified**: 2026-04-02 | **Last Amended**: 2026-04-02
+**Version**: 1.2.0 | **Ratified**: 2026-04-02 | **Last Amended**: 2026-04-02

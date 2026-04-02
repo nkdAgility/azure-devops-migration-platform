@@ -39,6 +39,7 @@
 - [ ] **Separation of Planes (VI):** Control plane has no migration logic. Job Engine has no UI coupling. TUI has no migration logic. TFS exporter only via subprocess adapter.
 - [ ] **Determinism (VII):** Same inputs produce stable package layout. All breaking schema changes include an upgrader.
 - [ ] **ATDD-First (VIII):** Every user story in `spec.md` has at least one Given/When/Then acceptance scenario. Each scenario will be implemented via the ATDD inner loop (Specification → Test Gen → Implementation → Review) — one scenario per session per commit.
+- [ ] **SOLID & DI (IX):** All new services and modules receive dependencies via constructor injection only. Configuration is bound via `IOptions<T>` with a sealed options class and `SectionName` constant. No raw `IConfiguration` access inside services. Interfaces are defined in `DevOpsMigrationPlatform.Abstractions`. Registration lives in a dedicated `Add*Services` extension method.
 
 ## Project Structure
 
