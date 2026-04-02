@@ -9,8 +9,8 @@ using Microsoft.Extensions.Logging;
 using Microsoft.TeamFoundation.WorkItemTracking.Client;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Infrastructure.Export;
-using DevOpsMigrationPlatform.Infrastructure.Telemetry;
 using DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.Extensions;
+using DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.Telemetry;
 using DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.Services;
 
 namespace DevOpsMigrationPlatform.Infrastructure.TfsObjectModel;
@@ -77,7 +77,6 @@ public class WorkItemExportService : IWorkItemExportService
             foreach (var countChunk in _workItemStore.QueryCountAllByDateChunk(wiqlQuery))
             {
                 progress.TotalWorkItems = countChunk.CurrentTotal;
-                progress.ChunkInfo = countChunk;
                 yield return progress;
             }
             await _watermarkStore.UpdateQueryCountAsync(wiqlQuery, progress.TotalWorkItems, cancellationToken)

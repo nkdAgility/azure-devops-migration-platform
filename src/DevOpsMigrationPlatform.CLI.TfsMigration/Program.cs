@@ -1,10 +1,10 @@
-using DevOpsMigrationPlatform.CLI.TfsExport.Commands;
+using DevOpsMigrationPlatform.CLI.TfsMigration.Commands;
 using Spectre.Console;
 using Spectre.Console.Cli;
 using System;
 using System.Threading.Tasks;
 
-namespace DevOpsMigrationPlatform.CLI.TfsExport
+namespace DevOpsMigrationPlatform.CLI.TfsMigration
 {
     internal class Program
     {
@@ -13,7 +13,7 @@ namespace DevOpsMigrationPlatform.CLI.TfsExport
             var app = new CommandApp<ExportCommand>();
             app.Configure(config =>
             {
-                config.SetApplicationName("tfsexport");
+                config.SetApplicationName("tfsmigration");
 #if DEBUG
                 config.PropagateExceptions();
                 config.ValidateExamples();
@@ -25,7 +25,7 @@ namespace DevOpsMigrationPlatform.CLI.TfsExport
 
             try
             {
-                AnsiConsole.Write(new FigletText("TFS Exporter").LeftJustified().Color(Color.Red));
+                AnsiConsole.Write(new FigletText("TFS Migration").LeftJustified().Color(Color.Red));
                 AnsiConsole.Write(new Rule().RuleStyle("grey").LeftJustified());
                 return await app.RunAsync(args);
             }

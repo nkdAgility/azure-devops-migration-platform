@@ -87,12 +87,11 @@ namespace DevOpsMigrationPlatform.CLI.TfsExport.Commands
                     await foreach (var progress in exportService.ExportWorkItemsAsync(
                         settings.CollectionUrl, settings.Project, wiqlQuery, cts.Token))
                     {
-                        ctx.Status($"""
-                            Exporting Work Items
-                            [bold yellow]Total:[/] {progress.TotalWorkItems,-6}  [bold yellow]Done:[/] {progress.WorkItemsProcessed,-6}
-                            [bold yellow]Revisions:[/] {progress.RevisionsProcessed,-6}  [bold yellow]Current WI:[/] {progress.WorkItemId,-6}
-                            [grey]Chunk:[/] {progress.ChunkInfo?.WorkItemsInChunk ?? 0,-5}  {progress.ChunkInfo?.ChunkStart:yyyy-MM-dd} → {progress.ChunkInfo?.ChunkEnd:yyyy-MM-dd}
-                        """);
+                        ctx.Status(
+                            $"Exporting Work Items\n" +
+                            $"[bold yellow]Total:[/] {progress.TotalWorkItems,-6}  [bold yellow]Done:[/] {progress.WorkItemsProcessed,-6}\n" +
+                            $"[bold yellow]Revisions:[/] {progress.RevisionsProcessed,-6}  [bold yellow]Current WI:[/] {progress.WorkItemId,-6}\n" +
+                            $"[grey]Chunk:[/] {progress.ChunkInfo?.WorkItemsInChunk ?? 0,-5}  {progress.ChunkInfo?.ChunkStart:yyyy-MM-dd} -> {progress.ChunkInfo?.ChunkEnd:yyyy-MM-dd}");
                     }
                 });
 

@@ -291,9 +291,9 @@ public class ExportWorkItemRevisionsSteps
                 WorkItemId = 10,
                 RevisionIndex = 0,
                 ChangedDate = date,
-                ExternalLinks = new[] { new WorkItemLink { Rel = "Fixed in Changeset", Url = "vstfs:///Git/Commit/abc" } },
-                RelatedLinks = new[] { new WorkItemLink { Rel = "Child", Url = "vstfs:///WorkItemTracking/WorkItem/42" } },
-                Hyperlinks  = new[] { new WorkItemLink { Rel = "Hyperlink", Url = "https://docs.example.com" } }
+                ExternalLinks = new[] { new ExternalWorkItemLink { ArtifactLinkType = "Fixed in Changeset", LinkedArtifactUri = "vstfs:///Git/Commit/abc" } },
+                RelatedLinks = new[] { new RelatedWorkItemLink { LinkTypeEnd = "Child", RelatedWorkItemId = 42 } },
+                Hyperlinks  = new[] { new HyperlinkWorkItemLink { ArtifactLinkType = "Hyperlink", Location = "https://docs.example.com" } }
             }
         };
         SetupCursorNoOp();
@@ -313,7 +313,7 @@ public class ExportWorkItemRevisionsSteps
         StringAssert.Contains(json, "hyperlinks");
         // Each collection has exactly one entry
         StringAssert.Contains(json, "vstfs:///Git/Commit/abc");
-        StringAssert.Contains(json, "vstfs:///WorkItemTracking/WorkItem/42");
+        StringAssert.Contains(json, "\"relatedWorkItemId\"");
         StringAssert.Contains(json, "https://docs.example.com");
     }
 

@@ -4,7 +4,7 @@ using System.Diagnostics;
 using System.Linq;
 using Microsoft.TeamFoundation.WorkItemTracking.Client;
 using DevOpsMigrationPlatform.Abstractions;
-using DevOpsMigrationPlatform.Infrastructure.Telemetry;
+using DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.Telemetry;
 
 namespace DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.Services;
 

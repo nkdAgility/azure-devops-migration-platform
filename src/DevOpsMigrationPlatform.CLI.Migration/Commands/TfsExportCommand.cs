@@ -50,9 +50,9 @@ public sealed class TfsExportCommand : AsyncCommand<TfsExportCommand.Settings>
 
         if (!File.Exists(exePath))
         {
-            AnsiConsole.MarkupLineInterpolated($"❌ [red]tfsexport.exe not found at:[/] {exePath}");
+            AnsiConsole.MarkupLineInterpolated($"❌ [red]tfsmigration.exe not found at:[/] {exePath}");
             AnsiConsole.MarkupLine("[grey]Use --tfsexport-path to specify its location,[/]");
-            AnsiConsole.MarkupLine("[grey]or build the DevOpsMigrationPlatform.CLI.TfsExport project first.[/]");
+            AnsiConsole.MarkupLine("[grey]or build the DevOpsMigrationPlatform.CLI.TfsMigration project first.[/]");
             return -1;
         }
 
@@ -92,13 +92,13 @@ public sealed class TfsExportCommand : AsyncCommand<TfsExportCommand.Settings>
         var assemblyDir = Path.GetDirectoryName(typeof(TfsExportCommand).Assembly.Location) ?? ".";
 
         // Side-by-side (published layout)
-        var sideBySide = Path.Combine(assemblyDir, "tfsexport.exe");
+        var sideBySide = Path.Combine(assemblyDir, "tfsmigration.exe");
         if (File.Exists(sideBySide)) return sideBySide;
 
-        // Debug layout: navigate from CLI.Migration bin up to CLI.TfsExport bin
+        // Debug layout: navigate from CLI.Migration bin up to CLI.TfsMigration bin
         var debugRelative = Path.GetFullPath(
             Path.Combine(assemblyDir,
-                @"..\..\..\..\DevOpsMigrationPlatform.CLI.TfsExport\bin\Debug\net481\tfsexport.exe"));
+                @"..\..\..\..\DevOpsMigrationPlatform.CLI.TfsMigration\bin\Debug\net481\tfsmigration.exe"));
         return debugRelative;
     }
 }

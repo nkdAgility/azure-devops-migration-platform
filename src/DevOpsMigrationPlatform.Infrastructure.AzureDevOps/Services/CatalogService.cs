@@ -23,7 +23,7 @@ public class CatalogService : ICatalogService
         var credentials = new VssBasicCredential(string.Empty, pat);
         var connection = new VssConnection(new Uri(orgUrl), credentials);
         var projectClient = connection.GetClient<ProjectHttpClient>();
-        var projects = await projectClient.GetProjects(cancellationToken: cancellationToken);
+        var projects = await projectClient.GetProjects();
         return projects.Select(p => p.Name).ToList();
     }
 

@@ -6,8 +6,12 @@
     <Project Path="src/DevOpsMigrationPlatform.Infrastructure.TfsObjectModel/DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.csproj">
       <BuildType Project="Release" />
     </Project>
+    <Project Path="src/DevOpsMigrationPlatform.ServiceDefaults/DevOpsMigrationPlatform.ServiceDefaults.csproj" />
+    <Project Path="src/DevOpsMigrationPlatform.ControlPlane/DevOpsMigrationPlatform.ControlPlane.csproj" />
+    <Project Path="src/DevOpsMigrationPlatform.MigrationAgent/DevOpsMigrationPlatform.MigrationAgent.csproj" />
+    <Project Path="src/DevOpsMigrationPlatform.AppHost/DevOpsMigrationPlatform.AppHost.csproj" />
     <Project Path="src/DevOpsMigrationPlatform.CLI.Migration/DevOpsMigrationPlatform.CLI.Migration.csproj" />
-    <Project Path="src/DevOpsMigrationPlatform.CLI.TfsExport/DevOpsMigrationPlatform.CLI.TfsExport.csproj" />
+    <Project Path="src/DevOpsMigrationPlatform.CLI.TfsMigration/DevOpsMigrationPlatform.CLI.TfsMigration.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/DevOpsMigrationPlatform.Infrastructure.Tests/DevOpsMigrationPlatform.Infrastructure.Tests.csproj" />
