@@ -14,20 +14,17 @@ This document specifies the process isolation boundary, the multi-targeting stra
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│  .NET 10 Host (Migration Agent)                                 │
+│  .NET 10 Host (CLI.Migration / Migration Agent)                 │
 │                                                                 │
-│  WorkItemsModule                                                │
+│  TfsExportCommand (or WorkItemsModule)                          │
 │       │                                                         │
 │       │  calls                                                  │
 │       ▼                                                         │
-│  ITfsExporterAdapter                                            │
-│       (interface in Abstractions — compiled for net10.0)        │
-│                                                                 │
-│  TfsExporterProcessAdapter  (Infrastructure.TfsLegacy)          │
-│       │  spawns subprocess via ExternalToolRunner               │
-│       │  reads stdout (NDJSON progress lines)                   │
-│       │  reads stderr (error messages)                          │
-│       │  passes cancellation via sentinel file                  │
+│  ExternalToolRunner  (DevOpsMigrationPlatform.CLI.Migration)    │
+│       │  spawns subprocess via ProcessStartInfo                 │
+│       │  reads stdout (NDJSON progress lines) via callback      │
+│       │  reads stderr (error messages) via callback             │
+│       │  returns exit code                                      │
 └───────┼─────────────────────────────────────────────────────────┘
         │  process execution only — no compiled reference
 ┌───────▼──────────────────────────────────────────────────────────┐
@@ -35,13 +32,13 @@ This document specifies the process isolation boundary, the multi-targeting stra
 │                                                                  │
 │  CLI entry point (ExportCommand)                                 │
 │       │  reads CLI args + stdin credentials                      │
-│       │  constructs job definition                              │
+│       │  constructs job definition                               │
 │       ▼                                                          │
 │  TfsExportAgent                                                  │
-│       ├─ IWorkItemExportService  (TFS OM → IArtefactStore)          │
-│       ├─ IArtefactStore          (FileSystemArtefactStore, net481)  │
-│       ├─ IStateStore             (cursor checkpoint / resume)       │
-│       └─ IProgressSink           (StdoutProgressSink → NDJSON)      │
+│       ├─ IWorkItemExportService  (TFS OM → IArtefactStore)       │
+│       ├─ IArtefactStore          (FileSystemArtefactStore, net481)│
+│       ├─ IStateStore             (cursor checkpoint / resume)    │
+│       └─ IProgressSink           (StdoutProgressSink → NDJSON)   │
 │                                                                  │
 │  Exits 0 (success) or non-zero (failure)                         │
 └──────────────────────────────────────────────────────────────────┘
@@ -57,8 +54,9 @@ The .NET 10 host has **no compiled reference** to the .NET 4.8 project. Coupling
 |---|---|---|
 | `DevOpsMigrationPlatform.Abstractions` | `net481;net10.0` | Shared interfaces and models — compiles for both runtimes |
 | `DevOpsMigrationPlatform.Infrastructure` | `net481;net10.0` | Shared infrastructure (file-based artefact store, utilities) — compiles for both runtimes |
-| `DevOpsMigrationPlatform.Infrastructure.TfsLegacy` | `net10.0` | `TfsExporterProcessAdapter` — spawns subprocess, reads output |
+| `DevOpsMigrationPlatform.Infrastructure.TfsObjectModel` | `net481` | TFS Object Model host — `IWorkItemExportService`, TFS OM service classes. net481 only, never referenced by any net10.0 project. |
 | `DevOpsMigrationPlatform.CLI.TfsMigration` | `net481` | CLI entry point + `TfsExportAgent` — the .NET 4.8 export executor |
+| `DevOpsMigrationPlatform.CLI.Migration` | `net10.0` | Main CLI — contains `ExternalToolRunner`, the only permitted caller of `tfsmigration.exe` |
 
 ### Why Multi-Targeting for Abstractions?
 
@@ -94,8 +92,6 @@ Key shared types:
 
 Types that are NOT shared (net10.0 host only):
 
-- `ITfsExporterAdapter` — process spawn contract; meaningless inside the subprocess
-- `TfsExporterProcessAdapter` — the process runner; only exists in the .NET 10 Infrastructure layer
 - `AzureBlobArtefactStore` — Azure Blob SDK not available for net481; the subprocess always uses `FileSystemArtefactStore`
 
 ### Executor Symmetry
@@ -113,7 +109,7 @@ The two executors use the same abstractions. The process boundary and the blob s
 
 ## ExternalToolRunner
 
-`ExternalToolRunner` is the low-level wrapper in `DevOpsMigrationPlatform.Infrastructure.TfsLegacy` that spawns the subprocess and streams its output:
+`ExternalToolRunner` is the generic subprocess wrapper in `DevOpsMigrationPlatform.CLI.Migration` that spawns an external executable and streams its output. It has no knowledge of TFS — it is a general-purpose process bridge:
 
 ```csharp
 public class ExternalToolRunner
@@ -165,25 +161,9 @@ public class ExternalToolRunner
 }
 ```
 
-`TfsExporterProcessAdapter` wraps `ExternalToolRunner` and translates stdout lines into `IProgressSink` events.
+The caller (e.g. the `TfsExportCommand` in `CLI.Migration`) passes `onOutput` and `onError` callbacks. The `onOutput` callback receives raw stdout lines; the caller is responsible for parsing them as NDJSON `ProgressEvent` objects and forwarding to `IProgressSink`.
 
----
-
-## ITfsExporterAdapter Interface
-
-```csharp
-/// <summary>
-/// Runs the .NET Framework TFS exporter as an isolated subprocess and
-/// streams progress events back to the caller.
-/// </summary>
-public interface ITfsExporterAdapter
-{
-    /// <summary>
-    /// Invokes the TFS exporter for a single scope and streams progress.
-    /// </summary>
-    Task ExportAsync(TfsExportRequest request, IProgressSink progressSink, CancellationToken ct);
-}
-```
+There is no TFS-specific adapter class or interface in the .NET 10 layer. The subprocess is just an external tool.
 
 ### TfsExportRequest
 
@@ -363,9 +343,9 @@ The path may be absolute or relative to the working directory. The host fails fa
 
 ---
 
-## TfsExporter Subprocess Contract (summary)
+## CLI.TfsMigration Subprocess Contract (summary)
 
-The `DevOpsMigrationPlatform.TfsExporter` project (net481) MUST:
+The `DevOpsMigrationPlatform.CLI.TfsMigration` project (net481) MUST:
 
 - Accept non-sensitive config via CLI arguments (`--tfsserver`, `--project`, `--output`, `--query`, `--resume`).
 - Read credentials from stdin as UTF-8 JSON before making any TFS connection.
@@ -376,7 +356,7 @@ The `DevOpsMigrationPlatform.TfsExporter` project (net481) MUST:
 - Poll the cancellation sentinel file and abort gracefully when it appears.
 - Exit with the appropriate exit code.
 
-The `DevOpsMigrationPlatform.TfsExporter` project MUST NOT:
+The `DevOpsMigrationPlatform.CLI.TfsMigration` project MUST NOT:
 
 - Be referenced by any .NET 10 project (no `<ProjectReference>` in any net10.0 project).
 - Accept credentials via CLI arguments.
@@ -407,11 +387,11 @@ Writing to an on-premises Team Foundation Server from the package faces the same
 │  ITfsImporterAdapter                                            │
 │       (interface in Abstractions — compiled for net10.0)        │
 │                                                                 │
-│  TfsImporterProcessAdapter  (Infrastructure.TfsLegacy)          │
-│       │  spawns subprocess via ExternalToolRunner               │
-│       │  reads stdout (NDJSON progress lines)                   │
-│       │  reads stderr (error messages)                          │
-│       │  passes cancellation via sentinel file                  │
+│  ExternalToolRunner  (CLI.Migration)                            │
+│       │  spawns subprocess via ProcessStartInfo                 │
+│       │  reads stdout (NDJSON progress lines) via callback      │
+│       │  reads stderr (error messages) via callback             │
+│       │  returns exit code                                      │
 └───────┼─────────────────────────────────────────────────────────┘
         │  process execution only — no compiled reference
 ┌───────▼──────────────────────────────────────────────────────────┐
@@ -437,8 +417,8 @@ No new projects are needed. All changes are additive to existing projects:
 
 | Project | Change Required |
 |---|---|
-| `DevOpsMigrationPlatform.Abstractions` | Add `ITfsImporterAdapter`, `TfsImportRequest`, `IWorkItemImportService` |
-| `DevOpsMigrationPlatform.Infrastructure.TfsLegacy` | Add `TfsImporterProcessAdapter` (wraps `ExternalToolRunner` — unchanged) |
+| `DevOpsMigrationPlatform.Abstractions` | Add `TfsImportRequest`, `IWorkItemImportService` |
+| `DevOpsMigrationPlatform.CLI.Migration` | No change — `ExternalToolRunner` is already the generic subprocess bridge |
 | `DevOpsMigrationPlatform.CLI.TfsMigration` | Add `ImportCommand` entry point + `TfsImportAgent` class |
 
 `ExternalToolRunner`, the NDJSON stdout protocol, the stdin-credentials pattern, and the sentinel-file cancellation mechanism are **all reused without modification**.

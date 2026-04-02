@@ -37,7 +37,7 @@ The system supports two source types, controlled by `source.type` in the configu
 **Requirements:**
 
 - The .NET 10 host cannot call TFS Object Model APIs directly.
-- The export MUST be delegated to `ITfsExporterAdapter`, implemented by `TfsExporterProcessAdapter`, which spawns the `DevOpsMigrationPlatform.TfsExporter` subprocess (built against .NET 4.8).
+- The export MUST be delegated to `ExternalToolRunner` in `DevOpsMigrationPlatform.CLI.Migration`, which spawns the `DevOpsMigrationPlatform.CLI.TfsMigration` subprocess (built against .NET 4.8). There is no TFS-specific adapter interface in the .NET 10 layer.
 - The process bridge protocol is:
   - **stdin** — `TfsExportRequest` as UTF-8 JSON (includes credentials; never via CLI args)
   - **stdout** — NDJSON progress lines consumed by the adapter and forwarded to `IProgressSink`

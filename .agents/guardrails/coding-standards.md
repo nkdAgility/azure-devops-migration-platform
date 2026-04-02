@@ -42,15 +42,14 @@ Types permitted in multi-targeted projects:
 - Shared utility code with no platform-specific APIs
 
 Types that MUST NOT be in multi-targeted projects:
-- `ITfsExporterAdapter`, `TfsExporterProcessAdapter` — net10.0 only
-- `IArtefactStore`, `IStateStore`, `IProgressSink` — net10.0 only
-- Any type referencing TFS OM assemblies (`Microsoft.TeamFoundation.*`) — net481 only, TfsExporter project only
+- Any type referencing TFS OM assemblies (`Microsoft.TeamFoundation.*`) — net481 only, `CLI.TfsMigration` project only
+- `AzureBlobArtefactStore` — net10.0 only (Azure Blob SDK not available for net481)
 
 ## Legacy Runtime (Explicit Carve-Out)
 
 The ONLY allowed .NET Framework usage is:
 
-- `DevOpsMigrationPlatform.TfsExporter` — the TFS Object Model exporter subprocess
+- `DevOpsMigrationPlatform.CLI.TfsMigration` — the TFS Object Model exporter subprocess
 - Built against .NET 4.8
 - Using the legacy TFS Object Model (SOAP)
 
@@ -58,7 +57,8 @@ Rules for the carve-out:
 
 - The .NET 4.8 exporter MUST exist in a dedicated project that is **not** part of the .NET 10 solution build.
 - It MUST NOT share runtime dependencies with .NET 10 components.
-- It MUST be invoked only via `ITfsExporterAdapter` / `TfsExporterProcessAdapter` — never directly.
+- It MUST be invoked only via `ExternalToolRunner` in `DevOpsMigrationPlatform.CLI.Migration` — never directly from any other .NET 10 code.
+- There is NO TFS-specific adapter interface or class in the .NET 10 layer. `ExternalToolRunner` is a generic, TFS-agnostic process bridge.
 - It MUST communicate with the .NET 10 host exclusively via the process bridge protocol:
   - **stdin** — `TfsExportRequest` as UTF-8 JSON
   - **stdout** — NDJSON progress lines (one JSON object per line)
@@ -165,8 +165,8 @@ Preferred:
 - Hidden resume state outside Checkpoints/.
 - Cross-module direct calls.
 - .NET Framework usage outside the explicit TFS exporter boundary.
-- Holding a compiled reference to `DevOpsMigrationPlatform.TfsExporter` from any .NET 10 project.
-- Spawning the TFS exporter subprocess from any code other than `TfsExporterProcessAdapter`.
+- Holding a compiled reference to `DevOpsMigrationPlatform.CLI.TfsMigration` from any .NET 10 project.
+- Spawning the TFS exporter subprocess from any code other than `ExternalToolRunner` in `DevOpsMigrationPlatform.CLI.Migration`.
 - Passing credentials as command-line arguments to the TFS subprocess (stdin JSON only).
 - Parsing TFS exporter stdout as anything other than NDJSON progress lines.
 - Calling source or target APIs from within the control plane.
@@ -192,8 +192,8 @@ Before merging changes, verify:
 - Does this code violate module isolation?
 - Does this code bypass IArtefactStore?
 - Does this code introduce .NET Framework dependencies outside the legacy exporter?
-- Does this code hold a compiled reference to `DevOpsMigrationPlatform.TfsExporter`?
-- Does this code invoke the TFS subprocess from anywhere other than `TfsExporterProcessAdapter`?
+- Does this code hold a compiled reference to `DevOpsMigrationPlatform.CLI.TfsMigration`?
+- Does this code invoke the TFS subprocess from anywhere other than `ExternalToolRunner` in `CLI.Migration`?
 - Does this code pass credentials via command-line arguments to any subprocess?
 - Does this code add migration execution logic to the control plane?
 - Does this code reference a concrete artefact store implementation inside a module?
