@@ -34,9 +34,9 @@ The platform separates **job coordination** (control plane) from **job execution
 
 | Component | Role |
 |---|---|
-| **CLI** | Operator interface. Hosts the control plane in-process for local and server execution, or connects to a remote control plane endpoint. Submits jobs, queries status, and manages job lifecycle. Contains no migration execution logic. |
+| **CLI** | Operator interface. Drives Aspire to start the control plane and agents for local and server execution, or connects to a remote control plane endpoint. Submits jobs, queries status, and manages job lifecycle. Contains no migration execution logic. |
 | **TUI** | Connects to any control plane endpoint — on the same machine, a dedicated server, or in the cloud — and renders live job state. Never submits jobs. |
-| **Control Plane** | Always an HTTP service. Hosted in-process by the CLI for local and server execution, or as a standalone container in the cloud. Accepts `MigrationJob` from the CLI, deduplicates, assigns to available agents. |
+| **Control Plane** | Always an HTTP service. Aspire-managed resource for local and server execution, or as a standalone container in the cloud. Accepts `MigrationJob` from the CLI, deduplicates, assigns to available agents. |
 | **Migration Agent** | Executes the job engine. Polls the control plane for assigned jobs, runs modules, writes to the package, reports progress back. |
 | **TFS Export Agent** | A .NET 4.8 standalone exporter (`CLI.TfsMigration`) spawned by the Migration Agent when the source is TFS. Contains a `TfsExportAgent` class that is the structural parallel of `MigrationAgent`: receives a job definition, connects to TFS via the TFS Object Model, writes to the package via `IArtefactStore` (`FileSystemArtefactStore`), maintains checkpoints via `IStateStore`, and reports progress via `IProgressSink` (`StdoutProgressSink` → NDJSON on stdout). Uses the same interfaces as the .NET 10 agent via multi-targeted `Abstractions`. |
 | **TFS Import Agent** *(not yet implemented)* | The structural mirror of the TFS Export Agent. A .NET 4.8 importer (`CLI.TfsMigration`) that would be spawned by the Migration Agent when the target is TFS. Contains a `TfsImportAgent` class: receives a job definition, reads from the package via `IArtefactStore` (`FileSystemArtefactStore`), writes to TFS via the TFS Object Model, maintains checkpoints via `IStateStore`, and reports progress via `IProgressSink`. Reuses the same process isolation pattern, NDJSON protocol, and `ExternalToolRunner` as the exporter — no new infrastructure required. See [docs/tfs-exporter.md](tfs-exporter.md#future-tfs-import-agent). |
@@ -80,7 +80,7 @@ See [.agents/context/job-contract.md](../.agents/context/job-contract.md).
 
 The control plane is always reachable over HTTP. The CLI always communicates with it via `ControlPlaneClient`. The difference between topologies is only where the control plane is hosted:
 
-- **Local / Dedicated Server**: CLI hosts the control plane in-process, listening on `http://localhost:5100`. Any machine with network access to that endpoint can connect a TUI and monitor the migration.
+- **Local / Dedicated Server**: CLI drives Aspire to start the control plane, listening on `http://localhost:5100`. Any machine with network access to that endpoint can connect a TUI and monitor the migration.
 - **Cloud (Self-Hosted / Managed)**: an HTTPS URL to the Azure-hosted control plane.
 
 Switching from local to cloud requires only a config change. No code changes.
@@ -122,14 +122,14 @@ Operators can run export and import as separate steps, or as a single end-to-end
 
 The platform has a single architecture across all hosting topologies. The same control plane, agent, and job engine run in every environment. The only variable is where the components are hosted.
 
-| Topology | Control Plane host | Agent host | Package store |
-|---|---|---|---|
-| **Local** | In-process within CLI on the operator's machine | Child process(es) on the same machine | `file:///` |
-| **Dedicated Server** | In-process within CLI on a server | Child process(es) on the same server | `file:///` |
-| **Cloud (Self-Hosted)** | Azure Container App (customer subscription) | Azure Container App(s) | Azure Blob Storage |
-| **Cloud (Managed)** | Azure Container App (NKD Agility subscription) | Azure Container App(s) | Azure Blob Storage |
+| Topology | Control Plane host | Agent host | Package store | PostgreSQL |
+|---|---|---|---|---|
+| **Local** | Aspire-managed process on the operator's machine | Aspire-managed process(es) on the same machine | `file:///` | Aspire portable binary resource |
+| **Dedicated Server** | Aspire-managed process on a server | Aspire-managed process(es) on the same server | `file:///` | Aspire portable binary resource |
+| **Cloud (Self-Hosted)** | Azure Container App (customer subscription) | Azure Container App(s) | Azure Blob Storage | Azure PostgreSQL Flexible Server |
+| **Cloud (Managed)** | Azure Container App (NKD Agility subscription) | Azure Container App(s) | Azure Blob Storage | Azure PostgreSQL Flexible Server |
 
-In the Local and Dedicated Server topologies, the CLI starts the control plane in-process and spawns agents as child processes. PostgreSQL ships as a portable bundled binary launched by the CLI — no Docker, no installer required. The TUI can connect to the control plane from any machine with network access to the server.
+In the Local and Dedicated Server topologies, the CLI drives Aspire programmatically to start the control plane and agents. PostgreSQL runs as an Aspire portable binary resource — no Docker, no installer required. The TUI can connect to the control plane from any machine with network access to the server.
 
 In Cloud topologies, the CLI connects to a pre-existing HTTPS control plane endpoint. Agents are containers managed by the cloud platform.
 

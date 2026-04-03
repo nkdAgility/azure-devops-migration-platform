@@ -2,20 +2,18 @@
 
 ## Purpose
 
-The AppHost and ServiceDefaults projects are developer and CI tooling. They start the control plane and agents together for integration testing and pipeline validation. The Aspire dashboard provides unified observability across all components during development.
-
-Operators do not run the AppHost. For local and server-based migrations, the CLI starts the control plane in-process and spawns agents as child processes directly. See [docs/cli.md](cli.md).
+Aspire is the orchestration layer for the Azure DevOps Migration Platform across all local and server-based hosting topologies. The CLI uses Aspire programmatically to start the control plane, agents, and PostgreSQL when no remote endpoint is configured. The Aspire dashboard provides unified observability across all components. For cloud deployments, the same Aspire AppHost declaration drives `azd up` to provision Azure Container Apps, PostgreSQL Flexible Server, and Blob Storage. The architecture is identical — only the hosting target changes.
 
 ---
 
 ## Architecture Fit
 
-| Component | Always Local | Can Run in AppHost | Can Run Cloud | Aspire Role |
+| Component | Always Local | Aspire-Managed (Local/Server) | Aspire-Managed (Cloud) | Aspire Role |
 |---|---|---|---|---|
-| **CLI** (`CLI.Migration`, net10.0) | ✓ | ✗ | ✗ | Standalone CLI (not orchestrated) — hosts control plane in-process for local/server execution |
-| **TFS Migration CLI** (`CLI.TfsMigration`, net481) | ✓ | ✗ | ✗ | Standalone CLI or subprocess of CLI (not orchestrated) |
-| **Control Plane API** | ✓ (in-process) | ✓ | ✓ | Aspire container resource (dev/CI) |
-| **Migration Agent(s)** | ✓ (child process) | ✓ | ✓ | Aspire container resource (dev/CI) |
+| **CLI** (`CLI.Migration`, net10.0) | ✓ | ✗ | ✗ | Operator entry point — drives Aspire for local/server; connects to remote for cloud |
+| **TFS Migration CLI** (`CLI.TfsMigration`, net481) | ✓ | ✗ | ✗ | Subprocess of CLI (not orchestrated by Aspire) |
+| **Control Plane API** | ✓ | ✓ | ✓ | Aspire-managed resource across all topologies |
+| **Migration Agent(s)** | ✓ | ✓ | ✓ | Aspire-managed resource across all topologies |
 | **Package Storage** | ✓ (filesystem) | ✓ (filesystem or Azurite) | ✓ (Azure Blob) | Aspire-configured connection string |
 
 ---
@@ -24,7 +22,7 @@ Operators do not run the AppHost. For local and server-based migrations, the CLI
 
 ```
 src/
-  DevOpsMigrationPlatform.AppHost/               ← Aspire AppHost (orchestrator)
+  DevOpsMigrationPlatform.AppHost/               ← Aspire AppHost (used by CLI for local/server; used by azd for cloud)
     Program.cs                                    ← defines resources and service discovery
     appsettings.json                              ← local configuration overrides
     DevOpsMigrationPlatform.AppHost.csproj
@@ -43,8 +41,8 @@ src/
     Worker.cs                                     ← lease polling and execution
     DevOpsMigrationPlatform.MigrationAgent.csproj
 
-  DevOpsMigrationPlatform.CLI.Migration/         ← Main TUI (net10.0, not orchestrated by Aspire)
-    Program.cs                                    ← local CLI entry point; spawns CLI.TfsMigration as subprocess
+  DevOpsMigrationPlatform.CLI.Migration/         ← CLI entry point; drives Aspire for local/server; connects to remote for cloud; spawns CLI.TfsMigration as subprocess
+    Program.cs                                    ← operator entry point
     ExternalToolRunner.cs                         ← spawns net481 subprocess, streams stdout/stderr
     DevOpsMigrationPlatform.CLI.Migration.csproj  ← TargetFramework: net10.0
 
@@ -58,11 +56,11 @@ src/
 
 ## AppHost Configuration
 
-The AppHost is used by developers and CI pipelines only. It is not the mechanism by which operators run migrations. For operator usage, the CLI hosts the control plane in-process.
+The AppHost defines the service topology for both local/server and cloud deployments. When the CLI runs locally and no remote endpoint is configured, it drives the AppHost programmatically to start the control plane, agents, and PostgreSQL.
 
-### Development / CI AppHost
+### Local / Server AppHost
 
-This profile is used by engineers building the platform and by all CI/CD pipeline stages (build, test, preview, production gate). The same profile runs identically on a developer's machine and on the CI agent — this is the CD guarantee.
+This profile is used for all local and server-based migrations, as well as CI/CD pipeline stages. The same profile runs identically on an operator's machine, a dedicated server, and the CI agent — this is the CD guarantee.
 
 The AppHost supports two launch subprofiles, controlled by the `DEVOPS_MIGRATION_INFRA` environment variable (or `launchSettings.json`). Both use the same application code. The switch validates both production architectures in the same pipeline:
 
@@ -143,8 +141,8 @@ builder.Build().Run();
 **CD contract:** every pipeline stage — local, preview, production gate — runs **both** subprofiles. The pipeline fails if either subprofile fails. There is no "CI-only" configuration.
 
 **What each subprofile validates:**
-- `dev-portable` — validates the local/server operator architecture: portable PostgreSQL binary, filesystem `IArtefactStore`, zero external dependencies
-- `dev-docker` — validates the cloud architecture: real PostgreSQL via Docker (same wire protocol as Azure PostgreSQL Flexible Server), Azure Blob SDK via Azurite (same `BlobContainerClient` code runs in production unmodified)
+- `dev-portable` — local and server operator use, CI validation of the local topology: portable PostgreSQL binary, filesystem `IArtefactStore`, zero external dependencies
+- `dev-docker` — CI validation of the cloud topology: real PostgreSQL via Docker (same wire protocol as Azure PostgreSQL Flexible Server), Azure Blob SDK via Azurite (same `BlobContainerClient` code runs in production unmodified)
 
 ### Self-Hosted / Managed AppHost (Azure)
 
@@ -257,18 +255,18 @@ Both the Control Plane and Migration Agent call `builder.AddServiceDefaults()` i
 
 ## CLI Integration
 
-Neither `CLI.Migration` nor `CLI.TfsMigration` is orchestrated by Aspire. Both are always standalone CLIs.
+The CLI is always the operator's entry point. For local and server-based migrations, the CLI drives Aspire programmatically to start the control plane, agents, and PostgreSQL before submitting the job.
 
 ### CLI.Migration (net10.0) — Main CLI
 
-`CLI.Migration` is the primary user-facing CLI. It hosts the control plane in-process for local and server execution, or connects to a remote endpoint when `MIGRATION_API_URL` is configured:
+`CLI.Migration` is the primary operator-facing CLI. It drives Aspire for local and server execution, or connects to a remote endpoint when `MIGRATION_API_URL` is configured:
 
-```json
-{
-  "ControlPlane": {
-    "BaseUrl": "http://localhost:5100"  // auto-hosted in-process when no MIGRATION_API_URL set
-  }
-}
+```csharp
+// When MIGRATION_API_URL is not set, the CLI drives Aspire programmatically
+var app = await DistributedApplication.CreateAsync(args);
+await app.StartAsync();
+
+// Aspire service discovery resolves the control plane endpoint
 ```
 
 When a TFS source is configured, `CLI.Migration` invokes `CLI.TfsMigration` as a subprocess via `ExternalToolRunner`, streaming its stdout in real time:
@@ -290,7 +288,7 @@ var exitCode = await ExternalToolRunner.RunWithStreamingAsync(
 **1. As a subprocess of CLI.Migration** (the normal path)
 
 ```powershell
-# Run the main CLI — it automatically starts the control plane in-process and spawns CLI.TfsMigration for TFS exports
+# Run the main CLI — it drives Aspire internally and spawns CLI.TfsMigration for TFS exports
 cd src/DevOpsMigrationPlatform.CLI.Migration
 dotnet run -- export --config migration.json
 ```
@@ -321,14 +319,14 @@ All topologies run the same stack. The difference is where the components are ho
 
 ```
 Operator Machine (or dedicated server)
-├─ CLI                            ← hosts control plane in-process
-│   ├─ Control Plane API          ← in-process, listening on localhost:5100
-│   └─ Migration Agent(s)         ← child processes
+├─ CLI                            ← entry point; drives Aspire programmatically
+│   ├─ Control Plane API          ← Aspire-managed process, listening on localhost:5100
+│   └─ Migration Agent(s)         ← Aspire-managed processes
 └─ Package Storage               ← file:/// (local filesystem)
-└─ PostgreSQL                    ← portable binary, started by CLI (no Docker)
+└─ PostgreSQL                    ← Aspire portable binary resource (no Docker, no installer)
 ```
 
-The CLI starts the control plane in-process and spawns agents as child processes. PostgreSQL ships as a bundled portable binary launched by the CLI — no Docker, no installer required. Any machine with network access to the host (e.g. port 5100) can connect a TUI and monitor the migration.
+The CLI drives Aspire programmatically to start the control plane, agents, and PostgreSQL. Any machine with network access to the host (e.g. port 5100) can connect a TUI and monitor the migration.
 
 **Use when:** Single-operator migrations, dedicated migration servers, air-gapped environments, or development and testing.
 

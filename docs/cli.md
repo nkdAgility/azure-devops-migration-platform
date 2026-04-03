@@ -4,7 +4,7 @@
 
 The CLI is the operator's entry point to the migration platform. It is a **thin shell** — it parses arguments, builds a `MigrationJob`, hosts or connects to the control plane, and delegates execution to Migration Agents. It contains no migration logic.
 
-Migration logic lives exclusively in the **Job Engine**, which runs inside Migration Agents. The CLI always communicates with the control plane via `ControlPlaneClient`. For local and server execution, the CLI starts the control plane in-process before submitting the job.
+Migration logic lives exclusively in the **Job Engine**, which runs inside Migration Agents. The CLI always communicates with the control plane via `ControlPlaneClient`. For local and server execution, the CLI drives Aspire to start the control plane, agents, and PostgreSQL before submitting the job.
 
 See [docs/tui.md](tui.md) for how progress is rendered in the terminal.
 
@@ -26,8 +26,8 @@ Spectre.Console is the only permitted CLI library in command-layer code. Do not 
 │  - Parses args                          │
 │  - Loads config                         │
 │  - Builds MigrationJob                  │
-│  - Starts control plane (if local/      │
-│    server) or connects to remote        │
+│  - Drives Aspire (if local/server)      │
+│    or connects to remote                │
 └────────────────┬────────────────────────┘
                  │  MigrationJob
                  │
@@ -39,7 +39,8 @@ Spectre.Console is the only permitted CLI library in command-layer code. Do not 
                  │  HTTP
                  │
 ┌────────────────▼────────────────────────┐
-│  Control Plane (in-process or remote)   │
+│  Control Plane (Aspire-managed or       │
+│  remote)                                │
 │  - Deduplicates job                     │
 │  - Assigns to available agent           │
 │  - Tracks state and progress            │
@@ -47,8 +48,8 @@ Spectre.Console is the only permitted CLI library in command-layer code. Do not 
                  │  Lease
                  │
 ┌────────────────▼────────────────────────┐
-│  Migration Agent (child process or      │
-│  container)                             │
+│  Migration Agent (Aspire-managed        │
+│  process or container)                  │
 │  - Runs Job Engine                      │
 │  - Validates job                        │
 │  - Resolves module dependency graph     │
@@ -134,11 +135,11 @@ The CLI always communicates with the control plane via `ControlPlaneClient`. The
 
 | Condition | Behaviour |
 |---|---|
-| `MIGRATION_API_URL` not set | CLI hosts the control plane in-process on `http://localhost:5100` and spawns agents as child processes |
+| `MIGRATION_API_URL` not set | CLI drives Aspire to start the control plane on `http://localhost:5100`, agents, and PostgreSQL |
 | `MIGRATION_API_URL` set | CLI connects to the specified remote endpoint; no in-process hosting |
 | `--url` flag | Overrides `MIGRATION_API_URL` for that invocation |
 
-Running `migrate export --config migration.json` on a local machine with no environment variables configured will start the control plane in-process, spawn an agent, execute the job, and exit — all from a single command.
+Running `migrate export --config migration.json` on a local machine with no environment variables configured will drive Aspire to start the control plane, spawn agents, execute the job, and exit — all from a single command.
 
 ---
 
@@ -159,12 +160,12 @@ The local config file is never sent directly anywhere. The `MigrationJob` is the
 
 ## Execution Topologies
 
-### In-Process Hosted (Local / Server)
+### Aspire-Managed (Local / Server)
 
-When no remote control plane endpoint is configured, the CLI hosts the control plane in-process and spawns agents as child processes on the same machine.
+When no remote control plane endpoint is configured, the CLI drives Aspire programmatically — building a `DistributedApplication` with the same resources defined in the AppHost. PostgreSQL starts as an Aspire portable binary resource (no Docker, no installer required).
 
-- Control plane starts on `http://localhost:5100`.
-- Agents run as child processes, communicating with the in-process control plane.
+- Control plane starts on `http://localhost:5100` as an Aspire-managed process.
+- Agents run as Aspire-managed processes, using Aspire service discovery to locate the control plane.
 - `IArtefactStore` is `FileSystemArtefactStore`.
 - `IStateStore` is `PackageCheckpointStateStore` (writes `Checkpoints/` inside the package).
 - Any machine with network access to the host can attach a TUI and monitor the migration.
