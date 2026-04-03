@@ -8,6 +8,7 @@
     </Project>
     <Project Path="src/DevOpsMigrationPlatform.ServiceDefaults/DevOpsMigrationPlatform.ServiceDefaults.csproj" />
     <Project Path="src/DevOpsMigrationPlatform.ControlPlane/DevOpsMigrationPlatform.ControlPlane.csproj" />
+    <Project Path="src/DevOpsMigrationPlatform.ControlPlaneHost/DevOpsMigrationPlatform.ControlPlaneHost.csproj" />
     <Project Path="src/DevOpsMigrationPlatform.MigrationAgent/DevOpsMigrationPlatform.MigrationAgent.csproj" />
     <Project Path="src/DevOpsMigrationPlatform.AppHost/DevOpsMigrationPlatform.AppHost.csproj" />
     <Project Path="src/DevOpsMigrationPlatform.CLI.Migration/DevOpsMigrationPlatform.CLI.Migration.csproj" />

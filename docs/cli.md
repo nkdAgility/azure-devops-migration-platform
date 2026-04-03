@@ -2,9 +2,9 @@
 
 ## Purpose
 
-The CLI is the operator's entry point to the migration platform. It is a **thin shell** — it parses arguments, builds a `MigrationJob`, hosts or connects to the control plane, and delegates execution to Migration Agents. It contains no migration logic.
+The CLI is the operator's entry point to the migration platform. It is a **thin shell** — it parses arguments, builds a `MigrationJob`, and delegates execution to the control plane via HTTP. It contains no migration logic.
 
-Migration logic lives exclusively in the **Job Engine**, which runs inside Migration Agents. The CLI always communicates with the control plane via `ControlPlaneClient`. For local and server execution, the CLI drives Aspire to start the control plane, agents, and PostgreSQL before submitting the job.
+Migration logic lives exclusively in the **Job Engine**, which runs inside Migration Agents. CLI commands manage their own hosting lifecycle — starting or connecting to the required services as needed before submitting the job. The CLI always communicates with the control plane via `ControlPlaneClient`.
 
 See [docs/tui.md](tui.md) for how progress is rendered in the terminal.
 
@@ -26,8 +26,8 @@ Spectre.Console is the only permitted CLI library in command-layer code. Do not 
 │  - Parses args                          │
 │  - Loads config                         │
 │  - Builds MigrationJob                  │
-│  - Drives Aspire (if local/server)      │
-│    or connects to remote                │
+│  - Commands manage hosting lifecycle    │
+│    (start or connect to services)       │
 └────────────────┬────────────────────────┘
                  │  MigrationJob
                  │

@@ -2,7 +2,13 @@
 
 ## Purpose
 
-Aspire is the orchestration layer for the Azure DevOps Migration Platform across all local and server-based hosting topologies. The CLI uses Aspire programmatically to start the control plane, agents, and PostgreSQL when no remote endpoint is configured. The Aspire dashboard provides unified observability across all components. For cloud deployments, the same Aspire AppHost declaration drives `azd up` to provision Azure Container Apps, PostgreSQL Flexible Server, and Blob Storage. The architecture is identical — only the hosting target changes.
+Aspire serves two distinct purposes in this platform:
+
+1. **Cloud provisioning** — The `AppHost` project is the `azd up` target. It declares all Azure resources (Container Apps, PostgreSQL Flexible Server, Blob Storage) so the Azure Developer CLI can provision and wire them automatically.
+
+2. **Developer standalone workflow** — Running `dotnet run --project AppHost` starts the full stack (ControlPlaneHost, MigrationAgent, PostgreSQL) with the Aspire dashboard for local development without going through the CLI.
+
+The CLI does **not** drive AppHost programmatically. CLI commands manage their own hosting lifecycle directly. AppHost is not in the CLI execution path.
 
 ---
 
@@ -10,7 +16,7 @@ Aspire is the orchestration layer for the Azure DevOps Migration Platform across
 
 | Component | Always Local | Aspire-Managed (Local/Server) | Aspire-Managed (Cloud) | Aspire Role |
 |---|---|---|---|---|
-| **CLI** (`CLI.Migration`, net10.0) | ✓ | ✗ | ✗ | Operator entry point — drives Aspire for local/server; connects to remote for cloud |
+| **CLI** (`CLI.Migration`, net10.0) | ✓ | ✗ | ✗ | Operator entry point — commands manage their own hosting; connects to ControlPlaneHost via HTTP |
 | **TFS Migration CLI** (`CLI.TfsMigration`, net481) | ✓ | ✗ | ✗ | Subprocess of CLI (not orchestrated by Aspire) |
 | **ControlPlane** (service library) | — | ✓ (referenced by ControlPlaneHost) | ✓ (referenced by ControlPlaneHost) | Class library — not a standalone Aspire resource |
 | **ControlPlaneHost** | ✓ | ✓ | ✓ | Aspire `AddProject` resource; manages Agent lifecycle |
@@ -23,7 +29,7 @@ Aspire is the orchestration layer for the Azure DevOps Migration Platform across
 
 ```
 src/
-  DevOpsMigrationPlatform.AppHost/               ← Aspire AppHost (used by CLI for local/server; used by azd for cloud)
+  DevOpsMigrationPlatform.AppHost/               ← Aspire AppHost (azd provisioning target and developer standalone only — not in CLI execution path)
     Program.cs                                    ← defines resources and service discovery
     appsettings.json                              ← local configuration overrides
     DevOpsMigrationPlatform.AppHost.csproj
@@ -47,7 +53,7 @@ src/
     Worker.cs                                     ← lease polling and execution
     DevOpsMigrationPlatform.MigrationAgent.csproj
 
-  DevOpsMigrationPlatform.CLI.Migration/         ← CLI entry point; drives Aspire for local/server; connects to remote for cloud; spawns CLI.TfsMigration as subprocess
+  DevOpsMigrationPlatform.CLI.Migration/         ← CLI entry point; commands manage their own hosting lifecycle; connects to ControlPlaneHost via HTTP; spawns CLI.TfsMigration as subprocess
     Program.cs                                    ← operator entry point
     ExternalToolRunner.cs                         ← spawns net481 subprocess, streams stdout/stderr
     DevOpsMigrationPlatform.CLI.Migration.csproj  ← TargetFramework: net10.0
@@ -62,11 +68,11 @@ src/
 
 ## AppHost Configuration
 
-The AppHost defines the service topology for both local/server and cloud deployments. When the CLI runs locally and no remote endpoint is configured, it drives the AppHost programmatically to start the control plane, agents, and PostgreSQL.
+The AppHost defines the service topology for provisioning and developer-standalone use only. It is **not** invoked by the CLI at runtime — CLI commands start and manage the services they need directly.
 
-### Local / Server AppHost
+### Local / Developer Standalone AppHost
 
-This profile is used for all local and server-based migrations, as well as CI/CD pipeline stages. The same profile runs identically on an operator's machine, a dedicated server, and the CI agent — this is the CD guarantee.
+This profile is used for developer-standalone runs and CI/CD pipeline validation. Start it with `dotnet run --project src/DevOpsMigrationPlatform.AppHost` to get the full stack and Aspire dashboard without the CLI.
 
 The AppHost supports two launch subprofiles, controlled by the `DEVOPS_MIGRATION_INFRA` environment variable (or `launchSettings.json`). Both use the same application code. The switch validates both production architectures in the same pipeline:
 

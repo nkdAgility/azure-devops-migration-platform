@@ -7,13 +7,18 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <UserSecretsId>azure-devops-migration-platform-apphost</UserSecretsId>
-    <!-- IsAspireHost intentionally omitted — the old Aspire workload is deprecated.
-         Aspire now ships entirely via NuGet (Aspire.Hosting.AppHost 9.x+).
-         See https://aka.ms/aspire/update-to-sdk -->
   </PropertyGroup>
 
   <ItemGroup>
     <PackageReference Include="Aspire.Hosting.AppHost" Version="9.3.0" />
+    <PackageReference Include="Aspire.Hosting.PostgreSQL" Version="9.3.0" />
+    <PackageReference Include="Aspire.Hosting.Azure.PostgreSQL" Version="9.3.0" />
+    <PackageReference Include="Aspire.Hosting.Azure.Storage" Version="9.3.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\DevOpsMigrationPlatform.ControlPlaneHost\DevOpsMigrationPlatform.ControlPlaneHost.csproj" IsAspireProjectResource="true" />
+    <ProjectReference Include="..\DevOpsMigrationPlatform.MigrationAgent\DevOpsMigrationPlatform.MigrationAgent.csproj" IsAspireProjectResource="true" />
   </ItemGroup>
 
 </Project>
