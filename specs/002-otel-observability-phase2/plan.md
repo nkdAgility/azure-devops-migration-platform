@@ -9,7 +9,7 @@ This feature delivers two capabilities:
 
 1. **CLI Observability (US-1, P1)** — Wire the OTel SDK (traces, metrics, logs) into `DevOpsMigrationPlatform.CLI.Migration/Program.cs` with Azure Monitor export when a connection string is present. Each CLI command starts a child `Activity` span. `TracerProvider` and `MeterProvider` are flushed and disposed before process exit. This mirrors the OTel pattern already used in `ServiceDefaults` by `ControlPlaneHost` and `MigrationAgent`, adapted for the non-hosted CLI entry point (which uses a bare `ServiceCollection`, not `IHostApplicationBuilder`).
 
-2. **Phase 2 Live Progress Streaming (US-2 P1, US-3 P2, US-4 P3)** — A new `ControlPlaneProgressSink` (`IProgressSink` in Infrastructure) fire-and-forgets individual `ProgressEvent` records to the Control Plane via a background `Channel`. The Control Plane stores them in a bounded per-job ring buffer (`JobProgressStore`) and exposes them via a REST snapshot (`GET /jobs/{jobId}/logs`) and an SSE stream (`GET /jobs/{jobId}/logs?follow=true`). A new `migrate logs` CLI command prints buffered or live events as NDJSON. The TUI SSE consumer (US-4, P3) is planned in the spec but deferred to its own dedicated session.
+2. **Phase 2 Live Progress Streaming (US-2 P1, US-3 P2, US-4 P3)** — A new `ControlPlaneProgressSink` (`IProgressSink` in Infrastructure) fire-and-forgets individual `ProgressEvent` records to the Control Plane via a background `Channel`. A new `CompositeProgressSink` fans out every event to all three sinks (`AnsiProgressSink`, `PackageProgressSink`, `ControlPlaneProgressSink`) and is registered as the `IProgressSink` in the Migration Agent. The Control Plane stores events in a bounded per-job ring buffer (`JobProgressStore`) and exposes them via a REST snapshot (`GET /jobs/{jobId}/logs`) and an SSE stream (`GET /jobs/{jobId}/logs?follow=true`). A new `migrate logs` CLI command prints buffered or live events as NDJSON. The TUI SSE consumer (US-4, P3) is planned in the spec but deferred to its own dedicated session.
 
 **Approach**: Extend existing patterns — `JobTelemetryStore` → `JobProgressStore`; `TelemetryController` → new `ProgressController`; `ControlPlaneTelemetryClient` pattern → `ControlPlaneProgressSink`. No new NuGet packages required in `ControlPlane` or `MigrationAgent`; two new packages (`OpenTelemetry.Extensions.Hosting` and `Azure.Monitor.OpenTelemetry.Exporter`) are added to `CLI.Migration.csproj` only.
 
@@ -44,7 +44,7 @@ This feature delivers two capabilities:
 - [x] **Separation of Planes (VI):** Pass — `ProgressController` and `JobProgressStore` receive and store events only; no migration logic. `LogsCommand` reads from the Control Plane API; no migration logic or module access. `ControlPlaneProgressSink` reports events; it does not call source/target APIs or access the package. CLI OTel wiring is at the composition root (`Program.cs`) only.
 - [x] **Determinism (VII):** Pass — progress events are ephemeral telemetry. No changes to package layout, `manifest.json`, or cursor format. The ring buffer intentionally does not guarantee replay fidelity across restarts; this is documented.
 - [x] **ATDD-First (VIII):** Pass — all 4 user stories have Given/When/Then acceptance scenarios in `spec.md` (4 + 5 + 6 + 4 = 19 scenarios total). Each scenario will follow the ATDD inner loop: one scenario per session per commit.
-- [x] **SOLID & DI (IX):** Pass — `ControlPlaneProgressSink`, `JobProgressStore`, and `ProgressController` use constructor injection throughout. Configuration flows through `IOptions<JobProgressOptions>` (sealed class, `SectionName` constant, validation attributes). Registration via dedicated `AddProgressServices` extension method. CLI OTel wiring in `Program.cs` is acceptable at the composition root.
+- [x] **SOLID & DI (IX):** Pass — `ControlPlaneProgressSink`, `CompositeProgressSink`, `JobProgressStore`, and `ProgressController` use constructor injection throughout. `ControlPlaneProgressSink` uses a hardcoded `private const int ChannelCapacity = 100` for its internal fire-and-forget buffer (no options class needed). Configuration for the Control Plane ring buffer capacity flows through `IOptions<JobProgressOptions>` (sealed class, `SectionName` constant, validation attributes). Registration via dedicated extension methods (`AddControlPlaneProgressSink`, `AddProgressServices`). CLI OTel wiring in `Program.cs` is acceptable at the composition root.
 
 ## Project Structure
 
@@ -70,10 +70,11 @@ src/
   DevOpsMigrationPlatform.Infrastructure/
     Telemetry/
       ControlPlaneTelemetryClient.cs             [existing, unchanged]
-      ControlPlaneProgressSink.cs                ← NEW  (IProgressSink; bounded background Channel; best-effort POST to /agents/lease/{leaseId}/progress)
+      ControlPlaneProgressSink.cs                ← NEW  (IProgressSink; private const ChannelCapacity=100; bounded background Channel; best-effort POST to /agents/lease/{leaseId}/progress)
+      CompositeProgressSink.cs                   ← NEW  (IProgressSink; fans out Emit to ordered list of child sinks; failing child is caught+logged, never swallowed)
       InMemoryMetricSnapshotStore.cs             [existing, unchanged]
       SnapshotMetricExporter.cs                  [existing, unchanged]
-      TelemetryServiceExtensions.cs             [modified — adds AddControlPlaneProgressSink extension method]
+      TelemetryServiceExtensions.cs             [modified — adds AddControlPlaneProgressSink extension method (registers ControlPlaneProgressSink + BackgroundService; does NOT register IProgressSink directly)]
 
   DevOpsMigrationPlatform.ControlPlane/
     Controllers/
@@ -91,7 +92,7 @@ src/
     ActiveLeaseState.cs                          [existing, unchanged]
     ControlPlaneTelemetryTimer.cs               [existing, unchanged]
     MigrationAgentWorker.cs                      [existing, unchanged]
-    Program.cs                                   [modified — register ControlPlaneProgressSink as IProgressSink alongside ConsoleProgressSink + PackageProgressSink]
+    Program.cs                                   [modified — register CompositeProgressSink as IProgressSink wrapping AnsiProgressSink + PackageProgressSink + ControlPlaneProgressSink]
 
   DevOpsMigrationPlatform.CLI.Migration/
     Commands/
@@ -143,9 +144,11 @@ features/
     telemetry/                                   ← NEW folder
       cli-otel.feature                           ← NEW  (US-1 scenarios)
       progress-sink.feature                      ← NEW  (US-2 scenarios)
-      migrate-logs.feature                       ← NEW  (US-3 scenarios)
       job-progress-store.feature                 ← NEW  (US-2 ring buffer unit scenarios)
       progress-controller.feature                ← NEW  (US-2 endpoint scenarios)
+  cli/
+    execute/
+      migrate-logs.feature                       ← NEW  (US-3 scenarios — CLI tier, under cli/execute/ per folder convention)
 ```
 
 **Structure Decision**: Modify 4 existing `src/` projects only (Infrastructure, ControlPlane, MigrationAgent, CLI.Migration). Add 1 new test project (`ControlPlane.Tests`). Add 5 feature files under `features/platform/telemetry/`. The P3 TUI project is deferred. Feature files sit under `platform/` because observability spans all layers and is not tied to a single export/import operation.

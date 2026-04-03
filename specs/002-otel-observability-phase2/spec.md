@@ -29,6 +29,12 @@ This spec is grounded in and extends the following canonical documents. Where th
 - Q: Should `ControlPlaneProgressSink` batch multiple `ProgressEvent` records into a single POST or send each event individually? → A: Individual events, fire-and-forget via bounded background `Channel`; no batching in v1. High-volume jobs rely on the `DropOldest` ring buffer to stay bounded.
 - Q: Is there a limit on the number of concurrent SSE subscribers per job? → A: No hard limit in v1. The Control Plane broadcasts from a shared per-job `Channel` reader list. Subscriber count is a known operational constraint to document, not enforce.
 
+### Session 2026-04-03 (clarify pass)
+
+- Q: FR-008 names `ConsoleProgressSink` but data-model.md and tasks.md both use `AnsiProgressSink` — which is canonical? → A: `AnsiProgressSink` is canonical. FR-008 updated to match.
+- Q: `CompositeProgressSink` is defined in data-model.md but absent from the Key Entities section of this spec — should it be added? → A: Yes; added to Key Entities for traceability.
+- Q: `ProgressEvent` fields are referenced throughout but never defined in the spec — should the schema be inlined or cross-referenced? → A: Cross-reference only; the canonical schema lives in `docs/tui.md` (ProgressEvent schema section).
+
 ---
 
 ## User Scenarios & Testing *(mandatory)*
@@ -130,7 +136,7 @@ An operator opens the TUI with `migrate tui --job <jobId>`. The TUI progress pan
 
 - **FR-006**: A `ControlPlaneProgressSink` class MUST implement `IProgressSink` and POST each `ProgressEvent` to `POST /agents/lease/{leaseId}/progress` on the Control Plane.
 - **FR-007**: `ControlPlaneProgressSink` MUST be best-effort: transient failures must not throw or propagate to the Job Engine.
-- **FR-008**: `ControlPlaneProgressSink` MUST be registered alongside `ConsoleProgressSink` and `PackageProgressSink` in the Migration Agent DI container so all three receive every event.
+- **FR-008**: `ControlPlaneProgressSink` MUST be registered alongside `AnsiProgressSink` and `PackageProgressSink` via `CompositeProgressSink` in the Migration Agent DI container so all three receive every event.
 
 **Control Plane Ring Buffer and Streaming**
 
@@ -159,6 +165,8 @@ An operator opens the TUI with `migrate tui --job <jobId>`. The TUI progress pan
 - **`ControlPlaneProgressSink`**: `IProgressSink` implementation in `DevOpsMigrationPlatform.Infrastructure`. POSTs `ProgressEvent` to the Control Plane via `HttpClient`. Registered alongside the other sinks in the Migration Agent.
 - **`JobProgressStore`**: New Control Plane service. Holds a `ConcurrentDictionary<Guid, JobProgressEntry>` — one entry per active job, each containing a `ConcurrentQueue<ProgressEvent>` snapshot buffer and a `List<ChannelWriter<ProgressEvent>>` for SSE fan-out. Analogous to the existing `JobTelemetryStore`.
 - **`ProgressController`**: New or updated Control Plane controller exposing `POST /agents/lease/{leaseId}/progress`, `GET /jobs/{jobId}/logs`, and `GET /jobs/{jobId}/logs?follow=true`.
+- **`CompositeProgressSink`**: `IProgressSink` implementation in `DevOpsMigrationPlatform.Infrastructure` that fans out every `ProgressEvent` to an ordered list of child sinks (`AnsiProgressSink`, `PackageProgressSink`, `ControlPlaneProgressSink`). A failing child sink is caught and logged at debug level; remaining sinks always execute.
+- **`ProgressEvent`**: Canonical schema defined in [`docs/tui.md`](../../docs/tui.md) (ProgressEvent schema section). All references to "compact JSON ProgressEvent" in this spec refer to that schema.
 - **CLI `ActivitySource`**: Named `ActivitySource` registered in `Program.cs`. Pattern mirrors `ActivitySourceProvider` in the reference implementation.
 
 ---
