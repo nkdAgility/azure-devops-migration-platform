@@ -71,5 +71,22 @@ public static class TelemetryServiceExtensions
             client => client.BaseAddress = baseAddress);
         return services;
     }
+
+    /// <summary>
+    /// Registers <see cref="ControlPlaneProgressSink"/> as a singleton and as a hosted service.
+    /// The <see cref="CompositeProgressSink"/> registration is handled separately in the consuming host.
+    /// </summary>
+    public static IServiceCollection AddControlPlaneProgressSink(
+        this IServiceCollection services,
+        Uri controlPlaneBaseUrl)
+    {
+        services.AddHttpClient<ControlPlaneProgressSink>(
+            client => client.BaseAddress = controlPlaneBaseUrl);
+
+        services.AddSingleton<ControlPlaneProgressSink>();
+        services.AddHostedService(sp => sp.GetRequiredService<ControlPlaneProgressSink>());
+
+        return services;
+    }
 }
 #endif

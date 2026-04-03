@@ -9,12 +9,14 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="10.0.0" />
-    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.0" />
-    <PackageReference Include="Microsoft.Extensions.Options" Version="10.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="10.*" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.*" />
+    <PackageReference Include="Microsoft.Extensions.Options" Version="10.*" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.*" />
     <PackageReference Include="MSTest.TestAdapter" Version="3.*" />
     <PackageReference Include="MSTest.TestFramework" Version="3.*" />
+    <PackageReference Include="OpenTelemetry" Version="1.*" />
+    <PackageReference Include="OpenTelemetry.Exporter.InMemory" Version="1.*" />
     <PackageReference Include="Reqnroll.MSTest" Version="2.*" />
     <PackageReference Include="Moq" Version="4.*" />
   </ItemGroup>
@@ -22,6 +24,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\DevOpsMigrationPlatform.Abstractions\DevOpsMigrationPlatform.Abstractions.csproj" />
     <ProjectReference Include="..\..\src\DevOpsMigrationPlatform.Infrastructure\DevOpsMigrationPlatform.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\src\DevOpsMigrationPlatform.CLI.Migration\DevOpsMigrationPlatform.CLI.Migration.csproj" />
   </ItemGroup>
 
   <ItemGroup>
@@ -51,6 +54,18 @@
     </None>
     <None Include="..\..\features\cli\prepare\prepare-validates-config.feature">
       <Link>Features\prepare-validates-config.feature</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="..\..\features\platform\telemetry\cli-otel.feature">
+      <Link>Features\cli-otel.feature</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="..\..\features\platform\telemetry\progress-sink.feature">
+      <Link>Features\progress-sink.feature</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="..\..\features\cli\execute\migrate-logs.feature">
+      <Link>Features\migrate-logs.feature</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
   </ItemGroup>

@@ -1,12 +1,19 @@
+using Azure.Monitor.OpenTelemetry.Exporter;
+using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.CLI.Commands;
 using DevOpsMigrationPlatform.CLI.Commands.Discovery;
 using DevOpsMigrationPlatform.CLI.Infrastructure;
+using DevOpsMigrationPlatform.CLI.JobRunners;
 using DevOpsMigrationPlatform.Infrastructure;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using OpenTelemetry;
+using OpenTelemetry.Metrics;
+using OpenTelemetry.Trace;
 using Spectre.Console;
 using Spectre.Console.Cli;
+using System.Diagnostics;
 
 namespace DevOpsMigrationPlatform.CLI;
 
@@ -50,6 +57,37 @@ internal class Program
         // plus MigrationOptionsValidator (runs on first .Value access).
         services.AddMigrationPlatformOptions(configuration);
 
+        // ControlPlaneClient for logs and job submission commands.
+        var controlPlaneBaseUrl = configuration["ControlPlane:BaseUrl"] ?? "http://localhost:5100";
+        services.AddSingleton(sp =>
+        {
+            var logger = sp.GetRequiredService<ILogger<ControlPlaneClient>>();
+            return new ControlPlaneClient(controlPlaneBaseUrl, logger);
+        });
+        services.AddSingleton<ILogsClient>(sp => sp.GetRequiredService<ControlPlaneClient>());
+
+        // ── Step 3b: Wire OTel SDK for CLI process (US-1)
+        var cliSource = new ActivitySource("DevOpsMigrationPlatform.CLI");
+        services.AddSingleton(cliSource);
+
+        var telOpts = new TelemetryOptions();
+        configuration.GetSection(TelemetryOptions.SectionName).Bind(telOpts);
+
+        services.AddOpenTelemetry()
+            .WithTracing(b =>
+            {
+                b.AddSource("DevOpsMigrationPlatform.CLI")
+                 .AddHttpClientInstrumentation();
+                if (!string.IsNullOrEmpty(telOpts.AzureMonitorConnectionString))
+                    b.AddAzureMonitorTraceExporter(o => o.ConnectionString = telOpts.AzureMonitorConnectionString);
+            })
+            .WithMetrics(b =>
+            {
+                b.AddHttpClientInstrumentation();
+                if (!string.IsNullOrEmpty(telOpts.AzureMonitorConnectionString))
+                    b.AddAzureMonitorMetricExporter(o => o.ConnectionString = telOpts.AzureMonitorConnectionString);
+            });
+
         // ── Step 4: Hand the container to Spectre.Console via TypeRegistrar.
         // Commands with constructor dependencies are resolved from DI;
         // commands with no constructor fall back to Activator.CreateInstance.
@@ -77,13 +115,32 @@ internal class Program
                     "--collection", "http://tfs:8080/tfs/DefaultCollection",
                     "--project", "MyProject",
                     "--output", "./package");
+
+            config.AddCommand<LogsCommand>("logs")
+                .WithDescription("Retrieve or tail live ProgressEvents for a running job")
+                .WithExample("logs", "--job", "00000000-0000-0000-0000-000000000001")
+                .WithExample("logs", "--job", "00000000-0000-0000-0000-000000000001", "--follow");
         });
 
         try
         {
             AnsiConsole.Write(new FigletText("DevOps Migration").LeftJustified().Color(Color.Blue));
             AnsiConsole.Write(new Rule().RuleStyle("grey").LeftJustified());
-            return await app.RunAsync(spectreArgs);
+            var result = await app.RunAsync(spectreArgs);
+
+            var sp = registrar.BuiltServiceProvider;
+            if (sp?.GetService<TracerProvider>() is { } tp)
+            {
+                tp.ForceFlush(5000);
+                tp.Dispose();
+            }
+            if (sp?.GetService<MeterProvider>() is { } mp)
+            {
+                mp.ForceFlush(5000);
+                mp.Dispose();
+            }
+
+            return result;
         }
         catch (Exception ex)
         {

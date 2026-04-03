@@ -6,6 +6,7 @@
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Infrastructure.Telemetry;
 using DevOpsMigrationPlatform.MigrationAgent;
+using Microsoft.Extensions.Logging;
 using OpenTelemetry.Metrics;
 
 var builder = Host.CreateApplicationBuilder(args);
@@ -28,6 +29,16 @@ builder.Services.AddSingleton<ActiveLeaseState>();
 var controlPlaneBaseUrl = new Uri(
     builder.Configuration["ControlPlane:BaseUrl"] ?? "http://localhost:5100");
 builder.Services.AddControlPlaneTelemetryClient(controlPlaneBaseUrl);
+
+// Progress streaming to the Control Plane ring buffer.
+builder.Services.AddControlPlaneProgressSink(controlPlaneBaseUrl);
+
+// Composite sink fans out every ProgressEvent to all three sinks.
+builder.Services.AddSingleton<IProgressSink>(sp => new CompositeProgressSink(
+    sp.GetRequiredService<ILogger<CompositeProgressSink>>(),
+    new AnsiProgressSink(),
+    new PackageProgressSink(),
+    sp.GetRequiredService<ControlPlaneProgressSink>()));
 
 // Background timer that pushes MetricSnapshots to the Control Plane.
 builder.Services.AddHostedService<ControlPlaneTelemetryTimer>();

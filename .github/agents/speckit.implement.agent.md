@@ -178,9 +178,18 @@ You **MUST** consider the user input before proceeding (if not empty).
 9. Completion validation:
    - Verify all required tasks are completed
    - Check that implemented features match the original specification
-   - Validate that tests pass and coverage meets requirements
    - Confirm the implementation follows the technical plan
-   - Report final status with summary of completed work
+
+9a. **Mandatory test run** — run the full test suite and fix any failures before declaring done:
+   - Build the solution: detect the build system from plan.md (e.g. `dotnet build <solution> --no-incremental -warnaserror:false`)
+   - Run all tests: `dotnet test <solution> --no-build --logger "console;verbosity=normal"`
+   - Parse output for `Failed`, `Error`, or process crash (`exited with error`)
+   - **If any tests fail**:
+     - Fix the root cause (compilation error, ambiguous step binding, missing using, wrong API call, etc.)
+     - Rebuild and re-run until all tests pass
+     - Do NOT declare implementation complete while any test is red
+   - **If all tests pass**: report the pass count and proceed
+   - Report final status with summary of completed work and test results
 
 Note: This command assumes a complete task breakdown exists in tasks.md. If tasks are incomplete or missing, suggest running `/speckit.tasks` first to regenerate the task list.
 
