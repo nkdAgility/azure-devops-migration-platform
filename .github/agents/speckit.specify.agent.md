@@ -91,6 +91,18 @@ Given that feature description, do this:
 
 3. Load `.specify/templates/spec-template.md` to understand required sections.
 
+3a. **Architecture Check — read before writing the spec**:
+
+   This repository maintains canonical architecture documentation in `docs/` and enforced guardrails in `.agents/guardrails/`. Every spec MUST be grounded in these documents. Perform the following steps **before** drafting the spec:
+
+   1. Read `agents.md` in the repo root — this is the binding entry point that maps docs to guardrails.
+   2. Read the relevant `docs/` files for the feature area (identify by feature keywords — e.g., a CLI feature touches `docs/cli.md`; progress streaming touches `docs/tui.md` and `docs/control-plane.md`).
+   3. Read `.agents/guardrails/system-architecture.md` — these rules always apply.
+   4. **Flag any conflict** between user intent and the existing docs:
+      - If user intent *extends* the documented design (adds new behaviour not yet described): proceed. The docs will be updated in step 6a below.
+      - If user intent *conflicts* with the documented design (contradicts a guardrail or documented rule): raise this explicitly with the user before continuing. Do not silently override a guardrail.
+   5. The spec's Assumptions section MUST list which `docs/` and `.agents/` files were read, and note any gaps found.
+
 4. Follow this execution flow:
 
     1. Parse user description from Input
@@ -211,7 +223,39 @@ Given that feature description, do this:
 
    d. **Update Checklist**: After each validation iteration, update the checklist file with current pass/fail status
 
-7. Report completion with branch name, spec file path, checklist results, and readiness for the next phase (`/speckit.clarify` or `/speckit.plan`).
+7. **Architecture Discrepancy Log — highlight gaps for later rectification**:
+
+   After the spec passes validation, compare its requirements against the architecture docs read in step 3a. Do **not** edit any `docs/` or `.agents/` file at this stage. Instead:
+
+   1. For every requirement or behaviour in the spec that is **not yet described** (or is described inaccurately) in `docs/` or `.agents/`, record it as a discrepancy.
+   2. Write all discrepancies to `FEATURE_DIR/discrepancies.md` using the following format:
+
+      ```markdown
+      # Architecture Discrepancies
+
+      **Feature**: [spec title]
+      **Flagged by**: speckit.specify
+      **Status**: Pending rectification (resolve in speckit.implement)
+
+      ## Discrepancies
+
+      ### [short title]
+      - **Source doc**: `docs/example.md` (or `.agents/guardrails/example.md`)
+      - **Section**: [heading or line reference]
+      - **Issue**: [what the spec says that the doc does not yet reflect, or what conflicts]
+      - **Suggested update**: [minimum edit needed to align the doc to the spec]
+
+      <!-- Add one entry per discrepancy -->
+      ```
+
+   3. If a Phase label (e.g., "Phase 2") in a doc is now superseded because this spec implements it, record that as a discrepancy entry with the suggested update.
+   4. Add an **Architecture References** section to the spec (just below the Status line, before User Scenarios) that lists every `docs/` and `.agents/` file read in step 3a, noting whether each was (a) confirmed accurate, or (b) has a discrepancy logged.
+   5. If no discrepancies were found, write `discrepancies.md` with a single line: `No discrepancies found.`
+
+   The Architecture References section is **mandatory**. A spec without it is incomplete.
+   Actual doc edits are deferred — they will be applied by `speckit.implement`.
+
+8. Report completion with branch name, spec file path, checklist results, and readiness for the next phase (`/speckit.clarify` or `/speckit.plan`).
 
 8. **Check for extension hooks**: After reporting completion, check if `.specify/extensions.yml` exists in the project root.
    - If it exists, read it and look for entries under the `hooks.after_specify` key

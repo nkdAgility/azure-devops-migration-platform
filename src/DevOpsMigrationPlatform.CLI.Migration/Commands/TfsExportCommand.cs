@@ -2,11 +2,13 @@ using Spectre.Console;
 using Spectre.Console.Cli;
 using System;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.CLI.Views;
 using Microsoft.Extensions.Logging.Abstractions;
+using OpenTelemetry.Trace;
 
 namespace DevOpsMigrationPlatform.CLI.Commands;
 
@@ -17,6 +19,13 @@ namespace DevOpsMigrationPlatform.CLI.Commands;
 /// </summary>
 public sealed class TfsExportCommand : AsyncCommand<TfsExportCommand.Settings>
 {
+    private readonly ActivitySource _activitySource;
+
+    public TfsExportCommand(ActivitySource activitySource)
+    {
+        _activitySource = activitySource;
+    }
+
     public sealed class Settings : CommandSettings
     {
         [CommandOption("--collection <COLLECTION>")]
@@ -48,6 +57,20 @@ public sealed class TfsExportCommand : AsyncCommand<TfsExportCommand.Settings>
     }
 
     public override async Task<int> ExecuteAsync(CommandContext context, Settings settings)
+    {
+        using var activity = _activitySource.StartActivity("tfsexport");
+        try
+        {
+            return await RunCoreAsync(context, settings);
+        }
+        catch (Exception ex)
+        {
+            activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
+            throw;
+        }
+    }
+
+    private async Task<int> RunCoreAsync(CommandContext context, Settings settings)
     {
         var exePath = settings.TfsExportExePath ?? ResolveExePath();
 

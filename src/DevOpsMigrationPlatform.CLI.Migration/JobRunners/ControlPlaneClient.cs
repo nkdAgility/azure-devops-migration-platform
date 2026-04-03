@@ -1,3 +1,4 @@
+using System.Net.Http.Json;
 using System.Runtime.CompilerServices;
 using System.Text.Json;
 using DevOpsMigrationPlatform.Abstractions;
@@ -17,7 +18,7 @@ namespace DevOpsMigrationPlatform.CLI.JobRunners;
 /// Switching between the two requires only a config change in appsettings.json;
 /// no code changes are needed.  See docs/cli.md and docs/control-plane.md.
 /// </summary>
-public sealed class ControlPlaneClient : IJobRunner
+public sealed class ControlPlaneClient : IJobRunner, ILogsClient
 {
     private static readonly JsonSerializerOptions _jsonOptions = new()
     {
@@ -70,5 +71,63 @@ public sealed class ControlPlaneClient : IJobRunner
         };
 
         _logger.LogWarning("ControlPlaneClient polling not yet implemented. Job {JobId} submitted only.", job.JobId);
+    }
+
+    /// <summary>
+    /// Returns a snapshot of stored ProgressEvents for <paramref name="jobId"/>.
+    /// Calls <c>GET /jobs/{jobId}/logs</c> and deserialises the JSON array.
+    /// </summary>
+    public async Task<IReadOnlyList<ProgressEvent>> GetLogsAsync(Guid jobId, CancellationToken ct)
+    {
+        var response = await _http
+            .GetAsync($"/jobs/{jobId}/logs", ct)
+            .ConfigureAwait(false);
+
+        response.EnsureSuccessStatusCode();
+
+        var events = await response.Content
+            .ReadFromJsonAsync<List<ProgressEvent>>(_jsonOptions, ct)
+            .ConfigureAwait(false);
+
+        return events ?? [];
+    }
+
+    /// <summary>
+    /// Streams live ProgressEvents from <c>GET /jobs/{jobId}/logs?follow=true</c> (SSE).
+    /// Yields each event as it arrives; breaks on <c>event: job-ended</c> or cancellation.
+    /// </summary>
+    public async IAsyncEnumerable<ProgressEvent> FollowLogsAsync(
+        Guid jobId,
+        [EnumeratorCancellation] CancellationToken ct)
+    {
+        using var response = await _http
+            .GetAsync($"/jobs/{jobId}/logs?follow=true",
+                HttpCompletionOption.ResponseHeadersRead, ct)
+            .ConfigureAwait(false);
+
+        response.EnsureSuccessStatusCode();
+
+        using var stream = await response.Content.ReadAsStreamAsync(ct).ConfigureAwait(false);
+        using var reader = new System.IO.StreamReader(stream);
+
+        while (!reader.EndOfStream && !ct.IsCancellationRequested)
+        {
+            var line = await reader.ReadLineAsync(ct).ConfigureAwait(false);
+            if (line is null) break;
+
+            if (line.StartsWith("event:") && line.Contains("job-ended"))
+                yield break;
+
+            if (!line.StartsWith("data:"))
+                continue;
+
+            var json = line["data:".Length..].Trim();
+            if (string.IsNullOrEmpty(json))
+                continue;
+
+            var evt = JsonSerializer.Deserialize<ProgressEvent>(json, _jsonOptions);
+            if (evt is not null)
+                yield return evt;
+        }
     }
 }

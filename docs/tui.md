@@ -64,35 +64,48 @@ interface IProgressSink
 
 ### Implementations
 
-| Sink | Description | Phase |
-|---|---|---|
-| `ConsoleProgressSink` | Renders a live progress table in the terminal. | Phase 1 |
-| `PackageProgressSink` | Writes structured events to `Logs/progress.jsonl` in the package. | Phase 1 |
-| `ControlPlaneProgressSink` | Pushes events to the control plane for remote TUI display. | Phase 2 |
+| Sink | Description |
+|---|---|
+| `ConsoleProgressSink` | Renders a live progress log in the terminal (local CLI output). |
+| `PackageProgressSink` | Writes structured events to `Logs/progress.jsonl` in the package (always active). |
+| `ControlPlaneProgressSink` | POSTs each event to `POST /agents/lease/{leaseId}/progress` for real-time TUI streaming. |
 
-Phase 1 runs both `ConsoleProgressSink` and `PackageProgressSink` simultaneously. The Job Engine sees only `IProgressSink`; it does not know which sinks are active.
+All three sinks run simultaneously when the Migration Agent holds a lease. The Job Engine sees only `IProgressSink`; it does not know which sinks are active.
+
+`ControlPlaneProgressSink` is best-effort — transient failures are dropped and logged at debug level. Job execution is never blocked by a sink failure.
 
 ### ProgressEvent schema
 
 ```json
 {
-  "jobId": "550e8400-e29b-41d4-a716-446655440000",
   "module": "WorkItems",
   "stage": "AppliedFields",
   "lastProcessed": "WorkItems/2026-02-25/638760123456789012-12345-17",
+  "totalWorkItems": 1500,
+  "workItemsProcessed": 312,
+  "revisionsProcessed": 874,
+  "workItemId": 12345,
+  "message": "Exporting revision 17",
   "timestamp": "2026-02-25T18:12:34Z"
 }
 ```
+
+The `jobId` is not part of the `ProgressEvent` record — it is carried by the lease endpoint that receives the event (`POST /agents/lease/{leaseId}/progress`), allowing the control plane to resolve the job from the lease.
 
 ---
 
 ## Status Display (Remote Mode)
 
-When watching a remote job, the TUI polls the control plane and renders:
+When watching a remote job, the TUI renders two independent data streams:
 
-## Status Display (Remote Mode)
+| Stream | Endpoint | Update mechanism |
+|---|---|---|
+| **Metrics panel** (counts, rates) | `GET /jobs/{jobId}/telemetry` | Polling (interval configurable, default 5 s) |
+| **Progress table** (module stages, last processed) | `GET /jobs/{jobId}/logs?follow=true` | Server-Sent Events (SSE) — push |
 
-When watching a remote job, the TUI polls the control plane and renders:
+The progress table subscribes to the SSE stream on job entry. The TUI reconnects automatically with exponential back-off (max 30 s) on connection loss. Each `ProgressEvent` arriving on the stream updates the matching module row in the table.
+
+When watching a remote job, the TUI renders:
 
 ```
 Job:      550e8400-e29b-41d4-a716-446655440000
@@ -112,6 +125,6 @@ Progress data comes from the control plane's latest cursor mirror. The authorita
 
 ## TUI Disconnection
 
-The TUI has no persistent connection to the job. It only reads from the control plane on demand. When the TUI process exits or loses connectivity, the job continues running unaffected — the Migration Agent holds the lease independently.
+The TUI holds an SSE connection for the progress table (see Status Display above) but this connection does not affect the running job. The Migration Agent holds the lease independently of any connected TUI. When the TUI process exits or loses connectivity, the job continues running unaffected.
 
-Reconnecting is always safe and requires only the `jobId`. See [docs/cli.md](cli.md) for the `status` and `logs` commands.
+Reconnecting is always safe and requires only the `jobId`. The TUI will re-subscribe to the SSE stream and receive events from the ring buffer (last 1000 events) on reconnect. See [docs/cli.md](cli.md) for the `status` and `logs` commands.

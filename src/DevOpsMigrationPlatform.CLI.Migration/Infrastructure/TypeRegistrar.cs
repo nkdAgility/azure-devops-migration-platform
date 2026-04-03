@@ -25,8 +25,13 @@ internal sealed class TypeRegistrar : ITypeRegistrar
         _services = services;
     }
 
-    public ITypeResolver Build() =>
-        new TypeResolver(_services.BuildServiceProvider());
+    public ServiceProvider? BuiltServiceProvider { get; private set; }
+
+    public ITypeResolver Build()
+    {
+        BuiltServiceProvider = _services.BuildServiceProvider();
+        return new TypeResolver(BuiltServiceProvider);
+    }
 
     public void Register(Type service, Type implementation) =>
         _services.AddSingleton(service, implementation);

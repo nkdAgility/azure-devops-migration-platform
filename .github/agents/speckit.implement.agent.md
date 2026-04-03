@@ -87,6 +87,22 @@ You **MUST** consider the user input before proceeding (if not empty).
    - **IF EXISTS**: Read research.md for technical decisions and constraints
    - **IF EXISTS**: Read quickstart.md for integration scenarios
 
+3a. **Architecture Discrepancy Resolution**: Before touching any production code, check for flagged discrepancies from earlier stages:
+
+   1. Check if `FEATURE_DIR/discrepancies.md` exists and does **not** contain only `No discrepancies found.`
+   2. If discrepancies exist, apply each one by making the minimum edit described in its **Suggested update** field to the referenced `docs/` or `.agents/` file.
+   3. After applying each edit, mark the entry resolved:
+      ```markdown
+      - **Status**: ✓ Resolved in speckit.implement
+      ```
+   4. If a suggested update conflicts with another guardrail or the current production code, flag it with:
+      ```markdown
+      - **Status**: ⚠ Conflict — [brief explanation] — requires manual review
+      ```
+      and continue (do not halt).
+   5. Once all entries are processed, update the top-level `Status` line in `discrepancies.md` to `Resolved`.
+   6. If the file does not exist or contains `No discrepancies found.`, skip silently.
+
 4. **Project Setup Verification**:
    - **REQUIRED**: Create/verify ignore files based on actual project setup:
 
@@ -162,9 +178,18 @@ You **MUST** consider the user input before proceeding (if not empty).
 9. Completion validation:
    - Verify all required tasks are completed
    - Check that implemented features match the original specification
-   - Validate that tests pass and coverage meets requirements
    - Confirm the implementation follows the technical plan
-   - Report final status with summary of completed work
+
+9a. **Mandatory test run** — run the full test suite and fix any failures before declaring done:
+   - Build the solution: detect the build system from plan.md (e.g. `dotnet build <solution> --no-incremental -warnaserror:false`)
+   - Run all tests: `dotnet test <solution> --no-build --logger "console;verbosity=normal"`
+   - Parse output for `Failed`, `Error`, or process crash (`exited with error`)
+   - **If any tests fail**:
+     - Fix the root cause (compilation error, ambiguous step binding, missing using, wrong API call, etc.)
+     - Rebuild and re-run until all tests pass
+     - Do NOT declare implementation complete while any test is red
+   - **If all tests pass**: report the pass count and proceed
+   - Report final status with summary of completed work and test results
 
 Note: This command assumes a complete task breakdown exists in tasks.md. If tasks are incomplete or missing, suggest running `/speckit.tasks` first to regenerate the task list.
 

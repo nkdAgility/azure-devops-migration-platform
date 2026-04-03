@@ -23,6 +23,13 @@ public static class ControlPlaneServiceExtensions
         // In-memory telemetry snapshot store for push (POST) and pull (GET).
         services.AddSingleton<JobTelemetryStore>();
 
+        // In-memory progress event ring buffer store.
+        services.AddSingleton<JobProgressStore>();
+        services.AddOptions<JobProgressOptions>()
+                .BindConfiguration(JobProgressOptions.SectionName)
+                .ValidateDataAnnotations()
+                .ValidateOnStart();
+
         return services;
     }
 }

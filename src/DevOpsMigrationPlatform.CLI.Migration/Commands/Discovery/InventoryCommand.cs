@@ -1,7 +1,9 @@
 using DevOpsMigrationPlatform.CLI.Commands;
+using OpenTelemetry.Trace;
 using Spectre.Console;
 using Spectre.Console.Cli;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
@@ -10,6 +12,13 @@ namespace DevOpsMigrationPlatform.CLI.Commands.Discovery;
 
 public sealed class InventoryCommand : AsyncCommand<InventoryCommand.Settings>
 {
+    private readonly ActivitySource _activitySource;
+
+    public InventoryCommand(ActivitySource activitySource)
+    {
+        _activitySource = activitySource;
+    }
+
     public sealed class Settings : AzureDevOpsSettings
     {
         [CommandOption("--out <PATH>")]
@@ -18,6 +27,20 @@ public sealed class InventoryCommand : AsyncCommand<InventoryCommand.Settings>
     }
 
     public override async Task<int> ExecuteAsync(CommandContext context, Settings settings)
+    {
+        using var activity = _activitySource.StartActivity("inventory");
+        try
+        {
+            return await RunCoreAsync(context, settings);
+        }
+        catch (Exception ex)
+        {
+            activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
+            throw;
+        }
+    }
+
+    private async Task<int> RunCoreAsync(CommandContext context, Settings settings)
     {
         using var http = BuildClient(settings.Organisation, settings.Token);
 

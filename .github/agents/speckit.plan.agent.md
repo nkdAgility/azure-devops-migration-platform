@@ -58,6 +58,8 @@ You **MUST** consider the user input before proceeding (if not empty).
 
 2. **Load context**: Read FEATURE_SPEC and `.specify/memory/constitution.md`. Load IMPL_PLAN template (already copied).
 
+2a. **Architecture alignment check**: Before writing the plan, read the `docs/` and `.agents/` files referenced in the spec's Architecture References section (or read `agents.md` + relevant `docs/` and `.agents/guardrails/system-architecture.md` if no Architecture References section exists). Confirm every design decision in the plan is consistent with those documents. Do **not** edit any `docs/` or `.agents/` file at this stage. If the plan introduces design decisions not yet reflected in `docs/`, append those as additional entries to `FEATURE_DIR/discrepancies.md` using the same format established by `speckit.specify` (or create the file if it does not exist). These will be resolved by `speckit.implement`.
+
 3. **Execute plan workflow**: Follow the structure in IMPL_PLAN template to:
    - Fill Technical Context (mark unknowns as "NEEDS CLARIFICATION")
    - Fill Constitution Check section from constitution
