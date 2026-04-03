@@ -29,7 +29,7 @@ No session may encompass multiple acceptance scenarios. No code is committed wit
 
 ### Phase 1 — Specification (Specification Agent)
 
-**Input:** Human-authored draft intent description.  
+**Input:** The canonical input to Phase 1 is the `spec.md` acceptance scenarios produced by the SpecKit `speckit.specify` agent for this feature. When a `spec.md` exists under `specs/<feature>/`, the Specification Agent must use those user stories and acceptance scenarios as the authoritative starting point and must not ask the human to re-describe the intent. When no `spec.md` exists, fall back to a human-authored draft intent description.  
 **Output:** All four specification artifacts — intent description, Gherkin `.feature` file, architecture constraints, and non-functional acceptance criteria.  
 **Human gate:** The human must explicitly approve the complete specification set before Phase 2 begins.
 
@@ -118,8 +118,8 @@ Commit:       <sha or PR>
 
 Before starting a session:
 
-1. The requirement must be written as a user story or feature description.
-2. The acceptance area folder must exist under `features/`.
+1. The requirement must be written as a user story or feature description. The preferred source is a SpecKit `spec.md` under `specs/<feature>/`. If none exists, document the intent before proceeding.
+2. The acceptance area folder must exist under `features/` (see `.agents/guardrails/acceptance-test-format.md` for naming rules).
 3. The ATDD workflow must not be initiated for a scenario that already has a passing test.
 
 ---

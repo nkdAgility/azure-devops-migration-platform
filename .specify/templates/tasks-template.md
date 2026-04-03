@@ -68,6 +68,7 @@ Examples of foundational tasks (adjust based on your project):
 - [ ] T007 Create base models/entities that all stories depend on
 - [ ] T008 Configure error handling and logging infrastructure
 - [ ] T009 Setup environment configuration management
+- [ ] T010 [P] [US1] Create `features/<tier>/<module>/<story>.feature` — Gherkin scenarios translating the `spec.md` User Story 1 acceptance scenarios into conformant `.feature` format (see `.agents/guardrails/acceptance-test-format.md` for tier/naming rules). This file is the ATDD Phase 1 input for User Story 1 and must exist before any step definitions are written.
 
 **Checkpoint**: Foundation ready - user story implementation can now begin in parallel
 
@@ -79,12 +80,18 @@ Examples of foundational tasks (adjust based on your project):
 
 **Independent Test**: [How to verify this story works on its own]
 
+### Gherkin Feature File for User Story 1 (mandatory)
+
+> **NOTE: This `.feature` file is the ATDD Phase 1 artifact. It must be written from the `spec.md` User Story 1 acceptance scenarios and committed before any step definitions or production code are written.**
+
+- [ ] T010 [US1] Create `features/<tier>/<module>/<story-1>.feature` — translate `spec.md` User Story 1 acceptance scenarios into conformant Gherkin (see `.agents/guardrails/acceptance-test-format.md`)
+
 ### Tests for User Story 1 (OPTIONAL - only if tests requested) ⚠️
 
 > **NOTE: Write these tests FIRST, ensure they FAIL before implementation**
 
-- [ ] T010 [P] [US1] Contract test for [endpoint] in tests/contract/test_[name].py
-- [ ] T011 [P] [US1] Integration test for [user journey] in tests/integration/test_[name].py
+- [ ] T011 [P] [US1] Contract test for [endpoint] in tests/contract/test_[name].py
+- [ ] T012 [P] [US1] Integration test for [user journey] in tests/integration/test_[name].py
 
 ### Implementation for User Story 1
 
@@ -105,10 +112,16 @@ Examples of foundational tasks (adjust based on your project):
 
 **Independent Test**: [How to verify this story works on its own]
 
+### Gherkin Feature File for User Story 2 (mandatory)
+
+> **NOTE: This `.feature` file is the ATDD Phase 1 artifact. Write from `spec.md` User Story 2 acceptance scenarios before any step definitions or production code.**
+
+- [ ] T018 [US2] Create `features/<tier>/<module>/<story-2>.feature` — translate `spec.md` User Story 2 acceptance scenarios into conformant Gherkin (see `.agents/guardrails/acceptance-test-format.md`)
+
 ### Tests for User Story 2 (OPTIONAL - only if tests requested) ⚠️
 
-- [ ] T018 [P] [US2] Contract test for [endpoint] in tests/contract/test_[name].py
-- [ ] T019 [P] [US2] Integration test for [user journey] in tests/integration/test_[name].py
+- [ ] T019 [P] [US2] Contract test for [endpoint] in tests/contract/test_[name].py
+- [ ] T020 [P] [US2] Integration test for [user journey] in tests/integration/test_[name].py
 
 ### Implementation for User Story 2
 
@@ -127,10 +140,16 @@ Examples of foundational tasks (adjust based on your project):
 
 **Independent Test**: [How to verify this story works on its own]
 
+### Gherkin Feature File for User Story 3 (mandatory)
+
+> **NOTE: This `.feature` file is the ATDD Phase 1 artifact. Write from `spec.md` User Story 3 acceptance scenarios before any step definitions or production code.**
+
+- [ ] T024 [US3] Create `features/<tier>/<module>/<story-3>.feature` — translate `spec.md` User Story 3 acceptance scenarios into conformant Gherkin (see `.agents/guardrails/acceptance-test-format.md`)
+
 ### Tests for User Story 3 (OPTIONAL - only if tests requested) ⚠️
 
-- [ ] T024 [P] [US3] Contract test for [endpoint] in tests/contract/test_[name].py
-- [ ] T025 [P] [US3] Integration test for [user journey] in tests/integration/test_[name].py
+- [ ] T025 [P] [US3] Contract test for [endpoint] in tests/contract/test_[name].py
+- [ ] T026 [P] [US3] Integration test for [user journey] in tests/integration/test_[name].py
 
 ### Implementation for User Story 3
 
