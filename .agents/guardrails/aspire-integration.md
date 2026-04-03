@@ -8,20 +8,21 @@
 
 ### MUST Have
 
-- `DevOpsMigrationPlatform.AppHost` — Aspire orchestrator project
+- `DevOpsMigrationPlatform.AppHost` — Aspire orchestrator project (developer/CI tooling only)
 - `DevOpsMigrationPlatform.ServiceDefaults` — Shared observability/resilience extensions
 - `DevOpsMigrationPlatform.ControlPlane` — ASP.NET Core Web API
 - `DevOpsMigrationPlatform.MigrationAgent` — Worker Service
-- `DevOpsMigrationPlatform.CLI.Migration` (net10.0) — Main TUI; spawns `CLI.TfsMigration` as subprocess
+- `DevOpsMigrationPlatform.CLI.Migration` (net10.0) — Main CLI; hosts the control plane in-process for local and server execution; spawns agents as child processes; spawns `CLI.TfsMigration` as subprocess for TFS sources
 - `DevOpsMigrationPlatform.CLI.TfsMigration` (net481) — TFS exporter CLI; callable as subprocess OR independently
 
 ### MUST NOT Have
 
-- TUI (`CLI.Migration` or `CLI.TfsMigration`) added to AppHost resources — both are always standalone
+- `CLI.Migration` or `CLI.TfsMigration` added to AppHost resources — both are always standalone
 - Multiple AppHost projects — only one orchestrator per solution
 - Custom health check or metrics endpoints bypassing ServiceDefaults
 - Hardcoded URLs in Migration Agent or Control Plane code (use service discovery)
 - A direct assembly or project reference from `CLI.Migration` (net10.0) to `CLI.TfsMigration` (net481) — subprocess via `ExternalToolRunner` only
+- The AppHost used as the operator startup mechanism — the CLI handles service startup for local and server-based migrations
 
 ---
 
@@ -53,7 +54,27 @@ builder.AddServiceDefaults();
 
 ## Service Discovery Rules
 
-### Migration Agent → Control Plane
+### CLI → Control Plane (Local / Server)
+
+When `MIGRATION_API_URL` is not set, the CLI hosts the control plane in-process. No service discovery is used; the in-process endpoint is fixed at `http://localhost:5100`.
+
+### CLI → Control Plane (Cloud)
+
+**MUST:**
+```csharp
+// CLI connects to remote endpoint when MIGRATION_API_URL is set
+var controlPlaneUrl = configuration["MIGRATION_API_URL"];
+services.AddHttpClient<IControlPlaneClient, ControlPlaneClient>(client =>
+{
+    client.BaseAddress = new Uri(controlPlaneUrl);
+});
+```
+
+The CLI does not use Aspire service discovery because it is not orchestrated by Aspire.
+
+### Migration Agent → Control Plane (AppHost only)
+
+When running under Aspire (dev/CI), Aspire service discovery resolves the endpoint:
 
 **MUST:**
 ```csharp
@@ -70,23 +91,11 @@ client.BaseAddress = new Uri("http://localhost:5100");
 client.BaseAddress = new Uri(configuration["ControlPlaneUrl"]);  // ❌ agents use discovery only
 ```
 
-### TUI → Control Plane (Cloud Mode)
-
-**MUST:**
-```csharp
-// TUI explicitly configures endpoint from config file
-var controlPlaneUrl = configuration["ControlPlane:BaseUrl"];
-services.AddHttpClient<IControlPlaneClient, ControlPlaneClient>(client =>
-{
-    client.BaseAddress = new Uri(controlPlaneUrl);
-});
-```
-
-The TUI does not use Aspire service discovery because it is not orchestrated by Aspire.
-
 ---
 
 ## AppHost Configuration Rules
+
+The AppHost is used by developers and CI pipelines only. Operators run the CLI directly; the CLI starts the control plane in-process.
 
 ### MUST include:
 
@@ -117,7 +126,7 @@ builder.AddProject<Projects.DevOpsMigrationPlatform_MigrationAgent>("migration-a
 
 ### MUST NOT include:
 
-- TUI project reference (it runs standalone)
+- CLI project reference (it runs standalone)
 - Direct references to domain or business logic projects (only Control Plane and Agent)
 - Custom container configurations bypassing Aspire's built-in support
 - Environment-specific secrets (use User Secrets locally, Key Vault in cloud)
@@ -187,15 +196,21 @@ builder.AddProject<Projects.DevOpsMigrationPlatform_MigrationAgent>("migration-a
 
 ### Local Development
 
-**MUST:**
+Operators run the CLI directly:
+```powershell
+cd src\DevOpsMigrationPlatform.CLI.Migration
+dotnet run -- export --config migration.json
+```
+
+Developers and CI pipelines use the AppHost:
 ```powershell
 cd src\DevOpsMigrationPlatform.AppHost
 dotnet run
 ```
 
 **MUST NOT:**
-- Run Control Plane or Migration Agent standalone without Aspire orchestration during development
-- Manually start PostgreSQL, Azurite, or other dependencies (Aspire manages these)
+- Direct operators to run the AppHost for migrations
+- Require Docker, an installer, or the AppHost for local operator usage
 
 ### Cloud Deployment
 
@@ -291,12 +306,13 @@ resource migrationAgent 'Microsoft.App/containerApps@2023-05-01' = {
 
 ---
 
-## TUI Rules
+## CLI Rules
 
-### CLI.Migration (net10.0) — Main TUI MUST:
+### CLI.Migration (net10.0) — Main CLI MUST:
 
 - Run as a standalone CLI (not orchestrated by Aspire)
-- Read Control Plane endpoint from configuration file
+- Host the control plane in-process when `MIGRATION_API_URL` is not set
+- Connect to a remote control plane endpoint when `MIGRATION_API_URL` is set
 - Support both local (`http://localhost:5100`) and cloud (`https://controlplane.azurecontainerapps.io`) endpoints
 - Validate job definitions before submission
 - Display job status via Control Plane API
@@ -334,14 +350,15 @@ Reject any code that:
 - Adds `CLI.Migration` or `CLI.TfsMigration` to AppHost resources.
 - Adds a direct project or assembly reference from `CLI.Migration` to `CLI.TfsMigration`.
 - Hardcodes the `CLI.TfsMigration` exe path to a development-relative path in production configuration.
-- Makes `CLI.TfsMigration` non-invocable as a standalone CLI (e.g. requires the main TUI to be present).
+- Makes `CLI.TfsMigration` non-invocable as a standalone CLI (e.g. requires the main CLI to be present).
 - Hardcodes Control Plane URLs in Migration Agent code.
 - Bypasses ServiceDefaults observability configuration.
 - Uses custom health checks without calling `AddDefaultHealthChecks()`.
 - Deploys Aspire-managed components to Azure App Service or VMs.
 - Stores secrets in `appsettings.json` or environment variables long-term.
 - Logs sensitive data (connection strings, PATs, Key Vault secrets).
-- Manually manages PostgreSQL, Azurite, or other Aspire-managed resources during local dev.
+- Requires operators to start the AppHost to run a migration.
+- Moves migration execution logic into the in-process control plane host within the CLI.
 
 ---
 
@@ -354,8 +371,8 @@ Before accepting a change, verify:
 - [ ] `CLI.Migration` has no direct project reference to `CLI.TfsMigration` — subprocess via `ExternalToolRunner` only.
 - [ ] `CLI.TfsMigration` can be invoked standalone (no dependency on `CLI.Migration` being present).
 - [ ] `CLI.TfsMigration` exe path is read from configuration, not hardcoded in production.
-- [ ] Migration Agent uses service discovery for Control Plane communication.
-- [ ] TUI explicitly configures Control Plane endpoint from configuration.
+- [ ] Migration Agent uses service discovery for Control Plane communication (when running under AppHost).
+- [ ] CLI reads `MIGRATION_API_URL` to determine whether to host in-process or connect remotely.
 - [ ] OpenTelemetry is configured via ServiceDefaults only.
 - [ ] No hardcoded URLs in agent or Control Plane code.
 - [ ] Local storage supports both file:/// and azureblob://localhost:10000.
@@ -367,8 +384,8 @@ Before accepting a change, verify:
 
 ## Final Rule
 
-Aspire orchestrates the Control Plane and Migration Agent locally and in the cloud.
+The CLI is the operator's entry point in all hosting topologies.
 
-The TUI is always standalone.
+The AppHost is for developers and CI pipelines only.
 
 No exceptions.

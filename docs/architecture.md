@@ -34,9 +34,9 @@ The platform separates **job coordination** (control plane) from **job execution
 
 | Component | Role |
 |---|---|
-| **CLI** | Operator interface. Submits config to the control plane, queries status, cancels jobs. Does no execution. |
-| **TUI** | Terminal UI for monitoring a running migration and light interaction. Never submits jobs. |
-| **Control Plane** | Always a separate service. Accepts config from the CLI, creates a `MigrationJob`, assigns it to an available Migration Agent. Runs locally (localhost via Aspire AppHost) or in the cloud (Azure Container Apps). |
+| **CLI** | Operator interface. Hosts the control plane in-process for local and server execution, or connects to a remote control plane endpoint. Submits jobs, queries status, and manages job lifecycle. Contains no migration execution logic. |
+| **TUI** | Connects to any control plane endpoint — on the same machine, a dedicated server, or in the cloud — and renders live job state. Never submits jobs. |
+| **Control Plane** | Always an HTTP service. Hosted in-process by the CLI for local and server execution, or as a standalone container in the cloud. Accepts `MigrationJob` from the CLI, deduplicates, assigns to available agents. |
 | **Migration Agent** | Executes the job engine. Polls the control plane for assigned jobs, runs modules, writes to the package, reports progress back. |
 | **TFS Export Agent** | A .NET 4.8 standalone exporter (`CLI.TfsMigration`) spawned by the Migration Agent when the source is TFS. Contains a `TfsExportAgent` class that is the structural parallel of `MigrationAgent`: receives a job definition, connects to TFS via the TFS Object Model, writes to the package via `IArtefactStore` (`FileSystemArtefactStore`), maintains checkpoints via `IStateStore`, and reports progress via `IProgressSink` (`StdoutProgressSink` → NDJSON on stdout). Uses the same interfaces as the .NET 10 agent via multi-targeted `Abstractions`. |
 | **TFS Import Agent** *(not yet implemented)* | The structural mirror of the TFS Export Agent. A .NET 4.8 importer (`CLI.TfsMigration`) that would be spawned by the Migration Agent when the target is TFS. Contains a `TfsImportAgent` class: receives a job definition, reads from the package via `IArtefactStore` (`FileSystemArtefactStore`), writes to TFS via the TFS Object Model, maintains checkpoints via `IStateStore`, and reports progress via `IProgressSink`. Reuses the same process isolation pattern, NDJSON protocol, and `ExternalToolRunner` as the exporter — no new infrastructure required. See [docs/tfs-exporter.md](tfs-exporter.md#future-tfs-import-agent). |
@@ -53,7 +53,7 @@ CLI
   │  → creates MigrationJob (assigns jobId, normalises URI, computes configHash)
   │
   ▼
-Control Plane (local or cloud)
+Control Plane (in-process within CLI, or remote — same HTTP interface)
   │  deduplication check (jobId)
   │  final schema validation
   │  assigns to available agent
@@ -76,14 +76,14 @@ The control plane creates a `MigrationJob` from the operator's config. It is the
 
 See [.agents/context/job-contract.md](../.agents/context/job-contract.md).
 
-### The Control Plane is Always a Service
+### The Control Plane is Always an HTTP Service
 
-The control plane is always a separate process reachable over HTTP. The CLI talks to it via a configured endpoint:
+The control plane is always reachable over HTTP. The CLI always communicates with it via `ControlPlaneClient`. The difference between topologies is only where the control plane is hosted:
 
-- **Standalone**: `http://localhost:5100` — the Aspire AppHost starts the control plane as a local process on the same machine
-- **Self-Hosted / Managed**: an HTTPS URL to the Azure-hosted control plane
+- **Local / Dedicated Server**: CLI hosts the control plane in-process, listening on `http://localhost:5100`. Any machine with network access to that endpoint can connect a TUI and monitor the migration.
+- **Cloud (Self-Hosted / Managed)**: an HTTPS URL to the Azure-hosted control plane.
 
-Switching from local to cloud requires only a config change in the CLI. No code changes.
+Switching from local to cloud requires only a config change. No code changes.
 
 ### All Stores are URI-Based
 
@@ -102,8 +102,8 @@ Because the package is a first-class artefact identified by URI, export and impo
 
 | Scenario | Export runs on | Import runs on | Handoff |
 |---|---|---|---|
-| Standalone → Cloud | Local (Standalone control plane) | Cloud (Self-Hosted/Managed) | Operator zips package, uploads to blob, resubmits import config pointing at `azureblob://` URI |
-| Cloud → Air-gapped | Cloud | Local (Standalone) | Operator downloads package or zip, resubmits import config pointing at `file:///` URI |
+| Local / Server → Cloud | Local CLI-hosted control plane | Cloud (Self-Hosted/Managed) | Operator zips package, uploads to blob, resubmits import config pointing at `azureblob://` URI |
+| Cloud → Air-gapped | Cloud | Local CLI-hosted control plane | Operator downloads package or zip, resubmits import config pointing at `file:///` URI |
 | Both, same environment | Same control plane for both phases | — | Control plane chains export → import internally |
 
 The package format is identical in all cases. See [docs/packaging-zip.md](packaging-zip.md) for the zip transfer mechanism.
@@ -120,25 +120,20 @@ The job engine has no knowledge of where progress is rendered.
 
 Operators can run export and import as separate steps, or as a single end-to-end operation (`Both` mode). Either way, the migration package is always the intermediary — providing a complete, auditable, resumable record of every change. The package is a first-class artefact, not an internal implementation detail.
 
-The platform supports three operational modes:
+The platform has a single architecture across all hosting topologies. The same control plane, agent, and job engine run in every environment. The only variable is where the components are hosted.
 
-All three modes run the same stack (control plane + PostgreSQL + migration agent). The difference is topology — where that stack runs.
+| Topology | Control Plane host | Agent host | Package store |
+|---|---|---|---|
+| **Local** | In-process within CLI on the operator's machine | Child process(es) on the same machine | `file:///` |
+| **Dedicated Server** | In-process within CLI on a server | Child process(es) on the same server | `file:///` |
+| **Cloud (Self-Hosted)** | Azure Container App (customer subscription) | Azure Container App(s) | Azure Blob Storage |
+| **Cloud (Managed)** | Azure Container App (NKD Agility subscription) | Azure Container App(s) | Azure Blob Storage |
 
-| Mode | Where the stack runs | Package Store |
-|---|---|---|
-| **Standalone** | Single local machine (Aspire manages all services on-device) | `file:///` |
-| **Self-Hosted** | Customer's own Azure subscription (`azd up`, customer-operated) | Azure Blob Storage |
-| **Managed** | NKD Agility's Azure subscription (`azd up`, NKD-operated) | Azure Blob Storage |
+In the Local and Dedicated Server topologies, the CLI starts the control plane in-process and spawns agents as child processes. PostgreSQL ships as a portable bundled binary launched by the CLI — no Docker, no installer required. The TUI can connect to the control plane from any machine with network access to the server.
 
-**Standalone mode** runs the full stack — control plane, migration agent, and PostgreSQL — on a single local machine with zero external dependencies. PostgreSQL ships as a portable bundled binary started by the Aspire AppHost; no Docker installation or external PostgreSQL is required. Package storage uses the local filesystem (`file:///`). Every service binds to localhost. This is the closest mode to the original tool: run one command, migration executes locally.
+In Cloud topologies, the CLI connects to a pre-existing HTTPS control plane endpoint. Agents are containers managed by the cloud platform.
 
-**Self-Hosted mode** is architecturally identical to Managed mode. The customer runs `azd up` in their own Azure subscription, provisioning the same stack — Container Apps, PostgreSQL Flexible Server, and Azure Blob Storage. The control plane is reachable by multiple operators, and multiple migration agents can run concurrently. The only difference from Managed mode is who provisions and operates the Azure infrastructure.
-
-**Managed mode** is the hosted service offering. NKD Agility runs `azd up` in its own Azure subscription and operates the resulting infrastructure on the customer's behalf. The stack is identical to Self-Hosted; the only difference is who provisions and operates it. Organisations use this without managing any infrastructure themselves.
-
-All three modes use the same orchestrator engine, the same modules, and the same cursor-based checkpoints. The package contract is identical. See [docs/cli.md](cli.md), [docs/tui.md](tui.md), [docs/control-plane.md](control-plane.md), and [docs/migration-agent.md](migration-agent.md).
-
-> **Development and CI** is not a fourth operational mode — it is an AppHost profile used by engineers building the platform and by every CI/CD pipeline stage. It has two subprofiles (`dev-portable` and `dev-docker`) that validate the Standalone architecture and the Self-Hosted/Managed architecture respectively. Both must pass in every pipeline run. See [docs/aspire-integration.md](aspire-integration.md#development--ci-apphost).
+All topologies use the same orchestrator engine, the same modules, and the same cursor-based checkpoints. The package contract is identical. See [docs/cli.md](cli.md), [docs/tui.md](tui.md), [docs/control-plane.md](control-plane.md), and [docs/migration-agent.md](migration-agent.md).
 
 Key properties:
 
@@ -156,27 +151,26 @@ Key properties:
 ### Phase 1 — Local-first
 
 1. `MigrationJob` model + schema
-2. Aspire AppHost + ServiceDefaults projects
-3. Job Engine (orchestrator + modules contract + cursors)
-4. `IArtefactStore` + `FileSystemArtefactStore` (`file:///` URI)
-5. `IStateStore` / `PackageCheckpointStateStore` (`Checkpoints/` inside package)
-6. `IProgressSink` with `ConsoleProgressSink` + `PackageProgressSink`
-7. WorkItems module (REST)
-8. Identity module
-9. Legacy TFS export adapter
-10. Teams / Permissions / Builds modules
-11. TUI local commands (`prepare`, `export`, `import`, `both`, `validate`, `pack`, `unpack`)
-12. `ControlPlaneClient` stub (remote commands parse, return "not implemented")
+2. Control plane API (job submission, lease, status, logs) — embedded in CLI for local execution
+3. Migration Agent worker service (poll, execute, heartbeat, report) — spawned as child process by CLI
+4. Job Engine (orchestrator + modules contract + cursors)
+5. `IArtefactStore` + `FileSystemArtefactStore` (`file:///` URI)
+6. `IStateStore` / `PackageCheckpointStateStore` (`Checkpoints/` inside package)
+7. `IProgressSink` with `ConsoleProgressSink` + `PackageProgressSink`
+8. `ControlPlaneClient` (CLI always uses this to talk to the in-process or remote control plane)
+9. WorkItems module (REST)
+10. Identity module
+11. Legacy TFS export adapter
+12. Teams / Permissions / Builds modules
+13. TUI commands (`prepare`, `export`, `import`, `both`, `validate`, `pack`, `unpack`, `tui`, `status`, `logs`)
+14. ServiceDefaults project (shared observability for control plane + agents)
 
 ### Phase 2 — Cloud-ready
 
-13. `AzureBlobArtefactStore` (`azureblob://` URI) with Azurite local emulator support
-14. Control plane API (job submission, lease, status, logs)
-15. Migration Agent worker service (poll, execute, heartbeat, report)
-16. Aspire orchestration for local multi-service testing
+15. `AzureBlobArtefactStore` (`azureblob://` URI) with Azurite local emulator support
+16. Aspire AppHost for CI/CD integration testing
 17. `ControlPlaneProgressSink`
-18. TUI remote commands (`queue`, `status`, `logs`, `pause`, `resume`, `cancel`)
-19. `azd` deployment templates for Azure Container Apps
+18. `azd` deployment templates for Azure Container Apps
 
 ### Phase 3 — Operational hardening
 

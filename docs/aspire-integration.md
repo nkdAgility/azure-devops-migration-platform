@@ -2,21 +2,21 @@
 
 ## Purpose
 
-Microsoft Aspire provides cloud-ready orchestration for the Azure DevOps Migration Platform, enabling seamless transitions between local development and cloud deployment. The TUI always runs locally, but the control plane and migration agents can run either locally (orchestrated by Aspire) or in the cloud (Azure Container Apps).
+The AppHost and ServiceDefaults projects are developer and CI tooling. They start the control plane and agents together for integration testing and pipeline validation. The Aspire dashboard provides unified observability across all components during development.
+
+Operators do not run the AppHost. For local and server-based migrations, the CLI starts the control plane in-process and spawns agents as child processes directly. See [docs/cli.md](cli.md).
 
 ---
 
 ## Architecture Fit
 
-The migration platform's execution model aligns perfectly with Aspire's design:
-
-| Component | Always Local | Can Run Local | Can Run Cloud | Aspire Role |
+| Component | Always Local | Can Run in AppHost | Can Run Cloud | Aspire Role |
 |---|---|---|---|---|
-| **TUI** (`CLI.Migration`, net10.0) | ✓ | ✓ | ✗ | Standalone CLI (not orchestrated) |
-| **TFS Migration CLI** (`CLI.TfsMigration`, net481) | ✓ | ✓ | ✗ | Standalone CLI or subprocess of TUI (not orchestrated) |
-| **Control Plane API** | ✗ | ✓ | ✓ | Aspire container resource |
-| **Migration Agent(s)** | ✗ | ✓ | ✓ | Aspire container resource |
-| **Package Storage** | ✗ | ✓ (filesystem) | ✓ (Azure Blob) | Aspire-configured connection string |
+| **CLI** (`CLI.Migration`, net10.0) | ✓ | ✗ | ✗ | Standalone CLI (not orchestrated) — hosts control plane in-process for local/server execution |
+| **TFS Migration CLI** (`CLI.TfsMigration`, net481) | ✓ | ✗ | ✗ | Standalone CLI or subprocess of CLI (not orchestrated) |
+| **Control Plane API** | ✓ (in-process) | ✓ | ✓ | Aspire container resource (dev/CI) |
+| **Migration Agent(s)** | ✓ (child process) | ✓ | ✓ | Aspire container resource (dev/CI) |
+| **Package Storage** | ✓ (filesystem) | ✓ (filesystem or Azurite) | ✓ (Azure Blob) | Aspire-configured connection string |
 
 ---
 
@@ -58,35 +58,7 @@ src/
 
 ## AppHost Configuration
 
-The Aspire AppHost (`DevOpsMigrationPlatform.AppHost`) has two configurations depending on mode.
-
-### Standalone AppHost (no external dependencies)
-
-Standalone mode is fully self-contained. PostgreSQL ships as a bundled portable binary launched as a child process — no Docker, no installer. Package storage uses the local filesystem.
-
-```csharp
-var builder = DistributedApplication.CreateBuilder(args);
-
-// Portable PostgreSQL — bundled binary, spawned as a child process.
-// No Docker or external install required.
-var postgres = builder.AddPortablePostgres("postgres")
-    .AddDatabase("controlplane-db");
-
-// Control Plane API
-var controlPlane = builder.AddProject<Projects.DevOpsMigrationPlatform_ControlPlane>("controlplane")
-    .WithReference(postgres)
-    .WithEnvironment("PackageStore__Type", "filesystem")
-    .WithHttpEndpoint(port: 5100, name: "http");
-
-// Migration Agent
-builder.AddProject<Projects.DevOpsMigrationPlatform_MigrationAgent>("migration-agent")
-    .WithReference(controlPlane)
-    .WithEnvironment("PackageStore__Type", "filesystem");
-
-builder.Build().Run();
-```
-
-`AddPortablePostgres` is a custom Aspire resource that extracts and starts the bundled PostgreSQL binary from the application's own directory. It does not call Docker.
+The AppHost is used by developers and CI pipelines only. It is not the mechanism by which operators run migrations. For operator usage, the CLI hosts the control plane in-process.
 
 ### Development / CI AppHost
 
@@ -171,8 +143,8 @@ builder.Build().Run();
 **CD contract:** every pipeline stage — local, preview, production gate — runs **both** subprofiles. The pipeline fails if either subprofile fails. There is no "CI-only" configuration.
 
 **What each subprofile validates:**
-- `dev-portable` — validates the Standalone operator architecture: portable PostgreSQL binary, filesystem `IArtefactStore`, zero external dependencies
-- `dev-docker` — validates the Self-Hosted/Managed architecture: real PostgreSQL via Docker (same wire protocol as Azure PostgreSQL Flexible Server), Azure Blob SDK via Azurite (same `BlobContainerClient` code runs in production unmodified)
+- `dev-portable` — validates the local/server operator architecture: portable PostgreSQL binary, filesystem `IArtefactStore`, zero external dependencies
+- `dev-docker` — validates the cloud architecture: real PostgreSQL via Docker (same wire protocol as Azure PostgreSQL Flexible Server), Azure Blob SDK via Azurite (same `BlobContainerClient` code runs in production unmodified)
 
 ### Self-Hosted / Managed AppHost (Azure)
 
@@ -283,24 +255,23 @@ Both the Control Plane and Migration Agent call `builder.AddServiceDefaults()` i
 
 ---
 
-## TUI Integration
+## CLI Integration
 
 Neither `CLI.Migration` nor `CLI.TfsMigration` is orchestrated by Aspire. Both are always standalone CLIs.
 
-### CLI.Migration (net10.0) — Main TUI
+### CLI.Migration (net10.0) — Main CLI
 
-`CLI.Migration` is the primary user-facing CLI. It discovers the Control Plane via configuration and submits `MigrationJob` definitions to it:
+`CLI.Migration` is the primary user-facing CLI. It hosts the control plane in-process for local and server execution, or connects to a remote endpoint when `MIGRATION_API_URL` is configured:
 
 ```json
 {
   "ControlPlane": {
-    "BaseUrl": "http://localhost:5100",  // Aspire local endpoint
-    "Mode": "Local"                       // or "Cloud" for Azure deployment
+    "BaseUrl": "http://localhost:5100"  // auto-hosted in-process when no MIGRATION_API_URL set
   }
 }
 ```
 
-When a TFS source is configured, `CLI.Migration` also invokes `CLI.TfsMigration` as a subprocess via `ExternalToolRunner`, streaming its stdout in real time:
+When a TFS source is configured, `CLI.Migration` invokes `CLI.TfsMigration` as a subprocess via `ExternalToolRunner`, streaming its stdout in real time:
 
 ```csharp
 // In TfsExportCommand inside CLI.Migration
@@ -319,13 +290,9 @@ var exitCode = await ExternalToolRunner.RunWithStreamingAsync(
 **1. As a subprocess of CLI.Migration** (the normal path)
 
 ```powershell
-# Terminal 1: Start Aspire orchestration
-cd src/DevOpsMigrationPlatform.AppHost
-dotnet run
-
-# Terminal 2: Run the main TUI — it automatically spawns CLI.TfsMigration for TFS exports
+# Run the main CLI — it automatically starts the control plane in-process and spawns CLI.TfsMigration for TFS exports
 cd src/DevOpsMigrationPlatform.CLI.Migration
-dotnet run -- tfsexport --tfsserver http://tfs:8080/tfs --project MyProject
+dotnet run -- export --config migration.json
 ```
 
 **2. As a standalone CLI** (direct invocation, no main TUI required)
@@ -342,41 +309,34 @@ This is useful for:
 - Scripted or pipeline-driven exports without the interactive TUI
 - Debugging TFS connectivity issues independently of the migration stack
 
-The TUI submits jobs to `http://localhost:5100/jobs` (the Aspire-managed Control Plane) for the import and orchestration phases; the TFS export phase runs via `CLI.TfsMigration` (subprocess or standalone) and writes directly to the package on disk.
+The CLI submits jobs to the control plane (in-process at `http://localhost:5100` or remote) for the import and orchestration phases; the TFS export phase runs via `CLI.TfsMigration` (subprocess or standalone) and writes directly to the package on disk.
 
 ---
 
-## Operational Modes
+## Operational Topologies
 
-All three modes run the same stack. The difference is topology — where that stack runs.
+All topologies run the same stack. The difference is where the components are hosted.
 
-### Mode 1 — Standalone (full stack on a single local machine)
-
-```
-Single Machine
-├─ TUI (CLI)                    ← always local
-├─ Aspire AppHost               ← orchestrates all services on this machine
-│   ├─ Control Plane API        ← localhost
-│   ├─ Migration Agent(s)       ← localhost
-│   └─ PostgreSQL               ← portable binary, localhost (no Docker)
-└─ Package Storage              ← file:/// (no blob emulator needed)
-```
-
-The full stack runs on one machine with zero external dependencies. PostgreSQL ships as a bundled portable binary (`AddPortablePostgres`) and is launched as a child process by the AppHost — no Docker, no installer, no network required. Package storage uses the local filesystem. This is the closest experience to the original migration tool: run one command, migration executes locally.
-
-**Use when:** Single-operator migrations, air-gapped environments, or development and testing.
-
-**Benefits:**
-
-- Zero external dependencies — no Docker, no installer, no network
-- Identical stack and code paths to Self-Hosted and Managed
-- Full observability dashboard at `http://localhost:15888`
-
-### Mode 2 — Self-Hosted (same Azure stack as Managed, customer-operated)
+### Local / Dedicated Server
 
 ```
-Developer Machine
-└─ TUI (CLI)                    ← always local
+Operator Machine (or dedicated server)
+├─ CLI                            ← hosts control plane in-process
+│   ├─ Control Plane API          ← in-process, listening on localhost:5100
+│   └─ Migration Agent(s)         ← child processes
+└─ Package Storage               ← file:/// (local filesystem)
+└─ PostgreSQL                    ← portable binary, started by CLI (no Docker)
+```
+
+The CLI starts the control plane in-process and spawns agents as child processes. PostgreSQL ships as a bundled portable binary launched by the CLI — no Docker, no installer required. Any machine with network access to the host (e.g. port 5100) can connect a TUI and monitor the migration.
+
+**Use when:** Single-operator migrations, dedicated migration servers, air-gapped environments, or development and testing.
+
+### Cloud — Self-Hosted (customer Azure subscription)
+
+```
+Operator Machine
+└─ CLI                            ← always local
       ↓ HTTPS
 Customer Azure Subscription
 ├─ Control Plane (Container App)
@@ -385,50 +345,34 @@ Customer Azure Subscription
 └─ Azure Blob Storage
 ```
 
-The customer runs `azd up` in their own Azure subscription and operates the resulting infrastructure. The stack — Container Apps, PostgreSQL Flexible Server, and Azure Blob Storage — is identical to Managed mode. The only difference is who provisions it and who pays the Azure bill. The TUI is always run locally by the operator. Multiple teams and migration runs are coordinated from a single control plane.
+The customer runs `azd up` in their own Azure subscription. Multiple operators and agents share one control plane.
 
-**Use when:** Organisations want control over their own Azure infrastructure, require data residency within their own Azure tenant, or prefer to operate the platform themselves.
+**Use when:** Organisations want data residency within their own Azure tenant or prefer to operate the platform themselves.
 
-**Benefits:**
-
-- Full control — data stays within the organisation's Azure tenant
-- Multiple migration runs from one control plane
-- Identical code paths and infrastructure to Managed mode
-- No NKD Agility dependency after initial setup
-
-### Mode 3 — Managed (Azure Container Apps, hosted service)
+### Cloud — Managed (NKD Agility Azure subscription)
 
 ```
-Developer Machine
-└─ TUI (CLI)                    ← always local
+Operator Machine
+└─ CLI                            ← always local
       ↓ HTTPS
-Azure Subscription
+Azure Subscription (NKD Agility)
 ├─ Control Plane (Container App)
 ├─ Migration Agent(s) (Container Apps)
 ├─ PostgreSQL Flexible Server
 └─ Azure Blob Storage
 ```
 
-NKD Agility provisions and operates the Azure stack on behalf of the customer. The Aspire AppHost declaration is identical to Self-Hosted — `azd up` provisions the same Azure resources. Organisations use this without operating any infrastructure themselves.
+NKD Agility provisions and operates the Azure stack on behalf of the customer. The infrastructure is identical to Self-Hosted.
 
-**Use when:** A managed service is preferred, infrastructure operation is not desired, or elastic scaling across many concurrent migrations is required.
+**Use when:** A managed service is preferred or elastic scaling across many concurrent migrations is required.
 
-**Benefits:**
+### PostgreSQL Across Topologies
 
-- No infrastructure to operate
-- Elastic scaling (Container Apps scale-out)
-- Network isolation (export/import agents in separate zones)
-- Multi-tenant capable with persistent job history
-
-### Summary: Where is PostgreSQL?
-
-| Mode | PostgreSQL present? | Who runs it? |
+| Topology | PostgreSQL present? | Who runs it? |
 |---|---|---|
-| Standalone | **Yes** | Portable binary (bundled, no Docker) |
-| Self-Hosted | **Yes** | Azure PostgreSQL Flexible Server (customer subscription) |
-| Managed | **Yes** | Azure PostgreSQL Flexible Server (NKD Agility subscription) |
-
-The `Checkpoints/idmap.db` file (work item ID mapping, inside the package; ID state is backed by **PostgreSQL Portable** in Standalone mode or **PostgreSQL** in Self-Hosted/Managed modes) is present in all three modes. It is not the control plane's primary database.
+| Local / Dedicated Server | **Yes** | Portable binary (bundled, no Docker), started by CLI |
+| Cloud Self-Hosted | **Yes** | Azure PostgreSQL Flexible Server (customer subscription) |
+| Cloud Managed | **Yes** | Azure PostgreSQL Flexible Server (NKD Agility subscription) |
 
 ---
 
@@ -446,11 +390,11 @@ builder.Services.AddHttpClient<IControlPlaneClient, ControlPlaneClient>(client =
 });
 ```
 
-### In TUI (Cloud Mode)
+### In CLI (Cloud Mode)
 
 ```csharp
-// TUI explicitly configures cloud endpoint
-var controlPlaneUrl = configuration["ControlPlane:BaseUrl"];  // https://controlplane.azurecontainerapps.io
+// CLI connects to remote endpoint when MIGRATION_API_URL is set
+var controlPlaneUrl = configuration["MIGRATION_API_URL"];  // https://controlplane.azurecontainerapps.io
 services.AddHttpClient<IControlPlaneClient, ControlPlaneClient>(client =>
 {
     client.BaseAddress = new Uri(controlPlaneUrl);

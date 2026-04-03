@@ -29,7 +29,6 @@ The TUI forwards the same credential as all other CLI commands.
 |---|---|
 | Entra ID (cloud or Entra-joined) | Bearer token acquired by `devopsmigration login`. Token is refreshed automatically. |
 | On-premises Active Directory | Windows Integrated Auth (Negotiate). No explicit login step. |
-| Local mode | No auth. No control plane. |
 
 The TUI never prompts for credentials itself. Run `devopsmigration login` if the token is missing or expired before launching the TUI.
 
@@ -116,5 +115,3 @@ Progress data comes from the control plane's latest cursor mirror. The authorita
 The TUI has no persistent connection to the job. It only reads from the control plane on demand. When the TUI process exits or loses connectivity, the job continues running unaffected — the Migration Agent holds the lease independently.
 
 Reconnecting is always safe and requires only the `jobId`. See [docs/cli.md](cli.md) for the `status` and `logs` commands.
-
-In local mode the Job Engine runs in the same process as the CLI. If the process exits, the Job Engine stops. The cursor in the package ensures the Job Engine picks up from the last completed stage when the command is re-run.

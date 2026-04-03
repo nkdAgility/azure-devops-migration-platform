@@ -2,7 +2,7 @@
 
 ## Job Engine
 
-The **Job Engine** is the shared execution core used by both `LocalJobRunner` (TUI in-process) and Migration Agents (cloud). It receives a `MigrationJob`, resolves the execution plan, and runs modules in dependency order. It has no knowledge of the TUI, the console, or any progress renderer.
+The **Job Engine** is the shared execution core used by Migration Agents in all hosting topologies. It receives a `MigrationJob`, resolves the execution plan, and runs modules in dependency order. It has no knowledge of the TUI, the console, or any progress renderer.
 
 See [docs/cli.md](cli.md) for how the CLI routes a job to the Job Engine. See [.agents/context/job-contract.md](../.agents/context/job-contract.md) for the `MigrationJob` schema.
 
@@ -66,23 +66,21 @@ Validate job → Build graph → ExportAsync → Validate package → ImportAsyn
 
 The orchestrator runs in the same way regardless of execution context. The context determines where the package lives and how progress is reported, not how modules execute.
 
-### Local (In-Process)
+### In-Process Hosted (Local / Server)
 
-- `LocalJobRunner` calls the Job Engine directly.
+- The CLI hosts the control plane in-process and spawns Migration Agents as child processes on the same machine.
 - `IArtefactStore` is backed by the local filesystem (`FileSystemArtefactStore`).
 - Progress is consumed by `ConsoleProgressSink` and `PackageProgressSink`.
-- No control plane involvement.
+- Any machine with network access to the host can attach a TUI via the control plane HTTP endpoint.
 
-See [docs/cli.md](cli.md) for local command details.
+See [docs/cli.md](cli.md) for local and server command details.
 
-### Agent (Remote)
+### Agent (Cloud)
 
-- A Migration Agent calls the Job Engine after receiving a leased `MigrationJob` from the control plane.
+- A Migration Agent calls the Job Engine after receiving a leased `MigrationJob` from the remote control plane.
 - `IArtefactStore` is backed by the shared artefact store (`AzureBlobArtefactStore` or equivalent).
 - Progress is consumed by `ControlPlaneProgressSink`, which pushes events to the control plane.
 - The control plane's progress view mirrors the cursor; the cursor in the package remains authoritative for resume.
-
-See [docs/migration-agent.md](migration-agent.md) and [docs/control-plane.md](control-plane.md) for details.
 
 ### What Does Not Change Between Contexts
 
