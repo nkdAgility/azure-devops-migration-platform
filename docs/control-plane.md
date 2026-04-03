@@ -40,7 +40,8 @@ The control plane does **not** run the Job Engine, call source or target APIs, o
 | `POST` | `/jobs/{jobId}/cancel` | Cancel a running or queued job. Only the submitter or an admin may cancel. |
 | `POST` | `/jobs/{jobId}/pause` | Pause a running job. Only the submitter or an admin may pause. |
 | `POST` | `/jobs/{jobId}/resume` | Resume a paused job. Only the submitter or an admin may resume. |
-| `GET` | `/jobs/{jobId}/logs` | Tail or fetch logs uploaded by the Migration Agent. |
+| `GET` | `/jobs/{jobId}/logs` | Return buffered `ProgressEvent` records as a JSON array (snapshot). Requires same auth as `GET /jobs/{jobId}`. |
+| `GET` | `/jobs/{jobId}/logs?follow=true` | **SSE stream**: push `ProgressEvent` records in real time as they arrive; heartbeat comment every 15 s. Sends `event: job-ended` when the job reaches a terminal state. Requires same auth as `GET /jobs/{jobId}`. |
 
 ### Migration Agent Protocol
 
@@ -48,7 +49,7 @@ The control plane does **not** run the Job Engine, call source or target APIs, o
 |---|---|---|
 | `GET` | `/agents/lease` | Migration Agent polls for available work. Returns a leased job if one is available. |
 | `POST` | `/agents/lease/{leaseId}/heartbeat` | Migration Agent signals it is alive. Lease expiry is extended on each heartbeat. |
-| `POST` | `/agents/lease/{leaseId}/progress` | Migration Agent reports cursor position and stage for a module. |
+| `POST` | `/agents/lease/{leaseId}/progress` | Migration Agent reports a `ProgressEvent` (module, stage, lastProcessed, counts, timestamp). Stored in the job's in-memory ring buffer and broadcast to active SSE subscribers. |
 | `POST` | `/agents/lease/{leaseId}/complete` | Migration Agent signals successful job completion. |
 | `POST` | `/agents/lease/{leaseId}/fail` | Migration Agent signals non-recoverable failure with error detail. |
 | `POST` | `/agents/lease/{leaseId}/release` | Migration Agent releases lease without completing (e.g. on pause). |
@@ -91,18 +92,28 @@ Queued → Leased → Running → Completed
 
 ## Progress Reporting
 
-Migration Agents push module progress after each cursor write:
+Migration Agents push a `ProgressEvent` after each stage:
 
 ```json
 {
   "module": "WorkItems",
-  "lastProcessed": "WorkItems/2026-02-25/638760123456789012-12345-17",
   "stage": "AppliedFields",
-  "updatedAt": "2026-02-25T18:12:34Z"
+  "lastProcessed": "WorkItems/2026-02-25/638760123456789012-12345-17",
+  "totalWorkItems": 1500,
+  "workItemsProcessed": 312,
+  "revisionsProcessed": 874,
+  "workItemId": 12345,
+  "timestamp": "2026-02-25T18:12:34Z"
 }
 ```
 
-This mirrors the cursor schema ([.agents/context/checkpointing.md](../.agents/context/checkpointing.md)). The control plane stores the latest value per module for status display. The cursor in the package remains the authoritative resume state.
+The control plane stores each event in a bounded per-job **ring buffer** (`BoundedChannelFullMode.DropOldest`, default capacity: 1000 events). The ring buffer:
+
+- Powers `GET /jobs/{jobId}/logs` (snapshot of current buffer contents)
+- Powers `GET /jobs/{jobId}/logs?follow=true` (SSE broadcast from the buffer to all active subscribers)
+- Is in-memory only — it is cleared when the control plane restarts, but the package's `Logs/progress.jsonl` is the durable record
+
+The ring buffer always reflects the most recent activity. For very long jobs, oldest events are evicted to stay within capacity. The cursor in the package remains the authoritative resume state.
 
 ---
 

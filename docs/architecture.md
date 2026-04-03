@@ -111,7 +111,13 @@ The package format is identical in all cases. See [docs/packaging-zip.md](packag
 
 ### Progress is Event-Driven
 
-The Migration Agent emits structured `ProgressEvent` records through `IProgressSink`. The TUI subscribes by polling the control plane's progress endpoint. The package log (`Logs/progress.jsonl`) is always written regardless of whether the TUI is open.
+The Migration Agent emits structured `ProgressEvent` records through `IProgressSink`. Three sinks run simultaneously:
+
+- `ConsoleProgressSink` — writes NDJSON to the CLI terminal (local run output)
+- `PackageProgressSink` — appends to `Logs/progress.jsonl` in the package (always written; durable)
+- `ControlPlaneProgressSink` — POSTs each event to the control plane ring buffer for live TUI streaming
+
+The TUI subscribes to `GET /jobs/{jobId}/logs?follow=true` (Server-Sent Events) for live progress, and polls `GET /jobs/{jobId}/telemetry` for metric counters. Both are independent. The package log is always written regardless of whether the TUI or CLI is connected.
 
 The job engine has no knowledge of where progress is rendered.
 
@@ -170,8 +176,11 @@ Key properties:
 
 15. `AzureBlobArtefactStore` (`azureblob://` URI) with Azurite local emulator support
 16. Aspire AppHost for CI/CD integration testing
-17. `ControlPlaneProgressSink`
-18. `azd` deployment templates for Azure Container Apps
+17. `ControlPlaneProgressSink` (Agent → Control Plane progress event streaming)
+18. `JobProgressStore` ring buffer + `GET /jobs/{jobId}/logs` + `GET /jobs/{jobId}/logs?follow=true` SSE endpoint
+19. `migrate logs --follow` CLI command (SSE drain to stdout, NDJSON format)
+20. CLI-level OpenTelemetry (`ActivitySource` in `Program.cs`, Azure Monitor exporter)
+21. `azd` deployment templates for Azure Container Apps
 
 ### Phase 3 — Operational hardening
 

@@ -21,8 +21,8 @@ The package contract, modules, and cursors are unchanged across all deployment t
 | Run orchestrator | Execute `ExportAsync`, `ImportAsync`, or both in sequence, exactly as in local mode. |
 | Write cursors | Write checkpoint cursors into the package's `Checkpoints/` folder after each stage, as always. |
 | Heartbeat | Signal liveness to the control plane at regular intervals. |
-| Report progress | Push cursor positions to the control plane for status display after each cursor write. |
-| Upload logs | Write logs to `Logs/` in the package. Optionally push log lines to the control plane in real time. |
+| Report progress | Emit `ProgressEvent` via `IProgressSink` after each stage. Three sinks run simultaneously: `ConsoleProgressSink` (terminal), `PackageProgressSink` (`Logs/progress.jsonl`), and `ControlPlaneProgressSink` (POST to control plane ring buffer for live TUI streaming). |
+| Write package logs | Write structured logs to `Logs/` in the package via `IArtefactStore`. |
 | Signal completion or failure | Call the control plane's complete or fail endpoint when the job finishes. |
 
 The Agent does **not** accept job submissions, manage other Agents, or store job state. All job coordination is `ControlPlaneHost`'s responsibility.
@@ -38,12 +38,16 @@ Poll /agents/lease
        ├─ Connect to artefact store (packageUri)
        ├─ Load cursor → determine resume position
        ├─ Start heartbeat loop (background)
+       ├─ Register IProgressSink composite:
+       │    ├─ ConsoleProgressSink     (NDJSON to terminal)
+       │    ├─ PackageProgressSink     (Logs/progress.jsonl in package)
+       │    └─ ControlPlaneProgressSink (POST /agents/lease/{id}/progress)
        └─ Run Job Engine
             ├─ ExportAsync (if mode = Export or Both)
-            │    └─ After each cursor write → POST /agents/lease/{id}/progress
+            │    └─ After each cursor write → Emit(ProgressEvent) via all sinks
             ├─ Validate package (if mode = Both)
             └─ ImportAsync (if mode = Import or Both)
-                 └─ After each cursor write → POST /agents/lease/{id}/progress
+                 └─ After each cursor write → Emit(ProgressEvent) via all sinks
   ├─ Success → POST /agents/lease/{id}/complete
   └─ Failure → POST /agents/lease/{id}/fail  (cursor preserved for resume)
 ```

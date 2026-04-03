@@ -77,7 +77,7 @@ The Job Engine has no reference to the CLI, the console, or any progress rendere
 | `unpack` | Extract a zip file into `PackageRoot/`. |
 | `tui` | Open the interactive Terminal UI showing jobs visible to the current user. |
 | `status` | Display job state and per-module progress from the control plane. |
-| `logs` | Tail or page job logs from the control plane. |
+| `logs` | Fetch or stream `ProgressEvent` records from the job ring buffer. Without `--follow`: prints buffered events as NDJSON and exits. With `--follow`: opens the SSE stream and prints arriving events as NDJSON until the job ends or Ctrl+C. |
 | `pause` | Signal the running Migration Agent to checkpoint and pause. |
 | `resume` | Resume a paused job (re-queues it for Migration Agent pickup). |
 | `cancel` | Cancel a queued or running job. |
@@ -91,6 +91,18 @@ migrate pack     --package file:///D:/exports/run-001 --out run-001.zip
 migrate tui      [--url <control-plane-url>] [--job <jobId>]
 migrate status   --job 550e8400-e29b-41d4-a716-446655440000
 migrate logs     --job 550e8400-e29b-41d4-a716-446655440000 --follow
+```
+
+---
+
+## CLI Observability
+
+The CLI process instruments itself with OpenTelemetry. Each command that performs a job-level operation starts a child `Activity` span. Traces, metrics, and logs are exported to:
+
+- **Azure Monitor** — when a connection string is configured (product telemetry or operator-supplied)
+- **OTLP endpoint** — when `OTEL_EXPORTER_OTLP_ENDPOINT` is set (Aspire dashboard, local dev)
+
+The `TracerProvider` and `MeterProvider` are flushed and disposed before process exit to ensure all pending telemetry is delivered. No telemetry is emitted if no exporter is configured — the command runs normally.
 migrate pause    --job 550e8400-e29b-41d4-a716-446655440000
 migrate resume   --job 550e8400-e29b-41d4-a716-446655440000
 migrate cancel   --job 550e8400-e29b-41d4-a716-446655440000
