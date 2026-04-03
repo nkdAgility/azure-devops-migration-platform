@@ -128,8 +128,8 @@ An operator opens the TUI with `migrate tui --job <jobId>`. The TUI progress pan
 
 - **FR-001**: The CLI `Program.cs` MUST create a named `ActivitySource` for the process and register it with the OTel SDK so command spans are children of the process span.
 - **FR-002**: OTel SDK (traces, metrics, logs) MUST be registered in the CLI `ServiceCollection` in `Program.cs` alongside existing service registrations.
-- **FR-003**: The Azure Monitor exporter MUST be registered when a connection string is available (from `appsettings.json`, environment variable, or a hardcoded product telemetry key) and silently omitted when not present.
-- **FR-004**: Each CLI command that executes a job-level operation MUST start a child `Activity` span so per-command duration and outcome are traceable.
+- **FR-003**: The Azure Monitor exporter MUST be registered when `TelemetryOptions.AzureMonitorConnectionString` is non-null and non-empty (resolved from `appsettings.json`, environment variable, or a hardcoded product telemetry key) and silently omitted when not present.
+- **FR-004**: Each CLI command that executes a job-level operation MUST start a child `Activity` span so per-command duration and outcome are traceable. In this session, `TfsExportCommand` and `InventoryCommand` are in scope; the same pattern MUST be applied to any future `AsyncCommand` that submits a job-level operation.
 - **FR-005**: The OTel `TracerProvider` and `MeterProvider` MUST be flushed and disposed before the CLI process exits to ensure all pending telemetry is delivered.
 
 **ControlPlaneProgressSink**
@@ -146,7 +146,7 @@ An operator opens the TUI with `migrate tui --job <jobId>`. The TUI progress pan
 `) every 15 seconds to maintain idle connections.
 - **FR-012**: `POST /agents/lease/{leaseId}/progress` MUST store the received `ProgressEvent` in the job's ring buffer and broadcast it to all active SSE subscribers for that job. Individual events are POSTed one at a time; no batching is required in v1.
 - **FR-013**: When a job transitions to a terminal state (`Completed`, `Failed`, `Cancelled`), the SSE stream MUST send a final `event: job-ended\ndata: {}\n\n` message and close the response.
-- **FR-014a**: `GET /jobs/{jobId}/logs` and `GET /jobs/{jobId}/logs?follow=true` MUST return 403 when the caller lacks visibility of the job, consistent with all other job-scoped endpoints.
+- **FR-014**: `GET /jobs/{jobId}/logs` and `GET /jobs/{jobId}/logs?follow=true` MUST return 403 when the caller lacks visibility of the job, consistent with all other job-scoped endpoints.
 
 **`migrate logs` Command**
 
@@ -166,6 +166,8 @@ An operator opens the TUI with `migrate tui --job <jobId>`. The TUI progress pan
 - **`JobProgressStore`**: New Control Plane service. Holds a `ConcurrentDictionary<Guid, JobProgressEntry>` — one entry per active job, each containing a `ConcurrentQueue<ProgressEvent>` snapshot buffer and a `List<ChannelWriter<ProgressEvent>>` for SSE fan-out. Analogous to the existing `JobTelemetryStore`.
 - **`ProgressController`**: New or updated Control Plane controller exposing `POST /agents/lease/{leaseId}/progress`, `GET /jobs/{jobId}/logs`, and `GET /jobs/{jobId}/logs?follow=true`.
 - **`CompositeProgressSink`**: `IProgressSink` implementation in `DevOpsMigrationPlatform.Infrastructure` that fans out every `ProgressEvent` to an ordered list of child sinks (`AnsiProgressSink`, `PackageProgressSink`, `ControlPlaneProgressSink`). A failing child sink is caught and logged at debug level; remaining sinks always execute.
+- **`AnsiProgressSink`** / **`PackageProgressSink`**: Pre-existing `IProgressSink` implementations in `DevOpsMigrationPlatform.Infrastructure`. No changes to these types are required by this feature; they are listed here for traceability as the sibling sinks in `CompositeProgressSink`.
+- **`TelemetryOptions`**: Pre-existing options class in `DevOpsMigrationPlatform.CLI.Migration` bound under `"Telemetry"` in `appsettings.json`. Provides `AzureMonitorConnectionString` used by FR-003.
 - **`ProgressEvent`**: Canonical schema defined in [`docs/tui.md`](../../docs/tui.md) (ProgressEvent schema section). All references to "compact JSON ProgressEvent" in this spec refer to that schema.
 - **CLI `ActivitySource`**: Named `ActivitySource` registered in `Program.cs`. Pattern mirrors `ActivitySourceProvider` in the reference implementation.
 

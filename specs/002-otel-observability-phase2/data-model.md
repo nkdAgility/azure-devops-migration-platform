@@ -95,20 +95,24 @@ Implements `IProgressSink` + `BackgroundService`. Registered once as a singleton
 
 ### `CompositeProgressSink` — `DevOpsMigrationPlatform.Infrastructure/Telemetry/CompositeProgressSink.cs`
 
-Broadcasts a single `ProgressEvent` to a list of inner `IProgressSink` instances. Registered in `MigrationAgent` so all three sinks — `AnsiProgressSink` (or `ConsoleProgressSink`), `PackageProgressSink`, and `ControlPlaneProgressSink` — receive every event without coupling `MigrationAgentWorker` to the multi-sink concern.
+Broadcasts a single `ProgressEvent` to a list of inner `IProgressSink` instances. Registered in `MigrationAgent` so all three sinks — `AnsiProgressSink`, `PackageProgressSink`, and `ControlPlaneProgressSink` — receive every event without coupling `MigrationAgentWorker` to the multi-sink concern.
 
 | Field | Type | Description |
 |---|---|---|
-| `_sinks` | `IReadOnlyList<IProgressSink>` | Ordered list of inner sinks; injected via constructor |
+| `_sinks` | `IReadOnlyList<IProgressSink>` | Ordered list of inner sinks; stored from `params IProgressSink[] sinks` constructor argument |
+| `_logger` | `ILogger<CompositeProgressSink>` | Used to log debug-level exceptions from individual sinks |
 
-**`Emit(ProgressEvent evt)`**: Iterates `_sinks` and calls `sink.Emit(evt)` on each. Any exception from an individual sink is caught, logged at debug, and execution continues — one failing sink must not suppress the others.
+**Constructor**: `(ILogger<CompositeProgressSink> logger, params IProgressSink[] sinks)` — stores `_logger` and `_sinks = sinks.ToList()`.
+
+**`Emit(ProgressEvent evt)`**: Iterates `_sinks` and calls `sink.Emit(evt)` on each. Any exception is caught, logged via `_logger.LogDebug(ex, "Sink {Sink} threw during Emit", sink.GetType().Name)`, and execution continues — one failing sink must not suppress the others.
 
 **Registration** (in `MigrationAgent/Program.cs`):
 ```csharp
 builder.Services.AddSingleton<ControlPlaneProgressSink>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<ControlPlaneProgressSink>());
 builder.Services.AddSingleton<IProgressSink>(sp => new CompositeProgressSink(
-    new AnsiProgressSink(),          // or ConsoleProgressSink when extracted
+    sp.GetRequiredService<ILogger<CompositeProgressSink>>(),
+    new AnsiProgressSink(),
     new PackageProgressSink(...),
     sp.GetRequiredService<ControlPlaneProgressSink>()
 ));

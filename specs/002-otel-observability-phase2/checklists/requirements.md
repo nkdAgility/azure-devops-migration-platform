@@ -33,7 +33,7 @@
 
 - FR-001 through FR-005 cover CLI observability (User Story 1, P1)
 - FR-006 through FR-008 cover ControlPlaneProgressSink (User Story 2, P1)
-- FR-009 through FR-014a cover ring buffer and SSE endpoint with auth (User Story 3 dependency)
+- FR-009 through FR-014 cover ring buffer and SSE endpoint with auth (User Story 3 dependency)
 - FR-015 through FR-017 cover `migrate logs` command (User Story 3, P2) — output format clarified as NDJSON
 - FR-018 through FR-020 cover TUI live view (User Story 4, P3)
 - FR-003 explicitly permits hardcoded connection string (matching reference implementation)
