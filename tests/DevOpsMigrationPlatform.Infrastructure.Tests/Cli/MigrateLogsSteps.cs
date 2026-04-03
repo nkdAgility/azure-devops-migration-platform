@@ -103,7 +103,10 @@ internal sealed class MigrateLogsSteps
         {
             var command = _ctx.BuildCommand();
             var settings = new LogsCommand.Settings { JobId = _jobId, Follow = follow };
-            var cmdCtx = new CommandContext(Array.Empty<string>(), null!, "logs", null);
+            var remaining = new Mock<IRemainingArguments>();
+            remaining.Setup(r => r.Raw).Returns(Array.Empty<string>());
+            remaining.Setup(r => r.Parsed).Returns(Enumerable.Empty<string>().ToLookup(x => x));
+            var cmdCtx = new CommandContext(Array.Empty<string>(), remaining.Object, "logs", null);
             _ctx.ExitCode = await command.ExecuteAsync(cmdCtx, settings);
         }
         finally
@@ -148,9 +151,9 @@ internal sealed class MigrateLogsSteps
     [Then("the job on the Control Plane is not stopped")]
     public void ThenJobIsNotStopped()
     {
-        // SC-005: Verify that no DELETE/CANCEL request was made to modify the job.
-        // In this test, ClientMock only tracks GetLogs/FollowLogs calls.
-        // Absence of any other call on MockBehavior.Strict confirms no stop was issued.
+        // Verify the expected FollowLogsAsync call happened (SC-005 — job is unaffected by Ctrl+C).
+        _ctx.ClientMock.Verify(c => c.FollowLogsAsync(_jobId, It.IsAny<CancellationToken>()), Times.Once);
+        // No other calls (no cancel/stop endpoint hit).
         _ctx.ClientMock.VerifyNoOtherCalls();
     }
 }

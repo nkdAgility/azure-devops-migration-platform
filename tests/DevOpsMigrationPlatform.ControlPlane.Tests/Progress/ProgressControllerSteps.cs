@@ -55,7 +55,11 @@ internal sealed class ProgressControllerSteps
     public async Task WhenISendGetLogs(string jobIdString)
     {
         _activeJobId = Guid.TryParse(jobIdString, out var parsed) ? parsed : _activeJobId;
-        _ctx.SetAuthenticatedUser();
+        // Only set authenticated context if no HttpContext has been configured yet
+        // (i.e. a Given step hasn't already set an unauthenticated context for a 403 test).
+        if (_ctx.Controller.ControllerContext?.HttpContext is null)
+            _ctx.SetAuthenticatedUser();
+        _result = null; // clear any prior IActionResult so ThenTheResponseStatusIs reads HttpContext
         await _ctx.Controller.GetLogs(_activeJobId, follow: false, CancellationToken.None);
     }
 
