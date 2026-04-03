@@ -8,10 +8,11 @@
 
 ### MUST Have
 
-- `DevOpsMigrationPlatform.AppHost` — Aspire orchestrator project (developer/CI tooling only)
+- `DevOpsMigrationPlatform.AppHost` — Aspire orchestrator project
 - `DevOpsMigrationPlatform.ServiceDefaults` — Shared observability/resilience extensions
-- `DevOpsMigrationPlatform.ControlPlane` — ASP.NET Core Web API
-- `DevOpsMigrationPlatform.MigrationAgent` — Worker Service
+- `DevOpsMigrationPlatform.ControlPlane` — Service library: HTTP API controllers, job state machine, lease protocol, EF Core data model; no entry point
+- `DevOpsMigrationPlatform.ControlPlaneHost` — Deployable ASP.NET Core host: references `ControlPlane` library, manages Migration Agent lifecycle in all topologies, is the Aspire resource target
+- `DevOpsMigrationPlatform.MigrationAgent` — Worker Service: executes jobs under lease, polls `ControlPlaneHost`
 - `DevOpsMigrationPlatform.CLI.Migration` (net10.0) — Main CLI; drives Aspire for local and server execution; spawns `CLI.TfsMigration` as subprocess for TFS sources; connects to remote endpoint for cloud
 - `DevOpsMigrationPlatform.CLI.TfsMigration` (net481) — TFS exporter CLI; callable as subprocess OR independently
 
@@ -20,7 +21,7 @@
 - `CLI.Migration` or `CLI.TfsMigration` added to AppHost resources — both are always standalone
 - Multiple AppHost projects — only one orchestrator per solution
 - Custom health check or metrics endpoints bypassing ServiceDefaults
-- Hardcoded URLs in Migration Agent or Control Plane code (use service discovery)
+- Hardcoded URLs in `Agent` or `ControlPlaneHost` code (use service discovery)
 - A direct assembly or project reference from `CLI.Migration` (net10.0) to `CLI.TfsMigration` (net481) — subprocess via `ExternalToolRunner` only
 - Custom process management for starting the control plane or agents — use Aspire exclusively
 
@@ -72,9 +73,9 @@ services.AddHttpClient<IControlPlaneClient, ControlPlaneClient>(client =>
 
 The CLI does not use Aspire service discovery directly because the CLI itself is not an Aspire resource. The CLI drives Aspire to start services, and those services use Aspire service discovery among themselves.
 
-### Migration Agent → Control Plane (AppHost only)
+### Agent → ControlPlaneHost (AppHost only)
 
-When running under Aspire (dev/CI), Aspire service discovery resolves the endpoint:
+When running under Aspire (all local/server topologies), Aspire service discovery resolves the endpoint:
 
 **MUST:**
 ```csharp
@@ -110,14 +111,14 @@ var storage = builder.AddAzureStorage("storage")
     .RunAsEmulator()
     .AddBlobs("packages");
 
-// Control Plane API
-var controlPlane = builder.AddProject<Projects.DevOpsMigrationPlatform_ControlPlane>("controlplane")
+// ControlPlaneHost
+var controlPlane = builder.AddProject<Projects.DevOpsMigrationPlatform_ControlPlaneHost>("controlplane")
     .WithReference(postgres)
     .WithReference(storage)
     .WithHttpEndpoint(port: 5100, name: "http")
     .WithExternalHttpEndpoints();
 
-// Migration Agent(s)
+// Agent(s)
 builder.AddProject<Projects.DevOpsMigrationPlatform_MigrationAgent>("migration-agent")
     .WithReference(controlPlane)
     .WithReference(storage)
@@ -371,7 +372,7 @@ Before accepting a change, verify:
 - [ ] `CLI.Migration` has no direct project reference to `CLI.TfsMigration` — subprocess via `ExternalToolRunner` only.
 - [ ] `CLI.TfsMigration` can be invoked standalone (no dependency on `CLI.Migration` being present).
 - [ ] `CLI.TfsMigration` exe path is read from configuration, not hardcoded in production.
-- [ ] Migration Agent uses service discovery for Control Plane communication (when running under AppHost).
+- [ ] Agent uses service discovery for `ControlPlaneHost` communication (when running under AppHost).
 - [ ] CLI reads `MIGRATION_API_URL` to determine whether to drive Aspire locally or connect remotely.
 - [ ] OpenTelemetry is configured via ServiceDefaults only.
 - [ ] No hardcoded URLs in agent or Control Plane code.

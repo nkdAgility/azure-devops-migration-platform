@@ -48,8 +48,8 @@ Spectre.Console is the only permitted CLI library in command-layer code. Do not 
                  │  Lease
                  │
 ┌────────────────▼────────────────────────┐
-│  Migration Agent (Aspire-managed        │
-│  process or container)                  │
+│  Agent (Aspire-managed process or       │
+│  container)                              │
 │  - Runs Job Engine                      │
 │  - Validates job                        │
 │  - Resolves module dependency graph     │
@@ -165,7 +165,7 @@ The local config file is never sent directly anywhere. The `MigrationJob` is the
 When no remote control plane endpoint is configured, the CLI drives Aspire programmatically — building a `DistributedApplication` with the same resources defined in the AppHost. PostgreSQL starts as an Aspire portable binary resource (no Docker, no installer required).
 
 - Control plane starts on `http://localhost:5100` as an Aspire-managed process.
-- Agents run as Aspire-managed processes, using Aspire service discovery to locate the control plane.
+- Agents run as Aspire-managed processes, using Aspire service discovery to locate `ControlPlaneHost`.
 - `IArtefactStore` is `FileSystemArtefactStore`.
 - `IStateStore` is `PackageCheckpointStateStore` (writes `Checkpoints/` inside the package).
 - Any machine with network access to the host can attach a TUI and monitor the migration.
@@ -174,7 +174,7 @@ When no remote control plane endpoint is configured, the CLI drives Aspire progr
 
 When `MIGRATION_API_URL` is set, the CLI connects to the specified control plane endpoint.
 
-- The control plane and agents run as containers in the cloud.
+- The control plane and agents run as containers managed by `ControlPlaneHost` in the cloud.
 - `IArtefactStore` is `AzureBlobArtefactStore`.
 - The CLI process can exit after submission; the job continues running on the remote agents.
 

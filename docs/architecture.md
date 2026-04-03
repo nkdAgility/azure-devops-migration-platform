@@ -36,10 +36,11 @@ The platform separates **job coordination** (control plane) from **job execution
 |---|---|
 | **CLI** | Operator interface. Drives Aspire to start the control plane and agents for local and server execution, or connects to a remote control plane endpoint. Submits jobs, queries status, and manages job lifecycle. Contains no migration execution logic. |
 | **TUI** | Connects to any control plane endpoint — on the same machine, a dedicated server, or in the cloud — and renders live job state. Never submits jobs. |
-| **Control Plane** | Always an HTTP service. Aspire-managed resource for local and server execution, or as a standalone container in the cloud. Accepts `MigrationJob` from the CLI, deduplicates, assigns to available agents. |
-| **Migration Agent** | Executes the job engine. Polls the control plane for assigned jobs, runs modules, writes to the package, reports progress back. |
-| **TFS Export Agent** | A .NET 4.8 standalone exporter (`CLI.TfsMigration`) spawned by the Migration Agent when the source is TFS. Contains a `TfsExportAgent` class that is the structural parallel of `MigrationAgent`: receives a job definition, connects to TFS via the TFS Object Model, writes to the package via `IArtefactStore` (`FileSystemArtefactStore`), maintains checkpoints via `IStateStore`, and reports progress via `IProgressSink` (`StdoutProgressSink` → NDJSON on stdout). Uses the same interfaces as the .NET 10 agent via multi-targeted `Abstractions`. |
-| **TFS Import Agent** *(not yet implemented)* | The structural mirror of the TFS Export Agent. A .NET 4.8 importer (`CLI.TfsMigration`) that would be spawned by the Migration Agent when the target is TFS. Contains a `TfsImportAgent` class: receives a job definition, reads from the package via `IArtefactStore` (`FileSystemArtefactStore`), writes to TFS via the TFS Object Model, maintains checkpoints via `IStateStore`, and reports progress via `IProgressSink`. Reuses the same process isolation pattern, NDJSON protocol, and `ExternalToolRunner` as the exporter — no new infrastructure required. See [docs/tfs-exporter.md](tfs-exporter.md#future-tfs-import-agent). |
+| **ControlPlane** | Service library (`DevOpsMigrationPlatform.ControlPlane`). Contains the HTTP API controllers, job state machine, lease protocol, progress tracking, and EF Core data model. Has no entry point — it is referenced and hosted by `ControlPlaneHost`. |
+| **ControlPlaneHost** | Deployable ASP.NET Core host (`DevOpsMigrationPlatform.ControlPlaneHost`). References the `ControlPlane` service library and adds: process entry point, agent lifecycle management (spawning and monitoring Agents in local and self-hosted topologies; managing container scaling in cloud deployments), and Aspire resource integration. Always reachable over HTTP. |
+| **Migration Agent** | (`DevOpsMigrationPlatform.MigrationAgent`) Stateless worker that executes migration jobs. Polls `ControlPlaneHost` for assigned jobs under a time-bounded lease, runs modules via the Job Engine, writes to the package, reports progress back. Lifecycle managed by `ControlPlaneHost`. |
+| **TFS Export Agent** | A .NET 4.8 standalone exporter (`CLI.TfsMigration`) spawned by the Agent when the source is TFS. Contains a `TfsExportAgent` class that is the structural parallel of `Agent`: receives a job definition, connects to TFS via the TFS Object Model, writes to the package via `IArtefactStore` (`FileSystemArtefactStore`), maintains checkpoints via `IStateStore`, and reports progress via `IProgressSink` (`StdoutProgressSink` → NDJSON on stdout). Uses the same interfaces as the .NET 10 agent via multi-targeted `Abstractions`. |
+| **TFS Import Agent** *(not yet implemented)* | The structural mirror of the TFS Export Agent. A .NET 4.8 importer (`CLI.TfsMigration`) that would be spawned by the Agent when the target is TFS. Contains a `TfsImportAgent` class: receives a job definition, reads from the package via `IArtefactStore` (`FileSystemArtefactStore`), writes to TFS via the TFS Object Model, maintains checkpoints via `IStateStore`, and reports progress via `IProgressSink`. Reuses the same process isolation pattern, NDJSON protocol, and `ExternalToolRunner` as the exporter — no new infrastructure required. See [docs/tfs-exporter.md](tfs-exporter.md#future-tfs-import-agent). |
 
 ### Flow
 
@@ -53,13 +54,13 @@ CLI
   │  → creates MigrationJob (assigns jobId, normalises URI, computes configHash)
   │
   ▼
-Control Plane (in-process within CLI, or remote — same HTTP interface)
+ControlPlaneHost (Aspire-managed or remote — same HTTP interface)
   │  deduplication check (jobId)
   │  final schema validation
   │  assigns to available agent
   │
   ▼
-Migration Agent
+Agent
   │  Tier 2: pre-flight validation (package structure, before import)
   │  runs job engine + modules
   │  writes to package
@@ -72,16 +73,16 @@ Package (file:/// or azureblob://)
 
 ### MigrationJob is the Internal Contract
 
-The control plane creates a `MigrationJob` from the operator's config. It is the fully serialisable object that the control plane passes to a Migration Agent. The config file is never passed to the agent directly.
+The `ControlPlaneHost` receives the `MigrationJob` from the CLI. It is the fully serialisable object that `ControlPlaneHost` passes to an Agent under a lease. The config file is never passed to the Agent directly.
 
 See [.agents/context/job-contract.md](../.agents/context/job-contract.md).
 
-### The Control Plane is Always an HTTP Service
+### ControlPlaneHost is Always an HTTP Service
 
-The control plane is always reachable over HTTP. The CLI always communicates with it via `ControlPlaneClient`. The difference between topologies is only where the control plane is hosted:
+`ControlPlaneHost` is always reachable over HTTP. The CLI always communicates with it via `ControlPlaneClient`. The difference between topologies is only where `ControlPlaneHost` is running:
 
-- **Local / Dedicated Server**: CLI drives Aspire to start the control plane, listening on `http://localhost:5100`. Any machine with network access to that endpoint can connect a TUI and monitor the migration.
-- **Cloud (Self-Hosted / Managed)**: an HTTPS URL to the Azure-hosted control plane.
+- **Local / Dedicated Server**: CLI drives Aspire to start `ControlPlaneHost`, listening on `http://localhost:5100`. Any machine with network access to that endpoint can connect a TUI and monitor the migration.
+- **Cloud (Self-Hosted / Managed)**: an HTTPS URL to the Azure-hosted `ControlPlaneHost`.
 
 Switching from local to cloud requires only a config change. No code changes.
 

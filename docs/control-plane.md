@@ -2,7 +2,11 @@
 
 ## Purpose
 
-The control plane is an **ASP.NET Core Web API** that coordinates migration jobs without executing them. Execution always happens inside a Migration Agent. The control plane's role is to accept, validate, track, and assign work — not to perform it.
+The `ControlPlane` project (`DevOpsMigrationPlatform.ControlPlane`) is a **service library** that implements the HTTP API, job state machine, lease protocol, and PostgreSQL data model for coordinating migration jobs. It has no entry point of its own — it is referenced and hosted by `ControlPlaneHost` (`DevOpsMigrationPlatform.ControlPlaneHost`).
+
+`ControlPlaneHost` is the deployable ASP.NET Core host. It configures and runs the `ControlPlane` service and adds **agent lifecycle management** — spawning and monitoring Agents as processes in local and self-hosted topologies, and managing container scaling in cloud deployments.
+
+The control plane's role is to accept, validate, track, and assign work — not to perform it. Execution always happens inside an Agent.
 
 ---
 
@@ -19,7 +23,7 @@ The control plane is an **ASP.NET Core Web API** that coordinates migration jobs
 | Artefact URLs | Provide Migration Agents with the package URI (`packageUri`) for the job. |
 | Secrets references | Store references to Key Vault secrets; never unwrap or proxy secrets. |
 
-The control plane does **not** run the orchestrator, call source or target APIs, or read or write the migration package directly.
+The control plane does **not** run the Job Engine, call source or target APIs, or read or write the migration package directly. `ControlPlaneHost` adds agent lifecycle management but must not contain job execution logic.
 
 ---
 
@@ -168,16 +172,16 @@ A job that exists but is not visible to the caller returns `403 Forbidden` on di
 
 ## Isolation Rule
 
-The control plane must not:
+The `ControlPlane` service library must not:
 
 - Call source or target Azure DevOps APIs.
 - Read or write the migration package.
 - Execute orchestrator logic.
 - Unwrap or cache secrets from Key Vault.
 
-Violating any of these rules breaks the Migration Agent / control-plane separation and couples execution to coordination.
+`ControlPlaneHost` extends the control plane with agent lifecycle management but must not contain job execution logic.
 
-Violating any of these rules breaks the agent/control-plane separation and couples execution to coordination.
+Violating any of these rules breaks the Agent / control-plane separation and couples execution to coordination.
 
 ---
 
@@ -197,7 +201,7 @@ The control plane persists:
 
 | Environment | PostgreSQL provider |
 |---|---|
-| Local development | Docker container (spawned by Aspire AppHost via `AddAzurePostgresFlexibleServer().RunAsContainer()`) |
+| Local development | Aspire portable binary resource (`AddPortablePostgres`) — no Docker required |
 | Cloud (Azure) | Azure PostgreSQL Flexible Server (provisioned by `azd` from the same AppHost declaration) |
 
 There is no SQLite fallback, no in-memory substitute, and no other database provider. The same `Npgsql` / EF Core stack runs in both environments, exercising identical code paths.
@@ -211,7 +215,7 @@ The control plane uses **EF Core 9+** with the **Npgsql.EntityFrameworkCore.Post
 
 ### Connection String
 
-Aspire injects the connection string under the key `ConnectionStrings__controlplane-db` in both local and cloud environments. The control plane reads it from `IConfiguration` via the standard Aspire / Npgsql integration:
+Aspire injects the connection string under the key `ConnectionStrings__controlplane-db` in all environments. `ControlPlaneHost` reads it from `IConfiguration` via the standard Aspire / Npgsql integration:
 
 ```csharp
 builder.AddNpgsqlDbContext<ControlPlaneDbContext>("controlplane-db");
@@ -221,7 +225,7 @@ The connection string value is:
 
 | Environment | Source |
 |---|---|
-| Local | Aspire generates it from the Docker container endpoint and injects it automatically |
+| Local | Aspire generates it from the portable PostgreSQL binary endpoint and injects it automatically |
 | Cloud | Azure Container Apps reads it from Key Vault via a managed identity secret reference (see [docs/aspire-integration.md](aspire-integration.md)) |
 
 ### Table Schema

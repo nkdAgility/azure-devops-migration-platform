@@ -12,8 +12,9 @@ Aspire is the orchestration layer for the Azure DevOps Migration Platform across
 |---|---|---|---|---|
 | **CLI** (`CLI.Migration`, net10.0) | ✓ | ✗ | ✗ | Operator entry point — drives Aspire for local/server; connects to remote for cloud |
 | **TFS Migration CLI** (`CLI.TfsMigration`, net481) | ✓ | ✗ | ✗ | Subprocess of CLI (not orchestrated by Aspire) |
-| **Control Plane API** | ✓ | ✓ | ✓ | Aspire-managed resource across all topologies |
-| **Migration Agent(s)** | ✓ | ✓ | ✓ | Aspire-managed resource across all topologies |
+| **ControlPlane** (service library) | — | ✓ (referenced by ControlPlaneHost) | ✓ (referenced by ControlPlaneHost) | Class library — not a standalone Aspire resource |
+| **ControlPlaneHost** | ✓ | ✓ | ✓ | Aspire `AddProject` resource; manages Agent lifecycle |
+| **Migration Agent(s)** | ✓ | ✓ | ✓ | Aspire `AddProject` resource; lifecycle managed by ControlPlaneHost |
 | **Package Storage** | ✓ (filesystem) | ✓ (filesystem or Azurite) | ✓ (Azure Blob) | Aspire-configured connection string |
 
 ---
@@ -31,10 +32,15 @@ src/
     Extensions.cs                                 ← AddServiceDefaults() extension
     DevOpsMigrationPlatform.ServiceDefaults.csproj
 
-  DevOpsMigrationPlatform.ControlPlane/          ← ASP.NET Core Web API
-    Program.cs                                    ← control plane endpoints
-    Controllers/                                  ← job, lease, progress APIs
-    DevOpsMigrationPlatform.ControlPlane.csproj
+  DevOpsMigrationPlatform.ControlPlane/          ← Service library (controllers, EF Core, job state machine, lease protocol)
+    Controllers/                                  ← job, lease, progress API controllers
+    Services/                                     ← job state machine, lease manager
+    Data/                                         ← EF Core DbContext and entities
+    DevOpsMigrationPlatform.ControlPlane.csproj   ← class library — no Program.cs
+
+  DevOpsMigrationPlatform.ControlPlaneHost/      ← Deployable ASP.NET Core host
+    Program.cs                                    ← entry point; references ControlPlane library; manages Agent lifecycle
+    DevOpsMigrationPlatform.ControlPlaneHost.csproj
 
   DevOpsMigrationPlatform.MigrationAgent/        ← Worker Service
     Program.cs                                    ← agent worker host
@@ -97,7 +103,7 @@ else
         .AddDatabase("controlplane-db");
 }
 
-var controlPlane = builder.AddProject<Projects.DevOpsMigrationPlatform_ControlPlane>("controlplane")
+var controlPlane = builder.AddProject<Projects.DevOpsMigrationPlatform_ControlPlaneHost>("controlplane")
     .WithReference(postgres)
     .WithEnvironment("PackageStore__Type", infra == "docker" ? "azureblob" : "filesystem")
     .WithHttpEndpoint(port: 5100, name: "http");
@@ -162,14 +168,14 @@ var postgres = builder.AddAzurePostgresFlexibleServer("postgres")
 var storage = builder.AddAzureStorage("storage")
     .AddBlobs("packages");
 
-// Control Plane API
-var controlPlane = builder.AddProject<Projects.DevOpsMigrationPlatform_ControlPlane>("controlplane")
+// ControlPlaneHost
+var controlPlane = builder.AddProject<Projects.DevOpsMigrationPlatform_ControlPlaneHost>("controlplane")
     .WithReference(postgres)
     .WithReference(storage)
     .WithHttpEndpoint(port: 5100, name: "http")
     .WithExternalHttpEndpoints();
 
-// Migration Agent (can scale to multiple instances)
+// Migration Agent(s) (can scale to multiple instances)
 builder.AddProject<Projects.DevOpsMigrationPlatform_MigrationAgent>("migration-agent")
     .WithReference(controlPlane)
     .WithReference(storage)
@@ -320,10 +326,11 @@ All topologies run the same stack. The difference is where the components are ho
 ```
 Operator Machine (or dedicated server)
 ├─ CLI                            ← entry point; drives Aspire programmatically
-│   ├─ Control Plane API          ← Aspire-managed process, listening on localhost:5100
-│   └─ Migration Agent(s)         ← Aspire-managed processes
-└─ Package Storage               ← file:/// (local filesystem)
-└─ PostgreSQL                    ← Aspire portable binary resource (no Docker, no installer)
+├─ ControlPlaneHost               ← Aspire-managed process, listening on localhost:5100
+│   └─ manages Agent lifecycle
+├─ Migration Agent(s)              ← Aspire-managed processes
+├─ Package Storage                ← file:/// (local filesystem)
+└─ PostgreSQL                     ← Aspire portable binary resource (no Docker, no installer)
 ```
 
 The CLI drives Aspire programmatically to start the control plane, agents, and PostgreSQL. Any machine with network access to the host (e.g. port 5100) can connect a TUI and monitor the migration.
@@ -368,7 +375,7 @@ NKD Agility provisions and operates the Azure stack on behalf of the customer. T
 
 | Topology | PostgreSQL present? | Who runs it? |
 |---|---|---|
-| Local / Dedicated Server | **Yes** | Portable binary (bundled, no Docker), started by CLI |
+| Local / Dedicated Server | **Yes** | Aspire portable binary resource (no Docker, no installer) |
 | Cloud Self-Hosted | **Yes** | Azure PostgreSQL Flexible Server (customer subscription) |
 | Cloud Managed | **Yes** | Azure PostgreSQL Flexible Server (NKD Agility subscription) |
 
@@ -378,7 +385,7 @@ NKD Agility provisions and operates the Azure stack on behalf of the customer. T
 
 Aspire's service discovery eliminates hardcoded URLs:
 
-### In Migration Agent
+### In Agent
 
 ```csharp
 // NO hardcoded URL - Aspire injects the endpoint via service discovery

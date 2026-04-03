@@ -1,10 +1,12 @@
-# Migration Agent
+# Agent
 
 ## Purpose
 
-A **Migration Agent** is a stateless worker (typically a container) that executes migration jobs assigned by the control plane. The Migration Agent runs the same orchestrator engine used in local mode — the only difference is that it receives its job definition from the control plane and reports progress back to it rather than running inline in the TUI.
+The **Migration Agent** (`DevOpsMigrationPlatform.MigrationAgent`) is a stateless worker that executes migration jobs assigned by `ControlPlaneHost`. The Migration Agent runs the Job Engine — the same execution logic used across all deployment topologies — receiving a job definition under a time-bounded lease and reporting progress back via the lease API.
 
-The package contract, modules, and cursors are unchanged between local and Migration Agent execution.
+Migration Agent lifecycle is managed by `ControlPlaneHost`: spawned as processes in local and self-hosted topologies, and as container instances in cloud deployments. Migration Agents are stateless by design — any Migration Agent can pick up any job and resume from the last cursor position.
+
+The package contract, modules, and cursors are unchanged across all deployment topologies.
 
 ---
 
@@ -23,7 +25,7 @@ The package contract, modules, and cursors are unchanged between local and Migra
 | Upload logs | Write logs to `Logs/` in the package. Optionally push log lines to the control plane in real time. |
 | Signal completion or failure | Call the control plane's complete or fail endpoint when the job finishes. |
 
-The Migration Agent does **not** accept job submissions, manage other Migration Agents, or store job state. All job coordination is the control plane's responsibility.
+The Agent does **not** accept job submissions, manage other Agents, or store job state. All job coordination is `ControlPlaneHost`'s responsibility.
 
 ---
 
@@ -36,7 +38,7 @@ Poll /agents/lease
        ├─ Connect to artefact store (packageUri)
        ├─ Load cursor → determine resume position
        ├─ Start heartbeat loop (background)
-       └─ Run orchestrator
+       └─ Run Job Engine
             ├─ ExportAsync (if mode = Export or Both)
             │    └─ After each cursor write → POST /agents/lease/{id}/progress
             ├─ Validate package (if mode = Both)
@@ -50,15 +52,15 @@ Poll /agents/lease
 
 ## Migration Agent Roles
 
-A single Migration Agent binary supports all three modes (`Export`, `Import`, `Both`) by reading `mode` from the job definition. There is no requirement to deploy separate export and import binaries.
+A single Agent binary supports all three modes (`Export`, `Import`, `Both`) by reading `mode` from the job definition. There is no requirement to deploy separate export and import binaries.
 
-However, two Migration Agent deployments are supported for network isolation:
+However, two Agent deployments are supported for network isolation:
 
 | Role | Mode supported | Typical deployment |
 |---|---|---|
-| `ExportMigrationAgent` | `Export` | Source network zone |
-| `ImportMigrationAgent` | `Import` | Target network zone |
-| `MigrationAgent` | `Export`, `Import`, `Both` | Any zone with access to both |
+| `ExportAgent` | `Export` | Source network zone |
+| `ImportAgent` | `Import` | Target network zone |
+| `Agent` | `Export`, `Import`, `Both` | Any zone with access to both |
 
 In the two-job pattern, the Export Migration Agent writes the package to the shared artefact store; the Import Migration Agent reads it. Both use the same package URI. The `manifest.json` and cursor files written by the Export Migration Agent are read by the Import Migration Agent without modification.
 
@@ -66,23 +68,23 @@ In the two-job pattern, the Export Migration Agent writes the package to the sha
 
 ## Stateless Design
 
-Migration Agents are stateless. All durable state lives either:
+Agents are stateless. All durable state lives either:
 
 - In the migration package (`revision.json`, cursors, `idmap.db`, `Logs/`) via `IArtefactStore` and `IStateStore`.
 - In the control plane (job status, latest reported progress).
 
-A Migration Agent may be stopped, rescheduled, or replaced at any point. The new Migration Agent reads the cursor to determine where to resume. This makes Migration Agents safe to run in auto-scaling container environments.
+An Agent may be stopped, rescheduled, or replaced at any point. The new Agent reads the cursor to determine where to resume. This makes Agents safe to run in auto-scaling container environments.
 
 ---
 
 ## Heartbeat and Lease Expiry
 
-- Migration Agents send a heartbeat to `POST /agents/lease/{leaseId}/heartbeat` every N seconds (configurable; default 30 s).
-- The control plane's lease TTL is set to 2× the expected heartbeat interval.
-- If the control plane does not receive a heartbeat within the TTL, it returns the job to `Queued`.
-- The next Migration Agent to acquire the lease resumes from the last cursor position in the package.
+- Agents send a heartbeat to `POST /agents/lease/{leaseId}/heartbeat` every N seconds (configurable; default 30 s).
+- The `ControlPlaneHost` lease TTL is set to 2× the expected heartbeat interval.
+- If `ControlPlaneHost` does not receive a heartbeat within the TTL, it returns the job to `Queued`.
+- The next Agent to acquire the lease resumes from the last cursor position in the package.
 
-This means a crashed Migration Agent loses no more than one stage of work.
+This means a crashed Agent loses no more than one stage of work.
 
 ---
 
