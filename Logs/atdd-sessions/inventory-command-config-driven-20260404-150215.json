@@ -1,0 +1,7 @@
+{
+  "session_id": "inventory-command-config-driven-20260404-150215",
+  "started_at": "2026-04-04T15:02:15Z",
+  "requirement": "Enhance the inventory command to be config-driven with multi-source support, $ENV:VARNAME token resolution, and paginated work item counting",
+  "phase": "specification",
+  "completed_phases": ["specification"]
+}
