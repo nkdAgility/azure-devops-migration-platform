@@ -1,0 +1,50 @@
+# Architecture Discrepancies
+
+**Feature**: Work Items Inventory Command  
+**Flagged by**: speckit.specify  
+**Status**: Pending rectification (resolve in speckit.implement)
+
+## Discrepancies
+
+### configuration.md source section missing authentication fields
+
+- **Source doc**: `docs/configuration.md`
+- **Section**: "Full Schema" — `source` block
+- **Issue**: The `source` section schema shows only `type`, `orgOrCollection`, `project`, and `apiVersion`. There is no `authentication` block. The spec introduces a required `authentication` sub-object with `type`, `accessToken`, and `accessTokenVariable` (for PAT) or `type: Windows` (for TFS integrated auth). Without this, operators have no documented way to provide credentials in the config file and would be forced to use CLI arguments, which violates the coding standards.
+- **Suggested update**: Add an `authentication` block to the `source` (and symmetrically `target`) example in `docs/configuration.md`, documenting the `Pat` and `Windows` types. Add a description row to the Top-Level Fields table clarifying that credentials MUST be in the config file, not CLI arguments.
+
+---
+
+### inventory command missing from CLI docs
+
+- **Source doc**: `docs/cli.md`
+- **Section**: "Commands" table
+- **Issue**: The `migrate inventory work-items` command does not appear in the CLI commands table. The spec introduces this as a new operator-facing command.
+- **Suggested update**: Add a row `| inventory work-items | Count all work items and revisions per project from the configured source. Read-only pre-flight operation. |` to the Commands table. Also add a usage example: `migrate inventory work-items --config migration.json`.
+
+---
+
+### inventory mode not described in source-types docs
+
+- **Source doc**: `docs/source-types.md`
+- **Section**: Entire document (covers AzureDevOpsServices and TeamFoundationServer in export context only)
+- **Issue**: `source-types.md` describes how each source type is used during export. It does not mention inventory. The spec requires both source types to support the inventory operation.
+- **Suggested update**: Add an "Inventory" subsection under each source type describing the counting strategy and authentication requirements for that source.
+
+---
+
+### TFS subprocess inventory capability not documented
+
+- **Source doc**: `docs/tfs-exporter.md`
+- **Section**: Purpose / subprocess architecture
+- **Issue**: The TFS subprocess (`DevOpsMigrationPlatform.CLI.TfsMigration`) is only documented as an export agent. The spec adds an inventory subcommand to that binary. The isolation model, NDJSON protocol, and `ExternalToolRunner` bridge are reused but the inventory capability is not mentioned.
+- **Suggested update**: Add an "Inventory Mode" section to `tfs-exporter.md` describing that the subprocess accepts an `inventory` command, performs date-windowed work item counting with progressive half-window fallback, and emits `InventoryProgressEvent` records as NDJSON on stdout.
+
+---
+
+### CLI architecture section does not mention inventory as a direct command
+
+- **Source doc**: `docs/cli.md`
+- **Section**: "Architecture" — the CLI delegates to control plane via HTTP
+- **Issue**: The CLI architecture doc emphasises that all commands delegate execution to the control plane. Inventory is a read-only pre-flight command that does NOT submit a job to the control plane. This distinction needs to be captured.
+- **Suggested update**: Add a note in the CLI architecture section clarifying that read-only pre-flight commands (`inventory`, `prepare`) operate without submitting a `MigrationJob`; they read from the source directly (or via subprocess for TFS) and produce only console output or local files.

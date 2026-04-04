@@ -1,22 +1,22 @@
 <!--
 SYNC IMPACT REPORT
 ==================
-Version change:    1.1.0 → 1.2.0
-Bump rationale:    Principle IX added — SOLID Design, Dependency Injection, and IOptions
-                   configuration model are now non-negotiable architectural constraints.
+Version change:    1.2.0 → 1.2.1
+Bump rationale:    Governance clarification — explicit mandatory context-loading rule added
+                   for .agents/context/, .agents/guardrails/, and docs/ to ensure all
+                   agents and contributors always consult the full canonical reference set.
 
 Principles modified:
   None
 
 Principles added:
-  IX.  SOLID Design & Dependency Injection
+  None
 
 Sections modified:
-  Technology Stack — DI and IOptions entry added
-  Reject Conditions — DI violation conditions added
+  Governance — mandatory context-loading rule added; .agents/context/ formally listed
 
 Templates updated:
-  ✅ .specify/templates/plan-template.md — Constitution Check gate IX added
+  ✅ .specify/templates/plan-template.md — no changes required
   ✅ .specify/templates/spec-template.md — no changes required
   ✅ .specify/templates/tasks-template.md — no changes required
 
@@ -266,11 +266,19 @@ Reject any proposal that:
 
 - `/.agents/guardrails/*.md` files define hard, non-negotiable architectural
   rules and supersede all other documentation and practices.
+- `/.agents/context/*.md` files are canonical reference documents for package
+  format, streaming, checkpointing, identity, job contracts, and artefact store
+  abstractions. They MUST be consulted alongside guardrails.
 - `/docs/*.md` files define architectural intent and design rationale.
-- `agents.md` at the repository root binds the two and is the mandatory
+- `agents.md` at the repository root binds all three and is the mandatory
   starting point for any AI agent or contributor.
 - `constitution.md` (this file) supersedes all other development practices.
   When this file and a guardrail conflict, the guardrail wins.
+- **Mandatory context loading:** Every AI agent and every contributor MUST load
+  and apply the full contents of `/.agents/guardrails/`, `/.agents/context/`,
+  and relevant `/docs/` files before producing any code, review, specification,
+  or plan output. Partial loading (e.g., only reading one guardrail file or
+  skipping `.agents/context/`) is insufficient and constitutes a violation.
 - Amendments to this constitution require:
   1. A version increment following semantic versioning (MAJOR for removals or
      redefinitions of principles; MINOR for new sections or material expansions;
@@ -279,7 +287,5 @@ Reject any proposal that:
   3. Propagation of changes to relevant templates under `.specify/templates/`.
 - All pull requests and agent reviews MUST verify compliance against this
   constitution and the guardrails before approving.
-- Runtime development guidance: `.agents/guardrails/` and
-  `.agents/context/`.
 
-**Version**: 1.2.0 | **Ratified**: 2026-04-02 | **Last Amended**: 2026-04-02
+**Version**: 1.2.1 | **Ratified**: 2026-04-02 | **Last Amended**: 2026-04-04

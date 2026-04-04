@@ -16,10 +16,11 @@ This repository is the **Azure DevOps Migration Platform** — a versioned migra
 src/                        ← production code, one project per layer
 tests/                      ← test projects mirroring src structure
 features/                   ← Gherkin .feature files by operation/connector/module
-.agents/guardrails/              ← architectural guardrails, coding standards, testing standards
+.agents/guardrails/         ← architectural guardrails, coding standards, testing standards
+.agents/context/            ← canonical reference docs (package format, streaming, checkpointing, etc.)
+.agents/skills/             ← session lifecycle skills (start-session, review, end-session, fix)
 docs/                       ← architecture documentation (source of truth for design)
 .github/agents/             ← GitHub custom agents (YAML frontmatter + rules)
-.agents/skills/             ← session lifecycle skills (start-session, review, end-session, fix)
 .github/commands/           ← slash-command aliases invoking skills
 ```
 
@@ -45,9 +46,32 @@ docs/                       ← architecture documentation (source of truth for 
 
 ## Key References
 
-- Architecture & design decisions: [docs/architecture.md](../docs/architecture.md)
-- Hard guardrails (read by all agents): [.agents/guardrails/system-architecture.md](../.agents/guardrails/system-architecture.md)
-- ATDD workflow: [.agents/guardrails/atdd-workflow.md](../.agents/guardrails/atdd-workflow.md)
-- Testing standards: [.agents/guardrails/testing-standards.md](../.agents/guardrails/testing-standards.md)
+**IMPORTANT:** All agents and contributors MUST load both `/.agents/guardrails/` AND
+`/.agents/context/` before producing any code, review, or plan output. Skipping
+either directory is a constitution violation.
+
+### Guardrails (enforced rules — read ALL files)
+- [.agents/guardrails/system-architecture.md](../.agents/guardrails/system-architecture.md)
+- [.agents/guardrails/coding-standards.md](../.agents/guardrails/coding-standards.md)
+- [.agents/guardrails/atdd-workflow.md](../.agents/guardrails/atdd-workflow.md)
+- [.agents/guardrails/testing-standards.md](../.agents/guardrails/testing-standards.md)
+- [.agents/guardrails/acceptance-test-format.md](../.agents/guardrails/acceptance-test-format.md)
+- [.agents/guardrails/workitems-rules.md](../.agents/guardrails/workitems-rules.md)
+- [.agents/guardrails/migration-rules.md](../.agents/guardrails/migration-rules.md)
+- [.agents/guardrails/aspire-integration.md](../.agents/guardrails/aspire-integration.md)
+- [.agents/guardrails/module-template.md](../.agents/guardrails/module-template.md)
+
+### Context (canonical reference — read relevant files)
+- [.agents/context/package-format.md](../.agents/context/package-format.md)
+- [.agents/context/workitems-format.md](../.agents/context/workitems-format.md)
+- [.agents/context/import-streaming.md](../.agents/context/import-streaming.md)
+- [.agents/context/checkpointing.md](../.agents/context/checkpointing.md)
+- [.agents/context/artefact-store.md](../.agents/context/artefact-store.md)
+- [.agents/context/job-contract.md](../.agents/context/job-contract.md)
+- [.agents/context/identity-and-mapping.md](../.agents/context/identity-and-mapping.md)
+
+### Architecture (design intent)
+- [docs/architecture.md](../docs/architecture.md)
+- [agents.md](../agents.md) — repository entry point (start here)
 ```
 ```

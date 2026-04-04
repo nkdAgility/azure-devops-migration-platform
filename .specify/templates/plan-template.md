@@ -31,6 +31,10 @@
 
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
+> **Mandatory context loading:** Before completing this gate, confirm that ALL files in
+> `/.agents/guardrails/`, ALL files in `/.agents/context/`, and relevant `/docs/` files
+> have been read. Skipping either `.agents/` subdirectory is a constitution violation.
+
 - [ ] **Package-First (I):** No direct source-to-target migration. All reads/writes go via the on-disk package through `IArtefactStore`.
 - [ ] **Streaming (II):** Import processes one revision folder at a time. No in-memory list/array of all revisions. No in-memory sort of `EnumerateAsync` results.
 - [ ] **WorkItems Layout (III):** Folder structure `WorkItems/yyyy-MM-dd/<ticks>-<workItemId>-<revisionIndex>/` is preserved. No attachments root. No renaming or flattening.
