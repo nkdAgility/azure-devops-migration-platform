@@ -11,7 +11,16 @@
 - **Source doc**: `docs/configuration.md`
 - **Section**: "Full Schema" — `source` block
 - **Issue**: The `source` section schema shows only `type`, `orgOrCollection`, `project`, and `apiVersion`. There is no `authentication` block. The spec introduces a required `authentication` sub-object with `type`, `accessToken`, and `accessTokenVariable` (for PAT) or `type: Windows` (for TFS integrated auth). Without this, operators have no documented way to provide credentials in the config file and would be forced to use CLI arguments, which violates the coding standards.
-- **Suggested update**: Add an `authentication` block to the `source` (and symmetrically `target`) example in `docs/configuration.md`, documenting the `Pat` and `Windows` types. Add a description row to the Top-Level Fields table clarifying that credentials MUST be in the config file, not CLI arguments.
+- **Suggested update**: Add an `authentication` block to the `source` (and symmetrically `target`) example in `docs/configuration.md`, documenting the `Pat` and `Windows` types. Add a description row to the Top-Level Fields table clarifying that credentials MUST be in the config file, not CLI arguments. Also document the three-layer token resolution order: IConfiguration `__`-separator env var override → `$ENV:VARNAME` prefix → literal value.
+
+---
+
+### configuration.md missing `organisations` top-level key
+
+- **Source doc**: `docs/configuration.md`
+- **Section**: "Full Schema" and "Top-Level Fields" table
+- **Issue**: The spec introduces a second config mode (`organisations` array) for multi-org, multi-project tooling operations. This key does not appear anywhere in `docs/configuration.md`. The mutual exclusion rule (cannot have both `organisations` and `source`) is also undocumented.
+- **Suggested update**: Add an `organisations` section to the Full Schema example and the Top-Level Fields table. Add a note explaining the two mutually exclusive config modes and the validation rules that govern them. Document the `organisations` entry fields (`type`, `orgOrCollection`, `projects`, `apiVersion`, `authentication`, `enabled`).
 
 ---
 
