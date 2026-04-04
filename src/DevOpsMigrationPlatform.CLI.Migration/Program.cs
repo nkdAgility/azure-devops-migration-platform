@@ -105,8 +105,9 @@ internal class Program
             {
                 branch.SetDescription("Tools for finding out what we have and the implications of any migration");
                 branch.AddCommand<InventoryCommand>("inventory")
-                    .WithDescription("Discover the contents of your Azure DevOps organisation")
-                    .WithExample("discovery", "inventory", "--organisation", "https://dev.azure.com/myorg", "--token", "<pat>");
+                    .WithDescription("Count work items and revisions per project. Read-only pre-flight operation.")
+                    .WithExample("discovery", "inventory", "--config", "migration.json")
+                    .WithExample("discovery", "inventory", "--config", "migration.json", "--all-projects");
             });
 
             config.AddCommand<TfsExportCommand>("tfsexport")

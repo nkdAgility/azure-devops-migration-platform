@@ -76,15 +76,16 @@ src/
 │
 ├── DevOpsMigrationPlatform.Infrastructure.AzureDevOps/   ← net10.0
 │   └── Services/
-│       ├── CatalogService.cs                      MODIFY — replace ID-cursor with date-window
-│       └── AzureDevOpsInventoryService.cs         NEW
+│       ├── WorkItemQueryWindowStrategy.cs         NEW — shared date-window algorithm
+│       ├── CatalogService.cs                      MODIFY — add WorkItemQueryWindowStrategy dependency
+│       └── AzureDevOpsInventoryService.cs         NEW — uses WorkItemQueryWindowStrategy
 │
 ├── DevOpsMigrationPlatform.CLI.Migration/         ← net10.0
 │   ├── Commands/
 │   │   ├── AzureDevOpsSettings.cs                 DELETE (bare credential flags — violation)
 │   │   └── Discovery/
-│   │       └── InventoryCommand.cs                REWRITE — config-driven, two modes
-│   │   └── TfsInventoryProcessAdapter.cs          NEW — spawns TFS subprocess inventory subcommand
+│   │       ├── InventoryCommand.cs                REWRITE — config-driven, two modes
+│   │       └── TfsInventoryProcessAdapter.cs      NEW — spawns TFS subprocess inventory subcommand
 │   └── Program.cs                                 MODIFY — register InventoryOptions, IInventoryService
 │                                                           remove AzureDevOpsSettings references
 │
@@ -125,7 +126,7 @@ Each row is one ATDD session (one scenario, one commit).
 |---|---|---|---|
 | 1 | US-1 | Config validation — `organisations` + `source` mutual exclusion | `InventoryOptions` model + validator; `InventoryCommand` settings refactor |
 | 2 | US-1 | Single-project count via ADO (live table updates) | `IInventoryService`, `AzureDevOpsInventoryService` (basic), `InventoryCommand` Mode 1 |
-| 3 | US-3 | Window halves when query hits 20k limit | Date-window strategy in `AzureDevOpsInventoryService`; `TokenResolver` |
+| 3 | US-3 | Window halves when query hits 20k limit | `WorkItemQueryWindowStrategy` (shared); `AzureDevOpsInventoryService` uses it; `TokenResolver` |
 | 4 | US-3 | Window advances backward until zero results | Completion detection in date-window loop |
 | 5 | US-1 | CSV output on completion | `WriteCsv` in `InventoryCommand`; `InventorySummary` |
 | 6 | US-4 | `organisations` mode — disabled entries skipped | `InventoryCommand` Mode 2 fan-out loop |

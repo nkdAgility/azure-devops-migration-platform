@@ -118,6 +118,19 @@ Compiled for both `net481` and `net10.0`.
 
 ---
 
+### `WorkItemQueryWindowStrategy` (Infrastructure.AzureDevOps)
+
+Shared date-window algorithm for keeping WIQL queries under the 20,000-item limit. Used by both `CatalogService` (export paging) and `AzureDevOpsInventoryService` (inventory counting). Not defined in `Abstractions` — it is an infrastructure concern specific to the WIQL query model.
+
+| Member | Notes |
+|---|---|
+| `EnumerateWindowsAsync(orgOrCollection, project, pat, options, ct)` | `IAsyncEnumerable<WorkItemQueryWindow>` — yields one window per iteration, each containing the IDs returned and window metadata |
+| `WorkItemQueryWindowOptions` | `InitialWindowDays` (default 120), `LimitThreshold` (default 20000), `MinWindowDays` (default 1) |
+
+The TFS parallel is `WorkItemStoreExtensions.QueryCountAllByDateChunk` in `Infrastructure.TfsObjectModel` (net481, POC pattern — not modified by this feature).
+
+---
+
 ### `IInventoryService` (Abstractions)
 
 New service interface for work item counting. Implemented by `AzureDevOpsInventoryService` (net10.0, `Infrastructure.AzureDevOps`).
@@ -140,9 +153,9 @@ public interface IInventoryService
 | Type | Location | Change |
 |---|---|---|
 | `MigrationEndpointOptions` | `Abstractions` | Add `Authentication` property |
-| `CatalogService` | `Infrastructure.AzureDevOps` | Date-window counting replaces ID-cursor loop |
+| `CatalogService` | `Infrastructure.AzureDevOps` | Add dependency on `WorkItemQueryWindowStrategy` to bound page queries; ID-cursor paging retained |
 | `ICatalogService` | `Abstractions/Services` | No change to interface; implementation changes internally |
-| `InventoryCommand` | `CLI.Migration/Commands/Discovery` | Full rewrite: remove `AzureDevOpsSettings` base, add `--all-projects`, read config via `IOptions<InventoryOptions>` |
+| `InventoryCommand` | `CLI.Migration/Commands/Discovery` | Full rewrite: remove `AzureDevOpsSettings` base, add `--all-projects` and `--output`, read config via `IOptions<InventoryOptions>` |
 | `AzureDevOpsSettings` | `CLI.Migration/Commands` | Deprecated and removed (violations: bare org URL + PAT as CLI args) |
 | `Program.cs` | `CLI.Migration` | Register `InventoryOptions`, `IInventoryService` |
 | `ExportCommand` (TfsMigration) | `CLI.TfsMigration/Commands` | No change; inventory is a parallel subcommand |
@@ -160,7 +173,8 @@ public interface IInventoryService
 | `Models/InventoryProgressEvent.cs` | Abstractions | Progress event for inventory |
 | `Utilities/TokenResolver.cs` | Abstractions | `$ENV:VARNAME` resolution |
 | `Services/IInventoryService.cs` | Abstractions | Inventory service interface |
-| `Services/AzureDevOpsInventoryService.cs` | Infrastructure.AzureDevOps | Date-window counting implementation |
+| `Services/WorkItemQueryWindowStrategy.cs` | Infrastructure.AzureDevOps | Shared date-window algorithm (used by CatalogService + AzureDevOpsInventoryService) |
+| `Services/AzureDevOpsInventoryService.cs` | Infrastructure.AzureDevOps | Inventory counting — uses `WorkItemQueryWindowStrategy` |
 | `Commands/Discovery/TfsInventoryProcessAdapter.cs` | CLI.Migration | Spawns TFS subprocess with `inventory` subcommand |
 | `Commands/InventoryCommand.cs` (TfsMigration) | CLI.TfsMigration | `inventory` subcommand entry point |
 | `TfsInventoryAgent.cs` | CLI.TfsMigration | Parallel of `TfsExportAgent`; uses `WorkItemStoreExtensions` |

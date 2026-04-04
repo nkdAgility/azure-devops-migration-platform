@@ -35,19 +35,26 @@ All NEEDS CLARIFICATION items from the Technical Context are resolved here.
 
 ## 3. Azure DevOps work item counting strategy
 
-**Decision:** Replace the current `CatalogService.CountAllWorkItemsAsync` inner loop (which batches by ID cursor) with a **date-window strategy** matching the POC pattern:
-- Start window: `initialWindowDays` (default 120) ending at `DateTime.UtcNow`.
-- Issue `SELECT [System.Id] FROM WorkItems WHERE [System.TeamProject] = '{project}' AND [System.CreatedDate] >= '{start:yyyy-MM-dd}' AND [System.CreatedDate] < '{end:yyyy-MM-dd}'` via WIQL.
-- If result count ≥ 20,000: halve the window, retry the same end date.
-- If result count == 0: stop scanning (no further work items before this date).
-- If result count < 20,000: record the count, optionally fetch `System.Rev` for each ID in batches of 200, advance the window end to the current window start, repeat.
-- After a successful window, if window was < 30 days: grow by 1 day (up to max) to reduce total query count.
+**Decision:** Extract the date-window algorithm into a shared `WorkItemQueryWindowStrategy` class in `DevOpsMigrationPlatform.Infrastructure.AzureDevOps`. Both `CatalogService` (export) and `AzureDevOpsInventoryService` (inventory) use it. The two strategies are **complementary, not alternatives**:
 
-**Rationale:** The ID-cursor approach (current `CatalogService`) cannot handle the 20k limit because a single project could have >20k work items per ID range with no way to sub-divide. The date-window approach is the established pattern from the POC (`WorkItemStoreExtensions`) and the automation-tools PowerShell. It is also what the TFS subprocess already uses, making the two paths behaviorally consistent.
+- **Date-window** (`WorkItemQueryWindowStrategy`): controls the time-bounded WIQL query that keeps each individual query under the 20,000-item limit. Algorithm:
+  - Start window: `initialWindowDays` (default 120) ending at `DateTime.UtcNow`.
+  - WIQL: `SELECT [System.Id] FROM WorkItems WHERE [System.TeamProject] = '{project}' AND [System.CreatedDate] >= '{start}' AND [System.CreatedDate] < '{end}'`
+  - If result count ≥ 20,000: halve the window and retry the same end date.
+  - If result count == 0: stop scanning backward (no earlier work items).
+  - If result count < 20,000: yield the IDs, advance the window end to the current window start, repeat.
+  - After a successful window narrower than 30 days: grow by 1 day to reduce total query count over time.
+- **ID-cursor paging** (`CatalogService`): pages through the IDs returned by a single window using `ORDER BY [System.Id]`. This remains unchanged — it operates *within* a window, not across windows.
+
+`CatalogService` is not replaced; it gains a dependency on `WorkItemQueryWindowStrategy` to bound each page query. `AzureDevOpsInventoryService` uses `WorkItemQueryWindowStrategy` directly and does not page (it counts, not fetches).
+
+TFS uses the parallel `WorkItemStoreExtensions.QueryCountAllByDateChunk` (already in the POC's net481 layer) — same algorithm, different runtime.
+
+**Rationale:** Date-window and ID-cursor serve different concerns. Extracting `WorkItemQueryWindowStrategy` means ADO export, ADO inventory, and future ADO modules all share one implementation of the windowing algorithm instead of each re-implementing it. TFS mirrors this with its existing `WorkItemStoreExtensions`.
 
 **Alternatives considered:**
-- ID-cursor paging (current): rejected — a batch of 20k IDs is the *entire query result*, not a page; you cannot ask for the next page.
-- Tag-based or area-path-based sub-division: rejected — fragile, requires knowledge of the project's taxonomy.
+- Replace ID-cursor with date-window entirely in `CatalogService`: rejected — they are complementary; replacing paging with windowing would require a full rewrite of the export fetch path, which is out of scope.
+- Keep date-window logic inside `AzureDevOpsInventoryService` only: rejected — export and future modules also need windowed queries; a private implementation creates duplication.
 
 ---
 
@@ -82,13 +89,13 @@ The .NET 10 `ExternalToolRunner` is called with the `inventory` subcommand. No n
 
 ## 6. CSV output path
 
-**Decision:** Default CSV path is the current working directory (`./discovery-summary.csv`). No `--out` flag is added to this implementation; the path is not configurable in this feature iteration.
+**Decision:** Add an `--output <path>` CLI flag to `InventoryCommand.Settings`. When absent, defaults to the current working directory (`./discovery-summary.csv`). The path is not stored in the config file.
 
-**Rationale:** The existing `InventoryCommand` already has an `--out` flag that violates the all-config-in-file rule. That flag will be removed as part of this rework. A configurable output path is a future enhancement.
+**Rationale:** Output path is a per-invocation concern, not a connection or authentication detail, so it is a legitimate CLI flag under the all-config-in-file rule. The rule only prohibits bare org URLs, projects, and PATs as CLI args. Allowing `--output` mirrors the convention used by standard CLI tools and avoids polluting the config file with a machine-local path.
 
 **Alternatives considered:**
-- Config-driven output path: deferred to a future feature; not needed for MVP.
-- Keeping `--out`: rejected — violates the no-connection-details-as-CLI-args principle.
+- Config-driven output path: rejected — a local filesystem path is an operator invocation concern, not migration configuration.
+- Always CWD with no flag: rejected — operators running multiple inventory passes simultaneously need to control output location.
 
 ---
 

@@ -28,6 +28,13 @@ Version: `1.0` (same `configVersion` field as migration config)
 }
 ```
 
+CLI flags (in addition to `--config`):
+
+| Flag | Required | Default | Notes |
+|---|---|---|---|
+| `--output <path>` | No | Current working directory | Directory where `discovery-summary.csv` is written |
+| `--all-projects` | No | `false` | Required in Mode 1 when `source.project` is null |
+
 Fields:
 
 | Path | Required | Notes |
@@ -86,6 +93,22 @@ IConfiguration `__`-path overrides do **not** reach `organisations[n]` entries. 
 | Mode 1, project null, no `--all-projects` | `"Config error: 'source.project' is not set. Specify a project in the config or pass --all-projects to inventory the whole organisation."` |
 | Mode 2, array empty | `"Config error: 'organisations' array is empty."` |
 | Pat auth, resolved token empty | `"Config error: PAT for '{orgOrCollection}' resolved to an empty string. Set 'authentication.accessToken' to a literal value or '$ENV:VARNAME'."` |
+
+### CSV output schema (`discovery-summary.csv`)
+
+One row per project. All projects are written, including those that failed mid-count.
+
+| Column | Type | Notes |
+|---|---|---|
+| `OrgOrCollection` | string | Source org or collection URL |
+| `ProjectName` | string | Project name |
+| `WorkItemsCount` | int | Total work items counted (partial on failure) |
+| `RevisionsCount` | int | Sum of all `System.Rev` values (partial on failure) |
+| `ReposCount` | int | Always 0 in this feature |
+| `PipelinesCount` | int | Always 0 in this feature |
+| `IsComplete` | bool | `True` if all windows scanned without error |
+| `Error` | string | Empty on success; error message on failure |
+| `LastUpdatedUtc` | ISO 8601 | UTC timestamp of last count update |
 
 ---
 

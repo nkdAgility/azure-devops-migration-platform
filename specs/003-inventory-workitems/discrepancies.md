@@ -10,7 +10,7 @@
 
 - **Source doc**: `docs/configuration.md`
 - **Section**: "Full Schema" — `source` block
-- **Issue**: The `source` section schema shows only `type`, `orgOrCollection`, `project`, and `apiVersion`. There is no `authentication` block. The spec introduces a required `authentication` sub-object with `type`, `accessToken`, and `accessTokenVariable` (for PAT) or `type: Windows` (for TFS integrated auth). Without this, operators have no documented way to provide credentials in the config file and would be forced to use CLI arguments, which violates the coding standards.
+- **Issue**: The `source` section schema shows only `type`, `orgOrCollection`, `project`, and `apiVersion`. There is no `authentication` block. The spec introduces a required `authentication` sub-object with `type` and `accessToken` (for PAT, where the value is a literal or a `$ENV:VARNAME` prefixed string) or `type: Windows` (for TFS integrated auth). Without this, operators have no documented way to provide credentials in the config file and would be forced to use CLI arguments, which violates the coding standards.
 - **Suggested update**: Add an `authentication` block to the `source` (and symmetrically `target`) example in `docs/configuration.md`, documenting the `Pat` and `Windows` types. Add a description row to the Top-Level Fields table clarifying that credentials MUST be in the config file, not CLI arguments. Also document the three-layer token resolution order: IConfiguration `__`-separator env var override → `$ENV:VARNAME` prefix → literal value.
 
 ---
@@ -28,8 +28,8 @@
 
 - **Source doc**: `docs/cli.md`
 - **Section**: "Commands" table
-- **Issue**: The `migrate inventory work-items` command does not appear in the CLI commands table. The spec introduces this as a new operator-facing command.
-- **Suggested update**: Add a row `| inventory work-items | Count all work items and revisions per project from the configured source. Read-only pre-flight operation. |` to the Commands table. Also add a usage example: `migrate inventory work-items --config migration.json`.
+- **Issue**: The `devopsmigration discovery inventory` command does not appear in the CLI commands table. The spec introduces this as a new operator-facing command under the existing `discovery` branch. The command currently inventories work items; it is designed to expand to repos and pipelines in future iterations.
+- **Suggested update**: Add a row `| discovery inventory | Count all work items (and in future, repos and pipelines) per project from the configured source. Read-only pre-flight operation. |` to the Commands table. Also add a usage example: `devopsmigration discovery inventory --config migration.json`.
 
 ---
 
@@ -51,9 +51,14 @@
 
 ---
 
-### CLI architecture section does not mention inventory as a direct command
+### source-types.md references .NET 9 (pre-existing typo)
+
+- **Source doc**: `docs/source-types.md`
+- **Section**: AzureDevOpsServices requirements
+- **Issue**: The doc states "Uses the Azure DevOps REST API natively from .NET 9." The platform targets .NET 10.
+- **Suggested update**: Replace ".NET 9" with ".NET 10".
 
 - **Source doc**: `docs/cli.md`
 - **Section**: "Architecture" — the CLI delegates to control plane via HTTP
-- **Issue**: The CLI architecture doc emphasises that all commands delegate execution to the control plane. Inventory is a read-only pre-flight command that does NOT submit a job to the control plane. This distinction needs to be captured.
-- **Suggested update**: Add a note in the CLI architecture section clarifying that read-only pre-flight commands (`inventory`, `prepare`) operate without submitting a `MigrationJob`; they read from the source directly (or via subprocess for TFS) and produce only console output or local files.
+- **Issue**: The CLI architecture doc emphasises that all commands delegate execution to the control plane. `devopsmigration discovery inventory` is a read-only pre-flight command that does NOT submit a job to the control plane. This distinction needs to be captured. Note: `prepare` does interact with the control plane (it computes `configHash` and validates against it), so it must NOT be grouped with inventory in this note.
+- **Suggested update**: Add a note in the CLI architecture section clarifying that read-only pre-flight discovery commands (`discovery inventory` and future `discovery *` commands) operate without submitting a `MigrationJob`; they read from the source directly (or via subprocess for TFS) and produce only console output or local files.

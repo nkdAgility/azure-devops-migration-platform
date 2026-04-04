@@ -48,7 +48,7 @@ An operator planning a migration wants to know how many work items and revisions
 
 **Acceptance Scenarios**:
 
-1. **Given** an `organisations`-mode config listing three projects across two orgs, **When** the operator runs `migrate inventory work-items --config tooling.json`, **Then** a live-updating table appears in the terminal with one row per project, and each row's "Work Items", "Revisions", and "Updated" cells update as counting progresses.
+1. **Given** an `organisations`-mode config listing three projects across two orgs, **When** the operator runs `devopsmigration discovery inventory --config tooling.json`, **Then** a live-updating table appears in the terminal with one row per project, and each row's "Work Items", "Revisions", and "Updated" cells update as counting progresses.
 2. **Given** a project has 45,000 work items, **When** the inventory command counts it, **Then** the platform issues multiple bounded queries rather than a single query, and all 45,000 work items are counted without the platform receiving an error from the query API.
 3. **Given** counting is complete for all projects, **When** the command exits successfully, **Then** a file named `discovery-summary.csv` is written to the configured output location and the terminal confirms the file path.
 4. **Given** a project has zero work items, **When** the inventory command counts it, **Then** the project row shows 0 work items, 0 revisions, and the counting is marked complete without error.
@@ -66,7 +66,7 @@ An operator with an on-premises Team Foundation Server wants to scope their migr
 
 **Acceptance Scenarios**:
 
-1. **Given** a source configured as `TeamFoundationServer`, **When** the operator runs `migrate inventory work-items`, **Then** the platform spawns the TFS subprocess via the existing `ExternalToolRunner` bridge and streams inventory progress back to the terminal.
+1. **Given** a source configured as `TeamFoundationServer`, **When** the operator runs `devopsmigration discovery inventory`, **Then** the platform spawns the TFS subprocess via the existing `ExternalToolRunner` bridge and streams inventory progress back to the terminal.
 2. **Given** a TFS project contains 60,000 work items created over 15 years, **When** the inventory command counts them, **Then** the platform queries in date-bounded windows and progressively narrows each window until every window returns fewer than 20,000 results.
 3. **Given** a date window would return ≥ 20,000 work items, **When** the platform detects this, **Then** it halves the window size and retries without emitting a partial count from that window.
 4. **Given** the TFS subprocess emits inventory progress events, **When** the .NET 10 host receives them, **Then** they are converted to the same live-table updates as the Azure DevOps path, and the operator sees no difference in presentation.
@@ -100,7 +100,7 @@ An operator responsible for dozens of Azure DevOps organisations in an enterpris
 
 **Acceptance Scenarios**:
 
-1. **Given** a config with three `organisations` entries — two enabled, one disabled — **When** the operator runs `migrate inventory work-items --config roster.json`, **Then** the table contains rows for the two enabled orgs' projects and the disabled org is silently skipped.
+1. **Given** a config with three `organisations` entries — two enabled, one disabled — **When** the operator runs `devopsmigration discovery inventory --config roster.json`, **Then** the table contains rows for the two enabled orgs' projects and the disabled org is silently skipped.
 2. **Given** two organisations each with three projects, **When** the inventory command runs, **Then** all six projects appear in the output table and the CSV, grouped with their organisation name visible.
 3. **Given** an `organisations` entry with an empty `projects` array, **When** the inventory command processes that entry, **Then** all projects in that org are enumerated and counted.
 4. **Given** an `organisations` entry with `projects: ["Alpha", "Beta"]`, **When** the inventory command processes that entry, **Then** only "Alpha" and "Beta" are counted; other projects in that org are silently skipped.
@@ -155,7 +155,7 @@ The `--all-projects` CLI flag controls scope:
 ```
 
 ```
-migrate inventory work-items --config migration.json
+devopsmigration discovery inventory --config migration.json
 ```
 
 #### Azure DevOps Services — all projects in the org
@@ -163,7 +163,7 @@ migrate inventory work-items --config migration.json
 Same config file with `project` null, plus the `--all-projects` flag:
 
 ```
-migrate inventory work-items --config migration.json --all-projects
+devopsmigration discovery inventory --config migration.json --all-projects
 ```
 
 #### TFS on-premises — single project (Windows auth)
@@ -277,7 +277,7 @@ The `accessToken` field value is resolved in this order (highest precedence firs
 
 ### Functional Requirements
 
-- **FR-001**: The CLI MUST expose a `migrate inventory work-items` command accepting `--config <path>` (required) and `--all-projects` (optional flag). These are the only CLI arguments. All connection and authentication details MUST reside in the config file; no bare org URL, project, or PAT arguments are permitted.
+- **FR-001**: The CLI MUST expose a `devopsmigration discovery inventory` command accepting `--config <path>` (required), `--output <path>` (optional, defaults to the current working directory), and `--all-projects` (optional flag). All connection and authentication details MUST reside in the config file; no bare org URL, project, or PAT arguments are permitted. The command currently inventories work items only; additional artefact types (repos, pipelines, etc.) will be added in future iterations without changing the command path.
 - **FR-002**: The command MUST validate the config file on startup and exit with a non-zero code and a clear message if: both `organisations` and `source` are present; neither is present; the config is in Mode 1 with `source.project` null and `--all-projects` is absent; or any required field is missing.
 - **FR-013**: When the config contains an `organisations` array (Mode 2), the command MUST iterate over all entries where `enabled` is `true` (or absent — default `true`) and inventory each one. Entries with `enabled: false` MUST be skipped silently.
 - **FR-014**: For each `organisations` entry, `projects` is optional. If absent or empty the command MUST enumerate all projects in that org/collection. If non-empty the command MUST restrict inventory to only those named projects.
@@ -289,7 +289,7 @@ The `accessToken` field value is resolved in this order (highest precedence firs
 - **FR-006**: When a window returns fewer results than the limit, the platform MUST advance the window backward in time and continue until a window returns zero results.
 - **FR-007**: The platform MUST stream partial count totals progressively — each completed query window MUST yield an incremental count update without waiting for the full project to complete.
 - **FR-008**: The CLI MUST render a live-updating terminal table showing, per project: project name, current work item count, current revision count, placeholder values for Repos and Pipelines (blank or zero), and the UTC time of the last update.
-- **FR-009**: When all projects have been counted, the command MUST write a `discovery-summary.csv` file to the location specified by the config (defaulting to the current working directory) containing one row per project with: name, work item count, revision count, repo count, pipeline count.
+- **FR-009**: When all projects have been counted, the command MUST write a `discovery-summary.csv` file to the directory specified by `--output` (defaulting to the current working directory when the flag is absent) containing one row per project with: org/collection URL, project name, work item count, revision count, repo count, pipeline count, whether counting completed without error (`IsComplete`), any error message (`Error`, empty on success), and the UTC timestamp of the last count update (`LastUpdatedUtc`).
 - **FR-010**: The command MUST exit with code 0 on success and a non-zero code on any unrecoverable error (authentication failure, subprocess non-zero exit, unhandled exception).
 - **FR-011**: The inventory command MUST NOT submit a job to the control plane and MUST NOT create a migration package or write any checkpoints. It is a read-only pre-flight operation.
 - **FR-012**: The TFS subprocess MUST emit inventory progress as NDJSON lines on stdout using the same `IProgressSink`/`StdoutProgressSink` protocol already used for export progress; the .NET 10 host converts these lines into table updates.

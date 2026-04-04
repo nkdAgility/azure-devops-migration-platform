@@ -38,6 +38,12 @@ devopsmigration discovery inventory --config migration.json
 
 The terminal renders a live-updating table. When complete, `discovery-summary.csv` is written to the current working directory.
 
+To write the CSV to a specific directory:
+
+```
+devopsmigration discovery inventory --config migration.json --output C:\reports
+```
+
 ---
 
 ## All-projects inventory (Mode 1 — `--all-projects` flag)
@@ -159,7 +165,14 @@ The CLI spawns the TFS subprocess automatically; no additional flags are require
 **`discovery-summary.csv`:**
 
 ```
-OrgOrCollection,ProjectName,WorkItemsCount,RevisionsCount,ReposCount,PipelinesCount
-https://dev.azure.com/myorg,Alpha,12450,38200,0,0
-https://dev.azure.com/myorg,Beta,3100,7800,0,0
+OrgOrCollection,ProjectName,WorkItemsCount,RevisionsCount,ReposCount,PipelinesCount,IsComplete,Error,LastUpdatedUtc
+https://dev.azure.com/myorg,Alpha,12450,38200,0,0,True,,2026-04-04T10:23:11Z
+https://dev.azure.com/myorg,Beta,3100,7800,0,0,True,,2026-04-04T10:24:05Z
+```
+
+A project that failed mid-count:
+
+```
+OrgOrCollection,ProjectName,WorkItemsCount,RevisionsCount,ReposCount,PipelinesCount,IsComplete,Error,LastUpdatedUtc
+https://dev.azure.com/myorg,Gamma,800,0,0,0,False,Authentication failure: PAT expired,2026-04-04T10:24:12Z
 ```
