@@ -1,174 +1,321 @@
-using DevOpsMigrationPlatform.CLI.Commands;
+using System;
+using System.Collections.Generic;
+using System.ComponentModel;
+using System.Diagnostics;
+using System.IO;
+using System.Linq;
+using System.Text;
+using System.Threading;
+using System.Threading.Tasks;
+using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Models;
+using DevOpsMigrationPlatform.Abstractions.Options;
+using DevOpsMigrationPlatform.Abstractions.Services;
+using DevOpsMigrationPlatform.Abstractions.Utilities;
+using Microsoft.Extensions.Options;
+using Microsoft.TeamFoundation.Core.WebApi;
+using Microsoft.VisualStudio.Services.Common;
+using Microsoft.VisualStudio.Services.WebApi;
 using OpenTelemetry.Trace;
 using Spectre.Console;
 using Spectre.Console.Cli;
-using System.ComponentModel;
-using System.Diagnostics;
-using System.Net.Http.Headers;
-using System.Text;
-using System.Text.Json;
 
 namespace DevOpsMigrationPlatform.CLI.Commands.Discovery;
 
 public sealed class InventoryCommand : AsyncCommand<InventoryCommand.Settings>
 {
+    private readonly IInventoryService _inventoryService;
+    private readonly TfsInventoryProcessAdapter _tfsAdapter;
+    private readonly IOptions<InventoryOptions> _options;
     private readonly ActivitySource _activitySource;
 
-    public InventoryCommand(ActivitySource activitySource)
+    public InventoryCommand(
+        IInventoryService inventoryService,
+        TfsInventoryProcessAdapter tfsAdapter,
+        IOptions<InventoryOptions> options,
+        ActivitySource activitySource)
     {
+        _inventoryService = inventoryService;
+        _tfsAdapter = tfsAdapter;
+        _options = options;
         _activitySource = activitySource;
     }
 
-    public sealed class Settings : AzureDevOpsSettings
+    public sealed class Settings : CommandSettings
     {
-        [CommandOption("--out <PATH>")]
-        [Description("Write the inventory summary to a CSV file at this path")]
+        [CommandOption("--all-projects")]
+        [Description("Inventory all projects in the organisation (Mode 1 only; ignored in Mode 2)")]
+        public bool AllProjects { get; set; }
+
+        [CommandOption("--output <PATH>")]
+        [Description("Directory where discovery-summary.csv is written (default: current working directory)")]
         public string? OutputPath { get; set; }
     }
 
     public override async Task<int> ExecuteAsync(CommandContext context, Settings settings)
     {
-        using var activity = _activitySource.StartActivity("inventory");
+        using var activity = _activitySource.StartActivity("discovery.inventory");
         try
         {
-            return await RunCoreAsync(context, settings);
+            return await RunCoreAsync(settings, CancellationToken.None);
+        }
+        catch (InvalidOperationException ex)
+        {
+            activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
+            AnsiConsole.MarkupLine($"[red]❌ {Markup.Escape(ex.Message)}[/]");
+            return 1;
         }
         catch (Exception ex)
         {
             activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
-            throw;
+            AnsiConsole.MarkupLine("[red]❌ Unexpected error during inventory.[/]");
+            AnsiConsole.WriteException(ex, ExceptionFormats.ShortenEverything);
+            return 1;
         }
     }
 
-    private async Task<int> RunCoreAsync(CommandContext context, Settings settings)
+    private async Task<int> RunCoreAsync(Settings settings, CancellationToken ct)
     {
-        using var http = BuildClient(settings.Organisation, settings.Token);
+        var opts = _options.Value;
+        opts.Validate(settings.AllProjects);
 
-        var projects = await FetchProjectsAsync(http, settings.Organisation);
-        if (projects.Count == 0)
+        var summaries = new Dictionary<string, InventorySummary>(StringComparer.OrdinalIgnoreCase);
+
+        if (opts.Source != null)
+            await RunMode1Async(opts.Source, settings.AllProjects, summaries, ct);
+        else
+            await RunMode2Async(opts.Organisations!, summaries, ct);
+
+        var outputDir = string.IsNullOrWhiteSpace(settings.OutputPath)
+            ? Directory.GetCurrentDirectory()
+            : settings.OutputPath;
+
+        var csvPath = Path.Combine(outputDir, "discovery-summary.csv");
+        WriteCsv(summaries.Values, csvPath);
+
+        AnsiConsole.MarkupLine($"\n[green]✅ Inventory complete.[/] CSV written to [blue]{Markup.Escape(csvPath)}[/]");
+        return 0;
+    }
+
+    // ── Mode 1: source-based ──────────────────────────────────────────────────
+
+    private async Task RunMode1Async(
+        MigrationEndpointOptions source,
+        bool allProjects,
+        Dictionary<string, InventorySummary> summaries,
+        CancellationToken ct)
+    {
+        var pat = TokenResolver.Resolve(source.Authentication?.AccessToken) ?? string.Empty;
+
+        var isTfs = string.Equals(source.Type, "TeamFoundationServer", StringComparison.OrdinalIgnoreCase);
+
+        List<string> projects;
+        if (!string.IsNullOrWhiteSpace(source.Project))
+            projects = new List<string> { source.Project };
+        else if (isTfs)
+            projects = new List<string>();  // TfsInventoryProcessAdapter uses --all-projects
+        else
+            projects = await GetProjectsAsync(source.OrgOrCollection, pat, ct);
+
+        if (isTfs)
+            await RunTfsInventoryAsync(source.OrgOrCollection, source.Project, pat, allProjects, summaries, ct);
+        else
+            await RunInventoryAsync(source.OrgOrCollection, projects, pat, summaries, ct);
+    }
+
+    // ── Mode 2: organisations-based ───────────────────────────────────────────
+
+    private async Task RunMode2Async(
+        List<OrganisationEntry> entries,
+        Dictionary<string, InventorySummary> summaries,
+        CancellationToken ct)
+    {
+        foreach (var entry in entries.Where(e => e.Enabled))
         {
-            AnsiConsole.MarkupLine("[yellow]No projects found.[/]");
-            return 0;
+            var pat = TokenResolver.Resolve(entry.Authentication?.AccessToken) ?? string.Empty;
+
+            List<string> projects;
+            if (entry.Projects.Count > 0)
+                projects = entry.Projects;
+            else
+                projects = await GetProjectsAsync(entry.OrgOrCollection, pat, ct);
+
+            await RunInventoryAsync(entry.OrgOrCollection, projects, pat, summaries, ct);
+        }
+    }
+
+    // ── TFS subprocess inventory ───────────────────────────────────────────────
+
+    private async Task RunTfsInventoryAsync(
+        string collectionUrl,
+        string? project,
+        string pat,
+        bool allProjects,
+        Dictionary<string, InventorySummary> summaries,
+        CancellationToken ct)
+    {
+        var table = BuildTable(summaries.Values);
+
+        await AnsiConsole.Live(table)
+            .StartAsync(async ctx =>
+            {
+                await foreach (var evt in _tfsAdapter.RunAsync(
+                    collectionUrl, project, pat, allProjects, ct))
+                {
+                    var key = $"{collectionUrl}|{evt.ProjectName}";
+                    if (!summaries.TryGetValue(key, out var summary))
+                    {
+                        summary = new InventorySummary
+                        {
+                            OrgOrCollection = collectionUrl,
+                            ProjectName = evt.ProjectName
+                        };
+                        summaries[key] = summary;
+                    }
+
+                    summary.WorkItemsCount = evt.WorkItemsCount;
+                    summary.RevisionsCount = evt.RevisionsCount;
+                    summary.LastUpdatedUtc = evt.Timestamp;
+                    if (evt.IsComplete)
+                    {
+                        summary.IsComplete = true;
+                        summary.Error = evt.Error;
+                    }
+
+                    ctx.UpdateTarget(BuildTable(summaries.Values));
+                }
+            });
+    }
+
+    // ── Shared inventory loop ─────────────────────────────────────────────────
+
+    private async Task RunInventoryAsync(
+        string orgOrCollection,
+        List<string> projects,
+        string pat,
+        Dictionary<string, InventorySummary> summaries,
+        CancellationToken ct)
+    {
+        foreach (var p in projects)
+        {
+            var key = $"{orgOrCollection}|{p}";
+            summaries[key] = new InventorySummary
+            {
+                OrgOrCollection = orgOrCollection,
+                ProjectName = p
+            };
         }
 
-        var summaries = new List<ProjectSummary>();
+        var table = BuildTable(summaries.Values);
 
-        await AnsiConsole.Live(BuildTable(summaries))
+        await AnsiConsole.Live(table)
             .StartAsync(async ctx =>
             {
                 foreach (var project in projects)
                 {
-                    var summary = new ProjectSummary { Name = project.Name, Id = project.Id };
-                    summaries.Add(summary);
-                    ctx.UpdateTarget(BuildTable(summaries));
+                    var key = $"{orgOrCollection}|{project}";
+                    var summary = summaries[key];
 
-                    summary.WorkItemCount = await CountWorkItemsAsync(http, settings.Organisation, project.Name);
+                    try
+                    {
+                        await foreach (var evt in _inventoryService.CountWorkItemsAsync(
+                            orgOrCollection, project, pat, ct))
+                        {
+                            summary.WorkItemsCount = evt.WorkItemsCount;
+                            summary.RevisionsCount = evt.RevisionsCount;
+                            summary.LastUpdatedUtc = evt.Timestamp;
+                            if (evt.IsComplete)
+                            {
+                                summary.IsComplete = true;
+                                summary.Error = evt.Error;
+                            }
 
-                    ctx.UpdateTarget(BuildTable(summaries));
+                            ctx.UpdateTarget(BuildTable(summaries.Values));
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        summary.IsComplete = true;
+                        summary.Error = ex.Message;
+                        ctx.UpdateTarget(BuildTable(summaries.Values));
+                    }
                 }
             });
-
-        AnsiConsole.MarkupLine("[green]✅ Discovery complete.[/]");
-
-        if (!string.IsNullOrWhiteSpace(settings.OutputPath))
-        {
-            WriteCsv(summaries, settings.OutputPath);
-            AnsiConsole.MarkupLineInterpolated($"Saved to [blue]{settings.OutputPath}[/]");
-        }
-
-        return 0;
     }
 
-    // ── Rendering ────────────────────────────────────────────────────────────
+    // ── Project enumeration ───────────────────────────────────────────────────
 
-    private static Table BuildTable(IReadOnlyList<ProjectSummary> summaries)
+    private static async Task<List<string>> GetProjectsAsync(
+        string orgOrCollection, string pat, CancellationToken ct)
+    {
+        var credentials = new VssBasicCredential(string.Empty, pat);
+        var connection = new VssConnection(new Uri(orgOrCollection), credentials);
+        var projectClient = await connection.GetClientAsync<ProjectHttpClient>(ct);
+        var projects = await projectClient.GetProjects();
+        return projects.Select(p => p.Name).ToList();
+    }
+
+    // ── Rendering ─────────────────────────────────────────────────────────────
+
+    private static Table BuildTable(IEnumerable<InventorySummary> summaries)
     {
         var table = new Table()
-            .Title("[bold yellow]Inventory Progress[/]")
+            .Title("[bold yellow]Discovery Inventory[/]")
             .RoundedBorder()
             .BorderColor(Color.Grey)
+            .AddColumn("Organisation / Collection")
             .AddColumn("Project")
-            .AddColumn(new TableColumn("Work Items").RightAligned());
+            .AddColumn(new TableColumn("Work Items").RightAligned())
+            .AddColumn(new TableColumn("Revisions").RightAligned())
+            .AddColumn(new TableColumn("Repos").RightAligned())
+            .AddColumn(new TableColumn("Pipelines").RightAligned())
+            .AddColumn("Status");
 
         foreach (var s in summaries)
         {
-            var wi = s.WorkItemCount.HasValue ? s.WorkItemCount.Value.ToString() : "[grey]…[/]";
-            table.AddRow(Markup.Escape(s.Name), wi);
+            var status = s.Error != null
+                ? "[red]Error[/]"
+                : s.IsComplete
+                    ? "[green]✓[/]"
+                    : "[grey]…[/]";
+
+            table.AddRow(
+                Markup.Escape(s.OrgOrCollection),
+                Markup.Escape(s.ProjectName),
+                s.WorkItemsCount.ToString(),
+                s.RevisionsCount.ToString(),
+                s.ReposCount.ToString(),
+                s.PipelinesCount.ToString(),
+                status);
         }
 
         return table;
     }
 
-    // ── Azure DevOps REST helpers ─────────────────────────────────────────────
+    // ── CSV ───────────────────────────────────────────────────────────────────
 
-    private static HttpClient BuildClient(string organisation, string token)
+    private static void WriteCsv(IEnumerable<InventorySummary> summaries, string path)
     {
-        var http = new HttpClient();
-        http.BaseAddress = new Uri(organisation.TrimEnd('/') + "/");
+        var dir = Path.GetDirectoryName(path);
+        if (!string.IsNullOrEmpty(dir))
+            Directory.CreateDirectory(dir);
 
-        if (!string.IsNullOrWhiteSpace(token))
-        {
-            var encoded = Convert.ToBase64String(Encoding.ASCII.GetBytes($":{token}"));
-            http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Basic", encoded);
-        }
+        using var writer = new StreamWriter(path, append: false, encoding: new UTF8Encoding(false));
+        writer.WriteLine("OrgOrCollection,ProjectName,WorkItemsCount,RevisionsCount,ReposCount,PipelinesCount,IsComplete,Error,LastUpdatedUtc");
 
-        http.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
-        return http;
-    }
-
-    private static async Task<List<(string Name, string Id)>> FetchProjectsAsync(HttpClient http, string organisation)
-    {
-        var uri = "_apis/projects?api-version=7.1&$top=500";
-        var response = await http.GetAsync(uri);
-        response.EnsureSuccessStatusCode();
-
-        using var doc = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
-        var root = doc.RootElement;
-
-        var list = new List<(string, string)>();
-        foreach (var item in root.GetProperty("value").EnumerateArray())
-        {
-            list.Add((item.GetProperty("name").GetString()!, item.GetProperty("id").GetString()!));
-        }
-
-        return list;
-    }
-
-    private static async Task<int> CountWorkItemsAsync(HttpClient http, string organisation, string projectName)
-    {
-        var body = JsonSerializer.Serialize(new { query = "SELECT [System.Id] FROM WorkItems" });
-        var content = new StringContent(body, Encoding.UTF8, "application/json");
-        var uri = $"{Uri.EscapeDataString(projectName)}/_apis/wit/wiql?api-version=7.1&$top=1";
-
-        var response = await http.PostAsync(uri, content);
-        if (!response.IsSuccessStatusCode)
-            return -1;
-
-        using var doc = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
-        return doc.RootElement.TryGetProperty("workItems", out var wi) ? wi.GetArrayLength() : 0;
-    }
-
-    // ── CSV export ───────────────────────────────────────────────────────────
-
-    private static void WriteCsv(IReadOnlyList<ProjectSummary> summaries, string path)
-    {
-        using var writer = new StreamWriter(path, append: false, encoding: Encoding.UTF8);
-        writer.WriteLine("Project,WorkItems");
         foreach (var s in summaries)
-            writer.WriteLine($"{CsvEscape(s.Name)},{s.WorkItemCount ?? -1}");
+        {
+            writer.WriteLine(
+                $"{Csv(s.OrgOrCollection)},{Csv(s.ProjectName)}," +
+                $"{s.WorkItemsCount},{s.RevisionsCount}," +
+                $"{s.ReposCount},{s.PipelinesCount}," +
+                $"{s.IsComplete},{Csv(s.Error ?? string.Empty)}," +
+                $"{s.LastUpdatedUtc:O}");
+        }
     }
 
-    private static string CsvEscape(string value) =>
+    private static string Csv(string value) =>
         value.Contains(',') || value.Contains('"') || value.Contains('\n')
             ? $"\"{value.Replace("\"", "\"\"")}\""
             : value;
-
-    // ── Model ─────────────────────────────────────────────────────────────────
-
-    private sealed class ProjectSummary
-    {
-        public string Name { get; set; } = string.Empty;
-        public string Id { get; set; } = string.Empty;
-        public int? WorkItemCount { get; set; }
-    }
 }

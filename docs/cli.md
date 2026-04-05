@@ -81,6 +81,7 @@ The Job Engine has no reference to the CLI, the console, or any progress rendere
 | `pause` | Signal the running Migration Agent to checkpoint and pause. |
 | `resume` | Resume a paused job (re-queues it for Migration Agent pickup). |
 | `cancel` | Cancel a queued or running job. |
+| `discovery inventory` | Count work items and revisions per project. Read-only pre-flight operation. Does **not** submit a `MigrationJob` to the control plane — results are written directly to `discovery-summary.csv`. |
 
 ```
 migrate prepare  --config migration.json
@@ -91,7 +92,14 @@ migrate pack     --package file:///D:/exports/run-001 --out run-001.zip
 migrate tui      [--url <control-plane-url>] [--job <jobId>]
 migrate status   --job 550e8400-e29b-41d4-a716-446655440000
 migrate logs     --job 550e8400-e29b-41d4-a716-446655440000 --follow
+devopsmigration discovery inventory --config migration.json
+devopsmigration discovery inventory --config migration.json --all-projects
+devopsmigration discovery inventory --config migration.json --output ./reports
 ```
+
+> **Note**: `discovery *` commands do not submit a `MigrationJob` to the control plane.
+> They run locally, reading the config directly.  Results are written to `discovery-summary.csv`
+> in the `--output` directory (default: current working directory).
 
 ---
 

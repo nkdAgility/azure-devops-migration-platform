@@ -1,3 +1,5 @@
+using DevOpsMigrationPlatform.Abstractions.Options;
+
 namespace DevOpsMigrationPlatform.Abstractions;
 
 /// <summary>
@@ -22,4 +24,10 @@ public class MigrationEndpointOptions
     /// Leave empty to use the server-negotiated default.
     /// </summary>
     public string? ApiVersion { get; set; }
+
+    /// <summary>
+    /// Authentication credentials for this endpoint.
+    /// Optional for backwards compatibility; required for inventory and new export/import flows.
+    /// </summary>
+    public EndpointAuthenticationOptions? Authentication { get; set; }
 }

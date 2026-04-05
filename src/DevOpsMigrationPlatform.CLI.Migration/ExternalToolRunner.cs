@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Threading;
 using System.Threading.Tasks;
 using System;
 
@@ -13,8 +14,10 @@ public static class ExternalToolRunner
     public static async Task<int> RunWithStreamingAsync(
         string exePath,
         string arguments,
+        string? stdinContent = null,
         Action<string>? onOutput = null,
-        Action<string>? onError = null)
+        Action<string>? onError = null,
+        CancellationToken cancellationToken = default)
     {
         var psi = new ProcessStartInfo
         {
@@ -22,6 +25,7 @@ public static class ExternalToolRunner
             Arguments = arguments,
             RedirectStandardOutput = true,
             RedirectStandardError = true,
+            RedirectStandardInput = stdinContent != null,
             UseShellExecute = false,
             CreateNoWindow = true
         };
@@ -42,7 +46,17 @@ public static class ExternalToolRunner
         process.BeginOutputReadLine();
         process.BeginErrorReadLine();
 
-        await process.WaitForExitAsync();
+        if (stdinContent != null)
+        {
+            await process.StandardInput.WriteLineAsync(stdinContent).ConfigureAwait(false);
+            process.StandardInput.Close();
+        }
+
+        await process.WaitForExitAsync(cancellationToken).ConfigureAwait(false);
+
+        if (!process.HasExited)
+            process.Kill();
+
         return process.ExitCode;
     }
 }

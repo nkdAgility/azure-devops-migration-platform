@@ -15,6 +15,15 @@ namespace DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Services;
 
 public class CatalogService : ICatalogService
 {
+    private readonly IWorkItemQueryWindowStrategy _windowStrategy;
+    private const int PageSize = 200;
+    private const int MaxPerBatch = 20_000;
+
+    public CatalogService(IWorkItemQueryWindowStrategy windowStrategy)
+    {
+        _windowStrategy = windowStrategy ?? throw new ArgumentNullException(nameof(windowStrategy));
+    }
+
     public async Task<IReadOnlyList<string>> GetProjectsAsync(
         string orgUrl,
         string pat,
@@ -38,55 +47,37 @@ public class CatalogService : ICatalogService
         var witClient = connection.GetClient<WorkItemTrackingHttpClient>();
 
         var workItemStats = new ProjectDiscoverySummary { ProjectName = project };
-        int lastId = 0;
-        int batchCount;
-        const int maxPerBatch = 20000;
-        const int pageSize = 200;
 
-        do
+        await foreach (var window in _windowStrategy.EnumerateWindowsAsync(
+            orgUrl, project, pat, cancellationToken: cancellationToken))
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            var queryText = $"SELECT [System.Id], [System.Rev] FROM WorkItems " +
-                            $"WHERE [System.TeamProject] = '{project}' AND [System.Id] > {lastId} " +
-                            $"ORDER BY [System.Id]";
-            var wiql = new Wiql { Query = queryText };
+            workItemStats.WorkItemsCount += window.WorkItemIds.Count;
 
-            var workItemIds = await witClient.QueryByWiqlAsync(wiql, project, cancellationToken: cancellationToken);
-            var ids = workItemIds.WorkItems.Select(wi => wi.Id).ToList();
-
-            batchCount = ids.Count;
-            workItemStats.WorkItemsCount += batchCount;
-
-            if (batchCount > 0)
+            foreach (var chunk in window.WorkItemIds.Chunk(PageSize))
             {
-                lastId = ids.Max();
-                yield return workItemStats;
+                cancellationToken.ThrowIfCancellationRequested();
+                var workItems = await witClient.GetWorkItemsAsync(
+                    chunk.ToList(),
+                    fields: new[] { "System.Rev" },
+                    cancellationToken: cancellationToken);
 
-                foreach (var chunk in ids.Chunk(pageSize))
+                foreach (var item in workItems)
                 {
-                    cancellationToken.ThrowIfCancellationRequested();
-                    var workItems = await witClient.GetWorkItemsAsync(
-                        chunk.ToList(),
-                        fields: new[] { "System.Rev" },
-                        cancellationToken: cancellationToken);
-
-                    foreach (var item in workItems)
+                    if (item.Fields.TryGetValue("System.Rev", out var revObj) &&
+                        revObj is IConvertible convertible)
                     {
-                        if (item.Fields.TryGetValue("System.Rev", out var revObj) &&
-                            revObj is IConvertible convertible)
-                        {
-                            workItemStats.RevisionsCount += convertible.ToInt32(null);
-                        }
+                        workItemStats.RevisionsCount += convertible.ToInt32(null);
                     }
                 }
-
-                yield return workItemStats;
             }
 
-            workItemStats.IsWorkItemComplete = batchCount < maxPerBatch;
+            workItemStats.LastUpdatedUtc = DateTime.UtcNow;
             yield return workItemStats;
+        }
 
-        } while (batchCount == maxPerBatch);
+        workItemStats.IsWorkItemComplete = true;
+        yield return workItemStats;
     }
 }
