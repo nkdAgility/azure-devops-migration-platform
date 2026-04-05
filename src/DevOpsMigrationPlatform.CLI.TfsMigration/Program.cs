@@ -21,6 +21,11 @@ namespace DevOpsMigrationPlatform.CLI.TfsMigration
                 config.AddCommand<ExportCommand>("export")
                     .WithDescription("Exports work items from an on-premises TFS / Azure DevOps Server collection")
                     .WithExample(new[] { "export", "--collection", "http://tfs:8080/tfs/DefaultCollection", "--project", "MyProject", "--output", "./package" });
+
+                config.AddCommand<InventoryCommand>("inventory")
+                    .WithDescription("Counts work items per project using date-chunked WIQL queries. Reads credentials from stdin JSON.")
+                    .WithExample(new[] { "inventory", "--collection", "http://tfs:8080/tfs/DefaultCollection", "--all-projects" })
+                    .WithExample(new[] { "inventory", "--collection", "http://tfs:8080/tfs/DefaultCollection", "--project", "MyProject" });
             });
 
             try

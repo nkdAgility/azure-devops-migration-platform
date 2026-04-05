@@ -1,10 +1,13 @@
 using Azure.Monitor.OpenTelemetry.Exporter;
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Options;
+using DevOpsMigrationPlatform.Abstractions.Services;
 using DevOpsMigrationPlatform.CLI.Commands;
 using DevOpsMigrationPlatform.CLI.Commands.Discovery;
 using DevOpsMigrationPlatform.CLI.Infrastructure;
 using DevOpsMigrationPlatform.CLI.JobRunners;
 using DevOpsMigrationPlatform.Infrastructure;
+using DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Services;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -87,6 +90,12 @@ internal class Program
                 if (!string.IsNullOrEmpty(telOpts.AzureMonitorConnectionString))
                     b.AddAzureMonitorMetricExporter(o => o.ConnectionString = telOpts.AzureMonitorConnectionString);
             });
+
+        // ── Inventory services
+        services.AddSingleton<IWorkItemQueryWindowStrategy, WorkItemQueryWindowStrategy>();
+        services.AddSingleton<IInventoryService, AzureDevOpsInventoryService>();
+        services.AddOptions<InventoryOptions>().Bind(configuration);
+        services.AddSingleton<TfsInventoryProcessAdapter>();
 
         // ── Step 4: Hand the container to Spectre.Console via TypeRegistrar.
         // Commands with constructor dependencies are resolved from DI;

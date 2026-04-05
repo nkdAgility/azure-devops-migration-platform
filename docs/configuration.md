@@ -18,14 +18,35 @@ A single JSON configuration file drives the entire run.
     "type": "AzureDevOpsServices | TeamFoundationServer",
     "orgOrCollection": "...",
     "project": "...",
-    "apiVersion": "..."
+    "apiVersion": "...",
+    "authentication": {
+      "type": "Pat | Windows",
+      "accessToken": "<literal-token> | $ENV:MY_PAT_VAR"
+    }
   },
   "target": {
     "type": "AzureDevOpsServices",
     "orgOrCollection": "...",
     "project": "...",
-    "apiVersion": "..."
+    "apiVersion": "...",
+    "authentication": {
+      "type": "Pat",
+      "accessToken": "$ENV:TARGET_PAT"
+    }
   },
+  "organisations": [
+    {
+      "type": "AzureDevOpsServices | TeamFoundationServer",
+      "orgOrCollection": "https://dev.azure.com/myorg",
+      "projects": ["Alpha", "Beta"],
+      "apiVersion": "7.1",
+      "authentication": {
+        "type": "Pat",
+        "accessToken": "$ENV:ORG_PAT"
+      },
+      "enabled": true
+    }
+  ],
   "modules": [
     {
       "name": "WorkItems",
@@ -49,6 +70,15 @@ A single JSON configuration file drives the entire run.
 }
 ```
 
+> **Mode 1 vs Mode 2 (inventory-only)**:
+> - **Mode 1** — Use a `source` block. Exactly one org/collection is targeted. Mutual exclusion: `source` and `organisations` cannot both be set.
+> - **Mode 2** — Use an `organisations` array for multi-org inventory. Each entry may have its own auth, project filter, and `enabled` flag.
+>
+> **Token resolution order** (for `accessToken` and similar fields):
+> 1. If value starts with `$ENV:VARNAME` — reads environment variable `VARNAME` (throws if unset or empty).
+> 2. If value is a non-empty literal — used as-is.
+> 3. If value is null or empty — no auth token applied (Windows-integrated auth).
+
 ### Top-Level Fields
 
 | Field | Required | Description |
@@ -57,8 +87,11 @@ A single JSON configuration file drives the entire run.
 | `mode` | Yes | `Export`, `Import`, or `Both` |
 | `artefacts.path` | Yes | Absolute path to the package root directory |
 | `artefacts.zip` | No | If `true`, pack/unpack around the run; default `false` |
-| `source` | Required for `Export` and `Both` | Source system connection details |
+| `source` | Required for `Export` and `Both`; Mode 1 inventory | Source system connection details |
+| `source.authentication` | No | Auth credentials block (`type` + `accessToken`). If omitted, Windows-integrated auth is used. |
 | `target` | Required for `Import` and `Both` | Target system connection details |
+| `target.authentication` | No | Auth credentials block (`type` + `accessToken`). |
+| `organisations` | Mode 2 inventory only | Multi-org tooling roster. Mutually exclusive with `source`. Each entry has `type`, `orgOrCollection`, `projects`, `authentication`, and `enabled`. |
 | `modules` | Yes | Ordered list of modules to run with their scope configurations |
 | `policies` | No | Retry and throttle policies |
 

@@ -498,6 +498,62 @@ The `TfsImportAgent` MUST NOT:
 
 ---
 
+## Inventory Mode
+
+`DevOpsMigrationPlatform.CLI.TfsMigration` also accepts the `inventory` subcommand for work-item counting. It is invoked by `TfsInventoryProcessAdapter` in the .NET 10 host whenever `source.type == "TeamFoundationServer"`.
+
+### Subcommand
+
+```
+tfsmigration.exe inventory --collection <url> [--project <name>] [--all-projects]
+```
+
+| Argument | Required | Description |
+|---|---|---|
+| `--collection <url>` | Yes | TFS collection URL (e.g. `http://tfs:8080/tfs/DefaultCollection`) |
+| `--project <name>` | One of | Inventory a single named project |
+| `--all-projects` | One of | Inventory all projects in the collection; mutually exclusive with `--project` |
+
+### Credentials
+
+Credentials are passed via a single JSON line on stdin immediately after the subprocess starts:
+
+```json
+{"pat":"<personal-access-token>"}
+```
+
+For Windows-integrated auth, pass an empty object or omit the `pat` property:
+
+```json
+{}
+```
+
+The subprocess reads exactly one line from stdin before making any TFS connection. Credentials **never** appear in CLI arguments.
+
+### NDJSON Progress Output
+
+The subprocess emits `InventoryProgressEvent` records as NDJSON on stdout — one JSON object per line, flushed immediately:
+
+```json
+{"projectName":"Alpha","orgOrCollection":"http://tfs:8080/tfs/DefaultCollection","workItemsCount":1500,"revisionsCount":0,"isComplete":false,"windowSize":"120.00:00:00","timestamp":"2026-01-15T10:00:01Z"}
+{"projectName":"Alpha","orgOrCollection":"http://tfs:8080/tfs/DefaultCollection","workItemsCount":3200,"revisionsCount":0,"isComplete":true,"timestamp":"2026-01-15T10:00:05Z"}
+```
+
+Intermediate events have `isComplete: false`; the final event for each project has `isComplete: true`. Error events have `isComplete: true` and a non-null `error` field.
+
+### Exit Codes
+
+| Exit Code | Meaning |
+|---|---|
+| `0` | Inventory completed (per-project errors are emitted as NDJSON error events) |
+| Non-zero | Fatal failure before any events could be emitted |
+
+### Implementation Notes
+
+`TfsInventoryAgent.Run()` uses `WorkItemStoreExtensions.QueryCountAllByDateChunk` for date-windowed counting — the same 120-day initial window and 20,000-item halving algorithm as the ADO Services path. Each project is wrapped in an individual try/catch so a failure in one project emits an error event without aborting the remaining projects.
+
+---
+
 ## See Also
 
 - [Source Types](source-types.md) — `TeamFoundationServer` config schema
