@@ -1,0 +1,235 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "🔧 Migration CLI: Configure",
+            "type": "coreclr",
+            "request": "launch",
+            "program": "${workspaceFolder}/src/DevOpsMigrationPlatform.CLI.Migration/bin/Debug/net10.0/devopsmigration.exe",
+            "args": [
+                "configure"
+            ],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "stopAtEntry": false,
+            "preLaunchTask": "build-migration-cli"
+        },
+        {
+            "name": "🔧 Migration CLI: Configure with Output",
+            "type": "coreclr",
+            "request": "launch",
+            "program": "${workspaceFolder}/src/DevOpsMigrationPlatform.CLI.Migration/bin/Debug/net10.0/devopsmigration.exe",
+            "args": [
+                "configure",
+                "--output",
+                "test-migration.json"
+            ],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "stopAtEntry": false,
+            "preLaunchTask": "build-migration-cli"
+        },
+        {
+            "name": "🔍 Migration CLI: Discovery Inventory (Basic)",
+            "type": "coreclr",
+            "request": "launch",
+            "program": "${workspaceFolder}/src/DevOpsMigrationPlatform.CLI.Migration/bin/Debug/net10.0/devopsmigration.exe",
+            "args": [
+                "discovery",
+                "inventory",
+                "--config",
+                "migration.json"
+            ],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "stopAtEntry": false,
+            "preLaunchTask": "build-migration-cli"
+        },
+        {
+            "name": "🔍 Migration CLI: Discovery Inventory (All Projects)",
+            "type": "coreclr",
+            "request": "launch",
+            "program": "${workspaceFolder}/src/DevOpsMigrationPlatform.CLI.Migration/bin/Debug/net10.0/devopsmigration.exe",
+            "args": [
+                "discovery",
+                "inventory",
+                "--config",
+                "migration.json",
+                "--all-projects"
+            ],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "stopAtEntry": false,
+            "preLaunchTask": "build-migration-cli"
+        },
+        {
+            "name": "🔍 Migration CLI: Discovery Inventory (Direct Credentials)",
+            "type": "coreclr",
+            "request": "launch",
+            "program": "${workspaceFolder}/src/DevOpsMigrationPlatform.CLI.Migration/bin/Debug/net10.0/devopsmigration.exe",
+            "args": [
+                "discovery",
+                "inventory",
+                "--source-url",
+                "https://dev.azure.com/yourorg",
+                "--token",
+                "${env:AZDEVOPS_DEV_PAT}"
+            ],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "stopAtEntry": false,
+            "preLaunchTask": "build-migration-cli"
+        },
+        {
+            "name": "🔍 Migration CLI: Discovery Inventory (Environment Variables)",
+            "type": "coreclr",
+            "request": "launch",
+            "program": "${workspaceFolder}/src/DevOpsMigrationPlatform.CLI.Migration/bin/Debug/net10.0/devopsmigration.exe",
+            "args": [
+                "discovery",
+                "inventory",
+                "--source-url",
+                "${env:AZDEVOPS_DEV_ORG}",
+                "--token",
+                "${env:AZDEVOPS_DEV_PAT}"
+            ],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "stopAtEntry": false,
+            "preLaunchTask": "build-migration-cli"
+        },
+        {
+            "name": "🔍 Migration CLI: Discovery Inventory (Config File)",
+            "type": "coreclr",
+            "request": "launch", 
+            "program": "${workspaceFolder}/src/DevOpsMigrationPlatform.CLI.Migration/bin/Debug/net10.0/devopsmigration.exe",
+            "args": [
+                "discovery",
+                "inventory",
+                "--config",
+                "dev-migration.json"
+            ],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "stopAtEntry": false,
+            "preLaunchTask": "build-migration-cli"
+        },
+        {
+            "name": "🔍 Migration CLI: Legacy Inventory",
+            "type": "coreclr",
+            "request": "launch",
+            "program": "${workspaceFolder}/src/DevOpsMigrationPlatform.CLI.Migration/bin/Debug/net10.0/devopsmigration.exe",
+            "args": [
+                "discovery",
+                "legacy-inventory",
+                "--all-projects"
+            ],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "stopAtEntry": false,
+            "preLaunchTask": "build-migration-cli"
+        },
+        {
+            "name": "📦 Migration CLI: TFS Export",
+            "type": "coreclr",
+            "request": "launch",
+            "program": "${workspaceFolder}/src/DevOpsMigrationPlatform.CLI.Migration/bin/Debug/net10.0/devopsmigration.exe",
+            "args": [
+                "tfsexport",
+                "--collection",
+                "http://tfs:8080/tfs/DefaultCollection",
+                "--project",
+                "MyProject",
+                "--output",
+                "./test-package"
+            ],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "stopAtEntry": false,
+            "preLaunchTask": "build-migration-cli"
+        },
+        {
+            "name": "📋 Migration CLI: Logs (Job ID)",
+            "type": "coreclr",
+            "request": "launch",
+            "program": "${workspaceFolder}/src/DevOpsMigrationPlatform.CLI.Migration/bin/Debug/net10.0/devopsmigration.exe",
+            "args": [
+                "logs",
+                "--job",
+                "00000000-0000-0000-0000-000000000001"
+            ],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "stopAtEntry": false,
+            "preLaunchTask": "build-migration-cli"
+        },
+        {
+            "name": "📋 Migration CLI: Logs (Follow)",
+            "type": "coreclr", 
+            "request": "launch",
+            "program": "${workspaceFolder}/src/DevOpsMigrationPlatform.CLI.Migration/bin/Debug/net10.0/devopsmigration.exe",
+            "args": [
+                "logs",
+                "--job",
+                "00000000-0000-0000-0000-000000000001",
+                "--follow"
+            ],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "stopAtEntry": false,
+            "preLaunchTask": "build-migration-cli"
+        },
+        {
+            "name": "🔴 TFS CLI: Export",
+            "type": "coreclr",
+            "request": "launch",
+            "program": "${workspaceFolder}/src/DevOpsMigrationPlatform.CLI.TfsMigration/bin/Debug/net481/tfsmigration.exe",
+            "args": [
+                "export",
+                "--collection",
+                "http://tfs:8080/tfs/DefaultCollection",
+                "--project",
+                "MyProject",
+                "--output",
+                "./test-tfs-package"
+            ],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "stopAtEntry": false,
+            "preLaunchTask": "build-tfs-cli"
+        },
+        {
+            "name": "🔴 TFS CLI: Inventory (All Projects)",
+            "type": "coreclr",
+            "request": "launch",
+            "program": "${workspaceFolder}/src/DevOpsMigrationPlatform.CLI.TfsMigration/bin/Debug/net481/tfsmigration.exe",
+            "args": [
+                "inventory",
+                "--collection",
+                "http://tfs:8080/tfs/DefaultCollection",
+                "--all-projects"
+            ],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "stopAtEntry": false,
+            "preLaunchTask": "build-tfs-cli"
+        },
+        {
+            "name": "🔴 TFS CLI: Inventory (Single Project)",
+            "type": "coreclr",
+            "request": "launch",
+            "program": "${workspaceFolder}/src/DevOpsMigrationPlatform.CLI.TfsMigration/bin/Debug/net481/tfsmigration.exe",
+            "args": [
+                "inventory",
+                "--collection",
+                "http://tfs:8080/tfs/DefaultCollection",
+                "--project",
+                "MyProject"
+            ],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "stopAtEntry": false,
+            "preLaunchTask": "build-tfs-cli"
+        }
+    ]
+}
