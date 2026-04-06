@@ -12,6 +12,9 @@ using DevOpsMigrationPlatform.Abstractions.Models;
 using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Abstractions.Services;
 using DevOpsMigrationPlatform.Abstractions.Utilities;
+using DevOpsMigrationPlatform.CLI.Migration.Commands;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.TeamFoundation.Core.WebApi;
 using Microsoft.VisualStudio.Services.Common;
@@ -22,23 +25,25 @@ using Spectre.Console.Cli;
 
 namespace DevOpsMigrationPlatform.CLI.Commands.Discovery;
 
-public sealed class InventoryCommand : AsyncCommand<InventoryCommand.Settings>
+public sealed class InventoryCommand : CommandBase<InventoryCommand.Settings>
 {
     private readonly IInventoryService _inventoryService;
     private readonly TfsInventoryProcessAdapter _tfsAdapter;
     private readonly IOptions<InventoryOptions> _options;
-    private readonly ActivitySource _activitySource;
 
     public InventoryCommand(
+        IServiceProvider serviceProvider,
+        IHostApplicationLifetime applicationLifetime,
+        ILogger<InventoryCommand> logger,
+        ActivitySource activitySource,
         IInventoryService inventoryService,
         TfsInventoryProcessAdapter tfsAdapter,
-        IOptions<InventoryOptions> options,
-        ActivitySource activitySource)
+        IOptions<InventoryOptions> options) 
+        : base(serviceProvider, applicationLifetime, logger, activitySource)
     {
         _inventoryService = inventoryService;
         _tfsAdapter = tfsAdapter;
         _options = options;
-        _activitySource = activitySource;
     }
 
     public sealed class Settings : CommandSettings
@@ -52,26 +57,9 @@ public sealed class InventoryCommand : AsyncCommand<InventoryCommand.Settings>
         public string? OutputPath { get; set; }
     }
 
-    public override async Task<int> ExecuteAsync(CommandContext context, Settings settings)
+    protected override async Task<int> ExecuteInternalAsync(CommandContext context, Settings settings, CancellationToken cancellationToken = default)
     {
-        using var activity = _activitySource.StartActivity("discovery.inventory");
-        try
-        {
-            return await RunCoreAsync(settings, CancellationToken.None);
-        }
-        catch (InvalidOperationException ex)
-        {
-            activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
-            AnsiConsole.MarkupLine($"[red]❌ {Markup.Escape(ex.Message)}[/]");
-            return 1;
-        }
-        catch (Exception ex)
-        {
-            activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
-            AnsiConsole.MarkupLine("[red]❌ Unexpected error during inventory.[/]");
-            AnsiConsole.WriteException(ex, ExceptionFormats.ShortenEverything);
-            return 1;
-        }
+        return await RunCoreAsync(settings, cancellationToken);
     }
 
     private async Task<int> RunCoreAsync(Settings settings, CancellationToken ct)

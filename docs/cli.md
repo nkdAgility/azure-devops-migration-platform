@@ -64,6 +64,94 @@ The Job Engine has no reference to the CLI, the console, or any progress rendere
 
 ---
 
+## Implementation Pattern
+
+The CLI follows a **host builder pattern** to maintain proper separation of concerns:
+
+### MigrationPlatformHost Pattern
+- **Program.cs**: Contains only minimal bootstrapping logic (< 50 lines) - creates the host builder and runs the console app
+- **MigrationPlatformHost**: Static factory class with `CreateDefaultBuilder(string[] args)` method that centralizes all service registration, configuration binding, and infrastructure setup
+- **CommandBase<T>**: Abstract base class providing `IServiceProvider`, `IHostApplicationLifetime`, and common command functionality
+- **Commands**: Inherit from `CommandBase<T>` to access DI services and manage their hosting lifecycle
+
+### Command Lifecycle Management
+Commands manage their own hosting lifecycle through dependency injection:
+1. Command instantiated by Spectre.Console with dependencies injected via constructor
+2. Services accessed via `Services.GetRequiredService<T>()`
+3. Application lifetime controlled via `Lifetime.StopApplication()`
+4. Common error handling and telemetry provided by `CommandBase<T>`
+
+### Service Registration
+All DI container setup, service registration, and infrastructure configuration is handled by `MigrationPlatformHost`, never in individual commands or `Program.cs`. This ensures:
+- New commands can be added without modifying core infrastructure
+- Proper separation between bootstrapping and infrastructure concerns
+- Consistent service availability across all commands
+- Testable architecture via dependency injection
+
+---
+
+## Testing
+
+All CLI commands use **Spectre.Console.Cli.Testing** (`CommandAppTester`) for comprehensive validation:
+
+### Automated Command Validation
+Every command must have automated tests covering:
+- **Valid parameter tests**: Commands execute successfully with proper inputs (exit code 0)
+- **Invalid parameter tests**: Appropriate error messages and non-zero exit codes
+- **Help text tests**: `--help` displays comprehensive information without errors
+- **Configuration flow tests**: Config values reach internal services correctly
+
+### Test Isolation Strategy
+- **In-memory test doubles**: Configuration via `ConfigurationBuilder` with in-memory collections
+- **Mock service providers**: Test-specific `IServiceProvider` implementations
+- **No external dependencies**: No file system, network, or database dependencies in CLI tests
+- **Clean test environment**: Each test method gets isolated configuration and services
+
+### CommandAppTester Pattern
+```csharp
+[TestMethod]
+public void CommandName_WithValidInputs_ReturnsSuccessCode()
+{
+    // Arrange
+    var app = new CommandAppTester();
+    app.SetDefaultCommand<CommandUnderTest>();
+    
+    // Act
+    var result = app.Run("param1", "value1", "--param2", "value2");
+    
+    // Assert
+    Assert.AreEqual(0, result.ExitCode);
+    Assert.Contains("expected output", result.Output);
+}
+```
+
+---
+
+## Configuration Flow
+
+The `--config` parameter flows through the system following a specific pattern to ensure configuration reaches all services:
+
+### Parameter Extraction Pattern
+1. **Pre-processing**: `--config` and `-c` parameters are extracted by `MigrationPlatformHost` before Spectre.Console processes arguments
+2. **Host builder integration**: Configuration file path is used during `CreateDefaultBuilder()` to layer configuration sources
+3. **Configuration layering**: command-line args → environment variables → config files (proper precedence)
+4. **DI container creation**: Configuration is available during service registration phase
+
+### IOptions Pattern Integration
+All configuration flows through the `IOptions<T>` pattern:
+- Configuration classes are bound during host builder setup
+- Services receive configuration via dependency injection, never direct file access
+- Configuration validation occurs during DI container build
+- Default config file resolution: `migration.json` in current working directory when `--config` not specified
+
+### Error Handling
+- **Malformed JSON**: Clear error messages with file location and JSON parsing details
+- **Missing sections**: Validation errors identifying required configuration sections
+- **File not found**: Helpful error messages suggesting correct file paths
+- **DI container failures**: Configuration binding errors reported during startup
+
+---
+
 ## Commands
 
 | Command | Description |

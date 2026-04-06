@@ -51,6 +51,8 @@ These rules are non-negotiable. They are distilled from the full reference set i
 
 16. **The CLI must not contain migration logic.**
     The CLI parses arguments, builds a `MigrationJob`, drives Aspire to start `ControlPlaneHost` (for local and server execution) or connects to a remote endpoint, and renders progress. All migration logic — module execution, cursor writes, artefact reads/writes — lives in the Job Engine inside an Agent. A CLI that calls a module directly, writes a cursor, or accesses `IArtefactStore` outside the Job Engine boundary is in violation.
+    
+    **CLI Infrastructure Pattern**: CLI infrastructure setup must follow the host builder pattern, with `Program.cs` limited to bootstrapping logic (< 50 lines) and commands managing their hosting lifecycle through dependency injection. All DI container setup, service registration, and infrastructure configuration must be centralized in a dedicated host builder class (e.g., `MigrationPlatformHost`). Commands must inherit from a base class providing `IServiceProvider` and `IHostApplicationLifetime` access, enabling proper separation between bootstrapping, infrastructure setup, and command logic.
 
 17. **The Job Engine must be hostable independently of the TUI.**
     The Job Engine has no dependency on any console, UI framework, or interactive terminal. It receives a `MigrationJob` and an `IProgressSink`; it produces package output and cursor state. It must be runnable in-process (local), in a container (Migration Agent), or in a test harness without modification.

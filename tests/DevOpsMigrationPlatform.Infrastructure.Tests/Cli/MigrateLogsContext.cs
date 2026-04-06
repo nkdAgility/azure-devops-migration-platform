@@ -5,6 +5,9 @@ using System.Runtime.CompilerServices;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.CLI.Commands;
 using DevOpsMigrationPlatform.CLI.JobRunners;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 using Moq;
 using Spectre.Console.Cli;
 
@@ -21,7 +24,13 @@ internal sealed class MigrateLogsContext : IDisposable
 
     public LogsCommand BuildCommand()
     {
-        return new LogsCommand(ClientMock.Object, ActivitySource);
+        var services = new ServiceCollection();
+        services.AddLogging();
+        var serviceProvider = services.BuildServiceProvider();
+        var mockLifetime = new Mock<IHostApplicationLifetime>();
+        var logger = serviceProvider.GetRequiredService<ILogger<LogsCommand>>();
+        
+        return new LogsCommand(serviceProvider, mockLifetime.Object, logger, ActivitySource, ClientMock.Object);
     }
 
     public void Dispose()

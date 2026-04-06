@@ -1,0 +1,61 @@
+{
+  "$schema": "https://raw.githubusercontent.com/azure-devops-migration-platform/schemas/main/migration-config.schema.json",
+  "_description": "Azure DevOps Migration Platform Configuration",
+  
+  // Source system configuration (where to migrate from)
+  "source": {
+    "type": "AzureDevOpsServer", // or "TFS", "AzureDevOpsServices"
+    "url": "https://dev.azure.com/myorganization", // or "http://tfs-server:8080/tfs/DefaultCollection"
+    "authentication": {
+      "type": "PAT", // or "Windows", "OAuth"
+      "personalAccessToken": "your-personal-access-token-here"
+    },
+    "project": {
+      "name": "MyProject", // specific project, or omit for allProjects: true
+      "allProjects": false,
+      "includedProjects": ["Project1", "Project2"] // if neither name nor allProjects
+    }
+  },
+  
+  // Target system configuration (where to migrate to) - optional for inventory/export
+  "target": {
+    "type": "AzureDevOpsServices", 
+    "url": "https://dev.azure.com/mytargetorganization",
+    "authentication": {
+      "type": "PAT",
+      "personalAccessToken": "your-target-pat-here"
+    }
+  },
+  
+  // Inventory operation settings
+  "inventory": {
+    "outputPath": "./inventory-results",
+    "allProjects": false,
+    "includeWorkItems": true,
+    "includeRepositories": true,
+    "includePipelines": true
+  },
+  
+  // Export operation settings
+  "export": {
+    "outputPath": "./migration-package",
+    "compress": true,
+    "includeAttachments": true
+  },
+  
+  // Import operation settings
+  "import": {
+    "packagePath": "./migration-package",
+    "validateFirst": true,
+    "dryRun": false
+  },
+  
+  // Telemetry configuration
+  "telemetry": {
+    "enabled": true,
+    "logLevel": "Information", // "Debug", "Information", "Warning", "Error"
+    "logOutputPath": "./logs",
+    "enableTracing": true,
+    "enableMetrics": true
+  }
+}
