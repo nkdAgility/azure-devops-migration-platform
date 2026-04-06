@@ -2,16 +2,12 @@ using Spectre.Console;
 using Spectre.Console.Cli;
 using System;
 using System.ComponentModel;
-using System.Diagnostics;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.CLI.Views;
 using DevOpsMigrationPlatform.CLI.Migration.Commands;
-using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
-using Microsoft.Extensions.Hosting;
-using OpenTelemetry.Trace;
 
 namespace DevOpsMigrationPlatform.CLI.Commands;
 
@@ -22,12 +18,6 @@ namespace DevOpsMigrationPlatform.CLI.Commands;
 /// </summary>
 public sealed class TfsExportCommand : CommandBase<TfsExportCommand.Settings>
 {
-    public TfsExportCommand(IServiceProvider serviceProvider, IHostApplicationLifetime lifetime, 
-        ILogger<TfsExportCommand> logger, ActivitySource activitySource)
-        : base(serviceProvider, lifetime, logger, activitySource)
-    {
-    }
-
     public sealed class Settings : CommandSettings
     {
         [CommandOption("--collection <COLLECTION>")]
@@ -85,7 +75,7 @@ public sealed class TfsExportCommand : CommandBase<TfsExportCommand.Settings>
         AnsiConsole.MarkupLineInterpolated($"[grey]Arguments:[/] {arguments}");
 
         // Set up TUI telemetry panel (no Control Plane in standalone CLI mode).
-        var panel   = new TelemetryPanel();
+        var panel = new TelemetryPanel();
         var adapter = new TfsExporterProcessAdapter(
             new AnsiProgressSink(),
             NullLogger<TfsExporterProcessAdapter>.Instance);

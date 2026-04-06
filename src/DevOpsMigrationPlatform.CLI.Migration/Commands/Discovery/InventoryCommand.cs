@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
-using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -13,13 +12,12 @@ using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Abstractions.Services;
 using DevOpsMigrationPlatform.Abstractions.Utilities;
 using DevOpsMigrationPlatform.CLI.Migration.Commands;
-using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Logging;
+using DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Services;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using Microsoft.TeamFoundation.Core.WebApi;
 using Microsoft.VisualStudio.Services.Common;
 using Microsoft.VisualStudio.Services.WebApi;
-using OpenTelemetry.Trace;
 using Spectre.Console;
 using Spectre.Console.Cli;
 
@@ -27,25 +25,6 @@ namespace DevOpsMigrationPlatform.CLI.Commands.Discovery;
 
 public sealed class InventoryCommand : CommandBase<InventoryCommand.Settings>
 {
-    private readonly IInventoryService _inventoryService;
-    private readonly TfsInventoryProcessAdapter _tfsAdapter;
-    private readonly IOptions<InventoryOptions> _options;
-
-    public InventoryCommand(
-        IServiceProvider serviceProvider,
-        IHostApplicationLifetime applicationLifetime,
-        ILogger<InventoryCommand> logger,
-        ActivitySource activitySource,
-        IInventoryService inventoryService,
-        TfsInventoryProcessAdapter tfsAdapter,
-        IOptions<InventoryOptions> options) 
-        : base(serviceProvider, applicationLifetime, logger, activitySource)
-    {
-        _inventoryService = inventoryService;
-        _tfsAdapter = tfsAdapter;
-        _options = options;
-    }
-
     public sealed class Settings : CommandSettings
     {
         [CommandOption("--all-projects")]
@@ -59,12 +38,21 @@ public sealed class InventoryCommand : CommandBase<InventoryCommand.Settings>
 
     protected override async Task<int> ExecuteInternalAsync(CommandContext context, Settings settings, CancellationToken cancellationToken = default)
     {
+        // Create command-specific host with inventory services
+        await CreateHost(Environment.GetCommandLineArgs(), (services, config) =>
+        {
+            services.AddSingleton<IWorkItemQueryWindowStrategy, WorkItemQueryWindowStrategy>();
+            services.AddSingleton<IInventoryService, AzureDevOpsInventoryService>();
+            services.AddOptions<InventoryOptions>().Bind(config);
+            services.AddSingleton<TfsInventoryProcessAdapter>();
+        });
+
         return await RunCoreAsync(settings, cancellationToken);
     }
 
     private async Task<int> RunCoreAsync(Settings settings, CancellationToken ct)
     {
-        var opts = _options.Value;
+        var opts = GetRequiredService<IOptions<InventoryOptions>>().Value;
         opts.Validate(settings.AllProjects);
 
         var summaries = new Dictionary<string, InventorySummary>(StringComparer.OrdinalIgnoreCase);
@@ -147,7 +135,8 @@ public sealed class InventoryCommand : CommandBase<InventoryCommand.Settings>
         await AnsiConsole.Live(table)
             .StartAsync(async ctx =>
             {
-                await foreach (var evt in _tfsAdapter.RunAsync(
+                var tfsAdapter = GetRequiredService<TfsInventoryProcessAdapter>();
+                await foreach (var evt in tfsAdapter.RunAsync(
                     collectionUrl, project, pat, allProjects, ct))
                 {
                     var key = $"{collectionUrl}|{evt.ProjectName}";
@@ -206,7 +195,8 @@ public sealed class InventoryCommand : CommandBase<InventoryCommand.Settings>
 
                     try
                     {
-                        await foreach (var evt in _inventoryService.CountWorkItemsAsync(
+                        var inventoryService = GetRequiredService<IInventoryService>();
+                        await foreach (var evt in inventoryService.CountWorkItemsAsync(
                             orgOrCollection, project, pat, ct))
                         {
                             summary.WorkItemsCount = evt.WorkItemsCount;

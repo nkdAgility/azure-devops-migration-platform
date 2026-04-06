@@ -1,8 +1,7 @@
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Hosting;
-using OpenTelemetry;
-using OpenTelemetry.Metrics;
-using OpenTelemetry.Trace;
+using DevOpsMigrationPlatform.CLI.Commands;
+using DevOpsMigrationPlatform.CLI.Commands.Discovery;
+using DevOpsMigrationPlatform.CLI.Migration.Commands;
+using DevOpsMigrationPlatform.CLI.Migration.Commands.Discovery;
 using Spectre.Console;
 using Spectre.Console.Cli;
 
@@ -12,41 +11,53 @@ internal class Program
 {
     static async Task<int> Main(string[] args)
     {
-        try
-        {
-            // Create host builder using the centralized MigrationPlatformHost
-            using var host = MigrationPlatformHost.CreateDefaultBuilder(args).Build();
-            
-            // Start the host and get the CommandApp
-            await host.StartAsync();
-            var commandApp = host.Services.GetRequiredService<CommandApp>();
-            
-            // Display application header
-            AnsiConsole.Write(new FigletText("DevOps Migration").LeftJustified().Color(Color.Blue));
-            AnsiConsole.Write(new Rule().RuleStyle("grey").LeftJustified());
-            
-            // Execute the command with filtered args (--config removed by MigrationPlatformHost)
-            var result = await commandApp.RunAsync(args);
+        AnsiConsole.Write(new FigletText("DevOps Migration").LeftJustified().Color(Color.Blue));
+        AnsiConsole.Write(new Rule().RuleStyle("grey").LeftJustified());
 
-            // Cleanup telemetry providers
-            if (host.Services.GetService<TracerProvider>() is { } tp)
-            {
-                tp.ForceFlush(5000);
-                tp.Dispose();
-            }
-            if (host.Services.GetService<MeterProvider>() is { } mp)
-            {
-                mp.ForceFlush(5000);
-                mp.Dispose();
-            }
-
-            return result;
-        }
-        catch (Exception ex)
+        var app = new CommandApp();
+        app.Configure(config =>
         {
-            AnsiConsole.MarkupLine("[red]❌ Unhandled exception during CLI execution[/]");
-            AnsiConsole.WriteException(ex, ExceptionFormats.ShortenEverything | ExceptionFormats.ShowLinks);
-            return 1;
-        }
+            config.SetApplicationName("devopsmigration");
+#if DEBUG
+            config.PropagateExceptions();
+            config.ValidateExamples();
+#endif
+
+            config.AddCommand<ConfigureCommand>("configure")
+                .WithDescription("Interactive configuration wizard to create migration settings")
+                .WithExample("configure")
+                .WithExample("configure", "--output", "my-migration.json")
+                .WithExample("configure", "--output", "my-migration.json", "--force");
+
+            config.AddBranch("discovery", branch =>
+            {
+                branch.SetDescription("Tools for finding out what we have and the implications of any migration");
+
+                branch.AddCommand<EnhancedInventoryCommand>("inventory")
+                    .WithDescription("Count work items and revisions per project with enhanced configuration support")
+                    .WithExample("discovery", "inventory", "--config", "migration.json")
+                    .WithExample("discovery", "inventory", "--config", "migration.json", "--all-projects")
+                    .WithExample("discovery", "inventory", "--source-url", "https://dev.azure.com/myorg", "--token", "***")
+                    .WithExample("discovery", "inventory", "--config", "migration.json", "--output", "./custom-inventory");
+
+                branch.AddCommand<InventoryCommand>("legacy-inventory")
+                    .WithDescription("[LEGACY] Original inventory command for backwards compatibility")
+                    .WithExample("discovery", "legacy-inventory", "--all-projects");
+            });
+
+            config.AddCommand<TfsExportCommand>("tfsexport")
+                .WithDescription("Export work items from an on-premises TFS / Azure DevOps Server collection")
+                .WithExample("tfsexport",
+                    "--collection", "http://tfs:8080/tfs/DefaultCollection",
+                    "--project", "MyProject",
+                    "--output", "./package");
+
+            config.AddCommand<LogsCommand>("logs")
+                .WithDescription("Retrieve or tail live ProgressEvents for a running job")
+                .WithExample("logs", "--job", "00000000-0000-0000-0000-000000000001")
+                .WithExample("logs", "--job", "00000000-0000-0000-0000-000000000001", "--follow");
+        });
+
+        return await app.RunAsync(args);
     }
 }

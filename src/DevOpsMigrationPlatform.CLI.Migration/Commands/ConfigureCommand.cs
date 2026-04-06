@@ -2,12 +2,10 @@ using DevOpsMigrationPlatform.CLI.Migration.Commands;
 using DevOpsMigrationPlatform.CLI.Migration.Configuration;
 using DevOpsMigrationPlatform.CLI.Migration.Settings;
 using DevOpsMigrationPlatform.CLI.Migration.Services;
-using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.DependencyInjection;
 using Spectre.Console;
 using Spectre.Console.Cli;
 using System.ComponentModel;
-using System.Diagnostics;
 using System.Text.Json;
 
 namespace DevOpsMigrationPlatform.CLI.Migration.Commands;
@@ -18,17 +16,14 @@ namespace DevOpsMigrationPlatform.CLI.Migration.Commands;
 /// </summary>
 public sealed class ConfigureCommand : CommandBase<ConfigureCommandSettings>
 {
-    public ConfigureCommand(
-        IServiceProvider serviceProvider,
-        IHostApplicationLifetime lifetime,
-        ILogger<ConfigureCommand> logger,
-        ActivitySource activitySource)
-        : base(serviceProvider, lifetime, logger, activitySource)
-    {
-    }
-
     protected override async Task<int> ExecuteInternalAsync(CommandContext context, ConfigureCommandSettings settings, CancellationToken cancellationToken = default)
     {
+        // Create command-specific host with configuration service
+        await CreateHost(Environment.GetCommandLineArgs(), (services, config) =>
+        {
+            services.AddSingleton<IConfigurationService, ConfigurationService>();
+        });
+
         var console = GetRequiredService<IAnsiConsole>();
 
         console.Clear();
@@ -58,7 +53,6 @@ public sealed class ConfigureCommand : CommandBase<ConfigureCommandSettings>
         }
         catch (Exception ex)
         {
-            Logger.LogError(ex, "Configuration setup failed");
             ShowError(console, $"Configuration setup failed: {ex.Message}");
             return 1;
         }

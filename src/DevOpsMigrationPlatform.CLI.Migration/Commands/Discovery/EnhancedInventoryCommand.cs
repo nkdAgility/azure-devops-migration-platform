@@ -4,11 +4,8 @@ using DevOpsMigrationPlatform.CLI.Migration.Configuration;
 using DevOpsMigrationPlatform.CLI.Migration.Settings;
 using DevOpsMigrationPlatform.CLI.Migration.Services;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Logging;
 using Spectre.Console;
 using Spectre.Console.Cli;
-using System.Diagnostics;
 using System.Text.Json;
 
 namespace DevOpsMigrationPlatform.CLI.Migration.Commands.Discovery;
@@ -19,24 +16,21 @@ namespace DevOpsMigrationPlatform.CLI.Migration.Commands.Discovery;
 /// </summary>
 public sealed class EnhancedInventoryCommand : CommandBase<InventoryCommandSettings>
 {
-    public EnhancedInventoryCommand(
-        IServiceProvider serviceProvider,
-        IHostApplicationLifetime lifetime,
-        ILogger<EnhancedInventoryCommand> logger,
-        ActivitySource activitySource)
-        : base(serviceProvider, lifetime, logger, activitySource)
-    {
-    }
 
     protected override async Task<int> ExecuteInternalAsync(CommandContext context, InventoryCommandSettings settings, CancellationToken cancellationToken = default)
     {
-        using var activity = ActivitySource.StartActivity("EnhancedInventory.Execute");
+        // Create command-specific host with inventory services
+        await CreateHost(Environment.GetCommandLineArgs(), (services, config) =>
+        {
+            services.AddSingleton<IConfigurationService, ConfigurationService>();
+            services.AddSingleton<IInventoryService>(sp =>
+                sp.GetRequiredService<IInventoryService>());
+        });
 
         // Load and validate configuration
         var configuration = await LoadConfigurationAsync(settings, cancellationToken);
         if (configuration == null)
         {
-            Logger.LogError("Failed to load or validate configuration");
             return 1;
         }
 
@@ -56,7 +50,6 @@ public sealed class EnhancedInventoryCommand : CommandBase<InventoryCommandSetti
         }
         catch (Exception ex)
         {
-            Logger.LogError(ex, "Inventory operation failed");
             var console = GetRequiredService<IAnsiConsole>();
             ShowError(console, $"Inventory operation failed: {ex.Message}");
             return 1;
