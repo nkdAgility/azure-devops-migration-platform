@@ -16,26 +16,23 @@ namespace DevOpsMigrationPlatform.Infrastructure.Services;
 /// <summary>
 /// Platform-agnostic inventory orchestrator. Iterates all configured organisations
 /// and delegates work-item discovery to <see cref="IWorkItemDiscoveryService"/>
-/// (for Azure DevOps Services / REST API entries) and to
-/// <see cref="ITfsInventoryProvider"/> (for TFS / Object Model entries).
+/// and project enumeration to <see cref="IProjectDiscoveryService"/>.
+/// Each CLI host registers the appropriate implementations for its backend.
 /// </summary>
 public sealed class InventoryService : IInventoryService
 {
     private readonly IOptions<DiscoveryOptions> _options;
     private readonly IWorkItemDiscoveryService _workItemDiscovery;
     private readonly IProjectDiscoveryService _projectDiscovery;
-    private readonly ITfsInventoryProvider? _tfsProvider;
 
     public InventoryService(
         IOptions<DiscoveryOptions> options,
         IWorkItemDiscoveryService workItemDiscovery,
-        IProjectDiscoveryService projectDiscovery,
-        ITfsInventoryProvider? tfsProvider = null)
+        IProjectDiscoveryService projectDiscovery)
     {
         _options = options ?? throw new ArgumentNullException(nameof(options));
         _workItemDiscovery = workItemDiscovery ?? throw new ArgumentNullException(nameof(workItemDiscovery));
         _projectDiscovery = projectDiscovery ?? throw new ArgumentNullException(nameof(projectDiscovery));
-        _tfsProvider = tfsProvider;
     }
 
     public async IAsyncEnumerable<InventoryProgressEvent> RunInventoryAsync(
@@ -48,42 +45,24 @@ public sealed class InventoryService : IInventoryService
         {
             var pat = TokenResolver.Resolve(entry.Authentication?.AccessToken) ?? string.Empty;
 
-            if (string.Equals(entry.Type, "TeamFoundationServer", StringComparison.OrdinalIgnoreCase))
+            var projects = entry.Projects.Count > 0
+                ? entry.Projects
+                : await _projectDiscovery.GetProjectsAsync(entry.OrgOrCollection, pat, cancellationToken);
+
+            foreach (var project in projects)
             {
-                if (_tfsProvider is null)
-                    throw new InvalidOperationException(
-                        $"No ITfsInventoryProvider registered but organisation '{entry.OrgOrCollection}' has type 'TeamFoundationServer'.");
-
-                var allProjects = entry.Projects.Count == 0;
-                string? project = allProjects ? null : entry.Projects.FirstOrDefault();
-
-                await foreach (var evt in _tfsProvider.RunAsync(
-                    entry.OrgOrCollection, project, pat, allProjects, cancellationToken))
+                await foreach (var summary in _workItemDiscovery.DiscoverWorkItemsAsync(
+                    entry.OrgOrCollection, project, pat, cancellationToken))
                 {
-                    yield return evt;
-                }
-            }
-            else
-            {
-                var projects = entry.Projects.Count > 0
-                    ? entry.Projects
-                    : await _projectDiscovery.GetProjectsAsync(entry.OrgOrCollection, pat, cancellationToken);
-
-                foreach (var project in projects)
-                {
-                    await foreach (var summary in _workItemDiscovery.DiscoverWorkItemsAsync(
-                        entry.OrgOrCollection, project, pat, cancellationToken))
+                    yield return new InventoryProgressEvent
                     {
-                        yield return new InventoryProgressEvent
-                        {
-                            ProjectName = project,
-                            OrgOrCollection = entry.OrgOrCollection,
-                            WorkItemsCount = summary.WorkItemsCount,
-                            RevisionsCount = summary.RevisionsCount,
-                            IsComplete = summary.IsWorkItemComplete,
-                            Timestamp = summary.LastUpdatedUtc
-                        };
-                    }
+                        ProjectName = project,
+                        OrgOrCollection = entry.OrgOrCollection,
+                        WorkItemsCount = summary.WorkItemsCount,
+                        RevisionsCount = summary.RevisionsCount,
+                        IsComplete = summary.IsWorkItemComplete,
+                        Timestamp = summary.LastUpdatedUtc
+                    };
                 }
             }
         }

@@ -30,7 +30,6 @@ public sealed class InventoryCommand : CommandBase<InventoryCommand.Settings>
         await CreateHost(Environment.GetCommandLineArgs(), (services, config) =>
         {
             services.AddAzureDevOpsInventory(config);
-            services.AddSingleton<ITfsInventoryProvider, TfsInventoryProcessAdapter>();
         });
 
         var inventoryService = GetRequiredService<IInventoryService>();
