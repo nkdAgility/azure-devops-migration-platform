@@ -15,6 +15,7 @@ public static class WellKnownMetricNames
     public const string LinkErrors = "link_export_errors_total";
     public const string WorkItemDuration = "work_item_export_duration_ms";
     public const string RevisionDuration = "revision_export_duration_ms";
+    public const string LinkDuration = "link_export_duration_ms";
     public const string TotalDuration = "export_total_duration_ms";
 
     // Attachment Download Metrics  

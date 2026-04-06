@@ -15,18 +15,7 @@ namespace DevOpsMigrationPlatform.Infrastructure.Telemetry;
 internal sealed class SnapshotMetricExporter : BaseExporter<Metric>
 {
     // Instrument names from WorkItemExportMetrics and AttachmentDownloadMetrics.
-    // Duplicated as private constants here; do NOT reference the .NET 4.8 assembly directly.
-    private const string WorkItemsTotal     = "work_item_exported_total";
-    private const string RevisionsTotal     = "revision_exported_total";
-    private const string RevisionErrors     = "revision_export_errors_total";
-    private const string LinksTotal         = "link_exported_total";
-    private const string LinkErrors         = "link_export_errors_total";
-    private const string WorkItemDuration   = "work_item_export_duration_ms";
-    private const string RevisionDuration   = "revision_export_duration_ms";
-    private const string TotalDuration      = "export_total_duration_ms";
-    private const string AttachAttempts     = "attachment_download_attempt_total";
-    private const string AttachSuccesses    = "attachment_download_success_total";
-    private const string AttachFailures     = "attachment_download_failure_total";
+    // Use centralized constants from WellKnownMetricNames for Application Insights contract stability.
 
     private readonly IMetricSnapshotStore _store;
 
@@ -37,63 +26,63 @@ internal sealed class SnapshotMetricExporter : BaseExporter<Metric>
 
     public override ExportResult Export(in Batch<Metric> batch)
     {
-        long workItemsExported    = 0;
-        long revisionsExported    = 0;
-        long revisionErrors       = 0;
-        long linksExported        = 0;
-        long linkErrors           = 0;
+        long workItemsExported = 0;
+        long revisionsExported = 0;
+        long revisionErrors = 0;
+        long linksExported = 0;
+        long linkErrors = 0;
         long attachmentsAttempted = 0;
         long attachmentsSucceeded = 0;
-        long attachmentsFailed    = 0;
-        double? workItemMeanMs    = null;
-        double? revisionMeanMs    = null;
-        double? totalDurationMs   = null;
+        long attachmentsFailed = 0;
+        double? workItemMeanMs = null;
+        double? revisionMeanMs = null;
+        double? totalDurationMs = null;
 
         foreach (var metric in batch)
         {
             switch (metric.Name)
             {
-                case WorkItemsTotal:
+                case WellKnownMetricNames.WorkItemsExported:
                     workItemsExported = ReadCounterSum(metric);
                     break;
 
-                case RevisionsTotal:
+                case WellKnownMetricNames.RevisionsExported:
                     revisionsExported = ReadCounterSum(metric);
                     break;
 
-                case RevisionErrors:
+                case WellKnownMetricNames.RevisionErrors:
                     revisionErrors = ReadCounterSum(metric);
                     break;
 
-                case LinksTotal:
+                case WellKnownMetricNames.LinksExported:
                     linksExported = ReadCounterSum(metric);
                     break;
 
-                case LinkErrors:
+                case WellKnownMetricNames.LinkErrors:
                     linkErrors = ReadCounterSum(metric);
                     break;
 
-                case AttachAttempts:
+                case WellKnownMetricNames.AttachmentAttempts:
                     attachmentsAttempted = ReadCounterSum(metric);
                     break;
 
-                case AttachSuccesses:
+                case WellKnownMetricNames.AttachmentSuccesses:
                     attachmentsSucceeded = ReadCounterSum(metric);
                     break;
 
-                case AttachFailures:
+                case WellKnownMetricNames.AttachmentFailures:
                     attachmentsFailed = ReadCounterSum(metric);
                     break;
 
-                case WorkItemDuration:
+                case WellKnownMetricNames.WorkItemDuration:
                     workItemMeanMs = ReadHistogramMean(metric);
                     break;
 
-                case RevisionDuration:
+                case WellKnownMetricNames.RevisionDuration:
                     revisionMeanMs = ReadHistogramMean(metric);
                     break;
 
-                case TotalDuration:
+                case WellKnownMetricNames.TotalDuration:
                     totalDurationMs = ReadHistogramMean(metric);
                     break;
             }
@@ -101,18 +90,18 @@ internal sealed class SnapshotMetricExporter : BaseExporter<Metric>
 
         _store.Update(new MetricSnapshot
         {
-            Timestamp             = DateTimeOffset.UtcNow,
-            WorkItemsExported     = workItemsExported,
-            RevisionsExported     = revisionsExported,
-            RevisionErrors        = revisionErrors,
-            LinksExported         = linksExported,
-            LinkErrors            = linkErrors,
-            AttachmentsAttempted  = attachmentsAttempted,
-            AttachmentsSucceeded  = attachmentsSucceeded,
-            AttachmentsFailed     = attachmentsFailed,
+            Timestamp = DateTimeOffset.UtcNow,
+            WorkItemsExported = workItemsExported,
+            RevisionsExported = revisionsExported,
+            RevisionErrors = revisionErrors,
+            LinksExported = linksExported,
+            LinkErrors = linkErrors,
+            AttachmentsAttempted = attachmentsAttempted,
+            AttachmentsSucceeded = attachmentsSucceeded,
+            AttachmentsFailed = attachmentsFailed,
             WorkItemDurationMeanMs = workItemMeanMs,
             RevisionDurationMeanMs = revisionMeanMs,
-            TotalExportDurationMs  = totalDurationMs,
+            TotalExportDurationMs = totalDurationMs,
         });
 
         return ExportResult.Success;
@@ -131,12 +120,12 @@ internal sealed class SnapshotMetricExporter : BaseExporter<Metric>
     // providing a weighted mean. Returns null when no measurements have been recorded.
     private static double? ReadHistogramMean(Metric metric)
     {
-        double totalSum   = 0;
-        long   totalCount = 0;
+        double totalSum = 0;
+        long totalCount = 0;
 
         foreach (ref readonly MetricPoint mp in metric.GetMetricPoints())
         {
-            totalSum   += mp.GetHistogramSum();
+            totalSum += mp.GetHistogramSum();
             totalCount += mp.GetHistogramCount();
         }
 
