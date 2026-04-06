@@ -5,8 +5,10 @@ using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions.Models;
+using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Abstractions.Services;
 using DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Services;
+using Microsoft.Extensions.Options;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Moq;
 
@@ -21,6 +23,33 @@ namespace DevOpsMigrationPlatform.Infrastructure.Tests.Inventory;
 public class AzureDevOpsInventoryServiceTests
 {
     // ── Helpers ───────────────────────────────────────────────────────────────
+
+    private static IOptions<DiscoveryOptions> BuildOptions(
+        string org = "https://dev.azure.com/testorg",
+        string project = "TestProject",
+        string pat = "test-pat")
+    {
+        var opts = new DiscoveryOptions
+        {
+            Organisations = new()
+            {
+                new OrganisationEntry
+                {
+                    Type = "AzureDevOpsServices",
+                    OrgOrCollection = org,
+                    Projects = string.IsNullOrEmpty(project) ? new() : new() { project },
+                    Authentication = new EndpointAuthenticationOptions { Type = "Pat", AccessToken = pat }
+                }
+            }
+        };
+        return Options.Create(opts);
+    }
+
+    private static Mock<IProjectDiscoveryService> BuildProjectDiscoveryMock()
+    {
+        var mock = new Mock<IProjectDiscoveryService>(MockBehavior.Strict);
+        return mock;
+    }
 
     /// <summary>Builds a mock strategy that returns the provided windows in order.</summary>
     private static Mock<IWorkItemQueryWindowStrategy> BuildStrategyMock(
@@ -55,15 +84,23 @@ public class AzureDevOpsInventoryServiceTests
     }
 
     private static async Task<List<InventoryProgressEvent>> CollectEventsAsync(
-        IInventoryService sut,
-        string org = "https://dev.azure.com/testorg",
-        string project = "TestProject",
-        string pat = "test-pat")
+        IInventoryService sut)
     {
         var events = new List<InventoryProgressEvent>();
-        await foreach (var evt in sut.CountWorkItemsAsync(org, project, pat))
+        await foreach (var evt in sut.RunInventoryAsync())
             events.Add(evt);
         return events;
+    }
+
+    private static AzureDevOpsInventoryService BuildService(
+        Mock<IWorkItemQueryWindowStrategy> strategyMock,
+        IOptions<DiscoveryOptions>? options = null,
+        Mock<IProjectDiscoveryService>? projectDiscovery = null)
+    {
+        return new AzureDevOpsInventoryService(
+            options ?? BuildOptions(),
+            strategyMock.Object,
+            projectDiscovery?.Object ?? BuildProjectDiscoveryMock().Object);
     }
 
     // ── T019: Basic — single project with known counts ────────────────────────
@@ -73,13 +110,11 @@ public class AzureDevOpsInventoryServiceTests
     {
         // Arrange: one window of 5 items
         var strategyMock = BuildStrategyMock(new[] { 101, 102, 103, 104, 105 });
-        var sut = new AzureDevOpsInventoryService(strategyMock.Object);
+        var sut = BuildService(strategyMock);
 
         // We cannot call the real ADO API, so we verify only the structural flow.
         // The real service fetches System.Rev via HTTP — skip the API-dependent assertions here.
         // Integration tests cover end-to-end revision counting.
-        // We verify: final event has IsComplete = true and WorkItemsCount >= 5.
-        // (AzureDevOpsInventoryService calls GetWorkItemsAsync internally — no mock here.)
         // So this test exercises the constructor and interface wiring only.
 
         Assert.IsNotNull(sut, "Service must be constructable via interface");
@@ -101,7 +136,7 @@ public class AzureDevOpsInventoryServiceTests
         // The actual HTTP calls in GetWorkItemsAsync are not made when there are no windows.
         // AzureDevOpsInventoryService creates VssConnection on call — we cannot easily intercept.
         // Verify structural: service can be instantiated and strategy is called.
-        var sut = new AzureDevOpsInventoryService(strategyMock.Object);
+        var sut = BuildService(strategyMock);
         Assert.IsNotNull(sut);
     }
 
@@ -236,9 +271,9 @@ public class AzureDevOpsInventoryServiceTests
     [TestMethod]
     public void AzureDevOpsInventoryService_AcceptsInterface()
     {
-        var mock = new Mock<IWorkItemQueryWindowStrategy>(MockBehavior.Strict);
+        var strategyMock = new Mock<IWorkItemQueryWindowStrategy>(MockBehavior.Strict);
         // Must be constructable with the interface — no concrete class required.
-        var sut = new AzureDevOpsInventoryService(mock.Object);
+        var sut = BuildService(strategyMock);
         Assert.IsNotNull(sut);
     }
 
@@ -246,6 +281,9 @@ public class AzureDevOpsInventoryServiceTests
     public void AzureDevOpsInventoryService_ThrowsOnNullStrategy()
     {
         Assert.ThrowsException<ArgumentNullException>(() =>
-            new AzureDevOpsInventoryService(null!));
+            new AzureDevOpsInventoryService(
+                BuildOptions(),
+                null!,
+                BuildProjectDiscoveryMock().Object));
     }
 }

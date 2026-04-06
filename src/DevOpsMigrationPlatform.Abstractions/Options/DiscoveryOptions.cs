@@ -1,65 +1,48 @@
 using System;
 using System.Collections.Generic;
+using DevOpsMigrationPlatform.Abstractions.Utilities;
 
 namespace DevOpsMigrationPlatform.Abstractions.Options;
 
 /// <summary>
-/// Options for discovery/inventory commands. Wraps organisation connection details
-/// without requiring migration-specific fields like Mode, Target, or Artefacts.
-/// Exactly one of <see cref="Source"/> or <see cref="Organisations"/> must be set.
+/// Root options for the <c>devopsmigration discovery</c> command group.
+/// Contains the multi-org roster to discover.
 /// </summary>
 public sealed class DiscoveryOptions
 {
-    /// <summary>Mode 1 — reuse an existing migration config source block.</summary>
-    public MigrationEndpointOptions? Source { get; set; }
+    public const string SectionName = "MigrationTools";
 
-    /// <summary>Mode 2 — multi-org tooling roster.</summary>
-    public List<OrganisationEntry>? Organisations { get; set; }
+    public string ConfigVersion { get; set; } = "1.0";
+
+    /// <summary>Organisations / collections to inventory.</summary>
+    public List<OrganisationEntry> Organisations { get; set; } = new();
 
     /// <summary>
     /// Validates the options, throwing <see cref="InvalidOperationException"/> on any violation.
+    /// Called at command startup before any API calls.
     /// </summary>
-    /// <param name="allProjectsFlag">Value of the <c>--all-projects</c> CLI flag (Mode 1 only).</param>
-    public void Validate(bool allProjectsFlag)
+    public void Validate()
     {
-        bool hasSource = Source != null;
-        bool hasOrganisations = Organisations != null;
+        if (Organisations.Count == 0)
+            throw new InvalidOperationException("Config error: 'organisations' array is empty.");
 
-        if (hasSource && hasOrganisations)
-            throw new InvalidOperationException(
-                "Config error: 'source' and 'organisations' are mutually exclusive.");
-
-        if (!hasSource && !hasOrganisations)
-            throw new InvalidOperationException(
-                "Config error: Config must contain either a 'source' block or an 'organisations' array.");
-
-        if (hasSource)
+        foreach (var entry in Organisations)
         {
-            var source = Source!;
-            if (string.IsNullOrWhiteSpace(source.Project) && !allProjectsFlag)
+            if (string.IsNullOrWhiteSpace(entry.Type))
                 throw new InvalidOperationException(
-                    "Config error: 'source.project' is not set. Specify a project or pass --all-projects.");
-
-            if (source.Authentication != null &&
-                string.Equals(source.Authentication.Type, "Pat", StringComparison.OrdinalIgnoreCase) &&
-                string.IsNullOrWhiteSpace(source.Authentication.AccessToken))
+                    "Config error: An organisations entry is missing 'type'.");
+            if (string.IsNullOrWhiteSpace(entry.OrgOrCollection))
                 throw new InvalidOperationException(
-                    $"Config error: PAT for '{source.OrgOrCollection}' resolved to an empty string.");
-        }
+                    $"Config error: An organisations entry of type '{entry.Type}' is missing 'orgOrCollection'.");
 
-        if (hasOrganisations)
-        {
-            if (Organisations!.Count == 0)
-                throw new InvalidOperationException("Config error: 'organisations' array is empty.");
-
-            foreach (var entry in Organisations)
+            if (entry.Authentication != null &&
+                string.Equals(entry.Authentication.Type, "Pat", StringComparison.OrdinalIgnoreCase))
             {
-                if (string.IsNullOrWhiteSpace(entry.Type))
+                var resolved = TokenResolver.Resolve(entry.Authentication.AccessToken);
+                if (string.IsNullOrWhiteSpace(resolved))
                     throw new InvalidOperationException(
-                        "Config error: An organisations entry is missing 'type'.");
-                if (string.IsNullOrWhiteSpace(entry.OrgOrCollection))
-                    throw new InvalidOperationException(
-                        $"Config error: An organisations entry of type '{entry.Type}' is missing 'orgOrCollection'.");
+                        $"Config error: PAT for '{entry.OrgOrCollection}' resolved to an empty string. " +
+                        "Set 'authentication.accessToken' to a literal value or '$ENV:VARNAME'.");
             }
         }
     }

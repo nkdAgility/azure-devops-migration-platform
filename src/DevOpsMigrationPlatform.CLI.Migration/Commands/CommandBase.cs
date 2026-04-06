@@ -2,8 +2,8 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-using DevOpsMigrationPlatform.CLI.Migration.Configuration;
-using DevOpsMigrationPlatform.CLI.Migration.Services;
+using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Services;
 using Spectre.Console.Cli;
 using Spectre.Console;
 using System.ComponentModel;
@@ -94,7 +94,7 @@ public abstract class CommandBase<TSettings> : AsyncCommand<TSettings>
 
     // ── Configuration helpers ──────────────────────────────────────────────
 
-    protected async Task<MigrationConfiguration?> LoadConfigurationAsync(TSettings settings, CancellationToken cancellationToken = default)
+    protected async Task<MigrationOptions?> LoadConfigurationAsync(TSettings settings, CancellationToken cancellationToken = default)
     {
         var configService = GetRequiredService<IConfigurationService>();
         var console = GetRequiredService<IAnsiConsole>();
@@ -116,11 +116,11 @@ public abstract class CommandBase<TSettings> : AsyncCommand<TSettings>
                     ShowInfo(console, "No configuration file found, using default configuration");
             }
 
-            var configuration = await configService.LoadConfigurationAsync(configPath, cancellationToken);
+            var options = await configService.LoadConfigurationAsync(configPath, cancellationToken);
 
             if (RequiresConfigurationValidation())
             {
-                var validationErrors = configService.ValidateConfiguration(configuration).ToList();
+                var validationErrors = configService.ValidateConfiguration(options).ToList();
                 if (validationErrors.Any())
                 {
                     ShowError(console, "Configuration validation failed:");
@@ -131,7 +131,7 @@ public abstract class CommandBase<TSettings> : AsyncCommand<TSettings>
                 ShowSuccess(console, "Configuration validated successfully");
             }
 
-            return configuration;
+            return options;
         }
         catch (Exception ex)
         {

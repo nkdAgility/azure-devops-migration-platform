@@ -1,0 +1,25 @@
+using DevOpsMigrationPlatform.Abstractions.Options;
+using DevOpsMigrationPlatform.Abstractions.Services;
+using DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Services;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+
+namespace DevOpsMigrationPlatform.Infrastructure.AzureDevOps;
+
+public static class InventoryServiceCollectionExtensions
+{
+    /// <summary>
+    /// Registers all Azure DevOps inventory services and binds <see cref="DiscoveryOptions"/>
+    /// from the <c>MigrationTools</c> configuration section.
+    /// </summary>
+    public static IServiceCollection AddAzureDevOpsInventory(
+        this IServiceCollection services,
+        IConfiguration configuration)
+    {
+        services.AddOptions<DiscoveryOptions>().Bind(configuration);
+        services.AddSingleton<IWorkItemQueryWindowStrategy, WorkItemQueryWindowStrategy>();
+        services.AddSingleton<IProjectDiscoveryService, AzureDevOpsProjectDiscoveryService>();
+        services.AddSingleton<IInventoryService, AzureDevOpsInventoryService>();
+        return services;
+    }
+}

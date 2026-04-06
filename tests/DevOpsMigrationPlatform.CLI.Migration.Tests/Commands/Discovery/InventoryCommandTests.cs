@@ -2,7 +2,6 @@ using DevOpsMigrationPlatform.CLI.Commands.Discovery;
 using DevOpsMigrationPlatform.CLI.Migration.Tests.TestUtilities;
 using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Abstractions.Utilities;
-using DevOpsMigrationPlatform.Abstractions;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using System;
 
@@ -43,18 +42,21 @@ public class InventoryCommandTests
         // Act & Assert
         await SystemTestBase.ExecuteSystemTestAsync(async (ctx) =>
         {
-            // Create a properly structured inventory options for testing
+            // Create a properly structured discovery options for testing
             // OrgOrCollection uses the complete organization URL directly from environment variable
-            var inventoryOptions = new InventoryOptions
+            var discoveryOptions = new DiscoveryOptions
             {
-                Source = new MigrationEndpointOptions
+                Organisations = new()
                 {
-                    Type = "AzureDevOpsServices",
-                    OrgOrCollection = ctx.Configuration.OrganizationUrl,
-                    Authentication = new EndpointAuthenticationOptions
+                    new OrganisationEntry
                     {
-                        Type = "Pat",
-                        AccessToken = ctx.Configuration.AccessToken
+                        Type = "AzureDevOpsServices",
+                        OrgOrCollection = ctx.Configuration.OrganizationUrl,
+                        Authentication = new EndpointAuthenticationOptions
+                        {
+                            Type = "Pat",
+                            AccessToken = ctx.Configuration.AccessToken
+                        }
                     }
                 }
             };
@@ -74,7 +76,7 @@ public class InventoryCommandTests
 
             // For now, we validate the system test infrastructure works
             Console.WriteLine($"System test validated organization: {ctx.Configuration.OrganizationUrl}");
-            Console.WriteLine($"Inventory options structure validated: {inventoryOptions.Source.OrgOrCollection}");
+            Console.WriteLine($"Discovery options structure validated: {discoveryOptions.Organisations[0].OrgOrCollection}");
             Console.WriteLine($"Output directory created: {ctx.OutputDirectory}");
 
         }, context);

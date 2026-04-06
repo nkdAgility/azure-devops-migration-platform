@@ -8,6 +8,7 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions.Models;
+using DevOpsMigrationPlatform.Abstractions.Services;
 
 namespace DevOpsMigrationPlatform.CLI.Commands.Discovery;
 
@@ -17,7 +18,7 @@ namespace DevOpsMigrationPlatform.CLI.Commands.Discovery;
 /// Credentials are passed as a single JSON line on stdin: <c>{"pat":"..."}</c> or <c>{}</c>
 /// for Windows-integrated auth.
 /// </summary>
-public sealed class TfsInventoryProcessAdapter
+public sealed class TfsInventoryProcessAdapter : ITfsInventoryProvider
 {
     private static readonly string SubprocessPath =
         Path.Combine(AppContext.BaseDirectory, "tfsmigration.exe");
