@@ -11,22 +11,22 @@ using DevOpsMigrationPlatform.Abstractions.Services;
 using DevOpsMigrationPlatform.Abstractions.Utilities;
 using Microsoft.Extensions.Options;
 
-namespace DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Services;
+namespace DevOpsMigrationPlatform.Infrastructure.Services;
 
 /// <summary>
-/// Orchestrates a full inventory run across all configured organisations.
-/// For Azure DevOps Services entries it delegates work-item discovery to
-/// <see cref="IWorkItemDiscoveryService"/>; for TFS entries it delegates
-/// to <see cref="ITfsInventoryProvider"/>.
+/// Platform-agnostic inventory orchestrator. Iterates all configured organisations
+/// and delegates work-item discovery to <see cref="IWorkItemDiscoveryService"/>
+/// (for Azure DevOps Services / REST API entries) and to
+/// <see cref="ITfsInventoryProvider"/> (for TFS / Object Model entries).
 /// </summary>
-public sealed class AzureDevOpsInventoryService : IInventoryService
+public sealed class InventoryService : IInventoryService
 {
     private readonly IOptions<DiscoveryOptions> _options;
     private readonly IWorkItemDiscoveryService _workItemDiscovery;
     private readonly IProjectDiscoveryService _projectDiscovery;
     private readonly ITfsInventoryProvider? _tfsProvider;
 
-    public AzureDevOpsInventoryService(
+    public InventoryService(
         IOptions<DiscoveryOptions> options,
         IWorkItemDiscoveryService workItemDiscovery,
         IProjectDiscoveryService projectDiscovery,

@@ -1,6 +1,7 @@
 using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Abstractions.Services;
 using DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Services;
+using DevOpsMigrationPlatform.Infrastructure.Services;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -18,8 +19,9 @@ public static class InventoryServiceCollectionExtensions
     {
         services.AddOptions<DiscoveryOptions>().Bind(configuration);
         services.AddSingleton<IWorkItemQueryWindowStrategy, WorkItemQueryWindowStrategy>();
+        services.AddSingleton<IWorkItemDiscoveryService, AzureDevOpsWorkItemDiscoveryService>();
         services.AddSingleton<IProjectDiscoveryService, AzureDevOpsProjectDiscoveryService>();
-        services.AddSingleton<IInventoryService, AzureDevOpsInventoryService>();
+        services.AddSingleton<IInventoryService, InventoryService>();
         return services;
     }
 }

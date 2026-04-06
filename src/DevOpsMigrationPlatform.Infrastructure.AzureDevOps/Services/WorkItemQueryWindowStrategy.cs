@@ -34,7 +34,7 @@ public sealed class WorkItemQueryWindow
 
 /// <summary>
 /// Shared date-window WIQL strategy that keeps each query under the 20,000-item limit.
-/// Used by both <see cref="AzureDevOpsInventoryService"/> (counting) and
+/// Used by both <see cref="InventoryService"/> (counting) and
 /// <see cref="CatalogService"/> (export paging).
 /// </summary>
 public sealed class WorkItemQueryWindowStrategy : IWorkItemQueryWindowStrategy
