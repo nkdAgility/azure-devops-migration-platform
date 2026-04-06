@@ -1,13 +1,9 @@
-using DevOpsMigrationPlatform.CLI.Commands.Discovery;
+using DevOpsMigrationPlatform.CLI.Migration.Commands.Discovery;
 using DevOpsMigrationPlatform.CLI.Migration.Tests.TestUtilities;
-using DevOpsMigrationPlatform.Abstractions.Services;
-using DevOpsMigrationPlatform.Abstractions.Options;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
-using Moq;
 using System.Diagnostics;
 
 namespace DevOpsMigrationPlatform.CLI.Migration.Tests.Commands.Discovery;
@@ -25,20 +21,13 @@ public class InventoryCommandTests
         var mockLifetime = MockServiceProvider.CreateMockLifetime();
         var logger = serviceProvider.GetRequiredService<ILogger<InventoryCommand>>();
         var activitySource = new ActivitySource("test");
-        var mockInventoryService = new Mock<IInventoryService>();
-        // Use null for TfsInventoryProcessAdapter since it's sealed and we can't mock it easily
-        var mockOptions = new Mock<IOptions<InventoryOptions>>();
-        mockOptions.Setup(o => o.Value).Returns(new InventoryOptions());
 
         // Act & Assert - Should not throw (constructor doesn't validate dependencies immediately)
         var command = new InventoryCommand(
             serviceProvider,
             mockLifetime.Object,
             logger,
-            activitySource,
-            mockInventoryService.Object,
-            null!, // Adapter can be null for construction test
-            mockOptions.Object);
+            activitySource);
         Assert.IsNotNull(command);
     }
 

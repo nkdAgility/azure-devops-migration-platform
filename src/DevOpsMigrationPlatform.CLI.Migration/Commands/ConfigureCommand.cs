@@ -1,6 +1,6 @@
 using DevOpsMigrationPlatform.CLI.Migration.Commands;
 using DevOpsMigrationPlatform.CLI.Migration.Configuration;
-using DevOpsMigrationPlatform.CLI.Migration.Options;
+using DevOpsMigrationPlatform.CLI.Migration.CommandSettings;
 using DevOpsMigrationPlatform.CLI.Migration.Services;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;

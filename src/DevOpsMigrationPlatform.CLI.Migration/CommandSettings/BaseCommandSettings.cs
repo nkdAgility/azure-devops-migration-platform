@@ -2,7 +2,7 @@ using System.ComponentModel;
 using DevOpsMigrationPlatform.CLI.Migration.Commands;
 using Spectre.Console.Cli;
 
-namespace DevOpsMigrationPlatform.CLI.Migration.Options;
+namespace DevOpsMigrationPlatform.CLI.Migration.CommandSettings;
 
 /// <summary>
 /// Base command settings providing common options for all CLI commands.

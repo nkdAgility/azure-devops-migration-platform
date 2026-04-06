@@ -3,7 +3,6 @@ using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Abstractions.Services;
 using DevOpsMigrationPlatform.CLI.Commands;
-using DevOpsMigrationPlatform.CLI.Commands.Discovery;
 using DevOpsMigrationPlatform.CLI.Infrastructure;
 using DevOpsMigrationPlatform.CLI.JobRunners;
 using DevOpsMigrationPlatform.CLI.Migration.Commands;
@@ -143,7 +142,6 @@ public static class MigrationPlatformHost
         services.AddSingleton<IWorkItemQueryWindowStrategy, WorkItemQueryWindowStrategy>();
         services.AddSingleton<IInventoryService, AzureDevOpsInventoryService>();
         services.AddOptions<InventoryOptions>().Bind(configuration);
-        services.AddSingleton<TfsInventoryProcessAdapter>();
     }
 
     /// <summary>
@@ -176,18 +174,13 @@ public static class MigrationPlatformHost
                 {
                     branch.SetDescription("Tools for finding out what we have and the implications of any migration");
                     
-                    // Enhanced inventory command with configuration support
-                    branch.AddCommand<EnhancedInventoryCommand>("inventory")
+                    // Inventory command with configuration support
+                    branch.AddCommand<InventoryCommand>("inventory")
                         .WithDescription("Count work items and revisions per project with enhanced configuration support")
                         .WithExample("discovery", "inventory", "--config", "migration.json")
                         .WithExample("discovery", "inventory", "--config", "migration.json", "--all-projects")
                         .WithExample("discovery", "inventory", "--source-url", "https://dev.azure.com/myorg", "--token", "***")
                         .WithExample("discovery", "inventory", "--config", "migration.json", "--output", "./custom-inventory");
-                    
-                    // Legacy inventory command (preserved for backwards compatibility)
-                    branch.AddCommand<InventoryCommand>("legacy-inventory")
-                        .WithDescription("[LEGACY] Original inventory command for backwards compatibility")
-                        .WithExample("discovery", "legacy-inventory", "--all-projects");
                 });
 
                 // TFS Export (legacy command)

@@ -9,7 +9,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions.Models;
 
-namespace DevOpsMigrationPlatform.CLI.Commands.Discovery;
+namespace DevOpsMigrationPlatform.CLI.Migration.Commands.Discovery;
 
 /// <summary>
 /// Spawns the <c>tfsmigration.exe inventory</c> subprocess via <see cref="ExternalToolRunner"/>

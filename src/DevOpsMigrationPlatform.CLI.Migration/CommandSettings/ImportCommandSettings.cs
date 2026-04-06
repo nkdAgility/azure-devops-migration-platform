@@ -1,7 +1,7 @@
 using System.ComponentModel;
 using Spectre.Console.Cli;
 
-namespace DevOpsMigrationPlatform.CLI.Migration.Options;
+namespace DevOpsMigrationPlatform.CLI.Migration.CommandSettings;
 
 /// <summary>
 /// Settings for the import command.
