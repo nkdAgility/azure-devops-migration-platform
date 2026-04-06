@@ -24,13 +24,18 @@ internal sealed class MigrateLogsContext : IDisposable
 
     public LogsCommand BuildCommand()
     {
-        var services = new ServiceCollection();
-        services.AddLogging();
-        var serviceProvider = services.BuildServiceProvider();
-        var mockLifetime = new Mock<IHostApplicationLifetime>();
-        var logger = serviceProvider.GetRequiredService<ILogger<LogsCommand>>();
-        
-        return new LogsCommand(serviceProvider, mockLifetime.Object, logger, ActivitySource, ClientMock.Object);
+        var command = new LogsCommand();
+
+        // Build a minimal host with mock services so the command skips CreateHost
+        var host = Host.CreateDefaultBuilder()
+            .ConfigureServices(services =>
+            {
+                services.AddSingleton<ILogsClient>(ClientMock.Object);
+            })
+            .Build();
+
+        command.Host = host;
+        return command;
     }
 
     public void Dispose()

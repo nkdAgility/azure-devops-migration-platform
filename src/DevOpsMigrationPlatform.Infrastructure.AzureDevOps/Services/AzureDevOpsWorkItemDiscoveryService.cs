@@ -4,7 +4,7 @@ using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
-using DevOpsMigrationPlatform.Abstractions.Models;
+using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Services;
 using Microsoft.TeamFoundation.WorkItemTracking.WebApi;
 using Microsoft.VisualStudio.Services.Common;
@@ -13,21 +13,21 @@ using Microsoft.VisualStudio.Services.WebApi;
 namespace DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Services;
 
 /// <summary>
-/// Azure DevOps implementation of <see cref="IInventoryService"/>.
-/// Uses <see cref="WorkItemQueryWindowStrategy"/> to keep each WIQL query under 20,000 items,
-/// then fetches <c>System.Rev</c> in batches to count revisions.
+/// Azure DevOps implementation of <see cref="IWorkItemDiscoveryService"/>.
+/// Uses the shared <see cref="IWorkItemQueryWindowStrategy"/> for date-window WIQL
+/// queries and fetches <c>System.Rev</c> to tally revision counts.
 /// </summary>
-public sealed class AzureDevOpsInventoryService : IInventoryService
+public sealed class AzureDevOpsWorkItemDiscoveryService : IWorkItemDiscoveryService
 {
     private readonly IWorkItemQueryWindowStrategy _windowStrategy;
     private const int RevisionBatchSize = 200;
 
-    public AzureDevOpsInventoryService(IWorkItemQueryWindowStrategy windowStrategy)
+    public AzureDevOpsWorkItemDiscoveryService(IWorkItemQueryWindowStrategy windowStrategy)
     {
         _windowStrategy = windowStrategy ?? throw new ArgumentNullException(nameof(windowStrategy));
     }
 
-    public async IAsyncEnumerable<InventoryProgressEvent> CountWorkItemsAsync(
+    public async IAsyncEnumerable<ProjectDiscoverySummary> DiscoverWorkItemsAsync(
         string orgOrCollection,
         string project,
         string pat,
@@ -37,17 +37,15 @@ public sealed class AzureDevOpsInventoryService : IInventoryService
         var connection = new VssConnection(new Uri(orgOrCollection), credentials);
         var witClient = await connection.GetClientAsync<WorkItemTrackingHttpClient>(cancellationToken);
 
-        int totalWorkItems = 0;
-        int totalRevisions = 0;
+        var summary = new ProjectDiscoverySummary { ProjectName = project };
 
         await foreach (var window in _windowStrategy.EnumerateWindowsAsync(
             orgOrCollection, project, pat, cancellationToken: cancellationToken))
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            totalWorkItems += window.WorkItemIds.Count;
+            summary.WorkItemsCount += window.WorkItemIds.Count;
 
-            // Fetch System.Rev in batches
             foreach (var batch in window.WorkItemIds.Chunk(RevisionBatchSize))
             {
                 cancellationToken.ThrowIfCancellationRequested();
@@ -59,35 +57,16 @@ public sealed class AzureDevOpsInventoryService : IInventoryService
                 foreach (var wi in workItems)
                 {
                     if (wi.Fields.TryGetValue("System.Rev", out var revObj) && revObj is IConvertible c)
-                        totalRevisions += c.ToInt32(null);
+                        summary.RevisionsCount += c.ToInt32(null);
                 }
             }
 
-            yield return new InventoryProgressEvent
-            {
-                ProjectName = project,
-                OrgOrCollection = orgOrCollection,
-                WorkItemsCount = totalWorkItems,
-                RevisionsCount = totalRevisions,
-                IsComplete = false,
-                WindowStart = window.WindowStart,
-                WindowEnd = window.WindowEnd,
-                WindowSize = window.WindowSize,
-                Timestamp = DateTime.UtcNow
-            };
+            summary.LastUpdatedUtc = DateTime.UtcNow;
+            yield return summary;
         }
 
-        yield return new InventoryProgressEvent
-        {
-            ProjectName = project,
-            OrgOrCollection = orgOrCollection,
-            WorkItemsCount = totalWorkItems,
-            RevisionsCount = totalRevisions,
-            IsComplete = true,
-            WindowStart = DateTime.MinValue,
-            WindowEnd = DateTime.UtcNow,
-            WindowSize = TimeSpan.Zero,
-            Timestamp = DateTime.UtcNow
-        };
+        summary.IsWorkItemComplete = true;
+        summary.LastUpdatedUtc = DateTime.UtcNow;
+        yield return summary;
     }
 }

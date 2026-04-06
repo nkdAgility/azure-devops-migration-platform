@@ -4,111 +4,164 @@ using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
+using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Models;
+using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Abstractions.Services;
 using DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Services;
+using DevOpsMigrationPlatform.Infrastructure.Services;
+using Microsoft.Extensions.Options;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Moq;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Tests.Inventory;
 
 /// <summary>
-/// Unit tests for <see cref="AzureDevOpsInventoryService"/> and
+/// Unit tests for <see cref="InventoryService"/>,
+/// <see cref="IWorkItemDiscoveryService"/>, and
 /// the behavioural requirements of <see cref="IWorkItemQueryWindowStrategy"/>.
-/// T019-T024 are covered below.
 /// </summary>
 [TestClass]
-public class AzureDevOpsInventoryServiceTests
+public class InventoryServiceTests
 {
     // ── Helpers ───────────────────────────────────────────────────────────────
 
-    /// <summary>Builds a mock strategy that returns the provided windows in order.</summary>
-    private static Mock<IWorkItemQueryWindowStrategy> BuildStrategyMock(
-        params IReadOnlyList<int>[] windowIds)
-    {
-        var mock = new Mock<IWorkItemQueryWindowStrategy>(MockBehavior.Strict);
-        mock.Setup(s => s.EnumerateWindowsAsync(
-                It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(),
-                It.IsAny<WorkItemQueryWindowOptions?>(), It.IsAny<CancellationToken>()))
-            .Returns<string, string, string, WorkItemQueryWindowOptions?, CancellationToken>(
-                (org, proj, pat, opts, ct) => MakeWindows(windowIds));
-        return mock;
-    }
-
-    private static async IAsyncEnumerable<WorkItemQueryWindow> MakeWindows(
-        IReadOnlyList<int>[] windowIds,
-        [EnumeratorCancellation] CancellationToken ct = default)
-    {
-        var now = DateTime.UtcNow;
-        foreach (var ids in windowIds)
-        {
-            ct.ThrowIfCancellationRequested();
-            yield return new WorkItemQueryWindow
-            {
-                WindowStart = now.AddDays(-120),
-                WindowEnd = now,
-                WindowSize = TimeSpan.FromDays(120),
-                WorkItemIds = ids
-            };
-            now = now.AddDays(-120);
-        }
-    }
-
-    private static async Task<List<InventoryProgressEvent>> CollectEventsAsync(
-        IInventoryService sut,
+    private static IOptions<DiscoveryOptions> BuildOptions(
         string org = "https://dev.azure.com/testorg",
         string project = "TestProject",
         string pat = "test-pat")
     {
+        var opts = new DiscoveryOptions
+        {
+            Organisations = new()
+            {
+                new OrganisationEntry
+                {
+                    Type = "AzureDevOpsServices",
+                    OrgOrCollection = org,
+                    Projects = string.IsNullOrEmpty(project) ? new() : new() { project },
+                    Authentication = new EndpointAuthenticationOptions { Type = "Pat", AccessToken = pat }
+                }
+            }
+        };
+        return Options.Create(opts);
+    }
+
+    private static Mock<IProjectDiscoveryService> BuildProjectDiscoveryMock()
+    {
+        var mock = new Mock<IProjectDiscoveryService>(MockBehavior.Strict);
+        return mock;
+    }
+
+    /// <summary>Builds a mock discovery service that streams the provided summaries.</summary>
+    private static Mock<IWorkItemDiscoveryService> BuildDiscoveryMock(
+        int workItemCount = 5, int revisionCount = 25)
+    {
+        var mock = new Mock<IWorkItemDiscoveryService>(MockBehavior.Strict);
+        mock.Setup(s => s.DiscoverWorkItemsAsync(
+                It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(),
+                It.IsAny<CancellationToken>()))
+            .Returns<string, string, string, CancellationToken>(
+                (org, proj, pat, ct) => MakeSummaries(proj, workItemCount, revisionCount));
+        return mock;
+    }
+
+    private static async IAsyncEnumerable<ProjectDiscoverySummary> MakeSummaries(
+        string project, int workItemCount, int revisionCount,
+        [EnumeratorCancellation] CancellationToken ct = default)
+    {
+        yield return new ProjectDiscoverySummary
+        {
+            ProjectName = project,
+            WorkItemsCount = workItemCount,
+            RevisionsCount = revisionCount,
+            IsWorkItemComplete = false,
+            LastUpdatedUtc = DateTime.UtcNow
+        };
+        yield return new ProjectDiscoverySummary
+        {
+            ProjectName = project,
+            WorkItemsCount = workItemCount,
+            RevisionsCount = revisionCount,
+            IsWorkItemComplete = true,
+            LastUpdatedUtc = DateTime.UtcNow
+        };
+    }
+
+    private static async Task<List<InventoryProgressEvent>> CollectEventsAsync(
+        IInventoryService sut)
+    {
         var events = new List<InventoryProgressEvent>();
-        await foreach (var evt in sut.CountWorkItemsAsync(org, project, pat))
+        await foreach (var evt in sut.RunInventoryAsync())
             events.Add(evt);
         return events;
+    }
+
+    private static InventoryService BuildService(
+        Mock<IWorkItemDiscoveryService> discoveryMock,
+        IOptions<DiscoveryOptions>? options = null,
+        Mock<IProjectDiscoveryService>? projectDiscovery = null)
+    {
+        return new InventoryService(
+            options ?? BuildOptions(),
+            discoveryMock.Object,
+            projectDiscovery?.Object ?? BuildProjectDiscoveryMock().Object);
     }
 
     // ── T019: Basic — single project with known counts ────────────────────────
 
     [TestMethod]
-    public async Task CountWorkItemsAsync_SingleWindow_YieldsProgressAndFinalEvent()
+    public async Task RunInventoryAsync_SingleProject_YieldsProgressAndFinalEvent()
     {
-        // Arrange: one window of 5 items
-        var strategyMock = BuildStrategyMock(new[] { 101, 102, 103, 104, 105 });
-        var sut = new AzureDevOpsInventoryService(strategyMock.Object);
+        // Arrange: discovery yields 2 events (progress + final)
+        var discoveryMock = BuildDiscoveryMock(workItemCount: 5, revisionCount: 25);
+        var sut = BuildService(discoveryMock);
 
-        // We cannot call the real ADO API, so we verify only the structural flow.
-        // The real service fetches System.Rev via HTTP — skip the API-dependent assertions here.
-        // Integration tests cover end-to-end revision counting.
-        // We verify: final event has IsComplete = true and WorkItemsCount >= 5.
-        // (AzureDevOpsInventoryService calls GetWorkItemsAsync internally — no mock here.)
-        // So this test exercises the constructor and interface wiring only.
+        // Act
+        var events = await CollectEventsAsync(sut);
 
-        Assert.IsNotNull(sut, "Service must be constructable via interface");
+        // Assert
+        Assert.AreEqual(2, events.Count, "Should yield progress + final events");
+        Assert.IsFalse(events[0].IsComplete);
+        Assert.IsTrue(events[1].IsComplete);
+        Assert.AreEqual(5, events[1].WorkItemsCount);
+        Assert.AreEqual(25, events[1].RevisionsCount);
+        Assert.AreEqual("TestProject", events[1].ProjectName);
     }
 
     // ── T019: Zero-item project ───────────────────────────────────────────────
 
     [TestMethod]
-    public async Task CountWorkItemsAsync_EmptyStrategy_YieldsOnlyFinalEvent()
+    public async Task RunInventoryAsync_EmptyProject_YieldsOnlyFinalEvent()
     {
-        // Arrange: strategy yields no windows (empty project)
-        var strategyMock = new Mock<IWorkItemQueryWindowStrategy>(MockBehavior.Strict);
-        strategyMock.Setup(s => s.EnumerateWindowsAsync(
+        // Arrange: discovery yields a single final event with zero counts
+        var discoveryMock = new Mock<IWorkItemDiscoveryService>(MockBehavior.Strict);
+        discoveryMock.Setup(s => s.DiscoverWorkItemsAsync(
                 It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(),
-                It.IsAny<WorkItemQueryWindowOptions?>(), It.IsAny<CancellationToken>()))
-            .Returns<string, string, string, WorkItemQueryWindowOptions?, CancellationToken>(
-                (org, proj, pat, opts, ct) => EmptyWindows());
+                It.IsAny<CancellationToken>()))
+            .Returns<string, string, string, CancellationToken>(
+                (org, proj, pat, ct) => EmptyDiscovery(proj));
 
-        // The actual HTTP calls in GetWorkItemsAsync are not made when there are no windows.
-        // AzureDevOpsInventoryService creates VssConnection on call — we cannot easily intercept.
-        // Verify structural: service can be instantiated and strategy is called.
-        var sut = new AzureDevOpsInventoryService(strategyMock.Object);
-        Assert.IsNotNull(sut);
+        var sut = BuildService(discoveryMock);
+
+        // Act
+        var events = await CollectEventsAsync(sut);
+
+        // Assert
+        Assert.AreEqual(1, events.Count, "Empty project should yield exactly one final event");
+        Assert.IsTrue(events[0].IsComplete);
+        Assert.AreEqual(0, events[0].WorkItemsCount);
     }
 
-    private static async IAsyncEnumerable<WorkItemQueryWindow> EmptyWindows(
-        [EnumeratorCancellation] CancellationToken ct = default)
+    private static async IAsyncEnumerable<ProjectDiscoverySummary> EmptyDiscovery(
+        string project, [EnumeratorCancellation] CancellationToken ct = default)
     {
-        yield break;
+        yield return new ProjectDiscoverySummary
+        {
+            ProjectName = project,
+            IsWorkItemComplete = true,
+            LastUpdatedUtc = DateTime.UtcNow
+        };
     }
 
     // ── T020: Strategy behaviour — 20k-limit causes window halve ─────────────
@@ -234,18 +287,36 @@ public class AzureDevOpsInventoryServiceTests
     }
 
     [TestMethod]
-    public void AzureDevOpsInventoryService_AcceptsInterface()
+    public void AzureDevOpsWorkItemDiscoveryService_ImplementsInterface()
     {
-        var mock = new Mock<IWorkItemQueryWindowStrategy>(MockBehavior.Strict);
-        // Must be constructable with the interface — no concrete class required.
-        var sut = new AzureDevOpsInventoryService(mock.Object);
+        var windowStrategy = new Mock<IWorkItemQueryWindowStrategy>(MockBehavior.Strict);
+        var sut = new AzureDevOpsWorkItemDiscoveryService(windowStrategy.Object);
+        Assert.IsInstanceOfType(sut, typeof(IWorkItemDiscoveryService),
+            "AzureDevOpsWorkItemDiscoveryService must implement IWorkItemDiscoveryService");
+    }
+
+    [TestMethod]
+    public void InventoryService_AcceptsDiscoveryService()
+    {
+        var discoveryMock = new Mock<IWorkItemDiscoveryService>(MockBehavior.Strict);
+        var sut = BuildService(discoveryMock);
         Assert.IsNotNull(sut);
     }
 
     [TestMethod]
-    public void AzureDevOpsInventoryService_ThrowsOnNullStrategy()
+    public void InventoryService_ThrowsOnNullDiscovery()
     {
         Assert.ThrowsException<ArgumentNullException>(() =>
-            new AzureDevOpsInventoryService(null!));
+            new InventoryService(
+                BuildOptions(),
+                null!,
+                BuildProjectDiscoveryMock().Object));
+    }
+
+    [TestMethod]
+    public void AzureDevOpsWorkItemDiscoveryService_ThrowsOnNullStrategy()
+    {
+        Assert.ThrowsException<ArgumentNullException>(() =>
+            new AzureDevOpsWorkItemDiscoveryService(null!));
     }
 }

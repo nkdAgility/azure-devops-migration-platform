@@ -4,7 +4,14 @@
 
 # Visual Studio / VS Code
 .vs/
-.vscode/
+.vscode/c_cpp_properties.json  # C++ specific settings
+
+# Include shared VS Code configurations for team collaboration:
+# .vscode/launch.json       - Debugging configurations (INCLUDED)
+# .vscode/tasks.json        - Build tasks (INCLUDED) 
+# .vscode/settings.json     - Project-specific settings (INCLUDED)
+# .vscode/extensions.json   - Recommended extensions (INCLUDED)
+# .vscode/README.md         - Setup documentation (INCLUDED)
 
 # User-specific
 *.user
@@ -16,3 +23,23 @@ packages/
 
 # Logs
 *.log
+
+# Environment variables and secrets
+.env*
+*.env
+
+# Development configuration files with credentials
+dev-*.json
+test-*.json
+*-dev.json
+local-*.json
+
+# Test results
+TestResults/
+coverage/
+
+# Temporary files
+*.tmp
+*.swp
+.DS_Store
+Thumbs.db

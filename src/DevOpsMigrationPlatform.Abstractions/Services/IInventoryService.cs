@@ -5,19 +5,17 @@ using DevOpsMigrationPlatform.Abstractions.Models;
 namespace DevOpsMigrationPlatform.Abstractions.Services;
 
 /// <summary>
-/// Counts work items and revisions per project using date-windowed queries.
-/// Implementations must not buffer all work item IDs into memory.
+/// Orchestrates a full inventory run across all configured organisations.
+/// Reads its own <see cref="Options.DiscoveryOptions"/> via DI —
+/// callers just stream the results.
 /// </summary>
 public interface IInventoryService
 {
     /// <summary>
-    /// Streams <see cref="InventoryProgressEvent"/> records for <paramref name="project"/>.
-    /// Each event reflects the latest running totals after completing a date window.
-    /// The final event has <see cref="InventoryProgressEvent.IsComplete"/> set to <c>true</c>.
+    /// Streams <see cref="InventoryProgressEvent"/> records across every enabled organisation
+    /// and project. Each event reflects running totals after completing a date window.
+    /// The final event per project has <see cref="InventoryProgressEvent.IsComplete"/> = <c>true</c>.
     /// </summary>
-    IAsyncEnumerable<InventoryProgressEvent> CountWorkItemsAsync(
-        string orgOrCollection,
-        string project,
-        string pat,
+    IAsyncEnumerable<InventoryProgressEvent> RunInventoryAsync(
         CancellationToken cancellationToken = default);
 }

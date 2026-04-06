@@ -96,7 +96,7 @@ These boundaries are strict. The CLI layer calls into the TUI layer for display 
 
 # 🧱 Architectural Rules
 
-- MUST follow SOLID principles.
+- MUST follow SOLID principles (see concrete examples below).
 - MUST use dependency injection.
 - MUST NOT use service locator patterns.
 - MUST NOT use static mutable state.
@@ -104,6 +104,142 @@ These boundaries are strict. The CLI layer calls into the TUI layer for display 
 - MUST use IArtefactStore for file writes.
 - MUST use IStateStore for resume/checkpoint state.
 - MUST isolate modules by interface boundaries.
+
+## SOLID Principles - Concrete Rules
+
+### Single Responsibility Principle
+❌ **REJECT:** Commands that contain both CLI parsing AND business logic
+```csharp
+// VIOLATION: Command doing both argument parsing and migration execution
+public class ExportCommand : Command<ExportSettings> 
+{
+    public override int Execute(CommandContext context, ExportSettings settings) 
+    {
+        // CLI logic mixed with business logic
+        var modules = LoadModules(); 
+        ExecuteMigration(modules); // Should be delegated
+        return 0;
+    }
+}
+```
+
+✅ **ACCEPT:** Commands delegate to services via DI
+```csharp
+// CORRECT: Command delegates business logic to service
+public class ExportCommand : CommandBase<ExportSettings>
+{
+    private readonly IMigrationOrchestrator _orchestrator;
+    
+    protected override async Task<int> ExecuteInternalAsync(...)
+    {
+        return await _orchestrator.ExecuteExportAsync(...);
+    }
+}
+```
+
+### Open/Closed Principle  
+❌ **REJECT:** Adding new export types by modifying existing classes
+```csharp
+// VIOLATION: Have to modify this class for each new export type
+public class ExportService
+{
+    public void Export(string type) 
+    {
+        if (type == "WorkItems") { /* ... */ }
+        else if (type == "GitRepos") { /* ... */ }
+        // Adding new type requires modifying this method
+    }
+}
+```
+
+✅ **ACCEPT:** New export types via new IExportModule implementations
+```csharp
+// CORRECT: New modules added without changing existing code
+public interface IExportModule { }
+public class WorkItemsExportModule : IExportModule { }
+public class GitReposExportModule : IExportModule { }
+// New types just implement IExportModule
+```
+
+### Liskov Substitution
+❌ **REJECT:** IArtefactStore implementations that change behavioral contracts
+```csharp
+// VIOLATION: Changes the contract - FileSystem throws, Blob returns null
+public class FileSystemArtefactStore : IArtefactStore 
+{
+    public async Task<Stream> ReadAsync(string path) 
+    {
+        if (!File.Exists(path)) throw new FileNotFoundException();
+        return File.OpenRead(path);
+    }
+}
+```
+
+✅ **ACCEPT:** FileSystemArtefactStore and AzureBlobArtefactStore work identically
+```csharp
+// CORRECT: Both implementations have identical contracts
+public async Task<Stream?> ReadAsync(string path) 
+{
+    // Both return null if not found, both throw on access errors
+    // Callers can substitute either implementation
+}
+```
+
+### Interface Segregation
+❌ **REJECT:** Fat interfaces with methods not all implementations need  
+```csharp
+// VIOLATION: Not all stores need caching or compression
+public interface IArtefactStore 
+{
+    Task WriteAsync(string path, Stream content);
+    Task<Stream> ReadAsync(string path);
+    Task ClearCacheAsync(); // Not needed by all implementations
+    Task CompressAsync(string path); // Not needed by all implementations
+}
+```
+
+✅ **ACCEPT:** Focused interfaces like IArtefactStore, IStateStore
+```csharp
+// CORRECT: Each interface has single responsibility
+public interface IArtefactStore 
+{
+    Task WriteAsync(string path, Stream content);
+    Task<Stream?> ReadAsync(string path); 
+    IAsyncEnumerable<string> EnumerateAsync(string prefix);
+}
+
+public interface ICacheStore // Separate concern
+{
+    Task ClearCacheAsync();
+}
+```
+
+### Dependency Inversion
+❌ **REJECT:** Modules that instantiate concrete FileSystemArtefactStore
+```csharp
+// VIOLATION: Module depends on concrete implementation
+public class WorkItemsExportModule 
+{
+    public WorkItemsExportModule() 
+    {
+        _store = new FileSystemArtefactStore("./package"); // Hardcoded dependency
+    }
+}
+```
+
+✅ **ACCEPT:** Modules that inject IArtefactStore abstraction
+```csharp
+// CORRECT: Depends on abstraction, works with any implementation
+public class WorkItemsExportModule 
+{
+    private readonly IArtefactStore _store;
+    
+    public WorkItemsExportModule(IArtefactStore store) 
+    {
+        _store = store ?? throw new ArgumentNullException(nameof(store));
+    }
+}
+```
 
 ---
 

@@ -13,31 +13,31 @@ public class WorkItemExportMetrics : IWorkItemExportMetrics
     private static readonly Meter Meter = new Meter(MeterName, MeterVersion);
 
     private static readonly Counter<int> WorkItemCounter =
-        Meter.CreateCounter<int>("work_item_exported_total", unit: "work items", description: "Total work items exported.");
+        Meter.CreateCounter<int>(WellKnownMetricNames.WorkItemsExported, unit: "work items", description: "Total work items exported.");
 
     private static readonly Counter<int> RevisionCounter =
-        Meter.CreateCounter<int>("revision_exported_total", unit: "revisions", description: "Total revisions exported.");
+        Meter.CreateCounter<int>(WellKnownMetricNames.RevisionsExported, unit: "revisions", description: "Total revisions exported.");
 
     private static readonly Counter<int> RevisionErrorCounter =
-        Meter.CreateCounter<int>("revision_export_errors_total", unit: "errors", description: "Export revision errors.");
+        Meter.CreateCounter<int>(WellKnownMetricNames.RevisionErrors, unit: "errors", description: "Export revision errors.");
 
     private static readonly Counter<int> LinkCounter =
-        Meter.CreateCounter<int>("link_exported_total", unit: "links", description: "Total links exported.");
+        Meter.CreateCounter<int>(WellKnownMetricNames.LinksExported, unit: "links", description: "Total links exported.");
 
     private static readonly Counter<int> LinkErrorCounter =
-        Meter.CreateCounter<int>("link_export_errors_total", unit: "errors", description: "Export link errors.");
+        Meter.CreateCounter<int>(WellKnownMetricNames.LinkErrors, unit: "errors", description: "Export link errors.");
 
     private static readonly Histogram<double> WorkItemDuration =
-        Meter.CreateHistogram<double>("work_item_export_duration_ms", unit: "ms");
+        Meter.CreateHistogram<double>(WellKnownMetricNames.WorkItemDuration, unit: "ms");
 
     private static readonly Histogram<double> RevisionDuration =
-        Meter.CreateHistogram<double>("revision_export_duration_ms", unit: "ms");
+        Meter.CreateHistogram<double>(WellKnownMetricNames.RevisionDuration, unit: "ms");
 
     private static readonly Histogram<double> LinkDuration =
-        Meter.CreateHistogram<double>("link_export_duration_ms", unit: "ms");
+        Meter.CreateHistogram<double>(WellKnownMetricNames.LinkDuration, unit: "ms");
 
     private static readonly Histogram<double> TotalDuration =
-        Meter.CreateHistogram<double>("export_total_duration_ms", unit: "ms");
+        Meter.CreateHistogram<double>(WellKnownMetricNames.TotalDuration, unit: "ms");
 
     public void RecordWorkItemExported(Guid id) =>
         WorkItemCounter.Add(1, new KeyValuePair<string, object?>("TeamProjectCollectionId", id));

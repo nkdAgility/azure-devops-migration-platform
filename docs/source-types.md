@@ -76,3 +76,7 @@ Regardless of source type, data written to the package must conform to the schem
 3. Failing fast if required fields are absent.
 
 The control plane performs a secondary validation pass before beginning import when running in `Both` mode.
+
+### Known Limitations
+
+- **No mixed-mode discovery.** All organisations in a single `DiscoveryOptions` configuration must be the same source type. A discovery run cannot mix TFS (Team Foundation Server) and Azure DevOps Services entries. Each CLI host registers a single `IWorkItemDiscoveryService` and `IProjectDiscoveryService` implementation; the orchestrator uses whatever is injected. On-premises Azure DevOps Server instances that support the REST API should use source type `AzureDevOpsServices`.

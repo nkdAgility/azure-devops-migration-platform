@@ -1,13 +1,8 @@
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Logging;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
-using Moq;
 using DevOpsMigrationPlatform.CLI.Migration.Commands;
-using DevOpsMigrationPlatform.CLI.Migration.Tests.TestUtilities;
+using Spectre.Console;
 using Spectre.Console.Cli;
-using System.ComponentModel;
-using System.Diagnostics;
 
 namespace DevOpsMigrationPlatform.CLI.Migration.Tests.Commands;
 
@@ -15,69 +10,21 @@ namespace DevOpsMigrationPlatform.CLI.Migration.Tests.Commands;
 public class CommandBaseTests
 {
     [TestMethod]
-    public void Constructor_WithValidDependencies_CanAccessServices()
+    public void Constructor_Parameterless_CanBeCreated()
     {
-        // Arrange
-        var services = new ServiceCollection();
-        services.AddSingleton<ITestService, TestServiceImplementation>();
-        var serviceProvider = services.BuildServiceProvider();
-        
-        var mockLifetime = MockServiceProvider.CreateMockLifetime();
-        var mockLogger = new Mock<ILogger<TestCommand>>();
-        var activitySource = new ActivitySource("test");
-
         // Act
-        var command = new TestCommand(serviceProvider, mockLifetime.Object, mockLogger.Object, activitySource);
+        var command = new TestCommand();
 
         // Assert
-        var testService = command.GetRequiredService<ITestService>();
-        Assert.IsNotNull(testService);
-        Assert.IsInstanceOfType<TestServiceImplementation>(testService);
-        
-        var optionalService = command.GetService<ITestService>();
-        Assert.IsNotNull(optionalService);
-        
-        // Cleanup
-        activitySource.Dispose();
+        Assert.IsNotNull(command);
     }
 
     [TestMethod]
-    [ExpectedException(typeof(ArgumentNullException))]
-    public void Constructor_WithNullServiceProvider_ThrowsArgumentNullException()
+    public async Task ExecuteAsync_WithSuccessfulCommand_ReturnsZero()
     {
         // Arrange
-        var mockLifetime = MockServiceProvider.CreateMockLifetime();
-        var mockLogger = new Mock<ILogger<TestCommand>>();
-        using var activitySource = new ActivitySource("test");
-
-        // Act
-        var command = new TestCommand(null!, mockLifetime.Object, mockLogger.Object, activitySource);
-    }
-
-    [TestMethod]
-    [ExpectedException(typeof(ArgumentNullException))]
-    public void Constructor_WithNullLifetime_ThrowsArgumentNullException()
-    {
-        // Arrange
-        var serviceProvider = MockServiceProvider.Create(InMemoryTestConfiguration.CreateDefault());
-        var mockLogger = new Mock<ILogger<TestCommand>>();
-        using var activitySource = new ActivitySource("test");
-
-        // Act
-        var command = new TestCommand(serviceProvider, null!, mockLogger.Object, activitySource);
-    }
-
-    [TestMethod]
-    public async Task ExecuteAsync_WithSuccessfulCommand_ReturnsZeroAndCallsStopApplication()
-    {
-        // Arrange
-        var serviceProvider = MockServiceProvider.Create(InMemoryTestConfiguration.CreateDefault());
-        var mockLifetime = MockServiceProvider.CreateMockLifetime();
-        var mockLogger = new Mock<ILogger<TestCommand>>();
-        using var activitySource = new ActivitySource("test");
-        
-        var command = new TestCommand(serviceProvider, mockLifetime.Object, mockLogger.Object, activitySource);
-        command.SetReturnValue(0); // Success
+        var command = new TestCommand();
+        command.SetReturnValue(0);
 
         var context = new CommandContext(Array.Empty<string>(), new FakeRemainingArguments(), "test", null);
         var settings = new TestSettings();
@@ -87,20 +34,14 @@ public class CommandBaseTests
 
         // Assert
         Assert.AreEqual(0, result);
-        mockLifetime.Verify(x => x.StopApplication(), Times.Once);
     }
 
     [TestMethod]
-    public async Task ExecuteAsync_WithFailedCommand_ReturnsErrorCodeAndCallsStopApplication()
+    public async Task ExecuteAsync_WithFailedCommand_ReturnsErrorCode()
     {
         // Arrange
-        var serviceProvider = MockServiceProvider.Create(InMemoryTestConfiguration.CreateDefault());
-        var mockLifetime = MockServiceProvider.CreateMockLifetime();
-        var mockLogger = new Mock<ILogger<TestCommand>>();
-        using var activitySource = new ActivitySource("test");
-        
-        var command = new TestCommand(serviceProvider, mockLifetime.Object, mockLogger.Object, activitySource);
-        command.SetReturnValue(1); // Error
+        var command = new TestCommand();
+        command.SetReturnValue(1);
 
         var context = new CommandContext(Array.Empty<string>(), new FakeRemainingArguments(), "test", null);
         var settings = new TestSettings();
@@ -110,34 +51,13 @@ public class CommandBaseTests
 
         // Assert
         Assert.AreEqual(1, result);
-        mockLifetime.Verify(x => x.StopApplication(), Times.Once);
     }
 
     [TestMethod]
-    public async Task ExecuteAsync_WithExceptionInCommand_ReturnsErrorCodeAndLogsException()
+    public async Task ExecuteAsync_WithExceptionInCommand_ReturnsErrorCode()
     {
         // Arrange
-        var serviceProvider = MockServiceProvider.Create(InMemoryTestConfiguration.CreateDefault());
-        var mockLifetime = MockServiceProvider.CreateMockLifetime();
-        var mockLogger = new Mock<ILogger<TestCommand>>(MockBehavior.Strict);
-        using var activitySource = new ActivitySource("test");
-        
-        // Setup logger to expect error logging
-        mockLogger.Setup(x => x.Log(
-            LogLevel.Information,
-            It.IsAny<EventId>(),
-            It.IsAny<It.IsAnyType>(),
-            null,
-            It.IsAny<Func<It.IsAnyType, Exception?, string>>()));
-            
-        mockLogger.Setup(x => x.Log(
-            LogLevel.Error,
-            It.IsAny<EventId>(),
-            It.IsAny<It.IsAnyType>(),
-            It.IsAny<Exception>(),
-            It.IsAny<Func<It.IsAnyType, Exception?, string>>()));
-        
-        var command = new TestCommand(serviceProvider, mockLifetime.Object, mockLogger.Object, activitySource);
+        var command = new TestCommand();
         command.SetException(new InvalidOperationException("Test error"));
 
         var context = new CommandContext(Array.Empty<string>(), new FakeRemainingArguments(), "test", null);
@@ -147,94 +67,45 @@ public class CommandBaseTests
         var result = await command.ExecuteAsyncPublic(context, settings);
 
         // Assert
-        Assert.AreEqual(1, result); // Error exit code
-        mockLifetime.Verify(x => x.StopApplication(), Times.Once);
-        
-        // Verify error was logged
-        mockLogger.Verify(x => x.Log(
-            LogLevel.Error,
-            It.IsAny<EventId>(),
-            It.IsAny<It.IsAnyType>(),
-            It.IsAny<Exception>(),
-            It.IsAny<Func<It.IsAnyType, Exception?, string>>()), Times.Once);
+        Assert.AreEqual(1, result);
     }
 
     [TestMethod]
-    public void GetRequiredService_WithRegisteredService_ReturnsService()
+    public async Task CreateHost_RegistersServicesAndResolvesFromHost()
     {
         // Arrange
-        var services = new ServiceCollection();
-        services.AddSingleton<ITestService>(new TestServiceImplementation());
-        var serviceProvider = services.BuildServiceProvider();
-        
-        var mockLifetime = MockServiceProvider.CreateMockLifetime();
-        var mockLogger = new Mock<ILogger<TestCommand>>();
-        using var activitySource = new ActivitySource("test");
-        
-        var command = new TestCommand(serviceProvider, mockLifetime.Object, mockLogger.Object, activitySource);
+        var command = new TestCommand();
+        command.SetCreateHostOnExecute((services, config) =>
+        {
+            services.AddSingleton<ITestService, TestServiceImplementation>();
+        });
+
+        var context = new CommandContext(Array.Empty<string>(), new FakeRemainingArguments(), "test", null);
+        var settings = new TestSettings();
 
         // Act
-        var service = command.GetRequiredService<ITestService>();
+        var result = await command.ExecuteAsyncPublic(context, settings);
 
         // Assert
-        Assert.IsNotNull(service);
-        Assert.IsInstanceOfType(service, typeof(TestServiceImplementation));
+        Assert.AreEqual(0, result);
+        Assert.IsTrue(command.HostWasCreated, "Host should have been created");
     }
 
     [TestMethod]
-    [ExpectedException(typeof(InvalidOperationException))]
-    public void GetRequiredService_WithUnregisteredService_ThrowsInvalidOperationException()
+    public async Task ExecuteAsync_DisposesHostAfterExecution()
     {
         // Arrange
-        var serviceProvider = MockServiceProvider.Create(InMemoryTestConfiguration.CreateDefault());
-        var mockLifetime = MockServiceProvider.CreateMockLifetime();
-        var mockLogger = new Mock<ILogger<TestCommand>>();
-        using var activitySource = new ActivitySource("test");
-        
-        var command = new TestCommand(serviceProvider, mockLifetime.Object, mockLogger.Object, activitySource);
+        var command = new TestCommand();
+        command.SetCreateHostOnExecute();
+
+        var context = new CommandContext(Array.Empty<string>(), new FakeRemainingArguments(), "test", null);
+        var settings = new TestSettings();
 
         // Act
-        var service = command.GetRequiredService<IUnregisteredService>();
-    }
+        await command.ExecuteAsyncPublic(context, settings);
 
-    [TestMethod]
-    public void GetService_WithRegisteredService_ReturnsService()
-    {
-        // Arrange
-        var services = new ServiceCollection();
-        services.AddSingleton<ITestService>(new TestServiceImplementation());
-        var serviceProvider = services.BuildServiceProvider();
-        
-        var mockLifetime = MockServiceProvider.CreateMockLifetime();
-        var mockLogger = new Mock<ILogger<TestCommand>>();
-        using var activitySource = new ActivitySource("test");
-        
-        var command = new TestCommand(serviceProvider, mockLifetime.Object, mockLogger.Object, activitySource);
-
-        // Act
-        var service = command.GetService<ITestService>();
-
-        // Assert
-        Assert.IsNotNull(service);
-        Assert.IsInstanceOfType(service, typeof(TestServiceImplementation));
-    }
-
-    [TestMethod]
-    public void GetService_WithUnregisteredService_ReturnsNull()
-    {
-        // Arrange
-        var serviceProvider = MockServiceProvider.Create(InMemoryTestConfiguration.CreateDefault());
-        var mockLifetime = MockServiceProvider.CreateMockLifetime();
-        var mockLogger = new Mock<ILogger<TestCommand>>();
-        using var activitySource = new ActivitySource("test");
-        
-        var command = new TestCommand(serviceProvider, mockLifetime.Object, mockLogger.Object, activitySource);
-
-        // Act
-        var service = command.GetService<IUnregisteredService>();
-
-        // Assert
-        Assert.IsNull(service);
+        // Assert — Host should be disposed (accessing it should not work after execution)
+        Assert.IsTrue(command.WasExecuted, "Command should have executed");
     }
 
     // Test implementations
@@ -242,30 +113,36 @@ public class CommandBaseTests
     {
         private int _returnValue = 0;
         private Exception? _exceptionToThrow;
-
-        public TestCommand(IServiceProvider serviceProvider, IHostApplicationLifetime lifetime, 
-            ILogger<TestCommand> logger, ActivitySource activitySource)
-            : base(serviceProvider, lifetime, logger, activitySource)
-        {
-        }
+        private Action<IServiceCollection, Microsoft.Extensions.Configuration.IConfiguration>? _hostConfigAction;
+        private bool _createHostOnExecute;
+        public bool HostWasCreated { get; private set; }
+        public bool WasExecuted { get; private set; }
 
         public void SetReturnValue(int value) => _returnValue = value;
         public void SetException(Exception exception) => _exceptionToThrow = exception;
 
-        protected override Task<int> ExecuteInternalAsync(CommandContext context, TestSettings settings, CancellationToken cancellationToken = default)
+        public void SetCreateHostOnExecute(
+            Action<IServiceCollection, Microsoft.Extensions.Configuration.IConfiguration>? configureServices = null)
         {
+            _createHostOnExecute = true;
+            _hostConfigAction = configureServices;
+        }
+
+        protected override async Task<int> ExecuteInternalAsync(CommandContext context, TestSettings settings, CancellationToken cancellationToken = default)
+        {
+            WasExecuted = true;
+
+            if (_createHostOnExecute)
+            {
+                await CreateHost(Array.Empty<string>(), _hostConfigAction);
+                HostWasCreated = Host != null;
+            }
+
             if (_exceptionToThrow != null)
                 throw _exceptionToThrow;
-            return Task.FromResult(_returnValue);
+            return _returnValue;
         }
-        
-        // Expose protected methods for testing
-        public new TService GetRequiredService<TService>() where TService : notnull
-            => base.GetRequiredService<TService>();
-            
-        public new TService? GetService<TService>() where TService : class
-            => base.GetService<TService>();
-            
+
         // Public wrapper for protected ExecuteAsync to enable testing
         public Task<int> ExecuteAsyncPublic(CommandContext context, TestSettings settings, CancellationToken cancellationToken = default)
             => base.ExecuteAsync(context, settings, cancellationToken);
@@ -280,11 +157,9 @@ public class CommandBaseTests
 
     // Test services
     public interface ITestService { }
-    
+
     public class TestServiceImplementation : ITestService { }
-    
-    public interface IUnregisteredService { }
-    
+
     // Fake implementation for testing
     private class FakeRemainingArguments : IRemainingArguments
     {

@@ -1,11 +1,13 @@
 using System.Collections.Generic;
 using System.Threading;
 
-namespace DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Services;
+namespace DevOpsMigrationPlatform.Abstractions.Services;
 
 /// <summary>
-/// Abstraction over the date-window WIQL counting strategy.
-/// Enables mocking in tests without requiring a real Azure DevOps connection.
+/// Abstraction over the date-window WIQL chunking strategy.
+/// Keeps each query under the WIQL hard limit by walking successive
+/// date windows. Platform-agnostic — implementations exist for both
+/// Azure DevOps REST API and TFS Object Model.
 /// </summary>
 public interface IWorkItemQueryWindowStrategy
 {

@@ -1,0 +1,27 @@
+{
+    // Recommended VS Code extensions for this project
+    "recommendations": [
+        // Essential .NET development
+        "ms-dotnettools.csharp",
+        "ms-dotnettools.vscode-dotnet-runtime",
+        
+        // JSON editing and validation  
+        "ms-vscode.vscode-json",
+        
+        // Gherkin/BDD testing support
+        "alexkrechik.cucumbertableformatter",
+        "humarnikon.gherkin-autocomplete",
+        
+        // Git and source control
+        "eamodio.gitlens",
+        
+        // General productivity
+        "ms-vscode.powershell",
+        "ms-vsliveshare.vsliveshare"
+    ],
+    
+    // Extensions that should not be recommended (may conflict)
+    "unwantedRecommendations": [
+        "ms-dotnettools.vscode-dotnet-pack"
+    ]
+}
