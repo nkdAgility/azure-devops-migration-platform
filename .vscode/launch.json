@@ -71,7 +71,7 @@
                 "discovery",
                 "inventory",
                 "--source-url",
-                "https://dev.azure.com/yourorg",
+                "${env:AZDEVOPS_DEV_ORG}",
                 "--token",
                 "${env:AZDEVOPS_DEV_PAT}"
             ],

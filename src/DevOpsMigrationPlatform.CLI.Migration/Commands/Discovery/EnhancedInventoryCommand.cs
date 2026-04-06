@@ -1,7 +1,7 @@
 using DevOpsMigrationPlatform.Abstractions.Services;
 using DevOpsMigrationPlatform.CLI.Migration.Commands;
 using DevOpsMigrationPlatform.CLI.Migration.Configuration;
-using DevOpsMigrationPlatform.CLI.Migration.Options;
+using DevOpsMigrationPlatform.CLI.Migration.Settings;
 using DevOpsMigrationPlatform.CLI.Migration.Services;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -31,7 +31,7 @@ public sealed class EnhancedInventoryCommand : CommandBase<InventoryCommandSetti
     protected override async Task<int> ExecuteInternalAsync(CommandContext context, InventoryCommandSettings settings, CancellationToken cancellationToken = default)
     {
         using var activity = ActivitySource.StartActivity("EnhancedInventory.Execute");
-        
+
         // Load and validate configuration
         var configuration = await LoadConfigurationAsync(settings, cancellationToken);
         if (configuration == null)
@@ -42,7 +42,7 @@ public sealed class EnhancedInventoryCommand : CommandBase<InventoryCommandSetti
 
         // Merge command line settings with configuration
         var effectiveConfig = MergeSettingsWithConfiguration(settings, configuration);
-        
+
         // Validate we have enough information to run
         if (!ValidateInventoryConfiguration(effectiveConfig, settings))
         {
@@ -96,13 +96,13 @@ public sealed class EnhancedInventoryCommand : CommandBase<InventoryCommandSetti
 
         // Merge inventory-specific settings
         effectiveConfig.Inventory ??= new InventoryConfiguration();
-        
+
         if (!string.IsNullOrWhiteSpace(settings.OutputPath))
             effectiveConfig.Inventory.OutputPath = settings.OutputPath;
-            
+
         if (settings.AllProjects)
             effectiveConfig.Inventory.AllProjects = true;
-            
+
         effectiveConfig.Inventory.IncludeWorkItems = settings.IncludeWorkItems;
         effectiveConfig.Inventory.IncludeRepositories = settings.IncludeRepositories;
         effectiveConfig.Inventory.IncludePipelines = settings.IncludePipelines;
@@ -136,7 +136,7 @@ public sealed class EnhancedInventoryCommand : CommandBase<InventoryCommandSetti
             if (string.IsNullOrWhiteSpace(configuration.Source.Url))
                 errors.Add("Source URL is required");
 
-            if (configuration.Source.Authentication == null || 
+            if (configuration.Source.Authentication == null ||
                 string.IsNullOrWhiteSpace(configuration.Source.Authentication.Type))
                 errors.Add("Source authentication configuration is required");
         }
@@ -160,7 +160,7 @@ public sealed class EnhancedInventoryCommand : CommandBase<InventoryCommandSetti
             {
                 console.MarkupLine($"  [red]•[/] {error}");
             }
-            
+
             ShowInfo(console, "Tip: Use --config to specify a configuration file, or provide required options on command line");
             return false;
         }
@@ -172,15 +172,15 @@ public sealed class EnhancedInventoryCommand : CommandBase<InventoryCommandSetti
     /// Executes the inventory operation with the given configuration.
     /// </summary>
     private async Task<int> ExecuteInventoryAsync(
-        MigrationConfiguration configuration, 
-        InventoryCommandSettings settings, 
+        MigrationConfiguration configuration,
+        InventoryCommandSettings settings,
         CancellationToken cancellationToken)
     {
         var console = GetRequiredService<IAnsiConsole>();
         var inventoryService = GetRequiredService<IInventoryService>();
 
         ShowInfo(console, "Starting inventory operation...");
-        
+
         var sourceConfig = configuration.Source!;
         var inventoryConfig = configuration.Inventory!;
 
@@ -194,7 +194,7 @@ public sealed class EnhancedInventoryCommand : CommandBase<InventoryCommandSetti
         {
             console.MarkupLine($"[blue]Scope:[/] All projects");
         }
-        
+
         console.MarkupLine($"[blue]Output:[/] {inventoryConfig.OutputPath}");
 
         // Create output directory if it doesn't exist
@@ -205,32 +205,32 @@ public sealed class EnhancedInventoryCommand : CommandBase<InventoryCommandSetti
         }
 
         var results = new List<InventoryResult>();
-        
+
         // Execute inventory with progress tracking
         await WithProgressAsync("Running inventory...", async (task) =>
         {
             // This is a placeholder - in practice, we'd use the actual inventory service
             // and adapt it to work with the new configuration structure
-            
+
             task.Value = 10;
             task.Description = "Connecting to source...";
             await Task.Delay(1000, cancellationToken); // Simulate work
-            
+
             task.Value = 30;
             task.Description = "Discovering projects...";
             await Task.Delay(1000, cancellationToken);
-            
+
             task.Value = 60;
             task.Description = "Counting work items...";
             await Task.Delay(2000, cancellationToken);
-            
+
             task.Value = 90;
             task.Description = "Generating report...";
             await Task.Delay(500, cancellationToken);
-            
+
             task.Value = 100;
             task.Description = "Inventory complete!";
-            
+
             // Create sample result
             results.Add(new InventoryResult
             {
@@ -252,10 +252,10 @@ public sealed class EnhancedInventoryCommand : CommandBase<InventoryCommandSetti
 
         ShowSuccess(console, $"Inventory completed successfully!");
         console.MarkupLine($"Results written to: [blue]{Markup.Escape(inventoryConfig.OutputPath)}[/]");
-        
+
         // Show summary table
         ShowInventorySummary(results);
-        
+
         return 0;
     }
 
@@ -284,12 +284,12 @@ public sealed class EnhancedInventoryCommand : CommandBase<InventoryCommandSetti
     {
         var csv = new System.Text.StringBuilder();
         csv.AppendLine("ProjectName,WorkItemsCount,RevisionsCount,RepositoriesCount,PipelinesCount,Timestamp");
-        
+
         foreach (var result in results)
         {
             csv.AppendLine($"{result.ProjectName},{result.WorkItemsCount},{result.RevisionsCount},{result.RepositoriesCount},{result.PipelinesCount},{result.Timestamp:yyyy-MM-dd HH:mm:ss} UTC");
         }
-        
+
         return csv.ToString();
     }
 
@@ -301,7 +301,7 @@ public sealed class EnhancedInventoryCommand : CommandBase<InventoryCommandSetti
         ShowTable("Inventory Summary", table =>
         {
             table.AddColumns("Project", "Work Items", "Revisions", "Repositories", "Pipelines");
-            
+
             foreach (var result in results)
             {
                 table.AddRow(

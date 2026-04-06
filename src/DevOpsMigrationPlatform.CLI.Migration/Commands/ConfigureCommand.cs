@@ -1,6 +1,6 @@
 using DevOpsMigrationPlatform.CLI.Migration.Commands;
 using DevOpsMigrationPlatform.CLI.Migration.Configuration;
-using DevOpsMigrationPlatform.CLI.Migration.Options;
+using DevOpsMigrationPlatform.CLI.Migration.Settings;
 using DevOpsMigrationPlatform.CLI.Migration.Services;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -30,7 +30,7 @@ public sealed class ConfigureCommand : CommandBase<ConfigureCommandSettings>
     protected override async Task<int> ExecuteInternalAsync(CommandContext context, ConfigureCommandSettings settings, CancellationToken cancellationToken = default)
     {
         var console = GetRequiredService<IAnsiConsole>();
-        
+
         console.Clear();
         ShowBanner(console);
 
@@ -48,7 +48,7 @@ public sealed class ConfigureCommand : CommandBase<ConfigureCommandSettings>
             var configuration = await InteractiveSetupAsync(settings, cancellationToken);
             await SaveConfigurationAsync(configuration, settings, cancellationToken);
             ShowCompletionSummary(configuration, settings);
-            
+
             return 0;
         }
         catch (OperationCanceledException)
@@ -73,7 +73,7 @@ public sealed class ConfigureCommand : CommandBase<ConfigureCommandSettings>
         console.Write(new Rule().RuleStyle("grey"));
         console.MarkupLine("[dim]Azure DevOps Migration Platform Configuration Wizard[/]");
         console.WriteLine();
-        
+
         console.MarkupLine("This wizard will guide you through creating a migration configuration file.");
         console.MarkupLine("You can modify the generated file later or create additional configurations for different scenarios.");
         console.WriteLine();
@@ -117,7 +117,7 @@ public sealed class ConfigureCommand : CommandBase<ConfigureCommandSettings>
             console.MarkupLine("[bold blue]Step 3c: Target System Configuration[/bold blue]");
             configuration.Target = await ConfigureTargetAsync(console, cancellationToken);
             console.WriteLine();
-            
+
             console.MarkupLine("[bold blue]Step 3d: Import Configuration[/bold blue]");
             configuration.Import = await ConfigureImportAsync(console, cancellationToken);
             console.WriteLine();
@@ -126,7 +126,7 @@ public sealed class ConfigureCommand : CommandBase<ConfigureCommandSettings>
         // Step 4: Telemetry and Logging
         console.MarkupLine("[bold blue]Step 4: Telemetry and Logging[/bold blue]");
         configuration.Telemetry = await ConfigureTelemetryAsync(console, cancellationToken);
-        
+
         return configuration;
     }
 
@@ -153,7 +153,7 @@ public sealed class ConfigureCommand : CommandBase<ConfigureCommandSettings>
         };
 
         source.Url = console.Ask<string>($"Enter source URL [{defaultUrl}]:");
-        
+
         // Authentication
         source.Authentication = new AuthConfiguration();
         var authTypes = new[] { "PAT", "Windows" };
@@ -260,7 +260,7 @@ public sealed class ConfigureCommand : CommandBase<ConfigureCommandSettings>
         target.Type = "AzureDevOpsServices"; // Most common target
         target.Url = console.Prompt(
             new TextPrompt<string>("Enter target URL (e.g., https://dev.azure.com/[organization]):"));
-        
+
         target.Authentication = new AuthConfiguration();
         target.Authentication.Type = "PAT";
         target.Authentication.PersonalAccessToken = console.Prompt(
@@ -294,7 +294,7 @@ public sealed class ConfigureCommand : CommandBase<ConfigureCommandSettings>
         var telemetry = new TelemetryConfiguration();
 
         telemetry.Enabled = console.Confirm("Enable telemetry collection?", defaultValue: true);
-        
+
         if (telemetry.Enabled)
         {
             var logLevels = new[] { "Debug", "Information", "Warning", "Error" };
@@ -302,7 +302,7 @@ public sealed class ConfigureCommand : CommandBase<ConfigureCommandSettings>
                 new SelectionPrompt<string>()
                     .Title("Select log level:")
                     .AddChoices(logLevels));
-            
+
             // Set default if not specified
             if (string.IsNullOrWhiteSpace(telemetry.LogLevel))
                 telemetry.LogLevel = "Information";
@@ -326,7 +326,7 @@ public sealed class ConfigureCommand : CommandBase<ConfigureCommandSettings>
         var configService = GetRequiredService<IConfigurationService>();
 
         var outputFile = settings.OutputFile ?? "migration.json";
-        
+
         await configService.SaveConfigurationAsync(configuration, outputFile, cancellationToken);
         ShowSuccess(console, $"Configuration saved to: {outputFile}");
     }
@@ -348,22 +348,22 @@ public sealed class ConfigureCommand : CommandBase<ConfigureCommandSettings>
         console.WriteLine();
 
         console.MarkupLine("[bold]Next Steps:[/]");
-        
+
         if (configuration.Inventory != null)
         {
             console.MarkupLine($"• Run inventory: [cyan]devopsmigration discovery inventory --config {outputFile}[/]");
         }
-        
+
         if (configuration.Export != null)
         {
             console.MarkupLine($"• Run export: [cyan]devopsmigration export --config {outputFile}[/]");
         }
-        
+
         if (configuration.Import != null)
         {
             console.MarkupLine($"• Run import: [cyan]devopsmigration import --config {outputFile}[/]");
         }
-        
+
         console.WriteLine();
         console.MarkupLine("[dim]Tip: You can edit the configuration file directly to fine-tune settings.[/]");
     }
