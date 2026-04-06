@@ -16,6 +16,7 @@
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/DevOpsMigrationPlatform.Infrastructure.Tests/DevOpsMigrationPlatform.Infrastructure.Tests.csproj" />
+    <Project Path="tests/DevOpsMigrationPlatform.CLI.Migration.Tests/DevOpsMigrationPlatform.CLI.Migration.Tests.csproj" />
     <Project Path="tests/DevOpsMigrationPlatform.ControlPlane.Tests/DevOpsMigrationPlatform.ControlPlane.Tests.csproj" />
   </Folder>
 </Solution>

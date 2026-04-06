@@ -271,7 +271,7 @@ public class CommandBaseTests
             => base.ExecuteAsync(context, settings, cancellationToken);
     }
 
-    public class TestSettings : CommandSettings
+    public class TestSettings : Spectre.Console.Cli.CommandSettings
     {
         [CommandOption("--test")]
         [System.ComponentModel.Description("Test option")]
