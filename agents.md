@@ -103,45 +103,50 @@ Package zip/export:
 
 ---
 
-# 🤖 Agent Guardrails (Enforced Rules)
+# 🔒 MANDATORY: Guardrails Validation
 
-All agent rules live in `/.agents/guardrails`. **Never create a `docs/agent-rules/` directory or any agent rule file under `/docs`.**
+**Before proceeding with ANY code changes, generic agents MUST:**
 
-These files define what must never be violated:
+1. **Read ALL guardrail files** in `/.agents/guardrails/`:
+   - [system-architecture.md](.agents/guardrails/system-architecture.md) — Core architecture constraints
+   - [workitems-rules.md](.agents/guardrails/workitems-rules.md) — WorkItems-specific rules  
+   - [migration-rules.md](.agents/guardrails/migration-rules.md) — Migration behavior constraints
+   - [coding-standards.md](.agents/guardrails/coding-standards.md) — SOLID principles + concrete examples
+   - [testing-standards.md](.agents/guardrails/testing-standards.md) — Reqnroll + MSTest conventions
+   - [module-template.md](.agents/guardrails/module-template.md) — New module requirements
+   - [aspire-integration.md](.agents/guardrails/aspire-integration.md) — Aspire integration guardrails
+   - [atdd-workflow.md](.agents/guardrails/atdd-workflow.md) — ATDD session lifecycle rules
+   - [acceptance-test-format.md](.agents/guardrails/acceptance-test-format.md) — Gherkin format rules
 
-## Core Architecture Constraints
-→ .agents/guardrails/system-architecture.md
+2. **Read relevant context files** in `/.agents/context/`:
+   - [package-format.md](.agents/context/package-format.md) — Package layout specification
+   - [workitems-format.md](.agents/context/workitems-format.md) — WorkItems folder structure
+   - [import-streaming.md](.agents/context/import-streaming.md) — Streaming import requirements
+   - [checkpointing.md](.agents/context/checkpointing.md) — Cursor-based checkpointing
+   - [artefact-store.md](.agents/context/artefact-store.md) — IArtefactStore abstraction
+   - [job-contract.md](.agents/context/job-contract.md) — Job contract specification
+   - [identity-and-mapping.md](.agents/context/identity-and-mapping.md) — Identity mapping service
 
-## WorkItems-Specific Rules
-→ .agents/guardrails/workitems-rules.md
+3. **State your understanding** of which guardrails apply to the current task
 
-## Migration Behaviour Constraints
-→ .agents/guardrails/migration-rules.md
+4. **Explicitly reject** any approach that violates the guardrails
 
-## Aspire Integration Guardrails
-→ .agents/guardrails/aspire-integration.md
+**Failure to complete this validation = violation. Document skipping = violation.**
 
-## Coding Standards
-→ .agents/guardrails/coding-standards.md
+## Available SpecKit Agents
+→ .github/agents/speckit.specify.agent.md — Create feature specification
+→ .github/agents/speckit.clarify.agent.md — Reduce specification ambiguities  
+→ .github/agents/speckit.plan.agent.md — Create technical implementation plan
+→ .github/agents/speckit.analyze.agent.md — Cross-artifact consistency analysis
+→ .github/agents/speckit.tasks.agent.md — Break plan into dependency-ordered tasks
+→ .github/agents/speckit.checklist.agent.md — Generate custom requirement checklists
+→ .github/agents/speckit.implement.agent.md — Execute implementation plan
+→ .github/agents/speckit.constitution.agent.md — Manage project constitution
+→ .github/agents/speckit.taskstoissues.agent.md — Convert tasks to GitHub issues
 
-## New Module Requirements
-→ .agents/guardrails/module-template.md
-
-## ATDD Rules & Standards
-→ .agents/guardrails/atdd-workflow.md — ATDD session lifecycle and handoff rules
-→ .agents/guardrails/acceptance-test-format.md — Gherkin format, naming, prohibited patterns
-→ .agents/guardrails/testing-standards.md — Reqnroll + MSTest conventions
-
-## ATDD Agent Profiles (GitHub Custom Agents)
-→ .github/agents/specification-agent.agent.md
-→ .github/agents/test-generator.agent.md
-→ .github/agents/implementer.agent.md
-→ .github/agents/reviewer.agent.md
-→ .github/agents/orchestrator.agent.md
-
-## Session Lifecycle Skills
+## Session Lifecycle Skills (ATDD/SpecKit Integration)
 → .agents/skills/start-session/SKILL.md — assemble context and invoke Specification Agent
-→ .agents/skills/review/SKILL.md — invoke Reviewer Agent and record verdict
+→ .agents/skills/review/SKILL.md — invoke Reviewer Agent and record verdict  
 → .agents/skills/end-session/SKILL.md — verify gates, finalise log, signal commit-ready
 → .agents/skills/fix/SKILL.md — resume a failed or interrupted session
 → .agents/skills/parse-criteria/SKILL.md — parse Gherkin feature files into a structured test plan
