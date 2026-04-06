@@ -2,13 +2,16 @@ using System.Diagnostics;
 using System.Text.Json;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.CLI.JobRunners;
+using DevOpsMigrationPlatform.CLI.Migration.Commands;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 using OpenTelemetry.Trace;
 using Spectre.Console.Cli;
 using System.ComponentModel;
 
 namespace DevOpsMigrationPlatform.CLI.Commands;
 
-public sealed class LogsCommand : AsyncCommand<LogsCommand.Settings>
+public sealed class LogsCommand : CommandBase<LogsCommand.Settings>
 {
     private static readonly JsonSerializerOptions _jsonOptions = new()
     {
@@ -27,17 +30,17 @@ public sealed class LogsCommand : AsyncCommand<LogsCommand.Settings>
     }
 
     private readonly ILogsClient _client;
-    private readonly ActivitySource _activitySource;
 
-    public LogsCommand(ILogsClient client, ActivitySource activitySource)
+    public LogsCommand(IServiceProvider serviceProvider, IHostApplicationLifetime lifetime,
+        ILogger<LogsCommand> logger, ActivitySource activitySource, ILogsClient client)
+        : base(serviceProvider, lifetime, logger, activitySource)
     {
-        _client         = client;
-        _activitySource = activitySource;
+        _client = client;
     }
 
-    public override async Task<int> ExecuteAsync(CommandContext context, Settings settings)
+    protected override async Task<int> ExecuteInternalAsync(CommandContext context, Settings settings, CancellationToken cancellationToken = default)
     {
-        using var activity = _activitySource.StartActivity("logs");
+        using var activity = ActivitySource.StartActivity("logs");
         try
         {
             return await RunCoreAsync(settings, activity);

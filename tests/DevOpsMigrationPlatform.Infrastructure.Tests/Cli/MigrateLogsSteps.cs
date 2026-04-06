@@ -1,4 +1,5 @@
 using System.Net;
+using System.Reflection;
 using System.Text;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.CLI.Commands;
@@ -107,7 +108,12 @@ internal sealed class MigrateLogsSteps
             remaining.Setup(r => r.Raw).Returns(Array.Empty<string>());
             remaining.Setup(r => r.Parsed).Returns(Enumerable.Empty<string>().ToLookup(x => x));
             var cmdCtx = new CommandContext(Array.Empty<string>(), remaining.Object, "logs", null);
-            _ctx.ExitCode = await command.ExecuteAsync(cmdCtx, settings);
+            
+            // Use reflection to access the protected ExecuteInternalAsync method
+            var executeMethod = typeof(LogsCommand).GetMethod("ExecuteInternalAsync", 
+                System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+            var task = (Task<int>)executeMethod!.Invoke(command, new object[] { cmdCtx, settings, _ctx.Cts.Token })!;
+            _ctx.ExitCode = await task;
         }
         finally
         {

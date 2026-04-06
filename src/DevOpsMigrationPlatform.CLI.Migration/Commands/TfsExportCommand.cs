@@ -7,7 +7,10 @@ using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.CLI.Views;
+using DevOpsMigrationPlatform.CLI.Migration.Commands;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Hosting;
 using OpenTelemetry.Trace;
 
 namespace DevOpsMigrationPlatform.CLI.Commands;
@@ -17,13 +20,12 @@ namespace DevOpsMigrationPlatform.CLI.Commands;
 /// The executable is resolved relative to this assembly so that both Debug
 /// and published-layout paths work automatically.
 /// </summary>
-public sealed class TfsExportCommand : AsyncCommand<TfsExportCommand.Settings>
+public sealed class TfsExportCommand : CommandBase<TfsExportCommand.Settings>
 {
-    private readonly ActivitySource _activitySource;
-
-    public TfsExportCommand(ActivitySource activitySource)
+    public TfsExportCommand(IServiceProvider serviceProvider, IHostApplicationLifetime lifetime, 
+        ILogger<TfsExportCommand> logger, ActivitySource activitySource)
+        : base(serviceProvider, lifetime, logger, activitySource)
     {
-        _activitySource = activitySource;
     }
 
     public sealed class Settings : CommandSettings
@@ -56,18 +58,9 @@ public sealed class TfsExportCommand : AsyncCommand<TfsExportCommand.Settings>
         }
     }
 
-    public override async Task<int> ExecuteAsync(CommandContext context, Settings settings)
+    protected override async Task<int> ExecuteInternalAsync(CommandContext context, Settings settings, CancellationToken cancellationToken = default)
     {
-        using var activity = _activitySource.StartActivity("tfsexport");
-        try
-        {
-            return await RunCoreAsync(context, settings);
-        }
-        catch (Exception ex)
-        {
-            activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
-            throw;
-        }
+        return await RunCoreAsync(context, settings);
     }
 
     private async Task<int> RunCoreAsync(CommandContext context, Settings settings)

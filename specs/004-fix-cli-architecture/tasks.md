@@ -28,10 +28,10 @@ description: "Task list for CLI architecture refactoring and command testing imp
 
 **Purpose**: Project initialization and test infrastructure setup
 
-- [ ] T001 Create test project DevOpsMigrationPlatform.CLI.Migration.Tests.csproj with Spectre.Console.Cli.Testing, MSTest, and Moq dependencies
-- [ ] T002 [P] Add PackageReference for Spectre.Console.Cli.Testing to test project
-- [ ] T003 [P] Create TestUtilities/InMemoryTestConfiguration.cs for configuration test doubles
-- [ ] T004 [P] Create TestUtilities/MockServiceProvider.cs for DI container test doubles
+- [X] T001 Create test project DevOpsMigrationPlatform.CLI.Migration.Tests.csproj with Spectre.Console.Cli.Testing, MSTest, and Moq dependencies
+- [X] T002 [P] Add PackageReference for Spectre.Console.Cli.Testing to test project
+- [X] T003 [P] Create TestUtilities/InMemoryTestConfiguration.cs for configuration test doubles
+- [X] T004 [P] Create TestUtilities/MockServiceProvider.cs for DI container test doubles
 
 ---
 
@@ -41,12 +41,12 @@ description: "Task list for CLI architecture refactoring and command testing imp
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete
 
-- [ ] T005 Create MigrationPlatformHost.cs static factory class in src/DevOpsMigrationPlatform.CLI.Migration/
-- [ ] T006 Implement CommandBase<TSettings> abstract class in src/DevOpsMigrationPlatform.CLI.Migration/Commands/CommandBase.cs
-- [ ] T007 Extract configuration extraction logic from Program.cs to MigrationPlatformHost.CreateDefaultBuilder() method  
-- [ ] T008 Migrate service registration logic from Program.cs to MigrationPlatformHost configuration
-- [ ] T009 Setup OpenTelemetry and logging configuration in MigrationPlatformHost per existing Program.cs patterns
-- [ ] T010 Create Spectre.Console CommandApp integration in MigrationPlatformHost with proper DI configuration
+- [X] T005 Create MigrationPlatformHost.cs static factory class in src/DevOpsMigrationPlatform.CLI.Migration/
+- [X] T006 Implement CommandBase<TSettings> abstract class in src/DevOpsMigrationPlatform.CLI.Migration/Commands/CommandBase.cs
+- [X] T007 Extract configuration extraction logic from Program.cs to MigrationPlatformHost.CreateDefaultBuilder() method  
+- [X] T008 Migrate service registration logic from Program.cs to MigrationPlatformHost configuration
+- [X] T009 Setup OpenTelemetry and logging configuration in MigrationPlatformHost per existing Program.cs patterns
+- [X] T010 Create Spectre.Console CommandApp integration in MigrationPlatformHost with proper DI configuration
 
 **Checkpoint**: Foundation ready - user story implementation can now begin in parallel
 
@@ -62,25 +62,25 @@ description: "Task list for CLI architecture refactoring and command testing imp
 
 > **NOTE: This `.feature` file is the ATDD Phase 1 artifact. It must be written from the `spec.md` User Story 1 acceptance scenarios and committed before any step definitions or production code are written.**
 
-- [ ] T011 [US1] Create `features/cli/execute/commands-execute-successfully.feature` — translate `spec.md` User Story 1 acceptance scenarios into conformant Gherkin (see `.agents/guardrails/acceptance-test-format.md`)
+- [X] T011 [US1] Create `features/cli/execute/commands-execute-successfully.feature` — translate `spec.md` User Story 1 acceptance scenarios into conformant Gherkin (see `.agents/guardrails/acceptance-test-format.md`)
 
 ### Tests for User Story 1
 
 > **NOTE: Write these tests FIRST, ensure they FAIL before implementation**
 
-- [ ] T012 [P] [US1] Create tests/DevOpsMigrationPlatform.CLI.Migration.Tests/Commands/TfsExportCommandTests.cs with CommandAppTester validation tests
-- [ ] T013 [P] [US1] Create tests/DevOpsMigrationPlatform.CLI.Migration.Tests/Commands/LogsCommandTests.cs with CommandAppTester validation tests
-- [ ] T014 [P] [US1] Create tests/DevOpsMigrationPlatform.CLI.Migration.Tests/Commands/InventoryCommandTests.cs with CommandAppTester validation tests
-- [ ] T015 [P] [US1] Create tests/DevOpsMigrationPlatform.CLI.Migration.Tests/Commands/CommandBaseTests.cs for unit testing base class functionality
+- [X] T012 [P] [US1] Create tests/DevOpsMigrationPlatform.CLI.Migration.Tests/Commands/TfsExportCommandTests.cs with CommandAppTester validation tests
+- [X] T013 [P] [US1] Create tests/DevOpsMigrationPlatform.CLI.Migration.Tests/Commands/LogsCommandTests.cs with CommandAppTester validation tests
+- [X] T014 [P] [US1] Create tests/DevOpsMigrationPlatform.CLI.Migration.Tests/Commands/InventoryCommandTests.cs with CommandAppTester validation tests
+- [X] T015 [P] [US1] Create tests/DevOpsMigrationPlatform.CLI.Migration.Tests/Commands/CommandBaseTests.cs for unit testing base class functionality
 
 ### Implementation for User Story 1
 
-- [ ] T016 [P] [US1] Refactor TfsExportCommand in src/DevOpsMigrationPlatform.CLI.Migration/Commands/TfsExportCommand.cs to inherit from CommandBase<TfsExportCommandSettings>
-- [ ] T017 [P] [US1] Refactor LogsCommand in src/DevOpsMigrationPlatform.CLI.Migration/Commands/LogsCommand.cs to inherit from CommandBase<LogsCommand.Settings>
-- [ ] T018 [P] [US1] Refactor InventoryCommand in src/DevOpsMigrationPlatform.CLI.Migration/Commands/InventoryCommand.cs to inherit from CommandBase<InventoryCommand.Settings>  
-- [ ] T019 [US1] Implement proper error handling and telemetry in CommandBase<T>.ExecuteAsync() with exception logging
-- [ ] T020 [US1] Add IHostApplicationLifetime.StopApplication() calls to command completion in CommandBase<T>
-- [ ] T021 [US1] Update Program.cs to use minimal bootstrapping pattern following azure-devops-migration-tools reference
+- [X] T016 [P] [US1] Refactor TfsExportCommand in src/DevOpsMigrationPlatform.CLI.Migration/Commands/TfsExportCommand.cs to inherit from CommandBase<TfsExportCommandSettings>
+- [X] T017 [P] [US1] Refactor LogsCommand in src/DevOpsMigrationPlatform.CLI.Migration/Commands/LogsCommand.cs to inherit from CommandBase<LogsCommand.Settings>
+- [X] T018 [P] [US1] Refactor InventoryCommand in src/DevOpsMigrationPlatform.CLI.Migration/Commands/InventoryCommand.cs to inherit from CommandBase<InventoryCommand.Settings>  
+- [X] T019 [US1] Implement proper error handling and telemetry in CommandBase<T>.ExecuteAsync() with exception logging
+- [X] T020 [US1] Add IHostApplicationLifetime.StopApplication() calls to command completion in CommandBase<T>
+- [X] T021 [US1] Update Program.cs to use minimal bootstrapping pattern following azure-devops-migration-tools reference
 
 **Checkpoint**: At this point, User Story 1 should be fully functional - all commands execute without errors
 
@@ -96,7 +96,7 @@ description: "Task list for CLI architecture refactoring and command testing imp
 
 > **NOTE: This `.feature` file is the ATDD Phase 1 artifact. Write from `spec.md` User Story 2 acceptance scenarios before any step definitions or production code.**
 
-- [ ] T022 [US2] Create `features/cli/execute/configuration-flow.feature` — translate `spec.md` User Story 2 acceptance scenarios into conformant Gherkin (see `.agents/guardrails/acceptance-test-format.md`)
+- [X] T022 [US2] Create `features/cli/execute/configuration-flow.feature` — translate `spec.md` User Story 2 acceptance scenarios into conformant Gherkin (see `.agents/guardrails/acceptance-test-format.md`)
 
 ### Tests for User Story 2
 
@@ -106,9 +106,9 @@ description: "Task list for CLI architecture refactoring and command testing imp
 
 ### Implementation for User Story 2
 
-- [ ] T026 [US2] Implement --config parameter extraction logic in MigrationPlatformHost before DI container creation
-- [ ] T027 [US2] Setup IOptions<T> pattern integration in MigrationPlatformHost service registration for all existing configuration classes
-- [ ] T028 [US2] Verify configuration binding between command-line args, environment variables, and config files follows proper precedence
+- [X] T026 [US2] Implement --config parameter extraction logic in MigrationPlatformHost before DI container creation
+- [X] T027 [US2] Setup IOptions<T> pattern integration in MigrationPlatformHost service registration for all existing configuration classes
+- [X] T028 [US2] Verify configuration binding between command-line args, environment variables, and config files follows proper precedence
 - [ ] T029 [US2] Update existing services to receive configuration via dependency injection rather than direct file access where applicable
 - [ ] T030 [US2] Add configuration validation and error handling for malformed JSON and missing required sections
 
@@ -136,11 +136,11 @@ description: "Task list for CLI architecture refactoring and command testing imp
 
 ### Implementation for User Story 3
 
-- [ ] T035 [US3] Finalize Program.cs refactoring to contain only minimal bootstrapping logic (target < 50 lines)
-- [ ] T036 [US3] Ensure all service registration, configuration, and infrastructure setup is centralized in MigrationPlatformHost
-- [ ] T037 [US3] Validate that CommandBase<T> provides proper lifecycle management and service access patterns
+- [X] T035 [US3] Finalize Program.cs refactoring to contain only minimal bootstrapping logic (target < 50 lines)
+- [X] T036 [US3] Ensure all service registration, configuration, and infrastructure setup is centralized in MigrationPlatformHost
+- [X] T037 [US3] Validate that CommandBase<T> provides proper lifecycle management and service access patterns
 - [ ] T038 [US3] Add documentation comments to MigrationPlatformHost and CommandBase<T> explaining architecture patterns
-- [ ] T039 [US3] Verify separation of concerns between bootstrapping (Program.cs), infrastructure (host builder), and commands
+- [X] T039 [US3] Verify separation of concerns between bootstrapping (Program.cs), infrastructure (host builder), and commands
 
 **Checkpoint**: All user stories should now be independently functional with proper architecture
 
