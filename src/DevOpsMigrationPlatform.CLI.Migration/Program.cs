@@ -1,7 +1,6 @@
 using DevOpsMigrationPlatform.CLI.Commands;
 using DevOpsMigrationPlatform.CLI.Commands.Discovery;
 using DevOpsMigrationPlatform.CLI.Migration.Commands;
-using DevOpsMigrationPlatform.CLI.Migration.Commands.Discovery;
 using Spectre.Console;
 using Spectre.Console.Cli;
 
@@ -33,16 +32,10 @@ internal class Program
             {
                 branch.SetDescription("Tools for finding out what we have and the implications of any migration");
 
-                branch.AddCommand<EnhancedInventoryCommand>("inventory")
-                    .WithDescription("Count work items and revisions per project with enhanced configuration support")
-                    .WithExample("discovery", "inventory", "--config", "migration.json")
-                    .WithExample("discovery", "inventory", "--config", "migration.json", "--all-projects")
-                    .WithExample("discovery", "inventory", "--source-url", "https://dev.azure.com/myorg", "--token", "***")
-                    .WithExample("discovery", "inventory", "--config", "migration.json", "--output", "./custom-inventory");
-
-                branch.AddCommand<InventoryCommand>("legacy-inventory")
-                    .WithDescription("[LEGACY] Original inventory command for backwards compatibility")
-                    .WithExample("discovery", "legacy-inventory", "--all-projects");
+                branch.AddCommand<InventoryCommand>("inventory")
+                    .WithDescription("Count work items and revisions per project")
+                    .WithExample("discovery", "inventory", "--all-projects")
+                    .WithExample("discovery", "inventory", "--output", "./inventory-results");
             });
 
             config.AddCommand<TfsExportCommand>("tfsexport")
