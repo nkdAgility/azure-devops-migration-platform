@@ -17,7 +17,7 @@ namespace DevOpsMigrationPlatform.CLI.Migration.Commands;
 /// </summary>
 /// <typeparam name="TSettings">Command settings type derived from CommandSettings</typeparam>
 public abstract class CommandBase<TSettings> : AsyncCommand<TSettings>
-    where TSettings : CommandSettings
+    where TSettings : Spectre.Console.Cli.CommandSettings
 {
     /// <summary>
     /// Access to the DI container services.

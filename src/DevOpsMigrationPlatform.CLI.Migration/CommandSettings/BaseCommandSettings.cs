@@ -7,7 +7,7 @@ namespace DevOpsMigrationPlatform.CLI.Migration.CommandSettings;
 /// <summary>
 /// Base command settings providing common options for all CLI commands.
 /// </summary>
-public class BaseCommandSettings : CommandSettings, IHasConfigFile
+public class BaseCommandSettings : Spectre.Console.Cli.CommandSettings, IHasConfigFile
 {
     [CommandOption("-c|--config")]
     [Description("Path to the configuration file")]
