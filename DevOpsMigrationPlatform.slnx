@@ -3,9 +3,7 @@
     <Project Path="src/DevOpsMigrationPlatform.Abstractions/DevOpsMigrationPlatform.Abstractions.csproj" />
     <Project Path="src/DevOpsMigrationPlatform.Infrastructure/DevOpsMigrationPlatform.Infrastructure.csproj" />
     <Project Path="src/DevOpsMigrationPlatform.Infrastructure.AzureDevOps/DevOpsMigrationPlatform.Infrastructure.AzureDevOps.csproj" />
-    <Project Path="src/DevOpsMigrationPlatform.Infrastructure.TfsObjectModel/DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.csproj">
-      <BuildType Project="Release" />
-    </Project>
+    <Project Path="src/DevOpsMigrationPlatform.Infrastructure.TfsObjectModel/DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.csproj" />
     <Project Path="src/DevOpsMigrationPlatform.ServiceDefaults/DevOpsMigrationPlatform.ServiceDefaults.csproj" />
     <Project Path="src/DevOpsMigrationPlatform.ControlPlane/DevOpsMigrationPlatform.ControlPlane.csproj" />
     <Project Path="src/DevOpsMigrationPlatform.ControlPlaneHost/DevOpsMigrationPlatform.ControlPlaneHost.csproj" />
@@ -17,5 +15,6 @@
   <Folder Name="/tests/">
     <Project Path="tests/DevOpsMigrationPlatform.Infrastructure.Tests/DevOpsMigrationPlatform.Infrastructure.Tests.csproj" />
     <Project Path="tests/DevOpsMigrationPlatform.ControlPlane.Tests/DevOpsMigrationPlatform.ControlPlane.Tests.csproj" />
+    <Project Path="tests/DevOpsMigrationPlatform.CLI.Migration.Tests/DevOpsMigrationPlatform.CLI.Migration.Tests.csproj" />
   </Folder>
 </Solution>

@@ -87,13 +87,13 @@ internal sealed class InteractiveConfigurationBuilder : IInteractiveConfiguratio
 
             endpoint.Authentication = new EndpointAuthenticationOptions
             {
-                Type = "Pat",
+                Type = AuthenticationType.Pat,
                 AccessToken = accessToken
             };
         }
         else
         {
-            endpoint.Authentication = new EndpointAuthenticationOptions { Type = "Windows" };
+            endpoint.Authentication = new EndpointAuthenticationOptions { Type = AuthenticationType.Windows };
         }
 
         return Task.FromResult(endpoint);

@@ -18,6 +18,8 @@ public static class InventoryServiceCollectionExtensions
         IConfiguration configuration)
     {
         services.AddOptions<DiscoveryOptions>().Bind(configuration);
+        services.AddSingleton<IAzureDevOpsClientFactory, AzureDevOpsClientFactory>();
+        services.AddSingleton<IWiqlQueryClientFactory, AzureDevOpsWiqlQueryClientFactory>();
         services.AddSingleton<IWorkItemQueryWindowStrategy, WorkItemQueryWindowStrategy>();
         services.AddSingleton<IWorkItemDiscoveryService, AzureDevOpsWorkItemDiscoveryService>();
         services.AddSingleton<IProjectDiscoveryService, AzureDevOpsProjectDiscoveryService>();

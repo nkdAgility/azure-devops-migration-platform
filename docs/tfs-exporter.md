@@ -535,8 +535,8 @@ The subprocess reads exactly one line from stdin before making any TFS connectio
 The subprocess emits `InventoryProgressEvent` records as NDJSON on stdout — one JSON object per line, flushed immediately:
 
 ```json
-{"projectName":"Alpha","orgOrCollection":"http://tfs:8080/tfs/DefaultCollection","workItemsCount":1500,"revisionsCount":0,"isComplete":false,"windowSize":"120.00:00:00","timestamp":"2026-01-15T10:00:01Z"}
-{"projectName":"Alpha","orgOrCollection":"http://tfs:8080/tfs/DefaultCollection","workItemsCount":3200,"revisionsCount":0,"isComplete":true,"timestamp":"2026-01-15T10:00:05Z"}
+{"projectName":"Alpha","url":"http://tfs:8080/tfs/DefaultCollection","workItemsCount":1500,"revisionsCount":0,"isComplete":false,"windowSize":"120.00:00:00","timestamp":"2026-01-15T10:00:01Z"}
+{"projectName":"Alpha","url":"http://tfs:8080/tfs/DefaultCollection","workItemsCount":3200,"revisionsCount":0,"isComplete":true,"timestamp":"2026-01-15T10:00:05Z"}
 ```
 
 Intermediate events have `isComplete: false`; the final event for each project has `isComplete: true`. Error events have `isComplete: true` and a non-null `error` field.

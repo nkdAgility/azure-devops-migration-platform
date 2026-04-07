@@ -34,7 +34,7 @@ public class DiscoveryOptionsValidationTests
         {
             Organisations = new()
             {
-                new OrganisationEntry { Type = string.Empty, OrgOrCollection = "https://dev.azure.com/org" }
+                new OrganisationEntry { Type = string.Empty, Url = "https://dev.azure.com/org" }
             }
         };
         var ex = Assert.ThrowsException<InvalidOperationException>(() => opts.Validate());
@@ -42,17 +42,17 @@ public class DiscoveryOptionsValidationTests
     }
 
     [TestMethod]
-    public void Validate_EntryMissingOrgOrCollection_Throws()
+    public void Validate_EntryMissingUrl_Throws()
     {
         var opts = new DiscoveryOptions
         {
             Organisations = new()
             {
-                new OrganisationEntry { Type = "AzureDevOpsServices", OrgOrCollection = string.Empty }
+                new OrganisationEntry { Type = "AzureDevOpsServices", Url = string.Empty }
             }
         };
         var ex = Assert.ThrowsException<InvalidOperationException>(() => opts.Validate());
-        StringAssert.Contains(ex.Message, "orgOrCollection");
+        StringAssert.Contains(ex.Message, "url");
     }
 
     [TestMethod]
@@ -65,8 +65,8 @@ public class DiscoveryOptionsValidationTests
                 new OrganisationEntry
                 {
                     Type = "AzureDevOpsServices",
-                    OrgOrCollection = "https://dev.azure.com/org",
-                    Authentication = new EndpointAuthenticationOptions { Type = "Pat", AccessToken = "" }
+                    Url = "https://dev.azure.com/org",
+                    Authentication = new EndpointAuthenticationOptions { Type = AuthenticationType.Pat, AccessToken = "" }
                 }
             }
         };
@@ -84,8 +84,8 @@ public class DiscoveryOptionsValidationTests
                 new OrganisationEntry
                 {
                     Type = "AzureDevOpsServices",
-                    OrgOrCollection = "https://dev.azure.com/org",
-                    Authentication = new EndpointAuthenticationOptions { Type = "Pat", AccessToken = "abc123" }
+                    Url = "https://dev.azure.com/org",
+                    Authentication = new EndpointAuthenticationOptions { Type = AuthenticationType.Pat, AccessToken = "abc123" }
                 }
             }
         };
@@ -102,7 +102,7 @@ public class DiscoveryOptionsValidationTests
                 new OrganisationEntry
                 {
                     Type = "AzureDevOpsServices",
-                    OrgOrCollection = "https://dev.azure.com/myorg"
+                    Url = "https://dev.azure.com/myorg"
                 }
             }
         };
@@ -119,12 +119,33 @@ public class DiscoveryOptionsValidationTests
                 new OrganisationEntry
                 {
                     Type = "AzureDevOpsServices",
-                    OrgOrCollection = "https://dev.azure.com/org1"
+                    Url = "https://dev.azure.com/org1"
                 },
                 new OrganisationEntry
                 {
                     Type = "TeamFoundationServer",
-                    OrgOrCollection = "https://tfs.corp.local/DefaultCollection"
+                    Url = "https://tfs.corp.local/DefaultCollection"
+                }
+            }
+        };
+        opts.Validate(); // must not throw
+    }
+
+    [TestMethod]
+    public void Validate_TfsEntryWithNoAuthBlock_DoesNotThrow()
+    {
+        // Regression: an entry without an explicit <authentication> block must not
+        // trigger PAT validation. The default AuthenticationType.None sentinel
+        // ensures DiscoveryOptions.Validate skips PAT checks for Windows/anonymous TFS entries.
+        var opts = new DiscoveryOptions
+        {
+            Organisations = new()
+            {
+                new OrganisationEntry
+                {
+                    Type = "TeamFoundationServer",
+                    Url = "http://tfs:8080/tfs/DefaultCollection"
+                    // Authentication deliberately omitted — defaults to AuthenticationType.None
                 }
             }
         };

@@ -4,9 +4,6 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions.Services;
-using Microsoft.TeamFoundation.Core.WebApi;
-using Microsoft.VisualStudio.Services.Common;
-using Microsoft.VisualStudio.Services.WebApi;
 
 namespace DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Services;
 
@@ -15,14 +12,19 @@ namespace DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Services;
 /// </summary>
 public sealed class AzureDevOpsProjectDiscoveryService : IProjectDiscoveryService
 {
-    public async Task<List<string>> GetProjectsAsync(
+    private readonly IAzureDevOpsClientFactory _clientFactory;
+
+    public AzureDevOpsProjectDiscoveryService(IAzureDevOpsClientFactory clientFactory)
+    {
+        _clientFactory = clientFactory ?? throw new ArgumentNullException(nameof(clientFactory));
+    }
+
+    public async Task<List<string>> DiscoverProjectsAsync(
         string orgOrCollection,
         string pat,
         CancellationToken cancellationToken = default)
     {
-        var credentials = new VssBasicCredential(string.Empty, pat);
-        var connection = new VssConnection(new Uri(orgOrCollection), credentials);
-        var projectClient = await connection.GetClientAsync<ProjectHttpClient>(cancellationToken);
+        var projectClient = await _clientFactory.CreateProjectClientAsync(orgOrCollection, pat, cancellationToken);
         var projects = await projectClient.GetProjects();
         return projects.Select(p => p.Name).ToList();
     }

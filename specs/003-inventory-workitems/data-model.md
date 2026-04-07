@@ -36,7 +36,7 @@ One entry in the `organisations` list.
 | Property | Type | Default | Notes |
 |---|---|---|---|
 | `Type` | `string` | required | `"AzureDevOpsServices"` or `"TeamFoundationServer"` |
-| `OrgOrCollection` | `string` | required | Org URL or collection URL |
+| `Url` | `string` | required | Org URL or collection URL |
 | `Projects` | `List<string>` | `[]` | Empty = all projects |
 | `ApiVersion` | `string?` | — | Pinned API version |
 | `Authentication` | `EndpointAuthenticationOptions` | required | Auth block |
@@ -59,7 +59,7 @@ Validation (run at startup):
 - Neither set → error.
 - Mode 1, `Source.Project` null/empty, `--all-projects` not passed → error.
 - Mode 2, list empty → error.
-- Mode 2, any enabled entry missing `Type` or `OrgOrCollection` → error.
+- Mode 2, any enabled entry missing `Type` or `Url` → error.
 - Mode 1, `Pat` auth, resolved token empty → error.
 
 ---
@@ -70,7 +70,7 @@ Per-project result record. Written to the CSV on completion.
 
 | Property | Type | Notes |
 |---|---|---|
-| `OrgOrCollection` | `string` | Source org/collection |
+| `Url` | `string` | Source org/collection |
 | `ProjectName` | `string` | Project name |
 | `WorkItemsCount` | `int` | Total work items found |
 | `RevisionsCount` | `int` | Sum of all `System.Rev` values |
@@ -89,7 +89,7 @@ Emitted by `IProgressSink` on each window completion. Used by both the in-proces
 | Property | Type | Notes |
 |---|---|---|
 | `ProjectName` | `string` | |
-| `OrgOrCollection` | `string` | |
+| `Url` | `string` | |
 | `WorkItemsCount` | `int` | Running total |
 | `RevisionsCount` | `int` | Running total |
 | `IsComplete` | `bool` | True on the final event for this project |

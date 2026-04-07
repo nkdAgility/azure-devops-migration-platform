@@ -37,7 +37,7 @@ A single JSON configuration file drives the entire run.
   "organisations": [
     {
       "type": "AzureDevOpsServices | TeamFoundationServer",
-      "orgOrCollection": "https://dev.azure.com/myorg",
+      "url": "https://dev.azure.com/myorg",
       "projects": ["Alpha", "Beta"],
       "apiVersion": "7.1",
       "authentication": {
@@ -91,7 +91,7 @@ A single JSON configuration file drives the entire run.
 | `source.authentication` | No | Auth credentials block (`type` + `accessToken`). If omitted, Windows-integrated auth is used. |
 | `target` | Required for `Import` and `Both` | Target system connection details |
 | `target.authentication` | No | Auth credentials block (`type` + `accessToken`). |
-| `organisations` | Mode 2 inventory only | Multi-org tooling roster. Mutually exclusive with `source`. Each entry has `type`, `orgOrCollection`, `projects`, `authentication`, and `enabled`. |
+| `organisations` | Mode 2 inventory only | Multi-org tooling roster. Mutually exclusive with `source`. Each entry has `type`, `url`, `projects`, `authentication`, and `enabled`. |
 | `modules` | Yes | Ordered list of modules to run with their scope configurations |
 | `policies` | No | Retry and throttle policies |
 
@@ -120,3 +120,18 @@ Common scope types:
 - An upgrader must exist for each version transition (e.g., `1.0 → 2.0`).
 - The tool must detect an outdated config version and either auto-upgrade (with warning) or fail fast with instructions.
 - Configs from future versions must fail fast with a clear error message.
+
+---
+
+## Scenario Configs
+
+Ready-to-run example configuration files live under `/scenarios/` at the repository root. Each file targets a specific connectivity scenario and is wired to a VS Code launch configuration for quick local debugging.
+
+| File | Scenario |
+|---|---|
+| `inventory-ado-single-project.json` | Single Azure DevOps project inventory (PAT auth) |
+| `inventory-ado-multi-project.json` | Multi-project Azure DevOps inventory (PAT auth) |
+| `inventory-tfs-windows-auth.json` | On-premises TFS inventory (Windows-integrated auth) |
+| `inventory-multi-org.json` | Multi-organisation inventory with per-org PAT tokens |
+
+Credentials in these files use `$ENV:VARNAME` references — never literal tokens. Set the corresponding environment variables locally (e.g. `AZDEVOPS_DEV_PAT`) before running.

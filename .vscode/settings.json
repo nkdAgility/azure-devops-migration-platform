@@ -4,8 +4,7 @@
     // .NET and C# settings for this project
     "dotnet.completion.showCompletionItemsFromUnimportedNamespaces": true,
     "dotnet.enablePackageRestore": true,
-    "dotnet.preferCSharpExtension": true,
-    "dotnet.server.useOmnisharp": false,
+
     
     // File associations for this project
     "files.associations": {

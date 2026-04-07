@@ -1,7 +1,11 @@
 using DevOpsMigrationPlatform.CLI.Commands.Discovery;
 using DevOpsMigrationPlatform.CLI.Migration.Tests.TestUtilities;
+using DevOpsMigrationPlatform.Abstractions.Models;
 using DevOpsMigrationPlatform.Abstractions.Options;
+using DevOpsMigrationPlatform.Abstractions.Services;
 using DevOpsMigrationPlatform.Abstractions.Utilities;
+using DevOpsMigrationPlatform.Infrastructure.AzureDevOps;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using System;
 
@@ -51,10 +55,10 @@ public class InventoryCommandTests
                     new OrganisationEntry
                     {
                         Type = "AzureDevOpsServices",
-                        OrgOrCollection = ctx.Configuration.OrganizationUrl,
+                        Url = ctx.Configuration.OrganizationUrl,
                         Authentication = new EndpointAuthenticationOptions
                         {
-                            Type = "Pat",
+                            Type = AuthenticationType.Pat,
                             AccessToken = ctx.Configuration.AccessToken
                         }
                     }
@@ -76,7 +80,7 @@ public class InventoryCommandTests
 
             // For now, we validate the system test infrastructure works
             Console.WriteLine($"System test validated organization: {ctx.Configuration.OrganizationUrl}");
-            Console.WriteLine($"Discovery options structure validated: {discoveryOptions.Organisations[0].OrgOrCollection}");
+            Console.WriteLine($"Discovery options structure validated: {discoveryOptions.Organisations[0].Url}");
             Console.WriteLine($"Output directory created: {ctx.OutputDirectory}");
 
         }, context);
@@ -160,5 +164,87 @@ public class InventoryCommandTests
         }
     }
 
+    [TestMethod]
+    [TestCategory("SystemTest")]
+    public async Task InventoryCommand_SystemTest_AdoSingleProject_ScenarioFile_ExecutesSuccessfully()
+    {
+        // Arrange – the scenario file references $ENV:AZDEVOPS_DEV_ORG and $ENV:AZDEVOPS_DEV_PAT
+        if (string.IsNullOrEmpty(Environment.GetEnvironmentVariable("AZDEVOPS_DEV_ORG")) ||
+            string.IsNullOrEmpty(Environment.GetEnvironmentVariable("AZDEVOPS_DEV_PAT")))
+        {
+            Assert.Inconclusive(
+                "System test skipped: AZDEVOPS_DEV_ORG and AZDEVOPS_DEV_PAT environment variables must be set. " +
+                "See docs/contributors.md for setup instructions.");
+            return;
+        }
+
+        var scenarioFile = FindScenarioFile("inventory-ado-single-project.json");
+        Assert.IsNotNull(scenarioFile,
+            "Could not locate scenarios/inventory-ado-single-project.json relative to the test output directory");
+
+        var outputDir = Path.Combine(Path.GetTempPath(), "SystemTests",
+            nameof(InventoryCommand_SystemTest_AdoSingleProject_ScenarioFile_ExecutesSuccessfully),
+            Guid.NewGuid().ToString("N")[..8]);
+        Directory.CreateDirectory(outputDir);
+
+        try
+        {
+            // Act – mirror how InventoryCommand.ExecuteInternalAsync builds its host
+            using var host = DevOpsMigrationPlatform.CLI.MigrationPlatformHost
+                .CreateDefaultBuilder(["--config", scenarioFile],
+                    (services, config) => services.AddAzureDevOpsInventory(config))
+                .Build();
+
+            var inventoryService = host.Services.GetRequiredService<IInventoryService>();
+            var events = new List<InventoryProgressEvent>();
+
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(120));
+            await foreach (var evt in inventoryService.RunInventoryAsync(cts.Token))
+            {
+                events.Add(evt);
+                Console.WriteLine($"  {evt.Url}/{evt.ProjectName}: {evt.WorkItemsCount} work items, {evt.RevisionsCount} revisions");
+            }
+
+            // Assert
+            Assert.IsTrue(events.Count > 0, "Expected at least one inventory progress event");
+
+            var completedEvents = events.Where(e => e.IsComplete).ToList();
+            Assert.IsTrue(completedEvents.Count > 0, "Expected at least one completed project inventory");
+
+            var errors = completedEvents.Where(e => e.Error != null).ToList();
+            Assert.AreEqual(0, errors.Count,
+                $"Expected no errors, but got: {string.Join(", ", errors.Select(e => e.Error))}");
+
+            var totalWorkItems = completedEvents.Sum(e => e.WorkItemsCount);
+            Assert.AreEqual(44, totalWorkItems,
+                $"Expected 44 work items across all completed projects, but found {totalWorkItems}");
+
+            Console.WriteLine($"Inventory complete: {completedEvents.Count} project(s), {totalWorkItems} work items");
+        }
+        finally
+        {
+            if (Directory.Exists(outputDir))
+                Directory.Delete(outputDir, recursive: true);
+        }
+    }
+
     #endregion
+
+    // ── Helpers ───────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Walks up from the test binary output directory until it finds a "scenarios" sibling folder.
+    /// </summary>
+    private static string? FindScenarioFile(string fileName)
+    {
+        var dir = new DirectoryInfo(AppContext.BaseDirectory);
+        while (dir != null)
+        {
+            var candidate = Path.Combine(dir.FullName, "scenarios", fileName);
+            if (File.Exists(candidate))
+                return candidate;
+            dir = dir.Parent;
+        }
+        return null;
+    }
 }

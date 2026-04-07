@@ -5,10 +5,7 @@ using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions.Services;
-using Microsoft.TeamFoundation.WorkItemTracking.WebApi;
 using Microsoft.TeamFoundation.WorkItemTracking.WebApi.Models;
-using Microsoft.VisualStudio.Services.Common;
-using Microsoft.VisualStudio.Services.WebApi;
 
 namespace DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Services;
 
@@ -16,19 +13,24 @@ namespace DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Services;
 /// Shared date-window WIQL strategy that keeps each query under the 20,000-item limit.
 /// Used by both <see cref="InventoryService"/> (counting) and
 /// <see cref="CatalogService"/> (export paging).
+///
+/// Algorithm:
+/// 1. Run one unbounded query (no date filter). For projects with fewer than
+///    <see cref="WorkItemQueryWindowOptions.LimitThreshold"/> items this is
+///    sufficient — one API call, one yielded window, done.
+/// 2. If the project hits the WIQL cap (≥ LimitThreshold), fall back to
+///    backward date-window scanning: halve on overflow, retry on WIQL error,
+///    expand on empty windows until <see cref="WorkItemQueryWindowOptions.MinDate"/>.
 /// </summary>
 public sealed class WorkItemQueryWindowStrategy : IWorkItemQueryWindowStrategy
 {
-    /// <summary>
-    /// Enumerates successive date windows for <paramref name="project"/>, each containing
-    /// the work item IDs created in that window. Windows are walked backward from
-    /// <see cref="DateTime.UtcNow"/> until a window yields zero results.
-    ///
-    /// If a window returns ≥ <see cref="WorkItemQueryWindowOptions.LimitThreshold"/> items,
-    /// the window is halved and retried (the partial result is NOT yielded).
-    /// On WIQL failure, the window is halved and retried up to 3 times.
-    /// After a successful narrow window (&lt; 30 days) the window grows by 1 day.
-    /// </summary>
+    private readonly IWiqlQueryClientFactory _clientFactory;
+
+    public WorkItemQueryWindowStrategy(IWiqlQueryClientFactory clientFactory)
+    {
+        _clientFactory = clientFactory ?? throw new ArgumentNullException(nameof(clientFactory));
+    }
+
     public async IAsyncEnumerable<WorkItemQueryWindow> EnumerateWindowsAsync(
         string orgOrCollection,
         string project,
@@ -38,10 +40,40 @@ public sealed class WorkItemQueryWindowStrategy : IWorkItemQueryWindowStrategy
     {
         options ??= new WorkItemQueryWindowOptions();
 
-        var credentials = new VssBasicCredential(string.Empty, pat);
-        var connection = new VssConnection(new Uri(orgOrCollection), credentials);
-        var witClient = await connection.GetClientAsync<WorkItemTrackingHttpClient>(cancellationToken);
+        var witClient = await _clientFactory.CreateAsync(orgOrCollection, pat, cancellationToken);
 
+        // ── Step 1: Unbounded probe ──────────────────────────────────────────
+        // A single query without date filters retrieves all IDs for the project.
+        // If the result is below the WIQL cap this is the only API call needed.
+        var unboundedWiql = new Wiql
+        {
+            Query = $"SELECT [System.Id] FROM WorkItems " +
+                    $"WHERE [System.TeamProject] = '{EscapeWiql(project)}' " +
+                    $"ORDER BY [System.Id]"
+        };
+
+        var unboundedResult = await witClient.QueryByWiqlAsync(unboundedWiql, project, cancellationToken);
+        var unboundedIds = unboundedResult.WorkItems.Select(r => r.Id).ToList();
+
+        if (unboundedIds.Count < options.LimitThreshold)
+        {
+            if (unboundedIds.Count > 0)
+            {
+                var now = DateTime.UtcNow;
+                yield return new WorkItemQueryWindow
+                {
+                    WindowStart = options.MinDate,
+                    WindowEnd = now,
+                    WindowSize = now - options.MinDate,
+                    WorkItemIds = unboundedIds
+                };
+            }
+            yield break;
+        }
+
+        // ── Step 2: Date-window fallback (>= LimitThreshold items) ──────────
+        // Walk backward through date windows, halving on overflow, expanding on
+        // empty gaps, stopping at MinDate.
         var windowSize = TimeSpan.FromDays(options.InitialWindowDays);
         var windowEnd = DateTime.UtcNow;
         const int maxRetries = 3;
@@ -68,11 +100,11 @@ public sealed class WorkItemQueryWindowStrategy : IWorkItemQueryWindowStrategy
                 cancellationToken.ThrowIfCancellationRequested();
                 try
                 {
-                    var result = await witClient.QueryByWiqlAsync(wiql, project, cancellationToken: cancellationToken);
+                    var result = await witClient.QueryByWiqlAsync(wiql, project, cancellationToken);
                     ids = result.WorkItems.Select(r => r.Id).ToList();
                     break;
                 }
-                catch (Exception) when (retries < maxRetries)
+                catch (Exception ex) when (retries < maxRetries && ex is not OperationCanceledException)
                 {
                     retries++;
                     windowSize = TimeSpan.FromTicks(windowSize.Ticks / 2);
@@ -88,7 +120,6 @@ public sealed class WorkItemQueryWindowStrategy : IWorkItemQueryWindowStrategy
 
             if (ids.Count >= options.LimitThreshold)
             {
-                // Window too large — halve and retry without yielding
                 windowSize = TimeSpan.FromTicks(windowSize.Ticks / 2);
                 if (windowSize < TimeSpan.FromDays(options.MinWindowDays))
                     windowSize = TimeSpan.FromDays(options.MinWindowDays);
@@ -96,7 +127,16 @@ public sealed class WorkItemQueryWindowStrategy : IWorkItemQueryWindowStrategy
             }
 
             if (ids.Count == 0)
-                yield break;
+            {
+                if (windowStart <= options.MinDate)
+                    yield break;
+
+                windowSize = windowSize * 2;
+                if (windowSize > TimeSpan.FromDays(options.MaxWindowDays))
+                    windowSize = TimeSpan.FromDays(options.MaxWindowDays);
+                windowEnd = windowStart;
+                continue;
+            }
 
             yield return new WorkItemQueryWindow
             {
@@ -106,7 +146,6 @@ public sealed class WorkItemQueryWindowStrategy : IWorkItemQueryWindowStrategy
                 WorkItemIds = ids
             };
 
-            // Grow window gradually after a narrow success
             if (windowSize < TimeSpan.FromDays(30))
                 windowSize += TimeSpan.FromDays(1);
 

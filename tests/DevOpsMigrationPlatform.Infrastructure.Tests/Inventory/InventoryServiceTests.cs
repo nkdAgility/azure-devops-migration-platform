@@ -8,6 +8,7 @@ using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Models;
 using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Abstractions.Services;
+using DevOpsMigrationPlatform.Infrastructure.AzureDevOps;
 using DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Services;
 using DevOpsMigrationPlatform.Infrastructure.Services;
 using Microsoft.Extensions.Options;
@@ -38,9 +39,9 @@ public class InventoryServiceTests
                 new OrganisationEntry
                 {
                     Type = "AzureDevOpsServices",
-                    OrgOrCollection = org,
+                    Url = org,
                     Projects = string.IsNullOrEmpty(project) ? new() : new() { project },
-                    Authentication = new EndpointAuthenticationOptions { Type = "Pat", AccessToken = pat }
+                    Authentication = new EndpointAuthenticationOptions { Type = AuthenticationType.Pat, AccessToken = pat }
                 }
             }
         };
@@ -226,7 +227,7 @@ public class InventoryServiceTests
         var evt = new InventoryProgressEvent
         {
             ProjectName = "TestProject",
-            OrgOrCollection = "https://dev.azure.com/org",
+            Url = "https://dev.azure.com/org",
             WorkItemsCount = 42,
             RevisionsCount = 100,
             IsComplete = true,
@@ -281,7 +282,8 @@ public class InventoryServiceTests
     [TestMethod]
     public void WorkItemQueryWindowStrategy_ImplementsInterface()
     {
-        var strategy = new WorkItemQueryWindowStrategy();
+        var clientFactory = new Mock<IWiqlQueryClientFactory>(MockBehavior.Strict);
+        var strategy = new WorkItemQueryWindowStrategy(clientFactory.Object);
         Assert.IsInstanceOfType(strategy, typeof(IWorkItemQueryWindowStrategy),
             "WorkItemQueryWindowStrategy must implement IWorkItemQueryWindowStrategy");
     }
@@ -290,7 +292,8 @@ public class InventoryServiceTests
     public void AzureDevOpsWorkItemDiscoveryService_ImplementsInterface()
     {
         var windowStrategy = new Mock<IWorkItemQueryWindowStrategy>(MockBehavior.Strict);
-        var sut = new AzureDevOpsWorkItemDiscoveryService(windowStrategy.Object);
+        var clientFactory = new Mock<IAzureDevOpsClientFactory>(MockBehavior.Strict);
+        var sut = new AzureDevOpsWorkItemDiscoveryService(windowStrategy.Object, clientFactory.Object);
         Assert.IsInstanceOfType(sut, typeof(IWorkItemDiscoveryService),
             "AzureDevOpsWorkItemDiscoveryService must implement IWorkItemDiscoveryService");
     }
@@ -316,7 +319,8 @@ public class InventoryServiceTests
     [TestMethod]
     public void AzureDevOpsWorkItemDiscoveryService_ThrowsOnNullStrategy()
     {
+        var clientFactory = new Mock<IAzureDevOpsClientFactory>(MockBehavior.Strict);
         Assert.ThrowsException<ArgumentNullException>(() =>
-            new AzureDevOpsWorkItemDiscoveryService(null!));
+            new AzureDevOpsWorkItemDiscoveryService(null!, clientFactory.Object));
     }
 }

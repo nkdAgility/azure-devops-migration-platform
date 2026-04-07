@@ -181,8 +181,8 @@ You **MUST** consider the user input before proceeding (if not empty).
    - Confirm the implementation follows the technical plan
 
 9a. **Mandatory test run** — run the full test suite and fix any failures before declaring done:
-   - Build the solution: detect the build system from plan.md (e.g. `dotnet build <solution> --no-incremental -warnaserror:false`)
-   - Run all tests: `dotnet test <solution> --no-build --logger "console;verbosity=normal"`
+   - Build the solution: detect the build system from plan.md (e.g. `dotnet clean <solution> && dotnet build <solution> --no-incremental`)
+   - Run all tests: `dotnet clean <solution> && dotnet test <solution> --logger "console;verbosity=normal"`
    - Parse output for `Failed`, `Error`, or process crash (`exited with error`)
    - **If any tests fail**:
      - Fix the root cause (compilation error, ambiguous step binding, missing using, wrong API call, etc.)

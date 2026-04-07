@@ -1,0 +1,13 @@
+{
+  "ConfigVersion": "1.0",
+  "Organisations": [
+    {
+      "Type": "TeamFoundationServer",
+      "Url": "http://tfs:8080/tfs/DefaultCollection",
+      "Projects": [],
+      "Authentication": {
+        "Type": "Windows"
+      }
+    }
+  ]
+}

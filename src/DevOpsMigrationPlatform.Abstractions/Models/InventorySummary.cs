@@ -8,7 +8,7 @@ namespace DevOpsMigrationPlatform.Abstractions.Models;
 /// </summary>
 public sealed class InventorySummary
 {
-    public string OrgOrCollection { get; set; } = string.Empty;
+    public string Url { get; set; } = string.Empty;
     public string ProjectName { get; set; } = string.Empty;
     public int WorkItemsCount { get; set; }
     public int RevisionsCount { get; set; }

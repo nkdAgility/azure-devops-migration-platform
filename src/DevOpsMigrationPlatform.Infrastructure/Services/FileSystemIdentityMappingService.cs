@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
@@ -43,7 +44,7 @@ public class FileSystemIdentityMappingService : IIdentityMappingService
     /// <summary>
     /// All source identities that fell back to the default during this session.
     /// </summary>
-    public IReadOnlyList<string> UnmappedIdentities => _unmapped;
+    public IReadOnlyList<string> UnmappedIdentities => _unmapped.ToList();
 
     /// <summary>
     /// Writes one warning log entry per unmapped identity to <c>Logs/</c> via

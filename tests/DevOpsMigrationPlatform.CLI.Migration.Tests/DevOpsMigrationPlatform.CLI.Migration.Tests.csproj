@@ -22,6 +22,9 @@
     <PackageReference Include="Moq" Version="4.20.72" />
     <PackageReference Include="Microsoft.Extensions.Configuration" Version="10.0.5" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.5" />
+    <!-- Override vulnerable transitive packages pulled in through project references -->
+    <PackageReference Include="System.Drawing.Common" Version="9.0.0" />
+    <PackageReference Include="System.Security.Cryptography.Xml" Version="8.0.1" />
   </ItemGroup>
 
   <ItemGroup>

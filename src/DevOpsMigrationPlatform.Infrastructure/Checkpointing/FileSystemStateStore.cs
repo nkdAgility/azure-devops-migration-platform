@@ -19,7 +19,7 @@ public class FileSystemStateStore : IStateStore
     {
         var fullPath = GetFullPath(key);
         var directory = Path.GetDirectoryName(fullPath);
-        if (directory != null && !Directory.Exists(directory))
+        if (directory != null)
             Directory.CreateDirectory(directory);
 #if NET5_0_OR_GREATER
         await File.WriteAllTextAsync(fullPath, value, Encoding.UTF8, cancellationToken);

@@ -82,14 +82,14 @@ devopsmigration discovery inventory --config migration.json --all-projects
   "organisations": [
     {
       "type": "AzureDevOpsServices",
-      "orgOrCollection": "https://dev.azure.com/org-a",
+      "url": "https://dev.azure.com/org-a",
       "projects": ["Alpha", "Beta"],
       "apiVersion": "7.1",
       "authentication": { "type": "Pat", "accessToken": "$ENV:ORG_A_PAT" }
     },
     {
       "type": "AzureDevOpsServices",
-      "orgOrCollection": "https://dev.azure.com/org-b",
+      "url": "https://dev.azure.com/org-b",
       "projects": [],
       "apiVersion": "7.1",
       "authentication": { "type": "Pat", "accessToken": "$ENV:SHARED_PAT" }
@@ -97,7 +97,7 @@ devopsmigration discovery inventory --config migration.json --all-projects
     {
       "enabled": false,
       "type": "TeamFoundationServer",
-      "orgOrCollection": "http://tfs.internal:8080/tfs/DefaultCollection",
+      "url": "http://tfs.internal:8080/tfs/DefaultCollection",
       "projects": [],
       "apiVersion": "15.0",
       "authentication": { "type": "Windows" }
@@ -165,7 +165,7 @@ The CLI spawns the TFS subprocess automatically; no additional flags are require
 **`discovery-summary.csv`:**
 
 ```
-OrgOrCollection,ProjectName,WorkItemsCount,RevisionsCount,ReposCount,PipelinesCount,IsComplete,Error,LastUpdatedUtc
+Url,ProjectName,WorkItemsCount,RevisionsCount,ReposCount,PipelinesCount,IsComplete,Error,LastUpdatedUtc
 https://dev.azure.com/myorg,Alpha,12450,38200,0,0,True,,2026-04-04T10:23:11Z
 https://dev.azure.com/myorg,Beta,3100,7800,0,0,True,,2026-04-04T10:24:05Z
 ```
@@ -173,6 +173,6 @@ https://dev.azure.com/myorg,Beta,3100,7800,0,0,True,,2026-04-04T10:24:05Z
 A project that failed mid-count:
 
 ```
-OrgOrCollection,ProjectName,WorkItemsCount,RevisionsCount,ReposCount,PipelinesCount,IsComplete,Error,LastUpdatedUtc
+Url,ProjectName,WorkItemsCount,RevisionsCount,ReposCount,PipelinesCount,IsComplete,Error,LastUpdatedUtc
 https://dev.azure.com/myorg,Gamma,800,0,0,0,False,Authentication failure: PAT expired,2026-04-04T10:24:12Z
 ```

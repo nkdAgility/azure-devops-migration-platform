@@ -30,7 +30,7 @@ Feature: Discovery Inventory CLI Command
   @cli
   Scenario: On completion a CSV summary file is saved to the working directory
     Given the discovery inventory command has finished counting all projects
-    Then a file named "discovery-summary.csv" is created in the current working directory
+    Then a file named "discovery-summary.csv" is created in the "output" subdirectory
     And the CSV contains one row per project with columns for name, work item count, revision count, repo count, and pipeline count
     And the terminal displays a success message confirming the file path
 

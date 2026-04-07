@@ -55,6 +55,7 @@ public sealed class TfsExportCommand : CommandBase<TfsExportCommand.Settings>
         {
             services.AddSingleton<IProgressSink, AnsiProgressSink>();
             services.AddSingleton<TfsExporterProcessAdapter>();
+            services.AddSingleton<IExternalToolRunner, ExternalToolRunner>();
         });
 
         return await RunCoreAsync(context, settings);
@@ -84,11 +85,12 @@ public sealed class TfsExportCommand : CommandBase<TfsExportCommand.Settings>
         // Set up TUI telemetry panel (no Control Plane in standalone CLI mode).
         var panel = new TelemetryPanel();
         var adapter = GetRequiredService<TfsExporterProcessAdapter>();
+        var toolRunner = GetRequiredService<IExternalToolRunner>();
 
         using var cts = new CancellationTokenSource();
         Console.CancelKeyPress += (_, e) => { e.Cancel = true; cts.Cancel(); };
 
-        var exitCode = await ExternalToolRunner.RunWithStreamingAsync(
+        var exitCode = await toolRunner.RunWithStreamingAsync(
             exePath,
             arguments,
             onOutput: line =>
