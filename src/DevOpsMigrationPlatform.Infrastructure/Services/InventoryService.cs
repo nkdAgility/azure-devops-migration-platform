@@ -60,21 +60,44 @@ public sealed class InventoryService : IInventoryService
                 // Start repo count concurrently while work items are being enumerated
                 var repoCountTask = _repoDiscovery.CountReposAsync(resolvedUrl, project, pat, cancellationToken);
 
+                InventoryProgressEvent? pendingFinalEvent = null;
+
                 await foreach (var summary in _workItemDiscovery.DiscoverWorkItemsAsync(
                     resolvedUrl, project, pat, cancellationToken))
                 {
-                    var reposCount = summary.IsWorkItemComplete ? await repoCountTask : 0;
-
-                    yield return new InventoryProgressEvent
+                    if (!summary.IsWorkItemComplete)
                     {
-                        ProjectName = project,
-                        Url = resolvedUrl,
-                        WorkItemsCount = summary.WorkItemsCount,
-                        RevisionsCount = summary.RevisionsCount,
-                        ReposCount = reposCount,
-                        IsComplete = summary.IsWorkItemComplete,
-                        Timestamp = summary.LastUpdatedUtc
-                    };
+                        yield return new InventoryProgressEvent
+                        {
+                            ProjectName = project,
+                            Url = resolvedUrl,
+                            WorkItemsCount = summary.WorkItemsCount,
+                            RevisionsCount = summary.RevisionsCount,
+                            ReposCount = 0,
+                            IsComplete = false,
+                            Timestamp = summary.LastUpdatedUtc
+                        };
+                    }
+                    else
+                    {
+                        pendingFinalEvent = new InventoryProgressEvent
+                        {
+                            ProjectName = project,
+                            Url = resolvedUrl,
+                            WorkItemsCount = summary.WorkItemsCount,
+                            RevisionsCount = summary.RevisionsCount,
+                            IsComplete = true,
+                            Timestamp = summary.LastUpdatedUtc
+                        };
+                    }
+                }
+
+                // Await repo count once, then emit the final event
+                var repoCount = await repoCountTask;
+                if (pendingFinalEvent != null)
+                {
+                    pendingFinalEvent.ReposCount = repoCount;
+                    yield return pendingFinalEvent;
                 }
             }
         }
