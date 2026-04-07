@@ -5,9 +5,10 @@ using System.ComponentModel;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
+using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.CLI.Views;
 using DevOpsMigrationPlatform.CLI.Migration.Commands;
-using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace DevOpsMigrationPlatform.CLI.Commands;
 
@@ -43,13 +44,19 @@ public sealed class TfsExportCommand : CommandBase<TfsExportCommand.Settings>
             if (string.IsNullOrWhiteSpace(Project))
                 return Spectre.Console.ValidationResult.Error("--project is required");
             try { Path.GetFullPath(OutputFolder); }
-            catch { return Spectre.Console.ValidationResult.Error("--output path is not valid"); }
+            catch (ArgumentException) { return Spectre.Console.ValidationResult.Error("--output path is not valid"); }
             return Spectre.Console.ValidationResult.Success();
         }
     }
 
     protected override async Task<int> ExecuteInternalAsync(CommandContext context, Settings settings, CancellationToken cancellationToken = default)
     {
+        await CreateHost(Environment.GetCommandLineArgs(), (services, _) =>
+        {
+            services.AddSingleton<IProgressSink, AnsiProgressSink>();
+            services.AddSingleton<TfsExporterProcessAdapter>();
+        });
+
         return await RunCoreAsync(context, settings);
     }
 
@@ -76,9 +83,7 @@ public sealed class TfsExportCommand : CommandBase<TfsExportCommand.Settings>
 
         // Set up TUI telemetry panel (no Control Plane in standalone CLI mode).
         var panel = new TelemetryPanel();
-        var adapter = new TfsExporterProcessAdapter(
-            new AnsiProgressSink(),
-            NullLogger<TfsExporterProcessAdapter>.Instance);
+        var adapter = GetRequiredService<TfsExporterProcessAdapter>();
 
         using var cts = new CancellationTokenSource();
         Console.CancelKeyPress += (_, e) => { e.Cancel = true; cts.Cancel(); };
@@ -122,13 +127,5 @@ public sealed class TfsExportCommand : CommandBase<TfsExportCommand.Settings>
             Path.Combine(assemblyDir,
                 @"..\..\..\..\DevOpsMigrationPlatform.CLI.TfsMigration\bin\Debug\net481\tfsmigration.exe"));
         return debugRelative;
-    }
-
-    /// <summary>Forwards parsed ProgressEvent as Spectre markup to AnsiConsole.</summary>
-    private sealed class AnsiProgressSink : DevOpsMigrationPlatform.Abstractions.IProgressSink
-    {
-        public void Emit(DevOpsMigrationPlatform.Abstractions.ProgressEvent evt) =>
-            AnsiConsole.MarkupLineInterpolated(
-                $"[grey]{evt.Module}[/] [dim]{evt.Stage}[/] WI={evt.WorkItemId} Rev={evt.RevisionsProcessed}/{evt.TotalWorkItems}");
     }
 }

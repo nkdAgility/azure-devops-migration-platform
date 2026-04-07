@@ -9,6 +9,7 @@ using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions.Models;
 using DevOpsMigrationPlatform.Abstractions.Services;
 using DevOpsMigrationPlatform.CLI.Migration.Commands;
+using DevOpsMigrationPlatform.CLI.Migration.Settings;
 using DevOpsMigrationPlatform.Infrastructure.AzureDevOps;
 using Microsoft.Extensions.DependencyInjection;
 using Spectre.Console;
@@ -18,7 +19,7 @@ namespace DevOpsMigrationPlatform.CLI.Commands.Discovery;
 
 public sealed class InventoryCommand : CommandBase<InventoryCommand.Settings>
 {
-    public sealed class Settings : CommandSettings
+    public sealed class Settings : BaseCommandSettings
     {
         [CommandOption("--output <PATH>")]
         [Description("Directory where discovery-summary.csv is written (default: current working directory)")]
