@@ -421,6 +421,9 @@ public class WorkItemsImportModule
 - Authentication MUST use managed identity or Key Vault references; interactive credential prompts are permitted only in CLI tooling.
 - Dependencies MUST be pinned to exact versions; wildcard or floating version ranges (`*`, `Latest`) are prohibited in production package references.
 - Input passed to file system paths or external commands MUST be sanitised to prevent path traversal and injection attacks.
+- Every known vulnerability in a dependency or in submitted code MUST be either **remediated** or **explicitly called out** with a written rationale and a tracked issue. Silently shipping known vulnerabilities is a violation.
+- `dotnet list package --vulnerable` MUST be run as part of every CI pipeline stage; any HIGH or CRITICAL finding MUST block merge.
+- OWASP Top 10 categories MUST be considered during code review for any code touching input handling, authentication, authorisation, or serialisation.
 
 ---
 
@@ -428,10 +431,13 @@ public class WorkItemsImportModule
 
 - All NuGet package versions MUST be centralised in `Directory.Packages.props`; per-project version attributes are prohibited.
 - The solution MUST build cleanly with zero warnings; treat-warnings-as-errors MUST be enforced in CI.
+- **Every code change MUST produce a successful build before it is considered complete.** A change that does not compile is not done.
 - New NuGet dependencies MUST be justified in the PR that introduces them.
 - Transitive dependency conflicts MUST be resolved explicitly in `Directory.Packages.props`.
 - CI builds MUST be reproducible: timestamps, random seeds, and non-deterministic outputs MUST be suppressed or fixed.
 - No `<PackageReference>` with `Version="*"` or `Version="$(PackageVersion)"` without a concrete version source.
+- `dotnet build` with `/warnaserror` MUST be the first step in every CI pipeline; subsequent steps MUST NOT run if the build fails.
+- Dependency vulnerability scanning (`dotnet list package --vulnerable`) MUST run after every build in CI.
 
 ---
 
@@ -502,6 +508,8 @@ public class WorkItemsImportModule
 - Unbounded auto-scale configuration without a documented cost ceiling.
 - Deployable component without a liveness/readiness health-check endpoint.
 - Interface defined outside `DevOpsMigrationPlatform.Abstractions`.
+- Code change submitted without a successful build verification.
+- Known vulnerability shipped without either a fix or an explicit written rationale and tracked issue.
 - Holding a compiled reference to `DevOpsMigrationPlatform.CLI.TfsMigration` from any .NET 10 project.
 - Spawning the TFS exporter subprocess from any code other than `ExternalToolRunner` in `DevOpsMigrationPlatform.CLI.Migration`.
 - Passing credentials as command-line arguments to the TFS subprocess (stdin JSON only).
@@ -552,8 +560,11 @@ Before merging changes, verify:
 - Does this code define an interface outside `DevOpsMigrationPlatform.Abstractions`?
 - Does this code add retry logic without exponential back-off?
 - Does this code deploy a component without a health-check endpoint?
+- Has this change been verified to produce a successful `dotnet build /warnaserror`?
+- Does this change introduce or surface a known vulnerability? If so, is it remediated or explicitly called out with a tracked issue?
+- Has `dotnet list package --vulnerable` been run and are all HIGH/CRITICAL findings resolved or documented?
 
-If yes, reject.
+If yes (to a violation), reject.
 
 ---
 

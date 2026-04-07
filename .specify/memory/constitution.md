@@ -1,24 +1,20 @@
 <!--
 SYNC IMPACT REPORT
 ==================
-Version change:    1.2.1 → 1.3.0
-Bump rationale:    New Principle X added — Engineering Practice Discipline.
-                   Formalises 21 engineering practice categories drawn from the
-                   SOLID-aligned standards in .agents/guardrails/coding-standards.md,
-                   covering type system, immutability, concurrency, configuration,
-                   versioning, API design, data integrity, resilience, security,
-                   build hygiene, performance, cost awareness, operational readiness,
-                   and documentation as an engineering asset.
-                   Reject conditions extended with 13 new entries.
+Version change:    1.3.0 → 1.3.1
+Bump rationale:    Clarification — build verification and vulnerability handling made
+                   explicit in Principle X categories 15 and 17, and in Reject Conditions.
+                   Every change must produce a successful build. Every known vulnerability
+                   must be remediated or explicitly called out with a tracked issue.
 
 Principles modified:
-  None
+  X. Engineering Practice Discipline — categories 15 and 17 expanded
 
 Principles added:
-  X. Engineering Practice Discipline (NON-NEGOTIABLE)
+  None
 
 Sections modified:
-  Reject Conditions — 13 new entries added
+  Reject Conditions — 2 new entries added
 
 Templates updated:
   ✅ .specify/templates/plan-template.md — no changes required
@@ -235,11 +231,16 @@ concrete examples for each.
 14. **Resilience & Fault Tolerance** — Retries with back-off; circuit breakers;
     graceful degradation; explicit timeout budgets.
 15. **Security by Design** — Input validation; credential handling via managed
-    identity/Key Vault; no secrets in logs or CLI args.
+    identity/Key Vault; no secrets in logs or CLI args. Every known vulnerability
+    MUST be either remediated or explicitly called out with a written rationale and
+    a tracked issue. `dotnet list package --vulnerable` MUST run in every CI pipeline;
+    HIGH/CRITICAL findings block merge.
 16. **Deployment & Release Discipline** — CI/CD integration; reproducible builds;
     safe deployment strategies.
 17. **Build & Dependency Hygiene** — Pinned dependencies via `Directory.Packages.props`;
-    zero-warning builds; reproducible CI.
+    zero-warning builds; reproducible CI. **Every code change MUST produce a successful
+    `dotnet build /warnaserror` before it is considered complete.** Vulnerability scanning
+    MUST follow every build step.
 18. **Performance & Resource Efficiency** — Measure before optimising; streaming for
     unbounded data; bounded caches.
 19. **Cost Awareness** — Justified provisioning; explicit scaling bounds; progress
@@ -338,6 +339,8 @@ Reject any proposal that:
 - Implements retry logic without exponential back-off.
 - Deploys a component without a liveness/readiness health-check endpoint.
 - Introduces unbounded auto-scale configuration without a documented cost ceiling.
+- Submits a code change without verifying it produces a successful build (`dotnet build /warnaserror`).
+- Ships a known vulnerability without either remediating it or providing an explicit written rationale and a tracked issue.
 
 ## Governance
 
@@ -365,4 +368,4 @@ Reject any proposal that:
 - All pull requests and agent reviews MUST verify compliance against this
   constitution and the guardrails before approving.
 
-**Version**: 1.3.0 | **Ratified**: 2026-04-02 | **Last Amended**: 2026-04-07
+**Version**: 1.3.1 | **Ratified**: 2026-04-02 | **Last Amended**: 2026-04-07
