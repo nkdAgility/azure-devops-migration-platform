@@ -45,7 +45,7 @@ The `devopsmigration discovery inventory` command uses the REST API directly for
 **Requirements:**
 
 - The .NET 10 host cannot call TFS Object Model APIs directly.
-- The export MUST be delegated to `ExternalToolRunner` in `DevOpsMigrationPlatform.CLI.Migration`, which spawns the `DevOpsMigrationPlatform.CLI.TfsMigration` subprocess (built against .NET 4.8). There is no TFS-specific adapter interface in the .NET 10 layer.
+- The export MUST be delegated to `TfsExportCommand` in `DevOpsMigrationPlatform.CLI.Migration`, which uses `ExternalToolRunner` to spawn the `DevOpsMigrationPlatform.CLI.TfsMigration` subprocess (built against .NET 4.8), and `TfsExporterProcessAdapter` to translate the subprocess's NDJSON stdout into progress events. These are the only permitted TFS-aware .NET 10 constructs.
 - The process bridge protocol is:
   - **stdin** — `TfsExportRequest` as UTF-8 JSON (includes credentials; never via CLI args)
   - **stdout** — NDJSON progress lines consumed by the adapter and forwarded to `IProgressSink`

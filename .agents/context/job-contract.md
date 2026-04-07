@@ -99,7 +99,7 @@ Only `file:///` is required in Phase 1. The URI shape must accommodate `azureblo
 
 ## Relationship to Configuration File
 
-The job contract and the local configuration file ([docs/configuration.md](configuration.md)) share field semantics. The TUI converts between them:
+The job contract and the local configuration file ([docs/configuration.md](configuration.md)) share field semantics. The **CLI** converts between them (the TUI is a pure progress viewer and never builds job contracts):
 
 | Aspect | Local config file | MigrationJob |
 |---|---|---|

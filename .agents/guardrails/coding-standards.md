@@ -58,7 +58,7 @@ Rules for the carve-out:
 - The .NET 4.8 exporter MUST exist in a dedicated project that is **not** part of the .NET 10 solution build.
 - It MUST NOT share runtime dependencies with .NET 10 components.
 - It MUST be invoked only via `ExternalToolRunner` in `DevOpsMigrationPlatform.CLI.Migration` — never directly from any other .NET 10 code.
-- There is NO TFS-specific adapter interface or class in the .NET 10 layer. `ExternalToolRunner` is a generic, TFS-agnostic process bridge.
+- `TfsExporterProcessAdapter` in `CLI.Migration` is the **only** permitted TFS-aware .NET 10 class. It translates raw NDJSON stdout lines from the subprocess into `ProgressEvent` objects and forwards them to the CLI's progress pipeline. No other .NET 10 class may contain TFS-specific logic.
 - It MUST communicate with the .NET 10 host exclusively via the process bridge protocol:
   - **stdin** — `TfsExportRequest` as UTF-8 JSON
   - **stdout** — NDJSON progress lines (one JSON object per line)

@@ -115,10 +115,13 @@ isolated layers with no permitted cross-layer coupling.
 - **TUI** is a pure progress viewer. It connects to the control plane to display
   live job state. It MUST NOT parse migration arguments, build `MigrationJob`
   objects, submit jobs, or contain any migration logic.
-- **TFS Object Model** runs in an isolated .NET 4.8 subprocess only, invoked
-  exclusively via `TfsExporterProcessAdapter`. No .NET 10 project may hold a
-  compiled reference to the .NET 4.8 project. Communication is stdin/stdout
-  NDJSON + exit code only.
+- **TFS Object Model** runs in an isolated .NET 4.8 subprocess only, spawned
+  **directly by the CLI** (`TfsExportCommand` in `CLI.Migration`) via
+  `ExternalToolRunner`. It is not routed through ControlPlane or MigrationAgent
+  (TFS OM cannot run in Docker). `TfsExporterProcessAdapter` in `CLI.Migration`
+  is the only permitted TFS-aware .NET 10 class. No .NET 10 project may hold a
+  compiled reference to the .NET 4.8 project. Communication is args + stdin JSON
+  (credentials) / stdout NDJSON (progress) / exit code only.
 
 ### VII. Determinism & Idempotency
 

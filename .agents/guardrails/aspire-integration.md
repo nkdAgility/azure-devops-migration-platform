@@ -96,7 +96,7 @@ client.BaseAddress = new Uri(configuration["ControlPlaneUrl"]);  // ❌ agents u
 
 ## AppHost Configuration Rules
 
-The AppHost defines the topology for all environments. The CLI drives it programmatically for local/server; `azd` drives it for cloud.
+The AppHost defines the service topology for **cloud provisioning and developer-standalone use only**. It is the `azd up` target for cloud deployment and a convenience tool for developer-standalone runs. The CLI does **not** use or invoke the AppHost project at runtime — when `MIGRATION_API_URL` is not set, the CLI uses embedded Aspire `DistributedApplication` APIs directly to start the same services.
 
 ### MUST include:
 
@@ -259,7 +259,7 @@ dotnet user-secrets set "ConnectionStrings:controlplane-db" "Host=localhost;Data
 
 **MUST NOT:**
 - Retrieve secrets in Control Plane code (Container Apps injects them)
-- Unwrap Key Vault secrets in the TUI (TUI submits secret references only)
+- Unwrap Key Vault secrets in the CLI or TUI (the CLI submits only Key Vault URI references; the TUI never submits jobs at all)
 
 ---
 

@@ -319,7 +319,7 @@ This is useful for:
 - Scripted or pipeline-driven exports without the interactive TUI
 - Debugging TFS connectivity issues independently of the migration stack
 
-The CLI submits jobs to the control plane (in-process at `http://localhost:5100` or remote) for the import and orchestration phases; the TFS export phase runs via `CLI.TfsMigration` (subprocess or standalone) and writes directly to the package on disk.
+The CLI submits jobs to the control plane (locally via Aspire at `http://localhost:5100`, or remote) for the import and orchestration phases; the TFS export phase runs via `CLI.TfsMigration` (subprocess or standalone) and writes directly to the package on disk.
 
 ---
 

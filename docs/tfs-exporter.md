@@ -161,9 +161,7 @@ public class ExternalToolRunner
 }
 ```
 
-The caller (e.g. the `TfsExportCommand` in `CLI.Migration`) passes `onOutput` and `onError` callbacks. The `onOutput` callback receives raw stdout lines; the caller is responsible for parsing them as NDJSON `ProgressEvent` objects and forwarding to `IProgressSink`.
-
-There is no TFS-specific adapter class or interface in the .NET 10 layer. The subprocess is just an external tool.
+The caller passes an `onOutput` callback. `TfsExporterProcessAdapter` in `CLI.Migration` wraps `ExternalToolRunner` and is responsible for parsing raw stdout lines as NDJSON `ProgressEvent` objects and forwarding them to the CLI's `IProgressSink` pipeline. `TfsExporterProcessAdapter` is the only permitted TFS-aware .NET 10 class.
 
 ### TfsExportRequest
 
