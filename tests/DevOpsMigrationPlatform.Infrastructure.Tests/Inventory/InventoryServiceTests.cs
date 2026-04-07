@@ -38,9 +38,9 @@ public class InventoryServiceTests
                 new OrganisationEntry
                 {
                     Type = "AzureDevOpsServices",
-                    OrgOrCollection = org,
+                    Url = org,
                     Projects = string.IsNullOrEmpty(project) ? new() : new() { project },
-                    Authentication = new EndpointAuthenticationOptions { Type = "Pat", AccessToken = pat }
+                    Authentication = new EndpointAuthenticationOptions { Type = AuthenticationType.Pat, AccessToken = pat }
                 }
             }
         };
@@ -226,7 +226,7 @@ public class InventoryServiceTests
         var evt = new InventoryProgressEvent
         {
             ProjectName = "TestProject",
-            OrgOrCollection = "https://dev.azure.com/org",
+            Url = "https://dev.azure.com/org",
             WorkItemsCount = 42,
             RevisionsCount = 100,
             IsComplete = true,

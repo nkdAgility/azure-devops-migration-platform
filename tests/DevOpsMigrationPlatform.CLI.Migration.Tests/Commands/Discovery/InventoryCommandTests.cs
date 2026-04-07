@@ -51,10 +51,10 @@ public class InventoryCommandTests
                     new OrganisationEntry
                     {
                         Type = "AzureDevOpsServices",
-                        OrgOrCollection = ctx.Configuration.OrganizationUrl,
+                        Url = ctx.Configuration.OrganizationUrl,
                         Authentication = new EndpointAuthenticationOptions
                         {
-                            Type = "Pat",
+                            Type = AuthenticationType.Pat,
                             AccessToken = ctx.Configuration.AccessToken
                         }
                     }

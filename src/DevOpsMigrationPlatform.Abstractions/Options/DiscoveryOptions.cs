@@ -36,7 +36,7 @@ public sealed class DiscoveryOptions
                     $"Config error: An organisations entry of type '{entry.Type}' is missing 'url'.");
 
             if (entry.Authentication != null &&
-                string.Equals(entry.Authentication.Type, "Pat", StringComparison.OrdinalIgnoreCase))
+                entry.Authentication.Type == AuthenticationType.Pat)
             {
                 var resolved = TokenResolver.Resolve(entry.Authentication.AccessToken);
                 if (string.IsNullOrWhiteSpace(resolved))

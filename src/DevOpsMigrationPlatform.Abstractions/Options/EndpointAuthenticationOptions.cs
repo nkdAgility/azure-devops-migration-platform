@@ -5,10 +5,8 @@ namespace DevOpsMigrationPlatform.Abstractions.Options;
 /// </summary>
 public sealed class EndpointAuthenticationOptions
 {
-    /// <summary>
-    /// Authentication type. Supported values: <c>Pat</c>, <c>Windows</c>.
-    /// </summary>
-    public string Type { get; set; } = string.Empty;
+    /// <summary>Authentication type.</summary>
+    public AuthenticationType Type { get; set; } = AuthenticationType.Pat;
 
     /// <summary>
     /// Personal Access Token (or <c>$ENV:VARNAME</c> reference).
