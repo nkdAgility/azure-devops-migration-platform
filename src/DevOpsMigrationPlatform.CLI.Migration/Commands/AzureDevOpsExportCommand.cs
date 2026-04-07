@@ -5,10 +5,11 @@ using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Services;
 using DevOpsMigrationPlatform.CLI.JobRunners;
+using DevOpsMigrationPlatform.CLI.Migration.Options;
 using DevOpsMigrationPlatform.CLI.Migration.Settings;
 using DevOpsMigrationPlatform.Infrastructure.Services;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Spectre.Console;
 using Spectre.Console.Cli;
 
@@ -34,13 +35,18 @@ public sealed class AzureDevOpsExportCommand : CommandBase<ExportCommandSettings
         {
             services.AddSingleton<IConfigurationService, ConfigurationService>();
 
-            var controlPlaneBaseUrl = config["ControlPlane:BaseUrl"] ?? "http://localhost:5100";
-            services.AddSingleton(sp =>
+            services.AddOptions<ControlPlaneOptions>()
+                .BindConfiguration(ControlPlaneOptions.SectionName)
+                .ValidateDataAnnotations()
+                .ValidateOnStart();
+
+            services.AddHttpClient<ControlPlaneClient>((sp, client) =>
             {
-                var logger = sp.GetRequiredService<ILogger<ControlPlaneClient>>();
-                return new ControlPlaneClient(controlPlaneBaseUrl, logger);
+                var opts = sp.GetRequiredService<IOptions<ControlPlaneOptions>>().Value;
+                client.BaseAddress = new Uri(opts.BaseUrl);
             });
-            services.AddSingleton<IJobRunner>(sp => sp.GetRequiredService<ControlPlaneClient>());
+
+            services.AddTransient<IJobRunner>(sp => sp.GetRequiredService<ControlPlaneClient>());
         });
 
         var config = await LoadConfigurationAsync(settings, cancellationToken);

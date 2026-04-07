@@ -12,7 +12,7 @@ namespace DevOpsMigrationPlatform.ControlPlane.Services;
 /// Queues pending jobs so agents can poll and acquire leases.
 /// Thread-safe; suitable for single-node deployments.
 /// </summary>
-public sealed class JobStore
+public sealed class JobStore : IJobStore
 {
     private readonly ConcurrentDictionary<Guid, MigrationJob> _all = new();
     private readonly SemaphoreSlim _pendingSignal = new(0);

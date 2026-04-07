@@ -25,8 +25,8 @@ public static class ExportServiceCollectionExtensions
     {
         services.AddSingleton<IAzureDevOpsClientFactory, AzureDevOpsClientFactory>();
         services.AddSingleton<IAzureDevOpsWorkItemRevisionMapper, AzureDevOpsWorkItemRevisionMapper>();
-        services.AddSingleton<IWorkItemRevisionSourceFactory, AzureDevOpsWorkItemRevisionSourceFactory>();
         services.AddScoped<AzureDevOpsAttachmentRegistry>();
+        services.AddScoped<IWorkItemRevisionSourceFactory, AzureDevOpsWorkItemRevisionSourceFactory>();
         services.AddTransient<IDataTypeModule, WorkItemsModule>();
         return services;
     }

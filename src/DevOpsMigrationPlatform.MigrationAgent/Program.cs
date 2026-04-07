@@ -5,6 +5,7 @@
 
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Infrastructure.AzureDevOps;
+using DevOpsMigrationPlatform.Infrastructure.Factories;
 using DevOpsMigrationPlatform.Infrastructure.Telemetry;
 using DevOpsMigrationPlatform.MigrationAgent;
 using Microsoft.Extensions.Logging;
@@ -40,6 +41,9 @@ builder.Services.AddControlPlaneProgressSink(controlPlaneBaseUrl);
 
 // Register IDataTypeModule implementations (WorkItemsModule + ADO infra).
 builder.Services.AddAzureDevOpsWorkItemExport();
+
+// Package store factory — resolves file:/// URIs to FileSystem stores.
+builder.Services.AddSingleton<IPackageStoreFactory, FileSystemPackageStoreFactory>();
 
 // Composite sink fans out every ProgressEvent to all three sinks.
 builder.Services.AddSingleton<IProgressSink>(sp => new CompositeProgressSink(

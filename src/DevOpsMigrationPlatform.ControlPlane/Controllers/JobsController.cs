@@ -16,10 +16,10 @@ public sealed class JobsController : ControllerBase
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase
     };
 
-    private readonly JobStore _jobStore;
+    private readonly IJobStore _jobStore;
     private readonly ILogger<JobsController> _logger;
 
-    public JobsController(JobStore jobStore, ILogger<JobsController> logger)
+    public JobsController(IJobStore jobStore, ILogger<JobsController> logger)
     {
         _jobStore = jobStore;
         _logger = logger;

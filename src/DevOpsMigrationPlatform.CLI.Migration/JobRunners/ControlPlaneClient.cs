@@ -29,17 +29,13 @@ public sealed class ControlPlaneClient : IJobRunner, ILogsClient
     private readonly HttpClient _http;
     private readonly ILogger<ControlPlaneClient> _logger;
 
-    /// <param name="controlPlaneBaseUrl">
-    /// Base URL of the control plane API, e.g.
-    /// <c>http://localhost:5100</c> (Aspire local) or
-    /// <c>https://control-plane.example.com</c> (cloud).
+    /// <param name="http">
+    /// Named/typed <see cref="HttpClient"/> pre-configured with the control plane base address.
+    /// Provided by <see cref="System.Net.Http.IHttpClientFactory"/> via DI.
     /// </param>
-    public ControlPlaneClient(string controlPlaneBaseUrl, ILogger<ControlPlaneClient> logger)
+    public ControlPlaneClient(HttpClient http, ILogger<ControlPlaneClient> logger)
     {
-        if (string.IsNullOrWhiteSpace(controlPlaneBaseUrl))
-            throw new ArgumentException("controlPlaneBaseUrl must not be empty.", nameof(controlPlaneBaseUrl));
-
-        _http = new HttpClient { BaseAddress = new Uri(controlPlaneBaseUrl) };
+        _http = http ?? throw new ArgumentNullException(nameof(http));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 

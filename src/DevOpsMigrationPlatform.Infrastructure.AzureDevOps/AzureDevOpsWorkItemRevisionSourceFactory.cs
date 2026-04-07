@@ -15,13 +15,16 @@ public sealed class AzureDevOpsWorkItemRevisionSourceFactory : IWorkItemRevision
 {
     private readonly IAzureDevOpsClientFactory _clientFactory;
     private readonly IAzureDevOpsWorkItemRevisionMapper _mapper;
+    private readonly AzureDevOpsAttachmentRegistry _registry;
 
     public AzureDevOpsWorkItemRevisionSourceFactory(
         IAzureDevOpsClientFactory clientFactory,
-        IAzureDevOpsWorkItemRevisionMapper mapper)
+        IAzureDevOpsWorkItemRevisionMapper mapper,
+        AzureDevOpsAttachmentRegistry registry)
     {
         _clientFactory = clientFactory ?? throw new ArgumentNullException(nameof(clientFactory));
         _mapper = mapper ?? throw new ArgumentNullException(nameof(mapper));
+        _registry = registry ?? throw new ArgumentNullException(nameof(registry));
     }
 
     /// <inheritdoc/>
@@ -36,9 +39,7 @@ public sealed class AzureDevOpsWorkItemRevisionSourceFactory : IWorkItemRevision
             .CreateWorkItemClientAsync(organisationUrl, pat, cancellationToken)
             .ConfigureAwait(false);
 
-        var registry = new AzureDevOpsAttachmentRegistry();
-
         return new AzureDevOpsWorkItemRevisionSource(
-            witClient, _mapper, registry, project, wiqlQuery);
+            witClient, _mapper, _registry, project, wiqlQuery);
     }
 }

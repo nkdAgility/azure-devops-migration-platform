@@ -1,4 +1,7 @@
 using DevOpsMigrationPlatform.Abstractions.Utilities;
+#if !NET481
+using System.Text.Json.Serialization;
+#endif
 
 namespace DevOpsMigrationPlatform.Abstractions.Options;
 
@@ -22,6 +25,10 @@ public sealed class EndpointAuthenticationOptions
     /// The effective access token after <c>$ENV:VARNAME</c> expansion.
     /// Use this instead of <see cref="AccessToken"/> when making API calls.
     /// Returns <c>null</c> when <see cref="AccessToken"/> is null or empty.
+    /// Not serialised — the raw <see cref="AccessToken"/> reference is transmitted instead.
     /// </summary>
+#if !NET481
+    [JsonIgnore]
+#endif
     public string? ResolvedAccessToken => TokenResolver.Resolve(AccessToken);
 }

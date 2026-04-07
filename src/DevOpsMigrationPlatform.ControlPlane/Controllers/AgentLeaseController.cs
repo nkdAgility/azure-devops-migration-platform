@@ -2,6 +2,7 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.ControlPlane.Models;
 using DevOpsMigrationPlatform.ControlPlane.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
@@ -13,12 +14,12 @@ public sealed class AgentLeaseController : ControllerBase
 {
     private static readonly TimeSpan LeasePollTimeout = TimeSpan.FromSeconds(30);
 
-    private readonly JobStore _jobStore;
+    private readonly IJobStore _jobStore;
     private readonly ILeaseJobResolver _resolver;
     private readonly ILogger<AgentLeaseController> _logger;
 
     public AgentLeaseController(
-        JobStore jobStore,
+        IJobStore jobStore,
         ILeaseJobResolver resolver,
         ILogger<AgentLeaseController> logger)
     {
@@ -55,6 +56,3 @@ public sealed class AgentLeaseController : ControllerBase
         return Ok(new AgentLeaseResponse(leaseId, job));
     }
 }
-
-/// <summary>Response body when an agent successfully acquires a lease.</summary>
-public sealed record AgentLeaseResponse(string LeaseId, MigrationJob Job);

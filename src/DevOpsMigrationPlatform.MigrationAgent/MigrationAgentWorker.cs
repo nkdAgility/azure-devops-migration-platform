@@ -1,13 +1,11 @@
 using System;
+using System.Collections.Generic;
 using System.Net.Http;
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
-using DevOpsMigrationPlatform.Infrastructure.Checkpointing;
-using DevOpsMigrationPlatform.Infrastructure.Storage;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 
@@ -26,20 +24,23 @@ public sealed class MigrationAgentWorker : BackgroundService
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase
     };
 
-    private readonly IServiceProvider _services;
+    private readonly IEnumerable<IDataTypeModule> _modules;
+    private readonly IPackageStoreFactory _packageStoreFactory;
     private readonly IProgressSink _progressSink;
-    private readonly HttpClient _controlPlane;
+    private readonly IHttpClientFactory _httpClientFactory;
     private readonly ILogger<MigrationAgentWorker> _logger;
 
     public MigrationAgentWorker(
-        IServiceProvider services,
+        IEnumerable<IDataTypeModule> modules,
+        IPackageStoreFactory packageStoreFactory,
         IProgressSink progressSink,
         IHttpClientFactory httpClientFactory,
         ILogger<MigrationAgentWorker> logger)
     {
-        _services = services;
+        _modules = modules;
+        _packageStoreFactory = packageStoreFactory;
         _progressSink = progressSink;
-        _controlPlane = httpClientFactory.CreateClient("ControlPlane");
+        _httpClientFactory = httpClientFactory;
         _logger = logger;
     }
 
@@ -69,8 +70,10 @@ public sealed class MigrationAgentWorker : BackgroundService
 
     private async Task PollAndExecuteAsync(CancellationToken ct)
     {
+        using var controlPlane = _httpClientFactory.CreateClient("ControlPlane");
+
         // 1. Poll for a leased job (long-poll, 30 s server-side timeout).
-        using var leaseResponse = await _controlPlane
+        using var leaseResponse = await controlPlane
             .GetAsync("/agents/lease", ct)
             .ConfigureAwait(false);
 
@@ -93,10 +96,9 @@ public sealed class MigrationAgentWorker : BackgroundService
             "Acquired lease {LeaseId} for job {JobId} (mode={Mode})",
             lease.LeaseId, lease.Job.JobId, lease.Job.Mode);
 
-        // 2. Build stores from job artefacts URI.
-        var packagePath = ResolvePackagePath(lease.Job);
-        var artefactStore = new FileSystemArtefactStore(packagePath);
-        var stateStore = new FileSystemStateStore(packagePath);
+        // 2. Build stores from job artefacts URI via IPackageStoreFactory.
+        var (artefactStore, stateStore) = _packageStoreFactory.Create(
+            lease.Job.Artefacts.PackageUri ?? ".");
 
         // 3. Build export context.
         var context = new ExportContext
@@ -107,12 +109,11 @@ public sealed class MigrationAgentWorker : BackgroundService
             ProgressSink = _progressSink
         };
 
-        // 4. Resolve IDataTypeModule registrations and run the export modules.
+        // 4. Run registered IDataTypeModule implementations.
         bool failed = false;
         try
         {
-            var modules = _services.GetServices<IDataTypeModule>();
-            foreach (var module in modules)
+            foreach (var module in _modules)
             {
                 _logger.LogInformation("Running module {Module}.ExportAsync", module.Name);
                 await module.ExportAsync(context, ct).ConfigureAwait(false);
@@ -124,20 +125,41 @@ public sealed class MigrationAgentWorker : BackgroundService
             failed = true;
         }
 
-        // 5. Signal terminal state to control plane.
+        // 5. Signal terminal state — retry with back-off so the lease is not orphaned.
         var terminal = failed ? "fail" : "complete";
-        await _controlPlane
-            .PostAsync($"/agents/lease/{lease.LeaseId}/{terminal}", content: null, ct)
-            .ConfigureAwait(false);
+        await SignalTerminalAsync(controlPlane, lease.LeaseId, terminal, ct).ConfigureAwait(false);
     }
 
-    private static string ResolvePackagePath(MigrationJob job)
+    private async Task SignalTerminalAsync(
+        HttpClient controlPlane, string leaseId, string terminal, CancellationToken ct)
     {
-        var uri = job.Artefacts.PackageUri;
-        if (string.IsNullOrWhiteSpace(uri)) return ".";
-        return uri.StartsWith("file:///", StringComparison.OrdinalIgnoreCase)
-            ? uri["file:///".Length..].Replace('/', System.IO.Path.DirectorySeparatorChar)
-            : uri;
+        const int maxAttempts = 5;
+        var delay = TimeSpan.FromSeconds(2);
+
+        for (int attempt = 1; attempt <= maxAttempts; attempt++)
+        {
+            try
+            {
+                var response = await controlPlane
+                    .PostAsync($"/agents/lease/{leaseId}/{terminal}", content: null, ct)
+                    .ConfigureAwait(false);
+                response.EnsureSuccessStatusCode();
+                return;
+            }
+            catch (Exception ex) when (attempt < maxAttempts && !ct.IsCancellationRequested)
+            {
+                _logger.LogWarning(
+                    ex,
+                    "Terminal signal attempt {Attempt}/{Max} failed for lease {LeaseId}; retrying in {Delay} s.",
+                    attempt, maxAttempts, leaseId, delay.TotalSeconds);
+                await Task.Delay(delay, ct).ConfigureAwait(false);
+                delay = TimeSpan.FromSeconds(delay.TotalSeconds * 2); // exponential back-off
+            }
+        }
+
+        _logger.LogError(
+            "Failed to signal terminal state for lease {LeaseId} after {Max} attempts.",
+            leaseId, maxAttempts);
     }
 
     private sealed record AgentLeaseResponse(string LeaseId, MigrationJob Job);

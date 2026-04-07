@@ -18,7 +18,7 @@ public static class ControlPlaneServiceExtensions
         services.AddTelemetryServices(configuration);
 
         // Job queue — holds submitted MigrationJobs until an agent acquires a lease.
-        services.AddSingleton<JobStore>();
+        services.AddSingleton<IJobStore, JobStore>();
 
         // Lease–job mapping (stub; replace with durable EF Core store in a later phase).
         services.AddSingleton<ILeaseJobResolver, StubLeaseJobResolver>();

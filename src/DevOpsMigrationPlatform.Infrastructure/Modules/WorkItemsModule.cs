@@ -61,8 +61,7 @@ public sealed class WorkItemsModule : IDataTypeModule
             .CreateAsync(orgUrl, project, pat, query, ct)
             .ConfigureAwait(false);
 
-        var stateStore = new FileSystemStateStore(ResolvePackagePath(job));
-        var checkpointingService = new CheckpointingService(stateStore);
+        var checkpointingService = new CheckpointingService(context.StateStore);
 
         IAttachmentBinarySource? attachmentBinarySource = null;
         // Attachment source is wired via DI in the agent; if not available, skip downloads.
@@ -101,15 +100,6 @@ public sealed class WorkItemsModule : IDataTypeModule
             }
         }
         return defaultValue;
-    }
-
-    private static string ResolvePackagePath(MigrationJob job)
-    {
-        var uri = job.Artefacts.PackageUri;
-        if (string.IsNullOrWhiteSpace(uri)) return ".";
-        return uri.StartsWith("file:///", StringComparison.OrdinalIgnoreCase)
-            ? uri["file:///".Length..].Replace('/', System.IO.Path.DirectorySeparatorChar)
-            : uri;
     }
 }
 
