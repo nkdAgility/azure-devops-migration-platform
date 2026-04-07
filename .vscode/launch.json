@@ -1,6 +1,9 @@
 {
     "version": "0.2.0",
     "configurations": [
+        // ── Migration CLI: configure ──────────────────────────────────────────
+        // Options: [-o|--output] [-f|--force] [-c|--config] [-v|--verbose]
+        //          [--disable-telemetry] [--dry-run]
         {
             "name": "🔧 Migration CLI: Configure",
             "type": "coreclr",
@@ -15,14 +18,14 @@
             "preLaunchTask": "build-migration-cli"
         },
         {
-            "name": "🔧 Migration CLI: Configure with Output",
+            "name": "🔧 Migration CLI: Configure (Custom Output)",
             "type": "coreclr",
             "request": "launch",
             "program": "${workspaceFolder}/src/DevOpsMigrationPlatform.CLI.Migration/bin/Debug/net10.0/devopsmigration.exe",
             "args": [
                 "configure",
                 "--output",
-                "test-migration.json"
+                "migration.json"
             ],
             "cwd": "${workspaceFolder}",
             "console": "integratedTerminal",
@@ -30,7 +33,26 @@
             "preLaunchTask": "build-migration-cli"
         },
         {
-            "name": "🔍 Migration CLI: Discovery Inventory (Basic)",
+            "name": "🔧 Migration CLI: Configure (Force Overwrite)",
+            "type": "coreclr",
+            "request": "launch",
+            "program": "${workspaceFolder}/src/DevOpsMigrationPlatform.CLI.Migration/bin/Debug/net10.0/devopsmigration.exe",
+            "args": [
+                "configure",
+                "--output",
+                "migration.json",
+                "--force"
+            ],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "stopAtEntry": false,
+            "preLaunchTask": "build-migration-cli"
+        },
+        // ── Migration CLI: discovery inventory ────────────────────────────────
+        // Options: [--output <PATH>] [-c|--config] [-v|--verbose]
+        //          [--disable-telemetry] [--dry-run]
+        {
+            "name": "🔍 Migration CLI: Inventory (Config File)",
             "type": "coreclr",
             "request": "launch",
             "program": "${workspaceFolder}/src/DevOpsMigrationPlatform.CLI.Migration/bin/Debug/net10.0/devopsmigration.exe",
@@ -46,7 +68,7 @@
             "preLaunchTask": "build-migration-cli"
         },
         {
-            "name": "🔍 Migration CLI: Discovery Inventory (All Projects)",
+            "name": "🔍 Migration CLI: Inventory (Config + Output Path)",
             "type": "coreclr",
             "request": "launch",
             "program": "${workspaceFolder}/src/DevOpsMigrationPlatform.CLI.Migration/bin/Debug/net10.0/devopsmigration.exe",
@@ -55,7 +77,8 @@
                 "inventory",
                 "--config",
                 "migration.json",
-                "--all-projects"
+                "--output",
+                "./inventory-results"
             ],
             "cwd": "${workspaceFolder}",
             "console": "integratedTerminal",
@@ -63,51 +86,16 @@
             "preLaunchTask": "build-migration-cli"
         },
         {
-            "name": "🔍 Migration CLI: Discovery Inventory (Direct Credentials)",
+            "name": "🔍 Migration CLI: Inventory (Verbose)",
             "type": "coreclr",
             "request": "launch",
-            "program": "${workspaceFolder}/src/DevOpsMigrationPlatform.CLI.Migration/bin/Debug/net10.0/devopsmigration.exe",
-            "args": [
-                "discovery",
-                "inventory",
-                "--source-url",
-                "${env:AZDEVOPS_DEV_ORG}",
-                "--token",
-                "${env:AZDEVOPS_DEV_PAT}"
-            ],
-            "cwd": "${workspaceFolder}",
-            "console": "integratedTerminal",
-            "stopAtEntry": false,
-            "preLaunchTask": "build-migration-cli"
-        },
-        {
-            "name": "🔍 Migration CLI: Discovery Inventory (Environment Variables)",
-            "type": "coreclr",
-            "request": "launch",
-            "program": "${workspaceFolder}/src/DevOpsMigrationPlatform.CLI.Migration/bin/Debug/net10.0/devopsmigration.exe",
-            "args": [
-                "discovery",
-                "inventory",
-                "--source-url",
-                "${env:AZDEVOPS_DEV_ORG}",
-                "--token",
-                "${env:AZDEVOPS_DEV_PAT}"
-            ],
-            "cwd": "${workspaceFolder}",
-            "console": "integratedTerminal",
-            "stopAtEntry": false,
-            "preLaunchTask": "build-migration-cli"
-        },
-        {
-            "name": "🔍 Migration CLI: Discovery Inventory (Config File)",
-            "type": "coreclr",
-            "request": "launch", 
             "program": "${workspaceFolder}/src/DevOpsMigrationPlatform.CLI.Migration/bin/Debug/net10.0/devopsmigration.exe",
             "args": [
                 "discovery",
                 "inventory",
                 "--config",
-                "dev-migration.json"
+                "migration.json",
+                "--verbose"
             ],
             "cwd": "${workspaceFolder}",
             "console": "integratedTerminal",
@@ -115,20 +103,25 @@
             "preLaunchTask": "build-migration-cli"
         },
         {
-            "name": "🔍 Migration CLI: Legacy Inventory",
+            "name": "🔍 Migration CLI: Inventory (Dry Run)",
             "type": "coreclr",
             "request": "launch",
             "program": "${workspaceFolder}/src/DevOpsMigrationPlatform.CLI.Migration/bin/Debug/net10.0/devopsmigration.exe",
             "args": [
                 "discovery",
-                "legacy-inventory",
-                "--all-projects"
+                "inventory",
+                "--config",
+                "migration.json",
+                "--dry-run"
             ],
             "cwd": "${workspaceFolder}",
             "console": "integratedTerminal",
             "stopAtEntry": false,
             "preLaunchTask": "build-migration-cli"
         },
+        // ── Migration CLI: tfsexport ──────────────────────────────────────────
+        // Options: --collection <URL> --project <NAME> [--output <PATH>]
+        //          [--tfsexport-path <PATH>]
         {
             "name": "📦 Migration CLI: TFS Export",
             "type": "coreclr",
@@ -149,6 +142,29 @@
             "preLaunchTask": "build-migration-cli"
         },
         {
+            "name": "📦 Migration CLI: TFS Export (Custom Exe Path)",
+            "type": "coreclr",
+            "request": "launch",
+            "program": "${workspaceFolder}/src/DevOpsMigrationPlatform.CLI.Migration/bin/Debug/net10.0/devopsmigration.exe",
+            "args": [
+                "tfsexport",
+                "--collection",
+                "http://tfs:8080/tfs/DefaultCollection",
+                "--project",
+                "MyProject",
+                "--output",
+                "./test-package",
+                "--tfsexport-path",
+                "./src/DevOpsMigrationPlatform.CLI.TfsMigration/bin/Debug/net481/tfsmigration.exe"
+            ],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "stopAtEntry": false,
+            "preLaunchTask": "build-migration-cli"
+        },
+        // ── Migration CLI: logs ───────────────────────────────────────────────
+        // Options: --job <GUID> [--follow]
+        {
             "name": "📋 Migration CLI: Logs (Job ID)",
             "type": "coreclr",
             "request": "launch",
@@ -165,7 +181,7 @@
         },
         {
             "name": "📋 Migration CLI: Logs (Follow)",
-            "type": "coreclr", 
+            "type": "coreclr",
             "request": "launch",
             "program": "${workspaceFolder}/src/DevOpsMigrationPlatform.CLI.Migration/bin/Debug/net10.0/devopsmigration.exe",
             "args": [
@@ -179,6 +195,9 @@
             "stopAtEntry": false,
             "preLaunchTask": "build-migration-cli"
         },
+        // ── TFS CLI (net481): export & inventory ──────────────────────────────
+        // export:    --collection <URL> --project <NAME> [--output <PATH>]
+        // inventory: --collection <URL> (--project <NAME> | --all-projects)
         {
             "name": "🔴 TFS CLI: Export",
             "type": "coreclr",

@@ -9,7 +9,7 @@ namespace DevOpsMigrationPlatform.CLI.Migration.Services;
 /// user input. Contains no I/O or file concerns — accepts <see cref="IAnsiConsole"/> for
 /// all output so the logic is testable independently of the CLI layer.
 /// </summary>
-internal class InteractiveConfigurationBuilder : IInteractiveConfigurationBuilder
+internal sealed class InteractiveConfigurationBuilder : IInteractiveConfigurationBuilder
 {
     public async Task<MigrationOptions> BuildAsync(IAnsiConsole console, CancellationToken cancellationToken)
     {
