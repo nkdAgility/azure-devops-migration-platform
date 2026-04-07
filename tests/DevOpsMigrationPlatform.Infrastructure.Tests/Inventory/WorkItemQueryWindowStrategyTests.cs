@@ -18,6 +18,11 @@ namespace DevOpsMigrationPlatform.Infrastructure.Tests.Inventory;
 /// connection is required.
 ///
 /// Covers spec tasks T020–T024 with real behavioural assertions.
+///
+/// Strategy has two paths:
+///   Path A: Unbounded probe (call 0) returns &lt; LimitThreshold → single window, 1 API call.
+///   Path B: Unbounded probe returns ≥ LimitThreshold → backward date-window scan.
+/// Call index 0 is always the unbounded probe; indexes 1+ are windowed queries.
 /// </summary>
 [TestClass]
 public class WorkItemQueryWindowStrategyTests
@@ -73,34 +78,40 @@ public class WorkItemQueryWindowStrategyTests
         return windows;
     }
 
-    // ── T022: Empty first window → stops immediately ──────────────────────────
+    // ── T022: Empty window at MinDate floor → stops ──────────────────────────
 
     [TestMethod]
-    public async Task EnumerateWindowsAsync_EmptyFirstWindow_YieldsNothing()
+    public async Task EnumerateWindowsAsync_EmptyFirstWindow_AtMinDateFloor_YieldsNothing()
     {
-        // Arrange: first (and only) call returns 0 IDs
+        // Arrange: project has zero items — the unbounded probe (call 0) returns empty
+        // (0 < LimitThreshold) so the strategy yields nothing and makes exactly 1 API call.
         var (sut, clientMock) = BuildSut((_, _, _) => EmptyResult());
 
         // Act
         var windows = await CollectWindowsAsync(sut);
 
         // Assert
-        Assert.AreEqual(0, windows.Count, "Zero results should stop enumeration immediately");
-        clientMock.Verify(c => c.QueryByWiqlAsync(It.IsAny<Wiql>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Once);
+        Assert.AreEqual(0, windows.Count, "Project with no items must yield no windows");
+        clientMock.Verify(c => c.QueryByWiqlAsync(It.IsAny<Wiql>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Once,
+            "Exactly one API call — the unbounded probe");
     }
 
-    // ── T021: Single non-empty window → one result, walk backward ────────────
+    // ── T021: Multiple windowed results → windows walk backward ──────────────
 
     [TestMethod]
     public async Task EnumerateWindowsAsync_TwoNonEmptyWindowsThenEmpty_YieldsTwoWindows()
     {
-        // Arrange: call 0 → 3 IDs, call 1 → 2 IDs, call 2 → 0 IDs (stop)
-        var responses = new[] { new[] { 1, 2, 3 }, new[] { 4, 5 }, Array.Empty<int>() };
+        // Arrange: unbounded probe (call 0) exceeds limit → windowing fallback;
+        //          call 1 → 3 IDs, call 2 → 2 IDs, call 3 → 0 (MinDate floor → stop)
+        var opts = new WorkItemQueryWindowOptions { LimitThreshold = 5, MinDate = DateTime.UtcNow.AddDays(-1) };
+        var windowedResponses = new[] { new[] { 1, 2, 3 }, new[] { 4, 5 } };
         var (sut, _) = BuildSut((_, _, idx) =>
-            idx < responses.Length ? MakeResult(responses[idx]) : EmptyResult());
+            idx == 0 ? MakeResult(1, 2, 3, 4, 5) :                                               // probe >= limit
+            idx - 1 < windowedResponses.Length ? MakeResult(windowedResponses[idx - 1]) :        // windowed
+            EmptyResult());
 
         // Act
-        var windows = await CollectWindowsAsync(sut);
+        var windows = await CollectWindowsAsync(sut, opts);
 
         // Assert
         Assert.AreEqual(2, windows.Count, "Should yield exactly two non-empty windows");
@@ -111,15 +122,22 @@ public class WorkItemQueryWindowStrategyTests
     [TestMethod]
     public async Task EnumerateWindowsAsync_WindowsWalkBackward_EndEqualsStartOfPrevious()
     {
-        // Arrange: two non-empty windows then stop
-        var responses = new[] { new[] { 1 }, new[] { 2 }, Array.Empty<int>() };
-        var (sut, _) = BuildSut((_, _, idx) =>
-            idx < responses.Length ? MakeResult(responses[idx]) : EmptyResult());
+        // Arrange: unbounded probe (call 0) exceeds limit → windowing;
+        //          two non-empty windowed windows, then stop at MinDate floor
+        var opts = new WorkItemQueryWindowOptions { LimitThreshold = 5, MinDate = DateTime.UtcNow.AddDays(-1) };
+        var (sut, _) = BuildSut((_, _, idx) => idx switch
+        {
+            0 => MakeResult(1, 2, 3, 4, 5),   // probe >= limit → windowing
+            1 => MakeResult(10),               // first windowed window
+            2 => MakeResult(20),               // second windowed window
+            _ => EmptyResult()                 // MinDate floor → stop
+        });
 
         // Act
-        var windows = await CollectWindowsAsync(sut);
+        var windows = await CollectWindowsAsync(sut, opts);
 
         // Assert: second window's end date should be <= first window's start date
+        Assert.AreEqual(2, windows.Count);
         Assert.IsTrue(windows[1].WindowEnd <= windows[0].WindowStart,
             "Each window should walk backward: window[1].End must be <= window[0].Start");
     }
@@ -132,8 +150,14 @@ public class WorkItemQueryWindowStrategyTests
         // Arrange:
         //  call 0 → exactly LimitThreshold IDs (triggers halve+retry, NOT yielded)
         //  call 1 → 5 IDs (yielded)
-        //  call 2 → 0 IDs (stop)
-        var opts = new WorkItemQueryWindowOptions { LimitThreshold = 20000 };
+        //  call 2 → 0 IDs (stop — MinDate floor is within the halved window)
+        var opts = new WorkItemQueryWindowOptions
+        {
+            LimitThreshold = 20000,
+            // After the 120→60 halve, the next empty window starts at now-120.
+            // Setting MinDate = now-100 ensures now-120 <= MinDate → stops immediately.
+            MinDate = DateTime.UtcNow.AddDays(-100)
+        };
         var oversizeIds = Enumerable.Range(1, 20000).ToArray();
         var responses = new WorkItemQueryResult[]
         {
@@ -175,7 +199,8 @@ public class WorkItemQueryWindowStrategyTests
         var opts = new WorkItemQueryWindowOptions { LimitThreshold = 10, InitialWindowDays = 30 };
         var capturedWindowSizes = new List<TimeSpan>();
         var callIdx = 0;
-        var responses = new[] { 10, 5, 0 }; // counts
+        // call 0 (probe): 10 → windowing; call 1 (windowed 30d): 10 → halve; call 2 (windowed 15d): 5 → yield; call 3: 0 → stop
+        var responses = new[] { 10, 10, 5, 0 }; // counts
 
         var clientMock = new Mock<IWiqlQueryClient>(MockBehavior.Strict);
         clientMock
@@ -213,11 +238,13 @@ public class WorkItemQueryWindowStrategyTests
         {
             LimitThreshold = 5,       // triggers halve on windows with >= 5 ids
             InitialWindowDays = 10,   // starts at 10 days
-            MinWindowDays = 1
+            MinWindowDays = 1,
+            MinDate = DateTime.UtcNow.AddDays(-1)  // stops scan quickly after first empty windowed result
         };
 
-        // calls: [5 ids → triggers halve, so window becomes 5d], [3 ids → yielded], [3 ids → yielded, window should have grown], [0 → stop]
-        var responses = new[] { 5, 3, 3, 0 };
+        // call 0 (probe): 5 → windowing; call 1 (windowed 10d): 5 → halve to 5d;
+        // call 2 (windowed 5d): 3 → yield; call 3 (windowed 6d): 3 → yield; call 4: 0 → MinDate floor → stop
+        var responses = new[] { 5, 5, 3, 3, 0 };
         var callIdx = 0;
 
         var clientMock = new Mock<IWiqlQueryClient>(MockBehavior.Strict);
@@ -254,13 +281,19 @@ public class WorkItemQueryWindowStrategyTests
     [TestMethod]
     public async Task EnumerateWindowsAsync_WiqlError_RetriesThreeTimes_ThenThrows()
     {
-        // Arrange: every call throws
-        var clientMock = new Mock<IWiqlQueryClient>(MockBehavior.Strict);
+        // Arrange: unbounded probe (call 0) succeeds → triggers windowing (>= limit);
+        //          all windowed calls throw → 1 original + 3 retries = 4 windowed calls, then propagates.
+        var opts = new WorkItemQueryWindowOptions { LimitThreshold = 5 };
         var callCount = 0;
+        var clientMock = new Mock<IWiqlQueryClient>(MockBehavior.Strict);
         clientMock
             .Setup(c => c.QueryByWiqlAsync(It.IsAny<Wiql>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
-            .ThrowsAsync(new InvalidOperationException("WIQL failed"))
-            .Callback(() => callCount++);
+            .ReturnsAsync(() =>
+            {
+                if (callCount++ == 0)
+                    return MakeResult(1, 2, 3, 4, 5); // probe: >= limit → windowing
+                throw new InvalidOperationException("WIQL failed");
+            });
 
         var factoryMock = new Mock<IWiqlQueryClientFactory>(MockBehavior.Strict);
         factoryMock
@@ -272,34 +305,34 @@ public class WorkItemQueryWindowStrategyTests
         // Act & Assert: after maxRetries (3) exhausted the original exception propagates
         await Assert.ThrowsExceptionAsync<InvalidOperationException>(async () =>
         {
-            await foreach (var _ in sut.EnumerateWindowsAsync(Org, Project, Pat))
+            await foreach (var _ in sut.EnumerateWindowsAsync(Org, Project, Pat, opts))
             { }
         });
 
-        // 1 original attempt + 3 retries = 4 total calls
+        // 1 probe + 1 windowed original attempt + 3 windowed retries = 5 total calls
         clientMock.Verify(
             c => c.QueryByWiqlAsync(It.IsAny<Wiql>(), It.IsAny<string>(), It.IsAny<CancellationToken>()),
-            Times.Exactly(4),
-            "Should attempt once plus 3 retries before throwing");
+            Times.Exactly(5),
+            "Probe (1) + windowed original attempt (1) + 3 windowed retries = 5 calls");
     }
 
     [TestMethod]
     public async Task EnumerateWindowsAsync_WiqlError_HalvesWindowOnEachRetry()
     {
-        // Arrange: first 3 calls fail (triggering 3 retries with window halving),
-        //          4th call returns a small result, 5th call returns 0 (stop)
-        var opts = new WorkItemQueryWindowOptions { InitialWindowDays = 120, MinWindowDays = 1 };
-        var capturedQueries = new List<Wiql>();
+        // Arrange: unbounded probe (call 0) succeeds → triggers windowing (>= limit);
+        //          windowed calls 1-3 throw (3 retries), call 4 returns items, call 5 returns 0 (stop).
+        var opts = new WorkItemQueryWindowOptions { LimitThreshold = 5, InitialWindowDays = 120, MinWindowDays = 1, MinDate = DateTime.UtcNow.AddDays(-1) };
         var callIdx = 0;
 
         var clientMock = new Mock<IWiqlQueryClient>(MockBehavior.Strict);
         clientMock
             .Setup(c => c.QueryByWiqlAsync(It.IsAny<Wiql>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync((Wiql wiql, string _, CancellationToken __) =>
+            .ReturnsAsync(() =>
             {
-                capturedQueries.Add(wiql);
-                if (callIdx++ < 3) throw new InvalidOperationException("transient error");
-                return callIdx <= 4 ? MakeResult(1, 2) : EmptyResult();
+                var i = callIdx++;
+                if (i == 0) return MakeResult(1, 2, 3, 4, 5);          // probe: >= limit → windowing
+                if (i < 4) throw new InvalidOperationException("transient error"); // 3 retries (calls 1-3)
+                return i == 4 ? MakeResult(1, 2) : EmptyResult();       // call 4: yield; call 5: stop
             });
 
         var factoryMock = new Mock<IWiqlQueryClientFactory>(MockBehavior.Strict);
@@ -312,7 +345,7 @@ public class WorkItemQueryWindowStrategyTests
         // Act
         var windows = await CollectWindowsAsync(sut, opts);
 
-        // Assert: recovered and yielded 1 window after 3 failed retries
+        // Assert: recovered and yielded 1 window after 3 failed windowed retries
         Assert.AreEqual(1, windows.Count, "Should recover after 3 retries and yield 1 window");
     }
 
@@ -327,11 +360,13 @@ public class WorkItemQueryWindowStrategyTests
         {
             LimitThreshold = 2,
             InitialWindowDays = 4,  // 4 → 2 → 1 (min) → stays at 1
-            MinWindowDays = 1
+            MinWindowDays = 1,
+            MinDate = DateTime.UtcNow.AddDays(-1)  // stops scan quickly after first empty windowed result
         };
 
-        // Call sequence: 2 ids (halve 4→2), 2 ids (halve 2→1), 1 id (yield at 1 day), 0 (stop)
-        var responses = new[] { 2, 2, 1, 0 };
+        // call 0 (probe): 2 → windowing; call 1 (4d): 2 → halve 4→2;
+        // call 2 (2d): 2 → halve 2→1 (floor); call 3 (1d): 1 → yield; call 4: 0 → MinDate floor → stop
+        var responses = new[] { 2, 2, 2, 1, 0 };
         var callIdx = 0;
 
         var clientMock = new Mock<IWiqlQueryClient>(MockBehavior.Strict);
@@ -412,6 +447,56 @@ public class WorkItemQueryWindowStrategyTests
             await foreach (var _ in sut.EnumerateWindowsAsync(Org, Project, Pat, cancellationToken: cts.Token))
             { }
         });
+    }
+
+    // ── Path A new tests: unbounded probe ─────────────────────────────────────
+
+    [TestMethod]
+    public async Task UnboundedProbe_ZeroItems_YieldsNothingWithOneApiCall()
+    {
+        // When the project has no items the probe returns empty → single API call, no windows.
+        var (sut, clientMock) = BuildSut((_, _, _) => EmptyResult());
+
+        var windows = await CollectWindowsAsync(sut);
+
+        Assert.AreEqual(0, windows.Count);
+        clientMock.Verify(
+            c => c.QueryByWiqlAsync(It.IsAny<Wiql>(), It.IsAny<string>(), It.IsAny<CancellationToken>()),
+            Times.Once, "Only one API call — the unbounded probe");
+    }
+
+    [TestMethod]
+    public async Task UnboundedProbe_ItemsUnderLimit_YieldsSingleWindowAllIdsWithOneApiCall()
+    {
+        // When the project has items but fewer than LimitThreshold the probe yields
+        // all IDs in one window without any date windowing.
+        var (sut, clientMock) = BuildSut((_, _, _) => MakeResult(10, 20, 30, 40));
+
+        var windows = await CollectWindowsAsync(sut);
+
+        Assert.AreEqual(1, windows.Count, "Below-limit project must yield exactly one window");
+        CollectionAssert.AreEquivalent(new[] { 10, 20, 30, 40 }, windows[0].WorkItemIds.ToArray());
+        clientMock.Verify(
+            c => c.QueryByWiqlAsync(It.IsAny<Wiql>(), It.IsAny<string>(), It.IsAny<CancellationToken>()),
+            Times.Once, "Only one API call — the unbounded probe");
+    }
+
+    [TestMethod]
+    public async Task UnboundedProbe_ItemsUnderLimit_WindowSpansMinDateToNow()
+    {
+        // The single window returned for under-limit projects should span MinDate → now.
+        var opts = new WorkItemQueryWindowOptions { MinDate = DateTime.UtcNow.AddYears(-2) };
+        var before = DateTime.UtcNow;
+        var (sut, _) = BuildSut((_, _, _) => MakeResult(1, 2, 3));
+
+        var windows = await CollectWindowsAsync(sut, opts);
+
+        var after = DateTime.UtcNow;
+        Assert.AreEqual(1, windows.Count);
+        Assert.AreEqual(opts.MinDate, windows[0].WindowStart);
+        Assert.IsTrue(windows[0].WindowEnd >= before && windows[0].WindowEnd <= after,
+            "WindowEnd should be approximately now");
+        Assert.AreEqual(windows[0].WindowEnd - windows[0].WindowStart, windows[0].WindowSize);
     }
 
     // ── Constructor guard ─────────────────────────────────────────────────────

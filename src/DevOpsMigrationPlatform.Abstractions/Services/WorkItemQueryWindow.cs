@@ -11,6 +11,16 @@ public sealed class WorkItemQueryWindowOptions
     public int InitialWindowDays { get; set; } = 120;
     public int LimitThreshold { get; set; } = 20_000;
     public int MinWindowDays { get; set; } = 1;
+    /// <summary>
+    /// Maximum window size in days used when skipping over empty periods.
+    /// Defaults to 1825 days (5 years).
+    /// </summary>
+    public int MaxWindowDays { get; set; } = 1825;
+    /// <summary>
+    /// The earliest date the strategy will scan back to.
+    /// Defaults to 30 years before the current UTC time.
+    /// </summary>
+    public DateTime MinDate { get; set; } = DateTime.UtcNow.AddYears(-30);
 }
 
 /// <summary>
