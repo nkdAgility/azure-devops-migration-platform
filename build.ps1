@@ -81,19 +81,36 @@ Or restore the local tool manifest:
     exit 1
 }
 
-# GitVersion may emit INFO/WARN diagnostic lines before the JSON object; extract just the JSON.
-# The JSON output is a single line starting with '{' and containing '"SemVer"'.
-$jsonLine = $gitVersionJson | Where-Object { $_ -match '^\s*\{' -and $_ -match '"SemVer"' } | Select-Object -First 1
+# GitVersion may emit INFO/WARN diagnostic lines mixed with the JSON.
+# The JSON may be pretty-printed (one key per line) or compact (single line).
+# Collect all lines from the first standalone '{' through the matching closing '}'.
+$inJson     = $false
+$braceDepth = 0
+$jsonLines  = @()
 
-if (-not $jsonLine) {
+foreach ($line in $gitVersionJson) {
+    if (-not $inJson -and $line -match '^\s*\{') {
+        $inJson = $true
+    }
+    if ($inJson) {
+        $jsonLines += $line
+        $braceDepth += ($line.ToCharArray() | Where-Object { $_ -eq '{' }).Count
+        $braceDepth -= ($line.ToCharArray() | Where-Object { $_ -eq '}' }).Count
+        if ($braceDepth -le 0) { break }
+    }
+}
+
+$jsonText = $jsonLines -join "`n"
+
+if (-not $jsonText) {
     Write-Error "Could not locate JSON output from GitVersion. Full output:`n$($gitVersionJson -join "`n")"
     exit 1
 }
 
 try {
-    $versionInfo = $jsonLine | ConvertFrom-Json
+    $versionInfo = $jsonText | ConvertFrom-Json
 } catch {
-    Write-Error "Failed to parse GitVersion JSON output: $_`nRaw JSON line: $jsonLine"
+    Write-Error "Failed to parse GitVersion JSON output: $_`nRaw output:`n$jsonText"
     exit 1
 }
 
