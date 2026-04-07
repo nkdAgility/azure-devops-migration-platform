@@ -85,7 +85,7 @@ As a migration operator working with large projects, I need the export to be res
 **Acceptance Scenarios**:
 
 1. **Given** an export that was interrupted mid-run, **When** the export command is run again with the same config, **Then** it reads `Checkpoints/workitems.cursor.json` and skips all revision folders already marked `Completed`.
-2. **Given** a cursor pointing to a revision with `stage: AppliedFields`, **When** export resumes, **Then** it replays only the stages from `AppliedLinks` onward for that revision before continuing with subsequent revisions.
+2. **Given** a cursor pointing to a revision folder whose checkpoint shows `stage: InProgress` (not `Completed`), **When** export resumes, **Then** it re-processes that revision in full — re-downloads any attachments and re-writes `revision.json` — before advancing to subsequent revisions.
 3. **Given** a fully completed export that is run again, **When** the cursor shows the last item was `Completed`, **Then** the export skips all revisions and exits cleanly with zero new files written.
 
 ---
@@ -136,8 +136,8 @@ As a platform operator, I need the export to emit structured progress events so 
 **AzureDevOpsWorkItemRevisionSource**
 
 - **FR-009**: `AzureDevOpsWorkItemRevisionSource` MUST implement `IWorkItemRevisionSource` and reside in `DevOpsMigrationPlatform.Infrastructure.AzureDevOps`.
-- **FR-009a**: The source MUST read `ExportContext.Job.source.orgOrCollection`, `ExportContext.Job.source.project`, and the PAT from a field on `ExportContext.Job.source` to initialise `AzureDevOpsClientFactory`. No separate credential lookup or `IOptions<T>` binding is needed.
-- **FR-010**: The source MUST use `WorkItemQueryWindowStrategy` to enumerate work item IDs in date windows, passing the WIQL query from the module scope and the `orgOrCollection`, `project`, and PAT from `ExportContext.Job.source` to the strategy. This reuses the proven inventory paging algorithm without modification.
+- **FR-009a**: The source MUST read `ExportContext.Job.source.Url`, `ExportContext.Job.source.project`, and the PAT from a field on `ExportContext.Job.source` to initialise `AzureDevOpsClientFactory`. No separate credential lookup or `IOptions<T>` binding is needed.
+- **FR-010**: The source MUST use `WorkItemQueryWindowStrategy` to enumerate work item IDs in date windows, passing the WIQL query from the module scope and the `Url`, `project`, and PAT from `ExportContext.Job.source` to the strategy. This reuses the proven inventory paging algorithm without modification.
 - **FR-011**: For each work item ID yielded by the strategy, the source MUST call `WorkItemTrackingHttpClient.GetRevisionsAsync(int id, expand: WorkItemExpand.All)` to retrieve all revisions for that work item in ascending revision-index order. There is no bulk-revisions endpoint in the ADO REST API; this is an O(N) per-work-item call pattern.
 - **FR-012**: Fields MUST be mapped to `WorkItemField` using the reference name key (e.g. `System.Title`) and the field value serialised to a string. Identity-type fields (`System.AssignedTo`, `System.CreatedBy`, `System.ChangedBy`, etc.) MUST be stored as-is (raw display name or UPN string from ADO). No identity resolution is performed at export time; that is deferred to the IdentitiesModule at import time.
 - **FR-013**: Work item relations MUST be mapped per relation type: `System.LinkTypes.Related` → `RelatedWorkItemLink`, `ArtifactLink` / external URLs → `ExternalWorkItemLink`, `Hyperlink` → `HyperlinkWorkItemLink`.
@@ -148,7 +148,7 @@ As a platform operator, I need the export to emit structured progress events so 
 **Attachment Download**
 
 - **FR-017**: A dedicated `IAzureDevOpsAttachmentDownloader` interface and `AzureDevOpsAttachmentDownloader` implementation MUST reside in `DevOpsMigrationPlatform.Infrastructure.AzureDevOps`.
-- **FR-018**: The downloader MUST stream the attachment binary directly to `IArtefactStore.WriteAsync` without buffering the entire file into a `byte[]` or `MemoryStream`.
+- **FR-018**: The downloader MUST stream the attachment binary directly to `IArtefactStore.WriteStreamAsync` without buffering the entire file into a `byte[]` or `MemoryStream`.
 - **FR-019**: The downloader MUST compute the SHA-256 hash of the streamed content and return it as part of the result, to be stored in `AttachmentMetadata.Sha256`.
 - **FR-020**: Attachment downloads MUST be retried with exponential back-off (max 8 retries) when a transient HTTP error occurs (5xx, 408, 429). Permanent failures (4xx other than 408/429) MUST not be retried.
 - **FR-020a**: When all retries are exhausted for an attachment, the module MUST log an error-level entry, increment the `attachmentsFailed` counter in the `ProgressEvent`, and continue processing subsequent revisions. The export MUST NOT terminate due to a single attachment failure.

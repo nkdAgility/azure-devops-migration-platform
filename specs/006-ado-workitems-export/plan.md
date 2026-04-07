@@ -159,7 +159,7 @@ CLI (export command)
                                       ├─► updates revision.Attachments with final Sha256 + Size + RelativePath
                                       ├─► JsonSerializer.Serialize(revision) → IArtefactStore.WriteAsync(folderPath + "revision.json")
                                       ├─► ICheckpointingService.WriteCursorAsync("WorkItems", Completed)
-                                      └─► IProgressSink.ReportAsync(ProgressEvent { WorkItemId, RevisionsProcessed, ... })
+                                      └─► IProgressSink.Emit(ProgressEvent { WorkItemId, RevisionsProcessed, ... })
 ```
 
 #### IArtefactStore extension
@@ -189,8 +189,8 @@ public string? DownloadUrl { get; init; }
 // Updated factory signatures
 public static AttachmentDownloadResult Succeeded(string sha256, long size) => ...
 public static AttachmentDownloadResult Failed(Exception error) => ...
-// Removed: FilePath (no temp files)
-// Added: Sha256, Size
+// Additive change only — FilePath property and Succeeded(string filePath) factory preserved for TFS (.NET 4.8) compatibility
+// Added: Sha256, Size, and new Succeeded(string sha256, long size) factory overload
 ```
 
 #### ProgressEvent additions
@@ -264,14 +264,14 @@ public static IServiceCollection AddAzureDevOpsWorkItemExportServices(
             ShouldHandle = new PredicateBuilder().Handle<HttpRequestException>(e =>
                 IsTransient(e.StatusCode))
         }));
-    services.AddTransient<IWorkItemRevisionSource, AzureDevOpsWorkItemRevisionSource>();
+    services.AddSingleton<IWorkItemRevisionSourceFactory, AzureDevOpsWorkItemRevisionSourceFactory>();
     services.AddTransient<WorkItemExportOrchestrator>();
     services.AddTransient<WorkItemsModule>();
     return services;
 }
 ```
 
-**Note**: `IWorkItemRevisionSource` registers as transient because it carries per-export credentials. In production the `MigrationAgent` scopes each export operation; the DI container is root-level, so per-export context is passed via factory method on the module (not constructor injection).
+**Note**: `IWorkItemRevisionSourceFactory` is singleton — it holds no per-export state. `WorkItemsModule` calls `_sourceFactory.Create(url, project, pat, query)` at export time, injecting credentials from `ExportContext` at the point of use. This avoids a circular project reference (`Infrastructure` must not reference `Infrastructure.AzureDevOps`).
 
 ---
 
