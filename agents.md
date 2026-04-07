@@ -95,6 +95,9 @@ Identity and mapping:
 Configuration reference:
 → docs/configuration.md
 
+Scenario configs:
+→ scenarios/
+
 Source types:
 → docs/source-types.md
 

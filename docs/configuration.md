@@ -120,3 +120,18 @@ Common scope types:
 - An upgrader must exist for each version transition (e.g., `1.0 → 2.0`).
 - The tool must detect an outdated config version and either auto-upgrade (with warning) or fail fast with instructions.
 - Configs from future versions must fail fast with a clear error message.
+
+---
+
+## Scenario Configs
+
+Ready-to-run example configuration files live under `/scenarios/` at the repository root. Each file targets a specific connectivity scenario and is wired to a VS Code launch configuration for quick local debugging.
+
+| File | Scenario |
+|---|---|
+| `inventory-ado-single-project.json` | Single Azure DevOps project inventory (PAT auth) |
+| `inventory-ado-multi-project.json` | Multi-project Azure DevOps inventory (PAT auth) |
+| `inventory-tfs-windows-auth.json` | On-premises TFS inventory (Windows-integrated auth) |
+| `inventory-multi-org.json` | Multi-organisation inventory with per-org PAT tokens |
+
+Credentials in these files use `$ENV:VARNAME` references — never literal tokens. Set the corresponding environment variables locally (e.g. `AZDEVOPS_DEV_PAT`) before running.
