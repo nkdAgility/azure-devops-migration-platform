@@ -98,15 +98,27 @@ public class InventoryServiceTests
         return events;
     }
 
+    private static Mock<IRepoDiscoveryService> BuildRepoDiscoveryMock(int repoCount = 0)
+    {
+        var mock = new Mock<IRepoDiscoveryService>(MockBehavior.Strict);
+        mock.Setup(s => s.CountReposAsync(
+                It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(repoCount);
+        return mock;
+    }
+
     private static InventoryService BuildService(
         Mock<IWorkItemDiscoveryService> discoveryMock,
         IOptions<DiscoveryOptions>? options = null,
-        Mock<IProjectDiscoveryService>? projectDiscovery = null)
+        Mock<IProjectDiscoveryService>? projectDiscovery = null,
+        Mock<IRepoDiscoveryService>? repoDiscovery = null)
     {
         return new InventoryService(
             options ?? BuildOptions(),
             discoveryMock.Object,
-            projectDiscovery?.Object ?? BuildProjectDiscoveryMock().Object);
+            projectDiscovery?.Object ?? BuildProjectDiscoveryMock().Object,
+            repoDiscovery?.Object ?? BuildRepoDiscoveryMock().Object);
     }
 
     // ── T019: Basic — single project with known counts ────────────────────────
@@ -313,7 +325,20 @@ public class InventoryServiceTests
             new InventoryService(
                 BuildOptions(),
                 null!,
-                BuildProjectDiscoveryMock().Object));
+                BuildProjectDiscoveryMock().Object,
+                BuildRepoDiscoveryMock().Object));
+    }
+
+    [TestMethod]
+    public void InventoryService_ThrowsOnNullRepoDiscovery()
+    {
+        var discoveryMock = new Mock<IWorkItemDiscoveryService>(MockBehavior.Strict);
+        Assert.ThrowsException<ArgumentNullException>(() =>
+            new InventoryService(
+                BuildOptions(),
+                discoveryMock.Object,
+                BuildProjectDiscoveryMock().Object,
+                null!));
     }
 
     [TestMethod]
@@ -322,5 +347,75 @@ public class InventoryServiceTests
         var clientFactory = new Mock<IAzureDevOpsClientFactory>(MockBehavior.Strict);
         Assert.ThrowsException<ArgumentNullException>(() =>
             new AzureDevOpsWorkItemDiscoveryService(null!, clientFactory.Object));
+    }
+
+    // ── Repo discovery ────────────────────────────────────────────────────────
+
+    [TestMethod]
+    public async Task RunInventoryAsync_FinalEvent_IncludesRepoCount()
+    {
+        // Arrange: 3 repos in the project
+        var discoveryMock = BuildDiscoveryMock(workItemCount: 5, revisionCount: 25);
+        var repoMock = BuildRepoDiscoveryMock(repoCount: 3);
+        var sut = BuildService(discoveryMock, repoDiscovery: repoMock);
+
+        // Act
+        var events = await CollectEventsAsync(sut);
+
+        // Assert: final event has the repo count
+        var finalEvent = events.Last();
+        Assert.IsTrue(finalEvent.IsComplete);
+        Assert.AreEqual(3, finalEvent.ReposCount, "Final event must carry the repo count");
+    }
+
+    [TestMethod]
+    public async Task RunInventoryAsync_IntermediateEvents_HaveZeroRepoCount()
+    {
+        // Arrange: 2 repos, but intermediate events should show 0
+        var discoveryMock = BuildDiscoveryMock(workItemCount: 5, revisionCount: 25);
+        var repoMock = BuildRepoDiscoveryMock(repoCount: 2);
+        var sut = BuildService(discoveryMock, repoDiscovery: repoMock);
+
+        // Act
+        var events = await CollectEventsAsync(sut);
+
+        // Assert: intermediate events have 0 repos, final has the real count
+        Assert.IsTrue(events.Count >= 2, "Need at least one intermediate and one final event");
+        var intermediateEvents = events.Where(e => !e.IsComplete).ToList();
+        foreach (var evt in intermediateEvents)
+            Assert.AreEqual(0, evt.ReposCount, "Intermediate events must have ReposCount = 0");
+    }
+
+    [TestMethod]
+    public async Task RunInventoryAsync_ProjectWithNoRepos_ReportsZero()
+    {
+        // Arrange: 0 repos
+        var discoveryMock = BuildDiscoveryMock(workItemCount: 3, revisionCount: 9);
+        var repoMock = BuildRepoDiscoveryMock(repoCount: 0);
+        var sut = BuildService(discoveryMock, repoDiscovery: repoMock);
+
+        // Act
+        var events = await CollectEventsAsync(sut);
+
+        // Assert
+        var finalEvent = events.Last();
+        Assert.IsTrue(finalEvent.IsComplete);
+        Assert.AreEqual(0, finalEvent.ReposCount, "Zero repos must be reported as 0");
+    }
+
+    [TestMethod]
+    public void AzureDevOpsRepoDiscoveryService_ImplementsInterface()
+    {
+        var clientFactory = new Mock<IAzureDevOpsClientFactory>(MockBehavior.Strict);
+        var sut = new AzureDevOpsRepoDiscoveryService(clientFactory.Object);
+        Assert.IsInstanceOfType(sut, typeof(IRepoDiscoveryService),
+            "AzureDevOpsRepoDiscoveryService must implement IRepoDiscoveryService");
+    }
+
+    [TestMethod]
+    public void AzureDevOpsRepoDiscoveryService_ThrowsOnNullClientFactory()
+    {
+        Assert.ThrowsException<ArgumentNullException>(() =>
+            new AzureDevOpsRepoDiscoveryService(null!));
     }
 }

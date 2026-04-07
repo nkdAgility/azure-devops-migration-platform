@@ -2,6 +2,6 @@
   "session_id": "discovery-repo-count-20260407-124947",
   "started_at": "2026-04-07T12:49:47.351Z",
   "requirement": "Add repository count per project to the discovery inventory output so that the Repos column shows real numbers instead of always zero.",
-  "phase": "specification",
-  "completed_phases": []
+  "phase": "review",
+  "completed_phases": ["specification", "test-generation", "implementation"]
 }

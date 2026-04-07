@@ -55,6 +55,7 @@ public sealed class InventoryCommand : CommandBase<InventoryCommand.Settings>
 
                     summary.WorkItemsCount = evt.WorkItemsCount;
                     summary.RevisionsCount = evt.RevisionsCount;
+                    summary.ReposCount = evt.ReposCount;
                     summary.LastUpdatedUtc = evt.Timestamp;
                     if (evt.IsComplete)
                     {

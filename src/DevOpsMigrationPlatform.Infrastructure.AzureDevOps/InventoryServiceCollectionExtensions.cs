@@ -23,6 +23,7 @@ public static class InventoryServiceCollectionExtensions
         services.AddSingleton<IWorkItemQueryWindowStrategy, WorkItemQueryWindowStrategy>();
         services.AddSingleton<IWorkItemDiscoveryService, AzureDevOpsWorkItemDiscoveryService>();
         services.AddSingleton<IProjectDiscoveryService, AzureDevOpsProjectDiscoveryService>();
+        services.AddSingleton<IRepoDiscoveryService, AzureDevOpsRepoDiscoveryService>();
         services.AddSingleton<IInventoryService, InventoryService>();
         return services;
     }
