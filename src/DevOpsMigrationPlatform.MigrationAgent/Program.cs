@@ -4,6 +4,7 @@
 // See docs/migration-agent.md.
 
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Infrastructure.AzureDevOps;
 using DevOpsMigrationPlatform.Infrastructure.Telemetry;
 using DevOpsMigrationPlatform.MigrationAgent;
 using Microsoft.Extensions.Logging;
@@ -30,8 +31,15 @@ var controlPlaneBaseUrl = new Uri(
     builder.Configuration["ControlPlane:BaseUrl"] ?? "http://localhost:5100");
 builder.Services.AddControlPlaneTelemetryClient(controlPlaneBaseUrl);
 
+// Named HttpClient used by MigrationAgentWorker to poll /agents/lease and signal completion.
+builder.Services.AddHttpClient("ControlPlane",
+    client => client.BaseAddress = controlPlaneBaseUrl);
+
 // Progress streaming to the Control Plane ring buffer.
 builder.Services.AddControlPlaneProgressSink(controlPlaneBaseUrl);
+
+// Register IDataTypeModule implementations (WorkItemsModule + ADO infra).
+builder.Services.AddAzureDevOpsWorkItemExport();
 
 // Composite sink fans out every ProgressEvent to all three sinks.
 builder.Services.AddSingleton<IProgressSink>(sp => new CompositeProgressSink(

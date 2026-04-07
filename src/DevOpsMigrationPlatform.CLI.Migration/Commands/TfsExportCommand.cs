@@ -82,7 +82,7 @@ public sealed class TfsExportCommand : CommandBase<TfsExportCommand.Settings>
         AnsiConsole.MarkupLineInterpolated($"[grey]Launching:[/] {exePath}");
         AnsiConsole.MarkupLineInterpolated($"[grey]Arguments:[/] {arguments}");
 
-        // Set up TUI telemetry panel (no Control Plane in standalone CLI mode).
+        // Set up CLI telemetry panel for the TFS export subprocess stream.
         var panel = new TelemetryPanel();
         var adapter = GetRequiredService<TfsExporterProcessAdapter>();
         var toolRunner = GetRequiredService<IExternalToolRunner>();

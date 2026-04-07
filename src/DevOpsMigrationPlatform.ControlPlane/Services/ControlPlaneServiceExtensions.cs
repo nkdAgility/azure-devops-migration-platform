@@ -17,6 +17,9 @@ public static class ControlPlaneServiceExtensions
         // Register snapshot exporter + IMetricSnapshotStore + TelemetryOptions.
         services.AddTelemetryServices(configuration);
 
+        // Job queue — holds submitted MigrationJobs until an agent acquires a lease.
+        services.AddSingleton<JobStore>();
+
         // Lease–job mapping (stub; replace with durable EF Core store in a later phase).
         services.AddSingleton<ILeaseJobResolver, StubLeaseJobResolver>();
 

@@ -1,5 +1,6 @@
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Services;
+using DevOpsMigrationPlatform.Infrastructure.Modules;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace DevOpsMigrationPlatform.Infrastructure.AzureDevOps;
@@ -12,27 +13,21 @@ public static class ExportServiceCollectionExtensions
     /// <summary>
     /// Registers all Azure DevOps work item export services:
     /// <list type="bullet">
+    ///   <item><see cref="IAzureDevOpsClientFactory"/> — creates ADO HTTP clients.</item>
     ///   <item><see cref="IAzureDevOpsWorkItemRevisionMapper"/> — maps REST revisions to the package model.</item>
+    ///   <item><see cref="IWorkItemRevisionSourceFactory"/> as <see cref="AzureDevOpsWorkItemRevisionSourceFactory"/> — constructs revision sources per job.</item>
     ///   <item><see cref="AzureDevOpsAttachmentRegistry"/> — per-export-run attachment URL store (scoped).</item>
-    /// </list>
-    /// The caller is responsible for:
-    /// <list type="bullet">
-    ///   <item>
-    ///     Registering <see cref="IWorkItemRevisionSource"/> — typically
-    ///     <see cref="AzureDevOpsWorkItemRevisionSource"/> constructed from the current migration context.
-    ///   </item>
-    ///   <item>
-    ///     Registering <see cref="IAttachmentBinarySource"/> — typically
-    ///     <see cref="AzureDevOpsAttachmentBinarySource"/> with PAT and
-    ///     <see cref="AzureDevOpsAttachmentRegistry"/> injected.
-    ///   </item>
+    ///   <item><see cref="WorkItemsModule"/> — the <see cref="IDataTypeModule"/> implementation.</item>
     /// </list>
     /// </summary>
     public static IServiceCollection AddAzureDevOpsWorkItemExport(
         this IServiceCollection services)
     {
+        services.AddSingleton<IAzureDevOpsClientFactory, AzureDevOpsClientFactory>();
         services.AddSingleton<IAzureDevOpsWorkItemRevisionMapper, AzureDevOpsWorkItemRevisionMapper>();
+        services.AddSingleton<IWorkItemRevisionSourceFactory, AzureDevOpsWorkItemRevisionSourceFactory>();
         services.AddScoped<AzureDevOpsAttachmentRegistry>();
+        services.AddTransient<IDataTypeModule, WorkItemsModule>();
         return services;
     }
 }

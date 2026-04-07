@@ -38,6 +38,11 @@ internal class Program
                     .WithExample("discovery", "inventory", "--config", "migration.json", "--output", "./inventory-results");
             });
 
+            config.AddCommand<AzureDevOpsExportCommand>("export")
+                .WithDescription("Export work items from an Azure DevOps Services organisation")
+                .WithExample("export", "--config", "migration.json")
+                .WithExample("export", "https://dev.azure.com/myorg", "--project", "MyProject", "--output", "./package");
+
             config.AddCommand<TfsExportCommand>("tfsexport")
                 .WithDescription("Export work items from an on-premises TFS / Azure DevOps Server collection")
                 .WithExample("tfsexport",

@@ -7,18 +7,18 @@ namespace DevOpsMigrationPlatform.Abstractions;
 
 /// <summary>
 /// Abstraction for the job execution transport.
-/// Two implementations exist:
 ///
-/// - <c>LocalJobRunner</c>  — executes the Job Engine in-process. No control plane
-///   required. Used for Standalone mode (developer laptop, no Aspire).
+/// The only permitted implementation is <c>ControlPlaneClient</c>, which submits the
+/// <see cref="MigrationJob"/> to a running control plane over HTTP, then streams
+/// progress events back. The control plane is always present — in local/server mode
+/// it is started in-process by the CLI via Aspire (http://localhost:5100); in cloud
+/// mode it is a remote Azure Container Apps endpoint.
 ///
-/// - <c>ControlPlaneClient</c> — submits the MigrationJob to a running control plane
-///   over HTTP, then polls for progress. Used for both local-Aspire mode
-///   (http://localhost:5100) and cloud mode (Azure Container Apps).
-///
-/// Both transports accept the same <see cref="MigrationJob"/> payload.
-/// Switching between them requires only a config change — no code changes.
-/// See docs/cli.md and docs/architecture.md.
+/// ⛔ Do NOT implement a <c>LocalJobRunner</c> or any in-process job executor.
+///    Every topology — developer laptop, dedicated server, and cloud — requires the
+///    control plane (ControlPlaneHost + PostgreSQL). There is no standalone mode
+///    without a control plane. See guardrail rule #20 in
+///    .agents/guardrails/system-architecture.md and docs/architecture.md.
 /// </summary>
 public interface IJobRunner
 {
