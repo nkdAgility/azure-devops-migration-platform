@@ -19,7 +19,7 @@ devopsmigration tui [--url <control-plane-url>] [--job <jobId>]
 | `--url` | Override the control plane URL. Defaults to `MIGRATION_API_URL` or the value stored by `devopsmigration login`. |
 | `--job` | Jump directly to the progress view for a specific job, bypassing the job list. |
 
-If no URL is available and no control plane is configured, the TUI falls back to local mode and displays the most recent local package logs from the filesystem.
+The TUI always requires a control plane connection. When no `--url` flag or `MIGRATION_API_URL` environment variable is set, the CLI will have already driven Aspire to start `ControlPlaneHost` locally at `http://localhost:5100` — the TUI connects there automatically. If no control plane is reachable the TUI exits with an actionable error.
 
 ### Authentication
 

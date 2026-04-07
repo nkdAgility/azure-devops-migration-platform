@@ -111,9 +111,15 @@ Package zip/export:
 
 # 🔒 MANDATORY: Guardrails Validation
 
+> **⛔ AGENT WARNING — READ THIS BEFORE ANYTHING ELSE**
+> The `copilot-instructions.md` summary table injected into your context is a **quick reference only**.
+> It does **NOT** count as compliance with this section.
+> You MUST make explicit `read_file` tool calls for every file listed below.
+> Proceeding without those tool calls is a violation — even if you believe you already know the rules.
+
 **Before proceeding with ANY code changes, generic agents MUST:**
 
-1. **Read ALL guardrail files** in `/.agents/guardrails/`:
+1. **Read ALL guardrail files** in `/.agents/guardrails/` — use `read_file` for each:
    - [system-architecture.md](.agents/guardrails/system-architecture.md) — Core architecture constraints
    - [workitems-rules.md](.agents/guardrails/workitems-rules.md) — WorkItems-specific rules  
    - [migration-rules.md](.agents/guardrails/migration-rules.md) — Migration behavior constraints

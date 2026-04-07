@@ -7,6 +7,22 @@ For ad-hoc tasks, follow the mandatory guardrails validation in [agents.md](../a
 
 ---
 
+## ⛔ CRITICAL: This Summary Is NOT Compliance
+
+The table and reject triggers below are a **quick reference only**.
+They do **NOT** satisfy the mandatory guardrails validation in `agents.md`.
+
+**Before making any code change you MUST:**
+1. Use `read_file` to open and read each file listed under `/.agents/guardrails/` in `agents.md`.
+2. Use `read_file` to open and read each relevant file listed under `/.agents/context/` in `agents.md`.
+3. State out loud which guardrails apply to the current task.
+4. Explicitly reject any approach that violates them.
+
+**Treating this injected summary as a substitute for steps 1–4 = violation.**
+If you have not made those tool calls this session, stop and make them now.
+
+---
+
 ## Engineering Practice Quick Reference
 
 Every code suggestion MUST comply with the 21 engineering-practice categories
