@@ -14,8 +14,9 @@ namespace DevOpsMigrationPlatform.Infrastructure.Services;
 
 /// <summary>
 /// Platform-agnostic inventory orchestrator. Iterates all configured organisations
-/// and delegates work-item discovery to <see cref="IWorkItemDiscoveryService"/>
-/// and project enumeration to <see cref="IProjectDiscoveryService"/>.
+/// and delegates work-item discovery to <see cref="IWorkItemDiscoveryService"/>,
+/// project enumeration to <see cref="IProjectDiscoveryService"/>,
+/// and repository counting to <see cref="IRepoDiscoveryService"/>.
 /// Each CLI host registers the appropriate implementations for its backend.
 /// </summary>
 public sealed class InventoryService : IInventoryService
@@ -23,15 +24,18 @@ public sealed class InventoryService : IInventoryService
     private readonly IOptions<DiscoveryOptions> _options;
     private readonly IWorkItemDiscoveryService _workItemDiscovery;
     private readonly IProjectDiscoveryService _projectDiscovery;
+    private readonly IRepoDiscoveryService _repoDiscovery;
 
     public InventoryService(
         IOptions<DiscoveryOptions> options,
         IWorkItemDiscoveryService workItemDiscovery,
-        IProjectDiscoveryService projectDiscovery)
+        IProjectDiscoveryService projectDiscovery,
+        IRepoDiscoveryService repoDiscovery)
     {
         _options = options ?? throw new ArgumentNullException(nameof(options));
         _workItemDiscovery = workItemDiscovery ?? throw new ArgumentNullException(nameof(workItemDiscovery));
         _projectDiscovery = projectDiscovery ?? throw new ArgumentNullException(nameof(projectDiscovery));
+        _repoDiscovery = repoDiscovery ?? throw new ArgumentNullException(nameof(repoDiscovery));
     }
 
     public async IAsyncEnumerable<InventoryProgressEvent> RunInventoryAsync(
@@ -53,18 +57,47 @@ public sealed class InventoryService : IInventoryService
 
             foreach (var project in projects)
             {
+                // Start repo count concurrently while work items are being enumerated
+                var repoCountTask = _repoDiscovery.CountReposAsync(resolvedUrl, project, pat, cancellationToken);
+
+                InventoryProgressEvent? pendingFinalEvent = null;
+
                 await foreach (var summary in _workItemDiscovery.DiscoverWorkItemsAsync(
                     resolvedUrl, project, pat, cancellationToken))
                 {
-                    yield return new InventoryProgressEvent
+                    if (!summary.IsWorkItemComplete)
                     {
-                        ProjectName = project,
-                        Url = resolvedUrl,
-                        WorkItemsCount = summary.WorkItemsCount,
-                        RevisionsCount = summary.RevisionsCount,
-                        IsComplete = summary.IsWorkItemComplete,
-                        Timestamp = summary.LastUpdatedUtc
-                    };
+                        yield return new InventoryProgressEvent
+                        {
+                            ProjectName = project,
+                            Url = resolvedUrl,
+                            WorkItemsCount = summary.WorkItemsCount,
+                            RevisionsCount = summary.RevisionsCount,
+                            ReposCount = 0,
+                            IsComplete = false,
+                            Timestamp = summary.LastUpdatedUtc
+                        };
+                    }
+                    else
+                    {
+                        pendingFinalEvent = new InventoryProgressEvent
+                        {
+                            ProjectName = project,
+                            Url = resolvedUrl,
+                            WorkItemsCount = summary.WorkItemsCount,
+                            RevisionsCount = summary.RevisionsCount,
+                            IsComplete = true,
+                            Timestamp = summary.LastUpdatedUtc
+                        };
+                    }
+                }
+
+                // Await repo count once, then emit the final event
+                var repoCount = await repoCountTask;
+                if (pendingFinalEvent != null)
+                {
+                    pendingFinalEvent.ReposCount = repoCount;
+                    yield return pendingFinalEvent;
                 }
             }
         }

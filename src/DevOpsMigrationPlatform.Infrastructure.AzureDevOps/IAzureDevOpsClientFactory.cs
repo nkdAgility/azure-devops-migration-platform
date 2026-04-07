@@ -1,6 +1,7 @@
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.TeamFoundation.Core.WebApi;
+using Microsoft.TeamFoundation.SourceControl.WebApi;
 using Microsoft.TeamFoundation.WorkItemTracking.WebApi;
 
 namespace DevOpsMigrationPlatform.Infrastructure.AzureDevOps;
@@ -23,5 +24,9 @@ public interface IAzureDevOpsClientFactory
 
     /// <summary>Returns a <see cref="WorkItemTrackingHttpClient"/> authenticated against <paramref name="url"/>.</summary>
     Task<WorkItemTrackingHttpClient> CreateWorkItemClientAsync(
+        string url, string pat, CancellationToken cancellationToken = default);
+
+    /// <summary>Returns a <see cref="GitHttpClient"/> authenticated against <paramref name="url"/>.</summary>
+    Task<GitHttpClient> CreateGitClientAsync(
         string url, string pat, CancellationToken cancellationToken = default);
 }
