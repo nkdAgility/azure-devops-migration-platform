@@ -42,7 +42,7 @@ public class DiscoveryOptionsValidationTests
     }
 
     [TestMethod]
-    public void Validate_EntryMissingOrgOrCollection_Throws()
+    public void Validate_EntryMissingUrl_Throws()
     {
         var opts = new DiscoveryOptions
         {

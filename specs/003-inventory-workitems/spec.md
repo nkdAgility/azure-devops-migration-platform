@@ -197,7 +197,7 @@ The `--all-projects` flag has no effect in this mode; scope is controlled per en
   "organisations": [
     {
       "type": "AzureDevOpsServices",
-      "orgOrCollection": "https://dev.azure.com/myorg",
+      "url": "https://dev.azure.com/myorg",
       "projects": ["Alpha", "Beta"],
       "apiVersion": "7.1",
       "authentication": {
@@ -207,7 +207,7 @@ The `--all-projects` flag has no effect in this mode; scope is controlled per en
     },
     {
       "type": "AzureDevOpsServices",
-      "orgOrCollection": "https://dev.azure.com/anotherorg",
+      "url": "https://dev.azure.com/anotherorg",
       "projects": [],
       "apiVersion": "7.1",
       "authentication": {
@@ -218,7 +218,7 @@ The `--all-projects` flag has no effect in this mode; scope is controlled per en
     {
       "enabled": false,
       "type": "TeamFoundationServer",
-      "orgOrCollection": "http://tfs.internal:8080/tfs/DefaultCollection",
+      "url": "http://tfs.internal:8080/tfs/DefaultCollection",
       "projects": [],
       "apiVersion": "15.0",
       "authentication": {
@@ -234,7 +234,7 @@ The `--all-projects` flag has no effect in this mode; scope is controlled per en
 | Field | Required | Default | Description |
 |---|---|---|---|
 | `type` | Yes | — | `AzureDevOpsServices` or `TeamFoundationServer` |
-| `orgOrCollection` | Yes | — | Organisation URL or TFS collection URL |
+| `url` | Yes | — | Organisation URL or TFS collection URL |
 | `projects` | No | (all) | List of project names to inventory. Absent or empty = enumerate all projects in the org |
 | `apiVersion` | Yes | — | API version to pin |
 | `authentication` | Yes | — | Auth block (see below) |
@@ -269,7 +269,7 @@ The `accessToken` field value is resolved in this order (highest precedence firs
 | Neither `organisations` nor `source` present | **Validation error** — command exits with config guidance |
 | Mode 1: `source.project` null, no `--all-projects` flag | **Validation error** — must specify a project or pass `--all-projects` |
 | Mode 2: `organisations` array is empty | **Validation error** |
-| Mode 2: entry missing `type` or `orgOrCollection` | **Validation error** |
+| Mode 2: entry missing `type` or `url` | **Validation error** |
 
 ---
 

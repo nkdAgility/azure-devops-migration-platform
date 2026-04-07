@@ -37,7 +37,7 @@ A single JSON configuration file drives the entire run.
   "organisations": [
     {
       "type": "AzureDevOpsServices | TeamFoundationServer",
-      "orgOrCollection": "https://dev.azure.com/myorg",
+      "url": "https://dev.azure.com/myorg",
       "projects": ["Alpha", "Beta"],
       "apiVersion": "7.1",
       "authentication": {
@@ -91,7 +91,7 @@ A single JSON configuration file drives the entire run.
 | `source.authentication` | No | Auth credentials block (`type` + `accessToken`). If omitted, Windows-integrated auth is used. |
 | `target` | Required for `Import` and `Both` | Target system connection details |
 | `target.authentication` | No | Auth credentials block (`type` + `accessToken`). |
-| `organisations` | Mode 2 inventory only | Multi-org tooling roster. Mutually exclusive with `source`. Each entry has `type`, `orgOrCollection`, `projects`, `authentication`, and `enabled`. |
+| `organisations` | Mode 2 inventory only | Multi-org tooling roster. Mutually exclusive with `source`. Each entry has `type`, `url`, `projects`, `authentication`, and `enabled`. |
 | `modules` | Yes | Ordered list of modules to run with their scope configurations |
 | `policies` | No | Retry and throttle policies |
 

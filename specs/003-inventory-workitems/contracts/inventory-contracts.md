@@ -58,7 +58,7 @@ IConfiguration `__`-path env var override applies to all `source.*` fields (stan
     {
       "enabled": true,
       "type": "AzureDevOpsServices | TeamFoundationServer",
-      "orgOrCollection": "<url>",
+      "url": "<url>",
       "projects": ["<name>"],
       "apiVersion": "<version>",
       "authentication": {
@@ -76,7 +76,7 @@ Fields per entry:
 |---|---|---|---|
 | `enabled` | No | `true` | `false` = skip silently |
 | `type` | Yes | — | `"AzureDevOpsServices"` or `"TeamFoundationServer"` |
-| `orgOrCollection` | Yes | — | URL |
+| `url` | Yes | — | URL |
 | `projects` | No | `[]` | Empty/absent = all projects in org |
 | `apiVersion` | Yes | — | Pinned version |
 | `authentication.type` | Yes | — | `"Pat"` or `"Windows"` |
@@ -92,7 +92,7 @@ IConfiguration `__`-path overrides do **not** reach `organisations[n]` entries. 
 | Neither set | `"Config error: Config must contain either a 'source' block (Mode 1) or an 'organisations' array (Mode 2)."` |
 | Mode 1, project null, no `--all-projects` | `"Config error: 'source.project' is not set. Specify a project in the config or pass --all-projects to inventory the whole organisation."` |
 | Mode 2, array empty | `"Config error: 'organisations' array is empty."` |
-| Pat auth, resolved token empty | `"Config error: PAT for '{orgOrCollection}' resolved to an empty string. Set 'authentication.accessToken' to a literal value or '$ENV:VARNAME'."` |
+| Pat auth, resolved token empty | `"Config error: PAT for '{url}' resolved to an empty string. Set 'authentication.accessToken' to a literal value or '$ENV:VARNAME'."` |
 
 ### CSV output schema (`discovery-summary.csv`)
 
@@ -100,7 +100,7 @@ One row per project. All projects are written, including those that failed mid-c
 
 | Column | Type | Notes |
 |---|---|---|
-| `OrgOrCollection` | string | Source org or collection URL |
+| `Url` | string | Source org or collection URL |
 | `ProjectName` | string | Project name |
 | `WorkItemsCount` | int | Total work items counted (partial on failure) |
 | `RevisionsCount` | int | Sum of all `System.Rev` values (partial on failure) |
@@ -133,7 +133,7 @@ For Windows auth, stdin is `{}` (empty object; the subprocess uses the current W
 One JSON object per line, each line is a complete `InventoryProgressEvent`:
 
 ```json
-{"projectName":"Alpha","orgOrCollection":"https://dev.azure.com/myorg","workItemsCount":1200,"revisionsCount":3450,"isComplete":false,"windowStart":"2026-01-01T00:00:00Z","windowEnd":"2026-05-01T00:00:00Z","windowSize":"120.00:00:00","error":null,"timestamp":"2026-04-04T10:23:11Z"}
+{"projectName":"Alpha","url":"https://dev.azure.com/myorg","workItemsCount":1200,"revisionsCount":3450,"isComplete":false,"windowStart":"2026-01-01T00:00:00Z","windowEnd":"2026-05-01T00:00:00Z","windowSize":"120.00:00:00","error":null,"timestamp":"2026-04-04T10:23:11Z"}
 ```
 
 Final event per project has `"isComplete": true`.

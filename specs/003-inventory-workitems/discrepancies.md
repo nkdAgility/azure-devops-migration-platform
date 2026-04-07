@@ -20,7 +20,7 @@
 - **Source doc**: `docs/configuration.md`
 - **Section**: "Full Schema" and "Top-Level Fields" table
 - **Issue**: The spec introduces a second config mode (`organisations` array) for multi-org, multi-project tooling operations. This key does not appear anywhere in `docs/configuration.md`. The mutual exclusion rule (cannot have both `organisations` and `source`) is also undocumented.
-- **Suggested update**: Add an `organisations` section to the Full Schema example and the Top-Level Fields table. Add a note explaining the two mutually exclusive config modes and the validation rules that govern them. Document the `organisations` entry fields (`type`, `orgOrCollection`, `projects`, `apiVersion`, `authentication`, `enabled`).
+- **Suggested update**: Add an `organisations` section to the Full Schema example and the Top-Level Fields table. Add a note explaining the two mutually exclusive config modes and the validation rules that govern them. Document the `organisations` entry fields (`type`, `url`, `projects`, `apiVersion`, `authentication`, `enabled`).
 
 ---
 
