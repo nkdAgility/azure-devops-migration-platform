@@ -34,8 +34,8 @@ internal class Program
 
                 branch.AddCommand<InventoryCommand>("inventory")
                     .WithDescription("Count work items and revisions per project")
-                    .WithExample("discovery", "inventory", "--all-projects")
-                    .WithExample("discovery", "inventory", "--output", "./inventory-results");
+                    .WithExample("discovery", "inventory", "--config", "migration.json")
+                    .WithExample("discovery", "inventory", "--config", "migration.json", "--output", "./inventory-results");
             });
 
             config.AddCommand<TfsExportCommand>("tfsexport")

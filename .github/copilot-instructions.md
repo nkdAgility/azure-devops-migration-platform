@@ -31,7 +31,7 @@ and formalised in [.specify/memory/constitution.md](../.specify/memory/constitut
 | 14 | Resilience & Fault Tolerance | Retry + back-off; circuit breakers; explicit timeouts |
 | 15 | Security by Design | Validate input; secrets via Key Vault; no creds in args; all vulnerabilities fixed or tracked |
 | 16 | Deployment & Release Discipline | CI/CD; reproducible builds; safe strategies |
-| 17 | Build & Dependency Hygiene | Every change must build clean; pinned versions; vulnerability scan after build |
+| 17 | Build & Dependency Hygiene | Every change must build clean and all tests must pass; pinned versions; vulnerability scan after build |
 | 18 | Performance & Resource Efficiency | Measure first; stream unbounded data; bounded caches |
 | 19 | Cost Awareness | Justified provisioning; explicit scaling bounds |
 | 20 | Operational Readiness | Health checks; correlation IDs; runbooks |
@@ -57,4 +57,5 @@ Reject any suggestion that:
 - Writes migration logic in the TUI or control plane
 - Performs direct Source → Target migration
 - Submits a change without a successful `dotnet build /warnaserror`
+- Declares done without all tests passing (`dotnet test`)
 - Ships a known vulnerability without a fix or an explicit written rationale and tracked issue

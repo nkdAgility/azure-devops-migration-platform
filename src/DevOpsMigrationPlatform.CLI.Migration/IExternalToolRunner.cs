@@ -7,6 +7,12 @@ namespace DevOpsMigrationPlatform.CLI;
 /// <summary>
 /// Launches an external executable and streams its stdout/stderr back via callbacks.
 /// </summary>
+/// <remarks>
+/// Intentionally placed in the <c>DevOpsMigrationPlatform.CLI</c> assembly rather than
+/// <c>Abstractions</c>. OS process management (exit codes, stdout/stderr callbacks) is a
+/// CLI infrastructure concern with no domain meaning. Moving it to <c>Abstractions</c>
+/// would introduce infrastructure vocabulary into the domain layer.
+/// </remarks>
 public interface IExternalToolRunner
 {
     /// <summary>

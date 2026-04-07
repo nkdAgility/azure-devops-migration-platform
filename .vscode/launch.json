@@ -60,8 +60,12 @@
                 "discovery",
                 "inventory",
                 "--config",
-                "migration.json"
+                "samples/inventory-ado-single-project.json"
             ],
+            "env": {
+                "AZDEVOPS_DEV_ORG": "${env:AZDEVOPS_DEV_ORG}",
+                "AZDEVOPS_DEV_PAT": "${env:AZDEVOPS_DEV_PAT}"
+            },
             "cwd": "${workspaceFolder}",
             "console": "integratedTerminal",
             "stopAtEntry": false,
@@ -76,10 +80,14 @@
                 "discovery",
                 "inventory",
                 "--config",
-                "migration.json",
+                "samples/inventory-ado-multi-project.json",
                 "--output",
                 "./inventory-results"
             ],
+            "env": {
+                "AZDEVOPS_DEV_ORG": "${env:AZDEVOPS_DEV_ORG}",
+                "AZDEVOPS_DEV_PAT": "${env:AZDEVOPS_DEV_PAT}"
+            },
             "cwd": "${workspaceFolder}",
             "console": "integratedTerminal",
             "stopAtEntry": false,
@@ -94,7 +102,7 @@
                 "discovery",
                 "inventory",
                 "--config",
-                "migration.json",
+                "samples/inventory-tfs-windows-auth.json",
                 "--verbose"
             ],
             "cwd": "${workspaceFolder}",
@@ -111,9 +119,13 @@
                 "discovery",
                 "inventory",
                 "--config",
-                "migration.json",
+                "samples/inventory-multi-org.json",
                 "--dry-run"
             ],
+            "env": {
+                "AZDEVOPS_PAT_ORG1": "${env:AZDEVOPS_PAT_ORG1}",
+                "AZDEVOPS_PAT_ORG2": "${env:AZDEVOPS_PAT_ORG2}"
+            },
             "cwd": "${workspaceFolder}",
             "console": "integratedTerminal",
             "stopAtEntry": false,

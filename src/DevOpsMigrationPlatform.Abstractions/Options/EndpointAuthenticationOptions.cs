@@ -1,3 +1,5 @@
+using DevOpsMigrationPlatform.Abstractions.Utilities;
+
 namespace DevOpsMigrationPlatform.Abstractions.Options;
 
 /// <summary>
@@ -11,8 +13,15 @@ public sealed class EndpointAuthenticationOptions
 
     /// <summary>
     /// Personal Access Token (or <c>$ENV:VARNAME</c> reference).
-    /// Resolved at runtime by <see cref="DevOpsMigrationPlatform.Abstractions.Utilities.TokenResolver"/>.
+    /// Resolved at runtime via <see cref="ResolvedAccessToken"/>.
     /// Required when <see cref="Type"/> is <c>Pat</c>; ignored for <c>Windows</c>.
     /// </summary>
     public string? AccessToken { get; set; }
+
+    /// <summary>
+    /// The effective access token after <c>$ENV:VARNAME</c> expansion.
+    /// Use this instead of <see cref="AccessToken"/> when making API calls.
+    /// Returns <c>null</c> when <see cref="AccessToken"/> is null or empty.
+    /// </summary>
+    public string? ResolvedAccessToken => TokenResolver.Resolve(AccessToken);
 }

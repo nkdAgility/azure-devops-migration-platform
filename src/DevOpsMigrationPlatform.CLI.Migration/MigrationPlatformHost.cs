@@ -105,7 +105,10 @@ public static class MigrationPlatformHost
         {
             if ((args[i] == "--config" || args[i] == "-c") && i + 1 < args.Length)
             {
-                configFile = args[++i];
+                var raw = args[++i];
+                configFile = Path.IsPathRooted(raw)
+                    ? raw
+                    : Path.GetFullPath(Path.Combine(Directory.GetCurrentDirectory(), raw));
             }
             else
             {

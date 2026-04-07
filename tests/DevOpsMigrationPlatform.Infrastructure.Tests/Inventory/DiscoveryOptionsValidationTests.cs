@@ -130,4 +130,25 @@ public class DiscoveryOptionsValidationTests
         };
         opts.Validate(); // must not throw
     }
+
+    [TestMethod]
+    public void Validate_TfsEntryWithNoAuthBlock_DoesNotThrow()
+    {
+        // Regression: an entry without an explicit <authentication> block must not
+        // trigger PAT validation. The default AuthenticationType.None sentinel
+        // ensures DiscoveryOptions.Validate skips PAT checks for Windows/anonymous TFS entries.
+        var opts = new DiscoveryOptions
+        {
+            Organisations = new()
+            {
+                new OrganisationEntry
+                {
+                    Type = "TeamFoundationServer",
+                    Url = "http://tfs:8080/tfs/DefaultCollection"
+                    // Authentication deliberately omitted — defaults to AuthenticationType.None
+                }
+            }
+        };
+        opts.Validate(); // must not throw
+    }
 }

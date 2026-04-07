@@ -1,20 +1,21 @@
 <!--
 SYNC IMPACT REPORT
 ==================
-Version change:    1.3.0 → 1.3.1
-Bump rationale:    Clarification — build verification and vulnerability handling made
-                   explicit in Principle X categories 15 and 17, and in Reject Conditions.
-                   Every change must produce a successful build. Every known vulnerability
-                   must be remediated or explicitly called out with a tracked issue.
+Version change:    1.3.1 → 1.3.2
+Bump rationale:    Clarification — test verification made explicit alongside build
+                   verification throughout the constitution. Principle X category 17,
+                   the Development Flow in agents.md, and all Reject Conditions now
+                   require both `dotnet build /warnaserror` AND `dotnet test` to pass
+                   before any task is considered complete.
 
 Principles modified:
-  X. Engineering Practice Discipline — categories 15 and 17 expanded
+  X. Engineering Practice Discipline — category 17 expanded
 
 Principles added:
   None
 
 Sections modified:
-  Reject Conditions — 2 new entries added
+  Reject Conditions — 1 new entry added
 
 Templates updated:
   ✅ .specify/templates/plan-template.md — no changes required
@@ -239,7 +240,9 @@ concrete examples for each.
     safe deployment strategies.
 17. **Build & Dependency Hygiene** — Pinned dependencies via `Directory.Packages.props`;
     zero-warning builds; reproducible CI. **Every code change MUST produce a successful
-    `dotnet build /warnaserror` before it is considered complete.** Vulnerability scanning
+    `dotnet build /warnaserror` before it is considered complete.** **Every code change
+    MUST also produce a passing `dotnet test` before it is considered complete.** A change
+    that does not compile or that causes test failures is not done. Vulnerability scanning
     MUST follow every build step.
 18. **Performance & Resource Efficiency** — Measure before optimising; streaming for
     unbounded data; bounded caches.
@@ -340,6 +343,7 @@ Reject any proposal that:
 - Deploys a component without a liveness/readiness health-check endpoint.
 - Introduces unbounded auto-scale configuration without a documented cost ceiling.
 - Submits a code change without verifying it produces a successful build (`dotnet build /warnaserror`).
+- Declares a task complete without all tests passing (`dotnet test`).
 - Ships a known vulnerability without either remediating it or providing an explicit written rationale and a tracked issue.
 
 ## Governance
@@ -368,4 +372,4 @@ Reject any proposal that:
 - All pull requests and agent reviews MUST verify compliance against this
   constitution and the guardrails before approving.
 
-**Version**: 1.3.1 | **Ratified**: 2026-04-02 | **Last Amended**: 2026-04-07
+**Version**: 1.3.2 | **Ratified**: 2026-04-02 | **Last Amended**: 2026-04-07

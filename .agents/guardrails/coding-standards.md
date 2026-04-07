@@ -432,6 +432,7 @@ public class WorkItemsImportModule
 - All NuGet package versions MUST be centralised in `Directory.Packages.props`; per-project version attributes are prohibited.
 - The solution MUST build cleanly with zero warnings; treat-warnings-as-errors MUST be enforced in CI.
 - **Every code change MUST produce a successful build before it is considered complete.** A change that does not compile is not done.
+- **Every code change MUST also produce a passing `dotnet test` before it is considered complete.** A change that causes test failures is not done.
 - New NuGet dependencies MUST be justified in the PR that introduces them.
 - Transitive dependency conflicts MUST be resolved explicitly in `Directory.Packages.props`.
 - CI builds MUST be reproducible: timestamps, random seeds, and non-deterministic outputs MUST be suppressed or fixed.
@@ -509,6 +510,7 @@ public class WorkItemsImportModule
 - Deployable component without a liveness/readiness health-check endpoint.
 - Interface defined outside `DevOpsMigrationPlatform.Abstractions`.
 - Code change submitted without a successful build verification.
+- Code change submitted without a passing test run (`dotnet test`).
 - Known vulnerability shipped without either a fix or an explicit written rationale and tracked issue.
 - Holding a compiled reference to `DevOpsMigrationPlatform.CLI.TfsMigration` from any .NET 10 project.
 - Spawning the TFS exporter subprocess from any code other than `ExternalToolRunner` in `DevOpsMigrationPlatform.CLI.Migration`.
@@ -561,6 +563,7 @@ Before merging changes, verify:
 - Does this code add retry logic without exponential back-off?
 - Does this code deploy a component without a health-check endpoint?
 - Has this change been verified to produce a successful `dotnet build /warnaserror`?
+- Have all tests been verified to pass with `dotnet test`?
 - Does this change introduce or surface a known vulnerability? If so, is it remediated or explicitly called out with a tracked issue?
 - Has `dotnet list package --vulnerable` been run and are all HIGH/CRITICAL findings resolved or documented?
 

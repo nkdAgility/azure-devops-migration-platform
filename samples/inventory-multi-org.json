@@ -1,0 +1,23 @@
+{
+  "ConfigVersion": "1.0",
+  "Organisations": [
+    {
+      "Type": "AzureDevOpsServices",
+      "Url": "$ENV:AZDEVOPS_DEV_ORG",
+      "Projects": [],
+      "Authentication": {
+        "Type": "Pat",
+        "AccessToken": "$ENV:AZDEVOPS_DEV_PAT"
+      }
+    },
+    {
+      "Type": "AzureDevOpsServices",
+      "Url": "https://dev.azure.com/nkdagility-learn/",
+      "Projects": [],
+      "Authentication": {
+        "Type": "Pat",
+        "AccessToken": "$ENV:AZDEVOPS_DEV_PAT"
+      }
+    }
+  ]
+}

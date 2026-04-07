@@ -9,6 +9,12 @@ namespace DevOpsMigrationPlatform.Infrastructure.AzureDevOps;
 /// Creates Azure DevOps HTTP clients from a URL and PAT, isolating all
 /// <c>VssConnection</c> / SDK construction from service logic.
 /// </summary>
+/// <remarks>
+/// Intentionally placed in <c>Infrastructure.AzureDevOps</c> rather than <c>Abstractions</c>.
+/// Its return types (<see cref="ProjectHttpClient"/>, <see cref="WorkItemTrackingHttpClient"/>)
+/// are Azure DevOps SDK types. Moving this interface to <c>Abstractions</c> would introduce
+/// an SDK package dependency on the domain layer, violating the layering constraint.
+/// </remarks>
 public interface IAzureDevOpsClientFactory
 {
     /// <summary>Returns a <see cref="ProjectHttpClient"/> authenticated against <paramref name="url"/>.</summary>

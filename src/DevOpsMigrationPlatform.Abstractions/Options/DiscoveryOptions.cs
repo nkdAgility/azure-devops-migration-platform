@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using DevOpsMigrationPlatform.Abstractions.Utilities;
 
 namespace DevOpsMigrationPlatform.Abstractions.Options;
 
@@ -35,13 +34,19 @@ public sealed class DiscoveryOptions
                 throw new InvalidOperationException(
                     $"Config error: An organisations entry of type '{entry.Type}' is missing 'url'.");
 
+            var resolvedUrl = entry.ResolvedUrl;
+            if (string.IsNullOrWhiteSpace(resolvedUrl))
+                throw new InvalidOperationException(
+                    $"Config error: URL for a '{entry.Type}' entry resolved to an empty string. " +
+                    "Set 'url' to a literal value or '$ENV:VARNAME'.");
+
             if (entry.Authentication != null &&
                 entry.Authentication.Type == AuthenticationType.Pat)
             {
-                var resolved = TokenResolver.Resolve(entry.Authentication.AccessToken);
+                var resolved = entry.Authentication.ResolvedAccessToken;
                 if (string.IsNullOrWhiteSpace(resolved))
                     throw new InvalidOperationException(
-                        $"Config error: PAT for '{entry.Url}' resolved to an empty string. " +
+                        $"Config error: PAT for '{resolvedUrl}' resolved to an empty string. " +
                         "Set 'authentication.accessToken' to a literal value or '$ENV:VARNAME'.");
             }
         }

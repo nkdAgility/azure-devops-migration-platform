@@ -8,7 +8,6 @@ using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Models;
 using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Abstractions.Services;
-using DevOpsMigrationPlatform.Abstractions.Utilities;
 using Microsoft.Extensions.Options;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Services;
@@ -44,22 +43,23 @@ public sealed class InventoryService : IInventoryService
         foreach (var entry in opts.Organisations.Where(e => e.Enabled))
         {
             var pat = entry.Authentication?.Type == AuthenticationType.Pat
-                ? TokenResolver.Resolve(entry.Authentication.AccessToken) ?? string.Empty
+                ? entry.Authentication.ResolvedAccessToken ?? string.Empty
                 : string.Empty;
 
+            var resolvedUrl = entry.ResolvedUrl;
             var projects = entry.Projects.Count > 0
                 ? entry.Projects
-                : await _projectDiscovery.DiscoverProjectsAsync(entry.Url, pat, cancellationToken);
+                : await _projectDiscovery.DiscoverProjectsAsync(resolvedUrl, pat, cancellationToken);
 
             foreach (var project in projects)
             {
                 await foreach (var summary in _workItemDiscovery.DiscoverWorkItemsAsync(
-                    entry.Url, project, pat, cancellationToken))
+                    resolvedUrl, project, pat, cancellationToken))
                 {
                     yield return new InventoryProgressEvent
                     {
                         ProjectName = project,
-                        Url = entry.Url,
+                        Url = resolvedUrl,
                         WorkItemsCount = summary.WorkItemsCount,
                         RevisionsCount = summary.RevisionsCount,
                         IsComplete = summary.IsWorkItemComplete,
