@@ -1,19 +1,24 @@
 <!--
 SYNC IMPACT REPORT
 ==================
-Version change:    1.2.0 → 1.2.1
-Bump rationale:    Governance clarification — explicit mandatory context-loading rule added
-                   for .agents/context/, .agents/guardrails/, and docs/ to ensure all
-                   agents and contributors always consult the full canonical reference set.
+Version change:    1.2.1 → 1.3.0
+Bump rationale:    New Principle X added — Engineering Practice Discipline.
+                   Formalises 21 engineering practice categories drawn from the
+                   SOLID-aligned standards in .agents/guardrails/coding-standards.md,
+                   covering type system, immutability, concurrency, configuration,
+                   versioning, API design, data integrity, resilience, security,
+                   build hygiene, performance, cost awareness, operational readiness,
+                   and documentation as an engineering asset.
+                   Reject conditions extended with 13 new entries.
 
 Principles modified:
   None
 
 Principles added:
-  None
+  X. Engineering Practice Discipline (NON-NEGOTIABLE)
 
 Sections modified:
-  Governance — mandatory context-loading rule added; .agents/context/ formally listed
+  Reject Conditions — 13 new entries added
 
 Templates updated:
   ✅ .specify/templates/plan-template.md — no changes required
@@ -157,6 +162,61 @@ flow through the `IOptions<T>` model — never raw `IConfiguration` in services.
   Principle). Classes combining orchestration, IO, and business rules MUST be
   split along those boundaries.
 
+### X. Engineering Practice Discipline (NON-NEGOTIABLE)
+
+All production code MUST comply with the 21 engineering-practice categories defined in
+`.agents/guardrails/coding-standards.md`. The categories are enumerated here as a
+constitution-level commitment; the guardrail file contains the enforceable rules and
+concrete examples for each.
+
+1. **Boundary Integrity & Separation of Concerns** — Clear architectural boundaries;
+   no leakage of infrastructure into domain logic.
+2. **Type System & Domain Modelling** — Encode intent in types; eliminate primitive
+   obsession; align names with the domain language.
+3. **Immutability & State Management** — Prefer immutable structures; explicit state
+   transitions; no shared mutable state.
+4. **Dependency Management & Inversion of Control** — Constructor injection only;
+   depend on abstractions; no hidden dependencies.
+5. **SOLID Compliance** — SRP, OCP, LSP, ISP, DIP applied at object level (see
+   Principle IX for the enforced rules).
+6. **Testability & Determinism** — Isolated, repeatable tests; no reliance on
+   external state, time, or environment.
+7. **Observability** — Structured logging; OpenTelemetry metrics and distributed
+   tracing; designed for diagnosability.
+8. **Concurrency & Async Safety** — Correct async/await; `CancellationToken`
+   propagated throughout; no `.Result` or `.Wait()` calls.
+9. **Error Handling & Validation** — Fail fast on invalid input; clear, actionable
+   error signals; no exceptions for control flow.
+10. **Configuration & Environment Isolation** — Externalised configuration via
+    `IOptions<T>`; no environment-specific branching in code.
+11. **Versioning & Contract Stability** — Explicit versioning strategy; backward
+    compatibility discipline; controlled deprecation.
+12. **API & Integration Design** — Explicit contracts; idempotent operations;
+    predictable failure modes; SDK calls wrapped behind abstractions.
+13. **Data Integrity & Persistence Discipline** — Safe schema evolution; atomic
+    writes; idempotency via `idmap.db` and cursor state.
+14. **Resilience & Fault Tolerance** — Retries with back-off; circuit breakers;
+    graceful degradation; explicit timeout budgets.
+15. **Security by Design** — Input validation; credential handling via managed
+    identity/Key Vault; no secrets in logs or CLI args.
+16. **Deployment & Release Discipline** — CI/CD integration; reproducible builds;
+    safe deployment strategies.
+17. **Build & Dependency Hygiene** — Pinned dependencies via `Directory.Packages.props`;
+    zero-warning builds; reproducible CI.
+18. **Performance & Resource Efficiency** — Measure before optimising; streaming for
+    unbounded data; bounded caches.
+19. **Cost Awareness** — Justified provisioning; explicit scaling bounds; progress
+    metrics enabling cost estimation.
+20. **Operational Readiness** — Health-check endpoints; correlation IDs in logs;
+    runbooks; measurable MTTR.
+21. **Documentation as an Engineering Asset** — ADRs for significant decisions;
+    XML doc-comments on all public abstractions; living feature files.
+
+Any proposal that violates any of these categories MUST be rejected. The detailed
+enforcement rules, prohibited patterns, and code examples live in
+`.agents/guardrails/coding-standards.md` and MUST be consulted alongside this
+constitution.
+
 ### VIII. ATDD-First Development (NON-NEGOTIABLE)
 
 Development follows a two-loop cycle. The **SpecKit outer loop** captures
@@ -261,6 +321,23 @@ Reject any proposal that:
   across `Program.cs` instead of a dedicated `Add*Services` extension method.
 - Places an interface definition inside an infrastructure or CLI project
   instead of `DevOpsMigrationPlatform.Abstractions`.
+- Calls `.Result` or `.Wait()` on a `Task` or `ValueTask` anywhere in production code.
+- Ignores or discards a `CancellationToken` parameter instead of forwarding it.
+- Contains hard-coded secrets, connection strings, or credentials in source code.
+- Calls an external SDK (Azure DevOps, TFS OM) directly from module or domain code
+  without an abstraction wrapper interface.
+- Uses floating or wildcard NuGet version ranges (`Version="*"`, `Version="Latest"`).
+- Introduces a breaking schema or API change without a version increment and a
+  corresponding upgrader.
+- Branches on environment name in code (`if (env == "Production")`) instead of
+  external configuration.
+- Uses primitive types (raw `string`, `int`) where a domain-specific type would
+  encode intent and constraints.
+- Defines public mutable setters on a DTO or domain model type instead of
+  `init`-only properties or constructor assignment.
+- Implements retry logic without exponential back-off.
+- Deploys a component without a liveness/readiness health-check endpoint.
+- Introduces unbounded auto-scale configuration without a documented cost ceiling.
 
 ## Governance
 
@@ -288,4 +365,4 @@ Reject any proposal that:
 - All pull requests and agent reviews MUST verify compliance against this
   constitution and the guardrails before approving.
 
-**Version**: 1.2.1 | **Ratified**: 2026-04-02 | **Last Amended**: 2026-04-04
+**Version**: 1.3.0 | **Ratified**: 2026-04-02 | **Last Amended**: 2026-04-07
