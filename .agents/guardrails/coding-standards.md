@@ -437,7 +437,7 @@ public class WorkItemsImportModule
 - Transitive dependency conflicts MUST be resolved explicitly in `Directory.Packages.props`.
 - CI builds MUST be reproducible: timestamps, random seeds, and non-deterministic outputs MUST be suppressed or fixed.
 - No `<PackageReference>` with `Version="*"` or `Version="$(PackageVersion)"` without a concrete version source.
-- `dotnet build` with `/warnaserror` MUST be the first step in every CI pipeline; subsequent steps MUST NOT run if the build fails.
+- `dotnet build --no-incremental` MUST be the first step in every CI pipeline; subsequent steps MUST NOT run if the build fails.
 - Dependency vulnerability scanning (`dotnet list package --vulnerable`) MUST run after every build in CI.
 
 ---
@@ -562,7 +562,7 @@ Before merging changes, verify:
 - Does this code define an interface outside `DevOpsMigrationPlatform.Abstractions`?
 - Does this code add retry logic without exponential back-off?
 - Does this code deploy a component without a health-check endpoint?
-- Has this change been verified to produce a successful `dotnet build /warnaserror`?
+- Has this change been verified to produce a successful `dotnet build --no-incremental`?
 - Have all tests been verified to pass with `dotnet test`?
 - Does this change introduce or surface a known vulnerability? If so, is it remediated or explicitly called out with a tracked issue?
 - Has `dotnet list package --vulnerable` been run and are all HIGH/CRITICAL findings resolved or documented?

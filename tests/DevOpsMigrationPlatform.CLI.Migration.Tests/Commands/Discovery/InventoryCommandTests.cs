@@ -34,6 +34,8 @@ public class InventoryCommandTests
 
     [TestMethod]
     [TestCategory("SystemTest")]
+    [TestProperty("Category", "SystemTest")]
+    [TestProperty("Priority", "1")]
     public async Task InventoryCommand_SystemTest_ValidCredentials_ExecutesSuccessfully()
     {
         // Arrange

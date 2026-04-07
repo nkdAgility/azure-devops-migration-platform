@@ -210,7 +210,7 @@ Reject any proposal that:
 - References a concrete artefact store implementation inside module code.
 - Sorts `EnumerateAsync` results in memory.
 - Creates agent rule files under `/docs` instead of `/.agents/guardrails`.
-- Declares a task complete without a passing `dotnet build /warnaserror`.
+- Declares a task complete without a passing `dotnet build --no-incremental`.
 - Declares a task complete without all tests passing (`dotnet test`).
 ---
 
@@ -223,7 +223,7 @@ When implementing:
 3. Implement via module abstraction.
 4. Add tests.
 5. Update schemas if required.
-6. Run `dotnet build /warnaserror` — MUST pass before the task is considered complete.
+6. Run `dotnet build --no-incremental` — MUST pass before the task is considered complete.
 7. Run `dotnet test` — ALL tests MUST pass before the task is considered complete.
 
 ---
