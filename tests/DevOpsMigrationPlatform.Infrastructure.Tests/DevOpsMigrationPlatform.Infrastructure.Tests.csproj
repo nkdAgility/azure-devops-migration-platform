@@ -41,6 +41,14 @@
       <Link>Features\export-work-item-revisions.feature</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
+    <None Include="..\..\features\export\work-items\links\export-work-item-links.feature">
+      <Link>Features\export-work-item-links.feature</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="..\..\features\export\work-items\attachments\export-attachments.feature">
+      <Link>Features\export-attachments.feature</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
     <None Include="..\..\features\services\identity-mapping\identity-mapping.feature">
       <Link>Features\identity-mapping.feature</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
