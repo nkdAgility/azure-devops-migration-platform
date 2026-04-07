@@ -14,7 +14,7 @@ namespace DevOpsMigrationPlatform.Abstractions;
 /// {
 ///   "ConfigVersion": "1.0",
 ///   "Mode": "Export",
-///   "Source": { "Type": "AzureDevOpsServices", "OrgOrCollection": "...", "Project": "..." },
+///   "Source": { "Type": "AzureDevOpsServices", "Url": "...", "Project": "..." },
 ///   "Artefacts": { "Path": "D:\\exports\\run-001" },
 ///   "Modules": {
 ///     "WorkItems": { "Enabled": true, "Query": "SELECT ..." }

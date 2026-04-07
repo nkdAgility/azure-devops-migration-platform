@@ -10,7 +10,7 @@ namespace DevOpsMigrationPlatform.Infrastructure.AzureDevOps;
 public interface IWiqlQueryClientFactory
 {
     Task<IWiqlQueryClient> CreateAsync(
-        string orgOrCollectionUrl,
+        string url,
         string pat,
         CancellationToken cancellationToken = default);
 }

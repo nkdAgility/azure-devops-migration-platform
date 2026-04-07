@@ -18,13 +18,13 @@ namespace DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.Services;
 public sealed class TfsObjectModelWorkItemDiscoveryService : IWorkItemDiscoveryService
 {
     public async IAsyncEnumerable<ProjectDiscoverySummary> DiscoverWorkItemsAsync(
-        string orgOrCollection,
+        string collectionUrl,
         string project,
         string pat,
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         var credentials = new System.Net.NetworkCredential(string.Empty, pat);
-        var tfsUri = new Uri(orgOrCollection);
+        var tfsUri = new Uri(collectionUrl);
         var tpc = new TfsTeamProjectCollection(tfsUri, credentials);
         tpc.EnsureAuthenticated();
 

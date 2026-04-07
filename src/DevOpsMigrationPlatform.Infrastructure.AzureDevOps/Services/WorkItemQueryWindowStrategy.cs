@@ -32,7 +32,7 @@ public sealed class WorkItemQueryWindowStrategy : IWorkItemQueryWindowStrategy
     }
 
     public async IAsyncEnumerable<WorkItemQueryWindow> EnumerateWindowsAsync(
-        string orgOrCollection,
+        string organisationUrl,
         string project,
         string pat,
         WorkItemQueryWindowOptions? options = null,
@@ -40,7 +40,7 @@ public sealed class WorkItemQueryWindowStrategy : IWorkItemQueryWindowStrategy
     {
         options ??= new WorkItemQueryWindowOptions();
 
-        var witClient = await _clientFactory.CreateAsync(orgOrCollection, pat, cancellationToken);
+        var witClient = await _clientFactory.CreateAsync(organisationUrl, pat, cancellationToken);
 
         // ── Step 1: Unbounded probe ──────────────────────────────────────────
         // A single query without date filters retrieves all IDs for the project.

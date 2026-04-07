@@ -9,6 +9,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Moq;
+using Spectre.Console;
 using Spectre.Console.Cli;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Tests.Cli;
@@ -27,10 +28,18 @@ internal sealed class MigrateLogsContext : IDisposable
         var command = new LogsCommand();
 
         // Build a minimal host with mock services so the command skips CreateHost
+        var testConsole = AnsiConsole.Create(new AnsiConsoleSettings
+        {
+            Ansi = AnsiSupport.No,
+            ColorSystem = ColorSystemSupport.NoColors,
+            Out = new AnsiConsoleOutput(StdoutCapture),
+        });
+
         var host = Host.CreateDefaultBuilder()
             .ConfigureServices(services =>
             {
                 services.AddSingleton<ILogsClient>(ClientMock.Object);
+                services.AddSingleton<IAnsiConsole>(testConsole);
             })
             .Build();
 

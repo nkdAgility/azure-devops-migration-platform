@@ -17,7 +17,7 @@ public interface IWorkItemDiscoveryService
     /// Streams incremental work-item discovery snapshots for <paramref name="project"/>.
     /// </summary>
     IAsyncEnumerable<ProjectDiscoverySummary> DiscoverWorkItemsAsync(
-        string orgOrCollection,
+        string url,
         string project,
         string pat,
         CancellationToken cancellationToken = default);

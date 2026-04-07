@@ -9,7 +9,7 @@ public class MigrationJobEndpoint
     public string Type { get; init; } = string.Empty;
 
     /// <summary>Organisation URL (AZDO) or collection URL (TFS).</summary>
-    public string OrgOrCollection { get; init; } = string.Empty;
+    public string Url { get; init; } = string.Empty;
 
     /// <summary>Team project name.</summary>
     public string Project { get; init; } = string.Empty;

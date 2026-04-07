@@ -29,17 +29,17 @@ public sealed class AzureDevOpsWorkItemDiscoveryService : IWorkItemDiscoveryServ
     }
 
     public async IAsyncEnumerable<ProjectDiscoverySummary> DiscoverWorkItemsAsync(
-        string orgOrCollection,
+        string organisationUrl,
         string project,
         string pat,
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
-        var witClient = await _clientFactory.CreateWorkItemClientAsync(orgOrCollection, pat, cancellationToken);
+        var witClient = await _clientFactory.CreateWorkItemClientAsync(organisationUrl, pat, cancellationToken);
 
         var summary = new ProjectDiscoverySummary { ProjectName = project };
 
         await foreach (var window in _windowStrategy.EnumerateWindowsAsync(
-            orgOrCollection, project, pat, cancellationToken: cancellationToken))
+            organisationUrl, project, pat, cancellationToken: cancellationToken))
         {
             cancellationToken.ThrowIfCancellationRequested();
 

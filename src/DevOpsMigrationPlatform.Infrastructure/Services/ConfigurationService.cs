@@ -115,16 +115,16 @@ public class ConfigurationService : IConfigurationService
         {
             if (string.IsNullOrWhiteSpace(options.Source.Type))
                 errors.Add("Source: Type is required");
-            if (string.IsNullOrWhiteSpace(options.Source.OrgOrCollection))
-                errors.Add("Source: OrgOrCollection is required");
+            if (string.IsNullOrWhiteSpace(options.Source.Url))
+                errors.Add("Source: Url is required");
         }
 
         if (options.Target != null)
         {
             if (string.IsNullOrWhiteSpace(options.Target.Type))
                 errors.Add("Target: Type is required");
-            if (string.IsNullOrWhiteSpace(options.Target.OrgOrCollection))
-                errors.Add("Target: OrgOrCollection is required");
+            if (string.IsNullOrWhiteSpace(options.Target.Url))
+                errors.Add("Target: Url is required");
         }
 
         if (errors.Count > 0)
