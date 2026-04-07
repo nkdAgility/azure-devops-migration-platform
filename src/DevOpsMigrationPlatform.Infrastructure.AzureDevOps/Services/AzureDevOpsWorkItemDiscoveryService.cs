@@ -6,9 +6,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Services;
-using Microsoft.TeamFoundation.WorkItemTracking.WebApi;
-using Microsoft.VisualStudio.Services.Common;
-using Microsoft.VisualStudio.Services.WebApi;
 
 namespace DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Services;
 
@@ -20,11 +17,15 @@ namespace DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Services;
 public sealed class AzureDevOpsWorkItemDiscoveryService : IWorkItemDiscoveryService
 {
     private readonly IWorkItemQueryWindowStrategy _windowStrategy;
+    private readonly IAzureDevOpsClientFactory _clientFactory;
     private const int RevisionBatchSize = 200;
 
-    public AzureDevOpsWorkItemDiscoveryService(IWorkItemQueryWindowStrategy windowStrategy)
+    public AzureDevOpsWorkItemDiscoveryService(
+        IWorkItemQueryWindowStrategy windowStrategy,
+        IAzureDevOpsClientFactory clientFactory)
     {
         _windowStrategy = windowStrategy ?? throw new ArgumentNullException(nameof(windowStrategy));
+        _clientFactory = clientFactory ?? throw new ArgumentNullException(nameof(clientFactory));
     }
 
     public async IAsyncEnumerable<ProjectDiscoverySummary> DiscoverWorkItemsAsync(
@@ -33,9 +34,7 @@ public sealed class AzureDevOpsWorkItemDiscoveryService : IWorkItemDiscoveryServ
         string pat,
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
-        var credentials = new VssBasicCredential(string.Empty, pat);
-        var connection = new VssConnection(new Uri(orgOrCollection), credentials);
-        var witClient = await connection.GetClientAsync<WorkItemTrackingHttpClient>(cancellationToken);
+        var witClient = await _clientFactory.CreateWorkItemClientAsync(orgOrCollection, pat, cancellationToken);
 
         var summary = new ProjectDiscoverySummary { ProjectName = project };
 

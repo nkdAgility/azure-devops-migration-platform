@@ -5,10 +5,7 @@ using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions.Services;
-using Microsoft.TeamFoundation.WorkItemTracking.WebApi;
 using Microsoft.TeamFoundation.WorkItemTracking.WebApi.Models;
-using Microsoft.VisualStudio.Services.Common;
-using Microsoft.VisualStudio.Services.WebApi;
 
 namespace DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Services;
 
@@ -19,6 +16,12 @@ namespace DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Services;
 /// </summary>
 public sealed class WorkItemQueryWindowStrategy : IWorkItemQueryWindowStrategy
 {
+    private readonly IAzureDevOpsClientFactory _clientFactory;
+
+    public WorkItemQueryWindowStrategy(IAzureDevOpsClientFactory clientFactory)
+    {
+        _clientFactory = clientFactory ?? throw new ArgumentNullException(nameof(clientFactory));
+    }
     /// <summary>
     /// Enumerates successive date windows for <paramref name="project"/>, each containing
     /// the work item IDs created in that window. Windows are walked backward from
@@ -38,9 +41,7 @@ public sealed class WorkItemQueryWindowStrategy : IWorkItemQueryWindowStrategy
     {
         options ??= new WorkItemQueryWindowOptions();
 
-        var credentials = new VssBasicCredential(string.Empty, pat);
-        var connection = new VssConnection(new Uri(orgOrCollection), credentials);
-        var witClient = await connection.GetClientAsync<WorkItemTrackingHttpClient>(cancellationToken);
+        var witClient = await _clientFactory.CreateWorkItemClientAsync(orgOrCollection, pat, cancellationToken);
 
         var windowSize = TimeSpan.FromDays(options.InitialWindowDays);
         var windowEnd = DateTime.UtcNow;
@@ -72,7 +73,7 @@ public sealed class WorkItemQueryWindowStrategy : IWorkItemQueryWindowStrategy
                     ids = result.WorkItems.Select(r => r.Id).ToList();
                     break;
                 }
-                catch (Exception) when (retries < maxRetries)
+                catch (Exception ex) when (retries < maxRetries && ex is not OperationCanceledException)
                 {
                     retries++;
                     windowSize = TimeSpan.FromTicks(windowSize.Ticks / 2);

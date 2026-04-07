@@ -9,9 +9,9 @@ namespace DevOpsMigrationPlatform.CLI;
 /// Launches an external executable and streams its stdout/stderr
 /// back via callbacks. Returns the process exit code.
 /// </summary>
-public static class ExternalToolRunner
+public sealed class ExternalToolRunner : IExternalToolRunner
 {
-    public static async Task<int> RunWithStreamingAsync(
+    public async Task<int> RunWithStreamingAsync(
         string exePath,
         string arguments,
         string? stdinContent = null,

@@ -43,11 +43,13 @@ public sealed class InventoryService : IInventoryService
 
         foreach (var entry in opts.Organisations.Where(e => e.Enabled))
         {
-            var pat = TokenResolver.Resolve(entry.Authentication?.AccessToken) ?? string.Empty;
+            var pat = entry.Authentication?.Type == AuthenticationType.Pat
+                ? TokenResolver.Resolve(entry.Authentication.AccessToken) ?? string.Empty
+                : string.Empty;
 
             var projects = entry.Projects.Count > 0
                 ? entry.Projects
-                : await _projectDiscovery.GetProjectsAsync(entry.Url, pat, cancellationToken);
+                : await _projectDiscovery.DiscoverProjectsAsync(entry.Url, pat, cancellationToken);
 
             foreach (var project in projects)
             {

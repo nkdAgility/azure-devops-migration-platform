@@ -60,17 +60,12 @@ public sealed class ControlPlaneClient : IJobRunner, ILogsClient
         //   2. Poll GET /jobs/{jobId}/progress at configurable interval
         //   3. Deserialise ProgressEvent items and yield them to the caller
         //   4. Stop polling when job reaches Completed / Failed / Cancelled state
-
-        // Placeholder: single yield so the method is a legal IAsyncEnumerable
-        await Task.Yield();
-        yield return new ProgressEvent
-        {
-            Module = "ControlPlaneClient",
-            Stage = "Submitted",
-            Message = $"Job {job.JobId} submitted — polling not yet implemented"
-        };
-
-        _logger.LogWarning("ControlPlaneClient polling not yet implemented. Job {JobId} submitted only.", job.JobId);
+        throw new NotImplementedException(
+            $"ControlPlaneClient.RunAsync is not yet implemented. " +
+            $"Job {job.JobId} was not submitted. See docs/control-plane.md.");
+#pragma warning disable CS0162 // Unreachable code
+        yield break;
+#pragma warning restore CS0162
     }
 
     /// <summary>

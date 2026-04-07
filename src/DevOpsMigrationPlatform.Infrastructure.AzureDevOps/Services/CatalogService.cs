@@ -26,7 +26,7 @@ public class CatalogService : ICatalogService
         string pat,
         CancellationToken cancellationToken = default)
     {
-        var projects = await _projectDiscovery.GetProjectsAsync(orgUrl, pat, cancellationToken);
+        var projects = await _projectDiscovery.DiscoverProjectsAsync(orgUrl, pat, cancellationToken);
         return projects;
     }
 
