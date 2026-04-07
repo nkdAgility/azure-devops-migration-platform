@@ -1,0 +1,17 @@
+{
+  "ConfigVersion": "1.0",
+  "Mode": "Export",
+  "Source": {
+    "Type": "AzureDevOpsServices",
+    "Url": "$ENV:AZDEVOPS_DEV_ORG",
+    "Project": "migrationTest5",
+    "Authentication": {
+      "Type": "Pat",
+      "AccessToken": "$ENV:AZDEVOPS_DEV_PAT"
+    }
+  },
+  "Artefacts": {
+    "Path": "%TEMP%\\SystemTests\\export-ado-workitems-single-project",
+    "Zip": false
+  }
+}

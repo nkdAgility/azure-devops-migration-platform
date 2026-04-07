@@ -29,6 +29,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\DevOpsMigrationPlatform.CLI.Migration\DevOpsMigrationPlatform.CLI.Migration.csproj" />
+    <ProjectReference Include="..\..\src\DevOpsMigrationPlatform.Infrastructure\DevOpsMigrationPlatform.Infrastructure.csproj" />
   </ItemGroup>
 
 </Project>
