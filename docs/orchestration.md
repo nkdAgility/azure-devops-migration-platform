@@ -66,11 +66,11 @@ Validate job → Build graph → ExportAsync → Validate package → ImportAsyn
 
 The orchestrator runs in the same way regardless of execution context. The context determines where the package lives and how progress is reported, not how modules execute.
 
-### In-Process Hosted (Local / Server)
+### Local / Server Hosted
 
-- The CLI hosts the control plane in-process and spawns Migration Agents as child processes on the same machine.
+- The CLI uses embedded Aspire `DistributedApplication` APIs to start `ControlPlaneHost`, `MigrationAgent`(s), and PostgreSQL on the local machine. All components communicate over HTTP (`http://localhost:5100`).
 - `IArtefactStore` is backed by the local filesystem (`FileSystemArtefactStore`).
-- Progress is consumed by `ConsoleProgressSink` and `PackageProgressSink`.
+- Progress is consumed by all three sinks simultaneously: `ConsoleProgressSink`, `PackageProgressSink`, and `ControlPlaneProgressSink` (enables live TUI streaming via the control plane).
 - Any machine with network access to the host can attach a TUI via the control plane HTTP endpoint.
 
 See [docs/cli.md](cli.md) for local and server command details.

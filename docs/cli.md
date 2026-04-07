@@ -283,8 +283,8 @@ The CLI always communicates with the control plane via `ControlPlaneClient`. The
 
 | Condition | Behaviour |
 |---|---|
-| `MIGRATION_API_URL` not set | CLI drives Aspire to start the control plane on `http://localhost:5100`, agents, and PostgreSQL |
-| `MIGRATION_API_URL` set | CLI connects to the specified remote endpoint; no in-process hosting |
+| `MIGRATION_API_URL` not set | CLI uses **embedded Aspire `DistributedApplication` APIs** to start `ControlPlaneHost`, `MigrationAgent`(s), and PostgreSQL locally at `http://localhost:5100`. The `AppHost` project is **not** invoked — the CLI manages this directly. |
+| `MIGRATION_API_URL` set | CLI connects to the specified remote endpoint; no local services are started |
 | `--url` flag | Overrides `MIGRATION_API_URL` for that invocation |
 
 Running `migrate export --config migration.json` on a local machine with no environment variables configured will drive Aspire to start the control plane, spawn agents, execute the job, and exit — all from a single command.

@@ -108,9 +108,13 @@ isolated layers with no permitted cross-layer coupling.
   package output and cursor state. It MUST be hostable in-process, in a
   container, or in a test harness without modification. It MUST NOT write to
   `Console` or reference any interactive terminal.
-- **TUI** parses arguments, builds a `MigrationJob`, chooses a transport, and
-  renders progress. It MUST NOT contain migration logic, call modules directly,
-  write cursors, or access `IArtefactStore` outside the Job Engine boundary.
+- **CLI** parses arguments, builds a `MigrationJob`, submits it to the control
+  plane via `ControlPlaneClient`, and renders progress. It MUST NOT contain
+  migration logic, call modules directly, write cursors, or access
+  `IArtefactStore` outside the Job Engine boundary.
+- **TUI** is a pure progress viewer. It connects to the control plane to display
+  live job state. It MUST NOT parse migration arguments, build `MigrationJob`
+  objects, submit jobs, or contain any migration logic.
 - **TFS Object Model** runs in an isolated .NET 4.8 subprocess only, invoked
   exclusively via `TfsExporterProcessAdapter`. No .NET 10 project may hold a
   compiled reference to the .NET 4.8 project. Communication is stdin/stdout
