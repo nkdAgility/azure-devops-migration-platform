@@ -56,6 +56,6 @@ Reject any suggestion that:
 - Places interfaces outside `DevOpsMigrationPlatform.Abstractions`
 - Writes migration logic in the TUI or control plane
 - Performs direct Source → Target migration
-- Submits a change without a successful `dotnet build --no-incremental`
+- Submits a change without a successful `dotnet clean && dotnet build --no-incremental`
 - Declares done without all tests passing (`dotnet test`)
 - Ships a known vulnerability without a fix or an explicit written rationale and tracked issue

@@ -5,7 +5,7 @@ Version change:    1.3.1 → 1.3.2
 Bump rationale:    Clarification — test verification made explicit alongside build
                    verification throughout the constitution. Principle X category 17,
                    the Development Flow in agents.md, and all Reject Conditions now
-                   require both `dotnet build --no-incremental` AND `dotnet test` to pass
+                   require both `dotnet clean && dotnet build --no-incremental` AND `dotnet clean && dotnet test` to pass
                    before any task is considered complete.
 
 Principles modified:
@@ -240,7 +240,7 @@ concrete examples for each.
     safe deployment strategies.
 17. **Build & Dependency Hygiene** — Pinned dependencies via `Directory.Packages.props`;
     zero-warning builds; reproducible CI. **Every code change MUST produce a successful
-    `dotnet build --no-incremental` before it is considered complete.** **Every code change
+    `dotnet clean && dotnet build --no-incremental` before it is considered complete.** **Every code change
     MUST also produce a passing `dotnet test` before it is considered complete.** A change
     that does not compile or that causes test failures is not done. Vulnerability scanning
     MUST follow every build step.
@@ -342,7 +342,7 @@ Reject any proposal that:
 - Implements retry logic without exponential back-off.
 - Deploys a component without a liveness/readiness health-check endpoint.
 - Introduces unbounded auto-scale configuration without a documented cost ceiling.
-- Submits a code change without verifying it produces a successful build (`dotnet build --no-incremental`).
+- Submits a code change without verifying it produces a successful build (`dotnet clean && dotnet build --no-incremental`).
 - Declares a task complete without all tests passing (`dotnet test`).
 - Ships a known vulnerability without either remediating it or providing an explicit written rationale and a tracked issue.
 

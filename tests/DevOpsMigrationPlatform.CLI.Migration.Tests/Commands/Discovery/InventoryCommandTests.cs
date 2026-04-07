@@ -34,8 +34,6 @@ public class InventoryCommandTests
 
     [TestMethod]
     [TestCategory("SystemTest")]
-    [TestProperty("Category", "SystemTest")]
-    [TestProperty("Priority", "1")]
     public async Task InventoryCommand_SystemTest_ValidCredentials_ExecutesSuccessfully()
     {
         // Arrange
@@ -78,7 +76,7 @@ public class InventoryCommandTests
 
             // For now, we validate the system test infrastructure works
             Console.WriteLine($"System test validated organization: {ctx.Configuration.OrganizationUrl}");
-            Console.WriteLine($"Discovery options structure validated: {discoveryOptions.Organisations[0].OrgOrCollection}");
+            Console.WriteLine($"Discovery options structure validated: {discoveryOptions.Organisations[0].Url}");
             Console.WriteLine($"Output directory created: {ctx.OutputDirectory}");
 
         }, context);
