@@ -282,7 +282,7 @@ public class InventoryServiceTests
     [TestMethod]
     public void WorkItemQueryWindowStrategy_ImplementsInterface()
     {
-        var clientFactory = new Mock<IAzureDevOpsClientFactory>(MockBehavior.Strict);
+        var clientFactory = new Mock<IWiqlQueryClientFactory>(MockBehavior.Strict);
         var strategy = new WorkItemQueryWindowStrategy(clientFactory.Object);
         Assert.IsInstanceOfType(strategy, typeof(IWorkItemQueryWindowStrategy),
             "WorkItemQueryWindowStrategy must implement IWorkItemQueryWindowStrategy");

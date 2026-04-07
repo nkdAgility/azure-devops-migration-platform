@@ -16,9 +16,9 @@ namespace DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Services;
 /// </summary>
 public sealed class WorkItemQueryWindowStrategy : IWorkItemQueryWindowStrategy
 {
-    private readonly IAzureDevOpsClientFactory _clientFactory;
+    private readonly IWiqlQueryClientFactory _clientFactory;
 
-    public WorkItemQueryWindowStrategy(IAzureDevOpsClientFactory clientFactory)
+    public WorkItemQueryWindowStrategy(IWiqlQueryClientFactory clientFactory)
     {
         _clientFactory = clientFactory ?? throw new ArgumentNullException(nameof(clientFactory));
     }
@@ -41,7 +41,7 @@ public sealed class WorkItemQueryWindowStrategy : IWorkItemQueryWindowStrategy
     {
         options ??= new WorkItemQueryWindowOptions();
 
-        var witClient = await _clientFactory.CreateWorkItemClientAsync(orgOrCollection, pat, cancellationToken);
+        var witClient = await _clientFactory.CreateAsync(orgOrCollection, pat, cancellationToken);
 
         var windowSize = TimeSpan.FromDays(options.InitialWindowDays);
         var windowEnd = DateTime.UtcNow;
@@ -69,7 +69,7 @@ public sealed class WorkItemQueryWindowStrategy : IWorkItemQueryWindowStrategy
                 cancellationToken.ThrowIfCancellationRequested();
                 try
                 {
-                    var result = await witClient.QueryByWiqlAsync(wiql, project, cancellationToken: cancellationToken);
+                    var result = await witClient.QueryByWiqlAsync(wiql, project, cancellationToken);
                     ids = result.WorkItems.Select(r => r.Id).ToList();
                     break;
                 }

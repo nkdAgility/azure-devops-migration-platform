@@ -215,7 +215,11 @@ public class InventoryCommandTests
             Assert.AreEqual(0, errors.Count,
                 $"Expected no errors, but got: {string.Join(", ", errors.Select(e => e.Error))}");
 
-            Console.WriteLine($"Inventory complete: {completedEvents.Count} project(s) inventoried successfully");
+            var totalWorkItems = completedEvents.Sum(e => e.WorkItemsCount);
+            Assert.AreEqual(44, totalWorkItems,
+                $"Expected 44 work items across all completed projects, but found {totalWorkItems}");
+
+            Console.WriteLine($"Inventory complete: {completedEvents.Count} project(s), {totalWorkItems} work items");
         }
         finally
         {
