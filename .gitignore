@@ -39,6 +39,9 @@ local-*.json
 TestResults/
 coverage/
 
+# Build artefacts
+artifacts/
+
 # Temporary files
 *.tmp
 *.swp

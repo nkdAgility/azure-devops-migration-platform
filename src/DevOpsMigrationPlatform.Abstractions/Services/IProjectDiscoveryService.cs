@@ -13,7 +13,7 @@ public interface IProjectDiscoveryService
     /// Returns the names of all team projects accessible with the given PAT.
     /// </summary>
     Task<List<string>> DiscoverProjectsAsync(
-        string orgOrCollection,
+        string url,
         string pat,
         CancellationToken cancellationToken = default);
 }

@@ -14,7 +14,7 @@ public class MigrationEndpointOptions
     public string Type { get; set; } = string.Empty;
 
     /// <summary>Organisation URL (Azure DevOps Services) or collection URL (TFS/Azure DevOps Server).</summary>
-    public string OrgOrCollection { get; set; } = string.Empty;
+    public string Url { get; set; } = string.Empty;
 
     /// <summary>Team project name.</summary>
     public string Project { get; set; } = string.Empty;

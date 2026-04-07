@@ -20,7 +20,7 @@ public class MigrationOptionsValidatorTests
         Source = new MigrationEndpointOptions
         {
             Type = "AzureDevOpsServices",
-            OrgOrCollection = "https://dev.azure.com/myorg",
+            Url = "https://dev.azure.com/myorg",
             Project = "MyProject"
         },
         Artefacts = new MigrationArtefactsOptions { Path = "D:\\exports\\run-001" }
@@ -45,7 +45,7 @@ public class MigrationOptionsValidatorTests
             Target = new MigrationEndpointOptions
             {
                 Type = "AzureDevOpsServices",
-                OrgOrCollection = "https://dev.azure.com/targetorg",
+                Url = "https://dev.azure.com/targetorg",
                 Project = "TargetProject"
             },
             Artefacts = new MigrationArtefactsOptions { Path = "D:\\exports\\run-001" }
@@ -60,8 +60,8 @@ public class MigrationOptionsValidatorTests
         {
             ConfigVersion = "1.0",
             Mode = "Both",
-            Source = new MigrationEndpointOptions { Type = "AzureDevOpsServices", OrgOrCollection = "https://dev.azure.com/myorg", Project = "P" },
-            Target = new MigrationEndpointOptions { Type = "AzureDevOpsServices", OrgOrCollection = "https://dev.azure.com/targetorg", Project = "P" },
+            Source = new MigrationEndpointOptions { Type = "AzureDevOpsServices", Url = "https://dev.azure.com/myorg", Project = "P" },
+            Target = new MigrationEndpointOptions { Type = "AzureDevOpsServices", Url = "https://dev.azure.com/targetorg", Project = "P" },
             Artefacts = new MigrationArtefactsOptions { Path = "D:\\exports" }
         };
         Assert.IsTrue(Sut().Validate(null, opts).Succeeded);
@@ -128,7 +128,7 @@ public class MigrationOptionsValidatorTests
     {
         var opts = ValidExport();
         opts.Mode = "Both";
-        opts.Target = new MigrationEndpointOptions { Type = "AzureDevOpsServices", OrgOrCollection = "https://dev.azure.com/t", Project = "T" };
+        opts.Target = new MigrationEndpointOptions { Type = "AzureDevOpsServices", Url = "https://dev.azure.com/t", Project = "T" };
         opts.Source = null;
         var result = Sut().Validate(null, opts);
         Assert.IsFalse(result.Succeeded);

@@ -1,0 +1,24 @@
+{
+  "schema_version": "1.0",
+  "extensions": {
+    "ralph": {
+      "version": "1.0.0",
+      "source": "local",
+      "manifest_hash": "sha256:6267a8fe75d3badbcb2674440c4542b21c0ee84b199e82f5208ce4757ab5e9bb",
+      "enabled": true,
+      "priority": 10,
+      "registered_commands": {
+        "copilot": [
+          "speckit.ralph.run",
+          "speckit.ralph.iterate"
+        ],
+        "codex": [
+          "speckit.ralph.run",
+          "speckit.ralph.iterate"
+        ]
+      },
+      "registered_skills": [],
+      "installed_at": "2026-04-07T15:24:20.572431+00:00"
+    }
+  }
+}
