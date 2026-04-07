@@ -11,7 +11,7 @@ on:
 
 jobs:
   build:
-    name: Build, Test, and Package
+    name: Build and Unit Test
     # net481 targets require Windows; build.ps1 is the single entry point
     runs-on: windows-latest
     permissions:
@@ -35,23 +35,108 @@ jobs:
         with:
           versionSpec: "6.1.0"
 
-      - name: Build, Test, and Package
-        run: pwsh ./build.ps1
+      - name: Build and unit test
+        run: pwsh ./build.ps1 -Mode Build
+
+      - name: Upload unit test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: unit-test-results
+          path: TestResults/**/*.trx
+
+      - name: Publish unit test results
+        uses: dorny/test-reporter@v1
+        if: always()
+        with:
+          name: Unit Test Results
+          path: TestResults/**/*.trx
+          reporter: dotnet-trx
+
+  system-test:
+    name: System Test
+    needs: build
+    runs-on: windows-latest
+    permissions:
+      checks: write
+      contents: read
+      pull-requests: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Install GitVersion
+        uses: gittools/actions/gitversion/setup@v3
+        with:
+          versionSpec: "6.1.0"
+
+      # SystemTest mode uses --no-build; re-build here ensures binaries are present
+      # (artifacts are not shared between jobs in the canary path).
+      - name: Build (for system test binaries)
+        run: pwsh ./build.ps1 -Mode Build
+
+      - name: Run system tests
+        run: pwsh ./build.ps1 -Mode SystemTest
+
+      - name: Upload system test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: system-test-results
+          path: TestResults/**/*.trx
+
+      - name: Publish system test results
+        uses: dorny/test-reporter@v1
+        if: always()
+        with:
+          name: System Test Results
+          path: TestResults/**/*.trx
+          reporter: dotnet-trx
+
+  package:
+    name: Package and Publish Artefacts
+    needs: [build, system-test]
+    # Only package on pushes to main, version tags, or releases — not on PRs
+    if: github.event_name != 'pull_request'
+    runs-on: windows-latest
+    permissions:
+      checks: write
+      contents: read
+      pull-requests: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Install GitVersion
+        uses: gittools/actions/gitversion/setup@v3
+        with:
+          versionSpec: "6.1.0"
+
+      - name: Build, test, and package
+        run: pwsh ./build.ps1 -Mode Package
 
       - name: Upload test results
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: test-results
+          name: package-test-results
           path: TestResults/**/*.trx
-
-      - name: Publish test results
-        uses: dorny/test-reporter@v1
-        if: always()
-        with:
-          name: Test Results
-          path: TestResults/**/*.trx
-          reporter: dotnet-trx
 
       - name: Upload CLI artefact
         uses: actions/upload-artifact@v4
