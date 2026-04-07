@@ -22,7 +22,7 @@ public sealed class InventoryCommand : CommandBase<InventoryCommand.Settings>
     public sealed class Settings : BaseCommandSettings
     {
         [CommandOption("--output <PATH>")]
-        [Description("Directory where discovery-summary.csv is written (default: current working directory)")]
+        [Description("Directory where discovery-summary.csv is written (default: ./output)")]
         public string? OutputPath { get; set; }
     }
 
@@ -67,7 +67,7 @@ public sealed class InventoryCommand : CommandBase<InventoryCommand.Settings>
             });
 
         var outputDir = string.IsNullOrWhiteSpace(settings.OutputPath)
-            ? Directory.GetCurrentDirectory()
+            ? Path.Combine(Directory.GetCurrentDirectory(), "output")
             : settings.OutputPath;
 
         var csvPath = Path.Combine(outputDir, "discovery-summary.csv");

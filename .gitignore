@@ -1,6 +1,7 @@
 # Build output
 **/bin/
 **/obj/
+**/output/
 
 # Visual Studio / VS Code
 .vs/

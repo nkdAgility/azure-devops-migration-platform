@@ -52,7 +52,7 @@
         // Options: [--output <PATH>] [-c|--config] [-v|--verbose]
         //          [--disable-telemetry] [--dry-run]
         {
-            "name": "🔍 Migration CLI: Inventory (Config File)",
+            "name": "🔍 Migration CLI: Inventory (One Project)",
             "type": "coreclr",
             "request": "launch",
             "program": "${workspaceFolder}/src/DevOpsMigrationPlatform.CLI.Migration/bin/Debug/net10.0/devopsmigration.exe",
@@ -72,7 +72,7 @@
             "preLaunchTask": "build-migration-cli"
         },
         {
-            "name": "🔍 Migration CLI: Inventory (Config + Output Path)",
+            "name": "🔍 Migration CLI: Inventory (All Projects)",
             "type": "coreclr",
             "request": "launch",
             "program": "${workspaceFolder}/src/DevOpsMigrationPlatform.CLI.Migration/bin/Debug/net10.0/devopsmigration.exe",
@@ -80,9 +80,7 @@
                 "discovery",
                 "inventory",
                 "--config",
-                "samples/inventory-ado-multi-project.json",
-                "--output",
-                "./inventory-results"
+                "samples/inventory-ado-multi-project.json"
             ],
             "env": {
                 "AZDEVOPS_DEV_ORG": "${env:AZDEVOPS_DEV_ORG}",
