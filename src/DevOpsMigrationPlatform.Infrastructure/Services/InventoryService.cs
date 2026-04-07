@@ -47,17 +47,17 @@ public sealed class InventoryService : IInventoryService
 
             var projects = entry.Projects.Count > 0
                 ? entry.Projects
-                : await _projectDiscovery.GetProjectsAsync(entry.OrgOrCollection, pat, cancellationToken);
+                : await _projectDiscovery.GetProjectsAsync(entry.Url, pat, cancellationToken);
 
             foreach (var project in projects)
             {
                 await foreach (var summary in _workItemDiscovery.DiscoverWorkItemsAsync(
-                    entry.OrgOrCollection, project, pat, cancellationToken))
+                    entry.Url, project, pat, cancellationToken))
                 {
                     yield return new InventoryProgressEvent
                     {
                         ProjectName = project,
-                        OrgOrCollection = entry.OrgOrCollection,
+                        Url = entry.Url,
                         WorkItemsCount = summary.WorkItemsCount,
                         RevisionsCount = summary.RevisionsCount,
                         IsComplete = summary.IsWorkItemComplete,

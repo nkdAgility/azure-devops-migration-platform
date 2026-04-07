@@ -82,7 +82,7 @@ public sealed class TfsInventoryAgent
                 Emit(new InventoryProgressEvent
                 {
                     ProjectName = projName,
-                    OrgOrCollection = collectionUrl,
+                    Url = collectionUrl,
                     WorkItemsCount = totalWorkItems,
                     RevisionsCount = totalRevisions,
                     IsComplete = false,
@@ -94,7 +94,7 @@ public sealed class TfsInventoryAgent
             Emit(new InventoryProgressEvent
             {
                 ProjectName = projName,
-                OrgOrCollection = collectionUrl,
+                Url = collectionUrl,
                 WorkItemsCount = totalWorkItems,
                 RevisionsCount = totalRevisions,
                 IsComplete = true,
@@ -110,7 +110,7 @@ public sealed class TfsInventoryAgent
             Emit(new InventoryProgressEvent
             {
                 ProjectName = projName,
-                OrgOrCollection = collectionUrl,
+                Url = collectionUrl,
                 WorkItemsCount = totalWorkItems,
                 RevisionsCount = totalRevisions,
                 IsComplete = true,

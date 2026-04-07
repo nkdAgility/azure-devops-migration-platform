@@ -9,7 +9,7 @@ namespace DevOpsMigrationPlatform.Abstractions.Models;
 public sealed class InventoryProgressEvent
 {
     public string ProjectName { get; set; } = string.Empty;
-    public string OrgOrCollection { get; set; } = string.Empty;
+    public string Url { get; set; } = string.Empty;
     /// <summary>Running total of work items counted so far for this project.</summary>
     public int WorkItemsCount { get; set; }
     /// <summary>Running total of revisions counted so far for this project.</summary>

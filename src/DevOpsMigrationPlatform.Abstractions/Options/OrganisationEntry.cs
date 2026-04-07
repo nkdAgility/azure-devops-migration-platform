@@ -13,7 +13,7 @@ public sealed class OrganisationEntry
     public string Type { get; set; } = string.Empty;
 
     /// <summary>Organisation URL (Azure DevOps Services) or collection URL (TFS).</summary>
-    public string OrgOrCollection { get; set; } = string.Empty;
+    public string Url { get; set; } = string.Empty;
 
     /// <summary>
     /// Projects to inventory. Empty or absent = all projects in the org/collection.

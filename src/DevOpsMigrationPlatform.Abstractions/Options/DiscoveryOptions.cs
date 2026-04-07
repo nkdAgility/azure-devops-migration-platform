@@ -31,9 +31,9 @@ public sealed class DiscoveryOptions
             if (string.IsNullOrWhiteSpace(entry.Type))
                 throw new InvalidOperationException(
                     "Config error: An organisations entry is missing 'type'.");
-            if (string.IsNullOrWhiteSpace(entry.OrgOrCollection))
+            if (string.IsNullOrWhiteSpace(entry.Url))
                 throw new InvalidOperationException(
-                    $"Config error: An organisations entry of type '{entry.Type}' is missing 'orgOrCollection'.");
+                    $"Config error: An organisations entry of type '{entry.Type}' is missing 'url'.");
 
             if (entry.Authentication != null &&
                 string.Equals(entry.Authentication.Type, "Pat", StringComparison.OrdinalIgnoreCase))
@@ -41,7 +41,7 @@ public sealed class DiscoveryOptions
                 var resolved = TokenResolver.Resolve(entry.Authentication.AccessToken);
                 if (string.IsNullOrWhiteSpace(resolved))
                     throw new InvalidOperationException(
-                        $"Config error: PAT for '{entry.OrgOrCollection}' resolved to an empty string. " +
+                        $"Config error: PAT for '{entry.Url}' resolved to an empty string. " +
                         "Set 'authentication.accessToken' to a literal value or '$ENV:VARNAME'.");
             }
         }

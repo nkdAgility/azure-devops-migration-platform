@@ -42,12 +42,12 @@ public sealed class InventoryCommand : CommandBase<InventoryCommand.Settings>
             {
                 await foreach (var evt in inventoryService.RunInventoryAsync(cancellationToken))
                 {
-                    var key = $"{evt.OrgOrCollection}|{evt.ProjectName}";
+                    var key = $"{evt.Url}|{evt.ProjectName}";
                     if (!summaries.TryGetValue(key, out var summary))
                     {
                         summary = new InventorySummary
                         {
-                            OrgOrCollection = evt.OrgOrCollection,
+                            Url = evt.Url,
                             ProjectName = evt.ProjectName
                         };
                         summaries[key] = summary;
@@ -102,7 +102,7 @@ public sealed class InventoryCommand : CommandBase<InventoryCommand.Settings>
                     : "[grey]…[/]";
 
             table.AddRow(
-                Markup.Escape(s.OrgOrCollection),
+                Markup.Escape(s.Url),
                 Markup.Escape(s.ProjectName),
                 s.WorkItemsCount.ToString(),
                 s.RevisionsCount.ToString(),
@@ -123,12 +123,12 @@ public sealed class InventoryCommand : CommandBase<InventoryCommand.Settings>
             Directory.CreateDirectory(dir);
 
         using var writer = new StreamWriter(path, append: false, encoding: new UTF8Encoding(false));
-        writer.WriteLine("OrgOrCollection,ProjectName,WorkItemsCount,RevisionsCount,ReposCount,PipelinesCount,IsComplete,Error,LastUpdatedUtc");
+        writer.WriteLine("Url,ProjectName,WorkItemsCount,RevisionsCount,ReposCount,PipelinesCount,IsComplete,Error,LastUpdatedUtc");
 
         foreach (var s in summaries)
         {
             writer.WriteLine(
-                $"{Csv(s.OrgOrCollection)},{Csv(s.ProjectName)}," +
+                $"{Csv(s.Url)},{Csv(s.ProjectName)}," +
                 $"{s.WorkItemsCount},{s.RevisionsCount}," +
                 $"{s.ReposCount},{s.PipelinesCount}," +
                 $"{s.IsComplete},{Csv(s.Error ?? string.Empty)}," +
