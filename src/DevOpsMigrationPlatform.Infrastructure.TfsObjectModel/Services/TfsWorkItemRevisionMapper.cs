@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using Microsoft.Extensions.Logging;
 using Microsoft.TeamFoundation.WorkItemTracking.Client;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.Telemetry;
@@ -20,10 +21,12 @@ public interface IWorkItemRevisionMapper
 public class TfsWorkItemRevisionMapper : IWorkItemRevisionMapper
 {
     private readonly IWorkItemExportMetrics _metrics;
+    private readonly ILogger<TfsWorkItemRevisionMapper> _logger;
 
-    public TfsWorkItemRevisionMapper(IWorkItemExportMetrics metrics)
+    public TfsWorkItemRevisionMapper(IWorkItemExportMetrics metrics, ILogger<TfsWorkItemRevisionMapper> logger)
     {
         _metrics = metrics;
+        _logger = logger;
     }
 
     public WorkItemRevision Map(WorkItem workItem, Revision revision, Revision? previousRevision)
@@ -64,6 +67,7 @@ public class TfsWorkItemRevisionMapper : IWorkItemRevisionMapper
         foreach (var link in newLinks)
         {
             var linkStopwatch = Stopwatch.StartNew();
+            var handled = true;
             try
             {
                 switch (link)
@@ -97,10 +101,15 @@ public class TfsWorkItemRevisionMapper : IWorkItemRevisionMapper
                         break;
 
                     default:
-                        throw new NotImplementedException($"Unhandled link type: {link.GetType()}");
+                        handled = false;
+                        _logger.LogWarning(
+                            "Skipping unhandled link type {LinkType} on WorkItem {WorkItemId} Revision {RevisionIndex}",
+                            link.GetType().Name, workItem.Id, revision.Index);
+                        break;
                 }
 
-                _metrics.RecordLinkExported(workItem.Store.TeamProjectCollection.InstanceId, workItem.Id, revision.Index);
+                if (handled)
+                    _metrics.RecordLinkExported(workItem.Store.TeamProjectCollection.InstanceId, workItem.Id, revision.Index);
             }
             catch (Exception ex)
             {

@@ -41,7 +41,7 @@ namespace DevOpsMigrationPlatform.CLI.TfsMigration.Commands
                     return SpectreValidationResult.Error("--project is required");
 
                 try { Path.GetFullPath(OutputFolder); }
-                catch { return SpectreValidationResult.Error("--output path is not valid"); }
+                catch (ArgumentException) { return SpectreValidationResult.Error("--output path is not valid"); }
 
                 return SpectreValidationResult.Success();
             }
