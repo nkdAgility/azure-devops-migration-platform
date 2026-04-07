@@ -154,40 +154,80 @@ All configuration flows through the `IOptions<T>` pattern:
 
 ## Commands
 
+Commands are organised into four groups. See [.agents/context/cli-commands.md](../.agents/context/cli-commands.md) for the canonical machine-readable reference.
+
+---
+
+### Migration Commands
+
+These commands submit jobs to the control plane via `ControlPlaneClient`.
+
 | Command | Description |
 |---|---|
-| `prepare` | Validate the config, compute `configHash`, print a job summary and planned modules. No execution. |
-| `export` | Submit an export job to the control plane. Writes the package to the URI in `artefacts.packageUri`. |
-| `import` | Submit an import job to the control plane. Reads the package from `artefacts.packageUri`. |
-| `both` | Submit an export → validate → import job to the control plane. |
+| `prepare` | Validate the config, compute `configHash`, print a job summary and planned modules. Does **not** submit a job. |
+| `export` | Submit an export-only job. Writes the package to the URI in `artefacts.packageUri`. |
+| `import` | Submit an import-only job. Reads the package from `artefacts.packageUri`. |
 | `validate` | Run pre-flight validation on an existing package. See [docs/validation.md](validation.md). |
-| `pack` | Compress `PackageRoot/` into a zip file. See [docs/packaging-zip.md](packaging-zip.md). |
-| `unpack` | Extract a zip file into `PackageRoot/`. |
-| `tui` | Open the interactive Terminal UI showing jobs visible to the current user. |
-| `status` | Display job state and per-module progress from the control plane. |
-| `logs` | Fetch or stream `ProgressEvent` records from the job ring buffer. Without `--follow`: prints buffered events as NDJSON and exits. With `--follow`: opens the SSE stream and prints arriving events as NDJSON until the job ends or Ctrl+C. |
-| `pause` | Signal the running Migration Agent to checkpoint and pause. |
-| `resume` | Resume a paused job (re-queues it for Migration Agent pickup). |
-| `cancel` | Cancel a queued or running job. |
-| `discovery inventory` | Count work items and revisions per project. Read-only pre-flight operation. Does **not** submit a `MigrationJob` to the control plane — results are written directly to `discovery-summary.csv`. |
+| `migrate` | Submit a full migration: export → validate → import in a single orchestrated run. |
+
+### Job Management Commands (`manage`)
+
+All job management commands live under the `manage` sub-command.
+
+| Command | Description |
+|---|---|
+| `manage list` | List all jobs visible to the authenticated user, with current status and progress. |
+| `manage status` | Display job state and per-module progress for a specific job. |
+| `manage logs` | Fetch or stream `ProgressEvent` records from the job ring buffer. Without `--follow`: prints buffered events as NDJSON and exits. With `--follow`: opens the SSE stream and prints arriving events until the job ends or Ctrl+C. |
+| `manage pause` | Signal the running Migration Agent to checkpoint and pause. |
+| `manage resume` | Resume a paused job (re-queues it for Migration Agent pickup). |
+| `manage cancel` | Cancel a queued or running job. |
+| `manage login` | Authenticate with a control plane endpoint and store the session token. |
+| `manage logout` | Revoke the stored session token for a control plane endpoint. |
+
+### Discovery Commands (`discovery`)
+
+Discovery commands run **locally** and do **not** submit a `MigrationJob` to the control plane. Results are written directly to output files.
+
+| Command | Description |
+|---|---|
+| `discovery inventory` | Count work items and revisions per project. Read-only pre-flight operation. Results written to `discovery-summary.csv`. |
+
+### Terminal UI
+
+| Command | Description |
+|---|---|
+| `tui` | Open the interactive Terminal UI showing live job state for jobs visible to the current user. See [docs/tui.md](tui.md). |
+
+---
+
+### Example Invocations
 
 ```
-migrate prepare  --config migration.json
-migrate export   --config migration.json
-migrate both     --config migration.json
-migrate validate --package file:///D:/exports/run-001
-migrate pack     --package file:///D:/exports/run-001 --out run-001.zip
-migrate tui      [--url <control-plane-url>] [--job <jobId>]
-migrate status   --job 550e8400-e29b-41d4-a716-446655440000
-migrate logs     --job 550e8400-e29b-41d4-a716-446655440000 --follow
+devopsmigration prepare  --config migration.json
+devopsmigration export   --config migration.json
+devopsmigration import   --config migration.json
+devopsmigration validate --config migration.json
+devopsmigration migrate  --config migration.json
+
+devopsmigration manage list
+devopsmigration manage status  --job 550e8400-e29b-41d4-a716-446655440000
+devopsmigration manage logs    --job 550e8400-e29b-41d4-a716-446655440000 --follow
+devopsmigration manage pause   --job 550e8400-e29b-41d4-a716-446655440000
+devopsmigration manage resume  --job 550e8400-e29b-41d4-a716-446655440000
+devopsmigration manage cancel  --job 550e8400-e29b-41d4-a716-446655440000
+devopsmigration manage login   --url https://migration.example.com
+devopsmigration manage logout  --url https://migration.example.com
+
 devopsmigration discovery inventory --config migration.json
 devopsmigration discovery inventory --config migration.json --all-projects
 devopsmigration discovery inventory --config migration.json --output ./reports
+
+devopsmigration tui
+devopsmigration tui --url https://migration.example.com
 ```
 
-> **Note**: `discovery *` commands do not submit a `MigrationJob` to the control plane.
-> They run locally, reading the config directly.  Results are written to `discovery-summary.csv`
-> in the `--output` directory (default: current working directory).
+> **Note**: `discovery *` commands run locally and read the config directly. They do not submit a `MigrationJob` to the control plane. Results are written to `discovery-summary.csv` in the `--output` directory (default: current working directory).
 
 ---
 

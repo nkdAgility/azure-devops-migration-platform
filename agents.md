@@ -80,6 +80,9 @@ TUI:
 CLI:
 → docs/cli.md
 
+CLI command reference (canonical):
+→ .agents/context/cli-commands.md
+
 TFS legacy process bridge:
 → docs/tfs-exporter.md
 
