@@ -35,7 +35,7 @@
         OR restore from the local tool manifest:
             dotnet tool restore
 
-    Artefact outputs (placed under ./artifacts/):
+    Artefact outputs (placed under ./output/):
       - MigrationTools-{SemVer}.zip   — CLI tools (devopsMigration + TfsMigration)
       - ControlPlane-{SemVer}.zip     — Control Plane host
       - Agent-{SemVer}.zip            — Migration Agent worker
@@ -60,7 +60,7 @@ $ProgressPreference    = 'SilentlyContinue'
 
 $RepoRoot       = $PSScriptRoot
 $SolutionFile   = Join-Path $RepoRoot 'DevOpsMigrationPlatform.slnx'
-$ArtifactsDir   = Join-Path $RepoRoot 'artifacts'
+$ArtifactsDir   = Join-Path $RepoRoot 'output'
 $TestResultsDir = Join-Path $RepoRoot 'TestResults'
 
 $AppHostProject      = Join-Path $RepoRoot 'src/DevOpsMigrationPlatform.AppHost/DevOpsMigrationPlatform.AppHost.csproj'
