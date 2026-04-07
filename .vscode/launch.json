@@ -60,7 +60,7 @@
                 "discovery",
                 "inventory",
                 "--config",
-                "samples/inventory-ado-single-project.json"
+                "scenarios/inventory-ado-single-project.json"
             ],
             "env": {
                 "AZDEVOPS_DEV_ORG": "${env:AZDEVOPS_DEV_ORG}",
@@ -80,7 +80,7 @@
                 "discovery",
                 "inventory",
                 "--config",
-                "samples/inventory-ado-multi-project.json"
+                "scenarios/inventory-ado-multi-project.json"
             ],
             "env": {
                 "AZDEVOPS_DEV_ORG": "${env:AZDEVOPS_DEV_ORG}",
@@ -100,7 +100,7 @@
                 "discovery",
                 "inventory",
                 "--config",
-                "samples/inventory-tfs-windows-auth.json",
+                "scenarios/inventory-tfs-windows-auth.json",
                 "--verbose"
             ],
             "cwd": "${workspaceFolder}",
@@ -117,7 +117,7 @@
                 "discovery",
                 "inventory",
                 "--config",
-                "samples/inventory-multi-org.json",
+                "scenarios/inventory-multi-org.json",
                 "--dry-run"
             ],
             "env": {
