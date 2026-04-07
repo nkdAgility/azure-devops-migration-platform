@@ -162,6 +162,43 @@ flow through the `IOptions<T>` model — never raw `IConfiguration` in services.
   Principle). Classes combining orchestration, IO, and business rules MUST be
   split along those boundaries.
 
+### VIII. ATDD-First Development (NON-NEGOTIABLE)
+
+Development follows a two-loop cycle. The **SpecKit outer loop** captures
+intent and produces a plan; the **ATDD inner loop** delivers each scenario as
+a tested, reviewed increment.
+
+**SpecKit outer loop (feature → tasks):**
+
+1. `/speckit.specify` — produce `spec.md` with prioritised user stories and
+   Given/When/Then acceptance scenarios.
+2. `/speckit.plan` — produce `plan.md` including the Constitution Check gate.
+3. `/speckit.tasks` — produce `tasks.md` with one task per acceptance scenario
+   (or coherent group), ordered by dependency.
+
+**ATDD inner loop (one task → one commit):**
+
+1. **Specification** — the accepted scenario from `spec.md` feeds the
+   Specification Agent, which produces a Gherkin `.feature` file plus
+   architecture notes. Human must approve before proceeding.
+2. **Test Generation** — failing Reqnroll `[Binding]` step definitions
+   (`*Steps.cs` + `*Context.cs`) under `tests/<Project>.Tests/<Area>/`.
+3. **Implementation** — production code that makes the steps pass, plus unit
+   tests for every method with branching logic, calculation, or state
+   transformation.
+4. **Review** — Reviewer Agent produces `Approved` or `Rejected`.
+
+**Rules:**
+
+- No production code before a failing acceptance test exists.
+- **One scenario → one session → one commit.** Sessions spanning multiple
+  scenarios are forbidden.
+- ATDD phases MUST NOT be skipped or reordered.
+- Gherkin `.feature` files live under
+  `features/<operation>[/<connector>/<module>]/`.
+- Test framework: Reqnroll.MSTest + Moq (`MockBehavior.Strict`). No xUnit, no
+  NUnit.
+
 ### X. Engineering Practice Discipline (NON-NEGOTIABLE)
 
 All production code MUST comply with the 21 engineering-practice categories defined in
@@ -216,43 +253,6 @@ Any proposal that violates any of these categories MUST be rejected. The detaile
 enforcement rules, prohibited patterns, and code examples live in
 `.agents/guardrails/coding-standards.md` and MUST be consulted alongside this
 constitution.
-
-### VIII. ATDD-First Development (NON-NEGOTIABLE)
-
-Development follows a two-loop cycle. The **SpecKit outer loop** captures
-intent and produces a plan; the **ATDD inner loop** delivers each scenario as
-a tested, reviewed increment.
-
-**SpecKit outer loop (feature → tasks):**
-
-1. `/speckit.specify` — produce `spec.md` with prioritised user stories and
-   Given/When/Then acceptance scenarios.
-2. `/speckit.plan` — produce `plan.md` including the Constitution Check gate.
-3. `/speckit.tasks` — produce `tasks.md` with one task per acceptance scenario
-   (or coherent group), ordered by dependency.
-
-**ATDD inner loop (one task → one commit):**
-
-1. **Specification** — the accepted scenario from `spec.md` feeds the
-   Specification Agent, which produces a Gherkin `.feature` file plus
-   architecture notes. Human must approve before proceeding.
-2. **Test Generation** — failing Reqnroll `[Binding]` step definitions
-   (`*Steps.cs` + `*Context.cs`) under `tests/<Project>.Tests/<Area>/`.
-3. **Implementation** — production code that makes the steps pass, plus unit
-   tests for every method with branching logic, calculation, or state
-   transformation.
-4. **Review** — Reviewer Agent produces `Approved` or `Rejected`.
-
-**Rules:**
-
-- No production code before a failing acceptance test exists.
-- **One scenario → one session → one commit.** Sessions spanning multiple
-  scenarios are forbidden.
-- ATDD phases MUST NOT be skipped or reordered.
-- Gherkin `.feature` files live under
-  `features/<operation>[/<connector>/<module>]/`.
-- Test framework: Reqnroll.MSTest + Moq (`MockBehavior.Strict`). No xUnit, no
-  NUnit.
 
 ## Technology Stack
 
