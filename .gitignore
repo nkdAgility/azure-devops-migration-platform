@@ -2,6 +2,7 @@
 **/bin/
 **/obj/
 **/output/
+scenarios/**
 
 # Visual Studio / VS Code
 .vs/

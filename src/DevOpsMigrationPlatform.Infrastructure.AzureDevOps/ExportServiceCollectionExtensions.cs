@@ -1,4 +1,5 @@
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Services;
 using DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Services;
 using DevOpsMigrationPlatform.Infrastructure.Modules;
 using Microsoft.Extensions.DependencyInjection;
@@ -24,6 +25,8 @@ public static class ExportServiceCollectionExtensions
         this IServiceCollection services)
     {
         services.AddSingleton<IAzureDevOpsClientFactory, AzureDevOpsClientFactory>();
+        services.AddSingleton<IWiqlQueryClientFactory, AzureDevOpsWiqlQueryClientFactory>();
+        services.AddSingleton<IWorkItemQueryWindowStrategy, WorkItemQueryWindowStrategy>();
         services.AddSingleton<IAzureDevOpsWorkItemRevisionMapper, AzureDevOpsWorkItemRevisionMapper>();
         services.AddScoped<AzureDevOpsAttachmentRegistry>();
         services.AddScoped<IWorkItemRevisionSourceFactory, AzureDevOpsWorkItemRevisionSourceFactory>();

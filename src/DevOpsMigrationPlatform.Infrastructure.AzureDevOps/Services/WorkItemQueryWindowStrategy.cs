@@ -45,6 +45,12 @@ public sealed class WorkItemQueryWindowStrategy : IWorkItemQueryWindowStrategy
         // ── Step 1: Unbounded probe ──────────────────────────────────────────
         // A single query without date filters retrieves all IDs for the project.
         // If the result is below the WIQL cap this is the only API call needed.
+        // NOTE: The ADO WIQL API throws (rather than silently truncating) when a
+        // project exceeds the 20,000-item hard cap.  We catch that here and fall
+        // through to the backward date-window scan (Step 2) so both inventory and
+        // export remain correct for large projects.
+        // yield cannot appear inside a try-catch in C#; the result is extracted
+        // first and the yield statements remain outside the try-catch below.
         var unboundedWiql = new Wiql
         {
             Query = $"SELECT [System.Id] FROM WorkItems " +
@@ -52,10 +58,23 @@ public sealed class WorkItemQueryWindowStrategy : IWorkItemQueryWindowStrategy
                     $"ORDER BY [System.Id]"
         };
 
-        var unboundedResult = await witClient.QueryByWiqlAsync(unboundedWiql, project, cancellationToken);
-        var unboundedIds = unboundedResult.WorkItems.Select(r => r.Id).ToList();
+        List<int>? unboundedIds = null;
+        try
+        {
+            var unboundedResult = await witClient.QueryByWiqlAsync(unboundedWiql, project, cancellationToken);
+            unboundedIds = unboundedResult.WorkItems.Select(r => r.Id).ToList();
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch
+        {
+            // API threw — project likely exceeds the 20,000-item WIQL hard cap.
+            // unboundedIds stays null; fall through to backward date-window scanning.
+        }
 
-        if (unboundedIds.Count < options.LimitThreshold)
+        if (unboundedIds != null && unboundedIds.Count < options.LimitThreshold)
         {
             if (unboundedIds.Count > 0)
             {

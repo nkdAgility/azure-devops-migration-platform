@@ -499,6 +499,84 @@ public class WorkItemQueryWindowStrategyTests
         Assert.AreEqual(windows[0].WindowEnd - windows[0].WindowStart, windows[0].WindowSize);
     }
 
+    // ── Unbounded probe throws → falls through to date-window scanning ────────
+
+    /// <summary>
+    /// Regression test: The ADO WIQL API throws (HTTP 400) when a query would return
+    /// more than 20,000 items with no <c>top</c> cap.  The unbounded probe must catch
+    /// that exception and fall through to backward date-window scanning rather than
+    /// propagating the exception to callers.
+    /// </summary>
+    [TestMethod]
+    public async Task UnboundedProbe_Throws20kException_FallsThroughToDateWindowScanning()
+    {
+        // Arrange:
+        //  call 0 (unbounded probe): throws — ADO 20k hard cap
+        //  call 1 (first windowed):  2 items — yielded
+        //  call 2 (next windowed):   0 items — MinDate floor → stop
+        var opts = new WorkItemQueryWindowOptions
+        {
+            LimitThreshold = 20_000,
+            InitialWindowDays = 120,
+            MinDate = DateTime.UtcNow.AddDays(-1)
+        };
+        var callIdx = 0;
+        var clientMock = new Mock<IWiqlQueryClient>(MockBehavior.Strict);
+        clientMock
+            .Setup(c => c.QueryByWiqlAsync(It.IsAny<Wiql>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(() =>
+            {
+                var i = callIdx++;
+                if (i == 0)
+                    throw new InvalidOperationException("TF201036: The query returned more than 20000 items.");
+                return i == 1 ? MakeResult(1, 2) : EmptyResult();
+            });
+
+        var factoryMock = new Mock<IWiqlQueryClientFactory>(MockBehavior.Strict);
+        factoryMock
+            .Setup(f => f.CreateAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(clientMock.Object);
+
+        var sut = new WorkItemQueryWindowStrategy(factoryMock.Object);
+
+        // Act
+        var windows = await CollectWindowsAsync(sut, opts);
+
+        // Assert: date-window scanning ran and produced results despite the probe throw
+        Assert.AreEqual(1, windows.Count, "Should yield 1 window from date-window scanning");
+        CollectionAssert.AreEquivalent(new[] { 1, 2 }, windows[0].WorkItemIds.ToArray());
+        clientMock.Verify(
+            c => c.QueryByWiqlAsync(It.IsAny<Wiql>(), It.IsAny<string>(), It.IsAny<CancellationToken>()),
+            Times.Exactly(3),
+            "3 calls: probe (throws), first windowed (2 items), second windowed (0 → stop)");
+    }
+
+    [TestMethod]
+    public async Task UnboundedProbe_Throws20kException_CancellationStillPropagates()
+    {
+        // OperationCanceledException from the probe must propagate, not be swallowed.
+        using var cts = new CancellationTokenSource();
+        cts.Cancel();
+
+        var clientMock = new Mock<IWiqlQueryClient>(MockBehavior.Strict);
+        clientMock
+            .Setup(c => c.QueryByWiqlAsync(It.IsAny<Wiql>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new OperationCanceledException());
+
+        var factoryMock = new Mock<IWiqlQueryClientFactory>(MockBehavior.Strict);
+        factoryMock
+            .Setup(f => f.CreateAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(clientMock.Object);
+
+        var sut = new WorkItemQueryWindowStrategy(factoryMock.Object);
+
+        await Assert.ThrowsExceptionAsync<OperationCanceledException>(async () =>
+        {
+            await foreach (var _ in sut.EnumerateWindowsAsync(Org, Project, Pat, cancellationToken: cts.Token))
+            { }
+        }, "OperationCanceledException from the probe must not be swallowed");
+    }
+
     // ── Constructor guard ─────────────────────────────────────────────────────
 
     [TestMethod]

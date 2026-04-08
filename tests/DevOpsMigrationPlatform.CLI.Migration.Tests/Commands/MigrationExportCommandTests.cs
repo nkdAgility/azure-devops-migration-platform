@@ -130,9 +130,11 @@ public class MigrationExportCommandTests
 
         // Wire up infrastructure directly – no ControlPlane or DI container needed for a module-level system test
         var clientFactory = new AzureDevOpsClientFactory();
+        var wiqlClientFactory = new AzureDevOpsWiqlQueryClientFactory(clientFactory);
+        var windowStrategy = new WorkItemQueryWindowStrategy(wiqlClientFactory);
         var mapper = new AzureDevOpsWorkItemRevisionMapper();
         var registry = new AzureDevOpsAttachmentRegistry();
-        var sourceFactory = new AzureDevOpsWorkItemRevisionSourceFactory(clientFactory, mapper, registry);
+        var sourceFactory = new AzureDevOpsWorkItemRevisionSourceFactory(clientFactory, windowStrategy, mapper, registry);
         var module = new WorkItemsModule(sourceFactory, NullLogger<WorkItemsModule>.Instance);
 
         var artefactStore = new FileSystemArtefactStore(outputDir);

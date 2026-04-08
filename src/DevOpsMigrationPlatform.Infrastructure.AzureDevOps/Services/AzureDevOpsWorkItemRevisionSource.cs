@@ -5,6 +5,7 @@ using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Services;
 using Microsoft.TeamFoundation.WorkItemTracking.WebApi;
 using Microsoft.TeamFoundation.WorkItemTracking.WebApi.Models;
 using Microsoft.VisualStudio.Services.WebApi;
@@ -13,55 +14,59 @@ namespace DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Services;
 
 /// <summary>
 /// Azure DevOps REST implementation of <see cref="IWorkItemRevisionSource"/>.
-/// Discovers work items via WIQL query, then streams all revisions for each work item
+/// Discovers work items via <see cref="IWorkItemQueryWindowStrategy"/> (handles the
+/// 20,000-item WIQL cap automatically), then streams all revisions for each work item
 /// one at a time (no full-load into memory). Registers attachment download URLs in
 /// <see cref="AzureDevOpsAttachmentRegistry"/> as each revision is mapped.
 /// </summary>
 public sealed class AzureDevOpsWorkItemRevisionSource : IWorkItemRevisionSource
 {
     private readonly WorkItemTrackingHttpClient _client;
+    private readonly IWorkItemQueryWindowStrategy _windowStrategy;
     private readonly IAzureDevOpsWorkItemRevisionMapper _mapper;
     private readonly AzureDevOpsAttachmentRegistry _attachmentRegistry;
+    private readonly string _organisationUrl;
     private readonly string _project;
-    private readonly string _wiqlQuery;
+    private readonly string _pat;
 
-    private const int IdBatchSize     = 200;
     private const int RevisionPageSize = 100;
 
     public AzureDevOpsWorkItemRevisionSource(
         WorkItemTrackingHttpClient client,
+        IWorkItemQueryWindowStrategy windowStrategy,
         IAzureDevOpsWorkItemRevisionMapper mapper,
         AzureDevOpsAttachmentRegistry attachmentRegistry,
+        string organisationUrl,
         string project,
-        string wiqlQuery)
+        string pat)
     {
-        _client             = client             ?? throw new ArgumentNullException(nameof(client));
-        _mapper             = mapper             ?? throw new ArgumentNullException(nameof(mapper));
+        _client = client ?? throw new ArgumentNullException(nameof(client));
+        _windowStrategy = windowStrategy ?? throw new ArgumentNullException(nameof(windowStrategy));
+        _mapper = mapper ?? throw new ArgumentNullException(nameof(mapper));
         _attachmentRegistry = attachmentRegistry ?? throw new ArgumentNullException(nameof(attachmentRegistry));
-        _project            = project            ?? throw new ArgumentNullException(nameof(project));
-        _wiqlQuery          = wiqlQuery          ?? throw new ArgumentNullException(nameof(wiqlQuery));
+        _organisationUrl = organisationUrl ?? throw new ArgumentNullException(nameof(organisationUrl));
+        _project = project ?? throw new ArgumentNullException(nameof(project));
+        _pat = pat ?? throw new ArgumentNullException(nameof(pat));
     }
 
     /// <inheritdoc/>
     public async IAsyncEnumerable<WorkItemRevision> GetRevisionsAsync(
         [EnumeratorCancellation] CancellationToken cancellationToken)
     {
-        // 1. Run the WIQL query to get the ordered list of work item IDs.
-        var wiql   = new Wiql { Query = _wiqlQuery };
-        var result = await _client.QueryByWiqlAsync(wiql, _project, cancellationToken: cancellationToken)
-                                  .ConfigureAwait(false);
-
-        var allIds = (result.WorkItems ?? Enumerable.Empty<WorkItemReference>())
-                     .Select(r => r.Id)
-                     .ToList();
-
-        // 2. For each work item, stream its revisions in ascending order.
-        foreach (var workItemId in allIds)
+        // 1. Use the window strategy to enumerate work item IDs in date-scoped windows
+        //    that stay under the 20,000-item WIQL cap.
+        await foreach (var window in _windowStrategy.EnumerateWindowsAsync(
+            _organisationUrl, _project, _pat, cancellationToken: cancellationToken)
+            .ConfigureAwait(false))
         {
-            cancellationToken.ThrowIfCancellationRequested();
+            // 2. For each work item in the window, stream its revisions in ascending order.
+            foreach (var workItemId in window.WorkItemIds)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
 
-            await foreach (var revision in StreamRevisionsAsync(workItemId, cancellationToken))
-                yield return revision;
+                await foreach (var revision in StreamRevisionsAsync(workItemId, cancellationToken))
+                    yield return revision;
+            }
         }
     }
 
@@ -80,8 +85,8 @@ public sealed class AzureDevOpsWorkItemRevisionSource : IWorkItemRevisionSource
 
             var page = await _client.GetRevisionsAsync(
                 workItemId,
-                top:    RevisionPageSize,
-                skip:   skip,
+                top: RevisionPageSize,
+                skip: skip,
                 expand: WorkItemExpand.Relations,
                 cancellationToken: cancellationToken).ConfigureAwait(false);
 
@@ -97,7 +102,7 @@ public sealed class AzureDevOpsWorkItemRevisionSource : IWorkItemRevisionSource
                 RegisterAttachmentUrls(workItemId, previous, current);
 
                 var mapped = _mapper.Map(current, previous);
-                previous   = current;
+                previous = current;
 
                 yield return mapped;
             }
@@ -130,7 +135,7 @@ public sealed class AzureDevOpsWorkItemRevisionSource : IWorkItemRevisionSource
                 continue;
 
             var name = TryGetAttribute<string>(relation, "name");
-            var url  = relation.Url;
+            var url = relation.Url;
 
             if (!string.IsNullOrEmpty(name) && !string.IsNullOrEmpty(url))
                 _attachmentRegistry.Register(workItemId, revisionIndex, name, url);
