@@ -132,15 +132,25 @@ public sealed class MigrationExportCommand : ControlPlaneCommandBase<MigrationEx
 
         var jobRunner = GetRequiredService<IJobRunner>();
 
-        await foreach (var evt in jobRunner.RunAsync(job, cancellationToken).ConfigureAwait(false))
-        {
-            if (evt.RevisionsProcessed > 0)
-                console.MarkupLine($"[grey]  {evt.Module}[/] [bold]{evt.WorkItemsProcessed}[/] work items / [bold]{evt.RevisionsProcessed}[/] revisions  (wi#{evt.WorkItemId})");
-            else if (!string.IsNullOrEmpty(evt.Message))
-                console.MarkupLine($"[grey]{Markup.Escape(evt.Message)}[/]");
-        }
+        ProgressEvent? lastEvt = null;
+        await console.Live(new Markup("[grey]Waiting for agent...[/]"))
+            .StartAsync(async ctx =>
+            {
+                await foreach (var evt in jobRunner.RunAsync(job, cancellationToken).ConfigureAwait(false))
+                {
+                    lastEvt = evt;
+                    if (evt.RevisionsProcessed > 0)
+                        ctx.UpdateTarget(new Markup(
+                            $"[blue]WorkItems[/]  [bold]{evt.WorkItemsProcessed}[/] work items / [bold]{evt.RevisionsProcessed}[/] revisions  [grey](wi#{evt.WorkItemId})[/]"));
+                    else if (!string.IsNullOrEmpty(evt.Message))
+                        ctx.UpdateTarget(new Markup($"[grey]{Markup.Escape(evt.Message)}[/]"));
+                }
+            });
 
-        console.MarkupLine("[green]✓[/] Work item export complete.");
+        if (lastEvt is not null)
+            ShowSuccess(console, $"Export complete — {lastEvt.WorkItemsProcessed} work items / {lastEvt.RevisionsProcessed} revisions written to package.");
+        else
+            ShowSuccess(console, "Work item export complete.");
         return 0;
     }
 

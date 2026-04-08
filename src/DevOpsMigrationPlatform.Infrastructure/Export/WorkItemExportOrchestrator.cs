@@ -19,9 +19,9 @@ public class WorkItemExportOrchestrator
 {
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
-        PropertyNamingPolicy        = JsonNamingPolicy.CamelCase,
-        DefaultIgnoreCondition      = JsonIgnoreCondition.WhenWritingNull,
-        WriteIndented               = false
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+        WriteIndented = false
     };
 
     private readonly IArtefactStore _artefactStore;
@@ -78,18 +78,19 @@ public class WorkItemExportOrchestrator
             {
                 workItemsProcessed++;
                 lastWorkItemId = revision.WorkItemId;
-            }
 
-            _progressSink?.Emit(new ProgressEvent
-            {
-                Module = "WorkItems",
-                Stage = "Export",
-                LastProcessed = folderPath,
-                WorkItemId = revision.WorkItemId,
-                WorkItemsProcessed = workItemsProcessed,
-                RevisionsProcessed = revisionsProcessed,
-                Message = $"[WorkItems] {workItemsProcessed} work items / {revisionsProcessed} revisions written"
-            });
+                // Emit once per work item (not per revision) to avoid flooding the channel.
+                _progressSink?.Emit(new ProgressEvent
+                {
+                    Module = "WorkItems",
+                    Stage = "Export",
+                    LastProcessed = folderPath,
+                    WorkItemId = revision.WorkItemId,
+                    WorkItemsProcessed = workItemsProcessed,
+                    RevisionsProcessed = revisionsProcessed,
+                    Message = $"[WorkItems] {workItemsProcessed} work items / {revisionsProcessed} revisions written"
+                });
+            }
 
             // Write attachment binaries beside revision.json when a binary source is available.
             if (_attachmentBinarySource != null)
