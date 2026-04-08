@@ -87,6 +87,7 @@ public sealed class InventoryService : IInventoryService
                             WorkItemsCount = summary.WorkItemsCount,
                             RevisionsCount = summary.RevisionsCount,
                             IsComplete = true,
+                            Error = summary.Error,
                             Timestamp = summary.LastUpdatedUtc
                         };
                     }

@@ -19,5 +19,11 @@ public class ProjectDiscoverySummary
     public bool IsRepoComplete { get; set; }
     public bool IsPipelineComplete { get; set; }
 
+    /// <summary>
+    /// Non-null when work-item discovery failed mid-scan.
+    /// Counts represent partial data collected before the failure.
+    /// </summary>
+    public string? Error { get; set; }
+
     public DateTime LastUpdatedUtc { get; set; } = DateTime.UtcNow;
 }
