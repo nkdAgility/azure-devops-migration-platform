@@ -5,6 +5,6 @@ namespace DevOpsMigrationPlatform.CLI.Migration.Settings;
 /// All configuration (artefacts path, validation options) lives in the config file
 /// specified by --config. See docs/cli.md and .agents/context/cli-commands.md.
 /// </summary>
-public class MigrationValidateCommandSettings : BaseCommandSettings
+public class MigrationValidateCommandSettings : MigrationBaseCommandSettings
 {
 }

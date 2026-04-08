@@ -5,6 +5,6 @@ namespace DevOpsMigrationPlatform.CLI.Migration.Settings;
 /// All configuration (source URL, project, auth, modules) lives in the config file
 /// specified by --config. See docs/cli.md and .agents/context/cli-commands.md.
 /// </summary>
-public class MigrationExportCommandSettings : BaseCommandSettings
+public class MigrationExportCommandSettings : MigrationBaseCommandSettings
 {
 }
