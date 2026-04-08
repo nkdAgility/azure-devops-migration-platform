@@ -21,6 +21,16 @@ public sealed class WorkItemQueryWindowOptions
     /// Defaults to 30 years before the current UTC time.
     /// </summary>
     public DateTime MinDate { get; set; } = DateTime.UtcNow.AddYears(-30);
+
+    /// <summary>
+    /// Optional user-supplied WIQL query whose WHERE predicate and ORDER BY clause
+    /// are used when building windowed queries. The SELECT is always normalised to
+    /// <c>SELECT [System.Id]</c>. Supports the <c>@project</c> WIQL macro.
+    /// When <see langword="null"/>, a default project-scoped query is generated
+    /// from the <c>project</c> argument passed to
+    /// <see cref="IWorkItemQueryWindowStrategy.EnumerateWindowsAsync"/>.
+    /// </summary>
+    public string? BaseQuery { get; init; }
 }
 
 /// <summary>

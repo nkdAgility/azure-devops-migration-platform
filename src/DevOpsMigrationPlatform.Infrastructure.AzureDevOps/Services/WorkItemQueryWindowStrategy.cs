@@ -42,6 +42,23 @@ public sealed class WorkItemQueryWindowStrategy : IWorkItemQueryWindowStrategy
 
         var witClient = await _clientFactory.CreateAsync(organisationUrl, pat, cancellationToken);
 
+        // Resolve WHERE predicate and ORDER BY: use the caller-supplied base query
+        // (e.g. from the scenario configuration) or fall back to the default
+        // project-scoped query.  This lets Export callers preserve custom WHERE
+        // conditions and ORDER BY strategies while the window algorithm still
+        // injects its date-range filters for large projects.
+        string wherePredicate;
+        string orderBy;
+        if (options.BaseQuery is { Length: > 0 })
+        {
+            (wherePredicate, orderBy) = ParseBaseQuery(options.BaseQuery);
+        }
+        else
+        {
+            wherePredicate = $"[System.TeamProject] = '{EscapeWiql(project)}'";
+            orderBy = "[System.Id]";
+        }
+
         // ── Step 1: Unbounded probe ──────────────────────────────────────────
         // A single query without date filters retrieves all IDs for the project.
         // If the result is below the WIQL cap this is the only API call needed.
@@ -53,9 +70,7 @@ public sealed class WorkItemQueryWindowStrategy : IWorkItemQueryWindowStrategy
         // first and the yield statements remain outside the try-catch below.
         var unboundedWiql = new Wiql
         {
-            Query = $"SELECT [System.Id] FROM WorkItems " +
-                    $"WHERE [System.TeamProject] = '{EscapeWiql(project)}' " +
-                    $"ORDER BY [System.Id]"
+            Query = $"SELECT [System.Id] FROM WorkItems WHERE {wherePredicate} ORDER BY {orderBy}"
         };
 
         List<int>? unboundedIds = null;
@@ -119,13 +134,14 @@ public sealed class WorkItemQueryWindowStrategy : IWorkItemQueryWindowStrategy
 
                 // Always rebuild the query from current windowStart/windowEnd so
                 // that halving inside this loop is reflected correctly.
+                var dateFilter = $"[System.CreatedDate] >= '{windowStart:yyyy-MM-dd}' " +
+                                 $"AND [System.CreatedDate] < '{windowEnd:yyyy-MM-dd}'";
+                var windowWhere = wherePredicate.Length > 0
+                    ? $"{wherePredicate} AND {dateFilter}"
+                    : dateFilter;
                 var wiql = new Wiql
                 {
-                    Query = $"SELECT [System.Id] FROM WorkItems " +
-                            $"WHERE [System.TeamProject] = '{EscapeWiql(project)}' " +
-                            $"AND [System.CreatedDate] >= '{windowStart:yyyy-MM-dd}' " +
-                            $"AND [System.CreatedDate] < '{windowEnd:yyyy-MM-dd}' " +
-                            $"ORDER BY [System.Id]"
+                    Query = $"SELECT [System.Id] FROM WorkItems WHERE {windowWhere} ORDER BY {orderBy}"
                 };
 
                 try
@@ -243,4 +259,39 @@ public sealed class WorkItemQueryWindowStrategy : IWorkItemQueryWindowStrategy
     }
 
     private static string EscapeWiql(string value) => value.Replace("'", "''");
+
+    /// <summary>
+    /// Extracts the WHERE predicate and ORDER BY from a user-supplied WIQL query.
+    /// The SELECT preamble is discarded; the strategy always projects [System.Id].
+    /// If no ORDER BY is present, defaults to <c>[System.Id]</c>.
+    /// </summary>
+    private static (string WherePredicate, string OrderBy) ParseBaseQuery(string query)
+    {
+        const StringComparison ic = StringComparison.OrdinalIgnoreCase;
+
+        // Locate ORDER BY — search from the end to avoid false matches inside predicates.
+        int orderByIdx = query.LastIndexOf("ORDER BY", ic);
+        string orderBy = orderByIdx >= 0
+            ? query[(orderByIdx + "ORDER BY".Length)..].Trim()
+            : "[System.Id]";
+
+        // Locate WHERE — the first occurrence after the FROM clause.
+        int whereIdx = query.IndexOf(" WHERE ", ic);
+        if (whereIdx < 0) whereIdx = query.IndexOf("\nWHERE ", ic);
+        if (whereIdx < 0) whereIdx = query.IndexOf("\rWHERE ", ic);
+
+        string wherePredicate;
+        if (whereIdx >= 0)
+        {
+            int predicateStart = whereIdx + " WHERE ".Length;
+            int predicateEnd = orderByIdx >= 0 ? orderByIdx : query.Length;
+            wherePredicate = query[predicateStart..predicateEnd].Trim();
+        }
+        else
+        {
+            wherePredicate = string.Empty;
+        }
+
+        return (wherePredicate, orderBy);
+    }
 }

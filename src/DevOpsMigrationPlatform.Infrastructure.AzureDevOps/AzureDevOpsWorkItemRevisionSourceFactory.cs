@@ -44,6 +44,6 @@ public sealed class AzureDevOpsWorkItemRevisionSourceFactory : IWorkItemRevision
             .ConfigureAwait(false);
 
         return new AzureDevOpsWorkItemRevisionSource(
-            witClient, _windowStrategy, _mapper, _registry, organisationUrl, project, pat);
+            witClient, _windowStrategy, _mapper, _registry, organisationUrl, project, pat, wiqlQuery);
     }
 }

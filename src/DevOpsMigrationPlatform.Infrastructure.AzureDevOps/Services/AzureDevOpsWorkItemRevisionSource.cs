@@ -28,6 +28,7 @@ public sealed class AzureDevOpsWorkItemRevisionSource : IWorkItemRevisionSource
     private readonly string _organisationUrl;
     private readonly string _project;
     private readonly string _pat;
+    private readonly string? _wiqlQuery;
 
     private const int RevisionPageSize = 100;
 
@@ -38,7 +39,8 @@ public sealed class AzureDevOpsWorkItemRevisionSource : IWorkItemRevisionSource
         AzureDevOpsAttachmentRegistry attachmentRegistry,
         string organisationUrl,
         string project,
-        string pat)
+        string pat,
+        string? wiqlQuery = null)
     {
         _client = client ?? throw new ArgumentNullException(nameof(client));
         _windowStrategy = windowStrategy ?? throw new ArgumentNullException(nameof(windowStrategy));
@@ -47,6 +49,7 @@ public sealed class AzureDevOpsWorkItemRevisionSource : IWorkItemRevisionSource
         _organisationUrl = organisationUrl ?? throw new ArgumentNullException(nameof(organisationUrl));
         _project = project ?? throw new ArgumentNullException(nameof(project));
         _pat = pat ?? throw new ArgumentNullException(nameof(pat));
+        _wiqlQuery = wiqlQuery;
     }
 
     /// <inheritdoc/>
@@ -54,9 +57,13 @@ public sealed class AzureDevOpsWorkItemRevisionSource : IWorkItemRevisionSource
         [EnumeratorCancellation] CancellationToken cancellationToken)
     {
         // 1. Use the window strategy to enumerate work item IDs in date-scoped windows
-        //    that stay under the 20,000-item WIQL cap.
+        //    that stay under the 20,000-item WIQL cap.  Pass the caller-supplied WIQL
+        //    query (if any) so the strategy preserves custom WHERE conditions and ORDER BY.
+        var windowOptions = _wiqlQuery != null
+            ? new WorkItemQueryWindowOptions { BaseQuery = _wiqlQuery }
+            : null;
         await foreach (var window in _windowStrategy.EnumerateWindowsAsync(
-            _organisationUrl, _project, _pat, cancellationToken: cancellationToken)
+            _organisationUrl, _project, _pat, windowOptions, cancellationToken)
             .ConfigureAwait(false))
         {
             // 2. For each work item in the window, stream its revisions in ascending order.
