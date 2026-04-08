@@ -40,10 +40,10 @@ public sealed class WorkItemsScopeParameters : IModuleOptions
     {
         return new WorkItemsScopeParameters
         {
-            Query              = GetString(parameters,  "query",              DefaultWiqlQuery),
-            IncludeRevisions   = GetBool(parameters,   "includeRevisions",   true),
-            IncludeLinks       = GetBool(parameters,   "includeLinks",       true),
-            IncludeAttachments = GetBool(parameters,   "includeAttachments", true),
+            Query = GetString(parameters, "query", DefaultWiqlQuery),
+            IncludeRevisions = GetBool(parameters, "includeRevisions", true),
+            IncludeLinks = GetBool(parameters, "includeLinks", true),
+            IncludeAttachments = GetBool(parameters, "includeAttachments", true),
         };
     }
 
@@ -59,9 +59,9 @@ public sealed class WorkItemsScopeParameters : IModuleOptions
         if (!p.TryGetValue(key, out var el)) return defaultValue;
         return el.ValueKind switch
         {
-            JsonValueKind.True  => true,
+            JsonValueKind.True => true,
             JsonValueKind.False => false,
-            _                   => defaultValue
+            _ => defaultValue
         };
     }
 }

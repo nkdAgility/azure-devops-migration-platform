@@ -106,9 +106,9 @@ public class MigrationOptionsDeserializationTests
         Assert.IsTrue(scope.Parameters.ContainsKey("includeLinks"));
         Assert.IsTrue(scope.Parameters.ContainsKey("includeAttachments"));
 
-        Assert.AreEqual(JsonValueKind.True,  scope.Parameters["includeRevisions"].ValueKind);
+        Assert.AreEqual(JsonValueKind.True, scope.Parameters["includeRevisions"].ValueKind);
         Assert.AreEqual(JsonValueKind.False, scope.Parameters["includeLinks"].ValueKind);
-        Assert.AreEqual(JsonValueKind.True,  scope.Parameters["includeAttachments"].ValueKind);
+        Assert.AreEqual(JsonValueKind.True, scope.Parameters["includeAttachments"].ValueKind);
     }
 
     [TestMethod]

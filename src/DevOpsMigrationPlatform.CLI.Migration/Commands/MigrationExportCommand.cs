@@ -79,7 +79,7 @@ public sealed class MigrationExportCommand : CommandBase<MigrationExportCommandS
     {
         var console = GetRequiredService<IAnsiConsole>();
 
-        var orgUrl  = config.Source?.Url;
+        var orgUrl = config.Source?.Url;
         var project = config.Source?.Project;
 
         if (string.IsNullOrWhiteSpace(orgUrl))
@@ -104,26 +104,26 @@ public sealed class MigrationExportCommand : CommandBase<MigrationExportCommandS
         // Build MigrationJob — no migration logic here.
         var job = new MigrationJob
         {
-            JobId         = Guid.NewGuid().ToString(),
+            JobId = Guid.NewGuid().ToString(),
             ConfigVersion = config.ConfigVersion,
-            Mode          = "Export",
-            Source        = new MigrationJobEndpoint
+            Mode = "Export",
+            Source = new MigrationJobEndpoint
             {
-                Type           = config.Source!.Type,
-                Url            = orgUrl,
-                Project        = project,
-                ApiVersion     = config.Source.ApiVersion,
+                Type = config.Source!.Type,
+                Url = orgUrl,
+                Project = project,
+                ApiVersion = config.Source.ApiVersion,
                 Authentication = config.Source.Authentication
             },
             Artefacts = new MigrationJobArtefacts
             {
                 PackageUri = $"file:///{outputPath.Replace(Path.DirectorySeparatorChar, '/')}",
-                Zip        = config.Artefacts.Zip
+                Zip = config.Artefacts.Zip
             },
-            Modules    = modules,
+            Modules = modules,
             Guardrails = new MigrationJobGuardrails
             {
-                StreamingRequired                = true,
+                StreamingRequired = true,
                 CanonicalWorkItemsLayoutRequired = true
             }
         };
@@ -152,11 +152,11 @@ public sealed class MigrationExportCommand : CommandBase<MigrationExportCommandS
                 .Where(m => m.Enabled)
                 .Select(m => new MigrationJobModule
                 {
-                    Name   = m.Name,
+                    Name = m.Name,
                     Scopes = m.Scopes
                         .Select(s => new MigrationJobModuleScope
                         {
-                            Type       = s.Type,
+                            Type = s.Type,
                             Parameters = s.Parameters
                                 .ToDictionary(
                                     kv => kv.Key,

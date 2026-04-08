@@ -83,14 +83,14 @@ public class MigrationExportCommandTests
         var config = await configService.LoadConfigurationAsync(scenarioFile, cts.Token);
 
         // Resolve $ENV: references in config
-        var orgUrl  = TokenResolver.Resolve(config.Source?.Url)
+        var orgUrl = TokenResolver.Resolve(config.Source?.Url)
                       ?? throw new InvalidOperationException("Source URL could not be resolved.");
         var project = config.Source?.Project
                       ?? throw new InvalidOperationException("Source project is required.");
 
         // Output paths
         var outputDir = config.Artefacts.ExpandedPath;
-        var zipPath   = outputDir.TrimEnd(Path.DirectorySeparatorChar) + ".zip";
+        var zipPath = outputDir.TrimEnd(Path.DirectorySeparatorChar) + ".zip";
 
         if (Directory.Exists(outputDir))
             Directory.Delete(outputDir, recursive: true);
@@ -101,14 +101,14 @@ public class MigrationExportCommandTests
         // Build MigrationJob – mirrors what MigrationExportCommand does
         var job = new MigrationJob
         {
-            JobId         = Guid.NewGuid().ToString(),
+            JobId = Guid.NewGuid().ToString(),
             ConfigVersion = config.ConfigVersion,
-            Mode          = "Export",
-            Source        = new MigrationJobEndpoint
+            Mode = "Export",
+            Source = new MigrationJobEndpoint
             {
-                Type           = config.Source!.Type,
-                Url            = orgUrl,
-                Project        = project,
+                Type = config.Source!.Type,
+                Url = orgUrl,
+                Project = project,
                 Authentication = config.Source.Authentication
             },
             Modules =
@@ -130,20 +130,20 @@ public class MigrationExportCommandTests
 
         // Wire up infrastructure directly – no ControlPlane or DI container needed for a module-level system test
         var clientFactory = new AzureDevOpsClientFactory();
-        var mapper        = new AzureDevOpsWorkItemRevisionMapper();
-        var registry      = new AzureDevOpsAttachmentRegistry();
+        var mapper = new AzureDevOpsWorkItemRevisionMapper();
+        var registry = new AzureDevOpsAttachmentRegistry();
         var sourceFactory = new AzureDevOpsWorkItemRevisionSourceFactory(clientFactory, mapper, registry);
-        var module        = new WorkItemsModule(sourceFactory, NullLogger<WorkItemsModule>.Instance);
+        var module = new WorkItemsModule(sourceFactory, NullLogger<WorkItemsModule>.Instance);
 
         var artefactStore = new FileSystemArtefactStore(outputDir);
-        var stateStore    = new FileSystemStateStore(outputDir);
-        var progressSink  = new NullProgressSink();
+        var stateStore = new FileSystemStateStore(outputDir);
+        var progressSink = new NullProgressSink();
 
         var context = new ExportContext
         {
-            Job          = job,
+            Job = job,
             ArtefactStore = artefactStore,
-            StateStore   = stateStore,
+            StateStore = stateStore,
             ProgressSink = progressSink
         };
 
@@ -151,7 +151,7 @@ public class MigrationExportCommandTests
         await module.ExportAsync(context, cts.Token);
 
         // Assert – at least one revision.json written under WorkItems/
-        var workItemsDir   = Path.Combine(outputDir, "WorkItems");
+        var workItemsDir = Path.Combine(outputDir, "WorkItems");
         Assert.IsTrue(Directory.Exists(workItemsDir),
             $"WorkItems directory was not created under {outputDir}");
 
