@@ -12,7 +12,7 @@
   },
   "Artefacts": {
     "Path": "%TEMP%\\SystemTests\\export-ado-workitems-single-project",
-    "Zip": false
+    "Zip": true
   },
   "Modules": [
     {

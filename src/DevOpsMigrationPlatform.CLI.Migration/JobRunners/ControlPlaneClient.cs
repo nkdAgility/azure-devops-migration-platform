@@ -115,6 +115,9 @@ public sealed class ControlPlaneClient : IJobRunner, ILogsClient
             var line = await reader.ReadLineAsync(ct).ConfigureAwait(false);
             if (line is null) break;
 
+            if (line.StartsWith("event:") && line.Contains("job-failed"))
+                throw new InvalidOperationException("Job failed on the agent. Check agent logs for details.");
+
             if (line.StartsWith("event:") && line.Contains("job-ended"))
                 yield break;
 

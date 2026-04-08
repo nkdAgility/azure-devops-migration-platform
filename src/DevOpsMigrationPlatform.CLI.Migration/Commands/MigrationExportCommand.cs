@@ -133,19 +133,29 @@ public sealed class MigrationExportCommand : ControlPlaneCommandBase<MigrationEx
         var jobRunner = GetRequiredService<IJobRunner>();
 
         ProgressEvent? lastEvt = null;
-        await console.Live(new Markup("[grey]Waiting for agent...[/]"))
-            .StartAsync(async ctx =>
-            {
-                await foreach (var evt in jobRunner.RunAsync(job, cancellationToken).ConfigureAwait(false))
+        try
+        {
+            await console.Live(new Markup("[grey]Waiting for agent...[/]"))
+                .StartAsync(async ctx =>
                 {
-                    lastEvt = evt;
-                    if (evt.RevisionsProcessed > 0)
-                        ctx.UpdateTarget(new Markup(
-                            $"[blue]WorkItems[/]  [bold]{evt.WorkItemsProcessed}[/] work items / [bold]{evt.RevisionsProcessed}[/] revisions  [grey](wi#{evt.WorkItemId})[/]"));
-                    else if (!string.IsNullOrEmpty(evt.Message))
-                        ctx.UpdateTarget(new Markup($"[grey]{Markup.Escape(evt.Message)}[/]"));
-                }
-            });
+                    await foreach (var evt in jobRunner.RunAsync(job, cancellationToken).ConfigureAwait(false))
+                    {
+                        lastEvt = evt;
+                        if (evt.RevisionsProcessed > 0)
+                            ctx.UpdateTarget(new Markup(
+                                $"[blue]WorkItems[/]  [bold]{evt.WorkItemsProcessed}[/] work items / [bold]{evt.RevisionsProcessed}[/] revisions  [grey](wi#{evt.WorkItemId})[/]"));
+                        else if (!string.IsNullOrEmpty(evt.Message))
+                            ctx.UpdateTarget(new Markup($"[grey]{Markup.Escape(evt.Message)}[/]"));
+                    }
+                });
+        }
+        catch (InvalidOperationException ex) when (ex.Message.Contains("Job failed"))
+        {
+            ShowError(console, ex.Message);
+            if (lastEvt is not null)
+                ShowError(console, $"Last progress: {lastEvt.WorkItemsProcessed} work items / {lastEvt.RevisionsProcessed} revisions (wi#{lastEvt.WorkItemId})");
+            return 1;
+        }
 
         if (lastEvt is not null)
             ShowSuccess(console, $"Export complete — {lastEvt.WorkItemsProcessed} work items / {lastEvt.RevisionsProcessed} revisions written to package.");
