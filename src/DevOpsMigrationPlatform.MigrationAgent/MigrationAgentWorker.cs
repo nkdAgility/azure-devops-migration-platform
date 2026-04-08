@@ -27,6 +27,7 @@ public sealed class MigrationAgentWorker : BackgroundService
     private readonly IEnumerable<IDataTypeModule> _modules;
     private readonly IPackageStoreFactory _packageStoreFactory;
     private readonly IProgressSink _progressSink;
+    private readonly ActiveLeaseState _leaseState;
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly ILogger<MigrationAgentWorker> _logger;
 
@@ -34,12 +35,14 @@ public sealed class MigrationAgentWorker : BackgroundService
         IEnumerable<IDataTypeModule> modules,
         IPackageStoreFactory packageStoreFactory,
         IProgressSink progressSink,
+        ActiveLeaseState leaseState,
         IHttpClientFactory httpClientFactory,
         ILogger<MigrationAgentWorker> logger)
     {
         _modules = modules;
         _packageStoreFactory = packageStoreFactory;
         _progressSink = progressSink;
+        _leaseState = leaseState;
         _httpClientFactory = httpClientFactory;
         _logger = logger;
     }
@@ -96,6 +99,8 @@ public sealed class MigrationAgentWorker : BackgroundService
             "Acquired lease {LeaseId} for job {JobId} (mode={Mode})",
             lease.LeaseId, lease.Job.JobId, lease.Job.Mode);
 
+        _leaseState.CurrentLeaseId = lease.LeaseId;
+
         // 2. Build stores from job artefacts URI via IPackageStoreFactory.
         var (artefactStore, stateStore) = _packageStoreFactory.Create(
             lease.Job.Artefacts.PackageUri ?? ".");
@@ -128,6 +133,7 @@ public sealed class MigrationAgentWorker : BackgroundService
         // 5. Signal terminal state — retry with back-off so the lease is not orphaned.
         var terminal = failed ? "fail" : "complete";
         await SignalTerminalAsync(controlPlane, lease.LeaseId, terminal, ct).ConfigureAwait(false);
+        _leaseState.CurrentLeaseId = null;
     }
 
     private async Task SignalTerminalAsync(

@@ -71,7 +71,8 @@ public sealed class WorkItemsModule : IDataTypeModule
         var orchestrator = new WorkItemExportOrchestrator(
             context.ArtefactStore,
             checkpointingService,
-            attachmentBinarySource);
+            attachmentBinarySource,
+            context.ProgressSink);
 
         await orchestrator.ExportAsync(source, ct).ConfigureAwait(false);
 

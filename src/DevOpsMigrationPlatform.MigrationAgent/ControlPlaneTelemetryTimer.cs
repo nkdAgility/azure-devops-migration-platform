@@ -43,8 +43,15 @@ internal sealed class ControlPlaneTelemetryTimer : BackgroundService
         while (!stoppingToken.IsCancellationRequested)
         {
             var intervalSeconds = _options.Value.SnapshotIntervalSeconds;
-            await Task.Delay(TimeSpan.FromSeconds(intervalSeconds), stoppingToken)
-                      .ConfigureAwait(false);
+            try
+            {
+                await Task.Delay(TimeSpan.FromSeconds(intervalSeconds), stoppingToken)
+                          .ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                break;
+            }
 
             var leaseId  = _leaseState.CurrentLeaseId;
             var snapshot = _store.Latest;

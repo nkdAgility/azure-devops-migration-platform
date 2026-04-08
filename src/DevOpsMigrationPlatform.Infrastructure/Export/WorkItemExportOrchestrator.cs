@@ -27,15 +27,18 @@ public class WorkItemExportOrchestrator
     private readonly IArtefactStore _artefactStore;
     private readonly ICheckpointingService _checkpointingService;
     private readonly IAttachmentBinarySource? _attachmentBinarySource;
+    private readonly IProgressSink? _progressSink;
 
     public WorkItemExportOrchestrator(
         IArtefactStore artefactStore,
         ICheckpointingService checkpointingService,
-        IAttachmentBinarySource? attachmentBinarySource = null)
+        IAttachmentBinarySource? attachmentBinarySource = null,
+        IProgressSink? progressSink = null)
     {
         _artefactStore = artefactStore;
         _checkpointingService = checkpointingService;
         _attachmentBinarySource = attachmentBinarySource;
+        _progressSink = progressSink;
     }
 
     /// <summary>
@@ -51,6 +54,10 @@ public class WorkItemExportOrchestrator
             .ReadCursorAsync("WorkItems", cancellationToken)
             .ConfigureAwait(false);
 
+        int workItemsProcessed = 0;
+        int revisionsProcessed = 0;
+        int lastWorkItemId = 0;
+
         await foreach (var revision in source.GetRevisionsAsync(cancellationToken))
         {
             var folderPath = BuildFolderPath(revision.WorkItemId, revision.RevisionIndex, revision.ChangedDate);
@@ -65,6 +72,24 @@ public class WorkItemExportOrchestrator
             // Write revision.json.
             var json = JsonSerializer.Serialize(revision, JsonOptions);
             await _artefactStore.WriteAsync($"{folderPath}revision.json", json, cancellationToken).ConfigureAwait(false);
+
+            revisionsProcessed++;
+            if (revision.WorkItemId != lastWorkItemId)
+            {
+                workItemsProcessed++;
+                lastWorkItemId = revision.WorkItemId;
+            }
+
+            _progressSink?.Emit(new ProgressEvent
+            {
+                Module = "WorkItems",
+                Stage = "Export",
+                LastProcessed = folderPath,
+                WorkItemId = revision.WorkItemId,
+                WorkItemsProcessed = workItemsProcessed,
+                RevisionsProcessed = revisionsProcessed,
+                Message = $"[WorkItems] {workItemsProcessed} work items / {revisionsProcessed} revisions written"
+            });
 
             // Write attachment binaries beside revision.json when a binary source is available.
             if (_attachmentBinarySource != null)

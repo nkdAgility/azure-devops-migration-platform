@@ -134,7 +134,10 @@ public sealed class MigrationExportCommand : ControlPlaneCommandBase<MigrationEx
 
         await foreach (var evt in jobRunner.RunAsync(job, cancellationToken).ConfigureAwait(false))
         {
-            console.MarkupLine($"[grey]{Markup.Escape(evt.Message ?? string.Empty)}[/]");
+            if (evt.RevisionsProcessed > 0)
+                console.MarkupLine($"[grey]  {evt.Module}[/] [bold]{evt.WorkItemsProcessed}[/] work items / [bold]{evt.RevisionsProcessed}[/] revisions  (wi#{evt.WorkItemId})");
+            else if (!string.IsNullOrEmpty(evt.Message))
+                console.MarkupLine($"[grey]{Markup.Escape(evt.Message)}[/]");
         }
 
         console.MarkupLine("[green]✓[/] Work item export complete.");
