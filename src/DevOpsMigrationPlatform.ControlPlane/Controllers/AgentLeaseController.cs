@@ -39,9 +39,17 @@ public sealed class AgentLeaseController : ControllerBase
     [ProducesResponseType(204)]
     public async Task<IActionResult> AcquireLease(CancellationToken cancellationToken)
     {
-        var job = await _jobStore
-            .DequeueAsync(LeasePollTimeout, cancellationToken)
-            .ConfigureAwait(false);
+        MigrationJob? job;
+        try
+        {
+            job = await _jobStore
+                .DequeueAsync(LeasePollTimeout, cancellationToken)
+                .ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            return NoContent();
+        }
 
         if (job is null)
             return NoContent();
