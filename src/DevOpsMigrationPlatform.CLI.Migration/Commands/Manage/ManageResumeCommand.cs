@@ -9,6 +9,7 @@ using Spectre.Console.Cli;
 namespace DevOpsMigrationPlatform.CLI.Commands.Manage;
 
 /// <summary>Re-queues a paused job for Migration Agent pickup.</summary>
+[HideFromChannel(ReleaseChannel.Preview)]
 public sealed class ManageResumeCommand : CommandBase<ManageResumeCommand.Settings>
 {
     public sealed class Settings : BaseCommandSettings

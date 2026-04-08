@@ -8,6 +8,7 @@ using Spectre.Console.Cli;
 namespace DevOpsMigrationPlatform.CLI.Commands;
 
 /// <summary>Runs pre-flight validation on an existing package.</summary>
+[HideFromChannel(ReleaseChannel.Preview)]
 public sealed class MigrationValidateCommand : CommandBase<MigrationValidateCommandSettings>
 {
     protected override Task<int> ExecuteInternalAsync(CommandContext context, MigrationValidateCommandSettings settings, CancellationToken cancellationToken = default)

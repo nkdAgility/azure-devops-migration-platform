@@ -9,6 +9,7 @@ using Spectre.Console.Cli;
 namespace DevOpsMigrationPlatform.CLI.Commands.Manage;
 
 /// <summary>Authenticates with a control plane endpoint and stores the session token.</summary>
+[HideFromChannel(ReleaseChannel.Preview)]
 public sealed class ManageLoginCommand : CommandBase<ManageLoginCommand.Settings>
 {
     public sealed class Settings : BaseCommandSettings

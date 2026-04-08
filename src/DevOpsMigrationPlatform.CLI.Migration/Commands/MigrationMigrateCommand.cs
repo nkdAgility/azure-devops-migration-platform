@@ -8,6 +8,7 @@ using Spectre.Console.Cli;
 namespace DevOpsMigrationPlatform.CLI.Commands;
 
 /// <summary>Full lifecycle: export → validate → import in one orchestrated run.</summary>
+[HideFromChannel(ReleaseChannel.Preview)]
 public sealed class MigrationMigrateCommand : CommandBase<BaseCommandSettings>
 {
     protected override Task<int> ExecuteInternalAsync(CommandContext context, BaseCommandSettings settings, CancellationToken cancellationToken = default)

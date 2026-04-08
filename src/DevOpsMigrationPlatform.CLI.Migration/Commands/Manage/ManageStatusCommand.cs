@@ -9,6 +9,7 @@ using Spectre.Console.Cli;
 namespace DevOpsMigrationPlatform.CLI.Commands.Manage;
 
 /// <summary>Displays job state and per-module progress for a specific job.</summary>
+[HideFromChannel(ReleaseChannel.Preview)]
 public sealed class ManageStatusCommand : CommandBase<ManageStatusCommand.Settings>
 {
     public sealed class Settings : BaseCommandSettings

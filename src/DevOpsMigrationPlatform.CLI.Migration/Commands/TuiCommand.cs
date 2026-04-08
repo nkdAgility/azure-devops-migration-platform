@@ -8,6 +8,7 @@ using Spectre.Console.Cli;
 namespace DevOpsMigrationPlatform.CLI.Commands;
 
 /// <summary>Opens the interactive Terminal UI showing live job state.</summary>
+[HideFromChannel(ReleaseChannel.Preview)]
 public sealed class TuiCommand : CommandBase<BaseCommandSettings>
 {
     protected override Task<int> ExecuteInternalAsync(CommandContext context, BaseCommandSettings settings, CancellationToken cancellationToken = default)

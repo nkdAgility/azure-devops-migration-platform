@@ -9,6 +9,7 @@ using Spectre.Console.Cli;
 namespace DevOpsMigrationPlatform.CLI.Commands.Manage;
 
 /// <summary>Revokes the stored session token for a control plane endpoint.</summary>
+[HideFromChannel(ReleaseChannel.Preview)]
 public sealed class ManageLogoutCommand : CommandBase<ManageLogoutCommand.Settings>
 {
     public sealed class Settings : BaseCommandSettings

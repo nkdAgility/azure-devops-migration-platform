@@ -9,6 +9,7 @@ using Spectre.Console.Cli;
 namespace DevOpsMigrationPlatform.CLI.Commands.Manage;
 
 /// <summary>Cancels a queued or running job.</summary>
+[HideFromChannel(ReleaseChannel.Preview)]
 public sealed class ManageCancelCommand : CommandBase<ManageCancelCommand.Settings>
 {
     public sealed class Settings : BaseCommandSettings

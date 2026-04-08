@@ -9,6 +9,7 @@ using Spectre.Console.Cli;
 namespace DevOpsMigrationPlatform.CLI.Commands.Manage;
 
 /// <summary>Signals the running Migration Agent to checkpoint and pause.</summary>
+[HideFromChannel(ReleaseChannel.Preview)]
 public sealed class ManagePauseCommand : CommandBase<ManagePauseCommand.Settings>
 {
     public sealed class Settings : BaseCommandSettings

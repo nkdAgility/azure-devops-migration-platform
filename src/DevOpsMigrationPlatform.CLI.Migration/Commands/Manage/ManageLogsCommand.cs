@@ -9,6 +9,7 @@ using Spectre.Console.Cli;
 namespace DevOpsMigrationPlatform.CLI.Commands.Manage;
 
 /// <summary>Fetches or streams ProgressEvent records. --follow opens the SSE stream.</summary>
+[HideFromChannel(ReleaseChannel.Preview)]
 public sealed class ManageLogsCommand : CommandBase<ManageLogsCommand.Settings>
 {
     public sealed class Settings : BaseCommandSettings

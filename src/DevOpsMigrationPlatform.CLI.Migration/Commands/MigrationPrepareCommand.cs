@@ -8,6 +8,7 @@ using Spectre.Console.Cli;
 namespace DevOpsMigrationPlatform.CLI.Commands;
 
 /// <summary>Validates config, computes configHash, and prints planned modules. No job is submitted.</summary>
+[HideFromChannel(ReleaseChannel.Preview)]
 public sealed class MigrationPrepareCommand : CommandBase<BaseCommandSettings>
 {
     protected override Task<int> ExecuteInternalAsync(CommandContext context, BaseCommandSettings settings, CancellationToken cancellationToken = default)

@@ -24,24 +24,24 @@ internal class Program
 #endif
 
             // ── Migration commands (all read their configuration from --config) ──────
-            config.AddCommand<MigrationPrepareCommand>("prepare")
+            config.AddChannelCommand<MigrationPrepareCommand>("prepare")
                 .WithDescription("Validate config, compute configHash, print planned modules. No job is submitted.")
                 .WithExample("prepare", "--config", "migration.json");
 
-            config.AddCommand<MigrationExportCommand>("export")
+            config.AddChannelCommand<MigrationExportCommand>("export")
                 .WithDescription("Submit an export-only job. Source type (AzureDevOpsServices or TeamFoundationServer) is read from the config file.")
                 .WithExample("export", "--config", "migration.json")
                 .WithExample("export", "--config", "scenarios/export-ado-workitems-single-project.json");
 
-            config.AddCommand<MigrationImportCommand>("import")
+            config.AddChannelCommand<MigrationImportCommand>("import")
                 .WithDescription("Submit an import-only job. Reads the package from artefacts.path in the config file.")
                 .WithExample("import", "--config", "migration.json");
 
-            config.AddCommand<MigrationValidateCommand>("validate")
+            config.AddChannelCommand<MigrationValidateCommand>("validate")
                 .WithDescription("Run pre-flight validation on an existing package.")
                 .WithExample("validate", "--config", "migration.json");
 
-            config.AddCommand<MigrationMigrateCommand>("migrate")
+            config.AddChannelCommand<MigrationMigrateCommand>("migrate")
                 .WithDescription("Full lifecycle: export → validate → import in one orchestrated run.")
                 .WithExample("migrate", "--config", "migration.json");
 
@@ -50,36 +50,36 @@ internal class Program
             {
                 branch.SetDescription("Query and control existing jobs.");
 
-                branch.AddCommand<ManageListCommand>("list")
+                branch.AddChannelCommand<ManageListCommand>("list")
                     .WithDescription("List all jobs visible to the authenticated user with status and progress.")
                     .WithExample("manage", "list");
 
-                branch.AddCommand<ManageStatusCommand>("status")
+                branch.AddChannelCommand<ManageStatusCommand>("status")
                     .WithDescription("Display job state and per-module progress for a specific job.")
                     .WithExample("manage", "status", "--job", "550e8400-e29b-41d4-a716-446655440000");
 
-                branch.AddCommand<ManageLogsCommand>("logs")
+                branch.AddChannelCommand<ManageLogsCommand>("logs")
                     .WithDescription("Fetch or stream ProgressEvent records. --follow opens the SSE stream.")
                     .WithExample("manage", "logs", "--job", "550e8400-e29b-41d4-a716-446655440000")
                     .WithExample("manage", "logs", "--job", "550e8400-e29b-41d4-a716-446655440000", "--follow");
 
-                branch.AddCommand<ManagePauseCommand>("pause")
+                branch.AddChannelCommand<ManagePauseCommand>("pause")
                     .WithDescription("Signal the running Migration Agent to checkpoint and pause.")
                     .WithExample("manage", "pause", "--job", "550e8400-e29b-41d4-a716-446655440000");
 
-                branch.AddCommand<ManageResumeCommand>("resume")
+                branch.AddChannelCommand<ManageResumeCommand>("resume")
                     .WithDescription("Resume a paused job (re-queues it for Migration Agent pickup).")
                     .WithExample("manage", "resume", "--job", "550e8400-e29b-41d4-a716-446655440000");
 
-                branch.AddCommand<ManageCancelCommand>("cancel")
+                branch.AddChannelCommand<ManageCancelCommand>("cancel")
                     .WithDescription("Cancel a queued or running job.")
                     .WithExample("manage", "cancel", "--job", "550e8400-e29b-41d4-a716-446655440000");
 
-                branch.AddCommand<ManageLoginCommand>("login")
+                branch.AddChannelCommand<ManageLoginCommand>("login")
                     .WithDescription("Authenticate with a control plane endpoint and store the session token.")
                     .WithExample("manage", "login", "--url", "https://migration.example.com");
 
-                branch.AddCommand<ManageLogoutCommand>("logout")
+                branch.AddChannelCommand<ManageLogoutCommand>("logout")
                     .WithDescription("Revoke the stored session token for a control plane endpoint.")
                     .WithExample("manage", "logout", "--url", "https://migration.example.com");
             });
@@ -96,7 +96,7 @@ internal class Program
             });
 
             // ── Terminal UI ───────────────────────────────────────────────────────────
-            config.AddCommand<TuiCommand>("tui")
+            config.AddChannelCommand<TuiCommand>("tui")
                 .WithDescription("Open the interactive Terminal UI showing live job state.")
                 .WithExample("tui");
 
