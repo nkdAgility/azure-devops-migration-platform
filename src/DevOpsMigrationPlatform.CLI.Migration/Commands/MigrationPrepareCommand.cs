@@ -9,9 +9,9 @@ namespace DevOpsMigrationPlatform.CLI.Commands;
 
 /// <summary>Validates config, computes configHash, and prints planned modules. No job is submitted.</summary>
 [HideFromChannel(ReleaseChannel.Preview)]
-public sealed class MigrationPrepareCommand : CommandBase<BaseCommandSettings>
+public sealed class MigrationPrepareCommand : ControlPlaneCommandBase<MigrationCommandSettings>
 {
-    protected override Task<int> ExecuteInternalAsync(CommandContext context, BaseCommandSettings settings, CancellationToken cancellationToken = default)
+    protected override Task<int> ExecuteInternalAsync(CommandContext context, MigrationCommandSettings settings, CancellationToken cancellationToken = default)
     {
         AnsiConsole.MarkupLine("[grey]prepare — not yet implemented.[/]");
         return Task.FromResult(1);

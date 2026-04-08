@@ -10,9 +10,9 @@ namespace DevOpsMigrationPlatform.CLI.Commands.Manage;
 
 /// <summary>Re-queues a paused job for Migration Agent pickup.</summary>
 [HideFromChannel(ReleaseChannel.Preview)]
-public sealed class ManageResumeCommand : CommandBase<ManageResumeCommand.Settings>
+public sealed class ManageResumeCommand : ControlPlaneCommandBase<ManageResumeCommand.Settings>
 {
-    public sealed class Settings : BaseCommandSettings
+    public sealed class Settings : ControlPlaneBaseCommandSettings
     {
         [CommandOption("--job <JOB_ID>")]
         [Description("The job ID to resume")]

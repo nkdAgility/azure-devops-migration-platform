@@ -4,6 +4,7 @@ using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.CLI.JobRunners;
 using DevOpsMigrationPlatform.CLI.Migration.Commands;
 using DevOpsMigrationPlatform.CLI.Migration.Options;
+using DevOpsMigrationPlatform.CLI.Migration.Settings;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using Spectre.Console;
@@ -12,14 +13,14 @@ using System.ComponentModel;
 
 namespace DevOpsMigrationPlatform.CLI.Commands;
 
-public sealed class LogsCommand : CommandBase<LogsCommand.Settings>
+public sealed class LogsCommand : ControlPlaneCommandBase<LogsCommand.Settings>
 {
     private static readonly JsonSerializerOptions _jsonOptions = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase
     };
 
-    public sealed class Settings : CommandSettings
+    public sealed class Settings : ControlPlaneBaseCommandSettings
     {
         [CommandOption("--job <JOB_ID>")]
         [Description("The job ID to retrieve logs for")]

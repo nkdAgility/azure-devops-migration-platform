@@ -33,14 +33,16 @@ namespace DevOpsMigrationPlatform.CLI.Migration.Commands;
 /// or the TFS subprocess (TFS path).
 /// See docs/cli.md and system-architecture guardrail rules 16 and 19.
 /// </summary>
-public sealed class MigrationExportCommand : CommandBase<MigrationExportCommandSettings>
+public sealed class MigrationExportCommand : ControlPlaneCommandBase<MigrationExportCommandSettings>
 {
     protected override async Task<int> ExecuteInternalAsync(
         CommandContext context,
         MigrationExportCommandSettings settings,
         CancellationToken cancellationToken = default)
     {
-        await CreateHost(Environment.GetCommandLineArgs(), (services, config) =>
+        var resolvedUrl = MigrationPlatformHost.ResolveControlPlaneUrl(settings.Url);
+
+        await CreateHost(Environment.GetCommandLineArgs(), resolvedUrl, (services, config) =>
         {
             services.AddSingleton<IConfigurationService, ConfigurationService>();
 

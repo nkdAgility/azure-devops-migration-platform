@@ -10,9 +10,9 @@ namespace DevOpsMigrationPlatform.CLI.Commands.Manage;
 
 /// <summary>Cancels a queued or running job.</summary>
 [HideFromChannel(ReleaseChannel.Preview)]
-public sealed class ManageCancelCommand : CommandBase<ManageCancelCommand.Settings>
+public sealed class ManageCancelCommand : ControlPlaneCommandBase<ManageCancelCommand.Settings>
 {
-    public sealed class Settings : BaseCommandSettings
+    public sealed class Settings : ControlPlaneBaseCommandSettings
     {
         [CommandOption("--job <JOB_ID>")]
         [Description("The job ID to cancel")]

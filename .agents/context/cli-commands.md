@@ -67,6 +67,14 @@ Run **locally**. Do **not** submit a `MigrationJob`. Registered as a Spectre.Con
 | `--disable-telemetry` | — | `false` | Suppress all telemetry export. |
 | `--dry-run` | — | `false` | Parse and validate but perform no writes or job submissions. |
 
+## Migration + Manage + TUI Options (control-plane commands only)
+
+These options are available on all commands that contact the control plane (`export`, `import`, `validate`, `migrate`, `prepare`, `manage *`, `tui`, `manage logs`). They are **not** available on `discovery *` or `configure` commands.
+
+| Option | Short | Default | Description |
+|--------|-------|---------|-------------|
+| `--url` | — | *(none)* | URL of the control plane API (e.g. `https://controlplane.example.com`). Overrides `MIGRATION_API_URL`. When neither is set, the CLI starts the ControlPlane + MigrationAgent in-process at `http://localhost:5100`. |
+
 ---
 
 ## Command Registration Pattern

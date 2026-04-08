@@ -10,9 +10,9 @@ namespace DevOpsMigrationPlatform.CLI.Commands.Manage;
 
 /// <summary>Displays job state and per-module progress for a specific job.</summary>
 [HideFromChannel(ReleaseChannel.Preview)]
-public sealed class ManageStatusCommand : CommandBase<ManageStatusCommand.Settings>
+public sealed class ManageStatusCommand : ControlPlaneCommandBase<ManageStatusCommand.Settings>
 {
-    public sealed class Settings : BaseCommandSettings
+    public sealed class Settings : ControlPlaneBaseCommandSettings
     {
         [CommandOption("--job <JOB_ID>")]
         [Description("The job ID to query")]

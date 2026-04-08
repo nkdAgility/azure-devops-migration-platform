@@ -10,9 +10,9 @@ namespace DevOpsMigrationPlatform.CLI.Commands.Manage;
 
 /// <summary>Fetches or streams ProgressEvent records. --follow opens the SSE stream.</summary>
 [HideFromChannel(ReleaseChannel.Preview)]
-public sealed class ManageLogsCommand : CommandBase<ManageLogsCommand.Settings>
+public sealed class ManageLogsCommand : ControlPlaneCommandBase<ManageLogsCommand.Settings>
 {
-    public sealed class Settings : BaseCommandSettings
+    public sealed class Settings : ControlPlaneBaseCommandSettings
     {
         [CommandOption("--job <JOB_ID>")]
         [Description("The job ID to retrieve logs for")]

@@ -10,9 +10,9 @@ namespace DevOpsMigrationPlatform.CLI.Commands.Manage;
 
 /// <summary>Signals the running Migration Agent to checkpoint and pause.</summary>
 [HideFromChannel(ReleaseChannel.Preview)]
-public sealed class ManagePauseCommand : CommandBase<ManagePauseCommand.Settings>
+public sealed class ManagePauseCommand : ControlPlaneCommandBase<ManagePauseCommand.Settings>
 {
-    public sealed class Settings : BaseCommandSettings
+    public sealed class Settings : ControlPlaneBaseCommandSettings
     {
         [CommandOption("--job <JOB_ID>")]
         [Description("The job ID to pause")]

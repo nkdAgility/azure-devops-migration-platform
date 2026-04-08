@@ -17,7 +17,7 @@ internal static class ChannelCommandExtensions
     /// <summary>Registers <typeparamref name="TCommand"/> on the root configurator.</summary>
     public static ICommandConfigurator AddChannelCommand<TCommand>(
         this IConfigurator config, string name)
-        where TCommand : class, ICommand
+        where TCommand : class, ICommandLimiter<CommandSettings>
     {
         var cmd = config.AddCommand<TCommand>(name);
         HideIfNeeded<TCommand>(cmd);
@@ -27,7 +27,7 @@ internal static class ChannelCommandExtensions
     /// <summary>Registers <typeparamref name="TCommand"/> on a branch configurator.</summary>
     public static ICommandConfigurator AddChannelCommand<TCommand>(
         this IConfigurator<CommandSettings> config, string name)
-        where TCommand : class, ICommand
+        where TCommand : class, ICommandLimiter<CommandSettings>
     {
         var cmd = config.AddCommand<TCommand>(name);
         HideIfNeeded<TCommand>(cmd);

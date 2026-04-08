@@ -29,13 +29,13 @@ public abstract class CommandBase<TSettings> : AsyncCommand<TSettings>
 
     /// <summary>
     /// Creates an <see cref="IHost"/> using the shared <see cref="MigrationPlatformHost"/>
-    /// builder with command-specific service registration.
+    /// builder with command-specific service registration. Uses the existing host if already
+    /// created (idempotent).
     /// </summary>
     /// <param name="args">Original command line arguments (for config file extraction)</param>
     /// <param name="configureServices">
     /// Delegate to register command-specific services and options.
     /// </param>
-    /// <returns>The built and started host. Also stored in <see cref="Host"/>.</returns>
     protected async Task<IHost> CreateHost(
         string[] args,
         Action<IServiceCollection, IConfiguration>? configureServices = null)
@@ -61,15 +61,15 @@ public abstract class CommandBase<TSettings> : AsyncCommand<TSettings>
         => Host?.Services.GetService<TService>();
 
     /// <summary>
-    /// Executes the command with common error handling and telemetry.
+    /// Executes the command with common error handling, then disposes the host.
+    /// Subclasses may override <see cref="DisposeResourcesAsync"/> to add cleanup.
     /// </summary>
-    protected sealed override async Task<int> ExecuteAsync(
+    protected override async Task<int> ExecuteAsync(
         CommandContext context, TSettings settings, CancellationToken cancellationToken = default)
     {
         try
         {
-            var result = await ExecuteInternalAsync(context, settings, cancellationToken);
-            return result;
+            return await ExecuteInternalAsync(context, settings, cancellationToken);
         }
         catch (Exception ex)
         {
@@ -82,8 +82,15 @@ public abstract class CommandBase<TSettings> : AsyncCommand<TSettings>
                 await asyncDisposable.DisposeAsync();
             else
                 Host?.Dispose();
+
+            await DisposeResourcesAsync();
         }
     }
+
+    /// <summary>
+    /// Override to dispose additional resources after the host is torn down.
+    /// </summary>
+    protected virtual Task DisposeResourcesAsync() => Task.CompletedTask;
 
     /// <summary>
     /// Command-specific implementation. Derived classes must call <see cref="CreateHost"/>

@@ -9,9 +9,9 @@ namespace DevOpsMigrationPlatform.CLI.Commands;
 
 /// <summary>Opens the interactive Terminal UI showing live job state.</summary>
 [HideFromChannel(ReleaseChannel.Preview)]
-public sealed class TuiCommand : CommandBase<BaseCommandSettings>
+public sealed class TuiCommand : ControlPlaneCommandBase<ControlPlaneBaseCommandSettings>
 {
-    protected override Task<int> ExecuteInternalAsync(CommandContext context, BaseCommandSettings settings, CancellationToken cancellationToken = default)
+    protected override Task<int> ExecuteInternalAsync(CommandContext context, ControlPlaneBaseCommandSettings settings, CancellationToken cancellationToken = default)
     {
         AnsiConsole.MarkupLine("[grey]tui — not yet implemented.[/]");
         return Task.FromResult(1);
