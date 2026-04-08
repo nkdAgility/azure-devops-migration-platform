@@ -1,4 +1,5 @@
 using DevOpsMigrationPlatform.Abstractions.Options;
+using DevOpsMigrationPlatform.Abstractions.Utilities;
 
 namespace DevOpsMigrationPlatform.Abstractions;
 
@@ -8,8 +9,12 @@ public class MigrationJobEndpoint
     /// <summary>AzureDevOpsServices or TeamFoundationServer.</summary>
     public string Type { get; init; } = string.Empty;
 
-    /// <summary>Organisation URL (AZDO) or collection URL (TFS).</summary>
+    /// <summary>Organisation URL (AZDO) or collection URL (TFS).
+    /// May contain a <c>$ENV:VARNAME</c> reference — use <see cref="ResolvedUrl"/> for API calls.</summary>
     public string Url { get; init; } = string.Empty;
+
+    /// <summary>The effective URL after <c>$ENV:VARNAME</c> expansion.</summary>
+    public string ResolvedUrl => TokenResolver.Resolve(Url) ?? string.Empty;
 
     /// <summary>Team project name.</summary>
     public string Project { get; init; } = string.Empty;

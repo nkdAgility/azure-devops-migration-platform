@@ -81,7 +81,7 @@ public sealed class MigrationExportCommand : ControlPlaneCommandBase<MigrationEx
     {
         var console = GetRequiredService<IAnsiConsole>();
 
-        var orgUrl = config.Source?.Url;
+        var orgUrl = config.Source?.ResolvedUrl;
         var project = config.Source?.Project;
 
         if (string.IsNullOrWhiteSpace(orgUrl))

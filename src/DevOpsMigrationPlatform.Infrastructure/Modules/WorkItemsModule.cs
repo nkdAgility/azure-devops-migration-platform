@@ -45,7 +45,7 @@ public sealed class WorkItemsModule : IDataTypeModule
     {
         var job = context.Job;
 
-        var orgUrl = job.Source?.Url ?? throw new InvalidOperationException("Job.Source.Url is required.");
+        var orgUrl = job.Source?.ResolvedUrl ?? throw new InvalidOperationException("Job.Source.Url is required.");
         var project = job.Source?.Project ?? throw new InvalidOperationException("Job.Source.Project is required.");
         var pat = job.Source?.Authentication?.ResolvedAccessToken ?? string.Empty;
 

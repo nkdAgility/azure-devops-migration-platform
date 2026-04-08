@@ -77,15 +77,8 @@ public sealed class ProgressController : ControllerBase
     /// </summary>
     [HttpGet("/jobs/{jobId}/logs")]
     [ProducesResponseType(200)]
-    [ProducesResponseType(403)]
     public async Task GetLogs(Guid jobId, [FromQuery] bool follow = false, CancellationToken ct = default)
     {
-        if (!(HttpContext.User?.Identity?.IsAuthenticated ?? false))
-        {
-            HttpContext.Response.StatusCode = StatusCodes.Status403Forbidden;
-            return;
-        }
-
         if (!follow)
         {
             var snapshot = _store.GetSnapshot(jobId);
