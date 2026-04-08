@@ -276,13 +276,14 @@ public class WorkItemQueryWindowStrategyTests
             "Window should grow by exactly 1 day after a narrow success");
     }
 
-    // ── T024: WIQL error causes retries then throws ───────────────────────────
+    // ── T024: WIQL transient error causes retries then throws ────────────────
 
     [TestMethod]
     public async Task EnumerateWindowsAsync_WiqlError_RetriesThreeTimes_ThenThrows()
     {
         // Arrange: unbounded probe (call 0) succeeds → triggers windowing (>= limit);
-        //          all windowed calls throw → 1 original + 3 retries = 4 windowed calls, then propagates.
+        //          all windowed calls throw a non-overflow error → 1 original + 3 retries = 4
+        //          windowed calls, then propagates.
         var opts = new WorkItemQueryWindowOptions { LimitThreshold = 5 };
         var callCount = 0;
         var clientMock = new Mock<IWiqlQueryClient>(MockBehavior.Strict);
@@ -302,7 +303,7 @@ public class WorkItemQueryWindowStrategyTests
 
         var sut = new WorkItemQueryWindowStrategy(factoryMock.Object);
 
-        // Act & Assert: after maxRetries (3) exhausted the original exception propagates
+        // Act & Assert: after maxTransientRetries (3) exhausted the original exception propagates
         await Assert.ThrowsExceptionAsync<InvalidOperationException>(async () =>
         {
             await foreach (var _ in sut.EnumerateWindowsAsync(Org, Project, Pat, opts))
@@ -317,10 +318,10 @@ public class WorkItemQueryWindowStrategyTests
     }
 
     [TestMethod]
-    public async Task EnumerateWindowsAsync_WiqlError_HalvesWindowOnEachRetry()
+    public async Task EnumerateWindowsAsync_WiqlError_TransientRetryRecoversOnSameWindow()
     {
-        // Arrange: unbounded probe (call 0) succeeds → triggers windowing (>= limit);
-        //          windowed calls 1-3 throw (3 retries), call 4 returns items, call 5 returns 0 (stop).
+        // Transient errors (non-overflow) retry the SAME window without halving.
+        // After 3 failures the 4th attempt succeeds; 5th stops scan.
         var opts = new WorkItemQueryWindowOptions { LimitThreshold = 5, InitialWindowDays = 120, MinWindowDays = 1, MinDate = DateTime.UtcNow.AddDays(-1) };
         var callIdx = 0;
 
@@ -345,8 +346,110 @@ public class WorkItemQueryWindowStrategyTests
         // Act
         var windows = await CollectWindowsAsync(sut, opts);
 
-        // Assert: recovered and yielded 1 window after 3 failed windowed retries
+        // Assert: recovered and yielded 1 window after 3 transient retries
         Assert.AreEqual(1, windows.Count, "Should recover after 3 retries and yield 1 window");
+    }
+
+    // ── VS402337 overflow exception in Step 2 does NOT consume retry slots ────
+
+    /// <summary>
+    /// Regression test for the actual production failure:
+    /// VS402337 thrown by ADO during windowed scanning must halve the window without
+    /// consuming a transient-retry slot.  Without this fix the strategy exhausts its
+    /// 3-retry budget after the first three halvings and propagates the exception
+    /// — exactly the "crapped out at 263k items" issue reported in production.
+    /// </summary>
+    [TestMethod]
+    public async Task EnumerateWindowsAsync_Step2_OverflowException_HalvesMoreThanThreeTimesWithoutThrowing()
+    {
+        // Arrange: probe throws VS402337 → falls to Step 2.
+        //          5 consecutive windowed queries also throw VS402337 (more than maxTransientRetries=3).
+        //          6th windowed query fits; 7th is empty (stop).
+        //
+        //  If overflow consumed transient-retry slots this would throw on the 4th windowed call.
+        //  With the correct split it succeeds through all 5 overflow halvings.
+        var opts = new WorkItemQueryWindowOptions
+        {
+            LimitThreshold = 20_000,
+            InitialWindowDays = 120,
+            MinWindowDays = 1,
+            MinDate = DateTime.UtcNow.AddDays(-1)
+        };
+
+        var callIdx = 0;
+        var overflowEx = new InvalidOperationException("VS402337: The number of work items returned exceeds the size limit of 20000.");
+
+        var clientMock = new Mock<IWiqlQueryClient>(MockBehavior.Strict);
+        clientMock
+            .Setup(c => c.QueryByWiqlAsync(It.IsAny<Wiql>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(() =>
+            {
+                var i = callIdx++;
+                if (i == 0) throw overflowEx;     // probe: VS402337 → Step 2
+                if (i <= 5) throw overflowEx;     // 5 windowed overflow throws (> maxTransientRetries)
+                return i == 6 ? MakeResult(1, 2, 3) : EmptyResult(); // finally fits; then stop
+            });
+
+        var factoryMock = new Mock<IWiqlQueryClientFactory>(MockBehavior.Strict);
+        factoryMock
+            .Setup(f => f.CreateAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(clientMock.Object);
+
+        var sut = new WorkItemQueryWindowStrategy(factoryMock.Object);
+
+        // Act — must NOT throw despite 5 overflow exceptions exceeding the 3-retry budget
+        var windows = await CollectWindowsAsync(sut, opts);
+
+        // Assert
+        Assert.AreEqual(1, windows.Count, "Should yield 1 window after halving through 5 overflow exceptions");
+        CollectionAssert.AreEquivalent(new[] { 1, 2, 3 }, windows[0].WorkItemIds.ToArray());
+        clientMock.Verify(
+            c => c.QueryByWiqlAsync(It.IsAny<Wiql>(), It.IsAny<string>(), It.IsAny<CancellationToken>()),
+            Times.Exactly(8),
+            "1 probe + 5 overflow halvings + 1 fitting window + 1 empty stop = 8 calls");
+    }
+
+    [TestMethod]
+    public async Task EnumerateWindowsAsync_Step2_MixedOverflowThenTransient_TransientStillLimitedToThree()
+    {
+        // An overflow sequence followed by transient errors — the transient budget
+        // should be independent of the overflow halvings that preceded them.
+        var opts = new WorkItemQueryWindowOptions { LimitThreshold = 20_000, InitialWindowDays = 120 };
+        var callIdx = 0;
+        var overflowEx = new InvalidOperationException("VS402337: exceeds the size limit of 20000.");
+        var transientEx = new InvalidOperationException("network timeout");
+
+        var clientMock = new Mock<IWiqlQueryClient>(MockBehavior.Strict);
+        clientMock
+            .Setup(c => c.QueryByWiqlAsync(It.IsAny<Wiql>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(() =>
+            {
+                var i = callIdx++;
+                if (i == 0) throw overflowEx;   // probe overflow → Step 2
+                if (i <= 4) throw overflowEx;   // 4 windowed overflows (all ok, no retry slots consumed)
+                // Now windowed window is small enough. Next 4 calls are transient errors → 1 original + 3 retries, then throws.
+                throw transientEx;
+            });
+
+        var factoryMock = new Mock<IWiqlQueryClientFactory>(MockBehavior.Strict);
+        factoryMock
+            .Setup(f => f.CreateAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(clientMock.Object);
+
+        var sut = new WorkItemQueryWindowStrategy(factoryMock.Object);
+
+        // Act: all transient retries exhausted → transientEx should propagate
+        await Assert.ThrowsExceptionAsync<InvalidOperationException>(async () =>
+        {
+            await foreach (var _ in sut.EnumerateWindowsAsync(Org, Project, Pat, opts))
+            { }
+        });
+
+        // 1 probe (overflow) + 4 windowed overflows + 1 original transient + 3 transient retries = 9 calls
+        clientMock.Verify(
+            c => c.QueryByWiqlAsync(It.IsAny<Wiql>(), It.IsAny<string>(), It.IsAny<CancellationToken>()),
+            Times.Exactly(9),
+            "1 probe + 4 windowed overflows + 1 original + 3 transient retries = 9 calls");
     }
 
     // ── T020 extension: window below MinWindowDays floors at MinWindowDays ────

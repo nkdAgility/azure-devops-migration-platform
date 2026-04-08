@@ -93,56 +93,75 @@ public sealed class WorkItemQueryWindowStrategy : IWorkItemQueryWindowStrategy
         // ── Step 2: Date-window fallback (>= LimitThreshold items) ──────────
         // Walk backward through date windows, halving on overflow, expanding on
         // empty gaps, stopping at MinDate.
+        //
+        // KEY DESIGN NOTE: The ADO WIQL API throws VS402337 when a windowed query
+        // would return > 20,000 items (it does NOT silently truncate).  Overflow
+        // exceptions must halve the window WITHOUT consuming a transient-retry slot
+        // so that very dense date ranges are handled correctly regardless of depth.
         var windowSize = TimeSpan.FromDays(options.InitialWindowDays);
         var windowEnd = DateTime.UtcNow;
-        const int maxRetries = 3;
+        const int maxTransientRetries = 3;
 
         while (true)
         {
             cancellationToken.ThrowIfCancellationRequested();
 
             var windowStart = windowEnd - windowSize;
+            List<int>? ids = null;
+            int transientRetries = 0;
 
-            var wiql = new Wiql
-            {
-                Query = $"SELECT [System.Id] FROM WorkItems " +
-                        $"WHERE [System.TeamProject] = '{EscapeWiql(project)}' " +
-                        $"AND [System.CreatedDate] >= '{windowStart:yyyy-MM-dd}' " +
-                        $"AND [System.CreatedDate] < '{windowEnd:yyyy-MM-dd}' " +
-                        $"ORDER BY [System.Id]"
-            };
-
-            List<int> ids;
-            int retries = 0;
-            while (true)
+            // Inner loop: keeps retrying the same time range until we get a valid
+            // result, halving on overflow (no retry-slot consumed) and retrying on
+            // transient errors (retry-slot consumed each time).
+            while (ids == null)
             {
                 cancellationToken.ThrowIfCancellationRequested();
+
+                // Always rebuild the query from current windowStart/windowEnd so
+                // that halving inside this loop is reflected correctly.
+                var wiql = new Wiql
+                {
+                    Query = $"SELECT [System.Id] FROM WorkItems " +
+                            $"WHERE [System.TeamProject] = '{EscapeWiql(project)}' " +
+                            $"AND [System.CreatedDate] >= '{windowStart:yyyy-MM-dd}' " +
+                            $"AND [System.CreatedDate] < '{windowEnd:yyyy-MM-dd}' " +
+                            $"ORDER BY [System.Id]"
+                };
+
                 try
                 {
                     var result = await witClient.QueryByWiqlAsync(wiql, project, cancellationToken);
-                    ids = result.WorkItems.Select(r => r.Id).ToList();
-                    break;
-                }
-                catch (Exception ex) when (retries < maxRetries && ex is not OperationCanceledException)
-                {
-                    retries++;
-                    windowSize = TimeSpan.FromTicks(windowSize.Ticks / 2);
-                    if (windowSize < TimeSpan.FromDays(options.MinWindowDays))
-                        windowSize = TimeSpan.FromDays(options.MinWindowDays);
-                    windowStart = windowEnd - windowSize;
-                    wiql.Query = wiql.Query
-                        .Replace($">= '{(windowEnd - TimeSpan.FromTicks(windowSize.Ticks * 2)):yyyy-MM-dd}'",
-                                 $">= '{windowStart:yyyy-MM-dd}'");
-                    continue;
-                }
-            }
+                    var fetched = result.WorkItems.Select(r => r.Id).ToList();
 
-            if (ids.Count >= options.LimitThreshold)
-            {
-                windowSize = TimeSpan.FromTicks(windowSize.Ticks / 2);
-                if (windowSize < TimeSpan.FromDays(options.MinWindowDays))
-                    windowSize = TimeSpan.FromDays(options.MinWindowDays);
-                continue;
+                    if (fetched.Count >= options.LimitThreshold)
+                    {
+                        // API silently returned exactly at the cap (rare) — treat as overflow.
+                        windowSize = HalveWindowSize(windowSize, options.MinWindowDays);
+                        windowStart = windowEnd - windowSize;
+                    }
+                    else
+                    {
+                        ids = fetched; // success
+                    }
+                }
+                catch (OperationCanceledException)
+                {
+                    throw;
+                }
+                catch (Exception ex) when (IsOverflowException(ex))
+                {
+                    // VS402337 / TF201036: too many results — halve without consuming
+                    // a transient-retry slot.  This is expected behaviour for large
+                    // projects and must not be treated as an error.
+                    windowSize = HalveWindowSize(windowSize, options.MinWindowDays);
+                    windowStart = windowEnd - windowSize;
+                }
+                catch (Exception) when (transientRetries < maxTransientRetries)
+                {
+                    // Genuine transient error — retry the same window, consume a slot.
+                    transientRetries++;
+                }
+                // Any other exception (transient retries exhausted) propagates naturally.
             }
 
             if (ids.Count == 0)
@@ -170,6 +189,29 @@ public sealed class WorkItemQueryWindowStrategy : IWorkItemQueryWindowStrategy
 
             windowEnd = windowStart;
         }
+    }
+
+    /// <summary>
+    /// Halves <paramref name="current"/>, flooring at <paramref name="minWindowDays"/>.
+    /// </summary>
+    private static TimeSpan HalveWindowSize(TimeSpan current, int minWindowDays)
+    {
+        var halved = TimeSpan.FromTicks(current.Ticks / 2);
+        var min = TimeSpan.FromDays(minWindowDays);
+        return halved < min ? min : halved;
+    }
+
+    /// <summary>
+    /// Returns <see langword="true"/> when <paramref name="ex"/> represents the ADO
+    /// "too many results" hard cap (VS402337 / TF201036).
+    /// </summary>
+    private static bool IsOverflowException(Exception ex)
+    {
+        var msg = ex.Message;
+        return msg.Contains("VS402337", StringComparison.OrdinalIgnoreCase)
+            || msg.Contains("TF201036", StringComparison.OrdinalIgnoreCase)
+            || msg.Contains("exceeds the size limit of 20000", StringComparison.OrdinalIgnoreCase)
+            || msg.Contains("exceeds the size limit of 20,000", StringComparison.OrdinalIgnoreCase);
     }
 
     private static string EscapeWiql(string value) => value.Replace("'", "''");
