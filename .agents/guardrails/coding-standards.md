@@ -527,6 +527,9 @@ public class WorkItemsImportModule
 - Using `System.Console`, ANSI escape sequences, or Spectre.Console rendering primitives inside TUI view classes (Terminal.Gui only).
 - Using `System.CommandLine`, `McMaster.Extensions.CommandLineUtils`, or any argument-parsing library other than Spectre.Console in CLI command-layer code.
 - Using SQLite, in-memory databases, or any provider other than PostgreSQL (Npgsql) for the control plane. This prohibition applies in tests, CI, and development. See [.agents/guardrails/system-architecture.md](system-architecture.md) rule 20.
+- Adding or changing a CLI command without a corresponding `launch.json` configuration in `.vscode/launch.json`.
+- Adding or changing a deployable Host (`AppHost`, `ControlPlaneHost`, `MigrationAgent`) without a corresponding mode or build step covered by `build.ps1`.
+- Shipping a CLI-exposed feature without a `[TestCategory("SystemTest")]` test that exercises the feature end-to-end and asserts observable output.
 
 ---
 
@@ -566,6 +569,9 @@ Before merging changes, verify:
 - Have all tests been verified to pass with `dotnet test`?
 - Does this change introduce or surface a known vulnerability? If so, is it remediated or explicitly called out with a tracked issue?
 - Has `dotnet list package --vulnerable` been run and are all HIGH/CRITICAL findings resolved or documented?
+- Does this change add or modify a CLI command? If so, is there a matching entry in `.vscode/launch.json`?
+- Does this change add or modify a deployable Host? If so, is it exercised by an appropriate `build.ps1` mode?
+- Does this change add a CLI-exposed feature? If so, is there a `[TestCategory("SystemTest")]` test asserting observable output?
 
 If yes (to a violation), reject.
 

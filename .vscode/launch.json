@@ -129,6 +129,49 @@
             "stopAtEntry": false,
             "preLaunchTask": "build-migration-cli"
         },
+        // ── Migration CLI: export (ADO WorkItems) ────────────────────────────
+        // Options: [source-url] [-c|--config] [-o|--output] [-p|--project]
+        //          [--include-attachments] [--compress]
+        {
+            "name": "📤 Migration CLI: Export ADO WorkItems (Single Project)",
+            "type": "coreclr",
+            "request": "launch",
+            "program": "${workspaceFolder}/src/DevOpsMigrationPlatform.CLI.Migration/bin/Debug/net10.0/devopsmigration.exe",
+            "args": [
+                "export",
+                "--config",
+                "scenarios/export-ado-workitems-single-project.json"
+            ],
+            "env": {
+                "AZDEVOPS_DEV_ORG": "${env:AZDEVOPS_DEV_ORG}",
+                "AZDEVOPS_DEV_PAT": "${env:AZDEVOPS_DEV_PAT}"
+            },
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "stopAtEntry": false,
+            "preLaunchTask": "build-migration-cli"
+        },
+        {
+            "name": "📤 Migration CLI: Export ADO WorkItems (Single Project, No Attachments)",
+            "type": "coreclr",
+            "request": "launch",
+            "program": "${workspaceFolder}/src/DevOpsMigrationPlatform.CLI.Migration/bin/Debug/net10.0/devopsmigration.exe",
+            "args": [
+                "export",
+                "--config",
+                "scenarios/export-ado-workitems-single-project.json",
+                "--include-attachments",
+                "false"
+            ],
+            "env": {
+                "AZDEVOPS_DEV_ORG": "${env:AZDEVOPS_DEV_ORG}",
+                "AZDEVOPS_DEV_PAT": "${env:AZDEVOPS_DEV_PAT}"
+            },
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "stopAtEntry": false,
+            "preLaunchTask": "build-migration-cli"
+        },
         // ── Migration CLI: tfsexport ──────────────────────────────────────────
         // Options: --collection <URL> --project <NAME> [--output <PATH>]
         //          [--tfsexport-path <PATH>]

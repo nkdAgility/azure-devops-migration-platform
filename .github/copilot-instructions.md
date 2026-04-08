@@ -75,3 +75,6 @@ Reject any suggestion that:
 - Submits a change without a successful `dotnet clean && dotnet build --no-incremental`
 - Declares done without all tests passing (`dotnet test`)
 - Ships a known vulnerability without a fix or an explicit written rationale and tracked issue
+- Adds or changes a CLI command without a corresponding `.vscode/launch.json` entry
+- Adds or changes a deployable Host without coverage in `build.ps1`
+- Ships a CLI-exposed feature without a `[TestCategory("SystemTest")]` test asserting observable output
