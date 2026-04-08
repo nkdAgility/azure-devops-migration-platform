@@ -1,9 +1,19 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
+using System.IO.Compression;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Utilities;
 using DevOpsMigrationPlatform.CLI.Migration.Tests.TestUtilities;
+using DevOpsMigrationPlatform.Infrastructure.AzureDevOps;
+using DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Services;
+using DevOpsMigrationPlatform.Infrastructure.Checkpointing;
+using DevOpsMigrationPlatform.Infrastructure.Modules;
 using DevOpsMigrationPlatform.Infrastructure.Services;
+using DevOpsMigrationPlatform.Infrastructure.Storage;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
@@ -53,9 +63,10 @@ public class AzureDevOpsExportCommandTests
     [TestCategory("SystemTest")]
     public async Task AzureDevOpsExportCommand_SystemTest_AdoSingleProject_ScenarioFile_ExportsPackage()
     {
-        // Arrange – scenario references $ENV:AZDEVOPS_DEV_ORG and $ENV:AZDEVOPS_DEV_PAT
-        if (string.IsNullOrEmpty(Environment.GetEnvironmentVariable("AZDEVOPS_DEV_ORG")) ||
-            string.IsNullOrEmpty(Environment.GetEnvironmentVariable("AZDEVOPS_DEV_PAT")))
+        // Arrange – guard on required env vars
+        var orgEnv = Environment.GetEnvironmentVariable("AZDEVOPS_DEV_ORG");
+        var patEnv = Environment.GetEnvironmentVariable("AZDEVOPS_DEV_PAT");
+        if (string.IsNullOrEmpty(orgEnv) || string.IsNullOrEmpty(patEnv))
         {
             Assert.Inconclusive(
                 "System test skipped: AZDEVOPS_DEV_ORG and AZDEVOPS_DEV_PAT environment variables must be set. " +
@@ -67,41 +78,101 @@ public class AzureDevOpsExportCommandTests
         Assert.IsNotNull(scenarioFile,
             "Could not locate scenarios/export-ado-workitems-single-project.json relative to the test output directory");
 
-        var outputDir = Path.Combine(Path.GetTempPath(), "SystemTests",
-            nameof(AzureDevOpsExportCommand_SystemTest_AdoSingleProject_ScenarioFile_ExportsPackage),
-            Guid.NewGuid().ToString("N")[..8]);
+        var configService = new ConfigurationService(NullLogger<ConfigurationService>.Instance);
+        using var cts = new CancellationTokenSource(TimeSpan.FromMinutes(10));
+        var config = await configService.LoadConfigurationAsync(scenarioFile, cts.Token);
+
+        // Resolve $ENV: references in config
+        var orgUrl  = TokenResolver.Resolve(config.Source?.Url)
+                      ?? throw new InvalidOperationException("Source URL could not be resolved.");
+        var project = config.Source?.Project
+                      ?? throw new InvalidOperationException("Source project is required.");
+
+        // Output paths
+        var outputDir = config.Artefacts.ExpandedPath;
+        var zipPath   = outputDir.TrimEnd(Path.DirectorySeparatorChar) + ".zip";
+
+        if (Directory.Exists(outputDir))
+            Directory.Delete(outputDir, recursive: true);
+        if (File.Exists(zipPath))
+            File.Delete(zipPath);
         Directory.CreateDirectory(outputDir);
 
-        try
+        // Build MigrationJob – mirrors what AzureDevOpsExportCommand does
+        var job = new MigrationJob
         {
-            // Act – load the scenario config directly (no live control-plane needed).
-            var configService = new ConfigurationService(NullLogger<ConfigurationService>.Instance);
+            JobId         = Guid.NewGuid().ToString(),
+            ConfigVersion = config.ConfigVersion,
+            Mode          = "Export",
+            Source        = new MigrationJobEndpoint
+            {
+                Type           = config.Source!.Type,
+                Url            = orgUrl,
+                Project        = project,
+                Authentication = config.Source.Authentication
+            },
+            Modules =
+            [
+                new MigrationJobModule
+                {
+                    Name   = "WorkItems",
+                    Scopes =
+                    [
+                        new MigrationJobModuleScope
+                        {
+                            Type       = "wiql",
+                            Parameters = new Dictionary<string, object?> { ["includeAttachments"] = false }
+                        }
+                    ]
+                }
+            ]
+        };
 
-            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
-            var config = await configService.LoadConfigurationAsync(scenarioFile, cts.Token);
+        // Wire up infrastructure directly – no ControlPlane or DI container needed for a module-level system test
+        var clientFactory = new AzureDevOpsClientFactory();
+        var mapper        = new AzureDevOpsWorkItemRevisionMapper();
+        var registry      = new AzureDevOpsAttachmentRegistry();
+        var sourceFactory = new AzureDevOpsWorkItemRevisionSourceFactory(clientFactory, mapper, registry);
+        var module        = new WorkItemsModule(sourceFactory, NullLogger<WorkItemsModule>.Instance);
 
-            // Assert the scenario file round-tripped correctly
-            Assert.AreEqual("Export", config.Mode,
-                "Mode should be Export as declared in the scenario file");
-            Assert.AreEqual("AzureDevOpsServices", config.Source?.Type,
-                "Source type should be AzureDevOpsServices");
-            Assert.AreEqual("migrationTest5", config.Source?.Project,
-                "Project should be migrationTest5");
-            Assert.IsNotNull(config.Source?.Authentication,
-                "Authentication block should be present");
+        var artefactStore = new FileSystemArtefactStore(outputDir);
+        var stateStore    = new FileSystemStateStore(outputDir);
+        var progressSink  = new NullProgressSink();
 
-            var resolvedToken = config.Source?.Authentication?.ResolvedAccessToken;
-            Assert.IsFalse(string.IsNullOrEmpty(resolvedToken),
-                "ResolvedAccessToken must resolve from $ENV:AZDEVOPS_DEV_PAT");
-
-            Console.WriteLine($"Scenario loaded: Mode={config.Mode}, Source={config.Source?.Url}/{config.Source?.Project}");
-            Console.WriteLine($"Token resolved (length={resolvedToken?.Length})");
-        }
-        finally
+        var context = new ExportContext
         {
-            if (Directory.Exists(outputDir))
-                Directory.Delete(outputDir, recursive: true);
-        }
+            Job          = job,
+            ArtefactStore = artefactStore,
+            StateStore   = stateStore,
+            ProgressSink = progressSink
+        };
+
+        // Act – run the real export
+        await module.ExportAsync(context, cts.Token);
+
+        // Assert – at least one revision.json written under WorkItems/
+        var workItemsDir   = Path.Combine(outputDir, "WorkItems");
+        Assert.IsTrue(Directory.Exists(workItemsDir),
+            $"WorkItems directory was not created under {outputDir}");
+
+        var revisionFiles = Directory.GetFiles(workItemsDir, "revision.json", SearchOption.AllDirectories);
+        Assert.IsTrue(revisionFiles.Length > 0,
+            "At least one revision.json should have been exported");
+        Console.WriteLine($"Exported {revisionFiles.Length} revision(s) to {outputDir}");
+
+        // Zip the package
+        ZipFile.CreateFromDirectory(outputDir, zipPath);
+        Assert.IsTrue(File.Exists(zipPath), $"Zip file was not created at {zipPath}");
+
+        using var zip = ZipFile.OpenRead(zipPath);
+        var workItemEntries = zip.Entries
+            .Where(e => e.FullName.StartsWith("WorkItems/", StringComparison.OrdinalIgnoreCase))
+            .ToList();
+        Assert.IsTrue(workItemEntries.Count > 0,
+            "Zip file should contain WorkItems entries");
+
+        Console.WriteLine($"Zip: {zipPath}");
+        Console.WriteLine($"Zip WorkItems entries: {workItemEntries.Count}");
     }
 
     // ── Helpers ────────────────────────────────────────────────────────────
@@ -117,5 +188,10 @@ public class AzureDevOpsExportCommandTests
             dir = dir.Parent;
         }
         return null;
+    }
+
+    private sealed class NullProgressSink : IProgressSink
+    {
+        public void Emit(ProgressEvent evt) { }
     }
 }
