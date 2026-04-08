@@ -1,21 +1,27 @@
 <!--
 SYNC IMPACT REPORT
 ==================
-Version change:    1.3.1 → 1.3.2
-Bump rationale:    Clarification — test verification made explicit alongside build
-                   verification throughout the constitution. Principle X category 17,
-                   the Development Flow in agents.md, and all Reject Conditions now
-                   require both `dotnet clean && dotnet build --no-incremental` AND `dotnet clean && dotnet test` to pass
-                   before any task is considered complete.
+Version change:    1.3.2 → 1.3.3
+Bump rationale:    Clarification — three new enforcement rules added:
+                   (1) CLI command changes require a matching .vscode/launch.json entry.
+                   (2) Deployable Host changes require build.ps1 coverage.
+                   (3) CLI-exposed features require a [TestCategory("SystemTest")] test
+                       asserting observable output.
+                   Additionally, the Mandatory Compliance Review Loop (re-read docs,
+                   check line-by-line, iterate until zero violations) is now codified
+                   in both the Governance section of this constitution and in
+                   agents.md / copilot-instructions.md. A change that adds
+                   undocumented parameters or behaviour is explicitly non-compliant.
 
 Principles modified:
-  X. Engineering Practice Discipline — category 17 expanded
+  X. Engineering Practice Discipline — categories 17 and 20 implicitly extended
 
 Principles added:
   None
 
 Sections modified:
-  Reject Conditions — 1 new entry added
+  Reject Conditions — 3 new entries added
+  Governance — Mandatory Compliance Review Loop added
 
 Templates updated:
   ✅ .specify/templates/plan-template.md — no changes required
@@ -352,6 +358,10 @@ Reject any proposal that:
 - Submits a code change without verifying it produces a successful build (`dotnet clean && dotnet build --no-incremental`).
 - Declares a task complete without all tests passing (`dotnet test`).
 - Ships a known vulnerability without either remediating it or providing an explicit written rationale and a tracked issue.
+- Adds or changes a CLI command without a corresponding entry in `.vscode/launch.json`.
+- Adds or changes a deployable Host (`AppHost`, `ControlPlaneHost`, `MigrationAgent`) without a corresponding mode or build step covered by `build.ps1`.
+- Ships a CLI-exposed feature without a `[TestCategory("SystemTest")]` test that exercises the feature end-to-end and asserts observable output.
+- Declares a task done without completing the Mandatory Compliance Review Loop (see Governance).
 
 ## Governance
 
@@ -370,6 +380,15 @@ Reject any proposal that:
   and relevant `/docs/` files before producing any code, review, specification,
   or plan output. Partial loading (e.g., only reading one guardrail file or
   skipping `.agents/context/`) is insufficient and constitutes a violation.
+- **Mandatory Compliance Review Loop:** After completing any unit of work, before
+  declaring it done, the agent or contributor MUST:
+  1. Re-read the relevant `/docs/` and `.agents/context/` files for everything just changed.
+  2. Check each change line-by-line against those docs: does it match? Does it add anything
+     undocumented? Does it omit anything required?
+  3. If any non-compliance is found, fix it immediately and repeat from step 1.
+  4. Only when the review loop finds zero violations may the task be declared complete.
+  A change that introduces undocumented parameters, options, commands, or behaviour is
+  non-compliant regardless of whether it compiles and tests pass. Fix it before declaring done.
 - Amendments to this constitution require:
   1. A version increment following semantic versioning (MAJOR for removals or
      redefinitions of principles; MINOR for new sections or material expansions;
@@ -379,4 +398,4 @@ Reject any proposal that:
 - All pull requests and agent reviews MUST verify compliance against this
   constitution and the guardrails before approving.
 
-**Version**: 1.3.2 | **Ratified**: 2026-04-02 | **Last Amended**: 2026-04-07
+**Version**: 1.3.3 | **Ratified**: 2026-04-02 | **Last Amended**: 2026-04-08

@@ -145,6 +145,25 @@ Package zip/export:
 
 **Failure to complete this validation = violation. Document skipping = violation.**
 
+## Mandatory Compliance Review Loop
+
+After completing any unit of work (a logical change, a file edit, a task), before marking it done:
+
+1. **Re-read the relevant docs** — use `read_file` on any doc file referenced by the guardrails that is relevant to what was just changed. Examples:
+   - CLI changes → re-read `docs/cli.md` and `.agents/context/cli-commands.md`
+   - Package/export/import changes → re-read `.agents/context/package-format.md`
+   - Job/agent changes → re-read `.agents/context/job-contract.md`
+   - Settings/config changes → re-read `docs/configuration.md`
+2. **Check each change against the docs line by line.** Ask:
+   - Does the implementation match what the documentation specifies?
+   - Does it add anything not documented (parameters, options, commands, behaviour)?
+   - Does it omit anything the documentation requires?
+3. **If any non-compliance is found**, fix it immediately and repeat from step 1.
+4. **Only when the review loop finds zero violations** may the task be declared complete.
+
+**This loop is mandatory. A task is not done until the compliance review passes with no findings.**
+**A change that adds undocumented parameters, options, commands, or behaviour = non-compliant. Fix before declaring done.**
+
 ## Available SpecKit Agents
 → .github/agents/speckit.specify.agent.md — Create feature specification
 → .github/agents/speckit.clarify.agent.md — Reduce specification ambiguities  

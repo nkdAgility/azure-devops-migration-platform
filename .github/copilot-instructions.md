@@ -12,14 +12,44 @@ For ad-hoc tasks, follow the mandatory guardrails validation in [agents.md](../a
 The table and reject triggers below are a **quick reference only**.
 They do **NOT** satisfy the mandatory guardrails validation in `agents.md`.
 
-**Before making any code change you MUST:**
-1. Use `read_file` to open and read each file listed under `/.agents/guardrails/` in `agents.md`.
-2. Use `read_file` to open and read each relevant file listed under `/.agents/context/` in `agents.md`.
-3. State out loud which guardrails apply to the current task.
-4. Explicitly reject any approach that violates them.
+### Mandatory Pre-Flight — ZERO exceptions
 
-**Treating this injected summary as a substitute for steps 1–4 = violation.**
-If you have not made those tool calls this session, stop and make them now.
+**Any output produced without completing ALL four steps below is invalid and must be discarded.**
+There are no exceptions. "I already know the rules" is not a substitute. Prior sessions do not count.
+
+Before writing, editing, or suggesting any code, settings, config, or docs change:
+
+1. Use `read_file` to open and read **every** file listed under `/.agents/guardrails/` in `agents.md`:
+   - `.agents/guardrails/system-architecture.md`
+   - `.agents/guardrails/coding-standards.md`
+   - `.agents/guardrails/testing-standards.md`
+   - `.agents/guardrails/workitems-rules.md`
+   - `.agents/guardrails/migration-rules.md`
+   - `.agents/guardrails/module-template.md`
+   - `.agents/guardrails/aspire-integration.md`
+   - `.agents/guardrails/atdd-workflow.md`
+   - `.agents/guardrails/acceptance-test-format.md`
+2. Use `read_file` to open and read every relevant context file under `/.agents/context/` — at minimum:
+   - `.agents/context/cli-commands.md` (for any CLI work)
+   - `.agents/context/package-format.md` (for any package/export/import work)
+   - `.agents/context/job-contract.md` (for any job/agent work)
+3. State explicitly which guardrails apply to the current task.
+4. Explicitly reject any approach that violates them before writing any code.
+
+**If you have not made those `read_file` tool calls in the current session, stop everything and make them now before continuing.**
+
+### Mandatory Compliance Review Loop
+
+After completing any unit of work (a logical change, a file edit, a task), before marking it done:
+
+1. **Re-read the relevant docs** — use `read_file` on any doc file referenced by the guardrails that is relevant to what was just changed (e.g. `docs/cli.md` for CLI changes, `.agents/context/cli-commands.md` for command/settings changes).
+2. **Check each change against the docs line by line.** Ask: does the implementation match what the documentation specifies? Does it add anything not documented? Does it omit anything required?
+3. **If any non-compliance is found**, fix it immediately and repeat from step 1.
+4. **Only when the review loop finds zero violations** may the task be declared complete.
+
+This loop is not optional. A task is not done until the compliance review passes with no findings.
+
+**A change that adds undocumented parameters, options, commands, or behaviour = non-compliant. Fix before declaring done.**
 
 ---
 
