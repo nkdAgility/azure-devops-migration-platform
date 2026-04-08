@@ -227,24 +227,29 @@ public class WorkItemQueryWindowStrategyTests
             $"Yielded window size ({windows[0].WindowSize.TotalDays:F1}d) must be less than initial ({opts.InitialWindowDays}d)");
     }
 
-    // ── T023: Window grows by 1 day after narrow (< 30 day) success ──────────
+    // ── T023: Window expands proportionally after a successful yield ──────────
 
     [TestMethod]
-    public async Task EnumerateWindowsAsync_NarrowWindow_GrowsByOneDayOnNextWindow()
+    public async Task EnumerateWindowsAsync_SparseWindow_DoublesOnNextIteration()
     {
-        // Arrange: simulate a window already narrowed to 5 days by using a low threshold
-        // so the first call triggers halving down to < 30 days, then second window grows.
+        // fill ratio = 1/5 = 20% < 50% → window doubles.
+        // Arrange: probe → windowing; 10d window overflows → halve to 5d;
+        //   5d window returns 1 item (20% fill, < 50%) → yield, window doubles to 10d;
+        //   10d window returns 1 item → yield, window doubles to 20d;
+        //   next window → 0 → MinDate floor → stop.
         var opts = new WorkItemQueryWindowOptions
         {
-            LimitThreshold = 5,       // triggers halve on windows with >= 5 ids
-            InitialWindowDays = 10,   // starts at 10 days
+            LimitThreshold = 5,
+            InitialWindowDays = 10,
             MinWindowDays = 1,
-            MinDate = DateTime.UtcNow.AddDays(-1)  // stops scan quickly after first empty windowed result
+            MaxWindowDays = 60,
+            MinDate = DateTime.UtcNow.AddDays(-1)
         };
 
-        // call 0 (probe): 5 → windowing; call 1 (windowed 10d): 5 → halve to 5d;
-        // call 2 (windowed 5d): 3 → yield; call 3 (windowed 6d): 3 → yield; call 4: 0 → MinDate floor → stop
-        var responses = new[] { 5, 5, 3, 3, 0 };
+        // call 0 (probe): 5 → windowing; call 1 (10d): 5 → halve to 5d;
+        // call 2 (5d): 1 → yield (doubles to 10d); call 3 (10d): 1 → yield (doubles to 20d);
+        // call 4 (20d): 0 → MinDate → stop
+        var responses = new[] { 5, 5, 1, 1, 0 };
         var callIdx = 0;
 
         var clientMock = new Mock<IWiqlQueryClient>(MockBehavior.Strict);
@@ -266,14 +271,103 @@ public class WorkItemQueryWindowStrategyTests
         // Act
         var windows = await CollectWindowsAsync(sut, opts);
 
-        // Assert: second window should be 1 day larger than the first (both < 30d)
+        // Assert: window should double from 5d to 10d after the sparse first yield
         Assert.AreEqual(2, windows.Count);
-        Assert.IsTrue(windows[0].WindowSize < TimeSpan.FromDays(30),
-            "First yielded window must be narrow (< 30 days)");
+        Assert.AreEqual(TimeSpan.FromDays(5), windows[0].WindowSize, "First window should be 5d");
         Assert.AreEqual(
-            windows[0].WindowSize + TimeSpan.FromDays(1),
+            windows[0].WindowSize * 2,
             windows[1].WindowSize,
-            "Window should grow by exactly 1 day after a narrow success");
+            "Sparse window (< 50% fill) should double on the next iteration");
+    }
+
+    [TestMethod]
+    public async Task EnumerateWindowsAsync_ModerateWindow_RetainsSizeOnNextIteration()
+    {
+        // fill ratio = 3/5 = 60% >= 50% → window stays the same size.
+        // Arrange: probe → windowing; 10d window overflows → halve to 5d;
+        //   5d window returns 3 items (60% fill, >= 50%) → yield, window stays at 5d;
+        //   next 5d window → 0 → MinDate floor → stop.
+        var opts = new WorkItemQueryWindowOptions
+        {
+            LimitThreshold = 5,
+            InitialWindowDays = 10,
+            MinWindowDays = 1,
+            MinDate = DateTime.UtcNow.AddDays(-1)
+        };
+
+        // call 0 (probe): 5 → windowing; call 1 (10d): 5 → halve to 5d;
+        // call 2 (5d): 3 items (60% fill) → yield, stay at 5d; call 3 (5d): 0 → stop
+        var responses = new[] { 5, 5, 3, 0 };
+        var callIdx = 0;
+
+        var clientMock = new Mock<IWiqlQueryClient>(MockBehavior.Strict);
+        clientMock
+            .Setup(c => c.QueryByWiqlAsync(It.IsAny<Wiql>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(() =>
+            {
+                var count = responses[Math.Min(callIdx++, responses.Length - 1)];
+                return MakeResult(Enumerable.Range(1, count).ToArray());
+            });
+
+        var factoryMock = new Mock<IWiqlQueryClientFactory>(MockBehavior.Strict);
+        factoryMock
+            .Setup(f => f.CreateAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(clientMock.Object);
+
+        var sut = new WorkItemQueryWindowStrategy(factoryMock.Object);
+
+        // Act
+        var windows = await CollectWindowsAsync(sut, opts);
+
+        // Assert: only possible window is the 5d one (the second call was empty and stopped)
+        Assert.AreEqual(1, windows.Count);
+        Assert.AreEqual(TimeSpan.FromDays(5), windows[0].WindowSize,
+            "Moderate-fill window (>= 50% fill) should retain its size");
+    }
+
+    // ── Infinite-loop guard: MinWindowDays already overflowing ───────────────
+
+    [TestMethod]
+    public async Task EnumerateWindowsAsync_MinWindowAlreadyOverflows_ThrowsDescriptiveException()
+    {
+        // Regression guard: if the window cannot shrink below MinWindowDays AND that
+        // size still overflows, the strategy must throw a clear InvalidOperationException
+        // instead of looping forever halving to the same floor value.
+        var opts = new WorkItemQueryWindowOptions
+        {
+            LimitThreshold = 20_000,
+            MinWindowDays = 1
+        };
+        var overflowEx = new InvalidOperationException("VS402337: The number of work items returned exceeds the size limit of 20000.");
+        var callIdx = 0;
+
+        var clientMock = new Mock<IWiqlQueryClient>(MockBehavior.Strict);
+        clientMock
+            .Setup(c => c.QueryByWiqlAsync(It.IsAny<Wiql>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(() =>
+            {
+                callIdx++;
+                throw overflowEx; // probe + every windowed query overflows
+            });
+
+        var factoryMock = new Mock<IWiqlQueryClientFactory>(MockBehavior.Strict);
+        factoryMock
+            .Setup(f => f.CreateAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(clientMock.Object);
+
+        var sut = new WorkItemQueryWindowStrategy(factoryMock.Object);
+
+        // Act & Assert: should throw InvalidOperationException with actionable message
+        var thrown = await Assert.ThrowsExceptionAsync<InvalidOperationException>(async () =>
+        {
+            await foreach (var _ in sut.EnumerateWindowsAsync(Org, Project, Pat, opts))
+            { }
+        });
+
+        StringAssert.Contains(thrown.Message, "minimum window",
+            "Exception message should mention the minimum window size");
+        StringAssert.Contains(thrown.Message, "1",
+            "Exception message should include the MinWindowDays value");
     }
 
     // ── T024: WIQL transient error causes retries then throws ────────────────

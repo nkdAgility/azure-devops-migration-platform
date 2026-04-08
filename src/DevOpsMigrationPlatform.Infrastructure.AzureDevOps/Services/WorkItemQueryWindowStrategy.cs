@@ -153,7 +153,21 @@ public sealed class WorkItemQueryWindowStrategy : IWorkItemQueryWindowStrategy
                     // VS402337 / TF201036: too many results — halve without consuming
                     // a transient-retry slot.  This is expected behaviour for large
                     // projects and must not be treated as an error.
-                    windowSize = HalveWindowSize(windowSize, options.MinWindowDays);
+                    var halved = HalveWindowSize(windowSize, options.MinWindowDays);
+                    if (halved == windowSize)
+                    {
+                        // Already at the minimum window size and still overflowing.
+                        // This means ≥ LimitThreshold items share the same CreatedDate
+                        // (e.g. a bulk import of >20k items on one day).  We cannot
+                        // shrink further, so surface a clear, actionable error instead
+                        // of spinning in an infinite loop.
+                        throw new InvalidOperationException(
+                            $"The minimum window of {options.MinWindowDays} day(s) for project '{project}' " +
+                            $"still exceeds the {options.LimitThreshold}-item WIQL limit. " +
+                            $"Reduce MinWindowDays (currently {options.MinWindowDays}) so the window " +
+                            $"can shrink below the dense period, or increase LimitThreshold.", ex);
+                    }
+                    windowSize = halved;
                     windowStart = windowEnd - windowSize;
                 }
                 catch (Exception) when (transientRetries < maxTransientRetries)
@@ -184,8 +198,22 @@ public sealed class WorkItemQueryWindowStrategy : IWorkItemQueryWindowStrategy
                 WorkItemIds = ids
             };
 
-            if (windowSize < TimeSpan.FromDays(30))
-                windowSize += TimeSpan.FromDays(1);
+            // Grow the window proportionally to spare capacity so that recovery
+            // from a prior dense burst is fast:
+            //   fill < 50% of limit → double (data is sparse; halving backstop
+            //                                 reverts if the next window overflows)
+            //   fill >= 50% of limit → keep current size (comfortable density)
+            //
+            // The empty-window path above already doubles for zero-result windows.
+            // Overflow halving handles contraction from any window size.
+            var fillRatio = (double)ids.Count / options.LimitThreshold;
+            if (fillRatio < 0.5)
+            {
+                windowSize = windowSize * 2;
+                if (windowSize > TimeSpan.FromDays(options.MaxWindowDays))
+                    windowSize = TimeSpan.FromDays(options.MaxWindowDays);
+            }
+            // fillRatio >= 0.5: retain current window size.
 
             windowEnd = windowStart;
         }
