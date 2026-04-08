@@ -42,6 +42,11 @@ coverage/
 # Build artefacts
 artifacts/
 
+# Reqnroll-generated codebehind files (generated before compilation; staged from workspace features/)
+**/Features/*.feature.cs
+# Reqnroll-staged feature file copies (build artefacts — canonical source is features/ at workspace root)
+tests/**/Features/*.feature
+
 # Temporary files
 *.tmp
 *.swp

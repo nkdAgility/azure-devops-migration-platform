@@ -129,9 +129,30 @@
             "stopAtEntry": false,
             "preLaunchTask": "build-migration-cli"
         },
-        // ── Migration CLI: export (ADO WorkItems) ────────────────────────────
-        // Options: [source-url] [-c|--config] [-o|--output] [-p|--project]
-        //          [--include-attachments] [--compress]
+        // ── Migration CLI: prepare ────────────────────────────────────────────
+        // Options: [-c|--config] [-v|--verbose] [--disable-telemetry] [--dry-run]
+        {
+            "name": "📋 Migration CLI: Prepare",
+            "type": "coreclr",
+            "request": "launch",
+            "program": "${workspaceFolder}/src/DevOpsMigrationPlatform.CLI.Migration/bin/Debug/net10.0/devopsmigration.exe",
+            "args": [
+                "prepare",
+                "--config",
+                "scenarios/export-ado-workitems-single-project.json"
+            ],
+            "env": {
+                "AZDEVOPS_DEV_ORG": "${env:AZDEVOPS_DEV_ORG}",
+                "AZDEVOPS_DEV_PAT": "${env:AZDEVOPS_DEV_PAT}"
+            },
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "stopAtEntry": false,
+            "preLaunchTask": "build-migration-cli"
+        },
+        // ── Migration CLI: export ─────────────────────────────────────────────
+        // Options: [-c|--config] [-v|--verbose] [--disable-telemetry] [--dry-run]
+        // Source type (AzureDevOpsServices or TeamFoundationServer) is read from config.
         {
             "name": "📤 Migration CLI: Export ADO WorkItems (Single Project)",
             "type": "coreclr",
@@ -152,42 +173,30 @@
             "preLaunchTask": "build-migration-cli"
         },
         {
-            "name": "📤 Migration CLI: Export ADO WorkItems (Single Project, No Attachments)",
+            "name": "📤 Migration CLI: Export TFS WorkItems (via config)",
             "type": "coreclr",
             "request": "launch",
             "program": "${workspaceFolder}/src/DevOpsMigrationPlatform.CLI.Migration/bin/Debug/net10.0/devopsmigration.exe",
             "args": [
                 "export",
                 "--config",
-                "scenarios/export-ado-workitems-single-project.json",
-                "--include-attachments",
-                "false"
+                "scenarios/inventory-tfs-windows-auth.json"
             ],
-            "env": {
-                "AZDEVOPS_DEV_ORG": "${env:AZDEVOPS_DEV_ORG}",
-                "AZDEVOPS_DEV_PAT": "${env:AZDEVOPS_DEV_PAT}"
-            },
             "cwd": "${workspaceFolder}",
             "console": "integratedTerminal",
             "stopAtEntry": false,
             "preLaunchTask": "build-migration-cli"
         },
-        // ── Migration CLI: tfsexport ──────────────────────────────────────────
-        // Options: --collection <URL> --project <NAME> [--output <PATH>]
-        //          [--tfsexport-path <PATH>]
+        // ── Migration CLI: import/validate/migrate ────────────────────────────
         {
-            "name": "📦 Migration CLI: TFS Export",
+            "name": "📥 Migration CLI: Import",
             "type": "coreclr",
             "request": "launch",
             "program": "${workspaceFolder}/src/DevOpsMigrationPlatform.CLI.Migration/bin/Debug/net10.0/devopsmigration.exe",
             "args": [
-                "tfsexport",
-                "--collection",
-                "http://tfs:8080/tfs/DefaultCollection",
-                "--project",
-                "MyProject",
-                "--output",
-                "./test-package"
+                "import",
+                "--config",
+                "migration.json"
             ],
             "cwd": "${workspaceFolder}",
             "console": "integratedTerminal",
@@ -195,35 +204,75 @@
             "preLaunchTask": "build-migration-cli"
         },
         {
-            "name": "📦 Migration CLI: TFS Export (Custom Exe Path)",
+            "name": "✅ Migration CLI: Validate",
             "type": "coreclr",
             "request": "launch",
             "program": "${workspaceFolder}/src/DevOpsMigrationPlatform.CLI.Migration/bin/Debug/net10.0/devopsmigration.exe",
             "args": [
-                "tfsexport",
-                "--collection",
-                "http://tfs:8080/tfs/DefaultCollection",
-                "--project",
-                "MyProject",
-                "--output",
-                "./test-package",
-                "--tfsexport-path",
-                "./src/DevOpsMigrationPlatform.CLI.TfsMigration/bin/Debug/net481/tfsmigration.exe"
+                "validate",
+                "--config",
+                "migration.json"
             ],
             "cwd": "${workspaceFolder}",
             "console": "integratedTerminal",
             "stopAtEntry": false,
             "preLaunchTask": "build-migration-cli"
         },
-        // ── Migration CLI: logs ───────────────────────────────────────────────
-        // Options: --job <GUID> [--follow]
         {
-            "name": "📋 Migration CLI: Logs (Job ID)",
+            "name": "🔄 Migration CLI: Migrate (Full)",
             "type": "coreclr",
             "request": "launch",
             "program": "${workspaceFolder}/src/DevOpsMigrationPlatform.CLI.Migration/bin/Debug/net10.0/devopsmigration.exe",
             "args": [
+                "migrate",
+                "--config",
+                "migration.json"
+            ],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "stopAtEntry": false,
+            "preLaunchTask": "build-migration-cli"
+        },
+        // ── Migration CLI: manage ─────────────────────────────────────────────
+        {
+            "name": "📋 Migration CLI: Manage List",
+            "type": "coreclr",
+            "request": "launch",
+            "program": "${workspaceFolder}/src/DevOpsMigrationPlatform.CLI.Migration/bin/Debug/net10.0/devopsmigration.exe",
+            "args": [
+                "manage",
+                "list"
+            ],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "stopAtEntry": false,
+            "preLaunchTask": "build-migration-cli"
+        },
+        {
+            "name": "📋 Migration CLI: Manage Logs (Follow)",
+            "type": "coreclr",
+            "request": "launch",
+            "program": "${workspaceFolder}/src/DevOpsMigrationPlatform.CLI.Migration/bin/Debug/net10.0/devopsmigration.exe",
+            "args": [
+                "manage",
                 "logs",
+                "--job",
+                "00000000-0000-0000-0000-000000000001",
+                "--follow"
+            ],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "stopAtEntry": false,
+            "preLaunchTask": "build-migration-cli"
+        },
+        {
+            "name": "📋 Migration CLI: Manage Status",
+            "type": "coreclr",
+            "request": "launch",
+            "program": "${workspaceFolder}/src/DevOpsMigrationPlatform.CLI.Migration/bin/Debug/net10.0/devopsmigration.exe",
+            "args": [
+                "manage",
+                "status",
                 "--job",
                 "00000000-0000-0000-0000-000000000001"
             ],
@@ -232,16 +281,14 @@
             "stopAtEntry": false,
             "preLaunchTask": "build-migration-cli"
         },
+        // ── Migration CLI: tui ────────────────────────────────────────────────
         {
-            "name": "📋 Migration CLI: Logs (Follow)",
+            "name": "🖥️  Migration CLI: TUI",
             "type": "coreclr",
             "request": "launch",
             "program": "${workspaceFolder}/src/DevOpsMigrationPlatform.CLI.Migration/bin/Debug/net10.0/devopsmigration.exe",
             "args": [
-                "logs",
-                "--job",
-                "00000000-0000-0000-0000-000000000001",
-                "--follow"
+                "tui"
             ],
             "cwd": "${workspaceFolder}",
             "console": "integratedTerminal",

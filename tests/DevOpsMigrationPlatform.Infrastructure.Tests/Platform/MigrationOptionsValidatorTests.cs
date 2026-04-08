@@ -200,4 +200,114 @@ public class MigrationOptionsValidatorTests
         StringAssert.Contains(result.FailureMessage, "Mode");
         StringAssert.Contains(result.FailureMessage, "Artefacts");
     }
+
+    // ── Source type validation ────────────────────────────────────────────────
+
+    [TestMethod]
+    public void Validate_SourceTypeAzureDevOpsServices_Succeeds()
+    {
+        var opts = ValidExport();
+        opts.Source!.Type = "AzureDevOpsServices";
+        Assert.IsTrue(Sut().Validate(null, opts).Succeeded);
+    }
+
+    [TestMethod]
+    public void Validate_SourceTypeTeamFoundationServer_Succeeds()
+    {
+        var opts = ValidExport();
+        opts.Source!.Type = "TeamFoundationServer";
+        Assert.IsTrue(Sut().Validate(null, opts).Succeeded);
+    }
+
+    [TestMethod]
+    public void Validate_SourceTypeUnknown_FailsWithSourceTypeInMessage()
+    {
+        var opts = ValidExport();
+        opts.Source!.Type = "MySql";
+        var result = Sut().Validate(null, opts);
+        Assert.IsFalse(result.Succeeded);
+        StringAssert.Contains(result.FailureMessage, "Source.Type");
+    }
+
+    [TestMethod]
+    public void Validate_SourceTypeEmpty_FailsWithSourceTypeInMessage()
+    {
+        var opts = ValidExport();
+        opts.Source!.Type = "";
+        var result = Sut().Validate(null, opts);
+        Assert.IsFalse(result.Succeeded);
+        StringAssert.Contains(result.FailureMessage, "Source.Type");
+    }
+
+    // ── Target type validation — TFS is never a valid target ─────────────────
+
+    [TestMethod]
+    public void Validate_TargetTypeAzureDevOpsServices_Succeeds()
+    {
+        var opts = new MigrationOptions
+        {
+            ConfigVersion = "1.0",
+            Mode = "Import",
+            Target = new MigrationEndpointOptions
+            {
+                Type = "AzureDevOpsServices",
+                Url = "https://dev.azure.com/targetorg",
+                Project = "TargetProject"
+            },
+            Artefacts = new MigrationArtefactsOptions { Path = "D:\\exports" }
+        };
+        Assert.IsTrue(Sut().Validate(null, opts).Succeeded);
+    }
+
+    [TestMethod]
+    public void Validate_TargetTypeTeamFoundationServer_FailsWithTargetTypeInMessage()
+    {
+        var opts = new MigrationOptions
+        {
+            ConfigVersion = "1.0",
+            Mode = "Import",
+            Target = new MigrationEndpointOptions
+            {
+                Type = "TeamFoundationServer",
+                Url = "http://tfs:8080/tfs/DefaultCollection",
+                Project = "MyProject"
+            },
+            Artefacts = new MigrationArtefactsOptions { Path = "D:\\exports" }
+        };
+        var result = Sut().Validate(null, opts);
+        Assert.IsFalse(result.Succeeded);
+        StringAssert.Contains(result.FailureMessage, "Target.Type");
+        StringAssert.Contains(result.FailureMessage, "TeamFoundationServer");
+    }
+
+    [TestMethod]
+    public void Validate_TargetTypeUnknown_FailsWithTargetTypeInMessage()
+    {
+        var opts = new MigrationOptions
+        {
+            ConfigVersion = "1.0",
+            Mode = "Import",
+            Target = new MigrationEndpointOptions
+            {
+                Type = "GitHub",
+                Url = "https://github.com/myorg",
+                Project = "MyProject"
+            },
+            Artefacts = new MigrationArtefactsOptions { Path = "D:\\exports" }
+        };
+        var result = Sut().Validate(null, opts);
+        Assert.IsFalse(result.Succeeded);
+        StringAssert.Contains(result.FailureMessage, "Target.Type");
+    }
+
+    // ── Modules list is optional ──────────────────────────────────────────────
+
+    [TestMethod]
+    public void Validate_EmptyModulesList_Succeeds()
+    {
+        var opts = ValidExport();
+        opts.Modules.Clear();
+        Assert.IsTrue(Sut().Validate(null, opts).Succeeded);
+    }
 }
+

@@ -20,14 +20,14 @@ using Microsoft.VisualStudio.TestTools.UnitTesting;
 namespace DevOpsMigrationPlatform.CLI.Migration.Tests.Commands;
 
 [TestClass]
-public class AzureDevOpsExportCommandTests
+public class MigrationExportCommandTests
 {
     // ── Unit tests ─────────────────────────────────────────────────────────
 
     [TestMethod]
-    public void AzureDevOpsExportCommand_CanBeConstructed_WithParameterlessConstructor()
+    public void MigrationExportCommand_CanBeConstructed_WithParameterlessConstructor()
     {
-        var command = new DevOpsMigrationPlatform.CLI.Migration.Commands.AzureDevOpsExportCommand();
+        var command = new DevOpsMigrationPlatform.CLI.Migration.Commands.MigrationExportCommand();
         Assert.IsNotNull(command);
     }
 
@@ -35,7 +35,7 @@ public class AzureDevOpsExportCommandTests
 
     [TestMethod]
     [TestCategory("SystemTest")]
-    public async Task AzureDevOpsExportCommand_SystemTest_MissingEnvironmentVars_MarksInconclusive()
+    public async Task MigrationExportCommand_SystemTest_MissingEnvironmentVars_MarksInconclusive()
     {
         var configuration = SystemTestConfiguration.LoadFromEnvironment();
 
@@ -61,7 +61,7 @@ public class AzureDevOpsExportCommandTests
 
     [TestMethod]
     [TestCategory("SystemTest")]
-    public async Task AzureDevOpsExportCommand_SystemTest_AdoSingleProject_ScenarioFile_ExportsPackage()
+    public async Task MigrationExportCommand_SystemTest_AdoSingleProject_ScenarioFile_ExportsPackage()
     {
         // Arrange – guard on required env vars
         var orgEnv = Environment.GetEnvironmentVariable("AZDEVOPS_DEV_ORG");
@@ -98,7 +98,7 @@ public class AzureDevOpsExportCommandTests
             File.Delete(zipPath);
         Directory.CreateDirectory(outputDir);
 
-        // Build MigrationJob – mirrors what AzureDevOpsExportCommand does
+        // Build MigrationJob – mirrors what MigrationExportCommand does
         var job = new MigrationJob
         {
             JobId         = Guid.NewGuid().ToString(),

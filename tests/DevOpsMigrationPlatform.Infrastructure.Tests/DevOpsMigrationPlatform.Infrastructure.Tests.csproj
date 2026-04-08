@@ -29,54 +29,29 @@
   </ItemGroup>
 
   <ItemGroup>
-    <None Include="..\..\features\platform\checkpointing\cursor-resume.feature">
-      <Link>Features\cursor-resume.feature</Link>
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Include="..\..\features\platform\checkpointing\watermark-store.feature">
-      <Link>Features\watermark-store.feature</Link>
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Include="..\..\features\export\work-items\revisions\export-work-item-revisions.feature">
-      <Link>Features\export-work-item-revisions.feature</Link>
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Include="..\..\features\export\work-items\links\export-work-item-links.feature">
-      <Link>Features\export-work-item-links.feature</Link>
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Include="..\..\features\export\work-items\attachments\export-attachments.feature">
-      <Link>Features\export-attachments.feature</Link>
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Include="..\..\features\services\identity-mapping\identity-mapping.feature">
-      <Link>Features\identity-mapping.feature</Link>
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Include="..\..\features\platform\validation\package-validation.feature">
-      <Link>Features\package-validation.feature</Link>
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Include="..\..\features\platform\validation\config-validation.feature">
-      <Link>Features\config-validation.feature</Link>
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Include="..\..\features\cli\prepare\prepare-validates-config.feature">
-      <Link>Features\prepare-validates-config.feature</Link>
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Include="..\..\features\platform\telemetry\cli-otel.feature">
-      <Link>Features\cli-otel.feature</Link>
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Include="..\..\features\platform\telemetry\progress-sink.feature">
-      <Link>Features\progress-sink.feature</Link>
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Include="..\..\features\cli\execute\migrate-logs.feature">
-      <Link>Features\migrate-logs.feature</Link>
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
+    <!-- External feature files to stage into Features/ before Reqnroll code-gen.
+         Features/ is a build artefact; the canonical source is features/ at workspace root. -->
+    <ExternalFeatureFiles Include="..\..\features\platform\checkpointing\cursor-resume.feature" />
+    <ExternalFeatureFiles Include="..\..\features\platform\checkpointing\watermark-store.feature" />
+    <ExternalFeatureFiles Include="..\..\features\export\work-items\revisions\export-work-item-revisions.feature" />
+    <ExternalFeatureFiles Include="..\..\features\export\work-items\links\export-work-item-links.feature" />
+    <ExternalFeatureFiles Include="..\..\features\export\work-items\attachments\export-attachments.feature" />
+    <ExternalFeatureFiles Include="..\..\features\services\identity-mapping\identity-mapping.feature" />
+    <ExternalFeatureFiles Include="..\..\features\platform\validation\package-validation.feature" />
+    <ExternalFeatureFiles Include="..\..\features\platform\validation\config-validation.feature" />
+    <ExternalFeatureFiles Include="..\..\features\cli\prepare\prepare-validates-config.feature" />
+    <ExternalFeatureFiles Include="..\..\features\platform\telemetry\cli-otel.feature" />
+    <ExternalFeatureFiles Include="..\..\features\platform\telemetry\progress-sink.feature" />
+    <ExternalFeatureFiles Include="..\..\features\cli\execute\migrate-logs.feature" />
   </ItemGroup>
+
+  <!-- Copy external feature files into Features/ before Reqnroll codegen so the default
+       **\*.feature glob can find them and generate correct adjacent .feature.cs files. -->
+  <Target Name="PrepareReqnrollFeatureFiles" BeforeTargets="UpdateFeatureFilesInProject">
+    <MakeDir Directories="$(ProjectDir)Features" />
+    <Copy SourceFiles="@(ExternalFeatureFiles)"
+          DestinationFolder="$(ProjectDir)Features"
+          SkipUnchangedFiles="true" />
+  </Target>
 
 </Project>

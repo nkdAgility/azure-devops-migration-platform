@@ -13,5 +13,22 @@
   "Artefacts": {
     "Path": "%TEMP%\\SystemTests\\export-ado-workitems-single-project",
     "Zip": false
-  }
+  },
+  "Modules": [
+    {
+      "Name": "WorkItems",
+      "Enabled": true,
+      "Scopes": [
+        {
+          "Type": "wiql",
+          "Parameters": {
+            "query": "SELECT [System.Id] FROM WorkItems WHERE [System.TeamProject] = @project ORDER BY [System.Id]",
+            "includeRevisions": true,
+            "includeLinks": true,
+            "includeAttachments": true
+          }
+        }
+      ]
+    }
+  ]
 }

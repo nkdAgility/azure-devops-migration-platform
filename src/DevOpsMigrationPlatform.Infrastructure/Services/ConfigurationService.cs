@@ -115,6 +115,9 @@ public class ConfigurationService : IConfigurationService
         {
             if (string.IsNullOrWhiteSpace(options.Source.Type))
                 errors.Add("Source: Type is required");
+            else if (!IsValidSourceType(options.Source.Type))
+                errors.Add($"Source: Type '{options.Source.Type}' is not supported. Valid values: AzureDevOpsServices, TeamFoundationServer");
+
             if (string.IsNullOrWhiteSpace(options.Source.Url))
                 errors.Add("Source: Url is required");
         }
@@ -123,6 +126,11 @@ public class ConfigurationService : IConfigurationService
         {
             if (string.IsNullOrWhiteSpace(options.Target.Type))
                 errors.Add("Target: Type is required");
+            else if (!IsValidTargetType(options.Target.Type))
+                errors.Add($"Target: Type '{options.Target.Type}' is not supported. " +
+                           "Only 'AzureDevOpsServices' is a valid migration target. " +
+                           "TeamFoundationServer / Azure DevOps Server cannot be used as a migration target.");
+
             if (string.IsNullOrWhiteSpace(options.Target.Url))
                 errors.Add("Target: Url is required");
         }
@@ -140,6 +148,13 @@ public class ConfigurationService : IConfigurationService
 
         return errors;
     }
+
+    private static bool IsValidSourceType(string type) =>
+        string.Equals(type, "AzureDevOpsServices", StringComparison.Ordinal) ||
+        string.Equals(type, "TeamFoundationServer", StringComparison.Ordinal);
+
+    private static bool IsValidTargetType(string type) =>
+        string.Equals(type, "AzureDevOpsServices", StringComparison.Ordinal);
 
     public async Task SaveConfigurationAsync(MigrationOptions options, string configPath, CancellationToken cancellationToken = default)
     {

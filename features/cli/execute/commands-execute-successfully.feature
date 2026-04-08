@@ -34,16 +34,16 @@ Feature: CLI Commands Execute Successfully Without Errors
         And the command should exit with code 0
         And no errors should be displayed
 
-    Scenario: TFS export command executes with valid parameters
-        Given valid TFS connection parameters are provided
-        When I run "devopsmigration tfsexport --collection http://tfs:8080/tfs/DefaultCollection --project MyProject --output ./package"
+    Scenario: TFS export command executes with valid config file
+        Given a valid TFS export config file exists at "scenarios/export-tfs-workitems.json"
+        When I run "devopsmigration export --config scenarios/export-tfs-workitems.json"
         Then the command should execute successfully with exit code 0
         And the TFS export process should begin
         And no runtime exceptions should occur
 
-    Scenario: Logs command executes with valid job ID
+    Scenario: Manage logs command executes with valid job ID
         Given a valid job ID "00000000-0000-0000-0000-000000000001" exists
-        When I run "devopsmigration logs --job 00000000-0000-0000-0000-000000000001"
+        When I run "devopsmigration manage logs --job 00000000-0000-0000-0000-000000000001"
         Then the command should execute successfully with exit code 0
         And log output should be displayed
         And no runtime exceptions should occur
