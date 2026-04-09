@@ -8,7 +8,7 @@
 Establish three orthogonal observability channels for the Migration Agent: (1) complete the existing `PackageProgressSink` stub so `ProgressEvent` records are persisted to `Logs/progress.jsonl` in the package, (2) add a new diagnostics channel that captures `ILogger` output as `DiagnosticLogRecord` NDJSON in `Logs/agent.jsonl` and streams it to the Control Plane for live TUI and `export --follow` consumption, and (3) rename the misnamed `/logs` endpoints to `/progress` and repurpose `manage logs` as `manage diagnostics`.
 
 Key design decisions:
-- **Tiered log levels**: The agent's diagnostic log level is per-job (set via `export --level`, default: Warning). The control plane has an independent deployment-level minimum (default: Warning). The agent writes full detail to the package; the CP filters incoming records at its own floor before buffering, streaming via SSE, or exporting to Application Insights / OTel.
+- **Tiered log levels**: The agent's diagnostic log level is per-job (set via `export --level`, default: Information). The control plane has an independent deployment-level minimum (default: Warning). The agent writes full detail to the package; the CP filters incoming records at its own floor before buffering, streaming via SSE, or exporting to Application Insights / OTel.
 - **CLI lifecycle**: `export --follow` streams diagnostics inline (implicit in standalone mode). Without `--follow` on a remote CP, the CLI submits the job and exits. Ctrl+C during `--follow` detaches without cancelling the job.
 - **Live observation**: The TUI is the primary live dashboard. The CLI provides live diagnostic streaming via `export --follow`. CLI `manage` commands are snapshot/download only — no `--follow`.
 - **Command renames**: `manage logs` → `manage diagnostics` (downloads package logs for completed jobs). New `manage progress` (progress event snapshot, no `--follow`).
@@ -185,7 +185,7 @@ public record DiagnosticLogRecord
 public sealed class DiagnosticLogOptions
 {
     public const string SectionName = "Diagnostics";
-    public string MinimumLevel { get; init; } = "Warning";
+    public string MinimumLevel { get; init; } = "Information";
     public int ChannelCapacity { get; init; } = 1024;
     public int FlushIntervalMs { get; init; } = 500;
     public int FlushBatchSize { get; init; } = 50;
@@ -281,7 +281,7 @@ public sealed class DiagnosticLogStoreOptions
 
 **MigrationExportCommand** (update):
 - Add `--follow` option to `ExportCommandSettings` (bool, default `false`)
-- Add `--level` option to `ExportCommandSettings` (string, default `"Warning"`, validated)
+- Add `--level` option to `ExportCommandSettings` (string, default `"Information"`, validated)
 - After job submission:
   - **Standalone (no `--url`)**: `--follow` is implicit. Start Aspire services with CP's `DiagnosticLogStoreOptions.MinimumLevel` set to `--level`. Stream diagnostics SSE to console. On job terminal state → print summary, exit.
   - **Remote + `--follow`**: Submit job, then stream diagnostics SSE to console. On Ctrl+C → detach, print "Job continues. Use TUI to watch.", exit. On job terminal state → print summary, exit.

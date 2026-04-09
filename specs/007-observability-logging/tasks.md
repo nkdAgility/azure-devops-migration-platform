@@ -125,7 +125,7 @@
 
 ### Implementation for User Story 6 — CLI Side
 
-- [ ] T026 [P] [US6] Add `Follow` (bool, default `false`) and `Level` (string, default `"Warning"`, validated against `Trace|Debug|Information|Warning|Error|Critical`) properties to `ExportCommandSettings` in `src/DevOpsMigrationPlatform.CLI.Migration/Settings/ExportCommandSettings.cs`
+- [ ] T026 [P] [US6] Add `Follow` (bool, default `false`) and `Level` (string, default `"Information"`, validated against `Trace|Debug|Information|Warning|Error|Critical`) properties to `ExportCommandSettings` in `src/DevOpsMigrationPlatform.CLI.Migration/Settings/ExportCommandSettings.cs`
 - [ ] T027 [US6] Add `StreamDiagnosticsAsync(Guid jobId, LogLevel? level, CancellationToken ct)` returning `IAsyncEnumerable<DiagnosticLogRecord>` to `ControlPlaneClient` for SSE consumption in `src/DevOpsMigrationPlatform.CLI.Migration/JobRunners/ControlPlaneClient.cs`
 - [ ] T028 [US6] Update `MigrationExportCommand` to pass `--level` to job definition, implement `--follow` lifecycle: stream diagnostics SSE to console, print summary on job terminal state, detach on Ctrl+C with "Job continues. Use TUI to watch." message in `src/DevOpsMigrationPlatform.CLI.Migration/Commands/MigrationExportCommand.cs`
 - [ ] T029 [US6] Implement standalone mode behaviour: when no `--url`, `--follow` is implicit, locally-started CP's `DiagnosticLogStoreOptions.MinimumLevel` set to operator's `--level` value in `src/DevOpsMigrationPlatform.CLI.Migration/Commands/MigrationExportCommand.cs`
@@ -207,14 +207,17 @@
 
 ## Phase 9: Polish & Cross-Cutting Concerns
 
-**Purpose**: Launch profiles, build verification, scenario validation
+**Purpose**: Launch profiles, SystemTest coverage, build verification, scenario validation
 
 - [ ] T047 Add `manage diagnostics` debug profile (`manage diagnostics --job <test-job-id> --level Warning`) to `.vscode/launch.json`
 - [ ] T048 [P] Add `manage progress` debug profile (`manage progress --job <test-job-id>`) to `.vscode/launch.json`
 - [ ] T049 [P] Update existing `export` debug profile with `--follow` and `--level Warning` options in `.vscode/launch.json`
-- [ ] T050 Run `dotnet clean && dotnet build --no-incremental` — MUST pass with zero errors
-- [ ] T051 Run `dotnet test` — ALL tests MUST pass
-- [ ] T052 Run scenario config `scenarios/export-ado-workitems-single-project.json` via `.vscode/launch.json` debug profile and verify observable output (both `Logs/progress.jsonl` and `Logs/agent.jsonl` produced)
+- [ ] T050 [P] Create `[TestCategory("SystemTest")]` test for `export --follow --level` that runs an export with `--follow` and `--level Debug`, asserts diagnostic output streams to console, and verifies `Logs/agent.jsonl` contains Debug+ records in `tests/DevOpsMigrationPlatform.CLI.Migration.Tests/Commands/ExportCommandFollowTests.cs`
+- [ ] T051 [P] Create `[TestCategory("SystemTest")]` test for `manage diagnostics` that submits a job, then runs `manage diagnostics --job <id>`, and asserts NDJSON output is returned in `tests/DevOpsMigrationPlatform.CLI.Migration.Tests/Commands/ManageDiagnosticsCommandTests.cs`
+- [ ] T052 [P] Create `[TestCategory("SystemTest")]` test for `manage progress` that submits a job, then runs `manage progress --job <id>`, and asserts ProgressEvent records are returned in `tests/DevOpsMigrationPlatform.CLI.Migration.Tests/Commands/ManageProgressCommandTests.cs`
+- [ ] T053 Run `dotnet clean && dotnet build --no-incremental` — MUST pass with zero errors
+- [ ] T054 Run `dotnet test` — ALL tests MUST pass
+- [ ] T055 Run scenario config `scenarios/export-ado-workitems-single-project.json` via `.vscode/launch.json` debug profile and verify observable output (both `Logs/progress.jsonl` and `Logs/agent.jsonl` produced)
 
 ---
 
@@ -296,5 +299,5 @@ Phase 2 (Foundational) ──→ Phase 3 (US2) ──→ Phase 4 (US1) ──→
 | 6 — US4 (P2) | Endpoint/CLI Rename | 9 | 5 tasks parallelizable |
 | 7 — US5 (P2) | Package Log Download | 4 | — |
 | 8 — US3 (P2) | TUI Diagnostics Panel | 3 | — |
-| 9 — Polish | — | 6 | 3 tasks parallelizable |
-| **Total** | | **52** | **16 parallelizable** |
+| 9 — Polish | — | 9 | 6 tasks parallelizable |
+| **Total** | | **55** | **19 parallelizable** |

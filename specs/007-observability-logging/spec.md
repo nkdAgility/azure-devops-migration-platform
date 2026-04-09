@@ -128,7 +128,7 @@ An operator running `devopsmigration export` needs to control diagnostic verbosi
 3. **Given** an operator runs `export --follow` with a remote control plane, **When** the job is running, **Then** the CLI streams diagnostic log records to the console. On job completion, the CLI prints a summary and exits.
 4. **Given** an operator runs `export --follow` and presses Ctrl+C, **When** the CLI receives the interrupt, **Then** the CLI detaches from the log stream and exits. The job continues running on the server. The operator is informed to use the TUI to resume watching.
 5. **Given** an operator runs `export` in standalone mode (no `--url`), **When** the Aspire-managed control plane and agent start locally, **Then** `--follow` is implicit — diagnostic logs always stream to the console. The locally-started control plane uses the operator's `--level` setting.
-6. **Given** `export --level Warning` (default), **When** the agent writes to the package, **Then** `Logs/agent.jsonl` contains only Warning+ records. Information and Debug records are not persisted.
+6. **Given** `export --level Information` (default), **When** the agent writes to the package, **Then** `Logs/agent.jsonl` contains only Information+ records. Debug and Trace records are not persisted.
 
 ---
 
@@ -165,7 +165,7 @@ An operator running `devopsmigration export` needs to control diagnostic verbosi
 
 - **FR-009**: The Migration Agent MUST push `ILogger` records at the agent's configured minimum level to the control plane via `POST /agents/lease/{leaseId}/diagnostics`, separate from the progress event endpoint.
 - **FR-010**: The control plane MUST maintain a bounded in-memory ring buffer for diagnostic log records per job, independent of the progress event ring buffer. The control plane MUST discard incoming records below its own deployment-level minimum log level (default: Warning) before buffering.
-- **FR-011**: The control plane MUST expose `GET /jobs/{jobId}/diagnostics` (snapshot) and `GET /jobs/{jobId}/diagnostics?follow=true` (SSE) for real-time diagnostic streaming. These endpoints are consumed by the TUI — not by CLI `manage` commands.
+- **FR-011**: The control plane MUST expose `GET /jobs/{jobId}/diagnostics` (snapshot) and `GET /jobs/{jobId}/diagnostics?follow=true` (SSE) for real-time diagnostic streaming. These endpoints are consumed by the TUI and `export --follow` — not by CLI `manage` commands.
 - **FR-012**: The diagnostics SSE stream MUST support a `level` query parameter to filter by minimum log level (e.g., `?follow=true&level=Warning`). The effective floor is the higher of the requested level and the control plane's deployment-level minimum.
 
 **API and CLI Rename (P2)**
@@ -187,7 +187,7 @@ An operator running `devopsmigration export` needs to control diagnostic verbosi
 
 **Export Command Log Level and Follow Mode (P1)**
 
-- **FR-021**: The `export` command MUST accept a `--level` option (default: `Warning`) that sets the agent's diagnostic log minimum level for the job. Valid values: `Trace`, `Debug`, `Information`, `Warning`, `Error`, `Critical`.
+- **FR-021**: The `export` command MUST accept a `--level` option (default: `Information`) that sets the agent's diagnostic log minimum level for the job. Valid values: `Trace`, `Debug`, `Information`, `Warning`, `Error`, `Critical`.
 - **FR-022**: The `--level` value MUST be passed to the agent via the job definition. The agent configures its `PackageLoggerProvider` and `ControlPlaneLoggerProvider` to emit at this level.
 - **FR-023**: The `export` command MUST accept a `--follow` option. When present, the CLI streams diagnostic log records from `GET /jobs/{jobId}/diagnostics?follow=true` to the console after job submission.
 - **FR-024**: In standalone mode (no `--url` configured), `--follow` MUST be implicit. The locally-started control plane MUST use the operator's `--level` value as its deployment-level minimum, ensuring full fidelity between what the agent writes and what the console displays.
@@ -224,9 +224,9 @@ An operator running `devopsmigration export` needs to control diagnostic verbosi
 
 ## Assumptions
 
-- The OpenTelemetry `LogRecord` pipeline in ServiceDefaults (`builder.Logging.AddOpenTelemetry`) is already active and will be used as the source for diagnostic log records. No separate `ILoggerProvider` is needed — custom OTel log exporters are the preferred mechanism.
+- A custom `ILoggerProvider` (not an OTel `BaseExporter<LogRecord>`) is the chosen mechanism for diagnostic log capture (see research R-002). This avoids modifying the shared OTel pipeline in ServiceDefaults, avoids OTel batch-processor latency, and follows the same downstream-registration pattern as `SnapshotMetricExporter`. The OTel logging bridge in ServiceDefaults continues to export to OTLP/Azure Monitor independently.
 - `IArtefactStore` supports append-like semantics via repeated writes. The sinks will batch lines and write periodically (e.g., every 500ms or every 50 records, whichever comes first) rather than writing one line at a time.
-- The agent's diagnostic log level is per-job, set via `--level` on the `export` (or `import`/`migrate`) command and passed to the agent through the job definition. Default: Warning.
+- The agent's diagnostic log level is per-job, set via `--level` on the `export` (or `import`/`migrate`) command and passed to the agent through the job definition. Default: Information.
 - The control plane has a deployment-level minimum log level (default: Warning) that is independent of any individual job's agent level. The CP drops incoming diagnostics records below its floor before buffering, streaming, or exporting to Application Insights.
 - In standalone mode, the locally-started control plane adopts the operator's `--level` value, ensuring full fidelity. In non-standalone mode, the CP uses its own deployment config.
 - The TFS export subprocess (.NET 4.8) will write its own `Logs/agent.jsonl` via its `IArtefactStore` instance using a .NET 4.8-compatible logging sink (not OTel, since the TFS subprocess does not run the OTel SDK).

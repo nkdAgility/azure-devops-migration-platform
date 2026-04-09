@@ -144,7 +144,7 @@ Submits an export job. In standalone mode (no `--url`), `--follow` is implicit a
 | Option | Default | Description |
 |---|---|---|
 | `--follow` | `false` (remote), implicit (standalone) | Stream diagnostic logs to console during job execution |
-| `--level` | `Warning` | Agent diagnostic log minimum level. Sets what's written to `agent.jsonl` and pushed to CP |
+| `--level` | `Information` | Agent diagnostic log minimum level. Sets what's written to `agent.jsonl` and pushed to CP |
 
 **Lifecycle**: With `--follow`, streams diagnostics via `GET /jobs/{jobId}/diagnostics?follow=true`. On job completion → prints summary and exits. On Ctrl+C → detaches (job continues), prints "Use TUI to watch".
 

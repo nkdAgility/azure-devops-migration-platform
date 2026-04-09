@@ -85,14 +85,14 @@ Both files are append-only during a job. Both are NDJSON format (one JSON object
 public sealed class DiagnosticLogOptions
 {
     public const string SectionName = "Diagnostics";
-    public string MinimumLevel { get; init; } = "Warning";
+    public string MinimumLevel { get; init; } = "Information";
     public int ChannelCapacity { get; init; } = 1024;
     public int FlushIntervalMs { get; init; } = 500;
     public int FlushBatchSize { get; init; } = 50;
 }
 ```
 
-Note: `MinimumLevel` default changed from `"Information"` to `"Warning"` to match the `export --level` default. This is the agent-side level set per job.
+Note: `MinimumLevel` default is `"Information"` — this is the agent-side level set per job via `export --level`.
 
 ### DiagnosticLogStoreOptions (new)
 
