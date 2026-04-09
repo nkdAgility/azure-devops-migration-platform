@@ -8,26 +8,26 @@ namespace DevOpsMigrationPlatform.Abstractions.Services;
 /// </summary>
 public sealed class WorkItemQueryWindowOptions
 {
-    public int InitialWindowDays { get; set; } = 120;
-    public int LimitThreshold { get; set; } = 20_000;
-    public int MinWindowDays { get; set; } = 1;
+    public int InitialWindowDays { get; init; } = 120;
+    public int LimitThreshold { get; init; } = 20_000;
+    public int MinWindowDays { get; init; } = 1;
     /// <summary>
     /// Maximum window size in days used when skipping over empty periods.
     /// Defaults to 1825 days (5 years).
     /// </summary>
-    public int MaxWindowDays { get; set; } = 1825;
+    public int MaxWindowDays { get; init; } = 1825;
     /// <summary>
     /// The earliest date the strategy will scan back to.
     /// Defaults to 30 years before the current UTC time.
     /// </summary>
-    public DateTime MinDate { get; set; } = DateTime.UtcNow.AddYears(-30);
+    public DateTime MinDate { get; init; } = DateTime.UtcNow.AddYears(-30);
 
     /// <summary>
     /// Starting ID-range width for Level 2 cursor paging inside a single dense day.
     /// Applies only when the date window has shrunk to <see cref="MinWindowDays"/>
     /// and still overflows the WIQL limit. Defaults to 5 000.
     /// </summary>
-    public int InitialIdWindowSize { get; set; } = 5_000;
+    public int InitialIdWindowSize { get; init; } = 5_000;
 
     /// <summary>
     /// Optional user-supplied WIQL query whose WHERE predicate and ORDER BY clause

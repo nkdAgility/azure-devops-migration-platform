@@ -15,7 +15,7 @@ namespace DevOpsMigrationPlatform.CLI.Commands;
 /// <c>config.Source.Type == "TeamFoundationServer"</c>.
 ///
 /// This is NOT a Spectre.Console command — it is not registered in Program.cs.
-/// From the user's perspective, <c>devopsmigration export</c> handles both ADO Services
+/// From the user's perspective, <c>devopsmigration export</c> handles both Azure DevOps Services
 /// and TFS/Azure DevOps Server transparently by inspecting <c>Source.Type</c>.
 ///
 /// See docs/tfs-exporter.md for the full subprocess protocol and
@@ -46,8 +46,8 @@ internal static class TfsExportRunner
         }
 
         var collectionUrl = config.Source!.Url;
-        var project       = config.Source.Project;
-        var outputFolder  = Path.GetFullPath(config.Artefacts.ExpandedPath);
+        var project = config.Source.Project;
+        var outputFolder = Path.GetFullPath(config.Artefacts.ExpandedPath);
 
         var arguments = $"export" +
                         $" --collection \"{collectionUrl}\"" +
@@ -56,9 +56,9 @@ internal static class TfsExportRunner
 
         AnsiConsole.MarkupLineInterpolated($"[grey]Launching:[/] {exePath}");
 
-        var panel   = new TelemetryPanel();
+        var panel = new TelemetryPanel();
         var adapter = serviceProvider.GetRequiredService<TfsExporterProcessAdapter>();
-        var runner  = serviceProvider.GetRequiredService<IExternalToolRunner>();
+        var runner = serviceProvider.GetRequiredService<IExternalToolRunner>();
 
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         Console.CancelKeyPress += (_, e) => { e.Cancel = true; cts.Cancel(); };

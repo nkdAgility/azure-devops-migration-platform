@@ -27,7 +27,7 @@ public interface IAzureDevOpsWorkItemRevisionMapper
 public sealed class AzureDevOpsWorkItemRevisionMapper : IAzureDevOpsWorkItemRevisionMapper
 {
     private const string AttachedFileRel = "AttachedFile";
-    private const string HyperlinkRel    = "Hyperlink";
+    private const string HyperlinkRel = "Hyperlink";
     private const string ArtifactLinkRel = "ArtifactLink";
 
     public WorkItemRevision Map(WorkItem current, WorkItem? previous)
@@ -44,14 +44,14 @@ public sealed class AzureDevOpsWorkItemRevisionMapper : IAzureDevOpsWorkItemRevi
 
         return new WorkItemRevision
         {
-            WorkItemId    = workItemId,
+            WorkItemId = workItemId,
             RevisionIndex = revisionIndex,
-            ChangedDate   = changedDate,
-            Fields        = fields,
+            ChangedDate = changedDate,
+            Fields = fields,
             ExternalLinks = externalLinks,
-            RelatedLinks  = relatedLinks,
-            Hyperlinks    = hyperlinks,
-            Attachments   = attachments
+            RelatedLinks = relatedLinks,
+            Hyperlinks = hyperlinks,
+            Attachments = attachments
         };
     }
 
@@ -60,7 +60,7 @@ public sealed class AzureDevOpsWorkItemRevisionMapper : IAzureDevOpsWorkItemRevi
     private static int GetRevisionIndex(WorkItem workItem)
     {
         if (workItem.Rev.HasValue)
-            return workItem.Rev.Value - 1; // ADO uses 1-based revision numbers; we use 0-based index
+            return workItem.Rev.Value - 1; // Azure DevOps uses 1-based revision numbers; we use 0-based index
 
         if (workItem.Fields != null &&
             workItem.Fields.TryGetValue("System.Rev", out var revObj) &&
@@ -108,7 +108,7 @@ public sealed class AzureDevOpsWorkItemRevisionMapper : IAzureDevOpsWorkItemRevi
             result.Add(new DevOpsMigrationPlatform.Abstractions.WorkItemField
             {
                 ReferenceName = kvp.Key,
-                Value         = currentValue
+                Value = currentValue
             });
         }
 
@@ -122,9 +122,9 @@ public sealed class AzureDevOpsWorkItemRevisionMapper : IAzureDevOpsWorkItemRevi
         IReadOnlyList<AttachmentMetadata> attachments)
     MapRelations(WorkItem current, WorkItem? previous)
     {
-        var external    = new List<ExternalWorkItemLink>();
-        var related     = new List<RelatedWorkItemLink>();
-        var hyperlinks  = new List<HyperlinkWorkItemLink>();
+        var external = new List<ExternalWorkItemLink>();
+        var related = new List<RelatedWorkItemLink>();
+        var hyperlinks = new List<HyperlinkWorkItemLink>();
         var attachments = new List<AttachmentMetadata>();
 
         if (current.Relations is null)
@@ -147,8 +147,8 @@ public sealed class AzureDevOpsWorkItemRevisionMapper : IAzureDevOpsWorkItemRevi
                 hyperlinks.Add(new HyperlinkWorkItemLink
                 {
                     ArtifactLinkType = rel,
-                    Comment          = string.IsNullOrEmpty(comment) ? null : comment,
-                    Location         = url
+                    Comment = string.IsNullOrEmpty(comment) ? null : comment,
+                    Location = url
                 });
             }
             else if (rel.Equals(ArtifactLinkRel, StringComparison.OrdinalIgnoreCase))
@@ -157,7 +157,7 @@ public sealed class AzureDevOpsWorkItemRevisionMapper : IAzureDevOpsWorkItemRevi
                 external.Add(new ExternalWorkItemLink
                 {
                     ArtifactLinkType = linkTypeName,
-                    Comment          = string.IsNullOrEmpty(comment) ? null : comment,
+                    Comment = string.IsNullOrEmpty(comment) ? null : comment,
                     LinkedArtifactUri = url
                 });
             }
@@ -167,10 +167,10 @@ public sealed class AzureDevOpsWorkItemRevisionMapper : IAzureDevOpsWorkItemRevi
                 var size = TryGetAttribute<long>(relation, "resourceSize");
                 attachments.Add(new AttachmentMetadata
                 {
-                    OriginalName  = name,
-                    RelativePath  = name,
-                    Size          = size,
-                    Sha256        = string.Empty   // ADO REST does not expose SHA-256 for attachments
+                    OriginalName = name,
+                    RelativePath = name,
+                    Size = size,
+                    Sha256 = string.Empty   // Azure DevOps REST does not expose SHA-256 for attachments
                 });
             }
             else if (!string.IsNullOrEmpty(rel))
@@ -179,9 +179,9 @@ public sealed class AzureDevOpsWorkItemRevisionMapper : IAzureDevOpsWorkItemRevi
                 var relatedId = ExtractWorkItemId(url);
                 related.Add(new RelatedWorkItemLink
                 {
-                    ArtifactLinkType  = rel,
-                    Comment           = string.IsNullOrEmpty(comment) ? null : comment,
-                    LinkTypeEnd       = rel,
+                    ArtifactLinkType = rel,
+                    Comment = string.IsNullOrEmpty(comment) ? null : comment,
+                    LinkTypeEnd = rel,
                     RelatedWorkItemId = relatedId
                 });
             }

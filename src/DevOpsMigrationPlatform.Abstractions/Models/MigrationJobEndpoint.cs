@@ -25,7 +25,7 @@ public class MigrationJobEndpoint
     /// <summary>
     /// Authentication credentials for this endpoint.
     /// Carried from the config into the job contract so that Migration Agents
-    /// can authenticate to both REST (ADO) and Object Model (TFS) sources
+    /// can authenticate to both REST (Azure DevOps) and Object Model (TFS) sources
     /// without requiring a separate credential lookup.
     /// </summary>
     public EndpointAuthenticationOptions? Authentication { get; init; }

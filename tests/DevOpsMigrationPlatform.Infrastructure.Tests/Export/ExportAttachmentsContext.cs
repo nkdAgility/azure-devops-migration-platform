@@ -12,7 +12,7 @@ namespace DevOpsMigrationPlatform.Infrastructure.Tests.Export;
 /// Shared state for ExportAttachments step definitions.
 /// A <see cref="FakeAttachmentBinarySource"/> is wired into
 /// <see cref="WorkItemExportOrchestrator"/> so that attachment binary files are actually
-/// written to the <see cref="FileSystemArtefactStore"/> without a live ADO connection.
+/// written to the <see cref="FileSystemArtefactStore"/> without a live Azure DevOps connection.
 /// </summary>
 public class ExportAttachmentsContext
 {
@@ -27,7 +27,7 @@ public class ExportAttachmentsContext
 
     /// <summary>
     /// A test double that returns a fixed byte payload for every attachment.
-    /// This lets the orchestrator write real binary files without an ADO connection.
+    /// This lets the orchestrator write real binary files without an Azure DevOps connection.
     /// </summary>
     public FakeAttachmentBinarySource AttachmentSource { get; } = new();
 }

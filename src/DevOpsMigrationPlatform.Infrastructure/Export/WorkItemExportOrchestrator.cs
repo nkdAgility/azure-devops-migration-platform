@@ -15,7 +15,7 @@ namespace DevOpsMigrationPlatform.Infrastructure.Export;
 /// When an <see cref="IAttachmentBinarySource"/> is supplied, each attachment binary is
 /// downloaded and stored beside <c>revision.json</c> in the same revision folder.
 /// </summary>
-public class WorkItemExportOrchestrator
+public sealed class WorkItemExportOrchestrator
 {
     private static readonly JsonSerializerOptions JsonOptions = new()
     {

@@ -69,7 +69,7 @@ public class ConfigurationService : IConfigurationService
             if (!File.Exists(actualConfigPath))
                 throw new FileNotFoundException($"Configuration file not found: {actualConfigPath}");
 
-            var jsonContent = await File.ReadAllTextAsync(actualConfigPath, cancellationToken);
+            var jsonContent = await File.ReadAllTextAsync(actualConfigPath, cancellationToken).ConfigureAwait(false);
             var options = JsonSerializer.Deserialize<MigrationOptions>(jsonContent, _jsonOptions);
 
             if (options == null)
@@ -167,7 +167,7 @@ public class ConfigurationService : IConfigurationService
                 Directory.CreateDirectory(directory);
 
             var jsonContent = JsonSerializer.Serialize(options, _jsonOptions);
-            await File.WriteAllTextAsync(configPath, jsonContent, cancellationToken);
+            await File.WriteAllTextAsync(configPath, jsonContent, cancellationToken).ConfigureAwait(false);
 
             var cacheKey = Path.GetFullPath(configPath);
             _configCache[cacheKey] = options;

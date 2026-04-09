@@ -55,6 +55,22 @@ public sealed class LocalStackHost : IAsyncDisposable
         builder.WebHost.UseUrls(LocalControlPlaneUrl.ToString().TrimEnd('/'));
 
         _controlPlane = builder.Build();
+
+        // Stamp every request as authenticated so the auth check in
+        // ProgressController.GetLogs (403 for unauthenticated callers) passes.
+        // LocalStackHost is single-user / local-only — no real auth is needed.
+        _controlPlane.Use(async (context, next) =>
+        {
+            if (context.User.Identity?.IsAuthenticated != true)
+            {
+                var identity = new System.Security.Claims.ClaimsIdentity("LocalStack");
+                identity.AddClaim(new System.Security.Claims.Claim(
+                    System.Security.Claims.ClaimTypes.Name, "local-cli-user"));
+                context.User = new System.Security.Claims.ClaimsPrincipal(identity);
+            }
+            await next();
+        });
+
         _controlPlane.MapControllers();
 
         await _controlPlane.StartAsync(cancellationToken);

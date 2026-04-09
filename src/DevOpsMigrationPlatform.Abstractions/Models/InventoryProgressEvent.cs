@@ -4,7 +4,7 @@ namespace DevOpsMigrationPlatform.Abstractions.Models;
 
 /// <summary>
 /// Progress event emitted per completed date window during inventory.
-/// Used by both the in-process ADO path and the TFS subprocess NDJSON path.
+/// Used by both the in-process Azure DevOps path and the TFS subprocess NDJSON path.
 /// </summary>
 public sealed class InventoryProgressEvent
 {

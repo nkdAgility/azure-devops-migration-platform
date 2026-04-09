@@ -36,7 +36,7 @@ public class FileSystemArtefactStore : IArtefactStore
         if (directory != null && !Directory.Exists(directory))
             Directory.CreateDirectory(directory);
 #if NET5_0_OR_GREATER
-        await File.WriteAllTextAsync(fullPath, content, Encoding.UTF8, cancellationToken);
+        await File.WriteAllTextAsync(fullPath, content, Encoding.UTF8, cancellationToken).ConfigureAwait(false);
 #else
         File.WriteAllText(fullPath, content, Encoding.UTF8);
         await Task.CompletedTask;
@@ -53,7 +53,7 @@ public class FileSystemArtefactStore : IArtefactStore
         if (directory != null && !Directory.Exists(directory))
             Directory.CreateDirectory(directory);
 #if NET5_0_OR_GREATER
-        await File.WriteAllBytesAsync(fullPath, content, cancellationToken);
+        await File.WriteAllBytesAsync(fullPath, content, cancellationToken).ConfigureAwait(false);
 #else
         File.WriteAllBytes(fullPath, content);
         await System.Threading.Tasks.Task.CompletedTask;

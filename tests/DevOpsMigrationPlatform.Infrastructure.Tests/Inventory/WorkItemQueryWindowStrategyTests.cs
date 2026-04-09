@@ -14,7 +14,7 @@ namespace DevOpsMigrationPlatform.Infrastructure.Tests.Inventory;
 
 /// <summary>
 /// Behavioural unit tests for <see cref="WorkItemQueryWindowStrategy"/>.
-/// All tests use a mock <see cref="IWiqlQueryClientFactory"/> so no live ADO
+/// All tests use a mock <see cref="IWiqlQueryClientFactory"/> so no live Azure DevOps
 /// connection is required.
 ///
 /// Covers spec tasks T020–T024 with real behavioural assertions.
@@ -828,7 +828,7 @@ public class WorkItemQueryWindowStrategyTests
 
     /// <summary>
     /// Regression test for the actual production failure:
-    /// VS402337 thrown by ADO during windowed scanning must halve the window without
+    /// VS402337 thrown by Azure DevOps during windowed scanning must halve the window without
     /// consuming a transient-retry slot.  Without this fix the strategy exhausts its
     /// 3-retry budget after the first three halvings and propagates the exception
     /// — exactly the "crapped out at 263k items" issue reported in production.
@@ -1090,7 +1090,7 @@ public class WorkItemQueryWindowStrategyTests
     // ── Unbounded probe throws → falls through to date-window scanning ────────
 
     /// <summary>
-    /// Regression test: The ADO WIQL API throws (HTTP 400) when a query would return
+    /// Regression test: The Azure DevOps WIQL API throws (HTTP 400) when a query would return
     /// more than 20,000 items with no <c>top</c> cap.  The unbounded probe must catch
     /// that exception and fall through to backward date-window scanning rather than
     /// propagating the exception to callers.
@@ -1099,7 +1099,7 @@ public class WorkItemQueryWindowStrategyTests
     public async Task UnboundedProbe_Throws20kException_FallsThroughToDateWindowScanning()
     {
         // Arrange:
-        //  call 0 (unbounded probe): throws — ADO 20k hard cap
+        //  call 0 (unbounded probe): throws — Azure DevOps 20k hard cap
         //  call 1 (first windowed):  2 items — yielded
         //  call 2 (next windowed):   0 items — MinDate floor → stop
         var opts = new WorkItemQueryWindowOptions

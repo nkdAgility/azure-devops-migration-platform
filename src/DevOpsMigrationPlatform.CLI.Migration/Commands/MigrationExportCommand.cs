@@ -27,9 +27,9 @@ namespace DevOpsMigrationPlatform.CLI.Migration.Commands;
 /// delegates to <see cref="TfsExportRunner"/> (the net481 subprocess bridge) instead of
 /// submitting a job to the control plane. This keeps TFS OM handling invisible to the
 /// operator: a single <c>devopsmigration export --config ...</c> command handles both
-/// ADO Services and on-premises TFS/Azure DevOps Server.
+/// Azure DevOps Services and on-premises TFS/Azure DevOps Server.
 ///
-/// No migration logic runs in this command — all execution happens in the agent (ADO path)
+/// No migration logic runs in this command — all execution happens in the agent (Azure DevOps path)
 /// or the TFS subprocess (TFS path).
 /// See docs/cli.md and system-architecture guardrail rules 16 and 19.
 /// </summary>

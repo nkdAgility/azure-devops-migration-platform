@@ -12,5 +12,5 @@ public sealed class ControlPlaneOptions
 
     /// <summary>Base URL of the running control plane, e.g. <c>http://localhost:5100</c>.</summary>
     [Required]
-    public string BaseUrl { get; set; } = "http://localhost:5100";
+    public string BaseUrl { get; init; } = "http://localhost:5100";
 }

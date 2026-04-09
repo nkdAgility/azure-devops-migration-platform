@@ -66,7 +66,7 @@ public sealed class WorkItemQueryWindowStrategy : IWorkItemQueryWindowStrategy
         // ── Step 1: Unbounded probe ──────────────────────────────────────────
         // A single query without date filters retrieves all IDs for the project.
         // If the result is below the WIQL cap this is the only API call needed.
-        // NOTE: The ADO WIQL API throws (rather than silently truncating) when a
+        // NOTE: The Azure DevOps WIQL API throws (rather than silently truncating) when a
         // project exceeds the 20,000-item hard cap.  We catch that here and fall
         // through to the backward date-window scan (Step 2) so both inventory and
         // export remain correct for large projects.
@@ -113,7 +113,7 @@ public sealed class WorkItemQueryWindowStrategy : IWorkItemQueryWindowStrategy
         // Walk backward through date windows, halving on overflow, expanding on
         // empty gaps, stopping at MinDate.
         //
-        // KEY DESIGN NOTE: The ADO WIQL API throws VS402337 when a windowed query
+        // KEY DESIGN NOTE: The Azure DevOps WIQL API throws VS402337 when a windowed query
         // would return > 20,000 items (it does NOT silently truncate).  Overflow
         // exceptions must halve the window WITHOUT consuming a transient-retry slot
         // so that very dense date ranges are handled correctly regardless of depth.
@@ -428,7 +428,7 @@ public sealed class WorkItemQueryWindowStrategy : IWorkItemQueryWindowStrategy
     }
 
     /// <summary>
-    /// Returns <see langword="true"/> when <paramref name="ex"/> represents the ADO
+    /// Returns <see langword="true"/> when <paramref name="ex"/> represents the Azure DevOps
     /// "too many results" hard cap (VS402337 / TF201036).
     /// </summary>
     private static bool IsOverflowException(Exception ex)

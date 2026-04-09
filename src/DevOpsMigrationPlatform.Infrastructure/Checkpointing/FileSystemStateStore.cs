@@ -22,7 +22,7 @@ public class FileSystemStateStore : IStateStore
         if (directory != null)
             Directory.CreateDirectory(directory);
 #if NET5_0_OR_GREATER
-        await File.WriteAllTextAsync(fullPath, value, Encoding.UTF8, cancellationToken);
+        await File.WriteAllTextAsync(fullPath, value, Encoding.UTF8, cancellationToken).ConfigureAwait(false);
 #else
         File.WriteAllText(fullPath, value, Encoding.UTF8);
         await Task.CompletedTask;

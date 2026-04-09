@@ -7,7 +7,7 @@ namespace DevOpsMigrationPlatform.Abstractions;
 /// Source or target endpoint connection options.  Used for both <c>MigrationOptions.Source</c>
 /// and <c>MigrationOptions.Target</c>.
 /// </summary>
-public class MigrationEndpointOptions
+public sealed class MigrationEndpointOptions
 {
     /// <summary>
     /// Endpoint kind.  Supported values: <c>AzureDevOpsServices</c>, <c>TeamFoundationServer</c>.

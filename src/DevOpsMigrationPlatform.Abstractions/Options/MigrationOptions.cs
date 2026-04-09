@@ -23,7 +23,7 @@ namespace DevOpsMigrationPlatform.Abstractions;
 /// }
 /// </code>
 /// </summary>
-public class MigrationOptions
+public sealed class MigrationOptions
 {
     /// <summary>Config schema version. Incremented on breaking changes to this schema.</summary>
     public string ConfigVersion { get; set; } = "1.0";
