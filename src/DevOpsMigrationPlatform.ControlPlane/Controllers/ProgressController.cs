@@ -27,9 +27,9 @@ public sealed class ProgressController : ControllerBase
         ILeaseJobResolver resolver,
         ILogger<ProgressController> logger)
     {
-        _store    = store;
+        _store = store;
         _resolver = resolver;
-        _logger   = logger;
+        _logger = logger;
     }
 
     /// <summary>
@@ -57,7 +57,6 @@ public sealed class ProgressController : ControllerBase
     /// <c>POST /agents/lease/{leaseId}/fail</c>
     /// </summary>
     [HttpPost("/agents/lease/{leaseId}/complete")]
-    [HttpPost("/agents/lease/{leaseId}/fail")]
     [ProducesResponseType(204)]
     [ProducesResponseType(404)]
     public IActionResult CompleteJob(string leaseId)
@@ -66,7 +65,20 @@ public sealed class ProgressController : ControllerBase
         if (jobId is null)
             return NotFound($"Lease '{leaseId}' is not recognised.");
 
-        _store.CompleteJob(jobId.Value);
+        _store.CompleteJob(jobId.Value, failed: false);
+        return NoContent();
+    }
+
+    [HttpPost("/agents/lease/{leaseId}/fail")]
+    [ProducesResponseType(204)]
+    [ProducesResponseType(404)]
+    public IActionResult FailJob(string leaseId)
+    {
+        var jobId = _resolver.ResolveJobId(leaseId);
+        if (jobId is null)
+            return NotFound($"Lease '{leaseId}' is not recognised.");
+
+        _store.CompleteJob(jobId.Value, failed: true);
         return NoContent();
     }
 
@@ -80,7 +92,7 @@ public sealed class ProgressController : ControllerBase
     [ProducesResponseType(403)]
     public async Task GetLogs(Guid jobId, [FromQuery] bool follow = false, CancellationToken ct = default)
     {
-        if (!(HttpContext.User?.Identity?.IsAuthenticated ?? false))
+        if (HttpContext.User.Identity?.IsAuthenticated != true)
         {
             HttpContext.Response.StatusCode = StatusCodes.Status403Forbidden;
             return;
@@ -90,7 +102,7 @@ public sealed class ProgressController : ControllerBase
         {
             var snapshot = _store.GetSnapshot(jobId);
             HttpContext.Response.ContentType = "application/json";
-            HttpContext.Response.StatusCode  = StatusCodes.Status200OK;
+            HttpContext.Response.StatusCode = StatusCodes.Status200OK;
             await HttpContext.Response.WriteAsync(
                 JsonSerializer.Serialize(snapshot, _jsonOptions), ct);
             return;
@@ -103,6 +115,14 @@ public sealed class ProgressController : ControllerBase
         var (reader, writer) = _store.Subscribe(jobId);
         try
         {
+            // Replay any events that arrived before this SSE connection opened.
+            foreach (var pastEvt in _store.GetSnapshot(jobId))
+            {
+                var pastJson = JsonSerializer.Serialize(pastEvt, _jsonOptions);
+                await HttpContext.Response.WriteAsync($"data: {pastJson}\n\n", ct);
+            }
+            await HttpContext.Response.Body.FlushAsync(ct);
+
             using var heartbeatTimer = new PeriodicTimer(TimeSpan.FromSeconds(15));
             var heartbeatTask = heartbeatTimer.WaitForNextTickAsync(ct).AsTask();
 
@@ -120,7 +140,10 @@ public sealed class ProgressController : ControllerBase
                 }
             }
 
-            await HttpContext.Response.WriteAsync("event: job-ended\ndata: {}\n\n", ct);
+            await HttpContext.Response.WriteAsync(
+                _store.WasFailed(jobId)
+                    ? "event: job-failed\ndata: {}\n\n"
+                    : "event: job-ended\ndata: {}\n\n", ct);
             await HttpContext.Response.Body.FlushAsync(ct);
         }
         finally

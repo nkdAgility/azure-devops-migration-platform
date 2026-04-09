@@ -1,3 +1,6 @@
+using System.Collections.Generic;
+using DevOpsMigrationPlatform.Abstractions.Options;
+
 namespace DevOpsMigrationPlatform.Abstractions;
 
 /// <summary>
@@ -6,23 +9,21 @@ namespace DevOpsMigrationPlatform.Abstractions;
 /// <c>appsettings.json</c> defaults.
 ///
 /// Bound to the root of <c>IConfiguration</c> — there is no section wrapper.
-/// Module-specific options are bound separately by each module assembly to
-/// <c>Modules:{ModuleName}</c> and are NOT represented here.
 ///
 /// Example migration.json:
 /// <code>
 /// {
 ///   "ConfigVersion": "1.0",
 ///   "Mode": "Export",
-///   "Source": { "Type": "AzureDevOpsServices", "OrgOrCollection": "...", "Project": "..." },
+///   "Source": { "Type": "AzureDevOpsServices", "Url": "...", "Project": "..." },
 ///   "Artefacts": { "Path": "D:\\exports\\run-001" },
-///   "Modules": {
-///     "WorkItems": { "Enabled": true, "Query": "SELECT ..." }
-///   }
+///   "Modules": [
+///     { "Name": "WorkItems", "Enabled": true, "Scopes": [{ "Type": "wiql", "Parameters": { "query": "..." } }] }
+///   ]
 /// }
 /// </code>
 /// </summary>
-public class MigrationOptions
+public sealed class MigrationOptions
 {
     /// <summary>Config schema version. Incremented on breaking changes to this schema.</summary>
     public string ConfigVersion { get; set; } = "1.0";
@@ -41,4 +42,10 @@ public class MigrationOptions
 
     /// <summary>Retry and throttle policies.</summary>
     public MigrationPoliciesOptions Policies { get; set; } = new();
+
+    /// <summary>
+    /// Ordered list of modules to run with their scope configurations.
+    /// When empty, the job engine applies platform defaults (WorkItems module with default WIQL scope).
+    /// </summary>
+    public List<MigrationOptionsModule> Modules { get; set; } = new();
 }

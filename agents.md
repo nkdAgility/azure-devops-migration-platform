@@ -80,6 +80,9 @@ TUI:
 CLI:
 → docs/cli.md
 
+CLI command reference (canonical):
+→ .agents/context/cli-commands.md
+
 TFS legacy process bridge:
 → docs/tfs-exporter.md
 
@@ -108,9 +111,15 @@ Package zip/export:
 
 # 🔒 MANDATORY: Guardrails Validation
 
+> **⛔ AGENT WARNING — READ THIS BEFORE ANYTHING ELSE**
+> The `copilot-instructions.md` summary table injected into your context is a **quick reference only**.
+> It does **NOT** count as compliance with this section.
+> You MUST make explicit `read_file` tool calls for every file listed below.
+> Proceeding without those tool calls is a violation — even if you believe you already know the rules.
+
 **Before proceeding with ANY code changes, generic agents MUST:**
 
-1. **Read ALL guardrail files** in `/.agents/guardrails/`:
+1. **Read ALL guardrail files** in `/.agents/guardrails/` — use `read_file` for each:
    - [system-architecture.md](.agents/guardrails/system-architecture.md) — Core architecture constraints
    - [workitems-rules.md](.agents/guardrails/workitems-rules.md) — WorkItems-specific rules  
    - [migration-rules.md](.agents/guardrails/migration-rules.md) — Migration behavior constraints
@@ -135,6 +144,25 @@ Package zip/export:
 4. **Explicitly reject** any approach that violates the guardrails
 
 **Failure to complete this validation = violation. Document skipping = violation.**
+
+## Mandatory Compliance Review Loop
+
+After completing any unit of work (a logical change, a file edit, a task), before marking it done:
+
+1. **Re-read the relevant docs** — use `read_file` on any doc file referenced by the guardrails that is relevant to what was just changed. Examples:
+   - CLI changes → re-read `docs/cli.md` and `.agents/context/cli-commands.md`
+   - Package/export/import changes → re-read `.agents/context/package-format.md`
+   - Job/agent changes → re-read `.agents/context/job-contract.md`
+   - Settings/config changes → re-read `docs/configuration.md`
+2. **Check each change against the docs line by line.** Ask:
+   - Does the implementation match what the documentation specifies?
+   - Does it add anything not documented (parameters, options, commands, behaviour)?
+   - Does it omit anything the documentation requires?
+3. **If any non-compliance is found**, fix it immediately and repeat from step 1.
+4. **Only when the review loop finds zero violations** may the task be declared complete.
+
+**This loop is mandatory. A task is not done until the compliance review passes with no findings.**
+**A change that adds undocumented parameters, options, commands, or behaviour = non-compliant. Fix before declaring done.**
 
 ## Available SpecKit Agents
 → .github/agents/speckit.specify.agent.md — Create feature specification
@@ -212,6 +240,7 @@ Reject any proposal that:
 - Creates agent rule files under `/docs` instead of `/.agents/guardrails`.
 - Declares a task complete without a passing `dotnet clean && dotnet build --no-incremental`.
 - Declares a task complete without all tests passing (`dotnet test`).
+- Declares a task complete without running at least one scenario config (e.g. `scenarios/export-ado-workitems-single-project.json`) via a `launch.json` debug profile and verifying observable output.
 ---
 
 # 🧭 Development Flow
@@ -225,6 +254,7 @@ When implementing:
 5. Update schemas if required.
 6. Run `dotnet clean && dotnet build --no-incremental` — MUST pass before the task is considered complete.
 7. Run `dotnet test` — ALL tests MUST pass before the task is considered complete.
+8. Run at least one scenario config (e.g. `scenarios/export-ado-workitems-single-project.json`) via a `.vscode/launch.json` debug profile — MUST execute without errors and produce expected output before the task is considered complete.
 
 ---
 

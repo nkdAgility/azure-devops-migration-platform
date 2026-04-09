@@ -185,7 +185,7 @@ public class InventoryServiceTests
         // The default options must have LimitThreshold = 20000
         var opts = new WorkItemQueryWindowOptions();
         Assert.AreEqual(20000, opts.LimitThreshold,
-            "LimitThreshold must default to 20,000 (the TFS/ADO WIQL hard limit)");
+            "LimitThreshold must default to 20,000 (the TFS/Azure DevOps WIQL hard limit)");
     }
 
     [TestMethod]

@@ -97,16 +97,21 @@ public sealed class InventoryCommand : CommandBase<InventoryCommand.Settings>
         foreach (var s in summaries)
         {
             var status = s.Error != null
-                ? "[red]Error[/]"
+                ? "[red]✗ Failed[/]"
                 : s.IsComplete
                     ? "[green]✓[/]"
                     : "[grey]…[/]";
 
+            // Prefix counts with ~ when the result is partial (error stopped the scan).
+            var partial = s.Error != null && (s.WorkItemsCount > 0 || s.RevisionsCount > 0);
+            var wiCount  = partial ? $"~{s.WorkItemsCount}"  : s.WorkItemsCount.ToString();
+            var revCount = partial ? $"~{s.RevisionsCount}" : s.RevisionsCount.ToString();
+
             table.AddRow(
                 Markup.Escape(s.Url),
                 Markup.Escape(s.ProjectName),
-                s.WorkItemsCount.ToString(),
-                s.RevisionsCount.ToString(),
+                wiCount,
+                revCount,
                 s.ReposCount.ToString(),
                 s.PipelinesCount.ToString(),
                 status);

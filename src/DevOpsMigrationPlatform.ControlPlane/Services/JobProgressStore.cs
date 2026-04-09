@@ -11,6 +11,7 @@ public sealed class JobProgressStore
     {
         public ConcurrentQueue<ProgressEvent> Queue { get; } = new();
         public List<ChannelWriter<ProgressEvent>> Subscribers { get; } = new();
+        public bool Failed { get; set; }
     }
 
     private readonly ConcurrentDictionary<Guid, JobProgressEntry> _entries = new();
@@ -65,10 +66,11 @@ public sealed class JobProgressStore
         }
     }
 
-    public void CompleteJob(Guid jobId)
+    public void CompleteJob(Guid jobId, bool failed = false)
     {
         if (!_entries.TryGetValue(jobId, out var entry))
             return;
+        entry.Failed = failed;
         lock (entry.Subscribers)
         {
             foreach (var writer in entry.Subscribers)
@@ -76,6 +78,9 @@ public sealed class JobProgressStore
             entry.Subscribers.Clear();
         }
     }
+
+    public bool WasFailed(Guid jobId) =>
+        _entries.TryGetValue(jobId, out var e) && e.Failed;
 
     public void Remove(Guid jobId) =>
         _entries.TryRemove(jobId, out _);

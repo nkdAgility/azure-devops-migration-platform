@@ -27,7 +27,7 @@ Source work item IDs do not map 1:1 to target IDs. The ID map tracks the relatio
 
 ```
 Checkpoints/
-  idmap.db      (PostgreSQL Portable in Standalone mode or PostgreSQL in Self-Hosted/Managed modes; preferred for large datasets)
+  idmap.db      (PostgreSQL Portable binary in Local/Dedicated Server topology, PostgreSQL Flexible Server in Cloud topologies; preferred for large datasets)
   idmap.json    (fallback for small datasets or tooling compatibility)
 ```
 

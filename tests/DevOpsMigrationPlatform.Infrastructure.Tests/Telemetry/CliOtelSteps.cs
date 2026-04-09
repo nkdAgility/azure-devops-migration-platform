@@ -39,7 +39,7 @@ internal sealed class CliOtelSteps
     [When("I run a CLI command to completion")]
     public void WhenIRunACliCommandToCompletion()
     {
-        using var activity = _ctx.ActivitySource.StartActivity("tfsexport");
+        using var activity = _ctx.ActivitySource.StartActivity("export");
         // Simulate successful completion — no exception, span closes normally.
         _ctx.LastActivity = activity;
         _ctx.CommandExitCode = 0;
@@ -49,7 +49,7 @@ internal sealed class CliOtelSteps
     [When("I run a CLI command that throws an unhandled exception")]
     public void WhenIRunACliCommandThatThrows()
     {
-        using var activity = _ctx.ActivitySource.StartActivity("tfsexport");
+        using var activity = _ctx.ActivitySource.StartActivity("export");
         _ctx.LastActivity = activity;
         try
         {
@@ -75,8 +75,8 @@ internal sealed class CliOtelSteps
     {
         Assert.IsTrue(_ctx.ExportedActivities.Count > 0,
             "Expected at least one exported Activity but none were found.");
-        Assert.IsTrue(_ctx.ExportedActivities.Any(a => a.OperationName == "tfsexport"),
-            "Expected an Activity named 'tfsexport'.");
+        Assert.IsTrue(_ctx.ExportedActivities.Any(a => a.OperationName == "export"),
+            "Expected an Activity named 'export'.");
     }
 
     [Then("the trace span status is Error with the exception message attached")]

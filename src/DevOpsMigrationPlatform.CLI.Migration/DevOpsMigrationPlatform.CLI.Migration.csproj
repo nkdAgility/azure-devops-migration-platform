@@ -10,10 +10,15 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="Azure.Monitor.OpenTelemetry.Exporter" Version="1.*" />
     <PackageReference Include="CsvHelper" Version="33.0.1" />
     <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.*" />
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="10.*" />
+    <PackageReference Include="Microsoft.Extensions.Options.DataAnnotations" Version="10.*" />
     <PackageReference Include="OpenTelemetry.Extensions.Hosting" Version="1.*" />
     <PackageReference Include="OpenTelemetry.Instrumentation.Http" Version="1.*" />
     <PackageReference Include="Spectre.Console.Cli" Version="0.55.0" />
@@ -21,8 +26,10 @@
 
   <ItemGroup>
     <ProjectReference Include="..\DevOpsMigrationPlatform.Abstractions\DevOpsMigrationPlatform.Abstractions.csproj" />
+    <ProjectReference Include="..\DevOpsMigrationPlatform.ControlPlane\DevOpsMigrationPlatform.ControlPlane.csproj" />
     <ProjectReference Include="..\DevOpsMigrationPlatform.Infrastructure\DevOpsMigrationPlatform.Infrastructure.csproj" />
     <ProjectReference Include="..\DevOpsMigrationPlatform.Infrastructure.AzureDevOps\DevOpsMigrationPlatform.Infrastructure.AzureDevOps.csproj" />
+    <ProjectReference Include="..\DevOpsMigrationPlatform.MigrationAgent\DevOpsMigrationPlatform.MigrationAgent.csproj" />
   </ItemGroup>
 
   <ItemGroup>

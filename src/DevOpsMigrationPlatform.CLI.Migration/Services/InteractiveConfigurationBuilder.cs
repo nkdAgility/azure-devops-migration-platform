@@ -70,7 +70,7 @@ internal sealed class InteractiveConfigurationBuilder : IInteractiveConfiguratio
             _ => "http://[server]:8080/tfs/[collection]"
         };
 
-        endpoint.OrgOrCollection = console.Ask<string>($"Enter {role} URL [{defaultUrl}]:");
+        endpoint.Url = console.Ask<string>($"Enter {role} URL [{defaultUrl}]:");
         endpoint.Project = console.Ask<string>($"Enter {role} project name:");
 
         var authTypes = new[] { "Pat", "Windows" };

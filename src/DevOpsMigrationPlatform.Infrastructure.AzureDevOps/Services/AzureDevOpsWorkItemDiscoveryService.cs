@@ -29,39 +29,84 @@ public sealed class AzureDevOpsWorkItemDiscoveryService : IWorkItemDiscoveryServ
     }
 
     public async IAsyncEnumerable<ProjectDiscoverySummary> DiscoverWorkItemsAsync(
-        string orgOrCollection,
+        string organisationUrl,
         string project,
         string pat,
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
-        var witClient = await _clientFactory.CreateWorkItemClientAsync(orgOrCollection, pat, cancellationToken);
+        var witClient = await _clientFactory.CreateWorkItemClientAsync(organisationUrl, pat, cancellationToken);
 
         var summary = new ProjectDiscoverySummary { ProjectName = project };
 
-        await foreach (var window in _windowStrategy.EnumerateWindowsAsync(
-            orgOrCollection, project, pat, cancellationToken: cancellationToken))
+        // Use IAsyncEnumerator directly so we can catch exceptions from the window
+        // strategy (yield return cannot appear inside a try-catch block in C#).
+        var enumerator = _windowStrategy
+            .EnumerateWindowsAsync(organisationUrl, project, pat, cancellationToken: cancellationToken)
+            .GetAsyncEnumerator(cancellationToken);
+
+        try
         {
-            cancellationToken.ThrowIfCancellationRequested();
-
-            summary.WorkItemsCount += window.WorkItemIds.Count;
-
-            foreach (var batch in window.WorkItemIds.Chunk(RevisionBatchSize))
+            while (true)
             {
-                cancellationToken.ThrowIfCancellationRequested();
-                var workItems = await witClient.GetWorkItemsAsync(
-                    batch.ToList(),
-                    fields: new[] { "System.Rev" },
-                    cancellationToken: cancellationToken);
+                // Advance one window — catch errors here, yield outside.
+                bool hasNext;
+                Exception? windowError = null;
 
-                foreach (var wi in workItems)
+                try
                 {
-                    if (wi.Fields.TryGetValue("System.Rev", out var revObj) && revObj is IConvertible c)
-                        summary.RevisionsCount += c.ToInt32(null);
+                    hasNext = await enumerator.MoveNextAsync();
                 }
-            }
+                catch (OperationCanceledException)
+                {
+                    throw;
+                }
+                catch (Exception ex)
+                {
+                    windowError = ex;
+                    hasNext = false;
+                }
 
-            summary.LastUpdatedUtc = DateTime.UtcNow;
-            yield return summary;
+                if (windowError != null)
+                {
+                    // Emit a terminal partial-result summary so the caller can record
+                    // what was collected up to the point of failure and move on.
+                    summary.Error = windowError.Message;
+                    summary.IsWorkItemComplete = true;
+                    summary.LastUpdatedUtc = DateTime.UtcNow;
+                    yield return summary;
+                    yield break;
+                }
+
+                if (!hasNext)
+                    break;
+
+                var window = enumerator.Current;
+                cancellationToken.ThrowIfCancellationRequested();
+
+                summary.WorkItemsCount += window.WorkItemIds.Count;
+
+                foreach (var batch in window.WorkItemIds.Chunk(RevisionBatchSize))
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    var workItems = await witClient.GetWorkItemsAsync(
+                        batch.ToList(),
+                        fields: new[] { "System.Rev" },
+                        cancellationToken: cancellationToken);
+
+                    foreach (var wi in workItems)
+                    {
+                        if (wi.Fields.TryGetValue("System.Rev", out var revObj) && revObj is IConvertible c)
+                            summary.RevisionsCount += c.ToInt32(null);
+                    }
+                }
+
+                summary.LastUpdatedUtc = DateTime.UtcNow;
+                yield return summary;
+            }
+        }
+        finally
+        {
+            await enumerator.DisposeAsync();
         }
 
         summary.IsWorkItemComplete = true;

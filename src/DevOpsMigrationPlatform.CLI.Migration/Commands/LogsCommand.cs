@@ -1,24 +1,26 @@
+using System;
 using System.Text.Json;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.CLI.JobRunners;
 using DevOpsMigrationPlatform.CLI.Migration.Commands;
-using Microsoft.Extensions.Configuration;
+using DevOpsMigrationPlatform.CLI.Migration.Options;
+using DevOpsMigrationPlatform.CLI.Migration.Settings;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Spectre.Console;
 using Spectre.Console.Cli;
 using System.ComponentModel;
 
 namespace DevOpsMigrationPlatform.CLI.Commands;
 
-public sealed class LogsCommand : CommandBase<LogsCommand.Settings>
+public sealed class LogsCommand : ControlPlaneCommandBase<LogsCommand.Settings>
 {
     private static readonly JsonSerializerOptions _jsonOptions = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase
     };
 
-    public sealed class Settings : CommandSettings
+    public sealed class Settings : ControlPlaneBaseCommandSettings
     {
         [CommandOption("--job <JOB_ID>")]
         [Description("The job ID to retrieve logs for")]
@@ -34,13 +36,18 @@ public sealed class LogsCommand : CommandBase<LogsCommand.Settings>
         // Create command-specific host with control plane client
         await CreateHost(Environment.GetCommandLineArgs(), (services, config) =>
         {
-            var controlPlaneBaseUrl = config["ControlPlane:BaseUrl"] ?? "http://localhost:5100";
-            services.AddSingleton(sp =>
+            services.AddOptions<ControlPlaneOptions>()
+                .BindConfiguration(ControlPlaneOptions.SectionName)
+                .ValidateDataAnnotations()
+                .ValidateOnStart();
+
+            services.AddHttpClient<ControlPlaneClient>((sp, client) =>
             {
-                var logger = sp.GetRequiredService<ILogger<ControlPlaneClient>>();
-                return new ControlPlaneClient(controlPlaneBaseUrl, logger);
+                var opts = sp.GetRequiredService<IOptions<ControlPlaneOptions>>().Value;
+                client.BaseAddress = new Uri(opts.BaseUrl);
             });
-            services.AddSingleton<ILogsClient>(sp => sp.GetRequiredService<ControlPlaneClient>());
+
+            services.AddTransient<ILogsClient>(sp => sp.GetRequiredService<ControlPlaneClient>());
         });
 
         var console = GetRequiredService<IAnsiConsole>();

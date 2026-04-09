@@ -53,7 +53,7 @@ public sealed class InventoryService : IInventoryService
             var resolvedUrl = entry.ResolvedUrl;
             var projects = entry.Projects.Count > 0
                 ? entry.Projects
-                : await _projectDiscovery.DiscoverProjectsAsync(resolvedUrl, pat, cancellationToken);
+                : await _projectDiscovery.DiscoverProjectsAsync(resolvedUrl, pat, cancellationToken).ConfigureAwait(false);
 
             foreach (var project in projects)
             {
@@ -87,13 +87,14 @@ public sealed class InventoryService : IInventoryService
                             WorkItemsCount = summary.WorkItemsCount,
                             RevisionsCount = summary.RevisionsCount,
                             IsComplete = true,
+                            Error = summary.Error,
                             Timestamp = summary.LastUpdatedUtc
                         };
                     }
                 }
 
                 // Await repo count once, then emit the final event
-                var repoCount = await repoCountTask;
+                var repoCount = await repoCountTask.ConfigureAwait(false);
                 if (pendingFinalEvent != null)
                 {
                     pendingFinalEvent.ReposCount = repoCount;

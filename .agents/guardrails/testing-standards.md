@@ -196,3 +196,26 @@ Every new module must have tests covering:
 - Steps that call each other directly — steps communicate only via the shared context object.
 - Catching all exceptions without re-asserting — steps that swallow exceptions silently pass.
 - Steps that depend on execution order beyond the Given/When/Then sequence — each scenario must be independent.
+
+---
+
+## CLI Feature → System Test Requirement
+
+Every feature exposed through a CLI command **MUST** have at least one `[TestCategory("SystemTest")]` test that:
+
+1. Guards on required environment variables (marks `Inconclusive` if absent, never fails).
+2. Exercises the feature against a real external system (no mocks for the external system).
+3. Asserts observable output — files written, zip produced, records returned, etc.
+4. Is co-located in the relevant `.Tests` project under `Commands/` or `Commands/<Area>/`.
+
+A system test that only loads config or validates round-trip JSON **does not satisfy this requirement**. The test must exercise the actual data path.
+
+### Requirement traceability
+
+| CLI command | Required system test class |
+|---|---|
+| `export` (ADO) | `AzureDevOpsExportCommandTests` — asserts `WorkItems/` directory and zip produced |
+| `discovery inventory` | `InventoryCommandTests` — asserts inventory records returned |
+| `tfsexport` | (environment-gated: requires live TFS) |
+
+Add a row here whenever a new CLI command is introduced.

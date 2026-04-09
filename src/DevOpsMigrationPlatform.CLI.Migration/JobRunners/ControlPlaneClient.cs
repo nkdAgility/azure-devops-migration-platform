@@ -29,17 +29,13 @@ public sealed class ControlPlaneClient : IJobRunner, ILogsClient
     private readonly HttpClient _http;
     private readonly ILogger<ControlPlaneClient> _logger;
 
-    /// <param name="controlPlaneBaseUrl">
-    /// Base URL of the control plane API, e.g.
-    /// <c>http://localhost:5100</c> (Aspire local) or
-    /// <c>https://control-plane.example.com</c> (cloud).
+    /// <param name="http">
+    /// Named/typed <see cref="HttpClient"/> pre-configured with the control plane base address.
+    /// Provided by <see cref="System.Net.Http.IHttpClientFactory"/> via DI.
     /// </param>
-    public ControlPlaneClient(string controlPlaneBaseUrl, ILogger<ControlPlaneClient> logger)
+    public ControlPlaneClient(HttpClient http, ILogger<ControlPlaneClient> logger)
     {
-        if (string.IsNullOrWhiteSpace(controlPlaneBaseUrl))
-            throw new ArgumentException("controlPlaneBaseUrl must not be empty.", nameof(controlPlaneBaseUrl));
-
-        _http = new HttpClient { BaseAddress = new Uri(controlPlaneBaseUrl) };
+        _http = http ?? throw new ArgumentNullException(nameof(http));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
@@ -54,19 +50,28 @@ public sealed class ControlPlaneClient : IJobRunner, ILogsClient
             "ControlPlaneClient submitting job {JobId} to {BaseAddress}",
             job.JobId, _http.BaseAddress);
 
-        // TODO: implement full control plane submission and progress polling
-        // (docs/control-plane.md):
-        //   1. POST /jobs  — submit MigrationJob; receive jobId confirmation
-        //   2. Poll GET /jobs/{jobId}/progress at configurable interval
-        //   3. Deserialise ProgressEvent items and yield them to the caller
-        //   4. Stop polling when job reaches Completed / Failed / Cancelled state
-        throw new NotImplementedException(
-            $"ControlPlaneClient.RunAsync is not yet implemented. " +
-            $"Job {job.JobId} was not submitted. See docs/control-plane.md.");
-#pragma warning disable CS0162 // Unreachable code
-        yield break;
-#pragma warning restore CS0162
+        // 1. POST /jobs — submit MigrationJob; receive jobId confirmation.
+        using var submitResponse = await _http
+            .PostAsJsonAsync("/jobs", job, _jsonOptions, ct)
+            .ConfigureAwait(false);
+
+        submitResponse.EnsureSuccessStatusCode();
+
+        var submitResult = await submitResponse.Content
+            .ReadFromJsonAsync<SubmitJobResponse>(_jsonOptions, ct)
+            .ConfigureAwait(false);
+
+        var jobId = submitResult?.JobId
+            ?? throw new InvalidOperationException("Control plane did not return a jobId.");
+
+        _logger.LogInformation("Job {JobId} accepted by control plane.", jobId);
+
+        // 2. Stream progress via SSE until the job reaches a terminal state.
+        await foreach (var evt in FollowLogsAsync(jobId, ct).ConfigureAwait(false))
+            yield return evt;
     }
+
+    private sealed record SubmitJobResponse(Guid JobId);
 
     /// <summary>
     /// Returns a snapshot of stored ProgressEvents for <paramref name="jobId"/>.
@@ -109,6 +114,9 @@ public sealed class ControlPlaneClient : IJobRunner, ILogsClient
         {
             var line = await reader.ReadLineAsync(ct).ConfigureAwait(false);
             if (line is null) break;
+
+            if (line.StartsWith("event:") && line.Contains("job-failed"))
+                throw new InvalidOperationException("Job failed on the agent. Check agent logs for details.");
 
             if (line.StartsWith("event:") && line.Contains("job-ended"))
                 yield break;

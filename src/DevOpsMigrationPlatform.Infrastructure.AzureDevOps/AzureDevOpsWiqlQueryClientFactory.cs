@@ -36,11 +36,11 @@ public sealed class AzureDevOpsWiqlQueryClientFactory : IWiqlQueryClientFactory
         => _inner = inner ?? throw new ArgumentNullException(nameof(inner));
 
     public async Task<IWiqlQueryClient> CreateAsync(
-        string orgOrCollectionUrl,
+        string url,
         string pat,
         CancellationToken cancellationToken = default)
     {
-        var client = await _inner.CreateWorkItemClientAsync(orgOrCollectionUrl, pat, cancellationToken);
+        var client = await _inner.CreateWorkItemClientAsync(url, pat, cancellationToken);
         return new WiqlQueryClientAdapter(client);
     }
 }

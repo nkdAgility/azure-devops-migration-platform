@@ -1,7 +1,7 @@
 Feature: CLI OTel Observability
   As a platform operator
   I want the CLI to emit traces and metrics to Azure Monitor
-  So that I can observe command execution in Application Insights without a Control Plane
+  So that I can observe command execution in Application Insights independently of control plane connectivity
 
   @us1 @p1 @cli @telemetry
   Scenario: Span appears in Azure Monitor when connection string is configured

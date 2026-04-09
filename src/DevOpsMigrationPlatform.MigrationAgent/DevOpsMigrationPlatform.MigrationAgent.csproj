@@ -10,6 +10,7 @@
   <ItemGroup>
     <ProjectReference Include="..\DevOpsMigrationPlatform.Abstractions\DevOpsMigrationPlatform.Abstractions.csproj" />
     <ProjectReference Include="..\DevOpsMigrationPlatform.Infrastructure\DevOpsMigrationPlatform.Infrastructure.csproj" />
+    <ProjectReference Include="..\DevOpsMigrationPlatform.Infrastructure.AzureDevOps\DevOpsMigrationPlatform.Infrastructure.AzureDevOps.csproj" />
     <ProjectReference Include="..\DevOpsMigrationPlatform.ServiceDefaults\DevOpsMigrationPlatform.ServiceDefaults.csproj" />
   </ItemGroup>
 

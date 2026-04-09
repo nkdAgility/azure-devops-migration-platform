@@ -41,10 +41,10 @@ internal sealed class ControlPlaneProgressSinkSteps
     public void GivenAgentHoldsActiveLease()
     {
         // LeaseState is initialised in context with CurrentLeaseId = "test-lease-001".
-        var http = _ctx.BuildHttpClient();
+        var factory = _ctx.BuildHttpClientFactory();
         _cts = new CancellationTokenSource();
         _sink = new ControlPlaneProgressSink(
-            http,
+            factory,
             _ctx.LeaseState,
             NullLogger<ControlPlaneProgressSink>.Instance);
         _ = _sink.StartAsync(_cts.Token);

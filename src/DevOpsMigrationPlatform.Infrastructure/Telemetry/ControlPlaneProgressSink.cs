@@ -24,18 +24,20 @@ public sealed class ControlPlaneProgressSink : BackgroundService, IProgressSink
     private readonly Channel<ProgressEvent> _channel = Channel.CreateBounded<ProgressEvent>(
         new BoundedChannelOptions(ChannelCapacity) { FullMode = BoundedChannelFullMode.DropOldest });
 
-    private readonly HttpClient _http;
+    internal const string HttpClientName = nameof(ControlPlaneProgressSink);
+
+    private readonly IHttpClientFactory _httpFactory;
     private readonly ActiveLeaseState _leaseState;
     private readonly ILogger<ControlPlaneProgressSink> _logger;
 
     public ControlPlaneProgressSink(
-        HttpClient http,
+        IHttpClientFactory httpFactory,
         ActiveLeaseState leaseState,
         ILogger<ControlPlaneProgressSink> logger)
     {
-        _http       = http;
+        _httpFactory = httpFactory;
         _leaseState = leaseState;
-        _logger     = logger;
+        _logger = logger;
     }
 
     public void Emit(ProgressEvent evt)
@@ -45,33 +47,41 @@ public sealed class ControlPlaneProgressSink : BackgroundService, IProgressSink
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        await foreach (var evt in _channel.Reader.ReadAllAsync(stoppingToken))
+        using var http = _httpFactory.CreateClient(HttpClientName);
+        try
         {
-            var leaseId = _leaseState.CurrentLeaseId;
-            if (string.IsNullOrEmpty(leaseId))
-                continue;
+            await foreach (var evt in _channel.Reader.ReadAllAsync(stoppingToken))
+            {
+                var leaseId = _leaseState.CurrentLeaseId;
+                if (string.IsNullOrEmpty(leaseId))
+                    continue;
 
-            try
-            {
-                var response = await _http
-                    .PostAsJsonAsync($"/agents/lease/{Uri.EscapeDataString(leaseId)}/progress", evt, stoppingToken)
-                    .ConfigureAwait(false);
+                try
+                {
+                    var response = await http
+                        .PostAsJsonAsync($"/agents/lease/{Uri.EscapeDataString(leaseId)}/progress", evt, stoppingToken)
+                        .ConfigureAwait(false);
 
-                if (!response.IsSuccessStatusCode)
-                    _logger.LogDebug(
-                        "Progress POST for lease {LeaseId} returned {StatusCode}. Event dropped.",
-                        leaseId, (int)response.StatusCode);
+                    if (!response.IsSuccessStatusCode)
+                        _logger.LogDebug(
+                            "Progress POST for lease {LeaseId} returned {StatusCode}. Event dropped.",
+                            leaseId, (int)response.StatusCode);
+                }
+                catch (HttpRequestException ex)
+                {
+                    _logger.LogDebug(ex,
+                        "Progress POST for lease {LeaseId} failed with HTTP error. Event dropped.",
+                        leaseId);
+                }
+                catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+                {
+                    return;
+                }
             }
-            catch (HttpRequestException ex)
-            {
-                _logger.LogDebug(ex,
-                    "Progress POST for lease {LeaseId} failed with HTTP error. Event dropped.",
-                    leaseId);
-            }
-            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
-            {
-                return;
-            }
+        }
+        catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+        {
+            // Normal shutdown — channel cancelled while waiting for next item.
         }
     }
 }

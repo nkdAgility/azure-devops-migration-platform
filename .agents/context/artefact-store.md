@@ -10,8 +10,8 @@ Three implementations exist:
 
 | Implementation | Target frameworks | Use case |
 |---|---|---|
-| `FileSystemArtefactStore` | `net481;net10.0` | Local execution — Standalone mode, `TfsExportAgent`, offline migrations |
-| `AzureBlobArtefactStore` | `net10.0` only | Cloud execution — `MigrationAgent` with Azure Blob Storage |
+| `FileSystemArtefactStore` | `net481;net10.0` | Local / Dedicated Server topology (CLI drives Aspire, package at `file:///`) and `TfsExportAgent` subprocess |
+| `AzureBlobArtefactStore` | `net10.0` only | Cloud Self-Hosted and Cloud Managed topologies — `MigrationAgent` with Azure Blob Storage |
 
 Both implementations preserve the canonical package layout. The path conventions documented in [.agents/context/package-format.md](package-format.md) and [.agents/context/workitems-format.md](workitems-format.md) apply identically to both.
 

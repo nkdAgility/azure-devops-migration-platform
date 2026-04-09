@@ -34,7 +34,7 @@ public class ConfigValidationSteps
         _ctx.Options.Source = new MigrationEndpointOptions
         {
             Type = type,
-            OrgOrCollection = "https://dev.azure.com/myorg",
+            Url = "https://dev.azure.com/myorg",
             Project = "MyProject"
         };
     }
@@ -45,7 +45,7 @@ public class ConfigValidationSteps
         _ctx.Options.Target = new MigrationEndpointOptions
         {
             Type = type,
-            OrgOrCollection = "https://dev.azure.com/targetorg",
+            Url = "https://dev.azure.com/targetorg",
             Project = "TargetProject"
         };
     }

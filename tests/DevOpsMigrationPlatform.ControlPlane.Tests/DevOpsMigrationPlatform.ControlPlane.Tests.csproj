@@ -27,14 +27,19 @@
   </ItemGroup>
 
   <ItemGroup>
-    <None Include="..\..\features\platform\telemetry\job-progress-store.feature">
-      <Link>Features\job-progress-store.feature</Link>
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Include="..\..\features\platform\telemetry\progress-controller.feature">
-      <Link>Features\progress-controller.feature</Link>
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
+    <!-- External feature files to stage into Features/ before Reqnroll code-gen.
+         Features/ is a build artefact; the canonical source is features/ at workspace root. -->
+    <ExternalFeatureFiles Include="..\..\features\platform\telemetry\job-progress-store.feature" />
+    <ExternalFeatureFiles Include="..\..\features\platform\telemetry\progress-controller.feature" />
   </ItemGroup>
+
+  <!-- Copy external feature files into Features/ before Reqnroll codegen so the default
+       **\*.feature glob can find them and generate correct adjacent .feature.cs files. -->
+  <Target Name="PrepareReqnrollFeatureFiles" BeforeTargets="UpdateFeatureFilesInProject">
+    <MakeDir Directories="$(ProjectDir)Features" />
+    <Copy SourceFiles="@(ExternalFeatureFiles)"
+          DestinationFolder="$(ProjectDir)Features"
+          SkipUnchangedFiles="true" />
+  </Target>
 
 </Project>

@@ -226,7 +226,7 @@ Import MUST:
 
 When source.type == "TeamFoundationServer":
 
-* Export MUST be performed by `ExternalToolRunner` in `DevOpsMigrationPlatform.CLI.Migration`, which spawns `DevOpsMigrationPlatform.CLI.TfsMigration` as an isolated subprocess. There is no TFS-specific adapter interface or class in the .NET 10 layer.
+* Export MUST be performed by the `TfsExportCommand` in `DevOpsMigrationPlatform.CLI.Migration`, which uses `ExternalToolRunner` to spawn `DevOpsMigrationPlatform.CLI.TfsMigration` as an isolated subprocess and `TfsExporterProcessAdapter` to translate its stdout into progress events. No other .NET 10 class may contain TFS-specific logic.
 * The .NET 10 host MUST NOT link against any .NET Framework assembly.
 * Communication with the subprocess MUST follow the process bridge protocol defined in [docs/tfs-exporter.md](../../docs/tfs-exporter.md): stdin JSON, stdout NDJSON progress, stderr errors, cancellation sentinel file, exit code.
 * Credentials MUST be passed via stdin JSON — never as command-line arguments.

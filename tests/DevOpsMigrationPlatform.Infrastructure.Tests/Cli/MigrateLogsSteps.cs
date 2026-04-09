@@ -108,9 +108,9 @@ internal sealed class MigrateLogsSteps
             remaining.Setup(r => r.Raw).Returns(Array.Empty<string>());
             remaining.Setup(r => r.Parsed).Returns(Enumerable.Empty<string>().ToLookup(x => x));
             var cmdCtx = new CommandContext(Array.Empty<string>(), remaining.Object, "logs", null);
-            
+
             // Use reflection to access the protected ExecuteInternalAsync method
-            var executeMethod = typeof(LogsCommand).GetMethod("ExecuteInternalAsync", 
+            var executeMethod = typeof(LogsCommand).GetMethod("ExecuteInternalAsync",
                 System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
             var task = (Task<int>)executeMethod!.Invoke(command, new object[] { cmdCtx, settings, _ctx.Cts.Token })!;
             _ctx.ExitCode = await task;
@@ -149,9 +149,9 @@ internal sealed class MigrateLogsSteps
     [Then("an error message is printed to stdout")]
     public void ThenErrorMessageIsPrinted()
     {
-        var stderr = _ctx.StderrCapture.ToString();
-        Assert.IsFalse(string.IsNullOrEmpty(stderr),
-            "Expected an error message in stderr.");
+        var stdout = _ctx.StdoutCapture.ToString();
+        Assert.IsFalse(string.IsNullOrEmpty(stdout),
+            "Expected an error message in stdout.");
     }
 
     [Then("the job on the Control Plane is not stopped")]

@@ -33,7 +33,8 @@ public static class MigrationPlatformHost
     /// <returns>Configured <see cref="IHostBuilder"/> ready to <c>.Build()</c></returns>
     public static IHostBuilder CreateDefaultBuilder(
         string[] args,
-        Action<IServiceCollection, IConfiguration>? configureServices = null)
+        Action<IServiceCollection, IConfiguration>? configureServices = null,
+        string? controlPlaneUrl = null)
     {
         var (configFile, _) = ExtractConfigFileArg(args);
 
@@ -45,6 +46,16 @@ public static class MigrationPlatformHost
                     .AddJsonFile("appsettings.json", optional: false)
                     .AddJsonFile(configFile, optional: true, reloadOnChange: false)
                     .AddEnvironmentVariables();
+
+                // When a resolved URL is provided (--url or MIGRATION_API_URL),
+                // override the appsettings.json default so ControlPlaneOptions picks it up.
+                if (!string.IsNullOrWhiteSpace(controlPlaneUrl))
+                {
+                    configBuilder.AddInMemoryCollection(
+                    [
+                        new KeyValuePair<string, string?>("ControlPlane:BaseUrl", controlPlaneUrl)
+                    ]);
+                }
             })
             .ConfigureServices((context, services) =>
             {
@@ -90,6 +101,31 @@ public static class MigrationPlatformHost
                 if (!string.IsNullOrEmpty(telOpts.AzureMonitorConnectionString))
                     b.AddAzureMonitorMetricExporter(o => o.ConnectionString = telOpts.AzureMonitorConnectionString);
             });
+    }
+
+    /// <summary>
+    /// Resolves the control plane URL from (in priority order):
+    /// <list type="number">
+    ///   <item><description><paramref name="settingsUrl"/> — the <c>--url</c> flag value parsed by Spectre.Console</description></item>
+    ///   <item><description><c>MIGRATION_API_URL</c> environment variable</description></item>
+    ///   <item><description><c>null</c> — signals that the CLI should start the local in-process stack</description></item>
+    /// </list>
+    /// </summary>
+    /// <param name="settingsUrl">Value of the <c>--url</c> command option, or <c>null</c> if not supplied.</param>
+    /// <returns>
+    /// A non-null URL string when a remote control plane should be used, or
+    /// <c>null</c> when the local <see cref="LocalStackHost"/> should be started.
+    /// </returns>
+    internal static string? ResolveControlPlaneUrl(string? settingsUrl)
+    {
+        if (!string.IsNullOrWhiteSpace(settingsUrl))
+            return settingsUrl;
+
+        var envUrl = Environment.GetEnvironmentVariable("MIGRATION_API_URL");
+        if (!string.IsNullOrWhiteSpace(envUrl))
+            return envUrl;
+
+        return null;
     }
 
     /// <summary>

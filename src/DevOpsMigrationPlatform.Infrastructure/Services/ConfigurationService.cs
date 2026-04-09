@@ -69,7 +69,7 @@ public class ConfigurationService : IConfigurationService
             if (!File.Exists(actualConfigPath))
                 throw new FileNotFoundException($"Configuration file not found: {actualConfigPath}");
 
-            var jsonContent = await File.ReadAllTextAsync(actualConfigPath, cancellationToken);
+            var jsonContent = await File.ReadAllTextAsync(actualConfigPath, cancellationToken).ConfigureAwait(false);
             var options = JsonSerializer.Deserialize<MigrationOptions>(jsonContent, _jsonOptions);
 
             if (options == null)
@@ -115,16 +115,24 @@ public class ConfigurationService : IConfigurationService
         {
             if (string.IsNullOrWhiteSpace(options.Source.Type))
                 errors.Add("Source: Type is required");
-            if (string.IsNullOrWhiteSpace(options.Source.OrgOrCollection))
-                errors.Add("Source: OrgOrCollection is required");
+            else if (!IsValidSourceType(options.Source.Type))
+                errors.Add($"Source: Type '{options.Source.Type}' is not supported. Valid values: AzureDevOpsServices, TeamFoundationServer");
+
+            if (string.IsNullOrWhiteSpace(options.Source.Url))
+                errors.Add("Source: Url is required");
         }
 
         if (options.Target != null)
         {
             if (string.IsNullOrWhiteSpace(options.Target.Type))
                 errors.Add("Target: Type is required");
-            if (string.IsNullOrWhiteSpace(options.Target.OrgOrCollection))
-                errors.Add("Target: OrgOrCollection is required");
+            else if (!IsValidTargetType(options.Target.Type))
+                errors.Add($"Target: Type '{options.Target.Type}' is not supported. " +
+                           "Only 'AzureDevOpsServices' is a valid migration target. " +
+                           "TeamFoundationServer / Azure DevOps Server cannot be used as a migration target.");
+
+            if (string.IsNullOrWhiteSpace(options.Target.Url))
+                errors.Add("Target: Url is required");
         }
 
         if (errors.Count > 0)
@@ -141,6 +149,13 @@ public class ConfigurationService : IConfigurationService
         return errors;
     }
 
+    private static bool IsValidSourceType(string type) =>
+        string.Equals(type, "AzureDevOpsServices", StringComparison.Ordinal) ||
+        string.Equals(type, "TeamFoundationServer", StringComparison.Ordinal);
+
+    private static bool IsValidTargetType(string type) =>
+        string.Equals(type, "AzureDevOpsServices", StringComparison.Ordinal);
+
     public async Task SaveConfigurationAsync(MigrationOptions options, string configPath, CancellationToken cancellationToken = default)
     {
         try
@@ -152,7 +167,7 @@ public class ConfigurationService : IConfigurationService
                 Directory.CreateDirectory(directory);
 
             var jsonContent = JsonSerializer.Serialize(options, _jsonOptions);
-            await File.WriteAllTextAsync(configPath, jsonContent, cancellationToken);
+            await File.WriteAllTextAsync(configPath, jsonContent, cancellationToken).ConfigureAwait(false);
 
             var cacheKey = Path.GetFullPath(configPath);
             _configCache[cacheKey] = options;

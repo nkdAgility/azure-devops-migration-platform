@@ -29,6 +29,8 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\DevOpsMigrationPlatform.CLI.Migration\DevOpsMigrationPlatform.CLI.Migration.csproj" />
+    <ProjectReference Include="..\..\src\DevOpsMigrationPlatform.Infrastructure\DevOpsMigrationPlatform.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\src\DevOpsMigrationPlatform.Infrastructure.AzureDevOps\DevOpsMigrationPlatform.Infrastructure.AzureDevOps.csproj" />
   </ItemGroup>
 
 </Project>

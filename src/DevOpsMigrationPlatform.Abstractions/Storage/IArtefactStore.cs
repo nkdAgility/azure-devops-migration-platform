@@ -29,6 +29,13 @@ public interface IArtefactStore
     Task<bool> ExistsAsync(string path, CancellationToken cancellationToken);
 
     /// <summary>
+    /// Writes raw binary <paramref name="content"/> to the specified <paramref name="path"/> within the package.
+    /// Path uses forward-slash segments, e.g. "WorkItems/2024-01-01/00000000000001-42-0/screenshot.png".
+    /// Creates ancestor directories as needed.
+    /// </summary>
+    Task WriteBinaryAsync(string path, byte[] content, CancellationToken cancellationToken);
+
+    /// <summary>
     /// Enumerates all paths under <paramref name="prefix"/> in strict lexicographic (ascending) order.
     /// Results are streamed — the implementation must NOT buffer all results into memory before yielding.
     /// </summary>

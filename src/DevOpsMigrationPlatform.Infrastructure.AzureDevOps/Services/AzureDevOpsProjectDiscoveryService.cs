@@ -20,11 +20,11 @@ public sealed class AzureDevOpsProjectDiscoveryService : IProjectDiscoveryServic
     }
 
     public async Task<List<string>> DiscoverProjectsAsync(
-        string orgOrCollection,
+        string organisationUrl,
         string pat,
         CancellationToken cancellationToken = default)
     {
-        var projectClient = await _clientFactory.CreateProjectClientAsync(orgOrCollection, pat, cancellationToken);
+        var projectClient = await _clientFactory.CreateProjectClientAsync(organisationUrl, pat, cancellationToken);
         var projects = await projectClient.GetProjects();
         return projects.Select(p => p.Name).ToList();
     }
