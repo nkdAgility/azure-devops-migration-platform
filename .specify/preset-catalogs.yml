@@ -1,0 +1,6 @@
+catalogs:
+- name: spec-kit-presets
+  url: https://raw.githubusercontent.com/fdcastel/spec-kit-presets/main/catalog.json
+  priority: 10
+  install_allowed: true
+  description: ''

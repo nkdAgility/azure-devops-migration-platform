@@ -85,12 +85,12 @@ public sealed class ProgressController : ControllerBase
     /// <summary>
     /// Returns a snapshot of stored ProgressEvents, or streams them via SSE when
     /// <c>follow=true</c>.
-    /// <c>GET /jobs/{jobId}/logs</c>
+    /// <c>GET /jobs/{jobId}/progress</c>
     /// </summary>
-    [HttpGet("/jobs/{jobId}/logs")]
+    [HttpGet("/jobs/{jobId}/progress")]
     [ProducesResponseType(200)]
     [ProducesResponseType(403)]
-    public async Task GetLogs(Guid jobId, [FromQuery] bool follow = false, CancellationToken ct = default)
+    public async Task GetProgress(Guid jobId, [FromQuery] bool follow = false, CancellationToken ct = default)
     {
         if (HttpContext.User.Identity?.IsAuthenticated != true)
         {

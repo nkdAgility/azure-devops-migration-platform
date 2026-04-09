@@ -1,10 +1,19 @@
 ---
-description: Identify underspecified areas in the current feature spec by asking up to 5 highly targeted clarification questions and encoding answers back into the spec.
-handoffs: 
-  - label: Build Technical Plan
-    agent: speckit.plan
-    prompt: Create a plan for the spec. I am building with...
+description: Identify underspecified areas in the current feature spec by asking up
+  to 5 highly targeted clarification questions and encoding answers back into the
+  spec.
+handoffs:
+- label: Build Technical Plan
+  agent: speckit.plan
+  prompt: Create a plan for the spec. I am building with...
+scripts:
+  sh: .specify/scripts/bash/check-prerequisites.sh --json --paths-only
+  ps: .specify/scripts/powershell/check-prerequisites.ps1 -Json -PathsOnly
 ---
+
+
+<!-- Source: vscode-ask-questions -->
+<!-- preset:vscode-ask-questions -->
 
 ## User Input
 
@@ -22,7 +31,7 @@ Note: This clarification workflow is expected to run (and be completed) BEFORE i
 
 Execution steps:
 
-1. Run `.specify/scripts/powershell/check-prerequisites.ps1 -Json -PathsOnly` from repo root **once** (combined `--json --paths-only` mode / `-Json -PathsOnly`). Parse minimal JSON payload fields:
+1. Run `{SCRIPT}` from repo root **once** (combined `--json --paths-only` mode / `-Json -PathsOnly`). Parse minimal JSON payload fields:
    - `FEATURE_DIR`
    - `FEATURE_SPEC`
    - (Optionally capture `IMPL_PLAN`, `TASKS` for future chained flows.)
@@ -85,7 +94,7 @@ Execution steps:
    - Clarification would not materially change implementation or validation strategy
    - Information is better deferred to planning phase (note internally)
 
-3. Generate (internally) a prioritized queue of candidate clarification questions (maximum 5). Do NOT output them all at once. Apply these constraints:
+3. Generate (internally) a prioritized queue of candidate clarification questions (maximum 5). When the `vscode/askQuestions` tool is **not** available, do NOT output them all at once (they will be presented one at a time in step 4); when the tool **is** available, they will be batched in a single call in step 4. Apply these constraints:
     - Maximum of 5 total questions across the whole session.
     - Each question must be answerable with EITHER:
        - A short multiple‑choice selection (2–5 distinct, mutually exclusive options), OR
@@ -97,7 +106,8 @@ Execution steps:
     - If more than 5 categories remain unresolved, select the top 5 by (Impact * Uncertainty) heuristic.
 
 4. Sequential questioning loop (interactive):
-    - Present EXACTLY ONE question at a time.
+    - When the `vscode/askQuestions` tool (or other ask user tool) is available, present **all** queued questions in a **single batched call** (up to 5) to minimize round-trips. For each question in the batch, include the full option list (or short-answer guidance) and your recommendation/suggestion so the user sees the complete context for every question at once.
+    - When the tool is **not** available, present EXACTLY ONE question at a time. Never present multiple queued questions at once in chat.
     - For multiple‑choice questions:
        - **Analyze all options** and determine the **most suitable option** based on:
           - Best practices for the project type
@@ -106,7 +116,7 @@ Execution steps:
           - Alignment with any explicit project goals or constraints visible in the spec
        - Present your **recommended option prominently** at the top with clear reasoning (1-2 sentences explaining why this is the best choice).
        - Format as: `**Recommended:** Option [X] - <reasoning>`
-       - Then render all options as a Markdown table:
+       - When `vscode/askQuestions` tool (or other ask user tool) is not available, render all options as a Markdown table:
 
        | Option | Description |
        |--------|-------------|
@@ -178,4 +188,4 @@ Behavior rules:
 - If no questions asked due to full coverage, output a compact coverage summary (all categories Clear) then suggest advancing.
 - If quota reached with unresolved high-impact categories remaining, explicitly flag them under Deferred with rationale.
 
-Context for prioritization: $ARGUMENTS
+Context for prioritization: {ARGS}

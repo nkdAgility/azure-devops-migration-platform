@@ -40,6 +40,10 @@ public static class MigrationAgentServiceExtensions
         // Singleton to carry the current lease id across services.
         builder.Services.AddSingleton<ActiveLeaseState>();
 
+        // Singleton to carry the current job's artefact store across services.
+        // Set by MigrationAgentWorker when a lease is acquired, cleared on release.
+        builder.Services.AddSingleton<ActivePackageState>();
+
         // Named HttpClient for the Control Plane telemetry push.
         builder.Services.AddControlPlaneTelemetryClient(controlPlaneBaseUrl);
 
@@ -56,11 +60,20 @@ public static class MigrationAgentServiceExtensions
         // Package store factory — resolves file:/// URIs to FileSystem stores.
         builder.Services.AddSingleton<IPackageStoreFactory, FileSystemPackageStoreFactory>();
 
+        // Diagnostic log pipeline — writes ILogger output to Logs/agent.jsonl in the package
+        // and POSTs batches to the control plane diagnostics endpoint.
+        builder.AddDiagnosticsServices();
+        builder.Services.ConfigureControlPlaneLoggerClient(controlPlaneBaseUrl);
+
+        // Package progress persistence — writes ProgressEvent NDJSON to Logs/progress.jsonl.
+        builder.Services.AddSingleton<PackageProgressSink>();
+        builder.Services.AddHostedService(sp => sp.GetRequiredService<PackageProgressSink>());
+
         // Composite sink fans out every ProgressEvent to all three sinks.
         builder.Services.AddSingleton<IProgressSink>(sp => new CompositeProgressSink(
             sp.GetRequiredService<ILogger<CompositeProgressSink>>(),
             new AnsiProgressSink(),
-            new PackageProgressSink(),
+            sp.GetRequiredService<PackageProgressSink>(),
             sp.GetRequiredService<ControlPlaneProgressSink>()));
 
         // Background timer that pushes MetricSnapshots to the Control Plane.

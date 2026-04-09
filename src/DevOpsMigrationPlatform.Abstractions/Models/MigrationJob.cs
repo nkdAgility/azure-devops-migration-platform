@@ -34,6 +34,9 @@ public class MigrationJob
     /// <summary>Guardrails flags that the Job Engine enforces. Both must be true.</summary>
     public MigrationJobGuardrails Guardrails { get; init; } = new();
 
+    /// <summary>Optional diagnostics configuration for the agent's log sinks.</summary>
+    public MigrationJobDiagnostics? Diagnostics { get; init; }
+
     /// <summary>SHA-256 of the normalised config JSON at job construction time.</summary>
     public string ConfigHash { get; init; } = string.Empty;
 }

@@ -101,7 +101,8 @@ When watching a remote job, the TUI renders two independent data streams:
 | Stream | Endpoint | Update mechanism |
 |---|---|---|
 | **Metrics panel** (counts, rates) | `GET /jobs/{jobId}/telemetry` | Polling (interval configurable, default 5 s) |
-| **Progress table** (module stages, last processed) | `GET /jobs/{jobId}/logs?follow=true` | Server-Sent Events (SSE) — push |
+| **Progress table** (module stages, last processed) | `GET /jobs/{jobId}/progress?follow=true` | Server-Sent Events (SSE) — push |
+| **Diagnostics panel** (structured diagnostic logs) | `GET /jobs/{jobId}/diagnostics?follow=true` | Server-Sent Events (SSE) — push |
 
 The progress table subscribes to the SSE stream on job entry. The TUI reconnects automatically with exponential back-off (max 30 s) on connection loss. Each `ProgressEvent` arriving on the stream updates the matching module row in the table.
 

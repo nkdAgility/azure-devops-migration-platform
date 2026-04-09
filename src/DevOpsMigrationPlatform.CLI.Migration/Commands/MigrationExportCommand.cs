@@ -74,10 +74,10 @@ public sealed class MigrationExportCommand : ControlPlaneCommandBase<MigrationEx
         if (string.Equals(config.Source?.Type, "TeamFoundationServer", StringComparison.Ordinal))
             return await TfsExportRunner.RunAsync(config, Host!.Services, tfsExportExePathOverride: null, cancellationToken);
 
-        return await ExecuteAdoExportAsync(config, cancellationToken);
+        return await ExecuteAdoExportAsync(config, settings, cancellationToken);
     }
 
-    private async Task<int> ExecuteAdoExportAsync(MigrationOptions config, CancellationToken cancellationToken)
+    private async Task<int> ExecuteAdoExportAsync(MigrationOptions config, MigrationExportCommandSettings settings, CancellationToken cancellationToken)
     {
         var console = GetRequiredService<IAnsiConsole>();
 
@@ -127,18 +127,88 @@ public sealed class MigrationExportCommand : ControlPlaneCommandBase<MigrationEx
             {
                 StreamingRequired = true,
                 CanonicalWorkItemsLayoutRequired = true
+            },
+            Diagnostics = new MigrationJobDiagnostics
+            {
+                MinimumLevel = settings.Level
             }
         };
 
-        var jobRunner = GetRequiredService<IJobRunner>();
+        // Determine follow mode: explicit --follow, or implicit in standalone mode (no --url).
+        var isStandaloneMode = string.IsNullOrEmpty(settings.Url);
+        var shouldFollow = settings.Follow || isStandaloneMode;
 
+        var client = GetRequiredService<ControlPlaneClient>();
+
+        // Non-follow remote mode: submit and exit immediately (FR-025).
+        if (!shouldFollow)
+        {
+            var jobId = await client.SubmitAsync(job, cancellationToken);
+            console.MarkupLine($"[green]✓[/] Job [bold]{jobId}[/] submitted. Use [blue]manage status --job {jobId}[/] to check progress.");
+            return 0;
+        }
+
+        // Follow mode: stream progress + diagnostics concurrently.
+        var parsedJobId = Guid.Parse(job.JobId);
         ProgressEvent? lastEvt = null;
+        var jobFailed = false;
+
+        // Use a linked CTS that we cancel on Ctrl+C to detach from diagnostics
+        // without cancelling the job.
+        using var followCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+
+        // Register Ctrl+C handler for graceful detach.
+        Console.CancelKeyPress += (_, e) =>
+        {
+            e.Cancel = true; // Prevent process exit.
+            followCts.Cancel();
+        };
+
+        // Submit the job first.
+        try
+        {
+            parsedJobId = await client.SubmitAsync(job, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            ShowError(console, $"Failed to submit job: {ex.Message}");
+            return 1;
+        }
+
+        // Start diagnostics streaming as a background task.
+        var diagnosticsTask = Task.Run(async () =>
+        {
+            try
+            {
+                await foreach (var record in client.StreamDiagnosticsAsync(parsedJobId, settings.Level, followCts.Token))
+                {
+                    var levelColor = record.Level switch
+                    {
+                        "Error" or "Critical" => "red",
+                        "Warning" => "yellow",
+                        "Debug" or "Trace" => "grey",
+                        _ => "blue"
+                    };
+                    console.MarkupLine($"[{levelColor}]{Markup.Escape(record.Level)}[/] [{Markup.Escape(record.Category)}] {Markup.Escape(record.Message)}");
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                // Detach — user cancelled follow.
+            }
+            catch (Exception)
+            {
+                // Best-effort diagnostics streaming — don't propagate.
+            }
+        }, followCts.Token);
+
+        // Stream progress in the foreground.
         try
         {
             await console.Live(new Markup("[grey]Waiting for agent...[/]"))
                 .StartAsync(async ctx =>
                 {
-                    await foreach (var evt in jobRunner.RunAsync(job, cancellationToken).ConfigureAwait(false))
+                    await foreach (var evt in client.FollowLogsAsync(parsedJobId, followCts.Token).ConfigureAwait(false))
                     {
                         lastEvt = evt;
                         if (evt.RevisionsProcessed > 0)
@@ -151,11 +221,25 @@ public sealed class MigrationExportCommand : ControlPlaneCommandBase<MigrationEx
         }
         catch (InvalidOperationException ex) when (ex.Message.Contains("Job failed"))
         {
+            jobFailed = true;
             ShowError(console, ex.Message);
             if (lastEvt is not null)
                 ShowError(console, $"Last progress: {lastEvt.WorkItemsProcessed} work items / {lastEvt.RevisionsProcessed} revisions (wi#{lastEvt.WorkItemId})");
-            return 1;
         }
+        catch (OperationCanceledException)
+        {
+            // Ctrl+C pressed — detach.
+            console.MarkupLine("[yellow]Detached from diagnostic stream. Job continues running on the server.[/]");
+            console.MarkupLine("[grey]Use [bold]tui[/] to resume watching.[/]");
+            return 0;
+        }
+
+        // Stop diagnostics stream.
+        await followCts.CancelAsync();
+        try { await diagnosticsTask; } catch (OperationCanceledException) { }
+
+        if (jobFailed)
+            return 1;
 
         if (lastEvt is not null)
             ShowSuccess(console, $"Export complete — {lastEvt.WorkItemsProcessed} work items / {lastEvt.RevisionsProcessed} revisions written to package.");

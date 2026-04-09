@@ -28,6 +28,7 @@ public sealed class MigrationAgentWorker : BackgroundService
     private readonly IPackageStoreFactory _packageStoreFactory;
     private readonly IProgressSink _progressSink;
     private readonly ActiveLeaseState _leaseState;
+    private readonly ActivePackageState _packageState;
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly ILogger<MigrationAgentWorker> _logger;
 
@@ -36,6 +37,7 @@ public sealed class MigrationAgentWorker : BackgroundService
         IPackageStoreFactory packageStoreFactory,
         IProgressSink progressSink,
         ActiveLeaseState leaseState,
+        ActivePackageState packageState,
         IHttpClientFactory httpClientFactory,
         ILogger<MigrationAgentWorker> logger)
     {
@@ -43,6 +45,7 @@ public sealed class MigrationAgentWorker : BackgroundService
         _packageStoreFactory = packageStoreFactory;
         _progressSink = progressSink;
         _leaseState = leaseState;
+        _packageState = packageState;
         _httpClientFactory = httpClientFactory;
         _logger = logger;
     }
@@ -105,6 +108,9 @@ public sealed class MigrationAgentWorker : BackgroundService
         var (artefactStore, stateStore) = _packageStoreFactory.Create(
             lease.Job.Artefacts.PackageUri ?? ".");
 
+        // Publish the store so package-writing sinks (loggers, progress) can access it.
+        _packageState.CurrentStore = artefactStore;
+
         // 3. Build export context.
         var context = new ExportContext
         {
@@ -133,6 +139,7 @@ public sealed class MigrationAgentWorker : BackgroundService
         // 5. Signal terminal state — retry with back-off so the lease is not orphaned.
         var terminal = failed ? "fail" : "complete";
         await SignalTerminalAsync(controlPlane, lease.LeaseId, terminal, ct).ConfigureAwait(false);
+        _packageState.CurrentStore = null;
         _leaseState.CurrentLeaseId = null;
     }
 

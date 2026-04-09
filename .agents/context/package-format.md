@@ -33,6 +33,17 @@ Key characteristics:
 - Resume is trivial
 - Human-auditable
 
+### Logs/
+
+The `Logs/` folder contains structured observability records written by the Migration Agent during job execution:
+
+| File | Format | Description |
+|---|---|---|
+| `progress.jsonl` | NDJSON | One `ProgressEvent` record per line. Tracks module cursor state, stage transitions, and item counts. Written by `PackageProgressSink`. |
+| `agent.jsonl` | NDJSON | Structured diagnostic log records (ILogger output). Each line is a JSON object with `timestamp`, `level`, `category`, `message`, and optional `exception` fields. Written by `PackageDiagnosticSink`. |
+
+Both files are append-only and survive resume. They are the durable record of job execution — the control plane's in-memory ring buffer is ephemeral.
+
 ### Naming Conventions
 
 | Segment | Format | Example |
