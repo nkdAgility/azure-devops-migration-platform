@@ -2,3 +2,6 @@ catalogs:
   - name: community
     url: https://raw.githubusercontent.com/github/spec-kit/main/extensions/catalog.community.json
     install_allowed: true
+  - name: spec-kit-presets
+    url: https://raw.githubusercontent.com/fdcastel/spec-kit-presets/main/catalog.json
+    install_allowed: true

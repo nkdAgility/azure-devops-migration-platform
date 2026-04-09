@@ -1,0 +1,22 @@
+{
+  "schema_version": "1.0",
+  "presets": {
+    "vscode-ask-questions": {
+      "version": "1.0.0",
+      "source": "local",
+      "manifest_hash": "sha256:183361d6e302f8e7cf101da405c880648d1981ea5ed4f6b87569bf10ead7e26d",
+      "enabled": true,
+      "priority": 10,
+      "registered_commands": {
+        "codex": [
+          "speckit.clarify"
+        ],
+        "copilot": [
+          "speckit.clarify"
+        ]
+      },
+      "registered_skills": [],
+      "installed_at": "2026-04-09T10:51:24.020382+00:00"
+    }
+  }
+}

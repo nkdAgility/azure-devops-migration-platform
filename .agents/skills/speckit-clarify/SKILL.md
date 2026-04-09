@@ -1,18 +1,14 @@
 ---
+name: speckit-clarify
 description: Identify underspecified areas in the current feature spec by asking up
   to 5 highly targeted clarification questions and encoding answers back into the
   spec.
-handoffs:
-- label: Build Technical Plan
-  agent: speckit.plan
-  prompt: Create a plan for the spec. I am building with...
-scripts:
-  sh: .specify/scripts/bash/check-prerequisites.sh --json --paths-only
-  ps: .specify/scripts/powershell/check-prerequisites.ps1 -Json -PathsOnly
+compatibility: Requires spec-kit project structure with .specify/ directory
+metadata:
+  author: github-spec-kit
+  source: vscode-ask-questions:commands/speckit.clarify.md
 ---
 
-
-<!-- Source: vscode-ask-questions -->
 <!-- preset:vscode-ask-questions -->
 
 ## User Input
@@ -31,7 +27,7 @@ Note: This clarification workflow is expected to run (and be completed) BEFORE i
 
 Execution steps:
 
-1. Run `{SCRIPT}` from repo root **once** (combined `--json --paths-only` mode / `-Json -PathsOnly`). Parse minimal JSON payload fields:
+1. Run `.specify/scripts/powershell/check-prerequisites.ps1 -Json -PathsOnly` from repo root **once** (combined `--json --paths-only` mode / `-Json -PathsOnly`). Parse minimal JSON payload fields:
    - `FEATURE_DIR`
    - `FEATURE_SPEC`
    - (Optionally capture `IMPL_PLAN`, `TASKS` for future chained flows.)
@@ -188,4 +184,4 @@ Behavior rules:
 - If no questions asked due to full coverage, output a compact coverage summary (all categories Clear) then suggest advancing.
 - If quota reached with unresolved high-impact categories remaining, explicitly flag them under Deferred with rationale.
 
-Context for prioritization: {ARGS}
+Context for prioritization: $ARGUMENTS
