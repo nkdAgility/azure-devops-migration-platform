@@ -17,10 +17,13 @@ internal sealed class ControlPlaneProgressSinkContext : IDisposable
     public HttpStatusCode NextResponseStatus { get; set; } = HttpStatusCode.NoContent;
     public bool ThrowHttpException { get; set; }
 
-    public HttpClient BuildHttpClient()
+    public IHttpClientFactory BuildHttpClientFactory()
     {
         var handler = new CaptureHandler(this);
-        return new HttpClient(handler) { BaseAddress = new Uri("http://localhost:5100") };
+        var client = new HttpClient(handler) { BaseAddress = new Uri("http://localhost:5100") };
+        var factory = new Mock<IHttpClientFactory>();
+        factory.Setup(f => f.CreateClient(ControlPlaneProgressSink.HttpClientName)).Returns(client);
+        return factory.Object;
     }
 
     public void Dispose() { }

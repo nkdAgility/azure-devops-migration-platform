@@ -49,7 +49,7 @@ public static class TelemetryServiceExtensions
                     // to avoid referencing an instance before DI is fully built.
                     mb.AddReader(sp =>
                     {
-                        var store    = sp.GetRequiredService<IMetricSnapshotStore>();
+                        var store = sp.GetRequiredService<IMetricSnapshotStore>();
                         var exporter = new SnapshotMetricExporter(store);
                         return new PeriodicExportingMetricReader(exporter, intervalMs);
                     });
@@ -80,7 +80,7 @@ public static class TelemetryServiceExtensions
         this IServiceCollection services,
         Uri controlPlaneBaseUrl)
     {
-        services.AddHttpClient<ControlPlaneProgressSink>(
+        services.AddHttpClient(ControlPlaneProgressSink.HttpClientName,
             client => client.BaseAddress = controlPlaneBaseUrl);
 
         services.AddSingleton<ControlPlaneProgressSink>();

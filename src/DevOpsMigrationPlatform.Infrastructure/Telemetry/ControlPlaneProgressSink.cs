@@ -24,18 +24,20 @@ public sealed class ControlPlaneProgressSink : BackgroundService, IProgressSink
     private readonly Channel<ProgressEvent> _channel = Channel.CreateBounded<ProgressEvent>(
         new BoundedChannelOptions(ChannelCapacity) { FullMode = BoundedChannelFullMode.DropOldest });
 
-    private readonly HttpClient _http;
+    internal const string HttpClientName = nameof(ControlPlaneProgressSink);
+
+    private readonly IHttpClientFactory _httpFactory;
     private readonly ActiveLeaseState _leaseState;
     private readonly ILogger<ControlPlaneProgressSink> _logger;
 
     public ControlPlaneProgressSink(
-        HttpClient http,
+        IHttpClientFactory httpFactory,
         ActiveLeaseState leaseState,
         ILogger<ControlPlaneProgressSink> logger)
     {
-        _http       = http;
+        _httpFactory = httpFactory;
         _leaseState = leaseState;
-        _logger     = logger;
+        _logger = logger;
     }
 
     public void Emit(ProgressEvent evt)
@@ -45,6 +47,7 @@ public sealed class ControlPlaneProgressSink : BackgroundService, IProgressSink
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
+        using var http = _httpFactory.CreateClient(HttpClientName);
         try
         {
             await foreach (var evt in _channel.Reader.ReadAllAsync(stoppingToken))
@@ -55,7 +58,7 @@ public sealed class ControlPlaneProgressSink : BackgroundService, IProgressSink
 
                 try
                 {
-                    var response = await _http
+                    var response = await http
                         .PostAsJsonAsync($"/agents/lease/{Uri.EscapeDataString(leaseId)}/progress", evt, stoppingToken)
                         .ConfigureAwait(false);
 
