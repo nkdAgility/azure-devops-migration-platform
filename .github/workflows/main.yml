@@ -1,0 +1,163 @@
+name: CI/CD Build
+
+on:
+  pull_request:
+    branches: ["main"]
+  push:
+    branches: ["main"]
+  release:
+    types: [published]
+
+jobs:
+  # ── Single CI job: one build per event ──────────────────────────────────────
+  ci:
+    name: Build and Test
+    # net481 targets require Windows; build.ps1 is the single entry point
+    runs-on: windows-latest
+    permissions:
+      checks: write
+      contents: read
+      pull-requests: write
+    outputs:
+      semver: ${{ steps.version.outputs.semver }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Install GitVersion
+        uses: gittools/actions/gitversion/setup@v3
+        with:
+          versionSpec: "6.1.0"
+
+      - name: Resolve version
+        id: version
+        run: |
+          $json = dotnet-gitversion /output json | ConvertFrom-Json
+          "semver=$($json.SemVer)" >> $env:GITHUB_OUTPUT
+
+      # PRs: build once, then run unit + system tests against those binaries
+      - name: Build and test (PR)
+        if: github.event_name == 'pull_request'
+        run: |
+          pwsh ./build.ps1 -Mode Build
+          pwsh ./build.ps1 -Mode SystemTest
+
+      # Main push / release: full pipeline (build + all tests + publish + zip)
+      - name: Build, test, and package
+        if: github.event_name != 'pull_request'
+        run: pwsh ./build.ps1 -Mode Package
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results
+          path: TestResults/**/*.trx
+
+      - name: Publish test results
+        uses: dorny/test-reporter@v1
+        if: always()
+        with:
+          name: Test Results
+          path: TestResults/**/*.trx
+          reporter: dotnet-trx
+
+      - name: Upload CLI artefact
+        uses: actions/upload-artifact@v4
+        if: github.event_name != 'pull_request'
+        with:
+          name: cli-package
+          path: output/MigrationTools-*.zip
+
+      - name: Upload Control Plane artefact
+        uses: actions/upload-artifact@v4
+        if: github.event_name != 'pull_request'
+        with:
+          name: controlplane-package
+          path: output/ControlPlane-*.zip
+
+      - name: Upload Agent artefact
+        uses: actions/upload-artifact@v4
+        if: github.event_name != 'pull_request'
+        with:
+          name: agent-package
+          path: output/Agent-*.zip
+
+  # ── Preview release: auto-create on main push ──────────────────────────────
+  preview-release:
+    name: Create Preview Release
+    needs: ci
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download CLI artefact
+        uses: actions/download-artifact@v4
+        with:
+          name: cli-package
+          path: release-assets
+
+      - name: Download Control Plane artefact
+        uses: actions/download-artifact@v4
+        with:
+          name: controlplane-package
+          path: release-assets
+
+      - name: Download Agent artefact
+        uses: actions/download-artifact@v4
+        with:
+          name: agent-package
+          path: release-assets
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ needs.ci.outputs.semver }}
+          name: v${{ needs.ci.outputs.semver }}
+          prerelease: true
+          generate_release_notes: true
+          files: release-assets/*.zip
+
+  # ── Production release: upload assets to manually-created release ───────────
+  release-assets:
+    name: Upload Release Assets
+    needs: ci
+    if: github.event_name == 'release'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download CLI artefact
+        uses: actions/download-artifact@v4
+        with:
+          name: cli-package
+          path: release-assets
+
+      - name: Download Control Plane artefact
+        uses: actions/download-artifact@v4
+        with:
+          name: controlplane-package
+          path: release-assets
+
+      - name: Download Agent artefact
+        uses: actions/download-artifact@v4
+        with:
+          name: agent-package
+          path: release-assets
+
+      - name: Upload assets to release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: release-assets/*.zip
+    
