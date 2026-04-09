@@ -23,6 +23,13 @@ public sealed class WorkItemQueryWindowOptions
     public DateTime MinDate { get; set; } = DateTime.UtcNow.AddYears(-30);
 
     /// <summary>
+    /// Starting ID-range width for Level 2 cursor paging inside a single dense day.
+    /// Applies only when the date window has shrunk to <see cref="MinWindowDays"/>
+    /// and still overflows the WIQL limit. Defaults to 5 000.
+    /// </summary>
+    public int InitialIdWindowSize { get; set; } = 5_000;
+
+    /// <summary>
     /// Optional user-supplied WIQL query whose WHERE predicate and ORDER BY clause
     /// are used when building windowed queries. The SELECT is always normalised to
     /// <c>SELECT [System.Id]</c>. Supports the <c>@project</c> WIQL macro.

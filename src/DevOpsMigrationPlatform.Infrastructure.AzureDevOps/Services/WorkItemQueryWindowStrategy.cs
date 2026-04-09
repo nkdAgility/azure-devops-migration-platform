@@ -14,13 +14,17 @@ namespace DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Services;
 /// Used by both <see cref="InventoryService"/> (counting) and
 /// <see cref="CatalogService"/> (export paging).
 ///
-/// Algorithm:
+/// Algorithm — three levels:
 /// 1. Run one unbounded query (no date filter). For projects with fewer than
 ///    <see cref="WorkItemQueryWindowOptions.LimitThreshold"/> items this is
 ///    sufficient — one API call, one yielded window, done.
 /// 2. If the project hits the WIQL cap (≥ LimitThreshold), fall back to
 ///    backward date-window scanning: halve on overflow, retry on WIQL error,
 ///    expand on empty windows until <see cref="WorkItemQueryWindowOptions.MinDate"/>.
+/// 3. If a single-day window (Level 2 minimum) still overflows, page through
+///    the dense day by <c>[System.Id]</c> range: <c>[System.Id] &gt; lower AND
+///    [System.Id] &lt;= upper</c>, halving the range on overflow, probing for
+///    remaining items when a range is empty.
 /// </summary>
 public sealed class WorkItemQueryWindowStrategy : IWorkItemQueryWindowStrategy
 {
@@ -124,6 +128,8 @@ public sealed class WorkItemQueryWindowStrategy : IWorkItemQueryWindowStrategy
             var windowStart = windowEnd - windowSize;
             List<int>? ids = null;
             int transientRetries = 0;
+            bool levelTwoRequired = false;
+            string capturedWindowWhere = string.Empty;
 
             // Inner loop: keeps retrying the same time range until we get a valid
             // result, halving on overflow (no retry-slot consumed) and retrying on
@@ -139,6 +145,7 @@ public sealed class WorkItemQueryWindowStrategy : IWorkItemQueryWindowStrategy
                 var windowWhere = wherePredicate.Length > 0
                     ? $"{wherePredicate} AND {dateFilter}"
                     : dateFilter;
+                capturedWindowWhere = windowWhere;
                 var wiql = new Wiql
                 {
                     Query = $"SELECT [System.Id] FROM WorkItems WHERE {windowWhere} ORDER BY {orderBy}"
@@ -173,18 +180,15 @@ public sealed class WorkItemQueryWindowStrategy : IWorkItemQueryWindowStrategy
                     if (halved == windowSize)
                     {
                         // Already at the minimum window size and still overflowing.
-                        // This means ≥ LimitThreshold items share the same CreatedDate
-                        // (e.g. a bulk import of >20k items on one day).  We cannot
-                        // shrink further, so surface a clear, actionable error instead
-                        // of spinning in an infinite loop.
-                        throw new InvalidOperationException(
-                            $"The minimum window of {options.MinWindowDays} day(s) for project '{project}' " +
-                            $"still exceeds the {options.LimitThreshold}-item WIQL limit. " +
-                            $"Reduce MinWindowDays (currently {options.MinWindowDays}) so the window " +
-                            $"can shrink below the dense period, or increase LimitThreshold.", ex);
+                        // Fall through to Level 2 ID-cursor paging within this dense day.
+                        levelTwoRequired = true;
+                        ids = new List<int>(); // exit inner while (ids == null) loop
                     }
-                    windowSize = halved;
-                    windowStart = windowEnd - windowSize;
+                    else
+                    {
+                        windowSize = halved;
+                        windowStart = windowEnd - windowSize;
+                    }
                 }
                 catch (Exception) when (transientRetries < maxTransientRetries)
                 {
@@ -192,6 +196,21 @@ public sealed class WorkItemQueryWindowStrategy : IWorkItemQueryWindowStrategy
                     transientRetries++;
                 }
                 // Any other exception (transient retries exhausted) propagates naturally.
+            }
+
+            // ── Level 2: ID-cursor paging within a dense single day ─────────
+            if (levelTwoRequired)
+            {
+                await foreach (var idWindow in EnumerateIdWindowsAsync(
+                    witClient, project, capturedWindowWhere,
+                    windowStart, windowEnd, windowSize, options, cancellationToken))
+                {
+                    yield return idWindow;
+                }
+                windowEnd = windowStart;
+                if (windowStart <= options.MinDate)
+                    yield break;
+                continue;
             }
 
             if (ids.Count == 0)
@@ -232,6 +251,169 @@ public sealed class WorkItemQueryWindowStrategy : IWorkItemQueryWindowStrategy
             // fillRatio >= 0.5: retain current window size.
 
             windowEnd = windowStart;
+        }
+    }
+
+    /// <summary>
+    /// Level 2: pages through a single dense day by <c>[System.Id]</c> range
+    /// when the date window has been reduced to <see cref="WorkItemQueryWindowOptions.MinWindowDays"/>
+    /// and still overflows.  Each yielded window carries the same date bounds.
+    /// </summary>
+    private async IAsyncEnumerable<WorkItemQueryWindow> EnumerateIdWindowsAsync(
+        IWiqlQueryClient witClient,
+        string project,
+        string windowWhere,
+        DateTime windowStart,
+        DateTime windowEnd,
+        TimeSpan windowSize,
+        WorkItemQueryWindowOptions options,
+        [EnumeratorCancellation] CancellationToken cancellationToken)
+    {
+        int idCursor = 0;
+        int idWindowSize = options.InitialIdWindowSize;
+        const int maxTransientRetries = 3;
+
+        while (true)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            List<int>? pageIds = null;
+            bool dayExhausted = false;
+            int transientRetries = 0;
+
+            while (pageIds == null && !dayExhausted)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                int idUpper = idCursor + idWindowSize;
+                var idFilter = $"[System.Id] > {idCursor} AND [System.Id] <= {idUpper}";
+                var wiql = new Wiql
+                {
+                    Query = $"SELECT [System.Id] FROM WorkItems WHERE {windowWhere} AND {idFilter} ORDER BY [System.Id]"
+                };
+
+                try
+                {
+                    var result = await witClient.QueryByWiqlAsync(wiql, project, cancellationToken);
+                    var fetched = result.WorkItems.Select(r => r.Id).ToList();
+
+                    if (fetched.Count >= options.LimitThreshold)
+                    {
+                        // Still too many in this ID range — halve (floor at 1).
+                        idWindowSize = Math.Max(1, idWindowSize / 2);
+                    }
+                    else if (fetched.Count == 0)
+                    {
+                        // Gap in IDs — probe for remaining items beyond this range.
+                        (pageIds, dayExhausted, idWindowSize) = await ProbeRemainingAsync(
+                            witClient, project, windowWhere, idUpper, options, cancellationToken);
+
+                        if (!dayExhausted && pageIds == null)
+                        {
+                            // Probe found items exist further ahead but they overflow.
+                            // Advance cursor past the gap and retry.
+                            idCursor = idUpper;
+                            continue;
+                        }
+                    }
+                    else
+                    {
+                        pageIds = fetched;
+                    }
+                }
+                catch (OperationCanceledException)
+                {
+                    throw;
+                }
+                catch (Exception ex) when (IsOverflowException(ex))
+                {
+                    idWindowSize = Math.Max(1, idWindowSize / 2);
+                }
+                catch (Exception) when (transientRetries < maxTransientRetries)
+                {
+                    transientRetries++;
+                }
+                // Transient retries exhausted → propagates naturally.
+            }
+
+            if (dayExhausted)
+                yield break;
+
+            if (pageIds!.Count > 0)
+            {
+                yield return new WorkItemQueryWindow
+                {
+                    WindowStart = windowStart,
+                    WindowEnd = windowEnd,
+                    WindowSize = windowSize,
+                    WorkItemIds = pageIds
+                };
+
+                // Advance cursor to the highest ID returned.
+                idCursor = pageIds[^1];
+
+                // Adaptive sizing: grow if sparse, leave alone if moderate.
+                var fillRatio = (double)pageIds.Count / options.LimitThreshold;
+                if (fillRatio < 0.5)
+                    idWindowSize = idWindowSize * 2;
+            }
+            else
+            {
+                // Empty page with no probe (shouldn't happen, but guard).
+                yield break;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Probes whether any items exist beyond <paramref name="idFloor"/> within the
+    /// current date-bounded <paramref name="windowWhere"/>. Used by Level 2 to skip
+    /// over large gaps in the ID space without advancing one chunk at a time.
+    /// </summary>
+    /// <returns>
+    /// A tuple of (pageIds, dayExhausted, newIdWindowSize):
+    /// <list type="bullet">
+    ///   <item>Probe empty → (null, true, unchanged) — day fully drained.</item>
+    ///   <item>Probe fits → (probeIds, false, unchanged) — remaining items returned.</item>
+    ///   <item>Probe overflows → (null, false, doubled) — caller advances cursor and retries.</item>
+    /// </list>
+    /// </returns>
+    private static async Task<(List<int>? PageIds, bool DayExhausted, int NewIdWindowSize)> ProbeRemainingAsync(
+        IWiqlQueryClient witClient,
+        string project,
+        string windowWhere,
+        int idFloor,
+        WorkItemQueryWindowOptions options,
+        CancellationToken cancellationToken)
+    {
+        var probeWiql = new Wiql
+        {
+            Query = $"SELECT [System.Id] FROM WorkItems WHERE {windowWhere} AND [System.Id] > {idFloor} ORDER BY [System.Id]"
+        };
+
+        try
+        {
+            var probeResult = await witClient.QueryByWiqlAsync(probeWiql, project, cancellationToken);
+            var probeIds = probeResult.WorkItems.Select(r => r.Id).ToList();
+
+            if (probeIds.Count == 0)
+                return (null, true, options.InitialIdWindowSize);
+
+            if (probeIds.Count < options.LimitThreshold)
+                return (probeIds, false, options.InitialIdWindowSize);
+
+            // Probe overflows — there are many items ahead but they don't fit in one
+            // query. Signal caller to advance cursor and retry with doubled window.
+            return (null, false, options.InitialIdWindowSize * 2);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex) when (IsOverflowException(ex))
+        {
+            // Probe itself overflows — items exist ahead but too many for one query.
+            return (null, false, options.InitialIdWindowSize * 2);
         }
     }
 
