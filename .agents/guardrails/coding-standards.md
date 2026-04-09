@@ -508,7 +508,7 @@ public class WorkItemsImportModule
 - Breaking schema or API changes without a version increment and corresponding upgrader.
 - Unbounded auto-scale configuration without a documented cost ceiling.
 - Deployable component without a liveness/readiness health-check endpoint.
-- Interface defined outside `DevOpsMigrationPlatform.Abstractions`.
+- Domain contract interface defined outside `DevOpsMigrationPlatform.Abstractions`. Infrastructure-internal testability seams whose signatures carry SDK types (e.g. `Microsoft.TeamFoundation.*`) are permitted in their infrastructure project provided: (a) no module, agent, or CLI code references them, and (b) a corresponding SDK-free abstraction exists in `Abstractions` for the domain boundary.
 - Code change submitted without a successful build verification.
 - Code change submitted without a passing test run (`dotnet test`).
 - Known vulnerability shipped without either a fix or an explicit written rationale and tracked issue.
@@ -562,7 +562,7 @@ Before merging changes, verify:
 - Does this code use primitive types where a domain-specific type would encode intent?
 - Does this code have public mutable setters on a DTO or domain model type?
 - Does this code branch on environment name instead of using external configuration?
-- Does this code define an interface outside `DevOpsMigrationPlatform.Abstractions`?
+- Does this code define a domain contract interface outside `DevOpsMigrationPlatform.Abstractions`? (Infrastructure-internal testability seams with SDK types in their signatures are permitted in their infrastructure project when no module, agent, or CLI code references them and a corresponding SDK-free abstraction exists in `Abstractions`.)
 - Does this code add retry logic without exponential back-off?
 - Does this code deploy a component without a health-check endpoint?
 - Has this change been verified to produce a successful `dotnet clean && dotnet build --no-incremental`?
