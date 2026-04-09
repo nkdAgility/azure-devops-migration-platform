@@ -18,7 +18,7 @@ namespace DevOpsMigrationPlatform.CLI.JobRunners;
 /// Switching between the two requires only a config change in appsettings.json;
 /// no code changes are needed.  See docs/cli.md and docs/control-plane.md.
 /// </summary>
-public sealed class ControlPlaneClient : IJobRunner, ILogsClient
+public sealed class ControlPlaneClient : IJobRunner, ILogsClient, IControlPlaneClient
 {
     private static readonly JsonSerializerOptions _jsonOptions = new()
     {
@@ -83,8 +83,38 @@ public sealed class ControlPlaneClient : IJobRunner, ILogsClient
 
     private sealed record SubmitJobResponse(Guid JobId);
 
+    /// <summary>    /// Returns all jobs visible to the caller via <c>GET /jobs</c>.
+    /// </summary>
+    public async Task<IReadOnlyList<JobSummary>> GetAllJobsAsync(CancellationToken ct)
+    {
+        var response = await _http.GetAsync("/jobs", ct).ConfigureAwait(false);
+        response.EnsureSuccessStatusCode();
+        var summaries = await response.Content
+            .ReadFromJsonAsync<List<JobSummary>>(_jsonOptions, ct)
+            .ConfigureAwait(false);
+        return summaries ?? [];
+    }
+
     /// <summary>
-    /// Returns a snapshot of stored ProgressEvents for <paramref name="jobId"/>.
+    /// Returns the latest <see cref="MetricSnapshot"/> for a job, or <c>null</c> when none pushed yet.
+    /// Calls <c>GET /jobs/{jobId}/telemetry</c>.
+    /// </summary>
+    public async Task<MetricSnapshot?> GetTelemetryAsync(Guid jobId, CancellationToken ct)
+    {
+        var response = await _http
+            .GetAsync($"/jobs/{jobId}/telemetry", ct)
+            .ConfigureAwait(false);
+
+        if (response.StatusCode == System.Net.HttpStatusCode.NoContent)
+            return null;
+
+        response.EnsureSuccessStatusCode();
+        return await response.Content
+            .ReadFromJsonAsync<MetricSnapshot>(_jsonOptions, ct)
+            .ConfigureAwait(false);
+    }
+
+    /// <summary>    /// Returns a snapshot of stored ProgressEvents for <paramref name="jobId"/>.
     /// Calls <c>GET /jobs/{jobId}/progress</c> and deserialises the JSON array.
     /// </summary>
     public async Task<IReadOnlyList<ProgressEvent>> GetProgressAsync(Guid jobId, CancellationToken ct)

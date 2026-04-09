@@ -19,15 +19,18 @@ public sealed class ProgressController : ControllerBase
     };
 
     private readonly JobProgressStore _store;
+    private readonly IJobStore _jobStore;
     private readonly ILeaseJobResolver _resolver;
     private readonly ILogger<ProgressController> _logger;
 
     public ProgressController(
         JobProgressStore store,
+        IJobStore jobStore,
         ILeaseJobResolver resolver,
         ILogger<ProgressController> logger)
     {
         _store = store;
+        _jobStore = jobStore;
         _resolver = resolver;
         _logger = logger;
     }
@@ -46,6 +49,8 @@ public sealed class ProgressController : ControllerBase
             return NotFound($"Lease '{leaseId}' is not recognised.");
 
         _store.Append(jobId.Value, evt);
+        // First ProgressEvent transitions job from Leased → Running
+        _jobStore.SetState(jobId.Value, "Running");
         return NoContent();
     }
 
@@ -66,6 +71,7 @@ public sealed class ProgressController : ControllerBase
             return NotFound($"Lease '{leaseId}' is not recognised.");
 
         _store.CompleteJob(jobId.Value, failed: false);
+        _jobStore.SetState(jobId.Value, "Completed");
         return NoContent();
     }
 
@@ -79,6 +85,7 @@ public sealed class ProgressController : ControllerBase
             return NotFound($"Lease '{leaseId}' is not recognised.");
 
         _store.CompleteJob(jobId.Value, failed: true);
+        _jobStore.SetState(jobId.Value, "Failed");
         return NoContent();
     }
 

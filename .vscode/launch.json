@@ -383,7 +383,8 @@
             "request": "launch",
             "program": "${workspaceFolder}/src/DevOpsMigrationPlatform.CLI.Migration/bin/Debug/net10.0/devopsmigration.exe",
             "args": [
-                "tui"
+                "tui",
+                "--url", "http://localhost:5100"
             ],
             "cwd": "${workspaceFolder}",
             "console": "integratedTerminal",

@@ -144,7 +144,9 @@ public sealed class MigrationExportCommand : ControlPlaneCommandBase<MigrationEx
         if (!shouldFollow)
         {
             var jobId = await client.SubmitAsync(job, cancellationToken);
-            console.MarkupLine($"[green]✓[/] Job [bold]{jobId}[/] submitted. Use [blue]manage status --job {jobId}[/] to check progress.");
+            var resolvedControlPlaneUrl = MigrationPlatformHost.ResolveControlPlaneUrl(settings.Url) ?? "http://localhost:5100";
+            PrintJobSubmitted(console, jobId, resolvedControlPlaneUrl);
+            console.MarkupLine($"[grey]Use [blue]manage status --job {jobId}[/] to check progress.[/]");
             return 0;
         }
 
@@ -168,6 +170,8 @@ public sealed class MigrationExportCommand : ControlPlaneCommandBase<MigrationEx
         try
         {
             parsedJobId = await client.SubmitAsync(job, cancellationToken);
+            var resolvedControlPlaneUrl = MigrationPlatformHost.ResolveControlPlaneUrl(settings.Url) ?? "http://localhost:5100";
+            PrintJobSubmitted(console, parsedJobId, resolvedControlPlaneUrl);
         }
         catch (Exception ex)
         {

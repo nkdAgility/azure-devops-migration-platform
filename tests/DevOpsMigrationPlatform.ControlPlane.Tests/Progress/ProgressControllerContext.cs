@@ -24,8 +24,10 @@ internal sealed class ProgressControllerContext
         options.Setup(o => o.Value).Returns(new JobProgressOptions { Capacity = TestCapacity });
         Store = new JobProgressStore(options.Object);
 
+        var jobStore = new JobStore();
         Controller = new ProgressController(
             Store,
+            jobStore,
             LeaseResolver.Object,
             NullLogger<ProgressController>.Instance);
     }

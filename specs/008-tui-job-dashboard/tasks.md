@@ -127,8 +127,8 @@
 - [ ] T038 Update `docs/control-plane.md` Job Lifecycle API table — add row for `GET /jobs/{jobId}/telemetry` with description "Return latest `MetricSnapshot` for the job. `204 No Content` when no snapshot has been pushed yet. Requires same auth as `GET /jobs/{jobId}`."
 - [ ] T039 Update `docs/control-plane.md` Job Lifecycle API table — add row for `GET /jobs` with same auth description as specified in `contracts/api-contracts.md`
 - [ ] T040 Verify the existing `"🖥️  Migration CLI: TUI"` entry in `.vscode/launch.json` — confirm `args` array includes `"tui"` and optionally `"--url"` pointing at the local stack; update as needed so it launches after a migration command has started the control plane
-- [ ] T041 Run `dotnet clean && dotnet build --no-incremental` from repository root — ALL warnings and errors must be resolved before declaring done
-- [ ] T042 Run `dotnet test` from repository root — ALL tests must pass; no skipped tests introduced by this feature
+- [X] T041 Run `dotnet clean && dotnet build --no-incremental` from repository root — ALL warnings and errors must be resolved before declaring done
+- [X] T042 Run `dotnet test` from repository root — ALL tests must pass; no skipped tests introduced by this feature
 - [ ] T043 Add `[TestCategory("SystemTest")]` test in `tests/DevOpsMigrationPlatform.CLI.Migration.Tests/TUI/TuiSystemTests.cs` — run `devopsmigration export --config ...` and capture full stdout; assert: (a) stdout contains a line matching `"Job ID  :"` (FR-012/FR-013); (b) stdout contains a line matching `"Control :"` (FR-012/FR-013); (c) the `"Job ID  :"` line appears **before** the first progress output line in the captured output (SC-004 ordering gate)
 - [ ] T044 Wire all five job state transitions through the control plane controllers:
   - `AgentLeaseController.AcquireLease()` → call `_jobStore.SetState(jobId, "Leased")` after registering the lease
