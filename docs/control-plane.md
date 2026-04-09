@@ -40,8 +40,11 @@ The control plane does **not** run the Job Engine, call source or target APIs, o
 | `POST` | `/jobs/{jobId}/cancel` | Cancel a running or queued job. Only the submitter or an admin may cancel. |
 | `POST` | `/jobs/{jobId}/pause` | Pause a running job. Only the submitter or an admin may pause. |
 | `POST` | `/jobs/{jobId}/resume` | Resume a paused job. Only the submitter or an admin may resume. |
-| `GET` | `/jobs/{jobId}/logs` | Return buffered `ProgressEvent` records as a JSON array (snapshot). Requires same auth as `GET /jobs/{jobId}`. |
-| `GET` | `/jobs/{jobId}/logs?follow=true` | **SSE stream**: push `ProgressEvent` records in real time as they arrive; heartbeat comment every 15 s. Sends `event: job-ended` when the job reaches a terminal state. Requires same auth as `GET /jobs/{jobId}`. |
+| `GET` | `/jobs/{jobId}/progress` | Return buffered `ProgressEvent` records as a JSON array (snapshot). Requires same auth as `GET /jobs/{jobId}`. |
+| `GET` | `/jobs/{jobId}/progress?follow=true` | **SSE stream**: push `ProgressEvent` records in real time as they arrive; heartbeat comment every 15 s. Sends `event: job-ended` when the job reaches a terminal state. Requires same auth as `GET /jobs/{jobId}`. |
+| `GET` | `/jobs/{jobId}/diagnostics` | Return buffered diagnostic log records as a JSON array (snapshot). Accepts `?level=` filter (`Trace`, `Debug`, `Information`, `Warning`, `Error`, `Critical`). Requires same auth as `GET /jobs/{jobId}`. |
+| `GET` | `/jobs/{jobId}/diagnostics?follow=true` | **SSE stream**: push diagnostic log records in real time. Accepts `?level=` filter. Heartbeat comment every 15 s. Requires same auth as `GET /jobs/{jobId}`. |
+| `GET` | `/jobs/{jobId}/logs/download` | Download the package log files (`Logs/progress.jsonl` and `Logs/agent.jsonl`) for a completed job. Requires same auth as `GET /jobs/{jobId}`. |
 
 ### Migration Agent Protocol
 
@@ -109,11 +112,21 @@ Migration Agents push a `ProgressEvent` after each stage:
 
 The control plane stores each event in a bounded per-job **ring buffer** (`BoundedChannelFullMode.DropOldest`, default capacity: 1000 events). The ring buffer:
 
-- Powers `GET /jobs/{jobId}/logs` (snapshot of current buffer contents)
-- Powers `GET /jobs/{jobId}/logs?follow=true` (SSE broadcast from the buffer to all active subscribers)
+- Powers `GET /jobs/{jobId}/progress` (snapshot of current buffer contents)
+- Powers `GET /jobs/{jobId}/progress?follow=true` (SSE broadcast from the buffer to all active subscribers)
 - Is in-memory only — it is cleared when the control plane restarts, but the package's `Logs/progress.jsonl` is the durable record
 
 The ring buffer always reflects the most recent activity. For very long jobs, oldest events are evicted to stay within capacity. The cursor in the package remains the authoritative resume state.
+
+---
+
+## Diagnostics Level Filtering
+
+The control plane maintains a deployment-level minimum diagnostic level (`Diagnostics:MinimumLevel`, default: `Information`). When a Migration Agent streams diagnostic log records via `POST /agents/lease/{leaseId}/diagnostics`, the control plane drops any record whose level is below this floor before buffering, broadcasting via SSE, or exporting to App Insights.
+
+This floor is independent of the agent's per-job `--level` setting. An agent may emit `Debug`-level records, but the control plane will only buffer and stream records at or above its own configured minimum. This prevents verbose agent output from overwhelming the control plane's ring buffer and SSE subscribers in production deployments.
+
+The `?level=` query parameter on `GET /jobs/{jobId}/diagnostics` and `GET /jobs/{jobId}/diagnostics?follow=true` provides additional client-side filtering on top of the control plane floor.
 
 ---
 

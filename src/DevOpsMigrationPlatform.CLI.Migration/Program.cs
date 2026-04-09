@@ -59,9 +59,17 @@ internal class Program
                     .WithExample("manage", "status", "--job", "550e8400-e29b-41d4-a716-446655440000");
 
                 branch.AddChannelCommand<ManageLogsCommand>("logs")
-                    .WithDescription("Fetch or stream ProgressEvent records. --follow opens the SSE stream.")
-                    .WithExample("manage", "logs", "--job", "550e8400-e29b-41d4-a716-446655440000")
-                    .WithExample("manage", "logs", "--job", "550e8400-e29b-41d4-a716-446655440000", "--follow");
+                    .WithDescription("[Deprecated] Use 'manage progress' or 'manage diagnostics' instead.")
+                    .WithExample("manage", "logs", "--job", "550e8400-e29b-41d4-a716-446655440000");
+
+                branch.AddChannelCommand<ManageProgressCommand>("progress")
+                    .WithDescription("Display a snapshot of ProgressEvent records for a specific job.")
+                    .WithExample("manage", "progress", "--job", "550e8400-e29b-41d4-a716-446655440000");
+
+                branch.AddChannelCommand<ManageDiagnosticsCommand>("diagnostics")
+                    .WithDescription("Download diagnostic log records from a completed job's package.")
+                    .WithExample("manage", "diagnostics", "--job", "550e8400-e29b-41d4-a716-446655440000")
+                    .WithExample("manage", "diagnostics", "--job", "550e8400-e29b-41d4-a716-446655440000", "--level", "Warning");
 
                 branch.AddChannelCommand<ManagePauseCommand>("pause")
                     .WithDescription("Signal the running Migration Agent to checkpoint and pause.")

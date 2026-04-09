@@ -60,7 +60,7 @@ internal sealed class ProgressControllerSteps
         if (_ctx.Controller.ControllerContext?.HttpContext is null)
             _ctx.SetAuthenticatedUser();
         _result = null; // clear any prior IActionResult so ThenTheResponseStatusIs reads HttpContext
-        await _ctx.Controller.GetLogs(_activeJobId, follow: false, CancellationToken.None);
+        await _ctx.Controller.GetProgress(_activeJobId, follow: false, CancellationToken.None);
     }
 
     [Then(@"the response status is (\d+)")]

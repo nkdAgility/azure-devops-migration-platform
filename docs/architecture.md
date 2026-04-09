@@ -115,13 +115,27 @@ The package format is identical in all cases. See [docs/packaging-zip.md](packag
 
 The Migration Agent emits structured `ProgressEvent` records through `IProgressSink`. Three sinks run simultaneously:
 
-- `ConsoleProgressSink` — writes NDJSON to the CLI terminal (local run output)
+- `AnsiProgressSink` — writes NDJSON to the CLI terminal (local run output)
 - `PackageProgressSink` — appends to `Logs/progress.jsonl` in the package (always written; durable)
 - `ControlPlaneProgressSink` — POSTs each event to the control plane ring buffer for live TUI streaming
 
-The TUI subscribes to `GET /jobs/{jobId}/logs?follow=true` (Server-Sent Events) for live progress, and polls `GET /jobs/{jobId}/telemetry` for metric counters. Both are independent. The package log is always written regardless of whether the TUI or CLI is connected.
+The TUI subscribes to `GET /jobs/{jobId}/progress?follow=true` (Server-Sent Events) for live progress, and polls `GET /jobs/{jobId}/telemetry` for metric counters. Both are independent. The package log is always written regardless of whether the TUI or CLI is connected.
+
+A separate **diagnostics channel** carries structured diagnostic log records (ILogger output). The agent writes diagnostic records to `Logs/agent.jsonl` in the package and, when connected to a control plane, streams them via `POST /agents/lease/{leaseId}/diagnostics`. The control plane buffers and exposes these on `GET /jobs/{jobId}/diagnostics?follow=true` (SSE). The diagnostics channel is independent of the progress channel — progress tracks migration cursor state, diagnostics track operational log messages.
 
 The job engine has no knowledge of where progress is rendered.
+
+### Tiered Observability Levels
+
+The platform uses a three-tier model for diagnostic log levels. Each tier independently controls its minimum severity:
+
+| Tier | Controls | Configured by |
+|---|---|---|
+| **Agent** | Minimum level of diagnostic records the agent writes to `Logs/agent.jsonl` and streams to the control plane. | `--level` option on `export` / `import` / `migrate` commands (default: `Information`). |
+| **Control Plane** | Minimum level the control plane accepts for buffering, SSE streaming, and storage. Records below this floor are dropped on receipt. | Deployment configuration (`Diagnostics:MinimumLevel`, default: `Information`). |
+| **App Insights / OTLP** | Exported telemetry level. | Standard OpenTelemetry / Azure Monitor configuration. |
+
+The agent's `--level` and the control plane's floor are independent. Setting `--level Debug` on the agent does not force the control plane to buffer debug records — the control plane applies its own floor before writing to the ring buffer or forwarding to subscribers.
 
 ## 13. What This System Is
 
@@ -165,7 +179,7 @@ Key properties:
 4. Job Engine (orchestrator + modules contract + cursors)
 5. `IArtefactStore` + `FileSystemArtefactStore` (`file:///` URI)
 6. `IStateStore` / `PackageCheckpointStateStore` (`Checkpoints/` inside package)
-7. `IProgressSink` with `ConsoleProgressSink` + `PackageProgressSink`
+7. `IProgressSink` with `AnsiProgressSink` + `PackageProgressSink` ✅
 8. `ControlPlaneClient` (CLI always uses this to talk to the in-process or remote control plane)
 9. WorkItems module (REST)
 10. Identity module
@@ -178,9 +192,9 @@ Key properties:
 
 15. `AzureBlobArtefactStore` (`azureblob://` URI) with Azurite local emulator support
 16. Aspire AppHost for CI/CD integration testing
-17. `ControlPlaneProgressSink` (Agent → Control Plane progress event streaming)
-18. `JobProgressStore` ring buffer + `GET /jobs/{jobId}/logs` + `GET /jobs/{jobId}/logs?follow=true` SSE endpoint
-19. `migrate logs --follow` CLI command (SSE drain to stdout, NDJSON format)
+17. `ControlPlaneProgressSink` (Agent → Control Plane progress event streaming) ✅
+18. `JobProgressStore` ring buffer + `GET /jobs/{jobId}/progress` + `GET /jobs/{jobId}/progress?follow=true` SSE endpoint ✅
+19. `manage progress` CLI command (snapshot to stdout, NDJSON format) ✅ — diagnostics channel (`/diagnostics`, `/diagnostics?follow=true`, `manage diagnostics`) added in spec 007
 20. CLI-level OpenTelemetry (`ActivitySource` in `Program.cs`, Azure Monitor exporter)
 21. `azd` deployment templates for Azure Container Apps
 

@@ -77,6 +77,20 @@ public class FileSystemArtefactStore : IArtefactStore
         }
     }
 
+    public async Task AppendAsync(string path, string content, CancellationToken cancellationToken)
+    {
+        var fullPath = ToFullPath(path);
+        var directory = Path.GetDirectoryName(fullPath);
+        if (directory != null && !Directory.Exists(directory))
+            Directory.CreateDirectory(directory);
+#if NET5_0_OR_GREATER
+        await File.AppendAllTextAsync(fullPath, content, Encoding.UTF8, cancellationToken).ConfigureAwait(false);
+#else
+        File.AppendAllText(fullPath, content, Encoding.UTF8);
+        await Task.CompletedTask;
+#endif
+    }
+
     // Enumerates files in lexicographic order by sorting within each directory level only,
     // yielding paths immediately without buffering the full tree.
     private static async IAsyncEnumerable<string> EnumerateDirectorySortedAsync(

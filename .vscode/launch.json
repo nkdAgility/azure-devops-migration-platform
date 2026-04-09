@@ -192,6 +192,28 @@
             "stopAtEntry": false,
             "preLaunchTask": "build-migration-cli"
         },
+        {
+            "name": "📤 Migration CLI: Export ADO WorkItems (Follow + Diagnostics)",
+            "type": "coreclr",
+            "request": "launch",
+            "program": "${workspaceFolder}/src/DevOpsMigrationPlatform.CLI.Migration/bin/Debug/net10.0/devopsmigration.exe",
+            "args": [
+                "export",
+                "--config",
+                "scenarios/export-ado-workitems-single-project.json",
+                "--follow",
+                "--level",
+                "Warning"
+            ],
+            "env": {
+                "AZDEVOPS_DEV_ORG": "${env:AZDEVOPS_DEV_ORG}",
+                "AZDEVOPS_DEV_PAT": "${env:AZDEVOPS_DEV_PAT}"
+            },
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "stopAtEntry": false,
+            "preLaunchTask": "build-migration-cli"
+        },
          {
             "name": "📤 Migration CLI: Export (CLIENT)",
             "type": "coreclr",
@@ -288,7 +310,7 @@
             "preLaunchTask": "build-migration-cli"
         },
         {
-            "name": "📋 Migration CLI: Manage Logs (Follow)",
+            "name": "📋 Migration CLI: Manage Logs (Follow) [deprecated]",
             "type": "coreclr",
             "request": "launch",
             "program": "${workspaceFolder}/src/DevOpsMigrationPlatform.CLI.Migration/bin/Debug/net10.0/devopsmigration.exe",
@@ -298,6 +320,40 @@
                 "--job",
                 "00000000-0000-0000-0000-000000000001",
                 "--follow"
+            ],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "stopAtEntry": false,
+            "preLaunchTask": "build-migration-cli"
+        },
+        {
+            "name": "📋 Migration CLI: Manage Diagnostics",
+            "type": "coreclr",
+            "request": "launch",
+            "program": "${workspaceFolder}/src/DevOpsMigrationPlatform.CLI.Migration/bin/Debug/net10.0/devopsmigration.exe",
+            "args": [
+                "manage",
+                "diagnostics",
+                "--job",
+                "00000000-0000-0000-0000-000000000001",
+                "--level",
+                "Warning"
+            ],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "stopAtEntry": false,
+            "preLaunchTask": "build-migration-cli"
+        },
+        {
+            "name": "📋 Migration CLI: Manage Progress",
+            "type": "coreclr",
+            "request": "launch",
+            "program": "${workspaceFolder}/src/DevOpsMigrationPlatform.CLI.Migration/bin/Debug/net10.0/devopsmigration.exe",
+            "args": [
+                "manage",
+                "progress",
+                "--job",
+                "00000000-0000-0000-0000-000000000001"
             ],
             "cwd": "${workspaceFolder}",
             "console": "integratedTerminal",

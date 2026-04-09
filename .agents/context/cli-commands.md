@@ -22,7 +22,7 @@ Submit and drive migration jobs via the control plane. Each command creates or q
 | Command | Settings Key | Description |
 |---------|-------------|-------------|
 | `prepare` | `PrepareCommandSettings` | Validate config, compute `configHash`, print planned modules. **No job submitted.** |
-| `export` | `ExportCommandSettings` | Submit an export-only job. Writes package to `artefacts.packageUri`. |
+| `export` | `ExportCommandSettings` | Submit an export-only job. Writes package to `artefacts.packageUri`. `--follow` streams diagnostic logs inline. `--level` sets the agent's diagnostic minimum level. |
 | `import` | `ImportCommandSettings` | Submit an import-only job. Reads package from `artefacts.packageUri`. |
 | `validate` | `ValidateCommandSettings` | Run pre-flight validation on an existing package. |
 | `migrate` | `MigrateCommandSettings` | Full lifecycle: export → validate → import in one orchestrated run. |
@@ -35,7 +35,8 @@ Query and control existing jobs. Registered as a Spectre.Console branch named `m
 |---------|-------------|-------------|
 | `manage list` | `ManageListCommandSettings` | List all jobs visible to the authenticated user with status and progress. |
 | `manage status` | `ManageStatusCommandSettings` | Display job state and per-module progress for a specific job. Requires `--job <id>`. |
-| `manage logs` | `ManageLogsCommandSettings` | Fetch or stream `ProgressEvent` records. `--follow` opens SSE stream. Requires `--job <id>`. |
+| `manage progress` | `ManageProgressCommandSettings` | Fetch a snapshot of `ProgressEvent` records from the job ring buffer as NDJSON. Requires `--job <id>`. |
+| `manage diagnostics` | `ManageDiagnosticsCommandSettings` | Download package diagnostic log files (`Logs/agent.jsonl`) for a completed job. Accepts `--level` filter. Requires `--job <id>`. |
 | `manage pause` | `ManagePauseCommandSettings` | Signal the agent to checkpoint and pause. Requires `--job <id>`. |
 | `manage resume` | `ManageResumeCommandSettings` | Re-queue a paused job for agent pickup. Requires `--job <id>`. |
 | `manage cancel` | `ManageCancelCommandSettings` | Cancel a queued or running job. Requires `--job <id>`. |
@@ -69,7 +70,7 @@ Run **locally**. Do **not** submit a `MigrationJob`. Registered as a Spectre.Con
 
 ## Migration + Manage + TUI Options (control-plane commands only)
 
-These options are available on all commands that contact the control plane (`export`, `import`, `validate`, `migrate`, `prepare`, `manage *`, `tui`, `manage logs`). They are **not** available on `discovery *` or `configure` commands.
+These options are available on all commands that contact the control plane (`export`, `import`, `validate`, `migrate`, `prepare`, `manage *`, `tui`). They are **not** available on `discovery *` or `configure` commands.
 
 | Option | Short | Default | Description |
 |--------|-------|---------|-------------|
@@ -93,7 +94,8 @@ config.AddCommand<MigrateCommand>("migrate");
 config.AddBranch("manage", branch => {
     branch.AddCommand<ManageListCommand>("list");
     branch.AddCommand<ManageStatusCommand>("status");
-    branch.AddCommand<ManageLogsCommand>("logs");
+    branch.AddCommand<ManageProgressCommand>("progress");
+    branch.AddCommand<ManageDiagnosticsCommand>("diagnostics");
     branch.AddCommand<ManagePauseCommand>("pause");
     branch.AddCommand<ManageResumeCommand>("resume");
     branch.AddCommand<ManageCancelCommand>("cancel");
@@ -123,7 +125,8 @@ devopsmigration migrate  --config migration.json
 
 devopsmigration manage list
 devopsmigration manage status  --job 550e8400-e29b-41d4-a716-446655440000
-devopsmigration manage logs    --job 550e8400-e29b-41d4-a716-446655440000 --follow
+devopsmigration manage progress --job 550e8400-e29b-41d4-a716-446655440000
+devopsmigration manage diagnostics --job 550e8400-e29b-41d4-a716-446655440000 --level Warning
 devopsmigration manage pause   --job 550e8400-e29b-41d4-a716-446655440000
 devopsmigration manage resume  --job 550e8400-e29b-41d4-a716-446655440000
 devopsmigration manage cancel  --job 550e8400-e29b-41d4-a716-446655440000

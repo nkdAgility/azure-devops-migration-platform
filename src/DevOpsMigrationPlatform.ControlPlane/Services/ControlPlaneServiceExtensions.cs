@@ -1,3 +1,5 @@
+using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Infrastructure.Factories;
 using DevOpsMigrationPlatform.Infrastructure.Telemetry;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -32,6 +34,17 @@ public static class ControlPlaneServiceExtensions
                 .BindConfiguration(JobProgressOptions.SectionName)
                 .ValidateDataAnnotations()
                 .ValidateOnStart();
+
+        // In-memory diagnostic log ring buffer store.
+        services.AddSingleton<DiagnosticLogStore>();
+        services.AddOptions<DiagnosticLogStoreOptions>()
+                .BindConfiguration(DiagnosticLogStoreOptions.SectionName)
+                .ValidateDataAnnotations()
+                .ValidateOnStart();
+
+        // Package store factory — resolves file:/// URIs to FileSystem stores.
+        // Used by LogDownloadController to read log files from completed job packages.
+        services.AddSingleton<IPackageStoreFactory, FileSystemPackageStoreFactory>();
 
         return services;
     }

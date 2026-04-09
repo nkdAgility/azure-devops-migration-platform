@@ -75,7 +75,7 @@ public sealed class LogsCommand : ControlPlaneCommandBase<LogsCommand.Settings>
 
         if (!settings.Follow)
         {
-            var events = await client.GetLogsAsync(settings.JobId, cts.Token);
+            var events = await client.GetProgressAsync(settings.JobId, cts.Token);
             foreach (var evt in events)
                 console.WriteLine(JsonSerializer.Serialize(evt, _jsonOptions));
             return 0;

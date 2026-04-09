@@ -26,7 +26,7 @@ internal sealed class MigrateLogsSteps
     {
         _jobId = Guid.Parse(jobIdString);
         _ctx.ClientMock
-            .Setup(c => c.GetLogsAsync(_jobId, It.IsAny<CancellationToken>()))
+            .Setup(c => c.GetProgressAsync(_jobId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(new List<ProgressEvent>
             {
                 new() { Module = "WorkItems", Stage = "Stage1" },
@@ -58,7 +58,7 @@ internal sealed class MigrateLogsSteps
         _httpError = true;
 
         _ctx.ClientMock
-            .Setup(c => c.GetLogsAsync(_jobId, It.IsAny<CancellationToken>()))
+            .Setup(c => c.GetProgressAsync(_jobId, It.IsAny<CancellationToken>()))
             .ThrowsAsync(new HttpRequestException("403 Forbidden"));
 
         _ctx.ClientMock

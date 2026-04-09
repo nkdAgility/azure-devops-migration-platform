@@ -165,7 +165,7 @@ These commands submit jobs to the control plane via `ControlPlaneClient`.
 | Command | Description |
 |---|---|
 | `prepare` | Validate the config, compute `configHash`, print a job summary and planned modules. Does **not** submit a job. |
-| `export` | Submit an export-only job. Writes the package to the URI in `artefacts.packageUri`. |
+| `export` | Submit an export-only job. Writes the package to the URI in `artefacts.packageUri`. `--follow` streams diagnostic logs inline (implicit in standalone mode). `--level` sets the agent's diagnostic minimum level per job. |
 | `import` | Submit an import-only job. Reads the package from `artefacts.packageUri`. |
 | `validate` | Run pre-flight validation on an existing package. See [docs/validation.md](validation.md). |
 | `migrate` | Submit a full migration: export → validate → import in a single orchestrated run. |
@@ -178,7 +178,8 @@ All job management commands live under the `manage` sub-command.
 |---|---|
 | `manage list` | List all jobs visible to the authenticated user, with current status and progress. |
 | `manage status` | Display job state and per-module progress for a specific job. |
-| `manage logs` | Fetch or stream `ProgressEvent` records from the job ring buffer. Without `--follow`: prints buffered events as NDJSON and exits. With `--follow`: opens the SSE stream and prints arriving events until the job ends or Ctrl+C. |
+| `manage progress` | Fetch a snapshot of `ProgressEvent` records from the job ring buffer. Prints buffered events as NDJSON and exits. Requires `--job`. |
+| `manage diagnostics` | Download package diagnostic log files (`Logs/agent.jsonl`) for a completed job. Accepts `--level` to filter by minimum severity. Requires `--job`. |
 | `manage pause` | Signal the running Migration Agent to checkpoint and pause. |
 | `manage resume` | Resume a paused job (re-queues it for Migration Agent pickup). |
 | `manage cancel` | Cancel a queued or running job. |
@@ -212,7 +213,8 @@ devopsmigration migrate  --config migration.json
 
 devopsmigration manage list
 devopsmigration manage status  --job 550e8400-e29b-41d4-a716-446655440000
-devopsmigration manage logs    --job 550e8400-e29b-41d4-a716-446655440000 --follow
+devopsmigration manage progress --job 550e8400-e29b-41d4-a716-446655440000
+devopsmigration manage diagnostics --job 550e8400-e29b-41d4-a716-446655440000 --level Warning
 devopsmigration manage pause   --job 550e8400-e29b-41d4-a716-446655440000
 devopsmigration manage resume  --job 550e8400-e29b-41d4-a716-446655440000
 devopsmigration manage cancel  --job 550e8400-e29b-41d4-a716-446655440000

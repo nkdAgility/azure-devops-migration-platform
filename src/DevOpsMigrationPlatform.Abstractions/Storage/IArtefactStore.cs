@@ -40,4 +40,11 @@ public interface IArtefactStore
     /// Results are streamed — the implementation must NOT buffer all results into memory before yielding.
     /// </summary>
     IAsyncEnumerable<string> EnumerateAsync(string prefix, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Appends <paramref name="content"/> to the specified <paramref name="path"/> within the package.
+    /// Creates the file (and ancestor directories) if it does not exist.
+    /// Used by log sinks to write NDJSON lines incrementally.
+    /// </summary>
+    Task AppendAsync(string path, string content, CancellationToken cancellationToken);
 }
