@@ -8,6 +8,19 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <!-- Prevent appsettings.json from flowing into CLI.Migration's publish output via
+         GetCopyToPublishDirectoryItems (both projects share the same relative path).
+         CopyToOutputDirectory=PreserveNewest keeps the file available for local dotnet run.
+         CopyToPublishDirectory=Never stops it propagating when referenced by another project.
+         MigrationAgent's own standalone publish omits this file intentionally: the host loads
+         appsettings.json with optional:true, and production deployments use environment variables. -->
+    <Content Update="appsettings.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>Never</CopyToPublishDirectory>
+    </Content>
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\DevOpsMigrationPlatform.Abstractions\DevOpsMigrationPlatform.Abstractions.csproj" />
     <ProjectReference Include="..\DevOpsMigrationPlatform.Infrastructure\DevOpsMigrationPlatform.Infrastructure.csproj" />
     <ProjectReference Include="..\DevOpsMigrationPlatform.Infrastructure.AzureDevOps\DevOpsMigrationPlatform.Infrastructure.AzureDevOps.csproj" />
