@@ -240,6 +240,7 @@ Reject any proposal that:
 - Creates agent rule files under `/docs` instead of `/.agents/guardrails`.
 - Declares a task complete without a passing `dotnet clean && dotnet build --no-incremental`.
 - Declares a task complete without all tests passing (`dotnet test`).
+- Declares a task complete without running at least one scenario config (e.g. `scenarios/export-ado-workitems-single-project.json`) via a `launch.json` debug profile and verifying observable output.
 ---
 
 # 🧭 Development Flow
@@ -253,6 +254,7 @@ When implementing:
 5. Update schemas if required.
 6. Run `dotnet clean && dotnet build --no-incremental` — MUST pass before the task is considered complete.
 7. Run `dotnet test` — ALL tests MUST pass before the task is considered complete.
+8. Run at least one scenario config (e.g. `scenarios/export-ado-workitems-single-project.json`) via a `.vscode/launch.json` debug profile — MUST execute without errors and produce expected output before the task is considered complete.
 
 ---
 

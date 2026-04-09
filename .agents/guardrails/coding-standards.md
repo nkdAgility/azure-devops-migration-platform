@@ -433,6 +433,7 @@ public class WorkItemsImportModule
 - The solution MUST build cleanly with zero warnings; treat-warnings-as-errors MUST be enforced in CI.
 - **Every code change MUST produce a successful build before it is considered complete.** A change that does not compile is not done.
 - **Every code change MUST also produce a passing `dotnet test` before it is considered complete.** A change that causes test failures is not done.
+- **Every code change MUST also be validated by running at least one scenario config** (e.g. `scenarios/export-ado-workitems-single-project.json`) via a `.vscode/launch.json` debug profile before it is considered complete. The scenario must execute without errors and produce expected observable output.
 - New NuGet dependencies MUST be justified in the PR that introduces them.
 - Transitive dependency conflicts MUST be resolved explicitly in `Directory.Packages.props`.
 - CI builds MUST be reproducible: timestamps, random seeds, and non-deterministic outputs MUST be suppressed or fixed.
@@ -508,9 +509,10 @@ public class WorkItemsImportModule
 - Breaking schema or API changes without a version increment and corresponding upgrader.
 - Unbounded auto-scale configuration without a documented cost ceiling.
 - Deployable component without a liveness/readiness health-check endpoint.
-- Domain contract interface defined outside `DevOpsMigrationPlatform.Abstractions`. Infrastructure-internal testability seams whose signatures carry SDK types (e.g. `Microsoft.TeamFoundation.*`) are permitted in their infrastructure project provided: (a) no module, agent, or CLI code references them, and (b) a corresponding SDK-free abstraction exists in `Abstractions` for the domain boundary.
+- Domain contract interface defined outside `DevOpsMigrationPlatform.Abstractions`. Infrastructure-internal testability seams whose signatures carry SDK types (e.g. `Microsoft.TeamFoundation.*`) are permitted in their infrastructure project provided: (a) no module, agent, or CLI code references them, and (b) a corresponding SDK-free abstraction exists in `Abstractions` for the domain boundary. Host-internal interfaces that serve testability or internal decoupling within a single deployable unit (e.g. `IJobStore` in the control plane, `IExternalToolRunner` in the CLI) are permitted in their host project provided they are not consumed across project boundaries by modules or agents.
 - Code change submitted without a successful build verification.
 - Code change submitted without a passing test run (`dotnet test`).
+- Code change submitted without running at least one scenario config (e.g. `scenarios/export-ado-workitems-single-project.json`) via a `.vscode/launch.json` debug profile and verifying observable output.
 - Known vulnerability shipped without either a fix or an explicit written rationale and tracked issue.
 - Holding a compiled reference to `DevOpsMigrationPlatform.CLI.TfsMigration` from any .NET 10 project.
 - Spawning the TFS exporter subprocess from any code other than `ExternalToolRunner` in `DevOpsMigrationPlatform.CLI.Migration`.
@@ -562,11 +564,12 @@ Before merging changes, verify:
 - Does this code use primitive types where a domain-specific type would encode intent?
 - Does this code have public mutable setters on a DTO or domain model type?
 - Does this code branch on environment name instead of using external configuration?
-- Does this code define a domain contract interface outside `DevOpsMigrationPlatform.Abstractions`? (Infrastructure-internal testability seams with SDK types in their signatures are permitted in their infrastructure project when no module, agent, or CLI code references them and a corresponding SDK-free abstraction exists in `Abstractions`.)
+- Does this code define a domain contract interface outside `DevOpsMigrationPlatform.Abstractions`? (Infrastructure-internal testability seams with SDK types in their signatures are permitted in their infrastructure project when no module, agent, or CLI code references them and a corresponding SDK-free abstraction exists in `Abstractions`. Host-internal interfaces for testability or internal decoupling within a single deployable unit are permitted in their host project when not consumed across project boundaries.)
 - Does this code add retry logic without exponential back-off?
 - Does this code deploy a component without a health-check endpoint?
 - Has this change been verified to produce a successful `dotnet clean && dotnet build --no-incremental`?
 - Have all tests been verified to pass with `dotnet test`?
+- Has at least one scenario config (e.g. `scenarios/export-ado-workitems-single-project.json`) been run via a `.vscode/launch.json` debug profile with observable output verified?
 - Does this change introduce or surface a known vulnerability? If so, is it remediated or explicitly called out with a tracked issue?
 - Has `dotnet list package --vulnerable` been run and are all HIGH/CRITICAL findings resolved or documented?
 - Does this change add or modify a CLI command? If so, is there a matching entry in `.vscode/launch.json`?
