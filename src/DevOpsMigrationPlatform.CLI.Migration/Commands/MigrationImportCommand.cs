@@ -13,8 +13,7 @@ public sealed class MigrationImportCommand : ControlPlaneCommandBase<MigrationIm
 {
     protected override Task<int> ExecuteInternalAsync(CommandContext context, MigrationImportCommandSettings settings, CancellationToken cancellationToken = default)
     {
-        AnsiConsole.MarkupLine("[grey]import — not yet implemented.[/]");
-        // TODO: When implemented, call PrintJobSubmitted(console, jobId, resolvedUrl) immediately after SubmitAsync (FR-012).
+        AnsiConsole.MarkupLine("[grey]import — not available in this release.[/]");
         return Task.FromResult(1);
     }
 }

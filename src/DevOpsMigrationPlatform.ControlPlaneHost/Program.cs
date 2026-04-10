@@ -34,14 +34,4 @@ var app = builder.Build();
 app.MapDefaultEndpoints();
 app.MapControllers();
 
-// TODO: Implement job lifecycle endpoints (docs/control-plane.md):
-//   POST   /jobs                              — submit MigrationJob
-//   GET    /jobs  /jobs/{jobId}               — list / get job
-//   GET    /jobs/{jobId}/progress             — per-module progress
-//   POST   /jobs/{jobId}/cancel|pause|resume  — lifecycle signals
-//   GET    /agents/lease                      — agent polls for work
-//   POST   /agents/lease/{id}/heartbeat       — agent keepalive
-//   POST   /agents/lease/{id}/progress        — agent reports cursor
-//   POST   /agents/lease/{id}/complete|fail   — agent signals terminal state
-
 app.Run();

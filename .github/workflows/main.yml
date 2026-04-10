@@ -44,6 +44,9 @@ jobs:
           useConfigFile: true
           configFilePath: .build/GitVersion.yml
 
+      - name: Restore
+        run: dotnet restore DevOpsMigrationPlatform.slnx
+
       - name: Build
         run: pwsh ./build.ps1 -Mode Build
 

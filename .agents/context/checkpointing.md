@@ -79,3 +79,45 @@ The convention is `<moduleName-lowercase>.cursor.json`. Modules must not share c
 ### ID Map
 
 The `Checkpoints/idmap.db` (or `idmap.json`) file tracks source-to-target work item ID mappings and uploaded attachment records. It is written during Stage `CreatedOrUpdated` (work item ID) and Stage `UploadedAttachments` (attachment ID per revision). It is the sole mechanism for idempotency checks during resume. See [.agents/context/identity-and-mapping.md](identity-and-mapping.md) for the identity mapping counterpart.
+
+---
+
+## Export Cursor Behaviour
+
+Export modules use the same cursor schema as import. The key difference is that export has no intra-item stages — a revision folder is either fully written or not written at all.
+
+- Export modules write `stage: "Completed"` after each revision folder is successfully written to the package.
+- The `lastProcessed` field holds the relative path of the last revision folder written (e.g. `WorkItems/2026-04-10/638760123456789012-42-17/`).
+- The cursor is updated after every individual revision folder so that an interruption results in at most one revision folder of re-work on resume.
+- On resume, the orchestrator skips all folders lexicographically less than or equal to `lastProcessed` in a single O(1) comparison per folder — no full scan.
+
+---
+
+## Both-Mode Phase Tracking
+
+When a job runs in `Both` mode (export then import), a top-level phase record tracks whether each phase has completed. This allows a re-run to skip the export phase entirely if it already completed.
+
+### Phase Record Location
+
+```
+Checkpoints/job.phase.json
+```
+
+### Schema
+
+```json
+{
+  "exportCompleted": true,
+  "importCompleted": false,
+  "updatedAt": "2026-04-10T12:34:56Z"
+}
+```
+
+### Resume Logic (Both Mode)
+
+1. Read `Checkpoints/job.phase.json` before running any module.
+2. If `exportCompleted: true` → skip all export-phase modules; jump directly to import phase.
+3. If `importCompleted: true` → skip import-phase modules too; job is already complete.
+4. Otherwise run from the first incomplete phase, with each module resuming from its own cursor.
+
+The phase record is absent for `Export`-only or `Import`-only jobs. `PhaseTrackingService` returns a default record (both flags `false`) when the file is missing.

@@ -6,6 +6,8 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Infrastructure.Checkpointing;
+using DevOpsMigrationPlatform.Infrastructure.JobEngine;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 
@@ -111,8 +113,30 @@ public sealed class MigrationAgentWorker : BackgroundService
         // Publish the store so package-writing sinks (loggers, progress) can access it.
         _packageState.CurrentStore = artefactStore;
 
-        // 3. Build export context.
-        var context = new ExportContext
+        var checkpointer = new CheckpointingService(stateStore);
+        var phaseTracker = new PhaseTrackingService(stateStore);
+
+        // 3. If ForceFresh, delete all module cursors and phase record before running (idmap preserved).
+        if (lease.Job.Resume?.Mode == ResumeMode.ForceFresh)
+        {
+            _logger.LogInformation("ForceFresh requested for job {JobId} — deleting module cursors.", lease.Job.JobId);
+            foreach (var module in _modules)
+            {
+                await checkpointer.DeleteCursorAsync(module.Name, ct).ConfigureAwait(false);
+                _logger.LogDebug("Deleted cursor for module {Module}.", module.Name);
+            }
+            await phaseTracker.DeletePhaseRecordAsync(ct).ConfigureAwait(false);
+        }
+
+        // 4. Build contexts.
+        var exportContext = new ExportContext
+        {
+            Job = lease.Job,
+            ArtefactStore = artefactStore,
+            StateStore = stateStore,
+            ProgressSink = _progressSink
+        };
+        var importContext = new ImportContext
         {
             Job = lease.Job,
             ArtefactStore = artefactStore,
@@ -120,14 +144,53 @@ public sealed class MigrationAgentWorker : BackgroundService
             ProgressSink = _progressSink
         };
 
-        // 4. Run registered IDataTypeModule implementations.
+        // 5. Run phases according to mode, respecting Both-mode phase tracking.
+        var isBoth = string.Equals(lease.Job.Mode, "Both", StringComparison.OrdinalIgnoreCase);
+        var phaseRecord = isBoth
+            ? await phaseTracker.ReadPhaseRecordAsync(ct).ConfigureAwait(false)
+            : new JobPhaseRecord();
+
+        var runExport = string.Equals(lease.Job.Mode, "Export", StringComparison.OrdinalIgnoreCase)
+            || (isBoth && !phaseRecord.ExportCompleted);
+        var runImport = string.Equals(lease.Job.Mode, "Import", StringComparison.OrdinalIgnoreCase)
+            || (isBoth && !phaseRecord.ImportCompleted);
+
+        if (isBoth && !runExport)
+            _logger.LogInformation("Export phase already completed for job {JobId} — skipping.", lease.Job.JobId);
+        if (isBoth && !runImport)
+            _logger.LogInformation("Import phase already completed for job {JobId} — skipping.", lease.Job.JobId);
+
         bool failed = false;
         try
         {
-            foreach (var module in _modules)
+            if (runExport)
             {
-                _logger.LogInformation("Running module {Module}.ExportAsync", module.Name);
-                await module.ExportAsync(context, ct).ConfigureAwait(false);
+                foreach (var module in _modules)
+                {
+                    _logger.LogInformation("Running module {Module}.ExportAsync", module.Name);
+                    await module.ExportAsync(exportContext, ct).ConfigureAwait(false);
+                }
+                if (isBoth)
+                {
+                    await phaseTracker.WritePhaseRecordAsync(
+                        new JobPhaseRecord { ExportCompleted = true, ImportCompleted = phaseRecord.ImportCompleted, UpdatedAt = DateTimeOffset.UtcNow },
+                        ct).ConfigureAwait(false);
+                }
+            }
+
+            if (runImport)
+            {
+                foreach (var module in _modules)
+                {
+                    _logger.LogInformation("Running module {Module}.ImportAsync", module.Name);
+                    await module.ImportAsync(importContext, ct).ConfigureAwait(false);
+                }
+                if (isBoth)
+                {
+                    await phaseTracker.WritePhaseRecordAsync(
+                        new JobPhaseRecord { ExportCompleted = true, ImportCompleted = true, UpdatedAt = DateTimeOffset.UtcNow },
+                        ct).ConfigureAwait(false);
+                }
             }
         }
         catch (Exception ex)

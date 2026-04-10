@@ -19,4 +19,9 @@ public interface IStateStore
     /// Returns true if a state entry exists for the given key.
     /// </summary>
     Task<bool> ExistsAsync(string key, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Deletes the state entry at the given key. No-op if the key does not exist.
+    /// </summary>
+    Task DeleteAsync(string key, CancellationToken cancellationToken);
 }

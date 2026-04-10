@@ -35,6 +35,7 @@ public sealed class PackageLoggerProvider : ILoggerProvider, IDisposable
     private readonly Task _drainTask;
     private long _droppedCount;
     private volatile IArtefactStore? _lastKnownStore;
+    private int _disposed;
 
     public PackageLoggerProvider(
         ActivePackageState packageState,
@@ -152,7 +153,10 @@ public sealed class PackageLoggerProvider : ILoggerProvider, IDisposable
 
     public void Dispose()
     {
-        _cts.Cancel();
+        if (Interlocked.Exchange(ref _disposed, 1) != 0)
+            return;
+
+        try { _cts.Cancel(); } catch (ObjectDisposedException) { }
         _channel.Writer.TryComplete();
         // Allow drain to complete (bounded wait to avoid blocking disposal indefinitely).
         _drainTask.Wait(TimeSpan.FromSeconds(5));
