@@ -66,7 +66,6 @@ Run **locally**. Do **not** submit a `MigrationJob`. Registered as a Spectre.Con
 | `--config` | `-c` | `migration.json` (cwd) | Path to the migration configuration file. |
 | `--verbose` | `-v` | `false` | Enable verbose console output. |
 | `--disable-telemetry` | — | `false` | Suppress all telemetry export. |
-| `--dry-run` | — | `false` | Parse and validate but perform no writes or job submissions. |
 
 ## Migration + Manage + TUI Options (control-plane commands only)
 
