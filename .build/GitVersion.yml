@@ -1,27 +1,19 @@
 assembly-versioning-scheme: MajorMinorPatch
 mode: ContinuousDelivery
-continuous-delivery-fallback-tag: 'Canary'
+label: 'Canary'
 next-version: 16.0.0
-branches: 
+branches:
   main:
-      mode: ContinuousDelivery
-      tag: 'Preview'
-      increment: Patch
-      is-mainline: true
-      prevent-increment-of-merged-branch-version: false
-      tracks-release-branches: true
-      regex: ^master$|^main$
-  release:
+    regex: ^master$|^main$
     mode: ContinuousDelivery
-    tag: ""
+    label: 'Preview'
+    increment: Patch
+  release:
+    regex: ^release(s)?[\/-]
+    mode: ContinuousDelivery
+    label: ''
     increment: Patch
     track-merge-target: false
-    regex: ^release(s)?[\/-]
     source-branches:
-    - master
     - main
     is-release-branch: true
-    is-mainline: false
-ignore:
-  sha: []
-merge-message-formats: {}
