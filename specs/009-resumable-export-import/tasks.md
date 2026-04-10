@@ -89,6 +89,9 @@
   - Write cursor with `stage: "Completed"` after Stage D
   - Do not buffer revision folders in memory; no in-memory sort
   - **Emit a structured log/`IProgressSink` event when a non-null cursor is detected at startup**: include module name, `cursor.LastProcessed` path, and estimated skip count (FR-011 / SC-006); this event fires on both Auto resume and ForceFresh (where cursor was just cleared)
+  - **Start an OpenTelemetry `Activity` span** for the entire `ImportAsync` call (activity name: `"WorkItemImportOrchestrator.ImportAsync"`); record `exception.type` and `exception.message` as span attributes on failure; set span status to `Error` on throw (coding standards: each module execution MUST create an activity span)
+  - **Error handling**: on any stage exception, let it propagate uncaught — do NOT swallow; the cursor will remain at the last successfully written stage so the run is safely resumable; the agent worker is responsible for catching module-level exceptions and recording the failure
+  - **`ConfigureAwait(false)`** MUST be applied to every `await` expression inside this class (library/module code requirement per coding standards)
 - [ ] T016 [US2] Unit tests for `WorkItemImportOrchestrator` in `tests/DevOpsMigrationPlatform.Infrastructure.Tests/Import/WorkItemImportOrchestratorTests.cs`
 
 ### Stage Implementations
@@ -143,6 +146,7 @@
   - `ReadPhaseRecordAsync`: read `Checkpoints/job.phase.json` via `IStateStore`; return default `JobPhaseRecord` if absent
   - `WritePhaseRecordAsync`: serialise `JobPhaseRecord` and write via `IStateStore`
   - `DeletePhaseRecordAsync`: call `IStateStore.DeleteAsync("Checkpoints/job.phase.json")`
+  - **`ConfigureAwait(false)`** MUST be applied to every `await` expression inside this class (library/module code requirement per coding standards)
 - [ ] T029 [US3] Update `src/DevOpsMigrationPlatform.MigrationAgent/MigrationAgentWorker.cs` to use `PhaseTrackingService`:
   - For `Mode == Both`: read phase record before running any module
   - If `ExportCompleted == true` → skip all modules tagged as Export phase
@@ -158,10 +162,12 @@
 
 ## Phase 5: Polish & Cross-Cutting
 
-- [ ] T033 Rectify documentation discrepancies logged in [discrepancies.md](discrepancies.md):
+- [ ] T033 Rectify documentation discrepancies logged in [discrepancies.md](discrepancies.md) and update canonical docs for new flags:
   - Add "Export Cursor Behaviour" subsection to `.agents/context/checkpointing.md`
   - Add `resume` block to the MigrationJob schema in `.agents/context/job-contract.md`
   - Add "Both-Mode Phase Tracking" section to `.agents/context/checkpointing.md`
+  - Add `--force-fresh` to the `export`, `import`, and `migrate` command descriptions in `.agents/context/cli-commands.md` (both the command table and a new "Resume Options" sub-section listing the flag, its default, and its semantics)
+  - Add `--force-fresh` to the `export`, `import`, and `migrate` command descriptions in `docs/cli.md` and add `--force-fresh` example invocations to the Examples section
 - [ ] T034 Run `dotnet clean && dotnet build --no-incremental` and `dotnet test` — confirm all pass; run `scenarios/export-ado-workitems-single-project.json` via `launch.json` profile and verify observable output shows resume behaviour
 
 ---

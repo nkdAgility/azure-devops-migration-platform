@@ -93,7 +93,13 @@ public interface IWorkItemTargetService
         IReadOnlyDictionary<string, object?> fields,
         CancellationToken cancellationToken);
 
-    /// <summary>Stage C: Apply links to the target work item; skip any that already exist.</summary>
+    /// <summary>
+    /// Stage C: Apply links to the target work item.
+    /// Implementations MUST be idempotent: links that already exist on the target
+    /// MUST be silently skipped, never duplicated.
+    /// On failure the method MUST throw, allowing the orchestrator cursor to remain
+    /// at <c>AppliedFields</c> so the stage is retried on the next run.
+    /// </summary>
     Task ApplyLinksAsync(
         int targetWorkItemId,
         IReadOnlyList<WorkItemLink> links,
@@ -108,6 +114,12 @@ public interface IWorkItemTargetService
         CancellationToken cancellationToken);
 }
 ```
+
+---
+
+### Design Note: Primitive `int` for Work Item IDs
+
+`IWorkItemTargetService` uses `int` for `sourceWorkItemId` and `targetWorkItemId`. The coding standards prefer domain-typed wrappers over primitives (`WorkItemId`). This is **accepted as a conscious trade-off**: the existing platform conventions (`WorkItemRevision`, `CursorEntry`, all existing orchestrators) also use `int` for work item IDs. Introducing a wrapper type here would require changing all callers across the platform. If a `WorkItemId` wrapper is ever introduced platform-wide, this interface is the correct place to adopt it.
 
 ---
 
