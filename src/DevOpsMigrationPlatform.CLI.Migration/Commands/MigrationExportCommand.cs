@@ -246,17 +246,6 @@ public sealed class MigrationExportCommand : ControlPlaneCommandBase<MigrationEx
             }
         }, followCts.Token);
 
-        // Redirect Console.Out for the duration of the Live() render.
-        //
-        // AnsiConsole.Console captured its TextWriter at creation time, so it always
-        // writes to the real terminal regardless of Console.SetOut().  The .NET ILogger
-        // ConsoleLogger calls Console.Out dynamically on each write — so redirecting
-        // Console.Out to a buffer prevents any logger output from interleaving with the
-        // Live renderer.  The buffer is flushed after Live() exits.
-        var logBuffer = new StringWriter();
-        var originalOut = Console.Out;
-        Console.SetOut(logBuffer);
-
         var progressStartTime = DateTimeOffset.UtcNow;
         int lastWiId = 0;
         int wiRevisions = 0;
@@ -266,68 +255,122 @@ public sealed class MigrationExportCommand : ControlPlaneCommandBase<MigrationEx
         int lastCompletedRevisions = 0;
         string currentStage = string.Empty;
 
-        try
+        if (Console.IsOutputRedirected)
         {
-            await console.Live(BuildProgressRenderable(
-                    0, totalWorkItems, 0, 0, 0, 0, string.Empty, progressStartTime))
-                .AutoClear(false)
-                .Overflow(VerticalOverflow.Ellipsis)
-                .StartAsync(async ctx =>
+            // Non-interactive (redirected stdout — subprocess, CI, test runner): skip the
+            // Live renderer entirely.  Cursor-positioning ANSI sequences throw "The handle
+            // is invalid" on non-console handles; plain event iteration is sufficient.
+            try
+            {
+                await foreach (var evt in client.FollowLogsAsync(parsedJobId, followCts.Token).ConfigureAwait(false))
                 {
-                    await foreach (var evt in client.FollowLogsAsync(parsedJobId, followCts.Token).ConfigureAwait(false))
+                    lastEvt = evt;
+                    if (!string.IsNullOrEmpty(evt.Stage))
+                        currentStage = evt.Stage;
+                    if (evt.WorkItemId != 0 && evt.WorkItemId != lastWiId)
                     {
-                        lastEvt = evt;
-
-                        if (!string.IsNullOrEmpty(evt.Stage))
-                            currentStage = evt.Stage;
-
-                        if (evt.WorkItemId != 0 && evt.WorkItemId != lastWiId)
+                        if (lastWiId != 0)
                         {
-                            // The previous WI just completed — record it for the completed row.
-                            if (lastWiId != 0)
-                            {
-                                lastCompletedWiId = lastWiId;
-                                lastCompletedRevisions = prevRevisions - wiStartRevisions;
-                            }
-                            lastWiId = evt.WorkItemId;
-                            wiStartRevisions = prevRevisions;
+                            lastCompletedWiId = lastWiId;
+                            lastCompletedRevisions = prevRevisions - wiStartRevisions;
                         }
-
-                        if (evt.WorkItemId != 0)
-                            wiRevisions = evt.RevisionsProcessed - wiStartRevisions;
-
-                        prevRevisions = evt.RevisionsProcessed;
-
-                        ctx.UpdateTarget(BuildProgressRenderable(
-                            evt.WorkItemsProcessed, totalWorkItems,
-                            lastWiId, wiRevisions,
-                            lastCompletedWiId, lastCompletedRevisions,
-                            currentStage, progressStartTime));
+                        lastWiId = evt.WorkItemId;
+                        wiStartRevisions = prevRevisions;
                     }
-                });
+                    if (evt.WorkItemId != 0)
+                        wiRevisions = evt.RevisionsProcessed - wiStartRevisions;
+                    prevRevisions = evt.RevisionsProcessed;
+                }
+            }
+            catch (InvalidOperationException ex) when (ex.Message.Contains("Job failed"))
+            {
+                jobFailed = true;
+                ShowError(console, ex.Message);
+                if (lastEvt is not null)
+                    ShowError(console, $"Last progress: {lastEvt.WorkItemsProcessed} work items / {lastEvt.RevisionsProcessed} revisions (wi#{lastEvt.WorkItemId})");
+            }
+            catch (OperationCanceledException)
+            {
+                return 0;
+            }
         }
-        catch (InvalidOperationException ex) when (ex.Message.Contains("Job failed"))
+        else
         {
-            jobFailed = true;
-            ShowError(console, ex.Message);
-            if (lastEvt is not null)
-                ShowError(console, $"Last progress: {lastEvt.WorkItemsProcessed} work items / {lastEvt.RevisionsProcessed} revisions (wi#{lastEvt.WorkItemId})");
-        }
-        catch (OperationCanceledException)
-        {
-            // Ctrl+C pressed — detach.
-            console.MarkupLine("[yellow]Detached from diagnostic stream. Job continues running on the server.[/]");
-            console.MarkupLine("[grey]Use [bold]tui[/] to resume watching.[/]");
-            return 0;
-        }
-        finally
-        {
-            // Restore stdout and flush anything the Console logger wrote during the live render.
-            Console.SetOut(originalOut);
-            var captured = logBuffer.ToString();
-            logBuffer.Dispose();
-            if (!string.IsNullOrWhiteSpace(captured))
-                console.Write(new Text(captured.TrimEnd()));
+            // Interactive path: redirect Console.Out to prevent ILogger output from
+            // interleaving with the Live renderer, then render the progress bar.
+            //
+            // AnsiConsole.Console captured its TextWriter at creation time, so it always
+            // writes to the real terminal regardless of Console.SetOut().  The .NET ILogger
+            // ConsoleLogger calls Console.Out dynamically on each write — so redirecting
+            // Console.Out to a buffer prevents any logger output from interleaving with the
+            // Live renderer.  The buffer is flushed after Live() exits.
+            var logBuffer = new StringWriter();
+            var originalOut = Console.Out;
+            Console.SetOut(logBuffer);
+
+            try
+            {
+                await console.Live(BuildProgressRenderable(
+                        0, totalWorkItems, 0, 0, 0, 0, string.Empty, progressStartTime))
+                    .AutoClear(false)
+                    .Overflow(VerticalOverflow.Ellipsis)
+                    .StartAsync(async ctx =>
+                    {
+                        await foreach (var evt in client.FollowLogsAsync(parsedJobId, followCts.Token).ConfigureAwait(false))
+                        {
+                            lastEvt = evt;
+
+                            if (!string.IsNullOrEmpty(evt.Stage))
+                                currentStage = evt.Stage;
+
+                            if (evt.WorkItemId != 0 && evt.WorkItemId != lastWiId)
+                            {
+                                // The previous WI just completed — record it for the completed row.
+                                if (lastWiId != 0)
+                                {
+                                    lastCompletedWiId = lastWiId;
+                                    lastCompletedRevisions = prevRevisions - wiStartRevisions;
+                                }
+                                lastWiId = evt.WorkItemId;
+                                wiStartRevisions = prevRevisions;
+                            }
+
+                            if (evt.WorkItemId != 0)
+                                wiRevisions = evt.RevisionsProcessed - wiStartRevisions;
+
+                            prevRevisions = evt.RevisionsProcessed;
+
+                            ctx.UpdateTarget(BuildProgressRenderable(
+                                evt.WorkItemsProcessed, totalWorkItems,
+                                lastWiId, wiRevisions,
+                                lastCompletedWiId, lastCompletedRevisions,
+                                currentStage, progressStartTime));
+                        }
+                    });
+            }
+            catch (InvalidOperationException ex) when (ex.Message.Contains("Job failed"))
+            {
+                jobFailed = true;
+                ShowError(console, ex.Message);
+                if (lastEvt is not null)
+                    ShowError(console, $"Last progress: {lastEvt.WorkItemsProcessed} work items / {lastEvt.RevisionsProcessed} revisions (wi#{lastEvt.WorkItemId})");
+            }
+            catch (OperationCanceledException)
+            {
+                // Ctrl+C pressed — detach.
+                console.MarkupLine("[yellow]Detached from diagnostic stream. Job continues running on the server.[/]");
+                console.MarkupLine("[grey]Use [bold]tui[/] to resume watching.[/]");
+                return 0;
+            }
+            finally
+            {
+                // Restore stdout and flush anything the Console logger wrote during the live render.
+                Console.SetOut(originalOut);
+                var captured = logBuffer.ToString();
+                logBuffer.Dispose();
+                if (!string.IsNullOrWhiteSpace(captured))
+                    console.Write(new Text(captured.TrimEnd()));
+            }
         }
 
         // Stop diagnostics stream.
