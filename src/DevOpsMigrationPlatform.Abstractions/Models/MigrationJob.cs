@@ -37,6 +37,13 @@ public class MigrationJob
     /// <summary>Optional diagnostics configuration for the agent's log sinks.</summary>
     public MigrationJobDiagnostics? Diagnostics { get; init; }
 
+    /// <summary>
+    /// Resume options. Null is treated as <see cref="ResumeMode.Auto"/>.
+    /// Set to <see cref="ResumeMode.ForceFresh"/> to delete all module cursor files
+    /// and the job phase record before running.
+    /// </summary>
+    public MigrationJobResume? Resume { get; init; }
+
     /// <summary>SHA-256 of the normalised config JSON at job construction time.</summary>
     public string ConfigHash { get; init; } = string.Empty;
 }

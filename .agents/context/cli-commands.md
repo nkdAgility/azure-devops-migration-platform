@@ -22,10 +22,10 @@ Submit and drive migration jobs via the control plane. Each command creates or q
 | Command | Settings Key | Description |
 |---------|-------------|-------------|
 | `prepare` | `PrepareCommandSettings` | Validate config, compute `configHash`, print planned modules. **No job submitted.** |
-| `export` | `ExportCommandSettings` | Submit an export-only job. Writes package to `artefacts.packageUri`. `--follow` streams diagnostic logs inline. `--level` sets the agent's diagnostic minimum level. |
-| `import` | `ImportCommandSettings` | Submit an import-only job. Reads package from `artefacts.packageUri`. |
+| `export` | `ExportCommandSettings` | Submit an export-only job. Writes package to `artefacts.packageUri`. `--follow` streams diagnostic logs inline. `--level` sets the agent's diagnostic minimum level. `--force-fresh` deletes the module cursor(s) before running so enumeration restarts from the beginning (identity map preserved). |
+| `import` | `ImportCommandSettings` | Submit an import-only job. Reads package from `artefacts.packageUri`. `--force-fresh` deletes the module cursor(s) before running (identity map preserved). |
 | `validate` | `ValidateCommandSettings` | Run pre-flight validation on an existing package. |
-| `migrate` | `MigrateCommandSettings` | Full lifecycle: export → validate → import in one orchestrated run. |
+| `migrate` | `MigrateCommandSettings` | Full lifecycle: export → validate → import in one orchestrated run. `--force-fresh` deletes all module cursors and the job phase record before running (identity map preserved). |
 
 ### 2. Job Management Commands (`manage`)
 
@@ -66,6 +66,12 @@ Run **locally**. Do **not** submit a `MigrationJob`. Registered as a Spectre.Con
 | `--config` | `-c` | `migration.json` (cwd) | Path to the migration configuration file. |
 | `--verbose` | `-v` | `false` | Enable verbose console output. |
 | `--disable-telemetry` | — | `false` | Suppress all telemetry export. |
+
+## Resume Options (`export`, `import`, `migrate`)
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `--force-fresh` | `false` | Delete module cursor file(s) (and the job phase record for `migrate`) before job execution. Enumeration restarts from the beginning. The identity map (`Checkpoints/idmap.json`) is **not** deleted so no duplicate items are created in the target. |
 
 ## Migration + Manage + TUI Options (control-plane commands only)
 
@@ -118,9 +124,12 @@ config.AddCommand<TuiCommand>("tui");
 ```
 devopsmigration prepare  --config migration.json
 devopsmigration export   --config migration.json
+devopsmigration export   --config migration.json --force-fresh
 devopsmigration import   --config migration.json
+devopsmigration import   --config migration.json --force-fresh
 devopsmigration validate --config migration.json
 devopsmigration migrate  --config migration.json
+devopsmigration migrate  --config migration.json --force-fresh
 
 devopsmigration manage list
 devopsmigration manage status  --job 550e8400-e29b-41d4-a716-446655440000

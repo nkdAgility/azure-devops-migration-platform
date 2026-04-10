@@ -43,6 +43,14 @@ public class FileSystemStateStore : IStateStore
         return Task.FromResult(File.Exists(fullPath));
     }
 
+    public Task DeleteAsync(string key, CancellationToken cancellationToken)
+    {
+        var fullPath = GetFullPath(key);
+        if (File.Exists(fullPath))
+            File.Delete(fullPath);
+        return Task.CompletedTask;
+    }
+
     private string GetFullPath(string key)
         => Path.Combine(_rootPath, key.Replace('/', Path.DirectorySeparatorChar));
 }

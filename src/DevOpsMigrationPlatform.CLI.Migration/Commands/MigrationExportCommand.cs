@@ -161,7 +161,10 @@ public sealed class MigrationExportCommand : ControlPlaneCommandBase<MigrationEx
             Diagnostics = new MigrationJobDiagnostics
             {
                 MinimumLevel = settings.Level
-            }
+            },
+            Resume = settings.ForceFresh
+                ? new MigrationJobResume { Mode = ResumeMode.ForceFresh }
+                : null
         };
 
         // Determine follow mode: explicit --follow, or implicit in standalone mode (no --url).

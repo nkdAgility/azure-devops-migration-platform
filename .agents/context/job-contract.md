@@ -57,6 +57,9 @@ See [docs/validation.md](validation.md) for the full four-tier validation model.
     "streamingRequired": true,
     "canonicalWorkItemsLayoutRequired": true
   },
+  "resume": {
+    "mode": "Auto"
+  },
   "configHash": "sha256:abc123..."
 }
 ```
@@ -78,6 +81,7 @@ See [docs/validation.md](validation.md) for the full four-tier validation model.
 | `artefacts.zip` | No | If `true`, pack after export or unpack before import. Default `false`. |
 | `guardrails.streamingRequired` | Yes | Must be `true`. The Job Engine will reject any execution plan that would load all revisions into memory. |
 | `guardrails.canonicalWorkItemsLayoutRequired` | Yes | Must be `true`. Any module that would alter the canonical folder structure is rejected at plan time. |
+| `resume.mode` | No | `Auto` (default) — detect existing cursor and resume from last position; `ForceFresh` — delete all module cursor files and `Checkpoints/job.phase.json` before running. Absent or `null` is treated as `Auto`. |
 | `configHash` | Yes | SHA-256 of the normalised config JSON at job construction time. Written into `manifest.json` for auditability. |
 
 ---

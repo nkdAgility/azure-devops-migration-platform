@@ -14,4 +14,9 @@ public interface ICheckpointingService
     /// Persists the cursor for the named module after a unit of work completes successfully.
     /// </summary>
     Task WriteCursorAsync(string moduleName, CursorEntry cursor, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Deletes the cursor file for the named module. No-op if the cursor does not exist.
+    /// </summary>
+    Task DeleteCursorAsync(string moduleName, CancellationToken cancellationToken);
 }

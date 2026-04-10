@@ -23,6 +23,10 @@ public class MigrationExportCommandSettings : MigrationCommandSettings
     [Description("Diagnostic log level for this job. Valid: Trace, Debug, Information, Warning, Error, Critical. Default: Information.")]
     public string Level { get; init; } = "Information";
 
+    [CommandOption("--force-fresh")]
+    [Description("Delete the export cursor and restart enumeration from the beginning. The identity map is preserved so no duplicate items are created.")]
+    public bool ForceFresh { get; init; }
+
     public override ValidationResult Validate()
     {
         var baseResult = base.Validate();

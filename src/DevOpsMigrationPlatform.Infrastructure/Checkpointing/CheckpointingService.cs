@@ -29,4 +29,10 @@ public class CheckpointingService : ICheckpointingService
         var json = JsonSerializer.Serialize(cursor);
         await _stateStore.WriteAsync(key, json, cancellationToken).ConfigureAwait(false);
     }
+
+    public async Task DeleteCursorAsync(string moduleName, CancellationToken cancellationToken)
+    {
+        var key = $"Checkpoints/{moduleName.ToLowerInvariant()}.cursor.json";
+        await _stateStore.DeleteAsync(key, cancellationToken).ConfigureAwait(false);
+    }
 }

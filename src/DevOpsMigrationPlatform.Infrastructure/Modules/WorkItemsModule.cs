@@ -80,10 +80,10 @@ public sealed class WorkItemsModule : IDataTypeModule
     }
 
     public Task ImportAsync(ImportContext context, CancellationToken ct) =>
-        throw new NotImplementedException("WorkItems import is deferred to a future spec.");
+        throw new NotSupportedException("WorkItems import is not yet supported.");
 
     public Task ValidateAsync(ValidationContext context, CancellationToken ct) =>
-        throw new NotImplementedException("WorkItems validation is deferred to a future spec.");
+        throw new NotSupportedException("WorkItems validation is not yet supported.");
 
     // ── helpers ──────────────────────────────────────────────────────────────
 

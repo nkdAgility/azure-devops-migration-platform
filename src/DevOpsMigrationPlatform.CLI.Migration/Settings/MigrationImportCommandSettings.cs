@@ -1,3 +1,6 @@
+using System.ComponentModel;
+using Spectre.Console.Cli;
+
 namespace DevOpsMigrationPlatform.CLI.Migration.Settings;
 
 /// <summary>
@@ -7,4 +10,7 @@ namespace DevOpsMigrationPlatform.CLI.Migration.Settings;
 /// </summary>
 public class MigrationImportCommandSettings : MigrationCommandSettings
 {
+    [CommandOption("--force-fresh")]
+    [Description("Delete the import cursor and restart enumeration from the beginning. The identity map is preserved so no duplicate items are created.")]
+    public bool ForceFresh { get; init; }
 }
