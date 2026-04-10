@@ -16,6 +16,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using Spectre.Console;
 using Spectre.Console.Cli;
+using Spectre.Console.Rendering;
 
 namespace DevOpsMigrationPlatform.CLI.Migration.Commands;
 
@@ -242,56 +243,64 @@ public sealed class MigrationExportCommand : ControlPlaneCommandBase<MigrationEx
             }
         }, followCts.Token);
 
-        // Stream progress in the foreground using per-module progress bars.
+        // Redirect Console.Out for the duration of the Live() render.
+        //
+        // AnsiConsole.Console captured its TextWriter at creation time, so it always
+        // writes to the real terminal regardless of Console.SetOut().  The .NET ILogger
+        // ConsoleLogger calls Console.Out dynamically on each write — so redirecting
+        // Console.Out to a buffer prevents any logger output from interleaving with the
+        // Live renderer.  The buffer is flushed after Live() exits.
+        var logBuffer = new StringWriter();
+        var originalOut = Console.Out;
+        Console.SetOut(logBuffer);
+
+        var progressStartTime = DateTimeOffset.UtcNow;
+        int lastWiId = 0;
+        int wiRevisions = 0;
+        int wiStartRevisions = 0;
+        int prevRevisions = 0;
+        int lastCompletedWiId = 0;
+        int lastCompletedRevisions = 0;
+        string currentStage = string.Empty;
+
         try
         {
-            await console.Progress()
-                .AutoRefresh(true)
+            await console.Live(BuildProgressRenderable(
+                    0, totalWorkItems, 0, 0, 0, 0, string.Empty, progressStartTime))
                 .AutoClear(false)
-                .HideCompleted(false)
-                .Columns(
-                    new TaskDescriptionColumn(),
-                    new ProgressBarColumn(),
-                    new PercentageColumn(),
-                    new RemainingTimeColumn(),
-                    new SpinnerColumn())
+                .Overflow(VerticalOverflow.Ellipsis)
                 .StartAsync(async ctx =>
                 {
-                    // Pre-populate one progress task per module in the job definition.
-                    var moduleProgress = new Dictionary<string, ProgressTask>(StringComparer.Ordinal);
-                    foreach (var m in modules)
-                    {
-                        var maxVal = string.Equals(m.Name, "WorkItems", StringComparison.Ordinal) && totalWorkItems > 0
-                            ? (double)totalWorkItems
-                            : 0; // 0 = indeterminate spinner until the agent sends TotalWorkItems
-                        moduleProgress[m.Name] = ctx.AddTask($"[bold]{Markup.Escape(m.Name)}[/]", maxValue: maxVal);
-                    }
-
                     await foreach (var evt in client.FollowLogsAsync(parsedJobId, followCts.Token).ConfigureAwait(false))
                     {
                         lastEvt = evt;
 
-                        var key = string.IsNullOrEmpty(evt.Module) ? "WorkItems" : evt.Module;
-                        if (!moduleProgress.TryGetValue(key, out var progressTask))
+                        if (!string.IsNullOrEmpty(evt.Stage))
+                            currentStage = evt.Stage;
+
+                        if (evt.WorkItemId != 0 && evt.WorkItemId != lastWiId)
                         {
-                            // Agent reported a module not listed in the job definition — add it dynamically.
-                            var agentMax = evt.TotalWorkItems > 0 ? (double)evt.TotalWorkItems : 0;
-                            progressTask = ctx.AddTask($"[bold]{Markup.Escape(key)}[/]", maxValue: agentMax);
-                            moduleProgress[key] = progressTask;
+                            // The previous WI just completed — record it for the completed row.
+                            if (lastWiId != 0)
+                            {
+                                lastCompletedWiId = lastWiId;
+                                lastCompletedRevisions = prevRevisions - wiStartRevisions;
+                            }
+                            lastWiId = evt.WorkItemId;
+                            wiStartRevisions = prevRevisions;
                         }
 
-                        // If the agent now knows the total and we didn't have one yet, adopt it.
-                        if (evt.TotalWorkItems > 0 && progressTask.MaxValue <= 0)
-                            progressTask.MaxValue = evt.TotalWorkItems;
+                        if (evt.WorkItemId != 0)
+                            wiRevisions = evt.RevisionsProcessed - wiStartRevisions;
 
-                        // Set absolute value (not incremental) so out-of-order events don't corrupt the bar.
-                        if (evt.WorkItemsProcessed > 0)
-                            progressTask.Value = evt.WorkItemsProcessed;
+                        prevRevisions = evt.RevisionsProcessed;
+
+                        ctx.UpdateTarget(BuildProgressRenderable(
+                            evt.WorkItemsProcessed, totalWorkItems,
+                            lastWiId, wiRevisions,
+                            lastCompletedWiId, lastCompletedRevisions,
+                            currentStage, progressStartTime));
                     }
-
-                    // Clamp all tasks to their max so the bars show 100 % on completion.
-                    foreach (var t in moduleProgress.Values)
-                        t.Value = t.MaxValue;
                 });
         }
         catch (InvalidOperationException ex) when (ex.Message.Contains("Job failed"))
@@ -307,6 +316,15 @@ public sealed class MigrationExportCommand : ControlPlaneCommandBase<MigrationEx
             console.MarkupLine("[yellow]Detached from diagnostic stream. Job continues running on the server.[/]");
             console.MarkupLine("[grey]Use [bold]tui[/] to resume watching.[/]");
             return 0;
+        }
+        finally
+        {
+            // Restore stdout and flush anything the Console logger wrote during the live render.
+            Console.SetOut(originalOut);
+            var captured = logBuffer.ToString();
+            logBuffer.Dispose();
+            if (!string.IsNullOrWhiteSpace(captured))
+                console.Write(new Text(captured.TrimEnd()));
         }
 
         // Stop diagnostics stream.
@@ -325,6 +343,69 @@ public sealed class MigrationExportCommand : ControlPlaneCommandBase<MigrationEx
         else
             ShowSuccess(console, "Work item export complete.");
         return 0;
+    }
+
+    /// <summary>
+    /// Builds the fixed 3-row Live renderable:
+    ///   Row 1 — overall WorkItems progress bar
+    ///   Row 2 — last completed work item (full bar, greyed)
+    ///   Row 3 — current work item in progress (partial bar)
+    /// Row count is always exactly 3 so Live()'s cursor-up stays stable.
+    /// </summary>
+    private static IRenderable BuildProgressRenderable(
+        int processed, int total,
+        int currentWiId, int currentWiRevisions,
+        int lastCompletedWiId, int lastCompletedRevisions,
+        string stage, DateTimeOffset startTime)
+    {
+        const int BarWidth = 38;
+        const int WiBarWidth = 20;
+
+        // ── Row 1: overall progress ──────────────────────────────────────────────────
+        var pct = total > 0 ? (double)processed / total : 0.0;
+        var filled = (int)(pct * BarWidth);
+        var overallBar = new string('━', filled) + new string('─', BarWidth - filled);
+        var stageStr = string.IsNullOrEmpty(stage) ? string.Empty : $"  [grey]{Markup.Escape(stage)}[/]";
+        var etaStr = ComputeEta(startTime, processed, total);
+        var overall = new Markup(
+            $"[bold]WorkItems[/]{stageStr}  [blue]{Markup.Escape(overallBar)}[/]" +
+            $"  [bold]{processed:N0}[/][grey]/{total:N0}[/]" +
+            $"  [grey]{pct * 100.0:F1}%[/]  [grey]ETA: {Markup.Escape(etaStr)}[/]");
+
+        // ── Row 2: last completed WI (full bar = 100 %) ──────────────────────────────
+        IRenderable completedRow = lastCompletedWiId > 0
+            ? new Markup($"  [grey]✓ WI {lastCompletedWiId}  {new string('━', WiBarWidth)}  {lastCompletedRevisions} rev  done[/]")
+            : new Markup("  [grey]─[/]");
+
+        // ── Row 3: current WI in progress (partial bar, never reaches 100 %) ─────────
+        IRenderable currentRow;
+        if (currentWiId > 0)
+        {
+            // Bar fills as revisions arrive; capped one below full so it never
+            // reads as 100 % while the item is still being processed.
+            var wiBarFilled = Math.Min(currentWiRevisions, WiBarWidth - 1);
+            var wiBar = new string('━', wiBarFilled) + new string('─', WiBarWidth - wiBarFilled);
+            currentRow = new Markup(
+                $"  [grey]↳[/] WI [bold]{currentWiId}[/]  [blue]{Markup.Escape(wiBar)}[/]  [grey]{currentWiRevisions} rev[/]");
+        }
+        else
+        {
+            currentRow = new Markup("  [grey]↳ waiting…[/]");
+        }
+
+        return new Rows(overall, completedRow, currentRow);
+    }
+
+    private static string ComputeEta(DateTimeOffset startTime, int processed, int total)
+    {
+        if (processed <= 0 || total <= 0) return "--:--:--";
+        var elapsedSecs = (DateTimeOffset.UtcNow - startTime).TotalSeconds;
+        if (elapsedSecs < 1) return "--:--:--";
+        var remainingSecs = (total - processed) / (processed / elapsedSecs);
+        var eta = TimeSpan.FromSeconds(remainingSecs);
+        return eta.TotalHours >= 1
+            ? $"{(int)eta.TotalHours}:{eta.Minutes:D2}:{eta.Seconds:D2}"
+            : $"--:{eta.Minutes:D2}:{eta.Seconds:D2}";
     }
 
     /// <summary>
