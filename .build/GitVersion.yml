@@ -1,0 +1,19 @@
+assembly-versioning-scheme: MajorMinorPatch
+mode: ContinuousDelivery
+label: 'Canary'
+next-version: 16.0.0
+branches:
+  main:
+    regex: ^master$|^main$
+    mode: ContinuousDelivery
+    label: 'Preview'
+    increment: Patch
+  release:
+    regex: ^release(s)?[\/-]
+    mode: ContinuousDelivery
+    label: ''
+    increment: Patch
+    track-merge-target: false
+    source-branches:
+    - main
+    is-release-branch: true

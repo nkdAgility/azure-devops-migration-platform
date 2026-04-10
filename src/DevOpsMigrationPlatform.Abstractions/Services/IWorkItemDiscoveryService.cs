@@ -15,10 +15,26 @@ public interface IWorkItemDiscoveryService
 {
     /// <summary>
     /// Streams incremental work-item discovery snapshots for <paramref name="project"/>.
+    /// Fetches work item IDs and revision counts (<c>System.Rev</c>) for every work item found.
     /// </summary>
     IAsyncEnumerable<ProjectDiscoverySummary> DiscoverWorkItemsAsync(
         string url,
         string project,
         string pat,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Counts work items matching <paramref name="baseQuery"/> (or all project work items when
+    /// <see langword="null"/>) using the same date-window chunking as export.
+    /// Cheaper than <see cref="DiscoverWorkItemsAsync"/>: counts IDs only — does not fetch
+    /// <c>System.Rev</c> per work item.
+    /// Streams incremental snapshots; the final snapshot has
+    /// <see cref="ProjectDiscoverySummary.IsWorkItemComplete"/> = <c>true</c>.
+    /// </summary>
+    IAsyncEnumerable<ProjectDiscoverySummary> CountWorkItemsAsync(
+        string url,
+        string project,
+        string pat,
+        string? baseQuery = null,
         CancellationToken cancellationToken = default);
 }

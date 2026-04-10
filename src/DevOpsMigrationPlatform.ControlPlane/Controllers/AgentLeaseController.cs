@@ -57,6 +57,7 @@ public sealed class AgentLeaseController : ControllerBase
         var leaseId = Guid.NewGuid().ToString("N");
         var jobId = Guid.Parse(job.JobId);
         _resolver.RegisterLease(leaseId, jobId);
+        _jobStore.SetState(jobId, "Leased");
 
         _logger.LogInformation(
             "Lease {LeaseId} granted to agent for job {JobId}", leaseId, jobId);

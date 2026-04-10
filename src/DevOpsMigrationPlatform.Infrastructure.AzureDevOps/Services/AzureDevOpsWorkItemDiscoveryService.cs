@@ -113,4 +113,72 @@ public sealed class AzureDevOpsWorkItemDiscoveryService : IWorkItemDiscoveryServ
         summary.LastUpdatedUtc = DateTime.UtcNow;
         yield return summary;
     }
+
+    public async IAsyncEnumerable<ProjectDiscoverySummary> CountWorkItemsAsync(
+        string organisationUrl,
+        string project,
+        string pat,
+        string? baseQuery = null,
+        [EnumeratorCancellation] CancellationToken cancellationToken = default)
+    {
+        var summary = new ProjectDiscoverySummary { ProjectName = project };
+
+        var options = baseQuery is not null
+            ? new WorkItemQueryWindowOptions { BaseQuery = baseQuery }
+            : null;
+
+        var enumerator = _windowStrategy
+            .EnumerateWindowsAsync(organisationUrl, project, pat, options: options, cancellationToken: cancellationToken)
+            .GetAsyncEnumerator(cancellationToken);
+
+        try
+        {
+            while (true)
+            {
+                bool hasNext;
+                Exception? windowError = null;
+
+                try
+                {
+                    hasNext = await enumerator.MoveNextAsync();
+                }
+                catch (OperationCanceledException)
+                {
+                    throw;
+                }
+                catch (Exception ex)
+                {
+                    windowError = ex;
+                    hasNext = false;
+                }
+
+                if (windowError != null)
+                {
+                    summary.Error = windowError.Message;
+                    summary.IsWorkItemComplete = true;
+                    summary.LastUpdatedUtc = DateTime.UtcNow;
+                    yield return summary;
+                    yield break;
+                }
+
+                if (!hasNext)
+                    break;
+
+                var window = enumerator.Current;
+                cancellationToken.ThrowIfCancellationRequested();
+
+                summary.WorkItemsCount += window.WorkItemIds.Count;
+                summary.LastUpdatedUtc = DateTime.UtcNow;
+                yield return summary;
+            }
+        }
+        finally
+        {
+            await enumerator.DisposeAsync();
+        }
+
+        summary.IsWorkItemComplete = true;
+        summary.LastUpdatedUtc = DateTime.UtcNow;
+        yield return summary;
+    }
 }

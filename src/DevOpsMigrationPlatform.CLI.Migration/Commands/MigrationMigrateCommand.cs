@@ -14,6 +14,7 @@ public sealed class MigrationMigrateCommand : ControlPlaneCommandBase<MigrationC
     protected override Task<int> ExecuteInternalAsync(CommandContext context, MigrationCommandSettings settings, CancellationToken cancellationToken = default)
     {
         AnsiConsole.MarkupLine("[grey]migrate — not yet implemented.[/]");
+        // TODO: When implemented, call PrintJobSubmitted(console, jobId, resolvedUrl) immediately after SubmitAsync (FR-012).
         return Task.FromResult(1);
     }
 }

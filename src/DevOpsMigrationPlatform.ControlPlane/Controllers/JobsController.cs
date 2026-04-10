@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Text.Json;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
@@ -23,6 +24,27 @@ public sealed class JobsController : ControllerBase
     {
         _jobStore = jobStore;
         _logger = logger;
+    }
+
+    /// <summary>
+    /// Returns all visible jobs as a list of <see cref="JobSummary"/>.
+    /// <c>GET /jobs</c>
+    /// Returns 200 with JSON array (empty array when no jobs exist).
+    /// </summary>
+    [HttpGet("/jobs")]
+    [ProducesResponseType(typeof(JobSummary[]), 200)]
+    public IActionResult GetAllJobs()
+    {
+        var records = _jobStore.GetAllRecords();
+        var summaries = records.Select(r => new JobSummary(
+            Guid.Parse(r.Job.JobId),
+            r.Job.Mode,
+            r.State,
+            r.SubmittedByUpn,
+            r.SubmittedAt
+        )).ToArray();
+
+        return Ok(summaries);
     }
 
     /// <summary>

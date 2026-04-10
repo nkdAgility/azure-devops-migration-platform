@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.ControlPlane.Models;
 
 namespace DevOpsMigrationPlatform.ControlPlane.Services;
 
@@ -32,4 +33,14 @@ public interface IJobStore
     /// Returns the job with the given id, or <c>null</c> if not found.
     /// </summary>
     MigrationJob? Get(Guid jobId);
+
+    /// <summary>
+    /// Returns all submitted jobs with their runtime state, submission time, and submitter identity.
+    /// </summary>
+    IReadOnlyList<JobRecord> GetAllRecords();
+
+    /// <summary>
+    /// Updates the tracked state for a job (e.g. Queued → Leased → Running → Completed/Failed).
+    /// </summary>
+    void SetState(Guid jobId, string state);
 }

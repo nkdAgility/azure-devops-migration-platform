@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.ControlPlane.Models;
 
 namespace DevOpsMigrationPlatform.ControlPlane.Services;
 
@@ -15,6 +16,8 @@ namespace DevOpsMigrationPlatform.ControlPlane.Services;
 public sealed class JobStore : IJobStore
 {
     private readonly ConcurrentDictionary<Guid, MigrationJob> _all = new();
+    private readonly ConcurrentDictionary<Guid, string> _states = new();
+    private readonly ConcurrentDictionary<Guid, DateTimeOffset> _submittedAt = new();
     private readonly SemaphoreSlim _pendingSignal = new(0);
     private readonly ConcurrentQueue<Guid> _pending = new();
 
@@ -26,6 +29,8 @@ public sealed class JobStore : IJobStore
     {
         var jobId = Guid.Parse(job.JobId);
         _all[jobId] = job;
+        _states[jobId] = "Queued";
+        _submittedAt[jobId] = DateTimeOffset.UtcNow;
         _pending.Enqueue(jobId);
         _pendingSignal.Release();
         return jobId;
@@ -60,4 +65,21 @@ public sealed class JobStore : IJobStore
     /// </summary>
     public MigrationJob? Get(Guid jobId) =>
         _all.TryGetValue(jobId, out var job) ? job : null;
+
+    /// <inheritdoc />
+    public IReadOnlyList<JobRecord> GetAllRecords()
+    {
+        var result = new List<JobRecord>(_all.Count);
+        foreach (var (jobId, job) in _all)
+        {
+            var state = _states.TryGetValue(jobId, out var s) ? s : "Queued";
+            var submittedAt = _submittedAt.TryGetValue(jobId, out var t) ? t : DateTimeOffset.UtcNow;
+            result.Add(new JobRecord(job, state, string.Empty, submittedAt));
+        }
+        return result;
+    }
+
+    /// <inheritdoc />
+    public void SetState(Guid jobId, string state) =>
+        _states[jobId] = state;
 }

@@ -14,6 +14,7 @@ public sealed class MigrationPrepareCommand : ControlPlaneCommandBase<MigrationC
     protected override Task<int> ExecuteInternalAsync(CommandContext context, MigrationCommandSettings settings, CancellationToken cancellationToken = default)
     {
         AnsiConsole.MarkupLine("[grey]prepare — not yet implemented.[/]");
+        // prepare does not submit a job — FR-012 excludes this command.
         return Task.FromResult(1);
     }
 }

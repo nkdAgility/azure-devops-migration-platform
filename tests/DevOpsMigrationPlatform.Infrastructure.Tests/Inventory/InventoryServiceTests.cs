@@ -418,4 +418,130 @@ public class InventoryServiceTests
         Assert.ThrowsException<ArgumentNullException>(() =>
             new AzureDevOpsRepoDiscoveryService(null!));
     }
+
+    // ── CountWorkItemsAsync ───────────────────────────────────────────────────
+
+    /// <summary>
+    /// Builds a strategy mock whose <c>EnumerateWindowsAsync</c> records the options
+    /// it was called with and yields the provided windows.
+    /// </summary>
+    private static (Mock<IWorkItemQueryWindowStrategy> strategyMock, List<WorkItemQueryWindowOptions?> capturedOptions)
+        BuildCountingStrategyMock(params IReadOnlyList<int>[] windowIdSets)
+    {
+        var capturedOptions = new List<WorkItemQueryWindowOptions?>();
+        var strategyMock = new Mock<IWorkItemQueryWindowStrategy>(MockBehavior.Strict);
+        strategyMock
+            .Setup(s => s.EnumerateWindowsAsync(
+                It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(),
+                It.IsAny<WorkItemQueryWindowOptions?>(), It.IsAny<CancellationToken>()))
+            .Returns<string, string, string, WorkItemQueryWindowOptions?, CancellationToken>(
+                (_, _, _, opts, ct) =>
+                {
+                    capturedOptions.Add(opts);
+                    return YieldWindows(windowIdSets, ct);
+                });
+        return (strategyMock, capturedOptions);
+    }
+
+    private static async IAsyncEnumerable<WorkItemQueryWindow> YieldWindows(
+        IReadOnlyList<int>[] windowIdSets,
+        [EnumeratorCancellation] CancellationToken ct = default)
+    {
+        foreach (var ids in windowIdSets)
+        {
+            ct.ThrowIfCancellationRequested();
+            yield return new WorkItemQueryWindow { WorkItemIds = ids };
+        }
+    }
+
+    [TestMethod]
+    public async Task CountWorkItemsAsync_WithNoBaseQuery_PassesNullOptionsToStrategy()
+    {
+        // Arrange
+        var (strategyMock, capturedOptions) = BuildCountingStrategyMock(
+            new[] { 1, 2, 3 });
+        var clientFactory = new Mock<IAzureDevOpsClientFactory>(MockBehavior.Strict);
+        var sut = new AzureDevOpsWorkItemDiscoveryService(strategyMock.Object, clientFactory.Object);
+
+        // Act
+        var snapshots = new List<ProjectDiscoverySummary>();
+        await foreach (var s in sut.CountWorkItemsAsync("https://dev.azure.com/org", "Proj", "pat", baseQuery: null))
+            snapshots.Add(s);
+
+        // Assert
+        Assert.AreEqual(1, capturedOptions.Count);
+        Assert.IsNull(capturedOptions[0], "null baseQuery must pass null options to the strategy");
+    }
+
+    [TestMethod]
+    public async Task CountWorkItemsAsync_WithBaseQuery_PassesOptionsWithQueryToStrategy()
+    {
+        // Arrange
+        const string query = "SELECT [System.Id] FROM WorkItems WHERE [System.TeamProject] = @project";
+        var (strategyMock, capturedOptions) = BuildCountingStrategyMock(
+            new[] { 10, 20 });
+        var clientFactory = new Mock<IAzureDevOpsClientFactory>(MockBehavior.Strict);
+        var sut = new AzureDevOpsWorkItemDiscoveryService(strategyMock.Object, clientFactory.Object);
+
+        // Act
+        await foreach (var _ in sut.CountWorkItemsAsync("https://dev.azure.com/org", "Proj", "pat", baseQuery: query)) { }
+
+        // Assert
+        Assert.AreEqual(1, capturedOptions.Count);
+        Assert.IsNotNull(capturedOptions[0], "non-null baseQuery must pass options to the strategy");
+        Assert.AreEqual(query, capturedOptions[0]!.BaseQuery, "BaseQuery must match the provided query");
+    }
+
+    [TestMethod]
+    public async Task CountWorkItemsAsync_StreamsCumulativeCountAndFinalCompleteSnapshot()
+    {
+        // Arrange: two windows, 3 IDs then 2 IDs
+        var (strategyMock, _) = BuildCountingStrategyMock(
+            new[] { 1, 2, 3 },
+            new[] { 4, 5 });
+        var clientFactory = new Mock<IAzureDevOpsClientFactory>(MockBehavior.Strict);
+        var sut = new AzureDevOpsWorkItemDiscoveryService(strategyMock.Object, clientFactory.Object);
+
+        // ProjectDiscoverySummary is mutable and the implementation re-yields the same reference.
+        // Capture scalar values at each yield point instead of collecting object references.
+        var capturedCounts = new List<int>();
+        var capturedComplete = new List<bool>();
+
+        await foreach (var s in sut.CountWorkItemsAsync("https://dev.azure.com/org", "Proj", "pat"))
+        {
+            capturedCounts.Add(s.WorkItemsCount);
+            capturedComplete.Add(s.IsWorkItemComplete);
+        }
+
+        // Assert: two intermediate snapshots + one final
+        Assert.AreEqual(3, capturedCounts.Count, "One snapshot per window plus one final");
+        Assert.AreEqual(3, capturedCounts[0], "First snapshot after window 1");
+        Assert.AreEqual(5, capturedCounts[1], "Second snapshot after window 2");
+        Assert.AreEqual(5, capturedCounts[2], "Final count must be the total across all windows");
+        Assert.IsTrue(capturedComplete[2], "Last snapshot must be marked complete");
+        Assert.IsFalse(capturedComplete[0], "Intermediate snapshots must not be marked complete");
+    }
+
+    [TestMethod]
+    public async Task CountWorkItemsAsync_EmptyProject_YieldsOnlyFinalCompleteSnapshot()
+    {
+        // Arrange: strategy yields no windows
+        var (strategyMock, _) = BuildCountingStrategyMock( /* no windows */);
+        var clientFactory = new Mock<IAzureDevOpsClientFactory>(MockBehavior.Strict);
+        var sut = new AzureDevOpsWorkItemDiscoveryService(strategyMock.Object, clientFactory.Object);
+
+        // Act: capture values at iteration time (ProjectDiscoverySummary is a mutable reference)
+        var capturedCounts = new List<int>();
+        var capturedComplete = new List<bool>();
+        await foreach (var s in sut.CountWorkItemsAsync("https://dev.azure.com/org", "Proj", "pat"))
+        {
+            capturedCounts.Add(s.WorkItemsCount);
+            capturedComplete.Add(s.IsWorkItemComplete);
+        }
+
+        // Assert: one final snapshot with zero count
+        Assert.AreEqual(1, capturedCounts.Count, "Empty project must yield exactly one snapshot");
+        Assert.IsTrue(capturedComplete[0]);
+        Assert.AreEqual(0, capturedCounts[0]);
+    }
 }
