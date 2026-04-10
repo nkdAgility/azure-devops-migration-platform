@@ -383,7 +383,8 @@
             "request": "launch",
             "program": "${workspaceFolder}/src/DevOpsMigrationPlatform.CLI.Migration/bin/Debug/net10.0/devopsmigration.exe",
             "args": [
-                "tui"
+                "tui",
+                "--url", "http://localhost:5100"
             ],
             "cwd": "${workspaceFolder}",
             "console": "integratedTerminal",
@@ -444,6 +445,16 @@
             "console": "integratedTerminal",
             "stopAtEntry": false,
             "preLaunchTask": "build-tfs-cli"
+        }
+    ],
+    "compounds": [
+        {
+            "name": "📤 Migration CLI: Export (CLIENT) + TUI",
+            "configurations": [
+                "📤 Migration CLI: Export (CLIENT)",
+                "🖥️  Migration CLI: TUI"
+            ],
+            "stopAll": true
         }
     ]
 }

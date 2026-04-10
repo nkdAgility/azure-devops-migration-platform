@@ -44,6 +44,7 @@ The control plane does **not** run the Job Engine, call source or target APIs, o
 | `GET` | `/jobs/{jobId}/progress?follow=true` | **SSE stream**: push `ProgressEvent` records in real time as they arrive; heartbeat comment every 15 s. Sends `event: job-ended` when the job reaches a terminal state. Requires same auth as `GET /jobs/{jobId}`. |
 | `GET` | `/jobs/{jobId}/diagnostics` | Return buffered diagnostic log records as a JSON array (snapshot). Accepts `?level=` filter (`Trace`, `Debug`, `Information`, `Warning`, `Error`, `Critical`). Requires same auth as `GET /jobs/{jobId}`. |
 | `GET` | `/jobs/{jobId}/diagnostics?follow=true` | **SSE stream**: push diagnostic log records in real time. Accepts `?level=` filter. Heartbeat comment every 15 s. Requires same auth as `GET /jobs/{jobId}`. |
+| `GET` | `/jobs/{jobId}/telemetry` | Return the latest `MetricSnapshot` for the job. `204 No Content` when no snapshot has been pushed yet by the Migration Agent. Requires same auth as `GET /jobs/{jobId}`. |
 | `GET` | `/jobs/{jobId}/logs/download` | Download the package log files (`Logs/progress.jsonl` and `Logs/agent.jsonl`) for a completed job. Requires same auth as `GET /jobs/{jobId}`. |
 
 ### Migration Agent Protocol

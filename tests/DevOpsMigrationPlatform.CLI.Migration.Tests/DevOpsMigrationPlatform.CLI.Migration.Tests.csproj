@@ -17,6 +17,7 @@
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
+    <PackageReference Include="NJsonSchema" Version="11.4.0" />
     <PackageReference Include="Spectre.Console.Cli" Version="0.55.0" />
     <PackageReference Include="Spectre.Console.Cli.Testing" Version="0.55.0" />
     <PackageReference Include="Moq" Version="4.20.72" />

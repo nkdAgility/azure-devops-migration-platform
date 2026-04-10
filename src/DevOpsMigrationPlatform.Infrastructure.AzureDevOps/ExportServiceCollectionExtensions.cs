@@ -33,4 +33,20 @@ public static class ExportServiceCollectionExtensions
         services.AddTransient<IDataTypeModule, WorkItemsModule>();
         return services;
     }
+
+    /// <summary>
+    /// Registers only the services required for pre-flight work item counting.
+    /// Lighter-weight than <see cref="AddAzureDevOpsWorkItemExport"/> — registers the
+    /// query window strategy and discovery service without the full export pipeline.
+    /// Intended for CLI commands that need a work item count before submitting a job.
+    /// </summary>
+    public static IServiceCollection AddAzureDevOpsWorkItemCount(
+        this IServiceCollection services)
+    {
+        services.AddSingleton<IAzureDevOpsClientFactory, AzureDevOpsClientFactory>();
+        services.AddSingleton<IWiqlQueryClientFactory, AzureDevOpsWiqlQueryClientFactory>();
+        services.AddSingleton<IWorkItemQueryWindowStrategy, WorkItemQueryWindowStrategy>();
+        services.AddSingleton<IWorkItemDiscoveryService, AzureDevOpsWorkItemDiscoveryService>();
+        return services;
+    }
 }

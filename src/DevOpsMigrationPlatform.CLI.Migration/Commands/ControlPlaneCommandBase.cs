@@ -2,7 +2,9 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using DevOpsMigrationPlatform.CLI.Migration.Settings;
+using Spectre.Console;
 using Spectre.Console.Cli;
+using System;
 
 namespace DevOpsMigrationPlatform.CLI.Migration.Commands;
 
@@ -51,5 +53,16 @@ public abstract class ControlPlaneCommandBase<TSettings> : CommandBase<TSettings
             await _localStack.DisposeAsync();
             _localStack = null;
         }
+    }
+
+    /// <summary>
+    /// Prints the assigned Job ID and control plane URL immediately after a successful job submission.
+    /// Must be called before any progress output begins (FR-012, FR-013, SC-004).
+    /// </summary>
+    protected static void PrintJobSubmitted(IAnsiConsole console, Guid jobId, string controlPlaneUrl)
+    {
+        console.MarkupLine("[green]\u2713[/] Job submitted.");
+        console.MarkupLine($"  Job ID  : [bold]{jobId}[/]");
+        console.MarkupLine($"  Control : [blue]{Markup.Escape(controlPlaneUrl)}[/]");
     }
 }
