@@ -1,7 +1,7 @@
 assembly-versioning-scheme: MajorMinorPatch
 mode: ContinuousDelivery
 label: 'Canary'
-next-version: 16.0.0
+next-version: 20.0.0
 branches:
   main:
     regex: ^master$|^main$
