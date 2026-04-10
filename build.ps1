@@ -45,10 +45,10 @@
       - Agent-{SemVer}.zip            — Migration Agent worker
 
 .PARAMETER Mode
-    Build | Test | SystemTest | Package | Full | Start   (default: Build)
+    Build | Test | SystemTest | Package | Full | Start   (default: Full)
 
 .EXAMPLE
-    pwsh ./build.ps1
+    pwsh ./build.ps1                  # Full pipeline
     pwsh ./build.ps1 -Mode Build
     pwsh ./build.ps1 -Mode Test
     pwsh ./build.ps1 -Mode SystemTest
@@ -58,7 +58,7 @@
 #>
 param(
     [ValidateSet('Build', 'Test', 'SystemTest', 'Package', 'Full', 'Start')]
-    [string]$Mode = 'Build'
+    [string]$Mode = 'Full'
 )
 
 $ErrorActionPreference = 'Stop'
