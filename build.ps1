@@ -92,10 +92,12 @@ function Resolve-GitVersion {
 
     $rawOutput = $null
 
+    $ConfigFile = Join-Path $RepoRoot '.build/GitVersion.yml'
+
     # Prefer global install (set up by gittools/actions/gitversion/setup in CI)
     $gvCmd = Get-Command 'dotnet-gitversion' -ErrorAction SilentlyContinue
     if ($gvCmd) {
-        $rawOutput = & dotnet-gitversion /output json 2>&1
+        $rawOutput = & dotnet-gitversion /config $ConfigFile /output json 2>&1
     } else {
         # Fall back to local tool manifest
         dotnet tool restore --verbosity quiet 2>&1 | Out-Null
@@ -103,7 +105,7 @@ function Resolve-GitVersion {
             Write-Error "dotnet tool restore failed (exit $LASTEXITCODE). Ensure .config/dotnet-tools.json is present or install GitVersion globally: dotnet tool install --global GitVersion.Tool --version 6.1.0"
             exit 1
         }
-        $rawOutput = & dotnet tool run dotnet-gitversion -- /output json 2>&1
+        $rawOutput = & dotnet tool run dotnet-gitversion -- /config $ConfigFile /output json 2>&1
     }
 
     if ($LASTEXITCODE -ne 0) {

@@ -19,7 +19,7 @@ jobs:
       contents: read
       pull-requests: write
     outputs:
-      semver: ${{ steps.version.outputs.semver }}
+      semver: ${{ steps.version.outputs.semVer }}
 
     steps:
       - name: Checkout
@@ -37,11 +37,12 @@ jobs:
         with:
           versionSpec: "6.1.0"
 
-      - name: Resolve version
+      - name: Determine Version
         id: version
-        run: |
-          $json = dotnet-gitversion /output json | ConvertFrom-Json
-          "semver=$($json.SemVer)" >> $env:GITHUB_OUTPUT
+        uses: gittools/actions/gitversion/execute@v3
+        with:
+          useConfigFile: true
+          configFilePath: .build/GitVersion.yml
 
       # PRs: build once, then run unit + system tests against those binaries
       - name: Build and test (PR)
