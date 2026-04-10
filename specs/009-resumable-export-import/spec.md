@@ -68,27 +68,12 @@ An operator ran a migration in Both mode (export then import in a single job) an
 
 ---
 
-### User Story 4 - Operator Visibility into Resume State (Priority: P2)
-
-Before re-running an export or import, an operator wants to see what the current progress record contains — how many items have been processed, which module's cursor is at which position, and whether a resume or a fresh start is the planned action.
-
-**Why this priority**: Operators need confidence that resume will do the right thing before committing a long re-run. Without visibility, they have no way to verify the state before proceeding.
-
-**Independent Test**: Run an export, interrupt it, then run a `status` or `dry-run` check against the package. Verify output describes what has been done and what remains.
-
-**Acceptance Scenarios**:
-
-1. **Given** a package with a partial export progress record, **When** the operator queries the package status, **Then** the system reports how many items the cursor has passed and what the next item to be processed is.
-2. **Given** a package with no progress record, **When** the operator queries the package status, **Then** the system reports that no previous progress exists and a full run will begin.
-
----
-
 ### Edge Cases
 
 - What happens when the package path does not exist on resume? The system treats this as a fresh run and creates a new package.
 - What happens when the progress record is corrupt or partially written? The system falls back to the last valid cursor position it can read; if the file is unreadable, it treats this as a fresh start and logs a warning.
 - What happens when the source data has changed between the interrupted run and the resume? The export cursor skips already-exported positions by folder path; new work items added to the source since the last run that fall within the query scope will be exported if their natural sort position is after the cursor. Work items that were added before the cursor position will not be re-fetched. This is documented as a known limitation.
-- What happens on forced fresh start if the package already contains partial data? The existing package files and progress records for that module are deleted, and the module starts from scratch. Files belonging to other completed modules in the same package are not affected.
+- What happens on forced fresh start if the package already contains partial data? Only the cursor file(s) and the job phase record are deleted. Previously written package files are preserved and will be skipped via per-item existence checks (export) or via the identity map (import). The identity map itself is preserved so that already-created target work items and already-uploaded attachments are not re-created. Files belonging to other completed modules are not affected.
 - Can two jobs share the same package path? Two concurrent jobs writing to the same package path is forbidden. The system must detect this condition and reject the second job.
 
 ## Requirements *(mandatory)*
@@ -101,7 +86,7 @@ Before re-running an export or import, an operator wants to see what the current
 - **FR-004**: When resuming an import at a partially processed revision folder, the system MUST resume from the last completed stage (`CreatedOrUpdated`, `AppliedFields`, `AppliedLinks`, `UploadedAttachments`) within that folder rather than restarting the folder from scratch.
 - **FR-005**: The system MUST use the identity map (`Checkpoints/idmap.db` or `idmap.json`) to detect already-created target work items during resume and skip creation without duplicating them.
 - **FR-006**: The system MUST use the attachment record in the identity map to detect already-uploaded attachments during resume and skip re-upload.
-- **FR-007**: The system MUST support a forced fresh-start option that deletes the module's cursor file (and, for import, the relevant identity map entries) and re-processes all items.
+- **FR-007**: The system MUST support a forced fresh-start option that deletes the module's cursor file(s) and `Checkpoints/job.phase.json`, then re-processes all items from the beginning. The identity map (`Checkpoints/idmap.json`) MUST be preserved so that already-created target work items and already-uploaded attachments are not duplicated — force-fresh restarts enumeration without losing idempotency guarantees.
 - **FR-008**: In Both mode, the job engine MUST track export-phase and import-phase completion independently. If the export phase has a `Completed` cursor and the import phase has an in-progress or absent cursor, the job engine MUST skip the export phase entirely and proceed to resume the import.
 - **FR-009**: Each module MUST maintain its own cursor file using the naming convention `Checkpoints/<moduleName-lowercase>.cursor.json`. Modules MUST NOT share cursor files.
 - **FR-010**: The export cursor schema MUST follow the same structure as the import cursor schema: `lastProcessed` (relative path of last written revision folder), `stage` (`Completed` for export), and `updatedAt` (UTC timestamp).

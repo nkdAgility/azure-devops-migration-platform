@@ -62,29 +62,6 @@ This deletes all module cursor files under `Checkpoints/` and the phase record `
 
 ---
 
-## Check Resume State Before Running
-
-To see what the current package state contains without submitting a job:
-
-```
-devopsmigration export --config scenarios/export-ado-workitems-single-project.json --dry-run
-```
-
-Sample output:
-
-```
-Resume state for package: C:\Temp\MyPackage
-
-  Module: WorkItems (Export)
-    Cursor:            WorkItems/2026-04-10/00638500000000000-42-17/ (Completed)
-    Items past cursor: ~20,000 (will be skipped)
-    Items remaining:   unknown without querying source
-
-No job submitted. Use without --dry-run to execute.
-```
-
----
-
 ## Both-Mode Phase Resume
 
 When running a job with `Mode: Both` and the export phase completes but the import phase is interrupted:

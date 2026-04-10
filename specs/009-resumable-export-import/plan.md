@@ -113,7 +113,7 @@ features/platform/checkpointing/
 features/cli/execute/
 └── resume-mode.feature                       ← NEW: --force-fresh observable output system test
 
-.vscode/launch.json                           ← add --force-fresh and --dry-run profiles
+.vscode/launch.json                           ← add --force-fresh profiles
 ```
 
 ## Complexity Tracking
@@ -201,9 +201,8 @@ The control plane stores and forwards `MigrationJob.Resume` unchanged in all cas
 | T12 | `PhaseTrackingService` + `JobPhaseRecord` | Service reads/writes `job.phase.json` |
 | T13 | `MigrationAgentWorker` Both-mode phase skip | Worker reads phase record; skips completed phases; feature scenario S3-A |
 | T14 | Both-mode forced fresh-start deletes `job.phase.json` | Worker ForceFresh path; feature scenario S3-B |
-| T15 | `--force-fresh` CLI flag + `launch.json` entries | `MigrationExportCommandSettings`, `MigrationImportCommandSettings`, command wiring |
-| T16 | `--dry-run` operator visibility + system test | Observable CLI output; `[TestCategory("SystemTest")]` test |
-| T17 | Doc discrepancy rectification | Update `.agents/context/checkpointing.md`, `.agents/context/job-contract.md` |
+| T15 | `--force-fresh` CLI flag + `launch.json` entries | `MigrationExportCommandSettings`, `MigrationImportCommandSettings`, `MigrationMigrateCommandSettings`, command wiring |
+| T16 | Doc discrepancy rectification | Update `.agents/context/checkpointing.md`, `.agents/context/job-contract.md` |
 
 ### Architecture Alignment Post-Design
 

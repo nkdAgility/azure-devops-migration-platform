@@ -197,7 +197,7 @@ The entire file is read on orchestrator startup (once per import run) and held i
 ```
 No cursor → [first revision written] → cursor { lastProcessed: "WorkItems/…/folder-0/", stage: "Completed" }
                                      → [each subsequent revision] → cursor advanced
-                                     → [ForceFresh] → cursor deleted → starts from beginning
+                                     → [ForceFresh] → cursor deleted (idmap preserved) → re-enumerates from beginning; skips already-written folders via ExistsAsync
 ```
 
 ### Import Cursor
@@ -222,5 +222,5 @@ Re-run (Auto):
   importCompleted: false → run import from import cursor
 
 Re-run (ForceFresh):
-  Delete job.phase.json → delete all module cursors → run both phases from scratch
+  Delete job.phase.json → delete all module cursors (idmap preserved) → re-enumerate both phases from the beginning; idmap prevents duplicate target items
 ```

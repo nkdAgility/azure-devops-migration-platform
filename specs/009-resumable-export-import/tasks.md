@@ -10,13 +10,12 @@
 
 | Metric | Value |
 |---|---|
-| Total tasks | 38 |
+| Total tasks | 34 |
 | Phase 1 — Setup / Foundational | 4 |
 | Phase 2 — US1: Resume interrupted export | 7 |
 | Phase 3 — US2: Resume interrupted import | 14 |
 | Phase 4 — US3: Both-mode phase resume | 7 |
-| Phase 5 — US4: Operator visibility (dry-run) | 4 |
-| Phase 6 — Polish & cross-cutting | 2 |
+| Phase 5 — Polish & cross-cutting | 2 |
 | Parallel opportunities | T003, T004, T007, T009, T010, T014, T020, T021, T026, T027 |
 | MVP scope | Phase 1 + Phase 2 (US1 export resume is already partially implemented — adds forced fresh-start) |
 
@@ -53,7 +52,7 @@
 - [ ] T007 [P] [US1] Add `MigrationJobResume` sealed record and `ResumeMode` enum to `src/DevOpsMigrationPlatform.Abstractions/Models/MigrationJobResume.cs`
 - [ ] T008 [US1] Add `Resume` property (`MigrationJobResume?`) to `MigrationJob` in `src/DevOpsMigrationPlatform.Abstractions/Models/MigrationJob.cs`
 - [ ] T009 [US1] Wire `--force-fresh` into `MigrationExportCommand` in `src/DevOpsMigrationPlatform.CLI.Migration/Commands/MigrationExportCommand.cs` — set `job.Resume = new MigrationJobResume { Mode = ResumeMode.ForceFresh }` when flag is present
-- [ ] T010 [US1] Handle `ResumeMode.ForceFresh` in `src/DevOpsMigrationPlatform.MigrationAgent/MigrationAgentWorker.cs` — call `ICheckpointingService.DeleteCursorAsync` for each registered module before running modules
+- [ ] T010 [US1] Handle `ResumeMode.ForceFresh` in `src/DevOpsMigrationPlatform.MigrationAgent/MigrationAgentWorker.cs` — call `ICheckpointingService.DeleteCursorAsync` for each registered module before running; do **not** delete `Checkpoints/idmap.json` (identity map is preserved so already-created target items are not duplicated)
 - [ ] T011 [US1] Add `.vscode/launch.json` entry: `"export: force-fresh (export-ado-workitems-single-project)"` — command `devopsmigration export --config scenarios/export-ado-workitems-single-project.json --force-fresh`
 
 **Checkpoint**: Export with `--force-fresh` deletes cursor and re-runs all items. Default (no flag) resumes from cursor. `dotnet build` passes. `dotnet test` passes.
@@ -89,6 +88,7 @@
   - Execute stages A→B→C→D in order; write cursor after each stage completes
   - Write cursor with `stage: "Completed"` after Stage D
   - Do not buffer revision folders in memory; no in-memory sort
+  - **Emit a structured log/`IProgressSink` event when a non-null cursor is detected at startup**: include module name, `cursor.LastProcessed` path, and estimated skip count (FR-011 / SC-006); this event fires on both Auto resume and ForceFresh (where cursor was just cleared)
 - [ ] T016 [US2] Unit tests for `WorkItemImportOrchestrator` in `tests/DevOpsMigrationPlatform.Infrastructure.Tests/Import/WorkItemImportOrchestratorTests.cs`
 
 ### Stage Implementations
@@ -148,50 +148,21 @@
   - If `ExportCompleted == true` → skip all modules tagged as Export phase
   - After export modules complete → write `ExportCompleted = true`
   - After import modules complete → write `ImportCompleted = true`
-- [ ] T030 [US3] Extend `MigrationAgentWorker` `ForceFresh` path: also call `PhaseTrackingService.DeletePhaseRecordAsync` before resetting module cursors
-- [ ] T031 [US3] Add `--force-fresh` to `src/DevOpsMigrationPlatform.CLI.Migration/Settings/MigrationImportCommandSettings.cs` and wire into `MigrationImportCommand` (mirrors T006/T009 for import)
-- [ ] T032 [US3] Add `.vscode/launch.json` entries for `migrate --force-fresh` and `import --force-fresh`
+- [ ] T030 [US3] Extend `MigrationAgentWorker` `ForceFresh` path: call `PhaseTrackingService.DeletePhaseRecordAsync` before resetting module cursors; do **not** delete `Checkpoints/idmap.json` (identity map preserved so already-created target items are not duplicated)
+- [ ] T031 [US3] Add `--force-fresh` to `src/DevOpsMigrationPlatform.CLI.Migration/Settings/MigrationImportCommandSettings.cs` and wire into `MigrationImportCommand` (mirrors T006/T009 for import); also add `--force-fresh` to `MigrationMigrateCommandSettings.cs` and wire into `MigrationMigrateCommand` — `migrate` is used as a sync command where re-running continues from where export and import left off, so `--force-fresh` resets both cursors
+- [ ] T032 [US3] Add `.vscode/launch.json` entries for `migrate: force-fresh` and `import: force-fresh` (see contracts/cli-contracts.md for exact profile names and commands)
 
 **Checkpoint**: Both-mode re-run correctly skips completed export phase. Forced fresh-start works for `migrate` and `import`. `dotnet build` passes. `dotnet test` passes.
 
 ---
 
-## Phase 5: User Story 4 — Operator Visibility (Priority: P2)
+## Phase 5: Polish & Cross-Cutting
 
-**Goal**: Operator can run `--dry-run` on any migration command and see the current cursor state and estimated skip count without submitting a job.
-
-**Independent Test**: Run export, interrupt, then run `export --dry-run`. Verify output contains cursor path, estimated skip count, and "No job submitted".
-
-### Gherkin Feature File (US4)
-
-- [ ] T033 [US4] Extend `features/cli/execute/resume-mode.feature` with dry-run scenarios translating spec.md US4 Scenarios 1–2 into conformant Gherkin:
-  - Scenario: dry-run reports cursor position and estimated skip count for partial export
-  - Scenario: dry-run reports no prior progress when no cursor exists
-
-### Implementation (US4)
-
-- [ ] T034 [US4] Implement `--dry-run` resume-state reporting in `MigrationExportCommand` and `MigrationImportCommand`:
-  - When `settings.DryRun == true`: read cursor from `Checkpoints/workitems.cursor.json` via `IStateStore` at the package path
-  - Read `Checkpoints/job.phase.json` if `Mode == Both`
-  - Print formatted resume state report to console (see contracts/cli-contracts.md for required output fields)
-  - Exit without submitting any job
-- [ ] T035 [US4] Add `.vscode/launch.json` entries: `export: dry-run` and `import: dry-run`
-
-### System Test (US4)
-
-- [ ] T036 [US4] Add `[TestCategory("SystemTest")]` test in `tests/DevOpsMigrationPlatform.CLI.Migration.Tests/` asserting that `export --config ... --dry-run` produces output containing the cursor path, a "skipped" indicator, and the text "No job submitted"
-
-**Checkpoint**: `--dry-run` prints resume state and exits cleanly. System test passes. `dotnet build` passes. `dotnet test` passes.
-
----
-
-## Phase 6: Polish & Cross-Cutting
-
-- [ ] T037 Rectify documentation discrepancies logged in [discrepancies.md](discrepancies.md):
+- [ ] T033 Rectify documentation discrepancies logged in [discrepancies.md](discrepancies.md):
   - Add "Export Cursor Behaviour" subsection to `.agents/context/checkpointing.md`
   - Add `resume` block to the MigrationJob schema in `.agents/context/job-contract.md`
   - Add "Both-Mode Phase Tracking" section to `.agents/context/checkpointing.md`
-- [ ] T038 Run `dotnet clean && dotnet build --no-incremental` and `dotnet test` — confirm all pass; run `scenarios/export-ado-workitems-single-project.json` via `launch.json` profile and verify observable output shows resume behaviour
+- [ ] T034 Run `dotnet clean && dotnet build --no-incremental` and `dotnet test` — confirm all pass; run `scenarios/export-ado-workitems-single-project.json` via `launch.json` profile and verify observable output shows resume behaviour
 
 ---
 
@@ -216,13 +187,10 @@ T027 → T028 → T029 → T030
 T029 → T031 → T032
 T008 → T029 (MigrationJob.Resume needed by worker)
 
-T034 → T035 → T036
-
 T005, T006, T007, T009, T011 → Phase 2 complete
 T012, T013..T025 → Phase 3 complete
 T026..T032 → Phase 4 complete
-T033..T036 → Phase 5 complete
-T037, T038 → Done
+T033, T034 → Done
 ```
 
 ## Parallel Execution Opportunities
@@ -232,7 +200,7 @@ T037, T038 → Done
 | Foundational interfaces | T003, T007 | Both modify different files; no shared dependency |
 | Target service stub + model | T014, T027 | Different files; both unblock later tasks |
 | Stage D + ADO Stage A | T020, T021 | Different files within same orchestrator phase |
-| Feature files | T026, T033 | Different feature files; no shared dependency |
+| Feature files | T026, T005 | Different feature files; no shared dependency |
 
 ## Implementation Strategy
 
