@@ -70,6 +70,19 @@ public sealed class TfsObjectModelWorkItemDiscoveryService : IWorkItemDiscoveryS
         yield return summary;
     }
 
+    /// <summary>
+    /// TFS Object Model does not support custom WIQL-scoped pre-flight counting.
+    /// Delegates to <see cref="DiscoverWorkItemsAsync"/> using the full project scope.
+    /// The <paramref name="baseQuery"/> parameter is intentionally ignored.
+    /// </summary>
+    public IAsyncEnumerable<ProjectDiscoverySummary> CountWorkItemsAsync(
+        string url,
+        string project,
+        string pat,
+        string? baseQuery = null,
+        CancellationToken cancellationToken = default)
+        => DiscoverWorkItemsAsync(url, project, pat, cancellationToken);
+
     private static string EscapeWiql(string value)
         => value.Replace("'", "''");
 

@@ -104,7 +104,7 @@ public sealed class InventoryCommand : CommandBase<InventoryCommand.Settings>
 
             // Prefix counts with ~ when the result is partial (error stopped the scan).
             var partial = s.Error != null && (s.WorkItemsCount > 0 || s.RevisionsCount > 0);
-            var wiCount  = partial ? $"~{s.WorkItemsCount}"  : s.WorkItemsCount.ToString();
+            var wiCount = partial ? $"~{s.WorkItemsCount}" : s.WorkItemsCount.ToString();
             var revCount = partial ? $"~{s.RevisionsCount}" : s.RevisionsCount.ToString();
 
             table.AddRow(

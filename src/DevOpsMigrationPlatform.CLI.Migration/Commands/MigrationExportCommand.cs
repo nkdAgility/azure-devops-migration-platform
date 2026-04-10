@@ -59,6 +59,9 @@ public sealed class MigrationExportCommand : ControlPlaneCommandBase<MigrationEx
 
             services.AddTransient<IJobRunner>(sp => sp.GetRequiredService<ControlPlaneClient>());
 
+            // Pre-flight work item counting — uses the same date-window WIQL strategy as export.
+            services.AddExportPreflightServices();
+
             // TFS subprocess services — registered unconditionally so DI resolves them
             // correctly when the source type is TeamFoundationServer.
             services.AddSingleton<IProgressSink, AnsiProgressSink>();
@@ -102,6 +105,32 @@ public sealed class MigrationExportCommand : ControlPlaneCommandBase<MigrationEx
         console.MarkupLine($"[blue]ℹ[/] Package path  : [blue]{Markup.Escape(outputPath)}[/]");
 
         var modules = BuildModules(config);
+
+        // Pre-flight: count work items so we can show a deterministic progress bar.
+        var pat = config.Source!.Authentication?.ResolvedAccessToken ?? string.Empty;
+        var baseQuery = modules
+            .FirstOrDefault(m => string.Equals(m.Name, "WorkItems", StringComparison.Ordinal))
+            ?.Scopes.FirstOrDefault(s => string.Equals(s.Type, "wiql", StringComparison.Ordinal))
+            ?.Parameters.GetValueOrDefault("query") as string;
+
+        var totalWorkItems = 0;
+        var discovery = GetRequiredService<IWorkItemDiscoveryService>();
+
+        await console.Status()
+            .Spinner(Spinner.Known.Dots)
+            .SpinnerStyle(Style.Plain)
+            .StartAsync("[grey]Counting work items…[/]", async _ =>
+            {
+                await foreach (var snapshot in discovery.CountWorkItemsAsync(
+                    orgUrl, project, pat, baseQuery, cancellationToken))
+                {
+                    if (snapshot.IsWorkItemComplete)
+                        totalWorkItems = snapshot.WorkItemsCount;
+                }
+            });
+
+        if (totalWorkItems > 0)
+            console.MarkupLine($"[blue]ℹ[/] Work items found: [bold]{totalWorkItems:N0}[/]");
 
         // Build MigrationJob — no migration logic here.
         var job = new MigrationJob
@@ -179,7 +208,13 @@ public sealed class MigrationExportCommand : ControlPlaneCommandBase<MigrationEx
             return 1;
         }
 
-        // Start diagnostics streaming as a background task.
+        // Diagnostics records are buffered while the Progress() renderer owns the
+        // console, then flushed afterwards.  Writing directly to the console while
+        // Progress() is active causes rendering artefacts because Spectre's progress
+        // renderer is not thread-safe with concurrent console writers.
+        var diagnosticsBuffer = new System.Collections.Concurrent.ConcurrentQueue<string>();
+
+        // Start diagnostics streaming as a background task — enqueue, don't print.
         var diagnosticsTask = Task.Run(async () =>
         {
             try
@@ -193,7 +228,8 @@ public sealed class MigrationExportCommand : ControlPlaneCommandBase<MigrationEx
                         "Debug" or "Trace" => "grey",
                         _ => "blue"
                     };
-                    console.MarkupLine($"[{levelColor}]{Markup.Escape(record.Level)}[/] [{Markup.Escape(record.Category)}] {Markup.Escape(record.Message)}");
+                    diagnosticsBuffer.Enqueue(
+                        $"[{levelColor}]{Markup.Escape(record.Level)}[/] [{Markup.Escape(record.Category)}] {Markup.Escape(record.Message)}");
                 }
             }
             catch (OperationCanceledException)
@@ -206,21 +242,56 @@ public sealed class MigrationExportCommand : ControlPlaneCommandBase<MigrationEx
             }
         }, followCts.Token);
 
-        // Stream progress in the foreground.
+        // Stream progress in the foreground using per-module progress bars.
         try
         {
-            await console.Live(new Markup("[grey]Waiting for agent...[/]"))
+            await console.Progress()
+                .AutoRefresh(true)
+                .AutoClear(false)
+                .HideCompleted(false)
+                .Columns(
+                    new TaskDescriptionColumn(),
+                    new ProgressBarColumn(),
+                    new PercentageColumn(),
+                    new RemainingTimeColumn(),
+                    new SpinnerColumn())
                 .StartAsync(async ctx =>
                 {
+                    // Pre-populate one progress task per module in the job definition.
+                    var moduleProgress = new Dictionary<string, ProgressTask>(StringComparer.Ordinal);
+                    foreach (var m in modules)
+                    {
+                        var maxVal = string.Equals(m.Name, "WorkItems", StringComparison.Ordinal) && totalWorkItems > 0
+                            ? (double)totalWorkItems
+                            : 0; // 0 = indeterminate spinner until the agent sends TotalWorkItems
+                        moduleProgress[m.Name] = ctx.AddTask($"[bold]{Markup.Escape(m.Name)}[/]", maxValue: maxVal);
+                    }
+
                     await foreach (var evt in client.FollowLogsAsync(parsedJobId, followCts.Token).ConfigureAwait(false))
                     {
                         lastEvt = evt;
-                        if (evt.RevisionsProcessed > 0)
-                            ctx.UpdateTarget(new Markup(
-                                $"[blue]WorkItems[/]  [bold]{evt.WorkItemsProcessed}[/] work items / [bold]{evt.RevisionsProcessed}[/] revisions  [grey](wi#{evt.WorkItemId})[/]"));
-                        else if (!string.IsNullOrEmpty(evt.Message))
-                            ctx.UpdateTarget(new Markup($"[grey]{Markup.Escape(evt.Message)}[/]"));
+
+                        var key = string.IsNullOrEmpty(evt.Module) ? "WorkItems" : evt.Module;
+                        if (!moduleProgress.TryGetValue(key, out var progressTask))
+                        {
+                            // Agent reported a module not listed in the job definition — add it dynamically.
+                            var agentMax = evt.TotalWorkItems > 0 ? (double)evt.TotalWorkItems : 0;
+                            progressTask = ctx.AddTask($"[bold]{Markup.Escape(key)}[/]", maxValue: agentMax);
+                            moduleProgress[key] = progressTask;
+                        }
+
+                        // If the agent now knows the total and we didn't have one yet, adopt it.
+                        if (evt.TotalWorkItems > 0 && progressTask.MaxValue <= 0)
+                            progressTask.MaxValue = evt.TotalWorkItems;
+
+                        // Set absolute value (not incremental) so out-of-order events don't corrupt the bar.
+                        if (evt.WorkItemsProcessed > 0)
+                            progressTask.Value = evt.WorkItemsProcessed;
                     }
+
+                    // Clamp all tasks to their max so the bars show 100 % on completion.
+                    foreach (var t in moduleProgress.Values)
+                        t.Value = t.MaxValue;
                 });
         }
         catch (InvalidOperationException ex) when (ex.Message.Contains("Job failed"))
@@ -241,6 +312,10 @@ public sealed class MigrationExportCommand : ControlPlaneCommandBase<MigrationEx
         // Stop diagnostics stream.
         await followCts.CancelAsync();
         try { await diagnosticsTask; } catch (OperationCanceledException) { }
+
+        // Flush buffered diagnostics now that the Progress() renderer has released the console.
+        while (diagnosticsBuffer.TryDequeue(out var line))
+            console.MarkupLine(line);
 
         if (jobFailed)
             return 1;
