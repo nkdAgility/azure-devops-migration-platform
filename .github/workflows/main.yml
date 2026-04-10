@@ -44,15 +44,16 @@ jobs:
           useConfigFile: true
           configFilePath: .build/GitVersion.yml
 
-      # PRs: build once, then run unit + system tests against those binaries
-      - name: Build and test (PR)
-        if: github.event_name == 'pull_request'
-        run: |
-          pwsh ./build.ps1 -Mode Build
-          pwsh ./build.ps1 -Mode SystemTest
+      - name: Build
+        run: pwsh ./build.ps1 -Mode Build
 
-      # Main push / release: full pipeline (build + all tests + publish + zip)
-      - name: Build, test, and package
+      - name: Test
+        run: pwsh ./build.ps1 -Mode Test
+
+      - name: System Test
+        run: pwsh ./build.ps1 -Mode SystemTest
+
+      - name: Package
         if: github.event_name != 'pull_request'
         run: pwsh ./build.ps1 -Mode Package
 

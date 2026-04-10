@@ -6,27 +6,31 @@
 .DESCRIPTION
     Resolves version via GitVersion then executes the requested mode:
 
-      Build       — (default) Compile the solution and run unit tests
-                    (TestCategory!=SystemTest). Use this for fast feedback
-                    during development and as the first CI step.
+      Build       — (default) Compile the solution only. Use as the first step
+                    before running any tests.
+
+      Test        — Run unit tests (TestCategory!=SystemTest) against the
+                    already-compiled binaries.
 
       SystemTest  — Run only the slow/integration system tests
                     (TestCategory=SystemTest) against the already-compiled
-                    binaries. Run this after Build.
+                    binaries.
 
-      Package     — Build + unit tests + system tests + publish + zip.
-                    Produces distributable artefacts under ./artifacts/.
-                    Use for Preview (push to main) and Production (v* tags).
+      Package     — Publish + zip only against the already-compiled binaries.
+                    Produces distributable artefacts under ./output/.
 
-      Start       — Everything in Package, then launches the Aspire AppHost
+      Full        — Build + Test + SystemTest + Package in sequence.
+                    Use for Preview (push to main) and Production releases.
+
+      Start       — Everything in Full, then launches the Aspire AppHost
                     (ControlPlane + MigrationAgent) for local developer
                     simulation of the production topology. Ctrl-C to stop.
 
     Workflow matrix:
-      Canary  (PR)         :  Build  →  SystemTest   (separate steps)
-      Preview (main push)  :  Package
-      Production (v* / release): Package
-      Developer local      :  Start
+      PR                   :  Build  →  Test  →  SystemTest   (separate steps)
+      Preview (main push)  :  Build  →  Test  →  SystemTest  →  Package
+      Production (release) :  Build  →  Test  →  SystemTest  →  Package
+      Developer local      :  Full  (or Start to also launch Aspire)
 
     Prerequisites:
       - .NET SDK (see global.json)
@@ -41,17 +45,19 @@
       - Agent-{SemVer}.zip            — Migration Agent worker
 
 .PARAMETER Mode
-    Build | SystemTest | Package | Start   (default: Build)
+    Build | Test | SystemTest | Package | Full | Start   (default: Build)
 
 .EXAMPLE
     pwsh ./build.ps1
     pwsh ./build.ps1 -Mode Build
+    pwsh ./build.ps1 -Mode Test
     pwsh ./build.ps1 -Mode SystemTest
     pwsh ./build.ps1 -Mode Package
+    pwsh ./build.ps1 -Mode Full
     pwsh ./build.ps1 -Mode Start
 #>
 param(
-    [ValidateSet('Build', 'SystemTest', 'Package', 'Start')]
+    [ValidateSet('Build', 'Test', 'SystemTest', 'Package', 'Full', 'Start')]
     [string]$Mode = 'Build'
 )
 
@@ -89,6 +95,18 @@ function Invoke-Step {
 # ─────────────────────────────────────────────────────────────────────────────
 function Resolve-GitVersion {
     Write-Host "`n==> Resolving version via GitVersion..." -ForegroundColor Cyan
+
+    # When running in CI after gittools/actions/gitversion/execute the action
+    # exports all variables as environment variables (GitVersion_SemVer, etc.).
+    # Reuse them directly to avoid running the tool a second (or third) time.
+    if ($env:GitVersion_SemVer) {
+        Write-Host "  Using version from CI environment: $($env:GitVersion_SemVer)" -ForegroundColor DarkCyan
+        return [PSCustomObject]@{
+            SemVer               = $env:GitVersion_SemVer
+            AssemblySemVer       = $env:GitVersion_AssemblySemVer
+            InformationalVersion = $env:GitVersion_InformationalVersion
+        }
+    }
 
     $rawOutput = $null
 
@@ -292,30 +310,49 @@ New-Item -ItemType Directory -Path $StagingDir -Force | Out-Null
 switch ($Mode) {
 
     'Build' {
-        # ── Canary step 1: compile + unit tests ──────────────────────────────
-        Invoke-Build    -VersionArgs $VersionArgs
-        Invoke-UnitTests
+        # ── Compile only ─────────────────────────────────────────────────────
+        Invoke-Build -VersionArgs $VersionArgs
 
         Write-Host "`n==> Build complete!" -ForegroundColor Green
         Write-Host "  Version: $SemVer"
     }
 
+    'Test' {
+        # ── Unit tests only (requires prior Build) ───────────────────────────
+        Invoke-UnitTests
+
+        Write-Host "`n==> Unit tests complete!" -ForegroundColor Green
+    }
+
     'SystemTest' {
-        # ── Canary step 2: system tests only (binaries compiled by Build) ────
+        # ── System tests only (requires prior Build) ─────────────────────────
         Invoke-SystemTests
 
         Write-Host "`n==> System tests complete!" -ForegroundColor Green
     }
 
     'Package' {
-        # ── Preview / Production: full pipeline ──────────────────────────────
+        # ── Publish + zip only (requires prior Build) ────────────────────────
+        Invoke-Publish -StagingDir $StagingDir -VersionArgs $VersionArgs
+        Invoke-Package -SemVer $SemVer -StagingDir $StagingDir
+
+        Write-Host "`n==> Package complete!" -ForegroundColor Green
+        Write-Host "  Version:    $SemVer"
+        Write-Host "  Artefacts:"
+        Get-ChildItem -Path $ArtifactsDir -Filter '*.zip' | ForEach-Object {
+            Write-Host "    $($_.Name)"
+        }
+    }
+
+    'Full' {
+        # ── Everything: Build + Test + SystemTest + Package ───────────────────
         Invoke-Build       -VersionArgs $VersionArgs
         Invoke-UnitTests
         Invoke-SystemTests
         Invoke-Publish     -StagingDir $StagingDir -VersionArgs $VersionArgs
         Invoke-Package     -SemVer $SemVer -StagingDir $StagingDir
 
-        Write-Host "`n==> Package complete!" -ForegroundColor Green
+        Write-Host "`n==> Full pipeline complete!" -ForegroundColor Green
         Write-Host "  Version:    $SemVer"
         Write-Host "  Artefacts:"
         Get-ChildItem -Path $ArtifactsDir -Filter '*.zip' | ForEach-Object {
