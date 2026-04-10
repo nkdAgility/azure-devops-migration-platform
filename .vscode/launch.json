@@ -446,5 +446,15 @@
             "stopAtEntry": false,
             "preLaunchTask": "build-tfs-cli"
         }
+    ],
+    "compounds": [
+        {
+            "name": "📤 Migration CLI: Export (CLIENT) + TUI",
+            "configurations": [
+                "📤 Migration CLI: Export (CLIENT)",
+                "🖥️  Migration CLI: TUI"
+            ],
+            "stopAll": true
+        }
     ]
 }

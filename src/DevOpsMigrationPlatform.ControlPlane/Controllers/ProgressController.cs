@@ -153,6 +153,10 @@ public sealed class ProgressController : ControllerBase
                     : "event: job-ended\ndata: {}\n\n", ct);
             await HttpContext.Response.Body.FlushAsync(ct);
         }
+        catch (OperationCanceledException)
+        {
+            // Client disconnected — normal SSE teardown, not an error.
+        }
         finally
         {
             _store.Unsubscribe(jobId, writer);

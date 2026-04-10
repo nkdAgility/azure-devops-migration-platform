@@ -55,7 +55,9 @@ public sealed class TuiJobListView : FrameView, IDisposable
             Width = Dim.Fill(),
             Height = Dim.Fill(),
             Visible = false,
-            CanFocus = true
+            CanFocus = true,
+            FullRowSelect = true,
+            MultiSelect = false
         };
 
         _table.SelectedCellChanged += OnSelectedCellChanged;
