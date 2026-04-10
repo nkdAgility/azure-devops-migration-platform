@@ -12,6 +12,7 @@ public sealed class JobProgressStore
         public ConcurrentQueue<ProgressEvent> Queue { get; } = new();
         public List<ChannelWriter<ProgressEvent>> Subscribers { get; } = new();
         public bool Failed { get; set; }
+        public bool Completed { get; set; }
     }
 
     private readonly ConcurrentDictionary<Guid, JobProgressEntry> _entries = new();
@@ -51,7 +52,18 @@ public sealed class JobProgressStore
             FullMode = BoundedChannelFullMode.DropOldest
         });
         lock (entry.Subscribers)
-            entry.Subscribers.Add(channel.Writer);
+        {
+            if (entry.Completed)
+            {
+                // Job already finished before this subscriber connected — pre-complete
+                // the channel so ReadAllAsync returns immediately and SSE sends job-ended.
+                channel.Writer.TryComplete();
+            }
+            else
+            {
+                entry.Subscribers.Add(channel.Writer);
+            }
+        }
         return (channel.Reader, channel.Writer);
     }
 
@@ -71,6 +83,7 @@ public sealed class JobProgressStore
         if (!_entries.TryGetValue(jobId, out var entry))
             return;
         entry.Failed = failed;
+        entry.Completed = true;
         lock (entry.Subscribers)
         {
             foreach (var writer in entry.Subscribers)

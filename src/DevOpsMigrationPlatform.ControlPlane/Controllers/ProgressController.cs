@@ -23,13 +23,17 @@ public sealed class ProgressController : ControllerBase
     private readonly ILeaseJobResolver _resolver;
     private readonly ILogger<ProgressController> _logger;
 
+    private readonly DiagnosticLogStore _diagnosticStore;
+
     public ProgressController(
         JobProgressStore store,
+        DiagnosticLogStore diagnosticStore,
         IJobStore jobStore,
         ILeaseJobResolver resolver,
         ILogger<ProgressController> logger)
     {
         _store = store;
+        _diagnosticStore = diagnosticStore;
         _jobStore = jobStore;
         _resolver = resolver;
         _logger = logger;
@@ -71,6 +75,7 @@ public sealed class ProgressController : ControllerBase
             return NotFound($"Lease '{leaseId}' is not recognised.");
 
         _store.CompleteJob(jobId.Value, failed: false);
+        _diagnosticStore.CompleteJob(jobId.Value, failed: false);
         _jobStore.SetState(jobId.Value, "Completed");
         return NoContent();
     }
@@ -85,6 +90,7 @@ public sealed class ProgressController : ControllerBase
             return NotFound($"Lease '{leaseId}' is not recognised.");
 
         _store.CompleteJob(jobId.Value, failed: true);
+        _diagnosticStore.CompleteJob(jobId.Value, failed: true);
         _jobStore.SetState(jobId.Value, "Failed");
         return NoContent();
     }

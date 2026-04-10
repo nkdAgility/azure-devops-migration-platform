@@ -24,9 +24,14 @@ internal sealed class ProgressControllerContext
         options.Setup(o => o.Value).Returns(new JobProgressOptions { Capacity = TestCapacity });
         Store = new JobProgressStore(options.Object);
 
+        var diagOptions = new Mock<IOptions<DiagnosticLogStoreOptions>>(MockBehavior.Strict);
+        diagOptions.Setup(o => o.Value).Returns(new DiagnosticLogStoreOptions());
+        var diagnosticStore = new DiagnosticLogStore(diagOptions.Object);
+
         var jobStore = new JobStore();
         Controller = new ProgressController(
             Store,
+            diagnosticStore,
             jobStore,
             LeaseResolver.Object,
             NullLogger<ProgressController>.Instance);

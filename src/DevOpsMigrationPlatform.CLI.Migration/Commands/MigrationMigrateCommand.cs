@@ -9,12 +9,11 @@ namespace DevOpsMigrationPlatform.CLI.Commands;
 
 /// <summary>Full lifecycle: export → validate → import in one orchestrated run.</summary>
 [HideFromChannel(ReleaseChannel.Preview)]
-public sealed class MigrationMigrateCommand : ControlPlaneCommandBase<MigrationCommandSettings>
+public sealed class MigrationMigrateCommand : ControlPlaneCommandBase<MigrationMigrateCommandSettings>
 {
-    protected override Task<int> ExecuteInternalAsync(CommandContext context, MigrationCommandSettings settings, CancellationToken cancellationToken = default)
+    protected override Task<int> ExecuteInternalAsync(CommandContext context, MigrationMigrateCommandSettings settings, CancellationToken cancellationToken = default)
     {
-        AnsiConsole.MarkupLine("[grey]migrate — not yet implemented.[/]");
-        // TODO: When implemented, call PrintJobSubmitted(console, jobId, resolvedUrl) immediately after SubmitAsync (FR-012).
+        AnsiConsole.MarkupLine("[grey]migrate — not available in this release.[/]");
         return Task.FromResult(1);
     }
 }

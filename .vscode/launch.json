@@ -193,6 +193,26 @@
             "preLaunchTask": "build-migration-cli"
         },
         {
+            "name": "📤 Migration CLI: Export ADO WorkItems (Force Fresh)",
+            "type": "coreclr",
+            "request": "launch",
+            "program": "${workspaceFolder}/src/DevOpsMigrationPlatform.CLI.Migration/bin/Debug/net10.0/devopsmigration.exe",
+            "args": [
+                "export",
+                "--config",
+                "scenarios/export-ado-workitems-single-project.json",
+                "--force-fresh"
+            ],
+            "env": {
+                "AZDEVOPS_DEV_ORG": "${env:AZDEVOPS_DEV_ORG}",
+                "AZDEVOPS_DEV_PAT": "${env:AZDEVOPS_DEV_PAT}"
+            },
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "stopAtEntry": false,
+            "preLaunchTask": "build-migration-cli"
+        },
+        {
             "name": "📤 Migration CLI: Export ADO WorkItems (Follow + Diagnostics)",
             "type": "coreclr",
             "request": "launch",
@@ -265,6 +285,22 @@
             "preLaunchTask": "build-migration-cli"
         },
         {
+            "name": "📥 Migration CLI: Import (Force Fresh)",
+            "type": "coreclr",
+            "request": "launch",
+            "program": "${workspaceFolder}/src/DevOpsMigrationPlatform.CLI.Migration/bin/Debug/net10.0/devopsmigration.exe",
+            "args": [
+                "import",
+                "--config",
+                "migration.json",
+                "--force-fresh"
+            ],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "stopAtEntry": false,
+            "preLaunchTask": "build-migration-cli"
+        },
+        {
             "name": "✅ Migration CLI: Validate",
             "type": "coreclr",
             "request": "launch",
@@ -288,6 +324,22 @@
                 "migrate",
                 "--config",
                 "migration.json"
+            ],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "stopAtEntry": false,
+            "preLaunchTask": "build-migration-cli"
+        },
+        {
+            "name": "🔄 Migration CLI: Migrate (Force Fresh)",
+            "type": "coreclr",
+            "request": "launch",
+            "program": "${workspaceFolder}/src/DevOpsMigrationPlatform.CLI.Migration/bin/Debug/net10.0/devopsmigration.exe",
+            "args": [
+                "migrate",
+                "--config",
+                "migration.json",
+                "--force-fresh"
             ],
             "cwd": "${workspaceFolder}",
             "console": "integratedTerminal",
