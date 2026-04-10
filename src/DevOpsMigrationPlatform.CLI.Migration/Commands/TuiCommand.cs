@@ -25,7 +25,9 @@ public sealed class TuiCommand : ControlPlaneCommandBase<TuiCommandSettings>
         TuiCommandSettings settings,
         CancellationToken cancellationToken = default)
     {
-        var resolvedUrl = MigrationPlatformHost.ResolveControlPlaneUrl(settings.Url);
+        // TUI always connects to an existing control plane — never starts one in-process.
+        // Fall back to the standard default rather than letting null trigger LocalStackHost.
+        var resolvedUrl = MigrationPlatformHost.ResolveControlPlaneUrl(settings.Url) ?? "http://localhost:5100";
 
         await CreateHost(Environment.GetCommandLineArgs(), resolvedUrl, (services, config) =>
         {
@@ -53,7 +55,7 @@ public sealed class TuiCommand : ControlPlaneCommandBase<TuiCommandSettings>
         }
         catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
         {
-            var effectiveUrl = resolvedUrl ?? "http://localhost:5100";
+            var effectiveUrl = resolvedUrl;
             console.MarkupLine($"[red]\u2717 Cannot reach Control Plane at {Markup.Escape(effectiveUrl)}[/]");
             console.MarkupLine("[grey]Ensure the control plane is running and --url is correct.[/]");
             return 1;

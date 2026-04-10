@@ -363,7 +363,7 @@ public sealed class MigrationExportCommand : ControlPlaneCommandBase<MigrationEx
 
         // ── Row 1: overall progress ──────────────────────────────────────────────────
         var pct = total > 0 ? (double)processed / total : 0.0;
-        var filled = (int)(pct * BarWidth);
+        var filled = Math.Clamp((int)(pct * BarWidth), 0, BarWidth);
         var overallBar = new string('━', filled) + new string('─', BarWidth - filled);
         var stageStr = string.IsNullOrEmpty(stage) ? string.Empty : $"  [grey]{Markup.Escape(stage)}[/]";
         var etaStr = ComputeEta(startTime, processed, total);
