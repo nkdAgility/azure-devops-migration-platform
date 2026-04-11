@@ -6,12 +6,20 @@ These rules govern all work on the WorkItems module. See [.agents/context/workit
 
 - Date folder: `yyyy-MM-dd` — zero-padded, ISO 8601 date only, UTC.
 - Revision folder: `<ticks>-<workItemId>-<revisionIndex>` — all three segments, hyphen-separated.
-- `ticks` is the .NET `DateTime.Ticks` value of `changedDate` in UTC.
-- `workItemId` is the integer work item ID with no padding.
-- `revisionIndex` is the zero-based integer revision index with no padding.
-- Do not use any other format. Do not add prefixes, suffixes, or additional segments.
+  - `ticks` is the .NET `DateTime.Ticks` value of `changedDate` in UTC.
+  - `workItemId` is the integer work item ID with no padding.
+  - `revisionIndex` is the zero-based integer revision index with no padding.
+  - Do not use any other format. Do not add prefixes, suffixes, or additional segments.
+- Comment folder: `<ticks>-<workItemId>-c<commentId>` — the `c` prefix before `commentId` distinguishes comment folders from revision folders in the same date folder.
+  - `ticks` is the .NET `DateTime.Ticks` of the comment's `createdDate` (original) or `modifiedDate` (each edit), in UTC.
+  - `workItemId` is the integer work item ID with no padding.
+  - `commentId` is the integer comment ID with no padding, prefixed with `c`.
+  - Each comment version (original + each edit) is a separate folder at its respective date ticks.
 
-**Valid example:** `WorkItems/2026-02-25/638760123456789012-12345-17/`
+**Valid revision folder example:** `WorkItems/2026-02-25/638760123456789012-12345-17/`
+**Valid comment folder example:** `WorkItems/2026-02-25/638760123456789013-12345-c42/`
+
+Revision folders and comment folders sort chronologically together in the same date folder by their ticks prefix. This is the canonical interleaved chronological order for streaming import.
 
 ## revision.json Required Fields
 
@@ -25,8 +33,24 @@ Every `revision.json` must contain all of the following. Missing any field is a 
 - `relatedLinks` (array, may be empty)
 - `hyperlinks` (array, may be empty)
 - `attachments` (array, may be empty; each entry must include `originalName`, `relativePath`, `sha256`, `size`)
+- `embeddedImages` (array, may be empty; each entry must include `originalUrl`, `relativePath`, `extension`, `sha256`, `size`)
 
-## Staged Import Semantics
+## comment.json Required Fields
+
+Every `comment.json` must contain all of the following. Missing any field is a validation error:
+
+- `commentId` (integer)
+- `version` (integer, 1-based version of this comment text)
+- `text` (string — the raw comment text, HTML or Markdown)
+- `format` (string — `"html"` or `"markdown"`)
+- `createdBy` (object with `id`, `name`, `email`)
+- `createdDate` (ISO 8601 UTC string)
+- `modifiedBy` (object with `id`, `name`, `email`)
+- `modifiedDate` (ISO 8601 UTC string)
+- `isDeleted` (boolean)
+- `embeddedImages` (array, may be empty; same schema as `revision.json` embedded images)
+
+
 
 Process each revision folder through stages in this exact order:
 
@@ -50,8 +74,9 @@ Stage label values are canonical. Use the exact string values above in the curso
 
 ## What Must Not Change
 
-- The folder naming format — it is the streaming import contract.
+- The revision folder naming format — it is the streaming import contract.
+- The comment folder naming format — `<ticks>-<workItemId>-c<commentId>/` is canonical and must not be altered or replaced with a per-work-item flat file.
 - The stage order — it reflects dependency order (item must exist before fields, fields before links, links before attachments).
 - The cursor file path — `Checkpoints/workitems.cursor.json`.
-- The `lastProcessed` value format — it must be the relative path of the revision folder, not an ID or timestamp.
+- The `lastProcessed` value format — it must be the relative path of the revision or comment folder, not an ID or timestamp.
 - The stage label strings — they must be one of: `CreatedOrUpdated`, `AppliedFields`, `AppliedLinks`, `UploadedAttachments`, `Completed`. No other values are valid.

@@ -42,7 +42,7 @@ interface IDataTypeModule
 
 | Module | Responsibility |
 |---|---|
-| `WorkItemsModule` | High-fidelity work item revision export/import, including fields, links, and attachments |
+| `WorkItemsModule` | High-fidelity work item revision export/import, including fields, links, attachments, comments, and embedded images. Orchestrates `CommentsSubModule` (fetch comments from the ADO Comments API) and `EmbeddedImagesSubModule` (download and rewrite inline images from HTML/Markdown fields and comments). |
 | `IdentitiesModule` | Export user/group descriptors; provide identity mapping service to all other modules |
 | `TeamsModule` | Export and import team membership and settings |
 | `PermissionsModule` | Export and import project and repository access control lists |

@@ -15,16 +15,16 @@ No session may encompass multiple acceptance scenarios. No code is committed wit
 ## Session Phases
 
 ```
-┌──────────────────────────────────────────────────────────────────┐
-│                      ATDD Session                                 │
-│                                                                   │
-│  1. Specification   2. Test Gen   3. Implementation   4. Review  │
-│  ─────────────────→ ────────────→ ────────────────── → ────────  │
-│  Feature file        Failing        Passing tests        Pass/   │
-│  + 4 artifacts       Reqnroll       + unit tests         Reject  │
-│                                                                   │
-│  Orchestrator manages handoffs and logs the outcome              │
-└──────────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────────────────┐
+│                            ATDD Session                                       │
+│                                                                               │
+│  1. Specification  2. Test Gen  3. Implementation  4. Review  5. Doc Sync    │
+│  ────────────────→ ───────────→ ────────────────── → ──────── → ──────────   │
+│  Feature file       Failing       Passing tests      Pass/     Docs updated  │
+│  + 4 artifacts      Reqnroll      + unit tests       Reject    discrepancies │
+│                                                                resolved       │
+│  Orchestrator manages handoffs and logs the outcome                          │
+└──────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ### Phase 1 — Specification (Specification Agent)
@@ -72,6 +72,26 @@ Unit tests are plain MSTest `[TestClass]`/`[TestMethod]` classes, not Reqnroll s
 **Output:** `Approved` or `Rejected` verdict with specific findings.  
 **Gate:** All items in the Reviewer's rejection checklist are clear. See [.github/agents/reviewer.agent.md](../../.github/agents/reviewer.agent.md).
 
+### Phase 5 — Documentation Sync (Implementation Agent + human gate)
+
+**Input:** The diff from Phase 3 and the spec's `specs/<feature>/discrepancies.md`.  
+**Output:** All canonical docs updated to reflect the implementation:
+- `/docs/*.md` files for any behaviour, CLI, configuration, or architectural changes
+- `.agents/context/*.md` files for any changes to package format, streaming, checkpointing, identity, job contracts, or artefact store abstractions
+- `.agents/guardrails/*.md` files if a guardrail was affected
+- `.specify/memory/constitution.md` if a principle was introduced or changed
+- `.vscode/launch.json` if a new CLI command was added
+- `specs/<feature>/discrepancies.md` updated to mark all items `Resolved` or `N/A`
+- `analysis/pending-actions.md` reviewed and any items now implemented removed
+
+**Gate (blocking — cannot be skipped):** Before the session log can be finalised:
+1. Every item in `specs/<feature>/discrepancies.md` is marked `Resolved` or `N/A`.
+2. Every doc-task in `tasks.md` that names a canonical doc file is marked `[X]`.
+3. `analysis/pending-actions.md` has been reviewed and stale resolved items removed.
+4. If there are no doc changes, the agent must explicitly state "no documentation changes required" with a written justification — silence is not acceptable.
+
+**Human gate:** The human must confirm the documentation sync output is complete before the session log is finalised.
+
 ---
 
 ## Handoff Rules
@@ -81,6 +101,9 @@ Unit tests are plain MSTest `[TestClass]`/`[TestMethod]` classes, not Reqnroll s
 - If Phase 2 tests pass before implementation, Phase 2 has failed. Return to Phase 2.
 - If Phase 4 rejects, return to Phase 3. Do not restart from Phase 1 or 2 unless the feature definition itself is wrong.
 - A session that fails Phase 4 more than twice should be escalated to a human reviewer.
+- Phase 5 cannot be skipped. A session that reaches Phase 4 approval must complete Phase 5 before it is logged as `SUCCESS`.
+
+Phase 5 — Documentation Sync MUST update the session log with a `"doc_sync"` field (see Session Logging).
 
 ---
 
@@ -102,6 +125,13 @@ Phase 1 — Specification Agent:   COMPLETE | ESCALATED
 Phase 2 — Test Generation Agent: COMPLETE | FAILED
 Phase 3 — Implementation Agent:  COMPLETE | INCOMPLETE
 Phase 4 — Reviewer Agent:        APPROVED | REJECTED (<reason>)
+Phase 5 — Documentation Sync:    COMPLETE | SKIPPED (justification required)
+
+Doc Sync:
+  discrepancies.md all resolved:  YES | NO
+  doc-tasks all checked:          YES | NO
+  pending-actions.md updated:     YES | NO
+  no-change justification:        <text or N/A>
 
 Tests Run:    <count>
 Tests Passed: <count>
@@ -131,6 +161,7 @@ Before starting a session:
 | New module implementation | Hotfixes to passing production code |
 | New acceptance scenario | Refactoring without a failing test |
 | Adding a missing test | Changing test assertions without a requirement change |
+| Doc sync on spec completion | Doc sync mid-spec (only required at session close) |
 
 ---
 

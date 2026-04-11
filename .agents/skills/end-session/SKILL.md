@@ -5,7 +5,7 @@ description: Verifies all gates have passed, finalises the session log, and sign
 
 # Skill: End Session
 
-Use this skill after the Reviewer Agent has returned `"verdict": "Approved"`.
+Use this skill after the Reviewer Agent has returned `"verdict": "Approved"` **and** Phase 5 (Documentation Sync) is complete.
 
 ## Steps
 
@@ -14,7 +14,19 @@ Use this skill after the Reviewer Agent has returned `"verdict": "Approved"`.
    - All Reqnroll scenarios passing.
    - All unit tests passing.
    - No TODOs in production code paths.
-   - Documentation updated if behaviour changed.
+   - **Documentation sync gate** (check EACH item before proceeding):
+     - [ ] All items in `specs/<feature>/discrepancies.md` are marked `Resolved` or `N/A`
+     - [ ] Every doc-task (e.g. `T0xx`) in `specs/<feature>/tasks.md` that names a `/docs/*.md` file is marked `[X]`
+     - [ ] Every doc-task that names a `.agents/context/*.md` file is marked `[X]`
+     - [ ] If a new CLI command was added: `docs/cli.md` Commands table updated; `.vscode/launch.json` entry exists
+     - [ ] If a new config field was added: `docs/configuration.md` updated
+     - [ ] If a new source/target type was added: `docs/source-types.md` updated; `.agents/context/job-contract.md` updated
+     - [ ] If package layout changed: `.agents/context/package-format.md` updated; `.agents/context/workitems-format.md` updated
+     - [ ] If a new module abstraction or interface was added: `docs/modules.md` updated; `docs/architecture.md` updated
+     - [ ] If checkpointing behaviour changed: `.agents/context/checkpointing.md` updated
+     - [ ] `analysis/pending-actions.md` reviewed: any newly completed items removed
+
+   Any unchecked item MUST be resolved before the session can close. Return to Phase 5 if items remain open.
 
 2. **Finalise the session log** at `Logs/atdd-sessions/<session-id>.json`:
 
@@ -27,7 +39,13 @@ Use this skill after the Reviewer Agent has returned `"verdict": "Approved"`.
      "feature_file": "<path>",
      "scenario": "<title>",
      "phase": "complete",
-     "completed_phases": ["specification", "test-generation", "implementation", "review"],
+     "completed_phases": ["specification", "test-generation", "implementation", "review", "doc-sync"],
+     "doc_sync": {
+       "discrepancies_resolved": true,
+       "doc_tasks_checked": true,
+       "pending_actions_updated": true,
+       "no_change_justification": "<text or null>"
+     },
      "outcome": "SUCCESS",
      "commit": "<sha or PR reference>"
    }
@@ -40,4 +58,5 @@ Use this skill after the Reviewer Agent has returned `"verdict": "Approved"`.
 ## Early Exit Conditions
 
 - Any gate in step 1 is not clear → do not signal commit-ready; return to the failing phase.
+- Documentation sync gate has unchecked items → do not signal commit-ready; return to Phase 5.
 - Reviewer has not yet approved → stop, run `/review` first.

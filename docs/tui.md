@@ -94,9 +94,33 @@ The `jobId` is not part of the `ProgressEvent` record — it is carried by the l
 
 ---
 
+## Single-Screen Three-Panel Layout
+
+The TUI uses a **single-screen three-panel layout** — all panels are always visible in one `Window`. There is no separate detail screen or navigation stack.
+
+| Panel | Approximate Width | Content |
+|---|---|---|
+| **Job List** (left) | ~30% | Scrollable table of jobs: short Job ID, state, mode, submission timestamp |
+| **Metrics Panel** (center) | ~35% | Per-module counters, throughput rates, and duration means for the selected job |
+| **Log Panel** (right) | ~35% | Live `ProgressEvent` stream or structured diagnostic log stream for the selected job |
+
+**Selecting a job** (arrow keys + Enter in the Job List) updates the Metrics and Log panels in place. No navigation occurs. **Deselecting** (Escape from the Job List) cancels all active SSE subscriptions immediately and clears both panels — no background threads remain subscribed.
+
+**Log Panel toggle**: Pressing Tab within the Log Panel switches between:
+- `[Progress]` mode — subscribes to `GET /jobs/{jobId}/progress?follow=true` (SSE)
+- `[Diagnostics]` mode — subscribes to `GET /jobs/{jobId}/diagnostics?follow=true` (SSE)
+
+The current mode is shown in the panel header. Toggling cancels the current SSE stream and starts the new one.
+
+**Terminal state behaviour**: When a job reaches a terminal state (Completed, Failed, Cancelled), the Log Panel appends a final status marker (e.g. `── Job Completed ──`) and ceases all reconnection attempts. The Metrics Panel retains the last polled values.
+
+---
+
+
+
 ## Status Display (Remote Mode)
 
-When watching a remote job, the TUI renders two independent data streams:
+When watching a remote job, the TUI renders **three independent data streams**:
 
 | Stream | Endpoint | Update mechanism |
 |---|---|---|

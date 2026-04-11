@@ -204,7 +204,7 @@ Every new module must have tests covering:
 Every feature exposed through a CLI command **MUST** have at least one `[TestCategory("SystemTest")]` test that:
 
 1. Guards on required environment variables (marks `Inconclusive` if absent, never fails).
-2. Exercises the feature against a real external system (no mocks for the external system).
+2. Exercises the feature against a real external system (no mocks for the external system). For the `Simulated` source/target, no external connectivity is required — the simulated source/target IS the system under test.
 3. Asserts observable output — files written, zip produced, records returned, etc.
 4. Is co-located in the relevant `.Tests` project under `Commands/` or `Commands/<Area>/`.
 
@@ -215,7 +215,8 @@ A system test that only loads config or validates round-trip JSON **does not sat
 | CLI command | Required system test class |
 |---|---|
 | `export` (ADO) | `AzureDevOpsExportCommandTests` — asserts `WorkItems/` directory and zip produced |
-| `discovery inventory` | `InventoryCommandTests` — asserts inventory records returned |
+| `discovery inventory` | `InventoryCommandTests` — asserts inventory records returned against live ADO organisation (`AZDEVOPS_SYSTEM_TEST_ORG` + `AZDEVOPS_SYSTEM_TEST_PAT`) |
+| `migrate` (Simulated) | `SimulatedMigrationCommandTests` — runs full end-to-end migrate with `source.type: Simulated` and `target.type: Simulated`, no external connectivity; asserts `WorkItems/` structure, `Checkpoints/` cursor, and `Logs/progress.jsonl` |
 | `tfsexport` | (environment-gated: requires live TFS) |
 
 Add a row here whenever a new CLI command is introduced.

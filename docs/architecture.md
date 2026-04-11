@@ -11,8 +11,8 @@ Build a migration package platform, not just a migration tool.
 
 The system supports three modes:
 
-1. **Export** — Azure DevOps Services → Files, or TeamFoundationServer (via .NET 4 OM exporter) → Files
-2. **Import** — Files → Azure DevOps Services, or Files → TeamFoundationServer (via .NET 4 OM importer — **not yet implemented**, see [docs/tfs-exporter.md](tfs-exporter.md#future-tfs-import-agent))
+1. **Export** — Azure DevOps Services → Files, or TeamFoundationServer (via .NET 4 OM exporter) → Files, or Simulated → Files (for testing and development)
+2. **Import** — Files → Azure DevOps Services, or Files → TeamFoundationServer (via .NET 4 OM importer — **not yet implemented**, see [docs/tfs-exporter.md](tfs-exporter.md#future-tfs-import-agent)), or Files → Simulated (for testing and development)
 3. **Both** — Export → Import in a single orchestrated run
 
 The Files layer is first-class. It is:
@@ -117,7 +117,7 @@ The package format is identical in all cases. See [docs/packaging-zip.md](packag
 
 The Migration Agent emits structured `ProgressEvent` records through `IProgressSink`. Three sinks run simultaneously:
 
-- `AnsiProgressSink` — writes NDJSON to the CLI terminal (local run output)
+- `ConsoleProgressSink` — writes NDJSON to the CLI terminal (local run output)
 - `PackageProgressSink` — appends to `Logs/progress.jsonl` in the package (always written; durable)
 - `ControlPlaneProgressSink` — POSTs each event to the control plane ring buffer for live TUI streaming
 
@@ -181,7 +181,7 @@ Key properties:
 4. Job Engine (orchestrator + modules contract + cursors)
 5. `IArtefactStore` + `FileSystemArtefactStore` (`file:///` URI)
 6. `IStateStore` / `PackageCheckpointStateStore` (`Checkpoints/` inside package)
-7. `IProgressSink` with `AnsiProgressSink` + `PackageProgressSink` ✅
+7. `IProgressSink` with `ConsoleProgressSink` + `PackageProgressSink` ✅
 8. `ControlPlaneClient` (CLI always uses this to talk to the in-process or remote control plane)
 9. WorkItems module (REST)
 10. Identity module
