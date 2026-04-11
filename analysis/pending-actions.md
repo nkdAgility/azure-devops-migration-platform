@@ -1,5 +1,16 @@
 # Pending Actions
 
+## Maintenance Policy
+
+This file is the canonical backlog of unimplemented spec tasks. It MUST be updated:
+- **When a spec branch is merged**: remove all items that are now implemented by that spec.
+- **When a new spec is created**: add a section for any tasks not yet started.
+- **Automatically reviewed** by the end-session skill as part of the Phase 5 Documentation Sync gate.
+
+A stale `pending-actions.md` is a guardrail violation (see `.agents/guardrails/atdd-workflow.md` Phase 5 and `.specify/memory/constitution.md` Spec-Completion Gate).
+
+---
+
 Derived from specs/002–010 task files, discrepancy reports, and cross-referenced against current source code.
 Items are grouped by feature spec and categorised as **Code**, **Tests**, or **Docs/Verification**.
 

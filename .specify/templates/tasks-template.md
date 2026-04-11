@@ -165,16 +165,28 @@ Examples of foundational tasks (adjust based on your project):
 
 ---
 
-## Phase N: Polish & Cross-Cutting Concerns
+## Phase N: Documentation Sync (MANDATORY — cannot be skipped)
+
+**Purpose**: Ensure all canonical docs reflect what was implemented in this spec. This phase is a blocking gate — no spec is complete without it. The doc-update tasks below MUST reference the exact file path and section being updated. Vague tasks like "update docs" are not accepted.
+
+- [ ] TXXX Update `docs/<primary-doc>.md` — add/update section for `<feature>` per `discrepancies.md` items (exact section: `<heading>`)
+- [ ] TXXX [P] Update `.agents/context/<context-file>.md` — align with implementation changes (see `discrepancies.md`)
+- [ ] TXXX Mark all items in `specs/<feature>/discrepancies.md` as `Resolved` or `N/A`
+- [ ] TXXX Review `analysis/pending-actions.md` and remove any items resolved by this spec
+- [ ] TXXX Run `dotnet clean && dotnet build --no-incremental` — MUST pass
+- [ ] TXXX Run `dotnet test` — ALL tests MUST pass
+- [ ] TXXX Run at least one scenario config (e.g. `scenarios/export-ado-workitems-single-project.json`) via a `.vscode/launch.json` debug profile and verify observable output
+
+> **If none of the above canonical docs were affected by this spec**, the agent MUST explicitly state: "No documentation changes required — `<brief justification>`". This statement must appear in the session log `doc_sync.no_change_justification` field. Silence is not acceptable.
+
+## Phase N+1: Polish & Cross-Cutting Concerns (OPTIONAL)
 
 **Purpose**: Improvements that affect multiple user stories
 
-- [ ] TXXX [P] Documentation updates in docs/
 - [ ] TXXX Code cleanup and refactoring
 - [ ] TXXX Performance optimization across all stories
 - [ ] TXXX [P] Additional unit tests (if requested) in tests/unit/
 - [ ] TXXX Security hardening
-- [ ] TXXX Run quickstart.md validation
 
 ---
 
