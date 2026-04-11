@@ -15,24 +15,33 @@ A single JSON configuration file drives the entire run.
     "zip": false
   },
   "source": {
-    "type": "AzureDevOpsServices | TeamFoundationServer",
+    "type": "AzureDevOpsServices | TeamFoundationServer | Simulated",
     "orgOrCollection": "...",
     "project": "...",
     "apiVersion": "...",
     "authentication": {
       "type": "Pat | Windows",
       "accessToken": "<literal-token> | $ENV:MY_PAT_VAR"
-    }
+    },
+    "_simulatedOnly_seed": 42,
+    "_simulatedOnly_workItemCount": 25000,
+    "_simulatedOnly_projectCount": 1,
+    "_simulatedOnly_workItemTypeDistribution": { "Bug": 40, "Task": 40, "User Story": 20 },
+    "_simulatedOnly_avgRevisionsPerItem": 3,
+    "_simulatedOnly_includeAttachments": false,
+    "_simulatedOnly_includeLinks": true
   },
   "target": {
-    "type": "AzureDevOpsServices",
+    "type": "AzureDevOpsServices | Simulated",
     "orgOrCollection": "...",
     "project": "...",
     "apiVersion": "...",
     "authentication": {
       "type": "Pat",
       "accessToken": "$ENV:TARGET_PAT"
-    }
+    },
+    "_simulatedOnly_validateOnWrite": true,
+    "_simulatedOnly_failOnFirstError": true
   },
   "organisations": [
     {
@@ -87,10 +96,10 @@ A single JSON configuration file drives the entire run.
 | `mode` | Yes | `Export`, `Import`, or `Both` |
 | `artefacts.path` | Yes | Absolute path to the package root directory |
 | `artefacts.zip` | No | If `true`, pack/unpack around the run; default `false` |
-| `source` | Required for `Export` and `Both`; Mode 1 inventory | Source system connection details |
-| `source.authentication` | No | Auth credentials block (`type` + `accessToken`). If omitted, Windows-integrated auth is used. |
-| `target` | Required for `Import` and `Both` | Target system connection details |
-| `target.authentication` | No | Auth credentials block (`type` + `accessToken`). |
+| `source` | Required for `Export` and `Both`; Mode 1 inventory | Source system connection details. `type` must be one of `AzureDevOpsServices`, `TeamFoundationServer`, or `Simulated`. |
+| `source.authentication` | No | Auth credentials block (`type` + `accessToken`). If omitted, Windows-integrated auth is used. Not used for `Simulated` source type. |
+| `target` | Required for `Import` and `Both` | Target system connection details. `type` must be `AzureDevOpsServices` or `Simulated`. |
+| `target.authentication` | No | Auth credentials block (`type` + `accessToken`). Not used for `Simulated` target type. |
 | `organisations` | Mode 2 inventory only | Multi-org tooling roster. Mutually exclusive with `source`. Each entry has `type`, `url`, `projects`, `authentication`, and `enabled`. |
 | `modules` | Yes | Ordered list of modules to run with their scope configurations |
 | `policies` | No | Retry and throttle policies |
@@ -121,6 +130,29 @@ Common scope types:
 - The tool must detect an outdated config version and either auto-upgrade (with warning) or fail fast with instructions.
 - Configs from future versions must fail fast with a clear error message.
 
+### Simulated Source Configuration
+
+When `source.type` is `Simulated`, the following fields control the generated data. Authentication is not used.
+
+| Field | Required | Default | Description |
+|---|---|---|---|
+| `source.seed` | No | random (logged + recorded in manifest) | Integer seed for deterministic data generation. Same seed + same `workItemCount` produces identical packages across runs. |
+| `source.workItemCount` | Yes for Simulated | — | Total number of work items to generate. Minimum 1; tested successfully at 25,000. |
+| `source.projectCount` | No | 1 | Number of simulated projects to generate across. |
+| `source.workItemTypeDistribution` | No | `{ "Bug": 50, "Task": 50 }` | Map of work item type name to percentage. Must sum to 100. |
+| `source.avgRevisionsPerItem` | No | 3 | Average number of revisions per generated work item. |
+| `source.includeAttachments` | No | false | When true, attachment metadata (and optionally binaries) are generated per revision. |
+| `source.includeLinks` | No | true | When true, related links are generated between simulated work items. |
+
+### Simulated Target Configuration
+
+When `target.type` is `Simulated`, all work items are accepted without writing to any external system. Authentication is not used.
+
+| Field | Required | Default | Description |
+|---|---|---|---|
+| `target.validateOnWrite` | No | true | Validates each revision against the package schema as it arrives. |
+| `target.failOnFirstError` | No | true | Fails the import on the first schema validation error. |
+
 ---
 
 ## Scenario Configs
@@ -133,5 +165,7 @@ Ready-to-run example configuration files live under `/scenarios/` at the reposit
 | `inventory-ado-multi-project.json` | Multi-project Azure DevOps inventory (PAT auth) |
 | `inventory-tfs-windows-auth.json` | On-premises TFS inventory (Windows-integrated auth) |
 | `inventory-multi-org.json` | Multi-organisation inventory with per-org PAT tokens |
+| `export-simulated.json` | Simulated source export (25,000 work items, no external connectivity required) |
+| `migrate-simulated.json` | Full simulated end-to-end migration — both source and target simulated (25,000 work items) |
 
 Credentials in these files use `$ENV:VARNAME` references — never literal tokens. Set the corresponding environment variables locally (e.g. `AZDEVOPS_DEV_PAT`) before running.

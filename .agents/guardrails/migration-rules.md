@@ -235,9 +235,20 @@ When source.type == "TeamFoundationServer":
 
 The external exporter is an extraction backend only.
 
----
+## Simulated (Testing and Development Only)
 
-# 🧷 WorkItems Export Rules
+When `source.type == "Simulated"` or `target.type == "Simulated"`:
+
+* The simulated source and target are **for testing and development only** — never for production migrations.
+* The simulated source MUST implement `IDataTypeModule` using the same export abstraction as real sources. It MUST NOT bypass module architecture or `IArtefactStore`.
+* The simulated source MUST generate work items deterministically from `seed` + `workItemCount`. Same inputs = same package output, byte for byte.
+* Simulated work item field values MUST be prefixed with `[SIMULATED]` to prevent confusion with real export packages.
+* The simulated target MUST accept all items presented during import without writing to any external system.
+* Both simulated source and target MUST emit `ProgressEvent` records through `IProgressSink` at the same granularity as real implementations.
+* Identity mapping MUST still run: the simulated source generates a fixed set of synthetic user identities and `IdentitiesModule` processes them in the normal order.
+* The `discovery inventory` command with `source.type: Simulated` MUST return counts derived from configuration without any WIQL windowing.
+
+
 
 WorkItems export MUST:
 
@@ -257,6 +268,7 @@ revision.json MUST contain:
 * fields (delta only — the source API reports only fields changed in this revision; no full-snapshot recomputation is performed)
 * links (external/related/hyperlinks)
 * attachments metadata (if enabled)
+* embeddedImages (array — may be empty; populated when inline images are discovered and downloaded)
 
 Attachments:
 
@@ -269,6 +281,23 @@ Attachments:
   * size
 
 If attachments are disabled by scope, attachments MUST be an empty list or omitted consistently.
+
+Comments:
+
+* MUST be exported per-comment, per-version into individual comment sub-folders inside the date folder corresponding to the comment's `createdDate` (original) or `modifiedDate` (each edit).
+* Comment folder naming MUST be `<ticks>-<workItemId>-c<commentId>/` with a `comment.json` inside.
+* Comment sub-folders sort chronologically alongside revision sub-folders within the same `WorkItems/yyyy-MM-dd/` date folder.
+* Each exported comment MUST be stored by `IWorkItemCommentExportService` called from within `WorkItemsModule` — comments are NOT a separate top-level `IDataTypeModule`.
+* Deleted comments MUST be excluded by default; configurable via `modules.workItems.scopes.comments.includeDeleted`.
+
+Embedded Images:
+
+* MUST be downloaded from ADO-hosted URLs found in HTML `<img src>` tags and Markdown `![](url)` patterns in field values and comments.
+* MUST be stored **beside their parent document** — inside the revision folder (beside `revision.json`) for revision-field images, and inside the comment folder (beside `comment.json`) for comment images.
+* MUST be named by the SHA-256 hash of their content with the extension inferred from the HTTP `Content-Type` response header.
+* Non-ADO image URLs MUST NOT be downloaded; original URL MUST be preserved and a warning written to the package log.
+* Inaccessible images MUST NOT fail the export; original URL is preserved and a warning is written.
+* Embedded image handling MUST be implemented as `IEmbeddedImageExportService` called from within `WorkItemsModule`.
 
 ---
 
@@ -347,6 +376,9 @@ Reject any design or implementation that:
 
 * Writes attachments outside the revision folder.
 * Introduces a global attachments store/module.
+* Stores comments in a flat `<workItemId>-comments.json` file at the date-folder level instead of per-comment sub-folders.
+* Stores embedded images in a global shared directory instead of beside their parent document.
+* Implements comment export or embedded-image export as a separate top-level `IDataTypeModule` (these are sub-services of `WorkItemsModule`).
 * Loads all WorkItems or all revisions into memory.
 * Requires building a full graph before processing.
 * Introduces hidden progress state outside Checkpoints/.

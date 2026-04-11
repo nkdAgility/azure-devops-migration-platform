@@ -77,6 +77,60 @@ Regardless of source type, data written to the package must conform to the schem
 
 The control plane performs a secondary validation pass before beginning import when running in `Both` mode.
 
+### Simulated
+
+```json
+"source": {
+  "type": "Simulated",
+  "seed": 42,
+  "workItemCount": 25000,
+  "projectCount": 1,
+  "workItemTypeDistribution": {
+    "Bug": 40,
+    "Task": 40,
+    "User Story": 20
+  },
+  "avgRevisionsPerItem": 3,
+  "includeAttachments": false,
+  "includeLinks": true
+}
+```
+
+**Requirements:**
+
+- Intended for **testing and development only**. No real data is read from or written to an external server.
+- Generates work items deterministically: given the same `seed` and `workItemCount`, every run produces identical work item identifiers, field values, revision counts, and link structures.
+- Simulated work item field values are prefixed with `[SIMULATED]` so a package produced by simulation cannot be mistaken for a real export.
+- Plugs into the existing module architecture as a standard `IDataTypeModule` export implementation — the same `IArtefactStore` path as real sources.
+- When `seed` is omitted, a random seed is chosen automatically, logged at `Information` level, and recorded in `manifest.json` so the run is reproducible.
+- Identity mapping still runs for simulated migrations: the simulated source generates a fixed set of synthetic user identities and the `IdentitiesModule` processes them in the normal order.
+
+**Simulated target configuration** is also supported for full end-to-end testing without a live Azure DevOps organisation:
+
+```json
+"target": {
+  "type": "Simulated",
+  "validateOnWrite": true,
+  "failOnFirstError": true
+}
+```
+
+The simulated target accepts all work items presented during import without writing to any external system. It validates each revision against the package schema as it arrives (when `validateOnWrite: true`).
+
+**Inventory:**
+
+The `devopsmigration discovery inventory` command with `source.type: Simulated` returns per-project work item and revision counts derived directly from configuration (no query windowing is needed). Output format is identical to the real ADO Services path.
+
+**Scenario configs:**
+
+See `/scenarios/` for ready-to-run simulated configuration files:
+
+| File | Scenario |
+|---|---|
+| `export-simulated.json` | Simulated source export (25,000 work items, no external connectivity) |
+| `migrate-simulated.json` | Full simulated migration — source and target both simulated (25,000 work items) |
+
 ### Known Limitations
 
 - **No mixed-mode discovery.** All organisations in a single `DiscoveryOptions` configuration must be the same source type. A discovery run cannot mix TFS (Team Foundation Server) and Azure DevOps Services entries. Each CLI host registers a single `IWorkItemDiscoveryService` and `IProjectDiscoveryService` implementation; the orchestrator uses whatever is injected. On-premises Azure DevOps Server instances that support the REST API should use source type `AzureDevOpsServices`.
+- **Simulated source is not for production use.** It provides no guarantee of realistic data distribution beyond the configured parameters. Use it only for development, testing, and performance benchmarking.

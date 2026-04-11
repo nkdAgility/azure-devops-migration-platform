@@ -1,6 +1,41 @@
 <!--
 SYNC IMPACT REPORT
 ==================
+Version change:    1.3.3 → 1.3.4
+Bump rationale:    Clarification — Spec-Completion Gate added to Governance:
+                   (1) Every spec's last task requires discrepancies.md fully resolved.
+                   (2) analysis/pending-actions.md must be reviewed and pruned at
+                       spec branch close.
+                   (3) Every canonical doc named in a doc-task in tasks.md must be
+                       updated before the branch may merge.
+                   The gate is codified in both the Governance section of this
+                   constitution and propagated to agents.md (3 new reject conditions),
+                   .agents/guardrails/atdd-workflow.md (Phase 5), and
+                   .agents/skills/end-session/SKILL.md (doc-sync checklist).
+
+Principles modified:
+  None
+
+Principles added:
+  None
+
+Sections modified:
+  Reject Conditions — 3 new entries added
+  Governance — Spec-Completion Gate added
+
+Templates updated:
+  ✅ .specify/templates/plan-template.md — no changes required
+  ✅ .specify/templates/spec-template.md — no changes required
+  ✅ .specify/templates/tasks-template.md — Phase N replaced with mandatory
+     Documentation Sync phase; optional Polish phase retained as Phase N+1
+
+Deferred TODOs:
+  None
+-->
+
+<!--
+SYNC IMPACT REPORT
+==================
 Version change:    1.3.2 → 1.3.3
 Bump rationale:    Clarification — three new enforcement rules added:
                    (1) CLI command changes require a matching .vscode/launch.json entry.
@@ -362,6 +397,9 @@ Reject any proposal that:
 - Adds or changes a deployable Host (`AppHost`, `ControlPlaneHost`, `MigrationAgent`) without a corresponding mode or build step covered by `build.ps1`.
 - Ships a CLI-exposed feature without a `[TestCategory("SystemTest")]` test that exercises the feature end-to-end and asserts observable output.
 - Declares a task done without completing the Mandatory Compliance Review Loop (see Governance).
+- Marks a spec's last task `[X]` without all items in `specs/<feature>/discrepancies.md` being `Resolved` or `N/A`.
+- Closes a spec branch without reviewing and removing resolved items from `analysis/pending-actions.md`.
+- Declares done without updating every canonical doc file (`/docs/*.md`, `.agents/context/*.md`) named in any doc-task in `tasks.md`.
 
 ## Governance
 
@@ -389,6 +427,16 @@ Reject any proposal that:
   4. Only when the review loop finds zero violations may the task be declared complete.
   A change that introduces undocumented parameters, options, commands, or behaviour is
   non-compliant regardless of whether it compiles and tests pass. Fix it before declaring done.
+- **Spec-Completion Gate (applies when the last task in a spec's `tasks.md` is checked off):**
+  Before the spec branch may be merged, the agent or contributor MUST:
+  1. Open `specs/<feature>/discrepancies.md` and verify every entry is marked `Resolved` or `N/A`.
+  2. Open `analysis/pending-actions.md` and remove every item that is now implemented by this spec.
+  3. Confirm that every `/docs/*.md` file referenced in any doc-task in `tasks.md` has been
+     updated and the task is `[X]`.
+  4. Confirm that every `.agents/context/*.md` file affected by the implementation has been updated.
+  5. If any of steps 1–4 are not satisfied, the branch MUST NOT be merged.
+  Skipping this gate because "the tests pass" is a violation. The gate is enforced by
+  `.agents/guardrails/atdd-workflow.md` Phase 5 and `.agents/skills/end-session/SKILL.md`.
 - Amendments to this constitution require:
   1. A version increment following semantic versioning (MAJOR for removals or
      redefinitions of principles; MINOR for new sections or material expansions;
@@ -398,4 +446,4 @@ Reject any proposal that:
 - All pull requests and agent reviews MUST verify compliance against this
   constitution and the guardrails before approving.
 
-**Version**: 1.3.3 | **Ratified**: 2026-04-02 | **Last Amended**: 2026-04-08
+**Version**: 1.3.4 | **Ratified**: 2026-04-02 | **Last Amended**: 2026-04-11

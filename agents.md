@@ -241,6 +241,9 @@ Reject any proposal that:
 - Declares a task complete without a passing `dotnet clean && dotnet build --no-incremental`.
 - Declares a task complete without all tests passing (`dotnet test`).
 - Declares a task complete without running at least one scenario config (e.g. `scenarios/export-ado-workitems-single-project.json`) via a `launch.json` debug profile and verifying observable output.
+- Marks a spec's last task `[X]` without all items in `specs/<feature>/discrepancies.md` being `Resolved` or `N/A`.
+- Closes a spec branch without reviewing and updating `analysis/pending-actions.md`.
+- Declares done without updating every canonical doc named in any doc-task in `tasks.md`.
 ---
 
 # 🧭 Development Flow

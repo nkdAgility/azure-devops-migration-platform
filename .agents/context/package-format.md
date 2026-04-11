@@ -20,20 +20,22 @@ The WorkItems layout is canonical and must not be altered:
 ```
 WorkItems/
   yyyy-MM-dd/
-    <workItemId>-comments.json
     <ticks>-<workItemId>-<revisionIndex>/
       revision.json
       <attachment files>
+      <embedded image files>
+    <ticks>-<workItemId>-c<commentId>/
+      comment.json
       <embedded image files>
 ```
 
 Key characteristics:
 
-- Chronological ordering is guaranteed
+- Chronological ordering is guaranteed across revision sub-folders and comment sub-folders
 - No global index required
-- Comments stored at date-folder level (one per work item)
-- Embedded images stored beside revision.json or comments.json
-- Streaming import is natural
+- Each comment version (original + edits) stored in a separate comment sub-folder
+- Embedded images stored beside `revision.json` (for revision-field images) or beside `comment.json` (for comment images)
+- Streaming import processes revision and comment sub-folders together in lexicographic (chronological) order
 - Resume is trivial
 - Human-auditable
 

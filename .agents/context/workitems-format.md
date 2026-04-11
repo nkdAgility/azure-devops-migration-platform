@@ -9,16 +9,21 @@ WorkItems is the primary high-fidelity module. Its on-disk layout is canonical a
 ```
 WorkItems/
   yyyy-MM-dd/
-    <workItemId>-comments.json
     <ticks>-<workItemId>-<revisionIndex>/
       revision.json
       <attachment files>
       <embedded image files>
+    <ticks>-<workItemId>-c<commentId>/
+      comment.json
+      <embedded image files>
 ```
 
-Each date folder may contain a `<workItemId>-comments.json` file holding all comments and discussions for that work item.
+Each date folder contains a mix of **revision sub-folders** and **comment sub-folders**, all sorted chronologically by their ticks-based prefix:
 
-Each revision folder corresponds to exactly one revision of one work item. Attachment files and embedded image files belonging to that revision are stored physically beside `revision.json`.
+- **Revision sub-folder**: `<ticks>-<workItemId>-<revisionIndex>/` — contains `revision.json` and optionally attachment binaries and embedded image files.
+- **Comment sub-folder**: `<ticks>-<workItemId>-c<commentId>/` — contains `comment.json` and optionally embedded image files. The `c` prefix in `c<commentId>` distinguishes comment folders from revision folders in the same date folder. The date folder used is the comment's `createdDate` for the original comment, and the comment's `modifiedDate` for each subsequent edit version. Multiple folders may exist for the same `commentId` (one per version).
+
+Streaming import processes revision and comment sub-folders together in lexicographic (chronological) order within each date folder.
 
 ### revision.json Required Fields
 
@@ -83,28 +88,45 @@ Attachments are scoped to their revision. There is no `Attachments/` root folder
 
 ### Comments and Discussions
 
-Comments are stored in a `<workItemId>-comments.json` file at the date-folder level (alongside revision folders). This file is created once per work item and contains all comments and discussion threads. The file is updated if the work item receives new comments in a later batch export.
+Each comment is stored in its own sub-folder within the date folder that corresponds to the comment's `createdDate` (original) or `modifiedDate` (each edit version). This places comments chronologically alongside revision sub-folders in the same date folder, enabling streaming import to process all entries in the correct order.
 
-#### comments.json Schema
+**Comment sub-folder naming**: `<ticks>-<workItemId>-c<commentId>/`
+
+- `ticks` is the .NET `DateTime.Ticks` of the comment's `createdDate` (for the original) or `modifiedDate` (for each edit version), in UTC.
+- `workItemId` is the integer work item ID.
+- `c<commentId>` is the comment ID prefixed with `c` to distinguish it from revision folders in the same date folder.
+
+Each comment sub-folder contains a single file named `comment.json`.
+
+**Multiple versions of a comment**: When a comment is edited, the original is stored at its `createdDate` ticks and each edit is a separate sub-folder at its `modifiedDate` ticks. Both folders use the same `commentId` in the name. The `version` field inside `comment.json` identifies which version the folder represents.
+
+**Deleted comments**: Excluded from the export by default. The configuration flag `modules.workItems.scopes.comments.includeDeleted` (boolean, default `false`) enables inclusion.
+
+#### comment.json Schema
 
 ```json
 {
-  "workItemId": 12345,
-  "comments": [
+  "commentId": 42,
+  "version": 1,
+  "text": "This is a comment",
+  "format": "html|markdown",
+  "renderedText": "<p>This is a comment</p>",
+  "createdBy": { "id": "user-id", "name": "John Doe", "email": "john@example.com" },
+  "createdDate": "2026-02-25T18:12:34Z",
+  "modifiedBy": { "id": "user-id", "name": "John Doe", "email": "john@example.com" },
+  "modifiedDate": "2026-02-25T18:12:34Z",
+  "isDeleted": false,
+  "embeddedImages": [
     {
-      "commentId": "comment-uuid",
-      "version": 1,
-      "text": "This is a comment",
-      "format": "html|markdown|plaintext",
-      "renderedText": "<p>This is a comment</p>",
-      "createdBy": { "id": "user-id", "name": "John Doe", "email": "john@example.com" },
-      "createdDate": "2026-02-25T18:12:34Z",
-      "modifiedBy": { "id": "user-id", "name": "John Doe", "email": "john@example.com" },
-      "modifiedDate": "2026-02-25T18:12:34Z",
-      "isDeleted": false
+      "originalUrl": "https://dev.azure.com/org/_apis/wit/attachments/uuid",
+      "relativePath": "image-abc123def456.png",
+      "extension": "png",
+      "sha256": "abc123...",
+      "size": 51200
     }
   ]
 }
+```
 ```
 
 ### Embedded Images
@@ -115,7 +137,7 @@ Embedded images are images referenced inline within HTML or Markdown field value
 
 1. **Discovery**: During export, field values are scanned for HTML `<img src>` tags and Markdown `![](url)` patterns.
 2. **Download**: Images with URLs hosted on the source organisation are downloaded; non-ADO URLs are left as-is (and logged as warnings).
-3. **Storage**: Downloaded images are stored beside `revision.json` (for revision field images) or beside `comments.json` (for comment images) using a deterministic filename (e.g. `image-<sha256>.<ext>`).
+3. **Storage**: Downloaded images are stored **beside their parent document** — inside the revision folder (beside `revision.json`) for revision-field images, and inside the comment folder (beside `comment.json`) for comment images. Each downloaded image is named by the SHA-256 hash of its content with the extension inferred from the HTTP `Content-Type` response header (e.g. `abc123def456.png`). The local filename is stored in the `embeddedImages` array of the parent document.
 4. **Rewriting**: Field and comment values in the JSON are rewritten to reference the local filename instead of the remote URL (e.g. `image-abc123.png` instead of `https://dev.azure.com/...`).
 5. **Metadata**: Each embedded image entry is tracked in an `embeddedImages` array in the revision or comment, recording the original URL, stored filename, size, and integrity hash.
 
