@@ -40,6 +40,20 @@
 
 ---
 
+### 3.5. **IMPLEMENTATION_PLAN.md** — Detailed Implementation Guide
+- Phase-by-phase breakdown (4 phases, 2-3 days work)
+- 5 implementation tasks with code examples
+- Unit test cases (10 tests)
+- Integration test cases (3 tests)
+- System test validation steps
+- Resume test scenario
+- Code review checklist
+- Timeline and effort estimates
+
+**Use When:** Starting actual implementation; step-by-step execution guide
+
+---
+
 ### 4. **SOLID_COMPLIANCE_CHECKLIST.md** — SOLID Analysis
 Comprehensive review of all five SOLID principles:
 - **SRP (Single Responsibility):** Each class has one reason to change
@@ -111,10 +125,11 @@ Quick reference linking design to SOLID + guardrails:
 
 ### For Developers (Implementation)
 1. Read **spec.md** "Planned User Scenarios" (5 min)
-2. Follow **tasks.md** checklist when SDK is fixed (2-3 days work)
-3. Reference **DESIGN_DECISIONS_RATIONALE.md** during code review
+2. Study **IMPLEMENTATION_PLAN.md** for phase-by-phase guide (30 min)
+3. Follow **tasks.md** checklist when SDK is fixed (2-3 days work)
+4. Reference **DESIGN_DECISIONS_RATIONALE.md** during code review
 
-**Outcome:** Implement exactly as designed; no surprises
+**Outcome:** Implement exactly as designed; step-by-step execution guide included
 
 ---
 
@@ -171,11 +186,12 @@ DECISION: Defer until upstream SDK fix available
 | **spec.md** | ~250 | Feature definition | 15 min |
 | **plan.md** | ~50 | Deferral explanation | 5 min |
 | **tasks.md** | ~100 | Implementation checklist | 10 min |
+| **IMPLEMENTATION_PLAN.md** | ~400 | Phase-by-phase execution guide | 30 min |
 | **SOLID_COMPLIANCE_CHECKLIST.md** | ~500 | Detailed compliance analysis | 30 min |
 | **DESIGN_DECISIONS_RATIONALE.md** | ~450 | Design philosophy + rationale | 30 min |
 | **COMPLIANCE_SUMMARY.md** | ~300 | Executive overview | 15 min |
 | **INDEX.md** (this file) | ~200 | Navigation guide | 10 min |
-| **TOTAL** | ~1,850 | Complete feature documentation | 115 min |
+| **TOTAL** | ~2,250 | Complete feature documentation | 145 min |
 
 ---
 
