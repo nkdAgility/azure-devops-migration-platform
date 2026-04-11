@@ -54,6 +54,21 @@
 
 ---
 
+### 3.6. **DEVELOPMENT_TASKS.md** — Concrete Developer Tasks
+- 17 specific, actionable tasks across 4 work streams
+- Pre-Implementation (2 tasks: SDK verification, branch setup)
+- Core Implementation (6 tasks: detection, injection, fetching, build)
+- Testing (5 tasks: unit, integration, system, resume tests)
+- Review & Release (2 tasks: code review, merge)
+- Task dependencies and execution order
+- Effort estimates per task (13 hours total)
+- Acceptance criteria for every task
+- Team assignment recommendations
+
+**Use When:** Executing development; task checklist format for tracking completion
+
+---
+
 ### 4. **SOLID_COMPLIANCE_CHECKLIST.md** — SOLID Analysis
 Comprehensive review of all five SOLID principles:
 - **SRP (Single Responsibility):** Each class has one reason to change
@@ -187,11 +202,12 @@ DECISION: Defer until upstream SDK fix available
 | **plan.md** | ~50 | Deferral explanation | 5 min |
 | **tasks.md** | ~100 | Implementation checklist | 10 min |
 | **IMPLEMENTATION_PLAN.md** | ~400 | Phase-by-phase execution guide | 30 min |
+| **DEVELOPMENT_TASKS.md** | ~600 | 17 concrete developer tasks | 45 min |
 | **SOLID_COMPLIANCE_CHECKLIST.md** | ~500 | Detailed compliance analysis | 30 min |
 | **DESIGN_DECISIONS_RATIONALE.md** | ~450 | Design philosophy + rationale | 30 min |
 | **COMPLIANCE_SUMMARY.md** | ~300 | Executive overview | 15 min |
 | **INDEX.md** (this file) | ~200 | Navigation guide | 10 min |
-| **TOTAL** | ~2,250 | Complete feature documentation | 145 min |
+| **TOTAL** | ~2,850 | Complete feature documentation | 190 min |
 
 ---
 
