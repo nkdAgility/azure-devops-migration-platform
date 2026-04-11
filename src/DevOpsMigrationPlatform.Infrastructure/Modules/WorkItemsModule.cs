@@ -35,17 +35,20 @@ public sealed class WorkItemsModule : IDataTypeModule
     public IReadOnlyList<string> DependsOn => Array.Empty<string>();
 
     private readonly IWorkItemRevisionSourceFactory _sourceFactory;
-    private readonly Infrastructure.Export.IWorkItemCommentSourceFactory? _commentSourceFactory;
+    private readonly IAttachmentBinarySource? _attachmentBinarySource;
+    private readonly IWorkItemCommentExportService? _commentExportService;
     private readonly ILogger<WorkItemsModule> _logger;
 
     public WorkItemsModule(
         IWorkItemRevisionSourceFactory sourceFactory,
         ILogger<WorkItemsModule> logger,
-        Infrastructure.Export.IWorkItemCommentSourceFactory? commentSourceFactory = null)
+        IAttachmentBinarySource? attachmentBinarySource = null,
+        IWorkItemCommentExportService? commentExportService = null)
     {
         _sourceFactory = sourceFactory ?? throw new ArgumentNullException(nameof(sourceFactory));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
-        _commentSourceFactory = commentSourceFactory;
+        _attachmentBinarySource = attachmentBinarySource;
+        _commentExportService = commentExportService;
     }
 
     /// <inheritdoc/>
@@ -71,20 +74,12 @@ public sealed class WorkItemsModule : IDataTypeModule
 
         var checkpointingService = new CheckpointingService(context.StateStore);
 
-        IAttachmentBinarySource? attachmentBinarySource = null;
-        // Attachment source is wired via DI in the agent; if not available, skip downloads.
-        // WorkItemsModule itself does not construct AzureDevOpsAttachmentBinarySource to
-        // preserve the module isolation rule (no Infrastructure.AzureDevOps reference here).
-
-        // Comment export service: optional, wired via DI in the agent when available
-        IWorkItemCommentExportService? commentExportService = null;
-
         var orchestrator = new WorkItemExportOrchestrator(
             context.ArtefactStore,
             checkpointingService,
-            attachmentBinarySource,
+            _attachmentBinarySource,
             context.ProgressSink,
-            commentExportService,
+            _commentExportService,
             orgUrl,
             project,
             pat);

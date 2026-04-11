@@ -7,6 +7,7 @@ using Microsoft.TeamFoundation.Client;
 using Microsoft.TeamFoundation.WorkItemTracking.Client;
 using Microsoft.VisualStudio.Services.Client;
 using Microsoft.VisualStudio.Services.Common;
+using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Models;
 using DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.Extensions;
 
@@ -54,7 +55,11 @@ public sealed class TfsInventoryAgent
         foreach (var projName in projectNames)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            RunProject(collectionUrl, projName, store, cancellationToken);
+
+            // Create a no-op progress sink for inventory queries
+            // (actual inventory progress is reported via Emit())
+            var progressSink = new NoOpProgressSink();
+            RunProject(collectionUrl, projName, store, progressSink, cancellationToken);
         }
     }
 
@@ -62,6 +67,7 @@ public sealed class TfsInventoryAgent
         string collectionUrl,
         string projName,
         WorkItemStore store,
+        IProgressSink progressSink,
         CancellationToken cancellationToken)
     {
         // Escape single-quotes in project name to prevent WIQL injection
@@ -73,7 +79,7 @@ public sealed class TfsInventoryAgent
 
         try
         {
-            foreach (var chunk in store.QueryCountAllByDateChunk(baseQuery))
+            foreach (var chunk in store.QueryCountAllByDateChunk(baseQuery, progressSink))
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
@@ -124,5 +130,17 @@ public sealed class TfsInventoryAgent
     {
         var json = JsonSerializer.Serialize(evt, JsonOpts);
         Console.WriteLine(json);
+    }
+
+    /// <summary>
+    /// A no-op <see cref="IProgressSink"/> that discards all progress events.
+    /// Used when progress reporting is handled through an alternative mechanism (e.g., <see cref="Emit"/>).
+    /// </summary>
+    private sealed class NoOpProgressSink : IProgressSink
+    {
+        public void Emit(ProgressEvent evt)
+        {
+            // No-op: actual progress is reported via TfsInventoryAgent.Emit()
+        }
     }
 }
