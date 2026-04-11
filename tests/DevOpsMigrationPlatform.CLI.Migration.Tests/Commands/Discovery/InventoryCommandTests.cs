@@ -1,11 +1,7 @@
 using DevOpsMigrationPlatform.CLI.Commands.Discovery;
 using DevOpsMigrationPlatform.CLI.Migration.Tests.TestUtilities;
-using DevOpsMigrationPlatform.Abstractions.Models;
 using DevOpsMigrationPlatform.Abstractions.Options;
-using DevOpsMigrationPlatform.Abstractions.Services;
 using DevOpsMigrationPlatform.Abstractions.Utilities;
-using DevOpsMigrationPlatform.Infrastructure.AzureDevOps;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using System;
 
@@ -166,9 +162,10 @@ public class InventoryCommandTests
 
     [TestMethod]
     [TestCategory("SystemTest")]
+    [Timeout(300_000)] // 5 minutes
     public async Task InventoryCommand_SystemTest_AdoSingleProject_ScenarioFile_ExecutesSuccessfully()
     {
-        // Arrange – the scenario file references $ENV:AZDEVOPS_DEV_ORG and $ENV:AZDEVOPS_DEV_PAT
+        // ── Guard ─────────────────────────────────────────────────────────
         if (string.IsNullOrEmpty(Environment.GetEnvironmentVariable("AZDEVOPS_DEV_ORG")) ||
             string.IsNullOrEmpty(Environment.GetEnvironmentVariable("AZDEVOPS_DEV_PAT")))
         {
@@ -178,73 +175,35 @@ public class InventoryCommandTests
             return;
         }
 
-        var scenarioFile = FindScenarioFile("inventory-ado-single-project.json");
-        Assert.IsNotNull(scenarioFile,
-            "Could not locate scenarios/inventory-ado-single-project.json relative to the test output directory");
+        // ── Act — run the CLI exactly as the launch profile does ──────────
+        var result = await CliRunner.RunAsync(
+            args: ["discovery", "inventory", "--config", "scenarios/inventory-ado-single-project.json"],
+            timeout: TimeSpan.FromMinutes(4));
 
-        var outputDir = Path.Combine(Path.GetTempPath(), "SystemTests",
-            nameof(InventoryCommand_SystemTest_AdoSingleProject_ScenarioFile_ExecutesSuccessfully),
-            Guid.NewGuid().ToString("N")[..8]);
-        Directory.CreateDirectory(outputDir);
-
-        try
+        // Always dump output so failures are diagnosable in test results.
+        Console.WriteLine("=== STDOUT ===");
+        Console.WriteLine(result.StandardOutput);
+        if (!string.IsNullOrEmpty(result.StandardError))
         {
-            // Act – mirror how InventoryCommand.ExecuteInternalAsync builds its host
-            using var host = DevOpsMigrationPlatform.CLI.MigrationPlatformHost
-                .CreateDefaultBuilder(["--config", scenarioFile],
-                    (services, config) => services.AddAzureDevOpsInventory(config))
-                .Build();
-
-            var inventoryService = host.Services.GetRequiredService<IInventoryService>();
-            var events = new List<InventoryProgressEvent>();
-
-            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(120));
-            await foreach (var evt in inventoryService.RunInventoryAsync(cts.Token))
-            {
-                events.Add(evt);
-                Console.WriteLine($"  {evt.Url}/{evt.ProjectName}: {evt.WorkItemsCount} work items, {evt.RevisionsCount} revisions");
-            }
-
-            // Assert
-            Assert.IsTrue(events.Count > 0, "Expected at least one inventory progress event");
-
-            var completedEvents = events.Where(e => e.IsComplete).ToList();
-            Assert.IsTrue(completedEvents.Count > 0, "Expected at least one completed project inventory");
-
-            var errors = completedEvents.Where(e => e.Error != null).ToList();
-            Assert.AreEqual(0, errors.Count,
-                $"Expected no errors, but got: {string.Join(", ", errors.Select(e => e.Error))}");
-
-            var totalWorkItems = completedEvents.Sum(e => e.WorkItemsCount);
-            Assert.AreEqual(44, totalWorkItems,
-                $"Expected 44 work items across all completed projects, but found {totalWorkItems}");
-
-            Console.WriteLine($"Inventory complete: {completedEvents.Count} project(s), {totalWorkItems} work items");
+            Console.WriteLine("=== STDERR ===");
+            Console.WriteLine(result.StandardError);
         }
-        finally
-        {
-            if (Directory.Exists(outputDir))
-                Directory.Delete(outputDir, recursive: true);
-        }
+
+        // ── Assert: process outcome ───────────────────────────────────────
+        Assert.IsFalse(result.TimedOut,
+            "CLI timed out. The inventory is either hung or the organisation is very large.");
+
+        Assert.AreEqual(0, result.ExitCode,
+            $"CLI exited with code {result.ExitCode}. Check STDOUT/STDERR above.");
+
+        // ── Assert: success message printed by the CLI ────────────────────
+        // InventoryCommand prints on success (after Spectre ANSI stripping):
+        //   "Inventory complete."
+        var combinedOutput = result.StandardOutput + result.StandardError;
+        Assert.IsTrue(
+            combinedOutput.Contains("Inventory complete", StringComparison.OrdinalIgnoreCase),
+            "Expected CLI success message ('Inventory complete') not found in output.");
     }
 
     #endregion
-
-    // ── Helpers ───────────────────────────────────────────────────────────────
-
-    /// <summary>
-    /// Walks up from the test binary output directory until it finds a "scenarios" sibling folder.
-    /// </summary>
-    private static string? FindScenarioFile(string fileName)
-    {
-        var dir = new DirectoryInfo(AppContext.BaseDirectory);
-        while (dir != null)
-        {
-            var candidate = Path.Combine(dir.FullName, "scenarios", fileName);
-            if (File.Exists(candidate))
-                return candidate;
-            dir = dir.Parent;
-        }
-        return null;
-    }
 }

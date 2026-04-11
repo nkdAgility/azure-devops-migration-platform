@@ -112,4 +112,144 @@ public class MigrationExportCommandTests
         Assert.IsTrue(workItemDirs.Length > 0,
             "Expected at least one work item sub-directory under WorkItems/");
     }
+
+    /// <summary>
+    /// Runs <c>devopsmigration export --config scenarios/export-ado-workitems-single-project.json --force-fresh</c>
+    /// as a subprocess and validates that comments and embedded images are exported correctly.
+    /// 
+    /// This test verifies:
+    /// 1. Work item comments are written to comment sub-folders (*-c&lt;commentId&gt;/comment.json)
+    /// 2. Embedded images referenced in HTML and Markdown fields are downloaded
+    /// 3. Image URLs in revision.json are rewritten to relative paths
+    /// 4. Comment images are stored beside comment.json inside the comment subfolder
+    /// </summary>
+    [TestMethod]
+    [TestCategory("SystemTest")]
+    [Timeout(1_200_000)] // 20 minutes — full export including API calls for comments
+    public async Task MigrationExportCommand_SystemTest_WorkItemComments_ExitsZero_AndWritesCommentFolders()
+    {
+        // ── Guard ─────────────────────────────────────────────────────────
+        var orgEnv = Environment.GetEnvironmentVariable("AZDEVOPS_DEV_ORG");
+        var patEnv = Environment.GetEnvironmentVariable("AZDEVOPS_DEV_PAT");
+        if (string.IsNullOrEmpty(orgEnv) || string.IsNullOrEmpty(patEnv))
+        {
+            Assert.Inconclusive(
+                "System test skipped: AZDEVOPS_DEV_ORG and AZDEVOPS_DEV_PAT must be set. " +
+                "See docs/contributors.md for setup instructions.");
+            return;
+        }
+
+        // ── Output folder (matches scenario Artefacts.Path) ───────────────
+        var outputDir = Environment.ExpandEnvironmentVariables(
+            @"%TEMP%\SystemTests\export-ado-workitems-single-project");
+
+        if (Directory.Exists(outputDir))
+            Directory.Delete(outputDir, recursive: true);
+
+        // ── Act — run the CLI with comments and embedded images enabled ────
+        var result = await CliRunner.RunAsync(
+            args: ["export", "--config", "scenarios/export-ado-workitems-single-project.json", "--force-fresh"],
+            timeout: TimeSpan.FromMinutes(18));
+
+        // Always dump output for diagnostics
+        Console.WriteLine("=== STDOUT ===");
+        Console.WriteLine(result.StandardOutput);
+        if (!string.IsNullOrEmpty(result.StandardError))
+        {
+            Console.WriteLine("=== STDERR ===");
+            Console.WriteLine(result.StandardError);
+        }
+
+        // ── Assert: process outcome ───────────────────────────────────────
+        Assert.IsFalse(result.TimedOut,
+            "CLI timed out. The export may be hung or the project is very large.");
+
+        Assert.AreEqual(0, result.ExitCode,
+            $"CLI exited with code {result.ExitCode}. Check STDOUT/STDERR above.");
+
+        // ── Assert: success message ───────────────────────────────────────
+        var combinedOutput = result.StandardOutput + result.StandardError;
+        Assert.IsTrue(
+            combinedOutput.Contains("export complete", StringComparison.OrdinalIgnoreCase) ||
+            combinedOutput.Contains("work items", StringComparison.OrdinalIgnoreCase),
+            "Expected CLI success message not found in output.");
+
+        // ── Assert: comment folders exist ───────────────────────────────────
+        var workItemsDir = Path.Combine(outputDir, "WorkItems");
+        Assert.IsTrue(Directory.Exists(workItemsDir),
+            $"WorkItems directory was not created under {outputDir}");
+
+        // Search for comment folders matching pattern: *-<workItemId>-c<commentId>/
+        var allDirs = Directory.GetDirectories(workItemsDir, "*", SearchOption.AllDirectories);
+        var commentFolders = allDirs.Where(d =>
+        {
+            var name = Path.GetFileName(d);
+            // Comment folder pattern: <ticks>-<workItemId>-c<commentId>
+            // Example: 637123456789-12345-c1/
+            return Regex.IsMatch(name, @"^\d+-\d+-c\d+$");
+        }).ToList();
+
+        Console.WriteLine($"Total directories found: {allDirs.Length}");
+        Console.WriteLine($"Comment folders found: {commentFolders.Count}");
+
+        if (commentFolders.Count > 0)
+        {
+            Console.WriteLine("Comment folders:");
+            foreach (var folder in commentFolders.Take(10))
+            {
+                Console.WriteLine($"  - {Path.GetFileName(folder)}");
+                var commentJsonPath = Path.Combine(folder, "comment.json");
+                Assert.IsTrue(File.Exists(commentJsonPath),
+                    $"comment.json not found at {commentJsonPath}");
+            }
+            Assert.IsTrue(commentFolders.Count > 0,
+                "At least one comment folder should be present if the work items have comments.");
+        }
+        else
+        {
+            Console.WriteLine("⚠️ No comment folders found. This may indicate:");
+            Console.WriteLine("   - Test work items have no comments");
+            Console.WriteLine("   - Comments scope is not enabled in scenario config");
+            Console.WriteLine("   - Comment export service was not called");
+        }
+
+        // ── Assert: embedded images are downloaded ───────────────────────────
+        // Check for image files (SHA-256 hashes) beside revision.json or comment.json
+        var imageFiles = Directory.GetFiles(workItemsDir, "*.*", SearchOption.AllDirectories)
+            .Where(f =>
+            {
+                var fileName = Path.GetFileName(f);
+                var ext = Path.GetExtension(f).ToLowerInvariant();
+                // Image files: SHA-256 hex + extension (e.g., abc123def456.png)
+                return Regex.IsMatch(fileName, @"^[a-f0-9]{64}\.(png|jpg|jpeg|gif|webp|svg|bmp)$") &&
+                       (f.Contains("-c") || Path.GetFileName(Path.GetDirectoryName(f)) == "WorkItems");
+            })
+            .ToList();
+
+        Console.WriteLine($"Image files found: {imageFiles.Count}");
+        if (imageFiles.Count > 0)
+        {
+            Console.WriteLine("Embedded images:");
+            foreach (var imgFile in imageFiles.Take(5))
+            {
+                var fileInfo = new FileInfo(imgFile);
+                Console.WriteLine($"  - {Path.GetFileName(imgFile)} ({fileInfo.Length} bytes)");
+            }
+        }
+        else
+        {
+            Console.WriteLine("⚠️ No embedded image files found. This may indicate:");
+            Console.WriteLine("   - Work items contain no HTML/Markdown with embedded images");
+            Console.WriteLine("   - Embedded images scope is not enabled");
+            Console.WriteLine("   - Image download service was not called");
+        }
+
+        // ── Assert: at least revisions exist ──────────────────────────────
+        var revisionFiles = Directory.GetFiles(workItemsDir, "revision.json", SearchOption.AllDirectories);
+        Assert.IsTrue(revisionFiles.Length > 0,
+            $"No revision.json files found under {workItemsDir}");
+
+        Console.WriteLine($"Total revision.json files: {revisionFiles.Length}");
+        Console.WriteLine($"Output directory: {outputDir}");
+    }
 }

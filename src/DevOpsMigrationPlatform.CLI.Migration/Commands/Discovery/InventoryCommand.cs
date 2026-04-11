@@ -33,39 +33,35 @@ public sealed class InventoryCommand : CommandBase<InventoryCommand.Settings>
             services.AddAzureDevOpsInventory(config);
         });
 
+        var console = GetRequiredService<IAnsiConsole>();
         var inventoryService = GetRequiredService<IInventoryService>();
         var summaries = new Dictionary<string, InventorySummary>(StringComparer.OrdinalIgnoreCase);
-        var table = BuildTable(summaries.Values);
 
-        await AnsiConsole.Live(table)
-            .StartAsync(async ctx =>
-            {
-                await foreach (var evt in inventoryService.RunInventoryAsync(cancellationToken))
+        if (console.Profile.Capabilities.Interactive)
+        {
+            var table = BuildTable(summaries.Values);
+            await console.Live(table)
+                .StartAsync(async ctx =>
                 {
-                    var key = $"{evt.Url}|{evt.ProjectName}";
-                    if (!summaries.TryGetValue(key, out var summary))
+                    await foreach (var evt in inventoryService.RunInventoryAsync(cancellationToken))
                     {
-                        summary = new InventorySummary
-                        {
-                            Url = evt.Url,
-                            ProjectName = evt.ProjectName
-                        };
-                        summaries[key] = summary;
+                        UpdateSummary(summaries, evt);
+                        ctx.UpdateTarget(BuildTable(summaries.Values));
                     }
-
-                    summary.WorkItemsCount = evt.WorkItemsCount;
-                    summary.RevisionsCount = evt.RevisionsCount;
-                    summary.ReposCount = evt.ReposCount;
-                    summary.LastUpdatedUtc = evt.Timestamp;
-                    if (evt.IsComplete)
-                    {
-                        summary.IsComplete = true;
-                        summary.Error = evt.Error;
-                    }
-
-                    ctx.UpdateTarget(BuildTable(summaries.Values));
+                });
+        }
+        else
+        {
+            await foreach (var evt in inventoryService.RunInventoryAsync(cancellationToken))
+            {
+                UpdateSummary(summaries, evt);
+                if (evt.IsComplete)
+                {
+                    var status = evt.Error != null ? "✗ Failed" : "✓";
+                    console.MarkupLine($"  {Markup.Escape(evt.Url)} / {Markup.Escape(evt.ProjectName)}: {evt.WorkItemsCount} work items, {evt.RevisionsCount} revisions — {status}");
                 }
-            });
+            }
+        }
 
         var outputDir = string.IsNullOrWhiteSpace(settings.OutputPath)
             ? Path.Combine(Directory.GetCurrentDirectory(), "output")
@@ -74,8 +70,28 @@ public sealed class InventoryCommand : CommandBase<InventoryCommand.Settings>
         var csvPath = Path.Combine(outputDir, "discovery-summary.csv");
         WriteCsv(summaries.Values, csvPath);
 
-        AnsiConsole.MarkupLine($"\n[green]✅ Inventory complete.[/] CSV written to [blue]{Markup.Escape(csvPath)}[/]");
+        console.MarkupLine($"\n[green]✅ Inventory complete.[/] CSV written to [blue]{Markup.Escape(csvPath)}[/]");
         return 0;
+    }
+
+    private static void UpdateSummary(Dictionary<string, InventorySummary> summaries, InventoryProgressEvent evt)
+    {
+        var key = $"{evt.Url}|{evt.ProjectName}";
+        if (!summaries.TryGetValue(key, out var summary))
+        {
+            summary = new InventorySummary { Url = evt.Url, ProjectName = evt.ProjectName };
+            summaries[key] = summary;
+        }
+
+        summary.WorkItemsCount = evt.WorkItemsCount;
+        summary.RevisionsCount = evt.RevisionsCount;
+        summary.ReposCount = evt.ReposCount;
+        summary.LastUpdatedUtc = evt.Timestamp;
+        if (evt.IsComplete)
+        {
+            summary.IsComplete = true;
+            summary.Error = evt.Error;
+        }
     }
 
     // ── Rendering ─────────────────────────────────────────────────────────────

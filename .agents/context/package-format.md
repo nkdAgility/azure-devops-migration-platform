@@ -20,15 +20,19 @@ The WorkItems layout is canonical and must not be altered:
 ```
 WorkItems/
   yyyy-MM-dd/
+    <workItemId>-comments.json
     <ticks>-<workItemId>-<revisionIndex>/
       revision.json
       <attachment files>
+      <embedded image files>
 ```
 
 Key characteristics:
 
 - Chronological ordering is guaranteed
 - No global index required
+- Comments stored at date-folder level (one per work item)
+- Embedded images stored beside revision.json or comments.json
 - Streaming import is natural
 - Resume is trivial
 - Human-auditable
