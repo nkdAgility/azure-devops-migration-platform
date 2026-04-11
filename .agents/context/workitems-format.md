@@ -9,12 +9,16 @@ WorkItems is the primary high-fidelity module. Its on-disk layout is canonical a
 ```
 WorkItems/
   yyyy-MM-dd/
+    <workItemId>-comments.json
     <ticks>-<workItemId>-<revisionIndex>/
       revision.json
       <attachment files>
+      <embedded image files>
 ```
 
-Each revision folder corresponds to exactly one revision of one work item. Attachment files belonging to that revision are stored physically beside `revision.json`.
+Each date folder may contain a `<workItemId>-comments.json` file holding all comments and discussions for that work item.
+
+Each revision folder corresponds to exactly one revision of one work item. Attachment files and embedded image files belonging to that revision are stored physically beside `revision.json`.
 
 ### revision.json Required Fields
 
@@ -34,6 +38,15 @@ Each revision folder corresponds to exactly one revision of one work item. Attac
       "sha256": "abc123...",
       "size": 102400
     }
+  ],
+  "embeddedImages": [
+    {
+      "originalUrl": "https://dev.azure.com/org/_apis/wit/attachments/uuid",
+      "relativePath": "image-abc123def456.png",
+      "extension": "png",
+      "sha256": "abc123...",
+      "size": 51200
+    }
   ]
 }
 ```
@@ -50,6 +63,7 @@ Each revision folder corresponds to exactly one revision of one work item. Attac
 | `relatedLinks` | array | Related work item links |
 | `hyperlinks` | array | Hyperlinks |
 | `attachments` | array | Attachment metadata for files in this folder |
+| `embeddedImages` | array | Embedded images discovered and rewritten in field values |
 
 ### Attachment Rules
 
@@ -66,6 +80,56 @@ Each revision folder corresponds to exactly one revision of one work item. Attac
 ### No Global Attachments Module
 
 Attachments are scoped to their revision. There is no `Attachments/` root folder in the package. This is a hard rule; see [.agents/guardrails/system-architecture.md](../.agents/guardrails/system-architecture.md).
+
+### Comments and Discussions
+
+Comments are stored in a `<workItemId>-comments.json` file at the date-folder level (alongside revision folders). This file is created once per work item and contains all comments and discussion threads. The file is updated if the work item receives new comments in a later batch export.
+
+#### comments.json Schema
+
+```json
+{
+  "workItemId": 12345,
+  "comments": [
+    {
+      "commentId": "comment-uuid",
+      "version": 1,
+      "text": "This is a comment",
+      "format": "html|markdown|plaintext",
+      "renderedText": "<p>This is a comment</p>",
+      "createdBy": { "id": "user-id", "name": "John Doe", "email": "john@example.com" },
+      "createdDate": "2026-02-25T18:12:34Z",
+      "modifiedBy": { "id": "user-id", "name": "John Doe", "email": "john@example.com" },
+      "modifiedDate": "2026-02-25T18:12:34Z",
+      "isDeleted": false
+    }
+  ]
+}
+```
+
+### Embedded Images
+
+Embedded images are images referenced inline within HTML or Markdown field values (e.g. `<img src="...">` in HTML or `![](...)` in Markdown). These are a different category from attachments: they are discovered during export, downloaded from the source system, and stored locally.
+
+#### Embedded Image Rules
+
+1. **Discovery**: During export, field values are scanned for HTML `<img src>` tags and Markdown `![](url)` patterns.
+2. **Download**: Images with URLs hosted on the source organisation are downloaded; non-ADO URLs are left as-is (and logged as warnings).
+3. **Storage**: Downloaded images are stored beside `revision.json` (for revision field images) or beside `comments.json` (for comment images) using a deterministic filename (e.g. `image-<sha256>.<ext>`).
+4. **Rewriting**: Field and comment values in the JSON are rewritten to reference the local filename instead of the remote URL (e.g. `image-abc123.png` instead of `https://dev.azure.com/...`).
+5. **Metadata**: Each embedded image entry is tracked in an `embeddedImages` array in the revision or comment, recording the original URL, stored filename, size, and integrity hash.
+
+#### Embedded Image Metadata Entry
+
+```json
+{
+  "originalUrl": "https://dev.azure.com/org/_apis/wit/attachments/uuid",
+  "relativePath": "image-abc123def456.png",
+  "extension": "png",
+  "sha256": "abc123...",
+  "size": 51200
+}
+```
 
 ---
 
@@ -86,12 +150,14 @@ public record WorkItemRevision
     public IReadOnlyList<WorkItemLink> RelatedLinks { get; init; }
     public IReadOnlyList<WorkItemLink> Hyperlinks { get; init; }
     public IReadOnlyList<AttachmentMetadata> Attachments { get; init; }
+    public IReadOnlyList<EmbeddedImageMetadata> EmbeddedImages { get; init; }
 }
 ```
 
 `WorkItemField` carries `ReferenceName` (e.g. `"System.Title"`) and `Value` (string-serialised).
 `WorkItemLink` carries `Rel` and `Url`.
 `AttachmentMetadata` carries `OriginalName`, `RelativePath`, `Sha256`, and `Size`.
+`EmbeddedImageMetadata` carries `OriginalUrl`, `RelativePath`, `Extension`, `Sha256`, and `Size`.
 
 ### IWorkItemRevisionSource
 

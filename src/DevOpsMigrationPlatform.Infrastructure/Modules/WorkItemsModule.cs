@@ -4,9 +4,11 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Services;
 using DevOpsMigrationPlatform.Infrastructure.Checkpointing;
 using DevOpsMigrationPlatform.Infrastructure.Export;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Modules;
 
@@ -20,6 +22,9 @@ namespace DevOpsMigrationPlatform.Infrastructure.Modules;
 /// <see cref="IAsyncEnumerable{T}"/>; streams attachment binaries directly to
 /// <see cref="IArtefactStore.WriteBinaryAsync"/>; no revision list or attachment byte
 /// array is accumulated in memory.
+/// 
+/// Also orchestrates comment export and embedded image download after revision export
+/// via <see cref="IWorkItemCommentExportService"/> and <see cref="IEmbeddedImageExportService"/>.
 /// </summary>
 public sealed class WorkItemsModule : IDataTypeModule
 {
@@ -30,14 +35,17 @@ public sealed class WorkItemsModule : IDataTypeModule
     public IReadOnlyList<string> DependsOn => Array.Empty<string>();
 
     private readonly IWorkItemRevisionSourceFactory _sourceFactory;
+    private readonly Infrastructure.Export.IWorkItemCommentSourceFactory? _commentSourceFactory;
     private readonly ILogger<WorkItemsModule> _logger;
 
     public WorkItemsModule(
         IWorkItemRevisionSourceFactory sourceFactory,
-        ILogger<WorkItemsModule> logger)
+        ILogger<WorkItemsModule> logger,
+        Infrastructure.Export.IWorkItemCommentSourceFactory? commentSourceFactory = null)
     {
         _sourceFactory = sourceFactory ?? throw new ArgumentNullException(nameof(sourceFactory));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        _commentSourceFactory = commentSourceFactory;
     }
 
     /// <inheritdoc/>
@@ -68,11 +76,18 @@ public sealed class WorkItemsModule : IDataTypeModule
         // WorkItemsModule itself does not construct AzureDevOpsAttachmentBinarySource to
         // preserve the module isolation rule (no Infrastructure.AzureDevOps reference here).
 
+        // Comment export service: optional, wired via DI in the agent when available
+        IWorkItemCommentExportService? commentExportService = null;
+
         var orchestrator = new WorkItemExportOrchestrator(
             context.ArtefactStore,
             checkpointingService,
             attachmentBinarySource,
-            context.ProgressSink);
+            context.ProgressSink,
+            commentExportService,
+            orgUrl,
+            project,
+            pat);
 
         await orchestrator.ExportAsync(source, ct).ConfigureAwait(false);
 

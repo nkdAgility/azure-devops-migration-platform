@@ -28,6 +28,20 @@
   <ItemGroup Condition="'$(TargetFramework)' == 'net481'">
     <PackageReference Include="Microsoft.Bcl.AsyncInterfaces" Version="9.0.5" />
     <PackageReference Include="System.Text.Json" Version="9.0.4" />
+    <PackageReference Include="System.Runtime.CompilerServices.Unsafe" Version="6.0.0" />
+  </ItemGroup>
+
+  <!-- HTML parsing for embedded image discovery in field values -->
+  <ItemGroup>
+    <PackageReference Include="HtmlAgilityPack" Version="1.11.61" />
+  </ItemGroup>
+
+  <!-- Logging for export services -->
+  <ItemGroup Condition="'$(TargetFramework)' == 'net481'">
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="9.0.5" />
+  </ItemGroup>
+  <ItemGroup Condition="'$(TargetFramework)' != 'net481'">
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.0" />
   </ItemGroup>
 
   <ItemGroup>
