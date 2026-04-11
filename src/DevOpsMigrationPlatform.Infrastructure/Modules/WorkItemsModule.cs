@@ -37,18 +37,21 @@ public sealed class WorkItemsModule : IDataTypeModule
     private readonly IWorkItemRevisionSourceFactory _sourceFactory;
     private readonly IAttachmentBinarySource? _attachmentBinarySource;
     private readonly IWorkItemCommentExportService? _commentExportService;
+    private readonly IWorkItemCommentSourceFactory? _inlineCommentSourceFactory;
     private readonly ILogger<WorkItemsModule> _logger;
 
     public WorkItemsModule(
         IWorkItemRevisionSourceFactory sourceFactory,
         ILogger<WorkItemsModule> logger,
         IAttachmentBinarySource? attachmentBinarySource = null,
-        IWorkItemCommentExportService? commentExportService = null)
+        IWorkItemCommentExportService? commentExportService = null,
+        IWorkItemCommentSourceFactory? inlineCommentSourceFactory = null)
     {
         _sourceFactory = sourceFactory ?? throw new ArgumentNullException(nameof(sourceFactory));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _attachmentBinarySource = attachmentBinarySource;
         _commentExportService = commentExportService;
+        _inlineCommentSourceFactory = inlineCommentSourceFactory;
     }
 
     /// <inheritdoc/>
@@ -63,16 +66,22 @@ public sealed class WorkItemsModule : IDataTypeModule
         var query = ResolveParameter(job, "query", DefaultWiqlQuery);
         var includeAttachments = ResolveParameter(job, "includeAttachments", "true")
             .Equals("true", StringComparison.OrdinalIgnoreCase);
+        var inlineCommentsEnabled = ResolveParameter(job, "inlineComments.enabled", "false")
+            .Equals("true", StringComparison.OrdinalIgnoreCase);
 
         _logger.LogInformation(
-            "[WorkItems] Exporting from {OrgUrl}/{Project} (attachments={IncludeAttachments})",
-            orgUrl, project, includeAttachments);
+            "[WorkItems] Exporting from {OrgUrl}/{Project} (attachments={IncludeAttachments}, inlineComments={InlineCommentsEnabled})",
+            orgUrl, project, includeAttachments, inlineCommentsEnabled);
 
         var source = await _sourceFactory
             .CreateAsync(orgUrl, project, pat, query, ct)
             .ConfigureAwait(false);
 
         var checkpointingService = new CheckpointingService(context.StateStore);
+
+        // Only activate inline comment fetching when the user has explicitly opted in.
+        // Defaults to false to avoid unexpected API calls in standard export runs.
+        var inlineFactory = inlineCommentsEnabled ? _inlineCommentSourceFactory : null;
 
         var orchestrator = new WorkItemExportOrchestrator(
             context.ArtefactStore,
@@ -82,7 +91,8 @@ public sealed class WorkItemsModule : IDataTypeModule
             _commentExportService,
             orgUrl,
             project,
-            pat);
+            pat,
+            inlineFactory);
 
         await orchestrator.ExportAsync(source, ct).ConfigureAwait(false);
 
