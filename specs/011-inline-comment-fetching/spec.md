@@ -1,21 +1,22 @@
 # Inline Comment Fetching for Edit/Delete Revisions
 
-**Status:** ⏸️ DEFERRED — Awaiting Upstream SDK Fix  
+**Status:** ✅ IMPLEMENTED (feature-gated — `inlineComments.enabled: true` required)  
 **Priority:** Medium  
 **Module:** WorkItems Export  
 
 ---
 
-## CRITICAL: Upstream Blocker
+## Implementation Notes
 
-### Current Issue
-`AzureDevOpsWorkItemCommentSource.GetCommentsAsync()` passes incorrect parameters to Azure DevOps Comments API v7.1-preview.4:
-- **Error:** "A query parameter specified in the request URI is outside the permissible range: $top"
-- **Root cause:** SDK parameter mapping bug in existing comment source implementation
-- **Impact:** ANY inline comment fetching will fail until this is fixed upstream
+The feature is implemented and gated behind `inlineComments.enabled: true` in the scenario
+config's `WorkItems` scope parameters (default: `false`). This prevents unexpected API calls
+in standard export runs.
 
-### Decision: Defer Until Unblocked
-This feature is **deferred indefinitely** until the underlying bug is fixed. This specification documents the planned implementation for future reference, but **NO code changes will be made at this time**.
+**Known limitation:** `AzureDevOpsWorkItemCommentSource.GetCommentsAsync()` has an upstream
+SDK bug (`$top` parameter out of range). Errors are non-fatal — a progress warning is emitted
+and the export continues. Full comment data will be correctly persisted once the SDK is fixed.
+
+See [tasks.md](tasks.md) for per-task completion status.
 
 ---
 

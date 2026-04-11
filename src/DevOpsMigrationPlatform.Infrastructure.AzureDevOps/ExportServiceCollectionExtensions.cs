@@ -22,12 +22,18 @@ public static class ExportServiceCollectionExtensions
     ///   <item><see cref="IAzureDevOpsWorkItemRevisionMapper"/> — maps REST revisions to the package model.</item>
     ///   <item><see cref="IWorkItemRevisionSourceFactory"/> as <see cref="AzureDevOpsWorkItemRevisionSourceFactory"/> — constructs revision sources per job.</item>
     ///   <item><see cref="AzureDevOpsAttachmentRegistry"/> — per-export-run attachment URL store (scoped).</item>
-    ///   <item><see cref="IAzureDevOpsWorkItemCommentSourceFactory"/> — creates comment sources per job.</item>
+    ///   <item><see cref="Infrastructure.Export.IWorkItemCommentSourceFactory"/> as <see cref="AzureDevOpsWorkItemCommentSourceFactory"/> — creates comment sources per job (used for inline comment fetching when <c>inlineComments.enabled</c> is true).</item>
     ///   <item><see cref="IEmbeddedImageDownloader"/> as <see cref="AzureDevOpsEmbeddedImageDownloader"/> — downloads embedded images with Polly resilience.</item>
     ///   <item><see cref="IEmbeddedImageExportService"/> as <see cref="EmbeddedImageExportService"/> — processes HTML/Markdown for image URLs and rewrites them.</item>
-    ///   <item><see cref="IWorkItemCommentExportService"/> as <see cref="WorkItemCommentExportService"/> — persists comments to package.</item>
     ///   <item><see cref="WorkItemsModule"/> — the <see cref="IDataTypeModule"/> implementation.</item>
     /// </list>
+    /// <para>
+    /// Note: <see cref="IWorkItemCommentExportService"/> is <b>not</b> registered here.
+    /// The legacy post-work-item comment export path is retained in
+    /// <see cref="WorkItemExportOrchestrator"/> but is inert (always injected as <c>null</c>).
+    /// Inline comment fetching (Feature 011) supersedes it and is gated behind
+    /// <c>inlineComments.enabled: true</c> in the scenario config.
+    /// </para>
     /// </summary>
     public static IServiceCollection AddAzureDevOpsWorkItemExport(
         this IServiceCollection services)
@@ -39,9 +45,11 @@ public static class ExportServiceCollectionExtensions
         services.AddScoped<AzureDevOpsAttachmentRegistry>();
         services.AddScoped<IWorkItemRevisionSourceFactory, AzureDevOpsWorkItemRevisionSourceFactory>();
 
-        // Comment export services
+        // Inline comment fetching (Feature 011): factory registered; activated only when
+        // inlineComments.enabled=true in the scenario config (default: false).
         services.AddSingleton<Infrastructure.Export.IWorkItemCommentSourceFactory, AzureDevOpsWorkItemCommentSourceFactory>();
-        // Note: IWorkItemCommentExportService is created on-demand by WorkItemsModule, not registered in DI
+        // Note: IWorkItemCommentExportService (legacy post-work-item path) is intentionally
+        // NOT registered — it is inert. Inline fetching via IWorkItemCommentSourceFactory supersedes it.
 
         // Embedded image download and processing
         services.AddHttpClient<AzureDevOpsEmbeddedImageDownloader>()

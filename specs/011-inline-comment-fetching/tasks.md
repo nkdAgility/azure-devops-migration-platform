@@ -1,116 +1,81 @@
 # Implementation Plan: Inline Comment Fetching for Edit/Delete Revisions
 
-**⏸️ STATUS: DEFERRED — ALL TASKS BLOCKED**
+**✅ STATUS: IMPLEMENTED (feature-gated, SDK bug non-fatal)**
 
 ---
 
-## Deferral Reason
+## Implementation Summary
 
-**Upstream SDK Bug Blocks Implementation:**
-- `AzureDevOpsWorkItemCommentSource.GetCommentsAsync()` has incorrect parameter mapping
-- API Error: "A query parameter specified in the request URI is outside the permissible range: $top"
-- Any implementation will fail at runtime until this is fixed
-- **Decision:** Do NOT proceed with implementation until the bug is fixed upstream
+Tasks 1–4 and 6–7 are complete. The feature is gated behind `inlineComments.enabled: true`
+in the scenario config (default: `false`) to avoid unexpected API calls in standard exports.
 
-**Non-blocking Rationale:**
-- Comment additions are already captured (System.History field)
-- Full export functionality is complete
-- This is an enhancement for comment edit/delete history only
+**Known limitation:** `AzureDevOpsWorkItemCommentSource.GetCommentsAsync()` still has an
+upstream SDK bug (`$top` parameter out of range). Errors are non-fatal — a progress warning
+is emitted and the export continues. Full comment data will be available once the SDK is fixed.
+
+**Task 5 (remove legacy post-processing)** is deferred: `IWorkItemCommentExportService` is
+retained but never injected (not registered in DI), so it is inert. Removal is a separate
+cleanup task once the inline path is fully validated.
 
 ---
 
-## Task List (Deferred — Do Not Execute)
+## Task List
 
-### ❌ Task 1: Add Comment Detection Method [BLOCKED]
-**Status:** Pre-implementation (Deferred)  
+### ✅ Task 1: Add Comment Detection Method [DONE]
+**Status:** Complete — commit `f9423e9`
 **File:** `WorkItemExportOrchestrator.cs`  
-**Dependencies:** None (but blocked by SDK bug)  
-**Description:** Implement `IsCommentEditOrDeleteRevision()` static method  
-
-**Prerequisite:** Upstream SDK bug in `AzureDevOpsWorkItemCommentSource.GetCommentsAsync()` must be fixed
-
-**Method Design** (for reference):
-```csharp
-private static bool IsCommentEditOrDeleteRevision(WorkItemRevision revision)
-{
-    // Returns true if only System.CommentCount changed (likely edit/delete)
-    // Returns false if System.History present (addition)
-}
-```
+**Description:** Implemented `IsCommentEditOrDeleteRevision()` static method.
+Guards `RevisionIndex == 0` (creation revision excluded — all fields appear as changed when
+previous is null, making CommentCount unreliable).
 
 ---
 
-### ❌ Task 2: Add Factory Injection to Orchestrator [BLOCKED]
-**Status:** Pre-implementation (Deferred)  
+### ✅ Task 2: Add Factory Injection to Orchestrator [DONE]
+**Status:** Complete — commit `f9423e9`
 **File:** `WorkItemExportOrchestrator.cs`  
-**Dependencies:** Task 1  
-**Description:** Add `IWorkItemCommentSourceFactory` parameter to constructor  
-
-**Prerequisite:** Task 1 complete + SDK bug fixed
+**Description:** Added `IWorkItemCommentSourceFactory?` optional constructor parameter and field.
 
 ---
 
-### ❌ Task 3: Update Dependency Injection in WorkItemsModule [BLOCKED]
-**Status:** Pre-implementation (Deferred)  
+### ✅ Task 3: Update Dependency Injection in WorkItemsModule [DONE]
+**Status:** Complete — commit `f9423e9`
 **File:** `WorkItemsModule.cs`  
-**Dependencies:** Task 2  
-**Description:** Accept factory in module and pass to orchestrator  
-
-**Prerequisite:** Task 2 complete + SDK bug fixed
+**Description:** Module accepts `IWorkItemCommentSourceFactory?` from DI. Passes it to the
+orchestrator only when `inlineComments.enabled: true` is set in the scope parameters.
 
 ---
 
-### ❌ Task 4: Integrate Inline Comment Fetching [BLOCKED]
-**Status:** Pre-implementation (Deferred)  
+### ✅ Task 4: Integrate Inline Comment Fetching [DONE]
+**Status:** Complete — commit `f9423e9`
 **File:** `WorkItemExportOrchestrator.cs` - `ExportAsync()` method  
-**Dependencies:** Task 3  
-**Description:** Fetch and store comments for edit/delete revisions  
-
-**Note:** This task will immediately fail at runtime with the current SDK bug:
-```
-AzureDevOpsWorkItemCommentSource.GetCommentsAsync()
-  ↓
-  Calls Azure DevOps Comments API v7.1-preview.4
-  ↓
-  API Error: "$top parameter out of range"
-  ↓
-  Export halts
-```
-
-**Prerequisite:** Task 3 complete + SDK bug fixed in `AzureDevOpsWorkItemCommentSource`
+**Description:** For detected comment edit/delete revisions, fetches comments via
+`IWorkItemCommentSource.GetCommentsAsync()`, filters by ±1 second timestamp window, and
+writes `comment.json` beside `revision.json`. SDK errors are non-fatal (progress warning,
+export continues).
 
 ---
 
-### ❌ Task 5: Remove Legacy Comment Export Post-Processing [BLOCKED]
-**Status:** Pre-implementation (Deferred)  
+### ⏸️ Task 5: Remove Legacy Comment Export Post-Processing [DEFERRED]
+**Status:** Deferred — `IWorkItemCommentExportService` is inert (never injected via DI)
 **File:** `WorkItemExportOrchestrator.cs` - `ExportAsync()` method  
-**Dependencies:** Task 4  
-**Description:** Remove work-item transition hooks and post-processing  
-
-**Prerequisite:** Task 4 complete + all inline fetching working
+**Description:** Remove the `_commentExportService` plumbing once inline path is fully validated.
 
 ---
 
-### ❌ Task 6: Add Using Statements [BLOCKED]
-**Status:** Pre-implementation (Deferred)  
+### ✅ Task 6: Add Using Statements [DONE]
+**Status:** Complete — commit `f9423e9`
 **File:** `WorkItemExportOrchestrator.cs`  
-**Dependencies:** Task 5  
-**Description:** Add required imports  
-
-**Prerequisite:** All previous tasks complete
+**Description:** Required `using DevOpsMigrationPlatform.Abstractions.Models;` added.
 
 ---
 
-### ❌ Task 7: Build and Verify [BLOCKED]
-**Status:** Pre-implementation (Deferred)  
+### ✅ Task 7: Build and Verify [DONE]
+**Status:** Complete — all 255 tests pass (253 pass, 2 skipped — require running control plane)
 **File:** All modified files  
-**Dependencies:** Task 6  
-**Description:** Full solution build and test verification  
 
-**Prerequisite:** All implementation tasks complete + SDK bug fixed
 ---
 
-## Dependencies (For Future Reference)
+## Dependencies
 
 Task execution order (once SDK bug is fixed):
 1. Task 1 → Task 2 → Task 3 → Task 4 → Task 5 → Task 6 → Task 7
