@@ -19,5 +19,6 @@ public interface IWorkItemExportService
         string tfsServer,
         string project,
         string wiqlQuery,
+        IProgressSink progressSink,
         CancellationToken cancellationToken = default);
 }

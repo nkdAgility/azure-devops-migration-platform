@@ -99,6 +99,8 @@ The package location is expressed as a URI in the `MigrationJob`. The Migration 
 
 Module code never references a concrete store implementation.
 
+**Concurrent Write Protection**: Packages are protected from simultaneous writes by a lease-based protocol. Only one agent may hold a lease on a package at any time. See [docs/concurrent-write-detection.md](concurrent-write-detection.md) for the lease mechanism and data integrity guarantees.
+
 ### Cross-Environment Package Handoff
 
 Because the package is a first-class artefact identified by URI, export and import can run in completely different environments:

@@ -52,6 +52,7 @@ public class WorkItemExportService : IWorkItemExportService
         string tfsServer,
         string project,
         string wiqlQuery,
+        IProgressSink progressSink,
         [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         using var activity = MigrationPlatformActivitySources.WorkItemExport.StartActivity(
@@ -74,7 +75,7 @@ public class WorkItemExportService : IWorkItemExportService
 
         if (cachedCount == null)
         {
-            foreach (var countChunk in _workItemStore.QueryCountAllByDateChunk(wiqlQuery))
+            foreach (var countChunk in _workItemStore.QueryCountAllByDateChunk(wiqlQuery, progressSink))
             {
                 progress.TotalWorkItems = countChunk.CurrentTotal;
                 yield return progress;
@@ -90,15 +91,15 @@ public class WorkItemExportService : IWorkItemExportService
 
         // Export pass
         int workItemCounter = 0;
-        long revisionCounter   = 0;
-        long revisionErrors    = 0;
-        long linksExported     = 0;
-        long linkErrors        = 0;
+        long revisionCounter = 0;
+        long revisionErrors = 0;
+        long linksExported = 0;
+        long linkErrors = 0;
         long attachmentsAttempted = 0;
         long attachmentsSucceeded = 0;
         long attachmentsFailed = 0;
         const int snapshotInterval = 100; // matches TelemetryOptions.SubprocessSnapshotRevisionInterval default
-        foreach (var chunkItem in _workItemStore.QueryAllByDateChunk(wiqlQuery))
+        foreach (var chunkItem in _workItemStore.QueryAllByDateChunk(wiqlQuery, progressSink))
         {
             cancellationToken.ThrowIfCancellationRequested();
 
@@ -185,13 +186,13 @@ public class WorkItemExportService : IWorkItemExportService
                     {
                         progress.Metrics = new MetricSnapshot
                         {
-                            Timestamp            = DateTimeOffset.UtcNow,
-                            WorkItemsExported    = workItemCounter,
-                            RevisionsExported    = revisionCounter,
-                            RevisionErrors       = revisionErrors,
+                            Timestamp = DateTimeOffset.UtcNow,
+                            WorkItemsExported = workItemCounter,
+                            RevisionsExported = revisionCounter,
+                            RevisionErrors = revisionErrors,
                             AttachmentsAttempted = progress.AttachmentsProcessed + progress.AttachmentsFailed,
                             AttachmentsSucceeded = progress.AttachmentsProcessed,
-                            AttachmentsFailed    = progress.AttachmentsFailed,
+                            AttachmentsFailed = progress.AttachmentsFailed,
                         };
                     }
                     else

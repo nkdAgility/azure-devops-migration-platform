@@ -3,7 +3,9 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Errors;
 using DevOpsMigrationPlatform.Abstractions.Services;
+using DevOpsMigrationPlatform.CLI.Migration.Utilities;
 using Spectre.Console.Cli;
 using Spectre.Console;
 using System.ComponentModel;
@@ -73,8 +75,12 @@ public abstract class CommandBase<TSettings> : AsyncCommand<TSettings>
         }
         catch (Exception ex)
         {
-            AnsiConsole.MarkupLine($"[red]✗[/] Unhandled exception: {Markup.Escape(ex.Message)}");
-            return 1;
+            // Sanitize the exception message to mask any embedded credentials (PAT, API keys, etc.)
+            var sanitized = ExceptionSanitizer.SanitizeException(ex);
+            AnsiConsole.MarkupLine($"[red]✗[/] Unhandled exception: {Markup.Escape(sanitized.Message)}");
+
+            // Extract the categorized exit code if available, otherwise use default
+            return ex is MigrationException migrationEx ? migrationEx.ExitCode : 1;
         }
         finally
         {

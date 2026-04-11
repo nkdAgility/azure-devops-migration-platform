@@ -20,6 +20,7 @@ public static class WorkItemStoreExtensions
     public static IEnumerable<WorkItemQueryCountChunk> QueryCountAllByDateChunk(
         this WorkItemStore store,
         string baseQuery,
+        IProgressSink progressSink,
         TimeSpan? initialChunkSize = null,
         int maxItemsPerQuery = 20000)
     {
@@ -58,7 +59,12 @@ public static class WorkItemStoreExtensions
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"WIQL query failed: {ex.Message}");
+                progressSink.Emit(new ProgressEvent
+                {
+                    Module = "WorkItems",
+                    Stage = "Count",
+                    Message = $"WIQL query failed: {ex.Message}, reducing chunk size to {chunkSize.TotalDays:F1} days"
+                });
                 chunkSize = TimeSpan.FromTicks(chunkSize.Ticks / 2);
                 continue;
             }
@@ -79,6 +85,7 @@ public static class WorkItemStoreExtensions
     public static IEnumerable<WorkItemFromChunk> QueryAllByDateChunk(
         this WorkItemStore store,
         string baseQuery,
+        IProgressSink progressSink,
         TimeSpan? initialChunkSize = null,
         int maxItemsPerQuery = 20000)
     {
@@ -110,7 +117,12 @@ public static class WorkItemStoreExtensions
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"WIQL query failed: {ex.Message}");
+                progressSink.Emit(new ProgressEvent
+                {
+                    Module = "WorkItems",
+                    Stage = "Query",
+                    Message = $"WIQL query failed: {ex.Message}, reducing chunk size to {chunkSize.TotalDays:F1} days"
+                });
                 chunkSize = TimeSpan.FromTicks(chunkSize.Ticks / 2);
                 continue;
             }

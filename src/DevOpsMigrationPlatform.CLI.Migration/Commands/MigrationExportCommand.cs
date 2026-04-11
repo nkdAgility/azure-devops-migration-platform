@@ -10,8 +10,9 @@ using DevOpsMigrationPlatform.CLI.Commands;
 using DevOpsMigrationPlatform.CLI.JobRunners;
 using DevOpsMigrationPlatform.CLI.Migration.Options;
 using DevOpsMigrationPlatform.CLI.Migration.Settings;
-using DevOpsMigrationPlatform.Infrastructure.Services;
 using DevOpsMigrationPlatform.CLI.Views;
+using DevOpsMigrationPlatform.Infrastructure.Services;
+using DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Validation;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using Spectre.Console;
@@ -113,6 +114,14 @@ public sealed class MigrationExportCommand : ControlPlaneCommandBase<MigrationEx
             .FirstOrDefault(m => string.Equals(m.Name, "WorkItems", StringComparison.Ordinal))
             ?.Scopes.FirstOrDefault(s => string.Equals(s.Type, "wiql", StringComparison.Ordinal))
             ?.Parameters.GetValueOrDefault("query") as string;
+
+        // Validate WIQL query for safety and correctness before execution
+        var validationResult = WiqlValidator.Validate(baseQuery);
+        if (!validationResult.IsValid)
+        {
+            ShowError(console, $"Invalid WIQL query: {validationResult.ErrorMessage}");
+            return 1;
+        }
 
         var totalWorkItems = 0;
         var discovery = GetRequiredService<IWorkItemDiscoveryService>();

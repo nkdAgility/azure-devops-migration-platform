@@ -35,7 +35,7 @@ public sealed class TfsExportAgent
         if (progressSink == null) throw new ArgumentNullException(nameof(progressSink));
 
         await foreach (var progress in _exportService
-            .ExportWorkItemsAsync(collectionUrl, project, wiqlQuery, cancellationToken)
+            .ExportWorkItemsAsync(collectionUrl, project, wiqlQuery, progressSink, cancellationToken)
             .ConfigureAwait(false))
         {
             progressSink.Emit(new ProgressEvent
