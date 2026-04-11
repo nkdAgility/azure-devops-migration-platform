@@ -18,13 +18,13 @@ See [docs/validation.md](validation.md) for the full four-tier validation model.
   "configVersion": "1.0",
   "mode": "Export | Import | Both",
   "source": {
-    "type": "AzureDevOpsServices | TeamFoundationServer",
+    "type": "AzureDevOpsServices | TeamFoundationServer | Simulated",
     "orgOrCollection": "...",
     "project": "...",
     "apiVersion": "..."
   },
   "target": {
-    "type": "AzureDevOpsServices",
+    "type": "AzureDevOpsServices | Simulated",
     "orgOrCollection": "...",
     "project": "...",
     "apiVersion": "..."
@@ -74,7 +74,7 @@ See [docs/validation.md](validation.md) for the full four-tier validation model.
 | `configVersion` | Yes | Config schema version from the source config file. Used by the Job Engine for compatibility checks. |
 | `mode` | Yes | `Export`, `Import`, or `Both`. |
 | `source` | Required for `Export` and `Both` | Source system connection. See [docs/source-types.md](source-types.md). |
-| `target` | Required for `Import` and `Both` | Target system connection. Always `AzureDevOpsServices`. |
+| `target` | Required for `Import` and `Both` | Target system connection. `type` must be `AzureDevOpsServices` or `Simulated` (testing/development only). |
 | `modules` | Yes | Modules to run and their scope configs. Same schema as [docs/configuration.md](configuration.md). |
 | `policies` | No | Retry and throttle policies. |
 | `artefacts.packageUri` | Yes | URI of the package root. Must be a URI — `file:///` for local, `azureblob://` for cloud. Local filesystem paths are normalised to `file:///` by the CLI before job construction. |

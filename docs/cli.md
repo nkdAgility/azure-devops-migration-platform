@@ -333,29 +333,45 @@ When `MIGRATION_API_URL` is set, the CLI connects to the specified control plane
 
 ---
 
+## Job Submission Output
+
+Every migration command that submits a job (`export`, `import`, `migrate`) prints the **Job ID** (full UUID) and the **resolved control plane URL** immediately after the job is accepted by the control plane. This output appears before any progress output begins.
+
+```
+Job ID  : 550e8400-e29b-41d4-a716-446655440000
+Control : http://localhost:5100
+```
+
+Both values are labelled and printed on separate lines in a format suitable for copying. When submission fails, the control plane URL attempted is still shown so the operator knows where the request was directed.
+
+The `prepare` command validates configuration and computes `configHash` but does **not** submit a job — it produces no job ID output.
+
+---
+
 ## Reconnecting to a Remote Job
 
 When the CLI process exits or loses connectivity, the job continues running unaffected. The Migration Agent holds the lease independently of the CLI process. To reconnect:
 
 ```
-migrate status --job 550e8400-e29b-41d4-a716-446655440000
-migrate logs   --job 550e8400-e29b-41d4-a716-446655440000 --follow
+manage status --job 550e8400-e29b-41d4-a716-446655440000
+manage progress --job 550e8400-e29b-41d4-a716-446655440000
 ```
 
-The `jobId` is the only thing needed. It is printed by `queue` at submission time. Keep it.
+The `jobId` is the only thing needed. It is printed by the submission command (`export`, `import`, `migrate`) immediately after the job is accepted. Keep it.
 
 ### If You Lost the jobId
 
 If the `jobId` was not recorded, retrieve it from the control plane by config hash:
 
 ```
-migrate status --config migration.json
+manage status --config migration.json
 ```
 
 The CLI recomputes `configHash` from the config file and queries the control plane for the most recent job with that hash. If more than one job matches, all are listed with their state and timestamp.
 
 ### Notes
 
-- `status` is a read-only poll — it never affects the running job.
-- `logs` tails from the point the control plane has buffered — earlier lines may be in `Logs/` in the package.
-- `pause`, `resume`, `cancel` are the only commands that change job state.
+- `manage status` is a read-only poll — it never affects the running job.
+- `manage progress` returns a snapshot of buffered events — earlier events may be in `Logs/progress.jsonl` in the package.
+- `manage diagnostics` downloads diagnostic logs from the package's `Logs/agent.jsonl`.
+- `manage pause`, `manage resume`, `manage cancel` are the only commands that change job state.
