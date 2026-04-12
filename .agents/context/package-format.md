@@ -22,6 +22,7 @@ WorkItems/
   yyyy-MM-dd/
     <ticks>-<workItemId>-<revisionIndex>/
       revision.json
+      [comment.json]          ← written when a comment edit/delete is detected (disable with inlineComments.enabled: false)
       <attachment files>
       <embedded image files>
     <ticks>-<workItemId>-c<commentId>/

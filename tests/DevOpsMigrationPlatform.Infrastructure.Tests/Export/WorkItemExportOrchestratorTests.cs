@@ -24,8 +24,8 @@ public class WorkItemExportOrchestratorTests
     [TestInitialize]
     public void Setup()
     {
-        _mockStore  = new Mock<IArtefactStore>(MockBehavior.Strict);
-        _mockCps    = new Mock<ICheckpointingService>(MockBehavior.Strict);
+        _mockStore = new Mock<IArtefactStore>(MockBehavior.Strict);
+        _mockCps = new Mock<ICheckpointingService>(MockBehavior.Strict);
         _mockSource = new Mock<IWorkItemRevisionSource>(MockBehavior.Strict);
         _sut = new WorkItemExportOrchestrator(_mockStore.Object, _mockCps.Object);
     }
@@ -188,7 +188,8 @@ public class WorkItemExportOrchestratorTests
         // would always fire. The guard must exclude it regardless of field presence.
         var revision = new WorkItemRevision
         {
-            WorkItemId = 1, RevisionIndex = 0,
+            WorkItemId = 1,
+            RevisionIndex = 0,
             ChangedDate = DateTimeOffset.UtcNow,
             Fields = new[]
             {
@@ -204,7 +205,8 @@ public class WorkItemExportOrchestratorTests
     {
         var revision = new WorkItemRevision
         {
-            WorkItemId = 1, RevisionIndex = 1,
+            WorkItemId = 1,
+            RevisionIndex = 1,
             ChangedDate = DateTimeOffset.UtcNow,
             Fields = new[] { new WorkItemField { ReferenceName = "System.Title", Value = "Updated" } }
         };
@@ -218,7 +220,8 @@ public class WorkItemExportOrchestratorTests
         // Comment addition: both System.CommentCount and System.History are present.
         var revision = new WorkItemRevision
         {
-            WorkItemId = 1, RevisionIndex = 1,
+            WorkItemId = 1,
+            RevisionIndex = 1,
             ChangedDate = DateTimeOffset.UtcNow,
             Fields = new[]
             {
@@ -236,7 +239,8 @@ public class WorkItemExportOrchestratorTests
         // Comment edit/delete: System.CommentCount changed, no System.History.
         var revision = new WorkItemRevision
         {
-            WorkItemId = 1, RevisionIndex = 1,
+            WorkItemId = 1,
+            RevisionIndex = 1,
             ChangedDate = DateTimeOffset.UtcNow,
             Fields = new[]
             {
@@ -253,7 +257,8 @@ public class WorkItemExportOrchestratorTests
         // System.History present but empty — treat as no history (edge case).
         var revision = new WorkItemRevision
         {
-            WorkItemId = 1, RevisionIndex = 1,
+            WorkItemId = 1,
+            RevisionIndex = 1,
             ChangedDate = DateTimeOffset.UtcNow,
             Fields = new[]
             {
@@ -360,9 +365,11 @@ public class WorkItemExportOrchestratorTests
         // Comment modified 60 seconds before revision — should NOT match.
         var comment = new WorkItemComment
         {
-            CommentId = "1", Version = 2,
+            CommentId = "1",
+            Version = 2,
             Text = "Old comment",
-            Format = "markdown", IsDeleted = false,
+            Format = "markdown",
+            IsDeleted = false,
             CreatedDate = revisionDate.AddSeconds(-120),
             ModifiedDate = revisionDate.AddSeconds(-60)
         };

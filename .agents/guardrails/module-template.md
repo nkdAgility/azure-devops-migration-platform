@@ -1,8 +1,8 @@
 # New Module Checklist
 
-Use this checklist when adding a new data type module. Every item is required unless explicitly marked optional.
+Use this checklist when adding a new module. Every item is required unless explicitly marked optional.
 
-See [docs/modules.md](../../docs/modules.md) for the full `IDataTypeModule` contract and [.agents/guardrails/system-architecture.md](system-architecture.md) for hard guardrails.
+See [docs/modules.md](../../docs/modules.md) for the full `IModule` contract and [.agents/guardrails/system-architecture.md](system-architecture.md) for hard guardrails.
 
 ## 1. Schema
 
@@ -25,7 +25,7 @@ See [docs/modules.md](../../docs/modules.md) for the full `IDataTypeModule` cont
 - [ ] Document all valid `stage` values for this module.
 - [ ] Implement resume logic that reads the cursor and skips already-processed items.
 
-## 4. IDataTypeModule Implementation
+## 4. IModule Implementation
 
 - [ ] Implement `Name` — must match the key used in config `modules[].name` and in `manifest.json`.
 - [ ] Implement `DependsOn` — declare all modules that must complete before this one.

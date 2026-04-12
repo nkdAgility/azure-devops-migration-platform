@@ -63,12 +63,16 @@ A single JSON configuration file drives the entire run.
         {
           "type": "wiql",
           "parameters": {
-            "query": "SELECT [System.Id] FROM WorkItems WHERE ...",
-            "includeRevisions": true,
-            "includeLinks": true,
-            "includeAttachments": true
+            "query": "SELECT [System.Id] FROM WorkItems WHERE ..."
           }
         }
+      ],
+      "extensions": [
+        { "type": "Revisions",      "enabled": true },
+        { "type": "Links",          "enabled": true },
+        { "type": "Attachments",    "enabled": true },
+        { "type": "Comments",       "enabled": true },
+        { "type": "EmbeddedImages", "enabled": true }
       ]
     }
   ],
@@ -101,20 +105,27 @@ A single JSON configuration file drives the entire run.
 | `target` | Required for `Import` and `Both` | Target system connection details. `type` must be `AzureDevOpsServices` or `Simulated`. |
 | `target.authentication` | No | Auth credentials block (`type` + `accessToken`). Not used for `Simulated` target type. |
 | `organisations` | Mode 2 inventory only | Multi-org tooling roster. Mutually exclusive with `source`. Each entry has `type`, `url`, `projects`, `authentication`, and `enabled`. |
-| `modules` | Yes | Ordered list of modules to run with their scope configurations |
+| `modules` | Yes | Ordered list of modules to run. Each module declares `scopes` (selection criteria) and named `extensions`. |
 | `policies` | No | Retry and throttle policies |
 
-### Module Scopes Pattern
+### Module Scopes and Extensions Pattern
 
-Each module declares its own scope schema. The orchestrator passes the raw scope configuration to the module; validation of scope parameters is the module's responsibility (in `ValidateAsync`).
+Each module declares `scopes` (mandatory selection criteria) and a list of named `extensions`.
+`Scopes` determine **what** the module operates on. For WorkItems the only current scope type is `wiql`,
+whose `query` parameter supplies the WIQL statement.
+`Extensions` determine **what additional data** is collected alongside each item.
+Each extension is a named sub-module that can be independently enabled or disabled.
+Extension-specific parameters live inside that extension's `parameters` block.
 
-Common scope types:
+WorkItems extensions:
 
-| Type | Description |
+| Extension Type | Description |
 |---|---|
-| `wiql` | WIQL query selecting work items to export |
-| `all` | Export everything of this type |
-| `include` | Explicit list of items to include |
+| `Revisions` | Export full revision history |
+| `Links` | Export related links, external links, and hyperlinks |
+| `Attachments` | Download and store attachment binaries beside each `revision.json` |
+| `Comments` | Fetch comment versions from the ADO Comments API and write as `comment.json` |
+| `EmbeddedImages` | Download and rewrite inline images from HTML/Markdown fields |
 
 ### Policies
 
@@ -122,6 +133,21 @@ Common scope types:
 |---|---|---|---|
 | Retries | `policies.retries.max` | `3` | Maximum retry attempts for transient failures |
 | Concurrency | `policies.throttle.maxConcurrency` | `2` | Maximum parallel API requests |
+
+### WorkItems Module — Scopes and Extensions
+
+The `WorkItems` module accepts a `scopes` array and named extensions:
+
+| Field / Extension | Type | Default | Description |
+|---|---|---|---|
+| `scopes[wiql].parameters.query` | string | platform default | WIQL query selecting work items. `@project` is substituted with the configured project name. |
+| `extensions[Revisions].enabled` | bool | `true` | When `true`, export all revision history. When `false`, export latest state only. |
+| `extensions[Links].enabled` | bool | `true` | When `true`, export related links, external links, and hyperlinks. |
+| `extensions[Attachments].enabled` | bool | `true` | When `true`, download and store attachment binaries beside each `revision.json`. |
+| `extensions[Comments].enabled` | bool | `true` | When `true`, fetch comment versions from the ADO Comments API and write `comment.json` beside matching revisions. |
+| `extensions[Comments].parameters.includeDeleted` | bool | `false` | When `true`, include soft-deleted comments in the export. |
+| `extensions[EmbeddedImages].enabled` | bool | `true` | When `true`, download inline images from HTML/Markdown fields and rewrite URLs. |
+| `extensions[EmbeddedImages].parameters.downloadTimeoutSeconds` | int | `30` | Timeout in seconds for individual image downloads. |
 
 ### Config Versioning and Upgrader
 
@@ -165,6 +191,8 @@ Ready-to-run example configuration files live under `/scenarios/` at the reposit
 | `inventory-ado-multi-project.json` | Multi-project Azure DevOps inventory (PAT auth) |
 | `inventory-tfs-windows-auth.json` | On-premises TFS inventory (Windows-integrated auth) |
 | `inventory-multi-org.json` | Multi-organisation inventory with per-org PAT tokens |
+| `export-ado-workitems-single-project.json` | Export all work items from a single Azure DevOps project (PAT auth); inline comment fetching enabled by default |
+| `export-ado-workitems-inline-comments.json` | Export all work items with inline comment fetching explicitly disabled (`inlineComments.enabled: false`) for performance-sensitive runs |
 | `export-simulated.json` | Simulated source export (25,000 work items, no external connectivity required) |
 | `migrate-simulated.json` | Full simulated end-to-end migration — both source and target simulated (25,000 work items) |
 

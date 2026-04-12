@@ -18,9 +18,8 @@ namespace DevOpsMigrationPlatform.Infrastructure.Export;
 /// <see cref="ICheckpointingService"/>. All revisions are processed one at a time — no buffering.
 /// When an <see cref="IAttachmentBinarySource"/> is supplied, each attachment binary is
 /// downloaded and stored beside <c>revision.json</c> in the same revision folder.
-/// 
-/// After all revisions for a work item are written, calls <see cref="IWorkItemCommentExportService"/>
-/// to export any comments.
+/// For comment edit/delete revisions, inline comment versions are fetched via
+/// <see cref="IWorkItemCommentSourceFactory"/> and written as comment.json.
 /// </summary>
 public sealed class WorkItemExportOrchestrator
 {
@@ -35,7 +34,6 @@ public sealed class WorkItemExportOrchestrator
     private readonly ICheckpointingService _checkpointingService;
     private readonly IAttachmentBinarySource? _attachmentBinarySource;
     private readonly IProgressSink? _progressSink;
-    private readonly IWorkItemCommentExportService? _commentExportService;
     private readonly IWorkItemCommentSourceFactory? _inlineCommentSourceFactory;
     private readonly string? _organisationUrl;
     private readonly string? _project;
@@ -46,7 +44,6 @@ public sealed class WorkItemExportOrchestrator
         ICheckpointingService checkpointingService,
         IAttachmentBinarySource? attachmentBinarySource = null,
         IProgressSink? progressSink = null,
-        IWorkItemCommentExportService? commentExportService = null,
         string? organisationUrl = null,
         string? project = null,
         string? pat = null,
@@ -56,7 +53,6 @@ public sealed class WorkItemExportOrchestrator
         _checkpointingService = checkpointingService;
         _attachmentBinarySource = attachmentBinarySource;
         _progressSink = progressSink;
-        _commentExportService = commentExportService;
         _inlineCommentSourceFactory = inlineCommentSourceFactory;
         _organisationUrl = organisationUrl;
         _project = project;
@@ -92,19 +88,7 @@ public sealed class WorkItemExportOrchestrator
                 continue;
             }
 
-            // When we transition to a new work item ID, export comments for the previous one.
-            if (lastWorkItemId > 0 && revision.WorkItemId != lastWorkItemId)
-            {
-                if (_commentExportService != null &&
-                    !string.IsNullOrEmpty(_organisationUrl) &&
-                    !string.IsNullOrEmpty(_project) &&
-                    _pat != null)
-                {
-                    await _commentExportService.ExportAsync(
-                        lastWorkItemId, _organisationUrl, _project, _pat, cancellationToken)
-                        .ConfigureAwait(false);
-                }
-            }
+
 
             // Write revision.json.
             var json = JsonSerializer.Serialize(revision, JsonOptions);
@@ -206,16 +190,6 @@ public sealed class WorkItemExportOrchestrator
                 .ConfigureAwait(false);
         }
 
-        // After all revisions are processed, export comments for the last work item.
-        if (_commentExportService != null && lastWorkItemId > 0 &&
-            !string.IsNullOrEmpty(_organisationUrl) &&
-            !string.IsNullOrEmpty(_project) &&
-            _pat != null)
-        {
-            await _commentExportService.ExportAsync(
-                lastWorkItemId, _organisationUrl, _project, _pat, cancellationToken)
-                .ConfigureAwait(false);
-        }
     }
 
     /// <summary>

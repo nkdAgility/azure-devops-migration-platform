@@ -12,7 +12,7 @@ namespace DevOpsMigrationPlatform.Infrastructure;
 /// </summary>
 internal sealed class MigrationOptionsValidator : IValidateOptions<MigrationOptions>
 {
-    private static readonly string[] SupportedConfigVersions = ["1.0"];
+    private static readonly string[] SupportedConfigVersions = ["2.0"];
     private static readonly string[] ValidModes = ["Export", "Import", "Both"];
 
     // Only AzureDevOpsServices may be specified as a migration source or target.

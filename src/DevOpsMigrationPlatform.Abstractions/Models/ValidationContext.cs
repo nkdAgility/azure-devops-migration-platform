@@ -1,7 +1,7 @@
 namespace DevOpsMigrationPlatform.Abstractions;
 
 /// <summary>
-/// Context passed to IDataTypeModule.ValidateAsync.
+/// Context passed to IModule.ValidateAsync.
 /// Validation is side-effect free — no writes to the package or target are permitted.
 /// </summary>
 public class ValidationContext

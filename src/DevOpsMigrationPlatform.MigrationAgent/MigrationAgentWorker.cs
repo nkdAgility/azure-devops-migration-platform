@@ -26,7 +26,7 @@ public sealed class MigrationAgentWorker : BackgroundService
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase
     };
 
-    private readonly IEnumerable<IDataTypeModule> _modules;
+    private readonly IEnumerable<IModule> _modules;
     private readonly IPackageStoreFactory _packageStoreFactory;
     private readonly IProgressSink _progressSink;
     private readonly ActiveLeaseState _leaseState;
@@ -35,7 +35,7 @@ public sealed class MigrationAgentWorker : BackgroundService
     private readonly ILogger<MigrationAgentWorker> _logger;
 
     public MigrationAgentWorker(
-        IEnumerable<IDataTypeModule> modules,
+        IEnumerable<IModule> modules,
         IPackageStoreFactory packageStoreFactory,
         IProgressSink progressSink,
         ActiveLeaseState leaseState,

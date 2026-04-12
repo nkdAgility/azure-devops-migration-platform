@@ -151,7 +151,7 @@ Resume semantics:
 
 # 🧩 Module Rules
 
-Each data type module MUST implement:
+Each module MUST implement:
 
 * ExportAsync
 * ImportAsync
@@ -212,7 +212,7 @@ Rules:
 
 Export MUST:
 
-* Respect per-module scopes (e.g., WIQL for WorkItems).
+* Respect per-module extensions (e.g., WIQL query for WorkItems is at module level; sub-operations are controlled via named extensions).
 * Produce package output only.
 * Record source metadata in manifest.
 
@@ -240,7 +240,7 @@ The external exporter is an extraction backend only.
 When `source.type == "Simulated"` or `target.type == "Simulated"`:
 
 * The simulated source and target are **for testing and development only** — never for production migrations.
-* The simulated source MUST implement `IDataTypeModule` using the same export abstraction as real sources. It MUST NOT bypass module architecture or `IArtefactStore`.
+* The simulated source MUST implement `IModule` using the same export abstraction as real sources. It MUST NOT bypass module architecture or `IArtefactStore`.
 * The simulated source MUST generate work items deterministically from `seed` + `workItemCount`. Same inputs = same package output, byte for byte.
 * Simulated work item field values MUST be prefixed with `[SIMULATED]` to prevent confusion with real export packages.
 * The simulated target MUST accept all items presented during import without writing to any external system.
@@ -287,8 +287,8 @@ Comments:
 * MUST be exported per-comment, per-version into individual comment sub-folders inside the date folder corresponding to the comment's `createdDate` (original) or `modifiedDate` (each edit).
 * Comment folder naming MUST be `<ticks>-<workItemId>-c<commentId>/` with a `comment.json` inside.
 * Comment sub-folders sort chronologically alongside revision sub-folders within the same `WorkItems/yyyy-MM-dd/` date folder.
-* Each exported comment MUST be stored by `IWorkItemCommentExportService` called from within `WorkItemsModule` — comments are NOT a separate top-level `IDataTypeModule`.
-* Deleted comments MUST be excluded by default; configurable via `modules.workItems.scopes.comments.includeDeleted`.
+* Each exported comment MUST be stored by the Comments extension inside `WorkItemsModule` — comments are NOT a separate top-level `IModule`.
+* Deleted comments MUST be excluded by default; configurable via `modules.workItems.extensions[Comments].parameters.includeDeleted`.
 
 Embedded Images:
 
@@ -378,7 +378,7 @@ Reject any design or implementation that:
 * Introduces a global attachments store/module.
 * Stores comments in a flat `<workItemId>-comments.json` file at the date-folder level instead of per-comment sub-folders.
 * Stores embedded images in a global shared directory instead of beside their parent document.
-* Implements comment export or embedded-image export as a separate top-level `IDataTypeModule` (these are sub-services of `WorkItemsModule`).
+* Implements comment export or embedded-image export as a separate top-level `IModule` (these are sub-services of `WorkItemsModule`).
 * Loads all WorkItems or all revisions into memory.
 * Requires building a full graph before processing.
 * Introduces hidden progress state outside Checkpoints/.
