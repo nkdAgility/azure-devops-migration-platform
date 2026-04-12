@@ -42,10 +42,11 @@ public class MigrationExportCommandTests
             return;
         }
 
-        // ── Output folder (matches scenario Artefacts.Path) ───────────────
-        // The scenario has "Path": "%TEMP%\\SystemTests\\export-ado-workitems-single-project"
-        var outputDir = Environment.ExpandEnvironmentVariables(
-            @"storage\SystemTests\export-ado-workitems-single-project");
+        // ── Output folder (matches scenario Artefacts.Path exactly) ───────
+        // scenarios/export-ado-workitems-single-project.json has
+        //   "Path": "storage\\export-ado-workitems-single-project"
+        // The CLI runs with workingDirectory = repoRoot, so the absolute output path is:
+        var outputDir = Path.Combine(CliRunner.FindRepoRoot(), "storage", "export-ado-workitems-single-project");
 
         if (Directory.Exists(outputDir))
             Directory.Delete(outputDir, recursive: true);
@@ -139,9 +140,11 @@ public class MigrationExportCommandTests
             return;
         }
 
-        // ── Output folder (matches scenario Artefacts.Path) ───────────────
-        var outputDir = Environment.ExpandEnvironmentVariables(
-            @"%TEMP%\SystemTests\export-ado-workitems-single-project");
+        // ── Output folder (matches scenario Artefacts.Path exactly) ───────
+        // scenarios/export-ado-workitems-single-project.json has
+        //   "Path": "storage\\export-ado-workitems-single-project"
+        // The CLI runs with workingDirectory = repoRoot, so the absolute output path is:
+        var outputDir = Path.Combine(CliRunner.FindRepoRoot(), "storage", "export-ado-workitems-single-project");
 
         if (Directory.Exists(outputDir))
             Directory.Delete(outputDir, recursive: true);

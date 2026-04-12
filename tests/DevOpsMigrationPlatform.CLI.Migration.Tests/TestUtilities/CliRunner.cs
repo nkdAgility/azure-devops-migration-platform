@@ -27,6 +27,24 @@ public sealed class CliRunner
     }
 
     /// <summary>
+    /// Resolves the repo root directory by walking up from the test assembly output directory
+    /// until a <c>DevOpsMigrationPlatform.slnx</c> file is found.
+    /// Throws <see cref="DirectoryNotFoundException"/> if the repo root cannot be located.
+    /// </summary>
+    public static string FindRepoRoot()
+    {
+        var dir = new DirectoryInfo(AppContext.BaseDirectory);
+        while (dir != null)
+        {
+            if (File.Exists(Path.Combine(dir.FullName, "DevOpsMigrationPlatform.slnx")))
+                return dir.FullName;
+            dir = dir.Parent;
+        }
+        throw new DirectoryNotFoundException(
+            $"Could not locate repo root (no DevOpsMigrationPlatform.slnx found walking up from {AppContext.BaseDirectory}).");
+    }
+
+    /// <summary>
     /// Resolves the path to the built devopsmigration executable by walking up from the
     /// test output directory until it finds the repo root, then locating the CLI binary
     /// in its standard Debug output location.
