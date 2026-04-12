@@ -6,6 +6,7 @@ using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Models;
 using DevOpsMigrationPlatform.Abstractions.Services;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Export;
@@ -17,9 +18,8 @@ namespace DevOpsMigrationPlatform.Infrastructure.Export;
 /// <see cref="ICheckpointingService"/>. All revisions are processed one at a time — no buffering.
 /// When an <see cref="IAttachmentBinarySource"/> is supplied, each attachment binary is
 /// downloaded and stored beside <c>revision.json</c> in the same revision folder.
-/// 
-/// After all revisions for a work item are written, calls <see cref="IWorkItemCommentExportService"/>
-/// to export any comments.
+/// For comment edit/delete revisions, inline comment versions are fetched via
+/// <see cref="IWorkItemCommentSourceFactory"/> and written as comment.json.
 /// </summary>
 public sealed class WorkItemExportOrchestrator
 {
@@ -34,7 +34,7 @@ public sealed class WorkItemExportOrchestrator
     private readonly ICheckpointingService _checkpointingService;
     private readonly IAttachmentBinarySource? _attachmentBinarySource;
     private readonly IProgressSink? _progressSink;
-    private readonly IWorkItemCommentExportService? _commentExportService;
+    private readonly IWorkItemCommentSourceFactory? _inlineCommentSourceFactory;
     private readonly string? _organisationUrl;
     private readonly string? _project;
     private readonly string? _pat;
@@ -44,16 +44,16 @@ public sealed class WorkItemExportOrchestrator
         ICheckpointingService checkpointingService,
         IAttachmentBinarySource? attachmentBinarySource = null,
         IProgressSink? progressSink = null,
-        IWorkItemCommentExportService? commentExportService = null,
         string? organisationUrl = null,
         string? project = null,
-        string? pat = null)
+        string? pat = null,
+        IWorkItemCommentSourceFactory? inlineCommentSourceFactory = null)
     {
         _artefactStore = artefactStore;
         _checkpointingService = checkpointingService;
         _attachmentBinarySource = attachmentBinarySource;
         _progressSink = progressSink;
-        _commentExportService = commentExportService;
+        _inlineCommentSourceFactory = inlineCommentSourceFactory;
         _organisationUrl = organisationUrl;
         _project = project;
         _pat = pat;
@@ -88,23 +88,59 @@ public sealed class WorkItemExportOrchestrator
                 continue;
             }
 
-            // When we transition to a new work item ID, export comments for the previous one.
-            if (lastWorkItemId > 0 && revision.WorkItemId != lastWorkItemId)
-            {
-                if (_commentExportService != null &&
-                    !string.IsNullOrEmpty(_organisationUrl) &&
-                    !string.IsNullOrEmpty(_project) &&
-                    _pat != null)
-                {
-                    await _commentExportService.ExportAsync(
-                        lastWorkItemId, _organisationUrl, _project, _pat, cancellationToken)
-                        .ConfigureAwait(false);
-                }
-            }
+
 
             // Write revision.json.
             var json = JsonSerializer.Serialize(revision, JsonOptions);
             await _artefactStore.WriteAsync($"{folderPath}revision.json", json, cancellationToken).ConfigureAwait(false);
+
+            // For comment edit/delete revisions, fetch the matching comment versions by timestamp
+            // and write them as comment.json beside revision.json in the same revision folder.
+            // FR-5: Comment API failures are non-fatal — log via progress and continue.
+            if (_inlineCommentSourceFactory != null &&
+                !string.IsNullOrEmpty(_organisationUrl) &&
+                !string.IsNullOrEmpty(_project) &&
+                _pat != null &&
+                IsCommentEditOrDeleteRevision(revision))
+            {
+                try
+                {
+                    var commentSource = _inlineCommentSourceFactory.Create(_organisationUrl, _project, _pat);
+                    var matchingComments = new List<WorkItemComment>();
+
+                    await foreach (var comment in commentSource.GetCommentsAsync(
+                        revision.WorkItemId, includeDeleted: true, cancellationToken))
+                    {
+                        var deltaSeconds = Math.Abs((comment.ModifiedDate - revision.ChangedDate).TotalSeconds);
+                        if (deltaSeconds <= 1.0)
+                            matchingComments.Add(comment);
+                    }
+
+                    if (matchingComments.Count > 0)
+                    {
+                        var commentJson = JsonSerializer.Serialize(matchingComments, JsonOptions);
+                        await _artefactStore
+                            .WriteAsync($"{folderPath}comment.json", commentJson, cancellationToken)
+                            .ConfigureAwait(false);
+                    }
+                }
+                catch (OperationCanceledException)
+                {
+                    throw; // Always propagate cancellation.
+                }
+                catch (Exception ex)
+                {
+                    // Comment API failures are non-fatal per FR-5: log and continue export.
+                    _progressSink?.Emit(new ProgressEvent
+                    {
+                        Module = "WorkItems",
+                        Stage = "Export",
+                        LastProcessed = folderPath,
+                        WorkItemId = revision.WorkItemId,
+                        Message = $"[WorkItems] Warning: inline comment fetch failed for work item {revision.WorkItemId} revision {revision.RevisionIndex}: {ex.Message}"
+                    });
+                }
+            }
 
             revisionsProcessed++;
             if (revision.WorkItemId != lastWorkItemId)
@@ -154,16 +190,36 @@ public sealed class WorkItemExportOrchestrator
                 .ConfigureAwait(false);
         }
 
-        // After all revisions are processed, export comments for the last work item.
-        if (_commentExportService != null && lastWorkItemId > 0 &&
-            !string.IsNullOrEmpty(_organisationUrl) &&
-            !string.IsNullOrEmpty(_project) &&
-            _pat != null)
+    }
+
+    /// <summary>
+    /// Returns true if the revision represents a comment edit or delete.
+    /// Detection criteria: System.CommentCount is present (changed in this revision)
+    /// AND System.History is absent or empty (no new comment text was added).
+    /// Comment additions have System.History present; edits/deletes do not.
+    /// RevisionIndex 0 is always the creation revision and is excluded (all fields
+    /// appear as "changed" when previous is null, making CommentCount unreliable).
+    /// </summary>
+    internal static bool IsCommentEditOrDeleteRevision(WorkItemRevision revision)
+    {
+        // RevisionIndex 0 is the initial creation revision. Because there is no previous
+        // revision, ALL fields are included in the delta — System.CommentCount will always
+        // be present regardless of whether any comment action occurred. Skip it.
+        if (revision.RevisionIndex == 0)
+            return false;
+
+        bool hasHistory = false;
+        bool hasCommentCount = false;
+
+        foreach (var field in revision.Fields)
         {
-            await _commentExportService.ExportAsync(
-                lastWorkItemId, _organisationUrl, _project, _pat, cancellationToken)
-                .ConfigureAwait(false);
+            if (field.ReferenceName == "System.History" && !string.IsNullOrEmpty(field.Value))
+                hasHistory = true;
+            if (field.ReferenceName == "System.CommentCount")
+                hasCommentCount = true;
         }
+
+        return hasCommentCount && !hasHistory;
     }
 
     /// <summary>

@@ -33,15 +33,14 @@ See [docs/validation.md](validation.md) for the full four-tier validation model.
     {
       "name": "WorkItems",
       "scopes": [
-        {
-          "type": "wiql",
-          "parameters": {
-            "query": "SELECT [System.Id] FROM WorkItems WHERE ...",
-            "includeRevisions": true,
-            "includeLinks": true,
-            "includeAttachments": true
-          }
-        }
+        { "type": "wiql", "parameters": { "query": "SELECT [System.Id] FROM WorkItems WHERE ..." } }
+      ],
+      "extensions": [
+        { "type": "Revisions",      "enabled": true },
+        { "type": "Links",          "enabled": true },
+        { "type": "Attachments",    "enabled": true },
+        { "type": "Comments",       "enabled": true },
+        { "type": "EmbeddedImages", "enabled": true }
       ]
     }
   ],

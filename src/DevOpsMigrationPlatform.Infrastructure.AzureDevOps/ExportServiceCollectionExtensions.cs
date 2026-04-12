@@ -22,12 +22,12 @@ public static class ExportServiceCollectionExtensions
     ///   <item><see cref="IAzureDevOpsWorkItemRevisionMapper"/> — maps REST revisions to the package model.</item>
     ///   <item><see cref="IWorkItemRevisionSourceFactory"/> as <see cref="AzureDevOpsWorkItemRevisionSourceFactory"/> — constructs revision sources per job.</item>
     ///   <item><see cref="AzureDevOpsAttachmentRegistry"/> — per-export-run attachment URL store (scoped).</item>
-    ///   <item><see cref="IAzureDevOpsWorkItemCommentSourceFactory"/> — creates comment sources per job.</item>
+    ///   <item><see cref="Infrastructure.Export.IWorkItemCommentSourceFactory"/> as <see cref="AzureDevOpsWorkItemCommentSourceFactory"/> — creates comment sources per job (used for inline comment fetching when the Comments extension is enabled).</item>
     ///   <item><see cref="IEmbeddedImageDownloader"/> as <see cref="AzureDevOpsEmbeddedImageDownloader"/> — downloads embedded images with Polly resilience.</item>
     ///   <item><see cref="IEmbeddedImageExportService"/> as <see cref="EmbeddedImageExportService"/> — processes HTML/Markdown for image URLs and rewrites them.</item>
-    ///   <item><see cref="IWorkItemCommentExportService"/> as <see cref="WorkItemCommentExportService"/> — persists comments to package.</item>
-    ///   <item><see cref="WorkItemsModule"/> — the <see cref="IDataTypeModule"/> implementation.</item>
+    ///   <item><see cref="WorkItemsModule"/> — the <see cref="IModule"/> implementation.</item>
     /// </list>
+
     /// </summary>
     public static IServiceCollection AddAzureDevOpsWorkItemExport(
         this IServiceCollection services)
@@ -39,9 +39,8 @@ public static class ExportServiceCollectionExtensions
         services.AddScoped<AzureDevOpsAttachmentRegistry>();
         services.AddScoped<IWorkItemRevisionSourceFactory, AzureDevOpsWorkItemRevisionSourceFactory>();
 
-        // Comment export services
+        // Inline comment fetching: factories registered; activated when the Comments extension is enabled.
         services.AddSingleton<Infrastructure.Export.IWorkItemCommentSourceFactory, AzureDevOpsWorkItemCommentSourceFactory>();
-        // Note: IWorkItemCommentExportService is created on-demand by WorkItemsModule, not registered in DI
 
         // Embedded image download and processing
         services.AddHttpClient<AzureDevOpsEmbeddedImageDownloader>()
@@ -51,7 +50,7 @@ public static class ExportServiceCollectionExtensions
         // Note: IEmbeddedImageExportService is created on-demand by WorkItemExportOrchestrator,
         // not registered here, because it requires IArtefactStore which is only available at export time.
 
-        services.AddTransient<IDataTypeModule, WorkItemsModule>();
+        services.AddTransient<IModule, WorkItemsModule>();
         return services;
     }
 

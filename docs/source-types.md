@@ -101,7 +101,7 @@ The control plane performs a secondary validation pass before beginning import w
 - Intended for **testing and development only**. No real data is read from or written to an external server.
 - Generates work items deterministically: given the same `seed` and `workItemCount`, every run produces identical work item identifiers, field values, revision counts, and link structures.
 - Simulated work item field values are prefixed with `[SIMULATED]` so a package produced by simulation cannot be mistaken for a real export.
-- Plugs into the existing module architecture as a standard `IDataTypeModule` export implementation — the same `IArtefactStore` path as real sources.
+- Plugs into the existing module architecture as a standard `IModule` export implementation — the same `IArtefactStore` path as real sources.
 - When `seed` is omitted, a random seed is chosen automatically, logged at `Information` level, and recorded in `manifest.json` so the run is reproducible.
 - Identity mapping still runs for simulated migrations: the simulated source generates a fixed set of synthetic user identities and the `IdentitiesModule` processes them in the normal order.
 

@@ -9,10 +9,8 @@ using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Models;
 using DevOpsMigrationPlatform.Abstractions.Services;
 using DevOpsMigrationPlatform.Infrastructure.Export;
-using DevOpsMigrationPlatform.Infrastructure.Modules;
 using DevOpsMigrationPlatform.Infrastructure.Storage;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Moq;
 using Reqnroll;
@@ -109,11 +107,6 @@ public class EmbeddedImagesSteps
 
                 return Task.FromResult<DevOpsMigrationPlatform.Abstractions.Services.EmbeddedImageDownloadResult?>(null);
             });
-
-        var scopeOptions = new WorkItemsScopeParameters
-        {
-            EmbeddedImages = new EmbeddedImagesScope { Enabled = _context.EmbeddedImagesEnabled }
-        };
 
         var exportService = new EmbeddedImageExportService(
             _context.MockDownloader.Object,

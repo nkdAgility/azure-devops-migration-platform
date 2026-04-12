@@ -37,7 +37,15 @@ Every `revision.json` must contain all of the following. Missing any field is a 
 
 ## comment.json Required Fields
 
-Every `comment.json` must contain all of the following. Missing any field is a validation error:
+`comment.json` appears in two placements (see [.agents/context/workitems-format.md](../context/workitems-format.md) — Inline Comment Fetching):
+
+1. **Inside a revision folder** (`<rev-folder>/comment.json`) — a **JSON array** of `WorkItemComment` objects
+   whose `ModifiedDate` is within ±1 second of the revision's `ChangedDate`. Written by the inline
+   comment fetching path. Enabled by default; disable per-scope with `inlineComments.enabled: false`.
+2. **Inside a comment sub-folder** (`<commentId-folder>/comment.json`) — a single **JSON object**
+   representing one version of one comment.
+
+Every `WorkItemComment` object (in either placement) must contain all of the following. Missing any field is a validation error:
 
 - `commentId` (integer)
 - `version` (integer, 1-based version of this comment text)
@@ -49,6 +57,14 @@ Every `comment.json` must contain all of the following. Missing any field is a v
 - `modifiedDate` (ISO 8601 UTC string)
 - `isDeleted` (boolean)
 - `embeddedImages` (array, may be empty; same schema as `revision.json` embedded images)
+
+## Inline Comment Fetching Rules
+
+- Inline comment fetching is **enabled by default**. Set `inlineComments.enabled: false` in scope parameters to disable it.
+- `RevisionIndex == 0` must **never** be treated as a comment edit/delete revision, regardless of field content.
+- A revision is a comment edit/delete if and only if `System.CommentCount` is present in its changed fields AND `System.History` is absent or empty.
+- Comment API failures during inline fetching are **non-fatal**: emit a `ProgressEvent` warning and continue. Do not fail the export.
+- Always propagate `CancellationToken` on all async comment fetch operations.
 
 
 

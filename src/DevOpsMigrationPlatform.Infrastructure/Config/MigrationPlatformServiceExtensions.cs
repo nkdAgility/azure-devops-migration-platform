@@ -16,7 +16,7 @@ namespace DevOpsMigrationPlatform.Infrastructure;
 /// Usage in a module assembly's own ServiceCollectionExtensions:
 /// <code>
 /// services.AddModuleOptions&lt;WorkItemsModuleOptions&gt;(configuration, "WorkItems");
-/// services.AddSingleton&lt;IDataTypeModule, WorkItemsDataTypeModule&gt;();
+/// services.AddSingleton&lt;IModule, WorkItemsModule&gt;();
 /// </code>
 /// </summary>
 public static class MigrationPlatformServiceExtensions

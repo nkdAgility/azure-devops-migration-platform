@@ -15,7 +15,7 @@ public class MigrationOptionsValidatorTests
 
     private static MigrationOptions ValidExport() => new()
     {
-        ConfigVersion = "1.0",
+        ConfigVersion = "2.0",
         Mode = "Export",
         Source = new MigrationEndpointOptions
         {
@@ -40,7 +40,7 @@ public class MigrationOptionsValidatorTests
     {
         var opts = new MigrationOptions
         {
-            ConfigVersion = "1.0",
+            ConfigVersion = "2.0",
             Mode = "Import",
             Target = new MigrationEndpointOptions
             {
@@ -58,7 +58,7 @@ public class MigrationOptionsValidatorTests
     {
         var opts = new MigrationOptions
         {
-            ConfigVersion = "1.0",
+            ConfigVersion = "2.0",
             Mode = "Both",
             Source = new MigrationEndpointOptions { Type = "AzureDevOpsServices", Url = "https://dev.azure.com/myorg", Project = "P" },
             Target = new MigrationEndpointOptions { Type = "AzureDevOpsServices", Url = "https://dev.azure.com/targetorg", Project = "P" },
@@ -140,7 +140,7 @@ public class MigrationOptionsValidatorTests
     {
         var opts = new MigrationOptions
         {
-            ConfigVersion = "1.0",
+            ConfigVersion = "2.0",
             Mode = "Import",
             Target = null,
             Artefacts = new MigrationArtefactsOptions { Path = "D:\\exports" }
@@ -246,7 +246,7 @@ public class MigrationOptionsValidatorTests
     {
         var opts = new MigrationOptions
         {
-            ConfigVersion = "1.0",
+            ConfigVersion = "2.0",
             Mode = "Import",
             Target = new MigrationEndpointOptions
             {
@@ -264,7 +264,7 @@ public class MigrationOptionsValidatorTests
     {
         var opts = new MigrationOptions
         {
-            ConfigVersion = "1.0",
+            ConfigVersion = "2.0",
             Mode = "Import",
             Target = new MigrationEndpointOptions
             {
@@ -285,7 +285,7 @@ public class MigrationOptionsValidatorTests
     {
         var opts = new MigrationOptions
         {
-            ConfigVersion = "1.0",
+            ConfigVersion = "2.0",
             Mode = "Import",
             Target = new MigrationEndpointOptions
             {

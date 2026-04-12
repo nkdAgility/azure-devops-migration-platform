@@ -11,7 +11,7 @@
     }
   },
   "Artefacts": {
-    "Path": "%TEMP%\\SystemTests\\export-ado-workitems-single-project",
+    "Path": "%TEMP%\\SystemTests\\export-ado-workitems-inline-comments",
     "Zip": true
   },
   "Modules": [

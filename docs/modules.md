@@ -2,12 +2,12 @@
 
 ## 7. Module Architecture
 
-Each data type is implemented as a module conforming to the `IDataTypeModule` contract. Modules are the only extension point for adding new data types.
+Each migration concern is implemented as a module conforming to the `IModule` contract. Modules are the only extension point for adding new capabilities.
 
-### IDataTypeModule Contract
+### IModule Contract
 
 ```csharp
-interface IDataTypeModule
+interface IModule
 {
     string Name { get; }
     IReadOnlyList<string> DependsOn { get; }
@@ -42,7 +42,7 @@ interface IDataTypeModule
 
 | Module | Responsibility |
 |---|---|
-| `WorkItemsModule` | High-fidelity work item revision export/import, including fields, links, attachments, comments, and embedded images. Orchestrates `CommentsSubModule` (fetch comments from the ADO Comments API) and `EmbeddedImagesSubModule` (download and rewrite inline images from HTML/Markdown fields and comments). |
+| `WorkItemsModule` | High-fidelity work item revision export/import. Accepts a `wiql` scope (with `query` parameter) and five independently-enabled named extensions: `Revisions`, `Links`, `Attachments`, `Comments` (fetches comment versions from the ADO Comments API), and `EmbeddedImages` (downloads and rewrites inline images from HTML/Markdown fields). |
 | `IdentitiesModule` | Export user/group descriptors; provide identity mapping service to all other modules |
 | `TeamsModule` | Export and import team membership and settings |
 | `PermissionsModule` | Export and import project and repository access control lists |
@@ -52,3 +52,5 @@ interface IDataTypeModule
 ### Adding a New Module
 
 See [.agents/guardrails/module-template.md](../.agents/guardrails/module-template.md) for the full checklist.
+
+> **Naming convention**: modules are named by *domain* (`WorkItems`, `Identities`, `Teams`, `Git`), not by operation. One module handles both export and import for its domain. `Scopes` are mandatory selection criteria (e.g. a `wiql` scope for WorkItems). The `Extensions` array controls which sub-data is collected.

@@ -54,7 +54,7 @@ public static class MigrationAgentServiceExtensions
         // Progress streaming to the Control Plane ring buffer.
         builder.Services.AddControlPlaneProgressSink(controlPlaneBaseUrl);
 
-        // Register IDataTypeModule implementations (WorkItemsModule + Azure DevOps infra).
+        // Register IModule implementations (WorkItemsModule + Azure DevOps infra).
         builder.Services.AddAzureDevOpsWorkItemExport();
 
         // Package store factory — resolves file:/// URIs to FileSystem stores.

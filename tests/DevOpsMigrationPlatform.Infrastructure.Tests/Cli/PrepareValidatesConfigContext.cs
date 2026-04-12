@@ -64,7 +64,7 @@ public class PrepareValidatesConfigContext
     // The real appsettings.json defaults content — mirrors the file in CLI.Migration.
     public const string DefaultsJson = """
         {
-          "ConfigVersion": "1.0",
+          "ConfigVersion": "2.0",
           "Artefacts": {
             "Path": "%userprofile%\\.DevOpsMigrationPlatform",
             "Zip": false

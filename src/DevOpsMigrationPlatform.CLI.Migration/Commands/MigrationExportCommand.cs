@@ -112,8 +112,8 @@ public sealed class MigrationExportCommand : ControlPlaneCommandBase<MigrationEx
         var pat = config.Source!.Authentication?.ResolvedAccessToken ?? string.Empty;
         var baseQuery = modules
             .FirstOrDefault(m => string.Equals(m.Name, "WorkItems", StringComparison.Ordinal))
-            ?.Scopes.FirstOrDefault(s => string.Equals(s.Type, "wiql", StringComparison.Ordinal))
-            ?.Parameters.GetValueOrDefault("query") as string;
+            ?.Scopes.FirstOrDefault(s => string.Equals(s.Type, "wiql", StringComparison.OrdinalIgnoreCase))
+            ?.Parameters.TryGetValue("query", out var _q) == true ? _q?.ToString() : null;
 
         // Validate WIQL query for safety and correctness before execution
         var validationResult = WiqlValidator.Validate(baseQuery);
@@ -465,8 +465,8 @@ public sealed class MigrationExportCommand : ControlPlaneCommandBase<MigrationEx
 
     /// <summary>
     /// Converts <see cref="MigrationOptions.Modules"/> into <see cref="MigrationJobModule"/> entries.
-    /// If the config has no modules, a default WorkItems/wiql scope is injected to preserve
-    /// backward compatibility with pre-modules config files.
+    /// If the config has no modules, a default WorkItems module with all extensions enabled is injected
+    /// to preserve backward compatibility with pre-modules config files.
     /// </summary>
     private static List<MigrationJobModule> BuildModules(MigrationOptions config)
     {
@@ -486,30 +486,46 @@ public sealed class MigrationExportCommand : ControlPlaneCommandBase<MigrationEx
                                     kv => kv.Key,
                                     kv => (object?)kv.Value.ToString())
                         })
+                        .ToList(),
+                    Extensions = m.Extensions
+                        .Select(e => new MigrationJobModuleExtension
+                        {
+                            Type = e.Type,
+                            Enabled = e.Enabled,
+                            Parameters = e.Parameters
+                                .ToDictionary(
+                                    kv => kv.Key,
+                                    kv => (object?)kv.Value.ToString())
+                        })
                         .ToList()
                 })
                 .ToList();
         }
 
-        // Default: WorkItems module with platform-default WIQL scope.
+        // Default: WorkItems module with all extensions enabled.
         return
         [
             new MigrationJobModule
             {
-                Name   = "WorkItems",
+                Name = "WorkItems",
                 Scopes =
                 [
                     new MigrationJobModuleScope
                     {
-                        Type       = "wiql",
+                        Type = "wiql",
                         Parameters = new Dictionary<string, object?>
                         {
-                            ["query"]              = Infrastructure.Modules.WorkItemsScopeParameters.DefaultWiqlQuery,
-                            ["includeRevisions"]   = true,
-                            ["includeLinks"]       = true,
-                            ["includeAttachments"] = true
+                            ["query"] = Infrastructure.Modules.WorkItemsModuleExtensions.DefaultWiqlQuery
                         }
                     }
+                ],
+                Extensions =
+                [
+                    new MigrationJobModuleExtension { Type = "Revisions",      Enabled = true },
+                    new MigrationJobModuleExtension { Type = "Links",          Enabled = true },
+                    new MigrationJobModuleExtension { Type = "Attachments",    Enabled = true },
+                    new MigrationJobModuleExtension { Type = "Comments",       Enabled = true },
+                    new MigrationJobModuleExtension { Type = "EmbeddedImages", Enabled = true },
                 ]
             }
         ];

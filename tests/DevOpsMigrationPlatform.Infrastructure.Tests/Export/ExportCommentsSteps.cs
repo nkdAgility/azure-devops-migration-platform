@@ -8,11 +8,10 @@ using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Models;
 using DevOpsMigrationPlatform.Abstractions.Services;
+using DevOpsMigrationPlatform.Infrastructure.Checkpointing;
 using DevOpsMigrationPlatform.Infrastructure.Export;
-using DevOpsMigrationPlatform.Infrastructure.Modules;
 using DevOpsMigrationPlatform.Infrastructure.Storage;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Moq;
 using Reqnroll;
@@ -86,80 +85,83 @@ public class ExportCommentsSteps
     [When("the export runs")]
     public async Task WhenTheExportRuns()
     {
+        // Create one "comment-edit" revision per comment, with ChangedDate matching
+        // the comment's ModifiedDate so the orchestrator timestamp filter (≤1 s) matches.
+        var revisions = _context.Comments!.Select((comment, i) => new WorkItemRevision
+        {
+            WorkItemId = _context.CurrentWorkItemId,
+            RevisionIndex = i + 1, // RevisionIndex > 0 required for IsCommentEditOrDeleteRevision
+            ChangedDate = comment.ModifiedDate,
+            Fields = new List<WorkItemField>
+            {
+                new WorkItemField { ReferenceName = "System.CommentCount", Value = (i + 1).ToString() }
+                // No System.History → IsCommentEditOrDeleteRevision returns true
+            },
+            Attachments = new List<AttachmentMetadata>()
+        }).ToList();
+
+        var mockSource = new Mock<IWorkItemRevisionSource>();
+        mockSource
+            .Setup(s => s.GetRevisionsAsync(It.IsAny<CancellationToken>()))
+            .Returns((CancellationToken ct) => revisions.ToAsyncEnumerable(ct));
+
         _context.MockCommentSource = new Mock<IWorkItemCommentSource>();
         _context.MockCommentSource
             .Setup(s => s.GetCommentsAsync(_context.CurrentWorkItemId, It.IsAny<bool>(), It.IsAny<CancellationToken>()))
             .Returns((int id, bool includeDeleted, CancellationToken ct) =>
                 _context.Comments!.ToAsyncEnumerable(ct));
 
-        var scopeOptions = new WorkItemsScopeParameters
-        {
-            Comments = new CommentsScope { Enabled = true, IncludeDeleted = false }
-        };
-
-        var mockLogger = new Mock<ILogger<WorkItemCommentExportService>>();
-
-        var mockFactory = new Mock<Infrastructure.Export.IWorkItemCommentSourceFactory>();
-        mockFactory
+        var mockCommentFactory = new Mock<Infrastructure.Export.IWorkItemCommentSourceFactory>();
+        mockCommentFactory
             .Setup(f => f.Create(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
             .Returns(_context.MockCommentSource.Object);
 
-        var exportService = new WorkItemCommentExportService(
-            mockFactory.Object,
-            _context.ArtefactStore,
-            Options.Create(scopeOptions),
-            mockLogger.Object);
+        var stateStore = new FileSystemStateStore(_context.PackageRoot);
+        var checkpointingService = new CheckpointingService(stateStore);
 
-        await exportService.ExportAsync(
-            _context.CurrentWorkItemId,
-            "https://dev.azure.com/contoso",
-            "MyProject",
-            "pat-token",
-            CancellationToken.None);
+        var orchestrator = new WorkItemExportOrchestrator(
+            _context.ArtefactStore,
+            checkpointingService,
+            attachmentBinarySource: null,
+            progressSink: null,
+            organisationUrl: "https://dev.azure.com/contoso",
+            project: "MyProject",
+            pat: "pat-token",
+            inlineCommentSourceFactory: mockCommentFactory.Object);
+
+        await orchestrator.ExportAsync(mockSource.Object, CancellationToken.None);
     }
 
     [Then("(\\d+) comment folders are created with pattern \"\\*-(\\d+)-c<commentId>/\"")]
     public void ThenCommentFoldersAreCreatedWithPattern(int expectedCount, int workItemId)
     {
+        // With the inline design, comments are stored as comment.json inside revision folders
+        // (WorkItems/yyyy-MM-dd/<ticks>-<workItemId>-<revisionIndex>/comment.json).
         var workItemsDir = Path.Combine(_context.PackageRoot, "WorkItems");
         Assert.IsTrue(Directory.Exists(workItemsDir), "WorkItems directory should exist");
 
-        var commentFolders = Directory.GetDirectories(workItemsDir, "*")
-            .SelectMany(dateDir => Directory.GetDirectories(dateDir))
-            .Where(folder =>
-            {
-                var folderName = Path.GetFileName(folder);
-                return folderName!.Contains($"-{workItemId}-c");
-            })
+        var commentFiles = Directory.GetFiles(workItemsDir, "comment.json", SearchOption.AllDirectories)
+            .Where(f => Path.GetFileName(Path.GetDirectoryName(f)!)!.Contains($"-{workItemId}-"))
             .ToList();
 
-        Assert.AreEqual(expectedCount, commentFolders.Count,
-            $"Expected {expectedCount} comment folders, found {commentFolders.Count}");
+        Assert.AreEqual(expectedCount, commentFiles.Count,
+            $"Expected {expectedCount} comment.json files for work item {workItemId}, found {commentFiles.Count}");
     }
-
-    [Then("each folder contains a valid comment.json file")]
     public void ThenEachFolderContainsAValidCommentJsonFile()
     {
         var workItemsDir = Path.Combine(_context.PackageRoot, "WorkItems");
-        var commentFolders = Directory.GetDirectories(workItemsDir, "*")
-            .SelectMany(dateDir => Directory.GetDirectories(dateDir))
-            .Where(folder =>
-            {
-                var folderName = Path.GetFileName(folder);
-                return folderName!.EndsWith("-c") || folderName!.Contains("-c");
-            })
-            .ToList();
+        var commentJsonFiles = Directory.GetFiles(workItemsDir, "comment.json", SearchOption.AllDirectories);
 
-        foreach (var folder in commentFolders)
+        Assert.IsTrue(commentJsonFiles.Length > 0, "Should have written at least one comment.json");
+
+        foreach (var filePath in commentJsonFiles)
         {
-            var commentJsonPath = Path.Combine(folder, "comment.json");
-            Assert.IsTrue(File.Exists(commentJsonPath),
-                $"comment.json should exist in {folder}");
-
-            var json = File.ReadAllText(commentJsonPath);
-            var comment = JsonSerializer.Deserialize<WorkItemComment>(json);
-            Assert.IsNotNull(comment, "comment.json should deserialize to WorkItemComment");
-            Assert.IsFalse(string.IsNullOrEmpty(comment!.CommentId), "comment.CommentId should not be empty");
+            var json = File.ReadAllText(filePath);
+            // comment.json contains a JSON array of WorkItemComment objects.
+            var comments = JsonSerializer.Deserialize<List<WorkItemComment>>(json);
+            Assert.IsNotNull(comments, "comment.json should deserialize to a list of WorkItemComment");
+            Assert.IsTrue(comments!.Count > 0, "comment.json should contain at least one comment");
+            Assert.IsFalse(string.IsNullOrEmpty(comments[0].CommentId), "comment.CommentId should not be empty");
         }
     }
 
@@ -198,20 +200,19 @@ public class ExportCommentsSteps
     {
         var workItemsDir = Path.Combine(_context.PackageRoot, "WorkItems");
         if (!Directory.Exists(workItemsDir))
-        {
             return; // No folders created is correct
-        }
 
-        var commentFolders = Directory.GetDirectories(workItemsDir, "*")
-            .SelectMany(dateDir => Directory.GetDirectories(dateDir))
-            .Where(folder =>
+        // With the inline design, comments appear as comment.json in revision folders.
+        // A revision folder is named <ticks>-<workItemId>-<revisionIndex>/ — check none exist for this ID.
+        var commentFiles = Directory.GetFiles(workItemsDir, "comment.json", SearchOption.AllDirectories)
+            .Where(f =>
             {
-                var folderName = Path.GetFileName(folder);
-                return folderName!.Contains($"-{workItemId}-c");
+                var dir = Path.GetFileName(Path.GetDirectoryName(f)!);
+                return dir!.Contains($"-{workItemId}-");
             })
             .ToList();
 
-        Assert.AreEqual(0, commentFolders.Count, "No comment folders should be created");
+        Assert.AreEqual(0, commentFiles.Count, "No comment.json files should be written for this work item");
     }
 
     [Then("the work item revisions are still exported normally")]
@@ -268,13 +269,14 @@ public class ExportCommentsSteps
     [Then("comment pagination cursor is properly managed")]
     public void ThenCommentPaginationCursorIsProperlyManaged()
     {
-        var cursorPath = Path.Combine(_context.PackageRoot, "Checkpoints", "workitems-comments.cursor.json");
-        Assert.IsTrue(File.Exists(cursorPath), "Cursor file should exist");
+        // Inline comment fetching uses the main WorkItems cursor (not a separate comments cursor).
+        var cursorPath = Path.Combine(_context.PackageRoot, "Checkpoints", "workitems.cursor.json");
+        Assert.IsTrue(File.Exists(cursorPath), "WorkItems cursor file should exist");
 
         var json = File.ReadAllText(cursorPath);
         var cursor = JsonSerializer.Deserialize<JsonElement>(json);
-        Assert.IsTrue(cursor.TryGetProperty("lastProcessedWorkItemId", out var prop),
-            "Cursor should contain lastProcessedWorkItemId");
+        Assert.IsTrue(cursor.TryGetProperty("lastProcessed", out _),
+            "Cursor should contain lastProcessed");
     }
 
     // ──────────────────────────────────────────────────────────────────────────
@@ -328,39 +330,61 @@ public class ExportCommentsSteps
     [When("the export resumes")]
     public async Task WhenTheExportResumes()
     {
-        // Export first work item
+        var stateStore = new FileSystemStateStore(_context.PackageRoot);
+        var checkpointingService = new CheckpointingService(stateStore);
+
+        // Run first work item's comment-edit revisions.
+        var revisions1 = _context.Comments!.Select((c, i) => new WorkItemRevision
+        {
+            WorkItemId = _context.WorkItemFirstPassId,
+            RevisionIndex = i + 1,
+            ChangedDate = c.ModifiedDate,
+            Fields = new List<WorkItemField>
+            {
+                new WorkItemField { ReferenceName = "System.CommentCount", Value = (i + 1).ToString() }
+            },
+            Attachments = new List<AttachmentMetadata>()
+        }).ToList();
+
+        var mockSource1 = new Mock<IWorkItemRevisionSource>();
+        mockSource1
+            .Setup(s => s.GetRevisionsAsync(It.IsAny<CancellationToken>()))
+            .Returns((CancellationToken ct) => revisions1.ToAsyncEnumerable(ct));
+
         var mockCommentSource1 = new Mock<IWorkItemCommentSource>();
         mockCommentSource1
             .Setup(s => s.GetCommentsAsync(_context.WorkItemFirstPassId, It.IsAny<bool>(), It.IsAny<CancellationToken>()))
             .Returns((int id, bool includeDeleted, CancellationToken ct) =>
                 _context.Comments!.ToAsyncEnumerable(ct));
 
-        var scopeOptions = new WorkItemsScopeParameters
-        {
-            Comments = new CommentsScope { Enabled = true, IncludeDeleted = false }
-        };
-
-        var mockLogger = new Mock<ILogger<WorkItemCommentExportService>>();
-
         var mockFactory1 = new Mock<Infrastructure.Export.IWorkItemCommentSourceFactory>();
-        mockFactory1
-            .Setup(f => f.Create(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
+        mockFactory1.Setup(f => f.Create(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
             .Returns(mockCommentSource1.Object);
 
-        var exportService1 = new WorkItemCommentExportService(
-            mockFactory1.Object,
-            _context.ArtefactStore,
-            Options.Create(scopeOptions),
-            mockLogger.Object);
+        var orchestrator1 = new WorkItemExportOrchestrator(
+            _context.ArtefactStore, checkpointingService,
+            organisationUrl: "https://dev.azure.com/contoso", project: "MyProject", pat: "pat-token",
+            inlineCommentSourceFactory: mockFactory1.Object);
+        await orchestrator1.ExportAsync(mockSource1.Object, CancellationToken.None);
 
-        await exportService1.ExportAsync(
-            _context.WorkItemFirstPassId,
-            "https://dev.azure.com/contoso",
-            "MyProject",
-            "pat-token",
-            CancellationToken.None);
+        // Run second work item's comment-edit revisions.
+        var revisions2 = _context.NewComments!.Select((c, i) => new WorkItemRevision
+        {
+            WorkItemId = _context.WorkItemSecondPassId,
+            RevisionIndex = i + 1,
+            ChangedDate = c.ModifiedDate,
+            Fields = new List<WorkItemField>
+            {
+                new WorkItemField { ReferenceName = "System.CommentCount", Value = (i + 1).ToString() }
+            },
+            Attachments = new List<AttachmentMetadata>()
+        }).ToList();
 
-        // Export second work item
+        var mockSource2 = new Mock<IWorkItemRevisionSource>();
+        mockSource2
+            .Setup(s => s.GetRevisionsAsync(It.IsAny<CancellationToken>()))
+            .Returns((CancellationToken ct) => revisions2.ToAsyncEnumerable(ct));
+
         var mockCommentSource2 = new Mock<IWorkItemCommentSource>();
         mockCommentSource2
             .Setup(s => s.GetCommentsAsync(_context.WorkItemSecondPassId, It.IsAny<bool>(), It.IsAny<CancellationToken>()))
@@ -368,67 +392,49 @@ public class ExportCommentsSteps
                 _context.NewComments!.ToAsyncEnumerable(ct));
 
         var mockFactory2 = new Mock<Infrastructure.Export.IWorkItemCommentSourceFactory>();
-        mockFactory2
-            .Setup(f => f.Create(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
+        mockFactory2.Setup(f => f.Create(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
             .Returns(mockCommentSource2.Object);
 
-        var exportService2 = new WorkItemCommentExportService(
-            mockFactory2.Object,
-            _context.ArtefactStore,
-            Options.Create(scopeOptions),
-            mockLogger.Object);
-
-        await exportService2.ExportAsync(
-            _context.WorkItemSecondPassId,
-            "https://dev.azure.com/contoso",
-            "MyProject",
-            "pat-token",
-            CancellationToken.None);
+        var orchestrator2 = new WorkItemExportOrchestrator(
+            _context.ArtefactStore, checkpointingService,
+            organisationUrl: "https://dev.azure.com/contoso", project: "MyProject", pat: "pat-token",
+            inlineCommentSourceFactory: mockFactory2.Object);
+        await orchestrator2.ExportAsync(mockSource2.Object, CancellationToken.None);
     }
 
     [Then("work item (\\d+) comments are not re-exported")]
     public void ThenWorkItemCommentsAreNotReExported(int workItemId)
     {
+        // Verify comment.json files exist for the first work item in revision folders.
         var workItemsDir = Path.Combine(_context.PackageRoot, "WorkItems");
-        var firstPassFolders = Directory.GetDirectories(workItemsDir, "*")
-            .SelectMany(dateDir => Directory.GetDirectories(dateDir))
-            .Where(folder =>
-            {
-                var folderName = Path.GetFileName(folder);
-                return folderName!.Contains($"-{workItemId}-c");
-            })
+        var files = Directory.GetFiles(workItemsDir, "comment.json", SearchOption.AllDirectories)
+            .Where(f => Path.GetFileName(Path.GetDirectoryName(f)!)!.Contains($"-{workItemId}-"))
             .ToList();
-
-        Assert.IsTrue(firstPassFolders.Count > 0, "First pass should have created folders");
+        Assert.IsTrue(files.Count > 0, $"comment.json files should exist for work item {workItemId}");
     }
 
     [Then("work item (\\d+) comments are exported")]
     public void ThenWorkItemCommentsAreExported(int workItemId)
     {
         var workItemsDir = Path.Combine(_context.PackageRoot, "WorkItems");
-        var secondPassFolders = Directory.GetDirectories(workItemsDir, "*")
-            .SelectMany(dateDir => Directory.GetDirectories(dateDir))
-            .Where(folder =>
-            {
-                var folderName = Path.GetFileName(folder);
-                return folderName!.Contains($"-{workItemId}-c");
-            })
+        var files = Directory.GetFiles(workItemsDir, "comment.json", SearchOption.AllDirectories)
+            .Where(f => Path.GetFileName(Path.GetDirectoryName(f)!)!.Contains($"-{workItemId}-"))
             .ToList();
-
-        Assert.IsTrue(secondPassFolders.Count > 0, $"Second pass should have created folders for workitem {workItemId}");
+        Assert.IsTrue(files.Count > 0, $"comment.json files should exist for work item {workItemId}");
     }
 
     [Then("the cursor advances to work item (\\d+)")]
     public void ThenTheCursorAdvancesToWorkItem(int expectedWorkItemId)
     {
-        var cursorPath = Path.Combine(_context.PackageRoot, "Checkpoints", "workitems-comments.cursor.json");
-        Assert.IsTrue(File.Exists(cursorPath), "Cursor file should exist");
+        // The main WorkItems cursor's lastProcessed path contains the last work item ID.
+        var cursorPath = Path.Combine(_context.PackageRoot, "Checkpoints", "workitems.cursor.json");
+        Assert.IsTrue(File.Exists(cursorPath), "WorkItems cursor file should exist");
 
         var json = File.ReadAllText(cursorPath);
         var cursor = JsonSerializer.Deserialize<JsonElement>(json);
-        Assert.IsTrue(cursor.TryGetProperty("lastProcessedWorkItemId", out var prop),
-            "Cursor should contain lastProcessedWorkItemId");
-        Assert.AreEqual(expectedWorkItemId, prop.GetInt32(), "Cursor should point to latest workitem");
+        Assert.IsTrue(cursor.TryGetProperty("lastProcessed", out var prop), "Cursor should contain lastProcessed");
+        Assert.IsTrue(prop.GetString()!.Contains($"-{expectedWorkItemId}-"),
+            $"Cursor lastProcessed should reference work item {expectedWorkItemId}");
     }
 }
 

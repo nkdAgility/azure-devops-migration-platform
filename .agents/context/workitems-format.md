@@ -11,6 +11,7 @@ WorkItems/
   yyyy-MM-dd/
     <ticks>-<workItemId>-<revisionIndex>/
       revision.json
+      [comment.json]          ← written when a comment edit/delete is detected (controlled by the Comments extension, enabled by default)
       <attachment files>
       <embedded image files>
     <ticks>-<workItemId>-c<commentId>/
@@ -100,7 +101,7 @@ Each comment sub-folder contains a single file named `comment.json`.
 
 **Multiple versions of a comment**: When a comment is edited, the original is stored at its `createdDate` ticks and each edit is a separate sub-folder at its `modifiedDate` ticks. Both folders use the same `commentId` in the name. The `version` field inside `comment.json` identifies which version the folder represents.
 
-**Deleted comments**: Excluded from the export by default. The configuration flag `modules.workItems.scopes.comments.includeDeleted` (boolean, default `false`) enables inclusion.
+**Deleted comments**: Excluded from the export by default. The configuration flag `modules.workItems.extensions[Comments].parameters.includeDeleted` (boolean, default `false`) enables inclusion.
 
 #### comment.json Schema
 
@@ -128,6 +129,65 @@ Each comment sub-folder contains a single file named `comment.json`.
 }
 ```
 ```
+
+### Inline Comment Fetching (Feature-Gated)
+
+When a work item revision represents a **comment edit or delete** — detected by the presence of
+`System.CommentCount` in the revision's changed fields AND the absence of `System.History` — the
+export orchestrator can optionally fetch the matching comment versions from the Azure DevOps
+Comments API and write them as `comment.json` **inside the revision folder** (alongside `revision.json`).
+
+This behaviour is **enabled by default** when the `Comments` extension is enabled (the default).
+Disable it by setting `{ "Type": "Comments", "Enabled": false }` in the module's `Extensions` list.
+
+**Detection logic (`IsCommentEditOrDeleteRevision`):**
+
+- `RevisionIndex == 0` → always excluded (creation revision; all fields appear as changed).
+- `System.History` present and non-empty → comment addition; no API call needed (text is already in `revision.json`).
+- `System.CommentCount` present AND `System.History` absent or empty → comment edit or delete; fetch from API.
+
+**Matching strategy:** comments are fetched for the work item, then filtered to those whose
+`ModifiedDate` is within ±1 second of the revision's `ChangedDate`.
+
+**File format:** `comment.json` inside the revision folder is a **JSON array** of
+`WorkItemComment` objects (the same objects used in `c<commentId>` sub-folders), not a single
+object. Multiple comments can match the same revision timestamp.
+
+```json
+[
+  {
+    "commentId": 42,
+    "version": 2,
+    "text": "Updated comment text",
+    "format": "html",
+    "renderedText": "<p>Updated comment text</p>",
+    "createdBy": { "id": "user-id", "name": "John Doe", "email": "john@example.com" },
+    "createdDate": "2026-02-25T18:12:34Z",
+    "modifiedBy": { "id": "user-id", "name": "John Doe", "email": "john@example.com" },
+    "modifiedDate": "2026-02-26T10:00:00Z",
+    "isDeleted": false,
+    "embeddedImages": []
+  }
+]
+```
+
+**Error handling:** Comment API failures during inline fetching are **non-fatal**. A `ProgressEvent`
+warning is emitted and the export continues. The revision folder will exist without a `comment.json`
+if the API call fails.
+
+**Known limitation:** `AzureDevOpsWorkItemCommentSource.GetCommentsAsync()` has an upstream SDK bug
+(`$top` parameter out of range). Errors are non-fatal and handled as above. Full comment data will
+be correctly persisted once the SDK is fixed.
+
+**Relationship to `c<commentId>` sub-folders:** The two `comment.json` placements serve different
+purposes and both may be present in the same package:
+
+| Placement | Format | Contents | When written |
+|-----------|--------|----------|--------------|
+| `<rev-folder>/comment.json` | JSON array | Comments matching this revision's timestamp | Only when the Comments extension is enabled and a comment edit/delete is detected |
+| `<commentId-folder>/comment.json` | JSON object | One version of one comment | Comment sub-module export (future) |
+
+---
 
 ### Embedded Images
 

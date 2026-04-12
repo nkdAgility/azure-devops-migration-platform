@@ -1,7 +1,7 @@
 namespace DevOpsMigrationPlatform.Abstractions;
 
 /// <summary>
-/// Context passed to IDataTypeModule.ImportAsync.
+/// Context passed to IModule.ImportAsync.
 /// Import reads from the package via IArtefactStore and writes state via IStateStore.
 /// </summary>
 public class ImportContext

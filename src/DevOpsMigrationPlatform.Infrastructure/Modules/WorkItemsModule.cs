@@ -1,19 +1,18 @@
 #if !NET481
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
-using DevOpsMigrationPlatform.Abstractions.Services;
 using DevOpsMigrationPlatform.Infrastructure.Checkpointing;
 using DevOpsMigrationPlatform.Infrastructure.Export;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Modules;
 
 /// <summary>
-/// <see cref="IDataTypeModule"/> implementation for work item export/import.
+/// <see cref="IModule"/> implementation for work item export/import.
 /// Streams revisions from <see cref="IWorkItemRevisionSourceFactory"/>, writes each
 /// revision folder via <see cref="WorkItemExportOrchestrator"/>, and streams attachment
 /// binaries beside <c>revision.json</c>.
@@ -23,32 +22,28 @@ namespace DevOpsMigrationPlatform.Infrastructure.Modules;
 /// <see cref="IArtefactStore.WriteBinaryAsync"/>; no revision list or attachment byte
 /// array is accumulated in memory.
 /// 
-/// Also orchestrates comment export and embedded image download after revision export
-/// via <see cref="IWorkItemCommentExportService"/> and <see cref="IEmbeddedImageExportService"/>.
+/// Inline comment fetching is gated by the Comments extension Enabled flag.
 /// </summary>
-public sealed class WorkItemsModule : IDataTypeModule
+public sealed class WorkItemsModule : IModule
 {
-    private const string DefaultWiqlQuery =
-        "SELECT [System.Id] FROM WorkItems WHERE [System.TeamProject] = @project ORDER BY [System.Id]";
-
     public string Name => "WorkItems";
     public IReadOnlyList<string> DependsOn => Array.Empty<string>();
 
     private readonly IWorkItemRevisionSourceFactory _sourceFactory;
     private readonly IAttachmentBinarySource? _attachmentBinarySource;
-    private readonly IWorkItemCommentExportService? _commentExportService;
+    private readonly IWorkItemCommentSourceFactory? _inlineCommentSourceFactory;
     private readonly ILogger<WorkItemsModule> _logger;
 
     public WorkItemsModule(
         IWorkItemRevisionSourceFactory sourceFactory,
         ILogger<WorkItemsModule> logger,
         IAttachmentBinarySource? attachmentBinarySource = null,
-        IWorkItemCommentExportService? commentExportService = null)
+        IWorkItemCommentSourceFactory? inlineCommentSourceFactory = null)
     {
         _sourceFactory = sourceFactory ?? throw new ArgumentNullException(nameof(sourceFactory));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _attachmentBinarySource = attachmentBinarySource;
-        _commentExportService = commentExportService;
+        _inlineCommentSourceFactory = inlineCommentSourceFactory;
     }
 
     /// <inheritdoc/>
@@ -60,29 +55,35 @@ public sealed class WorkItemsModule : IDataTypeModule
         var project = job.Source?.Project ?? throw new InvalidOperationException("Job.Source.Project is required.");
         var pat = job.Source?.Authentication?.ResolvedAccessToken ?? string.Empty;
 
-        var query = ResolveParameter(job, "query", DefaultWiqlQuery);
-        var includeAttachments = ResolveParameter(job, "includeAttachments", "true")
-            .Equals("true", StringComparison.OrdinalIgnoreCase);
+        var workItemsModule = job.Modules
+            ?.FirstOrDefault(m => string.Equals(m.Name, "WorkItems", StringComparison.OrdinalIgnoreCase));
+
+        var ext = workItemsModule is not null
+            ? WorkItemsModuleExtensions.FromModule(workItemsModule)
+            : new WorkItemsModuleExtensions();
 
         _logger.LogInformation(
-            "[WorkItems] Exporting from {OrgUrl}/{Project} (attachments={IncludeAttachments})",
-            orgUrl, project, includeAttachments);
+            "[WorkItems] Exporting from {OrgUrl}/{Project} (attachments={AttachmentsEnabled}, comments={CommentsEnabled})",
+            orgUrl, project, ext.AttachmentsEnabled, ext.Comments.Enabled);
 
         var source = await _sourceFactory
-            .CreateAsync(orgUrl, project, pat, query, ct)
+            .CreateAsync(orgUrl, project, pat, ext.Query, ct)
             .ConfigureAwait(false);
 
         var checkpointingService = new CheckpointingService(context.StateStore);
 
+        // Comments extension gates inline comment fetching.
+        var inlineFactory = ext.Comments.Enabled ? _inlineCommentSourceFactory : null;
+
         var orchestrator = new WorkItemExportOrchestrator(
             context.ArtefactStore,
             checkpointingService,
-            _attachmentBinarySource,
+            ext.AttachmentsEnabled ? _attachmentBinarySource : null,
             context.ProgressSink,
-            _commentExportService,
-            orgUrl,
-            project,
-            pat);
+            organisationUrl: orgUrl,
+            project: project,
+            pat: pat,
+            inlineCommentSourceFactory: inlineFactory);
 
         await orchestrator.ExportAsync(source, ct).ConfigureAwait(false);
 
@@ -95,23 +96,6 @@ public sealed class WorkItemsModule : IDataTypeModule
     public Task ValidateAsync(ValidationContext context, CancellationToken ct) =>
         throw new NotSupportedException("WorkItems validation is not yet supported.");
 
-    // ── helpers ──────────────────────────────────────────────────────────────
-
-    private static string ResolveParameter(MigrationJob job, string key, string defaultValue)
-    {
-        if (job.Modules is null) return defaultValue;
-        foreach (var module in job.Modules)
-        {
-            if (!string.Equals(module.Name, "WorkItems", StringComparison.OrdinalIgnoreCase))
-                continue;
-            foreach (var scope in module.Scopes)
-            {
-                if (scope.Parameters.TryGetValue(key, out var raw) && raw is not null)
-                    return raw.ToString() ?? defaultValue;
-            }
-        }
-        return defaultValue;
-    }
 }
 
 #endif

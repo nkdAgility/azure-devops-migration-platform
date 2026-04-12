@@ -4,11 +4,11 @@ using System.Threading.Tasks;
 namespace DevOpsMigrationPlatform.Abstractions;
 
 /// <summary>
-/// Contract for a data type module. Modules are the only extension point for
-/// adding new data types to the migration platform.
+/// Contract for a migration module. Modules are the only extension point for
+/// adding new capabilities to the migration platform.
 /// See docs/modules.md for the full module architecture.
 /// </summary>
-public interface IDataTypeModule
+public interface IModule
 {
     /// <summary>Unique module name, e.g. "WorkItems". Must be unique across all registered modules.</summary>
     string Name { get; }
