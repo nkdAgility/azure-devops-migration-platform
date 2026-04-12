@@ -14,12 +14,12 @@ public class ExportCommandFollowTests
     public async Task ExportCommand_WithFollowAndLevel_StreamsDiagnosticsToConsole()
     {
         // Arrange – guard on required env vars
-        var orgEnv = Environment.GetEnvironmentVariable("AZDEVOPS_DEV_ORG");
-        var patEnv = Environment.GetEnvironmentVariable("AZDEVOPS_DEV_PAT");
+        var orgEnv = Environment.GetEnvironmentVariable("AZDEVOPS_SYSTEM_TEST_ORG");
+        var patEnv = Environment.GetEnvironmentVariable("AZDEVOPS_SYSTEM_TEST_PAT");
         if (string.IsNullOrEmpty(orgEnv) || string.IsNullOrEmpty(patEnv))
         {
             Assert.Inconclusive(
-                "System test skipped: AZDEVOPS_DEV_ORG and AZDEVOPS_DEV_PAT environment variables must be set.");
+                "System test skipped: AZDEVOPS_SYSTEM_TEST_ORG and AZDEVOPS_SYSTEM_TEST_PAT environment variables must be set.");
             return;
         }
 
@@ -54,12 +54,12 @@ public class ExportCommandFollowTests
     public async Task ExportCommand_WithFollowAndLevel_ProducesAgentJsonl()
     {
         // Arrange – guard on required env vars
-        var orgEnv = Environment.GetEnvironmentVariable("AZDEVOPS_DEV_ORG");
-        var patEnv = Environment.GetEnvironmentVariable("AZDEVOPS_DEV_PAT");
+        var orgEnv = Environment.GetEnvironmentVariable("AZDEVOPS_SYSTEM_TEST_ORG");
+        var patEnv = Environment.GetEnvironmentVariable("AZDEVOPS_SYSTEM_TEST_PAT");
         if (string.IsNullOrEmpty(orgEnv) || string.IsNullOrEmpty(patEnv))
         {
             Assert.Inconclusive(
-                "System test skipped: AZDEVOPS_DEV_ORG and AZDEVOPS_DEV_PAT environment variables must be set.");
+                "System test skipped: AZDEVOPS_SYSTEM_TEST_ORG and AZDEVOPS_SYSTEM_TEST_PAT environment variables must be set.");
             return;
         }
 

@@ -11,7 +11,7 @@
     }
   },
   "Artefacts": {
-    "Path": "%TEMP%\\SystemTests\\export-ado-workitems-single-project",
+    "Path": "storage\\export-ado-workitems-single-project",
     "Zip": true
   },
   "Modules": [
@@ -27,11 +27,26 @@
         }
       ],
       "Extensions": [
-        { "Type": "Revisions",      "Enabled": true },
-        { "Type": "Links",          "Enabled": true },
-        { "Type": "Attachments",    "Enabled": true },
-        { "Type": "Comments",       "Enabled": true },
-        { "Type": "EmbeddedImages", "Enabled": true }
+        {
+          "Type": "Revisions",
+          "Enabled": true
+        },
+        {
+          "Type": "Links",
+          "Enabled": true
+        },
+        {
+          "Type": "Attachments",
+          "Enabled": true
+        },
+        {
+          "Type": "Comments",
+          "Enabled": true
+        },
+        {
+          "Type": "EmbeddedImages",
+          "Enabled": true
+        }
       ]
     }
   ]

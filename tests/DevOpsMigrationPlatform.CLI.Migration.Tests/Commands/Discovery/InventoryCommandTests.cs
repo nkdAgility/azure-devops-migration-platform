@@ -166,11 +166,11 @@ public class InventoryCommandTests
     public async Task InventoryCommand_SystemTest_AdoSingleProject_ScenarioFile_ExecutesSuccessfully()
     {
         // ── Guard ─────────────────────────────────────────────────────────
-        if (string.IsNullOrEmpty(Environment.GetEnvironmentVariable("AZDEVOPS_DEV_ORG")) ||
-            string.IsNullOrEmpty(Environment.GetEnvironmentVariable("AZDEVOPS_DEV_PAT")))
+        if (string.IsNullOrEmpty(Environment.GetEnvironmentVariable("AZDEVOPS_SYSTEM_TEST_ORG")) ||
+            string.IsNullOrEmpty(Environment.GetEnvironmentVariable("AZDEVOPS_SYSTEM_TEST_PAT")))
         {
             Assert.Inconclusive(
-                "System test skipped: AZDEVOPS_DEV_ORG and AZDEVOPS_DEV_PAT environment variables must be set. " +
+                "System test skipped: AZDEVOPS_SYSTEM_TEST_ORG and AZDEVOPS_SYSTEM_TEST_PAT environment variables must be set. " +
                 "See docs/contributors.md for setup instructions.");
             return;
         }

@@ -32,12 +32,12 @@ public class MigrationExportCommandTests
     public async Task MigrationExportCommand_SystemTest_AdoSingleProject_ExitsZero_AndWritesRevisionFiles()
     {
         // ── Guard ─────────────────────────────────────────────────────────
-        var orgEnv = Environment.GetEnvironmentVariable("AZDEVOPS_DEV_ORG");
-        var patEnv = Environment.GetEnvironmentVariable("AZDEVOPS_DEV_PAT");
+        var orgEnv = Environment.GetEnvironmentVariable("AZDEVOPS_SYSTEM_TEST_ORG");
+        var patEnv = Environment.GetEnvironmentVariable("AZDEVOPS_SYSTEM_TEST_PAT");
         if (string.IsNullOrEmpty(orgEnv) || string.IsNullOrEmpty(patEnv))
         {
             Assert.Inconclusive(
-                "System test skipped: AZDEVOPS_DEV_ORG and AZDEVOPS_DEV_PAT must be set. " +
+                "System test skipped: AZDEVOPS_SYSTEM_TEST_ORG and AZDEVOPS_SYSTEM_TEST_PAT must be set. " +
                 "See docs/contributors.md for setup instructions.");
             return;
         }
@@ -45,7 +45,7 @@ public class MigrationExportCommandTests
         // ── Output folder (matches scenario Artefacts.Path) ───────────────
         // The scenario has "Path": "%TEMP%\\SystemTests\\export-ado-workitems-single-project"
         var outputDir = Environment.ExpandEnvironmentVariables(
-            @"%TEMP%\SystemTests\export-ado-workitems-single-project");
+            @"storage\SystemTests\export-ado-workitems-single-project");
 
         if (Directory.Exists(outputDir))
             Directory.Delete(outputDir, recursive: true);
@@ -129,12 +129,12 @@ public class MigrationExportCommandTests
     public async Task MigrationExportCommand_SystemTest_WorkItemComments_ExitsZero_AndWritesCommentFolders()
     {
         // ── Guard ─────────────────────────────────────────────────────────
-        var orgEnv = Environment.GetEnvironmentVariable("AZDEVOPS_DEV_ORG");
-        var patEnv = Environment.GetEnvironmentVariable("AZDEVOPS_DEV_PAT");
+        var orgEnv = Environment.GetEnvironmentVariable("AZDEVOPS_SYSTEM_TEST_ORG");
+        var patEnv = Environment.GetEnvironmentVariable("AZDEVOPS_SYSTEM_TEST_PAT");
         if (string.IsNullOrEmpty(orgEnv) || string.IsNullOrEmpty(patEnv))
         {
             Assert.Inconclusive(
-                "System test skipped: AZDEVOPS_DEV_ORG and AZDEVOPS_DEV_PAT must be set. " +
+                "System test skipped: AZDEVOPS_SYSTEM_TEST_ORG and AZDEVOPS_SYSTEM_TEST_PAT must be set. " +
                 "See docs/contributors.md for setup instructions.");
             return;
         }
