@@ -36,7 +36,7 @@ public class MigrationExportCommandTests
         var patEnv = Environment.GetEnvironmentVariable("AZDEVOPS_SYSTEM_TEST_PAT");
         if (string.IsNullOrEmpty(orgEnv) || string.IsNullOrEmpty(patEnv))
         {
-            Assert.Inconclusive(
+            Assert.Fail(
                 "System test skipped: AZDEVOPS_SYSTEM_TEST_ORG and AZDEVOPS_SYSTEM_TEST_PAT must be set. " +
                 "See docs/contributors.md for setup instructions.");
             return;
@@ -133,7 +133,7 @@ public class MigrationExportCommandTests
         var patEnv = Environment.GetEnvironmentVariable("AZDEVOPS_SYSTEM_TEST_PAT");
         if (string.IsNullOrEmpty(orgEnv) || string.IsNullOrEmpty(patEnv))
         {
-            Assert.Inconclusive(
+            Assert.Fail(
                 "System test skipped: AZDEVOPS_SYSTEM_TEST_ORG and AZDEVOPS_SYSTEM_TEST_PAT must be set. " +
                 "See docs/contributors.md for setup instructions.");
             return;

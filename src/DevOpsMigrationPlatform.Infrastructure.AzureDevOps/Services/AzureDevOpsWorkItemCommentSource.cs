@@ -5,6 +5,7 @@ using System.Threading;
 using DevOpsMigrationPlatform.Abstractions.Models;
 using DevOpsMigrationPlatform.Abstractions.Services;
 using Microsoft.Extensions.Logging;
+using Microsoft.VisualStudio.Services.WebApi;
 
 namespace DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Services;
 
@@ -19,7 +20,7 @@ public class AzureDevOpsWorkItemCommentSource : IWorkItemCommentSource
     private readonly string _project;
     private readonly string _pat;
     private readonly ILogger<AzureDevOpsWorkItemCommentSource> _logger;
-    private const int PageSize = 100; // ADO API page size for comments
+    private const int PageSize = 200; // ADO API max page size for comments
 
     public AzureDevOpsWorkItemCommentSource(
         IAzureDevOpsClientFactory clientFactory,
@@ -47,54 +48,76 @@ public class AzureDevOpsWorkItemCommentSource : IWorkItemCommentSource
         // Create the client on-demand from the factory (this is async, so we need to await it once before the loop)
         var client = await _clientFactory.CreateWorkItemClientAsync(_organisationUrl, _pat, cancellationToken);
 
-        int skip = 0;
-        bool hasMoreResults = true;
+        // Use the project-scoped overload: GetCommentsAsync(project, workItemId, top, continuationToken, ...)
+        // The overload without 'project' resolves to the revision-history API, not the comments API,
+        // causing positional mismatches that send $top=0 → "outside permissible range" server error.
+        string? continuationToken = null;
 
-        while (hasMoreResults && !cancellationToken.IsCancellationRequested)
+        while (!cancellationToken.IsCancellationRequested)
         {
             Microsoft.TeamFoundation.WorkItemTracking.WebApi.Models.WorkItemComments? response = null;
             try
             {
-                // Call ADO SDK GetCommentsAsync with pagination
                 response = await client.GetCommentsAsync(
-                    workItemId,
-                    PageSize, // top parameter
-                    skip, // $skip parameter (positional, not named)
-                    null, // sortOrder
-                    null, // userState
-                    cancellationToken);
+                    project: _project,
+                    workItemId: workItemId,
+                    top: PageSize,
+                    continuationToken: continuationToken,
+                    includeDeleted: includeDeleted ? (bool?)true : null,
+                    expand: null,
+                    order: null,
+                    userState: null,
+                    cancellationToken: cancellationToken);
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex,
-                    "Error fetching comments for work item {workItemId} at skip={skip}",
-                    workItemId, skip);
+                    "Error fetching comments for work item {WorkItemId} with continuationToken={ContinuationToken}",
+                    workItemId, continuationToken ?? "null");
                 throw;
             }
 
             if (response?.Comments == null || !response.Comments.Any())
-            {
-                hasMoreResults = false;
                 yield break;
-            }
 
-            // Yield each comment
             foreach (var adoComment in response.Comments)
-            {
-                var comment = MapCommentFromAdoSdk(adoComment);
-                yield return comment;
-            }
+                yield return MapCommentFromAdoSdk(adoComment);
 
-            // Check if there are more results
-            if (response.Comments.Count() < PageSize)
+            // Advance to the next page using the continuation token from _links.next.
+            // The WorkItemComments model does not expose ContinuationToken as a property;
+            // it is encoded in the hypermedia "next" link instead.
+            continuationToken = ExtractContinuationToken(response.Links);
+            if (string.IsNullOrEmpty(continuationToken))
+                yield break;
+        }
+    }
+
+    /// <summary>
+    /// Parses the <c>continuationToken</c> query parameter from the <c>_links.next</c> href
+    /// returned by the ADO Comments API, or returns <c>null</c> if no next page exists.
+    /// </summary>
+    private static string? ExtractContinuationToken(ReferenceLinks? links)
+    {
+        if (links?.Links == null || !links.Links.TryGetValue("next", out var nextObj))
+            return null;
+
+        var href = nextObj is ReferenceLink rl ? rl.Href : nextObj?.ToString();
+        if (string.IsNullOrEmpty(href))
+            return null;
+
+        // Parse continuationToken from the next-page query string.
+        var query = new Uri(href).Query.TrimStart('?');
+        foreach (var segment in query.Split('&', StringSplitOptions.RemoveEmptyEntries))
+        {
+            var parts = segment.Split('=', 2);
+            if (parts.Length == 2 &&
+                parts[0].Equals("continuationToken", StringComparison.OrdinalIgnoreCase))
             {
-                hasMoreResults = false;
-            }
-            else
-            {
-                skip += PageSize;
+                return Uri.UnescapeDataString(parts[1]);
             }
         }
+
+        return null;
     }
 
     /// <summary>
