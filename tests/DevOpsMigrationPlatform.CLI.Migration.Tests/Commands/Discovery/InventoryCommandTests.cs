@@ -4,6 +4,7 @@ using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Abstractions.Utilities;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using System;
+using System.IO;
 
 namespace DevOpsMigrationPlatform.CLI.Migration.Tests.Commands.Discovery;
 
@@ -169,11 +170,16 @@ public class InventoryCommandTests
         if (string.IsNullOrEmpty(Environment.GetEnvironmentVariable("AZDEVOPS_SYSTEM_TEST_ORG")) ||
             string.IsNullOrEmpty(Environment.GetEnvironmentVariable("AZDEVOPS_SYSTEM_TEST_PAT")))
         {
-            Assert.Inconclusive(
+            Assert.Fail(
                 "System test skipped: AZDEVOPS_SYSTEM_TEST_ORG and AZDEVOPS_SYSTEM_TEST_PAT environment variables must be set. " +
                 "See docs/contributors.md for setup instructions.");
             return;
         }
+
+        // ── Output file (InventoryCommand default: <cwd>/output/discovery-summary.csv) ──
+        var csvPath = Path.Combine(CliRunner.FindRepoRoot(), "output", "discovery-summary.csv");
+        if (File.Exists(csvPath))
+            File.Delete(csvPath);
 
         // ── Act — run the CLI exactly as the launch profile does ──────────
         var result = await CliRunner.RunAsync(
@@ -197,12 +203,27 @@ public class InventoryCommandTests
             $"CLI exited with code {result.ExitCode}. Check STDOUT/STDERR above.");
 
         // ── Assert: success message printed by the CLI ────────────────────
-        // InventoryCommand prints on success (after Spectre ANSI stripping):
-        //   "Inventory complete."
         var combinedOutput = result.StandardOutput + result.StandardError;
         Assert.IsTrue(
             combinedOutput.Contains("Inventory complete", StringComparison.OrdinalIgnoreCase),
             "Expected CLI success message ('Inventory complete') not found in output.");
+
+        // ── Assert: discovery-summary.csv was written ─────────────────────
+        Assert.IsTrue(File.Exists(csvPath),
+            $"discovery-summary.csv was not created at {csvPath}");
+
+        var csvLines = File.ReadAllLines(csvPath);
+        Console.WriteLine($"CSV path   : {csvPath}");
+        Console.WriteLine($"CSV lines  : {csvLines.Length}");
+
+        // Header row + at least one data row
+        Assert.IsTrue(csvLines.Length >= 2,
+            $"discovery-summary.csv should have a header row and at least one data row, but has {csvLines.Length} line(s).");
+
+        // Sanity-check the header contains expected column names
+        var header = csvLines[0];
+        Assert.IsTrue(header.Contains("WorkItemsCount", StringComparison.OrdinalIgnoreCase),
+            $"CSV header does not contain 'WorkItemsCount'. Header: {header}");
     }
 
     #endregion
