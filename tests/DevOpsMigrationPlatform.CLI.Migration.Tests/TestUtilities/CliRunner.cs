@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -14,6 +15,14 @@ namespace DevOpsMigrationPlatform.CLI.Migration.Tests.TestUtilities;
 public sealed class CliRunner
 {
     private const string ExeName = "devopsmigration.exe";
+
+    // Matches any ANSI/VT escape sequence (e.g. bold \e[1m, colour \e[32m, reset \e[0m).
+    // Even with NO_COLOR=1, Spectre.Console may still emit bold/dim sequences on Windows
+    // runners where VT processing is enabled.  Stripping them ensures regex assertions work.
+    private static readonly Regex _ansiEscapeRegex =
+        new(@"\x1B\[[0-9;]*[a-zA-Z]", RegexOptions.Compiled);
+
+    private static string StripAnsi(string s) => _ansiEscapeRegex.Replace(s, string.Empty);
 
     /// <summary>
     /// Result of a CLI invocation.
@@ -163,8 +172,8 @@ public sealed class CliRunner
         return new CliResult
         {
             ExitCode = timedOut ? -1 : process.ExitCode,
-            StandardOutput = stdout.ToString(),
-            StandardError = stderr.ToString(),
+            StandardOutput = StripAnsi(stdout.ToString()),
+            StandardError = StripAnsi(stderr.ToString()),
             TimedOut = timedOut,
         };
     }
