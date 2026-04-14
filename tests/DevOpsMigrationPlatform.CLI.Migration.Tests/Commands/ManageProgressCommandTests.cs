@@ -45,8 +45,10 @@ public class ManageProgressCommandTests
             readyTimeout: TimeSpan.FromSeconds(30));
 
         // ── Run export to create a completed job ─────────────────────────────
+        // Pass --url so the CLI uses the shared control plane instead of starting LocalStackHost.
         var exportResult = await CliRunner.RunAsync(
-            args: ["export", "--config", "scenarios/export-ado-workitems-single-project.json", "--force-fresh"],
+            args: ["export", "--config", "scenarios/export-ado-workitems-single-project.json", "--force-fresh",
+                   "--url", ControlPlaneHostRunner.DefaultUrl],
             timeout: TimeSpan.FromMinutes(20));
 
         Console.WriteLine("=== EXPORT STDOUT ===");
@@ -74,7 +76,8 @@ public class ManageProgressCommandTests
 
         // ── Act — run manage progress via CLI ──────────────────────────────
         var result = await CliRunner.RunAsync(
-            args: ["manage", "progress", "--job", jobId],
+            args: ["manage", "progress", "--job", jobId,
+                   "--url", ControlPlaneHostRunner.DefaultUrl],
             timeout: TimeSpan.FromMinutes(2));
 
         Console.WriteLine("=== STDOUT ===");

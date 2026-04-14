@@ -61,15 +61,32 @@ public sealed class ControlPlaneHostRunner : IAsyncDisposable
         var psi = new ProcessStartInfo
         {
             FileName = exePath,
+            // Force binding on port 5100 so the health probe and the CLI --url flag agree.
+            Arguments = $"--urls {DefaultUrl}",
             WorkingDirectory = CliRunner.FindRepoRoot(),
             UseShellExecute = false,
             RedirectStandardOutput = false,
             RedirectStandardError = false,
             CreateNoWindow = true,
         };
+        // Development mode enables the auth bypass middleware so unauthenticated
+        // CLI requests (manage progress, manage diagnostics) are accepted.
+        psi.Environment["ASPNETCORE_ENVIRONMENT"] = "Development";
 
         var process = Process.Start(psi)
             ?? throw new InvalidOperationException($"Failed to start process: {exePath}");
+
+        // Ensure the child process is killed if the test host exits abnormally
+        // (e.g. test runner abort), preventing locked DLLs from blocking the next build.
+        AppDomain.CurrentDomain.ProcessExit += (_, _) =>
+        {
+            try
+            {
+                if (!process.HasExited)
+                    process.Kill(entireProcessTree: true);
+            }
+            catch { /* best effort — process may have already exited */ }
+        };
 
         // Wait for the control plane to become ready.
         using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);

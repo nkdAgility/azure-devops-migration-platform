@@ -14,6 +14,7 @@
 //
 // See docs/control-plane.md, docs/aspire-integration.md.
 
+using System.Security.Claims;
 using DevOpsMigrationPlatform.ControlPlane.Services;
 using DevOpsMigrationPlatform.ControlPlaneHost.Services;
 
@@ -30,6 +31,24 @@ builder.Services.AddControlPlaneServices(builder.Configuration);
 builder.Services.AddHostedService<AgentLifecycleService>();
 
 var app = builder.Build();
+
+// In Development mode (used by test runners via ControlPlaneHostRunner),
+// stamp every request as authenticated so auth-gated endpoints (e.g.
+// ProgressController.GetProgress) are accessible without a real bearer token.
+// This mirrors the identical bypass in LocalStackHost for in-process mode.
+if (app.Environment.IsDevelopment())
+{
+    app.Use(async (context, next) =>
+    {
+        if (context.User.Identity?.IsAuthenticated != true)
+        {
+            var identity = new ClaimsIdentity("Development");
+            identity.AddClaim(new Claim(ClaimTypes.Name, "dev-user"));
+            context.User = new ClaimsPrincipal(identity);
+        }
+        await next(context);
+    });
+}
 
 app.MapDefaultEndpoints();
 app.MapControllers();
