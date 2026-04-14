@@ -96,7 +96,10 @@ public sealed class AzureDevOpsDependencyAnalysisService : IWorkItemLinkAnalysis
                     ? projObj.ToString() ?? "Unknown"
                     : "Unknown";
 
-                var sourceId = workItem.Id.Value;
+                var sourceId = workItem.Id ?? 0;
+                if (sourceId == 0)
+                    continue;
+
                 var sourceType = workItem.Fields.TryGetValue("System.WorkItemType", out var typeObj)
                     ? typeObj.ToString() ?? "Unknown"
                     : "Unknown";

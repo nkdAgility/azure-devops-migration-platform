@@ -5,6 +5,7 @@ using System.Threading;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Models;
 using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Abstractions.Services;
@@ -20,14 +21,17 @@ public sealed class DependencyDiscoveryService : IDependencyDiscoveryService
     private readonly IOptions<DiscoveryOptions> _options;
     private readonly IServiceProvider _serviceProvider;
     private readonly ILogger<DependencyDiscoveryService> _logger;
+    private readonly ICatalogService _catalogService;
 
     public DependencyDiscoveryService(
         IOptions<DiscoveryOptions> options,
         IServiceProvider serviceProvider,
+        ICatalogService catalogService,
         ILogger<DependencyDiscoveryService> logger)
     {
         _options = options ?? throw new ArgumentNullException(nameof(options));
         _serviceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
+        _catalogService = catalogService ?? throw new ArgumentNullException(nameof(catalogService));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
@@ -69,8 +73,29 @@ public sealed class DependencyDiscoveryService : IDependencyDiscoveryService
                 throw new NotSupportedException(errorMsg);
             }
 
+            // Determine which projects to analyse
+            var projectsToAnalyse = organisation.Projects;
+            if (projectsToAnalyse.Count == 0)
+            {
+                _logger.LogInformation("Projects list is empty, fetching all projects from {Url}", organisation.ResolvedUrl);
+                var pat = organisation.Authentication?.ResolvedAccessToken ?? "";
+                try
+                {
+                    projectsToAnalyse = (await _catalogService.GetProjectsAsync(
+                        organisation.ResolvedUrl,
+                        pat,
+                        cancellationToken)).ToList();
+                    _logger.LogInformation("Found {ProjectCount} projects in {Url}", projectsToAnalyse.Count, organisation.ResolvedUrl);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Failed to fetch projects from {Url}", organisation.ResolvedUrl);
+                    throw;
+                }
+            }
+
             // Analyse each project in the organisation
-            foreach (var project in organisation.Projects)
+            foreach (var project in projectsToAnalyse)
             {
                 _logger.LogInformation("Analysing project {Project} in {Url}", project, organisation.ResolvedUrl);
 

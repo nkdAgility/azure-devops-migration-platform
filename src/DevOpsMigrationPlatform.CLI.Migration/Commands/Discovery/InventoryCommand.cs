@@ -63,11 +63,11 @@ public sealed class InventoryCommand : CommandBase<InventoryCommand.Settings>
             }
         }
 
-        var outputDir = string.IsNullOrWhiteSpace(settings.OutputPath)
+        var baseOutputDir = string.IsNullOrWhiteSpace(settings.OutputPath)
             ? Path.Combine(Directory.GetCurrentDirectory(), "output")
             : settings.OutputPath;
 
-        var csvPath = Path.Combine(outputDir, "discovery-summary.csv");
+        var csvPath = Path.Combine(baseOutputDir, "discovery-summary.csv");
         WriteCsv(summaries.Values, csvPath);
 
         console.MarkupLine($"\n[green]✅ Inventory complete.[/] CSV written to [blue]{Markup.Escape(csvPath)}[/]");
