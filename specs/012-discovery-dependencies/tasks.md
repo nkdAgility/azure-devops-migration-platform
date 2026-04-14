@@ -2,7 +2,7 @@
 
 **Input**: Design documents from `/specs/012-discovery-dependencies/`  
 **Tech stack**: C# 12 / .NET 10 · Spectre.Console.Cli · MSTest + Moq  
-**User stories**: US1 Cross-Project Links (P1) · US2 Cross-Organisation Links (P2) · US3 WIQL Filter (P3)
+**User stories**: US1 Cross-Project Links (P1) · US2 Cross-Organisation Links (P2) · US3 WIQL Filter (P3) · US4 Project Dependency Summary (P2)
 
 ---
 
@@ -29,7 +29,7 @@
 - [ ] T008 Create `src/DevOpsMigrationPlatform.Abstractions/Models/DependencyProgressEvent.cs` — `public abstract record DependencyProgressEvent`; nested `public sealed record DependencyFoundEvent(DependencyRecord Record) : DependencyProgressEvent`; `public sealed record DependencyHeartbeatEvent(string OrganisationUrl, string ProjectName, int WorkItemsAnalysed, int ExternalLinksFound, int CrossProjectCount, int CrossOrgCount, bool IsComplete, string? Error = null) : DependencyProgressEvent`
 - [ ] T009 [P] Create `src/DevOpsMigrationPlatform.Abstractions/Services/IDependencyDiscoveryService.cs` — `public interface IDependencyDiscoveryService` with `IAsyncEnumerable<DependencyProgressEvent> DiscoverDependenciesAsync(string? wiqlFilter, CancellationToken cancellationToken = default)`
 - [ ] T010 [P] Create `src/DevOpsMigrationPlatform.Abstractions/Services/IWorkItemLinkAnalysisService.cs` — `public interface IWorkItemLinkAnalysisService` with `IAsyncEnumerable<DependencyProgressEvent> AnalyseLinksAsync(string organisationUrl, string project, string pat, string? wiqlFilter, CancellationToken cancellationToken = default)`
-- [ ] T011 Modify `src/DevOpsMigrationPlatform.Abstractions/Options/DiscoveryOptions.cs` — add `public int MaxConcurrency { get; set; } = 4;` property with XML doc comment; verify `dotnet build` still passes for both `net481` and `net10.0` targets
+- [ ] T011 Modify `src/DevOpsMigrationPlatform.Abstractions/Options/DiscoveryOptions.cs` — add `public int MaxConcurrency { get; set; } = 4;` property with XML doc comment stating: "Maximum concurrent batch requests to source (default 4). Binds from JSON config key `maxConcurrency` (snake_case per convention). Prevents rate-limit triggers during parallel link fetching." Verify `dotnet build` still passes for both `net481` and `net10.0` targets.
 - [ ] T012 Create `features/cli/discovery/dependency-command-wiring.feature` — CLI-tier Gherkin for acceptance scenarios: (1) command runs and writes CSV to CWD; (2) zero external dependencies prints "No external dependencies found." and writes header-only CSV; (3) cross-org count appears in summary with `⚠` warning; (4) `--output` path respected; follow `acceptance-test-format.md` Format + Rules precisely (NOTE: `cli/discovery/` not `cli/inventory/` — separate sub-directory to avoid naming collision with the inventory feature file)
 - [ ] T013 [P] Create `features/inventory/work-items/dependency-analysis.feature` — capability-tier Gherkin: (1) cross-project link recorded with all nine CSV fields; (2) same-project link silently discarded and never appears in report; (3) cross-organisation link recorded with `LinkScope=CrossOrganisation` and `TargetOrganisation` set; (4) inaccessible target recorded with appropriate `TargetStatus`
 
@@ -95,36 +95,61 @@
 
 ---
 
-## Phase 6: TFS Subprocess Delegation (Prerequisite for FR-013)
+## Phase 6: User Story 4 — Project-Level Dependency Summary for Consolidation Planning (Priority: P2)
+
+**Goal**: After streaming work-item links to CSV, compute a project-level dependency summary (second CSV row per directed project pair) and a Mermaid diagram showing the project dependency graph. All computation is done via a live accumulator during the streaming pass — zero additional API calls. Cross-org targets appear as leaf nodes in the diagram.
+
+**Memory profile for millions of links**: Project-pair accumulator holds `Dictionary<ProjectPairKey, int>` bounded by P² (P = project count, typically 100s–1000s). Per-link memory is O(1). This scales from millions of links without heap pressure.
+
+**Independent Test**: Run `devopsmigration discovery dependencies --config discovery-config-with-cross-org.json` against an org with cross-project and cross-org links. Both `discovery-project-dependencies.csv` and `discovery-project-dependencies.md` exist; diagram renders in GitHub/ADO wiki without errors; project pairs are aggregated correctly; cross-org nodes are visually distinct in the diagram (orange).
+
+### Implementation for User Story 4
+
+- [ ] T032 [P] Create `src/DevOpsMigrationPlatform.CLI.Migration/Commands/Discovery/ProjectPairKey.cs` — `internal readonly record struct ProjectPairKey(string SourceProject, string TargetProject, string TargetOrganisation, LinkScope LinkScope)` — lightweight key for streaming accumulator dictionary; `TargetOrganisation` is empty for CrossProject pairs, hostname for CrossOrganisation; exact equality and hashcode for dictionary viability
+- [ ] T033 [P] Create `src/DevOpsMigrationPlatform.CLI.Migration/Commands/Discovery/ProjectDependencyRecord.cs` — `internal record ProjectDependencyRecord` with properties `SourceProject`, `TargetProject`, `TargetOrganisation`, `LinkCount`, `LinkScope`, `GroupId` (int); written to `discovery-project-dependencies.csv` and used by MermaidDiagramBuilder
+- [ ] T034 Create `src/DevOpsMigrationPlatform.CLI.Migration/Commands/Discovery/MermaidDiagramBuilder.cs` — `internal sealed class MermaidDiagramBuilder` emits Mermaid `flowchart LR` syntax; (a) takes `IEnumerable<ProjectDependencyRecord>` source, (b) builds node ID map with sanitisation rule `Regex.Replace(name, @"[^a-zA-Z0-9]", "_")` + prefix `P_`, (c) emits `P_SourceId -->|"N links"| P_TargetId` for each pair, (d) applies `:::external` class to cross-org target nodes, (e) footer: `classDef external fill:#f96,stroke:#c63,color:#000`, (f) validates Mermaid syntax and escapes node labels in double quotes per Mermaid v10 spec
+- [ ] T035 [P] [US4] Create unit test `MermaidDiagramBuilderTests.cs` in `tests/DevOpsMigrationPlatform.CLI.Migration.Tests/Commands/Discovery/` — (1) sanitisation: `"My.Project"` → `P_My_Project`; (2) cross-org node receives `:::external` class; (3) edge labels are quoted; (4) output is valid Mermaid (no unclosed blocks, proper syntax); (5) renders correctly in GitHub Markdown preview
+- [ ] T036 [US4] Modify `src/DevOpsMigrationPlatform.CLI.Migration/Commands/Discovery/DependencyCommand.cs` — in `ExecuteInternalAsync`, after `CreateHost(...)`, declare `var projectAccumulator = new Dictionary<ProjectPairKey, int>();` alongside the CSV `StreamWriter`; for each `DependencyFoundEvent`, compute the `ProjectPairKey` and increment the counter: `projectAccumulator.TryGetValue(key, out var count); projectAccumulator[key] = count + 1;` (or use `Interlocked.Increment` if parallel); after the stream completes, convert the accumulator to `List<ProjectDependencyRecord>` with GroupIds assigned via Union-Find (see T037)
+- [ ] T037 [US4] Create `src/DevOpsMigrationPlatform.CLI.Migration/Commands/Discovery/UnionFindComponentLabeler.cs` — `internal static class UnionFindComponentLabeler` with a single public method `AssignComponentIds(IEnumerable<ProjectDependencyRecord> pairs) : Dictionary<string, int>` — builds a graph from project pair edges, runs Union-Find to identify connected components, assigns `GroupId` (1-based) to all nodes in each component; all projects reachable via directed or undirected edges get the same GroupId (including cross-org targets as leaf nodes)
+- [ ] T038 [US4] Modify `DependencyCommand.ExecuteInternalAsync` — after the stream, call `UnionFindComponentLabeler.AssignComponentIds(projectPairs)` to label connected components; then: (a) write `discovery-project-dependencies.csv` rows sorted by LinkCount descending, (b) build Mermaid diagram and write to `discovery-project-dependencies.md`, (c) print compact project dependency table to console (source\u2192target, link count, scope, sorted by count desc); cross-org targets prefixed with 🌐; outputs only written if at least one external dependency is found
+- [ ] T039 [US4] Modify `DependencyCommand.Settings` — add three new `CommandOption` fields: `--output-projects <PATH>` (default `discovery-project-dependencies.csv` in same dir as `--output`), `--output-diagram <PATH>` (default `discovery-project-dependencies.md` in same dir as `--output`); both are optional and override the default paths if provided
+- [ ] T040 [P] [US4] Add project-level aggregation unit tests to `DependencyCommandTests.cs` — (1) given 100 links between ProjectA→ProjectB and 30 between ProjectA→ProjectC, assert `ProjectDependencyRecord` rows total 2 with correct link counts; (2) given cross-org link ProjectA→org2, assert row has `TargetOrganisation` and `LinkScope=CrossOrganisation`; (3) mock accumulator, assert Mermaid diagram contains both nodes and edges with correct labels; (4) verify GroupId assignment: ProjectA↔ProjectB↔ProjectC should all have GroupId=1
+- [ ] T041 [P] [US4] Create integration test scenario `scenarios/discovery-dependency-with-cross-org.json` — points to two orgs with at least one cross-org link for manual verification that all three outputs (work-item CSV, project CSV, diagram) are written correctly
+
+**Checkpoint**: `dotnet build` passes; all new tests pass; `discovery-project-dependencies.csv` and `.md` exist; diagram renders in GitHub/ADO wiki; project-pair counts match hand-computed aggregation
+
+---
+
+## Phase 7: TFS Subprocess Delegation (Prerequisite for FR-013)
 
 **Goal**: `TeamFoundationServer` org entries delegate to `tfsmigration.exe dependencies` via `TfsDependencyProcessAdapter` using the same NDJSON subprocess bridge pattern as `TfsExporterProcessAdapter`.
 
 **Independent Test**: With a TFS Windows-auth config, `discovery dependencies` spawns the subprocess and reads NDJSON output records without error. (Automated as a manual/Windows-only test.)
 
-### Implementation for Phase 6
+### Implementation for Phase 7
 
-- [ ] T032 Create `src/DevOpsMigrationPlatform.CLI.Migration/TfsDependencyProcessAdapter.cs` — follows `TfsExporterProcessAdapter` pattern; constructor takes `IExternalToolRunner`, `ILogger<TfsDependencyProcessAdapter>`; `AnalyseLinksAsync(organisationUrl, project, pat, wiqlFilter, ct)` builds stdin JSON `{"collectionUrl":..., "project":..., "pat":..., "wiqlFilter":...}`, spawns `tfsmigration.exe dependencies` via `IExternalToolRunner`, reads NDJSON stdout lines, deserialises each as either `dependency-found` (→`DependencyFoundEvent`) or `heartbeat` (→`DependencyHeartbeatEvent`), relays via `yield return`, on non-zero exit code throws `InvalidOperationException` with stderr content
-- [ ] T033 Modify `src/DevOpsMigrationPlatform.Infrastructure/Services/DependencyDiscoveryService.cs` — replace `NotSupportedException` for `TeamFoundationServer` with keyed service resolution: call `_serviceProvider.GetKeyedService<IWorkItemLinkAnalysisService>("TeamFoundationServer")`; if the keyed service is null (i.e., not registered — e.g., in a non-CLI host), throw `InvalidOperationException("TFS source requires TfsDependencyProcessAdapter, which is only registered in the CLI.Migration host.")`. DO NOT inject `TfsDependencyProcessAdapter` directly — `Infrastructure` must never reference any type from `CLI.Migration`.
-- [ ] T034 Modify `src/DevOpsMigrationPlatform.CLI.Migration/Commands/Discovery/DependencyCommand.cs` — in `CreateHost`, register `TfsDependencyProcessAdapter` as a **keyed singleton** with key `"TeamFoundationServer"` implementing `IWorkItemLinkAnalysisService`, and register `IExternalToolRunner → ExternalToolRunner` (mirror `MigrationExportCommand` registration pattern). This is the only place `TfsDependencyProcessAdapter` is registered — it never appears in `Infrastructure` or `Infrastructure.AzureDevOps`.
-- [ ] T035 Add `dependencies` subcommand to `src/DevOpsMigrationPlatform.CLI.TfsMigration` — reads stdin JSON as `TfsDependencyRequest`, queries `WorkItemStore` for all (or WIQL-filtered) work items, inspects `WorkItem.WorkItemLinks`, classifies as `CrossProject` (same collection, different project) or `CrossOrganisation` (different collection URI), emits NDJSON heartbeat + dependency-found records to stdout; exit 0 on success
-- [ ] T036 [P] Add `TfsDependencyProcessAdapter_EmitsFoundEvents` unit test — mock `IExternalToolRunner` to return NDJSON lines; verify `DependencyFoundEvent` records produced correctly; verify non-zero exit code throws
+- [ ] T042 Create `src/DevOpsMigrationPlatform.CLI.Migration/TfsDependencyProcessAdapter.cs` — follows `TfsExporterProcessAdapter` pattern; constructor takes `IExternalToolRunner`, `ILogger<TfsDependencyProcessAdapter>`; `AnalyseLinksAsync(organisationUrl, project, pat, wiqlFilter, ct)` builds stdin JSON `{"collectionUrl":..., "project":..., "pat":..., "wiqlFilter":...}`, spawns `tfsmigration.exe dependencies` via `IExternalToolRunner`, reads NDJSON stdout lines, deserialises each as either `dependency-found` (→`DependencyFoundEvent`) or `heartbeat` (→`DependencyHeartbeatEvent`), relays via `yield return`, on non-zero exit code throws `InvalidOperationException` with stderr content
+- [ ] T043 Modify `src/DevOpsMigrationPlatform.Infrastructure/Services/DependencyDiscoveryService.cs` — replace `NotSupportedException` for `TeamFoundationServer` with keyed service resolution: call `_serviceProvider.GetKeyedService<IWorkItemLinkAnalysisService>("TeamFoundationServer")`; if the keyed service is null (i.e., not registered — e.g., in a non-CLI host), throw `InvalidOperationException("TFS source requires TfsDependencyProcessAdapter, which is only registered in the CLI.Migration host.")`. DO NOT inject `TfsDependencyProcessAdapter` directly — `Infrastructure` must never reference any type from `CLI.Migration`.
+- [ ] T044 Modify `src/DevOpsMigrationPlatform.CLI.Migration/Commands/Discovery/DependencyCommand.cs` — in `CreateHost`, register `TfsDependencyProcessAdapter` as a **keyed singleton** with key `"TeamFoundationServer"` implementing `IWorkItemLinkAnalysisService`, and register `IExternalToolRunner → ExternalToolRunner` (mirror `MigrationExportCommand` registration pattern). This is the only place `TfsDependencyProcessAdapter` is registered — it never appears in `Infrastructure` or `Infrastructure.AzureDevOps`.
+- [ ] T045 Add `dependencies` subcommand to `src/DevOpsMigrationPlatform.CLI.TfsMigration` — reads stdin JSON as `TfsDependencyRequest`, queries `WorkItemStore` for all (or WIQL-filtered) work items, inspects `WorkItem.WorkItemLinks`, classifies as `CrossProject` (same collection, different project) or `CrossOrganisation` (different collection URI), emits NDJSON heartbeat + dependency-found records to stdout; exit 0 on success
+- [ ] T046 [P] Add `TfsDependencyProcessAdapter_EmitsFoundEvents` unit test — mock `IExternalToolRunner` to return NDJSON lines; verify `DependencyFoundEvent` records produced correctly; verify non-zero exit code throws
 
 **Checkpoint**: `dotnet build` (both solutions) passes; TFS subprocess wiring compiles; `TfsInventory` launch profile still works
 
 ---
 
-## Phase 7: Documentation Sync (MANDATORY — cannot be skipped)
+## Phase 8: Documentation Sync (MANDATORY — cannot be skipped)
 
 **Purpose**: All three discrepancies from `discrepancies.md` are resolved and canonical docs updated.
 
-- [ ] T037 Update `.agents/context/cli-commands.md` — add `| discovery dependencies | DependencyCommandSettings | Analyse work items for cross-project and cross-organisation links. Results written to discovery-dependencies.csv. |` to the Discovery Commands table; add invocation examples: `devopsmigration discovery dependencies --config migration.json` and `devopsmigration discovery dependencies --config migration.json --output ./reports/deps.csv`; add `branch.AddCommand<DependencyCommand>("dependencies");` to the registration code block
-- [ ] T038 [P] Update `docs/cli.md` — add `### discovery dependencies` sub-section under `## Discovery Commands` (or add `## Discovery Commands` heading if absent): describe purpose, `--config`, `--output`, `--wiql` options, and console output format; reference `quickstart.md` for full examples
-- [ ] T039 [P] Update `docs/source-types.md` — add a **Dependency Analysis** paragraph after each source type's Inventory section: (a) `AzureDevOpsServices` → REST batch-GET with `WorkItemExpand.Relations`; secondary batch-GET for project resolution; concurrency via `MaxConcurrency`; (b) `TeamFoundationServer` → subprocess delegation to `tfsmigration.exe dependencies` via same stdin JSON / NDJSON stdout protocol; (c) `Simulated` → synthetic seeded records with configurable count
-- [ ] T040 Mark all three items in `specs/012-discovery-dependencies/discrepancies.md` as `Resolved`
-- [ ] T041 [P] Review `analysis/pending-actions.md` — remove or mark as resolved any items addressed by this spec
-- [ ] T042 Run `dotnet clean && dotnet build --no-incremental` — MUST pass with zero errors and zero warnings
-- [ ] T043 Run `dotnet test` — ALL tests MUST pass (including the new unit tests; system tests skipped if env vars absent)
-- [ ] T044 Run `🔍 Migration CLI: Dependencies (Single Project)` launch profile via `.vscode/launch.json` — verify observable output: exit code 0, CSV written to `discovery-dependencies.csv`, summary table printed to terminal
+- [ ] T047 Update `.agents/context/cli-commands.md` — add `| discovery dependencies | DependencyCommandSettings | Analyse work items for cross-project and cross-organisation links. Results written to discovery-dependencies.csv, project pairs to discovery-project-dependencies.csv, and diagram to discovery-project-dependencies.md. |` to the Discovery Commands table; add invocation examples: `devopsmigration discovery dependencies --config migration.json` and `devopsmigration discovery dependencies --config migration.json --output ./reports/deps.csv`; add `branch.AddCommand<DependencyCommand>("dependencies");` to the registration code block
+- [ ] T048 [P] Update `docs/cli.md` — add `### discovery dependencies` sub-section under `## Discovery Commands` (or add `## Discovery Commands` heading if absent): describe purpose, `--config`, `--output`, `--output-projects`, `--output-diagram`, `--wiql` options, and console output format (two tables); reference `quickstart.md` for full examples
+- [ ] T049 [P] Update `docs/source-types.md` — add a **Dependency Analysis** paragraph after each source type's Inventory section: (a) `AzureDevOpsServices` → REST batch-GET with `WorkItemExpand.Relations`; secondary batch-GET for project resolution; concurrency via `MaxConcurrency`; (b) `TeamFoundationServer` → subprocess delegation to `tfsmigration.exe dependencies` via same stdin JSON / NDJSON stdout protocol; (c) `Simulated` → synthetic seeded records with configurable count
+- [ ] T050 Mark all three items in `specs/012-discovery-dependencies/discrepancies.md` as `Resolved`
+- [ ] T051 [P] Review `analysis/pending-actions.md` — remove or mark as resolved any items addressed by this spec
+- [ ] T052 Run `dotnet clean && dotnet build --no-incremental` — MUST pass with zero errors and zero warnings
+- [ ] T053 Run `dotnet test` — ALL tests MUST pass (including the new unit tests; system tests skipped if env vars absent)
+- [ ] T054 Run `🔍 Migration CLI: Dependencies (Single Project)` launch profile via `.vscode/launch.json` — verify observable output: exit code 0, all three output files written, summary tables printed to terminal
 
 ---
 
@@ -137,14 +162,16 @@
 - **Phase 3 (US1)**: Requires Phase 2 complete — BLOCKS if T004–T013 not done
 - **Phase 4 (US2)**: Requires Phase 3 complete (needs Phase 3 infra and command)
 - **Phase 5 (US3)**: Requires Phase 3 complete; independent of Phase 4
-- **Phase 6 (TFS)**: Requires Phase 3 complete; independent of Phases 4 and 5
-- **Phase 7 (Docs)**: Requires Phases 3–6 complete (or explicit deferral of 4–6)
+- **Phase 6 (US4)**: Requires Phase 3 complete; benefits from Phases 4–5 optional (Simulated+WIQL testing)
+- **Phase 7 (TFS)**: Requires Phase 3 complete; independent of Phases 4–6
+- **Phase 8 (Docs)**: Requires Phases 3–7 complete (or explicit deferral of 4–7)
 
 ### User Story Dependencies
 
 - **US1 (P1)**: Can start after Phase 2 — no dependency on US2/US3
 - **US2 (P2)**: Enhances the Phase 3 command; shares `DependencyDiscoveryService`
 - **US3 (P3)**: Adds `--wiql` parameter wiring; independent of US2 Simulated work
+- **US4 (P2)**: Project-level aggregation; independent of US2/US3; benefits from existing `DependencyCommand` and `DependencyDiscoveryService`
 
 ### Parallel Opportunities within Phases
 
@@ -152,7 +179,9 @@
 **Phase 3**: T014 and T015 can proceed in parallel; T016–T018 follow after T014+T015  
 **Phase 4**: T021+T022 can run in parallel with T023+T024  
 **Phase 5**: All T027–T031 can run after Phase 3  
-**Phase 6**: T032+T033+T035 are independent of each other; T034 follows T032+T033  
+**Phase 6**: T032+T033+T035+T039 are independent; T034 follows T032+T033; T036–T040 follow T034  
+**Phase 7**: T042+T043+T045 are independent; T044 follows T042+T043  
+**Phase 8**: T047–T054 are sequential; T052–T054 are final gates  
 
 ---
 
@@ -162,7 +191,7 @@ To deliver a working command as quickly as possible:
 1. **Phase 1** + **Phase 2** (T001–T013): infra + feature files (~6 tasks parallelisable)
 2. **Phase 3** (T014–T020): full US1 including system test (~7 tasks, core value)
 
-At the end of Phase 3 the command produces a working CSV for ADO organisations. Phases 4–7 incrementally add US2 warnings, WIQL filtering, TFS support, and doc sync.
+At the end of Phase 3 the command produces a working CSV for ADO organisations. Phases 4–7 incrementally add US2 warnings, WIQL filtering, project-level summary with diagram, TFS support, and doc sync.
 
 ---
 
@@ -170,8 +199,24 @@ At the end of Phase 3 the command produces a working CSV for ADO organisations. 
 
 All tasks follow the mandatory checklist format `- [ ] [TaskID] [P?] [Story?] Description with file path`:
 
-- Sequential IDs T001–T044 in execution order ✓
+- Sequential IDs T001–T054 in execution order ✓
 - `[P]` markers on parallelisable tasks (different files, no pending dependencies) ✓
-- `[US1]`/`[US2]`/`[US3]` labels on all user-story-phase tasks ✓
+- `[US1]`/`[US2]`/`[US3]`/`[US4]` labels on all user-story-phase tasks ✓
 - Setup and Foundational phase tasks have no story label ✓
 - Every task includes an exact file path ✓
+
+---
+
+## Summary of Phases
+
+| Phase | User Story | Tasks | Purpose |
+|-------|-----------|-------|---------|
+| 1 | — | T001–T003 (3 tasks) | Setup: scenario config, launch entries |
+| 2 | — | T004–T013 (10 tasks) | Foundational: abstractions, enums, interfaces, feature files |
+| 3 | US1 | T014–T020 (7 tasks) | CSV streaming, cross-project link detection, ADO REST |
+| 4 | US2 | T021–T026 (6 tasks) | Cross-org detection, `⚠` warnings, Simulated source |
+| 5 | US3 | T027–T031 (5 tasks) | WIQL filter support, validation |
+| 6 | US4 | T032–T041 (10 tasks) | Project aggregator, MermaidDiagramBuilder, GroupId assignment |
+| 7 | — | T042–T046 (5 tasks) | TFS subprocess delegation |
+| 8 | — | T047–T054 (8 tasks) | Documentation sync + final gates |
+| **TOTAL** | | **54 tasks** | |
