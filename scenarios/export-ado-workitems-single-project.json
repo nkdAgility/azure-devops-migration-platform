@@ -7,7 +7,7 @@
     "Project": "migrationTest5",
     "Authentication": {
       "Type": "Pat",
-      "AccessToken": "$ENV:AZDEVOPS_DEV_PAT"
+      "AccessToken": "$ENV:AZDEVOPS_SYSTEM_TEST_ORG"
     }
   },
   "Artefacts": {
