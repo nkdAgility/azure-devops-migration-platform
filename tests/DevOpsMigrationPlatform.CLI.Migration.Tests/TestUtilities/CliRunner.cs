@@ -119,6 +119,11 @@ public sealed class CliRunner
             CreateNoWindow = true,
         };
 
+        // Suppress ANSI/colour escape codes in captured output so regex-based assertions
+        // work correctly on all platforms/runners (e.g. Windows GitHub Actions where VT
+        // processing is enabled even with redirected stdout).
+        psi.Environment["NO_COLOR"] = "1";
+
         foreach (var arg in args)
             psi.ArgumentList.Add(arg);
 

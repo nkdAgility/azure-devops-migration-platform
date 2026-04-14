@@ -3,13 +3,13 @@
   "Organisations": [
     {
       "Type": "AzureDevOpsServices",
-      "Url": "$ENV:AZDEVOPS_DEV_ORG",
+      "Url": "$ENV:AZDEVOPS_SYSTEM_TEST_ORG",
       "Projects": [
         "migrationTest5"
       ],
       "Authentication": {
         "Type": "Pat",
-        "AccessToken": "$ENV:AZDEVOPS_DEV_PAT"
+        "AccessToken": "$ENV:AZDEVOPS_SYSTEM_TEST_PAT"
       }
     }
   ]
