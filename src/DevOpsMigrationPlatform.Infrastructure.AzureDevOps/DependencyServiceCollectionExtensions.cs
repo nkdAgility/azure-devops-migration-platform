@@ -1,6 +1,7 @@
 using System;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Models;
 using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Abstractions.Services;
@@ -36,6 +37,12 @@ public static class DependencyServiceCollectionExtensions
         if (!services.Any(x => x.ServiceType == typeof(IAzureDevOpsClientFactory)))
         {
             services.AddSingleton<IAzureDevOpsClientFactory, AzureDevOpsClientFactory>();
+        }
+
+        // Register the catalog service (for querying available projects)
+        if (!services.Any(x => x.ServiceType == typeof(ICatalogService)))
+        {
+            services.AddSingleton<ICatalogService, CatalogService>();
         }
 
         // Register AzureDevOpsDependencyAnalysisService as a keyed singleton
