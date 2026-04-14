@@ -15,27 +15,33 @@ namespace DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Services;
 
 /// <summary>
 /// Implements work item link analysis for Azure DevOps Services.
-/// Uses the Azure DevOps REST API to fetch work items and analyse their links.
+/// Uses <see cref="IWorkItemQueryWindowStrategy"/> for work item ID enumeration (handles 20K
+/// WIQL limit) then fetches relations in batches via the REST API.
 /// </summary>
 public sealed class AzureDevOpsDependencyAnalysisService : IWorkItemLinkAnalysisService
 {
     private readonly IOptions<DiscoveryOptions> _options;
     private readonly IAzureDevOpsClientFactory _clientFactory;
+    private readonly IWorkItemQueryWindowStrategy _windowStrategy;
     private readonly ILogger<AzureDevOpsDependencyAnalysisService> _logger;
 
     public AzureDevOpsDependencyAnalysisService(
         IOptions<DiscoveryOptions> options,
         IAzureDevOpsClientFactory clientFactory,
+        IWorkItemQueryWindowStrategy windowStrategy,
         ILogger<AzureDevOpsDependencyAnalysisService> logger)
     {
         _options = options ?? throw new ArgumentNullException(nameof(options));
         _clientFactory = clientFactory ?? throw new ArgumentNullException(nameof(clientFactory));
+        _windowStrategy = windowStrategy ?? throw new ArgumentNullException(nameof(windowStrategy));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
     /// <summary>
     /// Analyses all work item links in an Azure DevOps project.
-    /// Fetches work items matching the WIQL filter, inspects their links, and classifies them.
+    /// Uses <see cref="IWorkItemQueryWindowStrategy"/> to enumerate IDs (handles 20K WIQL cap),
+    /// then fetches each work item with relations expanded and classifies cross-project and
+    /// cross-organisation links.
     /// Results are streamed as DependencyFoundEvent and DependencyHeartbeatEvent records.
     /// </summary>
     public async IAsyncEnumerable<DependencyProgressEvent> AnalyseLinksAsync(
@@ -47,176 +53,238 @@ public sealed class AzureDevOpsDependencyAnalysisService : IWorkItemLinkAnalysis
     {
         var witClient = await _clientFactory.CreateWorkItemClientAsync(organisationUrl, pat, cancellationToken).ConfigureAwait(false);
 
-        // Use provided WIQL or default to all work items
-        var wiql = string.IsNullOrWhiteSpace(wiqlFilter)
-            ? "SELECT [System.Id] FROM WorkItems"
-            : wiqlFilter;
+        var windowOptions = string.IsNullOrWhiteSpace(wiqlFilter)
+            ? null
+            : new WorkItemQueryWindowOptions { BaseQuery = wiqlFilter };
 
-        _logger.LogInformation("Querying work items with WIQL: {Wiql}", wiql);
+        _logger.LogInformation("Enumerating work item IDs for project {Project} in {OrgUrl}", project, organisationUrl);
 
-        // Execute WIQL query
-        var queryResult = await witClient.QueryByWiqlAsync(
-            new Wiql { Query = wiql },
-            project: project,
-            cancellationToken: cancellationToken).ConfigureAwait(false);
+        var sourceOrgSegment = ExtractOrgSegment(organisationUrl);
+        var counters = new LinkCounters();
+        const int batchSize = 200;
 
-        // De-duplicate work item IDs
-        var workItemIds = new HashSet<int>(queryResult.WorkItems.Select(wi => wi.Id));
+        var pendingIds = new List<int>(batchSize);
 
-        _logger.LogInformation("Found {WorkItemCount} work items", workItemIds.Count);
-
-        var crossProjectCount = 0;
-        var crossOrgCount = 0;
-        var processedCount = 0;
-        var batchSize = 200;
-
-        // Process work items in batches with concurrency control
-        var workItemIdsList = workItemIds.ToList();
-
-        for (int i = 0; i < workItemIdsList.Count; i += batchSize)
+        // Use IWorkItemQueryWindowStrategy to enumerate IDs — handles the 20K WIQL cap
+        await foreach (var window in _windowStrategy.EnumerateWindowsAsync(
+            organisationUrl, project, pat, windowOptions, cancellationToken).ConfigureAwait(false))
         {
-            cancellationToken.ThrowIfCancellationRequested();
-
-            var batchIds = workItemIdsList.Skip(i).Take(batchSize).ToList();
-
-            _logger.LogDebug("Fetching batch of {BatchSize} work items", batchIds.Count);
-
-            // Fetch work items with relations expanded
-            var workItems = await witClient.GetWorkItemsAsync(
-                batchIds,
-                expand: WorkItemExpand.Relations,
-                cancellationToken: cancellationToken).ConfigureAwait(false);
-
-            foreach (var workItem in workItems)
+            foreach (var workItemId in window.WorkItemIds)
             {
-                if (workItem.Relations == null || workItem.Relations.Count == 0)
-                {
-                    _logger.LogDebug("Work item {WorkItemId} has no relations", workItem.Id);
-                    continue;
-                }
+                pendingIds.Add(workItemId);
 
-                var sourceProject = workItem.Fields.TryGetValue("System.TeamProject", out var projObj)
-                    ? projObj.ToString() ?? "Unknown"
-                    : "Unknown";
-
-                var sourceId = workItem.Id ?? 0;
-                if (sourceId == 0)
+                if (pendingIds.Count < batchSize)
                     continue;
 
-                var sourceType = workItem.Fields.TryGetValue("System.WorkItemType", out var typeObj)
-                    ? typeObj.ToString() ?? "Unknown"
-                    : "Unknown";
-
-                // Log relations that don't match filter
-                var skippedRelations = workItem.Relations.Where(r => r.Rel != "System.LinkTypes.Related" &&
-                                                                      r.Rel != "System.LinkTypes.Dependency-forward" &&
-                                                                      r.Rel != "System.LinkTypes.Dependency-reverse" &&
-                                                                      !r.Rel.StartsWith("System.LinkTypes."));
-                foreach (var skipped in skippedRelations)
+                await foreach (var evt in ProcessBatchAsync(
+                    witClient, pendingIds, sourceOrgSegment, organisationUrl, project, pat,
+                    counters, cancellationToken))
                 {
-                    _logger.LogDebug("Skipping relation of type {RelationType} for work item {WorkItemId}", skipped.Rel, sourceId);
+                    yield return evt;
                 }
 
-                foreach (var relation in workItem.Relations.Where(r => r.Rel == "System.LinkTypes.Related" ||
-                                                                        r.Rel == "System.LinkTypes.Dependency-forward" ||
-                                                                        r.Rel == "System.LinkTypes.Dependency-reverse" ||
-                                                                        r.Rel.StartsWith("System.LinkTypes.")))
-                {
-                    _logger.LogDebug("Processing relation of type {RelationType} for work item {WorkItemId}", relation.Rel, sourceId);
-                    DependencyProgressEvent? eventToYield = null;
-
-                    try
-                    {
-                        var targetUrl = relation.Url;
-                        if (!targetUrl.Contains("/workitems/"))
-                            continue;
-
-                        // Parse target work item ID from URL
-                        var urlParts = targetUrl.Split(new[] { "/workitems/" }, StringSplitOptions.None);
-                        if (urlParts.Length < 2 || !int.TryParse(urlParts.Last(), out var targetId))
-                            continue;
-
-                        // Determine if cross-org or cross-project
-                        var targetHost = new Uri(targetUrl).Host;
-                        var sourceHost = new Uri(organisationUrl).Host;
-                        var isCrossOrg = !targetHost.Equals(sourceHost, StringComparison.OrdinalIgnoreCase);
-
-                        if (isCrossOrg)
-                        {
-                            crossOrgCount++;
-                            var targetStatus = await VerifyTargetStatusAsync(targetUrl, pat, cancellationToken).ConfigureAwait(false);
-                            eventToYield = new DependencyFoundEvent(new DependencyRecord
-                            {
-                                SourceWorkItemId = sourceId,
-                                SourceWorkItemType = sourceType,
-                                SourceProject = sourceProject,
-                                LinkType = relation.Rel.Replace("System.LinkTypes.", ""),
-                                LinkScope = LinkScope.CrossOrganisation,
-                                TargetWorkItemId = targetId,
-                                TargetProject = "",
-                                TargetOrganisation = targetHost,
-                                TargetStatus = targetStatus
-                            });
-                        }
-                        else
-                        {
-                            // Same org - check if same project
-                            var targetProjectName = await GetProjectNameAsync(witClient, targetId, cancellationToken).ConfigureAwait(false);
-                            if (targetProjectName != sourceProject)
-                            {
-                                crossProjectCount++;
-                                eventToYield = new DependencyFoundEvent(new DependencyRecord
-                                {
-                                    SourceWorkItemId = sourceId,
-                                    SourceWorkItemType = sourceType,
-                                    SourceProject = sourceProject,
-                                    LinkType = relation.Rel.Replace("System.LinkTypes.", ""),
-                                    LinkScope = LinkScope.CrossProject,
-                                    TargetWorkItemId = targetId,
-                                    TargetProject = targetProjectName,
-                                    TargetOrganisation = "",
-                                    TargetStatus = TargetStatus.Reachable
-                                });
-                            }
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogWarning(ex, "Error processing relation for work item {WorkItemId}", sourceId);
-                    }
-
-                    if (eventToYield != null)
-                    {
-                        yield return eventToYield;
-                    }
-                }
-
-                processedCount++;
+                pendingIds.Clear();
             }
+        }
 
-            // Emit heartbeat after each batch
-            yield return new DependencyHeartbeatEvent(
-                organisationUrl,
-                project,
-                processedCount,
-                crossProjectCount + crossOrgCount,
-                crossProjectCount,
-                crossOrgCount,
-                false);
+        // Flush remaining IDs
+        if (pendingIds.Count > 0)
+        {
+            await foreach (var evt in ProcessBatchAsync(
+                witClient, pendingIds, sourceOrgSegment, organisationUrl, project, pat,
+                counters, cancellationToken))
+            {
+                yield return evt;
+            }
         }
 
         // Final heartbeat
         yield return new DependencyHeartbeatEvent(
             organisationUrl,
             project,
-            processedCount,
-            crossProjectCount + crossOrgCount,
-            crossProjectCount,
-            crossOrgCount,
+            counters.Processed,
+            counters.CrossProject + counters.CrossOrg,
+            counters.CrossProject,
+            counters.CrossOrg,
             true);
+
+        _logger.LogInformation(
+            "Dependency analysis completed for {Project}: {Processed} work items, {CrossProject} cross-project, {CrossOrg} cross-org",
+            project, counters.Processed, counters.CrossProject, counters.CrossOrg);
     }
 
-    private async Task<string> GetProjectNameAsync(
+    // ── Private helpers ──────────────────────────────────────────────────────
+
+    private sealed class LinkCounters
+    {
+        public int CrossProject { get; set; }
+        public int CrossOrg { get; set; }
+        public int Processed { get; set; }
+    }
+
+    private async IAsyncEnumerable<DependencyProgressEvent> ProcessBatchAsync(
+        WorkItemTrackingHttpClient witClient,
+        IReadOnlyList<int> batchIds,
+        string sourceOrgSegment,
+        string organisationUrl,
+        string project,
+        string pat,
+        LinkCounters counters,
+        [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        _logger.LogDebug("Fetching batch of {BatchSize} work items", batchIds.Count);
+
+        var workItems = await witClient.GetWorkItemsAsync(
+            batchIds,
+            expand: WorkItemExpand.Relations,
+            cancellationToken: cancellationToken).ConfigureAwait(false);
+
+        foreach (var workItem in workItems)
+        {
+            if (workItem.Relations == null || workItem.Relations.Count == 0)
+            {
+                counters.Processed++;
+                continue;
+            }
+
+            var sourceProject = workItem.Fields.TryGetValue("System.TeamProject", out var projObj)
+                ? projObj.ToString() ?? "Unknown"
+                : "Unknown";
+
+            var sourceId = workItem.Id ?? 0;
+            if (sourceId == 0)
+            {
+                counters.Processed++;
+                continue;
+            }
+
+            var sourceType = workItem.Fields.TryGetValue("System.WorkItemType", out var typeObj)
+                ? typeObj.ToString() ?? "Unknown"
+                : "Unknown";
+
+            foreach (var relation in workItem.Relations.Where(r =>
+                !string.IsNullOrEmpty(r.Rel) && r.Rel.StartsWith("System.LinkTypes.")))
+            {
+                DependencyProgressEvent? eventToYield = null;
+
+                try
+                {
+                    var targetUrl = relation.Url;
+
+                    // ADO REST work-item URLs use camelCase: .../wit/workItems/{id}
+                    // Use case-insensitive index to locate the segment, then extract the ID.
+                    var wiIdx = targetUrl.IndexOf("/workitems/", StringComparison.OrdinalIgnoreCase);
+                    if (wiIdx < 0)
+                        continue;
+
+                    var idSegment = targetUrl.Substring(wiIdx + "/workitems/".Length);
+                    var qMark = idSegment.IndexOf('?');
+                    if (qMark >= 0)
+                        idSegment = idSegment.Substring(0, qMark);
+
+                    if (!int.TryParse(idSegment, out var targetId))
+                        continue;
+
+                    // Cross-org: compare the organisation segment of source and target URLs.
+                    // All ADO orgs share dev.azure.com as the host — the org name is the
+                    // first path segment, so host comparison alone is insufficient.
+                    var targetOrgSegment = ExtractOrgSegment(targetUrl);
+                    var isCrossOrg = !string.Equals(sourceOrgSegment, targetOrgSegment, StringComparison.OrdinalIgnoreCase);
+
+                    if (isCrossOrg)
+                    {
+                        counters.CrossOrg++;
+                        var targetStatus = await VerifyTargetStatusAsync(targetUrl, pat, cancellationToken).ConfigureAwait(false);
+                        eventToYield = new DependencyFoundEvent(new DependencyRecord
+                        {
+                            SourceWorkItemId = sourceId,
+                            SourceWorkItemType = sourceType,
+                            SourceProject = sourceProject,
+                            LinkType = relation.Rel.Replace("System.LinkTypes.", ""),
+                            LinkScope = LinkScope.CrossOrganisation,
+                            TargetWorkItemId = targetId,
+                            TargetProject = "",
+                            TargetOrganisation = targetOrgSegment,
+                            TargetStatus = targetStatus
+                        });
+                    }
+                    else
+                    {
+                        // Same org — check if same project
+                        var targetProjectName = await GetProjectNameAsync(witClient, targetId, cancellationToken).ConfigureAwait(false);
+                        if (!string.Equals(targetProjectName, sourceProject, StringComparison.OrdinalIgnoreCase))
+                        {
+                            counters.CrossProject++;
+                            eventToYield = new DependencyFoundEvent(new DependencyRecord
+                            {
+                                SourceWorkItemId = sourceId,
+                                SourceWorkItemType = sourceType,
+                                SourceProject = sourceProject,
+                                LinkType = relation.Rel.Replace("System.LinkTypes.", ""),
+                                LinkScope = LinkScope.CrossProject,
+                                TargetWorkItemId = targetId,
+                                TargetProject = targetProjectName,
+                                TargetOrganisation = "",
+                                TargetStatus = TargetStatus.Reachable
+                            });
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Error processing relation for work item {WorkItemId}", sourceId);
+                }
+
+                if (eventToYield != null)
+                    yield return eventToYield;
+            }
+
+            counters.Processed++;
+        }
+
+        // Emit heartbeat after each batch
+        yield return new DependencyHeartbeatEvent(
+            organisationUrl,
+            project,
+            counters.Processed,
+            counters.CrossProject + counters.CrossOrg,
+            counters.CrossProject,
+            counters.CrossOrg,
+            false);
+    }
+
+    /// <summary>
+    /// Extracts the organisation identifier from an Azure DevOps URL.
+    /// For dev.azure.com URLs the first path segment is the org name.
+    /// For legacy visualstudio.com URLs the subdomain is the org name.
+    /// Falls back to the host if no segment can be determined.
+    /// </summary>
+    private static string ExtractOrgSegment(string url)
+    {
+        if (string.IsNullOrEmpty(url))
+            return string.Empty;
+
+        if (!Uri.TryCreate(url, UriKind.Absolute, out var uri))
+            return url;
+
+        // dev.azure.com/{org}/... — org is first non-empty path segment
+        if (uri.Host.Equals("dev.azure.com", StringComparison.OrdinalIgnoreCase))
+        {
+            var segments = uri.AbsolutePath.Split('/', StringSplitOptions.RemoveEmptyEntries);
+            return segments.Length > 0 ? segments[0] : uri.Host;
+        }
+
+        // {org}.visualstudio.com — org is the subdomain
+        var hostParts = uri.Host.Split('.');
+        if (hostParts.Length >= 3 && hostParts[^2].Equals("visualstudio", StringComparison.OrdinalIgnoreCase))
+            return hostParts[0];
+
+        return uri.Host;
+    }
+
+    private static async Task<string> GetProjectNameAsync(
         WorkItemTrackingHttpClient client,
         int workItemId,
         CancellationToken cancellationToken)
@@ -228,38 +296,35 @@ public sealed class AzureDevOpsDependencyAnalysisService : IWorkItemLinkAnalysis
                 ? projObj.ToString() ?? "Unknown"
                 : "Unknown";
         }
-        catch (Exception ex)
+        catch
         {
-            _logger.LogWarning(ex, "Error fetching project name for work item {WorkItemId}", workItemId);
             return "Unknown";
         }
     }
 
-    private async Task<TargetStatus> VerifyTargetStatusAsync(
+    private static async Task<TargetStatus> VerifyTargetStatusAsync(
         string targetUrl,
         string pat,
         CancellationToken cancellationToken)
     {
         try
         {
-            using (var client = new System.Net.Http.HttpClient())
+            using var httpClient = new System.Net.Http.HttpClient();
+            if (!string.IsNullOrEmpty(pat))
             {
-                if (!string.IsNullOrEmpty(pat))
-                {
-                    var encoded = Convert.ToBase64String(System.Text.Encoding.ASCII.GetBytes($":{pat}"));
-                    client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Basic", encoded);
-                }
-
-                var response = await client.SendAsync(
-                    new System.Net.Http.HttpRequestMessage(System.Net.Http.HttpMethod.Head, targetUrl),
-                    cancellationToken).ConfigureAwait(false);
-
-                return response.IsSuccessStatusCode ? TargetStatus.Reachable : TargetStatus.Deleted;
+                var encoded = Convert.ToBase64String(System.Text.Encoding.ASCII.GetBytes($":{pat}"));
+                httpClient.DefaultRequestHeaders.Authorization =
+                    new System.Net.Http.Headers.AuthenticationHeaderValue("Basic", encoded);
             }
+
+            var response = await httpClient.SendAsync(
+                new System.Net.Http.HttpRequestMessage(System.Net.Http.HttpMethod.Head, targetUrl),
+                cancellationToken).ConfigureAwait(false);
+
+            return response.IsSuccessStatusCode ? TargetStatus.Reachable : TargetStatus.Deleted;
         }
-        catch (Exception ex)
+        catch
         {
-            _logger.LogWarning(ex, "Error verifying target status for {TargetUrl}", targetUrl);
             return TargetStatus.Unknown;
         }
     }

@@ -10,6 +10,7 @@ using Microsoft.TeamFoundation.WorkItemTracking.WebApi.Models;
 using Microsoft.VisualStudio.Services.WebApi;
 using DevOpsMigrationPlatform.Abstractions.Models;
 using DevOpsMigrationPlatform.Abstractions.Options;
+using DevOpsMigrationPlatform.Abstractions.Services;
 using DevOpsMigrationPlatform.Infrastructure.AzureDevOps;
 using DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Services;
 
@@ -20,6 +21,7 @@ public class AzureDevOpsDependencyAnalysisServiceTests
 {
     private Mock<IOptions<DiscoveryOptions>> _optionsMock;
     private Mock<IAzureDevOpsClientFactory> _clientFactoryMock;
+    private Mock<IWorkItemQueryWindowStrategy> _windowStrategyMock;
     private Mock<ILogger<AzureDevOpsDependencyAnalysisService>> _loggerMock;
     private AzureDevOpsDependencyAnalysisService _service;
 
@@ -30,11 +32,13 @@ public class AzureDevOpsDependencyAnalysisServiceTests
         _optionsMock.Setup(o => o.Value).Returns(new DiscoveryOptions { MaxConcurrency = 4 });
 
         _clientFactoryMock = new Mock<IAzureDevOpsClientFactory>();
+        _windowStrategyMock = new Mock<IWorkItemQueryWindowStrategy>();
         _loggerMock = new Mock<ILogger<AzureDevOpsDependencyAnalysisService>>();
 
         _service = new AzureDevOpsDependencyAnalysisService(
             _optionsMock.Object,
             _clientFactoryMock.Object,
+            _windowStrategyMock.Object,
             _loggerMock.Object);
     }
 
@@ -51,6 +55,7 @@ public class AzureDevOpsDependencyAnalysisServiceTests
         new AzureDevOpsDependencyAnalysisService(
             null!,
             _clientFactoryMock.Object,
+            _windowStrategyMock.Object,
             _loggerMock.Object);
     }
 
@@ -60,6 +65,18 @@ public class AzureDevOpsDependencyAnalysisServiceTests
     {
         new AzureDevOpsDependencyAnalysisService(
             _optionsMock.Object,
+            null!,
+            _windowStrategyMock.Object,
+            _loggerMock.Object);
+    }
+
+    [TestMethod]
+    [ExpectedException(typeof(ArgumentNullException))]
+    public void Service_ThrowsArgumentNullException_WhenWindowStrategyNull()
+    {
+        new AzureDevOpsDependencyAnalysisService(
+            _optionsMock.Object,
+            _clientFactoryMock.Object,
             null!,
             _loggerMock.Object);
     }
@@ -71,6 +88,7 @@ public class AzureDevOpsDependencyAnalysisServiceTests
         new AzureDevOpsDependencyAnalysisService(
             _optionsMock.Object,
             _clientFactoryMock.Object,
+            _windowStrategyMock.Object,
             null!);
     }
 
