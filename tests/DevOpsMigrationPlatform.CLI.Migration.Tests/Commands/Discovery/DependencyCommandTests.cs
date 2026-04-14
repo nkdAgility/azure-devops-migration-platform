@@ -65,16 +65,18 @@ public class DependencyCommandTests
             combinedOutput.Contains("completed", StringComparison.OrdinalIgnoreCase),
             "Expected CLI success message not found in output.");
 
-        // If dependencies were found, validate expected counts (1 cross-project, 1 cross-org)
-        // Otherwise, the output may show "No external dependencies found" which is also valid
-        if (combinedOutput.Contains("Cross-Project", StringComparison.OrdinalIgnoreCase) || 
-            combinedOutput.Contains("Cross-Organisation", StringComparison.OrdinalIgnoreCase))
+        // Validate that if dependencies exist, we see both cross-project and cross-org
+        // The scenario is configured to produce: 1 cross-project and 1 cross-org link from migrationTest5
+        var hasCrossProjectLinks = combinedOutput.Contains("Cross-Project Links", StringComparison.OrdinalIgnoreCase);
+        var hasCrossOrgLinks = combinedOutput.Contains("Cross-Organisation Links", StringComparison.OrdinalIgnoreCase);
+        
+        if (hasCrossProjectLinks || hasCrossOrgLinks)
         {
-            // Verify we have the expected dependency counts
+            // If we have any dependencies, we should have both types based on the scenario
             Assert.IsTrue(
-                combinedOutput.Contains("Cross-Project Links", StringComparison.OrdinalIgnoreCase) &&
-                combinedOutput.Contains("Cross-Organisation Links", StringComparison.OrdinalIgnoreCase),
-                "Output should contain both cross-project and cross-organisation dependency summary when dependencies exist.");
+                hasCrossProjectLinks && hasCrossOrgLinks,
+                "Output should contain both cross-project and cross-organisation dependency summary. " +
+                "migrationTest5 is configured to have exactly 1 cross-project and 1 cross-organisation link.");
         }
 
         var depsPath = Path.Combine(outputDir, "dependencies.csv");
