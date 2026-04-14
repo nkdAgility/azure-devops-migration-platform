@@ -65,13 +65,17 @@ devopsmigration discovery dependencies \
 
 ---
 
-## Custom Output Path
+## Custom Output Paths
 
 ```
 devopsmigration discovery dependencies \
   --config discovery-config.json \
-  --output C:\migration-reports\dependencies.csv
+  --output C:\migration-reports\dependencies.csv \
+  --output-projects C:\migration-reports\project-deps.csv \
+  --output-diagram C:\migration-reports\project-deps.md
 ```
+
+All three output files default to the same directory as `--output`. You can override each independently.
 
 ---
 
@@ -87,21 +91,32 @@ devopsmigration discovery dependencies \
  dev.azure.com/myorg  MyProject      1,450         ...       ⟳
 ```
 
-### Terminal (summary after completion, FR-007):
+### Terminal (summary after completion — two tables):
 
+**Table 1 — work-item summary:**
 ```
 ┌────────────────────────────────────────────────────────────────────────────┐
 │                   Dependency Analysis Summary                              │
-├──────────────────────────┬─────────────────────────────────────────────────┤
+├──────────────────────────┤──────────────────────────────────────────────────┤
 │ Work Items Analysed       │ 2,450                                          │
 │ External Links Found      │ 87                                             │
 │   CrossProject            │ 71                                             │
 │   CrossOrganisation       │ 16  ⚠ ACTION REQUIRED — links will break      │
 │ Report written to         │ ./discovery-dependencies.csv                   │
-└──────────────────────────┴─────────────────────────────────────────────────┘
+└──────────────────────────┴──────────────────────────────────────────────────┘
 ```
 
-### CSV Report (`discovery-dependencies.csv`):
+**Table 2 — project dependency summary (only when external dependencies exist):**
+```
+┌───────────────────────────────┬───────────────────────────────┬───────┬────────────────┐
+│ Source Project               │ → Target                       │ Links │ Scope          │
+├───────────────────────────────┼───────────────────────────────┼───────┼────────────────┤
+│ MyProject                    │ OtherProject                   │ 71    │ CrossProject   │
+│ MyProject                    │ 🌐 dev.azure.com/partnerorg  │ 16    │ CrossOrg ⚠      │
+└───────────────────────────────┴───────────────────────────────┴───────┴────────────────┘
+```
+
+### Work-Item CSV (`discovery-dependencies.csv`):
 
 ```csv
 SourceWorkItemId,SourceWorkItemType,SourceProject,LinkType,LinkScope,TargetWorkItemId,TargetProject,TargetOrganisation,TargetStatus
@@ -110,10 +125,36 @@ SourceWorkItemId,SourceWorkItemType,SourceProject,LinkType,LinkScope,TargetWorkI
 3456,Bug,MyProject,Related,CrossOrganisation,7890,,https://dev.azure.com/partnerorg,Unknown
 ```
 
-- One row per external link
-- `TargetProject` is empty for `CrossOrganisation` links when the target project cannot be resolved
-- `TargetOrganisation` is the host/URL of the target system
+- One row per external link; same-project links never appear
+- `TargetProject` is empty for `CrossOrganisation` links
 - `TargetStatus` indicates whether the target exists and is accessible
+
+### Project Dependency CSV (`discovery-project-dependencies.csv`):
+
+```csv
+SourceProject,TargetProject,TargetOrganisation,LinkCount,LinkScope,GroupId
+MyProject,OtherProject,,71,CrossProject,1
+MyProject,dev.azure.com/partnerorg,https://dev.azure.com/partnerorg,16,CrossOrganisation,1
+```
+
+- One row per directed project pair
+- `GroupId` labels which projects form a connected dependency group
+- Not written when zero external dependencies are found
+
+### Mermaid Diagram (`discovery-project-dependencies.md`):
+
+````markdown
+```mermaid
+flowchart LR
+    P_MyProject["MyProject"] -->|"71 links"| P_OtherProject["OtherProject"]
+    P_MyProject["MyProject"] -->|"16 links"| P_dev_azure_com_partnerorg["dev.azure.com/partnerorg"]:::external
+    classDef external fill:#f96,stroke:#c63,color:#000
+```
+````
+
+- Renders natively in GitHub and Azure DevOps wiki
+- Orange nodes = cross-org boundary targets (irreversible link loss on migration)
+- Not written when zero external dependencies are found
 
 ---
 

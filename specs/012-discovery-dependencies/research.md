@@ -144,7 +144,59 @@ DI registration lives in a new `AddAzureDevOpsDependencyAnalysis(IConfiguration)
 
 ---
 
-## 11. Existing Types Modified
+## 12. Project-Level Streaming Aggregation (Millions-of-Links Scale)
+
+**Decision**: The project dependency CSV (FR-015), GroupId computation (FR-016), Mermaid diagram (FR-017), and console project table (FR-018) are **all computed from a live streaming accumulator** — never from a collected list of `DependencyRecord` instances.
+
+`DependencyCommand.ExecuteInternalAsync` maintains a single shared `Dictionary<ProjectPairKey, ProjectPairAccumulator>` that is updated as each `DependencyFoundEvent` arrives from `DiscoverDependenciesAsync`. The `DependencyRecord` instance is written to the work-item CSV and discarded immediately; only the lightweight accumulator entry is retained.
+
+```csharp
+// Key: (SourceProject, TargetProject, TargetOrganisation, LinkScope)
+// Accumulator: int count (Interlocked.Increment if multi-threaded)
+// Dictionary is bounded by P² where P = number of distinct projects (hundreds, not millions)
+```
+
+After the `await foreach` loop completes:
+1. Iterate the `Dictionary` to write `discovery-project-dependencies.csv` rows (FR-015)
+2. Run Union-Find over the set of project nodes (bounded by P, not by link count) to assign `GroupId` (FR-016)
+3. Feed the same accumulator into `MermaidDiagramBuilder` to emit `discovery-project-dependencies.md` (FR-017)
+4. Render the console project dependency table (FR-018) from the same accumulator
+
+**Memory profile at millions of links**: The work-item CSV write path holds at most one `DependencyRecord` at a time (the current event). The accumulator dictionary holds at most `P × P` project pairs × ~48 bytes each ≈ `O(P²)` — for an org with 1,000 projects this is ~48 MB maximum; for 100 projects ~480 KB. Both cases are negligible.
+
+**Rationale**: This is the only design that satisfies SC-003 (memory-safe at 50k items × 10 links = 500k rows) scaled up to millions of links without buffering `DependencyRecord` objects. The project-graph is naturally small (bounded by project count) even when linked work-item counts are large.
+
+**Alternatives considered**:
+- Collect all `DependencyRecord` events in a `List<T>`, then aggregate after: rejected — O(links) memory; 10M links × ~120 bytes per record = ~1.2 GB heap pressure.
+- Two-pass strategy (first pass writes work-item CSV, second pass re-reads it to aggregate): rejected — file I/O is slow; re-reading a multi-GB CSV adds minutes to runtime.
+- Dedicated grouping `IAsyncEnumerable` pass after the main pass: rejected — same data is already available in the accumulator; no second pipeline needed.
+
+---
+
+## 13. Mermaid Diagram Generation & Syntax Safety
+
+**Decision**: `MermaidDiagramBuilder` (new class in `CLI.Migration`) generates a `flowchart LR` block from the project-pair accumulator. It is called once after the streaming pass, not incrementally. The builder is a simple `StringBuilder` wrapper — not a general-purpose graph library.
+
+**Node ID sanitisation**: Mermaid node IDs must not contain spaces, special characters, or quotes. Strategy: replace all non-alphanumeric characters with underscores; prefix with `P_` to avoid numeric-only IDs. Label (shown in the diagram box) uses the original project name wrapped in double quotes: `P_MyProject["My Project"]`.
+
+**Cross-org node style**: Cross-org leaf nodes receive a `:::external` CSS class applied via `classDef external fill:#f96,stroke:#c63,color:#000`. This differentiates them visually from in-scope project nodes.
+
+**Edge label format**: `SourceId -->|"42 links"| TargetId`. Link count is always quoted to handle edge cases with counts that could be confused for Mermaid syntax.
+
+**Output path**: `discovery-project-dependencies.md` in the same directory as the work-item CSV. The file contains only the Mermaid code block — no prose — wrapped in triple-backtick fences: `` ```mermaid `` … `` ``` ``.
+
+**GitHub/ADO wiki compatibility**: Both GitHub Markdown preview and ADO wiki support native Mermaid rendering without plugins when using triple-backtick fences. Node label quoting (double quotes inside square brackets) is the safe form per Mermaid v10 spec.
+
+**Rationale**: The builder is trivial — no third-party dependency needed. Keeping it simple avoids NuGet bloat and keeps the output deterministic. Sanitisation rules are minimal but sufficient for real ADO project names (letters, numbers, spaces, hyphens, underscores — all safe after the substitution).
+
+**Alternatives considered**:
+- Mermaid library (npm/Node subprocess): rejected — adds cross-platform runtime dependency.
+- DOT/Graphviz format: rejected — not natively rendered in GitHub or ADO wiki.
+- SVG: rejected — not easily embedded in Markdown; breaks ADO wiki.
+
+---
+
+## 14. Existing Types Modified
 
 | Type | Project | Change |
 |------|---------|--------|

@@ -167,14 +167,112 @@ Spectre.Console settings for `DependencyCommand`. Registered under `discovery de
 public sealed class Settings : BaseCommandSettings
 {
     [CommandOption("--output <PATH>")]
-    [Description("File path for the output CSV (default: discovery-dependencies.csv in CWD)")]
+    [Description("File path for the work-item dependency CSV (default: discovery-dependencies.csv in CWD)")]
     public string? OutputPath { get; set; }
+
+    [CommandOption("--output-projects <PATH>")]
+    [Description("File path for the project dependency summary CSV (default: discovery-project-dependencies.csv alongside --output)")]
+    public string? OutputProjectsPath { get; set; }
+
+    [CommandOption("--output-diagram <PATH>")]
+    [Description("File path for the Mermaid diagram (default: discovery-project-dependencies.md alongside --output)")]
+    public string? OutputDiagramPath { get; set; }
 
     [CommandOption("--wiql <EXPRESSION>")]
     [Description("WIQL filter to scope which work items are analysed. Omit to analyse all work items.")]
     public string? WiqlFilter { get; set; }
 }
 ```
+
+---
+
+### `ProjectPairKey` (record struct) — `CLI.Migration`
+
+Lightweight key for the streaming project-pair accumulator dictionary. A record struct avoids heap allocation per key.
+
+```csharp
+namespace DevOpsMigrationPlatform.CLI.Migration.Commands.Discovery;
+
+/// <summary>
+/// Immutable key for one directed project-to-project dependency pair.
+/// Used as the dictionary key in the streaming aggregation accumulator.
+/// <see cref="TargetOrganisation"/> is empty for CrossProject pairs.
+/// </summary>
+internal readonly record struct ProjectPairKey(
+    string SourceProject,
+    string TargetProject,       // Remote org hostname for CrossOrganisation pairs
+    string TargetOrganisation,  // Empty for CrossProject
+    LinkScope LinkScope);
+```
+
+**Memory note**: At P = 1,000 distinct projects, the dictionary holds at most P² = 1,000,000 keys × ~80–100 bytes = ~100 MB worst-case. Typical orgs with ≤100 projects: ~1 MB. The key count is bounded by project count squared, not by link count.
+
+---
+
+### `ProjectDependencyRecord` (record) — `CLI.Migration`
+
+The aggregated row written to `discovery-project-dependencies.csv` (FR-015). Computed after the streaming pass from the accumulator.
+
+```csharp
+namespace DevOpsMigrationPlatform.CLI.Migration.Commands.Discovery;
+
+/// <summary>
+/// One aggregated directed project-to-project dependency pair for the project summary CSV.
+/// GroupId is assigned by Union-Find over project nodes after the streaming pass completes.
+/// </summary>
+internal record ProjectDependencyRecord
+{
+    public string    SourceProject      { get; init; } = string.Empty;
+    public string    TargetProject      { get; init; } = string.Empty; // Hostname for cross-org
+    public string    TargetOrganisation { get; init; } = string.Empty; // Empty for cross-project
+    public int       LinkCount          { get; init; }
+    public LinkScope LinkScope          { get; init; }
+    public int       GroupId            { get; init; }                 // Connected component label, 1-based
+}
+```
+
+**CSV column mapping (FR-015)**:
+
+| Property | CSV Column Name |
+|----------|----------------|
+| `SourceProject` | `SourceProject` |
+| `TargetProject` | `TargetProject` |
+| `TargetOrganisation` | `TargetOrganisation` |
+| `LinkCount` | `LinkCount` |
+| `LinkScope` | `LinkScope` |
+| `GroupId` | `GroupId` |
+
+---
+
+### `MermaidDiagramBuilder` (class) — `CLI.Migration`
+
+Builds a `flowchart LR` Mermaid diagram from the completed project-pair accumulator. Called once after the streaming pass. Writes directly to a `StreamWriter`.
+
+```csharp
+namespace DevOpsMigrationPlatform.CLI.Migration.Commands.Discovery;
+
+/// <summary>
+/// Generates a Mermaid flowchart LR diagram from aggregated project-pair data.
+/// Cross-org boundary nodes receive the :::external CSS class.
+/// All node IDs are sanitised (non-alphanumeric → underscore; prefixed P_).
+/// </summary>
+internal sealed class MermaidDiagramBuilder
+{
+    // Node ID: P_ProjectName (sanitised)
+    // Node label: P_ProjectName["Project Name"]  (original name in quotes)
+    // Cross-org node: P_hostname["hostname"]:::external
+    // Edge: SourceId -->|"42 links"| TargetId
+    // Footer: classDef external fill:#f96,stroke:#c63,color:#000
+
+    public void Write(
+        IEnumerable<ProjectDependencyRecord> pairs,
+        StreamWriter writer);
+
+    private static string SanitiseNodeId(string raw);  // Replace [^a-zA-Z0-9] with _, prefix P_
+}
+```
+
+**Sanitisation rule**: `Regex.Replace(raw, @"[^a-zA-Z0-9]", "_")`, then prepend `P_`. Label always uses original name double-quoted inside square brackets. Ensures compatibility with Mermaid v10 and GitHub/ADO wiki rendering (SC-007).
 
 ---
 
@@ -260,3 +358,6 @@ Spawns `tfsmigration.exe dependencies` via `IExternalToolRunner`. Passes credent
 | `DependencyServiceCollectionExtensions` | `Infrastructure.AzureDevOps` | `DependencyServiceCollectionExtensions.cs` |
 | `TfsDependencyProcessAdapter` | `CLI.Migration` | `TfsDependencyProcessAdapter.cs` |
 | `DependencyCommand` | `CLI.Migration` | `Commands/Discovery/DependencyCommand.cs` |
+| `ProjectPairKey` | `CLI.Migration` | `Commands/Discovery/ProjectPairKey.cs` |
+| `ProjectDependencyRecord` | `CLI.Migration` | `Commands/Discovery/ProjectDependencyRecord.cs` |
+| `MermaidDiagramBuilder` | `CLI.Migration` | `Commands/Discovery/MermaidDiagramBuilder.cs` |

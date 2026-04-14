@@ -11,6 +11,12 @@
 
 - Q: Should same-project links be included in the dependency report? → A: No. Same-project links are not external dependencies and must be silently ignored. Only `CrossProject` and `CrossOrganisation` links are recorded and reported.
 - Q: Does this command use the `source` configuration from a migration config file? → A: No. Like all `discovery *` commands, it uses `DiscoveryOptions` (organisations, authentication, projects) bound directly from the config file root — the same configuration model used by `discovery inventory`. There is no `source`/`target` section.
+- Q: How should the project-level dependency summary be delivered? → A: Both — a second CSV file (`discovery-project-dependencies.csv`) written alongside the work-item CSV, plus a compact console table showing directed project pairs after the existing work-item summary.
+- Q: What grouping logic should identify which projects must migrate together? → A: Directed pairs only — one row per source→target project pair with a total link count. No connected-component computation required.
+- Q: How should cross-organisation links appear in the project dependency grouping? → A: Included as external boundary nodes — the remote org hostname is shown as a leaf node in the group, so the diagram and CSV reflect the full dependency picture including irreversible cross-org links.
+- Q: When should the project-level summary be produced? → A: Always, as long as at least one external dependency is found. No flag required.
+- Q: What columns should each row in the project dependency CSV contain? → A: `SourceProject`, `TargetProject`, `TargetOrganisation`, `LinkCount`, `LinkScope`, `GroupId` — one row per source+target project pair.
+- Q: Should a Mermaid dependency diagram be included in the output? → A: Yes — a Mermaid flowchart written to `discovery-project-dependencies.md` in the same directory as the CSV. It must show directed edges between in-scope projects (labelled with link count), and cross-org targets as distinct boundary nodes labelled with the remote org hostname. Cross-org is part of the core intent, not optional.
 
 ## Architecture References
 
@@ -77,6 +83,23 @@ A migration engineer working with a very large project wants to run dependency a
 
 ---
 
+### User Story 4 - Project-Level Dependency Summary for Consolidation Planning (Priority: P2)
+
+A migration planner needs to understand not just which individual work items have external links, but which **projects depend on which other projects** — including dependencies that cross into different organisations. This higher-level view is essential for consolidation planning: it tells the planner which projects form a dependency group and must all be included in the same migration scope, and which external organisations are entangled.
+
+**Why this priority**: Work-item rows are too granular for scope decisions. A planner needs the project graph to answer: "If I migrate Project A, which other projects must come with it?" The Mermaid diagram makes this visually instant and shareable in GitHub or ADO wiki.
+
+**Independent Test**: After running `devopsmigration discovery dependencies`, verify that `discovery-project-dependencies.csv` exists with one row per directed project pair and that `discovery-project-dependencies.md` contains valid Mermaid syntax rendering a directed graph including any cross-org nodes.
+
+**Acceptance Scenarios**:
+
+1. **Given** the work-item dependency run finds cross-project links between Project A and Project B (42 links) and Project A and an external org (3 links), **When** the command completes, **Then** `discovery-project-dependencies.csv` contains two rows: `A → B, 42, CrossProject, GroupId=1` and `A → external-org-hostname, 3, CrossOrganisation, GroupId=1`.
+2. **Given** the project dependency CSV has been written, **Then** `discovery-project-dependencies.md` contains a Mermaid `flowchart LR` block with a directed edge `A -->|42| B` and `A -->|3| external-org-hostname`, and the cross-org node is visually distinguishable (e.g., using a `:::external` class or `[hostname]` label style).
+3. **Given** the run completes with at least one external dependency, **Then** the terminal prints a compact directed-pair table (SourceProject → TargetProject/Org, LinkCount, Scope) sorted by LinkCount descending, after the existing work-item summary table.
+4. **Given** no external dependencies are found, **Then** neither `discovery-project-dependencies.csv` nor `discovery-project-dependencies.md` is written, and the console prints only the "No external dependencies found." message.
+
+---
+
 ### Edge Cases
 
 - What happens when a source project has work items with hundreds of links each? The command must remain memory-safe and not load all work items at once.
@@ -105,6 +128,11 @@ A migration engineer working with a very large project wants to run dependency a
 - **FR-012**: The command MUST respect the `maxConcurrency` setting from `DiscoveryOptions` (if present) when fetching link details to avoid triggering source rate limits.
 - **FR-013**: For TFS organisation entries in `DiscoveryOptions`, the command MUST delegate to the `tfsmigration.exe` subprocess via the existing process adapter pattern, using the same credential passing mechanism as `discovery inventory` (credentials via stdin JSON, progress via NDJSON stdout).
 - **FR-014**: The command MUST support all three organisation types declared in `DiscoveryOptions`: `AzureDevOpsServices`, `TeamFoundationServer`, and `Simulated`.
+- **FR-015**: When at least one external dependency is found, the command MUST write a project-level dependency CSV to `discovery-project-dependencies.csv` (same directory as the work-item CSV, overridable with `--output-projects <path>`). Each row represents one directed source→target project pair and MUST contain: `SourceProject`, `TargetProject`, `TargetOrganisation`, `LinkCount`, `LinkScope`, `GroupId`. Cross-org targets use the remote org hostname as `TargetProject` and populate `TargetOrganisation`; cross-project rows leave `TargetOrganisation` empty. If no external dependencies are found, this file is NOT written.
+- **FR-016**: Each row in the project dependency CSV MUST carry a `GroupId` — a stable integer (starting at 1) that groups all projects reachable from each other via directed edges (including cross-org boundary nodes) into the same component. Two projects with no path between them (direct or transitive) MUST have different `GroupId` values.
+- **FR-017**: When at least one external dependency is found, the command MUST write a Mermaid flowchart diagram to `discovery-project-dependencies.md` (same directory as the CSVs, overridable with `--output-diagram <path>`). The diagram MUST be a `flowchart LR` block containing: a node per in-scope project, a directed edge per project pair labelled with link count (e.g. `A -->|42| B`), and cross-org targets as distinct leaf nodes labelled with the remote org hostname. Cross-org nodes MUST be visually distinguished using a Mermaid `:::external` CSS class applied via `classDef external fill:#f96`. The file MUST be valid Mermaid renderable in GitHub Markdown and Azure DevOps wiki without plugins.
+- **FR-018**: After the existing work-item summary table, the command MUST print a compact project dependency table to the console with columns: `Source Project`, `→ Target`, `Links`, `Scope` — one row per directed pair, sorted by `Links` descending. Cross-org targets display the org hostname in the `→ Target` column prefixed with `🌐`.
+- **FR-019**: All project-level outputs (CSV, Mermaid diagram, console table) MUST be computed entirely from the in-memory aggregation of already-collected `DependencyRecord` events. No additional API calls are permitted to produce them.
 
 ### Key Entities
 
@@ -112,6 +140,7 @@ A migration engineer working with a very large project wants to run dependency a
 - **DependencySummary**: Aggregated counts of external links by scope (`CrossProject` / `CrossOrganisation`) and by link type. Used for the terminal summary table.
 - **LinkScope**: Enumeration of `CrossProject`, `CrossOrganisation` only. `SameProject` is not a valid value — those links are filtered before any record is created.
 - **TargetStatus**: Enumeration of `Reachable`, `Deleted`, `AccessDenied`, `Unknown`.
+- **ProjectDependencyRecord**: An aggregated directed project-pair row for the project-level CSV. Properties: `SourceProject` (string), `TargetProject` (string — remote org hostname for cross-org pairs), `TargetOrganisation` (string — empty for cross-project, org hostname for cross-org), `LinkCount` (int), `LinkScope` (LinkScope), `GroupId` (int). Computed by aggregating `DependencyRecord` events in memory after the streaming pass completes; never fetched from the API.
 
 ## Success Criteria *(mandatory)*
 
@@ -123,6 +152,7 @@ A migration engineer working with a very large project wants to run dependency a
 - **SC-004**: The terminal summary is legible and actionable within 5 seconds of the command completing — it must be brief enough to be read without scrolling and must distinguish cross-project from cross-organisation counts clearly.
 - **SC-005**: A migration engineer using the report can identify all work items requiring scope expansion or stakeholder communication before running the migration, reducing post-migration link breakage discoveries to zero for the items that were in scope.
 - **SC-006**: Cross-organisation links are always flagged with a distinct visual warning in the terminal summary so they are never missed or confused with less severe cross-project links.
+- **SC-007**: The Mermaid diagram written to `discovery-project-dependencies.md` must render correctly in GitHub Markdown preview and Azure DevOps wiki without any additional plugins or extensions. Node and edge labels must not contain characters that break Mermaid syntax (quotes, parentheses, angle brackets in node IDs must be sanitised or quoted).
 
 ## Assumptions
 

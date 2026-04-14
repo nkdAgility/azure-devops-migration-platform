@@ -12,12 +12,14 @@
 devopsmigration discovery dependencies [options]
 
 Options:
-  -c, --config <PATH>      Path to discovery config file [default: migration.json]
-  --output <PATH>          Output CSV file path [default: ./discovery-dependencies.csv]
-  --wiql <EXPRESSION>      WIQL filter expression to scope analysis [optional]
-  -v, --verbose            Enable verbose console output
-  --disable-telemetry      Suppress all telemetry export
-  -h, --help               Show help information
+  -c, --config <PATH>             Path to discovery config file [default: migration.json]
+  --output <PATH>                 Work-item dependency CSV path [default: ./discovery-dependencies.csv]
+  --output-projects <PATH>        Project dependency summary CSV path [default: ./discovery-project-dependencies.csv]
+  --output-diagram <PATH>         Mermaid diagram path [default: ./discovery-project-dependencies.md]
+  --wiql <EXPRESSION>             WIQL filter expression to scope analysis [optional]
+  -v, --verbose                   Enable verbose console output
+  --disable-telemetry             Suppress all telemetry export
+  -h, --help                      Show help information
 ```
 
 ---
@@ -41,7 +43,21 @@ Options:
 **Type**: `string` (file path)  
 **Default**: `discovery-dependencies.csv` in the current working directory  
 **Required**: No  
-**Description**: File path for the output CSV. If the file already exists, it is overwritten and a warning is printed.
+**Description**: File path for the work-item dependency output CSV. If the file already exists, it is overwritten and a warning is printed.
+
+### `--output-projects <PATH>`
+
+**Type**: `string` (file path)  
+**Default**: `discovery-project-dependencies.csv` in the same directory as `--output`  
+**Required**: No  
+**Description**: File path for the aggregated project-level dependency summary CSV (FR-015). Written only when at least one external dependency is found. Each row is one directed project→project pair with a link count, scope, and group ID.
+
+### `--output-diagram <PATH>`
+
+**Type**: `string` (file path)  
+**Default**: `discovery-project-dependencies.md` in the same directory as `--output`  
+**Required**: No  
+**Description**: File path for the Mermaid `flowchart LR` diagram (FR-017). Written only when at least one external dependency is found. Contains a triple-backtick Mermaid code block rendering the directed project dependency graph with cross-org boundary nodes.
 
 ### `--wiql <EXPRESSION>`
 
@@ -150,7 +166,12 @@ public static IServiceCollection AddAzureDevOpsDependencyAnalysis(
 {
     services.AddOptions<DiscoveryOptions>().Bind(configuration);
     services.AddSingleton<IAzureDevOpsClientFactory, AzureDevOpsClientFactory>();
-    services.AddSingleton<IWorkItemLinkAnalysisService, AzureDevOpsDependencyAnalysisService>();
+    // Keyed registrations by entry.Type string:
+    services.AddKeyedSingleton<IWorkItemLinkAnalysisService,
+        AzureDevOpsDependencyAnalysisService>("AzureDevOpsServices");
+    services.AddKeyedSingleton<IWorkItemLinkAnalysisService,
+        SimulatedDependencyAnalysisService>("Simulated");
+    // "TeamFoundationServer" keyed as TfsDependencyProcessAdapter in DependencyCommand.CreateHost only
     services.AddSingleton<IDependencyDiscoveryService, DependencyDiscoveryService>();
     return services;
 }
@@ -158,13 +179,23 @@ public static IServiceCollection AddAzureDevOpsDependencyAnalysis(
 
 Called from `DependencyCommand.ExecuteInternalAsync` via `CreateHost(..., (services, config) => services.AddAzureDevOpsDependencyAnalysis(config))`.
 
+`DependencyCommand.CreateHost` additionally registers:
+```csharp
+services.AddKeyedSingleton<IWorkItemLinkAnalysisService,
+    TfsDependencyProcessAdapter>("TeamFoundationServer");
+services.AddSingleton<IExternalToolRunner, ExternalToolRunner>();
+```
+
 ---
 
 ## Invariants
 
-- `SameProject` links are never written to the CSV (filtered before record creation).
+- `SameProject` links are never written to any output (filtered before record creation).
 - The `LinkScope` column ONLY ever contains `CrossProject` or `CrossOrganisation`.
-- The CSV header row is always written, regardless of row count.
+- The work-item CSV header row is always written, regardless of row count.
+- `discovery-project-dependencies.csv` and `discovery-project-dependencies.md` are NOT written when there are zero external dependencies.
+- The project CSV, Mermaid diagram, and console project table are ALL computed from the streaming accumulator — zero additional API calls are made to produce them (FR-019).
+- The project-pair accumulator holds at most P² entries (P = distinct project count); memory is bounded by project count, not link count.
 - The command does NOT submit a `MigrationJob` to the control plane.
 - The command does NOT read a `source` or `target` section from the config.
 - Cross-organisation links always trigger a distinct `⚠` warning in the terminal summary.
