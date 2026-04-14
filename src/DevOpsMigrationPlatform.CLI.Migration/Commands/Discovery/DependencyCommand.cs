@@ -215,6 +215,7 @@ public sealed class DependencyCommand : CommandBase<DependencyCommand.Settings>
             }
 
             logger.LogInformation("Dependency discovery completed successfully");
+            AnsiConsole.MarkupLine($"[green]✓[/] Dependency discovery completed successfully");
             return 0;
         }
         catch (Exception ex)

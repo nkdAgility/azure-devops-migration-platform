@@ -39,6 +39,28 @@ public static class DependencyServiceCollectionExtensions
             services.AddSingleton<IAzureDevOpsClientFactory, AzureDevOpsClientFactory>();
         }
 
+        // Register WIQL query dependencies needed by work item discovery
+        if (!services.Any(x => x.ServiceType == typeof(IWiqlQueryClientFactory)))
+        {
+            services.AddSingleton<IWiqlQueryClientFactory, AzureDevOpsWiqlQueryClientFactory>();
+        }
+
+        if (!services.Any(x => x.ServiceType == typeof(IWorkItemQueryWindowStrategy)))
+        {
+            services.AddSingleton<IWorkItemQueryWindowStrategy, WorkItemQueryWindowStrategy>();
+        }
+
+        // Register discovery services needed by CatalogService and other components
+        if (!services.Any(x => x.ServiceType == typeof(IWorkItemDiscoveryService)))
+        {
+            services.AddSingleton<IWorkItemDiscoveryService, AzureDevOpsWorkItemDiscoveryService>();
+        }
+
+        if (!services.Any(x => x.ServiceType == typeof(IProjectDiscoveryService)))
+        {
+            services.AddSingleton<IProjectDiscoveryService, AzureDevOpsProjectDiscoveryService>();
+        }
+
         // Register the catalog service (for querying available projects)
         if (!services.Any(x => x.ServiceType == typeof(ICatalogService)))
         {
