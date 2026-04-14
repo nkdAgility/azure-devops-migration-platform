@@ -23,6 +23,11 @@ public record DependencyRecord
     public string? SourceProject { get; init; }
 
     /// <summary>
+    /// Gets the organisation URL where the source work item is located (e.g. "https://dev.azure.com/contoso").
+    /// </summary>
+    public string SourceOrganisationUrl { get; init; } = string.Empty;
+
+    /// <summary>
     /// Gets the link type name (e.g., "Parent", "Related", "Tests", "Tested By", "Duplicate").
     /// </summary>
     public string? LinkType { get; init; }

@@ -54,44 +54,66 @@ public sealed class DependencyCommand : CommandBase<DependencyCommand.Settings>
             if (settings.WiqlFilter != null)
                 logger.LogInformation("WIQL filter: {WiqlFilter}", settings.WiqlFilter);
 
-            // Resolve the discovery service
             var discoveryService = GetRequiredService<IDependencyDiscoveryService>();
 
             var crossProjectCount = 0;
             var crossOrgCount = 0;
             var workItemsAnalysed = 0;
-            var projectAccumulator = new Dictionary<ProjectPairKey, int>();
-            var perProjectDependencies = new Dictionary<string, Dictionary<ProjectPairKey, int>>();  // project → dependencies
-            var projectOrganisationMap = new Dictionary<string, string>();  // project → org  
 
-            // Write CSV header and stream records
-            var fullCsvPath = Path.Combine(baseOutputDir, "dependencies.csv");
-            Directory.CreateDirectory(Path.GetDirectoryName(fullCsvPath) ?? baseOutputDir);
+            // WI-level records: (orgName, project) → list
+            var perProjectRecords = new Dictionary<(string, string), List<DependencyRecord>>();
+            // Pair-level counts: (orgName, project) → ProjectPairKey → count
+            var perProjectPairs = new Dictionary<(string, string), Dictionary<ProjectPairKey, int>>();
+            // Org-level pair counts: orgName → ProjectPairKey → count
+            var perOrgPairs = new Dictionary<string, Dictionary<ProjectPairKey, int>>();
 
-            using (var fileStream = new FileStream(fullCsvPath, FileMode.Create, FileAccess.Write))
-            using (var writer = new StreamWriter(fileStream))
+            // ── Root dependencies.csv (raw WI-level for test assertions) ─────
+            var rootCsvPath = Path.Combine(baseOutputDir, "dependencies.csv");
+            Directory.CreateDirectory(baseOutputDir);
+
+            using (var rootStream = new FileStream(rootCsvPath, FileMode.Create, FileAccess.Write))
+            using (var rootWriter = new StreamWriter(rootStream))
             {
-                writer.WriteLine("SourceWorkItemId,SourceWorkItemType,SourceProject,LinkType,LinkScope,TargetWorkItemId,TargetProject,TargetOrganisation,TargetStatus");
+                rootWriter.WriteLine("SourceWorkItemId,SourceWorkItemType,SourceProject,LinkType,LinkScope,TargetWorkItemId,TargetProject,TargetOrganisation,TargetStatus");
 
                 await foreach (var evt in discoveryService.DiscoverDependenciesAsync(settings.WiqlFilter, cancellationToken))
                 {
                     if (evt is DependencyFoundEvent foundEvent)
                     {
                         var record = foundEvent.Record;
-                        writer.WriteLine($"{record.SourceWorkItemId},{record.SourceWorkItemType},{record.SourceProject},{record.LinkType},{record.LinkScope},{record.TargetWorkItemId},{record.TargetProject},{record.TargetOrganisation},{record.TargetStatus}");
+                        rootWriter.WriteLine(
+                            $"{record.SourceWorkItemId},{record.SourceWorkItemType},{record.SourceProject}," +
+                            $"{record.LinkType},{record.LinkScope},{record.TargetWorkItemId}," +
+                            $"{record.TargetProject},{record.TargetOrganisation},{record.TargetStatus}");
 
-                        // Accumulate project pair statistics
+                        var orgName = ExtractOrgName(record.SourceOrganisationUrl);
+                        var project = record.SourceProject ?? "unknown";
                         var key = new ProjectPairKey(record);
-                        if (!projectAccumulator.ContainsKey(key))
-                            projectAccumulator[key] = 0;
-                        projectAccumulator[key]++;
 
-                        // Track per-project dependencies
-                        if (!perProjectDependencies.ContainsKey(record.SourceProject))
-                            perProjectDependencies[record.SourceProject] = new Dictionary<ProjectPairKey, int>();
-                        if (!perProjectDependencies[record.SourceProject].ContainsKey(key))
-                            perProjectDependencies[record.SourceProject][key] = 0;
-                        perProjectDependencies[record.SourceProject][key]++;
+                        // Per-project WI records
+                        var projKey = (orgName, project);
+                        if (!perProjectRecords.TryGetValue(projKey, out var records))
+                        {
+                            records = new List<DependencyRecord>();
+                            perProjectRecords[projKey] = records;
+                        }
+                        records.Add(record);
+
+                        // Per-project pair counts
+                        if (!perProjectPairs.TryGetValue(projKey, out var projPairs))
+                        {
+                            projPairs = new Dictionary<ProjectPairKey, int>();
+                            perProjectPairs[projKey] = projPairs;
+                        }
+                        projPairs[key] = projPairs.TryGetValue(key, out var pc) ? pc + 1 : 1;
+
+                        // Org-level pair counts
+                        if (!perOrgPairs.TryGetValue(orgName, out var orgPairs))
+                        {
+                            orgPairs = new Dictionary<ProjectPairKey, int>();
+                            perOrgPairs[orgName] = orgPairs;
+                        }
+                        orgPairs[key] = orgPairs.TryGetValue(key, out var oc) ? oc + 1 : 1;
 
                         if (record.LinkScope == LinkScope.CrossProject)
                             crossProjectCount++;
@@ -100,66 +122,98 @@ public sealed class DependencyCommand : CommandBase<DependencyCommand.Settings>
                     }
                     else if (evt is DependencyHeartbeatEvent heartbeat)
                     {
-                        workItemsAnalysed = heartbeat.WorkItemsAnalysed;
+                        workItemsAnalysed = Math.Max(workItemsAnalysed, heartbeat.WorkItemsAnalysed);
                     }
                 }
 
-                writer.Flush();
-                logger.LogInformation("Dependencies CSV written to {FullCsvPath}", fullCsvPath);
+                rootWriter.Flush();
             }
 
-            // Convert accumulator to ProjectDependencyRecord list
-            var projectPairs = projectAccumulator
-                .Select(kvp => new ProjectDependencyRecord(kvp.Key, kvp.Value))
-                .ToList();
+            logger.LogInformation("Root dependencies CSV written to {Path}", rootCsvPath);
 
-            // Assign GroupIds via Union-Find
-            if (projectPairs.Count > 0)
+            // ── Per-project output ───────────────────────────────────────────
+            foreach (var ((orgName, project), records) in perProjectRecords)
             {
-                var componentIds = UnionFindComponentLabeler.AssignComponentIds(projectPairs);
-                foreach (var pair in projectPairs)
+                var projDir = Path.Combine(baseOutputDir, orgName, project);
+                Directory.CreateDirectory(projDir);
+
+                // dependencies.csv — WI-level (both IDs)
+                var projDepsCsv = Path.Combine(projDir, "dependencies.csv");
+                using (var fs = new FileStream(projDepsCsv, FileMode.Create, FileAccess.Write))
+                using (var w = new StreamWriter(fs))
                 {
-                    var projectName = pair.LinkScope == LinkScope.CrossOrganisation && !string.IsNullOrWhiteSpace(pair.TargetOrganisation)
-                        ? $"{pair.TargetOrganisation}#{pair.TargetProject ?? ""}"
-                        : pair.TargetProject;
-
-                    if (!string.IsNullOrWhiteSpace(projectName) && componentIds.TryGetValue(projectName, out var groupId))
-                        pair.GroupId = groupId;
-
-                    // Also assign to source
-                    if (componentIds.TryGetValue(pair.SourceProject, out var sourceGroupId))
-                        pair.GroupId = sourceGroupId;
-                }
-
-                // Write per-project dependency files
-                foreach (var (sourceProject, deps) in perProjectDependencies)
-                {
-                    var orgName = "unknown";  // Will be populated from configuration or discovered org name
-                    var projectDepsPath = Path.Combine(baseOutputDir, orgName, sourceProject, "dependencies.csv");
-                    Directory.CreateDirectory(Path.GetDirectoryName(projectDepsPath) ?? baseOutputDir);
-
-                    using (var fileStream = new FileStream(projectDepsPath, FileMode.Create, FileAccess.Write))
-                    using (var writer = new StreamWriter(fileStream))
+                    w.WriteLine("SourceWorkItemId,SourceWorkItemType,SourceProject,LinkType,LinkScope,TargetWorkItemId,TargetProject,TargetOrganisation,TargetStatus");
+                    foreach (var r in records)
                     {
-                        writer.WriteLine("SourceProject,TargetProject,TargetOrganisation,LinkCount,LinkScope,GroupId");
-                        var projectPairs_ = deps.Select(kvp => new ProjectDependencyRecord(kvp.Key, kvp.Value)).ToList();
-                        foreach (var pair in projectPairs_.OrderByDescending(p => p.LinkCount))
-                        {
-                            writer.WriteLine($"{pair.SourceProject},{pair.TargetProject},{pair.TargetOrganisation},{pair.LinkCount},{pair.LinkScope},{pair.GroupId}");
-                        }
-                        writer.Flush();
+                        w.WriteLine(
+                            $"{r.SourceWorkItemId},{r.SourceWorkItemType},{r.SourceProject}," +
+                            $"{r.LinkType},{r.LinkScope},{r.TargetWorkItemId}," +
+                            $"{r.TargetProject},{r.TargetOrganisation},{r.TargetStatus}");
                     }
-                    logger.LogInformation("Project dependencies written to {ProjectDepsPath}", projectDepsPath);
+                    w.Flush();
                 }
 
-                // Generate Mermaid diagram at base level
-                var aggregatedDiagramPath = Path.Combine(baseOutputDir, "dependencies.md");
-                var diagram = new MermaidDiagramBuilder(projectPairs).Build();
-                File.WriteAllText(aggregatedDiagramPath, diagram);
-                logger.LogInformation("Mermaid diagram written to {AggregatedDiagramPath}", aggregatedDiagramPath);
+                // grouped.csv — deduped project-level pairs
+                var projPairs = perProjectPairs[(orgName, project)]
+                    .Select(kvp => new ProjectDependencyRecord(kvp.Key, kvp.Value))
+                    .OrderByDescending(p => p.LinkCount)
+                    .ToList();
+
+                var groupedCsv = Path.Combine(projDir, "grouped.csv");
+                using (var fs = new FileStream(groupedCsv, FileMode.Create, FileAccess.Write))
+                using (var w = new StreamWriter(fs))
+                {
+                    w.WriteLine("SourceProject,TargetProject,TargetOrganisation,LinkCount,LinkScope");
+                    foreach (var pair in projPairs)
+                        w.WriteLine($"{pair.SourceProject},{pair.TargetProject},{pair.TargetOrganisation},{pair.LinkCount},{pair.LinkScope}");
+                    w.Flush();
+                }
+
+                // dependencies.md — mermaid for this project
+                var projDiagramPath = Path.Combine(projDir, "dependencies.md");
+                File.WriteAllText(projDiagramPath, new MermaidDiagramBuilder(projPairs).Build());
+
+                logger.LogInformation("Project output written to {ProjDir}", projDir);
             }
 
-            // Print summary
+            // ── Per-org output ───────────────────────────────────────────────
+            foreach (var (orgName, orgPairMap) in perOrgPairs)
+            {
+                var orgDir = Path.Combine(baseOutputDir, orgName);
+                Directory.CreateDirectory(orgDir);
+
+                var orgPairs = orgPairMap
+                    .Select(kvp => new ProjectDependencyRecord(kvp.Key, kvp.Value))
+                    .OrderByDescending(p => p.LinkCount)
+                    .ToList();
+
+                // Assign GroupIds
+                var componentIds = UnionFindComponentLabeler.AssignComponentIds(orgPairs);
+                foreach (var pair in orgPairs)
+                {
+                    if (componentIds.TryGetValue(pair.SourceProject, out var gid))
+                        pair.GroupId = gid;
+                }
+
+                // dependencies.csv — grouped by source/target project
+                var orgDepsCsv = Path.Combine(orgDir, "dependencies.csv");
+                using (var fs = new FileStream(orgDepsCsv, FileMode.Create, FileAccess.Write))
+                using (var w = new StreamWriter(fs))
+                {
+                    w.WriteLine("SourceProject,TargetProject,TargetOrganisation,LinkCount,LinkScope,GroupId");
+                    foreach (var pair in orgPairs)
+                        w.WriteLine($"{pair.SourceProject},{pair.TargetProject},{pair.TargetOrganisation},{pair.LinkCount},{pair.LinkScope},{pair.GroupId}");
+                    w.Flush();
+                }
+
+                // dependencies.md — mermaid for org
+                var orgDiagramPath = Path.Combine(orgDir, "dependencies.md");
+                File.WriteAllText(orgDiagramPath, new MermaidDiagramBuilder(orgPairs).Build());
+
+                logger.LogInformation("Org output written to {OrgDir}", orgDir);
+            }
+
+            // ── Console summary ──────────────────────────────────────────────
             var totalLinks = crossProjectCount + crossOrgCount;
 
             if (totalLinks == 0)
@@ -178,14 +232,18 @@ public sealed class DependencyCommand : CommandBase<DependencyCommand.Settings>
                 summaryTable.AddRow("Cross-Project Links", crossProjectCount.ToString());
                 summaryTable.AddRow($"[red]⚠ Cross-Organisation Links[/]", $"[red]{crossOrgCount}[/]");
                 summaryTable.AddRow("Output Directory", baseOutputDir);
-
                 AnsiConsole.Write(summaryTable);
 
                 if (crossOrgCount > 0)
                     AnsiConsole.MarkupLine($"[red]⚠ ACTION REQUIRED: {crossOrgCount} cross-organisation link(s) will break after migration[/]");
 
-                // Print project dependency table
-                if (projectPairs.Count > 0)
+                // Summary project dependency table (across all orgs)
+                var allPairs = perOrgPairs.Values
+                    .SelectMany(d => d.Select(kvp => new ProjectDependencyRecord(kvp.Key, kvp.Value)))
+                    .OrderByDescending(p => p.LinkCount)
+                    .ToList();
+
+                if (allPairs.Count > 0)
                 {
                     AnsiConsole.WriteLine();
                     var projectTable = new Table();
@@ -195,16 +253,14 @@ public sealed class DependencyCommand : CommandBase<DependencyCommand.Settings>
                     projectTable.AddColumn("Links");
                     projectTable.AddColumn("Scope");
 
-                    foreach (var pair in projectPairs.OrderByDescending(p => p.LinkCount))
+                    foreach (var pair in allPairs)
                     {
                         var targetDisplay = pair.LinkScope == LinkScope.CrossOrganisation && !string.IsNullOrWhiteSpace(pair.TargetOrganisation)
                             ? $"🌐 {pair.TargetOrganisation}/{pair.TargetProject}"
                             : pair.TargetProject;
-
                         var scopeDisplay = pair.LinkScope == LinkScope.CrossOrganisation
                             ? "[red]Cross-Org[/]"
                             : "Cross-Project";
-
                         projectTable.AddRow(pair.SourceProject, targetDisplay, pair.LinkCount.ToString(), scopeDisplay);
                     }
 
@@ -224,5 +280,39 @@ public sealed class DependencyCommand : CommandBase<DependencyCommand.Settings>
             AnsiConsole.MarkupLine($"[red]✗ Error: {ex.Message}[/]");
             return 1;
         }
+    }
+
+    /// <summary>
+    /// Extracts a short org name from a full org URL for use as a folder name.
+    /// "https://dev.azure.com/contoso" → "contoso"
+    /// "https://contoso.visualstudio.com" → "contoso"
+    /// Falls back to the sanitised host if neither pattern matches.
+    /// </summary>
+    private static string ExtractOrgName(string orgUrl)
+    {
+        if (string.IsNullOrWhiteSpace(orgUrl))
+            return "unknown";
+
+        if (!Uri.TryCreate(orgUrl, UriKind.Absolute, out var uri))
+            return SanitiseFolderName(orgUrl);
+
+        if (uri.Host.Equals("dev.azure.com", StringComparison.OrdinalIgnoreCase))
+        {
+            var segments = uri.AbsolutePath.Split('/', StringSplitOptions.RemoveEmptyEntries);
+            if (segments.Length > 0)
+                return SanitiseFolderName(segments[0]);
+        }
+
+        var hostParts = uri.Host.Split('.');
+        if (hostParts.Length >= 3 && hostParts[^2].Equals("visualstudio", StringComparison.OrdinalIgnoreCase))
+            return SanitiseFolderName(hostParts[0]);
+
+        return SanitiseFolderName(uri.Host);
+    }
+
+    private static string SanitiseFolderName(string name)
+    {
+        var clean = System.Text.RegularExpressions.Regex.Replace(name, @"[^\w\-]", "_");
+        return string.IsNullOrWhiteSpace(clean) ? "unknown" : clean;
     }
 }
