@@ -196,4 +196,4 @@ Ready-to-run example configuration files live under `/scenarios/` at the reposit
 | `export-simulated.json` | Simulated source export (25,000 work items, no external connectivity required) |
 | `migrate-simulated.json` | Full simulated end-to-end migration — both source and target simulated (25,000 work items) |
 
-Credentials in these files use `$ENV:VARNAME` references — never literal tokens. Set the corresponding environment variables locally (e.g. `AZDEVOPS_DEV_PAT`) before running.
+Credentials in these files use `$ENV:VARNAME` references — never literal tokens. Set the corresponding environment variables locally (e.g. `AZDEVOPS_SYSTEM_TEST_PAT`) before running.

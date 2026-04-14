@@ -249,6 +249,12 @@ public sealed class ControlPlaneClient : IJobRunner, ILogsClient, IControlPlaneC
             .GetAsync(url, ct)
             .ConfigureAwait(false);
 
+        // 404 means the job has no log files yet (agent hasn't run or hasn't written logs).
+        // Return an empty list so callers can show a "no records found" message
+        // rather than surfacing an error.
+        if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
+            return [];
+
         response.EnsureSuccessStatusCode();
 
         var body = await response.Content

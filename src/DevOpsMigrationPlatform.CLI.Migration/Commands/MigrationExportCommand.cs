@@ -242,7 +242,7 @@ public sealed class MigrationExportCommand : ControlPlaneCommandBase<MigrationEx
                         _ => "blue"
                     };
                     diagnosticsBuffer.Enqueue(
-                        $"[{levelColor}]{Markup.Escape(record.Level)}[/] [{Markup.Escape(record.Category)}] {Markup.Escape(record.Message)}");
+                        $"[{levelColor}]{Markup.Escape(record.Level)}[/] [[{Markup.Escape(record.Category)}]] {Markup.Escape(record.Message)}");
                 }
             }
             catch (OperationCanceledException)

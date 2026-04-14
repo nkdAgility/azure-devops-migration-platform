@@ -19,7 +19,7 @@ public class AzureDevOpsWorkItemCommentSource : IWorkItemCommentSource
     private readonly string _project;
     private readonly string _pat;
     private readonly ILogger<AzureDevOpsWorkItemCommentSource> _logger;
-    private const int PageSize = 100; // ADO API page size for comments
+    private const int PageSize = 200; // ADO API max page size for comments
 
     public AzureDevOpsWorkItemCommentSource(
         IAzureDevOpsClientFactory clientFactory,
@@ -44,93 +44,86 @@ public class AzureDevOpsWorkItemCommentSource : IWorkItemCommentSource
         bool includeDeleted,
         [EnumeratorCancellation] CancellationToken cancellationToken)
     {
-        // Create the client on-demand from the factory (this is async, so we need to await it once before the loop)
+        // Create the client on-demand from the factory.
         var client = await _clientFactory.CreateWorkItemClientAsync(_organisationUrl, _pat, cancellationToken);
 
-        int skip = 0;
-        bool hasMoreResults = true;
+        // Use the project-scoped overload: GetCommentsAsync(project, workItemId, top, continuationToken, ...)
+        // This returns CommentList with a ContinuationToken property for safe server-side pagination.
+        // The overload without 'project' resolves to the revision-history API; its positional parameters
+        // are (id, fromRevision, top, ...), so PageSize lands in fromRevision and skip=0 lands in $top,
+        // causing the server to reject $top=0 with "outside permissible range".
+        string? continuationToken = null;
 
-        while (hasMoreResults && !cancellationToken.IsCancellationRequested)
+        while (!cancellationToken.IsCancellationRequested)
         {
-            Microsoft.TeamFoundation.WorkItemTracking.WebApi.Models.WorkItemComments? response = null;
+            Microsoft.TeamFoundation.WorkItemTracking.WebApi.Models.CommentList? response = null;
             try
             {
-                // Call ADO SDK GetCommentsAsync with pagination
                 response = await client.GetCommentsAsync(
-                    workItemId,
-                    PageSize, // top parameter
-                    skip, // $skip parameter (positional, not named)
-                    null, // sortOrder
-                    null, // userState
-                    cancellationToken);
+                    project: _project,
+                    workItemId: workItemId,
+                    top: PageSize,
+                    continuationToken: continuationToken,
+                    includeDeleted: includeDeleted ? (bool?)true : null,
+                    expand: null,
+                    order: null,
+                    userState: null,
+                    cancellationToken: cancellationToken);
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex,
-                    "Error fetching comments for work item {workItemId} at skip={skip}",
-                    workItemId, skip);
+                    "Error fetching comments for work item {WorkItemId} with continuationToken={ContinuationToken}",
+                    workItemId, continuationToken ?? "null");
                 throw;
             }
 
             if (response?.Comments == null || !response.Comments.Any())
-            {
-                hasMoreResults = false;
                 yield break;
-            }
 
-            // Yield each comment
             foreach (var adoComment in response.Comments)
-            {
-                var comment = MapCommentFromAdoSdk(adoComment);
-                yield return comment;
-            }
+                yield return MapCommentFromAdoSdk(adoComment);
 
-            // Check if there are more results
-            if (response.Comments.Count() < PageSize)
-            {
-                hasMoreResults = false;
-            }
-            else
-            {
-                skip += PageSize;
-            }
+            // CommentList.ContinuationToken is null when there are no more pages.
+            continuationToken = response.ContinuationToken;
+            if (string.IsNullOrEmpty(continuationToken))
+                yield break;
         }
     }
 
     /// <summary>
-    /// Maps an ADO SDK WorkItemComment to the platform WorkItemComment record.
+    /// Maps an ADO SDK <see cref="Microsoft.TeamFoundation.WorkItemTracking.WebApi.Models.Comment"/>
+    /// (returned by the project-scoped CommentsAPI) to the platform <see cref="WorkItemComment"/> record.
     /// </summary>
     private static WorkItemComment MapCommentFromAdoSdk(
-        Microsoft.TeamFoundation.WorkItemTracking.WebApi.Models.WorkItemComment adoComment)
+        Microsoft.TeamFoundation.WorkItemTracking.WebApi.Models.Comment adoComment)
     {
-        // Extract identity info from RevisedBy
-        var revisedBy = adoComment.RevisedBy;
-        var revisedDate = adoComment.RevisedDate;
-        if (revisedDate == System.DateTime.MinValue)
+        var createdBy = new WorkItemIdentityRef
         {
-            revisedDate = System.DateTime.UtcNow;
-        }
-        var revisedDateOffset = new DateTimeOffset(revisedDate);
+            DisplayName = adoComment.CreatedBy?.DisplayName ?? "Unknown",
+            UniqueName = adoComment.CreatedBy?.UniqueName ?? "unknown",
+            Descriptor = adoComment.CreatedBy?.Descriptor ?? string.Empty,
+        };
 
-        var identity = new WorkItemIdentityRef
+        var modifiedBy = new WorkItemIdentityRef
         {
-            DisplayName = revisedBy?.DisplayName ?? "Unknown",
-            UniqueName = revisedBy?.UniqueName ?? "unknown",
-            Descriptor = revisedBy?.Descriptor ?? string.Empty,
+            DisplayName = adoComment.ModifiedBy?.DisplayName ?? "Unknown",
+            UniqueName = adoComment.ModifiedBy?.UniqueName ?? "unknown",
+            Descriptor = adoComment.ModifiedBy?.Descriptor ?? string.Empty,
         };
 
         return new WorkItemComment
         {
-            CommentId = adoComment.Revision.ToString(), // Use revision as comment ID since API doesn't expose Id
-            Version = adoComment.Revision,
+            CommentId = adoComment.Id.ToString(),
+            Version = adoComment.Version,
             Text = adoComment.Text ?? string.Empty,
-            RenderedText = null, // ADO Comments API v7.1 doesn't provide rendered HTML
-            Format = "plaintext", // Assume plaintext format
-            IsDeleted = false, // ADO doesn't expose deleted flag for comments
-            CreatedBy = identity,
-            CreatedDate = revisedDateOffset,
-            ModifiedBy = identity,
-            ModifiedDate = revisedDateOffset,
+            RenderedText = adoComment.RenderedText,
+            Format = adoComment.Format.ToString().ToLowerInvariant(),
+            IsDeleted = adoComment.IsDeleted,
+            CreatedBy = createdBy,
+            CreatedDate = new DateTimeOffset(adoComment.CreatedDate),
+            ModifiedBy = modifiedBy,
+            ModifiedDate = new DateTimeOffset(adoComment.ModifiedDate),
         };
     }
 }

@@ -85,7 +85,7 @@ public sealed class ManageDiagnosticsCommand : ControlPlaneCommandBase<ManageDia
                     _ => "blue"
                 };
                 AnsiConsole.MarkupLine(
-                    $"[grey]{record.Timestamp:HH:mm:ss.fff}[/] [{levelColor}]{Markup.Escape(record.Level)}[/] [{Markup.Escape(record.Category)}] {Markup.Escape(record.Message)}");
+                    $"[grey]{record.Timestamp:HH:mm:ss.fff}[/] [{levelColor}]{Markup.Escape(record.Level)}[/] [[{Markup.Escape(record.Category)}]] {Markup.Escape(record.Message)}");
 
                 if (record.Exception is not null)
                     AnsiConsole.MarkupLine($"  [grey]{Markup.Escape(record.Exception)}[/]");

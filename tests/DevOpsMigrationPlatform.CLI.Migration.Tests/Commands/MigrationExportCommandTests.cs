@@ -32,20 +32,21 @@ public class MigrationExportCommandTests
     public async Task MigrationExportCommand_SystemTest_AdoSingleProject_ExitsZero_AndWritesRevisionFiles()
     {
         // ── Guard ─────────────────────────────────────────────────────────
-        var orgEnv = Environment.GetEnvironmentVariable("AZDEVOPS_DEV_ORG");
-        var patEnv = Environment.GetEnvironmentVariable("AZDEVOPS_DEV_PAT");
+        var orgEnv = Environment.GetEnvironmentVariable("AZDEVOPS_SYSTEM_TEST_ORG");
+        var patEnv = Environment.GetEnvironmentVariable("AZDEVOPS_SYSTEM_TEST_PAT");
         if (string.IsNullOrEmpty(orgEnv) || string.IsNullOrEmpty(patEnv))
         {
-            Assert.Inconclusive(
-                "System test skipped: AZDEVOPS_DEV_ORG and AZDEVOPS_DEV_PAT must be set. " +
+            Assert.Fail(
+                "System test skipped: AZDEVOPS_SYSTEM_TEST_ORG and AZDEVOPS_SYSTEM_TEST_PAT must be set. " +
                 "See docs/contributors.md for setup instructions.");
             return;
         }
 
-        // ── Output folder (matches scenario Artefacts.Path) ───────────────
-        // The scenario has "Path": "%TEMP%\\SystemTests\\export-ado-workitems-single-project"
-        var outputDir = Environment.ExpandEnvironmentVariables(
-            @"%TEMP%\SystemTests\export-ado-workitems-single-project");
+        // ── Output folder (matches scenario Artefacts.Path exactly) ───────
+        // scenarios/export-ado-workitems-single-project.json has
+        //   "Path": "storage\\export-ado-workitems-single-project"
+        // The CLI runs with workingDirectory = repoRoot, so the absolute output path is:
+        var outputDir = Path.Combine(CliRunner.FindRepoRoot(), "storage", "export-ado-workitems-single-project");
 
         if (Directory.Exists(outputDir))
             Directory.Delete(outputDir, recursive: true);
@@ -129,19 +130,21 @@ public class MigrationExportCommandTests
     public async Task MigrationExportCommand_SystemTest_WorkItemComments_ExitsZero_AndWritesCommentFolders()
     {
         // ── Guard ─────────────────────────────────────────────────────────
-        var orgEnv = Environment.GetEnvironmentVariable("AZDEVOPS_DEV_ORG");
-        var patEnv = Environment.GetEnvironmentVariable("AZDEVOPS_DEV_PAT");
+        var orgEnv = Environment.GetEnvironmentVariable("AZDEVOPS_SYSTEM_TEST_ORG");
+        var patEnv = Environment.GetEnvironmentVariable("AZDEVOPS_SYSTEM_TEST_PAT");
         if (string.IsNullOrEmpty(orgEnv) || string.IsNullOrEmpty(patEnv))
         {
-            Assert.Inconclusive(
-                "System test skipped: AZDEVOPS_DEV_ORG and AZDEVOPS_DEV_PAT must be set. " +
+            Assert.Fail(
+                "System test skipped: AZDEVOPS_SYSTEM_TEST_ORG and AZDEVOPS_SYSTEM_TEST_PAT must be set. " +
                 "See docs/contributors.md for setup instructions.");
             return;
         }
 
-        // ── Output folder (matches scenario Artefacts.Path) ───────────────
-        var outputDir = Environment.ExpandEnvironmentVariables(
-            @"%TEMP%\SystemTests\export-ado-workitems-single-project");
+        // ── Output folder (matches scenario Artefacts.Path exactly) ───────
+        // scenarios/export-ado-workitems-single-project.json has
+        //   "Path": "storage\\export-ado-workitems-single-project"
+        // The CLI runs with workingDirectory = repoRoot, so the absolute output path is:
+        var outputDir = Path.Combine(CliRunner.FindRepoRoot(), "storage", "export-ado-workitems-single-project");
 
         if (Directory.Exists(outputDir))
             Directory.Delete(outputDir, recursive: true);
