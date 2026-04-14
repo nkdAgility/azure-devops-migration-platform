@@ -90,7 +90,10 @@ public sealed class AzureDevOpsDependencyAnalysisService : IWorkItemLinkAnalysis
             foreach (var workItem in workItems)
             {
                 if (workItem.Relations == null || workItem.Relations.Count == 0)
+                {
+                    _logger.LogDebug("Work item {WorkItemId} has no relations", workItem.Id);
                     continue;
+                }
 
                 var sourceProject = workItem.Fields.TryGetValue("System.TeamProject", out var projObj)
                     ? projObj.ToString() ?? "Unknown"
@@ -104,11 +107,22 @@ public sealed class AzureDevOpsDependencyAnalysisService : IWorkItemLinkAnalysis
                     ? typeObj.ToString() ?? "Unknown"
                     : "Unknown";
 
+                // Log relations that don't match filter
+                var skippedRelations = workItem.Relations.Where(r => r.Rel != "System.LinkTypes.Related" &&
+                                                                      r.Rel != "System.LinkTypes.Dependency-forward" &&
+                                                                      r.Rel != "System.LinkTypes.Dependency-reverse" &&
+                                                                      !r.Rel.StartsWith("System.LinkTypes."));
+                foreach (var skipped in skippedRelations)
+                {
+                    _logger.LogDebug("Skipping relation of type {RelationType} for work item {WorkItemId}", skipped.Rel, sourceId);
+                }
+
                 foreach (var relation in workItem.Relations.Where(r => r.Rel == "System.LinkTypes.Related" ||
                                                                         r.Rel == "System.LinkTypes.Dependency-forward" ||
                                                                         r.Rel == "System.LinkTypes.Dependency-reverse" ||
                                                                         r.Rel.StartsWith("System.LinkTypes.")))
                 {
+                    _logger.LogDebug("Processing relation of type {RelationType} for work item {WorkItemId}", relation.Rel, sourceId);
                     DependencyProgressEvent? eventToYield = null;
 
                     try

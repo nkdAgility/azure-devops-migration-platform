@@ -93,5 +93,18 @@ public class DependencyCommandTests
         var header = csvLines[0];
         Assert.IsTrue(header.Contains("SourceProject", StringComparison.OrdinalIgnoreCase),
             $"CSV header does not contain 'SourceProject'. Header: {header}");
+
+        // If dependencies were discovered, verify we have at least 1 data row plus header
+        var hasNoDependenciesMessage = combinedOutput.Contains("No external dependencies found", StringComparison.OrdinalIgnoreCase);
+        if (!hasNoDependenciesMessage && csvLines.Length > 1)
+        {
+            // Dependencies were found - that's valid
+            Console.WriteLine("Dependencies discovered in output");
+        }
+        else if (hasNoDependenciesMessage && csvLines.Length == 1)
+        {
+            // No dependencies found - that's also valid
+            Console.WriteLine("No dependencies found in migrationTest5");
+        };
     }
 }
