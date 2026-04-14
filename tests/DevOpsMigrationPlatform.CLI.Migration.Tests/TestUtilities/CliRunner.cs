@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -15,6 +16,14 @@ public sealed class CliRunner
 {
     private const string ExeName = "devopsmigration.exe";
 
+    // Matches any ANSI/VT escape sequence (e.g. bold \e[1m, colour \e[32m, reset \e[0m).
+    // Even with NO_COLOR=1, Spectre.Console may still emit bold/dim sequences on Windows
+    // runners where VT processing is enabled.  Stripping them ensures regex assertions work.
+    private static readonly Regex _ansiEscapeRegex =
+        new(@"\x1B\[[0-9;]*[a-zA-Z]", RegexOptions.Compiled);
+
+    private static string StripAnsi(string s) => _ansiEscapeRegex.Replace(s, string.Empty);
+
     /// <summary>
     /// Result of a CLI invocation.
     /// </summary>
@@ -24,6 +33,24 @@ public sealed class CliRunner
         public string StandardOutput { get; init; } = string.Empty;
         public string StandardError { get; init; } = string.Empty;
         public bool TimedOut { get; init; }
+    }
+
+    /// <summary>
+    /// Resolves the repo root directory by walking up from the test assembly output directory
+    /// until a <c>DevOpsMigrationPlatform.slnx</c> file is found.
+    /// Throws <see cref="DirectoryNotFoundException"/> if the repo root cannot be located.
+    /// </summary>
+    public static string FindRepoRoot()
+    {
+        var dir = new DirectoryInfo(AppContext.BaseDirectory);
+        while (dir != null)
+        {
+            if (File.Exists(Path.Combine(dir.FullName, "DevOpsMigrationPlatform.slnx")))
+                return dir.FullName;
+            dir = dir.Parent;
+        }
+        throw new DirectoryNotFoundException(
+            $"Could not locate repo root (no DevOpsMigrationPlatform.slnx found walking up from {AppContext.BaseDirectory}).");
     }
 
     /// <summary>
@@ -101,6 +128,11 @@ public sealed class CliRunner
             CreateNoWindow = true,
         };
 
+        // Suppress ANSI/colour escape codes in captured output so regex-based assertions
+        // work correctly on all platforms/runners (e.g. Windows GitHub Actions where VT
+        // processing is enabled even with redirected stdout).
+        psi.Environment["NO_COLOR"] = "1";
+
         foreach (var arg in args)
             psi.ArgumentList.Add(arg);
 
@@ -140,8 +172,8 @@ public sealed class CliRunner
         return new CliResult
         {
             ExitCode = timedOut ? -1 : process.ExitCode,
-            StandardOutput = stdout.ToString(),
-            StandardError = stderr.ToString(),
+            StandardOutput = StripAnsi(stdout.ToString()),
+            StandardError = StripAnsi(stderr.ToString()),
             TimedOut = timedOut,
         };
     }

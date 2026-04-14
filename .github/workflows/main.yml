@@ -55,6 +55,9 @@ jobs:
 
       - name: System Test
         run: pwsh ./build.ps1 -Mode SystemTest
+        env:
+          AZDEVOPS_SYSTEM_TEST_ORG: ${{ vars.AZDEVOPS_SYSTEM_TEST_ORG }}
+          AZDEVOPS_SYSTEM_TEST_PAT: ${{ secrets.AZDEVOPS_SYSTEM_TEST_PAT }}
 
       - name: Package
         if: github.event_name != 'pull_request'

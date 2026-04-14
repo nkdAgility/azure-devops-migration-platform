@@ -63,8 +63,8 @@
                 "scenarios/inventory-ado-single-project.json"
             ],
             "env": {
-                "AZDEVOPS_DEV_ORG": "${env:AZDEVOPS_DEV_ORG}",
-                "AZDEVOPS_DEV_PAT": "${env:AZDEVOPS_DEV_PAT}"
+                "AZDEVOPS_SYSTEM_TEST_ORG": "${env:AZDEVOPS_SYSTEM_TEST_ORG}",
+                "AZDEVOPS_SYSTEM_TEST_PAT": "${env:AZDEVOPS_SYSTEM_TEST_PAT}"
             },
             "cwd": "${workspaceFolder}",
             "console": "integratedTerminal",
@@ -83,8 +83,8 @@
                 "scenarios/inventory-ado-multi-project.json"
             ],
             "env": {
-                "AZDEVOPS_DEV_ORG": "${env:AZDEVOPS_DEV_ORG}",
-                "AZDEVOPS_DEV_PAT": "${env:AZDEVOPS_DEV_PAT}"
+                "AZDEVOPS_SYSTEM_TEST_ORG": "${env:AZDEVOPS_SYSTEM_TEST_ORG}",
+                "AZDEVOPS_SYSTEM_TEST_PAT": "${env:AZDEVOPS_SYSTEM_TEST_PAT}"
             },
             "cwd": "${workspaceFolder}",
             "console": "integratedTerminal",
@@ -103,8 +103,8 @@
                 "scenarios/client/inventory-ado-multi-project.json"
             ],
             "env": {
-                "AZDEVOPS_DEV_ORG": "${env:AZDEVOPS_DEV_ORG}",
-                "AZDEVOPS_DEV_PAT": "${env:AZDEVOPS_DEV_PAT}"
+                "AZDEVOPS_SYSTEM_TEST_ORG": "${env:AZDEVOPS_SYSTEM_TEST_ORG}",
+                "AZDEVOPS_SYSTEM_TEST_PAT": "${env:AZDEVOPS_SYSTEM_TEST_PAT}"
             },
             "cwd": "${workspaceFolder}",
             "console": "integratedTerminal",
@@ -162,8 +162,8 @@
                 "scenarios/export-ado-workitems-single-project.json"
             ],
             "env": {
-                "AZDEVOPS_DEV_ORG": "${env:AZDEVOPS_DEV_ORG}",
-                "AZDEVOPS_DEV_PAT": "${env:AZDEVOPS_DEV_PAT}"
+                "AZDEVOPS_SYSTEM_TEST_ORG": "${env:AZDEVOPS_SYSTEM_TEST_ORG}",
+                "AZDEVOPS_SYSTEM_TEST_PAT": "${env:AZDEVOPS_SYSTEM_TEST_PAT}"
             },
             "cwd": "${workspaceFolder}",
             "console": "integratedTerminal",
@@ -184,8 +184,8 @@
                 "scenarios/export-ado-workitems-single-project.json"
             ],
             "env": {
-                "AZDEVOPS_DEV_ORG": "${env:AZDEVOPS_DEV_ORG}",
-                "AZDEVOPS_DEV_PAT": "${env:AZDEVOPS_DEV_PAT}"
+                "AZDEVOPS_SYSTEM_TEST_ORG": "${env:AZDEVOPS_SYSTEM_TEST_ORG}",
+                "AZDEVOPS_SYSTEM_TEST_PAT": "${env:AZDEVOPS_SYSTEM_TEST_PAT}"
             },
             "cwd": "${workspaceFolder}",
             "console": "integratedTerminal",
@@ -204,8 +204,8 @@
                 "--force-fresh"
             ],
             "env": {
-                "AZDEVOPS_DEV_ORG": "${env:AZDEVOPS_DEV_ORG}",
-                "AZDEVOPS_DEV_PAT": "${env:AZDEVOPS_DEV_PAT}"
+                "AZDEVOPS_SYSTEM_TEST_ORG": "${env:AZDEVOPS_SYSTEM_TEST_ORG}",
+                "AZDEVOPS_SYSTEM_TEST_PAT": "${env:AZDEVOPS_SYSTEM_TEST_PAT}"
             },
             "cwd": "${workspaceFolder}",
             "console": "integratedTerminal",
@@ -226,8 +226,8 @@
                 "Warning"
             ],
             "env": {
-                "AZDEVOPS_DEV_ORG": "${env:AZDEVOPS_DEV_ORG}",
-                "AZDEVOPS_DEV_PAT": "${env:AZDEVOPS_DEV_PAT}"
+                "AZDEVOPS_SYSTEM_TEST_ORG": "${env:AZDEVOPS_SYSTEM_TEST_ORG}",
+                "AZDEVOPS_SYSTEM_TEST_PAT": "${env:AZDEVOPS_SYSTEM_TEST_PAT}"
             },
             "cwd": "${workspaceFolder}",
             "console": "integratedTerminal",
@@ -245,8 +245,8 @@
                 "scenarios/client/export-ado-workitems-single-project.json"
             ],
             "env": {
-                "AZDEVOPS_DEV_ORG": "${env:AZDEVOPS_DEV_ORG}",
-                "AZDEVOPS_DEV_PAT": "${env:AZDEVOPS_DEV_PAT}"
+                "AZDEVOPS_SYSTEM_TEST_ORG": "${env:AZDEVOPS_SYSTEM_TEST_ORG}",
+                "AZDEVOPS_SYSTEM_TEST_PAT": "${env:AZDEVOPS_SYSTEM_TEST_PAT}"
             },
             "cwd": "${workspaceFolder}",
             "console": "integratedTerminal",
