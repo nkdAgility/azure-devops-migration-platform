@@ -206,7 +206,7 @@ public sealed class AzureDevOpsDependencyAnalysisService : IWorkItemLinkAnalysis
                             LinkType = relation.Rel.Replace("System.LinkTypes.", ""),
                             LinkScope = LinkScope.CrossOrganisation,
                             TargetWorkItemId = targetId,
-                            TargetProject = "",
+                            TargetProject = ExtractProjectSegment(targetUrl),
                             TargetOrganisation = targetOrgSegment,
                             TargetStatus = targetStatus
                         });
@@ -284,6 +284,34 @@ public sealed class AzureDevOpsDependencyAnalysisService : IWorkItemLinkAnalysis
             return hostParts[0];
 
         return uri.Host;
+    }
+
+    /// <summary>
+    /// Extracts the project name from an Azure DevOps work-item URL.
+    /// dev.azure.com/{org}/{project}/_apis/wit/workItems/{id} → project (segment index 1)
+    /// {org}.visualstudio.com/{project}/_apis/... → project (segment index 0)
+    /// Returns an empty string if the project cannot be determined.
+    /// </summary>
+    private static string ExtractProjectSegment(string url)
+    {
+        if (string.IsNullOrEmpty(url))
+            return string.Empty;
+
+        if (!Uri.TryCreate(url, UriKind.Absolute, out var uri))
+            return string.Empty;
+
+        var segments = uri.AbsolutePath.Split('/', StringSplitOptions.RemoveEmptyEntries);
+
+        // dev.azure.com/{org}/{project}/...
+        if (uri.Host.Equals("dev.azure.com", StringComparison.OrdinalIgnoreCase))
+            return segments.Length > 1 ? segments[1] : string.Empty;
+
+        // {org}.visualstudio.com/{project}/...
+        var hostParts = uri.Host.Split('.');
+        if (hostParts.Length >= 3 && hostParts[^2].Equals("visualstudio", StringComparison.OrdinalIgnoreCase))
+            return segments.Length > 0 ? segments[0] : string.Empty;
+
+        return string.Empty;
     }
 
     private static async Task<string> GetProjectNameAsync(
