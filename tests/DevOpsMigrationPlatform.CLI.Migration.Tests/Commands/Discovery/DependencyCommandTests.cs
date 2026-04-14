@@ -94,17 +94,11 @@ public class DependencyCommandTests
         Assert.IsTrue(header.Contains("SourceProject", StringComparison.OrdinalIgnoreCase),
             $"CSV header does not contain 'SourceProject'. Header: {header}");
 
-        // If dependencies were discovered, verify we have at least 1 data row plus header
-        var hasNoDependenciesMessage = combinedOutput.Contains("No external dependencies found", StringComparison.OrdinalIgnoreCase);
-        if (!hasNoDependenciesMessage && csvLines.Length > 1)
-        {
-            // Dependencies were found - that's valid
-            Console.WriteLine("Dependencies discovered in output");
-        }
-        else if (hasNoDependenciesMessage && csvLines.Length == 1)
-        {
-            // No dependencies found - that's also valid
-            Console.WriteLine("No dependencies found in migrationTest5");
-        };
+        // The scenario MUST discover exactly 2 dependencies: 1 cross-project and 1 cross-org from migrationTest5
+        Assert.IsTrue(csvLines.Length >= 3,  // Header + at least 2 data rows
+            $"FAILED: Expected to discover at least 2 dependencies (1 cross-project + 1 cross-org) from migrationTest5, " +
+            $"but found only {csvLines.Length - 1} data row(s). " +
+            $"migrationTest5 should have exactly 1 cross-project and 1 cross-organisation link. " +
+            $"CSV content: {string.Join("; ", csvLines)}");
     }
 }
