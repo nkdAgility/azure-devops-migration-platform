@@ -17,6 +17,13 @@ public sealed class DiscoveryOptions
     public List<OrganisationEntry> Organisations { get; set; } = new();
 
     /// <summary>
+    /// Maximum concurrent batch requests to source during dependency analysis.
+    /// Default is 4. Binds from JSON config key 'maxConcurrency' (snake_case per convention).
+    /// Prevents rate-limit triggers during parallel link fetching.
+    /// </summary>
+    public int MaxConcurrency { get; set; } = 4;
+
+    /// <summary>
     /// Validates the options, throwing <see cref="InvalidOperationException"/> on any violation.
     /// Called at command startup before any API calls.
     /// </summary>
