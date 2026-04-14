@@ -238,6 +238,11 @@ Reject any proposal that:
 - References a concrete artefact store implementation inside module code.
 - Sorts `EnumerateAsync` results in memory.
 - Creates agent rule files under `/docs` instead of `/.agents/guardrails`.
+- **Implements a custom work item export/import loop instead of using `WorkItemExportOrchestrator` and `IWorkItemRevisionSource`** (see [docs/work-item-iteration-pattern.md](docs/work-item-iteration-pattern.md)).
+- **Implements custom progress tracking instead of using `ICheckpointingService` with cursor-based state in `IStateStore`** (watermark tables, in-memory dictionaries, and progress databases are forbidden).
+- **Implements custom enumeration or sorting logic instead of using `IArtefactStore.EnumerateAsync()` in lexicographic order** (no in-memory result sets, no custom sorting).
+- **Buffers attachments or binary data in memory instead of streaming via `IArtefactStore.WriteBinaryAsync()` or `IAttachmentBinarySource`**.
+- **Invents a new abstraction for work item processing without extending an existing pattern or documenting why no existing abstraction could be reused** (motivated by rule 21 of [.agents/guardrails/system-architecture.md](.agents/guardrails/system-architecture.md)).
 - Declares a task complete without a passing `dotnet clean && dotnet build --no-incremental`.
 - Declares a task complete without all tests passing (`dotnet test`).
 - Declares a task complete without running at least one scenario config (e.g. `scenarios/export-ado-workitems-single-project.json`) via a `launch.json` debug profile and verifying observable output.
