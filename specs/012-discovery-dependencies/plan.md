@@ -5,110 +5,122 @@
 
 ## Summary
 
-[Extract from feature spec: primary requirement + technical approach from research]
+Add a `devopsmigration discovery dependencies` command that analyses configured Azure DevOps and TFS organisations, identifies all cross-project and cross-organisation work item links at scale (millions of links), and produces three outputs in a single streaming pass:
+
+1. **`discovery-dependencies.csv`** — one row per external link (work-item granularity)
+2. **`discovery-project-dependencies.csv`** — one row per directed project pair (consolidation planning)
+3. **`discovery-project-dependencies.md`** — Mermaid `flowchart LR` diagram showing project dependency graph including cross-org boundary nodes
+
+The command uses `DiscoveryOptions` (same config as `discovery inventory`), supports `--wiql` filtering, and delegates TFS analysis via the existing subprocess bridge. All three outputs are computed from a single `IAsyncEnumerable` streaming pass — zero post-pass API calls.
 
 ## Technical Context
 
-<!--
-  ACTION REQUIRED: Replace the content in this section with the technical details
-  for the project. The structure here is presented in advisory capacity to guide
-  the iteration process.
--->
-
-**Language/Version**: [e.g., Python 3.11, Swift 5.9, Rust 1.75 or NEEDS CLARIFICATION]  
-**Primary Dependencies**: [e.g., FastAPI, UIKit, LLVM or NEEDS CLARIFICATION]  
-**Storage**: [if applicable, e.g., PostgreSQL, CoreData, files or N/A]  
-**Testing**: [e.g., pytest, XCTest, cargo test or NEEDS CLARIFICATION]  
-**Target Platform**: [e.g., Linux server, iOS 15+, WASM or NEEDS CLARIFICATION]
-**Project Type**: [e.g., library/cli/web-service/mobile-app/compiler/desktop-app or NEEDS CLARIFICATION]  
-**Performance Goals**: [domain-specific, e.g., 1000 req/s, 10k lines/sec, 60 fps or NEEDS CLARIFICATION]  
-**Constraints**: [domain-specific, e.g., <200ms p95, <100MB memory, offline-capable or NEEDS CLARIFICATION]  
-**Scale/Scope**: [domain-specific, e.g., 10k users, 1M LOC, 50 screens or NEEDS CLARIFICATION]
+**Language/Version**: C# 12 / .NET 10  
+**Primary Dependencies**: Spectre.Console.Cli, Microsoft.TeamFoundationServer.Client (ADO REST SDK), MSTest, Moq  
+**Storage**: File system only (CSV + Markdown output via `StreamWriter`); no `IArtefactStore` (discovery commands are stateless)  
+**Testing**: MSTest v3 + Moq; `[TestCategory("SystemTest")]` + `CliRunner` for system tests  
+**Target Platform**: Windows + Linux (net10.0); TFS subprocess is net481 Windows-only  
+**Project Type**: CLI command extension to existing `devopsmigration` binary  
+**Performance Goals**: Process millions of links without exceeding ~200 MB heap; sustain ADO batch-GET throughput at `MaxConcurrency` concurrent calls (default 4); complete a 50k-WI / 500k-link org in minutes not hours  
+**Constraints**: All link records written immediately to `StreamWriter` — never collected in a `List<T>`; project-pair accumulator is `Dictionary<ProjectPairKey, int>` bounded by P² (P = project count); GroupId computed by Union-Find post-stream (O(P), not O(links))  
+**Scale/Scope**: Target: millions of links across hundreds of projects; memory profile O(P²) for aggregation, O(1) for per-link processing
 
 ## Constitution Check
 
-*GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
+*GATE: All guardrail files read via `read_file` before this plan was drafted.*
 
-> **Mandatory context loading:** Before completing this gate, confirm that ALL files in
-> `/.agents/guardrails/`, ALL files in `/.agents/context/`, and relevant `/docs/` files
-> have been read. Skipping either `.agents/` subdirectory is a constitution violation.
-
-- [ ] **Package-First (I):** No direct source-to-target migration. All reads/writes go via the on-disk package through `IArtefactStore`.
-- [ ] **Streaming (II):** Import processes one revision folder at a time. No in-memory list/array of all revisions. No in-memory sort of `EnumerateAsync` results.
-- [ ] **WorkItems Layout (III):** Folder structure `WorkItems/yyyy-MM-dd/<ticks>-<workItemId>-<revisionIndex>/` is preserved. No attachments root. No renaming or flattening.
-- [ ] **Checkpointing (IV):** Module uses a cursor file under `Checkpoints/`. No watermark tables or in-memory progress counters.
-- [ ] **Module Isolation (V):** All persistence through `IArtefactStore`/`IStateStore`. No concrete store references in module code. Identity via `IIdentityMappingService`.
-- [ ] **Separation of Planes (VI):** Control plane has no migration logic. Job Engine has no UI coupling. TUI has no migration logic. TFS exporter only via subprocess adapter.
-- [ ] **Determinism (VII):** Same inputs produce stable package layout. All breaking schema changes include an upgrader.
-- [ ] **ATDD-First (VIII):** Every user story in `spec.md` has at least one Given/When/Then acceptance scenario. Each scenario will be implemented via the ATDD inner loop (Specification → Test Gen → Implementation → Review) — one scenario per session per commit.
-- [ ] **SOLID & DI (IX):** All new services and modules receive dependencies via constructor injection only. Configuration is bound via `IOptions<T>` with a sealed options class and `SectionName` constant. No raw `IConfiguration` access inside services. Interfaces are defined in `DevOpsMigrationPlatform.Abstractions`. Registration lives in a dedicated `Add*Services` extension method.
+- [x] **Package-First (I):** N/A — `discovery dependencies` is a local read-only command. It does not write to `IArtefactStore` and does not perform a migration. No package is created.
+- [x] **Streaming (II):** N/A — discovery commands do not process revision folders. However, the equivalent principle applies: `DependencyFoundEvent` records are written to CSV immediately and discarded; no in-memory list of all records.
+- [x] **WorkItems Layout (III):** N/A — this command does not write a package.
+- [x] **Checkpointing (IV):** N/A — discovery commands have no checkpoint support (spec assumption: re-run from scratch on failure, consistent with `discovery inventory`).
+- [x] **Module Isolation (V):** N/A — this is a CLI command, not a migration module. No `IArtefactStore` or `IStateStore` interactions.
+- [x] **Separation of Planes (VI):** ✓ — TFS delegation uses `TfsDependencyProcessAdapter` via `IExternalToolRunner` subprocess bridge, not direct TFS OM calls from the CLI layer. `DependencyDiscoveryService` lives in `Infrastructure`, not in the CLI. `DependencyCommand` contains no migration logic.
+- [x] **Determinism (VII):** ✓ — `SimulatedDependencyAnalysisService` uses seeded `Random`; CSV column order is fixed; `MermaidDiagramBuilder` emits nodes in sorted order.
+- [x] **ATDD-First (VIII):** ✓ — all four user stories (US1–US4) have explicit Given/When/Then scenarios in `spec.md`.
+- [x] **SOLID & DI (IX):** ✓ — three `IWorkItemLinkAnalysisService` implementations registered as **keyed singletons** by `entry.Type` string via `AddKeyedSingleton`; `DependencyDiscoveryService` resolves by key via `IServiceProvider.GetKeyedService<T>(key)`; no concrete type references across layer boundaries; `Infrastructure` never references `CLI.Migration` types.
 
 ## Project Structure
 
 ### Documentation (this feature)
 
 ```text
-specs/[###-feature]/
-├── plan.md              # This file (/speckit.plan command output)
-├── research.md          # Phase 0 output (/speckit.plan command)
-├── data-model.md        # Phase 1 output (/speckit.plan command)
-├── quickstart.md        # Phase 1 output (/speckit.plan command)
-├── contracts/           # Phase 1 output (/speckit.plan command)
-└── tasks.md             # Phase 2 output (/speckit.tasks command - NOT created by /speckit.plan)
+specs/012-discovery-dependencies/
+├── plan.md              ← this file
+├── research.md          ← 14 research decisions (incl. streaming aggregation + Mermaid)
+├── data-model.md        ← all new types incl. ProjectPairKey, ProjectDependencyRecord, MermaidDiagramBuilder
+├── quickstart.md        ← end-to-end usage guide with all three outputs
+├── contracts/
+│   └── dependency-command.md  ← CLI options, output formats, DI registration, invariants
+└── tasks.md             ← 44+ tasks across 8 phases (generated by /speckit.tasks)
 ```
 
 ### Source Code (repository root)
-<!--
-  ACTION REQUIRED: Replace the placeholder tree below with the concrete layout
-  for this feature. Delete unused options and expand the chosen structure with
-  real paths (e.g., apps/admin, packages/something). The delivered plan must
-  not include Option labels.
--->
 
 ```text
-# [REMOVE IF UNUSED] Option 1: Single project (DEFAULT)
 src/
-├── models/
-├── services/
-├── cli/
-└── lib/
+├── DevOpsMigrationPlatform.Abstractions/
+│   ├── Models/
+│   │   ├── LinkScope.cs                         NEW — CrossProject | CrossOrganisation
+│   │   ├── TargetStatus.cs                      NEW — Reachable | Deleted | AccessDenied | Unknown
+│   │   ├── DependencyRecord.cs                  NEW — 9-field record, unit of CSV row
+│   │   ├── DependencySummary.cs                 NEW — aggregate counts for summary table
+│   │   └── DependencyProgressEvent.cs           NEW — abstract + DependencyFoundEvent + DependencyHeartbeatEvent
+│   ├── Services/
+│   │   ├── IDependencyDiscoveryService.cs       NEW — org-level orchestration interface
+│   │   └── IWorkItemLinkAnalysisService.cs      NEW — per-org link analysis interface
+│   └── Options/
+│       └── DiscoveryOptions.cs                  MODIFIED — add MaxConcurrency (int, default 4)
+│
+├── DevOpsMigrationPlatform.Infrastructure/
+│   └── Services/
+│       ├── DependencyDiscoveryService.cs        NEW — iterates orgs, dispatches by keyed IWorkItemLinkAnalysisService
+│       └── SimulatedDependencyAnalysisService.cs NEW — seeded Random, deterministic synthetic records
+│
+├── DevOpsMigrationPlatform.Infrastructure.AzureDevOps/
+│   ├── Services/
+│   │   └── AzureDevOpsDependencyAnalysisService.cs  NEW — ADO REST: WIQL + batch-GET + link classification
+│   └── DependencyServiceCollectionExtensions.cs     NEW — AddAzureDevOpsDependencyAnalysis, keyed registrations
+│
+└── DevOpsMigrationPlatform.CLI.Migration/
+    ├── Commands/Discovery/
+    │   ├── DependencyCommand.cs                 NEW — CLI entry; StreamWriter; accumulator; tables; Mermaid
+    │   ├── ProjectPairKey.cs                    NEW — record struct key for accumulator dict
+    │   ├── ProjectDependencyRecord.cs           NEW — aggregated row for project CSV
+    │   └── MermaidDiagramBuilder.cs             NEW — flowchart LR generator with sanitised node IDs
+    ├── TfsDependencyProcessAdapter.cs           NEW — IWorkItemLinkAnalysisService via subprocess bridge
+    └── Program.cs                               MODIFIED — register DependencyCommand in discovery branch
 
 tests/
-├── contract/
-├── integration/
-└── unit/
+├── DevOpsMigrationPlatform.CLI.Migration.Tests/
+│   └── Commands/Discovery/
+│       ├── DependencyCommandTests.cs            NEW — unit + system tests
+│       └── MermaidDiagramBuilderTests.cs        NEW — sanitisation + rendering unit tests
+└── DevOpsMigrationPlatform.Infrastructure.Tests/
+    └── Dependencies/
+        ├── AzureDevOpsDependencyAnalysisServiceTests.cs  NEW
+        ├── DependencyDiscoveryServiceTests.cs            NEW
+        └── SimulatedDependencyAnalysisServiceTests.cs    NEW
 
-# [REMOVE IF UNUSED] Option 2: Web application (when "frontend" + "backend" detected)
-backend/
-├── src/
-│   ├── models/
-│   ├── services/
-│   └── api/
-└── tests/
+features/
+├── cli/discovery/
+│   └── dependency-command-wiring.feature       NEW — CLI-tier acceptance scenarios
+└── inventory/work-items/
+    └── dependency-analysis.feature             NEW — capability-tier acceptance scenarios
 
-frontend/
-├── src/
-│   ├── components/
-│   ├── pages/
-│   └── services/
-└── tests/
+scenarios/
+└── discovery-dependency-ado-single-project.json  NEW — scenario config for manual testing
 
-# [REMOVE IF UNUSED] Option 3: Mobile + API (when "iOS/Android" detected)
-api/
-└── [same as backend above]
+.vscode/
+└── launch.json                                  MODIFIED — two new dependency launch entries
 
-ios/ or android/
-└── [platform-specific structure: feature modules, UI flows, platform tests]
+src/DevOpsMigrationPlatform.CLI.TfsMigration/   MODIFIED — add 'dependencies' subcommand
 ```
-
-**Structure Decision**: [Document the selected structure and reference the real
-directories captured above]
 
 ## Complexity Tracking
 
-> **Fill ONLY if Constitution Check has violations that must be justified**
-
-| Violation | Why Needed | Simpler Alternative Rejected Because |
-|-----------|------------|-------------------------------------|
-| [e.g., 4th project] | [current need] | [why 3 projects insufficient] |
-| [e.g., Repository pattern] | [specific problem] | [why direct DB access insufficient] |
+| Decision | Why Needed | Simpler Alternative Rejected Because |
+|----------|------------|--------------------------------------|
+| Keyed DI (`AddKeyedSingleton`) for three `IWorkItemLinkAnalysisService` impls | Three org types (ADO, TFS, Simulated) need different implementations; Infrastructure must not reference CLI.Migration types | Single interface with a decorator/factory: adds an extra abstraction layer for no benefit; keyed services are the native .NET 8+ pattern |
+| `Dictionary<ProjectPairKey, int>` streaming accumulator + post-pass Union-Find | Millions of links cannot be held in memory; project graph required for GroupId and Mermaid | Two-pass (stream then re-read CSV): slow; full `List<DependencyRecord>`: O(links) memory, violates scale requirement |
+| `MermaidDiagramBuilder` bespoke string builder | Mermaid output must be GitHub/ADO wiki compatible; no suitable NuGet library exists | Third-party library: adds dependency risk; DOT/SVG: not natively rendered in both target wikis |
+| TFS subprocess bridge for `TfsDependencyProcessAdapter` | TFS OM is net481-only; must not be referenced from net10.0 CLI.Migration | Direct TFS OM reference: breaks netstandard/net10 targets; violates Principle VI |
