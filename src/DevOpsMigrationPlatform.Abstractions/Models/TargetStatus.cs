@@ -16,7 +16,15 @@ public enum TargetStatus
     Deleted,
 
     /// <summary>
-    /// The target work item exists but the authenticated user does not have read access.
+    /// The target work item was not found (HTTP 404). Because ADO returns 404 for both
+    /// deleted items and permission-denied items, this is ambiguous — it may mean the
+    /// item was deleted OR the caller lacks read access to it.
+    /// </summary>
+    NotFound,
+
+    /// <summary>
+    /// The target work item exists but the authenticated user does not have read access
+    /// (HTTP 401 or 403 at the organisation level).
     /// </summary>
     AccessDenied,
 

@@ -414,7 +414,20 @@ public sealed class AzureDevOpsDependencyAnalysisService : IWorkItemLinkAnalysis
                 new System.Net.Http.HttpRequestMessage(System.Net.Http.HttpMethod.Head, targetUrl),
                 cancellationToken).ConfigureAwait(false);
 
-            return response.IsSuccessStatusCode ? TargetStatus.Reachable : TargetStatus.Deleted;
+            if (response.IsSuccessStatusCode)
+                return TargetStatus.Reachable;
+
+            // ADO returns 404 for both genuinely deleted items AND items the caller
+            // cannot read (to avoid information leakage) — so 404 is ambiguous.
+            if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
+                return TargetStatus.NotFound;
+
+            // 401/403 means the PAT has no access to this organisation at all.
+            if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized ||
+                response.StatusCode == System.Net.HttpStatusCode.Forbidden)
+                return TargetStatus.AccessDenied;
+
+            return TargetStatus.Unknown;
         }
         catch
         {
