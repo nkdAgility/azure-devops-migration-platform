@@ -13,12 +13,12 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.0" />
-    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.*" />
-    <PackageReference Include="MSTest.TestAdapter" Version="3.*" />
-    <PackageReference Include="MSTest.TestFramework" Version="3.*" />
-    <PackageReference Include="Reqnroll.MSTest" Version="2.*" />
-    <PackageReference Include="Moq" Version="4.*" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="MSTest.TestAdapter" />
+    <PackageReference Include="MSTest.TestFramework" />
+    <PackageReference Include="Reqnroll.MSTest" />
+    <PackageReference Include="Moq" />
   </ItemGroup>
 
   <ItemGroup>

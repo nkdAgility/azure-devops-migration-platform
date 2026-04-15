@@ -12,36 +12,36 @@
 
   <!-- Options + config-binding -->
   <ItemGroup Condition="'$(TargetFramework)' == 'net481'">
-    <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" Version="9.0.5" />
+    <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" VersionOverride="9.0.5" />
   </ItemGroup>
   <ItemGroup Condition="'$(TargetFramework)' != 'net481'">
-    <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" Version="10.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" />
   </ItemGroup>
 
   <!-- OpenTelemetry — .NET 10 only; not available in the .NET 4.8 subprocess -->
   <ItemGroup Condition="'$(TargetFramework)' != 'net481'">
-    <PackageReference Include="OpenTelemetry" Version="1.14.0" />
-    <PackageReference Include="OpenTelemetry.Extensions.Hosting" Version="1.14.0" />
-    <PackageReference Include="Microsoft.Extensions.Http" Version="10.0.0" />
+    <PackageReference Include="OpenTelemetry" />
+    <PackageReference Include="OpenTelemetry.Extensions.Hosting" />
+    <PackageReference Include="Microsoft.Extensions.Http" />
   </ItemGroup>
 
   <ItemGroup Condition="'$(TargetFramework)' == 'net481'">
-    <PackageReference Include="Microsoft.Bcl.AsyncInterfaces" Version="9.0.5" />
-    <PackageReference Include="System.Text.Json" Version="9.0.4" />
-    <PackageReference Include="System.Runtime.CompilerServices.Unsafe" Version="6.0.0" />
+    <PackageReference Include="Microsoft.Bcl.AsyncInterfaces" />
+    <PackageReference Include="System.Text.Json" VersionOverride="9.0.5" />
+    <PackageReference Include="System.Runtime.CompilerServices.Unsafe" />
   </ItemGroup>
 
   <!-- HTML parsing for embedded image discovery in field values -->
   <ItemGroup>
-    <PackageReference Include="HtmlAgilityPack" Version="1.11.61" />
+    <PackageReference Include="HtmlAgilityPack" />
   </ItemGroup>
 
   <!-- Logging for export services -->
   <ItemGroup Condition="'$(TargetFramework)' == 'net481'">
-    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="9.0.5" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" VersionOverride="9.0.5" />
   </ItemGroup>
   <ItemGroup Condition="'$(TargetFramework)' != 'net481'">
-    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
   </ItemGroup>
 
   <ItemGroup>
