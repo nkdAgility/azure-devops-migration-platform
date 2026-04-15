@@ -166,6 +166,10 @@ The `WorkItems` module accepts a `scopes` array and named extensions:
 | `extensions[Comments].parameters.includeDeleted` | bool | `false` | When `true`, include soft-deleted comments in the export. |
 | `extensions[EmbeddedImages].enabled` | bool | `true` | When `true`, download inline images from HTML/Markdown fields and rewrite URLs. |
 | `extensions[EmbeddedImages].parameters.downloadTimeoutSeconds` | int | `30` | Timeout in seconds for individual image downloads. |
+| `extensions[WorkItemResolutionStrategy].enabled` | bool | `false` | When `true`, seed `idmap.db` from the target at import startup using the configured strategy. Applicable to **import** only. |
+| `extensions[WorkItemResolutionStrategy].parameters.strategy` | string | — | Strategy name: `TargetField` or `TargetHyperlink`. Required when enabled. |
+| `extensions[WorkItemResolutionStrategy].parameters.fieldName` | string | — | **TargetField only**: Reference name of the custom field that holds the source work item ID (e.g. `Custom.SourceWorkItemId`). |
+| `extensions[WorkItemResolutionStrategy].parameters.urlPattern` | string | — | **TargetHyperlink only**: URL pattern with `{id}` as the source ID placeholder (e.g. `https://source.example.com/wi/{id}`). |
 
 ### Config Versioning and Upgrader
 

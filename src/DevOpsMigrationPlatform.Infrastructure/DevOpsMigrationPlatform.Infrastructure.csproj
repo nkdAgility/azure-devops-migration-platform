@@ -36,6 +36,11 @@
     <PackageReference Include="HtmlAgilityPack" />
   </ItemGroup>
 
+  <!-- SQLite for package-local idmap.db (not a control-plane database) -->
+  <ItemGroup Condition="'$(TargetFramework)' != 'net481'">
+    <PackageReference Include="Microsoft.Data.Sqlite" />
+  </ItemGroup>
+
   <!-- Logging for export services -->
   <ItemGroup Condition="'$(TargetFramework)' == 'net481'">
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" VersionOverride="9.0.5" />

@@ -19,9 +19,9 @@
 
 **Purpose**: Add the `Microsoft.Data.Sqlite` dependency, create the import scenario config, and add the `.vscode/launch.json` import debug profile.
 
-- [ ] T001 Add `Microsoft.Data.Sqlite` package reference to `Directory.Packages.props` and to `src/DevOpsMigrationPlatform.Infrastructure/DevOpsMigrationPlatform.Infrastructure.csproj`
-- [ ] T002 [P] Create import scenario config file at `scenarios/import-ado-workitems-single-project.json` with `mode: Import`, `target.type: Simulated`, and WorkItems module with all extensions enabled
-- [ ] T003 [P] Add `.vscode/launch.json` debug profile for import scenario (name: `📥 Migration CLI: Queue Import (Simulated)`, args: `queue --config scenarios/import-ado-workitems-single-project.json`)
+- [X] T001 Add `Microsoft.Data.Sqlite` package reference to `Directory.Packages.props` and to `src/DevOpsMigrationPlatform.Infrastructure/DevOpsMigrationPlatform.Infrastructure.csproj`
+- [X] T002 [P] Create import scenario config file at `scenarios/import-ado-workitems-single-project.json` with `mode: Import`, `target.type: Simulated`, and WorkItems module with all extensions enabled
+- [X] T003 [P] Add `.vscode/launch.json` debug profile for import scenario (name: `📥 Migration CLI: Queue Import (Simulated)`, args: `queue --config scenarios/import-ado-workitems-single-project.json`)
 
 ---
 
@@ -31,19 +31,19 @@
 
 **⚠️ CRITICAL**: No user story implementation can begin until this phase is complete.
 
-- [ ] T004 Create `IdMapEntry` record in `src/DevOpsMigrationPlatform.Abstractions/Models/IdMapEntry.cs` with `SourceId` (int) and `TargetId` (int) properties
-- [ ] T005 [P] Create `AttachmentMapEntry` record in `src/DevOpsMigrationPlatform.Abstractions/Models/AttachmentMapEntry.cs` with `SourceWorkItemId`, `RevisionIndex`, `RelativePath`, `TargetAttachmentId` properties
-- [ ] T006 [P] Create `ImportedWorkItemResult` record in `src/DevOpsMigrationPlatform.Abstractions/Models/ImportedWorkItemResult.cs` with `TargetWorkItemId` (int) and `IsNewlyCreated` (bool) properties
-- [ ] T007 [P] Create `EmbeddedImageMetadata` record in `src/DevOpsMigrationPlatform.Abstractions/Models/EmbeddedImageMetadata.cs` with `OriginalUrl`, `RelativePath`, `Extension`, `Sha256`, `Size` properties
-- [ ] T008 [P] Create `WorkItemRelations` record in `src/DevOpsMigrationPlatform.Abstractions/Models/WorkItemRelations.cs` with `RelatedLinks`, `ExternalLinks`, `Hyperlinks` read-only list properties
-- [ ] T009 [P] Add `EmbeddedImages` property (`IReadOnlyList<EmbeddedImageMetadata>`) to `WorkItemRevision` record in `src/DevOpsMigrationPlatform.Abstractions/Models/WorkItemRevision.cs`
-- [ ] T010 Create `IIdMapStore` interface in `src/DevOpsMigrationPlatform.Abstractions/Services/IIdMapStore.cs` with `InitializeAsync`, `GetTargetWorkItemIdAsync`, `SetWorkItemMappingAsync`, `GetAttachmentIdAsync`, `SetAttachmentMappingAsync`, `SeedWorkItemMappingsAsync` methods per contracts/IWorkItemImportTarget.md
-- [ ] T011 [P] Create `IWorkItemImportTarget` interface in `src/DevOpsMigrationPlatform.Abstractions/Services/IWorkItemImportTarget.cs` with `CreateWorkItemAsync`, `UpdateFieldsAsync`, `AddLinksAsync`, `UploadAttachmentAsync`, `UploadEmbeddedImageAsync`, `CreateCommentAsync`, `GetExistingRelationsAsync` methods per contracts/IWorkItemImportTarget.md
-- [ ] T012 [P] Create `IWorkItemImportTargetFactory` interface in `src/DevOpsMigrationPlatform.Abstractions/Services/IWorkItemImportTargetFactory.cs` with `CreateAsync(orgUrl, project, accessToken, ct)` method
-- [ ] T013 [P] Create `IWorkItemResolutionStrategy` interface in `src/DevOpsMigrationPlatform.Abstractions/Services/IWorkItemResolutionStrategy.cs` with `SeedAsync`, `ResolveSingleAsync`, `WriteProvenanceAsync` methods per contracts/IWorkItemImportTarget.md
-- [ ] T014 Implement `SqliteIdMapStore` in `src/DevOpsMigrationPlatform.Infrastructure/Import/SqliteIdMapStore.cs` — creates/opens `Checkpoints/idmap.db` via `IArtefactStore`, implements `IIdMapStore` with `work_item_map` and `attachment_map` tables per data-model.md SQLite schema
-- [ ] T015 [P] Implement `NullResolutionStrategy` in `src/DevOpsMigrationPlatform.Infrastructure.AzureDevOps/Import/NullResolutionStrategy.cs` — `SeedAsync` is no-op, `ResolveSingleAsync` returns null, `WriteProvenanceAsync` is no-op (FR-023 default fallback)
-- [ ] T015b [P] Implement `SimulatedWorkItemImportTarget` in `src/DevOpsMigrationPlatform.Infrastructure/Import/SimulatedWorkItemImportTarget.cs` — minimal in-memory `IWorkItemImportTarget` for offline testing. `CreateWorkItemAsync` assigns auto-incrementing target IDs, validates fields are non-empty, returns `ImportedWorkItemResult`. `UpdateFieldsAsync`, `AddLinksAsync`, `CreateCommentAsync` validate inputs and log calls. `UploadAttachmentAsync` / `UploadEmbeddedImageAsync` return deterministic fake URLs. `GetExistingRelationsAsync` returns empty `WorkItemRelations`. Registers via `AddSimulatedImportServices()` when `target.type == "Simulated"`. Required by T002/T050 scenario config.
+- [X] T004 Create `IdMapEntry` record in `src/DevOpsMigrationPlatform.Abstractions/Models/IdMapEntry.cs` with `SourceId` (int) and `TargetId` (int) properties
+- [X] T005 [P] Create `AttachmentMapEntry` record in `src/DevOpsMigrationPlatform.Abstractions/Models/AttachmentMapEntry.cs` with `SourceWorkItemId`, `RevisionIndex`, `RelativePath`, `TargetAttachmentId` properties
+- [X] T006 [P] Create `ImportedWorkItemResult` record in `src/DevOpsMigrationPlatform.Abstractions/Models/ImportedWorkItemResult.cs` with `TargetWorkItemId` (int) and `IsNewlyCreated` (bool) properties
+- [X] T007 [P] Create `EmbeddedImageMetadata` record in `src/DevOpsMigrationPlatform.Abstractions/Models/EmbeddedImageMetadata.cs` with `OriginalUrl`, `RelativePath`, `Extension`, `Sha256`, `Size` properties
+- [X] T008 [P] Create `WorkItemRelations` record in `src/DevOpsMigrationPlatform.Abstractions/Models/WorkItemRelations.cs` with `RelatedLinks`, `ExternalLinks`, `Hyperlinks` read-only list properties
+- [X] T009 [P] Add `EmbeddedImages` property (`IReadOnlyList<EmbeddedImageMetadata>`) to `WorkItemRevision` record in `src/DevOpsMigrationPlatform.Abstractions/Models/WorkItemRevision.cs`
+- [X] T010 Create `IIdMapStore` interface in `src/DevOpsMigrationPlatform.Abstractions/Services/IIdMapStore.cs` with `InitializeAsync`, `GetTargetWorkItemIdAsync`, `SetWorkItemMappingAsync`, `GetAttachmentIdAsync`, `SetAttachmentMappingAsync`, `SeedWorkItemMappingsAsync` methods per contracts/IWorkItemImportTarget.md
+- [X] T011 [P] Create `IWorkItemImportTarget` interface in `src/DevOpsMigrationPlatform.Abstractions/Services/IWorkItemImportTarget.cs` with `CreateWorkItemAsync`, `UpdateFieldsAsync`, `AddLinksAsync`, `UploadAttachmentAsync`, `UploadEmbeddedImageAsync`, `CreateCommentAsync`, `GetExistingRelationsAsync` methods per contracts/IWorkItemImportTarget.md
+- [X] T012 [P] Create `IWorkItemImportTargetFactory` interface in `src/DevOpsMigrationPlatform.Abstractions/Services/IWorkItemImportTargetFactory.cs` with `CreateAsync(orgUrl, project, accessToken, ct)` method
+- [X] T013 [P] Create `IWorkItemResolutionStrategy` interface in `src/DevOpsMigrationPlatform.Abstractions/Services/IWorkItemResolutionStrategy.cs` with `SeedAsync`, `ResolveSingleAsync`, `WriteProvenanceAsync` methods per contracts/IWorkItemImportTarget.md
+- [X] T014 Implement `SqliteIdMapStore` in `src/DevOpsMigrationPlatform.Infrastructure/Import/SqliteIdMapStore.cs` — creates/opens `Checkpoints/idmap.db` via `IArtefactStore`, implements `IIdMapStore` with `work_item_map` and `attachment_map` tables per data-model.md SQLite schema
+- [X] T015 [P] Implement `NullResolutionStrategy` in `src/DevOpsMigrationPlatform.Infrastructure.AzureDevOps/Import/NullResolutionStrategy.cs` — `SeedAsync` is no-op, `ResolveSingleAsync` returns null, `WriteProvenanceAsync` is no-op (FR-023 default fallback)
+- [X] T015b [P] Implement `SimulatedWorkItemImportTarget` in `src/DevOpsMigrationPlatform.Infrastructure/Import/SimulatedWorkItemImportTarget.cs` — minimal in-memory `IWorkItemImportTarget` for offline testing. `CreateWorkItemAsync` assigns auto-incrementing target IDs, validates fields are non-empty, returns `ImportedWorkItemResult`. `UpdateFieldsAsync`, `AddLinksAsync`, `CreateCommentAsync` validate inputs and log calls. `UploadAttachmentAsync` / `UploadEmbeddedImageAsync` return deterministic fake URLs. `GetExistingRelationsAsync` returns empty `WorkItemRelations`. Registers via `AddSimulatedImportServices()` when `target.type == "Simulated"`. Required by T002/T050 scenario config.
 
 **Checkpoint**: All interfaces and foundational types exist. User story implementation can begin.
 
@@ -57,18 +57,18 @@
 
 ### Gherkin Feature File for User Story 1 (mandatory)
 
-- [ ] T016 [US1] Create `features/import/work-items/revisions/streaming-replay.feature` — translate spec.md User Story 1 acceptance scenarios 1–6 into conformant Gherkin per `.agents/guardrails/acceptance-test-format.md` (Feature: Import Work Item Revisions via Streaming Replay)
+- [X] T016 [US1] Create `features/import/work-items/revisions/streaming-replay.feature` — translate spec.md User Story 1 acceptance scenarios 1–6 into conformant Gherkin per `.agents/guardrails/acceptance-test-format.md` (Feature: Import Work Item Revisions via Streaming Replay)
 
 ### Implementation for User Story 1
 
-- [ ] T017 [US1] Implement `RevisionFolderProcessor` in `src/DevOpsMigrationPlatform.Infrastructure/Import/RevisionFolderProcessor.cs` — 4-stage processing (CreatedOrUpdated → AppliedFields → AppliedLinks → UploadedAttachments) for a single revision folder. Constructor receives `IWorkItemImportTarget`, `IIdMapStore`, `ICheckpointingService`, `IIdentityMappingService`, `IArtefactStore`. Reads `revision.json`, deserializes to `WorkItemRevision`, delegates to target abstraction. Writes cursor via `ICheckpointingService` after each stage. Checks `IIdMapStore` before Stage A creation and Stage D upload. Respects ALL extension enabled flags: skip Stage C if `Links: false`, skip Stage D if `Attachments: false`, skip inline comments if `Comments: false`, skip embedded image processing if `EmbeddedImages: false`. If `Revisions: false`, skip 4-stage processing entirely (caller handles simplified path). `IIdentityMappingService` is accepted as a dependency but pass-through (unused) until T031 extends Stage B.
-- [ ] T018 [US1] Implement `WorkItemImportOrchestrator` in `src/DevOpsMigrationPlatform.Infrastructure/Import/WorkItemImportOrchestrator.cs` — streaming import loop. Constructor receives `IArtefactStore`, `ICheckpointingService`, `IProgressSink`, `IWorkItemResolutionStrategy`, `RevisionFolderProcessor`. On `ImportAsync`: reads cursor, calls `IWorkItemResolutionStrategy.SeedAsync()`, enumerates `IArtefactStore.EnumerateAsync("WorkItems/")` lazily, skips folders <= cursor, parses folder name to distinguish revision vs comment folders, delegates to `RevisionFolderProcessor` for revisions, emits `ProgressEvent` after each folder. If `Revisions` extension is disabled, skip revision folder processing entirely (import only creates work items at latest state via a simplified path). If `Comments: false`, skip all comment folder processing.
-- [ ] T019 [US1] Implement `AzureDevOpsWorkItemImportTarget` in `src/DevOpsMigrationPlatform.Infrastructure.AzureDevOps/Import/AzureDevOpsWorkItemImportTarget.cs` — wraps `WorkItemTrackingHttpClient`. `CreateWorkItemAsync` builds `JsonPatchDocument` with field `add` operations, calls SDK `CreateWorkItemAsync`. `UpdateFieldsAsync` builds patch doc with field values. `AddLinksAsync` adds relation entries, calls `GetExistingRelationsAsync` internally to skip duplicates. `UploadAttachmentAsync` calls SDK `CreateAttachmentAsync` then adds attachment relation. `CreateCommentAsync` calls SDK `AddCommentAsync`. `GetExistingRelationsAsync` calls SDK `GetWorkItemAsync(expand: Relations)`. All methods propagate `CancellationToken`. Uses Polly retry with exponential back-off.
-- [ ] T020 [US1] Implement `AzureDevOpsWorkItemImportTargetFactory` in `src/DevOpsMigrationPlatform.Infrastructure.AzureDevOps/Import/AzureDevOpsWorkItemImportTargetFactory.cs` — creates `WorkItemTrackingHttpClient` from orgUrl/pat, returns `AzureDevOpsWorkItemImportTarget` instance
-- [ ] T021 [US1] Create `ImportServiceCollectionExtensions` in `src/DevOpsMigrationPlatform.Infrastructure.AzureDevOps/ImportServiceCollectionExtensions.cs` — `AddAzureDevOpsImportServices(this IServiceCollection)` registers `IWorkItemImportTargetFactory`, `IIdMapStore` (SqliteIdMapStore), and default `IWorkItemResolutionStrategy` (NullResolutionStrategy). Resolution strategy selection based on module extensions config (keyed or factory pattern).
-- [ ] T022 [US1] Wire `WorkItemsModule.ImportAsync` in `src/DevOpsMigrationPlatform.Infrastructure/Modules/WorkItemsModule.cs` — replace `NotSupportedException` stub. Add constructor parameters for import dependencies (`IWorkItemImportTargetFactory`, `IIdMapStore`, `IWorkItemResolutionStrategy`). Create `WorkItemImportOrchestrator` and call `ImportAsync`. Add `"Identities"` to `DependsOn` list.
-- [ ] T023 [US1] Enable import mode in `QueueCommand` in `src/DevOpsMigrationPlatform.CLI.Migration/Commands/QueueCommand.cs` — replace `ExecuteImportStub()` with the same job-submission flow used for export (mode-agnostic: job `mode` field determines export vs import on the agent side). Validate that `target` block is present in config when mode is `Import` or `Both`.
-- [ ] T024 [US1] Register import services in the CLI host builder — call `AddAzureDevOpsImportServices()` from the appropriate `MigrationPlatformHost` setup method so import dependencies are available when the agent processes an import job.
+- [X] T017 [US1] Implement `RevisionFolderProcessor` in `src/DevOpsMigrationPlatform.Infrastructure/Import/RevisionFolderProcessor.cs` — 4-stage processing (CreatedOrUpdated → AppliedFields → AppliedLinks → UploadedAttachments) for a single revision folder. Constructor receives `IWorkItemImportTarget`, `IIdMapStore`, `ICheckpointingService`, `IIdentityMappingService`, `IArtefactStore`. Reads `revision.json`, deserializes to `WorkItemRevision`, delegates to target abstraction. Writes cursor via `ICheckpointingService` after each stage. Checks `IIdMapStore` before Stage A creation and Stage D upload. Respects ALL extension enabled flags: skip Stage C if `Links: false`, skip Stage D if `Attachments: false`, skip inline comments if `Comments: false`, skip embedded image processing if `EmbeddedImages: false`. If `Revisions: false`, skip 4-stage processing entirely (caller handles simplified path). `IIdentityMappingService` is accepted as a dependency but pass-through (unused) until T031 extends Stage B.
+- [X] T018 [US1] Implement `WorkItemImportOrchestrator` in `src/DevOpsMigrationPlatform.Infrastructure/Import/WorkItemImportOrchestrator.cs` — streaming import loop. Constructor receives `IArtefactStore`, `ICheckpointingService`, `IProgressSink`, `IWorkItemResolutionStrategy`, `RevisionFolderProcessor`. On `ImportAsync`: reads cursor, calls `IWorkItemResolutionStrategy.SeedAsync()`, enumerates `IArtefactStore.EnumerateAsync("WorkItems/")` lazily, skips folders <= cursor, parses folder name to distinguish revision vs comment folders, delegates to `RevisionFolderProcessor` for revisions, emits `ProgressEvent` after each folder. If `Revisions` extension is disabled, skip revision folder processing entirely (import only creates work items at latest state via a simplified path). If `Comments: false`, skip all comment folder processing.
+- [X] T019 [US1] Implement `AzureDevOpsWorkItemImportTarget` in `src/DevOpsMigrationPlatform.Infrastructure.AzureDevOps/Import/AzureDevOpsWorkItemImportTarget.cs` — wraps `WorkItemTrackingHttpClient`. `CreateWorkItemAsync` builds `JsonPatchDocument` with field `add` operations, calls SDK `CreateWorkItemAsync`. `UpdateFieldsAsync` builds patch doc with field values. `AddLinksAsync` adds relation entries, calls `GetExistingRelationsAsync` internally to skip duplicates. `UploadAttachmentAsync` calls SDK `CreateAttachmentAsync` then adds attachment relation. `CreateCommentAsync` calls SDK `AddCommentAsync`. `GetExistingRelationsAsync` calls SDK `GetWorkItemAsync(expand: Relations)`. All methods propagate `CancellationToken`. Uses Polly retry with exponential back-off.
+- [X] T020 [US1] Implement `AzureDevOpsWorkItemImportTargetFactory` in `src/DevOpsMigrationPlatform.Infrastructure.AzureDevOps/Import/AzureDevOpsWorkItemImportTargetFactory.cs` — creates `WorkItemTrackingHttpClient` from orgUrl/pat, returns `AzureDevOpsWorkItemImportTarget` instance
+- [X] T021 [US1] Create `ImportServiceCollectionExtensions` in `src/DevOpsMigrationPlatform.Infrastructure.AzureDevOps/ImportServiceCollectionExtensions.cs` — `AddAzureDevOpsImportServices(this IServiceCollection)` registers `IWorkItemImportTargetFactory`, `IIdMapStore` (SqliteIdMapStore), and default `IWorkItemResolutionStrategy` (NullResolutionStrategy). Resolution strategy selection based on module extensions config (keyed or factory pattern).
+- [X] T022 [US1] Wire `WorkItemsModule.ImportAsync` in `src/DevOpsMigrationPlatform.Infrastructure/Modules/WorkItemsModule.cs` — replace `NotSupportedException` stub. Add constructor parameters for import dependencies (`IWorkItemImportTargetFactory`, `IIdMapStore`, `IWorkItemResolutionStrategy`). Create `WorkItemImportOrchestrator` and call `ImportAsync`. Add `"Identities"` to `DependsOn` list.
+- [X] T023 [US1] Enable import mode in `QueueCommand` in `src/DevOpsMigrationPlatform.CLI.Migration/Commands/QueueCommand.cs` — replace `ExecuteImportStub()` with the same job-submission flow used for export (mode-agnostic: job `mode` field determines export vs import on the agent side). Validate that `target` block is present in config when mode is `Import` or `Both`.
+- [X] T024 [US1] Register import services in the CLI host builder — call `AddAzureDevOpsImportServices()` from the appropriate `MigrationPlatformHost` setup method so import dependencies are available when the agent processes an import job.
 
 **Checkpoint**: Core import works end-to-end — revision folders are streamed in order, work items created/updated, fields applied, links added, attachments uploaded, cursor tracked, idmap populated. User Story 1 is independently testable.
 
@@ -82,12 +82,12 @@
 
 ### Gherkin Feature File for User Story 2 (mandatory)
 
-- [ ] T025 [US2] Create `features/platform/checkpointing/import-cursor-resume.feature` — translate spec.md User Story 2 acceptance scenarios 1–3 into conformant Gherkin per `.agents/guardrails/acceptance-test-format.md` (Feature: Import Cursor Resume)
+- [X] T025 [US2] Create `features/platform/checkpointing/import-cursor-resume.feature` — translate spec.md User Story 2 acceptance scenarios 1–3 into conformant Gherkin per `.agents/guardrails/acceptance-test-format.md` (Feature: Import Cursor Resume)
 
 ### Implementation for User Story 2
 
-- [ ] T026 [US2] Add mid-folder resume logic to `RevisionFolderProcessor.ProcessAsync` in `src/DevOpsMigrationPlatform.Infrastructure/Import/RevisionFolderProcessor.cs` — when the cursor `lastProcessed` matches the current folder and `stage` is not `Completed`, skip stages already completed (e.g. if stage is `AppliedFields`, start from `AppliedLinks`). This extends the stage loop added in T017.
-- [ ] T027 [US2] Add `--force-fresh` handling for import cursor in `WorkItemImportOrchestrator` in `src/DevOpsMigrationPlatform.Infrastructure/Import/WorkItemImportOrchestrator.cs` — when `MigrationJob.Resume.Mode` is `ForceFresh`, delete `Checkpoints/workitems.cursor.json` via `IStateStore` before starting enumeration. Preserve `idmap.db` (do not delete).
+- [X] T026 [US2] Add mid-folder resume logic to `RevisionFolderProcessor.ProcessAsync` in `src/DevOpsMigrationPlatform.Infrastructure/Import/RevisionFolderProcessor.cs` — when the cursor `lastProcessed` matches the current folder and `stage` is not `Completed`, skip stages already completed (e.g. if stage is `AppliedFields`, start from `AppliedLinks`). This extends the stage loop added in T017.
+- [X] T027 [US2] Add `--force-fresh` handling for import cursor in `WorkItemImportOrchestrator` in `src/DevOpsMigrationPlatform.Infrastructure/Import/WorkItemImportOrchestrator.cs` — when `MigrationJob.Resume.Mode` is `ForceFresh`, delete `Checkpoints/workitems.cursor.json` via `IStateStore` before starting enumeration. Preserve `idmap.db` (do not delete).
 
 **Checkpoint**: Import resumes correctly from any interrupted stage. `--force-fresh` resets the cursor but preserves the ID map.
 
@@ -101,11 +101,11 @@
 
 ### Gherkin Feature File for User Story 3 (mandatory)
 
-- [ ] T028 [US3] Create `features/import/work-items/revisions/streaming-memory-safety.feature` — translate spec.md User Story 3 acceptance scenarios 1–3 into conformant Gherkin per `.agents/guardrails/acceptance-test-format.md` (Feature: Streaming Memory-Safe Import)
+- [X] T028 [US3] Create `features/import/work-items/revisions/streaming-memory-safety.feature` — translate spec.md User Story 3 acceptance scenarios 1–3 into conformant Gherkin per `.agents/guardrails/acceptance-test-format.md` (Feature: Streaming Memory-Safe Import)
 
 ### Implementation for User Story 3
 
-- [ ] T029 [US3] Verify `WorkItemImportOrchestrator` streaming compliance in `src/DevOpsMigrationPlatform.Infrastructure/Import/WorkItemImportOrchestrator.cs` — confirm `EnumerateAsync` is consumed via `await foreach` with no `.ToListAsync()` or `.ToArrayAsync()` materialisation. Confirm `RevisionFolderProcessor` reads one `revision.json` at a time via `IArtefactStore.ReadAsync` and does not accumulate revision data across iterations. Confirm attachment uploads use `IArtefactStore.ReadBinaryAsync` → `Stream` → `IWorkItemImportTarget.UploadAttachmentAsync` with no intermediate `byte[]` buffer.
+- [X] T029 [US3] Verify `WorkItemImportOrchestrator` streaming compliance in `src/DevOpsMigrationPlatform.Infrastructure/Import/WorkItemImportOrchestrator.cs` — confirm `EnumerateAsync` is consumed via `await foreach` with no `.ToListAsync()` or `.ToArrayAsync()` materialisation. Confirm `RevisionFolderProcessor` reads one `revision.json` at a time via `IArtefactStore.ReadAsync` and does not accumulate revision data across iterations. Confirm attachment uploads use `IArtefactStore.ReadBinaryAsync` → `Stream` → `IWorkItemImportTarget.UploadAttachmentAsync` with no intermediate `byte[]` buffer.
 
 **Checkpoint**: Import is verified to be streaming and memory-safe. No code changes expected if T017/T018 were implemented correctly — this is a verification/hardening task.
 
@@ -119,11 +119,11 @@
 
 ### Gherkin Feature File for User Story 4 (mandatory)
 
-- [ ] T030 [US4] Create `features/services/identity-mapping/import-identity-resolution.feature` — translate spec.md User Story 4 acceptance scenarios 1–3 into conformant Gherkin per `.agents/guardrails/acceptance-test-format.md` (Feature: Identity Resolution During Import)
+- [X] T030 [US4] Create `features/services/identity-mapping/import-identity-resolution.feature` — translate spec.md User Story 4 acceptance scenarios 1–3 into conformant Gherkin per `.agents/guardrails/acceptance-test-format.md` (Feature: Identity Resolution During Import)
 
 ### Implementation for User Story 4
 
-- [ ] T031 [US4] Add identity resolution to `RevisionFolderProcessor` Stage B in `src/DevOpsMigrationPlatform.Infrastructure/Import/RevisionFolderProcessor.cs` — before applying fields, iterate identity-type fields (e.g. `System.AssignedTo`, `System.ChangedBy`, `System.CreatedBy`) and call `IIdentityMappingService.ResolveAsync()` to map source identity → target identity. Replace field values with resolved identities. If unresolved, log to `Identities/unresolved.json` via `IArtefactStore.WriteAsync` and continue (do not fail).
+- [X] T031 [US4] Add identity resolution to `RevisionFolderProcessor` Stage B in `src/DevOpsMigrationPlatform.Infrastructure/Import/RevisionFolderProcessor.cs` — before applying fields, iterate identity-type fields (e.g. `System.AssignedTo`, `System.ChangedBy`, `System.CreatedBy`) and call `IIdentityMappingService.ResolveAsync()` to map source identity → target identity. Replace field values with resolved identities. If unresolved, log to `Identities/unresolved.json` via `IArtefactStore.WriteAsync` and continue (do not fail).
 
 **Checkpoint**: Identity fields are mapped during import. Unresolved identities are logged without halting.
 
@@ -137,12 +137,12 @@
 
 ### Gherkin Feature File for User Story 5 (mandatory)
 
-- [ ] T032 [US5] Create `features/import/work-items/comments/import-comments.feature` — translate spec.md User Story 5 acceptance scenarios 1–3 into conformant Gherkin per `.agents/guardrails/acceptance-test-format.md` (Feature: Import Work Item Comments)
+- [X] T032 [US5] Create `features/import/work-items/comments/import-comments.feature` — translate spec.md User Story 5 acceptance scenarios 1–3 into conformant Gherkin per `.agents/guardrails/acceptance-test-format.md` (Feature: Import Work Item Comments)
 
 ### Implementation for User Story 5
 
-- [ ] T033 [US5] Add comment sub-folder processing to `WorkItemImportOrchestrator` in `src/DevOpsMigrationPlatform.Infrastructure/Import/WorkItemImportOrchestrator.cs` — when the folder name's third segment starts with `c` (e.g. `c42`), read `comment.json` (single JSON object) from the folder via `IArtefactStore.ReadAsync`, deserialise to `WorkItemComment`, resolve target work item ID from `IIdMapStore`, call `IWorkItemImportTarget.CreateCommentAsync`. Write cursor with `Completed` stage after comment creation. Skip if Comments extension is disabled.
-- [ ] T034 [US5] Add inline comment processing to `RevisionFolderProcessor` in `src/DevOpsMigrationPlatform.Infrastructure/Import/RevisionFolderProcessor.cs` — after Stage D (UploadedAttachments), check if `comment.json` exists in the revision folder via `IArtefactStore`. If present, read and deserialise as a JSON array of `WorkItemComment` objects, iterate each, call `IWorkItemImportTarget.CreateCommentAsync` for each. Skip if Comments extension is disabled.
+- [X] T033 [US5] Add comment sub-folder processing to `WorkItemImportOrchestrator` in `src/DevOpsMigrationPlatform.Infrastructure/Import/WorkItemImportOrchestrator.cs` — when the folder name's third segment starts with `c` (e.g. `c42`), read `comment.json` (single JSON object) from the folder via `IArtefactStore.ReadAsync`, deserialise to `WorkItemComment`, resolve target work item ID from `IIdMapStore`, call `IWorkItemImportTarget.CreateCommentAsync`. Write cursor with `Completed` stage after comment creation. Skip if Comments extension is disabled.
+- [X] T034 [US5] Add inline comment processing to `RevisionFolderProcessor` in `src/DevOpsMigrationPlatform.Infrastructure/Import/RevisionFolderProcessor.cs` — after Stage D (UploadedAttachments), check if `comment.json` exists in the revision folder via `IArtefactStore`. If present, read and deserialise as a JSON array of `WorkItemComment` objects, iterate each, call `IWorkItemImportTarget.CreateCommentAsync` for each. Skip if Comments extension is disabled.
 
 **Checkpoint**: Both standalone comment folders and inline comments are imported. Comments appear on the correct target work items.
 
@@ -156,12 +156,12 @@
 
 ### Gherkin Feature File for User Story 6 (mandatory)
 
-- [ ] T035 [US6] Create `features/import/work-items/revisions/import-embedded-images.feature` — translate spec.md User Story 6 acceptance scenarios 1–2 into conformant Gherkin per `.agents/guardrails/acceptance-test-format.md` (Feature: Import Embedded Image URL Rewriting)
+- [X] T035 [US6] Create `features/import/work-items/revisions/import-embedded-images.feature` — translate spec.md User Story 6 acceptance scenarios 1–2 into conformant Gherkin per `.agents/guardrails/acceptance-test-format.md` (Feature: Import Embedded Image URL Rewriting)
 
 ### Implementation for User Story 6
 
-- [ ] T036 [US6] Add embedded image upload and URL rewriting to `RevisionFolderProcessor` in `src/DevOpsMigrationPlatform.Infrastructure/Import/RevisionFolderProcessor.cs` — before Stage B (AppliedFields), if EmbeddedImages extension is enabled and `revision.embeddedImages` is non-empty: for each entry, read the image binary from the revision folder via `IArtefactStore.ReadBinaryAsync(folderPath + "/" + relativePath)`, upload via `IWorkItemImportTarget.UploadEmbeddedImageAsync`, build URL map (`originalUrl → targetUrl`). Then scan all field values for `originalUrl` occurrences and replace with `targetUrl` before applying fields.
-- [ ] T037 [US6] Add embedded image URL rewriting to comment text in `RevisionFolderProcessor` and `WorkItemImportOrchestrator` — when processing inline comments or comment sub-folders with `embeddedImages` entries: upload images, rewrite URLs in comment `text` before calling `CreateCommentAsync`. Skip if EmbeddedImages extension is disabled.
+- [X] T036 [US6] Add embedded image upload and URL rewriting to `RevisionFolderProcessor` in `src/DevOpsMigrationPlatform.Infrastructure/Import/RevisionFolderProcessor.cs` — before Stage B (AppliedFields), if EmbeddedImages extension is enabled and `revision.embeddedImages` is non-empty: for each entry, read the image binary from the revision folder via `IArtefactStore.ReadBinaryAsync(folderPath + "/" + relativePath)`, upload via `IWorkItemImportTarget.UploadEmbeddedImageAsync`, build URL map (`originalUrl → targetUrl`). Then scan all field values for `originalUrl` occurrences and replace with `targetUrl` before applying fields.
+- [X] T037 [US6] Add embedded image URL rewriting to comment text in `RevisionFolderProcessor` and `WorkItemImportOrchestrator` — when processing inline comments or comment sub-folders with `embeddedImages` entries: upload images, rewrite URLs in comment `text` before calling `CreateCommentAsync`. Skip if EmbeddedImages extension is disabled.
 
 **Checkpoint**: Embedded images are uploaded and URLs in field values and comments are rewritten to target URLs.
 
@@ -175,13 +175,13 @@
 
 ### Gherkin Feature File for Resolution Strategies (mandatory)
 
-- [ ] T038 [US1] Create `features/import/work-items/revisions/work-item-resolution-strategies.feature` — translate spec.md User Story 1 acceptance scenarios 7–8 into conformant Gherkin per `.agents/guardrails/acceptance-test-format.md` (Feature: Work Item Resolution Strategies)
+- [X] T038 [US1] Create `features/import/work-items/revisions/work-item-resolution-strategies.feature` — translate spec.md User Story 1 acceptance scenarios 7–8 into conformant Gherkin per `.agents/guardrails/acceptance-test-format.md` (Feature: Work Item Resolution Strategies)
 
 ### Implementation for Resolution Strategies
 
-- [ ] T039 [US1] Implement `TargetFieldResolutionStrategy` in `src/DevOpsMigrationPlatform.Infrastructure.AzureDevOps/Import/TargetFieldResolutionStrategy.cs` — constructor receives `IWorkItemImportTarget` (or WIQL client) and the configured field name. `SeedAsync`: WIQL query `SELECT [System.Id], [<fieldName>] FROM WorkItems WHERE [<fieldName>] <> ''` → parse results → call `IIdMapStore.SeedWorkItemMappingsAsync`. `ResolveSingleAsync`: WIQL query `SELECT [System.Id] FROM WorkItems WHERE [<fieldName>] = '<sourceId>'` → return target ID or null. `WriteProvenanceAsync`: update target work item custom field with source ID via `IWorkItemImportTarget.UpdateFieldsAsync`.
-- [ ] T040 [US1] Implement `TargetHyperlinkResolutionStrategy` in `src/DevOpsMigrationPlatform.Infrastructure.AzureDevOps/Import/TargetHyperlinkResolutionStrategy.cs` — constructor receives `IWorkItemImportTarget` and the configured URL pattern. `SeedAsync`: WIQL query for `[System.HyperLinkCount] > 0` → fetch each work item's relations via `GetExistingRelationsAsync` → filter hyperlinks matching URL pattern → extract source work item ID from URL → seed `IIdMapStore`. `ResolveSingleAsync`: return null (no live fallback per FR-022). `WriteProvenanceAsync`: add hyperlink with URL pattern containing source ID via `IWorkItemImportTarget.AddLinksAsync`.
-- [ ] T041 [US1] Wire resolution strategy selection in `ImportServiceCollectionExtensions` in `src/DevOpsMigrationPlatform.Infrastructure.AzureDevOps/ImportServiceCollectionExtensions.cs` — read `WorkItemResolutionStrategy` extension from module config. If `strategy: TargetField`, register `TargetFieldResolutionStrategy`. If `strategy: TargetHyperlink`, register `TargetHyperlinkResolutionStrategy`. If absent or disabled, register `NullResolutionStrategy` (already created in T015).
+- [X] T039 [US1] Implement `TargetFieldResolutionStrategy` in `src/DevOpsMigrationPlatform.Infrastructure.AzureDevOps/Import/TargetFieldResolutionStrategy.cs` — constructor receives `IWorkItemImportTarget` (or WIQL client) and the configured field name. `SeedAsync`: WIQL query `SELECT [System.Id], [<fieldName>] FROM WorkItems WHERE [<fieldName>] <> ''` → parse results → call `IIdMapStore.SeedWorkItemMappingsAsync`. `ResolveSingleAsync`: WIQL query `SELECT [System.Id] FROM WorkItems WHERE [<fieldName>] = '<sourceId>'` → return target ID or null. `WriteProvenanceAsync`: update target work item custom field with source ID via `IWorkItemImportTarget.UpdateFieldsAsync`.
+- [X] T040 [US1] Implement `TargetHyperlinkResolutionStrategy` in `src/DevOpsMigrationPlatform.Infrastructure.AzureDevOps/Import/TargetHyperlinkResolutionStrategy.cs` — constructor receives `IWorkItemImportTarget` and the configured URL pattern. `SeedAsync`: WIQL query for `[System.HyperLinkCount] > 0` → fetch each work item's relations via `GetExistingRelationsAsync` → filter hyperlinks matching URL pattern → extract source work item ID from URL → seed `IIdMapStore`. `ResolveSingleAsync`: return null (no live fallback per FR-022). `WriteProvenanceAsync`: add hyperlink with URL pattern containing source ID via `IWorkItemImportTarget.AddLinksAsync`.
+- [X] T041 [US1] Wire resolution strategy selection in `ImportServiceCollectionExtensions` in `src/DevOpsMigrationPlatform.Infrastructure.AzureDevOps/ImportServiceCollectionExtensions.cs` — read `WorkItemResolutionStrategy` extension from module config. If `strategy: TargetField`, register `TargetFieldResolutionStrategy`. If `strategy: TargetHyperlink`, register `TargetHyperlinkResolutionStrategy`. If absent or disabled, register `NullResolutionStrategy` (already created in T015).
 
 **Checkpoint**: All three resolution strategies work. `TargetField` seeds and live-queries. `TargetHyperlink` seeds at startup with no live fallback. Null strategy uses `idmap.db` only.
 
@@ -191,16 +191,16 @@
 
 **Purpose**: Update all canonical docs to reflect what was implemented. This phase is a blocking gate.
 
-- [ ] T042 Update `docs/work-item-iteration-pattern.md` — add "Import Pattern: WorkItemImportOrchestrator" section with `IWorkItemImportTarget`, `IIdMapStore`, `RevisionFolderProcessor`, and streaming import flow (mirrors existing "Export Pattern" section). Resolves discrepancy #3 and #7.
-- [ ] T043 [P] Update `docs/configuration.md` — add `WorkItemResolutionStrategy` extension type to the WorkItems Module Scopes and Extensions table with `strategy` (`TargetField` | `TargetHyperlink`), `fieldName`, and `urlPattern` parameters. Resolves discrepancy #6.
-- [ ] T044 [P] Update `.agents/context/cli-commands.md` — confirm `queue` command documentation reflects that `Import` and `Both` modes are now functional (no longer stubbed). No new commands added.
-- [ ] T045 [P] Update `docs/cli.md` — confirm import mode is documented as functional. No new commands.
-- [ ] T046 Mark all items in `specs/013-ado-workitems-import/discrepancies.md` as `Resolved` or `N/A`
-- [ ] T047 Review `analysis/pending-actions.md` and remove any items resolved by this spec
-- [ ] T048 Run `dotnet clean && dotnet build --no-incremental` — MUST pass
-- [ ] T049 Run `dotnet test` — ALL tests MUST pass
-- [ ] T050 Run scenario config `scenarios/import-ado-workitems-single-project.json` via the `.vscode/launch.json` import debug profile and verify observable output (work items created in simulated target, cursor written, idmap populated, progress events emitted)
-- [ ] T051 Add `ValidateAsync` implementation to `WorkItemsModule` in `src/DevOpsMigrationPlatform.Infrastructure/Modules/WorkItemsModule.cs` — Tier 2 pre-flight: verify `WorkItems/` folder exists, at least one revision folder, `manifest.json` compatible. Tier 3 post-flight: target work item count matches unique source IDs, sampled link/attachment verification. Required by SC-004.
+- [X] T042 Update `docs/work-item-iteration-pattern.md` — add "Import Pattern: WorkItemImportOrchestrator" section with `IWorkItemImportTarget`, `IIdMapStore`, `RevisionFolderProcessor`, and streaming import flow (mirrors existing "Export Pattern" section). Resolves discrepancy #3 and #7.
+- [X] T043 [P] Update `docs/configuration.md` — add `WorkItemResolutionStrategy` extension type to the WorkItems Module Scopes and Extensions table with `strategy` (`TargetField` | `TargetHyperlink`), `fieldName`, and `urlPattern` parameters. Resolves discrepancy #6.
+- [X] T044 [P] Update `.agents/context/cli-commands.md` — confirm `queue` command documentation reflects that `Import` and `Both` modes are now functional (no longer stubbed). No new commands added.
+- [X] T045 [P] Update `docs/cli.md` — confirm import mode is documented as functional. No new commands.
+- [X] T046 Mark all items in `specs/013-ado-workitems-import/discrepancies.md` as `Resolved` or `N/A`
+- [X] T047 Review `analysis/pending-actions.md` and remove any items resolved by this spec
+- [X] T048 Run `dotnet clean && dotnet build --no-incremental` — MUST pass
+- [X] T049 Run `dotnet test` — ALL tests MUST pass
+- [X] T050 Run scenario config `scenarios/import-ado-workitems-single-project.json` via the `.vscode/launch.json` import debug profile and verify observable output (work items created in simulated target, cursor written, idmap populated, progress events emitted)
+- [X] T051 Add `ValidateAsync` implementation to `WorkItemsModule` in `src/DevOpsMigrationPlatform.Infrastructure/Modules/WorkItemsModule.cs` — Tier 2 pre-flight: verify `WorkItems/` folder exists, at least one revision folder, `manifest.json` compatible. Tier 3 post-flight: target work item count matches unique source IDs, sampled link/attachment verification. Required by SC-004.
 
 ---
 

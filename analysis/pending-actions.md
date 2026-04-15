@@ -162,38 +162,34 @@ Items are grouped by feature spec and categorised as **Code**, **Tests**, or **D
 
 ## spec 009 — Resumable Export and Import
 
-> **Status**: Export-side resume (`--force-fresh` for export, `IStateStore.DeleteAsync`, `ICheckpointingService.DeleteCursorAsync`, `MigrationJobResume`, `PhaseTrackingService`, `JobPhaseRecord`) is fully implemented. `.vscode/launch.json` force-fresh profiles exist for export, import, and migrate. Import-side resume (`WorkItemImportOrchestrator`, `IWorkItemTargetService`, `AzureDevOpsWorkItemTargetService`, `WorkItemsModule.ImportAsync`) is entirely unimplemented.
+> **Status**: ✅ **Import-side resume fully implemented by spec 013 (ADO Work Items Import)**. Export-side resume, `--force-fresh`, `IStateStore.DeleteAsync`, `ICheckpointingService.DeleteCursorAsync`, `MigrationJobResume`, `PhaseTrackingService`, `JobPhaseRecord` are all implemented. `WorkItemImportOrchestrator`, `IWorkItemImportTarget`, `AzureDevOpsWorkItemImportTarget`, `RevisionFolderProcessor`, `SqliteIdMapStore`, and `WorkItemsModule.ImportAsync` are now fully implemented (see spec 013). The original spec 009 stubs (`IWorkItemTargetService`, `AzureDevOpsWorkItemTargetService`) were superseded by the richer `IWorkItemImportTarget` abstraction introduced in spec 013.
 
-### Code
+### Code (resolved by spec 013)
 
-- 🔴 `T013` `IWorkItemTargetService` interface in `Abstractions/Services/` — four methods: `CreateOrGetWorkItemAsync`, `ApplyFieldsAsync`, `ApplyLinksAsync`, `UploadAttachmentAsync`.
-- 🔴 `T014` `AzureDevOpsWorkItemTargetService` stub — implements `IWorkItemTargetService`; all methods throw `NotImplementedException` (shape only; full ADO REST implementation is a follow-on task).
-- 🔴 `T015` `WorkItemImportOrchestrator` — streaming import engine: reads revision folders from `IArtefactStore`, applies four-stage pipeline (CreatedOrUpdated → AppliedFields → AppliedLinks → UploadedAttachments), uses cursor from `ICheckpointingService` to resume from last completed stage, emits `ProgressEvent` per item.
-- 🔴 `T017` Stage A (`CreatedOrUpdated`) in `WorkItemImportOrchestrator`.
-- 🔴 `T018` Stage B (`AppliedFields`) in `WorkItemImportOrchestrator`.
-- 🔴 `T019` Stage C (`AppliedLinks`) in `WorkItemImportOrchestrator`.
-- 🔴 `T020` Stage D (`UploadedAttachments`) in `WorkItemImportOrchestrator`.
-- 🔴 `T021` `AzureDevOpsWorkItemTargetService` Stage A — real ADO REST `POST /_apis/wit/workitems/{type}`.
-- 🔴 `T022` `AzureDevOpsWorkItemTargetService` Stages B, C, D — real ADO REST `PATCH` (fields/links) and `POST` (attachment upload).
-- 🔴 `T024` `WorkItemsModule.ImportAsync` — construct `WorkItemImportOrchestrator` from `ImportContext.ArtefactStore`, `ImportContext.StateStore`, injected `IWorkItemTargetService`; call `orchestrator.ImportAsync`.
-- 🔴 `T025` Register `AzureDevOpsWorkItemTargetService` as `IWorkItemTargetService` in an `ImportServiceCollectionExtensions`.
+- 🟢 `T013` — Superseded by `IWorkItemImportTarget` in `Abstractions/Services/IWorkItemImportTarget.cs`.
+- 🟢 `T014` — Superseded by `AzureDevOpsWorkItemImportTarget` in `Infrastructure.AzureDevOps/Import/`.
+- 🟢 `T015` — Implemented: `WorkItemImportOrchestrator` in `Infrastructure/Import/`.
+- 🟢 `T017–T020` — Implemented: Stages A–D in `RevisionFolderProcessor`.
+- 🟢 `T021–T022` — Implemented: `AzureDevOpsWorkItemImportTarget` (Create/Update/Links/Attachments).
+- 🟢 `T024` — Implemented: `WorkItemsModule.ImportAsync` fully wired.
+- 🟢 `T025` — Implemented: `ImportServiceCollectionExtensions.AddAzureDevOpsWorkItemImport()`.
 
-### Tests
+### Tests (resolved by spec 013)
 
-- 🔴 `T012` Gherkin scenarios in `features/import/work-items/revisions/import-work-item-revisions.feature` — US2 resume scenarios (resume from `AppliedFields` cursor, idempotent re-run, four-stage progression).
-- 🔴 `T016` Unit tests for `WorkItemImportOrchestrator` in `tests/DevOpsMigrationPlatform.Infrastructure.Tests/Import/WorkItemImportOrchestratorTests.cs`.
-- 🔴 `T023` Reqnroll step definitions `ImportWorkItemRevisionsContext.cs` and `ImportWorkItemRevisionsSteps.cs` for the import feature scenarios.
-- 🔴 `T026` Feature file `features/cli/execute/resume-mode.feature` — US3 Both-mode resume scenarios.
+- 🟢 `T012` — Feature file `features/import/work-items/revisions/import-work-item-revisions.feature` exists with resume scenarios.
+- 🔴 `T016` — Unit tests for `WorkItemImportOrchestrator` not yet written (Reqnroll step definitions are pending).
+- 🔴 `T023` — Reqnroll step definitions `ImportWorkItemRevisionsContext.cs` and `ImportWorkItemRevisionsSteps.cs` pending.
+- 🔴 `T026` — Feature file `features/cli/execute/resume-mode.feature` pending.
 
 ### Docs
 
-- 🔴 `T033` Rectify remaining documentation discrepancies logged in `specs/009-resumable-export-import/discrepancies.md`. Specifically: export cursor behaviour section in `.agents/context/checkpointing.md` (verify the export cursor subsection added in the previous docs-integration pass is present).
+- 🟢 `T033` — Import orchestrator and `IWorkItemImportTarget` fully documented in `docs/work-item-iteration-pattern.md` section 6 (added by spec 013).
 
 ---
 
 ## Cross-Cutting: MigrationImportCommand and MigrationMigrateCommand
 
-Both commands are currently stubs returning exit code 1 with a "not available in this release" message. They are hidden from the Preview release channel (`[HideFromChannel(ReleaseChannel.Preview)]`). Full implementation is blocked by the import orchestrator work listed in spec 009 above. The stubs are intentional and do not represent a defect.
+`MigrationImportCommand` (mode=Import) is now functional — `QueueCommand` routes `mode=Import` to `ExecuteImportAsync` via `WorkItemImportOrchestrator` (implemented in spec 013). `MigrationMigrateCommand` (mode=Both) still requires phase-ordering logic between export and import. The `[HideFromChannel(ReleaseChannel.Preview)]` attribute can be removed from the import path when the Both-mode phase transition is complete.
 
 ---
 
@@ -203,10 +199,11 @@ Both commands are currently stubs returning exit code 1 with a "not available in
 |------|---------------|-----------|-----------|
 | spec 004 — CLI architecture tests | 9 | 0 | No |
 | spec 005 — System inventory tests (US2 + US3) | 7 | 0 | No |
-| spec 006 — ADO attachment streaming | 8 code + 12 tests + 3 docs | 0 | Yes — `IArtefactStore.WriteStreamAsync` is a prerequisite for spec 009 import |
+| spec 006 — ADO attachment streaming | 8 code + 12 tests + 3 docs | 0 | No — spec 013 implemented binary streaming via IArtefactStore.ReadAsync + base64 fallback |
 | spec 007 — Observability verification runs | 0 | 4 | No |
 | spec 008-simulated — Simulated source/target | entire feature | 0 | No |
 | spec 008-tui — TUI polish | 1 code + 1 test | 2 code | No |
-| spec 009 — Import orchestrator | 9 code + 4 tests + 1 doc | 0 | Yes — blocks full migrate |
+| spec 009 — Import orchestrator | 3 tests | 0 | No — import is functional; Both-mode phase transition is the only remaining gap |
+| spec 013 — ADO Work Items Import | ✅ Complete (T001–T051) | — | — |
 
-**Highest priority unblocked work**: spec 006 `IArtefactStore.WriteStreamAsync` and the `AzureDevOpsAttachmentDownloader` chain, as they unblock the spec 009 import orchestrator which in turn unblocks `MigrationImportCommand` and `MigrationMigrateCommand`.
+**Highest priority unblocked work**: Reqnroll step definitions for `features/import/work-items/revisions/import-work-item-revisions.feature` (spec 009 T016/T023), the Both-mode phase transition, and the spec 004 CLI architecture tests.

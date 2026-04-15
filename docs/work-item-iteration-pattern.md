@@ -254,14 +254,85 @@ Implementations stream comments one at a time; the orchestrator filters by `Modi
 
 ---
 
-## 6. Import Pattern (Future: Streaming)
+## 6. Import Pattern: WorkItemImportOrchestrator
 
-When work item import is implemented, it will follow the same streaming principle:
+When work item import is performed, it follows the same streaming principle as export.
 
-1. **Enumeration**: `IArtefactStore.EnumerateAsync("WorkItems/", ct)` yields revision folders in lexicographic order.
-2. **Cursor-based resume**: The cursor tracks the last successfully completed revision folder (down to the stage level).
-3. **Staged processing**: Each revision is processed through stages in order (see [.agents/context/import-streaming.md](../.agents/context/import-streaming.md)).
-4. **Idempotency**: Each stage is idempotent; repeating a stage that already succeeded produces no new side effects.
+### Use Case
+
+You are importing work items from a package (written by a previous export) into a target Azure DevOps project.
+
+### Implementation
+
+Use `WorkItemImportOrchestrator` in any module that imports work items:
+
+```csharp
+public async Task ImportAsync(ImportContext context, CancellationToken ct)
+{
+    var target = await _importTargetFactory
+        .CreateAsync(orgUrl, project, pat, ct)
+        .ConfigureAwait(false);
+
+    var checkpointingService = new CheckpointingService(context.StateStore);
+    var idMapStore = new SqliteIdMapStore(ResolveIdMapPath(job.Artefacts.PackageUri));
+
+    var processor = new RevisionFolderProcessor(
+        target, idMapStore, checkpointingService,
+        _identityMappingService, context.ArtefactStore, processorLogger);
+
+    var orchestrator = new WorkItemImportOrchestrator(
+        context.ArtefactStore, checkpointingService,
+        context.ProgressSink, _resolutionStrategy,
+        idMapStore, processor, target, orchestratorLogger);
+
+    await orchestrator.ImportAsync(ext, resumeMode, ct).ConfigureAwait(false);
+}
+```
+
+### Guarantees
+
+- **Streaming**: Revision folders are enumerated via `IArtefactStore.EnumerateAsync("WorkItems/", ct)` with `await foreach`. No folder list is accumulated in memory.
+- **Resumable**: The cursor tracks the last processed folder path and stage. On resume, completed folders are skipped and partial folders resume from the next stage.
+- **Observable**: Progress is emitted via `IProgressSink` per folder.
+- **Idempotent**: Each stage checks `IIdMapStore` before creating or uploading. Repeating a stage that already succeeded produces no new side effects.
+
+### 4-Stage Processing
+
+Each revision folder is processed through four sequential stages via `RevisionFolderProcessor`:
+
+| Stage | Name | Description |
+|-------|------|-------------|
+| A | `CreatedOrUpdated` | Create or resolve target work item; record ID mapping in `Checkpoints/idmap.db` |
+| B | `AppliedFields` | Apply all fields (with identity resolution); rewrite embedded image URLs |
+| C | `AppliedLinks` | Add related links, external links, and hyperlinks (skip duplicates) |
+| D | `UploadedAttachments` | Stream attachment binaries to the target (skip already-uploaded) |
+
+A cursor is written after each stage. On resume, completed stages are skipped.
+
+### ID Mapping: idmap.db
+
+The `SqliteIdMapStore` maintains `Checkpoints/idmap.db` (SQLite, package-local):
+
+- `work_item_map (source_id PK, target_id)` — source-to-target work item ID mapping.
+- `attachment_map (source_work_item_id, revision_index, relative_path, target_attachment_id)` — idempotency for attachment uploads.
+
+This file is preserved across `--force-fresh` runs. It is separate from the control-plane database.
+
+### Work Item Resolution Strategies
+
+`IWorkItemResolutionStrategy` controls how Stage A discovers existing target work items:
+
+| Strategy | Seed Mechanism | Live Fallback |
+|----------|---------------|---------------|
+| `NullResolutionStrategy` (default) | None | None — creates new WI if not in idmap.db |
+| `TargetFieldResolutionStrategy` | WIQL query on custom field at startup | Single WIQL query per unmapped source ID |
+| `TargetHyperlinkResolutionStrategy` | Inspect hyperlinks on all target WIs at startup | None (FR-022) |
+
+### Comment and Embedded Image Handling
+
+- **Comment sub-folders** (name matches `<ticks>-<workItemId>-c<commentId>`): The orchestrator reads `comment.json` and calls `IWorkItemImportTarget.CreateCommentAsync`. Gated by the Comments extension flag.
+- **Inline comments** in revision folders: `RevisionFolderProcessor` reads a `comment.json` array after Stage D. Gated by the Comments extension flag.
+- **Embedded images**: If the EmbeddedImages extension is enabled and `revision.embeddedImages` is non-empty, images are uploaded via `IWorkItemImportTarget.UploadEmbeddedImageAsync` and source URLs in field values are rewritten before Stage B applies fields.
 
 ---
 

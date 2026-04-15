@@ -19,4 +19,11 @@ public record WorkItemRevision
     public IReadOnlyList<RelatedWorkItemLink> RelatedLinks { get; init; } = Array.Empty<RelatedWorkItemLink>();
     public IReadOnlyList<HyperlinkWorkItemLink> Hyperlinks { get; init; } = Array.Empty<HyperlinkWorkItemLink>();
     public IReadOnlyList<AttachmentMetadata> Attachments { get; init; } = Array.Empty<AttachmentMetadata>();
+
+    /// <summary>
+    /// Embedded images referenced in field values or comments.
+    /// Each entry maps the original source URL to a local file in this revision folder.
+    /// See .agents/context/workitems-format.md for the canonical JSON schema.
+    /// </summary>
+    public IReadOnlyList<EmbeddedImageMetadata> EmbeddedImages { get; init; } = Array.Empty<EmbeddedImageMetadata>();
 }
