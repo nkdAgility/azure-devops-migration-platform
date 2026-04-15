@@ -4,7 +4,10 @@
 
 The `ControlPlane` project (`DevOpsMigrationPlatform.ControlPlane`) is a **service library** that implements the HTTP API, job state machine, lease protocol, and PostgreSQL data model for coordinating migration jobs. It has no entry point of its own — it is referenced and hosted by `ControlPlaneHost` (`DevOpsMigrationPlatform.ControlPlaneHost`).
 
-`ControlPlaneHost` is the deployable ASP.NET Core host. It configures and runs the `ControlPlane` service and adds **agent lifecycle management** — spawning and monitoring Agents as processes in local and self-hosted topologies, and managing container scaling in cloud deployments.
+`ControlPlaneHost` is the deployable ASP.NET Core host. It configures and runs the `ControlPlane` service and adds **agent lifecycle management** via `IAgentLauncher`:
+
+- `LocalProcessAgentLauncher` — spawns and monitors agent processes on the same machine (local and server topologies).
+- `ContainerAgentLauncher` — deploys and scales agent containers to a configurable target context: either the managed ACA environment co-located with the control plane, or a user-specified environment (for network zone isolation across VNets, ACA environments, or AKS namespaces). The agent image source is configured separately from the target context — the official `ghcr.io/nkdagility/migration-agent:{version}` image by default, or a customer's private ACR mirror.
 
 The control plane's role is to accept, validate, track, and assign work — not to perform it. Execution always happens inside an Agent.
 
@@ -14,7 +17,8 @@ The control plane's role is to accept, validate, track, and assign work — not 
 
 | Responsibility | Description |
 |---|---|
-| Job submission | Accept job definitions from the TUI or API clients. Validate config schema before accepting. |
+| Agent lifecycle management | Deploy and manage Migration Agents via `IAgentLauncher`. Spawn processes locally (`LocalProcessAgentLauncher`) or deploy containers to a configurable target context (`ContainerAgentLauncher`). Monitor liveness and reassign leases on failure. |
+| Job submission | Accept job definitions from the CLI or API clients. Validate config schema before accepting. |
 | Job storage | Persist job definitions and status. |
 | Lease management | Assign jobs to available Migration Agents via time-bounded leases. Reassign if a Migration Agent stops heartbeating. |
 | Progress tracking | Record per-module, per-cursor, per-stage progress as reported by Migration Agents. |

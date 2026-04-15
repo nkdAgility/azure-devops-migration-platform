@@ -4,7 +4,7 @@
 
 The **Migration Agent** (`DevOpsMigrationPlatform.MigrationAgent`) is a stateless worker that executes migration jobs assigned by `ControlPlaneHost`. The Migration Agent runs the Job Engine — the same execution logic used across all deployment topologies — receiving a job definition under a time-bounded lease and reporting progress back via the lease API.
 
-Migration Agent lifecycle is managed by `ControlPlaneHost`: spawned as processes in local and self-hosted topologies, and as container instances in cloud deployments. Migration Agents are stateless by design — any Migration Agent can pick up any job and resume from the last cursor position.
+Migration Agent lifecycle is managed by `ControlPlaneHost` via `IAgentLauncher`. The same agent binary and container image are used across all topologies. Migration Agents are stateless by design — any agent instance can pick up any job and resume from the last cursor position.
 
 The package contract, modules, and cursors are unchanged across all deployment topologies.
 
@@ -54,19 +54,11 @@ Poll /agents/lease
 
 ---
 
-## Migration Agent Roles
+## Deployment and Zone Isolation
 
-A single Agent binary supports all three modes (`Export`, `Import`, `Both`) by reading `mode` from the job definition. There is no requirement to deploy separate export and import binaries.
+A single agent binary and container image supports all three modes (`Export`, `Import`, `Both`) by reading `mode` from the job definition.
 
-However, two Agent deployments are supported for network isolation:
-
-| Role | Mode supported | Typical deployment |
-|---|---|---|
-| `ExportAgent` | `Export` | Source network zone |
-| `ImportAgent` | `Import` | Target network zone |
-| `Agent` | `Export`, `Import`, `Both` | Any zone with access to both |
-
-In the two-job pattern, the Export Migration Agent writes the package to the shared artefact store; the Import Migration Agent reads it. Both use the same package URI. The `manifest.json` and cursor files written by the Export Migration Agent are read by the Import Migration Agent without modification.
+For network zone isolation — where source and target systems are in different network zones — `ControlPlaneHost` can deploy the same agent image to different target contexts via `ContainerAgentLauncher` configuration. One deployment runs in the source network zone (mode `Export`); another runs in the target network zone (mode `Import`). Both use the same package URI in the shared artefact store. The `manifest.json` and cursor files written by the export-mode agent are read by the import-mode agent without modification.
 
 ---
 

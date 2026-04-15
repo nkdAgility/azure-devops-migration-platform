@@ -20,7 +20,7 @@ The CLI does **not** drive AppHost programmatically. CLI commands manage their o
 | **TFS Migration CLI** (`CLI.TfsMigration`, net481) | ✓ | ✗ | ✗ | Subprocess of CLI (not orchestrated by Aspire) |
 | **ControlPlane** (service library) | — | ✓ (referenced by ControlPlaneHost) | ✓ (referenced by ControlPlaneHost) | Class library — not a standalone Aspire resource |
 | **ControlPlaneHost** | ✓ | ✓ | ✓ | Aspire `AddProject` resource; manages Agent lifecycle |
-| **Migration Agent(s)** | ✓ | ✓ | ✓ | Aspire `AddProject` resource; lifecycle managed by ControlPlaneHost |
+| **Migration Agent(s)** | ✓ | ✓ | ✓ | Aspire `AddProject` resource; lifecycle managed by ControlPlaneHost via `IAgentLauncher` |
 | **Package Storage** | ✓ (filesystem) | ✓ (filesystem or Azurite) | ✓ (Azure Blob) | Aspire-configured connection string |
 
 ---
