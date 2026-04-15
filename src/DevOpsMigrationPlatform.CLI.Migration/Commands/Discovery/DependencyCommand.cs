@@ -147,6 +147,11 @@ public sealed class DependencyCommand : CommandBase<DependencyCommand.Settings>
                                     progress.CrossProjectLinks = heartbeat.CrossProjectCount;
                                     progress.CrossOrgLinks = heartbeat.CrossOrgCount;
                                     progress.IsComplete = heartbeat.IsComplete;
+                                    if (heartbeat.TotalWorkItems > 0 && progress.TotalWorkItems == 0)
+                                    {
+                                        progress.TotalWorkItems = heartbeat.TotalWorkItems;
+                                        progress.StartedAt = DateTime.UtcNow;
+                                    }
 
                                     ctx.UpdateTarget(BuildProgressTable(progressState.Values));
                                 }
@@ -203,9 +208,12 @@ public sealed class DependencyCommand : CommandBase<DependencyCommand.Settings>
                             if (heartbeat.IsComplete)
                             {
                                 var orgName = ExtractOrgName(heartbeat.OrganisationUrl);
+                                var of = heartbeat.TotalWorkItems > 0
+                                    ? $"{heartbeat.WorkItemsAnalysed}/{heartbeat.TotalWorkItems}"
+                                    : heartbeat.WorkItemsAnalysed.ToString();
                                 console.MarkupLine(
                                     $"  [grey]{Markup.Escape(orgName)}[/] / [white]{Markup.Escape(heartbeat.ProjectName)}[/]: " +
-                                    $"{heartbeat.WorkItemsAnalysed} items analysed, " +
+                                    $"{of} items analysed, " +
                                     $"{heartbeat.CrossProjectCount} cross-project, " +
                                     $"[red]{heartbeat.CrossOrgCount}[/] cross-org — [green]✓[/]");
                             }
@@ -412,9 +420,10 @@ public sealed class DependencyCommand : CommandBase<DependencyCommand.Settings>
             .BorderColor(Color.Grey)
             .AddColumn("Organisation")
             .AddColumn("Project")
-            .AddColumn(new TableColumn("Analysed").RightAligned())
+            .AddColumn(new TableColumn("Progress").RightAligned())
             .AddColumn(new TableColumn("Cross-Project").RightAligned())
             .AddColumn(new TableColumn("Cross-Org").RightAligned())
+            .AddColumn(new TableColumn("ETA").RightAligned())
             .AddColumn("Status");
 
         foreach (var p in state)
@@ -423,12 +432,36 @@ public sealed class DependencyCommand : CommandBase<DependencyCommand.Settings>
             var crossOrg = p.CrossOrgLinks > 0
                 ? $"[red]{p.CrossOrgLinks}[/]"
                 : p.CrossOrgLinks.ToString();
+
+            var progress = p.TotalWorkItems > 0
+                ? $"{p.WorkItemsAnalysed}/{p.TotalWorkItems}"
+                : p.WorkItemsAnalysed.ToString();
+
+            var eta = "--";
+            if (!p.IsComplete && p.TotalWorkItems > 0 && p.WorkItemsAnalysed > 0)
+            {
+                var elapsed = DateTime.UtcNow - p.StartedAt;
+                if (elapsed.TotalSeconds > 0)
+                {
+                    var rate = p.WorkItemsAnalysed / elapsed.TotalSeconds; // items/sec
+                    var remaining = (int)Math.Ceiling((p.TotalWorkItems - p.WorkItemsAnalysed) / rate);
+                    eta = remaining >= 60
+                        ? $"~{remaining / 60}m {remaining % 60}s"
+                        : $"~{remaining}s";
+                }
+            }
+            else if (p.IsComplete)
+            {
+                eta = "[green]done[/]";
+            }
+
             table.AddRow(
                 Markup.Escape(p.OrgName),
                 Markup.Escape(p.ProjectName),
-                p.WorkItemsAnalysed.ToString(),
+                progress,
                 p.CrossProjectLinks.ToString(),
                 crossOrg,
+                eta,
                 status);
         }
 
@@ -440,8 +473,10 @@ public sealed class DependencyCommand : CommandBase<DependencyCommand.Settings>
         public string OrgName { get; set; } = string.Empty;
         public string ProjectName { get; set; } = string.Empty;
         public int WorkItemsAnalysed { get; set; }
+        public int TotalWorkItems { get; set; }
         public int CrossProjectLinks { get; set; }
         public int CrossOrgLinks { get; set; }
         public bool IsComplete { get; set; }
+        public DateTime StartedAt { get; set; } = DateTime.UtcNow;
     }
 }

@@ -63,36 +63,32 @@ public sealed class AzureDevOpsDependencyAnalysisService : IWorkItemLinkAnalysis
         var counters = new LinkCounters();
         const int batchSize = 200;
 
-        var pendingIds = new List<int>(batchSize);
-
-        // Use IWorkItemQueryWindowStrategy to enumerate IDs — handles the 20K WIQL cap
+        // ── Phase 1: collect all work item IDs so we know the total up-front ──
+        // IDs are plain integers; even 200 K IDs occupy ~800 KB — well within budget.
+        _logger.LogInformation("Counting work items for project {Project} in {OrgUrl}", project, organisationUrl);
+        var allIds = new List<int>();
         await foreach (var window in _windowStrategy.EnumerateWindowsAsync(
             organisationUrl, project, pat, windowOptions, cancellationToken).ConfigureAwait(false))
         {
-            foreach (var workItemId in window.WorkItemIds)
-            {
-                pendingIds.Add(workItemId);
-
-                if (pendingIds.Count < batchSize)
-                    continue;
-
-                await foreach (var evt in ProcessBatchAsync(
-                    witClient, pendingIds, sourceOrgSegment, organisationUrl, project, pat,
-                    counters, cancellationToken))
-                {
-                    yield return evt;
-                }
-
-                pendingIds.Clear();
-            }
+            allIds.AddRange(window.WorkItemIds);
         }
 
-        // Flush remaining IDs
-        if (pendingIds.Count > 0)
+        var totalWorkItems = allIds.Count;
+        _logger.LogInformation("Found {Total} work items to analyse in {Project}", totalWorkItems, project);
+
+        // Emit an initial heartbeat so the CLI can display the total immediately.
+        yield return new DependencyHeartbeatEvent(
+            organisationUrl, project, 0, 0, 0, 0, false,
+            TotalWorkItems: totalWorkItems);
+
+        // ── Phase 2: process IDs in batches ───────────────────────────────────
+        for (var offset = 0; offset < allIds.Count; offset += batchSize)
         {
+            var batch = allIds.GetRange(offset, Math.Min(batchSize, allIds.Count - offset));
+
             await foreach (var evt in ProcessBatchAsync(
-                witClient, pendingIds, sourceOrgSegment, organisationUrl, project, pat,
-                counters, cancellationToken))
+                witClient, batch, sourceOrgSegment, organisationUrl, project, pat,
+                counters, totalWorkItems, cancellationToken))
             {
                 yield return evt;
             }
@@ -106,7 +102,8 @@ public sealed class AzureDevOpsDependencyAnalysisService : IWorkItemLinkAnalysis
             counters.CrossProject + counters.CrossOrg,
             counters.CrossProject,
             counters.CrossOrg,
-            true);
+            true,
+            TotalWorkItems: totalWorkItems);
 
         _logger.LogInformation(
             "Dependency analysis completed for {Project}: {Processed} work items, {CrossProject} cross-project, {CrossOrg} cross-org",
@@ -130,6 +127,7 @@ public sealed class AzureDevOpsDependencyAnalysisService : IWorkItemLinkAnalysis
         string project,
         string pat,
         LinkCounters counters,
+        int totalWorkItems,
         [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -254,7 +252,8 @@ public sealed class AzureDevOpsDependencyAnalysisService : IWorkItemLinkAnalysis
             counters.CrossProject + counters.CrossOrg,
             counters.CrossProject,
             counters.CrossOrg,
-            false);
+            false,
+            TotalWorkItems: totalWorkItems);
     }
 
     /// <summary>
