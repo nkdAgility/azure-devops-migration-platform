@@ -13,9 +13,9 @@ public class MigrationExportCommandTests
     // ── Unit tests ─────────────────────────────────────────────────────────
 
     [TestMethod]
-    public void MigrationExportCommand_CanBeConstructed_WithParameterlessConstructor()
+    public void QueueCommand_CanBeConstructed_WithParameterlessConstructor()
     {
-        var command = new DevOpsMigrationPlatform.CLI.Migration.Commands.MigrationExportCommand();
+        var command = new DevOpsMigrationPlatform.CLI.Migration.Commands.QueueCommand();
         Assert.IsNotNull(command);
     }
 
@@ -53,7 +53,7 @@ public class MigrationExportCommandTests
 
         // ── Act — run the CLI exactly as the launch profile does ──────────
         var result = await CliRunner.RunAsync(
-            args: ["export", "--config", "scenarios/export-ado-workitems-single-project.json", "--force-fresh"],
+            args: ["queue", "--config", "scenarios/export-ado-workitems-single-project.json", "--force-fresh"],
             timeout: TimeSpan.FromMinutes(18)); // generous — MSTest [Timeout] is the hard ceiling
 
         // Always dump output so failures are diagnosable in test results.
@@ -151,7 +151,7 @@ public class MigrationExportCommandTests
 
         // ── Act — run the CLI with comments and embedded images enabled ────
         var result = await CliRunner.RunAsync(
-            args: ["export", "--config", "scenarios/export-ado-workitems-single-project.json", "--force-fresh"],
+            args: ["queue", "--config", "scenarios/export-ado-workitems-single-project.json", "--force-fresh"],
             timeout: TimeSpan.FromMinutes(18));
 
         // Always dump output for diagnostics

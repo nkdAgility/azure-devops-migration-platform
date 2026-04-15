@@ -22,24 +22,22 @@ using Spectre.Console.Rendering;
 namespace DevOpsMigrationPlatform.CLI.Migration.Commands;
 
 /// <summary>
-/// Builds a <see cref="MigrationJob"/> from the migration config file and submits it
-/// to the control plane via <see cref="IJobRunner"/> (ControlPlaneClient).
+/// Submits a migration job to the control plane. Behaviour (export, import, or full
+/// lifecycle) is determined by the <c>mode</c> field in the configuration file.
 ///
-/// When <c>config.Source.Type == "TeamFoundationServer"</c> the command transparently
-/// delegates to <see cref="TfsExportRunner"/> (the net481 subprocess bridge) instead of
-/// submitting a job to the control plane. This keeps TFS OM handling invisible to the
-/// operator: a single <c>devopsmigration export --config ...</c> command handles both
-/// Azure DevOps Services and on-premises TFS/Azure DevOps Server.
+/// When <c>mode</c> is <c>Export</c> and <c>config.Source.Type == "TeamFoundationServer"</c>,
+/// the command transparently delegates to <see cref="TfsExportRunner"/> (the net481
+/// subprocess bridge). This keeps TFS OM handling invisible to the operator.
 ///
-/// No migration logic runs in this command — all execution happens in the agent (Azure DevOps path)
-/// or the TFS subprocess (TFS path).
+/// No migration logic runs in this command — all execution happens in the agent
+/// (Azure DevOps path) or the TFS subprocess (TFS path).
 /// See docs/cli.md and system-architecture guardrail rules 16 and 19.
 /// </summary>
-public sealed class MigrationExportCommand : ControlPlaneCommandBase<MigrationExportCommandSettings>
+public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
 {
     protected override async Task<int> ExecuteInternalAsync(
         CommandContext context,
-        MigrationExportCommandSettings settings,
+        QueueCommandSettings settings,
         CancellationToken cancellationToken = default)
     {
         await CreateHost(Environment.GetCommandLineArgs(), (services, config) =>
@@ -68,6 +66,36 @@ public sealed class MigrationExportCommand : ControlPlaneCommandBase<MigrationEx
         if (config is null)
             return 1;
 
+        // Route to the appropriate handler based on config mode.
+        return config.Mode switch
+        {
+            "Export" => await ExecuteExportAsync(config, settings, cancellationToken),
+            "Import" => ExecuteImportStub(),
+            "Both" => ExecuteMigrateStub(),
+            _ => ExecuteInvalidMode(config.Mode)
+        };
+    }
+
+    private int ExecuteImportStub()
+    {
+        AnsiConsole.MarkupLine("[grey]import — not available in this release.[/]");
+        return 1;
+    }
+
+    private int ExecuteMigrateStub()
+    {
+        AnsiConsole.MarkupLine("[grey]migrate — not available in this release.[/]");
+        return 1;
+    }
+
+    private int ExecuteInvalidMode(string mode)
+    {
+        AnsiConsole.MarkupLine($"[red]Invalid mode '{Markup.Escape(mode)}'. Must be Export, Import, or Both.[/]");
+        return 1;
+    }
+
+    private async Task<int> ExecuteExportAsync(MigrationOptions config, QueueCommandSettings settings, CancellationToken cancellationToken)
+    {
         // Delegate to the TFS subprocess runner for on-premises sources.
         if (string.Equals(config.Source?.Type, "TeamFoundationServer", StringComparison.Ordinal))
             return await TfsExportRunner.RunAsync(config, Host!.Services, tfsExportExePathOverride: null, cancellationToken);
@@ -75,7 +103,7 @@ public sealed class MigrationExportCommand : ControlPlaneCommandBase<MigrationEx
         return await ExecuteAdoExportAsync(config, settings, cancellationToken);
     }
 
-    private async Task<int> ExecuteAdoExportAsync(MigrationOptions config, MigrationExportCommandSettings settings, CancellationToken cancellationToken)
+    private async Task<int> ExecuteAdoExportAsync(MigrationOptions config, QueueCommandSettings settings, CancellationToken cancellationToken)
     {
         var console = GetRequiredService<IAnsiConsole>();
 
@@ -522,4 +550,3 @@ public sealed class MigrationExportCommand : ControlPlaneCommandBase<MigrationEx
         ];
     }
 }
-

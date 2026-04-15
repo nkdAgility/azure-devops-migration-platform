@@ -165,10 +165,8 @@ These commands submit jobs to the control plane via `ControlPlaneClient`.
 | Command | Description |
 |---|---|
 | `prepare` | Validate the config, compute `configHash`, print a job summary and planned modules. Does **not** submit a job. |
-| `export` | Submit an export-only job. Writes the package to the URI in `artefacts.packageUri`. `--follow` streams diagnostic logs inline (implicit in standalone mode). `--level` sets the agent's diagnostic minimum level per job. `--force-fresh` deletes the module cursor(s) before running so enumeration restarts from the beginning (identity map preserved). |
-| `import` | Submit an import-only job. Reads the package from `artefacts.packageUri`. `--force-fresh` deletes the module cursor(s) before running (identity map preserved). |
+| `queue` | Submit a migration job. Behaviour is determined by the `mode` field in the config (`Export`, `Import`, or `Both`). `--follow` streams diagnostic logs inline (implicit in standalone mode). `--level` sets the agent's diagnostic minimum level per job. `--force-fresh` deletes module cursor(s) before running so enumeration restarts from the beginning (identity map preserved). |
 | `validate` | Run pre-flight validation on an existing package. See [docs/validation.md](validation.md). |
-| `migrate` | Submit a full migration: export → validate → import in a single orchestrated run. `--force-fresh` deletes all module cursors and the job phase record before running (identity map preserved). |
 
 ### Job Management Commands (`manage`)
 
@@ -206,13 +204,10 @@ Discovery commands run **locally** and do **not** submit a `MigrationJob` to the
 
 ```
 devopsmigration prepare  --config migration.json
-devopsmigration export   --config migration.json
-devopsmigration export   --config migration.json --force-fresh
-devopsmigration import   --config migration.json
-devopsmigration import   --config migration.json --force-fresh
+devopsmigration queue    --config migration.json
+devopsmigration queue    --config migration.json --force-fresh
+devopsmigration queue    --config migration.json --follow --level Warning
 devopsmigration validate --config migration.json
-devopsmigration migrate  --config migration.json
-devopsmigration migrate  --config migration.json --force-fresh
 
 devopsmigration manage list
 devopsmigration manage status  --job 550e8400-e29b-41d4-a716-446655440000

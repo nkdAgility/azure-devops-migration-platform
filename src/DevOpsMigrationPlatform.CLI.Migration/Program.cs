@@ -28,22 +28,15 @@ internal class Program
                 .WithDescription("Validate config, compute configHash, print planned modules. No job is submitted.")
                 .WithExample("prepare", "--config", "migration.json");
 
-            config.AddChannelCommand<MigrationExportCommand>("export")
-                .WithDescription("Submit an export-only job. Source type (AzureDevOpsServices or TeamFoundationServer) is read from the config file.")
-                .WithExample("export", "--config", "migration.json")
-                .WithExample("export", "--config", "scenarios/export-ado-workitems-single-project.json");
-
-            config.AddChannelCommand<MigrationImportCommand>("import")
-                .WithDescription("Submit an import-only job. Reads the package from artefacts.path in the config file.")
-                .WithExample("import", "--config", "migration.json");
+            config.AddChannelCommand<QueueCommand>("queue")
+                .WithDescription("Submit a migration job. Behaviour is determined by the 'mode' field in the config (Export, Import, or Both).")
+                .WithExample("queue", "--config", "migration.json")
+                .WithExample("queue", "--config", "scenarios/export-ado-workitems-single-project.json")
+                .WithExample("queue", "--config", "migration.json", "--force-fresh");
 
             config.AddChannelCommand<MigrationValidateCommand>("validate")
                 .WithDescription("Run pre-flight validation on an existing package.")
                 .WithExample("validate", "--config", "migration.json");
-
-            config.AddChannelCommand<MigrationMigrateCommand>("migrate")
-                .WithDescription("Full lifecycle: export → validate → import in one orchestrated run.")
-                .WithExample("migrate", "--config", "migration.json");
 
             // ── Job management commands ──────────────────────────────────────────────
             config.AddBranch("manage", branch =>
