@@ -9,7 +9,6 @@ namespace DevOpsMigrationPlatform.Abstractions.Options;
 /// </summary>
 public sealed class DiscoveryOptions
 {
-    public const string SectionName = "MigrationTools";
 
     public string ConfigVersion { get; set; } = "1.0";
 
