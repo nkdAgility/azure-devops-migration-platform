@@ -218,7 +218,11 @@ public sealed class AzureDevOpsDependencyAnalysisService : IWorkItemLinkAnalysis
                     if (isCrossOrg)
                     {
                         counters.CrossOrg++;
-                        var targetStatus = await VerifyTargetStatusAsync(targetUrl, pat, cancellationToken).ConfigureAwait(false);
+                        // Use credentials presence to determine reachability — no extra HTTP call needed.
+                        // Calling with the source PAT always yields AccessDenied against a foreign org.
+                        var targetStatus = configuredOrgs.ContainsKey(targetOrgSegment)
+                            ? TargetStatus.Reachable
+                            : TargetStatus.Unknown;
                         var rawProject = ExtractProjectSegment(targetUrl);
                         var resolvedProject = await ResolveTargetProjectAsync(
                             targetOrgSegment, rawProject, configuredOrgs, projectNameCache, cancellationToken).ConfigureAwait(false);
@@ -459,43 +463,4 @@ public sealed class AzureDevOpsDependencyAnalysisService : IWorkItemLinkAnalysis
         }
     }
 
-    private static async Task<TargetStatus> VerifyTargetStatusAsync(
-        string targetUrl,
-        string pat,
-        CancellationToken cancellationToken)
-    {
-        try
-        {
-            using var httpClient = new System.Net.Http.HttpClient();
-            if (!string.IsNullOrEmpty(pat))
-            {
-                var encoded = Convert.ToBase64String(System.Text.Encoding.ASCII.GetBytes($":{pat}"));
-                httpClient.DefaultRequestHeaders.Authorization =
-                    new System.Net.Http.Headers.AuthenticationHeaderValue("Basic", encoded);
-            }
-
-            var response = await httpClient.SendAsync(
-                new System.Net.Http.HttpRequestMessage(System.Net.Http.HttpMethod.Head, targetUrl),
-                cancellationToken).ConfigureAwait(false);
-
-            if (response.IsSuccessStatusCode)
-                return TargetStatus.Reachable;
-
-            // ADO returns 404 for both genuinely deleted items AND items the caller
-            // cannot read (to avoid information leakage) — so 404 is ambiguous.
-            if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
-                return TargetStatus.NotFound;
-
-            // 401/403 means the PAT has no access to this organisation at all.
-            if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized ||
-                response.StatusCode == System.Net.HttpStatusCode.Forbidden)
-                return TargetStatus.AccessDenied;
-
-            return TargetStatus.Unknown;
-        }
-        catch
-        {
-            return TargetStatus.Unknown;
-        }
-    }
 }
