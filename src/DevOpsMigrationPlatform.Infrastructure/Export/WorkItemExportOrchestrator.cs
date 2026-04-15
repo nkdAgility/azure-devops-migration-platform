@@ -105,7 +105,7 @@ public sealed class WorkItemExportOrchestrator
             {
                 try
                 {
-                    var commentSource = _inlineCommentSourceFactory.Create(_organisationUrl, _project, _pat);
+                    var commentSource = _inlineCommentSourceFactory.Create(_organisationUrl!, _project!, _pat);
                     var matchingComments = new List<WorkItemComment>();
 
                     await foreach (var comment in commentSource.GetCommentsAsync(

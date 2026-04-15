@@ -224,7 +224,7 @@
             "args": [
                 "prepare",
                 "--config",
-                "scenarios/export-ado-workitems-single-project.json"
+                "scenarios/queue-export-ado-workitems-single-project.json"
             ],
             "env": {
                 "AZDEVOPS_SYSTEM_TEST_ORG": "${env:AZDEVOPS_SYSTEM_TEST_ORG}",
@@ -235,18 +235,18 @@
             "stopAtEntry": false,
             "preLaunchTask": "build-migration-cli"
         },
-        // ── Migration CLI: export ─────────────────────────────────────────────
-        // Options: [-c|--config] [-v|--verbose] [--disable-telemetry] [--dry-run]
-        // Source type (AzureDevOpsServices or TeamFoundationServer) is read from config.
+        // ── Migration CLI: queue ──────────────────────────────────────────────
+        // Behaviour is determined by the 'mode' field in the config (Export, Import, or Both).
+        // Options: [-c|--config] [--follow] [--level] [--force-fresh] [-v|--verbose] [--disable-telemetry] [--dry-run]
         {
-            "name": "📤 Migration CLI: Export ADO WorkItems (Single Project)",
+            "name": "📤 Migration CLI: Queue Export ADO WorkItems (Single Project)",
             "type": "coreclr",
             "request": "launch",
             "program": "${workspaceFolder}/src/DevOpsMigrationPlatform.CLI.Migration/bin/Debug/net10.0/devopsmigration.exe",
             "args": [
-                "export",
+                "queue",
                 "--config",
-                "scenarios/export-ado-workitems-single-project.json"
+                "scenarios/queue-export-ado-workitems-single-project.json"
             ],
             "env": {
                 "AZDEVOPS_SYSTEM_TEST_ORG": "${env:AZDEVOPS_SYSTEM_TEST_ORG}",
@@ -258,14 +258,14 @@
             "preLaunchTask": "build-migration-cli"
         },
         {
-            "name": "📤 Migration CLI: Export ADO WorkItems (Force Fresh)",
+            "name": "📤 Migration CLI: Queue Export ADO WorkItems (Force Fresh)",
             "type": "coreclr",
             "request": "launch",
             "program": "${workspaceFolder}/src/DevOpsMigrationPlatform.CLI.Migration/bin/Debug/net10.0/devopsmigration.exe",
             "args": [
-                "export",
+                "queue",
                 "--config",
-                "scenarios/export-ado-workitems-single-project.json",
+                "scenarios/queue-export-ado-workitems-single-project.json",
                 "--force-fresh"
             ],
             "env": {
@@ -278,14 +278,14 @@
             "preLaunchTask": "build-migration-cli"
         },
         {
-            "name": "📤 Migration CLI: Export ADO WorkItems (Follow + Diagnostics)",
+            "name": "📤 Migration CLI: Queue Export ADO WorkItems (Follow + Diagnostics)",
             "type": "coreclr",
             "request": "launch",
             "program": "${workspaceFolder}/src/DevOpsMigrationPlatform.CLI.Migration/bin/Debug/net10.0/devopsmigration.exe",
             "args": [
-                "export",
+                "queue",
                 "--config",
-                "scenarios/export-ado-workitems-single-project.json",
+                "scenarios/queue-export-ado-workitems-single-project.json",
                 "--follow",
                 "--level",
                 "Warning"
@@ -299,15 +299,15 @@
             "stopAtEntry": false,
             "preLaunchTask": "build-migration-cli"
         },
-         {
-            "name": "📤 Migration CLI: Export (CLIENT)",
+        {
+            "name": "📤 Migration CLI: Queue Export (CLIENT)",
             "type": "coreclr",
             "request": "launch",
             "program": "${workspaceFolder}/src/DevOpsMigrationPlatform.CLI.Migration/bin/Debug/net10.0/devopsmigration.exe",
             "args": [
-                "export",
+                "queue",
                 "--config",
-                "scenarios/client/export-ado-workitems-single-project.json"
+                "scenarios/client/queue-export-ado-workitems-single-project.json"
             ],
             "env": {
                 "AZDEVOPS_SYSTEM_TEST_ORG": "${env:AZDEVOPS_SYSTEM_TEST_ORG}",
@@ -319,12 +319,12 @@
             "preLaunchTask": "build-migration-cli"
         },
         {
-            "name": "📤 Migration CLI: Export TFS WorkItems (via config)",
+            "name": "📤 Migration CLI: Queue TFS WorkItems (via config)",
             "type": "coreclr",
             "request": "launch",
             "program": "${workspaceFolder}/src/DevOpsMigrationPlatform.CLI.Migration/bin/Debug/net10.0/devopsmigration.exe",
             "args": [
-                "export",
+                "queue",
                 "--config",
                 "scenarios/inventory-tfs-windows-auth.json"
             ],
@@ -333,14 +333,14 @@
             "stopAtEntry": false,
             "preLaunchTask": "build-migration-cli"
         },
-        // ── Migration CLI: import/validate/migrate ────────────────────────────
+        // ── Migration CLI: queue (Import/Both mode configs) ───────────────────
         {
-            "name": "📥 Migration CLI: Import",
+            "name": "📥 Migration CLI: Queue Import",
             "type": "coreclr",
             "request": "launch",
             "program": "${workspaceFolder}/src/DevOpsMigrationPlatform.CLI.Migration/bin/Debug/net10.0/devopsmigration.exe",
             "args": [
-                "import",
+                "queue",
                 "--config",
                 "migration.json"
             ],
@@ -350,12 +350,12 @@
             "preLaunchTask": "build-migration-cli"
         },
         {
-            "name": "📥 Migration CLI: Import (Force Fresh)",
+            "name": "📥 Migration CLI: Queue Import (Force Fresh)",
             "type": "coreclr",
             "request": "launch",
             "program": "${workspaceFolder}/src/DevOpsMigrationPlatform.CLI.Migration/bin/Debug/net10.0/devopsmigration.exe",
             "args": [
-                "import",
+                "queue",
                 "--config",
                 "migration.json",
                 "--force-fresh"
@@ -366,12 +366,12 @@
             "preLaunchTask": "build-migration-cli"
         },
         {
-            "name": "✅ Migration CLI: Validate",
+            "name": "🔄 Migration CLI: Queue Migrate (Full)",
             "type": "coreclr",
             "request": "launch",
             "program": "${workspaceFolder}/src/DevOpsMigrationPlatform.CLI.Migration/bin/Debug/net10.0/devopsmigration.exe",
             "args": [
-                "validate",
+                "queue",
                 "--config",
                 "migration.json"
             ],
@@ -381,27 +381,12 @@
             "preLaunchTask": "build-migration-cli"
         },
         {
-            "name": "🔄 Migration CLI: Migrate (Full)",
+            "name": "🔄 Migration CLI: Queue Migrate (Force Fresh)",
             "type": "coreclr",
             "request": "launch",
             "program": "${workspaceFolder}/src/DevOpsMigrationPlatform.CLI.Migration/bin/Debug/net10.0/devopsmigration.exe",
             "args": [
-                "migrate",
-                "--config",
-                "migration.json"
-            ],
-            "cwd": "${workspaceFolder}",
-            "console": "integratedTerminal",
-            "stopAtEntry": false,
-            "preLaunchTask": "build-migration-cli"
-        },
-        {
-            "name": "🔄 Migration CLI: Migrate (Force Fresh)",
-            "type": "coreclr",
-            "request": "launch",
-            "program": "${workspaceFolder}/src/DevOpsMigrationPlatform.CLI.Migration/bin/Debug/net10.0/devopsmigration.exe",
-            "args": [
-                "migrate",
+                "queue",
                 "--config",
                 "migration.json",
                 "--force-fresh"

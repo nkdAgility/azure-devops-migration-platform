@@ -149,7 +149,7 @@ public sealed class ControlPlaneLoggerProvider : BackgroundService, ILoggerProvi
                 Interlocked.Add(ref _droppedCount, batch.Count);
             }
         }
-        catch (HttpRequestException ex)
+        catch (HttpRequestException)
         {
             Interlocked.Add(ref _droppedCount, batch.Count);
             // Best-effort — failures are silently counted.

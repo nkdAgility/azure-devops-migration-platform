@@ -55,19 +55,19 @@ builder.AddServiceDefaults();
 
 ## Service Discovery Rules
 
-### CLI → Control Plane (Local / Server)
+### CLI → Control Plane (Standalone)
 
-When `MIGRATION_API_URL` is not set, the CLI drives Aspire programmatically. Aspire service discovery resolves the control plane endpoint for all locally-managed components. The control plane starts on `http://localhost:5100`.
+When `Environment.Type` is `Standalone` (the default), the CLI starts `LocalStackHost` in-process. The control plane starts on `http://localhost:5100`.
 
-### CLI → Control Plane (Cloud)
+### CLI → Control Plane (Hosted)
 
 **MUST:**
 ```csharp
-// CLI connects to remote endpoint when MIGRATION_API_URL is set
-var controlPlaneUrl = configuration["MIGRATION_API_URL"];
-services.AddHttpClient<IControlPlaneClient, ControlPlaneClient>(client =>
+// CLI connects to remote endpoint from EnvironmentOptions
+services.AddHttpClient<ControlPlaneClient>((sp, client) =>
 {
-    client.BaseAddress = new Uri(controlPlaneUrl);
+    var opts = sp.GetRequiredService<IOptions<EnvironmentOptions>>().Value;
+    client.BaseAddress = new Uri(opts.ControlPlane.BaseUrl);
 });
 ```
 
@@ -96,7 +96,7 @@ client.BaseAddress = new Uri(configuration["ControlPlaneUrl"]);  // ❌ agents u
 
 ## AppHost Configuration Rules
 
-The AppHost defines the service topology for **cloud provisioning and developer-standalone use only**. It is the `azd up` target for cloud deployment and a convenience tool for developer-standalone runs. The CLI does **not** use or invoke the AppHost project at runtime — when `MIGRATION_API_URL` is not set, the CLI uses embedded Aspire `DistributedApplication` APIs directly to start the same services.
+The AppHost defines the service topology for **cloud provisioning and developer-standalone use only**. It is the `azd up` target for cloud deployment and a convenience tool for developer-standalone runs. The CLI does **not** use or invoke the AppHost project at runtime — when `Environment.Type` is `Standalone`, the CLI starts `LocalStackHost` in-process to run the same services.
 
 ### MUST include:
 
@@ -312,8 +312,8 @@ resource migrationAgent 'Microsoft.App/containerApps@2023-05-01' = {
 ### CLI.Migration (net10.0) — Main CLI MUST:
 
 - Run as a standalone CLI (not orchestrated by Aspire)
-- Drive Aspire programmatically to start the control plane, agents, and PostgreSQL when `MIGRATION_API_URL` is not set
-- Connect to a remote control plane endpoint when `MIGRATION_API_URL` is set
+- Drive Aspire programmatically to start the control plane, agents, and PostgreSQL when `Environment.Type` is `Standalone`
+- Connect to a remote control plane endpoint when `Environment.Type` is `Hosted`
 - Support both local (`http://localhost:5100`) and cloud (`https://controlplane.azurecontainerapps.io`) endpoints
 - Validate job definitions before submission
 - Display job status via Control Plane API
@@ -373,7 +373,7 @@ Before accepting a change, verify:
 - [ ] `CLI.TfsMigration` can be invoked standalone (no dependency on `CLI.Migration` being present).
 - [ ] `CLI.TfsMigration` exe path is read from configuration, not hardcoded in production.
 - [ ] Agent uses service discovery for `ControlPlaneHost` communication (when running under AppHost).
-- [ ] CLI reads `MIGRATION_API_URL` to determine whether to drive Aspire locally or connect remotely.
+- [ ] CLI reads `Environment.Type` from config to determine whether to start LocalStackHost (Standalone) or connect remotely (Hosted).
 - [ ] OpenTelemetry is configured via ServiceDefaults only.
 - [ ] No hardcoded URLs in agent or Control Plane code.
 - [ ] Local storage supports both file:/// and Azurite (https://127.0.0.1:10000/devstoreaccount1/...).

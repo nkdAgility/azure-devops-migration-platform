@@ -2,8 +2,8 @@ namespace DevOpsMigrationPlatform.CLI.Migration.Settings;
 
 /// <summary>
 /// Base settings for Migration commands (export, import, validate, migrate, prepare).
-/// Inherits --url from <see cref="ControlPlaneBaseCommandSettings"/>.
-/// All other configuration lives in the config file specified by --config.
+/// Inherits from <see cref="ControlPlaneBaseCommandSettings"/>.
+/// Control plane URL is resolved from <c>MigrationPlatform:Environment:ControlPlane:BaseUrl</c>.
 /// See docs/cli.md and .agents/context/cli-commands.md.
 /// </summary>
 public class MigrationCommandSettings : ControlPlaneBaseCommandSettings

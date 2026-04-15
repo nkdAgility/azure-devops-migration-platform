@@ -19,7 +19,7 @@ public class ExportCommandFollowTests
     [TestMethod]
     public void ExportCommand_WithInvalidLevel_FailsValidation()
     {
-        var settings = new DevOpsMigrationPlatform.CLI.Migration.Settings.MigrationExportCommandSettings
+        var settings = new DevOpsMigrationPlatform.CLI.Migration.Settings.QueueCommandSettings
         {
             ConfigFile = "test.json",
             Follow = false,
@@ -55,13 +55,13 @@ public class ExportCommandFollowTests
 
         // ── Output folder ───────────────────────────────────────────────────────────
         var outputDir = Path.Combine(
-            CliRunner.FindRepoRoot(), "storage", "export-ado-workitems-single-project");
+            CliRunner.FindRepoRoot(), "storage", "queue-export-ado-workitems-single-project");
         if (Directory.Exists(outputDir))
             Directory.Delete(outputDir, recursive: true);
 
-        // ── Act — run with --follow and --level Warning ────────────────────────
+        // ── Act — run with --follow and --level Warning ────────────────────
         var result = await CliRunner.RunAsync(
-            args: ["export", "--config", "scenarios/export-ado-workitems-single-project.json",
+            args: ["queue", "--config", "scenarios/queue-export-ado-workitems-single-project.json",
                    "--force-fresh", "--follow", "--level", "Warning"],
             timeout: TimeSpan.FromMinutes(18));
 
@@ -117,13 +117,13 @@ public class ExportCommandFollowTests
 
         // ── Output folder ───────────────────────────────────────────────────────────
         var outputDir = Path.Combine(
-            CliRunner.FindRepoRoot(), "storage", "export-ado-workitems-single-project");
+            CliRunner.FindRepoRoot(), "storage", "queue-export-ado-workitems-single-project");
         if (Directory.Exists(outputDir))
             Directory.Delete(outputDir, recursive: true);
 
         // ── Act — run with --level Debug ──────────────────────────────────
         var result = await CliRunner.RunAsync(
-            args: ["export", "--config", "scenarios/export-ado-workitems-single-project.json",
+            args: ["queue", "--config", "scenarios/queue-export-ado-workitems-single-project.json",
                    "--force-fresh", "--level", "Debug"],
             timeout: TimeSpan.FromMinutes(18));
 

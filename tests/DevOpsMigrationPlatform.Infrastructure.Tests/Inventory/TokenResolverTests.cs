@@ -57,7 +57,7 @@ public class TokenResolverTests
         const string varName = "INVENTORY_TEST_UNSET_TOKEN_XYZ";
         Environment.SetEnvironmentVariable(varName, null);
 
-        Assert.ThrowsException<InvalidOperationException>(
+        Assert.ThrowsExactly<InvalidOperationException>(
             () => TokenResolver.Resolve($"$ENV:{varName}"));
     }
 

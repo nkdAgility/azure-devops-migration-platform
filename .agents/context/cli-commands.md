@@ -21,11 +21,8 @@ Submit and drive migration jobs via the control plane. Each command creates or q
 
 | Command | Settings Key | Description |
 |---------|-------------|-------------|
-| `prepare` | `PrepareCommandSettings` | Validate config, compute `configHash`, print planned modules. **No job submitted.** |
-| `export` | `ExportCommandSettings` | Submit an export-only job. Writes package to `artefacts.packageUri`. `--follow` streams diagnostic logs inline. `--level` sets the agent's diagnostic minimum level. `--force-fresh` deletes the module cursor(s) before running so enumeration restarts from the beginning (identity map preserved). |
-| `import` | `ImportCommandSettings` | Submit an import-only job. Reads package from `artefacts.packageUri`. `--force-fresh` deletes the module cursor(s) before running (identity map preserved). |
-| `validate` | `ValidateCommandSettings` | Run pre-flight validation on an existing package. |
-| `migrate` | `MigrateCommandSettings` | Full lifecycle: export → validate → import in one orchestrated run. `--force-fresh` deletes all module cursors and the job phase record before running (identity map preserved). |
+| `prepare` | `MigrationCommandSettings` | Submit a lightweight probe job through the full pipeline (CLI → Control Plane → Agent → ArtefactStore) to validate that permissions, configuration, and connectivity work end-to-end. The agent writes a single probe file to the artefact store and completes. |
+| `queue` | `QueueCommandSettings` | Submit a migration job. Behaviour is determined by the `mode` field in the config (`Export`, `Import`, or `Both`). `--follow` streams diagnostic logs inline. `--level` sets the agent's diagnostic minimum level. `--force-fresh` deletes module cursor(s) before running so enumeration restarts from the beginning (identity map preserved). |
 
 ### 2. Job Management Commands (`manage`)
 
@@ -67,19 +64,21 @@ Run **locally**. Do **not** submit a `MigrationJob`. Registered as a Spectre.Con
 | `--verbose` | `-v` | `false` | Enable verbose console output. |
 | `--disable-telemetry` | — | `false` | Suppress all telemetry export. |
 
-## Resume Options (`export`, `import`, `migrate`)
+## Resume Options (`queue`)
 
 | Option | Default | Description |
 |--------|---------|-------------|
-| `--force-fresh` | `false` | Delete module cursor file(s) (and the job phase record for `migrate`) before job execution. Enumeration restarts from the beginning. The identity map (`Checkpoints/idmap.json`) is **not** deleted so no duplicate items are created in the target. |
+| `--force-fresh` | `false` | Delete module cursor file(s) (and the job phase record for `Both` mode) before job execution. Enumeration restarts from the beginning. The identity map (`Checkpoints/idmap.json`) is **not** deleted so no duplicate items are created in the target. |
 
-## Migration + Manage + TUI Options (control-plane commands only)
+## Control Plane Endpoint Resolution (control-plane commands only)
 
-These options are available on all commands that contact the control plane (`export`, `import`, `validate`, `migrate`, `prepare`, `manage *`, `tui`). They are **not** available on `discovery *` or `configure` commands.
+Commands that contact the control plane (`queue`, `prepare`, `manage *`, `tui`) resolve the control plane URL from configuration:
 
-| Option | Short | Default | Description |
-|--------|-------|---------|-------------|
-| `--url` | — | *(none)* | URL of the control plane API (e.g. `https://controlplane.example.com`). Overrides `MIGRATION_API_URL`. When neither is set, the CLI starts the ControlPlane + MigrationAgent in-process at `http://localhost:5100`. |
+- `MigrationPlatform:Environment:ControlPlane:BaseUrl` — bound to `EnvironmentOptions` via `IOptions<T>`.
+- When `Environment` is absent or `Type` is `Standalone`, defaults to `http://localhost:5100` and the CLI starts `LocalStackHost` in-process.
+- When `Type` is `Hosted`, the CLI connects to the configured `BaseUrl` directly.
+
+The config file is the single source of truth. There is no `--url` CLI flag or `MIGRATION_API_URL` environment variable.
 
 ---
 
@@ -90,11 +89,7 @@ Commands are registered in `Program.cs` using Spectre.Console's fluent API:
 ```csharp
 // Top-level commands
 config.AddCommand<PrepareCommand>("prepare");
-config.AddCommand<ExportCommand>("export");
-config.AddCommand<ImportCommand>("import");
-config.AddCommand<ValidateCommand>("validate");
-config.AddCommand<MigrateCommand>("migrate");
-
+config.AddCommand<QueueCommand>("queue");
 // manage branch
 config.AddBranch("manage", branch => {
     branch.AddCommand<ManageListCommand>("list");
@@ -123,13 +118,9 @@ config.AddCommand<TuiCommand>("tui");
 
 ```
 devopsmigration prepare  --config migration.json
-devopsmigration export   --config migration.json
-devopsmigration export   --config migration.json --force-fresh
-devopsmigration import   --config migration.json
-devopsmigration import   --config migration.json --force-fresh
-devopsmigration validate --config migration.json
-devopsmigration migrate  --config migration.json
-devopsmigration migrate  --config migration.json --force-fresh
+devopsmigration queue    --config migration.json
+devopsmigration queue    --config migration.json --force-fresh
+devopsmigration queue    --config migration.json --follow --level Warning
 
 devopsmigration manage list
 devopsmigration manage status  --job 550e8400-e29b-41d4-a716-446655440000
@@ -146,7 +137,6 @@ devopsmigration discovery inventory --config migration.json --all-projects
 devopsmigration discovery inventory --config migration.json --output ./reports
 
 devopsmigration tui
-devopsmigration tui --url https://migration.example.com
 ```
 
 ---

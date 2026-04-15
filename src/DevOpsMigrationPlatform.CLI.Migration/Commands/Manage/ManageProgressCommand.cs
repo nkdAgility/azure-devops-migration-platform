@@ -4,8 +4,10 @@ using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.CLI.JobRunners;
 using DevOpsMigrationPlatform.CLI.Migration.Commands;
+using DevOpsMigrationPlatform.CLI.Migration.Options;
 using DevOpsMigrationPlatform.CLI.Migration.Settings;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 using Spectre.Console;
 using Spectre.Console.Cli;
 
@@ -36,12 +38,12 @@ public sealed class ManageProgressCommand : ControlPlaneCommandBase<ManageProgre
             return 1;
         }
 
-        var resolvedUrl = MigrationPlatformHost.ResolveControlPlaneUrl(settings.Url);
-        await CreateHost(Environment.GetCommandLineArgs(), resolvedUrl, (services, _) =>
+        await CreateHost(Environment.GetCommandLineArgs(), (services, _) =>
         {
-            services.AddHttpClient<ControlPlaneClient>((_, client) =>
+            services.AddHttpClient<ControlPlaneClient>((sp, client) =>
             {
-                client.BaseAddress = new Uri(resolvedUrl ?? "http://localhost:5100");
+                var opts = sp.GetRequiredService<IOptions<EnvironmentOptions>>().Value;
+                client.BaseAddress = new Uri(opts.ControlPlane.BaseUrl);
             });
         });
 

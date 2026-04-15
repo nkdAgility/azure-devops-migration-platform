@@ -24,7 +24,7 @@ public static class TokenResolver
         if (string.IsNullOrEmpty(raw))
             return null;
 
-        if (raw.StartsWith(EnvPrefix, StringComparison.OrdinalIgnoreCase))
+        if (raw!.StartsWith(EnvPrefix, StringComparison.OrdinalIgnoreCase))
         {
             var varName = raw.Substring(EnvPrefix.Length);
             var value = Environment.GetEnvironmentVariable(varName);

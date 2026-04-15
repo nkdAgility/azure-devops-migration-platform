@@ -8,6 +8,7 @@
     <Product>Azure DevOps Migration Platform</Product>
     <LangVersion>12</LangVersion>
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
   </PropertyGroup>
 
 </Project>

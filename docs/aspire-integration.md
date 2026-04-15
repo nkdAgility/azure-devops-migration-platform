@@ -271,14 +271,14 @@ The CLI is always the operator's entry point. For local and server-based migrati
 
 ### CLI.Migration (net10.0) — Main CLI
 
-`CLI.Migration` is the primary operator-facing CLI. It drives Aspire for local and server execution, or connects to a remote endpoint when `MIGRATION_API_URL` is configured:
+`CLI.Migration` is the primary operator-facing CLI. It starts `LocalStackHost` in-process for standalone execution, or connects to a remote endpoint when `Environment.Type` is `Hosted`:
 
 ```csharp
-// When MIGRATION_API_URL is not set, the CLI drives Aspire programmatically
-var app = await DistributedApplication.CreateAsync(args);
-await app.StartAsync();
+// When Environment.Type is Standalone, the CLI starts LocalStackHost in-process
+var localStack = new LocalStackHost();
+await localStack.StartAsync();
 
-// Aspire service discovery resolves the control plane endpoint
+// EnvironmentOptions.ControlPlane.BaseUrl resolves the endpoint
 ```
 
 When a TFS source is configured, `CLI.Migration` invokes `CLI.TfsMigration` as a subprocess via `ExternalToolRunner`, streaming its stdout in real time:
@@ -401,14 +401,14 @@ builder.Services.AddHttpClient<IControlPlaneClient, ControlPlaneClient>(client =
 });
 ```
 
-### In CLI (Cloud Mode)
+### In CLI (Hosted Mode)
 
 ```csharp
-// CLI connects to remote endpoint when MIGRATION_API_URL is set
-var controlPlaneUrl = configuration["MIGRATION_API_URL"];  // https://controlplane.azurecontainerapps.io
-services.AddHttpClient<IControlPlaneClient, ControlPlaneClient>(client =>
+// CLI resolves endpoint from EnvironmentOptions (bound from MigrationPlatform:Environment)
+services.AddHttpClient<ControlPlaneClient>((sp, client) =>
 {
-    client.BaseAddress = new Uri(controlPlaneUrl);
+    var opts = sp.GetRequiredService<IOptions<EnvironmentOptions>>().Value;
+    client.BaseAddress = new Uri(opts.ControlPlane.BaseUrl);
 });
 ```
 

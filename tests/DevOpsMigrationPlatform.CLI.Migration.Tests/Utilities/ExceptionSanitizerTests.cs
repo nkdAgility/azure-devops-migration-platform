@@ -109,7 +109,7 @@ public class ExceptionSanitizerTests
         Exception? ex = null;
 
         // Act
-        var result = ExceptionSanitizer.SanitizeException(ex);
+        var result = ExceptionSanitizer.SanitizeException(ex!);
 
         // Assert
         // Null exception is handled appropriately by the sanitizer

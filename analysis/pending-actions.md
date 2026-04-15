@@ -116,7 +116,7 @@ Items are grouped by feature spec and categorised as **Code**, **Tests**, or **D
 - 🟡 `T010` Run an export and confirm `Logs/progress.jsonl` exists in the package output with at least one NDJSON record per module stage transition.
 - 🟡 `T015` Run an export and confirm `Logs/agent.jsonl` exists in the package output with structured NDJSON records at `Warning+` level.
 - 🟡 `T030` Run `export --level Debug --follow`, confirm Debug records appear in `agent.jsonl` and diagnostics stream to console; CLI exits on completion.
-- 🟡 `T055` Run `scenarios/export-ado-workitems-single-project.json` via `.vscode/launch.json` debug profile; verify both `Logs/progress.jsonl` and `Logs/agent.jsonl` are produced.
+- 🟡 `T055` Run `scenarios/queue-export-ado-workitems-single-project.json` via `.vscode/launch.json` debug profile; verify both `Logs/progress.jsonl` and `Logs/agent.jsonl` are produced.
 
 ---
 
