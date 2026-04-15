@@ -366,21 +366,6 @@
             "preLaunchTask": "build-migration-cli"
         },
         {
-            "name": "✅ Migration CLI: Validate",
-            "type": "coreclr",
-            "request": "launch",
-            "program": "${workspaceFolder}/src/DevOpsMigrationPlatform.CLI.Migration/bin/Debug/net10.0/devopsmigration.exe",
-            "args": [
-                "validate",
-                "--config",
-                "migration.json"
-            ],
-            "cwd": "${workspaceFolder}",
-            "console": "integratedTerminal",
-            "stopAtEntry": false,
-            "preLaunchTask": "build-migration-cli"
-        },
-        {
             "name": "🔄 Migration CLI: Queue Migrate (Full)",
             "type": "coreclr",
             "request": "launch",

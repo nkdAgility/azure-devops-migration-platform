@@ -23,7 +23,6 @@ Submit and drive migration jobs via the control plane. Each command creates or q
 |---------|-------------|-------------|
 | `prepare` | `PrepareCommandSettings` | Validate config, compute `configHash`, print planned modules. **No job submitted.** |
 | `queue` | `QueueCommandSettings` | Submit a migration job. Behaviour is determined by the `mode` field in the config (`Export`, `Import`, or `Both`). `--follow` streams diagnostic logs inline. `--level` sets the agent's diagnostic minimum level. `--force-fresh` deletes module cursor(s) before running so enumeration restarts from the beginning (identity map preserved). |
-| `validate` | `ValidateCommandSettings` | Run pre-flight validation on an existing package. |
 
 ### 2. Job Management Commands (`manage`)
 
@@ -73,7 +72,7 @@ Run **locally**. Do **not** submit a `MigrationJob`. Registered as a Spectre.Con
 
 ## Control Plane Endpoint Resolution (control-plane commands only)
 
-Commands that contact the control plane (`queue`, `validate`, `prepare`, `manage *`, `tui`) resolve the control plane URL from configuration:
+Commands that contact the control plane (`queue`, `prepare`, `manage *`, `tui`) resolve the control plane URL from configuration:
 
 - `MigrationPlatform:Environment:ControlPlane:BaseUrl` — bound to `EnvironmentOptions` via `IOptions<T>`.
 - When `Environment` is absent or `Type` is `Standalone`, defaults to `http://localhost:5100` and the CLI starts `LocalStackHost` in-process.
@@ -91,8 +90,6 @@ Commands are registered in `Program.cs` using Spectre.Console's fluent API:
 // Top-level commands
 config.AddCommand<PrepareCommand>("prepare");
 config.AddCommand<QueueCommand>("queue");
-config.AddCommand<ValidateCommand>("validate");
-
 // manage branch
 config.AddBranch("manage", branch => {
     branch.AddCommand<ManageListCommand>("list");
@@ -124,7 +121,6 @@ devopsmigration prepare  --config migration.json
 devopsmigration queue    --config migration.json
 devopsmigration queue    --config migration.json --force-fresh
 devopsmigration queue    --config migration.json --follow --level Warning
-devopsmigration validate --config migration.json
 
 devopsmigration manage list
 devopsmigration manage status  --job 550e8400-e29b-41d4-a716-446655440000

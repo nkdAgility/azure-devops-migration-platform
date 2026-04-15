@@ -34,10 +34,6 @@ internal class Program
                 .WithExample("queue", "--config", "scenarios/queue-export-ado-workitems-single-project.json")
                 .WithExample("queue", "--config", "migration.json", "--force-fresh");
 
-            config.AddChannelCommand<MigrationValidateCommand>("validate")
-                .WithDescription("Run pre-flight validation on an existing package.")
-                .WithExample("validate", "--config", "migration.json");
-
             // ── Job management commands ──────────────────────────────────────────────
             config.AddBranch("manage", branch =>
             {

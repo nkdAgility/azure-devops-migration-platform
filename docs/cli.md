@@ -166,7 +166,6 @@ These commands submit jobs to the control plane via `ControlPlaneClient`.
 |---|---|
 | `prepare` | Validate the config, compute `configHash`, print a job summary and planned modules. Does **not** submit a job. |
 | `queue` | Submit a migration job. Behaviour is determined by the `mode` field in the config (`Export`, `Import`, or `Both`). `--follow` streams diagnostic logs inline (implicit in standalone mode). `--level` sets the agent's diagnostic minimum level per job. `--force-fresh` deletes module cursor(s) before running so enumeration restarts from the beginning (identity map preserved). |
-| `validate` | Run pre-flight validation on an existing package. See [docs/validation.md](validation.md). |
 
 ### Job Management Commands (`manage`)
 
@@ -207,7 +206,6 @@ devopsmigration prepare  --config migration.json
 devopsmigration queue    --config migration.json
 devopsmigration queue    --config migration.json --force-fresh
 devopsmigration queue    --config migration.json --follow --level Warning
-devopsmigration validate --config migration.json
 
 devopsmigration manage list
 devopsmigration manage status  --job 550e8400-e29b-41d4-a716-446655440000
