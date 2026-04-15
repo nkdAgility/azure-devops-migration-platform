@@ -778,7 +778,7 @@ public class WorkItemQueryWindowStrategyTests
         var sut = new WorkItemQueryWindowStrategy(factoryMock.Object);
 
         // Act & Assert: after maxTransientRetries (3) exhausted the original exception propagates
-        await Assert.ThrowsExceptionAsync<InvalidOperationException>(async () =>
+        await Assert.ThrowsExactlyAsync<InvalidOperationException>(async () =>
         {
             await foreach (var _ in sut.EnumerateWindowsAsync(Org, Project, Pat, opts))
             { }
@@ -927,7 +927,7 @@ public class WorkItemQueryWindowStrategyTests
         var sut = new WorkItemQueryWindowStrategy(factoryMock.Object);
 
         // Act: all transient retries exhausted → transientEx should propagate
-        await Assert.ThrowsExceptionAsync<InvalidOperationException>(async () =>
+        await Assert.ThrowsExactlyAsync<InvalidOperationException>(async () =>
         {
             await foreach (var _ in sut.EnumerateWindowsAsync(Org, Project, Pat, opts))
             { }
@@ -1030,7 +1030,7 @@ public class WorkItemQueryWindowStrategyTests
 
         var sut = new WorkItemQueryWindowStrategy(factoryMock.Object);
 
-        await Assert.ThrowsExceptionAsync<OperationCanceledException>(async () =>
+        await Assert.ThrowsExactlyAsync<OperationCanceledException>(async () =>
         {
             await foreach (var _ in sut.EnumerateWindowsAsync(Org, Project, Pat, cancellationToken: cts.Token))
             { }
@@ -1158,7 +1158,7 @@ public class WorkItemQueryWindowStrategyTests
 
         var sut = new WorkItemQueryWindowStrategy(factoryMock.Object);
 
-        await Assert.ThrowsExceptionAsync<OperationCanceledException>(async () =>
+        await Assert.ThrowsExactlyAsync<OperationCanceledException>(async () =>
         {
             await foreach (var _ in sut.EnumerateWindowsAsync(Org, Project, Pat, cancellationToken: cts.Token))
             { }
@@ -1169,6 +1169,6 @@ public class WorkItemQueryWindowStrategyTests
 
     [TestMethod]
     public void Constructor_NullFactory_ThrowsArgumentNullException()
-        => Assert.ThrowsException<ArgumentNullException>(
+        => Assert.ThrowsExactly<ArgumentNullException>(
             () => new WorkItemQueryWindowStrategy(null!));
 }

@@ -19,11 +19,11 @@ namespace DevOpsMigrationPlatform.Infrastructure.Tests.Dependencies;
 [TestClass]
 public class AzureDevOpsDependencyAnalysisServiceTests
 {
-    private Mock<IOptions<DiscoveryOptions>> _optionsMock;
-    private Mock<IAzureDevOpsClientFactory> _clientFactoryMock;
-    private Mock<IWorkItemQueryWindowStrategy> _windowStrategyMock;
-    private Mock<ILogger<AzureDevOpsDependencyAnalysisService>> _loggerMock;
-    private AzureDevOpsDependencyAnalysisService _service;
+    private Mock<IOptions<DiscoveryOptions>> _optionsMock = null!;
+    private Mock<IAzureDevOpsClientFactory> _clientFactoryMock = null!;
+    private Mock<IWorkItemQueryWindowStrategy> _windowStrategyMock = null!;
+    private Mock<ILogger<AzureDevOpsDependencyAnalysisService>> _loggerMock = null!;
+    private AzureDevOpsDependencyAnalysisService _service = null!;
 
     [TestInitialize]
     public void Setup()
@@ -49,47 +49,47 @@ public class AzureDevOpsDependencyAnalysisServiceTests
     }
 
     [TestMethod]
-    [ExpectedException(typeof(ArgumentNullException))]
     public void Service_ThrowsArgumentNullException_WhenOptionsNull()
     {
-        new AzureDevOpsDependencyAnalysisService(
-            null!,
-            _clientFactoryMock.Object,
-            _windowStrategyMock.Object,
-            _loggerMock.Object);
+        Assert.ThrowsExactly<ArgumentNullException>(() =>
+            new AzureDevOpsDependencyAnalysisService(
+                null!,
+                _clientFactoryMock.Object,
+                _windowStrategyMock.Object,
+                _loggerMock.Object));
     }
 
     [TestMethod]
-    [ExpectedException(typeof(ArgumentNullException))]
     public void Service_ThrowsArgumentNullException_WhenClientFactoryNull()
     {
-        new AzureDevOpsDependencyAnalysisService(
-            _optionsMock.Object,
-            null!,
-            _windowStrategyMock.Object,
-            _loggerMock.Object);
+        Assert.ThrowsExactly<ArgumentNullException>(() =>
+            new AzureDevOpsDependencyAnalysisService(
+                _optionsMock.Object,
+                null!,
+                _windowStrategyMock.Object,
+                _loggerMock.Object));
     }
 
     [TestMethod]
-    [ExpectedException(typeof(ArgumentNullException))]
     public void Service_ThrowsArgumentNullException_WhenWindowStrategyNull()
     {
-        new AzureDevOpsDependencyAnalysisService(
-            _optionsMock.Object,
-            _clientFactoryMock.Object,
-            null!,
-            _loggerMock.Object);
+        Assert.ThrowsExactly<ArgumentNullException>(() =>
+            new AzureDevOpsDependencyAnalysisService(
+                _optionsMock.Object,
+                _clientFactoryMock.Object,
+                null!,
+                _loggerMock.Object));
     }
 
     [TestMethod]
-    [ExpectedException(typeof(ArgumentNullException))]
     public void Service_ThrowsArgumentNullException_WhenLoggerNull()
     {
-        new AzureDevOpsDependencyAnalysisService(
-            _optionsMock.Object,
-            _clientFactoryMock.Object,
-            _windowStrategyMock.Object,
-            null!);
+        Assert.ThrowsExactly<ArgumentNullException>(() =>
+            new AzureDevOpsDependencyAnalysisService(
+                _optionsMock.Object,
+                _clientFactoryMock.Object,
+                _windowStrategyMock.Object,
+                null!));
     }
 
     [TestMethod]

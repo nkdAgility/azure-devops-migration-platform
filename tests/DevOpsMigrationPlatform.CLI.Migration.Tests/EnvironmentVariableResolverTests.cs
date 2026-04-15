@@ -50,7 +50,7 @@ public class EnvironmentVariableResolverTests
     {
         Environment.SetEnvironmentVariable(TestVarName, null);
 
-        var ex = Assert.ThrowsException<InvalidOperationException>(
+        var ex = Assert.ThrowsExactly<InvalidOperationException>(
             () => EnvironmentVariableResolver.Resolve($"$ENV:{TestVarName}", "myField"));
 
         Assert.IsTrue(ex.Message.Contains(TestVarName));
@@ -60,7 +60,7 @@ public class EnvironmentVariableResolverTests
     [TestMethod]
     public void Resolve_EmptyEnvRef_ThrowsInvalidOperation()
     {
-        var ex = Assert.ThrowsException<InvalidOperationException>(
+        var ex = Assert.ThrowsExactly<InvalidOperationException>(
             () => EnvironmentVariableResolver.Resolve("$ENV:", "myField"));
 
         Assert.IsTrue(ex.Message.Contains("empty"));

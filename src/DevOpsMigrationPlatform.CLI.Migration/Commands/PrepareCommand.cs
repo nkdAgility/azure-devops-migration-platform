@@ -93,13 +93,20 @@ public sealed class PrepareCommand : ControlPlaneCommandBase<MigrationCommandSet
         }
 
         // Follow the job to completion — prepare jobs are fast.
+        // Use a timeout to avoid hanging if the SSE stream doesn't close cleanly.
+        using var prepareCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        prepareCts.CancelAfter(TimeSpan.FromMinutes(2));
         try
         {
-            await foreach (var evt in client.FollowLogsAsync(parsedJobId, cancellationToken))
+            await foreach (var evt in client.FollowLogsAsync(parsedJobId, prepareCts.Token))
             {
                 if (!string.IsNullOrEmpty(evt.Message))
                     console.MarkupLine($"  [grey]{Markup.Escape(evt.Message)}[/]");
             }
+        }
+        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            // SSE stream timed out but the job may have completed — check status.
         }
         catch (InvalidOperationException ex) when (ex.Message.Contains("Job failed"))
         {

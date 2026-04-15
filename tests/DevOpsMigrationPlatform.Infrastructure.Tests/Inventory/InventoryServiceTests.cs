@@ -321,7 +321,7 @@ public class InventoryServiceTests
     [TestMethod]
     public void InventoryService_ThrowsOnNullDiscovery()
     {
-        Assert.ThrowsException<ArgumentNullException>(() =>
+        Assert.ThrowsExactly<ArgumentNullException>(() =>
             new InventoryService(
                 BuildOptions(),
                 null!,
@@ -333,7 +333,7 @@ public class InventoryServiceTests
     public void InventoryService_ThrowsOnNullRepoDiscovery()
     {
         var discoveryMock = new Mock<IWorkItemDiscoveryService>(MockBehavior.Strict);
-        Assert.ThrowsException<ArgumentNullException>(() =>
+        Assert.ThrowsExactly<ArgumentNullException>(() =>
             new InventoryService(
                 BuildOptions(),
                 discoveryMock.Object,
@@ -345,7 +345,7 @@ public class InventoryServiceTests
     public void AzureDevOpsWorkItemDiscoveryService_ThrowsOnNullStrategy()
     {
         var clientFactory = new Mock<IAzureDevOpsClientFactory>(MockBehavior.Strict);
-        Assert.ThrowsException<ArgumentNullException>(() =>
+        Assert.ThrowsExactly<ArgumentNullException>(() =>
             new AzureDevOpsWorkItemDiscoveryService(null!, clientFactory.Object));
     }
 
@@ -415,7 +415,7 @@ public class InventoryServiceTests
     [TestMethod]
     public void AzureDevOpsRepoDiscoveryService_ThrowsOnNullClientFactory()
     {
-        Assert.ThrowsException<ArgumentNullException>(() =>
+        Assert.ThrowsExactly<ArgumentNullException>(() =>
             new AzureDevOpsRepoDiscoveryService(null!));
     }
 
