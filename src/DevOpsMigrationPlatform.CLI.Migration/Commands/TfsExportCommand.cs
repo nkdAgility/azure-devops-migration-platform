@@ -93,9 +93,9 @@ internal static class TfsExportRunner
     {
         var assemblyDir = Path.GetDirectoryName(typeof(TfsExportRunner).Assembly.Location) ?? ".";
 
-        // Side-by-side (published layout)
-        var sideBySide = Path.Combine(assemblyDir, "tfsmigration.exe");
-        if (File.Exists(sideBySide)) return sideBySide;
+        // Published layout: tfsmigration/ subdirectory beside devopsmigration.exe
+        var subDir = Path.Combine(assemblyDir, "tfsmigration", "tfsmigration.exe");
+        if (File.Exists(subDir)) return subDir;
 
         // Debug layout: navigate from CLI.Migration bin up to CLI.TfsMigration bin
         return Path.GetFullPath(

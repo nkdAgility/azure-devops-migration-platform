@@ -250,16 +250,23 @@ function Invoke-Package {
     param($SemVer, $StagingDir)
 
     # --- CLI Package: MigrationTools-{SemVer}.zip ---
-    # Structure inside zip: tools/  (both CLIs merged flat)
+    # Structure inside zip:
+    #   (root)          — devopsmigration CLI (net10.0) at the top level
+    #   tfsmigration/   — tfsmigration CLI    (net481) in a subdirectory
+    # TfsExportRunner.ResolveExePath() in CLI.Migration discovers tfsmigration.exe
+    # via the tfsmigration/ subdirectory relative to the assembly location.
+    # Keeping them separate prevents the net481 Abstractions.dll from the TFS CLI
+    # overwriting the net10.0 build used by the migration CLI.
     Write-Host "`n==> Packaging CLI artefact..." -ForegroundColor Cyan
-    $CliZipStaging = Join-Path $StagingDir 'cli-zip-staging'
-    $ToolsDir      = Join-Path $CliZipStaging 'tools'
-    New-Item -ItemType Directory -Path $ToolsDir -Force | Out-Null
-    Copy-Item -Path (Join-Path $script:CliMigrationOut '*') -Destination $ToolsDir -Recurse -Force
-    Copy-Item -Path (Join-Path $script:CliTfsOut '*') -Destination $ToolsDir -Recurse -Force
+    $CliZipStaging  = Join-Path $StagingDir 'cli-zip-staging'
+    $TfsDir         = Join-Path $CliZipStaging 'tfsmigration'
+    New-Item -ItemType Directory -Path $CliZipStaging -Force | Out-Null
+    New-Item -ItemType Directory -Path $TfsDir        -Force | Out-Null
+    Copy-Item -Path (Join-Path $script:CliMigrationOut '*') -Destination $CliZipStaging -Recurse -Force
+    Copy-Item -Path (Join-Path $script:CliTfsOut '*')       -Destination $TfsDir        -Recurse -Force
     $CliZip = Join-Path $ArtifactsDir "MigrationTools-$SemVer.zip"
     Push-Location $CliZipStaging
-    Compress-Archive -Path 'tools' -DestinationPath $CliZip -Force
+    Compress-Archive -Path '*' -DestinationPath $CliZip -Force
     Pop-Location
     Write-Host "  Created: $CliZip"
 
