@@ -64,7 +64,9 @@ Used for local execution.
 
 Used for cloud (Migration Agent) execution.
 
-- `PackageRoot` is an Azure Blob Storage container path supplied in the job definition's `packageUri` (scheme: `azureblob://accountname/containername/prefix/`).
+- `PackageRoot` is an Azure Blob Storage container path supplied in the job definition's `packageUri` — a standard HTTPS URL of the form `https://<account>.blob.core.windows.net/<container>/<org>/<project>/`.
+- If the URL includes a SAS token in the query string, that token is used for authentication; otherwise `DefaultAzureCredential` (Managed Identity, `az login`, etc.) is used.
+- The container holds one or more package roots using the same `<org>/<project>/` folder structure as local storage.
 - `WriteAsync` uploads the content as a block blob at `{containerPrefix}/{relativePath}`.
 - `ReadAsync` downloads the blob at `{containerPrefix}/{relativePath}`.
 - `EnumerateAsync` calls the Azure Blob SDK's `ListBlobsHierarchyAsync` with the given prefix, using lexicographic ordering guaranteed by Azure Blob Storage's prefix listing semantics.
@@ -86,12 +88,14 @@ Both implementations support streaming import because `EnumerateAsync` is an `IA
 
 The job contract's `packageUri` field determines which implementation is used:
 
-| Scheme | Implementation | Example |
+| URI pattern | Implementation | Example |
 |---|---|---|
 | `file:///` | `FileSystemArtefactStore` | `file:///D:/exports/run-001` |
-| `azureblob://` | `AzureBlobArtefactStore` | `azureblob://myaccount/migrations/run-001` |
+| `https://*.blob.core.windows.net/...` | `AzureBlobArtefactStore` | `https://myaccount.blob.core.windows.net/migrations/myorg/myproject` |
 
-The orchestrator resolves the implementation at startup based on the URI scheme. Modules receive only the `IArtefactStore` interface; they have no knowledge of which implementation is active.
+The orchestrator resolves the implementation at startup: URLs whose host contains `.blob.core.windows.net` use `AzureBlobArtefactStore`; `file:///` URIs use `FileSystemArtefactStore`. Modules receive only the `IArtefactStore` interface; they have no knowledge of which implementation is active.
+
+**SAS token handling:** When the URL includes a query-string SAS token (e.g. `?sp=racwdli&st=...&sig=...`), the store uses that token for authentication. When no SAS token is present, the store uses `DefaultAzureCredential` (Managed Identity, `az login`, etc.).
 
 ---
 

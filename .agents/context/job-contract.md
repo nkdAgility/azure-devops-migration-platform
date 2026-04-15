@@ -76,7 +76,7 @@ See [docs/validation.md](validation.md) for the full four-tier validation model.
 | `target` | Required for `Import` and `Both` | Target system connection. `type` must be `AzureDevOpsServices` or `Simulated` (testing/development only). |
 | `modules` | Yes | Modules to run and their scope configs. Same schema as [docs/configuration.md](configuration.md). |
 | `policies` | No | Retry and throttle policies. |
-| `artefacts.packageUri` | Yes | URI of the package root. Must be a URI — `file:///` for local, `azureblob://` for cloud. Local filesystem paths are normalised to `file:///` by the CLI before job construction. |
+| `artefacts.packageUri` | Yes | URI of the package root. Must be a URI — `file:///` for local, or a standard Azure Blob Storage HTTPS URL (`https://<account>.blob.core.windows.net/<container>/<prefix>`) for cloud. Local filesystem paths are normalised to `file:///` by the CLI before job construction. |
 | `artefacts.zip` | No | If `true`, pack after export or unpack before import. Default `false`. |
 | `guardrails.streamingRequired` | Yes | Must be `true`. The Job Engine will reject any execution plan that would load all revisions into memory. |
 | `guardrails.canonicalWorkItemsLayoutRequired` | Yes | Must be `true`. Any module that would alter the canonical folder structure is rejected at plan time. |
@@ -94,9 +94,9 @@ The `artefacts.packageUri` field must always be a URI, not a bare path. The TUI 
 | `D:\exports\run-001` | `file:///D:/exports/run-001` |
 | `/home/user/exports/run-001` | `file:///home/user/exports/run-001` |
 | `file:///D:/exports/run-001` | unchanged |
-| `azureblob://account/container/prefix` | unchanged |
+| `https://<account>.blob.core.windows.net/<container>/<prefix>` | unchanged |
 
-Only `file:///` is required in Phase 1. The URI shape must accommodate `azureblob://` without schema changes.
+Only `file:///` is required in Phase 1. The URI shape must accommodate standard Azure Blob Storage HTTPS URLs without schema changes.
 
 ---
 
@@ -150,10 +150,10 @@ Migration Agents resolve Key Vault references at startup. The control plane neve
 When an explicit approval gate is required between export and import, or when the two phases run in different network zones, two jobs are created sharing the same `packageUri`:
 
 ```
-Job 1: mode=Export, artefacts.packageUri=azureblob://...
+Job 1: mode=Export, artefacts.packageUri=https://<account>.blob.core.windows.net/...
         → Control plane marks job 1 Complete
         → Operator reviews package
-Job 2: mode=Import, artefacts.packageUri=azureblob://... (same URI)
+Job 2: mode=Import, artefacts.packageUri=https://<account>.blob.core.windows.net/... (same URI)
         → Migration Agent reads package written by Job 1
 ```
 

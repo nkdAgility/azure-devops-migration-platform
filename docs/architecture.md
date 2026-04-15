@@ -66,7 +66,7 @@ Agent
   │  writes to package
   │  Tier 3: post-flight validation (counts, links, attachments)
   ▼
-Package (file:/// or azureblob://)
+Package (file:/// or https://<account>.blob.core.windows.net/...)
 
 > **TFS source:** `devopsmigration tfsexport` is a separate CLI command that bypasses this flow.
 > The CLI spawns `CLI.TfsMigration` directly via `ExternalToolRunner`. Progress streams to the terminal
@@ -92,10 +92,10 @@ Switching from local to cloud requires only a config change. No code changes.
 
 The package location is expressed as a URI in the `MigrationJob`. The Migration Agent resolves the URI to an `IArtefactStore` implementation:
 
-| URI scheme | Implementation |
+| URI pattern | Implementation |
 |---|---|
 | `file:///` | `FileSystemArtefactStore` |
-| `azureblob://` | `AzureBlobArtefactStore` |
+| `https://*.blob.core.windows.net/...` | `AzureBlobArtefactStore` |
 
 Module code never references a concrete store implementation.
 
@@ -107,7 +107,7 @@ Because the package is a first-class artefact identified by URI, export and impo
 
 | Scenario | Export runs on | Import runs on | Handoff |
 |---|---|---|---|
-| Local / Server → Cloud | Local CLI-hosted control plane | Cloud (Self-Hosted/Managed) | Operator zips package, uploads to blob, resubmits import config pointing at `azureblob://` URI |
+| Local / Server → Cloud | Local CLI-hosted control plane | Cloud (Self-Hosted/Managed) | Operator zips package, uploads to blob, resubmits import config pointing at `https://<account>.blob.core.windows.net/<container>/<prefix>` URL |
 | Cloud → Air-gapped | Cloud | Local CLI-hosted control plane | Operator downloads package or zip, resubmits import config pointing at `file:///` URI |
 | Both, same environment | Same control plane for both phases | — | Control plane chains export → import internally |
 
@@ -192,7 +192,7 @@ Key properties:
 
 ### Phase 2 — Cloud-ready
 
-15. `AzureBlobArtefactStore` (`azureblob://` URI) with Azurite local emulator support
+15. `AzureBlobArtefactStore` (standard Azure Blob Storage HTTPS URLs) with Azurite local emulator support
 16. Aspire AppHost for CI/CD integration testing
 17. `ControlPlaneProgressSink` (Agent → Control Plane progress event streaming) ✅
 18. `JobProgressStore` ring buffer + `GET /jobs/{jobId}/progress` + `GET /jobs/{jobId}/progress?follow=true` SSE endpoint ✅

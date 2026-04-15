@@ -30,7 +30,7 @@ Runs entirely locally. No credentials are used. No network calls are made.
 | Module names | Every entry in `modules[].name` must match a module registered in the CLI binary. |
 | Module scope schema | Each module's `scopes[].parameters` must conform to the JSON Schema bundled with that module in the CLI binary. |
 | Policy ranges | Retry `max` and concurrency `maxConcurrency` must be positive integers within allowed bounds. |
-| Path normalisation | `artefacts.path` must be normalisable to a valid URI (`file:///` or `azureblob://`). |
+| Path normalisation | `artefacts.path` must be normalisable to a valid URI (`file:///` or a standard Azure Blob Storage HTTPS URL). |
 
 Module scope schemas are bundled inside the CLI binary — one JSON Schema file per module. This lets the CLI catch obvious config errors (missing `query` in a `wiql` scope, unknown field names) without any network call.
 
@@ -54,7 +54,7 @@ Runs after Tier 0 passes. Verifies that the operator has the access needed to ex
 | Target reachable | `Import`, `Both` | The target org URL returns a successful response. |
 | Target project exists | `Import`, `Both` | The specified target project exists in the target org. |
 | Target write permissions | `Import`, `Both` | The target credentials have at minimum write access to work items in the target project. |
-| Package URI accessible | All | For `file:///`: the path exists (export) or is writable (import). For `azureblob://`: the container exists and credentials are valid. |
+| Package URI accessible | All | For `file:///`: the path exists (export) or is writable (import). For Azure Blob Storage URLs (`https://*.blob.core.windows.net/...`): the container exists and credentials are valid (SAS token or `DefaultAzureCredential`). |
 
 ### Failure Behaviour
 

@@ -147,10 +147,10 @@ builder.AddProject<Projects.DevOpsMigrationPlatform_MigrationAgent>("migration-a
    }
    ```
 
-2. **Azurite** (azureblob://localhost:10000)
+2. **Azurite** (https://127.0.0.1:10000/devstoreaccount1/...)
    ```json
    "artefacts": {
-     "packageUri": "azureblob://localhost:10000/packages/run-001"
+     "packageUri": "https://127.0.0.1:10000/devstoreaccount1/packages/myorg/myproject"
    }
    ```
 
@@ -159,13 +159,13 @@ builder.AddProject<Projects.DevOpsMigrationPlatform_MigrationAgent>("migration-a
 **MUST use:**
 ```json
 "artefacts": {
-  "packageUri": "azureblob://<account>.blob.core.windows.net/packages/run-001"
+  "packageUri": "https://<account>.blob.core.windows.net/packages/myorg/myproject"
 }
 ```
 
 **Authentication:**
 - Local: Azurite default credentials or Development Storage
-- Cloud: Managed Identity (no connection strings in code)
+- Cloud: Managed Identity (no connection strings in code); or SAS token appended as query string to the URL
 
 ---
 
@@ -376,7 +376,7 @@ Before accepting a change, verify:
 - [ ] CLI reads `MIGRATION_API_URL` to determine whether to drive Aspire locally or connect remotely.
 - [ ] OpenTelemetry is configured via ServiceDefaults only.
 - [ ] No hardcoded URLs in agent or Control Plane code.
-- [ ] Local storage supports both file:/// and azureblob://localhost:10000.
+- [ ] Local storage supports both file:/// and Azurite (https://127.0.0.1:10000/devstoreaccount1/...).
 - [ ] Cloud deployment uses `azd` and Azure Container Apps.
 - [ ] Secrets are managed via User Secrets locally and Key Vault in cloud.
 - [ ] No sensitive data is logged.

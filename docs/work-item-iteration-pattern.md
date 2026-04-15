@@ -149,7 +149,7 @@ public interface IArtefactStore
 
 **Implementations:**
 - `FileSystemArtefactStore` — local file:/// storage
-- `AzureBlobArtefactStore` — remote azureblob:// storage
+- `AzureBlobArtefactStore` — Azure Blob Storage (standard HTTPS URLs with `.blob.core.windows.net`)
 
 **Mandatory rule:** Modules must not reference a concrete implementation. Always depend on `IArtefactStore`.
 
