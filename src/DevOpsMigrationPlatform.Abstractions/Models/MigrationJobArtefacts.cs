@@ -4,7 +4,7 @@ namespace DevOpsMigrationPlatform.Abstractions;
 public class MigrationJobArtefacts
 {
     /// <summary>
-    /// URI of the package root. file:/// for local, azureblob:// for cloud.
+    /// URI of the package root. file:/// for local, standard Azure Blob Storage HTTPS URL for cloud.
     /// Bare local paths are normalised to file:/// by the CLI before job construction.
     /// </summary>
     public string PackageUri { get; init; } = string.Empty;

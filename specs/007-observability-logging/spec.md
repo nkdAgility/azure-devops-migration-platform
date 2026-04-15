@@ -109,7 +109,7 @@ An operator running in cloud or self-hosted mode does not have direct filesystem
 1. **Given** a completed job with `Logs/progress.jsonl` in the package, **When** a client calls `GET /jobs/{jobId}/logs/download?type=progress`, **Then** the response body is the contents of `Logs/progress.jsonl` with content type `application/x-ndjson`.
 2. **Given** a completed job with `Logs/agent.jsonl` in the package, **When** a client calls `GET /jobs/{jobId}/logs/download?type=diagnostics`, **Then** the response body is the contents of `Logs/agent.jsonl` with content type `application/x-ndjson`.
 3. **Given** a job where the package URI is `file:///`, **When** the download endpoint is called, **Then** the control plane reads from `FileSystemArtefactStore` and returns the file.
-4. **Given** a job where the package URI is `azureblob://`, **When** the download endpoint is called, **Then** the control plane reads from `AzureBlobArtefactStore` and returns the file.
+4. **Given** a job where the package URI is an Azure Blob Storage URL (`https://*.blob.core.windows.net/...`), **When** the download endpoint is called, **Then** the control plane reads from `AzureBlobArtefactStore` and returns the file.
 
 ---
 
@@ -177,7 +177,7 @@ An operator running `devopsmigration export` needs to control diagnostic verbosi
 **Package Log Download (P2)**
 
 - **FR-016**: The control plane MUST expose `GET /jobs/{jobId}/logs/download` with a `type` query parameter (`progress` or `diagnostics`) that reads the corresponding file from the package via `IArtefactStore` and returns it. This is the backend for `manage diagnostics`.
-- **FR-017**: The download endpoint MUST work with both `file:///` and `azureblob://` package URIs transparently.
+- **FR-017**: The download endpoint MUST work with both `file:///` and Azure Blob Storage URL (`https://*.blob.core.windows.net/...`) package URIs transparently.
 
 **TUI Diagnostics Panel (P2)**
 

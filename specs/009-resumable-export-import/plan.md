@@ -23,7 +23,7 @@ Two secondary gaps: (1) no forced fresh-start flag on `MigrationJob` or the CLI;
 **Project Type**: Service library module within the Migration Agent job engine  
 **Performance Goals**: Resume evaluation is O(1) — a single cursor read and string compare; no scan of the full package  
 **Constraints**: Streaming only — no revision list buffered in memory; no in-memory sort of `EnumerateAsync`; all persistence through `IArtefactStore` / `IStateStore`; no concrete store references in module code  
-**Scale/Scope**: Packages up to 200,000 revision folders; both `file:///` and `azureblob://` stores
+**Scale/Scope**: Packages up to 200,000 revision folders; both `file:///` and Azure Blob Storage (`https://*.blob.core.windows.net/...`) stores
 
 ## Constitution Check
 
