@@ -224,9 +224,11 @@ function Invoke-Publish {
         $ridCliOut = Join-Path $StagingDir "cli-migration-$rid"
         $script:CliMigrationOutByRid[$rid] = $ridCliOut
         Write-Host "`n==> Publishing CLI (devopsMigration) [$rid]" -ForegroundColor Cyan
+        dotnet restore $CliMigrationProject -r $rid --verbosity quiet
+        if ($LASTEXITCODE -ne 0) { Write-Error "Restore failed: CLI [$rid] (exit $LASTEXITCODE)"; exit $LASTEXITCODE }
         dotnet publish $CliMigrationProject `
             --configuration Release `
-            --no-build `
+            --no-restore `
             --no-self-contained `
             -r $rid `
             --output $ridCliOut `
@@ -237,9 +239,11 @@ function Invoke-Publish {
         $ridCpOut = Join-Path $StagingDir "controlplane-$rid"
         $script:ControlPlaneOutByRid[$rid] = $ridCpOut
         Write-Host "`n==> Publishing Control Plane [$rid]" -ForegroundColor Cyan
+        dotnet restore $ControlPlaneProject -r $rid --verbosity quiet
+        if ($LASTEXITCODE -ne 0) { Write-Error "Restore failed: ControlPlane [$rid] (exit $LASTEXITCODE)"; exit $LASTEXITCODE }
         dotnet publish $ControlPlaneProject `
             --configuration Release `
-            --no-build `
+            --no-restore `
             --no-self-contained `
             -r $rid `
             --output $ridCpOut `
@@ -250,9 +254,11 @@ function Invoke-Publish {
         $ridAgentOut = Join-Path $StagingDir "agent-$rid"
         $script:AgentOutByRid[$rid] = $ridAgentOut
         Write-Host "`n==> Publishing Agent [$rid]" -ForegroundColor Cyan
+        dotnet restore $AgentProject -r $rid --verbosity quiet
+        if ($LASTEXITCODE -ne 0) { Write-Error "Restore failed: Agent [$rid] (exit $LASTEXITCODE)"; exit $LASTEXITCODE }
         dotnet publish $AgentProject `
             --configuration Release `
-            --no-build `
+            --no-restore `
             --no-self-contained `
             -r $rid `
             --output $ridAgentOut `
