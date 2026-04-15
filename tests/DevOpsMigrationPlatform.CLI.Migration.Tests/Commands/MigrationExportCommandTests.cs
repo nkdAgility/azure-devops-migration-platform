@@ -13,16 +13,16 @@ public class MigrationExportCommandTests
     // ── Unit tests ─────────────────────────────────────────────────────────
 
     [TestMethod]
-    public void MigrationExportCommand_CanBeConstructed_WithParameterlessConstructor()
+    public void QueueCommand_CanBeConstructed_WithParameterlessConstructor()
     {
-        var command = new DevOpsMigrationPlatform.CLI.Migration.Commands.MigrationExportCommand();
+        var command = new DevOpsMigrationPlatform.CLI.Migration.Commands.QueueCommand();
         Assert.IsNotNull(command);
     }
 
     // ── System tests ───────────────────────────────────────────────────────
 
     /// <summary>
-    /// Runs <c>devopsmigration export --config scenarios/export-ado-workitems-single-project.json --force-fresh</c>
+    /// Runs <c>devopsmigration export --config scenarios/queue-export-ado-workitems-single-project.json --force-fresh</c>
     /// as a subprocess — the exact same invocation as the VS Code launch profile — then
     /// asserts the exit code, the success message, and the output folder contents.
     /// </summary>
@@ -43,17 +43,17 @@ public class MigrationExportCommandTests
         }
 
         // ── Output folder (matches scenario Artefacts.Path exactly) ───────
-        // scenarios/export-ado-workitems-single-project.json has
-        //   "Path": "storage\\export-ado-workitems-single-project"
+        // scenarios/queue-export-ado-workitems-single-project.json has
+        //   "Path": "storage\\queue-export-ado-workitems-single-project"
         // The CLI runs with workingDirectory = repoRoot, so the absolute output path is:
-        var outputDir = Path.Combine(CliRunner.FindRepoRoot(), "storage", "export-ado-workitems-single-project");
+        var outputDir = Path.Combine(CliRunner.FindRepoRoot(), "storage", "queue-export-ado-workitems-single-project");
 
         if (Directory.Exists(outputDir))
             Directory.Delete(outputDir, recursive: true);
 
         // ── Act — run the CLI exactly as the launch profile does ──────────
         var result = await CliRunner.RunAsync(
-            args: ["export", "--config", "scenarios/export-ado-workitems-single-project.json", "--force-fresh"],
+            args: ["queue", "--config", "scenarios/queue-export-ado-workitems-single-project.json", "--force-fresh"],
             timeout: TimeSpan.FromMinutes(18)); // generous — MSTest [Timeout] is the hard ceiling
 
         // Always dump output so failures are diagnosable in test results.
@@ -115,7 +115,7 @@ public class MigrationExportCommandTests
     }
 
     /// <summary>
-    /// Runs <c>devopsmigration export --config scenarios/export-ado-workitems-single-project.json --force-fresh</c>
+    /// Runs <c>devopsmigration export --config scenarios/queue-export-ado-workitems-single-project.json --force-fresh</c>
     /// as a subprocess and validates that comments and embedded images are exported correctly.
     /// 
     /// This test verifies:
@@ -141,17 +141,17 @@ public class MigrationExportCommandTests
         }
 
         // ── Output folder (matches scenario Artefacts.Path exactly) ───────
-        // scenarios/export-ado-workitems-single-project.json has
-        //   "Path": "storage\\export-ado-workitems-single-project"
+        // scenarios/queue-export-ado-workitems-single-project.json has
+        //   "Path": "storage\\queue-export-ado-workitems-single-project"
         // The CLI runs with workingDirectory = repoRoot, so the absolute output path is:
-        var outputDir = Path.Combine(CliRunner.FindRepoRoot(), "storage", "export-ado-workitems-single-project");
+        var outputDir = Path.Combine(CliRunner.FindRepoRoot(), "storage", "queue-export-ado-workitems-single-project");
 
         if (Directory.Exists(outputDir))
             Directory.Delete(outputDir, recursive: true);
 
         // ── Act — run the CLI with comments and embedded images enabled ────
         var result = await CliRunner.RunAsync(
-            args: ["export", "--config", "scenarios/export-ado-workitems-single-project.json", "--force-fresh"],
+            args: ["queue", "--config", "scenarios/queue-export-ado-workitems-single-project.json", "--force-fresh"],
             timeout: TimeSpan.FromMinutes(18));
 
         // Always dump output for diagnostics

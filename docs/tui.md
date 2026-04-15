@@ -11,15 +11,14 @@ Command parsing, mode selection, and job dispatch are handled by the CLI shell. 
 ## Launching the TUI
 
 ```
-devopsmigration tui [--url <control-plane-url>] [--job <jobId>]
+devopsmigration tui [--job <jobId>]
 ```
 
 | Flag | Description |
 |---|---|
-| `--url` | Override the control plane URL. Defaults to `MIGRATION_API_URL` or the value stored by `devopsmigration login`. |
 | `--job` | Jump directly to the progress view for a specific job, bypassing the job list. |
 
-The TUI always requires a control plane connection. When no `--url` flag or `MIGRATION_API_URL` environment variable is set, the CLI will have already driven Aspire to start `ControlPlaneHost` locally at `http://localhost:5100` — the TUI connects there automatically. If no control plane is reachable the TUI exits with an actionable error.
+The TUI always requires a control plane connection. The control plane URL is resolved from the `Environment.ControlPlane.BaseUrl` configuration section. When `Environment.Type` is `Standalone` (the default), `LocalStackHost` starts the control plane at `http://localhost:5100` — the TUI connects there automatically. If no control plane is reachable the TUI exits with an actionable error.
 
 ### Authentication
 

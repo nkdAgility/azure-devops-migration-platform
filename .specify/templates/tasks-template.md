@@ -175,7 +175,7 @@ Examples of foundational tasks (adjust based on your project):
 - [ ] TXXX Review `analysis/pending-actions.md` and remove any items resolved by this spec
 - [ ] TXXX Run `dotnet clean && dotnet build --no-incremental` — MUST pass
 - [ ] TXXX Run `dotnet test` — ALL tests MUST pass
-- [ ] TXXX Run at least one scenario config (e.g. `scenarios/export-ado-workitems-single-project.json`) via a `.vscode/launch.json` debug profile and verify observable output
+- [ ] TXXX Run at least one scenario config (e.g. `scenarios/queue-export-ado-workitems-single-project.json`) via a `.vscode/launch.json` debug profile and verify observable output
 
 > **If none of the above canonical docs were affected by this spec**, the agent MUST explicitly state: "No documentation changes required — `<brief justification>`". This statement must appear in the session log `doc_sync.no_change_justification` field. Silence is not acceptable.
 

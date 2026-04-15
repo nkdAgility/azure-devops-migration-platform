@@ -25,21 +25,12 @@ public sealed class TuiCommand : ControlPlaneCommandBase<TuiCommandSettings>
         TuiCommandSettings settings,
         CancellationToken cancellationToken = default)
     {
-        // TUI always connects to an existing control plane — never starts one in-process.
-        // Fall back to the standard default rather than letting null trigger LocalStackHost.
-        var resolvedUrl = MigrationPlatformHost.ResolveControlPlaneUrl(settings.Url) ?? "http://localhost:5100";
-
-        await CreateHost(Environment.GetCommandLineArgs(), resolvedUrl, (services, config) =>
+        await CreateHost(Environment.GetCommandLineArgs(), (services, config) =>
         {
-            services.AddOptions<ControlPlaneOptions>()
-                .BindConfiguration(ControlPlaneOptions.SectionName)
-                .ValidateDataAnnotations()
-                .ValidateOnStart();
-
             services.AddHttpClient<ControlPlaneClient>((sp, client) =>
             {
-                var opts = sp.GetRequiredService<IOptions<ControlPlaneOptions>>().Value;
-                client.BaseAddress = new Uri(opts.BaseUrl);
+                var opts = sp.GetRequiredService<IOptions<EnvironmentOptions>>().Value;
+                client.BaseAddress = new Uri(opts.ControlPlane.BaseUrl);
             });
 
             services.AddTransient<IControlPlaneClient>(sp => sp.GetRequiredService<ControlPlaneClient>());
@@ -55,9 +46,9 @@ public sealed class TuiCommand : ControlPlaneCommandBase<TuiCommandSettings>
         }
         catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
         {
-            var effectiveUrl = resolvedUrl;
+            var effectiveUrl = GetControlPlaneUrl();
             console.MarkupLine($"[red]\u2717 Cannot reach Control Plane at {Markup.Escape(effectiveUrl)}[/]");
-            console.MarkupLine("[grey]Ensure the control plane is running and --url is correct.[/]");
+            console.MarkupLine("[grey]Ensure the control plane is running and the Environment.ControlPlane.BaseUrl config is correct.[/]");
             return 1;
         }
 
