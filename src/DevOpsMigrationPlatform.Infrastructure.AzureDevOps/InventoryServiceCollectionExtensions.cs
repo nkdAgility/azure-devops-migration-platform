@@ -11,13 +11,13 @@ public static class InventoryServiceCollectionExtensions
 {
     /// <summary>
     /// Registers all Azure DevOps inventory services and binds <see cref="DiscoveryOptions"/>
-    /// from the <c>MigrationTools</c> configuration section.
+    /// from the <c>MigrationPlatform</c> configuration section.
     /// </summary>
     public static IServiceCollection AddAzureDevOpsInventory(
         this IServiceCollection services,
         IConfiguration configuration)
     {
-        services.AddOptions<DiscoveryOptions>().Bind(configuration);
+        services.AddOptions<DiscoveryOptions>().Bind(configuration.GetSection("MigrationPlatform"));
         services.AddSingleton<IAzureDevOpsClientFactory, AzureDevOpsClientFactory>();
         services.AddSingleton<IWiqlQueryClientFactory, AzureDevOpsWiqlQueryClientFactory>();
         services.AddSingleton<IWorkItemQueryWindowStrategy, WorkItemQueryWindowStrategy>();

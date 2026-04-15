@@ -1,33 +1,21 @@
 using System;
 using System.Collections.Generic;
+using DevOpsMigrationPlatform.Abstractions;
 
 namespace DevOpsMigrationPlatform.Abstractions.Options;
 
 /// <summary>
 /// Root options for the <c>devopsmigration discovery</c> command group.
+/// Bound from the <c>MigrationPlatform</c> configuration section.
 /// Contains the multi-org roster to discover.
 /// </summary>
 public sealed class DiscoveryOptions
 {
-
-    public string ConfigVersion { get; set; } = "1.0";
+    /// <summary>Retry, throttle, and checkpoint policies.</summary>
+    public MigrationPoliciesOptions Policies { get; set; } = new();
 
     /// <summary>Organisations / collections to inventory.</summary>
     public List<OrganisationEntry> Organisations { get; set; } = new();
-
-    /// <summary>
-    /// Maximum concurrent batch requests to source during dependency analysis.
-    /// Default is 4. Binds from JSON config key 'maxConcurrency' (snake_case per convention).
-    /// Prevents rate-limit triggers during parallel link fetching.
-    /// </summary>
-    public int MaxConcurrency { get; set; } = 4;
-
-    /// <summary>
-    /// How often (in seconds) in-progress output is flushed to disk during dependency analysis.
-    /// Protects against data loss on long runs. Default is 300 (5 minutes).
-    /// Set to a lower value (e.g. 60) for very large orgs where a crash would be costly.
-    /// </summary>
-    public int CheckpointIntervalSeconds { get; set; } = 300;
 
     /// <summary>
     /// Validates the options, throwing <see cref="InvalidOperationException"/> on any violation.
@@ -35,6 +23,8 @@ public sealed class DiscoveryOptions
     /// </summary>
     public void Validate()
     {
+        Policies.Validate();
+
         if (Organisations.Count == 0)
             throw new InvalidOperationException("Config error: 'organisations' array is empty.");
 

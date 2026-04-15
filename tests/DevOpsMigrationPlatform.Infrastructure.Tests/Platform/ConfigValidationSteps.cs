@@ -68,12 +68,6 @@ public class ConfigValidationSteps
         _ctx.Options.Artefacts.Path = path;
     }
 
-    [Given(@"the config version is ""(.*)""")]
-    public void GivenTheConfigVersionIs(string version)
-    {
-        _ctx.Options.ConfigVersion = version;
-    }
-
     // ── When ──────────────────────────────────────────────────────────────────
 
     [When(@"the config is validated")]
