@@ -23,6 +23,13 @@ public sealed class DiscoveryOptions
     public int MaxConcurrency { get; set; } = 4;
 
     /// <summary>
+    /// How often (in seconds) in-progress output is flushed to disk during dependency analysis.
+    /// Protects against data loss on long runs. Default is 300 (5 minutes).
+    /// Set to a lower value (e.g. 60) for very large orgs where a crash would be costly.
+    /// </summary>
+    public int CheckpointIntervalSeconds { get; set; } = 300;
+
+    /// <summary>
     /// Validates the options, throwing <see cref="InvalidOperationException"/> on any violation.
     /// Called at command startup before any API calls.
     /// </summary>

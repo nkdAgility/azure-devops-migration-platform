@@ -56,15 +56,15 @@ public sealed class DependencyCommand : CommandBase<DependencyCommand.Settings>
                 logger.LogInformation("WIQL filter: {WiqlFilter}", settings.WiqlFilter);
 
             var discoveryService = GetRequiredService<IDependencyDiscoveryService>();
+            var discoveryOptions = GetRequiredService<Microsoft.Extensions.Options.IOptions<DevOpsMigrationPlatform.Abstractions.Options.DiscoveryOptions>>();
 
             var crossProjectCount = 0;
             var crossOrgCount = 0;
             var workItemsAnalysed = 0;
             var skippedWorkItems = 0;
 
-            // Periodic checkpoint — flush output every 5 minutes so a crash doesn't
-            // lose everything on a multi-hour run.
-            var checkpointInterval = TimeSpan.FromMinutes(5);
+            // Periodic checkpoint — interval is configurable via CheckpointIntervalSeconds in the scenario config.
+            var checkpointInterval = TimeSpan.FromSeconds(discoveryOptions.Value.CheckpointIntervalSeconds);
             var lastCheckpointAt = DateTime.UtcNow;
 
             // WI-level records: (orgName, project) → list
