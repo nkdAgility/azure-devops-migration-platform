@@ -35,3 +35,21 @@
 - **Section**: Reject triggers
 - **Issue**: The `import` CLI command requires a `.vscode/launch.json` debug profile for scenario testing. This must be added during implementation.
 - **Suggested update**: No doc update needed — the guardrail already requires this. Implementation must add the launch profile.
+
+### 6. WorkItemResolutionStrategy extension not documented in configuration.md
+- **Source doc**: `docs/configuration.md`
+- **Section**: WorkItems Module — Scopes and Extensions
+- **Issue**: The config reference documents five extension types (`Revisions`, `Links`, `Attachments`, `Comments`, `EmbeddedImages`) but does not document the `WorkItemResolutionStrategy` extension type or its parameters (`strategy`, `fieldName`, `urlPattern`). The plan introduces this extension per FR-020/FR-021/FR-022.
+- **Suggested update**: Add a new row to the WorkItems extensions table for `WorkItemResolutionStrategy` with its parameter schema.
+
+### 7. IWorkItemImportTarget and import-side iteration pattern not documented
+- **Source doc**: `docs/work-item-iteration-pattern.md`
+- **Section**: Required Interfaces
+- **Issue**: The document describes the export pattern (`WorkItemExportOrchestrator`, `IWorkItemRevisionSource`) in detail but has no corresponding import pattern section. The plan introduces `WorkItemImportOrchestrator`, `IWorkItemImportTarget`, `IIdMapStore`, and `RevisionFolderProcessor` which should be documented as the import-side mandatory reuse pattern.
+- **Suggested update**: Add "Import Pattern: WorkItemImportOrchestrator" section mirroring the export documentation.
+
+### 8. EmbeddedImages property missing from WorkItemRevision C# record
+- **Source doc**: `.agents/context/workitems-format.md`
+- **Section**: revision.json Required Fields
+- **Issue**: The JSON schema requires an `embeddedImages` array in `revision.json`, and it is documented as a required field. However, the C# `WorkItemRevision` record in `Abstractions/Models/WorkItemRevision.cs` does not have an `EmbeddedImages` property. The plan requires adding this property.
+- **Suggested update**: No doc update needed — the docs already require this field. The code must be updated to match.
