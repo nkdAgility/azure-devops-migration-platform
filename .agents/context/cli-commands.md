@@ -21,7 +21,7 @@ Submit and drive migration jobs via the control plane. Each command creates or q
 
 | Command | Settings Key | Description |
 |---------|-------------|-------------|
-| `prepare` | `PrepareCommandSettings` | Validate config, compute `configHash`, print planned modules. **No job submitted.** |
+| `prepare` | `MigrationCommandSettings` | Submit a lightweight probe job through the full pipeline (CLI → Control Plane → Agent → ArtefactStore) to validate that permissions, configuration, and connectivity work end-to-end. The agent writes a single probe file to the artefact store and completes. |
 | `queue` | `QueueCommandSettings` | Submit a migration job. Behaviour is determined by the `mode` field in the config (`Export`, `Import`, or `Both`). `--follow` streams diagnostic logs inline. `--level` sets the agent's diagnostic minimum level. `--force-fresh` deletes module cursor(s) before running so enumeration restarts from the beginning (identity map preserved). |
 
 ### 2. Job Management Commands (`manage`)

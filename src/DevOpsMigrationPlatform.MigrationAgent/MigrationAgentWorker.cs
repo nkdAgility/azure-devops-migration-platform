@@ -128,7 +128,44 @@ public sealed class MigrationAgentWorker : BackgroundService
             await phaseTracker.DeletePhaseRecordAsync(ct).ConfigureAwait(false);
         }
 
-        // 4. Build contexts.
+        // 4. Handle Prepare mode — write a single probe file and complete.
+        if (string.Equals(lease.Job.Mode, "Prepare", StringComparison.OrdinalIgnoreCase))
+        {
+            bool prepareFailed = false;
+            try
+            {
+                _logger.LogInformation("Prepare mode — writing probe file for job {JobId}.", lease.Job.JobId);
+                var probeContent = System.Text.Json.JsonSerializer.Serialize(new
+                {
+                    jobId = lease.Job.JobId,
+                    timestamp = DateTimeOffset.UtcNow,
+                    status = "ok"
+                });
+                await artefactStore.WriteAsync("prepare-probe.json", probeContent, ct).ConfigureAwait(false);
+
+                _progressSink.Emit(new ProgressEvent
+                {
+                    Module = "Prepare",
+                    Stage = "Completed",
+                    Message = "Probe file written successfully.",
+                    Timestamp = DateTimeOffset.UtcNow
+                });
+                _logger.LogInformation("Prepare probe file written successfully for job {JobId}.", lease.Job.JobId);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Prepare probe failed for job {JobId}.", lease.Job.JobId);
+                prepareFailed = true;
+            }
+
+            var prepareTerminal = prepareFailed ? "fail" : "complete";
+            await SignalTerminalAsync(controlPlane, lease.LeaseId, prepareTerminal, ct).ConfigureAwait(false);
+            _packageState.CurrentStore = null;
+            _leaseState.CurrentLeaseId = null;
+            return;
+        }
+
+        // 4b. Build contexts.
         var exportContext = new ExportContext
         {
             Job = lease.Job,
