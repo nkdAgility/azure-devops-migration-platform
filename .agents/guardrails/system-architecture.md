@@ -70,4 +70,19 @@ These rules are non-negotiable. They are distilled from the full reference set i
     - **Cloud Managed** (`azd up`, Azure): the same stack runs in Azure Container Apps; PostgreSQL Flexible Server provisioned automatically from the same AppHost declaration.
     No SQLite fallback, no in-memory database, and no alternative provider are permitted for the control plane in any of these topologies — including tests and CI. Test isolation is achieved using the **Local/Server AppHost profile**, which supports two subprofiles selected via `DEVOPS_MIGRATION_INFRA`: `portable` (validates local/server: bundled PG binary + filesystem store, no Docker) and `docker` (validates cloud: Docker PostgreSQL + Azurite). Both subprofiles must pass in every CI pipeline stage. See [docs/control-plane.md](../../docs/control-plane.md) for the table schema and [docs/aspire-integration.md](../../docs/aspire-integration.md) for all AppHost profiles.
 
+21. **Mandatory reuse of existing architecture and patterns.**
+    All new implementations MUST use existing architecture, abstractions, and established patterns before building new infrastructure. This applies to:
+    - **Work item iteration**: Use `WorkItemExportOrchestrator` and `IWorkItemRevisionSource` for all work item processing. Do not implement custom export/import loops.
+    - **Streaming and enumeration**: Use `IArtefactStore.EnumerateAsync()` for lexicographic traversal. Do not implement custom enumeration or sorting logic.
+    - **Progress tracking and checkpointing**: Use `ICheckpointingService` with `IStateStore` for cursor-based progress. Do not use watermark tables, in-memory dictionaries, or custom progress tracking.
+    - **Attachment and binary handling**: Stream binaries directly via `IArtefactStore.WriteBinaryAsync()` and `IAttachmentBinarySource`. Do not buffer attachments in memory or create alternative binary storage patterns.
+    - **Async patterns**: Use the same async/await patterns, `CancellationToken` propagation, and error handling as established modules. Do not invent new concurrency patterns.
+    
+    **When to create new abstractions:** Only when no existing abstraction covers the required use case AND no extension point exists on an existing abstraction. New abstractions must:
+    - Be defined in `DevOpsMigrationPlatform.Abstractions` or in a module-specific namespace if module-private.
+    - Be used by at least two independent modules (no single-use abstractions).
+    - Have a documented motivation explaining why existing abstractions could not be reused or extended.
+    
+    See [docs/work-item-iteration-pattern.md](../../docs/work-item-iteration-pattern.md) for the canonical work item iteration example.
+
 Consult [docs/architecture.md](../../docs/architecture.md). If the answer is not there, the safest default is to preserve the package layout, maintain streaming behaviour, and write state only through the defined interfaces.

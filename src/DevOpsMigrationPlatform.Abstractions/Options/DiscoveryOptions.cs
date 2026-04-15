@@ -9,12 +9,25 @@ namespace DevOpsMigrationPlatform.Abstractions.Options;
 /// </summary>
 public sealed class DiscoveryOptions
 {
-    public const string SectionName = "MigrationTools";
 
     public string ConfigVersion { get; set; } = "1.0";
 
     /// <summary>Organisations / collections to inventory.</summary>
     public List<OrganisationEntry> Organisations { get; set; } = new();
+
+    /// <summary>
+    /// Maximum concurrent batch requests to source during dependency analysis.
+    /// Default is 4. Binds from JSON config key 'maxConcurrency' (snake_case per convention).
+    /// Prevents rate-limit triggers during parallel link fetching.
+    /// </summary>
+    public int MaxConcurrency { get; set; } = 4;
+
+    /// <summary>
+    /// How often (in seconds) in-progress output is flushed to disk during dependency analysis.
+    /// Protects against data loss on long runs. Default is 300 (5 minutes).
+    /// Set to a lower value (e.g. 60) for very large orgs where a crash would be costly.
+    /// </summary>
+    public int CheckpointIntervalSeconds { get; set; } = 300;
 
     /// <summary>
     /// Validates the options, throwing <see cref="InvalidOperationException"/> on any violation.

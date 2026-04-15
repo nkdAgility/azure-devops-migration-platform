@@ -2,7 +2,7 @@
 **/bin/
 **/obj/
 **/output/
-scenarios/**
+scenarios/client/**
 **/storage/
 
 # Visual Studio / VS Code

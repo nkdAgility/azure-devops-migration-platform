@@ -1,6 +1,7 @@
 {
     "version": "0.2.0",
     "configurations": [
+
         // ── Migration CLI: configure ──────────────────────────────────────────
         // Options: [-o|--output] [-f|--force] [-c|--config] [-v|--verbose]
         //          [--disable-telemetry] [--dry-run]
@@ -100,7 +101,7 @@
                 "discovery",
                 "inventory",
                 "--config",
-                "scenarios/client/inventory-ado-multi-project.json"
+                "scenarios/client/organisations.json"
             ],
             "env": {
                 "AZDEVOPS_SYSTEM_TEST_ORG": "${env:AZDEVOPS_SYSTEM_TEST_ORG}",
@@ -143,6 +144,70 @@
             "env": {
                 "AZDEVOPS_PAT_ORG1": "${env:AZDEVOPS_PAT_ORG1}",
                 "AZDEVOPS_PAT_ORG2": "${env:AZDEVOPS_PAT_ORG2}"
+            },
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "stopAtEntry": false,
+            "preLaunchTask": "build-migration-cli"
+        },
+        // ── Migration CLI: discovery dependencies ──────────────────────────────
+        // Options: [--config] [--output] [--output-projects] [--output-diagram] [--wiql]
+        {
+            "name": "🔍 Migration CLI: Dependencies (Single Project)",
+            "type": "coreclr",
+            "request": "launch",
+            "program": "${workspaceFolder}/src/DevOpsMigrationPlatform.CLI.Migration/bin/Debug/net10.0/devopsmigration.exe",
+            "args": [
+                "discovery",
+                "dependencies",
+                "--config",
+                "scenarios/discovery-dependency-ado-single-project.json"
+            ],
+            "env": {
+                "AZDEVOPS_SYSTEM_TEST_ORG": "${env:AZDEVOPS_SYSTEM_TEST_ORG}",
+                "AZDEVOPS_SYSTEM_TEST_PAT": "${env:AZDEVOPS_SYSTEM_TEST_PAT}"
+            },
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "stopAtEntry": false,
+            "preLaunchTask": "build-migration-cli"
+        },
+         {
+            "name": "🔍 Migration CLI: Dependencies (CLIENT)",
+            "type": "coreclr",
+            "request": "launch",
+            "program": "${workspaceFolder}/src/DevOpsMigrationPlatform.CLI.Migration/bin/Debug/net10.0/devopsmigration.exe",
+            "args": [
+                "discovery",
+                "dependencies",
+                "--config",
+                "scenarios/client/organisations.json"
+            ],
+            "env": {
+                "AZDEVOPS_SYSTEM_TEST_ORG": "${env:AZDEVOPS_SYSTEM_TEST_ORG}",
+                "AZDEVOPS_SYSTEM_TEST_PAT": "${env:AZDEVOPS_SYSTEM_TEST_PAT}"
+            },
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "stopAtEntry": false,
+            "preLaunchTask": "build-migration-cli"
+        },
+        {
+            "name": "🔍 Migration CLI: Dependencies (WIQL Filter)",
+            "type": "coreclr",
+            "request": "launch",
+            "program": "${workspaceFolder}/src/DevOpsMigrationPlatform.CLI.Migration/bin/Debug/net10.0/devopsmigration.exe",
+            "args": [
+                "discovery",
+                "dependencies",
+                "--config",
+                "scenarios/discovery-dependency-ado-single-project.json",
+                "--wiql",
+                "SELECT [System.Id] FROM WorkItems WHERE [System.WorkItemType] = 'User Story'"
+            ],
+            "env": {
+                "AZDEVOPS_SYSTEM_TEST_ORG": "${env:AZDEVOPS_SYSTEM_TEST_ORG}",
+                "AZDEVOPS_SYSTEM_TEST_PAT": "${env:AZDEVOPS_SYSTEM_TEST_PAT}"
             },
             "cwd": "${workspaceFolder}",
             "console": "integratedTerminal",

@@ -101,6 +101,11 @@ internal class Program
                     .WithDescription("Count work items and revisions per project. Results written to discovery-summary.csv.")
                     .WithExample("discovery", "inventory", "--config", "migration.json")
                     .WithExample("discovery", "inventory", "--config", "migration.json", "--output", "./inventory-results");
+
+                branch.AddCommand<DependencyCommand>("dependencies")
+                    .WithDescription("Analyse work items for cross-project and cross-organisation links. Results written to discovery-dependencies.csv, project pairs to discovery-project-dependencies.csv, and diagram to discovery-project-dependencies.md.")
+                    .WithExample("discovery", "dependencies", "--config", "scenarios/discovery-dependency-ado-single-project.json")
+                    .WithExample("discovery", "dependencies", "--config", "scenarios/discovery-dependency-ado-single-project.json", "--output", "./reports/deps.csv");
             });
 
             // ── Terminal UI ───────────────────────────────────────────────────────────
