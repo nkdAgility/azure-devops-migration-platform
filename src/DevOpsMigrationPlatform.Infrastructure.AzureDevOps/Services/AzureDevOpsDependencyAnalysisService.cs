@@ -71,6 +71,12 @@ public sealed class AzureDevOpsDependencyAnalysisService : IWorkItemLinkAnalysis
             organisationUrl, project, pat, windowOptions, cancellationToken).ConfigureAwait(false))
         {
             allIds.AddRange(window.WorkItemIds);
+
+            // Emit a counting heartbeat after each window so the CLI can show a spinner
+            // and partial ID count while the full enumeration is in progress.
+            yield return new DependencyHeartbeatEvent(
+                organisationUrl, project, 0, 0, 0, 0, false,
+                TotalWorkItems: allIds.Count, IsCounting: true);
         }
 
         var totalWorkItems = allIds.Count;

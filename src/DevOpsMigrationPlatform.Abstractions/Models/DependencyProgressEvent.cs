@@ -25,4 +25,5 @@ public sealed record DependencyHeartbeatEvent(
     bool IsComplete,
     string? Error = null,
     int TotalWorkItems = 0,
-    int SkippedWorkItems = 0) : DependencyProgressEvent;
+    int SkippedWorkItems = 0,
+    bool IsCounting = false) : DependencyProgressEvent;

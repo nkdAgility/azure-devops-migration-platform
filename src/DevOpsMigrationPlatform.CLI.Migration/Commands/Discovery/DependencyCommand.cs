@@ -62,6 +62,11 @@ public sealed class DependencyCommand : CommandBase<DependencyCommand.Settings>
             var workItemsAnalysed = 0;
             var skippedWorkItems = 0;
 
+            // Periodic checkpoint — flush output every 5 minutes so a crash doesn't
+            // lose everything on a multi-hour run.
+            var checkpointInterval = TimeSpan.FromMinutes(5);
+            var lastCheckpointAt = DateTime.UtcNow;
+
             // WI-level records: (orgName, project) → list
             var perProjectRecords = new Dictionary<(string, string), List<DependencyRecord>>();
             // Pair-level counts: (orgName, project) → ProjectPairKey → count
@@ -79,6 +84,51 @@ public sealed class DependencyCommand : CommandBase<DependencyCommand.Settings>
             using (var rootWriter = new StreamWriter(rootStream))
             {
                 rootWriter.WriteLine("SourceWorkItemId,SourceWorkItemType,SourceProject,LinkType,LinkScope,TargetWorkItemId,TargetProject,TargetOrganisation,TargetStatus");
+
+                // ── Checkpoint helper (local function) ───────────────────────
+                // Flush the root CSV and rewrite all per-project / per-org files
+                // from the current in-memory state so progress is not lost on crash.
+                void WriteCheckpoint()
+                {
+                    rootWriter.Flush();
+
+                    foreach (var ((cpOrg, cpProj), cpRecords) in perProjectRecords)
+                    {
+                        var cpProjDir = Path.Combine(baseOutputDir, cpOrg, cpProj);
+                        Directory.CreateDirectory(cpProjDir);
+
+                        using var cpFs = new FileStream(Path.Combine(cpProjDir, "dependencies.csv"), FileMode.Create, FileAccess.Write);
+                        using var cpW = new StreamWriter(cpFs);
+                        cpW.WriteLine("SourceWorkItemId,SourceWorkItemType,SourceProject,LinkType,LinkScope,TargetWorkItemId,TargetProject,TargetOrganisation,TargetStatus");
+                        foreach (var r in cpRecords)
+                            cpW.WriteLine($"{r.SourceWorkItemId},{r.SourceWorkItemType},{r.SourceProject},{r.LinkType},{r.LinkScope},{r.TargetWorkItemId},{r.TargetProject},{r.TargetOrganisation},{r.TargetStatus}");
+                    }
+
+                    foreach (var (cpOrg, cpOrgPairMap) in perOrgPairs)
+                    {
+                        var cpOrgDir = Path.Combine(baseOutputDir, cpOrg);
+                        Directory.CreateDirectory(cpOrgDir);
+
+                        var cpOrgPairs = cpOrgPairMap
+                            .Select(kvp => new ProjectDependencyRecord(kvp.Key, kvp.Value))
+                            .OrderByDescending(p => p.LinkCount)
+                            .ToList();
+
+                        using var cpFs = new FileStream(Path.Combine(cpOrgDir, "dependencies.csv"), FileMode.Create, FileAccess.Write);
+                        using var cpW = new StreamWriter(cpFs);
+                        cpW.WriteLine("SourceProject,TargetProject,TargetOrganisation,LinkCount,LinkScope,GroupId");
+                        foreach (var pair in cpOrgPairs)
+                            cpW.WriteLine($"{pair.SourceProject},{pair.TargetProject},{pair.TargetOrganisation},{pair.LinkCount},{pair.LinkScope},{pair.GroupId}");
+
+                        File.WriteAllText(
+                            Path.Combine(cpOrgDir, "dependencies.md"),
+                            new MermaidDiagramBuilder(cpOrgPairs).Build());
+                    }
+
+                    logger.LogInformation("[Checkpoint] Output flushed to {BaseOutputDir}", baseOutputDir);
+                    lastCheckpointAt = DateTime.UtcNow;
+                }
+                // ─────────────────────────────────────────────────────────────
 
                 if (console.Profile.Capabilities.Interactive)
                 {
@@ -149,14 +199,20 @@ public sealed class DependencyCommand : CommandBase<DependencyCommand.Settings>
                                     progress.CrossProjectLinks = heartbeat.CrossProjectCount;
                                     progress.CrossOrgLinks = heartbeat.CrossOrgCount;
                                     progress.SkippedWorkItems = heartbeat.SkippedWorkItems;
+                                    progress.IsCountingPhase = heartbeat.IsCounting;
                                     progress.IsComplete = heartbeat.IsComplete;
-                                    if (heartbeat.TotalWorkItems > 0 && progress.TotalWorkItems == 0)
+                                    if (!heartbeat.IsCounting && heartbeat.TotalWorkItems > 0 && progress.TotalWorkItems == 0)
                                     {
                                         progress.TotalWorkItems = heartbeat.TotalWorkItems;
                                         progress.StartedAt = DateTime.UtcNow;
                                     }
 
                                     ctx.UpdateTarget(BuildProgressTable(progressState.Values));
+
+                                    // Periodic checkpoint during processing phase
+                                    if (!heartbeat.IsCounting && !heartbeat.IsComplete
+                                        && DateTime.UtcNow - lastCheckpointAt >= checkpointInterval)
+                                        WriteCheckpoint();
                                 }
                             }
                         });
@@ -209,7 +265,15 @@ public sealed class DependencyCommand : CommandBase<DependencyCommand.Settings>
                         {
                             workItemsAnalysed = Math.Max(workItemsAnalysed, heartbeat.WorkItemsAnalysed);
                             skippedWorkItems = Math.Max(skippedWorkItems, heartbeat.SkippedWorkItems);
-                            if (heartbeat.IsComplete)
+                            if (heartbeat.IsCounting)
+                            {
+                                // Count phase: just show a single progress line that overwrites itself
+                                var orgName = ExtractOrgName(heartbeat.OrganisationUrl);
+                                console.MarkupLine(
+                                    $"  [grey]{Markup.Escape(orgName)}[/] / [white]{Markup.Escape(heartbeat.ProjectName)}[/]: " +
+                                    $"counting… {heartbeat.TotalWorkItems} IDs");
+                            }
+                            else if (heartbeat.IsComplete)
                             {
                                 var orgName = ExtractOrgName(heartbeat.OrganisationUrl);
                                 var of = heartbeat.TotalWorkItems > 0
@@ -223,6 +287,10 @@ public sealed class DependencyCommand : CommandBase<DependencyCommand.Settings>
                                     $"{of} items analysed, " +
                                     $"{heartbeat.CrossProjectCount} cross-project, " +
                                     $"[red]{heartbeat.CrossOrgCount}[/] cross-org{skippedNote} — [green]✓[/]");
+                            }
+                            else if (DateTime.UtcNow - lastCheckpointAt >= checkpointInterval)
+                            {
+                                WriteCheckpoint();
                             }
                         }
                     }
@@ -441,7 +509,7 @@ public sealed class DependencyCommand : CommandBase<DependencyCommand.Settings>
 
         foreach (var p in state)
         {
-            var status = p.IsComplete ? "[green]✓[/]" : "[grey]…[/]";
+            var status = p.IsComplete ? "[green]✓[/]" : p.IsCountingPhase ? "[grey]⌛[/]" : "[grey]…[/]";
             var crossOrg = p.CrossOrgLinks > 0
                 ? $"[red]{p.CrossOrgLinks}[/]"
                 : p.CrossOrgLinks.ToString();
@@ -449,33 +517,46 @@ public sealed class DependencyCommand : CommandBase<DependencyCommand.Settings>
                 ? $"[yellow]{p.SkippedWorkItems}[/]"
                 : "0";
 
-            var progress = p.TotalWorkItems > 0
-                ? $"{p.WorkItemsAnalysed}/{p.TotalWorkItems}"
-                : p.WorkItemsAnalysed.ToString();
-
-            var eta = "--";
-            if (!p.IsComplete && p.TotalWorkItems > 0 && p.WorkItemsAnalysed > 0)
+            string progress;
+            string eta;
+            string crossProject;
+            if (p.IsCountingPhase)
             {
-                var elapsed = DateTime.UtcNow - p.StartedAt;
-                if (elapsed.TotalSeconds > 0)
-                {
-                    var rate = p.WorkItemsAnalysed / elapsed.TotalSeconds;
-                    var remaining = (int)Math.Ceiling((p.TotalWorkItems - p.WorkItemsAnalysed) / rate);
-                    eta = remaining >= 60
-                        ? $"~{remaining / 60}m {remaining % 60}s"
-                        : $"~{remaining}s";
-                }
+                progress = $"[grey]counting… {p.TotalWorkItems}[/]";
+                eta = "--";
+                crossProject = "--";
             }
-            else if (p.IsComplete)
+            else
             {
-                eta = "[green]done[/]";
+                progress = p.TotalWorkItems > 0
+                    ? $"{p.WorkItemsAnalysed}/{p.TotalWorkItems}"
+                    : p.WorkItemsAnalysed.ToString();
+                crossProject = p.CrossProjectLinks.ToString();
+
+                eta = "--";
+                if (!p.IsComplete && p.TotalWorkItems > 0 && p.WorkItemsAnalysed > 0)
+                {
+                    var elapsed = DateTime.UtcNow - p.StartedAt;
+                    if (elapsed.TotalSeconds > 0)
+                    {
+                        var rate = p.WorkItemsAnalysed / elapsed.TotalSeconds;
+                        var remaining = (int)Math.Ceiling((p.TotalWorkItems - p.WorkItemsAnalysed) / rate);
+                        eta = remaining >= 60
+                            ? $"~{remaining / 60}m {remaining % 60}s"
+                            : $"~{remaining}s";
+                    }
+                }
+                else if (p.IsComplete)
+                {
+                    eta = "[green]done[/]";
+                }
             }
 
             table.AddRow(
                 Markup.Escape(p.OrgName),
                 Markup.Escape(p.ProjectName),
                 progress,
-                p.CrossProjectLinks.ToString(),
+                crossProject,
                 crossOrg,
                 skipped,
                 eta,
@@ -494,6 +575,7 @@ public sealed class DependencyCommand : CommandBase<DependencyCommand.Settings>
         public int CrossProjectLinks { get; set; }
         public int CrossOrgLinks { get; set; }
         public int SkippedWorkItems { get; set; }
+        public bool IsCountingPhase { get; set; }
         public bool IsComplete { get; set; }
         public DateTime StartedAt { get; set; } = DateTime.UtcNow;
     }
