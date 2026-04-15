@@ -36,6 +36,12 @@ internal static class TfsExportRunner
         string? tfsExportExePathOverride,
         CancellationToken cancellationToken)
     {
+        if (!System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(System.Runtime.InteropServices.OSPlatform.Windows))
+        {
+            AnsiConsole.MarkupLine("[red]✗[/] TFS export is only supported on Windows.");
+            return 1;
+        }
+
         var exePath = tfsExportExePathOverride ?? ResolveExePath();
 
         if (!File.Exists(exePath))

@@ -39,10 +39,13 @@
         OR restore from the local tool manifest:
             dotnet tool restore
 
-    Artefact outputs (placed under ./output/):
-      - MigrationTools-{SemVer}.zip   — CLI tools (devopsMigration + TfsMigration)
-      - ControlPlane-{SemVer}.zip     — Control Plane host
-      - Agent-{SemVer}.zip            — Migration Agent worker
+    Artefact outputs (placed under ./output/, one zip per RID + component):
+      - MigrationTools-{rid}-CLI-{SemVer}.zip         — devopsMigration CLI (win-x64 includes tfsmigration/)
+      - MigrationTools-win-x64-TfsCLI-{SemVer}.zip   — TFS CLI standalone (Windows x64 only)
+      - MigrationTools-{rid}-ControlPlane-{SemVer}.zip — Control Plane host
+      - MigrationTools-{rid}-Agent-{SemVer}.zip        — Migration Agent worker
+
+    RIDs produced: win-x64, win-arm64, linux-x64, osx-x64, osx-arm64
 
 .PARAMETER Mode
     Build | Test | SystemTest | Package | Full | Start   (default: Full)
@@ -74,6 +77,10 @@ $CliMigrationProject = Join-Path $RepoRoot 'src/DevOpsMigrationPlatform.CLI.Migr
 $CliTfsProject       = Join-Path $RepoRoot 'src/DevOpsMigrationPlatform.CLI.TfsMigration/DevOpsMigrationPlatform.CLI.TfsMigration.csproj'
 $ControlPlaneProject = Join-Path $RepoRoot 'src/DevOpsMigrationPlatform.ControlPlaneHost/DevOpsMigrationPlatform.ControlPlaneHost.csproj'
 $AgentProject        = Join-Path $RepoRoot 'src/DevOpsMigrationPlatform.MigrationAgent/DevOpsMigrationPlatform.MigrationAgent.csproj'
+
+# Runtime identifiers for per-platform publishing.
+# Only win-x64 gets the tfsmigration/ subfolder; TfsMigration (net481) is Windows-only.
+$Rids = @('win-x64', 'win-arm64', 'linux-x64', 'osx-x64', 'osx-arm64')
 
 Write-Host "`n==> Mode: $Mode" -ForegroundColor Magenta
 
@@ -208,40 +215,64 @@ function Invoke-SystemTests {
 function Invoke-Publish {
     param($StagingDir, $VersionArgs)
 
-    $script:CliMigrationOut = Join-Path $StagingDir 'cli-migration'
-    $script:CliTfsOut       = Join-Path $StagingDir 'cli-tfs'
-    $script:ControlPlaneOut = Join-Path $StagingDir 'controlplane'
-    $script:AgentOut        = Join-Path $StagingDir 'agent'
+    $script:CliMigrationOutByRid = @{}
+    $script:ControlPlaneOutByRid = @{}
+    $script:AgentOutByRid        = @{}
 
-    Invoke-Step 'Publishing CLI (devopsMigration)' {
+    foreach ($rid in $Rids) {
+        # ── CLI (devopsMigration) ────────────────────────────────────────────
+        $ridCliOut = Join-Path $StagingDir "cli-migration-$rid"
+        $script:CliMigrationOutByRid[$rid] = $ridCliOut
+        Write-Host "`n==> Publishing CLI (devopsMigration) [$rid]" -ForegroundColor Cyan
+        dotnet restore $CliMigrationProject -r $rid --verbosity quiet
+        if ($LASTEXITCODE -ne 0) { Write-Error "Restore failed: CLI [$rid] (exit $LASTEXITCODE)"; exit $LASTEXITCODE }
         dotnet publish $CliMigrationProject `
             --configuration Release `
-            --no-build `
-            --output $script:CliMigrationOut `
+            --no-restore `
+            --no-self-contained `
+            -r $rid `
+            --output $ridCliOut `
             @VersionArgs
+        if ($LASTEXITCODE -ne 0) { Write-Error "Publish failed: CLI [$rid] (exit $LASTEXITCODE)"; exit $LASTEXITCODE }
+
+        # ── Control Plane ────────────────────────────────────────────────────
+        $ridCpOut = Join-Path $StagingDir "controlplane-$rid"
+        $script:ControlPlaneOutByRid[$rid] = $ridCpOut
+        Write-Host "`n==> Publishing Control Plane [$rid]" -ForegroundColor Cyan
+        dotnet restore $ControlPlaneProject -r $rid --verbosity quiet
+        if ($LASTEXITCODE -ne 0) { Write-Error "Restore failed: ControlPlane [$rid] (exit $LASTEXITCODE)"; exit $LASTEXITCODE }
+        dotnet publish $ControlPlaneProject `
+            --configuration Release `
+            --no-restore `
+            --no-self-contained `
+            -r $rid `
+            --output $ridCpOut `
+            @VersionArgs
+        if ($LASTEXITCODE -ne 0) { Write-Error "Publish failed: ControlPlane [$rid] (exit $LASTEXITCODE)"; exit $LASTEXITCODE }
+
+        # ── Agent ────────────────────────────────────────────────────────────
+        $ridAgentOut = Join-Path $StagingDir "agent-$rid"
+        $script:AgentOutByRid[$rid] = $ridAgentOut
+        Write-Host "`n==> Publishing Agent [$rid]" -ForegroundColor Cyan
+        dotnet restore $AgentProject -r $rid --verbosity quiet
+        if ($LASTEXITCODE -ne 0) { Write-Error "Restore failed: Agent [$rid] (exit $LASTEXITCODE)"; exit $LASTEXITCODE }
+        dotnet publish $AgentProject `
+            --configuration Release `
+            --no-restore `
+            --no-self-contained `
+            -r $rid `
+            --output $ridAgentOut `
+            @VersionArgs
+        if ($LASTEXITCODE -ne 0) { Write-Error "Publish failed: Agent [$rid] (exit $LASTEXITCODE)"; exit $LASTEXITCODE }
     }
 
-    Invoke-Step 'Publishing CLI (TfsMigration)' {
+    # TfsMigration — win-x64 only (net481 is Windows-only, no RID flag needed)
+    $script:CliTfsOut = Join-Path $StagingDir 'cli-tfs-win-x64'
+    Invoke-Step 'Publishing TfsCLI (tfsmigration) [win-x64]' {
         dotnet publish $CliTfsProject `
             --configuration Release `
             --no-build `
             --output $script:CliTfsOut `
-            @VersionArgs
-    }
-
-    Invoke-Step 'Publishing Control Plane' {
-        dotnet publish $ControlPlaneProject `
-            --configuration Release `
-            --no-build `
-            --output $script:ControlPlaneOut `
-            @VersionArgs
-    }
-
-    Invoke-Step 'Publishing Agent' {
-        dotnet publish $AgentProject `
-            --configuration Release `
-            --no-build `
-            --output $script:AgentOut `
             @VersionArgs
     }
 }
@@ -249,38 +280,43 @@ function Invoke-Publish {
 function Invoke-Package {
     param($SemVer, $StagingDir)
 
-    # --- CLI Package: MigrationTools-{SemVer}.zip ---
-    # Structure inside zip:
-    #   (root)          — devopsmigration CLI (net10.0) at the top level
-    #   tfsmigration/   — tfsmigration CLI    (net481) in a subdirectory
-    # TfsExportRunner.ResolveExePath() in CLI.Migration discovers tfsmigration.exe
-    # via the tfsmigration/ subdirectory relative to the assembly location.
-    # Keeping them separate prevents the net481 Abstractions.dll from the TFS CLI
-    # overwriting the net10.0 build used by the migration CLI.
-    Write-Host "`n==> Packaging CLI artefact..." -ForegroundColor Cyan
-    $CliZipStaging  = Join-Path $StagingDir 'cli-zip-staging'
-    $TfsDir         = Join-Path $CliZipStaging 'tfsmigration'
-    New-Item -ItemType Directory -Path $CliZipStaging -Force | Out-Null
-    New-Item -ItemType Directory -Path $TfsDir        -Force | Out-Null
-    Copy-Item -Path (Join-Path $script:CliMigrationOut '*') -Destination $CliZipStaging -Recurse -Force
-    Copy-Item -Path (Join-Path $script:CliTfsOut '*')       -Destination $TfsDir        -Recurse -Force
-    $CliZip = Join-Path $ArtifactsDir "MigrationTools-$SemVer.zip"
-    Push-Location $CliZipStaging
-    Compress-Archive -Path '*' -DestinationPath $CliZip -Force
-    Pop-Location
-    Write-Host "  Created: $CliZip"
+    foreach ($rid in $Rids) {
+        # ── CLI Package ──────────────────────────────────────────────────────
+        Write-Host "`n==> Packaging CLI [$rid]..." -ForegroundColor Cyan
+        $cliStaging = Join-Path $StagingDir "cli-zip-staging-$rid"
+        New-Item -ItemType Directory -Path $cliStaging -Force | Out-Null
+        Copy-Item -Path (Join-Path $script:CliMigrationOutByRid[$rid] '*') -Destination $cliStaging -Recurse -Force
+        # Only win-x64 includes tfsmigration/ — the net481 subprocess; other RIDs
+        # cannot run it and TfsExportRunner.RunAsync() will reject non-Windows early.
+        if ($rid -eq 'win-x64') {
+            $tfsSubDir = Join-Path $cliStaging 'tfsmigration'
+            New-Item -ItemType Directory -Path $tfsSubDir -Force | Out-Null
+            Copy-Item -Path (Join-Path $script:CliTfsOut '*') -Destination $tfsSubDir -Recurse -Force
+        }
+        $cliZip = Join-Path $ArtifactsDir "MigrationTools-$rid-CLI-$SemVer.zip"
+        Push-Location $cliStaging
+        Compress-Archive -Path '*' -DestinationPath $cliZip -Force
+        Pop-Location
+        Write-Host "  Created: $cliZip"
 
-    # --- Control Plane Package ---
-    Write-Host "`n==> Packaging Control Plane artefact..." -ForegroundColor Cyan
-    $ControlPlaneZip = Join-Path $ArtifactsDir "ControlPlane-$SemVer.zip"
-    Compress-Archive -Path (Join-Path $script:ControlPlaneOut '*') -DestinationPath $ControlPlaneZip -Force
-    Write-Host "  Created: $ControlPlaneZip"
+        # ── Control Plane Package ────────────────────────────────────────────
+        Write-Host "`n==> Packaging Control Plane [$rid]..." -ForegroundColor Cyan
+        $cpZip = Join-Path $ArtifactsDir "MigrationTools-$rid-ControlPlane-$SemVer.zip"
+        Compress-Archive -Path (Join-Path $script:ControlPlaneOutByRid[$rid] '*') -DestinationPath $cpZip -Force
+        Write-Host "  Created: $cpZip"
 
-    # --- Agent Package ---
-    Write-Host "`n==> Packaging Agent artefact..." -ForegroundColor Cyan
-    $AgentZip = Join-Path $ArtifactsDir "Agent-$SemVer.zip"
-    Compress-Archive -Path (Join-Path $script:AgentOut '*') -DestinationPath $AgentZip -Force
-    Write-Host "  Created: $AgentZip"
+        # ── Agent Package ────────────────────────────────────────────────────
+        Write-Host "`n==> Packaging Agent [$rid]..." -ForegroundColor Cyan
+        $agentZip = Join-Path $ArtifactsDir "MigrationTools-$rid-Agent-$SemVer.zip"
+        Compress-Archive -Path (Join-Path $script:AgentOutByRid[$rid] '*') -DestinationPath $agentZip -Force
+        Write-Host "  Created: $agentZip"
+    }
+
+    # ── TfsCLI standalone package (win-x64 only) ─────────────────────────────
+    Write-Host "`n==> Packaging TfsCLI [win-x64]..." -ForegroundColor Cyan
+    $tfsCliZip = Join-Path $ArtifactsDir "MigrationTools-win-x64-TfsCLI-$SemVer.zip"
+    Compress-Archive -Path (Join-Path $script:CliTfsOut '*') -DestinationPath $tfsCliZip -Force
+    Write-Host "  Created: $tfsCliZip"
 }
 
 function Start-AppHost {
