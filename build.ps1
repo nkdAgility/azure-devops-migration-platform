@@ -39,11 +39,14 @@
         OR restore from the local tool manifest:
             dotnet tool restore
 
-    Artefact outputs (placed under ./output/, one zip per RID + component):
-      - MigrationTools-{rid}-CLI-{SemVer}.zip         — devopsMigration CLI (win-x64 includes tfsmigration/)
-      - MigrationTools-win-x64-TfsCLI-{SemVer}.zip   — TFS CLI standalone (Windows x64 only)
-      - MigrationTools-{rid}-ControlPlane-{SemVer}.zip — Control Plane host
-      - MigrationTools-{rid}-Agent-{SemVer}.zip        — Migration Agent worker
+    Artefact outputs (placed under ./output/, one zip per RID):
+      - MigrationTools-{rid}-{SemVer}.zip
+
+    Each zip contains:
+      /                  — devopsMigration CLI (root)
+      /ControlPlane/     — Control Plane host
+      /MigrationAgent/   — Migration Agent worker
+      /TfsMigration/     — TFS CLI subprocess (win-x64 only)
 
     RIDs produced: win-x64, win-arm64, linux-x64, osx-x64, osx-arm64
 
@@ -281,42 +284,38 @@ function Invoke-Package {
     param($SemVer, $StagingDir)
 
     foreach ($rid in $Rids) {
-        # ── CLI Package ──────────────────────────────────────────────────────
-        Write-Host "`n==> Packaging CLI [$rid]..." -ForegroundColor Cyan
-        $cliStaging = Join-Path $StagingDir "cli-zip-staging-$rid"
-        New-Item -ItemType Directory -Path $cliStaging -Force | Out-Null
-        Copy-Item -Path (Join-Path $script:CliMigrationOutByRid[$rid] '*') -Destination $cliStaging -Recurse -Force
-        # Only win-x64 includes tfsmigration/ — the net481 subprocess; other RIDs
-        # cannot run it and TfsExportRunner.RunAsync() will reject non-Windows early.
+        Write-Host "`n==> Packaging MigrationTools [$rid]..." -ForegroundColor Cyan
+        $zipStaging = Join-Path $StagingDir "zip-staging-$rid"
+        New-Item -ItemType Directory -Path $zipStaging -Force | Out-Null
+
+        # ── CLI in root ──────────────────────────────────────────────────────
+        Copy-Item -Path (Join-Path $script:CliMigrationOutByRid[$rid] '*') -Destination $zipStaging -Recurse -Force
+
+        # ── ControlPlane subfolder ───────────────────────────────────────────
+        $cpSubDir = Join-Path $zipStaging 'ControlPlane'
+        New-Item -ItemType Directory -Path $cpSubDir -Force | Out-Null
+        Copy-Item -Path (Join-Path $script:ControlPlaneOutByRid[$rid] '*') -Destination $cpSubDir -Recurse -Force
+
+        # ── MigrationAgent subfolder ─────────────────────────────────────────
+        $agentSubDir = Join-Path $zipStaging 'MigrationAgent'
+        New-Item -ItemType Directory -Path $agentSubDir -Force | Out-Null
+        Copy-Item -Path (Join-Path $script:AgentOutByRid[$rid] '*') -Destination $agentSubDir -Recurse -Force
+
+        # ── TfsMigration subfolder (win-x64 only) ───────────────────────────
+        # net481 subprocess; other RIDs cannot run it and TfsExportRunner.RunAsync()
+        # will reject non-Windows early.
         if ($rid -eq 'win-x64') {
-            $tfsSubDir = Join-Path $cliStaging 'tfsmigration'
+            $tfsSubDir = Join-Path $zipStaging 'TfsMigration'
             New-Item -ItemType Directory -Path $tfsSubDir -Force | Out-Null
             Copy-Item -Path (Join-Path $script:CliTfsOut '*') -Destination $tfsSubDir -Recurse -Force
         }
-        $cliZip = Join-Path $ArtifactsDir "MigrationTools-$rid-CLI-$SemVer.zip"
-        Push-Location $cliStaging
-        Compress-Archive -Path '*' -DestinationPath $cliZip -Force
+
+        $zip = Join-Path $ArtifactsDir "MigrationTools-$rid-$SemVer.zip"
+        Push-Location $zipStaging
+        Compress-Archive -Path '*' -DestinationPath $zip -Force
         Pop-Location
-        Write-Host "  Created: $cliZip"
-
-        # ── Control Plane Package ────────────────────────────────────────────
-        Write-Host "`n==> Packaging Control Plane [$rid]..." -ForegroundColor Cyan
-        $cpZip = Join-Path $ArtifactsDir "MigrationTools-$rid-ControlPlane-$SemVer.zip"
-        Compress-Archive -Path (Join-Path $script:ControlPlaneOutByRid[$rid] '*') -DestinationPath $cpZip -Force
-        Write-Host "  Created: $cpZip"
-
-        # ── Agent Package ────────────────────────────────────────────────────
-        Write-Host "`n==> Packaging Agent [$rid]..." -ForegroundColor Cyan
-        $agentZip = Join-Path $ArtifactsDir "MigrationTools-$rid-Agent-$SemVer.zip"
-        Compress-Archive -Path (Join-Path $script:AgentOutByRid[$rid] '*') -DestinationPath $agentZip -Force
-        Write-Host "  Created: $agentZip"
+        Write-Host "  Created: $zip"
     }
-
-    # ── TfsCLI standalone package (win-x64 only) ─────────────────────────────
-    Write-Host "`n==> Packaging TfsCLI [win-x64]..." -ForegroundColor Cyan
-    $tfsCliZip = Join-Path $ArtifactsDir "MigrationTools-win-x64-TfsCLI-$SemVer.zip"
-    Compress-Archive -Path (Join-Path $script:CliTfsOut '*') -DestinationPath $tfsCliZip -Force
-    Write-Host "  Created: $tfsCliZip"
 }
 
 function Start-AppHost {
