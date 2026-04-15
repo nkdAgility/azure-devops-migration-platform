@@ -31,7 +31,7 @@ internal class Program
             config.AddChannelCommand<QueueCommand>("queue")
                 .WithDescription("Submit a migration job. Behaviour is determined by the 'mode' field in the config (Export, Import, or Both).")
                 .WithExample("queue", "--config", "migration.json")
-                .WithExample("queue", "--config", "scenarios/export-ado-workitems-single-project.json")
+                .WithExample("queue", "--config", "scenarios/queue-export-ado-workitems-single-project.json")
                 .WithExample("queue", "--config", "migration.json", "--force-fresh");
 
             config.AddChannelCommand<MigrationValidateCommand>("validate")

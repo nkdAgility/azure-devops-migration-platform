@@ -277,8 +277,8 @@ Ready-to-run example configuration files live under `/scenarios/` at the reposit
 | `inventory-ado-multi-project.json` | Multi-project Azure DevOps inventory (PAT auth) |
 | `inventory-tfs-windows-auth.json` | On-premises TFS inventory (Windows-integrated auth) |
 | `inventory-multi-org.json` | Multi-organisation inventory with per-org PAT tokens |
-| `export-ado-workitems-single-project.json` | Export all work items from a single Azure DevOps project (PAT auth); inline comment fetching enabled by default |
-| `export-ado-workitems-inline-comments.json` | Export all work items with inline comment fetching explicitly disabled (`inlineComments.enabled: false`) for performance-sensitive runs |
+| `queue-export-ado-workitems-single-project.json` | Export all work items from a single Azure DevOps project (PAT auth); inline comment fetching enabled by default |
+| `queue-export-ado-workitems-inline-comments.json` | Export all work items with inline comment fetching explicitly disabled (`inlineComments.enabled: false`) for performance-sensitive runs |
 | `export-simulated.json` | Simulated source export (25,000 work items, no external connectivity required) |
 | `migrate-simulated.json` | Full simulated end-to-end migration — both source and target simulated (25,000 work items) |
 

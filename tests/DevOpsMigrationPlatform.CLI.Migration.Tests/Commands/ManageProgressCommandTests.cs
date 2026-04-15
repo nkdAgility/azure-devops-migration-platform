@@ -55,7 +55,7 @@ public class ManageProgressCommandTests
         };
 
         var exportResult = await CliRunner.RunAsync(
-            args: ["export", "--config", "scenarios/export-ado-workitems-single-project.json", "--force-fresh"],
+            args: ["queue", "--config", "scenarios/queue-export-ado-workitems-single-project.json", "--force-fresh"],
             env: hostedEnv,
             timeout: TimeSpan.FromMinutes(20));
 

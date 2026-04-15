@@ -224,7 +224,7 @@
             "args": [
                 "prepare",
                 "--config",
-                "scenarios/export-ado-workitems-single-project.json"
+                "scenarios/queue-export-ado-workitems-single-project.json"
             ],
             "env": {
                 "AZDEVOPS_SYSTEM_TEST_ORG": "${env:AZDEVOPS_SYSTEM_TEST_ORG}",
@@ -239,14 +239,14 @@
         // Behaviour is determined by the 'mode' field in the config (Export, Import, or Both).
         // Options: [-c|--config] [--follow] [--level] [--force-fresh] [-v|--verbose] [--disable-telemetry] [--dry-run]
         {
-            "name": "📤 Migration CLI: Queue ADO WorkItems (Single Project)",
+            "name": "📤 Migration CLI: Queue Export ADO WorkItems (Single Project)",
             "type": "coreclr",
             "request": "launch",
             "program": "${workspaceFolder}/src/DevOpsMigrationPlatform.CLI.Migration/bin/Debug/net10.0/devopsmigration.exe",
             "args": [
                 "queue",
                 "--config",
-                "scenarios/export-ado-workitems-single-project.json"
+                "scenarios/queue-export-ado-workitems-single-project.json"
             ],
             "env": {
                 "AZDEVOPS_SYSTEM_TEST_ORG": "${env:AZDEVOPS_SYSTEM_TEST_ORG}",
@@ -258,14 +258,14 @@
             "preLaunchTask": "build-migration-cli"
         },
         {
-            "name": "📤 Migration CLI: Queue ADO WorkItems (Force Fresh)",
+            "name": "📤 Migration CLI: Queue Export ADO WorkItems (Force Fresh)",
             "type": "coreclr",
             "request": "launch",
             "program": "${workspaceFolder}/src/DevOpsMigrationPlatform.CLI.Migration/bin/Debug/net10.0/devopsmigration.exe",
             "args": [
                 "queue",
                 "--config",
-                "scenarios/export-ado-workitems-single-project.json",
+                "scenarios/queue-export-ado-workitems-single-project.json",
                 "--force-fresh"
             ],
             "env": {
@@ -278,14 +278,14 @@
             "preLaunchTask": "build-migration-cli"
         },
         {
-            "name": "📤 Migration CLI: Queue ADO WorkItems (Follow + Diagnostics)",
+            "name": "📤 Migration CLI: Queue Export ADO WorkItems (Follow + Diagnostics)",
             "type": "coreclr",
             "request": "launch",
             "program": "${workspaceFolder}/src/DevOpsMigrationPlatform.CLI.Migration/bin/Debug/net10.0/devopsmigration.exe",
             "args": [
                 "queue",
                 "--config",
-                "scenarios/export-ado-workitems-single-project.json",
+                "scenarios/queue-export-ado-workitems-single-project.json",
                 "--follow",
                 "--level",
                 "Warning"
@@ -300,14 +300,14 @@
             "preLaunchTask": "build-migration-cli"
         },
         {
-            "name": "📤 Migration CLI: Queue (CLIENT)",
+            "name": "📤 Migration CLI: Queue Export (CLIENT)",
             "type": "coreclr",
             "request": "launch",
             "program": "${workspaceFolder}/src/DevOpsMigrationPlatform.CLI.Migration/bin/Debug/net10.0/devopsmigration.exe",
             "args": [
                 "queue",
                 "--config",
-                "scenarios/client/export-ado-workitems-single-project.json"
+                "scenarios/client/queue-export-ado-workitems-single-project.json"
             ],
             "env": {
                 "AZDEVOPS_SYSTEM_TEST_ORG": "${env:AZDEVOPS_SYSTEM_TEST_ORG}",

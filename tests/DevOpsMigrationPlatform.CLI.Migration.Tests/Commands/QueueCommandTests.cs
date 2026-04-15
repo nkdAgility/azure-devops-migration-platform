@@ -54,7 +54,7 @@ public class QueueCommandTests
     // ── System tests ───────────────────────────────────────────────────────
 
     /// <summary>
-    /// Runs <c>devopsmigration queue --config scenarios/export-ado-workitems-single-project.json --force-fresh</c>
+    /// Runs <c>devopsmigration queue --config scenarios/queue-export-ado-workitems-single-project.json --force-fresh</c>
     /// as a subprocess. The scenario config has <c>mode: Export</c>, so this must behave
     /// identically to the former <c>export</c> command.
     /// </summary>
@@ -74,13 +74,13 @@ public class QueueCommandTests
             return;
         }
 
-        var outputDir = Path.Combine(CliRunner.FindRepoRoot(), "storage", "export-ado-workitems-single-project");
+        var outputDir = Path.Combine(CliRunner.FindRepoRoot(), "storage", "queue-export-ado-workitems-single-project");
         if (Directory.Exists(outputDir))
             Directory.Delete(outputDir, recursive: true);
 
         // ── Act ───────────────────────────────────────────────────────────
         var result = await CliRunner.RunAsync(
-            args: ["queue", "--config", "scenarios/export-ado-workitems-single-project.json", "--force-fresh"],
+            args: ["queue", "--config", "scenarios/queue-export-ado-workitems-single-project.json", "--force-fresh"],
             timeout: TimeSpan.FromMinutes(18));
 
         Console.WriteLine("=== STDOUT ===");
