@@ -24,8 +24,8 @@ internal sealed class MigrationOptionsValidator : IValidateOptions<MigrationOpti
     {
         var errors = new List<string>();
 
-        // Controls
-        try { options.Controls.Validate(); }
+        // Policies
+        try { options.Policies.Validate(); }
         catch (InvalidOperationException ex) { errors.Add(ex.Message); }
 
         // Mode

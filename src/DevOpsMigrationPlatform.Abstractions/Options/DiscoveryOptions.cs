@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using DevOpsMigrationPlatform.Abstractions;
 
 namespace DevOpsMigrationPlatform.Abstractions.Options;
 
@@ -10,8 +11,8 @@ namespace DevOpsMigrationPlatform.Abstractions.Options;
 /// </summary>
 public sealed class DiscoveryOptions
 {
-    /// <summary>Cross-cutting execution controls.</summary>
-    public ControlsOptions Controls { get; set; } = new();
+    /// <summary>Retry, throttle, and checkpoint policies.</summary>
+    public MigrationPoliciesOptions Policies { get; set; } = new();
 
     /// <summary>Organisations / collections to inventory.</summary>
     public List<OrganisationEntry> Organisations { get; set; } = new();
@@ -22,7 +23,7 @@ public sealed class DiscoveryOptions
     /// </summary>
     public void Validate()
     {
-        Controls.Validate();
+        Policies.Validate();
 
         if (Organisations.Count == 0)
             throw new InvalidOperationException("Config error: 'organisations' array is empty.");

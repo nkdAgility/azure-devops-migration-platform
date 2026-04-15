@@ -1,9 +1,10 @@
 {
   "MigrationPlatform": {
     "ConfigVersion": "1.0",
-    "Controls": {
-      "CheckpointInterval": 300,
-      "MaxConcurrency": 4
+    "Policies": {
+      "Retries": { "Max": 8 },
+      "Throttle": { "MaxConcurrency": 4 },
+      "Checkpoints": { "Interval": 300 }
     },
     "Mode": "Export",
     "Source": {

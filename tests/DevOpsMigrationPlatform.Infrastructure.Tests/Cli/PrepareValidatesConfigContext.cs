@@ -66,17 +66,14 @@ public class PrepareValidatesConfigContext
         {
           "MigrationPlatform": {
             "ConfigVersion": "1.0",
-            "Controls": {
-              "CheckpointInterval": 300,
-              "MaxConcurrency": 4
-            },
             "Artefacts": {
               "Path": "%userprofile%\\.DevOpsMigrationPlatform",
               "Zip": false
             },
             "Policies": {
               "Retries": { "Max": 8 },
-              "Throttle": { "MaxConcurrency": 4 }
+              "Throttle": { "MaxConcurrency": 4 },
+              "Checkpoints": { "Interval": 300 }
             }
           }
         }
