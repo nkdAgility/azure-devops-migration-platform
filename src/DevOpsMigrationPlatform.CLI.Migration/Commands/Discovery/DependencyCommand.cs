@@ -41,6 +41,7 @@ public sealed class DependencyCommand : CommandBase<DependencyCommand.Settings>
         });
 
         var logger = GetRequiredService<ILogger<DependencyCommand>>();
+        var console = GetRequiredService<IAnsiConsole>();
 
         try
         {
@@ -66,6 +67,8 @@ public sealed class DependencyCommand : CommandBase<DependencyCommand.Settings>
             var perProjectPairs = new Dictionary<(string, string), Dictionary<ProjectPairKey, int>>();
             // Org-level pair counts: orgName → ProjectPairKey → count
             var perOrgPairs = new Dictionary<string, Dictionary<ProjectPairKey, int>>();
+            // Live progress per (org, project)
+            var progressState = new Dictionary<(string, string), ProjectProgress>();
 
             // ── Root dependencies.csv (raw WI-level for test assertions) ─────
             var rootCsvPath = Path.Combine(baseOutputDir, "dependencies.csv");
@@ -76,53 +79,137 @@ public sealed class DependencyCommand : CommandBase<DependencyCommand.Settings>
             {
                 rootWriter.WriteLine("SourceWorkItemId,SourceWorkItemType,SourceProject,LinkType,LinkScope,TargetWorkItemId,TargetProject,TargetOrganisation,TargetStatus");
 
-                await foreach (var evt in discoveryService.DiscoverDependenciesAsync(settings.WiqlFilter, cancellationToken))
+                if (console.Profile.Capabilities.Interactive)
                 {
-                    if (evt is DependencyFoundEvent foundEvent)
+                    var liveTable = BuildProgressTable(progressState.Values);
+                    await console.Live(liveTable)
+                        .AutoClear(false)
+                        .Overflow(VerticalOverflow.Ellipsis)
+                        .StartAsync(async ctx =>
+                        {
+                            await foreach (var evt in discoveryService.DiscoverDependenciesAsync(settings.WiqlFilter, cancellationToken))
+                            {
+                                if (evt is DependencyFoundEvent foundEvent)
+                                {
+                                    var record = foundEvent.Record;
+                                    rootWriter.WriteLine(
+                                        $"{record.SourceWorkItemId},{record.SourceWorkItemType},{record.SourceProject}," +
+                                        $"{record.LinkType},{record.LinkScope},{record.TargetWorkItemId}," +
+                                        $"{record.TargetProject},{record.TargetOrganisation},{record.TargetStatus}");
+
+                                    var orgName = ExtractOrgName(record.SourceOrganisationUrl);
+                                    var project = record.SourceProject ?? "unknown";
+                                    var key = new ProjectPairKey(record);
+                                    var projKey = (orgName, project);
+
+                                    if (!perProjectRecords.TryGetValue(projKey, out var records))
+                                    {
+                                        records = new List<DependencyRecord>();
+                                        perProjectRecords[projKey] = records;
+                                    }
+                                    records.Add(record);
+
+                                    if (!perProjectPairs.TryGetValue(projKey, out var projPairs))
+                                    {
+                                        projPairs = new Dictionary<ProjectPairKey, int>();
+                                        perProjectPairs[projKey] = projPairs;
+                                    }
+                                    projPairs[key] = projPairs.TryGetValue(key, out var pc) ? pc + 1 : 1;
+
+                                    if (!perOrgPairs.TryGetValue(orgName, out var orgPairs))
+                                    {
+                                        orgPairs = new Dictionary<ProjectPairKey, int>();
+                                        perOrgPairs[orgName] = orgPairs;
+                                    }
+                                    orgPairs[key] = orgPairs.TryGetValue(key, out var oc) ? oc + 1 : 1;
+
+                                    if (record.LinkScope == LinkScope.CrossProject)
+                                        crossProjectCount++;
+                                    else
+                                        crossOrgCount++;
+                                }
+                                else if (evt is DependencyHeartbeatEvent heartbeat)
+                                {
+                                    workItemsAnalysed = Math.Max(workItemsAnalysed, heartbeat.WorkItemsAnalysed);
+
+                                    var orgName = ExtractOrgName(heartbeat.OrganisationUrl);
+                                    var projKey = (orgName, heartbeat.ProjectName);
+                                    if (!progressState.TryGetValue(projKey, out var progress))
+                                    {
+                                        progress = new ProjectProgress
+                                        {
+                                            OrgName = orgName,
+                                            ProjectName = heartbeat.ProjectName
+                                        };
+                                        progressState[projKey] = progress;
+                                    }
+                                    progress.WorkItemsAnalysed = heartbeat.WorkItemsAnalysed;
+                                    progress.CrossProjectLinks = heartbeat.CrossProjectCount;
+                                    progress.CrossOrgLinks = heartbeat.CrossOrgCount;
+                                    progress.IsComplete = heartbeat.IsComplete;
+
+                                    ctx.UpdateTarget(BuildProgressTable(progressState.Values));
+                                }
+                            }
+                        });
+                }
+                else
+                {
+                    // Non-interactive: plain line output on each heartbeat completion
+                    await foreach (var evt in discoveryService.DiscoverDependenciesAsync(settings.WiqlFilter, cancellationToken))
                     {
-                        var record = foundEvent.Record;
-                        rootWriter.WriteLine(
-                            $"{record.SourceWorkItemId},{record.SourceWorkItemType},{record.SourceProject}," +
-                            $"{record.LinkType},{record.LinkScope},{record.TargetWorkItemId}," +
-                            $"{record.TargetProject},{record.TargetOrganisation},{record.TargetStatus}");
-
-                        var orgName = ExtractOrgName(record.SourceOrganisationUrl);
-                        var project = record.SourceProject ?? "unknown";
-                        var key = new ProjectPairKey(record);
-
-                        // Per-project WI records
-                        var projKey = (orgName, project);
-                        if (!perProjectRecords.TryGetValue(projKey, out var records))
+                        if (evt is DependencyFoundEvent foundEvent)
                         {
-                            records = new List<DependencyRecord>();
-                            perProjectRecords[projKey] = records;
-                        }
-                        records.Add(record);
+                            var record = foundEvent.Record;
+                            rootWriter.WriteLine(
+                                $"{record.SourceWorkItemId},{record.SourceWorkItemType},{record.SourceProject}," +
+                                $"{record.LinkType},{record.LinkScope},{record.TargetWorkItemId}," +
+                                $"{record.TargetProject},{record.TargetOrganisation},{record.TargetStatus}");
 
-                        // Per-project pair counts
-                        if (!perProjectPairs.TryGetValue(projKey, out var projPairs))
+                            var orgName = ExtractOrgName(record.SourceOrganisationUrl);
+                            var project = record.SourceProject ?? "unknown";
+                            var key = new ProjectPairKey(record);
+                            var projKey = (orgName, project);
+
+                            if (!perProjectRecords.TryGetValue(projKey, out var records))
+                            {
+                                records = new List<DependencyRecord>();
+                                perProjectRecords[projKey] = records;
+                            }
+                            records.Add(record);
+
+                            if (!perProjectPairs.TryGetValue(projKey, out var projPairs))
+                            {
+                                projPairs = new Dictionary<ProjectPairKey, int>();
+                                perProjectPairs[projKey] = projPairs;
+                            }
+                            projPairs[key] = projPairs.TryGetValue(key, out var pc) ? pc + 1 : 1;
+
+                            if (!perOrgPairs.TryGetValue(orgName, out var orgPairs))
+                            {
+                                orgPairs = new Dictionary<ProjectPairKey, int>();
+                                perOrgPairs[orgName] = orgPairs;
+                            }
+                            orgPairs[key] = orgPairs.TryGetValue(key, out var oc) ? oc + 1 : 1;
+
+                            if (record.LinkScope == LinkScope.CrossProject)
+                                crossProjectCount++;
+                            else
+                                crossOrgCount++;
+                        }
+                        else if (evt is DependencyHeartbeatEvent heartbeat)
                         {
-                            projPairs = new Dictionary<ProjectPairKey, int>();
-                            perProjectPairs[projKey] = projPairs;
+                            workItemsAnalysed = Math.Max(workItemsAnalysed, heartbeat.WorkItemsAnalysed);
+                            if (heartbeat.IsComplete)
+                            {
+                                var orgName = ExtractOrgName(heartbeat.OrganisationUrl);
+                                console.MarkupLine(
+                                    $"  [grey]{Markup.Escape(orgName)}[/] / [white]{Markup.Escape(heartbeat.ProjectName)}[/]: " +
+                                    $"{heartbeat.WorkItemsAnalysed} items analysed, " +
+                                    $"{heartbeat.CrossProjectCount} cross-project, " +
+                                    $"[red]{heartbeat.CrossOrgCount}[/] cross-org — [green]✓[/]");
+                            }
                         }
-                        projPairs[key] = projPairs.TryGetValue(key, out var pc) ? pc + 1 : 1;
-
-                        // Org-level pair counts
-                        if (!perOrgPairs.TryGetValue(orgName, out var orgPairs))
-                        {
-                            orgPairs = new Dictionary<ProjectPairKey, int>();
-                            perOrgPairs[orgName] = orgPairs;
-                        }
-                        orgPairs[key] = orgPairs.TryGetValue(key, out var oc) ? oc + 1 : 1;
-
-                        if (record.LinkScope == LinkScope.CrossProject)
-                            crossProjectCount++;
-                        else
-                            crossOrgCount++;
-                    }
-                    else if (evt is DependencyHeartbeatEvent heartbeat)
-                    {
-                        workItemsAnalysed = Math.Max(workItemsAnalysed, heartbeat.WorkItemsAnalysed);
                     }
                 }
 
@@ -137,23 +224,19 @@ public sealed class DependencyCommand : CommandBase<DependencyCommand.Settings>
                 var projDir = Path.Combine(baseOutputDir, orgName, project);
                 Directory.CreateDirectory(projDir);
 
-                // dependencies.csv — WI-level (both IDs)
                 var projDepsCsv = Path.Combine(projDir, "dependencies.csv");
                 using (var fs = new FileStream(projDepsCsv, FileMode.Create, FileAccess.Write))
                 using (var w = new StreamWriter(fs))
                 {
                     w.WriteLine("SourceWorkItemId,SourceWorkItemType,SourceProject,LinkType,LinkScope,TargetWorkItemId,TargetProject,TargetOrganisation,TargetStatus");
                     foreach (var r in records)
-                    {
                         w.WriteLine(
                             $"{r.SourceWorkItemId},{r.SourceWorkItemType},{r.SourceProject}," +
                             $"{r.LinkType},{r.LinkScope},{r.TargetWorkItemId}," +
                             $"{r.TargetProject},{r.TargetOrganisation},{r.TargetStatus}");
-                    }
                     w.Flush();
                 }
 
-                // grouped.csv — deduped project-level pairs
                 var projPairs = perProjectPairs[(orgName, project)]
                     .Select(kvp => new ProjectDependencyRecord(kvp.Key, kvp.Value))
                     .OrderByDescending(p => p.LinkCount)
@@ -169,9 +252,9 @@ public sealed class DependencyCommand : CommandBase<DependencyCommand.Settings>
                     w.Flush();
                 }
 
-                // dependencies.md — mermaid for this project
-                var projDiagramPath = Path.Combine(projDir, "dependencies.md");
-                File.WriteAllText(projDiagramPath, new MermaidDiagramBuilder(projPairs).Build());
+                File.WriteAllText(
+                    Path.Combine(projDir, "dependencies.md"),
+                    new MermaidDiagramBuilder(projPairs).Build());
 
                 logger.LogInformation("Project output written to {ProjDir}", projDir);
             }
@@ -187,7 +270,6 @@ public sealed class DependencyCommand : CommandBase<DependencyCommand.Settings>
                     .OrderByDescending(p => p.LinkCount)
                     .ToList();
 
-                // Assign GroupIds
                 var componentIds = UnionFindComponentLabeler.AssignComponentIds(orgPairs);
                 foreach (var pair in orgPairs)
                 {
@@ -195,7 +277,6 @@ public sealed class DependencyCommand : CommandBase<DependencyCommand.Settings>
                         pair.GroupId = gid;
                 }
 
-                // dependencies.csv — grouped by source/target project
                 var orgDepsCsv = Path.Combine(orgDir, "dependencies.csv");
                 using (var fs = new FileStream(orgDepsCsv, FileMode.Create, FileAccess.Write))
                 using (var w = new StreamWriter(fs))
@@ -206,9 +287,9 @@ public sealed class DependencyCommand : CommandBase<DependencyCommand.Settings>
                     w.Flush();
                 }
 
-                // dependencies.md — mermaid for org
-                var orgDiagramPath = Path.Combine(orgDir, "dependencies.md");
-                File.WriteAllText(orgDiagramPath, new MermaidDiagramBuilder(orgPairs).Build());
+                File.WriteAllText(
+                    Path.Combine(orgDir, "dependencies.md"),
+                    new MermaidDiagramBuilder(orgPairs).Build());
 
                 logger.LogInformation("Org output written to {OrgDir}", orgDir);
             }
@@ -218,26 +299,27 @@ public sealed class DependencyCommand : CommandBase<DependencyCommand.Settings>
 
             if (totalLinks == 0)
             {
-                AnsiConsole.MarkupLine("[green]✓[/] No external dependencies found.");
+                console.MarkupLine("[green]✓[/] No external dependencies found.");
             }
             else
             {
-                AnsiConsole.WriteLine();
-                var summaryTable = new Table();
-                summaryTable.Title = new TableTitle("[bold]Discovery Summary[/]");
-                summaryTable.AddColumn("Metric");
-                summaryTable.AddColumn("Count");
+                console.WriteLine();
+                var summaryTable = new Table()
+                    .Title("[bold]Discovery Summary[/]")
+                    .RoundedBorder()
+                    .BorderColor(Color.Grey)
+                    .AddColumn("Metric")
+                    .AddColumn(new TableColumn("Count").RightAligned());
                 summaryTable.AddRow("Work Items Analysed", workItemsAnalysed.ToString());
                 summaryTable.AddRow("Total External Links", totalLinks.ToString());
                 summaryTable.AddRow("Cross-Project Links", crossProjectCount.ToString());
-                summaryTable.AddRow($"[red]⚠ Cross-Organisation Links[/]", $"[red]{crossOrgCount}[/]");
-                summaryTable.AddRow("Output Directory", baseOutputDir);
-                AnsiConsole.Write(summaryTable);
+                summaryTable.AddRow("[red]⚠ Cross-Organisation Links[/]", $"[red]{crossOrgCount}[/]");
+                summaryTable.AddRow("Output Directory", Markup.Escape(baseOutputDir));
+                console.Write(summaryTable);
 
                 if (crossOrgCount > 0)
-                    AnsiConsole.MarkupLine($"[red]⚠ ACTION REQUIRED: {crossOrgCount} cross-organisation link(s) will break after migration[/]");
+                    console.MarkupLine($"[red]⚠ ACTION REQUIRED: {crossOrgCount} cross-organisation link(s) will break after migration[/]");
 
-                // Summary project dependency table (across all orgs)
                 var allPairs = perOrgPairs.Values
                     .SelectMany(d => d.Select(kvp => new ProjectDependencyRecord(kvp.Key, kvp.Value)))
                     .OrderByDescending(p => p.LinkCount)
@@ -245,39 +327,45 @@ public sealed class DependencyCommand : CommandBase<DependencyCommand.Settings>
 
                 if (allPairs.Count > 0)
                 {
-                    AnsiConsole.WriteLine();
-                    var projectTable = new Table();
-                    projectTable.Title = new TableTitle("[bold]Project Dependency Map[/]");
-                    projectTable.AddColumn("Source Project");
-                    projectTable.AddColumn("Target Project");
-                    projectTable.AddColumn("Links");
-                    projectTable.AddColumn("Scope");
+                    console.WriteLine();
+                    var projectTable = new Table()
+                        .Title("[bold]Project Dependency Map[/]")
+                        .RoundedBorder()
+                        .BorderColor(Color.Grey)
+                        .AddColumn("Source Project")
+                        .AddColumn("Target Project")
+                        .AddColumn(new TableColumn("Links").RightAligned())
+                        .AddColumn("Scope");
 
                     foreach (var pair in allPairs)
                     {
                         var targetDisplay = pair.LinkScope == LinkScope.CrossOrganisation && !string.IsNullOrWhiteSpace(pair.TargetOrganisation)
-                            ? $"🌐 {pair.TargetOrganisation}/{pair.TargetProject}"
-                            : pair.TargetProject;
+                            ? $"🌐 {Markup.Escape(pair.TargetOrganisation)}/{Markup.Escape(pair.TargetProject ?? "")}"
+                            : Markup.Escape(pair.TargetProject ?? "");
                         var scopeDisplay = pair.LinkScope == LinkScope.CrossOrganisation
                             ? "[red]Cross-Org[/]"
                             : "Cross-Project";
-                        projectTable.AddRow(pair.SourceProject, targetDisplay, pair.LinkCount.ToString(), scopeDisplay);
+                        projectTable.AddRow(
+                            Markup.Escape(pair.SourceProject),
+                            targetDisplay,
+                            pair.LinkCount.ToString(),
+                            scopeDisplay);
                     }
 
-                    AnsiConsole.Write(projectTable);
-                    AnsiConsole.MarkupLine($"[green]✓[/] Project dependencies written to [blue]{baseOutputDir}[/]");
-                    AnsiConsole.MarkupLine($"[green]✓[/] Dependency diagram written to [blue]{baseOutputDir}[/]");
+                    console.Write(projectTable);
+                    console.MarkupLine($"[green]✓[/] Project dependencies written to [blue]{Markup.Escape(baseOutputDir)}[/]");
+                    console.MarkupLine($"[green]✓[/] Dependency diagram written to [blue]{Markup.Escape(baseOutputDir)}[/]");
                 }
             }
 
             logger.LogInformation("Dependency discovery completed successfully");
-            AnsiConsole.MarkupLine($"[green]✓[/] Dependency discovery completed successfully");
+            console.MarkupLine($"[green]✓[/] Dependency discovery completed successfully");
             return 0;
         }
         catch (Exception ex)
         {
             logger.LogError(ex, "Dependency discovery failed");
-            AnsiConsole.MarkupLine($"[red]✗ Error: {ex.Message}[/]");
+            console.MarkupLine($"[red]✗ Error: {Markup.Escape(ex.Message)}[/]");
             return 1;
         }
     }
@@ -314,5 +402,46 @@ public sealed class DependencyCommand : CommandBase<DependencyCommand.Settings>
     {
         var clean = System.Text.RegularExpressions.Regex.Replace(name, @"[^\w\-]", "_");
         return string.IsNullOrWhiteSpace(clean) ? "unknown" : clean;
+    }
+
+    private static Table BuildProgressTable(IEnumerable<ProjectProgress> state)
+    {
+        var table = new Table()
+            .Title("[bold yellow]Dependency Discovery[/]")
+            .RoundedBorder()
+            .BorderColor(Color.Grey)
+            .AddColumn("Organisation")
+            .AddColumn("Project")
+            .AddColumn(new TableColumn("Analysed").RightAligned())
+            .AddColumn(new TableColumn("Cross-Project").RightAligned())
+            .AddColumn(new TableColumn("Cross-Org").RightAligned())
+            .AddColumn("Status");
+
+        foreach (var p in state)
+        {
+            var status = p.IsComplete ? "[green]✓[/]" : "[grey]…[/]";
+            var crossOrg = p.CrossOrgLinks > 0
+                ? $"[red]{p.CrossOrgLinks}[/]"
+                : p.CrossOrgLinks.ToString();
+            table.AddRow(
+                Markup.Escape(p.OrgName),
+                Markup.Escape(p.ProjectName),
+                p.WorkItemsAnalysed.ToString(),
+                p.CrossProjectLinks.ToString(),
+                crossOrg,
+                status);
+        }
+
+        return table;
+    }
+
+    private sealed class ProjectProgress
+    {
+        public string OrgName { get; set; } = string.Empty;
+        public string ProjectName { get; set; } = string.Empty;
+        public int WorkItemsAnalysed { get; set; }
+        public int CrossProjectLinks { get; set; }
+        public int CrossOrgLinks { get; set; }
+        public bool IsComplete { get; set; }
     }
 }
