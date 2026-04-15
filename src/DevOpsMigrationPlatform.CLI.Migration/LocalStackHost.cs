@@ -10,7 +10,7 @@ namespace DevOpsMigrationPlatform.CLI;
 
 /// <summary>
 /// Hosts the ControlPlane API and MigrationAgent worker in-process within the CLI when
-/// no <c>--url</c> or <c>MIGRATION_API_URL</c> is configured.
+/// the environment type is <c>Standalone</c> (the default).
 ///
 /// This allows a single <c>devopsmigration export --config ...</c> command to start the
 /// full local stack transparently — ControlPlane API on <c>http://localhost:5100</c>,

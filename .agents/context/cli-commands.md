@@ -73,13 +73,15 @@ Run **locally**. Do **not** submit a `MigrationJob`. Registered as a Spectre.Con
 |--------|---------|-------------|
 | `--force-fresh` | `false` | Delete module cursor file(s) (and the job phase record for `migrate`) before job execution. Enumeration restarts from the beginning. The identity map (`Checkpoints/idmap.json`) is **not** deleted so no duplicate items are created in the target. |
 
-## Migration + Manage + TUI Options (control-plane commands only)
+## Control Plane Endpoint Resolution (control-plane commands only)
 
-These options are available on all commands that contact the control plane (`export`, `import`, `validate`, `migrate`, `prepare`, `manage *`, `tui`). They are **not** available on `discovery *` or `configure` commands.
+Commands that contact the control plane (`export`, `import`, `validate`, `migrate`, `prepare`, `manage *`, `tui`) resolve the control plane URL from configuration:
 
-| Option | Short | Default | Description |
-|--------|-------|---------|-------------|
-| `--url` | — | *(none)* | URL of the control plane API (e.g. `https://controlplane.example.com`). Overrides `MIGRATION_API_URL`. When neither is set, the CLI starts the ControlPlane + MigrationAgent in-process at `http://localhost:5100`. |
+- `MigrationPlatform:Environment:ControlPlane:BaseUrl` — bound to `EnvironmentOptions` via `IOptions<T>`.
+- When `Environment` is absent or `Type` is `Standalone`, defaults to `http://localhost:5100` and the CLI starts `LocalStackHost` in-process.
+- When `Type` is `Hosted`, the CLI connects to the configured `BaseUrl` directly.
+
+The config file is the single source of truth. There is no `--url` CLI flag or `MIGRATION_API_URL` environment variable.
 
 ---
 
@@ -146,7 +148,6 @@ devopsmigration discovery inventory --config migration.json --all-projects
 devopsmigration discovery inventory --config migration.json --output ./reports
 
 devopsmigration tui
-devopsmigration tui --url https://migration.example.com
 ```
 
 ---

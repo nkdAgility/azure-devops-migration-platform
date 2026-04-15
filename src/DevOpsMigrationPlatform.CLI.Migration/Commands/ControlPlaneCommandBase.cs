@@ -1,6 +1,8 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Options;
+using DevOpsMigrationPlatform.CLI.Migration.Options;
 using DevOpsMigrationPlatform.CLI.Migration.Settings;
 using Spectre.Console;
 using Spectre.Console.Cli;
@@ -10,9 +12,8 @@ namespace DevOpsMigrationPlatform.CLI.Migration.Commands;
 
 /// <summary>
 /// Base class for commands that contact the control plane.
-/// Adds <see cref="CreateHost(string[], string?, Action{IServiceCollection, IConfiguration}?)"/>
-/// which resolves the control plane URL and, when none is configured, starts
-/// <see cref="LocalStackHost"/> in-process before building the command host.
+/// Resolves the control plane URL from <see cref="EnvironmentOptions"/> (bound from config).
+/// When <see cref="EnvironmentType.Standalone"/>, starts <see cref="LocalStackHost"/> in-process.
 /// </summary>
 /// <typeparam name="TSettings">Must be or derive from <see cref="ControlPlaneBaseCommandSettings"/>.</typeparam>
 public abstract class ControlPlaneCommandBase<TSettings> : CommandBase<TSettings>
@@ -21,28 +22,39 @@ public abstract class ControlPlaneCommandBase<TSettings> : CommandBase<TSettings
     private LocalStackHost? _localStack;
 
     /// <summary>
-    /// Creates an <see cref="IHost"/> wired to the specified control plane URL.
-    /// When <paramref name="controlPlaneUrl"/> is <c>null</c>, starts the local in-process
-    /// stack (<see cref="LocalStackHost"/>) before building the host.
+    /// Creates an <see cref="IHost"/> wired to the control plane URL from
+    /// <see cref="EnvironmentOptions"/>. When the environment type is
+    /// <see cref="EnvironmentType.Standalone"/>, starts the local in-process stack first.
     /// </summary>
-    protected async Task<IHost> CreateHost(
+    protected new async Task<IHost> CreateHost(
         string[] args,
-        string? controlPlaneUrl,
         Action<IServiceCollection, IConfiguration>? configureServices = null)
     {
         if (Host is not null)
             return Host;
 
-        if (controlPlaneUrl is null)
+        Host = MigrationPlatformHost.CreateDefaultBuilder(args, configureServices).Build();
+
+        var envOpts = Host.Services.GetRequiredService<IOptions<EnvironmentOptions>>().Value;
+        var controlPlaneUrl = envOpts.ControlPlane.BaseUrl;
+
+        if (envOpts.Type == EnvironmentType.Standalone)
         {
             _localStack = new LocalStackHost();
             await _localStack.StartAsync();
-            controlPlaneUrl = "http://localhost:5100";
         }
 
-        Host = MigrationPlatformHost.CreateDefaultBuilder(args, configureServices, controlPlaneUrl).Build();
         await Host.StartAsync();
         return Host;
+    }
+
+    /// <summary>
+    /// Returns the resolved control plane base URL from <see cref="EnvironmentOptions"/>.
+    /// </summary>
+    protected string GetControlPlaneUrl()
+    {
+        var envOpts = Host!.Services.GetRequiredService<IOptions<EnvironmentOptions>>().Value;
+        return envOpts.ControlPlane.BaseUrl;
     }
 
     /// <inheritdoc/>

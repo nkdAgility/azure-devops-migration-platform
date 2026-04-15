@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.CLI.Migration.Tests.TestUtilities;
@@ -45,10 +46,17 @@ public class ManageDiagnosticsCommandTests
             readyTimeout: TimeSpan.FromSeconds(30));
 
         // ── Run export to create a completed job ─────────────────────────────
-        // Pass --url so the CLI uses the shared control plane instead of starting LocalStackHost.
+        // Set Environment:Type=Hosted so the CLI connects to the shared control plane
+        // instead of starting its own LocalStackHost.
+        var hostedEnv = new Dictionary<string, string>
+        {
+            ["MigrationPlatform__Environment__Type"] = "Hosted",
+            ["MigrationPlatform__Environment__ControlPlane__BaseUrl"] = ControlPlaneHostRunner.DefaultUrl,
+        };
+
         var exportResult = await CliRunner.RunAsync(
-            args: ["export", "--config", "scenarios/export-ado-workitems-single-project.json", "--force-fresh",
-                   "--url", ControlPlaneHostRunner.DefaultUrl],
+            args: ["export", "--config", "scenarios/export-ado-workitems-single-project.json", "--force-fresh"],
+            env: hostedEnv,
             timeout: TimeSpan.FromMinutes(20));
 
         Console.WriteLine("=== EXPORT STDOUT ===");
@@ -76,8 +84,8 @@ public class ManageDiagnosticsCommandTests
 
         // ── Act — run manage diagnostics via CLI ────────────────────────────
         var result = await CliRunner.RunAsync(
-            args: ["manage", "diagnostics", "--job", jobId, "--level", "Information",
-                   "--url", ControlPlaneHostRunner.DefaultUrl],
+            args: ["manage", "diagnostics", "--job", jobId, "--level", "Information"],
+            env: hostedEnv,
             timeout: TimeSpan.FromMinutes(2));
 
         Console.WriteLine("=== STDOUT ===");

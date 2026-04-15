@@ -229,7 +229,6 @@ devopsmigration discovery inventory --config migration.json --all-projects
 devopsmigration discovery inventory --config migration.json --output ./reports
 
 devopsmigration tui
-devopsmigration tui --url https://migration.example.com
 ```
 
 > **Note**: `discovery *` commands run locally and read the config directly. They do not submit a `MigrationJob` to the control plane. Results are written to `discovery-summary.csv` in the `--output` directory (default: current working directory).
@@ -284,15 +283,16 @@ The visibility setting is immutable after the job is submitted. If omitted, `use
 
 ## Control Plane Endpoint
 
-The CLI always communicates with the control plane via `ControlPlaneClient`. The endpoint is determined as follows:
+The CLI always communicates with the control plane via `ControlPlaneClient`. The endpoint is determined by the `Environment` section in the configuration file (bound to `EnvironmentOptions` via `IOptions<T>`):
 
 | Condition | Behaviour |
 |---|---|
-| `MIGRATION_API_URL` not set | CLI uses **embedded Aspire `DistributedApplication` APIs** to start `ControlPlaneHost`, `MigrationAgent`(s), and PostgreSQL locally at `http://localhost:5100`. The `AppHost` project is **not** invoked — the CLI manages this directly. |
-| `MIGRATION_API_URL` set | CLI connects to the specified remote endpoint; no local services are started |
-| `--url` flag | Overrides `MIGRATION_API_URL` for that invocation |
+| `Environment` absent or `Type` = `Standalone` | CLI starts **LocalStackHost** in-process: `ControlPlaneHost`, `MigrationAgent`(s), and PostgreSQL at `http://localhost:5100`. |
+| `Type` = `Hosted` | CLI connects to `ControlPlane.BaseUrl` from config; no local services are started |
 
-Running `migrate export --config migration.json` on a local machine with no environment variables configured will drive Aspire to start the control plane, spawn agents, execute the job, and exit — all from a single command.
+The config file is the single source of truth for the control plane URL. There is no `--url` CLI flag or `MIGRATION_API_URL` environment variable override.
+
+Running `devopsmigration export --config migration.json` on a local machine with default config will start the local stack, execute the job, and exit — all from a single command.
 
 ---
 
@@ -313,19 +313,19 @@ The local config file is never sent directly anywhere. The `MigrationJob` is the
 
 ## Execution Topologies
 
-### Aspire-Managed (Local / Server)
+### Standalone (Local / Server)
 
-When no remote control plane endpoint is configured, the CLI drives Aspire programmatically — building a `DistributedApplication` with the same resources defined in the AppHost. PostgreSQL starts as an Aspire portable binary resource (no Docker, no installer required).
+When `Environment.Type` is `Standalone` (the default), the CLI starts `LocalStackHost` in-process — ControlPlane API, MigrationAgent(s), and PostgreSQL at `http://localhost:5100`.
 
-- Control plane starts on `http://localhost:5100` as an Aspire-managed process.
-- Agents run as Aspire-managed processes, using Aspire service discovery to locate `ControlPlaneHost`.
+- Control plane starts on `http://localhost:5100` as an in-process host.
+- Agents run as in-process workers.
 - `IArtefactStore` is `FileSystemArtefactStore`.
 - `IStateStore` is `PackageCheckpointStateStore` (writes `Checkpoints/` inside the package).
 - Any machine with network access to the host can attach a TUI and monitor the migration.
 
-### Remote (Cloud)
+### Hosted (Cloud)
 
-When `MIGRATION_API_URL` is set, the CLI connects to the specified control plane endpoint.
+When `Environment.Type` is `Hosted`, the CLI connects to `Environment.ControlPlane.BaseUrl`.
 
 - The control plane and agents run as containers managed by `ControlPlaneHost` in the cloud.
 - `IArtefactStore` is `AzureBlobArtefactStore`.

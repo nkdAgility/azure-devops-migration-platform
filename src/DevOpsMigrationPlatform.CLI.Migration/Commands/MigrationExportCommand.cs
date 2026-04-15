@@ -42,21 +42,14 @@ public sealed class MigrationExportCommand : ControlPlaneCommandBase<MigrationEx
         MigrationExportCommandSettings settings,
         CancellationToken cancellationToken = default)
     {
-        var resolvedUrl = MigrationPlatformHost.ResolveControlPlaneUrl(settings.Url);
-
-        await CreateHost(Environment.GetCommandLineArgs(), resolvedUrl, (services, config) =>
+        await CreateHost(Environment.GetCommandLineArgs(), (services, config) =>
         {
             services.AddSingleton<IConfigurationService, ConfigurationService>();
 
-            services.AddOptions<ControlPlaneOptions>()
-                .BindConfiguration(ControlPlaneOptions.SectionName)
-                .ValidateDataAnnotations()
-                .ValidateOnStart();
-
             services.AddHttpClient<ControlPlaneClient>((sp, client) =>
             {
-                var opts = sp.GetRequiredService<IOptions<ControlPlaneOptions>>().Value;
-                client.BaseAddress = new Uri(opts.BaseUrl);
+                var opts = sp.GetRequiredService<IOptions<EnvironmentOptions>>().Value;
+                client.BaseAddress = new Uri(opts.ControlPlane.BaseUrl);
             });
 
             services.AddTransient<IJobRunner>(sp => sp.GetRequiredService<ControlPlaneClient>());
@@ -175,8 +168,9 @@ public sealed class MigrationExportCommand : ControlPlaneCommandBase<MigrationEx
                 : null
         };
 
-        // Determine follow mode: explicit --follow, or implicit in standalone mode (no --url).
-        var isStandaloneMode = string.IsNullOrEmpty(settings.Url);
+        // Determine follow mode: explicit --follow, or implicit in standalone mode.
+        var envOpts = GetRequiredService<IOptions<EnvironmentOptions>>().Value;
+        var isStandaloneMode = envOpts.Type == EnvironmentType.Standalone;
         var shouldFollow = settings.Follow || isStandaloneMode;
 
         var client = GetRequiredService<ControlPlaneClient>();
@@ -185,8 +179,7 @@ public sealed class MigrationExportCommand : ControlPlaneCommandBase<MigrationEx
         if (!shouldFollow)
         {
             var jobId = await client.SubmitAsync(job, cancellationToken);
-            var resolvedControlPlaneUrl = MigrationPlatformHost.ResolveControlPlaneUrl(settings.Url) ?? "http://localhost:5100";
-            PrintJobSubmitted(console, jobId, resolvedControlPlaneUrl);
+            PrintJobSubmitted(console, jobId, GetControlPlaneUrl());
             console.MarkupLine($"[grey]Use [blue]manage status --job {jobId}[/] to check progress.[/]");
             return 0;
         }
@@ -211,8 +204,7 @@ public sealed class MigrationExportCommand : ControlPlaneCommandBase<MigrationEx
         try
         {
             parsedJobId = await client.SubmitAsync(job, cancellationToken);
-            var resolvedControlPlaneUrl = MigrationPlatformHost.ResolveControlPlaneUrl(settings.Url) ?? "http://localhost:5100";
-            PrintJobSubmitted(console, parsedJobId, resolvedControlPlaneUrl);
+            PrintJobSubmitted(console, parsedJobId, GetControlPlaneUrl());
         }
         catch (Exception ex)
         {

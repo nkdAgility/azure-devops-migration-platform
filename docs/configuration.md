@@ -79,6 +79,24 @@ A single JSON configuration file drives the entire run.
   "policies": {
     "retries": { "max": 8 },
     "throttle": { "maxConcurrency": 4 }
+  },
+  "environment": {
+    "type": "Standalone | Hosted",
+    "controlPlane": {
+      "baseUrl": "http://localhost:5100"
+    },
+    "agentRunner": {
+      "type": "AzureContainerApps",
+      "subscriptionId": "$ENV:AZURE_SUBSCRIPTION_ID",
+      "resourceGroup": "$ENV:AZURE_RESOURCE_GROUP",
+      "environmentName": "$ENV:ACA_ENVIRONMENT",
+      "auth": {
+        "type": "ServicePrincipal",
+        "tenantId": "$ENV:AZURE_TENANT_ID",
+        "clientId": "$ENV:AZURE_CLIENT_ID",
+        "clientSecret": "$ENV:AZURE_CLIENT_SECRET"
+      }
+    }
   }
 }
 ```
@@ -178,6 +196,74 @@ When `target.type` is `Simulated`, all work items are accepted without writing t
 |---|---|---|---|
 | `target.validateOnWrite` | No | true | Validates each revision against the package schema as it arrives. |
 | `target.failOnFirstError` | No | true | Fails the import on the first schema validation error. |
+
+---
+
+### Environment Configuration
+
+The `environment` section configures the execution environment. It replaces the previous `MIGRATION_API_URL` environment variable and `--url` CLI flag. The config file is the single source of truth for the control plane endpoint.
+
+When the `environment` section is absent, the platform defaults to **Standalone** mode with the control plane at `http://localhost:5100`.
+
+#### Standalone (default)
+
+```json
+{
+  "environment": {
+    "type": "Standalone",
+    "controlPlane": {
+      "baseUrl": "http://localhost:5100"
+    }
+  }
+}
+```
+
+#### Hosted (with optional AgentRunner)
+
+```json
+{
+  "environment": {
+    "type": "Hosted",
+    "controlPlane": {
+      "baseUrl": "https://controlplane.example.com"
+    },
+    "agentRunner": {
+      "type": "AzureContainerApps",
+      "subscriptionId": "$ENV:AZURE_SUBSCRIPTION_ID",
+      "resourceGroup": "$ENV:AZURE_RESOURCE_GROUP",
+      "environmentName": "$ENV:ACA_ENVIRONMENT",
+      "auth": {
+        "type": "ServicePrincipal",
+        "tenantId": "$ENV:AZURE_TENANT_ID",
+        "clientId": "$ENV:AZURE_CLIENT_ID",
+        "clientSecret": "$ENV:AZURE_CLIENT_SECRET"
+      }
+    }
+  }
+}
+```
+
+| Field | Required | Default | Description |
+|---|---|---|---|
+| `environment.type` | No | `Standalone` | `Standalone` or `Hosted` |
+| `environment.controlPlane.baseUrl` | No (Standalone) / Yes (Hosted) | `http://localhost:5100` | Control plane HTTP endpoint |
+| `environment.agentRunner` | No | `null` | Agent runner config for hosted cross-tenant execution. Must be null for Standalone. |
+| `environment.agentRunner.type` | Yes (if agentRunner) | — | Runner type, e.g. `AzureContainerApps` |
+| `environment.agentRunner.subscriptionId` | Yes (if agentRunner) | — | Azure subscription ID. Supports `$ENV:` |
+| `environment.agentRunner.resourceGroup` | Yes (if agentRunner) | — | Azure resource group. Supports `$ENV:` |
+| `environment.agentRunner.environmentName` | Yes (if agentRunner) | — | Container Apps environment name. Supports `$ENV:` |
+| `environment.agentRunner.auth.type` | Yes (if auth) | — | `ServicePrincipal` |
+| `environment.agentRunner.auth.tenantId` | Yes (if auth) | — | Azure AD tenant ID. Supports `$ENV:` |
+| `environment.agentRunner.auth.clientId` | Yes (if auth) | — | Service principal client ID. Supports `$ENV:` |
+| `environment.agentRunner.auth.clientSecret` | Yes (if auth) | — | Service principal secret. Supports `$ENV:`. Never logged. |
+
+#### Validation Rules
+
+1. **Standalone** — `agentRunner` must be null.
+2. **Hosted without agentRunner** — valid (agent execution handled by the control plane environment).
+3. **Hosted with agentRunner** — `subscriptionId`, `resourceGroup`, `environmentName`, and `auth` are all required.
+4. **Auth type ServicePrincipal** — `tenantId`, `clientId`, `clientSecret` are all required.
+5. All `$ENV:VAR_NAME` references are resolved at runtime; fail fast if the variable is unset or empty.
 
 ---
 
