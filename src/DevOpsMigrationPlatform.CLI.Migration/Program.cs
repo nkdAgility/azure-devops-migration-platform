@@ -24,7 +24,7 @@ internal class Program
 #endif
 
             // ── Migration commands (all read their configuration from --config) ──────
-            config.AddChannelCommand<MigrationPrepareCommand>("prepare")
+            config.AddChannelCommand<PrepareCommand>("prepare")
                 .WithDescription("Validate config, compute configHash, print planned modules. No job is submitted.")
                 .WithExample("prepare", "--config", "migration.json");
 

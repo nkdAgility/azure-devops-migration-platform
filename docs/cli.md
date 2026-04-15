@@ -164,7 +164,7 @@ These commands submit jobs to the control plane via `ControlPlaneClient`.
 
 | Command | Description |
 |---|---|
-| `prepare` | Validate the config, compute `configHash`, print a job summary and planned modules. Does **not** submit a job. |
+| `prepare` | Submit a lightweight probe job through the full pipeline (CLI → Control Plane → Agent → ArtefactStore) to validate that permissions, configuration, and connectivity work end-to-end. The agent writes a single probe file to the artefact store and completes. |
 | `queue` | Submit a migration job. Behaviour is determined by the `mode` field in the config (`Export`, `Import`, or `Both`). `--follow` streams diagnostic logs inline (implicit in standalone mode). `--level` sets the agent's diagnostic minimum level per job. `--force-fresh` deletes module cursor(s) before running so enumeration restarts from the beginning (identity map preserved). |
 
 ### Job Management Commands (`manage`)
