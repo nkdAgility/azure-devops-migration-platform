@@ -5,10 +5,12 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Microsoft.TeamFoundation.Core.WebApi;
 using Microsoft.TeamFoundation.WorkItemTracking.WebApi;
 using Microsoft.TeamFoundation.WorkItemTracking.WebApi.Models;
 using DevOpsMigrationPlatform.Abstractions.Models;
 using DevOpsMigrationPlatform.Abstractions.Options;
+
 using DevOpsMigrationPlatform.Abstractions.Services;
 
 namespace DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Services;
@@ -63,6 +65,19 @@ public sealed class AzureDevOpsDependencyAnalysisService : IWorkItemLinkAnalysis
         var counters = new LinkCounters();
         const int batchSize = 200;
 
+        // Build a lookup of org-segment → (resolvedUrl, pat) for all configured orgs so we
+        // can resolve GUID project names in cross-org links when we have credentials.
+        var configuredOrgs = _options.Value.Organisations
+            .Where(o => o.Enabled && !string.IsNullOrWhiteSpace(o.ResolvedUrl))
+            .ToDictionary(
+                o => ExtractOrgSegment(o.ResolvedUrl),
+                o => (OrgUrl: o.ResolvedUrl.TrimEnd('/'), Pat: o.Authentication?.ResolvedAccessToken ?? ""),
+                StringComparer.OrdinalIgnoreCase);
+
+        // Shared cache: "orgSegment::guidString" → resolved project name.
+        // Prevents redundant API calls when the same GUID appears in multiple links.
+        var projectNameCache = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
         // ── Phase 1: collect all work item IDs so we know the total up-front ──
         // IDs are plain integers; even 200 K IDs occupy ~800 KB — well within budget.
         _logger.LogInformation("Counting work items for project {Project} in {OrgUrl}", project, organisationUrl);
@@ -94,7 +109,7 @@ public sealed class AzureDevOpsDependencyAnalysisService : IWorkItemLinkAnalysis
 
             await foreach (var evt in ProcessBatchAsync(
                 witClient, batch, sourceOrgSegment, organisationUrl, project, pat,
-                counters, totalWorkItems, cancellationToken))
+                counters, totalWorkItems, configuredOrgs, projectNameCache, cancellationToken))
             {
                 yield return evt;
             }
@@ -136,6 +151,8 @@ public sealed class AzureDevOpsDependencyAnalysisService : IWorkItemLinkAnalysis
         string pat,
         LinkCounters counters,
         int totalWorkItems,
+        IReadOnlyDictionary<string, (string OrgUrl, string Pat)> configuredOrgs,
+        Dictionary<string, string> projectNameCache,
         [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -202,6 +219,9 @@ public sealed class AzureDevOpsDependencyAnalysisService : IWorkItemLinkAnalysis
                     {
                         counters.CrossOrg++;
                         var targetStatus = await VerifyTargetStatusAsync(targetUrl, pat, cancellationToken).ConfigureAwait(false);
+                        var rawProject = ExtractProjectSegment(targetUrl);
+                        var resolvedProject = await ResolveTargetProjectAsync(
+                            targetOrgSegment, rawProject, configuredOrgs, projectNameCache, cancellationToken).ConfigureAwait(false);
                         eventToYield = new DependencyFoundEvent(new DependencyRecord
                         {
                             SourceWorkItemId = sourceId,
@@ -211,7 +231,7 @@ public sealed class AzureDevOpsDependencyAnalysisService : IWorkItemLinkAnalysis
                             LinkType = relation.Rel.Replace("System.LinkTypes.", ""),
                             LinkScope = LinkScope.CrossOrganisation,
                             TargetWorkItemId = targetId,
-                            TargetProject = ExtractProjectSegment(targetUrl),
+                            TargetProject = resolvedProject,
                             TargetOrganisation = targetOrgSegment,
                             TargetStatus = targetStatus
                         });
@@ -319,6 +339,50 @@ public sealed class AzureDevOpsDependencyAnalysisService : IWorkItemLinkAnalysis
     /// due to it not existing or the caller lacking read permissions (TF401232).
     private static bool IsPermissionError(Exception ex) =>
         ex.Message.Contains("TF401232", StringComparison.Ordinal);
+
+    /// <summary>
+    /// If <paramref name="rawProject"/> looks like a GUID and the target org is configured
+    /// with credentials, resolves the GUID to the actual project name via the Core API.
+    /// Results are cached in <paramref name="cache"/> to avoid repeat calls.
+    /// Falls back to <paramref name="rawProject"/> on any error or missing credentials.
+    /// </summary>
+    private async Task<string> ResolveTargetProjectAsync(
+        string targetOrgSegment,
+        string rawProject,
+        IReadOnlyDictionary<string, (string OrgUrl, string Pat)> configuredOrgs,
+        Dictionary<string, string> cache,
+        CancellationToken cancellationToken)
+    {
+        if (!Guid.TryParse(rawProject, out var projectGuid))
+            return rawProject; // already a name
+
+        if (!configuredOrgs.TryGetValue(targetOrgSegment, out var creds))
+            return rawProject; // no credentials for this org
+
+        var cacheKey = $"{targetOrgSegment}::{rawProject}";
+        if (cache.TryGetValue(cacheKey, out var cached))
+            return cached;
+
+        try
+        {
+            var projectClient = await _clientFactory.CreateProjectClientAsync(
+                creds.OrgUrl, creds.Pat, cancellationToken).ConfigureAwait(false);
+            var teamProject = await projectClient.GetProject(
+                projectGuid.ToString()).ConfigureAwait(false);
+            var name = teamProject?.Name ?? rawProject;
+            cache[cacheKey] = name;
+            _logger.LogDebug("Resolved project GUID {Guid} in {Org} to '{Name}'",
+                rawProject, targetOrgSegment, name);
+            return name;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug("Could not resolve project GUID {Guid} in {Org}: {Message}",
+                rawProject, targetOrgSegment, ex.Message);
+            cache[cacheKey] = rawProject; // don't retry
+            return rawProject;
+        }
+    }
 
     /// <summary>
     /// Extracts the organisation identifier from an Azure DevOps URL.
