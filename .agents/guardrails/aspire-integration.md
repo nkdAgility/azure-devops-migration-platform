@@ -234,7 +234,7 @@ azd up
 - Deploy to Azure App Service (use Container Apps)
 - Deploy to VMs (use Container Apps)
 - Deploy to AKS unless explicitly required for advanced scenarios
-- Use SQL Database instead of PostgreSQL (Aspire defaults to PostgreSQL)
+
 
 ---
 

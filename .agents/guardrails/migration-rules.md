@@ -144,7 +144,6 @@ Resume semantics:
 
 ## No per-work-item watermark databases
 
-* SQLite watermark stores are prohibited in the canonical package model.
 * Any per-item progress tracking MUST be derived from cursor + id mapping.
 
 ---
