@@ -16,8 +16,6 @@ internal sealed class MigrateLogsSteps
 {
     private readonly MigrateLogsContext _ctx;
     private Guid _jobId;
-    private bool _followMode;
-    private bool _httpError;
 
     public MigrateLogsSteps(MigrateLogsContext ctx) => _ctx = ctx;
 
@@ -55,7 +53,6 @@ internal sealed class MigrateLogsSteps
     public void GivenControlPlaneReturnsHttpError(string jobIdString)
     {
         _jobId = Guid.Parse(jobIdString);
-        _httpError = true;
 
         _ctx.ClientMock
             .Setup(c => c.GetProgressAsync(_jobId, It.IsAny<CancellationToken>()))
@@ -66,24 +63,24 @@ internal sealed class MigrateLogsSteps
             .Returns<Guid, CancellationToken>((_, _) => ThrowAsync());
     }
 
+#pragma warning disable CS0162 // Unreachable code — yield break required for async iterator
     private static async IAsyncEnumerable<ProgressEvent> ThrowAsync()
     {
         await Task.Yield();
         throw new HttpRequestException("403 Forbidden");
         yield break; // unreachable but required for compiler
     }
+#pragma warning restore CS0162
 
     [When(@"I run ""migrate logs --job ([^ ]+)""")]
     public async Task WhenIRunLogsCommand(string jobIdString)
     {
-        _followMode = false;
         await RunCommandAsync(false);
     }
 
     [When(@"I run ""migrate logs --job ([^ ]+) --follow""")]
     public async Task WhenIRunLogsCommandWithFollow(string jobIdString)
     {
-        _followMode = true;
         await RunCommandAsync(true);
     }
 
@@ -106,7 +103,7 @@ internal sealed class MigrateLogsSteps
             var settings = new LogsCommand.Settings { JobId = _jobId, Follow = follow };
             var remaining = new Mock<IRemainingArguments>();
             remaining.Setup(r => r.Raw).Returns(Array.Empty<string>());
-            remaining.Setup(r => r.Parsed).Returns(Enumerable.Empty<string>().ToLookup(x => x));
+            remaining.Setup(r => r.Parsed).Returns(Enumerable.Empty<string>().ToLookup(x => x, x => (string?)x));
             var cmdCtx = new CommandContext(Array.Empty<string>(), remaining.Object, "logs", null);
 
             // Use reflection to access the protected ExecuteInternalAsync method

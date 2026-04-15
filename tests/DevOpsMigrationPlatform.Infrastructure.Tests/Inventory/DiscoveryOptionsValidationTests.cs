@@ -13,7 +13,7 @@ public class DiscoveryOptionsValidationTests
     public void Validate_DefaultOptions_Throws()
     {
         var opts = new DiscoveryOptions();
-        var ex = Assert.ThrowsException<InvalidOperationException>(() => opts.Validate());
+        var ex = Assert.ThrowsExactly<InvalidOperationException>(() => opts.Validate());
         StringAssert.Contains(ex.Message, "empty");
     }
 
@@ -21,7 +21,7 @@ public class DiscoveryOptionsValidationTests
     public void Validate_EmptyOrganisationsList_Throws()
     {
         var opts = new DiscoveryOptions { Organisations = new() };
-        var ex = Assert.ThrowsException<InvalidOperationException>(() => opts.Validate());
+        var ex = Assert.ThrowsExactly<InvalidOperationException>(() => opts.Validate());
         StringAssert.Contains(ex.Message, "empty");
     }
 
@@ -37,7 +37,7 @@ public class DiscoveryOptionsValidationTests
                 new OrganisationEntry { Type = string.Empty, Url = "https://dev.azure.com/org" }
             }
         };
-        var ex = Assert.ThrowsException<InvalidOperationException>(() => opts.Validate());
+        var ex = Assert.ThrowsExactly<InvalidOperationException>(() => opts.Validate());
         StringAssert.Contains(ex.Message, "type");
     }
 
@@ -51,7 +51,7 @@ public class DiscoveryOptionsValidationTests
                 new OrganisationEntry { Type = "AzureDevOpsServices", Url = string.Empty }
             }
         };
-        var ex = Assert.ThrowsException<InvalidOperationException>(() => opts.Validate());
+        var ex = Assert.ThrowsExactly<InvalidOperationException>(() => opts.Validate());
         StringAssert.Contains(ex.Message, "url");
     }
 
@@ -70,7 +70,7 @@ public class DiscoveryOptionsValidationTests
                 }
             }
         };
-        var ex = Assert.ThrowsException<InvalidOperationException>(() => opts.Validate());
+        var ex = Assert.ThrowsExactly<InvalidOperationException>(() => opts.Validate());
         StringAssert.Contains(ex.Message, "PAT");
     }
 
