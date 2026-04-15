@@ -14,16 +14,16 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Azure.Monitor.OpenTelemetry.Exporter" Version="1.*" />
-    <PackageReference Include="CsvHelper" Version="33.0.1" />
-    <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.*" />
-    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="10.*" />
-    <PackageReference Include="Microsoft.Extensions.Options.DataAnnotations" Version="10.*" />
-    <PackageReference Include="OpenTelemetry.Extensions.Hosting" Version="1.*" />
-    <PackageReference Include="OpenTelemetry.Instrumentation.Http" Version="1.*" />
-    <PackageReference Include="NJsonSchema" Version="11.4.0" />
-    <PackageReference Include="Spectre.Console.Cli" Version="0.55.0" />
-    <PackageReference Include="Terminal.Gui" Version="2.0.0-beta.*" />
+    <PackageReference Include="Azure.Monitor.OpenTelemetry.Exporter" />
+    <PackageReference Include="CsvHelper" />
+    <PackageReference Include="Microsoft.Extensions.Hosting" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
+    <PackageReference Include="Microsoft.Extensions.Options.DataAnnotations" />
+    <PackageReference Include="OpenTelemetry.Extensions.Hosting" />
+    <PackageReference Include="OpenTelemetry.Instrumentation.Http" />
+    <PackageReference Include="NJsonSchema" />
+    <PackageReference Include="Spectre.Console.Cli" />
+    <PackageReference Include="Terminal.Gui" />
   </ItemGroup>
 
   <ItemGroup>

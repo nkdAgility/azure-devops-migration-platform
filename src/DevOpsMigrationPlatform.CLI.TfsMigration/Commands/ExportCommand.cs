@@ -47,7 +47,7 @@ namespace DevOpsMigrationPlatform.CLI.TfsMigration.Commands
             }
         }
 
-        public override async Task<int> ExecuteAsync(CommandContext context, Settings settings)
+        protected override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
         {
             var hostSettings = new MigrationPlatformHost.Settings(
                 new Uri(settings.CollectionUrl),
@@ -61,30 +61,18 @@ namespace DevOpsMigrationPlatform.CLI.TfsMigration.Commands
             var agent = new TfsExportAgent(exportService);
             var wiqlQuery = $"SELECT * FROM WorkItems WHERE [System.TeamProject] = '{settings.Project}'";
 
-            using var cts = new CancellationTokenSource();
-            Console.CancelKeyPress += (_, e) => { e.Cancel = true; cts.Cancel(); };
-
             // When stdout is redirected (subprocess mode) use NDJSON sink so the
             // parent process can parse progress events.  Otherwise render visually.
             if (Console.IsOutputRedirected)
             {
                 var sink = new StdoutProgressSink();
-                await agent.RunAsync(settings.CollectionUrl, settings.Project, wiqlQuery, sink, cts.Token)
+                await agent.RunAsync(settings.CollectionUrl, settings.Project, wiqlQuery, sink, cancellationToken)
                     .ConfigureAwait(false);
             }
             else
             {
-                WorkItemMigrationProgress? last = null;
-
-                // Display a spinner while agents emits events; capture the last known state.
-                var sink = new DelegateProgressSink(evt =>
-                {
-                    // keep the last progress for the spinner label (captured by closure below)
-                });
-
                 // Re-run with a capturing delegate so the Status callback can read it.
                 ProgressEvent? lastEvt = null;
-                var captureSink = new DelegateProgressSink(evt => lastEvt = evt);
 
                 await AnsiConsole.Status()
                     .StartAsync("Exporting Work Items...", async ctx =>
@@ -104,7 +92,7 @@ namespace DevOpsMigrationPlatform.CLI.TfsMigration.Commands
                                     "[bold yellow]Revisions:[/] " + evt.RevisionsProcessed.ToString().PadRight(6) +
                                     "  [bold yellow]Current WI:[/] " + evt.WorkItemId);
                             }),
-                            cts.Token).ConfigureAwait(false);
+                            cancellationToken).ConfigureAwait(false);
                     });
 
                 AnsiConsole.MarkupLine("[green]\u2705 Export complete.[/]");

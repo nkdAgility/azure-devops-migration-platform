@@ -45,7 +45,7 @@ namespace DevOpsMigrationPlatform.CLI.TfsMigration.Commands
             }
         }
 
-        public override async Task<int> ExecuteAsync(CommandContext context, Settings settings)
+        protected override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
         {
             // Read one JSON line from stdin for credentials.
             // {"pat":"<token>"} — PAT auth
@@ -66,15 +66,8 @@ namespace DevOpsMigrationPlatform.CLI.TfsMigration.Commands
                 // No stdin or malformed JSON — fall back to Windows-integrated auth.
             }
 
-            using var cts = new CancellationTokenSource();
-            Console.CancelKeyPress += (_, e) =>
-            {
-                e.Cancel = true;
-                cts.Cancel();
-            };
-
             var agent = new TfsInventoryAgent();
-            agent.Run(settings.CollectionUrl, settings.Project, pat, settings.AllProjects, cts.Token);
+            agent.Run(settings.CollectionUrl, settings.Project, pat, settings.AllProjects, cancellationToken);
 
             return 0;
         }
