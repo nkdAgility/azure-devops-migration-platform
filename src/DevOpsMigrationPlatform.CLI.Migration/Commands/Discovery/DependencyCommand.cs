@@ -63,8 +63,8 @@ public sealed class DependencyCommand : CommandBase<DependencyCommand.Settings>
             var workItemsAnalysed = 0;
             var skippedWorkItems = 0;
 
-            // Periodic checkpoint — interval is configurable via CheckpointIntervalSeconds in the scenario config.
-            var checkpointInterval = TimeSpan.FromSeconds(discoveryOptions.Value.CheckpointIntervalSeconds);
+            // Periodic checkpoint — interval is configurable via Policies.Checkpoints.Interval in the scenario config.
+            var checkpointInterval = TimeSpan.FromSeconds(discoveryOptions.Value.Policies.Checkpoints.Interval);
             var lastCheckpointAt = DateTime.UtcNow;
 
             // WI-level records: (orgName, project) → list

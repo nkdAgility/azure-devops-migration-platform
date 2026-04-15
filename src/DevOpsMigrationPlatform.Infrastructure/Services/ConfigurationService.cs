@@ -16,6 +16,7 @@ namespace DevOpsMigrationPlatform.Infrastructure.Services;
 /// <summary>
 /// JSON file-based implementation of <see cref="IConfigurationService"/>.
 /// Loads, validates, and saves <see cref="MigrationOptions"/> from/to migration.json files.
+/// Expects the JSON file to have a <c>MigrationPlatform</c> root section.
 /// </summary>
 public class ConfigurationService : IConfigurationService
 {
@@ -70,7 +71,23 @@ public class ConfigurationService : IConfigurationService
                 throw new FileNotFoundException($"Configuration file not found: {actualConfigPath}");
 
             var jsonContent = await File.ReadAllTextAsync(actualConfigPath, cancellationToken).ConfigureAwait(false);
-            var options = JsonSerializer.Deserialize<MigrationOptions>(jsonContent, _jsonOptions);
+
+            using var doc = JsonDocument.Parse(jsonContent, new JsonDocumentOptions
+            {
+                AllowTrailingCommas = true,
+                CommentHandling = JsonCommentHandling.Skip
+            });
+
+            if (!doc.RootElement.TryGetProperty("MigrationPlatform", out var platformElement))
+                throw new InvalidOperationException(
+                    $"Configuration error in '{actualConfigPath}': required 'MigrationPlatform' section is missing.");
+
+            if (!platformElement.TryGetProperty("ConfigVersion", out _))
+                throw new InvalidOperationException(
+                    $"Configuration error in '{actualConfigPath}': 'MigrationPlatform.ConfigVersion' is required.");
+
+            var platformJson = platformElement.GetRawText();
+            var options = JsonSerializer.Deserialize<MigrationOptions>(platformJson, _jsonOptions);
 
             if (options == null)
                 throw new InvalidOperationException($"Failed to deserialize configuration from {actualConfigPath}");
@@ -84,7 +101,7 @@ public class ConfigurationService : IConfigurationService
             _logger.LogError(ex, "Failed to parse configuration JSON from {ConfigPath}", actualConfigPath);
             throw new InvalidOperationException($"Invalid JSON in configuration file: {ex.Message}", ex);
         }
-        catch (Exception ex) when (ex is not FileNotFoundException)
+        catch (Exception ex) when (ex is not FileNotFoundException and not InvalidOperationException)
         {
             _logger.LogError(ex, "Failed to load configuration from {ConfigPath}", actualConfigPath);
             throw new InvalidOperationException($"Failed to load configuration: {ex.Message}", ex);
@@ -166,7 +183,22 @@ public class ConfigurationService : IConfigurationService
             if (!string.IsNullOrEmpty(directory) && !Directory.Exists(directory))
                 Directory.CreateDirectory(directory);
 
-            var jsonContent = JsonSerializer.Serialize(options, _jsonOptions);
+            // Serialize MigrationOptions and wrap in { "MigrationPlatform": { "ConfigVersion": "1.0", ... } }
+            var optionsJson = JsonSerializer.Serialize(options, _jsonOptions);
+            var optionsNode = System.Text.Json.Nodes.JsonNode.Parse(optionsJson)!.AsObject();
+
+            var platformNode = new System.Text.Json.Nodes.JsonObject();
+            platformNode.Add("ConfigVersion", System.Text.Json.Nodes.JsonValue.Create("1.0"));
+            foreach (var pair in optionsNode.ToList())
+            {
+                optionsNode.Remove(pair.Key);
+                platformNode.Add(pair.Key, pair.Value);
+            }
+
+            var root = new System.Text.Json.Nodes.JsonObject { ["MigrationPlatform"] = platformNode };
+            var writeOptions = new JsonSerializerOptions { WriteIndented = true };
+            var jsonContent = root.ToJsonString(writeOptions);
+
             await File.WriteAllTextAsync(configPath, jsonContent, cancellationToken).ConfigureAwait(false);
 
             var cacheKey = Path.GetFullPath(configPath);

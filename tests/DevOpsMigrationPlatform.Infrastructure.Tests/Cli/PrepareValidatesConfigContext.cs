@@ -46,7 +46,7 @@ public class PrepareValidatesConfigContext
     private static MigrationOptions BuildOptions(IConfiguration config)
     {
         var services = new ServiceCollection();
-        services.AddOptions<MigrationOptions>().Bind(config);
+        services.AddOptions<MigrationOptions>().Bind(config.GetSection("MigrationPlatform"));
         var provider = services.BuildServiceProvider();
         return provider.GetRequiredService<IOptions<MigrationOptions>>().Value;
     }
@@ -64,14 +64,17 @@ public class PrepareValidatesConfigContext
     // The real appsettings.json defaults content — mirrors the file in CLI.Migration.
     public const string DefaultsJson = """
         {
-          "ConfigVersion": "2.0",
-          "Artefacts": {
-            "Path": "%userprofile%\\.DevOpsMigrationPlatform",
-            "Zip": false
-          },
-          "Policies": {
-            "Retries": { "Max": 8 },
-            "Throttle": { "MaxConcurrency": 4 }
+          "MigrationPlatform": {
+            "ConfigVersion": "1.0",
+            "Artefacts": {
+              "Path": "%userprofile%\\.DevOpsMigrationPlatform",
+              "Zip": false
+            },
+            "Policies": {
+              "Retries": { "Max": 8 },
+              "Throttle": { "MaxConcurrency": 4 },
+              "Checkpoints": { "Interval": 300 }
+            }
           }
         }
         """;
