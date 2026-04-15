@@ -136,7 +136,7 @@ public interface IArtefactStore
     Task WriteBinaryAsync(string path, Stream content, CancellationToken cancellationToken);
     IAsyncEnumerable<string> EnumerateAsync(string prefix, CancellationToken cancellationToken);
     Task<string> ReadAsync(string path, CancellationToken cancellationToken);
-    Task<Stream> ReadBinaryAsync(string path, CancellationToken cancellationToken);
+    Task<Stream?> ReadBinaryAsync(string path, CancellationToken cancellationToken);
 }
 ```
 

@@ -35,7 +35,7 @@ public sealed class WorkItemsModule : IModule
     private readonly IAttachmentBinarySource? _attachmentBinarySource;
     private readonly IWorkItemCommentSourceFactory? _inlineCommentSourceFactory;
     private readonly IWorkItemImportTargetFactory _importTargetFactory;
-    private readonly IWorkItemResolutionStrategy _resolutionStrategy;
+    private readonly IWorkItemResolutionStrategyFactory _resolutionStrategyFactory;
     private readonly IIdentityMappingService _identityMappingService;
     private readonly ILogger<WorkItemsModule> _logger;
     private readonly Microsoft.Extensions.Logging.ILoggerFactory _loggerFactory;
@@ -45,7 +45,7 @@ public sealed class WorkItemsModule : IModule
         ILogger<WorkItemsModule> logger,
         Microsoft.Extensions.Logging.ILoggerFactory loggerFactory,
         IWorkItemImportTargetFactory importTargetFactory,
-        IWorkItemResolutionStrategy resolutionStrategy,
+        IWorkItemResolutionStrategyFactory resolutionStrategyFactory,
         IIdentityMappingService identityMappingService,
         IAttachmentBinarySource? attachmentBinarySource = null,
         IWorkItemCommentSourceFactory? inlineCommentSourceFactory = null)
@@ -54,7 +54,7 @@ public sealed class WorkItemsModule : IModule
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _loggerFactory = loggerFactory ?? throw new ArgumentNullException(nameof(loggerFactory));
         _importTargetFactory = importTargetFactory ?? throw new ArgumentNullException(nameof(importTargetFactory));
-        _resolutionStrategy = resolutionStrategy ?? throw new ArgumentNullException(nameof(resolutionStrategy));
+        _resolutionStrategyFactory = resolutionStrategyFactory ?? throw new ArgumentNullException(nameof(resolutionStrategyFactory));
         _identityMappingService = identityMappingService ?? throw new ArgumentNullException(nameof(identityMappingService));
         _attachmentBinarySource = attachmentBinarySource;
         _inlineCommentSourceFactory = inlineCommentSourceFactory;
@@ -126,6 +126,12 @@ public sealed class WorkItemsModule : IModule
         var target = await _importTargetFactory.CreateAsync(orgUrl, project, pat, ct).ConfigureAwait(false);
         var checkpointingService = new CheckpointingService(context.StateStore);
 
+        // Resolve the strategy at execution time — the factory creates the correct implementation
+        // based on the module config and target connection parameters.
+        var resolutionStrategy = await _resolutionStrategyFactory
+            .CreateAsync(ext.ResolutionStrategy, target, project, pat, ct)
+            .ConfigureAwait(false);
+
         // Derive the SQLite idmap.db path from the package URI
         var dbFilePath = ResolveIdMapPath(job.Artefacts.PackageUri);
         var idMapStore = new SqliteIdMapStore(dbFilePath);
@@ -144,7 +150,7 @@ public sealed class WorkItemsModule : IModule
             context.ArtefactStore,
             checkpointingService,
             context.ProgressSink,
-            _resolutionStrategy,
+            resolutionStrategy,
             idMapStore,
             processor,
             target,

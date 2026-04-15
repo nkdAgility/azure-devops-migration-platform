@@ -16,7 +16,7 @@ public static class ImportServiceCollectionExtensions
     /// Registers:
     /// <list type="bullet">
     ///   <item><see cref="IWorkItemImportTargetFactory"/> as <see cref="AzureDevOpsWorkItemImportTargetFactory"/>.</item>
-    ///   <item><see cref="IWorkItemResolutionStrategy"/> as <see cref="NullResolutionStrategy"/> (default — no live seeding).</item>
+    ///   <item><see cref="IWorkItemResolutionStrategyFactory"/> as <see cref="AzureDevOpsResolutionStrategyFactory"/> (selects strategy at runtime from module config).</item>
     ///   <item><see cref="IIdentityMappingService"/> as <see cref="PassThroughIdentityMappingService"/> (default — pass-through, extended in US4).</item>
     /// </list>
     /// Requires <see cref="IAzureDevOpsClientFactory"/> to already be registered
@@ -25,7 +25,7 @@ public static class ImportServiceCollectionExtensions
     public static IServiceCollection AddAzureDevOpsWorkItemImport(this IServiceCollection services)
     {
         services.AddSingleton<IWorkItemImportTargetFactory, AzureDevOpsWorkItemImportTargetFactory>();
-        services.AddSingleton<IWorkItemResolutionStrategy, NullResolutionStrategy>();
+        services.AddSingleton<IWorkItemResolutionStrategyFactory, AzureDevOpsResolutionStrategyFactory>();
         services.AddSingleton<IIdentityMappingService, PassThroughIdentityMappingService>();
         return services;
     }
@@ -33,11 +33,18 @@ public static class ImportServiceCollectionExtensions
     /// <summary>
     /// Registers a simulated (in-memory) import target factory for offline and integration testing.
     /// Target type "Simulated" in the scenario config will use this factory.
+    /// <para>
+    /// Note: <see cref="AzureDevOpsResolutionStrategyFactory"/> is also registered so that
+    /// import jobs that require a resolution strategy can still be configured; however, executing
+    /// a resolution strategy against a <see cref="SimulatedWorkItemImportTarget"/> will throw
+    /// because the simulated target does not expose an organisation URL.
+    /// For tests that mock the strategy directly this is not an issue.
+    /// </para>
     /// </summary>
     public static IServiceCollection AddSimulatedWorkItemImport(this IServiceCollection services)
     {
         services.AddSingleton<IWorkItemImportTargetFactory, SimulatedWorkItemImportTargetFactory>();
-        services.AddSingleton<IWorkItemResolutionStrategy, NullResolutionStrategy>();
+        services.AddSingleton<IWorkItemResolutionStrategyFactory, AzureDevOpsResolutionStrategyFactory>();
         services.AddSingleton<IIdentityMappingService, PassThroughIdentityMappingService>();
         return services;
     }

@@ -39,6 +39,12 @@ public sealed class WorkItemsModuleExtensions
     public EmbeddedImagesExtensionOptions EmbeddedImages { get; init; } = new EmbeddedImagesExtensionOptions();
 
     /// <summary>
+    /// Resolution strategy options. Default: no strategy (NullResolutionStrategy is used).
+    /// Configure <c>WorkItemResolutionStrategy</c> extension with <c>Type</c> and parameters.
+    /// </summary>
+    public WorkItemResolutionStrategyOptions ResolutionStrategy { get; init; } = new();
+
+    /// <summary>
     /// Constructs a <see cref="WorkItemsModuleExtensions"/> from a <see cref="MigrationJobModule"/>.
     /// Reads the WIQL query from the first <c>"wiql"</c> scope in
     /// <see cref="MigrationJobModule.Scopes"/> and iterates
@@ -55,6 +61,7 @@ public sealed class WorkItemsModuleExtensions
         bool attachmentsEnabled = true;
         var comments = new CommentsExtensionOptions();
         var embeddedImages = new EmbeddedImagesExtensionOptions();
+        var resolutionStrategy = new WorkItemResolutionStrategyOptions();
 
         foreach (var ext in module.Extensions)
         {
@@ -75,6 +82,9 @@ public sealed class WorkItemsModuleExtensions
                 case "EmbeddedImages":
                     embeddedImages = ParseEmbeddedImagesExtension(ext);
                     break;
+                case "WorkItemResolutionStrategy":
+                    resolutionStrategy = ParseResolutionStrategyExtension(ext);
+                    break;
             }
         }
 
@@ -86,6 +96,7 @@ public sealed class WorkItemsModuleExtensions
             AttachmentsEnabled = attachmentsEnabled,
             Comments = comments,
             EmbeddedImages = embeddedImages,
+            ResolutionStrategy = resolutionStrategy,
         };
     }
 
@@ -129,6 +140,27 @@ public sealed class WorkItemsModuleExtensions
         if (raw is int i) return i;
         if (raw is JsonElement el && el.TryGetInt32(out var v)) return v;
         return int.TryParse(raw.ToString(), out var parsed) ? parsed : defaultValue;
+    }
+
+    private static WorkItemResolutionStrategyOptions ParseResolutionStrategyExtension(
+        MigrationJobModuleExtension ext)
+    {
+        return new WorkItemResolutionStrategyOptions
+        {
+            Strategy = GetString(ext.Parameters, "strategy", string.Empty),
+            FieldName = GetString(ext.Parameters, "fieldName", string.Empty),
+            UrlPattern = GetString(ext.Parameters, "urlPattern", string.Empty),
+        };
+    }
+
+    private static string GetString(Dictionary<string, object?> p, string key, string defaultValue)
+    {
+        if (!p.TryGetValue(key, out var raw) || raw is null) return defaultValue;
+        if (raw is string s) return s;
+        if (raw is JsonElement el && el.ValueKind == JsonValueKind.String)
+            return el.GetString() ?? defaultValue;
+        var str = raw.ToString();
+        return string.IsNullOrEmpty(str) ? defaultValue : str;
     }
 
     /// <summary>

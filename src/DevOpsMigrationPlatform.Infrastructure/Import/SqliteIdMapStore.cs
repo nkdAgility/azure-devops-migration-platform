@@ -15,6 +15,16 @@ namespace DevOpsMigrationPlatform.Infrastructure.Import;
 /// Opens or creates <c>Checkpoints/idmap.db</c> at the package root.
 /// This is package-local indexed storage — not a control-plane database.
 /// </summary>
+/// <remarks>
+/// <b>Architectural exception — direct filesystem I/O</b>:
+/// SQLite requires a real file-system path in the connection string; it cannot operate through
+/// the <see cref="IArtefactStore"/> abstraction.  This class is infrastructure-layer code
+/// (not module or domain code) and the path is supplied by <c>WorkItemsModule</c> which derives
+/// it from <c>MigrationJob.Artefacts.PackageUri</c> — the same value that backs the
+/// <see cref="IArtefactStore"/> root.  All module and domain code must continue to access
+/// package content exclusively through <see cref="IArtefactStore"/>.
+/// See guardrails rule 13 (Data Integrity &amp; Persistence) for the general constraint.
+/// </remarks>
 public sealed class SqliteIdMapStore : IIdMapStore
 {
     private readonly string _dbFilePath;
@@ -32,7 +42,7 @@ public sealed class SqliteIdMapStore : IIdMapStore
     {
         var dir = Path.GetDirectoryName(_dbFilePath);
         if (dir is not null && !Directory.Exists(dir))
-            Directory.CreateDirectory(dir);
+            Directory.CreateDirectory(dir); // Permitted: SQLite requires real file-system path (see class remarks)
 
         _connection = new SqliteConnection($"Data Source={_dbFilePath}");
         await _connection.OpenAsync(ct).ConfigureAwait(false);

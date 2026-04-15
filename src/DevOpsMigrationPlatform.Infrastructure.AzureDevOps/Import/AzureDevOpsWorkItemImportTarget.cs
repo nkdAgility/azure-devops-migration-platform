@@ -23,10 +23,14 @@ public sealed class AzureDevOpsWorkItemImportTarget : IWorkItemImportTarget
     private readonly WorkItemTrackingHttpClient _witClient;
     private readonly string _project;
 
-    public AzureDevOpsWorkItemImportTarget(WorkItemTrackingHttpClient witClient, string project)
+    /// <summary>Organisation URL used to establish the connection to this target.</summary>
+    public string OrganisationUrl { get; }
+
+    public AzureDevOpsWorkItemImportTarget(WorkItemTrackingHttpClient witClient, string project, string organisationUrl)
     {
         _witClient = witClient ?? throw new ArgumentNullException(nameof(witClient));
         _project = project ?? throw new ArgumentNullException(nameof(project));
+        OrganisationUrl = organisationUrl ?? throw new ArgumentNullException(nameof(organisationUrl));
     }
 
     /// <inheritdoc/>

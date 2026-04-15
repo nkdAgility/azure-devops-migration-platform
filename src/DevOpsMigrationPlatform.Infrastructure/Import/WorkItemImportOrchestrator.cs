@@ -23,12 +23,17 @@ namespace DevOpsMigrationPlatform.Infrastructure.Import;
 /// </summary>
 public sealed class WorkItemImportOrchestrator
 {
+    private static readonly System.Text.Json.JsonSerializerOptions _jsonOptions = new()
+    {
+        PropertyNameCaseInsensitive = true
+    };
+
     private readonly IArtefactStore _artefactStore;
     private readonly ICheckpointingService _checkpointing;
     private readonly IProgressSink _progressSink;
     private readonly IWorkItemResolutionStrategy _resolutionStrategy;
     private readonly IIdMapStore _idMapStore;
-    private readonly RevisionFolderProcessor _processor;
+    private readonly IRevisionFolderProcessor _processor;
     private readonly IWorkItemImportTarget _target;
     private readonly ILogger<WorkItemImportOrchestrator> _logger;
 
@@ -38,7 +43,7 @@ public sealed class WorkItemImportOrchestrator
         IProgressSink progressSink,
         IWorkItemResolutionStrategy resolutionStrategy,
         IIdMapStore idMapStore,
-        RevisionFolderProcessor processor,
+        IRevisionFolderProcessor processor,
         IWorkItemImportTarget target,
         ILogger<WorkItemImportOrchestrator> logger)
     {
@@ -187,8 +192,7 @@ public sealed class WorkItemImportOrchestrator
         WorkItemComment? comment;
         try
         {
-            comment = System.Text.Json.JsonSerializer.Deserialize<WorkItemComment>(commentJson,
-                new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+            comment = System.Text.Json.JsonSerializer.Deserialize<WorkItemComment>(commentJson, _jsonOptions);
         }
         catch (Exception ex)
         {

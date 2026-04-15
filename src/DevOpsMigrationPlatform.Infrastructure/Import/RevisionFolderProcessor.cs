@@ -24,7 +24,7 @@ namespace DevOpsMigrationPlatform.Infrastructure.Import;
 /// Cursor is written after each stage. On resume, stages already completed for this folder are skipped.
 /// All extension enabled flags are respected: if <c>Revisions: false</c>, the caller must skip this processor.
 /// </summary>
-public sealed class RevisionFolderProcessor
+public sealed class RevisionFolderProcessor : IRevisionFolderProcessor
 {
     private readonly IWorkItemImportTarget _target;
     private readonly IIdMapStore _idMapStore;
@@ -163,14 +163,13 @@ public sealed class RevisionFolderProcessor
                 }
 
                 var binaryPath = $"{folderPath}/{attachment.RelativePath}";
-                var bytes = await ReadBinaryAsync(binaryPath, ct).ConfigureAwait(false);
-                if (bytes is null)
+                await using var stream = await _artefactStore.ReadBinaryAsync(binaryPath, ct).ConfigureAwait(false);
+                if (stream is null)
                 {
                     _logger.LogWarning("[WorkItems] Attachment binary {Path} not found — skipping.", binaryPath);
                     continue;
                 }
 
-                using var stream = new MemoryStream(bytes);
                 var targetAttachmentId = await _target.UploadAttachmentAsync(
                     resolvedTargetId, attachment.OriginalName, stream, ct).ConfigureAwait(false);
 
@@ -249,14 +248,13 @@ public sealed class RevisionFolderProcessor
         foreach (var img in images)
         {
             var imgPath = $"{folderPath}/{img.RelativePath}";
-            var bytes = await ReadBinaryAsync(imgPath, ct).ConfigureAwait(false);
-            if (bytes is null)
+            await using var imgStream = await _artefactStore.ReadBinaryAsync(imgPath, ct).ConfigureAwait(false);
+            if (imgStream is null)
             {
                 _logger.LogWarning("[WorkItems] Embedded image {Path} not found — skipping URL rewrite.", imgPath);
                 continue;
             }
-            using var stream = new MemoryStream(bytes);
-            var targetUrl = await _target.UploadEmbeddedImageAsync(img.RelativePath, stream, ct).ConfigureAwait(false);
+            var targetUrl = await _target.UploadEmbeddedImageAsync(img.RelativePath, imgStream, ct).ConfigureAwait(false);
             urlMap[img.OriginalUrl] = targetUrl;
         }
 
@@ -294,18 +292,6 @@ public sealed class RevisionFolderProcessor
             var text = comment.RenderedText ?? comment.Text;
             await _target.CreateCommentAsync(targetWorkItemId, text, ct).ConfigureAwait(false);
         }
-    }
-
-    private async Task<byte[]?> ReadBinaryAsync(string path, CancellationToken ct)
-    {
-        // IArtefactStore does not expose a ReadBinaryAsync — read via ReadAsync (base64-encoded in package)
-        // then decode. The export side writes binary files as raw bytes via WriteBinaryAsync.
-        // For now we fall back to filesystem read if the store is file-based, otherwise null.
-        var raw = await _artefactStore.ReadAsync(path, ct).ConfigureAwait(false);
-        if (raw is null) return null;
-        // Attempt to read as base64 (export writes base64 for text-channel transport)
-        try { return Convert.FromBase64String(raw); }
-        catch { return System.Text.Encoding.UTF8.GetBytes(raw); }
     }
 
     private Task WriteCursorAsync(string folderPath, string stage, CancellationToken ct)

@@ -28,6 +28,6 @@ public sealed class AzureDevOpsWorkItemImportTargetFactory : IWorkItemImportTarg
             .CreateWorkItemClientAsync(orgUrl, accessToken, ct)
             .ConfigureAwait(false);
 
-        return new AzureDevOpsWorkItemImportTarget(witClient, project);
+        return new AzureDevOpsWorkItemImportTarget(witClient, project, orgUrl);
     }
 }

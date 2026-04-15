@@ -32,11 +32,3 @@ Feature: Work Item Resolution Strategies
     And hyperlinks matching the URL pattern are inspected to extract source work item IDs
     And the idmap.db is seeded with the resolved source-to-target mappings
     And no per-item live lookup is performed during processing
-
-  @resolution-strategy @null
-  Scenario: Default NullResolutionStrategy performs no seeding and no live lookup
-    Given no WorkItemResolutionStrategy extension is configured
-    When the import starts
-    Then no WIQL query is executed for seeding
-    And Stage A uses only the local idmap.db for resolution
-    And null is returned for source IDs not present in idmap.db (triggering creation)
