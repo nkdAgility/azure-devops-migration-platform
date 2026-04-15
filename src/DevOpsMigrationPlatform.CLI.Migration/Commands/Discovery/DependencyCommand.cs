@@ -60,6 +60,7 @@ public sealed class DependencyCommand : CommandBase<DependencyCommand.Settings>
             var crossProjectCount = 0;
             var crossOrgCount = 0;
             var workItemsAnalysed = 0;
+            var skippedWorkItems = 0;
 
             // WI-level records: (orgName, project) → list
             var perProjectRecords = new Dictionary<(string, string), List<DependencyRecord>>();
@@ -131,6 +132,7 @@ public sealed class DependencyCommand : CommandBase<DependencyCommand.Settings>
                                 else if (evt is DependencyHeartbeatEvent heartbeat)
                                 {
                                     workItemsAnalysed = Math.Max(workItemsAnalysed, heartbeat.WorkItemsAnalysed);
+                                    skippedWorkItems = Math.Max(skippedWorkItems, heartbeat.SkippedWorkItems);
 
                                     var orgName = ExtractOrgName(heartbeat.OrganisationUrl);
                                     var projKey = (orgName, heartbeat.ProjectName);
@@ -146,6 +148,7 @@ public sealed class DependencyCommand : CommandBase<DependencyCommand.Settings>
                                     progress.WorkItemsAnalysed = heartbeat.WorkItemsAnalysed;
                                     progress.CrossProjectLinks = heartbeat.CrossProjectCount;
                                     progress.CrossOrgLinks = heartbeat.CrossOrgCount;
+                                    progress.SkippedWorkItems = heartbeat.SkippedWorkItems;
                                     progress.IsComplete = heartbeat.IsComplete;
                                     if (heartbeat.TotalWorkItems > 0 && progress.TotalWorkItems == 0)
                                     {
@@ -205,17 +208,21 @@ public sealed class DependencyCommand : CommandBase<DependencyCommand.Settings>
                         else if (evt is DependencyHeartbeatEvent heartbeat)
                         {
                             workItemsAnalysed = Math.Max(workItemsAnalysed, heartbeat.WorkItemsAnalysed);
+                            skippedWorkItems = Math.Max(skippedWorkItems, heartbeat.SkippedWorkItems);
                             if (heartbeat.IsComplete)
                             {
                                 var orgName = ExtractOrgName(heartbeat.OrganisationUrl);
                                 var of = heartbeat.TotalWorkItems > 0
                                     ? $"{heartbeat.WorkItemsAnalysed}/{heartbeat.TotalWorkItems}"
                                     : heartbeat.WorkItemsAnalysed.ToString();
+                                var skippedNote = heartbeat.SkippedWorkItems > 0
+                                    ? $", [yellow]{heartbeat.SkippedWorkItems} skipped[/]"
+                                    : "";
                                 console.MarkupLine(
                                     $"  [grey]{Markup.Escape(orgName)}[/] / [white]{Markup.Escape(heartbeat.ProjectName)}[/]: " +
                                     $"{of} items analysed, " +
                                     $"{heartbeat.CrossProjectCount} cross-project, " +
-                                    $"[red]{heartbeat.CrossOrgCount}[/] cross-org — [green]✓[/]");
+                                    $"[red]{heartbeat.CrossOrgCount}[/] cross-org{skippedNote} — [green]✓[/]");
                             }
                         }
                     }
@@ -322,11 +329,16 @@ public sealed class DependencyCommand : CommandBase<DependencyCommand.Settings>
                 summaryTable.AddRow("Total External Links", totalLinks.ToString());
                 summaryTable.AddRow("Cross-Project Links", crossProjectCount.ToString());
                 summaryTable.AddRow("[red]⚠ Cross-Organisation Links[/]", $"[red]{crossOrgCount}[/]");
+                if (skippedWorkItems > 0)
+                    summaryTable.AddRow("[yellow]⚠ Skipped (no permissions)[/]", $"[yellow]{skippedWorkItems}[/]");
                 summaryTable.AddRow("Output Directory", Markup.Escape(baseOutputDir));
                 console.Write(summaryTable);
 
                 if (crossOrgCount > 0)
                     console.MarkupLine($"[red]⚠ ACTION REQUIRED: {crossOrgCount} cross-organisation link(s) will break after migration[/]");
+
+                if (skippedWorkItems > 0)
+                    console.MarkupLine($"[yellow]⚠ {skippedWorkItems} work item(s) could not be read due to permissions — check logs for details[/]");
 
                 var allPairs = perOrgPairs.Values
                     .SelectMany(d => d.Select(kvp => new ProjectDependencyRecord(kvp.Key, kvp.Value)))
@@ -423,6 +435,7 @@ public sealed class DependencyCommand : CommandBase<DependencyCommand.Settings>
             .AddColumn(new TableColumn("Progress").RightAligned())
             .AddColumn(new TableColumn("Cross-Project").RightAligned())
             .AddColumn(new TableColumn("Cross-Org").RightAligned())
+            .AddColumn(new TableColumn("Skipped").RightAligned())
             .AddColumn(new TableColumn("ETA").RightAligned())
             .AddColumn("Status");
 
@@ -432,6 +445,9 @@ public sealed class DependencyCommand : CommandBase<DependencyCommand.Settings>
             var crossOrg = p.CrossOrgLinks > 0
                 ? $"[red]{p.CrossOrgLinks}[/]"
                 : p.CrossOrgLinks.ToString();
+            var skipped = p.SkippedWorkItems > 0
+                ? $"[yellow]{p.SkippedWorkItems}[/]"
+                : "0";
 
             var progress = p.TotalWorkItems > 0
                 ? $"{p.WorkItemsAnalysed}/{p.TotalWorkItems}"
@@ -443,7 +459,7 @@ public sealed class DependencyCommand : CommandBase<DependencyCommand.Settings>
                 var elapsed = DateTime.UtcNow - p.StartedAt;
                 if (elapsed.TotalSeconds > 0)
                 {
-                    var rate = p.WorkItemsAnalysed / elapsed.TotalSeconds; // items/sec
+                    var rate = p.WorkItemsAnalysed / elapsed.TotalSeconds;
                     var remaining = (int)Math.Ceiling((p.TotalWorkItems - p.WorkItemsAnalysed) / rate);
                     eta = remaining >= 60
                         ? $"~{remaining / 60}m {remaining % 60}s"
@@ -461,6 +477,7 @@ public sealed class DependencyCommand : CommandBase<DependencyCommand.Settings>
                 progress,
                 p.CrossProjectLinks.ToString(),
                 crossOrg,
+                skipped,
                 eta,
                 status);
         }
@@ -476,6 +493,7 @@ public sealed class DependencyCommand : CommandBase<DependencyCommand.Settings>
         public int TotalWorkItems { get; set; }
         public int CrossProjectLinks { get; set; }
         public int CrossOrgLinks { get; set; }
+        public int SkippedWorkItems { get; set; }
         public bool IsComplete { get; set; }
         public DateTime StartedAt { get; set; } = DateTime.UtcNow;
     }

@@ -24,4 +24,5 @@ public sealed record DependencyHeartbeatEvent(
     int CrossOrgCount,
     bool IsComplete,
     string? Error = null,
-    int TotalWorkItems = 0) : DependencyProgressEvent;
+    int TotalWorkItems = 0,
+    int SkippedWorkItems = 0) : DependencyProgressEvent;

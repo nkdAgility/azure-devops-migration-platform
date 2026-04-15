@@ -103,7 +103,8 @@ public sealed class AzureDevOpsDependencyAnalysisService : IWorkItemLinkAnalysis
             counters.CrossProject,
             counters.CrossOrg,
             true,
-            TotalWorkItems: totalWorkItems);
+            TotalWorkItems: totalWorkItems,
+            SkippedWorkItems: counters.Skipped);
 
         _logger.LogInformation(
             "Dependency analysis completed for {Project}: {Processed} work items, {CrossProject} cross-project, {CrossOrg} cross-org",
@@ -117,6 +118,7 @@ public sealed class AzureDevOpsDependencyAnalysisService : IWorkItemLinkAnalysis
         public int CrossProject { get; set; }
         public int CrossOrg { get; set; }
         public int Processed { get; set; }
+        public int Skipped { get; set; }
     }
 
     private async IAsyncEnumerable<DependencyProgressEvent> ProcessBatchAsync(
@@ -134,10 +136,9 @@ public sealed class AzureDevOpsDependencyAnalysisService : IWorkItemLinkAnalysis
 
         _logger.LogDebug("Fetching batch of {BatchSize} work items", batchIds.Count);
 
-        var workItems = await witClient.GetWorkItemsAsync(
-            batchIds,
-            expand: WorkItemExpand.Relations,
-            cancellationToken: cancellationToken).ConfigureAwait(false);
+        var (workItems, skippedInBatch) = await FetchWorkItemsAsync(
+            witClient, batchIds, cancellationToken).ConfigureAwait(false);
+        counters.Skipped += skippedInBatch;
 
         foreach (var workItem in workItems)
         {
@@ -253,8 +254,65 @@ public sealed class AzureDevOpsDependencyAnalysisService : IWorkItemLinkAnalysis
             counters.CrossProject,
             counters.CrossOrg,
             false,
-            TotalWorkItems: totalWorkItems);
+            TotalWorkItems: totalWorkItems,
+            SkippedWorkItems: counters.Skipped);
     }
+
+    /// <summary>
+    /// Attempts to fetch a batch of work items in one call.
+    /// If any item in the batch is inaccessible (TF401232) that call fails for the
+    /// whole batch, so we fall back to fetching each ID individually, silently
+    /// skipping and counting the ones the caller cannot read.
+    /// </summary>
+    private async Task<(IReadOnlyList<WorkItem> Items, int Skipped)> FetchWorkItemsAsync(
+        WorkItemTrackingHttpClient witClient,
+        IReadOnlyList<int> batchIds,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var items = await witClient.GetWorkItemsAsync(
+                batchIds,
+                expand: WorkItemExpand.Relations,
+                cancellationToken: cancellationToken).ConfigureAwait(false);
+            return (items, 0);
+        }
+        catch (Exception ex) when (IsPermissionError(ex))
+        {
+            _logger.LogWarning(
+                "Batch of {Count} work items contains inaccessible item(s); falling back to individual fetches",
+                batchIds.Count);
+
+            var items = new List<WorkItem>(batchIds.Count);
+            var skipped = 0;
+
+            foreach (var id in batchIds)
+            {
+                try
+                {
+                    var item = await witClient.GetWorkItemAsync(
+                        id,
+                        expand: WorkItemExpand.Relations,
+                        cancellationToken: cancellationToken).ConfigureAwait(false);
+                    items.Add(item);
+                }
+                catch (Exception itemEx) when (IsPermissionError(itemEx))
+                {
+                    _logger.LogWarning(
+                        "Work item {WorkItemId} skipped — insufficient permissions: {Message}",
+                        id, itemEx.Message);
+                    skipped++;
+                }
+            }
+
+            return (items, skipped);
+        }
+    }
+
+    /// Returns true when the exception signals that a work item cannot be read
+    /// due to it not existing or the caller lacking read permissions (TF401232).
+    private static bool IsPermissionError(Exception ex) =>
+        ex.Message.Contains("TF401232", StringComparison.Ordinal);
 
     /// <summary>
     /// Extracts the organisation identifier from an Azure DevOps URL.
