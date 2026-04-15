@@ -12,7 +12,6 @@ namespace DevOpsMigrationPlatform.Infrastructure;
 /// </summary>
 internal sealed class MigrationOptionsValidator : IValidateOptions<MigrationOptions>
 {
-    private static readonly string[] SupportedConfigVersions = ["2.0"];
     private static readonly string[] ValidModes = ["Export", "Import", "Both"];
 
     // Only AzureDevOpsServices may be specified as a migration source or target.
@@ -25,10 +24,9 @@ internal sealed class MigrationOptionsValidator : IValidateOptions<MigrationOpti
     {
         var errors = new List<string>();
 
-        // ConfigVersion
-        if (!SupportedConfigVersions.Contains(options.ConfigVersion, StringComparer.Ordinal))
-            errors.Add($"ConfigVersion '{options.ConfigVersion}' is not supported. " +
-                       $"Supported: {string.Join(", ", SupportedConfigVersions)}.");
+        // Controls
+        try { options.Controls.Validate(); }
+        catch (InvalidOperationException ex) { errors.Add(ex.Message); }
 
         // Mode
         if (string.IsNullOrWhiteSpace(options.Mode))

@@ -25,7 +25,9 @@ public class PrepareValidatesConfigSteps
     {
         _userConfigJson = $$"""
             {
-              "Artefacts": { "Path": "{{path.Replace("\\", "\\\\")}}" }
+              "MigrationPlatform": {
+                "Artefacts": { "Path": "{{path.Replace("\\", "\\\\")}}" }
+              }
             }
             """;
     }
@@ -35,7 +37,9 @@ public class PrepareValidatesConfigSteps
     {
         _userConfigJson = $$"""
             {
-              "Policies": { "Retries": { "Max": {{max}} } }
+              "MigrationPlatform": {
+                "Policies": { "Retries": { "Max": {{max}} } }
+              }
             }
             """;
     }

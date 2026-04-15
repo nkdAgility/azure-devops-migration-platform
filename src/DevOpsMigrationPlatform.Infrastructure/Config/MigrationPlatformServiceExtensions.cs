@@ -22,8 +22,8 @@ namespace DevOpsMigrationPlatform.Infrastructure;
 public static class MigrationPlatformServiceExtensions
 {
     /// <summary>
-    /// Registers <see cref="IOptions{MigrationOptions}"/> bound to the root of
-    /// <paramref name="configuration"/> (the platform-level fields: Mode, Source, Target, etc.).
+    /// Registers <see cref="IOptions{MigrationOptions}"/> bound to the
+    /// <c>MigrationPlatform</c> section of <paramref name="configuration"/>.
     /// Also registers the <see cref="MigrationOptionsValidator"/>.
     /// </summary>
     public static IServiceCollection AddMigrationPlatformOptions(
@@ -33,7 +33,7 @@ public static class MigrationPlatformServiceExtensions
         services.AddSingleton<IValidateOptions<MigrationOptions>, MigrationOptionsValidator>();
 
         services.AddOptions<MigrationOptions>()
-            .Bind(configuration)
+            .Bind(configuration.GetSection("MigrationPlatform"))
             .ValidateOnStart();
 
         return services;

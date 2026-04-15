@@ -146,7 +146,6 @@ public sealed class MigrationExportCommand : ControlPlaneCommandBase<MigrationEx
         var job = new MigrationJob
         {
             JobId = Guid.NewGuid().ToString(),
-            ConfigVersion = config.ConfigVersion,
             Mode = "Export",
             Source = new MigrationJobEndpoint
             {

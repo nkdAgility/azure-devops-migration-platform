@@ -29,7 +29,7 @@ public class AzureDevOpsDependencyAnalysisServiceTests
     public void Setup()
     {
         _optionsMock = new Mock<IOptions<DiscoveryOptions>>();
-        _optionsMock.Setup(o => o.Value).Returns(new DiscoveryOptions { MaxConcurrency = 4 });
+        _optionsMock.Setup(o => o.Value).Returns(new DiscoveryOptions { Controls = new() { MaxConcurrency = 4 } });
 
         _clientFactoryMock = new Mock<IAzureDevOpsClientFactory>();
         _windowStrategyMock = new Mock<IWorkItemQueryWindowStrategy>();

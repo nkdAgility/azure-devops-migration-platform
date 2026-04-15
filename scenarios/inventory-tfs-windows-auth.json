@@ -1,13 +1,19 @@
 {
-  "ConfigVersion": "1.0",
-  "Organisations": [
-    {
-      "Type": "TeamFoundationServer",
-      "Url": "http://tfs:8080/tfs/DefaultCollection",
-      "Projects": [],
-      "Authentication": {
-        "Type": "Windows"
+  "MigrationPlatform": {
+    "ConfigVersion": "1.0",
+    "Controls": {
+      "CheckpointInterval": 300,
+      "MaxConcurrency": 4
+    },
+    "Organisations": [
+      {
+        "Type": "TeamFoundationServer",
+        "Url": "http://tfs:8080/tfs/DefaultCollection",
+        "Projects": [],
+        "Authentication": {
+          "Type": "Windows"
+        }
       }
-    }
-  ]
+    ]
+  }
 }

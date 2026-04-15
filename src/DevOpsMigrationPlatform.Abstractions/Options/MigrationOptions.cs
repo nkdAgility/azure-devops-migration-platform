@@ -4,35 +4,35 @@ using DevOpsMigrationPlatform.Abstractions.Options;
 namespace DevOpsMigrationPlatform.Abstractions;
 
 /// <summary>
-/// Top-level platform configuration options.
-/// Deserialised from the user's <c>migration.json</c> overlaid on the bundled
-/// <c>appsettings.json</c> defaults.
-///
-/// Bound to the root of <c>IConfiguration</c> — there is no section wrapper.
+/// Top-level platform configuration options for migration commands.
+/// Bound from the <c>MigrationPlatform</c> configuration section.
 ///
 /// Example migration.json:
 /// <code>
 /// {
-///   "ConfigVersion": "2.0",
-///   "Mode": "Export",
-///   "Source": { "Type": "AzureDevOpsServices", "Url": "...", "Project": "..." },
-///   "Artefacts": { "Path": "D:\\exports\\run-001" },
-///   "Modules": [
-///     { "Name": "WorkItems", "Enabled": true, "Query": "SELECT [System.Id] FROM WorkItems WHERE [System.TeamProject] = @project ORDER BY [System.Id]",
-///       "Extensions": [
-///         { "Type": "Revisions", "Enabled": true },
-///         { "Type": "Links", "Enabled": true },
-///         { "Type": "Attachments", "Enabled": true },
-///         { "Type": "Comments", "Enabled": true }
-///       ] }
-///   ]
+///   "MigrationPlatform": {
+///     "ConfigVersion": "1.0",
+///     "Controls": { "CheckpointInterval": 300, "MaxConcurrency": 4 },
+///     "Mode": "Export",
+///     "Source": { "Type": "AzureDevOpsServices", "Url": "...", "Project": "..." },
+///     "Artefacts": { "Path": "D:\\exports\\run-001" },
+///     "Modules": [
+///       { "Name": "WorkItems", "Enabled": true,
+///         "Extensions": [
+///           { "Type": "Revisions", "Enabled": true },
+///           { "Type": "Links", "Enabled": true },
+///           { "Type": "Attachments", "Enabled": true },
+///           { "Type": "Comments", "Enabled": true }
+///         ] }
+///     ]
+///   }
 /// }
 /// </code>
 /// </summary>
 public sealed class MigrationOptions
 {
-    /// <summary>Config schema version. Incremented on breaking changes to this schema.</summary>
-    public string ConfigVersion { get; set; } = "2.0";
+    /// <summary>Cross-cutting execution controls.</summary>
+    public ControlsOptions Controls { get; set; } = new();
 
     /// <summary>Export, Import, or Both.</summary>
     public string Mode { get; set; } = string.Empty;

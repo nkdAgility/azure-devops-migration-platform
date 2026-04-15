@@ -15,7 +15,6 @@ public class MigrationOptionsValidatorTests
 
     private static MigrationOptions ValidExport() => new()
     {
-        ConfigVersion = "2.0",
         Mode = "Export",
         Source = new MigrationEndpointOptions
         {
@@ -40,7 +39,6 @@ public class MigrationOptionsValidatorTests
     {
         var opts = new MigrationOptions
         {
-            ConfigVersion = "2.0",
             Mode = "Import",
             Target = new MigrationEndpointOptions
             {
@@ -58,25 +56,12 @@ public class MigrationOptionsValidatorTests
     {
         var opts = new MigrationOptions
         {
-            ConfigVersion = "2.0",
             Mode = "Both",
             Source = new MigrationEndpointOptions { Type = "AzureDevOpsServices", Url = "https://dev.azure.com/myorg", Project = "P" },
             Target = new MigrationEndpointOptions { Type = "AzureDevOpsServices", Url = "https://dev.azure.com/targetorg", Project = "P" },
             Artefacts = new MigrationArtefactsOptions { Path = "D:\\exports" }
         };
         Assert.IsTrue(Sut().Validate(null, opts).Succeeded);
-    }
-
-    // ── ConfigVersion ─────────────────────────────────────────────────────────
-
-    [TestMethod]
-    public void Validate_UnsupportedConfigVersion_FailsWithConfigVersionInMessage()
-    {
-        var opts = ValidExport();
-        opts.ConfigVersion = "99.0";
-        var result = Sut().Validate(null, opts);
-        Assert.IsFalse(result.Succeeded);
-        StringAssert.Contains(result.FailureMessage, "ConfigVersion");
     }
 
     // ── Mode ─────────────────────────────────────────────────────────────────
@@ -140,7 +125,6 @@ public class MigrationOptionsValidatorTests
     {
         var opts = new MigrationOptions
         {
-            ConfigVersion = "2.0",
             Mode = "Import",
             Target = null,
             Artefacts = new MigrationArtefactsOptions { Path = "D:\\exports" }
@@ -190,13 +174,11 @@ public class MigrationOptionsValidatorTests
     {
         var opts = new MigrationOptions
         {
-            ConfigVersion = "99.0",
             Mode = "",
             Artefacts = new MigrationArtefactsOptions { Path = "" }
         };
         var result = Sut().Validate(null, opts);
         Assert.IsFalse(result.Succeeded);
-        StringAssert.Contains(result.FailureMessage, "ConfigVersion");
         StringAssert.Contains(result.FailureMessage, "Mode");
         StringAssert.Contains(result.FailureMessage, "Artefacts");
     }
@@ -246,7 +228,6 @@ public class MigrationOptionsValidatorTests
     {
         var opts = new MigrationOptions
         {
-            ConfigVersion = "2.0",
             Mode = "Import",
             Target = new MigrationEndpointOptions
             {
@@ -264,7 +245,6 @@ public class MigrationOptionsValidatorTests
     {
         var opts = new MigrationOptions
         {
-            ConfigVersion = "2.0",
             Mode = "Import",
             Target = new MigrationEndpointOptions
             {
@@ -285,7 +265,6 @@ public class MigrationOptionsValidatorTests
     {
         var opts = new MigrationOptions
         {
-            ConfigVersion = "2.0",
             Mode = "Import",
             Target = new MigrationEndpointOptions
             {
