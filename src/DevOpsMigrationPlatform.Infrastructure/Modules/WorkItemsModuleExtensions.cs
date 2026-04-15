@@ -39,8 +39,9 @@ public sealed class WorkItemsModuleExtensions
     public EmbeddedImagesExtensionOptions EmbeddedImages { get; init; } = new EmbeddedImagesExtensionOptions();
 
     /// <summary>
-    /// Resolution strategy options. Default: no strategy (NullResolutionStrategy is used).
-    /// Configure <c>WorkItemResolutionStrategy</c> extension with <c>Type</c> and parameters.
+    /// Resolution strategy options. A <c>WorkItemResolutionStrategy</c> extension with a valid
+    /// <c>strategy</c> value (<c>"TargetField"</c> or <c>"TargetHyperlink"</c>) is required for
+    /// import jobs. The factory will throw if the strategy is absent or unrecognised.
     /// </summary>
     public WorkItemResolutionStrategyOptions ResolutionStrategy { get; init; } = new();
 
