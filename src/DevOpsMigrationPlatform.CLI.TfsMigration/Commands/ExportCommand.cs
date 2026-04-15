@@ -71,9 +71,6 @@ namespace DevOpsMigrationPlatform.CLI.TfsMigration.Commands
             }
             else
             {
-                // Re-run with a capturing delegate so the Status callback can read it.
-                ProgressEvent? lastEvt = null;
-
                 await AnsiConsole.Status()
                     .StartAsync("Exporting Work Items...", async ctx =>
                     {
@@ -84,7 +81,6 @@ namespace DevOpsMigrationPlatform.CLI.TfsMigration.Commands
                             settings.CollectionUrl, settings.Project, wiqlQuery,
                             new DelegateProgressSink(evt =>
                             {
-                                lastEvt = evt;
                                 ctx.Status(
                                     "Exporting Work Items\n" +
                                     "[bold yellow]Total:[/] " + evt.TotalWorkItems.ToString().PadRight(6) +
