@@ -112,22 +112,22 @@ public class ImportEmbeddedImagesSteps
     {
         const string originalUrl = "https://source.example.com/api/attachments/img2.png";
         _ctx.OriginalUrl = originalUrl;
-        _ctx.RevisionJson = $"""
-        {{
+        _ctx.RevisionJson = $$"""
+        {
           "WorkItemId": 1,
           "RevisionIndex": 0,
           "Fields": [
-            {{"ReferenceName": "System.WorkItemType", "Value": "Task"}},
-            {{"ReferenceName": "System.Description", "Value": "<img src=\"{originalUrl}\">" }}
+            {"ReferenceName": "System.WorkItemType", "Value": "Task"},
+            {"ReferenceName": "System.Description", "Value": "<img src=\"{{originalUrl}}\">" }
           ],
           "Attachments": [],
           "RelatedLinks": [],
           "ExternalLinks": [],
           "Hyperlinks": [],
           "EmbeddedImages": [
-            {{"OriginalUrl": "{originalUrl}", "RelativePath": "img2.png", "Extension": ".png", "Sha256": "def", "Size": 200}}
+            {"OriginalUrl": "{{originalUrl}}", "RelativePath": "img2.png", "Extension": ".png", "Sha256": "def", "Size": 200}
           ]
-        }}
+        }
         """;
     }
 
