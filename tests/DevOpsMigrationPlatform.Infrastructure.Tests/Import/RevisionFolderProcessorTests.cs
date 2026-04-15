@@ -74,11 +74,28 @@ public class RevisionFolderProcessorTests
     public async Task ProcessAsync_WhenWorkItemNotMapped_CreatesNewWorkItem()
     {
         SetupRevisionJson();
-        SetupNoMapping();
+        // Use SetupSequence: first Stage A check returns null (not mapped), second
+        // resolve call (after creation) returns 99. Avoids Moq LIFO override from
+        // SetupTargetFieldsAndLinks overwriting the Any→null setup.
+        _mockIdMapStore
+            .SetupSequence(s => s.GetTargetWorkItemIdAsync(1, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((int?)null)
+            .ReturnsAsync(99);
+        _mockIdMapStore
+            .Setup(s => s.SetWorkItemMappingAsync(It.IsAny<int>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+        _mockIdMapStore
+            .Setup(s => s.GetAttachmentIdAsync(It.IsAny<int>(), It.IsAny<int>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((string?)null);
         SetupTargetCreate(newTargetId: 99);
         SetupCursorWrites();
         SetupResolutionStrategyNoOp();
-        SetupTargetFieldsAndLinks(targetId: 99);
+        _mockTarget
+            .Setup(t => t.UpdateFieldsAsync(99, It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+        _mockTarget
+            .Setup(t => t.AddLinksAsync(99, It.IsAny<IReadOnlyList<RelatedWorkItemLink>>(), It.IsAny<IReadOnlyList<ExternalWorkItemLink>>(), It.IsAny<IReadOnlyList<HyperlinkWorkItemLink>>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
 
         var sut = CreateSut();
         await sut.ProcessAsync(Folder, new WorkItemsModuleExtensions(), null, _mockResolutionStrategy.Object, CancellationToken.None);
@@ -185,6 +202,10 @@ public class RevisionFolderProcessorTests
         _mockArtefactStore
             .Setup(s => s.ReadAsync($"{Folder}/revision.json", It.IsAny<CancellationToken>()))
             .ReturnsAsync(json);
+        // Comments stage always runs (Enabled=true by default); return null so no comments are posted.
+        _mockArtefactStore
+            .Setup(s => s.ReadAsync($"{Folder}/comment.json", It.IsAny<CancellationToken>()))
+            .ReturnsAsync((string?)null);
 
         _mockIdentityMapping
             .Setup(s => s.Resolve("source@example.com"))

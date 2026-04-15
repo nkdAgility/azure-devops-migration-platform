@@ -28,28 +28,28 @@ public class ImportEmbeddedImagesSteps
     // ── Scenario 1: images uploaded and URLs rewritten ────────────────────────
 
     [Given(@"a revision's ""embeddedImages"" list contains an entry with ""originalUrl"" and ""relativePath""")]
-    public void GivenRevisionHasEmbeddedImagesEntry(string _, string __)
+    public void GivenRevisionHasEmbeddedImagesEntry()
     {
         const string originalUrl = "https://source.example.com/api/attachments/img1.png";
         _ctx.OriginalUrl = originalUrl;
         _ctx.TargetUrl = "https://target.example.com/attachments/img1.png";
 
-        _ctx.RevisionJson = $$$"""
-        {{
+        _ctx.RevisionJson = $$"""
+        {
           "WorkItemId": 1,
           "RevisionIndex": 0,
           "Fields": [
-            {{"ReferenceName": "System.WorkItemType", "Value": "Task"}},
-            {{"ReferenceName": "System.Description", "Value": "<img src=\"{{{originalUrl}}}\">"}}
+            {"ReferenceName": "System.WorkItemType", "Value": "Task"},
+            {"ReferenceName": "System.Description", "Value": "<img src=\"{{originalUrl}}\">"}
           ],
           "Attachments": [],
           "RelatedLinks": [],
           "ExternalLinks": [],
           "Hyperlinks": [],
           "EmbeddedImages": [
-            {{"OriginalUrl": "{{{originalUrl}}}", "RelativePath": "img1.png", "Extension": ".png", "Sha256": "abc", "Size": 100}}
+            {"OriginalUrl": "{{originalUrl}}", "RelativePath": "img1.png", "Extension": ".png", "Sha256": "abc", "Size": 100}
           ]
-        }}
+        }
         """;
     }
 
@@ -60,7 +60,7 @@ public class ImportEmbeddedImagesSteps
     }
 
     [When("the import processes that revision before applying fields (Stage B)")]
-    public async Task WhenTheImportProcessesThatRevisionBeforeStageb(string _)
+    public async Task WhenTheImportProcessesThatRevisionBeforeStageb()
     {
         _ctx.SetupMocks();
         var processor = _ctx.BuildProcessor();
@@ -81,7 +81,7 @@ public class ImportEmbeddedImagesSteps
     }
 
     [Then(@"all occurrences of ""originalUrl"" in field HTML values are replaced with the returned target URL")]
-    public void ThenOriginalUrlIsReplacedWithTargetUrl(string _)
+    public void ThenOriginalUrlIsReplacedWithTargetUrl()
     {
         var expectedTarget = _ctx.TargetUrl!;
         var expectedOriginal = _ctx.OriginalUrl!;
@@ -112,20 +112,20 @@ public class ImportEmbeddedImagesSteps
     {
         const string originalUrl = "https://source.example.com/api/attachments/img2.png";
         _ctx.OriginalUrl = originalUrl;
-        _ctx.RevisionJson = $$$"""
+        _ctx.RevisionJson = $"""
         {{
           "WorkItemId": 1,
           "RevisionIndex": 0,
           "Fields": [
             {{"ReferenceName": "System.WorkItemType", "Value": "Task"}},
-            {{"ReferenceName": "System.Description", "Value": "<img src=\"{{{originalUrl}}}\">"}}
+            {{"ReferenceName": "System.Description", "Value": "<img src=\"{originalUrl}\">" }}
           ],
           "Attachments": [],
           "RelatedLinks": [],
           "ExternalLinks": [],
           "Hyperlinks": [],
           "EmbeddedImages": [
-            {{"OriginalUrl": "{{{originalUrl}}}", "RelativePath": "img2.png", "Extension": ".png", "Sha256": "def", "Size": 200}}
+            {{"OriginalUrl": "{originalUrl}", "RelativePath": "img2.png", "Extension": ".png", "Sha256": "def", "Size": 200}}
           ]
         }}
         """;

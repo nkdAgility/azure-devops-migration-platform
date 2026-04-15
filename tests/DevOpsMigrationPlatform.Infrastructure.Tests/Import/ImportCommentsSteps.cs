@@ -28,7 +28,7 @@ public class ImportCommentsSteps
     // ── Scenario 1: comment sub-folders imported ──────────────────────────────
 
     [Given(@"the package contains a comment folder with name matching ""<ticks>-<workItemId>-c<commentId>""")]
-    public void GivenThePackageContainsACommentFolder(string _)
+    public void GivenThePackageContainsACommentFolder()
     {
         // Folder format: <ticks>-<workItemId>-c<commentId>
         _ctx.FolderPaths = new List<string>
