@@ -78,26 +78,12 @@ jobs:
           path: TestResults/**/*.trx
           reporter: dotnet-trx
 
-      - name: Upload CLI artefact
+      - name: Upload release packages
         uses: actions/upload-artifact@v4
         if: github.event_name != 'pull_request'
         with:
-          name: cli-package
+          name: release-packages
           path: output/MigrationTools-*.zip
-
-      - name: Upload Control Plane artefact
-        uses: actions/upload-artifact@v4
-        if: github.event_name != 'pull_request'
-        with:
-          name: controlplane-package
-          path: output/ControlPlane-*.zip
-
-      - name: Upload Agent artefact
-        uses: actions/upload-artifact@v4
-        if: github.event_name != 'pull_request'
-        with:
-          name: agent-package
-          path: output/Agent-*.zip
 
   # ── Preview release: auto-create on main push ──────────────────────────────
   preview-release:
@@ -109,22 +95,10 @@ jobs:
       contents: write
 
     steps:
-      - name: Download CLI artefact
+      - name: Download release packages
         uses: actions/download-artifact@v4
         with:
-          name: cli-package
-          path: release-assets
-
-      - name: Download Control Plane artefact
-        uses: actions/download-artifact@v4
-        with:
-          name: controlplane-package
-          path: release-assets
-
-      - name: Download Agent artefact
-        uses: actions/download-artifact@v4
-        with:
-          name: agent-package
+          name: release-packages
           path: release-assets
 
       - name: Create GitHub Release
@@ -146,22 +120,10 @@ jobs:
       contents: write
 
     steps:
-      - name: Download CLI artefact
+      - name: Download release packages
         uses: actions/download-artifact@v4
         with:
-          name: cli-package
-          path: release-assets
-
-      - name: Download Control Plane artefact
-        uses: actions/download-artifact@v4
-        with:
-          name: controlplane-package
-          path: release-assets
-
-      - name: Download Agent artefact
-        uses: actions/download-artifact@v4
-        with:
-          name: agent-package
+          name: release-packages
           path: release-assets
 
       - name: Upload assets to release
