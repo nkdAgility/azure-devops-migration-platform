@@ -38,6 +38,10 @@ public sealed class AzureDevOpsResolutionStrategyFactory : IWorkItemResolutionSt
         ArgumentNullException.ThrowIfNull(options);
         ArgumentNullException.ThrowIfNull(target);
 
+        // Simulated targets need no provenance lookup — return a no-op strategy.
+        if (target is SimulatedWorkItemImportTarget)
+            return new NullResolutionStrategy();
+
         if (string.IsNullOrEmpty(options.Strategy))
             throw new InvalidOperationException(
                 "WorkItemResolutionStrategy.strategy must be configured for import jobs. " +

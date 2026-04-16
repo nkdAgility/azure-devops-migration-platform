@@ -108,6 +108,7 @@ public sealed class WorkItemsModule : IModule
     {
         var job = context.Job;
 
+        var targetType = job.Target?.Type ?? "AzureDevOpsServices";
         var orgUrl = job.Target?.ResolvedUrl ?? throw new InvalidOperationException("Job.Target.Url is required for import.");
         var project = job.Target?.Project ?? throw new InvalidOperationException("Job.Target.Project is required for import.");
         var pat = job.Target?.Authentication?.ResolvedAccessToken ?? string.Empty;
@@ -123,7 +124,7 @@ public sealed class WorkItemsModule : IModule
             "[WorkItems] Importing into {OrgUrl}/{Project} (revisions={Revisions}, links={Links}, attachments={Attachments}, comments={Comments})",
             orgUrl, project, ext.RevisionsEnabled, ext.LinksEnabled, ext.AttachmentsEnabled, ext.Comments.Enabled);
 
-        var target = await _importTargetFactory.CreateAsync(orgUrl, project, pat, ct).ConfigureAwait(false);
+        var target = await _importTargetFactory.CreateAsync(targetType, orgUrl, project, pat, ct).ConfigureAwait(false);
         var checkpointingService = new CheckpointingService(context.StateStore);
 
         // Resolve the strategy at execution time — the factory creates the correct implementation

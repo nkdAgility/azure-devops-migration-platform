@@ -129,6 +129,10 @@ public sealed class WorkItemImportOrchestrator
             }
             else if (ext.RevisionsEnabled)
             {
+                // Revision folder — parse work item ID for the progress event
+                var revisionSegments = folderName.Split('-');
+                int.TryParse(revisionSegments.Length >= 2 ? revisionSegments[1] : null, out var wiId);
+
                 // Revision folder
                 await _processor.ProcessAsync(folderPath, ext, resumeAtStage, _resolutionStrategy, ct)
                     .ConfigureAwait(false);
@@ -140,12 +144,17 @@ public sealed class WorkItemImportOrchestrator
                 await WriteCompletedCursorAsync(folderPath, ct).ConfigureAwait(false);
             }
 
+            // Parse work item ID for the progress event (same logic, available for all branch paths)
+            var eventSegments = folderName.Split('-');
+            int.TryParse(eventSegments.Length >= 2 ? eventSegments[1] : null, out var eventWiId);
+
             foldersProcessed++;
             _progressSink.Emit(new ProgressEvent
             {
                 Module = "WorkItems",
                 Stage = CursorStage.Completed,
                 LastProcessed = folderPath,
+                WorkItemId = eventWiId,
                 WorkItemsProcessed = workItemsProcessed,
                 RevisionsProcessed = foldersProcessed,
                 Timestamp = DateTimeOffset.UtcNow

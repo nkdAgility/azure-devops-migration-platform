@@ -2,11 +2,17 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Infrastructure.Import;
 
 namespace DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Import;
 
 /// <summary>
-/// Creates an <see cref="AzureDevOpsWorkItemImportTarget"/> for the given organisation/project.
+/// Creates the correct <see cref="IWorkItemImportTarget"/> based on <paramref name="targetType"/>
+/// from the scenario configuration.
+/// <list type="bullet">
+///   <item><c>"Simulated"</c> → <see cref="SimulatedWorkItemImportTarget"/> (no network I/O).</item>
+///   <item>All other types → <see cref="AzureDevOpsWorkItemImportTarget"/>.</item>
+/// </list>
 /// </summary>
 public sealed class AzureDevOpsWorkItemImportTargetFactory : IWorkItemImportTargetFactory
 {
@@ -19,11 +25,15 @@ public sealed class AzureDevOpsWorkItemImportTargetFactory : IWorkItemImportTarg
 
     /// <inheritdoc/>
     public async Task<IWorkItemImportTarget> CreateAsync(
+        string targetType,
         string orgUrl,
         string project,
         string accessToken,
         CancellationToken ct)
     {
+        if (string.Equals(targetType, "Simulated", StringComparison.OrdinalIgnoreCase))
+            return new SimulatedWorkItemImportTarget();
+
         var witClient = await _clientFactory
             .CreateWorkItemClientAsync(orgUrl, accessToken, ct)
             .ConfigureAwait(false);

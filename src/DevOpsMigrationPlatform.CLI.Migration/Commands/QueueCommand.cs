@@ -176,8 +176,7 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
             await foreach (var evt in client.FollowLogsAsync(parsedJobId, followCts.Token).ConfigureAwait(false))
             {
                 lastEvt = evt;
-                if (!Console.IsOutputRedirected)
-                    console.MarkupLine($"[grey]{Markup.Escape(evt.Stage ?? string.Empty)}[/] WI {evt.WorkItemsProcessed}");
+                console.MarkupLine($"[grey]{Markup.Escape(evt.Stage ?? string.Empty)}[/] WI={evt.WorkItemId} ({evt.WorkItemsProcessed} done)");
             }
         }
         catch (InvalidOperationException ex) when (ex.Message.Contains("Job failed"))

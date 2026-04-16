@@ -14,6 +14,7 @@ public sealed class SimulatedWorkItemImportTargetFactory : IWorkItemImportTarget
 {
     /// <inheritdoc/>
     public Task<IWorkItemImportTarget> CreateAsync(
+        string targetType,
         string orgUrl,
         string project,
         string accessToken,
