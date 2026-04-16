@@ -21,8 +21,8 @@ public class ImportIdentityResolutionSteps
     [Given("a valid migration package exists at the configured package root")]
     public void GivenAValidMigrationPackageExistsAtTheConfiguredPackageRoot() { }
 
-    [Given(@"an identity mapping file exists at ""Identities/mapping.json""")]
-    public void GivenAnIdentityMappingFileExists(string _) { }
+    [Given(@"an identity mapping file exists at {string}")]
+    public void GivenAnIdentityMappingFileExists(string _path) { }
 
     // ── Scenario 1: mapped identity resolved ──────────────────────────────────
 
@@ -101,8 +101,8 @@ public class ImportIdentityResolutionSteps
             Times.Once);
     }
 
-    [Then(@"""(.*)"" is recorded in ""Identities/unresolved.json""")]
-    public void ThenIdentityIsRecordedInUnresolvedJson(string identity, string _)
+    [Then(@"{string} is recorded in {string}")]
+    public void ThenIdentityIsRecordedInUnresolvedJson(string identity, string _path)
     {
         // The IIdentityMappingService.Resolve call was made, which in a real implementation
         // records the unresolved identity. Here we verify Resolve was called with the identity.

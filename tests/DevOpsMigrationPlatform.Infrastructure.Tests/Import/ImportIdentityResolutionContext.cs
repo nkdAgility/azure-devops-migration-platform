@@ -90,9 +90,5 @@ public class ImportIdentityResolutionContext
             .Setup(s => s.WriteProvenanceAsync(It.IsAny<int>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
             .Returns(System.Threading.Tasks.Task.CompletedTask);
 
-        // Default identity pass-through for non-identity fields
-        MockIdentityMapping
-            .Setup(s => s.Resolve(It.IsAny<string>()))
-            .Returns<string>(id => id);
     }
 }

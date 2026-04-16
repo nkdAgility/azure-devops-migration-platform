@@ -72,8 +72,8 @@ public class ImportCursorResumeSteps
         await orchestrator.ImportAsync(_ctx.Extensions, ResumeMode.Auto, CancellationToken.None);
     }
 
-    [Then(@"all revision folders at or before the cursor ""lastProcessed"" value are skipped")]
-    public void ThenFoldersAtOrBeforeCursorAreSkipped(string _)
+    [Then(@"all revision folders at or before the cursor {string} value are skipped")]
+    public void ThenFoldersAtOrBeforeCursorAreSkipped(string _key)
     {
         // Only the third folder should have been processed (first two are at/before cursor).
         _ctx.MockTarget.Verify(
@@ -101,7 +101,7 @@ public class ImportCursorResumeSteps
         };
         SetupFolderEnumeration();
         SetupIdMapNoOp(hasExistingMapping: true, sourceId: 1, targetId: 10);
-        SetupTargetNoOp();
+        SetupTargetNoOp(alreadyMapped: true);
         SetupResolutionStrategyNoOp();
         SetupProgressSinkNoOp();
     }
@@ -149,15 +149,17 @@ public class ImportCursorResumeSteps
     [Given(@"an existing cursor file at {string}")]
     public void GivenAnExistingCursorFile(string _path)
     {
-        // Cursor exists in state store.
+        var cursorJson = JsonSerializer.Serialize(new CursorEntry
+        {
+            LastProcessed = "WorkItems/2024-01-01/00000638000000000001-1-0",
+            Stage = CursorStage.Completed,
+            UpdatedAt = System.DateTimeOffset.UtcNow
+        });
+        // Return null once cursor is deleted so ForceFresh starts fresh.
         _ctx.MockStateStore
             .Setup(s => s.ReadAsync("Checkpoints/workitems.cursor.json", It.IsAny<CancellationToken>()))
-            .ReturnsAsync(JsonSerializer.Serialize(new CursorEntry
-            {
-                LastProcessed = "WorkItems/2024-01-01/00000638000000000001-1-0",
-                Stage = CursorStage.Completed,
-                UpdatedAt = System.DateTimeOffset.UtcNow
-            }));
+            .Returns((string _, CancellationToken ct) =>
+                Task.FromResult<string?>(_ctx.CursorWasDeleted ? null : cursorJson));
         _ctx.MockStateStore
             .Setup(s => s.WriteAsync("Checkpoints/workitems.cursor.json", It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
@@ -265,7 +267,7 @@ public class ImportCursorResumeSteps
             .Returns(new ValueTask());
     }
 
-    private void SetupTargetNoOp(int targetId = 10)
+    private void SetupTargetNoOp(int targetId = 10, bool alreadyMapped = false)
     {
         _ctx.MockTarget
             .Setup(t => t.CreateWorkItemAsync(It.IsAny<string>(), It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<CancellationToken>()))
@@ -277,9 +279,15 @@ public class ImportCursorResumeSteps
             .Setup(t => t.AddLinksAsync(It.IsAny<int>(), It.IsAny<IReadOnlyList<RelatedWorkItemLink>>(), It.IsAny<IReadOnlyList<ExternalWorkItemLink>>(), It.IsAny<IReadOnlyList<HyperlinkWorkItemLink>>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
 
-        _ctx.MockIdMapStore
-            .Setup(s => s.GetTargetWorkItemIdAsync(1, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(targetId);
+        if (!alreadyMapped)
+        {
+            // Work item not yet in idmap: Stage A gets null (creates), Stage B gets targetId.
+            _ctx.MockIdMapStore
+                .SetupSequence(s => s.GetTargetWorkItemIdAsync(1, It.IsAny<CancellationToken>()))
+                .ReturnsAsync((int?)null)
+                .ReturnsAsync(targetId);
+        }
+        // When alreadyMapped=true, SetupIdMapNoOp already configured GetTargetWorkItemIdAsync => targetId.
     }
 
     private void SetupResolutionStrategyNoOp()

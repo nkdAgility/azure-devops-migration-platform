@@ -304,16 +304,16 @@ public class StreamingImportReplaySteps
         await orchestrator.ImportAsync(_ctx.Extensions, ResumeMode.Auto, CancellationToken.None);
     }
 
-    [Then(@"""screenshot.png"" is uploaded to the target work item at the correct revision")]
-    public void ThenAttachmentIsUploadedToTargetWorkItem()
+    [Then(@"{string} is uploaded to the target work item at the correct revision")]
+    public void ThenAttachmentIsUploadedToTargetWorkItem(string _file)
     {
         _ctx.MockTarget.Verify(
             t => t.UploadAttachmentAsync(50, "screenshot.png", It.IsAny<System.IO.Stream>(), It.IsAny<CancellationToken>()),
             Times.Once);
     }
 
-    [Then(@"the attachment metadata in the target matches the reference in ""revision.json""")]
-    public void ThenAttachmentMetadataMatchesRevisionJson()
+    [Then(@"the attachment metadata in the target matches the reference in {string}")]
+    public void ThenAttachmentMetadataMatchesRevisionJson(string _file)
     {
         _ctx.MockIdMapStore.Verify(
             s => s.SetAttachmentMappingAsync(5, 0, "screenshot.png", It.IsAny<string>(), It.IsAny<CancellationToken>()),
