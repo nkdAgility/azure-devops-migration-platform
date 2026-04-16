@@ -80,12 +80,15 @@ public sealed class JobProgressStore
 
     public void CompleteJob(Guid jobId, bool failed = false)
     {
-        if (!_entries.TryGetValue(jobId, out var entry))
-            return;
-        entry.Failed = failed;
-        entry.Completed = true;
+        // GetOrAdd ensures the entry exists even when CompleteJob races ahead of any
+        // Append call (e.g. ControlPlaneProgressSink drain loop hasn't fired yet).
+        // Completed/Failed are set inside the lock so Subscribe cannot observe a
+        // partially-initialised entry between GetOrAdd and the flag assignment.
+        var entry = _entries.GetOrAdd(jobId, _ => new JobProgressEntry());
         lock (entry.Subscribers)
         {
+            entry.Failed = failed;
+            entry.Completed = true;
             foreach (var writer in entry.Subscribers)
                 writer.TryComplete();
             entry.Subscribers.Clear();

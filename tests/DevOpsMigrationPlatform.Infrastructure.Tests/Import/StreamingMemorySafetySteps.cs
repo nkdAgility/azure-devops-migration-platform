@@ -97,8 +97,10 @@ public class StreamingMemorySafetySteps
         _ctx.MockArtefactStore.Verify(
             s => s.EnumerateAsync("WorkItems/", It.IsAny<CancellationToken>()),
             Times.Once);
+        // UpdateFieldsAsync is called once per revision regardless of create/update path,
+        // so it correctly verifies that every revision folder was processed.
         _ctx.MockTarget.Verify(
-            t => t.CreateWorkItemAsync(It.IsAny<string>(), It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<CancellationToken>()),
+            t => t.UpdateFieldsAsync(It.IsAny<int>(), It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<CancellationToken>()),
             Times.Exactly(_ctx.FolderPaths.Count));
     }
 
@@ -179,14 +181,17 @@ public class StreamingMemorySafetySteps
 
     private void SetupIdMapNoOp(bool hasAttachment = false)
     {
+        var idMap = new System.Collections.Generic.Dictionary<int, int>();
+
         _ctx.MockIdMapStore
             .Setup(s => s.InitializeAsync(It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
         _ctx.MockIdMapStore
             .Setup(s => s.GetTargetWorkItemIdAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync((int?)null);
+            .ReturnsAsync((int id, CancellationToken _) => idMap.TryGetValue(id, out var tid) ? (int?)tid : null);
         _ctx.MockIdMapStore
             .Setup(s => s.SetWorkItemMappingAsync(It.IsAny<int>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .Callback<int, int, CancellationToken>((src, tgt, _) => idMap[src] = tgt)
             .Returns(Task.CompletedTask);
         _ctx.MockIdMapStore
             .Setup(s => s.GetAttachmentIdAsync(It.IsAny<int>(), It.IsAny<int>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
@@ -213,9 +218,6 @@ public class StreamingMemorySafetySteps
         _ctx.MockTarget
             .Setup(t => t.AddLinksAsync(It.IsAny<int>(), It.IsAny<IReadOnlyList<RelatedWorkItemLink>>(), It.IsAny<IReadOnlyList<ExternalWorkItemLink>>(), It.IsAny<IReadOnlyList<HyperlinkWorkItemLink>>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
-        _ctx.MockIdMapStore
-            .Setup(s => s.GetTargetWorkItemIdAsync(1, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(10);
     }
 
     private void SetupTargetWithAttachment()

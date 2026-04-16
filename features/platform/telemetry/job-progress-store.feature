@@ -11,3 +11,11 @@ Feature: Job Progress Store
     Then the oldest event is evicted
     And the ring buffer contains exactly 3 events
     And the newest event is present in the snapshot
+
+  @us2 @p1 @progress @store
+  Scenario: CompleteJob called before any Append still marks the job completed so late subscribers get an immediate channel completion
+    Given a JobProgressStore with a capacity of 3
+    When CompleteJob is called for a job that has no prior events
+    And a subscriber connects to that job's SSE stream after CompleteJob
+    Then the subscriber's channel is already completed
+    And no events are buffered for that job
