@@ -27,8 +27,8 @@ public class ImportCommentsSteps
 
     // ── Scenario 1: comment sub-folders imported ──────────────────────────────
 
-    [Given(@"the package contains a comment folder with name matching ""<ticks>-<workItemId>-c<commentId>""")]
-    public void GivenThePackageContainsACommentFolder()
+    [Given(@"the package contains a comment folder with name matching {string}")]
+    public void GivenThePackageContainsACommentFolder(string _folderFormat)
     {
         // Folder format: <ticks>-<workItemId>-c<commentId>
         _ctx.FolderPaths = new List<string>
@@ -69,8 +69,8 @@ public class ImportCommentsSteps
             .Returns(Task.CompletedTask);
     }
 
-    [When("the import processes that comment folder (Comments extension is enabled)")]
-    public async Task WhenTheImportProcessesThatCommentFolder(string _)
+    [When("the import processes that comment folder \\(Comments extension is enabled\\)")]
+    public async Task WhenTheImportProcessesThatCommentFolder()
     {
         _ctx.Extensions = new WorkItemsModuleExtensions(); // Comments enabled by default
 
@@ -91,16 +91,16 @@ public class ImportCommentsSteps
         await orchestrator.ImportAsync(_ctx.Extensions, ResumeMode.Auto, CancellationToken.None);
     }
 
-    [Then(@"the comment text from ""comment.json"" is created on the target work item via the Comments API")]
-    public void ThenCommentTextIsCreatedOnTargetWorkItem(string _)
+    [Then(@"the comment text from {string} is created on the target work item via the Comments API")]
+    public void ThenCommentTextIsCreatedOnTargetWorkItem(string _file)
     {
         _ctx.MockTarget.Verify(
             t => t.CreateCommentAsync(50, It.Is<string>(s => s.Contains("This is a comment.")), It.IsAny<CancellationToken>()),
             Times.Once);
     }
 
-    [Then(@"the cursor is written with stage ""Completed"" for that comment folder")]
-    public void ThenCursorIsWrittenWithStageCompleted(string _)
+    [Then(@"the cursor is written with stage {string} for that comment folder")]
+    public void ThenCursorIsWrittenWithStageCompleted(string _stage)
     {
         _ctx.MockCheckpointing.Verify(
             s => s.WriteCursorAsync("workitems",

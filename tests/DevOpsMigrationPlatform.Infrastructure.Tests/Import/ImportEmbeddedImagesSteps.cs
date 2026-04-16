@@ -59,7 +59,7 @@ public class ImportEmbeddedImagesSteps
         _ctx.Extensions = new WorkItemsModuleExtensions(); // EmbeddedImages enabled by default
     }
 
-    [When("the import processes that revision before applying fields (Stage B)")]
+    [When("the import processes that revision before applying fields \\(Stage B\\)")]
     public async Task WhenTheImportProcessesThatRevisionBeforeStageb()
     {
         _ctx.SetupMocks();

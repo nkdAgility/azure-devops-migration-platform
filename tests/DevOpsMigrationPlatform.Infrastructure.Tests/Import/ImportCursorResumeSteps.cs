@@ -46,8 +46,8 @@ public class ImportCursorResumeSteps
         SetupProgressSinkNoOp();
     }
 
-    [Given(@"a cursor file exists at ""Checkpoints/workitems.cursor.json"" with stage ""Completed""")]
-    public void GivenACursorFileExistsWithStageCompleted(string _)
+    [Given(@"a cursor file exists at {string} with stage {string}")]
+    public void GivenACursorFileExistsWithStageCompleted(string _path, string _stage)
     {
         var cursor = new CursorEntry
         {
@@ -146,8 +146,8 @@ public class ImportCursorResumeSteps
 
     // ── Scenario 3: force-fresh deletes cursor but preserves idmap ────────────
 
-    [Given(@"an existing cursor file at ""Checkpoints/workitems.cursor.json""")]
-    public void GivenAnExistingCursorFile(string _)
+    [Given(@"an existing cursor file at {string}")]
+    public void GivenAnExistingCursorFile(string _path)
     {
         // Cursor exists in state store.
         _ctx.MockStateStore
@@ -167,8 +167,8 @@ public class ImportCursorResumeSteps
             .Returns(Task.CompletedTask);
     }
 
-    [Given(@"an existing ID map database at ""Checkpoints/idmap.db""")]
-    public void GivenAnExistingIdMapDatabase(string _)
+    [Given(@"an existing ID map database at {string}")]
+    public void GivenAnExistingIdMapDatabase(string _path)
     {
         // idmap.db is managed by SqliteIdMapStore, not IStateStore.
         // In this test, the mock IdMapStore simulates it being present.
@@ -183,8 +183,8 @@ public class ImportCursorResumeSteps
         SetupProgressSinkNoOp();
     }
 
-    [When(@"the import is run with the ""--force-fresh"" flag")]
-    public async Task WhenTheImportIsRunWithForceFreshFlag(string _)
+    [When(@"the import is run with the {string} flag")]
+    public async Task WhenTheImportIsRunWithForceFreshFlag(string _flag)
     {
         var orchestrator = _ctx.BuildOrchestrator();
         await orchestrator.ImportAsync(_ctx.Extensions, ResumeMode.ForceFresh, CancellationToken.None);

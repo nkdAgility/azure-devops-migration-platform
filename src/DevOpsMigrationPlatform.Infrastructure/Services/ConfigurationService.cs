@@ -171,7 +171,8 @@ public class ConfigurationService : IConfigurationService
         string.Equals(type, "TeamFoundationServer", StringComparison.Ordinal);
 
     private static bool IsValidTargetType(string type) =>
-        string.Equals(type, "AzureDevOpsServices", StringComparison.Ordinal);
+        string.Equals(type, "AzureDevOpsServices", StringComparison.Ordinal) ||
+        string.Equals(type, "Simulated", StringComparison.Ordinal);
 
     public async Task SaveConfigurationAsync(MigrationOptions options, string configPath, CancellationToken cancellationToken = default)
     {

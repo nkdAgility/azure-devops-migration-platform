@@ -259,8 +259,8 @@ public class StreamingImportReplaySteps
 
     // ── Scenario 6: attachment upload ────────────────────────────────────────
 
-    [Given(@"a revision folder contains ""revision.json"" and ""screenshot.png""")]
-    public void GivenARevisionFolderContainsRevisionJsonAndAttachment()
+    [Given(@"a revision folder contains {string} and {string}")]
+    public void GivenARevisionFolderContainsRevisionJsonAndAttachment(string _revision, string _attachment)
     {
         var json = """
         {
@@ -284,6 +284,9 @@ public class StreamingImportReplaySteps
             .Setup(s => s.ReadAsync($"{folder}/revision.json", It.IsAny<CancellationToken>()))
             .ReturnsAsync(json);
         _ctx.MockArtefactStore
+            .Setup(s => s.ReadAsync($"{folder}/comment.json", It.IsAny<CancellationToken>()))
+            .ReturnsAsync((string?)null);
+        _ctx.MockArtefactStore
             .Setup(s => s.ReadBinaryAsync($"{folder}/screenshot.png", It.IsAny<CancellationToken>()))
             .Returns(Task.FromResult<System.IO.Stream?>(new System.IO.MemoryStream(new byte[] { 0x89, 0x50, 0x4E, 0x47 })));
 
@@ -292,6 +295,13 @@ public class StreamingImportReplaySteps
         SetupTargetWithAttachment(5, 50);
         SetupResolutionStrategyNoOp();
         SetupProgressSinkNoOp();
+    }
+
+    [When("the WorkItems import module processes the revision folder")]
+    public async Task WhenTheWorkItemsImportModuleProcessesTheRevisionFolder()
+    {
+        var orchestrator = _ctx.BuildOrchestrator();
+        await orchestrator.ImportAsync(_ctx.Extensions, ResumeMode.Auto, CancellationToken.None);
     }
 
     [Then(@"""screenshot.png"" is uploaded to the target work item at the correct revision")]
