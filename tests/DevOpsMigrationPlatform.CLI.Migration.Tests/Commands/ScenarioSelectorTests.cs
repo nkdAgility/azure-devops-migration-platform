@@ -163,4 +163,30 @@ public class ScenarioSelectorTests
         Assert.IsNotNull(result);
         Assert.IsTrue(result.EndsWith("env.json"), $"Expected env.json but got: {result}");
     }
+
+    [TestMethod]
+    public void PromptForConfigFile_WithMultipleFilesInNonInteractiveTerminal_ReturnsNull()
+    {
+        // Arrange — multiple JSON files in env folder, non-interactive TestConsole
+        var envFolder = Path.Combine(_tempDir, "multi");
+        Directory.CreateDirectory(envFolder);
+        File.WriteAllText(Path.Combine(envFolder, "a.json"), "{}");
+        File.WriteAllText(Path.Combine(envFolder, "b.json"), "{}");
+        Environment.SetEnvironmentVariable("MigrationPlatform_Scenario_Folder", envFolder);
+
+        var emptyDir = Path.Combine(_tempDir, "empty-cwd5");
+        Directory.CreateDirectory(emptyDir);
+        Directory.SetCurrentDirectory(emptyDir);
+
+        // TestConsole is non-interactive by default — same as CI subprocess with redirected I/O
+        var console = new Spectre.Console.Testing.TestConsole();
+        Assert.IsFalse(console.Profile.Capabilities.Interactive,
+            "TestConsole should be non-interactive by default.");
+
+        // Act — must NOT throw, must return null gracefully
+        var result = ScenarioSelector.PromptForConfigFile(console);
+
+        // Assert
+        Assert.IsNull(result, "Expected null when multiple files found but terminal is non-interactive.");
+    }
 }

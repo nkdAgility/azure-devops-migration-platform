@@ -111,9 +111,17 @@ internal static class ScenarioSelector
 
     /// <summary>
     /// Presents a Spectre.Console selection prompt for the given config files.
+    /// Returns <c>null</c> when the terminal is not interactive (e.g. CI subprocess
+    /// with redirected stdout/stderr).
     /// </summary>
-    private static string PromptSelection(IAnsiConsole console, List<string> files)
+    private static string? PromptSelection(IAnsiConsole console, List<string> files)
     {
+        // Spectre.Console throws "Cannot show selection prompt since the current terminal
+        // isn't interactive" when stdout/stderr is redirected (CI, subprocess tests, etc.).
+        // Always check Interactive before calling Prompt() on any interactive widget.
+        if (!console.Profile.Capabilities.Interactive)
+            return null;
+
         var prompt = new SelectionPrompt<string>()
             .Title("Select a configuration file:")
             .PageSize(15)
