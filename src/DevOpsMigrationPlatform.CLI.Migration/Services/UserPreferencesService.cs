@@ -27,9 +27,13 @@ internal sealed class UserPreferencesService
 
     /// <summary>
     /// Returns the directory that holds <c>preferences.json</c>.
+    /// Tests can override via <see cref="OverridePreferencesDirectory"/>.
     /// </summary>
     internal static string GetPreferencesDirectory()
     {
+        if (_preferencesDirectoryOverride is not null)
+            return _preferencesDirectoryOverride;
+
         var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
 
         if (string.IsNullOrEmpty(appData))
@@ -44,6 +48,18 @@ internal sealed class UserPreferencesService
             ? Path.Combine(appData, "nkdAgility", "devopsmigration")
             : Path.Combine(appData, "devopsmigration");
     }
+
+    /// <summary>
+    /// Test hook: overrides the preferences directory for the duration of a test.
+    /// Set to <c>null</c> to restore default behaviour.
+    /// </summary>
+    internal static string? OverridePreferencesDirectory
+    {
+        get => _preferencesDirectoryOverride;
+        set => _preferencesDirectoryOverride = value;
+    }
+
+    private static string? _preferencesDirectoryOverride;
 
     /// <summary>
     /// Full path to <c>preferences.json</c>.
