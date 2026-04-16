@@ -76,15 +76,21 @@ else
         // Installed mode: launch ControlPlane and MigrationAgent from the extracted package.
         // MIGRATION_INSTALL_PATH points to the versioned install dir (e.g. current/).
         // Structure: root = CLI, ControlPlane/ = control plane host, MigrationAgent/ = agent.
+        // ExecutableResource does not implement IResourceWithConnectionString, so we
+        // wire up Postgres via WithEnvironment and the agent's control-plane URL explicitly.
         var cpExe = InstalledExe(installPath!, "ControlPlane", "DevOpsMigrationPlatform.ControlPlaneHost");
         var controlPlane = builder.AddExecutable("controlplane", cpExe, Path.Combine(installPath!, "ControlPlane"))
-            .WithReference(postgres)
-            .WithEnvironment("PackageStore__Type", "filesystem")
+            .WithEnvironment(ctx =>
+            {
+                ctx.EnvironmentVariables["ConnectionStrings__controlplane-db"] =
+                    postgres.Resource.ConnectionStringExpression;
+                ctx.EnvironmentVariables["PackageStore__Type"] = "filesystem";
+            })
             .WithHttpEndpoint(port: 5100, name: "http");
 
         var agentExe = InstalledExe(installPath!, "MigrationAgent", "DevOpsMigrationPlatform.MigrationAgent");
         builder.AddExecutable("migration-agent", agentExe, Path.Combine(installPath!, "MigrationAgent"))
-            .WithReference(controlPlane)
+            .WithEnvironment("MigrationPlatform__Environment__ControlPlane__BaseUrl", "http://localhost:5100")
             .WithEnvironment("PackageStore__Type", "filesystem");
     }
     else
