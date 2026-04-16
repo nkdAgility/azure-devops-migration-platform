@@ -13,6 +13,13 @@ internal class Program
     {
         AnsiConsole.Write(new FigletText("DevOps Migration").LeftJustified().Color(Color.Blue));
         AnsiConsole.Write(new Rule().RuleStyle("grey").LeftJustified());
+        var appVersion = typeof(Program).Assembly
+            .GetCustomAttributes(typeof(System.Reflection.AssemblyInformationalVersionAttribute), false)
+            .OfType<System.Reflection.AssemblyInformationalVersionAttribute>()
+            .FirstOrDefault()?.InformationalVersion ?? "unknown";
+        AnsiConsole.MarkupLine($"[dim]Azure DevOps Migration Platform  v{Markup.Escape(appVersion)}[/]");
+        AnsiConsole.MarkupLine($"[dim]Created by Martin Hinshelwood[/]");
+        AnsiConsole.WriteLine();
 
         var app = new CommandApp();
         app.Configure(config =>
