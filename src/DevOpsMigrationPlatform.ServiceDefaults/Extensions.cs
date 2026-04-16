@@ -27,15 +27,7 @@ public static class Extensions
 
         builder.Services.ConfigureHttpClientDefaults(http =>
         {
-            // The /agents/lease endpoint is a long-poll that the server holds open for ~10s.
-            // The default AttemptTimeout of 10s fires right at that boundary and causes
-            // spurious Polly retry noise. 30s gives adequate headroom for long-polling while
-            // still protecting against genuinely stuck connections.
-            http.AddStandardResilienceHandler(options =>
-            {
-                options.AttemptTimeout.Timeout = TimeSpan.FromSeconds(30);
-                options.TotalRequestTimeout.Timeout = TimeSpan.FromSeconds(90);
-            });
+            http.AddStandardResilienceHandler();
             http.AddServiceDiscovery();
         });
 
