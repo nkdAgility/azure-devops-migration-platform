@@ -2,16 +2,19 @@
     "version": "0.2.0",
     "configurations": [
 
-        // ── Migration CLI: configure ──────────────────────────────────────────
-        // Options: [-o|--output] [-f|--force] [-c|--config] [-v|--verbose]
-        //          [--disable-telemetry] [--dry-run]
+        // ── Migration CLI: config ──────────────────────────────────────────────
+        // config new:  [-o|--output] [-f|--force] [-c|--config] [-v|--verbose]
+        //              [--disable-telemetry] [--dry-run]
+        // config set:  <key> <value>
+        // config get:  <key>
         {
-            "name": "🔧 Migration CLI: Configure",
+            "name": "⚙️  Migration CLI: Config New",
             "type": "coreclr",
             "request": "launch",
             "program": "${workspaceFolder}/src/DevOpsMigrationPlatform.CLI.Migration/bin/Debug/net10.0/devopsmigration.exe",
             "args": [
-                "configure"
+                "config",
+                "new"
             ],
             "cwd": "${workspaceFolder}",
             "console": "integratedTerminal",
@@ -19,12 +22,13 @@
             "preLaunchTask": "build-migration-cli"
         },
         {
-            "name": "🔧 Migration CLI: Configure (Custom Output)",
+            "name": "⚙️  Migration CLI: Config New (Custom Output)",
             "type": "coreclr",
             "request": "launch",
             "program": "${workspaceFolder}/src/DevOpsMigrationPlatform.CLI.Migration/bin/Debug/net10.0/devopsmigration.exe",
             "args": [
-                "configure",
+                "config",
+                "new",
                 "--output",
                 "migration.json"
             ],
@@ -34,15 +38,47 @@
             "preLaunchTask": "build-migration-cli"
         },
         {
-            "name": "🔧 Migration CLI: Configure (Force Overwrite)",
+            "name": "⚙️  Migration CLI: Config New (Force Overwrite)",
             "type": "coreclr",
             "request": "launch",
             "program": "${workspaceFolder}/src/DevOpsMigrationPlatform.CLI.Migration/bin/Debug/net10.0/devopsmigration.exe",
             "args": [
-                "configure",
+                "config",
+                "new",
                 "--output",
                 "migration.json",
                 "--force"
+            ],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "stopAtEntry": false,
+            "preLaunchTask": "build-migration-cli"
+        },
+        {
+            "name": "⚙️  Migration CLI: Config Set (scenario-folder)",
+            "type": "coreclr",
+            "request": "launch",
+            "program": "${workspaceFolder}/src/DevOpsMigrationPlatform.CLI.Migration/bin/Debug/net10.0/devopsmigration.exe",
+            "args": [
+                "config",
+                "set",
+                "scenario-folder",
+                "${workspaceFolder}/scenarios"
+            ],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "stopAtEntry": false,
+            "preLaunchTask": "build-migration-cli"
+        },
+        {
+            "name": "⚙️  Migration CLI: Config Get (scenario-folder)",
+            "type": "coreclr",
+            "request": "launch",
+            "program": "${workspaceFolder}/src/DevOpsMigrationPlatform.CLI.Migration/bin/Debug/net10.0/devopsmigration.exe",
+            "args": [
+                "config",
+                "get",
+                "scenario-folder"
             ],
             "cwd": "${workspaceFolder}",
             "console": "integratedTerminal",

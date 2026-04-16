@@ -48,7 +48,23 @@ Run **locally**. Do **not** submit a `MigrationJob`. Registered as a Spectre.Con
 |---------|-------------|-------------|
 | `discovery inventory` | `InventoryCommandSettings` | Count work items and revisions per project. Results written to `discovery-summary.csv`. |
 
-### 4. Terminal UI
+### 4. Configuration Management (`config`)
+
+Manage user preferences and create migration configuration files. Registered as a Spectre.Console branch named `config`.
+
+| Command | Settings Key | Description |
+|---------|-------------|-------------|
+| `config new` | `ConfigNewCommandSettings` | Interactive wizard to create a new migration configuration file. Accepts `--output` and `--force`. |
+| `config set <key> <value>` | `ConfigSetCommandSettings` | Set a user-level preference in `preferences.json`. |
+| `config get <key>` | `ConfigGetCommandSettings` | Read a user-level preference value from `preferences.json`. |
+
+Supported preference keys:
+
+| Key | Type | Description |
+|-----|------|-------------|
+| `scenario-folder` | path | Default folder scanned when `--config` is omitted. |
+
+### 5. Terminal UI
 
 | Command | Settings Key | Description |
 |---------|-------------|-------------|
@@ -60,9 +76,26 @@ Run **locally**. Do **not** submit a `MigrationJob`. Registered as a Spectre.Con
 
 | Option | Short | Default | Description |
 |--------|-------|---------|-------------|
-| `--config` | `-c` | `migration.json` (cwd) | Path to the migration configuration file. |
+| `--config` | `-c` | (interactive resolution — see below) | Path to the migration configuration file. |
 | `--verbose` | `-v` | `false` | Enable verbose console output. |
 | `--disable-telemetry` | — | `false` | Suppress all telemetry export. |
+
+### Default `--config` Resolution
+
+When `--config` is not supplied, the CLI resolves a configuration file using the following precedence:
+
+| Priority | Source | Behaviour |
+|----------|--------|-----------|
+| 1 | `--config <path>` | Use the supplied path directly, no scan. |
+| 2 | `$Env:MigrationPlatform_Scenario_Folder` | Scan that folder for `*.json` files and present a selection prompt. |
+| 3 | `preferences.json` → `scenario-folder` | Same scan-and-prompt behaviour. |
+| 4 | `./scenarios` subfolder of cwd | Dev default — the repo ships this folder. |
+| 5 | `*.json` files in cwd | Last fallback scan. |
+| 6 | Nothing found | Warning message with guidance. |
+
+When multiple JSON files are found, a `SelectionPrompt<string>` lets the operator pick interactively. When exactly one file is found, it is used automatically.
+
+The interactive prompt runs inside the command's `ExecuteInternalAsync` (before `CreateHost` is called). `MigrationPlatformHost.ExtractConfigFileArg` remains pure file-system logic and cannot prompt.
 
 ## Resume Options (`queue`)
 
@@ -108,6 +141,13 @@ config.AddBranch("discovery", branch => {
     branch.AddCommand<InventoryCommand>("inventory");
 });
 
+// config branch
+config.AddBranch("config", branch => {
+    branch.AddCommand<ConfigNewCommand>("new");
+    branch.AddCommand<ConfigSetCommand>("set");
+    branch.AddCommand<ConfigGetCommand>("get");
+});
+
 // tui
 config.AddCommand<TuiCommand>("tui");
 ```
@@ -136,6 +176,11 @@ devopsmigration discovery inventory --config migration.json
 devopsmigration discovery inventory --config migration.json --all-projects
 devopsmigration discovery inventory --config migration.json --output ./reports
 
+devopsmigration config new
+devopsmigration config new --output my-migration.json
+devopsmigration config set scenario-folder C:\migrations\configs
+devopsmigration config get scenario-folder
+
 devopsmigration tui
 ```
 
@@ -143,8 +188,9 @@ devopsmigration tui
 
 ## Constraints
 
-- The `manage` and `discovery` branches are registered as Spectre.Console `AddBranch` entries — they are not standalone commands.
+- The `manage`, `discovery`, and `config` branches are registered as Spectre.Console `AddBranch` entries — they are not standalone commands.
 - `discovery *` commands must never submit a `MigrationJob` to the control plane.
 - `manage login` / `manage logout` store and revoke credentials only; they do not trigger any job operations.
+- `config set` / `config get` read and write user-level preferences only; they do not affect migration configuration files.
 - All commands inherit from `CommandBase<T>`, which injects `IServiceProvider`, `IHostApplicationLifetime`, `ILogger`, and `ActivitySource`.
 - No command may contain migration execution logic — see [system-architecture.md](../guardrails/system-architecture.md) Rule 16.
