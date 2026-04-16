@@ -20,6 +20,12 @@ namespace DevOpsMigrationPlatform.CLI.Commands;
 [HideFromChannel(ReleaseChannel.Preview)]
 public sealed class TuiCommand : ControlPlaneCommandBase<TuiCommandSettings>
 {
+    /// <summary>
+    /// The TUI is a read-only observer — it never starts the in-process control plane.
+    /// It always connects to an already-running instance.
+    /// </summary>
+    protected override bool StartsLocalStack => false;
+
     protected override async Task<int> ExecuteInternalAsync(
         CommandContext context,
         TuiCommandSettings settings,
