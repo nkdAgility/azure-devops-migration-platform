@@ -126,6 +126,47 @@ A single JSON configuration file drives the entire run.
 | `modules` | Yes | Ordered list of modules to run. Each module declares `scopes` (selection criteria) and named `extensions`. |
 | `policies` | No | Retry and throttle policies |
 
+### Organisation `enabled` Flag — Discovery Behaviour
+
+The `enabled` flag on each organisation entry has a precise and intentional meaning in the context of `discovery dependencies`:
+
+| Behaviour | `enabled: true` | `enabled: false` |
+|---|---|---|
+| Iterate and discover work item links | ✅ Yes | ❌ No — skipped entirely |
+| Participate in GUID → project name resolution | ✅ Yes | ✅ **Yes — still included** |
+
+Setting `enabled: false` only suppresses the discovery iteration for that organisation — the platform will not enumerate its work items or analyse its links. However, all configured organisations (enabled or not) are still used to resolve cross-organisation project name GUIDs to human-readable names.
+
+**Use case**: You have three organisations — `org1`, `org2`, and `org3`. You only want to run dependency discovery against one project in `org1`, but your work items in `org1` may contain cross-organisation links pointing at projects in `org2` or `org3`. Set `org2` and `org3` to `enabled: false` to skip their discovery, while still allowing the tool to resolve linked project GUIDs in those organisations to readable names:
+
+```json
+{
+  "organisations": [
+    {
+      "type": "AzureDevOpsServices",
+      "url": "https://dev.azure.com/org1",
+      "projects": ["MyProject"],
+      "enabled": true,
+      "authentication": { "type": "Pat", "accessToken": "$ENV:ORG1_PAT" }
+    },
+    {
+      "type": "AzureDevOpsServices",
+      "url": "https://dev.azure.com/org2",
+      "enabled": false,
+      "authentication": { "type": "Pat", "accessToken": "$ENV:ORG2_PAT" }
+    },
+    {
+      "type": "AzureDevOpsServices",
+      "url": "https://dev.azure.com/org3",
+      "enabled": false,
+      "authentication": { "type": "Pat", "accessToken": "$ENV:ORG3_PAT" }
+    }
+  ]
+}
+```
+
+In this configuration, discovery runs only against `org1/MyProject`. Any cross-org links pointing at `org2` or `org3` are still resolved to their human-readable project names (rather than remaining as raw GUIDs), and are marked `Reachable` in the output CSV because credentials are present. If no PAT is provided for a disabled organisation, project GUIDs in that org cannot be resolved and the raw GUID is used as the project name in the output.
+
 ### Module Scopes and Extensions Pattern
 
 Each module declares `scopes` (mandatory selection criteria) and a list of named `extensions`.
