@@ -299,9 +299,9 @@ function Invoke-Publish {
 }
 
 function Invoke-Package {
-    param($SemVer, $StagingDir)
+    param($SemVer, $StagingDir, [string[]]$TargetRids = $script:AllRids)
 
-    foreach ($rid in $AllRids) {
+    foreach ($rid in $TargetRids) {
         Write-Host "`n==> Packaging MigrationTools [$rid]..." -ForegroundColor Cyan
         $zipStaging = Join-Path $StagingDir "zip-staging-$rid"
         New-Item -ItemType Directory -Path $zipStaging -Force | Out-Null
@@ -338,12 +338,21 @@ function Invoke-Package {
 }
 
 function Start-AppHost {
-    Write-Host "`n==> Starting Aspire AppHost (ControlPlane + MigrationAgent)..." -ForegroundColor Cyan
+    param([string]$InstallPath)
+
+    Write-Host "`n==> Starting Aspire AppHost from installed location: $InstallPath" -ForegroundColor Cyan
     Write-Host "    Press Ctrl-C to stop." -ForegroundColor Yellow
-    # dotnet run performs its own build pass against the project references;
-    # running after Package ensures the Release binaries are warm.
-    dotnet run --project $AppHostProject --configuration Release
-    # Non-zero exit (e.g. Ctrl-C) is expected and not treated as a failure here.
+
+    $env:MIGRATION_INSTALL_PATH = $InstallPath
+    try {
+        # dotnet run compiles the AppHost from source, but the AppHost detects
+        # MIGRATION_INSTALL_PATH and launches the installed ControlPlane and
+        # MigrationAgent executables via AddExecutable instead of AddProject.
+        dotnet run --project $AppHostProject --configuration Release
+        # Non-zero exit (e.g. Ctrl-C) is expected and not treated as a failure here.
+    } finally {
+        Remove-Item Env:\MIGRATION_INSTALL_PATH -ErrorAction SilentlyContinue
+    }
 }
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -366,19 +375,30 @@ function Get-CurrentRid {
 function Invoke-Install {
     param([string]$SemVer)
 
-    $rid = Get-CurrentRid
+    $rid        = Get-CurrentRid
+    $displayRid = $rid -replace '^osx-', 'macos-'
+    $zip        = Join-Path $ArtifactsDir "MigrationTools-$SemVer-$displayRid.zip"
+
+    if (-not (Test-Path $zip)) {
+        Write-Error "Package not found: $zip`nRun './build.ps1 -Mode Package' (or 'Install') to build the package first."
+        exit 1
+    }
 
     # ── Install root: %USERPROFILE%\source\Tools\MigrationPlatform\ ──────────
     $installRoot  = Join-Path $env:USERPROFILE 'source\Tools\MigrationPlatform'
     $versionedDir = Join-Path $installRoot $SemVer
     $currentDir   = Join-Path $installRoot 'current'
 
-    Write-Host "`n==> Installing [$rid] to $versionedDir" -ForegroundColor Cyan
+    Write-Host "`n==> Installing $SemVer [$rid] from package to $versionedDir" -ForegroundColor Cyan
+    Write-Host "  Source: $zip"
 
-    # Copy published CLI binaries into versioned slot
-    $publishedDir = $script:CliMigrationOutByRid[$rid]
+    # Remove any previous install for this version then extract the full package.
+    # The zip contains: CLI at root, ControlPlane/, MigrationAgent/, TfsMigration/ (win-x64).
+    if (Test-Path $versionedDir) {
+        Remove-Item $versionedDir -Recurse -Force
+    }
     New-Item -ItemType Directory -Path $versionedDir -Force | Out-Null
-    Copy-Item -Path (Join-Path $publishedDir '*') -Destination $versionedDir -Recurse -Force
+    Expand-Archive -Path $zip -DestinationPath $versionedDir -Force
 
     # ── Update 'current' junction ────────────────────────────────────────────
     if (Test-Path $currentDir) {
@@ -409,10 +429,14 @@ function Invoke-Install {
     Write-Host "`n==> Install complete!" -ForegroundColor Green
     Write-Host "  Version:       $SemVer"
     Write-Host "  Installed to:  $versionedDir"
+    Write-Host "  Contains:      CLI (root), ControlPlane/, MigrationAgent/, TfsMigration/ (win-x64)"
     Write-Host "  Current link:  $currentDir  ->  $versionedDir"
     Write-Host "  Shim (.cmd):   $cmdShim"
     Write-Host "  Shim (.ps1):   $ps1Shim"
     Write-Host "`n  Run from any terminal: devopsmigrationdev --help" -ForegroundColor Cyan
+
+    # Return the versioned dir so callers can use it (e.g. Start mode)
+    return $versionedDir
 }
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -471,7 +495,7 @@ switch ($Mode) {
     'Package' {
         # ── Publish + zip only (requires prior Build) ────────────────────────
         Invoke-Publish -StagingDir $StagingDir -VersionArgs $VersionArgs
-        Invoke-Package -SemVer $SemVer -StagingDir $StagingDir
+        Invoke-Package -SemVer $SemVer -StagingDir $StagingDir -TargetRids $AllRids
 
         Write-Host "`n==> Package complete!" -ForegroundColor Green
         Write-Host "  Version:    $SemVer"
@@ -487,7 +511,7 @@ switch ($Mode) {
         Invoke-UnitTests
         Invoke-SystemTests
         Invoke-Publish     -StagingDir $StagingDir -VersionArgs $VersionArgs
-        Invoke-Package     -SemVer $SemVer -StagingDir $StagingDir
+        Invoke-Package     -SemVer $SemVer -StagingDir $StagingDir -TargetRids $AllRids
 
         Write-Host "`n==> Full pipeline complete!" -ForegroundColor Green
         Write-Host "  Version:    $SemVer"
@@ -498,22 +522,28 @@ switch ($Mode) {
     }
 
     'Start' {
-        # ── Install for this platform, then launch Aspire ─────────────────────
+        # ── Build + unit tests + package (this platform only) + install, then launch Aspire ──
+        # Aspire uses MIGRATION_INSTALL_PATH to launch the installed ControlPlane and
+        # MigrationAgent executables instead of running them from build output.
         # After this you can run 'devopsmigrationdev' against the running services.
         $localRid = Get-CurrentRid
         Invoke-Build   -VersionArgs $VersionArgs
         Invoke-UnitTests
         Invoke-Publish -StagingDir $StagingDir -VersionArgs $VersionArgs -TargetRids @($localRid)
-        Invoke-Install -SemVer $SemVer
-        Start-AppHost
+        Invoke-Package -SemVer $SemVer -StagingDir $StagingDir -TargetRids @($localRid)
+        $installedDir = Invoke-Install -SemVer $SemVer
+        Start-AppHost -InstallPath $installedDir
     }
 
     'Install' {
-        # ── Build + unit tests + publish (this platform only) + install ───────
+        # ── Build + unit tests + package (this platform only) + extract package to install dir ─
+        # The zip contains the full layout: CLI at root, ControlPlane/, MigrationAgent/,
+        # TfsMigration/ (win-x64 only). Invoke-Install locates the zip and extracts it.
         $localRid = Get-CurrentRid
         Invoke-Build   -VersionArgs $VersionArgs
         Invoke-UnitTests
         Invoke-Publish -StagingDir $StagingDir -VersionArgs $VersionArgs -TargetRids @($localRid)
+        Invoke-Package -SemVer $SemVer -StagingDir $StagingDir -TargetRids @($localRid)
         Invoke-Install -SemVer $SemVer
     }
 }
