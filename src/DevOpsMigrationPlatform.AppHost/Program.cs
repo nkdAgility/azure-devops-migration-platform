@@ -18,11 +18,27 @@
 //     PostgreSQL: Azure PostgreSQL Flexible Server wire protocol (RunAsContainer)
 //     Package storage: Azurite (same BlobContainerClient as production)
 //
+// Installed mode (Start from build.ps1):
+//   When MIGRATION_INSTALL_PATH is set, Aspire launches the ControlPlane and
+//   MigrationAgent executables from that directory instead of from the project
+//   build output. This validates the installed package end-to-end.
+//
 // See docs/aspire-integration.md.
+
+using System.Runtime.InteropServices;
 
 var builder = DistributedApplication.CreateBuilder(args);
 
 var infra = builder.Configuration["DEVOPS_MIGRATION_INFRA"] ?? "portable";
+var installPath = builder.Configuration["MIGRATION_INSTALL_PATH"];
+var useInstalled = !string.IsNullOrEmpty(installPath);
+
+// Helper: resolve the executable path for an installed component.
+static string InstalledExe(string installRoot, string subfolder, string assemblyName)
+{
+    var path = Path.Combine(installRoot, subfolder, assemblyName);
+    return RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? path + ".exe" : path;
+}
 
 if (infra == "docker")
 {
@@ -55,14 +71,33 @@ else
         .WithDataVolume()
         .AddDatabase("controlplane-db");
 
-    var controlPlane = builder.AddProject<Projects.DevOpsMigrationPlatform_ControlPlaneHost>("controlplane")
-        .WithReference(postgres)
-        .WithEnvironment("PackageStore__Type", "filesystem")
-        .WithHttpEndpoint(port: 5100, name: "http");
+    if (useInstalled)
+    {
+        // Installed mode: launch ControlPlane and MigrationAgent from the extracted package.
+        // MIGRATION_INSTALL_PATH points to the versioned install dir (e.g. current/).
+        // Structure: root = CLI, ControlPlane/ = control plane host, MigrationAgent/ = agent.
+        var cpExe = InstalledExe(installPath!, "ControlPlane", "DevOpsMigrationPlatform.ControlPlaneHost");
+        var controlPlane = builder.AddExecutable("controlplane", cpExe, Path.Combine(installPath!, "ControlPlane"))
+            .WithReference(postgres)
+            .WithEnvironment("PackageStore__Type", "filesystem")
+            .WithHttpEndpoint(port: 5100, name: "http");
 
-    builder.AddProject<Projects.DevOpsMigrationPlatform_MigrationAgent>("migration-agent")
-        .WithReference(controlPlane)
-        .WithEnvironment("PackageStore__Type", "filesystem");
+        var agentExe = InstalledExe(installPath!, "MigrationAgent", "DevOpsMigrationPlatform.MigrationAgent");
+        builder.AddExecutable("migration-agent", agentExe, Path.Combine(installPath!, "MigrationAgent"))
+            .WithReference(controlPlane)
+            .WithEnvironment("PackageStore__Type", "filesystem");
+    }
+    else
+    {
+        var controlPlane = builder.AddProject<Projects.DevOpsMigrationPlatform_ControlPlaneHost>("controlplane")
+            .WithReference(postgres)
+            .WithEnvironment("PackageStore__Type", "filesystem")
+            .WithHttpEndpoint(port: 5100, name: "http");
+
+        builder.AddProject<Projects.DevOpsMigrationPlatform_MigrationAgent>("migration-agent")
+            .WithReference(controlPlane)
+            .WithEnvironment("PackageStore__Type", "filesystem");
+    }
 }
 
 builder.Build().Run();
