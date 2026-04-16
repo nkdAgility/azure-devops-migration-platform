@@ -52,7 +52,10 @@ public class InventoryCommandTests
 
         artefactsPath = Environment.ExpandEnvironmentVariables(artefactsPath);
 
-        var outputDir = artefactsPath;
+        // Relative paths are resolved from the repo root (the CLI's working directory).
+        var outputDir = Path.IsPathRooted(artefactsPath)
+            ? artefactsPath
+            : Path.GetFullPath(Path.Combine(repoRoot, artefactsPath));
         var csvPath = Path.Combine(outputDir, "discovery-summary.csv");
 
         if (File.Exists(csvPath))
