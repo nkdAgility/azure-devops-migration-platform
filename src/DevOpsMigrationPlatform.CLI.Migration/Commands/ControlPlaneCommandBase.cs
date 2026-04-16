@@ -33,7 +33,7 @@ public abstract class ControlPlaneCommandBase<TSettings> : CommandBase<TSettings
         if (Host is not null)
             return Host;
 
-        Host = MigrationPlatformHost.CreateDefaultBuilder(args, configureServices).Build();
+        Host = MigrationPlatformHost.CreateDefaultBuilder(GetEffectiveArgs(args), configureServices).Build();
 
         var envOpts = Host.Services.GetRequiredService<IOptions<EnvironmentOptions>>().Value;
         var controlPlaneUrl = envOpts.ControlPlane.BaseUrl;

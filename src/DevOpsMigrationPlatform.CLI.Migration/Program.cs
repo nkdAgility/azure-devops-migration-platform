@@ -102,11 +102,24 @@ internal class Program
                 .WithDescription("Open the interactive Terminal UI showing live job state.")
                 .WithExample("tui");
 
-            // ── Developer convenience (not in canonical CLI spec, retained for ease) ──
-            config.AddCommand<ConfigureCommand>("configure")
-                .WithDescription("Interactive configuration wizard to create migration settings.")
-                .WithExample("configure")
-                .WithExample("configure", "--output", "my-migration.json");
+            // ── Configuration management ─────────────────────────────────────────
+            config.AddBranch("config", branch =>
+            {
+                branch.SetDescription("Manage user preferences and create migration configuration files.");
+
+                branch.AddCommand<ConfigNewCommand>("new")
+                    .WithDescription("Interactive configuration wizard to create migration settings.")
+                    .WithExample("config", "new")
+                    .WithExample("config", "new", "--output", "my-migration.json");
+
+                branch.AddCommand<ConfigSetCommand>("set")
+                    .WithDescription("Set a user preference (e.g. scenario-folder).")
+                    .WithExample("config", "set", "scenario-folder", "C:\\migrations\\configs");
+
+                branch.AddCommand<ConfigGetCommand>("get")
+                    .WithDescription("Read a user preference value.")
+                    .WithExample("config", "get", "scenario-folder");
+            });
         });
 
         return await app.RunAsync(args);

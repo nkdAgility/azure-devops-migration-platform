@@ -142,7 +142,23 @@ All configuration flows through the `IOptions<T>` pattern:
 - Configuration classes are bound during host builder setup
 - Services receive configuration via dependency injection, never direct file access
 - Configuration validation occurs during DI container build
-- Default config file resolution: `migration.json` in current working directory when `--config` not specified
+
+### Default `--config` Resolution
+
+When `--config` is not supplied, the CLI resolves a configuration file using the following precedence chain:
+
+| Priority | Source | Behaviour |
+|----------|--------|-----------|
+| 1 | `--config <path>` | Use the supplied path directly, no scan. |
+| 2 | `$Env:MigrationPlatform_Scenario_Folder` | Scan that folder for `*.json` files and present a selection prompt. |
+| 3 | `preferences.json` → `scenario-folder` | Same scan-and-prompt behaviour. |
+| 4 | `./scenarios` subfolder of cwd | Dev default — the repo ships this folder. |
+| 5 | `*.json` files in cwd | Last fallback scan. |
+| 6 | Nothing found | Warning message with guidance. |
+
+When multiple JSON files are found, a `Spectre.Console` `SelectionPrompt` lets the operator pick one interactively. When exactly one file is found, it is used automatically.
+
+The interactive prompt runs inside the command's `ExecuteInternalAsync` (before `CreateHost` is called). `MigrationPlatformHost.ExtractConfigFileArg` remains pure file-system logic — it cannot prompt.
 
 ### Error Handling
 - **Malformed JSON**: Clear error messages with file location and JSON parsing details
@@ -191,6 +207,26 @@ Discovery commands run **locally** and do **not** submit a `MigrationJob` to the
 |---|---|
 | `discovery inventory` | Count work items and revisions per project. Read-only pre-flight operation. Results written to `discovery-summary.csv`. |
 
+### Configuration Management (`config`)
+
+User preference management and migration configuration file creation. Follows the `git config` / `gh config` pattern.
+
+| Command | Description |
+|---|---|
+| `config new` | Interactive wizard to create a new migration configuration file. Accepts `--output` and `--force`. |
+| `config set <key> <value>` | Set a user-level preference. |
+| `config get <key>` | Read a user-level preference value. |
+
+**Preference store**: `preferences.json` in the user's application-data directory:
+- Windows: `%APPDATA%\nkdAgility\devopsmigration\preferences.json`
+- Linux/macOS: `~/.config/devopsmigration/preferences.json`
+
+Supported preference keys:
+
+| Key | Type | Description |
+|-----|------|-------------|
+| `scenario-folder` | path | Default folder scanned when `--config` is omitted. |
+
 ### Terminal UI
 
 | Command | Description |
@@ -220,6 +256,11 @@ devopsmigration manage logout  --url https://migration.example.com
 devopsmigration discovery inventory --config migration.json
 devopsmigration discovery inventory --config migration.json --all-projects
 devopsmigration discovery inventory --config migration.json --output ./reports
+
+devopsmigration config new
+devopsmigration config new --output my-migration.json
+devopsmigration config set scenario-folder C:\migrations\configs
+devopsmigration config get scenario-folder
 
 devopsmigration tui
 ```
