@@ -1,12 +1,12 @@
 assembly-versioning-scheme: MajorMinorPatch
 mode: ContinuousDelivery
-label: 'Canary'
+label: 'canary'
 next-version: 20.0.0
 branches:
   main:
     regex: ^master$|^main$
     mode: ContinuousDelivery
-    label: 'Preview'
+    label: 'preview'
     increment: Patch
   release:
     regex: ^release(s)?[\/-]
