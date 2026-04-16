@@ -38,6 +38,20 @@ Before writing, editing, or suggesting any code, settings, config, or docs chang
 
 **If you have not made those `read_file` tool calls in the current session, stop everything and make them now before continuing.**
 
+### Guardrail Challenge Protocol
+
+Guardrails exist to protect architecture — but they must not force a clearly harmful or counterproductive path. If, during implementation, you determine that a guardrail is producing a **worse outcome** than an alternative approach, you MUST:
+
+1. **Stop immediately.** Do not silently work around the guardrail or implement a suboptimal solution.
+2. **Articulate the conflict.** State which specific guardrail (by number and file) is causing the problem, and explain concretely why it leads to a negative outcome in the current context.
+3. **Propose a replacement.** Offer a specific, precise rewording or amendment to the guardrail that would resolve the conflict while preserving the original architectural intent.
+4. **Ask the human to decide.** Present two clear options:
+   - **Option A — Change the guardrail:** adopt the proposed amendment and then implement accordingly.
+   - **Option B — Keep the guardrail:** accept the current constraint and implement within it, understanding the trade-off.
+5. **Wait for a decision.** Do not proceed until the human confirms which option to take.
+
+Blindly following a flawed rule is not compliance — it is negligence. Silently ignoring a rule is a violation. The only acceptable response to a guardrail conflict is a transparent challenge.
+
 ### Mandatory Compliance Review Loop
 
 After completing any unit of work (a logical change, a file edit, a task), before marking it done:

@@ -103,19 +103,66 @@ $AgentProject        = Join-Path $RepoRoot 'src/DevOpsMigrationPlatform.Migratio
 # Only win-x64 gets the tfsmigration/ subfolder; TfsMigration (net481) is Windows-only.
 $AllRids = @('win-x64', 'win-arm64', 'linux-x64', 'osx-x64', 'osx-arm64')
 
-Write-Host "`n==> Mode: $Mode" -ForegroundColor Magenta
-
 # ─────────────────────────────────────────────────────────────────────────────
 # Helpers
 # ─────────────────────────────────────────────────────────────────────────────
+$script:StepTimings = [System.Collections.Generic.List[PSCustomObject]]::new()
+$script:BuildStart  = [System.Diagnostics.Stopwatch]::StartNew()
+
+function Write-Banner {
+    param([string]$SemVer, [string]$Mode)
+    $width = 60
+    $line  = '═' * $width
+    Write-Host ""
+    Write-Host $line -ForegroundColor DarkCyan
+    Write-Host ('  Azure DevOps Migration Platform  —  build.ps1') -ForegroundColor Cyan
+    Write-Host ('  Version : {0}' -f $SemVer) -ForegroundColor White
+    Write-Host ('  Mode    : {0}' -f $Mode) -ForegroundColor White
+    Write-Host $line -ForegroundColor DarkCyan
+    Write-Host ""
+}
+
 function Invoke-Step {
     param([string]$Description, [scriptblock]$Action)
     Write-Host "`n==> $Description" -ForegroundColor Cyan
+    $sw = [System.Diagnostics.Stopwatch]::StartNew()
     & $Action
+    $sw.Stop()
+    $script:StepTimings.Add([PSCustomObject]@{ Step = $Description; Elapsed = $sw.Elapsed })
     if ($LASTEXITCODE -ne 0) {
         Write-Error "Step failed: $Description (exit code $LASTEXITCODE)"
         exit $LASTEXITCODE
     }
+}
+
+function Write-BuildSummary {
+    $script:BuildStart.Stop()
+    $total = $script:BuildStart.Elapsed
+
+    Write-Host ""
+    Write-Host ('─' * 60) -ForegroundColor DarkGray
+    Write-Host '  Build Summary' -ForegroundColor White
+    Write-Host ('─' * 60) -ForegroundColor DarkGray
+
+    foreach ($entry in $script:StepTimings) {
+        $t = $entry.Elapsed
+        $formatted = if ($t.TotalMinutes -ge 1) {
+            '{0}m {1:D2}s' -f [int]$t.TotalMinutes, $t.Seconds
+        } else {
+            '{0:D2}s {1:D3}ms' -f $t.Seconds, $t.Milliseconds
+        }
+        Write-Host ('  {0,-45} {1,10}' -f $entry.Step, $formatted) -ForegroundColor Gray
+    }
+
+    Write-Host ('─' * 60) -ForegroundColor DarkGray
+    $tf = if ($total.TotalMinutes -ge 1) {
+        '{0}m {1:D2}s' -f [int]$total.TotalMinutes, $total.Seconds
+    } else {
+        '{0:D2}s {1:D3}ms' -f $total.Seconds, $total.Milliseconds
+    }
+    Write-Host ('  {0,-45} {1,10}' -f 'TOTAL', $tf) -ForegroundColor White
+    Write-Host ('─' * 60) -ForegroundColor DarkGray
+    Write-Host ''
 }
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -459,6 +506,8 @@ Write-Host "  SemVer:               $SemVer"
 Write-Host "  AssemblySemVer:       $AssemblySemVer"
 Write-Host "  InformationalVersion: $InformationalVersion"
 
+Write-Banner -SemVer $SemVer -Mode $Mode
+
 $VersionArgs = @(
     "/p:Version=$SemVer",
     "/p:FileVersion=$AssemblySemVer",
@@ -476,6 +525,7 @@ switch ($Mode) {
 
         Write-Host "`n==> Build complete!" -ForegroundColor Green
         Write-Host "  Version: $SemVer"
+        Write-BuildSummary
     }
 
     'Test' {
@@ -483,6 +533,7 @@ switch ($Mode) {
         Invoke-UnitTests
 
         Write-Host "`n==> Unit tests complete!" -ForegroundColor Green
+        Write-BuildSummary
     }
 
     'SystemTest' {
@@ -490,6 +541,7 @@ switch ($Mode) {
         Invoke-SystemTests
 
         Write-Host "`n==> System tests complete!" -ForegroundColor Green
+        Write-BuildSummary
     }
 
     'Package' {
@@ -503,6 +555,7 @@ switch ($Mode) {
         Get-ChildItem -Path $ArtifactsDir -Filter '*.zip' | ForEach-Object {
             Write-Host "    $($_.Name)"
         }
+        Write-BuildSummary
     }
 
     'Full' {
@@ -519,6 +572,7 @@ switch ($Mode) {
         Get-ChildItem -Path $ArtifactsDir -Filter '*.zip' | ForEach-Object {
             Write-Host "    $($_.Name)"
         }
+        Write-BuildSummary
     }
 
     'Start' {
@@ -532,6 +586,7 @@ switch ($Mode) {
         Invoke-Publish -StagingDir $StagingDir -VersionArgs $VersionArgs -TargetRids @($localRid)
         Invoke-Package -SemVer $SemVer -StagingDir $StagingDir -TargetRids @($localRid)
         $installedDir = Invoke-Install -SemVer $SemVer
+        Write-BuildSummary
         Start-AppHost -InstallPath $installedDir
     }
 
@@ -545,5 +600,6 @@ switch ($Mode) {
         Invoke-Publish -StagingDir $StagingDir -VersionArgs $VersionArgs -TargetRids @($localRid)
         Invoke-Package -SemVer $SemVer -StagingDir $StagingDir -TargetRids @($localRid)
         Invoke-Install -SemVer $SemVer
+        Write-BuildSummary
     }
 }

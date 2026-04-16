@@ -9,6 +9,7 @@ using Microsoft.TeamFoundation.WorkItemTracking.Client;
 using Microsoft.TeamFoundation.WorkItemTracking.Proxy;
 using Microsoft.VisualStudio.Services.Client;
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Services;
 using DevOpsMigrationPlatform.Infrastructure.Checkpointing;
 using DevOpsMigrationPlatform.Infrastructure.Storage;
 using DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.Services;
@@ -42,7 +43,7 @@ public static class MigrationPlatformHost
 
         /// <summary>
         /// How often (by revision count) a <see cref="MetricSnapshot"/> is embedded
-        /// in the yielded <see cref="WorkItemMigrationProgress.Metrics"/> field.
+        /// in the yielded <see cref="ProgressEvent.Metrics"/> field.
         /// Default: 100.
         /// </summary>
         public int SubprocessSnapshotRevisionInterval { get; set; } = 100;
@@ -82,7 +83,7 @@ public static class MigrationPlatformHost
                 new FileSystemArtefactStore(settings.OutputFolder));
             services.AddSingleton<IStateStore>(_ =>
                 new FileSystemStateStore(settings.OutputFolder));
-            services.AddSingleton<IWorkItemWatermarkStore, FileSystemWorkItemWatermarkStore>();
+            services.AddSingleton<ICheckpointingService, CheckpointingService>();
 
             // TFS connection
             services.AddSingleton<TfsTeamProjectCollection>(_ =>
@@ -96,7 +97,7 @@ public static class MigrationPlatformHost
             services.AddSingleton<WorkItemStore>(sp =>
             {
                 var collection = sp.GetRequiredService<TfsTeamProjectCollection>();
-                return collection.GetService<WorkItemStore>();
+                return new WorkItemStore(collection, WorkItemStoreFlags.BypassRules);
             });
 
             services.AddSingleton<WorkItemServer>(sp =>
@@ -110,7 +111,29 @@ public static class MigrationPlatformHost
             services.AddSingleton<IAttachmentDownloader, TfsAttachmentDownloader>();
             services.AddSingleton<IWorkItemExportMetrics, WorkItemExportMetrics>();
             services.AddSingleton<IAttachmentDownloadMetrics, AttachmentDownloadMetrics>();
-            services.AddSingleton<IWorkItemExportService, WorkItemExportService>();
+            services.AddSingleton<TfsWorkItemQueryWindowStrategy>();
+            services.AddSingleton<IWorkItemDiscoveryService, TfsObjectModelWorkItemDiscoveryService>();
+            services.AddSingleton<IProjectDiscoveryService, TfsProjectDiscoveryService>();
+
+            // Port interface wiring — TFS sources share a TfsAttachmentRegistry so that
+            // attachment IDs registered during revision enumeration can be resolved during
+            // binary download.  This keeps all TFS SDK types confined to the composition root.
+            services.AddSingleton<TfsAttachmentRegistry>();
+            var wiqlQuery = $"SELECT * FROM WorkItems WHERE [System.TeamProject] = '{settings.Project}'";
+            services.AddSingleton<IWorkItemRevisionSource>(sp =>
+                new TfsWorkItemRevisionSource(
+                    sp.GetRequiredService<WorkItemStore>(),
+                    sp.GetRequiredService<IWorkItemRevisionMapper>(),
+                    sp.GetRequiredService<TfsWorkItemQueryWindowStrategy>(),
+                    sp.GetRequiredService<TfsAttachmentRegistry>(),
+                    settings.Project,
+                    wiqlQuery,
+                    sp.GetRequiredService<ILogger<TfsWorkItemRevisionSource>>()));
+            services.AddSingleton<IAttachmentBinarySource>(sp =>
+                new TfsAttachmentBinarySource(
+                    sp.GetRequiredService<IAttachmentDownloader>(),
+                    sp.GetRequiredService<TfsAttachmentRegistry>(),
+                    sp.GetRequiredService<ILogger<TfsAttachmentBinarySource>>()));
 
             // OpenTelemetry (console exporter — configure real exporter via appsettings)
             services.AddOpenTelemetry()

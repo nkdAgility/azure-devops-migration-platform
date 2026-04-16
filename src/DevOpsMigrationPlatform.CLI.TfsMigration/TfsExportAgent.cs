@@ -2,54 +2,53 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Infrastructure.Export;
 
 namespace DevOpsMigrationPlatform.CLI.TfsMigration;
 
 /// <summary>
-/// The .NET 4.8 export executor.  Structural parallel of the .NET 10 MigrationAgent.
-/// Receives a job definition, delegates to IWorkItemExportService, and emits all
-/// progress through IProgressSink — no Console writes or UI coupling here.
+/// The .NET 4.8 export executor. Structural parallel of the .NET 10 MigrationAgent.
+/// Delegates to <see cref="WorkItemExportOrchestrator"/> with port interfaces only —
+/// no TFS SDK types cross this boundary.
+/// Emits all progress through <see cref="IProgressSink"/> — no Console writes or UI coupling.
 /// See docs/tfs-exporter.md.
 /// </summary>
 public sealed class TfsExportAgent
 {
-    private readonly IWorkItemExportService _exportService;
+    private readonly IArtefactStore _artefactStore;
+    private readonly ICheckpointingService _checkpointingService;
+    private readonly IWorkItemRevisionSource _revisionSource;
+    private readonly IAttachmentBinarySource _attachmentSource;
 
-    public TfsExportAgent(IWorkItemExportService exportService)
+    public TfsExportAgent(
+        IArtefactStore artefactStore,
+        ICheckpointingService checkpointingService,
+        IWorkItemRevisionSource revisionSource,
+        IAttachmentBinarySource attachmentSource)
     {
-        _exportService = exportService ?? throw new ArgumentNullException(nameof(exportService));
+        _artefactStore = artefactStore ?? throw new ArgumentNullException(nameof(artefactStore));
+        _checkpointingService = checkpointingService ?? throw new ArgumentNullException(nameof(checkpointingService));
+        _revisionSource = revisionSource ?? throw new ArgumentNullException(nameof(revisionSource));
+        _attachmentSource = attachmentSource ?? throw new ArgumentNullException(nameof(attachmentSource));
     }
 
     /// <summary>
-    /// Run the export for the given collection / project / query.
+    /// Run the export.
     /// All progress is emitted via <paramref name="progressSink"/>; the method
     /// throws on non-recoverable failure so the caller can exit non-zero.
     /// </summary>
     public async Task RunAsync(
-        string collectionUrl,
-        string project,
-        string wiqlQuery,
         IProgressSink progressSink,
         CancellationToken cancellationToken)
     {
         if (progressSink == null) throw new ArgumentNullException(nameof(progressSink));
 
-        await foreach (var progress in _exportService
-            .ExportWorkItemsAsync(collectionUrl, project, wiqlQuery, progressSink, cancellationToken)
-            .ConfigureAwait(false))
-        {
-            progressSink.Emit(new ProgressEvent
-            {
-                Module = "WorkItems",
-                Stage = "Exporting",
-                TotalWorkItems = progress.TotalWorkItems,
-                WorkItemsProcessed = progress.WorkItemsProcessed,
-                RevisionsProcessed = progress.RevisionsProcessed,
-                WorkItemId = progress.WorkItemId,
-                Message = progress.Message,
-                Timestamp = new DateTimeOffset(progress.Timestamp, TimeSpan.Zero),
-                Metrics = progress.Metrics
-            });
-        }
+        var orchestrator = new WorkItemExportOrchestrator(
+            _artefactStore,
+            _checkpointingService,
+            _attachmentSource,
+            progressSink);
+
+        await orchestrator.ExportAsync(_revisionSource, cancellationToken).ConfigureAwait(false);
     }
 }

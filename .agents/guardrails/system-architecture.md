@@ -2,6 +2,19 @@
 
 These rules are non-negotiable. They are distilled from the full reference set in [docs/](../../docs/). In any conflict between these rules and any documentation in `/docs`, **these rules win**. The docs define architectural intent; the `.agents/guardrails` files enforce it. The binding entry point is [agents.md](../../agents.md).
 
+## Guardrail Challenge Protocol
+
+These rules are non-negotiable by default — but they are authored by humans and may contain errors or assumptions that do not hold in every context. If an agent determines that a rule below is forcing a **clearly worse outcome**, the agent MUST:
+
+1. **Stop** — do not implement the suboptimal path.
+2. **Identify** — cite the exact rule number and explain the concrete negative consequence.
+3. **Propose** — offer a specific replacement or amendment that preserves the architectural intent.
+4. **Ask** — present "change the guardrail" vs. "keep the guardrail" as explicit options and wait for a human decision.
+
+Silently working around a rule = violation. Blindly following a harmful rule = negligence. Transparent challenge = expected.
+
+---
+
 ## Absolute Rules
 
 1. **WorkItems chronological layout is canonical.**

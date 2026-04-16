@@ -1,66 +1,55 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Threading;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Services;
-using Microsoft.TeamFoundation.Client;
 using Microsoft.TeamFoundation.WorkItemTracking.Client;
 
 namespace DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.Services;
 
 /// <summary>
 /// TFS Object Model implementation of <see cref="IWorkItemDiscoveryService"/>.
-/// Uses the COM-based WorkItemStore to enumerate work items and count revisions.
+/// Uses the injected <see cref="WorkItemStore"/> and <see cref="TfsWorkItemQueryWindowStrategy"/>
+/// to enumerate work items and count revisions in a streaming, memory-safe manner.
 /// Runs in the .NET Framework 4.8.1 subprocess.
 /// </summary>
 public sealed class TfsObjectModelWorkItemDiscoveryService : IWorkItemDiscoveryService
 {
+    private readonly WorkItemStore _workItemStore;
+    private readonly TfsWorkItemQueryWindowStrategy _windowStrategy;
+
+    public TfsObjectModelWorkItemDiscoveryService(
+        WorkItemStore workItemStore,
+        TfsWorkItemQueryWindowStrategy windowStrategy)
+    {
+        _workItemStore = workItemStore ?? throw new ArgumentNullException(nameof(workItemStore));
+        _windowStrategy = windowStrategy ?? throw new ArgumentNullException(nameof(windowStrategy));
+    }
+
     public async IAsyncEnumerable<ProjectDiscoverySummary> DiscoverWorkItemsAsync(
         string collectionUrl,
         string project,
         string pat,
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
-        var credentials = new System.Net.NetworkCredential(string.Empty, pat);
-        var tfsUri = new Uri(collectionUrl);
-        var tpc = new TfsTeamProjectCollection(tfsUri, credentials);
-        tpc.EnsureAuthenticated();
-
-        var store = tpc.GetService<WorkItemStore>();
-
-        var wiql = $"SELECT [System.Id] FROM WorkItems " +
-                   $"WHERE [System.TeamProject] = '{EscapeWiql(project)}' " +
-                   $"ORDER BY [System.Id]";
-
-        var query = new Query(store, wiql);
-        var results = query.RunCountQuery();
-
         var summary = new ProjectDiscoverySummary { ProjectName = project };
 
-        // Page through work items to count IDs and revisions
-        var idQuery = new Query(store, wiql);
-        var workItemIds = idQuery.RunQuery()
-            .Cast<WorkItem>()
-            .Select(wi => wi.Id)
-            .ToList();
-
-        const int batchSize = 200;
-        var processed = 0;
-
-        foreach (var batch in Chunk(workItemIds, batchSize))
+        await foreach (var window in _windowStrategy
+            .EnumerateWindowsAsync(collectionUrl, project, pat, cancellationToken: cancellationToken)
+            .ConfigureAwait(false))
         {
-            cancellationToken.ThrowIfCancellationRequested();
+            if (window.WorkItemIds.Count == 0)
+                continue;
 
-            foreach (var id in batch)
+            foreach (var id in window.WorkItemIds)
             {
-                var wi = store.GetWorkItem(id);
+                cancellationToken.ThrowIfCancellationRequested();
+                var wi = _workItemStore.GetWorkItem(id);
                 summary.WorkItemsCount++;
                 summary.RevisionsCount += wi.Revisions.Count;
             }
 
-            processed += batch.Count;
             summary.LastUpdatedUtc = DateTime.UtcNow;
             yield return summary;
         }
@@ -83,16 +72,6 @@ public sealed class TfsObjectModelWorkItemDiscoveryService : IWorkItemDiscoveryS
         CancellationToken cancellationToken = default)
         => DiscoverWorkItemsAsync(url, project, pat, cancellationToken);
 
-    private static string EscapeWiql(string value)
-        => value.Replace("'", "''");
-
-    private static List<List<T>> Chunk<T>(List<T> source, int chunkSize)
-    {
-        var chunks = new List<List<T>>();
-        for (var i = 0; i < source.Count; i += chunkSize)
-        {
-            chunks.Add(source.GetRange(i, Math.Min(chunkSize, source.Count - i)));
-        }
-        return chunks;
-    }
+    private static string EscapeWiql(string value) => value.Replace("'", "''");
 }
+
