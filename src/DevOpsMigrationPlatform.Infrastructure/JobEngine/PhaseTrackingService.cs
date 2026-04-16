@@ -6,7 +6,7 @@ using DevOpsMigrationPlatform.Abstractions;
 
 namespace DevOpsMigrationPlatform.Infrastructure.JobEngine;
 
-public class PhaseTrackingService
+public class PhaseTrackingService : IPhaseTrackingService
 {
     private const string PhaseKey = "Checkpoints/job.phase.json";
 

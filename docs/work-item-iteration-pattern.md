@@ -236,11 +236,13 @@ The orchestrator writes each binary directly via `IArtefactStore.WriteBinaryAsyn
 For fetching inline comments during export:
 
 ```csharp
+// DevOpsMigrationPlatform.Abstractions
 public interface IWorkItemCommentSourceFactory
 {
     IWorkItemCommentSource Create(string orgUrl, string project, string pat);
 }
 
+// DevOpsMigrationPlatform.Abstractions.Services
 public interface IWorkItemCommentSource
 {
     IAsyncEnumerable<WorkItemComment> GetCommentsAsync(

@@ -6,8 +6,6 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
-using DevOpsMigrationPlatform.Infrastructure.Checkpointing;
-using DevOpsMigrationPlatform.Infrastructure.JobEngine;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 
@@ -32,6 +30,8 @@ public sealed class MigrationAgentWorker : BackgroundService
     private readonly ActiveLeaseState _leaseState;
     private readonly ActivePackageState _packageState;
     private readonly IHttpClientFactory _httpClientFactory;
+    private readonly ICheckpointingServiceFactory _checkpointingFactory;
+    private readonly IPhaseTrackingServiceFactory _phaseTrackingFactory;
     private readonly ILogger<MigrationAgentWorker> _logger;
 
     public MigrationAgentWorker(
@@ -41,6 +41,8 @@ public sealed class MigrationAgentWorker : BackgroundService
         ActiveLeaseState leaseState,
         ActivePackageState packageState,
         IHttpClientFactory httpClientFactory,
+        ICheckpointingServiceFactory checkpointingFactory,
+        IPhaseTrackingServiceFactory phaseTrackingFactory,
         ILogger<MigrationAgentWorker> logger)
     {
         _modules = modules;
@@ -49,6 +51,8 @@ public sealed class MigrationAgentWorker : BackgroundService
         _leaseState = leaseState;
         _packageState = packageState;
         _httpClientFactory = httpClientFactory;
+        _checkpointingFactory = checkpointingFactory;
+        _phaseTrackingFactory = phaseTrackingFactory;
         _logger = logger;
     }
 
@@ -113,8 +117,8 @@ public sealed class MigrationAgentWorker : BackgroundService
         // Publish the store so package-writing sinks (loggers, progress) can access it.
         _packageState.CurrentStore = artefactStore;
 
-        var checkpointer = new CheckpointingService(stateStore);
-        var phaseTracker = new PhaseTrackingService(stateStore);
+        var checkpointer = _checkpointingFactory.Create(stateStore);
+        var phaseTracker = _phaseTrackingFactory.Create(stateStore);
 
         // 3. If ForceFresh, delete all module cursors and phase record before running (idmap preserved).
         if (lease.Job.Resume?.Mode == ResumeMode.ForceFresh)

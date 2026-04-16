@@ -2,7 +2,6 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
-using DevOpsMigrationPlatform.Infrastructure.Modules;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Moq;
 using Reqnroll;
@@ -140,7 +139,7 @@ public class ImportCommentsSteps
     {
         _ctx.Extensions = new WorkItemsModuleExtensions
         {
-            Comments = new DevOpsMigrationPlatform.Infrastructure.Modules.CommentsExtensionOptions { Enabled = false }
+            Comments = new CommentsExtensionOptions { Enabled = false }
         };
     }
 

@@ -1,4 +1,4 @@
-namespace DevOpsMigrationPlatform.Infrastructure.Modules;
+namespace DevOpsMigrationPlatform.Abstractions;
 
 /// <summary>
 /// Options for the WorkItems Comments sub-module extension.

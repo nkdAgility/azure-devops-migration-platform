@@ -2,6 +2,13 @@ installed: []
 settings:
   auto_execute_hooks: true
 hooks:
+  after_plan:
+  - extension: hexagonal-check
+    command: hexagonal-check
+    enabled: true
+    optional: false
+    description: Scan the generated plan for Hexagonal Architecture violations before task generation begins
+    condition: null
   after_tasks:
   - extension: ralph
     command: speckit.ralph.run

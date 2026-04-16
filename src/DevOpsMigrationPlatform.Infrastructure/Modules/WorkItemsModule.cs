@@ -6,7 +6,6 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
-using DevOpsMigrationPlatform.Infrastructure.Checkpointing;
 using DevOpsMigrationPlatform.Infrastructure.Export;
 using DevOpsMigrationPlatform.Infrastructure.Import;
 using Microsoft.Extensions.Logging;
@@ -37,25 +36,34 @@ public sealed class WorkItemsModule : IModule
     private readonly IWorkItemImportTargetFactory _importTargetFactory;
     private readonly IWorkItemResolutionStrategyFactory _resolutionStrategyFactory;
     private readonly IIdentityMappingService _identityMappingService;
+    private readonly ICheckpointingServiceFactory _checkpointingFactory;
+    private readonly IIdMapStoreFactory _idMapStoreFactory;
+    private readonly IRevisionFolderProcessorFactory _processorFactory;
     private readonly ILogger<WorkItemsModule> _logger;
-    private readonly Microsoft.Extensions.Logging.ILoggerFactory _loggerFactory;
+    private readonly ILogger<WorkItemImportOrchestrator> _orchestratorLogger;
 
     public WorkItemsModule(
         IWorkItemRevisionSourceFactory sourceFactory,
         ILogger<WorkItemsModule> logger,
-        Microsoft.Extensions.Logging.ILoggerFactory loggerFactory,
+        ILogger<WorkItemImportOrchestrator> orchestratorLogger,
         IWorkItemImportTargetFactory importTargetFactory,
         IWorkItemResolutionStrategyFactory resolutionStrategyFactory,
         IIdentityMappingService identityMappingService,
+        ICheckpointingServiceFactory checkpointingFactory,
+        IIdMapStoreFactory idMapStoreFactory,
+        IRevisionFolderProcessorFactory processorFactory,
         IAttachmentBinarySource? attachmentBinarySource = null,
         IWorkItemCommentSourceFactory? inlineCommentSourceFactory = null)
     {
         _sourceFactory = sourceFactory ?? throw new ArgumentNullException(nameof(sourceFactory));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
-        _loggerFactory = loggerFactory ?? throw new ArgumentNullException(nameof(loggerFactory));
+        _orchestratorLogger = orchestratorLogger ?? throw new ArgumentNullException(nameof(orchestratorLogger));
         _importTargetFactory = importTargetFactory ?? throw new ArgumentNullException(nameof(importTargetFactory));
         _resolutionStrategyFactory = resolutionStrategyFactory ?? throw new ArgumentNullException(nameof(resolutionStrategyFactory));
         _identityMappingService = identityMappingService ?? throw new ArgumentNullException(nameof(identityMappingService));
+        _checkpointingFactory = checkpointingFactory ?? throw new ArgumentNullException(nameof(checkpointingFactory));
+        _idMapStoreFactory = idMapStoreFactory ?? throw new ArgumentNullException(nameof(idMapStoreFactory));
+        _processorFactory = processorFactory ?? throw new ArgumentNullException(nameof(processorFactory));
         _attachmentBinarySource = attachmentBinarySource;
         _inlineCommentSourceFactory = inlineCommentSourceFactory;
     }
@@ -84,7 +92,7 @@ public sealed class WorkItemsModule : IModule
             .CreateAsync(orgUrl, project, pat, ext.Query, ct)
             .ConfigureAwait(false);
 
-        var checkpointingService = new CheckpointingService(context.StateStore);
+        var checkpointingService = _checkpointingFactory.Create(context.StateStore);
 
         // Comments extension gates inline comment fetching.
         var inlineFactory = ext.Comments.Enabled ? _inlineCommentSourceFactory : null;
@@ -125,7 +133,7 @@ public sealed class WorkItemsModule : IModule
             orgUrl, project, ext.RevisionsEnabled, ext.LinksEnabled, ext.AttachmentsEnabled, ext.Comments.Enabled);
 
         var target = await _importTargetFactory.CreateAsync(targetType, orgUrl, project, pat, ct).ConfigureAwait(false);
-        var checkpointingService = new CheckpointingService(context.StateStore);
+        var checkpointingService = _checkpointingFactory.Create(context.StateStore);
 
         // Resolve the strategy at execution time — the factory creates the correct implementation
         // based on the module config and target connection parameters.
@@ -135,18 +143,15 @@ public sealed class WorkItemsModule : IModule
 
         // Derive the SQLite idmap.db path from the package URI
         var dbFilePath = ResolveIdMapPath(job.Artefacts.PackageUri);
-        var idMapStore = new SqliteIdMapStore(dbFilePath);
+        var idMapStore = _idMapStoreFactory.Create(dbFilePath);
 
-        var processorLogger = _loggerFactory.CreateLogger<RevisionFolderProcessor>();
-        var processor = new RevisionFolderProcessor(
+        var processor = _processorFactory.Create(
             target,
             idMapStore,
             checkpointingService,
             _identityMappingService,
-            context.ArtefactStore,
-            processorLogger);
+            context.ArtefactStore);
 
-        var orchestratorLogger = _loggerFactory.CreateLogger<WorkItemImportOrchestrator>();
         var orchestrator = new WorkItemImportOrchestrator(
             context.ArtefactStore,
             checkpointingService,
@@ -155,7 +160,7 @@ public sealed class WorkItemsModule : IModule
             idMapStore,
             processor,
             target,
-            orchestratorLogger);
+            _orchestratorLogger);
 
         var resumeMode = job.Resume?.Mode ?? ResumeMode.Auto;
         await orchestrator.ImportAsync(ext, resumeMode, ct).ConfigureAwait(false);

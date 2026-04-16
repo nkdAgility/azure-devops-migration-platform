@@ -1,16 +1,12 @@
 #if !NET481
 using System.Threading;
 using System.Threading.Tasks;
-using DevOpsMigrationPlatform.Abstractions;
-using DevOpsMigrationPlatform.Infrastructure.Modules;
 
-namespace DevOpsMigrationPlatform.Infrastructure.Import;
+namespace DevOpsMigrationPlatform.Abstractions;
 
 /// <summary>
 /// Processes a single revision folder through the four import stages
 /// (CreatedOrUpdated → AppliedFields → AppliedLinks → UploadedAttachments → Completed).
-/// Defined in <c>Infrastructure</c> (not <c>Abstractions</c>) because it depends on
-/// <see cref="WorkItemsModuleExtensions"/>, which is an infrastructure-only type.
 /// </summary>
 public interface IRevisionFolderProcessor
 {

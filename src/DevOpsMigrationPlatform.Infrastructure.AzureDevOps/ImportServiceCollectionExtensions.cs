@@ -1,5 +1,6 @@
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Import;
+using DevOpsMigrationPlatform.Infrastructure.Checkpointing;
 using DevOpsMigrationPlatform.Infrastructure.Import;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -29,6 +30,9 @@ public static class ImportServiceCollectionExtensions
         services.AddSingleton<IWorkItemImportTargetFactory, AzureDevOpsWorkItemImportTargetFactory>();
         services.AddSingleton<IWorkItemResolutionStrategyFactory, AzureDevOpsResolutionStrategyFactory>();
         services.AddSingleton<IIdentityMappingService, PassThroughIdentityMappingService>();
+        services.AddSingleton<ICheckpointingServiceFactory, CheckpointingServiceFactory>();
+        services.AddSingleton<IIdMapStoreFactory, IdMapStoreFactory>();
+        services.AddSingleton<IRevisionFolderProcessorFactory, RevisionFolderProcessorFactory>();
         return services;
     }
 }

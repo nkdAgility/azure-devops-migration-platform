@@ -111,7 +111,7 @@ public class ExportCommentsSteps
             .Returns((int id, bool includeDeleted, CancellationToken ct) =>
                 _context.Comments!.ToAsyncEnumerable(ct));
 
-        var mockCommentFactory = new Mock<Infrastructure.Export.IWorkItemCommentSourceFactory>();
+        var mockCommentFactory = new Mock<IWorkItemCommentSourceFactory>();
         mockCommentFactory
             .Setup(f => f.Create(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
             .Returns(_context.MockCommentSource.Object);
@@ -357,7 +357,7 @@ public class ExportCommentsSteps
             .Returns((int id, bool includeDeleted, CancellationToken ct) =>
                 _context.Comments!.ToAsyncEnumerable(ct));
 
-        var mockFactory1 = new Mock<Infrastructure.Export.IWorkItemCommentSourceFactory>();
+        var mockFactory1 = new Mock<IWorkItemCommentSourceFactory>();
         mockFactory1.Setup(f => f.Create(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
             .Returns(mockCommentSource1.Object);
 
@@ -391,7 +391,7 @@ public class ExportCommentsSteps
             .Returns((int id, bool includeDeleted, CancellationToken ct) =>
                 _context.NewComments!.ToAsyncEnumerable(ct));
 
-        var mockFactory2 = new Mock<Infrastructure.Export.IWorkItemCommentSourceFactory>();
+        var mockFactory2 = new Mock<IWorkItemCommentSourceFactory>();
         mockFactory2.Setup(f => f.Create(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
             .Returns(mockCommentSource2.Object);
 

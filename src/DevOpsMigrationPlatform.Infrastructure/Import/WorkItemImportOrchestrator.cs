@@ -7,8 +7,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Models;
-using DevOpsMigrationPlatform.Infrastructure.Checkpointing;
-using DevOpsMigrationPlatform.Infrastructure.Modules;
 using Microsoft.Extensions.Logging;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Import;

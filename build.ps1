@@ -22,15 +22,24 @@
       Full        — Build + Test + SystemTest + Package in sequence.
                     Use for Preview (push to main) and Production releases.
 
-      Start       — Everything in Full, then launches the Aspire AppHost
-                    (ControlPlane + MigrationAgent) for local developer
-                    simulation of the production topology. Ctrl-C to stop.
+      Start       — Install (build + unit test + publish + install to versioned
+                    folder + update 'current' junction), then launches the
+                    Aspire AppHost (ControlPlane + MigrationAgent) so you can
+                    run 'devopsmigrationdev' against it. Ctrl-C to stop.
+
+      Install     — Build + Test (unit only) + publish for the current
+                    platform, then installs to
+                    %USERPROFILE%\source\Tools\MigrationPlatform\{version}\
+                    and updates a 'current' junction so that the
+                    'devopsmigrationdev' alias always runs the latest build.
+                    Shim is written to %USERPROFILE%\.dotnet\tools\ which is
+                    already on PATH for any machine with the .NET SDK.
 
     Workflow matrix:
       PR                   :  Build  →  Test  →  SystemTest   (separate steps)
       Preview (main push)  :  Build  →  Test  →  SystemTest  →  Package
       Production (release) :  Build  →  Test  →  SystemTest  →  Package
-      Developer local      :  Full  (or Start to also launch Aspire)
+      Developer local      :  Install  (or Start to also launch Aspire)
 
     Prerequisites:
       - .NET SDK (see global.json)
@@ -66,10 +75,11 @@
     pwsh ./build.ps1 -Mode Package
     pwsh ./build.ps1 -Mode Full
     pwsh ./build.ps1 -Mode Start
+    pwsh ./build.ps1 -Mode Install
     pwsh ./build.ps1 -Version 16.9.3  # Override version
 #>
 param(
-    [ValidateSet('Build', 'Test', 'SystemTest', 'Package', 'Full', 'Start')]
+    [ValidateSet('Build', 'Test', 'SystemTest', 'Package', 'Full', 'Start', 'Install')]
     [string]$Mode = 'Full',
 
     [string]$Version
@@ -91,7 +101,7 @@ $AgentProject        = Join-Path $RepoRoot 'src/DevOpsMigrationPlatform.Migratio
 
 # Runtime identifiers for per-platform publishing.
 # Only win-x64 gets the tfsmigration/ subfolder; TfsMigration (net481) is Windows-only.
-$Rids = @('win-x64', 'win-arm64', 'linux-x64', 'osx-x64', 'osx-arm64')
+$AllRids = @('win-x64', 'win-arm64', 'linux-x64', 'osx-x64', 'osx-arm64')
 
 Write-Host "`n==> Mode: $Mode" -ForegroundColor Magenta
 
@@ -224,13 +234,13 @@ function Invoke-SystemTests {
 }
 
 function Invoke-Publish {
-    param($StagingDir, $VersionArgs)
+    param($StagingDir, $VersionArgs, [string[]]$TargetRids = $script:AllRids)
 
     $script:CliMigrationOutByRid = @{}
     $script:ControlPlaneOutByRid = @{}
     $script:AgentOutByRid        = @{}
 
-    foreach ($rid in $Rids) {
+    foreach ($rid in $TargetRids) {
         # ── CLI (devopsMigration) ────────────────────────────────────────────
         $ridCliOut = Join-Path $StagingDir "cli-migration-$rid"
         $script:CliMigrationOutByRid[$rid] = $ridCliOut
@@ -291,7 +301,7 @@ function Invoke-Publish {
 function Invoke-Package {
     param($SemVer, $StagingDir)
 
-    foreach ($rid in $Rids) {
+    foreach ($rid in $AllRids) {
         Write-Host "`n==> Packaging MigrationTools [$rid]..." -ForegroundColor Cyan
         $zipStaging = Join-Path $StagingDir "zip-staging-$rid"
         New-Item -ItemType Directory -Path $zipStaging -Force | Out-Null
@@ -334,6 +344,75 @@ function Start-AppHost {
     # running after Package ensures the Release binaries are warm.
     dotnet run --project $AppHostProject --configuration Release
     # Non-zero exit (e.g. Ctrl-C) is expected and not treated as a failure here.
+}
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Install helpers
+# ─────────────────────────────────────────────────────────────────────────────
+function Get-CurrentRid {
+    if ($IsWindows) {
+        $arch = [System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture
+        if ($arch -eq [System.Runtime.InteropServices.Architecture]::Arm64) { return 'win-arm64' }
+        return 'win-x64'
+    } elseif ($IsMacOS) {
+        $arch = [System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture
+        if ($arch -eq [System.Runtime.InteropServices.Architecture]::Arm64) { return 'osx-arm64' }
+        return 'osx-x64'
+    } else {
+        return 'linux-x64'
+    }
+}
+
+function Invoke-Install {
+    param([string]$SemVer)
+
+    $rid = Get-CurrentRid
+
+    # ── Install root: %USERPROFILE%\source\Tools\MigrationPlatform\ ──────────
+    $installRoot  = Join-Path $env:USERPROFILE 'source\Tools\MigrationPlatform'
+    $versionedDir = Join-Path $installRoot $SemVer
+    $currentDir   = Join-Path $installRoot 'current'
+
+    Write-Host "`n==> Installing [$rid] to $versionedDir" -ForegroundColor Cyan
+
+    # Copy published CLI binaries into versioned slot
+    $publishedDir = $script:CliMigrationOutByRid[$rid]
+    New-Item -ItemType Directory -Path $versionedDir -Force | Out-Null
+    Copy-Item -Path (Join-Path $publishedDir '*') -Destination $versionedDir -Recurse -Force
+
+    # ── Update 'current' junction ────────────────────────────────────────────
+    if (Test-Path $currentDir) {
+        $existing = Get-Item $currentDir -Force
+        if ($existing.LinkType -in @('Junction', 'SymbolicLink')) {
+            [System.IO.Directory]::Delete($currentDir)   # removes link only, not target
+        } else {
+            Remove-Item $currentDir -Recurse -Force
+        }
+    }
+    New-Item -ItemType Junction -Path $currentDir -Target $versionedDir | Out-Null
+
+    # ── Write shim to %USERPROFILE%\.dotnet\tools\ ───────────────────────────
+    # That directory is added to PATH automatically by the .NET SDK installer.
+    $shimDir = Join-Path $env:USERPROFILE '.dotnet\tools'
+    New-Item -ItemType Directory -Path $shimDir -Force | Out-Null
+
+    # CMD shim — works in cmd.exe, PowerShell, and Windows Terminal
+    $cmdShim = Join-Path $shimDir 'devopsmigrationdev.cmd'
+    "@echo off`r`n""%USERPROFILE%\source\Tools\MigrationPlatform\current\devopsmigration.exe"" %*" |
+        Set-Content -Path $cmdShim -Encoding ASCII
+
+    # PS1 shim — explicit PowerShell invocation path
+    $ps1Shim = Join-Path $shimDir 'devopsmigrationdev.ps1'
+    "& (Join-Path `$env:USERPROFILE 'source\Tools\MigrationPlatform\current\devopsmigration.exe') @args" |
+        Set-Content -Path $ps1Shim
+
+    Write-Host "`n==> Install complete!" -ForegroundColor Green
+    Write-Host "  Version:       $SemVer"
+    Write-Host "  Installed to:  $versionedDir"
+    Write-Host "  Current link:  $currentDir  ->  $versionedDir"
+    Write-Host "  Shim (.cmd):   $cmdShim"
+    Write-Host "  Shim (.ps1):   $ps1Shim"
+    Write-Host "`n  Run from any terminal: devopsmigrationdev --help" -ForegroundColor Cyan
 }
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -419,12 +498,22 @@ switch ($Mode) {
     }
 
     'Start' {
-        # ── Developer local: full pipeline + launch Aspire ───────────────────
-        Invoke-Build       -VersionArgs $VersionArgs
+        # ── Install for this platform, then launch Aspire ─────────────────────
+        # After this you can run 'devopsmigrationdev' against the running services.
+        $localRid = Get-CurrentRid
+        Invoke-Build   -VersionArgs $VersionArgs
         Invoke-UnitTests
-        Invoke-SystemTests
-        Invoke-Publish     -StagingDir $StagingDir -VersionArgs $VersionArgs
-        Invoke-Package     -SemVer $SemVer -StagingDir $StagingDir
+        Invoke-Publish -StagingDir $StagingDir -VersionArgs $VersionArgs -TargetRids @($localRid)
+        Invoke-Install -SemVer $SemVer
         Start-AppHost
+    }
+
+    'Install' {
+        # ── Build + unit tests + publish (this platform only) + install ───────
+        $localRid = Get-CurrentRid
+        Invoke-Build   -VersionArgs $VersionArgs
+        Invoke-UnitTests
+        Invoke-Publish -StagingDir $StagingDir -VersionArgs $VersionArgs -TargetRids @($localRid)
+        Invoke-Install -SemVer $SemVer
     }
 }
