@@ -70,6 +70,14 @@ Supported preference keys:
 |---------|-------------|-------------|
 | `tui` | `TuiCommandSettings` | Open the interactive Terminal UI showing live job state. |
 
+### 6. Control Plane Management (`controlplane`)
+
+Manage the local Control Plane host process. Registered as a Spectre.Console branch named `controlplane`.
+
+| Command | Settings Key | Description |
+|---------|-------------|-------------|
+| `controlplane start` | `ControlPlaneStartCommand.Settings` | Start the bundled Control Plane host (`ControlPlane/DevOpsMigrationPlatform.ControlPlaneHost[.exe]`) in the current terminal. Only available in the packaged (zip) distribution. No options — the binary is resolved by convention from the CLI's install directory. Ctrl+C stops the process. |
+
 ---
 
 ## Global Options (all commands)
@@ -148,6 +156,11 @@ config.AddBranch("config", branch => {
     branch.AddCommand<ConfigGetCommand>("get");
 });
 
+// controlplane branch
+config.AddBranch("controlplane", branch => {
+    branch.AddCommand<ControlPlaneStartCommand>("start");
+});
+
 // tui
 config.AddCommand<TuiCommand>("tui");
 ```
@@ -181,6 +194,8 @@ devopsmigration config new --output my-migration.json
 devopsmigration config set scenario-folder C:\migrations\configs
 devopsmigration config get scenario-folder
 
+devopsmigration controlplane start
+
 devopsmigration tui
 ```
 
@@ -188,7 +203,8 @@ devopsmigration tui
 
 ## Constraints
 
-- The `manage`, `discovery`, and `config` branches are registered as Spectre.Console `AddBranch` entries — they are not standalone commands.
+- The `manage`, `discovery`, `config`, and `controlplane` branches are registered as Spectre.Console `AddBranch` entries — they are not standalone commands.
+- `controlplane start` resolves the sibling binary by convention (`ControlPlane/` subdirectory of `AppContext.BaseDirectory`). It does not accept a `--url` or `--port` option — the Control Plane host reads its own `appsettings.json`. Only available in the packaged zip distribution; in a dev/source build it prints an informative error and returns exit code 1.
 - `discovery *` commands must never submit a `MigrationJob` to the control plane.
 - `manage login` / `manage logout` store and revoke credentials only; they do not trigger any job operations.
 - `config set` / `config get` read and write user-level preferences only; they do not affect migration configuration files.

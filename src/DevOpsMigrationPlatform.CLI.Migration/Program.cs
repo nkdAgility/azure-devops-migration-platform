@@ -1,4 +1,5 @@
 using DevOpsMigrationPlatform.CLI.Commands;
+using DevOpsMigrationPlatform.CLI.Commands.ControlPlane;
 using DevOpsMigrationPlatform.CLI.Commands.Discovery;
 using DevOpsMigrationPlatform.CLI.Commands.Manage;
 using DevOpsMigrationPlatform.CLI.Migration.Commands;
@@ -100,6 +101,16 @@ internal class Program
                 branch.AddCommand<DependencyCommand>("dependencies")
                     .WithDescription("Analyse work items for cross-project and cross-organisation links. Results written to the Artefacts path defined in the config.")
                     .WithExample("discovery", "dependencies", "--config", "scenarios/discovery-dependency-ado-single-project.json");
+            });
+
+            // ── Control Plane management ─────────────────────────────────────────────
+            config.AddBranch("controlplane", branch =>
+            {
+                branch.SetDescription("Manage the local Control Plane host process.");
+
+                branch.AddCommand<ControlPlaneStartCommand>("start")
+                    .WithDescription("Start the bundled Control Plane host in the current terminal. Only available in the packaged (zip) distribution.")
+                    .WithExample("controlplane", "start");
             });
 
             // ── Terminal UI ───────────────────────────────────────────────────────────

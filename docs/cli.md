@@ -233,6 +233,12 @@ Supported preference keys:
 |---|---|
 | `tui` | Open the interactive Terminal UI showing live job state for jobs visible to the current user. See [docs/tui.md](tui.md). |
 
+### Control Plane Management (`controlplane`)
+
+| Command | Description |
+|---|---|
+| `controlplane start` | Start the bundled Control Plane host (`ControlPlane/DevOpsMigrationPlatform.ControlPlaneHost[.exe]`) in the current terminal. Blocks until Ctrl+C — the control plane runs as a foreground child process. **Only available in the packaged (zip) distribution.** In a dev/source build, run `dotnet run --project src/DevOpsMigrationPlatform.ControlPlaneHost` instead. |
+
 ---
 
 ### Example Invocations
@@ -261,6 +267,8 @@ devopsmigration config new
 devopsmigration config new --output my-migration.json
 devopsmigration config set scenario-folder C:\migrations\configs
 devopsmigration config get scenario-folder
+
+devopsmigration controlplane start
 
 devopsmigration tui
 ```

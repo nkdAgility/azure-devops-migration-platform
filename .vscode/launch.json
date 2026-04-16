@@ -545,6 +545,24 @@
             "stopAtEntry": false,
             "preLaunchTask": "build-migration-cli"
         },
+        // ── Migration CLI: controlplane ──────────────────────────────────────
+        // start: launches ControlPlane/DevOpsMigrationPlatform.ControlPlaneHost.exe
+        //        Only works from the packaged (zip) build — prints a helpful error
+        //        and returns exit code 1 when run from a dev/source build.
+        {
+            "name": "🖥️  Migration CLI: ControlPlane Start",
+            "type": "coreclr",
+            "request": "launch",
+            "program": "${workspaceFolder}/src/DevOpsMigrationPlatform.CLI.Migration/bin/Debug/net10.0/devopsmigration.exe",
+            "args": [
+                "controlplane",
+                "start"
+            ],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "stopAtEntry": false,
+            "preLaunchTask": "build-migration-cli"
+        },
         // ── Migration CLI: tui ────────────────────────────────────────────────
         {
             "name": "🖥️  Migration CLI: TUI",
