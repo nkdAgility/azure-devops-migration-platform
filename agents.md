@@ -184,6 +184,7 @@ After completing any unit of work (a logical change, a file edit, a task), befor
 → .agents/skills/test-templates/SKILL.md — generate Reqnroll step definition files from a test plan
 → .agents/skills/session-hooks/SKILL.md — manage session lifecycle events and phase transitions
 → .agents/skills/refactor-patterns/SKILL.md — assess code quality and apply safe refactoring patterns
+→ .agents/skills/hexagonal-check/SKILL.md — scan for Hexagonal Architecture boundary violations (infrastructure leakage into domain/module code)
 
 ## Session Commands (Slash-command aliases)
 → .github/commands/start-session.md — /start-session
