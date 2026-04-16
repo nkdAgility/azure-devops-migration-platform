@@ -4,7 +4,6 @@ using System.Runtime.CompilerServices;
 using System.Threading;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Infrastructure.Import;
-using DevOpsMigrationPlatform.Infrastructure.Modules;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 

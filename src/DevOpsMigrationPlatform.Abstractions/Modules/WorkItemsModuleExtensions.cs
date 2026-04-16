@@ -3,9 +3,8 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json;
-using DevOpsMigrationPlatform.Abstractions;
 
-namespace DevOpsMigrationPlatform.Infrastructure.Modules;
+namespace DevOpsMigrationPlatform.Abstractions;
 
 /// <summary>
 /// Resolved configuration for the WorkItems module, derived from the module's
@@ -14,6 +13,7 @@ namespace DevOpsMigrationPlatform.Infrastructure.Modules;
 /// Use <see cref="FromModule"/> to construct an instance from the job contract.
 /// Each named extension ("Revisions", "Links", "Attachments", "Comments", "EmbeddedImages")
 /// is independently enabled/disabled. Unknown extension types are silently ignored.
+/// Missing extensions fall back to enabled defaults.
 /// </summary>
 public sealed class WorkItemsModuleExtensions
 {

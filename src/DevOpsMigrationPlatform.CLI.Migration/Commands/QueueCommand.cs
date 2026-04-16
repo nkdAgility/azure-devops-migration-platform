@@ -658,7 +658,7 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
                         Type = "wiql",
                         Parameters = new Dictionary<string, object?>
                         {
-                            ["query"] = Infrastructure.Modules.WorkItemsModuleExtensions.DefaultWiqlQuery
+                            ["query"] = WorkItemsModuleExtensions.DefaultWiqlQuery
                         }
                     }
                 ],

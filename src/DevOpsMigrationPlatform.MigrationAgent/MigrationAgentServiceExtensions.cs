@@ -1,6 +1,7 @@
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Infrastructure.AzureDevOps;
 using DevOpsMigrationPlatform.Infrastructure.Factories;
+using DevOpsMigrationPlatform.Infrastructure.JobEngine;
 using DevOpsMigrationPlatform.Infrastructure.Telemetry;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -57,6 +58,9 @@ public static class MigrationAgentServiceExtensions
         // Register IModule implementations (WorkItemsModule + Azure DevOps infra).
         builder.Services.AddAzureDevOpsWorkItemExport();
         builder.Services.AddAzureDevOpsWorkItemImport();
+
+        // Phase tracking factory for MigrationAgentWorker (per-job IStateStore wiring).
+        builder.Services.AddSingleton<IPhaseTrackingServiceFactory, PhaseTrackingServiceFactory>();
 
         // Package store factory — resolves file:/// URIs to FileSystem stores.
         builder.Services.AddSingleton<IPackageStoreFactory, FileSystemPackageStoreFactory>();
