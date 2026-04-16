@@ -26,6 +26,14 @@
                     (ControlPlane + MigrationAgent) for local developer
                     simulation of the production topology. Ctrl-C to stop.
 
+      Install     — Build + Test (unit only) + publish for the current
+                    platform, then installs to
+                    %USERPROFILE%\source\Tools\MigrationPlatform\{version}\
+                    and updates a 'current' junction so that the
+                    'devopsmigrationdev' alias always runs the latest build.
+                    Shim is written to %USERPROFILE%\.dotnet\tools\ which is
+                    already on PATH for any machine with the .NET SDK.
+
     Workflow matrix:
       PR                   :  Build  →  Test  →  SystemTest   (separate steps)
       Preview (main push)  :  Build  →  Test  →  SystemTest  →  Package
@@ -66,10 +74,11 @@
     pwsh ./build.ps1 -Mode Package
     pwsh ./build.ps1 -Mode Full
     pwsh ./build.ps1 -Mode Start
+    pwsh ./build.ps1 -Mode Install
     pwsh ./build.ps1 -Version 16.9.3  # Override version
 #>
 param(
-    [ValidateSet('Build', 'Test', 'SystemTest', 'Package', 'Full', 'Start')]
+    [ValidateSet('Build', 'Test', 'SystemTest', 'Package', 'Full', 'Start', 'Install')]
     [string]$Mode = 'Full',
 
     [string]$Version
@@ -91,7 +100,7 @@ $AgentProject        = Join-Path $RepoRoot 'src/DevOpsMigrationPlatform.Migratio
 
 # Runtime identifiers for per-platform publishing.
 # Only win-x64 gets the tfsmigration/ subfolder; TfsMigration (net481) is Windows-only.
-$Rids = @('win-x64', 'win-arm64', 'linux-x64', 'osx-x64', 'osx-arm64')
+$AllRids = @('win-x64', 'win-arm64', 'linux-x64', 'osx-x64', 'osx-arm64')
 
 Write-Host "`n==> Mode: $Mode" -ForegroundColor Magenta
 
@@ -224,13 +233,13 @@ function Invoke-SystemTests {
 }
 
 function Invoke-Publish {
-    param($StagingDir, $VersionArgs)
+    param($StagingDir, $VersionArgs, [string[]]$TargetRids = $script:AllRids)
 
     $script:CliMigrationOutByRid = @{}
     $script:ControlPlaneOutByRid = @{}
     $script:AgentOutByRid        = @{}
 
-    foreach ($rid in $Rids) {
+    foreach ($rid in $TargetRids) {
         # ── CLI (devopsMigration) ────────────────────────────────────────────
         $ridCliOut = Join-Path $StagingDir "cli-migration-$rid"
         $script:CliMigrationOutByRid[$rid] = $ridCliOut
@@ -291,7 +300,7 @@ function Invoke-Publish {
 function Invoke-Package {
     param($SemVer, $StagingDir)
 
-    foreach ($rid in $Rids) {
+    foreach ($rid in $AllRids) {
         Write-Host "`n==> Packaging MigrationTools [$rid]..." -ForegroundColor Cyan
         $zipStaging = Join-Path $StagingDir "zip-staging-$rid"
         New-Item -ItemType Directory -Path $zipStaging -Force | Out-Null
