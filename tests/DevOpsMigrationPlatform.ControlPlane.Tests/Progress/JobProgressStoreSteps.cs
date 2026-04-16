@@ -62,4 +62,34 @@ internal sealed class JobProgressStoreSteps
         Assert.IsTrue(snapshot.Any(e => e.Stage == _ctx.LastAppendedEvent.Stage),
             $"Snapshot should contain the newest event with stage '{_ctx.LastAppendedEvent.Stage}'.");
     }
+
+    // ── Late-complete race scenario ────────────────────────────────────────
+
+    [When("CompleteJob is called for a job that has no prior events")]
+    public void WhenCompleteJobCalledBeforeAnyAppend()
+    {
+        _ctx.Store.CompleteJob(_ctx.LateCompleteJobId);
+    }
+
+    [When("a subscriber connects to that job's SSE stream after CompleteJob")]
+    public void WhenSubscriberConnectsAfterComplete()
+    {
+        (_ctx.LateSubscriberReader, _ctx.LateSubscriberWriter) =
+            _ctx.Store.Subscribe(_ctx.LateCompleteJobId);
+    }
+
+    [Then("the subscriber's channel is already completed")]
+    public void ThenSubscriberChannelIsAlreadyCompleted()
+    {
+        Assert.IsTrue(_ctx.LateSubscriberReader!.Completion.IsCompleted,
+            "Channel reader should be completed immediately when job was already finished.");
+    }
+
+    [Then("no events are buffered for that job")]
+    public void ThenNoEventsBufferedForThatJob()
+    {
+        var snapshot = _ctx.Store.GetSnapshot(_ctx.LateCompleteJobId);
+        Assert.AreEqual(0, snapshot.Count,
+            "No events should be buffered for a job completed before any Append.");
+    }
 }

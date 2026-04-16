@@ -46,6 +46,13 @@ public class FileSystemArtefactStore : IArtefactStore
     public Task<bool> ExistsAsync(string path, CancellationToken cancellationToken)
         => Task.FromResult(File.Exists(ToFullPath(path)));
 
+    public Task<System.IO.Stream?> ReadBinaryAsync(string path, CancellationToken cancellationToken)
+    {
+        var fullPath = ToFullPath(path);
+        if (!File.Exists(fullPath)) return Task.FromResult<System.IO.Stream?>(null);
+        return Task.FromResult<System.IO.Stream?>(File.OpenRead(fullPath));
+    }
+
     public async Task WriteBinaryAsync(string path, byte[] content, CancellationToken cancellationToken)
     {
         var fullPath = ToFullPath(path);

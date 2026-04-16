@@ -43,6 +43,14 @@
     <ExternalFeatureFiles Include="..\..\features\platform\telemetry\cli-otel.feature" />
     <ExternalFeatureFiles Include="..\..\features\platform\telemetry\progress-sink.feature" />
     <ExternalFeatureFiles Include="..\..\features\cli\execute\migrate-logs.feature" />
+    <!-- Import feature files -->
+    <ExternalFeatureFiles Include="..\..\features\import\work-items\revisions\import-work-item-revisions.feature" />
+    <ExternalFeatureFiles Include="..\..\features\platform\checkpointing\import-cursor-resume.feature" />
+    <ExternalFeatureFiles Include="..\..\features\import\work-items\revisions\streaming-memory-safety.feature" />
+    <ExternalFeatureFiles Include="..\..\features\services\identity-mapping\import-identity-resolution.feature" />
+    <ExternalFeatureFiles Include="..\..\features\import\work-items\comments\import-comments.feature" />
+    <ExternalFeatureFiles Include="..\..\features\import\work-items\revisions\import-embedded-images.feature" />
+    <ExternalFeatureFiles Include="..\..\features\import\work-items\revisions\work-item-resolution-strategies.feature" />
   </ItemGroup>
 
   <!-- Copy external feature files into Features/ before Reqnroll codegen so the default

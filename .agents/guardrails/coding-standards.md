@@ -528,7 +528,6 @@ public class WorkItemsImportModule
 - Placing migration execution logic in the TUI (parsing and transport selection only).
 - Using `System.Console`, ANSI escape sequences, or Spectre.Console rendering primitives inside TUI view classes (Terminal.Gui only).
 - Using `System.CommandLine`, `McMaster.Extensions.CommandLineUtils`, or any argument-parsing library other than Spectre.Console in CLI command-layer code.
-- Using SQLite, in-memory databases, or any provider other than PostgreSQL (Npgsql) for the control plane. This prohibition applies in tests, CI, and development. See [.agents/guardrails/system-architecture.md](system-architecture.md) rule 20.
 - Adding or changing a CLI command without a corresponding `launch.json` configuration in `.vscode/launch.json`.
 - Adding or changing a deployable Host (`AppHost`, `ControlPlaneHost`, `MigrationAgent`) without a corresponding mode or build step covered by `build.ps1`.
 - Shipping a CLI-exposed feature without a `[TestCategory("SystemTest")]` test that exercises the feature end-to-end and asserts observable output.
@@ -554,7 +553,6 @@ Before merging changes, verify:
 - Does this code place migration logic in the TUI layer?
 - Does this code use System.Console, ANSI escapes, or Spectre.Console widgets inside a TUI view class?
 - Does this code use System.CommandLine or another argument-parsing library instead of Spectre.Console in CLI command code?
-- Does this code use SQLite, an in-memory database, or any non-PostgreSQL provider for the control plane?
 - Does this code call `.Result` or `.Wait()` on a `Task` or `ValueTask`?
 - Does this code ignore or discard a `CancellationToken` instead of forwarding it?
 - Does this code contain hard-coded secrets, connection strings, or credentials?

@@ -70,10 +70,134 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
         return config.Mode switch
         {
             "Export" => await ExecuteExportAsync(config, settings, cancellationToken),
-            "Import" => ExecuteImportStub(),
+            "Import" => await ExecuteImportAsync(config, settings, cancellationToken),
             "Both" => ExecuteMigrateStub(),
             _ => ExecuteInvalidMode(config.Mode)
         };
+    }
+
+    private async Task<int> ExecuteImportAsync(MigrationOptions config, QueueCommandSettings settings, CancellationToken cancellationToken)
+    {
+        var console = GetRequiredService<IAnsiConsole>();
+
+        var orgUrl = config.Target?.ResolvedUrl;
+        var project = config.Target?.Project;
+        var packagePath = config.Artefacts?.ExpandedPath;
+
+        if (string.IsNullOrWhiteSpace(orgUrl))
+        {
+            ShowError(console, "Target.Url is required for import. Set it in the config file.");
+            return 1;
+        }
+
+        if (string.IsNullOrWhiteSpace(project))
+        {
+            ShowError(console, "Target.Project is required for import. Set it in the config file.");
+            return 1;
+        }
+
+        if (string.IsNullOrWhiteSpace(packagePath))
+        {
+            ShowError(console, "Artefacts.Path is required for import. Set it in the config file.");
+            return 1;
+        }
+
+        var outputPath = Path.GetFullPath(packagePath);
+        console.MarkupLine($"[blue]ℹ[/] Importing into [bold]{Markup.Escape(orgUrl)}[/] / [bold]{Markup.Escape(project)}[/]");
+        console.MarkupLine($"[blue]ℹ[/] Package path   : [blue]{Markup.Escape(outputPath)}[/]");
+
+        var modules = BuildModules(config);
+
+        var job = new MigrationJob
+        {
+            JobId = Guid.NewGuid().ToString(),
+            Mode = "Import",
+            Target = new MigrationJobEndpoint
+            {
+                Type = config.Target!.Type,
+                Url = orgUrl,
+                Project = project,
+                ApiVersion = config.Target.ApiVersion,
+                Authentication = config.Target.Authentication
+            },
+            Artefacts = new MigrationJobArtefacts
+            {
+                PackageUri = $"file:///{outputPath.Replace(Path.DirectorySeparatorChar, '/')}",
+                Zip = config.Artefacts!.Zip
+            },
+            Modules = modules,
+            Guardrails = new MigrationJobGuardrails
+            {
+                StreamingRequired = true,
+                CanonicalWorkItemsLayoutRequired = true
+            },
+            Diagnostics = new MigrationJobDiagnostics
+            {
+                MinimumLevel = settings.Level
+            },
+            Resume = settings.ForceFresh
+                ? new MigrationJobResume { Mode = ResumeMode.ForceFresh }
+                : null
+        };
+
+        var envOpts = GetRequiredService<IOptions<EnvironmentOptions>>().Value;
+        var isStandaloneMode = envOpts.Type == EnvironmentType.Standalone;
+        var shouldFollow = settings.Follow || isStandaloneMode;
+
+        var client = GetRequiredService<ControlPlaneClient>();
+
+        if (!shouldFollow)
+        {
+            var jobId = await client.SubmitAsync(job, cancellationToken);
+            PrintJobSubmitted(console, jobId, GetControlPlaneUrl());
+            console.MarkupLine($"[grey]Use [blue]manage status --job {jobId}[/] to check progress.[/]");
+            return 0;
+        }
+
+        Guid parsedJobId;
+        try
+        {
+            parsedJobId = await client.SubmitAsync(job, cancellationToken);
+            PrintJobSubmitted(console, parsedJobId, GetControlPlaneUrl());
+        }
+        catch (Exception ex)
+        {
+            ShowError(console, $"Failed to submit job: {ex.Message}");
+            return 1;
+        }
+
+        ProgressEvent? lastEvt = null;
+        var jobFailed = false;
+        using var followCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        Console.CancelKeyPress += (_, e) => { e.Cancel = true; followCts.Cancel(); };
+
+        try
+        {
+            await foreach (var evt in client.FollowLogsAsync(parsedJobId, followCts.Token).ConfigureAwait(false))
+            {
+                lastEvt = evt;
+                console.MarkupLine($"[grey]{Markup.Escape(evt.Stage ?? string.Empty)}[/] WI={evt.WorkItemId} ({evt.WorkItemsProcessed} done)");
+            }
+        }
+        catch (InvalidOperationException ex) when (ex.Message.Contains("Job failed"))
+        {
+            jobFailed = true;
+            ShowError(console, ex.Message);
+        }
+        catch (OperationCanceledException)
+        {
+            console.MarkupLine("[yellow]Detached from stream. Job continues running.[/]");
+            return 0;
+        }
+
+        await followCts.CancelAsync();
+        if (jobFailed) return 1;
+
+        if (lastEvt is not null)
+            ShowSuccess(console, $"Import complete — {lastEvt.WorkItemsProcessed} work items imported.");
+        else
+            ShowSuccess(console, "Work item import complete.");
+        return 0;
     }
 
     private int ExecuteImportStub()

@@ -89,7 +89,18 @@ public sealed class DiagnosticLogStore
         var channel = Channel.CreateBounded<DiagnosticLogRecord>(
             new BoundedChannelOptions(_capacity) { FullMode = BoundedChannelFullMode.DropOldest });
         lock (entry.Subscribers)
-            entry.Subscribers.Add(channel.Writer);
+        {
+            if (entry.Completed)
+            {
+                // Job already finished before this subscriber connected — pre-complete
+                // the channel so ReadAllAsync returns immediately and SSE sends job-ended.
+                channel.Writer.TryComplete();
+            }
+            else
+            {
+                entry.Subscribers.Add(channel.Writer);
+            }
+        }
         return (channel.Reader, channel.Writer);
     }
 
@@ -109,12 +120,13 @@ public sealed class DiagnosticLogStore
     /// </summary>
     public void CompleteJob(Guid jobId, bool failed = false)
     {
-        if (!_entries.TryGetValue(jobId, out var entry))
-            return;
-        entry.Completed = true;
-        entry.Failed = failed;
+        // GetOrAdd ensures the entry exists even when CompleteJob races ahead of any
+        // Add call (e.g. agent signals complete before the first diagnostic POST arrives).
+        var entry = _entries.GetOrAdd(jobId, _ => new JobEntry());
         lock (entry.Subscribers)
         {
+            entry.Completed = true;
+            entry.Failed = failed;
             foreach (var writer in entry.Subscribers)
                 writer.TryComplete();
             entry.Subscribers.Clear();

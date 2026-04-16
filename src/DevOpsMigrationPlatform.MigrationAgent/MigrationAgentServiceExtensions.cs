@@ -56,6 +56,7 @@ public static class MigrationAgentServiceExtensions
 
         // Register IModule implementations (WorkItemsModule + Azure DevOps infra).
         builder.Services.AddAzureDevOpsWorkItemExport();
+        builder.Services.AddAzureDevOpsWorkItemImport();
 
         // Package store factory — resolves file:/// URIs to FileSystem stores.
         builder.Services.AddSingleton<IPackageStoreFactory, FileSystemPackageStoreFactory>();

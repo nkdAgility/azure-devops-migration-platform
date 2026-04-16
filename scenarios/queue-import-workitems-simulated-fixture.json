@@ -1,0 +1,55 @@
+{
+  "MigrationPlatform": {
+    "ConfigVersion": "1.0",
+    "Policies": {
+      "Retries": {
+        "Max": 3
+      },
+      "Throttle": {
+        "MaxConcurrency": 1
+      },
+      "Checkpoints": {
+        "Interval": 300
+      }
+    },
+    "Mode": "Import",
+    "Target": {
+      "Type": "Simulated",
+      "Url": "https://dev.azure.com/simulated",
+      "Project": "SimulatedTarget"
+    },
+    "Artefacts": {
+      "Path": "storage\\queue-import-workitems-simulated-fixture",
+      "Zip": true,
+      "ZipSource": "scenarios\\testdata\\workitems-2items-flat.zip"
+    },
+    "Modules": [
+      {
+        "Name": "WorkItems",
+        "Enabled": true,
+        "Extensions": [
+          {
+            "Type": "Revisions",
+            "Enabled": true
+          },
+          {
+            "Type": "Links",
+            "Enabled": true
+          },
+          {
+            "Type": "Attachments",
+            "Enabled": true
+          },
+          {
+            "Type": "Comments",
+            "Enabled": true
+          },
+          {
+            "Type": "EmbeddedImages",
+            "Enabled": true
+          }
+        ]
+      }
+    ]
+  }
+}

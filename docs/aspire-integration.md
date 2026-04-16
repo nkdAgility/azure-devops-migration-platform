@@ -556,7 +556,7 @@ The Migration Agent uses `FileSystemArtefactStore`.
 
 ```json
 "artefacts": {
-  "packageUri": "azureblob://localhost:10000/packages/run-001"
+  "packageUri": "https://127.0.0.1:10000/devstoreaccount1/packages/myorg/myproject"
 }
 ```
 
@@ -566,7 +566,7 @@ Aspire runs Azurite automatically. The Migration Agent uses `AzureBlobArtefactSt
 
 ```json
 "artefacts": {
-  "packageUri": "azureblob://mystorageaccount.blob.core.windows.net/packages/run-001"
+  "packageUri": "https://mystorageaccount.blob.core.windows.net/packages/myorg/myproject"
 }
 ```
 

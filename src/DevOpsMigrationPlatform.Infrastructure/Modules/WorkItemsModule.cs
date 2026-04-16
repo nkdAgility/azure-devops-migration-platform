@@ -1,12 +1,14 @@
 #if !NET481
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Infrastructure.Checkpointing;
 using DevOpsMigrationPlatform.Infrastructure.Export;
+using DevOpsMigrationPlatform.Infrastructure.Import;
 using Microsoft.Extensions.Logging;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Modules;
@@ -27,21 +29,33 @@ namespace DevOpsMigrationPlatform.Infrastructure.Modules;
 public sealed class WorkItemsModule : IModule
 {
     public string Name => "WorkItems";
-    public IReadOnlyList<string> DependsOn => Array.Empty<string>();
+    public IReadOnlyList<string> DependsOn => new[] { "Identities" };
 
     private readonly IWorkItemRevisionSourceFactory _sourceFactory;
     private readonly IAttachmentBinarySource? _attachmentBinarySource;
     private readonly IWorkItemCommentSourceFactory? _inlineCommentSourceFactory;
+    private readonly IWorkItemImportTargetFactory _importTargetFactory;
+    private readonly IWorkItemResolutionStrategyFactory _resolutionStrategyFactory;
+    private readonly IIdentityMappingService _identityMappingService;
     private readonly ILogger<WorkItemsModule> _logger;
+    private readonly Microsoft.Extensions.Logging.ILoggerFactory _loggerFactory;
 
     public WorkItemsModule(
         IWorkItemRevisionSourceFactory sourceFactory,
         ILogger<WorkItemsModule> logger,
+        Microsoft.Extensions.Logging.ILoggerFactory loggerFactory,
+        IWorkItemImportTargetFactory importTargetFactory,
+        IWorkItemResolutionStrategyFactory resolutionStrategyFactory,
+        IIdentityMappingService identityMappingService,
         IAttachmentBinarySource? attachmentBinarySource = null,
         IWorkItemCommentSourceFactory? inlineCommentSourceFactory = null)
     {
         _sourceFactory = sourceFactory ?? throw new ArgumentNullException(nameof(sourceFactory));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        _loggerFactory = loggerFactory ?? throw new ArgumentNullException(nameof(loggerFactory));
+        _importTargetFactory = importTargetFactory ?? throw new ArgumentNullException(nameof(importTargetFactory));
+        _resolutionStrategyFactory = resolutionStrategyFactory ?? throw new ArgumentNullException(nameof(resolutionStrategyFactory));
+        _identityMappingService = identityMappingService ?? throw new ArgumentNullException(nameof(identityMappingService));
         _attachmentBinarySource = attachmentBinarySource;
         _inlineCommentSourceFactory = inlineCommentSourceFactory;
     }
@@ -90,11 +104,104 @@ public sealed class WorkItemsModule : IModule
         _logger.LogInformation("[WorkItems] Export complete.");
     }
 
-    public Task ImportAsync(ImportContext context, CancellationToken ct) =>
-        throw new NotSupportedException("WorkItems import is not yet supported.");
+    public async Task ImportAsync(ImportContext context, CancellationToken ct)
+    {
+        var job = context.Job;
 
-    public Task ValidateAsync(ValidationContext context, CancellationToken ct) =>
-        throw new NotSupportedException("WorkItems validation is not yet supported.");
+        var targetType = job.Target?.Type ?? "AzureDevOpsServices";
+        var orgUrl = job.Target?.ResolvedUrl ?? throw new InvalidOperationException("Job.Target.Url is required for import.");
+        var project = job.Target?.Project ?? throw new InvalidOperationException("Job.Target.Project is required for import.");
+        var pat = job.Target?.Authentication?.ResolvedAccessToken ?? string.Empty;
+
+        var workItemsModule = job.Modules
+            ?.FirstOrDefault(m => string.Equals(m.Name, "WorkItems", StringComparison.OrdinalIgnoreCase));
+
+        var ext = workItemsModule is not null
+            ? WorkItemsModuleExtensions.FromModule(workItemsModule)
+            : new WorkItemsModuleExtensions();
+
+        _logger.LogInformation(
+            "[WorkItems] Importing into {OrgUrl}/{Project} (revisions={Revisions}, links={Links}, attachments={Attachments}, comments={Comments})",
+            orgUrl, project, ext.RevisionsEnabled, ext.LinksEnabled, ext.AttachmentsEnabled, ext.Comments.Enabled);
+
+        var target = await _importTargetFactory.CreateAsync(targetType, orgUrl, project, pat, ct).ConfigureAwait(false);
+        var checkpointingService = new CheckpointingService(context.StateStore);
+
+        // Resolve the strategy at execution time — the factory creates the correct implementation
+        // based on the module config and target connection parameters.
+        var resolutionStrategy = await _resolutionStrategyFactory
+            .CreateAsync(ext.ResolutionStrategy, target, project, pat, ct)
+            .ConfigureAwait(false);
+
+        // Derive the SQLite idmap.db path from the package URI
+        var dbFilePath = ResolveIdMapPath(job.Artefacts.PackageUri);
+        var idMapStore = new SqliteIdMapStore(dbFilePath);
+
+        var processorLogger = _loggerFactory.CreateLogger<RevisionFolderProcessor>();
+        var processor = new RevisionFolderProcessor(
+            target,
+            idMapStore,
+            checkpointingService,
+            _identityMappingService,
+            context.ArtefactStore,
+            processorLogger);
+
+        var orchestratorLogger = _loggerFactory.CreateLogger<WorkItemImportOrchestrator>();
+        var orchestrator = new WorkItemImportOrchestrator(
+            context.ArtefactStore,
+            checkpointingService,
+            context.ProgressSink,
+            resolutionStrategy,
+            idMapStore,
+            processor,
+            target,
+            orchestratorLogger);
+
+        var resumeMode = job.Resume?.Mode ?? ResumeMode.Auto;
+        await orchestrator.ImportAsync(ext, resumeMode, ct).ConfigureAwait(false);
+
+        _logger.LogInformation("[WorkItems] Import complete.");
+    }
+
+    private static string ResolveIdMapPath(string packageUri)
+    {
+        string localRoot;
+        if (packageUri.StartsWith("file:///", StringComparison.OrdinalIgnoreCase))
+            localRoot = packageUri["file:///".Length..].Replace('/', Path.DirectorySeparatorChar);
+        else
+            localRoot = packageUri;
+
+        return Path.Combine(localRoot, "Checkpoints", "idmap.db");
+    }
+
+    public async Task ValidateAsync(ValidationContext context, CancellationToken ct)
+    {
+        var job = context.Job;
+        var mode = job.Mode ?? "Export";
+
+        // Only perform package-side validation for Import or Both modes
+        if (!string.Equals(mode, "Import", StringComparison.OrdinalIgnoreCase) &&
+            !string.Equals(mode, "Both", StringComparison.OrdinalIgnoreCase))
+            return;
+
+        // Tier 2: Verify the WorkItems/ prefix has at least one revision folder
+        var found = false;
+        await foreach (var path in context.ArtefactStore.EnumerateAsync("WorkItems/", ct).ConfigureAwait(false))
+        {
+            found = true;
+            break;
+        }
+
+        if (!found)
+        {
+            context.Errors.Add(new ValidationError
+            {
+                Path = "WorkItems/",
+                Message = "The package contains no work item revision folders under WorkItems/. " +
+                          "Ensure an export has been run before attempting import."
+            });
+        }
+    }
 
 }
 

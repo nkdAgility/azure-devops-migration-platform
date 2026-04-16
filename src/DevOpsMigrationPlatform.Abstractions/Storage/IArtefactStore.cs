@@ -69,6 +69,17 @@ public interface IArtefactStore
     Task WriteBinaryAsync(string path, byte[] content, CancellationToken cancellationToken);
 
     /// <summary>
+    /// Reads raw binary content from <paramref name="path"/> as a <see cref="System.IO.Stream"/>,
+    /// or <c>null</c> if no file exists at that path.
+    /// The caller is responsible for disposing the returned stream.
+    ///
+    /// <b>Streaming guarantee</b>: The returned stream is opened lazily; no content is buffered
+    /// into memory by the implementation. Import code must stream directly from this to the target
+    /// without materialising a <c>byte[]</c> intermediary.
+    /// </summary>
+    Task<System.IO.Stream?> ReadBinaryAsync(string path, CancellationToken cancellationToken);
+
+    /// <summary>
     /// Enumerates all paths under <paramref name="prefix"/> in strict lexicographic (ascending) order.
     /// Results are streamed — the implementation must NOT buffer all results into memory before yielding.
     ///

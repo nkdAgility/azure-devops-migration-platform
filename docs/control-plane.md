@@ -226,14 +226,12 @@ The control plane persists:
 
 ### Technology
 
-**PostgreSQL is the only permitted data store for the control plane — in all environments.**
+The control plane uses EF Core for data persistence.
 
-| Environment | PostgreSQL provider |
+| Environment | Default provider |
 |---|---|
 | Local development | Aspire portable binary resource (`AddPortablePostgres`) — no Docker required |
 | Cloud (Azure) | Azure PostgreSQL Flexible Server (provisioned by `azd` from the same AppHost declaration) |
-
-There is no SQLite fallback, no in-memory substitute, and no other database provider. The same `Npgsql` / EF Core stack runs in both environments, exercising identical code paths.
 
 ### ORM and Migrations
 

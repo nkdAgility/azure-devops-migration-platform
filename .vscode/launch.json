@@ -371,6 +371,37 @@
         },
         // ── Migration CLI: queue (Import/Both mode configs) ───────────────────
         {
+            "name": "📥 Migration CLI: Queue Import (Simulated – 2 flat work items)",
+            "type": "coreclr",
+            "request": "launch",
+            "program": "${workspaceFolder}/src/DevOpsMigrationPlatform.CLI.Migration/bin/Debug/net10.0/devopsmigration.exe",
+            "args": [
+                "queue",
+                "--config",
+                "scenarios/queue-import-workitems-simulated-fixture.json",
+                "--force-fresh"
+            ],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "stopAtEntry": false,
+            "preLaunchTask": "build-migration-cli"
+        },
+        {
+            "name": "📥 Migration CLI: Queue Import (Simulated)",
+            "type": "coreclr",
+            "request": "launch",
+            "program": "${workspaceFolder}/src/DevOpsMigrationPlatform.CLI.Migration/bin/Debug/net10.0/devopsmigration.exe",
+            "args": [
+                "queue",
+                "--config",
+                "scenarios/import-ado-workitems-single-project.json"
+            ],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "stopAtEntry": false,
+            "preLaunchTask": "build-migration-cli"
+        },
+        {
             "name": "📥 Migration CLI: Queue Import",
             "type": "coreclr",
             "request": "launch",

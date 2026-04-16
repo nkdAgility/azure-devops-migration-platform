@@ -3,7 +3,7 @@
 **/obj/
 **/output/
 scenarios/client/**
-**/storage/
+storage/**
 
 # Visual Studio / VS Code
 .vs/

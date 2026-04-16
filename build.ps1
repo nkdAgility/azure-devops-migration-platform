@@ -40,7 +40,7 @@
             dotnet tool restore
 
     Artefact outputs (placed under ./output/, one zip per RID):
-      - MigrationTools-{rid}-{SemVer}.zip
+      - MigrationTools-{SemVer}-{rid}.zip
 
     Each zip contains:
       /                  — devopsMigration CLI (root)
@@ -318,7 +318,8 @@ function Invoke-Package {
             Copy-Item -Path (Join-Path $script:CliTfsOut '*') -Destination $tfsSubDir -Recurse -Force
         }
 
-        $zip = Join-Path $ArtifactsDir "MigrationTools-$rid-$SemVer.zip"
+        $displayRid = $rid -replace '^osx-', 'macos-'
+        $zip = Join-Path $ArtifactsDir "MigrationTools-$SemVer-$displayRid.zip"
         Push-Location $zipStaging
         Compress-Archive -Path '*' -DestinationPath $zip -Force
         Pop-Location

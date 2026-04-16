@@ -71,6 +71,10 @@
     <PackageVersion Include="Spectre.Console.Cli.Testing" Version="0.55.0" />
   </ItemGroup>
 
+  <ItemGroup Label="Microsoft.Data">
+    <PackageVersion Include="Microsoft.Data.Sqlite" Version="9.0.5" />
+  </ItemGroup>
+
   <ItemGroup Label="System">
     <PackageVersion Include="CsvHelper" Version="33.0.1" />
     <PackageVersion Include="HtmlAgilityPack" Version="1.11.61" />

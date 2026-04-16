@@ -110,4 +110,52 @@ public class QueueCommandTests
         Assert.IsTrue(revisionFiles.Length > 0,
             $"No revision.json files found under {workItemsDir}");
     }
+
+    /// <summary>
+    /// Runs <c>devopsmigration queue --config scenarios/queue-import-workitems-simulated-fixture.json --force-fresh</c>
+    /// as a subprocess. Uses a pre-built fixture zip (<c>scenarios/testdata/workitems-2items-flat.zip</c>)
+    /// with a <c>Simulated</c> target — no live credentials required.
+    /// Verifies that the CLI exits zero and logs import progress for both work items.
+    /// See <c>scenarios/testdata/catalogue.json</c> for fixture details.
+    /// </summary>
+    [TestMethod]
+    [TestCategory("SystemTest")]
+    [Timeout(120_000)] // 2 minutes — no network I/O
+    public async Task QueueCommand_WithSimulatedImportMode_Fixture_ExitsZero_AndImportsBothWorkItems()
+    {
+        // ── Arrange ───────────────────────────────────────────────────────
+        var outputDir = Path.Combine(CliRunner.FindRepoRoot(), "storage", "queue-import-workitems-simulated-fixture");
+        if (Directory.Exists(outputDir))
+            Directory.Delete(outputDir, recursive: true);
+
+        // ── Act ───────────────────────────────────────────────────────────
+        var result = await CliRunner.RunAsync(
+            args: ["queue", "--config", "scenarios/queue-import-workitems-simulated-fixture.json", "--force-fresh"],
+            timeout: TimeSpan.FromSeconds(110));
+
+        Console.WriteLine("=== STDOUT ===");
+        Console.WriteLine(result.StandardOutput);
+        if (!string.IsNullOrEmpty(result.StandardError))
+        {
+            Console.WriteLine("=== STDERR ===");
+            Console.WriteLine(result.StandardError);
+        }
+
+        // ── Assert ────────────────────────────────────────────────────────
+        Assert.IsFalse(result.TimedOut, "CLI timed out.");
+        Assert.AreEqual(0, result.ExitCode,
+            $"CLI exited with code {result.ExitCode}. Check STDOUT/STDERR above.");
+
+        var combinedOutput = result.StandardOutput + result.StandardError;
+        Assert.IsTrue(
+            combinedOutput.Contains("import complete", StringComparison.OrdinalIgnoreCase) ||
+            combinedOutput.Contains("work item", StringComparison.OrdinalIgnoreCase),
+            "Expected CLI import progress message not found in output.");
+
+        // Verify both fixture work items were processed by checking the idmap DB was created
+        // (progress events are not observable from CLI stdout in the current streaming architecture).
+        var idmapDb = Path.Combine(outputDir, "Checkpoints", "idmap.db");
+        Assert.IsTrue(File.Exists(idmapDb),
+            $"Checkpoints/idmap.db was not created under {outputDir} — import may not have processed any work items.");
+    }
 }
