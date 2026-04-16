@@ -5,6 +5,7 @@ using Microsoft.Extensions.Logging;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Errors;
 using DevOpsMigrationPlatform.Abstractions.Services;
+using DevOpsMigrationPlatform.CLI.Migration.Services;
 using DevOpsMigrationPlatform.CLI.Migration.Utilities;
 using Spectre.Console.Cli;
 using Spectre.Console;
@@ -30,6 +31,23 @@ public abstract class CommandBase<TSettings> : AsyncCommand<TSettings>
     protected internal IHost? Host { get; internal set; }
 
     /// <summary>
+    /// Config file path resolved interactively (when <c>--config</c> was not supplied).
+    /// Set before <see cref="ExecuteInternalAsync"/> is called.
+    /// </summary>
+    private string? _resolvedConfigFile;
+
+    /// <summary>
+    /// Returns args with the interactively resolved <c>--config</c> path prepended,
+    /// if one was selected. Otherwise returns the original array unmodified.
+    /// </summary>
+    protected string[] GetEffectiveArgs(string[] args)
+    {
+        if (_resolvedConfigFile is not null)
+            return ["--config", _resolvedConfigFile, .. args];
+        return args;
+    }
+
+    /// <summary>
     /// Creates an <see cref="IHost"/> using the shared <see cref="MigrationPlatformHost"/>
     /// builder with command-specific service registration. Uses the existing host if already
     /// created (idempotent).
@@ -45,7 +63,7 @@ public abstract class CommandBase<TSettings> : AsyncCommand<TSettings>
         if (Host is not null)
             return Host;
 
-        Host = MigrationPlatformHost.CreateDefaultBuilder(args, configureServices).Build();
+        Host = MigrationPlatformHost.CreateDefaultBuilder(GetEffectiveArgs(args), configureServices).Build();
         await Host.StartAsync();
         return Host;
     }
@@ -69,6 +87,19 @@ public abstract class CommandBase<TSettings> : AsyncCommand<TSettings>
     protected override async Task<int> ExecuteAsync(
         CommandContext context, TSettings settings, CancellationToken cancellationToken = default)
     {
+        // ── Interactive config resolution ──────────────────────────────────
+        // When --config is not supplied and the command expects a config file,
+        // present a SelectionPrompt so the operator can pick a scenario.
+        // This runs *before* CreateHost — per architecture constraint.
+        if (settings is IHasConfigFile { ConfigFile: null or "" })
+        {
+            _resolvedConfigFile = ScenarioSelector.PromptForConfigFile(AnsiConsole.Console);
+            if (_resolvedConfigFile is null)
+            {
+                AnsiConsole.MarkupLine("[yellow]⚠[/] No configuration file found. Use [cyan]--config <path>[/] or [cyan]devopsmigration config set scenario-folder <path>[/].");
+            }
+        }
+
         try
         {
             return await ExecuteInternalAsync(context, settings, cancellationToken);
