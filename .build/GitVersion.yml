@@ -16,4 +16,8 @@ branches:
     track-merge-target: false
     source-branches:
     - main
-    is-release-branch: true
+    is-release-branch: true  
+  unknown:
+    mode: ContinuousDelivery
+    label: '{BranchName}'
+    increment: Inherit
