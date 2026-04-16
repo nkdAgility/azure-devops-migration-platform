@@ -43,7 +43,7 @@ public static class MigrationPlatformHost
 
         /// <summary>
         /// How often (by revision count) a <see cref="MetricSnapshot"/> is embedded
-        /// in the yielded <see cref="WorkItemMigrationProgress.Metrics"/> field.
+        /// in the yielded <see cref="ProgressEvent.Metrics"/> field.
         /// Default: 100.
         /// </summary>
         public int SubprocessSnapshotRevisionInterval { get; set; } = 100;
@@ -113,6 +113,7 @@ public static class MigrationPlatformHost
             services.AddSingleton<IAttachmentDownloadMetrics, AttachmentDownloadMetrics>();
             services.AddSingleton<TfsWorkItemQueryWindowStrategy>();
             services.AddSingleton<IWorkItemDiscoveryService, TfsObjectModelWorkItemDiscoveryService>();
+            services.AddSingleton<IProjectDiscoveryService, TfsProjectDiscoveryService>();
 
             // OpenTelemetry (console exporter — configure real exporter via appsettings)
             services.AddOpenTelemetry()

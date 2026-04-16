@@ -1,7 +1,6 @@
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Infrastructure.TfsObjectModel;
 using DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.Services;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.TeamFoundation.WorkItemTracking.Client;
 using Spectre.Console;
@@ -15,7 +14,7 @@ using SpectreValidationResult = Spectre.Console.ValidationResult;
 
 namespace DevOpsMigrationPlatform.CLI.TfsMigration.Commands
 {
-    public sealed class ExportCommand : AsyncCommand<ExportCommand.Settings>
+    public sealed class ExportCommand : TfsCommandBase<ExportCommand.Settings>
     {
         public sealed class Settings : CommandSettings
         {
@@ -50,25 +49,26 @@ namespace DevOpsMigrationPlatform.CLI.TfsMigration.Commands
             }
         }
 
-        protected override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
+        protected override async Task<int> ExecuteInternalAsync(
+            CommandContext context, Settings settings, CancellationToken cancellationToken)
         {
             var hostSettings = new MigrationPlatformHost.Settings(
                 new Uri(settings.CollectionUrl),
                 settings.Project,
                 Path.GetFullPath(settings.OutputFolder));
 
-            var host = MigrationPlatformHost.CreateDefaultBuilder(
-                context.Arguments.ToArray(), hostSettings).Build();
+            await CreateHost(hostSettings, context.Arguments.ToArray()).ConfigureAwait(false);
 
             var agent = new TfsExportAgent(
-                host.Services.GetRequiredService<IArtefactStore>(),
-                host.Services.GetRequiredService<ICheckpointingService>(),
-                host.Services.GetRequiredService<WorkItemStore>(),
-                host.Services.GetRequiredService<IWorkItemRevisionMapper>(),
-                host.Services.GetRequiredService<IAttachmentDownloader>(),
-                host.Services.GetRequiredService<TfsWorkItemQueryWindowStrategy>(),
-                host.Services.GetRequiredService<ILogger<TfsWorkItemRevisionSource>>(),
-                host.Services.GetRequiredService<ILogger<TfsAttachmentBinarySource>>());
+                GetRequiredService<IArtefactStore>(),
+                GetRequiredService<ICheckpointingService>(),
+                GetRequiredService<WorkItemStore>(),
+                GetRequiredService<IWorkItemRevisionMapper>(),
+                GetRequiredService<IAttachmentDownloader>(),
+                GetRequiredService<TfsWorkItemQueryWindowStrategy>(),
+                GetRequiredService<ILogger<TfsWorkItemRevisionSource>>(),
+                GetRequiredService<ILogger<TfsAttachmentBinarySource>>());
+
             var wiqlQuery = $"SELECT * FROM WorkItems WHERE [System.TeamProject] = '{settings.Project}'";
 
             // When stdout is redirected (subprocess mode) use NDJSON sink so the
@@ -107,14 +107,6 @@ namespace DevOpsMigrationPlatform.CLI.TfsMigration.Commands
 
             return 0;
         }
-    }
-
-    /// <summary>Simple IProgressSink backed by an Action — avoids a separate class file for one-off usage.</summary>
-    internal sealed class DelegateProgressSink : IProgressSink
-    {
-        private readonly Action<ProgressEvent> _handler;
-        public DelegateProgressSink(Action<ProgressEvent> handler) => _handler = handler;
-        public void Emit(ProgressEvent evt) => _handler(evt);
     }
 }
 

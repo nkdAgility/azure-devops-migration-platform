@@ -548,7 +548,7 @@ Intermediate events have `isComplete: false`; the final event for each project h
 
 ### Implementation Notes
 
-`TfsInventoryAgent.Run()` uses `WorkItemStoreExtensions.QueryCountAllByDateChunk` for date-windowed counting — the same 120-day initial window and 20,000-item halving algorithm as the ADO Services path. Each project is wrapped in an individual try/catch so a failure in one project emits an error event without aborting the remaining projects.
+`InventoryCommand` resolves `IWorkItemDiscoveryService` (backed by `TfsObjectModelWorkItemDiscoveryService`) from the DI host. It uses `CountWorkItemsAsync` with `TfsWorkItemQueryWindowStrategy` for date-windowed counting — the same 120-day initial window and 20,000-item halving algorithm as the ADO Services path. Each project is wrapped in an individual try/catch so a failure in one project emits an error event without aborting the remaining projects.
 
 ---
 

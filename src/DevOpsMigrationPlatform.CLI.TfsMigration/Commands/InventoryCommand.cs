@@ -1,7 +1,11 @@
 using System;
-using System.Text.Json;
+using System.Collections.Generic;
+using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
+using DevOpsMigrationPlatform.Abstractions.Models;
+using DevOpsMigrationPlatform.Abstractions.Services;
+using DevOpsMigrationPlatform.Infrastructure.TfsObjectModel;
 using Spectre.Console.Cli;
 using SpectreValidationResult = Spectre.Console.ValidationResult;
 
@@ -11,22 +15,22 @@ namespace DevOpsMigrationPlatform.CLI.TfsMigration.Commands
     /// <c>tfsmigration inventory</c> — counts work items per project using
     /// date-chunked WIQL queries.  Credentials are read from a single JSON line on stdin:
     /// <c>{"pat":"..."}</c> for PAT auth, or <c>{}</c> for Windows-integrated auth.
-    /// Progress is emitted as NDJSON <see cref="DevOpsMigrationPlatform.Abstractions.Models.InventoryProgressEvent"/> records on stdout.
+    /// Progress is emitted as NDJSON <see cref="InventoryProgressEvent"/> records on stdout.
     /// </summary>
-    public sealed class InventoryCommand : AsyncCommand<InventoryCommand.Settings>
+    public sealed class InventoryCommand : TfsCommandBase<InventoryCommand.Settings>
     {
         public sealed class Settings : CommandSettings
         {
             [System.ComponentModel.Description("URL of the TFS / Azure DevOps Server collection")]
-            [Spectre.Console.Cli.CommandOption("--collection <COLLECTION>")]
+            [CommandOption("--collection <COLLECTION>")]
             public string CollectionUrl { get; set; } = string.Empty;
 
             [System.ComponentModel.Description("Team project name to inventory")]
-            [Spectre.Console.Cli.CommandOption("--project <PROJECT>")]
+            [CommandOption("--project <PROJECT>")]
             public string? Project { get; set; }
 
             [System.ComponentModel.Description("Inventory all projects in the collection")]
-            [Spectre.Console.Cli.CommandOption("--all-projects")]
+            [CommandOption("--all-projects")]
             public bool AllProjects { get; set; }
 
             public override SpectreValidationResult Validate()
@@ -45,31 +49,86 @@ namespace DevOpsMigrationPlatform.CLI.TfsMigration.Commands
             }
         }
 
-        protected override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
+        protected override async Task<int> ExecuteInternalAsync(
+            CommandContext context, Settings settings, CancellationToken cancellationToken)
         {
-            // Read one JSON line from stdin for credentials.
-            // {"pat":"<token>"} — PAT auth
-            // {}                — Windows-integrated auth (empty or missing pat)
-            string? pat = null;
-            try
+            var pat = await ReadCredentialsFromStdinAsync().ConfigureAwait(false);
+
+            // Inventory doesn't write a package — use a temp folder for the required OutputFolder.
+            var tempOutput = Path.Combine(Path.GetTempPath(), "tfsmigration-inventory-" + Guid.NewGuid().ToString("N").Substring(0, 8));
+            var hostSettings = new MigrationPlatformHost.Settings(
+                new Uri(settings.CollectionUrl),
+                settings.Project ?? string.Empty,
+                tempOutput);
+
+            await CreateHost(hostSettings, context.Arguments.ToArray()).ConfigureAwait(false);
+
+            var discoveryService = GetRequiredService<IWorkItemDiscoveryService>();
+            var sink = new StdoutInventoryProgressSink();
+
+            IEnumerable<string> projectNames;
+            if (settings.AllProjects)
             {
-                var stdinLine = await Console.In.ReadLineAsync().ConfigureAwait(false);
-                if (!string.IsNullOrWhiteSpace(stdinLine))
-                {
-                    using var doc = JsonDocument.Parse(stdinLine);
-                    if (doc.RootElement.TryGetProperty("pat", out var patProp))
-                        pat = patProp.GetString();
-                }
+                var projectDiscovery = GetRequiredService<IProjectDiscoveryService>();
+                projectNames = await projectDiscovery.DiscoverProjectsAsync(
+                    settings.CollectionUrl, pat ?? string.Empty, cancellationToken).ConfigureAwait(false);
             }
-            catch
+            else
             {
-                // No stdin or malformed JSON — fall back to Windows-integrated auth.
+                projectNames = new[] { settings.Project! };
             }
 
-            var agent = new TfsInventoryAgent();
-            agent.Run(settings.CollectionUrl, settings.Project, pat, settings.AllProjects, cancellationToken);
+            foreach (var projName in projectNames)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                await RunProjectInventoryAsync(
+                    discoveryService, sink, settings.CollectionUrl, projName,
+                    pat, cancellationToken).ConfigureAwait(false);
+            }
 
             return 0;
+        }
+
+        private static async Task RunProjectInventoryAsync(
+            IWorkItemDiscoveryService discoveryService,
+            StdoutInventoryProgressSink sink,
+            string collectionUrl,
+            string project,
+            string? pat,
+            CancellationToken cancellationToken)
+        {
+            try
+            {
+                await foreach (var summary in discoveryService
+                    .CountWorkItemsAsync(collectionUrl, project, pat ?? string.Empty, cancellationToken: cancellationToken)
+                    .ConfigureAwait(false))
+                {
+                    sink.Emit(new InventoryProgressEvent
+                    {
+                        ProjectName = project,
+                        Url = collectionUrl,
+                        WorkItemsCount = summary.WorkItemsCount,
+                        RevisionsCount = summary.RevisionsCount,
+                        IsComplete = summary.IsWorkItemComplete,
+                        Timestamp = DateTime.UtcNow
+                    });
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                sink.Emit(new InventoryProgressEvent
+                {
+                    ProjectName = project,
+                    Url = collectionUrl,
+                    IsComplete = true,
+                    Error = ex.Message,
+                    Timestamp = DateTime.UtcNow
+                });
+            }
         }
     }
 }

@@ -10,12 +10,11 @@ namespace DevOpsMigrationPlatform.CLI.TfsMigration
     {
         static async Task<int> Main(string[] args)
         {
-            var app = new CommandApp<ExportCommand>();
+            var app = new CommandApp();
             app.Configure(config =>
             {
                 config.SetApplicationName("tfsmigration");
 #if DEBUG
-                config.PropagateExceptions();
                 config.ValidateExamples();
 #endif
                 config.AddCommand<ExportCommand>("export")
@@ -28,18 +27,9 @@ namespace DevOpsMigrationPlatform.CLI.TfsMigration
                     .WithExample(new[] { "inventory", "--collection", "http://tfs:8080/tfs/DefaultCollection", "--project", "MyProject" });
             });
 
-            try
-            {
-                AnsiConsole.Write(new FigletText("TFS Migration").LeftJustified().Color(Color.Red));
-                AnsiConsole.Write(new Rule().RuleStyle("grey").LeftJustified());
-                return await app.RunAsync(args);
-            }
-            catch (Exception ex)
-            {
-                AnsiConsole.MarkupLine("[red]❌ Unhandled exception during CLI execution[/]");
-                AnsiConsole.WriteException(ex, ExceptionFormats.ShortenEverything | ExceptionFormats.ShowLinks);
-                return 1;
-            }
+            AnsiConsole.Write(new FigletText("TFS Migration").LeftJustified().Color(Color.Red));
+            AnsiConsole.Write(new Rule().RuleStyle("grey").LeftJustified());
+            return await app.RunAsync(args);
         }
     }
 }
