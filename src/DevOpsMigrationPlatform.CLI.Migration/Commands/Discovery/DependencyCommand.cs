@@ -23,9 +23,9 @@ namespace DevOpsMigrationPlatform.CLI.Commands.Discovery;
 /// Submits a <see cref="DiscoveryJob"/> of type Dependencies to the control plane.
 /// In standalone mode follows progress inline; in hosted mode prints the jobId and exits.
 /// </summary>
-public sealed class DependencyCommand : CommandBase<DependencyCommand.Settings>
+public sealed class DependencyCommand : ControlPlaneCommandBase<DependencyCommand.Settings>
 {
-    public sealed class Settings : BaseCommandSettings { }
+    public sealed class Settings : ControlPlaneBaseCommandSettings { }
 
     protected override async Task<int> ExecuteInternalAsync(
         CommandContext context,

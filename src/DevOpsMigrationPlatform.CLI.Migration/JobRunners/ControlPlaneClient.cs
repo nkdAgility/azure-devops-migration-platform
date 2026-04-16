@@ -68,7 +68,14 @@ public sealed class ControlPlaneClient : IJobRunner, ILogsClient, IControlPlaneC
             .PostAsJsonAsync("/jobs", job, _jsonOptions, ct)
             .ConfigureAwait(false);
 
-        submitResponse.EnsureSuccessStatusCode();
+        if (!submitResponse.IsSuccessStatusCode)
+        {
+            var body = await submitResponse.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+            _logger.LogError(
+                "Control plane rejected job {JobId}: {StatusCode} — {Body}",
+                job.JobId, (int)submitResponse.StatusCode, body);
+            submitResponse.EnsureSuccessStatusCode(); // rethrow with status code
+        }
 
         var submitResult = await submitResponse.Content
             .ReadFromJsonAsync<SubmitJobResponse>(_jsonOptions, ct)
