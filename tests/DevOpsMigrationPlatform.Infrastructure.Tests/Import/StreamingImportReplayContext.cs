@@ -59,6 +59,8 @@ public class StreamingImportReplayContext
     /// <summary>
     /// Sets up the artefact store mock to enumerate <see cref="FolderPaths"/> and return
     /// a minimal revision.json for each revision folder.
+    /// Uses suffix-based matchers instead of per-path setup calls to keep mock registration
+    /// O(1) regardless of how many revision folders are in the scenario.
     /// </summary>
     public void SetupArtefactStoreForRevisions(IEnumerable<string> revisionFolderPaths, string? revisionJson = null)
     {
@@ -68,15 +70,14 @@ public class StreamingImportReplayContext
             .Setup(s => s.EnumerateAsync("WorkItems/", It.IsAny<CancellationToken>()))
             .Returns((string _, CancellationToken ct) => ToAsyncEnumerable(FolderPaths, ct));
 
-        foreach (var path in revisionFolderPaths)
-        {
-            MockArtefactStore
-                .Setup(s => s.ReadAsync($"{path}/revision.json", It.IsAny<CancellationToken>()))
-                .ReturnsAsync(json);
-            MockArtefactStore
-                .Setup(s => s.ReadAsync($"{path}/comment.json", It.IsAny<CancellationToken>()))
-                .ReturnsAsync((string?)null);
-        }
+        // Single suffix-based setup covers all paths — avoids O(n) Moq registration cost
+        // that would otherwise make large-count scenarios (e.g. 50 000 folders) unusably slow.
+        MockArtefactStore
+            .Setup(s => s.ReadAsync(It.Is<string>(p => p.EndsWith("/revision.json")), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(json);
+        MockArtefactStore
+            .Setup(s => s.ReadAsync(It.Is<string>(p => p.EndsWith("/comment.json")), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((string?)null);
     }
 
     private static async IAsyncEnumerable<string> ToAsyncEnumerable(

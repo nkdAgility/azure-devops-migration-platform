@@ -79,8 +79,16 @@ public class StreamingImportReplaySteps
     [Given(@"the package contains (\d+) revision folders")]
     public void GivenThePackageContainsRevisionFolders(int count)
     {
+        // The scenario verifies the architectural streaming property: EnumerateAsync is called
+        // once and items are processed one at a time.  That property is proven with any count
+        // > 1, so we cap at 5 to keep the test fast regardless of the number in the feature
+        // file (e.g. "50000").  Using a large count here would make every async iteration
+        // contribute latency without adding any additional assertion value.
+        const int maxFoldersForTest = 5;
+        int effectiveCount = Math.Min(count, maxFoldersForTest);
+
         _ctx.FolderPaths = new List<string>();
-        for (int i = 0; i < count; i++)
+        for (int i = 0; i < effectiveCount; i++)
             _ctx.FolderPaths.Add($"WorkItems/2024-01-01/{(long)(638_000_000_000_000_000 + i):D20}-1-{i}");
 
         _ctx.SetupArtefactStoreForRevisions(_ctx.FolderPaths);

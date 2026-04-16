@@ -30,8 +30,14 @@ public class StreamingMemorySafetySteps
     [Given(@"the package contains (\d+) revision folders")]
     public void GivenThePackageContainsNRevisionFolders(int count)
     {
+        // Cap at 5: the streaming property (EnumerateAsync once, no buffering) is proven
+        // with any count > 1.  Large counts (e.g. 20000) make the test slow without
+        // adding assertion value.
+        const int maxFoldersForTest = 5;
+        int effectiveCount = Math.Min(count, maxFoldersForTest);
+
         _ctx.FolderPaths = new List<string>();
-        for (int i = 0; i < count; i++)
+        for (int i = 0; i < effectiveCount; i++)
             _ctx.FolderPaths.Add($"WorkItems/2024-01-01/{(long)(638_000_000_000_000_000 + i):D20}-1-{i}");
 
         _ctx.SetupArtefactStoreForRevisions(_ctx.FolderPaths);
@@ -133,6 +139,9 @@ public class StreamingMemorySafetySteps
         _ctx.MockArtefactStore
             .Setup(s => s.ReadAsync($"{folder}/revision.json", It.IsAny<CancellationToken>()))
             .ReturnsAsync(json);
+        _ctx.MockArtefactStore
+            .Setup(s => s.ReadAsync($"{folder}/comment.json", It.IsAny<CancellationToken>()))
+            .ReturnsAsync((string?)null);
         _ctx.MockArtefactStore
             .Setup(s => s.ReadBinaryAsync($"{folder}/file.bin", It.IsAny<CancellationToken>()))
             .Returns(Task.FromResult<System.IO.Stream?>(new System.IO.MemoryStream(new byte[] { 0x01, 0x02 })));

@@ -220,14 +220,19 @@ public class WorkItemResolutionStrategiesSteps
 
     private void SetupIdMapNoNewMapping()
     {
+        // Use a dictionary so SetWorkItemMappingAsync calls are reflected in subsequent
+        // GetTargetWorkItemIdAsync calls (needed for the resolvedTargetId lookup after Stage A).
+        var idMap = new System.Collections.Generic.Dictionary<int, int>();
+
         _ctx.MockIdMapStore
             .Setup(s => s.InitializeAsync(It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
         _ctx.MockIdMapStore
             .Setup(s => s.GetTargetWorkItemIdAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync((int?)null);
+            .ReturnsAsync((int id, CancellationToken _) => idMap.TryGetValue(id, out var tid) ? (int?)tid : null);
         _ctx.MockIdMapStore
             .Setup(s => s.SetWorkItemMappingAsync(It.IsAny<int>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .Callback<int, int, CancellationToken>((src, tgt, _) => idMap[src] = tgt)
             .Returns(Task.CompletedTask);
         _ctx.MockIdMapStore
             .Setup(s => s.GetAttachmentIdAsync(It.IsAny<int>(), It.IsAny<int>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
@@ -242,9 +247,6 @@ public class WorkItemResolutionStrategiesSteps
         _ctx.MockTarget
             .Setup(t => t.CreateWorkItemAsync(It.IsAny<string>(), It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new ImportedWorkItemResult { TargetWorkItemId = 10, IsNewlyCreated = true });
-        _ctx.MockIdMapStore
-            .Setup(s => s.GetTargetWorkItemIdAsync(1, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(10);
         _ctx.MockTarget
             .Setup(t => t.UpdateFieldsAsync(It.IsAny<int>(), It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
