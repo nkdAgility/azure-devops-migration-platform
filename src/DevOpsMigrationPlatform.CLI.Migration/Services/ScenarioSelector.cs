@@ -95,7 +95,15 @@ internal static class ScenarioSelector
                 .OrderBy(f => Path.GetFileName(f), StringComparer.OrdinalIgnoreCase)
                 .ToList();
         }
-        catch (Exception)
+        catch (UnauthorizedAccessException)
+        {
+            return [];
+        }
+        catch (DirectoryNotFoundException)
+        {
+            return [];
+        }
+        catch (IOException)
         {
             return [];
         }

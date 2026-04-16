@@ -38,9 +38,9 @@ public sealed class ConfigNewCommand : CommandBase<ConfigNewCommandSettings>
 
         var outputFile = settings.OutputFile ?? "migration.json";
 
-        if (!string.IsNullOrWhiteSpace(settings.OutputFile) && File.Exists(settings.OutputFile) && !settings.Force)
+        if (File.Exists(outputFile) && !settings.Force)
         {
-            if (!Confirm($"Configuration file '{settings.OutputFile}' already exists. Overwrite?", false))
+            if (!Confirm($"Configuration file '{outputFile}' already exists. Overwrite?", false))
             {
                 ShowInfo(console, "Configuration setup cancelled.");
                 return 0;
