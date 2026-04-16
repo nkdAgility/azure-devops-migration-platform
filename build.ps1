@@ -346,6 +346,75 @@ function Start-AppHost {
 }
 
 # ─────────────────────────────────────────────────────────────────────────────
+# Install helpers
+# ─────────────────────────────────────────────────────────────────────────────
+function Get-CurrentRid {
+    if ($IsWindows) {
+        $arch = [System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture
+        if ($arch -eq [System.Runtime.InteropServices.Architecture]::Arm64) { return 'win-arm64' }
+        return 'win-x64'
+    } elseif ($IsMacOS) {
+        $arch = [System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture
+        if ($arch -eq [System.Runtime.InteropServices.Architecture]::Arm64) { return 'osx-arm64' }
+        return 'osx-x64'
+    } else {
+        return 'linux-x64'
+    }
+}
+
+function Invoke-Install {
+    param([string]$SemVer)
+
+    $rid = Get-CurrentRid
+
+    # ── Install root: %USERPROFILE%\source\Tools\MigrationPlatform\ ──────────
+    $installRoot  = Join-Path $env:USERPROFILE 'source\Tools\MigrationPlatform'
+    $versionedDir = Join-Path $installRoot $SemVer
+    $currentDir   = Join-Path $installRoot 'current'
+
+    Write-Host "`n==> Installing [$rid] to $versionedDir" -ForegroundColor Cyan
+
+    # Copy published CLI binaries into versioned slot
+    $publishedDir = $script:CliMigrationOutByRid[$rid]
+    New-Item -ItemType Directory -Path $versionedDir -Force | Out-Null
+    Copy-Item -Path (Join-Path $publishedDir '*') -Destination $versionedDir -Recurse -Force
+
+    # ── Update 'current' junction ────────────────────────────────────────────
+    if (Test-Path $currentDir) {
+        $existing = Get-Item $currentDir -Force
+        if ($existing.LinkType -in @('Junction', 'SymbolicLink')) {
+            [System.IO.Directory]::Delete($currentDir)   # removes link only, not target
+        } else {
+            Remove-Item $currentDir -Recurse -Force
+        }
+    }
+    New-Item -ItemType Junction -Path $currentDir -Target $versionedDir | Out-Null
+
+    # ── Write shim to %USERPROFILE%\.dotnet\tools\ ───────────────────────────
+    # That directory is added to PATH automatically by the .NET SDK installer.
+    $shimDir = Join-Path $env:USERPROFILE '.dotnet\tools'
+    New-Item -ItemType Directory -Path $shimDir -Force | Out-Null
+
+    # CMD shim — works in cmd.exe, PowerShell, and Windows Terminal
+    $cmdShim = Join-Path $shimDir 'devopsmigrationdev.cmd'
+    "@echo off`r`n""%USERPROFILE%\source\Tools\MigrationPlatform\current\devopsmigration.exe"" %*" |
+        Set-Content -Path $cmdShim -Encoding ASCII
+
+    # PS1 shim — explicit PowerShell invocation path
+    $ps1Shim = Join-Path $shimDir 'devopsmigrationdev.ps1'
+    "& (Join-Path `$env:USERPROFILE 'source\Tools\MigrationPlatform\current\devopsmigration.exe') @args" |
+        Set-Content -Path $ps1Shim
+
+    Write-Host "`n==> Install complete!" -ForegroundColor Green
+    Write-Host "  Version:       $SemVer"
+    Write-Host "  Installed to:  $versionedDir"
+    Write-Host "  Current link:  $currentDir  ->  $versionedDir"
+    Write-Host "  Shim (.cmd):   $cmdShim"
+    Write-Host "  Shim (.ps1):   $ps1Shim"
+    Write-Host "`n  Run from any terminal: devopsmigrationdev --help" -ForegroundColor Cyan
+}
+
+# ─────────────────────────────────────────────────────────────────────────────
 # Orchestration
 # ─────────────────────────────────────────────────────────────────────────────
 if ($Version) {
@@ -435,5 +504,14 @@ switch ($Mode) {
         Invoke-Publish     -StagingDir $StagingDir -VersionArgs $VersionArgs
         Invoke-Package     -SemVer $SemVer -StagingDir $StagingDir
         Start-AppHost
+    }
+
+    'Install' {
+        # ── Build + unit tests + publish (this platform only) + install ───────
+        $localRid = Get-CurrentRid
+        Invoke-Build   -VersionArgs $VersionArgs
+        Invoke-UnitTests
+        Invoke-Publish -StagingDir $StagingDir -VersionArgs $VersionArgs -TargetRids @($localRid)
+        Invoke-Install -SemVer $SemVer
     }
 }
