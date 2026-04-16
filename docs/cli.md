@@ -237,7 +237,7 @@ Supported preference keys:
 
 | Command | Description |
 |---|---|
-| `controlplane start` | Start the bundled Control Plane host (`ControlPlane/DevOpsMigrationPlatform.ControlPlaneHost[.exe]`) in the current terminal. Blocks until Ctrl+C — the control plane runs as a foreground child process. **Only available in the packaged (zip) distribution.** In a dev/source build, run `dotnet run --project src/DevOpsMigrationPlatform.ControlPlaneHost` instead. |
+| `controlplane start [--port <port>]` | Start the bundled Control Plane host (`ControlPlane/DevOpsMigrationPlatform.ControlPlaneHost[.exe]`) in the current terminal. Blocks until Ctrl+C — the control plane runs as a foreground child process. `--port` sets the listen port (default: `5100`); the value is passed to the child process via `ASPNETCORE_URLS`. **Only available in the packaged (zip) distribution.** In a dev/source build, run `dotnet run --project src/DevOpsMigrationPlatform.ControlPlaneHost --urls http://localhost:5100` instead. |
 
 ---
 
@@ -269,6 +269,7 @@ devopsmigration config set scenario-folder C:\migrations\configs
 devopsmigration config get scenario-folder
 
 devopsmigration controlplane start
+devopsmigration controlplane start --port 5200
 
 devopsmigration tui
 ```

@@ -76,7 +76,7 @@ Manage the local Control Plane host process. Registered as a Spectre.Console bra
 
 | Command | Settings Key | Description |
 |---------|-------------|-------------|
-| `controlplane start` | `ControlPlaneStartCommand.Settings` | Start the bundled Control Plane host (`ControlPlane/DevOpsMigrationPlatform.ControlPlaneHost[.exe]`) in the current terminal. Only available in the packaged (zip) distribution. No options — the binary is resolved by convention from the CLI's install directory. Ctrl+C stops the process. |
+| `controlplane start` | `ControlPlaneStartCommand.Settings` | Start the bundled Control Plane host (`ControlPlane/DevOpsMigrationPlatform.ControlPlaneHost[.exe]`) in the current terminal. Accepts `--port <port>` (default: `5100`); the port is passed to the child process via `ASPNETCORE_URLS`. The binary is resolved by convention from the CLI's install directory. Only available in the packaged (zip) distribution. Ctrl+C stops the process. |
 
 ---
 
@@ -204,7 +204,7 @@ devopsmigration tui
 ## Constraints
 
 - The `manage`, `discovery`, `config`, and `controlplane` branches are registered as Spectre.Console `AddBranch` entries — they are not standalone commands.
-- `controlplane start` resolves the sibling binary by convention (`ControlPlane/` subdirectory of `AppContext.BaseDirectory`). It does not accept a `--url` or `--port` option — the Control Plane host reads its own `appsettings.json`. Only available in the packaged zip distribution; in a dev/source build it prints an informative error and returns exit code 1.
+- `controlplane start` resolves the sibling binary by convention (`ControlPlane/` subdirectory of `AppContext.BaseDirectory`). Accepts `--port <port>` (default: `5100`); the value overrides the child process's listen address via the `ASPNETCORE_URLS` environment variable. Only available in the packaged zip distribution; in a dev/source build it prints an informative error and returns exit code 1.
 - `discovery *` commands must never submit a `MigrationJob` to the control plane.
 - `manage login` / `manage logout` store and revoke credentials only; they do not trigger any job operations.
 - `config set` / `config get` read and write user-level preferences only; they do not affect migration configuration files.

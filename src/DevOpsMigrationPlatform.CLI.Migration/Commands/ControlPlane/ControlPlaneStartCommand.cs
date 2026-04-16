@@ -1,4 +1,5 @@
 using System;
+using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
 using System.Runtime.InteropServices;
@@ -17,12 +18,20 @@ namespace DevOpsMigrationPlatform.CLI.Commands.ControlPlane;
 /// produces. When running from a dev/source build this directory does not exist
 /// and the command prints an informative error instead of crashing.
 ///
-/// Usage: <c>devopsmigration controlplane start</c>
+/// The port is passed to the child process via the <c>ASPNETCORE_URLS</c>
+/// environment variable — the standard ASP.NET Core override mechanism.
+///
+/// Usage: <c>devopsmigration controlplane start [--port &lt;port&gt;]</c>
 /// </summary>
 public sealed class ControlPlaneStartCommand : AsyncCommand<ControlPlaneStartCommand.Settings>
 {
-    /// <summary>No settings required — the binary is resolved by convention.</summary>
-    public sealed class Settings : CommandSettings { }
+    public sealed class Settings : CommandSettings
+    {
+        [CommandOption("--port")]
+        [Description("Port the Control Plane host will listen on. Default: 5100.")]
+        [DefaultValue(5100)]
+        public int Port { get; init; } = 5100;
+    }
 
     protected override async Task<int> ExecuteAsync(
         CommandContext context,
@@ -44,9 +53,11 @@ public sealed class ControlPlaneStartCommand : AsyncCommand<ControlPlaneStartCom
             AnsiConsole.MarkupLine($"  Expected: [dim]{Markup.Escape(exePath)}[/]");
             AnsiConsole.MarkupLine("[grey]This command is only available in the packaged (zip) distribution.[/]");
             AnsiConsole.MarkupLine("[grey]When running from a source build, start the Control Plane directly:[/]");
-            AnsiConsole.MarkupLine("[grey]  dotnet run --project src/DevOpsMigrationPlatform.ControlPlaneHost[/]");
+            AnsiConsole.MarkupLine($"[grey]  dotnet run --project src/DevOpsMigrationPlatform.ControlPlaneHost --urls http://localhost:{settings.Port}[/]");
             return 1;
         }
+
+        var url = $"http://localhost:{settings.Port}";
 
         var psi = new ProcessStartInfo
         {
@@ -57,11 +68,12 @@ public sealed class ControlPlaneStartCommand : AsyncCommand<ControlPlaneStartCom
             RedirectStandardOutput = false,
             RedirectStandardError = false,
         };
+        psi.Environment["ASPNETCORE_URLS"] = url;
 
         using var process = Process.Start(psi)
             ?? throw new InvalidOperationException("Failed to start the Control Plane process.");
 
-        AnsiConsole.MarkupLine($"[green]✓[/] Control Plane started (PID {process.Id})  [dim]http://localhost:5100[/]");
+        AnsiConsole.MarkupLine($"[green]✓[/] Control Plane started (PID {process.Id})  [dim]{Markup.Escape(url)}[/]");
         AnsiConsole.MarkupLine("[grey]Press Ctrl+C to stop.[/]");
 
         await using var registration = cancellationToken.Register(() =>
