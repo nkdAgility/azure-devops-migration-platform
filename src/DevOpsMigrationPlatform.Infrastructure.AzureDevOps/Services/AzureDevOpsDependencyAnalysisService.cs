@@ -67,8 +67,12 @@ public sealed class AzureDevOpsDependencyAnalysisService : IWorkItemLinkAnalysis
 
         // Build a lookup of org-segment → (resolvedUrl, pat) for all configured orgs so we
         // can resolve GUID project names in cross-org links when we have credentials.
+        // Disabled organisations are intentionally included here: `enabled: false` only
+        // prevents an organisation from being iterated for dependency discovery, but it
+        // must still participate in GUID-to-project-name resolution so that links
+        // pointing at a disabled org are resolved to human-readable names.
         var configuredOrgs = _options.Value.Organisations
-            .Where(o => o.Enabled && !string.IsNullOrWhiteSpace(o.ResolvedUrl))
+            .Where(o => !string.IsNullOrWhiteSpace(o.ResolvedUrl))
             .ToDictionary(
                 o => ExtractOrgSegment(o.ResolvedUrl),
                 o => (OrgUrl: o.ResolvedUrl.TrimEnd('/'), Pat: o.Authentication?.ResolvedAccessToken ?? ""),
