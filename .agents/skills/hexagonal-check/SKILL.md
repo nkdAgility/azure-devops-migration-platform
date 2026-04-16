@@ -273,6 +273,40 @@ grep -rEn "Console\.(Write|Read)" \
 
 ---
 
+## Check 8 — `new ConcreteInfrastructureClass(...)` in Module or Worker Code
+
+**Smell:** A module or background worker constructs a concrete infrastructure class directly with `new` rather than receiving it through an injected factory.
+
+```csharp
+// BAD — module bypasses IoC to instantiate infrastructure
+var checkpointing = new CheckpointingService(stateStore);  // ❌
+var idMap = new SqliteIdMapStore(dbFilePath);              // ❌
+var processor = new RevisionFolderProcessor(target, ...); // ❌
+```
+
+**Fix:** Introduce a factory interface in `DevOpsMigrationPlatform.Abstractions` (e.g. `ICheckpointingServiceFactory`, `IIdMapStoreFactory`, `IRevisionFolderProcessorFactory`), add a concrete factory in `Infrastructure`, register it in DI, and inject the factory into the module/worker.
+
+```csharp
+// GOOD — module receives factories via constructor injection
+var checkpointing = _checkpointingFactory.Create(stateStore); // ✅
+var idMap = _idMapStoreFactory.Create(dbFilePath);            // ✅
+var processor = _processorFactory.Create(target, ...);        // ✅
+```
+
+This pattern is required when an operation-scoped dependency (e.g. per-job `IStateStore`) must be wired at execution time rather than composition time.
+
+**How to find:**
+
+```bash
+grep -rn "new CheckpointingService\|new PhaseTrackingService\|new SqliteIdMapStore\|new RevisionFolderProcessor" \
+  src/ --include="*.cs" \
+  --exclude-dir=DevOpsMigrationPlatform.Infrastructure
+```
+
+Any hit outside the `Infrastructure` project tree (factories, tests) is a violation.
+
+---
+
 ## Severity Classification
 
 | Severity | Criteria |
@@ -295,5 +329,6 @@ Run this checklist after any code change that touches module, infrastructure, or
 - [ ] **Check 5**: All shared domain records and DTOs declared in `DevOpsMigrationPlatform.Abstractions`.
 - [ ] **Check 6**: No `Environment.GetEnvironmentVariable` or environment-name branching in module/domain code.
 - [ ] **Check 7**: No `Console.Write*` in module, Job Engine, or infrastructure adapter code.
+- [ ] **Check 8**: No `new ConcreteInfrastructureClass(...)` in module or worker code — all per-operation collaborators created through injected factory interfaces.
 
 All items must be checked before a feature or refactoring is declared complete. Any unchecked item is a blocking violation.
