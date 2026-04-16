@@ -50,15 +50,17 @@ public static class MigrationAgentServiceExtensions
 
         // Named HttpClient used by MigrationAgentWorker to poll /agents/lease and signal completion.
         // The /agents/lease endpoint is a long-poll held open by the server for ~10s.
-        // Increase AttemptTimeout and TotalRequestTimeout accordingly to prevent Polly from
-        // firing a spurious timeout and retry on every idle poll.
-        // Constraint: TotalRequestTimeout >= AttemptTimeout * (MaxRetries + 1) = 30s * 4 = 120s.
+        // Increase timeouts to prevent Polly from firing spurious timeouts on every idle poll.
+        // Polly validation constraints:
+        //   TotalRequestTimeout >= AttemptTimeout * (MaxRetries + 1)  →  150s >= 30s * 4 = 120s ✓
+        //   CircuitBreaker.SamplingDuration >= 2 * AttemptTimeout     →  61s  >= 2 * 30s = 60s  ✓
         builder.Services.AddHttpClient("ControlPlane",
             client => client.BaseAddress = controlPlaneBaseUrl)
             .AddStandardResilienceHandler(options =>
             {
                 options.AttemptTimeout.Timeout = TimeSpan.FromSeconds(30);
                 options.TotalRequestTimeout.Timeout = TimeSpan.FromSeconds(150);
+                options.CircuitBreaker.SamplingDuration = TimeSpan.FromSeconds(61);
             });
 
         // Progress streaming to the Control Plane ring buffer.
