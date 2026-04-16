@@ -84,12 +84,18 @@ public abstract class CommandBase<TSettings> : AsyncCommand<TSettings>
         }
         finally
         {
-            if (Host is IAsyncDisposable asyncDisposable)
-                await asyncDisposable.DisposeAsync();
-            else
-                Host?.Dispose();
-
+            // Stop sub-resources (e.g. LocalStackHost) before stopping the main host
+            // to avoid the host hanging while waiting for services that depend on them.
             await DisposeResourcesAsync();
+
+            if (Host is not null)
+            {
+                await Host.StopAsync(TimeSpan.FromSeconds(10));
+                if (Host is IAsyncDisposable asyncDisposable)
+                    await asyncDisposable.DisposeAsync();
+                else
+                    Host.Dispose();
+            }
         }
     }
 

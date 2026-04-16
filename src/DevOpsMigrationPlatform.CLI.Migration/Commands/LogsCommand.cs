@@ -36,15 +36,10 @@ public sealed class LogsCommand : ControlPlaneCommandBase<LogsCommand.Settings>
         // Create command-specific host with control plane client
         await CreateHost(Environment.GetCommandLineArgs(), (services, config) =>
         {
-            services.AddOptions<ControlPlaneOptions>()
-                .BindConfiguration(ControlPlaneOptions.SectionName)
-                .ValidateDataAnnotations()
-                .ValidateOnStart();
-
             services.AddHttpClient<ControlPlaneClient>((sp, client) =>
             {
-                var opts = sp.GetRequiredService<IOptions<ControlPlaneOptions>>().Value;
-                client.BaseAddress = new Uri(opts.BaseUrl);
+                var opts = sp.GetRequiredService<IOptions<EnvironmentOptions>>().Value;
+                client.BaseAddress = new Uri(opts.ControlPlane.BaseUrl);
             });
 
             services.AddTransient<ILogsClient>(sp => sp.GetRequiredService<ControlPlaneClient>());

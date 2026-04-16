@@ -51,6 +51,7 @@ public class ExportWorkItemLinksSteps
         _ctx.IsSourceSetUp = true;
     }
 
+#pragma warning disable CS0162 // Unreachable code — yield break required for async iterator
     private static async IAsyncEnumerable<WorkItemRevision> ThrowingAsyncEnumerable(
         Exception ex,
         [EnumeratorCancellation] CancellationToken _ = default)
@@ -61,6 +62,7 @@ public class ExportWorkItemLinksSteps
         // ReSharper disable once HeuristicUnreachableCode
         yield break;
     }
+#pragma warning restore CS0162
 
     private void InitSut()
     {
@@ -95,9 +97,9 @@ public class ExportWorkItemLinksSteps
         {
             _ctx.SourceRevisions.Add(new WorkItemRevision
             {
-                WorkItemId    = workItemId,
+                WorkItemId = workItemId,
                 RevisionIndex = i,
-                ChangedDate   = baseDate.AddDays(i)
+                ChangedDate = baseDate.AddDays(i)
             });
         }
     }
@@ -137,17 +139,17 @@ public class ExportWorkItemLinksSteps
     [Then(@"revision (\d+)'s ""revision.json"" contains an empty links collection")]
     public void ThenRevisionJsonContainsEmptyLinks(int revisionIndex)
     {
-        var rev  = _ctx.SourceRevisions[revisionIndex];
+        var rev = _ctx.SourceRevisions[revisionIndex];
         var json = File.ReadAllText(RevisionJsonPath(rev.WorkItemId, rev.RevisionIndex, rev.ChangedDate));
         StringAssert.Contains(json, "\"externalLinks\":[]", $"Revision {revisionIndex} should have empty externalLinks");
-        StringAssert.Contains(json, "\"relatedLinks\":[]",  $"Revision {revisionIndex} should have empty relatedLinks");
-        StringAssert.Contains(json, "\"hyperlinks\":[]",    $"Revision {revisionIndex} should have empty hyperlinks");
+        StringAssert.Contains(json, "\"relatedLinks\":[]", $"Revision {revisionIndex} should have empty relatedLinks");
+        StringAssert.Contains(json, "\"hyperlinks\":[]", $"Revision {revisionIndex} should have empty hyperlinks");
     }
 
     [Then(@"revision (\d+)'s ""revision.json"" contains exactly the new related link to work item (\d+)")]
     public void ThenRevisionJsonContainsRelatedLink(int revisionIndex, int targetWorkItemId)
     {
-        var rev  = _ctx.SourceRevisions[revisionIndex];
+        var rev = _ctx.SourceRevisions[revisionIndex];
         var json = File.ReadAllText(RevisionJsonPath(rev.WorkItemId, rev.RevisionIndex, rev.ChangedDate));
         StringAssert.Contains(json, $"\"relatedWorkItemId\":{targetWorkItemId}");
     }
@@ -413,7 +415,7 @@ public class ExportWorkItemLinksSteps
         // Metrics recording is the responsibility of the mapper/source layer.
         // The orchestrator produces a revision.json that includes all three link types —
         // that is the observable outcome at this level.
-        var rev  = _ctx.SourceRevisions[0];
+        var rev = _ctx.SourceRevisions[0];
         var json = File.ReadAllText(RevisionJsonPath(rev.WorkItemId, rev.RevisionIndex, rev.ChangedDate));
         StringAssert.Contains(json, "vstfs:///1");
         StringAssert.Contains(json, "\"relatedWorkItemId\":201");
@@ -439,9 +441,9 @@ public class ExportWorkItemLinksSteps
             var baseDate = new DateTimeOffset(2024, 6, 1, 0, 0, 0, TimeSpan.Zero);
             _ctx.SourceRevisions.Add(new WorkItemRevision
             {
-                WorkItemId    = workItemId,
+                WorkItemId = workItemId,
                 RevisionIndex = revisionIndex,
-                ChangedDate   = baseDate.AddDays(revisionIndex)
+                ChangedDate = baseDate.AddDays(revisionIndex)
             });
         }
     }

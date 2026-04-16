@@ -18,7 +18,7 @@ public static class ExceptionSanitizer
     public static Exception SanitizeException(Exception exception)
     {
         if (exception == null)
-            return exception;
+            return null!;
 
         try
         {

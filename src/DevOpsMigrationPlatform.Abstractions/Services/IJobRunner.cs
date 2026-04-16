@@ -1,6 +1,5 @@
 #if !NET481
 using System.Collections.Generic;
-using System.Runtime.CompilerServices;
 using System.Threading;
 
 namespace DevOpsMigrationPlatform.Abstractions;
@@ -29,6 +28,6 @@ public interface IJobRunner
     /// </summary>
     IAsyncEnumerable<ProgressEvent> RunAsync(
         MigrationJob job,
-        [EnumeratorCancellation] CancellationToken ct = default);
+        CancellationToken ct = default);
 }
 #endif

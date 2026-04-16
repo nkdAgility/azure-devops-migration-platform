@@ -53,6 +53,11 @@
 .PARAMETER Mode
     Build | Test | SystemTest | Package | Full | Start   (default: Full)
 
+.PARAMETER Version
+    Override the version string instead of resolving via GitVersion.
+    When set, SemVer / AssemblySemVer / InformationalVersion are all
+    set to this value and GitVersion is not invoked.
+
 .EXAMPLE
     pwsh ./build.ps1                  # Full pipeline
     pwsh ./build.ps1 -Mode Build
@@ -61,10 +66,13 @@
     pwsh ./build.ps1 -Mode Package
     pwsh ./build.ps1 -Mode Full
     pwsh ./build.ps1 -Mode Start
+    pwsh ./build.ps1 -Version 16.9.3  # Override version
 #>
 param(
     [ValidateSet('Build', 'Test', 'SystemTest', 'Package', 'Full', 'Start')]
-    [string]$Mode = 'Full'
+    [string]$Mode = 'Full',
+
+    [string]$Version
 )
 
 $ErrorActionPreference = 'Stop'
@@ -330,11 +338,18 @@ function Start-AppHost {
 # ─────────────────────────────────────────────────────────────────────────────
 # Orchestration
 # ─────────────────────────────────────────────────────────────────────────────
-$versionInfo = Resolve-GitVersion
+if ($Version) {
+    Write-Host "`n==> Using explicit version override: $Version" -ForegroundColor Cyan
+    $SemVer               = $Version
+    $AssemblySemVer       = $Version
+    $InformationalVersion = $Version
+} else {
+    $versionInfo = Resolve-GitVersion
 
-$SemVer               = $versionInfo.SemVer
-$AssemblySemVer       = $versionInfo.AssemblySemVer
-$InformationalVersion = $versionInfo.InformationalVersion
+    $SemVer               = $versionInfo.SemVer
+    $AssemblySemVer       = $versionInfo.AssemblySemVer
+    $InformationalVersion = $versionInfo.InformationalVersion
+}
 
 Write-Host "  SemVer:               $SemVer"
 Write-Host "  AssemblySemVer:       $AssemblySemVer"

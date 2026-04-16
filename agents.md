@@ -245,7 +245,7 @@ Reject any proposal that:
 - **Invents a new abstraction for work item processing without extending an existing pattern or documenting why no existing abstraction could be reused** (motivated by rule 21 of [.agents/guardrails/system-architecture.md](.agents/guardrails/system-architecture.md)).
 - Declares a task complete without a passing `dotnet clean && dotnet build --no-incremental`.
 - Declares a task complete without all tests passing (`dotnet test`).
-- Declares a task complete without running at least one scenario config (e.g. `scenarios/export-ado-workitems-single-project.json`) via a `launch.json` debug profile and verifying observable output.
+- Declares a task complete without running at least one scenario config (e.g. `scenarios/queue-export-ado-workitems-single-project.json`) via a `launch.json` debug profile and verifying observable output.
 - Marks a spec's last task `[X]` without all items in `specs/<feature>/discrepancies.md` being `Resolved` or `N/A`.
 - Closes a spec branch without reviewing and updating `analysis/pending-actions.md`.
 - Declares done without updating every canonical doc named in any doc-task in `tasks.md`.
@@ -262,7 +262,7 @@ When implementing:
 5. Update schemas if required.
 6. Run `dotnet clean && dotnet build --no-incremental` — MUST pass before the task is considered complete.
 7. Run `dotnet test` — ALL tests MUST pass before the task is considered complete.
-8. Run at least one scenario config (e.g. `scenarios/export-ado-workitems-single-project.json`) via a `.vscode/launch.json` debug profile — MUST execute without errors and produce expected output before the task is considered complete.
+8. Run at least one scenario config (e.g. `scenarios/queue-export-ado-workitems-single-project.json`) via a `.vscode/launch.json` debug profile — MUST execute without errors and produce expected output before the task is considered complete.
 
 ---
 

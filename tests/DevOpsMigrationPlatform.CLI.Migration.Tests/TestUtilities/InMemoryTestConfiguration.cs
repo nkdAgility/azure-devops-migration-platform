@@ -15,7 +15,7 @@ public static class InMemoryTestConfiguration
     /// <returns>IConfiguration instance for testing</returns>
     public static IConfiguration Create(params (string key, string value)[] values)
     {
-        var configData = values.ToDictionary(x => x.key, x => x.value);
+        var configData = values.ToDictionary(x => x.key, x => (string?)x.value);
         return new ConfigurationBuilder()
             .AddInMemoryCollection(configData)
             .Build();
@@ -27,11 +27,11 @@ public static class InMemoryTestConfiguration
     /// <returns>IConfiguration with common test defaults</returns>
     public static IConfiguration CreateDefault()
     {
-        var defaultConfig = new Dictionary<string, string>
+        var defaultConfig = new Dictionary<string, string?>
         {
             ["Migration:Source:Type"] = "AzureDevOps",
             ["Migration:Source:Url"] = "https://dev.azure.com/test-org",
-            ["Migration:Target:Type"] = "AzureDevOps", 
+            ["Migration:Target:Type"] = "AzureDevOps",
             ["Migration:Target:Url"] = "https://dev.azure.com/target-org",
             ["Migration:PackageRoot"] = "C:\\temp\\test-package",
             ["Telemetry:ApplicationInsights:InstrumentationKey"] = "test-key",
@@ -49,7 +49,7 @@ public static class InMemoryTestConfiguration
     /// <returns>IConfiguration with inventory-specific settings</returns>
     public static IConfiguration CreateInventoryConfig()
     {
-        var inventoryConfig = new Dictionary<string, string>
+        var inventoryConfig = new Dictionary<string, string?>
         {
             ["Migration:Source:Type"] = "TfsObjectModel",
             ["Migration:Source:Url"] = "http://tfs-server:8080/tfs/collection",
@@ -70,7 +70,7 @@ public static class InMemoryTestConfiguration
     /// <returns>IConfiguration with invalid settings</returns>
     public static IConfiguration CreateInvalidConfig()
     {
-        var invalidConfig = new Dictionary<string, string>
+        var invalidConfig = new Dictionary<string, string?>
         {
             ["Migration:Source:Type"] = "", // Invalid empty type
             ["Migration:Source:Url"] = "not-a-valid-url", // Invalid URL format
