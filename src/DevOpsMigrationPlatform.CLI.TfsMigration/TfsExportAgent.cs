@@ -1,90 +1,54 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
-using Microsoft.Extensions.Logging;
-using Microsoft.TeamFoundation.WorkItemTracking.Client;
 using DevOpsMigrationPlatform.Abstractions;
-using DevOpsMigrationPlatform.Infrastructure.Checkpointing;
 using DevOpsMigrationPlatform.Infrastructure.Export;
-using DevOpsMigrationPlatform.Infrastructure.TfsObjectModel;
-using DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.Services;
 
 namespace DevOpsMigrationPlatform.CLI.TfsMigration;
 
 /// <summary>
 /// The .NET 4.8 export executor. Structural parallel of the .NET 10 MigrationAgent.
-/// Constructs <see cref="WorkItemExportOrchestrator"/> with TFS-specific sources and
-/// emits all progress through <see cref="IProgressSink"/> — no Console writes or UI coupling.
+/// Delegates to <see cref="WorkItemExportOrchestrator"/> with port interfaces only —
+/// no TFS SDK types cross this boundary.
+/// Emits all progress through <see cref="IProgressSink"/> — no Console writes or UI coupling.
 /// See docs/tfs-exporter.md.
 /// </summary>
 public sealed class TfsExportAgent
 {
     private readonly IArtefactStore _artefactStore;
     private readonly ICheckpointingService _checkpointingService;
-    private readonly WorkItemStore _workItemStore;
-    private readonly IWorkItemRevisionMapper _mapper;
-    private readonly IAttachmentDownloader _attachmentDownloader;
-    private readonly TfsWorkItemQueryWindowStrategy _windowStrategy;
-    private readonly ILogger<TfsWorkItemRevisionSource> _revisionSourceLogger;
-    private readonly ILogger<TfsAttachmentBinarySource> _attachmentSourceLogger;
+    private readonly IWorkItemRevisionSource _revisionSource;
+    private readonly IAttachmentBinarySource _attachmentSource;
 
     public TfsExportAgent(
         IArtefactStore artefactStore,
         ICheckpointingService checkpointingService,
-        WorkItemStore workItemStore,
-        IWorkItemRevisionMapper mapper,
-        IAttachmentDownloader attachmentDownloader,
-        TfsWorkItemQueryWindowStrategy windowStrategy,
-        ILogger<TfsWorkItemRevisionSource> revisionSourceLogger,
-        ILogger<TfsAttachmentBinarySource> attachmentSourceLogger)
+        IWorkItemRevisionSource revisionSource,
+        IAttachmentBinarySource attachmentSource)
     {
         _artefactStore = artefactStore ?? throw new ArgumentNullException(nameof(artefactStore));
         _checkpointingService = checkpointingService ?? throw new ArgumentNullException(nameof(checkpointingService));
-        _workItemStore = workItemStore ?? throw new ArgumentNullException(nameof(workItemStore));
-        _mapper = mapper ?? throw new ArgumentNullException(nameof(mapper));
-        _attachmentDownloader = attachmentDownloader ?? throw new ArgumentNullException(nameof(attachmentDownloader));
-        _windowStrategy = windowStrategy ?? throw new ArgumentNullException(nameof(windowStrategy));
-        _revisionSourceLogger = revisionSourceLogger ?? throw new ArgumentNullException(nameof(revisionSourceLogger));
-        _attachmentSourceLogger = attachmentSourceLogger ?? throw new ArgumentNullException(nameof(attachmentSourceLogger));
+        _revisionSource = revisionSource ?? throw new ArgumentNullException(nameof(revisionSource));
+        _attachmentSource = attachmentSource ?? throw new ArgumentNullException(nameof(attachmentSource));
     }
 
     /// <summary>
-    /// Run the export for the given project and WIQL query.
+    /// Run the export.
     /// All progress is emitted via <paramref name="progressSink"/>; the method
     /// throws on non-recoverable failure so the caller can exit non-zero.
     /// </summary>
     public async Task RunAsync(
-        string project,
-        string wiqlQuery,
         IProgressSink progressSink,
         CancellationToken cancellationToken)
     {
         if (progressSink == null) throw new ArgumentNullException(nameof(progressSink));
 
-        // Shared registry correlates attachment IDs registered during source enumeration
-        // with binary downloads that the orchestrator requests after receiving each revision.
-        var registry = new TfsAttachmentRegistry();
-
-        var source = new TfsWorkItemRevisionSource(
-            _workItemStore,
-            _mapper,
-            _windowStrategy,
-            registry,
-            project,
-            wiqlQuery,
-            _revisionSourceLogger);
-
-        var attachmentSource = new TfsAttachmentBinarySource(
-            _attachmentDownloader,
-            registry,
-            _attachmentSourceLogger);
-
         var orchestrator = new WorkItemExportOrchestrator(
             _artefactStore,
             _checkpointingService,
-            attachmentSource,
+            _attachmentSource,
             progressSink);
 
-        await orchestrator.ExportAsync(source, cancellationToken).ConfigureAwait(false);
+        await orchestrator.ExportAsync(_revisionSource, cancellationToken).ConfigureAwait(false);
     }
 }

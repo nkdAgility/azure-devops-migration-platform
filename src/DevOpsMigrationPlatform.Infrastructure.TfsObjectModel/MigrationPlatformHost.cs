@@ -115,6 +115,26 @@ public static class MigrationPlatformHost
             services.AddSingleton<IWorkItemDiscoveryService, TfsObjectModelWorkItemDiscoveryService>();
             services.AddSingleton<IProjectDiscoveryService, TfsProjectDiscoveryService>();
 
+            // Port interface wiring — TFS sources share a TfsAttachmentRegistry so that
+            // attachment IDs registered during revision enumeration can be resolved during
+            // binary download.  This keeps all TFS SDK types confined to the composition root.
+            services.AddSingleton<TfsAttachmentRegistry>();
+            var wiqlQuery = $"SELECT * FROM WorkItems WHERE [System.TeamProject] = '{settings.Project}'";
+            services.AddSingleton<IWorkItemRevisionSource>(sp =>
+                new TfsWorkItemRevisionSource(
+                    sp.GetRequiredService<WorkItemStore>(),
+                    sp.GetRequiredService<IWorkItemRevisionMapper>(),
+                    sp.GetRequiredService<TfsWorkItemQueryWindowStrategy>(),
+                    sp.GetRequiredService<TfsAttachmentRegistry>(),
+                    settings.Project,
+                    wiqlQuery,
+                    sp.GetRequiredService<ILogger<TfsWorkItemRevisionSource>>()));
+            services.AddSingleton<IAttachmentBinarySource>(sp =>
+                new TfsAttachmentBinarySource(
+                    sp.GetRequiredService<IAttachmentDownloader>(),
+                    sp.GetRequiredService<TfsAttachmentRegistry>(),
+                    sp.GetRequiredService<ILogger<TfsAttachmentBinarySource>>()));
+
             // OpenTelemetry (console exporter — configure real exporter via appsettings)
             services.AddOpenTelemetry()
                 .ConfigureResource(rb =>

@@ -1,8 +1,5 @@
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Infrastructure.TfsObjectModel;
-using DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.Services;
-using Microsoft.Extensions.Logging;
-using Microsoft.TeamFoundation.WorkItemTracking.Client;
 using Spectre.Console;
 using Spectre.Console.Cli;
 using System;
@@ -62,21 +59,15 @@ namespace DevOpsMigrationPlatform.CLI.TfsMigration.Commands
             var agent = new TfsExportAgent(
                 GetRequiredService<IArtefactStore>(),
                 GetRequiredService<ICheckpointingService>(),
-                GetRequiredService<WorkItemStore>(),
-                GetRequiredService<IWorkItemRevisionMapper>(),
-                GetRequiredService<IAttachmentDownloader>(),
-                GetRequiredService<TfsWorkItemQueryWindowStrategy>(),
-                GetRequiredService<ILogger<TfsWorkItemRevisionSource>>(),
-                GetRequiredService<ILogger<TfsAttachmentBinarySource>>());
-
-            var wiqlQuery = $"SELECT * FROM WorkItems WHERE [System.TeamProject] = '{settings.Project}'";
+                GetRequiredService<IWorkItemRevisionSource>(),
+                GetRequiredService<IAttachmentBinarySource>());
 
             // When stdout is redirected (subprocess mode) use NDJSON sink so the
             // parent process can parse progress events.  Otherwise render visually.
             if (Console.IsOutputRedirected)
             {
                 var sink = new StdoutProgressSink();
-                await agent.RunAsync(settings.Project, wiqlQuery, sink, cancellationToken)
+                await agent.RunAsync(sink, cancellationToken)
                     .ConfigureAwait(false);
             }
             else
@@ -88,7 +79,6 @@ namespace DevOpsMigrationPlatform.CLI.TfsMigration.Commands
                         ctx.SpinnerStyle(Style.Parse("green"));
 
                         await agent.RunAsync(
-                            settings.Project, wiqlQuery,
                             new DelegateProgressSink(evt =>
                             {
                                 ctx.Status(
