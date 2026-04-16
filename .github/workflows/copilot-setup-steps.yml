@@ -24,7 +24,7 @@ jobs:
         run: dotnet restore DevOpsMigrationPlatform.slnx
 
       - name: Build solution
-        run: dotnet build DevOpsMigrationPlatform.slnx --no-restore --configuration Release
+        run: dotnet build DevOpsMigrationPlatform.slnx --no-restore
 
       - name: Install uv
         uses: astral-sh/setup-uv@v5
