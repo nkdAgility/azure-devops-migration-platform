@@ -20,13 +20,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: "10.0.x"
-
       - name: Restore NuGet packages
         run: dotnet restore DevOpsMigrationPlatform.slnx
+
+      - name: Build solution
+        run: dotnet build DevOpsMigrationPlatform.slnx --no-restore --configuration Release
 
       - name: Install uv
         uses: astral-sh/setup-uv@v5
