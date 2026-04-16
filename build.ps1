@@ -22,9 +22,10 @@
       Full        — Build + Test + SystemTest + Package in sequence.
                     Use for Preview (push to main) and Production releases.
 
-      Start       — Everything in Full, then launches the Aspire AppHost
-                    (ControlPlane + MigrationAgent) for local developer
-                    simulation of the production topology. Ctrl-C to stop.
+      Start       — Install (build + unit test + publish + install to versioned
+                    folder + update 'current' junction), then launches the
+                    Aspire AppHost (ControlPlane + MigrationAgent) so you can
+                    run 'devopsmigrationdev' against it. Ctrl-C to stop.
 
       Install     — Build + Test (unit only) + publish for the current
                     platform, then installs to
@@ -38,7 +39,7 @@
       PR                   :  Build  →  Test  →  SystemTest   (separate steps)
       Preview (main push)  :  Build  →  Test  →  SystemTest  →  Package
       Production (release) :  Build  →  Test  →  SystemTest  →  Package
-      Developer local      :  Full  (or Start to also launch Aspire)
+      Developer local      :  Install  (or Start to also launch Aspire)
 
     Prerequisites:
       - .NET SDK (see global.json)
@@ -497,12 +498,13 @@ switch ($Mode) {
     }
 
     'Start' {
-        # ── Developer local: full pipeline + launch Aspire ───────────────────
-        Invoke-Build       -VersionArgs $VersionArgs
+        # ── Install for this platform, then launch Aspire ─────────────────────
+        # After this you can run 'devopsmigrationdev' against the running services.
+        $localRid = Get-CurrentRid
+        Invoke-Build   -VersionArgs $VersionArgs
         Invoke-UnitTests
-        Invoke-SystemTests
-        Invoke-Publish     -StagingDir $StagingDir -VersionArgs $VersionArgs
-        Invoke-Package     -SemVer $SemVer -StagingDir $StagingDir
+        Invoke-Publish -StagingDir $StagingDir -VersionArgs $VersionArgs -TargetRids @($localRid)
+        Invoke-Install -SemVer $SemVer
         Start-AppHost
     }
 
