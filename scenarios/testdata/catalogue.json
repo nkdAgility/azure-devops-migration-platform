@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Catalogue of test fixture zips under scenarios/testdata/. Each entry describes the package contents so that tests and AI agents can select the right fixture without unpacking it.",
+  "namingConvention": "{module}-{itemCount}items-{shape}.zip  |  shape keywords: flat (no links/attachments/comments), linked, attached, commented, full (all extensions)",
+  "fixtures": [
+    {
+      "file": "workitems-2items-flat.zip",
+      "description": "Minimal two-item package: one User Story (id 1001) and one Task (id 1002), each with a single revision. No links, no attachments, no comments, no embedded images.",
+      "module": "WorkItems",
+      "workItemCount": 2,
+      "revisionCount": 2,
+      "workItemTypes": [
+        "User Story",
+        "Task"
+      ],
+      "teamProject": "FixtureProject",
+      "hasLinks": false,
+      "hasAttachments": false,
+      "hasComments": false,
+      "hasEmbeddedImages": false,
+      "intendedUse": [
+        "QueueCommand import mode happy-path system test",
+        "Streaming import unit test without side-effects",
+        "Checkpoint resume test (import from scratch)"
+      ]
+    }
+  ]
+}
