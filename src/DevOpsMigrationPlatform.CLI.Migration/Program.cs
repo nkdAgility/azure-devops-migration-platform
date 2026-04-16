@@ -94,14 +94,12 @@ internal class Program
                 branch.SetDescription("Tools for finding out what we have and the implications of any migration.");
 
                 branch.AddCommand<InventoryCommand>("inventory")
-                    .WithDescription("Count work items and revisions per project. Results written to discovery-summary.csv.")
-                    .WithExample("discovery", "inventory", "--config", "migration.json")
-                    .WithExample("discovery", "inventory", "--config", "migration.json", "--output", "./inventory-results");
+                    .WithDescription("Count work items and revisions per project. Results written to the Artefacts path defined in the config.")
+                    .WithExample("discovery", "inventory", "--config", "scenarios/inventory-ado-single-project.json");
 
                 branch.AddCommand<DependencyCommand>("dependencies")
-                    .WithDescription("Analyse work items for cross-project and cross-organisation links. Results written to discovery-dependencies.csv, project pairs to discovery-project-dependencies.csv, and diagram to discovery-project-dependencies.md.")
-                    .WithExample("discovery", "dependencies", "--config", "scenarios/discovery-dependency-ado-single-project.json")
-                    .WithExample("discovery", "dependencies", "--config", "scenarios/discovery-dependency-ado-single-project.json", "--output", "./reports/deps.csv");
+                    .WithDescription("Analyse work items for cross-project and cross-organisation links. Results written to the Artefacts path defined in the config.")
+                    .WithExample("discovery", "dependencies", "--config", "scenarios/discovery-dependency-ado-single-project.json");
             });
 
             // ── Terminal UI ───────────────────────────────────────────────────────────

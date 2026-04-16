@@ -8,6 +8,8 @@ namespace DevOpsMigrationPlatform.Abstractions.Options;
 /// Root options for the <c>devopsmigration discovery</c> command group.
 /// Bound from the <c>MigrationPlatform</c> configuration section.
 /// Contains the multi-org roster to discover.
+/// Environment topology (Standalone / Hosted) is controlled by the separate
+/// <c>MigrationPlatform:Environment</c> section, which is bound independently by the host builder.
 /// </summary>
 public sealed class DiscoveryOptions
 {
@@ -18,12 +20,25 @@ public sealed class DiscoveryOptions
     public List<OrganisationEntry> Organisations { get; set; } = new();
 
     /// <summary>
+    /// Output location for discovery results.
+    /// Required. The CLI normalises <see cref="MigrationArtefactsOptions.Path"/> to a
+    /// <c>file:///</c> URI (standalone) or passes a blob HTTPS URL (hosted) before building
+    /// the <see cref="DevOpsMigrationPlatform.Abstractions.DiscoveryJob"/>.
+    /// </summary>
+    public MigrationArtefactsOptions Artefacts { get; set; } = new();
+
+    /// <summary>
     /// Validates the options, throwing <see cref="InvalidOperationException"/> on any violation.
     /// Called at command startup before any API calls.
     /// </summary>
     public void Validate()
     {
         Policies.Validate();
+
+        if (string.IsNullOrWhiteSpace(Artefacts.Path))
+            throw new InvalidOperationException(
+                "Config error: 'Artefacts.Path' is required for discovery commands. " +
+                "Add an 'Artefacts' section with a 'Path' to your config file.");
 
         if (Organisations.Count == 0)
             throw new InvalidOperationException("Config error: 'organisations' array is empty.");

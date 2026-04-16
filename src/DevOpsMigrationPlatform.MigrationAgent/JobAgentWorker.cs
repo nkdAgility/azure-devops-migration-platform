@@ -1,8 +1,10 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Net.Http;
 using System.Net.Http.Json;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
@@ -12,19 +14,28 @@ using Microsoft.Extensions.Logging;
 namespace DevOpsMigrationPlatform.MigrationAgent;
 
 /// <summary>
-/// Background worker that polls the control plane for available <see cref="MigrationJob"/>s,
-/// acquires a lease, executes the Job Engine, and reports progress.
-/// See docs/migration-agent.md for the full lease protocol.
+/// Unified background worker that polls <c>GET /agents/lease</c> for any pending <see cref="Job"/>,
+/// then dispatches to the appropriate execution path based on the concrete job type:
+/// <list type="bullet">
+///   <item><see cref="MigrationJob"/> — runs <see cref="IModule"/> pipeline (export/import).</item>
+///   <item><see cref="DiscoveryJob"/> — runs <see cref="IDiscoveryModule"/> pipeline (inventory/dependencies).</item>
+/// </list>
+/// Replaces the previous separate <c>MigrationAgentWorker</c> and <c>DiscoveryAgentWorker</c>,
+/// eliminating the dual-queue / dual-lease-endpoint duplication and fixing a latent
+/// concurrency bug where both workers shared <see cref="ActiveLeaseState"/> and
+/// <see cref="ActivePackageState"/> singletons.
 /// </summary>
-public sealed class MigrationAgentWorker : BackgroundService
+public sealed class JobAgentWorker : BackgroundService
 {
     private static readonly JsonSerializerOptions _jsonOptions = new()
     {
         PropertyNameCaseInsensitive = true,
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+        Converters = { new JsonStringEnumConverter() }
     };
 
-    private readonly IEnumerable<IModule> _modules;
+    private readonly IEnumerable<IModule> _migrationModules;
+    private readonly IEnumerable<IDiscoveryModule> _discoveryModules;
     private readonly IPackageStoreFactory _packageStoreFactory;
     private readonly IProgressSink _progressSink;
     private readonly ActiveLeaseState _leaseState;
@@ -32,10 +43,11 @@ public sealed class MigrationAgentWorker : BackgroundService
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly ICheckpointingServiceFactory _checkpointingFactory;
     private readonly IPhaseTrackingServiceFactory _phaseTrackingFactory;
-    private readonly ILogger<MigrationAgentWorker> _logger;
+    private readonly ILogger<JobAgentWorker> _logger;
 
-    public MigrationAgentWorker(
-        IEnumerable<IModule> modules,
+    public JobAgentWorker(
+        IEnumerable<IModule> migrationModules,
+        IEnumerable<IDiscoveryModule> discoveryModules,
         IPackageStoreFactory packageStoreFactory,
         IProgressSink progressSink,
         ActiveLeaseState leaseState,
@@ -43,9 +55,10 @@ public sealed class MigrationAgentWorker : BackgroundService
         IHttpClientFactory httpClientFactory,
         ICheckpointingServiceFactory checkpointingFactory,
         IPhaseTrackingServiceFactory phaseTrackingFactory,
-        ILogger<MigrationAgentWorker> logger)
+        ILogger<JobAgentWorker> logger)
     {
-        _modules = modules;
+        _migrationModules = migrationModules;
+        _discoveryModules = discoveryModules;
         _packageStoreFactory = packageStoreFactory;
         _progressSink = progressSink;
         _leaseState = leaseState;
@@ -58,7 +71,7 @@ public sealed class MigrationAgentWorker : BackgroundService
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        _logger.LogInformation("Migration Agent started — polling for jobs.");
+        _logger.LogInformation("Job Agent Worker started — polling for jobs.");
 
         while (!stoppingToken.IsCancellationRequested)
         {
@@ -77,19 +90,17 @@ public sealed class MigrationAgentWorker : BackgroundService
             }
         }
 
-        _logger.LogInformation("Migration Agent stopping.");
+        _logger.LogInformation("Job Agent Worker stopping.");
     }
 
     private async Task PollAndExecuteAsync(CancellationToken ct)
     {
         using var controlPlane = _httpClientFactory.CreateClient("ControlPlane");
 
-        // 1. Poll for a leased job (long-poll, 30 s server-side timeout).
         using var leaseResponse = await controlPlane
             .GetAsync("/agents/lease", ct)
             .ConfigureAwait(false);
 
-        // 204 = no pending job; back off briefly and try again.
         if (leaseResponse.StatusCode == System.Net.HttpStatusCode.NoContent)
         {
             await Task.Delay(TimeSpan.FromSeconds(5), ct).ConfigureAwait(false);
@@ -105,26 +116,52 @@ public sealed class MigrationAgentWorker : BackgroundService
         if (lease is null) return;
 
         _logger.LogInformation(
-            "Acquired lease {LeaseId} for job {JobId} (mode={Mode})",
-            lease.LeaseId, lease.Job.JobId, lease.Job.Mode);
+            "Acquired lease {LeaseId} for job {JobId} ({JobType})",
+            lease.LeaseId, lease.Job.JobId, lease.Job.GetType().Name);
 
         _leaseState.CurrentLeaseId = lease.LeaseId;
 
-        // 2. Build stores from job artefacts URI via IPackageStoreFactory.
-        var (artefactStore, stateStore) = _packageStoreFactory.Create(
-            lease.Job.Artefacts.PackageUri ?? ".");
+        switch (lease.Job)
+        {
+            case MigrationJob migrationJob:
+                await ExecuteMigrationAsync(migrationJob, controlPlane, lease.LeaseId, ct)
+                    .ConfigureAwait(false);
+                break;
 
-        // Publish the store so package-writing sinks (loggers, progress) can access it.
+            case DiscoveryJob discoveryJob:
+                await ExecuteDiscoveryAsync(discoveryJob, controlPlane, lease.LeaseId, ct)
+                    .ConfigureAwait(false);
+                break;
+
+            default:
+                _logger.LogError(
+                    "Unknown job type {JobType} for lease {LeaseId} — failing job.",
+                    lease.Job.GetType().Name, lease.LeaseId);
+                await SignalTerminalAsync(controlPlane, lease.LeaseId, "fail", ct).ConfigureAwait(false);
+                break;
+        }
+
+        _leaseState.CurrentLeaseId = null;
+        _packageState.CurrentStore = null;
+    }
+
+    // ── Migration execution ───────────────────────────────────────────────────
+
+    private async Task ExecuteMigrationAsync(
+        MigrationJob job, HttpClient controlPlane, string leaseId, CancellationToken ct)
+    {
+        var (artefactStore, stateStore) = _packageStoreFactory.Create(
+            job.Artefacts.PackageUri ?? ".");
+
         _packageState.CurrentStore = artefactStore;
 
         var checkpointer = _checkpointingFactory.Create(stateStore);
         var phaseTracker = _phaseTrackingFactory.Create(stateStore);
 
-        // 3. If ForceFresh, delete all module cursors and phase record before running (idmap preserved).
-        if (lease.Job.Resume?.Mode == ResumeMode.ForceFresh)
+        if (job.Resume?.Mode == ResumeMode.ForceFresh)
         {
-            _logger.LogInformation("ForceFresh requested for job {JobId} — deleting module cursors.", lease.Job.JobId);
-            foreach (var module in _modules)
+            _logger.LogInformation("ForceFresh requested for job {JobId} — deleting module cursors.", job.JobId);
+            foreach (var module in _migrationModules)
             {
                 await checkpointer.DeleteCursorAsync(module.Name, ct).ConfigureAwait(false);
                 _logger.LogDebug("Deleted cursor for module {Module}.", module.Name);
@@ -132,16 +169,15 @@ public sealed class MigrationAgentWorker : BackgroundService
             await phaseTracker.DeletePhaseRecordAsync(ct).ConfigureAwait(false);
         }
 
-        // 4. Handle Prepare mode — write a single probe file and complete.
-        if (string.Equals(lease.Job.Mode, "Prepare", StringComparison.OrdinalIgnoreCase))
+        if (string.Equals(job.Mode, "Prepare", StringComparison.OrdinalIgnoreCase))
         {
             bool prepareFailed = false;
             try
             {
-                _logger.LogInformation("Prepare mode — writing probe file for job {JobId}.", lease.Job.JobId);
+                _logger.LogInformation("Prepare mode — writing probe file for job {JobId}.", job.JobId);
                 var probeContent = System.Text.Json.JsonSerializer.Serialize(new
                 {
-                    jobId = lease.Job.JobId,
+                    jobId = job.JobId,
                     timestamp = DateTimeOffset.UtcNow,
                     status = "ok"
                 });
@@ -154,59 +190,55 @@ public sealed class MigrationAgentWorker : BackgroundService
                     Message = "Probe file written successfully.",
                     Timestamp = DateTimeOffset.UtcNow
                 });
-                _logger.LogInformation("Prepare probe file written successfully for job {JobId}.", lease.Job.JobId);
+                _logger.LogInformation("Prepare probe file written successfully for job {JobId}.", job.JobId);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Prepare probe failed for job {JobId}.", lease.Job.JobId);
+                _logger.LogError(ex, "Prepare probe failed for job {JobId}.", job.JobId);
                 prepareFailed = true;
             }
 
             var prepareTerminal = prepareFailed ? "fail" : "complete";
-            await SignalTerminalAsync(controlPlane, lease.LeaseId, prepareTerminal, ct).ConfigureAwait(false);
-            _packageState.CurrentStore = null;
-            _leaseState.CurrentLeaseId = null;
+            await SignalTerminalAsync(controlPlane, leaseId, prepareTerminal, ct).ConfigureAwait(false);
             return;
         }
 
-        // 4b. Build contexts.
         var exportContext = new ExportContext
         {
-            Job = lease.Job,
+            Job = job,
             ArtefactStore = artefactStore,
             StateStore = stateStore,
             ProgressSink = _progressSink
         };
         var importContext = new ImportContext
         {
-            Job = lease.Job,
+            Job = job,
             ArtefactStore = artefactStore,
             StateStore = stateStore,
             ProgressSink = _progressSink
         };
 
-        // 5. Run phases according to mode, respecting Both-mode phase tracking.
-        var isBoth = string.Equals(lease.Job.Mode, "Both", StringComparison.OrdinalIgnoreCase);
+        var isBoth = string.Equals(job.Mode, "Both", StringComparison.OrdinalIgnoreCase);
         var phaseRecord = isBoth
             ? await phaseTracker.ReadPhaseRecordAsync(ct).ConfigureAwait(false)
             : new JobPhaseRecord();
 
-        var runExport = string.Equals(lease.Job.Mode, "Export", StringComparison.OrdinalIgnoreCase)
+        var runExport = string.Equals(job.Mode, "Export", StringComparison.OrdinalIgnoreCase)
             || (isBoth && !phaseRecord.ExportCompleted);
-        var runImport = string.Equals(lease.Job.Mode, "Import", StringComparison.OrdinalIgnoreCase)
+        var runImport = string.Equals(job.Mode, "Import", StringComparison.OrdinalIgnoreCase)
             || (isBoth && !phaseRecord.ImportCompleted);
 
         if (isBoth && !runExport)
-            _logger.LogInformation("Export phase already completed for job {JobId} — skipping.", lease.Job.JobId);
+            _logger.LogInformation("Export phase already completed for job {JobId} — skipping.", job.JobId);
         if (isBoth && !runImport)
-            _logger.LogInformation("Import phase already completed for job {JobId} — skipping.", lease.Job.JobId);
+            _logger.LogInformation("Import phase already completed for job {JobId} — skipping.", job.JobId);
 
         bool failed = false;
         try
         {
             if (runExport)
             {
-                foreach (var module in _modules)
+                foreach (var module in _migrationModules)
                 {
                     _logger.LogInformation("Running module {Module}.ExportAsync", module.Name);
                     await module.ExportAsync(exportContext, ct).ConfigureAwait(false);
@@ -221,7 +253,7 @@ public sealed class MigrationAgentWorker : BackgroundService
 
             if (runImport)
             {
-                foreach (var module in _modules)
+                foreach (var module in _migrationModules)
                 {
                     _logger.LogInformation("Running module {Module}.ImportAsync", module.Name);
                     await module.ImportAsync(importContext, ct).ConfigureAwait(false);
@@ -236,16 +268,84 @@ public sealed class MigrationAgentWorker : BackgroundService
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Job {JobId} failed during module execution.", lease.Job.JobId);
+            _logger.LogError(ex, "Job {JobId} failed during module execution.", job.JobId);
             failed = true;
         }
 
-        // 5. Signal terminal state — retry with back-off so the lease is not orphaned.
         var terminal = failed ? "fail" : "complete";
-        await SignalTerminalAsync(controlPlane, lease.LeaseId, terminal, ct).ConfigureAwait(false);
-        _packageState.CurrentStore = null;
-        _leaseState.CurrentLeaseId = null;
+        await SignalTerminalAsync(controlPlane, leaseId, terminal, ct).ConfigureAwait(false);
     }
+
+    // ── Discovery execution ───────────────────────────────────────────────────
+
+    private async Task ExecuteDiscoveryAsync(
+        DiscoveryJob job, HttpClient controlPlane, string leaseId, CancellationToken ct)
+    {
+        var (artefactStore, stateStore) = _packageStoreFactory.Create(
+            job.Artefacts.PackageUri ?? ".");
+
+        _packageState.CurrentStore = artefactStore;
+
+        if (job.Resume?.Mode == ResumeMode.ForceFresh)
+        {
+            _logger.LogInformation(
+                "ForceFresh requested for discovery job {JobId} — deleting module cursors.", job.JobId);
+            foreach (var module in _discoveryModules)
+            {
+                var cursorPath = $"Checkpoints/{module.Name}.cursor.json";
+                try { await stateStore.DeleteAsync(cursorPath, ct).ConfigureAwait(false); }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Could not delete cursor for discovery module {Module}.", module.Name);
+                }
+            }
+        }
+
+        var modulesToRun = job.DiscoveryType == DiscoveryJobType.Both
+            ? _discoveryModules.OrderBy(m => (int)m.DiscoveryType).ToList()
+            : _discoveryModules.Where(m => m.DiscoveryType == job.DiscoveryType).ToList();
+
+        if (modulesToRun.Count == 0)
+        {
+            _logger.LogError(
+                "No discovery module found for type {DiscoveryType} — failing job {JobId}.",
+                job.DiscoveryType, job.JobId);
+            await SignalTerminalAsync(controlPlane, leaseId, "fail", ct).ConfigureAwait(false);
+            return;
+        }
+
+        var context = new DiscoveryContext
+        {
+            Job = job,
+            ArtefactStore = artefactStore,
+            StateStore = stateStore,
+            ProgressSink = _progressSink
+        };
+
+        bool failed = false;
+        foreach (var module in modulesToRun)
+        {
+            try
+            {
+                _logger.LogInformation(
+                    "Running discovery module {Module} for job {JobId}.", module.Name, job.JobId);
+                await module.RunAsync(context, ct).ConfigureAwait(false);
+                _logger.LogInformation(
+                    "Discovery module {Module} completed for job {JobId}.", module.Name, job.JobId);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Discovery module {Module} failed for job {JobId}.", module.Name, job.JobId);
+                failed = true;
+                break;
+            }
+        }
+
+        var terminal = failed ? "fail" : "complete";
+        await SignalTerminalAsync(controlPlane, leaseId, terminal, ct).ConfigureAwait(false);
+    }
+
+    // ── Shared ────────────────────────────────────────────────────────────────
 
     private async Task SignalTerminalAsync(
         HttpClient controlPlane, string leaseId, string terminal, CancellationToken ct)
@@ -270,7 +370,7 @@ public sealed class MigrationAgentWorker : BackgroundService
                     "Terminal signal attempt {Attempt}/{Max} failed for lease {LeaseId}; retrying in {Delay} s.",
                     attempt, maxAttempts, leaseId, delay.TotalSeconds);
                 await Task.Delay(delay, ct).ConfigureAwait(false);
-                delay = TimeSpan.FromSeconds(delay.TotalSeconds * 2); // exponential back-off
+                delay = TimeSpan.FromSeconds(delay.TotalSeconds * 2);
             }
         }
 
@@ -279,6 +379,5 @@ public sealed class MigrationAgentWorker : BackgroundService
             leaseId, maxAttempts);
     }
 
-    private sealed record AgentLeaseResponse(string LeaseId, MigrationJob Job);
+    private sealed record AgentLeaseResponse(string LeaseId, Job Job);
 }
-

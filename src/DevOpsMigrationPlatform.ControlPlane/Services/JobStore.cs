@@ -9,23 +9,20 @@ using DevOpsMigrationPlatform.ControlPlane.Models;
 namespace DevOpsMigrationPlatform.ControlPlane.Services;
 
 /// <summary>
-/// In-memory store for submitted <see cref="MigrationJob"/> instances.
+/// In-memory store for submitted <see cref="Job"/> instances (migration and discovery).
 /// Queues pending jobs so agents can poll and acquire leases.
 /// Thread-safe; suitable for single-node deployments.
 /// </summary>
 public sealed class JobStore : IJobStore
 {
-    private readonly ConcurrentDictionary<Guid, MigrationJob> _all = new();
+    private readonly ConcurrentDictionary<Guid, Job> _all = new();
     private readonly ConcurrentDictionary<Guid, string> _states = new();
     private readonly ConcurrentDictionary<Guid, DateTimeOffset> _submittedAt = new();
     private readonly SemaphoreSlim _pendingSignal = new(0);
     private readonly ConcurrentQueue<Guid> _pending = new();
 
-    /// <summary>
-    /// Stores a submitted job and enqueues it for agent pickup.
-    /// Returns the job id.
-    /// </summary>
-    public Guid Enqueue(MigrationJob job)
+    /// <inheritdoc />
+    public Guid Enqueue(Job job)
     {
         var jobId = Guid.Parse(job.JobId);
         _all[jobId] = job;
@@ -36,11 +33,8 @@ public sealed class JobStore : IJobStore
         return jobId;
     }
 
-    /// <summary>
-    /// Retrieves one pending job (waiting up to <paramref name="timeout"/>).
-    /// Returns <c>null</c> if no job became available within the timeout.
-    /// </summary>
-    public async Task<MigrationJob?> DequeueAsync(TimeSpan timeout, CancellationToken cancellationToken)
+    /// <inheritdoc />
+    public async Task<Job?> DequeueAsync(TimeSpan timeout, CancellationToken cancellationToken)
     {
         if (!await _pendingSignal.WaitAsync(timeout, cancellationToken).ConfigureAwait(false))
             return null;
@@ -51,19 +45,15 @@ public sealed class JobStore : IJobStore
         return null;
     }
 
-    /// <summary>
-    /// Returns a snapshot of all submitted jobs (for status queries).
-    /// </summary>
-    public IReadOnlyList<MigrationJob> GetAll()
+    /// <inheritdoc />
+    public IReadOnlyList<Job> GetAll()
     {
-        var result = new List<MigrationJob>(_all.Values);
+        var result = new List<Job>(_all.Values);
         return result;
     }
 
-    /// <summary>
-    /// Returns the job with the given id, or <c>null</c> if not found.
-    /// </summary>
-    public MigrationJob? Get(Guid jobId) =>
+    /// <inheritdoc />
+    public Job? Get(Guid jobId) =>
         _all.TryGetValue(jobId, out var job) ? job : null;
 
     /// <inheritdoc />

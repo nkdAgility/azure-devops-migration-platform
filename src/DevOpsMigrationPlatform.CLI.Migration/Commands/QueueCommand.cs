@@ -112,7 +112,7 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
         {
             JobId = Guid.NewGuid().ToString(),
             Mode = "Import",
-            Target = new MigrationJobEndpoint
+            Target = new JobEndpoint
             {
                 Type = config.Target!.Type,
                 Url = orgUrl,
@@ -120,24 +120,14 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
                 ApiVersion = config.Target.ApiVersion,
                 Authentication = config.Target.Authentication
             },
-            Artefacts = new MigrationJobArtefacts
+            Artefacts = new JobArtefacts
             {
                 PackageUri = $"file:///{outputPath.Replace(Path.DirectorySeparatorChar, '/')}",
                 Zip = config.Artefacts!.Zip
             },
             Modules = modules,
-            Guardrails = new MigrationJobGuardrails
-            {
-                StreamingRequired = true,
-                CanonicalWorkItemsLayoutRequired = true
-            },
-            Diagnostics = new MigrationJobDiagnostics
-            {
-                MinimumLevel = settings.Level
-            },
-            Resume = settings.ForceFresh
-                ? new MigrationJobResume { Mode = ResumeMode.ForceFresh }
-                : null
+            Diagnostics = new JobDiagnostics { MinimumLevel = settings.Level },
+            Resume = settings.ForceFresh ? new JobResume { Mode = ResumeMode.ForceFresh } : null
         };
 
         var envOpts = GetRequiredService<IOptions<EnvironmentOptions>>().Value;
@@ -292,7 +282,7 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
         {
             JobId = Guid.NewGuid().ToString(),
             Mode = "Export",
-            Source = new MigrationJobEndpoint
+            Source = new JobEndpoint
             {
                 Type = config.Source!.Type,
                 Url = orgUrl,
@@ -300,24 +290,14 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
                 ApiVersion = config.Source.ApiVersion,
                 Authentication = config.Source.Authentication
             },
-            Artefacts = new MigrationJobArtefacts
+            Artefacts = new JobArtefacts
             {
                 PackageUri = $"file:///{outputPath.Replace(Path.DirectorySeparatorChar, '/')}",
                 Zip = config.Artefacts.Zip
             },
             Modules = modules,
-            Guardrails = new MigrationJobGuardrails
-            {
-                StreamingRequired = true,
-                CanonicalWorkItemsLayoutRequired = true
-            },
-            Diagnostics = new MigrationJobDiagnostics
-            {
-                MinimumLevel = settings.Level
-            },
-            Resume = settings.ForceFresh
-                ? new MigrationJobResume { Mode = ResumeMode.ForceFresh }
-                : null
+            Diagnostics = new JobDiagnostics { MinimumLevel = settings.Level },
+            Resume = settings.ForceFresh ? new JobResume { Mode = ResumeMode.ForceFresh } : null
         };
 
         // Determine follow mode: explicit --follow, or implicit in standalone mode.
@@ -607,21 +587,21 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
     }
 
     /// <summary>
-    /// Converts <see cref="MigrationOptions.Modules"/> into <see cref="MigrationJobModule"/> entries.
+    /// Converts <see cref="MigrationOptions.Modules"/> into <see cref="JobModule"/> entries.
     /// If the config has no modules, a default WorkItems module with all extensions enabled is injected
     /// to preserve backward compatibility with pre-modules config files.
     /// </summary>
-    private static List<MigrationJobModule> BuildModules(MigrationOptions config)
+    private static List<JobModule> BuildModules(MigrationOptions config)
     {
         if (config.Modules.Count > 0)
         {
             return config.Modules
                 .Where(m => m.Enabled)
-                .Select(m => new MigrationJobModule
+                .Select(m => new JobModule
                 {
                     Name = m.Name,
                     Scopes = m.Scopes
-                        .Select(s => new MigrationJobModuleScope
+                        .Select(s => new JobModuleScope
                         {
                             Type = s.Type,
                             Parameters = s.Parameters
@@ -631,7 +611,7 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
                         })
                         .ToList(),
                     Extensions = m.Extensions
-                        .Select(e => new MigrationJobModuleExtension
+                        .Select(e => new JobModuleExtension
                         {
                             Type = e.Type,
                             Enabled = e.Enabled,
@@ -648,12 +628,12 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
         // Default: WorkItems module with all extensions enabled.
         return
         [
-            new MigrationJobModule
+            new JobModule
             {
                 Name = "WorkItems",
                 Scopes =
                 [
-                    new MigrationJobModuleScope
+                    new JobModuleScope
                     {
                         Type = "wiql",
                         Parameters = new Dictionary<string, object?>
@@ -664,11 +644,11 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
                 ],
                 Extensions =
                 [
-                    new MigrationJobModuleExtension { Type = "Revisions",      Enabled = true },
-                    new MigrationJobModuleExtension { Type = "Links",          Enabled = true },
-                    new MigrationJobModuleExtension { Type = "Attachments",    Enabled = true },
-                    new MigrationJobModuleExtension { Type = "Comments",       Enabled = true },
-                    new MigrationJobModuleExtension { Type = "EmbeddedImages", Enabled = true },
+                    new JobModuleExtension { Type = "Revisions",      Enabled = true },
+                    new JobModuleExtension { Type = "Links",          Enabled = true },
+                    new JobModuleExtension { Type = "Attachments",    Enabled = true },
+                    new JobModuleExtension { Type = "Comments",       Enabled = true },
+                    new JobModuleExtension { Type = "EmbeddedImages", Enabled = true },
                 ]
             }
         ];

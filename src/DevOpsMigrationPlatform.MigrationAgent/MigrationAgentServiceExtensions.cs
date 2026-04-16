@@ -59,6 +59,10 @@ public static class MigrationAgentServiceExtensions
         builder.Services.AddAzureDevOpsWorkItemExport();
         builder.Services.AddAzureDevOpsWorkItemImport();
 
+        // Register IDiscoveryModule implementations for DiscoveryAgentWorker.
+        builder.Services.AddAzureDevOpsInventory(builder.Configuration);
+        builder.Services.AddAzureDevOpsDependencyAnalysis(builder.Configuration);
+
         // Phase tracking factory for MigrationAgentWorker (per-job IStateStore wiring).
         builder.Services.AddSingleton<IPhaseTrackingServiceFactory, PhaseTrackingServiceFactory>();
 
@@ -84,7 +88,8 @@ public static class MigrationAgentServiceExtensions
         // Background timer that pushes MetricSnapshots to the Control Plane.
         builder.Services.AddHostedService<ControlPlaneTelemetryTimer>();
 
-        builder.Services.AddHostedService<MigrationAgentWorker>();
+        // Unified worker — polls /agents/lease and dispatches to migration or discovery execution.
+        builder.Services.AddHostedService<JobAgentWorker>();
 
         return builder;
     }

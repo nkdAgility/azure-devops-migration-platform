@@ -38,7 +38,7 @@ public sealed class JobsController : ControllerBase
         var records = _jobStore.GetAllRecords();
         var summaries = records.Select(r => new JobSummary(
             Guid.Parse(r.Job.JobId),
-            r.Job.Mode,
+            r.Job is MigrationJob mj ? mj.Mode : (r.Job is DiscoveryJob dj ? dj.DiscoveryType.ToString() : "Unknown"),
             r.State,
             r.SubmittedByUpn,
             r.SubmittedAt
@@ -55,15 +55,19 @@ public sealed class JobsController : ControllerBase
     [HttpPost("/jobs")]
     [ProducesResponseType(typeof(SubmitJobResponse), 201)]
     [ProducesResponseType(400)]
-    public IActionResult SubmitJob([FromBody] MigrationJob job)
+    public IActionResult SubmitJob([FromBody] Job job)
     {
         if (string.IsNullOrWhiteSpace(job.JobId))
             return BadRequest("jobId is required.");
-        if (string.IsNullOrWhiteSpace(job.Mode))
+
+        if (job is MigrationJob migJob && string.IsNullOrWhiteSpace(migJob.Mode))
             return BadRequest("mode is required.");
 
+        if (job is DiscoveryJob discJob && discJob.Organisations.Count == 0)
+            return BadRequest("At least one organisation is required.");
+
         var jobId = _jobStore.Enqueue(job);
-        _logger.LogInformation("Job {JobId} accepted (mode={Mode})", jobId, job.Mode);
+        _logger.LogInformation("Job {JobId} accepted ({JobType})", jobId, job.GetType().Name);
 
         return CreatedAtAction(
             nameof(GetJob),
@@ -76,7 +80,7 @@ public sealed class JobsController : ControllerBase
     /// <c>GET /jobs/{jobId}</c>
     /// </summary>
     [HttpGet("/jobs/{jobId}")]
-    [ProducesResponseType(typeof(MigrationJob), 200)]
+    [ProducesResponseType(typeof(Job), 200)]
     [ProducesResponseType(404)]
     public IActionResult GetJob(string jobId)
     {

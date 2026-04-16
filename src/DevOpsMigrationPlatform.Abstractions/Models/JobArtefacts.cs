@@ -1,7 +1,7 @@
 namespace DevOpsMigrationPlatform.Abstractions;
 
-/// <summary>Package location and zip settings for a MigrationJob.</summary>
-public class MigrationJobArtefacts
+/// <summary>Package location and zip settings for a job.</summary>
+public class JobArtefacts
 {
     /// <summary>
     /// URI of the package root. file:/// for local, standard Azure Blob Storage HTTPS URL for cloud.

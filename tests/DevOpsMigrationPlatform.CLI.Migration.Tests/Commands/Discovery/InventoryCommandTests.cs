@@ -3,6 +3,7 @@ using DevOpsMigrationPlatform.CLI.Migration.Tests.TestUtilities;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using System;
 using System.IO;
+using System.Text.Json;
 
 namespace DevOpsMigrationPlatform.CLI.Migration.Tests.Commands.Discovery;
 
@@ -34,7 +35,21 @@ public class InventoryCommandTests
             return;
         }
 
-        var csvPath = Path.Combine(CliRunner.FindRepoRoot(), "output", "discovery-summary.csv");
+        var repoRoot = CliRunner.FindRepoRoot();
+        var scenarioConfigPath = Path.Combine(repoRoot, "scenarios", "inventory-ado-single-project.json");
+
+        // Read the artefacts path from the scenario config (MigrationPlatform.Artefacts.Path).
+        var configJson = File.ReadAllText(scenarioConfigPath);
+        using var doc = JsonDocument.Parse(configJson);
+        var artefactsPath = doc.RootElement
+            .GetProperty("MigrationPlatform")
+            .GetProperty("Artefacts")
+            .GetProperty("Path")
+            .GetString()!;
+
+        var outputDir = Path.GetFullPath(Path.Combine(repoRoot, artefactsPath));
+        var csvPath = Path.Combine(outputDir, "discovery-summary.csv");
+
         if (File.Exists(csvPath))
             File.Delete(csvPath);
 

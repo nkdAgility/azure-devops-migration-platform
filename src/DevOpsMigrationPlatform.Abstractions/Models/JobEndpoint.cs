@@ -3,8 +3,8 @@ using DevOpsMigrationPlatform.Abstractions.Utilities;
 
 namespace DevOpsMigrationPlatform.Abstractions;
 
-/// <summary>Source or target system connection in a MigrationJob.</summary>
-public class MigrationJobEndpoint
+/// <summary>Source or target system connection in a <see cref="MigrationJob"/>.</summary>
+public class JobEndpoint
 {
     /// <summary>AzureDevOpsServices or TeamFoundationServer.</summary>
     public string Type { get; init; } = string.Empty;

@@ -5,7 +5,7 @@ namespace DevOpsMigrationPlatform.Abstractions;
 /// Carries one or more scopes (selection criteria) and a list of named extensions
 /// that independently control each sub-operation.
 /// </summary>
-public class MigrationJobModule
+public class JobModule
 {
     /// <summary>Module name, e.g. "WorkItems".</summary>
     public string Name { get; init; } = string.Empty;
@@ -14,19 +14,19 @@ public class MigrationJobModule
     /// Scope definitions — mandatory selection criteria.
     /// For WorkItems the only current type is <c>"wiql"</c> with a <c>"query"</c> parameter.
     /// </summary>
-    public System.Collections.Generic.List<MigrationJobModuleScope> Scopes { get; init; } = new();
+    public System.Collections.Generic.List<JobModuleScope> Scopes { get; init; } = new();
 
     /// <summary>
     /// Named sub-module extensions for this module.
     /// Each entry controls an independently-enabled sub-operation.
     /// </summary>
-    public System.Collections.Generic.List<MigrationJobModuleExtension> Extensions { get; init; } = new();
+    public System.Collections.Generic.List<JobModuleExtension> Extensions { get; init; } = new();
 }
 
 /// <summary>
-/// A scope entry in a <see cref="MigrationJobModule"/> — selection criteria for the module.
+/// A scope entry in a <see cref="JobModule"/> — selection criteria for the module.
 /// </summary>
-public class MigrationJobModuleScope
+public class JobModuleScope
 {
     /// <summary>Scope type, e.g. <c>"wiql"</c>.</summary>
     public string Type { get; init; } = string.Empty;
@@ -38,7 +38,7 @@ public class MigrationJobModuleScope
 /// <summary>
 /// A named sub-module extension — type, enabled flag, and parameters bag.
 /// </summary>
-public class MigrationJobModuleExtension
+public class JobModuleExtension
 {
     /// <summary>Extension type, e.g. "Revisions", "Links", "Attachments", "Comments", "EmbeddedImages".</summary>
     public string Type { get; init; } = string.Empty;

@@ -1,10 +1,10 @@
 namespace DevOpsMigrationPlatform.Abstractions;
 
 /// <summary>
-/// Optional diagnostics configuration carried in a <see cref="MigrationJob"/>.
+/// Optional diagnostics configuration carried in a <see cref="Job"/>.
 /// Controls the agent's diagnostic log minimum level for this specific job.
 /// </summary>
-public class MigrationJobDiagnostics
+public class JobDiagnostics
 {
     /// <summary>
     /// Minimum log level for the agent's diagnostic sinks (package and control plane).
