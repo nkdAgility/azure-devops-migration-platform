@@ -1,3 +1,5 @@
+using DevOpsMigrationPlatform.CLI.Migration.Commands;
+
 namespace DevOpsMigrationPlatform.CLI.Migration.Settings;
 
 /// <summary>
@@ -6,6 +8,6 @@ namespace DevOpsMigrationPlatform.CLI.Migration.Settings;
 /// Control plane URL is resolved from <c>MigrationPlatform:Environment:ControlPlane:BaseUrl</c>.
 /// See docs/cli.md and .agents/context/cli-commands.md.
 /// </summary>
-public class MigrationCommandSettings : ControlPlaneBaseCommandSettings
+public class MigrationCommandSettings : ControlPlaneBaseCommandSettings, IRequiresMigrationConfig
 {
 }

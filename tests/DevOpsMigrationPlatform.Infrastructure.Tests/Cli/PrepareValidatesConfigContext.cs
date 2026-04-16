@@ -67,8 +67,8 @@ public class PrepareValidatesConfigContext
           "MigrationPlatform": {
             "ConfigVersion": "1.0",
             "Artefacts": {
-              "Path": "%userprofile%\\.DevOpsMigrationPlatform",
-              "Zip": false
+              "WorkingDirectory": "%userprofile%\\.DevOpsMigrationPlatform",
+              "CreatePackage": false
             },
             "Policies": {
               "Retries": { "Max": 8 },

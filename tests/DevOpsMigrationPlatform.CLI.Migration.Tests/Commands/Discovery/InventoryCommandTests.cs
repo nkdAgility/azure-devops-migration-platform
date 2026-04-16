@@ -38,16 +38,21 @@ public class InventoryCommandTests
         var repoRoot = CliRunner.FindRepoRoot();
         var scenarioConfigPath = Path.Combine(repoRoot, "scenarios", "inventory-ado-single-project.json");
 
-        // Read the artefacts path from the scenario config (MigrationPlatform.Artefacts.Path).
+        // Read the artefacts path from the scenario config (MigrationPlatform.Artefacts.WorkingDirectory).
+        // Falls back to the platform default when the scenario omits the key.
         var configJson = File.ReadAllText(scenarioConfigPath);
         using var doc = JsonDocument.Parse(configJson);
-        var artefactsPath = doc.RootElement
+        var artefactsElement = doc.RootElement
             .GetProperty("MigrationPlatform")
-            .GetProperty("Artefacts")
-            .GetProperty("Path")
-            .GetString()!;
+            .GetProperty("Artefacts");
 
-        var outputDir = Path.GetFullPath(Path.Combine(repoRoot, artefactsPath));
+        var artefactsPath = artefactsElement.TryGetProperty("WorkingDirectory", out var wdProp)
+            ? wdProp.GetString()!
+            : @"%userprofile%\.DevOpsMigrationPlatform";
+
+        artefactsPath = Environment.ExpandEnvironmentVariables(artefactsPath);
+
+        var outputDir = artefactsPath;
         var csvPath = Path.Combine(outputDir, "discovery-summary.csv");
 
         if (File.Exists(csvPath))

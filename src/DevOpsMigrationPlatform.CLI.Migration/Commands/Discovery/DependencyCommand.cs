@@ -25,7 +25,7 @@ namespace DevOpsMigrationPlatform.CLI.Commands.Discovery;
 /// </summary>
 public sealed class DependencyCommand : ControlPlaneCommandBase<DependencyCommand.Settings>
 {
-    public sealed class Settings : ControlPlaneBaseCommandSettings { }
+    public sealed class Settings : ControlPlaneBaseCommandSettings, IRequiresMigrationConfig { }
 
     protected override async Task<int> ExecuteInternalAsync(
         CommandContext context,

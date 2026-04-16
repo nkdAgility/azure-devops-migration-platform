@@ -26,7 +26,7 @@ public class PrepareValidatesConfigSteps
         _userConfigJson = $$"""
             {
               "MigrationPlatform": {
-                "Artefacts": { "Path": "{{path.Replace("\\", "\\\\")}}" }
+                "Artefacts": { "WorkingDirectory": "{{path.Replace("\\", "\\\\")}}" }
               }
             }
             """;
