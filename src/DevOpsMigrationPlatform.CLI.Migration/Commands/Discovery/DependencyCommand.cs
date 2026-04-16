@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.IO;
 using System.Linq;
 using System.Threading;
@@ -25,7 +26,12 @@ namespace DevOpsMigrationPlatform.CLI.Commands.Discovery;
 /// </summary>
 public sealed class DependencyCommand : ControlPlaneCommandBase<DependencyCommand.Settings>
 {
-    public sealed class Settings : ControlPlaneBaseCommandSettings, IRequiresMigrationConfig { }
+    public sealed class Settings : ControlPlaneBaseCommandSettings, IRequiresMigrationConfig
+    {
+        [CommandOption("-o|--output")]
+        [Description("Override the output directory for discovery results (overrides Artefacts.WorkingDirectory in the config).")]
+        public string? OutputDirectory { get; set; }
+    }
 
     protected override async Task<int> ExecuteInternalAsync(
         CommandContext context,
@@ -52,7 +58,9 @@ public sealed class DependencyCommand : ControlPlaneCommandBase<DependencyComman
             return 1;
         }
 
-        var outputPath = Path.GetFullPath(discoveryOpts.Artefacts.ExpandedPath);
+        var outputPath = string.IsNullOrWhiteSpace(settings.OutputDirectory)
+            ? Path.GetFullPath(discoveryOpts.Artefacts.ExpandedPath)
+            : Path.GetFullPath(settings.OutputDirectory);
         var packageUri = $"file:///{outputPath.Replace(Path.DirectorySeparatorChar, '/')}";
 
         var job = new DiscoveryJob

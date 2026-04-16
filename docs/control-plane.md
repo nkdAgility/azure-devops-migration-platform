@@ -4,7 +4,13 @@
 
 The `ControlPlane` project (`DevOpsMigrationPlatform.ControlPlane`) is a **service library** that implements the HTTP API, job state machine, lease protocol, and PostgreSQL data model for coordinating migration jobs. It has no entry point of its own — it is referenced and hosted by `ControlPlaneHost` (`DevOpsMigrationPlatform.ControlPlaneHost`).
 
-`ControlPlaneHost` is the deployable ASP.NET Core host. It configures and runs the `ControlPlane` service and adds **agent lifecycle management** via `IAgentLauncher`:
+`ControlPlaneHost` is the deployable ASP.NET Core host. It configures and runs the `ControlPlane` service and adds **agent lifecycle management** via `AgentLifecycleService`:
+
+- **Standalone mode** (packaged zip install, no Aspire): `AgentLifecycleService` auto-spawns the sibling `MigrationAgent` binary from `../MigrationAgent/` relative to `AppContext.BaseDirectory`. If the agent exits unexpectedly it is restarted with exponential back-off (1 s → 2 s → 4 s → max 60 s). The back-off resets if the agent ran for more than 10 seconds. Set `AgentLifecycle:AutoSpawn=false` in `appsettings.json` to manage the agent manually.
+- **Aspire-managed mode** (local dev, `build.ps1 -Mode Start`): Aspire spawns and manages the agent. `AgentLifecycleService` detects `DOTNET_RUNNING_UNDER_DOTNET_ASPIRE` and idles.
+- **Cloud mode** (Azure Container Apps): ACA/KEDA manages agent containers. The sibling binary is absent; `AgentLifecycleService` logs a warning and idles.
+
+In future phases, `IAgentLauncher` implementations will provide:
 
 - `LocalProcessAgentLauncher` — spawns and monitors agent processes on the same machine (local and server topologies).
 - `ContainerAgentLauncher` — deploys and scales agent containers to a configurable target context: either the managed ACA environment co-located with the control plane, or a user-specified environment (for network zone isolation across VNets, ACA environments, or AKS namespaces). The agent image source is configured separately from the target context — the official `ghcr.io/nkdagility/migration-agent:{version}` image by default, or a customer's private ACR mirror.
