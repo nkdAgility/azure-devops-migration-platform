@@ -112,7 +112,7 @@ public class QueueCommandTests
     }
 
     /// <summary>
-    /// Runs <c>devopsmigration queue --config scenarios/queue-import-workitems-fixture.json --force-fresh</c>
+    /// Runs <c>devopsmigration queue --config scenarios/queue-import-workitems-simulated-fixture.json --force-fresh</c>
     /// as a subprocess. Uses a pre-built fixture zip (<c>scenarios/testdata/workitems-2items-flat.zip</c>)
     /// with a <c>Simulated</c> target — no live credentials required.
     /// Verifies that the CLI exits zero and logs import progress for both work items.
@@ -121,16 +121,16 @@ public class QueueCommandTests
     [TestMethod]
     [TestCategory("SystemTest")]
     [Timeout(120_000)] // 2 minutes — no network I/O
-    public async Task QueueCommand_WithImportMode_Fixture_ExitsZero_AndImportsBothWorkItems()
+    public async Task QueueCommand_WithSimulatedImportMode_Fixture_ExitsZero_AndImportsBothWorkItems()
     {
         // ── Arrange ───────────────────────────────────────────────────────
-        var outputDir = Path.Combine(CliRunner.FindRepoRoot(), "storage", "queue-import-workitems-fixture");
+        var outputDir = Path.Combine(CliRunner.FindRepoRoot(), "storage", "queue-import-workitems-simulated-fixture");
         if (Directory.Exists(outputDir))
             Directory.Delete(outputDir, recursive: true);
 
         // ── Act ───────────────────────────────────────────────────────────
         var result = await CliRunner.RunAsync(
-            args: ["queue", "--config", "scenarios/queue-import-workitems-fixture.json", "--force-fresh"],
+            args: ["queue", "--config", "scenarios/queue-import-workitems-simulated-fixture.json", "--force-fresh"],
             timeout: TimeSpan.FromSeconds(110));
 
         Console.WriteLine("=== STDOUT ===");

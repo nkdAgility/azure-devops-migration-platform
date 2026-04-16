@@ -335,14 +335,14 @@
         },
         // ── Migration CLI: queue (Import/Both mode configs) ───────────────────
         {
-            "name": "📥 Migration CLI: Queue Import (Fixture – 2 flat work items)",
+            "name": "📥 Migration CLI: Queue Import (Simulated – 2 flat work items)",
             "type": "coreclr",
             "request": "launch",
             "program": "${workspaceFolder}/src/DevOpsMigrationPlatform.CLI.Migration/bin/Debug/net10.0/devopsmigration.exe",
             "args": [
                 "queue",
                 "--config",
-                "scenarios/queue-import-workitems-fixture.json",
+                "scenarios/queue-import-workitems-simulated-fixture.json",
                 "--force-fresh"
             ],
             "cwd": "${workspaceFolder}",

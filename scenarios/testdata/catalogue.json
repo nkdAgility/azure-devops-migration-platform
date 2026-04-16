@@ -18,8 +18,9 @@
       "hasAttachments": false,
       "hasComments": false,
       "hasEmbeddedImages": false,
+      "scenarioConfig": "scenarios/queue-import-workitems-simulated-fixture.json",
       "intendedUse": [
-        "QueueCommand import mode happy-path system test",
+        "QueueCommand simulated import mode happy-path system test",
         "Streaming import unit test without side-effects",
         "Checkpoint resume test (import from scratch)"
       ]

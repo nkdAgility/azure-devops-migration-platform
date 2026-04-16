@@ -19,7 +19,7 @@
       "Project": "SimulatedTarget"
     },
     "Artefacts": {
-      "Path": "storage\\queue-import-workitems-fixture",
+      "Path": "storage\\queue-import-workitems-simulated-fixture",
       "Zip": true,
       "ZipSource": "scenarios\\testdata\\workitems-2items-flat.zip"
     },
