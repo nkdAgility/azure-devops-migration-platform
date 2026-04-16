@@ -45,8 +45,7 @@ public sealed class TfsInventoryAgent
         using var collection = new TfsTeamProjectCollection(new Uri(collectionUrl), creds);
         collection.EnsureAuthenticated();
 
-        var store = collection.GetService<WorkItemStore>()
-            ?? throw new InvalidOperationException("Could not retrieve WorkItemStore from the TFS collection.");
+        var store = new WorkItemStore(collection, WorkItemStoreFlags.BypassRules);
 
         var projectNames = allProjects
             ? store.Projects.Cast<Project>().Select(p => p.Name).ToList()

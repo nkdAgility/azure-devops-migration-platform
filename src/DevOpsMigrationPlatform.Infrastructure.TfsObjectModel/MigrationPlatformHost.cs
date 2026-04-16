@@ -97,7 +97,7 @@ public static class MigrationPlatformHost
             services.AddSingleton<WorkItemStore>(sp =>
             {
                 var collection = sp.GetRequiredService<TfsTeamProjectCollection>();
-                return collection.GetService<WorkItemStore>();
+                return new WorkItemStore(collection, WorkItemStoreFlags.BypassRules);
             });
 
             services.AddSingleton<WorkItemServer>(sp =>
