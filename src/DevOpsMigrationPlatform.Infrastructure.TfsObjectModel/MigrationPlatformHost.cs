@@ -9,6 +9,7 @@ using Microsoft.TeamFoundation.WorkItemTracking.Client;
 using Microsoft.TeamFoundation.WorkItemTracking.Proxy;
 using Microsoft.VisualStudio.Services.Client;
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Services;
 using DevOpsMigrationPlatform.Infrastructure.Checkpointing;
 using DevOpsMigrationPlatform.Infrastructure.Storage;
 using DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.Services;
@@ -82,7 +83,7 @@ public static class MigrationPlatformHost
                 new FileSystemArtefactStore(settings.OutputFolder));
             services.AddSingleton<IStateStore>(_ =>
                 new FileSystemStateStore(settings.OutputFolder));
-            services.AddSingleton<IWorkItemWatermarkStore, FileSystemWorkItemWatermarkStore>();
+            services.AddSingleton<ICheckpointingService, CheckpointingService>();
 
             // TFS connection
             services.AddSingleton<TfsTeamProjectCollection>(_ =>
@@ -110,7 +111,8 @@ public static class MigrationPlatformHost
             services.AddSingleton<IAttachmentDownloader, TfsAttachmentDownloader>();
             services.AddSingleton<IWorkItemExportMetrics, WorkItemExportMetrics>();
             services.AddSingleton<IAttachmentDownloadMetrics, AttachmentDownloadMetrics>();
-            services.AddSingleton<IWorkItemExportService, WorkItemExportService>();
+            services.AddSingleton<TfsWorkItemQueryWindowStrategy>();
+            services.AddSingleton<IWorkItemDiscoveryService, TfsObjectModelWorkItemDiscoveryService>();
 
             // OpenTelemetry (console exporter — configure real exporter via appsettings)
             services.AddOpenTelemetry()

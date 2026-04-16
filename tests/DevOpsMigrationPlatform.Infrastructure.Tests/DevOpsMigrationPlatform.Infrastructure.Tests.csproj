@@ -32,7 +32,6 @@
     <!-- External feature files to stage into Features/ before Reqnroll code-gen.
          Features/ is a build artefact; the canonical source is features/ at workspace root. -->
     <ExternalFeatureFiles Include="..\..\features\platform\checkpointing\cursor-resume.feature" />
-    <ExternalFeatureFiles Include="..\..\features\platform\checkpointing\watermark-store.feature" />
     <ExternalFeatureFiles Include="..\..\features\export\work-items\revisions\export-work-item-revisions.feature" />
     <ExternalFeatureFiles Include="..\..\features\export\work-items\links\export-work-item-links.feature" />
     <ExternalFeatureFiles Include="..\..\features\export\work-items\attachments\export-attachments.feature" />

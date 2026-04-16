@@ -1,6 +1,9 @@
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Infrastructure.TfsObjectModel;
+using DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.Services;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+using Microsoft.TeamFoundation.WorkItemTracking.Client;
 using Spectre.Console;
 using Spectre.Console.Cli;
 using System;
@@ -57,8 +60,15 @@ namespace DevOpsMigrationPlatform.CLI.TfsMigration.Commands
             var host = MigrationPlatformHost.CreateDefaultBuilder(
                 context.Arguments.ToArray(), hostSettings).Build();
 
-            var exportService = host.Services.GetRequiredService<IWorkItemExportService>();
-            var agent = new TfsExportAgent(exportService);
+            var agent = new TfsExportAgent(
+                host.Services.GetRequiredService<IArtefactStore>(),
+                host.Services.GetRequiredService<ICheckpointingService>(),
+                host.Services.GetRequiredService<WorkItemStore>(),
+                host.Services.GetRequiredService<IWorkItemRevisionMapper>(),
+                host.Services.GetRequiredService<IAttachmentDownloader>(),
+                host.Services.GetRequiredService<TfsWorkItemQueryWindowStrategy>(),
+                host.Services.GetRequiredService<ILogger<TfsWorkItemRevisionSource>>(),
+                host.Services.GetRequiredService<ILogger<TfsAttachmentBinarySource>>());
             var wiqlQuery = $"SELECT * FROM WorkItems WHERE [System.TeamProject] = '{settings.Project}'";
 
             // When stdout is redirected (subprocess mode) use NDJSON sink so the
@@ -66,7 +76,7 @@ namespace DevOpsMigrationPlatform.CLI.TfsMigration.Commands
             if (Console.IsOutputRedirected)
             {
                 var sink = new StdoutProgressSink();
-                await agent.RunAsync(settings.CollectionUrl, settings.Project, wiqlQuery, sink, cancellationToken)
+                await agent.RunAsync(settings.Project, wiqlQuery, sink, cancellationToken)
                     .ConfigureAwait(false);
             }
             else
@@ -78,7 +88,7 @@ namespace DevOpsMigrationPlatform.CLI.TfsMigration.Commands
                         ctx.SpinnerStyle(Style.Parse("green"));
 
                         await agent.RunAsync(
-                            settings.CollectionUrl, settings.Project, wiqlQuery,
+                            settings.Project, wiqlQuery,
                             new DelegateProgressSink(evt =>
                             {
                                 ctx.Status(
