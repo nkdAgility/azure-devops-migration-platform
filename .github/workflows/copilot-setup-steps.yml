@@ -38,3 +38,6 @@ jobs:
 
       - name: Verify Specify CLI
         run: specify version
+        env:
+          NO_COLOR: "1"
+          PYTHONIOENCODING: "utf-8"
