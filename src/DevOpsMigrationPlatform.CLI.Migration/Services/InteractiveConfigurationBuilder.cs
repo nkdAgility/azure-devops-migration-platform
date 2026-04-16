@@ -45,10 +45,10 @@ internal sealed class InteractiveConfigurationBuilder : IInteractiveConfiguratio
         // Step 4: Artefacts path
         var stepNum = 2 + (isExport ? 1 : 0) + (isImport ? 1 : 0);
         console.MarkupLine($"[bold blue]Step {stepNum}: Package Storage[/bold blue]");
-        options.Artefacts.Path = console.Prompt(
+        options.Artefacts.WorkingDirectory = console.Prompt(
             new TextPrompt<string>("Migration package directory:")
-                .DefaultValue(options.Artefacts.Path));
-        options.Artefacts.Zip = console.Confirm("Compress the package (zip)?", defaultValue: false);
+                .DefaultValue(options.Artefacts.WorkingDirectory));
+        options.Artefacts.CreatePackage = console.Confirm("Compress the package (zip)?", defaultValue: false);
 
         return options;
     }

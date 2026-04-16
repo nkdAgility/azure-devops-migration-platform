@@ -23,8 +23,8 @@
       }
     },
     "Artefacts": {
-      "Path": "storage\\queue-export-ado-workitems-inline-comments",
-      "Zip": true
+      "WorkingDirectory": "storage\\queue-export-ado-workitems-inline-comments",
+      "CreatePackage": true
     },
     "Modules": [
       {

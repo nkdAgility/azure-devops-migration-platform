@@ -68,7 +68,7 @@ public sealed class PrepareCommand : ControlPlaneCommandBase<MigrationCommandSet
             Artefacts = new JobArtefacts
             {
                 PackageUri = $"file:///{outputPath.Replace(Path.DirectorySeparatorChar, '/')}",
-                Zip = false
+                CreatePackage = false
             }
         };
 

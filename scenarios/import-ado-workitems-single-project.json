@@ -19,8 +19,8 @@
       "Project": "SimulatedTarget"
     },
     "Artefacts": {
-      "Path": "storage\\queue-export-ado-workitems-single-project",
-      "Zip": false
+      "WorkingDirectory": "storage\\queue-export-ado-workitems-single-project",
+      "CreatePackage": false
     },
     "Modules": [
       {

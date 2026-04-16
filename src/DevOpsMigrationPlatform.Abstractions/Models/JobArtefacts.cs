@@ -10,5 +10,5 @@ public class JobArtefacts
     public string PackageUri { get; init; } = string.Empty;
 
     /// <summary>If true, pack after export or unpack before import.</summary>
-    public bool Zip { get; init; }
+    public bool CreatePackage { get; init; }
 }

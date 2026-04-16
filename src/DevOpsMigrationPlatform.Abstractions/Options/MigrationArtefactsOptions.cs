@@ -6,23 +6,29 @@ namespace DevOpsMigrationPlatform.Abstractions;
 public class MigrationArtefactsOptions
 {
     /// <summary>
-    /// Root path of the migration package directory.
+    /// Root working directory of the migration package.
     /// Supports <c>%USERPROFILE%</c> and other environment variable expansions.
     /// Bare paths are normalised to <c>file:///</c> URIs when building a <see cref="MigrationJob"/>.
     /// Default: <c>%userprofile%\.DevOpsMigrationPlatform</c>.
     /// </summary>
-    public string Path { get; set; } = "%userprofile%\\.DevOpsMigrationPlatform";
+    public string WorkingDirectory { get; set; } = "%userprofile%\\.DevOpsMigrationPlatform";
 
     /// <summary>
     /// The effective path after environment variable expansion.
-    /// Use this instead of <see cref="Path"/> when accessing the filesystem.
+    /// Use this instead of <see cref="WorkingDirectory"/> when accessing the filesystem.
     /// </summary>
     public string ExpandedPath =>
-        System.Environment.ExpandEnvironmentVariables(Path);
+        System.Environment.ExpandEnvironmentVariables(WorkingDirectory);
 
     /// <summary>
     /// When <c>true</c> the package is zipped after export and unzipped before import.
     /// Default: <c>false</c>.
     /// </summary>
-    public bool Zip { get; set; } = false;
+    public bool CreatePackage { get; set; } = false;
+
+    /// <summary>
+    /// Path to a pre-built zip file to use as the package source (import only).
+    /// When set, the zip is extracted into <see cref="WorkingDirectory"/> before processing.
+    /// </summary>
+    public string? PackagePath { get; set; }
 }

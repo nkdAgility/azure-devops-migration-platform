@@ -98,7 +98,7 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
 
         if (string.IsNullOrWhiteSpace(packagePath))
         {
-            ShowError(console, "Artefacts.Path is required for import. Set it in the config file.");
+            ShowError(console, "Artefacts.WorkingDirectory is required for import. Set it in the config file.");
             return 1;
         }
 
@@ -123,7 +123,7 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
             Artefacts = new JobArtefacts
             {
                 PackageUri = $"file:///{outputPath.Replace(Path.DirectorySeparatorChar, '/')}",
-                Zip = config.Artefacts!.Zip
+                CreatePackage = config.Artefacts!.CreatePackage
             },
             Modules = modules,
             Diagnostics = new JobDiagnostics { MinimumLevel = settings.Level },
@@ -293,7 +293,7 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
             Artefacts = new JobArtefacts
             {
                 PackageUri = $"file:///{outputPath.Replace(Path.DirectorySeparatorChar, '/')}",
-                Zip = config.Artefacts.Zip
+                CreatePackage = config.Artefacts.CreatePackage
             },
             Modules = modules,
             Diagnostics = new JobDiagnostics { MinimumLevel = settings.Level },

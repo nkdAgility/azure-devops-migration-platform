@@ -66,7 +66,7 @@ public class PrepareValidatesConfigSteps
     [Then(@"the artefacts path is ""(.*)""")]
     public void ThenTheArtefactsPathIs(string expected)
     {
-        Assert.AreEqual(expected, _ctx.ResolvedOptions!.Artefacts.Path);
+        Assert.AreEqual(expected, _ctx.ResolvedOptions!.Artefacts.WorkingDirectory);
     }
 
     [Then(@"the max retries is (\d+)")]

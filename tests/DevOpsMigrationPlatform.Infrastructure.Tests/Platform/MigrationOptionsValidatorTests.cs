@@ -22,7 +22,7 @@ public class MigrationOptionsValidatorTests
             Url = "https://dev.azure.com/myorg",
             Project = "MyProject"
         },
-        Artefacts = new MigrationArtefactsOptions { Path = "D:\\exports\\run-001" }
+        Artefacts = new MigrationArtefactsOptions { WorkingDirectory = "D:\\exports\\run-001" }
     };
 
     // ── Passing cases ─────────────────────────────────────────────────────────
@@ -46,7 +46,7 @@ public class MigrationOptionsValidatorTests
                 Url = "https://dev.azure.com/targetorg",
                 Project = "TargetProject"
             },
-            Artefacts = new MigrationArtefactsOptions { Path = "D:\\exports\\run-001" }
+            Artefacts = new MigrationArtefactsOptions { WorkingDirectory = "D:\\exports\\run-001" }
         };
         Assert.IsTrue(Sut().Validate(null, opts).Succeeded);
     }
@@ -59,7 +59,7 @@ public class MigrationOptionsValidatorTests
             Mode = "Both",
             Source = new MigrationEndpointOptions { Type = "AzureDevOpsServices", Url = "https://dev.azure.com/myorg", Project = "P" },
             Target = new MigrationEndpointOptions { Type = "AzureDevOpsServices", Url = "https://dev.azure.com/targetorg", Project = "P" },
-            Artefacts = new MigrationArtefactsOptions { Path = "D:\\exports" }
+            Artefacts = new MigrationArtefactsOptions { WorkingDirectory = "D:\\exports" }
         };
         Assert.IsTrue(Sut().Validate(null, opts).Succeeded);
     }
@@ -127,7 +127,7 @@ public class MigrationOptionsValidatorTests
         {
             Mode = "Import",
             Target = null,
-            Artefacts = new MigrationArtefactsOptions { Path = "D:\\exports" }
+            Artefacts = new MigrationArtefactsOptions { WorkingDirectory = "D:\\exports" }
         };
         var result = Sut().Validate(null, opts);
         Assert.IsFalse(result.Succeeded);
@@ -151,7 +151,7 @@ public class MigrationOptionsValidatorTests
     public void Validate_EmptyArtefactsPath_FailsWithArtefactsInMessage()
     {
         var opts = ValidExport();
-        opts.Artefacts.Path = "";
+        opts.Artefacts.WorkingDirectory = "";
         var result = Sut().Validate(null, opts);
         Assert.IsFalse(result.Succeeded);
         StringAssert.Contains(result.FailureMessage, "Artefacts");
@@ -161,7 +161,7 @@ public class MigrationOptionsValidatorTests
     public void Validate_WhitespaceArtefactsPath_FailsWithArtefactsInMessage()
     {
         var opts = ValidExport();
-        opts.Artefacts.Path = "   ";
+        opts.Artefacts.WorkingDirectory = "   ";
         var result = Sut().Validate(null, opts);
         Assert.IsFalse(result.Succeeded);
         StringAssert.Contains(result.FailureMessage, "Artefacts");
@@ -175,7 +175,7 @@ public class MigrationOptionsValidatorTests
         var opts = new MigrationOptions
         {
             Mode = "",
-            Artefacts = new MigrationArtefactsOptions { Path = "" }
+            Artefacts = new MigrationArtefactsOptions { WorkingDirectory = "" }
         };
         var result = Sut().Validate(null, opts);
         Assert.IsFalse(result.Succeeded);
@@ -235,7 +235,7 @@ public class MigrationOptionsValidatorTests
                 Url = "https://dev.azure.com/targetorg",
                 Project = "TargetProject"
             },
-            Artefacts = new MigrationArtefactsOptions { Path = "D:\\exports" }
+            Artefacts = new MigrationArtefactsOptions { WorkingDirectory = "D:\\exports" }
         };
         Assert.IsTrue(Sut().Validate(null, opts).Succeeded);
     }
@@ -252,7 +252,7 @@ public class MigrationOptionsValidatorTests
                 Url = "http://tfs:8080/tfs/DefaultCollection",
                 Project = "MyProject"
             },
-            Artefacts = new MigrationArtefactsOptions { Path = "D:\\exports" }
+            Artefacts = new MigrationArtefactsOptions { WorkingDirectory = "D:\\exports" }
         };
         var result = Sut().Validate(null, opts);
         Assert.IsFalse(result.Succeeded);
@@ -272,7 +272,7 @@ public class MigrationOptionsValidatorTests
                 Url = "https://github.com/myorg",
                 Project = "MyProject"
             },
-            Artefacts = new MigrationArtefactsOptions { Path = "D:\\exports" }
+            Artefacts = new MigrationArtefactsOptions { WorkingDirectory = "D:\\exports" }
         };
         var result = Sut().Validate(null, opts);
         Assert.IsFalse(result.Succeeded);

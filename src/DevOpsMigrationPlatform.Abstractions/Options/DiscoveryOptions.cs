@@ -35,10 +35,10 @@ public sealed class DiscoveryOptions
     {
         Policies.Validate();
 
-        if (string.IsNullOrWhiteSpace(Artefacts.Path))
+        if (string.IsNullOrWhiteSpace(Artefacts.WorkingDirectory))
             throw new InvalidOperationException(
-                "Config error: 'Artefacts.Path' is required for discovery commands. " +
-                "Add an 'Artefacts' section with a 'Path' to your config file.");
+                "Config error: 'Artefacts.WorkingDirectory' is required for discovery commands. " +
+                "Add an 'Artefacts' section with a 'WorkingDirectory' to your config file.");
 
         if (Organisations.Count == 0)
             throw new InvalidOperationException("Config error: 'organisations' array is empty.");
