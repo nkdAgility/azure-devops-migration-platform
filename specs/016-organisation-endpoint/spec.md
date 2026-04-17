@@ -47,7 +47,7 @@ As a developer working on the migration platform, I want every service interface
 **Acceptance Scenarios**:
 
 1. **Given** the refactored codebase, **When** a grep for `string url.*string pat` is run across all Abstractions-level interfaces, **Then** zero matches are found.
-2. **Given** an `OrganisationEndpoint` constructed with a URL and PAT, **When** it is passed to any service method, **Then** the service resolves the connection using `ResolvedUrl` and `ResolvedPat` from the endpoint — never from separate parameters.
+2. **Given** an `OrganisationEndpoint` constructed with a URL and authentication, **When** it is passed to any service method, **Then** the service resolves the connection using `ResolvedUrl` and `Authentication` from the endpoint — never from separate parameters.
 3. **Given** the full test suite, **When** all tests are run after the refactor, **Then** all tests pass with no regressions.
 
 ---
@@ -77,39 +77,41 @@ As a developer, I want `OrganisationEntry` (the mutable config-layer type) to pr
 
 **Acceptance Scenarios**:
 
-1. **Given** an `OrganisationEntry` with URL, PAT, and Type populated, **When** the conversion method is called, **Then** an `OrganisationEndpoint` is returned with `ResolvedUrl`, `ResolvedPat`, and `Type` matching the source values.
+1. **Given** an `OrganisationEntry` with URL, authentication, and Type populated, **When** the conversion method is called, **Then** an `OrganisationEndpoint` is returned with `ResolvedUrl`, `Authentication`, and `Type` matching the resolved source values.
 
 ---
 
 ### Edge Cases
 
-- What happens when `ResolvedPat` is null or empty? → `OrganisationEndpoint` is a data carrier; validation of credentials is the responsibility of the consuming service at call time, not the record constructor.
+- What happens when `ResolvedAccessToken` is null? → This is valid for `Windows` auth. `OrganisationEndpoint` is a data carrier; validation of credentials is the responsibility of the consuming service at call time, not the record constructor.
 - What happens with existing serialised `DiscoveryJob` JSON that uses the old `DiscoveryJobOrganisation` shape? → JSON property names must remain stable or a deserialisation compatibility path must be provided so existing scenario files continue to work.
-- What about `DiscoveryJobAuthentication`? → Its nested structure (`ResolvedAccessToken`) is flattened into `OrganisationEndpoint.ResolvedPat`. The `DiscoveryJobAuthentication` type is removed.
+- What about `DiscoveryJobAuthentication`? → Its nested structure is replaced by `OrganisationEndpointAuthentication`, which flattens to `AuthenticationType Type` + `string? ResolvedAccessToken`. The `DiscoveryJobAuthentication` type is removed.
 - What about `Projects` on `DiscoveryJobOrganisation`? → `OrganisationEndpoint` does NOT carry project lists. `DiscoveryJob` must track the org-to-projects mapping separately if needed.
 
 ## Requirements *(mandatory)*
 
 ### Functional Requirements
 
-- **FR-001**: A new `OrganisationEndpoint` immutable record MUST be introduced in `DevOpsMigrationPlatform.Abstractions`. It MUST expose `string ResolvedUrl`, `string ResolvedPat`, and `string Type`. It MUST NOT carry project lists or other inventory concerns.
-- **FR-002**: `DiscoveryJobOrganisation` MUST be renamed to `OrganisationEndpoint` throughout the codebase. The `DiscoveryJobAuthentication` nested type MUST be removed; auth is accessed via `ResolvedPat` directly on the record.
-- **FR-003**: `DiscoveryJob.Organisations` MUST be updated to `List<OrganisationEndpoint>`.
-- **FR-004**: `IInventoryServiceFactory` and `IDependencyDiscoveryServiceFactory` MUST be updated to accept `IReadOnlyList<OrganisationEndpoint>` in place of `IReadOnlyList<DiscoveryJobOrganisation>`.
-- **FR-005**: The following Abstractions-level service interfaces MUST be updated to accept `OrganisationEndpoint` in place of separate `string url`/`string pat` parameters:
+- **FR-001**: A new `OrganisationEndpoint` immutable record MUST be introduced in `DevOpsMigrationPlatform.Abstractions`. It MUST expose `string ResolvedUrl`, `string Type`, and `OrganisationEndpointAuthentication Authentication`. It MUST NOT carry project lists or other inventory concerns.
+- **FR-002**: A new `OrganisationEndpointAuthentication` immutable record MUST be introduced in `DevOpsMigrationPlatform.Abstractions`. It MUST expose `AuthenticationType Type` and `string? ResolvedAccessToken`. It carries only resolved values — no raw `$ENV:VARNAME` tokens. For `Windows` auth, `ResolvedAccessToken` is null.
+- **FR-003**: `DiscoveryJobOrganisation` MUST be renamed to `OrganisationEndpoint` throughout the codebase. The `DiscoveryJobAuthentication` nested type MUST be removed; auth is accessed via the `OrganisationEndpointAuthentication` record on the endpoint.
+- **FR-004**: `DiscoveryJob.Organisations` MUST be updated to `List<OrganisationEndpoint>`.
+- **FR-005**: `IInventoryServiceFactory` and `IDependencyDiscoveryServiceFactory` MUST be updated to accept `IReadOnlyList<OrganisationEndpoint>` in place of `IReadOnlyList<DiscoveryJobOrganisation>`.
+- **FR-006**: The following Abstractions-level service interfaces MUST be updated to accept `OrganisationEndpoint` in place of separate `string url`/`string pat` parameters:
   - `IWorkItemDiscoveryService.DiscoverWorkItemsAsync` and `CountWorkItemsAsync`
   - `IWorkItemQueryWindowStrategy.EnumerateWindowsAsync`
   - `IProjectDiscoveryService.DiscoverProjectsAsync`
   - `ICatalogService.GetProjectsAsync` and `CountAllWorkItemsAsync`
   - `IWorkItemLinkAnalysisService.AnalyseLinksAsync`
   - `IWorkItemCommentSourceFactory.Create`
-- **FR-006**: All implementations of the interfaces listed in FR-005 MUST be updated to match the new signatures. No behaviour changes — this is a pure signature refactor.
-- **FR-007**: `OrganisationEntry` (config layer) MUST gain a convenience method or extension to produce an `OrganisationEndpoint` trivially.
-- **FR-008**: Existing serialised `DiscoveryJob` JSON (scenario files) MUST continue to deserialise correctly after the rename. JSON property compatibility MUST be maintained or scenario files updated.
+- **FR-007**: All implementations of the interfaces listed in FR-006 MUST be updated to match the new signatures. No behaviour changes — this is a pure signature refactor.
+- **FR-008**: `OrganisationEntry` (config layer) MUST gain a convenience method or extension to produce an `OrganisationEndpoint` trivially. The conversion MUST resolve `$ENV:VARNAME` tokens in both URL and access token, and map `EndpointAuthenticationOptions` to `OrganisationEndpointAuthentication`.
+- **FR-009**: Existing serialised `DiscoveryJob` JSON (scenario files) MUST continue to deserialise correctly after the rename. JSON property compatibility MUST be maintained or scenario files updated.
 
 ### Key Entities
 
-- **`OrganisationEndpoint`**: Renamed from `DiscoveryJobOrganisation`. Immutable record in `DevOpsMigrationPlatform.Abstractions` with `ResolvedUrl`, `ResolvedPat`, and `Type`. The canonical connection context used across all service interfaces. Does NOT carry project lists.
+- **`OrganisationEndpoint`**: Renamed from `DiscoveryJobOrganisation`. Immutable record in `DevOpsMigrationPlatform.Abstractions` with `ResolvedUrl`, `Type`, and `Authentication` (`OrganisationEndpointAuthentication`). The canonical connection context used across all service interfaces. Does NOT carry project lists.
+- **`OrganisationEndpointAuthentication`**: New immutable record in `DevOpsMigrationPlatform.Abstractions` with `AuthenticationType Type` and `string? ResolvedAccessToken`. The resolved runtime counterpart to `EndpointAuthenticationOptions`. For Windows auth, `ResolvedAccessToken` is null.
 - **`DiscoveryJob`**: Existing job contract. Its `Organisations` property changes from `List<DiscoveryJobOrganisation>` to `List<OrganisationEndpoint>`.
 - **`OrganisationEntry`**: Existing mutable config-layer type. Gains a conversion method to `OrganisationEndpoint`.
 

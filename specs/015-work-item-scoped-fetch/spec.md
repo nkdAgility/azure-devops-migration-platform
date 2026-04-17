@@ -94,7 +94,7 @@ As a migration operator using a TFS source, I want `IWorkItemFetchService` to ha
 
 ### Key Entities
 
-- **`OrganisationEndpoint`**: Defined in feature 016. Immutable record in `DevOpsMigrationPlatform.Abstractions` with `ResolvedUrl`, `ResolvedPat`, and `Type`. Used as the connection context parameter for `FetchAsync`.
+- **`OrganisationEndpoint`**: Defined in feature 016. Immutable record in `DevOpsMigrationPlatform.Abstractions` with `ResolvedUrl`, `Type`, and `Authentication` (`OrganisationEndpointAuthentication`). Used as the connection context parameter for `FetchAsync`.
 - **`IWorkItemFetchService`**: New interface in `DevOpsMigrationPlatform.Abstractions`. Signature: `FetchAsync(OrganisationEndpoint endpoint, string project, WorkItemFetchScope scope, CancellationToken ct)`.
 - **`WorkItemFetchScope`**: Immutable value object (record) in `DevOpsMigrationPlatform.Abstractions` that encapsulates query-scope concerns only: required field names (`IReadOnlyList<string>`), optional filter options (`IReadOnlyList<WorkItemFieldFilterOptions>?`), and optional base WIQL `WHERE` clause. Connection details are NOT part of this object.
 - **`FetchedWorkItem`**: Immutable record: `int Id` + `IReadOnlyDictionary<string, object?> Fields`. Lives in `DevOpsMigrationPlatform.Abstractions`.
