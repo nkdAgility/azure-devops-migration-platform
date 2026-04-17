@@ -8,7 +8,7 @@ namespace DevOpsMigrationPlatform.Abstractions;
 
 /// <summary>
 /// Resolved configuration for the WorkItems module, derived from the module's
-/// <see cref="MigrationJobModule.Extensions"/> list and <see cref="MigrationJobModule.Query"/>.
+/// <see cref="JobModule.Extensions"/> list and <see cref="JobModule.Query"/>.
 ///
 /// Use <see cref="FromModule"/> to construct an instance from the job contract.
 /// Each named extension ("Revisions", "Links", "Attachments", "Comments", "EmbeddedImages")
@@ -46,14 +46,14 @@ public sealed class WorkItemsModuleExtensions
     public WorkItemResolutionStrategyOptions ResolutionStrategy { get; init; } = new();
 
     /// <summary>
-    /// Constructs a <see cref="WorkItemsModuleExtensions"/> from a <see cref="MigrationJobModule"/>.
+    /// Constructs a <see cref="WorkItemsModuleExtensions"/> from a <see cref="JobModule"/>.
     /// Reads the WIQL query from the first <c>"wiql"</c> scope in
-    /// <see cref="MigrationJobModule.Scopes"/> and iterates
-    /// <see cref="MigrationJobModule.Extensions"/> by <see cref="MigrationJobModuleExtension.Type"/>
+    /// <see cref="JobModule.Scopes"/> and iterates
+    /// <see cref="JobModule.Extensions"/> by <see cref="JobModuleExtension.Type"/>
     /// to populate sub-module settings. Unknown extension types are silently ignored.
     /// Missing extensions fall back to enabled defaults.
     /// </summary>
-    public static WorkItemsModuleExtensions FromModule(MigrationJobModule module)
+    public static WorkItemsModuleExtensions FromModule(JobModule module)
     {
         var query = GetWiqlQuery(module.Scopes);
 
@@ -101,7 +101,7 @@ public sealed class WorkItemsModuleExtensions
         };
     }
 
-    private static CommentsExtensionOptions ParseCommentsExtension(MigrationJobModuleExtension ext)
+    private static CommentsExtensionOptions ParseCommentsExtension(JobModuleExtension ext)
     {
         return new CommentsExtensionOptions
         {
@@ -110,7 +110,7 @@ public sealed class WorkItemsModuleExtensions
         };
     }
 
-    private static EmbeddedImagesExtensionOptions ParseEmbeddedImagesExtension(MigrationJobModuleExtension ext)
+    private static EmbeddedImagesExtensionOptions ParseEmbeddedImagesExtension(JobModuleExtension ext)
     {
         return new EmbeddedImagesExtensionOptions
         {
@@ -144,7 +144,7 @@ public sealed class WorkItemsModuleExtensions
     }
 
     private static WorkItemResolutionStrategyOptions ParseResolutionStrategyExtension(
-        MigrationJobModuleExtension ext)
+        JobModuleExtension ext)
     {
         return new WorkItemResolutionStrategyOptions
         {
@@ -169,7 +169,7 @@ public sealed class WorkItemsModuleExtensions
     /// Falls back to <see cref="DefaultWiqlQuery"/> when no wiql scope is present
     /// or the <c>query</c> parameter is absent/empty.
     /// </summary>
-    private static string GetWiqlQuery(System.Collections.Generic.List<MigrationJobModuleScope> scopes)
+    private static string GetWiqlQuery(System.Collections.Generic.List<JobModuleScope> scopes)
     {
         var wiqlScope = scopes.FirstOrDefault(s =>
             string.Equals(s.Type, "wiql", StringComparison.OrdinalIgnoreCase));

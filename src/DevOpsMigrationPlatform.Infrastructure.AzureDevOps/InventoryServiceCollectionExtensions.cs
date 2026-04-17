@@ -1,6 +1,9 @@
+using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Abstractions.Services;
+using DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Factories;
 using DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Services;
+using DevOpsMigrationPlatform.Infrastructure.Modules;
 using DevOpsMigrationPlatform.Infrastructure.Services;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -12,6 +15,8 @@ public static class InventoryServiceCollectionExtensions
     /// <summary>
     /// Registers all Azure DevOps inventory services and binds <see cref="DiscoveryOptions"/>
     /// from the <c>MigrationPlatform</c> configuration section.
+    /// Also registers <see cref="IInventoryServiceFactory"/> and <see cref="InventoryDiscoveryModule"/>
+    /// for agent-side use where organisations come from a <see cref="DevOpsMigrationPlatform.Abstractions.DiscoveryJob"/>.
     /// </summary>
     public static IServiceCollection AddAzureDevOpsInventory(
         this IServiceCollection services,
@@ -25,6 +30,8 @@ public static class InventoryServiceCollectionExtensions
         services.AddSingleton<IProjectDiscoveryService, AzureDevOpsProjectDiscoveryService>();
         services.AddSingleton<IRepoDiscoveryService, AzureDevOpsRepoDiscoveryService>();
         services.AddSingleton<IInventoryService, InventoryService>();
+        services.AddSingleton<IInventoryServiceFactory, InventoryServiceFactory>();
+        services.AddSingleton<IDiscoveryModule, InventoryDiscoveryModule>();
         return services;
     }
 }

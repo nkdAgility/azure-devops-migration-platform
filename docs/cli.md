@@ -205,7 +205,8 @@ Discovery commands run **locally** and do **not** submit a `MigrationJob` to the
 
 | Command | Description |
 |---|---|
-| `discovery inventory` | Count work items and revisions per project. Read-only pre-flight operation. Results written to `discovery-summary.csv`. |
+| `discovery inventory` | Count work items and revisions per project. Read-only pre-flight operation. Results written to `discovery-summary.csv`. Accepts `--output <dir>` to override the config's `Artefacts.WorkingDirectory`. |
+| `discovery dependencies` | Analyse cross-project and cross-organisation work item links. Results written to `dependencies.csv` in the output directory. Accepts `--output <dir>` to override the config's `Artefacts.WorkingDirectory`. |
 
 ### Configuration Management (`config`)
 
@@ -233,6 +234,12 @@ Supported preference keys:
 |---|---|
 | `tui` | Open the interactive Terminal UI showing live job state for jobs visible to the current user. See [docs/tui.md](tui.md). |
 
+### Control Plane Management (`controlplane`)
+
+| Command | Description |
+|---|---|
+| `controlplane start [--port <port>]` | Start the bundled Control Plane host (`ControlPlane/DevOpsMigrationPlatform.ControlPlaneHost[.exe]`) in the current terminal. Blocks until Ctrl+C — the control plane runs as a foreground child process. `--port` sets the listen port (default: `5100`); the value is passed to the child process via `ASPNETCORE_URLS`. **Only available in the packaged (zip) distribution.** In a dev/source build, run `dotnet run --project src/DevOpsMigrationPlatform.ControlPlaneHost --urls http://localhost:5100` instead. |
+
 ---
 
 ### Example Invocations
@@ -256,11 +263,16 @@ devopsmigration manage logout  --url https://migration.example.com
 devopsmigration discovery inventory --config migration.json
 devopsmigration discovery inventory --config migration.json --all-projects
 devopsmigration discovery inventory --config migration.json --output ./reports
+devopsmigration discovery dependencies --config migration.json
+devopsmigration discovery dependencies --config migration.json --output ./reports
 
 devopsmigration config new
 devopsmigration config new --output my-migration.json
 devopsmigration config set scenario-folder C:\migrations\configs
 devopsmigration config get scenario-folder
+
+devopsmigration controlplane start
+devopsmigration controlplane start --port 5200
 
 devopsmigration tui
 ```

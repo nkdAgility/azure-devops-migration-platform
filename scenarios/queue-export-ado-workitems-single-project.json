@@ -23,8 +23,8 @@
       }
     },
     "Artefacts": {
-      "Path": "storage\\queue-export-ado-workitems-single-project",
-      "Zip": true
+      "WorkingDirectory": "storage\\queue-export-ado-workitems-single-project",
+      "CreatePackage": true
     },
     "Modules": [
       {

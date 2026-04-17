@@ -49,8 +49,19 @@ public static class MigrationAgentServiceExtensions
         builder.Services.AddControlPlaneTelemetryClient(controlPlaneBaseUrl);
 
         // Named HttpClient used by MigrationAgentWorker to poll /agents/lease and signal completion.
+        // The /agents/lease endpoint is a long-poll held open by the server for ~10s.
+        // Increase timeouts to prevent Polly from firing spurious timeouts on every idle poll.
+        // Polly validation constraints:
+        //   TotalRequestTimeout >= AttemptTimeout * (MaxRetries + 1)  →  150s >= 30s * 4 = 120s ✓
+        //   CircuitBreaker.SamplingDuration >= 2 * AttemptTimeout     →  61s  >= 2 * 30s = 60s  ✓
         builder.Services.AddHttpClient("ControlPlane",
-            client => client.BaseAddress = controlPlaneBaseUrl);
+            client => client.BaseAddress = controlPlaneBaseUrl)
+            .AddStandardResilienceHandler(options =>
+            {
+                options.AttemptTimeout.Timeout = TimeSpan.FromSeconds(30);
+                options.TotalRequestTimeout.Timeout = TimeSpan.FromSeconds(150);
+                options.CircuitBreaker.SamplingDuration = TimeSpan.FromSeconds(61);
+            });
 
         // Progress streaming to the Control Plane ring buffer.
         builder.Services.AddControlPlaneProgressSink(controlPlaneBaseUrl);
@@ -58,6 +69,10 @@ public static class MigrationAgentServiceExtensions
         // Register IModule implementations (WorkItemsModule + Azure DevOps infra).
         builder.Services.AddAzureDevOpsWorkItemExport();
         builder.Services.AddAzureDevOpsWorkItemImport();
+
+        // Register IDiscoveryModule implementations for DiscoveryAgentWorker.
+        builder.Services.AddAzureDevOpsInventory(builder.Configuration);
+        builder.Services.AddAzureDevOpsDependencyAnalysis(builder.Configuration);
 
         // Phase tracking factory for MigrationAgentWorker (per-job IStateStore wiring).
         builder.Services.AddSingleton<IPhaseTrackingServiceFactory, PhaseTrackingServiceFactory>();
@@ -75,16 +90,18 @@ public static class MigrationAgentServiceExtensions
         builder.Services.AddHostedService(sp => sp.GetRequiredService<PackageProgressSink>());
 
         // Composite sink fans out every ProgressEvent to all three sinks.
+        builder.Services.AddSingleton<AnsiProgressSink>();
         builder.Services.AddSingleton<IProgressSink>(sp => new CompositeProgressSink(
             sp.GetRequiredService<ILogger<CompositeProgressSink>>(),
-            new AnsiProgressSink(),
+            sp.GetRequiredService<AnsiProgressSink>(),
             sp.GetRequiredService<PackageProgressSink>(),
             sp.GetRequiredService<ControlPlaneProgressSink>()));
 
         // Background timer that pushes MetricSnapshots to the Control Plane.
         builder.Services.AddHostedService<ControlPlaneTelemetryTimer>();
 
-        builder.Services.AddHostedService<MigrationAgentWorker>();
+        // Unified worker — polls /agents/lease and dispatches to migration or discovery execution.
+        builder.Services.AddHostedService<JobAgentWorker>();
 
         return builder;
     }

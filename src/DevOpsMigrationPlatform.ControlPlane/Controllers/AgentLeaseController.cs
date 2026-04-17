@@ -39,7 +39,7 @@ public sealed class AgentLeaseController : ControllerBase
     [ProducesResponseType(204)]
     public async Task<IActionResult> AcquireLease(CancellationToken cancellationToken)
     {
-        MigrationJob? job;
+        Job? job;
         try
         {
             job = await _jobStore

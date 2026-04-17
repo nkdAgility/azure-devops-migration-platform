@@ -8,7 +8,8 @@ using DevOpsMigrationPlatform.ControlPlane.Models;
 namespace DevOpsMigrationPlatform.ControlPlane.Services;
 
 /// <summary>
-/// Persistence contract for <see cref="MigrationJob"/> instances submitted to the control plane.
+/// Persistence contract for <see cref="Job"/> instances submitted to the control plane.
+/// Accepts any concrete subtype (<see cref="MigrationJob"/>, <see cref="DiscoveryJob"/>, etc.).
 /// </summary>
 public interface IJobStore
 {
@@ -16,23 +17,23 @@ public interface IJobStore
     /// Stores a submitted job and enqueues it for agent pickup.
     /// Returns the job id.
     /// </summary>
-    Guid Enqueue(MigrationJob job);
+    Guid Enqueue(Job job);
 
     /// <summary>
     /// Dequeues one pending job, waiting up to <paramref name="timeout"/>.
     /// Returns <c>null</c> if no job became available within the timeout.
     /// </summary>
-    Task<MigrationJob?> DequeueAsync(TimeSpan timeout, CancellationToken cancellationToken);
+    Task<Job?> DequeueAsync(TimeSpan timeout, CancellationToken cancellationToken);
 
     /// <summary>
     /// Returns a snapshot of all submitted jobs.
     /// </summary>
-    IReadOnlyList<MigrationJob> GetAll();
+    IReadOnlyList<Job> GetAll();
 
     /// <summary>
     /// Returns the job with the given id, or <c>null</c> if not found.
     /// </summary>
-    MigrationJob? Get(Guid jobId);
+    Job? Get(Guid jobId);
 
     /// <summary>
     /// Returns all submitted jobs with their runtime state, submission time, and submitter identity.

@@ -19,9 +19,9 @@
       "Project": "SimulatedTarget"
     },
     "Artefacts": {
-      "Path": "storage\\queue-import-workitems-simulated-fixture",
-      "Zip": true,
-      "ZipSource": "scenarios\\testdata\\workitems-2items-flat.zip"
+      "WorkingDirectory": "storage\\queue-import-workitems-simulated-fixture",
+      "CreatePackage": true,
+      "PackagePath": "scenarios\\testdata\\workitems-2items-flat.zip"
     },
     "Modules": [
       {

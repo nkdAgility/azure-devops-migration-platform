@@ -3,163 +3,139 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.IO;
 using System.Linq;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using DevOpsMigrationPlatform.Abstractions.Models;
-using DevOpsMigrationPlatform.Abstractions.Services;
+using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Options;
+using DevOpsMigrationPlatform.CLI.JobRunners;
 using DevOpsMigrationPlatform.CLI.Migration.Commands;
+using DevOpsMigrationPlatform.CLI.Migration.Options;
 using DevOpsMigrationPlatform.CLI.Migration.Settings;
 using DevOpsMigrationPlatform.Infrastructure.AzureDevOps;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 using Spectre.Console;
 using Spectre.Console.Cli;
 
 namespace DevOpsMigrationPlatform.CLI.Commands.Discovery;
 
-public sealed class InventoryCommand : CommandBase<InventoryCommand.Settings>
+/// <summary>
+/// CLI command: discovery inventory
+/// Submits a <see cref="DiscoveryJob"/> of type Inventory to the control plane.
+/// In standalone mode follows progress inline; in hosted mode prints the jobId and exits.
+/// </summary>
+public sealed class InventoryCommand : ControlPlaneCommandBase<InventoryCommand.Settings>
 {
-    public sealed class Settings : BaseCommandSettings
+    public sealed class Settings : ControlPlaneBaseCommandSettings, IRequiresMigrationConfig
     {
-        [CommandOption("--output <PATH>")]
-        [Description("Directory where discovery-summary.csv is written (default: ./output)")]
-        public string? OutputPath { get; set; }
+        [CommandOption("-o|--output")]
+        [Description("Override the output directory for discovery results (overrides Artefacts.WorkingDirectory in the config).")]
+        public string? OutputDirectory { get; set; }
     }
 
-    protected override async Task<int> ExecuteInternalAsync(CommandContext context, Settings settings, CancellationToken cancellationToken = default)
+    protected override async Task<int> ExecuteInternalAsync(
+        CommandContext context,
+        Settings settings,
+        CancellationToken cancellationToken = default)
     {
         await CreateHost(Environment.GetCommandLineArgs(), (services, config) =>
         {
+            services.AddHttpClient<ControlPlaneClient>((sp, client) =>
+            {
+                var opts = sp.GetRequiredService<IOptions<EnvironmentOptions>>().Value;
+                client.BaseAddress = new Uri(opts.ControlPlane.BaseUrl);
+            });
             services.AddAzureDevOpsInventory(config);
         });
 
         var console = GetRequiredService<IAnsiConsole>();
-        var inventoryService = GetRequiredService<IInventoryService>();
-        var summaries = new Dictionary<string, InventorySummary>(StringComparer.OrdinalIgnoreCase);
+        var discoveryOpts = GetRequiredService<IOptions<DiscoveryOptions>>().Value;
 
-        if (console.Profile.Capabilities.Interactive)
+        try { discoveryOpts.Validate(); }
+        catch (InvalidOperationException ex)
         {
-            var table = BuildTable(summaries.Values);
-            await console.Live(table)
-                .StartAsync(async ctx =>
-                {
-                    await foreach (var evt in inventoryService.RunInventoryAsync(cancellationToken))
-                    {
-                        UpdateSummary(summaries, evt);
-                        ctx.UpdateTarget(BuildTable(summaries.Values));
-                    }
-                });
+            ShowError(console, ex.Message);
+            return 1;
         }
-        else
+
+        var outputPath = string.IsNullOrWhiteSpace(settings.OutputDirectory)
+            ? Path.GetFullPath(discoveryOpts.Artefacts.ExpandedPath)
+            : Path.GetFullPath(settings.OutputDirectory);
+        var packageUri = $"file:///{outputPath.Replace(Path.DirectorySeparatorChar, '/')}";
+
+        var job = new DiscoveryJob
         {
-            await foreach (var evt in inventoryService.RunInventoryAsync(cancellationToken))
-            {
-                UpdateSummary(summaries, evt);
-                if (evt.IsComplete)
+            JobId = Guid.NewGuid().ToString(),
+            ConfigVersion = "1.0",
+            DiscoveryType = DiscoveryJobType.Inventory,
+            Organisations = discoveryOpts.Organisations
+                .Where(o => o.Enabled)
+                .Select(o => new DiscoveryJobOrganisation
                 {
-                    var status = evt.Error != null ? "✗ Failed" : "✓";
-                    console.MarkupLine($"  {Markup.Escape(evt.Url)} / {Markup.Escape(evt.ProjectName)}: {evt.WorkItemsCount} work items, {evt.RevisionsCount} revisions — {status}");
-                }
+                    Type = o.Type,
+                    Url = o.Url,
+                    Projects = new List<string>(o.Projects),
+                    ApiVersion = o.ApiVersion,
+                    Authentication = new DiscoveryJobAuthentication
+                    {
+                        Type = "Pat",
+                        AccessToken = o.Authentication?.AccessToken ?? string.Empty
+                    }
+                }).ToList(),
+            Policies = new JobPolicies
+            {
+                MaxRetries = discoveryOpts.Policies.Retries.Max,
+                MaxConcurrency = discoveryOpts.Policies.Throttle.MaxConcurrency,
+                CheckpointIntervalSeconds = discoveryOpts.Policies.Checkpoints.Interval
+            },
+            Artefacts = new JobArtefacts { PackageUri = packageUri }
+        };
+
+        var envOpts = GetRequiredService<IOptions<EnvironmentOptions>>().Value;
+        var isStandalone = envOpts.Type == EnvironmentType.Standalone;
+        var client = GetRequiredService<ControlPlaneClient>();
+
+        console.MarkupLine($"[blue]ℹ[/] Submitting inventory job for [bold]{job.Organisations.Count}[/] organisation(s).");
+        console.MarkupLine($"[blue]ℹ[/] Output path: [blue]{Markup.Escape(outputPath)}[/]");
+
+        Guid jobId;
+        try
+        {
+            jobId = await client.SubmitDiscoveryAsync(job, cancellationToken);
+            console.MarkupLine($"[green]✓[/] Discovery job [bold]{jobId}[/] submitted.");
+        }
+        catch (Exception ex)
+        {
+            ShowError(console, $"Failed to submit discovery job: {ex.Message}");
+            return 1;
+        }
+
+        if (!isStandalone)
+        {
+            console.MarkupLine($"[grey]Use [blue]manage status --job {jobId}[/] to check progress.[/]");
+            return 0;
+        }
+
+        try
+        {
+            await foreach (var evt in client.FollowDiscoveryLogsAsync(jobId, cancellationToken))
+            {
+                if (!string.IsNullOrEmpty(evt.Message))
+                    console.MarkupLine($"  [grey]{Markup.Escape(evt.Module)}[/] --- {Markup.Escape(evt.Message)}");
             }
         }
+        catch (InvalidOperationException ex) when (ex.Message.Contains("failed"))
+        {
+            ShowError(console, "Discovery job failed. Check agent logs for details.");
+            return 1;
+        }
+        catch (OperationCanceledException)
+        {
+            console.MarkupLine("[yellow]Detached from stream. Discovery job continues running.[/]");
+            return 0;
+        }
 
-        var baseOutputDir = string.IsNullOrWhiteSpace(settings.OutputPath)
-            ? Path.Combine(Directory.GetCurrentDirectory(), "output")
-            : settings.OutputPath;
-
-        var csvPath = Path.Combine(baseOutputDir, "discovery-summary.csv");
-        WriteCsv(summaries.Values, csvPath);
-
-        console.MarkupLine($"\n[green]✅ Inventory complete.[/] CSV written to [blue]{Markup.Escape(csvPath)}[/]");
+        console.MarkupLine($"[green]OK Inventory complete.[/] Results written to [blue]{Markup.Escape(outputPath)}[/]");
         return 0;
     }
-
-    private static void UpdateSummary(Dictionary<string, InventorySummary> summaries, InventoryProgressEvent evt)
-    {
-        var key = $"{evt.Url}|{evt.ProjectName}";
-        if (!summaries.TryGetValue(key, out var summary))
-        {
-            summary = new InventorySummary { Url = evt.Url, ProjectName = evt.ProjectName };
-            summaries[key] = summary;
-        }
-
-        summary.WorkItemsCount = evt.WorkItemsCount;
-        summary.RevisionsCount = evt.RevisionsCount;
-        summary.ReposCount = evt.ReposCount;
-        summary.LastUpdatedUtc = evt.Timestamp;
-        if (evt.IsComplete)
-        {
-            summary.IsComplete = true;
-            summary.Error = evt.Error;
-        }
-    }
-
-    // ── Rendering ─────────────────────────────────────────────────────────────
-
-    private static Table BuildTable(IEnumerable<InventorySummary> summaries)
-    {
-        var table = new Table()
-            .Title("[bold yellow]Discovery Inventory[/]")
-            .RoundedBorder()
-            .BorderColor(Color.Grey)
-            .AddColumn("Organisation / Collection")
-            .AddColumn("Project")
-            .AddColumn(new TableColumn("Work Items").RightAligned())
-            .AddColumn(new TableColumn("Revisions").RightAligned())
-            .AddColumn(new TableColumn("Repos").RightAligned())
-            .AddColumn(new TableColumn("Pipelines").RightAligned())
-            .AddColumn("Status");
-
-        foreach (var s in summaries)
-        {
-            var status = s.Error != null
-                ? "[red]✗ Failed[/]"
-                : s.IsComplete
-                    ? "[green]✓[/]"
-                    : "[grey]…[/]";
-
-            // Prefix counts with ~ when the result is partial (error stopped the scan).
-            var partial = s.Error != null && (s.WorkItemsCount > 0 || s.RevisionsCount > 0);
-            var wiCount = partial ? $"~{s.WorkItemsCount}" : s.WorkItemsCount.ToString();
-            var revCount = partial ? $"~{s.RevisionsCount}" : s.RevisionsCount.ToString();
-
-            table.AddRow(
-                Markup.Escape(s.Url),
-                Markup.Escape(s.ProjectName),
-                wiCount,
-                revCount,
-                s.ReposCount.ToString(),
-                s.PipelinesCount.ToString(),
-                status);
-        }
-
-        return table;
-    }
-
-    // ── CSV ───────────────────────────────────────────────────────────────────
-
-    private static void WriteCsv(IEnumerable<InventorySummary> summaries, string path)
-    {
-        var dir = Path.GetDirectoryName(path);
-        if (!string.IsNullOrEmpty(dir))
-            Directory.CreateDirectory(dir);
-
-        using var writer = new StreamWriter(path, append: false, encoding: new UTF8Encoding(false));
-        writer.WriteLine("Url,ProjectName,WorkItemsCount,RevisionsCount,ReposCount,PipelinesCount,IsComplete,Error,LastUpdatedUtc");
-
-        foreach (var s in summaries)
-        {
-            writer.WriteLine(
-                $"{Csv(s.Url)},{Csv(s.ProjectName)}," +
-                $"{s.WorkItemsCount},{s.RevisionsCount}," +
-                $"{s.ReposCount},{s.PipelinesCount}," +
-                $"{s.IsComplete},{Csv(s.Error ?? string.Empty)}," +
-                $"{s.LastUpdatedUtc:O}");
-        }
-    }
-
-    private static string Csv(string value) =>
-        value.Contains(',') || value.Contains('"') || value.Contains('\n')
-            ? $"\"{value.Replace("\"", "\"\"")}\""
-            : value;
 }

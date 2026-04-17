@@ -55,7 +55,12 @@ public sealed class LogDownloadController : ControllerBase
         if (job is null)
             return NotFound($"Job '{jobId}' not found.");
 
-        var packageUri = job.Artefacts.PackageUri;
+        var packageUri = job switch
+        {
+            MigrationJob mj => mj.Artefacts.PackageUri,
+            DiscoveryJob dj => dj.Artefacts.PackageUri,
+            _ => null
+        };
         if (string.IsNullOrWhiteSpace(packageUri))
             return NotFound("Job has no package URI.");
 

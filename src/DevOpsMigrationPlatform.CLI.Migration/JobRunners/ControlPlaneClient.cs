@@ -52,11 +52,11 @@ public sealed class ControlPlaneClient : IJobRunner, ILogsClient, IControlPlaneC
     }
 
     /// <summary>
-    /// Submits a <see cref="MigrationJob"/> to the control plane and returns the assigned jobId.
+    /// Submits a <see cref="Job"/> to the control plane and returns the assigned jobId.
     /// Does not follow progress — use <see cref="FollowLogsAsync"/> or <see cref="StreamDiagnosticsAsync"/>
     /// separately for live streaming.
     /// </summary>
-    public async Task<Guid> SubmitAsync(MigrationJob job, CancellationToken ct = default)
+    public async Task<Guid> SubmitAsync(Job job, CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(job);
 
@@ -68,7 +68,14 @@ public sealed class ControlPlaneClient : IJobRunner, ILogsClient, IControlPlaneC
             .PostAsJsonAsync("/jobs", job, _jsonOptions, ct)
             .ConfigureAwait(false);
 
-        submitResponse.EnsureSuccessStatusCode();
+        if (!submitResponse.IsSuccessStatusCode)
+        {
+            var body = await submitResponse.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+            _logger.LogError(
+                "Control plane rejected job {JobId}: {StatusCode} — {Body}",
+                job.JobId, (int)submitResponse.StatusCode, body);
+            submitResponse.EnsureSuccessStatusCode(); // rethrow with status code
+        }
 
         var submitResult = await submitResponse.Content
             .ReadFromJsonAsync<SubmitJobResponse>(_jsonOptions, ct)
@@ -269,5 +276,27 @@ public sealed class ControlPlaneClient : IJobRunner, ILogsClient, IControlPlaneC
                 records.Add(item);
         }
         return records;
+    }
+
+    // ── Discovery Job API ─────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Submits a <see cref="DiscoveryJob"/> to the control plane via the same
+    /// <c>POST /jobs</c> endpoint used by migration jobs.
+    /// Returns the assigned jobId.
+    /// </summary>
+    public Task<Guid> SubmitDiscoveryAsync(DiscoveryJob job, CancellationToken ct = default)
+        => SubmitAsync(job, ct);
+
+    /// <summary>
+    /// Streams live <see cref="ProgressEvent"/> records for a discovery job via SSE.
+    /// Uses the same progress endpoint as migration jobs.
+    /// </summary>
+    public async IAsyncEnumerable<ProgressEvent> FollowDiscoveryLogsAsync(
+        Guid jobId,
+        [EnumeratorCancellation] CancellationToken ct)
+    {
+        await foreach (var evt in FollowLogsAsync(jobId, ct).ConfigureAwait(false))
+            yield return evt;
     }
 }

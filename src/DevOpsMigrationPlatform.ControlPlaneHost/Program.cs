@@ -22,7 +22,18 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.AddServiceDefaults();
 builder.Services.AddControllers()
-    .AddApplicationPart(typeof(ControlPlaneServiceExtensions).Assembly);
+    .AddApplicationPart(typeof(ControlPlaneServiceExtensions).Assembly)
+    .AddJsonOptions(opts =>
+    {
+        // Explicitly wire DefaultJsonTypeInfoResolver so that [JsonPolymorphic] /
+        // [JsonDerivedType] attributes on Job are processed during [FromBody]
+        // deserialization (required for abstract base-type binding in ASP.NET Core).
+        opts.JsonSerializerOptions.TypeInfoResolver =
+            new System.Text.Json.Serialization.Metadata.DefaultJsonTypeInfoResolver();
+        opts.JsonSerializerOptions.PropertyNamingPolicy =
+            System.Text.Json.JsonNamingPolicy.CamelCase;
+        opts.JsonSerializerOptions.PropertyNameCaseInsensitive = true;
+    });
 
 builder.Services.AddControlPlaneServices(builder.Configuration);
 

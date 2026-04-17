@@ -50,7 +50,7 @@ See [docs/validation.md](validation.md) for the full four-tier validation model.
   },
   "artefacts": {
     "packageUri": "file:///D:/exports/run-001",
-    "zip": false
+    "createPackage": false
   },
   "guardrails": {
     "streamingRequired": true,
@@ -77,7 +77,7 @@ See [docs/validation.md](validation.md) for the full four-tier validation model.
 | `modules` | Yes | Modules to run and their scope configs. Same schema as [docs/configuration.md](configuration.md). |
 | `policies` | No | Retry and throttle policies. |
 | `artefacts.packageUri` | Yes | URI of the package root. Must be a URI — `file:///` for local, or a standard Azure Blob Storage HTTPS URL (`https://<account>.blob.core.windows.net/<container>/<prefix>`) for cloud. Local filesystem paths are normalised to `file:///` by the CLI before job construction. |
-| `artefacts.zip` | No | If `true`, pack after export or unpack before import. Default `false`. |
+| `artefacts.createPackage` | No | If `true`, pack after export or unpack before import. Default `false`. |
 | `guardrails.streamingRequired` | Yes | Must be `true`. The Job Engine will reject any execution plan that would load all revisions into memory. |
 | `guardrails.canonicalWorkItemsLayoutRequired` | Yes | Must be `true`. Any module that would alter the canonical folder structure is rejected at plan time. |
 | `resume.mode` | No | `Auto` (default) — detect existing cursor and resume from last position; `ForceFresh` — delete all module cursor files and `Checkpoints/job.phase.json` before running. Absent or `null` is treated as `Auto`. |
@@ -87,7 +87,7 @@ See [docs/validation.md](validation.md) for the full four-tier validation model.
 
 ## URI Normalisation
 
-The `artefacts.packageUri` field must always be a URI, not a bare path. The TUI normalises the value from the config file's `artefacts.path` field:
+The `artefacts.packageUri` field must always be a URI, not a bare path. The TUI normalises the value from the config file's `artefacts.workingDirectory` field:
 
 | Config value | Normalised `packageUri` |
 |---|---|
@@ -106,7 +106,7 @@ The job contract and the local configuration file ([docs/configuration.md](confi
 
 | Aspect | Local config file | MigrationJob |
 |---|---|---|
-| Package location | `artefacts.path` (bare path) | `artefacts.packageUri` (URI) |
+| Package location | `artefacts.workingDirectory` (bare path) | `artefacts.packageUri` (URI) |
 | Identity | None | `jobId` (tracked by control plane in remote mode) |
 | Guardrails | Implicit | Explicit fields in `guardrails` |
 | Secrets | Referenced directly or via env vars | Referenced via Key Vault URIs (remote mode) |

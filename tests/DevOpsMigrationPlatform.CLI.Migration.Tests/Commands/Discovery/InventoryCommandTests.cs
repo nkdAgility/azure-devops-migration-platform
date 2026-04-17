@@ -3,6 +3,7 @@ using DevOpsMigrationPlatform.CLI.Migration.Tests.TestUtilities;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using System;
 using System.IO;
+using System.Text.Json;
 
 namespace DevOpsMigrationPlatform.CLI.Migration.Tests.Commands.Discovery;
 
@@ -34,7 +35,29 @@ public class InventoryCommandTests
             return;
         }
 
-        var csvPath = Path.Combine(CliRunner.FindRepoRoot(), "output", "discovery-summary.csv");
+        var repoRoot = CliRunner.FindRepoRoot();
+        var scenarioConfigPath = Path.Combine(repoRoot, "scenarios", "inventory-ado-single-project.json");
+
+        // Read the artefacts path from the scenario config (MigrationPlatform.Artefacts.WorkingDirectory).
+        // Falls back to the platform default when the scenario omits the key.
+        var configJson = File.ReadAllText(scenarioConfigPath);
+        using var doc = JsonDocument.Parse(configJson);
+        var artefactsElement = doc.RootElement
+            .GetProperty("MigrationPlatform")
+            .GetProperty("Artefacts");
+
+        var artefactsPath = artefactsElement.TryGetProperty("WorkingDirectory", out var wdProp)
+            ? wdProp.GetString()!
+            : @"%userprofile%\.DevOpsMigrationPlatform";
+
+        artefactsPath = Environment.ExpandEnvironmentVariables(artefactsPath);
+
+        // Relative paths are resolved from the repo root (the CLI's working directory).
+        var outputDir = Path.IsPathRooted(artefactsPath)
+            ? artefactsPath
+            : Path.GetFullPath(Path.Combine(repoRoot, artefactsPath));
+        var csvPath = Path.Combine(outputDir, "discovery-summary.csv");
+
         if (File.Exists(csvPath))
             File.Delete(csvPath);
 

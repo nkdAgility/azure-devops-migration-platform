@@ -583,6 +583,7 @@ switch ($Mode) {
         $localRid = Get-CurrentRid
         Invoke-Build   -VersionArgs $VersionArgs
         Invoke-UnitTests
+        Invoke-SystemTests
         Invoke-Publish -StagingDir $StagingDir -VersionArgs $VersionArgs -TargetRids @($localRid)
         Invoke-Package -SemVer $SemVer -StagingDir $StagingDir -TargetRids @($localRid)
         $installedDir = Invoke-Install -SemVer $SemVer
@@ -597,6 +598,7 @@ switch ($Mode) {
         $localRid = Get-CurrentRid
         Invoke-Build   -VersionArgs $VersionArgs
         Invoke-UnitTests
+        Invoke-SystemTests
         Invoke-Publish -StagingDir $StagingDir -VersionArgs $VersionArgs -TargetRids @($localRid)
         Invoke-Package -SemVer $SemVer -StagingDir $StagingDir -TargetRids @($localRid)
         Invoke-Install -SemVer $SemVer

@@ -22,9 +22,18 @@ public abstract class ControlPlaneCommandBase<TSettings> : CommandBase<TSettings
     private LocalStackHost? _localStack;
 
     /// <summary>
+    /// When <c>true</c> (the default), the command starts <see cref="LocalStackHost"/> in-process
+    /// when the environment type is <see cref="EnvironmentType.Standalone"/>.
+    /// Observer-only commands (e.g. <c>tui</c>) that connect to an already-running control plane
+    /// must override this to <c>false</c>.
+    /// </summary>
+    protected virtual bool StartsLocalStack => true;
+
+    /// <summary>
     /// Creates an <see cref="IHost"/> wired to the control plane URL from
     /// <see cref="EnvironmentOptions"/>. When the environment type is
-    /// <see cref="EnvironmentType.Standalone"/>, starts the local in-process stack first.
+    /// <see cref="EnvironmentType.Standalone"/> and <see cref="StartsLocalStack"/> is <c>true</c>,
+    /// starts the local in-process stack first.
     /// </summary>
     protected new async Task<IHost> CreateHost(
         string[] args,
@@ -36,9 +45,8 @@ public abstract class ControlPlaneCommandBase<TSettings> : CommandBase<TSettings
         Host = MigrationPlatformHost.CreateDefaultBuilder(GetEffectiveArgs(args), configureServices).Build();
 
         var envOpts = Host.Services.GetRequiredService<IOptions<EnvironmentOptions>>().Value;
-        var controlPlaneUrl = envOpts.ControlPlane.BaseUrl;
 
-        if (envOpts.Type == EnvironmentType.Standalone)
+        if (StartsLocalStack && envOpts.Type == EnvironmentType.Standalone)
         {
             _localStack = new LocalStackHost();
             await _localStack.StartAsync();

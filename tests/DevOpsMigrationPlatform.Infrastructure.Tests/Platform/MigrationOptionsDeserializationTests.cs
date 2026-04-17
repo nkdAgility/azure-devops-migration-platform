@@ -29,7 +29,7 @@ public class MigrationOptionsDeserializationTests
             {
               "configVersion": "2.0",
               "mode": "Export",
-              "artefacts": { "path": "D:\\exports" }
+              "artefacts": { "workingDirectory": "D:\\exports" }
             }
             """;
 
@@ -47,7 +47,7 @@ public class MigrationOptionsDeserializationTests
             {
               "configVersion": "2.0",
               "mode": "Export",
-              "artefacts": { "path": "D:\\exports" },
+              "artefacts": { "workingDirectory": "D:\\exports" },
               "modules": [
                 {
                   "name": "WorkItems",
@@ -82,7 +82,7 @@ public class MigrationOptionsDeserializationTests
             {
               "configVersion": "2.0",
               "mode": "Export",
-              "artefacts": { "path": "D:\\exports" },
+              "artefacts": { "workingDirectory": "D:\\exports" },
               "modules": [
                 {
                   "name": "WorkItems",
@@ -134,7 +134,7 @@ public class MigrationOptionsDeserializationTests
             {
               "configVersion": "2.0",
               "mode": "Export",
-              "artefacts": { "path": "D:\\exports" },
+              "artefacts": { "workingDirectory": "D:\\exports" },
               "modules": [
                 { "name": "WorkItems", "enabled": true,  "extensions": [] },
                 { "name": "Pipelines", "enabled": false, "extensions": [] }

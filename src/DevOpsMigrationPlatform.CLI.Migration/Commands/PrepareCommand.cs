@@ -56,7 +56,7 @@ public sealed class PrepareCommand : ControlPlaneCommandBase<MigrationCommandSet
             JobId = Guid.NewGuid().ToString(),
             Mode = "Prepare",
             Source = config.Source is not null
-                ? new MigrationJobEndpoint
+                ? new JobEndpoint
                 {
                     Type = config.Source.Type,
                     Url = config.Source.ResolvedUrl,
@@ -65,15 +65,10 @@ public sealed class PrepareCommand : ControlPlaneCommandBase<MigrationCommandSet
                     Authentication = config.Source.Authentication
                 }
                 : null,
-            Artefacts = new MigrationJobArtefacts
+            Artefacts = new JobArtefacts
             {
                 PackageUri = $"file:///{outputPath.Replace(Path.DirectorySeparatorChar, '/')}",
-                Zip = false
-            },
-            Guardrails = new MigrationJobGuardrails
-            {
-                StreamingRequired = true,
-                CanonicalWorkItemsLayoutRequired = true
+                CreatePackage = false
             }
         };
 

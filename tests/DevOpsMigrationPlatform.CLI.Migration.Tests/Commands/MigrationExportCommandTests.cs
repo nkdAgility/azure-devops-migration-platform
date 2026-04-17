@@ -42,9 +42,9 @@ public class MigrationExportCommandTests
             return;
         }
 
-        // ── Output folder (matches scenario Artefacts.Path exactly) ───────
+        // ── Output folder (matches scenario Artefacts.WorkingDirectory exactly) ──
         // scenarios/queue-export-ado-workitems-single-project.json has
-        //   "Path": "storage\\queue-export-ado-workitems-single-project"
+        //   "WorkingDirectory": "storage\\queue-export-ado-workitems-single-project"
         // The CLI runs with workingDirectory = repoRoot, so the absolute output path is:
         var outputDir = Path.Combine(CliRunner.FindRepoRoot(), "storage", "queue-export-ado-workitems-single-project");
 
@@ -140,9 +140,9 @@ public class MigrationExportCommandTests
             return;
         }
 
-        // ── Output folder (matches scenario Artefacts.Path exactly) ───────
+        // ── Output folder (matches scenario Artefacts.WorkingDirectory exactly) ──
         // scenarios/queue-export-ado-workitems-single-project.json has
-        //   "Path": "storage\\queue-export-ado-workitems-single-project"
+        //   "WorkingDirectory": "storage\\queue-export-ado-workitems-single-project"
         // The CLI runs with workingDirectory = repoRoot, so the absolute output path is:
         var outputDir = Path.Combine(CliRunner.FindRepoRoot(), "storage", "queue-export-ado-workitems-single-project");
 

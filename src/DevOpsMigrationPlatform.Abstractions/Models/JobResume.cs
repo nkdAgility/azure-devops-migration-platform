@@ -1,10 +1,10 @@
 namespace DevOpsMigrationPlatform.Abstractions;
 
 /// <summary>
-/// Resume options carried on a <see cref="MigrationJob"/>.
+/// Resume options carried on a <see cref="Job"/>.
 /// A null <c>Resume</c> property on the job is treated as <see cref="ResumeMode.Auto"/>.
 /// </summary>
-public sealed record MigrationJobResume
+public sealed record JobResume
 {
     public ResumeMode Mode { get; init; } = ResumeMode.Auto;
 }

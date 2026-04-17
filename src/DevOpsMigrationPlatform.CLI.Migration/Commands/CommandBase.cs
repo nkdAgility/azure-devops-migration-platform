@@ -88,10 +88,13 @@ public abstract class CommandBase<TSettings> : AsyncCommand<TSettings>
         CommandContext context, TSettings settings, CancellationToken cancellationToken = default)
     {
         // ── Interactive config resolution ──────────────────────────────────
-        // When --config is not supplied and the command expects a config file,
+        // When --config is not supplied and the command requires a migration scenario config,
         // present a SelectionPrompt so the operator can pick a scenario.
+        // Only commands whose settings implement IRequiresMigrationConfig trigger this.
+        // Control-plane observer commands (tui, manage *, logs) do NOT implement the interface
+        // and therefore never show this prompt.
         // This runs *before* CreateHost — per architecture constraint.
-        if (settings is IHasConfigFile hasConfigFile && string.IsNullOrWhiteSpace(hasConfigFile.ConfigFile))
+        if (settings is IRequiresMigrationConfig hasConfigFile && string.IsNullOrWhiteSpace(hasConfigFile.ConfigFile))
         {
             _resolvedConfigFile = ScenarioSelector.PromptForConfigFile(AnsiConsole.Console);
             if (_resolvedConfigFile is null)

@@ -5,8 +5,10 @@ using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Models;
 using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Abstractions.Services;
-using DevOpsMigrationPlatform.Infrastructure.Services;
+using DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Factories;
 using DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Services;
+using DevOpsMigrationPlatform.Infrastructure.Modules;
+using DevOpsMigrationPlatform.Infrastructure.Services;
 
 namespace DevOpsMigrationPlatform.Infrastructure.AzureDevOps;
 
@@ -73,6 +75,10 @@ public static class DependencyServiceCollectionExtensions
 
         // Register the orchestrator service
         services.AddSingleton<IDependencyDiscoveryService, DependencyDiscoveryService>();
+
+        // Factory for agent-side use where organisations come from DiscoveryJob (not config).
+        services.AddSingleton<IDependencyDiscoveryServiceFactory, DependencyDiscoveryServiceFactory>();
+        services.AddSingleton<IDiscoveryModule, DependencyDiscoveryModule>();
 
         return services;
     }
