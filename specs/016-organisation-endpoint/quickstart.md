@@ -4,7 +4,7 @@
 
 ## What Changed
 
-All service interfaces that previously accepted `(string url, string pat)` as separate parameters now accept a single `OrganisationEndpoint` object. The `DiscoveryJobOrganisation` type is replaced by `OrganisationEndpoint` (connection context) and `DiscoveryJobOrganisationScope` (job-level wrapper that adds `Projects` and `ApiVersion`).
+All service interfaces that previously accepted `(string url, string pat)` as separate parameters now accept a single `OrganisationEndpoint` object. The `DiscoveryJobOrganisation` type is replaced by `OrganisationEndpoint` (connection context, including `ApiVersion`) and `ScopedOrganisationEndpoint` (job-level wrapper that adds `Projects`).
 
 ## Before / After
 
@@ -59,18 +59,17 @@ new DiscoveryJobOrganisation
 ### Building a DiscoveryJob (after)
 
 ```csharp
-new DiscoveryJobOrganisationScope
+new ScopedOrganisationEndpoint
 {
     Endpoint = entry.ToOrganisationEndpoint(),
-    Projects = new List<string>(entry.Projects),
-    ApiVersion = entry.ApiVersion
+    Projects = new List<string>(entry.Projects)
 }
 ```
 
 ## Key Rules
 
 1. **Service interfaces** accept `OrganisationEndpoint` — never separate url/pat strings.
-2. **`OrganisationEndpoint`** carries only resolved values — no `$ENV:VARNAME` tokens.
-3. **`DiscoveryJobOrganisationScope`** carries `OrganisationEndpoint` + `Projects` + `ApiVersion` — only on `DiscoveryJob`.
+2. **`OrganisationEndpoint`** carries only resolved values (including `ApiVersion`) — no `$ENV:VARNAME` tokens.
+3. **`ScopedOrganisationEndpoint`** carries `OrganisationEndpoint` + `Projects` — only on `DiscoveryJob`.
 4. **`OrganisationEntry.ToOrganisationEndpoint()`** is the canonical conversion from config to runtime.
 5. **`OrganisationEndpointAuthentication`** uses `AuthenticationType` enum, not a string.

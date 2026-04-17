@@ -19,15 +19,16 @@
 
 **Option A — Flat parallel lists**: `DiscoveryJob.Organisations` is `List<OrganisationEndpoint>` and a separate `DiscoveryJob.OrganisationProjects` maps each org to its project list. Fragile — index-coupling.
 
-**Option B — Wrapper record on `DiscoveryJob` only**: A `DiscoveryJobOrganisationScope` record that pairs `OrganisationEndpoint` with `List<string> Projects` and `string? ApiVersion`. Lives on `DiscoveryJob` only — service interfaces still accept `OrganisationEndpoint`.
+**Option B — Wrapper record on `DiscoveryJob` only**: A `ScopedOrganisationEndpoint` record that pairs `OrganisationEndpoint` with `List<string> Projects`. `ApiVersion` moves into `OrganisationEndpoint` itself since it is a connection property, not a job-scope concern. Lives on `DiscoveryJob` only — service interfaces still accept `OrganisationEndpoint`.
 
 **Selected: Option B.**
 
 Rationale:
-- `OrganisationEndpoint` stays clean (connection context only).
-- The `Projects` list and `ApiVersion` are job-scope concerns, not connection concerns.
+- `OrganisationEndpoint` stays clean (connection context + API version, no project lists).
+- The `Projects` list is a job-scope concern, not a connection concern.
+- `ApiVersion` is a connection property — it describes how you talk to the org, so it belongs on `OrganisationEndpoint`.
 - The wrapper is local to the discovery job contract — it does not leak into service interfaces.
-- The factory implementations that currently map `DiscoveryJobOrganisation` → `OrganisationEntry` will instead map `DiscoveryJobOrganisationScope` → `OrganisationEntry`.
+- The factory implementations that currently map `DiscoveryJobOrganisation` → `OrganisationEntry` will instead map `ScopedOrganisationEndpoint` → `OrganisationEntry`.
 
 ### Alternatives Rejected
 
@@ -85,6 +86,8 @@ The string-based `Type` on `DiscoveryJobAuthentication` was a loose serialisatio
 The CLI command mapping (currently `Type = "Pat"`) will change to `Type = AuthenticationType.Pat`.
 
 For `DiscoveryJobOrganisationScope`, the `Authentication` property carries the raw serialisable form for the job contract. The conversion from scope to `OrganisationEndpoint` resolves the token and maps the auth type.
+
+> **Note**: `DiscoveryJobOrganisationScope` was subsequently renamed to `ScopedOrganisationEndpoint`.
 
 ### Alternatives Rejected
 

@@ -15,8 +15,8 @@
 ### `DiscoveryJobOrganisation` referenced in `.agents/context/job-contract.md`
 
 - **Source doc**: `.agents/context/job-contract.md`
-- **Issue**: The job contract documentation may reference `DiscoveryJobOrganisation` by name. After the rename, the doc should reference `DiscoveryJobOrganisationScope` and `OrganisationEndpoint`.
-- **Suggested update**: Update any mentions of `DiscoveryJobOrganisation` to `DiscoveryJobOrganisationScope` in the discovery job section.
+- **Issue**: The job contract documentation may reference `DiscoveryJobOrganisation` by name. After the rename, the doc should reference `ScopedOrganisationEndpoint` and `OrganisationEndpoint`.
+- **Suggested update**: Update any mentions of `DiscoveryJobOrganisation` to `ScopedOrganisationEndpoint` in the discovery job section.
 
 ### Service interface signatures not documented
 

@@ -15,9 +15,10 @@
 | `ResolvedUrl` | `string` | Effective org/collection URL after `$ENV:VARNAME` expansion. |
 | `Type` | `string` | Source type identifier (`AzureDevOpsServices`, `TeamFoundationServer`). |
 | `Authentication` | `OrganisationEndpointAuthentication` | Resolved authentication context. |
+| `ApiVersion` | `string?` | Pinned REST API version. Null means use default. |
 
 **Invariants**:
-- Does NOT carry `Projects`, `ApiVersion`, `Url` (raw), or `Enabled`.
+- Does NOT carry `Projects`, `Url` (raw), or `Enabled`.
 - Carries only resolved values — no `$ENV:VARNAME` tokens.
 - Used by all Abstractions-level service interfaces as the connection context parameter.
 
@@ -40,21 +41,20 @@
 
 ---
 
-### `DiscoveryJobOrganisationScope`
+### `ScopedOrganisationEndpoint`
 
-**Location**: `DevOpsMigrationPlatform.Abstractions.Models.DiscoveryJobOrganisationScope`  
+**Location**: `DevOpsMigrationPlatform.Abstractions.Models.ScopedOrganisationEndpoint`  
 **Kind**: Sealed class, init-only properties
 
 | Property | Type | Description |
 |----------|------|-------------|
-| `Endpoint` | `OrganisationEndpoint` | Connection context (resolved URL + auth + type). |
+| `Endpoint` | `OrganisationEndpoint` | Connection context (resolved URL + auth + type + API version). |
 | `Projects` | `List<string>` | Projects to target. Empty = all projects. |
-| `ApiVersion` | `string?` | Pinned REST API version. |
 
 **Invariants**:
 - Lives on `DiscoveryJob.Organisations` only.
 - Does NOT appear in service interface signatures.
-- Factory implementations extract `Endpoint` for service calls and `Projects`/`ApiVersion` for scope filtering.
+- Factory implementations extract `Endpoint` for service calls and `Projects` for scope filtering.
 
 ---
 
@@ -64,7 +64,7 @@
 
 | Property | Before | After |
 |----------|--------|-------|
-| `Organisations` | `List<DiscoveryJobOrganisation>` | `List<DiscoveryJobOrganisationScope>` |
+| `Organisations` | `List<DiscoveryJobOrganisation>` | `List<ScopedOrganisationEndpoint>` |
 
 ---
 
@@ -80,7 +80,7 @@
 
 | Type | Replacement |
 |------|-------------|
-| `DiscoveryJobOrganisation` | `DiscoveryJobOrganisationScope` (on `DiscoveryJob`) + `OrganisationEndpoint` (in service interfaces) |
+| `DiscoveryJobOrganisation` | `ScopedOrganisationEndpoint` (on `DiscoveryJob`) + `OrganisationEndpoint` (in service interfaces) |
 | `DiscoveryJobAuthentication` | `OrganisationEndpointAuthentication` |
 
 ---
@@ -90,13 +90,14 @@
 ```
 OrganisationEntry (config, mutable)
     ├── .ToOrganisationEndpoint() ──→ OrganisationEndpoint (runtime, immutable)
-    │                                    └── .Authentication ──→ OrganisationEndpointAuthentication
-    └── (CLI maps to) ──→ DiscoveryJobOrganisationScope (job contract)
+    │                                    ├── .Authentication ──→ OrganisationEndpointAuthentication
+    │                                    └── .ApiVersion
+    └── (CLI maps to) ──→ ScopedOrganisationEndpoint (job contract)
                               ├── .Endpoint ──→ OrganisationEndpoint
-                              └── .Projects, .ApiVersion
+                              └── .Projects
 
 DiscoveryJob
-    └── .Organisations ──→ List<DiscoveryJobOrganisationScope>
+    └── .Organisations ──→ List<ScopedOrganisationEndpoint>
 
 Service interfaces (IWorkItemDiscoveryService, ICatalogService, etc.)
     └── accept OrganisationEndpoint (not scope, not entry)
@@ -116,8 +117,8 @@ Service interfaces (IWorkItemDiscoveryService, ICatalogService, etc.)
 | `ICatalogService` | `CountAllWorkItemsAsync` | `(string orgUrl, string project, string pat, ...)` | `(OrganisationEndpoint endpoint, string project, ...)` |
 | `IWorkItemLinkAnalysisService` | `AnalyseLinksAsync` | `(string organisationUrl, string project, string pat, ...)` | `(OrganisationEndpoint endpoint, string project, ...)` |
 | `IWorkItemCommentSourceFactory` | `Create` | `(string organisationUrl, string project, string pat)` | `(OrganisationEndpoint endpoint, string project)` |
-| `IInventoryServiceFactory` | `Create` | `(IReadOnlyList<DiscoveryJobOrganisation>, ...)` | `(IReadOnlyList<DiscoveryJobOrganisationScope>, ...)` |
-| `IDependencyDiscoveryServiceFactory` | `Create` | `(IReadOnlyList<DiscoveryJobOrganisation>, ...)` | `(IReadOnlyList<DiscoveryJobOrganisationScope>, ...)` |
+| `IInventoryServiceFactory` | `Create` | `(IReadOnlyList<DiscoveryJobOrganisation>, ...)` | `(IReadOnlyList<ScopedOrganisationEndpoint>, ...)` |
+| `IDependencyDiscoveryServiceFactory` | `Create` | `(IReadOnlyList<DiscoveryJobOrganisation>, ...)` | `(IReadOnlyList<ScopedOrganisationEndpoint>, ...)` |
 
 ### Infrastructure-level interfaces (updated for consistency)
 

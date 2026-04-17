@@ -54,7 +54,7 @@ As a developer working on the migration platform, I want every service interface
 
 ### User Story 2 — DiscoveryJob uses OrganisationEndpoint for its organisation list (Priority: P1)
 
-As a developer, I want `DiscoveryJob.Organisations` to be typed as `List<OrganisationEndpoint>` so that the connection context type is consistent from job definition through to service invocation.
+As a developer, I want `DiscoveryJob.Organisations` to be typed as `List<ScopedOrganisationEndpoint>` so that the connection context type is consistent from job definition through to service invocation.
 
 **Why this priority**: The discovery job is the entry point for inventory and dependency operations. If it still carries the old type, callers must convert at every use site.
 
@@ -62,8 +62,8 @@ As a developer, I want `DiscoveryJob.Organisations` to be typed as `List<Organis
 
 **Acceptance Scenarios**:
 
-1. **Given** a discovery job JSON with organisation entries, **When** the job is deserialised, **Then** `job.Organisations` is a `List<DiscoveryJobOrganisationScope>` with `Endpoint`, `Projects`, and `ApiVersion` populated.
-2. **Given** CLI commands that construct `DiscoveryJobOrganisation` today, **When** the refactor is complete, **Then** they construct `DiscoveryJobOrganisationScope` (wrapping an `OrganisationEndpoint`) instead with no change in behaviour.
+1. **Given** a discovery job JSON with organisation entries, **When** the job is deserialised, **Then** `job.Organisations` is a `List<ScopedOrganisationEndpoint>` with `Endpoint` and `Projects` populated.
+2. **Given** CLI commands that construct `DiscoveryJobOrganisation` today, **When** the refactor is complete, **Then** they construct `ScopedOrganisationEndpoint` (wrapping an `OrganisationEndpoint`) instead with no change in behaviour.
 
 ---
 
@@ -86,17 +86,17 @@ As a developer, I want `OrganisationEntry` (the mutable config-layer type) to pr
 - What happens when `ResolvedAccessToken` is null? → This is valid for `Windows` auth. `OrganisationEndpoint` is a data carrier; validation of credentials is the responsibility of the consuming service at call time, not the record constructor.
 - What happens with existing serialised `DiscoveryJob` JSON that uses the old `DiscoveryJobOrganisation` shape? → JSON property names must remain stable or a deserialisation compatibility path must be provided so existing scenario files continue to work.
 - What about `DiscoveryJobAuthentication`? → Its nested structure is replaced by `OrganisationEndpointAuthentication`, which flattens to `AuthenticationType Type` + `string? ResolvedAccessToken`. The `DiscoveryJobAuthentication` type is removed.
-- What about `Projects` on `DiscoveryJobOrganisation`? → `OrganisationEndpoint` does NOT carry project lists. `DiscoveryJob` must track the org-to-projects mapping separately if needed.
+- What about `Projects` on `DiscoveryJobOrganisation`? → `OrganisationEndpoint` does NOT carry project lists. `DiscoveryJob` tracks the org-to-projects mapping via `ScopedOrganisationEndpoint`. `ApiVersion` moves into `OrganisationEndpoint` since it is a connection property.
 
 ## Requirements *(mandatory)*
 
 ### Functional Requirements
 
-- **FR-001**: A new `OrganisationEndpoint` immutable record MUST be introduced in `DevOpsMigrationPlatform.Abstractions`. It MUST expose `string ResolvedUrl`, `string Type`, and `OrganisationEndpointAuthentication Authentication`. It MUST NOT carry project lists or other inventory concerns.
-- **FR-002**: A new `OrganisationEndpointAuthentication` immutable record MUST be introduced in `DevOpsMigrationPlatform.Abstractions`. It MUST expose `AuthenticationType Type` and `string? ResolvedAccessToken`. It carries only resolved values — no raw `$ENV:VARNAME` tokens. For `Windows` auth, `ResolvedAccessToken` is null.
+- **FR-001**: A new `OrganisationEndpoint` immutable sealed class MUST be introduced in `DevOpsMigrationPlatform.Abstractions`. It MUST expose `string ResolvedUrl`, `string Type`, `OrganisationEndpointAuthentication Authentication`, and `string? ApiVersion`. It MUST NOT carry project lists or other inventory concerns.
+- **FR-002**: A new `OrganisationEndpointAuthentication` immutable sealed class MUST be introduced in `DevOpsMigrationPlatform.Abstractions`. It MUST expose `AuthenticationType Type` and `string? ResolvedAccessToken`. It carries only resolved values — no raw `$ENV:VARNAME` tokens. For `Windows` auth, `ResolvedAccessToken` is null.
 - **FR-003**: `DiscoveryJobOrganisation` MUST be renamed to `OrganisationEndpoint` throughout the codebase. The `DiscoveryJobAuthentication` nested type MUST be removed; auth is accessed via the `OrganisationEndpointAuthentication` record on the endpoint.
-- **FR-004**: `DiscoveryJob.Organisations` MUST be updated to `List<DiscoveryJobOrganisationScope>`.
-- **FR-005**: `IInventoryServiceFactory` and `IDependencyDiscoveryServiceFactory` MUST be updated to accept `IReadOnlyList<DiscoveryJobOrganisationScope>` in place of `IReadOnlyList<DiscoveryJobOrganisation>`. The factories extract `OrganisationEndpoint` and `Projects` from each scope entry.
+- **FR-004**: `DiscoveryJob.Organisations` MUST be updated to `List<ScopedOrganisationEndpoint>`.
+- **FR-005**: `IInventoryServiceFactory` and `IDependencyDiscoveryServiceFactory` MUST be updated to accept `IReadOnlyList<ScopedOrganisationEndpoint>` in place of `IReadOnlyList<DiscoveryJobOrganisation>`. The factories extract `OrganisationEndpoint` and `Projects` from each scope entry.
 - **FR-006**: The following Abstractions-level service interfaces MUST be updated to accept `OrganisationEndpoint` in place of separate `string url`/`string pat` parameters:
   - `IWorkItemDiscoveryService.DiscoverWorkItemsAsync` and `CountWorkItemsAsync`
   - `IWorkItemQueryWindowStrategy.EnumerateWindowsAsync`
@@ -107,14 +107,14 @@ As a developer, I want `OrganisationEntry` (the mutable config-layer type) to pr
 - **FR-007**: All implementations of the interfaces listed in FR-006 MUST be updated to match the new signatures. No behaviour changes — this is a pure signature refactor.
 - **FR-008**: `OrganisationEntry` (config layer) MUST gain a convenience method or extension to produce an `OrganisationEndpoint` trivially. The conversion MUST resolve `$ENV:VARNAME` tokens in both URL and access token, and map `EndpointAuthenticationOptions` to `OrganisationEndpointAuthentication`.
 - **FR-009**: Existing serialised `DiscoveryJob` JSON (scenario files) MUST continue to deserialise correctly after the rename. JSON property compatibility MUST be maintained or scenario files updated.
-- **FR-010**: A `DiscoveryJobOrganisationScope` sealed class MUST be introduced to pair an `OrganisationEndpoint` with `List<string> Projects` and `string? ApiVersion` on `DiscoveryJob`. This wrapper lives on the job contract only — service interfaces accept `OrganisationEndpoint`, not the scope wrapper. Factory implementations map `DiscoveryJobOrganisationScope` → `OrganisationEntry` as needed.
+- **FR-010**: A `ScopedOrganisationEndpoint` sealed class MUST be introduced to pair an `OrganisationEndpoint` with `List<string> Projects` on `DiscoveryJob`. This wrapper lives on the job contract only — service interfaces accept `OrganisationEndpoint`, not the scope wrapper. Factory implementations map `ScopedOrganisationEndpoint` → `OrganisationEntry` as needed.
 
 ### Key Entities
 
-- **`OrganisationEndpoint`**: Renamed from `DiscoveryJobOrganisation`. Immutable record in `DevOpsMigrationPlatform.Abstractions` with `ResolvedUrl`, `Type`, and `Authentication` (`OrganisationEndpointAuthentication`). The canonical connection context used across all service interfaces. Does NOT carry project lists.
-- **`OrganisationEndpointAuthentication`**: New immutable record in `DevOpsMigrationPlatform.Abstractions` with `AuthenticationType Type` and `string? ResolvedAccessToken`. The resolved runtime counterpart to `EndpointAuthenticationOptions`. For Windows auth, `ResolvedAccessToken` is null.
-- **`DiscoveryJob`**: Existing job contract. Its `Organisations` property changes from `List<DiscoveryJobOrganisation>` to `List<DiscoveryJobOrganisationScope>`.
-- **`DiscoveryJobOrganisationScope`**: New sealed class on `DiscoveryJob` that pairs `OrganisationEndpoint Endpoint` with `List<string> Projects` and `string? ApiVersion`. Job-contract scope only — does not appear in service interface signatures.
+- **`OrganisationEndpoint`**: Renamed from `DiscoveryJobOrganisation`. Immutable sealed class in `DevOpsMigrationPlatform.Abstractions` with `ResolvedUrl`, `Type`, `Authentication` (`OrganisationEndpointAuthentication`), and `ApiVersion`. The canonical connection context used across all service interfaces. Does NOT carry project lists.
+- **`OrganisationEndpointAuthentication`**: New immutable sealed class in `DevOpsMigrationPlatform.Abstractions` with `AuthenticationType Type` and `string? ResolvedAccessToken`. The resolved runtime counterpart to `EndpointAuthenticationOptions`. For Windows auth, `ResolvedAccessToken` is null.
+- **`DiscoveryJob`**: Existing job contract. Its `Organisations` property changes from `List<DiscoveryJobOrganisation>` to `List<ScopedOrganisationEndpoint>`.
+- **`ScopedOrganisationEndpoint`**: New sealed class on `DiscoveryJob` that pairs `OrganisationEndpoint Endpoint` with `List<string> Projects`. Job-contract scope only — does not appear in service interface signatures.
 - **`OrganisationEntry`**: Existing mutable config-layer type. Gains a conversion method to `OrganisationEndpoint`.
 
 ## Success Criteria *(mandatory)*
@@ -131,7 +131,7 @@ As a developer, I want `OrganisationEntry` (the mutable config-layer type) to pr
 
 - This is a pure structural refactor — no behavioural changes to any service.
 - `OrganisationEndpoint` does not validate credentials; it is a data carrier.
-- The `Projects` list currently on `DiscoveryJobOrganisation` moves to `DiscoveryJobOrganisationScope` on `DiscoveryJob` — a wrapper that pairs `OrganisationEndpoint` with job-scope metadata. This keeps the endpoint type clean.
+- The `Projects` list currently on `DiscoveryJobOrganisation` moves to `ScopedOrganisationEndpoint` on `DiscoveryJob` — a wrapper that pairs `OrganisationEndpoint` with a project filter. `ApiVersion` moves into `OrganisationEndpoint` itself since it is a connection property, not a job-scope concern.
 - `OrganisationEndpoint` and `OrganisationEndpointAuthentication` are sealed classes with `init`-only properties (not C# `record` syntax) to maintain `net481` compatibility in the multi-targeted Abstractions project.
 - `IAzureDevOpsClientFactory` (in `Infrastructure.AzureDevOps`) will also be updated to accept `OrganisationEndpoint` as part of the implementation pass, even though it is not an Abstractions-level interface.
 - Feature 015 (`IWorkItemFetchService`) depends on this feature and will consume `OrganisationEndpoint` in its interface signatures.

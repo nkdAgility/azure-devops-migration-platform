@@ -7,7 +7,7 @@
 
 ## Summary
 
-Introduce `OrganisationEndpoint` as the canonical immutable connection context type, replacing `DiscoveryJobOrganisation` codebase-wide. Update all Abstractions-level service interfaces to accept `OrganisationEndpoint` instead of separate `(string url, string pat)` parameters. Introduce `DiscoveryJobOrganisationScope` as the job-contract wrapper pairing `OrganisationEndpoint` with `Projects` and `ApiVersion`. Pure structural refactor — no behavioural changes.
+Introduce `OrganisationEndpoint` as the canonical immutable connection context type, replacing `DiscoveryJobOrganisation` codebase-wide. Update all Abstractions-level service interfaces to accept `OrganisationEndpoint` instead of separate `(string url, string pat)` parameters. Introduce `ScopedOrganisationEndpoint` as the job-contract wrapper pairing `OrganisationEndpoint` with `Projects`. Pure structural refactor — no behavioural changes.
 
 ## Technical Context
 
@@ -30,7 +30,7 @@ Introduce `OrganisationEndpoint` as the canonical immutable connection context t
 - [x] **WorkItems Layout (III):** N/A — no folder structure changes.
 - [x] **Checkpointing (IV):** N/A — no checkpoint changes.
 - [x] **Module Isolation (V):** New types live in `DevOpsMigrationPlatform.Abstractions`. No concrete store references added. ✓
-- [x] **Separation of Planes (VI):** CLI builds `DiscoveryJobOrganisationScope`, passes to control plane. No migration logic in CLI. ✓
+- [x] **Separation of Planes (VI):** CLI builds `ScopedOrganisationEndpoint`, passes to control plane. No migration logic in CLI. ✓
 - [x] **Determinism (VII):** No schema or config version changes needed (property names unchanged in JSON). ✓
 - [x] **ATDD-First (VIII):** Spec has 3 user stories with Given/When/Then acceptance scenarios. ✓
 - [x] **SOLID & DI (IX):** New types are sealed, init-only. Interfaces defined in Abstractions. No new service registrations needed. ✓
@@ -58,9 +58,9 @@ specs/016-organisation-endpoint/
 src/
 ├── DevOpsMigrationPlatform.Abstractions/
 │   ├── Models/
-│   │   ├── OrganisationEndpoint.cs              # NEW — replaces DiscoveryJobOrganisation
+│   │   ├── OrganisationEndpoint.cs              # NEW — replaces DiscoveryJobOrganisation (includes ApiVersion)
 │   │   ├── OrganisationEndpointAuthentication.cs # NEW — replaces DiscoveryJobAuthentication
-│   │   ├── DiscoveryJobOrganisationScope.cs      # NEW — job-contract wrapper
+│   │   ├── ScopedOrganisationEndpoint.cs         # NEW — job-contract wrapper
 │   │   ├── DiscoveryJob.cs                       # MODIFIED — Organisations type changed
 │   │   └── DiscoveryJobOrganisation.cs           # DELETED
 │   ├── Options/
@@ -72,18 +72,18 @@ src/
 │       ├── ICatalogService.cs                    # MODIFIED — OrganisationEndpoint param
 │       ├── IWorkItemLinkAnalysisService.cs       # MODIFIED — OrganisationEndpoint param
 │       ├── IWorkItemCommentSourceFactory.cs      # MODIFIED — OrganisationEndpoint param
-│       ├── IInventoryServiceFactory.cs           # MODIFIED — DiscoveryJobOrganisationScope param
-│       └── IDependencyDiscoveryServiceFactory.cs # MODIFIED — DiscoveryJobOrganisationScope param
+│       ├── IInventoryServiceFactory.cs           # MODIFIED — ScopedOrganisationEndpoint param
+│       └── IDependencyDiscoveryServiceFactory.cs # MODIFIED — ScopedOrganisationEndpoint param
 ├── DevOpsMigrationPlatform.Infrastructure.AzureDevOps/
 │   ├── IAzureDevOpsClientFactory.cs              # MODIFIED — OrganisationEndpoint param
 │   ├── AzureDevOpsClientFactory.cs               # MODIFIED — implementation update
 │   └── Factories/
-│       ├── InventoryServiceFactory.cs            # MODIFIED — DiscoveryJobOrganisationScope
-│       └── DependencyDiscoveryServiceFactory.cs  # MODIFIED — DiscoveryJobOrganisationScope
+│       ├── InventoryServiceFactory.cs            # MODIFIED — ScopedOrganisationEndpoint
+│       └── DependencyDiscoveryServiceFactory.cs  # MODIFIED — ScopedOrganisationEndpoint
 └── DevOpsMigrationPlatform.CLI.Migration/
     └── Commands/Discovery/
-        ├── InventoryCommand.cs                   # MODIFIED — constructs DiscoveryJobOrganisationScope
-        └── DependencyCommand.cs                  # MODIFIED — constructs DiscoveryJobOrganisationScope
+        ├── InventoryCommand.cs                   # MODIFIED — constructs ScopedOrganisationEndpoint
+        └── DependencyCommand.cs                  # MODIFIED — constructs ScopedOrganisationEndpoint
 
 tests/
 └── (existing tests — update mock setup to use new types where needed)
@@ -99,7 +99,7 @@ No constitution violations. No additional complexity beyond what the spec requir
 
 | # | Decision | Rationale |
 |---|----------|-----------|
-| 1 | `Projects` moves to `DiscoveryJobOrganisationScope` wrapper on `DiscoveryJob` | Keeps `OrganisationEndpoint` clean; projects are job-scope, not connection-scope |
+| 1 | `Projects` moves to `ScopedOrganisationEndpoint` wrapper on `DiscoveryJob` | Keeps `OrganisationEndpoint` clean; projects are job-scope, not connection-scope. `ApiVersion` stays on `OrganisationEndpoint` since it is a connection property. |
 | 2 | No JSON changes needed for scenario files | Property names are stable; only C# class names change |
 | 3 | `IAzureDevOpsClientFactory` updated in same feature | Push `OrganisationEndpoint` all the way down for consistency |
 | 4 | `AuthenticationType` enum (not string) on `OrganisationEndpointAuthentication` | Type safety; matches existing config-layer enum |
@@ -109,12 +109,12 @@ No constitution violations. No additional complexity beyond what the spec requir
 
 The refactor is executed in dependency order — types first, then interfaces, then implementations, then callers:
 
-1. **New types**: `OrganisationEndpoint`, `OrganisationEndpointAuthentication`, `DiscoveryJobOrganisationScope`
+1. **New types**: `OrganisationEndpoint` (with `ApiVersion`), `OrganisationEndpointAuthentication`, `ScopedOrganisationEndpoint`
 2. **Conversion method**: `OrganisationEntry.ToOrganisationEndpoint()`
 3. **Interface updates**: All Abstractions-level service interfaces
-4. **Delete old types**: `DiscoveryJobOrganisation`, `DiscoveryJobAuthentication`
-5. **Update `DiscoveryJob`**: Change `Organisations` property type
+4. **Update `DiscoveryJob`**: Change `Organisations` property type
+5. **Delete old types**: `DiscoveryJobOrganisation`, `DiscoveryJobAuthentication`
 6. **Implementation updates**: All concrete service implementations + `IAzureDevOpsClientFactory`
-7. **CLI updates**: `InventoryCommand`, `DependencyCommand` — construct `DiscoveryJobOrganisationScope`
+7. **CLI updates**: `InventoryCommand`, `DependencyCommand` — construct `ScopedOrganisationEndpoint`
 8. **Test updates**: Fix any compilation errors in test mocks/fakes
 9. **Verification**: `dotnet clean && dotnet build --no-incremental`, `dotnet test`, scenario run

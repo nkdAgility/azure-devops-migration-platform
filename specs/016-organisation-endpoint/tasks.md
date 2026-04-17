@@ -30,8 +30,8 @@
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete.
 
 - [ ] T001 Create `OrganisationEndpointAuthentication` sealed class with `AuthenticationType Type` and `string? ResolvedAccessToken` init-only properties in `src/DevOpsMigrationPlatform.Abstractions/Models/OrganisationEndpointAuthentication.cs`
-- [ ] T002 Create `OrganisationEndpoint` sealed class with `string ResolvedUrl`, `string Type`, and `OrganisationEndpointAuthentication Authentication` init-only properties in `src/DevOpsMigrationPlatform.Abstractions/Models/OrganisationEndpoint.cs`
-- [ ] T003 Create `DiscoveryJobOrganisationScope` sealed class with `OrganisationEndpoint Endpoint`, `List<string> Projects`, and `string? ApiVersion` init-only properties in `src/DevOpsMigrationPlatform.Abstractions/Models/DiscoveryJobOrganisationScope.cs`
+- [ ] T002 Create `OrganisationEndpoint` sealed class with `string ResolvedUrl`, `string Type`, `OrganisationEndpointAuthentication Authentication`, and `string? ApiVersion` init-only properties in `src/DevOpsMigrationPlatform.Abstractions/Models/OrganisationEndpoint.cs`
+- [ ] T003 Create `ScopedOrganisationEndpoint` sealed class with `OrganisationEndpoint Endpoint` and `List<string> Projects` init-only properties in `src/DevOpsMigrationPlatform.Abstractions/Models/ScopedOrganisationEndpoint.cs`
 
 **Checkpoint**: Three new types compile. Existing code unchanged — `dotnet build` passes.
 
@@ -84,9 +84,9 @@
 
 ## Phase 5: User Story 2 — DiscoveryJob uses OrganisationEndpoint for its organisation list (Priority: P1)
 
-**Goal**: `DiscoveryJob.Organisations` is typed as `List<DiscoveryJobOrganisationScope>`. CLI commands and factory implementations use the new types end-to-end.
+**Goal**: `DiscoveryJob.Organisations` is typed as `List<ScopedOrganisationEndpoint>`. CLI commands and factory implementations use the new types end-to-end.
 
-**Independent Test**: Deserialise an existing discovery job JSON — `Organisations` list populates as `DiscoveryJobOrganisationScope` with `Endpoint`, `Projects`, and `ApiVersion`.
+**Independent Test**: Deserialise an existing discovery job JSON — `Organisations` list populates as `ScopedOrganisationEndpoint` with `Endpoint` and `Projects`.
 
 **Dependencies**: US1 (interface signatures updated), US3 (conversion method for CLI construction)
 
@@ -98,13 +98,13 @@
 
 ### Implementation for User Story 2
 
-- [ ] T012 [US2] Update `DiscoveryJob.Organisations` property from `List<DiscoveryJobOrganisation>` to `List<DiscoveryJobOrganisationScope>` in `src/DevOpsMigrationPlatform.Abstractions/Models/DiscoveryJob.cs`
-- [ ] T013 [P] [US2] Update `IInventoryServiceFactory` and `IDependencyDiscoveryServiceFactory` interfaces — replace `IReadOnlyList<DiscoveryJobOrganisation>` with `IReadOnlyList<DiscoveryJobOrganisationScope>` in `src/DevOpsMigrationPlatform.Abstractions/Services/`
-- [ ] T014 [US2] Update `InventoryServiceFactory` and `DependencyDiscoveryServiceFactory` implementations — extract `Endpoint` from each `DiscoveryJobOrganisationScope` for service calls, `Projects`/`ApiVersion` for scope filtering in `src/DevOpsMigrationPlatform.Infrastructure.AzureDevOps/Factories/`
-- [ ] T015 [P] [US2] Update `InventoryCommand.cs` — construct `DiscoveryJobOrganisationScope` using `entry.ToOrganisationEndpoint()` instead of `DiscoveryJobOrganisation` in `src/DevOpsMigrationPlatform.CLI.Migration/Commands/Discovery/InventoryCommand.cs`
-- [ ] T016 [P] [US2] Update `DependencyCommand.cs` — construct `DiscoveryJobOrganisationScope` using `entry.ToOrganisationEndpoint()` instead of `DiscoveryJobOrganisation` in `src/DevOpsMigrationPlatform.CLI.Migration/Commands/Discovery/DependencyCommand.cs`
+- [ ] T012 [US2] Update `DiscoveryJob.Organisations` property from `List<DiscoveryJobOrganisation>` to `List<ScopedOrganisationEndpoint>` in `src/DevOpsMigrationPlatform.Abstractions/Models/DiscoveryJob.cs`
+- [ ] T013 [P] [US2] Update `IInventoryServiceFactory` and `IDependencyDiscoveryServiceFactory` interfaces — replace `IReadOnlyList<DiscoveryJobOrganisation>` with `IReadOnlyList<ScopedOrganisationEndpoint>` in `src/DevOpsMigrationPlatform.Abstractions/Services/`
+- [ ] T014 [US2] Update `InventoryServiceFactory` and `DependencyDiscoveryServiceFactory` implementations — extract `Endpoint` from each `ScopedOrganisationEndpoint` for service calls, `Projects` for scope filtering in `src/DevOpsMigrationPlatform.Infrastructure.AzureDevOps/Factories/`
+- [ ] T015 [P] [US2] Update `InventoryCommand.cs` — construct `ScopedOrganisationEndpoint` using `entry.ToOrganisationEndpoint()` instead of `DiscoveryJobOrganisation` in `src/DevOpsMigrationPlatform.CLI.Migration/Commands/Discovery/InventoryCommand.cs`
+- [ ] T016 [P] [US2] Update `DependencyCommand.cs` — construct `ScopedOrganisationEndpoint` using `entry.ToOrganisationEndpoint()` instead of `DiscoveryJobOrganisation` in `src/DevOpsMigrationPlatform.CLI.Migration/Commands/Discovery/DependencyCommand.cs`
 
-**Checkpoint**: Full compilation should pass. `DiscoveryJob` carries new types. CLI constructs `DiscoveryJobOrganisationScope` end-to-end.
+**Checkpoint**: Full compilation should pass. `DiscoveryJob` carries new types. CLI constructs `ScopedOrganisationEndpoint` end-to-end.
 
 ---
 
@@ -113,7 +113,7 @@
 **Purpose**: Remove old types and fix any test compilation errors caused by the refactor.
 
 - [ ] T017 Delete `DiscoveryJobOrganisation.cs` and `DiscoveryJobAuthentication.cs` from `src/DevOpsMigrationPlatform.Abstractions/Models/`
-- [ ] T018 Update test mocks and fakes to use `OrganisationEndpoint` and `DiscoveryJobOrganisationScope` in place of deleted types across `tests/`
+- [ ] T018 Update test mocks and fakes to use `OrganisationEndpoint` and `ScopedOrganisationEndpoint` in place of deleted types across `tests/`
 
 **Checkpoint**: Zero references to `DiscoveryJobOrganisation` or `DiscoveryJobAuthentication` remain. All tests compile.
 
@@ -124,7 +124,7 @@
 **Purpose**: Ensure all canonical docs reflect the OrganisationEndpoint refactor. Resolve all discrepancies flagged during planning.
 
 - [ ] T019 Update `docs/architecture.md` — add `OrganisationEndpoint` as the canonical connection context type in the Abstractions section (see `discrepancies.md` item 1)
-- [ ] T020 [P] Update `.agents/context/job-contract.md` — replace all `DiscoveryJobOrganisation` references with `DiscoveryJobOrganisationScope` and `OrganisationEndpoint` (see `discrepancies.md` item 2)
+- [ ] T020 [P] Update `.agents/context/job-contract.md` — replace all `DiscoveryJobOrganisation` references with `ScopedOrganisationEndpoint` and `OrganisationEndpoint` (see `discrepancies.md` item 2)
 - [ ] T021 [P] Update `docs/modules.md` and `docs/source-types.md` — document `OrganisationEndpoint` parameter convention for service interfaces (see `discrepancies.md` item 3)
 - [ ] T022 Mark all items in `specs/016-organisation-endpoint/discrepancies.md` as `Resolved`
 - [ ] T023 Review `analysis/pending-actions.md` and remove any items resolved by this spec
