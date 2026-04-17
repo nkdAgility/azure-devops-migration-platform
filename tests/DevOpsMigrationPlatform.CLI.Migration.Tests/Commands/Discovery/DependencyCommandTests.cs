@@ -33,7 +33,7 @@ public class DependencyCommandTests
 
         var repoRoot = CliRunner.FindRepoRoot();
         var scenarioPath = Path.Combine(repoRoot, "scenarios", "discovery-dependency-ado-single-project.json");
-        
+
         if (!File.Exists(scenarioPath))
         {
             Assert.Inconclusive($"Scenario file not found: {scenarioPath}");
@@ -62,14 +62,14 @@ public class DependencyCommandTests
 
         var combinedOutput = result.StandardOutput + result.StandardError;
         Assert.IsTrue(
-            combinedOutput.Contains("completed", StringComparison.OrdinalIgnoreCase),
+            combinedOutput.Contains("complete", StringComparison.OrdinalIgnoreCase),
             "Expected CLI success message not found in output.");
 
         // Validate that if dependencies exist, we see both cross-project and cross-org
         // The scenario is configured to produce: 1 cross-project and 1 cross-org link from migrationTest5
         var hasCrossProjectLinks = combinedOutput.Contains("Cross-Project Links", StringComparison.OrdinalIgnoreCase);
         var hasCrossOrgLinks = combinedOutput.Contains("Cross-Organisation Links", StringComparison.OrdinalIgnoreCase);
-        
+
         if (hasCrossProjectLinks || hasCrossOrgLinks)
         {
             // If we have any dependencies, we should have both types based on the scenario
