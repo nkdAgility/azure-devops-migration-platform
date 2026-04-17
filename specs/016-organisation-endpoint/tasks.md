@@ -66,7 +66,7 @@
 
 **Independent Test**: Unit test creates an `OrganisationEntry`, calls the conversion, and asserts the resulting `OrganisationEndpoint` has matching resolved values.
 
-> **Note**: Placed before US2 because US2 CLI commands depend on `ToOrganisationEndpoint()` for constructing `DiscoveryJobOrganisationScope`.
+> **Note**: Placed before US2 because US2 CLI commands depend on `ToOrganisationEndpoint()` for constructing `ScopedOrganisationEndpoint`.
 
 ### Gherkin Feature File for User Story 3 (mandatory)
 
@@ -76,7 +76,7 @@
 
 ### Implementation for User Story 3
 
-- [ ] T010 [US3] Add `ToOrganisationEndpoint()` method to `OrganisationEntry` — resolve `$ENV:VARNAME` tokens in URL and AccessToken via `TokenResolver.Resolve()`, map `EndpointAuthenticationOptions` to `OrganisationEndpointAuthentication`, return `OrganisationEndpoint` in `src/DevOpsMigrationPlatform.Abstractions/Options/OrganisationEntry.cs`
+- [ ] T010 [US3] Add `ToOrganisationEndpoint()` method to `OrganisationEntry` — resolve `$ENV:VARNAME` tokens in URL and AccessToken via `TokenResolver.Resolve()`, map `EndpointAuthenticationOptions` to `OrganisationEndpointAuthentication`, copy `ApiVersion`, return `OrganisationEndpoint` in `src/DevOpsMigrationPlatform.Abstractions/Options/OrganisationEntry.cs`
 
 **Checkpoint**: `OrganisationEntry` has a clean conversion path to `OrganisationEndpoint`. Method compiles and is callable.
 

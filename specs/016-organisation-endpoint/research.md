@@ -47,7 +47,7 @@ FR-009 requires scenario JSON files to continue deserialising. The scenario file
 
 The scenario JSON files use property names (`Type`, `Url`, `Projects`, `Authentication.Type`, `Authentication.AccessToken`) that are stable regardless of the C# class name. Renaming `DiscoveryJobOrganisation` → `OrganisationEndpoint` and `DiscoveryJobAuthentication` → `OrganisationEndpointAuthentication` changes only the C# type name, not the serialised property names.
 
-For `DiscoveryJob` JSON (the job contract layer), the `Organisations` array property name stays the same. The internal type is `DiscoveryJobOrganisationScope` which has the same property shape. No scenario file changes needed.
+For `DiscoveryJob` JSON (the job contract layer), the `Organisations` array property name stays the same. The internal type is `ScopedOrganisationEndpoint` which has the same property shape. No scenario file changes needed.
 
 ### Alternatives Rejected
 

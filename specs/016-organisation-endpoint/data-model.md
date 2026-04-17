@@ -72,7 +72,7 @@
 
 | Change | Description |
 |--------|-------------|
-| New method | `ToOrganisationEndpoint()` — resolves `$ENV:VARNAME` tokens in URL and AccessToken, maps `EndpointAuthenticationOptions` to `OrganisationEndpointAuthentication`, returns `OrganisationEndpoint`. |
+| New method | `ToOrganisationEndpoint()` — resolves `$ENV:VARNAME` tokens in URL and AccessToken, maps `EndpointAuthenticationOptions` to `OrganisationEndpointAuthentication`, copies `ApiVersion`, returns `OrganisationEndpoint`. |
 
 ---
 
