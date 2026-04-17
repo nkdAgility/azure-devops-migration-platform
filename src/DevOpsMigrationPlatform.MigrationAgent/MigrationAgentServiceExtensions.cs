@@ -90,9 +90,10 @@ public static class MigrationAgentServiceExtensions
         builder.Services.AddHostedService(sp => sp.GetRequiredService<PackageProgressSink>());
 
         // Composite sink fans out every ProgressEvent to all three sinks.
+        builder.Services.AddSingleton<AnsiProgressSink>();
         builder.Services.AddSingleton<IProgressSink>(sp => new CompositeProgressSink(
             sp.GetRequiredService<ILogger<CompositeProgressSink>>(),
-            new AnsiProgressSink(),
+            sp.GetRequiredService<AnsiProgressSink>(),
             sp.GetRequiredService<PackageProgressSink>(),
             sp.GetRequiredService<ControlPlaneProgressSink>()));
 

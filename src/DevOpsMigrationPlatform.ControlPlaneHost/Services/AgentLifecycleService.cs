@@ -52,7 +52,9 @@ internal sealed class AgentLifecycleService : BackgroundService
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         // ── Aspire-managed: hands-off ─────────────────────────────────────────
-        if (!string.IsNullOrEmpty(Environment.GetEnvironmentVariable("DOTNET_RUNNING_UNDER_DOTNET_ASPIRE")))
+        // Read via IConfiguration — ASP.NET Core surfaces environment variables through it,
+        // keeping module code free of direct Environment calls (Hexagonal rule 6).
+        if (!string.IsNullOrEmpty(_configuration["DOTNET_RUNNING_UNDER_DOTNET_ASPIRE"]))
         {
             _logger.LogInformation(
                 "AgentLifecycleService: running under Aspire — agent lifecycle is managed externally. Idling.");
@@ -88,7 +90,8 @@ internal sealed class AgentLifecycleService : BackgroundService
 
         // ── Resolve control plane URL to pass to the agent ────────────────────
         // ASPNETCORE_URLS may contain semicolon-separated values; use the first.
-        var aspNetCoreUrls = Environment.GetEnvironmentVariable("ASPNETCORE_URLS") ?? string.Empty;
+        // Read via IConfiguration rather than Environment.GetEnvironmentVariable (Hexagonal rule 6).
+        var aspNetCoreUrls = _configuration["ASPNETCORE_URLS"] ?? string.Empty;
         var controlPlaneUrl = aspNetCoreUrls.Split(';', StringSplitOptions.RemoveEmptyEntries)[0]
             .TrimEnd('/');
         if (string.IsNullOrEmpty(controlPlaneUrl))
