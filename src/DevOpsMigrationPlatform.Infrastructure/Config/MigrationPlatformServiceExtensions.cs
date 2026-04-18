@@ -1,8 +1,10 @@
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Options;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 #if !NET481
+using DevOpsMigrationPlatform.Infrastructure.Config;
 using DevOpsMigrationPlatform.Infrastructure.Serialization;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using System.Linq;
@@ -76,6 +78,27 @@ public static class MigrationPlatformServiceExtensions
             new PolymorphicEndpointOptionsConverter(sp.GetRequiredService<EndpointOptionsTypeRegistry>()));
         services.TryAddSingleton<PolymorphicOrganisationEntryConverter>(sp =>
             new PolymorphicOrganisationEntryConverter(sp.GetRequiredService<EndpointOptionsTypeRegistry>()));
+        return services;
+    }
+
+    /// <summary>
+    /// Registers a <see cref="IPostConfigureOptions{DiscoveryOptions}"/> that polymorphically
+    /// binds the <c>Organisations</c> array from <c>MigrationPlatform:Organisations</c>.
+    /// Call after <c>AddOptions&lt;DiscoveryOptions&gt;().Bind(...)</c> — the post-configure
+    /// replaces the empty list left by <see cref="Microsoft.Extensions.Configuration.ConfigurationBinder.Bind"/>
+    /// (which cannot instantiate abstract <see cref="OrganisationEntry"/>).
+    /// Idempotent — multiple calls register only one binder.
+    /// Also ensures the polymorphic serializers (including <see cref="EndpointOptionsTypeRegistry"/>)
+    /// are registered.
+    /// </summary>
+    public static IServiceCollection AddDiscoveryOptionsOrganisationsBinder(
+        this IServiceCollection services)
+    {
+        services.AddMigrationPlatformPolymorphicSerializers();
+        services.TryAddSingleton<IPostConfigureOptions<DiscoveryOptions>>(sp =>
+            new DiscoveryOptionsOrganisationsBinder(
+                sp.GetRequiredService<IConfiguration>(),
+                sp.GetRequiredService<EndpointOptionsTypeRegistry>()));
         return services;
     }
 #endif

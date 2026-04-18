@@ -23,6 +23,7 @@ public static class InventoryServiceCollectionExtensions
         IConfiguration configuration)
     {
         services.AddOptions<DiscoveryOptions>().Bind(configuration.GetSection("MigrationPlatform"));
+        services.AddDiscoveryOptionsOrganisationsBinder();
         services.AddSingleton<IAzureDevOpsClientFactory, AzureDevOpsClientFactory>();
         services.AddSingleton<IWiqlQueryClientFactory, AzureDevOpsWiqlQueryClientFactory>();
         services.AddSingleton<IWorkItemQueryWindowStrategy, WorkItemQueryWindowStrategy>();

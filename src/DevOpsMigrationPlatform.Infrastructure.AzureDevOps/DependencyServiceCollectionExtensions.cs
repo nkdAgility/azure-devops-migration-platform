@@ -34,6 +34,7 @@ public static class DependencyServiceCollectionExtensions
 
         // Bind DiscoveryOptions from the MigrationPlatform configuration section
         services.Configure<DiscoveryOptions>(configuration.GetSection("MigrationPlatform"));
+        services.AddDiscoveryOptionsOrganisationsBinder();
 
         // Register the Azure DevOps client factory (if not already registered)
         if (!services.Any(x => x.ServiceType == typeof(IAzureDevOpsClientFactory)))
