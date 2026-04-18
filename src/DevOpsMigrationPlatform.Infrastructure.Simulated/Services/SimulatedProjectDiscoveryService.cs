@@ -18,13 +18,14 @@ public sealed class SimulatedProjectDiscoveryService : IProjectDiscoveryService
 {
     /// <inheritdoc/>
     public Task<List<string>> DiscoverProjectsAsync(
-        OrganisationEndpoint endpoint,
+        MigrationEndpointOptions endpoint,
         CancellationToken cancellationToken = default)
     {
         // Projects may be encoded in the URL: simulated://projects/ProjectA,ProjectB
-        if (endpoint?.ResolvedUrl?.StartsWith("simulated://projects/", System.StringComparison.OrdinalIgnoreCase) == true)
+        var resolvedUrl = endpoint?.GetResolvedUrl();
+        if (resolvedUrl?.StartsWith("simulated://projects/", System.StringComparison.OrdinalIgnoreCase) == true)
         {
-            var projectList = endpoint.ResolvedUrl["simulated://projects/".Length..]
+            var projectList = resolvedUrl["simulated://projects/".Length..]
                 .Split(',', System.StringSplitOptions.RemoveEmptyEntries)
                 .Select(p => p.Trim())
                 .Where(p => !string.IsNullOrEmpty(p))

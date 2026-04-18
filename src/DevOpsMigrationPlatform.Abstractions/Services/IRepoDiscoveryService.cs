@@ -12,7 +12,7 @@ public interface IRepoDiscoveryService
     /// Returns the number of Git repositories in <paramref name="project"/>.
     /// </summary>
     Task<int> CountReposAsync(
-        OrganisationEndpoint endpoint,
+        MigrationEndpointOptions endpoint,
         string project,
         CancellationToken cancellationToken = default);
 }

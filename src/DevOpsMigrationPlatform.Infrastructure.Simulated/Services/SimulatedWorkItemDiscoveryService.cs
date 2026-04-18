@@ -15,7 +15,7 @@ public sealed class SimulatedWorkItemDiscoveryService : IWorkItemDiscoveryServic
 {
     /// <inheritdoc/>
     public async IAsyncEnumerable<ProjectDiscoverySummary> DiscoverWorkItemsAsync(
-        OrganisationEndpoint endpoint,
+        MigrationEndpointOptions endpoint,
         string project,
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
@@ -36,7 +36,7 @@ public sealed class SimulatedWorkItemDiscoveryService : IWorkItemDiscoveryServic
 
     /// <inheritdoc/>
     public async IAsyncEnumerable<ProjectDiscoverySummary> CountWorkItemsAsync(
-        OrganisationEndpoint endpoint,
+        MigrationEndpointOptions endpoint,
         string project,
         string? baseQuery = null,
         [EnumeratorCancellation] CancellationToken cancellationToken = default)

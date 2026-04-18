@@ -28,14 +28,14 @@ public class InventoryServiceTests
 {
     // ── Helpers ───────────────────────────────────────────────────────────────
 
-    private static readonly OrganisationEndpoint TestEndpoint = new()
+    private static readonly AzureDevOpsEndpointOptions TestEndpoint = new()
     {
-        ResolvedUrl = "https://dev.azure.com/org",
+        Url = "https://dev.azure.com/org",
         Type = "AzureDevOps",
-        Authentication = new OrganisationEndpointAuthentication
+        Authentication = new EndpointAuthenticationOptions
         {
             Type = AuthenticationType.Pat,
-            ResolvedAccessToken = "pat"
+            AccessToken = "pat"
         }
     };
 
@@ -72,9 +72,9 @@ public class InventoryServiceTests
     {
         var mock = new Mock<IWorkItemDiscoveryService>(MockBehavior.Strict);
         mock.Setup(s => s.DiscoverWorkItemsAsync(
-                It.IsAny<OrganisationEndpoint>(), It.IsAny<string>(),
+                It.IsAny<MigrationEndpointOptions>(), It.IsAny<string>(),
                 It.IsAny<CancellationToken>()))
-            .Returns<OrganisationEndpoint, string, CancellationToken>(
+            .Returns<MigrationEndpointOptions, string, CancellationToken>(
                 (endpoint, proj, ct) => MakeSummaries(proj, workItemCount, revisionCount));
         return mock;
     }
@@ -114,7 +114,7 @@ public class InventoryServiceTests
     {
         var mock = new Mock<IRepoDiscoveryService>(MockBehavior.Strict);
         mock.Setup(s => s.CountReposAsync(
-                It.IsAny<OrganisationEndpoint>(), It.IsAny<string>(),
+                It.IsAny<MigrationEndpointOptions>(), It.IsAny<string>(),
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync(repoCount);
         return mock;
@@ -162,9 +162,9 @@ public class InventoryServiceTests
         // Arrange: discovery yields a single final event with zero counts
         var discoveryMock = new Mock<IWorkItemDiscoveryService>(MockBehavior.Strict);
         discoveryMock.Setup(s => s.DiscoverWorkItemsAsync(
-                It.IsAny<OrganisationEndpoint>(), It.IsAny<string>(),
+                It.IsAny<MigrationEndpointOptions>(), It.IsAny<string>(),
                 It.IsAny<CancellationToken>()))
-            .Returns<OrganisationEndpoint, string, CancellationToken>(
+            .Returns<MigrationEndpointOptions, string, CancellationToken>(
                 (endpoint, proj, ct) => EmptyDiscovery(proj));
 
         var sut = BuildService(discoveryMock);
@@ -444,9 +444,9 @@ public class InventoryServiceTests
         var strategyMock = new Mock<IWorkItemQueryWindowStrategy>(MockBehavior.Strict);
         strategyMock
             .Setup(s => s.EnumerateWindowsAsync(
-                It.IsAny<OrganisationEndpoint>(), It.IsAny<string>(),
+                It.IsAny<MigrationEndpointOptions>(), It.IsAny<string>(),
                 It.IsAny<WorkItemQueryWindowOptions?>(), It.IsAny<CancellationToken>()))
-            .Returns<OrganisationEndpoint, string, WorkItemQueryWindowOptions?, CancellationToken>(
+            .Returns<MigrationEndpointOptions, string, WorkItemQueryWindowOptions?, CancellationToken>(
                 (_, _, opts, ct) =>
                 {
                     capturedOptions.Add(opts);

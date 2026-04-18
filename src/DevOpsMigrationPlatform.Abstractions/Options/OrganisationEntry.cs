@@ -27,10 +27,10 @@ public abstract class OrganisationEntry
     public bool Enabled { get; set; } = true;
 
     /// <summary>
-    /// Creates an immutable <see cref="OrganisationEndpoint"/> from this entry's connection fields.
+    /// Creates the connector-specific <see cref="MigrationEndpointOptions"/> from this entry's fields.
     /// Each connector type provides its own mapping.
     /// </summary>
-    public abstract OrganisationEndpoint ToOrganisationEndpoint();
+    public abstract MigrationEndpointOptions ToEndpointOptions();
 
     /// <summary>
     /// Validates connector-specific fields (e.g. URL, authentication).

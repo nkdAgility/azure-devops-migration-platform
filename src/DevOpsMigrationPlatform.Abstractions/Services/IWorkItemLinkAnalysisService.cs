@@ -22,7 +22,7 @@ public interface IWorkItemLinkAnalysisService
     /// <param name="cancellationToken">Cancellation token for operation cancellation.</param>
     /// <returns>An async enumerable of DependencyProgressEvent records.</returns>
     IAsyncEnumerable<DependencyProgressEvent> AnalyseLinksAsync(
-        OrganisationEndpoint endpoint,
+        MigrationEndpointOptions endpoint,
         string project,
         string? wiqlFilter = null,
         CancellationToken cancellationToken = default);

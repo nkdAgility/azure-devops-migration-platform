@@ -13,6 +13,6 @@ public interface IProjectDiscoveryService
     /// Returns the names of all team projects accessible with the given PAT.
     /// </summary>
     Task<List<string>> DiscoverProjectsAsync(
-        OrganisationEndpoint endpoint,
+        MigrationEndpointOptions endpoint,
         CancellationToken cancellationToken = default);
 }

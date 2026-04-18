@@ -35,7 +35,7 @@ public sealed class WorkItemExportOrchestrator
     private readonly IAttachmentBinarySource? _attachmentBinarySource;
     private readonly IProgressSink? _progressSink;
     private readonly IWorkItemCommentSourceFactory? _inlineCommentSourceFactory;
-    private readonly OrganisationEndpoint? _endpoint;
+    private readonly MigrationEndpointOptions? _endpoint;
     private readonly string? _project;
 
     public WorkItemExportOrchestrator(
@@ -43,7 +43,7 @@ public sealed class WorkItemExportOrchestrator
         ICheckpointingService checkpointingService,
         IAttachmentBinarySource? attachmentBinarySource = null,
         IProgressSink? progressSink = null,
-        OrganisationEndpoint? endpoint = null,
+        MigrationEndpointOptions? endpoint = null,
         string? project = null,
         IWorkItemCommentSourceFactory? inlineCommentSourceFactory = null)
     {

@@ -56,18 +56,18 @@ public sealed class DependencyDiscoveryServiceFactory : IDependencyDiscoveryServ
                 Throttle = new MigrationThrottleOptions { MaxConcurrency = policies.MaxConcurrency },
                 Checkpoints = new MigrationCheckpointsOptions { Interval = policies.CheckpointIntervalSeconds }
             },
-            Organisations = organisations.Select(o => new AzureDevOpsOrganisationEntry
+            Organisations = organisations.Select(o =>
             {
-                Type = o.Endpoint.Type,
-                Url = o.Endpoint.ResolvedUrl,
-                Projects = new System.Collections.Generic.List<string>(o.Projects),
-                ApiVersion = o.Endpoint.ApiVersion,
-                Authentication = new EndpointAuthenticationOptions
+                var ado = o.Endpoint as AzureDevOpsEndpointOptions;
+                return new AzureDevOpsOrganisationEntry
                 {
-                    Type = o.Endpoint.Authentication.Type,
-                    AccessToken = o.Endpoint.Authentication.ResolvedAccessToken
-                },
-                Enabled = true
+                    Type = o.Endpoint.Type,
+                    Url = ado?.Url ?? o.Endpoint.GetResolvedUrl(),
+                    Projects = new System.Collections.Generic.List<string>(o.Projects),
+                    ApiVersion = ado?.ApiVersion,
+                    Authentication = ado?.Authentication ?? new EndpointAuthenticationOptions(),
+                    Enabled = true
+                };
             }).Cast<DevOpsMigrationPlatform.Abstractions.Options.OrganisationEntry>().ToList()
         };
     }

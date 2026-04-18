@@ -27,7 +27,7 @@ public class CatalogService : ICatalogService
     }
 
     public async Task<IReadOnlyList<string>> GetProjectsAsync(
-        OrganisationEndpoint endpoint,
+        MigrationEndpointOptions endpoint,
         CancellationToken cancellationToken = default)
     {
         var projects = await _projectDiscovery.DiscoverProjectsAsync(endpoint, cancellationToken);
@@ -35,7 +35,7 @@ public class CatalogService : ICatalogService
     }
 
     public async IAsyncEnumerable<ProjectDiscoverySummary> CountAllWorkItemsAsync(
-        OrganisationEndpoint endpoint,
+        MigrationEndpointOptions endpoint,
         string project,
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {

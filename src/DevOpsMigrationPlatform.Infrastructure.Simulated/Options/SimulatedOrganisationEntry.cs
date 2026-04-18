@@ -14,17 +14,15 @@ public sealed class SimulatedOrganisationEntry : OrganisationEntry
     public SimulatedGeneratorConfig Generator { get; set; } = new();
 
     /// <summary>
-    /// Returns an <see cref="OrganisationEndpoint"/> with <c>Type = "Simulated"</c>
-    /// and a placeholder URL.
+    /// Returns a <see cref="SimulatedEndpointOptions"/> with <c>Type = "Simulated"</c>
+    /// and the generator configuration.
     /// </summary>
-    public override OrganisationEndpoint ToOrganisationEndpoint()
+    public override MigrationEndpointOptions ToEndpointOptions()
     {
-        return new OrganisationEndpoint
+        return new SimulatedEndpointOptions
         {
-            ResolvedUrl = "simulated://localhost",
             Type = "Simulated",
-            ApiVersion = null,
-            Authentication = new OrganisationEndpointAuthentication()
+            Generator = Generator
         };
     }
 

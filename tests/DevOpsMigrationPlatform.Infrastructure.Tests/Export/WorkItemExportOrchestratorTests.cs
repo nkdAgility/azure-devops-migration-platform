@@ -8,6 +8,7 @@ using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Models;
 using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Abstractions.Services;
+using DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Options;
 using DevOpsMigrationPlatform.Infrastructure.Export;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Moq;
@@ -17,14 +18,14 @@ namespace DevOpsMigrationPlatform.Infrastructure.Tests.Export;
 [TestClass]
 public class WorkItemExportOrchestratorTests
 {
-    private static readonly OrganisationEndpoint TestEndpoint = new()
+    private static readonly AzureDevOpsEndpointOptions TestEndpoint = new()
     {
-        ResolvedUrl = "https://dev.azure.com/org",
+        Url = "https://dev.azure.com/org",
         Type = "AzureDevOps",
-        Authentication = new OrganisationEndpointAuthentication
+        Authentication = new EndpointAuthenticationOptions
         {
             Type = AuthenticationType.Pat,
-            ResolvedAccessToken = "myPat"
+            AccessToken = "myPat"
         }
     };
 
@@ -329,7 +330,7 @@ public class WorkItemExportOrchestratorTests
 
         var mockFactory = new Mock<IWorkItemCommentSourceFactory>(MockBehavior.Strict);
         mockFactory
-            .Setup(f => f.Create(It.IsAny<OrganisationEndpoint>(), "MyProject"))
+            .Setup(f => f.Create(It.IsAny<MigrationEndpointOptions>(), "MyProject"))
             .Returns(mockCommentSource.Object);
 
         var sut = new WorkItemExportOrchestrator(
@@ -402,7 +403,7 @@ public class WorkItemExportOrchestratorTests
 
         var mockFactory = new Mock<IWorkItemCommentSourceFactory>(MockBehavior.Strict);
         mockFactory
-            .Setup(f => f.Create(It.IsAny<OrganisationEndpoint>(), "MyProject"))
+            .Setup(f => f.Create(It.IsAny<MigrationEndpointOptions>(), "MyProject"))
             .Returns(mockCommentSource.Object);
 
         var sut = new WorkItemExportOrchestrator(
@@ -466,6 +467,6 @@ public class WorkItemExportOrchestratorTests
         await sut.ExportAsync(mockSource.Object, CancellationToken.None);
 
         // Strict mock will throw if Create() is invoked — test passes if no call made.
-        mockFactory.Verify(f => f.Create(It.IsAny<OrganisationEndpoint>(), It.IsAny<string>()), Times.Never);
+        mockFactory.Verify(f => f.Create(It.IsAny<MigrationEndpointOptions>(), It.IsAny<string>()), Times.Never);
     }
 }

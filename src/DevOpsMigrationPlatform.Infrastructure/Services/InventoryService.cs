@@ -46,7 +46,7 @@ public sealed class InventoryService : IInventoryService
 
         foreach (var entry in opts.Organisations.Where(e => e.Enabled))
         {
-            var endpoint = entry.ToOrganisationEndpoint();
+            var endpoint = entry.ToEndpointOptions();
 
             var projects = entry.Projects.Count > 0
                 ? entry.Projects
@@ -67,7 +67,7 @@ public sealed class InventoryService : IInventoryService
                         yield return new InventoryProgressEvent
                         {
                             ProjectName = project,
-                            Url = endpoint.ResolvedUrl,
+                            Url = endpoint.GetResolvedUrl(),
                             WorkItemsCount = summary.WorkItemsCount,
                             RevisionsCount = summary.RevisionsCount,
                             ReposCount = 0,
@@ -80,7 +80,7 @@ public sealed class InventoryService : IInventoryService
                         pendingFinalEvent = new InventoryProgressEvent
                         {
                             ProjectName = project,
-                            Url = endpoint.ResolvedUrl,
+                            Url = endpoint.GetResolvedUrl(),
                             WorkItemsCount = summary.WorkItemsCount,
                             RevisionsCount = summary.RevisionsCount,
                             IsComplete = true,

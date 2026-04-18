@@ -26,18 +26,15 @@ public sealed class AzureDevOpsOrganisationEntry : OrganisationEntry
     public EndpointAuthenticationOptions Authentication { get; set; } = new EndpointAuthenticationOptions();
 
     /// <inheritdoc/>
-    public override OrganisationEndpoint ToOrganisationEndpoint()
+    public override MigrationEndpointOptions ToEndpointOptions()
     {
-        return new OrganisationEndpoint
+        return new AzureDevOpsEndpointOptions
         {
-            ResolvedUrl = ResolvedUrl,
             Type = Type,
+            Url = Url,
+            Project = string.Empty,
             ApiVersion = ApiVersion,
-            Authentication = new OrganisationEndpointAuthentication
-            {
-                Type = Authentication.Type,
-                ResolvedAccessToken = Authentication.ResolvedAccessToken
-            }
+            Authentication = Authentication
         };
     }
 

@@ -27,7 +27,7 @@ public sealed class TfsProjectDiscoveryService : IProjectDiscoveryService
     }
 
     public Task<List<string>> DiscoverProjectsAsync(
-        OrganisationEndpoint endpoint,
+        MigrationEndpointOptions endpoint,
         CancellationToken cancellationToken = default)
     {
         var names = _workItemStore.Projects

@@ -357,17 +357,8 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
         var totalWorkItems = 0;
         var discovery = GetRequiredService<IWorkItemDiscoveryService>();
 
-        var sourceEndpoint = new OrganisationEndpoint
-        {
-            ResolvedUrl = orgUrl,
-            Type = config.Source?.Type ?? "AzureDevOps",
-            Authentication = new OrganisationEndpointAuthentication
-            {
-                Type = Abstractions.Options.AuthenticationType.Pat,
-                ResolvedAccessToken = pat
-            },
-            ApiVersion = config.Source?.GetResolvedUrl().Length > 0 ? (config.Source as AzureDevOpsEndpointOptions)?.ApiVersion : null
-        };
+        // Pass the source endpoint options directly (already a MigrationEndpointOptions)
+        var sourceEndpoint = config.Source!;
 
         await console.Status()
             .Spinner(Spinner.Known.Dots)

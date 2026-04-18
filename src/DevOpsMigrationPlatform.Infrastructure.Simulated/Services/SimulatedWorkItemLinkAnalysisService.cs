@@ -16,7 +16,7 @@ public sealed class SimulatedWorkItemLinkAnalysisService : IWorkItemLinkAnalysis
 {
     /// <inheritdoc/>
     public async IAsyncEnumerable<DependencyProgressEvent> AnalyseLinksAsync(
-        OrganisationEndpoint endpoint,
+        MigrationEndpointOptions endpoint,
         string project,
         string? wiqlFilter = null,
         [EnumeratorCancellation] CancellationToken cancellationToken = default)

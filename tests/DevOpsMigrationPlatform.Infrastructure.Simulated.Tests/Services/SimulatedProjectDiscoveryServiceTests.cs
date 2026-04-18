@@ -1,6 +1,7 @@
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Infrastructure.Simulated.Options;
 using DevOpsMigrationPlatform.Infrastructure.Simulated.Services;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
@@ -13,9 +14,9 @@ public sealed class SimulatedProjectDiscoveryServiceTests
     public async Task DiscoverProjectsAsync_NoUrlEncoding_ReturnsDefaultProject()
     {
         var service = new SimulatedProjectDiscoveryService();
-        var endpoint = new OrganisationEndpoint
+        var endpoint = new SimulatedEndpointOptions
         {
-            ResolvedUrl = "simulated://localhost",
+            Url = "simulated://localhost",
             Type = "Simulated"
         };
 
@@ -29,9 +30,9 @@ public sealed class SimulatedProjectDiscoveryServiceTests
     public async Task DiscoverProjectsAsync_EncodedProjects_ReturnsProjectList()
     {
         var service = new SimulatedProjectDiscoveryService();
-        var endpoint = new OrganisationEndpoint
+        var endpoint = new SimulatedEndpointOptions
         {
-            ResolvedUrl = "simulated://projects/Alpha,Beta,Gamma",
+            Url = "simulated://projects/Alpha,Beta,Gamma",
             Type = "Simulated"
         };
 

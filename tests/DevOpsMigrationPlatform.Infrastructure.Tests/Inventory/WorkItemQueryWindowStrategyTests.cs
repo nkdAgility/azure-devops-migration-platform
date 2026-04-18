@@ -4,8 +4,10 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Abstractions.Services;
 using DevOpsMigrationPlatform.Infrastructure.AzureDevOps;
+using DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Options;
 using DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Services;
 using Microsoft.TeamFoundation.WorkItemTracking.WebApi.Models;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
@@ -34,14 +36,14 @@ public class WorkItemQueryWindowStrategyTests
     private const string Project = "TestProject";
     private const string Pat = "test-pat";
 
-    private static readonly OrganisationEndpoint TestEndpoint = new()
+    private static readonly AzureDevOpsEndpointOptions TestEndpoint = new()
     {
-        ResolvedUrl = Org,
+        Url = Org,
         Type = "AzureDevOps",
-        Authentication = new OrganisationEndpointAuthentication
+        Authentication = new EndpointAuthenticationOptions
         {
-            Type = Abstractions.Options.AuthenticationType.Pat,
-            ResolvedAccessToken = Pat
+            Type = AuthenticationType.Pat,
+            AccessToken = Pat
         }
     };
 

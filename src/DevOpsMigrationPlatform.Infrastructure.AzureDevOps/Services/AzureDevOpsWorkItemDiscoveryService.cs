@@ -29,11 +29,12 @@ public sealed class AzureDevOpsWorkItemDiscoveryService : IWorkItemDiscoveryServ
     }
 
     public async IAsyncEnumerable<ProjectDiscoverySummary> DiscoverWorkItemsAsync(
-        OrganisationEndpoint endpoint,
+        MigrationEndpointOptions endpoint,
         string project,
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
-        var witClient = await _clientFactory.CreateWorkItemClientAsync(endpoint, cancellationToken);
+        var orgEndpoint = endpoint.ToOrganisationEndpoint();
+        var witClient = await _clientFactory.CreateWorkItemClientAsync(orgEndpoint, cancellationToken);
 
         var summary = new ProjectDiscoverySummary { ProjectName = project };
 
@@ -114,7 +115,7 @@ public sealed class AzureDevOpsWorkItemDiscoveryService : IWorkItemDiscoveryServ
     }
 
     public async IAsyncEnumerable<ProjectDiscoverySummary> CountWorkItemsAsync(
-        OrganisationEndpoint endpoint,
+        MigrationEndpointOptions endpoint,
         string project,
         string? baseQuery = null,
         [EnumeratorCancellation] CancellationToken cancellationToken = default)

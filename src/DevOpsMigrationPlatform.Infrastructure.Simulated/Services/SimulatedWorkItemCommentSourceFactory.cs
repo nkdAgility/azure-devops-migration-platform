@@ -19,7 +19,7 @@ public sealed class SimulatedWorkItemCommentSourceFactory : IWorkItemCommentSour
     }
 
     /// <inheritdoc/>
-    public IWorkItemCommentSource Create(OrganisationEndpoint endpoint, string project)
+    public IWorkItemCommentSource Create(MigrationEndpointOptions endpoint, string project)
     {
         return new SimulatedWorkItemCommentSource(_hasComments);
     }

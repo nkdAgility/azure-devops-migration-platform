@@ -99,25 +99,13 @@ public sealed class WorkItemsModule : IModule
         // Comments extension gates inline comment fetching.
         var inlineFactory = ext.Comments.Enabled ? _inlineCommentSourceFactory : null;
 
-        // Build OrganisationEndpoint for the orchestrator (uses resolved values from JobEndpoint)
-        var sourceEndpoint = new OrganisationEndpoint
-        {
-            ResolvedUrl = orgUrl,
-            Type = sourceJob.Type,
-            ApiVersion = sourceJob.ApiVersion,
-            Authentication = new OrganisationEndpointAuthentication
-            {
-                Type = sourceJob.Authentication?.Type ?? Abstractions.Options.AuthenticationType.None,
-                ResolvedAccessToken = sourceJob.Authentication?.ResolvedAccessToken
-            }
-        };
-
+        // Pass the endpoint options directly to the orchestrator (already a MigrationEndpointOptions)
         var orchestrator = new WorkItemExportOrchestrator(
             context.ArtefactStore,
             checkpointingService,
             ext.AttachmentsEnabled ? _attachmentBinarySource : null,
             context.ProgressSink,
-            endpoint: sourceEndpoint,
+            endpoint: endpointOptions,
             project: project,
             inlineCommentSourceFactory: inlineFactory);
 

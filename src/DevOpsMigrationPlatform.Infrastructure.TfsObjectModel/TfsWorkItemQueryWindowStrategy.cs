@@ -35,7 +35,7 @@ public sealed class TfsWorkItemQueryWindowStrategy : IWorkItemQueryWindowStrateg
 
     /// <inheritdoc/>
     public async IAsyncEnumerable<WorkItemQueryWindow> EnumerateWindowsAsync(
-        OrganisationEndpoint endpoint,
+        MigrationEndpointOptions endpoint,
         string project,
         WorkItemQueryWindowOptions? options = null,
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
