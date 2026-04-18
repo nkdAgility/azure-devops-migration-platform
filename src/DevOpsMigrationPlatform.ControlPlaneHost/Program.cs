@@ -17,10 +17,20 @@
 using System.Security.Claims;
 using DevOpsMigrationPlatform.ControlPlane.Services;
 using DevOpsMigrationPlatform.ControlPlaneHost.Services;
+using DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Options;
+using DevOpsMigrationPlatform.Infrastructure;
+using DevOpsMigrationPlatform.Infrastructure.Extensions;
+using DevOpsMigrationPlatform.Infrastructure.Simulated.Options;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.AddServiceDefaults();
+
+// Register polymorphic serializers so the endpoint type registry is available.
+builder.Services.AddEndpointOptionsType("AzureDevOpsServices", typeof(AzureDevOpsEndpointOptions));
+builder.Services.AddEndpointOptionsType("Simulated", typeof(SimulatedEndpointOptions));
+builder.Services.AddMigrationPlatformPolymorphicSerializers();
+
 builder.Services.AddControllers()
     .AddApplicationPart(typeof(ControlPlaneServiceExtensions).Assembly)
     .AddJsonOptions(opts =>
@@ -36,6 +46,15 @@ builder.Services.AddControllers()
     });
 
 builder.Services.AddControlPlaneServices(builder.Configuration);
+
+// Post-configure ASP.NET JSON options to include the polymorphic endpoint converter
+// (needs the DI-resolved EndpointOptionsTypeRegistry, so cannot be done in AddJsonOptions).
+builder.Services.AddSingleton<Microsoft.Extensions.Options.IPostConfigureOptions<Microsoft.AspNetCore.Mvc.JsonOptions>>(sp =>
+{
+    var converter = sp.GetRequiredService<DevOpsMigrationPlatform.Infrastructure.Serialization.PolymorphicEndpointOptionsConverter>();
+    return new Microsoft.Extensions.Options.PostConfigureOptions<Microsoft.AspNetCore.Mvc.JsonOptions>(
+        string.Empty, opts => opts.JsonSerializerOptions.Converters.Add(converter));
+});
 
 // Agent lifecycle management: monitors running agents and will manage
 // spawning/restart in future phases. Currently a stub that establishes the pattern.

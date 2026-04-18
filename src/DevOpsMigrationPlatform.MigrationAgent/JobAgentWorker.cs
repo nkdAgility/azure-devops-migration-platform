@@ -8,6 +8,7 @@ using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Infrastructure.Serialization;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 
@@ -27,12 +28,7 @@ namespace DevOpsMigrationPlatform.MigrationAgent;
 /// </summary>
 public sealed class JobAgentWorker : BackgroundService
 {
-    private static readonly JsonSerializerOptions _jsonOptions = new()
-    {
-        PropertyNameCaseInsensitive = true,
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-        Converters = { new JsonStringEnumConverter() }
-    };
+    private readonly JsonSerializerOptions _jsonOptions;
 
     private readonly IEnumerable<IModule> _migrationModules;
     private readonly IEnumerable<IDiscoveryModule> _discoveryModules;
@@ -55,7 +51,8 @@ public sealed class JobAgentWorker : BackgroundService
         IHttpClientFactory httpClientFactory,
         ICheckpointingServiceFactory checkpointingFactory,
         IPhaseTrackingServiceFactory phaseTrackingFactory,
-        ILogger<JobAgentWorker> logger)
+        ILogger<JobAgentWorker> logger,
+        PolymorphicEndpointOptionsConverter? endpointConverter = null)
     {
         _migrationModules = migrationModules;
         _discoveryModules = discoveryModules;
@@ -67,6 +64,14 @@ public sealed class JobAgentWorker : BackgroundService
         _checkpointingFactory = checkpointingFactory;
         _phaseTrackingFactory = phaseTrackingFactory;
         _logger = logger;
+        _jsonOptions = new JsonSerializerOptions
+        {
+            PropertyNameCaseInsensitive = true,
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+            Converters = { new JsonStringEnumConverter() }
+        };
+        if (endpointConverter is not null)
+            _jsonOptions.Converters.Add(endpointConverter);
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)

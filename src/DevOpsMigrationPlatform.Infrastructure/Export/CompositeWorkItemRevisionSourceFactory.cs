@@ -5,7 +5,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Services;
-using DevOpsMigrationPlatform.Infrastructure.Modules;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Export;
@@ -39,9 +38,7 @@ public sealed class CompositeWorkItemRevisionSourceFactory : IWorkItemRevisionSo
     {
         if (endpoint is null) throw new ArgumentNullException(nameof(endpoint));
 
-        var typeKey = endpoint is JobEndpointMigrationOptions je
-            ? je.JobEndpoint.Type
-            : endpoint.Type;
+        var typeKey = endpoint.Type;
 
         if (string.IsNullOrWhiteSpace(typeKey))
             throw new ArgumentException("Endpoint has no Type discriminator.", nameof(endpoint));

@@ -15,8 +15,7 @@ public sealed class SimulatedResolutionStrategyFactory : IWorkItemResolutionStra
     public Task<IWorkItemResolutionStrategy> CreateAsync(
         WorkItemResolutionStrategyOptions options,
         IWorkItemImportTarget target,
-        string project,
-        string accessToken,
+        MigrationEndpointOptions endpoint,
         CancellationToken ct)
     {
         return Task.FromResult<IWorkItemResolutionStrategy>(new NullResolutionStrategy());

@@ -2,6 +2,7 @@ using System.Net.Http.Json;
 using System.Runtime.CompilerServices;
 using System.Text.Json;
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Infrastructure.Serialization;
 using Microsoft.Extensions.Logging;
 
 namespace DevOpsMigrationPlatform.CLI.JobRunners;
@@ -20,11 +21,7 @@ namespace DevOpsMigrationPlatform.CLI.JobRunners;
 /// </summary>
 public sealed class ControlPlaneClient : IJobRunner, ILogsClient, IControlPlaneClient
 {
-    private static readonly JsonSerializerOptions _jsonOptions = new()
-    {
-        PropertyNameCaseInsensitive = true,
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase
-    };
+    private readonly JsonSerializerOptions _jsonOptions;
 
     private readonly HttpClient _http;
     private readonly ILogger<ControlPlaneClient> _logger;
@@ -33,10 +30,20 @@ public sealed class ControlPlaneClient : IJobRunner, ILogsClient, IControlPlaneC
     /// Named/typed <see cref="HttpClient"/> pre-configured with the control plane base address.
     /// Provided by <see cref="System.Net.Http.IHttpClientFactory"/> via DI.
     /// </param>
-    public ControlPlaneClient(HttpClient http, ILogger<ControlPlaneClient> logger)
+    public ControlPlaneClient(
+        HttpClient http,
+        ILogger<ControlPlaneClient> logger,
+        PolymorphicEndpointOptionsConverter? endpointConverter = null)
     {
         _http = http ?? throw new ArgumentNullException(nameof(http));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        _jsonOptions = new JsonSerializerOptions
+        {
+            PropertyNameCaseInsensitive = true,
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+        };
+        if (endpointConverter is not null)
+            _jsonOptions.Converters.Add(endpointConverter);
     }
 
     /// <inheritdoc/>

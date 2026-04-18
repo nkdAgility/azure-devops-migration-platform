@@ -4,7 +4,6 @@ using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Options;
-using DevOpsMigrationPlatform.Infrastructure.Modules;
 
 namespace DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Import;
 
@@ -27,47 +26,16 @@ public sealed class AzureDevOpsWorkItemImportTargetFactory : IWorkItemImportTarg
         MigrationEndpointOptions endpoint,
         CancellationToken ct)
     {
-        OrganisationEndpoint orgEndpoint;
-        string project;
-        string resolvedUrl;
-
-        if (endpoint is AzureDevOpsEndpointOptions adoEndpoint)
-        {
-            orgEndpoint = new OrganisationEndpoint
-            {
-                ResolvedUrl = adoEndpoint.ResolvedUrl,
-                Type = adoEndpoint.Type,
-                Authentication = new OrganisationEndpointAuthentication
-                {
-                    Type = adoEndpoint.Authentication?.Type ?? AuthenticationType.Pat,
-                    ResolvedAccessToken = adoEndpoint.Authentication?.ResolvedAccessToken
-                }
-            };
-            project = adoEndpoint.Project;
-            resolvedUrl = adoEndpoint.ResolvedUrl;
-        }
-        else if (endpoint is JobEndpointMigrationOptions jobEndpointOptions)
-        {
-            var je = jobEndpointOptions.JobEndpoint;
-            orgEndpoint = new OrganisationEndpoint
-            {
-                ResolvedUrl = je.ResolvedUrl,
-                Type = je.Type,
-                Authentication = new OrganisationEndpointAuthentication
-                {
-                    Type = je.Authentication?.Type ?? AuthenticationType.Pat,
-                    ResolvedAccessToken = je.Authentication?.ResolvedAccessToken
-                }
-            };
-            project = je.Project;
-            resolvedUrl = je.ResolvedUrl;
-        }
-        else
+        if (endpoint is not AzureDevOpsEndpointOptions adoEndpoint)
         {
             throw new ArgumentException(
-                $"Expected AzureDevOpsEndpointOptions or JobEndpointMigrationOptions but got {endpoint.GetType().Name}.",
+                $"Expected AzureDevOpsEndpointOptions but got {endpoint.GetType().Name}.",
                 nameof(endpoint));
         }
+
+        var orgEndpoint = endpoint.ToOrganisationEndpoint();
+        var project = adoEndpoint.Project;
+        var resolvedUrl = adoEndpoint.ResolvedUrl;
 
         var witClient = await _clientFactory
             .CreateWorkItemClientAsync(orgEndpoint, ct)

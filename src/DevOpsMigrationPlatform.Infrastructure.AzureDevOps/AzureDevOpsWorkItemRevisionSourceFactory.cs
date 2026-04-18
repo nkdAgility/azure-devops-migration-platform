@@ -6,7 +6,6 @@ using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Abstractions.Services;
 using DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Options;
 using DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Services;
-using DevOpsMigrationPlatform.Infrastructure.Modules;
 
 namespace DevOpsMigrationPlatform.Infrastructure.AzureDevOps;
 
@@ -40,53 +39,21 @@ public sealed class AzureDevOpsWorkItemRevisionSourceFactory : IWorkItemRevision
         MigrationEndpointOptions endpoint,
         CancellationToken ct)
     {
-        OrganisationEndpoint organisationEndpoint;
-        string project;
-        string? wiqlQuery = null;
-
-        if (endpoint is AzureDevOpsEndpointOptions adoEndpoint)
-        {
-            organisationEndpoint = new OrganisationEndpoint
-            {
-                ResolvedUrl = adoEndpoint.ResolvedUrl,
-                Type = adoEndpoint.Type,
-                ApiVersion = adoEndpoint.ApiVersion,
-                Authentication = new OrganisationEndpointAuthentication
-                {
-                    Type = adoEndpoint.Authentication?.Type ?? AuthenticationType.None,
-                    ResolvedAccessToken = adoEndpoint.Authentication?.ResolvedAccessToken
-                }
-            };
-            project = adoEndpoint.Project;
-        }
-        else if (endpoint is JobEndpointMigrationOptions jobEndpointOptions)
-        {
-            var je = jobEndpointOptions.JobEndpoint;
-            organisationEndpoint = new OrganisationEndpoint
-            {
-                ResolvedUrl = je.ResolvedUrl,
-                Type = je.Type,
-                ApiVersion = je.ApiVersion,
-                Authentication = new OrganisationEndpointAuthentication
-                {
-                    Type = je.Authentication?.Type ?? AuthenticationType.None,
-                    ResolvedAccessToken = je.Authentication?.ResolvedAccessToken
-                }
-            };
-            project = je.Project;
-        }
-        else
+        if (endpoint is not AzureDevOpsEndpointOptions adoEndpoint)
         {
             throw new ArgumentException(
-                $"Expected AzureDevOpsEndpointOptions or JobEndpointMigrationOptions but got {endpoint.GetType().Name}.",
+                $"Expected AzureDevOpsEndpointOptions but got {endpoint.GetType().Name}.",
                 nameof(endpoint));
         }
+
+        var organisationEndpoint = endpoint.ToOrganisationEndpoint();
+        var project = adoEndpoint.Project;
 
         var witClient = await _clientFactory
             .CreateWorkItemClientAsync(organisationEndpoint, ct)
             .ConfigureAwait(false);
 
         return new AzureDevOpsWorkItemRevisionSource(
-            witClient, _windowStrategy, _mapper, _registry, endpoint, project, wiqlQuery);
+            witClient, _windowStrategy, _mapper, _registry, endpoint, project, wiqlQuery: null);
     }
 }

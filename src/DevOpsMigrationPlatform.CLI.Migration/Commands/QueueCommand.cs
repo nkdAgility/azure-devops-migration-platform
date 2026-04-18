@@ -113,7 +113,7 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
         {
             JobId = Guid.NewGuid().ToString(),
             Mode = "Import",
-            Target = BuildJobEndpoint(config.Target!, orgUrl, project),
+            Target = config.Target,
             Artefacts = new JobArtefacts
             {
                 PackageUri = $"file:///{outputPath.Replace(Path.DirectorySeparatorChar, '/')}",
@@ -231,18 +231,11 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
 
         var modules = BuildModules(config);
 
-        // Extract the generator config so the agent can reconstruct it without the original config file.
-        object? generatorConfig = (config.Source as DevOpsMigrationPlatform.Infrastructure.Simulated.Options.SimulatedEndpointOptions)?.Generator;
-
         var job = new MigrationJob
         {
             JobId = Guid.NewGuid().ToString(),
             Mode = "Export",
-            Source = new SimulatedJobEndpoint
-            {
-                Type = "Simulated",
-                Generator = generatorConfig
-            },
+            Source = config.Source,
             Artefacts = new JobArtefacts
             {
                 PackageUri = $"file:///{outputPath.Replace(Path.DirectorySeparatorChar, '/')}",
@@ -381,14 +374,7 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
         {
             JobId = Guid.NewGuid().ToString(),
             Mode = "Export",
-            Source = new AzureDevOpsJobEndpoint
-            {
-                Type = config.Source!.Type ?? "AzureDevOpsServices",
-                Url = orgUrl,
-                Project = project,
-                ApiVersion = (config.Source as AzureDevOpsEndpointOptions)?.ApiVersion,
-                Authentication = (config.Source as AzureDevOpsEndpointOptions)?.Authentication
-            },
+            Source = config.Source,
             Artefacts = new JobArtefacts
             {
                 PackageUri = $"file:///{outputPath.Replace(Path.DirectorySeparatorChar, '/')}",

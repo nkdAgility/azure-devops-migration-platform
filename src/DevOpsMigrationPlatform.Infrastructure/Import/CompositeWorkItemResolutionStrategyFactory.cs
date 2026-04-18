@@ -26,8 +26,7 @@ public sealed class CompositeWorkItemResolutionStrategyFactory : IWorkItemResolu
     public Task<IWorkItemResolutionStrategy> CreateAsync(
         WorkItemResolutionStrategyOptions options,
         IWorkItemImportTarget target,
-        string project,
-        string accessToken,
+        MigrationEndpointOptions endpoint,
         CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(target);
@@ -35,7 +34,7 @@ public sealed class CompositeWorkItemResolutionStrategyFactory : IWorkItemResolu
         foreach (var reg in _factories)
         {
             if (reg.CanHandle(target))
-                return reg.Factory.CreateAsync(options, target, project, accessToken, ct);
+                return reg.Factory.CreateAsync(options, target, endpoint, ct);
         }
 
         throw new InvalidOperationException(

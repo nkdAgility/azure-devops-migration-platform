@@ -73,11 +73,9 @@ public sealed class WorkItemsModule : IModule
     {
         var job = context.Job;
 
-        var sourceJob = job.Source ?? throw new InvalidOperationException("Job.Source is required for export.");
-        var orgUrl = sourceJob.ResolvedUrl;
-        var project = sourceJob.Project;
-
-        var endpointOptions = new JobEndpointMigrationOptions(sourceJob);
+        var endpointOptions = job.Source ?? throw new InvalidOperationException("Job.Source is required for export.");
+        var orgUrl = endpointOptions.GetResolvedUrl();
+        var project = endpointOptions.GetProject();
 
         var workItemsModule = job.Modules
             ?.FirstOrDefault(m => string.Equals(m.Name, "WorkItems", StringComparison.OrdinalIgnoreCase));
@@ -99,7 +97,6 @@ public sealed class WorkItemsModule : IModule
         // Comments extension gates inline comment fetching.
         var inlineFactory = ext.Comments.Enabled ? _inlineCommentSourceFactory : null;
 
-        // Pass the endpoint options directly to the orchestrator (already a MigrationEndpointOptions)
         var orchestrator = new WorkItemExportOrchestrator(
             context.ArtefactStore,
             checkpointingService,
@@ -119,11 +116,10 @@ public sealed class WorkItemsModule : IModule
         var job = context.Job;
 
         var targetJob = job.Target ?? throw new InvalidOperationException("Job.Target is required for import.");
-        var orgUrl = targetJob.ResolvedUrl;
-        var project = targetJob.Project;
-        var pat = targetJob.Authentication?.ResolvedAccessToken ?? string.Empty;
+        var orgUrl = targetJob.GetResolvedUrl();
+        var project = targetJob.GetProject();
 
-        var endpointOptions = new JobEndpointMigrationOptions(targetJob);
+        var endpointOptions = targetJob;
 
         var workItemsModule = job.Modules
             ?.FirstOrDefault(m => string.Equals(m.Name, "WorkItems", StringComparison.OrdinalIgnoreCase));
@@ -142,7 +138,7 @@ public sealed class WorkItemsModule : IModule
         // Resolve the strategy at execution time — the factory creates the correct implementation
         // based on the module config and target connection parameters.
         var resolutionStrategy = await _resolutionStrategyFactory
-            .CreateAsync(ext.ResolutionStrategy, target, project, pat, ct)
+            .CreateAsync(ext.ResolutionStrategy, target, endpointOptions, ct)
             .ConfigureAwait(false);
 
         // Derive the SQLite idmap.db path from the package URI
