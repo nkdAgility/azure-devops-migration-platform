@@ -4,14 +4,14 @@ using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Services;
+using DevOpsMigrationPlatform.Infrastructure.Simulated.Options;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Simulated.Services;
 
 /// <summary>
 /// Simulated implementation of <see cref="IProjectDiscoveryService"/>.
-/// Returns project names encoded in the endpoint URL using the pattern
-/// <c>simulated://projects/ProjectA,ProjectB</c>, or a single <c>"SimulatedProject"</c>
-/// placeholder when no projects are encoded.
+/// Returns project names from the <see cref="SimulatedEndpointOptions.Generator"/> configuration,
+/// or a single <c>"SimulatedProject"</c> placeholder when no projects are configured.
 /// No network calls are made.
 /// </summary>
 public sealed class SimulatedProjectDiscoveryService : IProjectDiscoveryService
@@ -21,21 +21,18 @@ public sealed class SimulatedProjectDiscoveryService : IProjectDiscoveryService
         MigrationEndpointOptions endpoint,
         CancellationToken cancellationToken = default)
     {
-        // Projects may be encoded in the URL: simulated://projects/ProjectA,ProjectB
-        var resolvedUrl = endpoint?.GetResolvedUrl();
-        if (resolvedUrl?.StartsWith("simulated://projects/", System.StringComparison.OrdinalIgnoreCase) == true)
+        if (endpoint is SimulatedEndpointOptions simulated
+            && simulated.Generator?.Projects is { Count: > 0 } projects)
         {
-            var projectList = resolvedUrl["simulated://projects/".Length..]
-                .Split(',', System.StringSplitOptions.RemoveEmptyEntries)
-                .Select(p => p.Trim())
-                .Where(p => !string.IsNullOrEmpty(p))
+            var projectNames = projects
+                .Select(p => p.Name)
+                .Where(n => !string.IsNullOrEmpty(n))
                 .ToList();
 
-            if (projectList.Count > 0)
-                return Task.FromResult(projectList);
+            if (projectNames.Count > 0)
+                return Task.FromResult(projectNames);
         }
 
-        // Default: return a single placeholder project.
         return Task.FromResult(new List<string> { "SimulatedProject" });
     }
 }

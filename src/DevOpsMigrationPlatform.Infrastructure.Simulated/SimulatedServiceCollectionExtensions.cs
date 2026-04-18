@@ -1,3 +1,4 @@
+using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Services;
 using DevOpsMigrationPlatform.Infrastructure.Extensions;
 using DevOpsMigrationPlatform.Infrastructure.Simulated.Export;
@@ -32,8 +33,8 @@ public static class SimulatedServiceCollectionExtensions
         services.AddRevisionSourceFactory<SimulatedWorkItemRevisionSourceFactory>("Simulated");
 
         // Discovery services (for inventory of simulated sources)
-        services.TryAddSingleton<SimulatedProjectDiscoveryService>();
-        services.TryAddSingleton<SimulatedWorkItemDiscoveryService>();
+        services.TryAddSingleton<IProjectDiscoveryService, SimulatedProjectDiscoveryService>();
+        services.TryAddSingleton<IWorkItemDiscoveryService, SimulatedWorkItemDiscoveryService>();
 
         return services;
     }
@@ -62,7 +63,8 @@ public static class SimulatedServiceCollectionExtensions
     /// </summary>
     public static IServiceCollection AddSimulatedDependencyAnalysis(this IServiceCollection services)
     {
-        services.TryAddSingleton<SimulatedWorkItemLinkAnalysisService>();
+        services.AddKeyedSingleton<IWorkItemLinkAnalysisService, SimulatedWorkItemLinkAnalysisService>(
+            serviceKey: "Simulated");
         return services;
     }
 
