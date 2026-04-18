@@ -33,17 +33,16 @@ public sealed class AzureDevOpsWorkItemRevisionSourceFactory : IWorkItemRevision
 
     /// <inheritdoc/>
     public async Task<IWorkItemRevisionSource> CreateAsync(
-        string organisationUrl,
+        OrganisationEndpoint endpoint,
         string project,
-        string pat,
         string wiqlQuery,
         CancellationToken cancellationToken)
     {
         var witClient = await _clientFactory
-            .CreateWorkItemClientAsync(organisationUrl, pat, cancellationToken)
+            .CreateWorkItemClientAsync(endpoint, cancellationToken)
             .ConfigureAwait(false);
 
         return new AzureDevOpsWorkItemRevisionSource(
-            witClient, _windowStrategy, _mapper, _registry, organisationUrl, project, pat, wiqlQuery);
+            witClient, _windowStrategy, _mapper, _registry, endpoint, project, wiqlQuery);
     }
 }

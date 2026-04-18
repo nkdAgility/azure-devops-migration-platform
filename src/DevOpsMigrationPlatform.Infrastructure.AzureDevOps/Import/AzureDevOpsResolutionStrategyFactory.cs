@@ -55,7 +55,16 @@ public sealed class AzureDevOpsResolutionStrategyFactory : IWorkItemResolutionSt
                 $"but received {target.GetType().Name}.");
 
         var orgUrl = adoTarget.OrganisationUrl;
-        var witClient = await _clientFactory.CreateWorkItemClientAsync(orgUrl, accessToken, ct).ConfigureAwait(false);
+        var endpoint = new OrganisationEndpoint
+        {
+            ResolvedUrl = orgUrl,
+            Authentication = new OrganisationEndpointAuthentication
+            {
+                Type = Abstractions.Options.AuthenticationType.Pat,
+                ResolvedAccessToken = accessToken
+            }
+        };
+        var witClient = await _clientFactory.CreateWorkItemClientAsync(endpoint, ct).ConfigureAwait(false);
 
         return options.Strategy switch
         {

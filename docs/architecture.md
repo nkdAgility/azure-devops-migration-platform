@@ -99,6 +99,10 @@ The package location is expressed as a URI in the `MigrationJob`. The Migration 
 
 Module code never references a concrete store implementation.
 
+### OrganisationEndpoint — Canonical Connection Context
+
+`OrganisationEndpoint` (in `DevOpsMigrationPlatform.Abstractions`) is the immutable connection context type used by all service interfaces. It bundles `ResolvedUrl`, `Type`, `Authentication` (`OrganisationEndpointAuthentication`), and optional `ApiVersion` into a single parameter, replacing separate `(string url, string pat)` arguments. `ScopedOrganisationEndpoint` pairs an `OrganisationEndpoint` with a project list for job-level scoping (e.g., `DiscoveryJob.Organisations`).
+
 **Concurrent Write Protection**: Packages are protected from simultaneous writes by a lease-based protocol. Only one agent may hold a lease on a package at any time. See [docs/concurrent-write-detection.md](concurrent-write-detection.md) for the lease mechanism and data integrity guarantees.
 
 ### Cross-Environment Package Handoff

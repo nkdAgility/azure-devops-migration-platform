@@ -13,15 +13,13 @@ public interface IWorkItemRevisionSourceFactory
     /// <summary>
     /// Creates a source that streams revisions for the given project.
     /// </summary>
-    /// <param name="organisationUrl">Azure DevOps organisation URL.</param>
+    /// <param name="endpoint">Resolved connection context for the organisation.</param>
     /// <param name="project">Team project name.</param>
-    /// <param name="pat">Personal access token (resolved value, not a placeholder).</param>
     /// <param name="wiqlQuery">WIQL query that selects work item IDs.</param>
     /// <param name="cancellationToken">Cancellation token for the async connection step.</param>
     Task<IWorkItemRevisionSource> CreateAsync(
-        string organisationUrl,
+        OrganisationEndpoint endpoint,
         string project,
-        string pat,
         string wiqlQuery,
         CancellationToken cancellationToken);
 }

@@ -16,9 +16,8 @@ public interface IWorkItemQueryWindowStrategy
     /// yielding work item IDs for each window in reverse-chronological order.
     /// </summary>
     IAsyncEnumerable<WorkItemQueryWindow> EnumerateWindowsAsync(
-        string url,
+        OrganisationEndpoint endpoint,
         string project,
-        string pat,
         WorkItemQueryWindowOptions? options = null,
         CancellationToken cancellationToken = default);
 }

@@ -28,6 +28,7 @@ public class ManageProgressCommandTests
     /// </summary>
     [TestMethod]
     [TestCategory("SystemTest")]
+    [TestCategory("SystemTest_Live")]
     [Timeout(1_500_000)] // 25 minutes — export + progress query
     public async Task ManageProgressCommand_SystemTest_AfterExport_ExitsZero_AndShowsProgressEvents()
     {

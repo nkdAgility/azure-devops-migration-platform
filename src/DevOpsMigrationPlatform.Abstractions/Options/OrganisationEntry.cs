@@ -40,4 +40,25 @@ public sealed class OrganisationEntry
     /// Set to <c>false</c> to skip this entry without deleting it. Default: <c>true</c>.
     /// </summary>
     public bool Enabled { get; set; } = true;
+
+    /// <summary>
+    /// Creates an immutable <see cref="OrganisationEndpoint"/> by resolving <c>$ENV:VARNAME</c>
+    /// tokens in <see cref="Url"/> and <see cref="EndpointAuthenticationOptions.AccessToken"/>,
+    /// mapping <see cref="EndpointAuthenticationOptions"/> to
+    /// <see cref="OrganisationEndpointAuthentication"/>, and copying <see cref="ApiVersion"/>.
+    /// </summary>
+    public OrganisationEndpoint ToOrganisationEndpoint()
+    {
+        return new OrganisationEndpoint
+        {
+            ResolvedUrl = ResolvedUrl,
+            Type = Type,
+            ApiVersion = ApiVersion,
+            Authentication = new OrganisationEndpointAuthentication
+            {
+                Type = Authentication.Type,
+                ResolvedAccessToken = Authentication.ResolvedAccessToken
+            }
+        };
+    }
 }

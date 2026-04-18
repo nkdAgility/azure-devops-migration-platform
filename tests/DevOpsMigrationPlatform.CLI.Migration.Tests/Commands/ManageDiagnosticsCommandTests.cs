@@ -28,6 +28,7 @@ public class ManageDiagnosticsCommandTests
     /// </summary>
     [TestMethod]
     [TestCategory("SystemTest")]
+    [TestCategory("SystemTest_Live")]
     [Timeout(1_500_000)] // 25 minutes — export + diagnostics query
     public async Task ManageDiagnosticsCommand_SystemTest_AfterExport_ExitsZero_AndShowsDiagnosticOutput()
     {

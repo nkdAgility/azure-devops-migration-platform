@@ -75,7 +75,18 @@ public sealed class WorkItemsModule : IModule
 
         var orgUrl = job.Source?.ResolvedUrl ?? throw new InvalidOperationException("Job.Source.Url is required.");
         var project = job.Source?.Project ?? throw new InvalidOperationException("Job.Source.Project is required.");
-        var pat = job.Source?.Authentication?.ResolvedAccessToken ?? string.Empty;
+
+        var sourceEndpoint = new OrganisationEndpoint
+        {
+            ResolvedUrl = orgUrl,
+            Type = job.Source!.Type,
+            ApiVersion = job.Source.ApiVersion,
+            Authentication = new OrganisationEndpointAuthentication
+            {
+                Type = job.Source.Authentication?.Type ?? Abstractions.Options.AuthenticationType.None,
+                ResolvedAccessToken = job.Source.Authentication?.ResolvedAccessToken
+            }
+        };
 
         var workItemsModule = job.Modules
             ?.FirstOrDefault(m => string.Equals(m.Name, "WorkItems", StringComparison.OrdinalIgnoreCase));
@@ -89,7 +100,7 @@ public sealed class WorkItemsModule : IModule
             orgUrl, project, ext.AttachmentsEnabled, ext.Comments.Enabled);
 
         var source = await _sourceFactory
-            .CreateAsync(orgUrl, project, pat, ext.Query, ct)
+            .CreateAsync(sourceEndpoint, project, ext.Query, ct)
             .ConfigureAwait(false);
 
         var checkpointingService = _checkpointingFactory.Create(context.StateStore);
@@ -102,9 +113,8 @@ public sealed class WorkItemsModule : IModule
             checkpointingService,
             ext.AttachmentsEnabled ? _attachmentBinarySource : null,
             context.ProgressSink,
-            organisationUrl: orgUrl,
+            endpoint: sourceEndpoint,
             project: project,
-            pat: pat,
             inlineCommentSourceFactory: inlineFactory);
 
         await orchestrator.ExportAsync(source, ct).ConfigureAwait(false);

@@ -16,7 +16,7 @@ public class DiscoveryJob : Job
     /// <summary>
     /// Organisations / collections to analyse. At least one entry is required.
     /// </summary>
-    public List<DiscoveryJobOrganisation> Organisations { get; init; } = new();
+    public List<ScopedOrganisationEndpoint> Organisations { get; init; } = new();
 
 
 }

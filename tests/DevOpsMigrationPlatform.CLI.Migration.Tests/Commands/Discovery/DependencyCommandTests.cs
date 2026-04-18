@@ -19,6 +19,7 @@ public class DependencyCommandTests
 
     [TestMethod]
     [TestCategory("SystemTest")]
+    [TestCategory("SystemTest_Live")]
     [Timeout(300_000)]
     public async Task DependencyCommand_SystemTest_AdoSingleProject_ExecutesSuccessfully()
     {

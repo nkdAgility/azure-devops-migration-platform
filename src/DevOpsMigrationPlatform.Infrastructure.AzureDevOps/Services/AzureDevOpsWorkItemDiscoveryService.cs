@@ -29,19 +29,18 @@ public sealed class AzureDevOpsWorkItemDiscoveryService : IWorkItemDiscoveryServ
     }
 
     public async IAsyncEnumerable<ProjectDiscoverySummary> DiscoverWorkItemsAsync(
-        string organisationUrl,
+        OrganisationEndpoint endpoint,
         string project,
-        string pat,
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
-        var witClient = await _clientFactory.CreateWorkItemClientAsync(organisationUrl, pat, cancellationToken);
+        var witClient = await _clientFactory.CreateWorkItemClientAsync(endpoint, cancellationToken);
 
         var summary = new ProjectDiscoverySummary { ProjectName = project };
 
         // Use IAsyncEnumerator directly so we can catch exceptions from the window
         // strategy (yield return cannot appear inside a try-catch block in C#).
         var enumerator = _windowStrategy
-            .EnumerateWindowsAsync(organisationUrl, project, pat, cancellationToken: cancellationToken)
+            .EnumerateWindowsAsync(endpoint, project, cancellationToken: cancellationToken)
             .GetAsyncEnumerator(cancellationToken);
 
         try
@@ -115,9 +114,8 @@ public sealed class AzureDevOpsWorkItemDiscoveryService : IWorkItemDiscoveryServ
     }
 
     public async IAsyncEnumerable<ProjectDiscoverySummary> CountWorkItemsAsync(
-        string organisationUrl,
+        OrganisationEndpoint endpoint,
         string project,
-        string pat,
         string? baseQuery = null,
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
@@ -128,7 +126,7 @@ public sealed class AzureDevOpsWorkItemDiscoveryService : IWorkItemDiscoveryServ
             : null;
 
         var enumerator = _windowStrategy
-            .EnumerateWindowsAsync(organisationUrl, project, pat, options: options, cancellationToken: cancellationToken)
+            .EnumerateWindowsAsync(endpoint, project, options: options, cancellationToken: cancellationToken)
             .GetAsyncEnumerator(cancellationToken);
 
         try
