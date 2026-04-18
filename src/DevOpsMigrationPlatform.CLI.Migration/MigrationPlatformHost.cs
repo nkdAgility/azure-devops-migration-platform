@@ -1,6 +1,9 @@
 using Azure.Monitor.OpenTelemetry.Exporter;
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.CLI.Migration;
 using DevOpsMigrationPlatform.CLI.Migration.Options;
+using DevOpsMigrationPlatform.Infrastructure;
+using DevOpsMigrationPlatform.Infrastructure.Serialization;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -67,6 +70,16 @@ public static class MigrationPlatformHost
 
                 services.AddSingleton<IAnsiConsole>(AnsiConsole.Console);
                 RegisterTelemetryServices(services, configuration);
+
+                // ── Polymorphic JSON registry — required by ConfigurationService.
+                // Type registrations (e.g. ADO, TFS) are added by each command via
+                // AddEndpointOptionsType / AddOrganisationEntryType before the registry
+                // singleton is first resolved.
+                services.AddMigrationPlatformPolymorphicSerializers();
+
+                // ── ADO endpoint types — registered unconditionally for all CLI commands
+                // since all scenario configs use AzureDevOpsServices or Simulated types.
+                services.AddMigrationCliEndpointTypes();
 
                 // ── Command-specific services
                 configureServices?.Invoke(services, configuration);

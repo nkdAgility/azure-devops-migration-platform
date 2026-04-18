@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Abstractions.Utilities;
 
@@ -29,4 +30,11 @@ public class JobEndpoint
     /// without requiring a separate credential lookup.
     /// </summary>
     public EndpointAuthenticationOptions? Authentication { get; init; }
+
+    /// <summary>
+    /// Connector-specific properties that do not fit the common endpoint fields.
+    /// Used by connectors like <c>Simulated</c> to carry generator configuration.
+    /// Values are serialised as JSON; consumers deserialise to the expected type.
+    /// </summary>
+    public Dictionary<string, object?>? Properties { get; init; }
 }

@@ -2,7 +2,6 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
-using DevOpsMigrationPlatform.Infrastructure.Import;
 
 namespace DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Import;
 
@@ -37,10 +36,6 @@ public sealed class AzureDevOpsResolutionStrategyFactory : IWorkItemResolutionSt
     {
         ArgumentNullException.ThrowIfNull(options);
         ArgumentNullException.ThrowIfNull(target);
-
-        // Simulated targets need no provenance lookup — return a no-op strategy.
-        if (target is SimulatedWorkItemImportTarget)
-            return new NullResolutionStrategy();
 
         if (string.IsNullOrEmpty(options.Strategy))
             throw new InvalidOperationException(

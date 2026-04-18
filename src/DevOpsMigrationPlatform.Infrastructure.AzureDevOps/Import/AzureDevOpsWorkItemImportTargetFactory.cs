@@ -2,17 +2,16 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
-using DevOpsMigrationPlatform.Infrastructure.Import;
+using DevOpsMigrationPlatform.Abstractions.Options;
+using DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Options;
+using DevOpsMigrationPlatform.Infrastructure.Modules;
 
 namespace DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Import;
 
 /// <summary>
-/// Creates the correct <see cref="IWorkItemImportTarget"/> based on <paramref name="targetType"/>
-/// from the scenario configuration.
-/// <list type="bullet">
-///   <item><c>"Simulated"</c> → <see cref="SimulatedWorkItemImportTarget"/> (no network I/O).</item>
-///   <item>All other types → <see cref="AzureDevOpsWorkItemImportTarget"/>.</item>
-/// </list>
+/// Creates an <see cref="AzureDevOpsWorkItemImportTarget"/> from <see cref="AzureDevOpsEndpointOptions"/>
+/// or <see cref="JobEndpointMigrationOptions"/>.
+/// Throws <see cref="ArgumentException"/> for any other endpoint type.
 /// </summary>
 public sealed class AzureDevOpsWorkItemImportTargetFactory : IWorkItemImportTargetFactory
 {
@@ -25,30 +24,55 @@ public sealed class AzureDevOpsWorkItemImportTargetFactory : IWorkItemImportTarg
 
     /// <inheritdoc/>
     public async Task<IWorkItemImportTarget> CreateAsync(
-        string targetType,
-        string orgUrl,
-        string project,
-        string accessToken,
+        MigrationEndpointOptions endpoint,
         CancellationToken ct)
     {
-        if (string.Equals(targetType, "Simulated", StringComparison.OrdinalIgnoreCase))
-            return new SimulatedWorkItemImportTarget();
+        OrganisationEndpoint orgEndpoint;
+        string project;
+        string resolvedUrl;
 
-        var endpoint = new OrganisationEndpoint
+        if (endpoint is AzureDevOpsEndpointOptions adoEndpoint)
         {
-            ResolvedUrl = orgUrl,
-            Type = targetType,
-            Authentication = new OrganisationEndpointAuthentication
+            orgEndpoint = new OrganisationEndpoint
             {
-                Type = Abstractions.Options.AuthenticationType.Pat,
-                ResolvedAccessToken = accessToken
-            }
-        };
+                ResolvedUrl = adoEndpoint.ResolvedUrl,
+                Type = adoEndpoint.Type,
+                Authentication = new OrganisationEndpointAuthentication
+                {
+                    Type = adoEndpoint.Authentication?.Type ?? AuthenticationType.Pat,
+                    ResolvedAccessToken = adoEndpoint.Authentication?.ResolvedAccessToken
+                }
+            };
+            project = adoEndpoint.Project;
+            resolvedUrl = adoEndpoint.ResolvedUrl;
+        }
+        else if (endpoint is JobEndpointMigrationOptions jobEndpointOptions)
+        {
+            var je = jobEndpointOptions.JobEndpoint;
+            orgEndpoint = new OrganisationEndpoint
+            {
+                ResolvedUrl = je.ResolvedUrl,
+                Type = je.Type,
+                Authentication = new OrganisationEndpointAuthentication
+                {
+                    Type = je.Authentication?.Type ?? AuthenticationType.Pat,
+                    ResolvedAccessToken = je.Authentication?.ResolvedAccessToken
+                }
+            };
+            project = je.Project;
+            resolvedUrl = je.ResolvedUrl;
+        }
+        else
+        {
+            throw new ArgumentException(
+                $"Expected AzureDevOpsEndpointOptions or JobEndpointMigrationOptions but got {endpoint.GetType().Name}.",
+                nameof(endpoint));
+        }
 
         var witClient = await _clientFactory
-            .CreateWorkItemClientAsync(endpoint, ct)
+            .CreateWorkItemClientAsync(orgEndpoint, ct)
             .ConfigureAwait(false);
 
-        return new AzureDevOpsWorkItemImportTarget(witClient, project, orgUrl);
+        return new AzureDevOpsWorkItemImportTarget(witClient, project, resolvedUrl);
     }
 }

@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Linq;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Options;
+using DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Options;
 using DevOpsMigrationPlatform.Abstractions.Services;
 using DevOpsMigrationPlatform.Infrastructure.Services;
 using Microsoft.Extensions.Logging;
@@ -55,7 +56,7 @@ public sealed class DependencyDiscoveryServiceFactory : IDependencyDiscoveryServ
                 Throttle = new MigrationThrottleOptions { MaxConcurrency = policies.MaxConcurrency },
                 Checkpoints = new MigrationCheckpointsOptions { Interval = policies.CheckpointIntervalSeconds }
             },
-            Organisations = organisations.Select(o => new OrganisationEntry
+            Organisations = organisations.Select(o => new AzureDevOpsOrganisationEntry
             {
                 Type = o.Endpoint.Type,
                 Url = o.Endpoint.ResolvedUrl,
@@ -67,7 +68,7 @@ public sealed class DependencyDiscoveryServiceFactory : IDependencyDiscoveryServ
                     AccessToken = o.Endpoint.Authentication.ResolvedAccessToken
                 },
                 Enabled = true
-            }).ToList()
+            }).Cast<DevOpsMigrationPlatform.Abstractions.Options.OrganisationEntry>().ToList()
         };
     }
 }

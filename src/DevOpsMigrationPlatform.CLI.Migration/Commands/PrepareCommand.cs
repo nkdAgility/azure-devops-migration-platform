@@ -59,10 +59,10 @@ public sealed class PrepareCommand : ControlPlaneCommandBase<MigrationCommandSet
                 ? new JobEndpoint
                 {
                     Type = config.Source.Type,
-                    Url = config.Source.ResolvedUrl,
-                    Project = config.Source.Project,
-                    ApiVersion = config.Source.ApiVersion,
-                    Authentication = config.Source.Authentication
+                    Url = config.Source.GetResolvedUrl(),
+                    Project = config.Source.GetProject(),
+                    ApiVersion = (config.Source as DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Options.AzureDevOpsEndpointOptions)?.ApiVersion,
+                    Authentication = (config.Source as DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Options.AzureDevOpsEndpointOptions)?.Authentication
                 }
                 : null,
             Artefacts = new JobArtefacts

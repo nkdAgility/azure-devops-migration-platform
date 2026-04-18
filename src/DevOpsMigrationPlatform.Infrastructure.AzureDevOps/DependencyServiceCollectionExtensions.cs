@@ -63,10 +63,14 @@ public static class DependencyServiceCollectionExtensions
             services.AddSingleton<IProjectDiscoveryService, AzureDevOpsProjectDiscoveryService>();
         }
 
-        // Register the catalog service (for querying available projects)
+        // Register the catalog service — now in Infrastructure; register here if not already registered
+        // (ICatalogService implementation lives in DevOpsMigrationPlatform.Infrastructure.Services.CatalogService)
         if (!services.Any(x => x.ServiceType == typeof(ICatalogService)))
         {
-            services.AddSingleton<ICatalogService, CatalogService>();
+            // Note: CatalogService has moved to Infrastructure assembly.
+            // The host must call AddInfrastructureCatalogService() or equivalent.
+            // Kept as a fallback registration for backwards compatibility.
+            services.AddSingleton<ICatalogService, DevOpsMigrationPlatform.Infrastructure.Services.CatalogService>();
         }
 
         // Register AzureDevOpsDependencyAnalysisService as a keyed singleton

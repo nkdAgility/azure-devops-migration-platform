@@ -2,7 +2,7 @@
 
 **Feature**: Simulated Infrastructure Connector
 **Flagged by**: speckit.specify + speckit.analyze
-**Status**: Pending rectification (resolve in speckit.implement)
+**Status**: Resolved in speckit.implement
 
 ## Discrepancies
 

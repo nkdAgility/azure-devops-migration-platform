@@ -2,6 +2,11 @@ using DevOpsMigrationPlatform.Abstractions;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
+#if !NET481
+using DevOpsMigrationPlatform.Infrastructure.Serialization;
+using Microsoft.Extensions.DependencyInjection.Extensions;
+using System.Linq;
+#endif
 
 namespace DevOpsMigrationPlatform.Infrastructure;
 
@@ -36,8 +41,44 @@ public static class MigrationPlatformServiceExtensions
             .Bind(configuration.GetSection("MigrationPlatform"))
             .ValidateOnStart();
 
+#if !NET481
+        // Polymorphic endpoint options registry — built from all EndpointOptionsRegistration entries
+        services.AddMigrationPlatformPolymorphicSerializers();
+#endif
+
         return services;
     }
+
+#if !NET481
+    /// <summary>
+    /// Registers the polymorphic JSON serializers (registry + converters) without binding
+    /// <see cref="MigrationOptions"/>. Call this when the full
+    /// <see cref="AddMigrationPlatformOptions"/> is not available (e.g. the shared CLI host builder).
+    /// Connector assemblies must register their own types with
+    /// <see cref="AddEndpointOptionsType"/> before the registry singleton is first resolved.
+    /// </summary>
+    public static IServiceCollection AddMigrationPlatformPolymorphicSerializers(
+        this IServiceCollection services)
+    {
+        services.TryAddSingleton<EndpointOptionsTypeRegistry>(sp =>
+        {
+            var registry = new EndpointOptionsTypeRegistry();
+            foreach (var reg in sp.GetServices<EndpointOptionsRegistration>())
+            {
+                if (reg.IsOrganisationEntry)
+                    registry.RegisterOrganisationEntry(reg.Key, reg.Type);
+                else
+                    registry.Register(reg.Key, reg.Type);
+            }
+            return registry;
+        });
+        services.TryAddSingleton<PolymorphicEndpointOptionsConverter>(sp =>
+            new PolymorphicEndpointOptionsConverter(sp.GetRequiredService<EndpointOptionsTypeRegistry>()));
+        services.TryAddSingleton<PolymorphicOrganisationEntryConverter>(sp =>
+            new PolymorphicOrganisationEntryConverter(sp.GetRequiredService<EndpointOptionsTypeRegistry>()));
+        return services;
+    }
+#endif
 
     /// <summary>
     /// Registers <see cref="IOptions{TOptions}"/> for a module, bound to the

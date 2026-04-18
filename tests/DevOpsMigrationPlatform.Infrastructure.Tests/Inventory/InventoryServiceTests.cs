@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Models;
 using DevOpsMigrationPlatform.Abstractions.Options;
+using DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Options;
 using DevOpsMigrationPlatform.Abstractions.Services;
 using DevOpsMigrationPlatform.Infrastructure.AzureDevOps;
 using DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Services;
@@ -47,7 +48,7 @@ public class InventoryServiceTests
         {
             Organisations = new()
             {
-                new OrganisationEntry
+                new AzureDevOpsOrganisationEntry
                 {
                     Type = "AzureDevOpsServices",
                     Url = org,

@@ -1,4 +1,5 @@
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Options;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Tests.Platform;
@@ -16,7 +17,7 @@ public class MigrationOptionsValidatorTests
     private static MigrationOptions ValidExport() => new()
     {
         Mode = "Export",
-        Source = new MigrationEndpointOptions
+        Source = new AzureDevOpsEndpointOptions
         {
             Type = "AzureDevOpsServices",
             Url = "https://dev.azure.com/myorg",
@@ -40,7 +41,7 @@ public class MigrationOptionsValidatorTests
         var opts = new MigrationOptions
         {
             Mode = "Import",
-            Target = new MigrationEndpointOptions
+            Target = new AzureDevOpsEndpointOptions
             {
                 Type = "AzureDevOpsServices",
                 Url = "https://dev.azure.com/targetorg",
@@ -57,8 +58,8 @@ public class MigrationOptionsValidatorTests
         var opts = new MigrationOptions
         {
             Mode = "Both",
-            Source = new MigrationEndpointOptions { Type = "AzureDevOpsServices", Url = "https://dev.azure.com/myorg", Project = "P" },
-            Target = new MigrationEndpointOptions { Type = "AzureDevOpsServices", Url = "https://dev.azure.com/targetorg", Project = "P" },
+            Source = new AzureDevOpsEndpointOptions { Type = "AzureDevOpsServices", Url = "https://dev.azure.com/myorg", Project = "P" },
+            Target = new AzureDevOpsEndpointOptions { Type = "AzureDevOpsServices", Url = "https://dev.azure.com/targetorg", Project = "P" },
             Artefacts = new MigrationArtefactsOptions { WorkingDirectory = "D:\\exports" }
         };
         Assert.IsTrue(Sut().Validate(null, opts).Succeeded);
@@ -113,7 +114,7 @@ public class MigrationOptionsValidatorTests
     {
         var opts = ValidExport();
         opts.Mode = "Both";
-        opts.Target = new MigrationEndpointOptions { Type = "AzureDevOpsServices", Url = "https://dev.azure.com/t", Project = "T" };
+        opts.Target = new AzureDevOpsEndpointOptions { Type = "AzureDevOpsServices", Url = "https://dev.azure.com/t", Project = "T" };
         opts.Source = null;
         var result = Sut().Validate(null, opts);
         Assert.IsFalse(result.Succeeded);
@@ -229,7 +230,7 @@ public class MigrationOptionsValidatorTests
         var opts = new MigrationOptions
         {
             Mode = "Import",
-            Target = new MigrationEndpointOptions
+            Target = new AzureDevOpsEndpointOptions
             {
                 Type = "AzureDevOpsServices",
                 Url = "https://dev.azure.com/targetorg",
@@ -246,7 +247,7 @@ public class MigrationOptionsValidatorTests
         var opts = new MigrationOptions
         {
             Mode = "Import",
-            Target = new MigrationEndpointOptions
+            Target = new AzureDevOpsEndpointOptions
             {
                 Type = "TeamFoundationServer",
                 Url = "http://tfs:8080/tfs/DefaultCollection",
@@ -266,7 +267,7 @@ public class MigrationOptionsValidatorTests
         var opts = new MigrationOptions
         {
             Mode = "Import",
-            Target = new MigrationEndpointOptions
+            Target = new AzureDevOpsEndpointOptions
             {
                 Type = "GitHub",
                 Url = "https://github.com/myorg",

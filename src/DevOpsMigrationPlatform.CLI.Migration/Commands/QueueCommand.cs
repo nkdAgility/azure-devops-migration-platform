@@ -15,6 +15,7 @@ using DevOpsMigrationPlatform.Infrastructure.Services;
 using DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Validation;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
+using DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Options;
 using Spectre.Console;
 using Spectre.Console.Cli;
 using Spectre.Console.Rendering;
@@ -71,7 +72,7 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
         {
             "Export" => await ExecuteExportAsync(config, settings, cancellationToken),
             "Import" => await ExecuteImportAsync(config, settings, cancellationToken),
-            "Both" => ExecuteMigrateStub(),
+            "Both" => await ExecuteBothAsync(config, settings, cancellationToken),
             _ => ExecuteInvalidMode(config.Mode)
         };
     }
@@ -80,8 +81,8 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
     {
         var console = GetRequiredService<IAnsiConsole>();
 
-        var orgUrl = config.Target?.ResolvedUrl;
-        var project = config.Target?.Project;
+        var orgUrl = config.Target?.GetResolvedUrl();
+        var project = config.Target?.GetProject();
         var packagePath = config.Artefacts?.ExpandedPath;
 
         if (string.IsNullOrWhiteSpace(orgUrl))
@@ -117,8 +118,8 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
                 Type = config.Target!.Type,
                 Url = orgUrl,
                 Project = project,
-                ApiVersion = config.Target.ApiVersion,
-                Authentication = config.Target.Authentication
+                ApiVersion = (config.Target as AzureDevOpsEndpointOptions)?.ApiVersion,
+                Authentication = (config.Target as AzureDevOpsEndpointOptions)?.Authentication
             },
             Artefacts = new JobArtefacts
             {
@@ -196,10 +197,13 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
         return 1;
     }
 
-    private int ExecuteMigrateStub()
+    private async Task<int> ExecuteBothAsync(MigrationOptions config, QueueCommandSettings settings, CancellationToken cancellationToken)
     {
-        AnsiConsole.MarkupLine("[grey]migrate — not available in this release.[/]");
-        return 1;
+        var exportResult = await ExecuteExportAsync(config, settings, cancellationToken);
+        if (exportResult != 0)
+            return exportResult;
+
+        return await ExecuteImportAsync(config, settings, cancellationToken);
     }
 
     private int ExecuteInvalidMode(string mode)
@@ -214,15 +218,121 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
         if (string.Equals(config.Source?.Type, "TeamFoundationServer", StringComparison.Ordinal))
             return await TfsExportRunner.RunAsync(config, Host!.Services, tfsExportExePathOverride: null, cancellationToken);
 
+        // Simulated source: no WIQL, no discovery, no credentials — build a minimal job.
+        if (string.Equals(config.Source?.Type, "Simulated", StringComparison.Ordinal))
+            return await ExecuteSimulatedExportAsync(config, settings, cancellationToken);
+
         return await ExecuteAdoExportAsync(config, settings, cancellationToken);
+    }
+
+    private async Task<int> ExecuteSimulatedExportAsync(MigrationOptions config, QueueCommandSettings settings, CancellationToken cancellationToken)
+    {
+        var console = GetRequiredService<IAnsiConsole>();
+
+        var outputPath = Path.GetFullPath(config.Artefacts.ExpandedPath);
+        var orgUrl = config.Source?.GetResolvedUrl() ?? "https://simulated.example.com";
+        var project = config.Source?.GetProject() ?? "SimulatedProject";
+
+        console.MarkupLine($"[blue]ℹ[/] Exporting from [bold]Simulated[/] source");
+        console.MarkupLine($"[blue]ℹ[/] Package path  : [blue]{Markup.Escape(outputPath)}[/]");
+
+        var modules = BuildModules(config);
+
+        // Carry the generator config through the job contract so the agent can
+        // reconstruct SimulatedGeneratorConfig without access to the original config file.
+        var sourceProperties = new Dictionary<string, object?>();
+        if (config.Source is DevOpsMigrationPlatform.Infrastructure.Simulated.Options.SimulatedEndpointOptions simOpts)
+        {
+            sourceProperties["Generator"] = simOpts.Generator;
+        }
+
+        var job = new MigrationJob
+        {
+            JobId = Guid.NewGuid().ToString(),
+            Mode = "Export",
+            Source = new JobEndpoint
+            {
+                Type = "Simulated",
+                Url = orgUrl,
+                Project = project,
+                Properties = sourceProperties
+            },
+            Artefacts = new JobArtefacts
+            {
+                PackageUri = $"file:///{outputPath.Replace(Path.DirectorySeparatorChar, '/')}",
+                CreatePackage = config.Artefacts.CreatePackage
+            },
+            Modules = modules,
+            Diagnostics = new JobDiagnostics { MinimumLevel = settings.Level },
+            Resume = settings.ForceFresh ? new JobResume { Mode = ResumeMode.ForceFresh } : null
+        };
+
+        var envOpts = GetRequiredService<IOptions<EnvironmentOptions>>().Value;
+        var isStandaloneMode = envOpts.Type == EnvironmentType.Standalone;
+        var shouldFollow = settings.Follow || isStandaloneMode;
+
+        var client = GetRequiredService<ControlPlaneClient>();
+
+        if (!shouldFollow)
+        {
+            var jobId = await client.SubmitAsync(job, cancellationToken);
+            PrintJobSubmitted(console, jobId, GetControlPlaneUrl());
+            console.MarkupLine($"[grey]Use [blue]manage status --job {jobId}[/] to check progress.[/]");
+            return 0;
+        }
+
+        Guid parsedJobId;
+        try
+        {
+            parsedJobId = await client.SubmitAsync(job, cancellationToken);
+            PrintJobSubmitted(console, parsedJobId, GetControlPlaneUrl());
+        }
+        catch (Exception ex)
+        {
+            ShowError(console, $"Failed to submit job: {ex.Message}");
+            return 1;
+        }
+
+        ProgressEvent? lastEvt = null;
+        var jobFailed = false;
+        using var followCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        Console.CancelKeyPress += (_, e) => { e.Cancel = true; followCts.Cancel(); };
+
+        try
+        {
+            await foreach (var evt in client.FollowLogsAsync(parsedJobId, followCts.Token).ConfigureAwait(false))
+            {
+                lastEvt = evt;
+                console.MarkupLine($"[grey]{Markup.Escape(evt.Stage ?? string.Empty)}[/] WI={evt.WorkItemId} ({evt.WorkItemsProcessed} done, {evt.RevisionsProcessed} rev)");
+            }
+        }
+        catch (InvalidOperationException ex) when (ex.Message.Contains("Job failed"))
+        {
+            jobFailed = true;
+            ShowError(console, ex.Message);
+        }
+        catch (OperationCanceledException)
+        {
+            console.MarkupLine("[yellow]Detached from stream. Job continues running.[/]");
+            return 0;
+        }
+
+        await followCts.CancelAsync();
+        if (jobFailed) return 1;
+
+        if (lastEvt is not null)
+            ShowSuccess(console, $"Export complete — {lastEvt.WorkItemsProcessed} work items / {lastEvt.RevisionsProcessed} revisions written to package.");
+        else
+            ShowSuccess(console, "Simulated export complete.");
+        return 0;
     }
 
     private async Task<int> ExecuteAdoExportAsync(MigrationOptions config, QueueCommandSettings settings, CancellationToken cancellationToken)
     {
         var console = GetRequiredService<IAnsiConsole>();
 
-        var orgUrl = config.Source?.ResolvedUrl;
-        var project = config.Source?.Project;
+        var orgUrl = config.Source?.GetResolvedUrl();
+        var project = config.Source?.GetProject();
 
         if (string.IsNullOrWhiteSpace(orgUrl))
         {
@@ -244,7 +354,7 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
         var modules = BuildModules(config);
 
         // Pre-flight: count work items so we can show a deterministic progress bar.
-        var pat = config.Source!.Authentication?.ResolvedAccessToken ?? string.Empty;
+        var pat = (config.Source as AzureDevOpsEndpointOptions)?.Authentication?.ResolvedAccessToken ?? string.Empty;
         var baseQuery = modules
             .FirstOrDefault(m => string.Equals(m.Name, "WorkItems", StringComparison.Ordinal))
             ?.Scopes.FirstOrDefault(s => string.Equals(s.Type, "wiql", StringComparison.OrdinalIgnoreCase))
@@ -264,13 +374,13 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
         var sourceEndpoint = new OrganisationEndpoint
         {
             ResolvedUrl = orgUrl,
-            Type = config.Source.Type ?? "AzureDevOps",
+            Type = config.Source?.Type ?? "AzureDevOps",
             Authentication = new OrganisationEndpointAuthentication
             {
                 Type = Abstractions.Options.AuthenticationType.Pat,
                 ResolvedAccessToken = pat
             },
-            ApiVersion = config.Source.ApiVersion
+            ApiVersion = config.Source?.GetResolvedUrl().Length > 0 ? (config.Source as AzureDevOpsEndpointOptions)?.ApiVersion : null
         };
 
         await console.Status()
@@ -299,8 +409,8 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
                 Type = config.Source!.Type ?? "AzureDevOps",
                 Url = orgUrl,
                 Project = project,
-                ApiVersion = config.Source.ApiVersion,
-                Authentication = config.Source.Authentication
+                ApiVersion = (config.Source as AzureDevOpsEndpointOptions)?.ApiVersion,
+                Authentication = (config.Source as AzureDevOpsEndpointOptions)?.Authentication
             },
             Artefacts = new JobArtefacts
             {

@@ -214,6 +214,21 @@ Key properties:
 
 ---
 
+## 15. Assembly Reference
+
+| Assembly | Target | Purpose |
+|---|---|---|
+| `DevOpsMigrationPlatform.Abstractions` | `net481;net10.0` | Core contracts: `IModule`, `IArtefactStore`, `IStateStore`, `IProgressSink`, `IWorkItemImportTargetFactory`, `IWorkItemRevisionSourceFactory`, `OrganisationEndpoint`, `MigrationEndpointOptions`, domain models |
+| `DevOpsMigrationPlatform.Infrastructure` | `net481;net10.0` | Shared infrastructure: `FileSystemArtefactStore`, `PackageCheckpointStateStore`, composite factory pattern, `EndpointOptionsTypeRegistry`, polymorphic JSON converters, `CatalogService` |
+| `DevOpsMigrationPlatform.Infrastructure.AzureDevOps` | `net10.0` | ADO connector: `AzureDevOpsEndpointOptions`, `AzureDevOpsWorkItemRevisionSource`, `AzureDevOpsWorkItemImportTarget`, ADO SDK services |
+| `DevOpsMigrationPlatform.Infrastructure.TfsObjectModel` | `net481` | TFS connector: `TeamFoundationServerEndpointOptions`, TFS Object Model services |
+| `DevOpsMigrationPlatform.Infrastructure.Simulated` | `net10.0` | Simulated connector: Config-driven synthetic connector for offline testing. Implements all source and target interfaces with deterministic generated data. No credentials required. |
+| `DevOpsMigrationPlatform.ControlPlane` | `net10.0` | Control plane service library: HTTP API, job state machine, lease protocol, EF Core data model |
+| `DevOpsMigrationPlatform.ControlPlaneHost` | `net10.0` | Deployable ASP.NET Core host for the control plane |
+| `DevOpsMigrationPlatform.MigrationAgent` | `net10.0` | Stateless migration worker: job engine, module executor |
+| `DevOpsMigrationPlatform.CLI.Migration` | `net10.0` | Operator CLI (`devopsmigration`) |
+| `DevOpsMigrationPlatform.CLI.TfsMigration` | `net481` | TFS export subprocess |
+
 ## Full Reference Set
 
 | Section | Document |

@@ -1,6 +1,8 @@
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Services;
+using DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Options;
 using DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Services;
+using DevOpsMigrationPlatform.Infrastructure.Extensions;
 using DevOpsMigrationPlatform.Infrastructure.Modules;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.TeamFoundation.WorkItemTracking.WebApi;
@@ -36,7 +38,12 @@ public static class ExportServiceCollectionExtensions
         services.AddSingleton<IWorkItemQueryWindowStrategy, WorkItemQueryWindowStrategy>();
         services.AddSingleton<IAzureDevOpsWorkItemRevisionMapper, AzureDevOpsWorkItemRevisionMapper>();
         services.AddScoped<AzureDevOpsAttachmentRegistry>();
-        services.AddScoped<IWorkItemRevisionSourceFactory, AzureDevOpsWorkItemRevisionSourceFactory>();
+        services.AddScoped<AzureDevOpsWorkItemRevisionSourceFactory>();
+        services.AddRevisionSourceFactory<AzureDevOpsWorkItemRevisionSourceFactory>("AzureDevOpsServices");
+
+        // Register ADO endpoint option types for polymorphic JSON deserialization
+        services.AddEndpointOptionsType("AzureDevOpsServices", typeof(AzureDevOpsEndpointOptions));
+        services.AddOrganisationEntryType("AzureDevOpsServices", typeof(AzureDevOpsOrganisationEntry));
 
         // Inline comment fetching: factories registered; activated when the Comments extension is enabled.
         services.AddSingleton<IWorkItemCommentSourceFactory, AzureDevOpsWorkItemCommentSourceFactory>();
@@ -85,6 +92,11 @@ public static class ExportServiceCollectionExtensions
         services.AddSingleton<IWiqlQueryClientFactory, AzureDevOpsWiqlQueryClientFactory>();
         services.AddSingleton<IWorkItemQueryWindowStrategy, WorkItemQueryWindowStrategy>();
         services.AddSingleton<IWorkItemDiscoveryService, AzureDevOpsWorkItemDiscoveryService>();
+
+        // Register ADO endpoint option types for polymorphic JSON deserialization
+        services.AddEndpointOptionsType("AzureDevOpsServices", typeof(AzureDevOpsEndpointOptions));
+        services.AddOrganisationEntryType("AzureDevOpsServices", typeof(AzureDevOpsOrganisationEntry));
+
         return services;
     }
 }

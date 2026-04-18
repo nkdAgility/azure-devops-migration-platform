@@ -1,6 +1,7 @@
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Import;
 using DevOpsMigrationPlatform.Infrastructure.Checkpointing;
+using DevOpsMigrationPlatform.Infrastructure.Extensions;
 using DevOpsMigrationPlatform.Infrastructure.Import;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -27,8 +28,10 @@ public static class ImportServiceCollectionExtensions
     /// </summary>
     public static IServiceCollection AddAzureDevOpsWorkItemImport(this IServiceCollection services)
     {
-        services.AddSingleton<IWorkItemImportTargetFactory, AzureDevOpsWorkItemImportTargetFactory>();
-        services.AddSingleton<IWorkItemResolutionStrategyFactory, AzureDevOpsResolutionStrategyFactory>();
+        // Register ADO import target factory as a keyed entry in the composite dispatcher
+        services.AddImportTargetFactory<AzureDevOpsWorkItemImportTargetFactory>("AzureDevOpsServices");
+        // Register ADO resolution strategy factory as a keyed entry in the composite dispatcher
+        services.AddResolutionStrategyFactory<AzureDevOpsResolutionStrategyFactory, AzureDevOpsWorkItemImportTarget>();
         services.AddSingleton<IIdentityMappingService, PassThroughIdentityMappingService>();
         services.AddSingleton<ICheckpointingServiceFactory, CheckpointingServiceFactory>();
         services.AddSingleton<IIdMapStoreFactory, IdMapStoreFactory>();

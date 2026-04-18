@@ -2,6 +2,7 @@ using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Infrastructure.AzureDevOps;
 using DevOpsMigrationPlatform.Infrastructure.Factories;
 using DevOpsMigrationPlatform.Infrastructure.JobEngine;
+using DevOpsMigrationPlatform.Infrastructure.Simulated;
 using DevOpsMigrationPlatform.Infrastructure.Telemetry;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -69,6 +70,9 @@ public static class MigrationAgentServiceExtensions
         // Register IModule implementations (WorkItemsModule + Azure DevOps infra).
         builder.Services.AddAzureDevOpsWorkItemExport();
         builder.Services.AddAzureDevOpsWorkItemImport();
+
+        // Simulated connector — required for offline tests and CI scenarios.
+        builder.Services.AddSimulatedServices();
 
         // Register IDiscoveryModule implementations for DiscoveryAgentWorker.
         builder.Services.AddAzureDevOpsInventory(builder.Configuration);

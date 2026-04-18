@@ -28,6 +28,7 @@
     <ProjectReference Include="..\DevOpsMigrationPlatform.ControlPlane\DevOpsMigrationPlatform.ControlPlane.csproj" />
     <ProjectReference Include="..\DevOpsMigrationPlatform.Infrastructure\DevOpsMigrationPlatform.Infrastructure.csproj" />
     <ProjectReference Include="..\DevOpsMigrationPlatform.Infrastructure.AzureDevOps\DevOpsMigrationPlatform.Infrastructure.AzureDevOps.csproj" />
+    <ProjectReference Include="..\DevOpsMigrationPlatform.Infrastructure.Simulated\DevOpsMigrationPlatform.Infrastructure.Simulated.csproj" />
     <ProjectReference Include="..\DevOpsMigrationPlatform.MigrationAgent\DevOpsMigrationPlatform.MigrationAgent.csproj" />
   </ItemGroup>
 
