@@ -11,12 +11,17 @@ namespace DevOpsMigrationPlatform.Infrastructure.Simulated.Export;
 /// <summary>
 /// Creates a <see cref="SimulatedWorkItemRevisionSource"/> for endpoints with
 /// <c>Type == "Simulated"</c>. No credentials are required.
-/// Accepts either <see cref="SimulatedEndpointOptions"/> (direct config) or
-/// <see cref="JobEndpointMigrationOptions"/> (agent bridge), extracting the
-/// generator config from <see cref="JobEndpoint.Properties"/> in the latter case.
+/// Accepts <see cref="SimulatedEndpointOptions"/> (direct config) or
+/// <see cref="JobEndpointMigrationOptions"/> wrapping a <see cref="SimulatedJobEndpoint"/>
+/// (agent bridge), extracting the generator config from <see cref="SimulatedJobEndpoint.Generator"/>.
 /// </summary>
 public sealed class SimulatedWorkItemRevisionSourceFactory : IWorkItemRevisionSourceFactory
 {
+    private static readonly JsonSerializerOptions _jsonOptions = new()
+    {
+        PropertyNameCaseInsensitive = true
+    };
+
     /// <inheritdoc/>
     public Task<IWorkItemRevisionSource> CreateAsync(
         MigrationEndpointOptions endpoint,
@@ -47,25 +52,24 @@ public sealed class SimulatedWorkItemRevisionSourceFactory : IWorkItemRevisionSo
             new SimulatedWorkItemRevisionSource(generatorConfig));
     }
 
-    private static readonly JsonSerializerOptions _jsonOptions = new()
-    {
-        PropertyNameCaseInsensitive = true
-    };
-
     private static SimulatedGeneratorConfig ExtractGeneratorConfig(JobEndpoint jobEndpoint)
     {
-        if (jobEndpoint.Properties?.TryGetValue("Generator", out var genObj) == true && genObj is not null)
+        // Prefer the typed SimulatedJobEndpoint.Generator field.
+        if (jobEndpoint is SimulatedJobEndpoint simEndpoint && simEndpoint.Generator is not null)
         {
-            if (genObj is JsonElement el)
-            {
-                return el.Deserialize<SimulatedGeneratorConfig>(_jsonOptions) ?? new SimulatedGeneratorConfig();
-            }
-
-            if (genObj is SimulatedGeneratorConfig cfg)
-            {
-                return cfg;
-            }
+            return DeserializeGenerator(simEndpoint.Generator);
         }
+
+        return new SimulatedGeneratorConfig();
+    }
+
+    private static SimulatedGeneratorConfig DeserializeGenerator(object generator)
+    {
+        if (generator is SimulatedGeneratorConfig cfg)
+            return cfg;
+
+        if (generator is JsonElement el)
+            return el.Deserialize<SimulatedGeneratorConfig>(_jsonOptions) ?? new SimulatedGeneratorConfig();
 
         return new SimulatedGeneratorConfig();
     }

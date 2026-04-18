@@ -56,14 +56,7 @@ public sealed class PrepareCommand : ControlPlaneCommandBase<MigrationCommandSet
             JobId = Guid.NewGuid().ToString(),
             Mode = "Prepare",
             Source = config.Source is not null
-                ? new JobEndpoint
-                {
-                    Type = config.Source.Type,
-                    Url = config.Source.GetResolvedUrl(),
-                    Project = config.Source.GetProject(),
-                    ApiVersion = (config.Source as DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Options.AzureDevOpsEndpointOptions)?.ApiVersion,
-                    Authentication = (config.Source as DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Options.AzureDevOpsEndpointOptions)?.Authentication
-                }
+                ? BuildJobEndpoint(config.Source, config.Source.GetResolvedUrl(), config.Source.GetProject())
                 : null,
             Artefacts = new JobArtefacts
             {

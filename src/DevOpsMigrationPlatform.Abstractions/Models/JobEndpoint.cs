@@ -1,40 +1,42 @@
-using System.Collections.Generic;
+#if NET7_0_OR_GREATER
+using System.Text.Json.Serialization;
+#endif
 using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Abstractions.Utilities;
 
 namespace DevOpsMigrationPlatform.Abstractions;
 
-/// <summary>Source or target system connection in a <see cref="MigrationJob"/>.</summary>
-public class JobEndpoint
+/// <summary>
+/// Base class for source or target system connection in a <see cref="MigrationJob"/>.
+/// Concrete subtypes carry only the fields relevant to their connector type.
+///
+/// <para>Polymorphic deserialization uses the <c>"$type"</c> discriminator on .NET 7+:</para>
+/// <list type="bullet">
+///   <item><c>"AzureDevOpsServices"</c> → <see cref="AzureDevOpsJobEndpoint"/></item>
+///   <item><c>"TeamFoundationServer"</c> → <see cref="TfsJobEndpoint"/></item>
+///   <item><c>"Simulated"</c> → <see cref="SimulatedJobEndpoint"/></item>
+/// </list>
+/// </summary>
+#if NET7_0_OR_GREATER
+[JsonPolymorphic(TypeDiscriminatorPropertyName = "$type")]
+[JsonDerivedType(typeof(AzureDevOpsJobEndpoint), "AzureDevOpsServices")]
+[JsonDerivedType(typeof(TfsJobEndpoint), "TeamFoundationServer")]
+[JsonDerivedType(typeof(SimulatedJobEndpoint), "Simulated")]
+#endif
+public abstract class JobEndpoint
 {
-    /// <summary>AzureDevOpsServices or TeamFoundationServer.</summary>
+    /// <summary>Connector discriminator: AzureDevOpsServices, TeamFoundationServer, or Simulated.</summary>
     public string Type { get; init; } = string.Empty;
 
-    /// <summary>Organisation URL (AZDO) or collection URL (TFS).
-    /// May contain a <c>$ENV:VARNAME</c> reference — use <see cref="ResolvedUrl"/> for API calls.</summary>
-    public string Url { get; init; } = string.Empty;
+    /// <summary>The effective URL after <c>$ENV:VARNAME</c> expansion. Empty when not applicable.</summary>
+    public virtual string ResolvedUrl => string.Empty;
 
-    /// <summary>The effective URL after <c>$ENV:VARNAME</c> expansion.</summary>
-    public string ResolvedUrl => TokenResolver.Resolve(Url) ?? string.Empty;
+    /// <summary>Team project name. Empty when not applicable.</summary>
+    public virtual string Project { get; init; } = string.Empty;
 
-    /// <summary>Team project name.</summary>
-    public string Project { get; init; } = string.Empty;
+    /// <summary>API version string. Null when not applicable.</summary>
+    public virtual string? ApiVersion { get; init; }
 
-    /// <summary>API version string (AZDO) or leave empty for TFS.</summary>
-    public string? ApiVersion { get; init; }
-
-    /// <summary>
-    /// Authentication credentials for this endpoint.
-    /// Carried from the config into the job contract so that Migration Agents
-    /// can authenticate to both REST (Azure DevOps) and Object Model (TFS) sources
-    /// without requiring a separate credential lookup.
-    /// </summary>
-    public EndpointAuthenticationOptions? Authentication { get; init; }
-
-    /// <summary>
-    /// Connector-specific properties that do not fit the common endpoint fields.
-    /// Used by connectors like <c>Simulated</c> to carry generator configuration.
-    /// Values are serialised as JSON; consumers deserialise to the expected type.
-    /// </summary>
-    public Dictionary<string, object?>? Properties { get; init; }
+    /// <summary>Authentication credentials. Null when not applicable.</summary>
+    public virtual EndpointAuthenticationOptions? Authentication { get; init; }
 }

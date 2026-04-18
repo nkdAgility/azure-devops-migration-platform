@@ -113,14 +113,7 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
         {
             JobId = Guid.NewGuid().ToString(),
             Mode = "Import",
-            Target = new JobEndpoint
-            {
-                Type = config.Target!.Type,
-                Url = orgUrl,
-                Project = project,
-                ApiVersion = (config.Target as AzureDevOpsEndpointOptions)?.ApiVersion,
-                Authentication = (config.Target as AzureDevOpsEndpointOptions)?.Authentication
-            },
+            Target = BuildJobEndpoint(config.Target!, orgUrl, project),
             Artefacts = new JobArtefacts
             {
                 PackageUri = $"file:///{outputPath.Replace(Path.DirectorySeparatorChar, '/')}",
@@ -238,24 +231,17 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
 
         var modules = BuildModules(config);
 
-        // Carry the generator config through the job contract so the agent can
-        // reconstruct SimulatedGeneratorConfig without access to the original config file.
-        var sourceProperties = new Dictionary<string, object?>();
-        if (config.Source is DevOpsMigrationPlatform.Infrastructure.Simulated.Options.SimulatedEndpointOptions simOpts)
-        {
-            sourceProperties["Generator"] = simOpts.Generator;
-        }
+        // Extract the generator config so the agent can reconstruct it without the original config file.
+        object? generatorConfig = (config.Source as DevOpsMigrationPlatform.Infrastructure.Simulated.Options.SimulatedEndpointOptions)?.Generator;
 
         var job = new MigrationJob
         {
             JobId = Guid.NewGuid().ToString(),
             Mode = "Export",
-            Source = new JobEndpoint
+            Source = new SimulatedJobEndpoint
             {
                 Type = "Simulated",
-                Url = orgUrl,
-                Project = project,
-                Properties = sourceProperties
+                Generator = generatorConfig
             },
             Artefacts = new JobArtefacts
             {
@@ -404,9 +390,9 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
         {
             JobId = Guid.NewGuid().ToString(),
             Mode = "Export",
-            Source = new JobEndpoint
+            Source = new AzureDevOpsJobEndpoint
             {
-                Type = config.Source!.Type ?? "AzureDevOps",
+                Type = config.Source!.Type ?? "AzureDevOpsServices",
                 Url = orgUrl,
                 Project = project,
                 ApiVersion = (config.Source as AzureDevOpsEndpointOptions)?.ApiVersion,

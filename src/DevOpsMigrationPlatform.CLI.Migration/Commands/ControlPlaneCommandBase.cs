@@ -2,8 +2,11 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
+using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.CLI.Migration.Options;
 using DevOpsMigrationPlatform.CLI.Migration.Settings;
+using DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Options;
+using DevOpsMigrationPlatform.Infrastructure.Simulated.Options;
 using Spectre.Console;
 using Spectre.Console.Cli;
 using System;
@@ -84,5 +87,34 @@ public abstract class ControlPlaneCommandBase<TSettings> : CommandBase<TSettings
         console.MarkupLine("[green]\u2713[/] Job submitted.");
         console.MarkupLine($"  Job ID  : [bold]{jobId}[/]");
         console.MarkupLine($"  Control : [blue]{Markup.Escape(controlPlaneUrl)}[/]");
+    }
+
+    /// <summary>
+    /// Creates the correct <see cref="JobEndpoint"/> subtype for the given config endpoint.
+    /// </summary>
+    protected static JobEndpoint BuildJobEndpoint(MigrationEndpointOptions endpoint, string resolvedUrl, string project)
+    {
+        return endpoint switch
+        {
+            SimulatedEndpointOptions sim => new SimulatedJobEndpoint
+            {
+                Type = "Simulated",
+                Generator = sim.Generator
+            },
+            AzureDevOpsEndpointOptions ado => new AzureDevOpsJobEndpoint
+            {
+                Type = ado.Type,
+                Url = resolvedUrl,
+                Project = project,
+                ApiVersion = ado.ApiVersion,
+                Authentication = ado.Authentication
+            },
+            _ => new AzureDevOpsJobEndpoint
+            {
+                Type = endpoint.Type,
+                Url = resolvedUrl,
+                Project = project
+            }
+        };
     }
 }
