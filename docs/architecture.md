@@ -103,6 +103,8 @@ Module code never references a concrete store implementation.
 
 `OrganisationEndpoint` (in `DevOpsMigrationPlatform.Abstractions`) is the immutable connection context type used by all service interfaces. It bundles `ResolvedUrl`, `Type`, `Authentication` (`OrganisationEndpointAuthentication`), and optional `ApiVersion` into a single parameter, replacing separate `(string url, string pat)` arguments. `ScopedOrganisationEndpoint` pairs an `OrganisationEndpoint` with a project list for job-level scoping (e.g., `DiscoveryJob.Organisations`).
 
+**Consumers**: `IWorkItemFetchService.FetchAsync`, `IAzureDevOpsClientFactory.CreateWorkItemClientAsync`, `IWorkItemQueryWindowStrategy.EnumerateWindowsAsync` (via adapter), and discovery/dependency analysis services all accept `OrganisationEndpoint` as their connection context.
+
 **Concurrent Write Protection**: Packages are protected from simultaneous writes by a lease-based protocol. Only one agent may hold a lease on a package at any time. See [docs/concurrent-write-detection.md](concurrent-write-detection.md) for the lease mechanism and data integrity guarantees.
 
 ### Cross-Environment Package Handoff

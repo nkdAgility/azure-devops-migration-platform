@@ -54,6 +54,11 @@ public static class DependencyServiceCollectionExtensions
         }
 
         // Register discovery services needed by CatalogService and other components
+        if (!services.Any(x => x.ServiceType == typeof(IWorkItemFetchService)))
+        {
+            services.AddSingleton<IWorkItemFetchService, AzureDevOpsWorkItemFetchService>();
+        }
+
         if (!services.Any(x => x.ServiceType == typeof(IWorkItemDiscoveryService)))
         {
             services.AddSingleton<IWorkItemDiscoveryService, AzureDevOpsWorkItemDiscoveryService>();

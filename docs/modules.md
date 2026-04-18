@@ -49,6 +49,8 @@ interface IModule
 | `BuildsModule` | Export build pipeline definitions |
 | `GitModule` | Export Git repository structure and optionally pack contents |
 
+> **Field-projected fetching**: Inventory and dependency analysis modules use `IWorkItemFetchService` for streaming, field-projected work item retrieval. This abstraction handles WIQL windowing, batch API calls, and in-process filtering — modules should not call `GetWorkItemsAsync` directly.
+
 ### Adding a New Module
 
 See [.agents/guardrails/module-template.md](../.agents/guardrails/module-template.md) for the full checklist.

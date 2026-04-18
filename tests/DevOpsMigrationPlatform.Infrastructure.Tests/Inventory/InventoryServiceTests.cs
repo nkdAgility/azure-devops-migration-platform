@@ -316,8 +316,8 @@ public class InventoryServiceTests
     public void AzureDevOpsWorkItemDiscoveryService_ImplementsInterface()
     {
         var windowStrategy = new Mock<IWorkItemQueryWindowStrategy>(MockBehavior.Strict);
-        var clientFactory = new Mock<IAzureDevOpsClientFactory>(MockBehavior.Strict);
-        var sut = new AzureDevOpsWorkItemDiscoveryService(windowStrategy.Object, clientFactory.Object);
+        var fetchService = new Mock<IWorkItemFetchService>(MockBehavior.Strict);
+        var sut = new AzureDevOpsWorkItemDiscoveryService(windowStrategy.Object, fetchService.Object);
         Assert.IsInstanceOfType(sut, typeof(IWorkItemDiscoveryService),
             "AzureDevOpsWorkItemDiscoveryService must implement IWorkItemDiscoveryService");
     }
@@ -356,9 +356,9 @@ public class InventoryServiceTests
     [TestMethod]
     public void AzureDevOpsWorkItemDiscoveryService_ThrowsOnNullStrategy()
     {
-        var clientFactory = new Mock<IAzureDevOpsClientFactory>(MockBehavior.Strict);
+        var fetchService = new Mock<IWorkItemFetchService>(MockBehavior.Strict);
         Assert.ThrowsExactly<ArgumentNullException>(() =>
-            new AzureDevOpsWorkItemDiscoveryService(null!, clientFactory.Object));
+            new AzureDevOpsWorkItemDiscoveryService(null!, fetchService.Object));
     }
 
     // ── Repo discovery ────────────────────────────────────────────────────────
@@ -472,7 +472,7 @@ public class InventoryServiceTests
         // Arrange
         var (strategyMock, capturedOptions) = BuildCountingStrategyMock(
             new[] { 1, 2, 3 });
-        var clientFactory = new Mock<IAzureDevOpsClientFactory>(MockBehavior.Strict);
+        var clientFactory = new Mock<IWorkItemFetchService>(MockBehavior.Strict);
         var sut = new AzureDevOpsWorkItemDiscoveryService(strategyMock.Object, clientFactory.Object);
 
         // Act
@@ -492,7 +492,7 @@ public class InventoryServiceTests
         const string query = "SELECT [System.Id] FROM WorkItems WHERE [System.TeamProject] = @project";
         var (strategyMock, capturedOptions) = BuildCountingStrategyMock(
             new[] { 10, 20 });
-        var clientFactory = new Mock<IAzureDevOpsClientFactory>(MockBehavior.Strict);
+        var clientFactory = new Mock<IWorkItemFetchService>(MockBehavior.Strict);
         var sut = new AzureDevOpsWorkItemDiscoveryService(strategyMock.Object, clientFactory.Object);
 
         // Act
@@ -511,7 +511,7 @@ public class InventoryServiceTests
         var (strategyMock, _) = BuildCountingStrategyMock(
             new[] { 1, 2, 3 },
             new[] { 4, 5 });
-        var clientFactory = new Mock<IAzureDevOpsClientFactory>(MockBehavior.Strict);
+        var clientFactory = new Mock<IWorkItemFetchService>(MockBehavior.Strict);
         var sut = new AzureDevOpsWorkItemDiscoveryService(strategyMock.Object, clientFactory.Object);
 
         // ProjectDiscoverySummary is mutable and the implementation re-yields the same reference.
@@ -539,7 +539,7 @@ public class InventoryServiceTests
     {
         // Arrange: strategy yields no windows
         var (strategyMock, _) = BuildCountingStrategyMock( /* no windows */);
-        var clientFactory = new Mock<IAzureDevOpsClientFactory>(MockBehavior.Strict);
+        var clientFactory = new Mock<IWorkItemFetchService>(MockBehavior.Strict);
         var sut = new AzureDevOpsWorkItemDiscoveryService(strategyMock.Object, clientFactory.Object);
 
         // Act: capture values at iteration time (ProjectDiscoverySummary is a mutable reference)

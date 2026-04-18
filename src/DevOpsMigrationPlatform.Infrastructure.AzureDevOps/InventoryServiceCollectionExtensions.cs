@@ -27,6 +27,7 @@ public static class InventoryServiceCollectionExtensions
         services.AddSingleton<IAzureDevOpsClientFactory, AzureDevOpsClientFactory>();
         services.AddSingleton<IWiqlQueryClientFactory, AzureDevOpsWiqlQueryClientFactory>();
         services.AddSingleton<IWorkItemQueryWindowStrategy, WorkItemQueryWindowStrategy>();
+        services.AddSingleton<IWorkItemFetchService, AzureDevOpsWorkItemFetchService>();
         services.AddSingleton<IWorkItemDiscoveryService, AzureDevOpsWorkItemDiscoveryService>();
         services.AddSingleton<IProjectDiscoveryService, AzureDevOpsProjectDiscoveryService>();
         services.AddSingleton<IRepoDiscoveryService, AzureDevOpsRepoDiscoveryService>();

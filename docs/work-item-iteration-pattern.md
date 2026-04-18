@@ -14,6 +14,7 @@ This pattern has been proven to handle 20,000+ work items with bounded memory. E
 3. Use `ICheckpointingService` for cursor-based progress tracking.
 4. Use `IArtefactStore.EnumerateAsync()` (in lexicographic order) for import enumeration.
 5. Stream attachment binaries directly — never buffer in memory.
+6. Use `IWorkItemFetchService` for field-projected, filtered work item fetching in inventory, dependency analysis, and catalog operations. Do not call `GetWorkItemsAsync` directly from these callers.
 
 If an existing pattern does not fit your use case, you MUST:
 
@@ -31,6 +32,7 @@ If an existing pattern does not fit your use case, you MUST:
 Work item export and import must handle large datasets (20,000+ items) with bounded memory. This is achieved through:
 
 - **Streaming enumeration** via `IAsyncEnumerable<WorkItemRevision>` (no pre-loading of all items)
+- **Field-projected fetching** via `IWorkItemFetchService` returning `IAsyncEnumerable<FetchedWorkItem>` (inventory/dependency paths)
 - **Chronological ordering** via lexicographic folder paths (no in-memory sorting)
 - **Cursor-based checkpointing** via `ICheckpointingService` (resumable and observable)
 - **Staged processing** (CreatedOrUpdated → AppliedFields → AppliedLinks → UploadedAttachments)

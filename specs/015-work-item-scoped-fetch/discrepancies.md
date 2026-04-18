@@ -2,7 +2,7 @@
 
 **Feature**: Work Item Scoped Fetch Service (015-work-item-scoped-fetch)
 **Flagged by**: speckit.specify, speckit.plan
-**Status**: Pending rectification (resolve in speckit.implement)
+**Status**: All resolved
 
 ## Discrepancies
 
@@ -14,15 +14,13 @@
 - **Suggested update**: Add a rule under the Mandatory Reuse Principle section:
   > "6. Use `IWorkItemFetchService` for field-projected, filtered work item fetching in inventory, dependency analysis, and catalog operations. Do not call `GetWorkItemsAsync` directly from these callers."
   Also add `IWorkItemFetchService` and `FetchedWorkItem` to the Overview list of abstractions.
-- **Status**: Pending
-
-### D-002: `FetchedWorkItem` and `IWorkItemFetchService` not referenced in `docs/modules.md`
+- **Status**: ✓ Resolved in speckit.implement: `FetchedWorkItem` and `IWorkItemFetchService` not referenced in `docs/modules.md`
 
 - **Source doc**: `docs/modules.md`
 - **Section**: Module Responsibilities / Contract Invariants
 - **Issue**: `docs/modules.md` describes the `IModule` contract and storage rules but does not mention the new shared fetch service. After this feature lands, the modules doc should note that inventory/dependency modules use `IWorkItemFetchService` rather than direct API calls.
 - **Suggested update**: Add a brief note to the Module Responsibilities table row for the inventory/dependency modules referencing `IWorkItemFetchService`.
-- **Status**: Pending
+- **Status**: ✓ Resolved in speckit.implement
 
 ### D-003: `docs/architecture.md` does not mention `IWorkItemFetchService` in the OrganisationEndpoint section
 
@@ -30,7 +28,7 @@
 - **Section**: OrganisationEndpoint — Canonical Connection Context
 - **Issue**: The architecture overview mentions `OrganisationEndpoint` as the immutable connection context type but does not yet list `IWorkItemFetchService` among its consumers. After this feature lands, `FetchAsync(OrganisationEndpoint, ...)` becomes a primary consumer of this type.
 - **Suggested update**: Add `IWorkItemFetchService` to the list of service interfaces that use `OrganisationEndpoint` as their connection context parameter.
-- **Status**: Pending
+- **Status**: ✓ Resolved in speckit.implement
 
 ### D-004: `IWorkItemQueryWindowStrategy` still accepts `MigrationEndpointOptions` — not yet aligned with `OrganisationEndpoint`
 
@@ -38,4 +36,4 @@
 - **Section**: Interface signatures
 - **Issue**: The existing `IWorkItemQueryWindowStrategy.EnumerateWindowsAsync()` accepts `MigrationEndpointOptions` (a config-layer type). The new `IWorkItemFetchService.FetchAsync()` accepts `OrganisationEndpoint` (the resolved connection type). The ADO fetch service implementation will need to convert `OrganisationEndpoint` back to `MigrationEndpointOptions` to call the window strategy, or the window strategy signature needs to be updated in a future feature. This is a known asymmetry, not a blocker — the conversion extension `ToOrganisationEndpoint()` already exists and can be inverted.
 - **Suggested update**: Track as a follow-up task: align `IWorkItemQueryWindowStrategy` signature to accept `OrganisationEndpoint` in a subsequent feature. For now, the ADO fetch service will bridge the gap internally.
-- **Status**: Pending (deferred — not blocking this feature)
+- **Status**: N/A — deferred to future feature
