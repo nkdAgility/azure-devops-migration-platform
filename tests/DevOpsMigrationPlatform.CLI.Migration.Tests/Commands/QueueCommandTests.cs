@@ -12,6 +12,7 @@ namespace DevOpsMigrationPlatform.CLI.Migration.Tests.Commands;
 /// (Export, Import, or Both).
 /// </summary>
 [TestClass]
+[DoNotParallelize]
 public class QueueCommandTests
 {
     // ── Unit tests ─────────────────────────────────────────────────────────

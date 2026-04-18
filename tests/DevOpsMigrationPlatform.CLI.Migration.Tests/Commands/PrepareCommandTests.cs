@@ -12,6 +12,7 @@ namespace DevOpsMigrationPlatform.CLI.Migration.Tests.Commands;
 /// (CLI → Control Plane → Agent → ArtefactStore) to validate end-to-end connectivity.
 /// </summary>
 [TestClass]
+[DoNotParallelize]
 public class PrepareCommandTests
 {
     // ── Unit tests ─────────────────────────────────────────────────────────
