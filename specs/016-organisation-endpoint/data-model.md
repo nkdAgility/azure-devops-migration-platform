@@ -5,6 +5,26 @@
 
 ## New Types
 
+### `MigrationEndpointOptions`
+
+**Location**: `DevOpsMigrationPlatform.Abstractions.Options.MigrationEndpointOptions`  
+**Kind**: Abstract base class
+
+| Property/Method | Type | Description |
+|-----------------|------|-------------|
+| `Type` | `string` | Endpoint kind: `AzureDevOpsServices`, `TeamFoundationServer`, `Simulated`. |
+| `ValidateEndpointFields()` | `virtual void` | Validates connector-specific fields. |
+| `GetEndpointUrl()` | `virtual string` | Returns raw (unexpanded) connection URL. |
+| `GetProject()` | `virtual string` | Returns team project name. |
+| `GetResolvedUrl()` | `virtual string` | Returns resolved connection URL after token expansion. |
+
+**Invariants**:
+- Accepted by ALL Abstractions-level service interfaces as the connection context parameter.
+- Concrete subclasses carry connector-specific fields (e.g. `AzureDevOpsEndpointOptions`, `SimulatedEndpointOptions`).
+- Enables polymorphic dispatch — new connector types can be added without modifying service interfaces.
+
+---
+
 ### `OrganisationEndpoint`
 
 **Location**: `DevOpsMigrationPlatform.Abstractions.Models.OrganisationEndpoint`  
@@ -20,7 +40,7 @@
 **Invariants**:
 - Does NOT carry `Projects`, `Url` (raw), or `Enabled`.
 - Carries only resolved values — no `$ENV:VARNAME` tokens.
-- Used by all Abstractions-level service interfaces as the connection context parameter.
+- Used by `IAzureDevOpsClientFactory` (in `Infrastructure.AzureDevOps`) as the ADO/TFS-specific resolved connection context. NOT used directly by Abstractions-level service interfaces (they accept `MigrationEndpointOptions`).
 
 ---
 
@@ -48,7 +68,7 @@
 
 | Property | Type | Description |
 |----------|------|-------------|
-| `Endpoint` | `OrganisationEndpoint` | Connection context (resolved URL + auth + type + API version). |
+| `Endpoint` | `MigrationEndpointOptions` | Connection context (polymorphic — carries connector-specific fields). |
 | `Projects` | `List<string>` | Projects to target. Empty = all projects. |
 
 **Invariants**:
@@ -72,7 +92,9 @@
 
 | Change | Description |
 |--------|-------------|
-| New method | `ToOrganisationEndpoint()` — resolves `$ENV:VARNAME` tokens in URL and AccessToken, maps `EndpointAuthenticationOptions` to `OrganisationEndpointAuthentication`, copies `ApiVersion`, returns `OrganisationEndpoint`. |
+| Now abstract | `OrganisationEntry` is an abstract base class with connector-agnostic fields (`Type`, `Projects`, `Enabled`). |
+| New abstract method | `ToEndpointOptions()` — each concrete subclass (e.g. `AzureDevOpsOrganisationEntry`) resolves `$ENV:VARNAME` tokens and returns a `MigrationEndpointOptions` instance. |
+| New abstract method | `ValidateConnectorFields()` — connector-specific validation. |
 
 ---
 
@@ -80,7 +102,7 @@
 
 | Type | Replacement |
 |------|-------------|
-| `DiscoveryJobOrganisation` | `ScopedOrganisationEndpoint` (on `DiscoveryJob`) + `OrganisationEndpoint` (in service interfaces) |
+| `DiscoveryJobOrganisation` | `ScopedOrganisationEndpoint` (on `DiscoveryJob`) + `MigrationEndpointOptions` (in service interfaces) + `OrganisationEndpoint` (in `IAzureDevOpsClientFactory`) |
 | `DiscoveryJobAuthentication` | `OrganisationEndpointAuthentication` |
 
 ---
@@ -88,19 +110,35 @@
 ## Type Relationships
 
 ```
-OrganisationEntry (config, mutable)
-    ├── .ToOrganisationEndpoint() ──→ OrganisationEndpoint (runtime, immutable)
-    │                                    ├── .Authentication ──→ OrganisationEndpointAuthentication
-    │                                    └── .ApiVersion
-    └── (CLI maps to) ──→ ScopedOrganisationEndpoint (job contract)
-                              ├── .Endpoint ──→ OrganisationEndpoint
-                              └── .Projects
+MigrationEndpointOptions (abstract base, Abstractions)
+    ├── AzureDevOpsEndpointOptions (concrete, connector-specific)
+    ├── SimulatedEndpointOptions (concrete, connector-specific)
+    └── (extensible — new connectors subclass this)
+
+OrganisationEntry (abstract config base, mutable)
+    ├── AzureDevOpsOrganisationEntry (concrete config)
+    │   └── .ToEndpointOptions() ──→ AzureDevOpsEndpointOptions : MigrationEndpointOptions
+    └── SimulatedOrganisationEntry (concrete config)
+        └── .ToEndpointOptions() ──→ SimulatedEndpointOptions : MigrationEndpointOptions
+
+ScopedOrganisationEndpoint (job contract)
+    ├── .Endpoint ──→ MigrationEndpointOptions (polymorphic)
+    └── .Projects ──→ List<string>
 
 DiscoveryJob
     └── .Organisations ──→ List<ScopedOrganisationEndpoint>
 
 Service interfaces (IWorkItemDiscoveryService, ICatalogService, etc.)
-    └── accept OrganisationEndpoint (not scope, not entry)
+    └── accept MigrationEndpointOptions (polymorphic, not scope, not entry)
+
+IAzureDevOpsClientFactory (Infrastructure.AzureDevOps)
+    └── accept OrganisationEndpoint (resolved ADO/TFS type)
+
+OrganisationEndpoint (sealed, immutable, resolved ADO/TFS context)
+    ├── .ResolvedUrl
+    ├── .Type
+    ├── .Authentication ──→ OrganisationEndpointAuthentication
+    └── .ApiVersion
 ```
 
 ## Interface Signature Changes
@@ -109,14 +147,14 @@ Service interfaces (IWorkItemDiscoveryService, ICatalogService, etc.)
 
 | Interface | Method | Before | After |
 |-----------|--------|--------|-------|
-| `IWorkItemDiscoveryService` | `DiscoverWorkItemsAsync` | `(string url, string project, string pat, ...)` | `(OrganisationEndpoint endpoint, string project, ...)` |
-| `IWorkItemDiscoveryService` | `CountWorkItemsAsync` | `(string url, string project, string pat, ...)` | `(OrganisationEndpoint endpoint, string project, ...)` |
-| `IWorkItemQueryWindowStrategy` | `EnumerateWindowsAsync` | `(string url, string project, string pat, ...)` | `(OrganisationEndpoint endpoint, string project, ...)` |
-| `IProjectDiscoveryService` | `DiscoverProjectsAsync` | `(string url, string pat, ...)` | `(OrganisationEndpoint endpoint, ...)` |
-| `ICatalogService` | `GetProjectsAsync` | `(string orgUrl, string pat, ...)` | `(OrganisationEndpoint endpoint, ...)` |
-| `ICatalogService` | `CountAllWorkItemsAsync` | `(string orgUrl, string project, string pat, ...)` | `(OrganisationEndpoint endpoint, string project, ...)` |
-| `IWorkItemLinkAnalysisService` | `AnalyseLinksAsync` | `(string organisationUrl, string project, string pat, ...)` | `(OrganisationEndpoint endpoint, string project, ...)` |
-| `IWorkItemCommentSourceFactory` | `Create` | `(string organisationUrl, string project, string pat)` | `(OrganisationEndpoint endpoint, string project)` |
+| `IWorkItemDiscoveryService` | `DiscoverWorkItemsAsync` | `(string url, string project, string pat, ...)` | `(MigrationEndpointOptions endpoint, string project, ...)` |
+| `IWorkItemDiscoveryService` | `CountWorkItemsAsync` | `(string url, string project, string pat, ...)` | `(MigrationEndpointOptions endpoint, string project, ...)` |
+| `IWorkItemQueryWindowStrategy` | `EnumerateWindowsAsync` | `(string url, string project, string pat, ...)` | `(MigrationEndpointOptions endpoint, string project, ...)` |
+| `IProjectDiscoveryService` | `DiscoverProjectsAsync` | `(string url, string pat, ...)` | `(MigrationEndpointOptions endpoint, ...)` |
+| `ICatalogService` | `GetProjectsAsync` | `(string orgUrl, string pat, ...)` | `(MigrationEndpointOptions endpoint, ...)` |
+| `ICatalogService` | `CountAllWorkItemsAsync` | `(string orgUrl, string project, string pat, ...)` | `(MigrationEndpointOptions endpoint, string project, ...)` |
+| `IWorkItemLinkAnalysisService` | `AnalyseLinksAsync` | `(string organisationUrl, string project, string pat, ...)` | `(MigrationEndpointOptions endpoint, string project, ...)` |
+| `IWorkItemCommentSourceFactory` | `Create` | `(string organisationUrl, string project, string pat)` | `(MigrationEndpointOptions endpoint, string project)` |
 | `IInventoryServiceFactory` | `Create` | `(IReadOnlyList<DiscoveryJobOrganisation>, ...)` | `(IReadOnlyList<ScopedOrganisationEndpoint>, ...)` |
 | `IDependencyDiscoveryServiceFactory` | `Create` | `(IReadOnlyList<DiscoveryJobOrganisation>, ...)` | `(IReadOnlyList<ScopedOrganisationEndpoint>, ...)` |
 
