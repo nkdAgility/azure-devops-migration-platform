@@ -48,20 +48,21 @@ public sealed class AzureDevOpsDependencyAnalysisService : IWorkItemLinkAnalysis
     /// Results are streamed as DependencyFoundEvent and DependencyHeartbeatEvent records.
     /// </summary>
     public async IAsyncEnumerable<DependencyProgressEvent> AnalyseLinksAsync(
-        OrganisationEndpoint endpoint,
+        MigrationEndpointOptions endpoint,
         string project,
         string? wiqlFilter = null,
         [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
-        var witClient = await _clientFactory.CreateWorkItemClientAsync(endpoint, cancellationToken).ConfigureAwait(false);
+        var orgEndpoint = endpoint.ToOrganisationEndpoint();
+        var witClient = await _clientFactory.CreateWorkItemClientAsync(orgEndpoint, cancellationToken).ConfigureAwait(false);
 
         var windowOptions = string.IsNullOrWhiteSpace(wiqlFilter)
             ? null
             : new WorkItemQueryWindowOptions { BaseQuery = wiqlFilter };
 
-        _logger.LogInformation("Enumerating work item IDs for project {Project} in {OrgUrl}", project, endpoint.ResolvedUrl);
+        _logger.LogInformation("Enumerating work item IDs for project {Project} in {OrgUrl}", project, orgEndpoint.ResolvedUrl);
 
-        var sourceOrgSegment = ExtractOrgSegment(endpoint.ResolvedUrl);
+        var sourceOrgSegment = ExtractOrgSegment(orgEndpoint.ResolvedUrl);
         var counters = new LinkCounters();
         const int batchSize = 200;
 
@@ -72,6 +73,7 @@ public sealed class AzureDevOpsDependencyAnalysisService : IWorkItemLinkAnalysis
         // must still participate in GUID-to-project-name resolution so that links
         // pointing at a disabled org are resolved to human-readable names.
         var configuredOrgs = _options.Value.Organisations
+            .OfType<Infrastructure.AzureDevOps.Options.AzureDevOpsOrganisationEntry>()
             .Where(o => !string.IsNullOrWhiteSpace(o.ResolvedUrl))
             .ToDictionary(
                 o => ExtractOrgSegment(o.ResolvedUrl),
@@ -84,7 +86,7 @@ public sealed class AzureDevOpsDependencyAnalysisService : IWorkItemLinkAnalysis
 
         // ── Phase 1: collect all work item IDs so we know the total up-front ──
         // IDs are plain integers; even 200 K IDs occupy ~800 KB — well within budget.
-        _logger.LogInformation("Counting work items for project {Project} in {OrgUrl}", project, endpoint.ResolvedUrl);
+        _logger.LogInformation("Counting work items for project {Project} in {OrgUrl}", project, orgEndpoint.ResolvedUrl);
         var allIds = new List<int>();
         await foreach (var window in _windowStrategy.EnumerateWindowsAsync(
             endpoint, project, windowOptions, cancellationToken).ConfigureAwait(false))
@@ -94,7 +96,7 @@ public sealed class AzureDevOpsDependencyAnalysisService : IWorkItemLinkAnalysis
             // Emit a counting heartbeat after each window so the CLI can show a spinner
             // and partial ID count while the full enumeration is in progress.
             yield return new DependencyHeartbeatEvent(
-                endpoint.ResolvedUrl, project, 0, 0, 0, 0, false,
+                orgEndpoint.ResolvedUrl, project, 0, 0, 0, 0, false,
                 TotalWorkItems: allIds.Count, IsCounting: true);
         }
 
@@ -103,7 +105,7 @@ public sealed class AzureDevOpsDependencyAnalysisService : IWorkItemLinkAnalysis
 
         // Emit an initial heartbeat so the CLI can display the total immediately.
         yield return new DependencyHeartbeatEvent(
-            endpoint.ResolvedUrl, project, 0, 0, 0, 0, false,
+            orgEndpoint.ResolvedUrl, project, 0, 0, 0, 0, false,
             TotalWorkItems: totalWorkItems);
 
         // ── Phase 2: process IDs in batches ───────────────────────────────────
@@ -112,7 +114,7 @@ public sealed class AzureDevOpsDependencyAnalysisService : IWorkItemLinkAnalysis
             var batch = allIds.GetRange(offset, Math.Min(batchSize, allIds.Count - offset));
 
             await foreach (var evt in ProcessBatchAsync(
-                witClient, batch, sourceOrgSegment, endpoint.ResolvedUrl, project,
+                witClient, batch, sourceOrgSegment, orgEndpoint.ResolvedUrl, project,
                 counters, totalWorkItems, configuredOrgs, projectNameCache, cancellationToken))
             {
                 yield return evt;
@@ -121,7 +123,7 @@ public sealed class AzureDevOpsDependencyAnalysisService : IWorkItemLinkAnalysis
 
         // Final heartbeat
         yield return new DependencyHeartbeatEvent(
-            endpoint.ResolvedUrl,
+            orgEndpoint.ResolvedUrl,
             project,
             counters.Processed,
             counters.CrossProject + counters.CrossOrg,

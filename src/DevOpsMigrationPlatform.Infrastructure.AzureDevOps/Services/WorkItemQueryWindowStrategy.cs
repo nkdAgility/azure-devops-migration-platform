@@ -37,14 +37,15 @@ public sealed class WorkItemQueryWindowStrategy : IWorkItemQueryWindowStrategy
     }
 
     public async IAsyncEnumerable<WorkItemQueryWindow> EnumerateWindowsAsync(
-        OrganisationEndpoint endpoint,
+        MigrationEndpointOptions endpoint,
         string project,
         WorkItemQueryWindowOptions? options = null,
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         options ??= new WorkItemQueryWindowOptions();
 
-        var witClient = await _clientFactory.CreateAsync(endpoint, cancellationToken);
+        var orgEndpoint = endpoint.ToOrganisationEndpoint();
+        var witClient = await _clientFactory.CreateAsync(orgEndpoint, cancellationToken);
 
         // Resolve WHERE predicate and ORDER BY: use the caller-supplied base query
         // (e.g. from the scenario configuration) or fall back to the default

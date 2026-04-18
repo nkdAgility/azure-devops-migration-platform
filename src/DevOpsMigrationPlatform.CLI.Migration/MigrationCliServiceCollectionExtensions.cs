@@ -1,4 +1,7 @@
 using DevOpsMigrationPlatform.Infrastructure.AzureDevOps;
+using DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Options;
+using DevOpsMigrationPlatform.Infrastructure.Extensions;
+using DevOpsMigrationPlatform.Infrastructure.Simulated;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace DevOpsMigrationPlatform.CLI.Migration;
@@ -20,4 +23,18 @@ public static class MigrationCliServiceCollectionExtensions
     public static IServiceCollection AddExportPreflightServices(
         this IServiceCollection services)
         => services.AddAzureDevOpsWorkItemCount();
+
+    /// <summary>
+    /// Registers the ADO endpoint option types for polymorphic JSON deserialization.
+    /// Called by the shared host builder so every CLI command can load configuration files
+    /// that reference <c>"Type": "AzureDevOpsServices"</c>.
+    /// </summary>
+    public static IServiceCollection AddMigrationCliEndpointTypes(
+        this IServiceCollection services)
+    {
+        services.AddEndpointOptionsType("AzureDevOpsServices", typeof(AzureDevOpsEndpointOptions));
+        services.AddOrganisationEntryType("AzureDevOpsServices", typeof(AzureDevOpsOrganisationEntry));
+        services.AddSimulatedServices();
+        return services;
+    }
 }

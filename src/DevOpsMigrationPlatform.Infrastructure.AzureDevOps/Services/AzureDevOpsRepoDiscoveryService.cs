@@ -20,11 +20,12 @@ public sealed class AzureDevOpsRepoDiscoveryService : IRepoDiscoveryService
     }
 
     public async Task<int> CountReposAsync(
-        OrganisationEndpoint endpoint,
+        MigrationEndpointOptions endpoint,
         string project,
         CancellationToken cancellationToken = default)
     {
-        var gitClient = await _clientFactory.CreateGitClientAsync(endpoint, cancellationToken);
+        var orgEndpoint = endpoint.ToOrganisationEndpoint();
+        var gitClient = await _clientFactory.CreateGitClientAsync(orgEndpoint, cancellationToken);
         var repos = await gitClient.GetRepositoriesAsync(project, cancellationToken: cancellationToken);
         return repos?.Count ?? 0;
     }

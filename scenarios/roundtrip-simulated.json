@@ -1,0 +1,53 @@
+{
+  "MigrationPlatform": {
+    "ConfigVersion": "1.0",
+    "Policies": {
+      "Retries": {
+        "Max": 3
+      },
+      "Throttle": {
+        "MaxConcurrency": 1
+      },
+      "Checkpoints": {
+        "Interval": 300
+      }
+    },
+    "Mode": "Both",
+    "Source": {
+      "Type": "Simulated",
+      "Generator": {
+        "Projects": [
+          {
+            "Name": "RoundtripProject",
+            "WorkItemTypes": [
+              { "Type": "User Story", "Count": 3, "RevisionsPerItem": 2 },
+              { "Type": "Bug",        "Count": 2, "RevisionsPerItem": 2 }
+            ],
+            "LinkTopology": "Flat",
+            "HasComments": false,
+            "AttachmentSizeKb": 0
+          }
+        ]
+      }
+    },
+    "Target": {
+      "Type": "Simulated"
+    },
+    "Artefacts": {
+      "WorkingDirectory": "storage\\roundtrip-simulated",
+      "CreatePackage": true
+    },
+    "Modules": [
+      {
+        "Name": "WorkItems",
+        "Enabled": true,
+        "Extensions": [
+          {
+            "Type": "Revisions",
+            "Enabled": true
+          }
+        ]
+      }
+    ]
+  }
+}

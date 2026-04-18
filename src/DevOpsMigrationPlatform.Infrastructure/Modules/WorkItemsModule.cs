@@ -73,20 +73,9 @@ public sealed class WorkItemsModule : IModule
     {
         var job = context.Job;
 
-        var orgUrl = job.Source?.ResolvedUrl ?? throw new InvalidOperationException("Job.Source.Url is required.");
-        var project = job.Source?.Project ?? throw new InvalidOperationException("Job.Source.Project is required.");
-
-        var sourceEndpoint = new OrganisationEndpoint
-        {
-            ResolvedUrl = orgUrl,
-            Type = job.Source!.Type,
-            ApiVersion = job.Source.ApiVersion,
-            Authentication = new OrganisationEndpointAuthentication
-            {
-                Type = job.Source.Authentication?.Type ?? Abstractions.Options.AuthenticationType.None,
-                ResolvedAccessToken = job.Source.Authentication?.ResolvedAccessToken
-            }
-        };
+        var endpointOptions = job.Source ?? throw new InvalidOperationException("Job.Source is required for export.");
+        var orgUrl = endpointOptions.GetResolvedUrl();
+        var project = endpointOptions.GetProject();
 
         var workItemsModule = job.Modules
             ?.FirstOrDefault(m => string.Equals(m.Name, "WorkItems", StringComparison.OrdinalIgnoreCase));
@@ -100,7 +89,7 @@ public sealed class WorkItemsModule : IModule
             orgUrl, project, ext.AttachmentsEnabled, ext.Comments.Enabled);
 
         var source = await _sourceFactory
-            .CreateAsync(sourceEndpoint, project, ext.Query, ct)
+            .CreateAsync(endpointOptions, ct)
             .ConfigureAwait(false);
 
         var checkpointingService = _checkpointingFactory.Create(context.StateStore);
@@ -113,7 +102,7 @@ public sealed class WorkItemsModule : IModule
             checkpointingService,
             ext.AttachmentsEnabled ? _attachmentBinarySource : null,
             context.ProgressSink,
-            endpoint: sourceEndpoint,
+            endpoint: endpointOptions,
             project: project,
             inlineCommentSourceFactory: inlineFactory);
 
@@ -126,10 +115,11 @@ public sealed class WorkItemsModule : IModule
     {
         var job = context.Job;
 
-        var targetType = job.Target?.Type ?? "AzureDevOpsServices";
-        var orgUrl = job.Target?.ResolvedUrl ?? throw new InvalidOperationException("Job.Target.Url is required for import.");
-        var project = job.Target?.Project ?? throw new InvalidOperationException("Job.Target.Project is required for import.");
-        var pat = job.Target?.Authentication?.ResolvedAccessToken ?? string.Empty;
+        var targetJob = job.Target ?? throw new InvalidOperationException("Job.Target is required for import.");
+        var orgUrl = targetJob.GetResolvedUrl();
+        var project = targetJob.GetProject();
+
+        var endpointOptions = targetJob;
 
         var workItemsModule = job.Modules
             ?.FirstOrDefault(m => string.Equals(m.Name, "WorkItems", StringComparison.OrdinalIgnoreCase));
@@ -142,13 +132,13 @@ public sealed class WorkItemsModule : IModule
             "[WorkItems] Importing into {OrgUrl}/{Project} (revisions={Revisions}, links={Links}, attachments={Attachments}, comments={Comments})",
             orgUrl, project, ext.RevisionsEnabled, ext.LinksEnabled, ext.AttachmentsEnabled, ext.Comments.Enabled);
 
-        var target = await _importTargetFactory.CreateAsync(targetType, orgUrl, project, pat, ct).ConfigureAwait(false);
+        var target = await _importTargetFactory.CreateAsync(endpointOptions, ct).ConfigureAwait(false);
         var checkpointingService = _checkpointingFactory.Create(context.StateStore);
 
         // Resolve the strategy at execution time — the factory creates the correct implementation
         // based on the module config and target connection parameters.
         var resolutionStrategy = await _resolutionStrategyFactory
-            .CreateAsync(ext.ResolutionStrategy, target, project, pat, ct)
+            .CreateAsync(ext.ResolutionStrategy, target, endpointOptions, ct)
             .ConfigureAwait(false);
 
         // Derive the SQLite idmap.db path from the package URI

@@ -68,14 +68,14 @@ namespace DevOpsMigrationPlatform.CLI.TfsMigration.Commands
             var discoveryService = GetRequiredService<IWorkItemDiscoveryService>();
             var sink = new StdoutInventoryProgressSink();
 
-            var endpoint = new OrganisationEndpoint
+            var endpoint = new Infrastructure.TfsObjectModel.Options.TeamFoundationServerEndpointOptions
             {
-                ResolvedUrl = settings.CollectionUrl,
+                Url = settings.CollectionUrl,
                 Type = "TfsObjectModel",
-                Authentication = new OrganisationEndpointAuthentication
+                Authentication = new EndpointAuthenticationOptions
                 {
                     Type = string.IsNullOrEmpty(pat) ? AuthenticationType.Windows : AuthenticationType.Pat,
-                    ResolvedAccessToken = pat
+                    AccessToken = pat ?? string.Empty
                 }
             };
 
@@ -105,7 +105,7 @@ namespace DevOpsMigrationPlatform.CLI.TfsMigration.Commands
         private static async Task RunProjectInventoryAsync(
             IWorkItemDiscoveryService discoveryService,
             StdoutInventoryProgressSink sink,
-            OrganisationEndpoint endpoint,
+            MigrationEndpointOptions endpoint,
             string project,
             CancellationToken cancellationToken)
         {
@@ -118,7 +118,7 @@ namespace DevOpsMigrationPlatform.CLI.TfsMigration.Commands
                     sink.Emit(new InventoryProgressEvent
                     {
                         ProjectName = project,
-                        Url = endpoint.ResolvedUrl,
+                        Url = endpoint.GetResolvedUrl(),
                         WorkItemsCount = summary.WorkItemsCount,
                         RevisionsCount = summary.RevisionsCount,
                         IsComplete = summary.IsWorkItemComplete,
@@ -135,7 +135,7 @@ namespace DevOpsMigrationPlatform.CLI.TfsMigration.Commands
                 sink.Emit(new InventoryProgressEvent
                 {
                     ProjectName = project,
-                    Url = endpoint.ResolvedUrl,
+                    Url = endpoint.GetResolvedUrl(),
                     IsComplete = true,
                     Error = ex.Message,
                     Timestamp = DateTime.UtcNow

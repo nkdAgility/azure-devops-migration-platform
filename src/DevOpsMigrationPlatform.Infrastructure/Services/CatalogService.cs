@@ -6,8 +6,13 @@ using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Services;
 
-namespace DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Services;
+namespace DevOpsMigrationPlatform.Infrastructure.Services;
 
+/// <summary>
+/// Default implementation of <see cref="ICatalogService"/> that delegates to
+/// <see cref="IProjectDiscoveryService"/> and <see cref="IWorkItemDiscoveryService"/>.
+/// Connector-agnostic: works with any discovery service implementation.
+/// </summary>
 public class CatalogService : ICatalogService
 {
     private readonly IWorkItemDiscoveryService _workItemDiscovery;
@@ -22,7 +27,7 @@ public class CatalogService : ICatalogService
     }
 
     public async Task<IReadOnlyList<string>> GetProjectsAsync(
-        OrganisationEndpoint endpoint,
+        MigrationEndpointOptions endpoint,
         CancellationToken cancellationToken = default)
     {
         var projects = await _projectDiscovery.DiscoverProjectsAsync(endpoint, cancellationToken);
@@ -30,7 +35,7 @@ public class CatalogService : ICatalogService
     }
 
     public async IAsyncEnumerable<ProjectDiscoverySummary> CountAllWorkItemsAsync(
-        OrganisationEndpoint endpoint,
+        MigrationEndpointOptions endpoint,
         string project,
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {

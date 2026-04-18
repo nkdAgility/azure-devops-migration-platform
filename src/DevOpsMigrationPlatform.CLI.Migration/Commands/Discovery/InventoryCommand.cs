@@ -72,7 +72,7 @@ public sealed class InventoryCommand : ControlPlaneCommandBase<InventoryCommand.
                 .Where(o => o.Enabled)
                 .Select(o => new ScopedOrganisationEndpoint
                 {
-                    Endpoint = o.ToOrganisationEndpoint(),
+                    Endpoint = o.ToEndpointOptions(),
                     Projects = new List<string>(o.Projects)
                 }).ToList(),
             Policies = new JobPolicies

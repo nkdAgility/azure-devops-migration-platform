@@ -219,6 +219,39 @@ The `WorkItems` module accepts a `scopes` array and named extensions:
 - The tool must detect an outdated config version and either auto-upgrade (with warning) or fail fast with instructions.
 - Configs from future versions must fail fast with a clear error message.
 
+### Polymorphic Endpoint Config
+
+`source` and `target` blocks use a **type-discriminated polymorphic model**. The `type` field is the discriminator — it must appear first (or at minimum be present) in the JSON object. The platform reads the `type` value, looks up the registered `MigrationEndpointOptions` subtype, then deserialises the remaining fields into that subtype.
+
+| `type` value | Options class | Extra fields |
+|---|---|---|
+| `AzureDevOpsServices` | `AzureDevOpsEndpointOptions` | `url`, `project`, `apiVersion`, `authentication` |
+| `TeamFoundationServer` | `TeamFoundationServerEndpointOptions` | `url`, `project`, `authentication` |
+| `Simulated` | `SimulatedEndpointOptions` | `generator.projects[].name`, `generator.projects[].workItemTypes[].type`, `generator.projects[].workItemTypes[].count`, `generator.projects[].workItemTypes[].revisionsPerItem` |
+
+An unknown `type` value causes a startup error with a message containing the offending discriminator value. Each connector assembly registers its `type` key via `AddEndpointOptionsType(key, typeof(TOptions))` at DI startup time.
+
+**Example — Simulated source with explicit generator config:**
+
+```json
+{
+  "source": {
+    "type": "Simulated",
+    "generator": {
+      "projects": [
+        {
+          "name": "SimulatedProject1",
+          "workItemTypes": [
+            { "type": "Bug",        "count": 5, "revisionsPerItem": 3 },
+            { "type": "Task",       "count": 5, "revisionsPerItem": 2 }
+          ]
+        }
+      ]
+    }
+  }
+}
+```
+
 ### Simulated Source Configuration
 
 When `source.type` is `Simulated`, the following fields control the generated data. Authentication is not used.

@@ -48,13 +48,14 @@ public sealed class DependencyDiscoveryService : IDependencyDiscoveryService
 
         foreach (var organisation in _options.Value.Organisations)
         {
+            var orgEndpointForLog = organisation.ToEndpointOptions();
             if (!organisation.Enabled)
             {
-                _logger.LogInformation("Skipping disabled organisation: {Url}", organisation.ResolvedUrl);
+                _logger.LogInformation("Skipping disabled organisation: {Url}", orgEndpointForLog.GetResolvedUrl());
                 continue;
             }
 
-            _logger.LogInformation("Analysing organisation: {Url}, type: {Type}", organisation.ResolvedUrl, organisation.Type);
+            _logger.LogInformation("Analysing organisation: {Url}, type: {Type}", orgEndpointForLog.GetResolvedUrl(), organisation.Type);
 
             // Resolve the per-source implementation by keyed DI
             var key = organisation.Type ?? "Unknown";
@@ -77,18 +78,18 @@ public sealed class DependencyDiscoveryService : IDependencyDiscoveryService
             var projectsToAnalyse = organisation.Projects;
             if (projectsToAnalyse.Count == 0)
             {
-                _logger.LogInformation("Projects list is empty, fetching all projects from {Url}", organisation.ResolvedUrl);
-                var endpoint = organisation.ToOrganisationEndpoint();
+                _logger.LogInformation("Projects list is empty, fetching all projects from {Url}", orgEndpointForLog.GetResolvedUrl());
+                var endpoint = orgEndpointForLog;
                 try
                 {
                     projectsToAnalyse = (await _catalogService.GetProjectsAsync(
                         endpoint,
                         cancellationToken)).ToList();
-                    _logger.LogInformation("Found {ProjectCount} projects in {Url}", projectsToAnalyse.Count, organisation.ResolvedUrl);
+                    _logger.LogInformation("Found {ProjectCount} projects in {Url}", projectsToAnalyse.Count, orgEndpointForLog.GetResolvedUrl());
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, "Failed to fetch projects from {Url}", organisation.ResolvedUrl);
+                    _logger.LogError(ex, "Failed to fetch projects from {Url}", orgEndpointForLog.GetResolvedUrl());
                     throw;
                 }
             }
@@ -96,9 +97,9 @@ public sealed class DependencyDiscoveryService : IDependencyDiscoveryService
             // Analyse each project in the organisation
             foreach (var project in projectsToAnalyse)
             {
-                _logger.LogInformation("Analysing project {Project} in {Url}", project, organisation.ResolvedUrl);
+                _logger.LogInformation("Analysing project {Project} in {Url}", project, orgEndpointForLog.GetResolvedUrl());
 
-                var orgEndpoint = organisation.ToOrganisationEndpoint();
+                var orgEndpoint = orgEndpointForLog;
 
                 // Stream events from the service
                 await foreach (var evt in service.AnalyseLinksAsync(

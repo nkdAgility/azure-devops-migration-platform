@@ -1,38 +1,43 @@
-using DevOpsMigrationPlatform.Abstractions.Options;
-using DevOpsMigrationPlatform.Abstractions.Utilities;
+using System.Collections.Generic;
 
 namespace DevOpsMigrationPlatform.Abstractions;
 
 /// <summary>
-/// Source or target endpoint connection options.  Used for both <c>MigrationOptions.Source</c>
-/// and <c>MigrationOptions.Target</c>.
+/// Base class for source or target endpoint connection options.
+/// Used for both <c>MigrationOptions.Source</c> and <c>MigrationOptions.Target</c>.
+/// Concrete implementations (e.g. <c>AzureDevOpsEndpointOptions</c>) carry connector-specific fields.
 /// </summary>
-public sealed class MigrationEndpointOptions
+public abstract class MigrationEndpointOptions
 {
     /// <summary>
-    /// Endpoint kind.  Supported values: <c>AzureDevOpsServices</c>, <c>TeamFoundationServer</c>.
+    /// Endpoint kind.  Supported values: <c>AzureDevOpsServices</c>, <c>TeamFoundationServer</c>, <c>Simulated</c>.
     /// </summary>
     public string Type { get; set; } = string.Empty;
 
-    /// <summary>Organisation URL (Azure DevOps Services) or collection URL (TFS/Azure DevOps Server).
-    /// May contain a <c>$ENV:VARNAME</c> reference — use <see cref="ResolvedUrl"/> for API calls.</summary>
-    public string Url { get; set; } = string.Empty;
-
-    /// <summary>The effective URL after <c>$ENV:VARNAME</c> expansion.</summary>
-    public string ResolvedUrl => TokenResolver.Resolve(Url) ?? string.Empty;
-
-    /// <summary>Team project name.</summary>
-    public string Project { get; set; } = string.Empty;
+    /// <summary>
+    /// Validates connector-specific fields and appends any errors to <paramref name="errors"/>.
+    /// Called by <c>MigrationOptionsValidator</c>; override in derived classes to add URL/auth checks.
+    /// </summary>
+    public virtual void ValidateEndpointFields(List<string> errors, string role) { }
 
     /// <summary>
-    /// REST API version to request (e.g. <c>7.1</c>).
-    /// Leave empty to use the server-negotiated default.
+    /// Returns the raw (unexpanded) connection URL for this endpoint.
+    /// Derived types override this to expose connector-specific URL fields.
+    /// Returns <see cref="string.Empty"/> for endpoint types that have no URL (e.g. Simulated).
     /// </summary>
-    public string? ApiVersion { get; set; }
+    public virtual string GetEndpointUrl() => string.Empty;
 
     /// <summary>
-    /// Authentication credentials for this endpoint.
-    /// Optional for backwards compatibility; required for inventory and new export/import flows.
+    /// Returns the team project name for this endpoint.
+    /// Derived types override this to expose connector-specific project fields.
+    /// Returns <see cref="string.Empty"/> for endpoint types that have no project concept.
     /// </summary>
-    public EndpointAuthenticationOptions? Authentication { get; set; }
+    public virtual string GetProject() => string.Empty;
+
+    /// <summary>
+    /// Returns the effective (resolved) connection URL for this endpoint after token expansion.
+    /// Derived types override this to expose connector-specific URL resolution.
+    /// Returns <see cref="string.Empty"/> for endpoint types that have no URL (e.g. Simulated).
+    /// </summary>
+    public virtual string GetResolvedUrl() => string.Empty;
 }

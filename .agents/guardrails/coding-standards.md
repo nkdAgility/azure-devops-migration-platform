@@ -534,7 +534,41 @@ public class WorkItemsImportModule
 
 ---
 
-# 🔍 Validation Checklist
+# � No `NotImplementedException` Stubs
+
+A `throw new NotImplementedException()` (or any equivalent placeholder — `throw new NotSupportedException("... not yet implemented")`, `TODO: implement`, dead `return default`, `return null` where a real value is required) is **never permitted as a shipped state**.
+
+## Rule
+
+> If a method cannot be fully implemented within the current work unit, **do not create the method**. A task is not complete until every code path it introduces is real, tested, and produces correct output. A half-implemented method is worse than no method — it silently breaks at runtime.
+
+## Permitted exception (ephemeral only)
+
+A `throw new NotImplementedException()` is permitted **only** when:
+1. It is introduced and removed **within the same session** (same PR / same commit chain).
+2. The implementing agent or contributor has explicitly noted it as in-progress in the session log.
+3. It is replaced with a real implementation before the task is marked complete.
+
+There are no other exceptions. A PR with a `NotImplementedException` in any reachable code path **must not be merged**.
+
+## Applies to
+
+- All production code (`src/`)
+- All test code (`tests/`)
+- All Simulated implementations — a simulated method that throws `NotImplementedException` is a broken Simulated layer, not a placeholder
+- Stubs in feature branches: if the branch will be merged before implementation is complete, the method must not exist
+
+## Instant reject triggers
+
+- `throw new NotImplementedException()`
+- `throw new NotSupportedException("... not yet implemented")`
+- `throw new NotSupportedException("... not yet supported")`
+- A method body consisting only of `return default;` or `return null;` where that value would propagate silently
+- A `TODO: implement` comment with no corresponding issue or same-session implementation
+
+---
+
+# �🔍 Validation Checklist
 
 Before merging changes, verify:
 
@@ -568,6 +602,7 @@ Before merging changes, verify:
 - Has this change been verified to produce a successful `dotnet clean && dotnet build --no-incremental`?
 - Have all tests been verified to pass with `dotnet test`?
 - Has at least one scenario config (e.g. `scenarios/queue-export-ado-workitems-single-project.json`) been run via a `.vscode/launch.json` debug profile with observable output verified?
+- Does this change introduce or leave any `throw new NotImplementedException()`, `throw new NotSupportedException("... not yet implemented")`, or equivalent placeholder in any reachable code path?
 - Does this change introduce or surface a known vulnerability? If so, is it remediated or explicitly called out with a tracked issue?
 - Has `dotnet list package --vulnerable` been run and are all HIGH/CRITICAL findings resolved or documented?
 - Does this change add or modify a CLI command? If so, is there a matching entry in `.vscode/launch.json`?

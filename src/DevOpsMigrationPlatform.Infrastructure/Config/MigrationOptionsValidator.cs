@@ -49,8 +49,7 @@ internal sealed class MigrationOptionsValidator : IValidateOptions<MigrationOpti
                 errors.Add($"Source.Type '{options.Source.Type}' is not supported. " +
                            $"Valid values: {string.Join(", ", ValidSourceTypes)}.");
 
-            if (string.IsNullOrWhiteSpace(options.Source.Url))
-                errors.Add("Source.Url is required.");
+            options.Source.ValidateEndpointFields(errors, "Source");
         }
 
         // Target required for Import / Both
@@ -69,8 +68,7 @@ internal sealed class MigrationOptionsValidator : IValidateOptions<MigrationOpti
                            $"Only '{string.Join(", ", ValidTargetTypes)}' is a valid migration target. " +
                            "TeamFoundationServer / Azure DevOps Server cannot be used as a migration target.");
 
-            if (string.IsNullOrWhiteSpace(options.Target.Url))
-                errors.Add("Target.Url is required.");
+            options.Target.ValidateEndpointFields(errors, "Target");
         }
 
         // Artefacts path

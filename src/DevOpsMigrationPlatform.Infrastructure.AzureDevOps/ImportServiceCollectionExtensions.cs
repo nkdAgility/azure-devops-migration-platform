@@ -1,6 +1,7 @@
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Import;
 using DevOpsMigrationPlatform.Infrastructure.Checkpointing;
+using DevOpsMigrationPlatform.Infrastructure.Extensions;
 using DevOpsMigrationPlatform.Infrastructure.Import;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -16,9 +17,8 @@ public static class ImportServiceCollectionExtensions
     /// <summary>
     /// Registers:
     /// <list type="bullet">
-    ///   <item><see cref="IWorkItemImportTargetFactory"/> as <see cref="AzureDevOpsWorkItemImportTargetFactory"/>.
-    ///   Routes to <c>SimulatedWorkItemImportTarget</c> or <c>AzureDevOpsWorkItemImportTarget</c>
-    ///   at runtime based on <c>target.type</c> in the scenario config.</item>
+    ///   <item><see cref="IWorkItemImportTargetFactory"/> as <see cref="AzureDevOpsWorkItemImportTargetFactory"/>
+    ///   keyed to <c>"AzureDevOpsServices"</c>.</item>
     ///   <item><see cref="IWorkItemResolutionStrategyFactory"/> as <see cref="AzureDevOpsResolutionStrategyFactory"/>.</item>
     ///   <item><see cref="IIdentityMappingService"/> as <see cref="PassThroughIdentityMappingService"/>.</item>
     /// </list>
@@ -27,8 +27,10 @@ public static class ImportServiceCollectionExtensions
     /// </summary>
     public static IServiceCollection AddAzureDevOpsWorkItemImport(this IServiceCollection services)
     {
-        services.AddSingleton<IWorkItemImportTargetFactory, AzureDevOpsWorkItemImportTargetFactory>();
-        services.AddSingleton<IWorkItemResolutionStrategyFactory, AzureDevOpsResolutionStrategyFactory>();
+        // Register ADO import target factory as a keyed entry in the composite dispatcher
+        services.AddImportTargetFactory<AzureDevOpsWorkItemImportTargetFactory>("AzureDevOpsServices");
+        // Register ADO resolution strategy factory as a keyed entry in the composite dispatcher
+        services.AddResolutionStrategyFactory<AzureDevOpsResolutionStrategyFactory, AzureDevOpsWorkItemImportTarget>();
         services.AddSingleton<IIdentityMappingService, PassThroughIdentityMappingService>();
         services.AddSingleton<ICheckpointingServiceFactory, CheckpointingServiceFactory>();
         services.AddSingleton<IIdMapStoreFactory, IdMapStoreFactory>();

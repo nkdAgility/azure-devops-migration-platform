@@ -62,7 +62,7 @@ param(
     [string]$Model = "claude-sonnet-4.6",
     
     [Parameter(Mandatory = $false)]
-    [string]$AgentCli = "copilot",
+    [string]$AgentCli = "gh",
     
     [Parameter(Mandatory = $false)]
     [string]$WorkingDirectory = "",
@@ -273,7 +273,7 @@ function Invoke-CopilotIteration {
             Write-Host "--- Copilot Agent Output ---" -ForegroundColor DarkCyan
             $outputLines = @()
             # Use speckit.ralph.iterate agent - it already knows to complete one work unit
-            & $AgentCli --agent speckit.ralph.iterate -p $prompt --model $Model --yolo -s 2>&1 | ForEach-Object {
+            & $AgentCli copilot --agent speckit.ralph.iterate -p $prompt --model $Model --yolo -s 2>&1 | ForEach-Object {
                 # Stderr lines arrive as ErrorRecord objects; extract the message string
                 $line = if ($_ -is [System.Management.Automation.ErrorRecord]) { $_.Exception.Message } else { $_ }
                 Write-Host $line

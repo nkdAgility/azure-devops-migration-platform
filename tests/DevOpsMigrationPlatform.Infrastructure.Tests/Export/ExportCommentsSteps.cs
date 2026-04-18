@@ -9,6 +9,7 @@ using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Models;
 using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Abstractions.Services;
+using DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Options;
 using DevOpsMigrationPlatform.Infrastructure.Checkpointing;
 using DevOpsMigrationPlatform.Infrastructure.Export;
 using DevOpsMigrationPlatform.Infrastructure.Storage;
@@ -23,14 +24,14 @@ namespace DevOpsMigrationPlatform.Infrastructure.Tests.Export;
 [Scope(Feature = "Export Work Item Comments")]
 public class ExportCommentsSteps
 {
-    private static readonly OrganisationEndpoint TestEndpoint = new()
+    private static readonly AzureDevOpsEndpointOptions TestEndpoint = new()
     {
-        ResolvedUrl = "https://dev.azure.com/contoso",
+        Url = "https://dev.azure.com/contoso",
         Type = "AzureDevOps",
-        Authentication = new OrganisationEndpointAuthentication
+        Authentication = new EndpointAuthenticationOptions
         {
             Type = AuthenticationType.Pat,
-            ResolvedAccessToken = "pat-token"
+            AccessToken = "pat-token"
         }
     };
 
@@ -125,7 +126,7 @@ public class ExportCommentsSteps
 
         var mockCommentFactory = new Mock<IWorkItemCommentSourceFactory>();
         mockCommentFactory
-            .Setup(f => f.Create(It.IsAny<OrganisationEndpoint>(), It.IsAny<string>()))
+            .Setup(f => f.Create(It.IsAny<MigrationEndpointOptions>(), It.IsAny<string>()))
             .Returns(_context.MockCommentSource.Object);
 
         var stateStore = new FileSystemStateStore(_context.PackageRoot);
@@ -369,7 +370,7 @@ public class ExportCommentsSteps
                 _context.Comments!.ToAsyncEnumerable(ct));
 
         var mockFactory1 = new Mock<IWorkItemCommentSourceFactory>();
-        mockFactory1.Setup(f => f.Create(It.IsAny<OrganisationEndpoint>(), It.IsAny<string>()))
+        mockFactory1.Setup(f => f.Create(It.IsAny<MigrationEndpointOptions>(), It.IsAny<string>()))
             .Returns(mockCommentSource1.Object);
 
         var orchestrator1 = new WorkItemExportOrchestrator(
@@ -403,7 +404,7 @@ public class ExportCommentsSteps
                 _context.NewComments!.ToAsyncEnumerable(ct));
 
         var mockFactory2 = new Mock<IWorkItemCommentSourceFactory>();
-        mockFactory2.Setup(f => f.Create(It.IsAny<OrganisationEndpoint>(), It.IsAny<string>()))
+        mockFactory2.Setup(f => f.Create(It.IsAny<MigrationEndpointOptions>(), It.IsAny<string>()))
             .Returns(mockCommentSource2.Object);
 
         var orchestrator2 = new WorkItemExportOrchestrator(

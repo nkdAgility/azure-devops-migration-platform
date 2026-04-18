@@ -26,20 +26,21 @@ public sealed class AzureDevOpsWorkItemCommentSourceFactory : IWorkItemCommentSo
     }
 
     /// <inheritdoc/>
-    public IWorkItemCommentSource Create(OrganisationEndpoint endpoint, string project)
+    public IWorkItemCommentSource Create(MigrationEndpointOptions endpoint, string project)
     {
         if (endpoint == null)
             throw new ArgumentNullException(nameof(endpoint));
-        if (string.IsNullOrWhiteSpace(endpoint.ResolvedUrl))
+        if (string.IsNullOrWhiteSpace(endpoint.GetResolvedUrl()))
             throw new ArgumentException("Organization URL is required.", nameof(endpoint));
         if (string.IsNullOrWhiteSpace(project))
             throw new ArgumentException("Project is required.", nameof(project));
 
+        var orgEndpoint = endpoint.ToOrganisationEndpoint();
         var logger = _loggerFactory.CreateLogger<AzureDevOpsWorkItemCommentSource>();
 
         return new AzureDevOpsWorkItemCommentSource(
             _clientFactory,
-            endpoint,
+            orgEndpoint,
             project,
             logger);
     }

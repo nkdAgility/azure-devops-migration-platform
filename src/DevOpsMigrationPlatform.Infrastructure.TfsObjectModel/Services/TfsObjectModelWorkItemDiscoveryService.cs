@@ -28,7 +28,7 @@ public sealed class TfsObjectModelWorkItemDiscoveryService : IWorkItemDiscoveryS
     }
 
     public async IAsyncEnumerable<ProjectDiscoverySummary> DiscoverWorkItemsAsync(
-        OrganisationEndpoint endpoint,
+        MigrationEndpointOptions endpoint,
         string project,
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
@@ -64,7 +64,7 @@ public sealed class TfsObjectModelWorkItemDiscoveryService : IWorkItemDiscoveryS
     /// The <paramref name="baseQuery"/> parameter is intentionally ignored.
     /// </summary>
     public IAsyncEnumerable<ProjectDiscoverySummary> CountWorkItemsAsync(
-        OrganisationEndpoint endpoint,
+        MigrationEndpointOptions endpoint,
         string project,
         string? baseQuery = null,
         CancellationToken cancellationToken = default)
