@@ -29,7 +29,7 @@ TASKS_PATH=""
 SPEC_DIR=""
 MAX_ITERATIONS=10
 MODEL="claude-sonnet-4.6"
-AGENT_CLI="copilot"
+AGENT_CLI="gh"
 VERBOSE=false
 WORKING_DIRECTORY=""
 
@@ -271,7 +271,7 @@ invoke_copilot_iteration() {
     while IFS= read -r line; do
         echo "$line" >&2
         output_lines+=("$line")
-    done < <("$AGENT_CLI" --agent speckit.ralph.iterate -p "$prompt" --model "$model" --yolo -s 2>&1) || exit_code=$?
+    done < <("$AGENT_CLI" copilot --agent speckit.ralph.iterate -p "$prompt" --model "$model" --yolo -s 2>&1) || exit_code=$?
 
     echo -e "\033[36m--- End Agent Output ---\033[0m" >&2
     echo "" >&2
