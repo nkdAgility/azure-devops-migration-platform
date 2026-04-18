@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
@@ -11,7 +12,7 @@ namespace DevOpsMigrationPlatform.Infrastructure.Simulated.Tests.Services;
 public sealed class SimulatedProjectDiscoveryServiceTests
 {
     [TestMethod]
-    public async Task DiscoverProjectsAsync_NoUrlEncoding_ReturnsDefaultProject()
+    public async Task DiscoverProjectsAsync_NoGenerator_ReturnsDefaultProject()
     {
         var service = new SimulatedProjectDiscoveryService();
         var endpoint = new SimulatedEndpointOptions
@@ -27,13 +28,22 @@ public sealed class SimulatedProjectDiscoveryServiceTests
     }
 
     [TestMethod]
-    public async Task DiscoverProjectsAsync_EncodedProjects_ReturnsProjectList()
+    public async Task DiscoverProjectsAsync_GeneratorWithProjects_ReturnsProjectList()
     {
         var service = new SimulatedProjectDiscoveryService();
         var endpoint = new SimulatedEndpointOptions
         {
-            Url = "simulated://projects/Alpha,Beta,Gamma",
-            Type = "Simulated"
+            Url = "simulated://localhost",
+            Type = "Simulated",
+            Generator = new SimulatedGeneratorConfig
+            {
+                Projects = new List<SimulatedProjectConfig>
+                {
+                    new() { Name = "Alpha" },
+                    new() { Name = "Beta" },
+                    new() { Name = "Gamma" }
+                }
+            }
         };
 
         var projects = await service.DiscoverProjectsAsync(endpoint, CancellationToken.None);
