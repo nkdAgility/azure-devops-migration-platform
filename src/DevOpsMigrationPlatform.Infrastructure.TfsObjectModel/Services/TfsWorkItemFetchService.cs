@@ -40,16 +40,12 @@ public sealed class TfsWorkItemFetchService : IWorkItemFetchService
         if (scope.Fields is null || scope.Fields.Count == 0)
             throw new ArgumentException("Fields must not be null or empty.", nameof(scope));
 
-        // Bridge OrganisationEndpoint → MigrationEndpointOptions for the window strategy.
-        // TFS window strategy ignores the endpoint URL (WorkItemStore is already authenticated).
-        var endpointOptions = new TfsMigrationEndpointOptionsAdapter(endpoint);
-
         var windowOptions = scope.BaseQuery is not null
             ? new WorkItemQueryWindowOptions { BaseQuery = scope.BaseQuery }
             : null;
 
         await foreach (var window in _windowStrategy.EnumerateWindowsAsync(
-            endpointOptions, project, windowOptions, cancellationToken).ConfigureAwait(false))
+            endpoint, project, windowOptions, cancellationToken).ConfigureAwait(false))
         {
             cancellationToken.ThrowIfCancellationRequested();
 

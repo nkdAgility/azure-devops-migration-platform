@@ -25,7 +25,7 @@ public sealed class AzureDevOpsWorkItemRevisionSource : IWorkItemRevisionSource
     private readonly IWorkItemQueryWindowStrategy _windowStrategy;
     private readonly IAzureDevOpsWorkItemRevisionMapper _mapper;
     private readonly AzureDevOpsAttachmentRegistry _attachmentRegistry;
-    private readonly MigrationEndpointOptions _endpoint;
+    private readonly OrganisationEndpoint _endpoint;
     private readonly string _project;
     private readonly string? _wiqlQuery;
 
@@ -36,7 +36,7 @@ public sealed class AzureDevOpsWorkItemRevisionSource : IWorkItemRevisionSource
         IWorkItemQueryWindowStrategy windowStrategy,
         IAzureDevOpsWorkItemRevisionMapper mapper,
         AzureDevOpsAttachmentRegistry attachmentRegistry,
-        MigrationEndpointOptions endpoint,
+        OrganisationEndpoint endpoint,
         string project,
         string? wiqlQuery = null)
     {

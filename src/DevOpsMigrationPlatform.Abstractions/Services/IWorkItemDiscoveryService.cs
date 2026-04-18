@@ -18,7 +18,7 @@ public interface IWorkItemDiscoveryService
     /// Fetches work item IDs and revision counts (<c>System.Rev</c>) for every work item found.
     /// </summary>
     IAsyncEnumerable<ProjectDiscoverySummary> DiscoverWorkItemsAsync(
-        MigrationEndpointOptions endpoint,
+        OrganisationEndpoint endpoint,
         string project,
         CancellationToken cancellationToken = default);
 
@@ -31,7 +31,7 @@ public interface IWorkItemDiscoveryService
     /// <see cref="ProjectDiscoverySummary.IsWorkItemComplete"/> = <c>true</c>.
     /// </summary>
     IAsyncEnumerable<ProjectDiscoverySummary> CountWorkItemsAsync(
-        MigrationEndpointOptions endpoint,
+        OrganisationEndpoint endpoint,
         string project,
         string? baseQuery = null,
         CancellationToken cancellationToken = default);

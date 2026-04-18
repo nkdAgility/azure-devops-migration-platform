@@ -40,6 +40,9 @@ public sealed class AzureDevOpsWorkItemImportTargetFactoryBoundaryTests
             () => factory.CreateAsync(unknownEndpoint, CancellationToken.None));
     }
 
-    private sealed class StubEndpointOptions : MigrationEndpointOptions { }
+    private sealed class StubEndpointOptions : MigrationEndpointOptions
+    {
+        public override OrganisationEndpoint ToOrganisationEndpoint() => new() { Type = Type };
+    }
 }
 

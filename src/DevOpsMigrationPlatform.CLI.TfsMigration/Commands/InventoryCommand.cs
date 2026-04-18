@@ -79,6 +79,8 @@ namespace DevOpsMigrationPlatform.CLI.TfsMigration.Commands
                 }
             };
 
+            var orgEndpoint = endpoint.ToOrganisationEndpoint();
+
             IEnumerable<string> projectNames;
             if (settings.AllProjects)
             {
@@ -95,7 +97,7 @@ namespace DevOpsMigrationPlatform.CLI.TfsMigration.Commands
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 await RunProjectInventoryAsync(
-                    discoveryService, sink, endpoint, projName,
+                    discoveryService, sink, orgEndpoint, projName,
                     cancellationToken).ConfigureAwait(false);
             }
 
@@ -105,7 +107,7 @@ namespace DevOpsMigrationPlatform.CLI.TfsMigration.Commands
         private static async Task RunProjectInventoryAsync(
             IWorkItemDiscoveryService discoveryService,
             StdoutInventoryProgressSink sink,
-            MigrationEndpointOptions endpoint,
+            OrganisationEndpoint endpoint,
             string project,
             CancellationToken cancellationToken)
         {
@@ -118,7 +120,7 @@ namespace DevOpsMigrationPlatform.CLI.TfsMigration.Commands
                     sink.Emit(new InventoryProgressEvent
                     {
                         ProjectName = project,
-                        Url = endpoint.GetResolvedUrl(),
+                        Url = endpoint.ResolvedUrl,
                         WorkItemsCount = summary.WorkItemsCount,
                         RevisionsCount = summary.RevisionsCount,
                         IsComplete = summary.IsWorkItemComplete,
@@ -135,7 +137,7 @@ namespace DevOpsMigrationPlatform.CLI.TfsMigration.Commands
                 sink.Emit(new InventoryProgressEvent
                 {
                     ProjectName = project,
-                    Url = endpoint.GetResolvedUrl(),
+                    Url = endpoint.ResolvedUrl,
                     IsComplete = true,
                     Error = ex.Message,
                     Timestamp = DateTime.UtcNow

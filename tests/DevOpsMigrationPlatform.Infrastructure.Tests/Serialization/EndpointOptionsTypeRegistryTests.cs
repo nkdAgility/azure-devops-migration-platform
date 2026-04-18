@@ -62,6 +62,12 @@ public sealed class EndpointOptionsTypeRegistryTests
     }
 
     // Stub types for test purposes
-    private sealed class TestEndpointOptions : MigrationEndpointOptions { }
-    private sealed class AnotherEndpointOptions : MigrationEndpointOptions { }
+    private sealed class TestEndpointOptions : MigrationEndpointOptions
+    {
+        public override OrganisationEndpoint ToOrganisationEndpoint() => new() { Type = Type };
+    }
+    private sealed class AnotherEndpointOptions : MigrationEndpointOptions
+    {
+        public override OrganisationEndpoint ToOrganisationEndpoint() => new() { Type = Type };
+    }
 }

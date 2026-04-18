@@ -1,6 +1,7 @@
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Options;
+using DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Services;
 
 namespace DevOpsMigrationPlatform.Infrastructure.AzureDevOps;
 
@@ -17,6 +18,13 @@ internal static class MigrationEndpointExtensions
     /// </summary>
     internal static OrganisationEndpoint ToOrganisationEndpoint(this MigrationEndpointOptions options)
     {
+        // Fast path: adapter already wraps a fully-resolved OrganisationEndpoint
+        // with authentication intact — return it directly to avoid losing credentials.
+        if (options is AzureDevOpsEndpointOptionsAdapter adapter)
+        {
+            return adapter.WrappedEndpoint;
+        }
+
         if (options is AzureDevOpsEndpointOptions ado)
         {
             return new OrganisationEndpoint

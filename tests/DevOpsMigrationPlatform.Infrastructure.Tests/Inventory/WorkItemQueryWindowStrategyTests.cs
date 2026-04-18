@@ -36,14 +36,14 @@ public class WorkItemQueryWindowStrategyTests
     private const string Project = "TestProject";
     private const string Pat = "test-pat";
 
-    private static readonly AzureDevOpsEndpointOptions TestEndpoint = new()
+    private static readonly OrganisationEndpoint TestEndpoint = new()
     {
-        Url = Org,
+        ResolvedUrl = Org,
         Type = "AzureDevOps",
-        Authentication = new EndpointAuthenticationOptions
+        Authentication = new OrganisationEndpointAuthentication
         {
             Type = AuthenticationType.Pat,
-            AccessToken = Pat
+            ResolvedAccessToken = Pat
         }
     };
 

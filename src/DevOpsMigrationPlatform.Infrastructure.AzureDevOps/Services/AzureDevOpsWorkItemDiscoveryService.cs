@@ -30,18 +30,17 @@ public sealed class AzureDevOpsWorkItemDiscoveryService : IWorkItemDiscoveryServ
     }
 
     public async IAsyncEnumerable<ProjectDiscoverySummary> DiscoverWorkItemsAsync(
-        MigrationEndpointOptions endpoint,
+        OrganisationEndpoint endpoint,
         string project,
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
-        var orgEndpoint = endpoint.ToOrganisationEndpoint();
         var summary = new ProjectDiscoverySummary { ProjectName = project };
 
         var scope = new WorkItemFetchScope(Fields: new[] { "System.Rev" });
 
         var itemsSinceLastYield = 0;
 
-        await foreach (var item in _fetchService.FetchAsync(orgEndpoint, project, scope, cancellationToken)
+        await foreach (var item in _fetchService.FetchAsync(endpoint, project, scope, cancellationToken)
             .ConfigureAwait(false))
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -65,7 +64,7 @@ public sealed class AzureDevOpsWorkItemDiscoveryService : IWorkItemDiscoveryServ
     }
 
     public async IAsyncEnumerable<ProjectDiscoverySummary> CountWorkItemsAsync(
-        MigrationEndpointOptions endpoint,
+        OrganisationEndpoint endpoint,
         string project,
         string? baseQuery = null,
         [EnumeratorCancellation] CancellationToken cancellationToken = default)

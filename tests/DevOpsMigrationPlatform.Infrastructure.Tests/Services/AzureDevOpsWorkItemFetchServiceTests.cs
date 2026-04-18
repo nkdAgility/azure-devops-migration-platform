@@ -66,7 +66,7 @@ public class AzureDevOpsWorkItemFetchServiceTests
 
         windowStrategy
             .Setup(w => w.EnumerateWindowsAsync(
-                It.IsAny<MigrationEndpointOptions>(),
+                It.IsAny<OrganisationEndpoint>(),
                 "MyProject",
                 null,
                 It.IsAny<CancellationToken>()))
@@ -98,7 +98,7 @@ public class AzureDevOpsWorkItemFetchServiceTests
 
         windowStrategy
             .Setup(w => w.EnumerateWindowsAsync(
-                It.IsAny<MigrationEndpointOptions>(),
+                It.IsAny<OrganisationEndpoint>(),
                 "MyProject",
                 null,
                 It.IsAny<CancellationToken>()))
@@ -161,7 +161,7 @@ public class AzureDevOpsWorkItemFetchServiceTests
 
         windowStrategy
             .Setup(w => w.EnumerateWindowsAsync(
-                It.IsAny<MigrationEndpointOptions>(),
+                It.IsAny<OrganisationEndpoint>(),
                 "MyProject",
                 null,
                 It.IsAny<CancellationToken>()))
@@ -206,7 +206,7 @@ public class AzureDevOpsWorkItemFetchServiceTests
 
         windowStrategy
             .Setup(w => w.EnumerateWindowsAsync(
-                It.IsAny<MigrationEndpointOptions>(),
+                It.IsAny<OrganisationEndpoint>(),
                 "MyProject",
                 null,
                 It.Is<CancellationToken>(ct => ct.IsCancellationRequested)))
@@ -224,7 +224,7 @@ public class AzureDevOpsWorkItemFetchServiceTests
             results.Add(item);
 
         windowStrategy.Verify(w => w.EnumerateWindowsAsync(
-            It.IsAny<MigrationEndpointOptions>(),
+            It.IsAny<OrganisationEndpoint>(),
             "MyProject",
             null,
             It.Is<CancellationToken>(ct => ct.IsCancellationRequested)),
@@ -242,7 +242,7 @@ public class AzureDevOpsWorkItemFetchServiceTests
 
         windowStrategy
             .Setup(w => w.EnumerateWindowsAsync(
-                It.IsAny<MigrationEndpointOptions>(),
+                It.IsAny<OrganisationEndpoint>(),
                 It.IsAny<string>(),
                 null,
                 It.IsAny<CancellationToken>()))
@@ -287,7 +287,7 @@ public class AzureDevOpsWorkItemFetchServiceTests
 
         windowStrategy
             .Setup(w => w.EnumerateWindowsAsync(
-                It.IsAny<MigrationEndpointOptions>(),
+                It.IsAny<OrganisationEndpoint>(),
                 It.IsAny<string>(),
                 null,
                 It.IsAny<CancellationToken>()))
@@ -329,7 +329,7 @@ public class AzureDevOpsWorkItemFetchServiceTests
 
         windowStrategy
             .Setup(w => w.EnumerateWindowsAsync(
-                It.IsAny<MigrationEndpointOptions>(),
+                It.IsAny<OrganisationEndpoint>(),
                 It.IsAny<string>(),
                 null,
                 It.IsAny<CancellationToken>()))

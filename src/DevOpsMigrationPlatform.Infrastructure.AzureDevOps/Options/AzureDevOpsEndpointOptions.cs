@@ -47,4 +47,17 @@ public sealed class AzureDevOpsEndpointOptions : MigrationEndpointOptions
 
     /// <inheritdoc/>
     public override string GetProject() => Project;
+
+    /// <inheritdoc/>
+    public override OrganisationEndpoint ToOrganisationEndpoint() => new()
+    {
+        ResolvedUrl = ResolvedUrl,
+        Type = Type,
+        ApiVersion = ApiVersion,
+        Authentication = new OrganisationEndpointAuthentication
+        {
+            Type = Authentication?.Type ?? AuthenticationType.None,
+            ResolvedAccessToken = Authentication?.ResolvedAccessToken
+        }
+    };
 }

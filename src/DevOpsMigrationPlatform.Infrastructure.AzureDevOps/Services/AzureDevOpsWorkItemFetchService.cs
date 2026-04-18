@@ -42,16 +42,12 @@ public sealed class AzureDevOpsWorkItemFetchService : IWorkItemFetchService
 
         var witClient = await _clientFactory.CreateWorkItemClientAsync(endpoint, cancellationToken);
 
-        // Bridge OrganisationEndpoint → MigrationEndpointOptions for the window strategy
-        // (D-004: IWorkItemQueryWindowStrategy still accepts MigrationEndpointOptions — deferred alignment)
-        var endpointOptions = new AzureDevOpsEndpointOptionsAdapter(endpoint);
-
         var windowOptions = scope.BaseQuery is not null
             ? new WorkItemQueryWindowOptions { BaseQuery = scope.BaseQuery }
             : null;
 
         await foreach (var window in _windowStrategy.EnumerateWindowsAsync(
-            endpointOptions, project, windowOptions, cancellationToken).ConfigureAwait(false))
+            endpoint, project, windowOptions, cancellationToken).ConfigureAwait(false))
         {
             cancellationToken.ThrowIfCancellationRequested();
 
