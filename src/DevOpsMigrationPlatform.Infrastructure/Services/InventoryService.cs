@@ -46,31 +46,28 @@ public sealed class InventoryService : IInventoryService
 
         foreach (var entry in opts.Organisations.Where(e => e.Enabled))
         {
-            var pat = entry.Authentication?.Type == AuthenticationType.Pat
-                ? entry.Authentication.ResolvedAccessToken ?? string.Empty
-                : string.Empty;
+            var endpoint = entry.ToOrganisationEndpoint();
 
-            var resolvedUrl = entry.ResolvedUrl;
             var projects = entry.Projects.Count > 0
                 ? entry.Projects
-                : await _projectDiscovery.DiscoverProjectsAsync(resolvedUrl, pat, cancellationToken).ConfigureAwait(false);
+                : await _projectDiscovery.DiscoverProjectsAsync(endpoint, cancellationToken).ConfigureAwait(false);
 
             foreach (var project in projects)
             {
                 // Start repo count concurrently while work items are being enumerated
-                var repoCountTask = _repoDiscovery.CountReposAsync(resolvedUrl, project, pat, cancellationToken);
+                var repoCountTask = _repoDiscovery.CountReposAsync(endpoint, project, cancellationToken);
 
                 InventoryProgressEvent? pendingFinalEvent = null;
 
                 await foreach (var summary in _workItemDiscovery.DiscoverWorkItemsAsync(
-                    resolvedUrl, project, pat, cancellationToken))
+                    endpoint, project, cancellationToken))
                 {
                     if (!summary.IsWorkItemComplete)
                     {
                         yield return new InventoryProgressEvent
                         {
                             ProjectName = project,
-                            Url = resolvedUrl,
+                            Url = endpoint.ResolvedUrl,
                             WorkItemsCount = summary.WorkItemsCount,
                             RevisionsCount = summary.RevisionsCount,
                             ReposCount = 0,
@@ -83,7 +80,7 @@ public sealed class InventoryService : IInventoryService
                         pendingFinalEvent = new InventoryProgressEvent
                         {
                             ProjectName = project,
-                            Url = resolvedUrl,
+                            Url = endpoint.ResolvedUrl,
                             WorkItemsCount = summary.WorkItemsCount,
                             RevisionsCount = summary.RevisionsCount,
                             IsComplete = true,

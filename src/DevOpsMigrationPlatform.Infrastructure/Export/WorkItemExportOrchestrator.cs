@@ -35,18 +35,16 @@ public sealed class WorkItemExportOrchestrator
     private readonly IAttachmentBinarySource? _attachmentBinarySource;
     private readonly IProgressSink? _progressSink;
     private readonly IWorkItemCommentSourceFactory? _inlineCommentSourceFactory;
-    private readonly string? _organisationUrl;
+    private readonly OrganisationEndpoint? _endpoint;
     private readonly string? _project;
-    private readonly string? _pat;
 
     public WorkItemExportOrchestrator(
         IArtefactStore artefactStore,
         ICheckpointingService checkpointingService,
         IAttachmentBinarySource? attachmentBinarySource = null,
         IProgressSink? progressSink = null,
-        string? organisationUrl = null,
+        OrganisationEndpoint? endpoint = null,
         string? project = null,
-        string? pat = null,
         IWorkItemCommentSourceFactory? inlineCommentSourceFactory = null)
     {
         _artefactStore = artefactStore;
@@ -54,9 +52,8 @@ public sealed class WorkItemExportOrchestrator
         _attachmentBinarySource = attachmentBinarySource;
         _progressSink = progressSink;
         _inlineCommentSourceFactory = inlineCommentSourceFactory;
-        _organisationUrl = organisationUrl;
+        _endpoint = endpoint;
         _project = project;
-        _pat = pat;
     }
 
     /// <summary>
@@ -98,14 +95,13 @@ public sealed class WorkItemExportOrchestrator
             // and write them as comment.json beside revision.json in the same revision folder.
             // FR-5: Comment API failures are non-fatal — log via progress and continue.
             if (_inlineCommentSourceFactory != null &&
-                !string.IsNullOrEmpty(_organisationUrl) &&
+                _endpoint != null &&
                 !string.IsNullOrEmpty(_project) &&
-                _pat != null &&
                 IsCommentEditOrDeleteRevision(revision))
             {
                 try
                 {
-                    var commentSource = _inlineCommentSourceFactory.Create(_organisationUrl!, _project!, _pat);
+                    var commentSource = _inlineCommentSourceFactory.Create(_endpoint!, _project!);
                     var matchingComments = new List<WorkItemComment>();
 
                     await foreach (var comment in commentSource.GetCommentsAsync(

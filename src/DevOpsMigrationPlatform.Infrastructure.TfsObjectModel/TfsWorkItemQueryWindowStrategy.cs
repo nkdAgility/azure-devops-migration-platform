@@ -35,9 +35,8 @@ public sealed class TfsWorkItemQueryWindowStrategy : IWorkItemQueryWindowStrateg
 
     /// <inheritdoc/>
     public async IAsyncEnumerable<WorkItemQueryWindow> EnumerateWindowsAsync(
-        string url,
+        OrganisationEndpoint endpoint,
         string project,
-        string pat,
         WorkItemQueryWindowOptions? options = null,
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {

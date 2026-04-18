@@ -25,9 +25,8 @@ public sealed class AzureDevOpsWorkItemRevisionSource : IWorkItemRevisionSource
     private readonly IWorkItemQueryWindowStrategy _windowStrategy;
     private readonly IAzureDevOpsWorkItemRevisionMapper _mapper;
     private readonly AzureDevOpsAttachmentRegistry _attachmentRegistry;
-    private readonly string _organisationUrl;
+    private readonly OrganisationEndpoint _endpoint;
     private readonly string _project;
-    private readonly string _pat;
     private readonly string? _wiqlQuery;
 
     private const int RevisionPageSize = 100;
@@ -37,18 +36,16 @@ public sealed class AzureDevOpsWorkItemRevisionSource : IWorkItemRevisionSource
         IWorkItemQueryWindowStrategy windowStrategy,
         IAzureDevOpsWorkItemRevisionMapper mapper,
         AzureDevOpsAttachmentRegistry attachmentRegistry,
-        string organisationUrl,
+        OrganisationEndpoint endpoint,
         string project,
-        string pat,
         string? wiqlQuery = null)
     {
         _client = client ?? throw new ArgumentNullException(nameof(client));
         _windowStrategy = windowStrategy ?? throw new ArgumentNullException(nameof(windowStrategy));
         _mapper = mapper ?? throw new ArgumentNullException(nameof(mapper));
         _attachmentRegistry = attachmentRegistry ?? throw new ArgumentNullException(nameof(attachmentRegistry));
-        _organisationUrl = organisationUrl ?? throw new ArgumentNullException(nameof(organisationUrl));
+        _endpoint = endpoint ?? throw new ArgumentNullException(nameof(endpoint));
         _project = project ?? throw new ArgumentNullException(nameof(project));
-        _pat = pat ?? throw new ArgumentNullException(nameof(pat));
         _wiqlQuery = wiqlQuery;
     }
 
@@ -63,7 +60,7 @@ public sealed class AzureDevOpsWorkItemRevisionSource : IWorkItemRevisionSource
             ? new WorkItemQueryWindowOptions { BaseQuery = _wiqlQuery }
             : null;
         await foreach (var window in _windowStrategy.EnumerateWindowsAsync(
-            _organisationUrl, _project, _pat, windowOptions, cancellationToken)
+            _endpoint, _project, windowOptions, cancellationToken)
             .ConfigureAwait(false))
         {
             // 2. For each work item in the window, stream its revisions in ascending order.

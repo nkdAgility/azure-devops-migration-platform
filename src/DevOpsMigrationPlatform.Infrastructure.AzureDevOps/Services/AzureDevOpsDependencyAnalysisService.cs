@@ -8,6 +8,7 @@ using Microsoft.Extensions.Options;
 using Microsoft.TeamFoundation.Core.WebApi;
 using Microsoft.TeamFoundation.WorkItemTracking.WebApi;
 using Microsoft.TeamFoundation.WorkItemTracking.WebApi.Models;
+using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Models;
 using DevOpsMigrationPlatform.Abstractions.Options;
 
@@ -47,21 +48,20 @@ public sealed class AzureDevOpsDependencyAnalysisService : IWorkItemLinkAnalysis
     /// Results are streamed as DependencyFoundEvent and DependencyHeartbeatEvent records.
     /// </summary>
     public async IAsyncEnumerable<DependencyProgressEvent> AnalyseLinksAsync(
-        string organisationUrl,
+        OrganisationEndpoint endpoint,
         string project,
-        string pat,
         string? wiqlFilter = null,
         [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
-        var witClient = await _clientFactory.CreateWorkItemClientAsync(organisationUrl, pat, cancellationToken).ConfigureAwait(false);
+        var witClient = await _clientFactory.CreateWorkItemClientAsync(endpoint, cancellationToken).ConfigureAwait(false);
 
         var windowOptions = string.IsNullOrWhiteSpace(wiqlFilter)
             ? null
             : new WorkItemQueryWindowOptions { BaseQuery = wiqlFilter };
 
-        _logger.LogInformation("Enumerating work item IDs for project {Project} in {OrgUrl}", project, organisationUrl);
+        _logger.LogInformation("Enumerating work item IDs for project {Project} in {OrgUrl}", project, endpoint.ResolvedUrl);
 
-        var sourceOrgSegment = ExtractOrgSegment(organisationUrl);
+        var sourceOrgSegment = ExtractOrgSegment(endpoint.ResolvedUrl);
         var counters = new LinkCounters();
         const int batchSize = 200;
 
@@ -84,17 +84,17 @@ public sealed class AzureDevOpsDependencyAnalysisService : IWorkItemLinkAnalysis
 
         // ── Phase 1: collect all work item IDs so we know the total up-front ──
         // IDs are plain integers; even 200 K IDs occupy ~800 KB — well within budget.
-        _logger.LogInformation("Counting work items for project {Project} in {OrgUrl}", project, organisationUrl);
+        _logger.LogInformation("Counting work items for project {Project} in {OrgUrl}", project, endpoint.ResolvedUrl);
         var allIds = new List<int>();
         await foreach (var window in _windowStrategy.EnumerateWindowsAsync(
-            organisationUrl, project, pat, windowOptions, cancellationToken).ConfigureAwait(false))
+            endpoint, project, windowOptions, cancellationToken).ConfigureAwait(false))
         {
             allIds.AddRange(window.WorkItemIds);
 
             // Emit a counting heartbeat after each window so the CLI can show a spinner
             // and partial ID count while the full enumeration is in progress.
             yield return new DependencyHeartbeatEvent(
-                organisationUrl, project, 0, 0, 0, 0, false,
+                endpoint.ResolvedUrl, project, 0, 0, 0, 0, false,
                 TotalWorkItems: allIds.Count, IsCounting: true);
         }
 
@@ -103,7 +103,7 @@ public sealed class AzureDevOpsDependencyAnalysisService : IWorkItemLinkAnalysis
 
         // Emit an initial heartbeat so the CLI can display the total immediately.
         yield return new DependencyHeartbeatEvent(
-            organisationUrl, project, 0, 0, 0, 0, false,
+            endpoint.ResolvedUrl, project, 0, 0, 0, 0, false,
             TotalWorkItems: totalWorkItems);
 
         // ── Phase 2: process IDs in batches ───────────────────────────────────
@@ -112,7 +112,7 @@ public sealed class AzureDevOpsDependencyAnalysisService : IWorkItemLinkAnalysis
             var batch = allIds.GetRange(offset, Math.Min(batchSize, allIds.Count - offset));
 
             await foreach (var evt in ProcessBatchAsync(
-                witClient, batch, sourceOrgSegment, organisationUrl, project, pat,
+                witClient, batch, sourceOrgSegment, endpoint.ResolvedUrl, project,
                 counters, totalWorkItems, configuredOrgs, projectNameCache, cancellationToken))
             {
                 yield return evt;
@@ -121,7 +121,7 @@ public sealed class AzureDevOpsDependencyAnalysisService : IWorkItemLinkAnalysis
 
         // Final heartbeat
         yield return new DependencyHeartbeatEvent(
-            organisationUrl,
+            endpoint.ResolvedUrl,
             project,
             counters.Processed,
             counters.CrossProject + counters.CrossOrg,
@@ -152,7 +152,6 @@ public sealed class AzureDevOpsDependencyAnalysisService : IWorkItemLinkAnalysis
         string sourceOrgSegment,
         string organisationUrl,
         string project,
-        string pat,
         LinkCounters counters,
         int totalWorkItems,
         IReadOnlyDictionary<string, (string OrgUrl, string Pat)> configuredOrgs,
@@ -374,7 +373,15 @@ public sealed class AzureDevOpsDependencyAnalysisService : IWorkItemLinkAnalysis
         try
         {
             var projectClient = await _clientFactory.CreateProjectClientAsync(
-                creds.OrgUrl, creds.Pat, cancellationToken).ConfigureAwait(false);
+                new OrganisationEndpoint
+                {
+                    ResolvedUrl = creds.OrgUrl,
+                    Authentication = new OrganisationEndpointAuthentication
+                    {
+                        Type = Abstractions.Options.AuthenticationType.Pat,
+                        ResolvedAccessToken = creds.Pat
+                    }
+                }, cancellationToken).ConfigureAwait(false);
             var teamProject = await projectClient.GetProject(
                 projectGuid.ToString()).ConfigureAwait(false);
             var name = teamProject?.Name ?? rawProject;

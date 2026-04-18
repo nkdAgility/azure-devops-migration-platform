@@ -9,7 +9,7 @@ namespace DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Services;
 
 /// <summary>
 /// Factory for creating <see cref="AzureDevOpsWorkItemCommentSource"/> instances per export job.
-/// Carries the organization URL, project, and PAT from the job context.
+/// Carries the organization endpoint and project from the job context.
 /// Implements the generic <see cref="IWorkItemCommentSourceFactory"/> interface for use in Infrastructure-level services.
 /// </summary>
 public sealed class AzureDevOpsWorkItemCommentSourceFactory : IWorkItemCommentSourceFactory
@@ -26,22 +26,21 @@ public sealed class AzureDevOpsWorkItemCommentSourceFactory : IWorkItemCommentSo
     }
 
     /// <inheritdoc/>
-    public IWorkItemCommentSource Create(string organisationUrl, string project, string pat)
+    public IWorkItemCommentSource Create(OrganisationEndpoint endpoint, string project)
     {
-        if (string.IsNullOrWhiteSpace(organisationUrl))
-            throw new ArgumentException("Organization URL is required.", nameof(organisationUrl));
+        if (endpoint == null)
+            throw new ArgumentNullException(nameof(endpoint));
+        if (string.IsNullOrWhiteSpace(endpoint.ResolvedUrl))
+            throw new ArgumentException("Organization URL is required.", nameof(endpoint));
         if (string.IsNullOrWhiteSpace(project))
             throw new ArgumentException("Project is required.", nameof(project));
-        if (pat == null)
-            throw new ArgumentNullException(nameof(pat));
 
         var logger = _loggerFactory.CreateLogger<AzureDevOpsWorkItemCommentSource>();
 
         return new AzureDevOpsWorkItemCommentSource(
             _clientFactory,
-            organisationUrl,
+            endpoint,
             project,
-            pat,
             logger);
     }
 }

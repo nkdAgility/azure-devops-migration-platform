@@ -6,6 +6,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Models;
+using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Abstractions.Services;
 using DevOpsMigrationPlatform.Infrastructure.Export;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
@@ -16,6 +17,17 @@ namespace DevOpsMigrationPlatform.Infrastructure.Tests.Export;
 [TestClass]
 public class WorkItemExportOrchestratorTests
 {
+    private static readonly OrganisationEndpoint TestEndpoint = new()
+    {
+        ResolvedUrl = "https://dev.azure.com/org",
+        Type = "AzureDevOps",
+        Authentication = new OrganisationEndpointAuthentication
+        {
+            Type = AuthenticationType.Pat,
+            ResolvedAccessToken = "myPat"
+        }
+    };
+
     private Mock<IArtefactStore> _mockStore = null!;
     private Mock<ICheckpointingService> _mockCps = null!;
     private Mock<IWorkItemRevisionSource> _mockSource = null!;
@@ -317,15 +329,14 @@ public class WorkItemExportOrchestratorTests
 
         var mockFactory = new Mock<IWorkItemCommentSourceFactory>(MockBehavior.Strict);
         mockFactory
-            .Setup(f => f.Create("https://dev.azure.com/org", "MyProject", "myPat"))
+            .Setup(f => f.Create(It.IsAny<OrganisationEndpoint>(), "MyProject"))
             .Returns(mockCommentSource.Object);
 
         var sut = new WorkItemExportOrchestrator(
             _mockStore.Object,
             _mockCps.Object,
-            organisationUrl: "https://dev.azure.com/org",
+            endpoint: TestEndpoint,
             project: "MyProject",
-            pat: "myPat",
             inlineCommentSourceFactory: mockFactory.Object);
 
         var mockSource = new Mock<IWorkItemRevisionSource>(MockBehavior.Strict);
@@ -391,15 +402,14 @@ public class WorkItemExportOrchestratorTests
 
         var mockFactory = new Mock<IWorkItemCommentSourceFactory>(MockBehavior.Strict);
         mockFactory
-            .Setup(f => f.Create("https://dev.azure.com/org", "MyProject", "myPat"))
+            .Setup(f => f.Create(It.IsAny<OrganisationEndpoint>(), "MyProject"))
             .Returns(mockCommentSource.Object);
 
         var sut = new WorkItemExportOrchestrator(
             _mockStore.Object,
             _mockCps.Object,
-            organisationUrl: "https://dev.azure.com/org",
+            endpoint: TestEndpoint,
             project: "MyProject",
-            pat: "myPat",
             inlineCommentSourceFactory: mockFactory.Object);
 
         var mockSource = new Mock<IWorkItemRevisionSource>(MockBehavior.Strict);
@@ -444,9 +454,8 @@ public class WorkItemExportOrchestratorTests
         var sut = new WorkItemExportOrchestrator(
             _mockStore.Object,
             _mockCps.Object,
-            organisationUrl: "https://dev.azure.com/org",
+            endpoint: TestEndpoint,
             project: "MyProject",
-            pat: "myPat",
             inlineCommentSourceFactory: mockFactory.Object);
 
         var mockSource = new Mock<IWorkItemRevisionSource>(MockBehavior.Strict);
@@ -457,6 +466,6 @@ public class WorkItemExportOrchestratorTests
         await sut.ExportAsync(mockSource.Object, CancellationToken.None);
 
         // Strict mock will throw if Create() is invoked — test passes if no call made.
-        mockFactory.Verify(f => f.Create(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()), Times.Never);
+        mockFactory.Verify(f => f.Create(It.IsAny<OrganisationEndpoint>(), It.IsAny<string>()), Times.Never);
     }
 }

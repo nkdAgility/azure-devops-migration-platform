@@ -78,12 +78,11 @@ public sealed class DependencyDiscoveryService : IDependencyDiscoveryService
             if (projectsToAnalyse.Count == 0)
             {
                 _logger.LogInformation("Projects list is empty, fetching all projects from {Url}", organisation.ResolvedUrl);
-                var pat = organisation.Authentication?.ResolvedAccessToken ?? "";
+                var endpoint = organisation.ToOrganisationEndpoint();
                 try
                 {
                     projectsToAnalyse = (await _catalogService.GetProjectsAsync(
-                        organisation.ResolvedUrl,
-                        pat,
+                        endpoint,
                         cancellationToken)).ToList();
                     _logger.LogInformation("Found {ProjectCount} projects in {Url}", projectsToAnalyse.Count, organisation.ResolvedUrl);
                 }
@@ -99,13 +98,12 @@ public sealed class DependencyDiscoveryService : IDependencyDiscoveryService
             {
                 _logger.LogInformation("Analysing project {Project} in {Url}", project, organisation.ResolvedUrl);
 
-                var pat = organisation.Authentication?.ResolvedAccessToken ?? "";
+                var orgEndpoint = organisation.ToOrganisationEndpoint();
 
                 // Stream events from the service
                 await foreach (var evt in service.AnalyseLinksAsync(
-                    organisation.ResolvedUrl,
+                    orgEndpoint,
                     project,
-                    pat,
                     wiqlFilter,
                     cancellationToken))
                 {

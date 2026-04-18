@@ -28,15 +28,14 @@ public sealed class TfsObjectModelWorkItemDiscoveryService : IWorkItemDiscoveryS
     }
 
     public async IAsyncEnumerable<ProjectDiscoverySummary> DiscoverWorkItemsAsync(
-        string collectionUrl,
+        OrganisationEndpoint endpoint,
         string project,
-        string pat,
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         var summary = new ProjectDiscoverySummary { ProjectName = project };
 
         await foreach (var window in _windowStrategy
-            .EnumerateWindowsAsync(collectionUrl, project, pat, cancellationToken: cancellationToken)
+            .EnumerateWindowsAsync(endpoint, project, cancellationToken: cancellationToken)
             .ConfigureAwait(false))
         {
             if (window.WorkItemIds.Count == 0)
@@ -65,12 +64,11 @@ public sealed class TfsObjectModelWorkItemDiscoveryService : IWorkItemDiscoveryS
     /// The <paramref name="baseQuery"/> parameter is intentionally ignored.
     /// </summary>
     public IAsyncEnumerable<ProjectDiscoverySummary> CountWorkItemsAsync(
-        string url,
+        OrganisationEndpoint endpoint,
         string project,
-        string pat,
         string? baseQuery = null,
         CancellationToken cancellationToken = default)
-        => DiscoverWorkItemsAsync(url, project, pat, cancellationToken);
+        => DiscoverWorkItemsAsync(endpoint, project, cancellationToken);
 
     private static string EscapeWiql(string value) => value.Replace("'", "''");
 }

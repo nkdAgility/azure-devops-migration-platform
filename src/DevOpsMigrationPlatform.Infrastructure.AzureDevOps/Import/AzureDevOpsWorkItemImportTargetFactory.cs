@@ -34,8 +34,19 @@ public sealed class AzureDevOpsWorkItemImportTargetFactory : IWorkItemImportTarg
         if (string.Equals(targetType, "Simulated", StringComparison.OrdinalIgnoreCase))
             return new SimulatedWorkItemImportTarget();
 
+        var endpoint = new OrganisationEndpoint
+        {
+            ResolvedUrl = orgUrl,
+            Type = targetType,
+            Authentication = new OrganisationEndpointAuthentication
+            {
+                Type = Abstractions.Options.AuthenticationType.Pat,
+                ResolvedAccessToken = accessToken
+            }
+        };
+
         var witClient = await _clientFactory
-            .CreateWorkItemClientAsync(orgUrl, accessToken, ct)
+            .CreateWorkItemClientAsync(endpoint, ct)
             .ConfigureAwait(false);
 
         return new AzureDevOpsWorkItemImportTarget(witClient, project, orgUrl);

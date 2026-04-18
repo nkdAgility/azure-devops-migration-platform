@@ -57,7 +57,7 @@ public sealed class TfsWorkItemRevisionSource : IWorkItemRevisionSource
         var options = new WorkItemQueryWindowOptions { BaseQuery = _wiqlQuery };
 
         await foreach (var window in _windowStrategy
-            .EnumerateWindowsAsync(string.Empty, _project, string.Empty, options, cancellationToken)
+            .EnumerateWindowsAsync(new OrganisationEndpoint(), _project, options, cancellationToken)
             .ConfigureAwait(false))
         {
             foreach (var workItemId in window.WorkItemIds)

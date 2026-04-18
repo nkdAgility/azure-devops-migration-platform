@@ -1,5 +1,7 @@
+using System;
 using System.Threading;
 using System.Threading.Tasks;
+using DevOpsMigrationPlatform.Abstractions;
 using Microsoft.TeamFoundation.WorkItemTracking.WebApi;
 using Microsoft.TeamFoundation.WorkItemTracking.WebApi.Models;
 
@@ -36,11 +38,10 @@ public sealed class AzureDevOpsWiqlQueryClientFactory : IWiqlQueryClientFactory
         => _inner = inner ?? throw new ArgumentNullException(nameof(inner));
 
     public async Task<IWiqlQueryClient> CreateAsync(
-        string url,
-        string pat,
+        OrganisationEndpoint endpoint,
         CancellationToken cancellationToken = default)
     {
-        var client = await _inner.CreateWorkItemClientAsync(url, pat, cancellationToken);
+        var client = await _inner.CreateWorkItemClientAsync(endpoint, cancellationToken);
         return new WiqlQueryClientAdapter(client);
     }
 }

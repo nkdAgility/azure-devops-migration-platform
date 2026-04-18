@@ -261,13 +261,25 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
         var totalWorkItems = 0;
         var discovery = GetRequiredService<IWorkItemDiscoveryService>();
 
+        var sourceEndpoint = new OrganisationEndpoint
+        {
+            ResolvedUrl = orgUrl,
+            Type = config.Source.Type ?? "AzureDevOps",
+            Authentication = new OrganisationEndpointAuthentication
+            {
+                Type = Abstractions.Options.AuthenticationType.Pat,
+                ResolvedAccessToken = pat
+            },
+            ApiVersion = config.Source.ApiVersion
+        };
+
         await console.Status()
             .Spinner(Spinner.Known.Dots)
             .SpinnerStyle(Style.Plain)
             .StartAsync("[grey]Counting work items…[/]", async _ =>
             {
                 await foreach (var snapshot in discovery.CountWorkItemsAsync(
-                    orgUrl, project, pat, baseQuery, cancellationToken))
+                    sourceEndpoint, project, baseQuery, cancellationToken))
                 {
                     if (snapshot.IsWorkItemComplete)
                         totalWorkItems = snapshot.WorkItemsCount;
@@ -284,7 +296,7 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
             Mode = "Export",
             Source = new JobEndpoint
             {
-                Type = config.Source!.Type,
+                Type = config.Source!.Type ?? "AzureDevOps",
                 Url = orgUrl,
                 Project = project,
                 ApiVersion = config.Source.ApiVersion,

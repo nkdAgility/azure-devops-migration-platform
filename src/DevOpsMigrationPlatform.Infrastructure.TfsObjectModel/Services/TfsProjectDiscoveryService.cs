@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Services;
 using Microsoft.TeamFoundation.WorkItemTracking.Client;
 
@@ -26,8 +27,7 @@ public sealed class TfsProjectDiscoveryService : IProjectDiscoveryService
     }
 
     public Task<List<string>> DiscoverProjectsAsync(
-        string url,
-        string pat,
+        OrganisationEndpoint endpoint,
         CancellationToken cancellationToken = default)
     {
         var names = _workItemStore.Projects

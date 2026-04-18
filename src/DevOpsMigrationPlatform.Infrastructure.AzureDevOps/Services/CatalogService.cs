@@ -22,22 +22,20 @@ public class CatalogService : ICatalogService
     }
 
     public async Task<IReadOnlyList<string>> GetProjectsAsync(
-        string orgUrl,
-        string pat,
+        OrganisationEndpoint endpoint,
         CancellationToken cancellationToken = default)
     {
-        var projects = await _projectDiscovery.DiscoverProjectsAsync(orgUrl, pat, cancellationToken);
+        var projects = await _projectDiscovery.DiscoverProjectsAsync(endpoint, cancellationToken);
         return projects;
     }
 
     public async IAsyncEnumerable<ProjectDiscoverySummary> CountAllWorkItemsAsync(
-        string orgUrl,
+        OrganisationEndpoint endpoint,
         string project,
-        string pat,
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         await foreach (var summary in _workItemDiscovery.DiscoverWorkItemsAsync(
-            orgUrl, project, pat, cancellationToken))
+            endpoint, project, cancellationToken))
         {
             yield return summary;
         }

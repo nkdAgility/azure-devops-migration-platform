@@ -11,7 +11,7 @@ using Microsoft.Extensions.Options;
 namespace DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Factories;
 
 /// <summary>
-/// Creates a configured <see cref="IInventoryService"/> from <see cref="DiscoveryJobOrganisation"/>
+/// Creates a configured <see cref="IInventoryService"/> from <see cref="ScopedOrganisationEndpoint"/>
 /// entries carried on a <see cref="DiscoveryJob"/>. Used by <c>InventoryDiscoveryModule</c>
 /// so the agent does not need a config file at runtime.
 /// </summary>
@@ -33,7 +33,7 @@ public sealed class InventoryServiceFactory : IInventoryServiceFactory
 
     /// <inheritdoc/>
     public IInventoryService Create(
-        IReadOnlyList<DiscoveryJobOrganisation> organisations,
+        IReadOnlyList<ScopedOrganisationEndpoint> organisations,
         JobPolicies policies)
     {
         var options = BuildDiscoveryOptions(organisations, policies);
@@ -45,7 +45,7 @@ public sealed class InventoryServiceFactory : IInventoryServiceFactory
     }
 
     private static DiscoveryOptions BuildDiscoveryOptions(
-        IReadOnlyList<DiscoveryJobOrganisation> organisations,
+        IReadOnlyList<ScopedOrganisationEndpoint> organisations,
         JobPolicies policies)
     {
         return new DiscoveryOptions
@@ -58,14 +58,14 @@ public sealed class InventoryServiceFactory : IInventoryServiceFactory
             },
             Organisations = organisations.Select(o => new OrganisationEntry
             {
-                Type = o.Type,
-                Url = o.Url,
+                Type = o.Endpoint.Type,
+                Url = o.Endpoint.ResolvedUrl,
                 Projects = new System.Collections.Generic.List<string>(o.Projects),
-                ApiVersion = o.ApiVersion,
+                ApiVersion = o.Endpoint.ApiVersion,
                 Authentication = new EndpointAuthenticationOptions
                 {
-                    Type = AuthenticationType.Pat,
-                    AccessToken = o.Authentication.AccessToken
+                    Type = o.Endpoint.Authentication.Type,
+                    AccessToken = o.Endpoint.Authentication.ResolvedAccessToken
                 },
                 Enabled = true
             }).ToList()
