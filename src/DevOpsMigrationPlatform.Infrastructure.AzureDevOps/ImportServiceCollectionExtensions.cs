@@ -17,9 +17,8 @@ public static class ImportServiceCollectionExtensions
     /// <summary>
     /// Registers:
     /// <list type="bullet">
-    ///   <item><see cref="IWorkItemImportTargetFactory"/> as <see cref="AzureDevOpsWorkItemImportTargetFactory"/>.
-    ///   Routes to <c>SimulatedWorkItemImportTarget</c> or <c>AzureDevOpsWorkItemImportTarget</c>
-    ///   at runtime based on <c>target.type</c> in the scenario config.</item>
+    ///   <item><see cref="IWorkItemImportTargetFactory"/> as <see cref="AzureDevOpsWorkItemImportTargetFactory"/>
+    ///   keyed to <c>"AzureDevOpsServices"</c>.</item>
     ///   <item><see cref="IWorkItemResolutionStrategyFactory"/> as <see cref="AzureDevOpsResolutionStrategyFactory"/>.</item>
     ///   <item><see cref="IIdentityMappingService"/> as <see cref="PassThroughIdentityMappingService"/>.</item>
     /// </list>

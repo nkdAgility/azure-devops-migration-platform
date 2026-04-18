@@ -35,10 +35,27 @@ public sealed class SimulatedAttachmentBinarySource : IAttachmentBinarySource
         var bytes = new byte[size];
 
         // Fill with deterministic bytes seeded by workItemId and filename.
-        var seed = (workItemId * 31) ^ (attachment.OriginalName?.GetHashCode() ?? 0);
+        // Use a simple deterministic hash instead of string.GetHashCode() which is
+        // randomized per-process in .NET Core.
+        var seed = (workItemId * 31) ^ DeterministicStringHash(attachment.OriginalName);
         var rng = new Random(seed);
         rng.NextBytes(bytes);
 
         return Task.FromResult<byte[]?>(bytes);
+    }
+
+    /// <summary>Deterministic hash for strings — not randomized across process runs.</summary>
+    private static int DeterministicStringHash(string? value)
+    {
+        if (value is null) return 0;
+        unchecked
+        {
+            int hash = (int)2166136261;
+            foreach (var c in value)
+            {
+                hash = (hash ^ c) * 16777619;
+            }
+            return hash;
+        }
     }
 }

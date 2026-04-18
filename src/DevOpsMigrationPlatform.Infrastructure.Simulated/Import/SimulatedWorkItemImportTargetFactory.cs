@@ -21,12 +21,11 @@ public sealed class SimulatedWorkItemImportTargetFactory : IWorkItemImportTarget
         if (endpoint is null)
             throw new ArgumentNullException(nameof(endpoint));
 
-        if (endpoint is not SimulatedEndpointOptions &&
-            !string.Equals(endpoint.Type, "Simulated", StringComparison.OrdinalIgnoreCase))
+        if (endpoint is not SimulatedEndpointOptions)
         {
             throw new ArgumentException(
-                $"Expected {nameof(SimulatedEndpointOptions)} or endpoint with Type='Simulated', " +
-                $"got {endpoint.GetType().Name} with Type='{endpoint.Type}'.",
+                $"Expected {nameof(SimulatedEndpointOptions)} but received {endpoint.GetType().Name}. " +
+                "Ensure the target endpoint type is 'Simulated'.",
                 nameof(endpoint));
         }
 

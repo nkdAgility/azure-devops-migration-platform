@@ -134,6 +134,6 @@ public sealed class SimulatedWorkItemRevisionSource : IWorkItemRevisionSource
     {
         // Generate a deterministic pseudo-hash string from the inputs.
         var seed = workItemId * 31 + attachmentSizeKb;
-        return seed.GetHashCode().ToString("x8").PadLeft(64, '0');
+        return seed.ToString("x8").PadLeft(64, '0');
     }
 }
