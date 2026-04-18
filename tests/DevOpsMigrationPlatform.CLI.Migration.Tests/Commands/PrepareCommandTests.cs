@@ -40,6 +40,7 @@ public class PrepareCommandTests
     /// </summary>
     [TestMethod]
     [TestCategory("SystemTest")]
+    [TestCategory("SystemTest_Live")]
     [Timeout(300_000)] // 5 minutes — prepare jobs should be fast
     public async Task PrepareCommand_WithValidConfig_ExitsZero_AndWritesProbeFile()
     {

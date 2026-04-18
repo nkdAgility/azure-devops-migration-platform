@@ -60,6 +60,7 @@ public class QueueCommandTests
     /// </summary>
     [TestMethod]
     [TestCategory("SystemTest")]
+    [TestCategory("SystemTest_Live")]
     [Timeout(1_200_000)] // 20 minutes
     public async Task QueueCommand_WithExportMode_ExitsZero_AndWritesRevisionFiles()
     {
@@ -120,6 +121,7 @@ public class QueueCommandTests
     /// </summary>
     [TestMethod]
     [TestCategory("SystemTest")]
+    [TestCategory("SystemTest_Simulated")]
     [Timeout(120_000)] // 2 minutes — no network I/O
     public async Task QueueCommand_WithSimulatedImportMode_Fixture_ExitsZero_AndImportsBothWorkItems()
     {
