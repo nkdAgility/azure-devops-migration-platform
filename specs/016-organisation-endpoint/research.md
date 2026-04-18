@@ -109,3 +109,16 @@ C# records require at least C# 9 / .NET 5+. For net481 compatibility in the mult
 
 - **Use `record` keyword**: Would break net481 compilation.
 - **Move to a net10.0-only project**: Violates the architectural requirement that abstractions are shared across runtimes.
+
+---
+
+## Implementation Addendum: Polymorphic Endpoint Evolution
+
+During implementation (concurrent with feature 017 — Simulated Infrastructure), the design evolved:
+
+- **`MigrationEndpointOptions`** (abstract base class) was introduced as the polymorphic endpoint type accepted by ALL Abstractions-level service interfaces — instead of `OrganisationEndpoint` directly.
+- **`OrganisationEndpoint`** was retained as the ADO/TFS-specific resolved connection context, used by `IAzureDevOpsClientFactory` in `Infrastructure.AzureDevOps`.
+- **`OrganisationEntry`** became an abstract base class with abstract `ToEndpointOptions()` returning `MigrationEndpointOptions`, rather than a concrete class with `ToOrganisationEndpoint()`.
+- **`ScopedOrganisationEndpoint.Endpoint`** is typed as `MigrationEndpointOptions` (not `OrganisationEndpoint`).
+
+This is a strictly better design: it satisfies OCP (new connector types without modifying interfaces) and all original success criteria remain met.

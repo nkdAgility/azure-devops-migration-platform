@@ -7,7 +7,7 @@
 
 ## Summary
 
-Introduce `OrganisationEndpoint` as the canonical immutable connection context type, replacing `DiscoveryJobOrganisation` codebase-wide. Update all Abstractions-level service interfaces to accept `OrganisationEndpoint` instead of separate `(string url, string pat)` parameters. Introduce `ScopedOrganisationEndpoint` as the job-contract wrapper pairing `OrganisationEndpoint` with `Projects`. Pure structural refactor — no behavioural changes.
+Replace `DiscoveryJobOrganisation` codebase-wide. Introduce `MigrationEndpointOptions` as the abstract polymorphic endpoint base accepted by all Abstractions-level service interfaces (replacing separate `string url`/`string pat` parameters). Retain `OrganisationEndpoint` as the ADO/TFS-specific resolved connection context for `IAzureDevOpsClientFactory`. Introduce `ScopedOrganisationEndpoint` as the job-contract wrapper pairing `MigrationEndpointOptions` with `Projects`. Pure structural refactor — no behavioural changes.
 
 ## Technical Context
 
@@ -58,24 +58,25 @@ specs/016-organisation-endpoint/
 src/
 ├── DevOpsMigrationPlatform.Abstractions/
 │   ├── Models/
-│   │   ├── OrganisationEndpoint.cs              # NEW — replaces DiscoveryJobOrganisation (includes ApiVersion)
+│   │   ├── OrganisationEndpoint.cs              # NEW — ADO/TFS resolved connection context
 │   │   ├── OrganisationEndpointAuthentication.cs # NEW — replaces DiscoveryJobAuthentication
-│   │   ├── ScopedOrganisationEndpoint.cs         # NEW — job-contract wrapper
+│   │   ├── ScopedOrganisationEndpoint.cs         # NEW — job-contract wrapper (Endpoint: MigrationEndpointOptions)
 │   │   ├── DiscoveryJob.cs                       # MODIFIED — Organisations type changed
 │   │   └── DiscoveryJobOrganisation.cs           # DELETED
 │   ├── Options/
-│   │   └── OrganisationEntry.cs                  # MODIFIED — gains ToOrganisationEndpoint()
+│   │   ├── MigrationEndpointOptions.cs           # NEW — abstract polymorphic endpoint base
+│   │   └── OrganisationEntry.cs                  # MODIFIED — now abstract, gains abstract ToEndpointOptions()
 │   └── Services/
-│       ├── IWorkItemDiscoveryService.cs          # MODIFIED — OrganisationEndpoint param
-│       ├── IWorkItemQueryWindowStrategy.cs       # MODIFIED — OrganisationEndpoint param
-│       ├── IProjectDiscoveryService.cs           # MODIFIED — OrganisationEndpoint param
-│       ├── ICatalogService.cs                    # MODIFIED — OrganisationEndpoint param
-│       ├── IWorkItemLinkAnalysisService.cs       # MODIFIED — OrganisationEndpoint param
-│       ├── IWorkItemCommentSourceFactory.cs      # MODIFIED — OrganisationEndpoint param
+│       ├── IWorkItemDiscoveryService.cs          # MODIFIED — MigrationEndpointOptions param
+│       ├── IWorkItemQueryWindowStrategy.cs       # MODIFIED — MigrationEndpointOptions param
+│       ├── IProjectDiscoveryService.cs           # MODIFIED — MigrationEndpointOptions param
+│       ├── ICatalogService.cs                    # MODIFIED — MigrationEndpointOptions param
+│       ├── IWorkItemLinkAnalysisService.cs       # MODIFIED — MigrationEndpointOptions param
+│       ├── IWorkItemCommentSourceFactory.cs      # MODIFIED — MigrationEndpointOptions param
 │       ├── IInventoryServiceFactory.cs           # MODIFIED — ScopedOrganisationEndpoint param
 │       └── IDependencyDiscoveryServiceFactory.cs # MODIFIED — ScopedOrganisationEndpoint param
 ├── DevOpsMigrationPlatform.Infrastructure.AzureDevOps/
-│   ├── IAzureDevOpsClientFactory.cs              # MODIFIED — OrganisationEndpoint param
+│   ├── IAzureDevOpsClientFactory.cs              # MODIFIED — OrganisationEndpoint param (ADO-specific)
 │   ├── AzureDevOpsClientFactory.cs               # MODIFIED — implementation update
 │   └── Factories/
 │       ├── InventoryServiceFactory.cs            # MODIFIED — ScopedOrganisationEndpoint
@@ -89,7 +90,7 @@ tests/
 └── (existing tests — update mock setup to use new types where needed)
 ```
 
-**Structure Decision**: No new projects or folders created. Changes are distributed across existing Abstractions, Infrastructure, and CLI projects. Three new files in `Abstractions/Models/`, one file deleted, ~18 files modified.
+**Structure Decision**: No new projects. Changes distributed across Abstractions, Infrastructure, and CLI projects. New `MigrationEndpointOptions` abstract base in `Abstractions/Options/`, three new files in `Abstractions/Models/`, one file deleted, ~20 files modified.
 
 ## Complexity Tracking
 
@@ -99,22 +100,24 @@ No constitution violations. No additional complexity beyond what the spec requir
 
 | # | Decision | Rationale |
 |---|----------|-----------|
-| 1 | `Projects` moves to `ScopedOrganisationEndpoint` wrapper on `DiscoveryJob` | Keeps `OrganisationEndpoint` clean; projects are job-scope, not connection-scope. `ApiVersion` stays on `OrganisationEndpoint` since it is a connection property. |
+| 1 | `Projects` moves to `ScopedOrganisationEndpoint` wrapper on `DiscoveryJob` | Keeps endpoint types clean; projects are job-scope, not connection-scope. `ApiVersion` stays on `OrganisationEndpoint` since it is a connection property. |
 | 2 | No JSON changes needed for scenario files | Property names are stable; only C# class names change |
-| 3 | `IAzureDevOpsClientFactory` updated in same feature | Push `OrganisationEndpoint` all the way down for consistency |
+| 3 | `IAzureDevOpsClientFactory` accepts `OrganisationEndpoint` (resolved ADO/TFS type) | Push the resolved type all the way down to the SDK boundary |
 | 4 | `AuthenticationType` enum (not string) on `OrganisationEndpointAuthentication` | Type safety; matches existing config-layer enum |
 | 5 | Sealed classes with init-only properties (not records) | net481 compatibility in multi-targeted Abstractions |
+| 6 | `MigrationEndpointOptions` abstract base at Abstractions interface boundary | Evolved during 017 (Simulated Infrastructure) — enables polymorphic dispatch for ADO, TFS, and Simulated connectors without modifying service interfaces (OCP) |
+| 7 | `OrganisationEntry` became abstract with `ToEndpointOptions()` | Each connector subclass provides its own config-to-endpoint mapping |
 
 ## Implementation Order
 
 The refactor is executed in dependency order — types first, then interfaces, then implementations, then callers:
 
-1. **New types**: `OrganisationEndpoint` (with `ApiVersion`), `OrganisationEndpointAuthentication`, `ScopedOrganisationEndpoint`
-2. **Conversion method**: `OrganisationEntry.ToOrganisationEndpoint()`
-3. **Interface updates**: All Abstractions-level service interfaces
+1. **New types**: `MigrationEndpointOptions` (abstract base), `OrganisationEndpoint` (with `ApiVersion`), `OrganisationEndpointAuthentication`, `ScopedOrganisationEndpoint`
+2. **Config conversion**: `OrganisationEntry` becomes abstract with `ToEndpointOptions()` returning `MigrationEndpointOptions`
+3. **Interface updates**: All Abstractions-level service interfaces accept `MigrationEndpointOptions`
 4. **Update `DiscoveryJob`**: Change `Organisations` property type
 5. **Delete old types**: `DiscoveryJobOrganisation`, `DiscoveryJobAuthentication`
-6. **Implementation updates**: All concrete service implementations + `IAzureDevOpsClientFactory`
-7. **CLI updates**: `InventoryCommand`, `DependencyCommand` — construct `ScopedOrganisationEndpoint`
+6. **Implementation updates**: All concrete service implementations resolve `MigrationEndpointOptions` → `OrganisationEndpoint` internally; `IAzureDevOpsClientFactory` accepts `OrganisationEndpoint`
+7. **CLI updates**: `InventoryCommand`, `DependencyCommand` — construct `ScopedOrganisationEndpoint` via `entry.ToEndpointOptions()`
 8. **Test updates**: Fix any compilation errors in test mocks/fakes
 9. **Verification**: `dotnet clean && dotnet build --no-incremental`, `dotnet test`, scenario run

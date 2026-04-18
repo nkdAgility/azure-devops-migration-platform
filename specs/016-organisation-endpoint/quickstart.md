@@ -4,7 +4,7 @@
 
 ## What Changed
 
-All service interfaces that previously accepted `(string url, string pat)` as separate parameters now accept a single `OrganisationEndpoint` object. The `DiscoveryJobOrganisation` type is replaced by `OrganisationEndpoint` (connection context, including `ApiVersion`) and `ScopedOrganisationEndpoint` (job-level wrapper that adds `Projects`).
+All service interfaces that previously accepted `(string url, string pat)` as separate parameters now accept a single `MigrationEndpointOptions` object (an abstract polymorphic base class). The `DiscoveryJobOrganisation` type is replaced by `MigrationEndpointOptions` (at service interfaces), `OrganisationEndpoint` (ADO/TFS resolved connection context for `IAzureDevOpsClientFactory`), and `ScopedOrganisationEndpoint` (job-level wrapper that adds `Projects`).
 
 ## Before / After
 
@@ -18,24 +18,17 @@ var items = service.DiscoverWorkItemsAsync(
 ### Calling a service (after)
 
 ```csharp
-var endpoint = new OrganisationEndpoint
-{
-    ResolvedUrl = org.ResolvedUrl,
-    Type = org.Type,
-    Authentication = new OrganisationEndpointAuthentication
-    {
-        Type = AuthenticationType.Pat,
-        ResolvedAccessToken = org.Authentication.ResolvedAccessToken
-    }
-};
+// MigrationEndpointOptions is the polymorphic base accepted by all service interfaces
+MigrationEndpointOptions endpoint = configEntry.ToEndpointOptions();
 var items = service.DiscoverWorkItemsAsync(endpoint, project, ct);
 ```
 
 ### From config (after)
 
 ```csharp
-// OrganisationEntry gains a conversion method
-OrganisationEndpoint endpoint = configEntry.ToOrganisationEndpoint();
+// OrganisationEntry is abstract; concrete subclasses provide ToEndpointOptions()
+// e.g. AzureDevOpsOrganisationEntry, SimulatedOrganisationEntry
+MigrationEndpointOptions endpoint = configEntry.ToEndpointOptions();
 var items = service.DiscoverWorkItemsAsync(endpoint, project, ct);
 ```
 
@@ -61,15 +54,15 @@ new DiscoveryJobOrganisation
 ```csharp
 new ScopedOrganisationEndpoint
 {
-    Endpoint = entry.ToOrganisationEndpoint(),
+    Endpoint = entry.ToEndpointOptions(),
     Projects = new List<string>(entry.Projects)
 }
 ```
 
 ## Key Rules
 
-1. **Service interfaces** accept `OrganisationEndpoint` — never separate url/pat strings.
-2. **`OrganisationEndpoint`** carries only resolved values (including `ApiVersion`) — no `$ENV:VARNAME` tokens.
-3. **`ScopedOrganisationEndpoint`** carries `OrganisationEndpoint` + `Projects` — only on `DiscoveryJob`.
-4. **`OrganisationEntry.ToOrganisationEndpoint()`** is the canonical conversion from config to runtime.
+1. **Service interfaces** accept `MigrationEndpointOptions` (abstract polymorphic base) — never separate url/pat strings.
+2. **`OrganisationEndpoint`** is the ADO/TFS-specific resolved type used by `IAzureDevOpsClientFactory` — carries only resolved values (including `ApiVersion`) — no `$ENV:VARNAME` tokens.
+3. **`ScopedOrganisationEndpoint`** carries `MigrationEndpointOptions` + `Projects` — only on `DiscoveryJob`.
+4. **`OrganisationEntry.ToEndpointOptions()`** is the canonical abstract conversion from config to runtime endpoint.
 5. **`OrganisationEndpointAuthentication`** uses `AuthenticationType` enum, not a string.
