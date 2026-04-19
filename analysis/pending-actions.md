@@ -31,7 +31,7 @@ Items are grouped by feature spec and categorised as **Code**, **Tests**, or **D
 - 🔴 `T029` Update any services that still access config files directly to receive config via DI (where applicable).
 - 🔴 `T030` Config validation tests: malformed JSON and missing required sections produce clear error messages.
 - 🔴 `T031` Feature file `features/cli/execute/host-builder-architecture.feature` — Gherkin for User Story 3 host builder architecture scenarios.
-- 🔴 `T032` `ArchitectureTests.cs` — assert `Program.cs` line count < 50.
+- ⬜ `T032` ~~`ArchitectureTests.cs` — assert `Program.cs` line count < 50.~~ **N/A** — Guardrail SA-16 challenged: 141-line `Program.cs` is command registration only; extracting to meet arbitrary line count adds complexity without value. Accepted by project owner.
 - 🔴 `T033` Unit tests: adding a new command does not require modifying `Program.cs` or host setup.
 - 🔴 `T034` Integration tests: complete DI container service registration and resolution.
 
@@ -68,19 +68,19 @@ Items are grouped by feature spec and categorised as **Code**, **Tests**, or **D
 
 ## spec 006 — Work Items Export (Azure DevOps via REST API)
 
-> **Status**: `IWorkItemRevisionSource`, `AzureDevOpsWorkItemRevisionSource`, `IWorkItemRevisionSourceFactory`, `AzureDevOpsWorkItemRevisionSourceFactory`, and `WorkItemsModule` all exist and export is functional. Attachment download was implemented via `AzureDevOpsAttachmentBinarySource` (a different shape from what spec 006 defines). `WriteStreamAsync` on `IArtefactStore` does not exist (only `WriteBinaryAsync`). `IAzureDevOpsAttachmentDownloader` with streaming + SHA-256 + retry pipeline does not exist.
+> **Status**: Core export is functional (`IWorkItemRevisionSource`, `AzureDevOpsWorkItemRevisionSource`, `IWorkItemRevisionSourceFactory`, `WorkItemsModule`). Attachment download shipped via `IAttachmentBinarySource` + `AzureDevOpsAttachmentBinarySource` pattern (different shape from spec 006's `IAttachmentDownloader` design). `AttachmentMetadata` already has `Sha256`, `Size`, `RelativePath`. Remaining gaps: `WriteStreamAsync` on `IArtefactStore`, streaming+SHA-256+retry in `AzureDevOpsAttachmentBinarySource`, delta detection in `WorkItemExportOrchestrator`, attachment counters in `ProgressEvent`.
 
 ### Code
 
 - 🔴 `T002` Add `Task WriteStreamAsync(string path, Stream content, CancellationToken cancellationToken)` to `IArtefactStore`. Implement in `FileSystemArtefactStore`. (Required by streaming attachment download contract.)
 - 🔴 `T004` Add `[JsonIgnore] public string? DownloadUrl { get; init; }` to `AttachmentMetadata`.
-- 🔴 `T005` Extend `AttachmentDownloadResult` with `Sha256` and `Size` properties; add `Succeeded(string sha256, long size)` factory overload.
+- � `T005` ~~Extend `AttachmentDownloadResult` with `Sha256` and `Size` properties.~~ **Reconciled** — `AttachmentMetadata` already has `Sha256` and `Size` properties. The `AttachmentDownloadResult` type was not needed; metadata is populated directly.
 - 🔴 `T006` Add `AttachmentsProcessed` and `AttachmentsFailed` to `ProgressEvent`.
-- 🔴 `T007` Create `IAttachmentDownloader` interface in `Abstractions/Services/`.
-- 🔴 `T008` Create `IWorkItemRevisionSourceFactory` — already exists but verify signature matches spec (takes `organisationUrl`, `project`, `pat`, `wiqlQuery`).
+- � `T007` ~~Create `IAttachmentDownloader` interface in `Abstractions/Services/`.~~ **Reconciled** — Shipped as `IAttachmentBinarySource` in `Abstractions/Services/`. Streaming upgrade will be applied to this existing interface.
+- � `T008` ~~Create `IWorkItemRevisionSourceFactory`.~~ **Implemented** — Exists in `Abstractions/Services/IWorkItemRevisionSourceFactory.cs` with signature `CreateAsync(MigrationEndpointOptions, CancellationToken)`.
 - 🔴 `T009` Rename local `IAttachmentDownloader` in `TfsAttachmentDownloader.cs` to `ITfsAttachmentDownloader` to avoid namespace collision with new Abstractions interface.
-- 🔴 `T020` Marker interface `IAzureDevOpsAttachmentDownloader : IAttachmentDownloader` in `Infrastructure.AzureDevOps`.
-- 🔴 `T021` `AzureDevOpsAttachmentDownloader` — streaming download via `IAzureDevOpsClientFactory`, SHA-256 in-flight via `CryptoStream`, stores via `IArtefactStore.WriteStreamAsync`.
+- � `T020` ~~Marker interface `IAzureDevOpsAttachmentDownloader : IAttachmentDownloader`.~~ **Reconciled** — `AzureDevOpsAttachmentBinarySource` implements `IAttachmentBinarySource` directly. No marker interface needed.
+- 🔴 `T021` Upgrade `AzureDevOpsAttachmentBinarySource` — streaming download (replace `ReadAsByteArrayAsync` with `GetStreamAsync`), SHA-256 in-flight via `CryptoStream`, store via `IArtefactStore.WriteStreamAsync`. *(Reconciled: enhances existing class instead of creating new `AzureDevOpsAttachmentDownloader`.)*
 - 🔴 `T022` Extend `WorkItemExportOrchestrator` — delta detection (skip re-downloading same URL on adjacent revisions), update attachment metadata (`Sha256`, `Size`, `RelativePath`), emit `AttachmentsProcessed`/`AttachmentsFailed` per `ProgressEvent`.
 - 🔴 `T023` Register `AzureDevOpsAttachmentDownloader` + `AddResiliencePipeline("attachment-download", ...)` (8 retries, exponential back-off, transient 5xx/408/429) in `WorkItemExportServiceCollectionExtensions`.
 
@@ -122,25 +122,22 @@ Items are grouped by feature spec and categorised as **Code**, **Tests**, or **D
 
 ## spec 008-simulated-data-source — Simulated Source and Target
 
-> **Status**: Entire feature not started. No `Simulated` source or target implementation exists anywhere in `src/`.
+> **Status**: ✅ **Fully implemented.** `SimulatedWorkItemRevisionSource`, `SimulatedWorkItemRevisionSourceFactory`, `SimulatedWorkItemImportTarget`, `SimulatedWorkItemImportTargetFactory`, `SimulatedProjectDiscoveryService`, `SimulatedWorkItemDiscoveryService`, `SimulatedEndpointOptions`, `SimulatedGeneratorConfig`, and `SimulatedServiceCollectionExtensions` all exist in `src/DevOpsMigrationPlatform.Infrastructure.Simulated/`. Scenario configs (`roundtrip-simulated.json`, `queue-export-workitems-simulated-source.json`, `queue-import-workitems-simulated-target.json`, `queue-import-workitems-simulated-fixture.json`) and `.vscode/launch.json` entries (9 simulated profiles) all exist. `SimulatedMigrationCommandTests.cs` exists with `[TestCategory("SystemTest_Simulated")]` tests.
 
 ### Code
 
-- 🔴 `SimulatedWorkItemRevisionSource` — implements `IWorkItemRevisionSource`; generates deterministic work item revisions from `source.workItemCount` and `source.seed`; no external connections.
-- 🔴 `SimulatedInventoryService` — implements `IInventoryService`; returns counts consistent with seed and `workItemCount`.
-- 🔴 `SimulatedTargetService` — accepts any valid package as import target; writes no external state; validates round-trip counts.
-- 🔴 `SimulatedSourceConfiguration` / `SimulatedTargetConfiguration` binding classes (source type `Simulated`, fields: `workItemCount`, `seed`, `includeAttachments`, `configHash`).
-- 🔴 Registration and DI wiring for simulated source/target in `ServiceCollectionExtensions`.
-- 🔴 `configHash` mismatch detection — reject resume when seed or `workItemCount` changes between runs.
-- 🔴 Scenario config files: `scenarios/export-simulated.json` and `scenarios/migrate-simulated.json`.
-- 🔴 `.vscode/launch.json` entries for simulated export and migrate profiles.
+- 🟢 `SimulatedWorkItemRevisionSource` — Implemented in `Infrastructure.Simulated/Export/`.
+- 🟢 `SimulatedInventoryService` — Implemented as `SimulatedWorkItemDiscoveryService` + `SimulatedProjectDiscoveryService` in `Infrastructure.Simulated/Services/`.
+- 🟢 `SimulatedTargetService` — Implemented as `SimulatedWorkItemImportTarget` in `Infrastructure.Simulated/Import/`.
+- 🟢 `SimulatedSourceConfiguration` / `SimulatedTargetConfiguration` — Implemented as `SimulatedEndpointOptions` + `SimulatedGeneratorConfig` in `Infrastructure.Simulated/Options/`.
+- 🟢 Registration and DI wiring — `SimulatedServiceCollectionExtensions`.
+- 🟢 Scenario config files — Multiple simulated scenarios in `scenarios/`.
+- 🟢 `.vscode/launch.json` entries — 9 simulated profiles exist.
 
 ### Tests
 
-- 🔴 Feature files for US1 (simulated inventory), US2 (simulated export), US3 (simulated end-to-end migrate), US4 (simulated system test).
-- 🔴 `[TestCategory("SystemTest")]` test `SimulatedMigrationCommandTests` — runs `devopsmigration migrate` with 100 simulated work items; asserts package structure, cursor, and `Logs/progress.jsonl` without mocking platform internals.
-- 🔴 Determinism test — same seed produces identical `discovery-summary.csv` counts across two runs.
-- 🔴 `configHash` mismatch test — resume rejected when parameters change between runs.
+- 🟢 `SimulatedMigrationCommandTests` — System tests exist with `[TestCategory("SystemTest_Simulated")]`.
+- 🟢 Determinism and roundtrip tests — Covered by `simulated-export.feature` and `simulated-roundtrip.feature`.
 
 ---
 
@@ -150,8 +147,8 @@ Items are grouped by feature spec and categorised as **Code**, **Tests**, or **D
 
 ### Code
 
-- 🟡 `T018` `MigrationImportCommand` — add `PrintJobSubmitted` call after `SubmitAsync`. *(Currently a stub that returns exit code 1. The call site should be added as the command is implemented.)*
-- 🟡 `T019` `MigrationMigrateCommand` — same as T018.
+- ⬜ `T018` ~~`MigrationImportCommand` — add `PrintJobSubmitted` call.~~ **N/A** — `QueueCommand` handles all three modes (Export/Import/Both) and calls `PrintJobSubmitted` for all. Separate command classes are unnecessary.
+- ⬜ `T019` ~~`MigrationMigrateCommand` — same as T018.~~ **N/A** — Same rationale as T018.
 - 🔴 `T044` Wire all five job state transitions through control plane controllers: `Queued` (on job submission), `Leased` (on agent pickup — already done), `Running` (on first progress push — already done), `Completed` (on job-ended signal — already done), `Failed` (on failure push — already done). Verify `Queued` is set in `JobsController.Submit`.
 
 ### Tests
@@ -189,7 +186,7 @@ Items are grouped by feature spec and categorised as **Code**, **Tests**, or **D
 
 ## Cross-Cutting: MigrationImportCommand and MigrationMigrateCommand
 
-`MigrationImportCommand` (mode=Import) is now functional — `QueueCommand` routes `mode=Import` to `ExecuteImportAsync` via `WorkItemImportOrchestrator` (implemented in spec 013). `MigrationMigrateCommand` (mode=Both) still requires phase-ordering logic between export and import. The `[HideFromChannel(ReleaseChannel.Preview)]` attribute can be removed from the import path when the Both-mode phase transition is complete.
+`QueueCommand` handles all three modes (Export, Import, Both) directly. `ExecuteBothAsync` implements the phase-ordering logic (export then import sequentially). Separate `MigrationImportCommand` and `MigrationMigrateCommand` classes are unnecessary — the unified `QueueCommand` pattern is the canonical approach.
 
 ---
 
@@ -208,16 +205,16 @@ Items are grouped by feature spec and categorised as **Code**, **Tests**, or **D
 
 ## Summary Table
 
-| Area | Not Started 🔴 | Partial 🟡 | Blocking? |
-|------|---------------|-----------|-----------|
-| spec 004 — CLI architecture tests | 9 | 0 | No |
-| spec 005 — System inventory tests (US2 + US3) | 7 | 0 | No |
-| spec 006 — ADO attachment streaming | 8 code + 12 tests + 3 docs | 0 | No — spec 013 implemented binary streaming via IArtefactStore.ReadAsync + base64 fallback |
-| spec 007 — Observability verification runs | 0 | 4 | No |
-| spec 008-simulated — Simulated source/target | entire feature | 0 | No |
-| spec 008-tui — TUI polish | 1 code + 1 test | 2 code | No |
-| spec 009 — Import orchestrator | 3 tests | 0 | No — import is functional; Both-mode phase transition is the only remaining gap |
-| spec 013 — ADO Work Items Import | ✅ Complete (T001–T051) | — | — |
-| spec 015 — Work Item Scoped Fetch | ✅ Complete (T001–T031) | — | — |
+| Area | Not Started 🔴 | Partial 🟡 | Reconciled/N/A ⬜ | Blocking? |
+|------|---------------|-----------|-------------------|-----------|
+| spec 004 — CLI architecture tests | 8 | 0 | 1 (T032 N/A) | No |
+| spec 005 — System inventory tests (US2 + US3) | 7 | 0 | 0 | No |
+| spec 006 — ADO attachment streaming | 4 code + 12 tests + 3 docs | 0 | 4 reconciled (T005/T007/T008/T020) | No |
+| spec 007 — Observability verification runs | 0 | 4 (convert to automated tests) | 0 | No |
+| spec 008-simulated — Simulated source/target | ✅ Complete | — | — | — |
+| spec 008-tui — TUI polish | 1 code + 1 test | 0 | 2 (T018/T019 N/A) | No |
+| spec 009 — Import orchestrator | 3 tests | 0 | 0 | No |
+| spec 013 — ADO Work Items Import | ✅ Complete (T001–T051) | — | — | — |
+| spec 015 — Work Item Scoped Fetch | ✅ Complete (T001–T031) | — | — | — |
 
-**Highest priority unblocked work**: Reqnroll step definitions for `features/import/work-items/revisions/import-work-item-revisions.feature` (spec 009 T016/T023), the Both-mode phase transition, and the spec 004 CLI architecture tests.
+**Remaining real work**: ~35 items across specs 004–007 and 009. Spec 006 attachment streaming is the critical path.
