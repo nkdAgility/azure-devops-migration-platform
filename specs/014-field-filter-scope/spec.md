@@ -33,6 +33,11 @@
 - Q: What level of detail should the diagnostic log entry contain when a work item is skipped by a filter? → A: Structured log levels — **Information**: field name and mode; **Debug**: adds the actual field value; **Trace**: adds the pattern. `ILogger.IsEnabled()` guards MUST be used to avoid string allocation overhead at higher log levels.
 - Q: What level of backward-compatibility test coverage is needed for SC-005? → A: All three levels — unit tests for deserialization and filter list parsing, existing scenario config runs (T032/T033), and a dedicated regression scenario config if the unit tests are insufficient.
 
+### Session 2026-04-19 (Post-merge architecture reconciliation)
+
+- Q: `WorkItemFieldFilterOptions` in the codebase is a runtime predicate type (`{FieldName, Operator, Value}`) scoped inside `WorkItemFetchScope`. The `filter` scope in config (`{mode, field, pattern}`) is a higher-level concept. Are these two levels independent, or should one replace the other? → A: They are independent levels. The config-level `filter` scope (with `mode`/`field`/`pattern`) is parsed into runtime filter predicates by the module extension parser. `WorkItemFieldFilterOptions` is the runtime predicate carrier; the config scope is its source.
+- Q: Should `IWorkItemFetchService` be used everywhere work items are loaded from a source system, including the export pre-filter pass? → A: Yes — wherever work items are loaded from a source system, `IWorkItemFetchService` MUST be used. For export this means a pre-filter pass via `IWorkItemFetchService` (fetching only the filter-referenced fields) determines whether to proceed to revision history fetching. Spec 015 FR-012 ("export path must not be changed") is superseded by this principle. Import reads from the local package filesystem, not a source API — `IWorkItemFetchService` does not apply to the import read path.
+
 ---
 
 ## User Scenarios & Testing *(mandatory)*
