@@ -1,0 +1,58 @@
+{
+  "MigrationPlatform": {
+    "ConfigVersion": "1.0",
+    "Policies": {
+      "Retries": {
+        "Max": 8
+      },
+      "Throttle": {
+        "MaxConcurrency": 4
+      },
+      "Checkpoints": {
+        "Interval": 300
+      }
+    },
+    "Mode": "Export",
+    "Source": {
+      "Type": "AzureDevOpsServices",
+      "Url": "$ENV:AZDEVOPS_SYSTEM_TEST_ORG",
+      "Project": "migrationTest5",
+      "Authentication": {
+        "Type": "Pat",
+        "AccessToken": "$ENV:AZDEVOPS_SYSTEM_TEST_PAT"
+      }
+    },
+    "Artefacts": {
+      "WorkingDirectory": "storage\\regression-no-filter-scopes",
+      "CreatePackage": true
+    },
+    "Modules": [
+      {
+        "Name": "WorkItems",
+        "Enabled": true,
+        "Extensions": [
+          {
+            "Type": "Revisions",
+            "Enabled": true
+          },
+          {
+            "Type": "Links",
+            "Enabled": true
+          },
+          {
+            "Type": "Attachments",
+            "Enabled": true
+          },
+          {
+            "Type": "Comments",
+            "Enabled": true
+          },
+          {
+            "Type": "EmbeddedImages",
+            "Enabled": true
+          }
+        ]
+      }
+    ]
+  }
+}

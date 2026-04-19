@@ -24,9 +24,14 @@ public sealed class SimulatedWorkItemDiscoveryService : IWorkItemDiscoveryServic
     }
 
     /// <inheritdoc/>
+    /// <remarks>
+    /// The <paramref name="scope"/> filter options are not applied in the Simulated implementation
+    /// because the service derives counts from a generator config, not from real field values.
+    /// </remarks>
     public async IAsyncEnumerable<ProjectDiscoverySummary> DiscoverWorkItemsAsync(
         OrganisationEndpoint endpoint,
         string project,
+        Abstractions.Models.WorkItemFetchScope? scope = null,
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
