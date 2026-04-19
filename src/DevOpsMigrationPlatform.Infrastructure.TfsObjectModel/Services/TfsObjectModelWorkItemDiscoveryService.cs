@@ -30,8 +30,11 @@ public sealed class TfsObjectModelWorkItemDiscoveryService : IWorkItemDiscoveryS
     public async IAsyncEnumerable<ProjectDiscoverySummary> DiscoverWorkItemsAsync(
         OrganisationEndpoint endpoint,
         string project,
+        Abstractions.Models.WorkItemFetchScope? scope = null,
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
+        // TFS Object Model subprocess does not support field-level filter scopes.
+        // The scope parameter is accepted to satisfy the interface but is intentionally ignored.
         var summary = new ProjectDiscoverySummary { ProjectName = project };
 
         await foreach (var window in _windowStrategy
@@ -68,7 +71,7 @@ public sealed class TfsObjectModelWorkItemDiscoveryService : IWorkItemDiscoveryS
         string project,
         string? baseQuery = null,
         CancellationToken cancellationToken = default)
-        => DiscoverWorkItemsAsync(endpoint, project, cancellationToken);
+        => DiscoverWorkItemsAsync(endpoint, project, scope: null, cancellationToken);
 
     private static string EscapeWiql(string value) => value.Replace("'", "''");
 }

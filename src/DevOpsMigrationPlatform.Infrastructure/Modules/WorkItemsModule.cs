@@ -41,6 +41,7 @@ public sealed class WorkItemsModule : IModule
     private readonly IRevisionFolderProcessorFactory _processorFactory;
     private readonly ILogger<WorkItemsModule> _logger;
     private readonly ILogger<WorkItemImportOrchestrator> _orchestratorLogger;
+    private readonly DevOpsMigrationPlatform.Abstractions.Services.IWorkItemFetchService? _fetchService;
 
     public WorkItemsModule(
         IWorkItemRevisionSourceFactory sourceFactory,
@@ -53,7 +54,8 @@ public sealed class WorkItemsModule : IModule
         IIdMapStoreFactory idMapStoreFactory,
         IRevisionFolderProcessorFactory processorFactory,
         IAttachmentBinarySource? attachmentBinarySource = null,
-        IWorkItemCommentSourceFactory? inlineCommentSourceFactory = null)
+        IWorkItemCommentSourceFactory? inlineCommentSourceFactory = null,
+        DevOpsMigrationPlatform.Abstractions.Services.IWorkItemFetchService? fetchService = null)
     {
         _sourceFactory = sourceFactory ?? throw new ArgumentNullException(nameof(sourceFactory));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
@@ -66,6 +68,7 @@ public sealed class WorkItemsModule : IModule
         _processorFactory = processorFactory ?? throw new ArgumentNullException(nameof(processorFactory));
         _attachmentBinarySource = attachmentBinarySource;
         _inlineCommentSourceFactory = inlineCommentSourceFactory;
+        _fetchService = fetchService;
     }
 
     /// <inheritdoc/>
@@ -97,6 +100,9 @@ public sealed class WorkItemsModule : IModule
         // Comments extension gates inline comment fetching.
         var inlineFactory = ext.Comments.Enabled ? _inlineCommentSourceFactory : null;
 
+        // Build combined filter options (include as Regex + exclude as NotRegex).
+        var allFilters = ext.IncludeFilters.Concat(ext.ExcludeFilters).ToList();
+
         var orchestrator = new WorkItemExportOrchestrator(
             context.ArtefactStore,
             checkpointingService,
@@ -104,7 +110,9 @@ public sealed class WorkItemsModule : IModule
             context.ProgressSink,
             endpoint: endpointOptions,
             project: project,
-            inlineCommentSourceFactory: inlineFactory);
+            inlineCommentSourceFactory: inlineFactory,
+            fetchService: allFilters.Count > 0 ? _fetchService : null,
+            filterOptions: allFilters.Count > 0 ? allFilters : null);
 
         await orchestrator.ExportAsync(source, ct).ConfigureAwait(false);
 
@@ -152,6 +160,9 @@ public sealed class WorkItemsModule : IModule
             _identityMappingService,
             context.ArtefactStore);
 
+        // Build combined filter options for import (include as Regex + exclude as NotRegex).
+        var importFilters = ext.IncludeFilters.Concat(ext.ExcludeFilters).ToList();
+
         var orchestrator = new WorkItemImportOrchestrator(
             context.ArtefactStore,
             checkpointingService,
@@ -160,7 +171,8 @@ public sealed class WorkItemsModule : IModule
             idMapStore,
             processor,
             target,
-            _orchestratorLogger);
+            _orchestratorLogger,
+            filterOptions: importFilters.Count > 0 ? importFilters : null);
 
         var resumeMode = job.Resume?.Mode ?? ResumeMode.Auto;
         await orchestrator.ImportAsync(ext, resumeMode, ct).ConfigureAwait(false);

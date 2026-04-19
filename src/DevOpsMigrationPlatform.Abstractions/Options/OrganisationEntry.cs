@@ -27,6 +27,13 @@ public abstract class OrganisationEntry
     public bool Enabled { get; set; } = true;
 
     /// <summary>
+    /// Optional scopes that constrain work item discovery and filtering for this organisation.
+    /// Supported scope types: <c>wiql</c> (custom WIQL base query) and <c>filter</c> (regex field filter).
+    /// When absent or empty, platform defaults are used for all operations.
+    /// </summary>
+    public List<MigrationOptionsScope> Scopes { get; set; } = new();
+
+    /// <summary>
     /// Creates the connector-specific <see cref="MigrationEndpointOptions"/> from this entry's fields.
     /// Each connector type provides its own mapping.
     /// </summary>
