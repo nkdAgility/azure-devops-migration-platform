@@ -28,7 +28,7 @@ Items are grouped by feature spec and categorised as **Code**, **Tests**, or **D
 - 🟢 `T023` `MigrationPlatformHostTests.cs` created — config binding, DI resolution, delegate invocation, ExtractConfigFileArg tests.
 - 🟢 `T024` Covered by `CreateDefaultBuilder_InvokesConfigureServicesDelegate` and `CreateDefaultBuilder_ConfigureServicesDelegateReceivesConfiguration`.
 - 🟢 `T025` Covered by `ExtractConfigFileArg_WhenNoConfig_DefaultsToMigrationJson`.
-- 🔴 `T029` Update any services that still access config files directly to receive config via DI (where applicable).
+- ⬜ `T029` ~~Update any services that still access config files directly to receive config via DI.~~ **Superseded** — `MigrationPlatformHost.CreateDefaultBuilder` binds all configuration via `IOptions<T>` pattern. No services access config files directly.
 - 🔴 `T030` Config validation tests: malformed JSON and missing required sections produce clear error messages.
 - 🟢 `T031` Feature file `features/cli/execute/host-builder-architecture.feature` created.
 - ⬜ `T032` ~~`ArchitectureTests.cs` — assert `Program.cs` line count < 50.~~ **N/A** — Guardrail SA-16 challenged.
@@ -54,8 +54,8 @@ Items are grouped by feature spec and categorised as **Code**, **Tests**, or **D
 - 🟢 `T021` Covered by `InventoryCommand_SystemTest_CIEnvironment_ExecutesSecurely` in `InventoryCommandTests.cs`.
 - 🟢 `T022` Covered by `InventoryCommand_SystemTest_MissingSecrets_SkipsGracefully` in `InventoryCommandTests.cs`.
 - 🟢 `T023` Covered by `InventoryCommand_SystemTest_CredentialSecurity_NoTokenInOutput` in `InventoryCommandTests.cs`.
-- 🔴 `T024` Test execution timeout and retry logic for network resilience in CI.
-- 🔴 `T026` Conditional test execution logic (local vs CI environment).
+- ⬜ `T024` ~~Test execution timeout and retry logic for network resilience in CI.~~ **Superseded** — `SystemTestBase.ExecuteSystemTestAsync` already implements 30-second timeout with `CancellationTokenSource` and proper failure messaging.
+- ⬜ `T026` ~~Conditional test execution logic (local vs CI environment).~~ **Superseded** — Handled by `[TestCategory("SystemTest")]` filter (excluded from unit test runs) + `SystemTestConfiguration.IsAvailable()` guard that skips when env vars are absent.
 
 ### Docs
 
@@ -207,8 +207,8 @@ Items are grouped by feature spec and categorised as **Code**, **Tests**, or **D
 
 | Area | Not Started 🔴 | Partial 🟡 | Reconciled/N/A ⬜ | Blocking? |
 |------|---------------|-----------|-------------------|-----------|
-| spec 004 — CLI architecture tests | 4 (T029, T030, T040, T041) | 0 | 1 (T032 N/A), 5 implemented | No |
-| spec 005 — System inventory tests (US2 + US3) | 7 (T020, T024, T026, T027, T028, T035, T036) | 0 | 3 implemented | No |
+| spec 004 — CLI architecture tests | 3 (T030, T040, T041) | 0 | 2 (T029 superseded, T032 N/A), 5 implemented | No |
+| spec 005 — System inventory tests (US2 + US3) | 5 (T020, T027, T028, T035, T036) | 0 | 2 superseded (T024, T026), 3 implemented | No |
 | spec 006 — ADO attachment streaming | 3 tests (T028, T029, T031) | 0 | 4 reconciled, all code/docs done | No |
 | spec 007 — Observability verification runs | 0 | 1 (T030 manual) | 3 implemented | No |
 | spec 008-simulated — Simulated source/target | ✅ Complete | — | — | — |
@@ -217,4 +217,4 @@ Items are grouped by feature spec and categorised as **Code**, **Tests**, or **D
 | spec 013 — ADO Work Items Import | ✅ Complete (T001–T051) | — | — | — |
 | spec 015 — Work Item Scoped Fetch | ✅ Complete (T001–T031) | — | — | — |
 
-**Remaining real work**: 15 items total (4 in spec 004, 7 in spec 005, 3 in spec 006, 1 in spec 007). None are blocking. Specs 006 (code/docs), 008-simulated, 008-tui, 009, 013, and 015 are fully complete.
+**Remaining real work**: 12 items total (3 in spec 004, 5 in spec 005, 3 in spec 006, 1 in spec 007). None are blocking. Specs 006 (code/docs), 008-simulated, 008-tui, 009, 013, and 015 are fully complete.
