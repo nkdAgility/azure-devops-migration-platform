@@ -25,7 +25,7 @@ Items are grouped by feature spec and categorised as **Code**, **Tests**, or **D
 
 ### Tests
 
-- � `T023` `MigrationPlatformHostTests.cs` created — config binding, DI resolution, delegate invocation, ExtractConfigFileArg tests.
+- 🟢 `T023` `MigrationPlatformHostTests.cs` created — config binding, DI resolution, delegate invocation, ExtractConfigFileArg tests.
 - 🟢 `T024` Covered by `CreateDefaultBuilder_InvokesConfigureServicesDelegate` and `CreateDefaultBuilder_ConfigureServicesDelegateReceivesConfiguration`.
 - 🟢 `T025` Covered by `ExtractConfigFileArg_WhenNoConfig_DefaultsToMigrationJson`.
 - 🔴 `T029` Update any services that still access config files directly to receive config via DI (where applicable).
@@ -37,7 +37,7 @@ Items are grouped by feature spec and categorised as **Code**, **Tests**, or **D
 
 ### Docs
 
-- � `T038` XML doc-comments already present on `MigrationPlatformHost` and `CommandBase<T>`.
+- 🟢 `T038` XML doc-comments already present on `MigrationPlatformHost` and `CommandBase<T>`.
 - 🔴 `T040` Update command help text for comprehensive information display.
 - 🔴 `T041` Error message validation for all invalid command usage scenarios.
 
@@ -68,42 +68,42 @@ Items are grouped by feature spec and categorised as **Code**, **Tests**, or **D
 
 ## spec 006 — Work Items Export (Azure DevOps via REST API)
 
-> **Status**: Core export fully functional. Attachment streaming with SHA-256, delta detection, resilience pipeline, and progress counters all implemented. Remaining: test coverage (feature files + Reqnroll step definitions).
+> **Status**: ✅ **Fully implemented.** Attachment streaming with SHA-256 via CryptoStream, delta detection via `previousAttachmentUrls` HashSet, resilience pipeline (8 retries, exponential back-off), and progress counters (`AttachmentsProcessed`/`AttachmentsFailed`) all implemented. Feature files and Reqnroll step definitions exist. Only 3 minor test-gap items remain.
 
 ### Code
 
-- 🔴 `T002` Add `Task WriteStreamAsync(string path, Stream content, CancellationToken cancellationToken)` to `IArtefactStore`. Implement in `FileSystemArtefactStore`. (Required by streaming attachment download contract.)
-- 🔴 `T004` Add `[JsonIgnore] public string? DownloadUrl { get; init; }` to `AttachmentMetadata`.
-- � `T005` ~~Extend `AttachmentDownloadResult` with `Sha256` and `Size` properties.~~ **Reconciled** — `AttachmentMetadata` already has `Sha256` and `Size` properties. The `AttachmentDownloadResult` type was not needed; metadata is populated directly.
-- 🔴 `T006` Add `AttachmentsProcessed` and `AttachmentsFailed` to `ProgressEvent`.
-- � `T007` ~~Create `IAttachmentDownloader` interface in `Abstractions/Services/`.~~ **Reconciled** — Shipped as `IAttachmentBinarySource` in `Abstractions/Services/`. Streaming upgrade will be applied to this existing interface.
-- � `T008` ~~Create `IWorkItemRevisionSourceFactory`.~~ **Implemented** — Exists in `Abstractions/Services/IWorkItemRevisionSourceFactory.cs` with signature `CreateAsync(MigrationEndpointOptions, CancellationToken)`.
-- 🔴 `T009` Rename local `IAttachmentDownloader` in `TfsAttachmentDownloader.cs` to `ITfsAttachmentDownloader` to avoid namespace collision with new Abstractions interface.
-- � `T020` ~~Marker interface `IAzureDevOpsAttachmentDownloader : IAttachmentDownloader`.~~ **Reconciled** — `AzureDevOpsAttachmentBinarySource` implements `IAttachmentBinarySource` directly. No marker interface needed.
-- 🔴 `T021` Upgrade `AzureDevOpsAttachmentBinarySource` — streaming download (replace `ReadAsByteArrayAsync` with `GetStreamAsync`), SHA-256 in-flight via `CryptoStream`, store via `IArtefactStore.WriteStreamAsync`. *(Reconciled: enhances existing class instead of creating new `AzureDevOpsAttachmentDownloader`.)*
-- 🔴 `T022` Extend `WorkItemExportOrchestrator` — delta detection (skip re-downloading same URL on adjacent revisions), update attachment metadata (`Sha256`, `Size`, `RelativePath`), emit `AttachmentsProcessed`/`AttachmentsFailed` per `ProgressEvent`.
-- 🔴 `T023` Register `AzureDevOpsAttachmentDownloader` + `AddResiliencePipeline("attachment-download", ...)` (8 retries, exponential back-off, transient 5xx/408/429) in `WorkItemExportServiceCollectionExtensions`.
+- 🟢 `T002` Implemented: `WriteStreamAsync` exists on `IArtefactStore` (line 102) and `FileSystemArtefactStore`.
+- 🟢 `T004` Implemented: `public string? DownloadUrl { get; init; }` exists on `AttachmentMetadata`.
+- ⬜ `T005` ~~Extend `AttachmentDownloadResult` with `Sha256` and `Size` properties.~~ **Reconciled** — `AttachmentMetadata` already has `Sha256` and `Size` properties. The `AttachmentDownloadResult` type was not needed; metadata is populated directly.
+- 🟢 `T006` Implemented: `AttachmentsProcessed` and `AttachmentsFailed` exist on `ProgressEvent`.
+- ⬜ `T007` ~~Create `IAttachmentDownloader` interface in `Abstractions/Services/`.~~ **Reconciled** — Shipped as `IAttachmentBinarySource` in `Abstractions/Services/`. Streaming upgrade will be applied to this existing interface.
+- ⬜ `T008` ~~Create `IWorkItemRevisionSourceFactory`.~~ **Implemented** — Exists in `Abstractions/Services/IWorkItemRevisionSourceFactory.cs` with signature `CreateAsync(MigrationEndpointOptions, CancellationToken)`.
+- 🟢 `T009` Implemented: Renamed to `ITfsAttachmentDownloader` in `TfsAttachmentDownloader.cs`.
+- ⬜ `T020` ~~Marker interface `IAzureDevOpsAttachmentDownloader : IAttachmentDownloader`.~~ **Reconciled** — `AzureDevOpsAttachmentBinarySource` implements `IAttachmentBinarySource` directly. No marker interface needed.
+- 🟢 `T021` Implemented: `AzureDevOpsAttachmentBinarySource.StreamToStoreAsync` uses `GetStreamAsync` → `CryptoStream` (SHA-256 in-flight) → `IArtefactStore.WriteStreamAsync`.
+- 🟢 `T022` Implemented: `WorkItemExportOrchestrator` has delta detection via `previousAttachmentUrls` HashSet, updates `Sha256`/`Size`/`RelativePath` on metadata, emits `AttachmentsProcessed`/`AttachmentsFailed` per `ProgressEvent`.
+- 🟢 `T023` Implemented: `ExportServiceCollectionExtensions` registers `AddHttpClient("AttachmentDownload").AddPolicyHandler(GetAttachmentRetryPolicy())` with 8 retries, exponential back-off, transient 5xx/408/429.
 
 ### Tests
 
-- 🔴 `T010` Extend `features/export/work-items/revisions/export-work-item-revisions.feature` with `@azure-devops-rest` tagged scenarios for US1 (canonical folder layout, `changedDate`-derived folder name, full `revision.json` field set).
-- � `T016` `WorkItemExportOrchestratorTests` extended: 6 new tests for attachment download, delta detection, failure counting, progress emission, cursor ordering.
-- 🔴 `T017` Extend `ExportWorkItemRevisionsContext.cs` and `ExportWorkItemRevisionsSteps.cs` for `@azure-devops-rest` scenarios.
-- 🔴 `T019` Extend `features/export/work-items/attachments/export-attachments.feature` with `@azure-devops-rest` scenarios (US2: binary storage, sha256/size metadata, delta, retry).
-- � `T024` Covered by new `WorkItemExportOrchestratorTests` (delta, failure counters tested via `IAttachmentBinarySource` mock).
-- 🔴 `T025` Extend `ExportWorkItemRevisionsContext.cs` and `ExportWorkItemRevisionsSteps.cs` for `@azure-devops-rest` attachment scenarios.
-- 🔴 `T026` Verify `features/export/work-items/revisions/export-work-item-revisions.feature` covers US3 cursor/checkpoint scenarios (skip on `Completed`, re-process on `InProgress`, idempotent re-run).
-- � `T027` Covered: `ExportAsync_CursorWrittenAfterAttachments` test verifies cursor ordering; existing tests cover `InProgress`/`Completed` cursor logic.
+- 🟢 `T010` Feature file `export-work-item-revisions.feature` already has `@azure-devops-rest` tagged scenarios for canonical folder layout, cursor/checkpoint, and resume.
+- 🟢 `T016` `WorkItemExportOrchestratorTests` has 20 tests covering attachment download, delta detection, failure counting, progress emission, cursor ordering.
+- 🟢 `T017` `ExportWorkItemRevisionsContext.cs` and `ExportWorkItemRevisionsSteps.cs` exist and cover `@azure-devops-rest` scenarios.
+- 🟢 `T019` `export-attachments.feature` has 5 `@azure-devops-rest` scenarios (binary beside revision.json, no global root, multi-attachment, empty revision, path safety).
+- 🟢 `T024` Covered by `WorkItemExportOrchestratorTests` (delta, failure counters tested via `IAttachmentBinarySource` mock).
+- 🟢 `T025` `ExportAttachmentsContext.cs` and `ExportAttachmentsSteps.cs` exist and cover attachment scenarios.
+- 🟢 `T026` `export-work-item-revisions.feature` covers cursor/checkpoint scenarios (skip on Completed, re-process on InProgress, idempotent re-run).
+- 🟢 `T027` Covered: `ExportAsync_CursorWrittenAfterAttachments` test verifies cursor ordering; existing tests cover `InProgress`/`Completed` cursor logic.
 - 🔴 `T028` SC-004 count reconciliation assertion in `WorkItemExportOrchestratorTests`.
 - 🔴 `T029` Extend feature file for US4 `ProgressEvent` emission per revision.
-- � `T030` Covered: `ExportAsync_EmitsProgressPerWorkItem` and `ExportAsync_AttachmentFailure_IncrementsFailedCounter` tests verify emission and counters.
+- 🟢 `T030` Covered: `ExportAsync_EmitsProgressPerWorkItem` and `ExportAsync_AttachmentFailure_IncrementsFailedCounter` tests verify emission and counters.
 - 🔴 `T031` SC-003 schema validation check in `ExportWorkItemRevisionsContext.cs` — capture + deserialise every written `revision.json`, assert required fields present.
 
 ### Docs
 
-- � `T033` Added `### WorkItemsModule — ADO Export` subsection to `docs/modules.md`.
+- 🟢 `T033` Added `### WorkItemsModule — ADO Export` subsection to `docs/modules.md`.
 - 🟢 `T034` Updated `docs/architecture.md` `Infrastructure.AzureDevOps` row with source connector and streaming attachment binary source notes.
-- � `T035` Added "Attachment Download Contract" section to `.agents/context/workitems-format.md`.
+- 🟢 `T035` Added "Attachment Download Contract" section to `.agents/context/workitems-format.md`.
 
 ---
 
@@ -113,7 +113,7 @@ Items are grouped by feature spec and categorised as **Code**, **Tests**, or **D
 
 ### Verification
 
-- � `T010` Covered by `SimulatedMigrationCommandTests.SimulatedExport_ProducesProgressJsonl_T010` — asserts `Logs/progress.jsonl` exists with at least one NDJSON record.
+- 🟢 `T010` Covered by `SimulatedMigrationCommandTests.SimulatedExport_ProducesProgressJsonl_T010` — asserts `Logs/progress.jsonl` exists with at least one NDJSON record.
 - 🟢 `T015` Covered by `SimulatedMigrationCommandTests.SimulatedExport_ProducesAgentJsonl_T015` — asserts `Logs/agent.jsonl` exists with structured NDJSON records.
 - 🟡 `T030` Run `export --level Debug --follow`, confirm Debug records appear in `agent.jsonl` and diagnostics stream to console; CLI exits on completion.
 - 🟢 `T055` Covered by `SimulatedMigrationCommandTests.SimulatedExport_ProducesBothLogFiles_T055` — runs simulated scenario and verifies both log files.
@@ -149,7 +149,7 @@ Items are grouped by feature spec and categorised as **Code**, **Tests**, or **D
 
 - ⬜ `T018` ~~`MigrationImportCommand` — add `PrintJobSubmitted` call.~~ **N/A** — `QueueCommand` handles all three modes (Export/Import/Both) and calls `PrintJobSubmitted` for all. Separate command classes are unnecessary.
 - ⬜ `T019` ~~`MigrationMigrateCommand` — same as T018.~~ **N/A** — Same rationale as T018.
-- � `T044` Verified: `JobStore.Enqueue` sets `_states[jobId] = "Queued"` immediately on submission. All five transitions implemented.
+- 🟢 `T044` Verified: `JobStore.Enqueue` sets `_states[jobId] = "Queued"` immediately on submission. All five transitions implemented.
 
 ### Tests
 
@@ -174,7 +174,7 @@ Items are grouped by feature spec and categorised as **Code**, **Tests**, or **D
 ### Tests (resolved by spec 013)
 
 - 🟢 `T012` — Feature file `features/import/work-items/revisions/import-work-item-revisions.feature` exists with resume scenarios.
-- � `T016` — Covered by `StreamingImportReplaySteps.cs`, `ImportCursorResumeSteps.cs`, `ImportCommentsSteps.cs`, `ImportEmbeddedImagesSteps.cs`, and `WorkItemResolutionStrategiesSteps.cs` — all exercising `WorkItemImportOrchestrator`.
+- 🟢 `T016` Covered by `StreamingImportReplaySteps.cs`, `ImportCursorResumeSteps.cs`, `ImportCommentsSteps.cs`, `ImportEmbeddedImagesSteps.cs`, and `WorkItemResolutionStrategiesSteps.cs` — all exercising `WorkItemImportOrchestrator`.
 - 🟢 `T023` — Covered by existing Reqnroll contexts: `StreamingImportReplayContext.cs`, `ImportCursorResumeContext.cs`, `ImportCommentsContext.cs`, `WorkItemResolutionStrategiesContext.cs`.
 - 🟢 `T026` — Feature file `features/cli/execute/resume-mode.feature` created (5 scenarios: export resume, import resume, force-fresh, completed cursor, InProgress cursor).
 
@@ -209,7 +209,7 @@ Items are grouped by feature spec and categorised as **Code**, **Tests**, or **D
 |------|---------------|-----------|-------------------|-----------|
 | spec 004 — CLI architecture tests | 3 | 0 | 1 (T032 N/A), 5 implemented | No |
 | spec 005 — System inventory tests (US2 + US3) | 4 | 0 | 3 implemented | No |
-| spec 006 — ADO attachment streaming | 0 code + 6 tests + 0 docs | 0 | 4 reconciled + 7 code + 4 tests + 3 docs implemented | No |
+| spec 006 — ADO attachment streaming | 3 tests | 0 | 4 reconciled, all code/docs done | No |
 | spec 007 — Observability verification runs | 0 | 1 (T030 manual) | 3 implemented | No |
 | spec 008-simulated — Simulated source/target | ✅ Complete | — | — | — |
 | spec 008-tui — TUI polish | ✅ Complete | — | 2 (T018/T019 N/A) | — |
@@ -217,4 +217,4 @@ Items are grouped by feature spec and categorised as **Code**, **Tests**, or **D
 | spec 013 — ADO Work Items Import | ✅ Complete (T001–T051) | — | — | — |
 | spec 015 — Work Item Scoped Fetch | ✅ Complete (T001–T031) | — | — | — |
 
-**Remaining real work**: ~19 items across specs 004–007. Spec 006 code and docs complete; only feature file/Reqnroll test extensions remain. Specs 008-tui and 009 are now complete.
+**Remaining real work**: ~10 items across specs 004–007. Spec 006 has only 3 minor test assertions remaining. Specs 006 (code/docs), 008-tui, and 009 are fully complete.
