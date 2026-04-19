@@ -1,4 +1,6 @@
+using System;
 using System.Linq;
+using System.Net.Http;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Services;
 using DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Options;
@@ -57,6 +59,14 @@ public static class ExportServiceCollectionExtensions
         // Note: IEmbeddedImageExportService is created on-demand by WorkItemExportOrchestrator,
         // not registered here, because it requires IArtefactStore which is only available at export time.
 
+        // Attachment binary download: named HTTP client with resilience (8 retries, exponential back-off,
+        // transient 5xx/408/429). AzureDevOpsAttachmentBinarySource uses this named client.
+        // Note: IAttachmentBinarySource is not registered directly here because the PAT is only
+        // available at job execution time. The source is constructed by the revision source factory
+        // and passed to WorkItemsModule/orchestrator at runtime.
+        services.AddHttpClient("AttachmentDownload")
+            .AddPolicyHandler(GetAttachmentRetryPolicy());
+
         services.AddTransient<IModule, WorkItemsModule>();
         return services;
     }
@@ -72,6 +82,28 @@ public static class ExportServiceCollectionExtensions
             .Or<TimeoutException>()
             .WaitAndRetryAsync(
                 retryCount: 3,
+                sleepDurationProvider: attempt =>
+                    TimeSpan.FromSeconds(Math.Pow(2, attempt - 1)),
+                onRetry: (outcome, timespan, retryCount, context) =>
+                {
+                    // Logging happens at the service level
+                });
+    }
+
+    /// <summary>
+    /// Builds a Polly retry policy for attachment downloads — more aggressive than the default
+    /// because attachment binaries are large and subject to throttling (429), intermittent 5xx,
+    /// and request timeouts (408). Uses 8 retries with exponential back-off.
+    /// </summary>
+    private static IAsyncPolicy<HttpResponseMessage> GetAttachmentRetryPolicy()
+    {
+        return HttpPolicyExtensions
+            .HandleTransientHttpError() // 5xx, 408
+            .OrResult(r => (int)r.StatusCode == 429) // Too Many Requests
+            .Or<HttpRequestException>()
+            .Or<TimeoutException>()
+            .WaitAndRetryAsync(
+                retryCount: 8,
                 sleepDurationProvider: attempt =>
                     TimeSpan.FromSeconds(Math.Pow(2, attempt - 1)),
                 onRetry: (outcome, timespan, retryCount, context) =>

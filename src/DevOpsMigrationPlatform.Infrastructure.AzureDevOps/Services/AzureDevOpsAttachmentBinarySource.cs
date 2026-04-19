@@ -121,7 +121,7 @@ public sealed class AzureDevOpsAttachmentBinarySource : IStreamingAttachmentBina
 
     private async Task<HttpResponseMessage> SendAuthenticatedRequestAsync(string url, CancellationToken cancellationToken)
     {
-        var client = _httpClientFactory.CreateClient("AzureDevOps");
+        var client = _httpClientFactory.CreateClient("AttachmentDownload");
         using var request = new HttpRequestMessage(HttpMethod.Get, url);
 
         var encoded = Convert.ToBase64String(Encoding.ASCII.GetBytes($":{_pat}"));
