@@ -207,9 +207,9 @@ Items are grouped by feature spec and categorised as **Code**, **Tests**, or **D
 
 | Area | Not Started 🔴 | Partial 🟡 | Reconciled/N/A ⬜ | Blocking? |
 |------|---------------|-----------|-------------------|-----------|
-| spec 004 — CLI architecture tests | 3 | 0 | 1 (T032 N/A), 5 implemented | No |
-| spec 005 — System inventory tests (US2 + US3) | 4 | 0 | 3 implemented | No |
-| spec 006 — ADO attachment streaming | 3 tests | 0 | 4 reconciled, all code/docs done | No |
+| spec 004 — CLI architecture tests | 4 (T029, T030, T040, T041) | 0 | 1 (T032 N/A), 5 implemented | No |
+| spec 005 — System inventory tests (US2 + US3) | 7 (T020, T024, T026, T027, T028, T035, T036) | 0 | 3 implemented | No |
+| spec 006 — ADO attachment streaming | 3 tests (T028, T029, T031) | 0 | 4 reconciled, all code/docs done | No |
 | spec 007 — Observability verification runs | 0 | 1 (T030 manual) | 3 implemented | No |
 | spec 008-simulated — Simulated source/target | ✅ Complete | — | — | — |
 | spec 008-tui — TUI polish | ✅ Complete | — | 2 (T018/T019 N/A) | — |
@@ -217,4 +217,4 @@ Items are grouped by feature spec and categorised as **Code**, **Tests**, or **D
 | spec 013 — ADO Work Items Import | ✅ Complete (T001–T051) | — | — | — |
 | spec 015 — Work Item Scoped Fetch | ✅ Complete (T001–T031) | — | — | — |
 
-**Remaining real work**: ~10 items across specs 004–007. Spec 006 has only 3 minor test assertions remaining. Specs 006 (code/docs), 008-tui, and 009 are fully complete.
+**Remaining real work**: 15 items total (4 in spec 004, 7 in spec 005, 3 in spec 006, 1 in spec 007). None are blocking. Specs 006 (code/docs), 008-simulated, 008-tui, 009, 013, and 015 are fully complete.
