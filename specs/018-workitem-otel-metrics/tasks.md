@@ -24,7 +24,7 @@
 - [ ] T003 [P] Create `MigrationTagList` helper in `src/DevOpsMigrationPlatform.Abstractions/Telemetry/MigrationTagList.cs` — static factory methods for building `TagList` with mandatory `job.id`, `operation`, `module` tags plus optional `source.type` (FR-004, FR-005)
 - [ ] T004 Create `IMigrationMetrics` interface in `src/DevOpsMigrationPlatform.Abstractions/Telemetry/IMigrationMetrics.cs` — unified recording contract for all 28 instruments per data-model.md section 4.1 (FR-007 through FR-031)
 - [ ] T005 Create `MigrationMetrics` concrete implementation in `src/DevOpsMigrationPlatform.Infrastructure/Telemetry/MigrationMetrics.cs` — registers all instruments under the `DevOpsMigrationPlatform.Migration` meter (FR-035, FR-036)
-- [ ] T006 Expand `MetricSnapshot` record in `src/DevOpsMigrationPlatform.Abstractions/Models/MetricSnapshot.cs` — add execution counters, payload means, correctness counters/means, in-flight gauges, and nullable deferred idempotency properties per data-model.md section 4.3; mark legacy properties `[Obsolete]` (FR-032, FR-033)
+- [ ] T006 Expand `MetricSnapshot` record in `src/DevOpsMigrationPlatform.Abstractions/Models/MetricSnapshot.cs` — replace legacy properties with execution counters, payload means, correctness counters/means, in-flight gauges, and nullable deferred idempotency properties per data-model.md section 4.3; remove legacy properties outright (system is pre-production, no backward-compatibility transition needed) (FR-032, FR-033)
 
 ---
 
@@ -41,7 +41,7 @@
 - [ ] T011 [P] Update `AttachmentDownloadMetrics` in `src/DevOpsMigrationPlatform.Infrastructure.TfsObjectModel/Telemetry/AttachmentDownloadMetrics.cs` — delegate to injected `IMigrationMetrics` using new metric names and standardised tags
 - [ ] T012 [P] Update existing `SnapshotMetricExporterTests` in `tests/DevOpsMigrationPlatform.Infrastructure.Tests/Telemetry/SnapshotMetricExporterTests.cs` — fix assertions for renamed metric names, add test cases for new instrument types (UpDownCounter, ObservableGauge)
 - [ ] T013 [P] Create `MetricSnapshotSerializationTests` in `tests/DevOpsMigrationPlatform.Infrastructure.Tests/Telemetry/MetricSnapshotSerializationTests.cs` — verify JSON round-trip with all new properties populated, null deferred properties serialize correctly, camelCase property names (SC-003)
-- [ ] T014 [P] Create `WellKnownMetricNamesTests` in `tests/DevOpsMigrationPlatform.Abstractions.Tests/Telemetry/WellKnownMetricNamesTests.cs` — validate all constants start with `migration.`, use dot-separated convention, no underscores as namespace separators (SC-006)
+- [ ] T014 [P] Create `WellKnownMetricNamesTests` in `tests/DevOpsMigrationPlatform.Abstractions.Tests/Telemetry/WellKnownMetricNamesTests.cs` — validate all constants start with `migration.`, use dot-separated hierarchy separators, no underscores as hierarchy separators (underscores are permitted within leaf segments, e.g. `in_flight`) (SC-006)
 
 **Checkpoint**: Foundation ready — all metric constants renamed, new interface wired, SnapshotMetricExporter handles expanded instrument set, existing tests pass with new names.
 
@@ -60,8 +60,8 @@
 ### Implementation for User Story 1
 
 - [ ] T016 [US1] Create `MigrationMetricsTests` in `tests/DevOpsMigrationPlatform.Infrastructure.Tests/Telemetry/MigrationMetricsTests.cs` — unit tests for `MigrationMetrics.RecordWorkItemAttempted`, `RecordWorkItemCompleted`, `RecordWorkItemFailed`, `RecordWorkItemRetried`, `RecordWorkItemDuration` verifying instruments emit with correct names and tags
-- [ ] T017 [US1] Wire execution metric recording into the work item export processing path — call `IMigrationMetrics.RecordWorkItemAttempted` at processing start, `RecordWorkItemCompleted`/`RecordWorkItemFailed` at end, `RecordWorkItemRetried` on retry, `RecordWorkItemDuration` with elapsed milliseconds
-- [ ] T018 [US1] Wire execution metric recording into the work item import processing path — same calls as T017 but with `operation=import` tag
+- [ ] T017 [US1] Wire execution metric recording into the work item export processing path in `src/DevOpsMigrationPlatform.Infrastructure/Export/WorkItemExportOrchestrator.cs` (`ExportAsync`) — call `IMigrationMetrics.RecordWorkItemAttempted` at processing start, `RecordWorkItemCompleted`/`RecordWorkItemFailed` at end, `RecordWorkItemRetried` on retry, `RecordWorkItemDuration` with elapsed milliseconds
+- [ ] T018 [US1] Wire execution metric recording into the work item import processing path in `src/DevOpsMigrationPlatform.Infrastructure/Import/WorkItemImportOrchestrator.cs` (`ImportAsync`) — same calls as T017 but with `operation=import` tag
 - [ ] T019 [US1] Verify all execution metrics carry mandatory `job.id`, `operation`, `module` dimension tags (FR-004, SC-007) — add assertion in `MigrationMetricsTests` that tags are present
 
 **Checkpoint**: User Story 1 fully functional — execution counters and duration histogram emit correctly for both export and import operations.
@@ -81,7 +81,7 @@
 ### Implementation for User Story 2
 
 - [ ] T021 [P] [US2] Add unit tests for payload metrics in `tests/DevOpsMigrationPlatform.Infrastructure.Tests/Telemetry/MigrationMetricsTests.cs` — test `RecordFieldCount`, `RecordAttachmentCount`, `RecordLinkCount`, `RecordRevisionCount`, `RecordPayloadBytes` with varying values
-- [ ] T022 [US2] Wire payload metric recording into work item processing paths — after each work item is processed, call `IMigrationMetrics.RecordFieldCount`, `RecordAttachmentCount`, `RecordLinkCount`, `RecordRevisionCount`, `RecordPayloadBytes` with values extracted from the work item data
+- [ ] T022 [US2] Wire payload metric recording into work item processing paths in `src/DevOpsMigrationPlatform.Infrastructure/Export/WorkItemExportOrchestrator.cs` and `src/DevOpsMigrationPlatform.Infrastructure/Import/WorkItemImportOrchestrator.cs` — after each work item is processed, call `IMigrationMetrics.RecordFieldCount`, `RecordAttachmentCount`, `RecordLinkCount`, `RecordRevisionCount`, `RecordPayloadBytes` with values extracted from the work item data
 - [ ] T023 [US2] Add `SnapshotMetricExporter` test cases for payload histogram means in `tests/DevOpsMigrationPlatform.Infrastructure.Tests/Telemetry/SnapshotMetricExporterTests.cs` — verify `FieldCountMean`, `AttachmentCountMean`, `LinkCountMean`, `RevisionCountMean`, `PayloadBytesMean` populate correctly
 
 **Checkpoint**: User Stories 1 AND 2 work independently — execution tracking plus payload complexity analysis.
@@ -101,7 +101,7 @@
 ### Implementation for User Story 3
 
 - [ ] T025 [P] [US3] Add unit tests for correctness metrics in `tests/DevOpsMigrationPlatform.Infrastructure.Tests/Telemetry/MigrationMetricsTests.cs` — test `RecordRevisionSourceCount`, `RecordRevisionTargetCount`, `RecordRevisionDelta`, `RecordRevisionsMissing`, `RecordRevisionOrderError`, `RecordBrokenLink`, `RecordMissingWorkItem`
-- [ ] T026 [US3] Wire correctness metric recording into Tier 3 post-flight validation pass — for each sampled work item, call source/target count recording, compute and record delta, increment missing/broken counters as applicable (FR-017 through FR-024)
+- [ ] T026 [US3] Wire correctness metric recording into Tier 3 post-flight validation pass in `src/DevOpsMigrationPlatform.Infrastructure/Modules/WorkItemsModule.cs` (`ValidateAsync`) — for each sampled work item, call source/target count recording, compute and record delta, increment missing/broken counters as applicable (FR-017 through FR-024)
 - [ ] T027 [US3] Verify correctness metrics respect `sampleRate` gating — at `sampleRate=0` no correctness metrics are emitted, at `sampleRate=1.0` all items are checked (FR-024, SC-005)
 - [ ] T028 [US3] Add `SnapshotMetricExporter` test cases for correctness metrics in `tests/DevOpsMigrationPlatform.Infrastructure.Tests/Telemetry/SnapshotMetricExporterTests.cs` — verify `RevisionSourceCountMean`, `RevisionTargetCountMean`, `RevisionDeltaMean`, `RevisionsMissing`, `RevisionOrderErrors`, `BrokenLinks`, `MissingWorkItems` populate correctly
 
@@ -122,7 +122,7 @@
 ### Implementation for User Story 4
 
 - [ ] T030 [P] [US4] Add unit tests for in-flight metrics in `tests/DevOpsMigrationPlatform.Infrastructure.Tests/Telemetry/MigrationMetricsTests.cs` — test `IncrementInFlight`, `DecrementInFlight` UpDownCounter semantics; test ObservableGauge callback for queue depth
-- [ ] T031 [US4] Wire `IncrementInFlight`/`DecrementInFlight` calls into work item processing orchestration — increment at processing start, decrement at completion or failure (FR-030)
+- [ ] T031 [US4] Wire `IncrementInFlight`/`DecrementInFlight` calls into work item processing orchestration in `src/DevOpsMigrationPlatform.Infrastructure/Export/WorkItemExportOrchestrator.cs` and `src/DevOpsMigrationPlatform.Infrastructure/Import/WorkItemImportOrchestrator.cs` — increment at processing start, decrement at completion or failure (FR-030)
 - [ ] T032 [US4] Register `ObservableGauge` for queue depth with a `Func<int>` callback that reads the current pending count from the job engine's internal queue (FR-031)
 - [ ] T033 [US4] Add `SnapshotMetricExporter` test cases for in-flight metrics in `tests/DevOpsMigrationPlatform.Infrastructure.Tests/Telemetry/SnapshotMetricExporterTests.cs` — verify `WorkItemsInFlight` and `QueueDepth` properties populate correctly from UpDownCounter and ObservableGauge
 
@@ -173,7 +173,7 @@
 
 **Purpose**: Clean up and verify end-to-end telemetry pipeline.
 
-- [ ] T050 [P] Remove legacy `[Obsolete]` properties from `MetricSnapshot` if no external consumers reference them (verify via grep across codebase)
+- [ ] T050 [P] Verify no references to removed legacy `MetricSnapshot` properties remain in TUI rendering or control plane code (grep for `WorkItemsExported`, `RevisionsExported`, `RevisionErrors`, `LinksExported`, `LinkErrors`, `AttachmentsAttempted`, `AttachmentsSucceeded`, `AttachmentsFailed`, `RevisionDurationMeanMs`, `TotalExportDurationMs`)
 - [ ] T051 [P] Remove deprecated `WorkItemExport` and `AttachmentDownload` meter registrations if no OTLP/Azure Monitor collectors reference the old meter names
 - [ ] T052 Verify all `IWorkItemExportMetrics` and `IAttachmentDownloadMetrics` usages have been migrated to `IMigrationMetrics` — remove old interfaces if fully replaced
 
