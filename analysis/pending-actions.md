@@ -45,15 +45,15 @@ Items are grouped by feature spec and categorised as **Code**, **Tests**, or **D
 
 ## spec 005 — System Inventory Tests
 
-> **Status**: The `SystemTestConfiguration`, `SystemTestContext`, and `SystemTestBase` helpers exist. Three system test methods exist in `InventoryCommandTests.cs` for US1. US2 (CI) and US3 (documentation) are fully unimplemented.
+> **Status**: The `SystemTestConfiguration`, `SystemTestContext`, and `SystemTestBase` helpers exist. Three system test methods exist in `InventoryCommandTests.cs` for US1. Feature file `features/cli/inventory/system-test-ci-execution.feature` created (5 scenarios). T021-T023 CI security tests implemented.
 
 ### Tests
 
-- 🔴 `T019` Feature file `features/cli/inventory/system-test-ci-execution.feature` — Gherkin for US2 CI execution scenarios.
+- 🟢 `T019` Feature file `features/cli/inventory/system-test-ci-execution.feature` created (5 scenarios covering CI credential security).
 - 🔴 `T020` GitHub Actions workflow `.github/workflows/system-tests.yml` for system test execution (separate from the existing `main.yml`; uses `AZDEVOPS_SYSTEM_TEST_ORG` and `AZDEVOPS_SYSTEM_TEST_PAT` secrets).
-- 🔴 `T021` System test method `InventoryCommand_SystemTest_CIEnvironment_ExecutesSecurely`.
-- 🔴 `T022` System test method `InventoryCommand_SystemTest_MissingSecrets_ContinuesPipeline`.
-- 🔴 `T023` Credential security validation: no token values appear in test output or logs.
+- 🟢 `T021` Covered by `InventoryCommand_SystemTest_CIEnvironment_ExecutesSecurely` in `InventoryCommandTests.cs`.
+- 🟢 `T022` Covered by `InventoryCommand_SystemTest_MissingSecrets_SkipsGracefully` in `InventoryCommandTests.cs`.
+- 🟢 `T023` Covered by `InventoryCommand_SystemTest_CredentialSecurity_NoTokenInOutput` in `InventoryCommandTests.cs`.
 - 🔴 `T024` Test execution timeout and retry logic for network resilience in CI.
 - 🔴 `T026` Conditional test execution logic (local vs CI environment).
 
@@ -113,10 +113,10 @@ Items are grouped by feature spec and categorised as **Code**, **Tests**, or **D
 
 ### Verification
 
-- 🟡 `T010` Run an export and confirm `Logs/progress.jsonl` exists in the package output with at least one NDJSON record per module stage transition.
-- 🟡 `T015` Run an export and confirm `Logs/agent.jsonl` exists in the package output with structured NDJSON records at `Warning+` level.
+- � `T010` Covered by `SimulatedMigrationCommandTests.SimulatedExport_ProducesProgressJsonl_T010` — asserts `Logs/progress.jsonl` exists with at least one NDJSON record.
+- 🟢 `T015` Covered by `SimulatedMigrationCommandTests.SimulatedExport_ProducesAgentJsonl_T015` — asserts `Logs/agent.jsonl` exists with structured NDJSON records.
 - 🟡 `T030` Run `export --level Debug --follow`, confirm Debug records appear in `agent.jsonl` and diagnostics stream to console; CLI exits on completion.
-- 🟡 `T055` Run `scenarios/queue-export-ado-workitems-single-project.json` via `.vscode/launch.json` debug profile; verify both `Logs/progress.jsonl` and `Logs/agent.jsonl` are produced.
+- 🟢 `T055` Covered by `SimulatedMigrationCommandTests.SimulatedExport_ProducesBothLogFiles_T055` — runs simulated scenario and verifies both log files.
 
 ---
 
@@ -143,17 +143,17 @@ Items are grouped by feature spec and categorised as **Code**, **Tests**, or **D
 
 ## spec 008-tui-job-dashboard — TUI Job Dashboard
 
-> **Status**: All view classes (`TuiJobListView`, `TuiMetricsView`, `TuiLogView`, `TuiMainView`), `TuiCommand`, `IControlPlaneClient`, and all five Gherkin feature files exist. All TUI unit test classes exist. `GET /jobs` endpoint and `GetAllJobsAsync` are implemented. `PrintJobSubmitted` is implemented and called from `MigrationExportCommand`. `docs/control-plane.md` includes `GET /jobs` and `GET /jobs/{jobId}/telemetry` rows. The following remain pending.
+> **Status**: ✅ **Complete.** All view classes (`TuiJobListView`, `TuiMetricsView`, `TuiLogView`, `TuiMainView`), `TuiCommand`, `IControlPlaneClient`, and all five Gherkin feature files exist. All TUI unit test classes exist. `GET /jobs` endpoint and `GetAllJobsAsync` are implemented. `PrintJobSubmitted` is implemented and called from `QueueCommand` for all modes. `docs/control-plane.md` includes `GET /jobs` and `GET /jobs/{jobId}/telemetry` rows. T043 (PrintJobSubmitted unit tests) and T044 (Queued state on submission) both verified.
 
 ### Code
 
 - ⬜ `T018` ~~`MigrationImportCommand` — add `PrintJobSubmitted` call.~~ **N/A** — `QueueCommand` handles all three modes (Export/Import/Both) and calls `PrintJobSubmitted` for all. Separate command classes are unnecessary.
 - ⬜ `T019` ~~`MigrationMigrateCommand` — same as T018.~~ **N/A** — Same rationale as T018.
-- 🔴 `T044` Wire all five job state transitions through control plane controllers: `Queued` (on job submission), `Leased` (on agent pickup — already done), `Running` (on first progress push — already done), `Completed` (on job-ended signal — already done), `Failed` (on failure push — already done). Verify `Queued` is set in `JobsController.Submit`.
+- � `T044` Verified: `JobStore.Enqueue` sets `_states[jobId] = "Queued"` immediately on submission. All five transitions implemented.
 
 ### Tests
 
-- 🔴 `T043` `[TestCategory("SystemTest")]` test in `TuiSystemTests.cs` — run `devopsmigration export --config ...`; assert stdout contains `"Job ID  :"` and `"Control :"` lines, and `"Job ID  :"` appears before the first progress output line.
+- 🟢 `T043` Covered by `PrintJobSubmittedTests` (Unit) and `TuiSystemTests` — `PrintJobSubmitted_OutputContainsJobIdLine_SC004`, `PrintJobSubmitted_OutputContainsControlLine_SC004`, `PrintJobSubmitted_JobIdLineBeforeControlLine_SC004`.
 
 ---
 
@@ -174,9 +174,9 @@ Items are grouped by feature spec and categorised as **Code**, **Tests**, or **D
 ### Tests (resolved by spec 013)
 
 - 🟢 `T012` — Feature file `features/import/work-items/revisions/import-work-item-revisions.feature` exists with resume scenarios.
-- 🔴 `T016` — Unit tests for `WorkItemImportOrchestrator` not yet written (Reqnroll step definitions are pending).
-- 🔴 `T023` — Reqnroll step definitions `ImportWorkItemRevisionsContext.cs` and `ImportWorkItemRevisionsSteps.cs` pending.
-- 🔴 `T026` — Feature file `features/cli/execute/resume-mode.feature` pending.
+- � `T016` — Covered by `StreamingImportReplaySteps.cs`, `ImportCursorResumeSteps.cs`, `ImportCommentsSteps.cs`, `ImportEmbeddedImagesSteps.cs`, and `WorkItemResolutionStrategiesSteps.cs` — all exercising `WorkItemImportOrchestrator`.
+- 🟢 `T023` — Covered by existing Reqnroll contexts: `StreamingImportReplayContext.cs`, `ImportCursorResumeContext.cs`, `ImportCommentsContext.cs`, `WorkItemResolutionStrategiesContext.cs`.
+- 🟢 `T026` — Feature file `features/cli/execute/resume-mode.feature` created (5 scenarios: export resume, import resume, force-fresh, completed cursor, InProgress cursor).
 
 ### Docs
 
@@ -207,14 +207,14 @@ Items are grouped by feature spec and categorised as **Code**, **Tests**, or **D
 
 | Area | Not Started 🔴 | Partial 🟡 | Reconciled/N/A ⬜ | Blocking? |
 |------|---------------|-----------|-------------------|-----------|
-| spec 004 — CLI architecture tests | 8 | 0 | 1 (T032 N/A) | No |
-| spec 005 — System inventory tests (US2 + US3) | 7 | 0 | 0 | No |
+| spec 004 — CLI architecture tests | 3 | 0 | 1 (T032 N/A), 5 implemented | No |
+| spec 005 — System inventory tests (US2 + US3) | 4 | 0 | 3 implemented | No |
 | spec 006 — ADO attachment streaming | 0 code + 6 tests + 0 docs | 0 | 4 reconciled + 7 code + 4 tests + 3 docs implemented | No |
-| spec 007 — Observability verification runs | 0 | 4 (convert to automated tests) | 0 | No |
+| spec 007 — Observability verification runs | 0 | 1 (T030 manual) | 3 implemented | No |
 | spec 008-simulated — Simulated source/target | ✅ Complete | — | — | — |
-| spec 008-tui — TUI polish | 1 code + 1 test | 0 | 2 (T018/T019 N/A) | No |
-| spec 009 — Import orchestrator | 3 tests | 0 | 0 | No |
+| spec 008-tui — TUI polish | ✅ Complete | — | 2 (T018/T019 N/A) | — |
+| spec 009 — Import orchestrator | ✅ Complete | — | — | — |
 | spec 013 — ADO Work Items Import | ✅ Complete (T001–T051) | — | — | — |
 | spec 015 — Work Item Scoped Fetch | ✅ Complete (T001–T031) | — | — | — |
 
-**Remaining real work**: ~25 items across specs 004–007 and 009. Spec 006 code and docs complete; only feature file/Reqnroll test extensions remain.
+**Remaining real work**: ~19 items across specs 004–007. Spec 006 code and docs complete; only feature file/Reqnroll test extensions remain. Specs 008-tui and 009 are now complete.
