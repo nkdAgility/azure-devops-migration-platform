@@ -137,7 +137,7 @@ function Invoke-Step {
 
 function Write-TestSummary {
     # Parse .trx files from TestResults/ to show per-assembly test counts.
-    $trxFiles = Get-ChildItem -Path $TestResultsDir -Filter '*.trx' -ErrorAction SilentlyContinue
+    $trxFiles = Get-ChildItem -LiteralPath $TestResultsDir -Filter '*.trx' -ErrorAction SilentlyContinue
     if (-not $trxFiles -or $trxFiles.Count -eq 0) { return }
 
     Write-Host ""
@@ -318,6 +318,11 @@ function Invoke-Build {
 }
 
 function Invoke-UnitTests {
+    # Clear stale .trx files so the summary only reflects the current run
+    if (Test-Path $TestResultsDir) {
+        Get-ChildItem -LiteralPath $TestResultsDir -Filter '*.trx' -ErrorAction SilentlyContinue |
+            Remove-Item -Force -ErrorAction SilentlyContinue
+    }
     # All tests EXCEPT SystemTest-categorised tests
     Invoke-Step 'Running unit tests (excluding SystemTests)' {
         dotnet test $SolutionFile `
