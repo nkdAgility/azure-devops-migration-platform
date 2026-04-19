@@ -21,7 +21,9 @@ Expands the platform's OpenTelemetry instrumentation from 13 export-centric metr
 | Correctness metrics | None | 7 instruments (Tier 3 post-flight) |
 | In-flight metrics | None | 2 instruments (UpDownCounter + ObservableGauge) |
 
-## Implementation Order (Recommended Task Sequence)
+## Implementation Order (Overview — see [tasks.md](tasks.md) for the canonical task sequence)
+
+This section provides a high-level implementation order. The detailed, dependency-ordered task list with 52 tasks across 9 phases is in [tasks.md](tasks.md).
 
 ### Phase 1: Foundation (no behavioural change)
 1. **Update `WellKnownMetricNames`** — rename all constants to dot-separated names
