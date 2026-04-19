@@ -84,6 +84,23 @@ public class FileSystemArtefactStore : IArtefactStore
         }
     }
 
+    public async Task WriteStreamAsync(string path, Stream content, CancellationToken cancellationToken)
+    {
+        var fullPath = ToFullPath(path);
+        var directory = Path.GetDirectoryName(fullPath);
+        if (directory != null && !Directory.Exists(directory))
+            Directory.CreateDirectory(directory);
+#if NET5_0_OR_GREATER
+        using var fileStream = new FileStream(fullPath, FileMode.Create, FileAccess.Write, FileShare.None, 81920, useAsync: true);
+        await content.CopyToAsync(fileStream, cancellationToken).ConfigureAwait(false);
+#else
+        using (var fileStream = new FileStream(fullPath, FileMode.Create, FileAccess.Write, FileShare.None, 81920))
+        {
+            await content.CopyToAsync(fileStream).ConfigureAwait(false);
+        }
+#endif
+    }
+
     public async Task AppendAsync(string path, string content, CancellationToken cancellationToken)
     {
         var fullPath = ToFullPath(path);

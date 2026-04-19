@@ -222,7 +222,7 @@ Key properties:
 |---|---|---|
 | `DevOpsMigrationPlatform.Abstractions` | `net481;net10.0` | Core contracts: `IModule`, `IArtefactStore`, `IStateStore`, `IProgressSink`, `IWorkItemImportTargetFactory`, `IWorkItemRevisionSourceFactory`, `OrganisationEndpoint`, `MigrationEndpointOptions`, domain models |
 | `DevOpsMigrationPlatform.Infrastructure` | `net481;net10.0` | Shared infrastructure: `FileSystemArtefactStore`, `PackageCheckpointStateStore`, composite factory pattern, `EndpointOptionsTypeRegistry`, polymorphic JSON converters, `CatalogService` |
-| `DevOpsMigrationPlatform.Infrastructure.AzureDevOps` | `net10.0` | ADO connector: `AzureDevOpsEndpointOptions`, `AzureDevOpsWorkItemRevisionSource`, `AzureDevOpsWorkItemImportTarget`, ADO SDK services |
+| `DevOpsMigrationPlatform.Infrastructure.AzureDevOps` | `net10.0` | ADO connector: `AzureDevOpsEndpointOptions`, `AzureDevOpsWorkItemRevisionSource` (first concrete `IWorkItemRevisionSource`), `AzureDevOpsAttachmentBinarySource` (streaming `IStreamingAttachmentBinarySource`), `AzureDevOpsWorkItemImportTarget`, ADO SDK services |
 | `DevOpsMigrationPlatform.Infrastructure.TfsObjectModel` | `net481` | TFS connector: `TeamFoundationServerEndpointOptions`, TFS Object Model services |
 | `DevOpsMigrationPlatform.Infrastructure.Simulated` | `net10.0` | Simulated connector: Config-driven synthetic connector for offline testing. Implements all source and target interfaces with deterministic generated data. No credentials required. |
 | `DevOpsMigrationPlatform.ControlPlane` | `net10.0` | Control plane service library: HTTP API, job state machine, lease protocol, EF Core data model |

@@ -7,7 +7,7 @@ using DevOpsMigrationPlatform.Abstractions;
 
 namespace DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.Services;
 
-public interface IAttachmentDownloader
+public interface ITfsAttachmentDownloader
 {
     AttachmentDownloadResult DownloadAttachment(int attachmentId);
 }
@@ -15,7 +15,7 @@ public interface IAttachmentDownloader
 /// <summary>
 /// Downloads attachment binaries from TFS using the <see cref="WorkItemServer"/> proxy.
 /// </summary>
-public class TfsAttachmentDownloader : IAttachmentDownloader
+public class TfsAttachmentDownloader : ITfsAttachmentDownloader
 {
     private readonly WorkItemServer _workItemServer;
     private readonly ILogger<TfsAttachmentDownloader> _logger;

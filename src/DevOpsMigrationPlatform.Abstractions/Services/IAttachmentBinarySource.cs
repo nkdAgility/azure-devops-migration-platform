@@ -22,3 +22,26 @@ public interface IAttachmentBinarySource
         AttachmentMetadata attachment,
         CancellationToken cancellationToken);
 }
+
+/// <summary>
+/// Extended attachment source that streams binaries directly to the artefact store,
+/// computing SHA-256 in-flight without buffering the entire content in memory.
+/// Implementations that support streaming should implement this interface in addition to
+/// <see cref="IAttachmentBinarySource"/>. The export orchestrator will prefer this path
+/// when available.
+/// </summary>
+public interface IStreamingAttachmentBinarySource : IAttachmentBinarySource
+{
+    /// <summary>
+    /// Streams an attachment directly to the artefact store at <paramref name="targetPath"/>,
+    /// computing SHA-256 in-flight. Returns the hex digest and byte count, or <c>null</c>
+    /// if the download fails.
+    /// </summary>
+    Task<(string Sha256, long Size)?> StreamToStoreAsync(
+        int workItemId,
+        int revisionIndex,
+        AttachmentMetadata attachment,
+        IArtefactStore store,
+        string targetPath,
+        CancellationToken cancellationToken);
+}
