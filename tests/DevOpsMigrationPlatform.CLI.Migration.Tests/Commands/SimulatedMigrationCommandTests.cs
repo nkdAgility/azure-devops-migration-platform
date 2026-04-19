@@ -13,6 +13,7 @@ namespace DevOpsMigrationPlatform.CLI.Migration.Tests.Commands;
 /// They verify observable CLI output and package folder structure.
 /// </summary>
 [TestClass]
+[DoNotParallelize]
 public class SimulatedMigrationCommandTests
 {
     /// <summary>

@@ -1,3 +1,4 @@
+using System.Linq;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Services;
 using DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Options;
@@ -91,6 +92,12 @@ public static class ExportServiceCollectionExtensions
         services.AddSingleton<IAzureDevOpsClientFactory, AzureDevOpsClientFactory>();
         services.AddSingleton<IWiqlQueryClientFactory, AzureDevOpsWiqlQueryClientFactory>();
         services.AddSingleton<IWorkItemQueryWindowStrategy, WorkItemQueryWindowStrategy>();
+
+        if (!services.Any(x => x.ServiceType == typeof(IWorkItemFetchService)))
+        {
+            services.AddSingleton<IWorkItemFetchService, AzureDevOpsWorkItemFetchService>();
+        }
+
         services.AddSingleton<IWorkItemDiscoveryService, AzureDevOpsWorkItemDiscoveryService>();
 
         // Register ADO endpoint option types for polymorphic JSON deserialization

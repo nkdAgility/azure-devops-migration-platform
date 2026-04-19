@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Options;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Simulated.Options;
 
@@ -36,4 +37,15 @@ public sealed class SimulatedEndpointOptions : MigrationEndpointOptions
     {
         // No required fields for simulated endpoints.
     }
+
+    /// <inheritdoc/>
+    public override OrganisationEndpoint ToOrganisationEndpoint() => new()
+    {
+        ResolvedUrl = GetResolvedUrl(),
+        Type = Type,
+        Authentication = new OrganisationEndpointAuthentication
+        {
+            Type = AuthenticationType.None
+        }
+    };
 }

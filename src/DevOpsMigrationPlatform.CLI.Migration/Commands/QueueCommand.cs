@@ -352,6 +352,7 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
 
         // Pass the source endpoint options directly (already a MigrationEndpointOptions)
         var sourceEndpoint = config.Source!;
+        var sourceOrgEndpoint = sourceEndpoint.ToOrganisationEndpoint();
 
         await console.Status()
             .Spinner(Spinner.Known.Dots)
@@ -359,7 +360,7 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
             .StartAsync("[grey]Counting work items…[/]", async _ =>
             {
                 await foreach (var snapshot in discovery.CountWorkItemsAsync(
-                    sourceEndpoint, project, baseQuery, cancellationToken))
+                    sourceOrgEndpoint, project, baseQuery, cancellationToken))
                 {
                     if (snapshot.IsWorkItemComplete)
                         totalWorkItems = snapshot.WorkItemsCount;

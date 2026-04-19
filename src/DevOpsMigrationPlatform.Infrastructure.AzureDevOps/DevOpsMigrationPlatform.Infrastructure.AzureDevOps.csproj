@@ -8,6 +8,10 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <InternalsVisibleTo Include="DevOpsMigrationPlatform.Infrastructure.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\DevOpsMigrationPlatform.Abstractions\DevOpsMigrationPlatform.Abstractions.csproj" />
     <ProjectReference Include="..\DevOpsMigrationPlatform.Infrastructure\DevOpsMigrationPlatform.Infrastructure.csproj" />
   </ItemGroup>

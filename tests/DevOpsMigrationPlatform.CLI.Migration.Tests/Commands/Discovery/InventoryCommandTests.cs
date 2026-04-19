@@ -8,6 +8,7 @@ using System.Text.Json;
 namespace DevOpsMigrationPlatform.CLI.Migration.Tests.Commands.Discovery;
 
 [TestClass]
+[DoNotParallelize]
 public class InventoryCommandTests
 {
     // -- Unit tests --

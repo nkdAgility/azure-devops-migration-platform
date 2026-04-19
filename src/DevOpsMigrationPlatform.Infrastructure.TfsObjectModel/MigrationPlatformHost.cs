@@ -112,6 +112,7 @@ public static class MigrationPlatformHost
             services.AddSingleton<IWorkItemExportMetrics, WorkItemExportMetrics>();
             services.AddSingleton<IAttachmentDownloadMetrics, AttachmentDownloadMetrics>();
             services.AddSingleton<TfsWorkItemQueryWindowStrategy>();
+            services.AddSingleton<IWorkItemFetchService, TfsWorkItemFetchService>();
             services.AddSingleton<IWorkItemDiscoveryService, TfsObjectModelWorkItemDiscoveryService>();
             services.AddSingleton<IProjectDiscoveryService, TfsProjectDiscoveryService>();
 

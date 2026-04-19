@@ -33,6 +33,7 @@ public static class SimulatedServiceCollectionExtensions
         services.AddRevisionSourceFactory<SimulatedWorkItemRevisionSourceFactory>("Simulated");
 
         // Discovery services (for inventory of simulated sources)
+        services.TryAddSingleton<SimulatedGeneratorConfig>();
         services.TryAddSingleton<IProjectDiscoveryService, SimulatedProjectDiscoveryService>();
         services.TryAddSingleton<IWorkItemDiscoveryService, SimulatedWorkItemDiscoveryService>();
 

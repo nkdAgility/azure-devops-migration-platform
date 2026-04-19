@@ -47,6 +47,7 @@ public sealed class InventoryService : IInventoryService
         foreach (var entry in opts.Organisations.Where(e => e.Enabled))
         {
             var endpoint = entry.ToEndpointOptions();
+            var orgEndpoint = endpoint.ToOrganisationEndpoint();
 
             var projects = entry.Projects.Count > 0
                 ? entry.Projects
@@ -60,7 +61,7 @@ public sealed class InventoryService : IInventoryService
                 InventoryProgressEvent? pendingFinalEvent = null;
 
                 await foreach (var summary in _workItemDiscovery.DiscoverWorkItemsAsync(
-                    endpoint, project, cancellationToken))
+                    orgEndpoint, project, cancellationToken))
                 {
                     if (!summary.IsWorkItemComplete)
                     {

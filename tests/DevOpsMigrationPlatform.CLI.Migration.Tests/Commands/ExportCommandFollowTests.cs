@@ -12,6 +12,7 @@ namespace DevOpsMigrationPlatform.CLI.Migration.Tests.Commands;
 /// so the full code path is exercised end-to-end.
 /// </summary>
 [TestClass]
+[DoNotParallelize]
 public class ExportCommandFollowTests
 {
     // ── Unit tests ────────────────────────────────────────────────────────────────

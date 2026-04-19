@@ -193,6 +193,19 @@ Items are grouped by feature spec and categorised as **Code**, **Tests**, or **D
 
 ---
 
+## spec 015 — Work Item Scoped Fetch Service
+
+> **Status**: ✅ **Complete.** All 31 tasks (T001–T031) are implemented and verified. `IWorkItemFetchService`, `AzureDevOpsWorkItemFetchService`, `TfsWorkItemFetchService`, `WorkItemFieldFilterEvaluator`, `FetchedWorkItem`, `WorkItemFetchScope`, and `WorkItemFieldFilterOptions` are all implemented. Inventory and dependency analysis callers refactored to use `IWorkItemFetchService`. All discrepancies (D-001 through D-004) resolved. Additionally, `IWorkItemQueryWindowStrategy` and `IWorkItemDiscoveryService` were aligned to accept `OrganisationEndpoint` directly, and adapter classes were eliminated.
+
+### Additional Changes (beyond original spec scope)
+
+- `MigrationEndpointOptions` gained an abstract `ToOrganisationEndpoint()` method — all concrete types (`AzureDevOpsEndpointOptions`, `TeamFoundationServerEndpointOptions`, `SimulatedEndpointOptions`) implement it.
+- `IWorkItemQueryWindowStrategy.EnumerateWindowsAsync` changed from `MigrationEndpointOptions` to `OrganisationEndpoint`.
+- `IWorkItemDiscoveryService.DiscoverWorkItemsAsync` and `CountWorkItemsAsync` changed from `MigrationEndpointOptions` to `OrganisationEndpoint`.
+- Deleted: `AzureDevOpsEndpointOptionsAdapter`, `TfsMigrationEndpointOptionsAdapter`, `MigrationEndpointExtensions`.
+
+---
+
 ## Summary Table
 
 | Area | Not Started 🔴 | Partial 🟡 | Blocking? |
@@ -205,5 +218,6 @@ Items are grouped by feature spec and categorised as **Code**, **Tests**, or **D
 | spec 008-tui — TUI polish | 1 code + 1 test | 2 code | No |
 | spec 009 — Import orchestrator | 3 tests | 0 | No — import is functional; Both-mode phase transition is the only remaining gap |
 | spec 013 — ADO Work Items Import | ✅ Complete (T001–T051) | — | — |
+| spec 015 — Work Item Scoped Fetch | ✅ Complete (T001–T031) | — | — |
 
 **Highest priority unblocked work**: Reqnroll step definitions for `features/import/work-items/revisions/import-work-item-revisions.feature` (spec 009 T016/T023), the Both-mode phase transition, and the spec 004 CLI architecture tests.
