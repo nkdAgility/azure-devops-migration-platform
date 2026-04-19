@@ -34,6 +34,6 @@
 
 - **Source doc**: `.agents/guardrails/system-architecture.md` (rule 21 — mandatory reuse), `docs/architecture.md` (OrganisationEndpoint section)
 - **Section**: Interface signatures
-- **Issue**: The existing `IWorkItemQueryWindowStrategy.EnumerateWindowsAsync()` accepts `MigrationEndpointOptions` (a config-layer type). The new `IWorkItemFetchService.FetchAsync()` accepts `OrganisationEndpoint` (the resolved connection type). The ADO fetch service implementation will need to convert `OrganisationEndpoint` back to `MigrationEndpointOptions` to call the window strategy, or the window strategy signature needs to be updated in a future feature. This is a known asymmetry, not a blocker — the conversion extension `ToOrganisationEndpoint()` already exists and can be inverted.
-- **Suggested update**: Track as a follow-up task: align `IWorkItemQueryWindowStrategy` signature to accept `OrganisationEndpoint` in a subsequent feature. For now, the ADO fetch service will bridge the gap internally.
-- **Status**: N/A — deferred to future feature
+- **Issue**: The existing `IWorkItemQueryWindowStrategy.EnumerateWindowsAsync()` originally accepted `MigrationEndpointOptions` (a config-layer type). The new `IWorkItemFetchService.FetchAsync()` accepts `OrganisationEndpoint` (the resolved connection type).
+- **Suggested update**: Align `IWorkItemQueryWindowStrategy` signature to accept `OrganisationEndpoint`.
+- **Status**: ✓ Resolved — `IWorkItemQueryWindowStrategy.EnumerateWindowsAsync` was updated to accept `OrganisationEndpoint` directly. Adapter classes (`AzureDevOpsEndpointOptionsAdapter`, `TfsMigrationEndpointOptionsAdapter`) were deleted. `MigrationEndpointOptions` now has an abstract `ToOrganisationEndpoint()` method that each concrete type implements.
