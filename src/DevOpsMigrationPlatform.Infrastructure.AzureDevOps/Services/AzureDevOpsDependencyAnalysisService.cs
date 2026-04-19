@@ -8,34 +8,34 @@ using Microsoft.Extensions.Options;
 using Microsoft.TeamFoundation.Core.WebApi;
 using Microsoft.TeamFoundation.WorkItemTracking.WebApi;
 using Microsoft.TeamFoundation.WorkItemTracking.WebApi.Models;
+using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Models;
 using DevOpsMigrationPlatform.Abstractions.Options;
-
 using DevOpsMigrationPlatform.Abstractions.Services;
 
 namespace DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Services;
 
 /// <summary>
 /// Implements work item link analysis for Azure DevOps Services.
-/// Uses <see cref="IWorkItemQueryWindowStrategy"/> for work item ID enumeration (handles 20K
-/// WIQL limit) then fetches relations in batches via the REST API.
+/// Uses <see cref="IWorkItemFetchService"/> for field-projected pre-filtering,
+/// then fetches Relations only for items that pass the filter.
 /// </summary>
 public sealed class AzureDevOpsDependencyAnalysisService : IWorkItemLinkAnalysisService
 {
     private readonly IOptions<DiscoveryOptions> _options;
     private readonly IAzureDevOpsClientFactory _clientFactory;
-    private readonly IWorkItemQueryWindowStrategy _windowStrategy;
+    private readonly IWorkItemFetchService _fetchService;
     private readonly ILogger<AzureDevOpsDependencyAnalysisService> _logger;
 
     public AzureDevOpsDependencyAnalysisService(
         IOptions<DiscoveryOptions> options,
         IAzureDevOpsClientFactory clientFactory,
-        IWorkItemQueryWindowStrategy windowStrategy,
+        IWorkItemFetchService fetchService,
         ILogger<AzureDevOpsDependencyAnalysisService> logger)
     {
         _options = options ?? throw new ArgumentNullException(nameof(options));
         _clientFactory = clientFactory ?? throw new ArgumentNullException(nameof(clientFactory));
-        _windowStrategy = windowStrategy ?? throw new ArgumentNullException(nameof(windowStrategy));
+        _fetchService = fetchService ?? throw new ArgumentNullException(nameof(fetchService));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
@@ -47,21 +47,17 @@ public sealed class AzureDevOpsDependencyAnalysisService : IWorkItemLinkAnalysis
     /// Results are streamed as DependencyFoundEvent and DependencyHeartbeatEvent records.
     /// </summary>
     public async IAsyncEnumerable<DependencyProgressEvent> AnalyseLinksAsync(
-        string organisationUrl,
+        MigrationEndpointOptions endpoint,
         string project,
-        string pat,
         string? wiqlFilter = null,
         [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
-        var witClient = await _clientFactory.CreateWorkItemClientAsync(organisationUrl, pat, cancellationToken).ConfigureAwait(false);
+        var orgEndpoint = endpoint.ToOrganisationEndpoint();
+        var witClient = await _clientFactory.CreateWorkItemClientAsync(orgEndpoint, cancellationToken).ConfigureAwait(false);
 
-        var windowOptions = string.IsNullOrWhiteSpace(wiqlFilter)
-            ? null
-            : new WorkItemQueryWindowOptions { BaseQuery = wiqlFilter };
+        _logger.LogInformation("Enumerating work item IDs for project {Project} in {OrgUrl}", project, orgEndpoint.ResolvedUrl);
 
-        _logger.LogInformation("Enumerating work item IDs for project {Project} in {OrgUrl}", project, organisationUrl);
-
-        var sourceOrgSegment = ExtractOrgSegment(organisationUrl);
+        var sourceOrgSegment = ExtractOrgSegment(orgEndpoint.ResolvedUrl);
         var counters = new LinkCounters();
         const int batchSize = 200;
 
@@ -72,6 +68,7 @@ public sealed class AzureDevOpsDependencyAnalysisService : IWorkItemLinkAnalysis
         // must still participate in GUID-to-project-name resolution so that links
         // pointing at a disabled org are resolved to human-readable names.
         var configuredOrgs = _options.Value.Organisations
+            .OfType<Infrastructure.AzureDevOps.Options.AzureDevOpsOrganisationEntry>()
             .Where(o => !string.IsNullOrWhiteSpace(o.ResolvedUrl))
             .ToDictionary(
                 o => ExtractOrgSegment(o.ResolvedUrl),
@@ -82,38 +79,48 @@ public sealed class AzureDevOpsDependencyAnalysisService : IWorkItemLinkAnalysis
         // Prevents redundant API calls when the same GUID appears in multiple links.
         var projectNameCache = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
-        // ── Phase 1: collect all work item IDs so we know the total up-front ──
-        // IDs are plain integers; even 200 K IDs occupy ~800 KB — well within budget.
-        _logger.LogInformation("Counting work items for project {Project} in {OrgUrl}", project, organisationUrl);
-        var allIds = new List<int>();
-        await foreach (var window in _windowStrategy.EnumerateWindowsAsync(
-            organisationUrl, project, pat, windowOptions, cancellationToken).ConfigureAwait(false))
-        {
-            allIds.AddRange(window.WorkItemIds);
+        // ── Stream pre-filtered items via IWorkItemFetchService ──────────────
+        // Items are streamed with field projection; only items passing any
+        // configured filters are yielded. IDs are buffered into batches of 200
+        // for the Relations expansion call that follows.
+        var scope = new WorkItemFetchScope(
+            Fields: new[] { "System.WorkItemType", "System.TeamProject" },
+            BaseQuery: string.IsNullOrWhiteSpace(wiqlFilter) ? null : wiqlFilter);
 
-            // Emit a counting heartbeat after each window so the CLI can show a spinner
-            // and partial ID count while the full enumeration is in progress.
-            yield return new DependencyHeartbeatEvent(
-                organisationUrl, project, 0, 0, 0, 0, false,
-                TotalWorkItems: allIds.Count, IsCounting: true);
+        _logger.LogInformation("Streaming work items for dependency analysis in {Project} at {OrgUrl}", project, orgEndpoint.ResolvedUrl);
+
+        var currentBatch = new List<int>(batchSize);
+        int totalStreamed = 0;
+
+        await foreach (var item in _fetchService.FetchAsync(orgEndpoint, project, scope, cancellationToken)
+            .ConfigureAwait(false))
+        {
+            currentBatch.Add(item.Id);
+            totalStreamed++;
+
+            if (currentBatch.Count >= batchSize)
+            {
+                // Emit counting heartbeat before processing the batch
+                yield return new DependencyHeartbeatEvent(
+                    orgEndpoint.ResolvedUrl, project, counters.Processed, 0, 0, 0, false,
+                    TotalWorkItems: totalStreamed, IsCounting: true);
+
+                await foreach (var evt in ProcessBatchAsync(
+                    witClient, currentBatch, sourceOrgSegment, orgEndpoint.ResolvedUrl, project,
+                    counters, totalStreamed, configuredOrgs, projectNameCache, cancellationToken))
+                {
+                    yield return evt;
+                }
+                currentBatch.Clear();
+            }
         }
 
-        var totalWorkItems = allIds.Count;
-        _logger.LogInformation("Found {Total} work items to analyse in {Project}", totalWorkItems, project);
-
-        // Emit an initial heartbeat so the CLI can display the total immediately.
-        yield return new DependencyHeartbeatEvent(
-            organisationUrl, project, 0, 0, 0, 0, false,
-            TotalWorkItems: totalWorkItems);
-
-        // ── Phase 2: process IDs in batches ───────────────────────────────────
-        for (var offset = 0; offset < allIds.Count; offset += batchSize)
+        // Process remaining items in the last partial batch
+        if (currentBatch.Count > 0)
         {
-            var batch = allIds.GetRange(offset, Math.Min(batchSize, allIds.Count - offset));
-
             await foreach (var evt in ProcessBatchAsync(
-                witClient, batch, sourceOrgSegment, organisationUrl, project, pat,
-                counters, totalWorkItems, configuredOrgs, projectNameCache, cancellationToken))
+                witClient, currentBatch, sourceOrgSegment, orgEndpoint.ResolvedUrl, project,
+                counters, totalStreamed, configuredOrgs, projectNameCache, cancellationToken))
             {
                 yield return evt;
             }
@@ -121,14 +128,14 @@ public sealed class AzureDevOpsDependencyAnalysisService : IWorkItemLinkAnalysis
 
         // Final heartbeat
         yield return new DependencyHeartbeatEvent(
-            organisationUrl,
+            orgEndpoint.ResolvedUrl,
             project,
             counters.Processed,
             counters.CrossProject + counters.CrossOrg,
             counters.CrossProject,
             counters.CrossOrg,
             true,
-            TotalWorkItems: totalWorkItems,
+            TotalWorkItems: totalStreamed,
             SkippedWorkItems: counters.Skipped);
 
         _logger.LogInformation(
@@ -152,7 +159,6 @@ public sealed class AzureDevOpsDependencyAnalysisService : IWorkItemLinkAnalysis
         string sourceOrgSegment,
         string organisationUrl,
         string project,
-        string pat,
         LinkCounters counters,
         int totalWorkItems,
         IReadOnlyDictionary<string, (string OrgUrl, string Pat)> configuredOrgs,
@@ -374,7 +380,15 @@ public sealed class AzureDevOpsDependencyAnalysisService : IWorkItemLinkAnalysis
         try
         {
             var projectClient = await _clientFactory.CreateProjectClientAsync(
-                creds.OrgUrl, creds.Pat, cancellationToken).ConfigureAwait(false);
+                new OrganisationEndpoint
+                {
+                    ResolvedUrl = creds.OrgUrl,
+                    Authentication = new OrganisationEndpointAuthentication
+                    {
+                        Type = Abstractions.Options.AuthenticationType.Pat,
+                        ResolvedAccessToken = creds.Pat
+                    }
+                }, cancellationToken).ConfigureAwait(false);
             var teamProject = await projectClient.GetProject(
                 projectGuid.ToString()).ConfigureAwait(false);
             var name = teamProject?.Name ?? rawProject;

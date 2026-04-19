@@ -3,8 +3,11 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Abstractions.Services;
 using DevOpsMigrationPlatform.Infrastructure.AzureDevOps;
+using DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Options;
 using DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Services;
 using Microsoft.TeamFoundation.WorkItemTracking.WebApi.Models;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
@@ -32,6 +35,17 @@ public class WorkItemQueryWindowStrategyTests
     private const string Org = "https://dev.azure.com/testorg";
     private const string Project = "TestProject";
     private const string Pat = "test-pat";
+
+    private static readonly OrganisationEndpoint TestEndpoint = new()
+    {
+        ResolvedUrl = Org,
+        Type = "AzureDevOps",
+        Authentication = new OrganisationEndpointAuthentication
+        {
+            Type = AuthenticationType.Pat,
+            ResolvedAccessToken = Pat
+        }
+    };
 
     /// <summary>
     /// Builds a <see cref="WorkItemQueryResult"/> containing <paramref name="count"/> sequential IDs.
@@ -62,7 +76,7 @@ public class WorkItemQueryWindowStrategyTests
 
         var factoryMock = new Mock<IWiqlQueryClientFactory>(MockBehavior.Strict);
         factoryMock
-            .Setup(f => f.CreateAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Setup(f => f.CreateAsync(It.IsAny<OrganisationEndpoint>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(clientMock.Object);
 
         return (new WorkItemQueryWindowStrategy(factoryMock.Object), clientMock);
@@ -73,7 +87,7 @@ public class WorkItemQueryWindowStrategyTests
         WorkItemQueryWindowOptions? opts = null)
     {
         var windows = new List<WorkItemQueryWindow>();
-        await foreach (var w in sut.EnumerateWindowsAsync(Org, Project, Pat, opts))
+        await foreach (var w in sut.EnumerateWindowsAsync(TestEndpoint, Project, opts))
             windows.Add(w);
         return windows;
     }
@@ -173,7 +187,7 @@ public class WorkItemQueryWindowStrategyTests
 
         var factoryMock = new Mock<IWiqlQueryClientFactory>(MockBehavior.Strict);
         factoryMock
-            .Setup(f => f.CreateAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Setup(f => f.CreateAsync(It.IsAny<OrganisationEndpoint>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(clientMock.Object);
 
         var sut = new WorkItemQueryWindowStrategy(factoryMock.Object);
@@ -213,7 +227,7 @@ public class WorkItemQueryWindowStrategyTests
 
         var factoryMock = new Mock<IWiqlQueryClientFactory>(MockBehavior.Strict);
         factoryMock
-            .Setup(f => f.CreateAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Setup(f => f.CreateAsync(It.IsAny<OrganisationEndpoint>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(clientMock.Object);
 
         var sut = new WorkItemQueryWindowStrategy(factoryMock.Object);
@@ -263,7 +277,7 @@ public class WorkItemQueryWindowStrategyTests
 
         var factoryMock = new Mock<IWiqlQueryClientFactory>(MockBehavior.Strict);
         factoryMock
-            .Setup(f => f.CreateAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Setup(f => f.CreateAsync(It.IsAny<OrganisationEndpoint>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(clientMock.Object);
 
         var sut = new WorkItemQueryWindowStrategy(factoryMock.Object);
@@ -311,7 +325,7 @@ public class WorkItemQueryWindowStrategyTests
 
         var factoryMock = new Mock<IWiqlQueryClientFactory>(MockBehavior.Strict);
         factoryMock
-            .Setup(f => f.CreateAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Setup(f => f.CreateAsync(It.IsAny<OrganisationEndpoint>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(clientMock.Object);
 
         var sut = new WorkItemQueryWindowStrategy(factoryMock.Object);
@@ -375,7 +389,7 @@ public class WorkItemQueryWindowStrategyTests
 
         var factoryMock = new Mock<IWiqlQueryClientFactory>(MockBehavior.Strict);
         factoryMock
-            .Setup(f => f.CreateAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Setup(f => f.CreateAsync(It.IsAny<OrganisationEndpoint>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(clientMock.Object);
 
         var sut = new WorkItemQueryWindowStrategy(factoryMock.Object);
@@ -421,7 +435,7 @@ public class WorkItemQueryWindowStrategyTests
 
         var factoryMock = new Mock<IWiqlQueryClientFactory>(MockBehavior.Strict);
         factoryMock
-            .Setup(f => f.CreateAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Setup(f => f.CreateAsync(It.IsAny<OrganisationEndpoint>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(clientMock.Object);
 
         var sut = new WorkItemQueryWindowStrategy(factoryMock.Object);
@@ -470,7 +484,7 @@ public class WorkItemQueryWindowStrategyTests
 
         var factoryMock = new Mock<IWiqlQueryClientFactory>(MockBehavior.Strict);
         factoryMock
-            .Setup(f => f.CreateAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Setup(f => f.CreateAsync(It.IsAny<OrganisationEndpoint>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(clientMock.Object);
 
         var sut = new WorkItemQueryWindowStrategy(factoryMock.Object);
@@ -529,7 +543,7 @@ public class WorkItemQueryWindowStrategyTests
 
         var factoryMock = new Mock<IWiqlQueryClientFactory>(MockBehavior.Strict);
         factoryMock
-            .Setup(f => f.CreateAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Setup(f => f.CreateAsync(It.IsAny<OrganisationEndpoint>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(clientMock.Object);
 
         var sut = new WorkItemQueryWindowStrategy(factoryMock.Object);
@@ -576,7 +590,7 @@ public class WorkItemQueryWindowStrategyTests
 
         var factoryMock = new Mock<IWiqlQueryClientFactory>(MockBehavior.Strict);
         factoryMock
-            .Setup(f => f.CreateAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Setup(f => f.CreateAsync(It.IsAny<OrganisationEndpoint>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(clientMock.Object);
 
         var sut = new WorkItemQueryWindowStrategy(factoryMock.Object);
@@ -619,7 +633,7 @@ public class WorkItemQueryWindowStrategyTests
 
         var factoryMock = new Mock<IWiqlQueryClientFactory>(MockBehavior.Strict);
         factoryMock
-            .Setup(f => f.CreateAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Setup(f => f.CreateAsync(It.IsAny<OrganisationEndpoint>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(clientMock.Object);
 
         var sut = new WorkItemQueryWindowStrategy(factoryMock.Object);
@@ -669,7 +683,7 @@ public class WorkItemQueryWindowStrategyTests
 
         var factoryMock = new Mock<IWiqlQueryClientFactory>(MockBehavior.Strict);
         factoryMock
-            .Setup(f => f.CreateAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Setup(f => f.CreateAsync(It.IsAny<OrganisationEndpoint>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(clientMock.Object);
 
         var sut = new WorkItemQueryWindowStrategy(factoryMock.Object);
@@ -735,7 +749,7 @@ public class WorkItemQueryWindowStrategyTests
 
         var factoryMock = new Mock<IWiqlQueryClientFactory>(MockBehavior.Strict);
         factoryMock
-            .Setup(f => f.CreateAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Setup(f => f.CreateAsync(It.IsAny<OrganisationEndpoint>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(clientMock.Object);
 
         var sut = new WorkItemQueryWindowStrategy(factoryMock.Object);
@@ -772,7 +786,7 @@ public class WorkItemQueryWindowStrategyTests
 
         var factoryMock = new Mock<IWiqlQueryClientFactory>(MockBehavior.Strict);
         factoryMock
-            .Setup(f => f.CreateAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Setup(f => f.CreateAsync(It.IsAny<OrganisationEndpoint>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(clientMock.Object);
 
         var sut = new WorkItemQueryWindowStrategy(factoryMock.Object);
@@ -780,7 +794,7 @@ public class WorkItemQueryWindowStrategyTests
         // Act & Assert: after maxTransientRetries (3) exhausted the original exception propagates
         await Assert.ThrowsExactlyAsync<InvalidOperationException>(async () =>
         {
-            await foreach (var _ in sut.EnumerateWindowsAsync(Org, Project, Pat, opts))
+            await foreach (var _ in sut.EnumerateWindowsAsync(TestEndpoint, Project, opts))
             { }
         });
 
@@ -812,7 +826,7 @@ public class WorkItemQueryWindowStrategyTests
 
         var factoryMock = new Mock<IWiqlQueryClientFactory>(MockBehavior.Strict);
         factoryMock
-            .Setup(f => f.CreateAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Setup(f => f.CreateAsync(It.IsAny<OrganisationEndpoint>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(clientMock.Object);
 
         var sut = new WorkItemQueryWindowStrategy(factoryMock.Object);
@@ -876,7 +890,7 @@ public class WorkItemQueryWindowStrategyTests
 
         var factoryMock = new Mock<IWiqlQueryClientFactory>(MockBehavior.Strict);
         factoryMock
-            .Setup(f => f.CreateAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Setup(f => f.CreateAsync(It.IsAny<OrganisationEndpoint>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(clientMock.Object);
 
         var sut = new WorkItemQueryWindowStrategy(factoryMock.Object);
@@ -921,7 +935,7 @@ public class WorkItemQueryWindowStrategyTests
 
         var factoryMock = new Mock<IWiqlQueryClientFactory>(MockBehavior.Strict);
         factoryMock
-            .Setup(f => f.CreateAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Setup(f => f.CreateAsync(It.IsAny<OrganisationEndpoint>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(clientMock.Object);
 
         var sut = new WorkItemQueryWindowStrategy(factoryMock.Object);
@@ -929,7 +943,7 @@ public class WorkItemQueryWindowStrategyTests
         // Act: all transient retries exhausted → transientEx should propagate
         await Assert.ThrowsExactlyAsync<InvalidOperationException>(async () =>
         {
-            await foreach (var _ in sut.EnumerateWindowsAsync(Org, Project, Pat, opts))
+            await foreach (var _ in sut.EnumerateWindowsAsync(TestEndpoint, Project, opts))
             { }
         });
 
@@ -968,7 +982,7 @@ public class WorkItemQueryWindowStrategyTests
 
         var factoryMock = new Mock<IWiqlQueryClientFactory>(MockBehavior.Strict);
         factoryMock
-            .Setup(f => f.CreateAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Setup(f => f.CreateAsync(It.IsAny<OrganisationEndpoint>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(clientMock.Object);
 
         var sut = new WorkItemQueryWindowStrategy(factoryMock.Object);
@@ -1025,14 +1039,14 @@ public class WorkItemQueryWindowStrategyTests
 
         var factoryMock = new Mock<IWiqlQueryClientFactory>(MockBehavior.Strict);
         factoryMock
-            .Setup(f => f.CreateAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Setup(f => f.CreateAsync(It.IsAny<OrganisationEndpoint>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(clientMock.Object);
 
         var sut = new WorkItemQueryWindowStrategy(factoryMock.Object);
 
         await Assert.ThrowsExactlyAsync<OperationCanceledException>(async () =>
         {
-            await foreach (var _ in sut.EnumerateWindowsAsync(Org, Project, Pat, cancellationToken: cts.Token))
+            await foreach (var _ in sut.EnumerateWindowsAsync(TestEndpoint, Project, cancellationToken: cts.Token))
             { }
         });
     }
@@ -1122,7 +1136,7 @@ public class WorkItemQueryWindowStrategyTests
 
         var factoryMock = new Mock<IWiqlQueryClientFactory>(MockBehavior.Strict);
         factoryMock
-            .Setup(f => f.CreateAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Setup(f => f.CreateAsync(It.IsAny<OrganisationEndpoint>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(clientMock.Object);
 
         var sut = new WorkItemQueryWindowStrategy(factoryMock.Object);
@@ -1153,14 +1167,14 @@ public class WorkItemQueryWindowStrategyTests
 
         var factoryMock = new Mock<IWiqlQueryClientFactory>(MockBehavior.Strict);
         factoryMock
-            .Setup(f => f.CreateAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Setup(f => f.CreateAsync(It.IsAny<OrganisationEndpoint>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(clientMock.Object);
 
         var sut = new WorkItemQueryWindowStrategy(factoryMock.Object);
 
         await Assert.ThrowsExactlyAsync<OperationCanceledException>(async () =>
         {
-            await foreach (var _ in sut.EnumerateWindowsAsync(Org, Project, Pat, cancellationToken: cts.Token))
+            await foreach (var _ in sut.EnumerateWindowsAsync(TestEndpoint, Project, cancellationToken: cts.Token))
             { }
         }, "OperationCanceledException from the probe must not be swallowed");
     }

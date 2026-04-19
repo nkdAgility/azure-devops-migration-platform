@@ -1,16 +1,16 @@
 using System.Threading;
 using System.Threading.Tasks;
+using DevOpsMigrationPlatform.Abstractions;
 
 namespace DevOpsMigrationPlatform.Infrastructure.AzureDevOps;
 
 /// <summary>
-/// Creates an <see cref="IWiqlQueryClient"/> for a given organisation URL and PAT,
+/// Creates an <see cref="IWiqlQueryClient"/> for a given <see cref="OrganisationEndpoint"/>,
 /// keeping connection concerns separate from the windowing strategy logic.
 /// </summary>
 public interface IWiqlQueryClientFactory
 {
     Task<IWiqlQueryClient> CreateAsync(
-        string url,
-        string pat,
+        OrganisationEndpoint endpoint,
         CancellationToken cancellationToken = default);
 }

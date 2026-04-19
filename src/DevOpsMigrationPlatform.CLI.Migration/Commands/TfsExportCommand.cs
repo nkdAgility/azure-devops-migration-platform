@@ -51,8 +51,8 @@ internal static class TfsExportRunner
             return 1;
         }
 
-        var collectionUrl = config.Source!.Url;
-        var project = config.Source.Project;
+        var collectionUrl = config.Source!.GetEndpointUrl();
+        var project = config.Source.GetProject();
         var outputFolder = Path.GetFullPath(config.Artefacts.ExpandedPath);
 
         var arguments = $"export" +

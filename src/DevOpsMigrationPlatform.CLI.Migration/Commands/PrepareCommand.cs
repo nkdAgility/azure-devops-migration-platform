@@ -55,16 +55,7 @@ public sealed class PrepareCommand : ControlPlaneCommandBase<MigrationCommandSet
         {
             JobId = Guid.NewGuid().ToString(),
             Mode = "Prepare",
-            Source = config.Source is not null
-                ? new JobEndpoint
-                {
-                    Type = config.Source.Type,
-                    Url = config.Source.ResolvedUrl,
-                    Project = config.Source.Project,
-                    ApiVersion = config.Source.ApiVersion,
-                    Authentication = config.Source.Authentication
-                }
-                : null,
+            Source = config.Source,
             Artefacts = new JobArtefacts
             {
                 PackageUri = $"file:///{outputPath.Replace(Path.DirectorySeparatorChar, '/')}",

@@ -1,4 +1,5 @@
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Options;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Reqnroll;
 
@@ -31,7 +32,7 @@ public class ConfigValidationSteps
     [Given(@"the config has a source endpoint of type ""(.*)""")]
     public void GivenTheConfigHasASourceEndpointOfType(string type)
     {
-        _ctx.Options.Source = new MigrationEndpointOptions
+        _ctx.Options.Source = new AzureDevOpsEndpointOptions
         {
             Type = type,
             Url = "https://dev.azure.com/myorg",
@@ -42,7 +43,7 @@ public class ConfigValidationSteps
     [Given(@"the config has a target endpoint of type ""(.*)""")]
     public void GivenTheConfigHasATargetEndpointOfType(string type)
     {
-        _ctx.Options.Target = new MigrationEndpointOptions
+        _ctx.Options.Target = new AzureDevOpsEndpointOptions
         {
             Type = type,
             Url = "https://dev.azure.com/targetorg",

@@ -8,6 +8,7 @@ using Microsoft.VisualStudio.TestTools.UnitTesting;
 namespace DevOpsMigrationPlatform.CLI.Migration.Tests.Commands;
 
 [TestClass]
+[DoNotParallelize]
 public class MigrationExportCommandTests
 {
     // ── Unit tests ─────────────────────────────────────────────────────────
@@ -28,6 +29,7 @@ public class MigrationExportCommandTests
     /// </summary>
     [TestMethod]
     [TestCategory("SystemTest")]
+    [TestCategory("SystemTest_Live")]
     [Timeout(1_200_000)] // 20 minutes — full export of a dev project over real network
     public async Task MigrationExportCommand_SystemTest_AdoSingleProject_ExitsZero_AndWritesRevisionFiles()
     {
@@ -126,6 +128,7 @@ public class MigrationExportCommandTests
     /// </summary>
     [TestMethod]
     [TestCategory("SystemTest")]
+    [TestCategory("SystemTest_Live")]
     [Timeout(1_200_000)] // 20 minutes — full export including API calls for comments
     public async Task MigrationExportCommand_SystemTest_WorkItemComments_ExitsZero_AndWritesCommentFolders()
     {

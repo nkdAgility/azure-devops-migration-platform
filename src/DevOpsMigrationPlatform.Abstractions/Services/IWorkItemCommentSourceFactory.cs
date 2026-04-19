@@ -11,5 +11,5 @@ public interface IWorkItemCommentSourceFactory
     /// <summary>
     /// Creates a comment source for the given ADO organisation, project, and authentication.
     /// </summary>
-    IWorkItemCommentSource Create(string organisationUrl, string project, string pat);
+    IWorkItemCommentSource Create(MigrationEndpointOptions endpoint, string project);
 }

@@ -5,6 +5,7 @@ using System.Threading;
 using Microsoft.Extensions.Logging;
 using Microsoft.TeamFoundation.WorkItemTracking.Client;
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Models;
 using DevOpsMigrationPlatform.Abstractions.Services;
 using DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.Extensions;
 
@@ -35,9 +36,8 @@ public sealed class TfsWorkItemQueryWindowStrategy : IWorkItemQueryWindowStrateg
 
     /// <inheritdoc/>
     public async IAsyncEnumerable<WorkItemQueryWindow> EnumerateWindowsAsync(
-        string url,
+        OrganisationEndpoint endpoint,
         string project,
-        string pat,
         WorkItemQueryWindowOptions? options = null,
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {

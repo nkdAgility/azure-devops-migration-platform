@@ -1,5 +1,6 @@
 using System;
 using DevOpsMigrationPlatform.Abstractions.Options;
+using DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Options;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Tests.Inventory;
@@ -34,7 +35,7 @@ public class DiscoveryOptionsValidationTests
         {
             Organisations = new()
             {
-                new OrganisationEntry { Type = string.Empty, Url = "https://dev.azure.com/org" }
+                new AzureDevOpsOrganisationEntry { Type = string.Empty, Url = "https://dev.azure.com/org" }
             }
         };
         var ex = Assert.ThrowsExactly<InvalidOperationException>(() => opts.Validate());
@@ -48,7 +49,7 @@ public class DiscoveryOptionsValidationTests
         {
             Organisations = new()
             {
-                new OrganisationEntry { Type = "AzureDevOpsServices", Url = string.Empty }
+                new AzureDevOpsOrganisationEntry { Type = "AzureDevOpsServices", Url = string.Empty }
             }
         };
         var ex = Assert.ThrowsExactly<InvalidOperationException>(() => opts.Validate());
@@ -62,7 +63,7 @@ public class DiscoveryOptionsValidationTests
         {
             Organisations = new()
             {
-                new OrganisationEntry
+                new AzureDevOpsOrganisationEntry
                 {
                     Type = "AzureDevOpsServices",
                     Url = "https://dev.azure.com/org",
@@ -81,7 +82,7 @@ public class DiscoveryOptionsValidationTests
         {
             Organisations = new()
             {
-                new OrganisationEntry
+                new AzureDevOpsOrganisationEntry
                 {
                     Type = "AzureDevOpsServices",
                     Url = "https://dev.azure.com/org",
@@ -99,7 +100,7 @@ public class DiscoveryOptionsValidationTests
         {
             Organisations = new()
             {
-                new OrganisationEntry
+                new AzureDevOpsOrganisationEntry
                 {
                     Type = "AzureDevOpsServices",
                     Url = "https://dev.azure.com/myorg"
@@ -116,12 +117,12 @@ public class DiscoveryOptionsValidationTests
         {
             Organisations = new()
             {
-                new OrganisationEntry
+                new AzureDevOpsOrganisationEntry
                 {
                     Type = "AzureDevOpsServices",
                     Url = "https://dev.azure.com/org1"
                 },
-                new OrganisationEntry
+                new AzureDevOpsOrganisationEntry
                 {
                     Type = "TeamFoundationServer",
                     Url = "https://tfs.corp.local/DefaultCollection"
@@ -141,7 +142,7 @@ public class DiscoveryOptionsValidationTests
         {
             Organisations = new()
             {
-                new OrganisationEntry
+                new AzureDevOpsOrganisationEntry
                 {
                     Type = "TeamFoundationServer",
                     Url = "http://tfs:8080/tfs/DefaultCollection"

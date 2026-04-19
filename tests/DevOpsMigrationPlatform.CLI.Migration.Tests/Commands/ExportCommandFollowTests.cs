@@ -12,6 +12,7 @@ namespace DevOpsMigrationPlatform.CLI.Migration.Tests.Commands;
 /// so the full code path is exercised end-to-end.
 /// </summary>
 [TestClass]
+[DoNotParallelize]
 public class ExportCommandFollowTests
 {
     // ── Unit tests ────────────────────────────────────────────────────────────────
@@ -40,6 +41,7 @@ public class ExportCommandFollowTests
     /// </summary>
     [TestMethod]
     [TestCategory("SystemTest")]
+    [TestCategory("SystemTest_Live")]
     [Timeout(1_200_000)] // 20 minutes
     public async Task ExportCommand_WithFollowAndWarningLevel_ExitsZero_AndWritesRevisionFiles()
     {
@@ -102,6 +104,7 @@ public class ExportCommandFollowTests
     /// </summary>
     [TestMethod]
     [TestCategory("SystemTest")]
+    [TestCategory("SystemTest_Live")]
     [Timeout(1_200_000)] // 20 minutes
     public async Task ExportCommand_WithDebugLevel_WritesAgentJsonl()
     {

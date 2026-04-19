@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Options;
+using DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Options;
 using DevOpsMigrationPlatform.Abstractions.Services;
 using DevOpsMigrationPlatform.Infrastructure.Services;
 using Microsoft.Extensions.Logging;
@@ -11,7 +12,7 @@ using Microsoft.Extensions.Options;
 namespace DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Factories;
 
 /// <summary>
-/// Creates a configured <see cref="IInventoryService"/> from <see cref="DiscoveryJobOrganisation"/>
+/// Creates a configured <see cref="IInventoryService"/> from <see cref="ScopedOrganisationEndpoint"/>
 /// entries carried on a <see cref="DiscoveryJob"/>. Used by <c>InventoryDiscoveryModule</c>
 /// so the agent does not need a config file at runtime.
 /// </summary>
@@ -33,7 +34,7 @@ public sealed class InventoryServiceFactory : IInventoryServiceFactory
 
     /// <inheritdoc/>
     public IInventoryService Create(
-        IReadOnlyList<DiscoveryJobOrganisation> organisations,
+        IReadOnlyList<ScopedOrganisationEndpoint> organisations,
         JobPolicies policies)
     {
         var options = BuildDiscoveryOptions(organisations, policies);
@@ -45,7 +46,7 @@ public sealed class InventoryServiceFactory : IInventoryServiceFactory
     }
 
     private static DiscoveryOptions BuildDiscoveryOptions(
-        IReadOnlyList<DiscoveryJobOrganisation> organisations,
+        IReadOnlyList<ScopedOrganisationEndpoint> organisations,
         JobPolicies policies)
     {
         return new DiscoveryOptions
@@ -56,19 +57,19 @@ public sealed class InventoryServiceFactory : IInventoryServiceFactory
                 Throttle = new MigrationThrottleOptions { MaxConcurrency = policies.MaxConcurrency },
                 Checkpoints = new MigrationCheckpointsOptions { Interval = policies.CheckpointIntervalSeconds }
             },
-            Organisations = organisations.Select(o => new OrganisationEntry
+            Organisations = organisations.Select(o =>
             {
-                Type = o.Type,
-                Url = o.Url,
-                Projects = new System.Collections.Generic.List<string>(o.Projects),
-                ApiVersion = o.ApiVersion,
-                Authentication = new EndpointAuthenticationOptions
+                var ado = o.Endpoint as AzureDevOpsEndpointOptions;
+                return new AzureDevOpsOrganisationEntry
                 {
-                    Type = AuthenticationType.Pat,
-                    AccessToken = o.Authentication.AccessToken
-                },
-                Enabled = true
-            }).ToList()
+                    Type = o.Endpoint.Type,
+                    Url = ado?.Url ?? o.Endpoint.GetResolvedUrl(),
+                    Projects = new System.Collections.Generic.List<string>(o.Projects),
+                    ApiVersion = ado?.ApiVersion,
+                    Authentication = ado?.Authentication ?? new EndpointAuthenticationOptions(),
+                    Enabled = true
+                };
+            }).Cast<DevOpsMigrationPlatform.Abstractions.Options.OrganisationEntry>().ToList()
         };
     }
 }

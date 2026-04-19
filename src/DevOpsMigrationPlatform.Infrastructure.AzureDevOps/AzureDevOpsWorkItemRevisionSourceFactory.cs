@@ -2,15 +2,18 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Abstractions.Services;
+using DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Options;
 using DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Services;
 
 namespace DevOpsMigrationPlatform.Infrastructure.AzureDevOps;
 
 /// <summary>
 /// Azure DevOps implementation of <see cref="IWorkItemRevisionSourceFactory"/>.
-/// Constructs an <see cref="AzureDevOpsWorkItemRevisionSource"/> from job-level parameters.
-/// This is the sole construction point for <see cref="AzureDevOpsWorkItemRevisionSource"/>.
+/// Constructs an <see cref="AzureDevOpsWorkItemRevisionSource"/> from endpoint options.
+/// Accepts either <see cref="AzureDevOpsEndpointOptions"/> (preferred) or
+/// <see cref="JobEndpointMigrationOptions"/> (legacy bridge from <c>WorkItemsModule</c>).
 /// </summary>
 public sealed class AzureDevOpsWorkItemRevisionSourceFactory : IWorkItemRevisionSourceFactory
 {
@@ -33,17 +36,24 @@ public sealed class AzureDevOpsWorkItemRevisionSourceFactory : IWorkItemRevision
 
     /// <inheritdoc/>
     public async Task<IWorkItemRevisionSource> CreateAsync(
-        string organisationUrl,
-        string project,
-        string pat,
-        string wiqlQuery,
-        CancellationToken cancellationToken)
+        MigrationEndpointOptions endpoint,
+        CancellationToken ct)
     {
+        if (endpoint is not AzureDevOpsEndpointOptions adoEndpoint)
+        {
+            throw new ArgumentException(
+                $"Expected AzureDevOpsEndpointOptions but got {endpoint.GetType().Name}.",
+                nameof(endpoint));
+        }
+
+        var organisationEndpoint = endpoint.ToOrganisationEndpoint();
+        var project = adoEndpoint.Project;
+
         var witClient = await _clientFactory
-            .CreateWorkItemClientAsync(organisationUrl, pat, cancellationToken)
+            .CreateWorkItemClientAsync(organisationEndpoint, ct)
             .ConfigureAwait(false);
 
         return new AzureDevOpsWorkItemRevisionSource(
-            witClient, _windowStrategy, _mapper, _registry, organisationUrl, project, pat, wiqlQuery);
+            witClient, _windowStrategy, _mapper, _registry, organisationEndpoint, project, wiqlQuery: null);
     }
 }

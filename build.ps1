@@ -135,14 +135,77 @@ function Invoke-Step {
     }
 }
 
+function Write-TestSummary {
+    # Parse .trx files from TestResults/ to show per-assembly test counts.
+    $trxFiles = Get-ChildItem -LiteralPath $TestResultsDir -Filter '*.trx' -ErrorAction SilentlyContinue
+    if (-not $trxFiles -or $trxFiles.Count -eq 0) { return }
+
+    Write-Host ""
+    Write-Host ('─' * 72) -ForegroundColor DarkGray
+    Write-Host '  Test Summary' -ForegroundColor White
+    Write-Host ('─' * 72) -ForegroundColor DarkGray
+
+    $totalPassed = 0; $totalFailed = 0; $totalSkipped = 0; $totalTests = 0
+
+    foreach ($trx in $trxFiles) {
+        [xml]$xml = Get-Content -LiteralPath $trx.FullName -Raw
+        $ns = @{ t = 'http://microsoft.com/schemas/VisualStudio/TeamTest/2010' }
+        $counters = Select-Xml -Xml $xml -XPath '//t:ResultSummary/t:Counters' -Namespace $ns |
+                    Select-Object -ExpandProperty Node
+
+        if (-not $counters) { continue }
+
+        $passed  = [int]$counters.passed
+        $failed  = [int]$counters.failed
+        $skipped = [int]$counters.notExecuted
+        $total   = [int]$counters.total
+
+        $totalPassed  += $passed
+        $totalFailed  += $failed
+        $totalSkipped += $skipped
+        $totalTests   += $total
+
+        # Derive assembly name from the .trx storage attribute or filename
+        $firstResult = Select-Xml -Xml $xml -XPath '//t:Results/t:UnitTestResult[1]' -Namespace $ns |
+                       Select-Object -ExpandProperty Node
+        $assembly = if ($firstResult -and $firstResult.testName) {
+            $firstResult.testName -replace '\..*', ''
+        } else {
+            [System.IO.Path]::GetFileNameWithoutExtension($trx.Name)
+        }
+        # Try to get a cleaner name from TestDefinitions
+        $defNode = Select-Xml -Xml $xml -XPath '//t:TestDefinitions/t:UnitTest[1]/t:TestMethod' -Namespace $ns |
+                   Select-Object -ExpandProperty Node
+        if ($defNode -and $defNode.className) {
+            $assembly = ($defNode.className -split ',')[0] -replace '\.Tests\..*|\.Test\..*', '.Tests'
+        }
+
+        $statusIcon = if ($failed -gt 0) { '✗' } else { '✓' }
+        $statusColor = if ($failed -gt 0) { 'Red' } else { 'Green' }
+        $line = '  {0} {1,-42} {2,5} passed  {3,3} failed  {4,3} skipped  {5,5} total' -f $statusIcon, $assembly, $passed, $failed, $skipped, $total
+        Write-Host $line -ForegroundColor $statusColor
+    }
+
+    Write-Host ('─' * 72) -ForegroundColor DarkGray
+    $summaryIcon = if ($totalFailed -gt 0) { '✗' } else { '✓' }
+    $summaryColor = if ($totalFailed -gt 0) { 'Red' } else { 'Green' }
+    $summaryLine = '  {0} {1,-42} {2,5} passed  {3,3} failed  {4,3} skipped  {5,5} total' -f $summaryIcon, 'ALL TESTS', $totalPassed, $totalFailed, $totalSkipped, $totalTests
+    Write-Host $summaryLine -ForegroundColor $summaryColor
+    Write-Host ('─' * 72) -ForegroundColor DarkGray
+    Write-Host ''
+}
+
 function Write-BuildSummary {
     $script:BuildStart.Stop()
     $total = $script:BuildStart.Elapsed
 
+    # Show test counts first (if any tests were run)
+    Write-TestSummary
+
     Write-Host ""
-    Write-Host ('─' * 60) -ForegroundColor DarkGray
+    Write-Host ('─' * 72) -ForegroundColor DarkGray
     Write-Host '  Build Summary' -ForegroundColor White
-    Write-Host ('─' * 60) -ForegroundColor DarkGray
+    Write-Host ('─' * 72) -ForegroundColor DarkGray
 
     foreach ($entry in $script:StepTimings) {
         $t = $entry.Elapsed
@@ -151,17 +214,17 @@ function Write-BuildSummary {
         } else {
             '{0:D2}s {1:D3}ms' -f $t.Seconds, $t.Milliseconds
         }
-        Write-Host ('  {0,-45} {1,10}' -f $entry.Step, $formatted) -ForegroundColor Gray
+        Write-Host ('  {0,-55} {1,10}' -f $entry.Step, $formatted) -ForegroundColor Gray
     }
 
-    Write-Host ('─' * 60) -ForegroundColor DarkGray
+    Write-Host ('─' * 72) -ForegroundColor DarkGray
     $tf = if ($total.TotalMinutes -ge 1) {
         '{0}m {1:D2}s' -f [int]$total.TotalMinutes, $total.Seconds
     } else {
         '{0:D2}s {1:D3}ms' -f $total.Seconds, $total.Milliseconds
     }
-    Write-Host ('  {0,-45} {1,10}' -f 'TOTAL', $tf) -ForegroundColor White
-    Write-Host ('─' * 60) -ForegroundColor DarkGray
+    Write-Host ('  {0,-55} {1,10}' -f 'TOTAL', $tf) -ForegroundColor White
+    Write-Host ('─' * 72) -ForegroundColor DarkGray
     Write-Host ''
 }
 
@@ -255,6 +318,11 @@ function Invoke-Build {
 }
 
 function Invoke-UnitTests {
+    # Clear stale .trx files so the summary only reflects the current run
+    if (Test-Path $TestResultsDir) {
+        Get-ChildItem -LiteralPath $TestResultsDir -Filter '*.trx' -ErrorAction SilentlyContinue |
+            Remove-Item -Force -ErrorAction SilentlyContinue
+    }
     # All tests EXCEPT SystemTest-categorised tests
     Invoke-Step 'Running unit tests (excluding SystemTests)' {
         dotnet test $SolutionFile `

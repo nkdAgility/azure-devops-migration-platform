@@ -45,6 +45,12 @@ public sealed class PackageProgressSink : BackgroundService, IProgressSink
 
     public void Emit(ProgressEvent evt)
     {
+        // Eagerly capture the store reference on the emit path so the drain loop
+        // can flush even if the job completes before the next poll interval.
+        var store = _packageState.CurrentStore;
+        if (store is not null)
+            _lastKnownStore = store;
+
         _channel.Writer.TryWrite(evt);
     }
 

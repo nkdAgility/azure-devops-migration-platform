@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Models;
 using DevOpsMigrationPlatform.Abstractions.Options;
+using DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Options;
 using DevOpsMigrationPlatform.Abstractions.Services;
 using DevOpsMigrationPlatform.Infrastructure.AzureDevOps;
 using DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Services;
@@ -27,6 +28,28 @@ public class InventoryServiceTests
 {
     // ── Helpers ───────────────────────────────────────────────────────────────
 
+    private static readonly AzureDevOpsEndpointOptions TestEndpoint = new()
+    {
+        Url = "https://dev.azure.com/org",
+        Type = "AzureDevOps",
+        Authentication = new EndpointAuthenticationOptions
+        {
+            Type = AuthenticationType.Pat,
+            AccessToken = "pat"
+        }
+    };
+
+    private static readonly OrganisationEndpoint TestOrgEndpoint = new()
+    {
+        ResolvedUrl = "https://dev.azure.com/org",
+        Type = "AzureDevOps",
+        Authentication = new OrganisationEndpointAuthentication
+        {
+            Type = AuthenticationType.Pat,
+            ResolvedAccessToken = "pat"
+        }
+    };
+
     private static IOptions<DiscoveryOptions> BuildOptions(
         string org = "https://dev.azure.com/testorg",
         string project = "TestProject",
@@ -36,7 +59,7 @@ public class InventoryServiceTests
         {
             Organisations = new()
             {
-                new OrganisationEntry
+                new AzureDevOpsOrganisationEntry
                 {
                     Type = "AzureDevOpsServices",
                     Url = org,
@@ -60,10 +83,10 @@ public class InventoryServiceTests
     {
         var mock = new Mock<IWorkItemDiscoveryService>(MockBehavior.Strict);
         mock.Setup(s => s.DiscoverWorkItemsAsync(
-                It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(),
+                It.IsAny<OrganisationEndpoint>(), It.IsAny<string>(),
                 It.IsAny<CancellationToken>()))
-            .Returns<string, string, string, CancellationToken>(
-                (org, proj, pat, ct) => MakeSummaries(proj, workItemCount, revisionCount));
+            .Returns<OrganisationEndpoint, string, CancellationToken>(
+                (endpoint, proj, ct) => MakeSummaries(proj, workItemCount, revisionCount));
         return mock;
     }
 
@@ -102,7 +125,7 @@ public class InventoryServiceTests
     {
         var mock = new Mock<IRepoDiscoveryService>(MockBehavior.Strict);
         mock.Setup(s => s.CountReposAsync(
-                It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(),
+                It.IsAny<MigrationEndpointOptions>(), It.IsAny<string>(),
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync(repoCount);
         return mock;
@@ -150,10 +173,10 @@ public class InventoryServiceTests
         // Arrange: discovery yields a single final event with zero counts
         var discoveryMock = new Mock<IWorkItemDiscoveryService>(MockBehavior.Strict);
         discoveryMock.Setup(s => s.DiscoverWorkItemsAsync(
-                It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(),
+                It.IsAny<OrganisationEndpoint>(), It.IsAny<string>(),
                 It.IsAny<CancellationToken>()))
-            .Returns<string, string, string, CancellationToken>(
-                (org, proj, pat, ct) => EmptyDiscovery(proj));
+            .Returns<OrganisationEndpoint, string, CancellationToken>(
+                (endpoint, proj, ct) => EmptyDiscovery(proj));
 
         var sut = BuildService(discoveryMock);
 
@@ -304,8 +327,8 @@ public class InventoryServiceTests
     public void AzureDevOpsWorkItemDiscoveryService_ImplementsInterface()
     {
         var windowStrategy = new Mock<IWorkItemQueryWindowStrategy>(MockBehavior.Strict);
-        var clientFactory = new Mock<IAzureDevOpsClientFactory>(MockBehavior.Strict);
-        var sut = new AzureDevOpsWorkItemDiscoveryService(windowStrategy.Object, clientFactory.Object);
+        var fetchService = new Mock<IWorkItemFetchService>(MockBehavior.Strict);
+        var sut = new AzureDevOpsWorkItemDiscoveryService(windowStrategy.Object, fetchService.Object);
         Assert.IsInstanceOfType(sut, typeof(IWorkItemDiscoveryService),
             "AzureDevOpsWorkItemDiscoveryService must implement IWorkItemDiscoveryService");
     }
@@ -344,9 +367,9 @@ public class InventoryServiceTests
     [TestMethod]
     public void AzureDevOpsWorkItemDiscoveryService_ThrowsOnNullStrategy()
     {
-        var clientFactory = new Mock<IAzureDevOpsClientFactory>(MockBehavior.Strict);
+        var fetchService = new Mock<IWorkItemFetchService>(MockBehavior.Strict);
         Assert.ThrowsExactly<ArgumentNullException>(() =>
-            new AzureDevOpsWorkItemDiscoveryService(null!, clientFactory.Object));
+            new AzureDevOpsWorkItemDiscoveryService(null!, fetchService.Object));
     }
 
     // ── Repo discovery ────────────────────────────────────────────────────────
@@ -432,10 +455,10 @@ public class InventoryServiceTests
         var strategyMock = new Mock<IWorkItemQueryWindowStrategy>(MockBehavior.Strict);
         strategyMock
             .Setup(s => s.EnumerateWindowsAsync(
-                It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(),
+                It.IsAny<OrganisationEndpoint>(), It.IsAny<string>(),
                 It.IsAny<WorkItemQueryWindowOptions?>(), It.IsAny<CancellationToken>()))
-            .Returns<string, string, string, WorkItemQueryWindowOptions?, CancellationToken>(
-                (_, _, _, opts, ct) =>
+            .Returns<OrganisationEndpoint, string, WorkItemQueryWindowOptions?, CancellationToken>(
+                (_, _, opts, ct) =>
                 {
                     capturedOptions.Add(opts);
                     return YieldWindows(windowIdSets, ct);
@@ -460,12 +483,12 @@ public class InventoryServiceTests
         // Arrange
         var (strategyMock, capturedOptions) = BuildCountingStrategyMock(
             new[] { 1, 2, 3 });
-        var clientFactory = new Mock<IAzureDevOpsClientFactory>(MockBehavior.Strict);
+        var clientFactory = new Mock<IWorkItemFetchService>(MockBehavior.Strict);
         var sut = new AzureDevOpsWorkItemDiscoveryService(strategyMock.Object, clientFactory.Object);
 
         // Act
         var snapshots = new List<ProjectDiscoverySummary>();
-        await foreach (var s in sut.CountWorkItemsAsync("https://dev.azure.com/org", "Proj", "pat", baseQuery: null))
+        await foreach (var s in sut.CountWorkItemsAsync(TestOrgEndpoint, "Proj", baseQuery: null))
             snapshots.Add(s);
 
         // Assert
@@ -480,11 +503,11 @@ public class InventoryServiceTests
         const string query = "SELECT [System.Id] FROM WorkItems WHERE [System.TeamProject] = @project";
         var (strategyMock, capturedOptions) = BuildCountingStrategyMock(
             new[] { 10, 20 });
-        var clientFactory = new Mock<IAzureDevOpsClientFactory>(MockBehavior.Strict);
+        var clientFactory = new Mock<IWorkItemFetchService>(MockBehavior.Strict);
         var sut = new AzureDevOpsWorkItemDiscoveryService(strategyMock.Object, clientFactory.Object);
 
         // Act
-        await foreach (var _ in sut.CountWorkItemsAsync("https://dev.azure.com/org", "Proj", "pat", baseQuery: query)) { }
+        await foreach (var _ in sut.CountWorkItemsAsync(TestOrgEndpoint, "Proj", baseQuery: query)) { }
 
         // Assert
         Assert.AreEqual(1, capturedOptions.Count);
@@ -499,7 +522,7 @@ public class InventoryServiceTests
         var (strategyMock, _) = BuildCountingStrategyMock(
             new[] { 1, 2, 3 },
             new[] { 4, 5 });
-        var clientFactory = new Mock<IAzureDevOpsClientFactory>(MockBehavior.Strict);
+        var clientFactory = new Mock<IWorkItemFetchService>(MockBehavior.Strict);
         var sut = new AzureDevOpsWorkItemDiscoveryService(strategyMock.Object, clientFactory.Object);
 
         // ProjectDiscoverySummary is mutable and the implementation re-yields the same reference.
@@ -507,7 +530,7 @@ public class InventoryServiceTests
         var capturedCounts = new List<int>();
         var capturedComplete = new List<bool>();
 
-        await foreach (var s in sut.CountWorkItemsAsync("https://dev.azure.com/org", "Proj", "pat"))
+        await foreach (var s in sut.CountWorkItemsAsync(TestOrgEndpoint, "Proj"))
         {
             capturedCounts.Add(s.WorkItemsCount);
             capturedComplete.Add(s.IsWorkItemComplete);
@@ -527,13 +550,13 @@ public class InventoryServiceTests
     {
         // Arrange: strategy yields no windows
         var (strategyMock, _) = BuildCountingStrategyMock( /* no windows */);
-        var clientFactory = new Mock<IAzureDevOpsClientFactory>(MockBehavior.Strict);
+        var clientFactory = new Mock<IWorkItemFetchService>(MockBehavior.Strict);
         var sut = new AzureDevOpsWorkItemDiscoveryService(strategyMock.Object, clientFactory.Object);
 
         // Act: capture values at iteration time (ProjectDiscoverySummary is a mutable reference)
         var capturedCounts = new List<int>();
         var capturedComplete = new List<bool>();
-        await foreach (var s in sut.CountWorkItemsAsync("https://dev.azure.com/org", "Proj", "pat"))
+        await foreach (var s in sut.CountWorkItemsAsync(TestOrgEndpoint, "Proj"))
         {
             capturedCounts.Add(s.WorkItemsCount);
             capturedComplete.Add(s.IsWorkItemComplete);

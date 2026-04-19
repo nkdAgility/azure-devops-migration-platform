@@ -70,17 +70,10 @@ public sealed class InventoryCommand : ControlPlaneCommandBase<InventoryCommand.
             DiscoveryType = DiscoveryJobType.Inventory,
             Organisations = discoveryOpts.Organisations
                 .Where(o => o.Enabled)
-                .Select(o => new DiscoveryJobOrganisation
+                .Select(o => new ScopedOrganisationEndpoint
                 {
-                    Type = o.Type,
-                    Url = o.Url,
-                    Projects = new List<string>(o.Projects),
-                    ApiVersion = o.ApiVersion,
-                    Authentication = new DiscoveryJobAuthentication
-                    {
-                        Type = "Pat",
-                        AccessToken = o.Authentication?.AccessToken ?? string.Empty
-                    }
+                    Endpoint = o.ToEndpointOptions(),
+                    Projects = new List<string>(o.Projects)
                 }).ToList(),
             Policies = new JobPolicies
             {

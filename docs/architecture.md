@@ -99,6 +99,12 @@ The package location is expressed as a URI in the `MigrationJob`. The Migration 
 
 Module code never references a concrete store implementation.
 
+### OrganisationEndpoint — Canonical Connection Context
+
+`OrganisationEndpoint` (in `DevOpsMigrationPlatform.Abstractions`) is the immutable connection context type used by all service interfaces. It bundles `ResolvedUrl`, `Type`, `Authentication` (`OrganisationEndpointAuthentication`), and optional `ApiVersion` into a single parameter, replacing separate `(string url, string pat)` arguments. `ScopedOrganisationEndpoint` pairs an `OrganisationEndpoint` with a project list for job-level scoping (e.g., `DiscoveryJob.Organisations`).
+
+**Consumers**: `IWorkItemFetchService.FetchAsync`, `IAzureDevOpsClientFactory.CreateWorkItemClientAsync`, `IWorkItemQueryWindowStrategy.EnumerateWindowsAsync`, `IWorkItemDiscoveryService`, and discovery/dependency analysis services all accept `OrganisationEndpoint` as their connection context.
+
 **Concurrent Write Protection**: Packages are protected from simultaneous writes by a lease-based protocol. Only one agent may hold a lease on a package at any time. See [docs/concurrent-write-detection.md](concurrent-write-detection.md) for the lease mechanism and data integrity guarantees.
 
 ### Cross-Environment Package Handoff
@@ -209,6 +215,21 @@ Key properties:
 17. Artefact retention policies
 
 ---
+
+## 15. Assembly Reference
+
+| Assembly | Target | Purpose |
+|---|---|---|
+| `DevOpsMigrationPlatform.Abstractions` | `net481;net10.0` | Core contracts: `IModule`, `IArtefactStore`, `IStateStore`, `IProgressSink`, `IWorkItemImportTargetFactory`, `IWorkItemRevisionSourceFactory`, `OrganisationEndpoint`, `MigrationEndpointOptions`, domain models |
+| `DevOpsMigrationPlatform.Infrastructure` | `net481;net10.0` | Shared infrastructure: `FileSystemArtefactStore`, `PackageCheckpointStateStore`, composite factory pattern, `EndpointOptionsTypeRegistry`, polymorphic JSON converters, `CatalogService` |
+| `DevOpsMigrationPlatform.Infrastructure.AzureDevOps` | `net10.0` | ADO connector: `AzureDevOpsEndpointOptions`, `AzureDevOpsWorkItemRevisionSource` (first concrete `IWorkItemRevisionSource`), `AzureDevOpsAttachmentBinarySource` (streaming `IStreamingAttachmentBinarySource`), `AzureDevOpsWorkItemImportTarget`, ADO SDK services |
+| `DevOpsMigrationPlatform.Infrastructure.TfsObjectModel` | `net481` | TFS connector: `TeamFoundationServerEndpointOptions`, TFS Object Model services |
+| `DevOpsMigrationPlatform.Infrastructure.Simulated` | `net10.0` | Simulated connector: Config-driven synthetic connector for offline testing. Implements all source and target interfaces with deterministic generated data. No credentials required. |
+| `DevOpsMigrationPlatform.ControlPlane` | `net10.0` | Control plane service library: HTTP API, job state machine, lease protocol, EF Core data model |
+| `DevOpsMigrationPlatform.ControlPlaneHost` | `net10.0` | Deployable ASP.NET Core host for the control plane |
+| `DevOpsMigrationPlatform.MigrationAgent` | `net10.0` | Stateless migration worker: job engine, module executor |
+| `DevOpsMigrationPlatform.CLI.Migration` | `net10.0` | Operator CLI (`devopsmigration`) |
+| `DevOpsMigrationPlatform.CLI.TfsMigration` | `net481` | TFS export subprocess |
 
 ## Full Reference Set
 

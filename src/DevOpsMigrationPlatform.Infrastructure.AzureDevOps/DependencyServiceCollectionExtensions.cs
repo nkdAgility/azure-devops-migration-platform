@@ -6,8 +6,8 @@ using DevOpsMigrationPlatform.Abstractions.Models;
 using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Abstractions.Services;
 using DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Factories;
-using DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Services;
 using DevOpsMigrationPlatform.Infrastructure.Modules;
+using DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Services;
 using DevOpsMigrationPlatform.Infrastructure.Services;
 
 namespace DevOpsMigrationPlatform.Infrastructure.AzureDevOps;
@@ -34,6 +34,7 @@ public static class DependencyServiceCollectionExtensions
 
         // Bind DiscoveryOptions from the MigrationPlatform configuration section
         services.Configure<DiscoveryOptions>(configuration.GetSection("MigrationPlatform"));
+        services.AddDiscoveryOptionsOrganisationsBinder();
 
         // Register the Azure DevOps client factory (if not already registered)
         if (!services.Any(x => x.ServiceType == typeof(IAzureDevOpsClientFactory)))
@@ -53,6 +54,11 @@ public static class DependencyServiceCollectionExtensions
         }
 
         // Register discovery services needed by CatalogService and other components
+        if (!services.Any(x => x.ServiceType == typeof(IWorkItemFetchService)))
+        {
+            services.AddSingleton<IWorkItemFetchService, AzureDevOpsWorkItemFetchService>();
+        }
+
         if (!services.Any(x => x.ServiceType == typeof(IWorkItemDiscoveryService)))
         {
             services.AddSingleton<IWorkItemDiscoveryService, AzureDevOpsWorkItemDiscoveryService>();
@@ -63,10 +69,14 @@ public static class DependencyServiceCollectionExtensions
             services.AddSingleton<IProjectDiscoveryService, AzureDevOpsProjectDiscoveryService>();
         }
 
-        // Register the catalog service (for querying available projects)
+        // Register the catalog service — now in Infrastructure; register here if not already registered
+        // (ICatalogService implementation lives in DevOpsMigrationPlatform.Infrastructure.Services.CatalogService)
         if (!services.Any(x => x.ServiceType == typeof(ICatalogService)))
         {
-            services.AddSingleton<ICatalogService, CatalogService>();
+            // Note: CatalogService has moved to Infrastructure assembly.
+            // The host must call AddInfrastructureCatalogService() or equivalent.
+            // Kept as a fallback registration for backwards compatibility.
+            services.AddSingleton<ICatalogService, DevOpsMigrationPlatform.Infrastructure.Services.CatalogService>();
         }
 
         // Register AzureDevOpsDependencyAnalysisService as a keyed singleton

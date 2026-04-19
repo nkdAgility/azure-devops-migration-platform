@@ -2,7 +2,6 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
-using DevOpsMigrationPlatform.Infrastructure.Import;
 
 namespace DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Import;
 
@@ -31,31 +30,26 @@ public sealed class AzureDevOpsResolutionStrategyFactory : IWorkItemResolutionSt
     public async Task<IWorkItemResolutionStrategy> CreateAsync(
         WorkItemResolutionStrategyOptions options,
         IWorkItemImportTarget target,
-        string project,
-        string accessToken,
+        MigrationEndpointOptions endpoint,
         CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(options);
         ArgumentNullException.ThrowIfNull(target);
-
-        // Simulated targets need no provenance lookup — return a no-op strategy.
-        if (target is SimulatedWorkItemImportTarget)
-            return new NullResolutionStrategy();
+        ArgumentNullException.ThrowIfNull(endpoint);
 
         if (string.IsNullOrEmpty(options.Strategy))
             throw new InvalidOperationException(
                 "WorkItemResolutionStrategy.strategy must be configured for import jobs. " +
                 "Supported values: \"TargetField\", \"TargetHyperlink\".");
 
-        // Both ADO strategies require a live WIT client — create it once.
-        // orgUrl is derived from the target; we accept accessToken from the import context.
         if (target is not AzureDevOpsWorkItemImportTarget adoTarget)
             throw new InvalidOperationException(
                 $"AzureDevOpsResolutionStrategyFactory requires an AzureDevOpsWorkItemImportTarget " +
                 $"but received {target.GetType().Name}.");
 
-        var orgUrl = adoTarget.OrganisationUrl;
-        var witClient = await _clientFactory.CreateWorkItemClientAsync(orgUrl, accessToken, ct).ConfigureAwait(false);
+        var orgEndpoint = endpoint.ToOrganisationEndpoint();
+        var project = endpoint.GetProject();
+        var witClient = await _clientFactory.CreateWorkItemClientAsync(orgEndpoint, ct).ConfigureAwait(false);
 
         return options.Strategy switch
         {

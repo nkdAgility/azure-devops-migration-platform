@@ -1,6 +1,8 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
+using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Options;
 using Microsoft.TeamFoundation.Core.WebApi;
 using Microsoft.TeamFoundation.SourceControl.WebApi;
 using Microsoft.TeamFoundation.WorkItemTracking.WebApi;
@@ -16,31 +18,32 @@ namespace DevOpsMigrationPlatform.Infrastructure.AzureDevOps;
 public sealed class AzureDevOpsClientFactory : IAzureDevOpsClientFactory
 {
     public Task<ProjectHttpClient> CreateProjectClientAsync(
-        string url, string pat, CancellationToken cancellationToken = default)
+        OrganisationEndpoint endpoint, CancellationToken cancellationToken = default)
     {
-        var connection = CreateConnection(url, pat);
+        var connection = CreateConnection(endpoint);
         return connection.GetClientAsync<ProjectHttpClient>(cancellationToken);
     }
 
     public Task<WorkItemTrackingHttpClient> CreateWorkItemClientAsync(
-        string url, string pat, CancellationToken cancellationToken = default)
+        OrganisationEndpoint endpoint, CancellationToken cancellationToken = default)
     {
-        var connection = CreateConnection(url, pat);
+        var connection = CreateConnection(endpoint);
         return connection.GetClientAsync<WorkItemTrackingHttpClient>(cancellationToken);
     }
 
     public Task<GitHttpClient> CreateGitClientAsync(
-        string url, string pat, CancellationToken cancellationToken = default)
+        OrganisationEndpoint endpoint, CancellationToken cancellationToken = default)
     {
-        var connection = CreateConnection(url, pat);
+        var connection = CreateConnection(endpoint);
         return connection.GetClientAsync<GitHttpClient>(cancellationToken);
     }
 
-    private static VssConnection CreateConnection(string url, string pat)
+    private static VssConnection CreateConnection(OrganisationEndpoint endpoint)
     {
+        var pat = endpoint.Authentication.ResolvedAccessToken;
         var credentials = string.IsNullOrEmpty(pat)
             ? new VssCredentials()
             : (VssCredentials)new VssBasicCredential(string.Empty, pat);
-        return new VssConnection(new Uri(url), credentials);
+        return new VssConnection(new Uri(endpoint.ResolvedUrl), credentials);
     }
 }

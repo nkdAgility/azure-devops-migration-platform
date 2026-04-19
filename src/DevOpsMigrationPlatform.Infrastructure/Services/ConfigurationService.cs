@@ -9,6 +9,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Services;
+using DevOpsMigrationPlatform.Infrastructure.Serialization;
 using Microsoft.Extensions.Logging;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Services;
@@ -33,7 +34,10 @@ public class ConfigurationService : IConfigurationService
         "devops-migration.json"
     };
 
-    public ConfigurationService(ILogger<ConfigurationService> logger)
+    public ConfigurationService(
+        ILogger<ConfigurationService> logger,
+        PolymorphicEndpointOptionsConverter endpointConverter,
+        PolymorphicOrganisationEntryConverter organisationConverter)
     {
         _logger = logger;
         _jsonOptions = new JsonSerializerOptions
@@ -42,7 +46,12 @@ public class ConfigurationService : IConfigurationService
             ReadCommentHandling = JsonCommentHandling.Skip,
             AllowTrailingCommas = true,
             WriteIndented = true,
-            Converters = { new JsonStringEnumConverter() }
+            Converters =
+            {
+                new JsonStringEnumConverter(),
+                endpointConverter,
+                organisationConverter
+            }
         };
     }
 
@@ -133,10 +142,9 @@ public class ConfigurationService : IConfigurationService
             if (string.IsNullOrWhiteSpace(options.Source.Type))
                 errors.Add("Source: Type is required");
             else if (!IsValidSourceType(options.Source.Type))
-                errors.Add($"Source: Type '{options.Source.Type}' is not supported. Valid values: AzureDevOpsServices, TeamFoundationServer");
+                errors.Add($"Source: Type '{options.Source.Type}' is not supported. Valid values: AzureDevOpsServices, TeamFoundationServer, Simulated");
 
-            if (string.IsNullOrWhiteSpace(options.Source.Url))
-                errors.Add("Source: Url is required");
+            options.Source.ValidateEndpointFields(errors, "Source");
         }
 
         if (options.Target != null)
@@ -145,11 +153,9 @@ public class ConfigurationService : IConfigurationService
                 errors.Add("Target: Type is required");
             else if (!IsValidTargetType(options.Target.Type))
                 errors.Add($"Target: Type '{options.Target.Type}' is not supported. " +
-                           "Only 'AzureDevOpsServices' is a valid migration target. " +
-                           "TeamFoundationServer / Azure DevOps Server cannot be used as a migration target.");
+                           "Only 'AzureDevOpsServices' or 'Simulated' are valid migration targets.");
 
-            if (string.IsNullOrWhiteSpace(options.Target.Url))
-                errors.Add("Target: Url is required");
+            options.Target.ValidateEndpointFields(errors, "Target");
         }
 
         if (errors.Count > 0)
@@ -168,7 +174,8 @@ public class ConfigurationService : IConfigurationService
 
     private static bool IsValidSourceType(string type) =>
         string.Equals(type, "AzureDevOpsServices", StringComparison.Ordinal) ||
-        string.Equals(type, "TeamFoundationServer", StringComparison.Ordinal);
+        string.Equals(type, "TeamFoundationServer", StringComparison.Ordinal) ||
+        string.Equals(type, "Simulated", StringComparison.Ordinal);
 
     private static bool IsValidTargetType(string type) =>
         string.Equals(type, "AzureDevOpsServices", StringComparison.Ordinal) ||

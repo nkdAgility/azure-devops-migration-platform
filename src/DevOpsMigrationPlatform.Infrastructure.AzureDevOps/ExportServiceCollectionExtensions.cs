@@ -1,6 +1,11 @@
+using System;
+using System.Linq;
+using System.Net.Http;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Services;
+using DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Options;
 using DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Services;
+using DevOpsMigrationPlatform.Infrastructure.Extensions;
 using DevOpsMigrationPlatform.Infrastructure.Modules;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.TeamFoundation.WorkItemTracking.WebApi;
@@ -36,7 +41,12 @@ public static class ExportServiceCollectionExtensions
         services.AddSingleton<IWorkItemQueryWindowStrategy, WorkItemQueryWindowStrategy>();
         services.AddSingleton<IAzureDevOpsWorkItemRevisionMapper, AzureDevOpsWorkItemRevisionMapper>();
         services.AddScoped<AzureDevOpsAttachmentRegistry>();
-        services.AddScoped<IWorkItemRevisionSourceFactory, AzureDevOpsWorkItemRevisionSourceFactory>();
+        services.AddScoped<AzureDevOpsWorkItemRevisionSourceFactory>();
+        services.AddRevisionSourceFactory<AzureDevOpsWorkItemRevisionSourceFactory>("AzureDevOpsServices");
+
+        // Register ADO endpoint option types for polymorphic JSON deserialization
+        services.AddEndpointOptionsType("AzureDevOpsServices", typeof(AzureDevOpsEndpointOptions));
+        services.AddOrganisationEntryType("AzureDevOpsServices", typeof(AzureDevOpsOrganisationEntry));
 
         // Inline comment fetching: factories registered; activated when the Comments extension is enabled.
         services.AddSingleton<IWorkItemCommentSourceFactory, AzureDevOpsWorkItemCommentSourceFactory>();
@@ -48,6 +58,14 @@ public static class ExportServiceCollectionExtensions
             sp => sp.GetRequiredService<AzureDevOpsEmbeddedImageDownloader>());
         // Note: IEmbeddedImageExportService is created on-demand by WorkItemExportOrchestrator,
         // not registered here, because it requires IArtefactStore which is only available at export time.
+
+        // Attachment binary download: named HTTP client with resilience (8 retries, exponential back-off,
+        // transient 5xx/408/429). AzureDevOpsAttachmentBinarySource uses this named client.
+        // Note: IAttachmentBinarySource is not registered directly here because the PAT is only
+        // available at job execution time. The source is constructed by the revision source factory
+        // and passed to WorkItemsModule/orchestrator at runtime.
+        services.AddHttpClient("AttachmentDownload")
+            .AddPolicyHandler(GetAttachmentRetryPolicy());
 
         services.AddTransient<IModule, WorkItemsModule>();
         return services;
@@ -73,6 +91,28 @@ public static class ExportServiceCollectionExtensions
     }
 
     /// <summary>
+    /// Builds a Polly retry policy for attachment downloads — more aggressive than the default
+    /// because attachment binaries are large and subject to throttling (429), intermittent 5xx,
+    /// and request timeouts (408). Uses 8 retries with exponential back-off.
+    /// </summary>
+    private static IAsyncPolicy<HttpResponseMessage> GetAttachmentRetryPolicy()
+    {
+        return HttpPolicyExtensions
+            .HandleTransientHttpError() // 5xx, 408
+            .OrResult(r => (int)r.StatusCode == 429) // Too Many Requests
+            .Or<HttpRequestException>()
+            .Or<TimeoutException>()
+            .WaitAndRetryAsync(
+                retryCount: 8,
+                sleepDurationProvider: attempt =>
+                    TimeSpan.FromSeconds(Math.Pow(2, attempt - 1)),
+                onRetry: (outcome, timespan, retryCount, context) =>
+                {
+                    // Logging happens at the service level
+                });
+    }
+
+    /// <summary>
     /// Registers only the services required for pre-flight work item counting.
     /// Lighter-weight than <see cref="AddAzureDevOpsWorkItemExport"/> — registers the
     /// query window strategy and discovery service without the full export pipeline.
@@ -84,7 +124,18 @@ public static class ExportServiceCollectionExtensions
         services.AddSingleton<IAzureDevOpsClientFactory, AzureDevOpsClientFactory>();
         services.AddSingleton<IWiqlQueryClientFactory, AzureDevOpsWiqlQueryClientFactory>();
         services.AddSingleton<IWorkItemQueryWindowStrategy, WorkItemQueryWindowStrategy>();
+
+        if (!services.Any(x => x.ServiceType == typeof(IWorkItemFetchService)))
+        {
+            services.AddSingleton<IWorkItemFetchService, AzureDevOpsWorkItemFetchService>();
+        }
+
         services.AddSingleton<IWorkItemDiscoveryService, AzureDevOpsWorkItemDiscoveryService>();
+
+        // Register ADO endpoint option types for polymorphic JSON deserialization
+        services.AddEndpointOptionsType("AzureDevOpsServices", typeof(AzureDevOpsEndpointOptions));
+        services.AddOrganisationEntryType("AzureDevOpsServices", typeof(AzureDevOpsOrganisationEntry));
+
         return services;
     }
 }

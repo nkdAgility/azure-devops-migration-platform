@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using System.Threading;
+using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Models;
 using DevOpsMigrationPlatform.Abstractions.Services;
 using Microsoft.Extensions.Logging;
@@ -15,23 +16,20 @@ namespace DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Services;
 public class AzureDevOpsWorkItemCommentSource : IWorkItemCommentSource
 {
     private readonly IAzureDevOpsClientFactory _clientFactory;
-    private readonly string _organisationUrl;
+    private readonly OrganisationEndpoint _endpoint;
     private readonly string _project;
-    private readonly string _pat;
     private readonly ILogger<AzureDevOpsWorkItemCommentSource> _logger;
     private const int PageSize = 200; // ADO API max page size for comments
 
     public AzureDevOpsWorkItemCommentSource(
         IAzureDevOpsClientFactory clientFactory,
-        string organisationUrl,
+        OrganisationEndpoint endpoint,
         string project,
-        string pat,
         ILogger<AzureDevOpsWorkItemCommentSource> logger)
     {
         _clientFactory = clientFactory ?? throw new ArgumentNullException(nameof(clientFactory));
-        _organisationUrl = organisationUrl ?? throw new ArgumentNullException(nameof(organisationUrl));
+        _endpoint = endpoint ?? throw new ArgumentNullException(nameof(endpoint));
         _project = project ?? throw new ArgumentNullException(nameof(project));
-        _pat = pat ?? throw new ArgumentNullException(nameof(pat));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
@@ -45,7 +43,7 @@ public class AzureDevOpsWorkItemCommentSource : IWorkItemCommentSource
         [EnumeratorCancellation] CancellationToken cancellationToken)
     {
         // Create the client on-demand from the factory.
-        var client = await _clientFactory.CreateWorkItemClientAsync(_organisationUrl, _pat, cancellationToken);
+        var client = await _clientFactory.CreateWorkItemClientAsync(_endpoint, cancellationToken);
 
         // Use the project-scoped overload: GetCommentsAsync(project, workItemId, top, continuationToken, ...)
         // This returns CommentList with a ContinuationToken property for safe server-side pagination.

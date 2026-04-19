@@ -1,6 +1,7 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
+using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Services;
 
 namespace DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Services;
@@ -19,12 +20,12 @@ public sealed class AzureDevOpsRepoDiscoveryService : IRepoDiscoveryService
     }
 
     public async Task<int> CountReposAsync(
-        string orgOrCollection,
+        MigrationEndpointOptions endpoint,
         string project,
-        string pat,
         CancellationToken cancellationToken = default)
     {
-        var gitClient = await _clientFactory.CreateGitClientAsync(orgOrCollection, pat, cancellationToken);
+        var orgEndpoint = endpoint.ToOrganisationEndpoint();
+        var gitClient = await _clientFactory.CreateGitClientAsync(orgEndpoint, cancellationToken);
         var repos = await gitClient.GetRepositoriesAsync(project, cancellationToken: cancellationToken);
         return repos?.Count ?? 0;
     }

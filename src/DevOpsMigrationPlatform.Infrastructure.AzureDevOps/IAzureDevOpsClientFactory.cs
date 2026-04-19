@@ -1,5 +1,6 @@
 using System.Threading;
 using System.Threading.Tasks;
+using DevOpsMigrationPlatform.Abstractions;
 using Microsoft.TeamFoundation.Core.WebApi;
 using Microsoft.TeamFoundation.SourceControl.WebApi;
 using Microsoft.TeamFoundation.WorkItemTracking.WebApi;
@@ -7,8 +8,8 @@ using Microsoft.TeamFoundation.WorkItemTracking.WebApi;
 namespace DevOpsMigrationPlatform.Infrastructure.AzureDevOps;
 
 /// <summary>
-/// Creates Azure DevOps HTTP clients from a URL and PAT, isolating all
-/// <c>VssConnection</c> / SDK construction from service logic.
+/// Creates Azure DevOps HTTP clients from an <see cref="OrganisationEndpoint"/>,
+/// isolating all <c>VssConnection</c> / SDK construction from service logic.
 /// </summary>
 /// <remarks>
 /// Intentionally placed in <c>Infrastructure.AzureDevOps</c> rather than <c>Abstractions</c>.
@@ -18,15 +19,15 @@ namespace DevOpsMigrationPlatform.Infrastructure.AzureDevOps;
 /// </remarks>
 public interface IAzureDevOpsClientFactory
 {
-    /// <summary>Returns a <see cref="ProjectHttpClient"/> authenticated against <paramref name="url"/>.</summary>
+    /// <summary>Returns a <see cref="ProjectHttpClient"/> authenticated against <paramref name="endpoint"/>.</summary>
     Task<ProjectHttpClient> CreateProjectClientAsync(
-        string url, string pat, CancellationToken cancellationToken = default);
+        OrganisationEndpoint endpoint, CancellationToken cancellationToken = default);
 
-    /// <summary>Returns a <see cref="WorkItemTrackingHttpClient"/> authenticated against <paramref name="url"/>.</summary>
+    /// <summary>Returns a <see cref="WorkItemTrackingHttpClient"/> authenticated against <paramref name="endpoint"/>.</summary>
     Task<WorkItemTrackingHttpClient> CreateWorkItemClientAsync(
-        string url, string pat, CancellationToken cancellationToken = default);
+        OrganisationEndpoint endpoint, CancellationToken cancellationToken = default);
 
-    /// <summary>Returns a <see cref="GitHttpClient"/> authenticated against <paramref name="url"/>.</summary>
+    /// <summary>Returns a <see cref="GitHttpClient"/> authenticated against <paramref name="endpoint"/>.</summary>
     Task<GitHttpClient> CreateGitClientAsync(
-        string url, string pat, CancellationToken cancellationToken = default);
+        OrganisationEndpoint endpoint, CancellationToken cancellationToken = default);
 }

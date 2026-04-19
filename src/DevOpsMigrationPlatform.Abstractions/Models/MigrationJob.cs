@@ -11,8 +11,8 @@ public class MigrationJob : Job
     public string Mode { get; init; } = string.Empty;
 
     /// <summary>Source system connection. Required for Export and Both.</summary>
-    public JobEndpoint? Source { get; init; }
+    public MigrationEndpointOptions? Source { get; init; }
 
     /// <summary>Target system connection. Required for Import and Both.</summary>
-    public JobEndpoint? Target { get; init; }
+    public MigrationEndpointOptions? Target { get; init; }
 }

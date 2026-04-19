@@ -1,5 +1,6 @@
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Options;
+using DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Options;
 using Spectre.Console;
 
 namespace DevOpsMigrationPlatform.CLI.Migration.Services;
@@ -56,7 +57,7 @@ internal sealed class InteractiveConfigurationBuilder : IInteractiveConfiguratio
     private static Task<MigrationEndpointOptions> ConfigureEndpointAsync(
         IAnsiConsole console, string role, CancellationToken cancellationToken)
     {
-        var endpoint = new MigrationEndpointOptions();
+        var endpoint = new AzureDevOpsEndpointOptions();
 
         var types = new[] { "AzureDevOpsServices", "TeamFoundationServer" };
         endpoint.Type = console.Prompt(
@@ -96,6 +97,6 @@ internal sealed class InteractiveConfigurationBuilder : IInteractiveConfiguratio
             endpoint.Authentication = new EndpointAuthenticationOptions { Type = AuthenticationType.Windows };
         }
 
-        return Task.FromResult(endpoint);
+        return Task.FromResult<MigrationEndpointOptions>(endpoint);
     }
 }

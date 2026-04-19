@@ -8,6 +8,7 @@ using Microsoft.VisualStudio.TestTools.UnitTesting;
 namespace DevOpsMigrationPlatform.CLI.Migration.Tests.Commands;
 
 [TestClass]
+[DoNotParallelize]
 public class ManageProgressCommandTests
 {
     // ── Unit tests ────────────────────────────────────────────────────────────────
@@ -28,6 +29,7 @@ public class ManageProgressCommandTests
     /// </summary>
     [TestMethod]
     [TestCategory("SystemTest")]
+    [TestCategory("SystemTest_Live")]
     [Timeout(1_500_000)] // 25 minutes — export + progress query
     public async Task ManageProgressCommand_SystemTest_AfterExport_ExitsZero_AndShowsProgressEvents()
     {

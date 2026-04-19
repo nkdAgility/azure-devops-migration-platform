@@ -1,4 +1,3 @@
-#if !NET481
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -6,12 +5,12 @@ using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
 
-namespace DevOpsMigrationPlatform.Infrastructure.Import;
+namespace DevOpsMigrationPlatform.Infrastructure.Simulated.Import;
 
 /// <summary>
 /// In-memory <see cref="IWorkItemImportTarget"/> for offline testing with <c>target.type: Simulated</c>.
 /// Accepts all work items without writing to any external system.
-/// Validates input, assigns deterministic target IDs, and logs operations internally.
+/// Validates input, assigns sequential target IDs, and logs operations internally.
 /// </summary>
 public sealed class SimulatedWorkItemImportTarget : IWorkItemImportTarget
 {
@@ -109,4 +108,3 @@ public sealed class SimulatedWorkItemImportTarget : IWorkItemImportTarget
         CancellationToken ct)
         => Task.FromResult(new WorkItemRelations());
 }
-#endif

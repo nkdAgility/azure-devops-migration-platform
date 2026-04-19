@@ -3,7 +3,9 @@ using System.Collections.Generic;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
+using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Models;
+using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Abstractions.Services;
 using DevOpsMigrationPlatform.Infrastructure.TfsObjectModel;
 using Spectre.Console.Cli;
@@ -66,12 +68,25 @@ namespace DevOpsMigrationPlatform.CLI.TfsMigration.Commands
             var discoveryService = GetRequiredService<IWorkItemDiscoveryService>();
             var sink = new StdoutInventoryProgressSink();
 
+            var endpoint = new Infrastructure.TfsObjectModel.Options.TeamFoundationServerEndpointOptions
+            {
+                Url = settings.CollectionUrl,
+                Type = "TfsObjectModel",
+                Authentication = new EndpointAuthenticationOptions
+                {
+                    Type = string.IsNullOrEmpty(pat) ? AuthenticationType.Windows : AuthenticationType.Pat,
+                    AccessToken = pat ?? string.Empty
+                }
+            };
+
+            var orgEndpoint = endpoint.ToOrganisationEndpoint();
+
             IEnumerable<string> projectNames;
             if (settings.AllProjects)
             {
                 var projectDiscovery = GetRequiredService<IProjectDiscoveryService>();
                 projectNames = await projectDiscovery.DiscoverProjectsAsync(
-                    settings.CollectionUrl, pat ?? string.Empty, cancellationToken).ConfigureAwait(false);
+                    endpoint, cancellationToken).ConfigureAwait(false);
             }
             else
             {
@@ -82,8 +97,8 @@ namespace DevOpsMigrationPlatform.CLI.TfsMigration.Commands
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 await RunProjectInventoryAsync(
-                    discoveryService, sink, settings.CollectionUrl, projName,
-                    pat, cancellationToken).ConfigureAwait(false);
+                    discoveryService, sink, orgEndpoint, projName,
+                    cancellationToken).ConfigureAwait(false);
             }
 
             return 0;
@@ -92,21 +107,20 @@ namespace DevOpsMigrationPlatform.CLI.TfsMigration.Commands
         private static async Task RunProjectInventoryAsync(
             IWorkItemDiscoveryService discoveryService,
             StdoutInventoryProgressSink sink,
-            string collectionUrl,
+            OrganisationEndpoint endpoint,
             string project,
-            string? pat,
             CancellationToken cancellationToken)
         {
             try
             {
                 await foreach (var summary in discoveryService
-                    .CountWorkItemsAsync(collectionUrl, project, pat ?? string.Empty, cancellationToken: cancellationToken)
+                    .CountWorkItemsAsync(endpoint, project, cancellationToken: cancellationToken)
                     .ConfigureAwait(false))
                 {
                     sink.Emit(new InventoryProgressEvent
                     {
                         ProjectName = project,
-                        Url = collectionUrl,
+                        Url = endpoint.ResolvedUrl,
                         WorkItemsCount = summary.WorkItemsCount,
                         RevisionsCount = summary.RevisionsCount,
                         IsComplete = summary.IsWorkItemComplete,
@@ -123,7 +137,7 @@ namespace DevOpsMigrationPlatform.CLI.TfsMigration.Commands
                 sink.Emit(new InventoryProgressEvent
                 {
                     ProjectName = project,
-                    Url = collectionUrl,
+                    Url = endpoint.ResolvedUrl,
                     IsComplete = true,
                     Error = ex.Message,
                     Timestamp = DateTime.UtcNow

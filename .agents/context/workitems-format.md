@@ -87,6 +87,18 @@ Streaming import processes revision and comment sub-folders together in lexicogr
 
 Attachments are scoped to their revision. There is no `Attachments/` root folder in the package. This is a hard rule; see [.agents/guardrails/system-architecture.md](../.agents/guardrails/system-architecture.md).
 
+### Attachment Download Contract
+
+The export orchestrator downloads attachment binaries via `IAttachmentBinarySource` (or `IStreamingAttachmentBinarySource` for zero-copy streaming):
+
+| Concern | Implementation |
+|---|---|
+| **Streaming** | `IStreamingAttachmentBinarySource.StreamToStoreAsync` writes directly to `IArtefactStore.WriteStreamAsync` — no byte[] buffering. |
+| **SHA-256** | Computed in-flight via `CryptoStream` wrapping the network stream. Hash is available after the stream is fully consumed. |
+| **Retry** | Named HTTP client `"AttachmentDownload"` with 8 retries, exponential back-off (2^(attempt-1) seconds), handling transient 5xx, 408, and 429. |
+| **Delta detection** | Adjacent revisions sharing the same attachment URL skip re-download. The orchestrator tracks URLs per-revision and compares against the previous revision's set. |
+| **Failure handling** | Download failures are non-fatal: logged, counted in `ProgressEvent.AttachmentsFailed`, and export continues. |
+
 ### Comments and Discussions
 
 Each comment is stored in its own sub-folder within the date folder that corresponds to the comment's `createdDate` (original) or `modifiedDate` (each edit version). This places comments chronologically alongside revision sub-folders in the same date folder, enabling streaming import to process all entries in the correct order.

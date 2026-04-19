@@ -41,7 +41,6 @@ public interface IWorkItemResolutionStrategyFactory
     Task<IWorkItemResolutionStrategy> CreateAsync(
         WorkItemResolutionStrategyOptions options,
         IWorkItemImportTarget target,
-        string project,
-        string accessToken,
+        MigrationEndpointOptions endpoint,
         CancellationToken ct);
 }

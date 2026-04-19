@@ -1,13 +1,4 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!--
-  Default run settings for 'dotnet test'.
-  Excludes SystemTest category so that 'dotnet test' (no extra args) only runs
-  unit/integration tests and does not hang on live-network system tests.
-
-  To run system tests explicitly:
-    dotnet test --filter "TestCategory=SystemTest"
-  Or use the VS Code launch profiles defined in .vscode/launch.json.
--->
 <RunSettings>
   <RunConfiguration>
     <TestCaseFilter></TestCaseFilter>

@@ -1,43 +1,39 @@
 using System.Collections.Generic;
-using DevOpsMigrationPlatform.Abstractions.Utilities;
+using DevOpsMigrationPlatform.Abstractions;
 
 namespace DevOpsMigrationPlatform.Abstractions.Options;
 
 /// <summary>
-/// One entry in the <c>organisations</c> array (Mode 2 config).
+/// Abstract base class for one entry in the <c>organisations</c> array (Mode 2 config).
+/// Contains only connector-agnostic fields. Connector-specific properties (URL, auth, etc.)
+/// live in derived classes (e.g. <c>AzureDevOpsOrganisationEntry</c>).
 /// </summary>
-public sealed class OrganisationEntry
+public abstract class OrganisationEntry
 {
     /// <summary>
-    /// Source type. Supported values: <c>AzureDevOpsServices</c>, <c>TeamFoundationServer</c>.
+    /// Connector type discriminator.
+    /// Supported values: <c>AzureDevOpsServices</c>, <c>TeamFoundationServer</c>, <c>Simulated</c>.
     /// </summary>
     public string Type { get; set; } = string.Empty;
-
-    /// <summary>
-    /// Organisation URL (Azure DevOps Services) or collection URL (TFS).
-    /// Supports <c>$ENV:VARNAME</c> resolution via <see cref="TokenResolver"/>.
-    /// </summary>
-    public string Url { get; set; } = string.Empty;
-
-    /// <summary>
-    /// The effective URL after <c>$ENV:VARNAME</c> expansion.
-    /// Use this instead of <see cref="Url"/> when making API calls.
-    /// </summary>
-    public string ResolvedUrl => TokenResolver.Resolve(Url) ?? Url;
 
     /// <summary>
     /// Projects to inventory. Empty or absent = all projects in the org/collection.
     /// </summary>
     public List<string> Projects { get; set; } = new List<string>();
 
-    /// <summary>Pinned REST API version (e.g. <c>7.1</c>).</summary>
-    public string? ApiVersion { get; set; }
-
-    /// <summary>Authentication details for this entry.</summary>
-    public EndpointAuthenticationOptions Authentication { get; set; } = new EndpointAuthenticationOptions();
-
     /// <summary>
     /// Set to <c>false</c> to skip this entry without deleting it. Default: <c>true</c>.
     /// </summary>
     public bool Enabled { get; set; } = true;
+
+    /// <summary>
+    /// Creates the connector-specific <see cref="MigrationEndpointOptions"/> from this entry's fields.
+    /// Each connector type provides its own mapping.
+    /// </summary>
+    public abstract MigrationEndpointOptions ToEndpointOptions();
+
+    /// <summary>
+    /// Validates connector-specific fields (e.g. URL, authentication).
+    /// </summary>
+    public abstract void ValidateConnectorFields();
 }

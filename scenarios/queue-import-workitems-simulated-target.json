@@ -1,0 +1,45 @@
+{
+  "MigrationPlatform": {
+    "ConfigVersion": "1.0",
+    "Policies": {
+      "Retries": {
+        "Max": 3
+      },
+      "Throttle": {
+        "MaxConcurrency": 1
+      },
+      "Checkpoints": {
+        "Interval": 300
+      }
+    },
+    "Mode": "Import",
+    "Target": {
+      "Type": "Simulated"
+    },
+    "Artefacts": {
+      "WorkingDirectory": "storage\\queue-import-workitems-simulated-target",
+      "CreatePackage": true,
+      "PackagePath": "scenarios\\testdata\\workitems-2items-flat.zip"
+    },
+    "Modules": [
+      {
+        "Name": "WorkItems",
+        "Enabled": true,
+        "Extensions": [
+          {
+            "Type": "Revisions",
+            "Enabled": true
+          },
+          {
+            "Type": "Links",
+            "Enabled": true
+          },
+          {
+            "Type": "Attachments",
+            "Enabled": true
+          }
+        ]
+      }
+    ]
+  }
+}

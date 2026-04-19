@@ -56,8 +56,12 @@ public sealed class TfsWorkItemRevisionSource : IWorkItemRevisionSource
     {
         var options = new WorkItemQueryWindowOptions { BaseQuery = _wiqlQuery };
 
+        // TFS window strategy ignores the endpoint (WorkItemStore is already authenticated),
+        // but the interface requires one. Create a minimal placeholder.
+        var tfsEndpoint = new OrganisationEndpoint { Type = "TfsObjectModel" };
+
         await foreach (var window in _windowStrategy
-            .EnumerateWindowsAsync(string.Empty, _project, string.Empty, options, cancellationToken)
+            .EnumerateWindowsAsync(tfsEndpoint, _project, options, cancellationToken)
             .ConfigureAwait(false))
         {
             foreach (var workItemId in window.WorkItemIds)

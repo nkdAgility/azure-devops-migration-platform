@@ -1,4 +1,8 @@
 using DevOpsMigrationPlatform.ControlPlane.Services;
+using DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Options;
+using DevOpsMigrationPlatform.Infrastructure;
+using DevOpsMigrationPlatform.Infrastructure.Extensions;
+using DevOpsMigrationPlatform.Infrastructure.Simulated.Options;
 using DevOpsMigrationPlatform.MigrationAgent;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
@@ -47,6 +51,11 @@ public sealed class LocalStackHost : IAsyncDisposable
 
         builder.Logging.SetMinimumLevel(LogLevel.Warning);
 
+        // Register polymorphic serializers so MigrationEndpointOptions can be deserialized.
+        builder.Services.AddEndpointOptionsType("AzureDevOpsServices", typeof(AzureDevOpsEndpointOptions));
+        builder.Services.AddEndpointOptionsType("Simulated", typeof(SimulatedEndpointOptions));
+        builder.Services.AddMigrationPlatformPolymorphicSerializers();
+
         builder.Services.AddControllers()
             .AddApplicationPart(typeof(ControlPlaneServiceExtensions).Assembly)
             .AddJsonOptions(opts =>
@@ -62,6 +71,14 @@ public sealed class LocalStackHost : IAsyncDisposable
             });
 
         builder.Services.AddControlPlaneServices(builder.Configuration);
+
+        // Post-configure ASP.NET JSON options to include the polymorphic endpoint converter.
+        builder.Services.AddSingleton<Microsoft.Extensions.Options.IPostConfigureOptions<Microsoft.AspNetCore.Mvc.JsonOptions>>(sp =>
+        {
+            var converter = sp.GetRequiredService<DevOpsMigrationPlatform.Infrastructure.Serialization.PolymorphicEndpointOptionsConverter>();
+            return new Microsoft.Extensions.Options.PostConfigureOptions<Microsoft.AspNetCore.Mvc.JsonOptions>(
+                string.Empty, opts => opts.JsonSerializerOptions.Converters.Add(converter));
+        });
 
         builder.WebHost.UseUrls(LocalControlPlaneUrl.ToString().TrimEnd('/'));
 
@@ -116,7 +133,10 @@ public sealed class LocalStackHost : IAsyncDisposable
     {
         var builder = Host.CreateApplicationBuilder();
 
-        builder.Logging.SetMinimumLevel(LogLevel.Warning);
+        // Keep console output quiet but allow Information+ through to package/control-plane
+        // log sinks. Each sink applies its own DiagnosticLogOptions.MinimumLevel filter.
+        builder.Logging.AddFilter("Microsoft", LogLevel.Warning);
+        builder.Logging.AddFilter("System", LogLevel.Warning);
 
         builder.AddMigrationAgentServices(LocalControlPlaneUrl);
 

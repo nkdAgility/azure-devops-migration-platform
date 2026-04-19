@@ -13,7 +13,7 @@ public interface ICatalogService
     /// <summary>
     /// Returns the names of all team projects in <paramref name="orgUrl"/>.
     /// </summary>
-    Task<IReadOnlyList<string>> GetProjectsAsync(string orgUrl, string pat, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<string>> GetProjectsAsync(MigrationEndpointOptions endpoint, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Streams incremental discovery summaries for <paramref name="project"/>.
@@ -21,8 +21,7 @@ public interface ICatalogService
     /// all countable artefacts have been tallied.
     /// </summary>
     IAsyncEnumerable<ProjectDiscoverySummary> CountAllWorkItemsAsync(
-        string orgUrl,
+        MigrationEndpointOptions endpoint,
         string project,
-        string pat,
         CancellationToken cancellationToken = default);
 }

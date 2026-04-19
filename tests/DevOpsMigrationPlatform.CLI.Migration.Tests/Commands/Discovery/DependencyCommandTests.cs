@@ -8,6 +8,7 @@ using DevOpsMigrationPlatform.CLI.Migration.Tests.TestUtilities;
 namespace DevOpsMigrationPlatform.CLI.Migration.Tests.Commands.Discovery;
 
 [TestClass]
+[DoNotParallelize]
 public class DependencyCommandTests
 {
     [TestMethod]
@@ -19,6 +20,7 @@ public class DependencyCommandTests
 
     [TestMethod]
     [TestCategory("SystemTest")]
+    [TestCategory("SystemTest_Live")]
     [Timeout(300_000)]
     public async Task DependencyCommand_SystemTest_AdoSingleProject_ExecutesSuccessfully()
     {
