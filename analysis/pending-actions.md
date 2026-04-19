@@ -109,14 +109,18 @@ Items are grouped by feature spec and categorised as **Code**, **Tests**, or **D
 
 ## spec 007 — Three-Channel Observability (Verification Only)
 
-> **Status**: All code and documentation changes are implemented. The following tasks are end-to-end verification runs that have not been confirmed.
+> **Status**: All code and documentation changes are implemented. Three system tests for package log file production have been verified.
+
+### Code
+
+- 🟢 `PackageLoggerProvider` hosted-service registration — Fixed: refactored to extend `BackgroundService` and registered via `AddHostedService` in `DiagnosticsServiceExtensions.cs`. Agent host logging filter changed from blanket `SetMinimumLevel(Warning)` to category-specific filters so package/control-plane sinks receive `Information`+ logs.
 
 ### Verification
 
-- 🟢 `T010` Covered by `SimulatedMigrationCommandTests.SimulatedExport_ProducesProgressJsonl_T010` — asserts `Logs/progress.jsonl` exists with at least one NDJSON record.
-- 🟢 `T015` Covered by `SimulatedMigrationCommandTests.SimulatedExport_ProducesAgentJsonl_T015` — asserts `Logs/agent.jsonl` exists with structured NDJSON records.
+- 🟢 `T010` `QueueExportSimulated_ProducesProgressJsonl` — asserts `Logs/progress.jsonl` exists with ≥1 records. **Passes.**
+- 🟢 `T015` `QueueExportSimulated_ProducesAgentJsonl` — asserts `Logs/agent.jsonl` exists with ≥1 records. **Passes.**
 - 🟡 `T030` Run `export --level Debug --follow`, confirm Debug records appear in `agent.jsonl` and diagnostics stream to console; CLI exits on completion.
-- 🟢 `T055` Covered by `SimulatedMigrationCommandTests.SimulatedExport_ProducesBothLogFiles_T055` — runs simulated scenario and verifies both log files.
+- 🟢 `T055` `QueueExportSimulated_ProducesBothLogFiles` — asserts both log files exist. **Passes.**
 
 ---
 
@@ -210,11 +214,11 @@ Items are grouped by feature spec and categorised as **Code**, **Tests**, or **D
 | spec 004 — CLI architecture tests | 3 (T030, T040, T041) | 0 | 2 (T029 superseded, T032 N/A), 5 implemented | No |
 | spec 005 — System inventory tests (US2 + US3) | 5 (T020, T027, T028, T035, T036) | 0 | 2 superseded (T024, T026), 3 implemented | No |
 | spec 006 — ADO attachment streaming | 3 tests (T028, T029, T031) | 0 | 4 reconciled, all code/docs done | No |
-| spec 007 — Observability verification runs | 0 | 1 (T030 manual) | 3 implemented | No |
+| spec 007 — Observability verification runs | 0 | 1 (T030 manual) | 1 code fix done, 3 tests pass | No |
 | spec 008-simulated — Simulated source/target | ✅ Complete | — | — | — |
 | spec 008-tui — TUI polish | ✅ Complete | — | 2 (T018/T019 N/A) | — |
 | spec 009 — Import orchestrator | ✅ Complete | — | — | — |
 | spec 013 — ADO Work Items Import | ✅ Complete (T001–T051) | — | — | — |
 | spec 015 — Work Item Scoped Fetch | ✅ Complete (T001–T031) | — | — | — |
 
-**Remaining real work**: 12 items total (3 in spec 004, 5 in spec 005, 3 in spec 006, 1 in spec 007). None are blocking. Specs 006 (code/docs), 008-simulated, 008-tui, 009, 013, and 015 are fully complete.
+**Remaining real work**: 12 items total (3 in spec 004, 5 in spec 005, 3 in spec 006, 1 in spec 007). None are blocking. Specs 006 (code/docs), 007 (code fix applied), 008-simulated, 008-tui, 009, 013, and 015 are fully complete.

@@ -30,6 +30,7 @@ public static class DiagnosticsServiceExtensions
 
         // Package logger — writes to Logs/agent.jsonl via IArtefactStore.
         builder.Services.AddSingleton<PackageLoggerProvider>();
+        builder.Services.AddHostedService(sp => sp.GetRequiredService<PackageLoggerProvider>());
         builder.Logging.Services.AddSingleton<ILoggerProvider>(
             sp => sp.GetRequiredService<PackageLoggerProvider>());
 
