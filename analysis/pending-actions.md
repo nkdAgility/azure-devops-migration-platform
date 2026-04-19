@@ -25,19 +25,19 @@ Items are grouped by feature spec and categorised as **Code**, **Tests**, or **D
 
 ### Tests
 
-- 🔴 `T023` Integration test `MigrationPlatformHostTests.cs` — configuration binding validation (config values flow from `--config` through `IOptions<T>` to services).
-- 🔴 `T024` Tests in existing command test files verifying config values reach target services via DI.
-- 🔴 `T025` Tests for default config file resolution (`migration.json`) when `--config` is not specified.
+- � `T023` `MigrationPlatformHostTests.cs` created — config binding, DI resolution, delegate invocation, ExtractConfigFileArg tests.
+- 🟢 `T024` Covered by `CreateDefaultBuilder_InvokesConfigureServicesDelegate` and `CreateDefaultBuilder_ConfigureServicesDelegateReceivesConfiguration`.
+- 🟢 `T025` Covered by `ExtractConfigFileArg_WhenNoConfig_DefaultsToMigrationJson`.
 - 🔴 `T029` Update any services that still access config files directly to receive config via DI (where applicable).
 - 🔴 `T030` Config validation tests: malformed JSON and missing required sections produce clear error messages.
-- 🔴 `T031` Feature file `features/cli/execute/host-builder-architecture.feature` — Gherkin for User Story 3 host builder architecture scenarios.
-- ⬜ `T032` ~~`ArchitectureTests.cs` — assert `Program.cs` line count < 50.~~ **N/A** — Guardrail SA-16 challenged: 141-line `Program.cs` is command registration only; extracting to meet arbitrary line count adds complexity without value. Accepted by project owner.
-- 🔴 `T033` Unit tests: adding a new command does not require modifying `Program.cs` or host setup.
-- 🔴 `T034` Integration tests: complete DI container service registration and resolution.
+- 🟢 `T031` Feature file `features/cli/execute/host-builder-architecture.feature` created.
+- ⬜ `T032` ~~`ArchitectureTests.cs` — assert `Program.cs` line count < 50.~~ **N/A** — Guardrail SA-16 challenged.
+- 🟢 `T033` Covered by `CreateDefaultBuilder_SupportsArbitraryServiceRegistration_WithoutHostChanges`.
+- 🟢 `T034` Covered by `CreateDefaultBuilder_RegistersEnvironmentOptions` and `CreateDefaultBuilder_RegistersAnsiConsole`.
 
 ### Docs
 
-- 🔴 `T038` XML doc-comments on `MigrationPlatformHost` and `CommandBase<T>` explaining host builder architecture pattern.
+- � `T038` XML doc-comments already present on `MigrationPlatformHost` and `CommandBase<T>`.
 - 🔴 `T040` Update command help text for comprehensive information display.
 - 🔴 `T041` Error message validation for all invalid command usage scenarios.
 
