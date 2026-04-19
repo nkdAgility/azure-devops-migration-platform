@@ -78,7 +78,7 @@ An operator tuning parallelism settings needs to see how many work items are cur
 
 **Acceptance Scenarios**:
 
-1. **Given** a migration job with `maxConcurrency=4`, **When** processing is active, **Then** `migration.workitems.in_flight` gauge reports a value between 0 and 4.
+1. **Given** a migration job with `maxConcurrency=4`, **When** processing is active, **Then** `migration.workitems.in_flight` UpDownCounter reports a value between 0 and 4.
 2. **Given** a queue with 100 pending work items, **When** processing begins, **Then** `migration.queue.workitems.depth` starts at approximately 100 and decreases toward 0.
 
 ---
@@ -160,7 +160,7 @@ After a crash-and-resume scenario, an operator needs signals indicating whether 
 
 #### In-Flight State Metrics
 
-- **FR-030**: System MUST emit `migration.workitems.in_flight` (UpDownCounter or ObservableGauge) — current number of work items being processed. Incremented on processing start, decremented on completion or failure.
+- **FR-030**: System MUST emit `migration.workitems.in_flight` (UpDownCounter) — current number of work items being processed. Incremented on processing start, decremented on completion or failure.
 - **FR-031**: System MUST emit `migration.queue.workitems.depth` (ObservableGauge) — current number of work items pending in the agent's internal queue.
 
 #### MetricSnapshot Expansion
@@ -172,7 +172,7 @@ After a crash-and-resume scenario, an operator needs signals indicating whether 
 #### Meter Organisation
 
 - **FR-035**: All work item metrics MUST be registered under a single meter named `DevOpsMigrationPlatform.Migration` (replacing the current `WorkItemExport` and `AttachmentDownload` split). Attachment metrics move under this meter.
-- **FR-036**: The metrics instrumentation class MUST live in `DevOpsMigrationPlatform.Abstractions` (or a new `DevOpsMigrationPlatform.Infrastructure` class referencing `Abstractions` constants) so that both .NET 10 and .NET 4.8 projects can emit the same instruments.
+- **FR-036**: The `IMigrationMetrics` interface MUST be defined in `DevOpsMigrationPlatform.Abstractions`. The concrete `MigrationMetrics` implementation MUST live in `DevOpsMigrationPlatform.Infrastructure`, referencing `Abstractions` constants, so that both .NET 10 and .NET 4.8 projects can reference the interface.
 
 ### Key Entities
 
@@ -185,7 +185,7 @@ After a crash-and-resume scenario, an operator needs signals indicating whether 
 
 ### Measurable Outcomes
 
-- **SC-001**: All 16 immediately-implementable instruments (FR-007 through FR-024, FR-030, FR-031) emit correct values during a Simulated end-to-end migration run.
+- **SC-001**: All 19 immediately-implementable instruments (FR-007 through FR-023, FR-030, FR-031) emit correct values during a Simulated end-to-end migration run.
 - **SC-002**: The 5 deferred instruments (FR-025 through FR-029) are registered at application startup and accept increments, verified by unit test.
 - **SC-003**: MetricSnapshot round-trips through JSON serialisation with all new properties populated and is consumable by the TUI telemetry endpoint.
 - **SC-004**: Existing telemetry pipelines (ControlPlaneTelemetryClient, SnapshotMetricExporter, InMemoryMetricSnapshotStore) continue to function with the expanded MetricSnapshot without breaking changes.

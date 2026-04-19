@@ -35,3 +35,15 @@
 - **Section**: `ConfigureOpenTelemetry` code sample
 - **Issue**: The spec (FR-035) consolidates `DevOpsMigrationPlatform.WorkItemExport` and `DevOpsMigrationPlatform.AttachmentDownload` into a single `DevOpsMigrationPlatform.Migration` meter. The Aspire integration doc's code sample may need to register the new meter name.
 - **Suggested update**: Update the `ConfigureOpenTelemetry` sample to register `DevOpsMigrationPlatform.Migration` instead of the two separate meter names.
+
+### Migration Agent responsibilities doc does not mention metric emission
+- **Source doc**: `docs/migration-agent.md`
+- **Section**: Responsibilities table
+- **Issue**: The spec introduces explicit metric recording (IMigrationMetrics) as part of agent execution. The agent doc's responsibilities table mentions "Report progress" (ProgressEvent via IProgressSink) but does not mention metric emission as a distinct concern. Metrics flow through the OTel SDK pipeline (PeriodicExportingMetricReader → SnapshotMetricExporter → MetricSnapshot → ControlPlaneTelemetryClient), which is architecturally separate from progress events.
+- **Suggested update**: Add a "Record metrics" row to the responsibilities table noting that the Migration Agent records OTel metrics via `IMigrationMetrics` during job execution, and that metric aggregates are pushed to the control plane via `ControlPlaneTelemetryTimer`.
+
+### Orchestration doc does not describe metric emission alongside cursor writes
+- **Source doc**: `docs/orchestration.md`
+- **Section**: Job Engine Steps, step 6
+- **Issue**: Step 6 says "Emit progress events — After each cursor write, emit a ProgressEvent to IProgressSink." The spec adds metric recording (RecordWorkItemAttempted, RecordWorkItemCompleted, etc.) as a parallel concern at the same execution points. The orchestration doc should note that metric recording occurs alongside progress event emission.
+- **Suggested update**: Amend step 6 or add a step 6a: "Record metrics — After each work item processing step, record OTel metrics via IMigrationMetrics (execution counters, payload histograms, duration)."
