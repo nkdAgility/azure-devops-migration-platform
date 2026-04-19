@@ -51,6 +51,22 @@ interface IModule
 
 > **Field-projected fetching**: Inventory and dependency analysis modules use `IWorkItemFetchService` for streaming, field-projected work item retrieval. This abstraction handles WIQL windowing, batch API calls, and in-process filtering — modules should not call `GetWorkItemsAsync` directly.
 
+### WorkItemsModule — ADO Export
+
+The Azure DevOps export path uses the following components:
+
+| Component | Role |
+|---|---|
+| `IWorkItemRevisionSourceFactory` | Creates an `IWorkItemRevisionSource` per job from endpoint options. ADO implementation: `AzureDevOpsWorkItemRevisionSourceFactory`. |
+| `AzureDevOpsWorkItemRevisionSource` | Enumerates work item revisions from the REST API using `WorkItemQueryWindowStrategy` for WIQL-windowed iteration. |
+| `IAttachmentBinarySource` / `IStreamingAttachmentBinarySource` | Downloads attachment binaries. ADO implementation: `AzureDevOpsAttachmentBinarySource`. Streaming variant computes SHA-256 in-flight via `CryptoStream`. |
+| `AzureDevOpsAttachmentRegistry` | Scoped registry mapping (workItemId, revisionIndex, filename) → download URL, populated during revision enumeration. |
+| `WorkItemExportOrchestrator` | Drives the export loop: enumerate revisions → write `revision.json` → download attachments (with delta detection) → advance cursor. O(N) calls per revision. |
+
+**Resilience**: Attachment downloads use a named HTTP client (`"AttachmentDownload"`) with 8 retries, exponential back-off, handling transient 5xx, 408, and 429 responses.
+
+**Delta detection**: Adjacent revisions sharing the same attachment URL skip re-download — only new or changed URLs trigger a binary fetch.
+
 ### Adding a New Module
 
 See [.agents/guardrails/module-template.md](../.agents/guardrails/module-template.md) for the full checklist.
