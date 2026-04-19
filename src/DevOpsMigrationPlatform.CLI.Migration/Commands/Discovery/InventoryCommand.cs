@@ -73,7 +73,14 @@ public sealed class InventoryCommand : ControlPlaneCommandBase<InventoryCommand.
                 .Select(o => new ScopedOrganisationEndpoint
                 {
                     Endpoint = o.ToEndpointOptions(),
-                    Projects = new List<string>(o.Projects)
+                    Projects = new List<string>(o.Projects),
+                    Scopes = o.Scopes.Select(s => new JobModuleScope
+                    {
+                        Type = s.Type,
+                        Parameters = s.Parameters.ToDictionary(
+                            kvp => kvp.Key,
+                            kvp => (object?)kvp.Value)
+                    }).ToList()
                 }).ToList(),
             Policies = new JobPolicies
             {

@@ -98,4 +98,13 @@ Silently working around a rule = violation. Blindly following a harmful rule = n
     
     See [docs/work-item-iteration-pattern.md](../../docs/work-item-iteration-pattern.md) for the canonical work item iteration example.
 
+22. **No architectural workarounds without explicit user acceptance.**
+    Adapter classes, type-bridging shims, deferred alignment markers (e.g. `D-xxx`), lossy type conversions, and any other mechanism that works around a proper architectural fix are **forbidden** unless the human operator explicitly approves the workaround in the current session. "Deferred to a future feature" is not an acceptable justification — if the correct fix is known, it must be implemented now. An agent MUST:
+    - Identify the workaround and the proper fix.
+    - Present both options to the user with a clear explanation of trade-offs.
+    - **Wait for an explicit user response** before proceeding. Autopilot / automated acceptance is not valid.
+    - Record the user's decision in the relevant spec's `discrepancies.md` if a workaround is accepted.
+    
+    This rule exists because "temporary" workarounds cause real bugs (e.g. authentication credential loss through adapter round-trips) and accumulate as hidden technical debt.
+
 Consult [docs/architecture.md](../../docs/architecture.md). If the answer is not there, the safest default is to preserve the package layout, maintain streaming behaviour, and write state only through the defined interfaces.

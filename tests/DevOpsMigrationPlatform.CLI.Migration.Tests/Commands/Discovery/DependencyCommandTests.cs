@@ -8,6 +8,7 @@ using DevOpsMigrationPlatform.CLI.Migration.Tests.TestUtilities;
 namespace DevOpsMigrationPlatform.CLI.Migration.Tests.Commands.Discovery;
 
 [TestClass]
+[DoNotParallelize]
 public class DependencyCommandTests
 {
     [TestMethod]

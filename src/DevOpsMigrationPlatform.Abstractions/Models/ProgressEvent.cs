@@ -36,6 +36,12 @@ public record ProgressEvent
     /// <summary>UTC timestamp when this event was emitted.</summary>
     public DateTimeOffset Timestamp { get; init; } = DateTimeOffset.UtcNow;
 
+    /// <summary>Attachments successfully downloaded and stored in this batch.</summary>
+    public int AttachmentsProcessed { get; init; }
+
+    /// <summary>Attachment downloads that failed in this batch.</summary>
+    public int AttachmentsFailed { get; init; }
+
     /// <summary>
     /// Optional metric snapshot emitted alongside this progress event.
     /// Populated by the TFS subprocess every N revisions (controlled by

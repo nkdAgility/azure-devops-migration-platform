@@ -469,4 +469,381 @@ public class WorkItemExportOrchestratorTests
         // Strict mock will throw if Create() is invoked — test passes if no call made.
         mockFactory.Verify(f => f.Create(It.IsAny<MigrationEndpointOptions>(), It.IsAny<string>()), Times.Never);
     }
+
+    // ── Attachment delta detection ────────────────────────────────────────────
+
+    [TestMethod]
+    public async Task ExportAsync_WithAttachments_DownloadsAndWritesBinaries()
+    {
+        _mockCps.Setup(s => s.ReadCursorAsync("WorkItems", It.IsAny<CancellationToken>()))
+                .ReturnsAsync((CursorEntry?)null);
+        _mockCps.Setup(s => s.WriteCursorAsync("WorkItems", It.IsAny<CursorEntry>(), It.IsAny<CancellationToken>()))
+                .Returns(Task.CompletedTask);
+
+        _mockStore.Setup(s => s.WriteAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+                  .Returns(Task.CompletedTask);
+        _mockStore.Setup(s => s.WriteBinaryAsync(It.IsAny<string>(), It.IsAny<byte[]>(), It.IsAny<CancellationToken>()))
+                  .Returns(Task.CompletedTask);
+
+        var mockBinarySource = new Mock<IAttachmentBinarySource>(MockBehavior.Strict);
+        mockBinarySource
+            .Setup(s => s.GetBytesAsync(7, 0, It.IsAny<AttachmentMetadata>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new byte[] { 0x89, 0x50 });
+
+        var sut = new WorkItemExportOrchestrator(
+            _mockStore.Object, _mockCps.Object, mockBinarySource.Object);
+
+        var revision = new WorkItemRevision
+        {
+            WorkItemId = 7,
+            RevisionIndex = 0,
+            ChangedDate = new DateTimeOffset(2024, 1, 1, 0, 0, 0, TimeSpan.Zero),
+            Attachments = new[] { new AttachmentMetadata { OriginalName = "shot.png", RelativePath = "shot.png", Sha256 = "abc", Size = 2 } }
+        };
+
+        var mockSource = new Mock<IWorkItemRevisionSource>(MockBehavior.Strict);
+        mockSource
+            .Setup(s => s.GetRevisionsAsync(It.IsAny<CancellationToken>()))
+            .Returns((CancellationToken ct) => new[] { revision }.ToAsyncEnumerable(ct));
+
+        await sut.ExportAsync(mockSource.Object, CancellationToken.None);
+
+        _mockStore.Verify(s => s.WriteBinaryAsync(
+            It.Is<string>(p => p.EndsWith("shot.png")),
+            It.IsAny<byte[]>(),
+            It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [TestMethod]
+    public async Task ExportAsync_DeltaDetection_SkipsSameUrlOnAdjacentRevisions()
+    {
+        _mockCps.Setup(s => s.ReadCursorAsync("WorkItems", It.IsAny<CancellationToken>()))
+                .ReturnsAsync((CursorEntry?)null);
+        _mockCps.Setup(s => s.WriteCursorAsync("WorkItems", It.IsAny<CursorEntry>(), It.IsAny<CancellationToken>()))
+                .Returns(Task.CompletedTask);
+
+        _mockStore.Setup(s => s.WriteAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+                  .Returns(Task.CompletedTask);
+        _mockStore.Setup(s => s.WriteBinaryAsync(It.IsAny<string>(), It.IsAny<byte[]>(), It.IsAny<CancellationToken>()))
+                  .Returns(Task.CompletedTask);
+
+        int downloadCount = 0;
+        var mockBinarySource = new Mock<IAttachmentBinarySource>(MockBehavior.Strict);
+        mockBinarySource
+            .Setup(s => s.GetBytesAsync(It.IsAny<int>(), It.IsAny<int>(), It.IsAny<AttachmentMetadata>(), It.IsAny<CancellationToken>()))
+            .Callback(() => downloadCount++)
+            .ReturnsAsync(new byte[] { 0x01 });
+
+        var sut = new WorkItemExportOrchestrator(
+            _mockStore.Object, _mockCps.Object, mockBinarySource.Object);
+
+        var baseDate = new DateTimeOffset(2024, 1, 1, 0, 0, 0, TimeSpan.Zero);
+        var attachment = new AttachmentMetadata
+        {
+            OriginalName = "doc.pdf",
+            RelativePath = "doc.pdf",
+            Sha256 = "abc",
+            Size = 100,
+            DownloadUrl = "https://dev.azure.com/org/_apis/wit/attachments/12345"
+        };
+
+        var revisions = new[]
+        {
+            new WorkItemRevision { WorkItemId = 1, RevisionIndex = 0, ChangedDate = baseDate, Attachments = new[] { attachment } },
+            new WorkItemRevision { WorkItemId = 1, RevisionIndex = 1, ChangedDate = baseDate.AddDays(1), Attachments = new[] { attachment } }
+        };
+
+        var mockSource = new Mock<IWorkItemRevisionSource>(MockBehavior.Strict);
+        mockSource
+            .Setup(s => s.GetRevisionsAsync(It.IsAny<CancellationToken>()))
+            .Returns((CancellationToken ct) => revisions.ToAsyncEnumerable(ct));
+
+        await sut.ExportAsync(mockSource.Object, CancellationToken.None);
+
+        Assert.AreEqual(1, downloadCount, "Delta detection should skip the second download of the same URL.");
+    }
+
+    [TestMethod]
+    public async Task ExportAsync_DeltaDetection_DownloadsDifferentUrls()
+    {
+        _mockCps.Setup(s => s.ReadCursorAsync("WorkItems", It.IsAny<CancellationToken>()))
+                .ReturnsAsync((CursorEntry?)null);
+        _mockCps.Setup(s => s.WriteCursorAsync("WorkItems", It.IsAny<CursorEntry>(), It.IsAny<CancellationToken>()))
+                .Returns(Task.CompletedTask);
+
+        _mockStore.Setup(s => s.WriteAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+                  .Returns(Task.CompletedTask);
+        _mockStore.Setup(s => s.WriteBinaryAsync(It.IsAny<string>(), It.IsAny<byte[]>(), It.IsAny<CancellationToken>()))
+                  .Returns(Task.CompletedTask);
+
+        int downloadCount = 0;
+        var mockBinarySource = new Mock<IAttachmentBinarySource>(MockBehavior.Strict);
+        mockBinarySource
+            .Setup(s => s.GetBytesAsync(It.IsAny<int>(), It.IsAny<int>(), It.IsAny<AttachmentMetadata>(), It.IsAny<CancellationToken>()))
+            .Callback(() => downloadCount++)
+            .ReturnsAsync(new byte[] { 0x01 });
+
+        var sut = new WorkItemExportOrchestrator(
+            _mockStore.Object, _mockCps.Object, mockBinarySource.Object);
+
+        var baseDate = new DateTimeOffset(2024, 1, 1, 0, 0, 0, TimeSpan.Zero);
+        var att1 = new AttachmentMetadata { OriginalName = "v1.pdf", RelativePath = "v1.pdf", DownloadUrl = "https://example.com/v1" };
+        var att2 = new AttachmentMetadata { OriginalName = "v2.pdf", RelativePath = "v2.pdf", DownloadUrl = "https://example.com/v2" };
+
+        var revisions = new[]
+        {
+            new WorkItemRevision { WorkItemId = 1, RevisionIndex = 0, ChangedDate = baseDate, Attachments = new[] { att1 } },
+            new WorkItemRevision { WorkItemId = 1, RevisionIndex = 1, ChangedDate = baseDate.AddDays(1), Attachments = new[] { att2 } }
+        };
+
+        var mockSource = new Mock<IWorkItemRevisionSource>(MockBehavior.Strict);
+        mockSource
+            .Setup(s => s.GetRevisionsAsync(It.IsAny<CancellationToken>()))
+            .Returns((CancellationToken ct) => revisions.ToAsyncEnumerable(ct));
+
+        await sut.ExportAsync(mockSource.Object, CancellationToken.None);
+
+        Assert.AreEqual(2, downloadCount, "Different URLs should both be downloaded.");
+    }
+
+    [TestMethod]
+    public async Task ExportAsync_AttachmentFailure_IncrementsFailedCounter()
+    {
+        _mockCps.Setup(s => s.ReadCursorAsync("WorkItems", It.IsAny<CancellationToken>()))
+                .ReturnsAsync((CursorEntry?)null);
+        _mockCps.Setup(s => s.WriteCursorAsync("WorkItems", It.IsAny<CursorEntry>(), It.IsAny<CancellationToken>()))
+                .Returns(Task.CompletedTask);
+
+        _mockStore.Setup(s => s.WriteAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+                  .Returns(Task.CompletedTask);
+
+        var mockBinarySource = new Mock<IAttachmentBinarySource>(MockBehavior.Strict);
+        mockBinarySource
+            .Setup(s => s.GetBytesAsync(It.IsAny<int>(), It.IsAny<int>(), It.IsAny<AttachmentMetadata>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((byte[]?)null); // Download failure
+
+        var progressEvents = new List<ProgressEvent>();
+        var mockProgressSink = new Mock<IProgressSink>(MockBehavior.Loose);
+        mockProgressSink
+            .Setup(s => s.Emit(It.IsAny<ProgressEvent>()))
+            .Callback<ProgressEvent>(e => progressEvents.Add(e));
+
+        var sut = new WorkItemExportOrchestrator(
+            _mockStore.Object, _mockCps.Object, mockBinarySource.Object, mockProgressSink.Object);
+
+        var baseDate = new DateTimeOffset(2024, 1, 1, 0, 0, 0, TimeSpan.Zero);
+        var failingAttachment = new AttachmentMetadata { OriginalName = "broken.png", RelativePath = "broken.png" };
+
+        // Two work items: first has a failing attachment, second triggers a progress event
+        // that reports the accumulated counters from work item 1.
+        var revisions = new[]
+        {
+            new WorkItemRevision { WorkItemId = 1, RevisionIndex = 0, ChangedDate = baseDate, Attachments = new[] { failingAttachment } },
+            new WorkItemRevision { WorkItemId = 2, RevisionIndex = 0, ChangedDate = baseDate.AddDays(1) }
+        };
+
+        var mockSource = new Mock<IWorkItemRevisionSource>(MockBehavior.Strict);
+        mockSource
+            .Setup(s => s.GetRevisionsAsync(It.IsAny<CancellationToken>()))
+            .Returns((CancellationToken ct) => revisions.ToAsyncEnumerable(ct));
+
+        await sut.ExportAsync(mockSource.Object, CancellationToken.None);
+
+        // The second progress event (for work item 2) carries the accumulated counters.
+        var lastProgress = progressEvents.Last();
+        Assert.AreEqual(1, lastProgress.AttachmentsFailed, "Failed attachment should be counted.");
+        Assert.AreEqual(0, lastProgress.AttachmentsProcessed, "No successful downloads.");
+    }
+
+    [TestMethod]
+    public async Task ExportAsync_EmitsProgressPerWorkItem()
+    {
+        _mockCps.Setup(s => s.ReadCursorAsync("WorkItems", It.IsAny<CancellationToken>()))
+                .ReturnsAsync((CursorEntry?)null);
+        _mockCps.Setup(s => s.WriteCursorAsync("WorkItems", It.IsAny<CursorEntry>(), It.IsAny<CancellationToken>()))
+                .Returns(Task.CompletedTask);
+
+        _mockStore.Setup(s => s.WriteAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+                  .Returns(Task.CompletedTask);
+
+        var progressEvents = new List<ProgressEvent>();
+        var mockProgressSink = new Mock<IProgressSink>(MockBehavior.Loose);
+        mockProgressSink
+            .Setup(s => s.Emit(It.IsAny<ProgressEvent>()))
+            .Callback<ProgressEvent>(e => progressEvents.Add(e));
+
+        var sut = new WorkItemExportOrchestrator(
+            _mockStore.Object, _mockCps.Object, progressSink: mockProgressSink.Object);
+
+        var baseDate = new DateTimeOffset(2024, 1, 1, 0, 0, 0, TimeSpan.Zero);
+        var revisions = new[]
+        {
+            new WorkItemRevision { WorkItemId = 1, RevisionIndex = 0, ChangedDate = baseDate },
+            new WorkItemRevision { WorkItemId = 1, RevisionIndex = 1, ChangedDate = baseDate.AddDays(1) },
+            new WorkItemRevision { WorkItemId = 2, RevisionIndex = 0, ChangedDate = baseDate.AddDays(2) }
+        };
+
+        var mockSource = new Mock<IWorkItemRevisionSource>(MockBehavior.Strict);
+        mockSource
+            .Setup(s => s.GetRevisionsAsync(It.IsAny<CancellationToken>()))
+            .Returns((CancellationToken ct) => revisions.ToAsyncEnumerable(ct));
+
+        await sut.ExportAsync(mockSource.Object, CancellationToken.None);
+
+        // One progress event per unique work item (not per revision).
+        Assert.AreEqual(2, progressEvents.Count, "Should emit one progress event per work item.");
+        Assert.AreEqual(1, progressEvents[0].WorkItemsProcessed);
+        Assert.AreEqual(1, progressEvents[0].RevisionsProcessed);
+        Assert.AreEqual(2, progressEvents[1].WorkItemsProcessed);
+        Assert.AreEqual(3, progressEvents[1].RevisionsProcessed);
+    }
+
+    [TestMethod]
+    public async Task ExportAsync_CursorWrittenAfterAttachments()
+    {
+        _mockCps.Setup(s => s.ReadCursorAsync("WorkItems", It.IsAny<CancellationToken>()))
+                .ReturnsAsync((CursorEntry?)null);
+
+        var callOrder = new List<string>();
+
+        _mockStore.Setup(s => s.WriteAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+                  .Callback<string, string, CancellationToken>((p, _, _) => callOrder.Add($"write:{p}"))
+                  .Returns(Task.CompletedTask);
+        _mockStore.Setup(s => s.WriteBinaryAsync(It.IsAny<string>(), It.IsAny<byte[]>(), It.IsAny<CancellationToken>()))
+                  .Callback<string, byte[], CancellationToken>((p, _, _) => callOrder.Add($"binary:{p}"))
+                  .Returns(Task.CompletedTask);
+
+        _mockCps.Setup(s => s.WriteCursorAsync("WorkItems", It.IsAny<CursorEntry>(), It.IsAny<CancellationToken>()))
+                .Callback<string, CursorEntry, CancellationToken>((_, _, _) => callOrder.Add("cursor"))
+                .Returns(Task.CompletedTask);
+
+        var mockBinarySource = new Mock<IAttachmentBinarySource>(MockBehavior.Strict);
+        mockBinarySource
+            .Setup(s => s.GetBytesAsync(It.IsAny<int>(), It.IsAny<int>(), It.IsAny<AttachmentMetadata>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new byte[] { 0x01 });
+
+        var sut = new WorkItemExportOrchestrator(
+            _mockStore.Object, _mockCps.Object, mockBinarySource.Object);
+
+        var revision = new WorkItemRevision
+        {
+            WorkItemId = 1,
+            RevisionIndex = 0,
+            ChangedDate = new DateTimeOffset(2024, 1, 1, 0, 0, 0, TimeSpan.Zero),
+            Attachments = new[] { new AttachmentMetadata { OriginalName = "file.txt", RelativePath = "file.txt" } }
+        };
+
+        var mockSource = new Mock<IWorkItemRevisionSource>(MockBehavior.Strict);
+        mockSource
+            .Setup(s => s.GetRevisionsAsync(It.IsAny<CancellationToken>()))
+            .Returns((CancellationToken ct) => new[] { revision }.ToAsyncEnumerable(ct));
+
+        await sut.ExportAsync(mockSource.Object, CancellationToken.None);
+
+        var revisionWriteIdx = callOrder.FindIndex(c => c.StartsWith("write:"));
+        var binaryWriteIdx = callOrder.FindIndex(c => c.StartsWith("binary:"));
+        var cursorIdx = callOrder.FindIndex(c => c == "cursor");
+
+        Assert.IsTrue(revisionWriteIdx < cursorIdx, "revision.json must be written before cursor.");
+        Assert.IsTrue(binaryWriteIdx < cursorIdx, "attachment binary must be written before cursor.");
+    }
+
+    // ── Filter scope pre-pass ─────────────────────────────────────────────────
+
+    [TestMethod]
+    public async Task ExportAsync_WithFilterAndMatchingItems_OnlyExportsMatchingWorkItems()
+    {
+        _mockCps.Setup(s => s.ReadCursorAsync("WorkItems", It.IsAny<CancellationToken>()))
+                .ReturnsAsync((CursorEntry?)null);
+        _mockCps.Setup(s => s.WriteCursorAsync("WorkItems", It.IsAny<CursorEntry>(), It.IsAny<CancellationToken>()))
+                .Returns(Task.CompletedTask);
+
+        var written = new List<string>();
+        _mockStore.Setup(s => s.WriteAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+                  .Callback<string, string, CancellationToken>((p, _, _) => written.Add(p))
+                  .Returns(Task.CompletedTask);
+
+        // Pre-filter pass: only work item 1 passes the filter.
+        var mockFetchService = new Mock<IWorkItemFetchService>(MockBehavior.Strict);
+        mockFetchService
+            .Setup(s => s.FetchAsync(
+                It.IsAny<OrganisationEndpoint>(),
+                It.IsAny<string>(),
+                It.IsAny<WorkItemFetchScope>(),
+                It.IsAny<CancellationToken>()))
+            .Returns((OrganisationEndpoint _, string _, WorkItemFetchScope _, CancellationToken ct) =>
+                new[] { new FetchedWorkItem(1, new Dictionary<string, object?> { ["System.WorkItemType"] = "Bug" }) }
+                .ToAsyncEnumerable(ct));
+
+        var filterOptions = new List<WorkItemFieldFilterOptions>
+        {
+            new("System.WorkItemType", FilterOperator.Regex, "^Bug$")
+        };
+
+        var sut = new WorkItemExportOrchestrator(
+            _mockStore.Object, _mockCps.Object,
+            endpoint: TestEndpoint,
+            project: "MyProject",
+            fetchService: mockFetchService.Object,
+            filterOptions: filterOptions);
+
+        var baseDate = new DateTimeOffset(2024, 1, 1, 0, 0, 0, TimeSpan.Zero);
+        var revisions = new[]
+        {
+            new WorkItemRevision { WorkItemId = 1, RevisionIndex = 0, ChangedDate = baseDate },
+            new WorkItemRevision { WorkItemId = 2, RevisionIndex = 0, ChangedDate = baseDate.AddDays(1) }  // should be filtered out
+        };
+
+        var mockSource = new Mock<IWorkItemRevisionSource>(MockBehavior.Strict);
+        mockSource.Setup(s => s.GetRevisionsAsync(It.IsAny<CancellationToken>()))
+                  .Returns((CancellationToken ct) => revisions.ToAsyncEnumerable(ct));
+
+        await sut.ExportAsync(mockSource.Object, CancellationToken.None);
+
+        Assert.IsTrue(written.Any(p => p.Contains("-1-0/")), "Work item 1 should be exported.");
+        Assert.IsFalse(written.Any(p => p.Contains("-2-0/")), "Work item 2 should be filtered out.");
+    }
+
+    [TestMethod]
+    public async Task ExportAsync_WithNoFilterOptions_ExportsAllWorkItems()
+    {
+        _mockCps.Setup(s => s.ReadCursorAsync("WorkItems", It.IsAny<CancellationToken>()))
+                .ReturnsAsync((CursorEntry?)null);
+        _mockCps.Setup(s => s.WriteCursorAsync("WorkItems", It.IsAny<CursorEntry>(), It.IsAny<CancellationToken>()))
+                .Returns(Task.CompletedTask);
+
+        var written = new List<string>();
+        _mockStore.Setup(s => s.WriteAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+                  .Callback<string, string, CancellationToken>((p, _, _) => written.Add(p))
+                  .Returns(Task.CompletedTask);
+
+        // No filter options — fetch service should NOT be called.
+        var mockFetchService = new Mock<IWorkItemFetchService>(MockBehavior.Strict);
+
+        var sut = new WorkItemExportOrchestrator(
+            _mockStore.Object, _mockCps.Object,
+            endpoint: TestEndpoint,
+            project: "MyProject",
+            fetchService: mockFetchService.Object,
+            filterOptions: null);
+
+        var baseDate = new DateTimeOffset(2024, 1, 1, 0, 0, 0, TimeSpan.Zero);
+        var revisions = new[]
+        {
+            new WorkItemRevision { WorkItemId = 1, RevisionIndex = 0, ChangedDate = baseDate },
+            new WorkItemRevision { WorkItemId = 2, RevisionIndex = 0, ChangedDate = baseDate.AddDays(1) }
+        };
+
+        var mockSource = new Mock<IWorkItemRevisionSource>(MockBehavior.Strict);
+        mockSource.Setup(s => s.GetRevisionsAsync(It.IsAny<CancellationToken>()))
+                  .Returns((CancellationToken ct) => revisions.ToAsyncEnumerable(ct));
+
+        await sut.ExportAsync(mockSource.Object, CancellationToken.None);
+
+        Assert.AreEqual(2, written.Count, "All work items should be exported when no filter is configured.");
+        mockFetchService.Verify(s => s.FetchAsync(
+            It.IsAny<OrganisationEndpoint>(), It.IsAny<string>(),
+            It.IsAny<WorkItemFetchScope>(), It.IsAny<CancellationToken>()), Times.Never,
+            "FetchAsync should not be called when no filter is configured.");
+    }
 }

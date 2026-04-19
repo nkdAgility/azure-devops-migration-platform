@@ -11,19 +11,31 @@ namespace DevOpsMigrationPlatform.Infrastructure.Simulated.Services;
 /// <summary>
 /// Simulated implementation of <see cref="IWorkItemDiscoveryService"/>.
 /// Returns a single final <see cref="ProjectDiscoverySummary"/> with counts
-/// derived from the <see cref="SimulatedEndpointOptions.Generator"/> configuration.
+/// derived from the <see cref="SimulatedGeneratorConfig"/> configuration.
 /// No network calls are made.
 /// </summary>
 public sealed class SimulatedWorkItemDiscoveryService : IWorkItemDiscoveryService
 {
+    private readonly SimulatedGeneratorConfig _config;
+
+    public SimulatedWorkItemDiscoveryService(SimulatedGeneratorConfig config)
+    {
+        _config = config ?? throw new System.ArgumentNullException(nameof(config));
+    }
+
     /// <inheritdoc/>
+    /// <remarks>
+    /// The <paramref name="scope"/> filter options are not applied in the Simulated implementation
+    /// because the service derives counts from a generator config, not from real field values.
+    /// </remarks>
     public async IAsyncEnumerable<ProjectDiscoverySummary> DiscoverWorkItemsAsync(
-        MigrationEndpointOptions endpoint,
+        OrganisationEndpoint endpoint,
         string project,
+        Abstractions.Models.WorkItemFetchScope? scope = null,
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        var (workItems, revisions) = ComputeCounts(endpoint, project);
+        var (workItems, revisions) = ComputeCounts(project);
 
         yield return new ProjectDiscoverySummary
         {
@@ -40,13 +52,13 @@ public sealed class SimulatedWorkItemDiscoveryService : IWorkItemDiscoveryServic
 
     /// <inheritdoc/>
     public async IAsyncEnumerable<ProjectDiscoverySummary> CountWorkItemsAsync(
-        MigrationEndpointOptions endpoint,
+        OrganisationEndpoint endpoint,
         string project,
         string? baseQuery = null,
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        var (workItems, revisions) = ComputeCounts(endpoint, project);
+        var (workItems, revisions) = ComputeCounts(project);
 
         yield return new ProjectDiscoverySummary
         {
@@ -61,11 +73,9 @@ public sealed class SimulatedWorkItemDiscoveryService : IWorkItemDiscoveryServic
         await System.Threading.Tasks.Task.CompletedTask;
     }
 
-    private static (int WorkItems, int Revisions) ComputeCounts(
-        MigrationEndpointOptions endpoint, string project)
+    private (int WorkItems, int Revisions) ComputeCounts(string project)
     {
-        if (endpoint is SimulatedEndpointOptions simulated
-            && simulated.Generator?.Projects is { Count: > 0 } projects)
+        if (_config.Projects is { Count: > 0 } projects)
         {
             var projectConfig = projects.FirstOrDefault(
                 p => string.Equals(p.Name, project, System.StringComparison.OrdinalIgnoreCase));

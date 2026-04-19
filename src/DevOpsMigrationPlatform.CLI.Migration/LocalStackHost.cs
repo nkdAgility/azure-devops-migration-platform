@@ -133,7 +133,10 @@ public sealed class LocalStackHost : IAsyncDisposable
     {
         var builder = Host.CreateApplicationBuilder();
 
-        builder.Logging.SetMinimumLevel(LogLevel.Warning);
+        // Keep console output quiet but allow Information+ through to package/control-plane
+        // log sinks. Each sink applies its own DiagnosticLogOptions.MinimumLevel filter.
+        builder.Logging.AddFilter("Microsoft", LogLevel.Warning);
+        builder.Logging.AddFilter("System", LogLevel.Warning);
 
         builder.AddMigrationAgentServices(LocalControlPlaneUrl);
 

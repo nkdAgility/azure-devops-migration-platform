@@ -8,6 +8,7 @@ using System.Threading;
 using System.Threading.Channels;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
@@ -17,12 +18,13 @@ namespace DevOpsMigrationPlatform.Infrastructure.Telemetry;
 /// Custom <see cref="ILoggerProvider"/> that captures <c>ILogger</c> output and writes it
 /// as NDJSON <see cref="DiagnosticLogRecord"/> lines to <c>Logs/agent.jsonl</c> in the
 /// migration package via <see cref="IArtefactStore"/>. Uses a bounded channel and
-/// background drain loop for non-blocking writes. Respects <see cref="DiagnosticLogOptions.MinimumLevel"/>.
-/// The <see cref="IArtefactStore"/> is resolved lazily from <see cref="ActivePackageState"/>
-/// because it is only available after a job lease is acquired.
+/// <see cref="BackgroundService"/> drain loop for non-blocking writes. Respects
+/// <see cref="DiagnosticLogOptions.MinimumLevel"/>. The <see cref="IArtefactStore"/> is
+/// resolved lazily from <see cref="ActivePackageState"/> because it is only available
+/// after a job lease is acquired.
 /// </summary>
 [ProviderAlias("PackageLogger")]
-public sealed class PackageLoggerProvider : ILoggerProvider, IDisposable
+public sealed class PackageLoggerProvider : BackgroundService, ILoggerProvider
 {
     private const string LogPath = "Logs/agent.jsonl";
 
@@ -31,11 +33,8 @@ public sealed class PackageLoggerProvider : ILoggerProvider, IDisposable
     private readonly LogLevel _minimumLevel;
     private readonly int _flushBatchSize;
     private readonly TimeSpan _flushInterval;
-    private readonly CancellationTokenSource _cts = new();
-    private readonly Task _drainTask;
     private long _droppedCount;
     private volatile IArtefactStore? _lastKnownStore;
-    private int _disposed;
 
     public PackageLoggerProvider(
         ActivePackageState packageState,
@@ -49,8 +48,6 @@ public sealed class PackageLoggerProvider : ILoggerProvider, IDisposable
 
         _channel = Channel.CreateBounded<DiagnosticLogRecord>(
             new BoundedChannelOptions(opts.ChannelCapacity) { FullMode = BoundedChannelFullMode.DropOldest });
-
-        _drainTask = DrainLoopAsync(_cts.Token);
     }
 
     public ILogger CreateLogger(string categoryName)
@@ -61,30 +58,36 @@ public sealed class PackageLoggerProvider : ILoggerProvider, IDisposable
 
     internal void Write(DiagnosticLogRecord record)
     {
+        // Eagerly capture the store reference on the write path so the drain loop
+        // can flush even if the job completes before the next poll interval.
+        var store = _packageState.CurrentStore;
+        if (store is not null)
+            _lastKnownStore = store;
+
         _channel.Writer.TryWrite(record);
     }
 
-    private async Task DrainLoopAsync(CancellationToken cancellationToken)
+    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         var batch = new List<DiagnosticLogRecord>(_flushBatchSize);
 
         try
         {
-            while (!cancellationToken.IsCancellationRequested)
+            while (!stoppingToken.IsCancellationRequested)
             {
                 // Wait for a store to become available before consuming from the channel.
                 // Records stay safely buffered in the bounded channel while no job is active.
                 var currentStore = _packageState.CurrentStore;
                 if (currentStore is null)
                 {
-                    await Task.Delay(_flushInterval, cancellationToken).ConfigureAwait(false);
+                    await Task.Delay(_flushInterval, stoppingToken).ConfigureAwait(false);
                     continue;
                 }
                 _lastKnownStore = currentStore;
 
                 batch.Clear();
 
-                using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+                using var cts = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken);
                 cts.CancelAfter(_flushInterval);
 
                 try
@@ -102,11 +105,15 @@ public sealed class PackageLoggerProvider : ILoggerProvider, IDisposable
 
                 if (batch.Count > 0)
                 {
-                    await FlushBatchAsync(batch, cancellationToken).ConfigureAwait(false);
+                    // Use CancellationToken.None so that records are not dropped when
+                    // stoppingToken fires while a batch is mid-flush. File.AppendAllTextAsync
+                    // returns Task.FromCanceled immediately for a pre-cancelled token, silently
+                    // discarding records. Log appends are fast local I/O and should always complete.
+                    await FlushBatchAsync(batch, CancellationToken.None).ConfigureAwait(false);
                 }
             }
         }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
         {
             // Normal shutdown.
         }
@@ -149,18 +156,6 @@ public sealed class PackageLoggerProvider : ILoggerProvider, IDisposable
             Interlocked.Add(ref _droppedCount, batch.Count);
             // Best-effort — failures are counted but not propagated.
         }
-    }
-
-    public void Dispose()
-    {
-        if (Interlocked.Exchange(ref _disposed, 1) != 0)
-            return;
-
-        try { _cts.Cancel(); } catch (ObjectDisposedException) { }
-        _channel.Writer.TryComplete();
-        // Allow drain to complete (bounded wait to avoid blocking disposal indefinitely).
-        _drainTask.Wait(TimeSpan.FromSeconds(5));
-        _cts.Dispose();
     }
 
     /// <summary>

@@ -5,6 +5,7 @@ using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Models;
 using DevOpsMigrationPlatform.Abstractions.Services;
 using Microsoft.TeamFoundation.WorkItemTracking.WebApi.Models;
 
@@ -37,15 +38,14 @@ public sealed class WorkItemQueryWindowStrategy : IWorkItemQueryWindowStrategy
     }
 
     public async IAsyncEnumerable<WorkItemQueryWindow> EnumerateWindowsAsync(
-        MigrationEndpointOptions endpoint,
+        OrganisationEndpoint endpoint,
         string project,
         WorkItemQueryWindowOptions? options = null,
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         options ??= new WorkItemQueryWindowOptions();
 
-        var orgEndpoint = endpoint.ToOrganisationEndpoint();
-        var witClient = await _clientFactory.CreateAsync(orgEndpoint, cancellationToken);
+        var witClient = await _clientFactory.CreateAsync(endpoint, cancellationToken);
 
         // Resolve WHERE predicate and ORDER BY: use the caller-supplied base query
         // (e.g. from the scenario configuration) or fall back to the default

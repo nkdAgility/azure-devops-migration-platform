@@ -8,6 +8,7 @@ using Microsoft.VisualStudio.TestTools.UnitTesting;
 namespace DevOpsMigrationPlatform.CLI.Migration.Tests.Commands;
 
 [TestClass]
+[DoNotParallelize]
 public class ManageProgressCommandTests
 {
     // ── Unit tests ────────────────────────────────────────────────────────────────

@@ -40,4 +40,10 @@ public abstract class MigrationEndpointOptions
     /// Returns <see cref="string.Empty"/> for endpoint types that have no URL (e.g. Simulated).
     /// </summary>
     public virtual string GetResolvedUrl() => string.Empty;
+
+    /// <summary>
+    /// Converts this endpoint options instance to a fully-resolved <see cref="OrganisationEndpoint"/>
+    /// with resolved URLs and authentication credentials. Each connector type provides its own mapping.
+    /// </summary>
+    public abstract OrganisationEndpoint ToOrganisationEndpoint();
 }

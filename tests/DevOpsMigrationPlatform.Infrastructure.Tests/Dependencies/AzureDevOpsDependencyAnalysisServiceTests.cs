@@ -21,7 +21,7 @@ public class AzureDevOpsDependencyAnalysisServiceTests
 {
     private Mock<IOptions<DiscoveryOptions>> _optionsMock = null!;
     private Mock<IAzureDevOpsClientFactory> _clientFactoryMock = null!;
-    private Mock<IWorkItemQueryWindowStrategy> _windowStrategyMock = null!;
+    private Mock<IWorkItemFetchService> _fetchServiceMock = null!;
     private Mock<ILogger<AzureDevOpsDependencyAnalysisService>> _loggerMock = null!;
     private AzureDevOpsDependencyAnalysisService _service = null!;
 
@@ -32,13 +32,13 @@ public class AzureDevOpsDependencyAnalysisServiceTests
         _optionsMock.Setup(o => o.Value).Returns(new DiscoveryOptions { Policies = new() { Throttle = new() { MaxConcurrency = 4 } } });
 
         _clientFactoryMock = new Mock<IAzureDevOpsClientFactory>();
-        _windowStrategyMock = new Mock<IWorkItemQueryWindowStrategy>();
+        _fetchServiceMock = new Mock<IWorkItemFetchService>();
         _loggerMock = new Mock<ILogger<AzureDevOpsDependencyAnalysisService>>();
 
         _service = new AzureDevOpsDependencyAnalysisService(
             _optionsMock.Object,
             _clientFactoryMock.Object,
-            _windowStrategyMock.Object,
+            _fetchServiceMock.Object,
             _loggerMock.Object);
     }
 
@@ -55,7 +55,7 @@ public class AzureDevOpsDependencyAnalysisServiceTests
             new AzureDevOpsDependencyAnalysisService(
                 null!,
                 _clientFactoryMock.Object,
-                _windowStrategyMock.Object,
+                _fetchServiceMock.Object,
                 _loggerMock.Object));
     }
 
@@ -66,12 +66,12 @@ public class AzureDevOpsDependencyAnalysisServiceTests
             new AzureDevOpsDependencyAnalysisService(
                 _optionsMock.Object,
                 null!,
-                _windowStrategyMock.Object,
+                _fetchServiceMock.Object,
                 _loggerMock.Object));
     }
 
     [TestMethod]
-    public void Service_ThrowsArgumentNullException_WhenWindowStrategyNull()
+    public void Service_ThrowsArgumentNullException_WhenFetchServiceNull()
     {
         Assert.ThrowsExactly<ArgumentNullException>(() =>
             new AzureDevOpsDependencyAnalysisService(
@@ -88,7 +88,7 @@ public class AzureDevOpsDependencyAnalysisServiceTests
             new AzureDevOpsDependencyAnalysisService(
                 _optionsMock.Object,
                 _clientFactoryMock.Object,
-                _windowStrategyMock.Object,
+                _fetchServiceMock.Object,
                 null!));
     }
 

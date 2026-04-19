@@ -45,6 +45,12 @@ public sealed class PackageProgressSink : BackgroundService, IProgressSink
 
     public void Emit(ProgressEvent evt)
     {
+        // Eagerly capture the store reference on the emit path so the drain loop
+        // can flush even if the job completes before the next poll interval.
+        var store = _packageState.CurrentStore;
+        if (store is not null)
+            _lastKnownStore = store;
+
         _channel.Writer.TryWrite(evt);
     }
 
@@ -87,7 +93,11 @@ public sealed class PackageProgressSink : BackgroundService, IProgressSink
 
                 if (batch.Count > 0)
                 {
-                    await FlushBatchAsync(batch, stoppingToken).ConfigureAwait(false);
+                    // Use CancellationToken.None so that records are not dropped when
+                    // stoppingToken fires while a batch is mid-flush. File.AppendAllTextAsync
+                    // returns Task.FromCanceled immediately for a pre-cancelled token, silently
+                    // discarding records. Log appends are fast local I/O and should always complete.
+                    await FlushBatchAsync(batch, CancellationToken.None).ConfigureAwait(false);
                 }
             }
         }

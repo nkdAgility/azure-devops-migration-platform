@@ -39,8 +39,9 @@ public class CatalogService : ICatalogService
         string project,
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
+        var orgEndpoint = endpoint.ToOrganisationEndpoint();
         await foreach (var summary in _workItemDiscovery.DiscoverWorkItemsAsync(
-            endpoint, project, cancellationToken))
+            orgEndpoint, project, cancellationToken: cancellationToken))
         {
             yield return summary;
         }

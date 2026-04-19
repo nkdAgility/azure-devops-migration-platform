@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 
 namespace DevOpsMigrationPlatform.Abstractions;
 
@@ -46,16 +47,45 @@ public sealed class WorkItemsModuleExtensions
     public WorkItemResolutionStrategyOptions ResolutionStrategy { get; init; } = new();
 
     /// <summary>
+    /// Work item filters that a work item must satisfy to be included.
+    /// Parsed from <c>filter</c> scopes with <c>mode == "include"</c>.
+    /// All filters are applied as AND conditions.
+    /// Empty when no include filter scopes are configured.
+    /// </summary>
+    public IReadOnlyList<Models.WorkItemFieldFilterOptions> IncludeFilters { get; init; }
+        = Array.Empty<Models.WorkItemFieldFilterOptions>();
+
+    /// <summary>
+    /// Work item filters that, if matched, cause a work item to be excluded.
+    /// Parsed from <c>filter</c> scopes with <c>mode == "exclude"</c>.
+    /// All filters are applied as AND conditions — a work item is excluded only if it matches all exclude filters.
+    /// Empty when no exclude filter scopes are configured.
+    /// </summary>
+    public IReadOnlyList<Models.WorkItemFieldFilterOptions> ExcludeFilters { get; init; }
+        = Array.Empty<Models.WorkItemFieldFilterOptions>();
+
+    /// <summary>
     /// Constructs a <see cref="WorkItemsModuleExtensions"/> from a <see cref="JobModule"/>.
     /// Reads the WIQL query from the first <c>"wiql"</c> scope in
     /// <see cref="JobModule.Scopes"/> and iterates
     /// <see cref="JobModule.Extensions"/> by <see cref="JobModuleExtension.Type"/>
     /// to populate sub-module settings. Unknown extension types are silently ignored.
     /// Missing extensions fall back to enabled defaults.
+    /// <para>
+    /// Also parses <c>"filter"</c> scopes from <see cref="JobModule.Scopes"/> into
+    /// <see cref="IncludeFilters"/> and <see cref="ExcludeFilters"/>. Each filter scope is
+    /// validated (mode, field, pattern); an <see cref="InvalidOperationException"/> is thrown
+    /// on invalid configuration before any work begins.
+    /// </para>
     /// </summary>
+    /// <exception cref="InvalidOperationException">
+    /// Thrown when a filter scope has an unsupported mode, an empty field name,
+    /// or an invalid .NET regex pattern.
+    /// </exception>
     public static WorkItemsModuleExtensions FromModule(JobModule module)
     {
         var query = GetWiqlQuery(module.Scopes);
+        var (includeFilters, excludeFilters) = ParseFilterScopes(module.Scopes);
 
         bool revisionsEnabled = true;
         bool linksEnabled = true;
@@ -98,6 +128,8 @@ public sealed class WorkItemsModuleExtensions
             Comments = comments,
             EmbeddedImages = embeddedImages,
             ResolutionStrategy = resolutionStrategy,
+            IncludeFilters = includeFilters,
+            ExcludeFilters = excludeFilters,
         };
     }
 
@@ -181,6 +213,63 @@ public sealed class WorkItemsModuleExtensions
 
         var q = raw.ToString();
         return string.IsNullOrWhiteSpace(q) ? DefaultWiqlQuery : q;
+    }
+
+    /// <summary>
+    /// Parses all <c>filter</c> scopes from <paramref name="scopes"/> into validated
+    /// <see cref="Models.WorkItemFieldFilterOptions"/> lists, separated by include/exclude mode.
+    /// </summary>
+    /// <exception cref="InvalidOperationException">
+    /// Thrown when a filter scope has an unsupported mode, an empty field name,
+    /// or an invalid .NET regex pattern.
+    /// </exception>
+    private static (IReadOnlyList<Models.WorkItemFieldFilterOptions> IncludeFilters,
+                    IReadOnlyList<Models.WorkItemFieldFilterOptions> ExcludeFilters)
+        ParseFilterScopes(System.Collections.Generic.List<JobModuleScope> scopes)
+    {
+        var includeFilters = new List<Models.WorkItemFieldFilterOptions>();
+        var excludeFilters = new List<Models.WorkItemFieldFilterOptions>();
+
+        foreach (var scope in scopes)
+        {
+            if (!string.Equals(scope.Type, "filter", StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            var mode = GetString(scope.Parameters, "mode", string.Empty).Trim();
+            var field = GetString(scope.Parameters, "field", string.Empty).Trim();
+            var pattern = GetString(scope.Parameters, "pattern", string.Empty).Trim();
+
+            if (!string.Equals(mode, "include", StringComparison.OrdinalIgnoreCase) &&
+                !string.Equals(mode, "exclude", StringComparison.OrdinalIgnoreCase))
+                throw new InvalidOperationException(
+                    $"Filter scope has unsupported mode '{mode}'. Supported values: 'include', 'exclude'.");
+
+            if (string.IsNullOrEmpty(field))
+                throw new InvalidOperationException(
+                    "Filter scope has an empty or missing 'field' parameter.");
+
+            // Validate the regex by constructing it — fast-fail with a clear error.
+            try { _ = new Regex(pattern, RegexOptions.IgnoreCase, TimeSpan.FromSeconds(2)); }
+            catch (ArgumentException ex)
+            {
+                throw new InvalidOperationException(
+                    $"Filter scope for field '{field}' has an invalid regex pattern '{pattern}': {ex.Message}", ex);
+            }
+
+            var filterOptions = new Models.WorkItemFieldFilterOptions(
+                field,
+                string.Equals(mode, "include", StringComparison.OrdinalIgnoreCase)
+                    ? Models.FilterOperator.Regex
+                    : Models.FilterOperator.NotRegex,
+                pattern);
+
+            if (string.Equals(mode, "include", StringComparison.OrdinalIgnoreCase))
+                includeFilters.Add(filterOptions);
+            else
+                excludeFilters.Add(filterOptions);
+        }
+
+        return (includeFilters, excludeFilters);
     }
 }
 #endif

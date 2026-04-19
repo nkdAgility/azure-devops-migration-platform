@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Threading;
+using DevOpsMigrationPlatform.Abstractions.Models;
 
 namespace DevOpsMigrationPlatform.Abstractions.Services;
 
@@ -16,10 +17,18 @@ public interface IWorkItemDiscoveryService
     /// <summary>
     /// Streams incremental work-item discovery snapshots for <paramref name="project"/>.
     /// Fetches work item IDs and revision counts (<c>System.Rev</c>) for every work item found.
+    /// <para>
+    /// When <paramref name="scope"/> is non-null, the implementation merges
+    /// <see cref="WorkItemFetchScope.Fields"/> with <c>["System.Rev"]</c> and passes
+    /// <see cref="WorkItemFetchScope.FilterOptions"/> and <see cref="WorkItemFetchScope.BaseQuery"/>
+    /// to the underlying <see cref="IWorkItemFetchService"/>. Items that do not pass the filter
+    /// are not included in the returned snapshots.
+    /// </para>
     /// </summary>
     IAsyncEnumerable<ProjectDiscoverySummary> DiscoverWorkItemsAsync(
-        MigrationEndpointOptions endpoint,
+        OrganisationEndpoint endpoint,
         string project,
+        WorkItemFetchScope? scope = null,
         CancellationToken cancellationToken = default);
 
     /// <summary>
@@ -31,7 +40,7 @@ public interface IWorkItemDiscoveryService
     /// <see cref="ProjectDiscoverySummary.IsWorkItemComplete"/> = <c>true</c>.
     /// </summary>
     IAsyncEnumerable<ProjectDiscoverySummary> CountWorkItemsAsync(
-        MigrationEndpointOptions endpoint,
+        OrganisationEndpoint endpoint,
         string project,
         string? baseQuery = null,
         CancellationToken cancellationToken = default);
