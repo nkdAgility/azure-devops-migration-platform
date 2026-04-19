@@ -747,4 +747,103 @@ public class WorkItemExportOrchestratorTests
         Assert.IsTrue(revisionWriteIdx < cursorIdx, "revision.json must be written before cursor.");
         Assert.IsTrue(binaryWriteIdx < cursorIdx, "attachment binary must be written before cursor.");
     }
+
+    // ── Filter scope pre-pass ─────────────────────────────────────────────────
+
+    [TestMethod]
+    public async Task ExportAsync_WithFilterAndMatchingItems_OnlyExportsMatchingWorkItems()
+    {
+        _mockCps.Setup(s => s.ReadCursorAsync("WorkItems", It.IsAny<CancellationToken>()))
+                .ReturnsAsync((CursorEntry?)null);
+        _mockCps.Setup(s => s.WriteCursorAsync("WorkItems", It.IsAny<CursorEntry>(), It.IsAny<CancellationToken>()))
+                .Returns(Task.CompletedTask);
+
+        var written = new List<string>();
+        _mockStore.Setup(s => s.WriteAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+                  .Callback<string, string, CancellationToken>((p, _, _) => written.Add(p))
+                  .Returns(Task.CompletedTask);
+
+        // Pre-filter pass: only work item 1 passes the filter.
+        var mockFetchService = new Mock<IWorkItemFetchService>(MockBehavior.Strict);
+        mockFetchService
+            .Setup(s => s.FetchAsync(
+                It.IsAny<OrganisationEndpoint>(),
+                It.IsAny<string>(),
+                It.IsAny<WorkItemFetchScope>(),
+                It.IsAny<CancellationToken>()))
+            .Returns((OrganisationEndpoint _, string _, WorkItemFetchScope _, CancellationToken ct) =>
+                new[] { new FetchedWorkItem(1, new Dictionary<string, object?> { ["System.WorkItemType"] = "Bug" }) }
+                .ToAsyncEnumerable(ct));
+
+        var filterOptions = new List<WorkItemFieldFilterOptions>
+        {
+            new("System.WorkItemType", FilterOperator.Regex, "^Bug$")
+        };
+
+        var sut = new WorkItemExportOrchestrator(
+            _mockStore.Object, _mockCps.Object,
+            endpoint: TestEndpoint,
+            project: "MyProject",
+            fetchService: mockFetchService.Object,
+            filterOptions: filterOptions);
+
+        var baseDate = new DateTimeOffset(2024, 1, 1, 0, 0, 0, TimeSpan.Zero);
+        var revisions = new[]
+        {
+            new WorkItemRevision { WorkItemId = 1, RevisionIndex = 0, ChangedDate = baseDate },
+            new WorkItemRevision { WorkItemId = 2, RevisionIndex = 0, ChangedDate = baseDate.AddDays(1) }  // should be filtered out
+        };
+
+        var mockSource = new Mock<IWorkItemRevisionSource>(MockBehavior.Strict);
+        mockSource.Setup(s => s.GetRevisionsAsync(It.IsAny<CancellationToken>()))
+                  .Returns((CancellationToken ct) => revisions.ToAsyncEnumerable(ct));
+
+        await sut.ExportAsync(mockSource.Object, CancellationToken.None);
+
+        Assert.IsTrue(written.Any(p => p.Contains("-1-0/")), "Work item 1 should be exported.");
+        Assert.IsFalse(written.Any(p => p.Contains("-2-0/")), "Work item 2 should be filtered out.");
+    }
+
+    [TestMethod]
+    public async Task ExportAsync_WithNoFilterOptions_ExportsAllWorkItems()
+    {
+        _mockCps.Setup(s => s.ReadCursorAsync("WorkItems", It.IsAny<CancellationToken>()))
+                .ReturnsAsync((CursorEntry?)null);
+        _mockCps.Setup(s => s.WriteCursorAsync("WorkItems", It.IsAny<CursorEntry>(), It.IsAny<CancellationToken>()))
+                .Returns(Task.CompletedTask);
+
+        var written = new List<string>();
+        _mockStore.Setup(s => s.WriteAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+                  .Callback<string, string, CancellationToken>((p, _, _) => written.Add(p))
+                  .Returns(Task.CompletedTask);
+
+        // No filter options — fetch service should NOT be called.
+        var mockFetchService = new Mock<IWorkItemFetchService>(MockBehavior.Strict);
+
+        var sut = new WorkItemExportOrchestrator(
+            _mockStore.Object, _mockCps.Object,
+            endpoint: TestEndpoint,
+            project: "MyProject",
+            fetchService: mockFetchService.Object,
+            filterOptions: null);
+
+        var baseDate = new DateTimeOffset(2024, 1, 1, 0, 0, 0, TimeSpan.Zero);
+        var revisions = new[]
+        {
+            new WorkItemRevision { WorkItemId = 1, RevisionIndex = 0, ChangedDate = baseDate },
+            new WorkItemRevision { WorkItemId = 2, RevisionIndex = 0, ChangedDate = baseDate.AddDays(1) }
+        };
+
+        var mockSource = new Mock<IWorkItemRevisionSource>(MockBehavior.Strict);
+        mockSource.Setup(s => s.GetRevisionsAsync(It.IsAny<CancellationToken>()))
+                  .Returns((CancellationToken ct) => revisions.ToAsyncEnumerable(ct));
+
+        await sut.ExportAsync(mockSource.Object, CancellationToken.None);
+
+        Assert.AreEqual(2, written.Count, "All work items should be exported when no filter is configured.");
+        mockFetchService.Verify(s => s.FetchAsync(
+            It.IsAny<OrganisationEndpoint>(), It.IsAny<string>(),
+            It.IsAny<WorkItemFetchScope>(), It.IsAny<CancellationToken>()), Times.Never,
+            "FetchAsync should not be called when no filter is configured.");
+    }
 }

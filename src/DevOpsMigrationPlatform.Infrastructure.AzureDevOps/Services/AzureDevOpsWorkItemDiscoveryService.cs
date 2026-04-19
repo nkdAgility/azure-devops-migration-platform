@@ -32,15 +32,24 @@ public sealed class AzureDevOpsWorkItemDiscoveryService : IWorkItemDiscoveryServ
     public async IAsyncEnumerable<ProjectDiscoverySummary> DiscoverWorkItemsAsync(
         OrganisationEndpoint endpoint,
         string project,
+        WorkItemFetchScope? scope = null,
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         var summary = new ProjectDiscoverySummary { ProjectName = project };
 
-        var scope = new WorkItemFetchScope(Fields: new[] { "System.Rev" });
+        // Union caller-supplied fields with System.Rev (always required for revision counting).
+        var mergedFields = scope?.Fields is { Count: > 0 }
+            ? new[] { "System.Rev" }.Union(scope.Fields).ToArray()
+            : new[] { "System.Rev" };
+
+        var fetchScope = new WorkItemFetchScope(
+            Fields: mergedFields,
+            FilterOptions: scope?.FilterOptions,
+            BaseQuery: scope?.BaseQuery);
 
         var itemsSinceLastYield = 0;
 
-        await foreach (var item in _fetchService.FetchAsync(endpoint, project, scope, cancellationToken)
+        await foreach (var item in _fetchService.FetchAsync(endpoint, project, fetchScope, cancellationToken)
             .ConfigureAwait(false))
         {
             cancellationToken.ThrowIfCancellationRequested();

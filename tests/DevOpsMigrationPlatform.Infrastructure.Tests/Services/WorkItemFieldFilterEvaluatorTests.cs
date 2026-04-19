@@ -161,6 +161,125 @@ public class WorkItemFieldFilterEvaluatorTests
         Assert.IsFalse(AzureDevOpsWorkItemFetchService.PassesFilters(item, filters));
     }
 
+    // --- Regex / NotRegex ---
+
+    [TestMethod]
+    public void PassesFilters_Regex_MatchingPattern_ReturnsTrue()
+    {
+        var item = MakeItem(("System.WorkItemType", "Bug"));
+        var filters = new List<WorkItemFieldFilterOptions>
+        {
+            new("System.WorkItemType", FilterOperator.Regex, "^Bug$")
+        };
+        Assert.IsTrue(AzureDevOpsWorkItemFetchService.PassesFilters(item, filters));
+    }
+
+    [TestMethod]
+    public void PassesFilters_Regex_CaseInsensitive_ReturnsTrue()
+    {
+        var item = MakeItem(("System.WorkItemType", "BUG"));
+        var filters = new List<WorkItemFieldFilterOptions>
+        {
+            new("System.WorkItemType", FilterOperator.Regex, "^bug$")
+        };
+        Assert.IsTrue(AzureDevOpsWorkItemFetchService.PassesFilters(item, filters));
+    }
+
+    [TestMethod]
+    public void PassesFilters_Regex_NonMatchingPattern_ReturnsFalse()
+    {
+        var item = MakeItem(("System.WorkItemType", "Task"));
+        var filters = new List<WorkItemFieldFilterOptions>
+        {
+            new("System.WorkItemType", FilterOperator.Regex, "^Bug$")
+        };
+        Assert.IsFalse(AzureDevOpsWorkItemFetchService.PassesFilters(item, filters));
+    }
+
+    [TestMethod]
+    public void PassesFilters_Regex_PartialPatternMatch_ReturnsTrue()
+    {
+        var item = MakeItem(("System.Title", "Fix login page bug"));
+        var filters = new List<WorkItemFieldFilterOptions>
+        {
+            new("System.Title", FilterOperator.Regex, "login.*bug")
+        };
+        Assert.IsTrue(AzureDevOpsWorkItemFetchService.PassesFilters(item, filters));
+    }
+
+    [TestMethod]
+    public void PassesFilters_Regex_MissingField_ReturnsFalse()
+    {
+        var item = MakeItem(("System.State", "Active"));
+        var filters = new List<WorkItemFieldFilterOptions>
+        {
+            new("System.WorkItemType", FilterOperator.Regex, "^Bug$")
+        };
+        Assert.IsFalse(AzureDevOpsWorkItemFetchService.PassesFilters(item, filters));
+    }
+
+    [TestMethod]
+    public void PassesFilters_NotRegex_NonMatchingPattern_ReturnsTrue()
+    {
+        var item = MakeItem(("System.WorkItemType", "Task"));
+        var filters = new List<WorkItemFieldFilterOptions>
+        {
+            new("System.WorkItemType", FilterOperator.NotRegex, "^Bug$")
+        };
+        Assert.IsTrue(AzureDevOpsWorkItemFetchService.PassesFilters(item, filters));
+    }
+
+    [TestMethod]
+    public void PassesFilters_NotRegex_MatchingPattern_ReturnsFalse()
+    {
+        var item = MakeItem(("System.WorkItemType", "Bug"));
+        var filters = new List<WorkItemFieldFilterOptions>
+        {
+            new("System.WorkItemType", FilterOperator.NotRegex, "^Bug$")
+        };
+        Assert.IsFalse(AzureDevOpsWorkItemFetchService.PassesFilters(item, filters));
+    }
+
+    [TestMethod]
+    public void PassesFilters_NotRegex_MissingField_ReturnsTrue()
+    {
+        var item = MakeItem(("System.State", "Active"));
+        var filters = new List<WorkItemFieldFilterOptions>
+        {
+            new("System.WorkItemType", FilterOperator.NotRegex, "^Bug$")
+        };
+        // Absent field = does not match = passes NotRegex
+        Assert.IsTrue(AzureDevOpsWorkItemFetchService.PassesFilters(item, filters));
+    }
+
+    [TestMethod]
+    public void PassesFilters_IncludeAndExclude_BothPass_ReturnsTrue()
+    {
+        var item = MakeItem(
+            ("System.WorkItemType", "Bug"),
+            ("System.State", "Active"));
+        var filters = new List<WorkItemFieldFilterOptions>
+        {
+            new("System.WorkItemType", FilterOperator.Regex, "^Bug$"),     // include
+            new("System.State", FilterOperator.NotRegex, "^Closed$")       // exclude closed items
+        };
+        Assert.IsTrue(AzureDevOpsWorkItemFetchService.PassesFilters(item, filters));
+    }
+
+    [TestMethod]
+    public void PassesFilters_IncludeAndExclude_ExcludeHits_ReturnsFalse()
+    {
+        var item = MakeItem(
+            ("System.WorkItemType", "Bug"),
+            ("System.State", "Closed"));
+        var filters = new List<WorkItemFieldFilterOptions>
+        {
+            new("System.WorkItemType", FilterOperator.Regex, "^Bug$"),     // include
+            new("System.State", FilterOperator.NotRegex, "^Closed$")       // exclude closed items
+        };
+        Assert.IsFalse(AzureDevOpsWorkItemFetchService.PassesFilters(item, filters));
+    }
+
     private static FetchedWorkItem MakeItem(params (string Key, object? Value)[] fields)
     {
         var dict = new Dictionary<string, object?>();

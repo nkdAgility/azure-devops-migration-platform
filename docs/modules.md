@@ -42,7 +42,7 @@ interface IModule
 
 | Module | Responsibility |
 |---|---|
-| `WorkItemsModule` | High-fidelity work item revision export/import. Accepts a `wiql` scope (with `query` parameter) and five independently-enabled named extensions: `Revisions`, `Links`, `Attachments`, `Comments` (fetches comment versions from the ADO Comments API), and `EmbeddedImages` (downloads and rewrites inline images from HTML/Markdown fields). |
+| `WorkItemsModule` | High-fidelity work item revision export/import. Accepts a `wiql` scope (with `query` parameter) and one or more `filter` scopes (with `mode`, `field`, and `pattern` parameters) to include or exclude work items by field value using a case-insensitive regex. Also accepts five independently-enabled named extensions: `Revisions`, `Links`, `Attachments`, `Comments` (fetches comment versions from the ADO Comments API), and `EmbeddedImages` (downloads and rewrites inline images from HTML/Markdown fields). |
 | `IdentitiesModule` | Export user/group descriptors; provide identity mapping service to all other modules |
 | `TeamsModule` | Export and import team membership and settings |
 | `PermissionsModule` | Export and import project and repository access control lists |

@@ -49,6 +49,12 @@ public sealed class InventoryService : IInventoryService
             var endpoint = entry.ToEndpointOptions();
             var orgEndpoint = endpoint.ToOrganisationEndpoint();
 
+#if !NET481
+            var fetchScope = BuildOrgFetchScope(entry.Scopes);
+#else
+            WorkItemFetchScope? fetchScope = null;
+#endif
+
             var projects = entry.Projects.Count > 0
                 ? entry.Projects
                 : await _projectDiscovery.DiscoverProjectsAsync(endpoint, cancellationToken).ConfigureAwait(false);
@@ -61,7 +67,7 @@ public sealed class InventoryService : IInventoryService
                 InventoryProgressEvent? pendingFinalEvent = null;
 
                 await foreach (var summary in _workItemDiscovery.DiscoverWorkItemsAsync(
-                    orgEndpoint, project, cancellationToken))
+                    orgEndpoint, project, fetchScope, cancellationToken))
                 {
                     if (!summary.IsWorkItemComplete)
                     {
@@ -101,4 +107,74 @@ public sealed class InventoryService : IInventoryService
             }
         }
     }
+
+#if !NET481
+    /// <summary>
+    /// Builds a <see cref="WorkItemFetchScope"/> from org-level <see cref="MigrationOptionsScope"/> entries.
+    /// Returns <see langword="null"/> when no relevant scopes are present (wiql or filter).
+    /// </summary>
+    private static WorkItemFetchScope? BuildOrgFetchScope(List<MigrationOptionsScope> scopes)
+    {
+        if (scopes is not { Count: > 0 })
+            return null;
+
+        string? baseQuery = null;
+        var filterOptions = new List<WorkItemFieldFilterOptions>();
+
+        foreach (var scope in scopes)
+        {
+            if (string.Equals(scope.Type, "wiql", StringComparison.OrdinalIgnoreCase))
+            {
+                if (scope.Parameters.TryGetValue("query", out var queryEl))
+                {
+                    var q = queryEl.ValueKind == System.Text.Json.JsonValueKind.String
+                        ? queryEl.GetString()
+                        : queryEl.ToString();
+                    if (!string.IsNullOrWhiteSpace(q))
+                        baseQuery = q;
+                }
+            }
+            else if (string.Equals(scope.Type, "filter", StringComparison.OrdinalIgnoreCase))
+            {
+                var mode    = GetParam(scope.Parameters, "mode").Trim();
+                var field   = GetParam(scope.Parameters, "field").Trim();
+                var pattern = GetParam(scope.Parameters, "pattern").Trim();
+
+                if (string.IsNullOrEmpty(field) || string.IsNullOrEmpty(pattern))
+                    continue;
+
+                bool isInclude = string.Equals(mode, "include", StringComparison.OrdinalIgnoreCase);
+                bool isExclude = string.Equals(mode, "exclude", StringComparison.OrdinalIgnoreCase);
+                if (!isInclude && !isExclude)
+                    continue;
+
+                var op = isInclude ? FilterOperator.Regex : FilterOperator.NotRegex;
+                filterOptions.Add(new WorkItemFieldFilterOptions(field, op, pattern));
+            }
+        }
+
+        if (baseQuery is null && filterOptions.Count == 0)
+            return null;
+
+        // Fields: always include System.Rev; add all filter-referenced fields
+        var fields = new[] { "System.Rev" }
+            .Union(filterOptions.Select(f => f.FieldName))
+            .ToArray();
+
+        return new WorkItemFetchScope(
+            Fields: fields,
+            FilterOptions: filterOptions.Count > 0 ? filterOptions : null,
+            BaseQuery: baseQuery);
+    }
+
+    private static string GetParam(
+        System.Collections.Generic.Dictionary<string, System.Text.Json.JsonElement> parameters,
+        string key)
+    {
+        if (!parameters.TryGetValue(key, out var el)) return string.Empty;
+        return el.ValueKind == System.Text.Json.JsonValueKind.String
+            ? el.GetString() ?? string.Empty
+            : el.ToString();
+    }
+#endif
 }

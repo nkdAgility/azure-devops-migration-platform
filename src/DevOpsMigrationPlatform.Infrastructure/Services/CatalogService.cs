@@ -41,7 +41,7 @@ public class CatalogService : ICatalogService
     {
         var orgEndpoint = endpoint.ToOrganisationEndpoint();
         await foreach (var summary in _workItemDiscovery.DiscoverWorkItemsAsync(
-            orgEndpoint, project, cancellationToken))
+            orgEndpoint, project, cancellationToken: cancellationToken))
         {
             yield return summary;
         }

@@ -1,8 +1,10 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
@@ -20,6 +22,12 @@ namespace DevOpsMigrationPlatform.Infrastructure.Export;
 /// downloaded and stored beside <c>revision.json</c> in the same revision folder.
 /// For comment edit/delete revisions, inline comment versions are fetched via
 /// <see cref="IWorkItemCommentSourceFactory"/> and written as comment.json.
+/// <para>
+/// When <see cref="FilterOptions"/> is non-empty, a pre-filter pass is performed before the
+/// main export loop via <see cref="IWorkItemFetchService"/>. Only filter-referenced fields are
+/// fetched. Work items that do not pass the filter are skipped entirely — no revision API calls
+/// are made for filtered-out items.
+/// </para>
 /// </summary>
 public sealed class WorkItemExportOrchestrator
 {
@@ -37,6 +45,8 @@ public sealed class WorkItemExportOrchestrator
     private readonly IWorkItemCommentSourceFactory? _inlineCommentSourceFactory;
     private readonly MigrationEndpointOptions? _endpoint;
     private readonly string? _project;
+    private readonly IWorkItemFetchService? _fetchService;
+    private readonly IReadOnlyList<WorkItemFieldFilterOptions>? _filterOptions;
 
     public WorkItemExportOrchestrator(
         IArtefactStore artefactStore,
@@ -45,7 +55,9 @@ public sealed class WorkItemExportOrchestrator
         IProgressSink? progressSink = null,
         MigrationEndpointOptions? endpoint = null,
         string? project = null,
-        IWorkItemCommentSourceFactory? inlineCommentSourceFactory = null)
+        IWorkItemCommentSourceFactory? inlineCommentSourceFactory = null,
+        IWorkItemFetchService? fetchService = null,
+        IReadOnlyList<WorkItemFieldFilterOptions>? filterOptions = null)
     {
         _artefactStore = artefactStore;
         _checkpointingService = checkpointingService;
@@ -54,6 +66,8 @@ public sealed class WorkItemExportOrchestrator
         _inlineCommentSourceFactory = inlineCommentSourceFactory;
         _endpoint = endpoint;
         _project = project;
+        _fetchService = fetchService;
+        _filterOptions = filterOptions;
     }
 
     /// <summary>
@@ -66,6 +80,24 @@ public sealed class WorkItemExportOrchestrator
         IWorkItemRevisionSource source,
         CancellationToken cancellationToken)
     {
+        // Pre-filter pass: build the set of work item IDs that pass filter predicates.
+        // If filters are configured, fetch only filter-referenced fields via IWorkItemFetchService.
+        // Items not in the set are skipped in the main loop — no revision API calls are made.
+        HashSet<int>? filteredIds = null;
+        if (_filterOptions is { Count: > 0 } && _fetchService != null && _endpoint != null &&
+            !string.IsNullOrEmpty(_project))
+        {
+            filteredIds = await BuildFilteredIdSetAsync(_filterOptions, cancellationToken)
+                .ConfigureAwait(false);
+
+            _progressSink?.Emit(new ProgressEvent
+            {
+                Module = "WorkItems",
+                Stage = "Export",
+                Message = $"[WorkItems] Pre-filter pass complete: {filteredIds.Count} work items pass the configured filter(s)."
+            });
+        }
+
         var cursor = await _checkpointingService
             .ReadCursorAsync("WorkItems", cancellationToken)
             .ConfigureAwait(false);
@@ -91,6 +123,23 @@ public sealed class WorkItemExportOrchestrator
             if (cursor != null &&
                 string.Compare(folderPath, cursor.LastProcessed, StringComparison.Ordinal) <= 0)
             {
+                continue;
+            }
+
+            // Skip work items that did not pass the pre-filter.
+            if (filteredIds != null && !filteredIds.Contains(revision.WorkItemId))
+            {
+                if (revision.RevisionIndex == 0)
+                {
+                    // Log once per work item (at the first revision we encounter for it).
+                    _progressSink?.Emit(new ProgressEvent
+                    {
+                        Module = "WorkItems",
+                        Stage = "Export",
+                        WorkItemId = revision.WorkItemId,
+                        Message = $"[WorkItems] Work item {revision.WorkItemId} skipped by filter scope."
+                    });
+                }
                 continue;
             }
 
@@ -238,6 +287,41 @@ public sealed class WorkItemExportOrchestrator
                 .ConfigureAwait(false);
         }
 
+        // Emit zero-match warning if filters were active but no items were processed.
+        if (_filterOptions is { Count: > 0 } && workItemsProcessed == 0)
+        {
+            _progressSink?.Emit(new ProgressEvent
+            {
+                Module = "WorkItems",
+                Stage = "Export",
+                Message = "[WorkItems] Warning: all work items were filtered out by filter scopes. Check your filter configuration."
+            });
+        }
+    }
+
+    /// <summary>
+    /// Runs the pre-filter pass via <see cref="IWorkItemFetchService"/>, fetching only the fields
+    /// referenced by <paramref name="filterOptions"/>. Returns the set of work item IDs that pass all filters.
+    /// </summary>
+    private async Task<HashSet<int>> BuildFilteredIdSetAsync(
+        IReadOnlyList<WorkItemFieldFilterOptions> filterOptions,
+        CancellationToken cancellationToken)
+    {
+        var ids = new HashSet<int>();
+
+        // Fetch only the fields referenced by filter predicates — minimal payload.
+        var filterFields = filterOptions.Select(f => f.FieldName).Distinct().ToArray();
+        var scope = new WorkItemFetchScope(Fields: filterFields, FilterOptions: filterOptions);
+
+        var orgEndpoint = _endpoint!.ToOrganisationEndpoint();
+
+        await foreach (var item in _fetchService!.FetchAsync(orgEndpoint, _project!, scope, cancellationToken)
+            .ConfigureAwait(false))
+        {
+            ids.Add(item.Id);
+        }
+
+        return ids;
     }
 
     /// <summary>
