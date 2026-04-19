@@ -93,7 +93,11 @@ public sealed class PackageProgressSink : BackgroundService, IProgressSink
 
                 if (batch.Count > 0)
                 {
-                    await FlushBatchAsync(batch, stoppingToken).ConfigureAwait(false);
+                    // Use CancellationToken.None so that records are not dropped when
+                    // stoppingToken fires while a batch is mid-flush. File.AppendAllTextAsync
+                    // returns Task.FromCanceled immediately for a pre-cancelled token, silently
+                    // discarding records. Log appends are fast local I/O and should always complete.
+                    await FlushBatchAsync(batch, CancellationToken.None).ConfigureAwait(false);
                 }
             }
         }
