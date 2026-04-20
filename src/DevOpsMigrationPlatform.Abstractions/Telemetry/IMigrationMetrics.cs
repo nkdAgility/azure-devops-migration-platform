@@ -1,4 +1,3 @@
-#if !NETFRAMEWORK
 using System.Diagnostics;
 
 namespace DevOpsMigrationPlatform.Abstractions;
@@ -44,4 +43,3 @@ public interface IMigrationMetrics
     void RecordDuplicatedAfterResume(in TagList tags);
     void RecordMissingAfterResume(in TagList tags);
 }
-#endif

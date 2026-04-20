@@ -1,4 +1,3 @@
-#if !NETFRAMEWORK
 using System;
 using System.Diagnostics;
 using System.Diagnostics.Metrics;
@@ -122,4 +121,3 @@ internal sealed class MigrationMetrics : IMigrationMetrics, IDisposable
 
     public void Dispose() => _meter.Dispose();
 }
-#endif

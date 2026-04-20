@@ -1,4 +1,3 @@
-#if !NETFRAMEWORK
 using System.Diagnostics;
 
 namespace DevOpsMigrationPlatform.Abstractions;
@@ -33,4 +32,3 @@ public static class MigrationTagList
         return tags;
     }
 }
-#endif
