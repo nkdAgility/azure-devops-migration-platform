@@ -205,6 +205,11 @@ After completing any unit of work (a logical change, a file edit, a task), befor
 → .agents/skills/session-hooks/SKILL.md — manage session lifecycle events and phase transitions
 → .agents/skills/refactor-patterns/SKILL.md — assess code quality and apply safe refactoring patterns
 → .agents/skills/hexagonal-check/SKILL.md — scan for Hexagonal Architecture boundary violations (infrastructure leakage into domain/module code)
+→ .agents/skills/modular-monolith-check/SKILL.md — scan for Modular Monolith violations (cross-module coupling, missing module boundaries)
+→ .agents/skills/clean-architecture-check/SKILL.md — scan for Clean Architecture violations (dependency rule breaches, business logic in wrong layer)
+→ .agents/skills/vertical-slice-check/SKILL.md — scan for Vertical Slice violations (cross-slice coupling, missing end-to-end slice ownership)
+→ .agents/skills/screaming-architecture-check/SKILL.md — scan for Screaming Architecture violations (generic names, purpose-obscuring structure)
+→ .agents/skills/architecture-review/SKILL.md — run all five architecture perspective checks and produce a combined prioritised report
 
 ## Session Commands (Slash-command aliases)
 → .github/commands/start-session.md — /start-session
