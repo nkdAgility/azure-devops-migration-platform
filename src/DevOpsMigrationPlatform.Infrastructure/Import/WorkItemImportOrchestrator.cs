@@ -20,6 +20,10 @@ namespace DevOpsMigrationPlatform.Infrastructure.Import;
 /// <see cref="RevisionFolderProcessor"/> (revision folders) or the comment handler (comment folders).
 ///
 /// Memory guarantee: processes one folder at a time; no in-memory list accumulation.
+///
+/// Cursor + ID map delta behaviour: Folders at or before the cursor are skipped. Within a
+/// work item, folders whose revisionIndex is at or below <c>idmap.last_revision_index</c> are
+/// skipped (per-WI watermark check). Comment folders are never subject to revision-index skip.
 /// </summary>
 public sealed class WorkItemImportOrchestrator
 {
@@ -68,6 +72,11 @@ public sealed class WorkItemImportOrchestrator
 
     /// <summary>
     /// Runs the import, streaming revision folders from the package.
+    /// Sequence:
+    /// 1. InitializeAsync (open/create idmap.db)
+    /// 2. SeedAsync (rebuild ID map from target provenance markers)
+    /// 3. CheckIntegrityAsync (log warnings for stale mappings)
+    /// 4. Streaming folder loop (cursor-based + revision-index-based skip logic)
     /// </summary>
     public async Task ImportAsync(
         WorkItemsModuleExtensions ext,
@@ -92,9 +101,15 @@ public sealed class WorkItemImportOrchestrator
             string.IsNullOrEmpty(lastProcessed) ? "(start)" : lastProcessed,
             lastStage ?? "(none)");
 
-        // Seed idmap from target strategy
+        // 1. Seed idmap from target strategy (InitializeAsync + SeedAsync).
+        //    InitializeAsync opens or creates idmap.db and verifies the schema.
+        //    SeedAsync bulk-inserts provenance-based mappings using INSERT OR IGNORE.
         await _idMapStore.InitializeAsync(ct).ConfigureAwait(false);
         await _resolutionStrategy.SeedAsync(_idMapStore, ct).ConfigureAwait(false);
+
+        // 2. Integrity check — streams all idmap.db mappings and logs warnings for stale entries.
+        //    Non-blocking: job is not aborted on integrity failures. See FR-010 and spec § US4.
+        await CheckIntegrityAsync(ct).ConfigureAwait(false);
 
         // Pre-filter pass: build the set of work item IDs that pass filter predicates.
         // Enumerates folder names only to find the last revision per WI, then reads one
@@ -121,7 +136,7 @@ public sealed class WorkItemImportOrchestrator
         {
             ct.ThrowIfCancellationRequested();
 
-            // Skip folders at or before the cursor (already completed)
+            // Cursor-based skip: folders at or before the cursor are already completed.
             if (!string.IsNullOrEmpty(lastProcessed)
                 && string.CompareOrdinal(folderPath, lastProcessed) < 0)
             {
@@ -150,6 +165,7 @@ public sealed class WorkItemImportOrchestrator
             if (IsCommentFolder(segments))
             {
                 // Comment sub-folder: <ticks>-<workItemId>-c<commentId>
+                // Comment folders are NEVER subject to revision-index skip logic.
                 if (ext.Comments.Enabled)
                     await ProcessCommentFolderAsync(folderPath, segments, ext, ct).ConfigureAwait(false);
                 else
@@ -157,12 +173,13 @@ public sealed class WorkItemImportOrchestrator
             }
             else if (ext.RevisionsEnabled)
             {
-                // Revision folder — parse work item ID for the progress event
-                var revisionSegments = folderName.Split('-');
-                int.TryParse(revisionSegments.Length >= 2 ? revisionSegments[1] : null, out var wiId);
+                // Parse the folder name using the centralised parser to get workItemId and revisionIndex.
+                // TryParse returns null for comment folders (already handled above) and malformed names.
+                var parseResult = WorkItemRevisionFolderParser.TryParse(folderName);
+                int wiId = parseResult?.WorkItemId ?? 0;
 
                 // Skip if the work item did not pass the filter pre-pass.
-                if (filteredIds != null && !filteredIds.Contains(wiId))
+                if (filteredIds != null && wiId > 0 && !filteredIds.Contains(wiId))
                 {
                     _logger.LogInformation(
                         "[WorkItems] Work item {WorkItemId} skipped by import filter scope.",
@@ -170,6 +187,26 @@ public sealed class WorkItemImportOrchestrator
                     await WriteCompletedCursorAsync(folderPath, ct).ConfigureAwait(false);
                     foldersProcessed++;
                     continue;
+                }
+
+                // Revision-level skip: if last_revision_index >= revisionIndex, this folder has
+                // already been applied in a previous run. Advance cursor and continue.
+                // Only applies when the folder name is parseable (parseResult != null).
+                if (parseResult is not null)
+                {
+                    var lastRevIdx = await _idMapStore
+                        .GetLastRevisionIndexAsync(parseResult.WorkItemId, ct)
+                        .ConfigureAwait(false);
+                    if (lastRevIdx.HasValue && parseResult.RevisionIndex <= lastRevIdx.Value)
+                    {
+                        // Already applied — skip without writing a new cursor entry.
+                        // The cursor already advanced past this folder on the prior run.
+                        _logger.LogDebug(
+                            "[WorkItems] Revision {RevIdx} for WI {WiId} already applied (last={Last}) — skipping.",
+                            parseResult.RevisionIndex, parseResult.WorkItemId, lastRevIdx.Value);
+                        foldersProcessed++;
+                        continue;
+                    }
                 }
 
                 // Revision folder
@@ -191,8 +228,28 @@ public sealed class WorkItemImportOrchestrator
                     workItemsProcessed++;
                 }
 
-                await _processor.ProcessAsync(folderPath, ext, resumeAtStage, _resolutionStrategy, ct)
+                // Process the revision folder.
+                var result = await _processor.ProcessAsync(folderPath, ext, resumeAtStage, _resolutionStrategy, ct)
                     .ConfigureAwait(false);
+
+                if (result.IsSkipped)
+                {
+                    // Skipped revisions (e.g. deleted target): write cursor as Completed and continue.
+                    // The skip is already recorded in idmap.db.skipped_revisions by the processor.
+                    _logger.LogInformation(
+                        "[WorkItems] Revision folder {Folder} skipped: {Reason}. Advancing cursor.",
+                        folderPath, result.SkipReason);
+                    await WriteCompletedCursorAsync(folderPath, ct).ConfigureAwait(false);
+                }
+                else if (parseResult is not null)
+                {
+                    // Applied successfully — update the last_revision_index watermark BEFORE
+                    // the next iteration so that a crash between iterations leaves the watermark
+                    // consistent with the already-written cursor.
+                    await _idMapStore
+                        .UpdateLastRevisionIndexAsync(parseResult.WorkItemId, parseResult.RevisionIndex, ct)
+                        .ConfigureAwait(false);
+                }
             }
             else
             {
@@ -235,6 +292,37 @@ public sealed class WorkItemImportOrchestrator
             _logger.LogWarning(
                 "[WorkItems] Warning: all work items were filtered out by filter scopes. Check your filter configuration.");
         }
+    }
+
+    /// <summary>
+    /// Streams all <c>idmap.db</c> mappings and logs a <c>LogWarning</c> for each mapping
+    /// that references a non-existent target work item.
+    /// Non-blocking: exceptions from <see cref="IWorkItemImportTarget.WorkItemExistsAsync"/>
+    /// propagate normally (network errors will abort the check).
+    /// Called at import startup after <c>SeedAsync</c> completes. See FR-010.
+    /// </summary>
+    private async Task CheckIntegrityAsync(CancellationToken ct)
+    {
+        _logger.LogInformation("[WorkItems][IntegrityCheck] Starting ID map integrity check.");
+        int checked_ = 0;
+        int invalid = 0;
+
+        await foreach (var entry in _idMapStore.EnumerateWorkItemMappingsAsync(ct).ConfigureAwait(false))
+        {
+            checked_++;
+            var exists = await _target.WorkItemExistsAsync(entry.TargetId, ct).ConfigureAwait(false);
+            if (!exists)
+            {
+                invalid++;
+                _logger.LogWarning(
+                    "[WorkItems][IntegrityCheck] Mapping {SourceId}→{TargetId} points to a non-existent target work item.",
+                    entry.SourceId, entry.TargetId);
+            }
+        }
+
+        _logger.LogInformation(
+            "[WorkItems][IntegrityCheck] Integrity check complete. Checked: {Checked}, invalid: {Invalid}.",
+            checked_, invalid);
     }
 
     /// <summary>

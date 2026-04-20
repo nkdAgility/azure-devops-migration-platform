@@ -92,6 +92,9 @@ public class ImportEmbeddedImagesContext
             .Setup(s => s.GetTargetWorkItemIdAsync(1, It.IsAny<CancellationToken>()))
             .ReturnsAsync(10);
         MockTarget
+            .Setup(t => t.WorkItemExistsAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+        MockTarget
             .Setup(t => t.UpdateFieldsAsync(It.IsAny<int>(), It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<CancellationToken>()))
             .Returns(System.Threading.Tasks.Task.CompletedTask);
         MockTarget

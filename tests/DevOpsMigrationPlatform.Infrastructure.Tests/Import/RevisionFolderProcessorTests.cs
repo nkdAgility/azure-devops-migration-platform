@@ -137,6 +137,7 @@ public class RevisionFolderProcessorTests
 
         _mockTarget.Setup(t => t.UpdateFieldsAsync(It.IsAny<int>(), It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
         _mockIdMapStore.Setup(s => s.GetTargetWorkItemIdAsync(1, It.IsAny<CancellationToken>())).ReturnsAsync(10);
+        _mockTarget.Setup(t => t.WorkItemExistsAsync(10, It.IsAny<CancellationToken>())).ReturnsAsync(true);
 
         var ext = new WorkItemsModuleExtensions { LinksEnabled = false };
 
@@ -224,6 +225,9 @@ public class RevisionFolderProcessorTests
             .Setup(s => s.GetTargetWorkItemIdAsync(1, It.IsAny<CancellationToken>()))
             .ReturnsAsync(10);
         _mockTarget
+            .Setup(t => t.WorkItemExistsAsync(10, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+        _mockTarget
             .Setup(t => t.AddLinksAsync(It.IsAny<int>(), It.IsAny<IReadOnlyList<RelatedWorkItemLink>>(), It.IsAny<IReadOnlyList<ExternalWorkItemLink>>(), It.IsAny<IReadOnlyList<HyperlinkWorkItemLink>>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
 
@@ -274,6 +278,9 @@ public class RevisionFolderProcessorTests
         _mockIdMapStore
             .Setup(s => s.GetTargetWorkItemIdAsync(1, It.IsAny<CancellationToken>()))
             .ReturnsAsync(targetId);
+        _mockTarget
+            .Setup(t => t.WorkItemExistsAsync(targetId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
         _mockTarget
             .Setup(t => t.UpdateFieldsAsync(targetId, It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);

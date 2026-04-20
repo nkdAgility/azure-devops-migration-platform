@@ -172,6 +172,18 @@ public class FilterScopeImportSteps
         _ctx.MockIdMapStore
             .Setup(s => s.SetWorkItemMappingAsync(It.IsAny<int>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
+        _ctx.MockIdMapStore
+            .Setup(s => s.EnumerateWorkItemMappingsAsync(It.IsAny<CancellationToken>()))
+            .Returns(TestAsyncHelpers.EmptyAsync<IdMapEntry>());
+        _ctx.MockIdMapStore
+            .Setup(s => s.GetLastRevisionIndexAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((int?)null);
+        _ctx.MockIdMapStore
+            .Setup(s => s.UpdateLastRevisionIndexAsync(It.IsAny<int>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+        _ctx.MockTarget
+            .Setup(t => t.WorkItemExistsAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
 
         _ctx.MockProgressSink
             .Setup(s => s.Emit(It.IsAny<ProgressEvent>()))

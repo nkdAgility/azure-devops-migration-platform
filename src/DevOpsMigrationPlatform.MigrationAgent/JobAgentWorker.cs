@@ -39,7 +39,14 @@ public sealed class JobAgentWorker : BackgroundService
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly ICheckpointingServiceFactory _checkpointingFactory;
     private readonly IPhaseTrackingServiceFactory _phaseTrackingFactory;
+    private readonly IPackageLockService _packageLockService;
     private readonly ILogger<JobAgentWorker> _logger;
+
+    /// <summary>
+    /// Unique identifier for this agent process instance.
+    /// Generated once at startup; used for stale-lock detection via the ControlPlane.
+    /// </summary>
+    private readonly Guid _agentInstanceId;
 
     public JobAgentWorker(
         IEnumerable<IModule> migrationModules,
@@ -51,6 +58,8 @@ public sealed class JobAgentWorker : BackgroundService
         IHttpClientFactory httpClientFactory,
         ICheckpointingServiceFactory checkpointingFactory,
         IPhaseTrackingServiceFactory phaseTrackingFactory,
+        IPackageLockService packageLockService,
+        AgentInstanceIdHolder agentInstanceIdHolder,
         ILogger<JobAgentWorker> logger,
         PolymorphicEndpointOptionsConverter? endpointConverter = null)
     {
@@ -63,6 +72,8 @@ public sealed class JobAgentWorker : BackgroundService
         _httpClientFactory = httpClientFactory;
         _checkpointingFactory = checkpointingFactory;
         _phaseTrackingFactory = phaseTrackingFactory;
+        _packageLockService = packageLockService ?? throw new ArgumentNullException(nameof(packageLockService));
+        _agentInstanceId = (agentInstanceIdHolder ?? throw new ArgumentNullException(nameof(agentInstanceIdHolder))).AgentInstanceId;
         _logger = logger;
         _jsonOptions = new JsonSerializerOptions
         {
@@ -76,7 +87,8 @@ public sealed class JobAgentWorker : BackgroundService
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        _logger.LogInformation("Job Agent Worker started — polling for jobs.");
+        _logger.LogInformation(
+            "Job Agent Worker started — Agent Instance ID: {AgentInstanceId}", _agentInstanceId);
 
         while (!stoppingToken.IsCancellationRequested)
         {
@@ -103,7 +115,7 @@ public sealed class JobAgentWorker : BackgroundService
         using var controlPlane = _httpClientFactory.CreateClient("ControlPlane");
 
         using var leaseResponse = await controlPlane
-            .GetAsync("/agents/lease", ct)
+            .GetAsync($"/agents/lease?agentInstanceId={_agentInstanceId}", ct)
             .ConfigureAwait(false);
 
         if (leaseResponse.StatusCode == System.Net.HttpStatusCode.NoContent)
@@ -207,6 +219,15 @@ public sealed class JobAgentWorker : BackgroundService
             await SignalTerminalAsync(controlPlane, leaseId, prepareTerminal, ct).ConfigureAwait(false);
             return;
         }
+
+        // Acquire exclusive package lock before running any module.
+        // PackageLockConflictException propagates up to ExecuteAsync and is caught as an unhandled
+        // error — the job is effectively hard-bounced (lease remains and will be retried by the
+        // control plane after a timeout). See research.md → "Decision 3".
+        var packagePath = job.Package.PackageUri ?? ".";
+        await using var packageLock = await _packageLockService
+            .AcquireAsync(packagePath, job.JobId.ToString(), ct)
+            .ConfigureAwait(false);
 
         var exportContext = new ExportContext
         {

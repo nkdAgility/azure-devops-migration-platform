@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Models;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Moq;
 using Reqnroll;
@@ -53,6 +54,9 @@ public class ImportCommentsSteps
         _ctx.MockIdMapStore
             .Setup(s => s.GetTargetWorkItemIdAsync(5, It.IsAny<CancellationToken>()))
             .ReturnsAsync(50);
+        _ctx.MockIdMapStore
+            .Setup(s => s.EnumerateWorkItemMappingsAsync(It.IsAny<CancellationToken>()))
+            .Returns(TestAsyncHelpers.EmptyAsync<IdMapEntry>());
         _ctx.MockIdMapStore
             .Setup(s => s.DisposeAsync())
             .Returns(new ValueTask());
@@ -125,6 +129,9 @@ public class ImportCommentsSteps
         _ctx.MockIdMapStore
             .Setup(s => s.InitializeAsync(It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
+        _ctx.MockIdMapStore
+            .Setup(s => s.EnumerateWorkItemMappingsAsync(It.IsAny<CancellationToken>()))
+            .Returns(TestAsyncHelpers.EmptyAsync<IdMapEntry>());
         _ctx.MockIdMapStore
             .Setup(s => s.DisposeAsync())
             .Returns(new ValueTask());
@@ -221,6 +228,15 @@ public class ImportCommentsSteps
             .Setup(s => s.GetTargetWorkItemIdAsync(2, It.IsAny<CancellationToken>()))
             .ReturnsAsync(20);
         _ctx.MockIdMapStore
+            .Setup(s => s.EnumerateWorkItemMappingsAsync(It.IsAny<CancellationToken>()))
+            .Returns(TestAsyncHelpers.EmptyAsync<IdMapEntry>());
+        _ctx.MockIdMapStore
+            .Setup(s => s.GetLastRevisionIndexAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((int?)null);
+        _ctx.MockIdMapStore
+            .Setup(s => s.UpdateLastRevisionIndexAsync(It.IsAny<int>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+        _ctx.MockIdMapStore
             .Setup(s => s.DisposeAsync())
             .Returns(new ValueTask());
     }
@@ -237,6 +253,9 @@ public class ImportCommentsSteps
         _ctx.MockTarget
             .Setup(t => t.CreateWorkItemAsync(It.IsAny<string>(), It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new ImportedWorkItemResult { TargetWorkItemId = 20, IsNewlyCreated = true });
+        _ctx.MockTarget
+            .Setup(t => t.WorkItemExistsAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
         _ctx.MockTarget
             .Setup(t => t.UpdateFieldsAsync(It.IsAny<int>(), It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
@@ -310,6 +329,15 @@ public class ImportCommentsSteps
             .Setup(s => s.GetAttachmentIdAsync(It.IsAny<int>(), It.IsAny<int>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((string?)null);
         _ctx.MockIdMapStore
+            .Setup(s => s.EnumerateWorkItemMappingsAsync(It.IsAny<CancellationToken>()))
+            .Returns(TestAsyncHelpers.EmptyAsync<IdMapEntry>());
+        _ctx.MockIdMapStore
+            .Setup(s => s.GetLastRevisionIndexAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((int?)null);
+        _ctx.MockIdMapStore
+            .Setup(s => s.UpdateLastRevisionIndexAsync(It.IsAny<int>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+        _ctx.MockIdMapStore
             .Setup(s => s.DisposeAsync())
             .Returns(new ValueTask());
     }
@@ -322,6 +350,9 @@ public class ImportCommentsSteps
         _ctx.MockTarget
             .Setup(t => t.CreateWorkItemAsync(It.IsAny<string>(), It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new ImportedWorkItemResult { TargetWorkItemId = 30, IsNewlyCreated = true });
+        _ctx.MockTarget
+            .Setup(t => t.WorkItemExistsAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
         _ctx.MockTarget
             .Setup(t => t.UpdateFieldsAsync(It.IsAny<int>(), It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);

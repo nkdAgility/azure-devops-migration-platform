@@ -255,6 +255,29 @@ public sealed class AzureDevOpsWorkItemImportTarget : IWorkItemImportTarget
         };
     }
 
+    /// <inheritdoc/>
+    public async Task<bool> WorkItemExistsAsync(int targetWorkItemId, CancellationToken ct)
+    {
+        try
+        {
+            await _witClient
+                .GetWorkItemAsync(targetWorkItemId, cancellationToken: ct)
+                .ConfigureAwait(false);
+            return true;
+        }
+        catch (Microsoft.VisualStudio.Services.Common.VssServiceException ex)
+            when (ex.Message.Contains("TF401232", StringComparison.OrdinalIgnoreCase)
+               || ex.Message.Contains("does not exist", StringComparison.OrdinalIgnoreCase)
+               || ex.Message.Contains("was not found", StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+        catch (Exception ex) when (ex.GetType().Name.Contains("WorkItemNotFound", StringComparison.Ordinal))
+        {
+            return false;
+        }
+    }
+
     // --- Helpers ---
 
     private static JsonPatchDocument BuildFieldPatch(IReadOnlyList<PlatformWorkItemField> fields, Operation op)

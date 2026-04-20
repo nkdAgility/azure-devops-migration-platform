@@ -1,7 +1,9 @@
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Models;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Moq;
 using Reqnroll;
@@ -345,6 +347,15 @@ public class StreamingImportReplaySteps
             .Setup(s => s.SetWorkItemMappingAsync(It.IsAny<int>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
             .Callback<int, int, CancellationToken>((src, tgt, _) => idMap[src] = tgt)
             .Returns(Task.CompletedTask);
+        _ctx.MockIdMapStore
+            .Setup(s => s.EnumerateWorkItemMappingsAsync(It.IsAny<CancellationToken>()))
+            .Returns(TestAsyncHelpers.EmptyAsync<IdMapEntry>());
+        _ctx.MockIdMapStore
+            .Setup(s => s.GetLastRevisionIndexAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((int?)null);
+        _ctx.MockIdMapStore
+            .Setup(s => s.UpdateLastRevisionIndexAsync(It.IsAny<int>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
         if (!hasAttachment)
         {
             _ctx.MockIdMapStore
@@ -370,6 +381,15 @@ public class StreamingImportReplaySteps
         _ctx.MockTarget
             .Setup(t => t.AddLinksAsync(It.IsAny<int>(), It.IsAny<IReadOnlyList<RelatedWorkItemLink>>(), It.IsAny<IReadOnlyList<ExternalWorkItemLink>>(), It.IsAny<IReadOnlyList<HyperlinkWorkItemLink>>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
+        _ctx.MockTarget
+            .Setup(t => t.WorkItemExistsAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+    }
+
+    private static async IAsyncEnumerable<T> EmptyAsyncEnumerable<T>()
+    {
+        await Task.CompletedTask;
+        yield break;
     }
 
     private void SetupTargetWithAttachment(int workItemId, int targetId)

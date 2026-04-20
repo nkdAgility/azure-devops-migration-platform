@@ -306,4 +306,27 @@ public sealed class ControlPlaneClient : IJobRunner, ILogsClient, IControlPlaneC
         await foreach (var evt in FollowLogsAsync(jobId, ct).ConfigureAwait(false))
             yield return evt;
     }
+
+    /// <inheritdoc/>
+    public async Task<bool> IsAgentActiveAsync(string agentInstanceId, CancellationToken ct)
+    {
+        try
+        {
+            using var response = await _http
+                .GetAsync($"/agents/{agentInstanceId}/status", ct)
+                .ConfigureAwait(false);
+
+            if (!response.IsSuccessStatusCode) return false;
+
+            var json = await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+            var doc = System.Text.Json.JsonSerializer.Deserialize<System.Text.Json.JsonElement>(json);
+            var status = doc.TryGetProperty("status", out var s) ? s.GetString() : null;
+            return string.Equals(status, "Active", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(status, "Running", StringComparison.OrdinalIgnoreCase);
+        }
+        catch
+        {
+            return false; // treat network errors as stale
+        }
+    }
 }
