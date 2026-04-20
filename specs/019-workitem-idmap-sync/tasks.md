@@ -62,11 +62,11 @@ All Phase 1 tasks must be complete before any user story phase begins.
 
 - [ ] T012 Register `IPackageLockService` → `PackageLockFileService` as singleton in `src/DevOpsMigrationPlatform.Infrastructure/Config/MigrationPlatformServiceExtensions.cs` (or a dedicated `InfrastructureLockServiceExtensions` extension class if preferred for clarity). Add XML doc-comment on the registration method.
 
-### Infrastructure — WorkItemFolderParser
+### Infrastructure — WorkItemRevisionFolderParser
 
 - [ ] T013 Create `src/DevOpsMigrationPlatform.Infrastructure/Import/WorkItemRevisionFolderParser.cs` — static class with `static WorkItemRevisionFolderParseResult? TryParse(string folderName)`. Returns `null` for folders whose names do not match the `{ticks}-{workItemId}-{revisionIndex}` pattern (e.g. comment folders). `WorkItemRevisionFolderParseResult` is an internal record: `record WorkItemRevisionFolderParseResult(long Ticks, int WorkItemId, int RevisionIndex)`. No `out` parameters — encode intent in the return type (coding-standards rule 2). Replace existing scattered `folderName.Split('-')` calls in `WorkItemImportOrchestrator.cs` with calls to `WorkItemRevisionFolderParser.TryParse`. See `research.md` → "Decision 6".
 
-### Infrastructure — SkippedRevisionException
+### Infrastructure — RevisionProcessResult
 
 - [ ] T014 Create `src/DevOpsMigrationPlatform.Infrastructure/Import/RevisionProcessResult.cs` — internal record with a boolean `IsSkipped` and optional `string? SkipReason`:
   ```csharp
@@ -316,7 +316,7 @@ Phase N (Doc Sync)      ← depends on all implementation phases
 
 - `[P]` = can run in parallel with other `[P]`-marked tasks in the same phase
 - Feature files are ATDD Phase 1 artifacts — write them before any implementation tasks in their phase
-- The `WorkItemFolderParser` (T013) refactors existing scattered `Split('-')` logic — it improves the codebase regardless of US5 and should not be deferred
+- The `WorkItemRevisionFolderParser` (T013) refactors existing scattered `Split('-')` logic — it improves the codebase regardless of US5 and should not be deferred
 - `PackageLockFileService` uses `FileStream(CreateNew)` directly — this is a documented justified exception to the `IArtefactStore` rule (same as `SqliteIdMapStore`); the lock file requires an atomic OS primitive
-- The `SkippedRevisionException` (T014) is `internal` to the Infrastructure assembly — it is a flow-control signal, not a domain error, and must not leak into the Abstractions layer
+- The `RevisionProcessResult` (T014) is `internal` to the Infrastructure assembly — it is a typed return value replacing exception-as-control-flow; must not be exposed through the Abstractions layer
 - Phases 3–5 all depend on Phase 1 being complete, but US1 (Phase 3) is the highest-value story — prioritise it first after Phase 1
