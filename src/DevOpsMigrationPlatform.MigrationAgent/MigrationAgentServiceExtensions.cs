@@ -36,8 +36,11 @@ public static class MigrationAgentServiceExtensions
         // Do NOT reference WorkItemExportMetrics.MeterName (lives in the .NET 4.8 assembly).
         builder.Services.AddOpenTelemetry()
             .WithMetrics(mb => mb
+                .AddMeter(WellKnownMeterNames.Migration)
+#pragma warning disable CS0618 // Obsolete — retained for transition
                 .AddMeter(WellKnownMeterNames.WorkItemExport)
                 .AddMeter(WellKnownMeterNames.AttachmentDownload));
+#pragma warning restore CS0618
 
         // Singleton to carry the current lease id across services.
         builder.Services.AddSingleton<ActiveLeaseState>();

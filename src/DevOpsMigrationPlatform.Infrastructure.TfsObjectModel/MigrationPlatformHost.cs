@@ -109,8 +109,10 @@ public static class MigrationPlatformHost
             // Export services
             services.AddSingleton<IWorkItemRevisionMapper, TfsWorkItemRevisionMapper>();
             services.AddSingleton<ITfsAttachmentDownloader, TfsAttachmentDownloader>();
+#pragma warning disable CS0618 // Obsolete — retained until all call sites migrate to IMigrationMetrics
             services.AddSingleton<IWorkItemExportMetrics, WorkItemExportMetrics>();
             services.AddSingleton<IAttachmentDownloadMetrics, AttachmentDownloadMetrics>();
+#pragma warning restore CS0618
             services.AddSingleton<TfsWorkItemQueryWindowStrategy>();
             services.AddSingleton<IWorkItemFetchService, TfsWorkItemFetchService>();
             services.AddSingleton<IWorkItemDiscoveryService, TfsObjectModelWorkItemDiscoveryService>();

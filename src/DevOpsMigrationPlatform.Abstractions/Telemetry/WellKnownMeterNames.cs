@@ -1,3 +1,5 @@
+using System;
+
 namespace DevOpsMigrationPlatform.Abstractions;
 
 /// <summary>
@@ -7,6 +9,12 @@ namespace DevOpsMigrationPlatform.Abstractions;
 /// </summary>
 public static class WellKnownMeterNames
 {
-    public const string WorkItemExport     = "DevOpsMigrationPlatform.WorkItemExport";
+    /// <summary>Consolidated meter for all migration work item metrics (v2.0).</summary>
+    public const string Migration = "DevOpsMigrationPlatform.Migration";
+
+    [Obsolete("Use Migration. Will be removed in next major version.")]
+    public const string WorkItemExport = "DevOpsMigrationPlatform.WorkItemExport";
+
+    [Obsolete("Use Migration. Will be removed in next major version.")]
     public const string AttachmentDownload = "DevOpsMigrationPlatform.AttachmentDownload";
 }

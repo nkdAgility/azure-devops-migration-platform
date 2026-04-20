@@ -20,10 +20,12 @@ public interface IWorkItemRevisionMapper
 
 public class TfsWorkItemRevisionMapper : IWorkItemRevisionMapper
 {
+#pragma warning disable CS0618 // Obsolete — retained until all call sites migrate to IMigrationMetrics
     private readonly IWorkItemExportMetrics _metrics;
     private readonly ILogger<TfsWorkItemRevisionMapper> _logger;
 
     public TfsWorkItemRevisionMapper(IWorkItemExportMetrics metrics, ILogger<TfsWorkItemRevisionMapper> logger)
+#pragma warning restore CS0618
     {
         _metrics = metrics;
         _logger = logger;

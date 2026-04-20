@@ -1,6 +1,7 @@
 #if !NET481
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Text.Json;
 using System.Threading;
@@ -35,6 +36,7 @@ public sealed class WorkItemImportOrchestrator
     private readonly IWorkItemImportTarget _target;
     private readonly ILogger<WorkItemImportOrchestrator> _logger;
     private readonly IReadOnlyList<DevOpsMigrationPlatform.Abstractions.Models.WorkItemFieldFilterOptions>? _filterOptions;
+    private readonly IMigrationMetrics? _metrics;
 
     public WorkItemImportOrchestrator(
         IArtefactStore artefactStore,
@@ -45,7 +47,8 @@ public sealed class WorkItemImportOrchestrator
         IRevisionFolderProcessor processor,
         IWorkItemImportTarget target,
         ILogger<WorkItemImportOrchestrator> logger,
-        IReadOnlyList<DevOpsMigrationPlatform.Abstractions.Models.WorkItemFieldFilterOptions>? filterOptions = null)
+        IReadOnlyList<DevOpsMigrationPlatform.Abstractions.Models.WorkItemFieldFilterOptions>? filterOptions = null,
+        IMigrationMetrics? metrics = null)
     {
         _artefactStore = artefactStore ?? throw new ArgumentNullException(nameof(artefactStore));
         _checkpointing = checkpointing ?? throw new ArgumentNullException(nameof(checkpointing));
@@ -56,6 +59,7 @@ public sealed class WorkItemImportOrchestrator
         _target = target ?? throw new ArgumentNullException(nameof(target));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _filterOptions = filterOptions;
+        _metrics = metrics;
     }
 
     /// <summary>
@@ -101,6 +105,11 @@ public sealed class WorkItemImportOrchestrator
 
         int foldersProcessed = 0;
         int workItemsProcessed = 0;
+
+        var importTags = _metrics != null
+            ? MigrationTagList.Create("not-set", "import", "workitems")
+            : default;
+        var workItemStopwatch = Stopwatch.StartNew();
 
         await foreach (var folderPath in _artefactStore.EnumerateAsync("WorkItems/", ct).ConfigureAwait(false))
         {
@@ -158,9 +167,20 @@ public sealed class WorkItemImportOrchestrator
                 }
 
                 // Revision folder
+                _metrics?.RecordWorkItemAttempted(importTags);
+                _metrics?.IncrementInFlight(importTags);
+                workItemStopwatch.Restart();
+
                 await _processor.ProcessAsync(folderPath, ext, resumeAtStage, _resolutionStrategy, ct)
                     .ConfigureAwait(false);
                 workItemsProcessed++;
+
+                if (_metrics != null)
+                {
+                    _metrics.RecordWorkItemCompleted(importTags);
+                    _metrics.RecordWorkItemDuration(workItemStopwatch.Elapsed.TotalMilliseconds, importTags);
+                    _metrics.DecrementInFlight(importTags);
+                }
             }
             else
             {

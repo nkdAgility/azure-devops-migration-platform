@@ -203,7 +203,7 @@ Key properties:
 17. `ControlPlaneProgressSink` (Agent → Control Plane progress event streaming) ✅
 18. `JobProgressStore` ring buffer + `GET /jobs/{jobId}/progress` + `GET /jobs/{jobId}/progress?follow=true` SSE endpoint ✅
 19. `manage progress` CLI command (snapshot to stdout, NDJSON format) ✅ — diagnostics channel (`/diagnostics`, `/diagnostics?follow=true`, `manage diagnostics`) added in spec 007
-20. CLI-level OpenTelemetry (`ActivitySource` in `Program.cs`, Azure Monitor exporter)
+20. CLI-level OpenTelemetry (`ActivitySource` in `Program.cs`, Azure Monitor exporter). All migration metrics use the `migration.*` dot-separated convention defined in `WellKnownMetricNames` under the consolidated `DevOpsMigrationPlatform.Migration` meter.
 21. `azd` deployment templates for Azure Container Apps
 
 ### Phase 3 — Operational hardening

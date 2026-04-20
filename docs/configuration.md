@@ -366,3 +366,16 @@ Ready-to-run example configuration files live under `/scenarios/` at the reposit
 | `migrate-simulated.json` | Full simulated end-to-end migration — both source and target simulated (25,000 work items) |
 
 Credentials in these files use `$ENV:VARNAME` references — never literal tokens. Set the corresponding environment variables locally (e.g. `AZDEVOPS_SYSTEM_TEST_PAT`) before running.
+
+---
+
+## Telemetry
+
+All OTel instruments follow a dot-separated naming convention under the `migration.` prefix:
+
+- **Meter name**: `DevOpsMigrationPlatform.Migration` (v2.0)
+- **Instrument naming**: `migration.<category>.<metric>` — e.g. `migration.workitems.attempted`, `migration.payload.field_count`, `migration.correctness.broken_links`
+- **Mandatory dimension tags**: Every metric emission includes `job.id`, `operation` (`export` | `import`), and `module` (e.g. `WorkItems`)
+- **Optional tag**: `source.type` (e.g. `AzureDevOps`, `TfsObjectModel`, `Simulated`)
+
+The canonical list of instrument names is defined in `WellKnownMetricNames` (`src/DevOpsMigrationPlatform.Abstractions/Telemetry/WellKnownMetricNames.cs`). Tags are constructed via `MigrationTagList.Create()`.
