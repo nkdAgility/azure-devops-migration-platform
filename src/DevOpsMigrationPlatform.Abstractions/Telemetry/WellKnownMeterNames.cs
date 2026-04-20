@@ -12,6 +12,9 @@ public static class WellKnownMeterNames
     /// <summary>Consolidated meter for all migration work item metrics (v2.0).</summary>
     public const string Migration = "DevOpsMigrationPlatform.Migration";
 
+    /// <summary>Consolidated meter for all discovery metrics (inventory + dependencies).</summary>
+    public const string Discovery = "DevOpsMigrationPlatform.Discovery";
+
     [Obsolete("Use Migration. Will be removed in next major version.")]
     public const string WorkItemExport = "DevOpsMigrationPlatform.WorkItemExport";
 

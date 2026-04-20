@@ -37,6 +37,7 @@ public static class MigrationAgentServiceExtensions
         builder.Services.AddOpenTelemetry()
             .WithMetrics(mb => mb
                 .AddMeter(WellKnownMeterNames.Migration)
+                .AddMeter(WellKnownMeterNames.Discovery)
 #pragma warning disable CS0618 // Obsolete — retained for transition
                 .AddMeter(WellKnownMeterNames.WorkItemExport)
                 .AddMeter(WellKnownMeterNames.AttachmentDownload));
