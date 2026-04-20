@@ -22,7 +22,7 @@
         "AccessToken": "$ENV:AZDEVOPS_SYSTEM_TEST_PAT"
       }
     },
-    "Artefacts": {
+    "Package": {
       "WorkingDirectory": "storage\\regression-no-filter-scopes",
       "CreatePackage": true
     },

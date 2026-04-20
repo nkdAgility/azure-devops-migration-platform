@@ -58,10 +58,10 @@ Feature: Migration Configuration Validation
     Then the validation fails
     And the error mentions "Target"
 
-  Scenario: Missing artefacts path fails validation
+  Scenario: Missing package path fails validation
     Given a migration config with mode "Export"
     And the config has a source endpoint of type "AzureDevOpsServices"
-    And the config has an artefacts path of ""
+    And the config has a package path of ""
     When the config is validated
     Then the validation fails
-    And the error mentions "Artefacts"
+    And the error mentions "Package"

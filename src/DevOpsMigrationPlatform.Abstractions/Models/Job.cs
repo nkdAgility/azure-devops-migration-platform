@@ -38,7 +38,7 @@ public abstract class Job
     public System.Collections.Generic.List<JobModule> Modules { get; init; } = new();
 
     /// <summary>Output location. Always a URI — file:/// for standalone, Azure Blob HTTPS URL for hosted.</summary>
-    public JobArtefacts Artefacts { get; init; } = new();
+    public JobPackage Package { get; init; } = new();
 
     /// <summary>Guardrails flags that the Job Engine enforces. Both must be true.</summary>
     public JobGuardrails Guardrails { get; init; } = new();

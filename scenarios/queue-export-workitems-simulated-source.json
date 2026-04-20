@@ -42,7 +42,7 @@
         ]
       }
     },
-    "Artefacts": {
+    "Package": {
       "WorkingDirectory": "storage\\queue-export-workitems-simulated-source",
       "CreatePackage": true
     },

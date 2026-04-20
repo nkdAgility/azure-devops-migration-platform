@@ -25,7 +25,7 @@
         }
       }
     ],
-    "Artefacts": {
+    "Package": {
       "WorkingDirectory": "storage\\inventory-ado-single-project"
     }
   }

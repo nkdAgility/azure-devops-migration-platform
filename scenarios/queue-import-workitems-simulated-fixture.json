@@ -18,7 +18,7 @@
       "Url": "https://dev.azure.com/simulated",
       "Project": "SimulatedTarget"
     },
-    "Artefacts": {
+    "Package": {
       "WorkingDirectory": "storage\\queue-import-workitems-simulated-fixture",
       "CreatePackage": true,
       "PackagePath": "scenarios\\testdata\\workitems-2items-flat.zip"

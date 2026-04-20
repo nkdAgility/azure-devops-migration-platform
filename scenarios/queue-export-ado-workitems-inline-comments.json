@@ -22,7 +22,7 @@
         "AccessToken": "$ENV:AZDEVOPS_DEV_PAT"
       }
     },
-    "Artefacts": {
+    "Package": {
       "WorkingDirectory": "storage\\queue-export-ado-workitems-inline-comments",
       "CreatePackage": true
     },

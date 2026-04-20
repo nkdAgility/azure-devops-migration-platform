@@ -16,7 +16,7 @@
     "Target": {
       "Type": "Simulated"
     },
-    "Artefacts": {
+    "Package": {
       "WorkingDirectory": "storage\\queue-import-workitems-simulated-target",
       "CreatePackage": true,
       "PackagePath": "scenarios\\testdata\\workitems-2items-flat.zip"

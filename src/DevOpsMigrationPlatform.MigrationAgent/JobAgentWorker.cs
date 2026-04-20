@@ -156,7 +156,7 @@ public sealed class JobAgentWorker : BackgroundService
         MigrationJob job, HttpClient controlPlane, string leaseId, CancellationToken ct)
     {
         var (artefactStore, stateStore) = _packageStoreFactory.Create(
-            job.Artefacts.PackageUri ?? ".");
+            job.Package.PackageUri ?? ".");
 
         _packageState.CurrentStore = artefactStore;
 
@@ -287,7 +287,7 @@ public sealed class JobAgentWorker : BackgroundService
         DiscoveryJob job, HttpClient controlPlane, string leaseId, CancellationToken ct)
     {
         var (artefactStore, stateStore) = _packageStoreFactory.Create(
-            job.Artefacts.PackageUri ?? ".");
+            job.Package.PackageUri ?? ".");
 
         _packageState.CurrentStore = artefactStore;
 

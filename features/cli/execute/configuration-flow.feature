@@ -19,7 +19,7 @@ Feature: Configuration Flow
           "Authentication": { "Type": "PAT", "PersonalAccessToken": "test-token" },
           "Project": { "Name": "TestProject" }
         },
-        "ArtefactsPath": "./test-output"
+        "Package": { "WorkingDirectory": "./test-output" }
       }
       """
     When I run "devopsmigration discovery inventory --config custom-test.json" 
@@ -39,7 +39,7 @@ Feature: Configuration Flow
           "Authentication": { "Type": "PAT", "PersonalAccessToken": "secure-token-123" },
           "Project": { "Name": "TestProject" }
         },
-        "ArtefactsPath": "./test-output"
+        "Package": { "WorkingDirectory": "./test-output" }
       }
       """
     When I run "devopsmigration discovery inventory --config auth-test.json"
@@ -59,7 +59,7 @@ Feature: Configuration Flow
           "Authentication": { "Type": "PAT", "PersonalAccessToken": "test-token" },
           "Project": { "Name": "TestProject" }
         },
-        "ArtefactsPath": "./test-output",
+        "Package": { "WorkingDirectory": "./test-output" },
         "Telemetry": {
           "Enabled": true,
           "LogLevel": "Verbose",
@@ -90,7 +90,7 @@ Feature: Configuration Flow
           "Authentication": { "Type": "PAT", "PersonalAccessToken": "default-token" },
           "Project": { "Name": "DefaultProject" }
         },
-        "ArtefactsPath": "./default-output"
+        "Package": { "WorkingDirectory": "./default-output" }
       }
       """
     When I run "devopsmigration discovery inventory" without specifying --config

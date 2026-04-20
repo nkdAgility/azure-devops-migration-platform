@@ -18,7 +18,7 @@
       "Url": "https://dev.azure.com/simulated",
       "Project": "SimulatedTarget"
     },
-    "Artefacts": {
+    "Package": {
       "WorkingDirectory": "storage\\queue-export-ado-workitems-single-project",
       "CreatePackage": false
     },

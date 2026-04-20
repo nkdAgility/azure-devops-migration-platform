@@ -21,11 +21,11 @@ public sealed class DiscoveryOptions
 
     /// <summary>
     /// Output location for discovery results.
-    /// Required. The CLI normalises <see cref="MigrationArtefactsOptions.Path"/> to a
+    /// Required. The CLI normalises <see cref="MigrationPackageOptions.WorkingDirectory"/> to a
     /// <c>file:///</c> URI (standalone) or passes a blob HTTPS URL (hosted) before building
     /// the <see cref="DevOpsMigrationPlatform.Abstractions.DiscoveryJob"/>.
     /// </summary>
-    public MigrationArtefactsOptions Artefacts { get; set; } = new();
+    public MigrationPackageOptions Package { get; set; } = new();
 
     /// <summary>
     /// Validates the options, throwing <see cref="InvalidOperationException"/> on any violation.
@@ -35,10 +35,10 @@ public sealed class DiscoveryOptions
     {
         Policies.Validate();
 
-        if (string.IsNullOrWhiteSpace(Artefacts.WorkingDirectory))
+        if (string.IsNullOrWhiteSpace(Package.WorkingDirectory))
             throw new InvalidOperationException(
-                "Config error: 'Artefacts.WorkingDirectory' is required for discovery commands. " +
-                "Add an 'Artefacts' section with a 'WorkingDirectory' to your config file.");
+                "Config error: 'Package.WorkingDirectory' is required for discovery commands. " +
+                "Add a 'Package' section with a 'WorkingDirectory' to your config file.");
 
         if (Organisations.Count == 0)
             throw new InvalidOperationException("Config error: 'organisations' array is empty.");

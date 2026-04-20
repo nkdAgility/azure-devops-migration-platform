@@ -163,7 +163,7 @@ public sealed class WorkItemsModule : IModule
             .ConfigureAwait(false);
 
         // Derive the SQLite idmap.db path from the package URI
-        var dbFilePath = ResolveIdMapPath(job.Artefacts.PackageUri);
+        var dbFilePath = ResolveIdMapPath(job.Package.PackageUri);
         var idMapStore = _idMapStoreFactory.Create(dbFilePath);
 
         var processor = _processorFactory.Create(

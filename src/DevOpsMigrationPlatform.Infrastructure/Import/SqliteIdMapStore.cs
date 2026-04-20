@@ -20,7 +20,7 @@ namespace DevOpsMigrationPlatform.Infrastructure.Import;
 /// SQLite requires a real file-system path in the connection string; it cannot operate through
 /// the <see cref="IArtefactStore"/> abstraction.  This class is infrastructure-layer code
 /// (not module or domain code) and the path is supplied by <c>WorkItemsModule</c> which derives
-/// it from <c>MigrationJob.Artefacts.PackageUri</c> — the same value that backs the
+/// it from <c>MigrationJob.Package.PackageUri</c> — the same value that backs the
 /// <see cref="IArtefactStore"/> root.  All module and domain code must continue to access
 /// package content exclusively through <see cref="IArtefactStore"/>.
 /// See guardrails rule 13 (Data Integrity &amp; Persistence) for the general constraint.

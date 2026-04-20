@@ -63,10 +63,10 @@ public class ConfigValidationSteps
         _ctx.Options.Target = null;
     }
 
-    [Given(@"the config has an artefacts path of ""(.*)""")]
+    [Given(@"the config has a package path of ""(.*)""")]
     public void GivenTheConfigHasAnArtefactsPathOf(string path)
     {
-        _ctx.Options.Artefacts.WorkingDirectory = path;
+        _ctx.Options.Package.WorkingDirectory = path;
     }
 
     // ── When ──────────────────────────────────────────────────────────────────

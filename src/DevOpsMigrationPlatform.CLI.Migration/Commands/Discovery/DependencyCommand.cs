@@ -29,7 +29,7 @@ public sealed class DependencyCommand : ControlPlaneCommandBase<DependencyComman
     public sealed class Settings : ControlPlaneBaseCommandSettings, IRequiresMigrationConfig
     {
         [CommandOption("-o|--output")]
-        [Description("Override the output directory for discovery results (overrides Artefacts.WorkingDirectory in the config).")]
+        [Description("Override the output directory for discovery results (overrides Package.WorkingDirectory in the config).")]
         public string? OutputDirectory { get; set; }
     }
 
@@ -59,7 +59,7 @@ public sealed class DependencyCommand : ControlPlaneCommandBase<DependencyComman
         }
 
         var outputPath = string.IsNullOrWhiteSpace(settings.OutputDirectory)
-            ? Path.GetFullPath(discoveryOpts.Artefacts.ExpandedPath)
+            ? Path.GetFullPath(discoveryOpts.Package.ExpandedPath)
             : Path.GetFullPath(settings.OutputDirectory);
         var packageUri = $"file:///{outputPath.Replace(Path.DirectorySeparatorChar, '/')}";
 
@@ -81,7 +81,7 @@ public sealed class DependencyCommand : ControlPlaneCommandBase<DependencyComman
                 MaxConcurrency = discoveryOpts.Policies.Throttle.MaxConcurrency,
                 CheckpointIntervalSeconds = discoveryOpts.Policies.Checkpoints.Interval
             },
-            Artefacts = new JobArtefacts { PackageUri = packageUri }
+            Package = new JobPackage { PackageUri = packageUri }
         };
 
         var envOpts = GetRequiredService<IOptions<EnvironmentOptions>>().Value;
