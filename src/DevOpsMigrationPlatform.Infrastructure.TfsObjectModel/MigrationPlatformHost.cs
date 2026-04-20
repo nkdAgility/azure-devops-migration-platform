@@ -17,8 +17,10 @@ using DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.Telemetry;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
+using OpenTelemetry.Exporter;
 using Serilog;
 using Serilog.Events;
+using Serilog.Sinks.OpenTelemetry;
 
 namespace DevOpsMigrationPlatform.Infrastructure.TfsObjectModel;
 
@@ -56,8 +58,18 @@ public static class MigrationPlatformHost
         var logFolder = Path.Combine(settings.OutputFolder, "logs");
         const string outputTemplate = "[{Timestamp:yyyy-MM-dd HH:mm:ss}] [{Level:u3}] {Message:lj}{NewLine}{Exception}";
 
+        // .NET Framework defaults to Hierarchical ActivityIdFormat — switch to W3C
+        // so that TraceId/SpanId propagate correctly to the OTLP collector.
+        System.Diagnostics.Activity.DefaultIdFormat = System.Diagnostics.ActivityIdFormat.W3C;
+
         builder.UseSerilog((ctx, _, loggerConfig) =>
         {
+            // Read OTLP endpoint from configuration (appsettings.json + env vars + CLI args).
+            // Same pattern as ServiceDefaults: OTEL_EXPORTER_OTLP_ENDPOINT env var is surfaced
+            // through IConfiguration by AddEnvironmentVariables().
+            var otlpEndpoint = ctx.Configuration["OTEL_EXPORTER_OTLP_ENDPOINT"];
+            var hasOtlpEndpoint = !string.IsNullOrWhiteSpace(otlpEndpoint);
+
             loggerConfig
                 .ReadFrom.Configuration(ctx.Configuration)
                 .Enrich.WithProperty("SessionId", sessionId)
@@ -72,11 +84,32 @@ public static class MigrationPlatformHost
                     LogEventLevel.Verbose, outputTemplate: outputTemplate, shared: true,
                     rollOnFileSizeLimit: true, rollingInterval: RollingInterval.Hour)
                 .WriteTo.Console(restrictedToMinimumLevel: LogEventLevel.Warning);
+
+            // Forward logs to OTLP collector when endpoint is available.
+            if (hasOtlpEndpoint)
+            {
+                loggerConfig.WriteTo.OpenTelemetry(options =>
+                {
+                    options.Endpoint = otlpEndpoint!;
+                    options.Protocol = OtlpProtocol.Grpc;
+                    options.ResourceAttributes = new System.Collections.Generic.Dictionary<string, object>
+                    {
+                        ["service.name"] = "TfsExport",
+                        ["session.id"] = sessionId,
+                        ["tfs.server"] = settings.TfsServer.ToString(),
+                        ["tfs.project"] = settings.Project
+                    };
+                });
+            }
         });
 
         builder.ConfigureServices((ctx, services) =>
         {
             services.AddSingleton<IConfiguration>(ctx.Configuration);
+
+            // OTLP endpoint — read from configuration (same source as Serilog above).
+            var otlpEndpoint = ctx.Configuration["OTEL_EXPORTER_OTLP_ENDPOINT"];
+            var hasOtlpEndpoint = !string.IsNullOrWhiteSpace(otlpEndpoint);
 
             // Filesystem-backed artefact and state stores rooted at the output folder
             services.AddSingleton<IArtefactStore>(_ =>
@@ -138,8 +171,10 @@ public static class MigrationPlatformHost
                     sp.GetRequiredService<TfsAttachmentRegistry>(),
                     sp.GetRequiredService<ILogger<TfsAttachmentBinarySource>>()));
 
-            // OpenTelemetry (console exporter — configure real exporter via appsettings)
-            services.AddOpenTelemetry()
+            // OpenTelemetry — metrics and traces.
+            // OTLP exporter auto-activates when OTEL_EXPORTER_OTLP_ENDPOINT is set
+            // (inherited from the parent CLI process / Aspire).
+            var otelBuilder = services.AddOpenTelemetry()
                 .ConfigureResource(rb =>
                 {
                     rb.AddService("TfsExport");
@@ -154,11 +189,15 @@ public static class MigrationPlatformHost
                 {
                     tb.AddSource(MigrationPlatformActivitySources.WorkItemExport.Name);
                     tb.AddSource(MigrationPlatformActivitySources.AttachmentDownload.Name);
+                    if (hasOtlpEndpoint)
+                        tb.AddOtlpExporter();
                 })
                 .WithMetrics(mb =>
                 {
                     mb.AddMeter(WorkItemExportMetrics.MeterName);
                     mb.AddMeter(AttachmentDownloadMetrics.MeterName);
+                    if (hasOtlpEndpoint)
+                        mb.AddOtlpExporter();
                 });
         });
 

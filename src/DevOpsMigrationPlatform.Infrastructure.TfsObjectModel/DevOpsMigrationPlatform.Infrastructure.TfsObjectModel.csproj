@@ -25,6 +25,7 @@
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" VersionOverride="9.0.5" />
     <PackageReference Include="Microsoft.TeamFoundationServer.ExtendedClient" />
     <PackageReference Include="OpenTelemetry" VersionOverride="1.12.0" />
+    <PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" VersionOverride="1.12.0" />
     <PackageReference Include="OpenTelemetry.Extensions.Hosting" VersionOverride="1.12.0" />
     <PackageReference Include="Serilog" />
     <PackageReference Include="Serilog.Enrichers.Process" />
@@ -33,6 +34,7 @@
     <PackageReference Include="Serilog.Settings.Configuration" />
     <PackageReference Include="Serilog.Sinks.Console" />
     <PackageReference Include="Serilog.Sinks.File" />
+    <PackageReference Include="Serilog.Sinks.OpenTelemetry" />
     <PackageReference Include="System.Text.Json" />
   </ItemGroup>
 
