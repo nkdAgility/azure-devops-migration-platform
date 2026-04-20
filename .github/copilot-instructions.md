@@ -33,6 +33,7 @@ Before writing, editing, or suggesting any code, settings, config, or docs chang
    - `.agents/context/cli-commands.md` (for any CLI work)
    - `.agents/context/package-format.md` (for any package/export/import work)
    - `.agents/context/job-contract.md` (for any job/agent work)
+   - `.agents/context/telemetry-architecture.md` (for any telemetry/metrics/OTel work)
 3. State explicitly which guardrails apply to the current task.
 4. Explicitly reject any approach that violates them before writing any code.
 

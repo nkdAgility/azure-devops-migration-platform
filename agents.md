@@ -62,6 +62,9 @@ Artefact store abstraction:
 Job contract:
 → .agents/context/job-contract.md
 
+Telemetry architecture:
+→ .agents/context/telemetry-architecture.md
+
 Control plane:
 → docs/control-plane.md
 
@@ -137,6 +140,7 @@ Package zip/export:
    - [checkpointing.md](.agents/context/checkpointing.md) — Cursor-based checkpointing
    - [artefact-store.md](.agents/context/artefact-store.md) — IArtefactStore abstraction
    - [job-contract.md](.agents/context/job-contract.md) — Job contract specification
+   - [telemetry-architecture.md](.agents/context/telemetry-architecture.md) — Telemetry layer model and metric addition guide
    - [identity-and-mapping.md](.agents/context/identity-and-mapping.md) — Identity mapping service
 
 3. **State your understanding** of which guardrails apply to the current task
