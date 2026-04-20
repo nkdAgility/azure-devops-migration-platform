@@ -122,7 +122,7 @@ A single JSON configuration file drives the entire run.
 | `source.authentication` | No | Auth credentials block (`type` + `accessToken`). If omitted, Windows-integrated auth is used. Not used for `Simulated` source type. |
 | `target` | Required for `Import` and `Both` | Target system connection details. `type` must be `AzureDevOpsServices` or `Simulated`. |
 | `target.authentication` | No | Auth credentials block (`type` + `accessToken`). Not used for `Simulated` target type. |
-| `organisations` | Mode 2 inventory only | Multi-org tooling roster. Mutually exclusive with `source`. Each entry has `type`, `url`, `projects`, `authentication`, and `enabled`. |
+| `organisations` | Mode 2 inventory only | Multi-org tooling roster. Mutually exclusive with `source`. Each entry has `type`, `url`, `projects`, `authentication`, `enabled`, and an optional `scopes` array. |
 | `modules` | Yes | Ordered list of modules to run. Each module declares `scopes` (selection criteria) and named `extensions`. |
 | `policies` | No | Retry and throttle policies |
 
@@ -200,6 +200,9 @@ The `WorkItems` module accepts a `scopes` array and named extensions:
 | Field / Extension | Type | Default | Description |
 |---|---|---|---|
 | `scopes[wiql].parameters.query` | string | platform default | WIQL query selecting work items. `@project` is substituted with the configured project name. |
+| `scopes[filter].parameters.mode` | string | — | Filter direction: `include` (only items matching the pattern are processed) or `exclude` (items matching the pattern are skipped). Required when scope type is `filter`. |
+| `scopes[filter].parameters.field` | string | — | Reference name of the ADO field to evaluate (e.g. `System.AreaPath`). Must be non-empty. |
+| `scopes[filter].parameters.pattern` | string | — | Case-insensitive regex pattern applied to the field value (using `System.Text.RegularExpressions`, 2 s timeout). Must be a valid regex. |
 | `extensions[Revisions].enabled` | bool | `true` | When `true`, export all revision history. When `false`, export latest state only. |
 | `extensions[Links].enabled` | bool | `true` | When `true`, export related links, external links, and hyperlinks. |
 | `extensions[Attachments].enabled` | bool | `true` | When `true`, download and store attachment binaries beside each `revision.json`. |
@@ -211,6 +214,8 @@ The `WorkItems` module accepts a `scopes` array and named extensions:
 | `extensions[WorkItemResolutionStrategy].parameters.strategy` | string | — | Strategy name: `TargetField` or `TargetHyperlink`. Required when enabled. |
 | `extensions[WorkItemResolutionStrategy].parameters.fieldName` | string | — | **TargetField only**: Reference name of the custom field that holds the source work item ID (e.g. `Custom.SourceWorkItemId`). |
 | `extensions[WorkItemResolutionStrategy].parameters.urlPattern` | string | — | **TargetHyperlink only**: URL pattern with `{id}` as the source ID placeholder (e.g. `https://source.example.com/wi/{id}`). |
+
+> **Filter scope semantics**: Multiple `filter` scopes are evaluated with AND logic. An `include` filter retains only items whose field value matches the pattern; an `exclude` filter discards items whose field value matches. Items where the filtered field is absent pass `exclude` (absent = does not match) and fail `include`. Prefer short, indexed reference-data fields (e.g. `System.AreaPath`, `System.WorkItemType`) to minimise pre-fetch time.
 
 ### Config Versioning and Upgrader
 
@@ -361,3 +366,75 @@ Ready-to-run example configuration files live under `/scenarios/` at the reposit
 | `migrate-simulated.json` | Full simulated end-to-end migration — both source and target simulated (25,000 work items) |
 
 Credentials in these files use `$ENV:VARNAME` references — never literal tokens. Set the corresponding environment variables locally (e.g. `AZDEVOPS_SYSTEM_TEST_PAT`) before running.
+
+---
+
+## Telemetry
+
+All OTel instruments follow a dot-separated naming convention under the `migration.` prefix:
+
+- **Meter name**: `DevOpsMigrationPlatform.Migration` (v2.0)
+- **Instrument naming**: `migration.<category>.<metric>` — e.g. `migration.workitems.attempted`, `migration.payload.field_count`, `migration.correctness.broken_links`
+- **Mandatory dimension tags**: Every metric emission includes `job.id`, `operation` (`export` | `import`), and `module` (e.g. `WorkItems`)
+- **Optional tag**: `source.type` (e.g. `AzureDevOps`, `TfsObjectModel`, `Simulated`)
+
+The canonical list of instrument names is defined in `WellKnownMetricNames` (`src/DevOpsMigrationPlatform.Abstractions/Telemetry/WellKnownMetricNames.cs`). Tags are constructed via `MigrationTagList.Create()`.
+
+### Telemetry Layer Architecture
+
+Telemetry is structured into three layers with different cross-runtime characteristics:
+
+| Layer | What lives here | Cross-runtime? | Guard? |
+|---|---|---|---|
+| **Recording** — interfaces, constants, tag builders | `Abstractions/Telemetry/` | Both net481 and net10.0 | No `#if` guards |
+| **Instrument** — concrete `Meter`/`Counter`/`Histogram` classes | `Infrastructure/Telemetry/` | Both net481 and net10.0 | No `#if` guards |
+| **Pipeline** — OTel SDK exporters, readers, DI registration | `Infrastructure/Telemetry/` and host projects | Host-specific | `#if !NETFRAMEWORK` where needed |
+
+The recording and instrument layers use only `System.Diagnostics.DiagnosticSource` types (`TagList`, `Meter`, `Counter<T>`, etc.), which are available on net481 via the NuGet package and inbox on net10.0. This means all metric interfaces and concrete implementations compile and run on both runtimes.
+
+The pipeline layer references OTel SDK types (`BaseExporter<Metric>`, `PeriodicExportingMetricReader`, `MeterProviderBuilder`) that have different registration patterns per host. The .NET 10 hosts use `TelemetryServiceExtensions` (via `ServiceDefaults`). The TFS subprocess registers its OTel pipeline directly in `MigrationPlatformHost.CreateDefaultBuilder()`.
+
+#### Adding a new metric
+
+1. Add the instrument name constant to `WellKnownMetricNames.cs` (or `WellKnownDiscoveryMetricNames.cs`).
+2. Add the recording method to the appropriate interface (`IMigrationMetrics` or `IDiscoveryMetrics`).
+3. Implement the instrument field and method in the concrete class (`MigrationMetrics` or `DiscoveryMetrics`).
+4. Call the recording method from module code, passing a pre-built `TagList` via `MigrationTagList.Create()`.
+5. If the metric should appear in `MetricSnapshot`, add a property and update `SnapshotMetricExporter`.
+6. Add a unit test to the corresponding `*MetricsTests` class.
+
+See `.agents/context/telemetry-architecture.md` for the full guide including code examples and placement rules.
+
+### Data Classification
+
+Log statements are classified by data sensitivity using `DataClassification` scopes. The classification determines which log destinations receive the data:
+
+| Classification | Description | Azure Monitor | Package Log | Control Plane |
+|---|---|---|---|---|
+| **System** (default) | Operational logs — health checks, module lifecycle, job IDs | ✅ | ✅ | ✅ |
+| **Customer** | Customer-identifiable data — work item IDs, field values, project names, org URLs, attachment paths | ❌ | ✅ | ✅ |
+| **Derived** | Aggregates and counts — "500 work items processed" | ✅ | ✅ | ✅ |
+
+**Rules:**
+
+- Unclassified logs default to **System** — safe for Azure Monitor. This enables gradual rollout.
+- Only **Customer** is filtered from Azure Monitor. System and Derived pass through.
+- The filter is implemented as a provider-level logging filter on `OpenTelemetryLoggerProvider` (`DataClassificationLogging.AddDataClassificationFilter()`) that reads the ambient `DataClassificationScope.Current` value.
+- `PackageLoggerProvider` and `ControlPlaneLoggerProvider` write **all** classifications unfiltered — the filter only applies to the OTel export pipeline.
+- When scopes are nested, the **innermost** classification wins.
+
+**Usage in code:**
+
+```csharp
+// .NET 10 code (Infrastructure project): use the ILogger extension
+using (logger.BeginDataScope(DataClassification.Customer))
+{
+    logger.LogInformation("Processing work item {WorkItemId}", workItemId);
+}
+
+// .NET 4.8 code (TFS ObjectModel): use the static scope directly
+using (DataClassificationScope.Begin(DataClassification.Customer))
+{
+    logger.LogDebug("Streaming revisions for {WorkItemId}", workItemId);
+}
+```

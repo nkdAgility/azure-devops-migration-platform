@@ -62,6 +62,9 @@ Artefact store abstraction:
 Job contract:
 → .agents/context/job-contract.md
 
+Telemetry architecture:
+→ .agents/context/telemetry-architecture.md
+
 Control plane:
 → docs/control-plane.md
 
@@ -137,6 +140,7 @@ Package zip/export:
    - [checkpointing.md](.agents/context/checkpointing.md) — Cursor-based checkpointing
    - [artefact-store.md](.agents/context/artefact-store.md) — IArtefactStore abstraction
    - [job-contract.md](.agents/context/job-contract.md) — Job contract specification
+   - [telemetry-architecture.md](.agents/context/telemetry-architecture.md) — Telemetry layer model and metric addition guide
    - [identity-and-mapping.md](.agents/context/identity-and-mapping.md) — Identity mapping service
 
 3. **State your understanding** of which guardrails apply to the current task
@@ -201,6 +205,11 @@ After completing any unit of work (a logical change, a file edit, a task), befor
 → .agents/skills/session-hooks/SKILL.md — manage session lifecycle events and phase transitions
 → .agents/skills/refactor-patterns/SKILL.md — assess code quality and apply safe refactoring patterns
 → .agents/skills/hexagonal-check/SKILL.md — scan for Hexagonal Architecture boundary violations (infrastructure leakage into domain/module code)
+→ .agents/skills/modular-monolith-check/SKILL.md — scan for Modular Monolith violations (cross-module coupling, missing module boundaries)
+→ .agents/skills/clean-architecture-check/SKILL.md — scan for Clean Architecture violations (dependency rule breaches, business logic in wrong layer)
+→ .agents/skills/vertical-slice-check/SKILL.md — scan for Vertical Slice violations (cross-slice coupling, missing end-to-end slice ownership)
+→ .agents/skills/screaming-architecture-check/SKILL.md — scan for Screaming Architecture violations (generic names, purpose-obscuring structure)
+→ .agents/skills/architecture-review/SKILL.md — run all five architecture perspective checks and produce a combined prioritised report
 
 ## Session Commands (Slash-command aliases)
 → .github/commands/start-session.md — /start-session
@@ -260,6 +269,7 @@ Reject any proposal that:
 - **Implements custom enumeration or sorting logic instead of using `IArtefactStore.EnumerateAsync()` in lexicographic order** (no in-memory result sets, no custom sorting).
 - **Buffers attachments or binary data in memory instead of streaming via `IArtefactStore.WriteBinaryAsync()` or `IAttachmentBinarySource`**.
 - **Invents a new abstraction for work item processing without extending an existing pattern or documenting why no existing abstraction could be reused** (motivated by rule 21 of [.agents/guardrails/system-architecture.md](.agents/guardrails/system-architecture.md)).
+- **Logs a work item ID, field value, project name, org URL, or attachment path without a `DataClassification.Customer` scope** (see [docs/configuration.md — Data Classification](docs/configuration.md#data-classification)).
 - Leaves any `throw new NotImplementedException()` or `throw new NotSupportedException("... not yet implemented")` in any reachable code path — ephemeral stubs are only permitted within a single session and must be replaced before the task is marked complete.
 - Declares a task complete without a passing `dotnet clean && dotnet build --no-incremental`.
 - Declares a task complete without all tests passing (`dotnet test`).

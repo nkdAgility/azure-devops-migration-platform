@@ -115,6 +115,8 @@ Pre-flight validation runs:
 
 Post-flight validation runs after all `ImportAsync` calls complete.
 
+In addition to writing `validation-report.json`, the post-flight validation pass emits OTel metrics via `IMigrationMetrics` — count parity histograms (`migration.correctness.revision_source_count`, `migration.correctness.revision_target_count`, `migration.correctness.revision_delta`) and error counters (`migration.correctness.broken_links`, `migration.correctness.missing_workitems`). These metrics respect the `sampleRate` configuration and are recorded under the consolidated `DevOpsMigrationPlatform.Migration` meter.
+
 ### Required Checks
 
 | Check | Description |

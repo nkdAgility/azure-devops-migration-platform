@@ -23,9 +23,9 @@ public class ControlPlaneTelemetryClientTests
     [TestInitialize]
     public void Setup()
     {
-        _handler    = new MockHttpMessageHandler();
+        _handler = new MockHttpMessageHandler();
         _httpClient = new HttpClient(_handler) { BaseAddress = new Uri("http://localhost:5100") };
-        _sut        = new ControlPlaneTelemetryClient(
+        _sut = new ControlPlaneTelemetryClient(
             _httpClient,
             NullLogger<ControlPlaneTelemetryClient>.Instance);
     }
@@ -38,7 +38,7 @@ public class ControlPlaneTelemetryClientTests
     {
         _handler.RespondWith(HttpStatusCode.NoContent);
 
-        var snapshot = new MetricSnapshot { WorkItemsExported = 10 };
+        var snapshot = new MetricSnapshot { WorkItemsAttempted = 10 };
         await _sut.PushSnapshotAsync("lease-1", snapshot, CancellationToken.None);
 
         // No exception = test passes.
@@ -49,7 +49,7 @@ public class ControlPlaneTelemetryClientTests
     {
         _handler.RespondWith(HttpStatusCode.NotFound);
 
-        var snapshot = new MetricSnapshot { WorkItemsExported = 5 };
+        var snapshot = new MetricSnapshot { WorkItemsAttempted = 5 };
         await _sut.PushSnapshotAsync("lease-404", snapshot, CancellationToken.None);
 
         // No exception = test passes (warning is logged internally).
@@ -62,9 +62,9 @@ public class ControlPlaneTelemetryClientTests
 
         var snapshot = new MetricSnapshot
         {
-            WorkItemsExported    = 42,
-            RevisionsExported    = 100,
-            AttachmentsSucceeded = 5
+            WorkItemsAttempted = 42,
+            WorkItemsCompleted = 40,
+            WorkItemsFailed = 2
         };
 
         await _sut.PushSnapshotAsync("lease-body", snapshot, CancellationToken.None);
@@ -74,8 +74,8 @@ public class ControlPlaneTelemetryClientTests
             .ReadFromJsonAsync<MetricSnapshot>();
 
         Assert.IsNotNull(deserialized);
-        Assert.AreEqual(42, deserialized!.WorkItemsExported);
-        Assert.AreEqual(100, deserialized!.RevisionsExported);
+        Assert.AreEqual(42, deserialized!.WorkItemsAttempted);
+        Assert.AreEqual(40, deserialized!.WorkItemsCompleted);
     }
 
     [TestMethod]
@@ -83,7 +83,7 @@ public class ControlPlaneTelemetryClientTests
     {
         _handler.ThrowOnSend(new HttpRequestException("connection refused"));
 
-        var snapshot = new MetricSnapshot { WorkItemsExported = 1 };
+        var snapshot = new MetricSnapshot { WorkItemsAttempted = 1 };
         await _sut.PushSnapshotAsync("lease-err", snapshot, CancellationToken.None);
 
         // No exception = test passes.
@@ -102,7 +102,7 @@ internal sealed class MockHttpMessageHandler : HttpMessageHandler
 
     public void RespondWith(HttpStatusCode statusCode)
     {
-        _statusCode    = statusCode;
+        _statusCode = statusCode;
         _exceptionToThrow = null;
     }
 

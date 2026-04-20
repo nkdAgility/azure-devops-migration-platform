@@ -34,6 +34,8 @@ public static class TelemetryServiceExtensions
                 .BindConfiguration(TelemetryOptions.SectionName);
 
         services.AddSingleton<IMetricSnapshotStore, InMemoryMetricSnapshotStore>();
+        services.AddSingleton<IMigrationMetrics, MigrationMetrics>();
+        services.AddSingleton<IDiscoveryMetrics, DiscoveryMetrics>();
 
         // Add SnapshotMetricExporter to the OTel metrics pipeline via a
         // PeriodicExportingMetricReader driven by SnapshotIntervalSeconds.

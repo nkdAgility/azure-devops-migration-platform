@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.Json;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Options;
@@ -67,7 +68,16 @@ public sealed class InventoryServiceFactory : IInventoryServiceFactory
                     Projects = new System.Collections.Generic.List<string>(o.Projects),
                     ApiVersion = ado?.ApiVersion,
                     Authentication = ado?.Authentication ?? new EndpointAuthenticationOptions(),
-                    Enabled = true
+                    Enabled = true,
+                    Scopes = o.Scopes.Select(s => new MigrationOptionsScope
+                    {
+                        Type = s.Type,
+                        Parameters = s.Parameters.ToDictionary(
+                            kvp => kvp.Key,
+                            kvp => kvp.Value is JsonElement je
+                                ? je
+                                : JsonSerializer.SerializeToElement(kvp.Value))
+                    }).ToList()
                 };
             }).Cast<DevOpsMigrationPlatform.Abstractions.Options.OrganisationEntry>().ToList()
         };

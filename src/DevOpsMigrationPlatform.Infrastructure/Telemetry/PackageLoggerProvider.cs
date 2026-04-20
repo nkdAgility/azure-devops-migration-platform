@@ -8,6 +8,8 @@ using System.Threading;
 using System.Threading.Channels;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Telemetry;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
@@ -17,25 +19,30 @@ namespace DevOpsMigrationPlatform.Infrastructure.Telemetry;
 /// Custom <see cref="ILoggerProvider"/> that captures <c>ILogger</c> output and writes it
 /// as NDJSON <see cref="DiagnosticLogRecord"/> lines to <c>Logs/agent.jsonl</c> in the
 /// migration package via <see cref="IArtefactStore"/>. Uses a bounded channel and
-/// background drain loop for non-blocking writes. Respects <see cref="DiagnosticLogOptions.MinimumLevel"/>.
-/// The <see cref="IArtefactStore"/> is resolved lazily from <see cref="ActivePackageState"/>
-/// because it is only available after a job lease is acquired.
+/// <see cref="BackgroundService"/> drain loop for non-blocking writes. Respects
+/// <see cref="DiagnosticLogOptions.MinimumLevel"/>. The <see cref="IArtefactStore"/> is
+/// resolved lazily from <see cref="ActivePackageState"/> because it is only available
+/// after a job lease is acquired.
 /// </summary>
 [ProviderAlias("PackageLogger")]
-public sealed class PackageLoggerProvider : ILoggerProvider, IDisposable
+public sealed class PackageLoggerProvider : BackgroundService, ILoggerProvider
 {
-    private const string LogPath = "Logs/agent.jsonl";
+    private const string LogDir = "Logs";
+    private const string LogBaseName = "agent";
+    private const string LogExtension = ".jsonl";
 
     private readonly Channel<DiagnosticLogRecord> _channel;
     private readonly ActivePackageState _packageState;
     private readonly LogLevel _minimumLevel;
     private readonly int _flushBatchSize;
     private readonly TimeSpan _flushInterval;
-    private readonly CancellationTokenSource _cts = new();
-    private readonly Task _drainTask;
+    private readonly long _maxSegmentBytes;
     private long _droppedCount;
     private volatile IArtefactStore? _lastKnownStore;
-    private int _disposed;
+
+    // Rotation state — only accessed from the drain loop (single-threaded).
+    private int _segmentIndex;
+    private long _currentSegmentBytes;
 
     public PackageLoggerProvider(
         ActivePackageState packageState,
@@ -46,12 +53,21 @@ public sealed class PackageLoggerProvider : ILoggerProvider, IDisposable
         _minimumLevel = Enum.TryParse<LogLevel>(opts.MinimumLevel, ignoreCase: true, out var level) ? level : LogLevel.Information;
         _flushBatchSize = opts.FlushBatchSize;
         _flushInterval = TimeSpan.FromMilliseconds(opts.FlushIntervalMs);
+        _maxSegmentBytes = opts.MaxLogFileSizeMB > 0
+            ? (long)opts.MaxLogFileSizeMB * 1024 * 1024
+            : long.MaxValue; // 0 = disabled
 
         _channel = Channel.CreateBounded<DiagnosticLogRecord>(
             new BoundedChannelOptions(opts.ChannelCapacity) { FullMode = BoundedChannelFullMode.DropOldest });
-
-        _drainTask = DrainLoopAsync(_cts.Token);
     }
+
+    /// <summary>
+    /// Returns the current log segment path (e.g. <c>Logs/agent.jsonl</c>,
+    /// <c>Logs/agent-001.jsonl</c>, etc.).
+    /// </summary>
+    internal string CurrentLogPath => _segmentIndex == 0
+        ? $"{LogDir}/{LogBaseName}{LogExtension}"
+        : $"{LogDir}/{LogBaseName}-{_segmentIndex:D3}{LogExtension}";
 
     public ILogger CreateLogger(string categoryName)
         => new PackageLogger(this, categoryName);
@@ -61,30 +77,36 @@ public sealed class PackageLoggerProvider : ILoggerProvider, IDisposable
 
     internal void Write(DiagnosticLogRecord record)
     {
+        // Eagerly capture the store reference on the write path so the drain loop
+        // can flush even if the job completes before the next poll interval.
+        var store = _packageState.CurrentStore;
+        if (store is not null)
+            _lastKnownStore = store;
+
         _channel.Writer.TryWrite(record);
     }
 
-    private async Task DrainLoopAsync(CancellationToken cancellationToken)
+    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         var batch = new List<DiagnosticLogRecord>(_flushBatchSize);
 
         try
         {
-            while (!cancellationToken.IsCancellationRequested)
+            while (!stoppingToken.IsCancellationRequested)
             {
                 // Wait for a store to become available before consuming from the channel.
                 // Records stay safely buffered in the bounded channel while no job is active.
                 var currentStore = _packageState.CurrentStore;
                 if (currentStore is null)
                 {
-                    await Task.Delay(_flushInterval, cancellationToken).ConfigureAwait(false);
+                    await Task.Delay(_flushInterval, stoppingToken).ConfigureAwait(false);
                     continue;
                 }
                 _lastKnownStore = currentStore;
 
                 batch.Clear();
 
-                using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+                using var cts = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken);
                 cts.CancelAfter(_flushInterval);
 
                 try
@@ -102,11 +124,15 @@ public sealed class PackageLoggerProvider : ILoggerProvider, IDisposable
 
                 if (batch.Count > 0)
                 {
-                    await FlushBatchAsync(batch, cancellationToken).ConfigureAwait(false);
+                    // Use CancellationToken.None so that records are not dropped when
+                    // stoppingToken fires while a batch is mid-flush. File.AppendAllTextAsync
+                    // returns Task.FromCanceled immediately for a pre-cancelled token, silently
+                    // discarding records. Log appends are fast local I/O and should always complete.
+                    await FlushBatchAsync(batch, CancellationToken.None).ConfigureAwait(false);
                 }
             }
         }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
         {
             // Normal shutdown.
         }
@@ -142,25 +168,26 @@ public sealed class PackageLoggerProvider : ILoggerProvider, IDisposable
             {
                 sb.AppendLine(JsonSerializer.Serialize(record));
             }
-            await store.AppendAsync(LogPath, sb.ToString(), cancellationToken).ConfigureAwait(false);
+
+            var payload = sb.ToString();
+            var payloadBytes = Encoding.UTF8.GetByteCount(payload);
+
+            // Rotate if this batch would exceed the segment limit.
+            if (_currentSegmentBytes > 0
+                && _currentSegmentBytes + payloadBytes > _maxSegmentBytes)
+            {
+                _segmentIndex++;
+                _currentSegmentBytes = 0;
+            }
+
+            await store.AppendAsync(CurrentLogPath, payload, cancellationToken).ConfigureAwait(false);
+            _currentSegmentBytes += payloadBytes;
         }
         catch (Exception)
         {
             Interlocked.Add(ref _droppedCount, batch.Count);
             // Best-effort — failures are counted but not propagated.
         }
-    }
-
-    public void Dispose()
-    {
-        if (Interlocked.Exchange(ref _disposed, 1) != 0)
-            return;
-
-        try { _cts.Cancel(); } catch (ObjectDisposedException) { }
-        _channel.Writer.TryComplete();
-        // Allow drain to complete (bounded wait to avoid blocking disposal indefinitely).
-        _drainTask.Wait(TimeSpan.FromSeconds(5));
-        _cts.Dispose();
     }
 
     /// <summary>
@@ -195,6 +222,7 @@ public sealed class PackageLoggerProvider : ILoggerProvider, IDisposable
                 return;
 
             var activity = Activity.Current;
+            var classification = DataClassificationScope.Current;
             var record = new DiagnosticLogRecord
             {
                 Timestamp = DateTimeOffset.UtcNow,
@@ -203,7 +231,8 @@ public sealed class PackageLoggerProvider : ILoggerProvider, IDisposable
                 Message = formatter(state, exception),
                 Exception = exception?.ToString(),
                 TraceId = activity?.TraceId.ToString(),
-                SpanId = activity?.SpanId.ToString()
+                SpanId = activity?.SpanId.ToString(),
+                DataClassification = classification?.ToString()
             };
 
             _provider.Write(record);

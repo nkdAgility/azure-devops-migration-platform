@@ -22,8 +22,8 @@ public sealed class TelemetryPanel
 
         var panel = new Panel(BuildContent(snap))
         {
-            Header  = new PanelHeader($"Metrics (as of {DateTimeOffset.UtcNow:HH:mm:ss})"),
-            Border  = BoxBorder.Rounded,
+            Header = new PanelHeader($"Metrics (as of {DateTimeOffset.UtcNow:HH:mm:ss})"),
+            Border = BoxBorder.Rounded,
             Padding = new Padding(1, 0)
         };
 
@@ -37,14 +37,24 @@ public sealed class TelemetryPanel
 
         return string.Join("\n", new[]
         {
-            $"Work Items Exported    : [green]{snap.WorkItemsExported,10:N0}[/]     Revision Errors          : [red]{snap.RevisionErrors,6:N0}[/]",
-            $"Revisions Exported     : [green]{snap.RevisionsExported,10:N0}[/]     Link Errors              : [red]{snap.LinkErrors,6:N0}[/]",
-            $"Links Exported         : [green]{snap.LinksExported,10:N0}[/]     Attachments Failed       : [red]{snap.AttachmentsFailed,6:N0}[/]",
-            $"Attachments Attempted  : [green]{snap.AttachmentsAttempted,10:N0}[/]     Avg Work Item Duration   : [yellow]{FormatMs(snap.WorkItemDurationMeanMs),8}[/]",
-            $"Attachments Succeeded  : [green]{snap.AttachmentsSucceeded,10:N0}[/]     Avg Revision Duration    : [yellow]{FormatMs(snap.RevisionDurationMeanMs),8}[/]",
+            $"Work Items Attempted   : [green]{snap.WorkItemsAttempted,10:N0}[/]     Work Items Failed        : [red]{snap.WorkItemsFailed,6:N0}[/]",
+            $"Work Items Completed   : [green]{snap.WorkItemsCompleted,10:N0}[/]     Missing Work Items       : [red]{snap.MissingWorkItems,6:N0}[/]",
+            $"Work Items Retried     : [yellow]{snap.WorkItemsRetried,10:N0}[/]     Broken Links             : [red]{snap.BrokenLinks,6:N0}[/]",
+            $"In-Flight              : [blue]{snap.WorkItemsInFlight,10:N0}[/]     Revisions Missing        : [red]{snap.RevisionsMissing,6:N0}[/]",
+            $"Queue Depth            : [blue]{snap.QueueDepth,10:N0}[/]     Rev Order Errors         : [red]{snap.RevisionOrderErrors,6:N0}[/]",
+            $"",
+            $"Avg Duration           : [yellow]{FormatMs(snap.WorkItemDurationMeanMs),8}[/]     Avg Revisions            : [yellow]{FormatMean(snap.RevisionCountMean),8}[/]",
+            $"Avg Fields             : [yellow]{FormatMean(snap.FieldCountMean),8}[/]     Avg Attachments          : [yellow]{FormatMean(snap.AttachmentCountMean),8}[/]",
+            $"Avg Links              : [yellow]{FormatMean(snap.LinkCountMean),8}[/]     Avg Payload              : [yellow]{FormatBytes(snap.PayloadBytesMean),8}[/]",
         });
     }
 
     private static string FormatMs(double? ms) =>
         ms.HasValue ? $"{ms.Value:F0} ms" : "--";
+
+    private static string FormatMean(double? value) =>
+        value.HasValue ? $"{value.Value:F1}" : "--";
+
+    private static string FormatBytes(double? bytes) =>
+        bytes.HasValue ? $"{bytes.Value:F0} B" : "--";
 }

@@ -32,5 +32,8 @@ public sealed class AzureBlobArtefactStore : Abstractions.IArtefactStore
 
     public Task AppendAsync(string path, string content, CancellationToken cancellationToken)
         => throw new NotImplementedException("AzureBlobArtefactStore is not yet implemented.");
+
+    public Task WriteStreamAsync(string path, System.IO.Stream content, CancellationToken cancellationToken)
+        => throw new NotImplementedException("AzureBlobArtefactStore is not yet implemented.");
 }
 #endif

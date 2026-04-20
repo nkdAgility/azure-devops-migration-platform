@@ -14,9 +14,6 @@ namespace DevOpsMigrationPlatform.Infrastructure.Telemetry;
 /// </summary>
 internal sealed class SnapshotMetricExporter : BaseExporter<Metric>
 {
-    // Instrument names from WorkItemExportMetrics and AttachmentDownloadMetrics.
-    // Use centralized constants from WellKnownMetricNames for Application Insights contract stability.
-
     private readonly IMetricSnapshotStore _store;
 
     public SnapshotMetricExporter(IMetricSnapshotStore store)
@@ -26,64 +23,109 @@ internal sealed class SnapshotMetricExporter : BaseExporter<Metric>
 
     public override ExportResult Export(in Batch<Metric> batch)
     {
-        long workItemsExported = 0;
-        long revisionsExported = 0;
-        long revisionErrors = 0;
-        long linksExported = 0;
-        long linkErrors = 0;
-        long attachmentsAttempted = 0;
-        long attachmentsSucceeded = 0;
-        long attachmentsFailed = 0;
-        double? workItemMeanMs = null;
-        double? revisionMeanMs = null;
-        double? totalDurationMs = null;
+        // Execution
+        long attempted = 0, completed = 0, failed = 0, retried = 0;
+        double? durationMeanMs = null;
+
+        // Payload
+        double? fieldCountMean = null, attachmentCountMean = null, linkCountMean = null;
+        double? revisionCountMean = null, payloadBytesMean = null;
+
+        // Correctness
+        double? revSourceMean = null, revTargetMean = null, revDeltaMean = null;
+        long revMissing = 0, revOrderErrors = 0, brokenLinks = 0, missingWI = 0;
+
+        // In-Flight
+        int inFlight = 0, queueDepth = 0;
+
+        // Idempotency (nullable — null when no measurements recorded)
+        long? duplicated = null, changedOnRerun = null;
+        long? reprocessedAfterResume = null, duplicatedAfterResume = null, missingAfterResume = null;
 
         foreach (var metric in batch)
         {
             switch (metric.Name)
             {
-                case WellKnownMetricNames.WorkItemsExported:
-                    workItemsExported = ReadCounterSum(metric);
+                // --- Execution ---
+                case WellKnownMetricNames.WorkItemsAttempted:
+                    attempted = ReadCounterSum(metric);
+                    break;
+                case WellKnownMetricNames.WorkItemsCompleted:
+                    completed = ReadCounterSum(metric);
+                    break;
+                case WellKnownMetricNames.WorkItemsFailed:
+                    failed = ReadCounterSum(metric);
+                    break;
+                case WellKnownMetricNames.WorkItemsRetried:
+                    retried = ReadCounterSum(metric);
+                    break;
+                case WellKnownMetricNames.WorkItemDurationMs:
+                    durationMeanMs = ReadHistogramMean(metric);
                     break;
 
-                case WellKnownMetricNames.RevisionsExported:
-                    revisionsExported = ReadCounterSum(metric);
+                // --- Payload ---
+                case WellKnownMetricNames.FieldCount:
+                    fieldCountMean = ReadHistogramMean(metric);
+                    break;
+                case WellKnownMetricNames.AttachmentCount:
+                    attachmentCountMean = ReadHistogramMean(metric);
+                    break;
+                case WellKnownMetricNames.LinkCount:
+                    linkCountMean = ReadHistogramMean(metric);
+                    break;
+                case WellKnownMetricNames.RevisionCount:
+                    revisionCountMean = ReadHistogramMean(metric);
+                    break;
+                case WellKnownMetricNames.PayloadBytes:
+                    payloadBytesMean = ReadHistogramMean(metric);
                     break;
 
-                case WellKnownMetricNames.RevisionErrors:
-                    revisionErrors = ReadCounterSum(metric);
+                // --- Correctness ---
+                case WellKnownMetricNames.RevisionSourceCount:
+                    revSourceMean = ReadHistogramMean(metric);
+                    break;
+                case WellKnownMetricNames.RevisionTargetCount:
+                    revTargetMean = ReadHistogramMean(metric);
+                    break;
+                case WellKnownMetricNames.RevisionDelta:
+                    revDeltaMean = ReadHistogramMean(metric);
+                    break;
+                case WellKnownMetricNames.RevisionsMissing:
+                    revMissing = ReadCounterSum(metric);
+                    break;
+                case WellKnownMetricNames.RevisionOrderErrors:
+                    revOrderErrors = ReadCounterSum(metric);
+                    break;
+                case WellKnownMetricNames.BrokenLinks:
+                    brokenLinks = ReadCounterSum(metric);
+                    break;
+                case WellKnownMetricNames.MissingWorkItems:
+                    missingWI = ReadCounterSum(metric);
                     break;
 
-                case WellKnownMetricNames.LinksExported:
-                    linksExported = ReadCounterSum(metric);
+                // --- In-Flight ---
+                case WellKnownMetricNames.WorkItemsInFlight:
+                    inFlight = (int)ReadCounterSum(metric);
+                    break;
+                case WellKnownMetricNames.QueueDepth:
+                    queueDepth = ReadGaugeLatest(metric);
                     break;
 
-                case WellKnownMetricNames.LinkErrors:
-                    linkErrors = ReadCounterSum(metric);
+                // --- Idempotency ---
+                case WellKnownMetricNames.Duplicated:
+                    duplicated = ReadCounterSum(metric);
                     break;
-
-                case WellKnownMetricNames.AttachmentAttempts:
-                    attachmentsAttempted = ReadCounterSum(metric);
+                case WellKnownMetricNames.ChangedOnRerun:
+                    changedOnRerun = ReadCounterSum(metric);
                     break;
-
-                case WellKnownMetricNames.AttachmentSuccesses:
-                    attachmentsSucceeded = ReadCounterSum(metric);
+                case WellKnownMetricNames.ReprocessedAfterResume:
+                    reprocessedAfterResume = ReadCounterSum(metric);
                     break;
-
-                case WellKnownMetricNames.AttachmentFailures:
-                    attachmentsFailed = ReadCounterSum(metric);
+                case WellKnownMetricNames.DuplicatedAfterResume:
+                    duplicatedAfterResume = ReadCounterSum(metric);
                     break;
-
-                case WellKnownMetricNames.WorkItemDuration:
-                    workItemMeanMs = ReadHistogramMean(metric);
-                    break;
-
-                case WellKnownMetricNames.RevisionDuration:
-                    revisionMeanMs = ReadHistogramMean(metric);
-                    break;
-
-                case WellKnownMetricNames.TotalDuration:
-                    totalDurationMs = ReadHistogramMean(metric);
+                case WellKnownMetricNames.MissingAfterResume:
+                    missingAfterResume = ReadCounterSum(metric);
                     break;
             }
         }
@@ -91,17 +133,30 @@ internal sealed class SnapshotMetricExporter : BaseExporter<Metric>
         _store.Update(new MetricSnapshot
         {
             Timestamp = DateTimeOffset.UtcNow,
-            WorkItemsExported = workItemsExported,
-            RevisionsExported = revisionsExported,
-            RevisionErrors = revisionErrors,
-            LinksExported = linksExported,
-            LinkErrors = linkErrors,
-            AttachmentsAttempted = attachmentsAttempted,
-            AttachmentsSucceeded = attachmentsSucceeded,
-            AttachmentsFailed = attachmentsFailed,
-            WorkItemDurationMeanMs = workItemMeanMs,
-            RevisionDurationMeanMs = revisionMeanMs,
-            TotalExportDurationMs = totalDurationMs,
+            WorkItemsAttempted = attempted,
+            WorkItemsCompleted = completed,
+            WorkItemsFailed = failed,
+            WorkItemsRetried = retried,
+            WorkItemDurationMeanMs = durationMeanMs,
+            FieldCountMean = fieldCountMean,
+            AttachmentCountMean = attachmentCountMean,
+            LinkCountMean = linkCountMean,
+            RevisionCountMean = revisionCountMean,
+            PayloadBytesMean = payloadBytesMean,
+            RevisionSourceCountMean = revSourceMean,
+            RevisionTargetCountMean = revTargetMean,
+            RevisionDeltaMean = revDeltaMean,
+            RevisionsMissing = revMissing,
+            RevisionOrderErrors = revOrderErrors,
+            BrokenLinks = brokenLinks,
+            MissingWorkItems = missingWI,
+            WorkItemsInFlight = inFlight,
+            QueueDepth = queueDepth,
+            Duplicated = duplicated,
+            ChangedOnRerun = changedOnRerun,
+            ReprocessedAfterResume = reprocessedAfterResume,
+            DuplicatedAfterResume = duplicatedAfterResume,
+            MissingAfterResume = missingAfterResume,
         });
 
         return ExportResult.Success;
@@ -130,6 +185,17 @@ internal sealed class SnapshotMetricExporter : BaseExporter<Metric>
         }
 
         return totalCount > 0 ? totalSum / totalCount : null;
+    }
+
+    // Reads the latest reported value from an ObservableGauge instrument.
+    // The SDK invokes the gauge callback on each collection cycle and reports
+    // the value as a sum across MetricPoints.
+    private static int ReadGaugeLatest(Metric metric)
+    {
+        long latest = 0;
+        foreach (ref readonly MetricPoint mp in metric.GetMetricPoints())
+            latest = mp.GetSumLong();
+        return (int)latest;
     }
 }
 #endif

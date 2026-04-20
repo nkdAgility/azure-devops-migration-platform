@@ -1,5 +1,7 @@
+using System.Diagnostics;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Infrastructure.TfsObjectModel;
+using DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.Telemetry;
 using Spectre.Console;
 using Spectre.Console.Cli;
 using System;
@@ -55,6 +57,17 @@ namespace DevOpsMigrationPlatform.CLI.TfsMigration.Commands
                 Path.GetFullPath(settings.OutputFolder));
 
             await CreateHost(hostSettings, context.Arguments.ToArray()).ConfigureAwait(false);
+
+            // Restore W3C trace context propagated by the parent process via env var.
+            // This makes all spans emitted by the subprocess children of the parent's active span.
+            var traceParent = Environment.GetEnvironmentVariable("TRACEPARENT");
+            var traceState = Environment.GetEnvironmentVariable("TRACESTATE");
+            ActivityContext parentContext = default;
+            if (traceParent is not null)
+                ActivityContext.TryParse(traceParent, traceState, isRemote: true, out parentContext);
+
+            using var rootActivity = MigrationPlatformActivitySources.WorkItemExport
+                .StartActivity("TfsExport", ActivityKind.Server, parentContext);
 
             var agent = new TfsExportAgent(
                 GetRequiredService<IArtefactStore>(),

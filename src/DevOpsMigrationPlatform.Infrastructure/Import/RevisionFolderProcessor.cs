@@ -8,6 +8,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Models;
+using DevOpsMigrationPlatform.Abstractions.Telemetry;
 using Microsoft.Extensions.Logging;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Import;
@@ -71,6 +72,8 @@ public sealed class RevisionFolderProcessor : IRevisionFolderProcessor
         IWorkItemResolutionStrategy resolutionStrategy,
         CancellationToken ct)
     {
+        using var _dc = DataClassificationScope.Begin(DataClassification.Customer);
+
         var revisionJson = await _artefactStore.ReadAsync($"{folderPath}/revision.json", ct).ConfigureAwait(false);
         if (revisionJson is null)
         {

@@ -4,10 +4,11 @@ using Microsoft.Extensions.Logging;
 using Microsoft.TeamFoundation.WorkItemTracking.Client;
 using Microsoft.TeamFoundation.WorkItemTracking.Proxy;
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Telemetry;
 
 namespace DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.Services;
 
-public interface IAttachmentDownloader
+public interface ITfsAttachmentDownloader
 {
     AttachmentDownloadResult DownloadAttachment(int attachmentId);
 }
@@ -15,16 +16,18 @@ public interface IAttachmentDownloader
 /// <summary>
 /// Downloads attachment binaries from TFS using the <see cref="WorkItemServer"/> proxy.
 /// </summary>
-public class TfsAttachmentDownloader : IAttachmentDownloader
+public class TfsAttachmentDownloader : ITfsAttachmentDownloader
 {
     private readonly WorkItemServer _workItemServer;
     private readonly ILogger<TfsAttachmentDownloader> _logger;
+#pragma warning disable CS0618 // Obsolete — retained until all call sites migrate to IMigrationMetrics
     private readonly IAttachmentDownloadMetrics _metrics;
 
     public TfsAttachmentDownloader(
         WorkItemStore store,
         ILogger<TfsAttachmentDownloader> logger,
         IAttachmentDownloadMetrics metrics)
+#pragma warning restore CS0618
     {
         _workItemServer = store.TeamProjectCollection.GetService<WorkItemServer>();
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
@@ -33,6 +36,7 @@ public class TfsAttachmentDownloader : IAttachmentDownloader
 
     public AttachmentDownloadResult DownloadAttachment(int attachmentId)
     {
+        using var _dc = DataClassificationScope.Begin(DataClassification.Customer);
         _metrics.RecordAttempt();
         var stopwatch = Stopwatch.StartNew();
 

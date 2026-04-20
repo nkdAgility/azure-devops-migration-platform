@@ -1,8 +1,11 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
@@ -20,6 +23,12 @@ namespace DevOpsMigrationPlatform.Infrastructure.Export;
 /// downloaded and stored beside <c>revision.json</c> in the same revision folder.
 /// For comment edit/delete revisions, inline comment versions are fetched via
 /// <see cref="IWorkItemCommentSourceFactory"/> and written as comment.json.
+/// <para>
+/// When <see cref="FilterOptions"/> is non-empty, a pre-filter pass is performed before the
+/// main export loop via <see cref="IWorkItemFetchService"/>. Only filter-referenced fields are
+/// fetched. Work items that do not pass the filter are skipped entirely — no revision API calls
+/// are made for filtered-out items.
+/// </para>
 /// </summary>
 public sealed class WorkItemExportOrchestrator
 {
@@ -37,6 +46,10 @@ public sealed class WorkItemExportOrchestrator
     private readonly IWorkItemCommentSourceFactory? _inlineCommentSourceFactory;
     private readonly MigrationEndpointOptions? _endpoint;
     private readonly string? _project;
+    private readonly IWorkItemFetchService? _fetchService;
+    private readonly IReadOnlyList<WorkItemFieldFilterOptions>? _filterOptions;
+    private readonly IMigrationMetrics? _metrics;
+    private readonly string? _jobId;
 
     public WorkItemExportOrchestrator(
         IArtefactStore artefactStore,
@@ -45,7 +58,11 @@ public sealed class WorkItemExportOrchestrator
         IProgressSink? progressSink = null,
         MigrationEndpointOptions? endpoint = null,
         string? project = null,
-        IWorkItemCommentSourceFactory? inlineCommentSourceFactory = null)
+        IWorkItemCommentSourceFactory? inlineCommentSourceFactory = null,
+        IWorkItemFetchService? fetchService = null,
+        IReadOnlyList<WorkItemFieldFilterOptions>? filterOptions = null,
+        IMigrationMetrics? metrics = null,
+        string? jobId = null)
     {
         _artefactStore = artefactStore;
         _checkpointingService = checkpointingService;
@@ -54,6 +71,10 @@ public sealed class WorkItemExportOrchestrator
         _inlineCommentSourceFactory = inlineCommentSourceFactory;
         _endpoint = endpoint;
         _project = project;
+        _fetchService = fetchService;
+        _filterOptions = filterOptions;
+        _metrics = metrics;
+        _jobId = jobId;
     }
 
     /// <summary>
@@ -66,6 +87,24 @@ public sealed class WorkItemExportOrchestrator
         IWorkItemRevisionSource source,
         CancellationToken cancellationToken)
     {
+        // Pre-filter pass: build the set of work item IDs that pass filter predicates.
+        // If filters are configured, fetch only filter-referenced fields via IWorkItemFetchService.
+        // Items not in the set are skipped in the main loop — no revision API calls are made.
+        HashSet<int>? filteredIds = null;
+        if (_filterOptions is { Count: > 0 } && _fetchService != null && _endpoint != null &&
+            !string.IsNullOrEmpty(_project))
+        {
+            filteredIds = await BuildFilteredIdSetAsync(_filterOptions, cancellationToken)
+                .ConfigureAwait(false);
+
+            _progressSink?.Emit(new ProgressEvent
+            {
+                Module = "WorkItems",
+                Stage = "Export",
+                Message = $"[WorkItems] Pre-filter pass complete: {filteredIds.Count} work items pass the configured filter(s)."
+            });
+        }
+
         var cursor = await _checkpointingService
             .ReadCursorAsync("WorkItems", cancellationToken)
             .ConfigureAwait(false);
@@ -73,6 +112,22 @@ public sealed class WorkItemExportOrchestrator
         int workItemsProcessed = 0;
         int revisionsProcessed = 0;
         int lastWorkItemId = 0;
+        int attachmentsProcessed = 0;
+        int attachmentsFailed = 0;
+
+        // Per-work-item timing for duration histogram.
+        var workItemStopwatch = Stopwatch.StartNew();
+        TagList exportTags = _metrics != null
+            ? MigrationTagList.Create(_jobId ?? "not-set", "export", "workitems")
+            : default;
+        int revisionsForCurrentWorkItem = 0;
+
+        // Delta detection: track download URLs from the previous revision to skip
+        // re-downloading identical attachments on adjacent revisions.
+        var previousAttachmentUrls = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        // Detect streaming support once rather than per-attachment.
+        var streamingSource = _attachmentBinarySource as IStreamingAttachmentBinarySource;
 
         await foreach (var revision in source.GetRevisionsAsync(cancellationToken))
         {
@@ -85,11 +140,39 @@ public sealed class WorkItemExportOrchestrator
                 continue;
             }
 
+            // Skip work items that did not pass the pre-filter.
+            if (filteredIds != null && !filteredIds.Contains(revision.WorkItemId))
+            {
+                if (revision.RevisionIndex == 0)
+                {
+                    // Log once per work item (at the first revision we encounter for it).
+                    _progressSink?.Emit(new ProgressEvent
+                    {
+                        Module = "WorkItems",
+                        Stage = "Export",
+                        WorkItemId = revision.WorkItemId,
+                        Message = $"[WorkItems] Work item {revision.WorkItemId} skipped by filter scope."
+                    });
+                }
+                continue;
+            }
+
 
 
             // Write revision.json.
             var json = JsonSerializer.Serialize(revision, JsonOptions);
             await _artefactStore.WriteAsync($"{folderPath}revision.json", json, cancellationToken).ConfigureAwait(false);
+
+            // Record payload complexity metrics per revision.
+            if (_metrics != null)
+            {
+                _metrics.RecordFieldCount(revision.Fields.Count, exportTags);
+                _metrics.RecordAttachmentCount(revision.Attachments.Count, exportTags);
+                _metrics.RecordLinkCount(
+                    revision.ExternalLinks.Count + revision.RelatedLinks.Count + revision.Hyperlinks.Count,
+                    exportTags);
+                _metrics.RecordPayloadBytes(json.Length, exportTags);
+            }
 
             // For comment edit/delete revisions, fetch the matching comment versions by timestamp
             // and write them as comment.json beside revision.json in the same revision folder.
@@ -139,8 +222,24 @@ public sealed class WorkItemExportOrchestrator
             }
 
             revisionsProcessed++;
+
             if (revision.WorkItemId != lastWorkItemId)
             {
+                // Record completion of the previous work item (if any).
+                if (lastWorkItemId != 0 && _metrics != null)
+                {
+                    _metrics.RecordWorkItemCompleted(exportTags);
+                    _metrics.RecordWorkItemDuration(workItemStopwatch.Elapsed.TotalMilliseconds, exportTags);
+                    _metrics.RecordRevisionCount(revisionsForCurrentWorkItem, exportTags);
+                    _metrics.DecrementInFlight(exportTags);
+                }
+
+                // Record attempted for the new work item and restart timing.
+                _metrics?.RecordWorkItemAttempted(exportTags);
+                _metrics?.IncrementInFlight(exportTags);
+                workItemStopwatch.Restart();
+                revisionsForCurrentWorkItem = 1; // This is the first revision of the new work item.
+
                 // Emit once per work item (not per revision) to avoid flooding the channel.
                 workItemsProcessed++;
                 lastWorkItemId = revision.WorkItemId;
@@ -153,27 +252,74 @@ public sealed class WorkItemExportOrchestrator
                     WorkItemId = revision.WorkItemId,
                     WorkItemsProcessed = workItemsProcessed,
                     RevisionsProcessed = revisionsProcessed,
+                    AttachmentsProcessed = attachmentsProcessed,
+                    AttachmentsFailed = attachmentsFailed,
                     Message = $"[WorkItems] {workItemsProcessed} work items / {revisionsProcessed} revisions written"
                 });
             }
+            else
+            {
+                revisionsForCurrentWorkItem++;
+            }
 
             // Write attachment binaries beside revision.json when a binary source is available.
+            // Delta detection: skip re-downloading when the same URL appears on adjacent revisions.
+            var currentAttachmentUrls = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             if (_attachmentBinarySource != null)
             {
                 foreach (var attachment in revision.Attachments)
                 {
-                    var bytes = await _attachmentBinarySource
-                        .GetBytesAsync(revision.WorkItemId, revision.RevisionIndex, attachment, cancellationToken)
-                        .ConfigureAwait(false);
+                    // Track current revision's URLs for next-revision delta comparison.
+                    var downloadUrl = attachment.DownloadUrl;
+                    if (downloadUrl is { Length: > 0 })
+                        currentAttachmentUrls.Add(downloadUrl);
 
-                    if (bytes != null)
+                    // Delta detection: skip download if same URL was already downloaded
+                    // for the previous revision (adjacent revision optimization).
+                    if (downloadUrl is { Length: > 0 } &&
+                        previousAttachmentUrls.Contains(downloadUrl))
                     {
-                        await _artefactStore
-                            .WriteBinaryAsync($"{folderPath}{attachment.RelativePath}", bytes, cancellationToken)
+                        continue;
+                    }
+
+                    var targetPath = $"{folderPath}{attachment.RelativePath}";
+
+                    // Prefer streaming path when the source supports it (no byte[] buffering).
+                    if (streamingSource != null)
+                    {
+                        var result = await streamingSource
+                            .StreamToStoreAsync(revision.WorkItemId, revision.RevisionIndex, attachment,
+                                _artefactStore, targetPath, cancellationToken)
                             .ConfigureAwait(false);
+
+                        if (result.HasValue)
+                            attachmentsProcessed++;
+                        else
+                            attachmentsFailed++;
+                    }
+                    else
+                    {
+                        // Fallback: buffer via GetBytesAsync + WriteBinaryAsync.
+                        var bytes = await _attachmentBinarySource
+                            .GetBytesAsync(revision.WorkItemId, revision.RevisionIndex, attachment, cancellationToken)
+                            .ConfigureAwait(false);
+
+                        if (bytes != null)
+                        {
+                            await _artefactStore
+                                .WriteBinaryAsync(targetPath, bytes, cancellationToken)
+                                .ConfigureAwait(false);
+                            attachmentsProcessed++;
+                        }
+                        else
+                        {
+                            attachmentsFailed++;
+                        }
                     }
                 }
             }
+
+            previousAttachmentUrls = currentAttachmentUrls;
 
             var newCursor = new CursorEntry
             {
@@ -186,6 +332,50 @@ public sealed class WorkItemExportOrchestrator
                 .ConfigureAwait(false);
         }
 
+        // Emit zero-match warning if filters were active but no items were processed.
+        if (_filterOptions is { Count: > 0 } && workItemsProcessed == 0)
+        {
+            _progressSink?.Emit(new ProgressEvent
+            {
+                Module = "WorkItems",
+                Stage = "Export",
+                Message = "[WorkItems] Warning: all work items were filtered out by filter scopes. Check your filter configuration."
+            });
+        }
+
+        // Record completion of the final work item.
+        if (lastWorkItemId != 0 && _metrics != null)
+        {
+            _metrics.RecordWorkItemCompleted(exportTags);
+            _metrics.RecordWorkItemDuration(workItemStopwatch.Elapsed.TotalMilliseconds, exportTags);
+            _metrics.RecordRevisionCount(revisionsForCurrentWorkItem, exportTags);
+            _metrics.DecrementInFlight(exportTags);
+        }
+    }
+
+    /// <summary>
+    /// Runs the pre-filter pass via <see cref="IWorkItemFetchService"/>, fetching only the fields
+    /// referenced by <paramref name="filterOptions"/>. Returns the set of work item IDs that pass all filters.
+    /// </summary>
+    private async Task<HashSet<int>> BuildFilteredIdSetAsync(
+        IReadOnlyList<WorkItemFieldFilterOptions> filterOptions,
+        CancellationToken cancellationToken)
+    {
+        var ids = new HashSet<int>();
+
+        // Fetch only the fields referenced by filter predicates — minimal payload.
+        var filterFields = filterOptions.Select(f => f.FieldName).Distinct().ToArray();
+        var scope = new WorkItemFetchScope(Fields: filterFields, FilterOptions: filterOptions);
+
+        var orgEndpoint = _endpoint!.ToOrganisationEndpoint();
+
+        await foreach (var item in _fetchService!.FetchAsync(orgEndpoint, _project!, scope, cancellationToken)
+            .ConfigureAwait(false))
+        {
+            ids.Add(item.Id);
+        }
+
+        return ids;
     }
 
     /// <summary>

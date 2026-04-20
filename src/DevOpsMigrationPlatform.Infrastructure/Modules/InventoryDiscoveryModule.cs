@@ -1,10 +1,12 @@
 using System;
+using System.Diagnostics;
 using System.Text;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Services;
+using DevOpsMigrationPlatform.Abstractions.Telemetry;
 using Microsoft.Extensions.Logging;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Modules;
@@ -21,16 +23,20 @@ public sealed class InventoryDiscoveryModule : IDiscoveryModule
 
     private readonly IInventoryServiceFactory _inventoryFactory;
     private readonly ILogger<InventoryDiscoveryModule> _logger;
+    private readonly IDiscoveryMetrics? _metrics;
 
     public string Name => "Inventory";
     public DiscoveryJobType DiscoveryType => DiscoveryJobType.Inventory;
 
     public InventoryDiscoveryModule(
         IInventoryServiceFactory inventoryFactory,
-        ILogger<InventoryDiscoveryModule> logger)
+        ILogger<InventoryDiscoveryModule> logger
+        , IDiscoveryMetrics? metrics = null
+        )
     {
         _inventoryFactory = inventoryFactory;
         _logger = logger;
+        _metrics = metrics;
     }
 
     public async Task RunAsync(DiscoveryContext context, CancellationToken ct)
@@ -47,7 +53,8 @@ public sealed class InventoryDiscoveryModule : IDiscoveryModule
         var skipping = lastCompleted is not null;
 
         if (skipping)
-            _logger.LogInformation("Resuming inventory after project '{LastCompleted}'.", lastCompleted);
+            using (DataClassificationScope.Begin(DataClassification.Customer))
+                _logger.LogInformation("Resuming inventory after project '{LastCompleted}'.", lastCompleted);
 
         var inventoryService = _inventoryFactory.Create(job.Organisations, job.Policies);
 
@@ -56,6 +63,12 @@ public sealed class InventoryDiscoveryModule : IDiscoveryModule
 
         var checkpointInterval = TimeSpan.FromSeconds(job.Policies.CheckpointIntervalSeconds);
         var lastCheckpoint = DateTime.UtcNow;
+
+        var metrics = _metrics;
+        string? currentOrg = null;
+        var orgSw = new Stopwatch();
+        var projectSw = new Stopwatch();
+        int orgProjectCount = 0;
 
         await foreach (var evt in inventoryService.RunInventoryAsync(ct).ConfigureAwait(false))
         {
@@ -72,8 +85,60 @@ public sealed class InventoryDiscoveryModule : IDiscoveryModule
                 continue;
             }
 
+            // Organisation transition tracking.
+            if (currentOrg != evt.Url)
+            {
+                if (currentOrg is not null)
+                {
+                    orgSw.Stop();
+                    var orgCompleteTags = new TagList
+                    {
+                        { "job.id", job.JobId },
+                        { "module", Name },
+                        { "organisation.url", currentOrg }
+                    };
+                    metrics?.SetProjectCount(orgProjectCount, orgCompleteTags);
+                    metrics?.RecordOrganisationDuration(orgSw.Elapsed.TotalMilliseconds, orgCompleteTags);
+                    metrics?.OrganisationCompleted(orgCompleteTags);
+                }
+                currentOrg = evt.Url;
+                orgProjectCount = 0;
+                orgSw.Restart();
+                var orgStartTags = new TagList
+                {
+                    { "job.id", job.JobId },
+                    { "module", Name },
+                    { "organisation.url", evt.Url }
+                };
+                metrics?.OrganisationStarted(orgStartTags);
+            }
+            projectSw.Restart();
+
             csvBuilder.AppendLine(
                 $"{EscapeCsv(evt.Url)},{EscapeCsv(evt.ProjectName)},{evt.WorkItemsCount},{evt.RevisionsCount},{evt.ReposCount},{evt.IsComplete},{EscapeCsv(evt.Error ?? "")}");
+
+            projectSw.Stop();
+            var projectTags = new TagList
+            {
+                { "job.id", job.JobId },
+                { "module", Name },
+                { "organisation.url", evt.Url },
+                { "project.name", evt.ProjectName }
+            };
+            metrics?.ProjectStarted(projectTags);
+            if (evt.Error is not null)
+            {
+                metrics?.ProjectFailed(projectTags);
+            }
+            else
+            {
+                metrics?.ProjectCompleted(projectTags);
+                metrics?.RecordWorkItemsCounted(evt.WorkItemsCount, projectTags);
+                metrics?.RecordRevisionsCounted(evt.RevisionsCount, projectTags);
+                metrics?.RecordReposCounted(evt.ReposCount, projectTags);
+            }
+            metrics?.RecordProjectDuration(projectSw.Elapsed.TotalMilliseconds, projectTags);
+            orgProjectCount++;
 
             sink.Emit(new ProgressEvent
             {
@@ -89,8 +154,25 @@ public sealed class InventoryDiscoveryModule : IDiscoveryModule
                 await store.WriteAsync(OutputPath, csvBuilder.ToString(), ct).ConfigureAwait(false);
                 await WriteCursorAsync(state, projectKey, ct).ConfigureAwait(false);
                 lastCheckpoint = DateTime.UtcNow;
-                _logger.LogDebug("Inventory checkpoint saved after project '{ProjectKey}'.", projectKey);
+                metrics?.RecordCheckpointSaved(new TagList { { "job.id", job.JobId }, { "module", Name } });
+                using (DataClassificationScope.Begin(DataClassification.Customer))
+                    _logger.LogDebug("Inventory checkpoint saved after project '{ProjectKey}'.", projectKey);
             }
+        }
+
+        // Complete final organisation.
+        if (currentOrg is not null)
+        {
+            orgSw.Stop();
+            var finalOrgTags = new TagList
+            {
+                { "job.id", job.JobId },
+                { "module", Name },
+                { "organisation.url", currentOrg }
+            };
+            metrics?.SetProjectCount(orgProjectCount, finalOrgTags);
+            metrics?.RecordOrganisationDuration(orgSw.Elapsed.TotalMilliseconds, finalOrgTags);
+            metrics?.OrganisationCompleted(finalOrgTags);
         }
 
         // Final write.

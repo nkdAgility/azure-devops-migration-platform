@@ -20,12 +20,14 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.Bcl.AsyncInterfaces" />
-    <PackageReference Include="Microsoft.Extensions.Hosting" VersionOverride="9.0.5" />
-    <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" VersionOverride="9.0.5" />
-    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" VersionOverride="9.0.5" />
+    <PackageReference Include="Microsoft.Extensions.Hosting" />
+    <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
     <PackageReference Include="Microsoft.TeamFoundationServer.ExtendedClient" />
-    <PackageReference Include="OpenTelemetry" VersionOverride="1.12.0" />
-    <PackageReference Include="OpenTelemetry.Extensions.Hosting" VersionOverride="1.12.0" />
+    <PackageReference Include="Azure.Monitor.OpenTelemetry.Exporter" />
+    <PackageReference Include="OpenTelemetry" />
+    <PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" />
+    <PackageReference Include="OpenTelemetry.Extensions.Hosting" />
     <PackageReference Include="Serilog" />
     <PackageReference Include="Serilog.Enrichers.Process" />
     <PackageReference Include="Serilog.Enrichers.Span" />
@@ -33,6 +35,7 @@
     <PackageReference Include="Serilog.Settings.Configuration" />
     <PackageReference Include="Serilog.Sinks.Console" />
     <PackageReference Include="Serilog.Sinks.File" />
+    <PackageReference Include="Serilog.Sinks.OpenTelemetry" />
     <PackageReference Include="System.Text.Json" />
   </ItemGroup>
 

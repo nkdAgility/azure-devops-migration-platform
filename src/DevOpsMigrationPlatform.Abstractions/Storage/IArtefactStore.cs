@@ -90,6 +90,18 @@ public interface IArtefactStore
     IAsyncEnumerable<string> EnumerateAsync(string prefix, CancellationToken cancellationToken);
 
     /// <summary>
+    /// Writes the contents of <paramref name="content"/> stream to the specified <paramref name="path"/> within the package.
+    /// Path uses forward-slash segments. Creates ancestor directories as needed.
+    /// The stream is consumed without buffering the entire content into memory.
+    ///
+    /// <b>Lease Requirement</b>: Callers must hold a valid lease on the package.
+    ///
+    /// <b>Streaming guarantee</b>: The implementation copies the stream directly to the backing store
+    /// without materialising a <c>byte[]</c> intermediary. This is the preferred method for large binary writes.
+    /// </summary>
+    Task WriteStreamAsync(string path, System.IO.Stream content, CancellationToken cancellationToken);
+
+    /// <summary>
     /// Appends <paramref name="content"/> to the specified <paramref name="path"/> within the package.
     /// Creates the file (and ancestor directories) if it does not exist.
     /// Used by log sinks to write NDJSON lines incrementally.

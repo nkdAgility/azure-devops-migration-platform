@@ -84,9 +84,9 @@ public class InventoryServiceTests
         var mock = new Mock<IWorkItemDiscoveryService>(MockBehavior.Strict);
         mock.Setup(s => s.DiscoverWorkItemsAsync(
                 It.IsAny<OrganisationEndpoint>(), It.IsAny<string>(),
-                It.IsAny<CancellationToken>()))
-            .Returns<OrganisationEndpoint, string, CancellationToken>(
-                (endpoint, proj, ct) => MakeSummaries(proj, workItemCount, revisionCount));
+                It.IsAny<WorkItemFetchScope?>(), It.IsAny<CancellationToken>()))
+            .Returns<OrganisationEndpoint, string, WorkItemFetchScope?, CancellationToken>(
+                (endpoint, proj, scope, ct) => MakeSummaries(proj, workItemCount, revisionCount));
         return mock;
     }
 
@@ -174,9 +174,9 @@ public class InventoryServiceTests
         var discoveryMock = new Mock<IWorkItemDiscoveryService>(MockBehavior.Strict);
         discoveryMock.Setup(s => s.DiscoverWorkItemsAsync(
                 It.IsAny<OrganisationEndpoint>(), It.IsAny<string>(),
-                It.IsAny<CancellationToken>()))
-            .Returns<OrganisationEndpoint, string, CancellationToken>(
-                (endpoint, proj, ct) => EmptyDiscovery(proj));
+                It.IsAny<WorkItemFetchScope?>(), It.IsAny<CancellationToken>()))
+            .Returns<OrganisationEndpoint, string, WorkItemFetchScope?, CancellationToken>(
+                (endpoint, proj, scope, ct) => EmptyDiscovery(proj));
 
         var sut = BuildService(discoveryMock);
 
@@ -566,5 +566,69 @@ public class InventoryServiceTests
         Assert.AreEqual(1, capturedCounts.Count, "Empty project must yield exactly one snapshot");
         Assert.IsTrue(capturedComplete[0]);
         Assert.AreEqual(0, capturedCounts[0]);
+    }
+
+    // ── T020: Filter scope unions fields with System.Rev in DiscoverWorkItemsAsync ──
+
+    [TestMethod]
+    public async Task DiscoverWorkItemsAsync_WithFilterScope_UnionsFieldsWithSystemRev()
+    {
+        // Arrange: capture the WorkItemFetchScope passed to FetchAsync
+        WorkItemFetchScope? capturedScope = null;
+        var fetchMock = new Mock<IWorkItemFetchService>(MockBehavior.Strict);
+        fetchMock
+            .Setup(s => s.FetchAsync(
+                It.IsAny<OrganisationEndpoint>(),
+                It.IsAny<string>(),
+                It.IsAny<WorkItemFetchScope>(),
+                It.IsAny<CancellationToken>()))
+            .Callback<OrganisationEndpoint, string, WorkItemFetchScope, CancellationToken>(
+                (_, _, scope, _) => capturedScope = scope)
+            .Returns((OrganisationEndpoint _, string _, WorkItemFetchScope _, CancellationToken ct) =>
+                AsyncEnumerable.Empty<FetchedWorkItem>());
+
+        var strategyMock = new Mock<IWorkItemQueryWindowStrategy>(MockBehavior.Strict);
+        var sut = new AzureDevOpsWorkItemDiscoveryService(strategyMock.Object, fetchMock.Object);
+
+        var filterScope = new WorkItemFetchScope(
+            Fields: new[] { "System.AreaPath" },
+            FilterOptions: new[] { new WorkItemFieldFilterOptions("System.AreaPath", FilterOperator.Regex, ".*") });
+
+        // Act
+        await foreach (var _ in sut.DiscoverWorkItemsAsync(TestOrgEndpoint, "Proj", scope: filterScope)) { }
+
+        // Assert: the fields passed to FetchAsync include both System.AreaPath and System.Rev
+        Assert.IsNotNull(capturedScope, "FetchAsync should have been called.");
+        CollectionAssert.Contains(capturedScope!.Fields.ToList(), "System.AreaPath");
+        CollectionAssert.Contains(capturedScope.Fields.ToList(), "System.Rev");
+    }
+
+    [TestMethod]
+    public async Task DiscoverWorkItemsAsync_WithNoScope_UsesOnlySystemRevField()
+    {
+        // Arrange: capture the WorkItemFetchScope passed to FetchAsync
+        WorkItemFetchScope? capturedScope = null;
+        var fetchMock = new Mock<IWorkItemFetchService>(MockBehavior.Strict);
+        fetchMock
+            .Setup(s => s.FetchAsync(
+                It.IsAny<OrganisationEndpoint>(),
+                It.IsAny<string>(),
+                It.IsAny<WorkItemFetchScope>(),
+                It.IsAny<CancellationToken>()))
+            .Callback<OrganisationEndpoint, string, WorkItemFetchScope, CancellationToken>(
+                (_, _, scope, _) => capturedScope = scope)
+            .Returns((OrganisationEndpoint _, string _, WorkItemFetchScope _, CancellationToken ct) =>
+                AsyncEnumerable.Empty<FetchedWorkItem>());
+
+        var strategyMock = new Mock<IWorkItemQueryWindowStrategy>(MockBehavior.Strict);
+        var sut = new AzureDevOpsWorkItemDiscoveryService(strategyMock.Object, fetchMock.Object);
+
+        // Act: no scope passed
+        await foreach (var _ in sut.DiscoverWorkItemsAsync(TestOrgEndpoint, "Proj")) { }
+
+        // Assert: only System.Rev is requested
+        Assert.IsNotNull(capturedScope);
+        Assert.AreEqual(1, capturedScope!.Fields.Count, "Only System.Rev should be requested when no scope is given.");
+        Assert.AreEqual("System.Rev", capturedScope.Fields[0]);
     }
 }

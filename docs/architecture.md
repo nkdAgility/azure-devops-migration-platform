@@ -145,6 +145,20 @@ The platform uses a three-tier model for diagnostic log levels. Each tier indepe
 
 The agent's `--level` and the control plane's floor are independent. Setting `--level Debug` on the agent does not force the control plane to buffer debug records — the control plane applies its own floor before writing to the ring buffer or forwarding to subscribers.
 
+### Data Sovereignty
+
+Customer-identifiable data (work item IDs, field values, project names, org URLs, attachment paths) must not leave the operator's infrastructure via the Azure Monitor / OTLP telemetry pipeline. The platform enforces this through a `DataClassification` scope mechanism:
+
+1. **`DataClassification` enum** (`Abstractions/Telemetry/DataClassification.cs`): `System` (default, safe for export), `Customer` (blocked from Azure Monitor), `Derived` (aggregates, safe for export).
+2. **`DataClassificationScope`** (`Abstractions/Telemetry/DataClassificationScope.cs`): `AsyncLocal`-backed ambient scope. Set via `DataClassificationScope.Begin(classification)` or the `ILogger.BeginDataScope(classification)` extension method.
+3. **`DataClassificationLogging.AddDataClassificationFilter()`** (`Infrastructure/Telemetry/DataClassificationLogProcessor.cs`): Provider-level filter registered on `OpenTelemetryLoggerProvider` in each host's logging pipeline. Reads `DataClassificationScope.Current` and prevents `Customer`-classified records from reaching Azure Monitor.
+
+The filter applies **only** to the OTel log export pipeline. `PackageLoggerProvider` (writes to `Logs/agent.jsonl`) and `ControlPlaneLoggerProvider` (streams to control plane) receive all log records regardless of classification. This ensures full diagnostic data is always available in the migration package and control plane while preventing customer data from reaching external telemetry services.
+
+Unclassified logs default to `System` — they are safe for Azure Monitor. This safe-by-default design allows gradual rollout: existing log statements work without change, and new customer-data log statements are wrapped in classification scopes as they are identified.
+
+See [docs/configuration.md — Data Classification](configuration.md#data-classification) for the usage pattern and classification table.
+
 ## 13. What This System Is
 
 > A versioned migration package platform with streaming chronological replay.
@@ -203,7 +217,7 @@ Key properties:
 17. `ControlPlaneProgressSink` (Agent → Control Plane progress event streaming) ✅
 18. `JobProgressStore` ring buffer + `GET /jobs/{jobId}/progress` + `GET /jobs/{jobId}/progress?follow=true` SSE endpoint ✅
 19. `manage progress` CLI command (snapshot to stdout, NDJSON format) ✅ — diagnostics channel (`/diagnostics`, `/diagnostics?follow=true`, `manage diagnostics`) added in spec 007
-20. CLI-level OpenTelemetry (`ActivitySource` in `Program.cs`, Azure Monitor exporter)
+20. CLI-level OpenTelemetry (`ActivitySource` in `Program.cs`, Azure Monitor exporter). All migration metrics use the `migration.*` dot-separated convention defined in `WellKnownMetricNames` under the consolidated `DevOpsMigrationPlatform.Migration` meter.
 21. `azd` deployment templates for Azure Container Apps
 
 ### Phase 3 — Operational hardening
@@ -222,7 +236,7 @@ Key properties:
 |---|---|---|
 | `DevOpsMigrationPlatform.Abstractions` | `net481;net10.0` | Core contracts: `IModule`, `IArtefactStore`, `IStateStore`, `IProgressSink`, `IWorkItemImportTargetFactory`, `IWorkItemRevisionSourceFactory`, `OrganisationEndpoint`, `MigrationEndpointOptions`, domain models |
 | `DevOpsMigrationPlatform.Infrastructure` | `net481;net10.0` | Shared infrastructure: `FileSystemArtefactStore`, `PackageCheckpointStateStore`, composite factory pattern, `EndpointOptionsTypeRegistry`, polymorphic JSON converters, `CatalogService` |
-| `DevOpsMigrationPlatform.Infrastructure.AzureDevOps` | `net10.0` | ADO connector: `AzureDevOpsEndpointOptions`, `AzureDevOpsWorkItemRevisionSource`, `AzureDevOpsWorkItemImportTarget`, ADO SDK services |
+| `DevOpsMigrationPlatform.Infrastructure.AzureDevOps` | `net10.0` | ADO connector: `AzureDevOpsEndpointOptions`, `AzureDevOpsWorkItemRevisionSource` (first concrete `IWorkItemRevisionSource`), `AzureDevOpsAttachmentBinarySource` (streaming `IStreamingAttachmentBinarySource`), `AzureDevOpsWorkItemImportTarget`, ADO SDK services |
 | `DevOpsMigrationPlatform.Infrastructure.TfsObjectModel` | `net481` | TFS connector: `TeamFoundationServerEndpointOptions`, TFS Object Model services |
 | `DevOpsMigrationPlatform.Infrastructure.Simulated` | `net10.0` | Simulated connector: Config-driven synthetic connector for offline testing. Implements all source and target interfaces with deterministic generated data. No credentials required. |
 | `DevOpsMigrationPlatform.ControlPlane` | `net10.0` | Control plane service library: HTTP API, job state machine, lease protocol, EF Core data model |

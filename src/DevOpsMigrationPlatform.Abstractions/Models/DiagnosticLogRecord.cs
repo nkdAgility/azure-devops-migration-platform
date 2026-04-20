@@ -28,4 +28,10 @@ public record DiagnosticLogRecord
 
     /// <summary>W3C span ID from <c>Activity.Current</c> when present.</summary>
     public string? SpanId { get; init; }
+
+    /// <summary>
+    /// Data classification of the log entry. Null or "System" for operational logs,
+    /// "Customer" for customer-identifiable data, "Derived" for aggregates.
+    /// </summary>
+    public string? DataClassification { get; init; }
 }

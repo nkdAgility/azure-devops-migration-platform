@@ -5,80 +5,83 @@ using DevOpsMigrationPlatform.Abstractions;
 
 namespace DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.Telemetry;
 
+/// <summary>
+/// Legacy export metrics emitted under the <see cref="WellKnownMeterNames.WorkItemExport"/> meter.
+/// Superseded by <see cref="IMigrationMetrics"/> which consolidates all instruments under a single meter.
+/// Retained for the net481 TFS subprocess; will be removed once all call sites migrate to IMigrationMetrics.
+/// </summary>
+[Obsolete("Use IMigrationMetrics. Will be removed when all call sites are migrated.")]
 public class WorkItemExportMetrics : IWorkItemExportMetrics
 {
+    // Inline legacy metric names — the old WellKnownMetricNames constants were removed in the v2.0 rename.
+    private const string WorkItemsExportedName = "work_item_exported_total";
+    private const string RevisionsExportedName = "revision_exported_total";
+    private const string RevisionErrorsName = "revision_export_errors_total";
+    private const string LinksExportedName = "link_exported_total";
+    private const string LinkErrorsName = "link_export_errors_total";
+    private const string WorkItemDurationName = "work_item_export_duration_ms";
+    private const string RevisionDurationName = "revision_export_duration_ms";
+    private const string LinkDurationName = "link_export_duration_ms";
+    private const string TotalDurationName = "export_total_duration_ms";
+
+#pragma warning disable CS0618 // Obsolete meter name — retained for net481 subprocess
     public const string MeterName = WellKnownMeterNames.WorkItemExport;
+#pragma warning restore CS0618
     public const string MeterVersion = "1.0";
 
     private static readonly Meter Meter = new Meter(MeterName, MeterVersion);
 
     private static readonly Counter<int> WorkItemCounter =
-        Meter.CreateCounter<int>(WellKnownMetricNames.WorkItemsExported, unit: "work items", description: "Total work items exported.");
+        Meter.CreateCounter<int>(WorkItemsExportedName, unit: "work items", description: "Total work items exported.");
 
     private static readonly Counter<int> RevisionCounter =
-        Meter.CreateCounter<int>(WellKnownMetricNames.RevisionsExported, unit: "revisions", description: "Total revisions exported.");
+        Meter.CreateCounter<int>(RevisionsExportedName, unit: "revisions", description: "Total revisions exported.");
 
     private static readonly Counter<int> RevisionErrorCounter =
-        Meter.CreateCounter<int>(WellKnownMetricNames.RevisionErrors, unit: "errors", description: "Export revision errors.");
+        Meter.CreateCounter<int>(RevisionErrorsName, unit: "errors", description: "Export revision errors.");
 
     private static readonly Counter<int> LinkCounter =
-        Meter.CreateCounter<int>(WellKnownMetricNames.LinksExported, unit: "links", description: "Total links exported.");
+        Meter.CreateCounter<int>(LinksExportedName, unit: "links", description: "Total links exported.");
 
     private static readonly Counter<int> LinkErrorCounter =
-        Meter.CreateCounter<int>(WellKnownMetricNames.LinkErrors, unit: "errors", description: "Export link errors.");
+        Meter.CreateCounter<int>(LinkErrorsName, unit: "errors", description: "Export link errors.");
 
     private static readonly Histogram<double> WorkItemDuration =
-        Meter.CreateHistogram<double>(WellKnownMetricNames.WorkItemDuration, unit: "ms");
+        Meter.CreateHistogram<double>(WorkItemDurationName, unit: "ms");
 
     private static readonly Histogram<double> RevisionDuration =
-        Meter.CreateHistogram<double>(WellKnownMetricNames.RevisionDuration, unit: "ms");
+        Meter.CreateHistogram<double>(RevisionDurationName, unit: "ms");
 
     private static readonly Histogram<double> LinkDuration =
-        Meter.CreateHistogram<double>(WellKnownMetricNames.LinkDuration, unit: "ms");
+        Meter.CreateHistogram<double>(LinkDurationName, unit: "ms");
 
     private static readonly Histogram<double> TotalDuration =
-        Meter.CreateHistogram<double>(WellKnownMetricNames.TotalDuration, unit: "ms");
+        Meter.CreateHistogram<double>(TotalDurationName, unit: "ms");
 
     public void RecordWorkItemExported(Guid id) =>
-        WorkItemCounter.Add(1, new KeyValuePair<string, object?>("TeamProjectCollectionId", id));
+        WorkItemCounter.Add(1);
 
     public void RecordRevisionExported(Guid id, int workItemId) =>
-        RevisionCounter.Add(1,
-            new KeyValuePair<string, object?>("TeamProjectCollectionId", id),
-            new KeyValuePair<string, object?>("WorkItemId", workItemId));
+        RevisionCounter.Add(1);
 
     public void RecordWorkItemProcessingDuration(Guid id, TimeSpan duration) =>
-        WorkItemDuration.Record(duration.TotalMilliseconds,
-            new KeyValuePair<string, object?>("TeamProjectCollectionId", id));
+        WorkItemDuration.Record(duration.TotalMilliseconds);
 
     public void RecordRevisionProcessingDuration(Guid id, int workItemId, TimeSpan duration) =>
-        RevisionDuration.Record(duration.TotalMilliseconds,
-            new KeyValuePair<string, object?>("TeamProjectCollectionId", id),
-            new KeyValuePair<string, object?>("WorkItemId", workItemId));
+        RevisionDuration.Record(duration.TotalMilliseconds);
 
     public void RecordProcessingDuration(TimeSpan duration) =>
         TotalDuration.Record(duration.TotalMilliseconds);
 
     public void RecordRevisionError(Guid id, int workItemId) =>
-        RevisionErrorCounter.Add(1,
-            new KeyValuePair<string, object?>("TeamProjectCollectionId", id),
-            new KeyValuePair<string, object?>("WorkItemId", workItemId));
+        RevisionErrorCounter.Add(1);
 
     public void RecordLinkExported(Guid id, int workItemId, int revisionIndex) =>
-        LinkCounter.Add(1,
-            new KeyValuePair<string, object?>("TeamProjectCollectionId", id),
-            new KeyValuePair<string, object?>("WorkItemId", workItemId),
-            new KeyValuePair<string, object?>("RevisionIndex", revisionIndex));
+        LinkCounter.Add(1);
 
     public void RecordLinkProcessingDuration(Guid id, int workItemId, int revisionIndex, TimeSpan duration) =>
-        LinkDuration.Record(duration.TotalMilliseconds,
-            new KeyValuePair<string, object?>("TeamProjectCollectionId", id),
-            new KeyValuePair<string, object?>("WorkItemId", workItemId),
-            new KeyValuePair<string, object?>("RevisionIndex", revisionIndex));
+        LinkDuration.Record(duration.TotalMilliseconds);
 
     public void RecordLinkError(Guid id, int workItemId, int revisionIndex) =>
-        LinkErrorCounter.Add(1,
-            new KeyValuePair<string, object?>("TeamProjectCollectionId", id),
-            new KeyValuePair<string, object?>("WorkItemId", workItemId),
-            new KeyValuePair<string, object?>("RevisionIndex", revisionIndex));
+        LinkErrorCounter.Add(1);
 }

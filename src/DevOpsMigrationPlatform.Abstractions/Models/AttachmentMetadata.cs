@@ -17,4 +17,14 @@ public record AttachmentMetadata
 
     /// <summary>File size in bytes.</summary>
     public long Size { get; init; }
+
+    /// <summary>
+    /// Download URL from the source system. Populated during export for delta detection
+    /// (skip re-downloading when the same URL appears on adjacent revisions).
+    /// Not persisted to revision.json.
+    /// </summary>
+#if !NETFRAMEWORK
+    [System.Text.Json.Serialization.JsonIgnore]
+#endif
+    public string? DownloadUrl { get; init; }
 }

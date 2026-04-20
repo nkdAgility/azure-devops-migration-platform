@@ -1,12 +1,14 @@
 #if !NET481
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Models;
+using DevOpsMigrationPlatform.Abstractions.Telemetry;
 using Microsoft.Extensions.Logging;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Import;
@@ -34,6 +36,9 @@ public sealed class WorkItemImportOrchestrator
     private readonly IRevisionFolderProcessor _processor;
     private readonly IWorkItemImportTarget _target;
     private readonly ILogger<WorkItemImportOrchestrator> _logger;
+    private readonly IReadOnlyList<DevOpsMigrationPlatform.Abstractions.Models.WorkItemFieldFilterOptions>? _filterOptions;
+    private readonly IMigrationMetrics? _metrics;
+    private readonly string? _jobId;
 
     public WorkItemImportOrchestrator(
         IArtefactStore artefactStore,
@@ -43,7 +48,10 @@ public sealed class WorkItemImportOrchestrator
         IIdMapStore idMapStore,
         IRevisionFolderProcessor processor,
         IWorkItemImportTarget target,
-        ILogger<WorkItemImportOrchestrator> logger)
+        ILogger<WorkItemImportOrchestrator> logger,
+        IReadOnlyList<DevOpsMigrationPlatform.Abstractions.Models.WorkItemFieldFilterOptions>? filterOptions = null,
+        IMigrationMetrics? metrics = null,
+        string? jobId = null)
     {
         _artefactStore = artefactStore ?? throw new ArgumentNullException(nameof(artefactStore));
         _checkpointing = checkpointing ?? throw new ArgumentNullException(nameof(checkpointing));
@@ -53,6 +61,9 @@ public sealed class WorkItemImportOrchestrator
         _processor = processor ?? throw new ArgumentNullException(nameof(processor));
         _target = target ?? throw new ArgumentNullException(nameof(target));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        _filterOptions = filterOptions;
+        _metrics = metrics;
+        _jobId = jobId;
     }
 
     /// <summary>
@@ -63,6 +74,7 @@ public sealed class WorkItemImportOrchestrator
         ResumeMode resumeMode,
         CancellationToken ct)
     {
+        using var _dc = DataClassificationScope.Begin(DataClassification.Customer);
         // ForceFresh: delete cursor (but preserve idmap.db)
         if (resumeMode == ResumeMode.ForceFresh)
         {
@@ -84,8 +96,26 @@ public sealed class WorkItemImportOrchestrator
         await _idMapStore.InitializeAsync(ct).ConfigureAwait(false);
         await _resolutionStrategy.SeedAsync(_idMapStore, ct).ConfigureAwait(false);
 
+        // Pre-filter pass: build the set of work item IDs that pass filter predicates.
+        // Enumerates folder names only to find the last revision per WI, then reads one
+        // revision.json per work item. Items not in the set are skipped in the main loop.
+        HashSet<int>? filteredIds = null;
+        if (_filterOptions is { Count: > 0 })
+        {
+            filteredIds = await BuildFilteredIdSetAsync(_filterOptions, ct).ConfigureAwait(false);
+            _logger.LogInformation(
+                "[WorkItems] Import pre-filter pass complete: {Count} work items pass the configured filter(s).",
+                filteredIds.Count);
+        }
+
         int foldersProcessed = 0;
         int workItemsProcessed = 0;
+        int lastImportedWorkItemId = 0;
+
+        var importTags = _metrics != null
+            ? MigrationTagList.Create(_jobId ?? "not-set", "import", "workitems")
+            : default;
+        var workItemStopwatch = Stopwatch.StartNew();
 
         await foreach (var folderPath in _artefactStore.EnumerateAsync("WorkItems/", ct).ConfigureAwait(false))
         {
@@ -131,10 +161,38 @@ public sealed class WorkItemImportOrchestrator
                 var revisionSegments = folderName.Split('-');
                 int.TryParse(revisionSegments.Length >= 2 ? revisionSegments[1] : null, out var wiId);
 
+                // Skip if the work item did not pass the filter pre-pass.
+                if (filteredIds != null && !filteredIds.Contains(wiId))
+                {
+                    _logger.LogInformation(
+                        "[WorkItems] Work item {WorkItemId} skipped by import filter scope.",
+                        wiId);
+                    await WriteCompletedCursorAsync(folderPath, ct).ConfigureAwait(false);
+                    foldersProcessed++;
+                    continue;
+                }
+
                 // Revision folder
+                // Track work item transitions — only emit per-WI metrics on boundary.
+                if (wiId != lastImportedWorkItemId)
+                {
+                    // Complete the previous work item (if any).
+                    if (lastImportedWorkItemId != 0 && _metrics != null)
+                    {
+                        _metrics.RecordWorkItemCompleted(importTags);
+                        _metrics.RecordWorkItemDuration(workItemStopwatch.Elapsed.TotalMilliseconds, importTags);
+                        _metrics.DecrementInFlight(importTags);
+                    }
+
+                    _metrics?.RecordWorkItemAttempted(importTags);
+                    _metrics?.IncrementInFlight(importTags);
+                    workItemStopwatch.Restart();
+                    lastImportedWorkItemId = wiId;
+                    workItemsProcessed++;
+                }
+
                 await _processor.ProcessAsync(folderPath, ext, resumeAtStage, _resolutionStrategy, ct)
                     .ConfigureAwait(false);
-                workItemsProcessed++;
             }
             else
             {
@@ -162,6 +220,89 @@ public sealed class WorkItemImportOrchestrator
         _logger.LogInformation(
             "[WorkItems] Import complete. Folders processed: {Count}, work items: {WI}",
             foldersProcessed, workItemsProcessed);
+
+        // Record completion of the final work item.
+        if (lastImportedWorkItemId != 0 && _metrics != null)
+        {
+            _metrics.RecordWorkItemCompleted(importTags);
+            _metrics.RecordWorkItemDuration(workItemStopwatch.Elapsed.TotalMilliseconds, importTags);
+            _metrics.DecrementInFlight(importTags);
+        }
+
+        // Emit zero-match warning if filters were active but no items were processed.
+        if (_filterOptions is { Count: > 0 } && workItemsProcessed == 0)
+        {
+            _logger.LogWarning(
+                "[WorkItems] Warning: all work items were filtered out by filter scopes. Check your filter configuration.");
+        }
+    }
+
+    /// <summary>
+    /// Pre-filter pass for import: enumerates revision folder names only to locate the last
+    /// revision folder per work item, reads one revision.json per work item, evaluates against
+    /// <paramref name="filterOptions"/>, and returns the set of passing work item IDs.
+    /// </summary>
+    private async Task<HashSet<int>> BuildFilteredIdSetAsync(
+        IReadOnlyList<DevOpsMigrationPlatform.Abstractions.Models.WorkItemFieldFilterOptions> filterOptions,
+        CancellationToken ct)
+    {
+        // Pass 1: collect the last folder path for each work item ID (folder names only, no reads).
+        var lastFolderPerWi = new Dictionary<int, string>();
+
+        await foreach (var folderPath in _artefactStore.EnumerateAsync("WorkItems/", ct).ConfigureAwait(false))
+        {
+            ct.ThrowIfCancellationRequested();
+            var folderName = GetFolderName(folderPath);
+            var segs = folderName.Split('-');
+            if (IsCommentFolder(segs)) continue;
+            if (!int.TryParse(segs.Length >= 2 ? segs[1] : null, out var wiId)) continue;
+
+            // Lexicographic order = chronological order; overwriting gives us the latest folder.
+            lastFolderPerWi[wiId] = folderPath;
+        }
+
+        // Pass 2: read one revision.json per work item, evaluate filters.
+        var passedIds = new HashSet<int>();
+
+        foreach (var (wiId, folderPath) in lastFolderPerWi)
+        {
+            ct.ThrowIfCancellationRequested();
+
+            var json = await _artefactStore.ReadAsync($"{folderPath}revision.json", ct).ConfigureAwait(false);
+            if (json is null) continue;
+
+            WorkItemRevision? revision = null;
+            try { revision = JsonSerializer.Deserialize<WorkItemRevision>(json, _jsonOptions); }
+            catch { /* skip unreadable revision */ }
+
+            if (revision is null) continue;
+
+            // Convert WorkItemField list to the FetchedWorkItem fields dictionary.
+            var fields = revision.Fields.ToDictionary(
+                f => f.ReferenceName,
+                f => (object?)f.Value);
+
+            var fetchedItem = new DevOpsMigrationPlatform.Abstractions.Models.FetchedWorkItem(wiId, fields);
+
+            bool passes;
+            try
+            {
+                passes = DevOpsMigrationPlatform.Abstractions.Models.WorkItemFieldFilterEvaluator
+                    .PassesFilters(fetchedItem, filterOptions);
+            }
+            catch (System.Text.RegularExpressions.RegexMatchTimeoutException)
+            {
+                _logger.LogWarning(
+                    "[WorkItems] Regex filter timeout evaluating work item {WorkItemId} — treating as non-match.",
+                    wiId);
+                passes = false;
+            }
+
+            if (passes)
+                passedIds.Add(wiId);
+        }
+
+        return passedIds;
     }
 
     // --- Comment folder handling ---
@@ -221,8 +362,9 @@ public sealed class WorkItemImportOrchestrator
 
     private static string GetFolderName(string folderPath)
     {
-        var lastSlash = folderPath.LastIndexOf('/');
-        return lastSlash >= 0 ? folderPath[(lastSlash + 1)..] : folderPath;
+        var trimmed = folderPath.TrimEnd('/');
+        var lastSlash = trimmed.LastIndexOf('/');
+        return lastSlash >= 0 ? trimmed[(lastSlash + 1)..] : trimmed;
     }
 
     /// <summary>

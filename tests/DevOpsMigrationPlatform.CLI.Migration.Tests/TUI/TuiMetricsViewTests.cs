@@ -30,9 +30,9 @@ public class TuiMetricsViewTests
         var view = new TuiMetricsView();
         var snapshot = new MetricSnapshot
         {
-            WorkItemsExported = 42,
-            RevisionsExported = 100,
-            AttachmentsSucceeded = 5
+            WorkItemsAttempted = 42,
+            WorkItemsCompleted = 40,
+            WorkItemsFailed = 2
         };
 
         // Act + Assert (no exception means formatting logic ran)
@@ -54,8 +54,8 @@ public class TuiMetricsViewTests
     {
         // Arrange
         var view = new TuiMetricsView();
-        var snap1 = new MetricSnapshot { WorkItemsExported = 10 };
-        var snap2 = new MetricSnapshot { WorkItemsExported = 20 };
+        var snap1 = new MetricSnapshot { WorkItemsAttempted = 10 };
+        var snap2 = new MetricSnapshot { WorkItemsAttempted = 20 };
 
         // Act — second update should overwrite (no exception, no state corruption)
         view.Update(snap1);

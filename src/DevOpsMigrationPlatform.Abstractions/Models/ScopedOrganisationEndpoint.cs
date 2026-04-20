@@ -15,4 +15,12 @@ public sealed class ScopedOrganisationEndpoint
 
     /// <summary>Projects to target. Empty = all projects in the organisation.</summary>
     public List<string> Projects { get; init; } = new();
+
+    /// <summary>
+    /// Optional module-level scopes carried from the originating <c>OrganisationEntry</c>.
+    /// Supported scope types: <c>wiql</c> (base query override) and <c>filter</c> (regex field filter).
+    /// <see cref="Services.InventoryService"/> reads these when building the
+    /// <see cref="WorkItemFetchScope"/> passed to <see cref="Services.IWorkItemDiscoveryService"/>.
+    /// </summary>
+    public IReadOnlyList<JobModuleScope> Scopes { get; init; } = System.Array.Empty<JobModuleScope>();
 }

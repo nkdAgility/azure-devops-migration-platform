@@ -1,26 +1,42 @@
 namespace DevOpsMigrationPlatform.Abstractions;
 
 /// <summary>
-/// OpenTelemetry instrument name constants for Application Insights contract stability.
-/// These names MUST remain stable to preserve historical telemetry data continuity.
-/// Any changes require migration documentation and backward compatibility strategy.
+/// OpenTelemetry instrument name constants using the <c>migration.</c> dot-separated convention.
+/// These names are the public contract — renaming is a breaking change requiring a version increment.
 /// </summary>
 public static class WellKnownMetricNames
 {
-    // WorkItem Export Metrics
-    public const string WorkItemsExported = "work_item_exported_total";
-    public const string RevisionsExported = "revision_exported_total";
-    public const string RevisionErrors = "revision_export_errors_total";
-    public const string LinksExported = "link_exported_total";
-    public const string LinkErrors = "link_export_errors_total";
-    public const string WorkItemDuration = "work_item_export_duration_ms";
-    public const string RevisionDuration = "revision_export_duration_ms";
-    public const string LinkDuration = "link_export_duration_ms";
-    public const string TotalDuration = "export_total_duration_ms";
+    // --- Execution ---
+    public const string WorkItemsAttempted = "migration.workitems.attempted";
+    public const string WorkItemsCompleted = "migration.workitems.completed";
+    public const string WorkItemsFailed = "migration.workitems.failed";
+    public const string WorkItemsRetried = "migration.workitems.retried";
+    public const string WorkItemDurationMs = "migration.workitem.duration.ms";
 
-    // Attachment Download Metrics  
-    public const string AttachmentAttempts = "attachment_download_attempt_total";
-    public const string AttachmentSuccesses = "attachment_download_success_total";
-    public const string AttachmentFailures = "attachment_download_failure_total";
-    public const string AttachmentDuration = "attachment_download_duration_ms";
+    // --- Payload / Complexity ---
+    public const string FieldCount = "migration.workitem.fields.count";
+    public const string AttachmentCount = "migration.workitem.attachments.count";
+    public const string LinkCount = "migration.workitem.links.count";
+    public const string RevisionCount = "migration.workitem.revisions.count";
+    public const string PayloadBytes = "migration.workitem.payload.bytes";
+
+    // --- Correctness (Tier 3 post-flight only) ---
+    public const string RevisionSourceCount = "migration.workitem.revisions.source.count";
+    public const string RevisionTargetCount = "migration.workitem.revisions.target.count";
+    public const string RevisionDelta = "migration.workitem.revisions.delta";
+    public const string RevisionsMissing = "migration.workitems.revisions.missing";
+    public const string RevisionOrderErrors = "migration.workitems.revision_order_errors";
+    public const string BrokenLinks = "migration.workitems.broken_links";
+    public const string MissingWorkItems = "migration.workitems.missing";
+
+    // --- In-Flight ---
+    public const string WorkItemsInFlight = "migration.workitems.in_flight";
+    public const string QueueDepth = "migration.queue.workitems.depth";
+
+    // --- Idempotency (deferred — instruments registered, not yet incremented) ---
+    public const string Duplicated = "migration.workitems.duplicated";
+    public const string ChangedOnRerun = "migration.workitems.changed_on_rerun";
+    public const string ReprocessedAfterResume = "migration.workitems.reprocessed_after_resume";
+    public const string DuplicatedAfterResume = "migration.workitems.duplicated_after_resume";
+    public const string MissingAfterResume = "migration.workitems.missing_after_resume";
 }

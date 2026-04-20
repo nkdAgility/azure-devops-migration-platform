@@ -341,6 +341,45 @@ The path may be absolute or relative to the working directory. The host fails fa
 
 ---
 
+## Telemetry
+
+The TFS subprocess has a full OpenTelemetry pipeline configured in `MigrationPlatformHost.CreateDefaultBuilder()`. This means all `System.Diagnostics.Metrics` instruments — including discovery metrics (`IDiscoveryMetrics`) and work item export metrics (`IWorkItemExportMetrics`, `IAttachmentDownloadMetrics`) — are recorded on the net481 runtime.
+
+### Metric Export Paths
+
+| Exporter | Activation | Configuration |
+|---|---|---|
+| **Azure Monitor** | Always (when connection string present) | `Telemetry:AzureMonitorConnectionString` in `appsettings.json` |
+| **OTLP** | Opt-in | `OTEL_EXPORTER_OTLP_ENDPOINT` environment variable |
+
+Both exporters are registered for traces and metrics. When neither is configured, the OTel SDK instruments are still recorded but silently discarded (zero overhead).
+
+### Registered Meters
+
+| Meter | Instruments |
+|---|---|
+| `DevOpsMigrationPlatform.WorkItemExport` | Work item, revision, and link export counters and durations |
+| `DevOpsMigrationPlatform.AttachmentDownload` | Attachment download counters and durations |
+| `DevOpsMigrationPlatform.Discovery` | Organisation, project, inventory, dependency, and checkpoint counters and durations |
+
+### Traces
+
+Activity sources registered: `WorkItemExport`, `AttachmentDownload`.
+
+### Serilog Integration
+
+Logs are forwarded to the OTLP collector via `Serilog.Sinks.OpenTelemetry` when `OTEL_EXPORTER_OTLP_ENDPOINT` is set. File sinks (`Logs/`) are always active.
+
+### Package Dependencies
+
+The `DevOpsMigrationPlatform.Infrastructure.TfsObjectModel` project (net481) directly references `OpenTelemetry`, `OpenTelemetry.Exporter.OpenTelemetryProtocol`, `OpenTelemetry.Extensions.Hosting`, and `Azure.Monitor.OpenTelemetry.Exporter`. The multi-targeted `Abstractions` and `Infrastructure` projects use `System.Diagnostics.DiagnosticSource` (provides `TagList`, `Meter`, etc.) on net481.
+
+### NDJSON Bridge (Secondary Path)
+
+In addition to direct OTel export, `MetricSnapshot` values are embedded in NDJSON `ProgressEvent` lines on stdout. The .NET 10 host reads these via `TfsExporterProcessAdapter` and forwards them to the CLI's progress pipeline. This provides in-process visibility even when no external collector is attached.
+
+---
+
 ## CLI.TfsMigration Subprocess Contract (summary)
 
 The `DevOpsMigrationPlatform.CLI.TfsMigration` project (net481) MUST:
@@ -360,7 +399,6 @@ The `DevOpsMigrationPlatform.CLI.TfsMigration` project MUST NOT:
 - Accept credentials via CLI arguments.
 - Write to any path outside `--output`.
 - Call the Control Plane or any API other than TFS OM.
-- Depend on any .NET 10-only packages.
 
 ---
 

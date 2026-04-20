@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Text.RegularExpressions;
 
 namespace DevOpsMigrationPlatform.Abstractions.Models;
 
@@ -7,6 +8,11 @@ namespace DevOpsMigrationPlatform.Abstractions.Models;
 /// Evaluates <see cref="WorkItemFieldFilterOptions"/> predicates against
 /// <see cref="FetchedWorkItem"/> fields. Used by both Azure DevOps and TFS
 /// <c>IWorkItemFetchService</c> implementations to apply in-process AND-semantics filtering.
+/// <para>
+/// When a <see cref="FilterOperator.Regex"/> predicate times out (2-second internal limit),
+/// <see cref="RegexMatchTimeoutException"/> propagates to the caller — it is NOT caught here.
+/// Callers should catch it, log a warning, and treat the evaluation result as a non-match.
+/// </para>
 /// </summary>
 public static class WorkItemFieldFilterEvaluator
 {
@@ -23,8 +29,11 @@ public static class WorkItemFieldFilterEvaluator
         {
             if (!item.Fields.TryGetValue(filter.FieldName, out var fieldValue))
             {
-                // Missing field: NotEquals → true (field absent ≠ value), others → false
-                if (filter.Operator == FilterOperator.NotEquals)
+                // Missing field:
+                // - NotEquals: true (absent field ≠ value)
+                // - NotRegex: true (absent field does not match pattern → include it)
+                // - All other operators (include Equals, Regex): false
+                if (filter.Operator is FilterOperator.NotEquals or FilterOperator.NotRegex)
                     continue;
                 return false;
             }
@@ -57,6 +66,12 @@ public static class WorkItemFieldFilterEvaluator
 #else
                 return fieldStr.Contains(filterStr, StringComparison.OrdinalIgnoreCase);
 #endif
+            case FilterOperator.Regex:
+                // RegexMatchTimeoutException propagates — caller must catch and handle.
+                return Regex.IsMatch(fieldStr, filterStr, RegexOptions.IgnoreCase, TimeSpan.FromSeconds(2));
+            case FilterOperator.NotRegex:
+                // RegexMatchTimeoutException propagates — caller must catch and handle.
+                return !Regex.IsMatch(fieldStr, filterStr, RegexOptions.IgnoreCase, TimeSpan.FromSeconds(2));
             default:
                 return false;
         }
