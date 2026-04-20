@@ -1,4 +1,3 @@
-#if !NETFRAMEWORK
 using System.Diagnostics;
 
 namespace DevOpsMigrationPlatform.Abstractions;
@@ -36,4 +35,3 @@ public interface IDiscoveryMetrics
     void RecordCheckpointSaved(in TagList tags);
     void RecordJobDuration(double milliseconds, in TagList tags);
 }
-#endif

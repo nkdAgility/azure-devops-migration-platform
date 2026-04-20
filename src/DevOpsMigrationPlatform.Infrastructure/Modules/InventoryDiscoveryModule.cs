@@ -23,9 +23,7 @@ public sealed class InventoryDiscoveryModule : IDiscoveryModule
 
     private readonly IInventoryServiceFactory _inventoryFactory;
     private readonly ILogger<InventoryDiscoveryModule> _logger;
-#if !NETFRAMEWORK
     private readonly IDiscoveryMetrics? _metrics;
-#endif
 
     public string Name => "Inventory";
     public DiscoveryJobType DiscoveryType => DiscoveryJobType.Inventory;
@@ -33,16 +31,12 @@ public sealed class InventoryDiscoveryModule : IDiscoveryModule
     public InventoryDiscoveryModule(
         IInventoryServiceFactory inventoryFactory,
         ILogger<InventoryDiscoveryModule> logger
-#if !NETFRAMEWORK
         , IDiscoveryMetrics? metrics = null
-#endif
         )
     {
         _inventoryFactory = inventoryFactory;
         _logger = logger;
-#if !NETFRAMEWORK
         _metrics = metrics;
-#endif
     }
 
     public async Task RunAsync(DiscoveryContext context, CancellationToken ct)
@@ -70,13 +64,11 @@ public sealed class InventoryDiscoveryModule : IDiscoveryModule
         var checkpointInterval = TimeSpan.FromSeconds(job.Policies.CheckpointIntervalSeconds);
         var lastCheckpoint = DateTime.UtcNow;
 
-#if !NETFRAMEWORK
         var metrics = _metrics;
         string? currentOrg = null;
         var orgSw = new Stopwatch();
         var projectSw = new Stopwatch();
         int orgProjectCount = 0;
-#endif
 
         await foreach (var evt in inventoryService.RunInventoryAsync(ct).ConfigureAwait(false))
         {
@@ -93,7 +85,6 @@ public sealed class InventoryDiscoveryModule : IDiscoveryModule
                 continue;
             }
 
-#if !NETFRAMEWORK
             // Organisation transition tracking.
             if (currentOrg != evt.Url)
             {
@@ -122,12 +113,10 @@ public sealed class InventoryDiscoveryModule : IDiscoveryModule
                 metrics?.OrganisationStarted(orgStartTags);
             }
             projectSw.Restart();
-#endif
 
             csvBuilder.AppendLine(
                 $"{EscapeCsv(evt.Url)},{EscapeCsv(evt.ProjectName)},{evt.WorkItemsCount},{evt.RevisionsCount},{evt.ReposCount},{evt.IsComplete},{EscapeCsv(evt.Error ?? "")}");
 
-#if !NETFRAMEWORK
             projectSw.Stop();
             var projectTags = new TagList
             {
@@ -149,7 +138,6 @@ public sealed class InventoryDiscoveryModule : IDiscoveryModule
             }
             metrics?.RecordProjectDuration(projectSw.Elapsed.TotalMilliseconds, projectTags);
             orgProjectCount++;
-#endif
 
             sink.Emit(new ProgressEvent
             {
@@ -165,15 +153,12 @@ public sealed class InventoryDiscoveryModule : IDiscoveryModule
                 await store.WriteAsync(OutputPath, csvBuilder.ToString(), ct).ConfigureAwait(false);
                 await WriteCursorAsync(state, projectKey, ct).ConfigureAwait(false);
                 lastCheckpoint = DateTime.UtcNow;
-#if !NETFRAMEWORK
                 metrics?.RecordCheckpointSaved(new TagList { { "job.id", job.JobId }, { "module", Name } });
-#endif
                 using (DataClassificationScope.Begin(DataClassification.Customer))
                     _logger.LogDebug("Inventory checkpoint saved after project '{ProjectKey}'.", projectKey);
             }
         }
 
-#if !NETFRAMEWORK
         // Complete final organisation.
         if (currentOrg is not null)
         {
@@ -188,7 +173,6 @@ public sealed class InventoryDiscoveryModule : IDiscoveryModule
             metrics?.RecordOrganisationDuration(orgSw.Elapsed.TotalMilliseconds, finalOrgTags);
             metrics?.OrganisationCompleted(finalOrgTags);
         }
-#endif
 
         // Final write.
         await store.WriteAsync(OutputPath, csvBuilder.ToString(), ct).ConfigureAwait(false);

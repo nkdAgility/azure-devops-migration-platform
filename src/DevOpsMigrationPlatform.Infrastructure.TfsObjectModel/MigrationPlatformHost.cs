@@ -12,6 +12,7 @@ using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Services;
 using DevOpsMigrationPlatform.Infrastructure.Checkpointing;
 using DevOpsMigrationPlatform.Infrastructure.Storage;
+using DevOpsMigrationPlatform.Infrastructure.Telemetry;
 using DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.Services;
 using DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.Telemetry;
 using OpenTelemetry.Metrics;
@@ -151,6 +152,7 @@ public static class MigrationPlatformHost
             services.AddSingleton<IWorkItemExportMetrics, WorkItemExportMetrics>();
             services.AddSingleton<IAttachmentDownloadMetrics, AttachmentDownloadMetrics>();
 #pragma warning restore CS0618
+            services.AddSingleton<IDiscoveryMetrics, DiscoveryMetrics>();
             services.AddSingleton<TfsWorkItemQueryWindowStrategy>();
             services.AddSingleton<IWorkItemFetchService, TfsWorkItemFetchService>();
             services.AddSingleton<IWorkItemDiscoveryService, TfsObjectModelWorkItemDiscoveryService>();
@@ -203,6 +205,7 @@ public static class MigrationPlatformHost
                 {
                     mb.AddMeter(WorkItemExportMetrics.MeterName);
                     mb.AddMeter(AttachmentDownloadMetrics.MeterName);
+                    mb.AddMeter(WellKnownMeterNames.Discovery);
                     if (hasOtlpEndpoint)
                         mb.AddOtlpExporter();
                     if (hasAzureMonitor)

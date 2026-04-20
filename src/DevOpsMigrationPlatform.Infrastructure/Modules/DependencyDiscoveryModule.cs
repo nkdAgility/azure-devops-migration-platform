@@ -25,9 +25,7 @@ public sealed class DependencyDiscoveryModule : IDiscoveryModule
 
     private readonly IDependencyDiscoveryServiceFactory _dependencyFactory;
     private readonly ILogger<DependencyDiscoveryModule> _logger;
-#if !NETFRAMEWORK
     private readonly IDiscoveryMetrics? _metrics;
-#endif
 
     public string Name => "Dependencies";
     public DiscoveryJobType DiscoveryType => DiscoveryJobType.Dependencies;
@@ -35,16 +33,12 @@ public sealed class DependencyDiscoveryModule : IDiscoveryModule
     public DependencyDiscoveryModule(
         IDependencyDiscoveryServiceFactory dependencyFactory,
         ILogger<DependencyDiscoveryModule> logger
-#if !NETFRAMEWORK
         , IDiscoveryMetrics? metrics = null
-#endif
         )
     {
         _dependencyFactory = dependencyFactory;
         _logger = logger;
-#if !NETFRAMEWORK
         _metrics = metrics;
-#endif
     }
 
     public async Task RunAsync(DiscoveryContext context, CancellationToken ct)
@@ -67,12 +61,10 @@ public sealed class DependencyDiscoveryModule : IDiscoveryModule
         var lastCheckpoint = DateTime.UtcNow;
         var recordCount = 0;
 
-#if !NETFRAMEWORK
         var metrics = _metrics;
         string? currentOrg = null;
         var orgSw = new Stopwatch();
         int orgProjectCount = 0;
-#endif
 
         await foreach (var evt in dependencyService.DiscoverDependenciesAsync(null, ct).ConfigureAwait(false))
         {
@@ -87,7 +79,6 @@ public sealed class DependencyDiscoveryModule : IDiscoveryModule
                         $"{r.TargetWorkItemId},{EscapeCsv(r.TargetProject ?? "")}," +
                         $"{EscapeCsv(r.TargetOrganisation ?? "")},{r.TargetStatus}");
                     recordCount++;
-#if !NETFRAMEWORK
                     metrics?.RecordLinksFound(1, new TagList
                     {
                         { "job.id", job.JobId },
@@ -95,7 +86,6 @@ public sealed class DependencyDiscoveryModule : IDiscoveryModule
                         { "organisation.url", r.SourceOrganisationUrl },
                         { "link.scope", r.LinkScope.ToString() }
                     });
-#endif
                     break;
 
                 case DependencyHeartbeatEvent heartbeat:
@@ -114,7 +104,6 @@ public sealed class DependencyDiscoveryModule : IDiscoveryModule
                             _logger.LogInformation(
                                 "Completed project {Project} in {OrgUrl}: {Links} external links.",
                                 heartbeat.ProjectName, heartbeat.OrganisationUrl, heartbeat.ExternalLinksFound);
-#if !NETFRAMEWORK
                         // Organisation transition tracking.
                         if (currentOrg != heartbeat.OrganisationUrl)
                         {
@@ -152,7 +141,6 @@ public sealed class DependencyDiscoveryModule : IDiscoveryModule
                         metrics?.ProjectCompleted(projectTags);
                         metrics?.RecordWorkItemsAnalysed(heartbeat.WorkItemsAnalysed, projectTags);
                         orgProjectCount++;
-#endif
                     }
                     break;
             }
@@ -163,14 +151,11 @@ public sealed class DependencyDiscoveryModule : IDiscoveryModule
                 await store.WriteAsync(RootCsvPath, csvBuilder.ToString(), ct).ConfigureAwait(false);
                 await WriteCursorAsync(state, recordCount, ct).ConfigureAwait(false);
                 lastCheckpoint = DateTime.UtcNow;
-#if !NETFRAMEWORK
                 metrics?.RecordCheckpointSaved(new TagList { { "job.id", job.JobId }, { "module", Name } });
-#endif
                 _logger.LogDebug("Dependencies checkpoint saved at {RecordCount} records.", recordCount);
             }
         }
 
-#if !NETFRAMEWORK
         // Complete final organisation.
         if (currentOrg is not null)
         {
@@ -185,7 +170,6 @@ public sealed class DependencyDiscoveryModule : IDiscoveryModule
             metrics?.RecordOrganisationDuration(orgSw.Elapsed.TotalMilliseconds, finalOrgTags);
             metrics?.OrganisationCompleted(finalOrgTags);
         }
-#endif
 
         // Final write.
         await store.WriteAsync(RootCsvPath, csvBuilder.ToString(), ct).ConfigureAwait(false);

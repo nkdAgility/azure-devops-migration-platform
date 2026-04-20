@@ -1,4 +1,3 @@
-#if !NETFRAMEWORK
 using System;
 using System.Diagnostics;
 using System.Diagnostics.Metrics;
@@ -12,7 +11,7 @@ namespace DevOpsMigrationPlatform.Infrastructure.Telemetry;
 /// under the <see cref="WellKnownMeterNames.Discovery"/> meter.
 /// Thread-safe: all OTel instrument operations are lock-free.
 /// </summary>
-internal sealed class DiscoveryMetrics : IDiscoveryMetrics, IDisposable
+public sealed class DiscoveryMetrics : IDiscoveryMetrics, IDisposable
 {
     private readonly Meter _meter;
 
@@ -169,4 +168,3 @@ internal sealed class DiscoveryMetrics : IDiscoveryMetrics, IDisposable
 
     public void Dispose() => _meter.Dispose();
 }
-#endif
