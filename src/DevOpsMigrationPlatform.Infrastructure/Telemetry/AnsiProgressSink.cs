@@ -1,6 +1,7 @@
 #if !NETFRAMEWORK
 using System;
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Telemetry;
 using Microsoft.Extensions.Logging;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Telemetry;
@@ -20,14 +21,17 @@ public sealed class AnsiProgressSink : IProgressSink
 
     public void Emit(ProgressEvent evt)
     {
-        _logger.LogInformation(
-            "[{Module}] {Stage} WI={WorkItemId} Rev={RevisionsProcessed}/{TotalWorkItems}{Message}",
-            evt.Module,
-            evt.Stage,
-            evt.WorkItemId,
-            evt.RevisionsProcessed,
-            evt.TotalWorkItems,
-            evt.Message is not null ? $" — {evt.Message}" : string.Empty);
+        using (_logger.BeginDataScope(DataClassification.Customer))
+        {
+            _logger.LogInformation(
+                "[{Module}] {Stage} WI={WorkItemId} Rev={RevisionsProcessed}/{TotalWorkItems}{Message}",
+                evt.Module,
+                evt.Stage,
+                evt.WorkItemId,
+                evt.RevisionsProcessed,
+                evt.TotalWorkItems,
+                evt.Message is not null ? $" — {evt.Message}" : string.Empty);
+        }
     }
 }
 #endif

@@ -7,6 +7,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.TeamFoundation.WorkItemTracking.Client;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Services;
+using DevOpsMigrationPlatform.Abstractions.Telemetry;
 using DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.Services;
 
 namespace DevOpsMigrationPlatform.Infrastructure.TfsObjectModel;
@@ -75,12 +76,14 @@ public sealed class TfsWorkItemRevisionSource : IWorkItemRevisionSource
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, "Failed to load work item {WorkItemId} — skipping", workItemId);
+                    using (DataClassificationScope.Begin(DataClassification.Customer))
+                        _logger.LogError(ex, "Failed to load work item {WorkItemId} — skipping", workItemId);
                     continue;
                 }
 
-                _logger.LogDebug("Streaming {Count} revisions for work item {WorkItemId}",
-                    workItem.Revisions.Count, workItemId);
+                using (DataClassificationScope.Begin(DataClassification.Customer))
+                    _logger.LogDebug("Streaming {Count} revisions for work item {WorkItemId}",
+                        workItem.Revisions.Count, workItemId);
 
                 Revision? previousRevision = null;
 
@@ -100,9 +103,10 @@ public sealed class TfsWorkItemRevisionSource : IWorkItemRevisionSource
                     }
                     catch (Exception ex)
                     {
-                        _logger.LogError(ex,
-                            "Failed to map work item {WorkItemId} revision {RevisionIndex} — skipping",
-                            workItemId, revision.Index);
+                        using (DataClassificationScope.Begin(DataClassification.Customer))
+                            _logger.LogError(ex,
+                                "Failed to map work item {WorkItemId} revision {RevisionIndex} — skipping",
+                                workItemId, revision.Index);
                         previousRevision = revision;
                         continue;
                     }

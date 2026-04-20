@@ -14,6 +14,7 @@ See [docs/cli.md](cli.md) for how the CLI routes a job to the Job Engine. See [.
 4. **Execute modules in order** — Run each module's `ExportAsync`, `ImportAsync`, or both, depending on `mode`.
 5. **Maintain state via cursors** — Each module writes its cursor after each unit of work via `IStateStore`.
 6. **Emit progress events** — After each cursor write, emit a `ProgressEvent` to `IProgressSink`.
+6a. **Record metrics** — After each work item processing step, record OTel metrics via `IMigrationMetrics` (execution counters, payload histograms, duration).
 7. **Fail fast on module failure** — A non-recoverable error in any module halts the run. Cursor state allows resume.
 
 ### Mode Behaviour

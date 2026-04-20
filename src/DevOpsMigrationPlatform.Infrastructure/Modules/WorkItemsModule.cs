@@ -6,8 +6,10 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Telemetry;
 using DevOpsMigrationPlatform.Infrastructure.Export;
 using DevOpsMigrationPlatform.Infrastructure.Import;
+using DevOpsMigrationPlatform.Infrastructure.Telemetry;
 using Microsoft.Extensions.Logging;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Modules;
@@ -42,6 +44,7 @@ public sealed class WorkItemsModule : IModule
     private readonly ILogger<WorkItemsModule> _logger;
     private readonly ILogger<WorkItemImportOrchestrator> _orchestratorLogger;
     private readonly DevOpsMigrationPlatform.Abstractions.Services.IWorkItemFetchService? _fetchService;
+    private readonly IMigrationMetrics? _metrics;
 
     public WorkItemsModule(
         IWorkItemRevisionSourceFactory sourceFactory,
@@ -55,7 +58,8 @@ public sealed class WorkItemsModule : IModule
         IRevisionFolderProcessorFactory processorFactory,
         IAttachmentBinarySource? attachmentBinarySource = null,
         IWorkItemCommentSourceFactory? inlineCommentSourceFactory = null,
-        DevOpsMigrationPlatform.Abstractions.Services.IWorkItemFetchService? fetchService = null)
+        DevOpsMigrationPlatform.Abstractions.Services.IWorkItemFetchService? fetchService = null,
+        IMigrationMetrics? metrics = null)
     {
         _sourceFactory = sourceFactory ?? throw new ArgumentNullException(nameof(sourceFactory));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
@@ -69,6 +73,7 @@ public sealed class WorkItemsModule : IModule
         _attachmentBinarySource = attachmentBinarySource;
         _inlineCommentSourceFactory = inlineCommentSourceFactory;
         _fetchService = fetchService;
+        _metrics = metrics;
     }
 
     /// <inheritdoc/>
@@ -87,9 +92,12 @@ public sealed class WorkItemsModule : IModule
             ? WorkItemsModuleExtensions.FromModule(workItemsModule)
             : new WorkItemsModuleExtensions();
 
-        _logger.LogInformation(
-            "[WorkItems] Exporting from {OrgUrl}/{Project} (attachments={AttachmentsEnabled}, comments={CommentsEnabled})",
-            orgUrl, project, ext.AttachmentsEnabled, ext.Comments.Enabled);
+        using (_logger.BeginDataScope(DataClassification.Customer))
+        {
+            _logger.LogInformation(
+                "[WorkItems] Exporting from {OrgUrl}/{Project} (attachments={AttachmentsEnabled}, comments={CommentsEnabled})",
+                orgUrl, project, ext.AttachmentsEnabled, ext.Comments.Enabled);
+        }
 
         var source = await _sourceFactory
             .CreateAsync(endpointOptions, ct)
@@ -112,7 +120,9 @@ public sealed class WorkItemsModule : IModule
             project: project,
             inlineCommentSourceFactory: inlineFactory,
             fetchService: allFilters.Count > 0 ? _fetchService : null,
-            filterOptions: allFilters.Count > 0 ? allFilters : null);
+            filterOptions: allFilters.Count > 0 ? allFilters : null,
+            metrics: _metrics,
+            jobId: job.JobId);
 
         await orchestrator.ExportAsync(source, ct).ConfigureAwait(false);
 
@@ -136,9 +146,12 @@ public sealed class WorkItemsModule : IModule
             ? WorkItemsModuleExtensions.FromModule(workItemsModule)
             : new WorkItemsModuleExtensions();
 
-        _logger.LogInformation(
-            "[WorkItems] Importing into {OrgUrl}/{Project} (revisions={Revisions}, links={Links}, attachments={Attachments}, comments={Comments})",
-            orgUrl, project, ext.RevisionsEnabled, ext.LinksEnabled, ext.AttachmentsEnabled, ext.Comments.Enabled);
+        using (_logger.BeginDataScope(DataClassification.Customer))
+        {
+            _logger.LogInformation(
+                "[WorkItems] Importing into {OrgUrl}/{Project} (revisions={Revisions}, links={Links}, attachments={Attachments}, comments={Comments})",
+                orgUrl, project, ext.RevisionsEnabled, ext.LinksEnabled, ext.AttachmentsEnabled, ext.Comments.Enabled);
+        }
 
         var target = await _importTargetFactory.CreateAsync(endpointOptions, ct).ConfigureAwait(false);
         var checkpointingService = _checkpointingFactory.Create(context.StateStore);
@@ -172,7 +185,9 @@ public sealed class WorkItemsModule : IModule
             processor,
             target,
             _orchestratorLogger,
-            filterOptions: importFilters.Count > 0 ? importFilters : null);
+            filterOptions: importFilters.Count > 0 ? importFilters : null,
+            metrics: _metrics,
+            jobId: job.JobId);
 
         var resumeMode = job.Resume?.Mode ?? ResumeMode.Auto;
         await orchestrator.ImportAsync(ext, resumeMode, ct).ConfigureAwait(false);

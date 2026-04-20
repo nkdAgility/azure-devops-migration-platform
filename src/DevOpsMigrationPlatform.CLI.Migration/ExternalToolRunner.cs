@@ -30,6 +30,16 @@ public sealed class ExternalToolRunner : IExternalToolRunner
             CreateNoWindow = true
         };
 
+        // Propagate W3C trace context into the subprocess so its spans are
+        // parented to the caller's active span rather than appearing as orphaned roots.
+        var currentActivity = Activity.Current;
+        if (currentActivity is not null)
+        {
+            psi.Environment["TRACEPARENT"] = currentActivity.Id;
+            if (!string.IsNullOrEmpty(currentActivity.TraceStateString))
+                psi.Environment["TRACESTATE"] = currentActivity.TraceStateString;
+        }
+
         using var process = new Process { StartInfo = psi, EnableRaisingEvents = true };
 
         process.OutputDataReceived += (_, e) =>

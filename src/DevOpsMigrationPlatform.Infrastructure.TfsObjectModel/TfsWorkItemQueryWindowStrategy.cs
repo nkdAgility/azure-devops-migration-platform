@@ -7,6 +7,7 @@ using Microsoft.TeamFoundation.WorkItemTracking.Client;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Models;
 using DevOpsMigrationPlatform.Abstractions.Services;
+using DevOpsMigrationPlatform.Abstractions.Telemetry;
 using DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.Extensions;
 
 namespace DevOpsMigrationPlatform.Infrastructure.TfsObjectModel;
@@ -101,7 +102,10 @@ public sealed class TfsWorkItemQueryWindowStrategy : IWorkItemQueryWindowStrateg
 
         public LoggingProgressSink(ILogger logger) => _logger = logger;
 
-        public void Emit(ProgressEvent evt) =>
-            _logger.LogInformation("[{Module}/{Stage}] {Message}", evt.Module, evt.Stage, evt.Message);
+        public void Emit(ProgressEvent evt)
+        {
+            using (DataClassificationScope.Begin(DataClassification.Customer))
+                _logger.LogInformation("[{Module}/{Stage}] {Message}", evt.Module, evt.Stage, evt.Message);
+        }
     }
 }

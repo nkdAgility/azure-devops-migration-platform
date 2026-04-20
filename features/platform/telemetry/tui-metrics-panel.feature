@@ -31,9 +31,9 @@ Feature: TUI Live Metrics Panel
 
   Scenario: TUI metrics panel displays snapshot values when a snapshot is received
     Given the TUI is displaying the progress view for job "job-001"
-    And the Control Plane returns a MetricSnapshot with "WorkItemsExported" equal to 42
+    And the Control Plane returns a MetricSnapshot with "WorkItemsAttempted" equal to 42
     When the metrics panel is rendered
-    Then the panel displays "WorkItemsExported" as 42
+    Then the panel displays "Work Items Attempted" as 42
 
   Scenario: TUI metrics panel refreshes on each polling interval
     Given the TUI is displaying the progress view for job "job-001"

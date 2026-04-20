@@ -8,6 +8,7 @@ using System.Threading;
 using System.Threading.Channels;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Telemetry;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -26,15 +27,22 @@ namespace DevOpsMigrationPlatform.Infrastructure.Telemetry;
 [ProviderAlias("PackageLogger")]
 public sealed class PackageLoggerProvider : BackgroundService, ILoggerProvider
 {
-    private const string LogPath = "Logs/agent.jsonl";
+    private const string LogDir = "Logs";
+    private const string LogBaseName = "agent";
+    private const string LogExtension = ".jsonl";
 
     private readonly Channel<DiagnosticLogRecord> _channel;
     private readonly ActivePackageState _packageState;
     private readonly LogLevel _minimumLevel;
     private readonly int _flushBatchSize;
     private readonly TimeSpan _flushInterval;
+    private readonly long _maxSegmentBytes;
     private long _droppedCount;
     private volatile IArtefactStore? _lastKnownStore;
+
+    // Rotation state — only accessed from the drain loop (single-threaded).
+    private int _segmentIndex;
+    private long _currentSegmentBytes;
 
     public PackageLoggerProvider(
         ActivePackageState packageState,
@@ -45,10 +53,21 @@ public sealed class PackageLoggerProvider : BackgroundService, ILoggerProvider
         _minimumLevel = Enum.TryParse<LogLevel>(opts.MinimumLevel, ignoreCase: true, out var level) ? level : LogLevel.Information;
         _flushBatchSize = opts.FlushBatchSize;
         _flushInterval = TimeSpan.FromMilliseconds(opts.FlushIntervalMs);
+        _maxSegmentBytes = opts.MaxLogFileSizeMB > 0
+            ? (long)opts.MaxLogFileSizeMB * 1024 * 1024
+            : long.MaxValue; // 0 = disabled
 
         _channel = Channel.CreateBounded<DiagnosticLogRecord>(
             new BoundedChannelOptions(opts.ChannelCapacity) { FullMode = BoundedChannelFullMode.DropOldest });
     }
+
+    /// <summary>
+    /// Returns the current log segment path (e.g. <c>Logs/agent.jsonl</c>,
+    /// <c>Logs/agent-001.jsonl</c>, etc.).
+    /// </summary>
+    internal string CurrentLogPath => _segmentIndex == 0
+        ? $"{LogDir}/{LogBaseName}{LogExtension}"
+        : $"{LogDir}/{LogBaseName}-{_segmentIndex:D3}{LogExtension}";
 
     public ILogger CreateLogger(string categoryName)
         => new PackageLogger(this, categoryName);
@@ -149,7 +168,20 @@ public sealed class PackageLoggerProvider : BackgroundService, ILoggerProvider
             {
                 sb.AppendLine(JsonSerializer.Serialize(record));
             }
-            await store.AppendAsync(LogPath, sb.ToString(), cancellationToken).ConfigureAwait(false);
+
+            var payload = sb.ToString();
+            var payloadBytes = Encoding.UTF8.GetByteCount(payload);
+
+            // Rotate if this batch would exceed the segment limit.
+            if (_currentSegmentBytes > 0
+                && _currentSegmentBytes + payloadBytes > _maxSegmentBytes)
+            {
+                _segmentIndex++;
+                _currentSegmentBytes = 0;
+            }
+
+            await store.AppendAsync(CurrentLogPath, payload, cancellationToken).ConfigureAwait(false);
+            _currentSegmentBytes += payloadBytes;
         }
         catch (Exception)
         {
@@ -190,6 +222,7 @@ public sealed class PackageLoggerProvider : BackgroundService, ILoggerProvider
                 return;
 
             var activity = Activity.Current;
+            var classification = DataClassificationScope.Current;
             var record = new DiagnosticLogRecord
             {
                 Timestamp = DateTimeOffset.UtcNow,
@@ -198,7 +231,8 @@ public sealed class PackageLoggerProvider : BackgroundService, ILoggerProvider
                 Message = formatter(state, exception),
                 Exception = exception?.ToString(),
                 TraceId = activity?.TraceId.ToString(),
-                SpanId = activity?.SpanId.ToString()
+                SpanId = activity?.SpanId.ToString(),
+                DataClassification = classification?.ToString()
             };
 
             _provider.Write(record);

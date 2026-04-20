@@ -133,6 +133,11 @@ public sealed class CliRunner
         // processing is enabled even with redirected stdout).
         psi.Environment["NO_COLOR"] = "1";
 
+        // Disable Azure Monitor export during system tests — the appsettings.json in the
+        // build output contains the production connection string, but test runs should not
+        // push telemetry to Application Insights.
+        psi.Environment["Telemetry__AzureMonitorConnectionString"] = "";
+
         foreach (var arg in args)
             psi.ArgumentList.Add(arg);
 

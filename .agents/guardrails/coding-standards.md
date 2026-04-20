@@ -283,6 +283,13 @@ Preferred:
 - Each module execution MUST create an activity span.
 - Duration and failure metrics MUST be recorded.
 - No ad-hoc console logging for runtime diagnostics.
+- Metric interfaces (`IMigrationMetrics`, `IDiscoveryMetrics`), constants (`WellKnownMetricNames`), tag builders (`MigrationTagList`), and concrete metric classes (`MigrationMetrics`, `DiscoveryMetrics`) MUST NOT have `#if !NETFRAMEWORK` guards — they compile for both net481 and net10.0 via `System.Diagnostics.DiagnosticSource`.
+- Only pipeline-layer types that reference OTel SDK exporter/reader classes (`SnapshotMetricExporter`, `TelemetryServiceExtensions`, `InMemoryMetricSnapshotStore`) may use `#if !NETFRAMEWORK` guards.
+- See `.agents/context/telemetry-architecture.md` for the full three-layer model and step-by-step guide for adding new metrics.
+- Every `ILogger` call that references customer-identifiable data (work item IDs, field values, project names, org URLs, attachment paths) MUST be wrapped in a `DataClassification.Customer` scope — either `using (logger.BeginDataScope(DataClassification.Customer))` (.NET 10) or `using (DataClassificationScope.Begin(DataClassification.Customer))` (.NET 4.8).
+- Unclassified logs default to `System` and are exported to Azure Monitor. Gradual classification is permitted; unclassified logs are safe-by-default.
+- Error messages inside a `Customer` scope that need to reach Azure Monitor MUST use an inner `DataClassificationScope.Begin(DataClassification.System)` scope AND MUST NOT include customer data in the message template.
+- `AddDataClassificationFilter()` MUST be called on `builder.Logging` in every host that exports logs via OTel (ControlPlaneHost, MigrationAgent).
 
 ---
 

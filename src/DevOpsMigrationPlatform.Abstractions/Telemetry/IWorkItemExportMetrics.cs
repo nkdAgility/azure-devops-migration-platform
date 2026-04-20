@@ -6,6 +6,7 @@ namespace DevOpsMigrationPlatform.Abstractions;
 /// Records telemetry for work item export operations.
 /// Implementations use OpenTelemetry meters and histograms.
 /// </summary>
+[System.Obsolete("Use IMigrationMetrics. Will be removed when all call sites are migrated.")]
 public interface IWorkItemExportMetrics
 {
     void RecordWorkItemExported(System.Guid teamProjectCollectionId);

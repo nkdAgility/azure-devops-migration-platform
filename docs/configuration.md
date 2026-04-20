@@ -366,3 +366,75 @@ Ready-to-run example configuration files live under `/scenarios/` at the reposit
 | `migrate-simulated.json` | Full simulated end-to-end migration — both source and target simulated (25,000 work items) |
 
 Credentials in these files use `$ENV:VARNAME` references — never literal tokens. Set the corresponding environment variables locally (e.g. `AZDEVOPS_SYSTEM_TEST_PAT`) before running.
+
+---
+
+## Telemetry
+
+All OTel instruments follow a dot-separated naming convention under the `migration.` prefix:
+
+- **Meter name**: `DevOpsMigrationPlatform.Migration` (v2.0)
+- **Instrument naming**: `migration.<category>.<metric>` — e.g. `migration.workitems.attempted`, `migration.payload.field_count`, `migration.correctness.broken_links`
+- **Mandatory dimension tags**: Every metric emission includes `job.id`, `operation` (`export` | `import`), and `module` (e.g. `WorkItems`)
+- **Optional tag**: `source.type` (e.g. `AzureDevOps`, `TfsObjectModel`, `Simulated`)
+
+The canonical list of instrument names is defined in `WellKnownMetricNames` (`src/DevOpsMigrationPlatform.Abstractions/Telemetry/WellKnownMetricNames.cs`). Tags are constructed via `MigrationTagList.Create()`.
+
+### Telemetry Layer Architecture
+
+Telemetry is structured into three layers with different cross-runtime characteristics:
+
+| Layer | What lives here | Cross-runtime? | Guard? |
+|---|---|---|---|
+| **Recording** — interfaces, constants, tag builders | `Abstractions/Telemetry/` | Both net481 and net10.0 | No `#if` guards |
+| **Instrument** — concrete `Meter`/`Counter`/`Histogram` classes | `Infrastructure/Telemetry/` | Both net481 and net10.0 | No `#if` guards |
+| **Pipeline** — OTel SDK exporters, readers, DI registration | `Infrastructure/Telemetry/` and host projects | Host-specific | `#if !NETFRAMEWORK` where needed |
+
+The recording and instrument layers use only `System.Diagnostics.DiagnosticSource` types (`TagList`, `Meter`, `Counter<T>`, etc.), which are available on net481 via the NuGet package and inbox on net10.0. This means all metric interfaces and concrete implementations compile and run on both runtimes.
+
+The pipeline layer references OTel SDK types (`BaseExporter<Metric>`, `PeriodicExportingMetricReader`, `MeterProviderBuilder`) that have different registration patterns per host. The .NET 10 hosts use `TelemetryServiceExtensions` (via `ServiceDefaults`). The TFS subprocess registers its OTel pipeline directly in `MigrationPlatformHost.CreateDefaultBuilder()`.
+
+#### Adding a new metric
+
+1. Add the instrument name constant to `WellKnownMetricNames.cs` (or `WellKnownDiscoveryMetricNames.cs`).
+2. Add the recording method to the appropriate interface (`IMigrationMetrics` or `IDiscoveryMetrics`).
+3. Implement the instrument field and method in the concrete class (`MigrationMetrics` or `DiscoveryMetrics`).
+4. Call the recording method from module code, passing a pre-built `TagList` via `MigrationTagList.Create()`.
+5. If the metric should appear in `MetricSnapshot`, add a property and update `SnapshotMetricExporter`.
+6. Add a unit test to the corresponding `*MetricsTests` class.
+
+See `.agents/context/telemetry-architecture.md` for the full guide including code examples and placement rules.
+
+### Data Classification
+
+Log statements are classified by data sensitivity using `DataClassification` scopes. The classification determines which log destinations receive the data:
+
+| Classification | Description | Azure Monitor | Package Log | Control Plane |
+|---|---|---|---|---|
+| **System** (default) | Operational logs — health checks, module lifecycle, job IDs | ✅ | ✅ | ✅ |
+| **Customer** | Customer-identifiable data — work item IDs, field values, project names, org URLs, attachment paths | ❌ | ✅ | ✅ |
+| **Derived** | Aggregates and counts — "500 work items processed" | ✅ | ✅ | ✅ |
+
+**Rules:**
+
+- Unclassified logs default to **System** — safe for Azure Monitor. This enables gradual rollout.
+- Only **Customer** is filtered from Azure Monitor. System and Derived pass through.
+- The filter is implemented as a provider-level logging filter on `OpenTelemetryLoggerProvider` (`DataClassificationLogging.AddDataClassificationFilter()`) that reads the ambient `DataClassificationScope.Current` value.
+- `PackageLoggerProvider` and `ControlPlaneLoggerProvider` write **all** classifications unfiltered — the filter only applies to the OTel export pipeline.
+- When scopes are nested, the **innermost** classification wins.
+
+**Usage in code:**
+
+```csharp
+// .NET 10 code (Infrastructure project): use the ILogger extension
+using (logger.BeginDataScope(DataClassification.Customer))
+{
+    logger.LogInformation("Processing work item {WorkItemId}", workItemId);
+}
+
+// .NET 4.8 code (TFS ObjectModel): use the static scope directly
+using (DataClassificationScope.Begin(DataClassification.Customer))
+{
+    logger.LogDebug("Streaming revisions for {WorkItemId}", workItemId);
+}
+```

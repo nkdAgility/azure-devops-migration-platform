@@ -12,18 +12,18 @@ Feature: Migration Agent to Control Plane Metric Snapshot Relay
     And SnapshotIntervalSeconds is configured to 5
     When 5 seconds elapse after the agent acquires the lease
     Then the agent posts a MetricSnapshot to "POST /agents/lease/lease-abc-123/telemetry"
-    And the snapshot contains "RevisionsExported" equal to 250
+    And the snapshot contains "WorkItemsCompleted" greater than 0
 
   Scenario: Control Plane stores the latest snapshot per job
     Given the Control Plane has received no snapshot for job "job-001"
-    When the agent posts a MetricSnapshot with "WorkItemsExported" equal to 10 for lease "lease-abc-123"
+    When the agent posts a MetricSnapshot with "WorkItemsAttempted" equal to 10 for lease "lease-abc-123"
     Then the Control Plane stores the snapshot under job "job-001"
-    And "GET /jobs/job-001/telemetry" returns 200 with "WorkItemsExported" equal to 10
+    And "GET /jobs/job-001/telemetry" returns 200 with "WorkItemsAttempted" equal to 10
 
   Scenario: New snapshot replaces the previous snapshot for the same job
-    Given the Control Plane has stored a snapshot with "WorkItemsExported" equal to 10 for job "job-001"
-    When the agent posts a MetricSnapshot with "WorkItemsExported" equal to 20 for lease "lease-abc-123"
-    Then "GET /jobs/job-001/telemetry" returns 200 with "WorkItemsExported" equal to 20
+    Given the Control Plane has stored a snapshot with "WorkItemsAttempted" equal to 10 for job "job-001"
+    When the agent posts a MetricSnapshot with "WorkItemsAttempted" equal to 20 for lease "lease-abc-123"
+    Then "GET /jobs/job-001/telemetry" returns 200 with "WorkItemsAttempted" equal to 20
     And only one snapshot is stored per job at any time
 
   Scenario: Push is skipped when no MetricSnapshot is available yet

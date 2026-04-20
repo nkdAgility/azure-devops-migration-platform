@@ -3,10 +3,14 @@
 // Stateless: all durable state is written to the package via IArtefactStore/IStateStore.
 // See docs/migration-agent.md.
 
+using DevOpsMigrationPlatform.Infrastructure.Telemetry;
 using DevOpsMigrationPlatform.MigrationAgent;
 
 var builder = Host.CreateApplicationBuilder(args);
 builder.AddServiceDefaults();
+
+// Filter customer-identifiable log data from the OTel pipeline (Azure Monitor).
+builder.Logging.AddDataClassificationFilter();
 
 var controlPlaneBaseUrl = new Uri(
     builder.Configuration["ControlPlane:BaseUrl"] ?? "http://localhost:5100");

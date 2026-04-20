@@ -12,13 +12,17 @@ using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Services;
 using DevOpsMigrationPlatform.Infrastructure.Checkpointing;
 using DevOpsMigrationPlatform.Infrastructure.Storage;
+using DevOpsMigrationPlatform.Infrastructure.Telemetry;
 using DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.Services;
 using DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.Telemetry;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
+using OpenTelemetry.Exporter;
+using Azure.Monitor.OpenTelemetry.Exporter;
 using Serilog;
 using Serilog.Events;
+using Serilog.Sinks.OpenTelemetry;
 
 namespace DevOpsMigrationPlatform.Infrastructure.TfsObjectModel;
 
@@ -56,8 +60,18 @@ public static class MigrationPlatformHost
         var logFolder = Path.Combine(settings.OutputFolder, "logs");
         const string outputTemplate = "[{Timestamp:yyyy-MM-dd HH:mm:ss}] [{Level:u3}] {Message:lj}{NewLine}{Exception}";
 
+        // .NET Framework defaults to Hierarchical ActivityIdFormat — switch to W3C
+        // so that TraceId/SpanId propagate correctly to the OTLP collector.
+        System.Diagnostics.Activity.DefaultIdFormat = System.Diagnostics.ActivityIdFormat.W3C;
+
         builder.UseSerilog((ctx, _, loggerConfig) =>
         {
+            // Read OTLP endpoint from configuration (appsettings.json + env vars + CLI args).
+            // Same pattern as ServiceDefaults: OTEL_EXPORTER_OTLP_ENDPOINT env var is surfaced
+            // through IConfiguration by AddEnvironmentVariables().
+            var otlpEndpoint = ctx.Configuration["OTEL_EXPORTER_OTLP_ENDPOINT"];
+            var hasOtlpEndpoint = !string.IsNullOrWhiteSpace(otlpEndpoint);
+
             loggerConfig
                 .ReadFrom.Configuration(ctx.Configuration)
                 .Enrich.WithProperty("SessionId", sessionId)
@@ -72,11 +86,36 @@ public static class MigrationPlatformHost
                     LogEventLevel.Verbose, outputTemplate: outputTemplate, shared: true,
                     rollOnFileSizeLimit: true, rollingInterval: RollingInterval.Hour)
                 .WriteTo.Console(restrictedToMinimumLevel: LogEventLevel.Warning);
+
+            // Forward logs to OTLP collector when endpoint is available.
+            if (hasOtlpEndpoint)
+            {
+                loggerConfig.WriteTo.OpenTelemetry(options =>
+                {
+                    options.Endpoint = otlpEndpoint!;
+                    options.Protocol = OtlpProtocol.Grpc;
+                    options.ResourceAttributes = new System.Collections.Generic.Dictionary<string, object>
+                    {
+                        ["service.name"] = "TfsExport",
+                        ["session.id"] = sessionId,
+                        ["tfs.server"] = settings.TfsServer.ToString(),
+                        ["tfs.project"] = settings.Project
+                    };
+                });
+            }
         });
 
         builder.ConfigureServices((ctx, services) =>
         {
             services.AddSingleton<IConfiguration>(ctx.Configuration);
+
+            // OTLP endpoint — read from configuration (appsettings.json + env vars + CLI args).
+            var otlpEndpoint = ctx.Configuration["OTEL_EXPORTER_OTLP_ENDPOINT"];
+            var hasOtlpEndpoint = !string.IsNullOrWhiteSpace(otlpEndpoint);
+
+            // Azure Monitor — opt-in via Telemetry:AzureMonitorConnectionString in appsettings.json.
+            var azureMonitorConnectionString = ctx.Configuration["Telemetry:AzureMonitorConnectionString"];
+            var hasAzureMonitor = !string.IsNullOrWhiteSpace(azureMonitorConnectionString);
 
             // Filesystem-backed artefact and state stores rooted at the output folder
             services.AddSingleton<IArtefactStore>(_ =>
@@ -109,8 +148,11 @@ public static class MigrationPlatformHost
             // Export services
             services.AddSingleton<IWorkItemRevisionMapper, TfsWorkItemRevisionMapper>();
             services.AddSingleton<ITfsAttachmentDownloader, TfsAttachmentDownloader>();
+#pragma warning disable CS0618 // Obsolete — retained until all call sites migrate to IMigrationMetrics
             services.AddSingleton<IWorkItemExportMetrics, WorkItemExportMetrics>();
             services.AddSingleton<IAttachmentDownloadMetrics, AttachmentDownloadMetrics>();
+#pragma warning restore CS0618
+            services.AddSingleton<IDiscoveryMetrics, DiscoveryMetrics>();
             services.AddSingleton<TfsWorkItemQueryWindowStrategy>();
             services.AddSingleton<IWorkItemFetchService, TfsWorkItemFetchService>();
             services.AddSingleton<IWorkItemDiscoveryService, TfsObjectModelWorkItemDiscoveryService>();
@@ -136,8 +178,10 @@ public static class MigrationPlatformHost
                     sp.GetRequiredService<TfsAttachmentRegistry>(),
                     sp.GetRequiredService<ILogger<TfsAttachmentBinarySource>>()));
 
-            // OpenTelemetry (console exporter — configure real exporter via appsettings)
-            services.AddOpenTelemetry()
+            // OpenTelemetry — metrics and traces.
+            // OTLP exporter activates when OTEL_EXPORTER_OTLP_ENDPOINT is set.
+            // Azure Monitor activates when Telemetry:AzureMonitorConnectionString is in appsettings.json.
+            var otelBuilder = services.AddOpenTelemetry()
                 .ConfigureResource(rb =>
                 {
                     rb.AddService("TfsExport");
@@ -152,19 +196,33 @@ public static class MigrationPlatformHost
                 {
                     tb.AddSource(MigrationPlatformActivitySources.WorkItemExport.Name);
                     tb.AddSource(MigrationPlatformActivitySources.AttachmentDownload.Name);
+                    if (hasOtlpEndpoint)
+                        tb.AddOtlpExporter();
+                    if (hasAzureMonitor)
+                        tb.AddAzureMonitorTraceExporter(o => o.ConnectionString = azureMonitorConnectionString);
                 })
                 .WithMetrics(mb =>
                 {
                     mb.AddMeter(WorkItemExportMetrics.MeterName);
                     mb.AddMeter(AttachmentDownloadMetrics.MeterName);
+                    mb.AddMeter(WellKnownMeterNames.Discovery);
+                    if (hasOtlpEndpoint)
+                        mb.AddOtlpExporter();
+                    if (hasAzureMonitor)
+                        mb.AddAzureMonitorMetricExporter(o => o.ConnectionString = azureMonitorConnectionString);
                 });
         });
 
         builder.UseConsoleLifetime(o => o.SuppressStatusMessages = true);
 
+        // Configuration: load the exe-local appsettings.json first (Telemetry settings),
+        // then the package-level configuration, then env vars and CLI args.
+        var exeDir = Path.GetDirectoryName(typeof(MigrationPlatformHost).Assembly.Location)
+                     ?? AppDomain.CurrentDomain.BaseDirectory;
         builder.ConfigureAppConfiguration(cfgBuilder =>
         {
-            cfgBuilder.SetBasePath(settings.OutputFolder);
+            cfgBuilder.SetBasePath(exeDir);
+            cfgBuilder.AddJsonFile("appsettings.json", optional: true, reloadOnChange: false);
             cfgBuilder.AddJsonFile(
                 Path.Combine(settings.OutputFolder, "configuration.json"), optional: true);
             cfgBuilder.AddEnvironmentVariables();

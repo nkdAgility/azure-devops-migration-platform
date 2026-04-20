@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics;
 using System.Text;
 using System.Text.Json;
 using System.Threading;
@@ -6,6 +7,7 @@ using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Models;
 using DevOpsMigrationPlatform.Abstractions.Services;
+using DevOpsMigrationPlatform.Abstractions.Telemetry;
 using Microsoft.Extensions.Logging;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Modules;
@@ -23,16 +25,20 @@ public sealed class DependencyDiscoveryModule : IDiscoveryModule
 
     private readonly IDependencyDiscoveryServiceFactory _dependencyFactory;
     private readonly ILogger<DependencyDiscoveryModule> _logger;
+    private readonly IDiscoveryMetrics? _metrics;
 
     public string Name => "Dependencies";
     public DiscoveryJobType DiscoveryType => DiscoveryJobType.Dependencies;
 
     public DependencyDiscoveryModule(
         IDependencyDiscoveryServiceFactory dependencyFactory,
-        ILogger<DependencyDiscoveryModule> logger)
+        ILogger<DependencyDiscoveryModule> logger
+        , IDiscoveryMetrics? metrics = null
+        )
     {
         _dependencyFactory = dependencyFactory;
         _logger = logger;
+        _metrics = metrics;
     }
 
     public async Task RunAsync(DiscoveryContext context, CancellationToken ct)
@@ -55,6 +61,11 @@ public sealed class DependencyDiscoveryModule : IDiscoveryModule
         var lastCheckpoint = DateTime.UtcNow;
         var recordCount = 0;
 
+        var metrics = _metrics;
+        string? currentOrg = null;
+        var orgSw = new Stopwatch();
+        int orgProjectCount = 0;
+
         await foreach (var evt in dependencyService.DiscoverDependenciesAsync(null, ct).ConfigureAwait(false))
         {
             switch (evt)
@@ -68,6 +79,13 @@ public sealed class DependencyDiscoveryModule : IDiscoveryModule
                         $"{r.TargetWorkItemId},{EscapeCsv(r.TargetProject ?? "")}," +
                         $"{EscapeCsv(r.TargetOrganisation ?? "")},{r.TargetStatus}");
                     recordCount++;
+                    metrics?.RecordLinksFound(1, new TagList
+                    {
+                        { "job.id", job.JobId },
+                        { "module", Name },
+                        { "organisation.url", r.SourceOrganisationUrl },
+                        { "link.scope", r.LinkScope.ToString() }
+                    });
                     break;
 
                 case DependencyHeartbeatEvent heartbeat:
@@ -81,9 +99,50 @@ public sealed class DependencyDiscoveryModule : IDiscoveryModule
                     });
 
                     if (heartbeat.IsComplete)
-                        _logger.LogInformation(
-                            "Completed project {Project} in {OrgUrl}: {Links} external links.",
-                            heartbeat.ProjectName, heartbeat.OrganisationUrl, heartbeat.ExternalLinksFound);
+                    {
+                        using (DataClassificationScope.Begin(DataClassification.Customer))
+                            _logger.LogInformation(
+                                "Completed project {Project} in {OrgUrl}: {Links} external links.",
+                                heartbeat.ProjectName, heartbeat.OrganisationUrl, heartbeat.ExternalLinksFound);
+                        // Organisation transition tracking.
+                        if (currentOrg != heartbeat.OrganisationUrl)
+                        {
+                            if (currentOrg is not null)
+                            {
+                                orgSw.Stop();
+                                var orgCompleteTags = new TagList
+                                {
+                                    { "job.id", job.JobId },
+                                    { "module", Name },
+                                    { "organisation.url", currentOrg }
+                                };
+                                metrics?.SetProjectCount(orgProjectCount, orgCompleteTags);
+                                metrics?.RecordOrganisationDuration(orgSw.Elapsed.TotalMilliseconds, orgCompleteTags);
+                                metrics?.OrganisationCompleted(orgCompleteTags);
+                            }
+                            currentOrg = heartbeat.OrganisationUrl;
+                            orgProjectCount = 0;
+                            orgSw.Restart();
+                            metrics?.OrganisationStarted(new TagList
+                            {
+                                { "job.id", job.JobId },
+                                { "module", Name },
+                                { "organisation.url", heartbeat.OrganisationUrl }
+                            });
+                        }
+
+                        var projectTags = new TagList
+                        {
+                            { "job.id", job.JobId },
+                            { "module", Name },
+                            { "organisation.url", heartbeat.OrganisationUrl },
+                            { "project.name", heartbeat.ProjectName }
+                        };
+                        metrics?.ProjectStarted(projectTags);
+                        metrics?.ProjectCompleted(projectTags);
+                        metrics?.RecordWorkItemsAnalysed(heartbeat.WorkItemsAnalysed, projectTags);
+                        orgProjectCount++;
+                    }
                     break;
             }
 
@@ -93,8 +152,24 @@ public sealed class DependencyDiscoveryModule : IDiscoveryModule
                 await store.WriteAsync(RootCsvPath, csvBuilder.ToString(), ct).ConfigureAwait(false);
                 await WriteCursorAsync(state, recordCount, ct).ConfigureAwait(false);
                 lastCheckpoint = DateTime.UtcNow;
+                metrics?.RecordCheckpointSaved(new TagList { { "job.id", job.JobId }, { "module", Name } });
                 _logger.LogDebug("Dependencies checkpoint saved at {RecordCount} records.", recordCount);
             }
+        }
+
+        // Complete final organisation.
+        if (currentOrg is not null)
+        {
+            orgSw.Stop();
+            var finalOrgTags = new TagList
+            {
+                { "job.id", job.JobId },
+                { "module", Name },
+                { "organisation.url", currentOrg }
+            };
+            metrics?.SetProjectCount(orgProjectCount, finalOrgTags);
+            metrics?.RecordOrganisationDuration(orgSw.Elapsed.TotalMilliseconds, finalOrgTags);
+            metrics?.OrganisationCompleted(finalOrgTags);
         }
 
         // Final write.

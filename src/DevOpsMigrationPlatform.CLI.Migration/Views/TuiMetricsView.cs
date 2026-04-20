@@ -56,15 +56,29 @@ public sealed class TuiMetricsView : FrameView
     }
 
     private static string FormatSnapshot(MetricSnapshot s) =>
-        $"Work Items Exported  : {s.WorkItemsExported,8}\n" +
-        $"Revisions Exported   : {s.RevisionsExported,8}\n" +
-        $"Revision Errors      : {s.RevisionErrors,8}\n" +
-        $"Links Exported       : {s.LinksExported,8}\n" +
-        $"Link Errors          : {s.LinkErrors,8}\n" +
-        $"Attachments Attempted: {s.AttachmentsAttempted,8}\n" +
-        $"Attachments Succeeded: {s.AttachmentsSucceeded,8}\n" +
-        $"Attachments Failed   : {s.AttachmentsFailed,8}\n" +
-        $"WI Duration Mean     : {s.WorkItemDurationMeanMs?.ToString("F1") ?? "—",7} ms\n" +
-        $"Rev Duration Mean    : {s.RevisionDurationMeanMs?.ToString("F1") ?? "—",7} ms\n" +
-        $"Total Export Duration: {s.TotalExportDurationMs?.ToString("F0") ?? "—",7} ms";
+        $"Work Items Attempted : {s.WorkItemsAttempted,8}\n" +
+        $"Work Items Completed : {s.WorkItemsCompleted,8}\n" +
+        $"Work Items Failed    : {s.WorkItemsFailed,8}\n" +
+        $"Work Items Retried   : {s.WorkItemsRetried,8}\n" +
+        $"In-Flight            : {s.WorkItemsInFlight,8}\n" +
+        $"Queue Depth          : {s.QueueDepth,8}\n" +
+        $"\n" +
+        $"Avg Duration         : {FormatMean(s.WorkItemDurationMeanMs, "ms")}\n" +
+        $"Avg Revisions        : {FormatMean(s.RevisionCountMean)}\n" +
+        $"Avg Attachments      : {FormatMean(s.AttachmentCountMean)}\n" +
+        $"Avg Links            : {FormatMean(s.LinkCountMean)}\n" +
+        $"Avg Fields           : {FormatMean(s.FieldCountMean)}\n" +
+        $"Avg Payload          : {FormatMean(s.PayloadBytesMean, "B")}\n" +
+        $"\n" +
+        $"Broken Links         : {s.BrokenLinks,8}\n" +
+        $"Missing Work Items   : {s.MissingWorkItems,8}\n" +
+        $"Revisions Missing    : {s.RevisionsMissing,8}\n" +
+        $"Rev Order Errors     : {s.RevisionOrderErrors,8}";
+
+    private static string FormatMean(double? value, string unit = "")
+    {
+        if (!value.HasValue) return "       \u2014";
+        var suffix = unit.Length > 0 ? $" {unit}" : "";
+        return $"{value.Value,8:F1}{suffix}";
+    }
 }

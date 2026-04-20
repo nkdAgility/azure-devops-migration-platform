@@ -22,6 +22,7 @@ The package contract, modules, and cursors are unchanged across all deployment t
 | Write cursors | Write checkpoint cursors into the package's `Checkpoints/` folder after each stage, as always. |
 | Heartbeat | Signal liveness to the control plane at regular intervals. |
 | Report progress | Emit `ProgressEvent` via `IProgressSink` after each stage. Three sinks run simultaneously: `ConsoleProgressSink` (terminal), `PackageProgressSink` (`Logs/progress.jsonl`), and `ControlPlaneProgressSink` (POST to control plane ring buffer for live TUI streaming). |
+| Record metrics | Record OTel metrics via `IMigrationMetrics` during job execution (execution counters, payload histograms, duration). Metric aggregates are pushed to the control plane via `ControlPlaneTelemetryTimer`. |
 | Write package logs | Write structured logs to `Logs/` in the package via `IArtefactStore`. |
 | Signal completion or failure | Call the control plane's complete or fail endpoint when the job finishes. |
 

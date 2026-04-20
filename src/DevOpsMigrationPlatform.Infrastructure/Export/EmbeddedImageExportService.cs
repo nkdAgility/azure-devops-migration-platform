@@ -9,6 +9,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Services;
+using DevOpsMigrationPlatform.Abstractions.Telemetry;
 using HtmlAgilityPack;
 using Microsoft.Extensions.Logging;
 
@@ -64,7 +65,8 @@ public class EmbeddedImageExportService : IEmbeddedImageExportService
                 var result = await _downloader.TryDownloadAsync(originalUrl, cancellationToken);
                 if (result == null)
                 {
-                    _logger.LogWarning("Could not download image {url}, preserving original", originalUrl);
+                    using (DataClassificationScope.Begin(DataClassification.Customer))
+                        _logger.LogWarning("Could not download image {url}, preserving original", originalUrl);
                     continue;
                 }
 
@@ -74,7 +76,8 @@ public class EmbeddedImageExportService : IEmbeddedImageExportService
                 // Write image to store
                 var imagePath = Path.Combine(folderPath, localFilename);
                 await _artefactStore.WriteBinaryAsync(imagePath, result.Bytes, cancellationToken);
-                _logger.LogInformation("Downloaded image {url} -> {filename}", originalUrl, localFilename);
+                using (DataClassificationScope.Begin(DataClassification.Customer))
+                    _logger.LogInformation("Downloaded image {url} -> {filename}", originalUrl, localFilename);
             }
 
             // Rewrite image src
@@ -112,7 +115,8 @@ public class EmbeddedImageExportService : IEmbeddedImageExportService
                 var downloadResult = await _downloader.TryDownloadAsync(originalUrl, cancellationToken);
                 if (downloadResult == null)
                 {
-                    _logger.LogWarning("Could not download image {url}, preserving original", originalUrl);
+                    using (DataClassificationScope.Begin(DataClassification.Customer))
+                        _logger.LogWarning("Could not download image {url}, preserving original", originalUrl);
                     continue; // Keep original
                 }
 
@@ -121,7 +125,8 @@ public class EmbeddedImageExportService : IEmbeddedImageExportService
 
                 var imagePath = Path.Combine(folderPath, localFilename);
                 await _artefactStore.WriteBinaryAsync(imagePath, downloadResult.Bytes, cancellationToken);
-                _logger.LogInformation("Downloaded image {url} -> {filename}", originalUrl, localFilename);
+                using (DataClassificationScope.Begin(DataClassification.Customer))
+                    _logger.LogInformation("Downloaded image {url} -> {filename}", originalUrl, localFilename);
             }
 
             var replacement = $"![{altText}]({localFilename})";

@@ -62,6 +62,9 @@ Artefact store abstraction:
 Job contract:
 → .agents/context/job-contract.md
 
+Telemetry architecture:
+→ .agents/context/telemetry-architecture.md
+
 Control plane:
 → docs/control-plane.md
 
@@ -137,6 +140,7 @@ Package zip/export:
    - [checkpointing.md](.agents/context/checkpointing.md) — Cursor-based checkpointing
    - [artefact-store.md](.agents/context/artefact-store.md) — IArtefactStore abstraction
    - [job-contract.md](.agents/context/job-contract.md) — Job contract specification
+   - [telemetry-architecture.md](.agents/context/telemetry-architecture.md) — Telemetry layer model and metric addition guide
    - [identity-and-mapping.md](.agents/context/identity-and-mapping.md) — Identity mapping service
 
 3. **State your understanding** of which guardrails apply to the current task
@@ -260,6 +264,7 @@ Reject any proposal that:
 - **Implements custom enumeration or sorting logic instead of using `IArtefactStore.EnumerateAsync()` in lexicographic order** (no in-memory result sets, no custom sorting).
 - **Buffers attachments or binary data in memory instead of streaming via `IArtefactStore.WriteBinaryAsync()` or `IAttachmentBinarySource`**.
 - **Invents a new abstraction for work item processing without extending an existing pattern or documenting why no existing abstraction could be reused** (motivated by rule 21 of [.agents/guardrails/system-architecture.md](.agents/guardrails/system-architecture.md)).
+- **Logs a work item ID, field value, project name, org URL, or attachment path without a `DataClassification.Customer` scope** (see [docs/configuration.md — Data Classification](docs/configuration.md#data-classification)).
 - Leaves any `throw new NotImplementedException()` or `throw new NotSupportedException("... not yet implemented")` in any reachable code path — ephemeral stubs are only permitted within a single session and must be replaced before the task is marked complete.
 - Declares a task complete without a passing `dotnet clean && dotnet build --no-incremental`.
 - Declares a task complete without all tests passing (`dotnet test`).
