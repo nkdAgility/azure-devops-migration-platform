@@ -2,12 +2,19 @@ installed: []
 settings:
   auto_execute_hooks: true
 hooks:
-  after_plan:
-  - extension: hexagonal-check
-    command: hexagonal-check
+  after_specify:
+  - extension: red-team-review
+    command: red-team-review
     enabled: true
     optional: false
-    description: Scan the generated plan for Hexagonal Architecture violations before task generation begins
+    description: Challenge the specification with adversarial thinking to surface blind spots, wrong assumptions, and missing failure modes
+    condition: null
+  after_plan:
+  - extension: architecture-review
+    command: architecture-review
+    enabled: true
+    optional: false
+    description: Run all five architecture perspective checks (Modular Monolith, Clean, Hexagonal, Vertical Slice, Screaming) before task generation begins
     condition: null
   after_tasks:
   - extension: ralph
