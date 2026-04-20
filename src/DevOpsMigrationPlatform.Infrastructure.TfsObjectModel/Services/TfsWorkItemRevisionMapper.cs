@@ -5,6 +5,7 @@ using System.Linq;
 using Microsoft.Extensions.Logging;
 using Microsoft.TeamFoundation.WorkItemTracking.Client;
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Telemetry;
 using DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.Telemetry;
 
 namespace DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.Services;
@@ -104,9 +105,10 @@ public class TfsWorkItemRevisionMapper : IWorkItemRevisionMapper
 
                     default:
                         handled = false;
-                        _logger.LogWarning(
-                            "Skipping unhandled link type {LinkType} on WorkItem {WorkItemId} Revision {RevisionIndex}",
-                            link.GetType().Name, workItem.Id, revision.Index);
+                        using (DataClassificationScope.Begin(DataClassification.Customer))
+                            _logger.LogWarning(
+                                "Skipping unhandled link type {LinkType} on WorkItem {WorkItemId} Revision {RevisionIndex}",
+                                link.GetType().Name, workItem.Id, revision.Index);
                         break;
                 }
 

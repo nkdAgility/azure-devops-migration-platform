@@ -379,3 +379,37 @@ All OTel instruments follow a dot-separated naming convention under the `migrati
 - **Optional tag**: `source.type` (e.g. `AzureDevOps`, `TfsObjectModel`, `Simulated`)
 
 The canonical list of instrument names is defined in `WellKnownMetricNames` (`src/DevOpsMigrationPlatform.Abstractions/Telemetry/WellKnownMetricNames.cs`). Tags are constructed via `MigrationTagList.Create()`.
+
+### Data Classification
+
+Log statements are classified by data sensitivity using `DataClassification` scopes. The classification determines which log destinations receive the data:
+
+| Classification | Description | Azure Monitor | Package Log | Control Plane |
+|---|---|---|---|---|
+| **System** (default) | Operational logs — health checks, module lifecycle, job IDs | ✅ | ✅ | ✅ |
+| **Customer** | Customer-identifiable data — work item IDs, field values, project names, org URLs, attachment paths | ❌ | ✅ | ✅ |
+| **Derived** | Aggregates and counts — "500 work items processed" | ✅ | ✅ | ✅ |
+
+**Rules:**
+
+- Unclassified logs default to **System** — safe for Azure Monitor. This enables gradual rollout.
+- Only **Customer** is filtered from Azure Monitor. System and Derived pass through.
+- The filter is implemented as a provider-level logging filter on `OpenTelemetryLoggerProvider` (`DataClassificationLogging.AddDataClassificationFilter()`) that reads the ambient `DataClassificationScope.Current` value.
+- `PackageLoggerProvider` and `ControlPlaneLoggerProvider` write **all** classifications unfiltered — the filter only applies to the OTel export pipeline.
+- When scopes are nested, the **innermost** classification wins.
+
+**Usage in code:**
+
+```csharp
+// .NET 10 code (Infrastructure project): use the ILogger extension
+using (logger.BeginDataScope(DataClassification.Customer))
+{
+    logger.LogInformation("Processing work item {WorkItemId}", workItemId);
+}
+
+// .NET 4.8 code (TFS ObjectModel): use the static scope directly
+using (DataClassificationScope.Begin(DataClassification.Customer))
+{
+    logger.LogDebug("Streaming revisions for {WorkItemId}", workItemId);
+}
+```

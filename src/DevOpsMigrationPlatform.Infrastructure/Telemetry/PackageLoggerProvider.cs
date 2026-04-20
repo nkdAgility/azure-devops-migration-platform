@@ -8,6 +8,7 @@ using System.Threading;
 using System.Threading.Channels;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Telemetry;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -190,6 +191,7 @@ public sealed class PackageLoggerProvider : BackgroundService, ILoggerProvider
                 return;
 
             var activity = Activity.Current;
+            var classification = DataClassificationScope.Current;
             var record = new DiagnosticLogRecord
             {
                 Timestamp = DateTimeOffset.UtcNow,
@@ -198,7 +200,8 @@ public sealed class PackageLoggerProvider : BackgroundService, ILoggerProvider
                 Message = formatter(state, exception),
                 Exception = exception?.ToString(),
                 TraceId = activity?.TraceId.ToString(),
-                SpanId = activity?.SpanId.ToString()
+                SpanId = activity?.SpanId.ToString(),
+                DataClassification = classification?.ToString()
             };
 
             _provider.Write(record);

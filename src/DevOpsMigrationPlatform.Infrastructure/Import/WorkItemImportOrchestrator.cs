@@ -8,6 +8,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Models;
+using DevOpsMigrationPlatform.Abstractions.Telemetry;
 using Microsoft.Extensions.Logging;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Import;
@@ -70,6 +71,7 @@ public sealed class WorkItemImportOrchestrator
         ResumeMode resumeMode,
         CancellationToken ct)
     {
+        using var _dc = DataClassificationScope.Begin(DataClassification.Customer);
         // ForceFresh: delete cursor (but preserve idmap.db)
         if (resumeMode == ResumeMode.ForceFresh)
         {

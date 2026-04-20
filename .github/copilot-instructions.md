@@ -120,6 +120,7 @@ Reject any suggestion that:
 - Declares done without all tests passing (`dotnet test`)
 - Declares done without running at least one scenario config (e.g. `scenarios/queue-export-ado-workitems-single-project.json`) via a `launch.json` debug profile and verifying observable output
 - Ships a known vulnerability without a fix or an explicit written rationale and tracked issue
+- Logs a work item ID, field value, project name, org URL, or attachment path without a `DataClassification.Customer` scope
 - Adds or changes a CLI command without a corresponding `.vscode/launch.json` entry
 - Adds or changes a deployable Host without coverage in `build.ps1`
 - Ships a CLI-exposed feature without a `[TestCategory("SystemTest")]` test asserting observable output

@@ -5,6 +5,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Services;
+using DevOpsMigrationPlatform.Abstractions.Telemetry;
 using Microsoft.Extensions.Logging;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Modules;
@@ -47,7 +48,8 @@ public sealed class InventoryDiscoveryModule : IDiscoveryModule
         var skipping = lastCompleted is not null;
 
         if (skipping)
-            _logger.LogInformation("Resuming inventory after project '{LastCompleted}'.", lastCompleted);
+            using (DataClassificationScope.Begin(DataClassification.Customer))
+                _logger.LogInformation("Resuming inventory after project '{LastCompleted}'.", lastCompleted);
 
         var inventoryService = _inventoryFactory.Create(job.Organisations, job.Policies);
 
@@ -89,7 +91,8 @@ public sealed class InventoryDiscoveryModule : IDiscoveryModule
                 await store.WriteAsync(OutputPath, csvBuilder.ToString(), ct).ConfigureAwait(false);
                 await WriteCursorAsync(state, projectKey, ct).ConfigureAwait(false);
                 lastCheckpoint = DateTime.UtcNow;
-                _logger.LogDebug("Inventory checkpoint saved after project '{ProjectKey}'.", projectKey);
+                using (DataClassificationScope.Begin(DataClassification.Customer))
+                    _logger.LogDebug("Inventory checkpoint saved after project '{ProjectKey}'.", projectKey);
             }
         }
 

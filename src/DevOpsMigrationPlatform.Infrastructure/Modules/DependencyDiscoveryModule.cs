@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Models;
 using DevOpsMigrationPlatform.Abstractions.Services;
+using DevOpsMigrationPlatform.Abstractions.Telemetry;
 using Microsoft.Extensions.Logging;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Modules;
@@ -81,9 +82,10 @@ public sealed class DependencyDiscoveryModule : IDiscoveryModule
                     });
 
                     if (heartbeat.IsComplete)
-                        _logger.LogInformation(
-                            "Completed project {Project} in {OrgUrl}: {Links} external links.",
-                            heartbeat.ProjectName, heartbeat.OrganisationUrl, heartbeat.ExternalLinksFound);
+                        using (DataClassificationScope.Begin(DataClassification.Customer))
+                            _logger.LogInformation(
+                                "Completed project {Project} in {OrgUrl}: {Links} external links.",
+                                heartbeat.ProjectName, heartbeat.OrganisationUrl, heartbeat.ExternalLinksFound);
                     break;
             }
 

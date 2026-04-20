@@ -22,9 +22,14 @@ using DevOpsMigrationPlatform.Infrastructure;
 using DevOpsMigrationPlatform.Infrastructure.Extensions;
 using DevOpsMigrationPlatform.Infrastructure.Simulated.Options;
 
+using DevOpsMigrationPlatform.Infrastructure.Telemetry;
+
 var builder = WebApplication.CreateBuilder(args);
 
 builder.AddServiceDefaults();
+
+// Filter customer-identifiable log data from the OTel pipeline (Azure Monitor).
+builder.Logging.AddDataClassificationFilter();
 
 // Register polymorphic serializers so the endpoint type registry is available.
 builder.Services.AddEndpointOptionsType("AzureDevOpsServices", typeof(AzureDevOpsEndpointOptions));

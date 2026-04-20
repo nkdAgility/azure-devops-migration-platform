@@ -6,8 +6,10 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Telemetry;
 using DevOpsMigrationPlatform.Infrastructure.Export;
 using DevOpsMigrationPlatform.Infrastructure.Import;
+using DevOpsMigrationPlatform.Infrastructure.Telemetry;
 using Microsoft.Extensions.Logging;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Modules;
@@ -87,9 +89,12 @@ public sealed class WorkItemsModule : IModule
             ? WorkItemsModuleExtensions.FromModule(workItemsModule)
             : new WorkItemsModuleExtensions();
 
-        _logger.LogInformation(
-            "[WorkItems] Exporting from {OrgUrl}/{Project} (attachments={AttachmentsEnabled}, comments={CommentsEnabled})",
-            orgUrl, project, ext.AttachmentsEnabled, ext.Comments.Enabled);
+        using (_logger.BeginDataScope(DataClassification.Customer))
+        {
+            _logger.LogInformation(
+                "[WorkItems] Exporting from {OrgUrl}/{Project} (attachments={AttachmentsEnabled}, comments={CommentsEnabled})",
+                orgUrl, project, ext.AttachmentsEnabled, ext.Comments.Enabled);
+        }
 
         var source = await _sourceFactory
             .CreateAsync(endpointOptions, ct)
@@ -136,9 +141,12 @@ public sealed class WorkItemsModule : IModule
             ? WorkItemsModuleExtensions.FromModule(workItemsModule)
             : new WorkItemsModuleExtensions();
 
-        _logger.LogInformation(
-            "[WorkItems] Importing into {OrgUrl}/{Project} (revisions={Revisions}, links={Links}, attachments={Attachments}, comments={Comments})",
-            orgUrl, project, ext.RevisionsEnabled, ext.LinksEnabled, ext.AttachmentsEnabled, ext.Comments.Enabled);
+        using (_logger.BeginDataScope(DataClassification.Customer))
+        {
+            _logger.LogInformation(
+                "[WorkItems] Importing into {OrgUrl}/{Project} (revisions={Revisions}, links={Links}, attachments={Attachments}, comments={Comments})",
+                orgUrl, project, ext.RevisionsEnabled, ext.LinksEnabled, ext.AttachmentsEnabled, ext.Comments.Enabled);
+        }
 
         var target = await _importTargetFactory.CreateAsync(endpointOptions, ct).ConfigureAwait(false);
         var checkpointingService = _checkpointingFactory.Create(context.StateStore);

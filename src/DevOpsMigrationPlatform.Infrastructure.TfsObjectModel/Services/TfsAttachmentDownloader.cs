@@ -4,6 +4,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.TeamFoundation.WorkItemTracking.Client;
 using Microsoft.TeamFoundation.WorkItemTracking.Proxy;
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Telemetry;
 
 namespace DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.Services;
 
@@ -35,6 +36,7 @@ public class TfsAttachmentDownloader : ITfsAttachmentDownloader
 
     public AttachmentDownloadResult DownloadAttachment(int attachmentId)
     {
+        using var _dc = DataClassificationScope.Begin(DataClassification.Customer);
         _metrics.RecordAttempt();
         var stopwatch = Stopwatch.StartNew();
 

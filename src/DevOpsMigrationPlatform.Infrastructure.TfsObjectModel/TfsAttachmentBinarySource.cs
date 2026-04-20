@@ -4,6 +4,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Telemetry;
 using DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.Services;
 
 namespace DevOpsMigrationPlatform.Infrastructure.TfsObjectModel;
@@ -37,6 +38,7 @@ public sealed class TfsAttachmentBinarySource : IAttachmentBinarySource
         AttachmentMetadata attachment,
         CancellationToken cancellationToken)
     {
+        using var _dc = DataClassificationScope.Begin(DataClassification.Customer);
         if (!_registry.TryGet(workItemId, revisionIndex, attachment.OriginalName, out var tfsAttachmentId))
         {
             _logger.LogWarning(
