@@ -194,6 +194,12 @@ Items are grouped by feature spec and categorised as **Code**, **Tests**, or **D
 
 ---
 
+## spec 019 — Work Item ID Map Integrity, Rebuild, and Sync Support
+
+> **Status**: ✅ **Complete.** All 39 tasks implemented. `IdMapEntry.LastRevisionIndex`, 4 new `IIdMapStore` methods, `IWorkItemImportTarget.WorkItemExistsAsync`, `IPackageLockService`, `PackageLockConflictException`, `SqliteIdMapStore` schema upgrade (3-table schema + schema guard + UPSERT fix), `PackageLockFileService` (atomic `FileMode.CreateNew` + stale-lock recovery), `WorkItemRevisionFolderParser`, `RevisionFolderProcessor` deleted-target guard, `WorkItemImportOrchestrator` (integrity check, revision-index skip, `UpdateLastRevisionIndexAsync`), and `JobAgentWorker` package lock acquisition are all implemented. Six feature files cover all five user stories. Build and all non-ADO tests pass.
+
+---
+
 ## spec 015 — Work Item Scoped Fetch Service
 
 > **Status**: ✅ **Complete.** All 31 tasks (T001–T031) are implemented and verified. `IWorkItemFetchService`, `AzureDevOpsWorkItemFetchService`, `TfsWorkItemFetchService`, `WorkItemFieldFilterEvaluator`, `FetchedWorkItem`, `WorkItemFetchScope`, and `WorkItemFieldFilterOptions` are all implemented. Inventory and dependency analysis callers refactored to use `IWorkItemFetchService`. All discrepancies (D-001 through D-004) resolved. Additionally, `IWorkItemQueryWindowStrategy` and `IWorkItemDiscoveryService` were aligned to accept `OrganisationEndpoint` directly, and adapter classes were eliminated.
@@ -220,5 +226,6 @@ Items are grouped by feature spec and categorised as **Code**, **Tests**, or **D
 | spec 009 — Import orchestrator | ✅ Complete | — | — | — |
 | spec 013 — ADO Work Items Import | ✅ Complete (T001–T051) | — | — | — |
 | spec 015 — Work Item Scoped Fetch | ✅ Complete (T001–T031) | — | — | — |
+| spec 019 — ID Map Integrity, Rebuild, Sync | ✅ Complete (T001–T039) | — | — | — |
 
-**Remaining real work**: 12 items total (3 in spec 004, 5 in spec 005, 3 in spec 006, 1 in spec 007). None are blocking. Specs 006 (code/docs), 007 (code fix applied), 008-simulated, 008-tui, 009, 013, and 015 are fully complete.
+**Remaining real work**: 12 items total (3 in spec 004, 5 in spec 005, 3 in spec 006, 1 in spec 007). None are blocking. Specs 006 (code/docs), 007 (code fix applied), 008-simulated, 008-tui, 009, 013, 015, and 019 are fully complete.

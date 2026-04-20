@@ -44,3 +44,25 @@ Stage label values are canonical and shared with the cursor schema. See [.agents
 - Import **must** be streaming. Loading all revisions into memory before processing is forbidden.
 - Enumeration order **must** follow the lexicographic rule above. Do not sort in memory.
 - See [.agents/guardrails/system-architecture.md](../guardrails/system-architecture.md) for the hard guardrails.
+
+---
+
+## Rerun / Sync Import
+
+Import is designed for multi-pass execution. The same package can be exported and imported incrementally without duplicating work items.
+
+### How delta export works
+
+The export cursor (`Checkpoints/workitems.cursor.json`) records the last revision folder written. On a re-export run, the orchestrator skips all folders at or before `lastProcessed` and writes only new revision folders. The package therefore grows forward-only.
+
+### How delta import works
+
+The import cursor (`Checkpoints/workitems.cursor.json`) records the last revision folder fully processed. On a re-import run, the orchestrator skips all folders at or before `lastProcessed` without re-importing them. This means only newly exported revision folders are imported.
+
+### Per-work-item revision skip logic
+
+In addition to the folder-level cursor, `Checkpoints/idmap.db` stores `last_revision_index` per source work item. On each import pass the orchestrator checks whether the current revision folder's revision index is ≤ `last_revision_index` for the mapped work item. If it is, the revision is skipped even if the folder-level cursor was reset (e.g. after `--force-fresh` re-export followed by a partial re-import). This prevents re-applying revisions that were already applied to the target.
+
+### `--force-fresh` semantics
+
+`--force-fresh` deletes the folder-level cursor but preserves `idmap.db`. The next import pass therefore re-enumerates all revision folders from scratch but the `last_revision_index` guard ensures already-applied revisions are skipped per work item. This enables safe "sync" imports: export new revisions, then `--force-fresh` import processes only the delta.

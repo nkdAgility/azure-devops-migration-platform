@@ -27,11 +27,11 @@ Source work item IDs do not map 1:1 to target IDs. The ID map tracks the relatio
 
 ```
 Checkpoints/
-  idmap.db      (PostgreSQL Portable binary in Local/Dedicated Server topology, PostgreSQL Flexible Server in Cloud topologies; preferred for large datasets)
+  idmap.db      (SQLite — package-local indexed storage; source workItemId → target workItemId mapping, attachment records, and revision-level progress)
   idmap.json    (fallback for small datasets or tooling compatibility)
 ```
 
-The ID map is consulted during Stage A (Create) of streaming import. It replaces the old per-work-item watermark model.
+The ID map is consulted during Stage A (Create) of streaming import. It replaces the old per-work-item watermark model. The `work_item_map` table also tracks `last_revision_index` per source work item, enabling revision-level skip logic during sync/rerun imports.
 
 ### Identity Resolution Rules
 

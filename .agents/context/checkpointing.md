@@ -70,15 +70,20 @@ Checkpoints/
   permissions.cursor.json
   builds.cursor.json
   git.cursor.json
-  idmap.db          (ID map — source workItemId → target workItemId; backed by PostgreSQL Portable binary in Local/Dedicated Server topology or PostgreSQL Flexible Server in Cloud topologies)
+  idmap.db          (SQLite — source workItemId → target workItemId mapping; package-local indexed storage)
   idmap.json        (fallback for small packages or tooling)
+  agent.lock        (exclusive package lock — JSON file; created atomically by PackageLockFileService on job start, deleted on job completion)
 ```
 
 The convention is `<moduleName-lowercase>.cursor.json`. Modules must not share cursor files.
 
 ### ID Map
 
-The `Checkpoints/idmap.db` (or `idmap.json`) file tracks source-to-target work item ID mappings and uploaded attachment records. It is written during Stage `CreatedOrUpdated` (work item ID) and Stage `UploadedAttachments` (attachment ID per revision). It is the sole mechanism for idempotency checks during resume. See [.agents/context/identity-and-mapping.md](identity-and-mapping.md) for the identity mapping counterpart.
+The `Checkpoints/idmap.db` (SQLite) file tracks source-to-target work item ID mappings, uploaded attachment records, and per-work-item revision progress. It is written during Stage `CreatedOrUpdated` (work item ID) and Stage `UploadedAttachments` (attachment ID per revision). The `work_item_map` table also stores `last_revision_index` per work item — this is updated after each revision is fully applied and is used for revision-level skip logic during rerun/sync imports. `idmap.db` is the sole mechanism for idempotency checks during resume. See [.agents/context/identity-and-mapping.md](identity-and-mapping.md) for the identity mapping counterpart.
+
+### Package Lock
+
+Each job acquires an exclusive file-system lock on the package before running any module. The lock file is `Checkpoints/agent.lock` and is created atomically using `FileMode.CreateNew`. If another agent instance holds the lock and is confirmed alive via the control plane, the job throws `PackageLockConflictException` (hard bounce). If the lock is stale (owning agent is no longer active), it is deleted and replaced. The lock is released (file deleted) when the job completes or faults.
 
 ---
 
