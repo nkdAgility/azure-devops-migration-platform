@@ -39,12 +39,13 @@ public sealed class PackageLockFileService : IPackageLockService
     /// <inheritdoc/>
     public async Task<IAsyncDisposable> AcquireAsync(string packagePath, string jobId, CancellationToken ct)
     {
-        var lockFilePath = Path.Combine(packagePath, "Checkpoints", "agent.lock");
+        var localRoot = ResolveLocalPath(packagePath);
+        var lockFilePath = Path.Combine(localRoot, "Checkpoints", "agent.lock");
         var dir = Path.GetDirectoryName(lockFilePath)!;
         if (!Directory.Exists(dir))
             Directory.CreateDirectory(dir);
 
-        return await TryAcquireAsync(lockFilePath, packagePath, jobId, ct).ConfigureAwait(false);
+        return await TryAcquireAsync(lockFilePath, localRoot, jobId, ct).ConfigureAwait(false);
     }
 
     private async Task<IAsyncDisposable> TryAcquireAsync(
@@ -173,6 +174,13 @@ public sealed class PackageLockFileService : IPackageLockService
             jobId, _agentInstanceId, lockFilePath);
 
         return new PackageLockHandle(lockFilePath, _logger);
+    }
+
+    private static string ResolveLocalPath(string packagePath)
+    {
+        if (packagePath.StartsWith("file:///", StringComparison.OrdinalIgnoreCase))
+            return packagePath["file:///".Length..].Replace('/', Path.DirectorySeparatorChar);
+        return packagePath;
     }
 
     private sealed class PackageLockHandle : IAsyncDisposable
