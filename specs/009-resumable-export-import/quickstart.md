@@ -16,7 +16,7 @@ No configuration change is needed to benefit from resume. When you re-run an exp
 // scenarios/export-ado-workitems-single-project.json
 {
   "Mode": "Export",
-  "Artefacts": {
+  "Package": {
     "Path": "%TEMP%\\MyPackage"
   }
 }

@@ -20,6 +20,16 @@
 | `.agents/context/identity-and-mapping.md` | Discrepancy logged — idmap.db described as PostgreSQL Portable but implementation is SQLite; discrepancy in `discrepancies.md` |
 | `docs/cli.md` | Needs review — no rebuild-idmap command documented yet |
 
+## Clarifications
+
+### Session 2026-04-20
+
+- Q: Should ID map rebuild and integrity check be exposed as explicit CLI sub-commands? → A: No — these are agent-side operations executed as part of import job execution, not CLI commands. The rebuild happens implicitly at import startup; the integrity check runs as part of import job startup. No CLI commands are needed.
+- Q: If `idmap.db` maps source WI → target WI but the target work item has since been deleted, what should the import do? → A: Fail the revision with a structured error, log it, and skip to the next work item. Silent re-creation is prohibited.
+- Q: How should the system handle existing `idmap.db` files that pre-date the `last_revision_index` column? → A: No migration path is required; there are no existing users with prior runs. The schema is defined from scratch with `last_revision_index` included from the outset.
+- Q: How should integrity check results be surfaced? → A: Structured OpenTelemetry telemetry only (logs and metrics). No report file is written.
+- Q: Can multiple workers access `idmap.db` concurrently? → A: No — single-writer, single-reader per job run. SQLite WAL mode and retry logic are not required. However, if a second agent job is started pointing to the same artifact location, the system MUST detect the conflict at startup and hard-bounce (fail-fast with a clear error) the second job's queue, leaving the first agent undisturbed.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Prevent Duplicate Work Items During Import (Priority: P1)
@@ -81,9 +91,9 @@ As a migration operator, I want to verify the integrity of the ID map to detect 
 
 **Acceptance Scenarios**:
 
-1. **Given** an `idmap.db` with mappings, **When** the operator requests an integrity check, **Then** the system verifies each mapping by confirming the target work item exists and reports any orphaned or invalid entries.
-2. **Given** an integrity check that finds invalid mappings, **When** the check completes, **Then** a summary report is produced listing each invalid entry with the reason (e.g., "target work item 12345 does not exist").
-3. **Given** no `idmap.db` exists at the package root, **When** the operator requests an integrity check, **Then** the system reports that the ID map does not exist and suggests running a rebuild.
+1. **Given** an `idmap.db` with mappings, **When** the import job starts, **Then** the system verifies each mapping by confirming the target work item exists and logs a structured warning via OpenTelemetry for any orphaned or invalid entries.
+2. **Given** an integrity check that finds invalid mappings, **When** the import job starts, **Then** a structured warning is logged via OpenTelemetry for each invalid entry including the reason (e.g., "target work item 12345 does not exist"). No report file is written. The job is not aborted.
+3. **Given** `idmap.db` exists but is empty (no mappings recorded), **When** the import job starts, **Then** the integrity check completes with no warnings logged and the job proceeds normally.
 
 ---
 
@@ -105,9 +115,10 @@ As a migration operator, I want the ID map to track the last successfully migrat
 
 ### Edge Cases
 
-- What happens when the target work item referenced in `idmap.db` has been deleted in the target system? The integrity check should detect this; the import should treat it as unmapped and re-create (or fail, based on policy).
+- What happens when the target work item referenced in `idmap.db` has been deleted in the target system? The integrity check detects this via telemetry. During import, the revision fails with a structured error, is logged, and the import skips to the next work item. Silent re-creation is prohibited.
 - What happens when two source work items are mapped to the same target work item? This is an invalid state. The integrity check should flag it. `idmap.db` enforces a unique constraint on `source_id` (PRIMARY KEY), preventing this on the source side.
 - What happens when the `idmap.db` file is locked or corrupted? The system should report a clear error and suggest rebuilding.
+- What happens when a second agent job is started against the same artifact location while a job is already running? The system acquires an exclusive `Checkpoints/agent.lock` at startup. If a live lock is detected, the incoming job is hard-bounced (fail-fast, structured error, no work done). Stale locks (owning process dead) are replaced and the new job proceeds normally.
 - What happens when a re-export produces revision folders that overlap with existing ones (same ticks-workItemId-revisionIndex)? The export should overwrite (idempotent write) and the cursor should advance past the overlap.
 - What happens during a rebuild when the target contains work items migrated from a different source project? The provenance marker must include enough context (source org + project + work item ID) to distinguish sources. The URL pattern or field value disambiguates.
 
@@ -119,16 +130,19 @@ As a migration operator, I want the ID map to track the last successfully migrat
 - **FR-002**: The system MUST check `idmap.db` before creating a work item in the target (Stage A — CreatedOrUpdated). If a mapping exists, the existing target work item ID MUST be used.
 - **FR-003**: The system MUST record a new mapping in `idmap.db` immediately after creating a new work item in the target.
 - **FR-004**: The system MUST write a provenance marker (ReflectedWorkItemId) to the target work item after creation, using the configured resolution strategy (custom field or hyperlink).
-- **FR-005**: The system MUST support rebuilding `idmap.db` from target provenance markers at import startup when `idmap.db` does not exist or when explicitly requested.
+- **FR-005**: The system MUST support rebuilding `idmap.db` from target provenance markers automatically at import startup when `idmap.db` does not exist. This is an agent-side operation, not a CLI command.
 - **FR-006**: The system MUST support two provenance strategies — `TargetField` (custom field storing source work item ID) and `TargetHyperlink` (hyperlink with a URL pattern containing the source ID) — selectable via the `WorkItemResolutionStrategy` extension in configuration.
 - **FR-007**: The rebuild process MUST use INSERT OR IGNORE semantics — existing mappings in `idmap.db` are never overwritten by the rebuild.
 - **FR-008**: The system MUST support re-export of a source system, producing only new revision folders beyond the export cursor, and subsequent re-import that processes only the newly added folders.
-- **FR-009**: The ID map MUST track the last successfully imported revision index per work item, enabling revision-level skip logic during sync/rerun imports.
-- **FR-010**: The system MUST provide an integrity check that validates `idmap.db` entries against the target system, reporting invalid or orphaned mappings.
-- **FR-011**: The system MUST support a full rebuild of `idmap.db` from target provenance markers, usable when the operator starts a fresh job against an already-migrated target (e.g., offline TFS re-export scenario).
+- **FR-009**: The ID map MUST track the last successfully imported revision index per work item, enabling revision-level skip logic during sync/rerun imports. The `last_revision_index` column is part of the base `work_item_map` schema; no schema migration path is needed.
+- **FR-010**: The system MUST provide an integrity check that validates `idmap.db` entries against the target system. Results MUST be surfaced exclusively via structured OpenTelemetry telemetry (logs and metrics). No report file is written. The integrity check runs as part of import job startup (agent-side).
+- **FR-011**: *(Covered by FR-005.)* The offline TFS re-export scenario — where the operator starts a fresh job against an already-migrated target after a fresh export — is a supported use case of FR-005 (automatic rebuild at startup when `idmap.db` is absent). No additional system requirement beyond FR-005 is needed.
 - **FR-012**: The `idmap.db` MUST store attachment upload tracking records (`source_work_item_id, revision_index, relative_path → target_attachment_id`) for idempotent attachment uploads during resume.
 - **FR-013**: The rebuild and integrity check operations MUST be streaming — they must not load all target work items into memory at once.
-- **FR-014**: The provenance marker system (ReflectedWorkItemId) MUST work identically for both Azure DevOps Services and Team Foundation Server targets.
+- **FR-014**: The provenance marker WRITE operation (`WriteProvenanceAsync` / ReflectedWorkItemId) MUST work for both Azure DevOps Services and Team Foundation Server export sources. The import-side existence check (`WorkItemExistsAsync`) is scoped to ADO targets only — there is no TFS import target in this platform.
+- **FR-015**: When an `idmap.db` mapping references a target work item that has since been deleted in the target system, the import MUST fail that revision with a structured error, log it via OpenTelemetry, and skip to the next work item. Silent re-creation is prohibited.
+- **FR-016**: `idmap.db` is accessed by a single writer and single reader per job run. No concurrent multi-process access is supported; SQLite WAL mode and retry logic are not required.
+- **FR-017**: At import job startup, the system MUST acquire an exclusive package-level lock (e.g., `Checkpoints/agent.lock` containing the job ID and PID). If a lock file already exists and the owning process is still running, the system MUST hard-bounce the incoming job — fail-fast with a structured error logged via OpenTelemetry and refuse to proceed. The running job is left undisturbed. If the lock file exists but the owning process is no longer running (stale lock), the system MUST replace it and proceed.
 
 ### Key Entities
 
