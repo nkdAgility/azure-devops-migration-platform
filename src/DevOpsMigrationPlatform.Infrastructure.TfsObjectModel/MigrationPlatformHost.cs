@@ -18,6 +18,7 @@ using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 using OpenTelemetry.Exporter;
+using Azure.Monitor.OpenTelemetry.Exporter;
 using Serilog;
 using Serilog.Events;
 using Serilog.Sinks.OpenTelemetry;
@@ -107,9 +108,13 @@ public static class MigrationPlatformHost
         {
             services.AddSingleton<IConfiguration>(ctx.Configuration);
 
-            // OTLP endpoint — read from configuration (same source as Serilog above).
+            // OTLP endpoint — read from configuration (appsettings.json + env vars + CLI args).
             var otlpEndpoint = ctx.Configuration["OTEL_EXPORTER_OTLP_ENDPOINT"];
             var hasOtlpEndpoint = !string.IsNullOrWhiteSpace(otlpEndpoint);
+
+            // Azure Monitor — opt-in via Telemetry:AzureMonitorConnectionString in appsettings.json.
+            var azureMonitorConnectionString = ctx.Configuration["Telemetry:AzureMonitorConnectionString"];
+            var hasAzureMonitor = !string.IsNullOrWhiteSpace(azureMonitorConnectionString);
 
             // Filesystem-backed artefact and state stores rooted at the output folder
             services.AddSingleton<IArtefactStore>(_ =>
@@ -172,8 +177,8 @@ public static class MigrationPlatformHost
                     sp.GetRequiredService<ILogger<TfsAttachmentBinarySource>>()));
 
             // OpenTelemetry — metrics and traces.
-            // OTLP exporter auto-activates when OTEL_EXPORTER_OTLP_ENDPOINT is set
-            // (inherited from the parent CLI process / Aspire).
+            // OTLP exporter activates when OTEL_EXPORTER_OTLP_ENDPOINT is set.
+            // Azure Monitor activates when Telemetry:AzureMonitorConnectionString is in appsettings.json.
             var otelBuilder = services.AddOpenTelemetry()
                 .ConfigureResource(rb =>
                 {
@@ -191,6 +196,8 @@ public static class MigrationPlatformHost
                     tb.AddSource(MigrationPlatformActivitySources.AttachmentDownload.Name);
                     if (hasOtlpEndpoint)
                         tb.AddOtlpExporter();
+                    if (hasAzureMonitor)
+                        tb.AddAzureMonitorTraceExporter(o => o.ConnectionString = azureMonitorConnectionString);
                 })
                 .WithMetrics(mb =>
                 {
@@ -198,14 +205,21 @@ public static class MigrationPlatformHost
                     mb.AddMeter(AttachmentDownloadMetrics.MeterName);
                     if (hasOtlpEndpoint)
                         mb.AddOtlpExporter();
+                    if (hasAzureMonitor)
+                        mb.AddAzureMonitorMetricExporter(o => o.ConnectionString = azureMonitorConnectionString);
                 });
         });
 
         builder.UseConsoleLifetime(o => o.SuppressStatusMessages = true);
 
+        // Configuration: load the exe-local appsettings.json first (Telemetry settings),
+        // then the package-level configuration, then env vars and CLI args.
+        var exeDir = Path.GetDirectoryName(typeof(MigrationPlatformHost).Assembly.Location)
+                     ?? AppDomain.CurrentDomain.BaseDirectory;
         builder.ConfigureAppConfiguration(cfgBuilder =>
         {
-            cfgBuilder.SetBasePath(settings.OutputFolder);
+            cfgBuilder.SetBasePath(exeDir);
+            cfgBuilder.AddJsonFile("appsettings.json", optional: true, reloadOnChange: false);
             cfgBuilder.AddJsonFile(
                 Path.Combine(settings.OutputFolder, "configuration.json"), optional: true);
             cfgBuilder.AddEnvironmentVariables();
