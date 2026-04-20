@@ -44,6 +44,7 @@ public sealed class WorkItemsModule : IModule
     private readonly ILogger<WorkItemsModule> _logger;
     private readonly ILogger<WorkItemImportOrchestrator> _orchestratorLogger;
     private readonly DevOpsMigrationPlatform.Abstractions.Services.IWorkItemFetchService? _fetchService;
+    private readonly IMigrationMetrics? _metrics;
 
     public WorkItemsModule(
         IWorkItemRevisionSourceFactory sourceFactory,
@@ -57,7 +58,8 @@ public sealed class WorkItemsModule : IModule
         IRevisionFolderProcessorFactory processorFactory,
         IAttachmentBinarySource? attachmentBinarySource = null,
         IWorkItemCommentSourceFactory? inlineCommentSourceFactory = null,
-        DevOpsMigrationPlatform.Abstractions.Services.IWorkItemFetchService? fetchService = null)
+        DevOpsMigrationPlatform.Abstractions.Services.IWorkItemFetchService? fetchService = null,
+        IMigrationMetrics? metrics = null)
     {
         _sourceFactory = sourceFactory ?? throw new ArgumentNullException(nameof(sourceFactory));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
@@ -71,6 +73,7 @@ public sealed class WorkItemsModule : IModule
         _attachmentBinarySource = attachmentBinarySource;
         _inlineCommentSourceFactory = inlineCommentSourceFactory;
         _fetchService = fetchService;
+        _metrics = metrics;
     }
 
     /// <inheritdoc/>
@@ -117,7 +120,9 @@ public sealed class WorkItemsModule : IModule
             project: project,
             inlineCommentSourceFactory: inlineFactory,
             fetchService: allFilters.Count > 0 ? _fetchService : null,
-            filterOptions: allFilters.Count > 0 ? allFilters : null);
+            filterOptions: allFilters.Count > 0 ? allFilters : null,
+            metrics: _metrics,
+            jobId: job.JobId);
 
         await orchestrator.ExportAsync(source, ct).ConfigureAwait(false);
 
@@ -180,7 +185,9 @@ public sealed class WorkItemsModule : IModule
             processor,
             target,
             _orchestratorLogger,
-            filterOptions: importFilters.Count > 0 ? importFilters : null);
+            filterOptions: importFilters.Count > 0 ? importFilters : null,
+            metrics: _metrics,
+            jobId: job.JobId);
 
         var resumeMode = job.Resume?.Mode ?? ResumeMode.Auto;
         await orchestrator.ImportAsync(ext, resumeMode, ct).ConfigureAwait(false);

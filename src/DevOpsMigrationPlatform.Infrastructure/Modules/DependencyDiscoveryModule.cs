@@ -138,6 +138,7 @@ public sealed class DependencyDiscoveryModule : IDiscoveryModule
                             { "organisation.url", heartbeat.OrganisationUrl },
                             { "project.name", heartbeat.ProjectName }
                         };
+                        metrics?.ProjectStarted(projectTags);
                         metrics?.ProjectCompleted(projectTags);
                         metrics?.RecordWorkItemsAnalysed(heartbeat.WorkItemsAnalysed, projectTags);
                         orgProjectCount++;

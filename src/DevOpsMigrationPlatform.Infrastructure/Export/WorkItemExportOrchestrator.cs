@@ -48,9 +48,8 @@ public sealed class WorkItemExportOrchestrator
     private readonly string? _project;
     private readonly IWorkItemFetchService? _fetchService;
     private readonly IReadOnlyList<WorkItemFieldFilterOptions>? _filterOptions;
-#if !NETFRAMEWORK
     private readonly IMigrationMetrics? _metrics;
-#endif
+    private readonly string? _jobId;
 
     public WorkItemExportOrchestrator(
         IArtefactStore artefactStore,
@@ -61,11 +60,9 @@ public sealed class WorkItemExportOrchestrator
         string? project = null,
         IWorkItemCommentSourceFactory? inlineCommentSourceFactory = null,
         IWorkItemFetchService? fetchService = null,
-        IReadOnlyList<WorkItemFieldFilterOptions>? filterOptions = null
-#if !NETFRAMEWORK
-        , IMigrationMetrics? metrics = null
-#endif
-        )
+        IReadOnlyList<WorkItemFieldFilterOptions>? filterOptions = null,
+        IMigrationMetrics? metrics = null,
+        string? jobId = null)
     {
         _artefactStore = artefactStore;
         _checkpointingService = checkpointingService;
@@ -76,9 +73,8 @@ public sealed class WorkItemExportOrchestrator
         _project = project;
         _fetchService = fetchService;
         _filterOptions = filterOptions;
-#if !NETFRAMEWORK
         _metrics = metrics;
-#endif
+        _jobId = jobId;
     }
 
     /// <summary>
@@ -119,14 +115,12 @@ public sealed class WorkItemExportOrchestrator
         int attachmentsProcessed = 0;
         int attachmentsFailed = 0;
 
-#if !NETFRAMEWORK
         // Per-work-item timing for duration histogram.
         var workItemStopwatch = Stopwatch.StartNew();
-        System.Diagnostics.TagList exportTags = _metrics != null
-            ? MigrationTagList.Create("not-set", "export", "workitems")
+        TagList exportTags = _metrics != null
+            ? MigrationTagList.Create(_jobId ?? "not-set", "export", "workitems")
             : default;
         int revisionsForCurrentWorkItem = 0;
-#endif
 
         // Delta detection: track download URLs from the previous revision to skip
         // re-downloading identical attachments on adjacent revisions.
@@ -169,7 +163,6 @@ public sealed class WorkItemExportOrchestrator
             var json = JsonSerializer.Serialize(revision, JsonOptions);
             await _artefactStore.WriteAsync($"{folderPath}revision.json", json, cancellationToken).ConfigureAwait(false);
 
-#if !NETFRAMEWORK
             // Record payload complexity metrics per revision.
             if (_metrics != null)
             {
@@ -180,7 +173,6 @@ public sealed class WorkItemExportOrchestrator
                     exportTags);
                 _metrics.RecordPayloadBytes(json.Length, exportTags);
             }
-#endif
 
             // For comment edit/delete revisions, fetch the matching comment versions by timestamp
             // and write them as comment.json beside revision.json in the same revision folder.
@@ -230,12 +222,9 @@ public sealed class WorkItemExportOrchestrator
             }
 
             revisionsProcessed++;
-#if !NETFRAMEWORK
-            revisionsForCurrentWorkItem++;
-#endif
+
             if (revision.WorkItemId != lastWorkItemId)
             {
-#if !NETFRAMEWORK
                 // Record completion of the previous work item (if any).
                 if (lastWorkItemId != 0 && _metrics != null)
                 {
@@ -249,8 +238,7 @@ public sealed class WorkItemExportOrchestrator
                 _metrics?.RecordWorkItemAttempted(exportTags);
                 _metrics?.IncrementInFlight(exportTags);
                 workItemStopwatch.Restart();
-                revisionsForCurrentWorkItem = 0;
-#endif
+                revisionsForCurrentWorkItem = 1; // This is the first revision of the new work item.
 
                 // Emit once per work item (not per revision) to avoid flooding the channel.
                 workItemsProcessed++;
@@ -268,6 +256,10 @@ public sealed class WorkItemExportOrchestrator
                     AttachmentsFailed = attachmentsFailed,
                     Message = $"[WorkItems] {workItemsProcessed} work items / {revisionsProcessed} revisions written"
                 });
+            }
+            else
+            {
+                revisionsForCurrentWorkItem++;
             }
 
             // Write attachment binaries beside revision.json when a binary source is available.
@@ -351,7 +343,6 @@ public sealed class WorkItemExportOrchestrator
             });
         }
 
-#if !NETFRAMEWORK
         // Record completion of the final work item.
         if (lastWorkItemId != 0 && _metrics != null)
         {
@@ -360,7 +351,6 @@ public sealed class WorkItemExportOrchestrator
             _metrics.RecordRevisionCount(revisionsForCurrentWorkItem, exportTags);
             _metrics.DecrementInFlight(exportTags);
         }
-#endif
     }
 
     /// <summary>

@@ -125,6 +125,7 @@ public sealed class InventoryDiscoveryModule : IDiscoveryModule
                 { "organisation.url", evt.Url },
                 { "project.name", evt.ProjectName }
             };
+            metrics?.ProjectStarted(projectTags);
             if (evt.Error is not null)
             {
                 metrics?.ProjectFailed(projectTags);

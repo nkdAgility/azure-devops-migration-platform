@@ -38,6 +38,7 @@ public sealed class WorkItemImportOrchestrator
     private readonly ILogger<WorkItemImportOrchestrator> _logger;
     private readonly IReadOnlyList<DevOpsMigrationPlatform.Abstractions.Models.WorkItemFieldFilterOptions>? _filterOptions;
     private readonly IMigrationMetrics? _metrics;
+    private readonly string? _jobId;
 
     public WorkItemImportOrchestrator(
         IArtefactStore artefactStore,
@@ -49,7 +50,8 @@ public sealed class WorkItemImportOrchestrator
         IWorkItemImportTarget target,
         ILogger<WorkItemImportOrchestrator> logger,
         IReadOnlyList<DevOpsMigrationPlatform.Abstractions.Models.WorkItemFieldFilterOptions>? filterOptions = null,
-        IMigrationMetrics? metrics = null)
+        IMigrationMetrics? metrics = null,
+        string? jobId = null)
     {
         _artefactStore = artefactStore ?? throw new ArgumentNullException(nameof(artefactStore));
         _checkpointing = checkpointing ?? throw new ArgumentNullException(nameof(checkpointing));
@@ -61,6 +63,7 @@ public sealed class WorkItemImportOrchestrator
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _filterOptions = filterOptions;
         _metrics = metrics;
+        _jobId = jobId;
     }
 
     /// <summary>
@@ -107,9 +110,10 @@ public sealed class WorkItemImportOrchestrator
 
         int foldersProcessed = 0;
         int workItemsProcessed = 0;
+        int lastImportedWorkItemId = 0;
 
         var importTags = _metrics != null
-            ? MigrationTagList.Create("not-set", "import", "workitems")
+            ? MigrationTagList.Create(_jobId ?? "not-set", "import", "workitems")
             : default;
         var workItemStopwatch = Stopwatch.StartNew();
 
@@ -169,20 +173,26 @@ public sealed class WorkItemImportOrchestrator
                 }
 
                 // Revision folder
-                _metrics?.RecordWorkItemAttempted(importTags);
-                _metrics?.IncrementInFlight(importTags);
-                workItemStopwatch.Restart();
+                // Track work item transitions — only emit per-WI metrics on boundary.
+                if (wiId != lastImportedWorkItemId)
+                {
+                    // Complete the previous work item (if any).
+                    if (lastImportedWorkItemId != 0 && _metrics != null)
+                    {
+                        _metrics.RecordWorkItemCompleted(importTags);
+                        _metrics.RecordWorkItemDuration(workItemStopwatch.Elapsed.TotalMilliseconds, importTags);
+                        _metrics.DecrementInFlight(importTags);
+                    }
+
+                    _metrics?.RecordWorkItemAttempted(importTags);
+                    _metrics?.IncrementInFlight(importTags);
+                    workItemStopwatch.Restart();
+                    lastImportedWorkItemId = wiId;
+                    workItemsProcessed++;
+                }
 
                 await _processor.ProcessAsync(folderPath, ext, resumeAtStage, _resolutionStrategy, ct)
                     .ConfigureAwait(false);
-                workItemsProcessed++;
-
-                if (_metrics != null)
-                {
-                    _metrics.RecordWorkItemCompleted(importTags);
-                    _metrics.RecordWorkItemDuration(workItemStopwatch.Elapsed.TotalMilliseconds, importTags);
-                    _metrics.DecrementInFlight(importTags);
-                }
             }
             else
             {
@@ -210,6 +220,14 @@ public sealed class WorkItemImportOrchestrator
         _logger.LogInformation(
             "[WorkItems] Import complete. Folders processed: {Count}, work items: {WI}",
             foldersProcessed, workItemsProcessed);
+
+        // Record completion of the final work item.
+        if (lastImportedWorkItemId != 0 && _metrics != null)
+        {
+            _metrics.RecordWorkItemCompleted(importTags);
+            _metrics.RecordWorkItemDuration(workItemStopwatch.Elapsed.TotalMilliseconds, importTags);
+            _metrics.DecrementInFlight(importTags);
+        }
 
         // Emit zero-match warning if filters were active but no items were processed.
         if (_filterOptions is { Count: > 0 } && workItemsProcessed == 0)
