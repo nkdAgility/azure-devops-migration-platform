@@ -102,7 +102,9 @@ public sealed class AzureDevOpsDependencyAnalysisService : IWorkItemLinkAnalysis
             {
                 // Emit counting heartbeat before processing the batch
                 yield return new DependencyHeartbeatEvent(
-                    orgEndpoint.ResolvedUrl, project, counters.Processed, 0, 0, 0, false,
+                    orgEndpoint.ResolvedUrl, project, counters.Processed,
+                    counters.CrossProject + counters.CrossOrg,
+                    counters.CrossProject, counters.CrossOrg, false,
                     TotalWorkItems: totalStreamed, IsCounting: true);
 
                 await foreach (var evt in ProcessBatchAsync(

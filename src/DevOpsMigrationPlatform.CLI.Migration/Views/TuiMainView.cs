@@ -30,6 +30,11 @@ public sealed class TuiMainView : Window, IDisposable
 
     // Discovery metrics accumulation — keyed by "org|project"
     private readonly Dictionary<string, DiscoveryProjectMetrics> _discoveryProjects = new();
+    private readonly HashSet<string> _discoveryOrgsCompleted = new();
+    private readonly HashSet<string> _discoveryOrgsFailed = new();
+    private readonly HashSet<string> _discoveryOrgsQueued = new();
+    private DateTimeOffset _discoveryStartTime;
+    private long _discoveryCheckpointsSaved;
     private volatile bool _discoveryMetricsActive;
 
     public TuiMainView(IControlPlaneClient client, string controlPlaneUrl = "")
@@ -250,6 +255,10 @@ public sealed class TuiMainView : Window, IDisposable
         if (evt.Module != "Inventory" && evt.Module != "Dependencies")
             return;
 
+        if (!_discoveryMetricsActive)
+        {
+            _discoveryStartTime = DateTimeOffset.UtcNow;
+        }
         _discoveryMetricsActive = true;
 
         var key = evt.LastProcessed;
@@ -261,11 +270,26 @@ public sealed class TuiMainView : Window, IDisposable
             _discoveryProjects[key] = new DiscoveryProjectMetrics(
                 evt.TotalWorkItems, evt.RevisionsProcessed, evt.AttachmentsProcessed,
                 isComplete || isFailed, isFailed);
+
+            // Track org-level state from the key ("org|project" format)
+            var pipeIdx = key.IndexOf('|');
+            if (pipeIdx > 0)
+            {
+                var orgUrl = key[..pipeIdx];
+                _discoveryOrgsQueued.Add(orgUrl);
+            }
         }
+
+        // Track checkpoint events
+        if (evt.Message?.Contains("checkpoint", StringComparison.OrdinalIgnoreCase) == true)
+            _discoveryCheckpointsSaved++;
 
         // Accumulate totals across all tracked projects
         int completed = 0, failed = 0, inProgress = 0;
         long totalWi = 0, totalRev = 0, totalRepos = 0;
+        long totalLinks = 0, totalAnalysed = 0;
+        var projectDurations = new List<double>();
+
         foreach (var entry in _discoveryProjects)
         {
             var v = entry.Value;
@@ -277,7 +301,40 @@ public sealed class TuiMainView : Window, IDisposable
             totalRepos += v.Repos;
         }
 
-        _metrics.UpdateDiscovery(completed, failed, inProgress, totalWi, totalRev, totalRepos);
+        var elapsed = DateTimeOffset.UtcNow - _discoveryStartTime;
+        var elapsedHours = elapsed.TotalHours;
+
+        var snapshot = new DiscoveryMetricSnapshot
+        {
+            OrganisationsCompleted = _discoveryOrgsCompleted.Count,
+            OrganisationsFailed = _discoveryOrgsFailed.Count,
+            OrganisationsQueued = _discoveryOrgsQueued.Count,
+            ProjectsCompleted = completed,
+            ProjectsFailed = failed,
+            ProjectsQueued = inProgress,
+            WorkItemsCounted = totalWi,
+            RevisionsCounted = totalRev,
+            ReposCounted = totalRepos,
+            LinksFound = totalLinks,
+            WorkItemsAnalysed = totalAnalysed,
+            CheckpointsSaved = _discoveryCheckpointsSaved,
+            ProjectDurationMeanMs = completed > 0
+                ? elapsed.TotalMilliseconds / completed
+                : null
+        };
+
+        var computed = new DiscoveryComputedMetrics
+        {
+            WorkItemsPerHour = elapsedHours > 0.001 ? totalWi / elapsedHours : null,
+            RevisionsPerHour = elapsedHours > 0.001 ? totalRev / elapsedHours : null,
+            ProjectsPerHour = elapsedHours > 0.001 ? completed / elapsedHours : null,
+            Elapsed = elapsed,
+            EstimatedRemaining = completed > 0 && inProgress > 0
+                ? TimeSpan.FromMilliseconds(elapsed.TotalMilliseconds / completed * inProgress)
+                : null
+        };
+
+        _metrics.UpdateDiscovery(snapshot, computed);
     }
 
     // ─── Job-ended callback ──────────────────────────────────────────────────────
