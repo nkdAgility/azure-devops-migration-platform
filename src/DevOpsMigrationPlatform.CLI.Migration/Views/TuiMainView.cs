@@ -264,12 +264,34 @@ public sealed class TuiMainView : Window, IDisposable
         var key = evt.LastProcessed;
         if (!string.IsNullOrEmpty(key))
         {
-            bool isComplete = evt.Stage == "Inventory" || evt.Stage == "Dependencies";
+            // Use module-qualified key so Inventory and Dependencies don't overwrite each other
+            var qualifiedKey = $"{evt.Module}:{key}";
+
+            bool isComplete = evt.Stage == "Inventory" || evt.Stage == "Dependencies"
+                           || evt.Stage == "ProjectComplete";
             bool isFailed = evt.Stage == "Failed";
 
-            _discoveryProjects[key] = new DiscoveryProjectMetrics(
-                evt.TotalWorkItems, evt.RevisionsProcessed, evt.AttachmentsProcessed,
-                isComplete || isFailed, isFailed);
+            if (evt.Module == "Dependencies")
+            {
+                // Dependencies: TotalWorkItems=analysed, WorkItemsProcessed=externalLinks,
+                // RevisionsProcessed=crossProject, AttachmentsProcessed=crossOrg
+                _discoveryProjects[qualifiedKey] = new DiscoveryProjectMetrics(
+                    WorkItems: 0, Revisions: 0, Repos: 0,
+                    LinksFound: evt.WorkItemsProcessed,
+                    WorkItemsAnalysed: evt.TotalWorkItems,
+                    IsComplete: isComplete || isFailed, IsFailed: isFailed,
+                    Module: evt.Module);
+            }
+            else
+            {
+                // Inventory: TotalWorkItems=wi, RevisionsProcessed=rev, AttachmentsProcessed=repos
+                _discoveryProjects[qualifiedKey] = new DiscoveryProjectMetrics(
+                    WorkItems: evt.TotalWorkItems, Revisions: evt.RevisionsProcessed,
+                    Repos: evt.AttachmentsProcessed,
+                    LinksFound: 0, WorkItemsAnalysed: 0,
+                    IsComplete: isComplete || isFailed, IsFailed: isFailed,
+                    Module: evt.Module);
+            }
 
             // Track org-level state from the key ("org|project" format)
             var pipeIdx = key.IndexOf('|');
@@ -288,7 +310,6 @@ public sealed class TuiMainView : Window, IDisposable
         int completed = 0, failed = 0, inProgress = 0;
         long totalWi = 0, totalRev = 0, totalRepos = 0;
         long totalLinks = 0, totalAnalysed = 0;
-        var projectDurations = new List<double>();
 
         foreach (var entry in _discoveryProjects)
         {
@@ -299,6 +320,8 @@ public sealed class TuiMainView : Window, IDisposable
             totalWi += v.WorkItems;
             totalRev += v.Revisions;
             totalRepos += v.Repos;
+            totalLinks += v.LinksFound;
+            totalAnalysed += v.WorkItemsAnalysed;
         }
 
         var elapsed = DateTimeOffset.UtcNow - _discoveryStartTime;
@@ -378,5 +401,7 @@ public sealed class TuiMainView : Window, IDisposable
 
     private sealed record DiscoveryProjectMetrics(
         long WorkItems, long Revisions, long Repos,
-        bool IsComplete, bool IsFailed);
+        long LinksFound, long WorkItemsAnalysed,
+        bool IsComplete, bool IsFailed,
+        string Module);
 }
