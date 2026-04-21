@@ -17,7 +17,7 @@ public sealed class DiagnosticLogStoreOptions
     /// <summary>
     /// Deployment-level minimum log level for the control plane.
     /// Records below this level are discarded before buffering.
-    /// Default: <c>"Warning"</c>. In standalone mode, set to the operator's <c>--level</c>.
+    /// Default: <c>"Information"</c>. Override via configuration to restrict further.
     /// </summary>
-    public string MinimumLevel { get; init; } = "Warning";
+    public string MinimumLevel { get; init; } = "Information";
 }

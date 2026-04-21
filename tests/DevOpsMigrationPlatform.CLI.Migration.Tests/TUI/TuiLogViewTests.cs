@@ -27,8 +27,8 @@ public class TuiLogViewTests
         // Arrange + Act
         var view = new TuiLogView(_clientMock.Object);
 
-        // Assert — Title reflects Progress mode
-        Assert.AreEqual("Log [Progress]", view.Title.ToString());
+        // Assert — Title reflects Progress mode with scroll hint
+        Assert.AreEqual("Log [Progress] (End=follow)", view.Title.ToString());
     }
 
     [TestMethod]

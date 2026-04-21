@@ -85,7 +85,6 @@ public sealed class TuiMainView : Window, IDisposable
         // ── Event subscriptions ─────────────────────────────────────────────────
         _jobList.JobSelected += OnJobSelected;
         _logView.OnJobEnded += OnJobEnded;
-        _logView.OnProgressReceived += OnProgressReceived;
 
         // ── Key handling ────────────────────────────────────────────────────────
         // Use Application.KeyDown so Q / Ctrl+Q / Ctrl+C always work,
@@ -154,6 +153,11 @@ public sealed class TuiMainView : Window, IDisposable
         // Start telemetry polling (T029)
         Task.Run(() => PollTelemetryAsync(jobId, ct), ct);
 
+        // Start a dedicated progress follower for discovery metrics.
+        // This runs independently of the log view's display mode so that
+        // switching to Diagnostics tab does not freeze the metrics panel.
+        Task.Run(() => FollowProgressForMetricsAsync(jobId, ct), ct);
+
         UpdateStatusBar(jobId.ToString()[..8], "—", "[Progress]");
     }
 
@@ -206,7 +210,41 @@ public sealed class TuiMainView : Window, IDisposable
 
     // ─── Discovery metrics accumulation ──────────────────────────────────────────
 
-    private void OnProgressReceived(ProgressEvent evt)
+    /// <summary>
+    /// Dedicated progress follower that feeds discovery metrics regardless of
+    /// which mode the log panel is displaying. Runs for the lifetime of the job selection.
+    /// </summary>
+    private async Task FollowProgressForMetricsAsync(Guid jobId, CancellationToken ct)
+    {
+        int backoffMs = 1_000;
+        const int maxBackoffMs = 30_000;
+
+        while (!ct.IsCancellationRequested)
+        {
+            try
+            {
+                await foreach (var evt in _client.FollowLogsAsync(jobId, ct).ConfigureAwait(false))
+                {
+                    AccumulateDiscoveryMetrics(evt);
+                }
+                // Stream ended cleanly
+                return;
+            }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested)
+            {
+                return;
+            }
+            catch
+            {
+                // Transient error — back off and reconnect
+                try { await Task.Delay(backoffMs, ct).ConfigureAwait(false); }
+                catch (OperationCanceledException) { return; }
+                backoffMs = Math.Min(backoffMs * 2, maxBackoffMs);
+            }
+        }
+    }
+
+    private void AccumulateDiscoveryMetrics(ProgressEvent evt)
     {
         // Only accumulate discovery metrics for Inventory / Dependencies modules
         if (evt.Module != "Inventory" && evt.Module != "Dependencies")
@@ -274,7 +312,6 @@ public sealed class TuiMainView : Window, IDisposable
     public new void Dispose()
     {
         Application.KeyDown -= OnApplicationKeyDown;
-        _logView.OnProgressReceived -= OnProgressReceived;
         CancelSelection();
         _logView.Dispose();
         base.Dispose();
