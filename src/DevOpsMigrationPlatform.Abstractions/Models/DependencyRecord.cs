@@ -1,3 +1,5 @@
+using System;
+
 namespace DevOpsMigrationPlatform.Abstractions.Models;
 
 /// <summary>
@@ -56,4 +58,10 @@ public record DependencyRecord
     /// Gets the accessibility status of the target work item.
     /// </summary>
     public TargetStatus TargetStatus { get; init; }
+
+    /// <summary>
+    /// Gets the date the link was last changed, as reported by the source system.
+    /// <c>null</c> when the source system does not provide link-level timestamps.
+    /// </summary>
+    public DateTimeOffset? LinkChangedDate { get; init; }
 }

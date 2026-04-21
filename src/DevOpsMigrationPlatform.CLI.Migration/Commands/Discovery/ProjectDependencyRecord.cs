@@ -1,3 +1,5 @@
+using System;
+using System.Collections.Generic;
 using DevOpsMigrationPlatform.Abstractions.Models;
 
 namespace DevOpsMigrationPlatform.CLI.Commands.Discovery;
@@ -37,6 +39,18 @@ internal record ProjectDependencyRecord
     /// Gets the component group ID assigned by Union-Find. All projects in the same connected component share the same GroupId.
     /// </summary>
     public int GroupId { get; set; }
+
+    /// <summary>
+    /// Gets the date of the most recently changed link between this source and target pair.
+    /// <c>null</c> when no link-level timestamps are available.
+    /// </summary>
+    public DateTimeOffset? MostRecentLinkDate { get; set; }
+
+    /// <summary>
+    /// Gets the number of links broken down by the source work item type (e.g. "User Story", "Bug", "Task").
+    /// Keys are normalised to the values returned by the source system; the sum equals <see cref="LinkCount"/>.
+    /// </summary>
+    public Dictionary<string, int> LinkCountByType { get; set; } = new(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>
     /// Creates a ProjectDependencyRecord from a ProjectPairKey and link count.

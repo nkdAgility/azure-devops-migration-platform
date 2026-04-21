@@ -247,7 +247,8 @@ public sealed class AzureDevOpsDependencyAnalysisService : IWorkItemLinkAnalysis
                             TargetWorkItemId = targetId,
                             TargetProject = resolvedProject,
                             TargetOrganisation = targetOrgSegment,
-                            TargetStatus = targetStatus
+                            TargetStatus = targetStatus,
+                            LinkChangedDate = ExtractLinkChangedDate(relation)
                         });
                     }
                     else
@@ -268,7 +269,8 @@ public sealed class AzureDevOpsDependencyAnalysisService : IWorkItemLinkAnalysis
                                 TargetWorkItemId = targetId,
                                 TargetProject = targetProjectName,
                                 TargetOrganisation = "",
-                                TargetStatus = TargetStatus.Reachable
+                                TargetStatus = TargetStatus.Reachable,
+                                LinkChangedDate = ExtractLinkChangedDate(relation)
                             });
                         }
                     }
@@ -479,6 +481,29 @@ public sealed class AzureDevOpsDependencyAnalysisService : IWorkItemLinkAnalysis
         {
             return "Unknown";
         }
+    }
+
+    /// <summary>
+    /// Extracts the <c>changedDate</c> attribute from a work item relation, if present.
+    /// The ADO REST API populates this attribute for link-type relations; it represents
+    /// when the link was last modified (and equals the creation date when the link is new).
+    /// Returns <c>null</c> when the attribute is absent or cannot be parsed.
+    /// </summary>
+    private static DateTimeOffset? ExtractLinkChangedDate(WorkItemRelation relation)
+    {
+        if (relation.Attributes == null)
+            return null;
+
+        if (!relation.Attributes.TryGetValue("changedDate", out var raw))
+            return null;
+
+        return raw switch
+        {
+            DateTimeOffset dto => dto,
+            DateTime dt => new DateTimeOffset(dt, TimeSpan.Zero),
+            string s when DateTimeOffset.TryParse(s, out var parsed) => parsed,
+            _ => null
+        };
     }
 
 }
