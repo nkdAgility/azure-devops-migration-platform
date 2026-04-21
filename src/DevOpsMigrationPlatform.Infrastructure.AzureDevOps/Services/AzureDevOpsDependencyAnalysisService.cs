@@ -25,17 +25,20 @@ public sealed class AzureDevOpsDependencyAnalysisService : IWorkItemLinkAnalysis
     private readonly IOptions<DiscoveryOptions> _options;
     private readonly IAzureDevOpsClientFactory _clientFactory;
     private readonly IWorkItemFetchService _fetchService;
+    private readonly IWorkItemDiscoveryService _discoveryService;
     private readonly ILogger<AzureDevOpsDependencyAnalysisService> _logger;
 
     public AzureDevOpsDependencyAnalysisService(
         IOptions<DiscoveryOptions> options,
         IAzureDevOpsClientFactory clientFactory,
         IWorkItemFetchService fetchService,
+        IWorkItemDiscoveryService discoveryService,
         ILogger<AzureDevOpsDependencyAnalysisService> logger)
     {
         _options = options ?? throw new ArgumentNullException(nameof(options));
         _clientFactory = clientFactory ?? throw new ArgumentNullException(nameof(clientFactory));
         _fetchService = fetchService ?? throw new ArgumentNullException(nameof(fetchService));
+        _discoveryService = discoveryService ?? throw new ArgumentNullException(nameof(discoveryService));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
@@ -56,6 +59,22 @@ public sealed class AzureDevOpsDependencyAnalysisService : IWorkItemLinkAnalysis
         var witClient = await _clientFactory.CreateWorkItemClientAsync(orgEndpoint, cancellationToken).ConfigureAwait(false);
 
         _logger.LogInformation("Enumerating work item IDs for project {Project} in {OrgUrl}", project, orgEndpoint.ResolvedUrl);
+
+        // ── Pre-count: discover total work items so progress shows N of M ────
+        int projectTotal = 0;
+        await foreach (var snapshot in _discoveryService.CountWorkItemsAsync(
+            orgEndpoint, project, wiqlFilter, cancellationToken).ConfigureAwait(false))
+        {
+            projectTotal = snapshot.WorkItemsCount;
+        }
+        _logger.LogInformation(
+            "Project {Project} has {TotalWorkItems} work items to analyse for dependencies.",
+            project, projectTotal);
+
+        // Emit initial heartbeat with the discovered total
+        yield return new DependencyHeartbeatEvent(
+            orgEndpoint.ResolvedUrl, project, 0, 0, 0, 0, false,
+            TotalWorkItems: projectTotal, IsCounting: true);
 
         var sourceOrgSegment = ExtractOrgSegment(orgEndpoint.ResolvedUrl);
         var counters = new LinkCounters();
@@ -105,11 +124,11 @@ public sealed class AzureDevOpsDependencyAnalysisService : IWorkItemLinkAnalysis
                     orgEndpoint.ResolvedUrl, project, counters.Processed,
                     counters.CrossProject + counters.CrossOrg,
                     counters.CrossProject, counters.CrossOrg, false,
-                    TotalWorkItems: totalStreamed, IsCounting: true);
+                    TotalWorkItems: projectTotal, IsCounting: true);
 
                 await foreach (var evt in ProcessBatchAsync(
                     witClient, currentBatch, sourceOrgSegment, orgEndpoint.ResolvedUrl, project,
-                    counters, totalStreamed, configuredOrgs, projectNameCache, cancellationToken))
+                    counters, projectTotal, configuredOrgs, projectNameCache, cancellationToken))
                 {
                     yield return evt;
                 }
@@ -122,7 +141,7 @@ public sealed class AzureDevOpsDependencyAnalysisService : IWorkItemLinkAnalysis
         {
             await foreach (var evt in ProcessBatchAsync(
                 witClient, currentBatch, sourceOrgSegment, orgEndpoint.ResolvedUrl, project,
-                counters, totalStreamed, configuredOrgs, projectNameCache, cancellationToken))
+                counters, projectTotal, configuredOrgs, projectNameCache, cancellationToken))
             {
                 yield return evt;
             }
@@ -137,7 +156,7 @@ public sealed class AzureDevOpsDependencyAnalysisService : IWorkItemLinkAnalysis
             counters.CrossProject,
             counters.CrossOrg,
             true,
-            TotalWorkItems: totalStreamed,
+            TotalWorkItems: projectTotal,
             SkippedWorkItems: counters.Skipped);
 
         _logger.LogInformation(

@@ -573,8 +573,9 @@ public sealed class DependencyCommand : ControlPlaneCommandBase<DependencyComman
             state[key] = progress;
         }
 
-        progress.WorkItemsAnalysed = evt.TotalWorkItems;
-        progress.ExternalLinks = evt.WorkItemsProcessed;
+        progress.TotalWorkItems = evt.TotalWorkItems;
+        progress.WorkItemsAnalysed = evt.WorkItemsProcessed;
+        progress.ExternalLinks = evt.WorkItemId;
         progress.CrossProjectLinks = evt.RevisionsProcessed;
         progress.CrossOrgLinks = evt.AttachmentsProcessed;
         progress.IsComplete = evt.Stage == "ProjectComplete";
@@ -594,6 +595,7 @@ public sealed class DependencyCommand : ControlPlaneCommandBase<DependencyComman
             .AddColumn("Organisation")
             .AddColumn("Project")
             .AddColumn(new TableColumn("Analysed").RightAligned())
+            .AddColumn(new TableColumn("Links").RightAligned())
             .AddColumn(new TableColumn("Cross-Project").RightAligned())
             .AddColumn(new TableColumn("Cross-Org").RightAligned())
             .AddColumn("Status");
@@ -608,11 +610,15 @@ public sealed class DependencyCommand : ControlPlaneCommandBase<DependencyComman
             var crossOrg = p.CrossOrgLinks > 0
                 ? $"[red]{p.CrossOrgLinks}[/]"
                 : p.CrossOrgLinks.ToString();
+            var analysed = p.TotalWorkItems > 0
+                ? $"{p.WorkItemsAnalysed:N0}/{p.TotalWorkItems:N0}"
+                : p.WorkItemsAnalysed.ToString("N0");
             table.AddRow(
                 Markup.Escape(p.OrgName),
                 Markup.Escape(p.ProjectName),
-                p.WorkItemsAnalysed.ToString(),
-                p.CrossProjectLinks.ToString(),
+                analysed,
+                p.ExternalLinks.ToString("N0"),
+                p.CrossProjectLinks.ToString("N0"),
                 crossOrg,
                 status);
         }
@@ -826,6 +832,7 @@ public sealed class DependencyCommand : ControlPlaneCommandBase<DependencyComman
     {
         public string OrgName { get; set; } = string.Empty;
         public string ProjectName { get; set; } = string.Empty;
+        public int TotalWorkItems { get; set; }
         public int WorkItemsAnalysed { get; set; }
         public int ExternalLinks { get; set; }
         public int CrossProjectLinks { get; set; }

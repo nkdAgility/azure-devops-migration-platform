@@ -1,5 +1,7 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
+using System.Linq;
 using System.Text;
 using System.Text.Json;
 using System.Threading;
@@ -52,21 +54,78 @@ public sealed class DependencyDiscoveryModule : IDiscoveryModule
 
         var dependencyService = _dependencyFactory.Create(job.Organisations, job.Policies);
 
+        // ── Resume: read existing cursor and CSV ─────────────────────────────
+        var completedProjects = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var existingCsvRows = new StringBuilder();
+        var recordCount = 0;
+
+        var cursorJson = await state.ReadAsync(CursorKey, ct).ConfigureAwait(false);
+        if (cursorJson is not null)
+        {
+            _logger.LogInformation("Found existing dependencies cursor — attempting resume.");
+
+            // Parse completed project keys from cursor
+            try
+            {
+                using var doc = JsonDocument.Parse(cursorJson);
+                if (doc.RootElement.TryGetProperty("completedProjects", out var projArray))
+                {
+                    foreach (var item in projArray.EnumerateArray())
+                    {
+                        var key = item.GetString();
+                        if (key is not null)
+                            completedProjects.Add(key);
+                    }
+                }
+                if (doc.RootElement.TryGetProperty("recordCount", out var rc))
+                    recordCount = rc.GetInt32();
+            }
+            catch (JsonException ex)
+            {
+                _logger.LogWarning(ex, "Failed to parse dependencies cursor — starting fresh.");
+                completedProjects.Clear();
+                recordCount = 0;
+            }
+
+            // Reload existing CSV so we append rather than overwrite
+            if (completedProjects.Count > 0)
+            {
+                var existingCsv = await store.ReadAsync(RootCsvPath, ct).ConfigureAwait(false);
+                if (!string.IsNullOrEmpty(existingCsv))
+                {
+                    existingCsvRows.Append(existingCsv);
+                    _logger.LogInformation(
+                        "Resuming dependency analysis — {CompletedCount} project(s) already completed, {RecordCount} records loaded.",
+                        completedProjects.Count, recordCount);
+                }
+            }
+        }
+
+        // Build the CSV — either from existing data or fresh header
         var csvBuilder = new StringBuilder();
-        csvBuilder.AppendLine(
-            "SourceWorkItemId,SourceWorkItemType,SourceProject,SourceOrganisationUrl," +
-            "LinkType,LinkScope,TargetWorkItemId,TargetProject,TargetOrganisation,TargetStatus,LinkChangedDate,SourceWorkItemStateCategory");
+        if (existingCsvRows.Length > 0)
+        {
+            csvBuilder.Append(existingCsvRows);
+        }
+        else
+        {
+            csvBuilder.AppendLine(
+                "SourceWorkItemId,SourceWorkItemType,SourceProject,SourceOrganisationUrl," +
+                "LinkType,LinkScope,TargetWorkItemId,TargetProject,TargetOrganisation,TargetStatus,LinkChangedDate,SourceWorkItemStateCategory");
+        }
 
         var checkpointInterval = TimeSpan.FromSeconds(job.Policies.CheckpointIntervalSeconds);
         var lastCheckpoint = DateTime.UtcNow;
-        var recordCount = 0;
 
         var metrics = _metrics;
         string? currentOrg = null;
         var orgSw = new Stopwatch();
         int orgProjectCount = 0;
 
-        await foreach (var evt in dependencyService.DiscoverDependenciesAsync(null, ct).ConfigureAwait(false))
+        // Track completed projects as we go (union of pre-existing + newly completed)
+        var allCompletedProjects = new HashSet<string>(completedProjects, StringComparer.OrdinalIgnoreCase);
+
+        await foreach (var evt in dependencyService.DiscoverDependenciesAsync(completedProjects, null, ct).ConfigureAwait(false))
         {
             switch (evt)
             {
@@ -96,14 +155,15 @@ public sealed class DependencyDiscoveryModule : IDiscoveryModule
                         Module = Name,
                         Stage = heartbeat.IsComplete ? "ProjectComplete" : "Analysis",
                         LastProcessed = $"{heartbeat.OrganisationUrl}|{heartbeat.ProjectName}",
-                        TotalWorkItems = heartbeat.WorkItemsAnalysed,
-                        WorkItemsProcessed = heartbeat.ExternalLinksFound,
+                        TotalWorkItems = heartbeat.TotalWorkItems,
+                        WorkItemsProcessed = heartbeat.WorkItemsAnalysed,
+                        WorkItemId = heartbeat.ExternalLinksFound,
                         RevisionsProcessed = heartbeat.CrossProjectCount,
                         AttachmentsProcessed = heartbeat.CrossOrgCount,
                         Message = heartbeat.Error is not null
                             ? $"{heartbeat.OrganisationUrl}/{heartbeat.ProjectName}: failed — {heartbeat.Error}"
                             : $"{heartbeat.OrganisationUrl}/{heartbeat.ProjectName}: " +
-                              $"{heartbeat.WorkItemsAnalysed} analysed, {heartbeat.ExternalLinksFound} links found",
+                              $"{heartbeat.WorkItemsAnalysed}/{heartbeat.TotalWorkItems} analysed, {heartbeat.ExternalLinksFound} links found",
                         Timestamp = DateTimeOffset.UtcNow
                     });
 
@@ -151,6 +211,10 @@ public sealed class DependencyDiscoveryModule : IDiscoveryModule
                         metrics?.ProjectCompleted(projectTags);
                         metrics?.RecordWorkItemsAnalysed(heartbeat.WorkItemsAnalysed, projectTags);
                         orgProjectCount++;
+
+                        // Track this project as completed for the cursor
+                        var completedKey = $"{heartbeat.OrganisationUrl}|{heartbeat.ProjectName}";
+                        allCompletedProjects.Add(completedKey);
                     }
                     break;
             }
@@ -159,10 +223,11 @@ public sealed class DependencyDiscoveryModule : IDiscoveryModule
             if (DateTime.UtcNow - lastCheckpoint >= checkpointInterval)
             {
                 await store.WriteAsync(RootCsvPath, csvBuilder.ToString(), ct).ConfigureAwait(false);
-                await WriteCursorAsync(state, recordCount, ct).ConfigureAwait(false);
+                await WriteCursorAsync(state, recordCount, allCompletedProjects, ct).ConfigureAwait(false);
                 lastCheckpoint = DateTime.UtcNow;
                 metrics?.RecordCheckpointSaved(new TagList { { "job.id", job.JobId }, { "module", Name } });
-                _logger.LogDebug("Dependencies checkpoint saved at {RecordCount} records.", recordCount);
+                _logger.LogDebug("Dependencies checkpoint saved at {RecordCount} records, {CompletedProjects} projects completed.",
+                    recordCount, allCompletedProjects.Count);
             }
         }
 
@@ -198,9 +263,14 @@ public sealed class DependencyDiscoveryModule : IDiscoveryModule
             job.JobId, recordCount);
     }
 
-    private static Task WriteCursorAsync(IStateStore state, int recordCount, CancellationToken ct)
+    private static Task WriteCursorAsync(IStateStore state, int recordCount, HashSet<string> completedProjects, CancellationToken ct)
     {
-        var json = JsonSerializer.Serialize(new { recordCount, savedAt = DateTime.UtcNow });
+        var json = JsonSerializer.Serialize(new
+        {
+            recordCount,
+            completedProjects = completedProjects.ToArray(),
+            savedAt = DateTime.UtcNow
+        });
         return state.WriteAsync(CursorKey, json, ct);
     }
 

@@ -22,6 +22,7 @@ public class AzureDevOpsDependencyAnalysisServiceTests
     private Mock<IOptions<DiscoveryOptions>> _optionsMock = null!;
     private Mock<IAzureDevOpsClientFactory> _clientFactoryMock = null!;
     private Mock<IWorkItemFetchService> _fetchServiceMock = null!;
+    private Mock<IWorkItemDiscoveryService> _discoveryServiceMock = null!;
     private Mock<ILogger<AzureDevOpsDependencyAnalysisService>> _loggerMock = null!;
     private AzureDevOpsDependencyAnalysisService _service = null!;
 
@@ -33,12 +34,14 @@ public class AzureDevOpsDependencyAnalysisServiceTests
 
         _clientFactoryMock = new Mock<IAzureDevOpsClientFactory>();
         _fetchServiceMock = new Mock<IWorkItemFetchService>();
+        _discoveryServiceMock = new Mock<IWorkItemDiscoveryService>();
         _loggerMock = new Mock<ILogger<AzureDevOpsDependencyAnalysisService>>();
 
         _service = new AzureDevOpsDependencyAnalysisService(
             _optionsMock.Object,
             _clientFactoryMock.Object,
             _fetchServiceMock.Object,
+            _discoveryServiceMock.Object,
             _loggerMock.Object);
     }
 
@@ -56,6 +59,7 @@ public class AzureDevOpsDependencyAnalysisServiceTests
                 null!,
                 _clientFactoryMock.Object,
                 _fetchServiceMock.Object,
+                _discoveryServiceMock.Object,
                 _loggerMock.Object));
     }
 
@@ -67,6 +71,7 @@ public class AzureDevOpsDependencyAnalysisServiceTests
                 _optionsMock.Object,
                 null!,
                 _fetchServiceMock.Object,
+                _discoveryServiceMock.Object,
                 _loggerMock.Object));
     }
 
@@ -77,6 +82,19 @@ public class AzureDevOpsDependencyAnalysisServiceTests
             new AzureDevOpsDependencyAnalysisService(
                 _optionsMock.Object,
                 _clientFactoryMock.Object,
+                null!,
+                _discoveryServiceMock.Object,
+                _loggerMock.Object));
+    }
+
+    [TestMethod]
+    public void Service_ThrowsArgumentNullException_WhenDiscoveryServiceNull()
+    {
+        Assert.ThrowsExactly<ArgumentNullException>(() =>
+            new AzureDevOpsDependencyAnalysisService(
+                _optionsMock.Object,
+                _clientFactoryMock.Object,
+                _fetchServiceMock.Object,
                 null!,
                 _loggerMock.Object));
     }
@@ -89,6 +107,7 @@ public class AzureDevOpsDependencyAnalysisServiceTests
                 _optionsMock.Object,
                 _clientFactoryMock.Object,
                 _fetchServiceMock.Object,
+                _discoveryServiceMock.Object,
                 null!));
     }
 

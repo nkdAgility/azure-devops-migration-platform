@@ -273,12 +273,12 @@ public sealed class TuiMainView : Window, IDisposable
 
             if (evt.Module == "Dependencies")
             {
-                // Dependencies: TotalWorkItems=analysed, WorkItemsProcessed=externalLinks,
-                // RevisionsProcessed=crossProject, AttachmentsProcessed=crossOrg
+                // Dependencies: TotalWorkItems=projectTotal, WorkItemsProcessed=analysed,
+                // WorkItemId=externalLinks, RevisionsProcessed=crossProject, AttachmentsProcessed=crossOrg
                 _discoveryProjects[qualifiedKey] = new DiscoveryProjectMetrics(
                     WorkItems: 0, Revisions: 0, Repos: 0,
-                    LinksFound: evt.WorkItemsProcessed,
-                    WorkItemsAnalysed: evt.TotalWorkItems,
+                    LinksFound: evt.WorkItemId,
+                    WorkItemsAnalysed: evt.WorkItemsProcessed,
                     IsComplete: isComplete || isFailed, IsFailed: isFailed,
                     Module: evt.Module);
             }

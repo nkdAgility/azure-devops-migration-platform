@@ -40,7 +40,14 @@ public sealed class DependencyDiscoveryService : IDependencyDiscoveryService
     /// Yields DependencyProgressEvent records (found events and heartbeats) for each organisation.
     /// Results from all organisations are streamed sequentially.
     /// </summary>
+    /// <param name="completedProjectKeys">
+    /// Optional set of project keys (<c>"orgUrl|projectName"</c>) that have already been
+    /// fully analysed in a previous run. These projects are skipped entirely — no API calls.
+    /// </param>
+    /// <param name="wiqlFilter">Optional WIQL expression to filter the set of work items to analyse.</param>
+    /// <param name="cancellationToken">Cancellation token for operation cancellation.</param>
     public async IAsyncEnumerable<DependencyProgressEvent> DiscoverDependenciesAsync(
+        HashSet<string>? completedProjectKeys = null,
         string? wiqlFilter = null,
         [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
@@ -97,9 +104,20 @@ public sealed class DependencyDiscoveryService : IDependencyDiscoveryService
             // Analyse each project in the organisation
             foreach (var project in projectsToAnalyse)
             {
-                _logger.LogInformation("Analysing project {Project} in {Url}", project, orgEndpointForLog.GetResolvedUrl());
-
                 var orgEndpoint = orgEndpointForLog;
+                var projectKey = $"{orgEndpoint.GetResolvedUrl()}|{project}";
+
+                if (completedProjectKeys?.Contains(projectKey) == true)
+                {
+                    _logger.LogInformation("Skipping completed project: {OrgUrl} / {Project}", orgEndpoint.GetResolvedUrl(), project);
+                    // Emit a heartbeat so the CLI/TUI can display the skip
+                    yield return new DependencyHeartbeatEvent(
+                        orgEndpoint.GetResolvedUrl(), project, 0, 0, 0, 0, true,
+                        TotalWorkItems: 0, SkippedWorkItems: 0);
+                    continue;
+                }
+
+                _logger.LogInformation("Analysing project {Project} in {Url}", project, orgEndpoint.GetResolvedUrl());
 
                 // Stream events from the service
                 await foreach (var evt in service.AnalyseLinksAsync(
