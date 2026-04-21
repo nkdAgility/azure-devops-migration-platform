@@ -74,7 +74,7 @@ public sealed class TuiCommand : ControlPlaneCommandBase<TuiCommandSettings>
         Application.Init();
         try
         {
-            var mainView = new TuiMainView(client);
+            var mainView = new TuiMainView(client, GetControlPlaneUrl());
 
             if (preSelectJobId.HasValue)
                 mainView.PreSelectJob(preSelectJobId.Value);

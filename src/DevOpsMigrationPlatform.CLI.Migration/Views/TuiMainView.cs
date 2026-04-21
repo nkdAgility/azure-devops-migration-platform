@@ -32,10 +32,12 @@ public sealed class TuiMainView : Window, IDisposable
     private readonly Dictionary<string, DiscoveryProjectMetrics> _discoveryProjects = new();
     private volatile bool _discoveryMetricsActive;
 
-    public TuiMainView(IControlPlaneClient client)
+    public TuiMainView(IControlPlaneClient client, string controlPlaneUrl = "")
     {
         _client = client;
-        Title = "DevOps Migration Platform — Job Dashboard";
+        Title = string.IsNullOrEmpty(controlPlaneUrl)
+            ? "DevOps Migration Platform — Job Dashboard"
+            : $"DevOps Migration Platform — {controlPlaneUrl}";
         CanFocus = true;
 
         // ── Panels ──────────────────────────────────────────────────────────────
