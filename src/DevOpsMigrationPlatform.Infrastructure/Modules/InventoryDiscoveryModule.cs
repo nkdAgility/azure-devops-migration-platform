@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Text;
 using System.Text.Json;
@@ -48,11 +49,11 @@ public sealed class InventoryDiscoveryModule : IDiscoveryModule
 
         _logger.LogInformation("Inventory module starting for job {JobId}.", job.JobId);
 
-        // Read checkpoint — resume from last completed project.
+        // Read checkpoint — presence means a previous run was interrupted.
         var lastCompleted = await ReadCursorAsync(state, ct).ConfigureAwait(false);
-        var skipping = lastCompleted is not null;
+        var isResuming = lastCompleted is not null;
 
-        if (skipping)
+        if (isResuming)
             using (DataClassificationScope.Begin(DataClassification.Customer))
                 _logger.LogInformation("Resuming inventory after project '{LastCompleted}'.", lastCompleted);
 
@@ -71,27 +72,37 @@ public sealed class InventoryDiscoveryModule : IDiscoveryModule
         var csvBuilder = new StringBuilder();
         csvBuilder.AppendLine("Url,ProjectName,WorkItemsCount,RevisionsCount,ReposCount,IsComplete,Error");
 
-        // When resuming, preserve data from already-completed projects so the final
-        // CSV includes all projects and the CLI live table shows actual data instead
-        // of pre-populated zeros.
-        if (skipping)
+        // Build the set of completed project keys from the existing CSV so the
+        // service can skip them entirely — zero API calls for already-counted projects.
+        var completedKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        if (isResuming)
         {
             var existingCsv = await store.ReadAsync(OutputPath, ct).ConfigureAwait(false);
             if (existingCsv is not null)
             {
                 var lines = existingCsv.Split('\n');
-                int loadedCount = 0;
                 for (int i = 1; i < lines.Length; i++) // skip header
                 {
                     var trimmed = lines[i].TrimEnd('\r');
                     if (string.IsNullOrWhiteSpace(trimmed)) continue;
                     csvBuilder.AppendLine(trimmed);
                     EmitCatchupFromCsvLine(sink, trimmed);
-                    loadedCount++;
+
+                    var parts = trimmed.Split(',');
+                    if (parts.Length >= 2)
+                        completedKeys.Add($"{UnescapeCsv(parts[0])}|{UnescapeCsv(parts[1])}");
                 }
                 _logger.LogInformation(
-                    "Loaded {Count} previously-completed project(s) from existing CSV.", loadedCount);
+                    "Loaded {Count} previously-completed project(s) from existing CSV.", completedKeys.Count);
             }
+
+            sink.Emit(new ProgressEvent
+            {
+                Module = Name,
+                Stage = "Resuming",
+                Message = $"Resuming — skipping {completedKeys.Count} previously-completed project(s).",
+                Timestamp = DateTimeOffset.UtcNow
+            });
         }
 
         var checkpointInterval = TimeSpan.FromSeconds(job.Policies.CheckpointIntervalSeconds);
@@ -103,8 +114,9 @@ public sealed class InventoryDiscoveryModule : IDiscoveryModule
         var projectSw = new Stopwatch();
         int orgProjectCount = 0;
 
-        int skippedProjectCount = 0;
-        await foreach (var evt in inventoryService.RunInventoryAsync(ct).ConfigureAwait(false))
+        // Pass completed keys so the service skips them — no re-counting.
+        await foreach (var evt in inventoryService.RunInventoryAsync(
+            completedKeys.Count > 0 ? completedKeys : null, ct).ConfigureAwait(false))
         {
             var projectKey = $"{evt.Url}|{evt.ProjectName}";
 
@@ -112,48 +124,17 @@ public sealed class InventoryDiscoveryModule : IDiscoveryModule
             // (e.g. Petrel: 291k work items counted ~200 at a time).
             if (!evt.IsComplete)
             {
-                if (!skipping)
-                {
-                    sink.Emit(new ProgressEvent
-                    {
-                        Module = Name,
-                        Stage = "Progress",
-                        LastProcessed = projectKey,
-                        TotalWorkItems = evt.WorkItemsCount,
-                        RevisionsProcessed = evt.RevisionsCount,
-                        AttachmentsProcessed = evt.ReposCount,
-                        Message = $"{evt.Url} / {evt.ProjectName}: {evt.WorkItemsCount} work items so far…",
-                        Timestamp = DateTimeOffset.UtcNow
-                    });
-                }
-                else
-                {
-                    // Forward all heartbeats during skip so the user sees the API
-                    // is actively counting even for already-completed projects.
-                    sink.Emit(new ProgressEvent
-                    {
-                        Module = Name,
-                        Stage = "Resuming",
-                        Message = $"Resuming — verifying {evt.Url} / {evt.ProjectName}: {evt.WorkItemsCount} work items…",
-                        Timestamp = DateTimeOffset.UtcNow
-                    });
-                }
-                continue;
-            }
-
-            // Skip already-completed projects when resuming.
-            if (skipping)
-            {
-                skippedProjectCount++;
                 sink.Emit(new ProgressEvent
                 {
                     Module = Name,
-                    Stage = "Resuming",
-                    Message = $"Resumed past {skippedProjectCount} completed project(s) — {evt.Url} / {evt.ProjectName} ✓",
+                    Stage = "Progress",
+                    LastProcessed = projectKey,
+                    TotalWorkItems = evt.WorkItemsCount,
+                    RevisionsProcessed = evt.RevisionsCount,
+                    AttachmentsProcessed = evt.ReposCount,
+                    Message = $"{evt.Url} / {evt.ProjectName}: {evt.WorkItemsCount} work items so far…",
                     Timestamp = DateTimeOffset.UtcNow
                 });
-                if (projectKey == lastCompleted)
-                    skipping = false;
                 continue;
             }
 

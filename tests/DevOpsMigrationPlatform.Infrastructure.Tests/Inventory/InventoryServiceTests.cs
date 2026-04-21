@@ -631,4 +631,81 @@ public class InventoryServiceTests
         Assert.AreEqual(1, capturedScope!.Fields.Count, "Only System.Rev should be requested when no scope is given.");
         Assert.AreEqual("System.Rev", capturedScope.Fields[0]);
     }
+
+    // ── Resume: completed project keys are skipped ────────────────────────────
+
+    [TestMethod]
+    public async Task RunInventoryAsync_CompletedProjectKeys_SkipsThoseProjects()
+    {
+        // Arrange: two projects in the same org
+        var opts = new DiscoveryOptions
+        {
+            Organisations = new()
+            {
+                new AzureDevOpsOrganisationEntry
+                {
+                    Type = "AzureDevOpsServices",
+                    Url = "https://dev.azure.com/testorg",
+                    Projects = new() { "ProjectA", "ProjectB" },
+                    Authentication = new EndpointAuthenticationOptions
+                    {
+                        Type = AuthenticationType.Pat,
+                        AccessToken = "test-pat"
+                    }
+                }
+            }
+        };
+
+        // Track which projects the discovery service is called for
+        var discoveredProjects = new List<string>();
+        var discoveryMock = new Mock<IWorkItemDiscoveryService>(MockBehavior.Strict);
+        discoveryMock.Setup(s => s.DiscoverWorkItemsAsync(
+                It.IsAny<OrganisationEndpoint>(), It.IsAny<string>(),
+                It.IsAny<WorkItemFetchScope?>(), It.IsAny<CancellationToken>()))
+            .Returns<OrganisationEndpoint, string, WorkItemFetchScope?, CancellationToken>(
+                (endpoint, proj, scope, ct) =>
+                {
+                    discoveredProjects.Add(proj);
+                    return MakeSummaries(proj, 10, 50);
+                });
+
+        var repoMock = BuildRepoDiscoveryMock(repoCount: 2);
+        var sut = BuildService(discoveryMock, Options.Create(opts), repoDiscovery: repoMock);
+
+        // Mark ProjectA as already completed
+        var completed = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            "https://dev.azure.com/testorg|ProjectA"
+        };
+
+        // Act
+        var events = new List<InventoryProgressEvent>();
+        await foreach (var evt in sut.RunInventoryAsync(completed))
+            events.Add(evt);
+
+        // Assert: only ProjectB was counted (no API calls for ProjectA)
+        Assert.AreEqual(1, discoveredProjects.Count, "Only non-completed project should be discovered");
+        Assert.AreEqual("ProjectB", discoveredProjects[0]);
+
+        // Only ProjectB events should be yielded
+        var finalEvents = events.Where(e => e.IsComplete).ToList();
+        Assert.AreEqual(1, finalEvents.Count, "Only one project should complete");
+        Assert.AreEqual("ProjectB", finalEvents[0].ProjectName);
+    }
+
+    [TestMethod]
+    public async Task RunInventoryAsync_NullCompletedKeys_ProcessesAllProjects()
+    {
+        // Arrange
+        var discoveryMock = BuildDiscoveryMock(workItemCount: 5, revisionCount: 25);
+        var sut = BuildService(discoveryMock);
+
+        // Act: null completed keys = fresh run
+        var events = new List<InventoryProgressEvent>();
+        await foreach (var evt in sut.RunInventoryAsync(null))
+            events.Add(evt);
+
+        // Assert: all events yielded
+        Assert.AreEqual(2, events.Count, "Fresh run should yield all events");
+    }
 }
