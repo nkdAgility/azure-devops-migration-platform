@@ -534,6 +534,10 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
                     .Overflow(VerticalOverflow.Ellipsis)
                     .StartAsync(async ctx =>
                     {
+                        // Spectre.Console Live does NOT render until the callback
+                        // calls Refresh/UpdateTarget. Force the initial render.
+                        ctx.Refresh();
+
                         await foreach (var evt in client.FollowLogsAsync(parsedJobId, followCts.Token).ConfigureAwait(false))
                         {
                             lastEvt = evt;

@@ -7,6 +7,13 @@ For ad-hoc tasks, follow the mandatory guardrails validation in [agents.md](../a
 
 ---
 
+## ⛔ NEVER Auto-Commit
+
+**Do NOT run `git commit`, `git push`, or any commit/push tool unless the user explicitly asks you to commit.**
+Stage changes if needed, but leave committing to the human. This rule has zero exceptions.
+
+---
+
 ## ⛔ CRITICAL: This Summary Is NOT Compliance
 
 The table and reject triggers below are a **quick reference only**.

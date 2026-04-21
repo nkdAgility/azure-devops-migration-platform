@@ -1,3 +1,5 @@
+using System;
+
 namespace DevOpsMigrationPlatform.Abstractions.Models;
 
 /// <summary>
@@ -56,4 +58,17 @@ public record DependencyRecord
     /// Gets the accessibility status of the target work item.
     /// </summary>
     public TargetStatus TargetStatus { get; init; }
+
+    /// <summary>
+    /// Gets the date the link was last changed, as reported by the source system.
+    /// <c>null</c> when the source system does not provide link-level timestamps.
+    /// </summary>
+    public DateTimeOffset? LinkChangedDate { get; init; }
+
+    /// <summary>
+    /// Gets the <c>System.StateCategory</c> of the source work item at the time of analysis.
+    /// Common values: <c>Proposed</c>, <c>InProgress</c>, <c>Resolved</c>, <c>Completed</c>, <c>Removed</c>.
+    /// <c>null</c> or empty when the source system does not return state category information.
+    /// </summary>
+    public string? SourceWorkItemStateCategory { get; init; }
 }

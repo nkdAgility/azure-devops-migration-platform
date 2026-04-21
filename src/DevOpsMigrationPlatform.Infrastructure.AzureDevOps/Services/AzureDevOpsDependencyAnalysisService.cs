@@ -25,17 +25,20 @@ public sealed class AzureDevOpsDependencyAnalysisService : IWorkItemLinkAnalysis
     private readonly IOptions<DiscoveryOptions> _options;
     private readonly IAzureDevOpsClientFactory _clientFactory;
     private readonly IWorkItemFetchService _fetchService;
+    private readonly IWorkItemDiscoveryService _discoveryService;
     private readonly ILogger<AzureDevOpsDependencyAnalysisService> _logger;
 
     public AzureDevOpsDependencyAnalysisService(
         IOptions<DiscoveryOptions> options,
         IAzureDevOpsClientFactory clientFactory,
         IWorkItemFetchService fetchService,
+        IWorkItemDiscoveryService discoveryService,
         ILogger<AzureDevOpsDependencyAnalysisService> logger)
     {
         _options = options ?? throw new ArgumentNullException(nameof(options));
         _clientFactory = clientFactory ?? throw new ArgumentNullException(nameof(clientFactory));
         _fetchService = fetchService ?? throw new ArgumentNullException(nameof(fetchService));
+        _discoveryService = discoveryService ?? throw new ArgumentNullException(nameof(discoveryService));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
@@ -56,6 +59,22 @@ public sealed class AzureDevOpsDependencyAnalysisService : IWorkItemLinkAnalysis
         var witClient = await _clientFactory.CreateWorkItemClientAsync(orgEndpoint, cancellationToken).ConfigureAwait(false);
 
         _logger.LogInformation("Enumerating work item IDs for project {Project} in {OrgUrl}", project, orgEndpoint.ResolvedUrl);
+
+        // ── Pre-count: discover total work items so progress shows N of M ────
+        int projectTotal = 0;
+        await foreach (var snapshot in _discoveryService.CountWorkItemsAsync(
+            orgEndpoint, project, wiqlFilter, cancellationToken).ConfigureAwait(false))
+        {
+            projectTotal = snapshot.WorkItemsCount;
+        }
+        _logger.LogInformation(
+            "Project {Project} has {TotalWorkItems} work items to analyse for dependencies.",
+            project, projectTotal);
+
+        // Emit initial heartbeat with the discovered total
+        yield return new DependencyHeartbeatEvent(
+            orgEndpoint.ResolvedUrl, project, 0, 0, 0, 0, false,
+            TotalWorkItems: projectTotal, IsCounting: true);
 
         var sourceOrgSegment = ExtractOrgSegment(orgEndpoint.ResolvedUrl);
         var counters = new LinkCounters();
@@ -102,12 +121,14 @@ public sealed class AzureDevOpsDependencyAnalysisService : IWorkItemLinkAnalysis
             {
                 // Emit counting heartbeat before processing the batch
                 yield return new DependencyHeartbeatEvent(
-                    orgEndpoint.ResolvedUrl, project, counters.Processed, 0, 0, 0, false,
-                    TotalWorkItems: totalStreamed, IsCounting: true);
+                    orgEndpoint.ResolvedUrl, project, counters.Processed,
+                    counters.CrossProject + counters.CrossOrg,
+                    counters.CrossProject, counters.CrossOrg, false,
+                    TotalWorkItems: projectTotal, IsCounting: true);
 
                 await foreach (var evt in ProcessBatchAsync(
                     witClient, currentBatch, sourceOrgSegment, orgEndpoint.ResolvedUrl, project,
-                    counters, totalStreamed, configuredOrgs, projectNameCache, cancellationToken))
+                    counters, projectTotal, configuredOrgs, projectNameCache, cancellationToken))
                 {
                     yield return evt;
                 }
@@ -120,7 +141,7 @@ public sealed class AzureDevOpsDependencyAnalysisService : IWorkItemLinkAnalysis
         {
             await foreach (var evt in ProcessBatchAsync(
                 witClient, currentBatch, sourceOrgSegment, orgEndpoint.ResolvedUrl, project,
-                counters, totalStreamed, configuredOrgs, projectNameCache, cancellationToken))
+                counters, projectTotal, configuredOrgs, projectNameCache, cancellationToken))
             {
                 yield return evt;
             }
@@ -135,7 +156,7 @@ public sealed class AzureDevOpsDependencyAnalysisService : IWorkItemLinkAnalysis
             counters.CrossProject,
             counters.CrossOrg,
             true,
-            TotalWorkItems: totalStreamed,
+            TotalWorkItems: projectTotal,
             SkippedWorkItems: counters.Skipped);
 
         _logger.LogInformation(
@@ -196,6 +217,10 @@ public sealed class AzureDevOpsDependencyAnalysisService : IWorkItemLinkAnalysis
                 ? typeObj.ToString() ?? "Unknown"
                 : "Unknown";
 
+            var sourceStateCategory = workItem.Fields.TryGetValue("System.StateCategory", out var stateCatObj)
+                ? stateCatObj?.ToString() ?? ""
+                : "";
+
             foreach (var relation in workItem.Relations.Where(r =>
                 !string.IsNullOrEmpty(r.Rel) && r.Rel.StartsWith("System.LinkTypes.")))
             {
@@ -247,7 +272,9 @@ public sealed class AzureDevOpsDependencyAnalysisService : IWorkItemLinkAnalysis
                             TargetWorkItemId = targetId,
                             TargetProject = resolvedProject,
                             TargetOrganisation = targetOrgSegment,
-                            TargetStatus = targetStatus
+                            TargetStatus = targetStatus,
+                            LinkChangedDate = ExtractLinkChangedDate(relation),
+                            SourceWorkItemStateCategory = sourceStateCategory
                         });
                     }
                     else
@@ -268,7 +295,9 @@ public sealed class AzureDevOpsDependencyAnalysisService : IWorkItemLinkAnalysis
                                 TargetWorkItemId = targetId,
                                 TargetProject = targetProjectName,
                                 TargetOrganisation = "",
-                                TargetStatus = TargetStatus.Reachable
+                                TargetStatus = TargetStatus.Reachable,
+                                LinkChangedDate = ExtractLinkChangedDate(relation),
+                                SourceWorkItemStateCategory = sourceStateCategory
                             });
                         }
                     }
@@ -479,6 +508,29 @@ public sealed class AzureDevOpsDependencyAnalysisService : IWorkItemLinkAnalysis
         {
             return "Unknown";
         }
+    }
+
+    /// <summary>
+    /// Extracts the <c>changedDate</c> attribute from a work item relation, if present.
+    /// The ADO REST API populates this attribute for link-type relations; it represents
+    /// when the link was last modified (and equals the creation date when the link is new).
+    /// Returns <c>null</c> when the attribute is absent or cannot be parsed.
+    /// </summary>
+    private static DateTimeOffset? ExtractLinkChangedDate(WorkItemRelation relation)
+    {
+        if (relation.Attributes == null)
+            return null;
+
+        if (!relation.Attributes.TryGetValue("changedDate", out var raw))
+            return null;
+
+        return raw switch
+        {
+            DateTimeOffset dto => dto,
+            DateTime dt => new DateTimeOffset(dt, TimeSpan.Zero),
+            string s when DateTimeOffset.TryParse(s, out var parsed) => parsed,
+            _ => null
+        };
     }
 
 }

@@ -162,7 +162,8 @@ public sealed class ControlPlaneClient : IJobRunner, ILogsClient, IControlPlaneC
         response.EnsureSuccessStatusCode();
 
         using var stream = await response.Content.ReadAsStreamAsync(ct).ConfigureAwait(false);
-        using var reader = new System.IO.StreamReader(stream);
+        using var reader = new System.IO.StreamReader(stream, System.Text.Encoding.UTF8,
+            detectEncodingFromByteOrderMarks: false, bufferSize: 256);
 
         while (!ct.IsCancellationRequested)
         {
@@ -209,7 +210,8 @@ public sealed class ControlPlaneClient : IJobRunner, ILogsClient, IControlPlaneC
         response.EnsureSuccessStatusCode();
 
         using var stream = await response.Content.ReadAsStreamAsync(ct).ConfigureAwait(false);
-        using var reader = new System.IO.StreamReader(stream);
+        using var reader = new System.IO.StreamReader(stream, System.Text.Encoding.UTF8,
+            detectEncodingFromByteOrderMarks: false, bufferSize: 256);
 
         while (!ct.IsCancellationRequested)
         {

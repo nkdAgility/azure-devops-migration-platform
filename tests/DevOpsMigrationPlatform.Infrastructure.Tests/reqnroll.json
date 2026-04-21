@@ -3,6 +3,9 @@
   "bindingCulture": {
     "name": "en-US"
   },
+  "runtime": {
+    "missingOrPendingStepsOutcome": "error"
+  },
   "trace": {
     "traceSuccessfulSteps": true
   }

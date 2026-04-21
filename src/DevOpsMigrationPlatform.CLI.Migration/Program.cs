@@ -12,6 +12,31 @@ internal class Program
 {
     static async Task<int> Main(string[] args)
     {
+        // Wire Ctrl+C and terminal close to the process-wide GlobalCancellation signal.
+        // CommandBase.ExecuteAsync links this token with any Spectre.Console-provided token
+        // so that all async operations (SSE streams, HTTP calls, LocalStackHost) honour Ctrl+C.
+        Console.CancelKeyPress += (_, e) =>
+        {
+            // First Ctrl+C: cancel gracefully and swallow the signal so the finally
+            // blocks in CommandBase.ExecuteAsync have time to run DisposeResourcesAsync.
+            // Second Ctrl+C: default behaviour terminates immediately.
+            if (!GlobalCancellation.Token.IsCancellationRequested)
+            {
+                e.Cancel = true;
+                GlobalCancellation.Cancel();
+                AnsiConsole.MarkupLine("[yellow]Cancelling… press Ctrl+C again to force quit.[/]");
+            }
+        };
+
+        AppDomain.CurrentDomain.ProcessExit += (_, _) =>
+        {
+            GlobalCancellation.Cancel();
+
+            // Give the finally blocks a few seconds to clean up LocalStackHost
+            // before the runtime tears down the process.
+            GlobalCancellation.Token.WaitHandle.WaitOne(TimeSpan.FromSeconds(5));
+        };
+
         AnsiConsole.Write(new FigletText("DevOps Migration").LeftJustified().Color(Color.Blue));
         AnsiConsole.Write(new Rule().RuleStyle("grey").LeftJustified());
         var appVersion = typeof(Program).Assembly

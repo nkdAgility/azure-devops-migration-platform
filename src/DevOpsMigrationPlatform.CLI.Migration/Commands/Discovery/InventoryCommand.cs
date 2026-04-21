@@ -3,9 +3,11 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.IO;
 using System.Linq;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Models;
 using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.CLI.JobRunners;
 using DevOpsMigrationPlatform.CLI.Migration.Commands;
@@ -16,13 +18,14 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using Spectre.Console;
 using Spectre.Console.Cli;
+using Spectre.Console.Rendering;
 
 namespace DevOpsMigrationPlatform.CLI.Commands.Discovery;
 
 /// <summary>
 /// CLI command: discovery inventory
 /// Submits a <see cref="DiscoveryJob"/> of type Inventory to the control plane.
-/// In standalone mode follows progress inline; in hosted mode prints the jobId and exits.
+/// In standalone mode follows progress inline with a live table; in hosted mode prints the jobId and exits.
 /// </summary>
 public sealed class InventoryCommand : ControlPlaneCommandBase<InventoryCommand.Settings>
 {
@@ -98,11 +101,13 @@ public sealed class InventoryCommand : ControlPlaneCommandBase<InventoryCommand.
         console.MarkupLine($"[blue]ℹ[/] Submitting inventory job for [bold]{job.Organisations.Count}[/] organisation(s).");
         console.MarkupLine($"[blue]ℹ[/] Output path: [blue]{Markup.Escape(outputPath)}[/]");
 
+        var controlPlaneUrl = GetControlPlaneUrl();
+
         Guid jobId;
         try
         {
             jobId = await client.SubmitDiscoveryAsync(job, cancellationToken);
-            console.MarkupLine($"[green]✓[/] Discovery job [bold]{jobId}[/] submitted.");
+            PrintJobSubmitted(console, jobId, controlPlaneUrl);
         }
         catch (Exception ex)
         {
@@ -116,12 +121,78 @@ public sealed class InventoryCommand : ControlPlaneCommandBase<InventoryCommand.
             return 0;
         }
 
+        // Pre-populate the table with known projects from config so the user gets
+        // immediate visual feedback while the agent acquires a lease and starts processing.
+        var summaries = new Dictionary<string, InventorySummary>(StringComparer.OrdinalIgnoreCase);
+        foreach (var org in job.Organisations)
+        {
+            var url = org.Endpoint.GetResolvedUrl();
+            foreach (var project in org.Projects)
+            {
+                var key = $"{url}|{project}";
+                if (!summaries.ContainsKey(key))
+                    summaries[key] = new InventorySummary { Url = url, ProjectName = project };
+            }
+        }
+
+        // Status message shown below the table during long resume skips.
+        string statusMessage = "";
+        var startTime = DateTimeOffset.UtcNow;
+
         try
         {
-            await foreach (var evt in client.FollowDiscoveryLogsAsync(jobId, cancellationToken))
+            if (console.Profile.Capabilities.Interactive)
             {
-                if (!string.IsNullOrEmpty(evt.Message))
-                    console.MarkupLine($"  [grey]{Markup.Escape(evt.Module)}[/] --- {Markup.Escape(evt.Message)}");
+                var table = BuildTable(summaries.Values);
+                await console.Live(table)
+                    .AutoClear(false)
+                    .Overflow(VerticalOverflow.Ellipsis)
+                    .StartAsync(async ctx =>
+                    {
+                        // Spectre.Console Live does NOT render until the callback
+                        // calls Refresh/UpdateTarget. Force the initial render so
+                        // the pre-populated table is visible immediately.
+                        ctx.Refresh();
+
+                        await foreach (var evt in client.FollowDiscoveryLogsAsync(jobId, cancellationToken))
+                        {
+                            if (evt.Stage == "Completed")
+                                break;
+
+                            UpdateSummaryFromProgress(summaries, evt);
+
+                            // Show activity messages (e.g. "Skipping completed project…")
+                            // even when the event has no LastProcessed key.
+                            if (!string.IsNullOrEmpty(evt.Message))
+                                statusMessage = evt.Message;
+
+                            ctx.UpdateTarget(BuildLivePanel(summaries.Values, statusMessage, startTime));
+                        }
+                    });
+            }
+            else
+            {
+                await foreach (var evt in client.FollowDiscoveryLogsAsync(jobId, cancellationToken))
+                {
+                    if (evt.Stage == "Completed")
+                        break;
+
+                    UpdateSummaryFromProgress(summaries, evt);
+                    var key = evt.LastProcessed ?? "";
+
+                    if (summaries.TryGetValue(key, out var s))
+                    {
+                        var status = s.Error != null ? "✗ Failed" : "✓";
+                        console.MarkupLine(
+                            $"  {Markup.Escape(s.Url)} / {Markup.Escape(s.ProjectName)}: " +
+                            $"{s.WorkItemsCount} work items, {s.RevisionsCount} revisions — {status}");
+                    }
+                    else if (!string.IsNullOrEmpty(evt.Message))
+                    {
+                        // Non-table events (e.g. "Skipping completed project…")
+                        console.MarkupLine($"[grey]  {Markup.Escape(evt.Message)}[/]");
+                    }
+                }
             }
         }
         catch (InvalidOperationException ex) when (ex.Message.Contains("failed"))
@@ -131,11 +202,179 @@ public sealed class InventoryCommand : ControlPlaneCommandBase<InventoryCommand.
         }
         catch (OperationCanceledException)
         {
-            console.MarkupLine("[yellow]Detached from stream. Discovery job continues running.[/]");
-            return 0;
+            if (!isStandalone)
+            {
+                console.MarkupLine("[yellow]Detached from stream. Discovery job continues running.[/]");
+                return 0;
+            }
+            throw; // Standalone: propagate so base class shows "Operation cancelled" and disposes LocalStackHost
         }
 
-        console.MarkupLine($"[green]OK Inventory complete.[/] Results written to [blue]{Markup.Escape(outputPath)}[/]");
+        console.MarkupLine($"\n[green]✅ Inventory complete.[/] Results written to [blue]{Markup.Escape(outputPath)}[/]");
         return 0;
+    }
+
+    // ── Progress-to-summary mapping ───────────────────────────────────────────
+
+    private static void UpdateSummaryFromProgress(
+        Dictionary<string, InventorySummary> summaries,
+        ProgressEvent evt)
+    {
+        // LastProcessed carries "{url}|{projectName}" from InventoryDiscoveryModule.
+        var key = evt.LastProcessed;
+        if (string.IsNullOrEmpty(key))
+            return;
+
+        var separatorIndex = key.IndexOf('|');
+        if (separatorIndex < 0)
+            return;
+
+        var url = key[..separatorIndex];
+        var project = key[(separatorIndex + 1)..];
+
+        if (!summaries.TryGetValue(key, out var summary))
+        {
+            summary = new InventorySummary { Url = url, ProjectName = project };
+            summaries[key] = summary;
+        }
+
+        summary.WorkItemsCount = evt.TotalWorkItems;
+        summary.RevisionsCount = evt.RevisionsProcessed;
+        summary.ReposCount = evt.AttachmentsProcessed;
+        summary.IsComplete = evt.Stage != "Progress";
+        summary.LastUpdatedUtc = evt.Timestamp.UtcDateTime;
+
+        if (evt.Stage == "Failed")
+            summary.Error = evt.Message;
+    }
+
+    // ── Rendering ─────────────────────────────────────────────────────────────
+
+    private static Table BuildTable(IEnumerable<InventorySummary> summaries)
+    {
+        var table = new Table()
+            .Title("[bold yellow]Discovery Inventory[/]")
+            .RoundedBorder()
+            .BorderColor(Color.Grey)
+            .AddColumn("Organisation / Collection")
+            .AddColumn("Project")
+            .AddColumn(new TableColumn("Work Items").RightAligned())
+            .AddColumn(new TableColumn("Revisions").RightAligned())
+            .AddColumn(new TableColumn("Repos").RightAligned())
+            .AddColumn("Status");
+
+        foreach (var s in summaries)
+        {
+            var status = s.Error != null
+                ? "[red]✗ Failed[/]"
+                : s.IsComplete
+                    ? "[green]✓[/]"
+                    : "[grey]…[/]";
+
+            var partial = s.Error != null && (s.WorkItemsCount > 0 || s.RevisionsCount > 0);
+            var wiCount = partial ? $"~{s.WorkItemsCount}" : s.WorkItemsCount.ToString();
+            var revCount = partial ? $"~{s.RevisionsCount}" : s.RevisionsCount.ToString();
+
+            table.AddRow(
+                Markup.Escape(s.Url),
+                Markup.Escape(s.ProjectName),
+                wiCount,
+                revCount,
+                s.ReposCount.ToString(),
+                status);
+        }
+
+        return table;
+    }
+
+    /// <summary>
+    /// Builds the live display content: the inventory table plus a status line showing
+    /// current activity (e.g. "Skipping completed project…" during resume).
+    /// </summary>
+    private static IRenderable BuildLivePanel(IEnumerable<InventorySummary> summaries, string statusMessage, DateTimeOffset startTime)
+    {
+        var table = BuildTable(summaries);
+        var parts = new List<IRenderable> { table };
+
+        // Throughput stats panel
+        var stats = BuildThroughputPanel(summaries, startTime);
+        if (stats is not null)
+            parts.Add(stats);
+
+        if (!string.IsNullOrEmpty(statusMessage))
+            parts.Add(new Markup($"[grey]{Markup.Escape(statusMessage)}[/]"));
+
+        return parts.Count == 1 ? table : new Rows(parts);
+    }
+
+    /// <summary>
+    /// Builds a throughput stats panel showing rates, elapsed time, and ETA.
+    /// Returns null if no meaningful data is available yet.
+    /// </summary>
+    private static IRenderable? BuildThroughputPanel(IEnumerable<InventorySummary> summaries, DateTimeOffset startTime)
+    {
+        var elapsed = DateTimeOffset.UtcNow - startTime;
+        if (elapsed.TotalSeconds < 1)
+            return null;
+
+        int total = 0, completed = 0, failed = 0;
+        long totalWi = 0, totalRev = 0;
+        foreach (var s in summaries)
+        {
+            total++;
+            if (s.Error != null) failed++;
+            else if (s.IsComplete) completed++;
+            totalWi += s.WorkItemsCount;
+            totalRev += s.RevisionsCount;
+        }
+
+        var remaining = total - completed - failed;
+        var hours = elapsed.TotalHours;
+
+        var statsTable = new Table()
+            .NoBorder()
+            .HideHeaders()
+            .AddColumn(new TableColumn("Label").NoWrap())
+            .AddColumn(new TableColumn("Value").RightAligned());
+
+        statsTable.AddRow("[dim]Elapsed[/]", $"[white]{FormatTimeSpan(elapsed)}[/]");
+
+        if (totalWi > 0 || totalRev > 0)
+        {
+            var wiPerHour = hours > 0.001 ? totalWi / hours : 0;
+            var revPerHour = hours > 0.001 ? totalRev / hours : 0;
+            statsTable.AddRow("[dim]Work Items / hour[/]", $"[white]{wiPerHour:N0}[/]");
+            statsTable.AddRow("[dim]Revisions / hour[/]", $"[white]{revPerHour:N0}[/]");
+        }
+
+        if (completed > 0)
+        {
+            var projPerHour = hours > 0.001 ? completed / hours : 0;
+            statsTable.AddRow("[dim]Projects / hour[/]", $"[white]{projPerHour:N1}[/]");
+
+            var avgMs = elapsed.TotalMilliseconds / completed;
+            statsTable.AddRow("[dim]Avg Project Duration[/]", $"[white]{FormatTimeSpan(TimeSpan.FromMilliseconds(avgMs))}[/]");
+
+            if (remaining > 0)
+            {
+                var eta = TimeSpan.FromMilliseconds(avgMs * remaining);
+                statsTable.AddRow("[dim]ETA (remaining)[/]", $"[yellow]{FormatTimeSpan(eta)}[/]");
+            }
+        }
+
+        return new Panel(statsTable)
+            .Header("[bold yellow]Throughput[/]")
+            .RoundedBorder()
+            .BorderColor(Color.Grey)
+            .Expand();
+    }
+
+    private static string FormatTimeSpan(TimeSpan ts)
+    {
+        if (ts.TotalHours >= 1)
+            return $"{(int)ts.TotalHours}h {ts.Minutes:D2}m {ts.Seconds:D2}s";
+        if (ts.TotalMinutes >= 1)
+            return $"{(int)ts.TotalMinutes}m {ts.Seconds:D2}s";
+        return $"{ts.Seconds}s";
     }
 }

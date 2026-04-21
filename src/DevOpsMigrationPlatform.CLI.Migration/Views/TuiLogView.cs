@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Threading;
 using System.Threading.Tasks;
@@ -26,6 +27,9 @@ public sealed class TuiLogView : FrameView
 {
     private enum LogMode { Progress, Diagnostics }
 
+    /// <summary>Maximum number of lines kept in the ring buffer before old lines are evicted.</summary>
+    private const int MaxLines = 10_000;
+
     private readonly IControlPlaneClient _client;
     private readonly ListView _listView;
     private readonly ObservableCollection<string> _lines = [];
@@ -34,16 +38,25 @@ public sealed class TuiLogView : FrameView
     private CancellationTokenSource? _streamCts;
     private Guid? _currentJobId;
 
+    /// <summary>
+    /// When true the view auto-scrolls to the newest line on each append.
+    /// Cleared when the user scrolls up; restored when they scroll back to the bottom.
+    /// </summary>
+    private bool _autoScroll = true;
+
     /// <summary>Minimum log level displayed in Diagnostics mode (default: Information).</summary>
     public string MinLevel { get; set; } = "Information";
 
     /// <summary>Fired when a terminal SSE event (<c>job-ended</c>/<c>job-failed</c>) arrives.</summary>
     public event Action<string>? OnJobEnded;
 
+    /// <summary>Fired for each <see cref="ProgressEvent"/> received in Progress mode.</summary>
+    public event Action<ProgressEvent>? OnProgressReceived;
+
     public TuiLogView(IControlPlaneClient client)
     {
         _client = client;
-        Title = "Log [Progress]";
+        Title = "Log [Progress] (End=follow)";
         CanFocus = true;
 
         _listView = new ListView
@@ -55,6 +68,10 @@ public sealed class TuiLogView : FrameView
             CanFocus = true
         };
         _listView.SetSource(_lines);
+
+        // Detect manual scrolling — pause auto-scroll when user moves up,
+        // resume when they reach the bottom.
+        _listView.SelectedItemChanged += OnSelectedItemChanged;
 
         Add(_listView);
 
@@ -73,6 +90,7 @@ public sealed class TuiLogView : FrameView
         CancelCurrentStream();
         ClearLines();
         _currentJobId = jobId;
+        _autoScroll = true;
 
         _streamCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
         Task.Run(() => RunStreamLoopAsync(jobId, _streamCts.Token), _streamCts.Token);
@@ -84,19 +102,47 @@ public sealed class TuiLogView : FrameView
         CancelCurrentStream();
         ClearLines();
         _currentJobId = null;
+        _autoScroll = true;
     }
 
     // ─── Private helpers ─────────────────────────────────────────────────────────
 
+    private void OnSelectedItemChanged(object? sender, ListViewItemEventArgs e)
+    {
+        if (_lines.Count == 0) return;
+
+        // If user scrolled to the last item, re-enable auto-scroll
+        _autoScroll = e.Item >= _lines.Count - 1;
+
+        Application.Invoke(() =>
+        {
+            Title = _autoScroll
+                ? (_mode == LogMode.Progress ? "Log [Progress] (following)" : "Log [Diagnostics] (following)")
+                : (_mode == LogMode.Progress ? "Log [Progress] (paused — End=follow)" : "Log [Diagnostics] (paused — End=follow)");
+            SetNeedsDraw();
+        });
+    }
+
     private void OnKeyDown(object? sender, Key e)
     {
+        // End key = jump to bottom and resume auto-scroll
+        if (e.KeyCode == KeyCode.End && _lines.Count > 0)
+        {
+            _autoScroll = true;
+            _listView.SelectedItem = _lines.Count - 1;
+            SetNeedsDraw();
+            e.Handled = true;
+            return;
+        }
+
         if (e.KeyCode != KeyCode.Tab)
             return;
 
         _mode = _mode == LogMode.Progress ? LogMode.Diagnostics : LogMode.Progress;
+        _autoScroll = true;
         Application.Invoke(() =>
         {
-            Title = _mode == LogMode.Progress ? "Log [Progress]" : "Log [Diagnostics]";
+            Title = _mode == LogMode.Progress ? "Log [Progress] (following)" : "Log [Diagnostics] (following)";
             SetNeedsDraw();
         });
 
@@ -158,6 +204,7 @@ public sealed class TuiLogView : FrameView
             var time = evt.Timestamp.ToLocalTime().ToString("HH:mm:ss");
             var line = $"{time} [{evt.Module}] [{evt.Stage}] {evt.Message}";
             Application.Invoke(() => AppendLine(line));
+            OnProgressReceived?.Invoke(evt);
             ended = true; // at least one event received
         }
 
@@ -187,7 +234,17 @@ public sealed class TuiLogView : FrameView
     private void AppendLine(string line)
     {
         _lines.Add(line);
-        _listView.SelectedItem = _lines.Count - 1; // scroll to bottom
+
+        // Evict oldest lines when the buffer exceeds capacity
+        while (_lines.Count > MaxLines)
+            _lines.RemoveAt(0);
+
+        // Re-assign source so Terminal.Gui recalculates MaxLength for the new content.
+        _listView.SetSource(_lines);
+
+        if (_autoScroll)
+            _listView.SelectedItem = _lines.Count - 1;
+
         SetNeedsDraw();
     }
 
@@ -196,6 +253,7 @@ public sealed class TuiLogView : FrameView
         Application.Invoke(() =>
         {
             _lines.Clear();
+            _listView.SetSource(_lines);
             SetNeedsDraw();
         });
     }
@@ -212,7 +270,10 @@ public sealed class TuiLogView : FrameView
     protected override void Dispose(bool disposing)
     {
         if (disposing)
+        {
+            _listView.SelectedItemChanged -= OnSelectedItemChanged;
             CancelCurrentStream();
+        }
 
         base.Dispose(disposing);
     }

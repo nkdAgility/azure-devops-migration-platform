@@ -87,6 +87,12 @@ public abstract class CommandBase<TSettings> : AsyncCommand<TSettings>
     protected override async Task<int> ExecuteAsync(
         CommandContext context, TSettings settings, CancellationToken cancellationToken = default)
     {
+        // Link the Spectre.Console-provided token with the process-wide Ctrl+C signal
+        // so that all downstream async operations honour both cancellation sources.
+        using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(
+            cancellationToken, GlobalCancellation.Token);
+        var ct = linkedCts.Token;
+
         // ── Interactive config resolution ──────────────────────────────────
         // When --config is not supplied and the command requires a migration scenario config,
         // present a SelectionPrompt so the operator can pick a scenario.
@@ -105,7 +111,12 @@ public abstract class CommandBase<TSettings> : AsyncCommand<TSettings>
 
         try
         {
-            return await ExecuteInternalAsync(context, settings, cancellationToken);
+            return await ExecuteInternalAsync(context, settings, ct);
+        }
+        catch (OperationCanceledException)
+        {
+            AnsiConsole.MarkupLine("[yellow]⚠[/] Operation cancelled.");
+            return 130; // Standard Unix convention: 128 + SIGINT(2)
         }
         catch (Exception ex)
         {

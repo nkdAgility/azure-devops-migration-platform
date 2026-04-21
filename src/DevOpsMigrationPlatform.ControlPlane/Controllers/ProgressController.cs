@@ -125,6 +125,12 @@ public sealed class ProgressController : ControllerBase
         HttpContext.Response.Headers["Cache-Control"] = "no-cache";
         HttpContext.Response.Headers["X-Accel-Buffering"] = "no";
 
+        // Write an SSE comment immediately to force HTTP response headers to the
+        // client. Without this, Kestrel may defer header delivery until the first
+        // real data write, causing the client's ResponseHeadersRead to block.
+        await HttpContext.Response.WriteAsync(": stream-open\n\n", ct);
+        await HttpContext.Response.Body.FlushAsync(ct);
+
         var (reader, writer) = _store.Subscribe(jobId);
         try
         {

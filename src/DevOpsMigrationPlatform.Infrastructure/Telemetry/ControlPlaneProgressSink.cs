@@ -54,7 +54,13 @@ public sealed class ControlPlaneProgressSink : BackgroundService, IProgressSink
             {
                 var leaseId = _leaseState.CurrentLeaseId;
                 if (string.IsNullOrEmpty(leaseId))
+                {
+                    _logger.LogWarning(
+                        "Progress event for stage {Stage} dropped — no active lease. " +
+                        "The agent may not have acquired a lease yet.",
+                        evt.Stage);
                     continue;
+                }
 
                 try
                 {
@@ -63,19 +69,22 @@ public sealed class ControlPlaneProgressSink : BackgroundService, IProgressSink
                         .ConfigureAwait(false);
 
                     if (!response.IsSuccessStatusCode)
-                        _logger.LogDebug(
+                        _logger.LogWarning(
                             "Progress POST for lease {LeaseId} returned {StatusCode}. Event dropped.",
                             leaseId, (int)response.StatusCode);
-                }
-                catch (HttpRequestException ex)
-                {
-                    _logger.LogDebug(ex,
-                        "Progress POST for lease {LeaseId} failed with HTTP error. Event dropped.",
-                        leaseId);
                 }
                 catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
                 {
                     return;
+                }
+                catch (Exception ex)
+                {
+                    // Catch-all: prevents a single failed POST (timeout, serialisation,
+                    // transient network error) from crashing the BackgroundService and
+                    // silently dropping all subsequent events.
+                    _logger.LogWarning(ex,
+                        "Progress POST for lease {LeaseId} failed. Event dropped.",
+                        leaseId);
                 }
             }
         }

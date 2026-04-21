@@ -114,6 +114,50 @@ public class QueueCommandTests
     }
 
     /// <summary>
+    /// Verifies that when the config specifies <c>Environment.Type = Hosted</c> and the control
+    /// plane is not running, the CLI fails fast with an actionable error — without performing
+    /// expensive preflight operations (e.g. work item counting).
+    /// Uses the simulated export config with the environment type overridden via env vars.
+    /// </summary>
+    [TestMethod]
+    [TestCategory("SystemTest")]
+    [TestCategory("SystemTest_Simulated")]
+    [Timeout(30_000)] // 30 seconds — should fail fast
+    public async Task QueueCommand_WithHostedModeAndUnreachableControlPlane_FailsFast()
+    {
+        // ── Act — override to Hosted mode pointing at a port nothing listens on ──
+        var result = await CliRunner.RunAsync(
+            args: ["queue", "--config", "scenarios/queue-export-workitems-simulated-source.json"],
+            env: new Dictionary<string, string>
+            {
+                ["MigrationPlatform__Environment__Type"] = "Hosted",
+                ["MigrationPlatform__Environment__ControlPlane__BaseUrl"] = "http://localhost:59999"
+            },
+            timeout: TimeSpan.FromSeconds(25));
+
+        Console.WriteLine("=== STDOUT ===");
+        Console.WriteLine(result.StandardOutput);
+        if (!string.IsNullOrEmpty(result.StandardError))
+        {
+            Console.WriteLine("=== STDERR ===");
+            Console.WriteLine(result.StandardError);
+        }
+
+        // ── Assert ────────────────────────────────────────────────────────
+        Assert.IsFalse(result.TimedOut, "CLI timed out — should have failed fast.");
+        Assert.AreNotEqual(0, result.ExitCode,
+            "CLI should exit non-zero when the control plane is unreachable.");
+
+        var combinedOutput = result.StandardOutput + result.StandardError;
+        Assert.IsTrue(
+            combinedOutput.Contains("not reachable", StringComparison.OrdinalIgnoreCase),
+            "Expected 'not reachable' error message in output.");
+        Assert.IsTrue(
+            combinedOutput.Contains("\"Type\": \"Standalone\"", StringComparison.OrdinalIgnoreCase),
+            "Expected guidance showing the Standalone config snippet in output.");
+    }
+
+    /// <summary>
     /// Runs <c>devopsmigration queue --config scenarios/queue-import-workitems-simulated-fixture.json --force-fresh</c>
     /// as a subprocess. Uses a pre-built fixture zip (<c>scenarios/testdata/workitems-2items-flat.zip</c>)
     /// with a <c>Simulated</c> target — no live credentials required.

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Text;
 using System.Text.Json;
@@ -48,18 +49,61 @@ public sealed class InventoryDiscoveryModule : IDiscoveryModule
 
         _logger.LogInformation("Inventory module starting for job {JobId}.", job.JobId);
 
-        // Read checkpoint — resume from last completed project.
+        // Read checkpoint — presence means a previous run was interrupted.
         var lastCompleted = await ReadCursorAsync(state, ct).ConfigureAwait(false);
-        var skipping = lastCompleted is not null;
+        var isResuming = lastCompleted is not null;
 
-        if (skipping)
+        if (isResuming)
             using (DataClassificationScope.Begin(DataClassification.Customer))
                 _logger.LogInformation("Resuming inventory after project '{LastCompleted}'.", lastCompleted);
 
         var inventoryService = _inventoryFactory.Create(job.Organisations, job.Policies);
 
+        // Emit a probe event so the CLI live table transitions from "…" to "Starting"
+        // immediately, proving the sink pipeline works before the API returns data.
+        sink.Emit(new ProgressEvent
+        {
+            Module = Name,
+            Stage = "Progress",
+            Message = "Inventory starting — connecting to source…",
+            Timestamp = DateTimeOffset.UtcNow
+        });
+
         var csvBuilder = new StringBuilder();
         csvBuilder.AppendLine("Url,ProjectName,WorkItemsCount,RevisionsCount,ReposCount,IsComplete,Error");
+
+        // Build the set of completed project keys from the existing CSV so the
+        // service can skip them entirely — zero API calls for already-counted projects.
+        var completedKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        if (isResuming)
+        {
+            var existingCsv = await store.ReadAsync(OutputPath, ct).ConfigureAwait(false);
+            if (existingCsv is not null)
+            {
+                var lines = existingCsv.Split('\n');
+                for (int i = 1; i < lines.Length; i++) // skip header
+                {
+                    var trimmed = lines[i].TrimEnd('\r');
+                    if (string.IsNullOrWhiteSpace(trimmed)) continue;
+                    csvBuilder.AppendLine(trimmed);
+                    EmitCatchupFromCsvLine(sink, trimmed);
+
+                    var parts = trimmed.Split(',');
+                    if (parts.Length >= 2)
+                        completedKeys.Add($"{UnescapeCsv(parts[0])}|{UnescapeCsv(parts[1])}");
+                }
+                _logger.LogInformation(
+                    "Loaded {Count} previously-completed project(s) from existing CSV.", completedKeys.Count);
+            }
+
+            sink.Emit(new ProgressEvent
+            {
+                Module = Name,
+                Stage = "Resuming",
+                Message = $"Resuming — skipping {completedKeys.Count} previously-completed project(s).",
+                Timestamp = DateTimeOffset.UtcNow
+            });
+        }
 
         var checkpointInterval = TimeSpan.FromSeconds(job.Policies.CheckpointIntervalSeconds);
         var lastCheckpoint = DateTime.UtcNow;
@@ -70,18 +114,27 @@ public sealed class InventoryDiscoveryModule : IDiscoveryModule
         var projectSw = new Stopwatch();
         int orgProjectCount = 0;
 
-        await foreach (var evt in inventoryService.RunInventoryAsync(ct).ConfigureAwait(false))
+        // Pass completed keys so the service skips them — no re-counting.
+        await foreach (var evt in inventoryService.RunInventoryAsync(
+            completedKeys.Count > 0 ? completedKeys : null, ct).ConfigureAwait(false))
         {
-            if (!evt.IsComplete)
-                continue;
-
             var projectKey = $"{evt.Url}|{evt.ProjectName}";
 
-            // Skip already-completed projects when resuming.
-            if (skipping)
+            // Forward intermediate heartbeats so the CLI live table updates progressively
+            // (e.g. Petrel: 291k work items counted ~200 at a time).
+            if (!evt.IsComplete)
             {
-                if (projectKey == lastCompleted)
-                    skipping = false;
+                sink.Emit(new ProgressEvent
+                {
+                    Module = Name,
+                    Stage = "Progress",
+                    LastProcessed = projectKey,
+                    TotalWorkItems = evt.WorkItemsCount,
+                    RevisionsProcessed = evt.RevisionsCount,
+                    AttachmentsProcessed = evt.ReposCount,
+                    Message = $"{evt.Url} / {evt.ProjectName}: {evt.WorkItemsCount} work items so far…",
+                    Timestamp = DateTimeOffset.UtcNow
+                });
                 continue;
             }
 
@@ -143,8 +196,14 @@ public sealed class InventoryDiscoveryModule : IDiscoveryModule
             sink.Emit(new ProgressEvent
             {
                 Module = Name,
-                Stage = "Inventory",
-                Message = $"{evt.Url} / {evt.ProjectName}: {evt.WorkItemsCount} work items",
+                Stage = evt.Error is not null ? "Failed" : "Inventory",
+                LastProcessed = $"{evt.Url}|{evt.ProjectName}",
+                TotalWorkItems = evt.WorkItemsCount,
+                RevisionsProcessed = evt.RevisionsCount,
+                AttachmentsProcessed = evt.ReposCount,
+                Message = evt.Error is not null
+                    ? $"{evt.Url} / {evt.ProjectName}: failed — {evt.Error}"
+                    : $"{evt.Url} / {evt.ProjectName}: {evt.WorkItemsCount} work items, {evt.RevisionsCount} revisions, {evt.ReposCount} repos",
                 Timestamp = DateTimeOffset.UtcNow
             });
 
@@ -208,6 +267,42 @@ public sealed class InventoryDiscoveryModule : IDiscoveryModule
     {
         if (value.Contains(",") || value.Contains("\"") || value.Contains("\n"))
             return $"\"{value.Replace("\"", "\"\"")}\"";
+        return value;
+    }
+
+    /// <summary>
+    /// Emits a catchup <see cref="ProgressEvent"/> from a CSV data line so the CLI live table
+    /// shows actual counts for projects completed in a previous (interrupted) run.
+    /// </summary>
+    private static void EmitCatchupFromCsvLine(IProgressSink sink, string csvLine)
+    {
+        // CSV format: Url,ProjectName,WorkItemsCount,RevisionsCount,ReposCount,IsComplete,Error
+        var parts = csvLine.Split(',');
+        if (parts.Length < 6) return;
+
+        var url = UnescapeCsv(parts[0]);
+        var projectName = UnescapeCsv(parts[1]);
+        if (!int.TryParse(parts[2], out var workItems)) return;
+        if (!int.TryParse(parts[3], out var revisions)) return;
+        if (!int.TryParse(parts[4], out var repos)) return;
+
+        sink.Emit(new ProgressEvent
+        {
+            Module = "Inventory",
+            Stage = "Inventory",
+            LastProcessed = $"{url}|{projectName}",
+            TotalWorkItems = workItems,
+            RevisionsProcessed = revisions,
+            AttachmentsProcessed = repos,
+            Message = $"{url} / {projectName}: {workItems} work items, {revisions} revisions, {repos} repos (resumed)",
+            Timestamp = DateTimeOffset.UtcNow
+        });
+    }
+
+    private static string UnescapeCsv(string value)
+    {
+        if (value.Length >= 2 && value[0] == '"' && value[value.Length - 1] == '"')
+            return value.Substring(1, value.Length - 2).Replace("\"\"", "\"");
         return value;
     }
 }

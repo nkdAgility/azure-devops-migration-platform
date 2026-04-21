@@ -39,6 +39,7 @@ public sealed class InventoryService : IInventoryService
     }
 
     public async IAsyncEnumerable<InventoryProgressEvent> RunInventoryAsync(
+        HashSet<string>? completedProjectKeys = null,
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         var opts = _options.Value;
@@ -61,6 +62,11 @@ public sealed class InventoryService : IInventoryService
 
             foreach (var project in projects)
             {
+                // Skip projects already completed in a previous run — no API calls.
+                var projectKey = $"{endpoint.GetResolvedUrl()}|{project}";
+                if (completedProjectKeys?.Contains(projectKey) == true)
+                    continue;
+
                 // Start repo count concurrently while work items are being enumerated
                 var repoCountTask = _repoDiscovery.CountReposAsync(endpoint, project, cancellationToken);
 
@@ -136,8 +142,8 @@ public sealed class InventoryService : IInventoryService
             }
             else if (string.Equals(scope.Type, "filter", StringComparison.OrdinalIgnoreCase))
             {
-                var mode    = GetParam(scope.Parameters, "mode").Trim();
-                var field   = GetParam(scope.Parameters, "field").Trim();
+                var mode = GetParam(scope.Parameters, "mode").Trim();
+                var field = GetParam(scope.Parameters, "field").Trim();
                 var pattern = GetParam(scope.Parameters, "pattern").Trim();
 
                 if (string.IsNullOrEmpty(field) || string.IsNullOrEmpty(pattern))

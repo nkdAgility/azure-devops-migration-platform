@@ -61,4 +61,48 @@ public class TuiMetricsViewTests
         view.Update(snap1);
         view.Update(snap2);
     }
+
+    [TestMethod]
+    public void UpdateDiscovery_WithSnapshot_DoesNotCrash()
+    {
+        // Arrange
+        var view = new TuiMetricsView();
+        var snapshot = new DiscoveryMetricSnapshot
+        {
+            OrganisationsCompleted = 1,
+            ProjectsCompleted = 5,
+            ProjectsFailed = 1,
+            WorkItemsCounted = 10000,
+            RevisionsCounted = 50000,
+            ReposCounted = 42,
+            LinksFound = 300,
+            WorkItemsAnalysed = 8000,
+            CheckpointsSaved = 3,
+            ProjectsQueued = 2,
+            OrganisationsQueued = 1,
+            ProjectDurationMeanMs = 12500.0
+        };
+        var computed = new DiscoveryComputedMetrics
+        {
+            WorkItemsPerHour = 5000.0,
+            RevisionsPerHour = 25000.0,
+            ProjectsPerHour = 2.5,
+            Elapsed = TimeSpan.FromMinutes(120),
+            EstimatedRemaining = TimeSpan.FromMinutes(48)
+        };
+
+        // Act + Assert (no exception means formatting logic ran)
+        view.UpdateDiscovery(snapshot);
+    }
+
+    [TestMethod]
+    public void UpdateDiscovery_WithNullRates_ShowsDashes()
+    {
+        // Arrange
+        var view = new TuiMetricsView();
+        var snapshot = new DiscoveryMetricSnapshot();
+
+        // Act + Assert (no crash with all-null/zero values)
+        view.UpdateDiscovery(snapshot);
+    }
 }

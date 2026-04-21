@@ -9,6 +9,7 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Console;
 
 namespace DevOpsMigrationPlatform.CLI;
 
@@ -17,9 +18,9 @@ namespace DevOpsMigrationPlatform.CLI;
 /// the environment type is <c>Standalone</c> (the default).
 ///
 /// This allows a single <c>devopsmigration export --config ...</c> command to start the
-/// full local stack transparently — ControlPlane API on <c>http://localhost:5100</c>,
+/// full local stack transparently — ControlPlane API on <c>http://localhost:{port}</c>,
 /// MigrationAgent polling that API — with no Docker, no Aspire, and no external
-/// processes required.
+/// processes required. The port defaults to 5100 but is configurable via <c>--port</c>.
 ///
 /// The same service classes used by <c>ControlPlaneHost</c> and <c>MigrationAgent</c>
 /// are loaded here, so no migration logic is duplicated. When PostgreSQL is added to
@@ -29,13 +30,22 @@ namespace DevOpsMigrationPlatform.CLI;
 /// </summary>
 public sealed class LocalStackHost : IAsyncDisposable
 {
-    private static readonly Uri LocalControlPlaneUrl = new("http://localhost:5100");
+    private readonly Uri _controlPlaneUrl;
 
     private WebApplication? _controlPlane;
     private IHost? _agent;
 
     /// <summary>
-    /// Starts the ControlPlane ASP.NET Core API on <c>http://localhost:5100</c>,
+    /// Creates a new <see cref="LocalStackHost"/> that binds the control plane to the given port.
+    /// </summary>
+    /// <param name="port">TCP port for the in-process control plane API. Default: 5100.</param>
+    public LocalStackHost(int port = 5100)
+    {
+        _controlPlaneUrl = new Uri($"http://localhost:{port}");
+    }
+
+    /// <summary>
+    /// Starts the ControlPlane ASP.NET Core API on the configured port,
     /// waits for it to be healthy, then starts the MigrationAgent worker.
     /// </summary>
     public async Task StartAsync(CancellationToken cancellationToken = default)
@@ -80,7 +90,7 @@ public sealed class LocalStackHost : IAsyncDisposable
                 string.Empty, opts => opts.JsonSerializerOptions.Converters.Add(converter));
         });
 
-        builder.WebHost.UseUrls(LocalControlPlaneUrl.ToString().TrimEnd('/'));
+        builder.WebHost.UseUrls(_controlPlaneUrl.ToString().TrimEnd('/'));
 
         _controlPlane = builder.Build();
 
@@ -106,7 +116,7 @@ public sealed class LocalStackHost : IAsyncDisposable
 
     private async Task WaitForHealthyAsync(CancellationToken cancellationToken)
     {
-        using var http = new HttpClient { BaseAddress = LocalControlPlaneUrl };
+        using var http = new HttpClient { BaseAddress = _controlPlaneUrl };
         var deadline = DateTime.UtcNow.AddSeconds(10);
 
         while (DateTime.UtcNow < deadline)
@@ -126,19 +136,21 @@ public sealed class LocalStackHost : IAsyncDisposable
         }
 
         throw new TimeoutException(
-            "ControlPlane API at http://localhost:5100 did not become ready within 10 seconds.");
+            $"ControlPlane API at {_controlPlaneUrl} did not become ready within 10 seconds.");
     }
 
     private async Task StartAgentAsync(CancellationToken cancellationToken)
     {
         var builder = Host.CreateApplicationBuilder();
 
-        // Keep console output quiet but allow Information+ through to package/control-plane
-        // log sinks. Each sink applies its own DiagnosticLogOptions.MinimumLevel filter.
-        builder.Logging.AddFilter("Microsoft", LogLevel.Warning);
-        builder.Logging.AddFilter("System", LogLevel.Warning);
+        // The CLI handles all user-facing console output via Spectre.Console and the
+        // SSE progress stream. Suppress the default console logger entirely so internal
+        // agent logs (Polly, JobAgentWorker, module diagnostics) do not leak to stdout.
+        // Diagnostic logs still flow to PackageLoggerProvider (Logs/agent.jsonl) and
+        // ControlPlaneLoggerProvider (diagnostics endpoint).
+        builder.Logging.AddFilter<ConsoleLoggerProvider>(_ => false);
 
-        builder.AddMigrationAgentServices(LocalControlPlaneUrl);
+        builder.AddMigrationAgentServices(_controlPlaneUrl);
 
         _agent = builder.Build();
         await _agent.StartAsync(cancellationToken);
@@ -146,19 +158,35 @@ public sealed class LocalStackHost : IAsyncDisposable
 
     public async ValueTask DisposeAsync()
     {
-        // Stop agent first so it finishes its current poll cycle cleanly
-        if (_agent is not null)
-        {
-            await _agent.StopAsync(TimeSpan.FromSeconds(5));
-            _agent.Dispose();
-            _agent = null;
-        }
+        // Use a bounded timeout so Ctrl+C / ProcessExit never hangs.
+        using var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
 
-        if (_controlPlane is not null)
+        try
         {
-            await _controlPlane.StopAsync(TimeSpan.FromSeconds(5));
-            await _controlPlane.DisposeAsync();
-            _controlPlane = null;
+            if (_agent is not null)
+            {
+                await _agent.StopAsync(timeoutCts.Token);
+                _agent.Dispose();
+                _agent = null;
+            }
+
+            if (_controlPlane is not null)
+            {
+                await _controlPlane.StopAsync(timeoutCts.Token);
+                await _controlPlane.DisposeAsync();
+                _controlPlane = null;
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // Timeout exceeded — forcibly dispose whatever we can.
+            _agent?.Dispose();
+            _agent = null;
+            if (_controlPlane is not null)
+            {
+                await _controlPlane.DisposeAsync();
+                _controlPlane = null;
+            }
         }
     }
 }

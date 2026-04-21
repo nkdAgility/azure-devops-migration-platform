@@ -45,6 +45,19 @@ public sealed class TuiMetricsView : FrameView
         });
     }
 
+    /// <summary>
+    /// Shows discovery-specific metrics including the full <see cref="DiscoveryMetricSnapshot"/>
+    /// and computed throughput rates. Safe to call from any thread.
+    /// </summary>
+    public void UpdateDiscovery(DiscoveryMetricSnapshot snapshot)
+    {
+        Application.Invoke(() =>
+        {
+            _content.Text = FormatDiscoverySnapshot(snapshot);
+            SetNeedsDraw();
+        });
+    }
+
     /// <summary>Shows "(waiting for agent…)" when a job is selected but no snapshot has arrived yet.</summary>
     public void SetWaiting()
     {
@@ -75,10 +88,49 @@ public sealed class TuiMetricsView : FrameView
         $"Revisions Missing    : {s.RevisionsMissing,8}\n" +
         $"Rev Order Errors     : {s.RevisionOrderErrors,8}";
 
+    private static string FormatDiscoverySnapshot(DiscoveryMetricSnapshot s)
+    {
+        return
+            $"── Progress ──────────────────────\n" +
+            $"Orgs Completed       : {s.OrganisationsCompleted,8}\n" +
+            $"Orgs Failed          : {s.OrganisationsFailed,8}\n" +
+            $"Orgs Queued          : {s.OrganisationsQueued,8}\n" +
+            $"\n" +
+            $"Projects In Progress : {s.ProjectsQueued,8}\n" +
+            $"Projects Completed   : {s.ProjectsCompleted,8}\n" +
+            $"Projects Failed      : {s.ProjectsFailed,8}\n" +
+            $"\n" +
+            $"── Inventory ─────────────────────\n" +
+            $"Work Items Counted   : {s.WorkItemsCounted,8:N0}\n" +
+            $"Revisions Counted    : {s.RevisionsCounted,8:N0}\n" +
+            $"Repos Counted        : {s.ReposCounted,8:N0}\n" +
+            $"\n" +
+            $"── Dependencies ──────────────────\n" +
+            $"Links Found          : {s.LinksFound,8:N0}\n" +
+            $"Work Items Analysed  : {s.WorkItemsAnalysed,8:N0}\n" +
+            $"\n" +
+            $"── Operational ───────────────────\n" +
+            $"Checkpoints Saved    : {s.CheckpointsSaved,8}";
+    }
+
     private static string FormatMean(double? value, string unit = "")
     {
-        if (!value.HasValue) return "       \u2014";
+        if (!value.HasValue) return "       —";
         var suffix = unit.Length > 0 ? $" {unit}" : "";
         return $"{value.Value,8:F1}{suffix}";
     }
+}
+
+/// <summary>
+/// Computed (inferred) metrics derived from snapshot deltas and wall-clock time.
+/// </summary>
+public sealed record DiscoveryComputedMetrics
+{
+    public double? WorkItemsPerHour { get; init; }
+    public double? RevisionsPerHour { get; init; }
+    public double? LinksPerHour { get; init; }
+    public double? AnalysedPerHour { get; init; }
+    public double? ProjectsPerHour { get; init; }
+    public System.TimeSpan Elapsed { get; init; }
+    public System.TimeSpan? EstimatedRemaining { get; init; }
 }
