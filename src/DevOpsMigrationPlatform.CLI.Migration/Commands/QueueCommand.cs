@@ -10,6 +10,7 @@ using DevOpsMigrationPlatform.CLI.Commands;
 using DevOpsMigrationPlatform.CLI.JobRunners;
 using DevOpsMigrationPlatform.CLI.Migration.Options;
 using DevOpsMigrationPlatform.CLI.Migration.Settings;
+using DevOpsMigrationPlatform.CLI.Migration.Utilities;
 using DevOpsMigrationPlatform.CLI.Views;
 using DevOpsMigrationPlatform.Infrastructure.Services;
 using DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Validation;
@@ -103,7 +104,10 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
             return 1;
         }
 
-        var outputPath = Path.GetFullPath(packagePath);
+        var outputPath = Path.Combine(
+            Path.GetFullPath(packagePath),
+            PathUtilities.ExtractOrgFolderName(orgUrl),
+            project);
         console.MarkupLine($"[blue]ℹ[/] Importing into [bold]{Markup.Escape(orgUrl)}[/] / [bold]{Markup.Escape(project)}[/]");
         console.MarkupLine($"[blue]ℹ[/] Package path   : [blue]{Markup.Escape(outputPath)}[/]");
 
@@ -222,9 +226,13 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
     {
         var console = GetRequiredService<IAnsiConsole>();
 
-        var outputPath = Path.GetFullPath(config.Package.ExpandedPath);
         var orgUrl = config.Source?.GetResolvedUrl() ?? "https://simulated.example.com";
         var project = config.Source?.GetProject() ?? "SimulatedProject";
+
+        var outputPath = Path.Combine(
+            Path.GetFullPath(config.Package.ExpandedPath),
+            PathUtilities.ExtractOrgFolderName(orgUrl),
+            project);
 
         console.MarkupLine($"[blue]ℹ[/] Exporting from [bold]Simulated[/] source");
         console.MarkupLine($"[blue]ℹ[/] Package path  : [blue]{Markup.Escape(outputPath)}[/]");
@@ -325,7 +333,10 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
             return 1;
         }
 
-        var outputPath = Path.GetFullPath(config.Package.ExpandedPath);
+        var outputPath = Path.Combine(
+            Path.GetFullPath(config.Package.ExpandedPath),
+            PathUtilities.ExtractOrgFolderName(orgUrl),
+            project);
 
         console.MarkupLine($"[blue]ℹ[/] Exporting from [bold]{Markup.Escape(orgUrl)}[/] / [bold]{Markup.Escape(project)}[/]");
         console.MarkupLine($"[blue]ℹ[/] Package path  : [blue]{Markup.Escape(outputPath)}[/]");

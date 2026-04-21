@@ -15,6 +15,7 @@ using DevOpsMigrationPlatform.CLI.JobRunners;
 using DevOpsMigrationPlatform.CLI.Migration.Commands;
 using DevOpsMigrationPlatform.CLI.Migration.Options;
 using DevOpsMigrationPlatform.CLI.Migration.Settings;
+using DevOpsMigrationPlatform.CLI.Migration.Utilities;
 using DevOpsMigrationPlatform.Infrastructure.AzureDevOps;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
@@ -831,33 +832,11 @@ public sealed class DependencyCommand : ControlPlaneCommandBase<DependencyComman
 
     // ── Helpers ───────────────────────────────────────────────────────────────
 
-    private static string ExtractOrgName(string orgUrl)
-    {
-        if (string.IsNullOrWhiteSpace(orgUrl))
-            return "unknown";
+    private static string ExtractOrgName(string orgUrl) =>
+        PathUtilities.ExtractOrgFolderName(orgUrl);
 
-        if (!Uri.TryCreate(orgUrl, UriKind.Absolute, out var uri))
-            return SanitiseFolderName(orgUrl);
-
-        if (uri.Host.Equals("dev.azure.com", StringComparison.OrdinalIgnoreCase))
-        {
-            var segments = uri.AbsolutePath.Split('/', StringSplitOptions.RemoveEmptyEntries);
-            if (segments.Length > 0)
-                return SanitiseFolderName(segments[0]);
-        }
-
-        var hostParts = uri.Host.Split('.');
-        if (hostParts.Length >= 3 && hostParts[^2].Equals("visualstudio", StringComparison.OrdinalIgnoreCase))
-            return SanitiseFolderName(hostParts[0]);
-
-        return SanitiseFolderName(uri.Host);
-    }
-
-    private static string SanitiseFolderName(string name)
-    {
-        var clean = Regex.Replace(name, @"[^\w\-]", "_");
-        return string.IsNullOrWhiteSpace(clean) ? "unknown" : clean;
-    }
+    private static string SanitiseFolderName(string name) =>
+        PathUtilities.Sanitise(name);
 
     private static string CsvEscape(string value) =>
         value.Contains(',') || value.Contains('"') || value.Contains('\n')
