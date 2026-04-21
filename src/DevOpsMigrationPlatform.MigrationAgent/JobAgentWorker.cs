@@ -125,6 +125,7 @@ public sealed class JobAgentWorker : BackgroundService
             lease.LeaseId, lease.Job.JobId, lease.Job.GetType().Name);
 
         _leaseState.CurrentLeaseId = lease.LeaseId;
+        _packageState.CurrentJobId = lease.Job.JobId;
 
         switch (lease.Job)
         {
@@ -147,7 +148,7 @@ public sealed class JobAgentWorker : BackgroundService
         }
 
         _leaseState.CurrentLeaseId = null;
-        _packageState.CurrentStore = null;
+        _packageState.Clear();
     }
 
     // ── Migration execution ───────────────────────────────────────────────────

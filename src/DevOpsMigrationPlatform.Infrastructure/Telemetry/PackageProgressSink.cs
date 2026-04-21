@@ -25,7 +25,7 @@ public sealed class PackageProgressSink : BackgroundService, IProgressSink
     private const int ChannelCapacity = 100;
     private const int FlushBatchSize = 50;
     private static readonly TimeSpan FlushInterval = TimeSpan.FromMilliseconds(500);
-    private const string LogPath = "Logs/progress.jsonl";
+    private const string LogFileName = "progress.jsonl";
 
     private readonly Channel<ProgressEvent> _channel = Channel.CreateBounded<ProgressEvent>(
         new BoundedChannelOptions(ChannelCapacity) { FullMode = BoundedChannelFullMode.DropOldest });
@@ -137,7 +137,8 @@ public sealed class PackageProgressSink : BackgroundService, IProgressSink
             {
                 sb.AppendLine(JsonSerializer.Serialize(evt));
             }
-            await store.AppendAsync(LogPath, sb.ToString(), cancellationToken).ConfigureAwait(false);
+            var logPath = $"{_packageState.CurrentLogFolder}/{LogFileName}";
+            await store.AppendAsync(logPath, sb.ToString(), cancellationToken).ConfigureAwait(false);
         }
         catch (Exception ex)
         {

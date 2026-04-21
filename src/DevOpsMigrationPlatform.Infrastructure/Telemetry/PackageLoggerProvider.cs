@@ -27,7 +27,6 @@ namespace DevOpsMigrationPlatform.Infrastructure.Telemetry;
 [ProviderAlias("PackageLogger")]
 public sealed class PackageLoggerProvider : BackgroundService, ILoggerProvider
 {
-    private const string LogDir = "Logs";
     private const string LogBaseName = "agent";
     private const string LogExtension = ".jsonl";
 
@@ -62,12 +61,19 @@ public sealed class PackageLoggerProvider : BackgroundService, ILoggerProvider
     }
 
     /// <summary>
-    /// Returns the current log segment path (e.g. <c>Logs/agent.jsonl</c>,
-    /// <c>Logs/agent-001.jsonl</c>, etc.).
+    /// Returns the current log segment path (e.g. <c>Logs/638...-jobId/agent.jsonl</c>,
+    /// <c>Logs/638...-jobId/agent-001.jsonl</c>, etc.).
     /// </summary>
-    internal string CurrentLogPath => _segmentIndex == 0
-        ? $"{LogDir}/{LogBaseName}{LogExtension}"
-        : $"{LogDir}/{LogBaseName}-{_segmentIndex:D3}{LogExtension}";
+    internal string CurrentLogPath
+    {
+        get
+        {
+            var logDir = _packageState.CurrentLogFolder;
+            return _segmentIndex == 0
+                ? $"{logDir}/{LogBaseName}{LogExtension}"
+                : $"{logDir}/{LogBaseName}-{_segmentIndex:D3}{LogExtension}";
+        }
+    }
 
     public ILogger CreateLogger(string categoryName)
         => new PackageLogger(this, categoryName);

@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
@@ -10,8 +11,10 @@ using Microsoft.Extensions.Logging;
 namespace DevOpsMigrationPlatform.ControlPlane.Controllers;
 
 /// <summary>
-/// Downloads package log files (<c>Logs/progress.jsonl</c> or <c>Logs/agent.jsonl</c>)
-/// from a completed job's package via <see cref="IPackageStoreFactory"/> and <see cref="IArtefactStore"/>.
+/// Downloads package log files from a completed job's package via
+/// <see cref="IPackageStoreFactory"/> and <see cref="IArtefactStore"/>.
+/// Logs are stored in job-scoped folders: <c>Logs/&lt;ticks&gt;-&lt;jobId&gt;/</c>.
+/// Falls back to the flat <c>Logs/</c> folder for packages created before job-scoped logging.
 /// <c>GET /jobs/{jobId}/logs/download?type=progress|diagnostics</c>
 /// </summary>
 [ApiController]
@@ -64,13 +67,15 @@ public sealed class LogDownloadController : ControllerBase
         if (string.IsNullOrWhiteSpace(packageUri))
             return NotFound("Job has no package URI.");
 
-        var logPath = string.Equals(type, "diagnostics", StringComparison.OrdinalIgnoreCase)
-            ? "Logs/agent.jsonl"
-            : "Logs/progress.jsonl";
+        var fileName = string.Equals(type, "diagnostics", StringComparison.OrdinalIgnoreCase)
+            ? "agent.jsonl"
+            : "progress.jsonl";
 
         try
         {
             var (store, _) = _packageStoreFactory.Create(packageUri);
+
+            var logPath = await ResolveLogPathAsync(store, jobId.ToString(), fileName, ct);
 
             var exists = await store.ExistsAsync(logPath, ct);
             if (!exists)
@@ -84,10 +89,34 @@ public sealed class LogDownloadController : ControllerBase
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to read {LogPath} from package {PackageUri} for job {JobId}.",
-                logPath, packageUri, jobId);
+            _logger.LogError(ex, "Failed to read {FileName} from package {PackageUri} for job {JobId}.",
+                fileName, packageUri, jobId);
             return StatusCode(StatusCodes.Status500InternalServerError,
                 "Failed to read log file from the package.");
         }
+    }
+
+    /// <summary>
+    /// Resolves the full artefact path for a log file by finding the job-scoped subfolder
+    /// under <c>Logs/</c> whose name ends with <c>-{jobId}</c>.
+    /// Falls back to the flat <c>Logs/{fileName}</c> for backward compatibility.
+    /// </summary>
+    private static async Task<string> ResolveLogPathAsync(
+        IArtefactStore store, string jobId, string fileName, CancellationToken ct)
+    {
+        // Look for job-scoped folder: Logs/<ticks>-<jobId>/
+        await foreach (var entry in store.EnumerateAsync("Logs/", ct))
+        {
+            // EnumerateAsync returns relative paths like "Logs/<ticks>-<jobId>/agent.jsonl"
+            // We look for a subfolder whose name ends with the jobId
+            var segments = entry.Split('/');
+            if (segments.Length >= 2 && segments[1].EndsWith($"-{jobId}", StringComparison.OrdinalIgnoreCase))
+            {
+                return $"Logs/{segments[1]}/{fileName}";
+            }
+        }
+
+        // Backward compatibility: flat Logs/ folder
+        return $"Logs/{fileName}";
     }
 }
