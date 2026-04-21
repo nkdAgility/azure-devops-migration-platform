@@ -72,10 +72,28 @@ public sealed class InventoryDiscoveryModule : IDiscoveryModule
 
         await foreach (var evt in inventoryService.RunInventoryAsync(ct).ConfigureAwait(false))
         {
-            if (!evt.IsComplete)
-                continue;
-
             var projectKey = $"{evt.Url}|{evt.ProjectName}";
+
+            // Forward intermediate heartbeats so the CLI live table updates progressively
+            // (e.g. Petrel: 291k work items counted ~200 at a time).
+            if (!evt.IsComplete)
+            {
+                if (!skipping)
+                {
+                    sink.Emit(new ProgressEvent
+                    {
+                        Module = Name,
+                        Stage = "Progress",
+                        LastProcessed = projectKey,
+                        TotalWorkItems = evt.WorkItemsCount,
+                        RevisionsProcessed = evt.RevisionsCount,
+                        AttachmentsProcessed = evt.ReposCount,
+                        Message = $"{evt.Url} / {evt.ProjectName}: {evt.WorkItemsCount} work items so far…",
+                        Timestamp = DateTimeOffset.UtcNow
+                    });
+                }
+                continue;
+            }
 
             // Skip already-completed projects when resuming.
             if (skipping)

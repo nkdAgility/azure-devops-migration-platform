@@ -200,7 +200,7 @@ public sealed class InventoryCommand : ControlPlaneCommandBase<InventoryCommand.
         summary.WorkItemsCount = evt.TotalWorkItems;
         summary.RevisionsCount = evt.RevisionsProcessed;
         summary.ReposCount = evt.AttachmentsProcessed;
-        summary.IsComplete = true;
+        summary.IsComplete = evt.Stage != "Progress";
         summary.LastUpdatedUtc = evt.Timestamp.UtcDateTime;
 
         if (evt.Stage == "Failed")

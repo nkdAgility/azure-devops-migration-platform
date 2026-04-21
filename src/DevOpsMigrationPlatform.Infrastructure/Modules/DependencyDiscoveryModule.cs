@@ -92,9 +92,16 @@ public sealed class DependencyDiscoveryModule : IDiscoveryModule
                     sink.Emit(new ProgressEvent
                     {
                         Module = Name,
-                        Stage = "Analysis",
-                        Message = $"{heartbeat.OrganisationUrl}/{heartbeat.ProjectName}: " +
-                                  $"{heartbeat.WorkItemsAnalysed} analysed, {heartbeat.ExternalLinksFound} links found",
+                        Stage = heartbeat.IsComplete ? "ProjectComplete" : "Analysis",
+                        LastProcessed = $"{heartbeat.OrganisationUrl}|{heartbeat.ProjectName}",
+                        TotalWorkItems = heartbeat.WorkItemsAnalysed,
+                        WorkItemsProcessed = heartbeat.ExternalLinksFound,
+                        RevisionsProcessed = heartbeat.CrossProjectCount,
+                        AttachmentsProcessed = heartbeat.CrossOrgCount,
+                        Message = heartbeat.Error is not null
+                            ? $"{heartbeat.OrganisationUrl}/{heartbeat.ProjectName}: failed — {heartbeat.Error}"
+                            : $"{heartbeat.OrganisationUrl}/{heartbeat.ProjectName}: " +
+                              $"{heartbeat.WorkItemsAnalysed} analysed, {heartbeat.ExternalLinksFound} links found",
                         Timestamp = DateTimeOffset.UtcNow
                     });
 
