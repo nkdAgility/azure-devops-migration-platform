@@ -18,6 +18,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using Spectre.Console;
 using Spectre.Console.Cli;
+using Spectre.Console.Rendering;
 
 namespace DevOpsMigrationPlatform.CLI.Commands.Discovery;
 
@@ -134,6 +135,9 @@ public sealed class InventoryCommand : ControlPlaneCommandBase<InventoryCommand.
             }
         }
 
+        // Status message shown below the table during long resume skips.
+        string statusMessage = "";
+
         try
         {
             if (console.Profile.Capabilities.Interactive)
@@ -155,7 +159,13 @@ public sealed class InventoryCommand : ControlPlaneCommandBase<InventoryCommand.
                                 break;
 
                             UpdateSummaryFromProgress(summaries, evt);
-                            ctx.UpdateTarget(BuildTable(summaries.Values));
+
+                            // Show activity messages (e.g. "Skipping completed project…")
+                            // even when the event has no LastProcessed key.
+                            if (!string.IsNullOrEmpty(evt.Message))
+                                statusMessage = evt.Message;
+
+                            ctx.UpdateTarget(BuildLivePanel(summaries.Values, statusMessage));
                         }
                     });
             }
@@ -167,13 +177,19 @@ public sealed class InventoryCommand : ControlPlaneCommandBase<InventoryCommand.
                         break;
 
                     UpdateSummaryFromProgress(summaries, evt);
-                    var key = evt.LastProcessed ?? evt.Message ?? "";
+                    var key = evt.LastProcessed ?? "";
+
                     if (summaries.TryGetValue(key, out var s))
                     {
                         var status = s.Error != null ? "✗ Failed" : "✓";
                         console.MarkupLine(
                             $"  {Markup.Escape(s.Url)} / {Markup.Escape(s.ProjectName)}: " +
                             $"{s.WorkItemsCount} work items, {s.RevisionsCount} revisions — {status}");
+                    }
+                    else if (!string.IsNullOrEmpty(evt.Message))
+                    {
+                        // Non-table events (e.g. "Skipping completed project…")
+                        console.MarkupLine($"[grey]  {Markup.Escape(evt.Message)}[/]");
                     }
                 }
             }
@@ -268,5 +284,19 @@ public sealed class InventoryCommand : ControlPlaneCommandBase<InventoryCommand.
         }
 
         return table;
+    }
+
+    /// <summary>
+    /// Builds the live display content: the inventory table plus a status line showing
+    /// current activity (e.g. "Skipping completed project…" during resume).
+    /// </summary>
+    private static IRenderable BuildLivePanel(IEnumerable<InventorySummary> summaries, string statusMessage)
+    {
+        var table = BuildTable(summaries);
+        if (string.IsNullOrEmpty(statusMessage))
+            return table;
+
+        var rows = new Rows(table, new Markup($"[grey]{Markup.Escape(statusMessage)}[/]"));
+        return rows;
     }
 }

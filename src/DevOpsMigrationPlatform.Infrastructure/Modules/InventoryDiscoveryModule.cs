@@ -103,6 +103,7 @@ public sealed class InventoryDiscoveryModule : IDiscoveryModule
         var projectSw = new Stopwatch();
         int orgProjectCount = 0;
 
+        int skippedProjectCount = 0;
         await foreach (var evt in inventoryService.RunInventoryAsync(ct).ConfigureAwait(false))
         {
             var projectKey = $"{evt.Url}|{evt.ProjectName}";
@@ -125,12 +126,32 @@ public sealed class InventoryDiscoveryModule : IDiscoveryModule
                         Timestamp = DateTimeOffset.UtcNow
                     });
                 }
+                else
+                {
+                    // Forward all heartbeats during skip so the user sees the API
+                    // is actively counting even for already-completed projects.
+                    sink.Emit(new ProgressEvent
+                    {
+                        Module = Name,
+                        Stage = "Resuming",
+                        Message = $"Resuming — verifying {evt.Url} / {evt.ProjectName}: {evt.WorkItemsCount} work items…",
+                        Timestamp = DateTimeOffset.UtcNow
+                    });
+                }
                 continue;
             }
 
             // Skip already-completed projects when resuming.
             if (skipping)
             {
+                skippedProjectCount++;
+                sink.Emit(new ProgressEvent
+                {
+                    Module = Name,
+                    Stage = "Resuming",
+                    Message = $"Resumed past {skippedProjectCount} completed project(s) — {evt.Url} / {evt.ProjectName} ✓",
+                    Timestamp = DateTimeOffset.UtcNow
+                });
                 if (projectKey == lastCompleted)
                     skipping = false;
                 continue;
