@@ -334,10 +334,9 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
 
         // Pre-flight: count work items so we can show a deterministic progress bar.
         var pat = (config.Source as AzureDevOpsEndpointOptions)?.Authentication?.ResolvedAccessToken ?? string.Empty;
-        var baseQuery = modules
-            .FirstOrDefault(m => string.Equals(m.Name, "WorkItems", StringComparison.Ordinal))
-            ?.Scopes.FirstOrDefault(s => string.Equals(s.Type, "wiql", StringComparison.OrdinalIgnoreCase))
-            ?.Parameters.TryGetValue("query", out var _q) == true ? _q?.ToString() : null;
+        var baseQuery = config.Modules.WorkItems.Enabled
+            ? config.Modules.WorkItems.Scope.Query
+            : null;
 
         // Validate WIQL query for safety and correctness before execution
         var validationResult = WiqlValidator.Validate(baseQuery);
@@ -678,69 +677,78 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
 
     /// <summary>
     /// Converts <see cref="MigrationOptions.Modules"/> into <see cref="JobModule"/> entries.
-    /// If the config has no modules, a default WorkItems module with all extensions enabled is injected
-    /// to preserve backward compatibility with pre-modules config files.
+    /// Reads from the typed static module configuration and builds the runtime job contract.
     /// </summary>
     private static List<JobModule> BuildModules(MigrationOptions config)
     {
-        if (config.Modules.Count > 0)
-        {
-            return config.Modules
-                .Where(m => m.Enabled)
-                .Select(m => new JobModule
-                {
-                    Name = m.Name,
-                    Scopes = m.Scopes
-                        .Select(s => new JobModuleScope
-                        {
-                            Type = s.Type,
-                            Parameters = s.Parameters
-                                .ToDictionary(
-                                    kv => kv.Key,
-                                    kv => (object?)kv.Value.ToString())
-                        })
-                        .ToList(),
-                    Extensions = m.Extensions
-                        .Select(e => new JobModuleExtension
-                        {
-                            Type = e.Type,
-                            Enabled = e.Enabled,
-                            Parameters = e.Parameters
-                                .ToDictionary(
-                                    kv => kv.Key,
-                                    kv => (object?)kv.Value.ToString())
-                        })
-                        .ToList()
-                })
-                .ToList();
-        }
+        var modules = new List<JobModule>();
+        var wi = config.Modules.WorkItems;
 
-        // Default: WorkItems module with all extensions enabled.
-        return
-        [
-            new JobModule
+        if (wi.Enabled)
+        {
+            var scopes = new List<JobModuleScope>();
+
+            // WIQL query scope
+            scopes.Add(new JobModuleScope
+            {
+                Type = "wiql",
+                Parameters = new Dictionary<string, object?>
+                {
+                    ["query"] = wi.Scope.Query
+                }
+            });
+
+            // Filter scopes
+            foreach (var f in wi.Scope.Filters)
+            {
+                scopes.Add(new JobModuleScope
+                {
+                    Type = "filter",
+                    Parameters = new Dictionary<string, object?>
+                    {
+                        ["mode"] = f.Mode.ToString().ToLowerInvariant(),
+                        ["field"] = f.Field,
+                        ["pattern"] = f.Pattern,
+                    }
+                });
+            }
+
+            var ext = wi.Extensions;
+            var extensions = new List<JobModuleExtension>
+            {
+                new() { Type = "Revisions",      Enabled = ext.Revisions.Enabled },
+                new() { Type = "Links",          Enabled = ext.Links.Enabled },
+                new() { Type = "Attachments",    Enabled = ext.Attachments.Enabled },
+                new() { Type = "Comments",       Enabled = ext.Comments.Enabled,
+                    Parameters = new Dictionary<string, object?>
+                    {
+                        ["includeDeleted"] = ext.Comments.IncludeDeleted
+                    }
+                },
+                new() { Type = "EmbeddedImages", Enabled = ext.EmbeddedImages.Enabled,
+                    Parameters = new Dictionary<string, object?>
+                    {
+                        ["downloadTimeoutSeconds"] = ext.EmbeddedImages.DownloadTimeoutSeconds
+                    }
+                },
+                new() { Type = "WorkItemResolutionStrategy", Enabled = ext.WorkItemResolutionStrategy.Enabled,
+                    Parameters = new Dictionary<string, object?>
+                    {
+                        ["strategy"] = ext.WorkItemResolutionStrategy.Strategy,
+                        ["fieldName"] = ext.WorkItemResolutionStrategy.FieldName,
+                        ["urlPattern"] = ext.WorkItemResolutionStrategy.UrlPattern,
+                    }
+                },
+            };
+
+            modules.Add(new JobModule
             {
                 Name = "WorkItems",
-                Scopes =
-                [
-                    new JobModuleScope
-                    {
-                        Type = "wiql",
-                        Parameters = new Dictionary<string, object?>
-                        {
-                            ["query"] = WorkItemsModuleExtensions.DefaultWiqlQuery
-                        }
-                    }
-                ],
-                Extensions =
-                [
-                    new JobModuleExtension { Type = "Revisions",      Enabled = true },
-                    new JobModuleExtension { Type = "Links",          Enabled = true },
-                    new JobModuleExtension { Type = "Attachments",    Enabled = true },
-                    new JobModuleExtension { Type = "Comments",       Enabled = true },
-                    new JobModuleExtension { Type = "EmbeddedImages", Enabled = true },
-                ]
-            }
-        ];
+                Scopes = scopes,
+                Extensions = extensions,
+            });
+        }
+
+        return modules;
     }
 }

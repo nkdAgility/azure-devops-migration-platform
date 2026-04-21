@@ -26,33 +26,27 @@
       "WorkingDirectory": "storage\\regression-no-filter-scopes",
       "CreatePackage": true
     },
-    "Modules": [
-      {
-        "Name": "WorkItems",
+    "Modules": {
+      "WorkItems": {
         "Enabled": true,
-        "Extensions": [
-          {
-            "Type": "Revisions",
+        "Extensions": {
+          "Revisions": {
             "Enabled": true
           },
-          {
-            "Type": "Links",
+          "Links": {
             "Enabled": true
           },
-          {
-            "Type": "Attachments",
+          "Attachments": {
             "Enabled": true
           },
-          {
-            "Type": "Comments",
+          "Comments": {
             "Enabled": true
           },
-          {
-            "Type": "EmbeddedImages",
+          "EmbeddedImages": {
             "Enabled": true
           }
-        ]
+        }
       }
-    ]
+    }
   }
 }

@@ -24,8 +24,8 @@ namespace DevOpsMigrationPlatform.CLI.Migration.Tests.TestUtilities;
 /// </summary>
 public sealed class ControlPlaneHostRunner : IAsyncDisposable
 {
-    /// <summary>The URL the ControlPlaneHost listens on.</summary>
-    public const string DefaultUrl = "http://localhost:5100";
+    /// <summary>The URL the ControlPlaneHost listens on during system tests.</summary>
+    public const string DefaultUrl = "http://localhost:5101";
 
     private const string ExeName = "DevOpsMigrationPlatform.ControlPlaneHost.exe";
 
@@ -61,7 +61,7 @@ public sealed class ControlPlaneHostRunner : IAsyncDisposable
         var psi = new ProcessStartInfo
         {
             FileName = exePath,
-            // Force binding on port 5100 so the health probe and the CLI --url flag agree.
+            // Force binding on port 5101 so the health probe and the CLI --url flag agree.
             Arguments = $"--urls {DefaultUrl}",
             WorkingDirectory = CliRunner.FindRepoRoot(),
             UseShellExecute = false,

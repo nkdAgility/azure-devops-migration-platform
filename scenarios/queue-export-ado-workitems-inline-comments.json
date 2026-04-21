@@ -26,41 +26,30 @@
       "WorkingDirectory": "storage\\queue-export-ado-workitems-inline-comments",
       "CreatePackage": true
     },
-    "Modules": [
-      {
-        "Name": "WorkItems",
+    "Modules": {
+      "WorkItems": {
         "Enabled": true,
-        "Scopes": [
-          {
-            "Type": "wiql",
-            "Parameters": {
-              "query": "SELECT [System.Id] FROM WorkItems WHERE [System.TeamProject] = @project ORDER BY [System.Id]"
-            }
-          }
-        ],
-        "Extensions": [
-          {
-            "Type": "Revisions",
+        "Scope": {
+          "Query": "SELECT [System.Id] FROM WorkItems WHERE [System.TeamProject] = @project ORDER BY [System.Id]"
+        },
+        "Extensions": {
+          "Revisions": {
             "Enabled": true
           },
-          {
-            "Type": "Links",
+          "Links": {
             "Enabled": true
           },
-          {
-            "Type": "Attachments",
+          "Attachments": {
             "Enabled": true
           },
-          {
-            "Type": "Comments",
+          "Comments": {
             "Enabled": true
           },
-          {
-            "Type": "EmbeddedImages",
+          "EmbeddedImages": {
             "Enabled": true
           }
-        ]
+        }
       }
-    ]
+    }
   }
 }

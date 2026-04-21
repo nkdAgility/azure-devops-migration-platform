@@ -20,8 +20,16 @@
           {
             "Name": "RoundtripProject",
             "WorkItemTypes": [
-              { "Type": "User Story", "Count": 3, "RevisionsPerItem": 2 },
-              { "Type": "Bug",        "Count": 2, "RevisionsPerItem": 2 }
+              {
+                "Type": "User Story",
+                "Count": 3,
+                "RevisionsPerItem": 2
+              },
+              {
+                "Type": "Bug",
+                "Count": 2,
+                "RevisionsPerItem": 2
+              }
             ],
             "LinkTopology": "Flat",
             "HasComments": false,
@@ -37,17 +45,15 @@
       "WorkingDirectory": "storage\\roundtrip-simulated",
       "CreatePackage": true
     },
-    "Modules": [
-      {
-        "Name": "WorkItems",
+    "Modules": {
+      "WorkItems": {
         "Enabled": true,
-        "Extensions": [
-          {
-            "Type": "Revisions",
+        "Extensions": {
+          "Revisions": {
             "Enabled": true
           }
-        ]
+        }
       }
-    ]
+    }
   }
 }
