@@ -110,5 +110,5 @@ public sealed class SimulatedWorkItemImportTarget : IWorkItemImportTarget
 
     /// <inheritdoc/>
     public Task<bool> WorkItemExistsAsync(int targetWorkItemId, CancellationToken ct)
-        => Task.FromResult(true);
+        => Task.FromResult(true); // Simulated: all created IDs always "exist"
 }

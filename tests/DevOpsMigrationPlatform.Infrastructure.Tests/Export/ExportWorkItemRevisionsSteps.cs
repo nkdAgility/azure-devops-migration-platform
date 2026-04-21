@@ -74,7 +74,7 @@ public class ExportWorkItemRevisionsSteps
     public async Task WhenTheWorkItemsExportModuleRuns()
         => await _ctx.Sut!.ExportAsync(_ctx.MockRevisionSource.Object, CancellationToken.None);
 
-    [Then(@"the package contains folders matching the pattern ""WorkItems/yyyy-MM-dd/<ticks>-42-0/"", ""WorkItems/yyyy-MM-dd/<ticks>-42-1/"", and ""WorkItems/yyyy-MM-dd/<ticks>-42-2/""")]
+    [Then("^the package contains folders matching the pattern \"WorkItems/yyyy-MM-dd/<ticks>-42-0/\", \"WorkItems/yyyy-MM-dd/<ticks>-42-1/\", and \"WorkItems/yyyy-MM-dd/<ticks>-42-2/\"$")]
     public void ThenThePackageContainsCanonicalFolders()
     {
         Assert.AreEqual(3, _ctx.SourceRevisions.Count);

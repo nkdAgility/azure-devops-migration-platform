@@ -260,19 +260,14 @@ public sealed class AzureDevOpsWorkItemImportTarget : IWorkItemImportTarget
     {
         try
         {
-            await _witClient
+            var wi = await _witClient
                 .GetWorkItemAsync(targetWorkItemId, cancellationToken: ct)
                 .ConfigureAwait(false);
-            return true;
+            return wi is not null;
         }
         catch (Microsoft.VisualStudio.Services.Common.VssServiceException ex)
-            when (ex.Message.Contains("TF401232", StringComparison.OrdinalIgnoreCase)
-               || ex.Message.Contains("does not exist", StringComparison.OrdinalIgnoreCase)
-               || ex.Message.Contains("was not found", StringComparison.OrdinalIgnoreCase))
-        {
-            return false;
-        }
-        catch (Exception ex) when (ex.GetType().Name.Contains("WorkItemNotFound", StringComparison.Ordinal))
+            when (ex.Message.Contains("does not exist", StringComparison.OrdinalIgnoreCase)
+               || ex.Message.Contains("not found", StringComparison.OrdinalIgnoreCase))
         {
             return false;
         }

@@ -24,10 +24,9 @@ public interface IControlPlaneClient
     IAsyncEnumerable<DiagnosticLogRecord> StreamDiagnosticsAsync(Guid jobId, string? level, CancellationToken ct);
 
     /// <summary>
-    /// Returns <see langword="true"/> if the agent instance with <paramref name="agentInstanceId"/>
-    /// is known and active via <c>GET /agents/{agentInstanceId}/status</c>.
-    /// Returns <see langword="false"/> for 404, any non-2xx response, or network errors.
-    /// Used by <c>PackageLockFileService</c> to detect stale locks.
+    /// Checks whether the agent with <paramref name="agentInstanceId"/> is currently active.
+    /// Used by <c>PackageLockFileService</c> to distinguish live locks from stale locks.
+    /// Returns <see langword="false"/> if the status cannot be determined.
     /// </summary>
     Task<bool> IsAgentActiveAsync(string agentInstanceId, CancellationToken ct);
 }

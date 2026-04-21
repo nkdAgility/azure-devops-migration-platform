@@ -307,26 +307,11 @@ public sealed class ControlPlaneClient : IJobRunner, ILogsClient, IControlPlaneC
             yield return evt;
     }
 
-    /// <inheritdoc/>
-    public async Task<bool> IsAgentActiveAsync(string agentInstanceId, CancellationToken ct)
-    {
-        try
-        {
-            using var response = await _http
-                .GetAsync($"/agents/{agentInstanceId}/status", ct)
-                .ConfigureAwait(false);
-
-            if (!response.IsSuccessStatusCode) return false;
-
-            var json = await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
-            var doc = System.Text.Json.JsonSerializer.Deserialize<System.Text.Json.JsonElement>(json);
-            var status = doc.TryGetProperty("status", out var s) ? s.GetString() : null;
-            return string.Equals(status, "Active", StringComparison.OrdinalIgnoreCase)
-                || string.Equals(status, "Running", StringComparison.OrdinalIgnoreCase);
-        }
-        catch
-        {
-            return false; // treat network errors as stale
-        }
-    }
+    /// <summary>
+    /// Checks whether the agent with <paramref name="agentInstanceId"/> is currently active.
+    /// The CLI client always returns <see langword="false"/> — lock liveness checks are only
+    /// performed by the Migration Agent, which uses <c>AgentControlPlaneClientAdapter</c>.
+    /// </summary>
+    public Task<bool> IsAgentActiveAsync(string agentInstanceId, CancellationToken ct)
+        => Task.FromResult(false);
 }

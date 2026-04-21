@@ -49,12 +49,13 @@ public class WorkItemImportOrchestratorFilterTests
                   .ReturnsAsync((int id, CancellationToken _) => id);
         _mockIdMap.Setup(s => s.SetWorkItemMappingAsync(It.IsAny<int>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
                   .Returns(Task.CompletedTask);
-        _mockIdMap.Setup(s => s.EnumerateWorkItemMappingsAsync(It.IsAny<CancellationToken>()))
-                  .Returns(TestAsyncHelpers.EmptyAsync<IdMapEntry>());
+        _mockIdMap.Setup(s => s.CheckIntegrityAsync(It.IsAny<Func<int, CancellationToken, Task<bool>>>(), It.IsAny<CancellationToken>()))
+                  .ReturnsAsync(Array.Empty<IdMapEntry>());
         _mockIdMap.Setup(s => s.GetLastRevisionIndexAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
                   .ReturnsAsync((int?)null);
         _mockIdMap.Setup(s => s.UpdateLastRevisionIndexAsync(It.IsAny<int>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
                   .Returns(Task.CompletedTask);
+
         _mockTarget.Setup(t => t.WorkItemExistsAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
                    .ReturnsAsync(true);
 

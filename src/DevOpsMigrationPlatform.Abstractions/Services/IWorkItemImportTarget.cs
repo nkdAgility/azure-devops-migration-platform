@@ -75,10 +75,9 @@ public interface IWorkItemImportTarget
         CancellationToken ct);
 
     /// <summary>
-    /// Returns <see langword="true"/> if a work item with <paramref name="targetWorkItemId"/> exists
-    /// in the target project.
-    /// Used by the integrity check and Stage A deleted-target guard.
-    /// Must NOT throw for 404 responses — return <see langword="false"/> instead.
+    /// Returns <see langword="true"/> if the target work item with <paramref name="targetWorkItemId"/> exists;
+    /// <see langword="false"/> if it has been deleted or never existed.
+    /// Used by Stage A duplicate prevention and the integrity check pass.
     /// </summary>
     Task<bool> WorkItemExistsAsync(int targetWorkItemId, CancellationToken ct);
 }

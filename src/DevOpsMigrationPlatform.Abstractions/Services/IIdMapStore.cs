@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
@@ -11,21 +12,13 @@ namespace DevOpsMigrationPlatform.Abstractions;
 /// </summary>
 public interface IIdMapStore : System.IAsyncDisposable
 {
-    /// <summary>
-    /// Creates the database tables if they do not exist and prepares the connection.
-    /// Throws <see cref="System.InvalidOperationException"/> if the existing schema is outdated
-    /// (e.g., missing the <c>last_revision_index</c> column).
-    /// </summary>
+    /// <summary>Creates the database tables if they do not exist and prepares the connection.</summary>
     Task InitializeAsync(CancellationToken ct);
 
     /// <summary>Returns the target work item ID for <paramref name="sourceId"/>, or <see langword="null"/> if not mapped.</summary>
     Task<int?> GetTargetWorkItemIdAsync(int sourceId, CancellationToken ct);
 
-    /// <summary>
-    /// Records a source-to-target work item ID mapping.
-    /// Uses <c>ON CONFLICT DO UPDATE SET target_id = excluded.target_id</c> — preserves
-    /// <c>last_revision_index</c> on re-seed.
-    /// </summary>
+    /// <summary>Records a source-to-target work item ID mapping.</summary>
     Task SetWorkItemMappingAsync(int sourceId, int targetId, CancellationToken ct);
 
     /// <summary>Returns the target attachment identifier for a previously uploaded attachment, or <see langword="null"/> if not recorded.</summary>
@@ -41,32 +34,31 @@ public interface IIdMapStore : System.IAsyncDisposable
     Task SeedWorkItemMappingsAsync(IAsyncEnumerable<IdMapEntry> entries, CancellationToken ct);
 
     /// <summary>
-    /// Returns the highest revision index that has been successfully imported for <paramref name="sourceId"/>,
-    /// or <see langword="null"/> if the source ID is not mapped or revision tracking has not been recorded.
+    /// Returns the last revision index that was successfully applied for <paramref name="sourceId"/>,
+    /// or <see langword="null"/> if no revision has been recorded yet.
+    /// Used by the revision-index watermark to skip already-applied revisions on re-run.
     /// </summary>
     Task<int?> GetLastRevisionIndexAsync(int sourceId, CancellationToken ct);
 
     /// <summary>
-    /// Monotonically updates the <c>last_revision_index</c> for <paramref name="sourceId"/>.
-    /// Uses <c>MAX(COALESCE(last_revision_index, -1), @rev)</c> — never decrements the stored value.
+    /// Updates the last revision index for <paramref name="sourceId"/> using MAX semantics:
+    /// the value is only updated when <paramref name="revisionIndex"/> is greater than the
+    /// currently stored value (monotonic, never decremented).
     /// </summary>
     Task UpdateLastRevisionIndexAsync(int sourceId, int revisionIndex, CancellationToken ct);
 
     /// <summary>
-    /// Streams all work item mappings in ascending <c>source_id</c> order.
-    /// Never materialises all rows into memory — uses deferred yield return.
-    /// Each <see cref="IdMapEntry"/> includes the <c>LastRevisionIndex</c> if tracked.
+    /// Checks all work item mappings against the target system.
+    /// Returns the list of stale mappings whose target work item no longer exists.
+    /// The caller is responsible for logging warnings per stale mapping.
     /// </summary>
-    IAsyncEnumerable<IdMapEntry> EnumerateWorkItemMappingsAsync(CancellationToken ct);
+    Task<IReadOnlyList<IdMapEntry>> CheckIntegrityAsync(
+        Func<int, CancellationToken, Task<bool>> targetExistsAsync,
+        CancellationToken ct);
 
     /// <summary>
-    /// Records a skipped revision folder in the <c>skipped_revisions</c> table.
-    /// Uses <c>INSERT OR REPLACE</c> semantics — idempotent on repeated calls for the same folder.
+    /// Records a skip reason for a source work item when its mapped target no longer exists.
+    /// Used by Stage A duplicate prevention when a mapped target has been deleted.
     /// </summary>
-    /// <param name="folderPath">Relative path of the revision folder, e.g. <c>WorkItems/2026-01-15/638760000000000001-42-3</c>.</param>
-    /// <param name="sourceId">Source work item ID.</param>
-    /// <param name="targetId">Target work item ID (from the now-invalid mapping).</param>
-    /// <param name="reason">Machine-readable reason code, e.g. <c>"TargetWorkItemDeleted"</c>.</param>
-    /// <param name="ct">Cancellation token.</param>
-    Task RecordSkippedRevisionAsync(string folderPath, int sourceId, int targetId, string reason, CancellationToken ct);
+    Task RecordSkippedRevisionAsync(int sourceId, string reason, CancellationToken ct);
 }

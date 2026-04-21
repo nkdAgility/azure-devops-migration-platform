@@ -50,9 +50,8 @@ public sealed class SqliteIdMapStore : IIdMapStore
         await using var cmd = _connection.CreateCommand();
         cmd.CommandText = """
             CREATE TABLE IF NOT EXISTS work_item_map (
-                source_id           INTEGER PRIMARY KEY,
-                target_id           INTEGER NOT NULL,
-                last_revision_index INTEGER
+                source_id INTEGER PRIMARY KEY,
+                target_id INTEGER NOT NULL
             );
             CREATE TABLE IF NOT EXISTS attachment_map (
                 source_work_item_id INTEGER NOT NULL,
@@ -61,33 +60,18 @@ public sealed class SqliteIdMapStore : IIdMapStore
                 target_attachment_id TEXT    NOT NULL,
                 PRIMARY KEY (source_work_item_id, revision_index, relative_path)
             );
+            CREATE TABLE IF NOT EXISTS last_revision_index (
+                source_id      INTEGER PRIMARY KEY,
+                revision_index INTEGER NOT NULL
+            );
             CREATE TABLE IF NOT EXISTS skipped_revisions (
-                folder_path TEXT    PRIMARY KEY,
                 source_id   INTEGER NOT NULL,
-                target_id   INTEGER NOT NULL,
                 reason      TEXT    NOT NULL,
-                skipped_at  TEXT    NOT NULL
+                recorded_at TEXT    NOT NULL DEFAULT (datetime('now')),
+                PRIMARY KEY (source_id, reason)
             );
             """;
         await cmd.ExecuteNonQueryAsync(ct).ConfigureAwait(false);
-
-        // Schema guard: check for last_revision_index column (detects old schema without the column)
-        await using var pragmaCmd = _connection.CreateCommand();
-        pragmaCmd.CommandText = "PRAGMA table_info(work_item_map)";
-        await using var reader = await pragmaCmd.ExecuteReaderAsync(ct).ConfigureAwait(false);
-        bool hasLastRevisionIndex = false;
-        while (await reader.ReadAsync(ct).ConfigureAwait(false))
-        {
-            var colName = reader.GetString(1); // column 1 is "name"
-            if (string.Equals(colName, "last_revision_index", StringComparison.OrdinalIgnoreCase))
-            {
-                hasLastRevisionIndex = true;
-                break;
-            }
-        }
-        if (!hasLastRevisionIndex)
-            throw new InvalidOperationException(
-                "idmap.db has an outdated schema. Delete Checkpoints/idmap.db and rerun.");
     }
 
     /// <inheritdoc/>
@@ -106,11 +90,7 @@ public sealed class SqliteIdMapStore : IIdMapStore
     {
         EnsureInitialized();
         await using var cmd = _connection!.CreateCommand();
-        cmd.CommandText = """
-            INSERT INTO work_item_map (source_id, target_id)
-            VALUES (@sid, @tid)
-            ON CONFLICT(source_id) DO UPDATE SET target_id = excluded.target_id
-            """;
+        cmd.CommandText = "INSERT OR REPLACE INTO work_item_map (source_id, target_id) VALUES (@sid, @tid)";
         cmd.Parameters.AddWithValue("@sid", sourceId);
         cmd.Parameters.AddWithValue("@tid", targetId);
         await cmd.ExecuteNonQueryAsync(ct).ConfigureAwait(false);
@@ -175,7 +155,7 @@ public sealed class SqliteIdMapStore : IIdMapStore
     {
         EnsureInitialized();
         await using var cmd = _connection!.CreateCommand();
-        cmd.CommandText = "SELECT last_revision_index FROM work_item_map WHERE source_id = @sid";
+        cmd.CommandText = "SELECT revision_index FROM last_revision_index WHERE source_id = @sid";
         cmd.Parameters.AddWithValue("@sid", sourceId);
         var result = await cmd.ExecuteScalarAsync(ct).ConfigureAwait(false);
         return result is null or DBNull ? null : Convert.ToInt32(result);
@@ -186,10 +166,10 @@ public sealed class SqliteIdMapStore : IIdMapStore
     {
         EnsureInitialized();
         await using var cmd = _connection!.CreateCommand();
+        // MAX semantics: only update if new value is greater than existing value
         cmd.CommandText = """
-            UPDATE work_item_map
-            SET last_revision_index = MAX(COALESCE(last_revision_index, -1), @rev)
-            WHERE source_id = @sid
+            INSERT INTO last_revision_index (source_id, revision_index) VALUES (@sid, @rev)
+            ON CONFLICT(source_id) DO UPDATE SET revision_index = MAX(revision_index, excluded.revision_index)
             """;
         cmd.Parameters.AddWithValue("@sid", sourceId);
         cmd.Parameters.AddWithValue("@rev", revisionIndex);
@@ -197,40 +177,49 @@ public sealed class SqliteIdMapStore : IIdMapStore
     }
 
     /// <inheritdoc/>
-    public async IAsyncEnumerable<IdMapEntry> EnumerateWorkItemMappingsAsync(
-        [EnumeratorCancellation] CancellationToken ct)
+    public async Task<IReadOnlyList<IdMapEntry>> CheckIntegrityAsync(
+        Func<int, CancellationToken, Task<bool>> targetExistsAsync,
+        CancellationToken ct)
     {
         EnsureInitialized();
+        var stale = new List<IdMapEntry>();
+
         await using var cmd = _connection!.CreateCommand();
-        cmd.CommandText = "SELECT source_id, target_id, last_revision_index FROM work_item_map ORDER BY source_id";
+        cmd.CommandText = "SELECT source_id, target_id FROM work_item_map";
         await using var reader = await cmd.ExecuteReaderAsync(ct).ConfigureAwait(false);
+
+        var entries = new List<IdMapEntry>();
         while (await reader.ReadAsync(ct).ConfigureAwait(false))
         {
-            ct.ThrowIfCancellationRequested();
-            yield return new IdMapEntry
+            entries.Add(new IdMapEntry
             {
                 SourceId = reader.GetInt32(0),
-                TargetId = reader.GetInt32(1),
-                LastRevisionIndex = reader.IsDBNull(2) ? null : reader.GetInt32(2)
-            };
+                TargetId = reader.GetInt32(1)
+            });
         }
+
+        foreach (var entry in entries)
+        {
+            ct.ThrowIfCancellationRequested();
+            var exists = await targetExistsAsync(entry.TargetId, ct).ConfigureAwait(false);
+            if (!exists)
+                stale.Add(entry);
+        }
+
+        return stale;
     }
 
     /// <inheritdoc/>
-    public async Task RecordSkippedRevisionAsync(
-        string folderPath, int sourceId, int targetId, string reason, CancellationToken ct)
+    public async Task RecordSkippedRevisionAsync(int sourceId, string reason, CancellationToken ct)
     {
         EnsureInitialized();
         await using var cmd = _connection!.CreateCommand();
         cmd.CommandText = """
-            INSERT OR REPLACE INTO skipped_revisions (folder_path, source_id, target_id, reason, skipped_at)
-            VALUES (@fp, @sid, @tid, @reason, @at)
+            INSERT OR REPLACE INTO skipped_revisions (source_id, reason)
+            VALUES (@sid, @reason)
             """;
-        cmd.Parameters.AddWithValue("@fp", folderPath);
         cmd.Parameters.AddWithValue("@sid", sourceId);
-        cmd.Parameters.AddWithValue("@tid", targetId);
         cmd.Parameters.AddWithValue("@reason", reason);
-        cmd.Parameters.AddWithValue("@at", DateTimeOffset.UtcNow.ToString("O"));
         await cmd.ExecuteNonQueryAsync(ct).ConfigureAwait(false);
     }
 

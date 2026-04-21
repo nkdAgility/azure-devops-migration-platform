@@ -56,7 +56,6 @@ public sealed class RevisionFolderProcessor : IRevisionFolderProcessor
 
     /// <summary>
     /// Process a single revision folder, resuming from <paramref name="resumeAtStage"/> if provided.
-    /// Returns a <see cref="RevisionProcessResult"/> indicating whether the folder was applied or skipped.
     /// </summary>
     /// <param name="folderPath">Relative folder path, e.g. <c>WorkItems/2026-01-15/638760000000000001-42-3</c>.</param>
     /// <param name="ext">Module extension flags controlling which stages run.</param>
@@ -66,7 +65,7 @@ public sealed class RevisionFolderProcessor : IRevisionFolderProcessor
     /// </param>
     /// <param name="resolutionStrategy">Strategy for live fallback ID lookup after Stage A.</param>
     /// <param name="ct">Cancellation token.</param>
-    public async Task<RevisionProcessResult> ProcessAsync(
+    public async Task ProcessAsync(
         string folderPath,
         WorkItemsModuleExtensions ext,
         string? resumeAtStage,
@@ -79,7 +78,7 @@ public sealed class RevisionFolderProcessor : IRevisionFolderProcessor
         if (revisionJson is null)
         {
             _logger.LogWarning("[WorkItems] revision.json not found in {Folder} — skipping.", folderPath);
-            return RevisionProcessResult.Skipped("RevisionJsonMissing");
+            return;
         }
 
         var revision = JsonSerializer.Deserialize<WorkItemRevision>(revisionJson, _jsonOptions)
@@ -90,28 +89,24 @@ public sealed class RevisionFolderProcessor : IRevisionFolderProcessor
         {
             var targetId = await _idMapStore.GetTargetWorkItemIdAsync(revision.WorkItemId, ct).ConfigureAwait(false);
 
-            if (targetId is not null)
-            {
-                // Deleted-target guard: if the mapping exists but the target WI has been deleted,
-                // record the skip and return so the orchestrator can advance the cursor and continue.
-                var exists = await _target.WorkItemExistsAsync(targetId.Value, ct).ConfigureAwait(false);
-                if (!exists)
-                {
-                    _logger.LogError(
-                        "[WorkItems][StageA] Target work item {TargetId} (mapped from source {SourceId}) " +
-                        "no longer exists. Folder: {FolderPath}. Recording skip and advancing cursor.",
-                        targetId, revision.WorkItemId, folderPath);
-                    await _idMapStore.RecordSkippedRevisionAsync(
-                        folderPath, revision.WorkItemId, targetId.Value, "TargetWorkItemDeleted", ct)
-                        .ConfigureAwait(false);
-                    return RevisionProcessResult.Skipped("TargetWorkItemDeleted");
-                }
-            }
-
             if (targetId is null)
             {
                 // Live fallback lookup via strategy
                 targetId = await resolutionStrategy.ResolveSingleAsync(revision.WorkItemId, ct).ConfigureAwait(false);
+            }
+            else
+            {
+                // Existing mapping: verify the target still exists (guard against deleted targets)
+                var exists = await _target.WorkItemExistsAsync(targetId.Value, ct).ConfigureAwait(false);
+                if (!exists)
+                {
+                    _logger.LogWarning(
+                        "[WorkItems] Source {SourceId} mapped to deleted target {TargetId} — recording skip and advancing cursor.",
+                        revision.WorkItemId, targetId.Value);
+                    await _idMapStore.RecordSkippedRevisionAsync(revision.WorkItemId, "TargetWorkItemDeleted", ct).ConfigureAwait(false);
+                    await WriteCursorAsync(folderPath, CursorStage.Completed, ct).ConfigureAwait(false);
+                    return;
+                }
             }
 
             if (targetId is null)
@@ -214,8 +209,6 @@ public sealed class RevisionFolderProcessor : IRevisionFolderProcessor
 
         // Final cursor — Completed
         await WriteCursorAsync(folderPath, CursorStage.Completed, ct).ConfigureAwait(false);
-
-        return RevisionProcessResult.Applied();
     }
 
     // --- Helpers ---

@@ -2,7 +2,6 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
-using DevOpsMigrationPlatform.Abstractions.Models;
 using DevOpsMigrationPlatform.Infrastructure.Import;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Moq;
@@ -215,8 +214,8 @@ public class WorkItemResolutionStrategiesSteps
             .Setup(s => s.GetAttachmentIdAsync(It.IsAny<int>(), It.IsAny<int>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((string?)null);
         _ctx.MockIdMapStore
-            .Setup(s => s.EnumerateWorkItemMappingsAsync(It.IsAny<CancellationToken>()))
-            .Returns(TestAsyncHelpers.EmptyAsync<IdMapEntry>());
+            .Setup(s => s.CheckIntegrityAsync(It.IsAny<Func<int, CancellationToken, Task<bool>>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Array.Empty<IdMapEntry>());
         _ctx.MockIdMapStore
             .Setup(s => s.GetLastRevisionIndexAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((int?)null);
@@ -248,8 +247,8 @@ public class WorkItemResolutionStrategiesSteps
             .Setup(s => s.GetAttachmentIdAsync(It.IsAny<int>(), It.IsAny<int>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((string?)null);
         _ctx.MockIdMapStore
-            .Setup(s => s.EnumerateWorkItemMappingsAsync(It.IsAny<CancellationToken>()))
-            .Returns(TestAsyncHelpers.EmptyAsync<IdMapEntry>());
+            .Setup(s => s.CheckIntegrityAsync(It.IsAny<Func<int, CancellationToken, Task<bool>>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Array.Empty<IdMapEntry>());
         _ctx.MockIdMapStore
             .Setup(s => s.GetLastRevisionIndexAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((int?)null);

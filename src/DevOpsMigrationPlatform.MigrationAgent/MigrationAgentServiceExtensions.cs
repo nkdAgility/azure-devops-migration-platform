@@ -1,5 +1,4 @@
 using DevOpsMigrationPlatform.Abstractions;
-using DevOpsMigrationPlatform.Infrastructure;
 using DevOpsMigrationPlatform.Infrastructure.AzureDevOps;
 using DevOpsMigrationPlatform.Infrastructure.Factories;
 using DevOpsMigrationPlatform.Infrastructure.JobEngine;
@@ -88,18 +87,6 @@ public static class MigrationAgentServiceExtensions
 
         // Package store factory — resolves file:/// URIs to FileSystem stores.
         builder.Services.AddSingleton<IPackageStoreFactory, FileSystemPackageStoreFactory>();
-
-        // IControlPlaneClient adapter — wraps the "ControlPlane" named HttpClient.
-        // Used by PackageLockFileService for stale-lock liveness checks.
-        builder.Services.AddSingleton<IControlPlaneClient, AgentControlPlaneClientAdapter>();
-
-        // AgentInstanceId for this process — generated in JobAgentWorker constructor.
-        // We register it here so AddPackageLockServices can use it.
-        // The same GUID is set in JobAgentWorker; we create it once here and share it.
-        var agentInstanceId = System.Guid.NewGuid();
-        builder.Services.AddPackageLockServices(agentInstanceId);
-        // Store the agentInstanceId in DI so JobAgentWorker can log it consistently.
-        builder.Services.AddSingleton(new AgentInstanceIdHolder(agentInstanceId));
 
         // Diagnostic log pipeline — writes ILogger output to Logs/agent.jsonl in the package
         // and POSTs batches to the control plane diagnostics endpoint.
