@@ -52,6 +52,44 @@ public sealed class DependencyDiscoveryModule : IDiscoveryModule
 
         _logger.LogInformation("Dependencies module starting for job {JobId}.", job.JobId);
 
+        // ── Pre-count: load inventory.json for grand totals ──────────────────
+        long grandTotalWorkItems = 0;
+        var inventoryJson = await store.ReadAsync("inventory.json", ct).ConfigureAwait(false);
+        if (inventoryJson is not null)
+        {
+            try
+            {
+                var report = JsonSerializer.Deserialize<InventoryReport>(inventoryJson, new JsonSerializerOptions
+                {
+                    PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+                });
+                if (report is not null)
+                {
+                    grandTotalWorkItems = report.Totals.WorkItems;
+                    _logger.LogInformation(
+                        "Loaded inventory.json — {TotalWorkItems} total work items across {Projects} projects.",
+                        report.Totals.WorkItems, report.Totals.Projects);
+
+                    sink.Emit(new ProgressEvent
+                    {
+                        Module = Name,
+                        Stage = "InventoryLoaded",
+                        TotalWorkItems = (int)Math.Min(report.Totals.WorkItems, int.MaxValue),
+                        Message = $"Inventory loaded: {report.Totals.WorkItems:N0} work items across {report.Totals.Projects} projects.",
+                        Timestamp = DateTimeOffset.UtcNow
+                    });
+                }
+            }
+            catch (JsonException ex)
+            {
+                _logger.LogWarning(ex, "Failed to parse inventory.json — proceeding without pre-counts.");
+            }
+        }
+        else
+        {
+            _logger.LogInformation("No inventory.json found — per-project counts will be discovered during analysis.");
+        }
+
         var dependencyService = _dependencyFactory.Create(job.Organisations, job.Policies);
 
         // ── Resume: read existing cursor and CSV ─────────────────────────────

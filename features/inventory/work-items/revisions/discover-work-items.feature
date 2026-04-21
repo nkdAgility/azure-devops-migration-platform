@@ -54,5 +54,5 @@ Feature: Discover Work Items in an Azure DevOps Organisation
   Scenario: Discovery results for a completed run can be saved to a CSV file
     Given the platform has finished counting all projects in the organisation
     When the operator requests a CSV export of the discovery summary
-    Then a file named "discovery-summary.csv" is created
+    Then a file named "inventory.csv" is created
     And each row records the project name, work item count, revision count, repo count, and pipeline count

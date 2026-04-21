@@ -4,6 +4,8 @@ using System.ComponentModel;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Text.Json;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
@@ -211,6 +213,10 @@ public sealed class InventoryCommand : ControlPlaneCommandBase<InventoryCommand.
         }
 
         console.MarkupLine($"\n[green]✅ Inventory complete.[/] Results written to [blue]{Markup.Escape(outputPath)}[/]");
+
+        // ── Post-processing: fan out per-org/per-project inventory files ──────
+        FanOutInventoryFiles(outputPath, console);
+
         return 0;
     }
 
@@ -376,5 +382,138 @@ public sealed class InventoryCommand : ControlPlaneCommandBase<InventoryCommand.
         if (ts.TotalMinutes >= 1)
             return $"{(int)ts.TotalMinutes}m {ts.Seconds:D2}s";
         return $"{ts.Seconds}s";
+    }
+
+    // ── Per-org/per-project fan-out ───────────────────────────────────────────
+
+    /// <summary>
+    /// Reads <c>inventory.json</c> from the output root and writes per-org and
+    /// per-project <c>inventory.json</c> / <c>inventory.csv</c> files into the
+    /// <c>&lt;org&gt;/&lt;project&gt;/</c> folder hierarchy.
+    /// </summary>
+    private static void FanOutInventoryFiles(string outputPath, IAnsiConsole console)
+    {
+        var jsonPath = Path.Combine(outputPath, "inventory.json");
+        if (!File.Exists(jsonPath))
+            return;
+
+        InventoryReport? report;
+        try
+        {
+            var json = File.ReadAllText(jsonPath);
+            report = JsonSerializer.Deserialize<InventoryReport>(json, new JsonSerializerOptions
+            {
+                PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+            });
+        }
+        catch
+        {
+            return; // non-fatal — root files are still valid
+        }
+
+        if (report?.Organisations is null)
+            return;
+
+        var jsonOpts = new JsonSerializerOptions
+        {
+            WriteIndented = true,
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+        };
+
+        foreach (var org in report.Organisations)
+        {
+            var orgFolderName = SanitiseFolderName(org.Url);
+            var orgDir = Path.Combine(outputPath, orgFolderName);
+            Directory.CreateDirectory(orgDir);
+
+            // Org-level inventory.json
+            var orgReport = new InventoryReport
+            {
+                GeneratedAt = report.GeneratedAt,
+                Totals = org.Totals,
+                Organisations = new[] { org }
+            };
+            File.WriteAllText(Path.Combine(orgDir, "inventory.json"),
+                JsonSerializer.Serialize(orgReport, jsonOpts));
+
+            // Org-level inventory.csv
+            WriteCsv(Path.Combine(orgDir, "inventory.csv"), org.Projects);
+
+            foreach (var proj in org.Projects)
+            {
+                var projDir = Path.Combine(orgDir, proj.Name);
+                Directory.CreateDirectory(projDir);
+
+                // Project-level inventory.json
+                var projOrg = new OrganisationInventory
+                {
+                    Url = org.Url,
+                    Totals = new InventoryTotals
+                    {
+                        WorkItems = proj.WorkItems,
+                        Revisions = proj.Revisions,
+                        Repos = proj.Repos,
+                        Projects = 1
+                    },
+                    Projects = new[] { proj }
+                };
+                var projReport = new InventoryReport
+                {
+                    GeneratedAt = report.GeneratedAt,
+                    Totals = projOrg.Totals,
+                    Organisations = new[] { projOrg }
+                };
+                File.WriteAllText(Path.Combine(projDir, "inventory.json"),
+                    JsonSerializer.Serialize(projReport, jsonOpts));
+
+                // Project-level inventory.csv
+                WriteCsv(Path.Combine(projDir, "inventory.csv"), new[] { proj });
+            }
+        }
+
+        console.MarkupLine($"[green]✓[/] Per-org/per-project inventory files written to [blue]{Markup.Escape(outputPath)}[/]");
+    }
+
+    private static void WriteCsv(string path, IEnumerable<ProjectInventory> projects)
+    {
+        using var w = new StreamWriter(path, false, new UTF8Encoding(false));
+        w.WriteLine("ProjectName,WorkItems,Revisions,Repos,IsComplete,Error");
+        foreach (var p in projects)
+            w.WriteLine($"{CsvEscape(p.Name)},{p.WorkItems},{p.Revisions},{p.Repos},{p.IsComplete},{CsvEscape(p.Error ?? "")}");
+    }
+
+    private static string CsvEscape(string value) =>
+        value.Contains(',') || value.Contains('"') || value.Contains('\n')
+            ? $"\"{value.Replace("\"", "\"\"")}\""
+            : value;
+
+    private static string SanitiseFolderName(string url)
+    {
+        if (string.IsNullOrWhiteSpace(url))
+            return "unknown";
+
+        if (Uri.TryCreate(url, UriKind.Absolute, out var uri))
+        {
+            if (uri.Host.Equals("dev.azure.com", StringComparison.OrdinalIgnoreCase))
+            {
+                var segments = uri.AbsolutePath.Split('/', StringSplitOptions.RemoveEmptyEntries);
+                if (segments.Length > 0)
+                    return Sanitise(segments[0]);
+            }
+
+            var hostParts = uri.Host.Split('.');
+            if (hostParts.Length >= 3 && hostParts[^2].Equals("visualstudio", StringComparison.OrdinalIgnoreCase))
+                return Sanitise(hostParts[0]);
+
+            return Sanitise(uri.Host);
+        }
+
+        return Sanitise(url);
+
+        static string Sanitise(string name)
+        {
+            var clean = Regex.Replace(name, @"[^\w\-]", "_");
+            return string.IsNullOrWhiteSpace(clean) ? "unknown" : clean;
+        }
     }
 }

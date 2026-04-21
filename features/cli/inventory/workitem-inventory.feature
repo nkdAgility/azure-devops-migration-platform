@@ -30,7 +30,7 @@ Feature: Discovery Inventory CLI Command
   @cli
   Scenario: On completion a CSV summary file is saved to the working directory
     Given the discovery inventory command has finished counting all projects
-    Then a file named "discovery-summary.csv" is created in the "output" subdirectory
+    Then a file named "inventory.csv" is created in the "output" subdirectory
     And the CSV contains one row per project with columns for name, work item count, revision count, repo count, and pipeline count
     And the terminal displays a success message confirming the file path
 
@@ -40,7 +40,7 @@ Feature: Discovery Inventory CLI Command
     When the operator runs the discovery inventory command
     Then an empty table is displayed
     And the command exits with exit code 0
-    And an empty "discovery-summary.csv" file is created with only the CSV header row
+    And an empty "inventory.csv" file is created with only the CSV header row
 
   @azure-devops-rest @cli
   Scenario: An invalid PAT causes the command to exit with a non-zero code

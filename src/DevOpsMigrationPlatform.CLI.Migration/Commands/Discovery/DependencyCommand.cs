@@ -4,6 +4,7 @@ using System.ComponentModel;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Text.Json;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
@@ -96,6 +97,25 @@ public sealed class DependencyCommand : ControlPlaneCommandBase<DependencyComman
 
         console.MarkupLine($"[blue]ℹ[/] Submitting dependency discovery job for [bold]{job.Organisations.Count}[/] organisation(s).");
         console.MarkupLine($"[blue]ℹ[/] Output path: [blue]{Markup.Escape(outputPath)}[/]");
+
+        // ── Pre-load inventory.json for grand totals display ─────────────────
+        InventoryReport? inventoryReport = null;
+        var inventoryJsonPath = Path.Combine(outputPath, "inventory.json");
+        if (File.Exists(inventoryJsonPath))
+        {
+            try
+            {
+                var inventoryJsonText = File.ReadAllText(inventoryJsonPath);
+                inventoryReport = JsonSerializer.Deserialize<InventoryReport>(inventoryJsonText,
+                    new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase });
+                if (inventoryReport is not null)
+                    console.MarkupLine($"[blue]ℹ[/] Inventory loaded: [bold]{inventoryReport.Totals.WorkItems:N0}[/] work items across [bold]{inventoryReport.Totals.Projects}[/] projects.");
+            }
+            catch
+            {
+                // Non-fatal — proceed without pre-counts.
+            }
+        }
 
         var controlPlaneUrl = GetControlPlaneUrl();
 

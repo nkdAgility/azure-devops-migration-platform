@@ -3,7 +3,7 @@ namespace DevOpsMigrationPlatform.Abstractions;
 /// <summary>Which discovery operations the agent should perform for a <see cref="DiscoveryJob"/>.</summary>
 public enum DiscoveryJobType
 {
-    /// <summary>Count work items and revisions per project. Writes <c>discovery-summary.csv</c>.</summary>
+    /// <summary>Count work items and revisions per project. Writes <c>inventory.csv</c> and <c>inventory.json</c>.</summary>
     Inventory = 0,
 
     /// <summary>Analyse cross-project and cross-organisation work item links. Writes <c>dependencies.csv</c>.</summary>
