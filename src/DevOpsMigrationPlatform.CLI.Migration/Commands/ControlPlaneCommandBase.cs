@@ -3,11 +3,13 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Errors;
 using DevOpsMigrationPlatform.CLI.Migration.Options;
 using DevOpsMigrationPlatform.CLI.Migration.Settings;
 using Spectre.Console;
 using Spectre.Console.Cli;
 using System;
+using System.Net.Http;
 
 namespace DevOpsMigrationPlatform.CLI.Migration.Commands;
 
@@ -15,6 +17,8 @@ namespace DevOpsMigrationPlatform.CLI.Migration.Commands;
 /// Base class for commands that contact the control plane.
 /// Resolves the control plane URL from <see cref="EnvironmentOptions"/> (bound from config).
 /// When <see cref="EnvironmentType.Standalone"/>, starts <see cref="LocalStackHost"/> in-process.
+/// When <see cref="EnvironmentType.Hosted"/>, verifies the external control plane is reachable
+/// before proceeding with expensive operations.
 /// </summary>
 /// <typeparam name="TSettings">Must be or derive from <see cref="ControlPlaneBaseCommandSettings"/>.</typeparam>
 public abstract class ControlPlaneCommandBase<TSettings> : CommandBase<TSettings>
@@ -34,7 +38,8 @@ public abstract class ControlPlaneCommandBase<TSettings> : CommandBase<TSettings
     /// Creates an <see cref="IHost"/> wired to the control plane URL from
     /// <see cref="EnvironmentOptions"/>. When the environment type is
     /// <see cref="EnvironmentType.Standalone"/> and <see cref="StartsLocalStack"/> is <c>true</c>,
-    /// starts the local in-process stack first.
+    /// starts the local in-process stack first. When the environment type is
+    /// <see cref="EnvironmentType.Hosted"/>, verifies the external control plane is reachable.
     /// </summary>
     protected new async Task<IHost> CreateHost(
         string[] args,
@@ -52,9 +57,50 @@ public abstract class ControlPlaneCommandBase<TSettings> : CommandBase<TSettings
             _localStack = new LocalStackHost();
             await _localStack.StartAsync();
         }
+        else if (envOpts.Type == EnvironmentType.Hosted)
+        {
+            await VerifyControlPlaneReachableAsync(envOpts.ControlPlane.BaseUrl);
+        }
 
         await Host.StartAsync();
         return Host;
+    }
+
+    /// <summary>
+    /// Verifies that the external control plane is reachable in <see cref="EnvironmentType.Hosted"/> mode.
+    /// Fails fast with an actionable error if the control plane cannot be reached,
+    /// preventing expensive preflight operations (e.g. work item counting) from running first.
+    /// </summary>
+    private static async Task VerifyControlPlaneReachableAsync(string baseUrl)
+    {
+        using var http = new HttpClient { BaseAddress = new Uri(baseUrl), Timeout = TimeSpan.FromSeconds(5) };
+        try
+        {
+            var response = await http.GetAsync("/jobs");
+            // Any HTTP response (even 4xx) means the service is running.
+        }
+        catch (HttpRequestException ex)
+        {
+            throw new MigrationException(
+                $"Control plane at {baseUrl} is not reachable. " +
+                "If you want to run locally, set '\"Environment\": {{ \"Type\": \"Standalone\" }}' " +
+                "in your config (or remove the Environment section) to start a local control plane automatically.",
+                MigrationErrorCategory.Transient,
+                isRetryable: false,
+                guidance: "In Hosted mode, the control plane must already be running. " +
+                          "Start it with 'devopsmigration controlplane start', or switch to Standalone mode.",
+                innerException: ex);
+        }
+        catch (TaskCanceledException ex)
+        {
+            throw new MigrationException(
+                $"Control plane at {baseUrl} did not respond within 5 seconds. " +
+                "The control plane may be starting up — try again, or check that it is running.",
+                MigrationErrorCategory.Transient,
+                isRetryable: true,
+                guidance: "If you want to run locally, set '\"Environment\": {{ \"Type\": \"Standalone\" }}' in your config.",
+                innerException: ex);
+        }
     }
 
     /// <summary>
