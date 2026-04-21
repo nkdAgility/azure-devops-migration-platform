@@ -104,13 +104,14 @@ public class QueueCommandTests
             combinedOutput.Contains("work items", StringComparison.OrdinalIgnoreCase),
             "Expected CLI success message not found in output.");
 
-        var workItemsDir = Path.Combine(outputDir, "WorkItems");
-        Assert.IsTrue(Directory.Exists(workItemsDir),
-            $"WorkItems directory was not created under {outputDir}");
+        // Org/project nesting places WorkItems under <outputDir>/<org>/<project>/WorkItems/
+        var workItemsDirs = Directory.GetDirectories(outputDir, "WorkItems", SearchOption.AllDirectories);
+        Assert.IsTrue(workItemsDirs.Length > 0,
+            $"WorkItems directory was not created anywhere under {outputDir}");
 
-        var revisionFiles = Directory.GetFiles(workItemsDir, "revision.json", SearchOption.AllDirectories);
+        var revisionFiles = Directory.GetFiles(workItemsDirs[0], "revision.json", SearchOption.AllDirectories);
         Assert.IsTrue(revisionFiles.Length > 0,
-            $"No revision.json files found under {workItemsDir}");
+            $"No revision.json files found under {workItemsDirs[0]}");
     }
 
     /// <summary>
