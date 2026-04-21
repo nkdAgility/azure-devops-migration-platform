@@ -15,7 +15,7 @@ namespace DevOpsMigrationPlatform.Abstractions;
 ///     "Policies": { "Retries": { "Max": 8 }, "Throttle": { "MaxConcurrency": 4 }, "Checkpoints": { "Interval": 300 } },
 ///     "Mode": "Export",
 ///     "Source": { "Type": "AzureDevOpsServices", "Url": "...", "Project": "..." },
-///     "Artefacts": { "Path": "D:\\exports\\run-001" },
+///     "Package": { "Path": "D:\\exports\\run-001" },
 ///     "Modules": [
 ///       { "Name": "WorkItems", "Enabled": true,
 ///         "Extensions": [
@@ -41,7 +41,7 @@ public sealed class MigrationOptions
     public MigrationEndpointOptions? Target { get; set; }
 
     /// <summary>Package location settings.</summary>
-    public MigrationArtefactsOptions Artefacts { get; set; } = new();
+    public MigrationPackageOptions Package { get; set; } = new();
 
     /// <summary>Retry, throttle, and checkpoint policies.</summary>
     public MigrationPoliciesOptions Policies { get; set; } = new();

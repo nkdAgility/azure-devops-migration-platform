@@ -66,7 +66,7 @@ public class PrepareValidatesConfigContext
         {
           "MigrationPlatform": {
             "ConfigVersion": "1.0",
-            "Artefacts": {
+            "Package": {
               "WorkingDirectory": "%userprofile%\\.DevOpsMigrationPlatform",
               "CreatePackage": false
             },

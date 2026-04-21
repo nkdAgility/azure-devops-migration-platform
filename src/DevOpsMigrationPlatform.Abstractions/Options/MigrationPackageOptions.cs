@@ -1,9 +1,9 @@
 namespace DevOpsMigrationPlatform.Abstractions;
 
 /// <summary>
-/// Package storage options.  Determines where the migration artefact package is written or read.
+/// Package storage options.  Determines where the migration package is written or read.
 /// </summary>
-public class MigrationArtefactsOptions
+public class MigrationPackageOptions
 {
     /// <summary>
     /// Root working directory of the migration package.

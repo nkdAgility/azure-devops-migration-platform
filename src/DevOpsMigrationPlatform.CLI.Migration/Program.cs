@@ -95,11 +95,11 @@ internal class Program
                 branch.SetDescription("Tools for finding out what we have and the implications of any migration.");
 
                 branch.AddCommand<InventoryCommand>("inventory")
-                    .WithDescription("Count work items and revisions per project. Results written to the Artefacts path defined in the config.")
+                    .WithDescription("Count work items and revisions per project. Results written to the Package path defined in the config.")
                     .WithExample("discovery", "inventory", "--config", "scenarios/inventory-ado-single-project.json");
 
                 branch.AddCommand<DependencyCommand>("dependencies")
-                    .WithDescription("Analyse work items for cross-project and cross-organisation links. Results written to the Artefacts path defined in the config.")
+                    .WithDescription("Analyse work items for cross-project and cross-organisation links. Results written to the Package path defined in the config.")
                     .WithExample("discovery", "dependencies", "--config", "scenarios/discovery-dependency-ado-single-project.json");
             });
 

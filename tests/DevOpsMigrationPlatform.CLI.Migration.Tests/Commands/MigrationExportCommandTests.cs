@@ -44,7 +44,7 @@ public class MigrationExportCommandTests
             return;
         }
 
-        // ── Output folder (matches scenario Artefacts.WorkingDirectory exactly) ──
+        // ── Output folder (matches scenario Package.WorkingDirectory exactly) ──
         // scenarios/queue-export-ado-workitems-single-project.json has
         //   "WorkingDirectory": "storage\\queue-export-ado-workitems-single-project"
         // The CLI runs with workingDirectory = repoRoot, so the absolute output path is:
@@ -143,7 +143,7 @@ public class MigrationExportCommandTests
             return;
         }
 
-        // ── Output folder (matches scenario Artefacts.WorkingDirectory exactly) ──
+        // ── Output folder (matches scenario Package.WorkingDirectory exactly) ──
         // scenarios/queue-export-ado-workitems-single-project.json has
         //   "WorkingDirectory": "storage\\queue-export-ado-workitems-single-project"
         // The CLI runs with workingDirectory = repoRoot, so the absolute output path is:

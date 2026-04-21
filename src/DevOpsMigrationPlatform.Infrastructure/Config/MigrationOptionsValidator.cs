@@ -71,9 +71,9 @@ internal sealed class MigrationOptionsValidator : IValidateOptions<MigrationOpti
             options.Target.ValidateEndpointFields(errors, "Target");
         }
 
-        // Artefacts path
-        if (string.IsNullOrWhiteSpace(options.Artefacts.WorkingDirectory))
-            errors.Add("Artefacts.WorkingDirectory is required.");
+        // Package path
+        if (string.IsNullOrWhiteSpace(options.Package.WorkingDirectory))
+            errors.Add("Package.WorkingDirectory is required.");
 
         return errors.Count > 0
             ? ValidateOptionsResult.Fail(errors)

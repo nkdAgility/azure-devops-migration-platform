@@ -96,6 +96,22 @@ public sealed class WorkItemImportOrchestrator
         await _idMapStore.InitializeAsync(ct).ConfigureAwait(false);
         await _resolutionStrategy.SeedAsync(_idMapStore, ct).ConfigureAwait(false);
 
+        // Integrity check: warn about stale mappings before import begins (non-blocking)
+        var staleMappings = await _idMapStore.CheckIntegrityAsync(
+            (tid, token) => _target.WorkItemExistsAsync(tid, token), ct).ConfigureAwait(false);
+        foreach (var stale in staleMappings)
+        {
+            _logger.LogWarning(
+                "[WorkItems] Integrity check: source {SourceId} → target {TargetId} is stale (target no longer exists).",
+                stale.SourceId, stale.TargetId);
+        }
+        if (staleMappings.Count > 0)
+        {
+            _logger.LogWarning(
+                "[WorkItems] Integrity check complete: {Count} stale mapping(s) found. Import will continue.",
+                staleMappings.Count);
+        }
+
         // Pre-filter pass: build the set of work item IDs that pass filter predicates.
         // Enumerates folder names only to find the last revision per WI, then reads one
         // revision.json per work item. Items not in the set are skipped in the main loop.
@@ -157,9 +173,10 @@ public sealed class WorkItemImportOrchestrator
             }
             else if (ext.RevisionsEnabled)
             {
-                // Revision folder — parse work item ID for the progress event
+                // Revision folder — parse work item ID and revision index
                 var revisionSegments = folderName.Split('-');
                 int.TryParse(revisionSegments.Length >= 2 ? revisionSegments[1] : null, out var wiId);
+                int.TryParse(revisionSegments.Length >= 3 ? revisionSegments[2] : null, out var revIdx);
 
                 // Skip if the work item did not pass the filter pre-pass.
                 if (filteredIds != null && !filteredIds.Contains(wiId))
@@ -167,6 +184,18 @@ public sealed class WorkItemImportOrchestrator
                     _logger.LogInformation(
                         "[WorkItems] Work item {WorkItemId} skipped by import filter scope.",
                         wiId);
+                    await WriteCompletedCursorAsync(folderPath, ct).ConfigureAwait(false);
+                    foldersProcessed++;
+                    continue;
+                }
+
+                // Revision-index watermark: skip folders at or below the last applied revision
+                var lastRevIdx = await _idMapStore.GetLastRevisionIndexAsync(wiId, ct).ConfigureAwait(false);
+                if (lastRevIdx.HasValue && revIdx <= lastRevIdx.Value)
+                {
+                    _logger.LogDebug(
+                        "[WorkItems] WI {WorkItemId} rev {Rev} at or below watermark {Watermark} — skipped.",
+                        wiId, revIdx, lastRevIdx.Value);
                     await WriteCompletedCursorAsync(folderPath, ct).ConfigureAwait(false);
                     foldersProcessed++;
                     continue;
@@ -193,6 +222,9 @@ public sealed class WorkItemImportOrchestrator
 
                 await _processor.ProcessAsync(folderPath, ext, resumeAtStage, _resolutionStrategy, ct)
                     .ConfigureAwait(false);
+
+                // Update revision-index watermark after successful processing
+                await _idMapStore.UpdateLastRevisionIndexAsync(wiId, revIdx, ct).ConfigureAwait(false);
             }
             else
             {

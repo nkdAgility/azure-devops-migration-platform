@@ -73,4 +73,11 @@ public interface IWorkItemImportTarget
     Task<WorkItemRelations> GetExistingRelationsAsync(
         int targetWorkItemId,
         CancellationToken ct);
+
+    /// <summary>
+    /// Returns <see langword="true"/> if the target work item with <paramref name="targetWorkItemId"/> exists;
+    /// <see langword="false"/> if it has been deleted or never existed.
+    /// Used by Stage A duplicate prevention and the integrity check pass.
+    /// </summary>
+    Task<bool> WorkItemExistsAsync(int targetWorkItemId, CancellationToken ct);
 }

@@ -22,7 +22,7 @@
         "AccessToken": "$ENV:AZDEVOPS_SYSTEM_TEST_PAT"
       }
     },
-    "Artefacts": {
+    "Package": {
       "WorkingDirectory": "storage\\queue-export-ado-workitems-single-project",
       "CreatePackage": true
     },

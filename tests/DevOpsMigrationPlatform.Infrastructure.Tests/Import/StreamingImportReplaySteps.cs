@@ -355,6 +355,15 @@ public class StreamingImportReplaySteps
                 .Returns(Task.CompletedTask);
         }
         _ctx.MockIdMapStore
+            .Setup(s => s.CheckIntegrityAsync(It.IsAny<Func<int, CancellationToken, Task<bool>>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Array.Empty<IdMapEntry>());
+        _ctx.MockIdMapStore
+            .Setup(s => s.GetLastRevisionIndexAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((int?)null);
+        _ctx.MockIdMapStore
+            .Setup(s => s.UpdateLastRevisionIndexAsync(It.IsAny<int>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+        _ctx.MockIdMapStore
             .Setup(s => s.DisposeAsync())
             .Returns(new ValueTask());
     }
@@ -370,6 +379,9 @@ public class StreamingImportReplaySteps
         _ctx.MockTarget
             .Setup(t => t.AddLinksAsync(It.IsAny<int>(), It.IsAny<IReadOnlyList<RelatedWorkItemLink>>(), It.IsAny<IReadOnlyList<ExternalWorkItemLink>>(), It.IsAny<IReadOnlyList<HyperlinkWorkItemLink>>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
+        _ctx.MockTarget
+            .Setup(t => t.WorkItemExistsAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
     }
 
     private void SetupTargetWithAttachment(int workItemId, int targetId)

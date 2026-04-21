@@ -40,13 +40,13 @@ public class InventoryCommandTests
         var repoRoot = CliRunner.FindRepoRoot();
         var scenarioConfigPath = Path.Combine(repoRoot, "scenarios", "inventory-ado-single-project.json");
 
-        // Read the artefacts path from the scenario config (MigrationPlatform.Artefacts.WorkingDirectory).
+        // Read the artefacts path from the scenario config (MigrationPlatform.Package.WorkingDirectory).
         // Falls back to the platform default when the scenario omits the key.
         var configJson = File.ReadAllText(scenarioConfigPath);
         using var doc = JsonDocument.Parse(configJson);
         var artefactsElement = doc.RootElement
             .GetProperty("MigrationPlatform")
-            .GetProperty("Artefacts");
+            .GetProperty("Package");
 
         var artefactsPath = artefactsElement.TryGetProperty("WorkingDirectory", out var wdProp)
             ? wdProp.GetString()!

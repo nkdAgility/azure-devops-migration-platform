@@ -20,13 +20,13 @@ public class PrepareValidatesConfigSteps
         _userConfigJson = null;
     }
 
-    [Given(@"a migration\.json with artefacts path ""(.*)""")]
+    [Given(@"a migration\.json with package path ""(.*)""")]
     public void GivenAMigrationJsonWithArtefactsPath(string path)
     {
         _userConfigJson = $$"""
             {
               "MigrationPlatform": {
-                "Artefacts": { "WorkingDirectory": "{{path.Replace("\\", "\\\\")}}" }
+                "Package": { "WorkingDirectory": "{{path.Replace("\\", "\\\\")}}" }
               }
             }
             """;
@@ -63,10 +63,10 @@ public class PrepareValidatesConfigSteps
 
     // ── Then ──────────────────────────────────────────────────────────────────
 
-    [Then(@"the artefacts path is ""(.*)""")]
+    [Then(@"the package path is ""(.*)""")]
     public void ThenTheArtefactsPathIs(string expected)
     {
-        Assert.AreEqual(expected, _ctx.ResolvedOptions!.Artefacts.WorkingDirectory);
+        Assert.AreEqual(expected, _ctx.ResolvedOptions!.Package.WorkingDirectory);
     }
 
     [Then(@"the max retries is (\d+)")]
@@ -81,21 +81,21 @@ public class PrepareValidatesConfigSteps
         Assert.AreEqual(expected, _ctx.ResolvedOptions!.Policies.Throttle.MaxConcurrency);
     }
 
-    [Then(@"the expanded artefacts path does not contain ""%TEMP%""")]
+    [Then(@"the expanded package path does not contain ""%TEMP%""")]
     public void ThenTheExpandedArtefactsPathDoesNotContainTempVariable()
     {
-        var expanded = _ctx.ResolvedOptions!.Artefacts.ExpandedPath;
+        var expanded = _ctx.ResolvedOptions!.Package.ExpandedPath;
         Assert.IsFalse(expanded.Contains("%TEMP%", StringComparison.OrdinalIgnoreCase),
             $"Expected expanded path but got: {expanded}");
     }
 
-    [Then(@"the expanded artefacts path contains the value of the TEMP environment variable")]
+    [Then(@"the expanded package path contains the value of the TEMP environment variable")]
     public void ThenTheExpandedArtefactsPathContainsTheTempValue()
     {
         var tempValue = Environment.GetEnvironmentVariable("TEMP")
                      ?? Environment.GetEnvironmentVariable("TMP")
                      ?? string.Empty;
-        var expanded = _ctx.ResolvedOptions!.Artefacts.ExpandedPath;
+        var expanded = _ctx.ResolvedOptions!.Package.ExpandedPath;
         Assert.IsTrue(expanded.Contains(tempValue, StringComparison.OrdinalIgnoreCase),
             $"Expected '{expanded}' to contain TEMP value '{tempValue}'");
     }

@@ -94,6 +94,20 @@ public sealed class RevisionFolderProcessor : IRevisionFolderProcessor
                 // Live fallback lookup via strategy
                 targetId = await resolutionStrategy.ResolveSingleAsync(revision.WorkItemId, ct).ConfigureAwait(false);
             }
+            else
+            {
+                // Existing mapping: verify the target still exists (guard against deleted targets)
+                var exists = await _target.WorkItemExistsAsync(targetId.Value, ct).ConfigureAwait(false);
+                if (!exists)
+                {
+                    _logger.LogWarning(
+                        "[WorkItems] Source {SourceId} mapped to deleted target {TargetId} — recording skip and advancing cursor.",
+                        revision.WorkItemId, targetId.Value);
+                    await _idMapStore.RecordSkippedRevisionAsync(revision.WorkItemId, "TargetWorkItemDeleted", ct).ConfigureAwait(false);
+                    await WriteCursorAsync(folderPath, CursorStage.Completed, ct).ConfigureAwait(false);
+                    return;
+                }
+            }
 
             if (targetId is null)
             {

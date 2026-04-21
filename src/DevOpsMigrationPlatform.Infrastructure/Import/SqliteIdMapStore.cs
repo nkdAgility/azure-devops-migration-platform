@@ -20,7 +20,7 @@ namespace DevOpsMigrationPlatform.Infrastructure.Import;
 /// SQLite requires a real file-system path in the connection string; it cannot operate through
 /// the <see cref="IArtefactStore"/> abstraction.  This class is infrastructure-layer code
 /// (not module or domain code) and the path is supplied by <c>WorkItemsModule</c> which derives
-/// it from <c>MigrationJob.Artefacts.PackageUri</c> — the same value that backs the
+/// it from <c>MigrationJob.Package.PackageUri</c> — the same value that backs the
 /// <see cref="IArtefactStore"/> root.  All module and domain code must continue to access
 /// package content exclusively through <see cref="IArtefactStore"/>.
 /// See guardrails rule 13 (Data Integrity &amp; Persistence) for the general constraint.
@@ -59,6 +59,16 @@ public sealed class SqliteIdMapStore : IIdMapStore
                 relative_path        TEXT    NOT NULL,
                 target_attachment_id TEXT    NOT NULL,
                 PRIMARY KEY (source_work_item_id, revision_index, relative_path)
+            );
+            CREATE TABLE IF NOT EXISTS last_revision_index (
+                source_id      INTEGER PRIMARY KEY,
+                revision_index INTEGER NOT NULL
+            );
+            CREATE TABLE IF NOT EXISTS skipped_revisions (
+                source_id   INTEGER NOT NULL,
+                reason      TEXT    NOT NULL,
+                recorded_at TEXT    NOT NULL DEFAULT (datetime('now')),
+                PRIMARY KEY (source_id, reason)
             );
             """;
         await cmd.ExecuteNonQueryAsync(ct).ConfigureAwait(false);
@@ -138,6 +148,79 @@ public sealed class SqliteIdMapStore : IIdMapStore
         }
 
         await tx.CommitAsync(ct).ConfigureAwait(false);
+    }
+
+    /// <inheritdoc/>
+    public async Task<int?> GetLastRevisionIndexAsync(int sourceId, CancellationToken ct)
+    {
+        EnsureInitialized();
+        await using var cmd = _connection!.CreateCommand();
+        cmd.CommandText = "SELECT revision_index FROM last_revision_index WHERE source_id = @sid";
+        cmd.Parameters.AddWithValue("@sid", sourceId);
+        var result = await cmd.ExecuteScalarAsync(ct).ConfigureAwait(false);
+        return result is null or DBNull ? null : Convert.ToInt32(result);
+    }
+
+    /// <inheritdoc/>
+    public async Task UpdateLastRevisionIndexAsync(int sourceId, int revisionIndex, CancellationToken ct)
+    {
+        EnsureInitialized();
+        await using var cmd = _connection!.CreateCommand();
+        // MAX semantics: only update if new value is greater than existing value
+        cmd.CommandText = """
+            INSERT INTO last_revision_index (source_id, revision_index) VALUES (@sid, @rev)
+            ON CONFLICT(source_id) DO UPDATE SET revision_index = MAX(revision_index, excluded.revision_index)
+            """;
+        cmd.Parameters.AddWithValue("@sid", sourceId);
+        cmd.Parameters.AddWithValue("@rev", revisionIndex);
+        await cmd.ExecuteNonQueryAsync(ct).ConfigureAwait(false);
+    }
+
+    /// <inheritdoc/>
+    public async Task<IReadOnlyList<IdMapEntry>> CheckIntegrityAsync(
+        Func<int, CancellationToken, Task<bool>> targetExistsAsync,
+        CancellationToken ct)
+    {
+        EnsureInitialized();
+        var stale = new List<IdMapEntry>();
+
+        await using var cmd = _connection!.CreateCommand();
+        cmd.CommandText = "SELECT source_id, target_id FROM work_item_map";
+        await using var reader = await cmd.ExecuteReaderAsync(ct).ConfigureAwait(false);
+
+        var entries = new List<IdMapEntry>();
+        while (await reader.ReadAsync(ct).ConfigureAwait(false))
+        {
+            entries.Add(new IdMapEntry
+            {
+                SourceId = reader.GetInt32(0),
+                TargetId = reader.GetInt32(1)
+            });
+        }
+
+        foreach (var entry in entries)
+        {
+            ct.ThrowIfCancellationRequested();
+            var exists = await targetExistsAsync(entry.TargetId, ct).ConfigureAwait(false);
+            if (!exists)
+                stale.Add(entry);
+        }
+
+        return stale;
+    }
+
+    /// <inheritdoc/>
+    public async Task RecordSkippedRevisionAsync(int sourceId, string reason, CancellationToken ct)
+    {
+        EnsureInitialized();
+        await using var cmd = _connection!.CreateCommand();
+        cmd.CommandText = """
+            INSERT OR REPLACE INTO skipped_revisions (source_id, reason)
+            VALUES (@sid, @reason)
+            """;
+        cmd.Parameters.AddWithValue("@sid", sourceId);
+        cmd.Parameters.AddWithValue("@reason", reason);
+        await cmd.ExecuteNonQueryAsync(ct).ConfigureAwait(false);
     }
 
     /// <inheritdoc/>

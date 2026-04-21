@@ -43,13 +43,13 @@ internal sealed class InteractiveConfigurationBuilder : IInteractiveConfiguratio
             console.WriteLine();
         }
 
-        // Step 4: Artefacts path
+        // Step 4: Package path
         var stepNum = 2 + (isExport ? 1 : 0) + (isImport ? 1 : 0);
         console.MarkupLine($"[bold blue]Step {stepNum}: Package Storage[/bold blue]");
-        options.Artefacts.WorkingDirectory = console.Prompt(
+        options.Package.WorkingDirectory = console.Prompt(
             new TextPrompt<string>("Migration package directory:")
-                .DefaultValue(options.Artefacts.WorkingDirectory));
-        options.Artefacts.CreatePackage = console.Confirm("Compress the package (zip)?", defaultValue: false);
+                .DefaultValue(options.Package.WorkingDirectory));
+        options.Package.CreatePackage = console.Confirm("Compress the package (zip)?", defaultValue: false);
 
         return options;
     }

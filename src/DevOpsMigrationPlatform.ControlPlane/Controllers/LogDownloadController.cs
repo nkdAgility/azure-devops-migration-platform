@@ -57,8 +57,8 @@ public sealed class LogDownloadController : ControllerBase
 
         var packageUri = job switch
         {
-            MigrationJob mj => mj.Artefacts.PackageUri,
-            DiscoveryJob dj => dj.Artefacts.PackageUri,
+            MigrationJob mj => mj.Package.PackageUri,
+            DiscoveryJob dj => dj.Package.PackageUri,
             _ => null
         };
         if (string.IsNullOrWhiteSpace(packageUri))

@@ -46,7 +46,7 @@ public sealed class PrepareCommand : ControlPlaneCommandBase<MigrationCommandSet
         if (config is null)
             return 1;
 
-        var outputPath = Path.GetFullPath(config.Artefacts.ExpandedPath);
+        var outputPath = Path.GetFullPath(config.Package.ExpandedPath);
 
         console.MarkupLine("[blue]ℹ[/] Running end-to-end preparation check…");
         console.MarkupLine($"[blue]ℹ[/] Package path: [blue]{Markup.Escape(outputPath)}[/]");
@@ -56,7 +56,7 @@ public sealed class PrepareCommand : ControlPlaneCommandBase<MigrationCommandSet
             JobId = Guid.NewGuid().ToString(),
             Mode = "Prepare",
             Source = config.Source,
-            Artefacts = new JobArtefacts
+            Package = new JobPackage
             {
                 PackageUri = $"file:///{outputPath.Replace(Path.DirectorySeparatorChar, '/')}",
                 CreatePackage = false

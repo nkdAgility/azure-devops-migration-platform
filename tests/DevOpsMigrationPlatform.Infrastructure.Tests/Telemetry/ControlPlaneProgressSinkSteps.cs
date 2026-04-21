@@ -51,6 +51,7 @@ internal sealed class ControlPlaneProgressSinkSteps
     }
 
     [When("the job engine calls Emit with a ProgressEvent")]
+    [When("the job engine calls Emit with a ProgressEvent after the restart")]
     public async Task WhenJobEngineEmits()
     {
         Assert.IsNotNull(_sink, "Sink must be created in Given step.");

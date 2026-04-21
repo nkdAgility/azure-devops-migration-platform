@@ -306,4 +306,12 @@ public sealed class ControlPlaneClient : IJobRunner, ILogsClient, IControlPlaneC
         await foreach (var evt in FollowLogsAsync(jobId, ct).ConfigureAwait(false))
             yield return evt;
     }
+
+    /// <summary>
+    /// Checks whether the agent with <paramref name="agentInstanceId"/> is currently active.
+    /// The CLI client always returns <see langword="false"/> — lock liveness checks are only
+    /// performed by the Migration Agent, which uses <c>AgentControlPlaneClientAdapter</c>.
+    /// </summary>
+    public Task<bool> IsAgentActiveAsync(string agentInstanceId, CancellationToken ct)
+        => Task.FromResult(false);
 }

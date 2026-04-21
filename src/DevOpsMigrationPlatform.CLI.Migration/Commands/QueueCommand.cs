@@ -83,7 +83,7 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
 
         var orgUrl = config.Target?.GetResolvedUrl();
         var project = config.Target?.GetProject();
-        var packagePath = config.Artefacts?.ExpandedPath;
+        var packagePath = config.Package?.ExpandedPath;
 
         if (string.IsNullOrWhiteSpace(orgUrl))
         {
@@ -99,7 +99,7 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
 
         if (string.IsNullOrWhiteSpace(packagePath))
         {
-            ShowError(console, "Artefacts.WorkingDirectory is required for import. Set it in the config file.");
+            ShowError(console, "Package.WorkingDirectory is required for import. Set it in the config file.");
             return 1;
         }
 
@@ -114,10 +114,10 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
             JobId = Guid.NewGuid().ToString(),
             Mode = "Import",
             Target = config.Target,
-            Artefacts = new JobArtefacts
+            Package = new JobPackage
             {
                 PackageUri = $"file:///{outputPath.Replace(Path.DirectorySeparatorChar, '/')}",
-                CreatePackage = config.Artefacts!.CreatePackage
+                CreatePackage = config.Package!.CreatePackage
             },
             Modules = modules,
             Diagnostics = new JobDiagnostics { MinimumLevel = settings.Level },
@@ -222,7 +222,7 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
     {
         var console = GetRequiredService<IAnsiConsole>();
 
-        var outputPath = Path.GetFullPath(config.Artefacts.ExpandedPath);
+        var outputPath = Path.GetFullPath(config.Package.ExpandedPath);
         var orgUrl = config.Source?.GetResolvedUrl() ?? "https://simulated.example.com";
         var project = config.Source?.GetProject() ?? "SimulatedProject";
 
@@ -236,10 +236,10 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
             JobId = Guid.NewGuid().ToString(),
             Mode = "Export",
             Source = config.Source,
-            Artefacts = new JobArtefacts
+            Package = new JobPackage
             {
                 PackageUri = $"file:///{outputPath.Replace(Path.DirectorySeparatorChar, '/')}",
-                CreatePackage = config.Artefacts.CreatePackage
+                CreatePackage = config.Package.CreatePackage
             },
             Modules = modules,
             Diagnostics = new JobDiagnostics { MinimumLevel = settings.Level },
@@ -325,7 +325,7 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
             return 1;
         }
 
-        var outputPath = Path.GetFullPath(config.Artefacts.ExpandedPath);
+        var outputPath = Path.GetFullPath(config.Package.ExpandedPath);
 
         console.MarkupLine($"[blue]ℹ[/] Exporting from [bold]{Markup.Escape(orgUrl)}[/] / [bold]{Markup.Escape(project)}[/]");
         console.MarkupLine($"[blue]ℹ[/] Package path  : [blue]{Markup.Escape(outputPath)}[/]");
@@ -376,10 +376,10 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
             JobId = Guid.NewGuid().ToString(),
             Mode = "Export",
             Source = config.Source,
-            Artefacts = new JobArtefacts
+            Package = new JobPackage
             {
                 PackageUri = $"file:///{outputPath.Replace(Path.DirectorySeparatorChar, '/')}",
-                CreatePackage = config.Artefacts.CreatePackage
+                CreatePackage = config.Package.CreatePackage
             },
             Modules = modules,
             Diagnostics = new JobDiagnostics { MinimumLevel = settings.Level },

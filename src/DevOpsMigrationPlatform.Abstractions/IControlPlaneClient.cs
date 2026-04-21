@@ -22,4 +22,11 @@ public interface IControlPlaneClient
 
     /// <summary>Streams live <see cref="DiagnosticLogRecord"/> records via SSE.</summary>
     IAsyncEnumerable<DiagnosticLogRecord> StreamDiagnosticsAsync(Guid jobId, string? level, CancellationToken ct);
+
+    /// <summary>
+    /// Checks whether the agent with <paramref name="agentInstanceId"/> is currently active.
+    /// Used by <c>PackageLockFileService</c> to distinguish live locks from stale locks.
+    /// Returns <see langword="false"/> if the status cannot be determined.
+    /// </summary>
+    Task<bool> IsAgentActiveAsync(string agentInstanceId, CancellationToken ct);
 }
