@@ -100,11 +100,13 @@ public sealed class InventoryCommand : ControlPlaneCommandBase<InventoryCommand.
         console.MarkupLine($"[blue]ℹ[/] Submitting inventory job for [bold]{job.Organisations.Count}[/] organisation(s).");
         console.MarkupLine($"[blue]ℹ[/] Output path: [blue]{Markup.Escape(outputPath)}[/]");
 
+        var controlPlaneUrl = GetControlPlaneUrl();
+
         Guid jobId;
         try
         {
             jobId = await client.SubmitDiscoveryAsync(job, cancellationToken);
-            console.MarkupLine($"[green]✓[/] Discovery job [bold]{jobId}[/] submitted.");
+            PrintJobSubmitted(console, jobId, controlPlaneUrl);
         }
         catch (Exception ex)
         {
@@ -118,8 +120,19 @@ public sealed class InventoryCommand : ControlPlaneCommandBase<InventoryCommand.
             return 0;
         }
 
-        // Follow progress and render a live table (interactive) or line-by-line output (non-interactive).
+        // Pre-populate the table with known projects from config so the user gets
+        // immediate visual feedback while the agent acquires a lease and starts processing.
         var summaries = new Dictionary<string, InventorySummary>(StringComparer.OrdinalIgnoreCase);
+        foreach (var org in job.Organisations)
+        {
+            var url = org.Endpoint.GetResolvedUrl();
+            foreach (var project in org.Projects)
+            {
+                var key = $"{url}|{project}";
+                if (!summaries.ContainsKey(key))
+                    summaries[key] = new InventorySummary { Url = url, ProjectName = project };
+            }
+        }
 
         try
         {
@@ -127,6 +140,8 @@ public sealed class InventoryCommand : ControlPlaneCommandBase<InventoryCommand.
             {
                 var table = BuildTable(summaries.Values);
                 await console.Live(table)
+                    .AutoClear(false)
+                    .Overflow(VerticalOverflow.Ellipsis)
                     .StartAsync(async ctx =>
                     {
                         await foreach (var evt in client.FollowDiscoveryLogsAsync(jobId, cancellationToken))
@@ -165,8 +180,12 @@ public sealed class InventoryCommand : ControlPlaneCommandBase<InventoryCommand.
         }
         catch (OperationCanceledException)
         {
-            console.MarkupLine("[yellow]Detached from stream. Discovery job continues running.[/]");
-            return 0;
+            if (!isStandalone)
+            {
+                console.MarkupLine("[yellow]Detached from stream. Discovery job continues running.[/]");
+                return 0;
+            }
+            throw; // Standalone: propagate so base class shows "Operation cancelled" and disposes LocalStackHost
         }
 
         console.MarkupLine($"\n[green]✅ Inventory complete.[/] Results written to [blue]{Markup.Escape(outputPath)}[/]");

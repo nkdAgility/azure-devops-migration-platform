@@ -96,11 +96,13 @@ public sealed class DependencyCommand : ControlPlaneCommandBase<DependencyComman
         console.MarkupLine($"[blue]ℹ[/] Submitting dependency discovery job for [bold]{job.Organisations.Count}[/] organisation(s).");
         console.MarkupLine($"[blue]ℹ[/] Output path: [blue]{Markup.Escape(outputPath)}[/]");
 
+        var controlPlaneUrl = GetControlPlaneUrl();
+
         Guid jobId;
         try
         {
             jobId = await client.SubmitDiscoveryAsync(job, cancellationToken);
-            console.MarkupLine($"[green]✓[/] Discovery job [bold]{jobId}[/] submitted.");
+            PrintJobSubmitted(console, jobId, controlPlaneUrl);
         }
         catch (Exception ex)
         {
@@ -114,8 +116,19 @@ public sealed class DependencyCommand : ControlPlaneCommandBase<DependencyComman
             return 0;
         }
 
-        // Follow progress and render a live table (interactive) or line-by-line output (non-interactive).
+        // Pre-populate the progress table with known projects from config so the user gets
+        // immediate visual feedback while the agent acquires a lease and starts processing.
         var progressState = new Dictionary<string, ProjectProgress>(StringComparer.OrdinalIgnoreCase);
+        foreach (var org in job.Organisations)
+        {
+            var url = org.Endpoint.GetResolvedUrl();
+            foreach (var project in org.Projects)
+            {
+                var key = $"{url}|{project}";
+                if (!progressState.ContainsKey(key))
+                    progressState[key] = new ProjectProgress { OrgName = url, ProjectName = project };
+            }
+        }
 
         try
         {
@@ -168,8 +181,12 @@ public sealed class DependencyCommand : ControlPlaneCommandBase<DependencyComman
         }
         catch (OperationCanceledException)
         {
-            console.MarkupLine("[yellow]Detached from stream. Discovery job continues running.[/]");
-            return 0;
+            if (!isStandalone)
+            {
+                console.MarkupLine("[yellow]Detached from stream. Discovery job continues running.[/]");
+                return 0;
+            }
+            throw; // Standalone: propagate so base class shows "Operation cancelled" and disposes LocalStackHost
         }
 
         // ── Post-processing: read root CSV from package and generate output ──────
