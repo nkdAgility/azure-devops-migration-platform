@@ -22,6 +22,7 @@ public sealed class TuiMainView : Window, IDisposable
     private readonly IControlPlaneClient _client;
     private readonly TuiJobListView _jobList;
     private readonly TuiMetricsView _metrics;
+    private readonly TuiDerivedView _derived;
     private readonly TuiLogView _logView;
     private readonly Label _statusBar;
 
@@ -46,19 +47,27 @@ public sealed class TuiMainView : Window, IDisposable
         CanFocus = true;
 
         // ── Panels ──────────────────────────────────────────────────────────────
-        // Top row: Jobs (left 40%) | Metrics (right 60%)
+        // Top row: Jobs (left 30%) | Metrics (centre 35%) | Derived (right 35%)
         // Bottom row: Log/Trace spanning full width
         _jobList = new TuiJobListView(client)
         {
             X = 0,
             Y = 0,
-            Width = Dim.Percent(40),
+            Width = Dim.Percent(30),
             Height = Dim.Percent(45)
         };
 
         _metrics = new TuiMetricsView
         {
             X = Pos.Right(_jobList),
+            Y = 0,
+            Width = Dim.Percent(35),
+            Height = Dim.Percent(45)
+        };
+
+        _derived = new TuiDerivedView
+        {
+            X = Pos.Right(_metrics),
             Y = 0,
             Width = Dim.Fill(),
             Height = Dim.Percent(45)
@@ -84,6 +93,7 @@ public sealed class TuiMainView : Window, IDisposable
 
         Add(_jobList);
         Add(_metrics);
+        Add(_derived);
         Add(_logView);
         Add(_statusBar);
 
@@ -153,6 +163,7 @@ public sealed class TuiMainView : Window, IDisposable
         _discoveryProjects.Clear();
 
         _metrics.SetWaiting();
+        _derived.SetWaiting();
         _logView.ClearAndBind(jobId, ct);
 
         // Start telemetry polling (T029)
@@ -173,6 +184,7 @@ public sealed class TuiMainView : Window, IDisposable
         _discoveryMetricsActive = false;
         _discoveryProjects.Clear();
         _metrics.Update(null);
+        _derived.SetWaiting();
         _logView.Clear();
         Application.Invoke(() => _statusBar.Text = " — | Press Q to quit | Tab toggles Log mode");
     }
@@ -379,7 +391,8 @@ public sealed class TuiMainView : Window, IDisposable
             EstimatedRemaining = estimatedRemaining
         };
 
-        _metrics.UpdateDiscovery(snapshot, computed);
+        _metrics.UpdateDiscovery(snapshot);
+        _derived.UpdateDiscovery(computed, snapshot.ProjectDurationMeanMs);
     }
 
     // ─── Job-ended callback ──────────────────────────────────────────────────────

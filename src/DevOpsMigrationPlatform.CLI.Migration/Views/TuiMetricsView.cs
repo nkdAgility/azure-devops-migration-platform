@@ -49,11 +49,11 @@ public sealed class TuiMetricsView : FrameView
     /// Shows discovery-specific metrics including the full <see cref="DiscoveryMetricSnapshot"/>
     /// and computed throughput rates. Safe to call from any thread.
     /// </summary>
-    public void UpdateDiscovery(DiscoveryMetricSnapshot snapshot, DiscoveryComputedMetrics computed)
+    public void UpdateDiscovery(DiscoveryMetricSnapshot snapshot)
     {
         Application.Invoke(() =>
         {
-            _content.Text = FormatDiscoverySnapshot(snapshot, computed);
+            _content.Text = FormatDiscoverySnapshot(snapshot);
             SetNeedsDraw();
         });
     }
@@ -88,9 +88,9 @@ public sealed class TuiMetricsView : FrameView
         $"Revisions Missing    : {s.RevisionsMissing,8}\n" +
         $"Rev Order Errors     : {s.RevisionOrderErrors,8}";
 
-    private static string FormatDiscoverySnapshot(DiscoveryMetricSnapshot s, DiscoveryComputedMetrics c)
+    private static string FormatDiscoverySnapshot(DiscoveryMetricSnapshot s)
     {
-        var text =
+        return
             $"── Progress ──────────────────────\n" +
             $"Orgs Completed       : {s.OrganisationsCompleted,8}\n" +
             $"Orgs Failed          : {s.OrganisationsFailed,8}\n" +
@@ -109,51 +109,15 @@ public sealed class TuiMetricsView : FrameView
             $"Links Found          : {s.LinksFound,8:N0}\n" +
             $"Work Items Analysed  : {s.WorkItemsAnalysed,8:N0}\n" +
             $"\n" +
-            $"── Throughput ────────────────────\n" +
-            $"Work Items / hour    : {FormatRate(c.WorkItemsPerHour)}\n" +
-            $"Revisions / hour     : {FormatRate(c.RevisionsPerHour)}\n" +
-            $"Analysed / hour      : {FormatRate(c.AnalysedPerHour)}\n" +
-            $"Links / hour         : {FormatRate(c.LinksPerHour)}\n" +
-            $"Projects / hour      : {FormatRate(c.ProjectsPerHour)}\n" +
-            $"Avg Project Duration : {FormatDuration(s.ProjectDurationMeanMs)}\n" +
-            $"\n" +
             $"── Operational ───────────────────\n" +
-            $"Checkpoints Saved    : {s.CheckpointsSaved,8}\n" +
-            $"Elapsed              : {FormatTimeSpan(c.Elapsed)}";
-
-        if (c.EstimatedRemaining.HasValue)
-            text += $"\nETA                  : {FormatTimeSpan(c.EstimatedRemaining.Value)}";
-
-        return text;
+            $"Checkpoints Saved    : {s.CheckpointsSaved,8}";
     }
 
     private static string FormatMean(double? value, string unit = "")
     {
-        if (!value.HasValue) return "       \u2014";
+        if (!value.HasValue) return "       —";
         var suffix = unit.Length > 0 ? $" {unit}" : "";
         return $"{value.Value,8:F1}{suffix}";
-    }
-
-    private static string FormatRate(double? rate)
-    {
-        if (!rate.HasValue || rate.Value < 0.01) return "       \u2014";
-        return $"{rate.Value,8:N0}";
-    }
-
-    private static string FormatDuration(double? ms)
-    {
-        if (!ms.HasValue) return "       \u2014";
-        var ts = System.TimeSpan.FromMilliseconds(ms.Value);
-        return FormatTimeSpan(ts);
-    }
-
-    private static string FormatTimeSpan(System.TimeSpan ts)
-    {
-        if (ts.TotalHours >= 1)
-            return $"{(int)ts.TotalHours}h {ts.Minutes:D2}m {ts.Seconds:D2}s";
-        if (ts.TotalMinutes >= 1)
-            return $"   {(int)ts.TotalMinutes}m {ts.Seconds:D2}s";
-        return $"      {ts.Seconds}s";
     }
 }
 

@@ -646,13 +646,12 @@ public sealed class DependencyCommand : ControlPlaneCommandBase<DependencyComman
             return null;
 
         int completed = 0, inProgress = 0;
-        long totalAnalysed = 0, totalLinks = 0, totalKnown = 0, processedOfKnown = 0;
+        long totalAnalysed = 0, totalKnown = 0, processedOfKnown = 0;
         foreach (var p in state)
         {
             if (p.IsComplete) completed++;
             else if (p.WorkItemsAnalysed > 0) inProgress++;
             totalAnalysed += p.WorkItemsAnalysed;
-            totalLinks += p.ExternalLinks;
             if (p.TotalWorkItems > 0)
             {
                 totalKnown += p.TotalWorkItems;
@@ -673,9 +672,7 @@ public sealed class DependencyCommand : ControlPlaneCommandBase<DependencyComman
         if (totalAnalysed > 0)
         {
             var analysedPerHour = hours > 0.001 ? totalAnalysed / hours : 0;
-            var linksPerHour = hours > 0.001 ? totalLinks / hours : 0;
             statsTable.AddRow("[dim]Work Items Analysed / hour[/]", $"[white]{analysedPerHour:N0}[/]");
-            statsTable.AddRow("[dim]Links Found / hour[/]", $"[white]{linksPerHour:N0}[/]");
         }
 
         if (completed > 0)

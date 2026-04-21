@@ -92,7 +92,7 @@ public class TuiMetricsViewTests
         };
 
         // Act + Assert (no exception means formatting logic ran)
-        view.UpdateDiscovery(snapshot, computed);
+        view.UpdateDiscovery(snapshot);
     }
 
     [TestMethod]
@@ -101,12 +101,8 @@ public class TuiMetricsViewTests
         // Arrange
         var view = new TuiMetricsView();
         var snapshot = new DiscoveryMetricSnapshot();
-        var computed = new DiscoveryComputedMetrics
-        {
-            Elapsed = TimeSpan.Zero
-        };
 
         // Act + Assert (no crash with all-null/zero values)
-        view.UpdateDiscovery(snapshot, computed);
+        view.UpdateDiscovery(snapshot);
     }
 }
