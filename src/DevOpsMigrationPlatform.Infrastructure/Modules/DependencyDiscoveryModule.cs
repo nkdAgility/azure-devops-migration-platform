@@ -55,7 +55,7 @@ public sealed class DependencyDiscoveryModule : IDiscoveryModule
         var csvBuilder = new StringBuilder();
         csvBuilder.AppendLine(
             "SourceWorkItemId,SourceWorkItemType,SourceProject,SourceOrganisationUrl," +
-            "LinkType,LinkScope,TargetWorkItemId,TargetProject,TargetOrganisation,TargetStatus,LinkChangedDate");
+            "LinkType,LinkScope,TargetWorkItemId,TargetProject,TargetOrganisation,TargetStatus,LinkChangedDate,SourceWorkItemStateCategory");
 
         var checkpointInterval = TimeSpan.FromSeconds(job.Policies.CheckpointIntervalSeconds);
         var lastCheckpoint = DateTime.UtcNow;
@@ -78,7 +78,8 @@ public sealed class DependencyDiscoveryModule : IDiscoveryModule
                         $"{EscapeCsv(r.LinkType ?? "")},{r.LinkScope}," +
                         $"{r.TargetWorkItemId},{EscapeCsv(r.TargetProject ?? "")}," +
                         $"{EscapeCsv(r.TargetOrganisation ?? "")},{r.TargetStatus}," +
-                        $"{(r.LinkChangedDate.HasValue ? r.LinkChangedDate.Value.ToString("O") : "")}");
+                        $"{(r.LinkChangedDate.HasValue ? r.LinkChangedDate.Value.ToString("O") : "")}," +
+                        $"{EscapeCsv(r.SourceWorkItemStateCategory ?? "")}");
                     recordCount++;
                     metrics?.RecordLinksFound(1, new TagList
                     {

@@ -64,4 +64,11 @@ public record DependencyRecord
     /// <c>null</c> when the source system does not provide link-level timestamps.
     /// </summary>
     public DateTimeOffset? LinkChangedDate { get; init; }
+
+    /// <summary>
+    /// Gets the <c>System.StateCategory</c> of the source work item at the time of analysis.
+    /// Common values: <c>Proposed</c>, <c>InProgress</c>, <c>Resolved</c>, <c>Completed</c>, <c>Removed</c>.
+    /// <c>null</c> or empty when the source system does not return state category information.
+    /// </summary>
+    public string? SourceWorkItemStateCategory { get; init; }
 }

@@ -199,9 +199,11 @@ public sealed class DependencyCommand : ControlPlaneCommandBase<DependencyComman
         var perProjectPairs = new Dictionary<(string, string), Dictionary<ProjectPairKey, int>>();
         var perProjectPairDates = new Dictionary<(string, string), Dictionary<ProjectPairKey, DateTimeOffset?>>();
         var perProjectPairTypes = new Dictionary<(string, string), Dictionary<ProjectPairKey, Dictionary<string, int>>>();
+        var perProjectPairActive = new Dictionary<(string, string), Dictionary<ProjectPairKey, int>>();
         var perOrgPairs = new Dictionary<string, Dictionary<ProjectPairKey, int>>();
         var perOrgPairDates = new Dictionary<string, Dictionary<ProjectPairKey, DateTimeOffset?>>();
         var perOrgPairTypes = new Dictionary<string, Dictionary<ProjectPairKey, Dictionary<string, int>>>();
+        var perOrgPairActive = new Dictionary<string, Dictionary<ProjectPairKey, int>>();
 
         foreach (var r in records)
         {
@@ -275,6 +277,29 @@ public sealed class DependencyCommand : ControlPlaneCommandBase<DependencyComman
                 orgTypeMap[pairKey] = orgTypeCounts;
             }
             orgTypeCounts[wiType] = orgTypeCounts.TryGetValue(wiType, out var otc) ? otc + 1 : 1;
+
+            // Track active (InProgress) counts per project-pair and org-pair.
+            var isActive = string.Equals(r.SourceWorkItemStateCategory, "InProgress", StringComparison.OrdinalIgnoreCase);
+
+            if (!perProjectPairActive.TryGetValue(projKey, out var projActiveMap))
+            {
+                projActiveMap = new Dictionary<ProjectPairKey, int>();
+                perProjectPairActive[projKey] = projActiveMap;
+            }
+            if (isActive)
+                projActiveMap[pairKey] = projActiveMap.TryGetValue(pairKey, out var pac) ? pac + 1 : 1;
+            else if (!projActiveMap.ContainsKey(pairKey))
+                projActiveMap[pairKey] = 0;
+
+            if (!perOrgPairActive.TryGetValue(orgName, out var orgActiveMap))
+            {
+                orgActiveMap = new Dictionary<ProjectPairKey, int>();
+                perOrgPairActive[orgName] = orgActiveMap;
+            }
+            if (isActive)
+                orgActiveMap[pairKey] = orgActiveMap.TryGetValue(pairKey, out var oac) ? oac + 1 : 1;
+            else if (!orgActiveMap.ContainsKey(pairKey))
+                orgActiveMap[pairKey] = 0;
         }
 
         // ── Per-project output ───────────────────────────────────────────────
@@ -297,6 +322,7 @@ public sealed class DependencyCommand : ControlPlaneCommandBase<DependencyComman
 
             var projDateMap = perProjectPairDates.TryGetValue((orgName, project), out var pdm) ? pdm : null;
             var projTypeMap = perProjectPairTypes.TryGetValue((orgName, project), out var ptm) ? ptm : null;
+            var projActiveMap2 = perProjectPairActive.TryGetValue((orgName, project), out var pam) ? pam : null;
             var projPairs = perProjectPairs[(orgName, project)]
                 .Select(kvp =>
                 {
@@ -306,6 +332,8 @@ public sealed class DependencyCommand : ControlPlaneCommandBase<DependencyComman
                     if (projTypeMap != null && projTypeMap.TryGetValue(kvp.Key, out var t))
                         foreach (var (type, count) in t)
                             rec.LinkCountByType[type] = count;
+                    if (projActiveMap2 != null && projActiveMap2.TryGetValue(kvp.Key, out var a))
+                        rec.ActiveLinkCount = a;
                     return rec;
                 })
                 .OrderByDescending(p => p.LinkCount)
@@ -323,14 +351,14 @@ public sealed class DependencyCommand : ControlPlaneCommandBase<DependencyComman
                 var typeHeaders = allProjTypes.Count > 0
                     ? "," + string.Join(",", allProjTypes.Select(CsvEscape))
                     : "";
-                w.WriteLine($"SourceProject,TargetProject,TargetOrganisation,LinkCount,LinkScope,MostRecentLinkDate{typeHeaders}");
+                w.WriteLine($"SourceProject,TargetProject,TargetOrganisation,LinkCount,LinkScope,ActiveLinkCount,MostRecentLinkDate{typeHeaders}");
                 foreach (var pair in projPairs)
                 {
                     var typeCols = allProjTypes.Count > 0
                         ? "," + string.Join(",", allProjTypes.Select(t => pair.LinkCountByType.TryGetValue(t, out var c) ? c.ToString() : "0"))
                         : "";
                     w.WriteLine(
-                        $"{CsvEscape(pair.SourceProject)},{CsvEscape(pair.TargetProject)},{CsvEscape(pair.TargetOrganisation)},{pair.LinkCount},{pair.LinkScope}," +
+                        $"{CsvEscape(pair.SourceProject)},{CsvEscape(pair.TargetProject)},{CsvEscape(pair.TargetOrganisation)},{pair.LinkCount},{pair.LinkScope},{pair.ActiveLinkCount}," +
                         $"{(pair.MostRecentLinkDate.HasValue ? pair.MostRecentLinkDate.Value.ToString("O") : "")}{typeCols}");
                 }
             }
@@ -348,6 +376,7 @@ public sealed class DependencyCommand : ControlPlaneCommandBase<DependencyComman
 
             var orgDateMap = perOrgPairDates.TryGetValue(orgName, out var odm) ? odm : null;
             var orgTypeMap = perOrgPairTypes.TryGetValue(orgName, out var otm) ? otm : null;
+            var orgActiveMap2 = perOrgPairActive.TryGetValue(orgName, out var oam) ? oam : null;
             var orgPairs = orgPairMap
                 .Select(kvp =>
                 {
@@ -357,6 +386,8 @@ public sealed class DependencyCommand : ControlPlaneCommandBase<DependencyComman
                     if (orgTypeMap != null && orgTypeMap.TryGetValue(kvp.Key, out var t))
                         foreach (var (type, count) in t)
                             rec.LinkCountByType[type] = count;
+                    if (orgActiveMap2 != null && orgActiveMap2.TryGetValue(kvp.Key, out var a))
+                        rec.ActiveLinkCount = a;
                     return rec;
                 })
                 .OrderByDescending(p => p.LinkCount)
@@ -381,14 +412,14 @@ public sealed class DependencyCommand : ControlPlaneCommandBase<DependencyComman
                 var typeHeaders = allOrgTypes.Count > 0
                     ? "," + string.Join(",", allOrgTypes.Select(CsvEscape))
                     : "";
-                w.WriteLine($"SourceProject,TargetProject,TargetOrganisation,LinkCount,LinkScope,GroupId,MostRecentLinkDate{typeHeaders}");
+                w.WriteLine($"SourceProject,TargetProject,TargetOrganisation,LinkCount,LinkScope,GroupId,ActiveLinkCount,MostRecentLinkDate{typeHeaders}");
                 foreach (var pair in orgPairs)
                 {
                     var typeCols = allOrgTypes.Count > 0
                         ? "," + string.Join(",", allOrgTypes.Select(t => pair.LinkCountByType.TryGetValue(t, out var c) ? c.ToString() : "0"))
                         : "";
                     w.WriteLine(
-                        $"{CsvEscape(pair.SourceProject)},{CsvEscape(pair.TargetProject)},{CsvEscape(pair.TargetOrganisation)},{pair.LinkCount},{pair.LinkScope},{pair.GroupId}," +
+                        $"{CsvEscape(pair.SourceProject)},{CsvEscape(pair.TargetProject)},{CsvEscape(pair.TargetOrganisation)},{pair.LinkCount},{pair.LinkScope},{pair.GroupId},{pair.ActiveLinkCount}," +
                         $"{(pair.MostRecentLinkDate.HasValue ? pair.MostRecentLinkDate.Value.ToString("O") : "")}{typeCols}");
                 }
             }
@@ -423,6 +454,7 @@ public sealed class DependencyCommand : ControlPlaneCommandBase<DependencyComman
             {
                 var odm = perOrgPairDates.TryGetValue(orgName, out var dm) ? dm : null;
                 var otm = perOrgPairTypes.TryGetValue(orgName, out var tm) ? tm : null;
+                var oam = perOrgPairActive.TryGetValue(orgName, out var am) ? am : null;
                 return perOrgPairs[orgName].Select(kvp =>
                 {
                     var rec = new ProjectDependencyRecord(kvp.Key, kvp.Value);
@@ -431,6 +463,8 @@ public sealed class DependencyCommand : ControlPlaneCommandBase<DependencyComman
                     if (otm != null && otm.TryGetValue(kvp.Key, out var t))
                         foreach (var (type, count) in t)
                             rec.LinkCountByType[type] = count;
+                    if (oam != null && oam.TryGetValue(kvp.Key, out var a))
+                        rec.ActiveLinkCount = a;
                     return rec;
                 });
             })
@@ -447,6 +481,7 @@ public sealed class DependencyCommand : ControlPlaneCommandBase<DependencyComman
                 .AddColumn("Source Project")
                 .AddColumn("Target Project")
                 .AddColumn(new TableColumn("Links").RightAligned())
+                .AddColumn(new TableColumn("Active").RightAligned())
                 .AddColumn("Scope")
                 .AddColumn("Most Recent")
                 .AddColumn("By Type");
@@ -467,10 +502,14 @@ public sealed class DependencyCommand : ControlPlaneCommandBase<DependencyComman
                         .OrderByDescending(kv => kv.Value)
                         .Select(kv => $"{Markup.Escape(kv.Key)}:{kv.Value}"))
                     : "[grey]-[/]";
+                var activeDisplay = pair.ActiveLinkCount > 0
+                    ? $"[yellow]{pair.ActiveLinkCount}[/]"
+                    : "[grey]0[/]";
                 projectTable.AddRow(
                     Markup.Escape(pair.SourceProject),
                     targetDisplay,
                     pair.LinkCount.ToString(),
+                    activeDisplay,
                     scopeDisplay,
                     dateDisplay,
                     typeDisplay);
@@ -592,7 +631,8 @@ public sealed class DependencyCommand : ControlPlaneCommandBase<DependencyComman
                 TargetProject = fields[7],
                 TargetOrganisation = fields[8],
                 TargetStatus = Enum.TryParse<TargetStatus>(fields[9], true, out var ts) ? ts : TargetStatus.Unknown,
-                LinkChangedDate = fields.Length > 10 && DateTimeOffset.TryParse(fields[10], out var d) ? d : (DateTimeOffset?)null
+                LinkChangedDate = fields.Length > 10 && DateTimeOffset.TryParse(fields[10], out var d) ? d : (DateTimeOffset?)null,
+                SourceWorkItemStateCategory = fields.Length > 11 ? fields[11] : null
             });
         }
 

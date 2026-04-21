@@ -53,6 +53,12 @@ internal record ProjectDependencyRecord
     public Dictionary<string, int> LinkCountByType { get; set; } = new(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>
+    /// Gets the number of links whose source work item has a state category of <c>InProgress</c>.
+    /// These represent actively-worked items spanning the project boundary and carry the highest migration risk.
+    /// </summary>
+    public int ActiveLinkCount { get; set; }
+
+    /// <summary>
     /// Creates a ProjectDependencyRecord from a ProjectPairKey and link count.
     /// </summary>
     public ProjectDependencyRecord(ProjectPairKey key, int linkCount)

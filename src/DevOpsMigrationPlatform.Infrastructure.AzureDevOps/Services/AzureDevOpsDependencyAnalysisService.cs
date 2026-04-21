@@ -196,6 +196,10 @@ public sealed class AzureDevOpsDependencyAnalysisService : IWorkItemLinkAnalysis
                 ? typeObj.ToString() ?? "Unknown"
                 : "Unknown";
 
+            var sourceStateCategory = workItem.Fields.TryGetValue("System.StateCategory", out var stateCatObj)
+                ? stateCatObj?.ToString() ?? ""
+                : "";
+
             foreach (var relation in workItem.Relations.Where(r =>
                 !string.IsNullOrEmpty(r.Rel) && r.Rel.StartsWith("System.LinkTypes.")))
             {
@@ -248,7 +252,8 @@ public sealed class AzureDevOpsDependencyAnalysisService : IWorkItemLinkAnalysis
                             TargetProject = resolvedProject,
                             TargetOrganisation = targetOrgSegment,
                             TargetStatus = targetStatus,
-                            LinkChangedDate = ExtractLinkChangedDate(relation)
+                            LinkChangedDate = ExtractLinkChangedDate(relation),
+                            SourceWorkItemStateCategory = sourceStateCategory
                         });
                     }
                     else
@@ -270,7 +275,8 @@ public sealed class AzureDevOpsDependencyAnalysisService : IWorkItemLinkAnalysis
                                 TargetProject = targetProjectName,
                                 TargetOrganisation = "",
                                 TargetStatus = TargetStatus.Reachable,
-                                LinkChangedDate = ExtractLinkChangedDate(relation)
+                                LinkChangedDate = ExtractLinkChangedDate(relation),
+                                SourceWorkItemStateCategory = sourceStateCategory
                             });
                         }
                     }
