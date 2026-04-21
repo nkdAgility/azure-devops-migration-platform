@@ -140,6 +140,11 @@ public sealed class DependencyCommand : ControlPlaneCommandBase<DependencyComman
                     .Overflow(VerticalOverflow.Ellipsis)
                     .StartAsync(async ctx =>
                     {
+                        // Spectre.Console Live does NOT render until the callback
+                        // calls Refresh/UpdateTarget. Force the initial render so
+                        // the pre-populated table is visible immediately.
+                        ctx.Refresh();
+
                         await foreach (var evt in client.FollowDiscoveryLogsAsync(jobId, cancellationToken))
                         {
                             if (evt.Stage == "Completed")
