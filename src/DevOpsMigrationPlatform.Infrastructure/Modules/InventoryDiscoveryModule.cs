@@ -71,6 +71,29 @@ public sealed class InventoryDiscoveryModule : IDiscoveryModule
         var csvBuilder = new StringBuilder();
         csvBuilder.AppendLine("Url,ProjectName,WorkItemsCount,RevisionsCount,ReposCount,IsComplete,Error");
 
+        // When resuming, preserve data from already-completed projects so the final
+        // CSV includes all projects and the CLI live table shows actual data instead
+        // of pre-populated zeros.
+        if (skipping)
+        {
+            var existingCsv = await store.ReadAsync(OutputPath, ct).ConfigureAwait(false);
+            if (existingCsv is not null)
+            {
+                var lines = existingCsv.Split('\n');
+                int loadedCount = 0;
+                for (int i = 1; i < lines.Length; i++) // skip header
+                {
+                    var trimmed = lines[i].TrimEnd('\r');
+                    if (string.IsNullOrWhiteSpace(trimmed)) continue;
+                    csvBuilder.AppendLine(trimmed);
+                    EmitCatchupFromCsvLine(sink, trimmed);
+                    loadedCount++;
+                }
+                _logger.LogInformation(
+                    "Loaded {Count} previously-completed project(s) from existing CSV.", loadedCount);
+            }
+        }
+
         var checkpointInterval = TimeSpan.FromSeconds(job.Policies.CheckpointIntervalSeconds);
         var lastCheckpoint = DateTime.UtcNow;
 
@@ -242,6 +265,42 @@ public sealed class InventoryDiscoveryModule : IDiscoveryModule
     {
         if (value.Contains(",") || value.Contains("\"") || value.Contains("\n"))
             return $"\"{value.Replace("\"", "\"\"")}\"";
+        return value;
+    }
+
+    /// <summary>
+    /// Emits a catchup <see cref="ProgressEvent"/> from a CSV data line so the CLI live table
+    /// shows actual counts for projects completed in a previous (interrupted) run.
+    /// </summary>
+    private static void EmitCatchupFromCsvLine(IProgressSink sink, string csvLine)
+    {
+        // CSV format: Url,ProjectName,WorkItemsCount,RevisionsCount,ReposCount,IsComplete,Error
+        var parts = csvLine.Split(',');
+        if (parts.Length < 6) return;
+
+        var url = UnescapeCsv(parts[0]);
+        var projectName = UnescapeCsv(parts[1]);
+        if (!int.TryParse(parts[2], out var workItems)) return;
+        if (!int.TryParse(parts[3], out var revisions)) return;
+        if (!int.TryParse(parts[4], out var repos)) return;
+
+        sink.Emit(new ProgressEvent
+        {
+            Module = "Inventory",
+            Stage = "Inventory",
+            LastProcessed = $"{url}|{projectName}",
+            TotalWorkItems = workItems,
+            RevisionsProcessed = revisions,
+            AttachmentsProcessed = repos,
+            Message = $"{url} / {projectName}: {workItems} work items, {revisions} revisions, {repos} repos (resumed)",
+            Timestamp = DateTimeOffset.UtcNow
+        });
+    }
+
+    private static string UnescapeCsv(string value)
+    {
+        if (value.Length >= 2 && value[0] == '"' && value[value.Length - 1] == '"')
+            return value.Substring(1, value.Length - 2).Replace("\"\"", "\"");
         return value;
     }
 }

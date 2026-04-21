@@ -40,6 +40,9 @@ public sealed class TuiLogView : FrameView
     /// <summary>Fired when a terminal SSE event (<c>job-ended</c>/<c>job-failed</c>) arrives.</summary>
     public event Action<string>? OnJobEnded;
 
+    /// <summary>Fired for each <see cref="ProgressEvent"/> received in Progress mode.</summary>
+    public event Action<ProgressEvent>? OnProgressReceived;
+
     public TuiLogView(IControlPlaneClient client)
     {
         _client = client;
@@ -158,6 +161,7 @@ public sealed class TuiLogView : FrameView
             var time = evt.Timestamp.ToLocalTime().ToString("HH:mm:ss");
             var line = $"{time} [{evt.Module}] [{evt.Stage}] {evt.Message}";
             Application.Invoke(() => AppendLine(line));
+            OnProgressReceived?.Invoke(evt);
             ended = true; // at least one event received
         }
 

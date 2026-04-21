@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
@@ -26,6 +27,10 @@ public sealed class TuiMainView : Window, IDisposable
 
     private CancellationTokenSource? _selectionCts;
     private Guid? _selectedJobId;
+
+    // Discovery metrics accumulation — keyed by "org|project"
+    private readonly Dictionary<string, DiscoveryProjectMetrics> _discoveryProjects = new();
+    private volatile bool _discoveryMetricsActive;
 
     public TuiMainView(IControlPlaneClient client)
     {
@@ -76,6 +81,7 @@ public sealed class TuiMainView : Window, IDisposable
         // ── Event subscriptions ─────────────────────────────────────────────────
         _jobList.JobSelected += OnJobSelected;
         _logView.OnJobEnded += OnJobEnded;
+        _logView.OnProgressReceived += OnProgressReceived;
 
         // ── Key handling ────────────────────────────────────────────────────────
         // Use Application.KeyDown so Q / Ctrl+Q / Ctrl+C always work,
@@ -134,6 +140,10 @@ public sealed class TuiMainView : Window, IDisposable
         _selectionCts = new CancellationTokenSource();
         var ct = _selectionCts.Token;
 
+        // Reset discovery metrics state for the new job
+        _discoveryMetricsActive = false;
+        _discoveryProjects.Clear();
+
         _metrics.SetWaiting();
         _logView.ClearAndBind(jobId, ct);
 
@@ -147,6 +157,8 @@ public sealed class TuiMainView : Window, IDisposable
     {
         CancelSelection();
         _selectedJobId = null;
+        _discoveryMetricsActive = false;
+        _discoveryProjects.Clear();
         _metrics.Update(null);
         _logView.Clear();
         Application.Invoke(() => _statusBar.Text = " — | Press Q to quit | Tab toggles Log mode");
@@ -158,10 +170,15 @@ public sealed class TuiMainView : Window, IDisposable
     {
         while (!ct.IsCancellationRequested)
         {
+            // Discovery events have taken over the metrics panel — stop polling
+            if (_discoveryMetricsActive)
+                return;
+
             try
             {
                 var snapshot = await _client.GetTelemetryAsync(jobId, ct).ConfigureAwait(false);
-                _metrics.Update(snapshot);
+                if (!_discoveryMetricsActive)
+                    _metrics.Update(snapshot);
             }
             catch (OperationCanceledException) when (ct.IsCancellationRequested)
             {
@@ -181,6 +198,44 @@ public sealed class TuiMainView : Window, IDisposable
                 return;
             }
         }
+    }
+
+    // ─── Discovery metrics accumulation ──────────────────────────────────────────
+
+    private void OnProgressReceived(ProgressEvent evt)
+    {
+        // Only accumulate discovery metrics for Inventory / Dependencies modules
+        if (evt.Module != "Inventory" && evt.Module != "Dependencies")
+            return;
+
+        _discoveryMetricsActive = true;
+
+        var key = evt.LastProcessed;
+        if (!string.IsNullOrEmpty(key))
+        {
+            bool isComplete = evt.Stage == "Inventory" || evt.Stage == "Dependencies";
+            bool isFailed = evt.Stage == "Failed";
+
+            _discoveryProjects[key] = new DiscoveryProjectMetrics(
+                evt.TotalWorkItems, evt.RevisionsProcessed, evt.AttachmentsProcessed,
+                isComplete || isFailed, isFailed);
+        }
+
+        // Accumulate totals across all tracked projects
+        int completed = 0, failed = 0, inProgress = 0;
+        long totalWi = 0, totalRev = 0, totalRepos = 0;
+        foreach (var entry in _discoveryProjects)
+        {
+            var v = entry.Value;
+            if (v.IsFailed) failed++;
+            else if (v.IsComplete) completed++;
+            else inProgress++;
+            totalWi += v.WorkItems;
+            totalRev += v.Revisions;
+            totalRepos += v.Repos;
+        }
+
+        _metrics.UpdateDiscovery(completed, failed, inProgress, totalWi, totalRev, totalRepos);
     }
 
     // ─── Job-ended callback ──────────────────────────────────────────────────────
@@ -215,8 +270,15 @@ public sealed class TuiMainView : Window, IDisposable
     public new void Dispose()
     {
         Application.KeyDown -= OnApplicationKeyDown;
+        _logView.OnProgressReceived -= OnProgressReceived;
         CancelSelection();
         _logView.Dispose();
         base.Dispose();
     }
+
+    // ─── Supporting types ────────────────────────────────────────────────────────
+
+    private sealed record DiscoveryProjectMetrics(
+        long WorkItems, long Revisions, long Repos,
+        bool IsComplete, bool IsFailed);
 }

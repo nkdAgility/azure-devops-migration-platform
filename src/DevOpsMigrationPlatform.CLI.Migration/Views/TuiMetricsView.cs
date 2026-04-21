@@ -45,6 +45,32 @@ public sealed class TuiMetricsView : FrameView
         });
     }
 
+    /// <summary>
+    /// Shows discovery-specific metrics (organisations, projects, work items counted).
+    /// Safe to call from any thread.
+    /// </summary>
+    public void UpdateDiscovery(
+        int projectsCompleted,
+        int projectsFailed,
+        int projectsInProgress,
+        long workItems,
+        long revisions,
+        long repos)
+    {
+        Application.Invoke(() =>
+        {
+            _content.Text =
+                $"Projects In Progress : {projectsInProgress,8}\n" +
+                $"Projects Completed   : {projectsCompleted,8}\n" +
+                $"Projects Failed      : {projectsFailed,8}\n" +
+                $"\n" +
+                $"Work Items Counted   : {workItems,8:N0}\n" +
+                $"Revisions Counted    : {revisions,8:N0}\n" +
+                $"Repos Counted        : {repos,8:N0}";
+            SetNeedsDraw();
+        });
+    }
+
     /// <summary>Shows "(waiting for agent…)" when a job is selected but no snapshot has arrived yet.</summary>
     public void SetWaiting()
     {
