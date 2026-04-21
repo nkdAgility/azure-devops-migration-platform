@@ -48,13 +48,14 @@ public class SimulatedMigrationCommandTests
             $"CLI exited with code {result.ExitCode}. STDOUT:\n{result.StandardOutput}\nSTDERR:\n{result.StandardError}");
 
         // Verify WorkItems folder was created with at least one revision
-        var workItemsDir = Path.Combine(outputDir, "WorkItems");
-        Assert.IsTrue(Directory.Exists(workItemsDir),
-            $"Expected WorkItems/ folder to exist under {outputDir}");
+        // (org/project nesting places it under <outputDir>/<org>/<project>/WorkItems/)
+        var workItemsDirs = Directory.GetDirectories(outputDir, "WorkItems", SearchOption.AllDirectories);
+        Assert.IsTrue(workItemsDirs.Length > 0,
+            $"Expected WorkItems/ folder to exist somewhere under {outputDir}");
 
-        var revisionFiles = Directory.GetFiles(workItemsDir, "revision.json", SearchOption.AllDirectories);
+        var revisionFiles = Directory.GetFiles(workItemsDirs[0], "revision.json", SearchOption.AllDirectories);
         Assert.IsTrue(revisionFiles.Length > 0,
-            $"Expected at least one revision.json under {workItemsDir}. None found.");
+            $"Expected at least one revision.json under {workItemsDirs[0]}. None found.");
     }
 
     /// <summary>
@@ -121,13 +122,14 @@ public class SimulatedMigrationCommandTests
             $"CLI exited with code {result.ExitCode}. STDOUT:\n{result.StandardOutput}\nSTDERR:\n{result.StandardError}");
 
         // Roundtrip should produce a package (Both mode = export + import)
-        var workItemsDir = Path.Combine(outputDir, "WorkItems");
-        Assert.IsTrue(Directory.Exists(workItemsDir),
-            $"Expected WorkItems/ folder under {outputDir}");
+        // (org/project nesting places it under <outputDir>/<org>/<project>/WorkItems/)
+        var workItemsDirs = Directory.GetDirectories(outputDir, "WorkItems", SearchOption.AllDirectories);
+        Assert.IsTrue(workItemsDirs.Length > 0,
+            $"Expected WorkItems/ folder somewhere under {outputDir}");
 
-        var revisionFiles = Directory.GetFiles(workItemsDir, "revision.json", SearchOption.AllDirectories);
+        var revisionFiles = Directory.GetFiles(workItemsDirs[0], "revision.json", SearchOption.AllDirectories);
         Assert.IsTrue(revisionFiles.Length > 0,
-            $"Expected at least one revision.json under {workItemsDir}. None found.");
+            $"Expected at least one revision.json under {workItemsDirs[0]}. None found.");
     }
 
     // ─────────────────────────────────────────────────────────────────────
@@ -157,11 +159,12 @@ public class SimulatedMigrationCommandTests
         Assert.AreEqual(0, result.ExitCode,
             $"CLI exited with code {result.ExitCode}.");
 
-        var progressJsonl = Path.Combine(outputDir, "Logs", "progress.jsonl");
-        Assert.IsTrue(File.Exists(progressJsonl),
-            $"Expected Logs/progress.jsonl to exist at {progressJsonl}");
+        // Job-scoped log folder: Logs/<ticks>-<jobId>/progress.jsonl
+        var progressFiles = Directory.GetFiles(outputDir, "progress.jsonl", SearchOption.AllDirectories);
+        Assert.IsTrue(progressFiles.Length > 0,
+            $"Expected progress.jsonl to exist somewhere under {outputDir}");
 
-        var lines = File.ReadAllLines(progressJsonl);
+        var lines = File.ReadAllLines(progressFiles[0]);
         Assert.IsTrue(lines.Length >= 1,
             "progress.jsonl must contain at least one NDJSON record per module stage transition.");
     }
@@ -189,11 +192,12 @@ public class SimulatedMigrationCommandTests
         Assert.AreEqual(0, result.ExitCode,
             $"CLI exited with code {result.ExitCode}.");
 
-        var agentJsonl = Path.Combine(outputDir, "Logs", "agent.jsonl");
-        Assert.IsTrue(File.Exists(agentJsonl),
-            $"Expected Logs/agent.jsonl to exist at {agentJsonl}");
+        // Job-scoped log folder: Logs/<ticks>-<jobId>/agent.jsonl
+        var agentFiles = Directory.GetFiles(outputDir, "agent.jsonl", SearchOption.AllDirectories);
+        Assert.IsTrue(agentFiles.Length > 0,
+            $"Expected agent.jsonl to exist somewhere under {outputDir}");
 
-        var lines = File.ReadAllLines(agentJsonl);
+        var lines = File.ReadAllLines(agentFiles[0]);
         Assert.IsTrue(lines.Length >= 1,
             "agent.jsonl must contain at least one structured NDJSON record at Warning+ level.");
     }
@@ -221,13 +225,16 @@ public class SimulatedMigrationCommandTests
         Assert.AreEqual(0, result.ExitCode,
             $"CLI exited with code {result.ExitCode}.");
 
-        var logsDir = Path.Combine(outputDir, "Logs");
-        Assert.IsTrue(Directory.Exists(logsDir),
-            $"Expected Logs/ directory at {logsDir}");
+        // Job-scoped log folder: Logs/<ticks>-<jobId>/{progress,agent}.jsonl
+        var logsDirs = Directory.GetDirectories(outputDir, "Logs", SearchOption.AllDirectories);
+        Assert.IsTrue(logsDirs.Length > 0,
+            $"Expected Logs/ directory somewhere under {outputDir}");
 
-        Assert.IsTrue(File.Exists(Path.Combine(logsDir, "progress.jsonl")),
-            "Logs/progress.jsonl missing.");
-        Assert.IsTrue(File.Exists(Path.Combine(logsDir, "agent.jsonl")),
-            "Logs/agent.jsonl missing.");
+        var progressFiles = Directory.GetFiles(outputDir, "progress.jsonl", SearchOption.AllDirectories);
+        Assert.IsTrue(progressFiles.Length > 0,
+            "progress.jsonl missing.");
+        var agentFiles = Directory.GetFiles(outputDir, "agent.jsonl", SearchOption.AllDirectories);
+        Assert.IsTrue(agentFiles.Length > 0,
+            "agent.jsonl missing.");
     }
 }
