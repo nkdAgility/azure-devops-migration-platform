@@ -19,7 +19,7 @@
       "Project": "SimulatedTarget"
     },
     "Package": {
-      "WorkingDirectory": "storage\\queue-export-ado-workitems-single-project",
+      "WorkingDirectory": "storage\\import-ado-workitems-single-project",
       "CreatePackage": false
     },
     "Modules": {
