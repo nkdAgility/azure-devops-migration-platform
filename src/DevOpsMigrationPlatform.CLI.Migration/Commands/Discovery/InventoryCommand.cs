@@ -137,6 +137,7 @@ public sealed class InventoryCommand : ControlPlaneCommandBase<InventoryCommand.
 
         // Status message shown below the table during long resume skips.
         string statusMessage = "";
+        var startTime = DateTimeOffset.UtcNow;
 
         try
         {
@@ -165,7 +166,7 @@ public sealed class InventoryCommand : ControlPlaneCommandBase<InventoryCommand.
                             if (!string.IsNullOrEmpty(evt.Message))
                                 statusMessage = evt.Message;
 
-                            ctx.UpdateTarget(BuildLivePanel(summaries.Values, statusMessage));
+                            ctx.UpdateTarget(BuildLivePanel(summaries.Values, statusMessage, startTime));
                         }
                     });
             }
@@ -290,13 +291,84 @@ public sealed class InventoryCommand : ControlPlaneCommandBase<InventoryCommand.
     /// Builds the live display content: the inventory table plus a status line showing
     /// current activity (e.g. "Skipping completed project…" during resume).
     /// </summary>
-    private static IRenderable BuildLivePanel(IEnumerable<InventorySummary> summaries, string statusMessage)
+    private static IRenderable BuildLivePanel(IEnumerable<InventorySummary> summaries, string statusMessage, DateTimeOffset startTime)
     {
         var table = BuildTable(summaries);
-        if (string.IsNullOrEmpty(statusMessage))
-            return table;
+        var parts = new List<IRenderable> { table };
 
-        var rows = new Rows(table, new Markup($"[grey]{Markup.Escape(statusMessage)}[/]"));
-        return rows;
+        // Throughput stats panel
+        var stats = BuildThroughputPanel(summaries, startTime);
+        if (stats is not null)
+            parts.Add(stats);
+
+        if (!string.IsNullOrEmpty(statusMessage))
+            parts.Add(new Markup($"[grey]{Markup.Escape(statusMessage)}[/]"));
+
+        return parts.Count == 1 ? table : new Rows(parts);
+    }
+
+    /// <summary>
+    /// Builds a throughput stats panel showing rates, elapsed time, and ETA.
+    /// Returns null if no meaningful data is available yet.
+    /// </summary>
+    private static IRenderable? BuildThroughputPanel(IEnumerable<InventorySummary> summaries, DateTimeOffset startTime)
+    {
+        var elapsed = DateTimeOffset.UtcNow - startTime;
+        if (elapsed.TotalSeconds < 1)
+            return null;
+
+        int completed = 0, inProgress = 0, failed = 0;
+        long totalWi = 0, totalRev = 0;
+        foreach (var s in summaries)
+        {
+            if (s.Error != null) failed++;
+            else if (s.IsComplete) completed++;
+            else if (s.WorkItemsCount > 0 || s.RevisionsCount > 0) inProgress++;
+            totalWi += s.WorkItemsCount;
+            totalRev += s.RevisionsCount;
+        }
+
+        var hours = elapsed.TotalHours;
+        var wiPerHour = hours > 0.001 ? totalWi / hours : 0;
+        var revPerHour = hours > 0.001 ? totalRev / hours : 0;
+        var projPerHour = hours > 0.001 ? completed / hours : 0;
+
+        var statsTable = new Table()
+            .NoBorder()
+            .HideHeaders()
+            .AddColumn(new TableColumn("Label").NoWrap())
+            .AddColumn(new TableColumn("Value").RightAligned());
+
+        statsTable.AddRow("[dim]Elapsed[/]", $"[white]{FormatTimeSpan(elapsed)}[/]");
+        if (completed > 0)
+        {
+            statsTable.AddRow("[dim]Projects / hour[/]", $"[white]{projPerHour:N1}[/]");
+            statsTable.AddRow("[dim]Work Items / hour[/]", $"[white]{wiPerHour:N0}[/]");
+            statsTable.AddRow("[dim]Revisions / hour[/]", $"[white]{revPerHour:N0}[/]");
+
+            var avgMs = elapsed.TotalMilliseconds / completed;
+            statsTable.AddRow("[dim]Avg Project Duration[/]", $"[white]{FormatTimeSpan(TimeSpan.FromMilliseconds(avgMs))}[/]");
+
+            if (inProgress > 0)
+            {
+                var eta = TimeSpan.FromMilliseconds(avgMs * inProgress);
+                statsTable.AddRow("[dim]ETA (remaining)[/]", $"[yellow]{FormatTimeSpan(eta)}[/]");
+            }
+        }
+
+        return new Panel(statsTable)
+            .Header("[bold yellow]Throughput[/]")
+            .RoundedBorder()
+            .BorderColor(Color.Grey)
+            .Expand();
+    }
+
+    private static string FormatTimeSpan(TimeSpan ts)
+    {
+        if (ts.TotalHours >= 1)
+            return $"{(int)ts.TotalHours}h {ts.Minutes:D2}m {ts.Seconds:D2}s";
+        if (ts.TotalMinutes >= 1)
+            return $"{(int)ts.TotalMinutes}m {ts.Seconds:D2}s";
+        return $"{ts.Seconds}s";
     }
 }

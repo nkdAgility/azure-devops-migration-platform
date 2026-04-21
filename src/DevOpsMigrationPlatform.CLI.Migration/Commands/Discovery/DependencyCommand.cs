@@ -19,6 +19,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using Spectre.Console;
 using Spectre.Console.Cli;
+using Spectre.Console.Rendering;
 
 namespace DevOpsMigrationPlatform.CLI.Commands.Discovery;
 
@@ -130,6 +131,8 @@ public sealed class DependencyCommand : ControlPlaneCommandBase<DependencyComman
             }
         }
 
+        var startTime = DateTimeOffset.UtcNow;
+
         try
         {
             if (console.Profile.Capabilities.Interactive)
@@ -151,7 +154,7 @@ public sealed class DependencyCommand : ControlPlaneCommandBase<DependencyComman
                                 break;
 
                             UpdateProgressFromEvent(progressState, evt);
-                            ctx.UpdateTarget(BuildProgressTable(progressState.Values));
+                            ctx.UpdateTarget(BuildLivePanel(progressState.Values, startTime));
                         }
                     });
             }
@@ -617,7 +620,78 @@ public sealed class DependencyCommand : ControlPlaneCommandBase<DependencyComman
         return table;
     }
 
-    // ── CSV parsing ───────────────────────────────────────────────────────────
+    /// <summary>
+    /// Builds the live display content: the progress table plus a throughput stats panel.
+    /// </summary>
+    private static IRenderable BuildLivePanel(IEnumerable<ProjectProgress> state, DateTimeOffset startTime)
+    {
+        var table = BuildProgressTable(state);
+        var stats = BuildThroughputPanel(state, startTime);
+        return stats is not null ? new Rows(table, stats) : table;
+    }
+
+    /// <summary>
+    /// Builds a throughput stats panel showing rates, elapsed time, and ETA.
+    /// </summary>
+    private static IRenderable? BuildThroughputPanel(IEnumerable<ProjectProgress> state, DateTimeOffset startTime)
+    {
+        var elapsed = DateTimeOffset.UtcNow - startTime;
+        if (elapsed.TotalSeconds < 1)
+            return null;
+
+        int completed = 0, inProgress = 0;
+        long totalAnalysed = 0, totalLinks = 0;
+        foreach (var p in state)
+        {
+            if (p.IsComplete) completed++;
+            else if (p.WorkItemsAnalysed > 0) inProgress++;
+            totalAnalysed += p.WorkItemsAnalysed;
+            totalLinks += p.ExternalLinks;
+        }
+
+        var hours = elapsed.TotalHours;
+        var analysedPerHour = hours > 0.001 ? totalAnalysed / hours : 0;
+        var linksPerHour = hours > 0.001 ? totalLinks / hours : 0;
+        var projPerHour = hours > 0.001 ? completed / hours : 0;
+
+        var statsTable = new Table()
+            .NoBorder()
+            .HideHeaders()
+            .AddColumn(new TableColumn("Label").NoWrap())
+            .AddColumn(new TableColumn("Value").RightAligned());
+
+        statsTable.AddRow("[dim]Elapsed[/]", $"[white]{FormatTimeSpan(elapsed)}[/]");
+        if (completed > 0)
+        {
+            statsTable.AddRow("[dim]Projects / hour[/]", $"[white]{projPerHour:N1}[/]");
+            statsTable.AddRow("[dim]Work Items Analysed / hour[/]", $"[white]{analysedPerHour:N0}[/]");
+            statsTable.AddRow("[dim]Links Found / hour[/]", $"[white]{linksPerHour:N0}[/]");
+
+            var avgMs = elapsed.TotalMilliseconds / completed;
+            statsTable.AddRow("[dim]Avg Project Duration[/]", $"[white]{FormatTimeSpan(TimeSpan.FromMilliseconds(avgMs))}[/]");
+
+            if (inProgress > 0)
+            {
+                var eta = TimeSpan.FromMilliseconds(avgMs * inProgress);
+                statsTable.AddRow("[dim]ETA (remaining)[/]", $"[yellow]{FormatTimeSpan(eta)}[/]");
+            }
+        }
+
+        return new Panel(statsTable)
+            .Header("[bold yellow]Throughput[/]")
+            .RoundedBorder()
+            .BorderColor(Color.Grey)
+            .Expand();
+    }
+
+    private static string FormatTimeSpan(TimeSpan ts)
+    {
+        if (ts.TotalHours >= 1)
+            return $"{(int)ts.TotalHours}h {ts.Minutes:D2}m {ts.Seconds:D2}s";
+        if (ts.TotalMinutes >= 1)
+            return $"{(int)ts.TotalMinutes}m {ts.Seconds:D2}s";
+        return $"{ts.Seconds}s";
+    }
 
     /// <summary>
     /// Parses the root <c>dependencies.csv</c> written by <c>DependencyDiscoveryModule</c>
