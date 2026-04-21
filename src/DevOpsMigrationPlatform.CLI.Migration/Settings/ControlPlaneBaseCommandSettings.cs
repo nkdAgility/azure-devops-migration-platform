@@ -1,3 +1,6 @@
+using System.ComponentModel;
+using Spectre.Console.Cli;
+
 namespace DevOpsMigrationPlatform.CLI.Migration.Settings;
 
 /// <summary>
@@ -6,9 +9,18 @@ namespace DevOpsMigrationPlatform.CLI.Migration.Settings;
 /// Does NOT apply to discovery or configure commands.
 ///
 /// Control plane URL is resolved from the <c>MigrationPlatform:Environment:ControlPlane:BaseUrl</c>
-/// configuration section via <see cref="Options.EnvironmentOptions"/>. No CLI override is provided;
-/// the config file is the single source of truth.
+/// configuration section via <see cref="Options.EnvironmentOptions"/>. The <c>--port</c> flag
+/// overrides the port in standalone mode, allowing multiple concurrent local runs.
 /// </summary>
 public class ControlPlaneBaseCommandSettings : BaseCommandSettings
 {
+    /// <summary>
+    /// Port for the local control plane in standalone mode.
+    /// When specified, overrides <c>ControlPlane.BaseUrl</c> to <c>http://localhost:{port}</c>.
+    /// Default: <c>5100</c>.
+    /// </summary>
+    [CommandOption("--port")]
+    [Description("Port for the local control plane. Overrides the default (5100) in standalone mode.")]
+    [DefaultValue(5100)]
+    public int Port { get; init; } = 5100;
 }

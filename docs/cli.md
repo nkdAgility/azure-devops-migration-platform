@@ -333,10 +333,10 @@ The CLI always communicates with the control plane via `ControlPlaneClient`. The
 
 | Condition | Behaviour |
 |---|---|
-| `Environment` absent or `Type` = `Standalone` | CLI starts **LocalStackHost** in-process: `ControlPlaneHost`, `MigrationAgent`(s), and PostgreSQL at `http://localhost:5100`. |
+| `Environment` absent or `Type` = `Standalone` | CLI starts **LocalStackHost** in-process: `ControlPlaneHost`, `MigrationAgent`(s), and PostgreSQL at `http://localhost:{port}` (default port `5100`). Use `--port <port>` to override. |
 | `Type` = `Hosted` | CLI connects to `ControlPlane.BaseUrl` from config; no local services are started |
 
-The config file is the single source of truth for the control plane URL. There is no `--url` CLI flag or `MIGRATION_API_URL` environment variable override.
+The config file is the single source of truth for the control plane URL. The `--port` CLI flag overrides the listen port in Standalone mode, enabling multiple concurrent local runs on different ports (e.g. `--port 5200`). There is no `--url` CLI flag or `MIGRATION_API_URL` environment variable override.
 
 Running `devopsmigration export --config migration.json` on a local machine with default config will start the local stack, execute the job, and exit — all from a single command.
 
@@ -361,9 +361,9 @@ The local config file is never sent directly anywhere. The `MigrationJob` is the
 
 ### Standalone (Local / Server)
 
-When `Environment.Type` is `Standalone` (the default), the CLI starts `LocalStackHost` in-process — ControlPlane API, MigrationAgent(s), and PostgreSQL at `http://localhost:5100`.
+When `Environment.Type` is `Standalone` (the default), the CLI starts `LocalStackHost` in-process — ControlPlane API, MigrationAgent(s), and PostgreSQL at `http://localhost:{port}` (default port `5100`). Use `--port` to run on a different port.
 
-- Control plane starts on `http://localhost:5100` as an in-process host.
+- Control plane starts on `http://localhost:{port}` as an in-process host (default: `5100`).
 - Agents run as in-process workers.
 - `IArtefactStore` is `FileSystemArtefactStore`.
 - `IStateStore` is `PackageCheckpointStateStore` (writes `Checkpoints/` inside the package).

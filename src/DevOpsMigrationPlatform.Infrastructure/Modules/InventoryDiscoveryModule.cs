@@ -143,8 +143,14 @@ public sealed class InventoryDiscoveryModule : IDiscoveryModule
             sink.Emit(new ProgressEvent
             {
                 Module = Name,
-                Stage = "Inventory",
-                Message = $"{evt.Url} / {evt.ProjectName}: {evt.WorkItemsCount} work items",
+                Stage = evt.Error is not null ? "Failed" : "Inventory",
+                LastProcessed = $"{evt.Url}|{evt.ProjectName}",
+                TotalWorkItems = evt.WorkItemsCount,
+                RevisionsProcessed = evt.RevisionsCount,
+                AttachmentsProcessed = evt.ReposCount,
+                Message = evt.Error is not null
+                    ? $"{evt.Url} / {evt.ProjectName}: failed — {evt.Error}"
+                    : $"{evt.Url} / {evt.ProjectName}: {evt.WorkItemsCount} work items, {evt.RevisionsCount} revisions, {evt.ReposCount} repos",
                 Timestamp = DateTimeOffset.UtcNow
             });
 

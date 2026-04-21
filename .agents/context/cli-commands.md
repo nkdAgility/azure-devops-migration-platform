@@ -89,6 +89,15 @@ Manage the local Control Plane host process. Registered as a Spectre.Console bra
 | `--verbose` | `-v` | `false` | Enable verbose console output. |
 | `--disable-telemetry` | — | `false` | Suppress all telemetry export. |
 
+### Control Plane Options (commands that contact the control plane)
+
+These options are available on all commands that derive from `ControlPlaneBaseCommandSettings`:
+`queue`, `prepare`, `manage *`, `tui`.
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `--port` | `5100` | Port for the local control plane in standalone mode. When specified, overrides `ControlPlane.BaseUrl` to `http://localhost:{port}`, enabling multiple concurrent standalone runs on different ports. |
+
 ### Default `--config` Resolution
 
 When `--config` is not supplied, the CLI resolves a configuration file using the following precedence:
@@ -117,10 +126,10 @@ The interactive prompt runs inside the command's `ExecuteInternalAsync` (before 
 Commands that contact the control plane (`queue`, `prepare`, `manage *`, `tui`) resolve the control plane URL from configuration:
 
 - `MigrationPlatform:Environment:ControlPlane:BaseUrl` — bound to `EnvironmentOptions` via `IOptions<T>`.
-- When `Environment` is absent or `Type` is `Standalone`, defaults to `http://localhost:5100` and the CLI starts `LocalStackHost` in-process.
+- When `Environment` is absent or `Type` is `Standalone`, defaults to `http://localhost:5100` and the CLI starts `LocalStackHost` in-process. Use `--port <port>` to override the port (e.g. `--port 5200` to run a second concurrent job).
 - When `Type` is `Hosted`, the CLI connects to the configured `BaseUrl` directly.
 
-The config file is the single source of truth. There is no `--url` CLI flag or `MIGRATION_API_URL` environment variable.
+The config file is the single source of truth for the base URL. The `--port` flag overrides the port in standalone mode only. There is no `--url` CLI flag or `MIGRATION_API_URL` environment variable.
 
 ---
 
@@ -175,6 +184,7 @@ devopsmigration prepare  --config migration.json
 devopsmigration queue    --config migration.json
 devopsmigration queue    --config migration.json --force-fresh
 devopsmigration queue    --config migration.json --follow --level Warning
+devopsmigration queue    --config migration.json --port 5200
 
 devopsmigration manage list
 devopsmigration manage status  --job 550e8400-e29b-41d4-a716-446655440000
@@ -196,6 +206,7 @@ devopsmigration config set scenario-folder C:\migrations\configs
 devopsmigration config get scenario-folder
 
 devopsmigration controlplane start
+devopsmigration controlplane start --port 5200
 
 devopsmigration tui
 ```

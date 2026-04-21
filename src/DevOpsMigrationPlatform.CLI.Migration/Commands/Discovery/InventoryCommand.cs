@@ -3,9 +3,11 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.IO;
 using System.Linq;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Models;
 using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.CLI.JobRunners;
 using DevOpsMigrationPlatform.CLI.Migration.Commands;
@@ -22,7 +24,7 @@ namespace DevOpsMigrationPlatform.CLI.Commands.Discovery;
 /// <summary>
 /// CLI command: discovery inventory
 /// Submits a <see cref="DiscoveryJob"/> of type Inventory to the control plane.
-/// In standalone mode follows progress inline; in hosted mode prints the jobId and exits.
+/// In standalone mode follows progress inline with a live table; in hosted mode prints the jobId and exits.
 /// </summary>
 public sealed class InventoryCommand : ControlPlaneCommandBase<InventoryCommand.Settings>
 {
@@ -116,12 +118,44 @@ public sealed class InventoryCommand : ControlPlaneCommandBase<InventoryCommand.
             return 0;
         }
 
+        // Follow progress and render a live table (interactive) or line-by-line output (non-interactive).
+        var summaries = new Dictionary<string, InventorySummary>(StringComparer.OrdinalIgnoreCase);
+
         try
         {
-            await foreach (var evt in client.FollowDiscoveryLogsAsync(jobId, cancellationToken))
+            if (console.Profile.Capabilities.Interactive)
             {
-                if (!string.IsNullOrEmpty(evt.Message))
-                    console.MarkupLine($"  [grey]{Markup.Escape(evt.Module)}[/] --- {Markup.Escape(evt.Message)}");
+                var table = BuildTable(summaries.Values);
+                await console.Live(table)
+                    .StartAsync(async ctx =>
+                    {
+                        await foreach (var evt in client.FollowDiscoveryLogsAsync(jobId, cancellationToken))
+                        {
+                            if (evt.Stage == "Completed")
+                                break;
+
+                            UpdateSummaryFromProgress(summaries, evt);
+                            ctx.UpdateTarget(BuildTable(summaries.Values));
+                        }
+                    });
+            }
+            else
+            {
+                await foreach (var evt in client.FollowDiscoveryLogsAsync(jobId, cancellationToken))
+                {
+                    if (evt.Stage == "Completed")
+                        break;
+
+                    UpdateSummaryFromProgress(summaries, evt);
+                    var key = evt.LastProcessed ?? evt.Message ?? "";
+                    if (summaries.TryGetValue(key, out var s))
+                    {
+                        var status = s.Error != null ? "✗ Failed" : "✓";
+                        console.MarkupLine(
+                            $"  {Markup.Escape(s.Url)} / {Markup.Escape(s.ProjectName)}: " +
+                            $"{s.WorkItemsCount} work items, {s.RevisionsCount} revisions — {status}");
+                    }
+                }
             }
         }
         catch (InvalidOperationException ex) when (ex.Message.Contains("failed"))
@@ -135,7 +169,80 @@ public sealed class InventoryCommand : ControlPlaneCommandBase<InventoryCommand.
             return 0;
         }
 
-        console.MarkupLine($"[green]OK Inventory complete.[/] Results written to [blue]{Markup.Escape(outputPath)}[/]");
+        console.MarkupLine($"\n[green]✅ Inventory complete.[/] Results written to [blue]{Markup.Escape(outputPath)}[/]");
         return 0;
+    }
+
+    // ── Progress-to-summary mapping ───────────────────────────────────────────
+
+    private static void UpdateSummaryFromProgress(
+        Dictionary<string, InventorySummary> summaries,
+        ProgressEvent evt)
+    {
+        // LastProcessed carries "{url}|{projectName}" from InventoryDiscoveryModule.
+        var key = evt.LastProcessed;
+        if (string.IsNullOrEmpty(key))
+            return;
+
+        var separatorIndex = key.IndexOf('|');
+        if (separatorIndex < 0)
+            return;
+
+        var url = key[..separatorIndex];
+        var project = key[(separatorIndex + 1)..];
+
+        if (!summaries.TryGetValue(key, out var summary))
+        {
+            summary = new InventorySummary { Url = url, ProjectName = project };
+            summaries[key] = summary;
+        }
+
+        summary.WorkItemsCount = evt.TotalWorkItems;
+        summary.RevisionsCount = evt.RevisionsProcessed;
+        summary.ReposCount = evt.AttachmentsProcessed;
+        summary.IsComplete = true;
+        summary.LastUpdatedUtc = evt.Timestamp.UtcDateTime;
+
+        if (evt.Stage == "Failed")
+            summary.Error = evt.Message;
+    }
+
+    // ── Rendering ─────────────────────────────────────────────────────────────
+
+    private static Table BuildTable(IEnumerable<InventorySummary> summaries)
+    {
+        var table = new Table()
+            .Title("[bold yellow]Discovery Inventory[/]")
+            .RoundedBorder()
+            .BorderColor(Color.Grey)
+            .AddColumn("Organisation / Collection")
+            .AddColumn("Project")
+            .AddColumn(new TableColumn("Work Items").RightAligned())
+            .AddColumn(new TableColumn("Revisions").RightAligned())
+            .AddColumn(new TableColumn("Repos").RightAligned())
+            .AddColumn("Status");
+
+        foreach (var s in summaries)
+        {
+            var status = s.Error != null
+                ? "[red]✗ Failed[/]"
+                : s.IsComplete
+                    ? "[green]✓[/]"
+                    : "[grey]…[/]";
+
+            var partial = s.Error != null && (s.WorkItemsCount > 0 || s.RevisionsCount > 0);
+            var wiCount = partial ? $"~{s.WorkItemsCount}" : s.WorkItemsCount.ToString();
+            var revCount = partial ? $"~{s.RevisionsCount}" : s.RevisionsCount.ToString();
+
+            table.AddRow(
+                Markup.Escape(s.Url),
+                Markup.Escape(s.ProjectName),
+                wiCount,
+                revCount,
+                s.ReposCount.ToString(),
+                status);
+        }
+
+        return table;
     }
 }
