@@ -39,28 +39,30 @@ public sealed class TuiMainView : Window, IDisposable
         CanFocus = true;
 
         // ── Panels ──────────────────────────────────────────────────────────────
+        // Top row: Jobs (left 40%) | Metrics (right 60%)
+        // Bottom row: Log/Trace spanning full width
         _jobList = new TuiJobListView(client)
         {
             X = 0,
             Y = 0,
-            Width = Dim.Percent(30),
-            Height = Dim.Fill(1)   // leave room for status bar
+            Width = Dim.Percent(40),
+            Height = Dim.Percent(45)
         };
 
         _metrics = new TuiMetricsView
         {
             X = Pos.Right(_jobList),
             Y = 0,
-            Width = Dim.Percent(35),
-            Height = Dim.Fill(1)
+            Width = Dim.Fill(),
+            Height = Dim.Percent(45)
         };
 
         _logView = new TuiLogView(client)
         {
-            X = Pos.Right(_metrics),
-            Y = 0,
+            X = 0,
+            Y = Pos.Bottom(_jobList),
             Width = Dim.Fill(),
-            Height = Dim.Fill(1)
+            Height = Dim.Fill(1)   // leave room for status bar
         };
 
         // ── Status bar ──────────────────────────────────────────────────────────
