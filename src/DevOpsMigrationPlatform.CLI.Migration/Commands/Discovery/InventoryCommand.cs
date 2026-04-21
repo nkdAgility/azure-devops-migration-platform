@@ -317,21 +317,19 @@ public sealed class InventoryCommand : ControlPlaneCommandBase<InventoryCommand.
         if (elapsed.TotalSeconds < 1)
             return null;
 
-        int completed = 0, inProgress = 0, failed = 0;
+        int total = 0, completed = 0, failed = 0;
         long totalWi = 0, totalRev = 0;
         foreach (var s in summaries)
         {
+            total++;
             if (s.Error != null) failed++;
             else if (s.IsComplete) completed++;
-            else if (s.WorkItemsCount > 0 || s.RevisionsCount > 0) inProgress++;
             totalWi += s.WorkItemsCount;
             totalRev += s.RevisionsCount;
         }
 
+        var remaining = total - completed - failed;
         var hours = elapsed.TotalHours;
-        var wiPerHour = hours > 0.001 ? totalWi / hours : 0;
-        var revPerHour = hours > 0.001 ? totalRev / hours : 0;
-        var projPerHour = hours > 0.001 ? completed / hours : 0;
 
         var statsTable = new Table()
             .NoBorder()
@@ -340,18 +338,26 @@ public sealed class InventoryCommand : ControlPlaneCommandBase<InventoryCommand.
             .AddColumn(new TableColumn("Value").RightAligned());
 
         statsTable.AddRow("[dim]Elapsed[/]", $"[white]{FormatTimeSpan(elapsed)}[/]");
-        if (completed > 0)
+
+        if (totalWi > 0 || totalRev > 0)
         {
-            statsTable.AddRow("[dim]Projects / hour[/]", $"[white]{projPerHour:N1}[/]");
+            var wiPerHour = hours > 0.001 ? totalWi / hours : 0;
+            var revPerHour = hours > 0.001 ? totalRev / hours : 0;
             statsTable.AddRow("[dim]Work Items / hour[/]", $"[white]{wiPerHour:N0}[/]");
             statsTable.AddRow("[dim]Revisions / hour[/]", $"[white]{revPerHour:N0}[/]");
+        }
+
+        if (completed > 0)
+        {
+            var projPerHour = hours > 0.001 ? completed / hours : 0;
+            statsTable.AddRow("[dim]Projects / hour[/]", $"[white]{projPerHour:N1}[/]");
 
             var avgMs = elapsed.TotalMilliseconds / completed;
             statsTable.AddRow("[dim]Avg Project Duration[/]", $"[white]{FormatTimeSpan(TimeSpan.FromMilliseconds(avgMs))}[/]");
 
-            if (inProgress > 0)
+            if (remaining > 0)
             {
-                var eta = TimeSpan.FromMilliseconds(avgMs * inProgress);
+                var eta = TimeSpan.FromMilliseconds(avgMs * remaining);
                 statsTable.AddRow("[dim]ETA (remaining)[/]", $"[yellow]{FormatTimeSpan(eta)}[/]");
             }
         }

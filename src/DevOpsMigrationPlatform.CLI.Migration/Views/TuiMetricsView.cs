@@ -112,6 +112,8 @@ public sealed class TuiMetricsView : FrameView
             $"── Throughput ────────────────────\n" +
             $"Work Items / hour    : {FormatRate(c.WorkItemsPerHour)}\n" +
             $"Revisions / hour     : {FormatRate(c.RevisionsPerHour)}\n" +
+            $"Analysed / hour      : {FormatRate(c.AnalysedPerHour)}\n" +
+            $"Links / hour         : {FormatRate(c.LinksPerHour)}\n" +
             $"Projects / hour      : {FormatRate(c.ProjectsPerHour)}\n" +
             $"Avg Project Duration : {FormatDuration(s.ProjectDurationMeanMs)}\n" +
             $"\n" +
@@ -162,6 +164,8 @@ public sealed record DiscoveryComputedMetrics
 {
     public double? WorkItemsPerHour { get; init; }
     public double? RevisionsPerHour { get; init; }
+    public double? LinksPerHour { get; init; }
+    public double? AnalysedPerHour { get; init; }
     public double? ProjectsPerHour { get; init; }
     public System.TimeSpan Elapsed { get; init; }
     public System.TimeSpan? EstimatedRemaining { get; init; }

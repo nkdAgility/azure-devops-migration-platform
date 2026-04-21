@@ -646,19 +646,21 @@ public sealed class DependencyCommand : ControlPlaneCommandBase<DependencyComman
             return null;
 
         int completed = 0, inProgress = 0;
-        long totalAnalysed = 0, totalLinks = 0;
+        long totalAnalysed = 0, totalLinks = 0, totalKnown = 0, processedOfKnown = 0;
         foreach (var p in state)
         {
             if (p.IsComplete) completed++;
             else if (p.WorkItemsAnalysed > 0) inProgress++;
             totalAnalysed += p.WorkItemsAnalysed;
             totalLinks += p.ExternalLinks;
+            if (p.TotalWorkItems > 0)
+            {
+                totalKnown += p.TotalWorkItems;
+                processedOfKnown += p.IsComplete ? p.TotalWorkItems : p.WorkItemsAnalysed;
+            }
         }
 
         var hours = elapsed.TotalHours;
-        var analysedPerHour = hours > 0.001 ? totalAnalysed / hours : 0;
-        var linksPerHour = hours > 0.001 ? totalLinks / hours : 0;
-        var projPerHour = hours > 0.001 ? completed / hours : 0;
 
         var statsTable = new Table()
             .NoBorder()
@@ -667,20 +669,37 @@ public sealed class DependencyCommand : ControlPlaneCommandBase<DependencyComman
             .AddColumn(new TableColumn("Value").RightAligned());
 
         statsTable.AddRow("[dim]Elapsed[/]", $"[white]{FormatTimeSpan(elapsed)}[/]");
-        if (completed > 0)
+
+        if (totalAnalysed > 0)
         {
-            statsTable.AddRow("[dim]Projects / hour[/]", $"[white]{projPerHour:N1}[/]");
+            var analysedPerHour = hours > 0.001 ? totalAnalysed / hours : 0;
+            var linksPerHour = hours > 0.001 ? totalLinks / hours : 0;
             statsTable.AddRow("[dim]Work Items Analysed / hour[/]", $"[white]{analysedPerHour:N0}[/]");
             statsTable.AddRow("[dim]Links Found / hour[/]", $"[white]{linksPerHour:N0}[/]");
+        }
+
+        if (completed > 0)
+        {
+            var projPerHour = hours > 0.001 ? completed / hours : 0;
+            statsTable.AddRow("[dim]Projects / hour[/]", $"[white]{projPerHour:N1}[/]");
 
             var avgMs = elapsed.TotalMilliseconds / completed;
             statsTable.AddRow("[dim]Avg Project Duration[/]", $"[white]{FormatTimeSpan(TimeSpan.FromMilliseconds(avgMs))}[/]");
+        }
 
-            if (inProgress > 0)
-            {
-                var eta = TimeSpan.FromMilliseconds(avgMs * inProgress);
-                statsTable.AddRow("[dim]ETA (remaining)[/]", $"[yellow]{FormatTimeSpan(eta)}[/]");
-            }
+        // ETA: prefer per-item rate when we have pre-count totals
+        if (totalKnown > 0 && processedOfKnown > 0 && processedOfKnown < totalKnown)
+        {
+            var msPerItem = elapsed.TotalMilliseconds / processedOfKnown;
+            var remaining = totalKnown - processedOfKnown;
+            var eta = TimeSpan.FromMilliseconds(msPerItem * remaining);
+            statsTable.AddRow("[dim]ETA (remaining)[/]", $"[yellow]{FormatTimeSpan(eta)}[/]");
+        }
+        else if (completed > 0 && inProgress > 0)
+        {
+            var avgMs = elapsed.TotalMilliseconds / completed;
+            var eta = TimeSpan.FromMilliseconds(avgMs * inProgress);
+            statsTable.AddRow("[dim]ETA (remaining)[/]", $"[yellow]{FormatTimeSpan(eta)}[/]");
         }
 
         return new Panel(statsTable)

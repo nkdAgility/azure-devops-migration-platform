@@ -279,6 +279,7 @@ public sealed class TuiMainView : Window, IDisposable
                     WorkItems: 0, Revisions: 0, Repos: 0,
                     LinksFound: evt.WorkItemId,
                     WorkItemsAnalysed: evt.WorkItemsProcessed,
+                    TotalWorkItems: evt.TotalWorkItems,
                     IsComplete: isComplete || isFailed, IsFailed: isFailed,
                     Module: evt.Module);
             }
@@ -289,6 +290,7 @@ public sealed class TuiMainView : Window, IDisposable
                     WorkItems: evt.TotalWorkItems, Revisions: evt.RevisionsProcessed,
                     Repos: evt.AttachmentsProcessed,
                     LinksFound: 0, WorkItemsAnalysed: 0,
+                    TotalWorkItems: 0,
                     IsComplete: isComplete || isFailed, IsFailed: isFailed,
                     Module: evt.Module);
             }
@@ -307,23 +309,30 @@ public sealed class TuiMainView : Window, IDisposable
             _discoveryCheckpointsSaved++;
 
         // Accumulate totals across all tracked projects
-        int completed = 0, failed = 0, inProgress = 0;
+        int total = 0, completed = 0, failed = 0;
         long totalWi = 0, totalRev = 0, totalRepos = 0;
         long totalLinks = 0, totalAnalysed = 0;
+        long totalKnown = 0, processedOfKnown = 0;
 
         foreach (var entry in _discoveryProjects)
         {
             var v = entry.Value;
+            total++;
             if (v.IsFailed) failed++;
             else if (v.IsComplete) completed++;
-            else inProgress++;
             totalWi += v.WorkItems;
             totalRev += v.Revisions;
             totalRepos += v.Repos;
             totalLinks += v.LinksFound;
             totalAnalysed += v.WorkItemsAnalysed;
+            if (v.TotalWorkItems > 0)
+            {
+                totalKnown += v.TotalWorkItems;
+                processedOfKnown += v.IsComplete ? v.TotalWorkItems : v.WorkItemsAnalysed;
+            }
         }
 
+        var remaining = total - completed - failed;
         var elapsed = DateTimeOffset.UtcNow - _discoveryStartTime;
         var elapsedHours = elapsed.TotalHours;
 
@@ -334,7 +343,7 @@ public sealed class TuiMainView : Window, IDisposable
             OrganisationsQueued = _discoveryOrgsQueued.Count,
             ProjectsCompleted = completed,
             ProjectsFailed = failed,
-            ProjectsQueued = inProgress,
+            ProjectsQueued = remaining,
             WorkItemsCounted = totalWi,
             RevisionsCounted = totalRev,
             ReposCounted = totalRepos,
@@ -346,15 +355,28 @@ public sealed class TuiMainView : Window, IDisposable
                 : null
         };
 
+        // ETA: prefer per-item rate when we have dependency pre-count totals;
+        // otherwise fall back to avg-project-duration × remaining projects
+        TimeSpan? estimatedRemaining = null;
+        if (totalKnown > 0 && processedOfKnown > 0 && processedOfKnown < totalKnown)
+        {
+            var msPerItem = elapsed.TotalMilliseconds / processedOfKnown;
+            estimatedRemaining = TimeSpan.FromMilliseconds(msPerItem * (totalKnown - processedOfKnown));
+        }
+        else if (completed > 0 && remaining > 0)
+        {
+            estimatedRemaining = TimeSpan.FromMilliseconds(elapsed.TotalMilliseconds / completed * remaining);
+        }
+
         var computed = new DiscoveryComputedMetrics
         {
             WorkItemsPerHour = elapsedHours > 0.001 ? totalWi / elapsedHours : null,
             RevisionsPerHour = elapsedHours > 0.001 ? totalRev / elapsedHours : null,
-            ProjectsPerHour = elapsedHours > 0.001 ? completed / elapsedHours : null,
+            LinksPerHour = elapsedHours > 0.001 && totalLinks > 0 ? totalLinks / elapsedHours : null,
+            AnalysedPerHour = elapsedHours > 0.001 && totalAnalysed > 0 ? totalAnalysed / elapsedHours : null,
+            ProjectsPerHour = elapsedHours > 0.001 && completed > 0 ? completed / elapsedHours : null,
             Elapsed = elapsed,
-            EstimatedRemaining = completed > 0 && inProgress > 0
-                ? TimeSpan.FromMilliseconds(elapsed.TotalMilliseconds / completed * inProgress)
-                : null
+            EstimatedRemaining = estimatedRemaining
         };
 
         _metrics.UpdateDiscovery(snapshot, computed);
@@ -402,6 +424,7 @@ public sealed class TuiMainView : Window, IDisposable
     private sealed record DiscoveryProjectMetrics(
         long WorkItems, long Revisions, long Repos,
         long LinksFound, long WorkItemsAnalysed,
+        long TotalWorkItems,
         bool IsComplete, bool IsFailed,
         string Module);
 }
