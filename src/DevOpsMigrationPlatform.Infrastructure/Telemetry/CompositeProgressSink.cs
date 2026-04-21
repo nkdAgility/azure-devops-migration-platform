@@ -28,7 +28,7 @@ public sealed class CompositeProgressSink : IProgressSink
             }
             catch (Exception ex)
             {
-                _logger.LogDebug(ex, "Sink {Sink} threw during Emit", sink.GetType().Name);
+                _logger.LogWarning(ex, "Sink {Sink} threw during Emit", sink.GetType().Name);
             }
         }
     }

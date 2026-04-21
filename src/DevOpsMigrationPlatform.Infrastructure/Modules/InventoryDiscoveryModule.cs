@@ -58,6 +58,16 @@ public sealed class InventoryDiscoveryModule : IDiscoveryModule
 
         var inventoryService = _inventoryFactory.Create(job.Organisations, job.Policies);
 
+        // Emit a probe event so the CLI live table transitions from "…" to "Starting"
+        // immediately, proving the sink pipeline works before the API returns data.
+        sink.Emit(new ProgressEvent
+        {
+            Module = Name,
+            Stage = "Progress",
+            Message = "Inventory starting — connecting to source…",
+            Timestamp = DateTimeOffset.UtcNow
+        });
+
         var csvBuilder = new StringBuilder();
         csvBuilder.AppendLine("Url,ProjectName,WorkItemsCount,RevisionsCount,ReposCount,IsComplete,Error");
 

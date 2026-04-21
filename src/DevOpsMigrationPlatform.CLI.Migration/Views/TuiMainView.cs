@@ -78,20 +78,26 @@ public sealed class TuiMainView : Window, IDisposable
         _logView.OnJobEnded += OnJobEnded;
 
         // ── Key handling ────────────────────────────────────────────────────────
-        KeyDown += (_, e) =>
+        // Use Application.KeyDown so Q / Ctrl+Q / Ctrl+C always work,
+        // even when a child TableView or ListView has focus and consumes
+        // normal key events before they bubble to this Window.
+        Application.KeyDown += OnApplicationKeyDown;
+    }
+
+    private void OnApplicationKeyDown(object? sender, Key e)
+    {
+        if (e.KeyCode == KeyCode.Q
+            || e.KeyCode == (KeyCode.Q | KeyCode.CtrlMask)
+            || e.KeyCode == (KeyCode.C | KeyCode.CtrlMask))
         {
-            if (e.KeyCode == KeyCode.Q || e.KeyCode == (KeyCode.Q | KeyCode.CtrlMask))
-            {
-                Application.RequestStop(this);
-                e.Handled = true;
-            }
-            else if (e.KeyCode == KeyCode.Esc && _selectedJobId.HasValue)
-            {
-                // Deselect current job
-                DeselectJob();
-                e.Handled = true;
-            }
-        };
+            Application.RequestStop(this);
+            e.Handled = true;
+        }
+        else if (e.KeyCode == KeyCode.Esc && _selectedJobId.HasValue)
+        {
+            DeselectJob();
+            e.Handled = true;
+        }
     }
 
     // ─── Public API ─────────────────────────────────────────────────────────────
@@ -208,6 +214,7 @@ public sealed class TuiMainView : Window, IDisposable
     /// <inheritdoc/>
     public new void Dispose()
     {
+        Application.KeyDown -= OnApplicationKeyDown;
         CancelSelection();
         _logView.Dispose();
         base.Dispose();

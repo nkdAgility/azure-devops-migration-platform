@@ -64,13 +64,6 @@ public sealed class TuiJobListView : FrameView, IDisposable
 
         Add(_emptyLabel);
         Add(_table);
-
-        // Q / Ctrl+Q — let the key bubble to TuiMainView which calls Application.RequestStop()
-        KeyDown += (_, e) =>
-        {
-            if (e.KeyCode == KeyCode.Q || e.KeyCode == (KeyCode.Q | KeyCode.CtrlMask))
-                e.Handled = false; // let it bubble
-        };
     }
 
     /// <summary>Replaces the displayed job list. Must be called from the Terminal.Gui main loop thread.</summary>

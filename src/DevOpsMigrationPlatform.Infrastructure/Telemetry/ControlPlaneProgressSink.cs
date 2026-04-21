@@ -73,15 +73,18 @@ public sealed class ControlPlaneProgressSink : BackgroundService, IProgressSink
                             "Progress POST for lease {LeaseId} returned {StatusCode}. Event dropped.",
                             leaseId, (int)response.StatusCode);
                 }
-                catch (HttpRequestException ex)
-                {
-                    _logger.LogWarning(ex,
-                        "Progress POST for lease {LeaseId} failed with HTTP error. Event dropped.",
-                        leaseId);
-                }
                 catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
                 {
                     return;
+                }
+                catch (Exception ex)
+                {
+                    // Catch-all: prevents a single failed POST (timeout, serialisation,
+                    // transient network error) from crashing the BackgroundService and
+                    // silently dropping all subsequent events.
+                    _logger.LogWarning(ex,
+                        "Progress POST for lease {LeaseId} failed. Event dropped.",
+                        leaseId);
                 }
             }
         }
