@@ -16,11 +16,3 @@ hooks:
     optional: false
     description: Run all five architecture perspective checks (Modular Monolith, Clean, Hexagonal, Vertical Slice, Screaming) before task generation begins
     condition: null
-  after_tasks:
-  - extension: ralph
-    command: speckit.ralph.run
-    enabled: true
-    optional: true
-    prompt: Run ralph loop to implement tasks?
-    description: Start autonomous implementation after task generation
-    condition: null
