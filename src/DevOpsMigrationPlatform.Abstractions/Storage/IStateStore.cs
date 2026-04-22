@@ -6,7 +6,7 @@ namespace DevOpsMigrationPlatform.Abstractions;
 public interface IStateStore
 {
     /// <summary>
-    /// Writes a state entry. Key is the cursor path, e.g. "Checkpoints/workitems.cursor.json".
+    /// Writes a state entry. Key is the cursor path, e.g. ".migration/Checkpoints/workitems.cursor.json".
     /// </summary>
     Task WriteAsync(string key, string value, CancellationToken cancellationToken);
 

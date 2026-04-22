@@ -280,7 +280,7 @@ The adapter MUST NOT kill the subprocess directly. Instead:
 
 1. When `CancellationToken` fires, the adapter writes a sentinel file at `CancellationSentinelPath`.
 2. The subprocess polls for this file at regular intervals (≤ 1 second).
-3. On detecting the file, the subprocess writes its current cursor to `Checkpoints/TfsExporter.cursor`, writes a `Failed` stdout line with `errorCode: "Cancelled"`, and exits with code `2`.
+3. On detecting the file, the subprocess writes its current cursor to `.migration/Checkpoints/TfsExporter.cursor`, writes a `Failed` stdout line with `errorCode: "Cancelled"`, and exits with code `2`.
 4. The adapter deletes the sentinel file after the subprocess exits.
 
 This gives the subprocess a chance to flush its current cursor before stopping, enabling clean resume.
@@ -289,7 +289,7 @@ This gives the subprocess a chance to flush its current cursor before stopping, 
 
 ## Resume and Cursor Handoff
 
-The subprocess writes a cursor file `Checkpoints/TfsExporter.cursor` inside the package after each revision folder is written. When the Job Engine resumes a TFS export job:
+The subprocess writes a cursor file `.migration/Checkpoints/TfsExporter.cursor` inside the package after each revision folder is written. When the Job Engine resumes a TFS export job:
 
 1. The adapter reads the cursor file and passes its value as `resumeFromCursor` in `TfsExportRequest`.
 2. The adapter passes this to the subprocess via a `--resume` CLI argument (the cursor value contains no credentials).
@@ -368,7 +368,7 @@ Activity sources registered: `WorkItemExport`, `AttachmentDownload`.
 
 ### Serilog Integration
 
-Logs are forwarded to the OTLP collector via `Serilog.Sinks.OpenTelemetry` when `OTEL_EXPORTER_OTLP_ENDPOINT` is set. File sinks (`Logs/`) are always active.
+Logs are forwarded to the OTLP collector via `Serilog.Sinks.OpenTelemetry` when `OTEL_EXPORTER_OTLP_ENDPOINT` is set. File sinks (`.migration/Logs/`) are always active.
 
 ### Package Dependencies
 
@@ -389,7 +389,7 @@ The `DevOpsMigrationPlatform.CLI.TfsMigration` project (net481) MUST:
 - Write NDJSON progress lines to stdout, flushed after each line.
 - Write error detail to stderr.
 - Write package files to `--output` following canonical layouts.
-- Write cursor to `Checkpoints/TfsExporter.cursor` after each revision folder.
+- Write cursor to `.migration/Checkpoints/TfsExporter.cursor` after each revision folder.
 - Poll the cancellation sentinel file and abort gracefully when it appears.
 - Exit with the appropriate exit code.
 
@@ -506,8 +506,8 @@ public sealed record TfsImportRequest
 
 | Executor | Direction | Package access | TFS OM direction | Checkpoint file |
 |---|---|---|---|---|
-| `TfsExportAgent` | TFS → Package | Write via `IArtefactStore` | Read (TFS OM queries) | `Checkpoints/TfsExporter.cursor` |
-| `TfsImportAgent` *(future)* | Package → TFS | Read via `IArtefactStore` | Write (TFS OM mutations) | `Checkpoints/TfsImporter.cursor` |
+| `TfsExportAgent` | TFS → Package | Write via `IArtefactStore` | Read (TFS OM queries) | `.migration/Checkpoints/TfsExporter.cursor` |
+| `TfsImportAgent` *(future)* | Package → TFS | Read via `IArtefactStore` | Write (TFS OM mutations) | `.migration/Checkpoints/TfsImporter.cursor` |
 
 Both executors use the same `IArtefactStore`, `IStateStore`, `IProgressSink`, and NDJSON stdout protocol. The only substantive difference is TFS OM read vs write.
 
@@ -520,7 +520,7 @@ The `TfsImportAgent` MUST:
 - Write NDJSON progress lines to stdout, flushed after each line.
 - Write error detail to stderr.
 - Read package files from `--input` following canonical layouts (streaming — never load all revisions into memory).
-- Write cursor to `Checkpoints/TfsImporter.cursor` after each revision applied.
+- Write cursor to `.migration/Checkpoints/TfsImporter.cursor` after each revision applied.
 - Poll the cancellation sentinel file and abort gracefully when it appears.
 - Exit with the same exit code scheme as the exporter.
 

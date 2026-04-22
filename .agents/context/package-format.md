@@ -30,12 +30,15 @@ PackageRoot/
   Builds/
   Git/
   Identities/
-  Checkpoints/
-  Logs/
-    <ticks>-<jobId>/
-      progress.jsonl
-      agent.jsonl
+  .migration/
+    Checkpoints/
+    Logs/
+      <ticks>-<jobId>/
+        progress.jsonl
+        agent.jsonl
 ```
+
+> **Legacy fallback:** Packages created before the `.migration/` dotfolder change may store `Checkpoints/` and `Logs/` directly under `PackageRoot/`. All code that reads these paths tries the `.migration/` location first, then falls back to the legacy root-level location. The `PackagePaths` static class in `DevOpsMigrationPlatform.Abstractions` defines both current and legacy path constants.
 
 The WorkItems layout is canonical and must not be altered:
 
@@ -62,9 +65,9 @@ Key characteristics:
 - Resume is trivial
 - Human-auditable
 
-### Logs/
+### .migration/Logs/
 
-The `Logs/` folder contains structured observability records written by the Migration Agent during job execution. Each job writes to its own subfolder to prevent logs from different runs overwriting each other:
+The `.migration/Logs/` folder contains structured observability records written by the Migration Agent during job execution. Each job writes to its own subfolder to prevent logs from different runs overwriting each other:
 
 ```
 Logs/
@@ -84,7 +87,7 @@ The subfolder name uses `<ticks>-<jobId>` (e.g. `638807123456789012-a1b2c3d4`) s
 
 Both files are append-only and survive resume. They are the durable record of job execution — the control plane's in-memory ring buffer is ephemeral.
 
-**Backward compatibility:** Packages created before job-scoped logging may have log files directly under `Logs/` (e.g. `Logs/agent.jsonl`). The `LogDownloadController` falls back to this flat layout when no job-scoped subfolder is found.
+**Backward compatibility:** Packages created before job-scoped logging may have log files directly under `.migration/Logs/` (e.g. `.migration/Logs/agent.jsonl`). The `LogDownloadController` falls back to this flat layout when no job-scoped subfolder is found.
 
 ### Naming Conventions
 

@@ -306,7 +306,7 @@ Each revision folder is processed through four sequential stages via `RevisionFo
 
 | Stage | Name | Description |
 |-------|------|-------------|
-| A | `CreatedOrUpdated` | Create or resolve target work item; record ID mapping in `Checkpoints/idmap.db` |
+| A | `CreatedOrUpdated` | Create or resolve target work item; record ID mapping in `.migration/Checkpoints/idmap.db` |
 | B | `AppliedFields` | Apply all fields (with identity resolution); rewrite embedded image URLs |
 | C | `AppliedLinks` | Add related links, external links, and hyperlinks (skip duplicates) |
 | D | `UploadedAttachments` | Stream attachment binaries to the target (skip already-uploaded) |
@@ -315,7 +315,7 @@ A cursor is written after each stage. On resume, completed stages are skipped.
 
 ### ID Mapping: idmap.db
 
-The `SqliteIdMapStore` maintains `Checkpoints/idmap.db` (SQLite, package-local):
+The `SqliteIdMapStore` maintains `.migration/Checkpoints/idmap.db` (SQLite, package-local):
 
 - `work_item_map (source_id PK, target_id)` — source-to-target work item ID mapping.
 - `attachment_map (source_work_item_id, revision_index, relative_path, target_attachment_id)` — idempotency for attachment uploads.

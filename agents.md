@@ -256,7 +256,7 @@ Reject any proposal that:
 - Breaks chronological folder ordering.
 - Introduces global attachment storage.
 - Requires loading all revisions into memory.
-- Adds hidden state outside `Checkpoints/`.
+- Adds hidden state outside `.migration/Checkpoints/`.
 - Couples modules directly.
 - Performs live streaming migration.
 - Violates coding standards.

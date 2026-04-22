@@ -27,7 +27,7 @@ Silently working around a rule = violation. Blindly following a harmful rule = n
    Enumeration order is determined by lexicographic folder traversal. Sorting in memory defeats the purpose of the layout and breaks memory safety for large datasets.
 
 4. **Cursor-based checkpoints are required.**
-   Every module must maintain a cursor file under `Checkpoints/`. Watermark tables, databases, or in-memory progress tracking are not acceptable substitutes.
+   Every module must maintain a cursor file under `.migration/Checkpoints/`. Watermark tables, databases, or in-memory progress tracking are not acceptable substitutes.
 
 5. **Attachments are stored beside revision.json.**
    Attachment files live in the same folder as their `revision.json`. There is no global `Attachments/` root and no mandatory blob store.
@@ -51,7 +51,7 @@ Silently working around a rule = violation. Blindly following a harmful rule = n
     The `ControlPlane` service library accepts, stores, and assigns jobs. It does not call source or target APIs, run orchestrator logic, read or write the migration package, or unwrap secrets. `ControlPlaneHost` extends the control plane with agent lifecycle management but must not contain job execution logic. Violations break the separation between coordination (`ControlPlane`/`ControlPlaneHost`) and execution (`Agent`).
 
 12. **Agents are stateless; all durable state is in the package.**
-    Agents hold no state beyond the current lease. All durable state lives in the package (`Checkpoints/`, `Logs/`, revision folders) via `IArtefactStore` and `IStateStore`. An Agent that crashes is replaced by a new Agent that resumes from the cursor.
+    Agents hold no state beyond the current lease. All durable state lives in the package (`.migration/Checkpoints/`, `.migration/Logs/`, revision folders) via `IArtefactStore` and `IStateStore`. An Agent that crashes is replaced by a new Agent that resumes from the cursor.
 
 13. **IArtefactStore is the only permitted file abstraction.**
     Both `FileSystemArtefactStore` and `AzureBlobArtefactStore` implement `IArtefactStore`. Module code must not reference either implementation directly. Switching from local to cloud mode must require zero module code changes.
@@ -71,7 +71,7 @@ Silently working around a rule = violation. Blindly following a harmful rule = n
     The Job Engine has no dependency on any console, UI framework, or interactive terminal. It receives a `MigrationJob` and an `IProgressSink`; it produces package output and cursor state. It must be runnable in-process (local), in a container (Migration Agent), or in a test harness without modification.
 
 18. **No UI coupling in the Job Engine or modules.**
-    The Job Engine and all modules must not write to `Console`, reference `System.Console`, or use any interactive input mechanism. All output goes through `IProgressSink` (progress events) or `IArtefactStore` (logs written to `Logs/`). Any violation makes the engine unrunnable as a Migration Agent.
+    The Job Engine and all modules must not write to `Console`, reference `System.Console`, or use any interactive input mechanism. All output goes through `IProgressSink` (progress events) or `IArtefactStore` (logs written to `.migration/Logs/`). Any violation makes the engine unrunnable as a Migration Agent.
 
 19. **TFS Object Model runs in an isolated subprocess spawned by the CLI only.**
     The .NET 4.x TFS exporter (`DevOpsMigrationPlatform.CLI.TfsMigration`) is a completely separate binary invoked **directly by the CLI** (`TfsExportCommand` in `CLI.Migration`). It is not routed through ControlPlane or MigrationAgent — TFS OM cannot run in Docker, so this is a CLI-only operation for all topologies. `TfsExportAgent` uses the same `IArtefactStore`, `IStateStore`, and `IProgressSink` abstractions as the .NET 10 `MigrationAgent` — these interfaces are defined in the multi-targeted `DevOpsMigrationPlatform.Abstractions` (`net481;net10.0`). The `StdoutProgressSink` (net481) writes NDJSON progress events to stdout; the CLI reads these via `TfsExporterProcessAdapter` and streams them to the terminal. The .NET 10 host must never hold a compiled reference to the .NET 4 project. The only permitted caller of the subprocess is `ExternalToolRunner` in `DevOpsMigrationPlatform.CLI.Migration` — a generic, TFS-agnostic process bridge. `TfsExporterProcessAdapter` in `CLI.Migration` is the only permitted TFS-aware .NET 10 class; it translates NDJSON stdout lines into progress events for the CLI. See [docs/tfs-exporter.md](../../docs/tfs-exporter.md) for the full protocol specification.

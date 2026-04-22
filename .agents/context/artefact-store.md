@@ -101,9 +101,9 @@ The orchestrator resolves the implementation at startup: URLs whose host contain
 
 ## StateStore and Checkpoints
 
-`IStateStore` manages cursor files and the `idmap.db` (or `idmap.json`). Its Phase 1 implementation is `PackageCheckpointStateStore`, which writes checkpoint files into the `Checkpoints/` folder via `IArtefactStore` (i.e. the same blob container or filesystem path as the rest of the package).
+`IStateStore` manages cursor files and the `idmap.db` (or `idmap.json`). Its Phase 1 implementation is `PackageCheckpointStateStore`, which writes checkpoint files into the `.migration/Checkpoints/` folder via `IArtefactStore` (i.e. the same blob container or filesystem path as the rest of the package).
 
-The Migration Agent may optionally mirror the latest cursor value to the control plane via the progress reporting API for display purposes, but the package's `Checkpoints/` folder remains the authoritative resume state. See [.agents/context/checkpointing.md](checkpointing.md).
+The Migration Agent may optionally mirror the latest cursor value to the control plane via the progress reporting API for display purposes, but the package's `.migration/Checkpoints/` folder remains the authoritative resume state. See [.agents/context/checkpointing.md](checkpointing.md).
 
 ---
 

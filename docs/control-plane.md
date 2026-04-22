@@ -55,7 +55,7 @@ The control plane does **not** run the Job Engine, call source or target APIs, o
 | `GET` | `/jobs/{jobId}/diagnostics` | Return buffered diagnostic log records as a JSON array (snapshot). Accepts `?level=` filter (`Trace`, `Debug`, `Information`, `Warning`, `Error`, `Critical`). Requires same auth as `GET /jobs/{jobId}`. |
 | `GET` | `/jobs/{jobId}/diagnostics?follow=true` | **SSE stream**: push diagnostic log records in real time. Accepts `?level=` filter. Heartbeat comment every 15 s. Requires same auth as `GET /jobs/{jobId}`. |
 | `GET` | `/jobs/{jobId}/telemetry` | Return the latest `MetricSnapshot` for the job. `204 No Content` when no snapshot has been pushed yet by the Migration Agent. `MetricSnapshot` is a versioned DTO whose fields correspond to registered OTel instruments — see `WellKnownMetricNames` for the canonical reference. Requires same auth as `GET /jobs/{jobId}`. |
-| `GET` | `/jobs/{jobId}/logs/download` | Download the package log files (`Logs/progress.jsonl` and `Logs/agent.jsonl`) for a completed job. Requires same auth as `GET /jobs/{jobId}`. |
+| `GET` | `/jobs/{jobId}/logs/download` | Download the package log files (`.migration/Logs/progress.jsonl` and `.migration/Logs/agent.jsonl`) for a completed job. Requires same auth as `GET /jobs/{jobId}`. |
 
 ### Migration Agent Protocol
 
@@ -125,7 +125,7 @@ The control plane stores each event in a bounded per-job **ring buffer** (`Bound
 
 - Powers `GET /jobs/{jobId}/progress` (snapshot of current buffer contents)
 - Powers `GET /jobs/{jobId}/progress?follow=true` (SSE broadcast from the buffer to all active subscribers)
-- Is in-memory only — it is cleared when the control plane restarts, but the package's `Logs/progress.jsonl` is the durable record
+- Is in-memory only — it is cleared when the control plane restarts, but the package's `.migration/Logs/progress.jsonl` is the durable record
 
 The ring buffer always reflects the most recent activity. For very long jobs, oldest events are evicted to stay within capacity. The cursor in the package remains the authoritative resume state.
 
@@ -228,7 +228,7 @@ The control plane persists:
 - Job states and state transitions
 - Latest progress per module (for display; not authoritative for resume)
 - Lease records
-- Log references (URIs into blob storage; logs themselves are stored in the package's `Logs/` folder by the Migration Agent)
+- Log references (URIs into blob storage; logs themselves are stored in the package's `.migration/Logs/` folder by the Migration Agent)
 
 ### Technology
 
@@ -332,7 +332,7 @@ A background service runs this query on a configurable interval (default: every 
 The control plane deliberately does **not** store:
 
 - The migration package contents (revision files, cursors, attachments) — those live in `IArtefactStore` (filesystem or Azure Blob).
-- Log file contents — logs are written into the package's `Logs/` folder by the Migration Agent; the control plane stores only the URI prefix for the TUI to tail.
+- Log file contents — logs are written into the package's `.migration/Logs/` folder by the Migration Agent; the control plane stores only the URI prefix for the TUI to tail.
 - Source or target credentials — only Key Vault references (opaque strings) are stored in `job_json`; the actual secret is never held in the database.
 
 ---

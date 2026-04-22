@@ -203,7 +203,17 @@ public sealed class WorkItemsModule : IModule
         else
             localRoot = packageUri;
 
-        return Path.Combine(localRoot, "Checkpoints", "idmap.db");
+        var newPath = PackagePaths.IdMapDbNative(localRoot);
+
+        // Legacy fallback: if the .migration path doesn't exist yet, check the old location.
+        if (!File.Exists(newPath))
+        {
+            var legacyPath = PackagePaths.LegacyIdMapDbNative(localRoot);
+            if (File.Exists(legacyPath))
+                return legacyPath;
+        }
+
+        return newPath;
     }
 
     public async Task ValidateAsync(ValidationContext context, CancellationToken ct)

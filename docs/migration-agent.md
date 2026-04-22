@@ -19,11 +19,11 @@ The package contract, modules, and cursors are unchanged across all deployment t
 | Mount artefact store | Connect to the package URI from the job definition (filesystem or blob). See [.agents/context/artefact-store.md](../.agents/context/artefact-store.md). |
 | Resolve secrets | Fetch credentials from Key Vault references in the job definition before executing. |
 | Run orchestrator | Execute `ExportAsync`, `ImportAsync`, or both in sequence, exactly as in local mode. |
-| Write cursors | Write checkpoint cursors into the package's `Checkpoints/` folder after each stage, as always. |
+| Write cursors | Write checkpoint cursors into the package's `.migration/Checkpoints/` folder after each stage, as always. |
 | Heartbeat | Signal liveness to the control plane at regular intervals. |
-| Report progress | Emit `ProgressEvent` via `IProgressSink` after each stage. Three sinks run simultaneously: `ConsoleProgressSink` (terminal), `PackageProgressSink` (`Logs/progress.jsonl`), and `ControlPlaneProgressSink` (POST to control plane ring buffer for live TUI streaming). |
+| Report progress | Emit `ProgressEvent` via `IProgressSink` after each stage. Three sinks run simultaneously: `ConsoleProgressSink` (terminal), `PackageProgressSink` (`.migration/Logs/progress.jsonl`), and `ControlPlaneProgressSink` (POST to control plane ring buffer for live TUI streaming). |
 | Record metrics | Record OTel metrics via `IMigrationMetrics` during job execution (execution counters, payload histograms, duration). Metric aggregates are pushed to the control plane via `ControlPlaneTelemetryTimer`. |
-| Write package logs | Write structured logs to `Logs/` in the package via `IArtefactStore`. |
+| Write package logs | Write structured logs to `.migration/Logs/` in the package via `IArtefactStore`. |
 | Signal completion or failure | Call the control plane's complete or fail endpoint when the job finishes. |
 
 The Agent does **not** accept job submissions, manage other Agents, or store job state. All job coordination is `ControlPlaneHost`'s responsibility.
@@ -41,7 +41,7 @@ Poll /agents/lease
        ├─ Start heartbeat loop (background)
        ├─ Register IProgressSink composite:
        │    ├─ ConsoleProgressSink     (NDJSON to terminal)
-       │    ├─ PackageProgressSink     (Logs/progress.jsonl in package)
+       │    ├─ PackageProgressSink     (.migration/Logs/progress.jsonl in package)
        │    └─ ControlPlaneProgressSink (POST /agents/lease/{id}/progress)
        └─ Run Job Engine
             ├─ ExportAsync (if mode = Export or Both)
@@ -67,7 +67,7 @@ For network zone isolation — where source and target systems are in different 
 
 Agents are stateless. All durable state lives either:
 
-- In the migration package (`revision.json`, cursors, `idmap.db`, `Logs/`) via `IArtefactStore` and `IStateStore`.
+- In the migration package (`revision.json`, cursors, `idmap.db`, `.migration/Logs/`) via `IArtefactStore` and `IStateStore`.
 - In the control plane (job status, latest reported progress).
 
 An Agent may be stopped, rescheduled, or replaced at any point. The new Agent reads the cursor to determine where to resume. This makes Agents safe to run in auto-scaling container environments.
@@ -110,7 +110,7 @@ See [docs/architecture.md — Data Residency](architecture.md#data-residency--ag
 
 Migration Agents write structured logs to both:
 
-- `Logs/` in the package (durable, included in zip).
+- `.migration/Logs/` in the package (durable, included in zip).
 - The control plane (pushed in real time via the lease API for TUI tailing).
 
 Both outputs use the same structured format (OpenTelemetry-compatible). No `Console.WriteLine` in module code.

@@ -20,7 +20,7 @@ See [docs/modules.md](../../docs/modules.md) for the full `IModule` contract and
 
 ## 3. Cursor Format
 
-- [ ] Define the cursor file at `Checkpoints/<modulename>.cursor.json`.
+- [ ] Define the cursor file at `.migration/Checkpoints/<modulename>.cursor.json`.
 - [ ] Document the `lastProcessed` field semantics (what path or key it holds).
 - [ ] Document all valid `stage` values for this module.
 - [ ] Implement resume logic that reads the cursor and skips already-processed items.
@@ -37,7 +37,7 @@ See [docs/modules.md](../../docs/modules.md) for the full `IModule` contract and
 
 - [ ] `ValidateAsync` checks that all required fields are present in every artefact file.
 - [ ] `ValidateAsync` checks schema version compatibility.
-- [ ] `ValidateAsync` reports anomalies to `Logs/` rather than failing silently.
+- [ ] `ValidateAsync` reports anomalies to `.migration/Logs/` rather than failing silently.
 - [ ] `ValidateAsync` fails fast on missing required fields.
 
 ## 6. Identity Mapping (if applicable)

@@ -10,7 +10,7 @@ Feature: Import Cursor Resume
   @cursor-resume
   Scenario: Interrupted import resumes from the last cursor position
     Given an import has previously processed some revision folders
-    And a cursor file exists at "Checkpoints/workitems.cursor.json" with stage "Completed"
+    And a cursor file exists at ".migration/Checkpoints/workitems.cursor.json" with stage "Completed"
     When the import is restarted
     Then all revision folders at or before the cursor "lastProcessed" value are skipped
     And import processing resumes from the first folder after the cursor position
@@ -25,8 +25,8 @@ Feature: Import Cursor Resume
 
   @cursor-resume
   Scenario: Force-fresh deletes the cursor but preserves the ID map
-    Given an existing cursor file at "Checkpoints/workitems.cursor.json"
-    And an existing ID map database at "Checkpoints/idmap.db"
+    Given an existing cursor file at ".migration/Checkpoints/workitems.cursor.json"
+    And an existing ID map database at ".migration/Checkpoints/idmap.db"
     When the import is run with the "--force-fresh" flag
     Then the cursor file is deleted before import begins
     And the ID map database is preserved

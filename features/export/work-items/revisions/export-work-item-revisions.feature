@@ -24,10 +24,10 @@ Feature: Export Work Item Revisions
   Scenario: Export records a cursor after each revision is written
     Given the export module begins writing revision folders
     When the export module successfully writes a revision folder
-    Then the cursor file at "Checkpoints/workitems.cursor.json" is updated with the last processed revision path
+    Then the cursor file at ".migration/Checkpoints/workitems.cursor.json" is updated with the last processed revision path
 
   Scenario: Export resumes from the cursor after an interruption
-    Given the cursor file at "Checkpoints/workitems.cursor.json" records the last processed folder as "WorkItems/2024-01-15/00638412345678-42-1/"
+    Given the cursor file at ".migration/Checkpoints/workitems.cursor.json" records the last processed folder as "WorkItems/2024-01-15/00638412345678-42-1/"
     When the export module is re-run
     Then the export skips all revision folders at or before "WorkItems/2024-01-15/00638412345678-42-1/"
     And the export continues from the next unprocessed revision

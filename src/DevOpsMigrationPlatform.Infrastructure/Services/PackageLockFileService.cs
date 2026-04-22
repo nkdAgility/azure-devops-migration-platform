@@ -40,7 +40,7 @@ public sealed class PackageLockFileService : IPackageLockService
     public async Task<IAsyncDisposable> AcquireAsync(string packagePath, string jobId, CancellationToken ct)
     {
         var localRoot = ResolveLocalPath(packagePath);
-        var lockFilePath = Path.Combine(localRoot, "Checkpoints", "agent.lock");
+        var lockFilePath = Path.Combine(localRoot, PackagePaths.SystemRoot, "Checkpoints", "agent.lock");
         var dir = Path.GetDirectoryName(lockFilePath)!;
         if (!Directory.Exists(dir))
             Directory.CreateDirectory(dir);

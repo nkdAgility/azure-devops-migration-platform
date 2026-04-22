@@ -202,9 +202,9 @@ public class QueueCommandTests
 
         // Verify both fixture work items were processed by checking the idmap DB was created
         // (progress events are not observable from CLI stdout in the current streaming architecture).
-        // Org/project nesting places Checkpoints under <outputDir>/<org>/<project>/Checkpoints/
+        // Org/project nesting places idmap.db under <outputDir>/<org>/<project>/.migration/Checkpoints/
         var idmapFiles = Directory.GetFiles(outputDir, "idmap.db", SearchOption.AllDirectories);
         Assert.IsTrue(idmapFiles.Length > 0,
-            $"Checkpoints/idmap.db was not found anywhere under {outputDir} — import may not have processed any work items.");
+            $".migration/Checkpoints/idmap.db was not found anywhere under {outputDir} — import may not have processed any work items.");
     }
 }

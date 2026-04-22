@@ -39,8 +39,8 @@ public sealed class ActivePackageState
     }
 
     /// <summary>
-    /// Returns the log folder prefix for the current job, e.g. <c>Logs/638807123456789012-a1b2c3d4/</c>.
-    /// Falls back to <c>Logs/</c> when no job is active.
+    /// Returns the log folder prefix for the current job, e.g. <c>.migration/Logs/638807123456789012-a1b2c3d4</c>.
+    /// Falls back to <c>.migration/Logs</c> when no job is active.
     /// The folder name is cached for the lifetime of the job so all sinks write to the same folder.
     /// </summary>
     public string CurrentLogFolder
@@ -49,9 +49,9 @@ public sealed class ActivePackageState
         {
             var jobId = _currentJobId;
             if (string.IsNullOrEmpty(jobId))
-                return "Logs";
+                return PackagePaths.Logs;
 
-            return _cachedLogFolder ??= $"Logs/{DateTimeOffset.UtcNow.Ticks}-{jobId}";
+            return _cachedLogFolder ??= PackagePaths.JobLogFolder(DateTimeOffset.UtcNow.Ticks, jobId!);
         }
     }
 

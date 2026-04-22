@@ -298,7 +298,7 @@ public sealed class JobAgentWorker : BackgroundService
                 "ForceFresh requested for discovery job {JobId} — deleting module cursors.", job.JobId);
             foreach (var module in _discoveryModules)
             {
-                var cursorPath = $"Checkpoints/{module.Name}.cursor.json";
+                var cursorPath = PackagePaths.CursorFile(module.Name);
                 try { await stateStore.DeleteAsync(cursorPath, ct).ConfigureAwait(false); }
                 catch (Exception ex)
                 {

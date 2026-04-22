@@ -34,10 +34,10 @@ Stage label values are canonical and shared with the cursor schema. See [.agents
 
 ### Idempotency Notes
 
-- **Stage A (`CreatedOrUpdated`):** Check `Checkpoints/idmap.db` for an existing `sourceId → targetId` mapping. If found, use the existing target ID and skip creation.
+- **Stage A (`CreatedOrUpdated`):** Check `.migration/Checkpoints/idmap.db` for an existing `sourceId → targetId` mapping. If found, use the existing target ID and skip creation.
 - **Stage B (`AppliedFields`):** Applying the same fields again must be a no-op or result in the same state.
 - **Stage C (`AppliedLinks`):** Query the target for existing links before creation. Do not add a link that already exists.
-- **Stage D (`UploadedAttachments`):** The Azure DevOps REST API does not expose SHA256 in attachment list responses. Idempotency is therefore tracked locally: after a successful upload, record `(workItemId, revisionIndex, relativePath) → targetAttachmentId` in `Checkpoints/idmap.db`. On resume, if an entry exists for the attachment, skip re-upload. The SHA256 stored in `revision.json` is used for local file integrity verification only (export-time guarantee), not for target-side deduplication.
+- **Stage D (`UploadedAttachments`):** The Azure DevOps REST API does not expose SHA256 in attachment list responses. Idempotency is therefore tracked locally: after a successful upload, record `(workItemId, revisionIndex, relativePath) → targetAttachmentId` in `.migration/Checkpoints/idmap.db`. On resume, if an entry exists for the attachment, skip re-upload. The SHA256 stored in `revision.json` is used for local file integrity verification only (export-time guarantee), not for target-side deduplication.
 
 ### Non-Negotiables
 

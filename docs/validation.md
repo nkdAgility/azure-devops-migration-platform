@@ -106,7 +106,7 @@ Pre-flight validation runs:
 ### Failure Behaviour
 
 - Any check failure causes immediate termination unless `policies.validation.continueOnError` is `true` in configuration.
-- All failures are written to `Logs/` with enough detail to identify the offending file and field.
+- All failures are written to `.migration/Logs/` with enough detail to identify the offending file and field.
 - The run does not begin import if any pre-flight check fails under the default policy.
 
 ---
@@ -155,7 +155,7 @@ Each module's `ValidateAsync` is called during the pre-flight pass. It must:
 
 - Check that all required fields are present in every artefact file it owns.
 - Check schema version compatibility against `manifest.json`.
-- Report anomalies to `Logs/` rather than silently skipping them.
+- Report anomalies to `.migration/Logs/` rather than silently skipping them.
 - Fail fast on missing required fields (unless `continueOnError` is set).
 - Have no side effects on the package or the target system.
 
@@ -165,7 +165,7 @@ See [docs/modules.md](modules.md) for the full `IModule` contract and [.agents/g
 
 ## Validation Report
 
-After validation completes, a machine-readable report is written to `Logs/validation-report.json`:
+After validation completes, a machine-readable report is written to `.migration/Logs/validation-report.json`:
 
 ```json
 {

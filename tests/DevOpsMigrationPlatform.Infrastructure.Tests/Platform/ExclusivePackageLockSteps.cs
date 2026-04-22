@@ -88,7 +88,7 @@ public class ExclusivePackageLockSteps
     public void GivenStaleLockFileExistsForAgent(string agentId)
     {
         _staleLockAgentId = agentId;
-        var checkpointsDir = Path.Combine(_ctx.TempDir, "Checkpoints");
+        var checkpointsDir = Path.Combine(_ctx.TempDir, PackagePaths.SystemRoot, "Checkpoints");
         Directory.CreateDirectory(checkpointsDir);
 
         var lockContent = JsonSerializer.Serialize(new
@@ -130,7 +130,7 @@ public class ExclusivePackageLockSteps
     {
         // After acquiring the new lock, the stale content has been replaced.
         // The lock file now exists but belongs to the new agent, not the stale one.
-        var lockFilePath = Path.Combine(_ctx.TempDir, "Checkpoints", "agent.lock");
+        var lockFilePath = Path.Combine(_ctx.TempDir, PackagePaths.SystemRoot, "Checkpoints", "agent.lock");
         Assert.IsTrue(File.Exists(lockFilePath), "Lock file should exist (newly acquired).");
 
         var content = File.ReadAllText(lockFilePath);
@@ -168,7 +168,7 @@ public class ExclusivePackageLockSteps
     [Then("the lock file no longer exists in the package Checkpoints directory")]
     public void ThenLockFileNoLongerExists()
     {
-        var lockFilePath = Path.Combine(_ctx.TempDir, "Checkpoints", "agent.lock");
+        var lockFilePath = Path.Combine(_ctx.TempDir, PackagePaths.SystemRoot, "Checkpoints", "agent.lock");
         Assert.IsFalse(File.Exists(lockFilePath), "Lock file should have been deleted on dispose.");
     }
 

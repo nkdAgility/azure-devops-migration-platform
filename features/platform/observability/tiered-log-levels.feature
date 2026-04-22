@@ -7,7 +7,7 @@ Feature: Tiered log level architecture
     Given the agent diagnostic log level is set to "Debug"
     And the control plane deployment-level minimum is "Warning"
     When the agent emits log records at Debug, Information, Warning, and Error levels
-    Then "Logs/agent.jsonl" in the package contains records at Debug and above
+    Then ".migration/Logs/agent.jsonl" in the package contains records at Debug and above
 
   Scenario: Control plane discards records below its deployment-level minimum
     Given the agent diagnostic log level is set to "Debug"

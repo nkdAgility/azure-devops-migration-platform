@@ -72,10 +72,10 @@ Process each revision folder through stages in this exact order:
 
 | Stage | Label | Description |
 |---|---|---|
-| A | `CreatedOrUpdated` | Create or identify the target work item; record source→target ID in `Checkpoints/idmap.db` |
+| A | `CreatedOrUpdated` | Create or identify the target work item; record source→target ID in `.migration/Checkpoints/idmap.db` |
 | B | `AppliedFields` | Apply all field values from `revision.json` |
 | C | `AppliedLinks` | Apply `relatedLinks`, `externalLinks`, `hyperlinks` |
-| D | `UploadedAttachments` | Upload files and record `(workItemId, revisionIndex, relativePath) → targetAttachmentId` in `Checkpoints/idmap.db` |
+| D | `UploadedAttachments` | Upload files and record `(workItemId, revisionIndex, relativePath) → targetAttachmentId` in `.migration/Checkpoints/idmap.db` |
 
 Write the cursor after each stage. Never skip a stage. Never reorder stages.
 
@@ -83,9 +83,9 @@ Stage label values are canonical. Use the exact string values above in the curso
 
 ## Idempotency and Resume Behaviour
 
-- **Before Stage A (`CreatedOrUpdated`):** Check `Checkpoints/idmap.db` for a `sourceWorkItemId → targetWorkItemId` entry. If found, skip creation and use the existing target ID.
+- **Before Stage A (`CreatedOrUpdated`):** Check `.migration/Checkpoints/idmap.db` for a `sourceWorkItemId → targetWorkItemId` entry. If found, skip creation and use the existing target ID.
 - **Before Stage C (`AppliedLinks`):** Query the target for existing links before adding. Do not add a link that already exists.
-- **Before Stage D (`UploadedAttachments`):** Check `Checkpoints/idmap.db` for an entry keyed by `(workItemId, revisionIndex, relativePath)`. If found, skip re-upload. The target API does not expose SHA256; idempotency is local-record-based only. SHA256 in `revision.json` is for local file integrity verification only.
+- **Before Stage D (`UploadedAttachments`):** Check `.migration/Checkpoints/idmap.db` for an entry keyed by `(workItemId, revisionIndex, relativePath)`. If found, skip re-upload. If found, skip re-upload. The target API does not expose SHA256; idempotency is local-record-based only. SHA256 in `revision.json` is for local file integrity verification only.
 - **On resume:** The cursor's `stage` field identifies the last completed stage. Begin from the next stage, not from Stage A.
 
 ## What Must Not Change
@@ -93,6 +93,6 @@ Stage label values are canonical. Use the exact string values above in the curso
 - The revision folder naming format — it is the streaming import contract.
 - The comment folder naming format — `<ticks>-<workItemId>-c<commentId>/` is canonical and must not be altered or replaced with a per-work-item flat file.
 - The stage order — it reflects dependency order (item must exist before fields, fields before links, links before attachments).
-- The cursor file path — `Checkpoints/workitems.cursor.json`.
+- The cursor file path — `.migration/Checkpoints/workitems.cursor.json`.
 - The `lastProcessed` value format — it must be the relative path of the revision or comment folder, not an ID or timestamp.
 - The stage label strings — they must be one of: `CreatedOrUpdated`, `AppliedFields`, `AppliedLinks`, `UploadedAttachments`, `Completed`. No other values are valid.

@@ -23,7 +23,7 @@ namespace DevOpsMigrationPlatform.Infrastructure.Modules;
 /// </summary>
 public sealed class InventoryDiscoveryModule : IDiscoveryModule
 {
-    private const string CursorKey = "Checkpoints/Inventory.cursor.json";
+    private const string CursorKey = PackagePaths.Checkpoints + "/Inventory.cursor.json";
     private const string CsvOutputPath = "inventory.csv";
     private const string JsonOutputPath = "inventory.json";
 
@@ -362,6 +362,11 @@ public sealed class InventoryDiscoveryModule : IDiscoveryModule
     private static async Task<string?> ReadCursorAsync(IStateStore state, CancellationToken ct)
     {
         var raw = await state.ReadAsync(CursorKey, ct).ConfigureAwait(false);
+
+        // Legacy fallback: try the pre-.migration path for existing packages.
+        if (raw is null)
+            raw = await state.ReadAsync("Checkpoints/Inventory.cursor.json", ct).ConfigureAwait(false);
+
         if (raw is null) return null;
         var doc = JsonDocument.Parse(raw);
         return doc.RootElement.TryGetProperty("lastCompleted", out var el) ? el.GetString() : null;

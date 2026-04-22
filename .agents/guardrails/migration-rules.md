@@ -61,7 +61,7 @@ revision.json <attachment files>
 ## 5) Resume is cursor-based
 
 - Resume MUST be forward-only via a cursor.
-- Cursor MUST be stored under `Checkpoints/`.
+- Cursor MUST be stored under `.migration/Checkpoints/`.
 - Hidden state elsewhere is prohibited.
 
 ## 6) Determinism is mandatory
@@ -77,8 +77,8 @@ Package root MUST contain:
 
 - `manifest.json`
 - `WorkItems/`
-- `Checkpoints/`
-- `Logs/`
+- `.migration/Checkpoints/`
+- `.migration/Logs/`
 - Optional module folders:
   - `Teams/`
   - `Permissions/`
@@ -113,7 +113,7 @@ Manifest MUST NOT be required for streaming import, but MUST be present for vali
 
 Each module MUST store its cursor in:
 
-- `Checkpoints/<module>.cursor.json`
+- `.migration/Checkpoints/<module>.cursor.json`
 
 WorkItems cursor example:
 
@@ -167,7 +167,7 @@ Modules MUST:
 Modules MUST NOT:
 
 * Access another module’s folder directly
-* Persist state outside Checkpoints/
+* Persist state outside `.migration/Checkpoints/`
 * Perform ad-hoc file IO
 * Perform live migrations
 
@@ -193,7 +193,7 @@ Rules:
 
 ID mappings MUST be stored under:
 
-Checkpoints/
+.migration/Checkpoints/
 
 * idmap.db OR idmap.json
 
@@ -380,7 +380,7 @@ Reject any design or implementation that:
 * Implements comment export or embedded-image export as a separate top-level `IModule` (these are sub-services of `WorkItemsModule`).
 * Loads all WorkItems or all revisions into memory.
 * Requires building a full graph before processing.
-* Introduces hidden progress state outside Checkpoints/.
+* Introduces hidden progress state outside `.migration/Checkpoints/`.
 * Performs direct source-to-target migration.
 * Breaks deterministic folder naming.
 * Bypasses identity mapping or id mapping services.

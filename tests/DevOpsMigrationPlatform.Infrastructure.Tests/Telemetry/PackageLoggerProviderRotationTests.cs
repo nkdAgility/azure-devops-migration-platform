@@ -16,7 +16,7 @@ public class PackageLoggerProviderRotationTests
 {
     /// <summary>
     /// Verifies that when log output stays under the segment size limit,
-    /// all writes go to the initial <c>Logs/agent.jsonl</c> path.
+    /// all writes go to the initial <c>.migration/Logs/agent.jsonl</c> path.
     /// </summary>
     [TestMethod]
     public async Task FlushBatch_UnderLimit_WritesToInitialSegment()
@@ -47,7 +47,7 @@ public class PackageLoggerProviderRotationTests
         // Assert — all appends to the initial segment.
         Assert.IsTrue(appendedPaths.Count > 0, "Expected at least one flush.");
         foreach (var path in appendedPaths)
-            Assert.AreEqual("Logs/agent.jsonl", path);
+            Assert.AreEqual($"{PackagePaths.Logs}/agent.jsonl", path);
     }
 
     /// <summary>
@@ -101,9 +101,9 @@ public class PackageLoggerProviderRotationTests
         Assert.IsTrue(appendedPaths.Count > 0, "Expected at least one flush.");
         Assert.IsTrue(totalBytesAppended > 1 * 1024 * 1024,
             $"Expected >1 MB of data to be appended, but got {totalBytesAppended} bytes.");
-        Assert.IsTrue(appendedPaths.Exists(p => p == "Logs/agent.jsonl"),
+        Assert.IsTrue(appendedPaths.Exists(p => p == $"{PackagePaths.Logs}/agent.jsonl"),
             "Expected initial segment.");
-        Assert.IsTrue(appendedPaths.Exists(p => p == "Logs/agent-001.jsonl"),
+        Assert.IsTrue(appendedPaths.Exists(p => p == $"{PackagePaths.Logs}/agent-001.jsonl"),
             $"Expected rotation to agent-001.jsonl after exceeding 1 MB. " +
             $"Total bytes: {totalBytesAppended}, flushes: {appendedPaths.Count}.");
     }
@@ -148,7 +148,7 @@ public class PackageLoggerProviderRotationTests
         // Assert — all writes to initial segment only.
         Assert.IsTrue(appendedPaths.Count > 0, "Expected at least one flush.");
         foreach (var path in appendedPaths)
-            Assert.AreEqual("Logs/agent.jsonl", path);
+            Assert.AreEqual($"{PackagePaths.Logs}/agent.jsonl", path);
     }
 
     [TestMethod]
@@ -158,7 +158,7 @@ public class PackageLoggerProviderRotationTests
         var opts = Options.Create(new DiagnosticLogOptions());
         using var provider = new PackageLoggerProvider(state, opts);
 
-        Assert.AreEqual("Logs/agent.jsonl", provider.CurrentLogPath);
+        Assert.AreEqual($"{PackagePaths.Logs}/agent.jsonl", provider.CurrentLogPath);
     }
 }
 #endif

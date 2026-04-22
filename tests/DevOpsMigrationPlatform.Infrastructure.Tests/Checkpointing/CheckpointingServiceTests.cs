@@ -25,7 +25,10 @@ public class CheckpointingServiceTests
     public async Task ReadCursorAsync_WhenKeyIsMissing_ReturnsNull()
     {
         _mockStateStore
-            .Setup(s => s.ReadAsync("Checkpoints/workitems.cursor.json", It.IsAny<CancellationToken>()))
+            .Setup(s => s.ReadAsync(PackagePaths.CursorFile("WorkItems"), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((string?)null);
+        _mockStateStore
+            .Setup(s => s.ReadAsync(PackagePaths.LegacyCursorFile("WorkItems"), It.IsAny<CancellationToken>()))
             .ReturnsAsync((string?)null);
 
         var result = await _sut.ReadCursorAsync("WorkItems", CancellationToken.None);
@@ -45,7 +48,7 @@ public class CheckpointingServiceTests
         var json = JsonSerializer.Serialize(entry);
 
         _mockStateStore
-            .Setup(s => s.ReadAsync("Checkpoints/workitems.cursor.json", It.IsAny<CancellationToken>()))
+            .Setup(s => s.ReadAsync(PackagePaths.CursorFile("WorkItems"), It.IsAny<CancellationToken>()))
             .ReturnsAsync(json);
 
         var result = await _sut.ReadCursorAsync("WorkItems", CancellationToken.None);
@@ -74,7 +77,7 @@ public class CheckpointingServiceTests
 
         await _sut.WriteCursorAsync("WorkItems", entry, CancellationToken.None);
 
-        Assert.AreEqual("Checkpoints/workitems.cursor.json", capturedKey);
+        Assert.AreEqual(PackagePaths.CursorFile("WorkItems"), capturedKey);
     }
 
     [TestMethod]

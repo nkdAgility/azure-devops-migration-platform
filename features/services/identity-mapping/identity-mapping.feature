@@ -18,7 +18,7 @@ Feature: Identity Mapping and Resolution
     And the configuration specifies a fallback identity of "migration-bot@target.example.com"
     When the WorkItems import module applies the revision
     Then the target work item is assigned to "migration-bot@target.example.com"
-    And a warning is recorded in "Logs/" for the unmapped identity
+    And a warning is recorded in ".migration/Logs/" for the unmapped identity
 
   Scenario: No module performs inline identity resolution
     Given any module that writes user references during import

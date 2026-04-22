@@ -19,7 +19,7 @@ Agent A                          Agent B
 
 This leads to **silent data loss**. Example:
 - Package is at revision 100
-- Agent A processes revisions 101–150 and writes `Checkpoints/revision.cursor`
+- Agent A processes revisions 101–150 and writes `.migration/Checkpoints/revision.cursor`
 - Agent B processes revisions 101–120 (slower, late assignment) and overwrites the same cursor
 - Result: Revisions 121–150 are never re-attempted if Agent A crashes; cursor points to wrong location
 

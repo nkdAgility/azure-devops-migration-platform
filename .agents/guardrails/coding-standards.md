@@ -404,7 +404,7 @@ public class WorkItemsImportModule
 
 - All persistent writes MUST go through `IArtefactStore` or `IStateStore` — no direct file or database access from module code.
 - Schema evolution MUST be safe and additive by default; destructive changes require a versioned migration.
-- Import idempotency MUST be enforced via `Checkpoints/idmap.db` and cursor state — never by re-querying the target.
+- Import idempotency MUST be enforced via `.migration/Checkpoints/idmap.db` and cursor state — never by re-querying the target.
 - No partial writes: write to a temporary path and atomically rename to the final path where the store supports it.
 - Transactional boundaries MUST match the semantic unit of work; one revision folder = one atomic boundary.
 
@@ -501,7 +501,7 @@ public class WorkItemsImportModule
 - Direct Source → Target migration logic.
 - Global attachment stores.
 - Loading entire revision sets into memory.
-- Hidden resume state outside Checkpoints/.
+- Hidden resume state outside `.migration/Checkpoints/`.
 - Cross-module direct calls.
 - .NET Framework usage outside the explicit TFS exporter boundary.
 - `.Result` or `.Wait()` calls on `Task` or `ValueTask` anywhere in production code.

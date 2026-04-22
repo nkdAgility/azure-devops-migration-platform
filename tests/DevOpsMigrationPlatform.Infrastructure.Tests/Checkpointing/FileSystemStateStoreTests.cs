@@ -30,27 +30,27 @@ public class FileSystemStateStoreTests
     [TestMethod]
     public async Task WriteAsync_WhenDirectoryDoesNotExist_CreatesDirectoryAndWritesFile()
     {
-        await _sut.WriteAsync("Checkpoints/workitems.cursor.json", "{}", CancellationToken.None);
+        await _sut.WriteAsync(".migration/Checkpoints/workitems.cursor.json", "{}", CancellationToken.None);
 
-        var fullPath = Path.Combine(_root, "Checkpoints", "workitems.cursor.json");
+        var fullPath = Path.Combine(_root, ".migration", "Checkpoints", "workitems.cursor.json");
         Assert.IsTrue(File.Exists(fullPath));
     }
 
     [TestMethod]
     public async Task WriteAsync_WhenDirectoryAlreadyExists_WritesFile()
     {
-        Directory.CreateDirectory(Path.Combine(_root, "Checkpoints"));
+        Directory.CreateDirectory(Path.Combine(_root, ".migration", "Checkpoints"));
 
-        await _sut.WriteAsync("Checkpoints/workitems.cursor.json", "data", CancellationToken.None);
+        await _sut.WriteAsync(".migration/Checkpoints/workitems.cursor.json", "data", CancellationToken.None);
 
-        var fullPath = Path.Combine(_root, "Checkpoints", "workitems.cursor.json");
+        var fullPath = Path.Combine(_root, ".migration", "Checkpoints", "workitems.cursor.json");
         Assert.AreEqual("data", File.ReadAllText(fullPath));
     }
 
     [TestMethod]
     public async Task ReadAsync_WhenFileDoesNotExist_ReturnsNull()
     {
-        var result = await _sut.ReadAsync("Checkpoints/missing.cursor.json", CancellationToken.None);
+        var result = await _sut.ReadAsync(".migration/Checkpoints/missing.cursor.json", CancellationToken.None);
 
         Assert.IsNull(result);
     }
@@ -58,9 +58,9 @@ public class FileSystemStateStoreTests
     [TestMethod]
     public async Task ReadAsync_WhenFileExists_ReturnsContent()
     {
-        await _sut.WriteAsync("Checkpoints/workitems.cursor.json", "hello", CancellationToken.None);
+        await _sut.WriteAsync(".migration/Checkpoints/workitems.cursor.json", "hello", CancellationToken.None);
 
-        var result = await _sut.ReadAsync("Checkpoints/workitems.cursor.json", CancellationToken.None);
+        var result = await _sut.ReadAsync(".migration/Checkpoints/workitems.cursor.json", CancellationToken.None);
 
         Assert.AreEqual("hello", result);
     }
@@ -68,9 +68,9 @@ public class FileSystemStateStoreTests
     [TestMethod]
     public async Task ExistsAsync_WhenFileExists_ReturnsTrue()
     {
-        await _sut.WriteAsync("Checkpoints/workitems.cursor.json", "{}", CancellationToken.None);
+        await _sut.WriteAsync(".migration/Checkpoints/workitems.cursor.json", "{}", CancellationToken.None);
 
-        var exists = await _sut.ExistsAsync("Checkpoints/workitems.cursor.json", CancellationToken.None);
+        var exists = await _sut.ExistsAsync(".migration/Checkpoints/workitems.cursor.json", CancellationToken.None);
 
         Assert.IsTrue(exists);
     }
@@ -78,7 +78,7 @@ public class FileSystemStateStoreTests
     [TestMethod]
     public async Task ExistsAsync_WhenFileMissing_ReturnsFalse()
     {
-        var exists = await _sut.ExistsAsync("Checkpoints/missing.cursor.json", CancellationToken.None);
+        var exists = await _sut.ExistsAsync(".migration/Checkpoints/missing.cursor.json", CancellationToken.None);
 
         Assert.IsFalse(exists);
     }
@@ -86,9 +86,9 @@ public class FileSystemStateStoreTests
     [TestMethod]
     public async Task WriteAsync_NormalisesForwardSlashesToPlatformSeparator()
     {
-        await _sut.WriteAsync("Checkpoints/sub/nested.json", "x", CancellationToken.None);
+        await _sut.WriteAsync(".migration/Checkpoints/sub/nested.json", "x", CancellationToken.None);
 
-        var fullPath = Path.Combine(_root, "Checkpoints", "sub", "nested.json");
+        var fullPath = Path.Combine(_root, ".migration", "Checkpoints", "sub", "nested.json");
         Assert.IsTrue(File.Exists(fullPath));
     }
 }
