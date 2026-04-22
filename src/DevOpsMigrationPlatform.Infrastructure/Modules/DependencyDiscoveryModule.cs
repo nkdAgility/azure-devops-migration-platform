@@ -206,15 +206,25 @@ public sealed class DependencyDiscoveryModule : IDiscoveryModule
                     projCsv.AppendLine(csvLine);
 
                     // Also append to per-org CSV accumulator.
-                    if (currentOrgFolder == recOrgFolder)
+                    // Initialise or transition the org accumulator on the first event for a new org.
+                    if (currentOrgFolder != recOrgFolder)
                     {
-                        if (!orgCsvHeaderWritten)
+                        // New org seen — flush the previous org's CSV if any.
+                        if (currentOrgFolder is not null && currentOrgCsvBuilder.Length > 0)
                         {
-                            currentOrgCsvBuilder.AppendLine(CsvHeader);
-                            orgCsvHeaderWritten = true;
+                            await store.WriteAsync($"{currentOrgFolder}/dependencies.csv", currentOrgCsvBuilder.ToString(), ct).ConfigureAwait(false);
+                            _logger.LogDebug("Flushed org-level dependencies CSV for {Org} (on org transition from DependencyFoundEvent).", currentOrgFolder);
                         }
-                        currentOrgCsvBuilder.AppendLine(csvLine);
+                        currentOrgFolder = recOrgFolder;
+                        currentOrgCsvBuilder = new StringBuilder();
+                        orgCsvHeaderWritten = false;
                     }
+                    if (!orgCsvHeaderWritten)
+                    {
+                        currentOrgCsvBuilder.AppendLine(CsvHeader);
+                        orgCsvHeaderWritten = true;
+                    }
+                    currentOrgCsvBuilder.AppendLine(csvLine);
 
                     metrics?.RecordLinksFound(1, new TagList
                     {
@@ -257,6 +267,10 @@ public sealed class DependencyDiscoveryModule : IDiscoveryModule
                         if (perProjectCsv.TryGetValue(midProjectFolder, out var midProjCsv))
                             await store.WriteAsync($"{midProjectFolder}/dependencies.csv", midProjCsv.ToString(), ct).ConfigureAwait(false);
 
+                        // Also flush the current org's partial CSV.
+                        if (currentOrgFolder is not null && currentOrgCsvBuilder.Length > 0)
+                            await store.WriteAsync($"{currentOrgFolder}/dependencies.csv", currentOrgCsvBuilder.ToString(), ct).ConfigureAwait(false);
+
                         lastCheckpoint = DateTime.UtcNow;
                         _logger.LogDebug("Dependencies mid-project flush at checkpoint interval.");
                     }
@@ -271,16 +285,10 @@ public sealed class DependencyDiscoveryModule : IDiscoveryModule
                         var hbOrgFolder = PathUtilities.ExtractOrgFolderName(heartbeat.OrganisationUrl);
                         var hbProjectFolder = $"{hbOrgFolder}/{PathUtilities.Sanitise(heartbeat.ProjectName)}";
 
-                        // Organisation transition tracking.
+                        // Organisation transition tracking (metrics only — CSV accumulator
+                        // transitions are handled by the DependencyFoundEvent handler).
                         if (currentOrg != heartbeat.OrganisationUrl)
                         {
-                            // Flush the completed org's CSV before switching.
-                            if (currentOrg is not null && currentOrgFolder is not null && currentOrgCsvBuilder.Length > 0)
-                            {
-                                await store.WriteAsync($"{currentOrgFolder}/dependencies.csv", currentOrgCsvBuilder.ToString(), ct).ConfigureAwait(false);
-                                _logger.LogDebug("Flushed org-level dependencies CSV for {Org}.", currentOrgFolder);
-                            }
-
                             if (currentOrg is not null)
                             {
                                 orgSw.Stop();
@@ -295,9 +303,6 @@ public sealed class DependencyDiscoveryModule : IDiscoveryModule
                                 metrics?.OrganisationCompleted(orgCompleteTags);
                             }
                             currentOrg = heartbeat.OrganisationUrl;
-                            currentOrgFolder = hbOrgFolder;
-                            currentOrgCsvBuilder = new StringBuilder();
-                            orgCsvHeaderWritten = false;
                             orgProjectCount = 0;
                             orgSw.Restart();
                             metrics?.OrganisationStarted(new TagList
@@ -334,6 +339,13 @@ public sealed class DependencyDiscoveryModule : IDiscoveryModule
                         {
                             await store.WriteAsync($"{hbProjectFolder}/dependencies.csv", completedProjCsv.ToString(), ct).ConfigureAwait(false);
                             _logger.LogDebug("Flushed per-project dependencies CSV for {Project}.", hbProjectFolder);
+                        }
+
+                        // Flush org-level CSV at every project boundary so it stays current.
+                        if (currentOrgFolder is not null && currentOrgCsvBuilder.Length > 0)
+                        {
+                            await store.WriteAsync($"{currentOrgFolder}/dependencies.csv", currentOrgCsvBuilder.ToString(), ct).ConfigureAwait(false);
+                            _logger.LogDebug("Flushed org-level dependencies CSV for {Org} at project boundary.", currentOrgFolder);
                         }
 
                         // Flush root CSV at every project boundary.
