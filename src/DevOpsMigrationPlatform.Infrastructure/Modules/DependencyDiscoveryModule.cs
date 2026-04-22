@@ -205,6 +205,15 @@ public sealed class DependencyDiscoveryModule : IDiscoveryModule
                         Timestamp = DateTimeOffset.UtcNow
                     });
 
+                    // Flush CSV at checkpoint interval even mid-project so long-running
+                    // projects produce visible output within minutes.
+                    if (!heartbeat.IsComplete && DateTime.UtcNow - lastCheckpoint >= checkpointInterval)
+                    {
+                        await store.WriteAsync(RootCsvPath, csvBuilder.ToString(), ct).ConfigureAwait(false);
+                        lastCheckpoint = DateTime.UtcNow;
+                        _logger.LogDebug("Dependencies mid-project flush at checkpoint interval.");
+                    }
+
                     if (heartbeat.IsComplete)
                     {
                         using (DataClassificationScope.Begin(DataClassification.Customer))
@@ -253,11 +262,15 @@ public sealed class DependencyDiscoveryModule : IDiscoveryModule
                         // Track this project as completed for the cursor
                         var completedKey = $"{heartbeat.OrganisationUrl}|{heartbeat.ProjectName}";
                         allCompletedProjects.Add(completedKey);
+
+                        // Flush CSV at every project boundary so results appear on disk immediately.
+                        await store.WriteAsync(RootCsvPath, csvBuilder.ToString(), ct).ConfigureAwait(false);
                     }
                     break;
             }
 
-            // Checkpoint at configured interval.
+            // Flush CSV after every completed project so results are visible on disk immediately.
+            // Checkpoint cursor at the configured interval for resume support.
             if (DateTime.UtcNow - lastCheckpoint >= checkpointInterval)
             {
                 await store.WriteAsync(RootCsvPath, csvBuilder.ToString(), ct).ConfigureAwait(false);

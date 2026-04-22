@@ -44,7 +44,7 @@ internal sealed class MermaidDiagramBuilder
 
         foreach (var project in allProjects)
         {
-            var nodeId = SanitizeNodeId(project);
+            var nodeId = MermaidUtilities.SanitizeNodeId(project);
             nodeMap[project] = nodeId;
         }
 
@@ -89,14 +89,8 @@ internal sealed class MermaidDiagramBuilder
 
     /// <summary>
     /// Sanitises a project name into a valid Mermaid node ID.
-    /// Replaces non-alphanumeric characters with underscores and prefixes with P_.
+    /// Delegates to <see cref="MermaidUtilities.SanitizeNodeId"/>.
     /// </summary>
-    private static string SanitizeNodeId(string projectName)
-    {
-        if (string.IsNullOrWhiteSpace(projectName))
-            return "P_unknown";
-
-        var sanitised = Regex.Replace(projectName, @"[^a-zA-Z0-9_]", "_");
-        return $"P_{sanitised}";
-    }
+    private static string SanitizeNodeId(string projectName) =>
+        MermaidUtilities.SanitizeNodeId(projectName);
 }

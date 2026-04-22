@@ -547,6 +547,36 @@ public sealed class DependencyCommand : ControlPlaneCommandBase<DependencyComman
                 new MermaidDiagramBuilder(orgPairs).Build());
         }
 
+        // ── Transitive dependency walk (per-project) ─────────────────────
+        var walker = new TransitiveDependencyWalker(outputPath);
+        var transitiveResults = new List<(string Org, string Project, TransitiveDependencyWalker.WalkResult Result)>();
+
+        foreach (var (orgName, project) in perProjectRecords.Keys)
+        {
+            var result = walker.Walk(orgName, project);
+            if (result.Edges.Count > 0)
+            {
+                transitiveResults.Add((orgName, project, result));
+
+                var projDir = Path.Combine(outputPath, orgName, project);
+                Directory.CreateDirectory(projDir);
+
+                var mermaid = new TransitiveMermaidBuilder(result, project).Build();
+                File.WriteAllText(Path.Combine(projDir, "transitive-dependencies.md"), mermaid);
+
+                // Write a compact summary CSV alongside the diagram.
+                var summaryPath = Path.Combine(projDir, "transitive-summary.csv");
+                using var sw = new StreamWriter(summaryPath, false, new UTF8Encoding(false));
+                sw.WriteLine("Metric,Value");
+                sw.WriteLine($"DirectDependencies,{result.Edges.Count(e => e.Depth == 1)}");
+                sw.WriteLine($"TransitiveClosureSize,{result.VisitedProjects.Count}");
+                sw.WriteLine($"MaxDepth,{result.MaxDepthReached}");
+                sw.WriteLine($"BoundaryNodes,{result.UnresolvedProjects.Count}");
+                sw.WriteLine($"CyclesDetected,{result.CycleCount}");
+                sw.WriteLine($"CrossOrgEdges,{result.Edges.Count(e => e.LinkScope == LinkScope.CrossOrganisation)}");
+            }
+        }
+
         // ── Console summary ──────────────────────────────────────────────
         var totalLinks = crossProjectCount + crossOrgCount;
 
@@ -636,6 +666,46 @@ public sealed class DependencyCommand : ControlPlaneCommandBase<DependencyComman
             console.Write(projectTable);
             console.MarkupLine($"[green]✓[/] Project dependencies written to [blue]{Markup.Escape(outputPath)}[/]");
             console.MarkupLine($"[green]✓[/] Dependency diagram written to [blue]{Markup.Escape(outputPath)}[/]");
+        }
+
+        // ── Transitive analysis console summary ──────────────────────────
+        if (transitiveResults.Count > 0)
+        {
+            console.WriteLine();
+            var transitiveTable = new Table()
+                .Title("[bold]Transitive Dependency Analysis[/]")
+                .RoundedBorder()
+                .BorderColor(Color.Grey)
+                .AddColumn("Project")
+                .AddColumn(new TableColumn("Direct").RightAligned())
+                .AddColumn(new TableColumn("Transitive").RightAligned())
+                .AddColumn(new TableColumn("Max Depth").RightAligned())
+                .AddColumn(new TableColumn("Cycles").RightAligned())
+                .AddColumn(new TableColumn("Unresolved").RightAligned())
+                .AddColumn(new TableColumn("Cross-Org").RightAligned());
+
+            foreach (var (orgName, project, result) in transitiveResults)
+            {
+                var directDeps = result.Edges.Count(e => e.Depth == 1);
+                var crossOrgEdges = result.Edges.Count(e => e.LinkScope == LinkScope.CrossOrganisation);
+                var cyclesDisplay = result.CycleCount > 0 ? $"[yellow]{result.CycleCount}[/]" : "[grey]0[/]";
+                var unresolvedDisplay = result.UnresolvedProjects.Count > 0
+                    ? $"[grey]{result.UnresolvedProjects.Count}[/]"
+                    : "[grey]0[/]";
+                var crossOrgDisplay = crossOrgEdges > 0 ? $"[red]{crossOrgEdges}[/]" : "[grey]0[/]";
+
+                transitiveTable.AddRow(
+                    Markup.Escape(project),
+                    directDeps.ToString(),
+                    result.VisitedProjects.Count.ToString(),
+                    result.MaxDepthReached.ToString(),
+                    cyclesDisplay,
+                    unresolvedDisplay,
+                    crossOrgDisplay);
+            }
+
+            console.Write(transitiveTable);
+            console.MarkupLine($"[green]✓[/] Transitive dependency diagrams written to per-project folders");
         }
 
         console.MarkupLine($"\n[green]✓[/] Dependency discovery completed successfully.");
