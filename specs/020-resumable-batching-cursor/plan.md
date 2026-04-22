@@ -60,7 +60,7 @@ specs/020-resumable-batching-cursor/
 src/
 ├── DevOpsMigrationPlatform.Abstractions/
 │   ├── Models/
-│   │   ├── BatchContinuationToken.cs       # NEW — sealed record
+│   │   ├── BatchContinuationToken.cs       # NEW — sealed record (v1: no fallback fields)
 │   │   ├── ResumeDecision.cs               # NEW — sealed record
 │   │   ├── ResumeDecisionStatus.cs         # NEW — enum
 │   │   ├── ResumeRejectedException.cs      # NEW — extends InvalidOperationException
@@ -68,8 +68,9 @@ src/
 │   ├── Services/
 │   │   ├── ICheckpointingService.cs        # MODIFIED — add continuation token methods
 │   │   ├── IQueryFingerprintService.cs     # NEW — interface
+│   │   ├── IWorkItemFetchService.cs        # MODIFIED — add EvaluateResumeDecisionAsync (FR-014)
 │   │   └── WorkItemQueryWindow.cs          # MODIFIED — add resume options
-│   └── PackagePaths.cs                     # MODIFIED — add ContinuationFile path
+│   └── PackagePaths.cs                     # MODIFIED — add ContinuationFile(moduleName) path
 ├── DevOpsMigrationPlatform.Infrastructure/
 │   ├── Checkpointing/
 │   │   └── CheckpointingService.cs         # MODIFIED — implement continuation token methods

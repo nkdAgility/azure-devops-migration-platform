@@ -47,9 +47,20 @@ The resume decision is evaluated once at the start of `FetchAsync()` in `AzureDe
 - **RejectedQueryMismatch**: `ResumeRejectedException` thrown (extends `InvalidOperationException`; carries `ResumeDecision` payload). Caller catches and decides recovery.
 - **Unavailable**: Enumeration begins from start. Info-level log emitted. No exception.
 
+### EvaluateResumeDecisionAsync (Pre-Check)
+
+`IWorkItemFetchService` exposes `EvaluateResumeDecisionAsync(WorkItemFetchScope, CancellationToken)` returning `ResumeDecision`. Callers can invoke this BEFORE `FetchAsync()` to inspect the decision without catching exceptions. `ResumeRejectedException` in `FetchAsync()` remains as a safety net for callers that skip the pre-check.
+
 ### QueryFingerprintService Injection
 
 `IQueryFingerprintService` is injected into `AzureDevOpsWorkItemFetchService` via constructor. The fingerprint is computed from `WorkItemFetchScope.BaseQuery` + `WorkItemQueryWindowOptions.QueryParameters` at the start of `FetchAsync()`, before window enumeration begins. The fingerprint is embedded in each `BatchContinuationToken` emitted to callers.
+
+**Query Normalisation Rules** (applied before hashing):
+1. Collapse all contiguous whitespace (spaces, tabs, newlines) to a single space.
+2. Trim leading and trailing whitespace.
+3. Uppercase WIQL keywords: `SELECT`, `FROM`, `WHERE`, `ORDER BY`, `ASC`, `DESC`, `AND`, `OR`, `NOT`, `IN`, `UNDER`, `EVER`, `CONTAINS`, `LIKE`.
+
+This ensures semantically identical queries produce the same fingerprint regardless of formatting differences.
 
 ### BatchContinuationToken
 
@@ -60,12 +71,13 @@ Emitted per-batch (via `ContinuationCheckpointWriter` callback) and once at end-
 | `StrategyVersion` | `string` | Schema version for token compatibility |
 | `ChangedDateUtc` | `DateTime` | Primary resume key — last processed ChangedDate |
 | `WorkItemId` | `int` | Secondary resume key — last processed work item ID |
-| `FallbackBatchSize` | `int` | Compatibility fallback |
-| `FallbackBatchIndex` | `int` | Compatibility fallback |
-| `FallbackChecksum` | `string` | Integrity hash of fallback fields |
-| `QueryFingerprint` | `string` | SHA-256 of (query text + sorted parameters) |
+| `QueryFingerprint` | `string` | SHA-256 of (normalised query text + sorted parameters) |
 | `GeneratedAtUtc` | `DateTime` | Diagnostic timestamp |
 | `Completed` | `bool` | `true` = end-of-stream; safe to skip on next resume |
+
+> **v1 note**: Fallback fields (`FallbackBatchSize`, `FallbackBatchIndex`, `FallbackChecksum`) are deferred to a future version. No concrete consumer exists today. The `StrategyVersion` field will signal when fallback fields are added.
+
+> **Security**: Only the SHA-256 hash of query+parameters is stored in `QueryFingerprint`. Raw query text and parameter values MUST NOT appear in the serialised token.
 
 ### ResumeDecision
 
@@ -87,11 +99,22 @@ Returned before enumeration begins when `ResumeEnabled = true`.
 - Resume enumeration starts from `(ChangedDateUtc, WorkItemId)` in the saved token
 - Non-resume callers retain existing traversal behavior (backward date windows)
 
+### Resume Predicate (Boundary Cluster Correctness)
+
+When resuming from a saved token `(savedDate, savedId)`:
+
+1. The WIQL WHERE clause MUST use `[System.ChangedDate] >= @savedDate` (inclusive `>=`, not `>`) to avoid skipping items sharing the same ChangedDate.
+2. The first resumed window MUST apply an in-memory post-filter excluding items where `(ChangedDate, WorkItemId) <= (savedDate, savedId)` to avoid double-processing the last completed item.
+3. Subsequent windows (after the first) do NOT require the post-filter since the full window is new.
+
+This ensures correctness even when hundreds of items share an identical ChangedDate (e.g. bulk imports or migrations).
+
 ### Checkpoint Emission Rules
 
 1. Per-batch checkpoint: emitted after each `WorkItemQueryWindow` is yielded, containing the last item's `(ChangedDate, WorkItemId)` tuple
 2. Completion checkpoint: emitted after the last window with `Completed = true`
 3. Caller decides persistence cadence (persist every checkpoint, every N checkpoints, etc.)
+4. `ContinuationCheckpointWriter` callback MUST be atomic or idempotent. Callers SHOULD use write-then-rename or `IStateStore` atomic semantics. Strategy propagates `OperationCanceledException` from callback without catching it.
 
 ### Duplicate Tolerance
 
@@ -116,7 +139,7 @@ Returned before enumeration begins when `ResumeEnabled = true`.
 | `ResumeEnabled = true`, token present, fingerprint match | Return `ResumeDecision.Accepted`; skip to position |
 | `ResumeEnabled = true`, token present, fingerprint mismatch | Return `ResumeDecision.RejectedQueryMismatch` |
 | Token with unknown `StrategyVersion` | Return `ResumeDecision.RejectedQueryMismatch` with reason |
-| Malformed/corrupt token | Return `ResumeDecision.Unavailable` with reason |
+| Malformed/corrupt token | Return `ResumeDecision.Unavailable` with reason; emit warning-level structured log with corruption details (RT-L1) |
 | `CancellationToken` signaled | Propagate cancellation; no final checkpoint emitted |
 
 ---
@@ -127,6 +150,7 @@ Returned before enumeration begins when `ResumeEnabled = true`.
 |-------|-----------|-------------|
 | Resume decision | Structured log (`ILogger`) | `decision`, `module`, `fingerprint_match` |
 | Resume decision counter | OTel metric `migration.resume.decision` | `decision`, `module` |
+| Token staleness warning | Structured log (`ILogger`) | `token_age_days`, `module` — emitted when `GeneratedAtUtc` is >7 days old |
 | Checkpoint emission | `IProgressSink` event | `window_index`, `changed_date`, `work_item_id` |
 | Completion checkpoint | `IProgressSink` event | `completed=true`, `total_windows` |
 
@@ -138,4 +162,5 @@ Returned before enumeration begins when `ResumeEnabled = true`.
 - `ResumeEnabled = false` (default) → zero behavioral change
 - New `ICheckpointingService` methods are additive; existing cursor methods unchanged
 - `ContinuationFile()` path does not conflict with existing `CursorFile()` path
+- `ContinuationFile()` MUST be scoped by caller/module name, e.g. `.migration/Checkpoints/<module>.continuation.json` (matching the per-module cursor convention). This prevents concurrent callers from corrupting each other's tokens.
 - No breaking schema change; no upgrader required

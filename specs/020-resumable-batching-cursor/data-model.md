@@ -6,17 +6,14 @@
   - `strategyVersion` (string): Version marker for compatibility checks.
   - `primary.changedDateUtc` (string, ISO 8601 UTC): Primary chronological resume key.
   - `primary.workItemId` (integer): Secondary deterministic tie-breaker.
-  - `fallback.batchSize` (integer): Caller compatibility fallback.
-  - `fallback.batchIndex` (integer): Caller compatibility fallback.
-  - `fallback.checksum` (string): Integrity/compatibility hash for fallback token.
-  - `queryFingerprint` (string): Stable fingerprint of enumeration query+parameters.
+  - `queryFingerprint` (string): Stable fingerprint of enumeration query+parameters (SHA-256; raw query text MUST NOT be stored).
   - `generatedAtUtc` (string, ISO 8601 UTC): Diagnostic timestamp.
   - `completed` (boolean): End-of-stream marker.
+  - *(v1 note: Fallback fields `batchSize`, `batchIndex`, `checksum` are deferred to a future version when a concrete consumer exists. `strategyVersion` will signal when they are added.)*
 - Validation rules:
   - `primary.changedDateUtc` must parse as UTC timestamp.
   - `primary.workItemId` must be > 0.
   - `queryFingerprint` required and non-empty when resume is enabled.
-  - `fallback.checksum` required if fallback fields are present.
 
 ## Entity: EffectiveQueryFingerprint
 - Purpose: Current run fingerprint to compare against token fingerprint.

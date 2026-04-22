@@ -85,6 +85,8 @@ As a module owner, I need deterministic ordering and explicit duplicate-tolerant
 
 1. **Given** ordered processing by oldest changed data first, **When** source items are edited after the cursor has advanced, **Then** new updates appear later in order and are processed on subsequent continuation.
 2. **Given** resumed processing may surface already-seen item identifiers, **When** caller duplicate handling is enabled, **Then** persisted outputs remain logically correct and free from harmful duplication.
+3. **Given** 500 work items with an identical ChangedDate, **When** resume is requested at item 250, **Then** all 500 items are eventually processed with none skipped (FR-013 boundary cluster correctness).
+4. **Given** >20,000 items exist between the saved continuation date and now, **When** resume starts, **Then** the window strategy subdivides correctly and all items are enumerated without exceeding the WIQL result limit.
 
 ### Edge Cases
 
@@ -93,6 +95,9 @@ As a module owner, I need deterministic ordering and explicit duplicate-tolerant
 - Caller enables resume but has no durable state save from prior run.
 - Source edits reorder some candidates around the continuation boundary.
 - Multiple interruptions happen before a full project completes.
+- Resume position falls within a cluster of hundreds of work items sharing an identical ChangedDate (e.g. bulk migration). The strategy MUST NOT skip any items in the cluster.
+- Resume with >20,000 items between the saved date and the current date — window subdivision must handle the ADO WIQL 20K result limit correctly from the resume position.
+- Continuation token persisted weeks ago — source data may have changed significantly (items deleted, project renamed).
 
 ## Requirements *(mandatory)*
 
@@ -105,6 +110,9 @@ As a module owner, I need deterministic ordering and explicit duplicate-tolerant
 - **FR-005**: The system MUST support caller-defined mismatch recovery policy. Rejection of unsafe resume is mandatory; the form of recovery (fail, fresh-start, log-only) is delegated to the caller.
 - **FR-006**: The system MUST emit continuation progress in a form the caller can persist at its chosen checkpoint frequency. Strategy does not save state; caller is responsible for persisting checkpoints. Strategy MUST guarantee that a final completion checkpoint (emitted after iteration concludes) contains unambiguous end-of-stream markers sufficient for the caller to detect and resume from completion.
 - **FR-007**: The system MUST preserve deterministic traversal ordering compatible with existing streaming and checkpointing guardrails. Default ordering: ChangedDate ascending, then WorkItemId ascending (oldest first; handles source drift by continuing to recent updates).
+- **FR-013**: When resuming, the WIQL resume predicate MUST use `[System.ChangedDate] >= @savedDate` (inclusive) to avoid skipping items that share the same ChangedDate as the resume position. The first resumed window MUST apply an in-memory post-filter to exclude items with `(ChangedDate, WorkItemId) <= (savedDate, savedId)` so that no items are skipped or double-processed in the boundary cluster. This ensures correctness even when hundreds of items share an identical timestamp.
+- **FR-014**: The system MUST provide a non-throwing pre-check method (`EvaluateResumeDecisionAsync`) that returns `ResumeDecision` before enumeration begins, so callers can inspect the decision and choose recovery without catching exceptions. `ResumeRejectedException` remains as a safety net for callers that skip the pre-check.
+- **FR-015**: The `ContinuationCheckpointWriter` callback MUST be treated as an atomic-or-idempotent operation by callers. The strategy MUST document that callers are responsible for ensuring checkpoint writes are atomic (e.g. write-then-rename) or idempotent, so that cancellation during the callback does not corrupt persisted state.
 - **FR-008**: The system MUST allow caller-owned duplicate handling. Strategy does not deduplicate; duplicates (item IDs appearing multiple times under resume + source drift) MUST be tolerated. Caller is responsible for idempotent persistence, deduplication, or explicit duplicate-handling policy to prevent incorrect outcomes.
 - **FR-009**: The system MUST tolerate source data drift between runs without creating non-deterministic resume decisions.
 - **FR-010**: The system MUST remain memory-safe for large datasets and MUST NOT require loading full result sets to resume.
@@ -115,20 +123,20 @@ As a module owner, I need deterministic ordering and explicit duplicate-tolerant
 
 - **BatchContinuationToken**: Opaque continuation state emitted by the batching strategy containing:
   - **PrimaryKey**: Tuple of (ChangedDate, WorkItemId) ordered chronologically; fast-forwards resume position to this key on subsequent enumeration.
-  - **Fallback**: Batch token (batchSize + batchIndex) for compatibility with callers unable to persist tuple keys.
-  - **Checksum**: Hash of the fallback token; guards cursor compatibility under changes in batching window size or strategy version.
   - **QueryFingerprint**: Stable hash of the enumeration query (WIQL + parameters).
   - **Timestamp**: ISO 8601 generation time for diagnostic ordering.
+  - **Completed**: End-of-stream marker (boolean).
+  - *(Fallback fields `batchSize`, `batchIndex`, `checksum` removed from v1 — will be added in a future version when a concrete consumer exists.)*
 - **EffectiveQueryFingerprint**: Deterministic hash derived from query text and parameters used for enumeration (excluding post-fetch filters). Updated on each resume check.
-- **CallerResumeState**: Caller-managed persisted state including:
-  - Continuation token (primary and fallback).
+- **CallerResumeState**: Caller-side reference model (not implemented by the strategy layer). Caller-managed persisted state including:
+  - Continuation token (primary key).
   - Query fingerprint from prior run.
   - Caller-specific counters (items processed, duplicates encountered, errors).
 - **ResumeDecision**: Outcome model indicating:
   - `Accepted`: Token is valid, continuation allowed.
   - `Rejected (QueryMismatch)`: Query fingerprint mismatch; includes original and current query details.
   - `Unavailable`: No prior token exists; begin from start.
-- **DuplicateHandlingPolicy**: Caller-selected behavior (dedup-by-ID, idempotent-write, log-only, fail-on-duplicate) applied during resume processing.
+- **DuplicateHandlingPolicy**: Caller-side reference model (not implemented by the strategy layer). Caller-selected behavior (dedup-by-ID, idempotent-write, log-only, fail-on-duplicate) applied during resume processing.
 
 ## Success Criteria *(mandatory)*
 
@@ -143,7 +151,13 @@ As a module owner, I need deterministic ordering and explicit duplicate-tolerant
 ## Assumptions
 
 - The initial feature scope is resumable batching support for work-item iteration callers that already own module-level checkpoints.
+- The continuation token is for fetch-level callers (inventory, dependency analysis, discovery) only. The `WorkItemExportOrchestrator` continues to use folder-level cursors (`workitems.cursor.json`) and does NOT use continuation tokens.
+- The TFS Object Model subprocess (`.NET 4.8`) is out of scope for resumable batching. TFS export uses its own process model and does not participate in continuation token semantics.
+- Continuation token file paths (`ContinuationFile()`) MUST be scoped by caller/module name (e.g. `inventory.continuation.json`, `dependency.continuation.json`) to prevent concurrent callers from corrupting each other's tokens.
 - Caller systems are responsible for persisting continuation state and implementing duplicate-safe output behavior.
+- Callers MUST ensure `ContinuationCheckpointWriter` callback writes are atomic (e.g. write-then-rename) or idempotent, so that cancellation during the callback does not produce corrupt persisted tokens.
+- When a continuation token's `GeneratedAtUtc` is older than a configurable threshold (default 7 days), the strategy SHOULD emit a warning-level log indicating potential source data staleness. This does not block resume but makes the risk observable.
+- A malformed or corrupt continuation token results in `ResumeDecision.Unavailable` with a warning-level log (not silent) to alert the operator of potential storage issues.
 - Ordering by oldest changed data first remains the canonical traversal direction for drift-tolerant continuation.
 - Query fingerprinting uses query text used for enumeration and explicitly excludes post-fetch filters.
 - This feature does not alter canonical package layout, stage ordering, or checkpoint storage location rules.
