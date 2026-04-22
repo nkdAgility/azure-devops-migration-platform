@@ -153,6 +153,7 @@ public sealed class DependencyCommand : ControlPlaneCommandBase<DependencyComman
         }
 
         var startTime = DateTimeOffset.UtcNow;
+        string currentPhase = "Dependencies"; // tracks which module is running
 
         try
         {
@@ -171,8 +172,46 @@ public sealed class DependencyCommand : ControlPlaneCommandBase<DependencyComman
 
                         await foreach (var evt in client.FollowDiscoveryLogsAsync(jobId, cancellationToken))
                         {
-                            if (evt.Stage == "Completed")
+                            // Only break when the Dependencies module (the final module) completes.
+                            if (evt.Stage == "Completed" && evt.Module == "Dependencies")
                                 break;
+
+                            // Handle inventory events when the agent runs inventory as a prerequisite.
+                            if (evt.Module == "Inventory")
+                            {
+                                if (currentPhase != "Inventory")
+                                {
+                                    currentPhase = "Inventory";
+                                    ctx.UpdateTarget(new Markup(
+                                        "[yellow]⚠ No inventory found — running inventory discovery first…[/]\n"));
+                                }
+
+                                if (evt.Stage == "Completed")
+                                {
+                                    currentPhase = "Dependencies";
+                                    // Re-load inventory.json now that it exists.
+                                    if (File.Exists(inventoryJsonPath))
+                                    {
+                                        try
+                                        {
+                                            var inventoryJsonText = File.ReadAllText(inventoryJsonPath);
+                                            inventoryReport = JsonSerializer.Deserialize<InventoryReport>(inventoryJsonText,
+                                                new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase });
+                                        }
+                                        catch { /* non-fatal */ }
+                                    }
+                                    ctx.UpdateTarget(new Rows(
+                                        new Markup("[green]✓ Inventory complete.[/] Starting dependency analysis…\n"),
+                                        BuildLivePanel(progressState.Values, startTime)));
+                                    continue;
+                                }
+
+                                // Show inventory progress as a status line.
+                                var invMsg = evt.Message ?? "Counting work items…";
+                                ctx.UpdateTarget(new Markup(
+                                    $"[yellow]Inventory:[/] [grey]{Markup.Escape(invMsg)}[/]\n"));
+                                continue;
+                            }
 
                             UpdateProgressFromEvent(progressState, evt);
                             ctx.UpdateTarget(BuildLivePanel(progressState.Values, startTime));
@@ -183,8 +222,41 @@ public sealed class DependencyCommand : ControlPlaneCommandBase<DependencyComman
             {
                 await foreach (var evt in client.FollowDiscoveryLogsAsync(jobId, cancellationToken))
                 {
-                    if (evt.Stage == "Completed")
+                    // Only break when the Dependencies module (the final module) completes.
+                    if (evt.Stage == "Completed" && evt.Module == "Dependencies")
                         break;
+
+                    // Handle inventory events when the agent runs inventory as a prerequisite.
+                    if (evt.Module == "Inventory")
+                    {
+                        if (currentPhase != "Inventory")
+                        {
+                            currentPhase = "Inventory";
+                            console.MarkupLine("[yellow]⚠ No inventory found — running inventory discovery first…[/]");
+                        }
+
+                        if (evt.Stage == "Completed")
+                        {
+                            currentPhase = "Dependencies";
+                            // Re-load inventory.json now that it exists.
+                            if (File.Exists(inventoryJsonPath))
+                            {
+                                try
+                                {
+                                    var inventoryJsonText = File.ReadAllText(inventoryJsonPath);
+                                    inventoryReport = JsonSerializer.Deserialize<InventoryReport>(inventoryJsonText,
+                                        new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase });
+                                }
+                                catch { /* non-fatal */ }
+                            }
+                            console.MarkupLine("[green]✓ Inventory complete.[/] Starting dependency analysis…");
+                            continue;
+                        }
+
+                        if (!string.IsNullOrEmpty(evt.Message))
+                            console.MarkupLine($"[grey]  {Markup.Escape(evt.Message)}[/]");
+                        continue;
+                    }
 
                     UpdateProgressFromEvent(progressState, evt);
 

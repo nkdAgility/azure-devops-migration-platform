@@ -311,6 +311,23 @@ public sealed class JobAgentWorker : BackgroundService
             ? _discoveryModules.OrderBy(m => (int)m.DiscoveryType).ToList()
             : _discoveryModules.Where(m => m.DiscoveryType == job.DiscoveryType).ToList();
 
+        // When running dependency analysis, auto-run inventory first if inventory.json
+        // does not yet exist in the package. The dependency module reads inventory.json
+        // for pre-counts; without it, the analysis has no baseline.
+        if (job.DiscoveryType == DiscoveryJobType.Dependencies)
+        {
+            var inventoryExists = await artefactStore.ExistsAsync("inventory.json", ct).ConfigureAwait(false);
+            if (!inventoryExists)
+            {
+                _logger.LogInformation(
+                    "No inventory.json found for dependency job {JobId} — prepending inventory module.", job.JobId);
+                var inventoryModules = _discoveryModules
+                    .Where(m => m.DiscoveryType == DiscoveryJobType.Inventory)
+                    .ToList();
+                modulesToRun = inventoryModules.Concat(modulesToRun).ToList();
+            }
+        }
+
         if (modulesToRun.Count == 0)
         {
             _logger.LogError(

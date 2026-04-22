@@ -392,7 +392,7 @@ public sealed class InventoryCommand : ControlPlaneCommandBase<InventoryCommand.
     /// per-project <c>inventory.json</c> / <c>inventory.csv</c> files into the
     /// <c>&lt;org&gt;/&lt;project&gt;/</c> folder hierarchy.
     /// </summary>
-    private static void FanOutInventoryFiles(string outputPath, IAnsiConsole console)
+    internal static void FanOutInventoryFiles(string outputPath, IAnsiConsole console)
     {
         var jsonPath = Path.Combine(outputPath, "inventory.json");
         if (!File.Exists(jsonPath))
