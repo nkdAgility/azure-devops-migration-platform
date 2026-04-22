@@ -6,12 +6,12 @@ Feature: Export follow and level options
   Scenario: Export with explicit log level writes records at that level to the package
     Given an operator runs "export --config migration.json --level Debug"
     When the job executes on the agent
-    Then "Logs/agent.jsonl" in the package contains records at Debug level and above
+    Then ".migration/Logs/agent.jsonl" in the package contains records at Debug level and above
 
   Scenario: Export with default log level writes Information and above
     Given an operator runs "export --config migration.json" without a --level option
     When the job executes on the agent
-    Then "Logs/agent.jsonl" in the package contains only Information level records and above
+    Then ".migration/Logs/agent.jsonl" in the package contains only Information level records and above
 
   Scenario: Export without follow in remote mode prints job ID and exits
     Given an operator runs "export --config migration.json --url https://cp.example.com"

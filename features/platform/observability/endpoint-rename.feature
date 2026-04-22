@@ -22,7 +22,7 @@ Feature: Endpoint and CLI command rename
   Scenario: Manage diagnostics downloads diagnostic logs from the package
     Given a completed job with diagnostic logs in the package
     When an operator runs "manage diagnostics --job <id>"
-    Then diagnostic log records from "Logs/agent.jsonl" are downloaded and displayed
+    Then diagnostic log records from ".migration/Logs/agent.jsonl" are downloaded and displayed
 
   Scenario: Manage diagnostics filters by level
     Given a completed job with diagnostic logs at multiple levels

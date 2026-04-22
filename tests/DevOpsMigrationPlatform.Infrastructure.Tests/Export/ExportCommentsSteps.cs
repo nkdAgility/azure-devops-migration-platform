@@ -282,7 +282,7 @@ public class ExportCommentsSteps
     public void ThenCommentPaginationCursorIsProperlyManaged()
     {
         // Inline comment fetching uses the main WorkItems cursor (not a separate comments cursor).
-        var cursorPath = Path.Combine(_context.PackageRoot, "Checkpoints", "workitems.cursor.json");
+        var cursorPath = Path.Combine(_context.PackageRoot, PackagePaths.SystemRoot, "Checkpoints", "workitems.cursor.json");
         Assert.IsTrue(File.Exists(cursorPath), "WorkItems cursor file should exist");
 
         var json = File.ReadAllText(cursorPath);
@@ -439,7 +439,7 @@ public class ExportCommentsSteps
     public void ThenTheCursorAdvancesToWorkItem(int expectedWorkItemId)
     {
         // The main WorkItems cursor's lastProcessed path contains the last work item ID.
-        var cursorPath = Path.Combine(_context.PackageRoot, "Checkpoints", "workitems.cursor.json");
+        var cursorPath = Path.Combine(_context.PackageRoot, PackagePaths.SystemRoot, "Checkpoints", "workitems.cursor.json");
         Assert.IsTrue(File.Exists(cursorPath), "WorkItems cursor file should exist");
 
         var json = File.ReadAllText(cursorPath);

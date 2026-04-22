@@ -55,7 +55,7 @@ public class FileSystemIdentityMappingService : IIdentityMappingService
         foreach (var identity in _unmapped)
         {
             var msg = $"WARN: No identity mapping for '{identity}'. Fell back to '{_fallbackIdentity}'.";
-            var key = $"Logs/identity-warnings/{Uri.EscapeDataString(identity)}.log";
+            var key = PackagePaths.IdentityWarning(identity);
             await _store.WriteAsync(key, msg, cancellationToken).ConfigureAwait(false);
         }
         _unmapped.Clear();

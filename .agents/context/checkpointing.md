@@ -7,7 +7,7 @@ Instead of per-work-item watermark tables, the system uses a forward-only cursor
 ### Cursor File Location
 
 ```
-Checkpoints/workitems.cursor.json
+.migration/Checkpoints/workitems.cursor.json
 ```
 
 ### Schema
@@ -61,10 +61,10 @@ The cursor is written after each stage completes. A crash between stages leaves 
 
 ### Per-Module Cursors
 
-Each module maintains its own cursor file under `Checkpoints/`:
+Each module maintains its own cursor file under `.migration/Checkpoints/`:
 
 ```
-Checkpoints/
+.migration/Checkpoints/
   workitems.cursor.json
   teams.cursor.json
   permissions.cursor.json
@@ -78,7 +78,7 @@ The convention is `<moduleName-lowercase>.cursor.json`. Modules must not share c
 
 ### ID Map
 
-The `Checkpoints/idmap.db` (or `idmap.json`) file tracks source-to-target work item ID mappings and uploaded attachment records. It is written during Stage `CreatedOrUpdated` (work item ID) and Stage `UploadedAttachments` (attachment ID per revision). It is the sole mechanism for idempotency checks during resume. See [.agents/context/identity-and-mapping.md](identity-and-mapping.md) for the identity mapping counterpart.
+The `Checkpoints/idmap.db` (or `idmap.json`) file (under `.migration/`) tracks source-to-target work item ID mappings and uploaded attachment records. It is written during Stage `CreatedOrUpdated` (work item ID) and Stage `UploadedAttachments` (attachment ID per revision). It is the sole mechanism for idempotency checks during resume. See [.agents/context/identity-and-mapping.md](identity-and-mapping.md) for the identity mapping counterpart.
 
 ---
 
@@ -100,7 +100,7 @@ When a job runs in `Both` mode (export then import), a top-level phase record tr
 ### Phase Record Location
 
 ```
-Checkpoints/job.phase.json
+.migration/Checkpoints/job.phase.json
 ```
 
 ### Schema
@@ -115,7 +115,7 @@ Checkpoints/job.phase.json
 
 ### Resume Logic (Both Mode)
 
-1. Read `Checkpoints/job.phase.json` before running any module.
+1. Read `.migration/Checkpoints/job.phase.json` before running any module.
 2. If `exportCompleted: true` → skip all export-phase modules; jump directly to import phase.
 3. If `importCompleted: true` → skip import-phase modules too; job is already complete.
 4. Otherwise run from the first incomplete phase, with each module resuming from its own cursor.

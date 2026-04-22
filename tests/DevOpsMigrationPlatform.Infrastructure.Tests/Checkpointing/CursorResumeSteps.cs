@@ -44,7 +44,7 @@ public class CursorResumeSteps
     public async Task WhenTheWorkItemsModuleSuccessfullyProcessesItsFirstRevisionFolder()
     {
         const string folderPath = "WorkItems/2024-01-01/00000000000001-1-1/";
-        _ctx.CursorKey = "Checkpoints/workitems.cursor.json";
+        _ctx.CursorKey = PackagePaths.CursorFile("WorkItems");
 
         _ctx.MockStateStore
             .Setup(s => s.WriteAsync(_ctx.CursorKey, It.IsAny<string>(), It.IsAny<CancellationToken>()))
@@ -61,11 +61,11 @@ public class CursorResumeSteps
         await _ctx.Sut.WriteCursorAsync("WorkItems", entry, CancellationToken.None);
     }
 
-    [Then(@"""Checkpoints/workitems\.cursor\.json"" is created")]
+    [Then(@"the cursor file for the WorkItems module is created")]
     public void ThenCheckpointsWorkitemsCursorJsonIsCreated()
     {
         _ctx.MockStateStore.Verify(
-            s => s.WriteAsync("Checkpoints/workitems.cursor.json", It.IsAny<string>(), It.IsAny<CancellationToken>()),
+            s => s.WriteAsync(PackagePaths.CursorFile("WorkItems"), It.IsAny<string>(), It.IsAny<CancellationToken>()),
             Times.Once);
     }
 
@@ -91,7 +91,7 @@ public class CursorResumeSteps
     public async Task WhenTheWorkItemsModuleProcessesTheNthRevisionFolder(int n)
     {
         var folderPath = _ctx.AllFolders[n - 1];
-        _ctx.CursorKey = "Checkpoints/workitems.cursor.json";
+        _ctx.CursorKey = PackagePaths.CursorFile("WorkItems");
 
         _ctx.MockStateStore
             .Setup(s => s.WriteAsync(_ctx.CursorKey, It.IsAny<string>(), It.IsAny<CancellationToken>()))
@@ -108,7 +108,7 @@ public class CursorResumeSteps
         await _ctx.Sut.WriteCursorAsync("WorkItems", entry, CancellationToken.None);
     }
 
-    [Then(@"""Checkpoints/workitems\.cursor\.json"" is updated to record the (\d+)(?:st|nd|rd|th) folder path")]
+    [Then(@"the cursor file for the WorkItems module is updated to record the (\d+)(?:st|nd|rd|th) folder path")]
     public void ThenCheckpointsWorkitemsCursorJsonIsUpdatedToRecordTheNthFolderPath(int n)
     {
         Assert.IsNotNull(_ctx.WrittenCursorEntry);
@@ -117,7 +117,7 @@ public class CursorResumeSteps
 
     // ── Scenario 3: Resume skips all revision folders up to and including the cursor position ─────
 
-    [Given(@"""Checkpoints/workitems\.cursor\.json"" records ""(.+?)""")]
+    [Given("the cursor file for the WorkItems module records {string}")]
     public void GivenCheckpointsWorkitemsCursorJsonRecords(string cursorValue)
     {
         _ctx.InitialCursorValue = cursorValue;
@@ -129,7 +129,7 @@ public class CursorResumeSteps
         };
         var json = JsonSerializer.Serialize(cursorEntry);
         _ctx.MockStateStore
-            .Setup(s => s.ReadAsync("Checkpoints/workitems.cursor.json", It.IsAny<CancellationToken>()))
+            .Setup(s => s.ReadAsync(PackagePaths.CursorFile("WorkItems"), It.IsAny<CancellationToken>()))
             .ReturnsAsync(json);
     }
 
@@ -181,11 +181,14 @@ public class CursorResumeSteps
 
     // ── Scenario 4: A run with no cursor starts from the beginning of the package ─────
 
-    [Given(@"""Checkpoints/workitems\.cursor\.json"" does not exist")]
+    [Given(@"the cursor file for the WorkItems module does not exist")]
     public void GivenCheckpointsWorkitemsCursorJsonDoesNotExist()
     {
         _ctx.MockStateStore
-            .Setup(s => s.ReadAsync("Checkpoints/workitems.cursor.json", It.IsAny<CancellationToken>()))
+            .Setup(s => s.ReadAsync(PackagePaths.CursorFile("WorkItems"), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((string?)null);
+        _ctx.MockStateStore
+            .Setup(s => s.ReadAsync(PackagePaths.LegacyCursorFile("WorkItems"), It.IsAny<CancellationToken>()))
             .ReturnsAsync((string?)null);
     }
 
@@ -251,7 +254,7 @@ public class CursorResumeSteps
     public async Task WhenTheWorkItemsModuleIsRestarted()
     {
         _ctx.MockStateStore
-            .Setup(s => s.ReadAsync("Checkpoints/workitems.cursor.json", It.IsAny<CancellationToken>()))
+            .Setup(s => s.ReadAsync(PackagePaths.CursorFile("WorkItems"), It.IsAny<CancellationToken>()))
             .ReturnsAsync(_ctx.InitialCursorValue);
 
         var cursorEntry = await _ctx.Sut.ReadCursorAsync("WorkItems", CancellationToken.None);
@@ -289,7 +292,7 @@ public class CursorResumeSteps
     {
         // The module holds a reference to ICheckpointingService (the real SUT).
         // MockStateStore has NO WriteAsync setup — any direct call from "module code" would throw.
-        _ctx.CursorKey = "Checkpoints/workitems.cursor.json";
+        _ctx.CursorKey = PackagePaths.CursorFile("WorkItems");
     }
 
     [When(@"the cursor is updated")]
@@ -318,7 +321,7 @@ public class CursorResumeSteps
         // Verify the platform delegated to IStateStore exactly once via CheckpointingService.
         _ctx.MockStateStore.Verify(
             s => s.WriteAsync(
-                "Checkpoints/workitems.cursor.json",
+                PackagePaths.CursorFile("WorkItems"),
                 It.IsAny<string>(),
                 It.IsAny<CancellationToken>()),
             Times.Once);
@@ -339,14 +342,14 @@ public class CursorResumeSteps
     {
         _ctx.MockStateStore
             .Setup(s => s.WriteAsync(
-                "Checkpoints/workitems.cursor.json", It.IsAny<string>(), It.IsAny<CancellationToken>()))
+                PackagePaths.CursorFile("WorkItems"), It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .Callback<string, string, CancellationToken>((_, json, _) =>
                 _ctx.CursorsByModule["WorkItems"] = JsonSerializer.Deserialize<CursorEntry>(json))
             .Returns(Task.CompletedTask);
 
         _ctx.MockStateStore
             .Setup(s => s.WriteAsync(
-                "Checkpoints/areapaths.cursor.json", It.IsAny<string>(), It.IsAny<CancellationToken>()))
+                PackagePaths.CursorFile("AreaPaths"), It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .Callback<string, string, CancellationToken>((_, json, _) =>
                 _ctx.CursorsByModule["AreaPaths"] = JsonSerializer.Deserialize<CursorEntry>(json))
             .Returns(Task.CompletedTask);
@@ -372,7 +375,7 @@ public class CursorResumeSteps
         await _ctx.Sut.WriteCursorAsync("AreaPaths", areaPathsCursor, CancellationToken.None);
     }
 
-    [Then(@"""Checkpoints/workitems\.cursor\.json"" and ""Checkpoints/areapaths\.cursor\.json"" are independent files")]
+    [Then(@"the WorkItems module and the AreaPaths module have independent cursor files")]
     public void ThenBothCursorFilesAreIndependent()
     {
         Assert.IsNotNull(_ctx.CursorsByModule["WorkItems"]);
@@ -380,11 +383,11 @@ public class CursorResumeSteps
 
         _ctx.MockStateStore.Verify(
             s => s.WriteAsync(
-                "Checkpoints/workitems.cursor.json", It.IsAny<string>(), It.IsAny<CancellationToken>()),
+                PackagePaths.CursorFile("WorkItems"), It.IsAny<string>(), It.IsAny<CancellationToken>()),
             Times.Once);
         _ctx.MockStateStore.Verify(
             s => s.WriteAsync(
-                "Checkpoints/areapaths.cursor.json", It.IsAny<string>(), It.IsAny<CancellationToken>()),
+                PackagePaths.CursorFile("AreaPaths"), It.IsAny<string>(), It.IsAny<CancellationToken>()),
             Times.Once);
     }
 

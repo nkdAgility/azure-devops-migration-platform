@@ -33,7 +33,7 @@ Query and control existing jobs. Registered as a Spectre.Console branch named `m
 | `manage list` | `ManageListCommandSettings` | List all jobs visible to the authenticated user with status and progress. |
 | `manage status` | `ManageStatusCommandSettings` | Display job state and per-module progress for a specific job. Requires `--job <id>`. |
 | `manage progress` | `ManageProgressCommandSettings` | Fetch a snapshot of `ProgressEvent` records from the job ring buffer as NDJSON. Requires `--job <id>`. |
-| `manage diagnostics` | `ManageDiagnosticsCommandSettings` | Download package diagnostic log files (`Logs/agent.jsonl`) for a completed job. Accepts `--level` filter. Requires `--job <id>`. |
+| `manage diagnostics` | `ManageDiagnosticsCommandSettings` | Download package diagnostic log files (`.migration/Logs/agent.jsonl`) for a completed job. Accepts `--level` filter. Requires `--job <id>`. |
 | `manage pause` | `ManagePauseCommandSettings` | Signal the agent to checkpoint and pause. Requires `--job <id>`. |
 | `manage resume` | `ManageResumeCommandSettings` | Re-queue a paused job for agent pickup. Requires `--job <id>`. |
 | `manage cancel` | `ManageCancelCommandSettings` | Cancel a queued or running job. Requires `--job <id>`. |
@@ -119,7 +119,7 @@ The interactive prompt runs inside the command's `ExecuteInternalAsync` (before 
 
 | Option | Default | Description |
 |--------|---------|-------------|
-| `--force-fresh` | `false` | Delete module cursor file(s) (and the job phase record for `Both` mode) before job execution. Enumeration restarts from the beginning. The identity map (`Checkpoints/idmap.json`) is **not** deleted so no duplicate items are created in the target. |
+| `--force-fresh` | `false` | Delete module cursor file(s) (and the job phase record for `Both` mode) before job execution. Enumeration restarts from the beginning. The identity map (`.migration/Checkpoints/idmap.json`) is **not** deleted so no duplicate items are created in the target. |
 
 ## Control Plane Endpoint Resolution (control-plane commands only)
 

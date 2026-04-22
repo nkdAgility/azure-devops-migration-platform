@@ -11,13 +11,13 @@ Feature: Pre-Import and Post-Import Validation
     And the package schema version matches a supported version
     When the validation pass runs
     Then the validation result is "Passed"
-    And no errors are written to "Logs/"
+    And no errors are written to ".migration/Logs/"
 
   Scenario: Validation fails when a revision.json is missing required fields
     Given a revision folder contains a "revision.json" missing the "workItemId" field
     When the validation pass runs
     Then the validation result is "Failed"
-    And an error is recorded in "Logs/" identifying the offending folder and missing field
+    And an error is recorded in ".migration/Logs/" identifying the offending folder and missing field
 
   Scenario: Validation fails when the package schema version is unsupported
     Given the package "manifest.json" declares schemaVersion "99.0" for the WorkItems module
@@ -35,7 +35,7 @@ Feature: Pre-Import and Post-Import Validation
     Given the import phase has completed successfully
     When the post-import validation runs
     Then each work item in the target is checked against its final revision.json
-    And any discrepancy is recorded in "Logs/post-import-validation.log"
+    And any discrepancy is recorded in ".migration/Logs/post-import-validation.log"
 
   Scenario: Validation has no side effects on the package
     Given a valid package

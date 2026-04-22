@@ -137,7 +137,7 @@ public class SimulatedMigrationCommandTests
     // ─────────────────────────────────────────────────────────────────────
 
     /// <summary>
-    /// T010: Verifies Logs/progress.jsonl exists in the package after export.
+    /// T010: Verifies .migration/Logs/progress.jsonl exists in the package after export.
     /// </summary>
     [TestMethod]
     [TestCategory("SystemTest")]
@@ -159,7 +159,7 @@ public class SimulatedMigrationCommandTests
         Assert.AreEqual(0, result.ExitCode,
             $"CLI exited with code {result.ExitCode}.");
 
-        // Job-scoped log folder: Logs/<ticks>-<jobId>/progress.jsonl
+        // Job-scoped log folder: .migration/Logs/<ticks>-<jobId>/progress.jsonl
         var progressFiles = Directory.GetFiles(outputDir, "progress.jsonl", SearchOption.AllDirectories);
         Assert.IsTrue(progressFiles.Length > 0,
             $"Expected progress.jsonl to exist somewhere under {outputDir}");
@@ -170,7 +170,7 @@ public class SimulatedMigrationCommandTests
     }
 
     /// <summary>
-    /// T015: Verifies Logs/agent.jsonl exists in the package after export.
+    /// T015: Verifies .migration/Logs/agent.jsonl exists in the package after export.
     /// </summary>
     [TestMethod]
     [TestCategory("SystemTest")]
@@ -192,7 +192,7 @@ public class SimulatedMigrationCommandTests
         Assert.AreEqual(0, result.ExitCode,
             $"CLI exited with code {result.ExitCode}.");
 
-        // Job-scoped log folder: Logs/<ticks>-<jobId>/agent.jsonl
+        // Job-scoped log folder: .migration/Logs/<ticks>-<jobId>/agent.jsonl
         var agentFiles = Directory.GetFiles(outputDir, "agent.jsonl", SearchOption.AllDirectories);
         Assert.IsTrue(agentFiles.Length > 0,
             $"Expected agent.jsonl to exist somewhere under {outputDir}");
@@ -225,10 +225,10 @@ public class SimulatedMigrationCommandTests
         Assert.AreEqual(0, result.ExitCode,
             $"CLI exited with code {result.ExitCode}.");
 
-        // Job-scoped log folder: Logs/<ticks>-<jobId>/{progress,agent}.jsonl
+        // Job-scoped log folder: .migration/Logs/<ticks>-<jobId>/{progress,agent}.jsonl
         var logsDirs = Directory.GetDirectories(outputDir, "Logs", SearchOption.AllDirectories);
         Assert.IsTrue(logsDirs.Length > 0,
-            $"Expected Logs/ directory somewhere under {outputDir}");
+            $"Expected .migration/Logs/ directory somewhere under {outputDir}");
 
         var progressFiles = Directory.GetFiles(outputDir, "progress.jsonl", SearchOption.AllDirectories);
         Assert.IsTrue(progressFiles.Length > 0,

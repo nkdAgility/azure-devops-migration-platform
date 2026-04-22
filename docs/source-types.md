@@ -72,7 +72,7 @@ For TFC/Azure DevOps Server source types, the `devopsmigration discovery invento
 Regardless of source type, data written to the package must conform to the schema versions declared in `manifest.json`. The exporter or adapter layer is responsible for:
 
 1. Validating its own output before writing.
-2. Emitting a validation report to `Logs/` if any anomalies are found.
+2. Emitting a validation report to `.migration/Logs/` if any anomalies are found.
 3. Failing fast if required fields are absent.
 
 The control plane performs a secondary validation pass before beginning import when running in `Both` mode.

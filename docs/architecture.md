@@ -216,7 +216,7 @@ Key properties:
 3. Migration Agent worker service (poll, execute, heartbeat, report) — spawned as child process by CLI
 4. Job Engine (orchestrator + modules contract + cursors)
 5. `IArtefactStore` + `FileSystemArtefactStore` (`file:///` URI)
-6. `IStateStore` / `PackageCheckpointStateStore` (`Checkpoints/` inside package)
+6. `IStateStore` / `PackageCheckpointStateStore` (`.migration/Checkpoints/` inside package)
 7. `IProgressSink` with `ConsoleProgressSink` + `PackageProgressSink` ✅
 8. `ControlPlaneClient` (CLI always uses this to talk to the in-process or remote control plane)
 9. WorkItems module (REST)

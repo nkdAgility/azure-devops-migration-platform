@@ -98,25 +98,34 @@ public sealed class LogDownloadController : ControllerBase
 
     /// <summary>
     /// Resolves the full artefact path for a log file by finding the job-scoped subfolder
-    /// under <c>Logs/</c> whose name ends with <c>-{jobId}</c>.
-    /// Falls back to the flat <c>Logs/{fileName}</c> for backward compatibility.
+    /// under the Logs folder whose name ends with <c>-{jobId}</c>.
+    /// Falls back to legacy <c>Logs/</c> for packages created before the <c>.migration</c> layout.
     /// </summary>
     private static async Task<string> ResolveLogPathAsync(
         IArtefactStore store, string jobId, string fileName, CancellationToken ct)
     {
-        // Look for job-scoped folder: Logs/<ticks>-<jobId>/
-        await foreach (var entry in store.EnumerateAsync("Logs/", ct))
+        // Try current layout first: .migration/Logs/<ticks>-<jobId>/
+        await foreach (var entry in store.EnumerateAsync(PackagePaths.Logs + "/", ct))
         {
-            // EnumerateAsync returns relative paths like "Logs/<ticks>-<jobId>/agent.jsonl"
-            // We look for a subfolder whose name ends with the jobId
             var segments = entry.Split('/');
-            if (segments.Length >= 2 && segments[1].EndsWith($"-{jobId}", StringComparison.OrdinalIgnoreCase))
+            // segments: [".migration", "Logs", "<ticks>-<jobId>", "agent.jsonl"]
+            if (segments.Length >= 3 && segments[2].EndsWith($"-{jobId}", StringComparison.OrdinalIgnoreCase))
             {
-                return $"Logs/{segments[1]}/{fileName}";
+                return $"{PackagePaths.Logs}/{segments[2]}/{fileName}";
             }
         }
 
-        // Backward compatibility: flat Logs/ folder
-        return $"Logs/{fileName}";
+        // Backward compatibility: legacy Logs/<ticks>-<jobId>/ layout
+        await foreach (var entry in store.EnumerateAsync(PackagePaths.LegacyLogs + "/", ct))
+        {
+            var segments = entry.Split('/');
+            if (segments.Length >= 2 && segments[1].EndsWith($"-{jobId}", StringComparison.OrdinalIgnoreCase))
+            {
+                return $"{PackagePaths.LegacyLogs}/{segments[1]}/{fileName}";
+            }
+        }
+
+        // Final fallback: flat legacy Logs/ folder
+        return $"{PackagePaths.LegacyLogs}/{fileName}";
     }
 }

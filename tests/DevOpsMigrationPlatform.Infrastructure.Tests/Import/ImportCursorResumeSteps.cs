@@ -58,10 +58,10 @@ public class ImportCursorResumeSteps
         var cursorJson = JsonSerializer.Serialize(cursor);
 
         _ctx.MockStateStore
-            .Setup(s => s.ReadAsync("Checkpoints/workitems.cursor.json", It.IsAny<CancellationToken>()))
+            .Setup(s => s.ReadAsync(PackagePaths.CursorFile("workitems"), It.IsAny<CancellationToken>()))
             .ReturnsAsync(cursorJson);
         _ctx.MockStateStore
-            .Setup(s => s.WriteAsync("Checkpoints/workitems.cursor.json", It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Setup(s => s.WriteAsync(PackagePaths.CursorFile("workitems"), It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
     }
 
@@ -118,10 +118,10 @@ public class ImportCursorResumeSteps
         var cursorJson = JsonSerializer.Serialize(cursor);
 
         _ctx.MockStateStore
-            .Setup(s => s.ReadAsync("Checkpoints/workitems.cursor.json", It.IsAny<CancellationToken>()))
+            .Setup(s => s.ReadAsync(PackagePaths.CursorFile("workitems"), It.IsAny<CancellationToken>()))
             .ReturnsAsync(cursorJson);
         _ctx.MockStateStore
-            .Setup(s => s.WriteAsync("Checkpoints/workitems.cursor.json", It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Setup(s => s.WriteAsync(PackagePaths.CursorFile("workitems"), It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
     }
 
@@ -157,14 +157,17 @@ public class ImportCursorResumeSteps
         });
         // Return null once cursor is deleted so ForceFresh starts fresh.
         _ctx.MockStateStore
-            .Setup(s => s.ReadAsync("Checkpoints/workitems.cursor.json", It.IsAny<CancellationToken>()))
+            .Setup(s => s.ReadAsync(PackagePaths.CursorFile("workitems"), It.IsAny<CancellationToken>()))
             .Returns((string _, CancellationToken ct) =>
                 Task.FromResult<string?>(_ctx.CursorWasDeleted ? null : cursorJson));
         _ctx.MockStateStore
-            .Setup(s => s.WriteAsync("Checkpoints/workitems.cursor.json", It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Setup(s => s.ReadAsync(PackagePaths.LegacyCursorFile("workitems"), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((string?)null);
+        _ctx.MockStateStore
+            .Setup(s => s.WriteAsync(PackagePaths.CursorFile("workitems"), It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
         _ctx.MockStateStore
-            .Setup(s => s.DeleteAsync("Checkpoints/workitems.cursor.json", It.IsAny<CancellationToken>()))
+            .Setup(s => s.DeleteAsync(PackagePaths.CursorFile("workitems"), It.IsAny<CancellationToken>()))
             .Callback(() => _ctx.CursorWasDeleted = true)
             .Returns(Task.CompletedTask);
     }

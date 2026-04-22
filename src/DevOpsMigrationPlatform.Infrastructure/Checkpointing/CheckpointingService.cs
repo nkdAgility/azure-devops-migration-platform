@@ -16,8 +16,16 @@ public class CheckpointingService : ICheckpointingService
 
     public async Task<CursorEntry?> ReadCursorAsync(string moduleName, CancellationToken cancellationToken)
     {
-        var key = $"Checkpoints/{moduleName.ToLowerInvariant()}.cursor.json";
+        var key = PackagePaths.CursorFile(moduleName);
         var json = await _stateStore.ReadAsync(key, cancellationToken).ConfigureAwait(false);
+
+        // Legacy fallback: try the pre-.migration path for existing packages.
+        if (json is null)
+        {
+            var legacyKey = PackagePaths.LegacyCursorFile(moduleName);
+            json = await _stateStore.ReadAsync(legacyKey, cancellationToken).ConfigureAwait(false);
+        }
+
         if (json is null)
             return null;
         return JsonSerializer.Deserialize<CursorEntry>(json);
@@ -25,14 +33,14 @@ public class CheckpointingService : ICheckpointingService
 
     public async Task WriteCursorAsync(string moduleName, CursorEntry cursor, CancellationToken cancellationToken)
     {
-        var key = $"Checkpoints/{moduleName.ToLowerInvariant()}.cursor.json";
+        var key = PackagePaths.CursorFile(moduleName);
         var json = JsonSerializer.Serialize(cursor);
         await _stateStore.WriteAsync(key, json, cancellationToken).ConfigureAwait(false);
     }
 
     public async Task DeleteCursorAsync(string moduleName, CancellationToken cancellationToken)
     {
-        var key = $"Checkpoints/{moduleName.ToLowerInvariant()}.cursor.json";
+        var key = PackagePaths.CursorFile(moduleName);
         await _stateStore.DeleteAsync(key, cancellationToken).ConfigureAwait(false);
     }
 }

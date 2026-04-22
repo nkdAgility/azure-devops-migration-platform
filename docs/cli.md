@@ -192,7 +192,7 @@ All job management commands live under the `manage` sub-command.
 | `manage list` | List all jobs visible to the authenticated user, with current status and progress. |
 | `manage status` | Display job state and per-module progress for a specific job. |
 | `manage progress` | Fetch a snapshot of `ProgressEvent` records from the job ring buffer. Prints buffered events as NDJSON and exits. Requires `--job`. |
-| `manage diagnostics` | Download package diagnostic log files (`Logs/agent.jsonl`) for a completed job. Accepts `--level` to filter by minimum severity. Requires `--job`. |
+| `manage diagnostics` | Download package diagnostic log files (`.migration/Logs/agent.jsonl`) for a completed job. Accepts `--level` to filter by minimum severity. Requires `--job`. |
 | `manage pause` | Signal the running Migration Agent to checkpoint and pause. |
 | `manage resume` | Resume a paused job (re-queues it for Migration Agent pickup). |
 | `manage cancel` | Cancel a queued or running job. |
@@ -366,7 +366,7 @@ When `Environment.Type` is `Standalone` (the default), the CLI starts `LocalStac
 - Control plane starts on `http://localhost:{port}` as an in-process host (default: `5100`).
 - Agents run as in-process workers.
 - `IArtefactStore` is `FileSystemArtefactStore`.
-- `IStateStore` is `PackageCheckpointStateStore` (writes `Checkpoints/` inside the package).
+- `IStateStore` is `PackageCheckpointStateStore` (writes `.migration/Checkpoints/` inside the package).
 - Any machine with network access to the host can attach a TUI and monitor the migration.
 
 ### Hosted (Cloud)
@@ -418,6 +418,6 @@ The CLI recomputes `configHash` from the config file and queries the control pla
 ### Notes
 
 - `manage status` is a read-only poll — it never affects the running job.
-- `manage progress` returns a snapshot of buffered events — earlier events may be in `Logs/progress.jsonl` in the package.
-- `manage diagnostics` downloads diagnostic logs from the package's `Logs/agent.jsonl`.
+- `manage progress` returns a snapshot of buffered events — earlier events may be in `.migration/Logs/progress.jsonl` in the package.
+- `manage diagnostics` downloads diagnostic logs from the package's `.migration/Logs/agent.jsonl`.
 - `manage pause`, `manage resume`, `manage cancel` are the only commands that change job state.

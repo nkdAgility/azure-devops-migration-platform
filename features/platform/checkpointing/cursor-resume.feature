@@ -5,27 +5,27 @@ Feature: Cursor-Based Resume and Checkpointing
 
   Background:
     Given the migration platform is configured to checkpoint progress after each unit of work
-    And the checkpoint location is "Checkpoints/<module>.cursor.json"
+    And the checkpoint location is ".migration/Checkpoints/<module>.cursor.json"
 
   Scenario: Cursor file is created on the first successful write
     Given no cursor file exists for the WorkItems module
     When the WorkItems module successfully processes its first revision folder
-    Then "Checkpoints/workitems.cursor.json" is created
+    Then the cursor file for the WorkItems module is created
     And the cursor records the path of the last successfully processed folder
 
   Scenario: Cursor file is updated after each successfully processed revision
     Given the WorkItems module has already processed 10 revision folders
     When the WorkItems module processes the 11th revision folder
-    Then "Checkpoints/workitems.cursor.json" is updated to record the 11th folder path
+    Then the cursor file for the WorkItems module is updated to record the 11th folder path
 
   Scenario: Resume skips all revision folders up to and including the cursor position
-    Given "Checkpoints/workitems.cursor.json" records "WorkItems/2024-03-10/00638500000000-100-4/"
+    Given the cursor file for the WorkItems module records "WorkItems/2024-03-10/00638500000000-100-4/"
     When the WorkItems module starts on a second run
     Then all folders lexicographically less than or equal to "WorkItems/2024-03-10/00638500000000-100-4/" are skipped
     And the module resumes processing from the next folder after the cursor position
 
   Scenario: A run with no cursor starts from the beginning of the package
-    Given "Checkpoints/workitems.cursor.json" does not exist
+    Given the cursor file for the WorkItems module does not exist
     When the WorkItems module starts
     Then the module processes all revision folders from the first lexicographic path
 
@@ -45,5 +45,5 @@ Feature: Cursor-Based Resume and Checkpointing
   Scenario: Multiple modules maintain independent cursors without interference
     Given both the WorkItems module and the AreaPaths module are running
     When each module processes its respective data
-    Then "Checkpoints/workitems.cursor.json" and "Checkpoints/areapaths.cursor.json" are independent files
+    Then the WorkItems module and the AreaPaths module have independent cursor files
     And updating one cursor does not affect the other

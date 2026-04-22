@@ -4,15 +4,15 @@ Feature: Package log download
   So that I can access diagnostic and progress logs without direct filesystem access
 
   Scenario: Download progress log file from the package
-    Given a completed job with "Logs/progress.jsonl" in the package
+    Given a completed job with ".migration/Logs/progress.jsonl" in the package
     When a client calls the download endpoint with type "progress"
-    Then the response body contains the contents of "Logs/progress.jsonl"
+    Then the response body contains the contents of ".migration/Logs/progress.jsonl"
     And the content type is "application/x-ndjson"
 
   Scenario: Download diagnostics log file from the package
-    Given a completed job with "Logs/agent.jsonl" in the package
+    Given a completed job with ".migration/Logs/agent.jsonl" in the package
     When a client calls the download endpoint with type "diagnostics"
-    Then the response body contains the contents of "Logs/agent.jsonl"
+    Then the response body contains the contents of ".migration/Logs/agent.jsonl"
     And the content type is "application/x-ndjson"
 
   Scenario: Download works with filesystem package URI
@@ -21,6 +21,6 @@ Feature: Package log download
     Then the control plane reads from the filesystem artefact store and returns the file
 
   Scenario: Download returns 404 when log file does not exist
-    Given a completed job where "Logs/agent.jsonl" was not produced
+    Given a completed job where ".migration/Logs/agent.jsonl" was not produced
     When a client calls the download endpoint with type "diagnostics"
     Then the response status is 404

@@ -23,7 +23,7 @@ namespace DevOpsMigrationPlatform.Infrastructure.Modules;
 /// </summary>
 public sealed class DependencyDiscoveryModule : IDiscoveryModule
 {
-    private const string CursorKey = "Checkpoints/Dependencies.cursor.json";
+    private const string CursorKey = PackagePaths.Checkpoints + "/Dependencies.cursor.json";
     private const string RootCsvPath = "dependencies.csv";
 
     private readonly IDependencyDiscoveryServiceFactory _dependencyFactory;
@@ -99,6 +99,11 @@ public sealed class DependencyDiscoveryModule : IDiscoveryModule
         var recordCount = 0;
 
         var cursorJson = await state.ReadAsync(CursorKey, ct).ConfigureAwait(false);
+
+        // Legacy fallback: try the pre-.migration path for existing packages.
+        if (cursorJson is null)
+            cursorJson = await state.ReadAsync("Checkpoints/Dependencies.cursor.json", ct).ConfigureAwait(false);
+
         if (cursorJson is not null)
         {
             _logger.LogInformation("Found existing dependencies cursor — attempting resume.");
