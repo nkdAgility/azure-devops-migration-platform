@@ -1,12 +1,12 @@
 using System.Text.RegularExpressions;
 
-namespace DevOpsMigrationPlatform.CLI.Commands.Discovery;
+namespace DevOpsMigrationPlatform.Infrastructure.Modules.Discovery;
 
 /// <summary>
 /// Shared Mermaid utilities used by both <see cref="MermaidDiagramBuilder"/> and
 /// <see cref="TransitiveMermaidBuilder"/>.
 /// </summary>
-internal static class MermaidUtilities
+public static class MermaidUtilities
 {
     /// <summary>
     /// Sanitises a project name into a valid Mermaid node ID.

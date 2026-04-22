@@ -4,14 +4,14 @@ using System.Linq;
 using System.Text;
 using DevOpsMigrationPlatform.Abstractions.Models;
 
-namespace DevOpsMigrationPlatform.CLI.Commands.Discovery;
+namespace DevOpsMigrationPlatform.Infrastructure.Modules.Discovery;
 
 /// <summary>
 /// Generates a Mermaid <c>flowchart LR</c> diagram from a transitive dependency walk result.
 /// Nodes are colour-coded by depth, cycle edges use dotted arrows, and unresolved targets
 /// are shown with a dashed border.
 /// </summary>
-internal sealed class TransitiveMermaidBuilder
+public sealed class TransitiveMermaidBuilder
 {
     private readonly TransitiveDependencyWalker.WalkResult _result;
     private readonly string _rootProject;
@@ -64,8 +64,10 @@ internal sealed class TransitiveMermaidBuilder
         if (shouldCollapse)
         {
             // Group depth 3+ nodes by org and collapse.
-            foreach (var (node, depth) in nodeMinDepth)
+            foreach (var kvp in nodeMinDepth)
             {
+                var node = kvp.Key;
+                var depth = kvp.Value;
                 if (depth >= 3 && !string.Equals(node, _rootProject, StringComparison.OrdinalIgnoreCase))
                 {
                     var org = "other";
@@ -91,32 +93,34 @@ internal sealed class TransitiveMermaidBuilder
         }
 
         // Add collapsed summary nodes.
-        foreach (var (org, count) in collapsedOrgs)
+        foreach (var kvp in collapsedOrgs)
         {
-            var summaryId = MermaidUtilities.SanitizeNodeId($"collapsed_{org}");
-            nodeMap[$"__collapsed__{org}"] = summaryId;
+            var summaryId = MermaidUtilities.SanitizeNodeId($"collapsed_{kvp.Key}");
+            nodeMap[$"__collapsed__{kvp.Key}"] = summaryId;
         }
 
         // Emit node declarations for root (with label).
-        var rootNodeId = nodeMap.GetValueOrDefault(_rootProject) ?? MermaidUtilities.SanitizeNodeId(_rootProject);
+        string rootNodeId;
+        if (!nodeMap.TryGetValue(_rootProject, out rootNodeId!) || rootNodeId is null)
+            rootNodeId = MermaidUtilities.SanitizeNodeId(_rootProject);
         sb.AppendLine($"    {rootNodeId}[\"{EscapeLabel(_rootProject)}\"]:::depth0");
 
         // Emit edges.
         var emittedEdges = new HashSet<string>();
         foreach (var edge in edges)
         {
-            var sourceId = nodeMap.GetValueOrDefault(edge.SourceProject);
+            nodeMap.TryGetValue(edge.SourceProject, out var sourceId);
             var targetKey = GetTargetKey(edge);
             string? targetId;
 
             if (collapsedNodeIds.Contains(targetKey))
             {
                 var org = !string.IsNullOrWhiteSpace(edge.TargetOrganisation) ? edge.TargetOrganisation : "other";
-                targetId = nodeMap.GetValueOrDefault($"__collapsed__{org}");
+                nodeMap.TryGetValue($"__collapsed__{org}", out targetId);
             }
             else
             {
-                targetId = nodeMap.GetValueOrDefault(targetKey);
+                nodeMap.TryGetValue(targetKey, out targetId);
             }
 
             if (sourceId is null || targetId is null)
@@ -132,35 +136,35 @@ internal sealed class TransitiveMermaidBuilder
         }
 
         // Apply depth classes to non-root nodes.
-        foreach (var (node, depth) in nodeMinDepth)
+        foreach (var kvp in nodeMinDepth)
         {
-            if (string.Equals(node, _rootProject, StringComparison.OrdinalIgnoreCase))
+            if (string.Equals(kvp.Key, _rootProject, StringComparison.OrdinalIgnoreCase))
                 continue;
-            if (collapsedNodeIds.Contains(node))
+            if (collapsedNodeIds.Contains(kvp.Key))
                 continue;
-            if (!nodeMap.TryGetValue(node, out var nodeId))
+            if (!nodeMap.TryGetValue(kvp.Key, out var nodeId))
                 continue;
 
-            var cssClass = GetDepthClass(depth, node);
+            var cssClass = GetDepthClass(kvp.Value, kvp.Key);
             sb.AppendLine($"    {nodeId}:::{cssClass}");
         }
 
         // Apply classes to collapsed summary nodes.
-        foreach (var (org, count) in collapsedOrgs)
+        foreach (var kvp in collapsedOrgs)
         {
-            var summaryKey = $"__collapsed__{org}";
+            var summaryKey = $"__collapsed__{kvp.Key}";
             if (nodeMap.TryGetValue(summaryKey, out var summaryId))
             {
-                sb.AppendLine($"    {summaryId}[\"{count} more projects in {EscapeLabel(org)}\"]:::collapsed");
+                sb.AppendLine($"    {summaryId}[\"{kvp.Value} more projects in {EscapeLabel(kvp.Key)}\"]:::collapsed");
             }
         }
 
         // Mark unresolved nodes.
-        foreach (var (org, project) in _result.UnresolvedProjects)
+        foreach (var unresolvedPair in _result.UnresolvedProjects)
         {
-            if (collapsedNodeIds.Contains(project))
+            if (collapsedNodeIds.Contains(unresolvedPair.Project))
                 continue;
-            if (nodeMap.TryGetValue(project, out var nodeId))
+            if (nodeMap.TryGetValue(unresolvedPair.Project, out var nodeId))
                 sb.AppendLine($"    {nodeId}:::{UnresolvedClass}");
         }
 

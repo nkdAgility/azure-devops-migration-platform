@@ -1,12 +1,12 @@
 using DevOpsMigrationPlatform.Abstractions.Models;
 
-namespace DevOpsMigrationPlatform.CLI.Commands.Discovery;
+namespace DevOpsMigrationPlatform.Infrastructure.Modules.Discovery;
 
 /// <summary>
 /// A single edge in a transitive dependency graph, recording the depth at which
 /// the link was discovered during BFS traversal.
 /// </summary>
-internal readonly record struct TransitiveDependencyEdge
+public readonly record struct TransitiveDependencyEdge
 {
     public string SourceProject { get; init; }
     public string TargetProject { get; init; }

@@ -17,6 +17,7 @@ using DevOpsMigrationPlatform.CLI.Migration.Options;
 using DevOpsMigrationPlatform.CLI.Migration.Settings;
 using DevOpsMigrationPlatform.CLI.Migration.Utilities;
 using DevOpsMigrationPlatform.Infrastructure.AzureDevOps;
+using DevOpsMigrationPlatform.Infrastructure.Modules.Discovery;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using Spectre.Console;

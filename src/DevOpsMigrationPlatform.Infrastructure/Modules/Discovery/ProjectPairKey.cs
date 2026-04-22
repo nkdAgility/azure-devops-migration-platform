@@ -1,12 +1,12 @@
 using DevOpsMigrationPlatform.Abstractions.Models;
 
-namespace DevOpsMigrationPlatform.CLI.Commands.Discovery;
+namespace DevOpsMigrationPlatform.Infrastructure.Modules.Discovery;
 
 /// <summary>
 /// Lightweight key for grouping work item dependency links by source and target project pair.
 /// Used as dictionary key to accumulate link counts across all dependencies discovered during streaming.
 /// </summary>
-internal readonly record struct ProjectPairKey
+public readonly record struct ProjectPairKey
 {
     /// <summary>
     /// Gets the name of the source project.
