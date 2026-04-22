@@ -49,12 +49,15 @@ public sealed class TransitiveDependencyWalker
                 continue;
 
             var key = $"{currentOrg}/{currentProject}";
-            if (!_groupedData.TryGetValue(key, out var rows) || rows.Count == 0)
+            if (!_groupedData.TryGetValue(key, out var rows))
             {
                 if (depth > 0)
                     unresolvedProjects.Add((currentOrg, currentProject));
                 continue;
             }
+
+            if (rows.Count == 0)
+                continue;
 
             foreach (var row in rows)
             {

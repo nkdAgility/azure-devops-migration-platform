@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using DevOpsMigrationPlatform.Abstractions.Models;
-using DevOpsMigrationPlatform.CLI.Commands.Discovery;
+using DevOpsMigrationPlatform.Infrastructure.Modules.Discovery;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace DevOpsMigrationPlatform.CLI.Migration.Tests.Commands.Discovery;

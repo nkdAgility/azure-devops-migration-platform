@@ -1,8 +1,8 @@
 using System;
-using System.IO;
+using System.Collections.Generic;
 using System.Linq;
 using DevOpsMigrationPlatform.Abstractions.Models;
-using DevOpsMigrationPlatform.CLI.Commands.Discovery;
+using DevOpsMigrationPlatform.Infrastructure.Modules.Discovery;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace DevOpsMigrationPlatform.CLI.Migration.Tests.Commands.Discovery;
@@ -10,29 +10,21 @@ namespace DevOpsMigrationPlatform.CLI.Migration.Tests.Commands.Discovery;
 [TestClass]
 public class TransitiveDependencyWalkerTests
 {
-    private string _tempDir = null!;
+    private Dictionary<string, List<TransitiveDependencyWalker.GroupedRow>> _data = null!;
 
     [TestInitialize]
     public void Setup()
     {
-        _tempDir = Path.Combine(Path.GetTempPath(), "TransitiveWalkerTests_" + Guid.NewGuid().ToString("N")[..8]);
-        Directory.CreateDirectory(_tempDir);
-    }
-
-    [TestCleanup]
-    public void Cleanup()
-    {
-        if (Directory.Exists(_tempDir))
-            Directory.Delete(_tempDir, true);
+        _data = new Dictionary<string, List<TransitiveDependencyWalker.GroupedRow>>(StringComparer.OrdinalIgnoreCase);
     }
 
     [TestMethod]
     public void Walk_NoDependencies_ReturnsZeroEdges()
     {
-        // Arrange — project exists but grouped.csv has only a header.
-        WriteGroupedCsv("org1", "ProjectA");
+        // Arrange — project exists but has no rows.
+        AddGroupedRows("org1", "ProjectA");
 
-        var walker = new TransitiveDependencyWalker(_tempDir);
+        var walker = new TransitiveDependencyWalker(_data);
 
         // Act
         var result = walker.Walk("org1", "ProjectA");
@@ -46,10 +38,10 @@ public class TransitiveDependencyWalkerTests
     }
 
     [TestMethod]
-    public void Walk_NoDependencies_NoGroupedCsv_ReturnsZeroEdges()
+    public void Walk_NoDependencies_NoGroupedData_ReturnsZeroEdges()
     {
-        // Arrange — project directory doesn't exist at all.
-        var walker = new TransitiveDependencyWalker(_tempDir);
+        // Arrange — project has no entry in grouped data at all.
+        var walker = new TransitiveDependencyWalker(_data);
 
         // Act
         var result = walker.Walk("org1", "ProjectA");
@@ -63,13 +55,13 @@ public class TransitiveDependencyWalkerTests
     public void Walk_LinearChain_ReturnsCorrectDepths()
     {
         // Arrange: A → B → C
-        WriteGroupedCsv("org1", "ProjectA",
+        AddGroupedRows("org1", "ProjectA",
             ("ProjectA", "ProjectB", "", 42, "CrossProject"));
-        WriteGroupedCsv("org1", "ProjectB",
+        AddGroupedRows("org1", "ProjectB",
             ("ProjectB", "ProjectC", "", 10, "CrossProject"));
-        WriteGroupedCsv("org1", "ProjectC");
+        AddGroupedRows("org1", "ProjectC");
 
-        var walker = new TransitiveDependencyWalker(_tempDir);
+        var walker = new TransitiveDependencyWalker(_data);
 
         // Act
         var result = walker.Walk("org1", "ProjectA");
@@ -95,12 +87,12 @@ public class TransitiveDependencyWalkerTests
     public void Walk_Cycle_DetectedAndRecorded()
     {
         // Arrange: A → B → A (cycle)
-        WriteGroupedCsv("org1", "ProjectA",
+        AddGroupedRows("org1", "ProjectA",
             ("ProjectA", "ProjectB", "", 42, "CrossProject"));
-        WriteGroupedCsv("org1", "ProjectB",
+        AddGroupedRows("org1", "ProjectB",
             ("ProjectB", "ProjectA", "", 10, "CrossProject"));
 
-        var walker = new TransitiveDependencyWalker(_tempDir);
+        var walker = new TransitiveDependencyWalker(_data);
 
         // Act
         var result = walker.Walk("org1", "ProjectA");
@@ -117,12 +109,12 @@ public class TransitiveDependencyWalkerTests
     [TestMethod]
     public void Walk_UnresolvedTarget_MarkedAsUnresolved()
     {
-        // Arrange: A → B, but B has no grouped.csv
-        WriteGroupedCsv("org1", "ProjectA",
+        // Arrange: A → B, but B has no grouped data
+        AddGroupedRows("org1", "ProjectA",
             ("ProjectA", "ProjectB", "", 42, "CrossProject"));
-        // ProjectB folder does NOT exist.
+        // ProjectB not added.
 
-        var walker = new TransitiveDependencyWalker(_tempDir);
+        var walker = new TransitiveDependencyWalker(_data);
 
         // Act
         var result = walker.Walk("org1", "ProjectA");
@@ -138,13 +130,13 @@ public class TransitiveDependencyWalkerTests
     public void Walk_CrossOrgTarget_ResolvesInTargetOrgFolder()
     {
         // Arrange: A in org1 → B in org2 (cross-org), B in org2 → C in org2
-        WriteGroupedCsv("org1", "ProjectA",
+        AddGroupedRows("org1", "ProjectA",
             ("ProjectA", "ProjectB", "org2", 5, "CrossOrganisation"));
-        WriteGroupedCsv("org2", "ProjectB",
+        AddGroupedRows("org2", "ProjectB",
             ("ProjectB", "ProjectC", "", 3, "CrossProject"));
-        WriteGroupedCsv("org2", "ProjectC");
+        AddGroupedRows("org2", "ProjectC");
 
-        var walker = new TransitiveDependencyWalker(_tempDir);
+        var walker = new TransitiveDependencyWalker(_data);
 
         // Act
         var result = walker.Walk("org1", "ProjectA");
@@ -163,15 +155,15 @@ public class TransitiveDependencyWalkerTests
     public void Walk_MaxDepthCapsTraversal()
     {
         // Arrange: A → B → C → D, but maxDepth=1 should only walk A's direct deps.
-        WriteGroupedCsv("org1", "ProjectA",
+        AddGroupedRows("org1", "ProjectA",
             ("ProjectA", "ProjectB", "", 10, "CrossProject"));
-        WriteGroupedCsv("org1", "ProjectB",
+        AddGroupedRows("org1", "ProjectB",
             ("ProjectB", "ProjectC", "", 5, "CrossProject"));
-        WriteGroupedCsv("org1", "ProjectC",
+        AddGroupedRows("org1", "ProjectC",
             ("ProjectC", "ProjectD", "", 1, "CrossProject"));
-        WriteGroupedCsv("org1", "ProjectD");
+        AddGroupedRows("org1", "ProjectD");
 
-        var walker = new TransitiveDependencyWalker(_tempDir);
+        var walker = new TransitiveDependencyWalker(_data);
 
         // Act
         var result = walker.Walk("org1", "ProjectA", maxDepth: 1);
@@ -189,17 +181,17 @@ public class TransitiveDependencyWalkerTests
         var rootDeps = Enumerable.Range(1, 50)
             .Select(i => ($"Root", $"Fan{i}", "", 10, "CrossProject"))
             .ToArray();
-        WriteGroupedCsv("org1", "Root", rootDeps);
+        AddGroupedRows("org1", "Root", rootDeps);
 
         for (var i = 1; i <= 50; i++)
         {
             var subDeps = Enumerable.Range(1, 5)
                 .Select(j => ($"Fan{i}", $"Sub{i}_{j}", "", 2, "CrossProject"))
                 .ToArray();
-            WriteGroupedCsv("org1", $"Fan{i}", subDeps);
+            AddGroupedRows("org1", $"Fan{i}", subDeps);
         }
 
-        var walker = new TransitiveDependencyWalker(_tempDir);
+        var walker = new TransitiveDependencyWalker(_data);
 
         // Act
         var result = walker.Walk("org1", "Root", maxDepth: 3);
@@ -215,16 +207,16 @@ public class TransitiveDependencyWalkerTests
     public void Walk_DiamondPattern_NoDuplicateEdges()
     {
         // Arrange: A → B, A → C, B → D, C → D (diamond — D visited once).
-        WriteGroupedCsv("org1", "ProjectA",
+        AddGroupedRows("org1", "ProjectA",
             ("ProjectA", "ProjectB", "", 10, "CrossProject"),
             ("ProjectA", "ProjectC", "", 8, "CrossProject"));
-        WriteGroupedCsv("org1", "ProjectB",
+        AddGroupedRows("org1", "ProjectB",
             ("ProjectB", "ProjectD", "", 5, "CrossProject"));
-        WriteGroupedCsv("org1", "ProjectC",
+        AddGroupedRows("org1", "ProjectC",
             ("ProjectC", "ProjectD", "", 3, "CrossProject"));
-        WriteGroupedCsv("org1", "ProjectD");
+        AddGroupedRows("org1", "ProjectD");
 
-        var walker = new TransitiveDependencyWalker(_tempDir);
+        var walker = new TransitiveDependencyWalker(_data);
 
         // Act
         var result = walker.Walk("org1", "ProjectA");
@@ -237,17 +229,22 @@ public class TransitiveDependencyWalkerTests
 
     // ── Helpers ──────────────────────────────────────────────────────────────
 
-    private void WriteGroupedCsv(string orgName, string projectName,
+    private void AddGroupedRows(string orgName, string projectName,
         params (string Source, string Target, string TargetOrg, int LinkCount, string LinkScope)[] rows)
     {
-        var dir = Path.Combine(_tempDir, orgName, projectName);
-        Directory.CreateDirectory(dir);
-
-        using var w = new StreamWriter(Path.Combine(dir, "grouped.csv"));
-        w.WriteLine("SourceProject,TargetProject,TargetOrganisation,LinkCount,LinkScope,ActiveLinkCount,MostRecentLinkDate");
+        var key = $"{orgName}/{projectName}";
+        var list = new List<TransitiveDependencyWalker.GroupedRow>();
         foreach (var (source, target, targetOrg, linkCount, linkScope) in rows)
         {
-            w.WriteLine($"{source},{target},{targetOrg},{linkCount},{linkScope},0,");
+            list.Add(new TransitiveDependencyWalker.GroupedRow
+            {
+                SourceProject = source,
+                TargetProject = target,
+                TargetOrganisation = targetOrg,
+                LinkCount = linkCount,
+                LinkScope = Enum.TryParse<LinkScope>(linkScope, true, out var ls) ? ls : Abstractions.Models.LinkScope.CrossProject
+            });
         }
+        _data[key] = list;
     }
 }
