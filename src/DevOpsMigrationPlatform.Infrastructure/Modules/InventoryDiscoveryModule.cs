@@ -161,6 +161,17 @@ public sealed class InventoryDiscoveryModule : IDiscoveryModule
                     Message = $"{evt.Url} / {evt.ProjectName}: {evt.WorkItemsCount} work items so far…",
                     Timestamp = DateTimeOffset.UtcNow
                 });
+
+                // Flush CSV to disk at the checkpoint interval even mid-project so
+                // long-running projects (e.g. Petrel) produce visible output within minutes.
+                if (DateTime.UtcNow - lastCheckpoint >= checkpointInterval)
+                {
+                    await store.WriteAsync(CsvOutputPath, csvBuilder.ToString(), ct).ConfigureAwait(false);
+                    await WriteInventoryJsonAsync(store, orgProjectData, ct).ConfigureAwait(false);
+                    lastCheckpoint = DateTime.UtcNow;
+                    _logger.LogDebug("Inventory mid-project flush at checkpoint interval.");
+                }
+
                 continue;
             }
 
@@ -241,10 +252,14 @@ public sealed class InventoryDiscoveryModule : IDiscoveryModule
                 Timestamp = DateTimeOffset.UtcNow
             });
 
-            // Checkpoint at configured interval.
+            // Flush CSV and JSON after every completed project so results are
+            // visible on disk immediately — not only at checkpoint intervals.
+            await store.WriteAsync(CsvOutputPath, csvBuilder.ToString(), ct).ConfigureAwait(false);
+            await WriteInventoryJsonAsync(store, orgProjectData, ct).ConfigureAwait(false);
+
+            // Checkpoint cursor at configured interval for resume support.
             if (DateTime.UtcNow - lastCheckpoint >= checkpointInterval)
             {
-                await store.WriteAsync(CsvOutputPath, csvBuilder.ToString(), ct).ConfigureAwait(false);
                 await WriteCursorAsync(state, projectKey, ct).ConfigureAwait(false);
                 lastCheckpoint = DateTime.UtcNow;
                 metrics?.RecordCheckpointSaved(new TagList { { "job.id", job.JobId }, { "module", Name } });
