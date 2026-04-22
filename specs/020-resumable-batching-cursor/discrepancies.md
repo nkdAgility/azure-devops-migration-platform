@@ -2,7 +2,7 @@
 
 **Feature**: Resumable Work Item Batching  
 **Flagged by**: speckit.specify  
-**Status**: Open
+**Status**: Resolved
 
 ## Discrepancies
 

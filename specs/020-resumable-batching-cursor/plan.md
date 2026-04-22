@@ -49,7 +49,7 @@ specs/020-resumable-batching-cursor/
 ├── data-model.md        # Phase 1 output
 ├── quickstart.md        # Phase 1 output
 ├── contracts/           # Phase 1 output
-├── discrepancies.md     # Architecture discrepancies (3 items, open)
+├── discrepancies.md     # Architecture discrepancies (3 items, resolved)
 ├── checklists/          # Requirement checklists
 └── tasks.md             # Phase 2 output (speckit.tasks)
 ```
@@ -63,6 +63,7 @@ src/
 │   │   ├── BatchContinuationToken.cs       # NEW — sealed record
 │   │   ├── ResumeDecision.cs               # NEW — sealed record
 │   │   ├── ResumeDecisionStatus.cs         # NEW — enum
+│   │   ├── ResumeRejectedException.cs      # NEW — extends InvalidOperationException
 │   │   └── WorkItemFetchScope.cs           # MODIFIED — add resume parameters
 │   ├── Services/
 │   │   ├── ICheckpointingService.cs        # MODIFIED — add continuation token methods

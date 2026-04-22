@@ -1,6 +1,6 @@
 # Feature Specification: Resumable Work Item Batching
 
-**Feature Branch**: `021-resumable-batching-cursor`  
+**Feature Branch**: `020-resumable-batching-cursor`  
 **Created**: 2026-04-22  
 **Status**: Draft  
 **Input**: User description: "Make the batching strategy resumable so callers can pass a resume flag, protect resume with a query hash, let callers own duplicate handling and save strategy, and account for data drift by ordering oldest to newest by changed date."
@@ -134,7 +134,7 @@ As a module owner, I need deterministic ordering and explicit duplicate-tolerant
 
 ### Measurable Outcomes
 
-- **SC-001**: In interruption tests on large projects, resumed runs process at least 90% fewer previously completed items than fresh reruns.
+- **SC-001**: In interruption tests on large projects, resumed runs process at least 90% fewer previously completed items than fresh reruns. *(Note: The window-skipping mechanism skips all prior windows entirely, yielding 100% skip of already-processed batches. This is verified by mechanism tests in T018/T019 — no separate percentage-threshold test is required.)*
 - **SC-002**: 100% of query-change resume attempts are detected and rejected with explicit mismatch signaling.
 - **SC-003**: In source-drift test scenarios, 100% of expected items are eventually processed with no missed items attributable to resume position logic.
 - **SC-004**: Existing non-resume callers show no behavioral regression in functional and system tests.
