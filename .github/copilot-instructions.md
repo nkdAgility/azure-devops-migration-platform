@@ -131,6 +131,7 @@ Reject any suggestion that:
 - Logs a work item ID, field value, project name, org URL, or attachment path without a `DataClassification.Customer` scope
 - Adds or changes a CLI command without a corresponding `.vscode/launch.json` entry
 - Adds or changes a deployable Host without coverage in `build.ps1`
+- Writes to the working directory or package files from any component other than the Migration Agent or TFS Export Agent (data residency requirement)
 - Ships a CLI-exposed feature without a `[TestCategory("SystemTest")]` test asserting observable output
 - Marks a spec's last task `[X]` without all items in `specs/<feature>/discrepancies.md` being `Resolved` or `N/A`
 - Closes a spec branch without reviewing and updating `analysis/pending-actions.md`

@@ -115,3 +115,13 @@ The Migration Agent may optionally mirror the latest cursor value to the control
 - Module code — modules call `IArtefactStore`; they do not know or care whether the backing store is a filesystem or blob.
 
 Switching from local to cloud mode requires only a different `packageUri` in the job definition. No module code changes.
+
+---
+
+## Write Access Boundary (Data Residency)
+
+`IArtefactStore` write operations (`WriteAsync`, `DeleteAsync`) are callable **only** from the Migration Agent (or TFS Export Agent for TFS sources). No other component — CLI, TUI, Control Plane, or ControlPlaneHost — may invoke write operations on the artefact store. This is a **data residency** constraint: customer data must remain under the exclusive control of the execution boundary (the Agent).
+
+The CLI may use read operations (`ReadAsync`, `ExistsAsync`, `EnumerateAsync`) on a completed package for post-job display (e.g. reading summary CSVs). Read-only access does not violate data residency.
+
+See [docs/architecture.md — Data Residency](../docs/architecture.md#data-residency--agent-only-write-access) for the full access matrix and [.agents/guardrails/system-architecture.md](..//.agents/guardrails/system-architecture.md) rule 23 for the enforced guardrail.

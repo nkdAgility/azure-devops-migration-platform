@@ -159,7 +159,9 @@ public sealed class InventoryDiscoveryModule : IDiscoveryModule
                     RevisionsProcessed = evt.RevisionsCount,
                     AttachmentsProcessed = evt.ReposCount,
                     Message = $"{evt.Url} / {evt.ProjectName}: {evt.WorkItemsCount} work items so far…",
-                    Timestamp = DateTimeOffset.UtcNow
+                    Timestamp = DateTimeOffset.UtcNow,
+                    LastCheckpointAt = new DateTimeOffset(lastCheckpoint, TimeSpan.Zero),
+                    NextCheckpointDueAt = new DateTimeOffset(lastCheckpoint, TimeSpan.Zero) + checkpointInterval
                 });
 
                 // Flush CSV to disk at the checkpoint interval even mid-project so
@@ -249,7 +251,9 @@ public sealed class InventoryDiscoveryModule : IDiscoveryModule
                 Message = evt.Error is not null
                     ? $"{evt.Url} / {evt.ProjectName}: failed — {evt.Error}"
                     : $"{evt.Url} / {evt.ProjectName}: {evt.WorkItemsCount} work items, {evt.RevisionsCount} revisions, {evt.ReposCount} repos",
-                Timestamp = DateTimeOffset.UtcNow
+                Timestamp = DateTimeOffset.UtcNow,
+                LastCheckpointAt = new DateTimeOffset(lastCheckpoint, TimeSpan.Zero),
+                NextCheckpointDueAt = new DateTimeOffset(lastCheckpoint, TimeSpan.Zero) + checkpointInterval
             });
 
             // Flush CSV and JSON after every completed project so results are

@@ -107,4 +107,9 @@ Silently working around a rule = violation. Blindly following a harmful rule = n
     
     This rule exists because "temporary" workarounds cause real bugs (e.g. authentication credential loss through adapter round-trips) and accumulate as hidden technical debt.
 
+23. **Only the Migration Agent (and TFS Export Agent) may write to the working directory and package files — data residency requirement.**
+    The working directory (`Package.WorkingDirectory`) and all files within a migration package are write-accessible **only** to the Migration Agent (or TFS Export Agent for TFS sources). No other component — CLI, TUI, Control Plane, ControlPlaneHost, or any external process — may create, modify, or delete files in the working directory or package. This is a **data residency** constraint: customer data must remain under the exclusive control of the execution boundary (the Agent), which runs in the operator's chosen infrastructure. The CLI reads configuration and submits jobs; the TUI reads progress; the Control Plane coordinates — none of them touch the package. Violations compromise data residency guarantees and may expose customer data to unintended infrastructure.
+
+    The only exception is CLI **read-only** access for post-job display (e.g. reading `dependencies.csv` or `inventory.json` to render summary tables after the Agent has completed). Read access does not violate data residency because it does not move or copy customer data outside the operator's infrastructure.
+
 Consult [docs/architecture.md](../../docs/architecture.md). If the answer is not there, the safest default is to preserve the package layout, maintain streaming behaviour, and write state only through the defined interfaces.

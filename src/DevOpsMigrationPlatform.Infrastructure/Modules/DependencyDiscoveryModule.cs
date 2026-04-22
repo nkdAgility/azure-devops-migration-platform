@@ -10,6 +10,7 @@ using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Models;
 using DevOpsMigrationPlatform.Abstractions.Services;
 using DevOpsMigrationPlatform.Abstractions.Telemetry;
+using DevOpsMigrationPlatform.Abstractions.Utilities;
 using Microsoft.Extensions.Logging;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Modules;
@@ -163,21 +164,58 @@ public sealed class DependencyDiscoveryModule : IDiscoveryModule
         // Track completed projects as we go (union of pre-existing + newly completed)
         var allCompletedProjects = new HashSet<string>(completedProjects, StringComparer.OrdinalIgnoreCase);
 
+        // Per-project CSV builders keyed by "{orgFolder}/{project}" relative path.
+        var perProjectCsv = new Dictionary<string, StringBuilder>(StringComparer.OrdinalIgnoreCase);
+        // Track the current project's relative folder path so DependencyFoundEvent can append.
+        string? currentProjectFolder = null;
+        string? currentOrgFolder = null;
+        // Per-org accumulator: all raw CSV lines for projects in the current org (for org-level CSV).
+        var currentOrgCsvBuilder = new StringBuilder();
+        var orgCsvHeaderWritten = false;
+
+        const string CsvHeader =
+            "SourceWorkItemId,SourceWorkItemType,SourceProject,SourceOrganisationUrl," +
+            "LinkType,LinkScope,TargetWorkItemId,TargetProject,TargetOrganisation,TargetStatus,LinkChangedDate,SourceWorkItemStateCategory";
+
         await foreach (var evt in dependencyService.DiscoverDependenciesAsync(completedProjects, null, ct).ConfigureAwait(false))
         {
             switch (evt)
             {
                 case DependencyFoundEvent found:
                     var r = found.Record;
-                    csvBuilder.AppendLine(
+                    var csvLine =
                         $"{r.SourceWorkItemId},{EscapeCsv(r.SourceWorkItemType ?? "")}," +
                         $"{EscapeCsv(r.SourceProject ?? "")},{EscapeCsv(r.SourceOrganisationUrl)}," +
                         $"{EscapeCsv(r.LinkType ?? "")},{r.LinkScope}," +
                         $"{r.TargetWorkItemId},{EscapeCsv(r.TargetProject ?? "")}," +
                         $"{EscapeCsv(r.TargetOrganisation ?? "")},{r.TargetStatus}," +
                         $"{(r.LinkChangedDate.HasValue ? r.LinkChangedDate.Value.ToString("O") : "")}," +
-                        $"{EscapeCsv(r.SourceWorkItemStateCategory ?? "")}");
+                        $"{EscapeCsv(r.SourceWorkItemStateCategory ?? "")}";
+                    csvBuilder.AppendLine(csvLine);
                     recordCount++;
+
+                    // Also append to per-project CSV builder.
+                    var recOrgFolder = PathUtilities.ExtractOrgFolderName(r.SourceOrganisationUrl);
+                    var recProjectFolder = $"{recOrgFolder}/{PathUtilities.Sanitise(r.SourceProject ?? "unknown")}";
+                    if (!perProjectCsv.TryGetValue(recProjectFolder, out var projCsv))
+                    {
+                        projCsv = new StringBuilder();
+                        projCsv.AppendLine(CsvHeader);
+                        perProjectCsv[recProjectFolder] = projCsv;
+                    }
+                    projCsv.AppendLine(csvLine);
+
+                    // Also append to per-org CSV accumulator.
+                    if (currentOrgFolder == recOrgFolder)
+                    {
+                        if (!orgCsvHeaderWritten)
+                        {
+                            currentOrgCsvBuilder.AppendLine(CsvHeader);
+                            orgCsvHeaderWritten = true;
+                        }
+                        currentOrgCsvBuilder.AppendLine(csvLine);
+                    }
+
                     metrics?.RecordLinksFound(1, new TagList
                     {
                         { "job.id", job.JobId },
@@ -202,7 +240,9 @@ public sealed class DependencyDiscoveryModule : IDiscoveryModule
                             ? $"{heartbeat.OrganisationUrl}/{heartbeat.ProjectName}: failed — {heartbeat.Error}"
                             : $"{heartbeat.OrganisationUrl}/{heartbeat.ProjectName}: " +
                               $"{heartbeat.WorkItemsAnalysed}/{heartbeat.TotalWorkItems} analysed, {heartbeat.ExternalLinksFound} links found",
-                        Timestamp = DateTimeOffset.UtcNow
+                        Timestamp = DateTimeOffset.UtcNow,
+                        LastCheckpointAt = new DateTimeOffset(lastCheckpoint, TimeSpan.Zero),
+                        NextCheckpointDueAt = new DateTimeOffset(lastCheckpoint, TimeSpan.Zero) + checkpointInterval
                     });
 
                     // Flush CSV at checkpoint interval even mid-project so long-running
@@ -210,6 +250,13 @@ public sealed class DependencyDiscoveryModule : IDiscoveryModule
                     if (!heartbeat.IsComplete && DateTime.UtcNow - lastCheckpoint >= checkpointInterval)
                     {
                         await store.WriteAsync(RootCsvPath, csvBuilder.ToString(), ct).ConfigureAwait(false);
+
+                        // Also flush the current project's partial CSV.
+                        var midOrgFolder = PathUtilities.ExtractOrgFolderName(heartbeat.OrganisationUrl);
+                        var midProjectFolder = $"{midOrgFolder}/{PathUtilities.Sanitise(heartbeat.ProjectName)}";
+                        if (perProjectCsv.TryGetValue(midProjectFolder, out var midProjCsv))
+                            await store.WriteAsync($"{midProjectFolder}/dependencies.csv", midProjCsv.ToString(), ct).ConfigureAwait(false);
+
                         lastCheckpoint = DateTime.UtcNow;
                         _logger.LogDebug("Dependencies mid-project flush at checkpoint interval.");
                     }
@@ -220,9 +267,20 @@ public sealed class DependencyDiscoveryModule : IDiscoveryModule
                             _logger.LogInformation(
                                 "Completed project {Project} in {OrgUrl}: {Links} external links.",
                                 heartbeat.ProjectName, heartbeat.OrganisationUrl, heartbeat.ExternalLinksFound);
+
+                        var hbOrgFolder = PathUtilities.ExtractOrgFolderName(heartbeat.OrganisationUrl);
+                        var hbProjectFolder = $"{hbOrgFolder}/{PathUtilities.Sanitise(heartbeat.ProjectName)}";
+
                         // Organisation transition tracking.
                         if (currentOrg != heartbeat.OrganisationUrl)
                         {
+                            // Flush the completed org's CSV before switching.
+                            if (currentOrg is not null && currentOrgFolder is not null && currentOrgCsvBuilder.Length > 0)
+                            {
+                                await store.WriteAsync($"{currentOrgFolder}/dependencies.csv", currentOrgCsvBuilder.ToString(), ct).ConfigureAwait(false);
+                                _logger.LogDebug("Flushed org-level dependencies CSV for {Org}.", currentOrgFolder);
+                            }
+
                             if (currentOrg is not null)
                             {
                                 orgSw.Stop();
@@ -237,6 +295,9 @@ public sealed class DependencyDiscoveryModule : IDiscoveryModule
                                 metrics?.OrganisationCompleted(orgCompleteTags);
                             }
                             currentOrg = heartbeat.OrganisationUrl;
+                            currentOrgFolder = hbOrgFolder;
+                            currentOrgCsvBuilder = new StringBuilder();
+                            orgCsvHeaderWritten = false;
                             orgProjectCount = 0;
                             orgSw.Restart();
                             metrics?.OrganisationStarted(new TagList
@@ -246,6 +307,11 @@ public sealed class DependencyDiscoveryModule : IDiscoveryModule
                                 { "organisation.url", heartbeat.OrganisationUrl }
                             });
                         }
+
+                        // Update current project folder for DependencyFoundEvent tracking.
+                        currentProjectFolder = hbProjectFolder;
+                        if (currentOrgFolder is null)
+                            currentOrgFolder = hbOrgFolder;
 
                         var projectTags = new TagList
                         {
@@ -263,7 +329,14 @@ public sealed class DependencyDiscoveryModule : IDiscoveryModule
                         var completedKey = $"{heartbeat.OrganisationUrl}|{heartbeat.ProjectName}";
                         allCompletedProjects.Add(completedKey);
 
-                        // Flush CSV at every project boundary so results appear on disk immediately.
+                        // Flush per-project CSV to artefact store.
+                        if (perProjectCsv.TryGetValue(hbProjectFolder, out var completedProjCsv))
+                        {
+                            await store.WriteAsync($"{hbProjectFolder}/dependencies.csv", completedProjCsv.ToString(), ct).ConfigureAwait(false);
+                            _logger.LogDebug("Flushed per-project dependencies CSV for {Project}.", hbProjectFolder);
+                        }
+
+                        // Flush root CSV at every project boundary.
                         await store.WriteAsync(RootCsvPath, csvBuilder.ToString(), ct).ConfigureAwait(false);
                     }
                     break;
@@ -285,6 +358,13 @@ public sealed class DependencyDiscoveryModule : IDiscoveryModule
         // Complete final organisation.
         if (currentOrg is not null)
         {
+            // Flush the last org's CSV.
+            if (currentOrgFolder is not null && currentOrgCsvBuilder.Length > 0)
+            {
+                await store.WriteAsync($"{currentOrgFolder}/dependencies.csv", currentOrgCsvBuilder.ToString(), ct).ConfigureAwait(false);
+                _logger.LogDebug("Flushed final org-level dependencies CSV for {Org}.", currentOrgFolder);
+            }
+
             orgSw.Stop();
             var finalOrgTags = new TagList
             {
@@ -297,7 +377,7 @@ public sealed class DependencyDiscoveryModule : IDiscoveryModule
             metrics?.OrganisationCompleted(finalOrgTags);
         }
 
-        // Final write.
+        // Final write of root CSV.
         await store.WriteAsync(RootCsvPath, csvBuilder.ToString(), ct).ConfigureAwait(false);
         await state.DeleteAsync(CursorKey, ct).ConfigureAwait(false);
 

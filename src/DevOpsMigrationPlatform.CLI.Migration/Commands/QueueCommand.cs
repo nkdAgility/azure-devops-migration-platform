@@ -576,7 +576,8 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
                                 evt.WorkItemsProcessed, totalWorkItems,
                                 lastWiId, wiRevisions,
                                 lastCompletedWiId, lastCompletedRevisions,
-                                currentStage, progressStartTime));
+                                currentStage, progressStartTime,
+                                evt.LastCheckpointAt, evt.NextCheckpointDueAt));
                         }
                     });
             }
@@ -628,13 +629,15 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
     ///   Row 1 — overall WorkItems progress bar
     ///   Row 2 — last completed work item (full bar, greyed)
     ///   Row 3 — current work item in progress (partial bar)
-    /// Row count is always exactly 3 so Live()'s cursor-up stays stable.
+    ///   Row 4 — checkpoint safety indicator
+    /// Row count is always exactly 4 so Live()'s cursor-up stays stable.
     /// </summary>
     private static IRenderable BuildProgressRenderable(
         int processed, int total,
         int currentWiId, int currentWiRevisions,
         int lastCompletedWiId, int lastCompletedRevisions,
-        string stage, DateTimeOffset startTime)
+        string stage, DateTimeOffset startTime,
+        DateTimeOffset? lastCheckpointAt = null, DateTimeOffset? nextCheckpointDueAt = null)
     {
         const int BarWidth = 38;
         const int WiBarWidth = 20;
@@ -671,7 +674,21 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
             currentRow = new Markup("  [grey]↳ waiting…[/]");
         }
 
-        return new Rows(overall, completedRow, currentRow);
+        // ── Row 4: checkpoint safety indicator ───────────────────────────────────────
+        IRenderable checkpointRow;
+        if (nextCheckpointDueAt is null && lastCheckpointAt is not null)
+            checkpointRow = new Markup("  [green]✓ Safe to cancel — checkpointed per revision[/]");
+        else if (nextCheckpointDueAt is not null)
+        {
+            var remaining = nextCheckpointDueAt.Value - DateTimeOffset.UtcNow;
+            checkpointRow = remaining <= TimeSpan.Zero
+                ? new Markup("  [green]✓ Save point due now[/]")
+                : new Markup($"  [yellow]⏳ Next save in {(int)remaining.TotalMinutes}m {remaining.Seconds:D2}s[/]");
+        }
+        else
+            checkpointRow = new Markup("  [grey]─[/]");
+
+        return new Rows(overall, completedRow, currentRow, checkpointRow);
     }
 
     private static string ComputeEta(DateTimeOffset startTime, int processed, int total)

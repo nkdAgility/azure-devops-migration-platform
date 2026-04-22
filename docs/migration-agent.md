@@ -96,6 +96,14 @@ This means a crashed Agent loses no more than one stage of work.
 
 Migration Agents access the migration package exclusively through `IArtefactStore`. They never use raw filesystem calls or raw blob SDK calls inside module code. See [.agents/context/artefact-store.md](../.agents/context/artefact-store.md) for the abstraction and implementations.
 
+### Exclusive Write Access (Data Residency)
+
+The Migration Agent (and TFS Export Agent for TFS sources) is the **only** component with write access to the working directory and package files. No other component — CLI, TUI, Control Plane, or ControlPlaneHost — may create, modify, or delete files in the package. This is a **data residency** requirement: customer data (work item content, attachments, identities) must remain under the exclusive control of the Agent, which runs in the operator's chosen infrastructure.
+
+The CLI may perform **read-only** access to package files (e.g. reading `dependencies.csv` or `inventory.json`) for post-job display purposes. This does not violate data residency because it does not move or copy customer data outside the operator's infrastructure.
+
+See [docs/architecture.md — Data Residency](architecture.md#data-residency--agent-only-write-access) for the full access matrix and rationale.
+
 ---
 
 ## Logging

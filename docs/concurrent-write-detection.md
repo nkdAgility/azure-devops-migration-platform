@@ -133,6 +133,12 @@ public class LeaseService
 
 ## Design Guarantees
 
+### ✅ Exclusive Agent Write Access (Data Residency)
+
+Only the Migration Agent (or TFS Export Agent) may write to the working directory and package files. The CLI, TUI, Control Plane, and ControlPlaneHost have **no write access** to the package. This is a data residency requirement — customer data must remain under the exclusive control of the Agent, running in the operator's chosen infrastructure. The lease protocol enforces serialisation among Agents; the architecture enforces that non-Agent components never attempt writes in the first place.
+
+See [docs/architecture.md — Data Residency](architecture.md#data-residency--agent-only-write-access) for the full access matrix.
+
 ### ✅ Serialization
 
 Only one agent holds a valid lease on a package at any given time. Writes are serialized by lease holder.

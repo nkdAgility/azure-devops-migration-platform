@@ -141,6 +141,8 @@ public sealed class InventoryCommand : ControlPlaneCommandBase<InventoryCommand.
         // Status message shown below the table during long resume skips.
         string statusMessage = "";
         var startTime = DateTimeOffset.UtcNow;
+        DateTimeOffset? latestCheckpointAt = null;
+        DateTimeOffset? nextCheckpointDueAt = null;
 
         try
         {
@@ -169,7 +171,9 @@ public sealed class InventoryCommand : ControlPlaneCommandBase<InventoryCommand.
                             if (!string.IsNullOrEmpty(evt.Message))
                                 statusMessage = evt.Message;
 
-                            ctx.UpdateTarget(BuildLivePanel(summaries.Values, statusMessage, startTime));
+                            latestCheckpointAt = evt.LastCheckpointAt ?? latestCheckpointAt;
+                            nextCheckpointDueAt = evt.NextCheckpointDueAt;
+                            ctx.UpdateTarget(BuildLivePanel(summaries.Values, statusMessage, startTime, latestCheckpointAt, nextCheckpointDueAt));
                         }
                     });
             }
@@ -298,13 +302,13 @@ public sealed class InventoryCommand : ControlPlaneCommandBase<InventoryCommand.
     /// Builds the live display content: the inventory table plus a status line showing
     /// current activity (e.g. "Skipping completed project…" during resume).
     /// </summary>
-    private static IRenderable BuildLivePanel(IEnumerable<InventorySummary> summaries, string statusMessage, DateTimeOffset startTime)
+    private static IRenderable BuildLivePanel(IEnumerable<InventorySummary> summaries, string statusMessage, DateTimeOffset startTime, DateTimeOffset? lastCheckpointAt = null, DateTimeOffset? nextCheckpointDueAt = null)
     {
         var table = BuildTable(summaries);
         var parts = new List<IRenderable> { table };
 
         // Throughput stats panel
-        var stats = BuildThroughputPanel(summaries, startTime);
+        var stats = BuildThroughputPanel(summaries, startTime, lastCheckpointAt, nextCheckpointDueAt);
         if (stats is not null)
             parts.Add(stats);
 
@@ -318,7 +322,7 @@ public sealed class InventoryCommand : ControlPlaneCommandBase<InventoryCommand.
     /// Builds a throughput stats panel showing rates, elapsed time, and ETA.
     /// Returns null if no meaningful data is available yet.
     /// </summary>
-    private static IRenderable? BuildThroughputPanel(IEnumerable<InventorySummary> summaries, DateTimeOffset startTime)
+    private static IRenderable? BuildThroughputPanel(IEnumerable<InventorySummary> summaries, DateTimeOffset startTime, DateTimeOffset? lastCheckpointAt = null, DateTimeOffset? nextCheckpointDueAt = null)
     {
         var elapsed = DateTimeOffset.UtcNow - startTime;
         if (elapsed.TotalSeconds < 1)
@@ -367,6 +371,20 @@ public sealed class InventoryCommand : ControlPlaneCommandBase<InventoryCommand.
                 var eta = TimeSpan.FromMilliseconds(avgMs * remaining);
                 statsTable.AddRow("[dim]ETA (remaining)[/]", $"[yellow]{FormatTimeSpan(eta)}[/]");
             }
+        }
+
+        // Checkpoint safety indicator
+        if (nextCheckpointDueAt is null && lastCheckpointAt is not null)
+        {
+            statsTable.AddRow("[dim]Checkpoint[/]", "[green]✓ Safe to cancel (per-item)[/]");
+        }
+        else if (nextCheckpointDueAt is not null)
+        {
+            var cpRemaining = nextCheckpointDueAt.Value - DateTimeOffset.UtcNow;
+            if (cpRemaining <= TimeSpan.Zero)
+                statsTable.AddRow("[dim]Checkpoint[/]", "[green]✓ Save point due now[/]");
+            else
+                statsTable.AddRow("[dim]Checkpoint[/]", $"[yellow]⏳ Next save in {FormatTimeSpan(cpRemaining)}[/]");
         }
 
         return new Panel(statsTable)

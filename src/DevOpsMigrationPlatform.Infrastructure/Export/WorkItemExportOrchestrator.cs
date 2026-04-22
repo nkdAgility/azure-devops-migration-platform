@@ -254,7 +254,9 @@ public sealed class WorkItemExportOrchestrator
                     RevisionsProcessed = revisionsProcessed,
                     AttachmentsProcessed = attachmentsProcessed,
                     AttachmentsFailed = attachmentsFailed,
-                    Message = $"[WorkItems] {workItemsProcessed} work items / {revisionsProcessed} revisions written"
+                    Message = $"[WorkItems] {workItemsProcessed} work items / {revisionsProcessed} revisions written",
+                    LastCheckpointAt = DateTimeOffset.UtcNow,
+                    NextCheckpointDueAt = null // per-revision checkpoint — always safe to cancel
                 });
             }
             else

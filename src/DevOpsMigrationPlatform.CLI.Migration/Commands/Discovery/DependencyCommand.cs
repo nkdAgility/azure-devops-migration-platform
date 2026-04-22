@@ -154,6 +154,8 @@ public sealed class DependencyCommand : ControlPlaneCommandBase<DependencyComman
 
         var startTime = DateTimeOffset.UtcNow;
         string currentPhase = "Dependencies"; // tracks which module is running
+        DateTimeOffset? latestCheckpointAt = null; // updated from progress events
+        DateTimeOffset? nextCheckpointDueAt = null; // updated from progress events
 
         try
         {
@@ -202,7 +204,7 @@ public sealed class DependencyCommand : ControlPlaneCommandBase<DependencyComman
                                     }
                                     ctx.UpdateTarget(new Rows(
                                         new Markup("[green]✓ Inventory complete.[/] Starting dependency analysis…\n"),
-                                        BuildLivePanel(progressState.Values, startTime)));
+                                        BuildLivePanel(progressState.Values, startTime, latestCheckpointAt, nextCheckpointDueAt)));
                                     continue;
                                 }
 
@@ -214,7 +216,9 @@ public sealed class DependencyCommand : ControlPlaneCommandBase<DependencyComman
                             }
 
                             UpdateProgressFromEvent(progressState, evt);
-                            ctx.UpdateTarget(BuildLivePanel(progressState.Values, startTime));
+                            latestCheckpointAt = evt.LastCheckpointAt ?? latestCheckpointAt;
+                            nextCheckpointDueAt = evt.NextCheckpointDueAt;
+                            ctx.UpdateTarget(BuildLivePanel(progressState.Values, startTime, latestCheckpointAt, nextCheckpointDueAt));
                         }
                     });
             }
@@ -792,17 +796,17 @@ public sealed class DependencyCommand : ControlPlaneCommandBase<DependencyComman
     /// <summary>
     /// Builds the live display content: the progress table plus a throughput stats panel.
     /// </summary>
-    private static IRenderable BuildLivePanel(IEnumerable<ProjectProgress> state, DateTimeOffset startTime)
+    private static IRenderable BuildLivePanel(IEnumerable<ProjectProgress> state, DateTimeOffset startTime, DateTimeOffset? lastCheckpointAt = null, DateTimeOffset? nextCheckpointDueAt = null)
     {
         var table = BuildProgressTable(state);
-        var stats = BuildThroughputPanel(state, startTime);
+        var stats = BuildThroughputPanel(state, startTime, lastCheckpointAt, nextCheckpointDueAt);
         return stats is not null ? new Rows(table, stats) : table;
     }
 
     /// <summary>
     /// Builds a throughput stats panel showing rates, elapsed time, and ETA.
     /// </summary>
-    private static IRenderable? BuildThroughputPanel(IEnumerable<ProjectProgress> state, DateTimeOffset startTime)
+    private static IRenderable? BuildThroughputPanel(IEnumerable<ProjectProgress> state, DateTimeOffset startTime, DateTimeOffset? lastCheckpointAt = null, DateTimeOffset? nextCheckpointDueAt = null)
     {
         var elapsed = DateTimeOffset.UtcNow - startTime;
         if (elapsed.TotalSeconds < 1)
@@ -860,6 +864,20 @@ public sealed class DependencyCommand : ControlPlaneCommandBase<DependencyComman
             var avgMs = elapsed.TotalMilliseconds / completed;
             var eta = TimeSpan.FromMilliseconds(avgMs * inProgress);
             statsTable.AddRow("[dim]ETA (remaining)[/]", $"[yellow]{FormatTimeSpan(eta)}[/]");
+        }
+
+        // Checkpoint safety indicator
+        if (nextCheckpointDueAt is null && lastCheckpointAt is not null)
+        {
+            statsTable.AddRow("[dim]Checkpoint[/]", "[green]✓ Safe to cancel (per-item)[/]");
+        }
+        else if (nextCheckpointDueAt is not null)
+        {
+            var remaining = nextCheckpointDueAt.Value - DateTimeOffset.UtcNow;
+            if (remaining <= TimeSpan.Zero)
+                statsTable.AddRow("[dim]Checkpoint[/]", "[green]✓ Save point due now[/]");
+            else
+                statsTable.AddRow("[dim]Checkpoint[/]", $"[yellow]⏳ Next save in {FormatTimeSpan(remaining)}[/]");
         }
 
         return new Panel(statsTable)
