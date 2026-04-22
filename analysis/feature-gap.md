@@ -355,3 +355,180 @@ These are capabilities the new platform provides that **do not exist** in the ol
 | Outbound link checking/preservation | 2 | Low |
 | Changeset mapping | 1 | Low |
 | Debug pause-after-each-item | 1 | Low |
+
+---
+
+## Part B — Gap Analysis: `azure-devops-automation-tools`
+
+> **Source**: `azure-devops-automation-tools` (PowerShell utility scripts)
+> **New tool**: `azure-devops-migration-platform` (C# platform)
+>
+> Generated: 2026-04-22
+
+This section captures every capability in the PowerShell automation tools repository that either does not exist in the new platform, or exists only as a placeholder, stub, or partial implementation. These tools are complementary to the migration tools — they handle **pre-migration preparation**, **organisation-wide process administration**, and **supplementary migration utilities**.
+
+---
+
+## 12. Organisation Roster & Multi-Org Config Management
+
+The automation tools use an `organisations.json` file as a shared roster of orgs (with PATs, enabled flags, project lists, and process metadata). Scripts read and write this file to accumulate discovered data over time.
+
+| Automation Tool Feature | Script | New Platform Equivalent | Status |
+|---|---|---|---|
+| Multi-org roster (`organisations.json`) with enabled/disabled toggle | All scripts | `organisations` array in scenario config | 🔶 Partial — scenario config has org list but no persistent multi-org roster with per-org PATs and discovery metadata |
+| Auto-discover all projects in an org via REST API and write them back to the roster | `Add-ProjectsToConfig.ps1` | — | ❌ |
+| Per-project enabled/disabled flag in roster | `organisations.json` schema | — | ❌ |
+| Per-org process match metadata in roster (`processMatch[]` with ProcessID, WorkItemType, enabled) | `organisations.json` + `Search-ProcessesWeCareAbout.ps1` | — | ❌ |
+| Discover processes containing a target field and upsert them into the roster | `Search-ProcessesWeCareAbout.ps1` | — | ❌ |
+| Generate a migration scenario config per org/project from a template library | `Generate-ConfigurationsFromTemplates.ps1` | `config new` wizard (single config, interactive) | 🔶 Partial — `config new` creates one file interactively; no bulk template-driven generation across all orgs+projects |
+| Template library with per-scenario JSON templates (workItemsOnly, casesPlansWithShared, pipelines, sharedQueries) | `data/*/templates/*.json` | `scenarios/*.json` sample configs | 🔶 Partial — samples exist but no automated stamping of source/target into each per-project output file |
+| Output one scenario config per project under `output/<org>/projects/<project>/<template>.json` | `Generate-ConfigurationsFromTemplates.ps1` | — | ❌ |
+
+---
+
+## 13. Pre-Migration Inventory & Sizing
+
+The platform has a `discovery inventory` command that counts work items and revisions. The automation tools go further with a sizing spreadsheet covering multiple artefact types.
+
+| Automation Tool Feature | Script | New Platform Equivalent | Status |
+|---|---|---|---|
+| Count work items per project (with year-by-year pagination for large projects) | `Generate-ProjectStats.ps1` | `discovery inventory` | 🔶 Partial — platform counts work items and revisions but not other artefact types |
+| Count shared-steps work items separately | `Generate-ProjectStats.ps1` | — | ❌ |
+| Count build/release pipelines per project | `Generate-ProjectStats.ps1` | — | ❌ |
+| Count test plans per project | `Generate-ProjectStats.ps1` | — | ❌ |
+| Count test suites (tree view) per test plan | `Generate-ProjectStats.ps1` | — | ❌ |
+| Count Git repositories per project | `Generate-ProjectStats.ps1` | — | ❌ |
+| Show process base and process name per project | `Generate-ProjectStats.ps1` | — | ❌ |
+| Export stats to Excel (`.xlsx`) via ImportExcel module | `Generate-ProjectStats.ps1` | `inventory.csv` / `inventory.json` | 🔶 Partial — platform outputs CSV/JSON but no Excel and does not include pipelines/repos/plans |
+
+---
+
+## 14. Process Field Administration (Cross-Org)
+
+The automation tools provide idempotent, multi-org process field and form layout management. The new platform has no equivalent capability — process administration is out of scope for the migration runtime itself, but these are critical pre- and post-migration tasks.
+
+### 14.1 Process Output Inventory
+
+| Automation Tool Feature | Script | New Platform Equivalent | Status |
+|---|---|---|---|
+| Export all org-level WIT fields to `fields.json` | `Generate-ProcessOutput.ps1` | — | ❌ |
+| Export all picklists (summary + detail per list) | `Generate-ProcessOutput.ps1` | — | ❌ |
+| Export all processes (skipping system processes) | `Generate-ProcessOutput.ps1` | — | ❌ |
+| Export WIT layout JSON per custom WIT per process | `Generate-ProcessOutput.ps1` | — | ❌ |
+| Export WIT field list per custom WIT per process | `Generate-ProcessOutput.ps1` | — | ❌ |
+| Folder-per-org / folder-per-process output structure | `Generate-ProcessOutput.ps1` | — | ❌ |
+
+### 14.2 Custom Field Installation
+
+| Automation Tool Feature | Script | New Platform Equivalent | Status |
+|---|---|---|---|
+| Idempotent: create a picklist if it doesn't exist, update items if it does | `Install-CustomFields.ps1` | — | ❌ |
+| Idempotent: create a WIT field at org level if it doesn't exist | `Install-CustomFields.ps1` | — | ❌ |
+| Idempotent: add field to a process WIT if not already present | `Install-CustomFields.ps1` | — | ❌ |
+| Idempotent: add field control to a named group on the WIT form layout | `Install-CustomFields.ps1` | — | ❌ |
+| Field config validation (referenceName consistency across createFieldPOST / addFieldPOST / createControlPOST) | `Install-CustomFields.ps1` | — | ❌ |
+| Enabled/disabled flag per field in `fields.json` manifest | `fields.json` schema | — | ❌ |
+| Per-field JSON definition with all REST POST bodies (`createFieldPOST`, `addFieldPOST`, `createPicklistPOST`, `createControlPOST`) | `data/*/fields/*.json` | — | ❌ |
+| Configurable target group label (`defaultGroupLabel`) per field definition | field definition schema | — | ❌ |
+
+### 14.3 Custom Page & Group Installation
+
+| Automation Tool Feature | Script | New Platform Equivalent | Status |
+|---|---|---|---|
+| Add a custom page to a WIT form layout if it doesn't exist | `Install-CustomPages.ps1` | — | ❌ |
+| Add groups to named sections of an existing page | `Install-CustomPages.ps1` | — | ❌ |
+| Auto-create a custom WIT inheriting from a system WIT when the system WIT cannot be modified | `Install-CustomPages.ps1` | — | ❌ |
+| Page scoped to specific work item type names (`workItemTypes` filter in page definition) | page definition schema | — | ❌ |
+| Enabled/disabled flag per page | page definition schema | — | ❌ |
+
+### 14.4 ReflectedWorkItemID Field Installation
+
+| Automation Tool Feature | Script | New Platform Equivalent | Status |
+|---|---|---|---|
+| Install the `Custom.ReflectedWorkItemId` field across all orgs, all non-system processes, all WITs | `Install-ReflectedWorkItemID.ps1` | — | ❌ |
+| Auto-create a custom WIT if the system WIT cannot be modified | `Install-ReflectedWorkItemID.ps1` | — | ❌ |
+| Validate the field reference name contains "Custom" (rejects accidental system field matches) | `Install-ReflectedWorkItemID.ps1` | — | ❌ |
+| Standalone field definition file (`ReflectedWorkItemId.json`) separate from the field manifest | `data/*/ReflectedWorkItemId.json` | — | ❌ |
+
+### 14.5 Field Deletion
+
+| Automation Tool Feature | Script | New Platform Equivalent | Status |
+|---|---|---|---|
+| Delete a field by reference name from all enabled orgs | `Delete-CustomField.ps1` | — | ❌ |
+
+---
+
+## 15. Git Repository Migration (Practical Implementation)
+
+The platform has a git-repos module placeholder. The automation tools have a working mirror-push implementation.
+
+| Automation Tool Feature | Script | New Platform Equivalent | Status |
+|---|---|---|---|
+| Enumerate enabled orgs and projects from roster | `Migrate-GitRepos.ps1` | — (placeholder) | ❌ |
+| List all Git repos in each project via REST | `Migrate-GitRepos.ps1` | — (placeholder) | ❌ |
+| Create target repository if it doesn't exist (same name, same project) | `Migrate-GitRepos.ps1` | — (placeholder) | ❌ |
+| Bare clone source repo locally | `Migrate-GitRepos.ps1` | — (placeholder) | ❌ |
+| `git push --mirror` to target (all branches, tags, deletes) | `Migrate-GitRepos.ps1` | — (placeholder) | ❌ |
+| Summary statistics logged at end | `Migrate-GitRepos.ps1` | — | ❌ |
+| PAT never logged (safety guarantee) | `Migrate-GitRepos.ps1` | — | ❌ |
+
+> **Note**: Mirror push deletes refs in target that were deleted in source. Target projects must be pre-created. This is a one-way additive + destructive sync, not a package-based migration.
+
+---
+
+## 16. Process Template Migration
+
+| Automation Tool Feature | Script | New Platform Equivalent | Status |
+|---|---|---|---|
+| Invoke `microsoft/process-migrator` npm tool to migrate a process template | `process-migrator.ps1` | — | ❌ |
+| `configuration.json` schema for process-migrator | `src/processMigrator/configuration.json` | — | ❌ |
+
+> **Note**: `process-migrator` is a separate Microsoft open-source tool. This is a wrapper that invokes it. Full process template migration (Section 6 above) remains unimplemented in the new platform.
+
+---
+
+## 17. Migration Execution Wrapper
+
+| Automation Tool Feature | Script | New Platform Equivalent | Status |
+|---|---|---|---|
+| Resolve config from output folder and invoke `devopsmigration.exe execute` | `Execute-MigrationTools.ps1` | `devopsmigration queue --config <path>` | 🔶 Partial — the new CLI supports equivalent functionality, but no script exists to loop over all generated per-project configs and execute them in batch |
+| Batch-execute all generated project configs sequentially | — | — | ❌ |
+
+---
+
+## 18. Cross-Cutting: Shared Infrastructure (Automation Tools)
+
+| Feature | Automation Tools | New Platform | Status |
+|---|---|---|---|
+| Structured logging with named properties (`Write-InfoLog`, `Write-WarningLog`, `Write-ErrorLog`, `Write-DebugLog`) | `src/_includes/logging.ps1` | NDJSON structured logging via OpenTelemetry | ✅ (different implementation) |
+| `config.json` with `dataFolder`, `outputFolder`, `dataEnvironment`, `queryString` | `config.json` + `runmefirst.ps1` | Scenario config (`scenarios/*.json`) | 🔶 Partial — platform has richer config but no concept of a separate writable `dataFolder` vs read-only `outputFolder` |
+| Excel export via `ImportExcel` PowerShell module | `src/_includes/ImportExcel.ps1` | — | ❌ |
+| Environment-layered data resolution (`debug` → `sample` → current env) | `setup.ps1` | — | ❌ |
+
+---
+
+## Summary: Automation Tools Feature Gaps
+
+| Category | Feature Count | Platform Status | Priority |
+|---|---|---|---|
+| **Org roster management** (add projects, process discovery, roster upsert) | 8 | ❌ Not implemented | **High** — required for managing migrations at scale across dozens of orgs |
+| **Bulk config generation from templates** | 3 | 🔶 Partial (`config new` is single-file interactive only) | **High** — operator efficiency for large multi-project programmes |
+| **Extended inventory / sizing** (pipelines, repos, plans, suites, Excel) | 8 | 🔶 Partial (work items only, no Excel) | **Medium** |
+| **Process output inventory** (fields, picklists, layouts) | 6 | ❌ Not implemented | **Medium** — useful for pre-migration audit |
+| **Custom field installation** (create, add to WIT, add control, idempotent) | 8 | ❌ Not implemented | **High** — required to prepare target orgs before migration |
+| **Custom page/group installation** | 5 | ❌ Not implemented | **Medium** |
+| **ReflectedWorkItemID installation** | 4 | ❌ Not implemented | **High** — required if the old migration tools' reflected-ID approach is used as a deduplication strategy |
+| **Field deletion** | 1 | ❌ Not implemented | Low |
+| **Git repository mirror migration** | 7 | ❌ Not implemented (placeholder only) | **High** — many migrations require repo migration alongside work items |
+| **Process template migration wrapper** | 2 | ❌ Not implemented | Medium |
+| **Batch migration execution across projects** | 2 | 🔶 Partial (CLI supports single config; no batch loop) | Medium |
+
+### Highest Priority Gaps (Automation Tools → New Platform)
+
+1. **`discovery org-sync`** — enumerate projects from all orgs and upsert them into a persistent roster; populate process metadata. Equivalent to `Add-ProjectsToConfig.ps1` + `Search-ProcessesWeCareAbout.ps1`.
+2. **`config generate`** (or `config bulk-generate`) — stamp a library of scenario templates with org/project/PAT values and write one config per project. Equivalent to `Generate-ConfigurationsFromTemplates.ps1`.
+3. **`discovery stats`** (extended inventory) — add pipelines, repos, test plans, test suites, and Excel output to `discovery inventory`. Equivalent to `Generate-ProjectStats.ps1`.
+4. **`admin field install`** — idempotent installation of custom fields (with picklists and controls) across orgs/processes. Equivalent to `Install-CustomFields.ps1`.
+5. **`admin field install-reflected-id`** — install the `Custom.ReflectedWorkItemId` field across all orgs/processes/WITs. Equivalent to `Install-ReflectedWorkItemID.ps1`.
+6. **Git repository module** — implement the placeholder with `git --mirror` push semantics. Equivalent to `Migrate-GitRepos.ps1`.
+7. **`admin page install`** — idempotent page/group installation on WIT form layouts. Equivalent to `Install-CustomPages.ps1`.
