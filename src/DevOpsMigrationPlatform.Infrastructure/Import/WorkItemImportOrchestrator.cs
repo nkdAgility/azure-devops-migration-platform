@@ -245,7 +245,9 @@ public sealed class WorkItemImportOrchestrator
                 WorkItemId = eventWiId,
                 WorkItemsProcessed = workItemsProcessed,
                 RevisionsProcessed = foldersProcessed,
-                Timestamp = DateTimeOffset.UtcNow
+                Timestamp = DateTimeOffset.UtcNow,
+                LastCheckpointAt = DateTimeOffset.UtcNow,
+                NextCheckpointDueAt = null // per-revision checkpoint — always safe to cancel
             });
         }
 

@@ -46,8 +46,8 @@ Run **locally**. Do **not** submit a `MigrationJob`. Registered as a Spectre.Con
 
 | Command | Settings Key | Description |
 |---------|-------------|-------------|
-| `discovery inventory` | `InventoryCommand.Settings` | Count work items and revisions per project. Results written to `discovery-summary.csv`. Accepts `--output <dir>` to override `Artefacts.WorkingDirectory` from the config. |
-| `discovery dependencies` | `DependencyCommand.Settings` | Analyse cross-project and cross-organisation work item links. Results written to `dependencies.csv` in the output directory. Accepts `--output <dir>` to override `Artefacts.WorkingDirectory` from the config. |
+| `discovery inventory` | `InventoryCommand.Settings` | Count work items and revisions per project. Results written to `inventory.csv` and `inventory.json` at the output root plus per-org/per-project subfolders. Accepts `--output <dir>` to override `Artefacts.WorkingDirectory` from the config. |
+| `discovery dependencies` | `DependencyCommand.Settings` | Analyse cross-project and cross-organisation work item links. Loads `inventory.json` (if present) for grand totals before analysis. Results written to `dependencies.csv` in the output directory. Accepts `--output <dir>` to override `Artefacts.WorkingDirectory` from the config. |
 
 ### 4. Configuration Management (`config`)
 

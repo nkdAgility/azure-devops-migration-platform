@@ -2,9 +2,15 @@
   "MigrationPlatform": {
     "ConfigVersion": "1.0",
     "Policies": {
-      "Retries": { "Max": 8 },
-      "Throttle": { "MaxConcurrency": 4 },
-      "Checkpoints": { "Interval": 300 }
+      "Retries": {
+        "Max": 8
+      },
+      "Throttle": {
+        "MaxConcurrency": 4
+      },
+      "Checkpoints": {
+        "Interval": 300
+      }
     },
     "Organisations": [
       {
@@ -25,6 +31,9 @@
           "AccessToken": "$ENV:AZDEVOPS_DEV_PAT"
         }
       }
-    ]
+    ],
+    "Package": {
+      "WorkingDirectory": "storage\\inventory-multi-org"
+    }
   }
 }

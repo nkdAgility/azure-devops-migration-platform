@@ -159,6 +159,22 @@ Unclassified logs default to `System` — they are safe for Azure Monitor. This 
 
 See [docs/configuration.md — Data Classification](configuration.md#data-classification) for the usage pattern and classification table.
 
+### Data Residency — Agent-Only Write Access
+
+The working directory (`Package.WorkingDirectory`) and all package files are write-accessible **exclusively** by the Migration Agent (or TFS Export Agent for TFS sources). This is a non-negotiable data residency guarantee.
+
+| Component | Package Write | Package Read | Rationale |
+|---|---|---|---|
+| **Migration Agent** | ✅ Yes (via `IArtefactStore` / `IStateStore`) | ✅ Yes | Execution boundary — the only component that processes customer data. |
+| **TFS Export Agent** | ✅ Yes (via `IArtefactStore` / `IStateStore`) | ✅ Yes | Same execution boundary for TFS sources; runs as CLI subprocess. |
+| **CLI** | ❌ No | ✅ Read-only (post-job summaries) | Reads `dependencies.csv`, `inventory.json`, etc. for display after the Agent completes. Never writes. |
+| **TUI** | ❌ No | ❌ No (reads via control plane API) | Pure progress viewer; all data arrives via SSE from the control plane. |
+| **Control Plane / ControlPlaneHost** | ❌ No | ❌ No | Coordinates jobs, manages leases, buffers progress events. Never accesses the package directly. |
+
+**Why this matters:** Customer data — work item content, field values, attachments, identities, project structure — resides in the migration package. By restricting write access to the Agent alone, the platform guarantees that customer data never leaves the operator's chosen execution infrastructure (local machine, dedicated server, or customer-controlled Azure subscription). The CLI, TUI, and control plane operate purely on metadata (job definitions, progress events, telemetry aggregates) and never handle or store customer data.
+
+This constraint also ensures that the lease-based concurrent write protection (see [docs/concurrent-write-detection.md](concurrent-write-detection.md)) is the single point of write serialisation — there are no side-channel writes from other components to protect against.
+
 ## 13. What This System Is
 
 > A versioned migration package platform with streaming chronological replay.

@@ -20,9 +20,21 @@
           {
             "Name": "SimulatedProject1",
             "WorkItemTypes": [
-              { "Type": "User Story", "Count": 3, "RevisionsPerItem": 5 },
-              { "Type": "Bug",        "Count": 2, "RevisionsPerItem": 5 },
-              { "Type": "Task",       "Count": 2, "RevisionsPerItem": 5 }
+              {
+                "Type": "User Story",
+                "Count": 3,
+                "RevisionsPerItem": 5
+              },
+              {
+                "Type": "Bug",
+                "Count": 2,
+                "RevisionsPerItem": 5
+              },
+              {
+                "Type": "Task",
+                "Count": 2,
+                "RevisionsPerItem": 5
+              }
             ],
             "LinkTopology": "Tree",
             "HasComments": true,
@@ -31,9 +43,21 @@
           {
             "Name": "SimulatedProject2",
             "WorkItemTypes": [
-              { "Type": "Epic",    "Count": 1, "RevisionsPerItem": 5 },
-              { "Type": "Feature", "Count": 2, "RevisionsPerItem": 5 },
-              { "Type": "Bug",     "Count": 2, "RevisionsPerItem": 5 }
+              {
+                "Type": "Epic",
+                "Count": 1,
+                "RevisionsPerItem": 5
+              },
+              {
+                "Type": "Feature",
+                "Count": 2,
+                "RevisionsPerItem": 5
+              },
+              {
+                "Type": "Bug",
+                "Count": 2,
+                "RevisionsPerItem": 5
+              }
             ],
             "LinkTopology": "Flat",
             "HasComments": false,
@@ -46,25 +70,21 @@
       "WorkingDirectory": "storage\\queue-export-workitems-simulated-source",
       "CreatePackage": true
     },
-    "Modules": [
-      {
-        "Name": "WorkItems",
+    "Modules": {
+      "WorkItems": {
         "Enabled": true,
-        "Extensions": [
-          {
-            "Type": "Revisions",
+        "Extensions": {
+          "Revisions": {
             "Enabled": true
           },
-          {
-            "Type": "Attachments",
+          "Attachments": {
             "Enabled": true
           },
-          {
-            "Type": "Comments",
+          "Comments": {
             "Enabled": true
           }
-        ]
+        }
       }
-    ]
+    }
   }
 }

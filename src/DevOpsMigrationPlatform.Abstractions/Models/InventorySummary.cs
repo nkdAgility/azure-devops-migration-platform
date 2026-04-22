@@ -3,7 +3,7 @@ using System;
 namespace DevOpsMigrationPlatform.Abstractions.Models;
 
 /// <summary>
-/// Per-project result record written to <c>discovery-summary.csv</c> on completion.
+/// Per-project result record written to <c>inventory.csv</c> on completion.
 /// All projects are written, including those that failed mid-count.
 /// </summary>
 public sealed class InventorySummary

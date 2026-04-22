@@ -1,5 +1,24 @@
 # Package Format
 
+## 1. Package Root Resolution
+
+`PackageRoot` is derived by appending the organisation folder name and project name to the configured `Package.WorkingDirectory`:
+
+```
+<WorkingDirectory>/<org-folder-name>/<project>/
+```
+
+For example, given:
+- `WorkingDirectory`: `storage\my-export`
+- Organisation URL: `https://dev.azure.com/contoso`
+- Project: `MyProject`
+
+The resulting `PackageRoot` is: `storage\my-export\contoso\MyProject\`
+
+The org folder name is extracted from the organisation URL (the last path segment, e.g. `contoso` from `https://dev.azure.com/contoso`). For TFS collection URLs like `http://tfs:8080/tfs/DefaultCollection`, the folder name is `DefaultCollection`.
+
+This resolution is performed by `PathUtilities.ExtractOrgFolderName()` and applied in the CLI commands (`QueueCommand`, `TfsExportCommand`) before the `IArtefactStore` is created. `WorkItems` and other module folders should never appear directly under `WorkingDirectory` — they always live under `<org>/<project>/`.
+
 ## 2. Package Structure (Canonical Format)
 
 ```
@@ -13,6 +32,9 @@ PackageRoot/
   Identities/
   Checkpoints/
   Logs/
+    <ticks>-<jobId>/
+      progress.jsonl
+      agent.jsonl
 ```
 
 The WorkItems layout is canonical and must not be altered:
@@ -42,14 +64,27 @@ Key characteristics:
 
 ### Logs/
 
-The `Logs/` folder contains structured observability records written by the Migration Agent during job execution:
+The `Logs/` folder contains structured observability records written by the Migration Agent during job execution. Each job writes to its own subfolder to prevent logs from different runs overwriting each other:
+
+```
+Logs/
+  <ticks>-<jobId>/
+    progress.jsonl
+    agent.jsonl
+    agent-001.jsonl   ← rotated segment (when max size exceeded)
+```
+
+The subfolder name uses `<ticks>-<jobId>` (e.g. `638807123456789012-a1b2c3d4`) so that folders sort chronologically and are traceable to the originating job.
 
 | File | Format | Description |
 |---|---|---|
 | `progress.jsonl` | NDJSON | One `ProgressEvent` record per line. Tracks module cursor state, stage transitions, and item counts. Written by `PackageProgressSink`. |
 | `agent.jsonl` | NDJSON | Structured diagnostic log records (ILogger output). Each line is a JSON object with `timestamp`, `level`, `category`, `message`, and optional `exception` fields. Written by `PackageDiagnosticSink`. |
+| `agent-NNN.jsonl` | NDJSON | Rotated log segments when the primary segment exceeds the configured max size. |
 
 Both files are append-only and survive resume. They are the durable record of job execution — the control plane's in-memory ring buffer is ephemeral.
+
+**Backward compatibility:** Packages created before job-scoped logging may have log files directly under `Logs/` (e.g. `Logs/agent.jsonl`). The `LogDownloadController` falls back to this flat layout when no job-scoped subfolder is found.
 
 ### Naming Conventions
 

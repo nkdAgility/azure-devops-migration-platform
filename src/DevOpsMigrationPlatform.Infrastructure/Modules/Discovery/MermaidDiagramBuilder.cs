@@ -5,13 +5,13 @@ using System.Text;
 using System.Text.RegularExpressions;
 using DevOpsMigrationPlatform.Abstractions.Models;
 
-namespace DevOpsMigrationPlatform.CLI.Commands.Discovery;
+namespace DevOpsMigrationPlatform.Infrastructure.Modules.Discovery;
 
 /// <summary>
 /// Generates Mermaid flowchart diagrams from project dependency records.
 /// Cross-organisation targets are visually distinguished with orange styling.
 /// </summary>
-internal sealed class MermaidDiagramBuilder
+public sealed class MermaidDiagramBuilder
 {
     private readonly IEnumerable<ProjectDependencyRecord> _pairs;
 
@@ -39,12 +39,12 @@ internal sealed class MermaidDiagramBuilder
             if (pair.LinkScope == LinkScope.CrossOrganisation)
                 allProjects.Add($"{pair.TargetOrganisation}/{pair.TargetProject ?? "remote"}");
             else if (!string.IsNullOrWhiteSpace(pair.TargetProject))
-                allProjects.Add(pair.TargetProject);
+                allProjects.Add(pair.TargetProject!);
         }
 
         foreach (var project in allProjects)
         {
-            var nodeId = SanitizeNodeId(project);
+            var nodeId = MermaidUtilities.SanitizeNodeId(project);
             nodeMap[project] = nodeId;
         }
 
@@ -56,7 +56,7 @@ internal sealed class MermaidDiagramBuilder
                 ? $"{pair.TargetOrganisation}/{pair.TargetProject ?? "remote"}"
                 : pair.TargetProject;
 
-            if (!string.IsNullOrWhiteSpace(targetName) && nodeMap.TryGetValue(targetName, out var targetId))
+            if (!string.IsNullOrWhiteSpace(targetName) && nodeMap.TryGetValue(targetName!, out var targetId))
             {
                 // Edge with label: source -->|"N links"| target
                 sb.AppendLine($"    {sourceId} -->|\"{pair.LinkCount}\"| {targetId}");
@@ -89,14 +89,8 @@ internal sealed class MermaidDiagramBuilder
 
     /// <summary>
     /// Sanitises a project name into a valid Mermaid node ID.
-    /// Replaces non-alphanumeric characters with underscores and prefixes with P_.
+    /// Delegates to <see cref="MermaidUtilities.SanitizeNodeId"/>.
     /// </summary>
-    private static string SanitizeNodeId(string projectName)
-    {
-        if (string.IsNullOrWhiteSpace(projectName))
-            return "P_unknown";
-
-        var sanitised = Regex.Replace(projectName, @"[^a-zA-Z0-9_]", "_");
-        return $"P_{sanitised}";
-    }
+    private static string SanitizeNodeId(string projectName) =>
+        MermaidUtilities.SanitizeNodeId(projectName);
 }

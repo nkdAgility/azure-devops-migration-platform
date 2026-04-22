@@ -3,13 +3,13 @@ using System.Collections.Generic;
 using System.Linq;
 using DevOpsMigrationPlatform.Abstractions.Models;
 
-namespace DevOpsMigrationPlatform.CLI.Commands.Discovery;
+namespace DevOpsMigrationPlatform.Infrastructure.Modules.Discovery;
 
 /// <summary>
 /// Uses Union-Find algorithm to identify connected components in the project dependency graph.
 /// Assigns GroupId (1-based) to all projects in the same connected component.
 /// </summary>
-internal static class UnionFindComponentLabeler
+public static class UnionFindComponentLabeler
 {
     /// <summary>
     /// Assigns GroupId to each project node in the dependency graph.
@@ -37,7 +37,7 @@ internal static class UnionFindComponentLabeler
             }
             else if (!string.IsNullOrWhiteSpace(pair.TargetProject))
             {
-                projects.Add(pair.TargetProject);
+                projects.Add(pair.TargetProject!);
             }
         }
 
@@ -78,7 +78,7 @@ internal static class UnionFindComponentLabeler
             var source = pair.SourceProject;
             var target = pair.LinkScope == LinkScope.CrossOrganisation && !string.IsNullOrWhiteSpace(pair.TargetOrganisation)
                 ? $"{pair.TargetOrganisation}#{pair.TargetProject ?? ""}"
-                : pair.TargetProject;
+                : pair.TargetProject ?? "";
 
             if (!string.IsNullOrWhiteSpace(source) && !string.IsNullOrWhiteSpace(target))
                 Union(source, target);
@@ -93,16 +93,16 @@ internal static class UnionFindComponentLabeler
         var groupAssignments = new Dictionary<string, int>();
         var nextGroupId = 1;
 
-        foreach (var (project, componentRoot) in componentMap)
+        foreach (var kvp in componentMap)
         {
-            if (!groupAssignments.ContainsKey(componentRoot))
-                groupAssignments[componentRoot] = nextGroupId++;
+            if (!groupAssignments.ContainsKey(kvp.Value))
+                groupAssignments[kvp.Value] = nextGroupId++;
         }
 
         // Return final mapping of project → GroupId
         var result = new Dictionary<string, int>();
-        foreach (var (project, componentRoot) in componentMap)
-            result[project] = groupAssignments[componentRoot];
+        foreach (var kvp in componentMap)
+            result[kvp.Key] = groupAssignments[kvp.Value];
 
         return result;
     }

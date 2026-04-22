@@ -88,13 +88,14 @@ public class ExportCommandFollowTests
             "Expected CLI success message not found in output.");
 
         // ── Assert: package written ─────────────────────────────────────────
-        var workItemsDir = Path.Combine(outputDir, "WorkItems");
-        Assert.IsTrue(Directory.Exists(workItemsDir),
-            $"WorkItems directory was not created under {outputDir}");
+        // Org/project nesting places WorkItems under <outputDir>/<org>/<project>/WorkItems/
+        var workItemsDirs = Directory.GetDirectories(outputDir, "WorkItems", SearchOption.AllDirectories);
+        Assert.IsTrue(workItemsDirs.Length > 0,
+            $"WorkItems directory was not created anywhere under {outputDir}");
 
-        var revisionFiles = Directory.GetFiles(workItemsDir, "revision.json", SearchOption.AllDirectories);
+        var revisionFiles = Directory.GetFiles(workItemsDirs[0], "revision.json", SearchOption.AllDirectories);
         Assert.IsTrue(revisionFiles.Length > 0,
-            $"No revision.json files found under {workItemsDir}");
+            $"No revision.json files found under {workItemsDirs[0]}");
         Console.WriteLine($"revision.json files: {revisionFiles.Length}");
     }
 
@@ -150,18 +151,19 @@ public class ExportCommandFollowTests
             "Expected CLI success message not found in output.");
 
         // ── Assert: Logs/agent.jsonl written by the Migration Agent ───────────
-        var logsPath = Path.Combine(outputDir, "Logs", "agent.jsonl");
-        if (File.Exists(logsPath))
+        // Job-scoped log folder: Logs/<ticks>-<jobId>/agent.jsonl
+        var agentFiles = Directory.GetFiles(outputDir, "agent.jsonl", SearchOption.AllDirectories);
+        if (agentFiles.Length > 0)
         {
-            var lines = File.ReadAllLines(logsPath);
-            Console.WriteLine($"Logs/agent.jsonl: {lines.Length} records");
-            Assert.IsTrue(lines.Length > 0, "Logs/agent.jsonl should contain at least one record.");
+            var lines = File.ReadAllLines(agentFiles[0]);
+            Console.WriteLine($"agent.jsonl: {lines.Length} records (at {agentFiles[0]})");
+            Assert.IsTrue(lines.Length > 0, "agent.jsonl should contain at least one record.");
         }
         else
         {
             // Log file is written by the Migration Agent; in standalone mode without a
             // separately running agent the file may not be present. Record this for visibility.
-            Console.WriteLine($"Logs/agent.jsonl not found at {logsPath} " +
+            Console.WriteLine($"agent.jsonl not found under {outputDir} " +
                               "(expected when running in standalone / in-process mode).");
         }
     }

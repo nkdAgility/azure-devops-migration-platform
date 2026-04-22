@@ -58,7 +58,7 @@ public class InventoryCommandTests
         var outputDir = Path.IsPathRooted(artefactsPath)
             ? artefactsPath
             : Path.GetFullPath(Path.Combine(repoRoot, artefactsPath));
-        var csvPath = Path.Combine(outputDir, "discovery-summary.csv");
+        var csvPath = Path.Combine(outputDir, "inventory.csv");
 
         if (File.Exists(csvPath))
             File.Delete(csvPath);
@@ -87,14 +87,14 @@ public class InventoryCommandTests
             "Expected CLI success message ('Inventory complete') not found in output.");
 
         Assert.IsTrue(File.Exists(csvPath),
-            $"discovery-summary.csv was not created at {csvPath}");
+            $"inventory.csv was not created at {csvPath}");
 
         var csvLines = File.ReadAllLines(csvPath);
         Console.WriteLine($"CSV path   : {csvPath}");
         Console.WriteLine($"CSV lines  : {csvLines.Length}");
 
         Assert.IsTrue(csvLines.Length >= 2,
-            $"discovery-summary.csv should have a header row and at least one data row, but has {csvLines.Length} line(s).");
+            $"inventory.csv should have a header row and at least one data row, but has {csvLines.Length} line(s).");
 
         var header = csvLines[0];
         Assert.IsTrue(header.Contains("WorkItemsCount", StringComparison.OrdinalIgnoreCase),

@@ -104,13 +104,14 @@ public class QueueCommandTests
             combinedOutput.Contains("work items", StringComparison.OrdinalIgnoreCase),
             "Expected CLI success message not found in output.");
 
-        var workItemsDir = Path.Combine(outputDir, "WorkItems");
-        Assert.IsTrue(Directory.Exists(workItemsDir),
-            $"WorkItems directory was not created under {outputDir}");
+        // Org/project nesting places WorkItems under <outputDir>/<org>/<project>/WorkItems/
+        var workItemsDirs = Directory.GetDirectories(outputDir, "WorkItems", SearchOption.AllDirectories);
+        Assert.IsTrue(workItemsDirs.Length > 0,
+            $"WorkItems directory was not created anywhere under {outputDir}");
 
-        var revisionFiles = Directory.GetFiles(workItemsDir, "revision.json", SearchOption.AllDirectories);
+        var revisionFiles = Directory.GetFiles(workItemsDirs[0], "revision.json", SearchOption.AllDirectories);
         Assert.IsTrue(revisionFiles.Length > 0,
-            $"No revision.json files found under {workItemsDir}");
+            $"No revision.json files found under {workItemsDirs[0]}");
     }
 
     /// <summary>
@@ -201,8 +202,9 @@ public class QueueCommandTests
 
         // Verify both fixture work items were processed by checking the idmap DB was created
         // (progress events are not observable from CLI stdout in the current streaming architecture).
-        var idmapDb = Path.Combine(outputDir, "Checkpoints", "idmap.db");
-        Assert.IsTrue(File.Exists(idmapDb),
-            $"Checkpoints/idmap.db was not created under {outputDir} — import may not have processed any work items.");
+        // Org/project nesting places Checkpoints under <outputDir>/<org>/<project>/Checkpoints/
+        var idmapFiles = Directory.GetFiles(outputDir, "idmap.db", SearchOption.AllDirectories);
+        Assert.IsTrue(idmapFiles.Length > 0,
+            $"Checkpoints/idmap.db was not found anywhere under {outputDir} — import may not have processed any work items.");
     }
 }

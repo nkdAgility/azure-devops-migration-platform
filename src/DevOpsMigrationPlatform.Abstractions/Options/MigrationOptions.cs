@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using DevOpsMigrationPlatform.Abstractions.Options;
 
 namespace DevOpsMigrationPlatform.Abstractions;
@@ -16,15 +15,21 @@ namespace DevOpsMigrationPlatform.Abstractions;
 ///     "Mode": "Export",
 ///     "Source": { "Type": "AzureDevOpsServices", "Url": "...", "Project": "..." },
 ///     "Package": { "Path": "D:\\exports\\run-001" },
-///     "Modules": [
-///       { "Name": "WorkItems", "Enabled": true,
-///         "Extensions": [
-///           { "Type": "Revisions", "Enabled": true },
-///           { "Type": "Links", "Enabled": true },
-///           { "Type": "Attachments", "Enabled": true },
-///           { "Type": "Comments", "Enabled": true }
-///         ] }
-///     ]
+///     "Modules": {
+///       "WorkItems": {
+///         "Enabled": true,
+///         "Scope": {
+///           "Query": "SELECT [System.Id] FROM WorkItems WHERE [System.TeamProject] = @project ORDER BY [System.Id]",
+///           "Filters": []
+///         },
+///         "Extensions": {
+///           "Revisions": { "Enabled": true },
+///           "Links": { "Enabled": true },
+///           "Attachments": { "Enabled": true },
+///           "Comments": { "Enabled": true }
+///         }
+///       }
+///     }
 ///   }
 /// }
 /// </code>
@@ -47,8 +52,8 @@ public sealed class MigrationOptions
     public MigrationPoliciesOptions Policies { get; set; } = new();
 
     /// <summary>
-    /// Ordered list of modules to run with their scope configurations.
-    /// When empty, the job engine applies platform defaults (WorkItems module with default WIQL scope).
+    /// Typed module configurations. Each property represents exactly one module.
+    /// When no modules are configured, the job engine applies platform defaults.
     /// </summary>
-    public List<MigrationOptionsModule> Modules { get; set; } = new();
+    public MigrationModulesOptions Modules { get; set; } = new();
 }

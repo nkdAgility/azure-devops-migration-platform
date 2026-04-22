@@ -42,6 +42,12 @@ public record ProgressEvent
     /// <summary>Attachment downloads that failed in this batch.</summary>
     public int AttachmentsFailed { get; init; }
 
+    /// <summary>UTC timestamp of the most recent checkpoint save. Null if no checkpoint has been written yet.</summary>
+    public DateTimeOffset? LastCheckpointAt { get; init; }
+
+    /// <summary>Estimated UTC time when the next checkpoint will be written. Null when checkpointing is per-item (always safe).</summary>
+    public DateTimeOffset? NextCheckpointDueAt { get; init; }
+
     /// <summary>
     /// Optional metric snapshot emitted alongside this progress event.
     /// Populated by the TFS subprocess every N revisions (controlled by

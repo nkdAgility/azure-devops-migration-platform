@@ -2,13 +2,13 @@ using System;
 using System.Collections.Generic;
 using DevOpsMigrationPlatform.Abstractions.Models;
 
-namespace DevOpsMigrationPlatform.CLI.Commands.Discovery;
+namespace DevOpsMigrationPlatform.Infrastructure.Modules.Discovery;
 
 /// <summary>
 /// Aggregated dependency record summarising all links between a specific pair of projects.
-/// Written to discovery-project-dependencies.csv and used for Mermaid diagram generation.
+/// Written to grouped.csv and used for Mermaid diagram generation.
 /// </summary>
-internal record ProjectDependencyRecord
+public record ProjectDependencyRecord
 {
     /// <summary>
     /// Gets the name of the source project.

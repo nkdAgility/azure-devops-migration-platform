@@ -1,4 +1,5 @@
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Options;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
@@ -280,13 +281,13 @@ public class MigrationOptionsValidatorTests
         StringAssert.Contains(result.FailureMessage, "Target.Type");
     }
 
-    // ── Modules list is optional ──────────────────────────────────────────────
+    // ── Modules is optional ──────────────────────────────────────────────
 
     [TestMethod]
-    public void Validate_EmptyModulesList_Succeeds()
+    public void Validate_DefaultModules_Succeeds()
     {
         var opts = ValidExport();
-        opts.Modules.Clear();
+        opts.Modules = new MigrationModulesOptions();
         Assert.IsTrue(Sut().Validate(null, opts).Succeeded);
     }
 }

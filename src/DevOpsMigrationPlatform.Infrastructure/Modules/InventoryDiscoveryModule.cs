@@ -1,11 +1,13 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Linq;
 using System.Text;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Models;
 using DevOpsMigrationPlatform.Abstractions.Services;
 using DevOpsMigrationPlatform.Abstractions.Telemetry;
 using Microsoft.Extensions.Logging;
@@ -14,13 +16,16 @@ namespace DevOpsMigrationPlatform.Infrastructure.Modules;
 
 /// <summary>
 /// Discovery module that counts work items and revisions per project across all configured
-/// organisations. Wraps <see cref="IInventoryService"/> and writes <c>discovery-summary.csv</c>
-/// to the artefact store. Checkpoints after each project so a 20+ hour run can resume.
+/// organisations. Wraps <see cref="IInventoryService"/> and writes <c>inventory.csv</c>
+/// and <c>inventory.json</c> to the artefact store. Checkpoints after each project so
+/// a 20+ hour run can resume. The JSON report is consumed by the dependency analysis
+/// pass to obtain grand totals before link analysis begins.
 /// </summary>
 public sealed class InventoryDiscoveryModule : IDiscoveryModule
 {
     private const string CursorKey = "Checkpoints/Inventory.cursor.json";
-    private const string OutputPath = "discovery-summary.csv";
+    private const string CsvOutputPath = "inventory.csv";
+    private const string JsonOutputPath = "inventory.json";
 
     private readonly IInventoryServiceFactory _inventoryFactory;
     private readonly ILogger<InventoryDiscoveryModule> _logger;
@@ -72,12 +77,15 @@ public sealed class InventoryDiscoveryModule : IDiscoveryModule
         var csvBuilder = new StringBuilder();
         csvBuilder.AppendLine("Url,ProjectName,WorkItemsCount,RevisionsCount,ReposCount,IsComplete,Error");
 
+        // Collect per-org/per-project data for the inventory.json report.
+        var orgProjectData = new Dictionary<string, List<(string Project, long WorkItems, long Revisions, int Repos, bool IsComplete, string? Error)>>(StringComparer.OrdinalIgnoreCase);
+
         // Build the set of completed project keys from the existing CSV so the
         // service can skip them entirely — zero API calls for already-counted projects.
         var completedKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         if (isResuming)
         {
-            var existingCsv = await store.ReadAsync(OutputPath, ct).ConfigureAwait(false);
+            var existingCsv = await store.ReadAsync(CsvOutputPath, ct).ConfigureAwait(false);
             if (existingCsv is not null)
             {
                 var lines = existingCsv.Split('\n');
@@ -90,7 +98,25 @@ public sealed class InventoryDiscoveryModule : IDiscoveryModule
 
                     var parts = trimmed.Split(',');
                     if (parts.Length >= 2)
-                        completedKeys.Add($"{UnescapeCsv(parts[0])}|{UnescapeCsv(parts[1])}");
+                    {
+                        var csvUrl = UnescapeCsv(parts[0]);
+                        var csvProject = UnescapeCsv(parts[1]);
+                        completedKeys.Add($"{csvUrl}|{csvProject}");
+
+                        // Populate orgProjectData from resumed CSV rows.
+                        if (parts.Length >= 5)
+                        {
+                            int.TryParse(parts[2], out var wi);
+                            int.TryParse(parts[3], out var rev);
+                            int.TryParse(parts[4], out var repos);
+                            if (!orgProjectData.TryGetValue(csvUrl, out var list))
+                            {
+                                list = new List<(string, long, long, int, bool, string?)>();
+                                orgProjectData[csvUrl] = list;
+                            }
+                            list.Add((csvProject, wi, rev, repos, true, null));
+                        }
+                    }
                 }
                 _logger.LogInformation(
                     "Loaded {Count} previously-completed project(s) from existing CSV.", completedKeys.Count);
@@ -133,8 +159,21 @@ public sealed class InventoryDiscoveryModule : IDiscoveryModule
                     RevisionsProcessed = evt.RevisionsCount,
                     AttachmentsProcessed = evt.ReposCount,
                     Message = $"{evt.Url} / {evt.ProjectName}: {evt.WorkItemsCount} work items so far…",
-                    Timestamp = DateTimeOffset.UtcNow
+                    Timestamp = DateTimeOffset.UtcNow,
+                    LastCheckpointAt = new DateTimeOffset(lastCheckpoint, TimeSpan.Zero),
+                    NextCheckpointDueAt = new DateTimeOffset(lastCheckpoint, TimeSpan.Zero) + checkpointInterval
                 });
+
+                // Flush CSV to disk at the checkpoint interval even mid-project so
+                // long-running projects (e.g. Petrel) produce visible output within minutes.
+                if (DateTime.UtcNow - lastCheckpoint >= checkpointInterval)
+                {
+                    await store.WriteAsync(CsvOutputPath, csvBuilder.ToString(), ct).ConfigureAwait(false);
+                    await WriteInventoryJsonAsync(store, orgProjectData, ct).ConfigureAwait(false);
+                    lastCheckpoint = DateTime.UtcNow;
+                    _logger.LogDebug("Inventory mid-project flush at checkpoint interval.");
+                }
+
                 continue;
             }
 
@@ -170,6 +209,14 @@ public sealed class InventoryDiscoveryModule : IDiscoveryModule
             csvBuilder.AppendLine(
                 $"{EscapeCsv(evt.Url)},{EscapeCsv(evt.ProjectName)},{evt.WorkItemsCount},{evt.RevisionsCount},{evt.ReposCount},{evt.IsComplete},{EscapeCsv(evt.Error ?? "")}");
 
+            // Collect per-project data for inventory.json.
+            if (!orgProjectData.TryGetValue(evt.Url, out var orgList))
+            {
+                orgList = new List<(string, long, long, int, bool, string?)>();
+                orgProjectData[evt.Url] = orgList;
+            }
+            orgList.Add((evt.ProjectName, evt.WorkItemsCount, evt.RevisionsCount, evt.ReposCount, evt.Error is null, evt.Error));
+
             projectSw.Stop();
             var projectTags = new TagList
             {
@@ -204,13 +251,19 @@ public sealed class InventoryDiscoveryModule : IDiscoveryModule
                 Message = evt.Error is not null
                     ? $"{evt.Url} / {evt.ProjectName}: failed — {evt.Error}"
                     : $"{evt.Url} / {evt.ProjectName}: {evt.WorkItemsCount} work items, {evt.RevisionsCount} revisions, {evt.ReposCount} repos",
-                Timestamp = DateTimeOffset.UtcNow
+                Timestamp = DateTimeOffset.UtcNow,
+                LastCheckpointAt = new DateTimeOffset(lastCheckpoint, TimeSpan.Zero),
+                NextCheckpointDueAt = new DateTimeOffset(lastCheckpoint, TimeSpan.Zero) + checkpointInterval
             });
 
-            // Checkpoint at configured interval.
+            // Flush CSV and JSON after every completed project so results are
+            // visible on disk immediately — not only at checkpoint intervals.
+            await store.WriteAsync(CsvOutputPath, csvBuilder.ToString(), ct).ConfigureAwait(false);
+            await WriteInventoryJsonAsync(store, orgProjectData, ct).ConfigureAwait(false);
+
+            // Checkpoint cursor at configured interval for resume support.
             if (DateTime.UtcNow - lastCheckpoint >= checkpointInterval)
             {
-                await store.WriteAsync(OutputPath, csvBuilder.ToString(), ct).ConfigureAwait(false);
                 await WriteCursorAsync(state, projectKey, ct).ConfigureAwait(false);
                 lastCheckpoint = DateTime.UtcNow;
                 metrics?.RecordCheckpointSaved(new TagList { { "job.id", job.JobId }, { "module", Name } });
@@ -234,8 +287,9 @@ public sealed class InventoryDiscoveryModule : IDiscoveryModule
             metrics?.OrganisationCompleted(finalOrgTags);
         }
 
-        // Final write.
-        await store.WriteAsync(OutputPath, csvBuilder.ToString(), ct).ConfigureAwait(false);
+        // Final write — CSV and JSON.
+        await store.WriteAsync(CsvOutputPath, csvBuilder.ToString(), ct).ConfigureAwait(false);
+        await WriteInventoryJsonAsync(store, orgProjectData, ct).ConfigureAwait(false);
         await state.DeleteAsync(CursorKey, ct).ConfigureAwait(false);
 
         sink.Emit(new ProgressEvent
@@ -247,6 +301,62 @@ public sealed class InventoryDiscoveryModule : IDiscoveryModule
         });
 
         _logger.LogInformation("Inventory module completed for job {JobId}.", job.JobId);
+    }
+
+    /// <summary>
+    /// Builds an <see cref="InventoryReport"/> from the collected per-org/per-project data
+    /// and writes it to the artefact store as <c>inventory.json</c>.
+    /// </summary>
+    private static async Task WriteInventoryJsonAsync(
+        IArtefactStore store,
+        Dictionary<string, List<(string Project, long WorkItems, long Revisions, int Repos, bool IsComplete, string? Error)>> orgProjectData,
+        CancellationToken ct)
+    {
+        var organisations = orgProjectData.Select(kvp =>
+        {
+            var projects = kvp.Value.Select(p => new ProjectInventory
+            {
+                Name = p.Project,
+                WorkItems = p.WorkItems,
+                Revisions = p.Revisions,
+                Repos = p.Repos,
+                IsComplete = p.IsComplete,
+                Error = p.Error
+            }).ToList();
+
+            return new OrganisationInventory
+            {
+                Url = kvp.Key,
+                Totals = new InventoryTotals
+                {
+                    WorkItems = projects.Sum(p => p.WorkItems),
+                    Revisions = projects.Sum(p => p.Revisions),
+                    Repos = projects.Sum(p => p.Repos),
+                    Projects = projects.Count
+                },
+                Projects = projects
+            };
+        }).ToList();
+
+        var report = new InventoryReport
+        {
+            GeneratedAt = DateTimeOffset.UtcNow,
+            Totals = new InventoryTotals
+            {
+                WorkItems = organisations.Sum(o => o.Totals.WorkItems),
+                Revisions = organisations.Sum(o => o.Totals.Revisions),
+                Repos = organisations.Sum(o => o.Totals.Repos),
+                Projects = organisations.Sum(o => o.Totals.Projects)
+            },
+            Organisations = organisations
+        };
+
+        var json = JsonSerializer.Serialize(report, new JsonSerializerOptions
+        {
+            WriteIndented = true,
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+        });
+        await store.WriteAsync(JsonOutputPath, json, ct).ConfigureAwait(false);
     }
 
     private static async Task<string?> ReadCursorAsync(IStateStore state, CancellationToken ct)

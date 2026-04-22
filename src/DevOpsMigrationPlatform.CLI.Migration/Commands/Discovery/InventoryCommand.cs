@@ -4,6 +4,8 @@ using System.ComponentModel;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Text.Json;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
@@ -13,6 +15,7 @@ using DevOpsMigrationPlatform.CLI.JobRunners;
 using DevOpsMigrationPlatform.CLI.Migration.Commands;
 using DevOpsMigrationPlatform.CLI.Migration.Options;
 using DevOpsMigrationPlatform.CLI.Migration.Settings;
+using DevOpsMigrationPlatform.CLI.Migration.Utilities;
 using DevOpsMigrationPlatform.Infrastructure.AzureDevOps;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
@@ -138,6 +141,8 @@ public sealed class InventoryCommand : ControlPlaneCommandBase<InventoryCommand.
         // Status message shown below the table during long resume skips.
         string statusMessage = "";
         var startTime = DateTimeOffset.UtcNow;
+        DateTimeOffset? latestCheckpointAt = null;
+        DateTimeOffset? nextCheckpointDueAt = null;
 
         try
         {
@@ -166,7 +171,9 @@ public sealed class InventoryCommand : ControlPlaneCommandBase<InventoryCommand.
                             if (!string.IsNullOrEmpty(evt.Message))
                                 statusMessage = evt.Message;
 
-                            ctx.UpdateTarget(BuildLivePanel(summaries.Values, statusMessage, startTime));
+                            latestCheckpointAt = evt.LastCheckpointAt ?? latestCheckpointAt;
+                            nextCheckpointDueAt = evt.NextCheckpointDueAt;
+                            ctx.UpdateTarget(BuildLivePanel(summaries.Values, statusMessage, startTime, latestCheckpointAt, nextCheckpointDueAt));
                         }
                     });
             }
@@ -211,6 +218,10 @@ public sealed class InventoryCommand : ControlPlaneCommandBase<InventoryCommand.
         }
 
         console.MarkupLine($"\n[green]✅ Inventory complete.[/] Results written to [blue]{Markup.Escape(outputPath)}[/]");
+
+        // ── Post-processing: fan out per-org/per-project inventory files ──────
+        FanOutInventoryFiles(outputPath, console);
+
         return 0;
     }
 
@@ -291,13 +302,13 @@ public sealed class InventoryCommand : ControlPlaneCommandBase<InventoryCommand.
     /// Builds the live display content: the inventory table plus a status line showing
     /// current activity (e.g. "Skipping completed project…" during resume).
     /// </summary>
-    private static IRenderable BuildLivePanel(IEnumerable<InventorySummary> summaries, string statusMessage, DateTimeOffset startTime)
+    private static IRenderable BuildLivePanel(IEnumerable<InventorySummary> summaries, string statusMessage, DateTimeOffset startTime, DateTimeOffset? lastCheckpointAt = null, DateTimeOffset? nextCheckpointDueAt = null)
     {
         var table = BuildTable(summaries);
         var parts = new List<IRenderable> { table };
 
         // Throughput stats panel
-        var stats = BuildThroughputPanel(summaries, startTime);
+        var stats = BuildThroughputPanel(summaries, startTime, lastCheckpointAt, nextCheckpointDueAt);
         if (stats is not null)
             parts.Add(stats);
 
@@ -311,7 +322,7 @@ public sealed class InventoryCommand : ControlPlaneCommandBase<InventoryCommand.
     /// Builds a throughput stats panel showing rates, elapsed time, and ETA.
     /// Returns null if no meaningful data is available yet.
     /// </summary>
-    private static IRenderable? BuildThroughputPanel(IEnumerable<InventorySummary> summaries, DateTimeOffset startTime)
+    private static IRenderable? BuildThroughputPanel(IEnumerable<InventorySummary> summaries, DateTimeOffset startTime, DateTimeOffset? lastCheckpointAt = null, DateTimeOffset? nextCheckpointDueAt = null)
     {
         var elapsed = DateTimeOffset.UtcNow - startTime;
         if (elapsed.TotalSeconds < 1)
@@ -362,6 +373,20 @@ public sealed class InventoryCommand : ControlPlaneCommandBase<InventoryCommand.
             }
         }
 
+        // Checkpoint safety indicator
+        if (nextCheckpointDueAt is null && lastCheckpointAt is not null)
+        {
+            statsTable.AddRow("[dim]Checkpoint[/]", "[green]✓ Safe to cancel (per-item)[/]");
+        }
+        else if (nextCheckpointDueAt is not null)
+        {
+            var cpRemaining = nextCheckpointDueAt.Value - DateTimeOffset.UtcNow;
+            if (cpRemaining <= TimeSpan.Zero)
+                statsTable.AddRow("[dim]Checkpoint[/]", "[green]✓ Save point due now[/]");
+            else
+                statsTable.AddRow("[dim]Checkpoint[/]", $"[yellow]⏳ Next save in {FormatTimeSpan(cpRemaining)}[/]");
+        }
+
         return new Panel(statsTable)
             .Header("[bold yellow]Throughput[/]")
             .RoundedBorder()
@@ -377,4 +402,110 @@ public sealed class InventoryCommand : ControlPlaneCommandBase<InventoryCommand.
             return $"{(int)ts.TotalMinutes}m {ts.Seconds:D2}s";
         return $"{ts.Seconds}s";
     }
+
+    // ── Per-org/per-project fan-out ───────────────────────────────────────────
+
+    /// <summary>
+    /// Reads <c>inventory.json</c> from the output root and writes per-org and
+    /// per-project <c>inventory.json</c> / <c>inventory.csv</c> files into the
+    /// <c>&lt;org&gt;/&lt;project&gt;/</c> folder hierarchy.
+    /// </summary>
+    internal static void FanOutInventoryFiles(string outputPath, IAnsiConsole console)
+    {
+        var jsonPath = Path.Combine(outputPath, "inventory.json");
+        if (!File.Exists(jsonPath))
+            return;
+
+        InventoryReport? report;
+        try
+        {
+            var json = File.ReadAllText(jsonPath);
+            report = JsonSerializer.Deserialize<InventoryReport>(json, new JsonSerializerOptions
+            {
+                PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+            });
+        }
+        catch
+        {
+            return; // non-fatal — root files are still valid
+        }
+
+        if (report?.Organisations is null)
+            return;
+
+        var jsonOpts = new JsonSerializerOptions
+        {
+            WriteIndented = true,
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+        };
+
+        foreach (var org in report.Organisations)
+        {
+            var orgFolderName = SanitiseFolderName(org.Url);
+            var orgDir = Path.Combine(outputPath, orgFolderName);
+            Directory.CreateDirectory(orgDir);
+
+            // Org-level inventory.json
+            var orgReport = new InventoryReport
+            {
+                GeneratedAt = report.GeneratedAt,
+                Totals = org.Totals,
+                Organisations = new[] { org }
+            };
+            File.WriteAllText(Path.Combine(orgDir, "inventory.json"),
+                JsonSerializer.Serialize(orgReport, jsonOpts));
+
+            // Org-level inventory.csv
+            WriteCsv(Path.Combine(orgDir, "inventory.csv"), org.Projects);
+
+            foreach (var proj in org.Projects)
+            {
+                var projDir = Path.Combine(orgDir, proj.Name);
+                Directory.CreateDirectory(projDir);
+
+                // Project-level inventory.json
+                var projOrg = new OrganisationInventory
+                {
+                    Url = org.Url,
+                    Totals = new InventoryTotals
+                    {
+                        WorkItems = proj.WorkItems,
+                        Revisions = proj.Revisions,
+                        Repos = proj.Repos,
+                        Projects = 1
+                    },
+                    Projects = new[] { proj }
+                };
+                var projReport = new InventoryReport
+                {
+                    GeneratedAt = report.GeneratedAt,
+                    Totals = projOrg.Totals,
+                    Organisations = new[] { projOrg }
+                };
+                File.WriteAllText(Path.Combine(projDir, "inventory.json"),
+                    JsonSerializer.Serialize(projReport, jsonOpts));
+
+                // Project-level inventory.csv
+                WriteCsv(Path.Combine(projDir, "inventory.csv"), new[] { proj });
+            }
+        }
+
+        console.MarkupLine($"[green]✓[/] Per-org/per-project inventory files written to [blue]{Markup.Escape(outputPath)}[/]");
+    }
+
+    private static void WriteCsv(string path, IEnumerable<ProjectInventory> projects)
+    {
+        using var w = new StreamWriter(path, false, new UTF8Encoding(false));
+        w.WriteLine("ProjectName,WorkItems,Revisions,Repos,IsComplete,Error");
+        foreach (var p in projects)
+            w.WriteLine($"{CsvEscape(p.Name)},{p.WorkItems},{p.Revisions},{p.Repos},{p.IsComplete},{CsvEscape(p.Error ?? "")}");
+    }
+
+    private static string CsvEscape(string value) =>
+        value.Contains(',') || value.Contains('"') || value.Contains('\n')
+            ? $"\"{value.Replace("\"", "\"\"")}\""
+            : value;
+
+    private static string SanitiseFolderName(string url) =>
+        PathUtilities.ExtractOrgFolderName(url);
 }

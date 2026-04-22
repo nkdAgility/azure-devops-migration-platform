@@ -138,6 +138,11 @@ public sealed class CliRunner
         // push telemetry to Application Insights.
         psi.Environment["Telemetry__AzureMonitorConnectionString"] = "";
 
+        // Bind the in-process control plane to a dedicated test port (5101) so that
+        // system tests do not collide with a locally running dev instance on port 5100.
+        psi.Environment["MigrationPlatform__Environment__ControlPlane__BaseUrl"] =
+            ControlPlaneHostRunner.DefaultUrl;
+
         foreach (var arg in args)
             psi.ArgumentList.Add(arg);
 

@@ -205,8 +205,8 @@ Discovery commands run **locally** and do **not** submit a `MigrationJob` to the
 
 | Command | Description |
 |---|---|
-| `discovery inventory` | Count work items and revisions per project. Read-only pre-flight operation. Results written to `discovery-summary.csv`. Accepts `--output <dir>` to override the config's `Artefacts.WorkingDirectory`. |
-| `discovery dependencies` | Analyse cross-project and cross-organisation work item links. Results written to `dependencies.csv` in the output directory. Accepts `--output <dir>` to override the config's `Artefacts.WorkingDirectory`. |
+| `discovery inventory` | Count work items and revisions per project. Read-only pre-flight operation. Results written to `inventory.csv` and `inventory.json` at the output root plus per-org/per-project subfolders. Accepts `--output <dir>` to override the config's `Artefacts.WorkingDirectory`. |
+| `discovery dependencies` | Analyse cross-project and cross-organisation work item links. Loads `inventory.json` (if present) for grand totals before analysis. Results written to `dependencies.csv` in the output directory. Accepts `--output <dir>` to override the config's `Artefacts.WorkingDirectory`. |
 
 ### Configuration Management (`config`)
 
@@ -277,7 +277,7 @@ devopsmigration controlplane start --port 5200
 devopsmigration tui
 ```
 
-> **Note**: `discovery *` commands run locally and read the config directly. They do not submit a `MigrationJob` to the control plane. Results are written to `discovery-summary.csv` in the `--output` directory (default: current working directory).
+> **Note**: `discovery *` commands run locally and read the config directly. They do not submit a `MigrationJob` to the control plane. Results are written to `inventory.csv` / `inventory.json` (inventory) and `dependencies.csv` (dependencies) in the `--output` directory (default: current working directory).
 
 ---
 
