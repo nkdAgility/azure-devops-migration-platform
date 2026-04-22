@@ -59,6 +59,35 @@ CreatedOrUpdated → AppliedFields → AppliedLinks → UploadedAttachments → 
 
 The cursor is written after each stage completes. A crash between stages leaves the cursor at the last completed stage, enabling fine-grained resume.
 
+### Query Fingerprint Compatibility (Resumable Batching)
+
+When `IWorkItemFetchService` callers opt in to resumable batching (`ResumeEnabled = true`), a query fingerprint is computed and stored alongside the `BatchContinuationToken`. This fingerprint gates resume safety.
+
+#### Fingerprint Scope
+
+`IQueryFingerprintService` computes a deterministic SHA-256 hash from:
+- The WIQL query text (normalised)
+- Lexicographically sorted query parameters
+
+Post-fetch filters (e.g. `WorkItemFieldFilterEvaluator`) are explicitly **excluded** from the fingerprint. They are caller-level post-processing, not part of the enumeration contract.
+
+#### Mismatch Decision Behavior
+
+On resume, the fetch service compares the current fingerprint with the one stored in the saved token:
+
+| Condition | Outcome |
+|-----------|---------|
+| Fingerprints match | `ResumeDecision.Accepted` — enumeration continues from saved position |
+| Fingerprints differ | `ResumeDecision.RejectedQueryMismatch` — `ResumeRejectedException` thrown with both fingerprints in payload |
+| Token missing/malformed | `ResumeDecision.Unavailable` — start from beginning (no exception) |
+| Unknown `StrategyVersion` | `ResumeDecision.RejectedQueryMismatch` with reason `"incompatible_strategy_version"` |
+
+The strategy never auto-recovers from mismatch. Callers own the recovery decision (fail, discard + fresh start, or log and continue).
+
+#### Continuation Token Storage
+
+Continuation tokens are stored under `.migration/Checkpoints/` via `ICheckpointingService` methods (`ReadContinuationTokenAsync`, `WriteContinuationTokenAsync`, `DeleteContinuationTokenAsync`). The path is resolved by `PackagePaths.ContinuationFile()`. These paths do not conflict with existing cursor files.
+
 ### Per-Module Cursors
 
 Each module maintains its own cursor file under `.migration/Checkpoints/`:

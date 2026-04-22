@@ -444,6 +444,66 @@ await orchestrator.ExportAsync(source, ct);
 
 ---
 
+## 11. Resumable Batching Contract
+
+### Overview
+
+`IWorkItemFetchService` and `IWorkItemQueryWindowStrategy` support resumable batching for inventory, dependency analysis, and discovery callers. This allows long-running enumeration to resume from a saved `BatchContinuationToken` rather than reprocessing the entire project.
+
+Resume is **opt-in** via `WorkItemFetchScope.ResumeEnabled` (default `false`). Non-resume callers experience zero behavioral change.
+
+### BatchContinuationToken
+
+A sealed record emitted per-batch and once at end-of-stream. Fields:
+
+| Field | Type | Purpose |
+|-------|------|---------|
+| `StrategyVersion` | `string` | Schema version for token compatibility |
+| `ChangedDateUtc` | `DateTime` | Primary resume key — last processed ChangedDate |
+| `WorkItemId` | `int` | Secondary resume key — deterministic tie-breaker |
+| `QueryFingerprint` | `string` | SHA-256 of (WIQL query text + sorted parameters) |
+| `Completed` | `bool` | `true` = end-of-stream; safe to skip entirely on next resume |
+| `GeneratedAtUtc` | `DateTime` | Diagnostic timestamp |
+
+Tokens with `Completed = true` allow callers to detect a previously finished enumeration and skip it on the next run.
+
+### ResumeDecision
+
+Evaluated once at the start of `FetchAsync()`:
+
+| Status | Meaning | Delivery |
+|--------|---------|----------|
+| `Accepted` | Token valid; enumeration continues from saved position | Structured log + OTel metric |
+| `RejectedQueryMismatch` | Query fingerprint mismatch | `ResumeRejectedException` thrown (extends `InvalidOperationException`; carries `ResumeDecision` payload) |
+| `Unavailable` | No saved token; start fresh | Info-level log; no exception |
+
+### Caller Responsibilities
+
+1. **Checkpoint persistence**: The strategy emits `BatchContinuationToken` via `ContinuationCheckpointWriter` callback. Callers choose persistence cadence (every batch, every N batches, etc.). The strategy does **not** persist state.
+2. **Duplicate handling**: Resume with source drift may yield the same work item ID in multiple windows. Callers must use idempotent persistence or explicit dedup. The strategy does **not** deduplicate.
+3. **Mismatch recovery**: On `ResumeRejectedException`, callers decide whether to fail, discard the token and start fresh, or log and continue. The strategy does not auto-recover.
+4. **Completion checkpoint**: Callers must persist the final `BatchContinuationToken` (with `Completed = true`) emitted at end-of-stream to enable safe skip on next run.
+
+### Query Fingerprint
+
+`IQueryFingerprintService` computes a deterministic SHA-256 hash from the WIQL query text and sorted query parameters. Post-fetch filters (e.g. `WorkItemFieldFilterEvaluator`) are explicitly **excluded** from the fingerprint — they are caller-level post-processing, not part of the enumeration contract.
+
+### Ordering
+
+When resume is enabled, the window strategy uses `ORDER BY [System.ChangedDate] ASC, [System.Id] ASC` (oldest-first). This ordering is drift-tolerant: items edited after the cursor has advanced appear later in sequence and are processed on subsequent continuation.
+
+Non-resume callers retain the existing traversal behavior.
+
+### Backward Compatibility
+
+- `WorkItemFetchScope.ResumeEnabled` defaults to `false` — zero behavioral change for existing callers.
+- `WorkItemQueryWindowOptions.SavedContinuationToken` defaults to `null`.
+- `ContinuationCheckpointWriter` defaults to `null`. If `null` and `ResumeEnabled = true`, a warning log is emitted and checkpoints are silently skipped.
+- New `ICheckpointingService` continuation token methods are additive; existing cursor methods are unchanged.
+- `PackagePaths.ContinuationFile()` does not conflict with existing `CursorFile()`.
+
+---
+
 ## References
 
 - `DevOpsMigrationPlatform.Infrastructure.Export.WorkItemExportOrchestrator` — the canonical export implementation
