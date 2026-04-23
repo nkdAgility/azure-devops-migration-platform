@@ -72,7 +72,8 @@ public static class Extensions
                        // These meters are defined in Infrastructure/Telemetry/ and recorded
                        // by the Migration Agent during job execution.
                        .AddMeter(DevOpsMigrationPlatform.Abstractions.WellKnownMeterNames.Migration)
-                       .AddMeter(DevOpsMigrationPlatform.Abstractions.WellKnownMeterNames.Discovery);
+                       .AddMeter(DevOpsMigrationPlatform.Abstractions.WellKnownMeterNames.Discovery)
+                       .AddMeter(DevOpsMigrationPlatform.Abstractions.WellKnownMeterNames.ControlPlane);
             })
             .WithTracing(tracing =>
             {

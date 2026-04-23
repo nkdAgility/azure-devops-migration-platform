@@ -15,6 +15,9 @@ public static class WellKnownMeterNames
     /// <summary>Consolidated meter for all discovery metrics (inventory + dependencies).</summary>
     public const string Discovery = "DevOpsMigrationPlatform.Discovery";
 
+    /// <summary>Meter for job lifecycle metrics (queue depth, in-progress, total runs).</summary>
+    public const string ControlPlane = "DevOpsMigrationPlatform.ControlPlane";
+
     [Obsolete("Use Migration. Will be removed in next major version.")]
     public const string WorkItemExport = "DevOpsMigrationPlatform.WorkItemExport";
 

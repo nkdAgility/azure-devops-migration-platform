@@ -37,6 +37,7 @@ public static class TelemetryServiceExtensions
         services.AddSingleton<IJobSnapshotStore, InMemoryJobSnapshotStore>();
         services.AddSingleton<IMigrationMetrics, MigrationMetrics>();
         services.AddSingleton<IDiscoveryMetrics, DiscoveryMetrics>();
+        services.AddSingleton<IJobLifecycleMetrics, JobLifecycleMetrics>();
 
         // Add SnapshotMetricExporter to the OTel metrics pipeline via a
         // PeriodicExportingMetricReader driven by SnapshotIntervalSeconds.
