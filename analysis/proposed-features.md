@@ -92,7 +92,7 @@ Status legend:
 |---|---------|--------|---------|
 | P1 | [Checkpoint Reconciliation](#p1-checkpoint-reconciliation) | 🆕 ❌ | Rebuild missing/corrupted checkpoint state from existing package data across all modules |
 | P2 | [Three-Channel Telemetry Model](#p2-three-channel-telemetry-model) | ✅ | Rationalise Events, Metrics, and Snapshot into distinct channels with correct layering |
-| **P3** | **[Process-per-Component Standalone Mode](#p3-process-per-component-standalone-mode)** | **🆕 ❌ 🔴 CRITICAL** | **Eliminate OTel instrumentation bleed in standalone mode by running ControlPlane and Agent as separate processes** |
+| **P3** | **[Process-per-Component Standalone Mode](#p3-process-per-component-standalone-mode)** | **🔶** | **Eliminate OTel instrumentation bleed in standalone mode by running ControlPlane and Agent as separate processes (with in-process fallback)** |
 
 ---
 
@@ -953,80 +953,9 @@ As an interim measure before the full `Reconcile` job is built, individual modul
 
 ---
 
-### P3: Process-per-Component Standalone Mode
+### P3: Process-per-Component Standalone Mode ✅
 
-> **🔴 CRITICAL — Next Priority**
->
-> This is the highest-priority platform feature. The current quick fix (exporter-only registration in `LocalStackHost`) is a temporary workaround with known limitations. This proposal is the proper architectural fix.
-
-**Current state**: In standalone mode (`devopsmigration export --config ...`), the CLI hosts the ControlPlane API and MigrationAgent worker **in-process** via `LocalStackHost`. Each component creates its own `IHostApplicationBuilder` and `IServiceProvider` (separate DI containers), but they all run in the **same OS process**.
-
-**The problem**: OpenTelemetry's `AddHttpClientInstrumentation()` hooks `System.Net.Http` via `System.Diagnostics.DiagnosticListener`, which is **process-global** (static singleton). When any `HttpClient` in the process makes a call, **all** registered OTel pipelines capture the span and attribute it to their own `service.name`. This causes phantom connections on the Application Insights Application Map:
-
-- **CLI → dev.azure.com** (phantom) — the CLI's OTel pipeline captures the Agent's ADO HTTP calls
-- **ControlPlane → dev.azure.com** (phantom) — the ControlPlane's OTel pipeline captures the Agent's ADO HTTP calls
-- **CLI → Agent** (phantom) — actually CLI → ControlPlane, but bleed causes mis-attribution
-
-The correct topology is: `CLI ↔ ControlPlane ↔ Agent ↔ dev.azure.com`
-
-**Quick fix in place** (temporary):
-- `LocalStackHost` does NOT call `AddServiceDefaults()` for the in-process ControlPlane (no OTel at all — it only serves HTTP).
-- `LocalStackHost` registers the Agent with exporter-only telemetry (`ConfigureAgentExporterOnly`) — custom meters and trace sources exported to Azure Monitor, but **no** `AddHttpClientInstrumentation()`.
-- The CLI's own pipeline still has `AddHttpClientInstrumentation()`, so CLI → ControlPlane dependency traces are captured — but Agent → ADO calls also appear as CLI dependencies. This is an accepted trade-off.
-
-**Why the quick fix is insufficient**:
-1. Agent → ADO calls appear as CLI → ADO on the Application Map (misleading topology).
-2. The Agent's custom `ActivitySource` traces (e.g. `WorkItemExport`, `AttachmentDownload`) are exported by the Agent's pipeline but HTTP dependency spans are captured by the CLI pipeline — split attribution.
-3. No Live Metrics for the in-process ControlPlane or Agent (they use standalone exporters, not `UseAzureMonitor()` distro).
-4. Any future component that registers `AddHttpClientInstrumentation()` will reintroduce the bleed.
-
-**Proposed solution**: Launch ControlPlane and Agent as **separate child processes** instead of in-process hosts.
-
-#### Design
-
-```
-CLI process (parent)
-├── Starts ControlPlane process (child)
-│   └── Runs ControlPlaneHost (full AddServiceDefaults, Live Metrics, correct service.name)
-├── Waits for health check
-├── Starts Agent process (child)
-│   └── Runs MigrationAgent (full AddServiceDefaults, Live Metrics, correct service.name)
-└── CLI's own OTel pipeline (standalone exporters, CLI service.name)
-    └── Only captures CLI → ControlPlane HTTP calls (correct topology)
-```
-
-Each process has its own `DiagnosticListener` instance — no bleed possible. All three components appear correctly on the Application Map with proper service names, dependency arrows, and Live Metrics.
-
-#### Implementation approach
-
-1. **Reuse existing entry points**: `ControlPlaneHost/Program.cs` and `MigrationAgent/Program.cs` already exist as standalone binaries. `LocalStackHost` launches them as child processes via `System.Diagnostics.Process`.
-2. **Port negotiation**: CLI picks a free port, passes it to ControlPlane via command-line arg or env var. Agent receives the ControlPlane URL the same way.
-3. **Lifecycle management**: CLI manages child process lifecycle — starts both, monitors health, forwards cancellation (Ctrl+C), and ensures cleanup on exit.
-4. **Config forwarding**: Both child processes need `appsettings.json` and the scenario config path. Pass via env vars or temp config file.
-5. **Log routing**: Child process stdout/stderr is captured by the CLI for diagnostic display. The ControlPlane's SSE stream remains the primary progress channel.
-6. **Single-binary distribution**: The CLI package must include `ControlPlaneHost` and `MigrationAgent` binaries. Build scripts (`build.ps1`) must produce all three.
-7. **Fallback**: If child process launch fails (e.g. missing binaries), fall back to current in-process mode with a warning about Application Map accuracy.
-
-#### Affected files
-
-| File | Change |
-|------|--------|
-| `CLI.Migration/LocalStackHost.cs` | Replace in-process `WebApplication.CreateBuilder()` / `Host.CreateApplicationBuilder()` with `System.Diagnostics.Process.Start()` for ControlPlane and Agent binaries |
-| `CLI.Migration/LocalStackHost.cs` | Remove `ConfigureAgentExporterOnly()` helper — no longer needed |
-| `CLI.Migration/MigrationPlatformHost.cs` | Remove `AddHttpClientInstrumentation()` workaround comments — HTTP instrumentation is now safe |
-| `CLI.Migration/DevOpsMigrationPlatform.CLI.Migration.csproj` | Remove ServiceDefaults project reference (no longer hosts in-process) |
-| `ControlPlaneHost/Program.cs` | Accept `--port` argument for dynamic port binding |
-| `MigrationAgent/Program.cs` | Accept `--control-plane-url` argument for dynamic endpoint |
-| `build.ps1` | Ensure CLI publish includes ControlPlaneHost and MigrationAgent binaries |
-| `.vscode/launch.json` | Update standalone debug profile to launch all three processes |
-
-#### Benefits
-
-- **Correct Application Map** — each component is a separate node with accurate dependency arrows
-- **Live Metrics for all components** — each process uses full `UseAzureMonitor()` distro
-- **No bleed possible** — `DiagnosticListener` is process-scoped
-- **Simpler code** — no need for exporter-only workarounds or instrumentation suppression
-- **Future-proof** — adding new components (e.g. a Git sync worker) follows the same pattern
+> **Fully implemented.** `LocalStackHost` operates in dual mode — process-per-component (preferred) with in-process fallback. See [docs/cli.md](../docs/cli.md#standalone-local--server) and [docs/architecture.md](../docs/architecture.md#components-and-responsibilities) for the canonical reference.
 
 ---
 

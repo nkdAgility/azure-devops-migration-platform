@@ -22,18 +22,21 @@ public sealed class ProgressController : ControllerBase
     private readonly IJobStore _jobStore;
     private readonly ILeaseJobResolver _resolver;
     private readonly ILogger<ProgressController> _logger;
+    private readonly JobMetricsStore _metricsStore;
 
     private readonly DiagnosticLogStore _diagnosticStore;
 
     public ProgressController(
         JobProgressStore store,
         DiagnosticLogStore diagnosticStore,
+        JobMetricsStore metricsStore,
         IJobStore jobStore,
         ILeaseJobResolver resolver,
         ILogger<ProgressController> logger)
     {
         _store = store;
         _diagnosticStore = diagnosticStore;
+        _metricsStore = metricsStore;
         _jobStore = jobStore;
         _resolver = resolver;
         _logger = logger;
@@ -53,6 +56,13 @@ public sealed class ProgressController : ControllerBase
             return NotFound($"Lease '{leaseId}' is not recognised.");
 
         _store.Append(jobId.Value, evt);
+
+        // Forward Channel 1 metrics to the metrics store so the bootstrap endpoint
+        // and telemetry polling return data immediately — without waiting for the
+        // Channel 2 SnapshotMetricExporter → ControlPlaneTelemetryTimer push cycle.
+        if (evt.Metrics is not null)
+            _metricsStore.Store(jobId.Value, evt.Metrics);
+
         // First ProgressEvent transitions job from Leased → Running
         _jobStore.SetState(jobId.Value, "Running");
         return NoContent();

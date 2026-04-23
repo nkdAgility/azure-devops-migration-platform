@@ -98,12 +98,20 @@ public static class MigrationPlatformHost
         var telOpts = new TelemetryOptions();
         configuration.GetSection(TelemetryOptions.SectionName).Bind(telOpts);
 
+        // Read deployment context so Application Insights can distinguish
+        // Standalone vs Hosted runs and correlate with a specific control plane.
+        var envSection = configuration.GetSection("MigrationPlatform:Environment");
+        var deploymentMode = envSection["Type"] ?? "Standalone";
+        var controlPlaneUrl = envSection["ControlPlane:BaseUrl"] ?? "http://localhost:5100";
+
         services.AddOpenTelemetry()
             .ConfigureResource(rb => rb.AddAttributes(
                 new System.Collections.Generic.Dictionary<string, object>
                 {
                     { "service.name", WellKnownServiceNames.Cli },
-                    { "service.namespace", WellKnownServiceNames.Namespace }
+                    { "service.namespace", WellKnownServiceNames.Namespace },
+                    { WellKnownResourceAttributes.DeploymentMode, deploymentMode },
+                    { WellKnownResourceAttributes.ControlPlaneUrl, controlPlaneUrl }
                 }))
             .WithTracing(b =>
             {

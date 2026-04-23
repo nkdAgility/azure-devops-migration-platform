@@ -33,9 +33,11 @@ public static class MigrationAgentServiceExtensions
         builder.Services.AddTelemetryServices(builder.Configuration);
 
         // Register WellKnownMeterNames meters in the OTel pipeline.
+        // Use ConfigureOpenTelemetryMeterProvider (the pattern recommended by the
+        // Azure Monitor docs) so the subscription runs on the same MeterProvider
+        // that UseAzureMonitor() exports from.
         // Do NOT reference WorkItemExportMetrics.MeterName (lives in the .NET 4.8 assembly).
-        builder.Services.AddOpenTelemetry()
-            .WithMetrics(mb => mb
+        builder.Services.ConfigureOpenTelemetryMeterProvider((sp, mb) => mb
                 .AddMeter(WellKnownMeterNames.Migration)
                 .AddMeter(WellKnownMeterNames.Discovery)
 #pragma warning disable CS0618 // Obsolete — retained for transition

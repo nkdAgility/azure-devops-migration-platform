@@ -9,6 +9,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Infrastructure.Serialization;
+using DevOpsMigrationPlatform.Infrastructure.Telemetry;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 
@@ -41,6 +42,8 @@ public sealed class JobAgentWorker : BackgroundService
     private readonly IPhaseTrackingServiceFactory _phaseTrackingFactory;
     private readonly IJobMetricsStore _metricsStore;
     private readonly IJobSnapshotStore _snapshotStore;
+    private readonly PackageProgressSink _packageProgressSink;
+    private readonly PackageLoggerProvider _packageLoggerProvider;
     private readonly ILogger<JobAgentWorker> _logger;
 
     public JobAgentWorker(
@@ -55,6 +58,8 @@ public sealed class JobAgentWorker : BackgroundService
         IPhaseTrackingServiceFactory phaseTrackingFactory,
         IJobMetricsStore metricsStore,
         IJobSnapshotStore snapshotStore,
+        PackageProgressSink packageProgressSink,
+        PackageLoggerProvider packageLoggerProvider,
         ILogger<JobAgentWorker> logger,
         PolymorphicEndpointOptionsConverter? endpointConverter = null)
     {
@@ -69,6 +74,8 @@ public sealed class JobAgentWorker : BackgroundService
         _phaseTrackingFactory = phaseTrackingFactory;
         _metricsStore = metricsStore;
         _snapshotStore = snapshotStore;
+        _packageProgressSink = packageProgressSink;
+        _packageLoggerProvider = packageLoggerProvider;
         _logger = logger;
         _jsonOptions = new JsonSerializerOptions
         {
@@ -154,6 +161,15 @@ public sealed class JobAgentWorker : BackgroundService
         }
 
         _leaseState.CurrentLeaseId = null;
+
+        // Flush buffered log and progress records to the package before clearing
+        // the store reference. Both sinks use background drain loops with a 500ms
+        // interval — without an explicit flush, records buffered after the last
+        // drain tick would be lost, especially in process-per-component mode where
+        // the CLI kills child processes immediately after job completion.
+        await _packageProgressSink.FlushAsync().ConfigureAwait(false);
+        await _packageLoggerProvider.FlushAsync().ConfigureAwait(false);
+
         _packageState.Clear();
     }
 

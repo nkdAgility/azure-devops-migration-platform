@@ -37,7 +37,7 @@ public sealed class TuiJobListView : FrameView, IDisposable
         _refreshTimer = new Timer(
             _ => _ = FetchAndRefreshAsync(),
             null,
-            dueTime: refreshIntervalMs,
+            dueTime: 0,
             period: refreshIntervalMs);
 
         _emptyLabel = new Label

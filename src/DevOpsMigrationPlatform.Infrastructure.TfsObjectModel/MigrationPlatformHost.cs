@@ -188,6 +188,7 @@ public static class MigrationPlatformHost
                     rb.AddAttributes(new System.Collections.Generic.KeyValuePair<string, object>[]
                     {
                         new("service.namespace", WellKnownServiceNames.Namespace),
+                        new(WellKnownResourceAttributes.DeploymentMode, "Standalone"),
                         new("session.id", sessionId),
                         new("tfs.server", settings.TfsServer.ToString()),
                         new("tfs.project", settings.Project)

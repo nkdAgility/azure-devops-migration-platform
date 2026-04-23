@@ -22,3 +22,25 @@ public static class WellKnownServiceNames
     /// <summary>TFS Object Model export subprocess (.NET Framework).</summary>
     public const string TfsExport = "TfsExport";
 }
+
+/// <summary>
+/// OTel resource attribute key constants for deployment context.
+/// These appear as custom dimensions in Application Insights and enable
+/// filtering by deployment mode and control plane URL.
+/// </summary>
+public static class WellKnownResourceAttributes
+{
+    /// <summary>
+    /// Resource attribute key for the deployment mode (<c>Standalone</c> or <c>Hosted</c>).
+    /// Allows Application Insights queries to distinguish local-only runs from
+    /// remote/cloud deployments.
+    /// </summary>
+    public const string DeploymentMode = "deployment.mode";
+
+    /// <summary>
+    /// Resource attribute key for the control plane base URL
+    /// (e.g. <c>http://localhost:5100</c> or <c>https://cp.example.com</c>).
+    /// Enables correlation of CLI/Agent telemetry with a specific control plane instance.
+    /// </summary>
+    public const string ControlPlaneUrl = "deployment.controlplane.url";
+}

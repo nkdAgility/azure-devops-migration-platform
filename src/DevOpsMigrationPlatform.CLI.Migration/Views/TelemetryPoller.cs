@@ -37,12 +37,14 @@ public sealed class TelemetryPoller
         int intervalSeconds,
         CancellationToken stoppingToken)
     {
+        // Poll immediately on first iteration so the TUI has data as soon as
+        // the control plane has received it — then delay between subsequent polls.
         while (!stoppingToken.IsCancellationRequested)
         {
+            await PollOnceAsync(jobId, stoppingToken).ConfigureAwait(false);
+
             await Task.Delay(TimeSpan.FromSeconds(intervalSeconds), stoppingToken)
                       .ConfigureAwait(false);
-
-            await PollOnceAsync(jobId, stoppingToken).ConfigureAwait(false);
         }
     }
 

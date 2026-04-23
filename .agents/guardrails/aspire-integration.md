@@ -57,7 +57,7 @@ builder.AddServiceDefaults();
 
 ### CLI → Control Plane (Standalone)
 
-When `Environment.Type` is `Standalone` (the default), the CLI starts `LocalStackHost` in-process. The control plane starts on `http://localhost:5100`.
+When `Environment.Type` is `Standalone` (the default), the CLI starts `LocalStackHost` which launches ControlPlane and MigrationAgent — preferring **process-per-component** mode (separate child processes via `ChildProcessHost`) when published binaries are found, with automatic fallback to **in-process** hosting when they are not. The control plane starts on `http://localhost:5100`.
 
 ### CLI → Control Plane (Hosted)
 
@@ -96,7 +96,7 @@ client.BaseAddress = new Uri(configuration["ControlPlaneUrl"]);  // ❌ agents u
 
 ## AppHost Configuration Rules
 
-The AppHost defines the service topology for **cloud provisioning and developer-standalone use only**. It is the `azd up` target for cloud deployment and a convenience tool for developer-standalone runs. The CLI does **not** use or invoke the AppHost project at runtime — when `Environment.Type` is `Standalone`, the CLI starts `LocalStackHost` in-process to run the same services.
+The AppHost defines the service topology for **cloud provisioning and developer-standalone use only**. It is the `azd up` target for cloud deployment and a convenience tool for developer-standalone runs. The CLI does **not** use or invoke the AppHost project at runtime — when `Environment.Type` is `Standalone`, the CLI starts `LocalStackHost` to launch the same services (preferring process-per-component mode, with in-process fallback).
 
 ### MUST include:
 

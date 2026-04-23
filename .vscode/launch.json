@@ -680,6 +680,40 @@
             "console": "integratedTerminal",
             "stopAtEntry": false,
             "preLaunchTask": "build-tfs-cli"
+        },
+        // ── Standalone process-per-component debugging ────────────────────────
+        // These profiles launch ControlPlane and MigrationAgent directly from
+        // their project output, enabling breakpoints in all three processes
+        // simultaneously via the compound "Process-per-Component" profile.
+        {
+            "name": "🔧 ControlPlane (standalone)",
+            "type": "coreclr",
+            "request": "launch",
+            "program": "${workspaceFolder}/src/DevOpsMigrationPlatform.ControlPlaneHost/bin/Debug/net10.0/DevOpsMigrationPlatform.ControlPlaneHost.exe",
+            "args": [],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "stopAtEntry": false,
+            "preLaunchTask": "build-all",
+            "env": {
+                "ASPNETCORE_URLS": "http://localhost:5100",
+                "ASPNETCORE_ENVIRONMENT": "Development"
+            }
+        },
+        {
+            "name": "🔧 MigrationAgent (standalone)",
+            "type": "coreclr",
+            "request": "launch",
+            "program": "${workspaceFolder}/src/DevOpsMigrationPlatform.MigrationAgent/bin/Debug/net10.0/DevOpsMigrationPlatform.MigrationAgent.exe",
+            "args": [],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "stopAtEntry": false,
+            "preLaunchTask": "build-all",
+            "env": {
+                "ControlPlane__BaseUrl": "http://localhost:5100",
+                "DOTNET_ENVIRONMENT": "Development"
+            }
         }
     ],
     "compounds": [
@@ -688,6 +722,15 @@
             "configurations": [
                 "📤 Migration CLI: Export (CLIENT)",
                 "🖥️  Migration CLI: TUI"
+            ],
+            "stopAll": true
+        },
+        {
+            "name": "🔧 Process-per-Component: ControlPlane + Agent + CLI Export",
+            "configurations": [
+                "🔧 ControlPlane (standalone)",
+                "🔧 MigrationAgent (standalone)",
+                "📤 Migration CLI: Export (CLIENT)"
             ],
             "stopAll": true
         }

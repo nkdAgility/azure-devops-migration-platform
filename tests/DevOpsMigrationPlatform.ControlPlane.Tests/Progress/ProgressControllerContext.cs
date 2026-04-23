@@ -15,6 +15,7 @@ internal sealed class ProgressControllerContext
     public const int TestCapacity = 5;
 
     public JobProgressStore Store { get; }
+    public JobMetricsStore MetricsStore { get; }
     public Mock<ILeaseJobResolver> LeaseResolver { get; } = new(MockBehavior.Strict);
     public ProgressController Controller { get; }
 
@@ -29,9 +30,11 @@ internal sealed class ProgressControllerContext
         var diagnosticStore = new DiagnosticLogStore(diagOptions.Object);
 
         var jobStore = new JobStore();
+        MetricsStore = new JobMetricsStore();
         Controller = new ProgressController(
             Store,
             diagnosticStore,
+            MetricsStore,
             jobStore,
             LeaseResolver.Object,
             NullLogger<ProgressController>.Instance);
