@@ -648,6 +648,9 @@ public sealed class DependencyDiscoveryModule : IDiscoveryModule
         var stats = new Dictionary<string, PerProjectStats>(StringComparer.OrdinalIgnoreCase);
         var lines = rootCsvContent.Split(new[] { '\n' }, StringSplitOptions.RemoveEmptyEntries);
 
+        // Helper to normalize org URL and project name for key matching
+        static string NormalizeKey(string orgUrl, string project) => $"{orgUrl.TrimEnd('/').ToLowerInvariant()}|{project.Trim().ToLowerInvariant()}";
+
         // Accumulate per-project link counts
         var analysed = new Dictionary<string, HashSet<int>>(StringComparer.OrdinalIgnoreCase);
         var externalLinks = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
@@ -666,7 +669,7 @@ public sealed class DependencyDiscoveryModule : IDiscoveryModule
             if (string.IsNullOrWhiteSpace(sourceProject) || string.IsNullOrWhiteSpace(sourceOrgUrl))
                 continue;
 
-            var key = $"{sourceOrgUrl}|{sourceProject}";
+            var key = NormalizeKey(sourceOrgUrl, sourceProject);
 
             // Track unique work item IDs analysed
             if (int.TryParse(cols[0], out var wiId))
@@ -701,9 +704,11 @@ public sealed class DependencyDiscoveryModule : IDiscoveryModule
         {
             foreach (var org in inventory.Organisations)
             {
+                var orgUrlNorm = org.Url.TrimEnd('/').ToLowerInvariant();
                 foreach (var proj in org.Projects)
                 {
-                    var key = $"{org.Url}|{proj.Name}";
+                    var projNameNorm = proj.Name.Trim().ToLowerInvariant();
+                    var key = $"{orgUrlNorm}|{projNameNorm}";
                     inventoryWorkItems[key] = (int)Math.Min(proj.WorkItems, int.MaxValue);
                 }
             }
