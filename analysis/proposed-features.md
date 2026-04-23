@@ -1012,7 +1012,7 @@ A warning is logged when fallback mode activates, advising the operator about Ap
    - `ControlPlane__BaseUrl` — Agent's ControlPlane endpoint (maps to `IOptions<ControlPlane>`)
    - `Telemetry__AzureMonitorConnectionString` — forwarded from CLI's loaded config
    - `OTEL_EXPORTER_OTLP_ENDPOINT` — forwarded if set in CLI's environment
-   - `ASPNETCORE_ENVIRONMENT` / `DOTNET_ENVIRONMENT` — set to `Development` for local-only auth bypass
+   - `ASPNETCORE_ENVIRONMENT` — set to `Development` on the **ControlPlane only** for local-only auth bypass. The Agent does **not** receive `DOTNET_ENVIRONMENT` — Development mode enables DI scope validation which rejects the scoped `IModule` injection into the singleton `JobAgentWorker`.
    
    The scenario config path is **not** forwarded — it isn't needed because the ControlPlane receives jobs via REST API and the Agent polls for jobs.
 

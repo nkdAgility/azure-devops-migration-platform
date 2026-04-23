@@ -333,7 +333,7 @@ The CLI always communicates with the control plane via `ControlPlaneClient`. The
 
 | Condition | Behaviour |
 |---|---|
-| `Environment` absent or `Type` = `Standalone` | CLI starts **LocalStackHost** in-process: `ControlPlaneHost`, `MigrationAgent`(s), and PostgreSQL at `http://localhost:{port}` (default port `5100`). Use `--port <port>` to override. |
+| `Environment` absent or `Type` = `Standalone` | CLI starts **LocalStackHost** which launches `ControlPlaneHost` and `MigrationAgent` at `http://localhost:{port}` (default port `5100`). Prefers **process-per-component** mode when published binaries are found; falls back to **in-process** hosting otherwise. Use `--port <port>` to override. |
 | `Type` = `Hosted` | CLI connects to `ControlPlane.BaseUrl` from config; no local services are started |
 
 The config file is the single source of truth for the control plane URL. The `--port` CLI flag overrides the listen port in Standalone mode, enabling multiple concurrent local runs on different ports (e.g. `--port 5200`). There is no `--url` CLI flag or `MIGRATION_API_URL` environment variable override.

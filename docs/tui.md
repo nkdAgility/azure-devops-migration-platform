@@ -18,7 +18,7 @@ devopsmigration tui [--job <jobId>]
 |---|---|
 | `--job` | Jump directly to the progress view for a specific job, bypassing the job list. |
 
-The TUI always requires a control plane connection. The control plane URL is resolved from the `Environment.ControlPlane.BaseUrl` configuration section. When `Environment.Type` is `Standalone` (the default), `LocalStackHost` starts the control plane at `http://localhost:5100` — the TUI connects there automatically. If no control plane is reachable the TUI exits with an actionable error.
+The TUI always requires a control plane connection. The control plane URL is resolved from the `Environment.ControlPlane.BaseUrl` configuration section. When `Environment.Type` is `Standalone` (the default), `LocalStackHost` starts the control plane at `http://localhost:5100` (preferring process-per-component mode when published binaries are found, with in-process fallback otherwise) — the TUI connects there automatically. If no control plane is reachable the TUI exits with an actionable error.
 
 ### Authentication
 
