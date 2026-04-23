@@ -13,11 +13,19 @@
 |------|---------|
 | **Module** | A domain-scoped unit that implements `IModule`. Runs inside the Migration Agent. Handles one concern (e.g. `WorkItems`, `Teams`). Has both export and import paths. |
 | **Extension** | A named sub-data collector declared inside a module config block (e.g. `Revisions`, `Links`, `Attachments`). Enabled/disabled independently per run. |
-| **Tool** | A shared, cross-cutting service injected into one or more modules (e.g. `FieldMappingTool`, `NodeStructureTool`). Declared at the module or config level. Not a CLI command. |
+| **Tool** | A shared, cross-cutting service declared once at MigrationPlatform config root (e.g. `FieldMappingTool`, `NodeStructureTool`). Extensions load tools by reference and may override selected values. Not a CLI command. |
 | **Scope** | A mandatory selection criterion on a module (e.g. `wiql` query, project name). |
 | **Discovery command** | A `discovery *` CLI sub-command that runs locally without submitting a `MigrationJob`. Reads source systems directly via REST. |
 | **CLI feature** | A `queue`, `config`, `manage`, or `admin` command addition. |
 | **Config feature** | A new field or schema addition to the scenario JSON config. |
+
+### Tool Resolution Model (Canonical for This Proposal)
+
+- Tools are declared at `MigrationPlatform.tools[]` (single source of truth for defaults).
+- Modules do not declare tool definitions.
+- Extensions load tools via `extensions[].tools[]` references.
+- Each extension tool reference can override a subset of values for that extension only.
+- Effective tool settings = migration-level tool defaults + extension-level overrides.
 
 Status legend:
 
@@ -99,33 +107,53 @@ Status legend:
 
 #### New Tool: `FieldMappingTool` (see [T1](#t1-fieldmappingtool))
 
-Declared in the module config's `tools` array. The module passes each revision's fields through the tool before writing `revision.json`.
+Declared once in `MigrationPlatform.tools[]`. The `WorkItems/Revisions` extension loads it by reference and may override selected values before writing `revision.json`.
 
 ```json
 {
-  "name": "WorkItems",
-  "tools": [
-    {
-      "type": "FieldMapping",
-      "applyTo": ["User Story", "Bug"],
-      "maps": [
-        { "type": "FieldToField",    "sourceField": "Custom.OldField", "targetField": "Custom.NewField" },
-        { "type": "FieldValue",      "field": "System.State", "valueMap": { "Active": "In Progress", "Resolved": "Done" } },
-        { "type": "FieldLiteral",    "field": "Custom.MigratedBy", "value": "migration-platform" },
-        { "type": "FieldToTag",      "field": "System.AreaPath" },
-        { "type": "FieldValueToTag", "field": "System.State", "pattern": "^Resolved$" },
-        { "type": "RegexField",      "field": "System.Title", "pattern": "^\\[OLD\\]\\s*", "replacement": "" },
-        { "type": "FieldClear",      "field": "Custom.LegacyId" },
-        { "type": "FieldSkip",       "field": "Custom.InternalOnly" },
-        { "type": "FieldMerge",      "sourceFields": ["System.Title", "Custom.Subtitle"], "targetField": "System.Title", "format": "{0} — {1}" },
-        { "type": "FieldCalculation","targetField": "Custom.Score", "expression": "..." },
-        { "type": "FieldToTagField", "sourceFields": ["System.Tags", "Custom.Labels"], "targetField": "System.Tags" },
-        { "type": "TreeToTagField",  "field": "System.AreaPath", "targetField": "System.Tags" },
-        { "type": "MultiValueConditional", "conditions": [...], "targetField": "...", "value": "..." },
-        { "type": "FieldToFieldMulti", "maps": [ { "sourceField": "...", "targetField": "..." } ] }
-      ]
+  "MigrationPlatform": {
+    "tools": [
+      {
+        "id": "fieldmap-default",
+        "type": "FieldMapping",
+        "applyTo": ["User Story", "Bug"],
+        "maps": [
+          { "type": "FieldToField",    "sourceField": "Custom.OldField", "targetField": "Custom.NewField" },
+          { "type": "FieldValue",      "field": "System.State", "valueMap": { "Active": "In Progress", "Resolved": "Done" } },
+          { "type": "FieldLiteral",    "field": "Custom.MigratedBy", "value": "migration-platform" },
+          { "type": "FieldToTag",      "field": "System.AreaPath" },
+          { "type": "FieldValueToTag", "field": "System.State", "pattern": "^Resolved$" },
+          { "type": "RegexField",      "field": "System.Title", "pattern": "^\\[OLD\\]\\s*", "replacement": "" },
+          { "type": "FieldClear",      "field": "Custom.LegacyId" },
+          { "type": "FieldSkip",       "field": "Custom.InternalOnly" },
+          { "type": "FieldMerge",      "sourceFields": ["System.Title", "Custom.Subtitle"], "targetField": "System.Title", "format": "{0} — {1}" },
+          { "type": "FieldCalculation","targetField": "Custom.Score", "expression": "..." },
+          { "type": "FieldToTagField", "sourceFields": ["System.Tags", "Custom.Labels"], "targetField": "System.Tags" },
+          { "type": "TreeToTagField",  "field": "System.AreaPath", "targetField": "System.Tags" },
+          { "type": "MultiValueConditional", "conditions": [...], "targetField": "...", "value": "..." },
+          { "type": "FieldToFieldMulti", "maps": [ { "sourceField": "...", "targetField": "..." } ] }
+        ]
+      }
+    ],
+    "Modules": {
+      "WorkItems": {
+        "Enabled": true,
+        "Extensions": {
+          "Revisions": {
+            "Enabled": true,
+            "tools": [
+              {
+                "ref": "fieldmap-default",
+                "overrides": {
+                  "applyTo": ["User Story", "Bug", "Task"]
+                }
+              }
+            ]
+          }
+        }
+      }
     }
-  ]
+  }
 }
 ```
 
@@ -164,20 +192,40 @@ Declared in the module config's `tools` array. The module passes each revision's
 
 ```json
 {
-  "name": "WorkItems",
-  "tools": [
-    {
-      "type": "NodeStructure",
-      "areaMap":      { "OldOrg\\OldProject\\Team A": "NewOrg\\NewProject\\Team A - Migrated" },
-      "iterationMap": { "OldOrg\\OldProject\\Sprint 1": "NewOrg\\NewProject\\Sprint 1" },
-      "areaLanguageOverride":      "Area",
-      "iterationLanguageOverride": "Iteration",
-      "createMissingNodes": true,
-      "skipRevisionWithInvalidAreaPath": false,
-      "skipRevisionWithInvalidIterationPath": false,
-      "replicateAllExistingNodes": false
+  "MigrationPlatform": {
+    "tools": [
+      {
+        "id": "nodes-default",
+        "type": "NodeStructure",
+        "areaMap":      { "OldOrg\\OldProject\\Team A": "NewOrg\\NewProject\\Team A - Migrated" },
+        "iterationMap": { "OldOrg\\OldProject\\Sprint 1": "NewOrg\\NewProject\\Sprint 1" },
+        "areaLanguageOverride":      "Area",
+        "iterationLanguageOverride": "Iteration",
+        "createMissingNodes": true,
+        "skipRevisionWithInvalidAreaPath": false,
+        "skipRevisionWithInvalidIterationPath": false,
+        "replicateAllExistingNodes": false
+      }
+    ],
+    "Modules": {
+      "WorkItems": {
+        "Enabled": true,
+        "Extensions": {
+          "Revisions": {
+            "Enabled": true,
+            "tools": [
+              {
+                "ref": "nodes-default",
+                "overrides": {
+                  "createMissingNodes": true
+                }
+              }
+            ]
+          }
+        }
+      }
     }
-  ]
+  }
 }
 ```
 
@@ -206,16 +254,31 @@ Declared in the module config's `tools` array. The module passes each revision's
 
 ```json
 {
-  "name": "WorkItems",
-  "tools": [
-    {
-      "type": "WorkItemTypeMapping",
-      "map": {
-        "User Story":    "Product Backlog Item",
-        "Issue":         "Impediment"
+  "MigrationPlatform": {
+    "tools": [
+      {
+        "id": "wit-map-default",
+        "type": "WorkItemTypeMapping",
+        "map": {
+          "User Story":    "Product Backlog Item",
+          "Issue":         "Impediment"
+        }
+      }
+    ],
+    "Modules": {
+      "WorkItems": {
+        "Enabled": true,
+        "Extensions": {
+          "Revisions": {
+            "Enabled": true,
+            "tools": [
+              { "ref": "wit-map-default" }
+            ]
+          }
+        }
       }
     }
-  ]
+  }
 }
 ```
 
@@ -390,7 +453,7 @@ Options that belong directly on the `WorkItems` module config rather than as sep
 **Used by**: `WorkItemsModule`  
 **Purpose**: Apply a declared set of field transformation rules to each work item revision before it is written to the package (export) or applied to the target (import).
 
-**Invocation**: Declared in the `tools` array of the `WorkItems` module config. See [M1](#m1-workitemsmodule--fieldmapping) for the full map type list and JSON schema.
+**Invocation**: Declared in `MigrationPlatform.tools[]`, then loaded by extension references (for example `WorkItems/Revisions`) with optional `overrides`. See [M1](#m1-workitemsmodule--fieldmapping) for the full map type list and JSON schema.
 
 **Key design rules**:
 - Maps are applied in declaration order.
@@ -405,7 +468,7 @@ Options that belong directly on the `WorkItems` module config rather than as sep
 **Used by**: `WorkItemsModule`, `TeamsModule`  
 **Purpose**: Remap `System.AreaPath` and `System.IterationPath` values before write/import; optionally create missing nodes in the target via the ADO Classification Nodes API.
 
-**Invocation**: Declared in the `tools` array of the relevant module config. See [M2](#m2-workitemsmodule--nodestructure-tool) for the JSON schema.
+**Invocation**: Declared in `MigrationPlatform.tools[]`, then loaded by relevant extension references with optional overrides. See [M2](#m2-workitemsmodule--nodestructure-tool) for the JSON schema.
 
 **Key design rules**:
 - Node creation calls are idempotent (check before POST).
@@ -420,7 +483,7 @@ Options that belong directly on the `WorkItems` module config rather than as sep
 **Used by**: `WorkItemsModule`  
 **Purpose**: Translate source work item type names to target names at both export time (stored in package) and import time (used for item creation).
 
-**Invocation**: Declared in the `tools` array of the `WorkItems` module config. See [M3](#m3-workitemsmodule--workitemtypemapping-tool) for the JSON schema.
+**Invocation**: Declared in `MigrationPlatform.tools[]`, then loaded by extension references (typically `WorkItems/Revisions`). See [M3](#m3-workitemsmodule--workitemtypemapping-tool) for the JSON schema.
 
 **Features**:
 - Bidirectional: a map entry translates both the type name in the revision and any type-name references in link targets.
@@ -434,52 +497,52 @@ Options that belong directly on the `WorkItems` module config rather than as sep
 **Used by**: `WorkItemsModule`  
 **Purpose**: Apply regex-based find-and-replace rules to string field values (e.g. stripping legacy prefixes, sanitising invalid characters).
 
-**Invocation**: Declared in the `tools` array of the `WorkItems` module config.
+**Invocation**: Declared in `MigrationPlatform.tools[]`, then loaded by extension references with optional overrides.
 
 ```json
-{
-  "type": "StringManipulator",
-  "applyTo": ["System.Title", "System.Description"],
-  "rules": [
-    { "pattern": "^\\[LEGACY\\]\\s*",    "replacement": "" },
-    { "pattern": "[\\x00-\\x08\\x0B\\x0C\\x0E-\\x1F]", "replacement": "" }
-  ]
-}
-```
-
-**Features**:
-- `applyTo` field list (applies to all string fields if omitted).
-- Multiple ordered rules per invocation.
+  "MigrationPlatform": {
+    "tools": [
+      {
+        "id": "workitem-resolution-default",
+        "type": "WorkItemResolution",
+        "default": {
+          "strategy": "ReflectedWorkItemIdField",
+          "field": "Custom.ReflectedWorkItemId"
 - Invalid character cleanup as a named built-in rule: `{ "type": "StripControlCharacters" }`.
-- The tool is injected as `IStringManipulatorTool`.
-
----
-
-### T5: GitRepositoryMappingTool
-
-**Used by**: `GitModule`, `WorkItemsModule` (link rewriting in `EmbeddedImages` and `Links` extensions)  
-**Purpose**: Map source repository names to target repository names; rewrite embedded git:// or PR URLs in work item HTML fields.
-
-**Invocation**: Declared in the `tools` array of `GitModule` and/or `WorkItems` module config.
-
-```json
-{
-  "type": "GitRepositoryMapping",
-  "map": {
-    "OldRepoName":    "NewRepoName",
-    "LegacyService":  "platform-service"
-  }
-}
+        "overrides": [
+          {
+            "applyTo": ["Shared Steps", "Shared Parameter"],
+            "strategy": "ReflectedWorkItemIdHyperlink",
+            "hyperlinkComment": "ReflectedWorkItemId"
+          },
+          {
+            "applyTo": ["Test Case"],
+            "strategy": "ReflectedWorkItemIdField",
+            "field": "Custom.AltReflectedId"
+          }
+        ]
+      }
+    ],
+    "Modules": {
+      "WorkItems": {
+        "Enabled": true,
+        "Extensions": {
+          "Revisions": {
+            "Enabled": true,
+            "tools": [
+              {
+                "ref": "workitem-resolution-default"
+              }
+            ]
 ```
-
 ---
-
+      }
 ### T6: ChangesetMappingTool
-
+  }
 **Used by**: `WorkItemsModule` (link rewriting for TFVC changeset links)  
 **Purpose**: Map TFS changeset IDs to Git commit SHAs so that `Fixed In Changeset` links survive migration.
 
-**Invocation**: Declared in the `tools` array of `WorkItems` module config.
+**Invocation**: Declared in `MigrationPlatform.tools[]`, then loaded by `WorkItems` extension references.
 
 ```json
 {
@@ -508,9 +571,9 @@ The ADO process model allows customisation only of *inherited* work item types. 
 
 ```json
 {
-  "name": "WorkItems",
   "tools": [
     {
+      "id": "workitem-resolution-default",
       "type": "WorkItemResolution",
       "default": {
         "strategy": "ReflectedWorkItemIdField",
@@ -526,6 +589,22 @@ The ADO process model allows customisation only of *inherited* work item types. 
           "applyTo": ["Test Case"],
           "strategy": "ReflectedWorkItemIdField",
           "field": "Custom.AltReflectedId"
+        }
+      ]
+    }
+  ],
+  "modules": [
+    {
+      "name": "WorkItems",
+      "extensions": [
+        {
+          "type": "Import",
+          "enabled": true,
+          "tools": [
+            {
+              "ref": "workitem-resolution-default"
+            }
+          ]
         }
       ]
     }
@@ -1085,7 +1164,8 @@ The following additions to the scenario JSON schema are implied by the proposals
 
 | Field | Location | Purpose |
 |---|---|---|
-| `modules[].tools[]` | Module config | Array of tool declarations injected into the module |
+| `MigrationPlatform.tools[]` | MigrationPlatform config root | Array of reusable tool declarations and defaults |
+| `MigrationPlatform.Modules.<Module>.Extensions.<Extension>.tools[]` | Extension config | Tool references loaded by an extension; may include `overrides` |
 | `organisations[].processes[]` | Config root | Process metadata discovered by `discovery org-sync` |
 | `organisations[].projects[].enabled` | Config root | Already in schema; documented as relevant to `config generate` |
 | `scopes[].type: "ids"` | Module scopes | New scope type for explicit work item ID list |
