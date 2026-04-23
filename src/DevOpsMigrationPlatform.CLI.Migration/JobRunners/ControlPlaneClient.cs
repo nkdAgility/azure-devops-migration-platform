@@ -110,10 +110,10 @@ public sealed class ControlPlaneClient : IJobRunner, ILogsClient, IControlPlaneC
     }
 
     /// <summary>
-    /// Returns the latest <see cref="MetricSnapshot"/> for a job, or <c>null</c> when none pushed yet.
+    /// Returns the latest <see cref="JobMetrics"/> for a job, or <c>null</c> when none pushed yet.
     /// Calls <c>GET /jobs/{jobId}/telemetry</c>.
     /// </summary>
-    public async Task<MetricSnapshot?> GetTelemetryAsync(Guid jobId, CancellationToken ct)
+    public async Task<JobMetrics?> GetTelemetryAsync(Guid jobId, CancellationToken ct)
     {
         var response = await _http
             .GetAsync($"/jobs/{jobId}/telemetry", ct)
@@ -124,7 +124,7 @@ public sealed class ControlPlaneClient : IJobRunner, ILogsClient, IControlPlaneC
 
         response.EnsureSuccessStatusCode();
         return await response.Content
-            .ReadFromJsonAsync<MetricSnapshot>(_jsonOptions, ct)
+            .ReadFromJsonAsync<JobMetrics>(_jsonOptions, ct)
             .ConfigureAwait(false);
     }
 

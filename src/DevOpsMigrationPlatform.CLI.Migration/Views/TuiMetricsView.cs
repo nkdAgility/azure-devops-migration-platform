@@ -4,7 +4,7 @@ using Terminal.Gui;
 namespace DevOpsMigrationPlatform.CLI.Views;
 
 /// <summary>
-/// Centre panel: displays the latest <see cref="MetricSnapshot"/> polled from
+/// Centre panel: displays the latest <see cref="JobMetrics"/> polled from
 /// <c>GET /jobs/{jobId}/telemetry</c>.
 /// All mutations must arrive via <see cref="Update"/> which marshals onto the
 /// Terminal.Gui main-loop thread.
@@ -31,34 +31,35 @@ public sealed class TuiMetricsView : FrameView
     }
 
     /// <summary>
-    /// Replaces the displayed snapshot. Pass <c>null</c> to show the placeholder.
+    /// Replaces the displayed metrics. Pass <c>null</c> to show the placeholder.
     /// Safe to call from any thread — marshals via <see cref="Application.Invoke"/>.
     /// </summary>
-    public void Update(MetricSnapshot? snapshot)
+    public void Update(JobMetrics? metrics)
     {
         Application.Invoke(() =>
         {
-            _content.Text = snapshot is null
+            _content.Text = metrics is null
                 ? "(no job selected)"
-                : FormatSnapshot(snapshot);
+                : FormatMigrationMetrics(metrics);
             SetNeedsDraw();
         });
     }
 
     /// <summary>
-    /// Shows discovery-specific metrics including the full <see cref="DiscoveryMetricSnapshot"/>
-    /// and computed throughput rates. Safe to call from any thread.
+    /// Shows discovery-specific metrics from a <see cref="JobMetrics"/> instance
+    /// that has <see cref="JobMetrics.Discovery"/> populated.
+    /// Safe to call from any thread.
     /// </summary>
-    public void UpdateDiscovery(DiscoveryMetricSnapshot snapshot)
+    public void UpdateDiscovery(JobMetrics metrics)
     {
         Application.Invoke(() =>
         {
-            _content.Text = FormatDiscoverySnapshot(snapshot);
+            _content.Text = FormatDiscoveryMetrics(metrics);
             SetNeedsDraw();
         });
     }
 
-    /// <summary>Shows "(waiting for agent…)" when a job is selected but no snapshot has arrived yet.</summary>
+    /// <summary>Shows "(waiting for agent…)" when a job is selected but no metrics have arrived yet.</summary>
     public void SetWaiting()
     {
         Application.Invoke(() =>
@@ -68,49 +69,59 @@ public sealed class TuiMetricsView : FrameView
         });
     }
 
-    private static string FormatSnapshot(MetricSnapshot s) =>
-        $"Work Items Attempted : {s.WorkItemsAttempted,8}\n" +
-        $"Work Items Completed : {s.WorkItemsCompleted,8}\n" +
-        $"Work Items Failed    : {s.WorkItemsFailed,8}\n" +
-        $"Work Items Retried   : {s.WorkItemsRetried,8}\n" +
-        $"In-Flight            : {s.WorkItemsInFlight,8}\n" +
-        $"Queue Depth          : {s.QueueDepth,8}\n" +
-        $"\n" +
-        $"Avg Duration         : {FormatMean(s.WorkItemDurationMeanMs, "ms")}\n" +
-        $"Avg Revisions        : {FormatMean(s.RevisionCountMean)}\n" +
-        $"Avg Attachments      : {FormatMean(s.AttachmentCountMean)}\n" +
-        $"Avg Links            : {FormatMean(s.LinkCountMean)}\n" +
-        $"Avg Fields           : {FormatMean(s.FieldCountMean)}\n" +
-        $"Avg Payload          : {FormatMean(s.PayloadBytesMean, "B")}\n" +
-        $"\n" +
-        $"Broken Links         : {s.BrokenLinks,8}\n" +
-        $"Missing Work Items   : {s.MissingWorkItems,8}\n" +
-        $"Revisions Missing    : {s.RevisionsMissing,8}\n" +
-        $"Rev Order Errors     : {s.RevisionOrderErrors,8}";
-
-    private static string FormatDiscoverySnapshot(DiscoveryMetricSnapshot s)
+    private static string FormatMigrationMetrics(JobMetrics m)
     {
+        var wi = m.Migration?.WorkItems;
+        var diag = m.Migration?.Diagnostics;
+
+        return
+            $"Work Items Attempted : {wi?.Attempted ?? 0,8}\n" +
+            $"Work Items Completed : {wi?.Completed ?? 0,8}\n" +
+            $"Work Items Failed    : {wi?.Failed ?? 0,8}\n" +
+            $"Work Items Skipped   : {wi?.Skipped ?? 0,8}\n" +
+            $"In-Flight            : {diag?.WorkItemsInFlight ?? 0,8}\n" +
+            $"Queue Depth          : {diag?.QueueDepth ?? 0,8}\n" +
+            $"\n" +
+            $"Avg Duration         : {FormatMean(diag?.WorkItemDurationMeanMs, "ms")}\n" +
+            $"Avg Revisions        : {FormatMean(diag?.RevisionCountMean)}\n" +
+            $"Avg Attachments      : {FormatMean(diag?.AttachmentCountMean)}\n" +
+            $"Avg Links            : {FormatMean(diag?.LinkCountMean)}\n" +
+            $"Avg Fields           : {FormatMean(diag?.FieldCountMean)}\n" +
+            $"Avg Payload          : {FormatMean(diag?.PayloadBytesMean, "B")}\n" +
+            $"\n" +
+            $"Broken Links         : {diag?.BrokenLinks ?? 0,8}\n" +
+            $"Missing Work Items   : {diag?.MissingWorkItems ?? 0,8}\n" +
+            $"Revisions Missing    : {diag?.RevisionsMissing ?? 0,8}\n" +
+            $"Rev Order Errors     : {diag?.RevisionOrderErrors ?? 0,8}";
+    }
+
+    private static string FormatDiscoveryMetrics(JobMetrics m)
+    {
+        var scope = m.Scope;
+        var inv = m.Discovery?.Inventory;
+        var deps = m.Discovery?.Dependencies;
+
         return
             $"── Progress ──────────────────────\n" +
-            $"Orgs Completed       : {s.OrganisationsCompleted,8}\n" +
-            $"Orgs Failed          : {s.OrganisationsFailed,8}\n" +
-            $"Orgs Queued          : {s.OrganisationsQueued,8}\n" +
+            $"Orgs Completed       : {scope.OrganisationsCompleted,8}\n" +
+            $"Orgs Failed          : {scope.OrganisationsFailed,8}\n" +
+            $"Orgs Total           : {scope.OrganisationsTotal,8}\n" +
             $"\n" +
-            $"Projects In Progress : {s.ProjectsQueued,8}\n" +
-            $"Projects Completed   : {s.ProjectsCompleted,8}\n" +
-            $"Projects Failed      : {s.ProjectsFailed,8}\n" +
+            $"Projects Total       : {scope.ProjectsTotal,8}\n" +
+            $"Projects Completed   : {scope.ProjectsCompleted,8}\n" +
+            $"Projects Failed      : {scope.ProjectsFailed,8}\n" +
             $"\n" +
             $"── Inventory ─────────────────────\n" +
-            $"Work Items Counted   : {s.WorkItemsCounted,8:N0}\n" +
-            $"Revisions Counted    : {s.RevisionsCounted,8:N0}\n" +
-            $"Repos Counted        : {s.ReposCounted,8:N0}\n" +
+            $"Work Items Total     : {scope.WorkItemsTotal,8:N0}\n" +
+            $"Revisions Total      : {inv?.RevisionsTotal ?? 0,8:N0}\n" +
+            $"Repos Total          : {inv?.RepositoriesTotal ?? 0,8:N0}\n" +
             $"\n" +
             $"── Dependencies ──────────────────\n" +
-            $"Links Found          : {s.LinksFound,8:N0}\n" +
-            $"Work Items Analysed  : {s.WorkItemsAnalysed,8:N0}\n" +
+            $"External Links Found : {deps?.ExternalLinksFound ?? 0,8:N0}\n" +
+            $"Work Items Analysed  : {deps?.WorkItemsAnalysed ?? 0,8:N0}\n" +
             $"\n" +
             $"── Operational ───────────────────\n" +
-            $"Checkpoints Saved    : {s.CheckpointsSaved,8}";
+            $"Checkpoints Saved    : {(inv?.CheckpointsSaved ?? 0) + (deps?.CheckpointsSaved ?? 0),8}";
     }
 
     private static string FormatMean(double? value, string unit = "")

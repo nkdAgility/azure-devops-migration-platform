@@ -185,7 +185,7 @@ public sealed class InventoryCommand : ControlPlaneCommandBase<InventoryCommand.
                         break;
 
                     UpdateSummaryFromProgress(summaries, evt);
-                    var key = evt.LastProcessed ?? "";
+                    var key = evt.Message ?? "";
 
                     if (summaries.TryGetValue(key, out var s))
                     {
@@ -231,8 +231,8 @@ public sealed class InventoryCommand : ControlPlaneCommandBase<InventoryCommand.
         Dictionary<string, InventorySummary> summaries,
         ProgressEvent evt)
     {
-        // LastProcessed carries "{url}|{projectName}" from InventoryDiscoveryModule.
-        var key = evt.LastProcessed;
+        // Message now carries the "{url}|{projectName}" key that was formerly in LastProcessed.
+        var key = evt.Message;
         if (string.IsNullOrEmpty(key))
             return;
 
@@ -249,9 +249,10 @@ public sealed class InventoryCommand : ControlPlaneCommandBase<InventoryCommand.
             summaries[key] = summary;
         }
 
-        summary.WorkItemsCount = evt.TotalWorkItems;
-        summary.RevisionsCount = evt.RevisionsProcessed;
-        summary.ReposCount = evt.AttachmentsProcessed;
+        var inv = evt.Metrics?.Discovery?.Inventory;
+        summary.WorkItemsCount = evt.Metrics?.Scope?.WorkItemsTotal ?? summary.WorkItemsCount;
+        summary.RevisionsCount = inv?.RevisionsTotal ?? summary.RevisionsCount;
+        summary.ReposCount = inv?.RepositoriesTotal ?? summary.ReposCount;
         summary.IsComplete = evt.Stage != "Progress";
         summary.LastUpdatedUtc = evt.Timestamp.UtcDateTime;
 

@@ -55,7 +55,7 @@ internal sealed class AgentControlPlaneClientAdapter : IControlPlaneClient
     Task<IReadOnlyList<JobSummary>> IControlPlaneClient.GetAllJobsAsync(CancellationToken ct)
         => throw new NotSupportedException("GetAllJobsAsync is not supported in the agent adapter.");
 
-    Task<MetricSnapshot?> IControlPlaneClient.GetTelemetryAsync(Guid jobId, CancellationToken ct)
+    Task<JobMetrics?> IControlPlaneClient.GetTelemetryAsync(Guid jobId, CancellationToken ct)
         => throw new NotSupportedException("GetTelemetryAsync is not supported in the agent adapter.");
 
     IAsyncEnumerable<ProgressEvent> IControlPlaneClient.FollowLogsAsync(

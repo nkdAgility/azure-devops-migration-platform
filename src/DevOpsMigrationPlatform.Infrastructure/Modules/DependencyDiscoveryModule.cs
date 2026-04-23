@@ -84,7 +84,6 @@ public sealed class DependencyDiscoveryModule : IDiscoveryModule
                     {
                         Module = Name,
                         Stage = "InventoryLoaded",
-                        TotalWorkItems = (int)Math.Min(inventoryReport.Totals.WorkItems, int.MaxValue),
                         Message = $"Inventory loaded: {inventoryReport.Totals.WorkItems:N0} work items across {inventoryReport.Totals.Projects} projects.",
                         Timestamp = DateTimeOffset.UtcNow
                     });
@@ -183,12 +182,6 @@ public sealed class DependencyDiscoveryModule : IDiscoveryModule
                     {
                         Module = Name,
                         Stage = "ProjectComplete",
-                        LastProcessed = projectKey,
-                        TotalWorkItems = stats?.TotalWorkItems ?? 0,
-                        WorkItemsProcessed = stats?.WorkItemsAnalysed ?? 0,
-                        ExternalLinksFound = stats?.ExternalLinksFound ?? 0,
-                        CrossProjectLinks = stats?.CrossProjectCount ?? 0,
-                        CrossOrgLinks = stats?.CrossOrgCount ?? 0,
                         Message = $"Resumed (previously completed)",
                         Timestamp = DateTimeOffset.UtcNow
                     });
@@ -268,12 +261,6 @@ public sealed class DependencyDiscoveryModule : IDiscoveryModule
                         {
                             Module = Name,
                             Stage = "ProjectComplete",
-                            LastProcessed = displayKey,
-                            TotalWorkItems = stats?.TotalWorkItems ?? 0,
-                            WorkItemsProcessed = stats?.WorkItemsAnalysed ?? 0,
-                            ExternalLinksFound = stats?.ExternalLinksFound ?? 0,
-                            CrossProjectLinks = stats?.CrossProjectCount ?? 0,
-                            CrossOrgLinks = stats?.CrossOrgCount ?? 0,
                             Message = $"Reconciled from CSV",
                             Timestamp = DateTimeOffset.UtcNow
                         });
@@ -360,12 +347,6 @@ public sealed class DependencyDiscoveryModule : IDiscoveryModule
                     {
                         Module = Name,
                         Stage = "ProjectComplete",
-                        LastProcessed = displayKey,
-                        TotalWorkItems = stats.TotalWorkItems,
-                        WorkItemsProcessed = stats.WorkItemsAnalysed,
-                        ExternalLinksFound = stats.ExternalLinksFound,
-                        CrossProjectLinks = stats.CrossProjectCount,
-                        CrossOrgLinks = stats.CrossOrgCount,
                         Message = $"{displayKey}: {stats.WorkItemsAnalysed}/{stats.TotalWorkItems} analysed, {stats.ExternalLinksFound} links found (reconciled)",
                         Timestamp = DateTimeOffset.UtcNow
                     });
@@ -479,12 +460,6 @@ public sealed class DependencyDiscoveryModule : IDiscoveryModule
                     {
                         Module = Name,
                         Stage = heartbeat.IsComplete ? "ProjectComplete" : "Analysis",
-                        LastProcessed = $"{heartbeat.OrganisationUrl}|{heartbeat.ProjectName}",
-                        TotalWorkItems = heartbeat.TotalWorkItems,
-                        WorkItemsProcessed = heartbeat.WorkItemsAnalysed,
-                        ExternalLinksFound = heartbeat.ExternalLinksFound,
-                        CrossProjectLinks = heartbeat.CrossProjectCount,
-                        CrossOrgLinks = heartbeat.CrossOrgCount,
                         Message = heartbeat.Error is not null
                             ? $"{heartbeat.OrganisationUrl}/{heartbeat.ProjectName}: failed — {heartbeat.Error}"
                             : $"{heartbeat.OrganisationUrl}/{heartbeat.ProjectName}: " +
@@ -672,12 +647,6 @@ public sealed class DependencyDiscoveryModule : IDiscoveryModule
                     {
                         Module = Name,
                         Stage = "ProjectComplete",
-                        LastProcessed = $"{resolvedUrl}|{project}",
-                        TotalWorkItems = totalWi,
-                        WorkItemsProcessed = totalWi,
-                        ExternalLinksFound = 0,
-                        CrossProjectLinks = 0,
-                        CrossOrgLinks = 0,
                         Message = $"{resolvedUrl}/{project}: {totalWi} analysed, 0 external links",
                         Timestamp = DateTimeOffset.UtcNow
                     });

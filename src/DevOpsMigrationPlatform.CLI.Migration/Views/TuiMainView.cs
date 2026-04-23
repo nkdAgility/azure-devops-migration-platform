@@ -273,7 +273,13 @@ public sealed class TuiMainView : Window, IDisposable
         }
         _discoveryMetricsActive = true;
 
-        var key = evt.LastProcessed;
+        // Extract counters from Metrics envelope when available.
+        var disc = evt.Metrics?.Discovery;
+        var deps = disc?.Dependencies;
+        var inv = disc?.Inventory;
+
+        // Use module+message as a project key since LastProcessed was removed.
+        var key = evt.Message;
         if (!string.IsNullOrEmpty(key))
         {
             // Use module-qualified key so Inventory and Dependencies don't overwrite each other
@@ -285,21 +291,20 @@ public sealed class TuiMainView : Window, IDisposable
 
             if (evt.Module == "Dependencies")
             {
-                // Dependencies: use dedicated discovery fields on ProgressEvent
                 _discoveryProjects[qualifiedKey] = new DiscoveryProjectMetrics(
                     WorkItems: 0, Revisions: 0, Repos: 0,
-                    LinksFound: evt.ExternalLinksFound,
-                    WorkItemsAnalysed: evt.WorkItemsProcessed,
-                    TotalWorkItems: evt.TotalWorkItems,
+                    LinksFound: deps?.ExternalLinksFound ?? 0,
+                    WorkItemsAnalysed: deps?.WorkItemsAnalysed ?? 0,
+                    TotalWorkItems: evt.Metrics?.Scope?.WorkItemsTotal ?? 0,
                     IsComplete: isComplete || isFailed, IsFailed: isFailed,
                     Module: evt.Module);
             }
             else
             {
-                // Inventory: TotalWorkItems=wi, RevisionsProcessed=rev, AttachmentsProcessed=repos
                 _discoveryProjects[qualifiedKey] = new DiscoveryProjectMetrics(
-                    WorkItems: evt.TotalWorkItems, Revisions: evt.RevisionsProcessed,
-                    Repos: evt.AttachmentsProcessed,
+                    WorkItems: evt.Metrics?.Scope?.WorkItemsTotal ?? 0,
+                    Revisions: inv?.RevisionsTotal ?? 0,
+                    Repos: inv?.RepositoriesTotal ?? 0,
                     LinksFound: 0, WorkItemsAnalysed: 0,
                     TotalWorkItems: 0,
                     IsComplete: isComplete || isFailed, IsFailed: isFailed,
@@ -347,24 +352,38 @@ public sealed class TuiMainView : Window, IDisposable
         var elapsed = DateTimeOffset.UtcNow - _discoveryStartTime;
         var elapsedHours = elapsed.TotalHours;
 
-        var snapshot = new DiscoveryMetricSnapshot
+        var discoveryMetrics = new JobMetrics
         {
-            OrganisationsCompleted = _discoveryOrgsCompleted.Count,
-            OrganisationsFailed = _discoveryOrgsFailed.Count,
-            OrganisationsQueued = _discoveryOrgsQueued.Count,
-            ProjectsCompleted = completed,
-            ProjectsFailed = failed,
-            ProjectsQueued = remaining,
-            WorkItemsCounted = totalWi,
-            RevisionsCounted = totalRev,
-            ReposCounted = totalRepos,
-            LinksFound = totalLinks,
-            WorkItemsAnalysed = totalAnalysed,
-            CheckpointsSaved = _discoveryCheckpointsSaved,
-            ProjectDurationMeanMs = completed > 0
-                ? elapsed.TotalMilliseconds / completed
-                : null
+            Scope = new JobScopeCounters
+            {
+                OrganisationsCompleted = _discoveryOrgsCompleted.Count,
+                OrganisationsFailed = _discoveryOrgsFailed.Count,
+                OrganisationsTotal = _discoveryOrgsQueued.Count,
+                ProjectsCompleted = completed,
+                ProjectsFailed = failed,
+                ProjectsTotal = total,
+                WorkItemsTotal = totalWi
+            },
+            Discovery = new DiscoveryCounters
+            {
+                Inventory = new InventoryCounters
+                {
+                    RevisionsTotal = totalRev,
+                    RepositoriesTotal = totalRepos,
+                    CheckpointsSaved = _discoveryCheckpointsSaved
+                },
+                Dependencies = new DependencyCounters
+                {
+                    ExternalLinksFound = totalLinks,
+                    WorkItemsAnalysed = totalAnalysed
+                }
+            }
         };
+
+        // Compute avg project duration for derived view
+        double? avgProjectDurationMs = completed > 0
+            ? elapsed.TotalMilliseconds / completed
+            : null;
 
         // ETA: prefer per-item rate when we have dependency pre-count totals;
         // otherwise fall back to avg-project-duration × remaining projects
@@ -390,8 +409,8 @@ public sealed class TuiMainView : Window, IDisposable
             EstimatedRemaining = estimatedRemaining
         };
 
-        _metrics.UpdateDiscovery(snapshot);
-        _derived.UpdateDiscovery(computed, snapshot.ProjectDurationMeanMs);
+        _metrics.UpdateDiscovery(discoveryMetrics);
+        _derived.UpdateDiscovery(computed, avgProjectDurationMs);
     }
 
     // ─── Job-ended callback ──────────────────────────────────────────────────────

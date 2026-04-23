@@ -9,31 +9,31 @@ using Microsoft.Extensions.Options;
 namespace DevOpsMigrationPlatform.MigrationAgent;
 
 /// <summary>
-/// Background service that pushes the latest <see cref="MetricSnapshot"/> to the
+/// Background service that pushes the latest <see cref="JobMetrics"/> to the
 /// Control Plane on a configurable interval while a lease is held.
 /// Reads the current lease id from <see cref="ActiveLeaseState"/> — no push occurs
 /// when <see cref="ActiveLeaseState.CurrentLeaseId"/> is null.
 /// </summary>
 internal sealed class ControlPlaneTelemetryTimer : BackgroundService
 {
-    private readonly IMetricSnapshotStore _store;
+    private readonly IJobMetricsStore _store;
     private readonly IControlPlaneTelemetryClient _client;
     private readonly ActiveLeaseState _leaseState;
     private readonly IOptions<TelemetryOptions> _options;
     private readonly ILogger<ControlPlaneTelemetryTimer> _logger;
 
     public ControlPlaneTelemetryTimer(
-        IMetricSnapshotStore store,
+        IJobMetricsStore store,
         IControlPlaneTelemetryClient client,
         ActiveLeaseState leaseState,
         IOptions<TelemetryOptions> options,
         ILogger<ControlPlaneTelemetryTimer> logger)
     {
-        _store      = store;
-        _client     = client;
+        _store = store;
+        _client = client;
         _leaseState = leaseState;
-        _options    = options;
-        _logger     = logger;
+        _options = options;
+        _logger = logger;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -53,13 +53,13 @@ internal sealed class ControlPlaneTelemetryTimer : BackgroundService
                 break;
             }
 
-            var leaseId  = _leaseState.CurrentLeaseId;
-            var snapshot = _store.Latest;
+            var leaseId = _leaseState.CurrentLeaseId;
+            var metrics = _store.Latest;
 
-            if (leaseId is null || snapshot is null)
+            if (leaseId is null || metrics is null)
                 continue;
 
-            await _client.PushSnapshotAsync(leaseId, snapshot, stoppingToken)
+            await _client.PushMetricsAsync(leaseId, metrics, stoppingToken)
                          .ConfigureAwait(false);
         }
 

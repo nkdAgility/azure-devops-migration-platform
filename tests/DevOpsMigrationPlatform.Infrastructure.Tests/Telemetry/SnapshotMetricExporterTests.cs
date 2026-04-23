@@ -6,16 +6,16 @@ using Microsoft.VisualStudio.TestTools.UnitTesting;
 namespace DevOpsMigrationPlatform.Infrastructure.Tests.Telemetry;
 
 // ─────────────────────────────────────────────────────────────────────────────
-// InMemoryMetricSnapshotStore — pure unit tests (no OTel dependency)
+// InMemoryJobMetricsStore — pure unit tests (no OTel dependency)
 // ─────────────────────────────────────────────────────────────────────────────
 
 [TestClass]
-public class InMemoryMetricSnapshotStoreTests
+public class InMemoryJobMetricsStoreTests
 {
-    private InMemoryMetricSnapshotStore _sut = null!;
+    private InMemoryJobMetricsStore _sut = null!;
 
     [TestInitialize]
-    public void Setup() => _sut = new InMemoryMetricSnapshotStore();
+    public void Setup() => _sut = new InMemoryJobMetricsStore();
 
     [TestMethod]
     public void Latest_BeforeAnyUpdate_ReturnsNull()
@@ -26,102 +26,132 @@ public class InMemoryMetricSnapshotStoreTests
     [TestMethod]
     public void Update_WhenCalledOnce_LatestReturnsSnapshot()
     {
-        var snapshot = new MetricSnapshot { WorkItemsAttempted = 7 };
+        var metrics = new JobMetrics
+        {
+            Migration = new MigrationCounters
+            {
+                WorkItems = new WorkItemCounters { Attempted = 7 }
+            }
+        };
 
-        _sut.Update(snapshot);
+        _sut.Update(metrics);
 
         Assert.IsNotNull(_sut.Latest);
-        Assert.AreEqual(7, _sut.Latest!.WorkItemsAttempted);
+        Assert.AreEqual(7, _sut.Latest!.Migration!.WorkItems.Attempted);
     }
 
     [TestMethod]
     public void Update_WhenCalledTwice_LatestReturnsLastSnapshot()
     {
-        _sut.Update(new MetricSnapshot { WorkItemsAttempted = 1 });
-        _sut.Update(new MetricSnapshot { WorkItemsAttempted = 2 });
+        _sut.Update(new JobMetrics
+        {
+            Migration = new MigrationCounters
+            {
+                WorkItems = new WorkItemCounters { Attempted = 1 }
+            }
+        });
+        _sut.Update(new JobMetrics
+        {
+            Migration = new MigrationCounters
+            {
+                WorkItems = new WorkItemCounters { Attempted = 2 }
+            }
+        });
 
-        Assert.AreEqual(2, _sut.Latest!.WorkItemsAttempted);
+        Assert.AreEqual(2, _sut.Latest!.Migration!.WorkItems.Attempted);
     }
 
     [TestMethod]
     public void Update_PreservesAllFields()
     {
         var now = DateTimeOffset.UtcNow;
-        var snapshot = new MetricSnapshot
+        var metrics = new JobMetrics
         {
             Timestamp = now,
-            WorkItemsAttempted = 10,
-            WorkItemsCompleted = 9,
-            WorkItemsFailed = 1,
-            WorkItemsRetried = 2,
-            WorkItemDurationMeanMs = 123.4,
-            FieldCountMean = 5.0,
-            AttachmentCountMean = 2.5,
-            LinkCountMean = 3.0,
-            RevisionCountMean = 7.0,
-            PayloadBytesMean = 4096.0,
-            RevisionSourceCountMean = 7.0,
-            RevisionTargetCountMean = 7.0,
-            RevisionDeltaMean = 0.0,
-            RevisionsMissing = 0,
-            RevisionOrderErrors = 0,
-            BrokenLinks = 1,
-            MissingWorkItems = 0,
-            WorkItemsInFlight = 3,
-            QueueDepth = 47,
-            Duplicated = 0,
-            ChangedOnRerun = null,
-            ReprocessedAfterResume = null,
-            DuplicatedAfterResume = null,
-            MissingAfterResume = null,
+            Scope = new JobScopeCounters
+            {
+                WorkItemsTotal = 100,
+                ProjectsTotal = 2
+            },
+            Migration = new MigrationCounters
+            {
+                WorkItems = new WorkItemCounters
+                {
+                    Attempted = 10,
+                    Completed = 9,
+                    Failed = 1,
+                    Skipped = 0,
+                    RevisionsProcessed = 42,
+                    Attachments = new AttachmentCounters
+                    {
+                        Processed = 5,
+                        Failed = 1,
+                        TotalBytes = 4096
+                    }
+                },
+                Diagnostics = new MigrationDiagnostics
+                {
+                    WorkItemDurationMeanMs = 123.4,
+                    FieldCountMean = 5.0,
+                    AttachmentCountMean = 2.5,
+                    LinkCountMean = 3.0,
+                    RevisionCountMean = 7.0,
+                    PayloadBytesMean = 4096.0,
+                    RevisionsMissing = 0,
+                    RevisionOrderErrors = 0,
+                    BrokenLinks = 1,
+                    MissingWorkItems = 0,
+                    WorkItemsInFlight = 3,
+                    QueueDepth = 47
+                }
+            }
         };
 
-        _sut.Update(snapshot);
+        _sut.Update(metrics);
         var result = _sut.Latest!;
 
         Assert.AreEqual(now, result.Timestamp);
-        Assert.AreEqual(10, result.WorkItemsAttempted);
-        Assert.AreEqual(9, result.WorkItemsCompleted);
-        Assert.AreEqual(1, result.WorkItemsFailed);
-        Assert.AreEqual(2, result.WorkItemsRetried);
-        Assert.AreEqual(123.4, result.WorkItemDurationMeanMs);
-        Assert.AreEqual(5.0, result.FieldCountMean);
-        Assert.AreEqual(2.5, result.AttachmentCountMean);
-        Assert.AreEqual(3.0, result.LinkCountMean);
-        Assert.AreEqual(7.0, result.RevisionCountMean);
-        Assert.AreEqual(4096.0, result.PayloadBytesMean);
-        Assert.AreEqual(7.0, result.RevisionSourceCountMean);
-        Assert.AreEqual(7.0, result.RevisionTargetCountMean);
-        Assert.AreEqual(0.0, result.RevisionDeltaMean);
-        Assert.AreEqual(0, result.RevisionsMissing);
-        Assert.AreEqual(0, result.RevisionOrderErrors);
-        Assert.AreEqual(1, result.BrokenLinks);
-        Assert.AreEqual(0, result.MissingWorkItems);
-        Assert.AreEqual(3, result.WorkItemsInFlight);
-        Assert.AreEqual(47, result.QueueDepth);
-        Assert.AreEqual(0L, result.Duplicated);
-        Assert.IsNull(result.ChangedOnRerun);
-        Assert.IsNull(result.ReprocessedAfterResume);
-        Assert.IsNull(result.DuplicatedAfterResume);
-        Assert.IsNull(result.MissingAfterResume);
+        Assert.AreEqual(10, result.Migration!.WorkItems.Attempted);
+        Assert.AreEqual(9, result.Migration.WorkItems.Completed);
+        Assert.AreEqual(1, result.Migration.WorkItems.Failed);
+        Assert.AreEqual(42, result.Migration.WorkItems.RevisionsProcessed);
+        Assert.AreEqual(5, result.Migration.WorkItems.Attachments!.Processed);
+        Assert.AreEqual(1, result.Migration.WorkItems.Attachments.Failed);
+        Assert.AreEqual(4096, result.Migration.WorkItems.Attachments.TotalBytes);
+        Assert.AreEqual(123.4, result.Migration.Diagnostics!.WorkItemDurationMeanMs);
+        Assert.AreEqual(5.0, result.Migration.Diagnostics.FieldCountMean);
+        Assert.AreEqual(2.5, result.Migration.Diagnostics.AttachmentCountMean);
+        Assert.AreEqual(3.0, result.Migration.Diagnostics.LinkCountMean);
+        Assert.AreEqual(7.0, result.Migration.Diagnostics.RevisionCountMean);
+        Assert.AreEqual(4096.0, result.Migration.Diagnostics.PayloadBytesMean);
+        Assert.AreEqual(0, result.Migration.Diagnostics.RevisionsMissing);
+        Assert.AreEqual(0, result.Migration.Diagnostics.RevisionOrderErrors);
+        Assert.AreEqual(1, result.Migration.Diagnostics.BrokenLinks);
+        Assert.AreEqual(0, result.Migration.Diagnostics.MissingWorkItems);
+        Assert.AreEqual(3, result.Migration.Diagnostics.WorkItemsInFlight);
+        Assert.AreEqual(47, result.Migration.Diagnostics.QueueDepth);
+        Assert.AreEqual(100, result.Scope.WorkItemsTotal);
+        Assert.AreEqual(2, result.Scope.ProjectsTotal);
     }
 
     [TestMethod]
     public void Update_WithNullFields_StillStoresSnapshot()
     {
-        var snapshot = new MetricSnapshot
+        var metrics = new JobMetrics
         {
-            WorkItemsAttempted = 3,
-            WorkItemDurationMeanMs = null,
-            Duplicated = null,
-            ChangedOnRerun = null,
+            Migration = new MigrationCounters
+            {
+                WorkItems = new WorkItemCounters { Attempted = 3 },
+                Diagnostics = new MigrationDiagnostics
+                {
+                    WorkItemDurationMeanMs = null
+                }
+            }
         };
 
-        _sut.Update(snapshot);
+        _sut.Update(metrics);
 
         Assert.IsNotNull(_sut.Latest);
-        Assert.IsNull(_sut.Latest!.WorkItemDurationMeanMs);
-        Assert.IsNull(_sut.Latest!.Duplicated);
-        Assert.IsNull(_sut.Latest!.ChangedOnRerun);
+        Assert.IsNull(_sut.Latest!.Migration!.Diagnostics!.WorkItemDurationMeanMs);
     }
 }

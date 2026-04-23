@@ -16,7 +16,7 @@ public static class ControlPlaneServiceExtensions
         this IServiceCollection services,
         IConfiguration configuration)
     {
-        // Register snapshot exporter + IMetricSnapshotStore + TelemetryOptions.
+        // Register snapshot exporter + IJobMetricsStore + TelemetryOptions.
         services.AddTelemetryServices(configuration);
 
         // Job queue — holds all submitted Jobs (MigrationJob and DiscoveryJob) until an agent acquires a lease.

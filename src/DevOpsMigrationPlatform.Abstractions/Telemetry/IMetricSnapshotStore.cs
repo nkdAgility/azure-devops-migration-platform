@@ -1,15 +1,15 @@
 namespace DevOpsMigrationPlatform.Abstractions;
 
 /// <summary>
-/// In-process store for the most recent <see cref="MetricSnapshot"/>.
+/// In-process store for the most recent <see cref="JobMetrics"/>.
 /// Updated by <c>SnapshotMetricExporter</c> on every OTel export cycle.
 /// Read by <c>ControlPlaneTelemetryTimer</c> to push to the Control Plane.
 /// </summary>
-public interface IMetricSnapshotStore
+public interface IJobMetricsStore
 {
-    /// <summary>Replaces the stored snapshot with the given value.</summary>
-    void Update(MetricSnapshot snapshot);
+    /// <summary>Replaces the stored metrics with the given value.</summary>
+    void Update(JobMetrics metrics);
 
-    /// <summary>Returns the most recent snapshot, or <c>null</c> if none has been recorded yet.</summary>
-    MetricSnapshot? Latest { get; }
+    /// <summary>Returns the most recent metrics, or <c>null</c> if none has been recorded yet.</summary>
+    JobMetrics? Latest { get; }
 }

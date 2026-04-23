@@ -96,10 +96,9 @@ namespace DevOpsMigrationPlatform.CLI.TfsMigration.Commands
                             {
                                 ctx.Status(
                                     "Exporting Work Items\n" +
-                                    "[bold yellow]Total:[/] " + evt.TotalWorkItems.ToString().PadRight(6) +
-                                    "  [bold yellow]Done:[/] " + evt.WorkItemsProcessed.ToString().PadRight(6) + "\n" +
-                                    "[bold yellow]Revisions:[/] " + evt.RevisionsProcessed.ToString().PadRight(6) +
-                                    "  [bold yellow]Current WI:[/] " + evt.WorkItemId);
+                                    "[bold yellow]Stage:[/] " + (evt.Stage ?? "").PadRight(12) +
+                                    "  [bold yellow]Module:[/] " + (evt.Module ?? "").PadRight(12) + "\n" +
+                                    "[bold yellow]Status:[/] " + (evt.Message ?? "working…"));
                             }),
                             cancellationToken).ConfigureAwait(false);
                     });

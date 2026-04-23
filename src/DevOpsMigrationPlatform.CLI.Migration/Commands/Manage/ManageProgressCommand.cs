@@ -61,11 +61,10 @@ public sealed class ManageProgressCommand : ControlPlaneCommandBase<ManageProgre
             foreach (var evt in events)
             {
                 var msg = !string.IsNullOrEmpty(evt.Message) ? evt.Message : string.Empty;
-                if (evt.RevisionsProcessed > 0)
-                    AnsiConsole.MarkupLine(
-                        $"[blue]WorkItems[/]  [bold]{evt.WorkItemsProcessed}[/] work items / [bold]{evt.RevisionsProcessed}[/] revisions  [grey](wi#{evt.WorkItemId})[/]");
-                else if (!string.IsNullOrEmpty(msg))
+                if (!string.IsNullOrEmpty(msg))
                     AnsiConsole.MarkupLine($"[grey]{Markup.Escape(msg)}[/]");
+                else
+                    AnsiConsole.MarkupLine($"[blue]{Markup.Escape(evt.Module)}[/] [grey]{Markup.Escape(evt.Stage)}[/]");
             }
 
             return 0;

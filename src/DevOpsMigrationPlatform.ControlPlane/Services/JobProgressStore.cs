@@ -15,7 +15,7 @@ public sealed class JobProgressStore
         public bool Completed { get; set; }
 
         /// <summary>
-        /// Latest event per <see cref="ProgressEvent.LastProcessed"/> key.
+        /// Latest event per <see cref="ProgressEvent.Module"/> key.
         /// Not subject to ring-buffer eviction — persists for the lifetime of the job entry.
         /// Used to replay current per-project state to late-connecting SSE clients.
         /// Mutations guarded by <see cref="Subscribers"/> lock.
@@ -40,10 +40,10 @@ public sealed class JobProgressStore
 
         lock (entry.Subscribers)
         {
-            // Track latest event per project key so late-connecting SSE clients can
-            // replay the current per-project state regardless of ring-buffer eviction.
-            if (!string.IsNullOrEmpty(evt.LastProcessed))
-                entry.LatestByProject[evt.LastProcessed] = evt;
+            // Track latest event per module so late-connecting SSE clients can
+            // replay the current per-module state regardless of ring-buffer eviction.
+            if (!string.IsNullOrEmpty(evt.Module))
+                entry.LatestByProject[evt.Module] = evt;
 
             foreach (var writer in entry.Subscribers)
                 writer.TryWrite(evt);
@@ -59,7 +59,7 @@ public sealed class JobProgressStore
 
     /// <summary>
     /// Returns the latest <see cref="ProgressEvent"/> for each distinct
-    /// <see cref="ProgressEvent.LastProcessed"/> key seen for <paramref name="jobId"/>.
+    /// <see cref="ProgressEvent.Module"/> key seen for <paramref name="jobId"/>.
     /// Unlike <see cref="GetSnapshot"/>, this projection is not subject to ring-buffer
     /// eviction — it retains every project's most recent state for the lifetime of the
     /// job entry.  Use this to seed a late-connecting SSE client with the current status

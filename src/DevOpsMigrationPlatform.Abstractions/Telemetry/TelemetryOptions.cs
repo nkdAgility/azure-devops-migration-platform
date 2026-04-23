@@ -18,13 +18,13 @@ public sealed class TelemetryOptions
     public string? AzureMonitorConnectionString { get; init; }
 
     /// <summary>
-    /// How often (seconds) the Migration Agent pushes a MetricSnapshot to the Control Plane.
+    /// How often (seconds) the Migration Agent pushes a <see cref="JobMetrics"/> to the Control Plane.
     /// Default: 5 seconds.
     /// </summary>
     public int SnapshotIntervalSeconds { get; init; } = 5;
 
     /// <summary>
-    /// How often (revisions processed) the TFS subprocess embeds a MetricSnapshot in a
+    /// How often (revisions processed) the TFS subprocess embeds a <see cref="JobMetrics"/> in a
     /// ProgressEvent. Default: every 100 revisions.
     /// </summary>
     public int SubprocessSnapshotRevisionInterval { get; init; } = 100;

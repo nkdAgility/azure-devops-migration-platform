@@ -46,7 +46,7 @@ public static class MigrationPlatformHost
         public string OutputFolder { get; }
 
         /// <summary>
-        /// How often (by revision count) a <see cref="MetricSnapshot"/> is embedded
+        /// How often (by revision count) a <see cref="JobMetrics"/> is embedded
         /// in the yielded <see cref="ProgressEvent.Metrics"/> field.
         /// Default: 100.
         /// </summary>

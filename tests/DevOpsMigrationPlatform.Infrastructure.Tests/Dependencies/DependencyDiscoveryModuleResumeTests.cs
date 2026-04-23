@@ -126,17 +126,14 @@ public class DependencyDiscoveryModuleResumeTests
         // Act
         await sut.RunAsync(ctx, CancellationToken.None);
 
-        // Assert — a synthetic ProjectComplete event must be emitted for the resumed project
+        // Assert — a synthetic ProjectComplete event must be emitted for the resumed project.
+        // The module puts project info in Message (ProgressEvent is now a pure envelope).
         var resumedEvent = emittedEvents.Find(e =>
             e.Stage == "ProjectComplete" &&
-            e.LastProcessed == projectKey);
+            e.Message != null &&
+            e.Message.Contains("Resumed", StringComparison.OrdinalIgnoreCase));
 
         Assert.IsNotNull(resumedEvent, "Expected a synthetic ProjectComplete event for the resumed project.");
-        Assert.AreEqual(500, resumedEvent.WorkItemsProcessed, "WorkItemsProcessed should match cursor stats.");
-        Assert.AreEqual(47, resumedEvent.ExternalLinksFound, "ExternalLinksFound should match cursor stats.");
-        Assert.AreEqual(47, resumedEvent.CrossProjectLinks, "CrossProjectLinks should match cursor stats.");
-        Assert.AreEqual(3, resumedEvent.CrossOrgLinks, "CrossOrgLinks should match cursor stats.");
-        Assert.AreEqual(500, resumedEvent.TotalWorkItems, "TotalWorkItems should match cursor stats.");
     }
 
     [TestMethod]
@@ -195,13 +192,13 @@ public class DependencyDiscoveryModuleResumeTests
         // Act
         await sut.RunAsync(ctx, CancellationToken.None);
 
-        // Assert — event is still emitted but with zero counts (backward-compatible)
+        // Assert — event is still emitted but with backward-compatible message
         var resumedEvent = emittedEvents.Find(e =>
             e.Stage == "ProjectComplete" &&
-            e.LastProcessed == projectKey);
+            e.Message != null &&
+            e.Message.Contains("Resumed", StringComparison.OrdinalIgnoreCase));
 
         Assert.IsNotNull(resumedEvent, "Expected a synthetic ProjectComplete event even for old cursors without stats.");
-        Assert.AreEqual(0, resumedEvent.WorkItemsProcessed, "WorkItemsProcessed should default to 0 for old cursors.");
     }
 
     [TestMethod]

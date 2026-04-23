@@ -24,19 +24,25 @@ public class TuiMetricsViewTests
     }
 
     [TestMethod]
-    public void Update_WithSnapshot_DoesNotCrash()
+    public void Update_WithMetrics_DoesNotCrash()
     {
         // Arrange
         var view = new TuiMetricsView();
-        var snapshot = new MetricSnapshot
+        var metrics = new JobMetrics
         {
-            WorkItemsAttempted = 42,
-            WorkItemsCompleted = 40,
-            WorkItemsFailed = 2
+            Migration = new MigrationCounters
+            {
+                WorkItems = new WorkItemCounters
+                {
+                    Attempted = 42,
+                    Completed = 40,
+                    Failed = 2
+                }
+            }
         };
 
         // Act + Assert (no exception means formatting logic ran)
-        view.Update(snapshot);
+        view.Update(metrics);
     }
 
     [TestMethod]
@@ -54,8 +60,20 @@ public class TuiMetricsViewTests
     {
         // Arrange
         var view = new TuiMetricsView();
-        var snap1 = new MetricSnapshot { WorkItemsAttempted = 10 };
-        var snap2 = new MetricSnapshot { WorkItemsAttempted = 20 };
+        var snap1 = new JobMetrics
+        {
+            Migration = new MigrationCounters
+            {
+                WorkItems = new WorkItemCounters { Attempted = 10 }
+            }
+        };
+        var snap2 = new JobMetrics
+        {
+            Migration = new MigrationCounters
+            {
+                WorkItems = new WorkItemCounters { Attempted = 20 }
+            }
+        };
 
         // Act — second update should overwrite (no exception, no state corruption)
         view.Update(snap1);
@@ -63,46 +81,49 @@ public class TuiMetricsViewTests
     }
 
     [TestMethod]
-    public void UpdateDiscovery_WithSnapshot_DoesNotCrash()
+    public void UpdateDiscovery_WithMetrics_DoesNotCrash()
     {
         // Arrange
         var view = new TuiMetricsView();
-        var snapshot = new DiscoveryMetricSnapshot
+        var metrics = new JobMetrics
         {
-            OrganisationsCompleted = 1,
-            ProjectsCompleted = 5,
-            ProjectsFailed = 1,
-            WorkItemsCounted = 10000,
-            RevisionsCounted = 50000,
-            ReposCounted = 42,
-            LinksFound = 300,
-            WorkItemsAnalysed = 8000,
-            CheckpointsSaved = 3,
-            ProjectsQueued = 2,
-            OrganisationsQueued = 1,
-            ProjectDurationMeanMs = 12500.0
-        };
-        var computed = new DiscoveryComputedMetrics
-        {
-            WorkItemsPerHour = 5000.0,
-            RevisionsPerHour = 25000.0,
-            ProjectsPerHour = 2.5,
-            Elapsed = TimeSpan.FromMinutes(120),
-            EstimatedRemaining = TimeSpan.FromMinutes(48)
+            Scope = new JobScopeCounters
+            {
+                OrganisationsCompleted = 1,
+                ProjectsCompleted = 5,
+                ProjectsFailed = 1,
+                ProjectsTotal = 8,
+                OrganisationsTotal = 1,
+                WorkItemsTotal = 10000
+            },
+            Discovery = new DiscoveryCounters
+            {
+                Inventory = new InventoryCounters
+                {
+                    RevisionsTotal = 50000,
+                    RepositoriesTotal = 42,
+                    CheckpointsSaved = 3
+                },
+                Dependencies = new DependencyCounters
+                {
+                    ExternalLinksFound = 300,
+                    WorkItemsAnalysed = 8000
+                }
+            }
         };
 
         // Act + Assert (no exception means formatting logic ran)
-        view.UpdateDiscovery(snapshot);
+        view.UpdateDiscovery(metrics);
     }
 
     [TestMethod]
-    public void UpdateDiscovery_WithNullRates_ShowsDashes()
+    public void UpdateDiscovery_WithNullCounters_ShowsZeros()
     {
         // Arrange
         var view = new TuiMetricsView();
-        var snapshot = new DiscoveryMetricSnapshot();
+        var metrics = new JobMetrics();
 
         // Act + Assert (no crash with all-null/zero values)
-        view.UpdateDiscovery(snapshot);
+        view.UpdateDiscovery(metrics);
     }
 }

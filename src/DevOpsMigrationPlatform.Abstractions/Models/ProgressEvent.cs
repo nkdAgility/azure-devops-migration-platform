@@ -3,8 +3,9 @@ using System;
 namespace DevOpsMigrationPlatform.Abstractions;
 
 /// <summary>
-/// A structured progress event emitted by the Job Engine or a module.
-/// Written to the package log and reported to the control plane.
+/// A structured progress event (Channel 1: JobEvent) emitted by the Job Engine or a module.
+/// Pure envelope — carries no counter fields. Maps to an OTel Event: something happened at a point in time.
+/// Written to the package log and reported to the control plane via SSE fan-out.
 /// In the TFS export subprocess, serialised as a single NDJSON line on stdout.
 /// </summary>
 public record ProgressEvent
@@ -15,32 +16,18 @@ public record ProgressEvent
     /// <summary>Current stage label, e.g. "AppliedFields". Matches cursor stage values.</summary>
     public string Stage { get; init; } = string.Empty;
 
-    /// <summary>Relative path of the last processed revision folder.</summary>
-    public string? LastProcessed { get; init; }
-
-    /// <summary>Total work items seen so far.</summary>
-    public int TotalWorkItems { get; init; }
-
-    /// <summary>Work items fully processed.</summary>
-    public int WorkItemsProcessed { get; init; }
-
-    /// <summary>Revisions written to the package.</summary>
-    public int RevisionsProcessed { get; init; }
-
-    /// <summary>Work item ID currently being processed.</summary>
-    public int WorkItemId { get; init; }
-
     /// <summary>Human-readable status message.</summary>
     public string? Message { get; init; }
 
     /// <summary>UTC timestamp when this event was emitted.</summary>
     public DateTimeOffset Timestamp { get; init; } = DateTimeOffset.UtcNow;
 
-    /// <summary>Attachments successfully downloaded and stored in this batch.</summary>
-    public int AttachmentsProcessed { get; init; }
-
-    /// <summary>Attachment downloads that failed in this batch.</summary>
-    public int AttachmentsFailed { get; init; }
+    /// <summary>
+    /// Monotonic event sequence number, assigned by the agent and scoped per job.
+    /// Used as the SSE <c>id:</c> field for <c>Last-Event-ID</c> reconnect semantics.
+    /// Client-side reducers discard events with sequence ≤ last applied.
+    /// </summary>
+    public long EventSequence { get; init; }
 
     /// <summary>UTC timestamp of the most recent checkpoint save. Null if no checkpoint has been written yet.</summary>
     public DateTimeOffset? LastCheckpointAt { get; init; }
@@ -48,22 +35,12 @@ public record ProgressEvent
     /// <summary>Estimated UTC time when the next checkpoint will be written. Null when checkpointing is per-item (always safe).</summary>
     public DateTimeOffset? NextCheckpointDueAt { get; init; }
 
-    // ── Discovery-specific fields ─────────────────────────────────────────
-
-    /// <summary>External links found during dependency discovery for this project.</summary>
-    public int ExternalLinksFound { get; init; }
-
-    /// <summary>Cross-project links found during dependency discovery for this project.</summary>
-    public int CrossProjectLinks { get; init; }
-
-    /// <summary>Cross-organisation links found during dependency discovery for this project.</summary>
-    public int CrossOrgLinks { get; init; }
-
     /// <summary>
-    /// Optional metric snapshot emitted alongside this progress event.
+    /// Optional <see cref="JobMetrics"/> emitted alongside this progress event.
     /// Populated by the TFS subprocess every N revisions (controlled by
     /// <see cref="TelemetryOptions.SubprocessSnapshotRevisionInterval"/>; default 100).
-    /// Null when emitted by the .NET 10 Migration Agent directly.
+    /// Null when emitted by the .NET 10 Migration Agent directly (metrics are pushed
+    /// via a separate HTTP channel in that case).
     /// </summary>
-    public MetricSnapshot? Metrics { get; init; }
+    public JobMetrics? Metrics { get; init; }
 }

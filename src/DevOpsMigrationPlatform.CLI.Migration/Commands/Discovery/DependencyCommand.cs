@@ -264,7 +264,7 @@ public sealed class DependencyCommand : ControlPlaneCommandBase<DependencyComman
 
                     if (evt.Stage == "ProjectComplete")
                     {
-                        var key = evt.LastProcessed ?? "";
+                        var key = evt.Message ?? "";
                         if (progressState.TryGetValue(key, out var p))
                         {
                             console.MarkupLine(
@@ -329,7 +329,8 @@ public sealed class DependencyCommand : ControlPlaneCommandBase<DependencyComman
         Dictionary<string, ProjectProgress> state,
         ProgressEvent evt)
     {
-        var key = evt.LastProcessed;
+        // Message now carries the "{orgUrl}|{project}" key that was formerly in LastProcessed.
+        var key = evt.Message;
         if (string.IsNullOrEmpty(key))
             return;
 
@@ -347,11 +348,12 @@ public sealed class DependencyCommand : ControlPlaneCommandBase<DependencyComman
             state[key] = progress;
         }
 
-        progress.TotalWorkItems = evt.TotalWorkItems;
-        progress.WorkItemsAnalysed = evt.WorkItemsProcessed;
-        progress.ExternalLinks = evt.ExternalLinksFound;
-        progress.CrossProjectLinks = evt.CrossProjectLinks;
-        progress.CrossOrgLinks = evt.CrossOrgLinks;
+        var deps = evt.Metrics?.Discovery?.Dependencies;
+        progress.TotalWorkItems = evt.Metrics?.Scope?.WorkItemsTotal ?? progress.TotalWorkItems;
+        progress.WorkItemsAnalysed = deps?.WorkItemsAnalysed ?? progress.WorkItemsAnalysed;
+        progress.ExternalLinks = deps?.ExternalLinksFound ?? progress.ExternalLinks;
+        progress.CrossProjectLinks = deps?.CrossProjectLinks ?? progress.CrossProjectLinks;
+        progress.CrossOrgLinks = deps?.CrossOrgLinks ?? progress.CrossOrgLinks;
         progress.IsComplete = evt.Stage == "ProjectComplete";
 
         // Mark the project as active in this session on the first non-terminal heartbeat.
@@ -575,11 +577,11 @@ public sealed class DependencyCommand : ControlPlaneCommandBase<DependencyComman
     {
         public string OrgName { get; set; } = string.Empty;
         public string ProjectName { get; set; } = string.Empty;
-        public int TotalWorkItems { get; set; }
-        public int WorkItemsAnalysed { get; set; }
-        public int ExternalLinks { get; set; }
-        public int CrossProjectLinks { get; set; }
-        public int CrossOrgLinks { get; set; }
+        public long TotalWorkItems { get; set; }
+        public long WorkItemsAnalysed { get; set; }
+        public long ExternalLinks { get; set; }
+        public long CrossProjectLinks { get; set; }
+        public long CrossOrgLinks { get; set; }
         public bool IsComplete { get; set; }
         public string? Error { get; set; }
 

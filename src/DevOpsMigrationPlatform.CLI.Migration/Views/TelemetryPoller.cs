@@ -24,8 +24,8 @@ public sealed class TelemetryPoller
         TelemetryPanel panel,
         ILogger<TelemetryPoller> logger)
     {
-        _http   = http   ?? throw new ArgumentNullException(nameof(http));
-        _panel  = panel  ?? throw new ArgumentNullException(nameof(panel));
+        _http = http ?? throw new ArgumentNullException(nameof(http));
+        _panel = panel ?? throw new ArgumentNullException(nameof(panel));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
@@ -56,10 +56,10 @@ public sealed class TelemetryPoller
 
             if (response.StatusCode == System.Net.HttpStatusCode.OK)
             {
-                var snapshot = await response.Content
-                    .ReadFromJsonAsync<MetricSnapshot>(ct)
+                var metrics = await response.Content
+                    .ReadFromJsonAsync<JobMetrics>(ct)
                     .ConfigureAwait(false);
-                _panel.Update(snapshot);
+                _panel.Update(metrics);
             }
             else if (response.StatusCode == System.Net.HttpStatusCode.NoContent)
             {

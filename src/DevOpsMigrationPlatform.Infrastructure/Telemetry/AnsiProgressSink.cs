@@ -24,12 +24,9 @@ public sealed class AnsiProgressSink : IProgressSink
         using (_logger.BeginDataScope(DataClassification.Customer))
         {
             _logger.LogInformation(
-                "[{Module}] {Stage} WI={WorkItemId} Rev={RevisionsProcessed}/{TotalWorkItems}{Message}",
+                "[{Module}] {Stage}{Message}",
                 evt.Module,
                 evt.Stage,
-                evt.WorkItemId,
-                evt.RevisionsProcessed,
-                evt.TotalWorkItems,
                 evt.Message is not null ? $" — {evt.Message}" : string.Empty);
         }
     }

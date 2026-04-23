@@ -12,5 +12,5 @@ internal sealed class AnsiProgressSink : IProgressSink
 {
     public void Emit(ProgressEvent evt) =>
         AnsiConsole.MarkupLineInterpolated(
-            $"[grey]{evt.Module}[/] [dim]{evt.Stage}[/] WI={evt.WorkItemId} Rev={evt.RevisionsProcessed}/{evt.TotalWorkItems}");
+            $"[grey]{evt.Module}[/] [dim]{evt.Stage}[/] {evt.Message ?? string.Empty}");
 }

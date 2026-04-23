@@ -150,7 +150,6 @@ public sealed class WorkItemExportOrchestrator
                     {
                         Module = "WorkItems",
                         Stage = "Export",
-                        WorkItemId = revision.WorkItemId,
                         Message = $"[WorkItems] Work item {revision.WorkItemId} skipped by filter scope."
                     });
                 }
@@ -214,8 +213,6 @@ public sealed class WorkItemExportOrchestrator
                     {
                         Module = "WorkItems",
                         Stage = "Export",
-                        LastProcessed = folderPath,
-                        WorkItemId = revision.WorkItemId,
                         Message = $"[WorkItems] Warning: inline comment fetch failed for work item {revision.WorkItemId} revision {revision.RevisionIndex}: {ex.Message}"
                     });
                 }
@@ -248,12 +245,6 @@ public sealed class WorkItemExportOrchestrator
                 {
                     Module = "WorkItems",
                     Stage = "Export",
-                    LastProcessed = folderPath,
-                    WorkItemId = revision.WorkItemId,
-                    WorkItemsProcessed = workItemsProcessed,
-                    RevisionsProcessed = revisionsProcessed,
-                    AttachmentsProcessed = attachmentsProcessed,
-                    AttachmentsFailed = attachmentsFailed,
                     Message = $"[WorkItems] {workItemsProcessed} work items / {revisionsProcessed} revisions written",
                     LastCheckpointAt = DateTimeOffset.UtcNow,
                     NextCheckpointDueAt = null // per-revision checkpoint — always safe to cancel
