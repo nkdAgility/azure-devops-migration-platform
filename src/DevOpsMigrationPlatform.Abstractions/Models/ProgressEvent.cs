@@ -48,6 +48,17 @@ public record ProgressEvent
     /// <summary>Estimated UTC time when the next checkpoint will be written. Null when checkpointing is per-item (always safe).</summary>
     public DateTimeOffset? NextCheckpointDueAt { get; init; }
 
+    // ── Discovery-specific fields ─────────────────────────────────────────
+
+    /// <summary>External links found during dependency discovery for this project.</summary>
+    public int ExternalLinksFound { get; init; }
+
+    /// <summary>Cross-project links found during dependency discovery for this project.</summary>
+    public int CrossProjectLinks { get; init; }
+
+    /// <summary>Cross-organisation links found during dependency discovery for this project.</summary>
+    public int CrossOrgLinks { get; init; }
+
     /// <summary>
     /// Optional metric snapshot emitted alongside this progress event.
     /// Populated by the TFS subprocess every N revisions (controlled by

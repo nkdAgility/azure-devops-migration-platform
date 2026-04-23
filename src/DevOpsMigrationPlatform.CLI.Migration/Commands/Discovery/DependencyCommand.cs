@@ -349,9 +349,9 @@ public sealed class DependencyCommand : ControlPlaneCommandBase<DependencyComman
 
         progress.TotalWorkItems = evt.TotalWorkItems;
         progress.WorkItemsAnalysed = evt.WorkItemsProcessed;
-        progress.ExternalLinks = evt.WorkItemId;
-        progress.CrossProjectLinks = evt.RevisionsProcessed;
-        progress.CrossOrgLinks = evt.AttachmentsProcessed;
+        progress.ExternalLinks = evt.ExternalLinksFound;
+        progress.CrossProjectLinks = evt.CrossProjectLinks;
+        progress.CrossOrgLinks = evt.CrossOrgLinks;
         progress.IsComplete = evt.Stage == "ProjectComplete";
 
         // Mark the project as active in this session on the first non-terminal heartbeat.

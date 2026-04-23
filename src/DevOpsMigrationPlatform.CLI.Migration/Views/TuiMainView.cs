@@ -285,11 +285,10 @@ public sealed class TuiMainView : Window, IDisposable
 
             if (evt.Module == "Dependencies")
             {
-                // Dependencies: TotalWorkItems=projectTotal, WorkItemsProcessed=analysed,
-                // WorkItemId=externalLinks, RevisionsProcessed=crossProject, AttachmentsProcessed=crossOrg
+                // Dependencies: use dedicated discovery fields on ProgressEvent
                 _discoveryProjects[qualifiedKey] = new DiscoveryProjectMetrics(
                     WorkItems: 0, Revisions: 0, Repos: 0,
-                    LinksFound: evt.WorkItemId,
+                    LinksFound: evt.ExternalLinksFound,
                     WorkItemsAnalysed: evt.WorkItemsProcessed,
                     TotalWorkItems: evt.TotalWorkItems,
                     IsComplete: isComplete || isFailed, IsFailed: isFailed,

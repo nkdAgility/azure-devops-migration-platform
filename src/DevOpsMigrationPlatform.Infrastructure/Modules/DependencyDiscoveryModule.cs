@@ -56,28 +56,29 @@ public sealed class DependencyDiscoveryModule : IDiscoveryModule
 
         // ── Pre-count: load inventory.json for grand totals ──────────────────
         long grandTotalWorkItems = 0;
+        InventoryReport? inventoryReport = null;
         var inventoryJson = await store.ReadAsync("inventory.json", ct).ConfigureAwait(false);
         if (inventoryJson is not null)
         {
             try
             {
-                var report = JsonSerializer.Deserialize<InventoryReport>(inventoryJson, new JsonSerializerOptions
+                inventoryReport = JsonSerializer.Deserialize<InventoryReport>(inventoryJson, new JsonSerializerOptions
                 {
                     PropertyNamingPolicy = JsonNamingPolicy.CamelCase
                 });
-                if (report is not null)
+                if (inventoryReport is not null)
                 {
-                    grandTotalWorkItems = report.Totals.WorkItems;
+                    grandTotalWorkItems = inventoryReport.Totals.WorkItems;
                     _logger.LogInformation(
                         "Loaded inventory.json — {TotalWorkItems} total work items across {Projects} projects.",
-                        report.Totals.WorkItems, report.Totals.Projects);
+                        inventoryReport.Totals.WorkItems, inventoryReport.Totals.Projects);
 
                     sink.Emit(new ProgressEvent
                     {
                         Module = Name,
                         Stage = "InventoryLoaded",
-                        TotalWorkItems = (int)Math.Min(report.Totals.WorkItems, int.MaxValue),
-                        Message = $"Inventory loaded: {report.Totals.WorkItems:N0} work items across {report.Totals.Projects} projects.",
+                        TotalWorkItems = (int)Math.Min(inventoryReport.Totals.WorkItems, int.MaxValue),
+                        Message = $"Inventory loaded: {inventoryReport.Totals.WorkItems:N0} work items across {inventoryReport.Totals.Projects} projects.",
                         Timestamp = DateTimeOffset.UtcNow
                     });
                 }
@@ -279,6 +280,48 @@ public sealed class DependencyDiscoveryModule : IDiscoveryModule
                 // Generate grouped CSV, Mermaid diagrams, and per-project transitive graphs.
                 await GenerateAnalysisOutputsAsync(store, csvBuilder.ToString(), ct).ConfigureAwait(false);
 
+                // Emit per-project ProjectComplete events so the CLI/TUI can display stats.
+                var perProjectStats = ComputePerProjectStatsFromCsv(csvBuilder.ToString(), inventoryReport);
+
+                // Ensure every configured project gets an event, even if it had zero links.
+                foreach (var projectKey in allProjectKeys)
+                {
+                    if (!perProjectStats.TryGetValue(projectKey, out var stats))
+                    {
+                        // Project had zero external links — still emit completion with inventory total if available.
+                        var totalWi = 0;
+                        if (inventoryReport?.Organisations != null)
+                        {
+                            var sep = projectKey.IndexOf('|');
+                            if (sep > 0)
+                            {
+                                var orgUrl = projectKey.Substring(0, sep);
+                                var projName = projectKey.Substring(sep + 1);
+                                var org = inventoryReport.Organisations
+                                    .FirstOrDefault(o => string.Equals(o.Url.TrimEnd('/'), orgUrl.TrimEnd('/'), StringComparison.OrdinalIgnoreCase));
+                                var proj = org?.Projects?.FirstOrDefault(p => string.Equals(p.Name, projName, StringComparison.OrdinalIgnoreCase));
+                                if (proj != null)
+                                    totalWi = (int)Math.Min(proj.WorkItems, int.MaxValue);
+                            }
+                        }
+                        stats = new PerProjectStats(totalWi, 0, 0, 0, totalWi);
+                    }
+
+                    sink.Emit(new ProgressEvent
+                    {
+                        Module = Name,
+                        Stage = "ProjectComplete",
+                        LastProcessed = projectKey,
+                        TotalWorkItems = stats.TotalWorkItems,
+                        WorkItemsProcessed = stats.WorkItemsAnalysed,
+                        ExternalLinksFound = stats.ExternalLinksFound,
+                        CrossProjectLinks = stats.CrossProjectCount,
+                        CrossOrgLinks = stats.CrossOrgCount,
+                        Message = $"{projectKey}: {stats.WorkItemsAnalysed}/{stats.TotalWorkItems} analysed, {stats.ExternalLinksFound} links found (reconciled)",
+                        Timestamp = DateTimeOffset.UtcNow
+                    });
+                }
+
                 // Clean up the cursor — analysis is fully complete
                 await state.DeleteAsync(CursorKey, ct).ConfigureAwait(false);
 
@@ -390,9 +433,9 @@ public sealed class DependencyDiscoveryModule : IDiscoveryModule
                         LastProcessed = $"{heartbeat.OrganisationUrl}|{heartbeat.ProjectName}",
                         TotalWorkItems = heartbeat.TotalWorkItems,
                         WorkItemsProcessed = heartbeat.WorkItemsAnalysed,
-                        WorkItemId = heartbeat.ExternalLinksFound,
-                        RevisionsProcessed = heartbeat.CrossProjectCount,
-                        AttachmentsProcessed = heartbeat.CrossOrgCount,
+                        ExternalLinksFound = heartbeat.ExternalLinksFound,
+                        CrossProjectLinks = heartbeat.CrossProjectCount,
+                        CrossOrgLinks = heartbeat.CrossOrgCount,
                         Message = heartbeat.Error is not null
                             ? $"{heartbeat.OrganisationUrl}/{heartbeat.ProjectName}: failed — {heartbeat.Error}"
                             : $"{heartbeat.OrganisationUrl}/{heartbeat.ProjectName}: " +
@@ -592,6 +635,99 @@ public sealed class DependencyDiscoveryModule : IDiscoveryModule
         if (value.Contains(",") || value.Contains("\"") || value.Contains("\n"))
             return $"\"{value.Replace("\"", "\"\"")}\"";
         return value;
+    }
+
+    /// <summary>
+    /// Computes per-project dependency stats from the root <c>dependencies.csv</c> content.
+    /// Returns a dictionary keyed by <c>"{orgUrl}|{project}"</c>.
+    /// Used during reconciliation to emit accurate <c>ProjectComplete</c> progress events.
+    /// </summary>
+    private static Dictionary<string, PerProjectStats> ComputePerProjectStatsFromCsv(
+        string rootCsvContent, InventoryReport? inventory)
+    {
+        var stats = new Dictionary<string, PerProjectStats>(StringComparer.OrdinalIgnoreCase);
+        var lines = rootCsvContent.Split(new[] { '\n' }, StringSplitOptions.RemoveEmptyEntries);
+
+        // Accumulate per-project link counts
+        var analysed = new Dictionary<string, HashSet<int>>(StringComparer.OrdinalIgnoreCase);
+        var externalLinks = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        var crossProjectLinks = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        var crossOrgLinks = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+
+        for (int i = 1; i < lines.Length; i++) // skip header
+        {
+            var cols = ParseCsvLine(lines[i]);
+            if (cols.Count < 6) continue;
+
+            var sourceProject = cols[2];
+            var sourceOrgUrl = cols[3];
+            var linkScopeStr = cols[5];
+
+            if (string.IsNullOrWhiteSpace(sourceProject) || string.IsNullOrWhiteSpace(sourceOrgUrl))
+                continue;
+
+            var key = $"{sourceOrgUrl}|{sourceProject}";
+
+            // Track unique work item IDs analysed
+            if (int.TryParse(cols[0], out var wiId))
+            {
+                if (!analysed.TryGetValue(key, out var wiSet))
+                {
+                    wiSet = new HashSet<int>();
+                    analysed[key] = wiSet;
+                }
+                wiSet.Add(wiId);
+            }
+
+            // Count links by scope
+            if (!externalLinks.ContainsKey(key)) externalLinks[key] = 0;
+            externalLinks[key]++;
+
+            if (linkScopeStr.Equals("CrossOrganisation", StringComparison.OrdinalIgnoreCase))
+            {
+                if (!crossOrgLinks.ContainsKey(key)) crossOrgLinks[key] = 0;
+                crossOrgLinks[key]++;
+            }
+            else
+            {
+                if (!crossProjectLinks.ContainsKey(key)) crossProjectLinks[key] = 0;
+                crossProjectLinks[key]++;
+            }
+        }
+
+        // Build per-project work item total lookup from inventory
+        var inventoryWorkItems = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        if (inventory?.Organisations != null)
+        {
+            foreach (var org in inventory.Organisations)
+            {
+                foreach (var proj in org.Projects)
+                {
+                    var key = $"{org.Url}|{proj.Name}";
+                    inventoryWorkItems[key] = (int)Math.Min(proj.WorkItems, int.MaxValue);
+                }
+            }
+        }
+
+        // Merge all keys
+        var allKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var k in analysed.Keys) allKeys.Add(k);
+        foreach (var k in externalLinks.Keys) allKeys.Add(k);
+
+        foreach (var key in allKeys)
+        {
+            var wiWithLinks = analysed.TryGetValue(key, out var wiSet) ? wiSet.Count : 0;
+            var extLinks = externalLinks.TryGetValue(key, out var el) ? el : 0;
+            var cpLinks = crossProjectLinks.TryGetValue(key, out var cp) ? cp : 0;
+            var coLinks = crossOrgLinks.TryGetValue(key, out var co) ? co : 0;
+            var totalWi = inventoryWorkItems.TryGetValue(key, out var invWi) ? invWi : wiWithLinks;
+            // For reconciled (completed) projects, all work items were analysed.
+            var wiAnalysed = totalWi > 0 ? totalWi : wiWithLinks;
+
+            stats[key] = new PerProjectStats(wiAnalysed, extLinks, cpLinks, coLinks, totalWi);
+        }
+
+        return stats;
     }
 
     /// <summary>
