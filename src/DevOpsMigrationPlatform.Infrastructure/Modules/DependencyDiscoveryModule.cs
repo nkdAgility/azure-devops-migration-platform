@@ -11,6 +11,7 @@ using DevOpsMigrationPlatform.Abstractions.Models;
 using DevOpsMigrationPlatform.Abstractions.Services;
 using DevOpsMigrationPlatform.Abstractions.Telemetry;
 using DevOpsMigrationPlatform.Abstractions.Utilities;
+using DevOpsMigrationPlatform.Infrastructure.Modules.Discovery;
 using Microsoft.Extensions.Logging;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Modules;
@@ -208,6 +209,50 @@ public sealed class DependencyDiscoveryModule : IDiscoveryModule
             csvBuilder.AppendLine(
                 "SourceWorkItemId,SourceWorkItemType,SourceProject,SourceOrganisationUrl," +
                 "LinkType,LinkScope,TargetWorkItemId,TargetProject,TargetOrganisation,TargetStatus,LinkChangedDate,SourceWorkItemStateCategory");
+        }
+
+        // ── Early completion: if all configured projects are already done, regenerate
+        // any missing per-org/per-project CSVs from root CSV and exit without re-running discovery.
+        if (completedProjects.Count > 0)
+        {
+            var allProjectKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var org in job.Organisations)
+            {
+                foreach (var project in org.Projects)
+                {
+                    var resolvedUrl = org.Endpoint.GetResolvedUrl();
+                    allProjectKeys.Add($"{resolvedUrl}|{project}");
+                }
+            }
+
+            // Check if every configured project is already completed
+            if (allProjectKeys.Count > 0 && allProjectKeys.IsSubsetOf(completedProjects))
+            {
+                _logger.LogInformation(
+                    "All {ProjectCount} configured project(s) are already completed — regenerating output files from existing data.",
+                    allProjectKeys.Count);
+
+                await RegenerateOutputFilesFromRootCsvAsync(store, csvBuilder.ToString(), ct).ConfigureAwait(false);
+
+                // Generate grouped CSV, Mermaid diagrams, and per-project transitive graphs.
+                await GenerateAnalysisOutputsAsync(store, csvBuilder.ToString(), ct).ConfigureAwait(false);
+
+                // Clean up the cursor — analysis is fully complete
+                await state.DeleteAsync(CursorKey, ct).ConfigureAwait(false);
+
+                sink.Emit(new ProgressEvent
+                {
+                    Module = Name,
+                    Stage = "Completed",
+                    Message = $"Dependency analysis already complete (reconciled). {recordCount} external links verified.",
+                    Timestamp = DateTimeOffset.UtcNow
+                });
+
+                _logger.LogInformation(
+                    "Dependencies module completed for job {JobId} (reconciled). {RecordCount} records verified.",
+                    job.JobId, recordCount);
+                return;
+            }
         }
 
         var checkpointInterval = TimeSpan.FromSeconds(job.Policies.CheckpointIntervalSeconds);
@@ -448,6 +493,10 @@ public sealed class DependencyDiscoveryModule : IDiscoveryModule
 
         // Final write of root CSV.
         await store.WriteAsync(RootCsvPath, csvBuilder.ToString(), ct).ConfigureAwait(false);
+
+        // Generate grouped CSV, Mermaid diagrams, and per-project transitive graphs.
+        await GenerateAnalysisOutputsAsync(store, csvBuilder.ToString(), ct).ConfigureAwait(false);
+
         await state.DeleteAsync(CursorKey, ct).ConfigureAwait(false);
 
         sink.Emit(new ProgressEvent
@@ -479,6 +528,258 @@ public sealed class DependencyDiscoveryModule : IDiscoveryModule
         if (value.Contains(",") || value.Contains("\"") || value.Contains("\n"))
             return $"\"{value.Replace("\"", "\"\"")}\"";
         return value;
+    }
+
+    /// <summary>
+    /// Regenerates per-org and per-project <c>dependencies.csv</c> files from the root CSV.
+    /// Called when reconciliation detects all projects are already complete but output files
+    /// may be missing (e.g. the cursor was lost after the root CSV was written but before
+    /// per-org/per-project files were flushed).
+    /// </summary>
+    private async Task RegenerateOutputFilesFromRootCsvAsync(
+        IArtefactStore store, string rootCsvContent, CancellationToken ct)
+    {
+        const string CsvHeader =
+            "SourceWorkItemId,SourceWorkItemType,SourceProject,SourceOrganisationUrl," +
+            "LinkType,LinkScope,TargetWorkItemId,TargetProject,TargetOrganisation,TargetStatus,LinkChangedDate,SourceWorkItemStateCategory";
+
+        // Parse root CSV into per-org and per-project buckets
+        var perOrg = new Dictionary<string, StringBuilder>(StringComparer.OrdinalIgnoreCase);
+        var perProject = new Dictionary<string, StringBuilder>(StringComparer.OrdinalIgnoreCase);
+
+        var lines = rootCsvContent.Split(new[] { '\n' }, StringSplitOptions.RemoveEmptyEntries);
+        for (int i = 1; i < lines.Length; i++) // skip header
+        {
+            var cols = ParseCsvLine(lines[i]);
+            if (cols.Count < 4) continue;
+
+            var sourceProject = cols[2];
+            var sourceOrgUrl = cols[3];
+            if (string.IsNullOrWhiteSpace(sourceProject) || string.IsNullOrWhiteSpace(sourceOrgUrl))
+                continue;
+
+            var orgFolder = PathUtilities.ExtractOrgFolderName(sourceOrgUrl);
+            var projectFolder = $"{orgFolder}/{PathUtilities.Sanitise(sourceProject)}";
+            var rawLine = lines[i].TrimEnd('\r');
+
+            // Per-org accumulator
+            if (!perOrg.TryGetValue(orgFolder, out var orgSb))
+            {
+                orgSb = new StringBuilder();
+                orgSb.AppendLine(CsvHeader);
+                perOrg[orgFolder] = orgSb;
+            }
+            orgSb.AppendLine(rawLine);
+
+            // Per-project accumulator
+            if (!perProject.TryGetValue(projectFolder, out var projSb))
+            {
+                projSb = new StringBuilder();
+                projSb.AppendLine(CsvHeader);
+                perProject[projectFolder] = projSb;
+            }
+            projSb.AppendLine(rawLine);
+        }
+
+        // Write root CSV (ensures it exists even if it was somehow deleted)
+        await store.WriteAsync(RootCsvPath, rootCsvContent, ct).ConfigureAwait(false);
+
+        // Write per-org CSVs
+        foreach (var kvp in perOrg)
+        {
+            await store.WriteAsync($"{kvp.Key}/dependencies.csv", kvp.Value.ToString(), ct).ConfigureAwait(false);
+            _logger.LogInformation("Regenerated org-level dependencies CSV for {Org}.", kvp.Key);
+        }
+
+        // Write per-project CSVs
+        foreach (var kvp in perProject)
+        {
+            await store.WriteAsync($"{kvp.Key}/dependencies.csv", kvp.Value.ToString(), ct).ConfigureAwait(false);
+            _logger.LogDebug("Regenerated per-project dependencies CSV for {Project}.", kvp.Key);
+        }
+
+        _logger.LogInformation(
+            "Regenerated {OrgCount} org-level and {ProjectCount} project-level CSV files from root dependencies.csv.",
+            perOrg.Count, perProject.Count);
+    }
+
+    /// <summary>
+    /// Generates the analysis outputs from the root <c>dependencies.csv</c>:
+    /// <list type="bullet">
+    ///   <item><c>discovery-project-dependencies.csv</c> — grouped project-pair summary</item>
+    ///   <item><c>discovery-project-dependencies.md</c> — overall Mermaid dependency diagram</item>
+    ///   <item><c>{orgFolder}/{project}/dependency-graph.md</c> — per-project transitive Mermaid diagram</item>
+    /// </list>
+    /// Called at the end of both normal completion and reconciled early-exit paths.
+    /// </summary>
+    private async Task GenerateAnalysisOutputsAsync(
+        IArtefactStore store, string rootCsvContent, CancellationToken ct)
+    {
+        // ── Step 1: Parse root CSV into grouped project-pair records ─────
+        var pairAccumulator = new Dictionary<string, (string SourceProject, string TargetProject, string TargetOrganisation, LinkScope Scope, int Count)>(
+            StringComparer.OrdinalIgnoreCase);
+
+        var lines = rootCsvContent.Split(new[] { '\n' }, StringSplitOptions.RemoveEmptyEntries);
+        for (int i = 1; i < lines.Length; i++) // skip header
+        {
+            var cols = ParseCsvLine(lines[i]);
+            if (cols.Count < 9) continue;
+
+            var sourceProject = cols[2];
+            var sourceOrgUrl = cols[3];
+            var linkScopeStr = cols[5];
+            var targetProject = cols[7];
+            var targetOrg = cols[8];
+
+            if (string.IsNullOrWhiteSpace(sourceProject)) continue;
+
+            LinkScope scope;
+            if (linkScopeStr.Equals("CrossOrganisation", StringComparison.OrdinalIgnoreCase))
+                scope = LinkScope.CrossOrganisation;
+            else
+                scope = LinkScope.CrossProject;
+
+            var pairKey = $"{sourceProject}|{targetProject}|{targetOrg}|{scope}";
+            if (pairAccumulator.TryGetValue(pairKey, out var existing))
+            {
+                pairAccumulator[pairKey] = (existing.SourceProject, existing.TargetProject, existing.TargetOrganisation, existing.Scope, existing.Count + 1);
+            }
+            else
+            {
+                pairAccumulator[pairKey] = (sourceProject, targetProject, targetOrg, scope, 1);
+            }
+        }
+
+        if (pairAccumulator.Count == 0)
+        {
+            _logger.LogInformation("No external dependencies found — skipping analysis output generation.");
+            return;
+        }
+
+        // Build ProjectDependencyRecord list
+        var records = new List<ProjectDependencyRecord>();
+        foreach (var kvp in pairAccumulator)
+        {
+            var (sourceProject, targetProject, targetOrg, scope, count) = kvp.Value;
+            records.Add(new ProjectDependencyRecord
+            {
+                SourceProject = sourceProject,
+                TargetProject = targetProject,
+                TargetOrganisation = targetOrg,
+                LinkCount = count,
+                LinkScope = scope
+            });
+        }
+
+        // Assign component IDs via Union-Find
+        var componentIds = UnionFindComponentLabeler.AssignComponentIds(records);
+        foreach (var rec in records)
+        {
+            if (componentIds.TryGetValue(rec.SourceProject, out var groupId))
+                rec.GroupId = groupId;
+        }
+
+        // Sort by LinkCount descending for the CSV output
+        records.Sort((a, b) => b.LinkCount.CompareTo(a.LinkCount));
+
+        // ── Step 2: Write discovery-project-dependencies.csv ─────────────
+        var groupedCsv = new StringBuilder();
+        groupedCsv.AppendLine("SourceProject,TargetProject,TargetOrganisation,LinkCount,LinkScope,GroupId");
+        foreach (var rec in records)
+        {
+            groupedCsv.AppendLine(
+                $"{EscapeCsv(rec.SourceProject)},{EscapeCsv(rec.TargetProject)},{EscapeCsv(rec.TargetOrganisation)}," +
+                $"{rec.LinkCount},{rec.LinkScope},{rec.GroupId}");
+        }
+        await store.WriteAsync("discovery-project-dependencies.csv", groupedCsv.ToString(), ct).ConfigureAwait(false);
+        _logger.LogInformation("Wrote discovery-project-dependencies.csv with {PairCount} project pairs.", records.Count);
+
+        // ── Step 3: Write overall Mermaid diagram ────────────────────────
+        var diagramBuilder = new MermaidDiagramBuilder(records);
+        var mermaidContent = new StringBuilder();
+        mermaidContent.AppendLine("# Project Dependency Graph");
+        mermaidContent.AppendLine();
+        mermaidContent.AppendLine("```mermaid");
+        mermaidContent.Append(diagramBuilder.Build());
+        mermaidContent.AppendLine("```");
+        await store.WriteAsync("discovery-project-dependencies.md", mermaidContent.ToString(), ct).ConfigureAwait(false);
+        _logger.LogInformation("Wrote discovery-project-dependencies.md (overall Mermaid diagram).");
+
+        // ── Step 4: Build grouped data for transitive walker ─────────────
+        var groupedData = new Dictionary<string, List<TransitiveDependencyWalker.GroupedRow>>(StringComparer.OrdinalIgnoreCase);
+        foreach (var rec in records)
+        {
+            // Determine the org folder for this source project from the root CSV
+            var orgFolder = FindOrgFolderForProject(lines, rec.SourceProject);
+            if (orgFolder == null) continue;
+
+            var key = $"{orgFolder}/{rec.SourceProject}";
+            if (!groupedData.TryGetValue(key, out var rowList))
+            {
+                rowList = new List<TransitiveDependencyWalker.GroupedRow>();
+                groupedData[key] = rowList;
+            }
+            rowList.Add(new TransitiveDependencyWalker.GroupedRow
+            {
+                SourceProject = rec.SourceProject,
+                TargetProject = rec.TargetProject,
+                TargetOrganisation = rec.TargetOrganisation,
+                LinkCount = rec.LinkCount,
+                LinkScope = rec.LinkScope
+            });
+        }
+
+        // ── Step 5: Write per-project transitive dependency graphs ───────
+        var walker = new TransitiveDependencyWalker(groupedData);
+        var writtenProjects = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var key in groupedData.Keys)
+        {
+            // key is "{orgFolder}/{project}"
+            var slashIdx = key.IndexOf('/');
+            if (slashIdx < 0) continue;
+
+            var orgName = key.Substring(0, slashIdx);
+            var projectName = key.Substring(slashIdx + 1);
+
+            if (!writtenProjects.Add(key)) continue;
+
+            var walkResult = walker.Walk(orgName, projectName, maxDepth: 3);
+            var transitiveBuilder = new TransitiveMermaidBuilder(walkResult, projectName);
+
+            var projectMermaid = new StringBuilder();
+            projectMermaid.AppendLine($"# Dependency Graph: {projectName}");
+            projectMermaid.AppendLine();
+            projectMermaid.AppendLine("```mermaid");
+            projectMermaid.Append(transitiveBuilder.Build());
+            projectMermaid.AppendLine("```");
+
+            await store.WriteAsync($"{key}/dependency-graph.md", projectMermaid.ToString(), ct).ConfigureAwait(false);
+            _logger.LogDebug("Wrote transitive dependency graph for {Project}.", key);
+        }
+
+        _logger.LogInformation(
+            "Generated analysis outputs: {PairCount} grouped pairs, {ProjectCount} per-project graphs.",
+            records.Count, writtenProjects.Count);
+    }
+
+    /// <summary>
+    /// Scans root CSV lines to find the organisation URL for a given source project,
+    /// then converts it to an org folder name.
+    /// </summary>
+    private static string? FindOrgFolderForProject(string[] csvLines, string sourceProject)
+    {
+        for (int i = 1; i < csvLines.Length; i++)
+        {
+            var cols = ParseCsvLine(csvLines[i]);
+            if (cols.Count >= 4 &&
+                string.Equals(cols[2], sourceProject, StringComparison.OrdinalIgnoreCase) &&
+                !string.IsNullOrWhiteSpace(cols[3]))
+            {
+                return PathUtilities.ExtractOrgFolderName(cols[3]);
+            }
+        }
+        return null;
     }
 
     /// <summary>
