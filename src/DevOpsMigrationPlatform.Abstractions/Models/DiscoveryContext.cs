@@ -18,4 +18,12 @@ public class DiscoveryContext
 
     /// <summary>Progress event sink. Emits structured events to the control plane ring buffer and package log.</summary>
     public IProgressSink ProgressSink { get; init; } = null!;
+
+    /// <summary>
+    /// Optional metrics store. When provided, discovery modules push aggregate
+    /// <see cref="JobMetrics"/> so the Control Plane telemetry snapshot (Channel 2)
+    /// carries discovery counters alongside migration counters.
+    /// Null when running inside the TFS subprocess or unit tests.
+    /// </summary>
+    public IJobMetricsStore? MetricsStore { get; init; }
 }

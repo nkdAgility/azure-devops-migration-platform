@@ -51,6 +51,7 @@ public sealed class InventoryDiscoveryModule : IDiscoveryModule
         var store = context.ArtefactStore;
         var state = context.StateStore;
         var sink = context.ProgressSink;
+        var metricsStore = context.MetricsStore;
 
         _logger.LogInformation("Inventory module starting for job {JobId}.", job.JobId);
 
@@ -275,6 +276,10 @@ public sealed class InventoryDiscoveryModule : IDiscoveryModule
             await store.WriteAsync(CsvOutputPath, csvBuilder.ToString(), ct).ConfigureAwait(false);
             await WriteInventoryJsonAsync(store, orgProjectData, ct).ConfigureAwait(false);
 
+            // Push aggregate metrics to the snapshot store (Channel 2) so the
+            // TUI/CLI can read them via GET /jobs/{id}/telemetry.
+            PushAggregateMetrics(metricsStore, orgProjectData, job);
+
             // Checkpoint cursor at configured interval for resume support.
             if (DateTime.UtcNow - lastCheckpoint >= checkpointInterval)
             {
@@ -305,6 +310,9 @@ public sealed class InventoryDiscoveryModule : IDiscoveryModule
         await store.WriteAsync(CsvOutputPath, csvBuilder.ToString(), ct).ConfigureAwait(false);
         await WriteInventoryJsonAsync(store, orgProjectData, ct).ConfigureAwait(false);
         await state.DeleteAsync(CursorKey, ct).ConfigureAwait(false);
+
+        // Final snapshot push
+        PushAggregateMetrics(metricsStore, orgProjectData, job);
 
         sink.Emit(new ProgressEvent
         {
@@ -371,6 +379,77 @@ public sealed class InventoryDiscoveryModule : IDiscoveryModule
             PropertyNamingPolicy = JsonNamingPolicy.CamelCase
         });
         await store.WriteAsync(JsonOutputPath, json, ct).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Pushes aggregate <see cref="JobMetrics"/> to the snapshot store (Channel 2)
+    /// so the Control Plane telemetry endpoint reflects discovery progress.
+    /// </summary>
+    private static void PushAggregateMetrics(
+        IJobMetricsStore? metricsStore,
+        Dictionary<string, List<(string Project, long WorkItems, long Revisions, int Repos, bool IsComplete, string? Error)>> orgProjectData,
+        DiscoveryJob job)
+    {
+        if (metricsStore is null)
+            return;
+
+        int orgsTotal = orgProjectData.Count;
+        int projectsTotal = 0, projectsCompleted = 0, projectsFailed = 0;
+        long totalWi = 0, totalRev = 0;
+        int totalRepos = 0;
+        int orgsCompleted = 0, orgsFailed = 0;
+
+        foreach (var kvp in orgProjectData)
+        {
+            var projects = kvp.Value;
+            bool allDone = true;
+            bool anyFailed = false;
+            foreach (var p in projects)
+            {
+                projectsTotal++;
+                if (p.Error is not null) { projectsFailed++; anyFailed = true; }
+                else if (p.IsComplete) projectsCompleted++;
+                else allDone = false;
+                totalWi += p.WorkItems;
+                totalRev += p.Revisions;
+                totalRepos += p.Repos;
+            }
+            if (allDone && projects.Count > 0)
+            {
+                if (anyFailed) orgsFailed++; else orgsCompleted++;
+            }
+        }
+
+        // Include configured orgs/projects that haven't started yet
+        foreach (var org in job.Organisations)
+        {
+            var url = org.Endpoint.GetResolvedUrl();
+            if (!orgProjectData.ContainsKey(url))
+                orgsTotal++;
+        }
+
+        metricsStore.Update(new JobMetrics
+        {
+            Timestamp = DateTimeOffset.UtcNow,
+            Scope = new JobScopeCounters
+            {
+                OrganisationsTotal = orgsTotal,
+                OrganisationsCompleted = orgsCompleted,
+                OrganisationsFailed = orgsFailed,
+                ProjectsTotal = projectsTotal,
+                ProjectsCompleted = projectsCompleted,
+                ProjectsFailed = projectsFailed,
+                WorkItemsTotal = totalWi
+            },
+            Discovery = new DiscoveryCounters
+            {
+                Inventory = new InventoryCounters
+                {
+                    RevisionsTotal = totalRev,
+                    RepositoriesTotal = totalRepos
+                }
+            }
+        });
     }
 
     private static async Task<string?> ReadCursorAsync(IStateStore state, CancellationToken ct)

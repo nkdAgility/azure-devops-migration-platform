@@ -58,6 +58,7 @@ public sealed class DependencyDiscoveryModule : IDiscoveryModule
         var store = context.ArtefactStore;
         var state = context.StateStore;
         var sink = context.ProgressSink;
+        var metricsStore = context.MetricsStore;
 
         _logger.LogInformation("Dependencies module starting for job {JobId}.", job.JobId);
 
@@ -85,8 +86,56 @@ public sealed class DependencyDiscoveryModule : IDiscoveryModule
                         Module = Name,
                         Stage = "InventoryLoaded",
                         Message = $"Inventory loaded: {inventoryReport.Totals.WorkItems:N0} work items across {inventoryReport.Totals.Projects} projects.",
-                        Timestamp = DateTimeOffset.UtcNow
+                        Timestamp = DateTimeOffset.UtcNow,
+                        Metrics = new JobMetrics
+                        {
+                            Scope = new JobScopeCounters
+                            {
+                                OrganisationsTotal = inventoryReport.Organisations.Count,
+                                ProjectsTotal = inventoryReport.Totals.Projects,
+                                WorkItemsTotal = inventoryReport.Totals.WorkItems
+                            },
+                            Discovery = new DiscoveryCounters
+                            {
+                                Inventory = new InventoryCounters
+                                {
+                                    RevisionsTotal = inventoryReport.Totals.Revisions,
+                                    RepositoriesTotal = inventoryReport.Totals.Repos
+                                }
+                            }
+                        }
                     });
+
+                    // Emit per-project seed events so TUI/CLI can pre-populate
+                    // their project tracking dictionaries with inventory data.
+                    foreach (var org in inventoryReport.Organisations)
+                    {
+                        foreach (var proj in org.Projects)
+                        {
+                            sink.Emit(new ProgressEvent
+                            {
+                                Module = Name,
+                                Stage = "InventorySeed",
+                                Message = $"{org.Url}|{proj.Name}",
+                                Timestamp = DateTimeOffset.UtcNow,
+                                Metrics = new JobMetrics
+                                {
+                                    Scope = new JobScopeCounters
+                                    {
+                                        WorkItemsTotal = proj.WorkItems
+                                    },
+                                    Discovery = new DiscoveryCounters
+                                    {
+                                        Inventory = new InventoryCounters
+                                        {
+                                            RevisionsTotal = proj.Revisions,
+                                            RepositoriesTotal = proj.Repos
+                                        }
+                                    }
+                                }
+                            });
+                        }
+                    }
                 }
             }
             catch (JsonException ex)
@@ -399,6 +448,9 @@ public sealed class DependencyDiscoveryModule : IDiscoveryModule
                 // Clean up the cursor — analysis is fully complete
                 await state.DeleteAsync(CursorKey, ct).ConfigureAwait(false);
 
+                // Push aggregate metrics for the reconciled-complete path
+                PushAggregateMetrics(metricsStore, perProjectStats, inventoryReport, job);
+
                 sink.Emit(new ProgressEvent
                 {
                     Module = Name,
@@ -642,6 +694,9 @@ public sealed class DependencyDiscoveryModule : IDiscoveryModule
                 metrics?.RecordCheckpointSaved(new TagList { { "job.id", job.JobId }, { "module", Name } });
                 _logger.LogDebug("Dependencies checkpoint saved at {RecordCount} records, {CompletedProjects} projects completed.",
                     recordCount, allCompletedProjects.Count);
+
+                // Push aggregate metrics to Channel 2 snapshot store
+                PushAggregateMetrics(metricsStore, allProjectStats, inventoryReport, job);
             }
         }
 
@@ -725,6 +780,9 @@ public sealed class DependencyDiscoveryModule : IDiscoveryModule
 
         await state.DeleteAsync(CursorKey, ct).ConfigureAwait(false);
 
+        // Final snapshot push
+        PushAggregateMetrics(metricsStore, allProjectStats, inventoryReport, job);
+
         sink.Emit(new ProgressEvent
         {
             Module = Name,
@@ -757,6 +815,76 @@ public sealed class DependencyDiscoveryModule : IDiscoveryModule
             savedAt = DateTime.UtcNow
         });
         return state.WriteAsync(CursorKey, json, ct);
+    }
+
+    /// <summary>
+    /// Pushes aggregate <see cref="JobMetrics"/> to the snapshot store (Channel 2)
+    /// so the Control Plane telemetry endpoint reflects dependency discovery progress.
+    /// Inventory data from the <see cref="InventoryReport"/> is included in the
+    /// <c>Scope</c> and <c>Discovery.Inventory</c> sections to provide a complete picture.
+    /// </summary>
+    private static void PushAggregateMetrics(
+        IJobMetricsStore? metricsStore,
+        Dictionary<string, PerProjectStats> allProjectStats,
+        InventoryReport? inventoryReport,
+        DiscoveryJob job)
+    {
+        if (metricsStore is null)
+            return;
+
+        long totalAnalysed = 0, totalLinks = 0, totalCrossProj = 0, totalCrossOrg = 0;
+        int depProjectsCompleted = 0;
+
+        foreach (var kvp in allProjectStats)
+        {
+            var stats = kvp.Value;
+            totalAnalysed += stats.WorkItemsAnalysed;
+            totalLinks += stats.ExternalLinksFound;
+            totalCrossProj += stats.CrossProjectCount;
+            totalCrossOrg += stats.CrossOrgCount;
+            depProjectsCompleted++;
+        }
+
+        // Total projects from job configuration
+        int projectsTotal = 0;
+        int orgsTotal = 0;
+        foreach (var org in job.Organisations)
+        {
+            orgsTotal++;
+            projectsTotal += org.Projects.Count;
+        }
+
+        // Inventory data from the report (loaded at start)
+        long totalWi = inventoryReport?.Totals.WorkItems ?? 0;
+        long totalRev = inventoryReport?.Totals.Revisions ?? 0;
+        int totalRepos = inventoryReport?.Totals.Repos ?? 0;
+
+        metricsStore.Update(new JobMetrics
+        {
+            Timestamp = DateTimeOffset.UtcNow,
+            Scope = new JobScopeCounters
+            {
+                OrganisationsTotal = orgsTotal,
+                ProjectsTotal = projectsTotal,
+                ProjectsCompleted = depProjectsCompleted,
+                WorkItemsTotal = totalWi
+            },
+            Discovery = new DiscoveryCounters
+            {
+                Inventory = new InventoryCounters
+                {
+                    RevisionsTotal = totalRev,
+                    RepositoriesTotal = totalRepos
+                },
+                Dependencies = new DependencyCounters
+                {
+                    WorkItemsAnalysed = totalAnalysed,
+                    ExternalLinksFound = totalLinks,
+                    CrossProjectLinks = totalCrossProj,
+                    CrossOrgLinks = totalCrossOrg
+                }
+            }
+        });
     }
 
     private static string EscapeCsv(string value)

@@ -37,6 +37,8 @@ public sealed class TuiMainView : Window, IDisposable
     private DateTimeOffset _discoveryStartTime;
     private long _discoveryCheckpointsSaved;
     private volatile bool _discoveryMetricsActive;
+    private JobScopeCounters? _inventoryLoadedScope;
+    private DiscoveryCounters? _inventoryLoadedDiscovery;
 
     public TuiMainView(IControlPlaneClient client, string controlPlaneUrl = "")
     {
@@ -161,6 +163,8 @@ public sealed class TuiMainView : Window, IDisposable
         // Reset discovery metrics state for the new job
         _discoveryMetricsActive = false;
         _discoveryProjects.Clear();
+        _inventoryLoadedScope = null;
+        _inventoryLoadedDiscovery = null;
 
         _metrics.SetWaiting();
         _derived.SetWaiting();
@@ -183,7 +187,8 @@ public sealed class TuiMainView : Window, IDisposable
         _selectedJobId = null;
         _discoveryMetricsActive = false;
         _discoveryProjects.Clear();
-        _metrics.Update(null);
+        _inventoryLoadedScope = null;
+        _inventoryLoadedDiscovery = null;
         _derived.SetWaiting();
         _logView.Clear();
         Application.Invoke(() => _statusBar.Text = " — | Press Q to quit | Tab toggles Log mode");
@@ -273,6 +278,20 @@ public sealed class TuiMainView : Window, IDisposable
         }
         _discoveryMetricsActive = true;
 
+        // ── Handle InventoryLoaded (aggregate, no project key) ───────────────
+        // This event carries the total org/project/work-item counts from the
+        // inventory report. We use it to seed _discoveryOrgsQueued when the
+        // per-project InventorySeed events have not yet arrived.
+        if (evt.Stage == "InventoryLoaded")
+        {
+            // The InventoryLoaded Message is human-readable, not a structured key.
+            // Aggregate totals are stored separately and merged into the final
+            // metrics below; per-project data comes via InventorySeed events.
+            _inventoryLoadedScope = evt.Metrics?.Scope;
+            _inventoryLoadedDiscovery = evt.Metrics?.Discovery;
+            return;
+        }
+
         // Extract counters from Metrics envelope when available.
         var disc = evt.Metrics?.Discovery;
         var deps = disc?.Dependencies;
@@ -282,11 +301,36 @@ public sealed class TuiMainView : Window, IDisposable
         var key = evt.Message;
         if (!string.IsNullOrEmpty(key))
         {
+            var pipeIdx = key.IndexOf('|');
+            if (pipeIdx <= 0)
+                return; // Not a structured key — skip
+
+            var orgUrl = key.Substring(0, pipeIdx);
+            _discoveryOrgsQueued.Add(orgUrl);
+
             // Use module-qualified key so Inventory and Dependencies don't overwrite each other
             var qualifiedKey = $"{evt.Module}:{key}";
 
+            // InventorySeed events carry per-project inventory data; they are
+            // emitted by the Dependencies module but represent inventory counts.
+            // Store them under an "Inventory:" qualified key so the totals
+            // accumulation picks them up in the WorkItems/Revisions/Repos bucket.
+            if (evt.Stage == "InventorySeed")
+            {
+                var seedKey = $"Inventory:{key}";
+                _discoveryProjects[seedKey] = new DiscoveryProjectMetrics(
+                    WorkItems: evt.Metrics?.Scope?.WorkItemsTotal ?? 0,
+                    Revisions: inv?.RevisionsTotal ?? 0,
+                    Repos: inv?.RepositoriesTotal ?? 0,
+                    LinksFound: 0, WorkItemsAnalysed: 0,
+                    TotalWorkItems: 0,
+                    IsComplete: true, IsFailed: false,
+                    Module: "Inventory");
+                return;
+            }
+
             bool isComplete = evt.Stage == "Inventory" || evt.Stage == "Dependencies"
-                           || evt.Stage == "ProjectComplete";
+                           || evt.Stage == "ProjectComplete" || evt.Stage == "Reconciled";
             bool isFailed = evt.Stage == "Failed";
 
             if (evt.Module == "Dependencies")
@@ -311,12 +355,32 @@ public sealed class TuiMainView : Window, IDisposable
                     Module: evt.Module);
             }
 
-            // Track org-level state from the key ("org|project" format)
-            var pipeIdx = key.IndexOf('|');
-            if (pipeIdx > 0)
+            // Track org completion: when all projects for an org are complete
+            if (isComplete || isFailed)
             {
-                var orgUrl = key[..pipeIdx];
-                _discoveryOrgsQueued.Add(orgUrl);
+                // Check if all projects for this org are complete
+                bool allDone = true;
+                foreach (var entry in _discoveryProjects)
+                {
+                    if (!entry.Key.StartsWith($"Dependencies:{orgUrl}|", StringComparison.OrdinalIgnoreCase))
+                        continue;
+                    if (!entry.Value.IsComplete)
+                    {
+                        allDone = false;
+                        break;
+                    }
+                }
+                if (allDone && _discoveryProjects.Keys.Any(k => k.StartsWith($"Dependencies:{orgUrl}|", StringComparison.OrdinalIgnoreCase)))
+                {
+                    // Check if any project in this org failed
+                    bool anyFailed = _discoveryProjects
+                        .Where(e => e.Key.StartsWith($"Dependencies:{orgUrl}|", StringComparison.OrdinalIgnoreCase))
+                        .Any(e => e.Value.IsFailed);
+                    if (anyFailed)
+                        _discoveryOrgsFailed.Add(orgUrl);
+                    else
+                        _discoveryOrgsCompleted.Add(orgUrl);
+                }
             }
         }
 
@@ -324,8 +388,11 @@ public sealed class TuiMainView : Window, IDisposable
         if (evt.Message?.Contains("checkpoint", StringComparison.OrdinalIgnoreCase) == true)
             _discoveryCheckpointsSaved++;
 
-        // Accumulate totals across all tracked projects
-        int total = 0, completed = 0, failed = 0;
+        // Accumulate totals across all tracked projects.
+        // Separate inventory-phase and dependency-phase entries so we can report
+        // distinct inventory counters (work items, revisions, repos) and
+        // dependency counters (analysed, links) without double-counting.
+        int depTotal = 0, depCompleted = 0, depFailed = 0;
         long totalWi = 0, totalRev = 0, totalRepos = 0;
         long totalLinks = 0, totalAnalysed = 0;
         long totalKnown = 0, processedOfKnown = 0;
@@ -333,22 +400,50 @@ public sealed class TuiMainView : Window, IDisposable
         foreach (var entry in _discoveryProjects)
         {
             var v = entry.Value;
-            total++;
-            if (v.IsFailed) failed++;
-            else if (v.IsComplete) completed++;
-            totalWi += v.WorkItems;
-            totalRev += v.Revisions;
-            totalRepos += v.Repos;
-            totalLinks += v.LinksFound;
-            totalAnalysed += v.WorkItemsAnalysed;
-            if (v.TotalWorkItems > 0)
+            if (v.Module == "Inventory")
             {
-                totalKnown += v.TotalWorkItems;
-                processedOfKnown += v.IsComplete ? v.TotalWorkItems : v.WorkItemsAnalysed;
+                // Inventory entries contribute work-item/revision/repo counts
+                totalWi += v.WorkItems;
+                totalRev += v.Revisions;
+                totalRepos += v.Repos;
+            }
+            else
+            {
+                // Dependency entries contribute analysed/links counts
+                depTotal++;
+                if (v.IsFailed) depFailed++;
+                else if (v.IsComplete) depCompleted++;
+                totalLinks += v.LinksFound;
+                totalAnalysed += v.WorkItemsAnalysed;
+                if (v.TotalWorkItems > 0)
+                {
+                    totalKnown += v.TotalWorkItems;
+                    processedOfKnown += v.IsComplete ? v.TotalWorkItems : v.WorkItemsAnalysed;
+                }
             }
         }
 
-        var remaining = total - completed - failed;
+        // Use inventory-loaded aggregate as fallback when per-project seeds
+        // haven't arrived or were incomplete
+        if (totalWi == 0 && _inventoryLoadedScope is not null)
+            totalWi = _inventoryLoadedScope.WorkItemsTotal;
+        if (totalRev == 0 && _inventoryLoadedDiscovery?.Inventory is not null)
+            totalRev = _inventoryLoadedDiscovery.Inventory.RevisionsTotal;
+        if (totalRepos == 0 && _inventoryLoadedDiscovery?.Inventory is not null)
+            totalRepos = _inventoryLoadedDiscovery.Inventory.RepositoriesTotal;
+
+        // Org and project totals: prefer inventory-loaded counts when larger
+        var orgsTotal = _discoveryOrgsQueued.Count;
+        var projectsTotal = depTotal;
+        if (_inventoryLoadedScope is not null)
+        {
+            if (_inventoryLoadedScope.OrganisationsTotal > orgsTotal)
+                orgsTotal = (int)_inventoryLoadedScope.OrganisationsTotal;
+            if (_inventoryLoadedScope.ProjectsTotal > projectsTotal)
+                projectsTotal = (int)_inventoryLoadedScope.ProjectsTotal;
+        }
+
+        var remaining = depTotal - depCompleted - depFailed;
         var elapsed = DateTimeOffset.UtcNow - _discoveryStartTime;
         var elapsedHours = elapsed.TotalHours;
 
@@ -358,10 +453,10 @@ public sealed class TuiMainView : Window, IDisposable
             {
                 OrganisationsCompleted = _discoveryOrgsCompleted.Count,
                 OrganisationsFailed = _discoveryOrgsFailed.Count,
-                OrganisationsTotal = _discoveryOrgsQueued.Count,
-                ProjectsCompleted = completed,
-                ProjectsFailed = failed,
-                ProjectsTotal = total,
+                OrganisationsTotal = orgsTotal,
+                ProjectsCompleted = depCompleted,
+                ProjectsFailed = depFailed,
+                ProjectsTotal = projectsTotal,
                 WorkItemsTotal = totalWi
             },
             Discovery = new DiscoveryCounters
@@ -381,8 +476,8 @@ public sealed class TuiMainView : Window, IDisposable
         };
 
         // Compute avg project duration for derived view
-        double? avgProjectDurationMs = completed > 0
-            ? elapsed.TotalMilliseconds / completed
+        double? avgProjectDurationMs = depCompleted > 0
+            ? elapsed.TotalMilliseconds / depCompleted
             : null;
 
         // ETA: prefer per-item rate when we have dependency pre-count totals;
@@ -393,9 +488,9 @@ public sealed class TuiMainView : Window, IDisposable
             var msPerItem = elapsed.TotalMilliseconds / processedOfKnown;
             estimatedRemaining = TimeSpan.FromMilliseconds(msPerItem * (totalKnown - processedOfKnown));
         }
-        else if (completed > 0 && remaining > 0)
+        else if (depCompleted > 0 && remaining > 0)
         {
-            estimatedRemaining = TimeSpan.FromMilliseconds(elapsed.TotalMilliseconds / completed * remaining);
+            estimatedRemaining = TimeSpan.FromMilliseconds(elapsed.TotalMilliseconds / depCompleted * remaining);
         }
 
         var computed = new DiscoveryComputedMetrics
@@ -404,7 +499,7 @@ public sealed class TuiMainView : Window, IDisposable
             RevisionsPerHour = elapsedHours > 0.001 ? totalRev / elapsedHours : null,
             LinksPerHour = elapsedHours > 0.001 && totalLinks > 0 ? totalLinks / elapsedHours : null,
             AnalysedPerHour = elapsedHours > 0.001 && totalAnalysed > 0 ? totalAnalysed / elapsedHours : null,
-            ProjectsPerHour = elapsedHours > 0.001 && completed > 0 ? completed / elapsedHours : null,
+            ProjectsPerHour = elapsedHours > 0.001 && depCompleted > 0 ? depCompleted / elapsedHours : null,
             Elapsed = elapsed,
             EstimatedRemaining = estimatedRemaining
         };
