@@ -953,209 +953,49 @@ As an interim measure before the full `Reconcile` job is built, individual modul
 
 ---
 
-### P2: Three-Channel Telemetry Model
+### P2: Three-Channel Telemetry Model — Remaining Items
 
-**Current state**: The platform conflates three distinct concerns in two channels:
-- `ProgressEvent` carries envelope fields (`Module`, `Stage`, `Message`, `Timestamp`) **and** per-event counter fields (`TotalWorkItems`, `WorkItemsProcessed`, `ExternalLinksFound`, etc.). Counter fields are accumulated by the TUI from raw events — wrong layer.
-- `MetricSnapshot` and `DiscoveryMetricSnapshot` are parallel flat types with no shared structure. `DiscoveryMetricSnapshot` is assembled in `TuiMainView` from accumulated event fields — it belongs in the agent.
-- Late-joining clients (connecting after a job has been running) have no way to catch up: the SSE stream does not replay history. The workaround is embedding a `MetricSnapshot` inside `ProgressEvent.Metrics` as a transport hack.
+> The core Three-Channel Telemetry Model is **implemented**. The types (`ProgressEvent`, `JobMetrics`, `JobSnapshot`, `JobBootstrap`), stores (`IJobMetricsStore`, `IJobSnapshotStore`, `JobTelemetryStore`, `JobSnapshotStore`), endpoints (POST/GET metrics, POST/GET snapshot, GET bootstrap), SSE `id:` field + server-side `Last-Event-ID` replay, `ControlPlaneTelemetryTimer` (dual push), `SnapshotMetricExporter` → `JobMetrics`, TFS subprocess adapter, TUI bootstrap fetch, and TUI Channel 2-only polling are all in place. See `.agents/context/telemetry-architecture.md` for the canonical description.
+>
+> The items below are the remaining gaps.
 
-**Why it matters**: The TUI accumulates state it shouldn't own, making it fragile and incorrect on reconnect. The agent is not the authoritative source for its own counters. Adding new counter types requires changes in both the agent and the TUI. Late-joining clients get a stale or empty display until the next event arrives.
+#### P2-A: Client-Side `Last-Event-ID` on SSE Reconnect
 
-**Proposed solution**: Three explicitly separate types — **`JobEvent`**, **`JobMetrics`**, **`JobSnapshot`** — each with a single, non-overlapping responsibility:
+**Status**: Server-side implemented; client-side missing.
 
-| Type | OTel analogy | Frequency | Size | Direction |
-|------|-------------|-----------|------|-----------|
-| `JobEvent` | OTel Event | Every state change | Tiny | Agent → SSE fan-out → client |
-| `JobMetrics` | OTel Metrics | Every few seconds (timer) | Small | Agent push → Control Plane stores latest → client polls |
-| `JobSnapshot` | — | Every 5 min or at project boundary | Large | Agent push → Control Plane stores latest → client fetches on connect |
+`ProgressController` parses the `Last-Event-ID` header and replays missed events. However, `ControlPlaneClient.FollowLogsAsync()` does not send the header when reconnecting to the SSE stream. When the TUI reconnects after a network blip, it currently replays all per-project state instead of only missed events.
 
-#### Why both JobMetrics and JobSnapshot?
+**Fix**: `FollowLogsAsync` should accept an optional `lastEventSequence` parameter. On reconnect, set the `Last-Event-ID` request header to the last received sequence. The bootstrap endpoint already returns `LastEventSequence` for the initial connection.
 
-`JobMetrics` provides **high-frequency aggregate totals** (every few seconds). `JobSnapshot` provides **per-project detail** (every 5 minutes or at project boundaries).
+#### P2-B: Project-Boundary Snapshot Push
 
-**Concrete scenario**: During a 2-hour dependency analysis of a single 50,000-item project, `JobSnapshot` does not update until the project completes — there is only one project, so there is no project boundary to trigger a push. `JobMetrics` updates every 5 seconds with the in-progress `WorkItemsAnalysed` counter. Without `JobMetrics`, the TUI would show a frozen progress bar for 2 hours.
+**Status**: Timer-based push implemented; boundary-based push missing.
 
-A client cannot derive one from the other: `JobMetrics` has no per-project detail, and `JobSnapshot` updates too infrequently for live progress.
+`ControlPlaneTelemetryTimer` pushes `JobSnapshot` on a configurable timer interval. The spec calls for also pushing at **project boundaries** (when a project completes or fails) so that late-joining clients see per-project state changes sooner than the timer interval.
 
----
+**Fix**: Discovery modules already call `PushSnapshot` at project boundaries via the `IJobSnapshotStore`, and the timer reads `Latest`. To get boundary-triggered HTTP pushes to the Control Plane, either: (a) make the timer wake on a `ManualResetEventSlim` signal set by the store's `Update()` method, or (b) have discovery modules directly trigger an immediate push via a new `ISnapshotPushTrigger` interface.
 
-#### Channel 1: JobEvent
+#### P2-C: Rename `JobTelemetryStore` → `JobMetricsStore`
 
-`POST /lease/{id}/progress` → fan-out via `GET /jobs/{id}/events` (SSE)
+**Status**: Cosmetic naming inconsistency.
 
-**Purpose**: real-time notification of state changes. Maps to an OTel Event — something happened at a point in time.
+The control-plane store class is still named `JobTelemetryStore` (file: `ControlPlane/Services/JobTelemetryStore.cs`). For consistency with the `JobMetrics` type used everywhere else, it should be renamed to `JobMetricsStore`. This is a non-functional change.
 
-- `JobEvent` (`ProgressEvent`) becomes a **pure envelope**: `Module`, `Stage`, `Message`, `Timestamp`, `EventSequence` only.
-- No counter fields. No `LastProcessed`. No embedded data payloads (except the TFS subprocess constraint — see below).
-- The TUI uses events to update the live log panel. It never accumulates counters from events.
+#### P2-D: `POST /metrics` Payload Validation
 
-**Event sequence number**: Every `JobEvent` carries a monotonic `EventSequence` (`long`), assigned by the agent and scoped per job. The SSE stream includes the sequence as the `id:` field, enabling standard `Last-Event-ID` reconnect semantics — a client that reconnects sends the last sequence it received and the server replays missed events from the ring buffer. Client-side reducers use `EventSequence` for idempotency: if a received sequence is ≤ the last applied sequence, the event is discarded.
+**Status**: Not implemented.
 
-**Late-joining clients**: A client connecting mid-job calls `GET /jobs/{id}/bootstrap` (see [Unified Bootstrap Endpoint](#unified-bootstrap-endpoint) below) to obtain the current `JobSnapshot`, `JobMetrics`, and `LastEventSequence` in a single atomic response. It then subscribes to the SSE stream with `Last-Event-ID: {LastEventSequence}` to receive only events it missed. The ring buffer remains for recent log replay but no longer carries per-project state.
+The spec's cardinality guardrails call for the Control Plane to reject `JobMetrics` payloads containing fields not defined in the schema. Currently `TelemetryController.PushTelemetry()` accepts and stores any payload that deserialises successfully. This prevents agents from silently adding high-cardinality dimensions.
 
----
+**Fix**: Configure `System.Text.Json` with `JsonSerializerOptions.UnmappedMemberHandling = JsonUnmappedMemberHandling.Disallow` for the metrics deserialization path, or add explicit model validation.
 
-#### Channel 2: JobMetrics
+#### P2-E: Remove `LatestByProject` from `JobProgressStore`
 
-`POST /lease/{id}/metrics` → stored by `JobMetricsStore`; polled via `GET /jobs/{id}/metrics`
+**Status**: Still in use.
 
-**Purpose**: aggregate counters for dashboards and OTel metrics export. Maps to OTel Metrics — what is the current count.
+The spec states that `JobSnapshot` should replace `JobProgressStore.LatestByProject` as the authoritative source for per-project state. Currently both mechanisms coexist: `LatestByProject` feeds the SSE replay in `ProgressController`, and `JobSnapshot` feeds the bootstrap endpoint. Once the TUI uses bootstrap + `Last-Event-ID` for reconnect (P2-A), `LatestByProject` can be removed.
 
-- Agent pushes a `JobMetrics` record on a background timer (`ControlPlaneTelemetryTimer`). Frequency: every few seconds.
-- Aggregates across all orgs and projects — totals only, no per-project breakdown.
-- Raw counters are the **agent's responsibility**. The CLI/TUI only derives display values (percentages, rates) — it never accumulates from events.
-
-```
-JobMetrics
-├── Scope: JobScopeCounters              // shared by all job types
-│   ├── OrganisationsTotal/Completed/Failed
-│   ├── ProjectsTotal/Completed/Failed
-│   └── WorkItemsTotal
-│
-├── Migration: MigrationCounters?        // null for discovery jobs
-│   ├── WorkItems: WorkItemCounters
-│   │   ├── Attempted/Completed/Failed/Skipped
-│   │   ├── RevisionsProcessed
-│   │   └── Attachments: AttachmentCounters?
-│   │       └── Processed/Failed/TotalBytes
-│   └── Diagnostics: MigrationDiagnostics?
-│       ├── WorkItemDurationMeanMs
-│       ├── FieldCountMean
-│       ├── AttachmentCountMean
-│       ├── LinkCountMean
-│       ├── RevisionCountMean
-│       ├── PayloadBytesMean
-│       ├── RevisionsMissing
-│       ├── RevisionOrderErrors
-│       ├── BrokenLinks
-│       ├── MissingWorkItems
-│       ├── WorkItemsInFlight
-│       └── QueueDepth
-│
-└── Discovery: DiscoveryCounters?        // null for migration jobs
-    ├── Inventory: InventoryCounters?
-    │   ├── RevisionsTotal
-    │   ├── RepositoriesTotal
-    │   └── CheckpointsSaved
-    └── Dependencies: DependencyCounters?
-        ├── WorkItemsAnalysed
-        ├── ExternalLinksFound
-        ├── CrossProjectLinks
-        ├── CrossOrgLinks
-        └── CheckpointsSaved
-```
-
-`MigrationDiagnostics` captures the OTel-derived mean values and correctness counters from the current `MetricSnapshot` (duration means, revision deltas, in-flight gauges). These are aggregate-only — they do not appear per-project. Future modules (Teams, Git, TestManagement) add their own nullable counter types to `MigrationCounters` without breaking existing clients.
-
----
-
-#### Channel 3: JobSnapshot
-
-`POST /lease/{id}/snapshot` → stored by `JobSnapshotStore`; retrieved via `GET /jobs/{id}/snapshot`
-
-**Purpose**: full per-org, per-project state for late-joining clients.
-
-- Agent pushes a `JobSnapshot` every **5 minutes** (configurable timer) **or** at project boundaries (whichever comes first).
-- The Control Plane stores only the **latest** `JobSnapshot` per job — overwrite, no history.
-- A client connecting **mid-job** calls `GET /jobs/{id}/snapshot` once on connect to populate the full org/project table, then uses `JobEvent` for log updates and polls `JobMetrics` for live aggregate counters.
-- This replaces the `JobProgressStore.LatestByProject` mechanism — the snapshot is the authoritative source for per-project state.
-
-`JobSnapshot` is structured as orgs → projects. The counter types (`MigrationCounters`, `DiscoveryCounters`) are **shared with `JobMetrics`** — same record types, different scope (per-project here vs. aggregate in `JobMetrics`).
-
-```
-JobSnapshot
-└── Organisations: OrgSnapshot[]
-    ├── Url: string
-    ├── Name: string
-    └── Projects: ProjectSnapshot[]
-        ├── Name: string
-        ├── Status: ProjectStatus        // Pending | InProgress | Completed | Failed
-        ├── Migration: MigrationCounters?  // same type as JobMetrics.Migration (excl. Diagnostics), scoped to this project
-        └── Discovery: DiscoveryCounters?  // same type as JobMetrics.Discovery, scoped to this project
-```
-
-**Job type examples**:
-- **Migration job**: one `OrgSnapshot`, one `ProjectSnapshot`. `Migration` populated, `Discovery` null. The per-project `MigrationCounters` are always equal to `JobMetrics.Migration` (there is only one project).
-- **Discovery job**: one or more `OrgSnapshot`s, many `ProjectSnapshot`s. `Discovery` populated, `Migration` null. A project may have `Inventory` populated with final values while `Dependencies` is still null or mid-flight — this is correct, as inventory runs before dependency analysis.
-
-**Note on `MigrationDiagnostics`**: The `Diagnostics` sub-record is **not included in `ProjectSnapshot.Migration`** — it is aggregate-only (OTel means and in-flight gauges are not meaningful at per-project scope). `ProjectSnapshot` uses `MigrationCounters` but its `Diagnostics` property is always null at the per-project level.
-
-The `allProjectStats` dictionary already maintained by `DependencyDiscoveryModule` (and equivalent per-project state in inventory/migration modules) feeds directly into the `ProjectSnapshot` list.
-
----
-
-#### Unified Bootstrap Endpoint
-
-`GET /jobs/{id}/bootstrap`
-
-**Purpose**: Eliminate the race condition inherent in making three separate calls (`GET /snapshot`, `GET /metrics`, `GET /events`) on client connect. A single atomic response provides everything a late-joining client needs to render the full UI.
-
-**Response**:
-```json
-{
-  "snapshot": { /* JobSnapshot */ },
-  "metrics":  { /* JobMetrics  */ },
-  "lastEventSequence": 14207
-}
-```
-
-**Behaviour**:
-- The Control Plane reads the latest `JobSnapshot`, the latest `JobMetrics`, and the current maximum `EventSequence` under a single lock/snapshot.
-- The client uses `snapshot` to populate the org/project table, `metrics` to populate aggregate counters, and `lastEventSequence` as the `Last-Event-ID` when subscribing to the SSE stream.
-- If the job has not yet emitted a snapshot (e.g. it just started), `snapshot` is `null` and `lastEventSequence` is `0`.
-- Individual `GET /jobs/{id}/snapshot` and `GET /jobs/{id}/metrics` endpoints remain available for polling refreshes after the initial bootstrap.
-
----
-
-#### Cardinality Guardrails
-
-**Design rules** to prevent metric cardinality explosion:
-
-1. **`JobMetrics` is aggregate-only** — it carries no per-entity, per-project, or per-work-item dimensions. All high-cardinality breakdowns belong exclusively in `JobSnapshot`.
-2. **No high-cardinality labels on OTel instruments** — counters and histograms exported via `SnapshotMetricExporter` must use only low-cardinality dimensions (`job_id`, `module`, `stage`). Per-project or per-work-item dimensions are forbidden on OTel metrics.
-3. **Validation at the Control Plane** — `POST /lease/{id}/metrics` rejects any `JobMetrics` payload that contains fields not defined in the schema. This prevents agents from silently adding high-cardinality dimensions.
-4. **Counter types are additive** — new counter records (e.g. a future `TeamsCounters`) are added as nullable properties on `MigrationCounters` or `DiscoveryCounters`. They must not introduce per-entity arrays or dictionaries inside `JobMetrics`.
-
-Violating these rules produces the same OTel cardinality problems the three-channel model was designed to eliminate.
-
----
-
-#### TFS Subprocess Constraint
-
-The TFS Export Agent targets .NET Framework 4.8 and **cannot make HTTP calls**. It communicates via NDJSON written to stdout, parsed by `TfsExporterProcessAdapter`. The `ProgressEvent.Metrics` field changes type from `MetricSnapshot?` to `JobMetrics?` — the subprocess emits `JobMetrics` as a payload embedded in the event. `TfsExporterProcessAdapter` extracts and forwards it to `POST /lease/{id}/metrics`. Both sides share the `Abstractions` assembly (targets `netstandard2.0`), so the type is available in .NET Framework 4.8.
-
----
-
-#### Affected Files
-
-| File | Change |
-|------|--------|
-| `Abstractions/Models/ProgressEvent.cs` | Remove all counter fields and `LastProcessed`; add `EventSequence` (`long`); keep `Module`, `Stage`, `Message`, `Timestamp`, `LastCheckpointAt`, `NextCheckpointDueAt`; change `Metrics` from `MetricSnapshot?` to `JobMetrics?` |
-| `Abstractions/Models/MetricSnapshot.cs` | Delete — replaced by `JobMetrics` |
-| `Abstractions/Models/DiscoveryMetricSnapshot.cs` | Delete — replaced by `JobMetrics` |
-| `Abstractions/Models/JobMetrics.cs` | New — aggregate counters with `Scope`, `Migration?`, `Discovery?` sections |
-| `Abstractions/Models/JobScopeCounters.cs` | New — shared org/project totals |
-| `Abstractions/Models/MigrationCounters.cs` | New — shared by `JobMetrics.Migration` and `ProjectSnapshot.Migration` |
-| `Abstractions/Models/MigrationDiagnostics.cs` | New — OTel-derived means and correctness counters (aggregate-only) |
-| `Abstractions/Models/WorkItemCounters.cs` | New — attempted/completed/failed/skipped + revisions |
-| `Abstractions/Models/AttachmentCounters.cs` | New — processed/failed/totalBytes |
-| `Abstractions/Models/DiscoveryCounters.cs` | New — shared by `JobMetrics.Discovery` and `ProjectSnapshot.Discovery` |
-| `Abstractions/Models/InventoryCounters.cs` | New — revisions/repos/checkpoints |
-| `Abstractions/Models/DependencyCounters.cs` | New — analysed/links/cross-project/cross-org/checkpoints |
-| `Abstractions/Models/JobSnapshot.cs` | New — `OrgSnapshot[]` hierarchy |
-| `Abstractions/Models/OrgSnapshot.cs` | New — org entry with `ProjectSnapshot[]` |
-| `Abstractions/Models/ProjectSnapshot.cs` | New — project entry; reuses `MigrationCounters`/`DiscoveryCounters` |
-| `Abstractions/Telemetry/IMetricSnapshotStore.cs` | Rename to `IJobMetricsStore`; type changes to `JobMetrics` |
-| `MigrationAgent/ControlPlaneTelemetryTimer.cs` | Push `JobMetrics` on fast timer; push `JobSnapshot` every 5 min or at project boundary |
-| `ControlPlane/Controllers/TelemetryController.cs` | Split: `POST/GET /metrics` for `JobMetrics`; `POST/GET /snapshot` for `JobSnapshot`; add `GET /jobs/{id}/bootstrap` returning `{ Snapshot, Metrics, LastEventSequence }` |
-| `ControlPlane/Services/JobTelemetryStore.cs` | Rename to `JobMetricsStore`; type changes to `JobMetrics` |
-| `ControlPlane/Services/JobSnapshotStore.cs` | New — stores latest `JobSnapshot` per job |
-| `ControlPlane/Services/JobProgressStore.cs` | Remove `LatestByProject` dictionary — snapshot replaces this mechanism; use `EventSequence` as SSE `id:` field for `Last-Event-ID` replay |
-| `Abstractions/Models/JobBootstrap.cs` | New — response record for the bootstrap endpoint |
-| `Infrastructure/Telemetry/SnapshotMetricExporter.cs` | Output `JobMetrics` instead of `MetricSnapshot` |
-| `CLI.Migration/Views/TuiMainView.cs` | Delete counter accumulation logic; call `GET /snapshot` on connect; poll `GET /metrics` on refresh cycle |
-| `CLI.Migration/TfsExporterProcessAdapter.cs` | Extract `JobMetrics` from `ProgressEvent.Metrics` instead of `MetricSnapshot` |
+**Dependency**: Requires P2-A (client-side `Last-Event-ID`).
 
 ---
 
