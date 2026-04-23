@@ -209,6 +209,8 @@ public sealed class DependencyDiscoveryModule : IDiscoveryModule
                     "No dependencies cursor found but dependencies.csv exists — reconciling checkpoint from CSV data.");
 
                 var lines = existingCsv!.Split(new[] { '\n' }, StringSplitOptions.RemoveEmptyEntries);
+                // Map from normalized key → original-casing key for display purposes.
+                var reconciledDisplayKeys = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
                 // Skip header row; extract SourceOrganisationUrl (col 3) and SourceProject (col 2)
                 for (int i = 1; i < lines.Length; i++)
                 {
@@ -219,7 +221,10 @@ public sealed class DependencyDiscoveryModule : IDiscoveryModule
                         var sourceOrgUrl = cols[3];
                         if (!string.IsNullOrWhiteSpace(sourceProject) && !string.IsNullOrWhiteSpace(sourceOrgUrl))
                         {
-                            completedProjects.Add(NormalizeProjectKey(sourceOrgUrl, sourceProject));
+                            var normalized = NormalizeProjectKey(sourceOrgUrl, sourceProject);
+                            completedProjects.Add(normalized);
+                            if (!reconciledDisplayKeys.ContainsKey(normalized))
+                                reconciledDisplayKeys[normalized] = $"{sourceOrgUrl}|{sourceProject}";
                         }
                     }
                     recordCount++;
@@ -229,8 +234,12 @@ public sealed class DependencyDiscoveryModule : IDiscoveryModule
                 {
                     existingCsvRows.Append(existingCsv);
 
+                    // Compute per-project stats from CSV so we can emit accurate synthetic events
+                    // and persist them in the cursor for future resume display.
+                    var reconciledStats = ComputePerProjectStatsFromCsv(existingCsv!, inventoryReport);
+
                     // Persist the reconciled cursor so the next restart doesn't re-reconcile
-                    await WriteCursorAsync(state, recordCount, completedProjects, new Dictionary<string, PerProjectStats>(StringComparer.OrdinalIgnoreCase), ct).ConfigureAwait(false);
+                    await WriteCursorAsync(state, recordCount, completedProjects, reconciledStats, ct).ConfigureAwait(false);
 
                     _logger.LogWarning(
                         "Reconciled dependencies cursor from CSV — {CompletedCount} project(s), {RecordCount} records. " +
@@ -244,6 +253,31 @@ public sealed class DependencyDiscoveryModule : IDiscoveryModule
                         Message = $"Checkpoint reconciled from existing CSV: {completedProjects.Count} projects, {recordCount} records.",
                         Timestamp = DateTimeOffset.UtcNow
                     });
+
+                    // Emit synthetic ProjectComplete events for reconciled projects so the
+                    // CLI live table immediately shows the correct counts.
+                    foreach (var projectKey in completedProjects)
+                    {
+                        var separatorIndex = projectKey.IndexOf('|');
+                        if (separatorIndex < 0)
+                            continue;
+
+                        var displayKey = reconciledDisplayKeys.TryGetValue(projectKey, out var dk) ? dk : projectKey;
+                        reconciledStats.TryGetValue(projectKey, out var stats);
+                        sink.Emit(new ProgressEvent
+                        {
+                            Module = Name,
+                            Stage = "ProjectComplete",
+                            LastProcessed = displayKey,
+                            TotalWorkItems = stats?.TotalWorkItems ?? 0,
+                            WorkItemsProcessed = stats?.WorkItemsAnalysed ?? 0,
+                            ExternalLinksFound = stats?.ExternalLinksFound ?? 0,
+                            CrossProjectLinks = stats?.CrossProjectCount ?? 0,
+                            CrossOrgLinks = stats?.CrossOrgCount ?? 0,
+                            Message = $"Reconciled from CSV",
+                            Timestamp = DateTimeOffset.UtcNow
+                        });
+                    }
                 }
             }
         }
@@ -608,6 +642,48 @@ public sealed class DependencyDiscoveryModule : IDiscoveryModule
 
         // Generate grouped CSV, Mermaid diagrams, and per-project transitive graphs.
         await GenerateAnalysisOutputsAsync(store, csvBuilder.ToString(), ct).ConfigureAwait(false);
+
+        // Emit ProjectComplete events for any configured project that did not receive one
+        // during the main loop (e.g. projects with zero external links where the service
+        // did not emit a heartbeat).
+        foreach (var org in job.Organisations)
+        {
+            foreach (var project in org.Projects)
+            {
+                var resolvedUrl = org.Endpoint.GetResolvedUrl();
+                var normalizedKey = NormalizeProjectKey(resolvedUrl, project);
+                if (!allCompletedProjects.Contains(normalizedKey))
+                {
+                    // Look up inventory for total work items
+                    var totalWi = 0;
+                    if (inventoryReport?.Organisations != null)
+                    {
+                        var invOrg = inventoryReport.Organisations
+                            .FirstOrDefault(o => string.Equals(o.Url.TrimEnd('/'), resolvedUrl.TrimEnd('/'), StringComparison.OrdinalIgnoreCase));
+                        var invProj = invOrg?.Projects?.FirstOrDefault(p => string.Equals(p.Name, project, StringComparison.OrdinalIgnoreCase));
+                        if (invProj != null)
+                            totalWi = (int)Math.Min(invProj.WorkItems, int.MaxValue);
+                    }
+
+                    allCompletedProjects.Add(normalizedKey);
+                    allProjectStats[normalizedKey] = new PerProjectStats(totalWi, 0, 0, 0, totalWi);
+
+                    sink.Emit(new ProgressEvent
+                    {
+                        Module = Name,
+                        Stage = "ProjectComplete",
+                        LastProcessed = $"{resolvedUrl}|{project}",
+                        TotalWorkItems = totalWi,
+                        WorkItemsProcessed = totalWi,
+                        ExternalLinksFound = 0,
+                        CrossProjectLinks = 0,
+                        CrossOrgLinks = 0,
+                        Message = $"{resolvedUrl}/{project}: {totalWi} analysed, 0 external links",
+                        Timestamp = DateTimeOffset.UtcNow
+                    });
+                }
+            }
+        }
 
         await state.DeleteAsync(CursorKey, ct).ConfigureAwait(false);
 
