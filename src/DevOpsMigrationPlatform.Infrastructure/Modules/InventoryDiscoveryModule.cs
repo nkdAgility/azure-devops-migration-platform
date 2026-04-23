@@ -138,6 +138,7 @@ public sealed class InventoryDiscoveryModule : IDiscoveryModule
 
         var metrics = _metrics;
         string? currentOrg = null;
+        var jobSw = Stopwatch.StartNew();
         var orgSw = new Stopwatch();
         var projectSw = new Stopwatch();
         int orgProjectCount = 0;
@@ -316,6 +317,13 @@ public sealed class InventoryDiscoveryModule : IDiscoveryModule
         // Final snapshot push
         PushAggregateMetrics(metricsStore, orgProjectData, job);
         PushSnapshot(snapshotStore, orgProjectData, job);
+
+        jobSw.Stop();
+        metrics?.RecordJobDuration(jobSw.Elapsed.TotalMilliseconds, new TagList
+        {
+            { "job.id", job.JobId },
+            { "module", Name }
+        });
 
         sink.Emit(new ProgressEvent
         {

@@ -473,7 +473,9 @@ public sealed class DependencyDiscoveryModule : IDiscoveryModule
 
         var metrics = _metrics;
         string? currentOrg = null;
+        var jobSw = Stopwatch.StartNew();
         var orgSw = new Stopwatch();
+        var projectSw = new Stopwatch();
         int orgProjectCount = 0;
 
         // Track completed projects as we go (union of pre-existing + newly completed)
@@ -580,26 +582,34 @@ public sealed class DependencyDiscoveryModule : IDiscoveryModule
 
                     // Flush CSV at checkpoint interval even mid-project so long-running
                     // projects produce visible output within minutes.
-                    if (!heartbeat.IsComplete && DateTime.UtcNow - lastCheckpoint >= checkpointInterval)
+                    if (!heartbeat.IsComplete && heartbeat.Error is null)
                     {
-                        await store.WriteAsync(RootCsvPath, csvBuilder.ToString(), ct).ConfigureAwait(false);
+                        // Start timing the project on the first non-complete heartbeat.
+                        if (!projectSw.IsRunning)
+                            projectSw.Restart();
 
-                        // Also flush the current project's partial CSV.
-                        var midOrgFolder = PathUtilities.ExtractOrgFolderName(heartbeat.OrganisationUrl);
-                        var midProjectFolder = $"{midOrgFolder}/{PathUtilities.Sanitise(heartbeat.ProjectName)}";
-                        if (perProjectCsv.TryGetValue(midProjectFolder, out var midProjCsv))
-                            await store.WriteAsync($"{midProjectFolder}/dependencies.csv", midProjCsv.ToString(), ct).ConfigureAwait(false);
+                        if (DateTime.UtcNow - lastCheckpoint >= checkpointInterval)
+                        {
+                            await store.WriteAsync(RootCsvPath, csvBuilder.ToString(), ct).ConfigureAwait(false);
 
-                        // Also flush the current org's partial CSV.
-                        if (currentOrgFolder is not null && currentOrgCsvBuilder.Length > 0)
-                            await store.WriteAsync($"{currentOrgFolder}/dependencies.csv", currentOrgCsvBuilder.ToString(), ct).ConfigureAwait(false);
+                            // Also flush the current project's partial CSV.
+                            var midOrgFolder = PathUtilities.ExtractOrgFolderName(heartbeat.OrganisationUrl);
+                            var midProjectFolder = $"{midOrgFolder}/{PathUtilities.Sanitise(heartbeat.ProjectName)}";
+                            if (perProjectCsv.TryGetValue(midProjectFolder, out var midProjCsv))
+                                await store.WriteAsync($"{midProjectFolder}/dependencies.csv", midProjCsv.ToString(), ct).ConfigureAwait(false);
 
-                        lastCheckpoint = DateTime.UtcNow;
-                        _logger.LogDebug("Dependencies mid-project flush at checkpoint interval.");
+                            // Also flush the current org's partial CSV.
+                            if (currentOrgFolder is not null && currentOrgCsvBuilder.Length > 0)
+                                await store.WriteAsync($"{currentOrgFolder}/dependencies.csv", currentOrgCsvBuilder.ToString(), ct).ConfigureAwait(false);
+
+                            lastCheckpoint = DateTime.UtcNow;
+                            _logger.LogDebug("Dependencies mid-project flush at checkpoint interval.");
+                        }
                     }
 
-                    if (heartbeat.IsComplete)
+                    if (heartbeat.IsComplete || heartbeat.Error is not null)
                     {
+                        projectSw.Stop();
                         using (DataClassificationScope.Begin(DataClassification.Customer))
                             _logger.LogInformation(
                                 "Completed project {Project} in {OrgUrl}: {Links} external links.",
@@ -649,7 +659,16 @@ public sealed class DependencyDiscoveryModule : IDiscoveryModule
                             { "project.name", heartbeat.ProjectName }
                         };
                         metrics?.ProjectStarted(projectTags);
-                        metrics?.ProjectCompleted(projectTags);
+                        if (heartbeat.Error is not null)
+                        {
+                            metrics?.ProjectFailed(projectTags);
+                        }
+                        else
+                        {
+                            metrics?.ProjectCompleted(projectTags);
+                        }
+                        metrics?.RecordProjectDuration(projectSw.Elapsed.TotalMilliseconds, projectTags);
+                        projectSw.Reset();
                         metrics?.RecordWorkItemsAnalysed(heartbeat.WorkItemsAnalysed, projectTags);
                         orgProjectCount++;
 
@@ -786,6 +805,13 @@ public sealed class DependencyDiscoveryModule : IDiscoveryModule
         // Final snapshot push
         PushAggregateMetrics(metricsStore, allProjectStats, inventoryReport, job);
         PushSnapshot(snapshotStore, allProjectStats, inventoryReport, job);
+
+        jobSw.Stop();
+        metrics?.RecordJobDuration(jobSw.Elapsed.TotalMilliseconds, new TagList
+        {
+            { "job.id", job.JobId },
+            { "module", Name }
+        });
 
         sink.Emit(new ProgressEvent
         {
