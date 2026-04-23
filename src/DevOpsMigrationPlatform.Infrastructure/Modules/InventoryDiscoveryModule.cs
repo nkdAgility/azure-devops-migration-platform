@@ -154,10 +154,22 @@ public sealed class InventoryDiscoveryModule : IDiscoveryModule
                 {
                     Module = Name,
                     Stage = "Progress",
-                    Message = $"{evt.Url} / {evt.ProjectName}: {evt.WorkItemsCount} work items so far…",
+                    Message = $"{evt.Url}|{evt.ProjectName}",
                     Timestamp = DateTimeOffset.UtcNow,
                     LastCheckpointAt = new DateTimeOffset(lastCheckpoint, TimeSpan.Zero),
-                    NextCheckpointDueAt = new DateTimeOffset(lastCheckpoint, TimeSpan.Zero) + checkpointInterval
+                    NextCheckpointDueAt = new DateTimeOffset(lastCheckpoint, TimeSpan.Zero) + checkpointInterval,
+                    Metrics = new JobMetrics
+                    {
+                        Scope = new JobScopeCounters { WorkItemsTotal = evt.WorkItemsCount },
+                        Discovery = new DiscoveryCounters
+                        {
+                            Inventory = new InventoryCounters
+                            {
+                                RevisionsTotal = 0,
+                                RepositoriesTotal = 0
+                            }
+                        }
+                    }
                 });
 
                 // Flush CSV to disk at the checkpoint interval even mid-project so

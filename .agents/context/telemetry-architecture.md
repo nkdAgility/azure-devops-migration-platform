@@ -2,6 +2,13 @@
 
 This file explains the layered telemetry architecture, the cross-runtime strategy, and the step-by-step process for adding new metrics. It applies to both AI agents and human contributors.
 
+> **Canonical sources of truth — read these files, do not duplicate their content here:**
+> - Meter names: `src/DevOpsMigrationPlatform.Abstractions/Telemetry/WellKnownMeterNames.cs`
+> - Migration metric names: `src/DevOpsMigrationPlatform.Abstractions/Telemetry/WellKnownMetricNames.cs`
+> - Discovery metric names: `src/DevOpsMigrationPlatform.Abstractions/Telemetry/WellKnownDiscoveryMetricNames.cs`
+>
+> Any list of metric or meter names that appears outside those files is a secondary reference that **will go stale**. Always read the source files directly.
+
 ---
 
 ## Three-Layer Model
@@ -84,6 +91,7 @@ ProjectSnapshot { Name, Status, Migration?, Discovery? }
 | `JobScopeCounters` | All job types | OrganisationsTotal/Completed/Failed, ProjectsTotal/Completed/Failed, WorkItemsTotal |
 | `WorkItemCounters` | Migration | Attempted, Completed, Failed, Skipped, RevisionsProcessed, Attachments? |
 | `AttachmentCounters` | Migration | Processed, Failed, TotalBytes |
+| `MigrationCounters` | Migration | WorkItems (WorkItemCounters), Diagnostics? (MigrationDiagnostics) |
 | `MigrationDiagnostics` | Aggregate only | OTel-derived means, correctness counters, in-flight gauges |
 | `InventoryCounters` | Discovery | RevisionsTotal, RepositoriesTotal, CheckpointsSaved |
 | `DependencyCounters` | Discovery | WorkItemsAnalysed, ExternalLinksFound, CrossProjectLinks, CrossOrgLinks |
@@ -107,12 +115,12 @@ ProjectSnapshot { Name, Status, Migration?, Discovery? }
 | File type | Project | Guard? | Example |
 |---|---|---|---|
 | Metric interface (`I*Metrics`) | `Abstractions/Telemetry/` | No | `IDiscoveryMetrics.cs` |
-| Metric name constants | `Abstractions/Telemetry/` | No | `WellKnownMetricNames.cs` |
+| Metric name constants | `Abstractions/Telemetry/` | No | `WellKnownMetricNames.cs`, `WellKnownDiscoveryMetricNames.cs` |
 | Meter name constants | `Abstractions/Telemetry/` | No | `WellKnownMeterNames.cs` |
 | Tag builder helpers | `Abstractions/Telemetry/` | No | `MigrationTagList.cs` |
-| Counter record types | `Abstractions/Models/` | No | `WorkItemCounters.cs`, `JobMetrics.cs` |
-| Snapshot record types | `Abstractions/Models/` | No | `JobSnapshot.cs`, `OrgSnapshot.cs` |
-| Store interfaces | `Abstractions/Telemetry/` | No | `IJobMetricsStore.cs` |
+| Counter record types | `Abstractions/Models/` | No | `WorkItemCounters.cs`, `AttachmentCounters.cs`, `MigrationCounters.cs`, `MigrationDiagnostics.cs`, `JobScopeCounters.cs`, `InventoryCounters.cs`, `DependencyCounters.cs`, `DiscoveryCounters.cs`, `JobMetrics.cs` |
+| Snapshot record types | `Abstractions/Models/` | No | `JobSnapshot.cs`, `OrgSnapshot.cs`, `ProjectSnapshot.cs`, `JobBootstrap.cs` |
+| Store interfaces | `Abstractions/Telemetry/` | No | `IMetricSnapshotStore.cs` (contains `IJobMetricsStore`) |
 | Concrete metrics class | `Infrastructure/Telemetry/` | No | `DiscoveryMetrics.cs`, `MigrationMetrics.cs` |
 | OTel SDK exporter | `Infrastructure/Telemetry/` | `#if !NETFRAMEWORK` | `SnapshotMetricExporter.cs` |
 | DI registration extensions | `Infrastructure/Telemetry/` | `#if !NETFRAMEWORK` | `TelemetryServiceExtensions.cs` |
@@ -184,6 +192,19 @@ If the new metric should appear in the `JobMetrics` DTO (for Control Plane polli
 ### Step 7 — Add tests
 
 Add a unit test to the existing test class (`MigrationMetricsTests` or `DiscoveryMetricsTests`) verifying the instrument is recorded with correct name and value.
+
+---
+
+## Obsolete Interfaces — Do Not Use
+
+Two legacy interfaces remain in `Abstractions/Telemetry/` marked `[Obsolete]`. They exist only to keep call sites in `Infrastructure.TfsObjectModel` compiling during the transition period. **Do NOT inject or implement these in new code.**
+
+| Interface | Replace with |
+|---|---|
+| `IWorkItemExportMetrics` | `IMigrationMetrics` |
+| `IAttachmentDownloadMetrics` | `IMigrationMetrics` |
+
+These will be removed once all TFS Object Model call sites have been migrated to `IMigrationMetrics`.
 
 ---
 
