@@ -50,6 +50,26 @@ internal sealed class ControlPlaneTelemetryTimer : BackgroundService
 
         while (!stoppingToken.IsCancellationRequested)
         {
+            // Push immediately on first iteration (and after snapshot signal),
+            // then delay between subsequent pushes.
+            var leaseId = _leaseState.CurrentLeaseId;
+            if (leaseId is not null)
+            {
+                var metrics = _metricsStore.Latest;
+                if (metrics is not null)
+                {
+                    await _client.PushMetricsAsync(leaseId, metrics, stoppingToken)
+                                 .ConfigureAwait(false);
+                }
+
+                var snapshot = _snapshotStore.Latest;
+                if (snapshot is not null)
+                {
+                    await _client.PushSnapshotAsync(leaseId, snapshot, stoppingToken)
+                                 .ConfigureAwait(false);
+                }
+            }
+
             var intervalSeconds = _options.Value.SnapshotIntervalSeconds;
             try
             {
@@ -80,24 +100,6 @@ internal sealed class ControlPlaneTelemetryTimer : BackgroundService
             catch (OperationCanceledException)
             {
                 break;
-            }
-
-            var leaseId = _leaseState.CurrentLeaseId;
-            if (leaseId is null)
-                continue;
-
-            var metrics = _metricsStore.Latest;
-            if (metrics is not null)
-            {
-                await _client.PushMetricsAsync(leaseId, metrics, stoppingToken)
-                             .ConfigureAwait(false);
-            }
-
-            var snapshot = _snapshotStore.Latest;
-            if (snapshot is not null)
-            {
-                await _client.PushSnapshotAsync(leaseId, snapshot, stoppingToken)
-                             .ConfigureAwait(false);
             }
         }
 
