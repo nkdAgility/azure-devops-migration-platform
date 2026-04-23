@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
@@ -29,16 +28,8 @@ public sealed class TuiMainView : Window, IDisposable
     private CancellationTokenSource? _selectionCts;
     private Guid? _selectedJobId;
 
-    // Discovery metrics accumulation — keyed by "org|project"
-    private readonly Dictionary<string, DiscoveryProjectMetrics> _discoveryProjects = new();
-    private readonly HashSet<string> _discoveryOrgsCompleted = new();
-    private readonly HashSet<string> _discoveryOrgsFailed = new();
-    private readonly HashSet<string> _discoveryOrgsQueued = new();
-    private DateTimeOffset _discoveryStartTime;
-    private long _discoveryCheckpointsSaved;
-    private volatile bool _discoveryMetricsActive;
-    private JobScopeCounters? _inventoryLoadedScope;
-    private DiscoveryCounters? _inventoryLoadedDiscovery;
+    // Discovery timing — set when the first non-null metrics arrive
+    private DateTimeOffset? _discoveryStartTime;
 
     public TuiMainView(IControlPlaneClient client, string controlPlaneUrl = "")
     {
@@ -160,23 +151,15 @@ public sealed class TuiMainView : Window, IDisposable
         _selectionCts = new CancellationTokenSource();
         var ct = _selectionCts.Token;
 
-        // Reset discovery metrics state for the new job
-        _discoveryMetricsActive = false;
-        _discoveryProjects.Clear();
-        _inventoryLoadedScope = null;
-        _inventoryLoadedDiscovery = null;
+        // Reset discovery timing for the new job
+        _discoveryStartTime = null;
 
         _metrics.SetWaiting();
         _derived.SetWaiting();
         _logView.ClearAndBind(jobId, ct);
 
-        // Start telemetry polling (T029)
+        // Start telemetry polling — Channel 2 metrics drive both metrics and derived panels
         Task.Run(() => PollTelemetryAsync(jobId, ct), ct);
-
-        // Start a dedicated progress follower for discovery metrics.
-        // This runs independently of the log view's display mode so that
-        // switching to Diagnostics tab does not freeze the metrics panel.
-        Task.Run(() => FollowProgressForMetricsAsync(jobId, ct), ct);
 
         UpdateStatusBar(jobId.ToString()[..8], "—", "[Progress]");
     }
@@ -185,16 +168,13 @@ public sealed class TuiMainView : Window, IDisposable
     {
         CancelSelection();
         _selectedJobId = null;
-        _discoveryMetricsActive = false;
-        _discoveryProjects.Clear();
-        _inventoryLoadedScope = null;
-        _inventoryLoadedDiscovery = null;
+        _discoveryStartTime = null;
         _derived.SetWaiting();
         _logView.Clear();
         Application.Invoke(() => _statusBar.Text = " — | Press Q to quit | Tab toggles Log mode");
     }
 
-    // ─── Telemetry polling ───────────────────────────────────────────────────────
+    // ─── Telemetry polling (Channel 2) ─────────────────────────────────────────
 
     private async Task PollTelemetryAsync(Guid jobId, CancellationToken ct)
     {
@@ -202,8 +182,12 @@ public sealed class TuiMainView : Window, IDisposable
         {
             try
             {
-                var snapshot = await _client.GetTelemetryAsync(jobId, ct).ConfigureAwait(false);
-                _metrics.Update(snapshot);
+                var metrics = await _client.GetTelemetryAsync(jobId, ct).ConfigureAwait(false);
+                _metrics.Update(metrics);
+
+                // Compute derived metrics (throughput, ETA) for discovery jobs
+                if (metrics?.Discovery is not null)
+                    UpdateDerivedFromMetrics(metrics);
             }
             catch (OperationCanceledException) when (ct.IsCancellationRequested)
             {
@@ -225,263 +209,43 @@ public sealed class TuiMainView : Window, IDisposable
         }
     }
 
-    // ─── Discovery metrics accumulation ──────────────────────────────────────────
-
     /// <summary>
-    /// Dedicated progress follower that feeds discovery metrics regardless of
-    /// which mode the log panel is displaying. Runs for the lifetime of the job selection.
+    /// Computes throughput rates and ETA from Channel 2 <see cref="JobMetrics"/>
+    /// using wall-clock elapsed time. Replaces the previous Channel 1 accumulation.
     /// </summary>
-    private async Task FollowProgressForMetricsAsync(Guid jobId, CancellationToken ct)
+    private void UpdateDerivedFromMetrics(JobMetrics metrics)
     {
-        int backoffMs = 1_000;
-        const int maxBackoffMs = 30_000;
+        // Start the clock on first non-null metrics
+        _discoveryStartTime ??= DateTimeOffset.UtcNow;
 
-        while (!ct.IsCancellationRequested)
-        {
-            try
-            {
-                await foreach (var evt in _client.FollowLogsAsync(jobId, ct).ConfigureAwait(false))
-                {
-                    AccumulateDiscoveryMetrics(evt);
-                }
-                // Stream ended cleanly
-                return;
-            }
-            catch (OperationCanceledException) when (ct.IsCancellationRequested)
-            {
-                return;
-            }
-            catch
-            {
-                // Transient error — back off and reconnect
-                try { await Task.Delay(backoffMs, ct).ConfigureAwait(false); }
-                catch (OperationCanceledException) { return; }
-                backoffMs = Math.Min(backoffMs * 2, maxBackoffMs);
-            }
-        }
-    }
-
-    private void AccumulateDiscoveryMetrics(ProgressEvent evt)
-    {
-        // Only accumulate discovery metrics for Inventory / Dependencies modules
-        if (evt.Module != "Inventory" && evt.Module != "Dependencies")
-            return;
-
-        if (!_discoveryMetricsActive)
-        {
-            _discoveryStartTime = DateTimeOffset.UtcNow;
-        }
-        _discoveryMetricsActive = true;
-
-        // ── Handle InventoryLoaded (aggregate, no project key) ───────────────
-        // This event carries the total org/project/work-item counts from the
-        // inventory report. We use it to seed _discoveryOrgsQueued when the
-        // per-project InventorySeed events have not yet arrived.
-        if (evt.Stage == "InventoryLoaded")
-        {
-            // The InventoryLoaded Message is human-readable, not a structured key.
-            // Aggregate totals are stored separately and merged into the final
-            // metrics below; per-project data comes via InventorySeed events.
-            _inventoryLoadedScope = evt.Metrics?.Scope;
-            _inventoryLoadedDiscovery = evt.Metrics?.Discovery;
-            return;
-        }
-
-        // Extract counters from Metrics envelope when available.
-        var disc = evt.Metrics?.Discovery;
+        var scope = metrics.Scope;
+        var disc = metrics.Discovery;
         var deps = disc?.Dependencies;
         var inv = disc?.Inventory;
 
-        // Use module+message as a project key since LastProcessed was removed.
-        var key = evt.Message;
-        if (!string.IsNullOrEmpty(key))
-        {
-            var pipeIdx = key.IndexOf('|');
-            if (pipeIdx <= 0)
-                return; // Not a structured key — skip
-
-            var orgUrl = key.Substring(0, pipeIdx);
-            _discoveryOrgsQueued.Add(orgUrl);
-
-            // Use module-qualified key so Inventory and Dependencies don't overwrite each other
-            var qualifiedKey = $"{evt.Module}:{key}";
-
-            // InventorySeed events carry per-project inventory data; they are
-            // emitted by the Dependencies module but represent inventory counts.
-            // Store them under an "Inventory:" qualified key so the totals
-            // accumulation picks them up in the WorkItems/Revisions/Repos bucket.
-            if (evt.Stage == "InventorySeed")
-            {
-                var seedKey = $"Inventory:{key}";
-                _discoveryProjects[seedKey] = new DiscoveryProjectMetrics(
-                    WorkItems: evt.Metrics?.Scope?.WorkItemsTotal ?? 0,
-                    Revisions: inv?.RevisionsTotal ?? 0,
-                    Repos: inv?.RepositoriesTotal ?? 0,
-                    LinksFound: 0, WorkItemsAnalysed: 0,
-                    TotalWorkItems: 0,
-                    IsComplete: true, IsFailed: false,
-                    Module: "Inventory");
-                return;
-            }
-
-            bool isComplete = evt.Stage == "Inventory" || evt.Stage == "Dependencies"
-                           || evt.Stage == "ProjectComplete" || evt.Stage == "Reconciled";
-            bool isFailed = evt.Stage == "Failed";
-
-            if (evt.Module == "Dependencies")
-            {
-                _discoveryProjects[qualifiedKey] = new DiscoveryProjectMetrics(
-                    WorkItems: 0, Revisions: 0, Repos: 0,
-                    LinksFound: deps?.ExternalLinksFound ?? 0,
-                    WorkItemsAnalysed: deps?.WorkItemsAnalysed ?? 0,
-                    TotalWorkItems: evt.Metrics?.Scope?.WorkItemsTotal ?? 0,
-                    IsComplete: isComplete || isFailed, IsFailed: isFailed,
-                    Module: evt.Module);
-            }
-            else
-            {
-                _discoveryProjects[qualifiedKey] = new DiscoveryProjectMetrics(
-                    WorkItems: evt.Metrics?.Scope?.WorkItemsTotal ?? 0,
-                    Revisions: inv?.RevisionsTotal ?? 0,
-                    Repos: inv?.RepositoriesTotal ?? 0,
-                    LinksFound: 0, WorkItemsAnalysed: 0,
-                    TotalWorkItems: 0,
-                    IsComplete: isComplete || isFailed, IsFailed: isFailed,
-                    Module: evt.Module);
-            }
-
-            // Track org completion: when all projects for an org are complete
-            if (isComplete || isFailed)
-            {
-                // Check if all projects for this org are complete
-                bool allDone = true;
-                foreach (var entry in _discoveryProjects)
-                {
-                    if (!entry.Key.StartsWith($"Dependencies:{orgUrl}|", StringComparison.OrdinalIgnoreCase))
-                        continue;
-                    if (!entry.Value.IsComplete)
-                    {
-                        allDone = false;
-                        break;
-                    }
-                }
-                if (allDone && _discoveryProjects.Keys.Any(k => k.StartsWith($"Dependencies:{orgUrl}|", StringComparison.OrdinalIgnoreCase)))
-                {
-                    // Check if any project in this org failed
-                    bool anyFailed = _discoveryProjects
-                        .Where(e => e.Key.StartsWith($"Dependencies:{orgUrl}|", StringComparison.OrdinalIgnoreCase))
-                        .Any(e => e.Value.IsFailed);
-                    if (anyFailed)
-                        _discoveryOrgsFailed.Add(orgUrl);
-                    else
-                        _discoveryOrgsCompleted.Add(orgUrl);
-                }
-            }
-        }
-
-        // Track checkpoint events
-        if (evt.Message?.Contains("checkpoint", StringComparison.OrdinalIgnoreCase) == true)
-            _discoveryCheckpointsSaved++;
-
-        // Accumulate totals across all tracked projects.
-        // Separate inventory-phase and dependency-phase entries so we can report
-        // distinct inventory counters (work items, revisions, repos) and
-        // dependency counters (analysed, links) without double-counting.
-        int depTotal = 0, depCompleted = 0, depFailed = 0;
-        long totalWi = 0, totalRev = 0, totalRepos = 0;
-        long totalLinks = 0, totalAnalysed = 0;
-        long totalKnown = 0, processedOfKnown = 0;
-
-        foreach (var entry in _discoveryProjects)
-        {
-            var v = entry.Value;
-            if (v.Module == "Inventory")
-            {
-                // Inventory entries contribute work-item/revision/repo counts
-                totalWi += v.WorkItems;
-                totalRev += v.Revisions;
-                totalRepos += v.Repos;
-            }
-            else
-            {
-                // Dependency entries contribute analysed/links counts
-                depTotal++;
-                if (v.IsFailed) depFailed++;
-                else if (v.IsComplete) depCompleted++;
-                totalLinks += v.LinksFound;
-                totalAnalysed += v.WorkItemsAnalysed;
-                if (v.TotalWorkItems > 0)
-                {
-                    totalKnown += v.TotalWorkItems;
-                    processedOfKnown += v.IsComplete ? v.TotalWorkItems : v.WorkItemsAnalysed;
-                }
-            }
-        }
-
-        // Use inventory-loaded aggregate as fallback when per-project seeds
-        // haven't arrived or were incomplete
-        if (totalWi == 0 && _inventoryLoadedScope is not null)
-            totalWi = _inventoryLoadedScope.WorkItemsTotal;
-        if (totalRev == 0 && _inventoryLoadedDiscovery?.Inventory is not null)
-            totalRev = _inventoryLoadedDiscovery.Inventory.RevisionsTotal;
-        if (totalRepos == 0 && _inventoryLoadedDiscovery?.Inventory is not null)
-            totalRepos = _inventoryLoadedDiscovery.Inventory.RepositoriesTotal;
-
-        // Org and project totals: prefer inventory-loaded counts when larger
-        var orgsTotal = _discoveryOrgsQueued.Count;
-        var projectsTotal = depTotal;
-        if (_inventoryLoadedScope is not null)
-        {
-            if (_inventoryLoadedScope.OrganisationsTotal > orgsTotal)
-                orgsTotal = (int)_inventoryLoadedScope.OrganisationsTotal;
-            if (_inventoryLoadedScope.ProjectsTotal > projectsTotal)
-                projectsTotal = (int)_inventoryLoadedScope.ProjectsTotal;
-        }
-
-        var remaining = depTotal - depCompleted - depFailed;
-        var elapsed = DateTimeOffset.UtcNow - _discoveryStartTime;
+        var elapsed = DateTimeOffset.UtcNow - _discoveryStartTime.Value;
         var elapsedHours = elapsed.TotalHours;
 
-        var discoveryMetrics = new JobMetrics
-        {
-            Scope = new JobScopeCounters
-            {
-                OrganisationsCompleted = _discoveryOrgsCompleted.Count,
-                OrganisationsFailed = _discoveryOrgsFailed.Count,
-                OrganisationsTotal = orgsTotal,
-                ProjectsCompleted = depCompleted,
-                ProjectsFailed = depFailed,
-                ProjectsTotal = projectsTotal,
-                WorkItemsTotal = totalWi
-            },
-            Discovery = new DiscoveryCounters
-            {
-                Inventory = new InventoryCounters
-                {
-                    RevisionsTotal = totalRev,
-                    RepositoriesTotal = totalRepos,
-                    CheckpointsSaved = _discoveryCheckpointsSaved
-                },
-                Dependencies = new DependencyCounters
-                {
-                    ExternalLinksFound = totalLinks,
-                    WorkItemsAnalysed = totalAnalysed
-                }
-            }
-        };
+        var totalWi = scope?.WorkItemsTotal ?? 0;
+        var totalRev = inv?.RevisionsTotal ?? 0;
+        var totalLinks = deps?.ExternalLinksFound ?? 0;
+        var totalAnalysed = deps?.WorkItemsAnalysed ?? 0;
+        var depCompleted = (int)(scope?.ProjectsCompleted ?? 0);
+        var depFailed = (int)(scope?.ProjectsFailed ?? 0);
+        var depTotal = (int)(scope?.ProjectsTotal ?? 0);
+        var remaining = depTotal - depCompleted - depFailed;
 
-        // Compute avg project duration for derived view
         double? avgProjectDurationMs = depCompleted > 0
             ? elapsed.TotalMilliseconds / depCompleted
             : null;
 
-        // ETA: prefer per-item rate when we have dependency pre-count totals;
+        // ETA from per-item rate when dependency pre-count totals are available;
         // otherwise fall back to avg-project-duration × remaining projects
         TimeSpan? estimatedRemaining = null;
-        if (totalKnown > 0 && processedOfKnown > 0 && processedOfKnown < totalKnown)
+        if (totalAnalysed > 0 && totalWi > 0 && totalAnalysed < totalWi)
         {
-            var msPerItem = elapsed.TotalMilliseconds / processedOfKnown;
-            estimatedRemaining = TimeSpan.FromMilliseconds(msPerItem * (totalKnown - processedOfKnown));
+            var msPerItem = elapsed.TotalMilliseconds / totalAnalysed;
+            estimatedRemaining = TimeSpan.FromMilliseconds(msPerItem * (totalWi - totalAnalysed));
         }
         else if (depCompleted > 0 && remaining > 0)
         {
@@ -499,7 +263,6 @@ public sealed class TuiMainView : Window, IDisposable
             EstimatedRemaining = estimatedRemaining
         };
 
-        _metrics.UpdateDiscovery(discoveryMetrics);
         _derived.UpdateDiscovery(computed, avgProjectDurationMs);
     }
 
@@ -539,13 +302,4 @@ public sealed class TuiMainView : Window, IDisposable
         _logView.Dispose();
         base.Dispose();
     }
-
-    // ─── Supporting types ────────────────────────────────────────────────────────
-
-    private sealed record DiscoveryProjectMetrics(
-        long WorkItems, long Revisions, long Repos,
-        long LinksFound, long WorkItemsAnalysed,
-        long TotalWorkItems,
-        bool IsComplete, bool IsFailed,
-        string Module);
 }

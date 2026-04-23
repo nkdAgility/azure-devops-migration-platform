@@ -48,20 +48,6 @@ public sealed class TuiMetricsView : FrameView
         });
     }
 
-    /// <summary>
-    /// Shows discovery-specific metrics from a <see cref="JobMetrics"/> instance
-    /// that has <see cref="JobMetrics.Discovery"/> populated.
-    /// Safe to call from any thread.
-    /// </summary>
-    public void UpdateDiscovery(JobMetrics metrics)
-    {
-        Application.Invoke(() =>
-        {
-            _content.Text = FormatDiscoveryMetrics(metrics);
-            SetNeedsDraw();
-        });
-    }
-
     /// <summary>Shows "(waiting for agent…)" when a job is selected but no metrics have arrived yet.</summary>
     public void SetWaiting()
     {
