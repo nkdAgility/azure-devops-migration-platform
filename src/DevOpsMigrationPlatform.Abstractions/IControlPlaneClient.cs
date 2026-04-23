@@ -18,7 +18,7 @@ public interface IControlPlaneClient
     Task<JobMetrics?> GetTelemetryAsync(Guid jobId, CancellationToken ct);
 
     /// <summary>Streams live <see cref="ProgressEvent"/> records via SSE.</summary>
-    IAsyncEnumerable<ProgressEvent> FollowLogsAsync(Guid jobId, CancellationToken ct);
+    IAsyncEnumerable<ProgressEvent> FollowLogsAsync(Guid jobId, CancellationToken ct, long? lastEventSequence = null);
 
     /// <summary>Streams live <see cref="DiagnosticLogRecord"/> records via SSE.</summary>
     IAsyncEnumerable<DiagnosticLogRecord> StreamDiagnosticsAsync(Guid jobId, string? level, CancellationToken ct);

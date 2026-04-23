@@ -142,18 +142,9 @@ public sealed class ProgressController : ControllerBase
                 lastEventId = parsedId;
             }
 
-            // Replay current per-project state first so a late-connecting client (e.g. a
-            // TUI that attaches mid-run) immediately sees the latest status for every
-            // project, even if those events were evicted from the ring buffer.
-            foreach (var stateEvt in _store.GetCurrentProjectState(jobId))
-            {
-                if (stateEvt.EventSequence <= lastEventId) continue;
-                var stateJson = JsonSerializer.Serialize(stateEvt, _jsonOptions);
-                await HttpContext.Response.WriteAsync($"id: {stateEvt.EventSequence}\ndata: {stateJson}\n\n", ct);
-            }
-
-            // Replay any remaining events from the ring buffer that are not already
-            // covered by the per-project state replay above.
+            // Replay events from the ring buffer so a late-connecting client sees
+            // recent history. Clients use the bootstrap endpoint for per-project state;
+            // the ring buffer provides only the recent event stream.
             foreach (var pastEvt in _store.GetSnapshot(jobId))
             {
                 if (pastEvt.EventSequence <= lastEventId) continue;

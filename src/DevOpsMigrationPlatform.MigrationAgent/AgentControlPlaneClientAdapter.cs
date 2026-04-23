@@ -60,7 +60,8 @@ internal sealed class AgentControlPlaneClientAdapter : IControlPlaneClient
 
     IAsyncEnumerable<ProgressEvent> IControlPlaneClient.FollowLogsAsync(
         Guid jobId,
-        CancellationToken ct)
+        CancellationToken ct,
+        long? lastEventSequence)
         => throw new NotSupportedException("FollowLogsAsync is not supported in the agent adapter.");
 
     IAsyncEnumerable<DiagnosticLogRecord> IControlPlaneClient.StreamDiagnosticsAsync(

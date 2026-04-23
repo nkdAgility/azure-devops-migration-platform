@@ -12,4 +12,12 @@ public interface IJobSnapshotStore
 
     /// <summary>Returns the most recent snapshot, or <c>null</c> if none has been recorded yet.</summary>
     JobSnapshot? Latest { get; }
+
+    /// <summary>
+    /// A wait handle that is signalled whenever <see cref="Update"/> is called.
+    /// The telemetry timer can use this to wake immediately on project-boundary
+    /// snapshot pushes rather than waiting for the next timer tick.
+    /// Reset by the timer after each push.
+    /// </summary>
+    System.Threading.WaitHandle UpdateSignal { get; }
 }

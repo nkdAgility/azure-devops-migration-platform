@@ -44,13 +44,38 @@ internal sealed class ControlPlaneTelemetryTimer : BackgroundService
     {
         _logger.LogDebug("ControlPlaneTelemetryTimer started.");
 
+        // RegisteredWaitHandle for snapshot boundary push signal.
+        // When the snapshot store signals, we cancel the current delay to push immediately.
+        var snapshotSignal = _snapshotStore.UpdateSignal;
+
         while (!stoppingToken.IsCancellationRequested)
         {
             var intervalSeconds = _options.Value.SnapshotIntervalSeconds;
             try
             {
-                await Task.Delay(TimeSpan.FromSeconds(intervalSeconds), stoppingToken)
-                          .ConfigureAwait(false);
+                // Wait for either the timer interval or a snapshot boundary signal.
+                var delayCts = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken);
+                var registration = ThreadPool.RegisterWaitForSingleObject(
+                    snapshotSignal,
+                    (_, _) => delayCts.Cancel(),
+                    null,
+                    Timeout.Infinite,
+                    executeOnlyOnce: true);
+
+                try
+                {
+                    await Task.Delay(TimeSpan.FromSeconds(intervalSeconds), delayCts.Token)
+                              .ConfigureAwait(false);
+                }
+                catch (OperationCanceledException) when (!stoppingToken.IsCancellationRequested)
+                {
+                    // Woken by snapshot signal — proceed to push immediately.
+                }
+                finally
+                {
+                    registration.Unregister(null);
+                    delayCts.Dispose();
+                }
             }
             catch (OperationCanceledException)
             {

@@ -152,11 +152,17 @@ public sealed class ControlPlaneClient : IJobRunner, ILogsClient, IControlPlaneC
     /// </summary>
     public async IAsyncEnumerable<ProgressEvent> FollowLogsAsync(
         Guid jobId,
-        [EnumeratorCancellation] CancellationToken ct)
+        [EnumeratorCancellation] CancellationToken ct,
+        long? lastEventSequence = null)
     {
+        var request = new HttpRequestMessage(HttpMethod.Get,
+            $"/jobs/{jobId}/progress?follow=true");
+        if (lastEventSequence.HasValue)
+            request.Headers.TryAddWithoutValidation("Last-Event-ID",
+                lastEventSequence.Value.ToString());
+
         using var response = await _http
-            .GetAsync($"/jobs/{jobId}/progress?follow=true",
-                HttpCompletionOption.ResponseHeadersRead, ct)
+            .SendAsync(request, HttpCompletionOption.ResponseHeadersRead, ct)
             .ConfigureAwait(false);
 
         response.EnsureSuccessStatusCode();
