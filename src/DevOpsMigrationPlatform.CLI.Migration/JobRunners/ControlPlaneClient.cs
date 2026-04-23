@@ -316,4 +316,20 @@ public sealed class ControlPlaneClient : IJobRunner, ILogsClient, IControlPlaneC
     /// </summary>
     public Task<bool> IsAgentActiveAsync(string agentInstanceId, CancellationToken ct)
         => Task.FromResult(false);
+
+    /// <inheritdoc/>
+    public async Task<JobBootstrap?> GetBootstrapAsync(Guid jobId, CancellationToken ct)
+    {
+        var response = await _http
+            .GetAsync($"/jobs/{jobId}/bootstrap", ct)
+            .ConfigureAwait(false);
+
+        if (response.StatusCode == System.Net.HttpStatusCode.NoContent)
+            return null;
+
+        response.EnsureSuccessStatusCode();
+        return await response.Content
+            .ReadFromJsonAsync<JobBootstrap>(_jsonOptions, ct)
+            .ConfigureAwait(false);
+    }
 }

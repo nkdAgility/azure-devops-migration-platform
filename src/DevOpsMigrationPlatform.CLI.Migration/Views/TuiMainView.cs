@@ -158,6 +158,27 @@ public sealed class TuiMainView : Window, IDisposable
         _derived.SetWaiting();
         _logView.ClearAndBind(jobId, ct);
 
+        // Bootstrap: fetch snapshot + metrics + lastEventSequence in one atomic call
+        // so a late-joining TUI immediately has state. Fire-and-forget — polling picks
+        // up if the bootstrap call fails.
+        Task.Run(async () =>
+        {
+            try
+            {
+                var bootstrap = await _client.GetBootstrapAsync(jobId, ct).ConfigureAwait(false);
+                if (bootstrap is not null)
+                {
+                    _metrics.Update(bootstrap.Metrics);
+                    if (bootstrap.Metrics?.Discovery is not null)
+                        UpdateDerivedFromMetrics(bootstrap.Metrics);
+                }
+            }
+            catch
+            {
+                // Swallow — polling will catch up
+            }
+        }, ct);
+
         // Start telemetry polling — Channel 2 metrics drive both metrics and derived panels
         Task.Run(() => PollTelemetryAsync(jobId, ct), ct);
 

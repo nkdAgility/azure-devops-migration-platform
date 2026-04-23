@@ -29,4 +29,11 @@ public interface IControlPlaneClient
     /// Returns <see langword="false"/> if the status cannot be determined.
     /// </summary>
     Task<bool> IsAgentActiveAsync(string agentInstanceId, CancellationToken ct);
+
+    /// <summary>
+    /// Returns the bootstrap payload for a job (snapshot + metrics + last event sequence),
+    /// or <c>null</c> when the job has not yet emitted any telemetry.
+    /// Calls <c>GET /jobs/{jobId}/bootstrap</c>.
+    /// </summary>
+    Task<JobBootstrap?> GetBootstrapAsync(Guid jobId, CancellationToken ct);
 }

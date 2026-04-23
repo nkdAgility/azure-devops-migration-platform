@@ -68,4 +68,7 @@ internal sealed class AgentControlPlaneClientAdapter : IControlPlaneClient
         string? level,
         CancellationToken ct)
         => throw new NotSupportedException("StreamDiagnosticsAsync is not supported in the agent adapter.");
+
+    Task<JobBootstrap?> IControlPlaneClient.GetBootstrapAsync(Guid jobId, CancellationToken ct)
+        => throw new NotSupportedException("GetBootstrapAsync is not supported in the agent adapter.");
 }
