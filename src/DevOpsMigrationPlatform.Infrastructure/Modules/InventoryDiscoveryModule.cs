@@ -52,6 +52,7 @@ public sealed class InventoryDiscoveryModule : IDiscoveryModule
         var state = context.StateStore;
         var sink = context.ProgressSink;
         var metricsStore = context.MetricsStore;
+        var snapshotStore = context.SnapshotStore;
 
         _logger.LogInformation("Inventory module starting for job {JobId}.", job.JobId);
 
@@ -279,6 +280,7 @@ public sealed class InventoryDiscoveryModule : IDiscoveryModule
             // Push aggregate metrics to the snapshot store (Channel 2) so the
             // TUI/CLI can read them via GET /jobs/{id}/telemetry.
             PushAggregateMetrics(metricsStore, orgProjectData, job);
+            PushSnapshot(snapshotStore, orgProjectData, job);
 
             // Checkpoint cursor at configured interval for resume support.
             if (DateTime.UtcNow - lastCheckpoint >= checkpointInterval)
@@ -313,6 +315,7 @@ public sealed class InventoryDiscoveryModule : IDiscoveryModule
 
         // Final snapshot push
         PushAggregateMetrics(metricsStore, orgProjectData, job);
+        PushSnapshot(snapshotStore, orgProjectData, job);
 
         sink.Emit(new ProgressEvent
         {
@@ -449,6 +452,60 @@ public sealed class InventoryDiscoveryModule : IDiscoveryModule
                     RepositoriesTotal = totalRepos
                 }
             }
+        });
+    }
+
+    /// <summary>
+    /// Pushes a <see cref="JobSnapshot"/> (Channel 3) with per-org/project inventory state.
+    /// </summary>
+    private static void PushSnapshot(
+        IJobSnapshotStore? snapshotStore,
+        Dictionary<string, List<(string Project, long WorkItems, long Revisions, int Repos, bool IsComplete, string? Error)>> orgProjectData,
+        DiscoveryJob job)
+    {
+        if (snapshotStore is null)
+            return;
+
+        var orgSnapshots = new List<OrgSnapshot>();
+        foreach (var org in job.Organisations)
+        {
+            var url = org.Endpoint.GetResolvedUrl();
+            var projectSnapshots = new List<ProjectSnapshot>();
+
+            if (orgProjectData.TryGetValue(url, out var projects))
+            {
+                foreach (var p in projects)
+                {
+                    projectSnapshots.Add(new ProjectSnapshot
+                    {
+                        Name = p.Project,
+                        Status = p.Error is not null ? ProjectStatus.Failed
+                               : p.IsComplete ? ProjectStatus.Completed
+                               : ProjectStatus.InProgress,
+                        Discovery = new DiscoveryCounters
+                        {
+                            Inventory = new InventoryCounters
+                            {
+                                RevisionsTotal = p.Revisions,
+                                RepositoriesTotal = p.Repos
+                            }
+                        }
+                    });
+                }
+            }
+
+            orgSnapshots.Add(new OrgSnapshot
+            {
+                Url = url,
+                Name = org.Endpoint.GetResolvedUrl(),
+                Projects = projectSnapshots
+            });
+        }
+
+        snapshotStore.Update(new JobSnapshot
+        {
+            Timestamp = DateTimeOffset.UtcNow,
+            Organisations = orgSnapshots
         });
     }
 

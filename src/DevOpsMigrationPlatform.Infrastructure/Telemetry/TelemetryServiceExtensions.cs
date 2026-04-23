@@ -34,6 +34,7 @@ public static class TelemetryServiceExtensions
                 .BindConfiguration(TelemetryOptions.SectionName);
 
         services.AddSingleton<IJobMetricsStore, InMemoryJobMetricsStore>();
+        services.AddSingleton<IJobSnapshotStore, InMemoryJobSnapshotStore>();
         services.AddSingleton<IMigrationMetrics, MigrationMetrics>();
         services.AddSingleton<IDiscoveryMetrics, DiscoveryMetrics>();
 

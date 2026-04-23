@@ -129,6 +129,24 @@ public sealed class JobProgressStore
     public bool WasFailed(Guid jobId) =>
         _entries.TryGetValue(jobId, out var e) && e.Failed;
 
+    /// <summary>
+    /// Returns the highest <see cref="ProgressEvent.EventSequence"/> seen for the job,
+    /// or 0 if no events have been recorded. Used by the bootstrap endpoint.
+    /// </summary>
+    public long GetMaxEventSequence(Guid jobId)
+    {
+        if (!_entries.TryGetValue(jobId, out var entry))
+            return 0;
+
+        long max = 0;
+        foreach (var evt in entry.Queue)
+        {
+            if (evt.EventSequence > max)
+                max = evt.EventSequence;
+        }
+        return max;
+    }
+
     public void Remove(Guid jobId) =>
         _entries.TryRemove(jobId, out _);
 }

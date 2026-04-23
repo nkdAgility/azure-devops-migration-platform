@@ -26,4 +26,11 @@ public class DiscoveryContext
     /// Null when running inside the TFS subprocess or unit tests.
     /// </summary>
     public IJobMetricsStore? MetricsStore { get; init; }
+
+    /// <summary>
+    /// Optional snapshot store (Channel 3). When provided, discovery modules push
+    /// <see cref="JobSnapshot"/> with per-org/project state for late-joining clients.
+    /// Null when running inside the TFS subprocess or unit tests.
+    /// </summary>
+    public IJobSnapshotStore? SnapshotStore { get; init; }
 }

@@ -59,6 +59,7 @@ public sealed class DependencyDiscoveryModule : IDiscoveryModule
         var state = context.StateStore;
         var sink = context.ProgressSink;
         var metricsStore = context.MetricsStore;
+        var snapshotStore = context.SnapshotStore;
 
         _logger.LogInformation("Dependencies module starting for job {JobId}.", job.JobId);
 
@@ -450,6 +451,7 @@ public sealed class DependencyDiscoveryModule : IDiscoveryModule
 
                 // Push aggregate metrics for the reconciled-complete path
                 PushAggregateMetrics(metricsStore, perProjectStats, inventoryReport, job);
+                PushSnapshot(snapshotStore, perProjectStats, inventoryReport, job);
 
                 sink.Emit(new ProgressEvent
                 {
@@ -697,6 +699,7 @@ public sealed class DependencyDiscoveryModule : IDiscoveryModule
 
                 // Push aggregate metrics to Channel 2 snapshot store
                 PushAggregateMetrics(metricsStore, allProjectStats, inventoryReport, job);
+                PushSnapshot(snapshotStore, allProjectStats, inventoryReport, job);
             }
         }
 
@@ -782,6 +785,7 @@ public sealed class DependencyDiscoveryModule : IDiscoveryModule
 
         // Final snapshot push
         PushAggregateMetrics(metricsStore, allProjectStats, inventoryReport, job);
+        PushSnapshot(snapshotStore, allProjectStats, inventoryReport, job);
 
         sink.Emit(new ProgressEvent
         {
@@ -884,6 +888,61 @@ public sealed class DependencyDiscoveryModule : IDiscoveryModule
                     CrossOrgLinks = totalCrossOrg
                 }
             }
+        });
+    }
+
+    /// <summary>
+    /// Pushes a <see cref="JobSnapshot"/> (Channel 3) with per-org/project dependency state.
+    /// </summary>
+    private static void PushSnapshot(
+        IJobSnapshotStore? snapshotStore,
+        Dictionary<string, PerProjectStats> allProjectStats,
+        InventoryReport? inventoryReport,
+        DiscoveryJob job)
+    {
+        if (snapshotStore is null)
+            return;
+
+        var orgSnapshots = new List<OrgSnapshot>();
+        foreach (var org in job.Organisations)
+        {
+            var orgUrl = org.Endpoint.GetResolvedUrl();
+            var projectSnapshots = new List<ProjectSnapshot>();
+
+            foreach (var proj in org.Projects)
+            {
+                var key = $"{orgUrl}|{proj}";
+                var hasStats = allProjectStats.TryGetValue(key, out var stats);
+
+                projectSnapshots.Add(new ProjectSnapshot
+                {
+                    Name = proj,
+                    Status = hasStats ? ProjectStatus.Completed : ProjectStatus.Pending,
+                    Discovery = new DiscoveryCounters
+                    {
+                        Dependencies = hasStats ? new DependencyCounters
+                        {
+                            WorkItemsAnalysed = stats!.WorkItemsAnalysed,
+                            ExternalLinksFound = stats.ExternalLinksFound,
+                            CrossProjectLinks = stats.CrossProjectCount,
+                            CrossOrgLinks = stats.CrossOrgCount
+                        } : null
+                    }
+                });
+            }
+
+            orgSnapshots.Add(new OrgSnapshot
+            {
+                Url = orgUrl,
+                Name = orgUrl,
+                Projects = projectSnapshots
+            });
+        }
+
+        snapshotStore.Update(new JobSnapshot
+        {
+            Timestamp = DateTimeOffset.UtcNow,
+            Organisations = orgSnapshots
         });
     }
 
