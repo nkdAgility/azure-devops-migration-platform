@@ -268,16 +268,17 @@ Both the Control Plane and Migration Agent call `builder.AddServiceDefaults()` i
 
 ## CLI Integration
 
-The CLI is always the operator's entry point. For local and server-based migrations, the CLI drives Aspire programmatically to start the control plane, agents, and PostgreSQL before submitting the job.
+The CLI is always the operator's entry point. For local and server-based migrations, the CLI starts `LocalStackHost` which launches the control plane and agent (as child processes or in-process) before submitting the job.
 
 ### CLI.Migration (net10.0) — Main CLI
 
-`CLI.Migration` is the primary operator-facing CLI. It starts `LocalStackHost` in-process for standalone execution, or connects to a remote endpoint when `Environment.Type` is `Hosted`:
+`CLI.Migration` is the primary operator-facing CLI. It starts `LocalStackHost` for standalone execution — preferring **process-per-component** mode (separate child processes via `ChildProcessHost`) when published binaries are found, with **in-process** fallback otherwise — or connects to a remote endpoint when `Environment.Type` is `Hosted`:
 
 ```csharp
-// When Environment.Type is Standalone, the CLI starts LocalStackHost in-process
+// When Environment.Type is Standalone, the CLI starts LocalStackHost
 var localStack = new LocalStackHost();
 await localStack.StartAsync();
+// Prefers process-per-component; falls back to in-process if binaries not found
 
 // EnvironmentOptions.ControlPlane.BaseUrl resolves the endpoint
 ```
