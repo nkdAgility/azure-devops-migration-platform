@@ -133,9 +133,9 @@ public class DependencyDiscoveryModuleResumeTests
 
         Assert.IsNotNull(resumedEvent, "Expected a synthetic ProjectComplete event for the resumed project.");
         Assert.AreEqual(500, resumedEvent.WorkItemsProcessed, "WorkItemsProcessed should match cursor stats.");
-        Assert.AreEqual(47, resumedEvent.WorkItemId, "ExternalLinksFound should be carried in WorkItemId.");
-        Assert.AreEqual(47, resumedEvent.RevisionsProcessed, "CrossProjectCount should be carried in RevisionsProcessed.");
-        Assert.AreEqual(3, resumedEvent.AttachmentsProcessed, "CrossOrgCount should be carried in AttachmentsProcessed.");
+        Assert.AreEqual(47, resumedEvent.ExternalLinksFound, "ExternalLinksFound should match cursor stats.");
+        Assert.AreEqual(47, resumedEvent.CrossProjectLinks, "CrossProjectLinks should match cursor stats.");
+        Assert.AreEqual(3, resumedEvent.CrossOrgLinks, "CrossOrgLinks should match cursor stats.");
         Assert.AreEqual(500, resumedEvent.TotalWorkItems, "TotalWorkItems should match cursor stats.");
     }
 
@@ -342,7 +342,7 @@ public class DependencyDiscoveryModuleResumeTests
         Assert.IsTrue(doc.RootElement.TryGetProperty("projectStats", out var statsObj),
             "Cursor JSON should contain 'projectStats'.");
 
-        var projectKey = $"{orgUrl}|{projectName}";
+        var projectKey = $"{orgUrl.TrimEnd('/').ToLowerInvariant()}|{projectName.Trim().ToLowerInvariant()}";
         Assert.IsTrue(statsObj.TryGetProperty(projectKey, out var projStats),
             $"projectStats should contain an entry for '{projectKey}'.");
         Assert.AreEqual(200, projStats.GetProperty("workItemsAnalysed").GetInt32());

@@ -34,6 +34,13 @@ public sealed class DependencyDiscoveryModule : IDiscoveryModule
     public string Name => "Dependencies";
     public DiscoveryJobType DiscoveryType => DiscoveryJobType.Dependencies;
 
+    /// <summary>
+    /// Normalizes an organisation URL + project name pair into a canonical key
+    /// by trimming trailing slashes and lower-casing both parts.
+    /// </summary>
+    private static string NormalizeProjectKey(string orgUrl, string project)
+        => $"{orgUrl.TrimEnd('/').ToLowerInvariant()}|{project.Trim().ToLowerInvariant()}";
+
     public DependencyDiscoveryModule(
         IDependencyDiscoveryServiceFactory dependencyFactory,
         ILogger<DependencyDiscoveryModule> logger
@@ -179,9 +186,9 @@ public sealed class DependencyDiscoveryModule : IDiscoveryModule
                         LastProcessed = projectKey,
                         TotalWorkItems = stats?.TotalWorkItems ?? 0,
                         WorkItemsProcessed = stats?.WorkItemsAnalysed ?? 0,
-                        WorkItemId = stats?.ExternalLinksFound ?? 0,
-                        RevisionsProcessed = stats?.CrossProjectCount ?? 0,
-                        AttachmentsProcessed = stats?.CrossOrgCount ?? 0,
+                        ExternalLinksFound = stats?.ExternalLinksFound ?? 0,
+                        CrossProjectLinks = stats?.CrossProjectCount ?? 0,
+                        CrossOrgLinks = stats?.CrossOrgCount ?? 0,
                         Message = $"Resumed (previously completed)",
                         Timestamp = DateTimeOffset.UtcNow
                     });
@@ -212,7 +219,7 @@ public sealed class DependencyDiscoveryModule : IDiscoveryModule
                         var sourceOrgUrl = cols[3];
                         if (!string.IsNullOrWhiteSpace(sourceProject) && !string.IsNullOrWhiteSpace(sourceOrgUrl))
                         {
-                            completedProjects.Add($"{sourceOrgUrl}|{sourceProject}");
+                            completedProjects.Add(NormalizeProjectKey(sourceOrgUrl, sourceProject));
                         }
                     }
                     recordCount++;
@@ -259,12 +266,18 @@ public sealed class DependencyDiscoveryModule : IDiscoveryModule
         if (completedProjects.Count > 0)
         {
             var allProjectKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            // Keep a mapping from normalized key → display-friendly key for event emission.
+            var displayKeys = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
             foreach (var org in job.Organisations)
             {
                 foreach (var project in org.Projects)
                 {
                     var resolvedUrl = org.Endpoint.GetResolvedUrl();
-                    allProjectKeys.Add($"{resolvedUrl}|{project}");
+                    var normalizedKey = NormalizeProjectKey(resolvedUrl, project);
+                    allProjectKeys.Add(normalizedKey);
+                    // Prefer the original casing for display.
+                    if (!displayKeys.ContainsKey(normalizedKey))
+                        displayKeys[normalizedKey] = $"{resolvedUrl}|{project}";
                 }
             }
 
@@ -286,6 +299,8 @@ public sealed class DependencyDiscoveryModule : IDiscoveryModule
                 // Ensure every configured project gets an event, even if it had zero links.
                 foreach (var projectKey in allProjectKeys)
                 {
+                    var displayKey = displayKeys.TryGetValue(projectKey, out var dk) ? dk : projectKey;
+
                     if (!perProjectStats.TryGetValue(projectKey, out var stats))
                     {
                         // Project had zero external links — still emit completion with inventory total if available.
@@ -311,13 +326,13 @@ public sealed class DependencyDiscoveryModule : IDiscoveryModule
                     {
                         Module = Name,
                         Stage = "ProjectComplete",
-                        LastProcessed = projectKey,
+                        LastProcessed = displayKey,
                         TotalWorkItems = stats.TotalWorkItems,
                         WorkItemsProcessed = stats.WorkItemsAnalysed,
                         ExternalLinksFound = stats.ExternalLinksFound,
                         CrossProjectLinks = stats.CrossProjectCount,
                         CrossOrgLinks = stats.CrossOrgCount,
-                        Message = $"{projectKey}: {stats.WorkItemsAnalysed}/{stats.TotalWorkItems} analysed, {stats.ExternalLinksFound} links found (reconciled)",
+                        Message = $"{displayKey}: {stats.WorkItemsAnalysed}/{stats.TotalWorkItems} analysed, {stats.ExternalLinksFound} links found (reconciled)",
                         Timestamp = DateTimeOffset.UtcNow
                     });
                 }
@@ -521,7 +536,7 @@ public sealed class DependencyDiscoveryModule : IDiscoveryModule
                         orgProjectCount++;
 
                         // Track this project as completed for the cursor
-                        var completedKey = $"{heartbeat.OrganisationUrl}|{heartbeat.ProjectName}";
+                        var completedKey = NormalizeProjectKey(heartbeat.OrganisationUrl, heartbeat.ProjectName);
                         allCompletedProjects.Add(completedKey);
 
                         // Save per-project stats so they are available when a resumed job
@@ -648,8 +663,7 @@ public sealed class DependencyDiscoveryModule : IDiscoveryModule
         var stats = new Dictionary<string, PerProjectStats>(StringComparer.OrdinalIgnoreCase);
         var lines = rootCsvContent.Split(new[] { '\n' }, StringSplitOptions.RemoveEmptyEntries);
 
-        // Helper to normalize org URL and project name for key matching
-        static string NormalizeKey(string orgUrl, string project) => $"{orgUrl.TrimEnd('/').ToLowerInvariant()}|{project.Trim().ToLowerInvariant()}";
+
 
         // Accumulate per-project link counts
         var analysed = new Dictionary<string, HashSet<int>>(StringComparer.OrdinalIgnoreCase);
@@ -669,7 +683,7 @@ public sealed class DependencyDiscoveryModule : IDiscoveryModule
             if (string.IsNullOrWhiteSpace(sourceProject) || string.IsNullOrWhiteSpace(sourceOrgUrl))
                 continue;
 
-            var key = NormalizeKey(sourceOrgUrl, sourceProject);
+            var key = NormalizeProjectKey(sourceOrgUrl, sourceProject);
 
             // Track unique work item IDs analysed
             if (int.TryParse(cols[0], out var wiId))
@@ -704,11 +718,9 @@ public sealed class DependencyDiscoveryModule : IDiscoveryModule
         {
             foreach (var org in inventory.Organisations)
             {
-                var orgUrlNorm = org.Url.TrimEnd('/').ToLowerInvariant();
                 foreach (var proj in org.Projects)
                 {
-                    var projNameNorm = proj.Name.Trim().ToLowerInvariant();
-                    var key = $"{orgUrlNorm}|{projNameNorm}";
+                    var key = NormalizeProjectKey(org.Url, proj.Name);
                     inventoryWorkItems[key] = (int)Math.Min(proj.WorkItems, int.MaxValue);
                 }
             }
