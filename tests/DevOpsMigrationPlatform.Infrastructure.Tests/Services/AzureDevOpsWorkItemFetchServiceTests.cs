@@ -68,7 +68,7 @@ public class AzureDevOpsWorkItemFetchServiceTests
             .Setup(w => w.EnumerateWindowsAsync(
                 It.IsAny<OrganisationEndpoint>(),
                 "MyProject",
-                null,
+                It.IsAny<WorkItemQueryWindowOptions>(),
                 It.IsAny<CancellationToken>()))
             .Returns(AsyncEmpty<WorkItemQueryWindow>());
 
@@ -100,7 +100,7 @@ public class AzureDevOpsWorkItemFetchServiceTests
             .Setup(w => w.EnumerateWindowsAsync(
                 It.IsAny<OrganisationEndpoint>(),
                 "MyProject",
-                null,
+                It.IsAny<WorkItemQueryWindowOptions>(),
                 It.IsAny<CancellationToken>()))
             .Returns(ToAsyncEnumerable(window1, window2));
 
@@ -163,7 +163,7 @@ public class AzureDevOpsWorkItemFetchServiceTests
             .Setup(w => w.EnumerateWindowsAsync(
                 It.IsAny<OrganisationEndpoint>(),
                 "MyProject",
-                null,
+                It.IsAny<WorkItemQueryWindowOptions>(),
                 It.IsAny<CancellationToken>()))
             .Returns(ToAsyncEnumerable(window));
 
@@ -208,7 +208,7 @@ public class AzureDevOpsWorkItemFetchServiceTests
             .Setup(w => w.EnumerateWindowsAsync(
                 It.IsAny<OrganisationEndpoint>(),
                 "MyProject",
-                null,
+                It.IsAny<WorkItemQueryWindowOptions>(),
                 It.Is<CancellationToken>(ct => ct.IsCancellationRequested)))
             .Returns(AsyncEmpty<WorkItemQueryWindow>());
 
@@ -226,7 +226,7 @@ public class AzureDevOpsWorkItemFetchServiceTests
         windowStrategy.Verify(w => w.EnumerateWindowsAsync(
             It.IsAny<OrganisationEndpoint>(),
             "MyProject",
-            null,
+            It.IsAny<WorkItemQueryWindowOptions>(),
             It.Is<CancellationToken>(ct => ct.IsCancellationRequested)),
             Times.Once);
     }
@@ -244,7 +244,7 @@ public class AzureDevOpsWorkItemFetchServiceTests
             .Setup(w => w.EnumerateWindowsAsync(
                 It.IsAny<OrganisationEndpoint>(),
                 It.IsAny<string>(),
-                null,
+                It.IsAny<WorkItemQueryWindowOptions>(),
                 It.IsAny<CancellationToken>()))
             .Returns(ToAsyncEnumerable(window));
 
@@ -289,7 +289,7 @@ public class AzureDevOpsWorkItemFetchServiceTests
             .Setup(w => w.EnumerateWindowsAsync(
                 It.IsAny<OrganisationEndpoint>(),
                 It.IsAny<string>(),
-                null,
+                It.IsAny<WorkItemQueryWindowOptions>(),
                 It.IsAny<CancellationToken>()))
             .Returns(ToAsyncEnumerable(window));
 
@@ -331,7 +331,7 @@ public class AzureDevOpsWorkItemFetchServiceTests
             .Setup(w => w.EnumerateWindowsAsync(
                 It.IsAny<OrganisationEndpoint>(),
                 It.IsAny<string>(),
-                null,
+                It.IsAny<WorkItemQueryWindowOptions>(),
                 It.IsAny<CancellationToken>()))
             .Returns(ToAsyncEnumerable(window));
 
@@ -383,5 +383,116 @@ public class AzureDevOpsWorkItemFetchServiceTests
             await Task.CompletedTask;
             yield return item;
         }
+    }
+
+    // ── T019: Per-batch checkpoint emission ──────────────────────────────────
+
+    [TestMethod]
+    public async Task FetchAsync_ResumeEnabled_CallsContinuationCheckpointWriter()
+    {
+        // Arrange
+        var windowStrategy = new Mock<IWorkItemQueryWindowStrategy>(MockBehavior.Strict);
+        var clientFactory = new Mock<IAzureDevOpsClientFactory>(MockBehavior.Strict);
+        var witClient = new Mock<WorkItemTrackingHttpClient>(MockBehavior.Loose,
+            new object[] { new Uri("https://dev.azure.com/testorg"), null! });
+
+        var window = new WorkItemQueryWindow
+        {
+            WindowStart = DateTime.UtcNow.AddDays(-1),
+            WindowEnd = DateTime.UtcNow,
+            WindowSize = TimeSpan.FromDays(1),
+            WorkItemIds = new List<int> { 42 }
+        };
+
+        windowStrategy
+            .Setup(w => w.EnumerateWindowsAsync(
+                It.IsAny<OrganisationEndpoint>(), "MyProject",
+                It.IsAny<WorkItemQueryWindowOptions?>(), It.IsAny<CancellationToken>()))
+            .Returns(ToAsyncEnumerable(window));
+
+        clientFactory
+            .Setup(c => c.CreateWorkItemClientAsync(_endpoint, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(witClient.Object);
+
+        witClient
+            .Setup(c => c.GetWorkItemsAsync(
+                It.IsAny<IEnumerable<int>>(), It.IsAny<string[]>(),
+                null, null, null, null, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<WorkItem> { MakeWorkItem(42, ("System.Rev", 1)) });
+
+        var checkpointsEmitted = new List<BatchContinuationToken>();
+        var scope = new WorkItemFetchScope(
+            Fields: new[] { "System.Rev" },
+            ResumeEnabled: true,
+            ContinuationCheckpointWriter: (token, _) =>
+            {
+                checkpointsEmitted.Add(token);
+                return Task.CompletedTask;
+            });
+
+        var sut = new AzureDevOpsWorkItemFetchService(windowStrategy.Object, clientFactory.Object);
+
+        // Act
+        var items = new List<FetchedWorkItem>();
+        await foreach (var item in sut.FetchAsync(_endpoint, "MyProject", scope))
+            items.Add(item);
+
+        // Assert: at least one checkpoint should have been emitted per batch
+        Assert.IsTrue(checkpointsEmitted.Count >= 1,
+            "ContinuationCheckpointWriter should be invoked per batch when resume is enabled");
+    }
+
+    [TestMethod]
+    public async Task FetchAsync_ResumeEnabled_EmitsCompletionCheckpoint()
+    {
+        // Arrange
+        var windowStrategy = new Mock<IWorkItemQueryWindowStrategy>(MockBehavior.Strict);
+        var clientFactory = new Mock<IAzureDevOpsClientFactory>(MockBehavior.Strict);
+        var witClient = new Mock<WorkItemTrackingHttpClient>(MockBehavior.Loose,
+            new object[] { new Uri("https://dev.azure.com/testorg"), null! });
+
+        var window = new WorkItemQueryWindow
+        {
+            WindowStart = DateTime.UtcNow.AddDays(-1),
+            WindowEnd = DateTime.UtcNow,
+            WindowSize = TimeSpan.FromDays(1),
+            WorkItemIds = new List<int> { 10 }
+        };
+
+        windowStrategy
+            .Setup(w => w.EnumerateWindowsAsync(
+                It.IsAny<OrganisationEndpoint>(), "MyProject",
+                It.IsAny<WorkItemQueryWindowOptions?>(), It.IsAny<CancellationToken>()))
+            .Returns(ToAsyncEnumerable(window));
+
+        clientFactory
+            .Setup(c => c.CreateWorkItemClientAsync(_endpoint, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(witClient.Object);
+
+        witClient
+            .Setup(c => c.GetWorkItemsAsync(
+                It.IsAny<IEnumerable<int>>(), It.IsAny<string[]>(),
+                null, null, null, null, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<WorkItem> { MakeWorkItem(10, ("System.Rev", 3)) });
+
+        var checkpoints = new List<BatchContinuationToken>();
+        var scope = new WorkItemFetchScope(
+            Fields: new[] { "System.Rev" },
+            ResumeEnabled: true,
+            ContinuationCheckpointWriter: (token, _) =>
+            {
+                checkpoints.Add(token);
+                return Task.CompletedTask;
+            });
+
+        var sut = new AzureDevOpsWorkItemFetchService(windowStrategy.Object, clientFactory.Object);
+
+        // Act
+        await foreach (var _ in sut.FetchAsync(_endpoint, "MyProject", scope)) { }
+
+        // Assert: the final checkpoint should have Completed = true
+        Assert.IsTrue(checkpoints.Count > 0, "Should emit at least one checkpoint");
+        Assert.IsTrue(checkpoints[^1].Completed,
+            "Final checkpoint should have Completed=true to signal end-of-stream");
     }
 }

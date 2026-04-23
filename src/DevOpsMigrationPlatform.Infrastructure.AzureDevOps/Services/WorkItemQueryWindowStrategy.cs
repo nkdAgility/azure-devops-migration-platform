@@ -64,6 +64,24 @@ public sealed class WorkItemQueryWindowStrategy : IWorkItemQueryWindowStrategy
             orderBy = "[System.Id]";
         }
 
+        // ── Resume shortcut ─────────────────────────────────────────────────
+        // When resume is enabled and a valid token is present, skip the
+        // unbounded probe entirely and jump straight to date-window scanning
+        // from the saved ChangedDate. This avoids re-processing windows that
+        // were already enumerated in a prior run.
+        if (options.ResumeEnabled && options.SavedContinuationToken is { Completed: false } token)
+        {
+            // Use ChangedDate-based ordering for resumed enumeration
+            var resumeOrderBy = "[System.ChangedDate] ASC, [System.Id] ASC";
+
+            await foreach (var window in EnumerateFromResumePointAsync(
+                witClient, project, wherePredicate, resumeOrderBy, token, options, cancellationToken))
+            {
+                yield return window;
+            }
+            yield break;
+        }
+
         // ── Step 1: Unbounded probe ──────────────────────────────────────────
         // A single query without date filters retrieves all IDs for the project.
         // If the result is below the WIQL cap this is the only API call needed.
@@ -442,6 +460,158 @@ public sealed class WorkItemQueryWindowStrategy : IWorkItemQueryWindowStrategy
     }
 
     private static string EscapeWiql(string value) => value.Replace("'", "''");
+
+    /// <summary>
+    /// Enumerates date-windows forward from the saved continuation token's position.
+    /// On the first window, uses <c>&gt;= savedDate</c> and post-filters items
+    /// that were already processed (boundary cluster handling per FR-013).
+    /// </summary>
+    private async IAsyncEnumerable<WorkItemQueryWindow> EnumerateFromResumePointAsync(
+        IWiqlQueryClient witClient,
+        string project,
+        string wherePredicate,
+        string orderBy,
+        BatchContinuationToken savedToken,
+        WorkItemQueryWindowOptions options,
+        [EnumeratorCancellation] CancellationToken cancellationToken)
+    {
+        var windowSize = TimeSpan.FromDays(options.InitialWindowDays);
+        var windowStart = savedToken.ChangedDateUtc;
+        var isFirstWindow = true;
+        const int maxTransientRetries = 3;
+        // Capture "now" once so the exit condition is deterministic and cannot
+        // race against the wall clock (which would cause an infinite loop when
+        // windowStart ≈ UtcNow).
+        var now = DateTime.UtcNow;
+
+        while (true)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            var windowEnd = windowStart + windowSize;
+            if (windowEnd > now)
+                windowEnd = now;
+
+            // Build date filter from the resume point forward
+            var dateFilter = $"[System.ChangedDate] >= '{windowStart:yyyy-MM-ddTHH:mm:ss}' " +
+                             $"AND [System.ChangedDate] < '{windowEnd:yyyy-MM-ddTHH:mm:ss}'";
+            var windowWhere = wherePredicate.Length > 0
+                ? $"{wherePredicate} AND {dateFilter}"
+                : dateFilter;
+
+            var wiql = new Wiql
+            {
+                Query = $"SELECT [System.Id] FROM WorkItems WHERE {windowWhere} ORDER BY {orderBy}"
+            };
+
+            List<int>? ids = null;
+            int transientRetries = 0;
+
+            while (ids == null)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                try
+                {
+                    var result = await witClient.QueryByWiqlAsync(wiql, project, cancellationToken);
+                    var fetched = result.WorkItems.Select(r => r.Id).ToList();
+
+                    if (fetched.Count >= options.LimitThreshold)
+                    {
+                        windowSize = HalveWindowSize(windowSize, options.MinWindowDays);
+                        windowEnd = windowStart + windowSize;
+                        dateFilter = $"[System.ChangedDate] >= '{windowStart:yyyy-MM-ddTHH:mm:ss}' " +
+                                     $"AND [System.ChangedDate] < '{windowEnd:yyyy-MM-ddTHH:mm:ss}'";
+                        windowWhere = wherePredicate.Length > 0
+                            ? $"{wherePredicate} AND {dateFilter}"
+                            : dateFilter;
+                        wiql = new Wiql
+                        {
+                            Query = $"SELECT [System.Id] FROM WorkItems WHERE {windowWhere} ORDER BY {orderBy}"
+                        };
+                    }
+                    else
+                    {
+                        ids = fetched;
+                    }
+                }
+                catch (OperationCanceledException)
+                {
+                    throw;
+                }
+                catch (Exception ex) when (IsOverflowException(ex))
+                {
+                    var halved = HalveWindowSize(windowSize, options.MinWindowDays);
+                    if (halved == windowSize)
+                    {
+                        // Minimum window still overflows — yield empty and advance
+                        ids = new List<int>();
+                    }
+                    else
+                    {
+                        windowSize = halved;
+                        windowEnd = windowStart + windowSize;
+                        dateFilter = $"[System.ChangedDate] >= '{windowStart:yyyy-MM-ddTHH:mm:ss}' " +
+                                     $"AND [System.ChangedDate] < '{windowEnd:yyyy-MM-ddTHH:mm:ss}'";
+                        windowWhere = wherePredicate.Length > 0
+                            ? $"{wherePredicate} AND {dateFilter}"
+                            : dateFilter;
+                        wiql = new Wiql
+                        {
+                            Query = $"SELECT [System.Id] FROM WorkItems WHERE {windowWhere} ORDER BY {orderBy}"
+                        };
+                    }
+                }
+                catch (Exception) when (transientRetries < maxTransientRetries)
+                {
+                    transientRetries++;
+                }
+            }
+
+            if (ids.Count > 0)
+            {
+                // On first window, post-filter items at or before the saved position
+                // to handle boundary clusters correctly (FR-013).
+                if (isFirstWindow)
+                {
+                    ids = ids.Where(id => id > savedToken.WorkItemId).ToList();
+                    isFirstWindow = false;
+                }
+
+                if (ids.Count > 0)
+                {
+                    yield return new WorkItemQueryWindow
+                    {
+                        WindowStart = windowStart,
+                        WindowEnd = windowEnd,
+                        WindowSize = windowSize,
+                        WorkItemIds = ids
+                    };
+                }
+            }
+            else
+            {
+                isFirstWindow = false;
+            }
+
+            // Advance forward
+            windowStart = windowEnd;
+
+            if (windowStart >= now)
+                yield break;
+
+            // Grow window if sparse
+            var fillRatio = ids.Count > 0
+                ? (double)ids.Count / options.LimitThreshold
+                : 0;
+            if (fillRatio < 0.5)
+            {
+                windowSize = windowSize * 2;
+                if (windowSize > TimeSpan.FromDays(options.MaxWindowDays))
+                    windowSize = TimeSpan.FromDays(options.MaxWindowDays);
+            }
+        }
+    }
 
     /// <summary>
     /// Extracts the WHERE predicate and ORDER BY from a user-supplied WIQL query.

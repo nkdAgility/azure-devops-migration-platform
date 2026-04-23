@@ -1,5 +1,6 @@
 using System.Threading;
 using System.Threading.Tasks;
+using DevOpsMigrationPlatform.Abstractions.Models;
 
 namespace DevOpsMigrationPlatform.Abstractions;
 
@@ -19,4 +20,21 @@ public interface ICheckpointingService
     /// Deletes the cursor file for the named module. No-op if the cursor does not exist.
     /// </summary>
     Task DeleteCursorAsync(string moduleName, CancellationToken cancellationToken);
+
+    // ── Continuation Token (Resumable Batching) ─────────────────────────
+
+    /// <summary>
+    /// Reads the continuation token for the named module, or null if none exists.
+    /// </summary>
+    Task<BatchContinuationToken?> ReadContinuationTokenAsync(string moduleName, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Persists the continuation token for the named module.
+    /// </summary>
+    Task WriteContinuationTokenAsync(string moduleName, BatchContinuationToken token, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Deletes the continuation token for the named module. No-op if none exists.
+    /// </summary>
+    Task DeleteContinuationTokenAsync(string moduleName, CancellationToken cancellationToken);
 }

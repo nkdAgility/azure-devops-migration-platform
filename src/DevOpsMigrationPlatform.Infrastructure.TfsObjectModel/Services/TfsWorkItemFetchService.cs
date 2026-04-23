@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Threading;
+using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Models;
 using DevOpsMigrationPlatform.Abstractions.Services;
@@ -74,4 +75,19 @@ public sealed class TfsWorkItemFetchService : IWorkItemFetchService
 
     internal static bool PassesFilters(FetchedWorkItem item, IReadOnlyList<WorkItemFieldFilterOptions>? filters) =>
         WorkItemFieldFilterEvaluator.PassesFilters(item, filters);
+
+    /// <inheritdoc />
+    public Task<ResumeDecision> EvaluateResumeDecisionAsync(
+        OrganisationEndpoint endpoint,
+        string project,
+        WorkItemFetchScope scope,
+        CancellationToken cancellationToken = default)
+    {
+        // TFS Object Model does not support resumable batching — always report Unavailable.
+        return Task.FromResult(new ResumeDecision
+        {
+            Status = ResumeDecisionStatus.Unavailable,
+            Reason = "tfs_object_model_unsupported"
+        });
+    }
 }

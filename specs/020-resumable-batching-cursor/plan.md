@@ -132,3 +132,62 @@ The window strategy itself stays streaming (`IAsyncEnumerable`) — the decision
 ### Finding 4 (Low): Token versioning strategy
 
 **Resolution**: `StrategyVersion` starts at `"1.0"`. Tokens with unknown versions are treated as `RejectedQueryMismatch` with reason `"incompatible_strategy_version"`. New fields will always have safe defaults for forward compatibility. This is already specified in the error model table of the contract.
+
+---
+
+## Codebase Architecture Review (Pre-Implementation Baseline)
+
+**Date**: 2026-04-22 | **Scope**: Entire solution | **Perspectives**: Modular Monolith · Clean Architecture · Hexagonal · Vertical Slice · Screaming Architecture
+
+### Summary
+
+| Perspective | Critical | High | Medium | Low | Info |
+|---|---|---|---|---|---|
+| Modular Monolith [MM] | 2 | 0 | 2 | 0 | — |
+| Clean Architecture [CA] | 0 | 0 | 0 | 1 | — |
+| Hexagonal [HX] | 0 | 0 | 0 | 1 | — |
+| Vertical Slice [VS] | 0 | 0 | 1 | 0 | — |
+| Screaming Architecture [SA] | 0 | 2 | 2 | 3 | 2 |
+| **Total** | **2** | **2** | **5** | **5** | **2** |
+
+### Critical
+
+- **[MM-C1]** `QueueCommand.cs:347` — casts to concrete `AzureDevOpsEndpointOptions` to extract auth token. Fix: add auth accessor to an abstraction interface.
+- **[MM-C2]** `QueueCommand.cs:353` — calls `WiqlValidator.Validate()` directly (concrete AzureDevOps type). Fix: define `IWorkItemQueryValidator` in Abstractions; implement in Infrastructure.AzureDevOps; inject via DI.
+
+### High
+
+- **[SA-H1]** `Abstractions/Utilities/PathUtilities.cs` — generic `Utilities` namespace. Rename to domain-specific (e.g. `Configuration.EndpointPath`).
+- **[SA-H2]** `CLI.Migration/Utilities/PathUtilities.cs` — same generic `Utilities` namespace in CLI project.
+
+### Medium
+
+- **[MM-M1]** `LocalStackHost.cs:65-66` — registers concrete endpoint option types directly instead of delegating to `AddMigrationCliEndpointTypes()`.
+- **[MM-M2]** `InventoryCommand.cs:54`, `DependencyCommand.cs:54` — discovery commands call infrastructure extensions directly.
+- **[VS-M1]** `WorkItemsModule.cs:114,179` — directly instantiates Export/Import orchestrators instead of injecting via factory/DI.
+- **[SA-M1]** `RevisionFolderProcessor.cs` — generic "Processor" class name; rename to `RevisionFolderImporter`.
+- **[SA-M2]** `RevisionFolderProcessorFactory.cs` — rename to `RevisionFolderImporterFactory`.
+
+### Low
+
+- **[CA-L1]** `AzureBlobArtefactStore.cs` — stub throws `NotImplementedException`; remove or document future plan.
+- **[HX-L1]** `WorkItemsModule.cs:209,212` — `File.Exists()` called directly; extract to `IIdMapPathResolver` abstraction.
+- **[SA-L1]** `RevisionFolderProcessor.ProcessAsync()` — rename to `ImportAsync()`.
+- **[SA-L2]** `TfsExportAgent.RunAsync()` — rename to `ExportAsync()`.
+- **[SA-L3]** `TelemetryPoller.RunAsync()` — rename to `PollTelemetryAsync()`.
+
+### Informational
+
+- **[SA-I1]** `polymorphic-endpoint-config.feature:7` — uses "deserializes" (technical language).
+- **[SA-I2]** Multiple `.feature` files use "JSON", "HTTP", "API" in scenario names.
+
+### Cross-Cutting Patterns
+
+1. **CLI → Infrastructure leakage** (MM-C1 + MM-C2): QueueCommand.cs casts to AzureDevOps types and calls concrete validators. Root cause: missing abstraction for query validation and endpoint auth. One refactoring session resolves both.
+2. **Processor naming chain** (SA-M1 + SA-M2 + SA-L1): `Processor` → `Importer` rename resolves 3 findings at once.
+
+### Relevance to Feature 020
+
+The 2 Critical findings (MM-C1, MM-C2) are in `QueueCommand.cs` which is the CLI entry point for submitting export/import jobs. Feature 020 does not modify `QueueCommand` — no blocking dependency. However, if future work wires resumable batching options through the CLI, the abstraction gap should be resolved first.
+
+**Recommendation**: Fix MM-C1 and MM-C2 before or alongside feature 020 implementation to avoid accumulating more CLI coupling.

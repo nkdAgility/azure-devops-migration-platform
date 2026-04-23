@@ -46,6 +46,7 @@
     <!-- Import feature files -->
     <ExternalFeatureFiles Include="..\..\features\import\work-items\revisions\import-work-item-revisions.feature" />
     <ExternalFeatureFiles Include="..\..\features\platform\checkpointing\import-cursor-resume.feature" />
+    <ExternalFeatureFiles Include="..\..\features\platform\checkpointing\resumable-batching-cursor.feature" />
     <ExternalFeatureFiles Include="..\..\features\import\work-items\revisions\streaming-memory-safety.feature" />
     <ExternalFeatureFiles Include="..\..\features\services\identity-mapping\import-identity-resolution.feature" />
     <ExternalFeatureFiles Include="..\..\features\import\work-items\comments\import-comments.feature" />
