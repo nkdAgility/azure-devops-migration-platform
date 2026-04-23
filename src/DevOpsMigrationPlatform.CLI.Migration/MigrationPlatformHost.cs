@@ -9,6 +9,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using OpenTelemetry.Metrics;
+using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 using Spectre.Console;
 using System.Diagnostics;
@@ -98,6 +99,12 @@ public static class MigrationPlatformHost
         configuration.GetSection(TelemetryOptions.SectionName).Bind(telOpts);
 
         services.AddOpenTelemetry()
+            .ConfigureResource(rb => rb.AddAttributes(
+                new System.Collections.Generic.Dictionary<string, object>
+                {
+                    { "service.name", WellKnownServiceNames.Cli },
+                    { "service.namespace", WellKnownServiceNames.Namespace }
+                }))
             .WithTracing(b =>
             {
                 b.AddSource("DevOpsMigrationPlatform.CLI")

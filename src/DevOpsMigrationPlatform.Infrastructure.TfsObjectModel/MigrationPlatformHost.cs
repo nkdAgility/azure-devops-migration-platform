@@ -96,7 +96,7 @@ public static class MigrationPlatformHost
                     options.Protocol = OtlpProtocol.Grpc;
                     options.ResourceAttributes = new System.Collections.Generic.Dictionary<string, object>
                     {
-                        ["service.name"] = "TfsExport",
+                        ["service.name"] = WellKnownServiceNames.TfsExport,
                         ["session.id"] = sessionId,
                         ["tfs.server"] = settings.TfsServer.ToString(),
                         ["tfs.project"] = settings.Project
@@ -184,9 +184,10 @@ public static class MigrationPlatformHost
             var otelBuilder = services.AddOpenTelemetry()
                 .ConfigureResource(rb =>
                 {
-                    rb.AddService("TfsExport");
+                    rb.AddService(WellKnownServiceNames.TfsExport);
                     rb.AddAttributes(new System.Collections.Generic.KeyValuePair<string, object>[]
                     {
+                        new("service.namespace", WellKnownServiceNames.Namespace),
                         new("session.id", sessionId),
                         new("tfs.server", settings.TfsServer.ToString()),
                         new("tfs.project", settings.Project)

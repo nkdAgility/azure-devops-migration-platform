@@ -26,7 +26,7 @@ using DevOpsMigrationPlatform.Infrastructure.Telemetry;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.AddServiceDefaults();
+builder.AddServiceDefaults(DevOpsMigrationPlatform.Abstractions.WellKnownServiceNames.ControlPlaneHost);
 
 // Filter customer-identifiable log data from the OTel pipeline (Azure Monitor).
 builder.Logging.AddDataClassificationFilter();
