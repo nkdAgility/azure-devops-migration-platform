@@ -122,7 +122,8 @@ public sealed class WorkItemsModule : IModule
             fetchService: allFilters.Count > 0 ? _fetchService : null,
             filterOptions: allFilters.Count > 0 ? allFilters : null,
             metrics: _metrics,
-            jobId: job.JobId);
+            jobId: job.JobId,
+            logger: _logger);
 
         await orchestrator.ExportAsync(source, ct).ConfigureAwait(false);
 

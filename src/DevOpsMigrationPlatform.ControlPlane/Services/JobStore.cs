@@ -5,6 +5,7 @@ using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Telemetry;
 using DevOpsMigrationPlatform.ControlPlane.Models;
 
 namespace DevOpsMigrationPlatform.ControlPlane.Services;
@@ -24,6 +25,8 @@ public sealed class JobStore : IJobStore
     private readonly ConcurrentQueue<Guid> _pending = new();
     private readonly IJobLifecycleMetrics? _metrics;
 
+    private static readonly ActivitySource ActivitySource = new(WellKnownActivitySourceNames.ControlPlane);
+
     public JobStore(IJobLifecycleMetrics? metrics = null)
     {
         _metrics = metrics;
@@ -32,6 +35,10 @@ public sealed class JobStore : IJobStore
     /// <inheritdoc />
     public Guid Enqueue(Job job)
     {
+        using var activity = ActivitySource.StartActivity("job.enqueue", ActivityKind.Internal);
+        activity?.SetTag("job.id", job.JobId);
+        activity?.SetTag("job.type", GetJobType(job));
+
         var jobId = Guid.Parse(job.JobId);
         _all[jobId] = job;
         _states[jobId] = "Queued";
@@ -56,6 +63,10 @@ public sealed class JobStore : IJobStore
 
         if (_pending.TryDequeue(out var jobId) && _all.TryGetValue(jobId, out var job))
         {
+            using var activity = ActivitySource.StartActivity("job.dequeue", ActivityKind.Internal);
+            activity?.SetTag("job.id", job.JobId);
+            activity?.SetTag("job.type", GetJobType(job));
+
             _metrics?.JobDequeued(new TagList
             {
                 { "job.id", job.JobId },
@@ -94,6 +105,10 @@ public sealed class JobStore : IJobStore
     /// <inheritdoc />
     public void SetState(Guid jobId, string state)
     {
+        using var activity = ActivitySource.StartActivity("job.setState", ActivityKind.Internal);
+        activity?.SetTag("job.id", jobId.ToString());
+        activity?.SetTag("job.state", state);
+
         var previousState = _states.TryGetValue(jobId, out var prev) ? prev : null;
         _states[jobId] = state;
 

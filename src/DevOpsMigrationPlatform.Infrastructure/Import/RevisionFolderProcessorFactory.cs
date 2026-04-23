@@ -11,10 +11,12 @@ namespace DevOpsMigrationPlatform.Infrastructure.Import;
 public sealed class RevisionFolderProcessorFactory : IRevisionFolderProcessorFactory
 {
     private readonly ILoggerFactory _loggerFactory;
+    private readonly IMigrationMetrics? _metrics;
 
-    public RevisionFolderProcessorFactory(ILoggerFactory loggerFactory)
+    public RevisionFolderProcessorFactory(ILoggerFactory loggerFactory, IMigrationMetrics? metrics = null)
     {
         _loggerFactory = loggerFactory ?? throw new System.ArgumentNullException(nameof(loggerFactory));
+        _metrics = metrics;
     }
 
     /// <inheritdoc/>
@@ -30,6 +32,7 @@ public sealed class RevisionFolderProcessorFactory : IRevisionFolderProcessorFac
             checkpointing,
             identityMapping,
             artefactStore,
-            _loggerFactory.CreateLogger<RevisionFolderProcessor>());
+            _loggerFactory.CreateLogger<RevisionFolderProcessor>(),
+            _metrics);
 }
 #endif

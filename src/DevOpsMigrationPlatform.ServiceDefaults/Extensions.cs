@@ -78,7 +78,10 @@ public static class Extensions
             .WithTracing(tracing =>
             {
                 tracing.AddAspNetCoreInstrumentation()
-                       .AddHttpClientInstrumentation();
+                       .AddHttpClientInstrumentation()
+                       .AddSource(DevOpsMigrationPlatform.Abstractions.WellKnownActivitySourceNames.Migration)
+                       .AddSource(DevOpsMigrationPlatform.Abstractions.WellKnownActivitySourceNames.Discovery)
+                       .AddSource(DevOpsMigrationPlatform.Abstractions.WellKnownActivitySourceNames.ControlPlane);
             });
 
         builder.AddOpenTelemetryExporters();

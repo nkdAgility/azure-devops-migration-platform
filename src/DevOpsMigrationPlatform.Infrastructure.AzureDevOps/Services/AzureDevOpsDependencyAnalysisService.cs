@@ -12,6 +12,7 @@ using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Models;
 using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Abstractions.Services;
+using DevOpsMigrationPlatform.Abstractions.Telemetry;
 
 namespace DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Services;
 
@@ -55,6 +56,10 @@ public sealed class AzureDevOpsDependencyAnalysisService : IWorkItemLinkAnalysis
         string? wiqlFilter = null,
         [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
+        // All data in this method references org URLs, project names, and WI IDs — customer data.
+        var _dataScope = DataClassificationScope.Begin(DataClassification.Customer);
+        try
+        {
         var orgEndpoint = endpoint.ToOrganisationEndpoint();
         var witClient = await _clientFactory.CreateWorkItemClientAsync(orgEndpoint, cancellationToken).ConfigureAwait(false);
 
@@ -162,6 +167,11 @@ public sealed class AzureDevOpsDependencyAnalysisService : IWorkItemLinkAnalysis
         _logger.LogInformation(
             "Dependency analysis completed for {Project}: {Processed} work items, {CrossProject} cross-project, {CrossOrg} cross-org",
             project, counters.Processed, counters.CrossProject, counters.CrossOrg);
+        }
+        finally
+        {
+            _dataScope.Dispose();
+        }
     }
 
     // ── Private helpers ──────────────────────────────────────────────────────

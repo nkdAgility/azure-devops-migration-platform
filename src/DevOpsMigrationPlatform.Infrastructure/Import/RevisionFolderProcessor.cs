@@ -1,6 +1,7 @@
 #if !NET481
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
@@ -32,6 +33,10 @@ public sealed class RevisionFolderProcessor : IRevisionFolderProcessor
     private readonly IIdentityMappingService _identityMapping;
     private readonly IArtefactStore _artefactStore;
     private readonly ILogger<RevisionFolderProcessor> _logger;
+    private readonly IMigrationMetrics? _metrics;
+    private readonly string? _jobId;
+
+    private static readonly ActivitySource ActivitySource = new(WellKnownActivitySourceNames.Migration);
 
     private static readonly JsonSerializerOptions _jsonOptions = new()
     {
@@ -44,7 +49,9 @@ public sealed class RevisionFolderProcessor : IRevisionFolderProcessor
         ICheckpointingService checkpointing,
         IIdentityMappingService identityMapping,
         IArtefactStore artefactStore,
-        ILogger<RevisionFolderProcessor> logger)
+        ILogger<RevisionFolderProcessor> logger,
+        IMigrationMetrics? metrics = null,
+        string? jobId = null)
     {
         _target = target ?? throw new ArgumentNullException(nameof(target));
         _idMapStore = idMapStore ?? throw new ArgumentNullException(nameof(idMapStore));
@@ -52,6 +59,8 @@ public sealed class RevisionFolderProcessor : IRevisionFolderProcessor
         _identityMapping = identityMapping ?? throw new ArgumentNullException(nameof(identityMapping));
         _artefactStore = artefactStore ?? throw new ArgumentNullException(nameof(artefactStore));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        _metrics = metrics;
+        _jobId = jobId;
     }
 
     /// <summary>
@@ -83,6 +92,22 @@ public sealed class RevisionFolderProcessor : IRevisionFolderProcessor
 
         var revision = JsonSerializer.Deserialize<WorkItemRevision>(revisionJson, _jsonOptions)
             ?? throw new InvalidOperationException($"Failed to deserialise revision.json in {folderPath}");
+
+        // Record import-side payload complexity metrics.
+        if (_metrics != null)
+        {
+            var importTags = MigrationTagList.Create(_jobId ?? "not-set", "import", "workitems");
+            _metrics.RecordFieldCount(revision.Fields.Count, importTags);
+            _metrics.RecordAttachmentCount(revision.Attachments.Count, importTags);
+            _metrics.RecordLinkCount(
+                revision.ExternalLinks.Count + revision.RelatedLinks.Count + revision.Hyperlinks.Count,
+                importTags);
+            _metrics.RecordPayloadBytes(revisionJson.Length, importTags);
+        }
+
+        using var revActivity = ActivitySource.StartActivity("revision.import", ActivityKind.Internal);
+        revActivity?.SetTag("workitem.id", revision.WorkItemId);
+        revActivity?.SetTag("revision.index", revision.RevisionIndex);
 
         // Stage A — CreatedOrUpdated
         if (ShouldRunStage(CursorStage.CreatedOrUpdated, resumeAtStage))

@@ -131,8 +131,7 @@ Reject any suggestion that:
 - Commits code containing `@ignore` (Gherkin) or `[Ignore]` (MSTest) — these markers may only be used temporarily within a session for isolation; they must be removed before done.
 - Declares done without running at least one scenario config (e.g. `scenarios/queue-export-ado-workitems-single-project.json`) via a `launch.json` debug profile and verifying observable output
 - Ships a known vulnerability without a fix or an explicit written rationale and tracked issue
-- Logs a work item ID, field value, project name, org URL, or attachment path without a `DataClassification.Customer` scope
-- Logs a work item ID, field value, project name, org URL, or attachment path without a `DataClassification.Customer` scope
+- Logs a field value, project name, org URL, or attachment path without a `DataClassification.Customer` scope
 - Adds or changes a CLI command without a corresponding `.vscode/launch.json` entry
 - Adds or changes a deployable Host without coverage in `build.ps1`
 - Writes to the working directory or package files from any component other than the Migration Agent or TFS Export Agent (data residency requirement)

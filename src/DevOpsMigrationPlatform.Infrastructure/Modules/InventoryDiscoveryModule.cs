@@ -27,6 +27,8 @@ public sealed class InventoryDiscoveryModule : IDiscoveryModule
     private const string CsvOutputPath = "inventory.csv";
     private const string JsonOutputPath = "inventory.json";
 
+    private static readonly ActivitySource ActivitySource = new(WellKnownActivitySourceNames.Discovery);
+
     private readonly IInventoryServiceFactory _inventoryFactory;
     private readonly ILogger<InventoryDiscoveryModule> _logger;
     private readonly IDiscoveryMetrics? _metrics;
@@ -47,6 +49,9 @@ public sealed class InventoryDiscoveryModule : IDiscoveryModule
 
     public async Task RunAsync(DiscoveryContext context, CancellationToken ct)
     {
+        using var rootActivity = ActivitySource.StartActivity("discovery.inventory", ActivityKind.Internal);
+        rootActivity?.SetTag("job.id", context.Job.JobId);
+
         var job = context.Job;
         var store = context.ArtefactStore;
         var state = context.StateStore;
@@ -142,6 +147,9 @@ public sealed class InventoryDiscoveryModule : IDiscoveryModule
         var orgSw = new Stopwatch();
         var projectSw = new Stopwatch();
         int orgProjectCount = 0;
+
+        // All data within the processing loop references org URLs & project names — customer data.
+        using var _dataScope = DataClassificationScope.Begin(DataClassification.Customer);
 
         // Pass completed keys so the service skips them — no re-counting.
         await foreach (var evt in inventoryService.RunInventoryAsync(

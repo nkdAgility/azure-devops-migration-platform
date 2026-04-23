@@ -244,4 +244,4 @@ All metric recordings MUST include mandatory dimension tags built via `Migration
 
 Discovery metrics use `job.id` + `module` + `organisation.url` as their mandatory tags (no `operation` tag — discovery is not export/import/validation).
 
-Tags MUST NOT include customer-identifiable data (work item IDs, project names, user emails). Use traces or `DataClassification.Customer`-scoped logs for those.
+Tags MUST NOT include customer-identifiable data (project names, user emails, field values). Work item IDs are integer identifiers safe for tags. Use traces or `DataClassification.Customer`-scoped logs for customer content.

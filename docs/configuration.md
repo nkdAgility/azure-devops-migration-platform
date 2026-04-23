@@ -446,7 +446,7 @@ Log statements are classified by data sensitivity using `DataClassification` sco
 | Classification | Description | Azure Monitor | Package Log | Control Plane |
 |---|---|---|---|---|
 | **System** (default) | Operational logs — health checks, module lifecycle, job IDs | ✅ | ✅ | ✅ |
-| **Customer** | Customer-identifiable data — work item IDs, field values, project names, org URLs, attachment paths | ❌ | ✅ | ✅ |
+| **Customer** | Customer-identifiable data — field values, project names, org URLs, attachment paths | ❌ | ✅ | ✅ |
 | **Derived** | Aggregates and counts — "500 work items processed" | ✅ | ✅ | ✅ |
 
 **Rules:**
@@ -463,12 +463,12 @@ Log statements are classified by data sensitivity using `DataClassification` sco
 // .NET 10 code (Infrastructure project): use the ILogger extension
 using (logger.BeginDataScope(DataClassification.Customer))
 {
-    logger.LogInformation("Processing work item {WorkItemId}", workItemId);
+    logger.LogInformation("Importing into {OrgUrl}/{Project}", orgUrl, project);
 }
 
 // .NET 4.8 code (TFS ObjectModel): use the static scope directly
 using (DataClassificationScope.Begin(DataClassification.Customer))
 {
-    logger.LogDebug("Streaming revisions for {WorkItemId}", workItemId);
+    logger.LogDebug("Streaming revisions for project {Project}", project);
 }
 ```

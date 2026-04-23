@@ -28,6 +28,8 @@ public sealed class WorkItemImportOrchestrator
         PropertyNameCaseInsensitive = true
     };
 
+    private static readonly ActivitySource ActivitySource = new(WellKnownActivitySourceNames.Migration);
+
     private readonly IArtefactStore _artefactStore;
     private readonly ICheckpointingService _checkpointing;
     private readonly IProgressSink _progressSink;
@@ -74,6 +76,9 @@ public sealed class WorkItemImportOrchestrator
         ResumeMode resumeMode,
         CancellationToken ct)
     {
+        using var rootActivity = ActivitySource.StartActivity("workitems.import", ActivityKind.Internal);
+        rootActivity?.SetTag("job.id", _jobId ?? "not-set");
+
         using var _dc = DataClassificationScope.Begin(DataClassification.Customer);
         // ForceFresh: delete cursor (but preserve idmap.db)
         if (resumeMode == ResumeMode.ForceFresh)
@@ -127,12 +132,16 @@ public sealed class WorkItemImportOrchestrator
         int foldersProcessed = 0;
         int workItemsProcessed = 0;
         int lastImportedWorkItemId = 0;
+        int revisionsForCurrentWorkItem = 0;
 
         var importTags = _metrics != null
             ? MigrationTagList.Create(_jobId ?? "not-set", "import", "workitems")
             : default;
         var workItemStopwatch = Stopwatch.StartNew();
+        Activity? workItemActivity = null;
 
+        try
+        {
         await foreach (var folderPath in _artefactStore.EnumerateAsync("WorkItems/", ct).ConfigureAwait(false))
         {
             ct.ThrowIfCancellationRequested();
@@ -210,15 +219,30 @@ public sealed class WorkItemImportOrchestrator
                     {
                         _metrics.RecordWorkItemCompleted(importTags);
                         _metrics.RecordWorkItemDuration(workItemStopwatch.Elapsed.TotalMilliseconds, importTags);
+                        _metrics.RecordRevisionCount(revisionsForCurrentWorkItem, importTags);
                         _metrics.DecrementInFlight(importTags);
                     }
+                    workItemActivity?.Dispose();
 
                     _metrics?.RecordWorkItemAttempted(importTags);
                     _metrics?.IncrementInFlight(importTags);
                     workItemStopwatch.Restart();
+                    revisionsForCurrentWorkItem = 1;
                     lastImportedWorkItemId = wiId;
                     workItemsProcessed++;
+
+                    workItemActivity = ActivitySource.StartActivity("workitem.import", ActivityKind.Internal);
+                    workItemActivity?.SetTag("job.id", _jobId ?? "not-set");
+                    workItemActivity?.SetTag("workitem.id", wiId);
                 }
+                else
+                {
+                    revisionsForCurrentWorkItem++;
+                }
+
+                using var revisionActivity = ActivitySource.StartActivity("revision.process", ActivityKind.Internal);
+                revisionActivity?.SetTag("workitem.id", wiId);
+                revisionActivity?.SetTag("revision.index", revIdx);
 
                 await _processor.ProcessAsync(folderPath, ext, resumeAtStage, _resolutionStrategy, ct)
                     .ConfigureAwait(false);
@@ -233,7 +257,7 @@ public sealed class WorkItemImportOrchestrator
             }
 
             // Parse work item ID for the progress event (same logic, available for all branch paths)
-            var eventSegments = folderName.Split('-');
+            var eventSegments = GetFolderName(folderPath).Split('-');
             int.TryParse(eventSegments.Length >= 2 ? eventSegments[1] : null, out var eventWiId);
 
             foldersProcessed++;
@@ -246,6 +270,14 @@ public sealed class WorkItemImportOrchestrator
                 NextCheckpointDueAt = null // per-revision checkpoint — always safe to cancel
             });
         }
+        }
+        finally
+        {
+            // Ensure InFlight is always decremented even on exception.
+            if (lastImportedWorkItemId != 0 && _metrics != null)
+                _metrics.DecrementInFlight(importTags);
+            workItemActivity?.Dispose();
+        }
 
         _logger.LogInformation(
             "[WorkItems] Import complete. Folders processed: {Count}, work items: {WI}",
@@ -256,7 +288,7 @@ public sealed class WorkItemImportOrchestrator
         {
             _metrics.RecordWorkItemCompleted(importTags);
             _metrics.RecordWorkItemDuration(workItemStopwatch.Elapsed.TotalMilliseconds, importTags);
-            _metrics.DecrementInFlight(importTags);
+            _metrics.RecordRevisionCount(revisionsForCurrentWorkItem, importTags);
         }
 
         // Emit zero-match warning if filters were active but no items were processed.
