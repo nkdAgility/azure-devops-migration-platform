@@ -67,7 +67,12 @@ public static class Extensions
             {
                 metrics.AddAspNetCoreInstrumentation()
                        .AddHttpClientInstrumentation()
-                       .AddRuntimeInstrumentation();
+                       .AddRuntimeInstrumentation()
+                       // Subscribe to platform custom meters so Azure Monitor exports them.
+                       // These meters are defined in Infrastructure/Telemetry/ and recorded
+                       // by the Migration Agent during job execution.
+                       .AddMeter(DevOpsMigrationPlatform.Abstractions.WellKnownMeterNames.Migration)
+                       .AddMeter(DevOpsMigrationPlatform.Abstractions.WellKnownMeterNames.Discovery);
             })
             .WithTracing(tracing =>
             {

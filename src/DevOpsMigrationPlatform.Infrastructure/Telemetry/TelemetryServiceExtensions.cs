@@ -45,14 +45,13 @@ public static class TelemetryServiceExtensions
         configuration.GetSection(TelemetryOptions.SectionName).Bind(options);
         int intervalMs = options.SnapshotIntervalSeconds * 1_000;
 
-        services.AddOpenTelemetry()
-                .WithMetrics(mb =>
+        services.ConfigureOpenTelemetryMeterProvider((sp, mb) =>
                 {
                     // The IJobMetricsStore is resolved lazily via IServiceProvider
                     // to avoid referencing an instance before DI is fully built.
-                    mb.AddReader(sp =>
+                    mb.AddReader(sp2 =>
                     {
-                        var store = sp.GetRequiredService<IJobMetricsStore>();
+                        var store = sp2.GetRequiredService<IJobMetricsStore>();
                         var exporter = new SnapshotMetricExporter(store);
                         return new PeriodicExportingMetricReader(exporter, intervalMs);
                     });
