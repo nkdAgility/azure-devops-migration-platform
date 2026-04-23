@@ -127,13 +127,16 @@ public class DependencyDiscoveryModuleResumeTests
         await sut.RunAsync(ctx, CancellationToken.None);
 
         // Assert — a synthetic ProjectComplete event must be emitted for the resumed project.
-        // The module puts project info in Message (ProgressEvent is now a pure envelope).
+        // The module puts the structured key (orgUrl|project) in Message and counts in Metrics.
         var resumedEvent = emittedEvents.Find(e =>
             e.Stage == "ProjectComplete" &&
             e.Message != null &&
-            e.Message.Contains("Resumed", StringComparison.OrdinalIgnoreCase));
+            e.Message.Contains("|"));
 
         Assert.IsNotNull(resumedEvent, "Expected a synthetic ProjectComplete event for the resumed project.");
+        Assert.AreEqual("https://dev.azure.com/myorg|MyProject", resumedEvent.Message);
+        Assert.IsNotNull(resumedEvent.Metrics?.Discovery?.Dependencies, "Expected Metrics with dependency counters.");
+        Assert.AreEqual(500, resumedEvent.Metrics!.Discovery!.Dependencies!.WorkItemsAnalysed);
     }
 
     [TestMethod]
@@ -192,13 +195,14 @@ public class DependencyDiscoveryModuleResumeTests
         // Act
         await sut.RunAsync(ctx, CancellationToken.None);
 
-        // Assert — event is still emitted but with backward-compatible message
+        // Assert — event is still emitted with the structured key even for old cursors without stats
         var resumedEvent = emittedEvents.Find(e =>
             e.Stage == "ProjectComplete" &&
             e.Message != null &&
-            e.Message.Contains("Resumed", StringComparison.OrdinalIgnoreCase));
+            e.Message.Contains("|"));
 
         Assert.IsNotNull(resumedEvent, "Expected a synthetic ProjectComplete event even for old cursors without stats.");
+        Assert.AreEqual("https://dev.azure.com/myorg|OldProject", resumedEvent.Message);
     }
 
     [TestMethod]

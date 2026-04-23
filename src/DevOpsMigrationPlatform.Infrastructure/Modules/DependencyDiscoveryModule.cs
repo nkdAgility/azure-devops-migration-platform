@@ -177,13 +177,29 @@ public sealed class DependencyDiscoveryModule : IDiscoveryModule
                     if (separatorIndex < 0)
                         continue;
 
+                    var orgUrl = projectKey.Substring(0, separatorIndex);
+                    var projName = projectKey.Substring(separatorIndex + 1);
                     resumedProjectStats.TryGetValue(projectKey, out var stats);
                     sink.Emit(new ProgressEvent
                     {
                         Module = Name,
                         Stage = "ProjectComplete",
-                        Message = $"Resumed (previously completed)",
-                        Timestamp = DateTimeOffset.UtcNow
+                        Message = $"{orgUrl}|{projName}",
+                        Timestamp = DateTimeOffset.UtcNow,
+                        Metrics = stats is not null ? new JobMetrics
+                        {
+                            Scope = new JobScopeCounters { WorkItemsTotal = stats.TotalWorkItems },
+                            Discovery = new DiscoveryCounters
+                            {
+                                Dependencies = new DependencyCounters
+                                {
+                                    WorkItemsAnalysed = stats.WorkItemsAnalysed,
+                                    ExternalLinksFound = stats.ExternalLinksFound,
+                                    CrossProjectLinks = stats.CrossProjectCount,
+                                    CrossOrgLinks = stats.CrossOrgCount
+                                }
+                            }
+                        } : null
                     });
                 }
             }
@@ -261,8 +277,22 @@ public sealed class DependencyDiscoveryModule : IDiscoveryModule
                         {
                             Module = Name,
                             Stage = "ProjectComplete",
-                            Message = $"Reconciled from CSV",
-                            Timestamp = DateTimeOffset.UtcNow
+                            Message = displayKey,
+                            Timestamp = DateTimeOffset.UtcNow,
+                            Metrics = stats is not null ? new JobMetrics
+                            {
+                                Scope = new JobScopeCounters { WorkItemsTotal = stats.TotalWorkItems },
+                                Discovery = new DiscoveryCounters
+                                {
+                                    Dependencies = new DependencyCounters
+                                    {
+                                        WorkItemsAnalysed = stats.WorkItemsAnalysed,
+                                        ExternalLinksFound = stats.ExternalLinksFound,
+                                        CrossProjectLinks = stats.CrossProjectCount,
+                                        CrossOrgLinks = stats.CrossOrgCount
+                                    }
+                                }
+                            } : null
                         });
                     }
                 }
@@ -347,8 +377,22 @@ public sealed class DependencyDiscoveryModule : IDiscoveryModule
                     {
                         Module = Name,
                         Stage = "ProjectComplete",
-                        Message = $"{displayKey}: {stats.WorkItemsAnalysed}/{stats.TotalWorkItems} analysed, {stats.ExternalLinksFound} links found (reconciled)",
-                        Timestamp = DateTimeOffset.UtcNow
+                        Message = displayKey,
+                        Timestamp = DateTimeOffset.UtcNow,
+                        Metrics = new JobMetrics
+                        {
+                            Scope = new JobScopeCounters { WorkItemsTotal = stats.TotalWorkItems },
+                            Discovery = new DiscoveryCounters
+                            {
+                                Dependencies = new DependencyCounters
+                                {
+                                    WorkItemsAnalysed = stats.WorkItemsAnalysed,
+                                    ExternalLinksFound = stats.ExternalLinksFound,
+                                    CrossProjectLinks = stats.CrossProjectCount,
+                                    CrossOrgLinks = stats.CrossOrgCount
+                                }
+                            }
+                        }
                     });
                 }
 
@@ -459,14 +503,25 @@ public sealed class DependencyDiscoveryModule : IDiscoveryModule
                     sink.Emit(new ProgressEvent
                     {
                         Module = Name,
-                        Stage = heartbeat.IsComplete ? "ProjectComplete" : "Analysis",
-                        Message = heartbeat.Error is not null
-                            ? $"{heartbeat.OrganisationUrl}/{heartbeat.ProjectName}: failed — {heartbeat.Error}"
-                            : $"{heartbeat.OrganisationUrl}/{heartbeat.ProjectName}: " +
-                              $"{heartbeat.WorkItemsAnalysed}/{heartbeat.TotalWorkItems} analysed, {heartbeat.ExternalLinksFound} links found",
+                        Stage = heartbeat.Error is not null ? "Failed" : (heartbeat.IsComplete ? "ProjectComplete" : "Analysis"),
+                        Message = $"{heartbeat.OrganisationUrl}|{heartbeat.ProjectName}",
                         Timestamp = DateTimeOffset.UtcNow,
                         LastCheckpointAt = new DateTimeOffset(lastCheckpoint, TimeSpan.Zero),
-                        NextCheckpointDueAt = new DateTimeOffset(lastCheckpoint, TimeSpan.Zero) + checkpointInterval
+                        NextCheckpointDueAt = new DateTimeOffset(lastCheckpoint, TimeSpan.Zero) + checkpointInterval,
+                        Metrics = new JobMetrics
+                        {
+                            Scope = new JobScopeCounters { WorkItemsTotal = heartbeat.TotalWorkItems },
+                            Discovery = new DiscoveryCounters
+                            {
+                                Dependencies = new DependencyCounters
+                                {
+                                    WorkItemsAnalysed = heartbeat.WorkItemsAnalysed,
+                                    ExternalLinksFound = heartbeat.ExternalLinksFound,
+                                    CrossProjectLinks = heartbeat.CrossProjectCount,
+                                    CrossOrgLinks = heartbeat.CrossOrgCount
+                                }
+                            }
+                        }
                     });
 
                     // Flush CSV at checkpoint interval even mid-project so long-running
@@ -647,8 +702,22 @@ public sealed class DependencyDiscoveryModule : IDiscoveryModule
                     {
                         Module = Name,
                         Stage = "ProjectComplete",
-                        Message = $"{resolvedUrl}/{project}: {totalWi} analysed, 0 external links",
-                        Timestamp = DateTimeOffset.UtcNow
+                        Message = $"{resolvedUrl}|{project}",
+                        Timestamp = DateTimeOffset.UtcNow,
+                        Metrics = new JobMetrics
+                        {
+                            Scope = new JobScopeCounters { WorkItemsTotal = totalWi },
+                            Discovery = new DiscoveryCounters
+                            {
+                                Dependencies = new DependencyCounters
+                                {
+                                    WorkItemsAnalysed = totalWi,
+                                    ExternalLinksFound = 0,
+                                    CrossProjectLinks = 0,
+                                    CrossOrgLinks = 0
+                                }
+                            }
+                        }
                     });
                 }
             }

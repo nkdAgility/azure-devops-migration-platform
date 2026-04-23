@@ -364,7 +364,7 @@ public sealed class DependencyCommand : ControlPlaneCommandBase<DependencyComman
             progress.StartedAt = DateTimeOffset.UtcNow;
 
         if (evt.Stage == "Failed")
-            progress.Error = evt.Message;
+            progress.Error = "Project analysis failed";
     }
 
     // ── Live table rendering ──────────────────────────────────────────────────
