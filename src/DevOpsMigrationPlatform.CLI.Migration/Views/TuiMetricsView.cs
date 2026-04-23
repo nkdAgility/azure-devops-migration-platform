@@ -38,9 +38,12 @@ public sealed class TuiMetricsView : FrameView
     {
         Application.Invoke(() =>
         {
-            _content.Text = metrics is null
-                ? "(no job selected)"
-                : FormatMigrationMetrics(metrics);
+            if (metrics is null)
+                _content.Text = "(no job selected)";
+            else if (metrics.Discovery is not null)
+                _content.Text = FormatDiscoveryMetrics(metrics);
+            else
+                _content.Text = FormatMigrationMetrics(metrics);
             SetNeedsDraw();
         });
     }

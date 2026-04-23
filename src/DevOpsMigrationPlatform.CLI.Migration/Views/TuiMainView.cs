@@ -200,15 +200,10 @@ public sealed class TuiMainView : Window, IDisposable
     {
         while (!ct.IsCancellationRequested)
         {
-            // Discovery events have taken over the metrics panel — stop polling
-            if (_discoveryMetricsActive)
-                return;
-
             try
             {
                 var snapshot = await _client.GetTelemetryAsync(jobId, ct).ConfigureAwait(false);
-                if (!_discoveryMetricsActive)
-                    _metrics.Update(snapshot);
+                _metrics.Update(snapshot);
             }
             catch (OperationCanceledException) when (ct.IsCancellationRequested)
             {
