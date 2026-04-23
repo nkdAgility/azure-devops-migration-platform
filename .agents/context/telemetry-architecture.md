@@ -195,6 +195,116 @@ Add a unit test to the existing test class (`MigrationMetricsTests` or `Discover
 
 ---
 
+## Distributed Tracing (ActivitySource)
+
+Distributed tracing uses `System.Diagnostics.ActivitySource` to create spans that propagate across process boundaries. This enables end-to-end trace correlation from CLI → ControlPlane → MigrationAgent → module code.
+
+> **Canonical source of truth — read this file, do not duplicate names here:**
+> - ActivitySource names: `src/DevOpsMigrationPlatform.Abstractions/Telemetry/WellKnownActivitySourceNames.cs`
+
+### ActivitySource Names
+
+Three ActivitySources cover the entire system. Each is registered in `ServiceDefaults/Extensions.cs` via `.AddSource()` in `.WithTracing()`:
+
+| Name constant | Value | Scope |
+|---|---|---|
+| `WellKnownActivitySourceNames.Migration` | `DevOpsMigrationPlatform.Migration` | Export, import, and validation operations |
+| `WellKnownActivitySourceNames.Discovery` | `DevOpsMigrationPlatform.Discovery` | Inventory and dependency discovery |
+| `WellKnownActivitySourceNames.ControlPlane` | `DevOpsMigrationPlatform.ControlPlane` | Job lifecycle (enqueue, dequeue, state transitions) |
+
+### Span Inventory
+
+| Component | Span Name | Tags | Parent |
+|---|---|---|---|
+| `WorkItemExportOrchestrator` | `workitems.export` | job.id, operation, module, source.type | Root |
+| `WorkItemExportOrchestrator` | `workitem.export` | wi.id, wi.type | `workitems.export` |
+| `WorkItemExportOrchestrator` | `attachment.download` | wi.id, attachment.name | `workitem.export` |
+| `WorkItemImportOrchestrator` | `workitems.import` | job.id, operation, module | Root |
+| `WorkItemImportOrchestrator` | `workitem.import` | wi.id | `workitems.import` |
+| `RevisionFolderProcessor` | `revision.process` | wi.id, revision.index | `workitem.import` |
+| `InventoryDiscoveryModule` | `discovery.inventory` | job.id | Root |
+| `DependencyDiscoveryModule` | `discovery.dependencies` | job.id | Root |
+| `JobStore` | `job.enqueue` | job.id, job.type | Caller |
+| `JobStore` | `job.dequeue` | job.id, job.type | Caller |
+| `JobStore` | `job.setState` | job.id, state | Caller |
+
+### Pattern for Adding Spans
+
+Each component owns a `private static readonly ActivitySource` field:
+
+```csharp
+private static readonly ActivitySource s_activitySource =
+    new(WellKnownActivitySourceNames.Migration);
+```
+
+Create spans with `StartActivity`:
+
+```csharp
+using var activity = s_activitySource.StartActivity("workitem.export");
+activity?.SetTag("wi.id", workItemId);
+```
+
+Spans are hierarchical — a span started while a parent is active automatically becomes a child. No explicit parent passing is needed.
+
+### Registration
+
+All three sources are registered in `ServiceDefaults/Extensions.cs`:
+
+```csharp
+.WithTracing(tracing =>
+{
+    tracing.AddSource(WellKnownActivitySourceNames.Migration);
+    tracing.AddSource(WellKnownActivitySourceNames.Discovery);
+    tracing.AddSource(WellKnownActivitySourceNames.ControlPlane);
+});
+```
+
+The TFS subprocess (net481) has its own `MigrationPlatformActivitySources` — separate from the .NET 10 sources.
+
+---
+
+## Structured Logging and DataClassification
+
+All components use `ILogger<T>` for structured logging. Log levels follow standard conventions:
+
+| Level | Usage |
+|---|---|
+| `Debug` | Per-item detail (revision fields/counts, dequeue events, state transitions) |
+| `Information` | Boundary events (job enqueued, WI export start/complete, job completed) |
+| `Warning` | Recoverable issues (comment fetch failures, attachment errors) |
+| `Error` | Unrecoverable failures |
+
+### DataClassification Scoping
+
+Logs containing customer-identifiable content MUST be wrapped in a `DataClassification.Customer` scope. This ensures they are filtered from Azure Monitor but still streamed to CLI/TUI.
+
+**Customer data** = field values, project names, org URLs, attachment paths.
+
+**NOT customer data** = work item IDs (integer identifiers), counts, durations, job IDs, module names.
+
+```csharp
+// CORRECT — field values are customer data
+using (DataClassificationScope.Begin(DataClassification.Customer))
+    _logger.LogDebug("Field {Name} = {Value}", fieldName, fieldValue);
+
+// CORRECT — no customer data, no scope needed
+_logger.LogDebug("WI {WorkItemId}: fields={Count}, attachments={AttachmentCount}", wiId, count, attCount);
+```
+
+### Logging Inventory by Component
+
+| Component | Logger | Levels Used | Customer Scope |
+|---|---|---|---|
+| `WorkItemExportOrchestrator` | `ILogger` | Debug, Info, Warning | No — only WI IDs and counts |
+| `WorkItemImportOrchestrator` | `ILogger` | Debug, Info, Warning | Yes — processes field values |
+| `RevisionFolderProcessor` | `ILogger` | Debug, Warning | Yes — processes field values and attachment paths |
+| `JobStore` | `ILogger<JobStore>` | Debug, Info, Warning | No — only job IDs and types |
+| `InventoryDiscoveryModule` | `ILogger` | Info | Yes — org URLs |
+| `DependencyDiscoveryModule` | `ILogger` | Info | Yes — org URLs |
+| `AzureDevOpsDependencyAnalysisService` | `ILogger` | Debug | Yes — link URLs |
+
+---
+
 ## Obsolete Interfaces — Do Not Use
 
 Two legacy interfaces remain in `Abstractions/Telemetry/` marked `[Obsolete]`. They exist only to keep call sites in `Infrastructure.TfsObjectModel` compiling during the transition period. **Do NOT inject or implement these in new code.**
