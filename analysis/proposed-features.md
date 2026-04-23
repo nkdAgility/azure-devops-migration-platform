@@ -78,6 +78,12 @@ Status legend:
 | C5 | [`admin field delete`](#c5-admin-field-delete) | ❌ | Delete a field by reference name from all enabled orgs |
 | C6 | [`admin page install`](#c6-admin-page-install) | ❌ | Idempotent page/group installation on WIT form layouts across orgs |
 
+### Platform Features
+
+| # | Feature | Status | Summary |
+|---|---------|--------|---------|
+| P1 | [Checkpoint Reconciliation](#p1-checkpoint-reconciliation) | 🆕 ❌ | Rebuild missing/corrupted checkpoint state from existing package data across all modules |
+
 ---
 
 ## Modules — Detail
@@ -829,6 +835,40 @@ devopsmigration admin page install --config migration.json --pages ./pages --dry
 2. Auto-create a custom WIT inheritor if the system WIT cannot be modified directly.
 3. Add the page if it doesn't exist; otherwise proceed to group check.
 4. Add missing groups to the correct section; skip groups already present.
+
+---
+
+## Platform Features — Detail
+
+### P1: Checkpoint Reconciliation
+
+**Current state**: If a checkpoint cursor file (`.migration/Checkpoints/*.cursor.json`) or continuation token (`.continuation.json`) is lost, corrupted, or never written (e.g. crash before first checkpoint), the system restarts all work from scratch — even when the package already contains complete data from prior runs.
+
+**Why it matters**: Multi-hour discovery and export runs (e.g. 15k dependency records, 50k+ work items) become unbearably expensive when a missing cursor forces a full re-run. The data proves what was completed; the cursor is just a summary of that data.
+
+**Proposed solution**: A `Reconcile` job type executed by the Migration Agent. The CLI sends `devopsmigration reconcile --config migration.json` → Control Plane creates a `MigrationJob { Type = "Reconcile" }` → Agent scans package data vs checkpoint state → rebuilds missing checkpoints.
+
+#### Reconciliation Logic Per Module
+
+| Module | Data Signal | Reconciled Checkpoint |
+|--------|------------|----------------------|
+| **Dependencies** | Parse `dependencies.csv` → extract unique `SourceOrganisationUrl\|SourceProject` pairs | `Dependencies.cursor.json` with `completedProjects[]` and `recordCount` |
+| **Inventory** | Presence of `inventory.json` / `inventory.csv` | `inventory.cursor.json` |
+| **WorkItems (import)** | Enumerate `WorkItems/` → find lexicographically last revision folder | `workitems.cursor.json` with `lastProcessed` = last folder, `stage` = `Completed` |
+| **WorkItems (export/discovery)** | Scan latest revision folder → extract ChangedDate and WorkItemId from `revision.json` | `*.continuation.json` (best-effort — fingerprint set to empty, caller must accept or reject) |
+| **Teams, Permissions, Builds, Git, Identities** | Last folder under each module prefix | Per-module `*.cursor.json` |
+
+#### Architectural Constraints
+
+- **Data residency**: Reconciliation runs on the Agent (not CLI) because only the Agent has write access to the package.
+- **Conservative by default**: For continuation tokens where the query fingerprint cannot be reconstructed, the reconciled token uses an empty fingerprint. On next resume, `EvaluateResumeDecisionAsync` will return `RejectedQueryMismatch` and the caller can choose fresh-start or accept.
+- **Idempotent**: Running reconcile when checkpoints already exist and are valid is a no-op.
+- **Observable**: Each reconciliation emits a warning log with the reconstructed state so operators can audit what was inferred.
+
+#### Standalone Automatic Reconciliation (Implemented)
+
+As an interim measure before the full `Reconcile` job is built, individual modules can perform **automatic reconciliation on startup**: if the cursor is missing but data exists, reconstruct the cursor from the data and log a warning. This is implemented for:
+- `DependencyDiscoveryModule` — parses existing `dependencies.csv` to rebuild `completedProjects` set
 
 ---
 

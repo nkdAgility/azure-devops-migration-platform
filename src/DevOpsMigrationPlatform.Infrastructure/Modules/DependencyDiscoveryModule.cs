@@ -144,6 +144,58 @@ public sealed class DependencyDiscoveryModule : IDiscoveryModule
                 }
             }
         }
+        else
+        {
+            // ── Automatic reconciliation: rebuild cursor from existing CSV ────
+            // If the cursor file is missing but dependencies.csv exists, the
+            // checkpoint was lost (crash, manual deletion, corruption). Rather
+            // than re-analysing every project from scratch, parse the CSV to
+            // discover which projects were already completed.
+            var existingCsv = await store.ReadAsync(RootCsvPath, ct).ConfigureAwait(false);
+            if (!string.IsNullOrEmpty(existingCsv))
+            {
+                _logger.LogWarning(
+                    "No dependencies cursor found but dependencies.csv exists — reconciling checkpoint from CSV data.");
+
+                var lines = existingCsv!.Split(new[] { '\n' }, StringSplitOptions.RemoveEmptyEntries);
+                // Skip header row; extract SourceOrganisationUrl (col 3) and SourceProject (col 2)
+                for (int i = 1; i < lines.Length; i++)
+                {
+                    var cols = ParseCsvLine(lines[i]);
+                    if (cols.Count >= 4)
+                    {
+                        var sourceProject = cols[2];
+                        var sourceOrgUrl = cols[3];
+                        if (!string.IsNullOrWhiteSpace(sourceProject) && !string.IsNullOrWhiteSpace(sourceOrgUrl))
+                        {
+                            completedProjects.Add($"{sourceOrgUrl}|{sourceProject}");
+                        }
+                    }
+                    recordCount++;
+                }
+
+                if (completedProjects.Count > 0)
+                {
+                    existingCsvRows.Append(existingCsv);
+
+                    // Persist the reconciled cursor so the next restart doesn't re-reconcile
+                    await WriteCursorAsync(state, recordCount, completedProjects, ct).ConfigureAwait(false);
+
+                    _logger.LogWarning(
+                        "Reconciled dependencies cursor from CSV — {CompletedCount} project(s), {RecordCount} records. " +
+                        "Projects already analysed will be skipped on this run.",
+                        completedProjects.Count, recordCount);
+
+                    sink.Emit(new ProgressEvent
+                    {
+                        Module = Name,
+                        Stage = "Reconciled",
+                        Message = $"Checkpoint reconciled from existing CSV: {completedProjects.Count} projects, {recordCount} records.",
+                        Timestamp = DateTimeOffset.UtcNow
+                    });
+                }
+            }
+        }
 
         // Build the CSV — either from existing data or fresh header
         var csvBuilder = new StringBuilder();
@@ -427,5 +479,60 @@ public sealed class DependencyDiscoveryModule : IDiscoveryModule
         if (value.Contains(",") || value.Contains("\"") || value.Contains("\n"))
             return $"\"{value.Replace("\"", "\"\"")}\"";
         return value;
+    }
+
+    /// <summary>
+    /// Parses a single CSV line respecting quoted fields (RFC 4180).
+    /// Used by reconciliation to extract project keys from existing CSV data.
+    /// </summary>
+    private static List<string> ParseCsvLine(string line)
+    {
+        var fields = new List<string>();
+        var current = new StringBuilder();
+        var inQuotes = false;
+
+        for (int i = 0; i < line.Length; i++)
+        {
+            var ch = line[i];
+            if (inQuotes)
+            {
+                if (ch == '"')
+                {
+                    // Escaped quote ("") or end of quoted field
+                    if (i + 1 < line.Length && line[i + 1] == '"')
+                    {
+                        current.Append('"');
+                        i++; // skip the second quote
+                    }
+                    else
+                    {
+                        inQuotes = false;
+                    }
+                }
+                else
+                {
+                    current.Append(ch);
+                }
+            }
+            else
+            {
+                if (ch == '"')
+                {
+                    inQuotes = true;
+                }
+                else if (ch == ',')
+                {
+                    fields.Add(current.ToString());
+                    current.Clear();
+                }
+                else if (ch != '\r')
+                {
+                    current.Append(ch);
+                }
+            }
+        }
+
+        fields.Add(current.ToString());
+        return fields;
     }
 }
