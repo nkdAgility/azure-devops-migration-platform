@@ -81,7 +81,7 @@ public class TuiMetricsViewTests
     }
 
     [TestMethod]
-    public void UpdateDiscovery_WithMetrics_DoesNotCrash()
+    public void Update_WithDiscoveryMetrics_DoesNotCrash()
     {
         // Arrange
         var view = new TuiMetricsView();
@@ -113,17 +113,17 @@ public class TuiMetricsViewTests
         };
 
         // Act + Assert (no exception means formatting logic ran)
-        view.UpdateDiscovery(metrics);
+        view.Update(metrics);
     }
 
     [TestMethod]
-    public void UpdateDiscovery_WithNullCounters_ShowsZeros()
+    public void Update_WithNullDiscoveryCounters_ShowsZeros()
     {
         // Arrange
         var view = new TuiMetricsView();
         var metrics = new JobMetrics();
 
         // Act + Assert (no crash with all-null/zero values)
-        view.UpdateDiscovery(metrics);
+        view.Update(metrics);
     }
 }
