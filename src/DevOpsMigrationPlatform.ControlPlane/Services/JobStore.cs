@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Telemetry;
 using DevOpsMigrationPlatform.ControlPlane.Models;
+using Microsoft.Extensions.Logging;
 
 namespace DevOpsMigrationPlatform.ControlPlane.Services;
 
@@ -24,12 +25,14 @@ public sealed class JobStore : IJobStore
     private readonly SemaphoreSlim _pendingSignal = new(0);
     private readonly ConcurrentQueue<Guid> _pending = new();
     private readonly IJobLifecycleMetrics? _metrics;
+    private readonly ILogger? _logger;
 
     private static readonly ActivitySource ActivitySource = new(WellKnownActivitySourceNames.ControlPlane);
 
-    public JobStore(IJobLifecycleMetrics? metrics = null)
+    public JobStore(IJobLifecycleMetrics? metrics = null, ILogger<JobStore>? logger = null)
     {
         _metrics = metrics;
+        _logger = logger;
     }
 
     /// <inheritdoc />
@@ -52,6 +55,8 @@ public sealed class JobStore : IJobStore
             { "job.type", GetJobType(job) }
         });
 
+        _logger?.LogInformation("[ControlPlane] Job {JobId} ({JobType}) enqueued.", job.JobId, GetJobType(job));
+
         return jobId;
     }
 
@@ -72,6 +77,7 @@ public sealed class JobStore : IJobStore
                 { "job.id", job.JobId },
                 { "job.type", GetJobType(job) }
             });
+            _logger?.LogDebug("[ControlPlane] Job {JobId} ({JobType}) dequeued for processing.", job.JobId, GetJobType(job));
             return job;
         }
 
@@ -112,6 +118,8 @@ public sealed class JobStore : IJobStore
         var previousState = _states.TryGetValue(jobId, out var prev) ? prev : null;
         _states[jobId] = state;
 
+        _logger?.LogDebug("[ControlPlane] Job {JobId} state: {PreviousState} → {NewState}.", jobId, previousState ?? "(none)", state);
+
         // Only fire JobStarted once (first transition to Running).
         if (state == "Running" && previousState != "Running")
         {
@@ -134,16 +142,26 @@ public sealed class JobStore : IJobStore
                 { "job.type", GetJobType(job) }
             };
 
+            double? durationMs = null;
             if (_startedAt.TryRemove(jobId, out var started))
             {
-                var durationMs = (DateTimeOffset.UtcNow - started).TotalMilliseconds;
-                _metrics?.RecordJobDuration(durationMs, tags);
+                durationMs = (DateTimeOffset.UtcNow - started).TotalMilliseconds;
+                _metrics?.RecordJobDuration(durationMs.Value, tags);
             }
 
             if (state == "Completed")
+            {
                 _metrics?.JobCompleted(tags);
+                if (durationMs.HasValue)
+                    _logger?.LogInformation("[ControlPlane] Job {JobId} completed in {DurationMs:F0}ms.", jobId, durationMs.Value);
+                else
+                    _logger?.LogInformation("[ControlPlane] Job {JobId} completed.", jobId);
+            }
             else
+            {
                 _metrics?.JobFailed(tags);
+                _logger?.LogWarning("[ControlPlane] Job {JobId} failed.", jobId);
+            }
         }
     }
 
