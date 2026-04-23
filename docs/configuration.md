@@ -217,6 +217,40 @@ The `WorkItems` module accepts a `scopes` array and named extensions:
 
 > **Filter scope semantics**: Multiple `filter` scopes are evaluated with AND logic. An `include` filter retains only items whose field value matches the pattern; an `exclude` filter discards items whose field value matches. Items where the filtered field is absent pass `exclude` (absent = does not match) and fail `include`. Prefer short, indexed reference-data fields (e.g. `System.AreaPath`, `System.WorkItemType`) to minimise pre-fetch time.
 
+### Resumable Batching — Operational Responsibilities
+
+Callers of `IWorkItemFetchService` (inventory, dependency analysis, discovery) can opt in to resumable batching by setting `ResumeEnabled = true` on `WorkItemFetchScope`. This enables interrupted operations to continue from a saved `BatchContinuationToken` instead of reprocessing the entire project.
+
+**Resume is not a configuration-file setting.** It is a programmatic option set by orchestrator code. Configuration is relevant only for the operational responsibilities described below.
+
+#### Caller Persistence Cadence
+
+The batching strategy emits a `BatchContinuationToken` via a callback after each batch window. Callers choose their own persistence cadence:
+
+- **Every batch** — lowest re-work on interruption; highest I/O overhead.
+- **Every N batches** — balanced; at most N batches of re-work on interruption.
+- **Completion only** — lowest I/O; no mid-run resume capability (only useful for short runs).
+
+A mandatory completion checkpoint (`Completed = true`) is emitted at end-of-stream. Callers **must** persist this final token to enable safe no-op resume on subsequent runs.
+
+#### Duplicate Handling
+
+Source data can change between runs. When resume is active, the same work item ID may appear in multiple batch windows (once before interruption, once after resume). The strategy does **not** deduplicate — callers must handle duplicates via one of:
+
+- **Idempotent persistence** — write operations that are safe to repeat (e.g. upsert semantics).
+- **Explicit dedup** — caller-side ID tracking to skip already-processed items.
+- **Log-only** — accept duplicates and record them for diagnostic purposes.
+
+#### Safe Restart Guidance
+
+| Scenario | Expected behavior |
+|----------|-------------------|
+| Resume with unchanged query | Continues from saved position (no re-work) |
+| Resume with changed query | `ResumeRejectedException` thrown; caller decides recovery |
+| Resume with no saved token | Starts from beginning (info log, no error) |
+| Resume with corrupted token | Treated as no token; starts from beginning |
+| `ResumeEnabled = false` (default) | Token ignored; normal traversal; zero behavioral change |
+
 ### Config Versioning and Upgrader
 
 - `configVersion` must be incremented on any breaking change to the config schema.

@@ -202,7 +202,7 @@ public sealed class DependencyCommand : ControlPlaneCommandBase<DependencyComman
                                     }
                                     ctx.UpdateTarget(new Rows(
                                         new Markup("[green]✓ Inventory complete.[/] Starting dependency analysis…\n"),
-                                        BuildLivePanel(progressState.Values, startTime, latestCheckpointAt, nextCheckpointDueAt)));
+                                        BuildLivePanel(progressState.Values, startTime, inventoryReport?.Totals.WorkItems, latestCheckpointAt, nextCheckpointDueAt)));
                                     continue;
                                 }
 
@@ -216,7 +216,7 @@ public sealed class DependencyCommand : ControlPlaneCommandBase<DependencyComman
                             UpdateProgressFromEvent(progressState, evt);
                             latestCheckpointAt = evt.LastCheckpointAt ?? latestCheckpointAt;
                             nextCheckpointDueAt = evt.NextCheckpointDueAt;
-                            ctx.UpdateTarget(BuildLivePanel(progressState.Values, startTime, latestCheckpointAt, nextCheckpointDueAt));
+                            ctx.UpdateTarget(BuildLivePanel(progressState.Values, startTime, inventoryReport?.Totals.WorkItems, latestCheckpointAt, nextCheckpointDueAt));
                         }
                     });
             }
@@ -349,10 +349,17 @@ public sealed class DependencyCommand : ControlPlaneCommandBase<DependencyComman
 
         progress.TotalWorkItems = evt.TotalWorkItems;
         progress.WorkItemsAnalysed = evt.WorkItemsProcessed;
-        progress.ExternalLinks = evt.WorkItemId;
-        progress.CrossProjectLinks = evt.RevisionsProcessed;
-        progress.CrossOrgLinks = evt.AttachmentsProcessed;
+        progress.ExternalLinks = evt.ExternalLinksFound;
+        progress.CrossProjectLinks = evt.CrossProjectLinks;
+        progress.CrossOrgLinks = evt.CrossOrgLinks;
         progress.IsComplete = evt.Stage == "ProjectComplete";
+
+        // Mark the project as active in this session on the first non-terminal heartbeat.
+        // ProjectComplete and Failed events are either synthetic (resume) or terminal —
+        // they should NOT set StartedAt because we use StartedAt to identify work done
+        // in this session and to compute a session-only throughput rate.
+        if (progress.StartedAt is null && evt.Stage != "ProjectComplete" && evt.Stage != "Failed")
+            progress.StartedAt = DateTimeOffset.UtcNow;
 
         if (evt.Stage == "Failed")
             progress.Error = evt.Message;
@@ -376,11 +383,42 @@ public sealed class DependencyCommand : ControlPlaneCommandBase<DependencyComman
 
         foreach (var p in state)
         {
-            var status = p.Error is not null
-                ? "[red]✗ Failed[/]"
-                : p.IsComplete
-                    ? "[green]✓[/]"
-                    : "[grey]…[/]";
+            string status;
+            if (p.Error is not null)
+            {
+                status = "[red]✗ Failed[/]";
+            }
+            else if (p.IsComplete)
+            {
+                status = "[green]✓[/]";
+            }
+            else if (p.StartedAt is not null && p.TotalWorkItems > p.WorkItemsAnalysed && p.WorkItemsAnalysed > 0)
+            {
+                // Show per-project ETA while the project is actively being analysed.
+                var projectElapsed = DateTimeOffset.UtcNow - p.StartedAt.Value;
+                if (projectElapsed.TotalSeconds >= 10)
+                {
+                    var projectRate = p.WorkItemsAnalysed / projectElapsed.TotalHours;
+                    if (projectRate > 0)
+                    {
+                        var projectRemaining = p.TotalWorkItems - p.WorkItemsAnalysed;
+                        var projectEta = TimeSpan.FromHours(projectRemaining / projectRate);
+                        status = $"[grey]ETA {FormatTimeSpan(projectEta)}[/]";
+                    }
+                    else
+                    {
+                        status = "[grey]…[/]";
+                    }
+                }
+                else
+                {
+                    status = "[grey]…[/]";
+                }
+            }
+            else
+            {
+                status = "[grey]…[/]";
+            }
             var crossOrg = p.CrossOrgLinks > 0
                 ? $"[red]{p.CrossOrgLinks}[/]"
                 : p.CrossOrgLinks.ToString();
@@ -403,17 +441,27 @@ public sealed class DependencyCommand : ControlPlaneCommandBase<DependencyComman
     /// <summary>
     /// Builds the live display content: the progress table plus a throughput stats panel.
     /// </summary>
-    private static IRenderable BuildLivePanel(IEnumerable<ProjectProgress> state, DateTimeOffset startTime, DateTimeOffset? lastCheckpointAt = null, DateTimeOffset? nextCheckpointDueAt = null)
+    private static IRenderable BuildLivePanel(IEnumerable<ProjectProgress> state, DateTimeOffset startTime, long? inventoryTotal = null, DateTimeOffset? lastCheckpointAt = null, DateTimeOffset? nextCheckpointDueAt = null)
     {
         var table = BuildProgressTable(state);
-        var stats = BuildThroughputPanel(state, startTime, lastCheckpointAt, nextCheckpointDueAt);
+        var stats = BuildThroughputPanel(state, startTime, inventoryTotal, lastCheckpointAt, nextCheckpointDueAt);
         return stats is not null ? new Rows(table, stats) : table;
     }
 
     /// <summary>
     /// Builds a throughput stats panel showing rates, elapsed time, and ETA.
+    /// <para>
+    /// ETA is computed from the <em>session-only</em> throughput rate — i.e. only work
+    /// items analysed by projects that started in this session (<see cref="ProjectProgress.StartedAt"/>
+    /// is not null).  This prevents pre-session completed work (synthetic resume events)
+    /// from inflating the rate when the elapsed time is still small.
+    /// </para>
+    /// <para>
+    /// When <paramref name="inventoryTotal"/> is provided the ETA denominator uses the
+    /// authoritative inventory work-item count, which includes projects not yet started.
+    /// </para>
     /// </summary>
-    private static IRenderable? BuildThroughputPanel(IEnumerable<ProjectProgress> state, DateTimeOffset startTime, DateTimeOffset? lastCheckpointAt = null, DateTimeOffset? nextCheckpointDueAt = null)
+    private static IRenderable? BuildThroughputPanel(IEnumerable<ProjectProgress> state, DateTimeOffset startTime, long? inventoryTotal = null, DateTimeOffset? lastCheckpointAt = null, DateTimeOffset? nextCheckpointDueAt = null)
     {
         var elapsed = DateTimeOffset.UtcNow - startTime;
         if (elapsed.TotalSeconds < 1)
@@ -421,6 +469,8 @@ public sealed class DependencyCommand : ControlPlaneCommandBase<DependencyComman
 
         int completed = 0, inProgress = 0;
         long totalAnalysed = 0, totalKnown = 0, processedOfKnown = 0;
+        // Session-only counters: only projects that started in this session.
+        long sessionAnalysed = 0;
         foreach (var p in state)
         {
             if (p.IsComplete) completed++;
@@ -431,7 +481,15 @@ public sealed class DependencyCommand : ControlPlaneCommandBase<DependencyComman
                 totalKnown += p.TotalWorkItems;
                 processedOfKnown += p.IsComplete ? p.TotalWorkItems : p.WorkItemsAnalysed;
             }
+
+            // Only count items processed in this session for the throughput rate.
+            if (p.StartedAt is not null)
+                sessionAnalysed += p.WorkItemsAnalysed;
         }
+
+        // When the inventory total is available use it as the authoritative total known
+        // so that projects not yet started are accounted for in the ETA.
+        var effectiveTotalKnown = inventoryTotal > 0 ? inventoryTotal.Value : totalKnown;
 
         var hours = elapsed.TotalHours;
 
@@ -458,13 +516,18 @@ public sealed class DependencyCommand : ControlPlaneCommandBase<DependencyComman
             statsTable.AddRow("[dim]Avg Project Duration[/]", $"[white]{FormatTimeSpan(TimeSpan.FromMilliseconds(avgMs))}[/]");
         }
 
-        // ETA: prefer per-item rate when we have pre-count totals
-        if (totalKnown > 0 && processedOfKnown > 0 && processedOfKnown < totalKnown)
+        // ETA: use session-only rate so that pre-session completed work (resume) does not
+        // distort the calculation.  Fall back to project-count estimation when no per-item
+        // data is available for this session.
+        if (sessionAnalysed > 0 && effectiveTotalKnown > 0 && processedOfKnown < effectiveTotalKnown)
         {
-            var msPerItem = elapsed.TotalMilliseconds / processedOfKnown;
-            var remaining = totalKnown - processedOfKnown;
-            var eta = TimeSpan.FromMilliseconds(msPerItem * remaining);
-            statsTable.AddRow("[dim]ETA (remaining)[/]", $"[yellow]{FormatTimeSpan(eta)}[/]");
+            var sessionRate = hours > 0.001 ? sessionAnalysed / hours : 0; // items/hour
+            if (sessionRate > 0)
+            {
+                var remaining = effectiveTotalKnown - processedOfKnown;
+                var eta = TimeSpan.FromHours(remaining / sessionRate);
+                statsTable.AddRow("[dim]ETA (remaining)[/]", $"[yellow]{FormatTimeSpan(eta)}[/]");
+            }
         }
         else if (completed > 0 && inProgress > 0)
         {
@@ -519,5 +582,14 @@ public sealed class DependencyCommand : ControlPlaneCommandBase<DependencyComman
         public int CrossOrgLinks { get; set; }
         public bool IsComplete { get; set; }
         public string? Error { get; set; }
+
+        /// <summary>
+        /// Set when the project first becomes active in this session (first heartbeat
+        /// that is NOT a ProjectComplete or Failed event).  Null for projects that were
+        /// completed in a previous session and are represented by synthetic resume events.
+        /// Used to compute the session-only throughput rate so that pre-session work does
+        /// not distort the rate or ETA calculation.
+        /// </summary>
+        public DateTimeOffset? StartedAt { get; set; }
     }
 }

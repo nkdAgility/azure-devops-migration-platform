@@ -33,6 +33,14 @@ public static class PackagePaths
         => $"{Checkpoints}/{moduleName.ToLowerInvariant()}.cursor.json";
 
     /// <summary>
+    /// Returns the artefact-store key for a module's continuation token file,
+    /// e.g. <c>.migration/Checkpoints/inventory.continuation.json</c>.
+    /// Scoped per-module to prevent concurrent callers from corrupting each other.
+    /// </summary>
+    public static string ContinuationFile(string moduleName)
+        => $"{Checkpoints}/{moduleName.ToLowerInvariant()}.continuation.json";
+
+    /// <summary>
     /// The phase-tracking file for Both-mode jobs:
     /// <c>.migration/Checkpoints/job.phase.json</c>.
     /// </summary>

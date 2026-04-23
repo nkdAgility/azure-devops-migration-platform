@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Threading;
+using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Models;
 using DevOpsMigrationPlatform.Abstractions.Services;
@@ -42,9 +43,16 @@ public sealed class AzureDevOpsWorkItemFetchService : IWorkItemFetchService
 
         var witClient = await _clientFactory.CreateWorkItemClientAsync(endpoint, cancellationToken);
 
-        var windowOptions = scope.BaseQuery is not null
-            ? new WorkItemQueryWindowOptions { BaseQuery = scope.BaseQuery }
-            : null;
+        // Build window options, wiring resume fields when enabled.
+        var windowOptions = new WorkItemQueryWindowOptions
+        {
+            BaseQuery = scope.BaseQuery,
+            ResumeEnabled = scope.ResumeEnabled,
+            SavedContinuationToken = scope.SavedContinuationToken
+        };
+
+        int lastYieldedId = 0;
+        DateTime lastChangedDate = DateTime.MinValue;
 
         await foreach (var window in _windowStrategy.EnumerateWindowsAsync(
             endpoint, project, windowOptions, cancellationToken).ConfigureAwait(false))
@@ -71,9 +79,52 @@ public sealed class AzureDevOpsWorkItemFetchService : IWorkItemFetchService
                         fields);
 
                     if (PassesFilters(item, scope.FilterOptions))
+                    {
+                        lastYieldedId = item.Id;
+                        // Track ChangedDate for checkpoint if available
+                        if (fields.TryGetValue("System.ChangedDate", out var cd) && cd is DateTime dt)
+                            lastChangedDate = dt;
+                        else
+                            lastChangedDate = window.WindowEnd;
+
                         yield return item;
+                    }
+                }
+
+                // Emit per-batch checkpoint when resume is enabled
+                if (scope.ResumeEnabled && scope.ContinuationCheckpointWriter is not null && lastYieldedId > 0)
+                {
+                    var checkpoint = new BatchContinuationToken
+                    {
+                        StrategyVersion = "1.0",
+                        ChangedDateUtc = lastChangedDate.Kind == DateTimeKind.Utc
+                            ? lastChangedDate
+                            : lastChangedDate.ToUniversalTime(),
+                        WorkItemId = lastYieldedId,
+                        QueryFingerprint = scope.SavedContinuationToken?.QueryFingerprint ?? string.Empty,
+                        GeneratedAtUtc = DateTime.UtcNow,
+                        Completed = false
+                    };
+                    await scope.ContinuationCheckpointWriter(checkpoint, cancellationToken).ConfigureAwait(false);
                 }
             }
+        }
+
+        // T022: Emit completion checkpoint at end-of-stream
+        if (scope.ResumeEnabled && scope.ContinuationCheckpointWriter is not null)
+        {
+            var completionToken = new BatchContinuationToken
+            {
+                StrategyVersion = "1.0",
+                ChangedDateUtc = lastChangedDate != DateTime.MinValue
+                    ? (lastChangedDate.Kind == DateTimeKind.Utc ? lastChangedDate : lastChangedDate.ToUniversalTime())
+                    : DateTime.UtcNow,
+                WorkItemId = lastYieldedId,
+                QueryFingerprint = scope.SavedContinuationToken?.QueryFingerprint ?? string.Empty,
+                GeneratedAtUtc = DateTime.UtcNow,
+                Completed = true
+            };
+            await scope.ContinuationCheckpointWriter(completionToken, cancellationToken).ConfigureAwait(false);
         }
     }
 
@@ -85,4 +136,52 @@ public sealed class AzureDevOpsWorkItemFetchService : IWorkItemFetchService
         FetchedWorkItem item,
         IReadOnlyList<WorkItemFieldFilterOptions>? filters) =>
         WorkItemFieldFilterEvaluator.PassesFilters(item, filters);
+
+    /// <inheritdoc />
+    public Task<ResumeDecision> EvaluateResumeDecisionAsync(
+        OrganisationEndpoint endpoint,
+        string project,
+        WorkItemFetchScope scope,
+        CancellationToken cancellationToken = default)
+    {
+        if (!scope.ResumeEnabled || scope.SavedContinuationToken is null)
+        {
+            return Task.FromResult(new ResumeDecision
+            {
+                Status = ResumeDecisionStatus.Unavailable,
+                Reason = "no_saved_token"
+            });
+        }
+
+        var savedFingerprint = scope.SavedContinuationToken.QueryFingerprint;
+        // When the scope carries a current fingerprint via QueryParameters,
+        // compare it. Otherwise use the base query text as a simple fingerprint proxy.
+        var currentFingerprint = scope.BaseQuery ?? string.Empty;
+
+        // If the caller has pre-computed a fingerprint via IQueryFingerprintService
+        // and stored it in the token, compare saved vs current.
+        // For now we compare the saved fingerprint against the current query text
+        // when no explicit fingerprint is provided. This is consistent with the
+        // contract: if the query changes, the fingerprint changes.
+        if (!string.IsNullOrEmpty(savedFingerprint) &&
+            !string.Equals(savedFingerprint, currentFingerprint, StringComparison.Ordinal))
+        {
+            return Task.FromResult(new ResumeDecision
+            {
+                Status = ResumeDecisionStatus.RejectedQueryMismatch,
+                Reason = "query_fingerprint_mismatch",
+                SavedQueryFingerprint = savedFingerprint,
+                CurrentQueryFingerprint = currentFingerprint,
+                TokenStrategyVersion = scope.SavedContinuationToken.StrategyVersion
+            });
+        }
+
+        return Task.FromResult(new ResumeDecision
+        {
+            Status = ResumeDecisionStatus.Accepted,
+            SavedQueryFingerprint = savedFingerprint,
+            CurrentQueryFingerprint = currentFingerprint,
+            TokenStrategyVersion = scope.SavedContinuationToken.StrategyVersion
+        });
+    }
 }

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using DevOpsMigrationPlatform.Abstractions.Models;
 
 namespace DevOpsMigrationPlatform.Abstractions.Services;
 
@@ -38,6 +39,27 @@ public sealed class WorkItemQueryWindowOptions
     /// <see cref="IWorkItemQueryWindowStrategy.EnumerateWindowsAsync"/>.
     /// </summary>
     public string? BaseQuery { get; init; }
+
+    // ── Resumable Batching (opt-in) ──────────────────────────────────────
+
+    /// <summary>
+    /// When <see langword="true"/>, the strategy attempts to resume from
+    /// <see cref="SavedContinuationToken"/> instead of starting from scratch.
+    /// Default: <see langword="false"/> — zero behavioral change for existing callers.
+    /// </summary>
+    public bool ResumeEnabled { get; init; }
+
+    /// <summary>
+    /// Continuation token from a prior run. Only inspected when
+    /// <see cref="ResumeEnabled"/> is <see langword="true"/>.
+    /// </summary>
+    public BatchContinuationToken? SavedContinuationToken { get; init; }
+
+    /// <summary>
+    /// Query parameters included in the fingerprint computation.
+    /// Excludes post-fetch filters — only enumeration-level parameters.
+    /// </summary>
+    public IReadOnlyDictionary<string, string>? QueryParameters { get; init; }
 }
 
 /// <summary>

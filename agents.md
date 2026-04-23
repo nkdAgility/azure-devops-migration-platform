@@ -128,6 +128,7 @@ Package zip/export:
    - [migration-rules.md](.agents/guardrails/migration-rules.md) — Migration behavior constraints
    - [coding-standards.md](.agents/guardrails/coding-standards.md) — SOLID principles + concrete examples
    - [testing-standards.md](.agents/guardrails/testing-standards.md) — Reqnroll + MSTest conventions
+   - [definition-of-done.md](.agents/guardrails/definition-of-done.md) — Mandatory completion criteria for every unit of work
    - [module-template.md](.agents/guardrails/module-template.md) — New module requirements
    - [aspire-integration.md](.agents/guardrails/aspire-integration.md) — Aspire integration guardrails
    - [atdd-workflow.md](.agents/guardrails/atdd-workflow.md) — ATDD session lifecycle rules
@@ -272,6 +273,8 @@ Reject any proposal that:
 - **Logs a work item ID, field value, project name, org URL, or attachment path without a `DataClassification.Customer` scope** (see [docs/configuration.md — Data Classification](docs/configuration.md#data-classification)).
 - **Writes to the working directory or package files from any component other than the Migration Agent or TFS Export Agent** — the CLI, TUI, Control Plane, and ControlPlaneHost have no write access to the package (data residency requirement; see [docs/architecture.md — Data Residency](docs/architecture.md#data-residency--agent-only-write-access) and rule 23 of [.agents/guardrails/system-architecture.md](.agents/guardrails/system-architecture.md)).
 - Leaves any `throw new NotImplementedException()` or `throw new NotSupportedException("... not yet implemented")` in any reachable code path — ephemeral stubs are only permitted within a single session and must be replaced before the task is marked complete.
+- Leaves any `Assert.Inconclusive()` in a test — `Inconclusive` is treated as a build-breaking error. Either implement the assertion or delete the test.
+- Commits code containing `@ignore` (Gherkin) or `[Ignore]` (MSTest) — these markers may only be used temporarily within a session for isolation; they must be removed before done.
 - Declares a task complete without a passing `dotnet clean && dotnet build --no-incremental`.
 - Declares a task complete without all tests passing (`dotnet test`).
 - Declares a task complete without running at least one scenario config (e.g. `scenarios/queue-export-ado-workitems-single-project.json`) via a `launch.json` debug profile and verifying observable output.

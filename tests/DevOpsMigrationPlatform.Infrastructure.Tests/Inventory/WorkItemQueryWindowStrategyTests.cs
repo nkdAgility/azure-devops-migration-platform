@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Models;
 using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Abstractions.Services;
 using DevOpsMigrationPlatform.Infrastructure.AzureDevOps;
@@ -1185,4 +1186,63 @@ public class WorkItemQueryWindowStrategyTests
     public void Constructor_NullFactory_ThrowsArgumentNullException()
         => Assert.ThrowsExactly<ArgumentNullException>(
             () => new WorkItemQueryWindowStrategy(null!));
+
+    // ── T018: Resume-aware window skipping ───────────────────────────────────
+
+    [TestMethod]
+    public async Task EnumerateWindowsAsync_ResumeEnabled_WithToken_SkipsUnboundedProbe()
+    {
+        var savedDate = DateTime.UtcNow.AddDays(-10);
+        var token = new BatchContinuationToken
+        {
+            StrategyVersion = "1.0",
+            ChangedDateUtc = savedDate,
+            WorkItemId = 500,
+            QueryFingerprint = "fp",
+            GeneratedAtUtc = DateTime.UtcNow.AddHours(-1),
+            Completed = false
+        };
+
+        var opts = new WorkItemQueryWindowOptions
+        {
+            ResumeEnabled = true,
+            SavedContinuationToken = token,
+            LimitThreshold = 20_000,
+            MinDate = DateTime.UtcNow.AddYears(-1)
+        };
+
+        var (sut, _) = BuildSut((wiql, _, idx) =>
+        {
+            if (idx == 0)
+            {
+                // First query in resume mode should include a date filter, not be unbounded
+                Assert.IsTrue(
+                    wiql.Query.Contains("System.ChangedDate") || wiql.Query.Contains("System.CreatedDate"),
+                    "First query in resume mode should include a date filter, not be unbounded");
+                return MakeResult(500, 501, 502);
+            }
+            return EmptyResult();
+        });
+
+        var windows = await CollectWindowsAsync(sut, opts);
+
+        Assert.IsTrue(windows.Count >= 1, "Should yield at least one window from resumed position");
+    }
+
+    [TestMethod]
+    public async Task EnumerateWindowsAsync_ResumeEnabled_NoToken_FallsBackToFreshStart()
+    {
+        var opts = new WorkItemQueryWindowOptions
+        {
+            ResumeEnabled = true,
+            SavedContinuationToken = null
+        };
+
+        var (sut, _) = BuildSut((_, _, idx) =>
+            idx == 0 ? MakeResult(1, 2, 3) : EmptyResult());
+
+        var windows = await CollectWindowsAsync(sut, opts);
+
+        Assert.AreEqual(1, windows.Count);
+    }
 }

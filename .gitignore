@@ -54,3 +54,5 @@ tests/**/Features/*.feature
 *.swp
 .DS_Store
 Thumbs.db
+test_results.txt
+
