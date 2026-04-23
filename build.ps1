@@ -43,10 +43,10 @@
 
     Prerequisites:
       - .NET SDK (see global.json)
-      - GitVersion.Tool 6.1.0:
+      - GitVersion.Tool 6.1.0 (auto-restored from .build/dotnet-tools.json at script start):
+            dotnet tool restore --tool-manifest .build/dotnet-tools.json
+        OR install globally:
             dotnet tool install --global GitVersion.Tool --version 6.1.0
-        OR restore from the local tool manifest:
-            dotnet tool restore
 
     Artefact outputs (placed under ./output/, one zip per RID):
       - MigrationTools-{SemVer}-{rid}.zip
@@ -102,6 +102,17 @@ $AgentProject        = Join-Path $RepoRoot 'src/DevOpsMigrationPlatform.Migratio
 # Runtime identifiers for per-platform publishing.
 # Only win-x64 gets the tfsmigration/ subfolder; TfsMigration (net481) is Windows-only.
 $AllRids = @('win-x64', 'win-arm64', 'linux-x64', 'osx-x64', 'osx-arm64')
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Restore build tools (GitVersion, etc.) from .build/dotnet-tools.json
+# ─────────────────────────────────────────────────────────────────────────────
+Write-Host "==> Restoring build tools..." -ForegroundColor Cyan
+$ToolManifest = Join-Path $RepoRoot '.build/dotnet-tools.json'
+dotnet tool restore --tool-manifest $ToolManifest --verbosity quiet
+if ($LASTEXITCODE -ne 0) {
+    Write-Error "dotnet tool restore failed (exit $LASTEXITCODE). Ensure '$ToolManifest' is present."
+    exit 1
+}
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Helpers
@@ -255,12 +266,7 @@ function Resolve-GitVersion {
     if ($gvCmd) {
         $rawOutput = & dotnet-gitversion /config $ConfigFile /output json 2>&1
     } else {
-        # Fall back to local tool manifest
-        dotnet tool restore --verbosity quiet 2>&1 | Out-Null
-        if ($LASTEXITCODE -ne 0) {
-            Write-Error "dotnet tool restore failed (exit $LASTEXITCODE). Ensure .config/dotnet-tools.json is present or install GitVersion globally: dotnet tool install --global GitVersion.Tool --version 6.1.0"
-            exit 1
-        }
+        # Fall back to local tool manifest (already restored at script start)
         $rawOutput = & dotnet tool run dotnet-gitversion -- /config $ConfigFile /output json 2>&1
     }
 
@@ -272,7 +278,7 @@ Output: $rawOutput
 Install GitVersion globally:
     dotnet tool install --global GitVersion.Tool --version 6.1.0
 Or restore the local manifest:
-    dotnet tool restore
+    dotnet tool restore --tool-manifest .build/dotnet-tools.json
 "@
         exit 1
     }
