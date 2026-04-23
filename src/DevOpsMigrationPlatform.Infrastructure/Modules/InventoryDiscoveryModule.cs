@@ -252,12 +252,22 @@ public sealed class InventoryDiscoveryModule : IDiscoveryModule
             {
                 Module = Name,
                 Stage = evt.Error is not null ? "Failed" : "Inventory",
-                Message = evt.Error is not null
-                    ? $"{evt.Url} / {evt.ProjectName}: failed — {evt.Error}"
-                    : $"{evt.Url} / {evt.ProjectName}: {evt.WorkItemsCount} work items, {evt.RevisionsCount} revisions, {evt.ReposCount} repos",
+                Message = $"{evt.Url}|{evt.ProjectName}",
                 Timestamp = DateTimeOffset.UtcNow,
                 LastCheckpointAt = new DateTimeOffset(lastCheckpoint, TimeSpan.Zero),
-                NextCheckpointDueAt = new DateTimeOffset(lastCheckpoint, TimeSpan.Zero) + checkpointInterval
+                NextCheckpointDueAt = new DateTimeOffset(lastCheckpoint, TimeSpan.Zero) + checkpointInterval,
+                Metrics = new JobMetrics
+                {
+                    Scope = new JobScopeCounters { WorkItemsTotal = evt.WorkItemsCount },
+                    Discovery = new DiscoveryCounters
+                    {
+                        Inventory = new InventoryCounters
+                        {
+                            RevisionsTotal = evt.RevisionsCount,
+                            RepositoriesTotal = evt.ReposCount
+                        }
+                    }
+                }
             });
 
             // Flush CSV and JSON after every completed project so results are
@@ -409,8 +419,20 @@ public sealed class InventoryDiscoveryModule : IDiscoveryModule
         {
             Module = "Inventory",
             Stage = "Inventory",
-            Message = $"{url} / {projectName}: {workItems} work items, {revisions} revisions, {repos} repos (resumed)",
-            Timestamp = DateTimeOffset.UtcNow
+            Message = $"{url}|{projectName}",
+            Timestamp = DateTimeOffset.UtcNow,
+            Metrics = new JobMetrics
+            {
+                Scope = new JobScopeCounters { WorkItemsTotal = workItems },
+                Discovery = new DiscoveryCounters
+                {
+                    Inventory = new InventoryCounters
+                    {
+                        RevisionsTotal = revisions,
+                        RepositoriesTotal = repos
+                    }
+                }
+            }
         });
     }
 

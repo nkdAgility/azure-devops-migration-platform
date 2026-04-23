@@ -155,6 +155,10 @@ public sealed class DependencyCommand : ControlPlaneCommandBase<DependencyComman
         DateTimeOffset? latestCheckpointAt = null; // updated from progress events
         DateTimeOffset? nextCheckpointDueAt = null; // updated from progress events
 
+        // Inventory phase tracking — used when inventory runs as a prerequisite.
+        var inventorySummaries = new Dictionary<string, InventoryPhaseProgress>(StringComparer.OrdinalIgnoreCase);
+        var inventoryStartTime = DateTimeOffset.UtcNow;
+
         try
         {
             if (console.Profile.Capabilities.Interactive)
@@ -182,6 +186,7 @@ public sealed class DependencyCommand : ControlPlaneCommandBase<DependencyComman
                                 if (currentPhase != "Inventory")
                                 {
                                     currentPhase = "Inventory";
+                                    inventoryStartTime = DateTimeOffset.UtcNow;
                                     ctx.UpdateTarget(new Markup(
                                         "[yellow]⚠ No inventory found — running inventory discovery first…[/]\n"));
                                 }
@@ -189,6 +194,7 @@ public sealed class DependencyCommand : ControlPlaneCommandBase<DependencyComman
                                 if (evt.Stage == "Completed")
                                 {
                                     currentPhase = "Dependencies";
+                                    startTime = DateTimeOffset.UtcNow;
                                     // Re-load inventory.json now that it exists.
                                     if (File.Exists(inventoryJsonPath))
                                     {
@@ -206,10 +212,11 @@ public sealed class DependencyCommand : ControlPlaneCommandBase<DependencyComman
                                     continue;
                                 }
 
-                                // Show inventory progress as a status line.
-                                var invMsg = evt.Message ?? "Counting work items…";
-                                ctx.UpdateTarget(new Markup(
-                                    $"[yellow]Inventory:[/] [grey]{Markup.Escape(invMsg)}[/]\n"));
+                                // Update inventory progress and show full inventory table.
+                                UpdateInventoryFromEvent(inventorySummaries, evt);
+                                latestCheckpointAt = evt.LastCheckpointAt ?? latestCheckpointAt;
+                                nextCheckpointDueAt = evt.NextCheckpointDueAt;
+                                ctx.UpdateTarget(BuildInventoryLivePanel(inventorySummaries.Values, inventoryStartTime, latestCheckpointAt, nextCheckpointDueAt));
                                 continue;
                             }
 
@@ -234,12 +241,14 @@ public sealed class DependencyCommand : ControlPlaneCommandBase<DependencyComman
                         if (currentPhase != "Inventory")
                         {
                             currentPhase = "Inventory";
+                            inventoryStartTime = DateTimeOffset.UtcNow;
                             console.MarkupLine("[yellow]⚠ No inventory found — running inventory discovery first…[/]");
                         }
 
                         if (evt.Stage == "Completed")
                         {
                             currentPhase = "Dependencies";
+                            startTime = DateTimeOffset.UtcNow;
                             // Re-load inventory.json now that it exists.
                             if (File.Exists(inventoryJsonPath))
                             {
@@ -255,8 +264,19 @@ public sealed class DependencyCommand : ControlPlaneCommandBase<DependencyComman
                             continue;
                         }
 
-                        if (!string.IsNullOrEmpty(evt.Message))
-                            console.MarkupLine($"[grey]  {Markup.Escape(evt.Message)}[/]");
+                        UpdateInventoryFromEvent(inventorySummaries, evt);
+
+                        if (evt.Stage == "Inventory" || evt.Stage == "Failed")
+                        {
+                            var invKey = evt.Message ?? "";
+                            if (inventorySummaries.TryGetValue(invKey, out var invS))
+                            {
+                                var invStatus = invS.Error != null ? "✗ Failed" : "✓";
+                                console.MarkupLine(
+                                    $"  {Markup.Escape(invS.Url)} / {Markup.Escape(invS.ProjectName)}: " +
+                                    $"{invS.WorkItemsCount} work items, {invS.RevisionsCount} revisions — {invStatus}");
+                            }
+                        }
                         continue;
                     }
 
