@@ -614,4 +614,167 @@ public sealed class DependencyCommand : ControlPlaneCommandBase<DependencyComman
         /// </summary>
         public DateTimeOffset? StartedAt { get; set; }
     }
+
+    // ── Inventory phase progress (reuses InventoryCommand's rendering pattern) ──
+
+    private static void UpdateInventoryFromEvent(
+        Dictionary<string, InventoryPhaseProgress> summaries,
+        ProgressEvent evt)
+    {
+        var key = evt.Message;
+        if (string.IsNullOrEmpty(key))
+            return;
+
+        var separatorIndex = key.IndexOf('|');
+        if (separatorIndex < 0)
+            return;
+
+        var url = key.Substring(0, separatorIndex);
+        var project = key.Substring(separatorIndex + 1);
+
+        if (!summaries.TryGetValue(key, out var summary))
+        {
+            summary = new InventoryPhaseProgress { Url = url, ProjectName = project };
+            summaries[key] = summary;
+        }
+
+        var inv = evt.Metrics?.Discovery?.Inventory;
+        summary.WorkItemsCount = evt.Metrics?.Scope?.WorkItemsTotal ?? summary.WorkItemsCount;
+        summary.RevisionsCount = inv?.RevisionsTotal ?? summary.RevisionsCount;
+        summary.ReposCount = (int)(inv?.RepositoriesTotal ?? summary.ReposCount);
+        summary.IsComplete = evt.Stage != "Progress";
+
+        if (evt.Stage == "Failed")
+            summary.Error = key;
+    }
+
+    private static Table BuildInventoryTable(IEnumerable<InventoryPhaseProgress> summaries)
+    {
+        var table = new Table()
+            .Title("[bold yellow]Discovery Inventory (prerequisite)[/]")
+            .RoundedBorder()
+            .BorderColor(Color.Grey)
+            .AddColumn("Organisation / Collection")
+            .AddColumn("Project")
+            .AddColumn(new TableColumn("Work Items").RightAligned())
+            .AddColumn(new TableColumn("Revisions").RightAligned())
+            .AddColumn(new TableColumn("Repos").RightAligned())
+            .AddColumn("Status");
+
+        foreach (var s in summaries)
+        {
+            var status = s.Error != null
+                ? "[red]✗ Failed[/]"
+                : s.IsComplete
+                    ? "[green]✓[/]"
+                    : "[grey]…[/]";
+
+            table.AddRow(
+                Markup.Escape(s.Url),
+                Markup.Escape(s.ProjectName),
+                s.WorkItemsCount.ToString("N0"),
+                s.RevisionsCount.ToString("N0"),
+                s.ReposCount.ToString(),
+                status);
+        }
+
+        return table;
+    }
+
+    private static IRenderable BuildInventoryLivePanel(
+        IEnumerable<InventoryPhaseProgress> summaries,
+        DateTimeOffset inventoryStartTime,
+        DateTimeOffset? lastCheckpointAt,
+        DateTimeOffset? nextCheckpointDueAt)
+    {
+        var table = BuildInventoryTable(summaries);
+        var stats = BuildInventoryThroughputPanel(summaries, inventoryStartTime, lastCheckpointAt, nextCheckpointDueAt);
+        return stats is not null ? new Rows(table, stats) : table;
+    }
+
+    private static IRenderable? BuildInventoryThroughputPanel(
+        IEnumerable<InventoryPhaseProgress> summaries,
+        DateTimeOffset inventoryStartTime,
+        DateTimeOffset? lastCheckpointAt,
+        DateTimeOffset? nextCheckpointDueAt)
+    {
+        var elapsed = DateTimeOffset.UtcNow - inventoryStartTime;
+        if (elapsed.TotalSeconds < 1)
+            return null;
+
+        int total = 0, completed = 0, failed = 0;
+        long totalWi = 0, totalRev = 0;
+        foreach (var s in summaries)
+        {
+            total++;
+            if (s.Error != null) failed++;
+            else if (s.IsComplete) completed++;
+            totalWi += s.WorkItemsCount;
+            totalRev += s.RevisionsCount;
+        }
+
+        var remaining = total - completed - failed;
+        var hours = elapsed.TotalHours;
+
+        var statsTable = new Table()
+            .NoBorder()
+            .HideHeaders()
+            .AddColumn(new TableColumn("Label").NoWrap())
+            .AddColumn(new TableColumn("Value").RightAligned());
+
+        statsTable.AddRow("[dim]Elapsed[/]", $"[white]{FormatTimeSpan(elapsed)}[/]");
+
+        if (totalWi > 0 || totalRev > 0)
+        {
+            var wiPerHour = hours > 0.001 ? totalWi / hours : 0;
+            var revPerHour = hours > 0.001 ? totalRev / hours : 0;
+            statsTable.AddRow("[dim]Work Items / hour[/]", $"[white]{wiPerHour:N0}[/]");
+            statsTable.AddRow("[dim]Revisions / hour[/]", $"[white]{revPerHour:N0}[/]");
+        }
+
+        if (completed > 0)
+        {
+            var projPerHour = hours > 0.001 ? completed / hours : 0;
+            statsTable.AddRow("[dim]Projects / hour[/]", $"[white]{projPerHour:N1}[/]");
+
+            var avgMs = elapsed.TotalMilliseconds / completed;
+            statsTable.AddRow("[dim]Avg Project Duration[/]", $"[white]{FormatTimeSpan(TimeSpan.FromMilliseconds(avgMs))}[/]");
+
+            if (remaining > 0)
+            {
+                var eta = TimeSpan.FromMilliseconds(avgMs * remaining);
+                statsTable.AddRow("[dim]ETA (remaining)[/]", $"[yellow]{FormatTimeSpan(eta)}[/]");
+            }
+        }
+
+        if (nextCheckpointDueAt is null && lastCheckpointAt is not null)
+        {
+            statsTable.AddRow("[dim]Checkpoint[/]", "[green]✓ Safe to cancel (per-item)[/]");
+        }
+        else if (nextCheckpointDueAt is not null)
+        {
+            var cpRemaining = nextCheckpointDueAt.Value - DateTimeOffset.UtcNow;
+            if (cpRemaining <= TimeSpan.Zero)
+                statsTable.AddRow("[dim]Checkpoint[/]", "[green]✓ Save point due now[/]");
+            else
+                statsTable.AddRow("[dim]Checkpoint[/]", $"[yellow]⏳ Next save in {FormatTimeSpan(cpRemaining)}[/]");
+        }
+
+        return new Panel(statsTable)
+            .Header("[bold yellow]Throughput[/]")
+            .RoundedBorder()
+            .BorderColor(Color.Grey)
+            .Expand();
+    }
+
+    private sealed class InventoryPhaseProgress
+    {
+        public string Url { get; set; } = string.Empty;
+        public string ProjectName { get; set; } = string.Empty;
+        public long WorkItemsCount { get; set; }
+        public long RevisionsCount { get; set; }
+        public int ReposCount { get; set; }
+        public bool IsComplete { get; set; }
+        public string? Error { get; set; }
+    }
 }

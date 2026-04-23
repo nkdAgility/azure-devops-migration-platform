@@ -257,7 +257,7 @@ public sealed class InventoryCommand : ControlPlaneCommandBase<InventoryCommand.
         summary.LastUpdatedUtc = evt.Timestamp.UtcDateTime;
 
         if (evt.Stage == "Failed")
-            summary.Error = evt.Message;
+            summary.Error = "Project inventory failed";
     }
 
     // ── Rendering ─────────────────────────────────────────────────────────────
