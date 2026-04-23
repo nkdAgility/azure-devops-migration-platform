@@ -18,7 +18,7 @@ public static class TelemetryServiceExtensions
     /// Registers:
     /// <list type="bullet">
     ///   <item><see cref="TelemetryOptions"/> bound from the "Telemetry" config section.</item>
-    ///   <item><see cref="IMetricSnapshotStore"/> as a singleton.</item>
+    ///   <item><see cref="IJobMetricsStore"/> as a singleton.</item>
     ///   <item>A <see cref="PeriodicExportingMetricReader"/> wrapping <see cref="SnapshotMetricExporter"/>
     ///         added to the existing OTel <see cref="MeterProviderBuilder"/>.</item>
     /// </list>
@@ -33,7 +33,8 @@ public static class TelemetryServiceExtensions
         services.AddOptions<TelemetryOptions>()
                 .BindConfiguration(TelemetryOptions.SectionName);
 
-        services.AddSingleton<IMetricSnapshotStore, InMemoryMetricSnapshotStore>();
+        services.AddSingleton<IJobMetricsStore, InMemoryJobMetricsStore>();
+        services.AddSingleton<IJobSnapshotStore, InMemoryJobSnapshotStore>();
         services.AddSingleton<IMigrationMetrics, MigrationMetrics>();
         services.AddSingleton<IDiscoveryMetrics, DiscoveryMetrics>();
 
@@ -47,11 +48,11 @@ public static class TelemetryServiceExtensions
         services.AddOpenTelemetry()
                 .WithMetrics(mb =>
                 {
-                    // The IMetricSnapshotStore is resolved lazily via IServiceProvider
+                    // The IJobMetricsStore is resolved lazily via IServiceProvider
                     // to avoid referencing an instance before DI is fully built.
                     mb.AddReader(sp =>
                     {
-                        var store = sp.GetRequiredService<IMetricSnapshotStore>();
+                        var store = sp.GetRequiredService<IJobMetricsStore>();
                         var exporter = new SnapshotMetricExporter(store);
                         return new PeriodicExportingMetricReader(exporter, intervalMs);
                     });

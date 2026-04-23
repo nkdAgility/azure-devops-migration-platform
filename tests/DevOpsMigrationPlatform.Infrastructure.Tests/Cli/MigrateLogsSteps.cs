@@ -43,8 +43,8 @@ internal sealed class MigrateLogsSteps
         };
 
         _ctx.ClientMock
-            .Setup(c => c.FollowLogsAsync(_jobId, It.IsAny<CancellationToken>()))
-            .Returns<Guid, CancellationToken>((_, ct) =>
+            .Setup(c => c.FollowLogsAsync(_jobId, It.IsAny<CancellationToken>(), It.IsAny<long?>()))
+            .Returns<Guid, CancellationToken, long?>((_, ct, _) =>
                 MigrateLogsContext.YieldEventsAsync(events, ct));
     }
 
@@ -59,8 +59,8 @@ internal sealed class MigrateLogsSteps
             .ThrowsAsync(new HttpRequestException("403 Forbidden"));
 
         _ctx.ClientMock
-            .Setup(c => c.FollowLogsAsync(_jobId, It.IsAny<CancellationToken>()))
-            .Returns<Guid, CancellationToken>((_, _) => ThrowAsync());
+            .Setup(c => c.FollowLogsAsync(_jobId, It.IsAny<CancellationToken>(), It.IsAny<long?>()))
+            .Returns<Guid, CancellationToken, long?>((_, _, _) => ThrowAsync());
     }
 
 #pragma warning disable CS0162 // Unreachable code — yield break required for async iterator
@@ -155,7 +155,7 @@ internal sealed class MigrateLogsSteps
     public void ThenJobIsNotStopped()
     {
         // Verify the expected FollowLogsAsync call happened (SC-005 — job is unaffected by Ctrl+C).
-        _ctx.ClientMock.Verify(c => c.FollowLogsAsync(_jobId, It.IsAny<CancellationToken>()), Times.Once);
+        _ctx.ClientMock.Verify(c => c.FollowLogsAsync(_jobId, It.IsAny<CancellationToken>(), It.IsAny<long?>()), Times.Once);
         // No other calls (no cancel/stop endpoint hit).
         _ctx.ClientMock.VerifyNoOtherCalls();
     }

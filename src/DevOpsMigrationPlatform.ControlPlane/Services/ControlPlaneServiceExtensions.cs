@@ -16,7 +16,7 @@ public static class ControlPlaneServiceExtensions
         this IServiceCollection services,
         IConfiguration configuration)
     {
-        // Register snapshot exporter + IMetricSnapshotStore + TelemetryOptions.
+        // Register snapshot exporter + IJobMetricsStore + TelemetryOptions.
         services.AddTelemetryServices(configuration);
 
         // Job queue — holds all submitted Jobs (MigrationJob and DiscoveryJob) until an agent acquires a lease.
@@ -26,7 +26,10 @@ public static class ControlPlaneServiceExtensions
         services.AddSingleton<ILeaseJobResolver, StubLeaseJobResolver>();
 
         // In-memory telemetry snapshot store for push (POST) and pull (GET).
-        services.AddSingleton<JobTelemetryStore>();
+        services.AddSingleton<JobMetricsStore>();
+
+        // In-memory job snapshot store (Channel 3) for push (POST) and pull (GET).
+        services.AddSingleton<JobSnapshotStore>();
 
         // In-memory progress event ring buffer store.
         services.AddSingleton<JobProgressStore>();

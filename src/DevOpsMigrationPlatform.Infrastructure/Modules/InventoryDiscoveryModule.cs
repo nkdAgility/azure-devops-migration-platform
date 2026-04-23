@@ -51,6 +51,8 @@ public sealed class InventoryDiscoveryModule : IDiscoveryModule
         var store = context.ArtefactStore;
         var state = context.StateStore;
         var sink = context.ProgressSink;
+        var metricsStore = context.MetricsStore;
+        var snapshotStore = context.SnapshotStore;
 
         _logger.LogInformation("Inventory module starting for job {JobId}.", job.JobId);
 
@@ -154,14 +156,22 @@ public sealed class InventoryDiscoveryModule : IDiscoveryModule
                 {
                     Module = Name,
                     Stage = "Progress",
-                    LastProcessed = projectKey,
-                    TotalWorkItems = evt.WorkItemsCount,
-                    RevisionsProcessed = evt.RevisionsCount,
-                    AttachmentsProcessed = evt.ReposCount,
-                    Message = $"{evt.Url} / {evt.ProjectName}: {evt.WorkItemsCount} work items so far…",
+                    Message = $"{evt.Url}|{evt.ProjectName}",
                     Timestamp = DateTimeOffset.UtcNow,
                     LastCheckpointAt = new DateTimeOffset(lastCheckpoint, TimeSpan.Zero),
-                    NextCheckpointDueAt = new DateTimeOffset(lastCheckpoint, TimeSpan.Zero) + checkpointInterval
+                    NextCheckpointDueAt = new DateTimeOffset(lastCheckpoint, TimeSpan.Zero) + checkpointInterval,
+                    Metrics = new JobMetrics
+                    {
+                        Scope = new JobScopeCounters { WorkItemsTotal = evt.WorkItemsCount },
+                        Discovery = new DiscoveryCounters
+                        {
+                            Inventory = new InventoryCounters
+                            {
+                                RevisionsTotal = 0,
+                                RepositoriesTotal = 0
+                            }
+                        }
+                    }
                 });
 
                 // Flush CSV to disk at the checkpoint interval even mid-project so
@@ -244,22 +254,33 @@ public sealed class InventoryDiscoveryModule : IDiscoveryModule
             {
                 Module = Name,
                 Stage = evt.Error is not null ? "Failed" : "Inventory",
-                LastProcessed = $"{evt.Url}|{evt.ProjectName}",
-                TotalWorkItems = evt.WorkItemsCount,
-                RevisionsProcessed = evt.RevisionsCount,
-                AttachmentsProcessed = evt.ReposCount,
-                Message = evt.Error is not null
-                    ? $"{evt.Url} / {evt.ProjectName}: failed — {evt.Error}"
-                    : $"{evt.Url} / {evt.ProjectName}: {evt.WorkItemsCount} work items, {evt.RevisionsCount} revisions, {evt.ReposCount} repos",
+                Message = $"{evt.Url}|{evt.ProjectName}",
                 Timestamp = DateTimeOffset.UtcNow,
                 LastCheckpointAt = new DateTimeOffset(lastCheckpoint, TimeSpan.Zero),
-                NextCheckpointDueAt = new DateTimeOffset(lastCheckpoint, TimeSpan.Zero) + checkpointInterval
+                NextCheckpointDueAt = new DateTimeOffset(lastCheckpoint, TimeSpan.Zero) + checkpointInterval,
+                Metrics = new JobMetrics
+                {
+                    Scope = new JobScopeCounters { WorkItemsTotal = evt.WorkItemsCount },
+                    Discovery = new DiscoveryCounters
+                    {
+                        Inventory = new InventoryCounters
+                        {
+                            RevisionsTotal = evt.RevisionsCount,
+                            RepositoriesTotal = evt.ReposCount
+                        }
+                    }
+                }
             });
 
             // Flush CSV and JSON after every completed project so results are
             // visible on disk immediately — not only at checkpoint intervals.
             await store.WriteAsync(CsvOutputPath, csvBuilder.ToString(), ct).ConfigureAwait(false);
             await WriteInventoryJsonAsync(store, orgProjectData, ct).ConfigureAwait(false);
+
+            // Push aggregate metrics to the snapshot store (Channel 2) so the
+            // TUI/CLI can read them via GET /jobs/{id}/telemetry.
+            PushAggregateMetrics(metricsStore, orgProjectData, job);
+            PushSnapshot(snapshotStore, orgProjectData, job);
 
             // Checkpoint cursor at configured interval for resume support.
             if (DateTime.UtcNow - lastCheckpoint >= checkpointInterval)
@@ -291,6 +312,10 @@ public sealed class InventoryDiscoveryModule : IDiscoveryModule
         await store.WriteAsync(CsvOutputPath, csvBuilder.ToString(), ct).ConfigureAwait(false);
         await WriteInventoryJsonAsync(store, orgProjectData, ct).ConfigureAwait(false);
         await state.DeleteAsync(CursorKey, ct).ConfigureAwait(false);
+
+        // Final snapshot push
+        PushAggregateMetrics(metricsStore, orgProjectData, job);
+        PushSnapshot(snapshotStore, orgProjectData, job);
 
         sink.Emit(new ProgressEvent
         {
@@ -359,6 +384,131 @@ public sealed class InventoryDiscoveryModule : IDiscoveryModule
         await store.WriteAsync(JsonOutputPath, json, ct).ConfigureAwait(false);
     }
 
+    /// <summary>
+    /// Pushes aggregate <see cref="JobMetrics"/> to the snapshot store (Channel 2)
+    /// so the Control Plane telemetry endpoint reflects discovery progress.
+    /// </summary>
+    private static void PushAggregateMetrics(
+        IJobMetricsStore? metricsStore,
+        Dictionary<string, List<(string Project, long WorkItems, long Revisions, int Repos, bool IsComplete, string? Error)>> orgProjectData,
+        DiscoveryJob job)
+    {
+        if (metricsStore is null)
+            return;
+
+        int orgsTotal = orgProjectData.Count;
+        int projectsTotal = 0, projectsCompleted = 0, projectsFailed = 0;
+        long totalWi = 0, totalRev = 0;
+        int totalRepos = 0;
+        int orgsCompleted = 0, orgsFailed = 0;
+
+        foreach (var kvp in orgProjectData)
+        {
+            var projects = kvp.Value;
+            bool allDone = true;
+            bool anyFailed = false;
+            foreach (var p in projects)
+            {
+                projectsTotal++;
+                if (p.Error is not null) { projectsFailed++; anyFailed = true; }
+                else if (p.IsComplete) projectsCompleted++;
+                else allDone = false;
+                totalWi += p.WorkItems;
+                totalRev += p.Revisions;
+                totalRepos += p.Repos;
+            }
+            if (allDone && projects.Count > 0)
+            {
+                if (anyFailed) orgsFailed++; else orgsCompleted++;
+            }
+        }
+
+        // Include configured orgs/projects that haven't started yet
+        foreach (var org in job.Organisations)
+        {
+            var url = org.Endpoint.GetResolvedUrl();
+            if (!orgProjectData.ContainsKey(url))
+                orgsTotal++;
+        }
+
+        metricsStore.Update(new JobMetrics
+        {
+            Timestamp = DateTimeOffset.UtcNow,
+            Scope = new JobScopeCounters
+            {
+                OrganisationsTotal = orgsTotal,
+                OrganisationsCompleted = orgsCompleted,
+                OrganisationsFailed = orgsFailed,
+                ProjectsTotal = projectsTotal,
+                ProjectsCompleted = projectsCompleted,
+                ProjectsFailed = projectsFailed,
+                WorkItemsTotal = totalWi
+            },
+            Discovery = new DiscoveryCounters
+            {
+                Inventory = new InventoryCounters
+                {
+                    RevisionsTotal = totalRev,
+                    RepositoriesTotal = totalRepos
+                }
+            }
+        });
+    }
+
+    /// <summary>
+    /// Pushes a <see cref="JobSnapshot"/> (Channel 3) with per-org/project inventory state.
+    /// </summary>
+    private static void PushSnapshot(
+        IJobSnapshotStore? snapshotStore,
+        Dictionary<string, List<(string Project, long WorkItems, long Revisions, int Repos, bool IsComplete, string? Error)>> orgProjectData,
+        DiscoveryJob job)
+    {
+        if (snapshotStore is null)
+            return;
+
+        var orgSnapshots = new List<OrgSnapshot>();
+        foreach (var org in job.Organisations)
+        {
+            var url = org.Endpoint.GetResolvedUrl();
+            var projectSnapshots = new List<ProjectSnapshot>();
+
+            if (orgProjectData.TryGetValue(url, out var projects))
+            {
+                foreach (var p in projects)
+                {
+                    projectSnapshots.Add(new ProjectSnapshot
+                    {
+                        Name = p.Project,
+                        Status = p.Error is not null ? ProjectStatus.Failed
+                               : p.IsComplete ? ProjectStatus.Completed
+                               : ProjectStatus.InProgress,
+                        Discovery = new DiscoveryCounters
+                        {
+                            Inventory = new InventoryCounters
+                            {
+                                RevisionsTotal = p.Revisions,
+                                RepositoriesTotal = p.Repos
+                            }
+                        }
+                    });
+                }
+            }
+
+            orgSnapshots.Add(new OrgSnapshot
+            {
+                Url = url,
+                Name = org.Endpoint.GetResolvedUrl(),
+                Projects = projectSnapshots
+            });
+        }
+
+        snapshotStore.Update(new JobSnapshot
+        {
+            Timestamp = DateTimeOffset.UtcNow,
+            Organisations = orgSnapshots
+        });
+    }
+
     private static async Task<string?> ReadCursorAsync(IStateStore state, CancellationToken ct)
     {
         var raw = await state.ReadAsync(CursorKey, ct).ConfigureAwait(false);
@@ -405,12 +555,20 @@ public sealed class InventoryDiscoveryModule : IDiscoveryModule
         {
             Module = "Inventory",
             Stage = "Inventory",
-            LastProcessed = $"{url}|{projectName}",
-            TotalWorkItems = workItems,
-            RevisionsProcessed = revisions,
-            AttachmentsProcessed = repos,
-            Message = $"{url} / {projectName}: {workItems} work items, {revisions} revisions, {repos} repos (resumed)",
-            Timestamp = DateTimeOffset.UtcNow
+            Message = $"{url}|{projectName}",
+            Timestamp = DateTimeOffset.UtcNow,
+            Metrics = new JobMetrics
+            {
+                Scope = new JobScopeCounters { WorkItemsTotal = workItems },
+                Discovery = new DiscoveryCounters
+                {
+                    Inventory = new InventoryCounters
+                    {
+                        RevisionsTotal = revisions,
+                        RepositoriesTotal = repos
+                    }
+                }
+            }
         });
     }
 

@@ -6,6 +6,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using OpenTelemetry;
 using OpenTelemetry.Metrics;
+using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 
 namespace Microsoft.Extensions.Hosting;
@@ -17,9 +18,9 @@ namespace Microsoft.Extensions.Hosting;
 /// </summary>
 public static class Extensions
 {
-    public static IHostApplicationBuilder AddServiceDefaults(this IHostApplicationBuilder builder)
+    public static IHostApplicationBuilder AddServiceDefaults(this IHostApplicationBuilder builder, string? serviceName = null)
     {
-        builder.ConfigureOpenTelemetry();
+        builder.ConfigureOpenTelemetry(serviceName);
 
         builder.AddDefaultHealthChecks();
 
@@ -34,7 +35,7 @@ public static class Extensions
         return builder;
     }
 
-    public static IHostApplicationBuilder ConfigureOpenTelemetry(this IHostApplicationBuilder builder)
+    public static IHostApplicationBuilder ConfigureOpenTelemetry(this IHostApplicationBuilder builder, string? serviceName = null)
     {
         builder.Logging.AddOpenTelemetry(logging =>
         {
@@ -42,8 +43,19 @@ public static class Extensions
             logging.IncludeScopes = true;
         });
 
-        builder.Services.AddOpenTelemetry()
-            .WithMetrics(metrics =>
+        var otel = builder.Services.AddOpenTelemetry();
+
+        if (!string.IsNullOrEmpty(serviceName))
+        {
+            otel.ConfigureResource(rb => rb.AddAttributes(
+                new System.Collections.Generic.Dictionary<string, object>
+                {
+                    { "service.name", serviceName },
+                    { "service.namespace", DevOpsMigrationPlatform.Abstractions.WellKnownServiceNames.Namespace }
+                }));
+        }
+
+        otel.WithMetrics(metrics =>
             {
                 metrics.AddAspNetCoreInstrumentation()
                        .AddHttpClientInstrumentation()

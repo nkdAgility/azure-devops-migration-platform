@@ -13,11 +13,19 @@
 |------|---------|
 | **Module** | A domain-scoped unit that implements `IModule`. Runs inside the Migration Agent. Handles one concern (e.g. `WorkItems`, `Teams`). Has both export and import paths. |
 | **Extension** | A named sub-data collector declared inside a module config block (e.g. `Revisions`, `Links`, `Attachments`). Enabled/disabled independently per run. |
-| **Tool** | A shared, cross-cutting service injected into one or more modules (e.g. `FieldMappingTool`, `NodeStructureTool`). Declared at the module or config level. Not a CLI command. |
+| **Tool** | A shared, cross-cutting service declared once at MigrationPlatform config root (e.g. `FieldMappingTool`, `NodeStructureTool`). Extensions load tools by reference and may override selected values. Not a CLI command. |
 | **Scope** | A mandatory selection criterion on a module (e.g. `wiql` query, project name). |
 | **Discovery command** | A `discovery *` CLI sub-command that runs locally without submitting a `MigrationJob`. Reads source systems directly via REST. |
 | **CLI feature** | A `queue`, `config`, `manage`, or `admin` command addition. |
 | **Config feature** | A new field or schema addition to the scenario JSON config. |
+
+### Tool Resolution Model (Canonical for This Proposal)
+
+- Tools are declared at `MigrationPlatform.tools[]` (single source of truth for defaults).
+- Modules do not declare tool definitions.
+- Extensions load tools via `extensions[].tools[]` references.
+- Each extension tool reference can override a subset of values for that extension only.
+- Effective tool settings = migration-level tool defaults + extension-level overrides.
 
 Status legend:
 
@@ -83,7 +91,8 @@ Status legend:
 | # | Feature | Status | Summary |
 |---|---------|--------|---------|
 | P1 | [Checkpoint Reconciliation](#p1-checkpoint-reconciliation) | 🆕 ❌ | Rebuild missing/corrupted checkpoint state from existing package data across all modules |
-| P2 | [Three-Channel Telemetry Model](#p2-three-channel-telemetry-model) | 🆕 ❌ | Rationalise Events, Metrics, and Snapshot into distinct channels with correct layering |
+| P2 | [Three-Channel Telemetry Model](#p2-three-channel-telemetry-model) | ✅ | Rationalise Events, Metrics, and Snapshot into distinct channels with correct layering |
+| **P3** | **[Process-per-Component Standalone Mode](#p3-process-per-component-standalone-mode)** | **🆕 ❌ 🔴 CRITICAL** | **Eliminate OTel instrumentation bleed in standalone mode by running ControlPlane and Agent as separate processes** |
 
 ---
 
@@ -99,33 +108,53 @@ Status legend:
 
 #### New Tool: `FieldMappingTool` (see [T1](#t1-fieldmappingtool))
 
-Declared in the module config's `tools` array. The module passes each revision's fields through the tool before writing `revision.json`.
+Declared once in `MigrationPlatform.tools[]`. The `WorkItems/Revisions` extension loads it by reference and may override selected values before writing `revision.json`.
 
 ```json
 {
-  "name": "WorkItems",
-  "tools": [
-    {
-      "type": "FieldMapping",
-      "applyTo": ["User Story", "Bug"],
-      "maps": [
-        { "type": "FieldToField",    "sourceField": "Custom.OldField", "targetField": "Custom.NewField" },
-        { "type": "FieldValue",      "field": "System.State", "valueMap": { "Active": "In Progress", "Resolved": "Done" } },
-        { "type": "FieldLiteral",    "field": "Custom.MigratedBy", "value": "migration-platform" },
-        { "type": "FieldToTag",      "field": "System.AreaPath" },
-        { "type": "FieldValueToTag", "field": "System.State", "pattern": "^Resolved$" },
-        { "type": "RegexField",      "field": "System.Title", "pattern": "^\\[OLD\\]\\s*", "replacement": "" },
-        { "type": "FieldClear",      "field": "Custom.LegacyId" },
-        { "type": "FieldSkip",       "field": "Custom.InternalOnly" },
-        { "type": "FieldMerge",      "sourceFields": ["System.Title", "Custom.Subtitle"], "targetField": "System.Title", "format": "{0} — {1}" },
-        { "type": "FieldCalculation","targetField": "Custom.Score", "expression": "..." },
-        { "type": "FieldToTagField", "sourceFields": ["System.Tags", "Custom.Labels"], "targetField": "System.Tags" },
-        { "type": "TreeToTagField",  "field": "System.AreaPath", "targetField": "System.Tags" },
-        { "type": "MultiValueConditional", "conditions": [...], "targetField": "...", "value": "..." },
-        { "type": "FieldToFieldMulti", "maps": [ { "sourceField": "...", "targetField": "..." } ] }
-      ]
+  "MigrationPlatform": {
+    "tools": [
+      {
+        "id": "fieldmap-default",
+        "type": "FieldMapping",
+        "applyTo": ["User Story", "Bug"],
+        "maps": [
+          { "type": "FieldToField",    "sourceField": "Custom.OldField", "targetField": "Custom.NewField" },
+          { "type": "FieldValue",      "field": "System.State", "valueMap": { "Active": "In Progress", "Resolved": "Done" } },
+          { "type": "FieldLiteral",    "field": "Custom.MigratedBy", "value": "migration-platform" },
+          { "type": "FieldToTag",      "field": "System.AreaPath" },
+          { "type": "FieldValueToTag", "field": "System.State", "pattern": "^Resolved$" },
+          { "type": "RegexField",      "field": "System.Title", "pattern": "^\\[OLD\\]\\s*", "replacement": "" },
+          { "type": "FieldClear",      "field": "Custom.LegacyId" },
+          { "type": "FieldSkip",       "field": "Custom.InternalOnly" },
+          { "type": "FieldMerge",      "sourceFields": ["System.Title", "Custom.Subtitle"], "targetField": "System.Title", "format": "{0} — {1}" },
+          { "type": "FieldCalculation","targetField": "Custom.Score", "expression": "..." },
+          { "type": "FieldToTagField", "sourceFields": ["System.Tags", "Custom.Labels"], "targetField": "System.Tags" },
+          { "type": "TreeToTagField",  "field": "System.AreaPath", "targetField": "System.Tags" },
+          { "type": "MultiValueConditional", "conditions": [...], "targetField": "...", "value": "..." },
+          { "type": "FieldToFieldMulti", "maps": [ { "sourceField": "...", "targetField": "..." } ] }
+        ]
+      }
+    ],
+    "Modules": {
+      "WorkItems": {
+        "Enabled": true,
+        "Extensions": {
+          "Revisions": {
+            "Enabled": true,
+            "tools": [
+              {
+                "ref": "fieldmap-default",
+                "overrides": {
+                  "applyTo": ["User Story", "Bug", "Task"]
+                }
+              }
+            ]
+          }
+        }
+      }
     }
-  ]
+  }
 }
 ```
 
@@ -164,20 +193,40 @@ Declared in the module config's `tools` array. The module passes each revision's
 
 ```json
 {
-  "name": "WorkItems",
-  "tools": [
-    {
-      "type": "NodeStructure",
-      "areaMap":      { "OldOrg\\OldProject\\Team A": "NewOrg\\NewProject\\Team A - Migrated" },
-      "iterationMap": { "OldOrg\\OldProject\\Sprint 1": "NewOrg\\NewProject\\Sprint 1" },
-      "areaLanguageOverride":      "Area",
-      "iterationLanguageOverride": "Iteration",
-      "createMissingNodes": true,
-      "skipRevisionWithInvalidAreaPath": false,
-      "skipRevisionWithInvalidIterationPath": false,
-      "replicateAllExistingNodes": false
+  "MigrationPlatform": {
+    "tools": [
+      {
+        "id": "nodes-default",
+        "type": "NodeStructure",
+        "areaMap":      { "OldOrg\\OldProject\\Team A": "NewOrg\\NewProject\\Team A - Migrated" },
+        "iterationMap": { "OldOrg\\OldProject\\Sprint 1": "NewOrg\\NewProject\\Sprint 1" },
+        "areaLanguageOverride":      "Area",
+        "iterationLanguageOverride": "Iteration",
+        "createMissingNodes": true,
+        "skipRevisionWithInvalidAreaPath": false,
+        "skipRevisionWithInvalidIterationPath": false,
+        "replicateAllExistingNodes": false
+      }
+    ],
+    "Modules": {
+      "WorkItems": {
+        "Enabled": true,
+        "Extensions": {
+          "Revisions": {
+            "Enabled": true,
+            "tools": [
+              {
+                "ref": "nodes-default",
+                "overrides": {
+                  "createMissingNodes": true
+                }
+              }
+            ]
+          }
+        }
+      }
     }
-  ]
+  }
 }
 ```
 
@@ -206,16 +255,31 @@ Declared in the module config's `tools` array. The module passes each revision's
 
 ```json
 {
-  "name": "WorkItems",
-  "tools": [
-    {
-      "type": "WorkItemTypeMapping",
-      "map": {
-        "User Story":    "Product Backlog Item",
-        "Issue":         "Impediment"
+  "MigrationPlatform": {
+    "tools": [
+      {
+        "id": "wit-map-default",
+        "type": "WorkItemTypeMapping",
+        "map": {
+          "User Story":    "Product Backlog Item",
+          "Issue":         "Impediment"
+        }
+      }
+    ],
+    "Modules": {
+      "WorkItems": {
+        "Enabled": true,
+        "Extensions": {
+          "Revisions": {
+            "Enabled": true,
+            "tools": [
+              { "ref": "wit-map-default" }
+            ]
+          }
+        }
       }
     }
-  ]
+  }
 }
 ```
 
@@ -390,7 +454,7 @@ Options that belong directly on the `WorkItems` module config rather than as sep
 **Used by**: `WorkItemsModule`  
 **Purpose**: Apply a declared set of field transformation rules to each work item revision before it is written to the package (export) or applied to the target (import).
 
-**Invocation**: Declared in the `tools` array of the `WorkItems` module config. See [M1](#m1-workitemsmodule--fieldmapping) for the full map type list and JSON schema.
+**Invocation**: Declared in `MigrationPlatform.tools[]`, then loaded by extension references (for example `WorkItems/Revisions`) with optional `overrides`. See [M1](#m1-workitemsmodule--fieldmapping) for the full map type list and JSON schema.
 
 **Key design rules**:
 - Maps are applied in declaration order.
@@ -405,7 +469,7 @@ Options that belong directly on the `WorkItems` module config rather than as sep
 **Used by**: `WorkItemsModule`, `TeamsModule`  
 **Purpose**: Remap `System.AreaPath` and `System.IterationPath` values before write/import; optionally create missing nodes in the target via the ADO Classification Nodes API.
 
-**Invocation**: Declared in the `tools` array of the relevant module config. See [M2](#m2-workitemsmodule--nodestructure-tool) for the JSON schema.
+**Invocation**: Declared in `MigrationPlatform.tools[]`, then loaded by relevant extension references with optional overrides. See [M2](#m2-workitemsmodule--nodestructure-tool) for the JSON schema.
 
 **Key design rules**:
 - Node creation calls are idempotent (check before POST).
@@ -420,7 +484,7 @@ Options that belong directly on the `WorkItems` module config rather than as sep
 **Used by**: `WorkItemsModule`  
 **Purpose**: Translate source work item type names to target names at both export time (stored in package) and import time (used for item creation).
 
-**Invocation**: Declared in the `tools` array of the `WorkItems` module config. See [M3](#m3-workitemsmodule--workitemtypemapping-tool) for the JSON schema.
+**Invocation**: Declared in `MigrationPlatform.tools[]`, then loaded by extension references (typically `WorkItems/Revisions`). See [M3](#m3-workitemsmodule--workitemtypemapping-tool) for the JSON schema.
 
 **Features**:
 - Bidirectional: a map entry translates both the type name in the revision and any type-name references in link targets.
@@ -434,52 +498,52 @@ Options that belong directly on the `WorkItems` module config rather than as sep
 **Used by**: `WorkItemsModule`  
 **Purpose**: Apply regex-based find-and-replace rules to string field values (e.g. stripping legacy prefixes, sanitising invalid characters).
 
-**Invocation**: Declared in the `tools` array of the `WorkItems` module config.
+**Invocation**: Declared in `MigrationPlatform.tools[]`, then loaded by extension references with optional overrides.
 
 ```json
-{
-  "type": "StringManipulator",
-  "applyTo": ["System.Title", "System.Description"],
-  "rules": [
-    { "pattern": "^\\[LEGACY\\]\\s*",    "replacement": "" },
-    { "pattern": "[\\x00-\\x08\\x0B\\x0C\\x0E-\\x1F]", "replacement": "" }
-  ]
-}
-```
-
-**Features**:
-- `applyTo` field list (applies to all string fields if omitted).
-- Multiple ordered rules per invocation.
+  "MigrationPlatform": {
+    "tools": [
+      {
+        "id": "workitem-resolution-default",
+        "type": "WorkItemResolution",
+        "default": {
+          "strategy": "ReflectedWorkItemIdField",
+          "field": "Custom.ReflectedWorkItemId"
 - Invalid character cleanup as a named built-in rule: `{ "type": "StripControlCharacters" }`.
-- The tool is injected as `IStringManipulatorTool`.
-
----
-
-### T5: GitRepositoryMappingTool
-
-**Used by**: `GitModule`, `WorkItemsModule` (link rewriting in `EmbeddedImages` and `Links` extensions)  
-**Purpose**: Map source repository names to target repository names; rewrite embedded git:// or PR URLs in work item HTML fields.
-
-**Invocation**: Declared in the `tools` array of `GitModule` and/or `WorkItems` module config.
-
-```json
-{
-  "type": "GitRepositoryMapping",
-  "map": {
-    "OldRepoName":    "NewRepoName",
-    "LegacyService":  "platform-service"
-  }
-}
+        "overrides": [
+          {
+            "applyTo": ["Shared Steps", "Shared Parameter"],
+            "strategy": "ReflectedWorkItemIdHyperlink",
+            "hyperlinkComment": "ReflectedWorkItemId"
+          },
+          {
+            "applyTo": ["Test Case"],
+            "strategy": "ReflectedWorkItemIdField",
+            "field": "Custom.AltReflectedId"
+          }
+        ]
+      }
+    ],
+    "Modules": {
+      "WorkItems": {
+        "Enabled": true,
+        "Extensions": {
+          "Revisions": {
+            "Enabled": true,
+            "tools": [
+              {
+                "ref": "workitem-resolution-default"
+              }
+            ]
 ```
-
 ---
-
+      }
 ### T6: ChangesetMappingTool
-
+  }
 **Used by**: `WorkItemsModule` (link rewriting for TFVC changeset links)  
 **Purpose**: Map TFS changeset IDs to Git commit SHAs so that `Fixed In Changeset` links survive migration.
 
-**Invocation**: Declared in the `tools` array of `WorkItems` module config.
+**Invocation**: Declared in `MigrationPlatform.tools[]`, then loaded by `WorkItems` extension references.
 
 ```json
 {
@@ -508,9 +572,9 @@ The ADO process model allows customisation only of *inherited* work item types. 
 
 ```json
 {
-  "name": "WorkItems",
   "tools": [
     {
+      "id": "workitem-resolution-default",
       "type": "WorkItemResolution",
       "default": {
         "strategy": "ReflectedWorkItemIdField",
@@ -526,6 +590,22 @@ The ADO process model allows customisation only of *inherited* work item types. 
           "applyTo": ["Test Case"],
           "strategy": "ReflectedWorkItemIdField",
           "field": "Custom.AltReflectedId"
+        }
+      ]
+    }
+  ],
+  "modules": [
+    {
+      "name": "WorkItems",
+      "extensions": [
+        {
+          "type": "Import",
+          "enabled": true,
+          "tools": [
+            {
+              "ref": "workitem-resolution-default"
+            }
+          ]
         }
       ]
     }
@@ -873,139 +953,89 @@ As an interim measure before the full `Reconcile` job is built, individual modul
 
 ---
 
-### P2: Three-Channel Telemetry Model
+### P3: Process-per-Component Standalone Mode
 
-**Current state**: The platform conflates three distinct concerns in two channels:
-- `ProgressEvent` carries envelope fields (`Module`, `Stage`, `Message`, `Timestamp`) **and** per-event counter fields (`TotalWorkItems`, `WorkItemsProcessed`, `ExternalLinksFound`, etc.). Counter fields are accumulated by the TUI from raw events — wrong layer.
-- `MetricSnapshot` and `DiscoveryMetricSnapshot` are parallel flat types with no shared structure. `DiscoveryMetricSnapshot` is assembled in `TuiMainView` from accumulated event fields — it belongs in the agent.
-- Late-joining clients (connecting after a job has been running) have no way to catch up: the SSE stream does not replay history. The workaround is embedding a `MetricSnapshot` inside `ProgressEvent.Metrics` as a transport hack.
+> **🔴 CRITICAL — Next Priority**
+>
+> This is the highest-priority platform feature. The current quick fix (exporter-only registration in `LocalStackHost`) is a temporary workaround with known limitations. This proposal is the proper architectural fix.
 
-**Why it matters**: The TUI accumulates state it shouldn't own, making it fragile and incorrect on reconnect. The agent is not the authoritative source for its own counters. Adding new counter types requires changes in both the agent and the TUI. Late-joining clients get a stale or empty display until the next event arrives.
+**Current state**: In standalone mode (`devopsmigration export --config ...`), the CLI hosts the ControlPlane API and MigrationAgent worker **in-process** via `LocalStackHost`. Each component creates its own `IHostApplicationBuilder` and `IServiceProvider` (separate DI containers), but they all run in the **same OS process**.
 
-**Proposed solution**: Three explicitly separate types — **`JobEvent`**, **`JobMetrics`**, **`JobSnapshot`** — each with a single, non-overlapping responsibility:
+**The problem**: OpenTelemetry's `AddHttpClientInstrumentation()` hooks `System.Net.Http` via `System.Diagnostics.DiagnosticListener`, which is **process-global** (static singleton). When any `HttpClient` in the process makes a call, **all** registered OTel pipelines capture the span and attribute it to their own `service.name`. This causes phantom connections on the Application Insights Application Map:
 
-| Type | OTel analogy | Frequency | Size | Direction |
-|------|-------------|-----------|------|-----------|
-| `JobEvent` | OTel Event | Every state change | Tiny | Agent → SSE fan-out → client |
-| `JobMetrics` | OTel Metrics | Periodic timer | Small | Agent push → Control Plane stores latest → client polls |
-| `JobSnapshot` | — | On demand / project boundary | Large | Agent push → Control Plane stores latest → client fetches on connect |
+- **CLI → dev.azure.com** (phantom) — the CLI's OTel pipeline captures the Agent's ADO HTTP calls
+- **ControlPlane → dev.azure.com** (phantom) — the ControlPlane's OTel pipeline captures the Agent's ADO HTTP calls
+- **CLI → Agent** (phantom) — actually CLI → ControlPlane, but bleed causes mis-attribution
 
----
+The correct topology is: `CLI ↔ ControlPlane ↔ Agent ↔ dev.azure.com`
 
-#### Channel 1: JobEvent
+**Quick fix in place** (temporary):
+- `LocalStackHost` does NOT call `AddServiceDefaults()` for the in-process ControlPlane (no OTel at all — it only serves HTTP).
+- `LocalStackHost` registers the Agent with exporter-only telemetry (`ConfigureAgentExporterOnly`) — custom meters and trace sources exported to Azure Monitor, but **no** `AddHttpClientInstrumentation()`.
+- The CLI's own pipeline still has `AddHttpClientInstrumentation()`, so CLI → ControlPlane dependency traces are captured — but Agent → ADO calls also appear as CLI dependencies. This is an accepted trade-off.
 
-`POST /lease/{id}/progress` → fan-out via `GET /jobs/{id}/events` (SSE)
+**Why the quick fix is insufficient**:
+1. Agent → ADO calls appear as CLI → ADO on the Application Map (misleading topology).
+2. The Agent's custom `ActivitySource` traces (e.g. `WorkItemExport`, `AttachmentDownload`) are exported by the Agent's pipeline but HTTP dependency spans are captured by the CLI pipeline — split attribution.
+3. No Live Metrics for the in-process ControlPlane or Agent (they use standalone exporters, not `UseAzureMonitor()` distro).
+4. Any future component that registers `AddHttpClientInstrumentation()` will reintroduce the bleed.
 
-**Purpose**: real-time notification of state changes. Maps to an OTel Event — something happened at a point in time.
+**Proposed solution**: Launch ControlPlane and Agent as **separate child processes** instead of in-process hosts.
 
-- `JobEvent` (`ProgressEvent`) is a **pure envelope**: `Module`, `Stage`, `Message`, `Timestamp` only.
-- No counter fields. No embedded data payloads (except the TFS subprocess constraint — see below).
-- The TUI uses events to update the live log panel. It never accumulates counters from events.
-
----
-
-#### Channel 2: JobMetrics
-
-`POST /lease/{id}/metrics` → stored by `JobMetricsStore`; polled via `GET /jobs/{id}/metrics`
-
-**Purpose**: aggregate counters for dashboards and OTel metrics export. Maps to OTel Metrics — what is the current count.
-
-- Agent pushes a `JobMetrics` record on a background timer (`ControlPlaneTelemetryTimer`). Frequency: every few seconds.
-- Aggregates across all orgs and projects — totals only, no per-project breakdown.
-- Raw counters are the **agent's responsibility**. The CLI/TUI only derives display values (percentages, rates) — it never accumulates from events.
+#### Design
 
 ```
-JobMetrics
-├── Scope: JobScopeCounters          // shared by all job types
-│   ├── OrganisationsTotal/Completed/Failed
-│   ├── ProjectsTotal/Completed/Failed
-│   └── WorkItemsTotal
-├── Migration: MigrationCounters?    // null for discovery jobs; shared type reused per-project in JobSnapshot
-│   └── WorkItems: WorkItemCounters
-│       ├── Attempted/Completed/Failed/Skipped
-│       ├── RevisionsProcessed
-│       └── Attachments: AttachmentCounters?
-│           └── Processed/Failed/TotalBytes
-└── Discovery: DiscoveryCounters?    // null for migration jobs; shared type reused per-project in JobSnapshot
-    ├── Inventory: InventoryCounters?
-    │   ├── RevisionsTotal
-    │   ├── RepositoriesTotal
-    │   └── CheckpointsSaved
-    └── Dependencies: DependencyCounters?
-        ├── WorkItemsAnalysed
-        ├── ExternalLinksFound
-        ├── CrossProjectLinks
-        ├── CrossOrgLinks
-        └── CheckpointsSaved
+CLI process (parent)
+├── Starts ControlPlane process (child)
+│   └── Runs ControlPlaneHost (full AddServiceDefaults, Live Metrics, correct service.name)
+├── Waits for health check
+├── Starts Agent process (child)
+│   └── Runs MigrationAgent (full AddServiceDefaults, Live Metrics, correct service.name)
+└── CLI's own OTel pipeline (standalone exporters, CLI service.name)
+    └── Only captures CLI → ControlPlane HTTP calls (correct topology)
 ```
 
----
+Each process has its own `DiagnosticListener` instance — no bleed possible. All three components appear correctly on the Application Map with proper service names, dependency arrows, and Live Metrics.
 
-#### Channel 3: JobSnapshot
+#### Implementation approach
 
-`POST /lease/{id}/snapshot` → stored by `JobSnapshotStore`; retrieved via `GET /jobs/{id}/snapshot`
+1. **Reuse existing entry points**: `ControlPlaneHost/Program.cs` and `MigrationAgent/Program.cs` already exist as standalone binaries. `LocalStackHost` launches them as child processes via `System.Diagnostics.Process`.
+2. **Port negotiation**: CLI picks a free port, passes it to ControlPlane via command-line arg or env var. Agent receives the ControlPlane URL the same way.
+3. **Lifecycle management**: CLI manages child process lifecycle — starts both, monitors health, forwards cancellation (Ctrl+C), and ensures cleanup on exit.
+4. **Config forwarding**: Both child processes need `appsettings.json` and the scenario config path. Pass via env vars or temp config file.
+5. **Log routing**: Child process stdout/stderr is captured by the CLI for diagnostic display. The ControlPlane's SSE stream remains the primary progress channel.
+6. **Single-binary distribution**: The CLI package must include `ControlPlaneHost` and `MigrationAgent` binaries. Build scripts (`build.ps1`) must produce all three.
+7. **Fallback**: If child process launch fails (e.g. missing binaries), fall back to current in-process mode with a warning about Application Map accuracy.
 
-**Purpose**: full per-org, per-project state for late-joining clients. Not streamed, not polled — fetched once on connect.
-
-- Agent pushes a `JobSnapshot` at project boundaries (whenever a project completes). Less frequent than metrics — it's larger.
-- The Control Plane stores only the **latest** `JobSnapshot` per job — overwrite, no history.
-- A client connecting **mid-job** calls `GET /jobs/{id}/snapshot` once on connect to populate the full org/project table, then uses `JobEvent` and `JobMetrics` for live updates.
-
-`JobSnapshot` is structured as orgs → projects. The counter types (`MigrationCounters`, `DiscoveryCounters`, etc.) are **shared with `JobMetrics`** — same types, different scope (per-project here vs. aggregate in `JobMetrics`).
-
-```
-JobSnapshot
-└── Organisations: OrgSnapshot[]
-    ├── Url: string
-    ├── Name: string
-    └── Projects: ProjectSnapshot[]
-        ├── Name: string
-        ├── Status: ProjectStatus        // Pending | InProgress | Completed | Failed
-        ├── Migration: MigrationCounters?  // same type as JobMetrics.Migration, scoped to this project
-        └── Discovery: DiscoveryCounters?  // same type as JobMetrics.Discovery, scoped to this project
-```
-
-For a **migration job**: one `OrgSnapshot`, one `ProjectSnapshot`, `Migration` populated, `Discovery` null.
-For a **discovery job**: one or more `OrgSnapshot`s, many `ProjectSnapshot`s, `Discovery` populated, `Migration` null.
-
-The `allProjectStats` dictionary already maintained by `DependencyDiscoveryModule` (and equivalent per-project state in inventory/migration modules) feeds directly into the `ProjectSnapshot` list.
-
----
-
-#### TFS Subprocess Constraint
-
-The TFS Export Agent targets .NET Framework 4.8 and **cannot make HTTP calls**. It communicates via NDJSON written to stdout, parsed by `TfsExporterProcessAdapter`. The `ProgressEvent.Metrics: MetricSnapshot?` field remains as the **subprocess-only transport** for aggregate counters across this boundary. It is not a design error — it is a necessary constraint of the subprocess model.
-
----
-
-#### Affected Files
+#### Affected files
 
 | File | Change |
 |------|--------|
-| `Abstractions/Models/ProgressEvent.cs` | Remove all counter fields; keep envelope only |
-| `Abstractions/Models/MetricSnapshot.cs` | Delete — replaced by `JobMetrics` |
-| `Abstractions/Models/DiscoveryMetricSnapshot.cs` | Delete — replaced by `JobMetrics` |
-| `Abstractions/Models/JobMetrics.cs` | New — aggregate-only counters |
-| `Abstractions/Models/JobSnapshot.cs` | New — `OrgSnapshot[]` hierarchy |
-| `Abstractions/Models/OrgSnapshot.cs` | New — org entry in `JobSnapshot` |
-| `Abstractions/Models/ProjectSnapshot.cs` | New — project entry in `OrgSnapshot`; reuses `MigrationCounters`/`DiscoveryCounters` |
-| `Abstractions/Models/MigrationCounters.cs` | New — shared by `JobMetrics.Migration` and `ProjectSnapshot.Migration` |
-| `Abstractions/Models/DiscoveryCounters.cs` | New — shared by `JobMetrics.Discovery` and `ProjectSnapshot.Discovery` |
-| `MigrationAgent/ControlPlaneTelemetryTimer.cs` | Push `JobMetrics`; push `JobSnapshot` at project boundaries |
-| `ControlPlane/Controllers/TelemetryController.cs` | Split into `/metrics` and `/snapshot` endpoints |
-| `ControlPlane/Storage/JobMetricsStore.cs` | Rename from `JobTelemetryStore`; stores latest `JobMetrics` |
-| `ControlPlane/Storage/JobSnapshotStore.cs` | New — stores latest `JobSnapshot` per job |
-| `CLI.Migration/Views/TuiMainView.cs` | Delete counter accumulation logic; call snapshot on connect; poll metrics on refresh cycle |
+| `CLI.Migration/LocalStackHost.cs` | Replace in-process `WebApplication.CreateBuilder()` / `Host.CreateApplicationBuilder()` with `System.Diagnostics.Process.Start()` for ControlPlane and Agent binaries |
+| `CLI.Migration/LocalStackHost.cs` | Remove `ConfigureAgentExporterOnly()` helper — no longer needed |
+| `CLI.Migration/MigrationPlatformHost.cs` | Remove `AddHttpClientInstrumentation()` workaround comments — HTTP instrumentation is now safe |
+| `CLI.Migration/DevOpsMigrationPlatform.CLI.Migration.csproj` | Remove ServiceDefaults project reference (no longer hosts in-process) |
+| `ControlPlaneHost/Program.cs` | Accept `--port` argument for dynamic port binding |
+| `MigrationAgent/Program.cs` | Accept `--control-plane-url` argument for dynamic endpoint |
+| `build.ps1` | Ensure CLI publish includes ControlPlaneHost and MigrationAgent binaries |
+| `.vscode/launch.json` | Update standalone debug profile to launch all three processes |
+
+#### Benefits
+
+- **Correct Application Map** — each component is a separate node with accurate dependency arrows
+- **Live Metrics for all components** — each process uses full `UseAzureMonitor()` distro
+- **No bleed possible** — `DiagnosticListener` is process-scoped
+- **Simpler code** — no need for exporter-only workarounds or instrumentation suppression
+- **Future-proof** — adding new components (e.g. a Git sync worker) follows the same pattern
 
 ---
-
-## Config Schema Additions Required
 
 The following additions to the scenario JSON schema are implied by the proposals above:
 
 | Field | Location | Purpose |
 |---|---|---|
-| `modules[].tools[]` | Module config | Array of tool declarations injected into the module |
+| `MigrationPlatform.tools[]` | MigrationPlatform config root | Array of reusable tool declarations and defaults |
+| `MigrationPlatform.Modules.<Module>.Extensions.<Extension>.tools[]` | Extension config | Tool references loaded by an extension; may include `overrides` |
 | `organisations[].processes[]` | Config root | Process metadata discovered by `discovery org-sync` |
 | `organisations[].projects[].enabled` | Config root | Already in schema; documented as relevant to `config generate` |
 | `scopes[].type: "ids"` | Module scopes | New scope type for explicit work item ID list |

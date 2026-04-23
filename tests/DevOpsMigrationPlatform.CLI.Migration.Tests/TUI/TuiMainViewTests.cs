@@ -26,10 +26,10 @@ public class TuiMainViewTests
 
         _clientMock
             .Setup(c => c.GetTelemetryAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync((MetricSnapshot?)null);
+            .ReturnsAsync((JobMetrics?)null);
 
         _clientMock
-            .Setup(c => c.FollowLogsAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .Setup(c => c.FollowLogsAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>(), It.IsAny<long?>()))
             .Returns(EmptyAsyncEnumerable<ProgressEvent>());
     }
 

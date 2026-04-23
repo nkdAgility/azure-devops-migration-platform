@@ -13,14 +13,6 @@ public sealed class JobProgressStore
         public List<ChannelWriter<ProgressEvent>> Subscribers { get; } = new();
         public bool Failed { get; set; }
         public bool Completed { get; set; }
-
-        /// <summary>
-        /// Latest event per <see cref="ProgressEvent.LastProcessed"/> key.
-        /// Not subject to ring-buffer eviction — persists for the lifetime of the job entry.
-        /// Used to replay current per-project state to late-connecting SSE clients.
-        /// Mutations guarded by <see cref="Subscribers"/> lock.
-        /// </summary>
-        public Dictionary<string, ProgressEvent> LatestByProject { get; } = new(StringComparer.OrdinalIgnoreCase);
     }
 
     private readonly ConcurrentDictionary<Guid, JobProgressEntry> _entries = new();
@@ -40,11 +32,6 @@ public sealed class JobProgressStore
 
         lock (entry.Subscribers)
         {
-            // Track latest event per project key so late-connecting SSE clients can
-            // replay the current per-project state regardless of ring-buffer eviction.
-            if (!string.IsNullOrEmpty(evt.LastProcessed))
-                entry.LatestByProject[evt.LastProcessed] = evt;
-
             foreach (var writer in entry.Subscribers)
                 writer.TryWrite(evt);
         }
@@ -55,24 +42,6 @@ public sealed class JobProgressStore
         if (!_entries.TryGetValue(jobId, out var entry))
             return Array.Empty<ProgressEvent>();
         return entry.Queue.ToArray();
-    }
-
-    /// <summary>
-    /// Returns the latest <see cref="ProgressEvent"/> for each distinct
-    /// <see cref="ProgressEvent.LastProcessed"/> key seen for <paramref name="jobId"/>.
-    /// Unlike <see cref="GetSnapshot"/>, this projection is not subject to ring-buffer
-    /// eviction — it retains every project's most recent state for the lifetime of the
-    /// job entry.  Use this to seed a late-connecting SSE client with the current status
-    /// of all projects before switching to the live stream.
-    /// </summary>
-    public IReadOnlyList<ProgressEvent> GetCurrentProjectState(Guid jobId)
-    {
-        if (!_entries.TryGetValue(jobId, out var entry))
-            return Array.Empty<ProgressEvent>();
-        lock (entry.Subscribers)
-        {
-            return entry.LatestByProject.Values.ToArray();
-        }
     }
 
     public (ChannelReader<ProgressEvent> Reader, ChannelWriter<ProgressEvent> Writer) Subscribe(Guid jobId)
@@ -128,6 +97,24 @@ public sealed class JobProgressStore
 
     public bool WasFailed(Guid jobId) =>
         _entries.TryGetValue(jobId, out var e) && e.Failed;
+
+    /// <summary>
+    /// Returns the highest <see cref="ProgressEvent.EventSequence"/> seen for the job,
+    /// or 0 if no events have been recorded. Used by the bootstrap endpoint.
+    /// </summary>
+    public long GetMaxEventSequence(Guid jobId)
+    {
+        if (!_entries.TryGetValue(jobId, out var entry))
+            return 0;
+
+        long max = 0;
+        foreach (var evt in entry.Queue)
+        {
+            if (evt.EventSequence > max)
+                max = evt.EventSequence;
+        }
+        return max;
+    }
 
     public void Remove(Guid jobId) =>
         _entries.TryRemove(jobId, out _);

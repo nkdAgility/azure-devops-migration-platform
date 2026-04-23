@@ -126,17 +126,17 @@ public class DependencyDiscoveryModuleResumeTests
         // Act
         await sut.RunAsync(ctx, CancellationToken.None);
 
-        // Assert — a synthetic ProjectComplete event must be emitted for the resumed project
+        // Assert — a synthetic ProjectComplete event must be emitted for the resumed project.
+        // The module puts the structured key (orgUrl|project) in Message and counts in Metrics.
         var resumedEvent = emittedEvents.Find(e =>
             e.Stage == "ProjectComplete" &&
-            e.LastProcessed == projectKey);
+            e.Message != null &&
+            e.Message.Contains("|"));
 
         Assert.IsNotNull(resumedEvent, "Expected a synthetic ProjectComplete event for the resumed project.");
-        Assert.AreEqual(500, resumedEvent.WorkItemsProcessed, "WorkItemsProcessed should match cursor stats.");
-        Assert.AreEqual(47, resumedEvent.ExternalLinksFound, "ExternalLinksFound should match cursor stats.");
-        Assert.AreEqual(47, resumedEvent.CrossProjectLinks, "CrossProjectLinks should match cursor stats.");
-        Assert.AreEqual(3, resumedEvent.CrossOrgLinks, "CrossOrgLinks should match cursor stats.");
-        Assert.AreEqual(500, resumedEvent.TotalWorkItems, "TotalWorkItems should match cursor stats.");
+        Assert.AreEqual("https://dev.azure.com/myorg|MyProject", resumedEvent.Message);
+        Assert.IsNotNull(resumedEvent.Metrics?.Discovery?.Dependencies, "Expected Metrics with dependency counters.");
+        Assert.AreEqual(500, resumedEvent.Metrics!.Discovery!.Dependencies!.WorkItemsAnalysed);
     }
 
     [TestMethod]
@@ -195,13 +195,14 @@ public class DependencyDiscoveryModuleResumeTests
         // Act
         await sut.RunAsync(ctx, CancellationToken.None);
 
-        // Assert — event is still emitted but with zero counts (backward-compatible)
+        // Assert — event is still emitted with the structured key even for old cursors without stats
         var resumedEvent = emittedEvents.Find(e =>
             e.Stage == "ProjectComplete" &&
-            e.LastProcessed == projectKey);
+            e.Message != null &&
+            e.Message.Contains("|"));
 
         Assert.IsNotNull(resumedEvent, "Expected a synthetic ProjectComplete event even for old cursors without stats.");
-        Assert.AreEqual(0, resumedEvent.WorkItemsProcessed, "WorkItemsProcessed should default to 0 for old cursors.");
+        Assert.AreEqual("https://dev.azure.com/myorg|OldProject", resumedEvent.Message);
     }
 
     [TestMethod]

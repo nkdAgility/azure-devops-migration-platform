@@ -29,7 +29,7 @@ public static class MigrationAgentServiceExtensions
         this IHostApplicationBuilder builder,
         Uri controlPlaneBaseUrl)
     {
-        // Register snapshot exporter + IMetricSnapshotStore + TelemetryOptions.
+        // Register snapshot exporter + IJobMetricsStore + TelemetryOptions.
         builder.Services.AddTelemetryServices(builder.Configuration);
 
         // Register WellKnownMeterNames meters in the OTel pipeline.
@@ -105,7 +105,7 @@ public static class MigrationAgentServiceExtensions
             sp.GetRequiredService<PackageProgressSink>(),
             sp.GetRequiredService<ControlPlaneProgressSink>()));
 
-        // Background timer that pushes MetricSnapshots to the Control Plane.
+        // Background timer that pushes JobMetrics to the Control Plane.
         builder.Services.AddHostedService<ControlPlaneTelemetryTimer>();
 
         // Unified worker — polls /agents/lease and dispatches to migration or discovery execution.

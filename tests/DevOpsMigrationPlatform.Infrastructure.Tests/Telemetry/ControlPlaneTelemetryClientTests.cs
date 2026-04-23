@@ -34,57 +34,81 @@ public class ControlPlaneTelemetryClientTests
     public void Cleanup() => _httpClient.Dispose();
 
     [TestMethod]
-    public async Task PushSnapshotAsync_WhenServerReturns204_DoesNotThrow()
+    public async Task PushMetricsAsync_WhenServerReturns204_DoesNotThrow()
     {
         _handler.RespondWith(HttpStatusCode.NoContent);
 
-        var snapshot = new MetricSnapshot { WorkItemsAttempted = 10 };
-        await _sut.PushSnapshotAsync("lease-1", snapshot, CancellationToken.None);
+        var metrics = new JobMetrics
+        {
+            Migration = new MigrationCounters
+            {
+                WorkItems = new WorkItemCounters { Attempted = 10 }
+            }
+        };
+        await _sut.PushMetricsAsync("lease-1", metrics, CancellationToken.None);
 
         // No exception = test passes.
     }
 
     [TestMethod]
-    public async Task PushSnapshotAsync_WhenServerReturns404_LogsWarningAndDoesNotThrow()
+    public async Task PushMetricsAsync_WhenServerReturns404_LogsWarningAndDoesNotThrow()
     {
         _handler.RespondWith(HttpStatusCode.NotFound);
 
-        var snapshot = new MetricSnapshot { WorkItemsAttempted = 5 };
-        await _sut.PushSnapshotAsync("lease-404", snapshot, CancellationToken.None);
+        var metrics = new JobMetrics
+        {
+            Migration = new MigrationCounters
+            {
+                WorkItems = new WorkItemCounters { Attempted = 5 }
+            }
+        };
+        await _sut.PushMetricsAsync("lease-404", metrics, CancellationToken.None);
 
         // No exception = test passes (warning is logged internally).
     }
 
     [TestMethod]
-    public async Task PushSnapshotAsync_RequestBodyContainsValidMetricSnapshot()
+    public async Task PushMetricsAsync_RequestBodyContainsValidJobMetrics()
     {
         _handler.RespondWith(HttpStatusCode.NoContent);
 
-        var snapshot = new MetricSnapshot
+        var metrics = new JobMetrics
         {
-            WorkItemsAttempted = 42,
-            WorkItemsCompleted = 40,
-            WorkItemsFailed = 2
+            Migration = new MigrationCounters
+            {
+                WorkItems = new WorkItemCounters
+                {
+                    Attempted = 42,
+                    Completed = 40,
+                    Failed = 2
+                }
+            }
         };
 
-        await _sut.PushSnapshotAsync("lease-body", snapshot, CancellationToken.None);
+        await _sut.PushMetricsAsync("lease-body", metrics, CancellationToken.None);
 
         Assert.IsNotNull(_handler.LastRequestContent);
         var deserialized = await _handler.LastRequestContent!
-            .ReadFromJsonAsync<MetricSnapshot>();
+            .ReadFromJsonAsync<JobMetrics>();
 
         Assert.IsNotNull(deserialized);
-        Assert.AreEqual(42, deserialized!.WorkItemsAttempted);
-        Assert.AreEqual(40, deserialized!.WorkItemsCompleted);
+        Assert.AreEqual(42, deserialized!.Migration!.WorkItems.Attempted);
+        Assert.AreEqual(40, deserialized!.Migration!.WorkItems.Completed);
     }
 
     [TestMethod]
-    public async Task PushSnapshotAsync_WhenNetworkFails_DoesNotThrow()
+    public async Task PushMetricsAsync_WhenNetworkFails_DoesNotThrow()
     {
         _handler.ThrowOnSend(new HttpRequestException("connection refused"));
 
-        var snapshot = new MetricSnapshot { WorkItemsAttempted = 1 };
-        await _sut.PushSnapshotAsync("lease-err", snapshot, CancellationToken.None);
+        var metrics = new JobMetrics
+        {
+            Migration = new MigrationCounters
+            {
+                WorkItems = new WorkItemCounters { Attempted = 1 }
+            }
+        };
+        await _sut.PushMetricsAsync("lease-err", metrics, CancellationToken.None);
 
         // No exception = test passes.
     }

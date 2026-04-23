@@ -241,10 +241,6 @@ public sealed class WorkItemImportOrchestrator
             {
                 Module = "WorkItems",
                 Stage = CursorStage.Completed,
-                LastProcessed = folderPath,
-                WorkItemId = eventWiId,
-                WorkItemsProcessed = workItemsProcessed,
-                RevisionsProcessed = foldersProcessed,
                 Timestamp = DateTimeOffset.UtcNow,
                 LastCheckpointAt = DateTimeOffset.UtcNow,
                 NextCheckpointDueAt = null // per-revision checkpoint — always safe to cancel

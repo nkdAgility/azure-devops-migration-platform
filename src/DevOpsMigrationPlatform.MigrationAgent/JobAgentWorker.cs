@@ -39,6 +39,8 @@ public sealed class JobAgentWorker : BackgroundService
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly ICheckpointingServiceFactory _checkpointingFactory;
     private readonly IPhaseTrackingServiceFactory _phaseTrackingFactory;
+    private readonly IJobMetricsStore _metricsStore;
+    private readonly IJobSnapshotStore _snapshotStore;
     private readonly ILogger<JobAgentWorker> _logger;
 
     public JobAgentWorker(
@@ -51,6 +53,8 @@ public sealed class JobAgentWorker : BackgroundService
         IHttpClientFactory httpClientFactory,
         ICheckpointingServiceFactory checkpointingFactory,
         IPhaseTrackingServiceFactory phaseTrackingFactory,
+        IJobMetricsStore metricsStore,
+        IJobSnapshotStore snapshotStore,
         ILogger<JobAgentWorker> logger,
         PolymorphicEndpointOptionsConverter? endpointConverter = null)
     {
@@ -63,6 +67,8 @@ public sealed class JobAgentWorker : BackgroundService
         _httpClientFactory = httpClientFactory;
         _checkpointingFactory = checkpointingFactory;
         _phaseTrackingFactory = phaseTrackingFactory;
+        _metricsStore = metricsStore;
+        _snapshotStore = snapshotStore;
         _logger = logger;
         _jsonOptions = new JsonSerializerOptions
         {
@@ -342,7 +348,9 @@ public sealed class JobAgentWorker : BackgroundService
             Job = job,
             ArtefactStore = artefactStore,
             StateStore = stateStore,
-            ProgressSink = _progressSink
+            ProgressSink = _progressSink,
+            MetricsStore = _metricsStore,
+            SnapshotStore = _snapshotStore
         };
 
         bool failed = false;

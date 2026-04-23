@@ -46,7 +46,7 @@ public static class MigrationPlatformHost
         public string OutputFolder { get; }
 
         /// <summary>
-        /// How often (by revision count) a <see cref="MetricSnapshot"/> is embedded
+        /// How often (by revision count) a <see cref="JobMetrics"/> is embedded
         /// in the yielded <see cref="ProgressEvent.Metrics"/> field.
         /// Default: 100.
         /// </summary>
@@ -96,7 +96,7 @@ public static class MigrationPlatformHost
                     options.Protocol = OtlpProtocol.Grpc;
                     options.ResourceAttributes = new System.Collections.Generic.Dictionary<string, object>
                     {
-                        ["service.name"] = "TfsExport",
+                        ["service.name"] = WellKnownServiceNames.TfsExport,
                         ["session.id"] = sessionId,
                         ["tfs.server"] = settings.TfsServer.ToString(),
                         ["tfs.project"] = settings.Project
@@ -184,9 +184,10 @@ public static class MigrationPlatformHost
             var otelBuilder = services.AddOpenTelemetry()
                 .ConfigureResource(rb =>
                 {
-                    rb.AddService("TfsExport");
+                    rb.AddService(WellKnownServiceNames.TfsExport);
                     rb.AddAttributes(new System.Collections.Generic.KeyValuePair<string, object>[]
                     {
+                        new("service.namespace", WellKnownServiceNames.Namespace),
                         new("session.id", sessionId),
                         new("tfs.server", settings.TfsServer.ToString()),
                         new("tfs.project", settings.Project)

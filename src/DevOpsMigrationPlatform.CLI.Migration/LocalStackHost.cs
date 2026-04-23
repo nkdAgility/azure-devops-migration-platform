@@ -1,11 +1,14 @@
+using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.ControlPlane.Services;
 using DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Options;
 using DevOpsMigrationPlatform.Infrastructure;
 using DevOpsMigrationPlatform.Infrastructure.Extensions;
 using DevOpsMigrationPlatform.Infrastructure.Simulated.Options;
+using DevOpsMigrationPlatform.Infrastructure.Telemetry;
 using DevOpsMigrationPlatform.MigrationAgent;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -58,6 +61,18 @@ public sealed class LocalStackHost : IAsyncDisposable
     private async Task StartControlPlaneAsync(CancellationToken cancellationToken)
     {
         var builder = WebApplication.CreateBuilder();
+
+        // Load the CLI's appsettings.json so Telemetry:AzureMonitorConnectionString
+        // is available to ServiceDefaults (UseAzureMonitor) and other shared config.
+        builder.Configuration
+            .SetBasePath(AppContext.BaseDirectory)
+            .AddJsonFile("appsettings.json", optional: true, reloadOnChange: false)
+            .AddEnvironmentVariables();
+
+        builder.AddServiceDefaults(WellKnownServiceNames.ControlPlaneHost);
+
+        // Filter customer-identifiable log data from the OTel pipeline (Azure Monitor).
+        builder.Logging.AddDataClassificationFilter();
 
         builder.Logging.SetMinimumLevel(LogLevel.Warning);
 
@@ -142,6 +157,18 @@ public sealed class LocalStackHost : IAsyncDisposable
     private async Task StartAgentAsync(CancellationToken cancellationToken)
     {
         var builder = Host.CreateApplicationBuilder();
+
+        // Load the CLI's appsettings.json so Telemetry:AzureMonitorConnectionString
+        // is available to ServiceDefaults (UseAzureMonitor) and other shared config.
+        builder.Configuration
+            .SetBasePath(AppContext.BaseDirectory)
+            .AddJsonFile("appsettings.json", optional: true, reloadOnChange: false)
+            .AddEnvironmentVariables();
+
+        builder.AddServiceDefaults(WellKnownServiceNames.MigrationAgent);
+
+        // Filter customer-identifiable log data from the OTel pipeline (Azure Monitor).
+        builder.Logging.AddDataClassificationFilter();
 
         // The CLI handles all user-facing console output via Spectre.Console and the
         // SSE progress stream. Suppress the default console logger entirely so internal

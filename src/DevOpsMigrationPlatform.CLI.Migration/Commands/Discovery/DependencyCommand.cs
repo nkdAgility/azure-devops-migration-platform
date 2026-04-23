@@ -155,6 +155,10 @@ public sealed class DependencyCommand : ControlPlaneCommandBase<DependencyComman
         DateTimeOffset? latestCheckpointAt = null; // updated from progress events
         DateTimeOffset? nextCheckpointDueAt = null; // updated from progress events
 
+        // Inventory phase tracking — used when inventory runs as a prerequisite.
+        var inventorySummaries = new Dictionary<string, InventoryPhaseProgress>(StringComparer.OrdinalIgnoreCase);
+        var inventoryStartTime = DateTimeOffset.UtcNow;
+
         try
         {
             if (console.Profile.Capabilities.Interactive)
@@ -182,6 +186,7 @@ public sealed class DependencyCommand : ControlPlaneCommandBase<DependencyComman
                                 if (currentPhase != "Inventory")
                                 {
                                     currentPhase = "Inventory";
+                                    inventoryStartTime = DateTimeOffset.UtcNow;
                                     ctx.UpdateTarget(new Markup(
                                         "[yellow]⚠ No inventory found — running inventory discovery first…[/]\n"));
                                 }
@@ -189,6 +194,7 @@ public sealed class DependencyCommand : ControlPlaneCommandBase<DependencyComman
                                 if (evt.Stage == "Completed")
                                 {
                                     currentPhase = "Dependencies";
+                                    startTime = DateTimeOffset.UtcNow;
                                     // Re-load inventory.json now that it exists.
                                     if (File.Exists(inventoryJsonPath))
                                     {
@@ -206,10 +212,11 @@ public sealed class DependencyCommand : ControlPlaneCommandBase<DependencyComman
                                     continue;
                                 }
 
-                                // Show inventory progress as a status line.
-                                var invMsg = evt.Message ?? "Counting work items…";
-                                ctx.UpdateTarget(new Markup(
-                                    $"[yellow]Inventory:[/] [grey]{Markup.Escape(invMsg)}[/]\n"));
+                                // Update inventory progress and show full inventory table.
+                                UpdateInventoryFromEvent(inventorySummaries, evt);
+                                latestCheckpointAt = evt.LastCheckpointAt ?? latestCheckpointAt;
+                                nextCheckpointDueAt = evt.NextCheckpointDueAt;
+                                ctx.UpdateTarget(BuildInventoryLivePanel(inventorySummaries.Values, inventoryStartTime, latestCheckpointAt, nextCheckpointDueAt));
                                 continue;
                             }
 
@@ -234,12 +241,14 @@ public sealed class DependencyCommand : ControlPlaneCommandBase<DependencyComman
                         if (currentPhase != "Inventory")
                         {
                             currentPhase = "Inventory";
+                            inventoryStartTime = DateTimeOffset.UtcNow;
                             console.MarkupLine("[yellow]⚠ No inventory found — running inventory discovery first…[/]");
                         }
 
                         if (evt.Stage == "Completed")
                         {
                             currentPhase = "Dependencies";
+                            startTime = DateTimeOffset.UtcNow;
                             // Re-load inventory.json now that it exists.
                             if (File.Exists(inventoryJsonPath))
                             {
@@ -255,8 +264,19 @@ public sealed class DependencyCommand : ControlPlaneCommandBase<DependencyComman
                             continue;
                         }
 
-                        if (!string.IsNullOrEmpty(evt.Message))
-                            console.MarkupLine($"[grey]  {Markup.Escape(evt.Message)}[/]");
+                        UpdateInventoryFromEvent(inventorySummaries, evt);
+
+                        if (evt.Stage == "Inventory" || evt.Stage == "Failed")
+                        {
+                            var invKey = evt.Message ?? "";
+                            if (inventorySummaries.TryGetValue(invKey, out var invS))
+                            {
+                                var invStatus = invS.Error != null ? "✗ Failed" : "✓";
+                                console.MarkupLine(
+                                    $"  {Markup.Escape(invS.Url)} / {Markup.Escape(invS.ProjectName)}: " +
+                                    $"{invS.WorkItemsCount} work items, {invS.RevisionsCount} revisions — {invStatus}");
+                            }
+                        }
                         continue;
                     }
 
@@ -264,7 +284,7 @@ public sealed class DependencyCommand : ControlPlaneCommandBase<DependencyComman
 
                     if (evt.Stage == "ProjectComplete")
                     {
-                        var key = evt.LastProcessed ?? "";
+                        var key = evt.Message ?? "";
                         if (progressState.TryGetValue(key, out var p))
                         {
                             console.MarkupLine(
@@ -329,7 +349,8 @@ public sealed class DependencyCommand : ControlPlaneCommandBase<DependencyComman
         Dictionary<string, ProjectProgress> state,
         ProgressEvent evt)
     {
-        var key = evt.LastProcessed;
+        // Message now carries the "{orgUrl}|{project}" key that was formerly in LastProcessed.
+        var key = evt.Message;
         if (string.IsNullOrEmpty(key))
             return;
 
@@ -347,11 +368,12 @@ public sealed class DependencyCommand : ControlPlaneCommandBase<DependencyComman
             state[key] = progress;
         }
 
-        progress.TotalWorkItems = evt.TotalWorkItems;
-        progress.WorkItemsAnalysed = evt.WorkItemsProcessed;
-        progress.ExternalLinks = evt.ExternalLinksFound;
-        progress.CrossProjectLinks = evt.CrossProjectLinks;
-        progress.CrossOrgLinks = evt.CrossOrgLinks;
+        var deps = evt.Metrics?.Discovery?.Dependencies;
+        progress.TotalWorkItems = evt.Metrics?.Scope?.WorkItemsTotal ?? progress.TotalWorkItems;
+        progress.WorkItemsAnalysed = deps?.WorkItemsAnalysed ?? progress.WorkItemsAnalysed;
+        progress.ExternalLinks = deps?.ExternalLinksFound ?? progress.ExternalLinks;
+        progress.CrossProjectLinks = deps?.CrossProjectLinks ?? progress.CrossProjectLinks;
+        progress.CrossOrgLinks = deps?.CrossOrgLinks ?? progress.CrossOrgLinks;
         progress.IsComplete = evt.Stage == "ProjectComplete";
 
         // Mark the project as active in this session on the first non-terminal heartbeat.
@@ -362,7 +384,7 @@ public sealed class DependencyCommand : ControlPlaneCommandBase<DependencyComman
             progress.StartedAt = DateTimeOffset.UtcNow;
 
         if (evt.Stage == "Failed")
-            progress.Error = evt.Message;
+            progress.Error = "Project analysis failed";
     }
 
     // ── Live table rendering ──────────────────────────────────────────────────
@@ -575,11 +597,11 @@ public sealed class DependencyCommand : ControlPlaneCommandBase<DependencyComman
     {
         public string OrgName { get; set; } = string.Empty;
         public string ProjectName { get; set; } = string.Empty;
-        public int TotalWorkItems { get; set; }
-        public int WorkItemsAnalysed { get; set; }
-        public int ExternalLinks { get; set; }
-        public int CrossProjectLinks { get; set; }
-        public int CrossOrgLinks { get; set; }
+        public long TotalWorkItems { get; set; }
+        public long WorkItemsAnalysed { get; set; }
+        public long ExternalLinks { get; set; }
+        public long CrossProjectLinks { get; set; }
+        public long CrossOrgLinks { get; set; }
         public bool IsComplete { get; set; }
         public string? Error { get; set; }
 
@@ -591,5 +613,168 @@ public sealed class DependencyCommand : ControlPlaneCommandBase<DependencyComman
         /// not distort the rate or ETA calculation.
         /// </summary>
         public DateTimeOffset? StartedAt { get; set; }
+    }
+
+    // ── Inventory phase progress (reuses InventoryCommand's rendering pattern) ──
+
+    private static void UpdateInventoryFromEvent(
+        Dictionary<string, InventoryPhaseProgress> summaries,
+        ProgressEvent evt)
+    {
+        var key = evt.Message;
+        if (string.IsNullOrEmpty(key))
+            return;
+
+        var separatorIndex = key.IndexOf('|');
+        if (separatorIndex < 0)
+            return;
+
+        var url = key.Substring(0, separatorIndex);
+        var project = key.Substring(separatorIndex + 1);
+
+        if (!summaries.TryGetValue(key, out var summary))
+        {
+            summary = new InventoryPhaseProgress { Url = url, ProjectName = project };
+            summaries[key] = summary;
+        }
+
+        var inv = evt.Metrics?.Discovery?.Inventory;
+        summary.WorkItemsCount = evt.Metrics?.Scope?.WorkItemsTotal ?? summary.WorkItemsCount;
+        summary.RevisionsCount = inv?.RevisionsTotal ?? summary.RevisionsCount;
+        summary.ReposCount = (int)(inv?.RepositoriesTotal ?? summary.ReposCount);
+        summary.IsComplete = evt.Stage != "Progress";
+
+        if (evt.Stage == "Failed")
+            summary.Error = key;
+    }
+
+    private static Table BuildInventoryTable(IEnumerable<InventoryPhaseProgress> summaries)
+    {
+        var table = new Table()
+            .Title("[bold yellow]Discovery Inventory (prerequisite)[/]")
+            .RoundedBorder()
+            .BorderColor(Color.Grey)
+            .AddColumn("Organisation / Collection")
+            .AddColumn("Project")
+            .AddColumn(new TableColumn("Work Items").RightAligned())
+            .AddColumn(new TableColumn("Revisions").RightAligned())
+            .AddColumn(new TableColumn("Repos").RightAligned())
+            .AddColumn("Status");
+
+        foreach (var s in summaries)
+        {
+            var status = s.Error != null
+                ? "[red]✗ Failed[/]"
+                : s.IsComplete
+                    ? "[green]✓[/]"
+                    : "[grey]…[/]";
+
+            table.AddRow(
+                Markup.Escape(s.Url),
+                Markup.Escape(s.ProjectName),
+                s.WorkItemsCount.ToString("N0"),
+                s.RevisionsCount.ToString("N0"),
+                s.ReposCount.ToString(),
+                status);
+        }
+
+        return table;
+    }
+
+    private static IRenderable BuildInventoryLivePanel(
+        IEnumerable<InventoryPhaseProgress> summaries,
+        DateTimeOffset inventoryStartTime,
+        DateTimeOffset? lastCheckpointAt,
+        DateTimeOffset? nextCheckpointDueAt)
+    {
+        var table = BuildInventoryTable(summaries);
+        var stats = BuildInventoryThroughputPanel(summaries, inventoryStartTime, lastCheckpointAt, nextCheckpointDueAt);
+        return stats is not null ? new Rows(table, stats) : table;
+    }
+
+    private static IRenderable? BuildInventoryThroughputPanel(
+        IEnumerable<InventoryPhaseProgress> summaries,
+        DateTimeOffset inventoryStartTime,
+        DateTimeOffset? lastCheckpointAt,
+        DateTimeOffset? nextCheckpointDueAt)
+    {
+        var elapsed = DateTimeOffset.UtcNow - inventoryStartTime;
+        if (elapsed.TotalSeconds < 1)
+            return null;
+
+        int total = 0, completed = 0, failed = 0;
+        long totalWi = 0, totalRev = 0;
+        foreach (var s in summaries)
+        {
+            total++;
+            if (s.Error != null) failed++;
+            else if (s.IsComplete) completed++;
+            totalWi += s.WorkItemsCount;
+            totalRev += s.RevisionsCount;
+        }
+
+        var remaining = total - completed - failed;
+        var hours = elapsed.TotalHours;
+
+        var statsTable = new Table()
+            .NoBorder()
+            .HideHeaders()
+            .AddColumn(new TableColumn("Label").NoWrap())
+            .AddColumn(new TableColumn("Value").RightAligned());
+
+        statsTable.AddRow("[dim]Elapsed[/]", $"[white]{FormatTimeSpan(elapsed)}[/]");
+
+        if (totalWi > 0 || totalRev > 0)
+        {
+            var wiPerHour = hours > 0.001 ? totalWi / hours : 0;
+            var revPerHour = hours > 0.001 ? totalRev / hours : 0;
+            statsTable.AddRow("[dim]Work Items / hour[/]", $"[white]{wiPerHour:N0}[/]");
+            statsTable.AddRow("[dim]Revisions / hour[/]", $"[white]{revPerHour:N0}[/]");
+        }
+
+        if (completed > 0)
+        {
+            var projPerHour = hours > 0.001 ? completed / hours : 0;
+            statsTable.AddRow("[dim]Projects / hour[/]", $"[white]{projPerHour:N1}[/]");
+
+            var avgMs = elapsed.TotalMilliseconds / completed;
+            statsTable.AddRow("[dim]Avg Project Duration[/]", $"[white]{FormatTimeSpan(TimeSpan.FromMilliseconds(avgMs))}[/]");
+
+            if (remaining > 0)
+            {
+                var eta = TimeSpan.FromMilliseconds(avgMs * remaining);
+                statsTable.AddRow("[dim]ETA (remaining)[/]", $"[yellow]{FormatTimeSpan(eta)}[/]");
+            }
+        }
+
+        if (nextCheckpointDueAt is null && lastCheckpointAt is not null)
+        {
+            statsTable.AddRow("[dim]Checkpoint[/]", "[green]✓ Safe to cancel (per-item)[/]");
+        }
+        else if (nextCheckpointDueAt is not null)
+        {
+            var cpRemaining = nextCheckpointDueAt.Value - DateTimeOffset.UtcNow;
+            if (cpRemaining <= TimeSpan.Zero)
+                statsTable.AddRow("[dim]Checkpoint[/]", "[green]✓ Save point due now[/]");
+            else
+                statsTable.AddRow("[dim]Checkpoint[/]", $"[yellow]⏳ Next save in {FormatTimeSpan(cpRemaining)}[/]");
+        }
+
+        return new Panel(statsTable)
+            .Header("[bold yellow]Throughput[/]")
+            .RoundedBorder()
+            .BorderColor(Color.Grey)
+            .Expand();
+    }
+
+    private sealed class InventoryPhaseProgress
+    {
+        public string Url { get; set; } = string.Empty;
+        public string ProjectName { get; set; } = string.Empty;
+        public long WorkItemsCount { get; set; }
+        public long RevisionsCount { get; set; }
+        public int ReposCount { get; set; }
+        public bool IsComplete { get; set; }
+        public string? Error { get; set; }
     }
 }

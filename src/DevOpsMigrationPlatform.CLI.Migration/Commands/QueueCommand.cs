@@ -164,7 +164,7 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
             await foreach (var evt in client.FollowLogsAsync(parsedJobId, followCts.Token).ConfigureAwait(false))
             {
                 lastEvt = evt;
-                console.MarkupLine($"[grey]{Markup.Escape(evt.Stage ?? string.Empty)}[/] WI={evt.WorkItemId} ({evt.WorkItemsProcessed} done)");
+                console.MarkupLine($"[grey]{Markup.Escape(evt.Stage ?? string.Empty)}[/] {Markup.Escape(evt.Message ?? string.Empty)}");
             }
         }
         catch (InvalidOperationException ex) when (ex.Message.Contains("Job failed"))
@@ -182,7 +182,10 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
         if (jobFailed) return 1;
 
         if (lastEvt is not null)
-            ShowSuccess(console, $"Import complete — {lastEvt.WorkItemsProcessed} work items imported.");
+        {
+            var importedCount = lastEvt.Metrics?.Migration?.WorkItems?.Completed ?? 0;
+            ShowSuccess(console, $"Import complete — {importedCount} work items imported.");
+        }
         else
             ShowSuccess(console, "Work item import complete.");
         return 0;
@@ -290,7 +293,7 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
             await foreach (var evt in client.FollowLogsAsync(parsedJobId, followCts.Token).ConfigureAwait(false))
             {
                 lastEvt = evt;
-                console.MarkupLine($"[grey]{Markup.Escape(evt.Stage ?? string.Empty)}[/] WI={evt.WorkItemId} ({evt.WorkItemsProcessed} done, {evt.RevisionsProcessed} rev)");
+                console.MarkupLine($"[grey]{Markup.Escape(evt.Stage ?? string.Empty)}[/] {Markup.Escape(evt.Message ?? string.Empty)}");
             }
         }
         catch (InvalidOperationException ex) when (ex.Message.Contains("Job failed"))
@@ -308,7 +311,11 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
         if (jobFailed) return 1;
 
         if (lastEvt is not null)
-            ShowSuccess(console, $"Export complete — {lastEvt.WorkItemsProcessed} work items / {lastEvt.RevisionsProcessed} revisions written to package.");
+        {
+            var wiCount = lastEvt.Metrics?.Migration?.WorkItems?.Completed ?? 0;
+            var revCount = lastEvt.Metrics?.Migration?.WorkItems?.RevisionsProcessed ?? 0;
+            ShowSuccess(console, $"Export complete — {wiCount} work items / {revCount} revisions written to package.");
+        }
         else
             ShowSuccess(console, "Simulated export complete.");
         return 0;
@@ -475,12 +482,8 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
         }, followCts.Token);
 
         var progressStartTime = DateTimeOffset.UtcNow;
-        int lastWiId = 0;
-        int wiRevisions = 0;
-        int wiStartRevisions = 0;
-        int prevRevisions = 0;
-        int lastCompletedWiId = 0;
-        int lastCompletedRevisions = 0;
+        int processed = 0;
+        int revisions = 0;
         string currentStage = string.Empty;
 
         if (Console.IsOutputRedirected)
@@ -495,19 +498,8 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
                     lastEvt = evt;
                     if (!string.IsNullOrEmpty(evt.Stage))
                         currentStage = evt.Stage;
-                    if (evt.WorkItemId != 0 && evt.WorkItemId != lastWiId)
-                    {
-                        if (lastWiId != 0)
-                        {
-                            lastCompletedWiId = lastWiId;
-                            lastCompletedRevisions = prevRevisions - wiStartRevisions;
-                        }
-                        lastWiId = evt.WorkItemId;
-                        wiStartRevisions = prevRevisions;
-                    }
-                    if (evt.WorkItemId != 0)
-                        wiRevisions = evt.RevisionsProcessed - wiStartRevisions;
-                    prevRevisions = evt.RevisionsProcessed;
+                    processed = (int)(evt.Metrics?.Migration?.WorkItems?.Completed ?? processed);
+                    revisions = (int)(evt.Metrics?.Migration?.WorkItems?.RevisionsProcessed ?? revisions);
                 }
             }
             catch (InvalidOperationException ex) when (ex.Message.Contains("Job failed"))
@@ -515,7 +507,7 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
                 jobFailed = true;
                 ShowError(console, ex.Message);
                 if (lastEvt is not null)
-                    ShowError(console, $"Last progress: {lastEvt.WorkItemsProcessed} work items / {lastEvt.RevisionsProcessed} revisions (wi#{lastEvt.WorkItemId})");
+                    ShowError(console, $"Last progress: {processed} work items / {revisions} revisions");
             }
             catch (OperationCanceledException)
             {
@@ -555,27 +547,13 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
                             if (!string.IsNullOrEmpty(evt.Stage))
                                 currentStage = evt.Stage;
 
-                            if (evt.WorkItemId != 0 && evt.WorkItemId != lastWiId)
-                            {
-                                // The previous WI just completed — record it for the completed row.
-                                if (lastWiId != 0)
-                                {
-                                    lastCompletedWiId = lastWiId;
-                                    lastCompletedRevisions = prevRevisions - wiStartRevisions;
-                                }
-                                lastWiId = evt.WorkItemId;
-                                wiStartRevisions = prevRevisions;
-                            }
-
-                            if (evt.WorkItemId != 0)
-                                wiRevisions = evt.RevisionsProcessed - wiStartRevisions;
-
-                            prevRevisions = evt.RevisionsProcessed;
+                            processed = (int)(evt.Metrics?.Migration?.WorkItems?.Completed ?? processed);
+                            revisions = (int)(evt.Metrics?.Migration?.WorkItems?.RevisionsProcessed ?? revisions);
 
                             ctx.UpdateTarget(BuildProgressRenderable(
-                                evt.WorkItemsProcessed, totalWorkItems,
-                                lastWiId, wiRevisions,
-                                lastCompletedWiId, lastCompletedRevisions,
+                                processed, totalWorkItems,
+                                0, 0,
+                                0, 0,
                                 currentStage, progressStartTime,
                                 evt.LastCheckpointAt, evt.NextCheckpointDueAt));
                         }
@@ -586,7 +564,7 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
                 jobFailed = true;
                 ShowError(console, ex.Message);
                 if (lastEvt is not null)
-                    ShowError(console, $"Last progress: {lastEvt.WorkItemsProcessed} work items / {lastEvt.RevisionsProcessed} revisions (wi#{lastEvt.WorkItemId})");
+                    ShowError(console, $"Last progress: {processed} work items / {revisions} revisions");
             }
             catch (OperationCanceledException)
             {
@@ -618,7 +596,7 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
             return 1;
 
         if (lastEvt is not null)
-            ShowSuccess(console, $"Export complete — {lastEvt.WorkItemsProcessed} work items / {lastEvt.RevisionsProcessed} revisions written to package.");
+            ShowSuccess(console, $"Export complete — {processed} work items / {revisions} revisions written to package.");
         else
             ShowSuccess(console, "Work item export complete.");
         return 0;

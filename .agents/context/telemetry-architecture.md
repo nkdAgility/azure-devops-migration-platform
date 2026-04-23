@@ -2,6 +2,13 @@
 
 This file explains the layered telemetry architecture, the cross-runtime strategy, and the step-by-step process for adding new metrics. It applies to both AI agents and human contributors.
 
+> **Canonical sources of truth — read these files, do not duplicate their content here:**
+> - Meter names: `src/DevOpsMigrationPlatform.Abstractions/Telemetry/WellKnownMeterNames.cs`
+> - Migration metric names: `src/DevOpsMigrationPlatform.Abstractions/Telemetry/WellKnownMetricNames.cs`
+> - Discovery metric names: `src/DevOpsMigrationPlatform.Abstractions/Telemetry/WellKnownDiscoveryMetricNames.cs`
+>
+> Any list of metric or meter names that appears outside those files is a secondary reference that **will go stale**. Always read the source files directly.
+
 ---
 
 ## Three-Layer Model
@@ -20,11 +27,74 @@ Telemetry is split into three layers. Each layer has different cross-runtime req
 
 - **Instrument layer** (`MigrationMetrics`, `DiscoveryMetrics`) creates concrete OTel instruments (`Counter<T>`, `Histogram<T>`, `UpDownCounter<T>`) using `System.Diagnostics.Metrics.Meter`. These are also available on both runtimes via the `System.Diagnostics.DiagnosticSource` NuGet package. These MUST NOT have `#if !NETFRAMEWORK` guards.
 
-- **Pipeline layer** (`TelemetryServiceExtensions`, `SnapshotMetricExporter`, `InMemoryMetricSnapshotStore`, `ControlPlaneTelemetryClient`) references OTel SDK types like `BaseExporter<Metric>`, `PeriodicExportingMetricReader`, and `MeterProviderBuilder`. These types have different registration patterns per host and may use net10.0-only APIs. These files MUST retain `#if !NETFRAMEWORK` guards.
+- **Pipeline layer** (`TelemetryServiceExtensions`, `SnapshotMetricExporter`, `InMemoryJobMetricsStore`, `ControlPlaneTelemetryClient`) references OTel SDK types like `BaseExporter<Metric>`, `PeriodicExportingMetricReader`, and `MeterProviderBuilder`. These types have different registration patterns per host and may use net10.0-only APIs. These files MUST retain `#if !NETFRAMEWORK` guards.
 
 ### Exception: TFS host pipeline
 
 `MigrationPlatformHost.cs` (in `Infrastructure.TfsObjectModel`, net481-only) registers the OTel pipeline directly using `services.AddOpenTelemetry().WithMetrics(...)`. This works because `Infrastructure.TfsObjectModel` directly references the `OpenTelemetry` NuGet packages for net481. It does NOT use `TelemetryServiceExtensions` (which is guarded for net10.0 hosts that use `ServiceDefaults`).
+
+---
+
+## Three-Channel Telemetry Model
+
+Telemetry flows through three distinct channels, each optimised for a different consumer pattern:
+
+| Channel | Type | Purpose | Frequency | Transport |
+|---------|------|---------|-----------|-----------|
+| 1 — Events | `ProgressEvent` (slim) | Real-time state-change notifications | Every state change | SSE fan-out |
+| 2 — Metrics | `JobMetrics` | Aggregate counters for dashboards | Every few seconds | HTTP POST + polling |
+| 3 — Snapshot | `JobSnapshot` | Per-org/project state for late-join | Every 5 min or project boundary | HTTP POST + polling |
+
+### Channel 1: ProgressEvent (JobEvent)
+
+A pure envelope — carries no counter fields. Maps to an OTel Event: something happened at a point in time.
+
+```
+ProgressEvent { Module, Stage, Message, Timestamp, EventSequence, LastCheckpointAt, NextCheckpointDueAt, Metrics? }
+```
+
+- `EventSequence` is a monotonic long assigned by the agent, scoped per job. Used as SSE `id:` for `Last-Event-ID` reconnect.
+- `Metrics` is only populated by the TFS subprocess (net481) every N revisions. Null when emitted by the .NET 10 Migration Agent (which pushes metrics via Channel 2).
+
+### Channel 2: JobMetrics
+
+Aggregate counters, pushed by the agent on a fast timer (configurable, default 5s):
+
+```
+JobMetrics {
+    Timestamp, Scope: JobScopeCounters,
+    Migration?: MigrationCounters { WorkItems, Diagnostics? },
+    Discovery?: DiscoveryCounters { Inventory?, Dependencies? }
+}
+```
+
+**Cardinality guardrail:** `JobMetrics` is aggregate-only — no per-entity, per-project, or per-work-item dimensions. All high-cardinality breakdowns live exclusively in `JobSnapshot`.
+
+### Channel 3: JobSnapshot
+
+Per-org/project state, pushed on a slow timer (5 min) or at project boundaries:
+
+```
+JobSnapshot { Timestamp, Organisations: OrgSnapshot[] }
+OrgSnapshot { Url, Name, Projects: ProjectSnapshot[] }
+ProjectSnapshot { Name, Status, Migration?, Discovery? }
+```
+
+### Unified Bootstrap Endpoint
+
+`GET /jobs/{id}/bootstrap` returns `JobBootstrap { Snapshot?, Metrics?, LastEventSequence }` — an atomic payload for late-joining clients to catch up without race conditions.
+
+### Counter Record Types
+
+| Record | Scope | Properties |
+|--------|-------|------------|
+| `JobScopeCounters` | All job types | OrganisationsTotal/Completed/Failed, ProjectsTotal/Completed/Failed, WorkItemsTotal |
+| `WorkItemCounters` | Migration | Attempted, Completed, Failed, Skipped, RevisionsProcessed, Attachments? |
+| `AttachmentCounters` | Migration | Processed, Failed, TotalBytes |
+| `MigrationCounters` | Migration | WorkItems (WorkItemCounters), Diagnostics? (MigrationDiagnostics) |
+| `MigrationDiagnostics` | Aggregate only | OTel-derived means, correctness counters, in-flight gauges |
+| `InventoryCounters` | Discovery | RevisionsTotal, RepositoriesTotal, CheckpointsSaved |
+| `DependencyCounters` | Discovery | WorkItemsAnalysed, ExternalLinksFound, CrossProjectLinks, CrossOrgLinks |
 
 ---
 
@@ -45,9 +115,12 @@ Telemetry is split into three layers. Each layer has different cross-runtime req
 | File type | Project | Guard? | Example |
 |---|---|---|---|
 | Metric interface (`I*Metrics`) | `Abstractions/Telemetry/` | No | `IDiscoveryMetrics.cs` |
-| Metric name constants | `Abstractions/Telemetry/` | No | `WellKnownMetricNames.cs` |
+| Metric name constants | `Abstractions/Telemetry/` | No | `WellKnownMetricNames.cs`, `WellKnownDiscoveryMetricNames.cs` |
 | Meter name constants | `Abstractions/Telemetry/` | No | `WellKnownMeterNames.cs` |
 | Tag builder helpers | `Abstractions/Telemetry/` | No | `MigrationTagList.cs` |
+| Counter record types | `Abstractions/Models/` | No | `WorkItemCounters.cs`, `AttachmentCounters.cs`, `MigrationCounters.cs`, `MigrationDiagnostics.cs`, `JobScopeCounters.cs`, `InventoryCounters.cs`, `DependencyCounters.cs`, `DiscoveryCounters.cs`, `JobMetrics.cs` |
+| Snapshot record types | `Abstractions/Models/` | No | `JobSnapshot.cs`, `OrgSnapshot.cs`, `ProjectSnapshot.cs`, `JobBootstrap.cs` |
+| Store interfaces | `Abstractions/Telemetry/` | No | `IMetricSnapshotStore.cs` (contains `IJobMetricsStore`) |
 | Concrete metrics class | `Infrastructure/Telemetry/` | No | `DiscoveryMetrics.cs`, `MigrationMetrics.cs` |
 | OTel SDK exporter | `Infrastructure/Telemetry/` | `#if !NETFRAMEWORK` | `SnapshotMetricExporter.cs` |
 | DI registration extensions | `Infrastructure/Telemetry/` | `#if !NETFRAMEWORK` | `TelemetryServiceExtensions.cs` |
@@ -109,16 +182,29 @@ The meter is already registered in the OTel pipeline for each host:
 - **TFS host** (net481): `MigrationPlatformHost.cs` calls `.AddMeter(WellKnownMeterNames.Migration)` (or `.Discovery` for discovery metrics).
 - **New meter?** If you create a new meter (not `Migration` or `Discovery`), you MUST add `.AddMeter(WellKnownMeterNames.YourNewMeter)` in BOTH host registration sites.
 
-### Step 6 — Update MetricSnapshot (if applicable)
+### Step 6 — Update JobMetrics (if applicable)
 
-If the new metric should appear in the `MetricSnapshot` DTO (for Control Plane polling and TUI display):
+If the new metric should appear in the `JobMetrics` DTO (for Control Plane polling and TUI display):
 
-1. Add a property to `MetricSnapshot.cs` in Abstractions.
-2. Add the extraction case to `SnapshotMetricExporter.cs` in Infrastructure.
+1. Add a property to the appropriate counter record in Abstractions (`WorkItemCounters`, `MigrationDiagnostics`, `DiscoveryCounters`, etc.).
+2. Add the extraction case to `SnapshotMetricExporter.cs` in Infrastructure, mapping the OTel metric into the nested `JobMetrics` structure.
 
 ### Step 7 — Add tests
 
 Add a unit test to the existing test class (`MigrationMetricsTests` or `DiscoveryMetricsTests`) verifying the instrument is recorded with correct name and value.
+
+---
+
+## Obsolete Interfaces — Do Not Use
+
+Two legacy interfaces remain in `Abstractions/Telemetry/` marked `[Obsolete]`. They exist only to keep call sites in `Infrastructure.TfsObjectModel` compiling during the transition period. **Do NOT inject or implement these in new code.**
+
+| Interface | Replace with |
+|---|---|
+| `IWorkItemExportMetrics` | `IMigrationMetrics` |
+| `IAttachmentDownloadMetrics` | `IMigrationMetrics` |
+
+These will be removed once all TFS Object Model call sites have been migrated to `IMigrationMetrics`.
 
 ---
 
@@ -136,9 +222,9 @@ Add a unit test to the existing test class (`MigrationMetricsTests` or `Discover
 
 | Host | Azure Monitor | OTLP | Snapshot Store | NDJSON stdout |
 |---|---|---|---|---|
-| MigrationAgent (net10.0) | Via `ServiceDefaults` | Via `OTEL_EXPORTER_OTLP_ENDPOINT` | `SnapshotMetricExporter` → `InMemoryMetricSnapshotStore` | No |
+| MigrationAgent (net10.0) | Via `ServiceDefaults` | Via `OTEL_EXPORTER_OTLP_ENDPOINT` | `SnapshotMetricExporter` → `InMemoryJobMetricsStore` | No |
 | ControlPlaneHost (net10.0) | Via `ServiceDefaults` | Via `OTEL_EXPORTER_OTLP_ENDPOINT` | No | No |
-| TFS subprocess (net481) | Via `appsettings.json` `AzureMonitorConnectionString` | Via `OTEL_EXPORTER_OTLP_ENDPOINT` | No | `MetricSnapshot` in `ProgressEvent` |
+| TFS subprocess (net481) | Via `appsettings.json` `AzureMonitorConnectionString` | Via `OTEL_EXPORTER_OTLP_ENDPOINT` | No | `JobMetrics` in `ProgressEvent.Metrics` |
 
 When no exporter is configured, OTel instruments are recorded but silently discarded — zero runtime overhead.
 

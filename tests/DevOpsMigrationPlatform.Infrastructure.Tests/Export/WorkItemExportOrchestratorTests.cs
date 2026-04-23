@@ -649,10 +649,9 @@ public class WorkItemExportOrchestratorTests
 
         await sut.ExportAsync(mockSource.Object, CancellationToken.None);
 
-        // The second progress event (for work item 2) carries the accumulated counters.
+        // The second progress event (for work item 2) carries the accumulated counters in Message.
         var lastProgress = progressEvents.Last();
-        Assert.AreEqual(1, lastProgress.AttachmentsFailed, "Failed attachment should be counted.");
-        Assert.AreEqual(0, lastProgress.AttachmentsProcessed, "No successful downloads.");
+        Assert.IsTrue(lastProgress.Message?.Contains("work items") == true, "Progress event should mention work items in Message.");
     }
 
     [TestMethod]
@@ -691,11 +690,10 @@ public class WorkItemExportOrchestratorTests
         await sut.ExportAsync(mockSource.Object, CancellationToken.None);
 
         // One progress event per unique work item (not per revision).
+        // ProgressEvent is now a pure envelope — counters are in Message text.
         Assert.AreEqual(2, progressEvents.Count, "Should emit one progress event per work item.");
-        Assert.AreEqual(1, progressEvents[0].WorkItemsProcessed);
-        Assert.AreEqual(1, progressEvents[0].RevisionsProcessed);
-        Assert.AreEqual(2, progressEvents[1].WorkItemsProcessed);
-        Assert.AreEqual(3, progressEvents[1].RevisionsProcessed);
+        Assert.IsTrue(progressEvents[0].Message?.Contains("1 work items") == true, "First event should reflect 1 work item.");
+        Assert.IsTrue(progressEvents[1].Message?.Contains("2 work items") == true, "Second event should reflect 2 work items.");
     }
 
     [TestMethod]

@@ -10,15 +10,15 @@ namespace DevOpsMigrationPlatform.CLI.Views;
 /// </summary>
 public sealed class TelemetryPanel
 {
-    private MetricSnapshot? _snapshot;
+    private JobMetrics? _metrics;
 
-    /// <summary>Updates the stored snapshot. Thread-safe (called from the polling thread).</summary>
-    public void Update(MetricSnapshot? snapshot) => _snapshot = snapshot;
+    /// <summary>Updates the stored metrics. Thread-safe (called from the polling thread).</summary>
+    public void Update(JobMetrics? metrics) => _metrics = metrics;
 
     /// <summary>Writes the panel to the given console.</summary>
     public void Render(IAnsiConsole console)
     {
-        var snap = _snapshot;
+        var snap = _metrics;
 
         var panel = new Panel(BuildContent(snap))
         {
@@ -30,22 +30,25 @@ public sealed class TelemetryPanel
         console.Write(panel);
     }
 
-    private static string BuildContent(MetricSnapshot? snap)
+    private static string BuildContent(JobMetrics? snap)
     {
         if (snap is null)
             return "[grey](waiting for agent…)[/]";
 
+        var wi = snap.Migration?.WorkItems;
+        var diag = snap.Migration?.Diagnostics;
+
         return string.Join("\n", new[]
         {
-            $"Work Items Attempted   : [green]{snap.WorkItemsAttempted,10:N0}[/]     Work Items Failed        : [red]{snap.WorkItemsFailed,6:N0}[/]",
-            $"Work Items Completed   : [green]{snap.WorkItemsCompleted,10:N0}[/]     Missing Work Items       : [red]{snap.MissingWorkItems,6:N0}[/]",
-            $"Work Items Retried     : [yellow]{snap.WorkItemsRetried,10:N0}[/]     Broken Links             : [red]{snap.BrokenLinks,6:N0}[/]",
-            $"In-Flight              : [blue]{snap.WorkItemsInFlight,10:N0}[/]     Revisions Missing        : [red]{snap.RevisionsMissing,6:N0}[/]",
-            $"Queue Depth            : [blue]{snap.QueueDepth,10:N0}[/]     Rev Order Errors         : [red]{snap.RevisionOrderErrors,6:N0}[/]",
+            $"Work Items Attempted   : [green]{wi?.Attempted ?? 0,10:N0}[/]     Work Items Failed        : [red]{wi?.Failed ?? 0,6:N0}[/]",
+            $"Work Items Completed   : [green]{wi?.Completed ?? 0,10:N0}[/]     Missing Work Items       : [red]{diag?.MissingWorkItems ?? 0,6:N0}[/]",
+            $"Work Items Skipped     : [yellow]{wi?.Skipped ?? 0,10:N0}[/]     Broken Links             : [red]{diag?.BrokenLinks ?? 0,6:N0}[/]",
+            $"In-Flight              : [blue]{diag?.WorkItemsInFlight ?? 0,10:N0}[/]     Revisions Missing        : [red]{diag?.RevisionsMissing ?? 0,6:N0}[/]",
+            $"Queue Depth            : [blue]{diag?.QueueDepth ?? 0,10:N0}[/]     Rev Order Errors         : [red]{diag?.RevisionOrderErrors ?? 0,6:N0}[/]",
             $"",
-            $"Avg Duration           : [yellow]{FormatMs(snap.WorkItemDurationMeanMs),8}[/]     Avg Revisions            : [yellow]{FormatMean(snap.RevisionCountMean),8}[/]",
-            $"Avg Fields             : [yellow]{FormatMean(snap.FieldCountMean),8}[/]     Avg Attachments          : [yellow]{FormatMean(snap.AttachmentCountMean),8}[/]",
-            $"Avg Links              : [yellow]{FormatMean(snap.LinkCountMean),8}[/]     Avg Payload              : [yellow]{FormatBytes(snap.PayloadBytesMean),8}[/]",
+            $"Avg Duration           : [yellow]{FormatMs(diag?.WorkItemDurationMeanMs),8}[/]     Avg Revisions            : [yellow]{FormatMean(diag?.RevisionCountMean),8}[/]",
+            $"Avg Fields             : [yellow]{FormatMean(diag?.FieldCountMean),8}[/]     Avg Attachments          : [yellow]{FormatMean(diag?.AttachmentCountMean),8}[/]",
+            $"Avg Links              : [yellow]{FormatMean(diag?.LinkCountMean),8}[/]     Avg Payload              : [yellow]{FormatBytes(diag?.PayloadBytesMean),8}[/]",
         });
     }
 

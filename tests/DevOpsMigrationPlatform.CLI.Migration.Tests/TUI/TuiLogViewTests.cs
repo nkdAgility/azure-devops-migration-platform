@@ -46,7 +46,7 @@ public class TuiLogViewTests
     {
         // Arrange
         _clientMock
-            .Setup(c => c.FollowLogsAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .Setup(c => c.FollowLogsAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>(), It.IsAny<long?>()))
             .Returns(EmptyAsyncEnumerable<ProgressEvent>());
 
         var view = new TuiLogView(_clientMock.Object);
@@ -65,7 +65,7 @@ public class TuiLogViewTests
     {
         // Arrange
         _clientMock
-            .Setup(c => c.FollowLogsAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .Setup(c => c.FollowLogsAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>(), It.IsAny<long?>()))
             .Returns(EmptyAsyncEnumerable<ProgressEvent>());
 
         var view = new TuiLogView(_clientMock.Object);
@@ -106,7 +106,7 @@ public class TuiLogViewTests
     {
         // Arrange
         _clientMock
-            .Setup(c => c.FollowLogsAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .Setup(c => c.FollowLogsAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>(), It.IsAny<long?>()))
             .Returns(EmptyAsyncEnumerable<ProgressEvent>());
 
         var view = new TuiLogView(_clientMock.Object);

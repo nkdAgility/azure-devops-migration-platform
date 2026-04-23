@@ -26,7 +26,7 @@ using DevOpsMigrationPlatform.Infrastructure.Telemetry;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.AddServiceDefaults();
+builder.AddServiceDefaults(DevOpsMigrationPlatform.Abstractions.WellKnownServiceNames.ControlPlaneHost);
 
 // Filter customer-identifiable log data from the OTel pipeline (Azure Monitor).
 builder.Logging.AddDataClassificationFilter();
@@ -48,6 +48,8 @@ builder.Services.AddControllers()
         opts.JsonSerializerOptions.PropertyNamingPolicy =
             System.Text.Json.JsonNamingPolicy.CamelCase;
         opts.JsonSerializerOptions.PropertyNameCaseInsensitive = true;
+        opts.JsonSerializerOptions.UnmappedMemberHandling =
+            System.Text.Json.Serialization.JsonUnmappedMemberHandling.Disallow;
     });
 
 builder.Services.AddControlPlaneServices(builder.Configuration);

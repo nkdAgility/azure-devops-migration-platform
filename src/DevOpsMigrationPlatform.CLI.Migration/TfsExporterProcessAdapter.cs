@@ -31,8 +31,8 @@ public sealed class TfsExporterProcessAdapter
         ILogger<TfsExporterProcessAdapter> logger,
         IControlPlaneTelemetryClient? telemetryClient = null)
     {
-        _progressSink   = progressSink   ?? throw new ArgumentNullException(nameof(progressSink));
-        _logger         = logger         ?? throw new ArgumentNullException(nameof(logger));
+        _progressSink = progressSink ?? throw new ArgumentNullException(nameof(progressSink));
+        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _telemetryClient = telemetryClient;
     }
 
@@ -66,7 +66,7 @@ public sealed class TfsExporterProcessAdapter
         // Push snapshot to Control Plane when available — fire-and-forget.
         if (evt.Metrics is not null && _telemetryClient is not null && _currentLeaseId is not null)
         {
-            _ = _telemetryClient.PushSnapshotAsync(_currentLeaseId, evt.Metrics, ct);
+            _ = _telemetryClient.PushMetricsAsync(_currentLeaseId, evt.Metrics, ct);
         }
     }
 }

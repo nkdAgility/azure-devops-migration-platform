@@ -110,10 +110,10 @@ public sealed class ControlPlaneClient : IJobRunner, ILogsClient, IControlPlaneC
     }
 
     /// <summary>
-    /// Returns the latest <see cref="MetricSnapshot"/> for a job, or <c>null</c> when none pushed yet.
+    /// Returns the latest <see cref="JobMetrics"/> for a job, or <c>null</c> when none pushed yet.
     /// Calls <c>GET /jobs/{jobId}/telemetry</c>.
     /// </summary>
-    public async Task<MetricSnapshot?> GetTelemetryAsync(Guid jobId, CancellationToken ct)
+    public async Task<JobMetrics?> GetTelemetryAsync(Guid jobId, CancellationToken ct)
     {
         var response = await _http
             .GetAsync($"/jobs/{jobId}/telemetry", ct)
@@ -124,7 +124,7 @@ public sealed class ControlPlaneClient : IJobRunner, ILogsClient, IControlPlaneC
 
         response.EnsureSuccessStatusCode();
         return await response.Content
-            .ReadFromJsonAsync<MetricSnapshot>(_jsonOptions, ct)
+            .ReadFromJsonAsync<JobMetrics>(_jsonOptions, ct)
             .ConfigureAwait(false);
     }
 
@@ -152,11 +152,17 @@ public sealed class ControlPlaneClient : IJobRunner, ILogsClient, IControlPlaneC
     /// </summary>
     public async IAsyncEnumerable<ProgressEvent> FollowLogsAsync(
         Guid jobId,
-        [EnumeratorCancellation] CancellationToken ct)
+        [EnumeratorCancellation] CancellationToken ct,
+        long? lastEventSequence = null)
     {
+        var request = new HttpRequestMessage(HttpMethod.Get,
+            $"/jobs/{jobId}/progress?follow=true");
+        if (lastEventSequence.HasValue)
+            request.Headers.TryAddWithoutValidation("Last-Event-ID",
+                lastEventSequence.Value.ToString());
+
         using var response = await _http
-            .GetAsync($"/jobs/{jobId}/progress?follow=true",
-                HttpCompletionOption.ResponseHeadersRead, ct)
+            .SendAsync(request, HttpCompletionOption.ResponseHeadersRead, ct)
             .ConfigureAwait(false);
 
         response.EnsureSuccessStatusCode();
@@ -316,4 +322,20 @@ public sealed class ControlPlaneClient : IJobRunner, ILogsClient, IControlPlaneC
     /// </summary>
     public Task<bool> IsAgentActiveAsync(string agentInstanceId, CancellationToken ct)
         => Task.FromResult(false);
+
+    /// <inheritdoc/>
+    public async Task<JobBootstrap?> GetBootstrapAsync(Guid jobId, CancellationToken ct)
+    {
+        var response = await _http
+            .GetAsync($"/jobs/{jobId}/bootstrap", ct)
+            .ConfigureAwait(false);
+
+        if (response.StatusCode == System.Net.HttpStatusCode.NoContent)
+            return null;
+
+        response.EnsureSuccessStatusCode();
+        return await response.Content
+            .ReadFromJsonAsync<JobBootstrap>(_jsonOptions, ct)
+            .ConfigureAwait(false);
+    }
 }
