@@ -12,13 +12,13 @@ namespace DevOpsMigrationPlatform.ControlPlane.Controllers;
 [ApiController]
 public sealed class TelemetryController : ControllerBase
 {
-    private readonly JobTelemetryStore _telemetryStore;
+    private readonly JobMetricsStore _telemetryStore;
     private readonly JobSnapshotStore _snapshotStore;
     private readonly JobProgressStore _progressStore;
     private readonly ILeaseJobResolver _leaseResolver;
 
     public TelemetryController(
-        JobTelemetryStore telemetryStore,
+        JobMetricsStore telemetryStore,
         JobSnapshotStore snapshotStore,
         JobProgressStore progressStore,
         ILeaseJobResolver leaseResolver)

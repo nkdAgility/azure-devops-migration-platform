@@ -9,7 +9,7 @@ namespace DevOpsMigrationPlatform.ControlPlane.Services;
 /// Updated by <c>TelemetryController.POST /agents/lease/{leaseId}/metrics</c>.
 /// Read by <c>TelemetryController.GET /jobs/{jobId}/telemetry</c>.
 /// </summary>
-public sealed class JobTelemetryStore
+public sealed class JobMetricsStore
 {
     private readonly ConcurrentDictionary<Guid, JobMetrics> _snapshots = new();
 

@@ -26,7 +26,7 @@ public static class ControlPlaneServiceExtensions
         services.AddSingleton<ILeaseJobResolver, StubLeaseJobResolver>();
 
         // In-memory telemetry snapshot store for push (POST) and pull (GET).
-        services.AddSingleton<JobTelemetryStore>();
+        services.AddSingleton<JobMetricsStore>();
 
         // In-memory job snapshot store (Channel 3) for push (POST) and pull (GET).
         services.AddSingleton<JobSnapshotStore>();

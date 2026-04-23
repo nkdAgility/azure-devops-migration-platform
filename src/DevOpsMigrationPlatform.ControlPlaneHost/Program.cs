@@ -48,6 +48,8 @@ builder.Services.AddControllers()
         opts.JsonSerializerOptions.PropertyNamingPolicy =
             System.Text.Json.JsonNamingPolicy.CamelCase;
         opts.JsonSerializerOptions.PropertyNameCaseInsensitive = true;
+        opts.JsonSerializerOptions.UnmappedMemberHandling =
+            System.Text.Json.Serialization.JsonUnmappedMemberHandling.Disallow;
     });
 
 builder.Services.AddControlPlaneServices(builder.Configuration);
