@@ -96,6 +96,7 @@ public sealed class DependencyDiscoveryModule : IDiscoveryModule
 
         // ── Resume: read existing cursor and CSV ─────────────────────────────
         var completedProjects = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var resumedProjectStats = new Dictionary<string, PerProjectStats>(StringComparer.OrdinalIgnoreCase);
         var existingCsvRows = new StringBuilder();
         var recordCount = 0;
 
@@ -109,7 +110,7 @@ public sealed class DependencyDiscoveryModule : IDiscoveryModule
         {
             _logger.LogInformation("Found existing dependencies cursor — attempting resume.");
 
-            // Parse completed project keys from cursor
+            // Parse completed project keys and per-project stats from cursor
             try
             {
                 using var doc = JsonDocument.Parse(cursorJson);
@@ -124,11 +125,28 @@ public sealed class DependencyDiscoveryModule : IDiscoveryModule
                 }
                 if (doc.RootElement.TryGetProperty("recordCount", out var rc))
                     recordCount = rc.GetInt32();
+
+                // Parse per-project stats if present (added for resume display)
+                if (doc.RootElement.TryGetProperty("projectStats", out var statsObj))
+                {
+                    foreach (var prop in statsObj.EnumerateObject())
+                    {
+                        var s = prop.Value;
+                        resumedProjectStats[prop.Name] = new PerProjectStats(
+                            WorkItemsAnalysed: s.TryGetProperty("workItemsAnalysed", out var wa) ? wa.GetInt32() : 0,
+                            ExternalLinksFound: s.TryGetProperty("externalLinksFound", out var elf) ? elf.GetInt32() : 0,
+                            CrossProjectCount: s.TryGetProperty("crossProjectCount", out var cpc) ? cpc.GetInt32() : 0,
+                            CrossOrgCount: s.TryGetProperty("crossOrgCount", out var coc) ? coc.GetInt32() : 0,
+                            TotalWorkItems: s.TryGetProperty("totalWorkItems", out var twi) ? twi.GetInt32() : 0
+                        );
+                    }
+                }
             }
             catch (JsonException ex)
             {
                 _logger.LogWarning(ex, "Failed to parse dependencies cursor — starting fresh.");
                 completedProjects.Clear();
+                resumedProjectStats.Clear();
                 recordCount = 0;
             }
 
@@ -142,6 +160,30 @@ public sealed class DependencyDiscoveryModule : IDiscoveryModule
                     _logger.LogInformation(
                         "Resuming dependency analysis — {CompletedCount} project(s) already completed, {RecordCount} records loaded.",
                         completedProjects.Count, recordCount);
+                }
+
+                // Emit synthetic ProjectComplete events for previously-completed projects so
+                // the CLI live table immediately shows the correct counts on resume.
+                foreach (var projectKey in completedProjects)
+                {
+                    var separatorIndex = projectKey.IndexOf('|');
+                    if (separatorIndex < 0)
+                        continue;
+
+                    resumedProjectStats.TryGetValue(projectKey, out var stats);
+                    sink.Emit(new ProgressEvent
+                    {
+                        Module = Name,
+                        Stage = "ProjectComplete",
+                        LastProcessed = projectKey,
+                        TotalWorkItems = stats?.TotalWorkItems ?? 0,
+                        WorkItemsProcessed = stats?.WorkItemsAnalysed ?? 0,
+                        WorkItemId = stats?.ExternalLinksFound ?? 0,
+                        RevisionsProcessed = stats?.CrossProjectCount ?? 0,
+                        AttachmentsProcessed = stats?.CrossOrgCount ?? 0,
+                        Message = $"Resumed (previously completed)",
+                        Timestamp = DateTimeOffset.UtcNow
+                    });
                 }
             }
         }
@@ -180,7 +222,7 @@ public sealed class DependencyDiscoveryModule : IDiscoveryModule
                     existingCsvRows.Append(existingCsv);
 
                     // Persist the reconciled cursor so the next restart doesn't re-reconcile
-                    await WriteCursorAsync(state, recordCount, completedProjects, ct).ConfigureAwait(false);
+                    await WriteCursorAsync(state, recordCount, completedProjects, new Dictionary<string, PerProjectStats>(StringComparer.OrdinalIgnoreCase), ct).ConfigureAwait(false);
 
                     _logger.LogWarning(
                         "Reconciled dependencies cursor from CSV — {CompletedCount} project(s), {RecordCount} records. " +
@@ -265,6 +307,9 @@ public sealed class DependencyDiscoveryModule : IDiscoveryModule
 
         // Track completed projects as we go (union of pre-existing + newly completed)
         var allCompletedProjects = new HashSet<string>(completedProjects, StringComparer.OrdinalIgnoreCase);
+
+        // Per-project stats for the cursor (seed with any stats from a previous run)
+        var allProjectStats = new Dictionary<string, PerProjectStats>(resumedProjectStats, StringComparer.OrdinalIgnoreCase);
 
         // Per-project CSV builders keyed by "{orgFolder}/{project}" relative path.
         var perProjectCsv = new Dictionary<string, StringBuilder>(StringComparer.OrdinalIgnoreCase);
@@ -436,6 +481,15 @@ public sealed class DependencyDiscoveryModule : IDiscoveryModule
                         var completedKey = $"{heartbeat.OrganisationUrl}|{heartbeat.ProjectName}";
                         allCompletedProjects.Add(completedKey);
 
+                        // Save per-project stats so they are available when a resumed job
+                        // emits synthetic ProjectComplete events for the CLI live table.
+                        allProjectStats[completedKey] = new PerProjectStats(
+                            WorkItemsAnalysed: heartbeat.WorkItemsAnalysed,
+                            ExternalLinksFound: heartbeat.ExternalLinksFound,
+                            CrossProjectCount: heartbeat.CrossProjectCount,
+                            CrossOrgCount: heartbeat.CrossOrgCount,
+                            TotalWorkItems: heartbeat.TotalWorkItems);
+
                         // Flush per-project CSV to artefact store.
                         if (perProjectCsv.TryGetValue(hbProjectFolder, out var completedProjCsv))
                         {
@@ -461,7 +515,7 @@ public sealed class DependencyDiscoveryModule : IDiscoveryModule
             if (DateTime.UtcNow - lastCheckpoint >= checkpointInterval)
             {
                 await store.WriteAsync(RootCsvPath, csvBuilder.ToString(), ct).ConfigureAwait(false);
-                await WriteCursorAsync(state, recordCount, allCompletedProjects, ct).ConfigureAwait(false);
+                await WriteCursorAsync(state, recordCount, allCompletedProjects, allProjectStats, ct).ConfigureAwait(false);
                 lastCheckpoint = DateTime.UtcNow;
                 metrics?.RecordCheckpointSaved(new TagList { { "job.id", job.JobId }, { "module", Name } });
                 _logger.LogDebug("Dependencies checkpoint saved at {RecordCount} records, {CompletedProjects} projects completed.",
@@ -512,12 +566,22 @@ public sealed class DependencyDiscoveryModule : IDiscoveryModule
             job.JobId, recordCount);
     }
 
-    private static Task WriteCursorAsync(IStateStore state, int recordCount, HashSet<string> completedProjects, CancellationToken ct)
+    private static Task WriteCursorAsync(IStateStore state, int recordCount, HashSet<string> completedProjects, Dictionary<string, PerProjectStats> projectStats, CancellationToken ct)
     {
         var json = JsonSerializer.Serialize(new
         {
             recordCount,
             completedProjects = completedProjects.ToArray(),
+            projectStats = projectStats.ToDictionary(
+                kvp => kvp.Key,
+                kvp => new
+                {
+                    workItemsAnalysed = kvp.Value.WorkItemsAnalysed,
+                    externalLinksFound = kvp.Value.ExternalLinksFound,
+                    crossProjectCount = kvp.Value.CrossProjectCount,
+                    crossOrgCount = kvp.Value.CrossOrgCount,
+                    totalWorkItems = kvp.Value.TotalWorkItems
+                }),
             savedAt = DateTime.UtcNow
         });
         return state.WriteAsync(CursorKey, json, ct);
@@ -836,4 +900,11 @@ public sealed class DependencyDiscoveryModule : IDiscoveryModule
         fields.Add(current.ToString());
         return fields;
     }
+
+    private sealed record PerProjectStats(
+        int WorkItemsAnalysed,
+        int ExternalLinksFound,
+        int CrossProjectCount,
+        int CrossOrgCount,
+        int TotalWorkItems);
 }

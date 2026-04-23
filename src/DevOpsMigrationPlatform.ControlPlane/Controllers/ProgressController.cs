@@ -134,7 +134,17 @@ public sealed class ProgressController : ControllerBase
         var (reader, writer) = _store.Subscribe(jobId);
         try
         {
-            // Replay any events that arrived before this SSE connection opened.
+            // Replay current per-project state first so a late-connecting client (e.g. a
+            // TUI that attaches mid-run) immediately sees the latest status for every
+            // project, even if those events were evicted from the ring buffer.
+            foreach (var stateEvt in _store.GetCurrentProjectState(jobId))
+            {
+                var stateJson = JsonSerializer.Serialize(stateEvt, _jsonOptions);
+                await HttpContext.Response.WriteAsync($"data: {stateJson}\n\n", ct);
+            }
+
+            // Replay any remaining events from the ring buffer that are not already
+            // covered by the per-project state replay above.
             foreach (var pastEvt in _store.GetSnapshot(jobId))
             {
                 var pastJson = JsonSerializer.Serialize(pastEvt, _jsonOptions);
