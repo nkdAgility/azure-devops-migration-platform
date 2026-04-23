@@ -92,6 +92,21 @@ public sealed class PackageLoggerProvider : BackgroundService, ILoggerProvider
         _channel.Writer.TryWrite(record);
     }
 
+    /// <summary>
+    /// Drains all buffered records to the package store. Called by <c>JobAgentWorker</c>
+    /// after a job completes but before <see cref="ActivePackageState.Clear"/> — ensures
+    /// no records are lost when the process is terminated without graceful shutdown
+    /// (e.g. process-per-component mode where the CLI kills child processes).
+    /// </summary>
+    public async Task FlushAsync()
+    {
+        var batch = new List<DiagnosticLogRecord>();
+        while (_channel.Reader.TryRead(out var record))
+            batch.Add(record);
+        if (batch.Count > 0)
+            await FlushBatchAsync(batch, CancellationToken.None).ConfigureAwait(false);
+    }
+
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         var batch = new List<DiagnosticLogRecord>(_flushBatchSize);

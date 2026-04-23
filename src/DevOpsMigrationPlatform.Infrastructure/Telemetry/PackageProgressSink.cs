@@ -54,6 +54,21 @@ public sealed class PackageProgressSink : BackgroundService, IProgressSink
         _channel.Writer.TryWrite(evt);
     }
 
+    /// <summary>
+    /// Drains all buffered records to the package store. Called by <c>JobAgentWorker</c>
+    /// after a job completes but before <see cref="ActivePackageState.Clear"/> — ensures
+    /// no records are lost when the process is terminated without graceful shutdown
+    /// (e.g. process-per-component mode where the CLI kills child processes).
+    /// </summary>
+    public async Task FlushAsync()
+    {
+        var batch = new List<ProgressEvent>();
+        while (_channel.Reader.TryRead(out var evt))
+            batch.Add(evt);
+        if (batch.Count > 0)
+            await FlushBatchAsync(batch, CancellationToken.None).ConfigureAwait(false);
+    }
+
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         var batch = new List<ProgressEvent>(FlushBatchSize);

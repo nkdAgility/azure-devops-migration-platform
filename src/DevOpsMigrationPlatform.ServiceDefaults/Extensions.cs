@@ -45,13 +45,21 @@ public static class Extensions
 
         var otel = builder.Services.AddOpenTelemetry();
 
+        // Read deployment context from the host's configuration so Application Insights
+        // can distinguish Standalone vs Hosted runs and correlate with a control plane.
+        var envSection = builder.Configuration.GetSection("MigrationPlatform:Environment");
+        var deploymentMode = envSection["Type"] ?? "Standalone";
+        var controlPlaneUrl = envSection["ControlPlane:BaseUrl"] ?? "http://localhost:5100";
+
         if (!string.IsNullOrEmpty(serviceName))
         {
             otel.ConfigureResource(rb => rb.AddAttributes(
                 new System.Collections.Generic.Dictionary<string, object>
                 {
                     { "service.name", serviceName },
-                    { "service.namespace", DevOpsMigrationPlatform.Abstractions.WellKnownServiceNames.Namespace }
+                    { "service.namespace", DevOpsMigrationPlatform.Abstractions.WellKnownServiceNames.Namespace },
+                    { DevOpsMigrationPlatform.Abstractions.WellKnownResourceAttributes.DeploymentMode, deploymentMode },
+                    { DevOpsMigrationPlatform.Abstractions.WellKnownResourceAttributes.ControlPlaneUrl, controlPlaneUrl }
                 }));
         }
 

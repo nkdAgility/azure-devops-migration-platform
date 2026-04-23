@@ -361,10 +361,16 @@ The local config file is never sent directly anywhere. The `MigrationJob` is the
 
 ### Standalone (Local / Server)
 
-When `Environment.Type` is `Standalone` (the default), the CLI starts `LocalStackHost` in-process — ControlPlane API, MigrationAgent(s), and PostgreSQL at `http://localhost:{port}` (default port `5100`). Use `--port` to run on a different port.
+When `Environment.Type` is `Standalone` (the default), the CLI starts `LocalStackHost` which launches ControlPlane and MigrationAgent at `http://localhost:{port}` (default port `5100`). Use `--port` to run on a different port.
 
-- Control plane starts on `http://localhost:{port}` as an in-process host (default: `5100`).
-- Agents run as in-process workers.
+**Process-per-component mode (preferred):** When published ControlPlane and MigrationAgent binaries are found (installed layout or dev build output), each component runs as a separate child process. This gives each component its own `System.Diagnostics.DiagnosticListener` instance, producing correct Application Insights Application Map topology: `CLI ↔ ControlPlane ↔ Agent ↔ dev.azure.com`. Executables are resolved in this order:
+1. `MIGRATION_CONTROLPLANE_EXE` / `MIGRATION_AGENT_EXE` environment variable override.
+2. Installed layout: `../ControlPlane/` and `../MigrationAgent/` relative to the CLI binary.
+3. Development layout: sibling project `bin/{Debug|Release}/net10.0/` directories.
+
+**In-process fallback:** When executables are not found (e.g. `dotnet run` from source without publishing), falls back to hosting both components in the CLI process. A warning is logged about Application Map accuracy due to OpenTelemetry instrumentation bleed.
+
+- Control plane starts on `http://localhost:{port}` (default: `5100`).
 - `IArtefactStore` is `FileSystemArtefactStore`.
 - `IStateStore` is `PackageCheckpointStateStore` (writes `.migration/Checkpoints/` inside the package).
 - Any machine with network access to the host can attach a TUI and monitor the migration.
