@@ -29,7 +29,7 @@ public class TuiMainViewTests
             .ReturnsAsync((JobMetrics?)null);
 
         _clientMock
-            .Setup(c => c.FollowLogsAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .Setup(c => c.FollowLogsAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>(), It.IsAny<long?>()))
             .Returns(EmptyAsyncEnumerable<ProgressEvent>());
     }
 

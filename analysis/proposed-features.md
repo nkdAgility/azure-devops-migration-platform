@@ -91,7 +91,7 @@ Status legend:
 | # | Feature | Status | Summary |
 |---|---------|--------|---------|
 | P1 | [Checkpoint Reconciliation](#p1-checkpoint-reconciliation) | 🆕 ❌ | Rebuild missing/corrupted checkpoint state from existing package data across all modules |
-| P2 | [Three-Channel Telemetry Model](#p2-three-channel-telemetry-model) | 🆕 ❌ | Rationalise Events, Metrics, and Snapshot into distinct channels with correct layering |
+| P2 | [Three-Channel Telemetry Model](#p2-three-channel-telemetry-model) | ✅ | Rationalise Events, Metrics, and Snapshot into distinct channels with correct layering |
 | **P3** | **[Process-per-Component Standalone Mode](#p3-process-per-component-standalone-mode)** | **🆕 ❌ 🔴 CRITICAL** | **Eliminate OTel instrumentation bleed in standalone mode by running ControlPlane and Agent as separate processes** |
 
 ---
@@ -950,52 +950,6 @@ devopsmigration admin page install --config migration.json --pages ./pages --dry
 
 As an interim measure before the full `Reconcile` job is built, individual modules can perform **automatic reconciliation on startup**: if the cursor is missing but data exists, reconstruct the cursor from the data and log a warning. This is implemented for:
 - `DependencyDiscoveryModule` — parses existing `dependencies.csv` to rebuild `completedProjects` set
-
----
-
-### P2: Three-Channel Telemetry Model — Remaining Items
-
-> The core Three-Channel Telemetry Model is **implemented**. The types (`ProgressEvent`, `JobMetrics`, `JobSnapshot`, `JobBootstrap`), stores (`IJobMetricsStore`, `IJobSnapshotStore`, `JobTelemetryStore`, `JobSnapshotStore`), endpoints (POST/GET metrics, POST/GET snapshot, GET bootstrap), SSE `id:` field + server-side `Last-Event-ID` replay, `ControlPlaneTelemetryTimer` (dual push), `SnapshotMetricExporter` → `JobMetrics`, TFS subprocess adapter, TUI bootstrap fetch, and TUI Channel 2-only polling are all in place. See `.agents/context/telemetry-architecture.md` for the canonical description.
->
-> The items below are the remaining gaps.
-
-#### P2-A: Client-Side `Last-Event-ID` on SSE Reconnect
-
-**Status**: Server-side implemented; client-side missing.
-
-`ProgressController` parses the `Last-Event-ID` header and replays missed events. However, `ControlPlaneClient.FollowLogsAsync()` does not send the header when reconnecting to the SSE stream. When the TUI reconnects after a network blip, it currently replays all per-project state instead of only missed events.
-
-**Fix**: `FollowLogsAsync` should accept an optional `lastEventSequence` parameter. On reconnect, set the `Last-Event-ID` request header to the last received sequence. The bootstrap endpoint already returns `LastEventSequence` for the initial connection.
-
-#### P2-B: Project-Boundary Snapshot Push
-
-**Status**: Timer-based push implemented; boundary-based push missing.
-
-`ControlPlaneTelemetryTimer` pushes `JobSnapshot` on a configurable timer interval. The spec calls for also pushing at **project boundaries** (when a project completes or fails) so that late-joining clients see per-project state changes sooner than the timer interval.
-
-**Fix**: Discovery modules already call `PushSnapshot` at project boundaries via the `IJobSnapshotStore`, and the timer reads `Latest`. To get boundary-triggered HTTP pushes to the Control Plane, either: (a) make the timer wake on a `ManualResetEventSlim` signal set by the store's `Update()` method, or (b) have discovery modules directly trigger an immediate push via a new `ISnapshotPushTrigger` interface.
-
-#### P2-C: Rename `JobTelemetryStore` → `JobMetricsStore`
-
-**Status**: Cosmetic naming inconsistency.
-
-The control-plane store class is still named `JobTelemetryStore` (file: `ControlPlane/Services/JobTelemetryStore.cs`). For consistency with the `JobMetrics` type used everywhere else, it should be renamed to `JobMetricsStore`. This is a non-functional change.
-
-#### P2-D: `POST /metrics` Payload Validation
-
-**Status**: Not implemented.
-
-The spec's cardinality guardrails call for the Control Plane to reject `JobMetrics` payloads containing fields not defined in the schema. Currently `TelemetryController.PushTelemetry()` accepts and stores any payload that deserialises successfully. This prevents agents from silently adding high-cardinality dimensions.
-
-**Fix**: Configure `System.Text.Json` with `JsonSerializerOptions.UnmappedMemberHandling = JsonUnmappedMemberHandling.Disallow` for the metrics deserialization path, or add explicit model validation.
-
-#### P2-E: Remove `LatestByProject` from `JobProgressStore`
-
-**Status**: Still in use.
-
-The spec states that `JobSnapshot` should replace `JobProgressStore.LatestByProject` as the authoritative source for per-project state. Currently both mechanisms coexist: `LatestByProject` feeds the SSE replay in `ProgressController`, and `JobSnapshot` feeds the bootstrap endpoint. Once the TUI uses bootstrap + `Last-Event-ID` for reconnect (P2-A), `LatestByProject` can be removed.
-
-**Dependency**: Requires P2-A (client-side `Last-Event-ID`).
 
 ---
 
