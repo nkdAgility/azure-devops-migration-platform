@@ -17,7 +17,7 @@ namespace DevOpsMigrationPlatform.Infrastructure.Tests.Dependencies;
 [TestClass]
 public class DependencyDiscoveryModuleResumeTests
 {
-    private const string CursorKey = ".migration/Checkpoints/Dependencies.cursor.json";
+    private const string CursorKey = ".migration/Checkpoints/dependencies.cursor.json";
 
     // ── helpers ───────────────────────────────────────────────────────────────
 

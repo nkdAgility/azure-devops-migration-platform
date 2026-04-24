@@ -21,10 +21,16 @@ namespace DevOpsMigrationPlatform.Infrastructure.Modules;
 /// Wraps <see cref="IDependencyDiscoveryService"/> and writes <c>dependencies.csv</c>
 /// to the artefact store. Checkpoints periodically so multi-hour runs can resume without
 /// reprocessing already-analysed work items.
+/// <para>
+/// <strong>Architecture note:</strong> This module follows the delegation pattern: it orchestrates
+/// checkpointing, progress reporting, and artefact writing, while the actual link analysis is
+/// delegated to <see cref="IDependencyDiscoveryService"/> (created via factory). This separation
+/// keeps the module testable with mocked services and decoupled from any specific connector.
+/// </para>
 /// </summary>
 public sealed class DependencyDiscoveryModule : IDiscoveryModule
 {
-    private const string CursorKey = PackagePaths.Checkpoints + "/Dependencies.cursor.json";
+    private static readonly string CursorKey = PackagePaths.CursorFile("Dependencies");
     private const string RootCsvPath = "dependencies.csv";
 
     private static readonly ActivitySource ActivitySource = new(WellKnownActivitySourceNames.Discovery);
@@ -164,7 +170,11 @@ public sealed class DependencyDiscoveryModule : IDiscoveryModule
 
         var cursorJson = await state.ReadAsync(CursorKey, ct).ConfigureAwait(false);
 
-        // Legacy fallback: try the pre-.migration path for existing packages.
+        // Legacy fallback: capitalised filename in .migration/Checkpoints/ (pre-standardisation).
+        if (cursorJson is null)
+            cursorJson = await state.ReadAsync(PackagePaths.Checkpoints + "/Dependencies.cursor.json", ct).ConfigureAwait(false);
+
+        // Legacy fallback: pre-.migration path for old packages.
         if (cursorJson is null)
             cursorJson = await state.ReadAsync("Checkpoints/Dependencies.cursor.json", ct).ConfigureAwait(false);
 

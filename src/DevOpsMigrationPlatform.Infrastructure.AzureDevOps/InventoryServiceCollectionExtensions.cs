@@ -2,7 +2,6 @@ using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Abstractions.Services;
 using DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Factories;
-using DevOpsMigrationPlatform.Infrastructure.Modules;
 using DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Services;
 using DevOpsMigrationPlatform.Infrastructure.Services;
 using Microsoft.Extensions.Configuration;
@@ -33,7 +32,6 @@ public static class InventoryServiceCollectionExtensions
         services.AddSingleton<IRepoDiscoveryService, AzureDevOpsRepoDiscoveryService>();
         services.AddSingleton<IInventoryService, InventoryService>();
         services.AddSingleton<IInventoryServiceFactory, InventoryServiceFactory>();
-        services.AddSingleton<IDiscoveryModule, InventoryDiscoveryModule>();
         return services;
     }
 }

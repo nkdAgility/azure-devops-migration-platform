@@ -72,3 +72,29 @@ The Azure DevOps export path uses the following components:
 See [.agents/guardrails/module-template.md](../.agents/guardrails/module-template.md) for the full checklist.
 
 > **Naming convention**: modules are named by *domain* (`WorkItems`, `Identities`, `Teams`, `Git`), not by operation. One module handles both export and import for its domain. `Scopes` are mandatory selection criteria (e.g. a `wiql` scope for WorkItems). The `Extensions` array controls which sub-data is collected.
+
+### Discovery Modules
+
+Discovery modules implement `IDiscoveryModule` and run pre-migration analysis:
+
+| Module | Responsibility |
+|---|---|
+| `InventoryDiscoveryModule` | Counts work items and revisions per project; writes `inventory.csv` and `inventory.json`. |
+| `DependencyDiscoveryModule` | Analyses cross-project and cross-organisation work item links; writes `dependencies.csv`. |
+
+Discovery modules follow the **delegation pattern**: they orchestrate checkpointing, progress reporting, and artefact writing, while the actual API interaction is delegated to injected services (e.g., `IInventoryService`, `IDependencyDiscoveryService`) created via factories. This keeps modules testable and connector-agnostic.
+
+### Module Registration
+
+Module registrations belong at the **composition root** (`ModuleServiceCollectionExtensions`), not inside connector assemblies. Connector files (e.g., `ExportServiceCollectionExtensions`) only register connector-specific services (factories, HTTP clients, SDK adapters). This ensures connectors are decoupled from module implementations.
+
+### Discovery Utility Namespace
+
+The `Infrastructure.Modules.Discovery` namespace contains **utility types** used by `DependencyDiscoveryModule` for graph analysis:
+
+- `TransitiveDependencyWalker` — walks the transitive closure of project dependencies.
+- `UnionFindComponentLabeler` — labels connected components using union-find.
+- `MermaidDiagramBuilder` / `MermaidUtilities` — generates Mermaid visualisation output.
+- `ProjectDependencyRecord` / `ProjectPairKey` — data records for dependency edges.
+
+> **Important**: These are NOT `IModule` or `IDiscoveryModule` implementations. They are internal utilities consumed only by `DependencyDiscoveryModule`.

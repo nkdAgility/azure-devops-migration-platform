@@ -20,10 +20,16 @@ namespace DevOpsMigrationPlatform.Infrastructure.Modules;
 /// and <c>inventory.json</c> to the artefact store. Checkpoints after each project so
 /// a 20+ hour run can resume. The JSON report is consumed by the dependency analysis
 /// pass to obtain grand totals before link analysis begins.
+/// <para>
+/// <strong>Architecture note:</strong> This module follows the delegation pattern: it orchestrates
+/// checkpointing, progress reporting, and artefact writing, while the actual Azure DevOps API
+/// interaction is delegated to <see cref="IInventoryService"/> (created via factory). This separation
+/// keeps the module testable with mocked services and decoupled from any specific connector.
+/// </para>
 /// </summary>
 public sealed class InventoryDiscoveryModule : IDiscoveryModule
 {
-    private const string CursorKey = PackagePaths.Checkpoints + "/Inventory.cursor.json";
+    private static readonly string CursorKey = PackagePaths.CursorFile("Inventory");
     private const string CsvOutputPath = "inventory.csv";
     private const string JsonOutputPath = "inventory.json";
 
@@ -529,7 +535,11 @@ public sealed class InventoryDiscoveryModule : IDiscoveryModule
     {
         var raw = await state.ReadAsync(CursorKey, ct).ConfigureAwait(false);
 
-        // Legacy fallback: try the pre-.migration path for existing packages.
+        // Legacy fallback: capitalised filename in .migration/Checkpoints/ (pre-standardisation).
+        if (raw is null)
+            raw = await state.ReadAsync(PackagePaths.Checkpoints + "/Inventory.cursor.json", ct).ConfigureAwait(false);
+
+        // Legacy fallback: pre-.migration path for old packages.
         if (raw is null)
             raw = await state.ReadAsync("Checkpoints/Inventory.cursor.json", ct).ConfigureAwait(false);
 

@@ -60,113 +60,113 @@ public sealed class AzureDevOpsDependencyAnalysisService : IWorkItemLinkAnalysis
         var _dataScope = DataClassificationScope.Begin(DataClassification.Customer);
         try
         {
-        var orgEndpoint = endpoint.ToOrganisationEndpoint();
-        var witClient = await _clientFactory.CreateWorkItemClientAsync(orgEndpoint, cancellationToken).ConfigureAwait(false);
+            var orgEndpoint = endpoint.ToOrganisationEndpoint();
+            var witClient = await _clientFactory.CreateWorkItemClientAsync(orgEndpoint, cancellationToken).ConfigureAwait(false);
 
-        _logger.LogInformation("Enumerating work item IDs for project {Project} in {OrgUrl}", project, orgEndpoint.ResolvedUrl);
+            _logger.LogInformation("Enumerating work item IDs for project {Project} in {OrgUrl}", project, orgEndpoint.ResolvedUrl);
 
-        // ── Pre-count: discover total work items so progress shows N of M ────
-        int projectTotal = 0;
-        await foreach (var snapshot in _discoveryService.CountWorkItemsAsync(
-            orgEndpoint, project, wiqlFilter, cancellationToken).ConfigureAwait(false))
-        {
-            projectTotal = snapshot.WorkItemsCount;
-        }
-        _logger.LogInformation(
-            "Project {Project} has {TotalWorkItems} work items to analyse for dependencies.",
-            project, projectTotal);
-
-        // Emit initial heartbeat with the discovered total
-        yield return new DependencyHeartbeatEvent(
-            orgEndpoint.ResolvedUrl, project, 0, 0, 0, 0, false,
-            TotalWorkItems: projectTotal, IsCounting: true);
-
-        var sourceOrgSegment = ExtractOrgSegment(orgEndpoint.ResolvedUrl);
-        var counters = new LinkCounters();
-        const int batchSize = 200;
-
-        // Build a lookup of org-segment → (resolvedUrl, pat) for all configured orgs so we
-        // can resolve GUID project names in cross-org links when we have credentials.
-        // Disabled organisations are intentionally included here: `enabled: false` only
-        // prevents an organisation from being iterated for dependency discovery, but it
-        // must still participate in GUID-to-project-name resolution so that links
-        // pointing at a disabled org are resolved to human-readable names.
-        var configuredOrgs = _options.Value.Organisations
-            .OfType<Infrastructure.AzureDevOps.Options.AzureDevOpsOrganisationEntry>()
-            .Where(o => !string.IsNullOrWhiteSpace(o.ResolvedUrl))
-            .ToDictionary(
-                o => ExtractOrgSegment(o.ResolvedUrl),
-                o => (OrgUrl: o.ResolvedUrl.TrimEnd('/'), Pat: o.Authentication?.ResolvedAccessToken ?? ""),
-                StringComparer.OrdinalIgnoreCase);
-
-        // Shared cache: "orgSegment::guidString" → resolved project name.
-        // Prevents redundant API calls when the same GUID appears in multiple links.
-        var projectNameCache = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-
-        // ── Stream pre-filtered items via IWorkItemFetchService ──────────────
-        // Items are streamed with field projection; only items passing any
-        // configured filters are yielded. IDs are buffered into batches of 200
-        // for the Relations expansion call that follows.
-        var scope = new WorkItemFetchScope(
-            Fields: new[] { "System.WorkItemType", "System.TeamProject" },
-            BaseQuery: string.IsNullOrWhiteSpace(wiqlFilter) ? null : wiqlFilter);
-
-        _logger.LogInformation("Streaming work items for dependency analysis in {Project} at {OrgUrl}", project, orgEndpoint.ResolvedUrl);
-
-        var currentBatch = new List<int>(batchSize);
-        int totalStreamed = 0;
-
-        await foreach (var item in _fetchService.FetchAsync(orgEndpoint, project, scope, cancellationToken)
-            .ConfigureAwait(false))
-        {
-            currentBatch.Add(item.Id);
-            totalStreamed++;
-
-            if (currentBatch.Count >= batchSize)
+            // ── Pre-count: discover total work items so progress shows N of M ────
+            int projectTotal = 0;
+            await foreach (var snapshot in _discoveryService.CountWorkItemsAsync(
+                orgEndpoint, project, wiqlFilter, cancellationToken).ConfigureAwait(false))
             {
-                // Emit counting heartbeat before processing the batch
-                yield return new DependencyHeartbeatEvent(
-                    orgEndpoint.ResolvedUrl, project, counters.Processed,
-                    counters.CrossProject + counters.CrossOrg,
-                    counters.CrossProject, counters.CrossOrg, false,
-                    TotalWorkItems: projectTotal, IsCounting: true);
+                projectTotal = snapshot.WorkItemsCount;
+            }
+            _logger.LogInformation(
+                "Project {Project} has {TotalWorkItems} work items to analyse for dependencies.",
+                project, projectTotal);
 
+            // Emit initial heartbeat with the discovered total
+            yield return new DependencyHeartbeatEvent(
+                orgEndpoint.ResolvedUrl, project, 0, 0, 0, 0, false,
+                TotalWorkItems: projectTotal, IsCounting: true);
+
+            var sourceOrgSegment = ExtractOrgSegment(orgEndpoint.ResolvedUrl);
+            var counters = new LinkCounters();
+            const int batchSize = 200;
+
+            // Build a lookup of org-segment → (resolvedUrl, pat) for all configured orgs so we
+            // can resolve GUID project names in cross-org links when we have credentials.
+            // Disabled organisations are intentionally included here: `enabled: false` only
+            // prevents an organisation from being iterated for dependency discovery, but it
+            // must still participate in GUID-to-project-name resolution so that links
+            // pointing at a disabled org are resolved to human-readable names.
+            var configuredOrgs = _options.Value.Organisations
+                .OfType<Infrastructure.AzureDevOps.Options.AzureDevOpsOrganisationEntry>()
+                .Where(o => !string.IsNullOrWhiteSpace(o.ResolvedUrl))
+                .ToDictionary(
+                    o => ExtractOrgSegment(o.ResolvedUrl),
+                    o => (OrgUrl: o.ResolvedUrl.TrimEnd('/'), Pat: o.Authentication?.ResolvedAccessToken ?? ""),
+                    StringComparer.OrdinalIgnoreCase);
+
+            // Shared cache: "orgSegment::guidString" → resolved project name.
+            // Prevents redundant API calls when the same GUID appears in multiple links.
+            var projectNameCache = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+            // ── Stream pre-filtered items via IWorkItemFetchService ──────────────
+            // Items are streamed with field projection; only items passing any
+            // configured filters are yielded. IDs are buffered into batches of 200
+            // for the Relations expansion call that follows.
+            var scope = new WorkItemFetchScope(
+                Fields: new[] { "System.WorkItemType", "System.TeamProject" },
+                BaseQuery: string.IsNullOrWhiteSpace(wiqlFilter) ? null : wiqlFilter);
+
+            _logger.LogInformation("Streaming work items for dependency analysis in {Project} at {OrgUrl}", project, orgEndpoint.ResolvedUrl);
+
+            var currentBatch = new List<int>(batchSize);
+            int totalStreamed = 0;
+
+            await foreach (var item in _fetchService.FetchAsync(orgEndpoint, project, scope, cancellationToken)
+                .ConfigureAwait(false))
+            {
+                currentBatch.Add(item.Id);
+                totalStreamed++;
+
+                if (currentBatch.Count >= batchSize)
+                {
+                    // Emit counting heartbeat before processing the batch
+                    yield return new DependencyHeartbeatEvent(
+                        orgEndpoint.ResolvedUrl, project, counters.Processed,
+                        counters.CrossProject + counters.CrossOrg,
+                        counters.CrossProject, counters.CrossOrg, false,
+                        TotalWorkItems: projectTotal, IsCounting: true);
+
+                    await foreach (var evt in ProcessBatchAsync(
+                        witClient, currentBatch, sourceOrgSegment, orgEndpoint.ResolvedUrl, project,
+                        counters, projectTotal, configuredOrgs, projectNameCache, cancellationToken))
+                    {
+                        yield return evt;
+                    }
+                    currentBatch.Clear();
+                }
+            }
+
+            // Process remaining items in the last partial batch
+            if (currentBatch.Count > 0)
+            {
                 await foreach (var evt in ProcessBatchAsync(
                     witClient, currentBatch, sourceOrgSegment, orgEndpoint.ResolvedUrl, project,
                     counters, projectTotal, configuredOrgs, projectNameCache, cancellationToken))
                 {
                     yield return evt;
                 }
-                currentBatch.Clear();
             }
-        }
 
-        // Process remaining items in the last partial batch
-        if (currentBatch.Count > 0)
-        {
-            await foreach (var evt in ProcessBatchAsync(
-                witClient, currentBatch, sourceOrgSegment, orgEndpoint.ResolvedUrl, project,
-                counters, projectTotal, configuredOrgs, projectNameCache, cancellationToken))
-            {
-                yield return evt;
-            }
-        }
+            // Final heartbeat
+            yield return new DependencyHeartbeatEvent(
+                orgEndpoint.ResolvedUrl,
+                project,
+                counters.Processed,
+                counters.CrossProject + counters.CrossOrg,
+                counters.CrossProject,
+                counters.CrossOrg,
+                true,
+                TotalWorkItems: projectTotal,
+                SkippedWorkItems: counters.Skipped);
 
-        // Final heartbeat
-        yield return new DependencyHeartbeatEvent(
-            orgEndpoint.ResolvedUrl,
-            project,
-            counters.Processed,
-            counters.CrossProject + counters.CrossOrg,
-            counters.CrossProject,
-            counters.CrossOrg,
-            true,
-            TotalWorkItems: projectTotal,
-            SkippedWorkItems: counters.Skipped);
-
-        _logger.LogInformation(
-            "Dependency analysis completed for {Project}: {Processed} work items, {CrossProject} cross-project, {CrossOrg} cross-org",
-            project, counters.Processed, counters.CrossProject, counters.CrossOrg);
+            _logger.LogInformation(
+                "Dependency analysis completed for {Project}: {Processed} work items, {CrossProject} cross-project, {CrossOrg} cross-org",
+                project, counters.Processed, counters.CrossProject, counters.CrossOrg);
         }
         finally
         {
