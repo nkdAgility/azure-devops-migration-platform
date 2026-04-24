@@ -12,14 +12,24 @@
       Test        — Run unit tests (TestCategory!=SystemTest) against the
                     already-compiled binaries.
 
-      SystemTest  — Run only the slow/integration system tests
-                    (TestCategory=SystemTest) against the already-compiled
-                    binaries.
+      SystemTest           — Run all system tests in order: first
+                             SystemTest_Simulated, then SystemTest_Live,
+                             against the already-compiled binaries.
+
+      SystemTest_Simulated — Run only simulated/offline system tests
+                             (TestCategory=SystemTest_Simulated) against the
+                             already-compiled binaries.
+
+      SystemTest_Live      — Run only live/online system tests that require
+                             real Azure DevOps credentials
+                             (TestCategory=SystemTest_Live) against the
+                             already-compiled binaries.
 
       Package     — Publish + zip only against the already-compiled binaries.
                     Produces distributable artefacts under ./output/.
 
-      Full        — Build + Test + SystemTest + Package in sequence.
+      Full        — Build + Test + SystemTest_Simulated + SystemTest_Live +
+                    Package in sequence.
                     Use for Preview (push to main) and Production releases.
 
       Start       — Install (build + unit test + publish + install to versioned
@@ -36,9 +46,9 @@
                     already on PATH for any machine with the .NET SDK.
 
     Workflow matrix:
-      PR                   :  Build  →  Test  →  SystemTest   (separate steps)
-      Preview (main push)  :  Build  →  Test  →  SystemTest  →  Package
-      Production (release) :  Build  →  Test  →  SystemTest  →  Package
+      PR                   :  Build  →  Test  →  SystemTest_Simulated  →  SystemTest_Live   (separate steps)
+      Preview (main push)  :  Build  →  Test  →  SystemTest_Simulated  →  SystemTest_Live  →  Package
+      Production (release) :  Build  →  Test  →  SystemTest_Simulated  →  SystemTest_Live  →  Package
       Developer local      :  Install  (or Start to also launch Aspire)
 
     Prerequisites:
@@ -60,7 +70,7 @@
     RIDs produced: win-x64, win-arm64, linux-x64, osx-x64, osx-arm64
 
 .PARAMETER Mode
-    Build | Test | SystemTest | Package | Full | Start   (default: Full)
+    Build | Test | SystemTest | SystemTest_Simulated | SystemTest_Live | Package | Full | Start | Install   (default: Full)
 
 .PARAMETER Version
     Override the version string instead of resolving via GitVersion.
@@ -72,6 +82,8 @@
     pwsh ./build.ps1 -Mode Build
     pwsh ./build.ps1 -Mode Test
     pwsh ./build.ps1 -Mode SystemTest
+    pwsh ./build.ps1 -Mode SystemTest_Simulated
+    pwsh ./build.ps1 -Mode SystemTest_Live
     pwsh ./build.ps1 -Mode Package
     pwsh ./build.ps1 -Mode Full
     pwsh ./build.ps1 -Mode Start
@@ -79,7 +91,7 @@
     pwsh ./build.ps1 -Version 16.9.3  # Override version
 #>
 param(
-    [ValidateSet('Build', 'Test', 'SystemTest', 'Package', 'Full', 'Start', 'Install')]
+    [ValidateSet('Build', 'Test', 'SystemTest', 'SystemTest_Simulated', 'SystemTest_Live', 'Package', 'Full', 'Start', 'Install')]
     [string]$Mode = 'Full',
 
     [string]$Version
@@ -323,12 +335,38 @@ function Invoke-UnitTests {
         Get-ChildItem -LiteralPath $TestResultsDir -Filter '*.trx' -ErrorAction SilentlyContinue |
             Remove-Item -Force -ErrorAction SilentlyContinue
     }
-    # All tests EXCEPT SystemTest-categorised tests
+    # All tests EXCEPT SystemTest-categorised tests (including sub-categories)
     Invoke-Step 'Running unit tests (excluding SystemTests)' {
         dotnet test $SolutionFile `
             --no-build `
             --configuration Release `
-            --filter 'TestCategory!=SystemTest' `
+            --filter 'TestCategory!=SystemTest&TestCategory!=SystemTest_Simulated&TestCategory!=SystemTest_Live' `
+            --logger 'trx' `
+            --logger 'console;verbosity=normal' `
+            --results-directory $TestResultsDir
+    }
+}
+
+function Invoke-SimulatedSystemTests {
+    # Only tests tagged [TestCategory("SystemTest_Simulated")]
+    Invoke-Step 'Running simulated system tests (TestCategory=SystemTest_Simulated)' {
+        dotnet test $SolutionFile `
+            --no-build `
+            --configuration Release `
+            --filter 'TestCategory=SystemTest_Simulated' `
+            --logger 'trx' `
+            --logger 'console;verbosity=normal' `
+            --results-directory $TestResultsDir
+    }
+}
+
+function Invoke-LiveSystemTests {
+    # Only tests tagged [TestCategory("SystemTest_Live")]
+    Invoke-Step 'Running live system tests (TestCategory=SystemTest_Live)' {
+        dotnet test $SolutionFile `
+            --no-build `
+            --configuration Release `
+            --filter 'TestCategory=SystemTest_Live' `
             --logger 'trx' `
             --logger 'console;verbosity=normal' `
             --results-directory $TestResultsDir
@@ -336,16 +374,10 @@ function Invoke-UnitTests {
 }
 
 function Invoke-SystemTests {
-    # Only tests tagged [TestCategory("SystemTest")]
-    Invoke-Step 'Running system tests (TestCategory=SystemTest)' {
-        dotnet test $SolutionFile `
-            --no-build `
-            --configuration Release `
-            --filter 'TestCategory=SystemTest' `
-            --logger 'trx' `
-            --logger 'console;verbosity=normal' `
-            --results-directory $TestResultsDir
-    }
+    # Run simulated tests first; only proceed to live tests if simulated pass.
+    # This minimises time-to-failure when simulated tests catch an issue early.
+    Invoke-SimulatedSystemTests
+    Invoke-LiveSystemTests
 }
 
 function Invoke-Publish {
@@ -605,10 +637,26 @@ switch ($Mode) {
     }
 
     'SystemTest' {
-        # ── System tests only (requires prior Build) ─────────────────────────
+        # ── Simulated system tests then live system tests (requires prior Build) ─
         Invoke-SystemTests
 
         Write-Host "`n==> System tests complete!" -ForegroundColor Green
+        Write-BuildSummary
+    }
+
+    'SystemTest_Simulated' {
+        # ── Simulated system tests only (requires prior Build) ────────────────
+        Invoke-SimulatedSystemTests
+
+        Write-Host "`n==> Simulated system tests complete!" -ForegroundColor Green
+        Write-BuildSummary
+    }
+
+    'SystemTest_Live' {
+        # ── Live system tests only (requires prior Build) ─────────────────────
+        Invoke-LiveSystemTests
+
+        Write-Host "`n==> Live system tests complete!" -ForegroundColor Green
         Write-BuildSummary
     }
 
@@ -627,10 +675,11 @@ switch ($Mode) {
     }
 
     'Full' {
-        # ── Everything: Build + Test + SystemTest + Package ───────────────────
+        # ── Everything: Build + Test + SystemTest_Simulated + SystemTest_Live + Package ──
         Invoke-Build       -VersionArgs $VersionArgs
         Invoke-UnitTests
-        Invoke-SystemTests
+        Invoke-SimulatedSystemTests
+        Invoke-LiveSystemTests
         Invoke-Publish     -StagingDir $StagingDir -VersionArgs $VersionArgs
         Invoke-Package     -SemVer $SemVer -StagingDir $StagingDir -TargetRids $AllRids
 
@@ -651,7 +700,8 @@ switch ($Mode) {
         $localRid = Get-CurrentRid
         Invoke-Build   -VersionArgs $VersionArgs
         Invoke-UnitTests
-        Invoke-SystemTests
+        Invoke-SimulatedSystemTests
+        Invoke-LiveSystemTests
         Invoke-Publish -StagingDir $StagingDir -VersionArgs $VersionArgs -TargetRids @($localRid)
         Invoke-Package -SemVer $SemVer -StagingDir $StagingDir -TargetRids @($localRid)
         $installedDir = Invoke-Install -SemVer $SemVer
@@ -666,7 +716,8 @@ switch ($Mode) {
         $localRid = Get-CurrentRid
         Invoke-Build   -VersionArgs $VersionArgs
         Invoke-UnitTests
-        Invoke-SystemTests
+        Invoke-SimulatedSystemTests
+        Invoke-LiveSystemTests
         Invoke-Publish -StagingDir $StagingDir -VersionArgs $VersionArgs -TargetRids @($localRid)
         Invoke-Package -SemVer $SemVer -StagingDir $StagingDir -TargetRids @($localRid)
         Invoke-Install -SemVer $SemVer
