@@ -468,8 +468,7 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
         int currentWiId = 0;
         int currentWiIndex = 0;
         int currentWiRevsWritten = 0;
-        double lastWiDurationMs = 0;
-        double avgWiDurationMs = 0;
+        double lastRevDurationMs = 0;
         double avgRevDurationMs = 0;
         string currentStage = string.Empty;
 
@@ -489,10 +488,10 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
                         totalWorkItems = (int)evt.Metrics.Scope.WorkItemsTotal;
                     processed = (int)(evt.Metrics?.Migration?.WorkItems?.Completed ?? processed);
                     revisions = (int)(evt.Metrics?.Migration?.WorkItems?.RevisionsProcessed ?? revisions);
-                    if (evt.Metrics?.Migration?.WorkItems?.LastWorkItemDurationMs > 0)
-                        lastWiDurationMs = evt.Metrics.Migration.WorkItems.LastWorkItemDurationMs;
-                    if (evt.Metrics?.Migration?.WorkItems?.AverageWorkItemDurationMs > 0)
-                        avgWiDurationMs = evt.Metrics.Migration.WorkItems.AverageWorkItemDurationMs;
+                    if (evt.Metrics?.Migration?.WorkItems?.LastRevisionDurationMs > 0)
+                        lastRevDurationMs = evt.Metrics.Migration.WorkItems.LastRevisionDurationMs;
+                    if (evt.Metrics?.Migration?.WorkItems?.AverageRevisionDurationMs > 0)
+                        avgRevDurationMs = evt.Metrics.Migration.WorkItems.AverageRevisionDurationMs;
                     var wi = evt.Metrics?.Migration?.WorkItems;
                     if (wi?.CurrentWorkItemId > 0)
                     {
@@ -550,10 +549,6 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
                                 totalWorkItems = (int)evt.Metrics.Scope.WorkItemsTotal;
                             processed = (int)(evt.Metrics?.Migration?.WorkItems?.Completed ?? processed);
                             revisions = (int)(evt.Metrics?.Migration?.WorkItems?.RevisionsProcessed ?? revisions);
-                            if (evt.Metrics?.Migration?.WorkItems?.LastWorkItemDurationMs > 0)
-                                lastWiDurationMs = evt.Metrics.Migration.WorkItems.LastWorkItemDurationMs;
-                            if (evt.Metrics?.Migration?.WorkItems?.AverageWorkItemDurationMs > 0)
-                                avgWiDurationMs = evt.Metrics.Migration.WorkItems.AverageWorkItemDurationMs;
                             if (evt.Metrics?.Migration?.WorkItems?.LastWorkItemRevisions > 0)
                                 lastWiRevisions = (int)evt.Metrics.Migration.WorkItems.LastWorkItemRevisions;
                             var wi = evt.Metrics?.Migration?.WorkItems;
@@ -563,6 +558,8 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
                                 currentWiIndex = wi.CurrentWorkItemIndex;
                                 currentWiRevsWritten = wi.CurrentWorkItemRevisionsWritten;
                             }
+                            if (evt.Metrics?.Migration?.WorkItems?.LastRevisionDurationMs > 0)
+                                lastRevDurationMs = evt.Metrics.Migration.WorkItems.LastRevisionDurationMs;
                             if (evt.Metrics?.Migration?.WorkItems?.AverageRevisionDurationMs > 0)
                                 avgRevDurationMs = evt.Metrics.Migration.WorkItems.AverageRevisionDurationMs;
 
@@ -572,8 +569,8 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
                                 currentWiIndex, lastWiRevisions,
                                 currentStage,
                                 evt.LastCheckpointAt, evt.NextCheckpointDueAt,
-                                lastWiDurationMs, avgWiDurationMs,
-                                revisions, avgRevDurationMs));
+                                lastRevDurationMs, avgRevDurationMs,
+                                revisions));
                         }
                     });
             }
@@ -646,8 +643,8 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
         int lastCompletedWiId, int lastCompletedRevisions,
         string stage,
         DateTimeOffset? lastCheckpointAt = null, DateTimeOffset? nextCheckpointDueAt = null,
-        double lastWiDurationMs = 0, double avgWiDurationMs = 0,
-        int totalRevisions = 0, double avgRevDurationMs = 0)
+        double lastRevDurationMs = 0, double avgRevDurationMs = 0,
+        int totalRevisions = 0)
     {
         const int BarWidth = 38;
 
@@ -703,14 +700,15 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
             revRow = new Markup("  [grey]↳ Revisions   waiting…[/]");
         }
 
-        // ── Row 3: last WI timing / throttle indicator ───────────────────────────────
+        // ── Row 3: revision timing / back-off indicator ──────────────────────────────
         IRenderable timingRow;
-        if (lastWiDurationMs > 0)
+        if (lastRevDurationMs > 0)
         {
-            var lastSec = lastWiDurationMs / 1000.0;
-            var avgSec = avgWiDurationMs / 1000.0;
-            var isSlowdown = avgWiDurationMs > 0 && lastWiDurationMs > avgWiDurationMs * 3;
-            var durationColor = isSlowdown ? "red" : lastWiDurationMs > avgWiDurationMs * 1.5 ? "yellow" : "green";
+            var lastSec = lastRevDurationMs / 1000.0;
+            var avgSec = avgRevDurationMs / 1000.0;
+            // Flag likely throttling: last revision took more than 3× the average.
+            var isSlowdown = avgRevDurationMs > 0 && lastRevDurationMs > avgRevDurationMs * 3;
+            var durationColor = isSlowdown ? "red" : lastRevDurationMs > avgRevDurationMs * 1.5 ? "yellow" : "green";
             var throttleWarning = isSlowdown ? "  [red bold]⚠ possible back-off[/]" : string.Empty;
             timingRow = new Markup(
                 $"  [grey]last:[/] [{durationColor}]{lastSec:F1}s[/]" +
