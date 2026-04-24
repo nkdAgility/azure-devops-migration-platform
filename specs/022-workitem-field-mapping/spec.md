@@ -11,7 +11,7 @@
 |------|--------|
 | `docs/architecture.md` | Confirmed accurate — tool resolution model not yet documented (discrepancy logged) |
 | `docs/modules.md` | Confirmed accurate — WorkItemsModule and extension model documented; no tool injection model yet (discrepancy logged) |
-| `docs/configuration.md` | Confirmed accurate — `tools[]` top-level section not yet documented (discrepancy logged) |
+| `docs/configuration.md` | Confirmed accurate — `Tools` top-level section not yet documented (discrepancy logged) |
 | `.agents/guardrails/system-architecture.md` | Confirmed accurate — rules 6 (no direct S→T), 7 (IArtefactStore only), 8 (identity cross-cutting), 14 (lexicographic enumeration), 21 (mandatory reuse) all apply |
 | `.agents/context/package-format.md` | Confirmed accurate — revision.json is the write target |
 | `.agents/context/workitems-format.md` | Confirmed accurate — field values stored in revision.json |
@@ -21,7 +21,9 @@
 
 ### Session 2026-04-24
 
-- Q: In which phase(s) should transforms run? → A: Both phases supported — each tool reference declares `phase: export | import | both` with **import** as the default. Export captures raw source data for auditability; transforms apply at import time by default.
+- Q: In which phase(s) should transforms run? → A: Both phases supported — each extension tool reference declares `phase: export | import | both` with **import** as the default. Export captures raw source data for auditability; transforms apply at import time by default.
+- Q: What is the configuration structure for transforms? → A: `Tools.FieldTransform` is a singleton. Transforms are organised into `transformGroups` — an ordered array of named groups. Each group has optional `applyTo` (work item type filter) and `enabled`. Individual transforms also support `applyTo` and `enabled`. Execution: groups in array order, transforms within each group in array order. Omitting `applyTo` or setting `["*"]` means all types. Omitting `enabled` means `true`.
+- Q: Override merge semantics? → A: No override merge — the tool is a singleton with a single transform pipeline. Extensions reference it by name and declare phase only; they do not modify the transform list.
 
 ## Naming Convention
 
@@ -45,6 +47,171 @@ Names follow Screaming Architecture: each name describes *what the transform doe
 | `ConditionalFieldTransform` | `ConditionalField` | Conditionally sets a field based on multi-field evaluation |
 | `RegexFieldTransform` | `RegexField` | Regex find-and-replace on a field value |
 | `TreeToTagTransform` | `TreeToTag` | Flattens a tree path into tag values |
+
+---
+
+## Configuration Model
+
+The `FieldTransform` tool is declared as a singleton under `MigrationPlatform.Tools`. Transforms are organised into **transform groups** — an ordered array of named groups, each with an optional work item type filter. Execution order is: groups in array order, transforms within each group in array order. An `enabled` property is available at the tool, group, and individual transform level; omitting it defaults to `true`.
+
+### Configuration Schema
+
+```json
+{
+  "MigrationPlatform": {
+    "Tools": {
+      "FieldTransform": {
+        "enabled": true,
+        "transformGroups": [
+          {
+            "name": "<group-name>",
+            "enabled": true,
+            "applyTo": ["<WorkItemType>", ...],
+            "transforms": [
+              {
+                "type": "<TypeDiscriminator>",
+                "enabled": true,
+                "applyTo": ["<WorkItemType>", ...],
+                "<type-specific-properties>": "..."
+              }
+            ]
+          }
+        ]
+      }
+    }
+  }
+}
+```
+
+**Filtering rules:**
+- `applyTo` on a group: the entire group is skipped for non-matching work item types. Omit or set to `["*"]` for all types.
+- `applyTo` on a transform: further narrows within the group. Omit or set to `["*"]` for all types that passed the group filter.
+- `enabled`: `false` disables the tool / group / transform. Omitting defaults to `true`.
+
+### Example: Agile → Scrum Migration
+
+```json
+{
+  "MigrationPlatform": {
+    "Tools": {
+      "FieldTransform": {
+        "transformGroups": [
+          {
+            "name": "migration-stamps",
+            "transforms": [
+              {
+                "type": "SetField",
+                "field": "Custom.MigratedBy",
+                "value": "migration-platform"
+              },
+              {
+                "type": "SetField",
+                "field": "Custom.MigrationDate",
+                "value": "${migration.timestamp}"
+              }
+            ]
+          },
+          {
+            "name": "field-renames",
+            "transforms": [
+              {
+                "type": "CopyField",
+                "sourceField": "Custom.OldPriority",
+                "targetField": "Custom.NewPriority"
+              },
+              {
+                "type": "ExcludeField",
+                "field": "Custom.InternalOnly",
+                "applyTo": ["Bug"]
+              }
+            ]
+          },
+          {
+            "name": "agile-to-scrum-states",
+            "applyTo": ["User Story", "Feature"],
+            "transforms": [
+              {
+                "type": "MapValue",
+                "field": "System.State",
+                "valueMap": {
+                  "Active": "In Progress",
+                  "Resolved": "Done",
+                  "New": "To Do"
+                }
+              }
+            ]
+          },
+          {
+            "name": "bug-states",
+            "applyTo": ["Bug"],
+            "transforms": [
+              {
+                "type": "MapValue",
+                "field": "System.State",
+                "valueMap": {
+                  "Active": "Committed",
+                  "Resolved": "Done"
+                }
+              }
+            ]
+          },
+          {
+            "name": "cleanup",
+            "transforms": [
+              {
+                "type": "RegexField",
+                "field": "System.Title",
+                "pattern": "^\\[OLD\\]\\s*",
+                "replacement": ""
+              },
+              {
+                "type": "ClearField",
+                "field": "Custom.LegacyId"
+              },
+              {
+                "type": "TreeToTag",
+                "field": "System.AreaPath",
+                "targetField": "System.Tags"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "Modules": {
+      "WorkItems": {
+        "Enabled": true,
+        "Extensions": {
+          "Revisions": {
+            "Enabled": true,
+            "tools": {
+              "FieldTransform": {
+                "phase": "import"
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+### Extension Reference
+
+Extensions reference the singleton `FieldTransform` tool by name and declare the phase:
+
+```json
+"tools": {
+  "FieldTransform": {
+    "enabled": true,
+    "phase": "import"
+  }
+}
+```
+
+- `phase`: `export` | `import` | `both` (default: `import`)
+- `enabled`: allows an extension to opt out of transforms without removing the tool declaration
 
 ---
 
@@ -176,28 +343,29 @@ As a migration operator, I want to merge multiple source fields into a single ta
 
 ### Functional Requirements
 
-- **FR-001**: System MUST support declaring field transforms at the migration-platform level (`tools[]` in configuration) with a unique identifier per transform set.
+- **FR-001**: System MUST support declaring the `FieldTransform` tool as a singleton under `MigrationPlatform.Tools.FieldTransform` in configuration.
 - **FR-002**: System MUST support the following 14 transform types: CopyField, CopyFieldBatch, SetField, MapValue, MergeFields, CalculateField, ClearField, ExcludeField, ConditionalTag, FieldToTag, MergeToTag, ConditionalField, RegexField, TreeToTag.
-- **FR-003**: Each transform type MUST accept an optional `applyTo` filter — a list of work item type names. When specified, the transform is only applied to revisions of matching types. When empty or omitted, it applies to all types.
-- **FR-004**: Transforms MUST be applied in declaration order within a transform set. Each transform receives the output of the previous transform.
+- **FR-003**: Transforms MUST be organised into `transformGroups` — an ordered array of named groups. Each group MAY declare an `applyTo` filter (list of work item type names, or `["*"]`). Each individual transform within a group MAY also declare an `applyTo` filter for finer scoping. Omitting `applyTo` or setting `["*"]` means "all work item types".
+- **FR-004**: Groups MUST be executed in array order. Within each group, transforms MUST be executed in array order. Each transform receives the output of the previous transform across the entire pipeline (not just within a group).
 - **FR-005**: The transform tool MUST be a pure transformation — it receives a revision's field collection and returns a modified copy. No I/O, no API calls, no side effects.
-- **FR-006**: Extensions (e.g., `WorkItems/Revisions`) MUST load transforms by reference to a tool ID declared at the platform level and MAY override selected values (e.g., `applyTo`) for that extension only.
-- **FR-007**: Effective transform configuration MUST be: platform-level defaults merged with extension-level overrides.
-- **FR-008**: The system MUST validate all transform configurations at startup before processing any revisions. Invalid configurations (unknown fields, invalid regex patterns, circular references) MUST cause a fail-fast with a clear error message.
-- **FR-009**: Each transform execution MUST be logged with structured telemetry: transform type, source/target fields, work item ID, and whether the transform modified the revision.
-- **FR-010**: The CopyField transform MUST support a default value used when the source field is absent from the revision.
-- **FR-011**: The MapValue transform MUST preserve the original value when no mapping match is found and log a warning.
-- **FR-012**: The ExcludeField transform MUST remove the field entirely from the revision before any write operation — this is not import-only.
-- **FR-013**: The CalculateField transform MUST support safe arithmetic and string expressions over field values, with no ability to execute arbitrary code.
-- **FR-014**: The RegexField transform MUST validate the regex pattern at configuration load time and reject invalid patterns.
+- **FR-006**: Extensions (e.g., `WorkItems/Revisions`) MUST reference the `FieldTransform` tool by name under `extensions[].tools.FieldTransform` and declare the phase (`export`, `import`, or `both`; default: `import`).
+- **FR-007**: An `enabled` property MUST be supported at three levels: tool (`Tools.FieldTransform.enabled`), group (`transformGroups[].enabled`), and individual transform (`transforms[].enabled`). Omitting `enabled` at any level MUST default to `true`. Setting `enabled: false` disables that level and all children.
+- **FR-008**: The system MUST validate all transform configurations at startup before processing any revisions. Invalid configurations (unknown type discriminators, invalid regex patterns, missing required properties, circular references) MUST cause a fail-fast with a clear error message.
+- **FR-009**: Each transform execution MUST be logged with structured telemetry: group name, transform type, source/target fields, work item ID, and whether the transform modified the revision.
+- **FR-010**: The CopyFieldTransform MUST support a `defaultValue` property used when the source field is absent from the revision.
+- **FR-011**: The MapValueTransform MUST preserve the original value when no mapping match is found and log a warning.
+- **FR-012**: The ExcludeFieldTransform MUST remove the field entirely from the revision before any write operation.
+- **FR-013**: The CalculateFieldTransform MUST support safe arithmetic and string-concatenation expressions over field values, with no ability to execute arbitrary code.
+- **FR-014**: The RegexFieldTransform MUST validate the regex pattern at configuration load time and reject invalid patterns.
 - **FR-015**: Transforms MUST NOT alter identity fields. Identity mapping remains the exclusive responsibility of `IIdentityMappingService` (guardrail rule 8).
 - **FR-016**: Transform processing MUST be stateless across revisions — no transform may accumulate state from one revision to another.
-- **FR-017**: Each tool reference on an extension MUST declare the phase in which it applies (`export`, `import`, or `both`). The default phase MUST be `import`. Export-phase transforms modify `revision.json` before it is written to the package; import-phase transforms modify field values before they are sent to the target. The configuration documentation MUST include guidance on recommended phase per transform type.
+- **FR-017**: Each extension tool reference MUST declare the phase in which it applies (`export`, `import`, or `both`). The default phase MUST be `import`. Export-phase transforms modify `revision.json` before it is written to the package; import-phase transforms modify field values before they are sent to the target.
 
 ### Key Entities
 
-- **FieldTransformTool**: A named, reusable collection of field transform rules declared at the platform configuration level. Has a unique `id`, an optional `applyTo` filter, and an ordered list of transform rules.
-- **FieldTransformRule**: A single transformation instruction with a `type` discriminator, source/target field references, and type-specific parameters (e.g., value lookup table, regex pattern, format string).
+- **FieldTransformTool** (`IFieldTransformTool`): Singleton tool declared at `MigrationPlatform.Tools.FieldTransform`. Contains an ordered array of transform groups. Supports `enabled` flag (default: `true`).
+- **FieldTransformGroup**: A named, ordered collection of transforms with an optional `applyTo` filter and `enabled` flag. Groups execute in array order. The group name is used in telemetry and logs.
+- **FieldTransformRule**: A single transformation instruction with a `type` discriminator, optional `applyTo` and `enabled` flags, and type-specific parameters (e.g., value lookup table, regex pattern, format string, source/target field references).
 - **WorkItemRevision (fields collection)**: The set of field name/value pairs within a `revision.json` that transforms operate on. The transform tool receives this collection and returns a modified copy.
 
 ## Success Criteria *(mandatory)*
@@ -216,7 +384,7 @@ As a migration operator, I want to merge multiple source fields into a single ta
 - Transforms operate during the import phase by default (reading from `revision.json` and transforming before applying to target). Each tool reference on an extension declares `phase: export | import | both` (default: `import`). Export captures raw source data for auditability — transforms at export time are opt-in. The configuration documentation MUST include guidance on recommended phase for each transform type.
 - Identity fields (`System.AssignedTo`, `System.CreatedBy`, `System.ChangedBy`) remain handled by `IIdentityMappingService` and are not transformed by this tool.
 - The `CalculateField` expression language will use a safe, sandboxed evaluator (the specific evaluator library is an implementation detail not specified here).
-- The `tools[]` top-level configuration section described in `analysis/proposed-features.md` is the intended design and will be added to `docs/configuration.md` as part of this feature.
+- The `Tools` top-level configuration section is a keyed object (one entry per tool type). The `FieldTransform` tool is a singleton under `MigrationPlatform.Tools.FieldTransform`. This section will be added to `docs/configuration.md` as part of this feature.
 - The 14 transform types defined in `analysis/proposed-features.md` represent the complete set for this feature; additional types may be added in future features.
 - Node structure mapping (area/iteration paths) is handled by a separate `NodeStructureTool` (T2) and is out of scope for this feature.
 - Work item type remapping is handled by a separate `WorkItemTypeMappingTool` (T3) and is out of scope for this feature.
