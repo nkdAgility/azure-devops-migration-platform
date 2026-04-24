@@ -625,6 +625,37 @@ FactoryRegistrationExtensions.cs  ← moved from Extensions/
 Each step is independently buildable. Run `dotnet clean && dotnet build --no-incremental`
 after each step. Do not combine steps — a broken intermediate state is harder to diagnose.
 
+### Rename-preservation strategy
+
+Git tracks renames by content similarity. To maximise rename detection:
+
+1. **One move per file.** Every file moves ONCE to its final destination — never via an
+   intermediate location. Phase 2 moves only files that stay in base `Abstractions`.
+   Agent-targeted files skip Phase 2 and move directly to `Abstractions.Agent` in Phase 3.
+   Same pattern for Infrastructure in Phases 4–5.
+
+2. **Separate rename from edit.** Each step is either a batch of `git mv` operations OR a
+   batch of namespace/using edits — not both. Git's rename detection threshold (default 50%
+   similarity) breaks when you move AND rewrite in the same commit.
+
+3. **Commit after each step.** Phase 2 Step 2.1a is all `git mv` operations for the
+   Models/ dissolution. Step 2.1b is all namespace updates for those files. Each is one commit.
+
+4. **Use `git mv`, not delete+create.** Even though the end result is the same, `git mv`
+   records intent and avoids `git add -A` guessing games.
+
+5. **Batch by destination.** Move all files going to the same target folder in one commit.
+   This keeps the diff coherent and reviewable.
+
+| Phase | Description | Move type |
+|-------|-------------|-----------|
+| 1 | Code edits — sever CLI coupling | No moves |
+| 2 | Screaming architecture within base `Abstractions` | `git mv` within project |
+| 3 | Create `Abstractions.ControlPlane` + `Abstractions.Agent` | `git mv` across projects |
+| 4 | Screaming architecture within base `Infrastructure` | `git mv` within project |
+| 5 | Create `Infrastructure.ControlPlane` + `Infrastructure.Agent` | `git mv` across projects |
+| 6 | Reference cleanup, test boundaries, verification | No moves |
+
 ---
 
 ### Phase 1 — Sever the CLI ↔ Agent/CP compile-time coupling
@@ -1120,11 +1151,16 @@ Update root namespace: `DevOpsMigrationPlatform.Abstractions.*` →
 
 #### Step 3.3 — Add project references to consumers
 
+**Temporary state:** `Infrastructure.csproj` references `Abstractions.Agent` because
+it still contains Agent-specific implementations (modules, orchestrators, stores).
+This reference moves to `Infrastructure.Agent.csproj` in Phase 5 and is removed from
+base `Infrastructure.csproj`.
+
 | Project | Add reference to |
 |---------|-----------------|
 | `MigrationAgent.csproj` | `Abstractions.Agent` |
 | `CLI.TfsMigration.csproj` | `Abstractions.Agent` |
-| `Infrastructure.csproj` | `Abstractions.Agent` |
+| `Infrastructure.csproj` | `Abstractions.Agent` ← **temporary**, moves to `Infrastructure.Agent` in Phase 5 |
 | `Infrastructure.AzureDevOps.csproj` | `Abstractions.Agent` |
 | `Infrastructure.Simulated.csproj` | `Abstractions.Agent` |
 | `Infrastructure.TfsObjectModel.csproj` | `Abstractions.Agent` |
@@ -1148,9 +1184,265 @@ Add both new projects to the solution file.
 
 ---
 
-### Phase 4 — Verification
+### Phase 4 — Restructure `Infrastructure` folders (screaming architecture, cross-cutting only)
 
-#### Step 4.1 — Build gate
+Same pattern as Phase 2. Move only files that STAY in base `Infrastructure` to their
+screaming-architecture folders. Agent-targeted and CP-targeted files skip this phase and
+move directly to `Infrastructure.Agent` / `Infrastructure.ControlPlane` in Phase 5.
+
+#### Step 4.1a — `git mv` cross-cutting files to screaming folders
+
+| Source | Destination | Notes |
+|--------|-------------|-------|
+| `Infrastructure/Config/MigrationPlatformServiceExtensions.cs` | stays — already in `Config/` | no move |
+| `Infrastructure/Config/MigrationOptionsValidator.cs` | stays — already in `Config/` | no move |
+| `Infrastructure/Config/DiscoveryOptionsOrganisationsBinder.cs` | stays — already in `Config/` | no move |
+| `Infrastructure/Telemetry/DataClassificationLogProcessor.cs` | stays — already in `Telemetry/` | no move |
+| `Infrastructure/Telemetry/DataClassificationExtensions.cs` | stays — already in `Telemetry/` | no move |
+| `Infrastructure/Polyfills/IsExternalInit.cs` | stays — already in `Polyfills/` | no move |
+
+Most cross-cutting files are already in correctly-named folders. The only structural
+change is removing files that leave in Phase 5. No `git mv` operations needed here unless
+renaming the `Config/` folder (it's already descriptive enough).
+
+#### Step 4.1b — Namespace updates for any moved files
+
+Update `namespace` and `using` statements for any files moved in 4.1a.
+
+---
+
+### Phase 5 — Extract `Infrastructure.ControlPlane` and `Infrastructure.Agent` projects
+
+#### Step 5.1a — Create `Infrastructure.ControlPlane` project
+
+```
+src/DevOpsMigrationPlatform.Infrastructure.ControlPlane/
+  DevOpsMigrationPlatform.Infrastructure.ControlPlane.csproj
+```
+
+```xml
+<!-- Infrastructure.ControlPlane.csproj -->
+<ProjectReference Include="..\DevOpsMigrationPlatform.Abstractions\..." />
+<ProjectReference Include="..\DevOpsMigrationPlatform.Abstractions.ControlPlane\..." />
+<ProjectReference Include="..\DevOpsMigrationPlatform.Infrastructure\..." />
+```
+
+#### Step 5.1b — `git mv` CP telemetry files to `Infrastructure.ControlPlane/Metrics/`
+
+| Source | Destination |
+|--------|-------------|
+| `Infrastructure/Telemetry/InMemoryJobMetricsStore.cs` | `Infrastructure.ControlPlane/Metrics/InMemoryJobMetricsStore.cs` |
+| `Infrastructure/Telemetry/InMemoryJobSnapshotStore.cs` | `Infrastructure.ControlPlane/Metrics/InMemoryJobSnapshotStore.cs` |
+| `Infrastructure/Telemetry/JobLifecycleMetrics.cs` | `Infrastructure.ControlPlane/Metrics/JobLifecycleMetrics.cs` |
+| `Infrastructure/Telemetry/SnapshotMetricExporter.cs` | `Infrastructure.ControlPlane/Metrics/SnapshotMetricExporter.cs` |
+
+#### Step 5.1c — Namespace updates for CP files
+
+Update `namespace` → `DevOpsMigrationPlatform.Infrastructure.ControlPlane.Metrics`
+
+#### Step 5.1d — Create `AddControlPlaneTelemetryServices()` registration
+
+Extract CP-specific registrations from the current `AddTelemetryServices()` into a new
+extension method in `Infrastructure.ControlPlane/Metrics/TelemetryServiceExtensions.cs`.
+
+Update `ControlPlaneHost/Program.cs` to call `AddControlPlaneTelemetryServices()`.
+
+#### Step 5.2a — Create `Infrastructure.Agent` project
+
+```
+src/DevOpsMigrationPlatform.Infrastructure.Agent/
+  DevOpsMigrationPlatform.Infrastructure.Agent.csproj
+```
+
+```xml
+<!-- Infrastructure.Agent.csproj -->
+<ProjectReference Include="..\DevOpsMigrationPlatform.Abstractions\..." />
+<ProjectReference Include="..\DevOpsMigrationPlatform.Abstractions.Agent\..." />
+<ProjectReference Include="..\DevOpsMigrationPlatform.Infrastructure\..." />
+```
+
+#### Step 5.2b — `git mv` Agent files to `Infrastructure.Agent/` with screaming architecture
+
+All files move directly from their current `Infrastructure/` location to their final
+screaming-architecture folder in `Infrastructure.Agent/`. One move per file.
+
+**Storage/** (from `Infrastructure/Storage/` + `Infrastructure/Factories/`):
+
+| Source | Destination |
+|--------|-------------|
+| `Infrastructure/Storage/FileSystemArtefactStore.cs` | `Infrastructure.Agent/Storage/FileSystemArtefactStore.cs` |
+| `Infrastructure/Storage/AzureBlobArtefactStore.cs` | `Infrastructure.Agent/Storage/AzureBlobArtefactStore.cs` |
+| `Infrastructure/Factories/FileSystemPackageStoreFactory.cs` | `Infrastructure.Agent/Storage/FileSystemPackageStoreFactory.cs` |
+
+**Checkpointing/** (from `Infrastructure/Checkpointing/` + `Infrastructure/JobEngine/`):
+
+| Source | Destination |
+|--------|-------------|
+| `Infrastructure/Checkpointing/CheckpointingService.cs` | `Infrastructure.Agent/Checkpointing/CheckpointingService.cs` |
+| `Infrastructure/Checkpointing/CheckpointingServiceFactory.cs` | `Infrastructure.Agent/Checkpointing/CheckpointingServiceFactory.cs` |
+| `Infrastructure/Checkpointing/FileSystemStateStore.cs` | `Infrastructure.Agent/Checkpointing/FileSystemStateStore.cs` |
+| `Infrastructure/JobEngine/PhaseTrackingService.cs` | `Infrastructure.Agent/Checkpointing/PhaseTrackingService.cs` |
+| `Infrastructure/JobEngine/PhaseTrackingServiceFactory.cs` | `Infrastructure.Agent/Checkpointing/PhaseTrackingServiceFactory.cs` |
+
+**Export/** (from `Infrastructure/Export/`):
+
+| Source | Destination |
+|--------|-------------|
+| `Infrastructure/Export/WorkItemExportOrchestrator.cs` | `Infrastructure.Agent/Export/WorkItemExportOrchestrator.cs` |
+| `Infrastructure/Export/EmbeddedImageExportService.cs` | `Infrastructure.Agent/Export/EmbeddedImageExportService.cs` |
+| `Infrastructure/Export/CompositeWorkItemRevisionSourceFactory.cs` | `Infrastructure.Agent/Export/CompositeWorkItemRevisionSourceFactory.cs` |
+
+**Import/** (from `Infrastructure/Import/`):
+
+| Source | Destination |
+|--------|-------------|
+| `Infrastructure/Import/WorkItemImportOrchestrator.cs` | `Infrastructure.Agent/Import/WorkItemImportOrchestrator.cs` |
+| `Infrastructure/Import/CompositeWorkItemImportTargetFactory.cs` | `Infrastructure.Agent/Import/CompositeWorkItemImportTargetFactory.cs` |
+| `Infrastructure/Import/CompositeWorkItemResolutionStrategyFactory.cs` | `Infrastructure.Agent/Import/CompositeWorkItemResolutionStrategyFactory.cs` |
+| `Infrastructure/Import/RevisionFolderProcessor.cs` | `Infrastructure.Agent/Import/RevisionFolderProcessor.cs` |
+| `Infrastructure/Import/RevisionFolderProcessorFactory.cs` | `Infrastructure.Agent/Import/RevisionFolderProcessorFactory.cs` |
+| `Infrastructure/Import/WorkItemRevisionFolderParser.cs` | `Infrastructure.Agent/Import/WorkItemRevisionFolderParser.cs` |
+| `Infrastructure/Import/SqliteIdMapStore.cs` | `Infrastructure.Agent/Import/SqliteIdMapStore.cs` |
+| `Infrastructure/Import/IdMapStoreFactory.cs` | `Infrastructure.Agent/Import/IdMapStoreFactory.cs` |
+| `Infrastructure/Import/PassThroughIdentityMappingService.cs` | `Infrastructure.Agent/Import/PassThroughIdentityMappingService.cs` |
+| `Infrastructure/Import/NullResolutionStrategy.cs` | `Infrastructure.Agent/Import/NullResolutionStrategy.cs` |
+
+**Discovery/** (from `Infrastructure/Services/` + `Infrastructure/Modules/Discovery/`):
+
+| Source | Destination |
+|--------|-------------|
+| `Infrastructure/Services/CatalogService.cs` | `Infrastructure.Agent/Discovery/CatalogService.cs` |
+| `Infrastructure/Services/InventoryService.cs` | `Infrastructure.Agent/Discovery/InventoryService.cs` |
+| `Infrastructure/Services/DependencyDiscoveryService.cs` | `Infrastructure.Agent/Discovery/DependencyDiscoveryService.cs` |
+| `Infrastructure/Services/QueryFingerprintService.cs` | `Infrastructure.Agent/Discovery/QueryFingerprintService.cs` |
+| `Infrastructure/Services/PackageLockFileService.cs` | `Infrastructure.Agent/Discovery/PackageLockFileService.cs` |
+| `Infrastructure/Services/FileSystemIdentityMappingService.cs` | `Infrastructure.Agent/Discovery/FileSystemIdentityMappingService.cs` |
+| `Infrastructure/Services/ConfigurationService.cs` | `Infrastructure.Agent/Discovery/ConfigurationService.cs` |
+| `Infrastructure/Modules/Discovery/ProjectDependencyRecord.cs` | `Infrastructure.Agent/Discovery/ProjectDependencyRecord.cs` |
+| `Infrastructure/Modules/Discovery/MermaidUtilities.cs` | `Infrastructure.Agent/Discovery/MermaidUtilities.cs` |
+| `Infrastructure/Modules/Discovery/MermaidDiagramBuilder.cs` | `Infrastructure.Agent/Discovery/MermaidDiagramBuilder.cs` |
+| `Infrastructure/Modules/Discovery/TransitiveDependencyEdge.cs` | `Infrastructure.Agent/Discovery/TransitiveDependencyEdge.cs` |
+| `Infrastructure/Modules/Discovery/ProjectPairKey.cs` | `Infrastructure.Agent/Discovery/ProjectPairKey.cs` |
+| `Infrastructure/Modules/Discovery/TransitiveDependencyWalker.cs` | `Infrastructure.Agent/Discovery/TransitiveDependencyWalker.cs` |
+| `Infrastructure/Modules/Discovery/TransitiveMermaidBuilder.cs` | `Infrastructure.Agent/Discovery/TransitiveMermaidBuilder.cs` |
+| `Infrastructure/Modules/Discovery/UnionFindComponentLabeler.cs` | `Infrastructure.Agent/Discovery/UnionFindComponentLabeler.cs` |
+
+**Modules/** (from `Infrastructure/Modules/`):
+
+| Source | Destination |
+|--------|-------------|
+| `Infrastructure/Modules/WorkItemsModule.cs` | `Infrastructure.Agent/Modules/WorkItemsModule.cs` |
+| `Infrastructure/Modules/InventoryDiscoveryModule.cs` | `Infrastructure.Agent/Modules/InventoryDiscoveryModule.cs` |
+| `Infrastructure/Modules/DependencyDiscoveryModule.cs` | `Infrastructure.Agent/Modules/DependencyDiscoveryModule.cs` |
+| `Infrastructure/ModuleServiceCollectionExtensions.cs` | `Infrastructure.Agent/Modules/ModuleServiceCollectionExtensions.cs` |
+
+**Telemetry/** (from `Infrastructure/Telemetry/` — Agent-specific only):
+
+| Source | Destination |
+|--------|-------------|
+| `Infrastructure/Telemetry/DiscoveryMetrics.cs` | `Infrastructure.Agent/Telemetry/DiscoveryMetrics.cs` |
+| `Infrastructure/Telemetry/MigrationMetrics.cs` | `Infrastructure.Agent/Telemetry/MigrationMetrics.cs` |
+| `Infrastructure/Telemetry/AnsiProgressSink.cs` | `Infrastructure.Agent/Telemetry/AnsiProgressSink.cs` |
+| `Infrastructure/Telemetry/CompositeProgressSink.cs` | `Infrastructure.Agent/Telemetry/CompositeProgressSink.cs` |
+| `Infrastructure/Telemetry/ControlPlaneProgressSink.cs` | `Infrastructure.Agent/Telemetry/ControlPlaneProgressSink.cs` |
+| `Infrastructure/Telemetry/PackageProgressSink.cs` | `Infrastructure.Agent/Telemetry/PackageProgressSink.cs` |
+| `Infrastructure/Telemetry/ControlPlaneTelemetryClient.cs` | `Infrastructure.Agent/Telemetry/ControlPlaneTelemetryClient.cs` |
+| `Infrastructure/Telemetry/ControlPlaneLoggerProvider.cs` | `Infrastructure.Agent/Telemetry/ControlPlaneLoggerProvider.cs` |
+| `Infrastructure/Telemetry/PackageLoggerProvider.cs` | `Infrastructure.Agent/Telemetry/PackageLoggerProvider.cs` |
+
+**DI/** (from `Infrastructure/Extensions/`):
+
+| Source | Destination |
+|--------|-------------|
+| `Infrastructure/Extensions/FactoryRegistrationExtensions.cs` | `Infrastructure.Agent/DI/FactoryRegistrationExtensions.cs` |
+
+**Validation/** (from `Infrastructure/Validation/`):
+
+| Source | Destination |
+|--------|-------------|
+| `Infrastructure/Validation/PackageValidator.cs` | `Infrastructure.Agent/Validation/PackageValidator.cs` |
+
+#### Step 5.2c — Namespace updates for Agent files
+
+Update all moved files: `namespace` → `DevOpsMigrationPlatform.Infrastructure.Agent.*`
+
+#### Step 5.2d — Create `AddAgentTelemetryServices()` registration
+
+Extract Agent-specific registrations from the current `AddTelemetryServices()` into a new
+extension method in `Infrastructure.Agent/Telemetry/TelemetryServiceExtensions.cs`.
+
+The original `AddTelemetryServices()` in base `Infrastructure/Telemetry/` retains only
+cross-cutting registrations (data classification log processor). Rename to
+`AddCoreTelemetryServices()` to make intent explicit.
+
+Update `MigrationAgent/Program.cs` to call `AddAgentTelemetryServices()`.
+Update `CLI.TfsMigration` to call `AddAgentTelemetryServices()`.
+
+#### Step 5.3 — Update project references
+
+**Remove from `Infrastructure.csproj`:**
+```xml
+<ProjectReference Include="..\DevOpsMigrationPlatform.Abstractions.Agent\..." />
+```
+Base `Infrastructure` no longer contains Agent-specific implementations.
+
+**Add to consumers:**
+
+| Project | Add reference |
+|---------|-------------|
+| `MigrationAgent.csproj` | `Infrastructure.Agent` |
+| `CLI.TfsMigration.csproj` | `Infrastructure.Agent` |
+| `ControlPlaneHost.csproj` | `Infrastructure.ControlPlane` |
+| `Infrastructure.AzureDevOps.csproj` | `Infrastructure.Agent` |
+| `Infrastructure.Simulated.csproj` | `Infrastructure.Agent` |
+| `Infrastructure.TfsObjectModel.csproj` | `Infrastructure.Agent` |
+
+**Remove from consumers (previously referenced base `Infrastructure` for Agent types):**
+
+| Project | Remove reference | Reason |
+|---------|-----------------|--------|
+| `MigrationAgent.csproj` | — | Still needs base `Infrastructure` for config binding |
+| `ControlPlaneHost.csproj` | — | Still needs base `Infrastructure` for config binding + serialization |
+
+#### Step 5.4 — Update `DevOpsMigrationPlatform.slnx`
+
+Add both new projects to the solution file.
+
+#### Step 5.5 — Delete empty folders from base `Infrastructure`
+
+After all moves, delete empty folders:
+- `Storage/`, `Factories/`, `Checkpointing/`, `JobEngine/`, `Export/`, `Import/`
+- `Modules/` (including `Discovery/` subfolder)
+- `Services/`, `Extensions/`, `Validation/`
+
+Base `Infrastructure/` retains only:
+- `Config/` (3 files)
+- `Telemetry/` (2–3 cross-cutting files)
+- `Serialization/` (types not moved to Abstractions in Phase 1)
+- `Polyfills/` (1 file)
+
+---
+
+### Phase 6 — Reference topology cleanup and verification
+
+#### Step 6.1 — Fix test project references
+
+| Test project | Remove reference | Reason |
+|---|---|---|
+| `Infrastructure.Tests` | `CLI.Migration` | Infrastructure tests must not depend on CLI |
+| `CLI.Migration.Tests` | `Infrastructure` | CLI tests must mock abstractions, not use concrete infra |
+| `CLI.Migration.Tests` | `Infrastructure.AzureDevOps` | CLI tests must mock abstractions, not use concrete infra |
+
+For any test that currently depends on the removed reference:
+- If it tests CLI+Infrastructure integration → move to a dedicated integration test project
+- If it uses concrete types for test setup → replace with mocks of the abstraction interfaces
+- If it only uses config types → those are now in `Abstractions/Options/` (no reference needed)
+
+`Infrastructure.Tests` may need splitting into `Infrastructure.Tests`,
+`Infrastructure.Agent.Tests`, and `Infrastructure.ControlPlane.Tests` to match the
+production project boundaries. Each test project references only its system-under-test.
+
+#### Step 6.2 — Build gate
 
 ```powershell
 dotnet clean && dotnet build --no-incremental
@@ -1158,7 +1450,7 @@ dotnet clean && dotnet build --no-incremental
 
 All projects must compile. Zero warnings from missing types.
 
-#### Step 4.2 — Test gate
+#### Step 6.3 — Test gate
 
 ```powershell
 dotnet test
@@ -1166,20 +1458,34 @@ dotnet test
 
 All existing tests must pass. The refactoring is purely structural — no behaviour changes.
 
-#### Step 4.3 — Reference topology audit
+#### Step 6.4 — Reference topology audit
 
 Verify that the compiler-enforced topology matches BOTH tables in the Target State section.
 Any ❌ cell that has a reference is a violation. Fix before declaring done.
 
-Specifically verify:
-- `CLI.Migration` → only `Abstractions`
-- `ControlPlane` → only `Abstractions` + `Abstractions.ControlPlane` (no `Infrastructure`, no `Abstractions.Agent`)
-- `ControlPlaneHost` → `Abstractions` + `Abstractions.ControlPlane` + `Infrastructure` + `ServiceDefaults`
-- `MigrationAgent` → `Abstractions` + `Abstractions.Agent` + `Infrastructure` + `Infrastructure.AzureDevOps` + `Infrastructure.Simulated` + `ServiceDefaults`
-- `Infrastructure.Tests` does NOT reference `CLI.Migration`
-- `CLI.Migration.Tests` does NOT reference `Infrastructure` or `Infrastructure.AzureDevOps`
+**Abstractions layer:**
+- `CLI.Migration` → only `Abstractions` (no `Abstractions.Agent`, no `Abstractions.ControlPlane`)
+- `ControlPlane` → `Abstractions` + `Abstractions.ControlPlane` (no `Abstractions.Agent`)
+- `ControlPlaneHost` → `Abstractions` + `Abstractions.ControlPlane`
+- `MigrationAgent` → `Abstractions` + `Abstractions.Agent` (no `Abstractions.ControlPlane`)
+- `Infrastructure` → `Abstractions` only (no `Abstractions.Agent`, no `Abstractions.ControlPlane`)
+- `Infrastructure.ControlPlane` → `Abstractions` + `Abstractions.ControlPlane`
+- `Infrastructure.Agent` → `Abstractions` + `Abstractions.Agent`
 
-#### Step 4.4 — Scenario smoke test
+**Implementation layer:**
+- `CLI.Migration` → `Infrastructure` only (config binding, serialization — no `Infrastructure.Agent`, no `Infrastructure.ControlPlane`)
+- `ControlPlane` → NO Infrastructure references (library project; registrations in Host)
+- `ControlPlaneHost` → `Infrastructure` + `Infrastructure.ControlPlane` (no `Infrastructure.Agent`)
+- `MigrationAgent` → `Infrastructure` + `Infrastructure.Agent` + `Infrastructure.AzureDevOps` + `Infrastructure.Simulated` (no `Infrastructure.ControlPlane`)
+- `Infrastructure.AzureDevOps` → `Infrastructure` + `Infrastructure.Agent`
+- `Infrastructure.Simulated` → `Infrastructure` + `Infrastructure.Agent`
+- `Infrastructure.TfsObjectModel` → `Infrastructure` + `Infrastructure.Agent`
+
+**Test projects:**
+- `Infrastructure.Tests` does NOT reference `CLI.Migration`
+- `CLI.Migration.Tests` does NOT reference `Infrastructure`, `Infrastructure.Agent`, or `Infrastructure.AzureDevOps`
+
+#### Step 6.5 — Scenario smoke test
 
 Run at least one scenario config via `launch.json` debug profile and verify observable output.
 
@@ -1193,17 +1499,19 @@ Run at least one scenario config via `launch.json` debug profile and verify obse
 ControlPlane. It correctly references `Abstractions` + `Abstractions.Agent` and directly
 resolves `IWorkItemDiscoveryService`, `IProgressSink`, etc. This is by design.
 
-### `Infrastructure` references `Abstractions.Agent`
+### `Infrastructure` references `Abstractions.Agent` — temporary
 
-`Infrastructure` implements Agent modules (`InventoryDiscoveryModule`,
-`WorkItemExportOrchestrator`, etc.) and uses `IArtefactStore`, `ICheckpointingService`,
-and other Agent-internal contracts. It correctly references `Abstractions` +
-`Abstractions.Agent`.
+During Phase 3, base `Infrastructure` gains a temporary `Abstractions.Agent` reference
+because it still contains Agent-specific implementations. Phase 5 moves those
+implementations to `Infrastructure.Agent` and removes the reference from base
+`Infrastructure`. After Phase 5, base `Infrastructure` references only `Abstractions`
+(cross-cutting config, serialization, telemetry utilities).
 
 ### `MigrationAgent` references Infrastructure projects
 
 `MigrationAgent` is a composition root — it wires up concrete implementations from
-`Infrastructure`, `Infrastructure.AzureDevOps`, and `Infrastructure.Simulated` at startup.
+`Infrastructure` (config binding), `Infrastructure.Agent` (stores, orchestrators, modules),
+`Infrastructure.AzureDevOps`, and `Infrastructure.Simulated` at startup.
 This is the correct place for those references. The topology table shows this explicitly.
 
 ### `ControlPlaneHost` vs `ControlPlane` — split responsibility
@@ -1213,8 +1521,9 @@ It references only `Abstractions` + `Abstractions.ControlPlane`. It MUST NOT ref
 `Infrastructure` directly.
 
 `ControlPlaneHost` is the ASP.NET Core executable (composition root). It wires up
-concrete implementations from `Infrastructure` and registers them via DI. Infrastructure
-references belong here, not in `ControlPlane`.
+concrete implementations from `Infrastructure` (config binding) and
+`Infrastructure.ControlPlane` (metric stores, lifecycle metrics) via DI. It MUST NOT
+reference `Infrastructure.Agent`.
 
 **Current violation:** `ControlPlane/Services/ControlPlaneServiceExtensions.cs` directly
 references `DevOpsMigrationPlatform.Infrastructure.Factories` and hard-codes
