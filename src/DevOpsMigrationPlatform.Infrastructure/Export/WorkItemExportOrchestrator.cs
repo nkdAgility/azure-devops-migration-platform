@@ -611,8 +611,8 @@ public sealed class WorkItemExportOrchestrator
             ids.Add(item.Id);
             fetched++;
 
-            // Emit progress every 500 items so the operator can see the fetch is alive.
-            if (fetched % 500 == 0)
+            // Emit progress every 100 items so the operator can see the fetch is alive.
+            if (fetched % 100 == 0)
             {
                 _logger?.LogInformation("[WorkItems] Pre-filter pass: {Fetched} work items fetched so far…", fetched);
                 _progressSink?.Emit(new ProgressEvent
