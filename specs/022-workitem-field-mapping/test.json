@@ -1,0 +1,49 @@
+{
+  "Tools": {
+    "FieldTransform": {
+      "transformGroups": {
+        "default": {
+          "applyTo": [
+            "*"
+          ],
+          "transforms": [
+            {
+              "type": "MapValue",
+              "field": "System.State",
+              "valueMap": {
+                "Active": "In Progress",
+                "Resolved": "Done"
+              }
+            },
+            {
+              "type": "MapValue",
+              "field": "System.State",
+              "applyTo": [
+                "Bug"
+              ],
+              "valueMap": {
+                "Active": "In Progress",
+                "Resolved": "Done"
+              }
+            }
+          ]
+        },
+        "BugBits": {
+          "applyTo": [
+            "Bug"
+          ],
+          "transforms": [
+            {
+              "type": "MapValue",
+              "field": "System.State",
+              "valueMap": {
+                "Active": "In Progress",
+                "Resolved": "Done"
+              }
+            }
+          ]
+        }
+      }
+    }
+  }
+}
