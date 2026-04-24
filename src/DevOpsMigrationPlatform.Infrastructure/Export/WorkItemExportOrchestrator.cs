@@ -167,24 +167,29 @@ public sealed class WorkItemExportOrchestrator
         }
 
         // Emit scope-resolved event so the CLI progress bar can set its total.
-        _progressSink?.Emit(new ProgressEvent
+        // Only emitted when we have a known total — avoids spurious events in tests
+        // and in partial setups where no discovery service is wired.
+        if (totalWorkItems > 0)
         {
-            Module = "WorkItems",
-            Stage = "ScopeResolved",
-            Message = $"[WorkItems] Scope resolved: {totalWorkItems:N0} work items",
-            Metrics = new JobMetrics
+            _progressSink?.Emit(new ProgressEvent
             {
-                Scope = new JobScopeCounters { WorkItemsTotal = totalWorkItems },
-                Migration = new MigrationCounters
+                Module = "WorkItems",
+                Stage = "ScopeResolved",
+                Message = $"[WorkItems] Scope resolved: {totalWorkItems:N0} work items",
+                Metrics = new JobMetrics
                 {
-                    WorkItems = new WorkItemCounters
+                    Scope = new JobScopeCounters { WorkItemsTotal = totalWorkItems },
+                    Migration = new MigrationCounters
                     {
-                        Completed = workItemsProcessed,
-                        RevisionsProcessed = revisionsProcessed
+                        WorkItems = new WorkItemCounters
+                        {
+                            Completed = workItemsProcessed,
+                            RevisionsProcessed = revisionsProcessed
+                        }
                     }
                 }
-            }
-        });
+            });
+        }
         int attachmentsProcessed = 0;
         int attachmentsFailed = 0;
 

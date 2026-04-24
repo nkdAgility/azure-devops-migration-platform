@@ -523,23 +523,23 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
                         ctx.Refresh();
 
                         await foreach (var evt in client.FollowLogsAsync(parsedJobId, followCts.Token).ConfigureAwait(false))
-                    {
-                        lastEvt = evt;
-                        if (!string.IsNullOrEmpty(evt.Stage))
-                            currentStage = evt.Stage;
-                        // The Agent emits a ScopeResolved event with WorkItemsTotal when it completes the count.
-                        if (evt.Metrics?.Scope?.WorkItemsTotal > 0)
-                            totalWorkItems = (int)evt.Metrics.Scope.WorkItemsTotal;
-                        processed = (int)(evt.Metrics?.Migration?.WorkItems?.Completed ?? processed);
-                        revisions = (int)(evt.Metrics?.Migration?.WorkItems?.RevisionsProcessed ?? revisions);
+                        {
+                            lastEvt = evt;
+                            if (!string.IsNullOrEmpty(evt.Stage))
+                                currentStage = evt.Stage;
+                            // The Agent emits a ScopeResolved event with WorkItemsTotal when it completes the count.
+                            if (evt.Metrics?.Scope?.WorkItemsTotal > 0)
+                                totalWorkItems = (int)evt.Metrics.Scope.WorkItemsTotal;
+                            processed = (int)(evt.Metrics?.Migration?.WorkItems?.Completed ?? processed);
+                            revisions = (int)(evt.Metrics?.Migration?.WorkItems?.RevisionsProcessed ?? revisions);
 
-                        ctx.UpdateTarget(BuildProgressRenderable(
-                            processed, totalWorkItems,
-                            0, 0,
-                            0, 0,
-                            currentStage, progressStartTime,
-                            evt.LastCheckpointAt, evt.NextCheckpointDueAt));
-                    }
+                            ctx.UpdateTarget(BuildProgressRenderable(
+                                processed, totalWorkItems,
+                                0, 0,
+                                0, 0,
+                                currentStage, progressStartTime,
+                                evt.LastCheckpointAt, evt.NextCheckpointDueAt));
+                        }
                     });
             }
             catch (InvalidOperationException ex) when (ex.Message.Contains("Job failed"))
