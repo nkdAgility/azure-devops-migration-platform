@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
+using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -45,10 +46,16 @@ public sealed class DependencyDiscoveryService : IDependencyDiscoveryService
     /// fully analysed in a previous run. These projects are skipped entirely — no API calls.
     /// </param>
     /// <param name="wiqlFilter">Optional WIQL expression to filter the set of work items to analyse.</param>
+    /// <param name="inProgressProjectKey">Optional project key that was in progress when the previous run was interrupted.</param>
+    /// <param name="inProgressToken">Optional continuation token for the in-progress project.</param>
+    /// <param name="continuationCheckpointWriter">Optional callback invoked per-batch to persist resume state.</param>
     /// <param name="cancellationToken">Cancellation token for operation cancellation.</param>
     public async IAsyncEnumerable<DependencyProgressEvent> DiscoverDependenciesAsync(
         HashSet<string>? completedProjectKeys = null,
         string? wiqlFilter = null,
+        string? inProgressProjectKey = null,
+        BatchContinuationToken? inProgressToken = null,
+        Func<BatchContinuationToken, CancellationToken, Task>? continuationCheckpointWriter = null,
         [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         _logger.LogInformation("Starting dependency discovery across {OrganisationCount} organisations", _options.Value.Organisations.Count);
@@ -119,12 +126,27 @@ public sealed class DependencyDiscoveryService : IDependencyDiscoveryService
 
                 _logger.LogInformation("Analysing project {Project} in {Url}", project, orgEndpoint.GetResolvedUrl());
 
-                // Stream events from the service
-                await foreach (var evt in service.AnalyseLinksAsync(
-                    orgEndpoint,
-                    project,
-                    wiqlFilter,
-                    cancellationToken))
+                // Determine if this project should resume from a continuation token
+                BatchContinuationToken? projectToken = null;
+                Func<BatchContinuationToken, CancellationToken, Task>? projectCheckpointWriter = null;
+                if (inProgressProjectKey is not null && string.Equals(projectKey, inProgressProjectKey, StringComparison.OrdinalIgnoreCase))
+                {
+                    projectToken = inProgressToken;
+                    projectCheckpointWriter = continuationCheckpointWriter;
+                    _logger.LogInformation("Resuming in-progress project {Project} from continuation token.", project);
+                }
+
+                // Stream events from the service.
+                // If resume is rejected (fingerprint mismatch), fall back to a fresh start.
+                var effectiveToken = projectToken;
+                var effectiveWriter = projectCheckpointWriter ?? continuationCheckpointWriter;
+                var eventStream = service.AnalyseLinksAsync(orgEndpoint, project, wiqlFilter,
+                    effectiveToken, effectiveWriter, cancellationToken);
+
+                var resumed = effectiveToken is not null;
+                await foreach (var evt in WrapWithResumeFallbackAsync(
+                    eventStream, resumed, service, orgEndpoint, project, wiqlFilter,
+                    effectiveWriter, cancellationToken, _logger).ConfigureAwait(false))
                 {
                     yield return evt;
                 }
@@ -132,5 +154,75 @@ public sealed class DependencyDiscoveryService : IDependencyDiscoveryService
         }
 
         _logger.LogInformation("Dependency discovery completed");
+    }
+
+    /// <summary>
+    /// Wraps an async enumerable so that a <see cref="ResumeRejectedException"/> thrown
+    /// during iteration (typically on the first <c>MoveNextAsync</c>) causes a transparent
+    /// fallback to a fresh (non-resumed) analysis of the same project.
+    /// </summary>
+    private static async IAsyncEnumerable<DependencyProgressEvent> WrapWithResumeFallbackAsync(
+        IAsyncEnumerable<DependencyProgressEvent> original,
+        bool isResuming,
+        IWorkItemLinkAnalysisService service,
+        MigrationEndpointOptions endpoint,
+        string project,
+        string? wiqlFilter,
+        Func<BatchContinuationToken, CancellationToken, Task>? checkpointWriter,
+        [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken,
+        ILogger logger)
+    {
+        IAsyncEnumerable<DependencyProgressEvent> stream = original;
+
+        if (isResuming)
+        {
+            // Try to iterate the resumed stream. If the very first MoveNextAsync
+            // throws ResumeRejectedException, fall back to a fresh stream.
+            IAsyncEnumerator<DependencyProgressEvent>? enumerator = null;
+            bool firstMoveSucceeded = false;
+            bool resumeRejected = false;
+            try
+            {
+                enumerator = original.GetAsyncEnumerator(cancellationToken);
+                firstMoveSucceeded = await enumerator.MoveNextAsync().ConfigureAwait(false);
+            }
+            catch (ResumeRejectedException ex)
+            {
+                logger.LogInformation(
+                    "Resume rejected for project {Project} — fingerprint mismatch (saved: {SavedFingerprint}, current: {CurrentFingerprint}). Restarting project from scratch.",
+                    project, ex.Decision.SavedQueryFingerprint, ex.Decision.CurrentQueryFingerprint);
+
+                if (enumerator is not null)
+                    await enumerator.DisposeAsync().ConfigureAwait(false);
+
+                resumeRejected = true;
+            }
+
+            if (resumeRejected)
+            {
+                // Fall back to fresh analysis (outside catch — yield is allowed here)
+                var freshStream = service.AnalyseLinksAsync(endpoint, project, wiqlFilter,
+                    savedContinuationToken: null, continuationCheckpointWriter: checkpointWriter,
+                    cancellationToken: cancellationToken);
+                await foreach (var fallbackEvt in freshStream.ConfigureAwait(false))
+                    yield return fallbackEvt;
+                yield break;
+            }
+
+            // First move succeeded — yield the current item then continue draining
+            if (firstMoveSucceeded)
+            {
+                yield return enumerator!.Current;
+                while (await enumerator.MoveNextAsync().ConfigureAwait(false))
+                    yield return enumerator.Current;
+            }
+
+            await enumerator!.DisposeAsync().ConfigureAwait(false);
+            yield break;
+        }
+
+        // Non-resumed path — just pass through
+        await foreach (var evt in stream.ConfigureAwait(false))
+            yield return evt;
     }
 }

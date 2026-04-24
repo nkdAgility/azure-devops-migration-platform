@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Moq;
@@ -8,10 +10,12 @@ using Microsoft.Extensions.Options;
 using Microsoft.TeamFoundation.WorkItemTracking.WebApi;
 using Microsoft.TeamFoundation.WorkItemTracking.WebApi.Models;
 using Microsoft.VisualStudio.Services.WebApi;
+using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Models;
 using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Abstractions.Services;
 using DevOpsMigrationPlatform.Infrastructure.AzureDevOps;
+using DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Options;
 using DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Services;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Tests.Dependencies;
@@ -112,11 +116,68 @@ public class AzureDevOpsDependencyAnalysisServiceTests
     }
 
     [TestMethod]
-    public async Task AnalyseLinksAsync_EmitsDependencyHeartbeat()
+    public async Task AnalyseLinksAsync_WithToken_SetsResumeEnabledTrue()
     {
-        // This is a placeholder test. Full implementation would mock the WIT client.
-        // For now, verify the service is callable.
-        Assert.IsNotNull(_service);
-        await Task.CompletedTask;
+        // Arrange: supply a continuation token — the service should pass
+        // ResumeEnabled=true to IWorkItemFetchService.FetchAsync().
+        var endpoint = new AzureDevOpsEndpointOptions
+        {
+            Url = "https://dev.azure.com/testorg",
+            Authentication = new EndpointAuthenticationOptions { AccessToken = "fake" }
+        };
+        var token = new BatchContinuationToken
+        {
+            QueryFingerprint = "fp",
+            StrategyVersion = "1.0.0",
+            WorkItemId = 42,
+            ChangedDateUtc = DateTime.UtcNow
+        };
+
+        WorkItemFetchScope? capturedScope = null;
+        _fetchServiceMock
+            .Setup(f => f.FetchAsync(It.IsAny<OrganisationEndpoint>(), "TestProject", It.IsAny<WorkItemFetchScope>(), It.IsAny<CancellationToken>()))
+            .Callback<OrganisationEndpoint, string, WorkItemFetchScope, CancellationToken>((_, _, scope, _) => capturedScope = scope)
+            .Returns(AsyncEnumerable.Empty<FetchedWorkItem>());
+
+        _discoveryServiceMock
+            .Setup(d => d.CountWorkItemsAsync(It.IsAny<OrganisationEndpoint>(), "TestProject", null, It.IsAny<CancellationToken>()))
+            .Returns(AsyncEnumerable.Empty<ProjectDiscoverySummary>());
+
+        // Act: drain the stream
+        await foreach (var _ in _service.AnalyseLinksAsync(endpoint, "TestProject", savedContinuationToken: token)) { }
+
+        // Assert
+        Assert.IsNotNull(capturedScope, "FetchAsync should have been called with a scope.");
+        Assert.IsTrue(capturedScope!.ResumeEnabled, "ResumeEnabled should be true when a token is supplied.");
+        Assert.AreSame(token, capturedScope.SavedContinuationToken, "The exact token should be passed through.");
+    }
+
+    [TestMethod]
+    public async Task AnalyseLinksAsync_WithNoToken_SetsResumeEnabledFalse()
+    {
+        // Arrange: no token — the service should default to ResumeEnabled=false.
+        var endpoint = new AzureDevOpsEndpointOptions
+        {
+            Url = "https://dev.azure.com/testorg",
+            Authentication = new EndpointAuthenticationOptions { AccessToken = "fake" }
+        };
+
+        WorkItemFetchScope? capturedScope = null;
+        _fetchServiceMock
+            .Setup(f => f.FetchAsync(It.IsAny<OrganisationEndpoint>(), "TestProject", It.IsAny<WorkItemFetchScope>(), It.IsAny<CancellationToken>()))
+            .Callback<OrganisationEndpoint, string, WorkItemFetchScope, CancellationToken>((_, _, scope, _) => capturedScope = scope)
+            .Returns(AsyncEnumerable.Empty<FetchedWorkItem>());
+
+        _discoveryServiceMock
+            .Setup(d => d.CountWorkItemsAsync(It.IsAny<OrganisationEndpoint>(), "TestProject", null, It.IsAny<CancellationToken>()))
+            .Returns(AsyncEnumerable.Empty<ProjectDiscoverySummary>());
+
+        // Act
+        await foreach (var _ in _service.AnalyseLinksAsync(endpoint, "TestProject")) { }
+
+        // Assert
+        Assert.IsNotNull(capturedScope, "FetchAsync should have been called with a scope.");
+        Assert.IsFalse(capturedScope!.ResumeEnabled, "ResumeEnabled should be false when no token is supplied.");
+        Assert.IsNull(capturedScope.SavedContinuationToken, "No token should be present in scope.");
     }
 }

@@ -54,6 +54,8 @@ public sealed class AzureDevOpsDependencyAnalysisService : IWorkItemLinkAnalysis
         MigrationEndpointOptions endpoint,
         string project,
         string? wiqlFilter = null,
+        BatchContinuationToken? savedContinuationToken = null,
+        Func<BatchContinuationToken, CancellationToken, Task>? continuationCheckpointWriter = null,
         [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         // All data in this method references org URLs, project names, and WI IDs — customer data.
@@ -109,7 +111,10 @@ public sealed class AzureDevOpsDependencyAnalysisService : IWorkItemLinkAnalysis
             // for the Relations expansion call that follows.
             var scope = new WorkItemFetchScope(
                 Fields: new[] { "System.WorkItemType", "System.TeamProject" },
-                BaseQuery: string.IsNullOrWhiteSpace(wiqlFilter) ? null : wiqlFilter);
+                BaseQuery: string.IsNullOrWhiteSpace(wiqlFilter) ? null : wiqlFilter,
+                ResumeEnabled: savedContinuationToken is not null,
+                SavedContinuationToken: savedContinuationToken,
+                ContinuationCheckpointWriter: continuationCheckpointWriter);
 
             _logger.LogInformation("Streaming work items for dependency analysis in {Project} at {OrgUrl}", project, orgEndpoint.ResolvedUrl);
 

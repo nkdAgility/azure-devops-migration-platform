@@ -102,6 +102,9 @@ public class DependencyDiscoveryModuleResumeTests
         mockService.Setup(s => s.DiscoverDependenciesAsync(
                 It.IsAny<HashSet<string>?>(),
                 It.IsAny<string?>(),
+                It.IsAny<string?>(),
+                It.IsAny<BatchContinuationToken?>(),
+                It.IsAny<Func<BatchContinuationToken, CancellationToken, Task>?>(),
                 It.IsAny<CancellationToken>()))
             .Returns(EmptyAsync());
 
@@ -171,6 +174,9 @@ public class DependencyDiscoveryModuleResumeTests
         mockService.Setup(s => s.DiscoverDependenciesAsync(
                 It.IsAny<HashSet<string>?>(),
                 It.IsAny<string?>(),
+                It.IsAny<string?>(),
+                It.IsAny<BatchContinuationToken?>(),
+                It.IsAny<Func<BatchContinuationToken, CancellationToken, Task>?>(),
                 It.IsAny<CancellationToken>()))
             .Returns(EmptyAsync());
 
@@ -230,6 +236,9 @@ public class DependencyDiscoveryModuleResumeTests
         mockService.Setup(s => s.DiscoverDependenciesAsync(
                 It.IsAny<HashSet<string>?>(),
                 It.IsAny<string?>(),
+                It.IsAny<string?>(),
+                It.IsAny<BatchContinuationToken?>(),
+                It.IsAny<Func<BatchContinuationToken, CancellationToken, Task>?>(),
                 It.IsAny<CancellationToken>()))
             .Returns(EmptyAsync());
 
@@ -301,6 +310,9 @@ public class DependencyDiscoveryModuleResumeTests
         mockService.Setup(s => s.DiscoverDependenciesAsync(
                 It.IsAny<HashSet<string>?>(),
                 It.IsAny<string?>(),
+                It.IsAny<string?>(),
+                It.IsAny<BatchContinuationToken?>(),
+                It.IsAny<Func<BatchContinuationToken, CancellationToken, Task>?>(),
                 It.IsAny<CancellationToken>()))
             .Returns(SingleEventAsync(heartbeat));
 
@@ -359,5 +371,264 @@ public class DependencyDiscoveryModuleResumeTests
     {
         await Task.CompletedTask;
         yield return evt;
+    }
+
+    // ── Batch-level resume tests ──────────────────────────────────────────────
+
+    [TestMethod]
+    public void StripCsvRowsForProject_RemovesMatchingRows()
+    {
+        // Arrange
+        var csv =
+            "SourceWorkItemId,SourceWorkItemType,SourceProject,SourceOrganisationUrl," +
+            "LinkType,LinkScope,TargetWorkItemId,TargetProject,TargetOrganisation,TargetStatus,LinkChangedDate,SourceWorkItemStateCategory\r\n" +
+            "1,Bug,ProjectA,https://dev.azure.com/org1,Related,CrossProject,2,ProjectB,https://dev.azure.com/org1,Active,,Active\r\n" +
+            "3,Task,ProjectB,https://dev.azure.com/org1,Related,CrossProject,4,ProjectA,https://dev.azure.com/org1,Resolved,,Active\r\n" +
+            "5,Bug,ProjectA,https://dev.azure.com/org1,Parent,CrossProject,6,ProjectC,https://dev.azure.com/org2,Active,,Active\r\n";
+
+        // Act — strip all rows for ProjectA in org1
+        var result = DependencyDiscoveryModule.StripCsvRowsForProject(
+            csv, "https://dev.azure.com/org1", "ProjectA", out var strippedCount);
+
+        // Assert
+        Assert.AreEqual(2, strippedCount, "Should strip 2 rows for ProjectA");
+        Assert.IsTrue(result.Contains("SourceWorkItemId"), "Header should be preserved");
+        Assert.IsTrue(result.Contains("3,Task,ProjectB"), "ProjectB row should remain");
+        Assert.IsFalse(result.Contains("1,Bug,ProjectA"), "ProjectA row 1 should be stripped");
+        Assert.IsFalse(result.Contains("5,Bug,ProjectA"), "ProjectA row 5 should be stripped");
+    }
+
+    [TestMethod]
+    public void StripCsvRowsForProject_CaseInsensitive()
+    {
+        var csv =
+            "SourceWorkItemId,SourceWorkItemType,SourceProject,SourceOrganisationUrl\r\n" +
+            "1,Bug,PROJECTA,HTTPS://DEV.AZURE.COM/ORG1,Related,CrossProject,2,ProjB,https://dev.azure.com/org1,Active,,Active\r\n";
+
+        var result = DependencyDiscoveryModule.StripCsvRowsForProject(
+            csv, "https://dev.azure.com/org1", "ProjectA", out var strippedCount);
+
+        Assert.AreEqual(1, strippedCount);
+        Assert.IsFalse(result.Contains("PROJECTA"));
+    }
+
+    [TestMethod]
+    public void StripCsvRowsForProject_HandlesQuotedFields()
+    {
+        var csv =
+            "SourceWorkItemId,SourceWorkItemType,SourceProject,SourceOrganisationUrl," +
+            "LinkType,LinkScope,TargetWorkItemId,TargetProject,TargetOrganisation,TargetStatus,LinkChangedDate,SourceWorkItemStateCategory\r\n" +
+            "1,\"Bug, Critical\",\"Project A\",https://dev.azure.com/org1,Related,CrossProject,2,ProjectB,https://dev.azure.com/org1,Active,,Active\r\n";
+
+        var result = DependencyDiscoveryModule.StripCsvRowsForProject(
+            csv, "https://dev.azure.com/org1", "Project A", out var strippedCount);
+
+        Assert.AreEqual(1, strippedCount);
+        Assert.IsFalse(result.Contains("Bug, Critical"));
+    }
+
+    [TestMethod]
+    public async Task RunAsync_WhenCursorHasInProgressProject_PassesResumeParamsToService()
+    {
+        // Arrange — cursor with an in-progress project containing a continuation token
+        var completedKey = "https://dev.azure.com/org1|completedproject";
+        var inProgressKey = "https://dev.azure.com/org1|inprogressproject";
+
+        var token = new BatchContinuationToken
+        {
+            ChangedDateUtc = new DateTime(2024, 6, 15, 12, 0, 0, DateTimeKind.Utc),
+            WorkItemId = 5000,
+            QueryFingerprint = "test-fingerprint",
+            Completed = false
+        };
+
+        var cursor = new Dictionary<string, object>
+        {
+            ["recordCount"] = 3,
+            ["completedProjects"] = new[] { completedKey },
+            ["projectStats"] = new Dictionary<string, object>
+            {
+                [completedKey] = new { workItemsAnalysed = 100, externalLinksFound = 5, crossProjectCount = 5, crossOrgCount = 0, totalWorkItems = 100 }
+            },
+            ["inProgressProject"] = new
+            {
+                key = inProgressKey,
+                continuationToken = token,
+                processedWorkItems = 3200,
+                linksFound = 10,
+                crossProjectCount = 8,
+                crossOrgCount = 2
+            },
+            ["savedAt"] = DateTime.UtcNow
+        };
+        var cursorJson = JsonSerializer.Serialize(cursor);
+
+        var mockState = new Mock<IStateStore>(MockBehavior.Loose);
+        mockState.Setup(s => s.ReadAsync(CursorKey, It.IsAny<CancellationToken>()))
+                 .ReturnsAsync(cursorJson);
+        mockState.Setup(s => s.WriteAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+                 .Returns(Task.CompletedTask);
+        mockState.Setup(s => s.DeleteAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+                 .Returns(Task.CompletedTask);
+
+        // CSV with some rows for the in-progress project (will be stripped)
+        var existingCsv =
+            "SourceWorkItemId,SourceWorkItemType,SourceProject,SourceOrganisationUrl," +
+            "LinkType,LinkScope,TargetWorkItemId,TargetProject,TargetOrganisation,TargetStatus,LinkChangedDate,SourceWorkItemStateCategory\r\n" +
+            "1,Bug,CompletedProject,https://dev.azure.com/org1,Related,CrossProject,2,OtherProj,https://dev.azure.com/org1,Active,,Active\r\n" +
+            "50,Task,InProgressProject,https://dev.azure.com/org1,Related,CrossProject,51,OtherProj,https://dev.azure.com/org1,Active,,Active\r\n";
+
+        var mockStore = new Mock<IArtefactStore>(MockBehavior.Loose);
+        mockStore.Setup(s => s.ReadAsync("inventory.json", It.IsAny<CancellationToken>()))
+                 .ReturnsAsync((string?)null);
+        mockStore.Setup(s => s.ReadAsync("dependencies.csv", It.IsAny<CancellationToken>()))
+                 .ReturnsAsync(existingCsv);
+        mockStore.Setup(s => s.WriteAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+                 .Returns(Task.CompletedTask);
+
+        var emittedEvents = new List<ProgressEvent>();
+        var mockSink = new Mock<IProgressSink>(MockBehavior.Loose);
+        mockSink.Setup(s => s.Emit(It.IsAny<ProgressEvent>()))
+                .Callback<ProgressEvent>(e => emittedEvents.Add(e));
+
+        // Capture the resume parameters passed to the service
+        string? capturedInProgressKey = null;
+        BatchContinuationToken? capturedToken = null;
+        Func<BatchContinuationToken, CancellationToken, Task>? capturedWriter = null;
+
+        var mockService = new Mock<IDependencyDiscoveryService>(MockBehavior.Loose);
+        mockService.Setup(s => s.DiscoverDependenciesAsync(
+                It.IsAny<HashSet<string>?>(),
+                It.IsAny<string?>(),
+                It.IsAny<string?>(),
+                It.IsAny<BatchContinuationToken?>(),
+                It.IsAny<Func<BatchContinuationToken, CancellationToken, Task>?>(),
+                It.IsAny<CancellationToken>()))
+            .Callback<HashSet<string>?, string?, string?, BatchContinuationToken?, Func<BatchContinuationToken, CancellationToken, Task>?, CancellationToken>(
+                (_, _, ipk, ipt, cw, _) =>
+                {
+                    capturedInProgressKey = ipk;
+                    capturedToken = ipt;
+                    capturedWriter = cw;
+                })
+            .Returns(EmptyAsync());
+
+        var mockFactory = new Mock<IDependencyDiscoveryServiceFactory>(MockBehavior.Strict);
+        mockFactory.Setup(f => f.Create(
+                It.IsAny<IReadOnlyList<ScopedOrganisationEndpoint>>(),
+                It.IsAny<JobPolicies>()))
+            .Returns(mockService.Object);
+
+        var sut = new DependencyDiscoveryModule(
+            mockFactory.Object,
+            NullLogger<DependencyDiscoveryModule>.Instance);
+
+        var ctx = new DiscoveryContext
+        {
+            Job = MakeJob(),
+            ArtefactStore = mockStore.Object,
+            StateStore = mockState.Object,
+            ProgressSink = mockSink.Object
+        };
+
+        // Act
+        await sut.RunAsync(ctx, CancellationToken.None);
+
+        // Assert — the in-progress project key and token must be passed through
+        Assert.AreEqual(inProgressKey, capturedInProgressKey,
+            "In-progress project key should be passed to DiscoverDependenciesAsync");
+        Assert.IsNotNull(capturedToken, "Continuation token should be passed to DiscoverDependenciesAsync");
+        Assert.AreEqual(5000, capturedToken!.WorkItemId, "Token work item ID should match");
+        Assert.AreEqual("test-fingerprint", capturedToken.QueryFingerprint, "Token fingerprint should match");
+        Assert.IsNotNull(capturedWriter, "Checkpoint writer callback should be provided");
+    }
+
+    [TestMethod]
+    public async Task RunAsync_WhenCursorHasInProgressProject_StripsPartialCsvRowsOnResume()
+    {
+        // Arrange — cursor with in-progress project
+        var inProgressKey = "https://dev.azure.com/org1|myproject";
+        var token = new BatchContinuationToken
+        {
+            ChangedDateUtc = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc),
+            WorkItemId = 100,
+            QueryFingerprint = "fp",
+            Completed = false
+        };
+
+        var cursor = new Dictionary<string, object>
+        {
+            ["recordCount"] = 2,
+            ["completedProjects"] = Array.Empty<string>(),
+            ["inProgressProject"] = new { key = inProgressKey, continuationToken = token, processedWorkItems = 50 },
+            ["savedAt"] = DateTime.UtcNow
+        };
+        var cursorJson = JsonSerializer.Serialize(cursor);
+
+        var mockState = new Mock<IStateStore>(MockBehavior.Loose);
+        mockState.Setup(s => s.ReadAsync(CursorKey, It.IsAny<CancellationToken>()))
+                 .ReturnsAsync(cursorJson);
+        mockState.Setup(s => s.WriteAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+                 .Returns(Task.CompletedTask);
+        mockState.Setup(s => s.DeleteAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+                 .Returns(Task.CompletedTask);
+
+        var existingCsv =
+            "SourceWorkItemId,SourceWorkItemType,SourceProject,SourceOrganisationUrl," +
+            "LinkType,LinkScope,TargetWorkItemId,TargetProject,TargetOrganisation,TargetStatus,LinkChangedDate,SourceWorkItemStateCategory\r\n" +
+            "10,Bug,MyProject,https://dev.azure.com/org1,Related,CrossProject,20,OtherProject,https://dev.azure.com/org1,Active,,Active\r\n" +
+            "30,Task,MyProject,https://dev.azure.com/org1,Related,CrossProject,40,OtherProject,https://dev.azure.com/org1,Active,,Active\r\n";
+
+        // Capture the CSV written to the store
+        string? writtenCsv = null;
+        var mockStore = new Mock<IArtefactStore>(MockBehavior.Loose);
+        mockStore.Setup(s => s.ReadAsync("inventory.json", It.IsAny<CancellationToken>()))
+                 .ReturnsAsync((string?)null);
+        mockStore.Setup(s => s.ReadAsync("dependencies.csv", It.IsAny<CancellationToken>()))
+                 .ReturnsAsync(existingCsv);
+        mockStore.Setup(s => s.WriteAsync("dependencies.csv", It.IsAny<string>(), It.IsAny<CancellationToken>()))
+                 .Callback<string, string, CancellationToken>((_, csv, _) => writtenCsv = csv)
+                 .Returns(Task.CompletedTask);
+        mockStore.Setup(s => s.WriteAsync(It.Is<string>(k => k != "dependencies.csv"), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+                 .Returns(Task.CompletedTask);
+
+        var mockSink = new Mock<IProgressSink>(MockBehavior.Loose);
+
+        var mockService = new Mock<IDependencyDiscoveryService>(MockBehavior.Loose);
+        mockService.Setup(s => s.DiscoverDependenciesAsync(
+                It.IsAny<HashSet<string>?>(),
+                It.IsAny<string?>(),
+                It.IsAny<string?>(),
+                It.IsAny<BatchContinuationToken?>(),
+                It.IsAny<Func<BatchContinuationToken, CancellationToken, Task>?>(),
+                It.IsAny<CancellationToken>()))
+            .Returns(EmptyAsync());
+
+        var mockFactory = new Mock<IDependencyDiscoveryServiceFactory>(MockBehavior.Strict);
+        mockFactory.Setup(f => f.Create(
+                It.IsAny<IReadOnlyList<ScopedOrganisationEndpoint>>(),
+                It.IsAny<JobPolicies>()))
+            .Returns(mockService.Object);
+
+        var sut = new DependencyDiscoveryModule(
+            mockFactory.Object,
+            NullLogger<DependencyDiscoveryModule>.Instance);
+
+        var ctx = new DiscoveryContext
+        {
+            Job = MakeJob(),
+            ArtefactStore = mockStore.Object,
+            StateStore = mockState.Object,
+            ProgressSink = mockSink.Object
+        };
+
+        // Act
+        await sut.RunAsync(ctx, CancellationToken.None);
+
+        // Assert — the CSV written should not contain the partial MyProject rows
+        Assert.IsNotNull(writtenCsv, "CSV should have been written to the store");
+        Assert.IsTrue(writtenCsv!.Contains("SourceWorkItemId"), "Header should be present");
+        Assert.IsFalse(writtenCsv.Contains("10,Bug,MyProject"), "Partial row 1 should be stripped");
+        Assert.IsFalse(writtenCsv.Contains("30,Task,MyProject"), "Partial row 2 should be stripped");
     }
 }
