@@ -23,35 +23,28 @@
 
 - Q: In which phase(s) should transforms run? → A: Both phases supported — each tool reference declares `phase: export | import | both` with **import** as the default. Export captures raw source data for auditability; transforms apply at import time by default.
 
-## Screaming Architecture Recommendation
+## Naming Convention
 
-The existing `azure-devops-migration-tools` uses the naming convention `*Map` (e.g., `FieldToFieldMap`, `FieldValueMap`, `RegexFieldMap`). The proposed `analysis/proposed-features.md` uses shorter names without the `Map` suffix (e.g., `FieldToField`, `FieldValue`, `RegexField`).
+Names follow Screaming Architecture: each name describes *what the transform does*, not what category it belongs to. The `Transform` suffix communicates the role unambiguously.
 
-**Recommendation**: Adopt names that *scream their intent* — a reader should immediately know what the component does from its name alone, without needing to see the parent namespace. The `Map` suffix is ambiguous (is it a dictionary? a geographic map?). Instead, use **`Transform`** as the domain verb:
+**Parent tool**: `FieldTransformTool` (interface: `IFieldTransformTool`)
 
-| Old Tool Name (`migration-tools`) | Proposed (`proposed-features.md`) | Recommended (Screaming) | Rationale |
-|---|---|---|---|
-| `FieldToFieldMap` | `FieldToField` | `CopyFieldTransform` | "Copy" is the action; "Field" is the target |
-| `FieldToFieldMultiMap` | `FieldToFieldMulti` | `CopyFieldBatchTransform` | Batch variant of CopyField |
-| `FieldLiteralMap` | `FieldLiteral` | `SetFieldTransform` | Sets a literal value |
-| `FieldValueMap` | `FieldValue` | `MapValueTransform` | Remaps discrete values via a lookup |
-| `FieldMergeMap` | `FieldMerge` | `MergeFieldsTransform` | Merges N fields into one |
-| `FieldCalculationMap` | `FieldCalculation` | `CalculateFieldTransform` | Computes a value from an expression |
-| `FieldClearMap` | `FieldClear` | `ClearFieldTransform` | Nulls out a field |
-| `FieldSkipMap` | `FieldSkip` | `ExcludeFieldTransform` | Removes field from the revision before write |
-| `FieldValuetoTagMap` | `FieldValueToTag` | `ConditionalTagTransform` | Appends tag when field value matches pattern |
-| `FieldToTagFieldMap` | `FieldToTag` | `FieldToTagTransform` | Copies field value as a tag |
-| `FieldToTagFieldMap` (multi) | `FieldToTagField` | `MergeToTagTransform` | Merges multiple fields into a tag-style field |
-| `MultiValueConditionalMap` | `MultiValueConditional` | `ConditionalFieldTransform` | Conditional multi-field → single field |
-| `RegexFieldMap` | `RegexField` | `RegexFieldTransform` | Regex find-and-replace |
-| `TreeToTagFieldMap` | `TreeToTagField` | `TreeToTagTransform` | Flattens a tree path into a tag value |
-
-The parent tool itself should be named **`FieldTransformTool`** (not `FieldMappingTool`), because it transforms field values — it does not map between systems. The interface becomes `IFieldTransformTool`. The configuration type discriminator for each transform becomes its name (e.g., `"type": "CopyField"`, `"type": "MapValue"`).
-
-This naming convention follows Screaming Architecture principles:
-- Names describe *what the code does* (`CopyField`, `MapValue`, `ClearField`), not *what category it belongs to* (`FieldMap`)
-- A reader scanning a folder of transforms immediately grasps the purpose of each one
-- The `Transform` suffix unambiguously communicates the role: these are data transformations applied in sequence to a work item revision
+| Transform | Type Discriminator | Purpose |
+|---|---|---|
+| `CopyFieldTransform` | `CopyField` | Copies one field value to another field |
+| `CopyFieldBatchTransform` | `CopyFieldBatch` | Copies multiple fields in a single declaration |
+| `SetFieldTransform` | `SetField` | Sets a field to a literal value |
+| `MapValueTransform` | `MapValue` | Remaps discrete values via a lookup table |
+| `MergeFieldsTransform` | `MergeFields` | Merges N fields into one using a format template |
+| `CalculateFieldTransform` | `CalculateField` | Computes a value from an arithmetic/string expression |
+| `ClearFieldTransform` | `ClearField` | Nulls out a field value |
+| `ExcludeFieldTransform` | `ExcludeField` | Removes the field entirely from the revision |
+| `ConditionalTagTransform` | `ConditionalTag` | Appends a tag when a field value matches a pattern |
+| `FieldToTagTransform` | `FieldToTag` | Copies a field value as a tag |
+| `MergeToTagTransform` | `MergeToTag` | Merges multiple fields into a tag-style value |
+| `ConditionalFieldTransform` | `ConditionalField` | Conditionally sets a field based on multi-field evaluation |
+| `RegexFieldTransform` | `RegexField` | Regex find-and-replace on a field value |
+| `TreeToTagTransform` | `TreeToTag` | Flattens a tree path into tag values |
 
 ---
 
@@ -63,12 +56,12 @@ As a migration operator migrating from an Agile process template to a Scrum proc
 
 **Why this priority**: Value remapping is the single most common field transformation need. Without it, every cross-process-template migration produces invalid field values, causing import failures or data corruption.
 
-**Independent Test**: Can be fully tested by exporting a package with Agile-style field values, configuring a value-mapping transform, and verifying the written `revision.json` contains the remapped values.
+**Independent Test**: Can be fully tested by exporting a package with Agile-style field values, configuring a MapValueTransform, and verifying the imported target contains the remapped values.
 
 **Acceptance Scenarios**:
 
-1. **Given** a transform configuration with a value lookup for `System.State` (`Active → In Progress`), **When** a revision with `System.State = Active` is processed, **Then** the written `revision.json` contains `System.State = In Progress`.
-2. **Given** a value lookup that does not contain the source value, **When** a revision with that unmapped value is processed, **Then** the original value is preserved and a warning is logged.
+1. **Given** a MapValueTransform configuration with a value lookup for `System.State` (`Active → In Progress`), **When** a revision with `System.State = Active` is processed during import, **Then** the field value sent to the target is `System.State = In Progress`.
+2. **Given** a MapValueTransform lookup that does not contain the source value, **When** a revision with that unmapped value is processed, **Then** the original value is preserved and a warning is logged.
 3. **Given** a transform with `applyTo: ["User Story"]`, **When** a Bug revision is processed, **Then** the transform is skipped for that revision.
 4. **Given** multiple transforms declared in sequence, **When** a revision is processed, **Then** transforms are applied in declaration order and each receives the output of the previous transform.
 
@@ -80,13 +73,14 @@ As a migration operator, I want to copy a field value from one field name to ano
 
 **Why this priority**: Field renaming is the second most common need — organisations rename custom fields when migrating. Equally critical as value remapping for a successful migration.
 
-**Independent Test**: Can be fully tested by exporting a revision with a source field, applying a copy-field transform, and verifying the target field appears in `revision.json`.
+**Independent Test**: Can be fully tested by exporting a revision with a source field, applying a CopyFieldTransform, and verifying the target field appears in the import output.
 
 **Acceptance Scenarios**:
 
-1. **Given** a copy-field transform from `Custom.OldField` to `Custom.NewField`, **When** the source revision contains `Custom.OldField = "hello"`, **Then** the output revision contains `Custom.NewField = "hello"`.
-2. **Given** a copy-field transform with a default value, **When** the source revision does not contain the source field, **Then** the output revision contains the target field set to the default value.
-3. **Given** a copy-field transform where the source field is empty, **When** the revision is processed, **Then** the empty value is copied (default value is only used when the field is absent, not when it is empty).
+1. **Given** a CopyFieldTransform from `Custom.OldField` to `Custom.NewField`, **When** the source revision contains `Custom.OldField = "hello"`, **Then** the output revision contains `Custom.NewField = "hello"`.
+2. **Given** a CopyFieldTransform with a default value, **When** the source revision does not contain the source field, **Then** the output revision contains the target field set to the default value.
+3. **Given** a CopyFieldTransform where the source field is empty, **When** the revision is processed, **Then** the empty value is copied (default value is only used when the field is absent, not when it is empty).
+4. **Given** a CopyFieldTransform where the target field already has a value, **When** the revision is processed, **Then** the target field is unconditionally overwritten with the source value.
 
 ---
 
@@ -96,13 +90,13 @@ As a migration operator, I want to exclude certain fields from the revision enti
 
 **Why this priority**: Cleaning up legacy fields is essential for a tidy migration but does not block basic migration functionality.
 
-**Independent Test**: Can be fully tested by applying an exclude-field transform and verifying the field is absent from `revision.json`, or applying a clear-field transform and verifying the field is null.
+**Independent Test**: Can be fully tested by applying an ExcludeFieldTransform and verifying the field is absent from the import output, or applying a ClearFieldTransform and verifying the field is null.
 
 **Acceptance Scenarios**:
 
-1. **Given** an exclude-field transform for `Custom.InternalOnly`, **When** a revision containing that field is processed, **Then** the field is removed from `revision.json` entirely.
-2. **Given** a clear-field transform for `Custom.LegacyId`, **When** a revision containing that field is processed, **Then** the field value is set to null in `revision.json`.
-3. **Given** an exclude-field transform for a field that does not exist in the revision, **When** the revision is processed, **Then** processing succeeds silently (no error).
+1. **Given** an ExcludeFieldTransform for `Custom.InternalOnly`, **When** a revision containing that field is processed, **Then** the field is removed from the output entirely.
+2. **Given** a ClearFieldTransform for `Custom.LegacyId`, **When** a revision containing that field is processed, **Then** the field value is set to null in the output.
+3. **Given** an ExcludeFieldTransform for a field that does not exist in the revision, **When** the revision is processed, **Then** processing succeeds silently (no error).
 
 ---
 
@@ -112,13 +106,13 @@ As a migration operator, I want to stamp each migrated work item with a literal 
 
 **Why this priority**: Audit trails and computed fields add significant value but are not blocking for basic migrations.
 
-**Independent Test**: Can be tested by configuring a set-field transform and verifying the literal value appears, or configuring a calculate-field transform and verifying the computed result.
+**Independent Test**: Can be tested by configuring a SetFieldTransform and verifying the literal value appears, or configuring a CalculateFieldTransform and verifying the computed result.
 
 **Acceptance Scenarios**:
 
-1. **Given** a set-field transform setting `Custom.MigratedBy` to `"migration-platform"`, **When** any revision is processed, **Then** `Custom.MigratedBy = "migration-platform"` appears in `revision.json`.
-2. **Given** a calculate-field transform with an arithmetic expression referencing other fields, **When** the revision is processed, **Then** the target field contains the computed result.
-3. **Given** a calculate-field expression that references a field not present in the revision, **When** the revision is processed, **Then** an error is reported for that revision and the transform is skipped.
+1. **Given** a SetFieldTransform setting `Custom.MigratedBy` to `"migration-platform"`, **When** any revision is processed, **Then** `Custom.MigratedBy = "migration-platform"` appears in the output.
+2. **Given** a CalculateFieldTransform with an arithmetic expression referencing other fields, **When** the revision is processed, **Then** the target field contains the computed result.
+3. **Given** a CalculateFieldTransform expression that references a field not present in the revision, **When** the revision is processed, **Then** an error is reported for that revision and the transform is skipped.
 
 ---
 
@@ -128,14 +122,14 @@ As a migration operator, I want to convert field values or tree paths into tags,
 
 **Why this priority**: Tag-based fallback for tree structures is a common advanced migration scenario, but most operators handle it via NodeStructureTool first.
 
-**Independent Test**: Can be tested by configuring a tree-to-tag transform on `System.AreaPath` and verifying that `System.Tags` in `revision.json` contains the flattened path segments.
+**Independent Test**: Can be tested by configuring a TreeToTagTransform on `System.AreaPath` and verifying that `System.Tags` in the output contains the flattened path segments.
 
 **Acceptance Scenarios**:
 
-1. **Given** a field-to-tag transform on `System.AreaPath`, **When** a revision has `System.AreaPath = "Project\Team\Sprint"`, **Then** `System.Tags` includes `"Project; Team; Sprint"` (semicolon-separated).
-2. **Given** a conditional-tag transform with pattern `^Resolved$` on `System.State`, **When** a revision has `System.State = Resolved`, **Then** `System.Tags` includes `"Resolved"`.
-3. **Given** a conditional-tag transform, **When** a revision does not match the pattern, **Then** no tag is added.
-4. **Given** a merge-to-tag transform merging `System.Tags` and `Custom.Labels`, **When** both fields have values, **Then** the output `System.Tags` contains the union of both, deduplicated.
+1. **Given** a FieldToTagTransform on `System.AreaPath`, **When** a revision has `System.AreaPath = "Project\Team\Sprint"`, **Then** `System.Tags` includes `"Project; Team; Sprint"` (semicolon-space separated).
+2. **Given** a ConditionalTagTransform with pattern `^Resolved$` on `System.State`, **When** a revision has `System.State = Resolved`, **Then** `System.Tags` includes `"Resolved"`.
+3. **Given** a ConditionalTagTransform, **When** a revision does not match the pattern, **Then** no tag is added.
+4. **Given** a MergeToTagTransform merging `System.Tags` and `Custom.Labels`, **When** both fields have values, **Then** the output `System.Tags` contains the union of both, deduplicated (case-insensitive).
 
 ---
 
@@ -145,12 +139,12 @@ As a migration operator, I want to apply regex find-and-replace to field values 
 
 **Why this priority**: Useful for cosmetic cleanup but not required for data integrity.
 
-**Independent Test**: Can be tested by configuring a regex transform with a pattern and replacement and verifying the output field value.
+**Independent Test**: Can be tested by configuring a RegexFieldTransform with a pattern and replacement and verifying the output field value.
 
 **Acceptance Scenarios**:
 
-1. **Given** a regex transform on `System.Title` with pattern `^\[OLD\]\s*` and replacement `""`, **When** a revision has title `[OLD] My Item`, **Then** the output title is `My Item`.
-2. **Given** a regex transform where the pattern does not match, **When** the revision is processed, **Then** the field value is unchanged.
+1. **Given** a RegexFieldTransform on `System.Title` with pattern `^\[OLD\]\s*` and replacement `""`, **When** a revision has title `[OLD] My Item`, **Then** the output title is `My Item`.
+2. **Given** a RegexFieldTransform where the pattern does not match, **When** the revision is processed, **Then** the field value is unchanged.
 
 ---
 
@@ -160,12 +154,12 @@ As a migration operator, I want to merge multiple source fields into a single ta
 
 **Why this priority**: Merge is an advanced transformation; most migrations use simple copy or value remapping.
 
-**Independent Test**: Can be tested by configuring a merge-fields transform with a format string and verifying the output.
+**Independent Test**: Can be tested by configuring a MergeFieldsTransform with a format string and verifying the output.
 
 **Acceptance Scenarios**:
 
-1. **Given** a merge-fields transform merging `System.Title` and `Custom.Subtitle` with format `"{0} — {1}"`, **When** both fields have values, **Then** the target field contains `"My Title — My Subtitle"`.
-2. **Given** a merge-fields transform where one source field is absent, **When** the revision is processed, **Then** the absent field is treated as empty string in the format.
+1. **Given** a MergeFieldsTransform merging `System.Title` and `Custom.Subtitle` with format `"{0} — {1}"`, **When** both fields have values, **Then** the target field contains `"My Title — My Subtitle"`.
+2. **Given** a MergeFieldsTransform where one source field is absent, **When** the revision is processed, **Then** the absent field is treated as empty string in the format.
 
 ---
 
