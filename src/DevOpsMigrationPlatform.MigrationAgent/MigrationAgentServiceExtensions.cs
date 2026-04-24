@@ -1,4 +1,5 @@
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Infrastructure;
 using DevOpsMigrationPlatform.Infrastructure.AzureDevOps;
 using DevOpsMigrationPlatform.Infrastructure.Factories;
 using DevOpsMigrationPlatform.Infrastructure.JobEngine;
@@ -76,6 +77,7 @@ public static class MigrationAgentServiceExtensions
         // Register IModule implementations (WorkItemsModule + Azure DevOps infra).
         builder.Services.AddAzureDevOpsWorkItemExport();
         builder.Services.AddAzureDevOpsWorkItemImport();
+        builder.Services.AddWorkItemsModule();
 
         // Simulated connector — required for offline tests and CI scenarios.
         builder.Services.AddSimulatedServices();
@@ -83,6 +85,8 @@ public static class MigrationAgentServiceExtensions
         // Register IDiscoveryModule implementations for DiscoveryAgentWorker.
         builder.Services.AddAzureDevOpsInventory(builder.Configuration);
         builder.Services.AddAzureDevOpsDependencyAnalysis(builder.Configuration);
+        builder.Services.AddInventoryDiscoveryModule();
+        builder.Services.AddDependencyDiscoveryModule();
 
         // Phase tracking factory for MigrationAgentWorker (per-job IStateStore wiring).
         builder.Services.AddSingleton<IPhaseTrackingServiceFactory, PhaseTrackingServiceFactory>();

@@ -218,6 +218,12 @@ public sealed class WorkItemsModuleExtensions
     /// <summary>
     /// Parses all <c>filter</c> scopes from <paramref name="scopes"/> into validated
     /// <see cref="Models.WorkItemFieldFilterOptions"/> lists, separated by include/exclude mode.
+    /// <para>
+    /// <strong>Design note:</strong> This method is intentionally shared between export and import
+    /// via <see cref="WorkItemsModuleExtensions"/>. Both operations must apply identical filter
+    /// semantics so that an import only processes the same subset of work items the export produced.
+    /// Divergence between export and import filter parsing would be a correctness bug.
+    /// </para>
     /// </summary>
     /// <exception cref="InvalidOperationException">
     /// Thrown when a filter scope has an unsupported mode, an empty field name,

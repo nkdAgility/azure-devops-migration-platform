@@ -1,7 +1,6 @@
 #if !NET481
 using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -163,9 +162,8 @@ public sealed class WorkItemsModule : IModule
             .CreateAsync(ext.ResolutionStrategy, target, endpointOptions, ct)
             .ConfigureAwait(false);
 
-        // Derive the SQLite idmap.db path from the package URI
-        var dbFilePath = ResolveIdMapPath(job.Package.PackageUri);
-        var idMapStore = _idMapStoreFactory.Create(dbFilePath);
+        // Derive the SQLite idmap.db from the package URI (legacy fallback handled by factory)
+        var idMapStore = _idMapStoreFactory.CreateFromPackageUri(job.Package.PackageUri);
 
         var processor = _processorFactory.Create(
             target,
@@ -196,26 +194,6 @@ public sealed class WorkItemsModule : IModule
         _logger.LogInformation("[WorkItems] Import complete.");
     }
 
-    private static string ResolveIdMapPath(string packageUri)
-    {
-        string localRoot;
-        if (packageUri.StartsWith("file:///", StringComparison.OrdinalIgnoreCase))
-            localRoot = packageUri["file:///".Length..].Replace('/', Path.DirectorySeparatorChar);
-        else
-            localRoot = packageUri;
-
-        var newPath = PackagePaths.IdMapDbNative(localRoot);
-
-        // Legacy fallback: if the .migration path doesn't exist yet, check the old location.
-        if (!File.Exists(newPath))
-        {
-            var legacyPath = PackagePaths.LegacyIdMapDbNative(localRoot);
-            if (File.Exists(legacyPath))
-                return legacyPath;
-        }
-
-        return newPath;
-    }
 
     public async Task ValidateAsync(ValidationContext context, CancellationToken ct)
     {

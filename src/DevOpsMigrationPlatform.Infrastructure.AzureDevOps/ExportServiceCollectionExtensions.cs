@@ -6,7 +6,6 @@ using DevOpsMigrationPlatform.Abstractions.Services;
 using DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Options;
 using DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Services;
 using DevOpsMigrationPlatform.Infrastructure.Extensions;
-using DevOpsMigrationPlatform.Infrastructure.Modules;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.TeamFoundation.WorkItemTracking.WebApi;
 using Polly;
@@ -29,7 +28,6 @@ public static class ExportServiceCollectionExtensions
     ///   <item><see cref="IWorkItemCommentSourceFactory"/> as <see cref="AzureDevOpsWorkItemCommentSourceFactory"/> — creates comment sources per job (used for inline comment fetching when the Comments extension is enabled).</item>
     ///   <item><see cref="IEmbeddedImageDownloader"/> as <see cref="AzureDevOpsEmbeddedImageDownloader"/> — downloads embedded images with Polly resilience.</item>
     ///   <item><see cref="IEmbeddedImageExportService"/> as <see cref="EmbeddedImageExportService"/> — processes HTML/Markdown for image URLs and rewrites them.</item>
-    ///   <item><see cref="WorkItemsModule"/> — the <see cref="IModule"/> implementation.</item>
     /// </list>
 
     /// </summary>
@@ -67,7 +65,6 @@ public static class ExportServiceCollectionExtensions
         services.AddHttpClient("AttachmentDownload")
             .AddPolicyHandler(GetAttachmentRetryPolicy());
 
-        services.AddTransient<IModule, WorkItemsModule>();
         return services;
     }
 
