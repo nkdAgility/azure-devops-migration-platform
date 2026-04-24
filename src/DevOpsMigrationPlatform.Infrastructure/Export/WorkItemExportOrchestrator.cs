@@ -50,11 +50,13 @@ public sealed class WorkItemExportOrchestrator
     private readonly IWorkItemCommentSourceFactory? _inlineCommentSourceFactory;
     private readonly MigrationEndpointOptions? _endpoint;
     private readonly string? _project;
+    private readonly string? _wiqlQuery;
     private readonly IWorkItemFetchService? _fetchService;
     private readonly IReadOnlyList<WorkItemFieldFilterOptions>? _filterOptions;
     private readonly IMigrationMetrics? _metrics;
     private readonly string? _jobId;
     private readonly ILogger? _logger;
+    private readonly IWorkItemDiscoveryService? _discoveryService;
 
     public WorkItemExportOrchestrator(
         IArtefactStore artefactStore,
@@ -68,7 +70,9 @@ public sealed class WorkItemExportOrchestrator
         IReadOnlyList<WorkItemFieldFilterOptions>? filterOptions = null,
         IMigrationMetrics? metrics = null,
         string? jobId = null,
-        ILogger? logger = null)
+        ILogger? logger = null,
+        string? wiqlQuery = null,
+        IWorkItemDiscoveryService? discoveryService = null)
     {
         _artefactStore = artefactStore;
         _checkpointingService = checkpointingService;
@@ -77,11 +81,13 @@ public sealed class WorkItemExportOrchestrator
         _inlineCommentSourceFactory = inlineCommentSourceFactory;
         _endpoint = endpoint;
         _project = project;
+        _wiqlQuery = wiqlQuery;
         _fetchService = fetchService;
         _filterOptions = filterOptions;
         _metrics = metrics;
         _jobId = jobId;
         _logger = logger;
+        _discoveryService = discoveryService;
     }
 
     /// <summary>
@@ -122,11 +128,63 @@ public sealed class WorkItemExportOrchestrator
             .ConfigureAwait(false);
 
         if (cursor != null)
-            _logger?.LogInformation("[WorkItems] Resuming export from cursor: {Cursor}", cursor.LastProcessed);
+            _logger?.LogInformation(
+                "[WorkItems] Resuming export from cursor: {Cursor} (previously {WorkItemsProcessed} work items / {RevisionsProcessed} revisions)",
+                cursor.LastProcessed, cursor.WorkItemsProcessed, cursor.RevisionsProcessed);
 
-        int workItemsProcessed = 0;
-        int revisionsProcessed = 0;
-        int lastWorkItemId = 0;
+        // Seed counters from cursor so progress is accurate on resume.
+        int workItemsProcessed = cursor?.WorkItemsProcessed ?? 0;
+        int revisionsProcessed = cursor?.RevisionsProcessed ?? 0;
+        int lastWorkItemId = cursor?.LastWorkItemId ?? 0;
+
+        // Determine total work items: use cached cursor value on resume, otherwise count via
+        // discovery service. Counting happens here in the Agent — never in the CLI.
+        int totalWorkItems = 0;
+        if (cursor?.TotalWorkItems > 0)
+        {
+            totalWorkItems = cursor.TotalWorkItems;
+            _logger?.LogInformation("[WorkItems] Total work items (from cursor): {TotalWorkItems}", totalWorkItems);
+        }
+        else if (_discoveryService != null && _endpoint != null && !string.IsNullOrEmpty(_project))
+        {
+            _logger?.LogInformation("[WorkItems] Counting work items in scope…");
+            _progressSink?.Emit(new ProgressEvent
+            {
+                Module = "WorkItems",
+                Stage = "Counting",
+                Message = "[WorkItems] Counting work items in scope…"
+            });
+
+            await foreach (var snapshot in _discoveryService.CountWorkItemsAsync(
+                _endpoint.ToOrganisationEndpoint(), _project!, _wiqlQuery, cancellationToken)
+                .ConfigureAwait(false))
+            {
+                if (snapshot.IsWorkItemComplete)
+                    totalWorkItems = snapshot.WorkItemsCount;
+            }
+
+            _logger?.LogInformation("[WorkItems] Work items in scope: {TotalWorkItems}", totalWorkItems);
+        }
+
+        // Emit scope-resolved event so the CLI progress bar can set its total.
+        _progressSink?.Emit(new ProgressEvent
+        {
+            Module = "WorkItems",
+            Stage = "ScopeResolved",
+            Message = $"[WorkItems] Scope resolved: {totalWorkItems:N0} work items",
+            Metrics = new JobMetrics
+            {
+                Scope = new JobScopeCounters { WorkItemsTotal = totalWorkItems },
+                Migration = new MigrationCounters
+                {
+                    WorkItems = new WorkItemCounters
+                    {
+                        Completed = workItemsProcessed,
+                        RevisionsProcessed = revisionsProcessed
+                    }
+                }
+            }
+        });
         int attachmentsProcessed = 0;
         int attachmentsFailed = 0;
 
@@ -382,10 +440,18 @@ public sealed class WorkItemExportOrchestrator
             {
                 LastProcessed = folderPath,
                 Stage = CursorStage.Completed,
-                UpdatedAt = DateTimeOffset.UtcNow
+                UpdatedAt = DateTimeOffset.UtcNow,
+                WorkItemsProcessed = workItemsProcessed,
+                RevisionsProcessed = revisionsProcessed,
+                LastWorkItemId = lastWorkItemId,
+                TotalWorkItems = totalWorkItems
             };
+            // Use CancellationToken.None — the cursor write is critical safety state and
+            // must complete after a successful revision.json write even if the job is being
+            // cancelled. Using the job token here causes the write to be aborted on shutdown,
+            // leaving no cursor on disk and forcing the next run to start from the beginning.
             await _checkpointingService
-                .WriteCursorAsync("WorkItems", newCursor, cancellationToken)
+                .WriteCursorAsync("WorkItems", newCursor, CancellationToken.None)
                 .ConfigureAwait(false);
         }
 

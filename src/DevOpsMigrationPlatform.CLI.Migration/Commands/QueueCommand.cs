@@ -54,9 +54,6 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
 
             services.AddTransient<IJobRunner>(sp => sp.GetRequiredService<ControlPlaneClient>());
 
-            // Pre-flight work item counting — uses the same date-window WIQL strategy as export.
-            services.AddExportPreflightServices();
-
             // TFS subprocess services — registered unconditionally so DI resolves them
             // correctly when the source type is TeamFoundationServer.
             services.AddSingleton<IProgressSink, AnsiProgressSink>();
@@ -365,27 +362,6 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
         }
 
         var totalWorkItems = 0;
-        var discovery = GetRequiredService<IWorkItemDiscoveryService>();
-
-        // Pass the source endpoint options directly (already a MigrationEndpointOptions)
-        var sourceEndpoint = config.Source!;
-        var sourceOrgEndpoint = sourceEndpoint.ToOrganisationEndpoint();
-
-        await console.Status()
-            .Spinner(Spinner.Known.Dots)
-            .SpinnerStyle(Style.Plain)
-            .StartAsync("[grey]Counting work items…[/]", async _ =>
-            {
-                await foreach (var snapshot in discovery.CountWorkItemsAsync(
-                    sourceOrgEndpoint, project, baseQuery, cancellationToken))
-                {
-                    if (snapshot.IsWorkItemComplete)
-                        totalWorkItems = snapshot.WorkItemsCount;
-                }
-            });
-
-        if (totalWorkItems > 0)
-            console.MarkupLine($"[blue]ℹ[/] Work items found: [bold]{totalWorkItems:N0}[/]");
 
         // Build MigrationJob — no migration logic here.
         var job = new MigrationJob
@@ -428,12 +404,16 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
         // without cancelling the job.
         using var followCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
 
-        // Register Ctrl+C handler for graceful detach.
-        Console.CancelKeyPress += (_, e) =>
+        // Guard against the handler firing after followCts has been disposed (e.g. a
+        // second Ctrl+C after the first already triggered detach and the using block exited).
+        var followCtsDisposed = false;
+        ConsoleCancelEventHandler ctrlCHandler = (_, e) =>
         {
             e.Cancel = true; // Prevent process exit.
-            followCts.Cancel();
+            if (!followCtsDisposed)
+                followCts.Cancel();
         };
+        Console.CancelKeyPress += ctrlCHandler;
 
         // Submit the job first.
         try
@@ -498,6 +478,8 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
                     lastEvt = evt;
                     if (!string.IsNullOrEmpty(evt.Stage))
                         currentStage = evt.Stage;
+                    if (evt.Metrics?.Scope?.WorkItemsTotal > 0)
+                        totalWorkItems = (int)evt.Metrics.Scope.WorkItemsTotal;
                     processed = (int)(evt.Metrics?.Migration?.WorkItems?.Completed ?? processed);
                     revisions = (int)(evt.Metrics?.Migration?.WorkItems?.RevisionsProcessed ?? revisions);
                 }
@@ -541,22 +523,23 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
                         ctx.Refresh();
 
                         await foreach (var evt in client.FollowLogsAsync(parsedJobId, followCts.Token).ConfigureAwait(false))
-                        {
-                            lastEvt = evt;
+                    {
+                        lastEvt = evt;
+                        if (!string.IsNullOrEmpty(evt.Stage))
+                            currentStage = evt.Stage;
+                        // The Agent emits a ScopeResolved event with WorkItemsTotal when it completes the count.
+                        if (evt.Metrics?.Scope?.WorkItemsTotal > 0)
+                            totalWorkItems = (int)evt.Metrics.Scope.WorkItemsTotal;
+                        processed = (int)(evt.Metrics?.Migration?.WorkItems?.Completed ?? processed);
+                        revisions = (int)(evt.Metrics?.Migration?.WorkItems?.RevisionsProcessed ?? revisions);
 
-                            if (!string.IsNullOrEmpty(evt.Stage))
-                                currentStage = evt.Stage;
-
-                            processed = (int)(evt.Metrics?.Migration?.WorkItems?.Completed ?? processed);
-                            revisions = (int)(evt.Metrics?.Migration?.WorkItems?.RevisionsProcessed ?? revisions);
-
-                            ctx.UpdateTarget(BuildProgressRenderable(
-                                processed, totalWorkItems,
-                                0, 0,
-                                0, 0,
-                                currentStage, progressStartTime,
-                                evt.LastCheckpointAt, evt.NextCheckpointDueAt));
-                        }
+                        ctx.UpdateTarget(BuildProgressRenderable(
+                            processed, totalWorkItems,
+                            0, 0,
+                            0, 0,
+                            currentStage, progressStartTime,
+                            evt.LastCheckpointAt, evt.NextCheckpointDueAt));
+                    }
                     });
             }
             catch (InvalidOperationException ex) when (ex.Message.Contains("Job failed"))
@@ -569,12 +552,24 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
             catch (OperationCanceledException)
             {
                 // Ctrl+C pressed — detach.
-                console.MarkupLine("[yellow]Detached from diagnostic stream. Job continues running on the server.[/]");
-                console.MarkupLine("[grey]Use [bold]tui[/] to resume watching.[/]");
+                if (isStandaloneMode)
+                {
+                    console.MarkupLine("[yellow]Cancelled. Job has been stopped.[/]");
+                }
+                else
+                {
+                    console.MarkupLine("[yellow]Detached from diagnostic stream. Job continues running on the server.[/]");
+                    console.MarkupLine("[grey]Use [bold]tui[/] to resume watching.[/]");
+                }
                 return 0;
             }
             finally
             {
+                // Deregister Ctrl+C handler and mark CTS as disposed before the using block
+                // exits so a late-firing second Ctrl+C cannot call Cancel() on a disposed CTS.
+                Console.CancelKeyPress -= ctrlCHandler;
+                followCtsDisposed = true;
+
                 // Restore stdout and flush anything the Console logger wrote during the live render.
                 Console.SetOut(originalOut);
                 var captured = logBuffer.ToString();

@@ -49,6 +49,14 @@ public static class ExportServiceCollectionExtensions
         // Inline comment fetching: factories registered; activated when the Comments extension is enabled.
         services.AddSingleton<IWorkItemCommentSourceFactory, AzureDevOpsWorkItemCommentSourceFactory>();
 
+        // Work item discovery (count by WIQL query) — used by WorkItemExportOrchestrator
+        // at job start to populate TotalWorkItems and emit a ScopeResolved event.
+        // Registered here so the Agent has it available without the CLI needing it.
+        if (!services.Any(x => x.ServiceType == typeof(IWorkItemDiscoveryService)))
+        {
+            services.AddSingleton<IWorkItemDiscoveryService, AzureDevOpsWorkItemDiscoveryService>();
+        }
+
         // Embedded image download and processing
         services.AddHttpClient<AzureDevOpsEmbeddedImageDownloader>()
             .AddPolicyHandler(GetRetryPolicy());
