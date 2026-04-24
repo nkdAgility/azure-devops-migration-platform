@@ -29,7 +29,8 @@
 - [ ] T008 [P] Define `IFieldTransformTool` interface in `src/DevOpsMigrationPlatform.Abstractions/Tools/IFieldTransformTool.cs` — `ApplyTransforms(fields, context)` and `IsEnabledForPhase(phase)` methods
 - [ ] T009 [P] Define `IFieldTransformFactory` interface in `src/DevOpsMigrationPlatform.Abstractions/Tools/IFieldTransformFactory.cs` — `Create(options, groupName, ordinal)` returning `IFieldTransform`
 - [ ] T010 [P] Define `IFieldTransformValidator` interface in `src/DevOpsMigrationPlatform.Abstractions/Tools/IFieldTransformValidator.cs` — `ValidateAsync()` with `CancellationToken`; inject `IFieldDefinitionProviderFactory` via constructor per CA-M1
-- [ ] T011 [P] Define `IFieldDefinitionProvider` and `IFieldDefinitionProviderFactory` interfaces in `src/DevOpsMigrationPlatform.Abstractions/Tools/IFieldDefinitionProvider.cs` — `GetFieldDefinitionsAsync(workItemType?, ct)`
+- [ ] T011 [P] Define `IFieldDefinitionProvider` and `IFieldDefinitionProviderFactory` interfaces in `src/DevOpsMigrationPlatform.Abstractions/Tools/IFieldDefinitionProvider.cs` — `GetFieldDefinitionsAsync(workItemType?, ct)` and factory methods `CreateSourceProvider()` / `CreateTargetProvider()`
+- [ ] T011b [P] Define `IExpressionEvaluator` interface in `src/DevOpsMigrationPlatform.Abstractions/Tools/IExpressionEvaluator.cs` — `Evaluate(expression, fieldValues)` returning computed value; abstracts expression evaluation for CalculateFieldTransform (Constitution V: interfaces in Abstractions)
 - [ ] T012 Define sealed `FieldTransformOptions` class in `src/DevOpsMigrationPlatform.Abstractions/Options/FieldTransformOptions.cs` — `SectionName = "MigrationPlatform:Tools:FieldTransform"`, `Enabled`, `TransformGroups` list
 - [ ] T013 [P] Define sealed `FieldTransformGroupOptions` class in `src/DevOpsMigrationPlatform.Abstractions/Options/FieldTransformGroupOptions.cs` — `Name?`, `Enabled`, `ApplyTo?`, `Transforms` list
 - [ ] T014 [P] Define sealed `FieldTransformRuleOptions` class in `src/DevOpsMigrationPlatform.Abstractions/Options/FieldTransformRuleOptions.cs` — flat property bag with `Type` discriminator and all type-specific properties (per CA-H1: serialization boundary only)
@@ -50,6 +51,7 @@
 - [ ] T018 Implement `FieldTransformPipeline` in `src/DevOpsMigrationPlatform.Infrastructure/Tools/FieldTransform/FieldTransformPipeline.cs` — executes groups in order, transforms within groups in order (FR-004), applies `applyTo` filtering at group and transform level (FR-003), respects `enabled` at all three levels (FR-007), collects `FieldTransformAction` telemetry (FR-009), runs tag deduplication post-pass on `System.Tags` if any tag transform fired (FR-022)
 - [ ] T019 Implement `FieldTransformTool` in `src/DevOpsMigrationPlatform.Infrastructure/Tools/FieldTransform/FieldTransformTool.cs` — `IFieldTransformTool` implementation: constructs pipeline from `IOptions<FieldTransformOptions>` + `IFieldTransformFactory`, delegates to `FieldTransformPipeline.Execute()`, implements `IsEnabledForPhase()`, validates identity field guard at construction (FR-021), emits FR-023 warning when >100 transforms, validates config at startup (FR-008)
 - [ ] T020 Create `FieldTransformToolServiceCollectionExtensions` in `src/DevOpsMigrationPlatform.Infrastructure/Tools/FieldTransform/FieldTransformToolServiceCollectionExtensions.cs` — `AddFieldTransformToolServices(this IServiceCollection)` registering `IFieldTransformTool`, `IFieldTransformFactory`, `IFieldTransformValidator` as singletons with `IOptions<FieldTransformOptions>` binding (per MM-M2 naming)
+- [ ] T020b Wire `IFieldTransformTool` into `RevisionFolderProcessor` at Stage B (AppliedFields) — inject `IFieldTransformTool` via constructor, call `IsEnabledForPhase()` to check, call `ApplyTransforms(fields, context)` on each revision's field collection during import (FR-006). Export-phase wiring follows same pattern in the export revision processor. This is the integration point that makes the tool actually execute during migration.
 - [ ] T021 [P] Write unit tests for `FieldTransformPipeline` in `tests/DevOpsMigrationPlatform.Infrastructure.Tests/Tools/FieldTransform/FieldTransformPipelineTests.cs` — test: group ordering, transform ordering, `applyTo` filtering (group + transform level), `enabled` flags at all 3 levels, empty pipeline returns input unchanged, tag dedup post-pass, pipeline output feeds next transform
 - [ ] T022 [P] Write unit tests for `FieldTransformFactory` in `tests/DevOpsMigrationPlatform.Infrastructure.Tests/Tools/FieldTransform/FieldTransformFactoryTests.cs` — test: known type creates correct transform, unknown type throws, missing required property throws, default name generation, identity field rejection (FR-021)
 - [ ] T023 [P] Write unit tests for `FieldTransformTool` in `tests/DevOpsMigrationPlatform.Infrastructure.Tests/Tools/FieldTransform/FieldTransformToolTests.cs` — test: `IsEnabledForPhase()` routing, startup validation (FR-008), >100 transforms warning (FR-023), stateless across invocations (FR-016)
@@ -161,7 +163,7 @@
 
 ### Gherkin Feature File (mandatory — ATDD Phase 1)
 
-- [ ] T055 [US5] Create `features/import/workitems/field-transform/tag-transforms.feature` — translate spec.md US5 acceptance scenarios (4 scenarios: FieldToTag copies field as tag, ConditionalTag adds tag on pattern match, ConditionalTag skips on no match, MergeToTag deduplicates case-insensitively)
+- [ ] T055 [US5] Create `features/import/workitems/field-transform/tag-transforms.feature` — translate spec.md US5 acceptance scenarios (5 scenarios: FieldToTag copies field as tag, ConditionalTag adds tag on pattern match, ConditionalTag skips on no match, MergeToTag deduplicates case-insensitively, TreeToTag flattens path segments into tags)
 
 ### Implementation
 
@@ -210,7 +212,7 @@
 
 ### Gherkin Feature File (mandatory — ATDD Phase 1)
 
-- [ ] T072 [US7] Create `features/import/workitems/field-transform/merge-fields.feature` — translate spec.md US7 acceptance scenarios (2 scenarios: both fields present merge succeeds, absent field treated as empty string)
+- [ ] T072 [US7] Create `features/import/workitems/field-transform/merge-fields.feature` — translate spec.md US7 acceptance scenarios (3 scenarios: both fields present merge succeeds, absent field treated as empty string, ConditionalField sets trueValue on match and falseValue on no-match)
 
 ### Implementation
 
@@ -236,6 +238,7 @@
 - [ ] T083 Create `features/export/workitems/field-transform/export-phase-transform.feature` — scenarios: export-phase transform modifies revision.json before write, import-phase transform ignored during export, `both` phase runs in both directions
 - [ ] T084 Write Reqnroll step definitions for validation scenarios in `tests/DevOpsMigrationPlatform.Infrastructure.Tests/Tools/FieldTransform/Steps/ValidationSteps.cs` and `ValidationContext.cs`
 - [ ] T085 Verify: `dotnet clean && dotnet build --no-incremental && dotnet test`
+- [ ] T085b Add OpenTelemetry structured logging to `FieldTransformTool` and `FieldTransformPipeline` — emit `Activity` spans for pipeline execution with group/transform name tags (FR-009, mandatory per Constitution X.7 Observability)
 
 **Checkpoint**: Prepare-time validation catches configuration errors before migration. Export-phase transforms supported.
 
@@ -259,13 +262,12 @@
 
 ## Phase 12: Polish & Cross-Cutting Concerns (OPTIONAL)
 
-**Purpose**: Performance, telemetry enrichment, and final hardening.
+**Purpose**: Performance benchmarking and final hardening.
 
-- [ ] T095 Add OpenTelemetry structured logging to `FieldTransformTool` and `FieldTransformPipeline` — emit `Activity` spans for pipeline execution with group/transform name tags (FR-009)
-- [ ] T096 [P] Add performance benchmark test — verify 10,000 work items with 5 transforms complete with <5% overhead vs no transforms (SC-003)
-- [ ] T097 [P] Add integration test with full Agile→Scrum config example from spec.md — verify end-to-end pipeline produces expected output for all transform types (SC-001, SC-002)
-- [ ] T098 Review all `Assert.Inconclusive()` — replace with real assertions or delete tests
-- [ ] T099 Final build and test verification: `dotnet clean && dotnet build --no-incremental && dotnet test`
+- [ ] T095 [P] Add performance benchmark test — verify 10,000 work items with 5 transforms complete with <5% overhead vs no transforms (SC-003)
+- [ ] T096 [P] Add integration test with full Agile→Scrum config example from spec.md — verify end-to-end pipeline produces expected output for all transform types (SC-001, SC-002)
+- [ ] T097 Review all `Assert.Inconclusive()` — replace with real assertions or delete tests
+- [ ] T098 Final build and test verification: `dotnet clean && dotnet build --no-incremental && dotnet test`
 
 ---
 

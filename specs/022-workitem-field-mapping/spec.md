@@ -305,6 +305,7 @@ As a migration operator, I want to convert field values or tree paths into tags,
 2. **Given** a ConditionalTagTransform with pattern `^Resolved$` on `System.State`, **When** a revision has `System.State = Resolved`, **Then** `System.Tags` includes `"Resolved"`.
 3. **Given** a ConditionalTagTransform, **When** a revision does not match the pattern, **Then** no tag is added.
 4. **Given** a MergeToTagTransform merging `System.Tags` and `Custom.Labels`, **When** both fields have values, **Then** the output `System.Tags` contains the union of both, deduplicated (case-insensitive).
+5. **Given** a TreeToTagTransform on `System.AreaPath`, **When** a revision has `System.AreaPath = "Project\Team\Sprint"`, **Then** `System.Tags` includes `"Project; Team; Sprint"` (each path segment added as a separate tag, semicolon-space separated).
 
 ---
 
@@ -335,6 +336,7 @@ As a migration operator, I want to merge multiple source fields into a single ta
 
 1. **Given** a MergeFieldsTransform merging `System.Title` and `Custom.Subtitle` with format `"{0} — {1}"`, **When** both fields have values, **Then** the target field contains `"My Title — My Subtitle"`.
 2. **Given** a MergeFieldsTransform where one source field is absent, **When** the revision is processed, **Then** the absent field is treated as empty string in the format.
+3. **Given** a ConditionalFieldTransform with condition `^Resolved$` on `System.State` and `trueValue = "Yes"`, `falseValue = "No"` targeting `Custom.WasResolved`, **When** a revision has `System.State = Resolved`, **Then** `Custom.WasResolved = "Yes"`. **When** `System.State = Active`, **Then** `Custom.WasResolved = "No"`.
 
 ---
 
@@ -365,7 +367,7 @@ As a migration operator, I want to merge multiple source fields into a single ta
 - **FR-012**: The ExcludeFieldTransform MUST remove the field entirely from the revision before any write operation.
 - **FR-013**: The CalculateFieldTransform MUST support safe arithmetic and string-concatenation expressions over field values, with no ability to execute arbitrary code.
 - **FR-014**: The RegexFieldTransform MUST validate the regex pattern at configuration load time and reject invalid patterns.
-- **FR-015**: Transforms MUST NOT alter identity fields. Identity mapping remains the exclusive responsibility of `IIdentityMappingService` (guardrail rule 8).
+- **FR-015**: Transforms MUST NOT alter identity fields. Identity mapping remains the exclusive responsibility of `IIdentityMappingService` (guardrail rule 8). Enforcement: see FR-021.
 - **FR-016**: Transform processing MUST be stateless across revisions — no transform may accumulate state from one revision to another.
 - **FR-017**: Each extension tool reference MUST declare the phase in which it applies (`export`, `import`, or `both`). The default phase MUST be `import`. Export-phase transforms modify `revision.json` before it is written to the package; import-phase transforms modify field values before they are sent to the target.
 - **FR-018**: The RegexFieldTransform MUST enforce a per-pattern execution timeout (default: 1 second). Patterns that exceed the timeout MUST be aborted and the transform MUST fail-fast with a clear error identifying the pattern and field. *(RT-C1: ReDoS mitigation)*

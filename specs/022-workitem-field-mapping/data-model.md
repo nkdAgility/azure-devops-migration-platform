@@ -10,11 +10,16 @@
 ```
 ┌─────────────────────────────┐
 │  IFieldTransformTool        │──── Top-level tool interface
-│  ├── Validate()             │     Prepare-time validation
-│  └── ApplyTransforms()      │     Execute pipeline on a field set
+│  ├── ApplyTransforms()      │     Execute pipeline on a field set
+│  └── IsEnabledForPhase()    │     Phase check
 └─────────────┬───────────────┘
               │ uses
               ▼
+┌─────────────────────────────┐
+│  IFieldTransformValidator   │──── Prepare-time validation (separate interface)
+│  └── ValidateAsync()        │     Field checks + sample dry-run
+└─────────────────────────────┘
+
 ┌─────────────────────────────┐
 │  IFieldTransform            │──── Individual transform contract
 │  ├── Type: string           │     Type discriminator
@@ -37,7 +42,7 @@ public sealed record FieldTransformContext(
     int WorkItemId,
     int RevisionIndex,
     string WorkItemType,
-    string Phase);           // "export" | "import"
+    FieldTransformPhase Phase);  // Export | Import | Both
 
 public sealed record FieldTransformResult(
     IReadOnlyDictionary<string, object?> Fields,
@@ -138,7 +143,7 @@ public sealed class FieldTransformRuleOptions
 public sealed class FieldTransformExtensionOptions
 {
     public bool Enabled { get; init; } = true;
-    public string Phase { get; init; } = "import";  // export | import | both
+    public FieldTransformPhase Phase { get; init; } = FieldTransformPhase.Import;
 }
 ```
 

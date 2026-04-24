@@ -29,7 +29,7 @@ public interface IFieldTransformTool
     /// <summary>
     /// Returns true if the tool is enabled and has any transforms configured for the given phase.
     /// </summary>
-    bool IsEnabledForPhase(string phase);
+    bool IsEnabledForPhase(FieldTransformPhase phase);
 }
 ```
 
@@ -99,10 +99,10 @@ public interface IFieldTransformValidator
     /// <summary>
     /// Validates transform configuration against actual field metadata.
     /// Includes a sample dry-run of N work items.
+    /// Source and target field definition providers are injected via constructor
+    /// (IFieldDefinitionProviderFactory) per architecture review CA-M1.
     /// </summary>
     Task<FieldTransformValidationReport> ValidateAsync(
-        IFieldDefinitionProvider sourceFields,
-        IFieldDefinitionProvider targetFields,
         int sampleSize = 10,
         CancellationToken cancellationToken = default);
 }
@@ -136,14 +136,36 @@ public sealed record FieldDefinition(
     IReadOnlyList<string>? AllowedValues);
 ```
 
+## IFieldDefinitionProviderFactory
+
+Creates source/target field definition providers. Injected into `IFieldTransformValidator` via constructor (CA-M1).
+
+```csharp
+namespace DevOpsMigrationPlatform.Abstractions.Tools;
+
+/// <summary>
+/// Creates IFieldDefinitionProvider instances for source and target systems.
+/// Injected into IFieldTransformValidator to resolve field metadata
+/// without passing providers as method parameters (architecture review CA-M1).
+/// </summary>
+public interface IFieldDefinitionProviderFactory
+{
+    /// <summary>Creates a provider for the migration source system.</summary>
+    IFieldDefinitionProvider CreateSourceProvider();
+
+    /// <summary>Creates a provider for the migration target system.</summary>
+    IFieldDefinitionProvider CreateTargetProvider();
+}
+```
+
 ## Dependency Registration
 
 ```csharp
 namespace DevOpsMigrationPlatform.Infrastructure.Tools.FieldTransform;
 
-public static class FieldTransformServiceCollectionExtensions
+public static class FieldTransformToolServiceCollectionExtensions
 {
-    public static IServiceCollection AddFieldTransformServices(
+    public static IServiceCollection AddFieldTransformToolServices(
         this IServiceCollection services)
     {
         services.AddOptions<FieldTransformOptions>()
