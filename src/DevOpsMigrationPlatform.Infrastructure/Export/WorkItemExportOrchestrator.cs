@@ -50,11 +50,13 @@ public sealed class WorkItemExportOrchestrator
     private readonly IWorkItemCommentSourceFactory? _inlineCommentSourceFactory;
     private readonly MigrationEndpointOptions? _endpoint;
     private readonly string? _project;
+    private readonly string? _wiqlQuery;
     private readonly IWorkItemFetchService? _fetchService;
     private readonly IReadOnlyList<WorkItemFieldFilterOptions>? _filterOptions;
     private readonly IMigrationMetrics? _metrics;
     private readonly string? _jobId;
     private readonly ILogger? _logger;
+    private readonly IWorkItemDiscoveryService? _discoveryService;
 
     public WorkItemExportOrchestrator(
         IArtefactStore artefactStore,
@@ -68,7 +70,9 @@ public sealed class WorkItemExportOrchestrator
         IReadOnlyList<WorkItemFieldFilterOptions>? filterOptions = null,
         IMigrationMetrics? metrics = null,
         string? jobId = null,
-        ILogger? logger = null)
+        ILogger? logger = null,
+        string? wiqlQuery = null,
+        IWorkItemDiscoveryService? discoveryService = null)
     {
         _artefactStore = artefactStore;
         _checkpointingService = checkpointingService;
@@ -77,11 +81,13 @@ public sealed class WorkItemExportOrchestrator
         _inlineCommentSourceFactory = inlineCommentSourceFactory;
         _endpoint = endpoint;
         _project = project;
+        _wiqlQuery = wiqlQuery;
         _fetchService = fetchService;
         _filterOptions = filterOptions;
         _metrics = metrics;
         _jobId = jobId;
         _logger = logger;
+        _discoveryService = discoveryService;
     }
 
     /// <summary>
@@ -104,17 +110,24 @@ public sealed class WorkItemExportOrchestrator
         if (_filterOptions is { Count: > 0 } && _fetchService != null && _endpoint != null &&
             !string.IsNullOrEmpty(_project))
         {
-            filteredIds = await BuildFilteredIdSetAsync(_filterOptions, cancellationToken)
-                .ConfigureAwait(false);
-
+            _logger?.LogInformation("[WorkItems] Starting pre-filter pass — fetching work items to evaluate {FilterCount} filter(s).", _filterOptions.Count);
             _progressSink?.Emit(new ProgressEvent
             {
                 Module = "WorkItems",
-                Stage = "Export",
-                Message = $"[WorkItems] Pre-filter pass complete: {filteredIds.Count} work items pass the configured filter(s)."
+                Stage = "Filtering",
+                Message = $"[WorkItems] Pre-filter pass starting — evaluating {_filterOptions.Count} filter(s)…"
             });
 
+            filteredIds = await BuildFilteredIdSetAsync(_filterOptions, cancellationToken)
+                .ConfigureAwait(false);
+
             _logger?.LogInformation("[WorkItems] Pre-filter pass complete: {FilteredCount} work items pass filters.", filteredIds.Count);
+            _progressSink?.Emit(new ProgressEvent
+            {
+                Module = "WorkItems",
+                Stage = "Filtering",
+                Message = $"[WorkItems] Pre-filter pass complete: {filteredIds.Count} work items pass the configured filter(s)."
+            });
         }
 
         var cursor = await _checkpointingService
@@ -122,16 +135,93 @@ public sealed class WorkItemExportOrchestrator
             .ConfigureAwait(false);
 
         if (cursor != null)
-            _logger?.LogInformation("[WorkItems] Resuming export from cursor: {Cursor}", cursor.LastProcessed);
+        {
+            _logger?.LogInformation(
+                "[WorkItems] Resuming export from cursor: {Cursor} (previously {WorkItemsProcessed} work items / {RevisionsProcessed} revisions)",
+                cursor.LastProcessed, cursor.WorkItemsProcessed, cursor.RevisionsProcessed);
+            _progressSink?.Emit(new ProgressEvent
+            {
+                Module = "WorkItems",
+                Stage = "Resuming",
+                Message = $"[WorkItems] Resuming from cursor — {cursor.WorkItemsProcessed} work items / {cursor.RevisionsProcessed} revisions already exported."
+            });
+        }
 
-        int workItemsProcessed = 0;
-        int revisionsProcessed = 0;
-        int lastWorkItemId = 0;
+        // Seed counters from cursor so progress is accurate on resume.
+        int workItemsProcessed = cursor?.WorkItemsProcessed ?? 0;
+        int revisionsProcessed = cursor?.RevisionsProcessed ?? 0;
+        int lastWorkItemId = cursor?.LastWorkItemId ?? 0;
+        double lastWorkItemDurationMs = 0;
+        double totalWorkItemDurationMs = 0;
+        int lastCompletedRevisions = 0;
+
+        // Determine total work items: use cached cursor value on resume, otherwise count via
+        // discovery service. Counting happens here in the Agent — never in the CLI.
+        int totalWorkItems = 0;
+        if (cursor?.TotalWorkItems > 0)
+        {
+            totalWorkItems = cursor.TotalWorkItems;
+            _logger?.LogInformation("[WorkItems] Total work items (from cursor): {TotalWorkItems}", totalWorkItems);
+        }
+        else if (_discoveryService != null && _endpoint != null && !string.IsNullOrEmpty(_project))
+        {
+            _logger?.LogInformation("[WorkItems] Counting work items in scope…");
+            _progressSink?.Emit(new ProgressEvent
+            {
+                Module = "WorkItems",
+                Stage = "Counting",
+                Message = "[WorkItems] Counting work items in scope…"
+            });
+
+            await foreach (var snapshot in _discoveryService.CountWorkItemsAsync(
+                _endpoint.ToOrganisationEndpoint(), _project!, _wiqlQuery, cancellationToken)
+                .ConfigureAwait(false))
+            {
+                if (snapshot.IsWorkItemComplete)
+                    totalWorkItems = snapshot.WorkItemsCount;
+            }
+
+            _logger?.LogInformation("[WorkItems] Work items in scope: {TotalWorkItems}", totalWorkItems);
+        }
+
+        // Emit scope-resolved event so the CLI progress bar can set its total.
+        // Only emitted when we have a known total — avoids spurious events in tests
+        // and in partial setups where no discovery service is wired.
+        if (totalWorkItems > 0)
+        {
+            _progressSink?.Emit(new ProgressEvent
+            {
+                Module = "WorkItems",
+                Stage = "ScopeResolved",
+                Message = $"[WorkItems] Scope resolved: {totalWorkItems:N0} work items",
+                Metrics = new JobMetrics
+                {
+                    Scope = new JobScopeCounters { WorkItemsTotal = totalWorkItems },
+                    Migration = new MigrationCounters
+                    {
+                        WorkItems = new WorkItemCounters
+                        {
+                            Completed = workItemsProcessed,
+                            RevisionsProcessed = revisionsProcessed
+                        }
+                    }
+                }
+            });
+        }
         int attachmentsProcessed = 0;
         int attachmentsFailed = 0;
+        double totalAttachmentDurationMs = 0;
+        double lastAttachmentDurationMs = 0;
+        long totalAttachmentBytes = 0;
+        long lastAttachmentBytes = 0;
+        var attachmentStopwatch = new Stopwatch();
 
         // Per-work-item timing for duration histogram.
         var workItemStopwatch = Stopwatch.StartNew();
+        // Per-revision timing so the CLI can show last/avg revision latency.
+        var revisionStopwatch = Stopwatch.StartNew();
+        double lastRevisionDurationMs = 0;
+        double totalRevisionDurationMs = 0;
         TagList exportTags = _metrics != null
             ? MigrationTagList.Create(_jobId ?? "not-set", "export", "workitems")
             : default;
@@ -146,6 +236,14 @@ public sealed class WorkItemExportOrchestrator
 
         Activity? workItemActivity = null;
 
+        int resumeSkipLastWorkItemId = 0;
+        // Separate counter for fast-forwarded (already-exported) work items during resume.
+        // This is NOT part of workItemsProcessed (which counts exported items only).
+        int workItemsSkipped = 0;
+        // Separate counter for filter-excluded work items.
+        int workItemsFilterSkipped = 0;
+        string lastWorkItemStatus = string.Empty;
+
         await foreach (var revision in source.GetRevisionsAsync(cancellationToken))
         {
             var folderPath = BuildFolderPath(revision.WorkItemId, revision.RevisionIndex, revision.ChangedDate);
@@ -154,6 +252,36 @@ public sealed class WorkItemExportOrchestrator
             if (cursor != null &&
                 string.Compare(folderPath, cursor.LastProcessed, StringComparison.Ordinal) <= 0)
             {
+                // Emit a progress event each time we cross a new work item boundary during
+                // the skip phase so the CLI shows "Resuming…" activity rather than silence.
+                if (revision.WorkItemId != resumeSkipLastWorkItemId)
+                {
+                    resumeSkipLastWorkItemId = revision.WorkItemId;
+                    workItemsSkipped++;
+                    lastWorkItemStatus = "Skipped";
+                    _progressSink?.Emit(new ProgressEvent
+                    {
+                        Module = "WorkItems",
+                        Stage = "Resuming",
+                        Message = $"[WorkItems] Resuming — skipping WI {revision.WorkItemId} (already exported)",
+                        Metrics = new JobMetrics
+                        {
+                            Scope = new JobScopeCounters { WorkItemsTotal = totalWorkItems },
+                            Migration = new MigrationCounters
+                            {
+                                WorkItems = new WorkItemCounters
+                                {
+                                    Completed = workItemsProcessed,
+                                    Skipped = workItemsSkipped,
+                                    RevisionsProcessed = revisionsProcessed,
+                                    CurrentWorkItemId = revision.WorkItemId,
+                                    LastWorkItemId = revision.WorkItemId,
+                                    LastWorkItemStatus = "Skipped"
+                                }
+                            }
+                        }
+                    });
+                }
                 continue;
             }
 
@@ -162,12 +290,29 @@ public sealed class WorkItemExportOrchestrator
             {
                 if (revision.RevisionIndex == 0)
                 {
-                    // Log once per work item (at the first revision we encounter for it).
+                    workItemsFilterSkipped++;
+                    lastWorkItemStatus = "Skipped";
                     _progressSink?.Emit(new ProgressEvent
                     {
                         Module = "WorkItems",
                         Stage = "Export",
-                        Message = $"[WorkItems] Work item {revision.WorkItemId} skipped by filter scope."
+                        Message = $"[WorkItems] Work item {revision.WorkItemId} skipped by filter scope.",
+                        Metrics = new JobMetrics
+                        {
+                            Scope = new JobScopeCounters { WorkItemsTotal = totalWorkItems },
+                            Migration = new MigrationCounters
+                            {
+                                WorkItems = new WorkItemCounters
+                                {
+                                    Completed = workItemsProcessed,
+                                    Skipped = workItemsSkipped + workItemsFilterSkipped,
+                                    RevisionsProcessed = revisionsProcessed,
+                                    CurrentWorkItemId = revision.WorkItemId,
+                                    LastWorkItemId = revision.WorkItemId,
+                                    LastWorkItemStatus = "Skipped"
+                                }
+                            }
+                        }
                     });
 
                     if (_logger != null)
@@ -251,6 +396,12 @@ public sealed class WorkItemExportOrchestrator
                 }
             }
 
+            // Capture revision duration before the WI-boundary check so it covers the
+            // full cost of writing revision.json + comments (but not attachments).
+            lastRevisionDurationMs = revisionStopwatch.Elapsed.TotalMilliseconds;
+            totalRevisionDurationMs += lastRevisionDurationMs;
+            revisionStopwatch.Restart();
+
             revisionsProcessed++;
 
             if (revision.WorkItemId != lastWorkItemId)
@@ -258,10 +409,13 @@ public sealed class WorkItemExportOrchestrator
                 // Record completion of the previous work item (if any).
                 if (lastWorkItemId != 0)
                 {
+                    lastWorkItemDurationMs = workItemStopwatch.Elapsed.TotalMilliseconds;
+                    totalWorkItemDurationMs += lastWorkItemDurationMs;
+                    lastCompletedRevisions = revisionsForCurrentWorkItem;
                     if (_metrics != null)
                     {
                         _metrics.RecordWorkItemCompleted(exportTags);
-                        _metrics.RecordWorkItemDuration(workItemStopwatch.Elapsed.TotalMilliseconds, exportTags);
+                        _metrics.RecordWorkItemDuration(lastWorkItemDurationMs, exportTags);
                         _metrics.RecordRevisionCount(revisionsForCurrentWorkItem, exportTags);
                         _metrics.DecrementInFlight(exportTags);
                     }
@@ -282,6 +436,7 @@ public sealed class WorkItemExportOrchestrator
                 // Emit once per work item (not per revision) to avoid flooding the channel.
                 workItemsProcessed++;
                 lastWorkItemId = revision.WorkItemId;
+                lastWorkItemStatus = "Exported";
 
                 if (_logger != null)
                     _logger.LogInformation(
@@ -294,12 +449,70 @@ public sealed class WorkItemExportOrchestrator
                     Stage = "Export",
                     Message = $"[WorkItems] {workItemsProcessed} work items / {revisionsProcessed} revisions written",
                     LastCheckpointAt = DateTimeOffset.UtcNow,
-                    NextCheckpointDueAt = null // per-revision checkpoint — always safe to cancel
+                    NextCheckpointDueAt = null, // per-revision checkpoint — always safe to cancel
+                    Metrics = new JobMetrics
+                    {
+                        Migration = new MigrationCounters
+                        {
+                            WorkItems = new WorkItemCounters
+                            {
+                                Completed = workItemsProcessed,
+                                Skipped = workItemsSkipped + workItemsFilterSkipped,
+                                RevisionsProcessed = revisionsProcessed,
+                                LastWorkItemDurationMs = lastWorkItemDurationMs,
+                                AverageWorkItemDurationMs = workItemsProcessed > 1
+                                    ? totalWorkItemDurationMs / (workItemsProcessed - 1)
+                                    : lastWorkItemDurationMs,
+                                LastWorkItemRevisions = lastCompletedRevisions,
+                                CurrentWorkItemId = revision.WorkItemId,
+                                CurrentWorkItemIndex = workItemsProcessed,
+                                CurrentWorkItemRevisionsWritten = revisionsForCurrentWorkItem,
+                                LastRevisionDurationMs = lastRevisionDurationMs,
+                                AverageRevisionDurationMs = revisionsProcessed > 0
+                                    ? totalRevisionDurationMs / revisionsProcessed
+                                    : lastRevisionDurationMs,
+                                LastWorkItemId = lastWorkItemId,
+                                LastWorkItemStatus = lastWorkItemStatus
+                            }
+                        }
+                    }
                 });
             }
             else
             {
                 revisionsForCurrentWorkItem++;
+
+                // Emit a lightweight per-revision event so consumers can track intra-WI progress.
+                _progressSink?.Emit(new ProgressEvent
+                {
+                    Module = "WorkItems",
+                    Stage = "Export",
+                    Message = $"[WorkItems] WI {revision.WorkItemId} rev {revisionsForCurrentWorkItem}",
+                    LastCheckpointAt = DateTimeOffset.UtcNow,
+                    NextCheckpointDueAt = null,
+                    Metrics = new JobMetrics
+                    {
+                        Migration = new MigrationCounters
+                        {
+                            WorkItems = new WorkItemCounters
+                            {
+                                Completed = workItemsProcessed,
+                                Skipped = workItemsSkipped + workItemsFilterSkipped,
+                                RevisionsProcessed = revisionsProcessed,
+                                LastWorkItemRevisions = lastCompletedRevisions,
+                                CurrentWorkItemId = revision.WorkItemId,
+                                CurrentWorkItemIndex = workItemsProcessed,
+                                CurrentWorkItemRevisionsWritten = revisionsForCurrentWorkItem,
+                                LastRevisionDurationMs = lastRevisionDurationMs,
+                                AverageRevisionDurationMs = revisionsProcessed > 0
+                                    ? totalRevisionDurationMs / revisionsProcessed
+                                    : lastRevisionDurationMs,
+                                LastWorkItemId = lastWorkItemId,
+                                LastWorkItemStatus = lastWorkItemStatus
+                            }
+                        }
+                    }
+                });
             }
 
             // Write attachment binaries beside revision.json when a binary source is available.
@@ -320,15 +533,54 @@ public sealed class WorkItemExportOrchestrator
                         previousAttachmentUrls.Contains(downloadUrl))
                     {
                         if (_logger != null)
-                            _logger.LogDebug("[WorkItems] WI {WorkItemId} rev {RevisionIndex}: attachment delta-skipped (same URL as previous revision).",
+                            _logger.LogDebug("[Attachments] WI {WorkItemId} rev {RevisionIndex}: attachment delta-skipped (same URL as previous revision).",
                                     revision.WorkItemId, revision.RevisionIndex);
                         continue;
                     }
+
+                    var attachmentName = attachment.OriginalName is { Length: > 0 } n ? n : attachment.RelativePath ?? "(unknown)";
+
+                    // ── Found ──
+                    _logger?.LogInformation("[Attachments] WI {WorkItemId} rev {RevisionIndex}: found attachment '{Name}' ({Bytes} bytes).",
+                        revision.WorkItemId, revision.RevisionIndex, attachmentName, attachment.Size);
+                    _progressSink?.Emit(new ProgressEvent
+                    {
+                        Module = "WorkItems",
+                        Stage = "Attachment",
+                        Message = $"[Attachments] WI {revision.WorkItemId} rev {revision.RevisionIndex}: found '{attachmentName}' ({FormatBytes(attachment.Size)})",
+                        Metrics = new JobMetrics
+                        {
+                            Migration = new MigrationCounters
+                            {
+                                WorkItems = new WorkItemCounters
+                                {
+                                    Completed = workItemsProcessed,
+                                    RevisionsProcessed = revisionsProcessed,
+                                    CurrentWorkItemId = revision.WorkItemId,
+                                    Attachments = new AttachmentCounters
+                                    {
+                                        Processed = attachmentsProcessed,
+                                        Failed = attachmentsFailed,
+                                        TotalBytes = totalAttachmentBytes,
+                                        LastDownloadDurationMs = lastAttachmentDurationMs,
+                                        AverageDownloadDurationMs = attachmentsProcessed > 0 ? totalAttachmentDurationMs / attachmentsProcessed : 0,
+                                        LastSizeBytes = lastAttachmentBytes,
+                                        AverageSizeBytes = attachmentsProcessed > 0 ? totalAttachmentBytes / attachmentsProcessed : 0,
+                                        CurrentAttachmentName = attachmentName
+                                    }
+                                }
+                            }
+                        }
+                    });
 
                     var targetPath = $"{folderPath}{attachment.RelativePath}";
 
                     using var attachmentActivity = ActivitySource.StartActivity("attachment.download", ActivityKind.Internal);
                     attachmentActivity?.SetTag("workitem.id", revision.WorkItemId);
+
+                    attachmentStopwatch.Restart();
+                    long downloadedBytes = 0;
+                    bool downloadSucceeded;
 
                     // Prefer streaming path when the source supports it (no byte[] buffering).
                     if (streamingSource != null)
@@ -338,10 +590,9 @@ public sealed class WorkItemExportOrchestrator
                                 _artefactStore, targetPath, cancellationToken)
                             .ConfigureAwait(false);
 
+                        downloadSucceeded = result.HasValue;
                         if (result.HasValue)
-                            attachmentsProcessed++;
-                        else
-                            attachmentsFailed++;
+                            downloadedBytes = result.Value.Size;
                     }
                     else
                     {
@@ -355,12 +606,96 @@ public sealed class WorkItemExportOrchestrator
                             await _artefactStore
                                 .WriteBinaryAsync(targetPath, bytes, cancellationToken)
                                 .ConfigureAwait(false);
-                            attachmentsProcessed++;
+                            downloadedBytes = bytes.Length;
+                            downloadSucceeded = true;
                         }
                         else
                         {
-                            attachmentsFailed++;
+                            downloadSucceeded = false;
                         }
+                    }
+
+                    lastAttachmentDurationMs = attachmentStopwatch.Elapsed.TotalMilliseconds;
+
+                    if (downloadSucceeded)
+                    {
+                        attachmentsProcessed++;
+                        totalAttachmentDurationMs += lastAttachmentDurationMs;
+                        lastAttachmentBytes = downloadedBytes;
+                        totalAttachmentBytes += downloadedBytes;
+
+                        // Record per-download OTel metrics.
+                        if (_metrics != null)
+                        {
+                            _metrics.RecordAttachmentDownloadDuration(lastAttachmentDurationMs, exportTags);
+                            _metrics.RecordAttachmentDownloadBytes(downloadedBytes, exportTags);
+                        }
+
+                        // ── Done ──
+                        _logger?.LogInformation("[Attachments] WI {WorkItemId} rev {RevisionIndex}: downloaded '{Name}' — {Bytes} in {Ms:F0}ms.",
+                            revision.WorkItemId, revision.RevisionIndex, attachmentName, FormatBytes(downloadedBytes), lastAttachmentDurationMs);
+                        _progressSink?.Emit(new ProgressEvent
+                        {
+                            Module = "WorkItems",
+                            Stage = "Attachment",
+                            Message = $"[Attachments] WI {revision.WorkItemId}: '{attachmentName}' done — {FormatBytes(downloadedBytes)} in {lastAttachmentDurationMs:F0}ms",
+                            Metrics = new JobMetrics
+                            {
+                                Migration = new MigrationCounters
+                                {
+                                    WorkItems = new WorkItemCounters
+                                    {
+                                        Completed = workItemsProcessed,
+                                        RevisionsProcessed = revisionsProcessed,
+                                        CurrentWorkItemId = revision.WorkItemId,
+                                        Attachments = new AttachmentCounters
+                                        {
+                                            Processed = attachmentsProcessed,
+                                            Failed = attachmentsFailed,
+                                            TotalBytes = totalAttachmentBytes,
+                                            LastDownloadDurationMs = lastAttachmentDurationMs,
+                                            AverageDownloadDurationMs = totalAttachmentDurationMs / attachmentsProcessed,
+                                            LastSizeBytes = lastAttachmentBytes,
+                                            AverageSizeBytes = totalAttachmentBytes / attachmentsProcessed
+                                        }
+                                    }
+                                }
+                            }
+                        });
+                    }
+                    else
+                    {
+                        attachmentsFailed++;
+                        _logger?.LogWarning("[Attachments] WI {WorkItemId} rev {RevisionIndex}: failed to download '{Name}'.",
+                            revision.WorkItemId, revision.RevisionIndex, attachmentName);
+                        _progressSink?.Emit(new ProgressEvent
+                        {
+                            Module = "WorkItems",
+                            Stage = "Attachment",
+                            Message = $"[Attachments] WI {revision.WorkItemId}: '{attachmentName}' FAILED",
+                            Metrics = new JobMetrics
+                            {
+                                Migration = new MigrationCounters
+                                {
+                                    WorkItems = new WorkItemCounters
+                                    {
+                                        Completed = workItemsProcessed,
+                                        RevisionsProcessed = revisionsProcessed,
+                                        CurrentWorkItemId = revision.WorkItemId,
+                                        Attachments = new AttachmentCounters
+                                        {
+                                            Processed = attachmentsProcessed,
+                                            Failed = attachmentsFailed,
+                                            TotalBytes = totalAttachmentBytes,
+                                            LastDownloadDurationMs = lastAttachmentDurationMs,
+                                            AverageDownloadDurationMs = attachmentsProcessed > 0 ? totalAttachmentDurationMs / attachmentsProcessed : 0,
+                                            LastSizeBytes = lastAttachmentBytes,
+                                            AverageSizeBytes = attachmentsProcessed > 0 ? totalAttachmentBytes / attachmentsProcessed : 0
+                                        }
+                                    }
+                                }
+                            }
+                        });
                     }
                 }
             }
@@ -371,10 +706,18 @@ public sealed class WorkItemExportOrchestrator
             {
                 LastProcessed = folderPath,
                 Stage = CursorStage.Completed,
-                UpdatedAt = DateTimeOffset.UtcNow
+                UpdatedAt = DateTimeOffset.UtcNow,
+                WorkItemsProcessed = workItemsProcessed,
+                RevisionsProcessed = revisionsProcessed,
+                LastWorkItemId = lastWorkItemId,
+                TotalWorkItems = totalWorkItems
             };
+            // Use CancellationToken.None — the cursor write is critical safety state and
+            // must complete after a successful revision.json write even if the job is being
+            // cancelled. Using the job token here causes the write to be aborted on shutdown,
+            // leaving no cursor on disk and forcing the next run to start from the beginning.
             await _checkpointingService
-                .WriteCursorAsync("WorkItems", newCursor, cancellationToken)
+                .WriteCursorAsync("WorkItems", newCursor, CancellationToken.None)
                 .ConfigureAwait(false);
         }
 
@@ -423,11 +766,25 @@ public sealed class WorkItemExportOrchestrator
         var scope = new WorkItemFetchScope(Fields: filterFields, FilterOptions: filterOptions);
 
         var orgEndpoint = _endpoint!.ToOrganisationEndpoint();
+        int fetched = 0;
 
         await foreach (var item in _fetchService!.FetchAsync(orgEndpoint, _project!, scope, cancellationToken)
             .ConfigureAwait(false))
         {
             ids.Add(item.Id);
+            fetched++;
+
+            // Emit progress every 100 items so the operator can see the fetch is alive.
+            if (fetched % 100 == 0)
+            {
+                _logger?.LogInformation("[WorkItems] Pre-filter pass: {Fetched} work items fetched so far…", fetched);
+                _progressSink?.Emit(new ProgressEvent
+                {
+                    Module = "WorkItems",
+                    Stage = "Filtering",
+                    Message = $"[WorkItems] Pre-filter pass: {fetched:N0} work items fetched so far…"
+                });
+            }
         }
 
         return ids;
@@ -473,5 +830,14 @@ public sealed class WorkItemExportOrchestrator
         var ticks = changedDate.Ticks.ToString("D20");
         return $"WorkItems/{date}/{ticks}-{workItemId}-{revisionIndex}/";
     }
+
+    private static string FormatBytes(long bytes) =>
+        bytes switch
+        {
+            >= 1_073_741_824 => $"{bytes / 1_073_741_824.0:F1} GB",
+            >= 1_048_576 => $"{bytes / 1_048_576.0:F1} MB",
+            >= 1_024 => $"{bytes / 1_024.0:F1} KB",
+            _ => $"{bytes} B"
+        };
 }
 

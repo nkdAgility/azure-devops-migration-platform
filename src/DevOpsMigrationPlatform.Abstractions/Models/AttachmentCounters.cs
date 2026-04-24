@@ -15,4 +15,24 @@ public record AttachmentCounters
 
     /// <summary>Total bytes transferred for attachments.</summary>
     public long TotalBytes { get; init; }
+
+    /// <summary>Duration in milliseconds for the most recently completed attachment download.</summary>
+    public double LastDownloadDurationMs { get; init; }
+
+    /// <summary>Rolling average download duration in milliseconds across all completed attachments.</summary>
+    public double AverageDownloadDurationMs { get; init; }
+
+    /// <summary>Size in bytes of the most recently completed attachment download.</summary>
+    public long LastSizeBytes { get; init; }
+
+    /// <summary>Rolling average size in bytes across all completed attachments. Zero when none processed.</summary>
+    public long AverageSizeBytes { get; init; }
+
+    // ── In-flight attachment (current) ───────────────────────────────────────────
+
+    /// <summary>
+    /// File name of the attachment currently being downloaded.
+    /// Null when no download is in flight.
+    /// </summary>
+    public string? CurrentAttachmentName { get; init; }
 }

@@ -44,6 +44,7 @@ public sealed class WorkItemsModule : IModule
     private readonly ILogger<WorkItemImportOrchestrator> _orchestratorLogger;
     private readonly DevOpsMigrationPlatform.Abstractions.Services.IWorkItemFetchService? _fetchService;
     private readonly IMigrationMetrics? _metrics;
+    private readonly DevOpsMigrationPlatform.Abstractions.Services.IWorkItemDiscoveryService? _discoveryService;
 
     public WorkItemsModule(
         IWorkItemRevisionSourceFactory sourceFactory,
@@ -58,7 +59,8 @@ public sealed class WorkItemsModule : IModule
         IAttachmentBinarySource? attachmentBinarySource = null,
         IWorkItemCommentSourceFactory? inlineCommentSourceFactory = null,
         DevOpsMigrationPlatform.Abstractions.Services.IWorkItemFetchService? fetchService = null,
-        IMigrationMetrics? metrics = null)
+        IMigrationMetrics? metrics = null,
+        DevOpsMigrationPlatform.Abstractions.Services.IWorkItemDiscoveryService? discoveryService = null)
     {
         _sourceFactory = sourceFactory ?? throw new ArgumentNullException(nameof(sourceFactory));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
@@ -73,6 +75,7 @@ public sealed class WorkItemsModule : IModule
         _inlineCommentSourceFactory = inlineCommentSourceFactory;
         _fetchService = fetchService;
         _metrics = metrics;
+        _discoveryService = discoveryService;
     }
 
     /// <inheritdoc/>
@@ -122,7 +125,9 @@ public sealed class WorkItemsModule : IModule
             filterOptions: allFilters.Count > 0 ? allFilters : null,
             metrics: _metrics,
             jobId: job.JobId,
-            logger: _logger);
+            logger: _logger,
+            wiqlQuery: ext.Query,
+            discoveryService: _discoveryService);
 
         await orchestrator.ExportAsync(source, ct).ConfigureAwait(false);
 

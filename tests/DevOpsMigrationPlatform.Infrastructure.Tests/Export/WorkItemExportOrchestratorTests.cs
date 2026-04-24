@@ -689,11 +689,14 @@ public class WorkItemExportOrchestratorTests
 
         await sut.ExportAsync(mockSource.Object, CancellationToken.None);
 
-        // One progress event per unique work item (not per revision).
-        // ProgressEvent is now a pure envelope — counters are in Message text.
-        Assert.AreEqual(2, progressEvents.Count, "Should emit one progress event per work item.");
-        Assert.IsTrue(progressEvents[0].Message?.Contains("1 work items") == true, "First event should reflect 1 work item.");
-        Assert.IsTrue(progressEvents[1].Message?.Contains("2 work items") == true, "Second event should reflect 2 work items.");
+        // One boundary event per unique work item (not per revision).
+        // Per-revision events are also emitted (for intra-WI progress); filter those out.
+        var boundaryEvents = progressEvents
+            .Where(e => e.Message?.Contains("work items") == true)
+            .ToList();
+        Assert.AreEqual(2, boundaryEvents.Count, "Should emit one boundary progress event per work item.");
+        Assert.IsTrue(boundaryEvents[0].Message?.Contains("1 work items") == true, "First event should reflect 1 work item.");
+        Assert.IsTrue(boundaryEvents[1].Message?.Contains("2 work items") == true, "Second event should reflect 2 work items.");
     }
 
     [TestMethod]

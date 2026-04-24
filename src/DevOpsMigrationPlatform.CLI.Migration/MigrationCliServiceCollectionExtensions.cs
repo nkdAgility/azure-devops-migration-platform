@@ -16,15 +16,6 @@ namespace DevOpsMigrationPlatform.CLI.Migration;
 public static class MigrationCliServiceCollectionExtensions
 {
     /// <summary>
-    /// Registers the services required for pre-flight work item counting before
-    /// submitting an export job.  Delegates to the ADO implementation without
-    /// leaking that implementation detail into command classes.
-    /// </summary>
-    public static IServiceCollection AddExportPreflightServices(
-        this IServiceCollection services)
-        => services.AddAzureDevOpsWorkItemCount();
-
-    /// <summary>
     /// Registers the ADO endpoint option types for polymorphic JSON deserialization.
     /// Called by the shared host builder so every CLI command can load configuration files
     /// that reference <c>"Type": "AzureDevOpsServices"</c>.

@@ -24,6 +24,8 @@ internal sealed class MigrationMetrics : IMigrationMetrics, IDisposable
     // --- Payload / Complexity histograms ---
     private readonly Histogram<int> _fieldCount;
     private readonly Histogram<int> _attachmentCount;
+    private readonly Histogram<double> _attachmentDownloadDuration;
+    private readonly Histogram<long> _attachmentDownloadBytes;
     private readonly Histogram<int> _linkCount;
     private readonly Histogram<int> _revisionCount;
     private readonly Histogram<long> _payloadBytes;
@@ -61,6 +63,8 @@ internal sealed class MigrationMetrics : IMigrationMetrics, IDisposable
         // Payload
         _fieldCount = _meter.CreateHistogram<int>(WellKnownMetricNames.FieldCount, unit: "{field}");
         _attachmentCount = _meter.CreateHistogram<int>(WellKnownMetricNames.AttachmentCount, unit: "{attachment}");
+        _attachmentDownloadDuration = _meter.CreateHistogram<double>(WellKnownMetricNames.AttachmentDownloadDurationMs, unit: "ms");
+        _attachmentDownloadBytes = _meter.CreateHistogram<long>(WellKnownMetricNames.AttachmentDownloadBytes, unit: "By");
         _linkCount = _meter.CreateHistogram<int>(WellKnownMetricNames.LinkCount, unit: "{link}");
         _revisionCount = _meter.CreateHistogram<int>(WellKnownMetricNames.RevisionCount, unit: "{revision}");
         _payloadBytes = _meter.CreateHistogram<long>(WellKnownMetricNames.PayloadBytes, unit: "By");
@@ -95,6 +99,8 @@ internal sealed class MigrationMetrics : IMigrationMetrics, IDisposable
     // --- Payload ---
     public void RecordFieldCount(int count, in TagList tags) => _fieldCount.Record(count, tags);
     public void RecordAttachmentCount(int count, in TagList tags) => _attachmentCount.Record(count, tags);
+    public void RecordAttachmentDownloadDuration(double milliseconds, in TagList tags) => _attachmentDownloadDuration.Record(milliseconds, tags);
+    public void RecordAttachmentDownloadBytes(long bytes, in TagList tags) => _attachmentDownloadBytes.Record(bytes, tags);
     public void RecordLinkCount(int count, in TagList tags) => _linkCount.Record(count, tags);
     public void RecordRevisionCount(int count, in TagList tags) => _revisionCount.Record(count, tags);
     public void RecordPayloadBytes(long bytes, in TagList tags) => _payloadBytes.Record(bytes, tags);

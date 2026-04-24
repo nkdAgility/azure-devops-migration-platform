@@ -63,15 +63,23 @@ public sealed class TuiMetricsView : FrameView
         var wi = m.Migration?.WorkItems;
         var diag = m.Migration?.Diagnostics;
 
+        var lastMs = wi?.LastWorkItemDurationMs ?? 0;
+        var avgMs = wi?.AverageWorkItemDurationMs ?? 0;
+        var throttleIndicator = lastMs > 0 && avgMs > 0 && lastMs > avgMs * 3
+            ? "  *** POSSIBLE BACK-OFF ***"
+            : string.Empty;
+
         return
             $"Work Items Attempted : {wi?.Attempted ?? 0,8}\n" +
             $"Work Items Completed : {wi?.Completed ?? 0,8}\n" +
+            $"Revisions Written    : {wi?.RevisionsProcessed ?? 0,8:N0}\n" +
             $"Work Items Failed    : {wi?.Failed ?? 0,8}\n" +
             $"Work Items Skipped   : {wi?.Skipped ?? 0,8}\n" +
             $"In-Flight            : {diag?.WorkItemsInFlight ?? 0,8}\n" +
             $"Queue Depth          : {diag?.QueueDepth ?? 0,8}\n" +
             $"\n" +
-            $"Avg Duration         : {FormatMean(diag?.WorkItemDurationMeanMs, "ms")}\n" +
+            $"Last WI Duration     : {FormatMean(lastMs > 0 ? lastMs : null, "ms")}{throttleIndicator}\n" +
+            $"Avg WI Duration      : {FormatMean(avgMs > 0 ? avgMs : diag?.WorkItemDurationMeanMs, "ms")}\n" +
             $"Avg Revisions        : {FormatMean(diag?.RevisionCountMean)}\n" +
             $"Avg Attachments      : {FormatMean(diag?.AttachmentCountMean)}\n" +
             $"Avg Links            : {FormatMean(diag?.LinkCountMean)}\n" +
