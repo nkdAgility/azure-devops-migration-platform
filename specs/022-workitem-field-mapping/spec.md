@@ -17,6 +17,12 @@
 | `.agents/context/workitems-format.md` | Confirmed accurate — field values stored in revision.json |
 | `analysis/proposed-features.md` | Source — M1 and T1 sections define the 14 map types and tool resolution model |
 
+## Clarifications
+
+### Session 2026-04-24
+
+- Q: In which phase(s) should transforms run? → A: Both phases supported — each tool reference declares `phase: export | import | both` with **import** as the default. Export captures raw source data for auditability; transforms apply at import time by default.
+
 ## Screaming Architecture Recommendation
 
 The existing `azure-devops-migration-tools` uses the naming convention `*Map` (e.g., `FieldToFieldMap`, `FieldValueMap`, `RegexFieldMap`). The proposed `analysis/proposed-features.md` uses shorter names without the `Map` suffix (e.g., `FieldToField`, `FieldValue`, `RegexField`).
@@ -192,6 +198,7 @@ As a migration operator, I want to merge multiple source fields into a single ta
 - **FR-014**: The RegexField transform MUST validate the regex pattern at configuration load time and reject invalid patterns.
 - **FR-015**: Transforms MUST NOT alter identity fields. Identity mapping remains the exclusive responsibility of `IIdentityMappingService` (guardrail rule 8).
 - **FR-016**: Transform processing MUST be stateless across revisions — no transform may accumulate state from one revision to another.
+- **FR-017**: Each tool reference on an extension MUST declare the phase in which it applies (`export`, `import`, or `both`). The default phase MUST be `import`. Export-phase transforms modify `revision.json` before it is written to the package; import-phase transforms modify field values before they are sent to the target. The configuration documentation MUST include guidance on recommended phase per transform type.
 
 ### Key Entities
 
@@ -212,7 +219,7 @@ As a migration operator, I want to merge multiple source fields into a single ta
 ## Assumptions
 
 - The operator is a migration administrator familiar with the platform's configuration file format and the concept of field mappings from migration tools.
-- Transforms operate during the export-to-package phase (writing `revision.json`). They may also be applied during import if the operator configures transforms on the import path. The spec does not mandate which phase — the tool is injected at the extension level and applied wherever the extension invokes it.
+- Transforms operate during the import phase by default (reading from `revision.json` and transforming before applying to target). Each tool reference on an extension declares `phase: export | import | both` (default: `import`). Export captures raw source data for auditability — transforms at export time are opt-in. The configuration documentation MUST include guidance on recommended phase for each transform type.
 - Identity fields (`System.AssignedTo`, `System.CreatedBy`, `System.ChangedBy`) remain handled by `IIdentityMappingService` and are not transformed by this tool.
 - The `CalculateField` expression language will use a safe, sandboxed evaluator (the specific evaluator library is an implementation detail not specified here).
 - The `tools[]` top-level configuration section described in `analysis/proposed-features.md` is the intended design and will be added to `docs/configuration.md` as part of this feature.
