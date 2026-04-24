@@ -69,6 +69,7 @@ The `FieldTransform` tool is declared as a singleton under `MigrationPlatform.To
             "applyTo": ["<WorkItemType>", ...],
             "transforms": [
               {
+                "name": "<transform-name>",
                 "type": "<TypeDiscriminator>",
                 "enabled": true,
                 "applyTo": ["<WorkItemType>", ...],
@@ -87,6 +88,10 @@ The `FieldTransform` tool is declared as a singleton under `MigrationPlatform.To
 - `applyTo` on a group: the entire group is skipped for non-matching work item types. Omit or set to `["*"]` for all types.
 - `applyTo` on a transform: further narrows within the group. Omit or set to `["*"]` for all types that passed the group filter.
 - `enabled`: `false` disables the tool / group / transform. Omitting defaults to `true`.
+
+**Naming defaults (used in telemetry and error messages):**
+- Group `name` is optional. If omitted, defaults to `Group{ordinal}` (e.g., `Group1`, `Group2`).
+- Transform `name` is optional. If omitted, defaults to `{GroupName}.{Type}{ordinal}` (e.g., `migration-stamps.SetField1`, `Group2.MapValue1`). The ordinal is scoped per type within the group.
 
 ### Example: Agile → Scrum Migration
 
@@ -351,7 +356,7 @@ As a migration operator, I want to merge multiple source fields into a single ta
 - **FR-006**: Extensions (e.g., `WorkItems/Revisions`) MUST reference the `FieldTransform` tool by name under `extensions[].tools.FieldTransform` and declare the phase (`export`, `import`, or `both`; default: `import`).
 - **FR-007**: An `enabled` property MUST be supported at three levels: tool (`Tools.FieldTransform.enabled`), group (`transformGroups[].enabled`), and individual transform (`transforms[].enabled`). Omitting `enabled` at any level MUST default to `true`. Setting `enabled: false` disables that level and all children.
 - **FR-008**: The system MUST validate all transform configurations at startup before processing any revisions. Invalid configurations (unknown type discriminators, invalid regex patterns, missing required properties, circular references) MUST cause a fail-fast with a clear error message.
-- **FR-009**: Each transform execution MUST be logged with structured telemetry: group name, transform type, source/target fields, work item ID, and whether the transform modified the revision.
+- **FR-009**: Each transform execution MUST be logged with structured telemetry: group name, transform name, transform type, source/target fields, work item ID, and whether the transform modified the revision. Group and transform names MUST use the auto-generated defaults when not explicitly provided (see Naming defaults above).
 - **FR-010**: The CopyFieldTransform MUST support a `defaultValue` property used when the source field is absent from the revision.
 - **FR-011**: The MapValueTransform MUST preserve the original value when no mapping match is found and log a warning.
 - **FR-012**: The ExcludeFieldTransform MUST remove the field entirely from the revision before any write operation.
