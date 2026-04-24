@@ -8,7 +8,6 @@ using DevOpsMigrationPlatform.Abstractions.Models;
 using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Abstractions.Services;
 using DevOpsMigrationPlatform.Infrastructure.AzureDevOps;
-using DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Options;
 using DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Services;
 using Microsoft.TeamFoundation.WorkItemTracking.WebApi.Models;
 using Microsoft.VisualStudio.TestTools.UnitTesting;

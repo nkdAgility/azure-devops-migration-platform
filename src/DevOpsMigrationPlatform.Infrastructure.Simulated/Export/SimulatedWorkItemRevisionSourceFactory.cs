@@ -3,7 +3,7 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
-using DevOpsMigrationPlatform.Infrastructure.Simulated.Options;
+using DevOpsMigrationPlatform.Abstractions.Options;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Simulated.Export;
 

@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using System.Threading;
 using DevOpsMigrationPlatform.Abstractions;
-using DevOpsMigrationPlatform.Infrastructure.Simulated.Options;
+using DevOpsMigrationPlatform.Abstractions.Options;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Simulated.Export;
 

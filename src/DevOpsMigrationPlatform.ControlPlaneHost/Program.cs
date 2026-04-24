@@ -17,10 +17,9 @@
 using System.Security.Claims;
 using DevOpsMigrationPlatform.ControlPlane.Services;
 using DevOpsMigrationPlatform.ControlPlaneHost.Services;
-using DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Options;
+using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Infrastructure;
 using DevOpsMigrationPlatform.Infrastructure.Extensions;
-using DevOpsMigrationPlatform.Infrastructure.Simulated.Options;
 
 using DevOpsMigrationPlatform.Infrastructure.Telemetry;
 

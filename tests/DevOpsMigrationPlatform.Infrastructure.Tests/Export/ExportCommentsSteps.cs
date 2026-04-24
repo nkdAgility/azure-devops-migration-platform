@@ -9,7 +9,6 @@ using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Models;
 using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Abstractions.Services;
-using DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Options;
 using DevOpsMigrationPlatform.Infrastructure.Checkpointing;
 using DevOpsMigrationPlatform.Infrastructure.Export;
 using DevOpsMigrationPlatform.Infrastructure.Storage;

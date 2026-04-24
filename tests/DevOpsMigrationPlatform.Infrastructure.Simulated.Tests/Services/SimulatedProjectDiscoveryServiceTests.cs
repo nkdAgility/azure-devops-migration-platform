@@ -2,7 +2,7 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
-using DevOpsMigrationPlatform.Infrastructure.Simulated.Options;
+using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Infrastructure.Simulated.Services;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 

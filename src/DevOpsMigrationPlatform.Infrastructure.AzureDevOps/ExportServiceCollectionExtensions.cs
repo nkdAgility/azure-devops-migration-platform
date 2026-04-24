@@ -3,7 +3,7 @@ using System.Linq;
 using System.Net.Http;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Services;
-using DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Options;
+using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Services;
 using DevOpsMigrationPlatform.Infrastructure.Extensions;
 using Microsoft.Extensions.DependencyInjection;

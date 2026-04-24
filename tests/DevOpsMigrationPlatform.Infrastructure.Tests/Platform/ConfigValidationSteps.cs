@@ -1,5 +1,5 @@
 using DevOpsMigrationPlatform.Abstractions;
-using DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Options;
+using DevOpsMigrationPlatform.Abstractions.Options;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Reqnroll;
 

@@ -1,6 +1,5 @@
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Options;
-using DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Options;
 using Spectre.Console;
 
 namespace DevOpsMigrationPlatform.CLI.Migration.Services;

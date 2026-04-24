@@ -1,9 +1,8 @@
 using System;
 using System.Text.Json;
 using DevOpsMigrationPlatform.Abstractions;
-using DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Options;
+using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Infrastructure.Serialization;
-using DevOpsMigrationPlatform.Infrastructure.Simulated.Options;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Tests.Serialization;
