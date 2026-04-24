@@ -1,0 +1,48 @@
+{
+  "Tools": {
+    "FieldTransform": {
+      "transformGroups": [
+        {
+          "name": "default",
+          "applyTo": [
+            "*"
+          ],
+          "transforms": [
+            {
+              "type": "SetField",
+              "field": "Custom.MigratedBy",
+              "value": "migration-platform"
+            },
+            {
+              "type": "MapValue",
+              "field": "System.State",
+              "applyTo": [
+                "User Story"
+              ],
+              "valueMap": {
+                "Active": "In Progress",
+                "Resolved": "Done"
+              }
+            }
+          ]
+        },
+        {
+          "name": "BugBits",
+          "applyTo": [
+            "Bug"
+          ],
+          "transforms": [
+            {
+              "type": "MapValue",
+              "field": "System.State",
+              "valueMap": {
+                "Active": "Committed",
+                "Resolved": "Done"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  }
+}
