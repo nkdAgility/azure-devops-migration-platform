@@ -142,134 +142,134 @@ public sealed class WorkItemImportOrchestrator
 
         try
         {
-        await foreach (var folderPath in _artefactStore.EnumerateAsync("WorkItems/", ct).ConfigureAwait(false))
-        {
-            ct.ThrowIfCancellationRequested();
-
-            // Skip folders at or before the cursor (already completed)
-            if (!string.IsNullOrEmpty(lastProcessed)
-                && string.CompareOrdinal(folderPath, lastProcessed) < 0)
+            await foreach (var folderPath in _artefactStore.EnumerateAsync("WorkItems/", ct).ConfigureAwait(false))
             {
-                continue;
-            }
+                ct.ThrowIfCancellationRequested();
 
-            // Determine resume stage for the cursor folder (mid-folder resume)
-            string? resumeAtStage = null;
-            if (string.Equals(folderPath, lastProcessed, StringComparison.Ordinal)
-                && lastStage is not null
-                && !string.Equals(lastStage, CursorStage.Completed, StringComparison.Ordinal))
-            {
-                resumeAtStage = GetNextStage(lastStage);
-            }
-            else if (string.Equals(folderPath, lastProcessed, StringComparison.Ordinal)
-                && string.Equals(lastStage, CursorStage.Completed, StringComparison.Ordinal))
-            {
-                // This exact folder was fully completed — skip it
-                continue;
-            }
-
-            // Parse folder name to distinguish revision vs comment folders
-            var folderName = GetFolderName(folderPath);
-            var segments = folderName.Split('-');
-
-            if (IsCommentFolder(segments))
-            {
-                // Comment sub-folder: <ticks>-<workItemId>-c<commentId>
-                if (ext.Comments.Enabled)
-                    await ProcessCommentFolderAsync(folderPath, segments, ext, ct).ConfigureAwait(false);
-                else
-                    await WriteCompletedCursorAsync(folderPath, ct).ConfigureAwait(false);
-            }
-            else if (ext.RevisionsEnabled)
-            {
-                // Revision folder — parse work item ID and revision index
-                var revisionSegments = folderName.Split('-');
-                int.TryParse(revisionSegments.Length >= 2 ? revisionSegments[1] : null, out var wiId);
-                int.TryParse(revisionSegments.Length >= 3 ? revisionSegments[2] : null, out var revIdx);
-
-                // Skip if the work item did not pass the filter pre-pass.
-                if (filteredIds != null && !filteredIds.Contains(wiId))
+                // Skip folders at or before the cursor (already completed)
+                if (!string.IsNullOrEmpty(lastProcessed)
+                    && string.CompareOrdinal(folderPath, lastProcessed) < 0)
                 {
-                    _logger.LogInformation(
-                        "[WorkItems] Work item {WorkItemId} skipped by import filter scope.",
-                        wiId);
-                    await WriteCompletedCursorAsync(folderPath, ct).ConfigureAwait(false);
-                    foldersProcessed++;
                     continue;
                 }
 
-                // Revision-index watermark: skip folders at or below the last applied revision
-                var lastRevIdx = await _idMapStore.GetLastRevisionIndexAsync(wiId, ct).ConfigureAwait(false);
-                if (lastRevIdx.HasValue && revIdx <= lastRevIdx.Value)
+                // Determine resume stage for the cursor folder (mid-folder resume)
+                string? resumeAtStage = null;
+                if (string.Equals(folderPath, lastProcessed, StringComparison.Ordinal)
+                    && lastStage is not null
+                    && !string.Equals(lastStage, CursorStage.Completed, StringComparison.Ordinal))
                 {
-                    _logger.LogDebug(
-                        "[WorkItems] WI {WorkItemId} rev {Rev} at or below watermark {Watermark} — skipped.",
-                        wiId, revIdx, lastRevIdx.Value);
-                    await WriteCompletedCursorAsync(folderPath, ct).ConfigureAwait(false);
-                    foldersProcessed++;
+                    resumeAtStage = GetNextStage(lastStage);
+                }
+                else if (string.Equals(folderPath, lastProcessed, StringComparison.Ordinal)
+                    && string.Equals(lastStage, CursorStage.Completed, StringComparison.Ordinal))
+                {
+                    // This exact folder was fully completed — skip it
                     continue;
                 }
 
-                // Revision folder
-                // Track work item transitions — only emit per-WI metrics on boundary.
-                if (wiId != lastImportedWorkItemId)
+                // Parse folder name to distinguish revision vs comment folders
+                var folderName = GetFolderName(folderPath);
+                var segments = folderName.Split('-');
+
+                if (IsCommentFolder(segments))
                 {
-                    // Complete the previous work item (if any).
-                    if (lastImportedWorkItemId != 0 && _metrics != null)
+                    // Comment sub-folder: <ticks>-<workItemId>-c<commentId>
+                    if (ext.Comments.Enabled)
+                        await ProcessCommentFolderAsync(folderPath, segments, ext, ct).ConfigureAwait(false);
+                    else
+                        await WriteCompletedCursorAsync(folderPath, ct).ConfigureAwait(false);
+                }
+                else if (ext.RevisionsEnabled)
+                {
+                    // Revision folder — parse work item ID and revision index
+                    var revisionSegments = folderName.Split('-');
+                    int.TryParse(revisionSegments.Length >= 2 ? revisionSegments[1] : null, out var wiId);
+                    int.TryParse(revisionSegments.Length >= 3 ? revisionSegments[2] : null, out var revIdx);
+
+                    // Skip if the work item did not pass the filter pre-pass.
+                    if (filteredIds != null && !filteredIds.Contains(wiId))
                     {
-                        _metrics.RecordWorkItemCompleted(importTags);
-                        _metrics.RecordWorkItemDuration(workItemStopwatch.Elapsed.TotalMilliseconds, importTags);
-                        _metrics.RecordRevisionCount(revisionsForCurrentWorkItem, importTags);
-                        _metrics.DecrementInFlight(importTags);
+                        _logger.LogInformation(
+                            "[WorkItems] Work item {WorkItemId} skipped by import filter scope.",
+                            wiId);
+                        await WriteCompletedCursorAsync(folderPath, ct).ConfigureAwait(false);
+                        foldersProcessed++;
+                        continue;
                     }
-                    workItemActivity?.Dispose();
 
-                    _metrics?.RecordWorkItemAttempted(importTags);
-                    _metrics?.IncrementInFlight(importTags);
-                    workItemStopwatch.Restart();
-                    revisionsForCurrentWorkItem = 1;
-                    lastImportedWorkItemId = wiId;
-                    workItemsProcessed++;
+                    // Revision-index watermark: skip folders at or below the last applied revision
+                    var lastRevIdx = await _idMapStore.GetLastRevisionIndexAsync(wiId, ct).ConfigureAwait(false);
+                    if (lastRevIdx.HasValue && revIdx <= lastRevIdx.Value)
+                    {
+                        _logger.LogDebug(
+                            "[WorkItems] WI {WorkItemId} rev {Rev} at or below watermark {Watermark} — skipped.",
+                            wiId, revIdx, lastRevIdx.Value);
+                        await WriteCompletedCursorAsync(folderPath, ct).ConfigureAwait(false);
+                        foldersProcessed++;
+                        continue;
+                    }
 
-                    workItemActivity = ActivitySource.StartActivity("workitem.import", ActivityKind.Internal);
-                    workItemActivity?.SetTag("job.id", _jobId ?? "not-set");
-                    workItemActivity?.SetTag("workitem.id", wiId);
+                    // Revision folder
+                    // Track work item transitions — only emit per-WI metrics on boundary.
+                    if (wiId != lastImportedWorkItemId)
+                    {
+                        // Complete the previous work item (if any).
+                        if (lastImportedWorkItemId != 0 && _metrics != null)
+                        {
+                            _metrics.RecordWorkItemCompleted(importTags);
+                            _metrics.RecordWorkItemDuration(workItemStopwatch.Elapsed.TotalMilliseconds, importTags);
+                            _metrics.RecordRevisionCount(revisionsForCurrentWorkItem, importTags);
+                            _metrics.DecrementInFlight(importTags);
+                        }
+                        workItemActivity?.Dispose();
+
+                        _metrics?.RecordWorkItemAttempted(importTags);
+                        _metrics?.IncrementInFlight(importTags);
+                        workItemStopwatch.Restart();
+                        revisionsForCurrentWorkItem = 1;
+                        lastImportedWorkItemId = wiId;
+                        workItemsProcessed++;
+
+                        workItemActivity = ActivitySource.StartActivity("workitem.import", ActivityKind.Internal);
+                        workItemActivity?.SetTag("job.id", _jobId ?? "not-set");
+                        workItemActivity?.SetTag("workitem.id", wiId);
+                    }
+                    else
+                    {
+                        revisionsForCurrentWorkItem++;
+                    }
+
+                    using var revisionActivity = ActivitySource.StartActivity("revision.process", ActivityKind.Internal);
+                    revisionActivity?.SetTag("workitem.id", wiId);
+                    revisionActivity?.SetTag("revision.index", revIdx);
+
+                    await _processor.ProcessAsync(folderPath, ext, resumeAtStage, _resolutionStrategy, ct)
+                        .ConfigureAwait(false);
+
+                    // Update revision-index watermark after successful processing
+                    await _idMapStore.UpdateLastRevisionIndexAsync(wiId, revIdx, ct).ConfigureAwait(false);
                 }
                 else
                 {
-                    revisionsForCurrentWorkItem++;
+                    // Revisions extension disabled — skip but record cursor
+                    await WriteCompletedCursorAsync(folderPath, ct).ConfigureAwait(false);
                 }
 
-                using var revisionActivity = ActivitySource.StartActivity("revision.process", ActivityKind.Internal);
-                revisionActivity?.SetTag("workitem.id", wiId);
-                revisionActivity?.SetTag("revision.index", revIdx);
+                // Parse work item ID for the progress event (same logic, available for all branch paths)
+                var eventSegments = GetFolderName(folderPath).Split('-');
+                int.TryParse(eventSegments.Length >= 2 ? eventSegments[1] : null, out var eventWiId);
 
-                await _processor.ProcessAsync(folderPath, ext, resumeAtStage, _resolutionStrategy, ct)
-                    .ConfigureAwait(false);
-
-                // Update revision-index watermark after successful processing
-                await _idMapStore.UpdateLastRevisionIndexAsync(wiId, revIdx, ct).ConfigureAwait(false);
+                foldersProcessed++;
+                _progressSink.Emit(new ProgressEvent
+                {
+                    Module = "WorkItems",
+                    Stage = CursorStage.Completed,
+                    Timestamp = DateTimeOffset.UtcNow,
+                    LastCheckpointAt = DateTimeOffset.UtcNow,
+                    NextCheckpointDueAt = null // per-revision checkpoint — always safe to cancel
+                });
             }
-            else
-            {
-                // Revisions extension disabled — skip but record cursor
-                await WriteCompletedCursorAsync(folderPath, ct).ConfigureAwait(false);
-            }
-
-            // Parse work item ID for the progress event (same logic, available for all branch paths)
-            var eventSegments = GetFolderName(folderPath).Split('-');
-            int.TryParse(eventSegments.Length >= 2 ? eventSegments[1] : null, out var eventWiId);
-
-            foldersProcessed++;
-            _progressSink.Emit(new ProgressEvent
-            {
-                Module = "WorkItems",
-                Stage = CursorStage.Completed,
-                Timestamp = DateTimeOffset.UtcNow,
-                LastCheckpointAt = DateTimeOffset.UtcNow,
-                NextCheckpointDueAt = null // per-revision checkpoint — always safe to cancel
-            });
-        }
         }
         finally
         {
