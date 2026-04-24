@@ -294,7 +294,18 @@ public sealed class WorkItemExportOrchestrator
                     Stage = "Export",
                     Message = $"[WorkItems] {workItemsProcessed} work items / {revisionsProcessed} revisions written",
                     LastCheckpointAt = DateTimeOffset.UtcNow,
-                    NextCheckpointDueAt = null // per-revision checkpoint — always safe to cancel
+                    NextCheckpointDueAt = null, // per-revision checkpoint — always safe to cancel
+                    Metrics = new JobMetrics
+                    {
+                        Migration = new MigrationCounters
+                        {
+                            WorkItems = new WorkItemCounters
+                            {
+                                Completed = workItemsProcessed,
+                                RevisionsProcessed = revisionsProcessed
+                            }
+                        }
+                    }
                 });
             }
             else
