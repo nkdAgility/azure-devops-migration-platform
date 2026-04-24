@@ -11,6 +11,8 @@ using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Models;
 using DevOpsMigrationPlatform.Abstractions.Services;
+using DevOpsMigrationPlatform.Abstractions.Telemetry;
+using Microsoft.Extensions.Logging;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Export;
 
@@ -39,6 +41,8 @@ public sealed class WorkItemExportOrchestrator
         WriteIndented = false
     };
 
+    private static readonly ActivitySource ActivitySource = new(WellKnownActivitySourceNames.Migration);
+
     private readonly IArtefactStore _artefactStore;
     private readonly ICheckpointingService _checkpointingService;
     private readonly IAttachmentBinarySource? _attachmentBinarySource;
@@ -50,6 +54,7 @@ public sealed class WorkItemExportOrchestrator
     private readonly IReadOnlyList<WorkItemFieldFilterOptions>? _filterOptions;
     private readonly IMigrationMetrics? _metrics;
     private readonly string? _jobId;
+    private readonly ILogger? _logger;
 
     public WorkItemExportOrchestrator(
         IArtefactStore artefactStore,
@@ -62,7 +67,8 @@ public sealed class WorkItemExportOrchestrator
         IWorkItemFetchService? fetchService = null,
         IReadOnlyList<WorkItemFieldFilterOptions>? filterOptions = null,
         IMigrationMetrics? metrics = null,
-        string? jobId = null)
+        string? jobId = null,
+        ILogger? logger = null)
     {
         _artefactStore = artefactStore;
         _checkpointingService = checkpointingService;
@@ -75,6 +81,7 @@ public sealed class WorkItemExportOrchestrator
         _filterOptions = filterOptions;
         _metrics = metrics;
         _jobId = jobId;
+        _logger = logger;
     }
 
     /// <summary>
@@ -87,6 +94,9 @@ public sealed class WorkItemExportOrchestrator
         IWorkItemRevisionSource source,
         CancellationToken cancellationToken)
     {
+        using var rootActivity = ActivitySource.StartActivity("workitems.export", ActivityKind.Internal);
+        rootActivity?.SetTag("job.id", _jobId ?? "not-set");
+
         // Pre-filter pass: build the set of work item IDs that pass filter predicates.
         // If filters are configured, fetch only filter-referenced fields via IWorkItemFetchService.
         // Items not in the set are skipped in the main loop — no revision API calls are made.
@@ -103,11 +113,16 @@ public sealed class WorkItemExportOrchestrator
                 Stage = "Export",
                 Message = $"[WorkItems] Pre-filter pass complete: {filteredIds.Count} work items pass the configured filter(s)."
             });
+
+            _logger?.LogInformation("[WorkItems] Pre-filter pass complete: {FilteredCount} work items pass filters.", filteredIds.Count);
         }
 
         var cursor = await _checkpointingService
             .ReadCursorAsync("WorkItems", cancellationToken)
             .ConfigureAwait(false);
+
+        if (cursor != null)
+            _logger?.LogInformation("[WorkItems] Resuming export from cursor: {Cursor}", cursor.LastProcessed);
 
         int workItemsProcessed = 0;
         int revisionsProcessed = 0;
@@ -128,6 +143,8 @@ public sealed class WorkItemExportOrchestrator
 
         // Detect streaming support once rather than per-attachment.
         var streamingSource = _attachmentBinarySource as IStreamingAttachmentBinarySource;
+
+        Activity? workItemActivity = null;
 
         await foreach (var revision in source.GetRevisionsAsync(cancellationToken))
         {
@@ -152,6 +169,9 @@ public sealed class WorkItemExportOrchestrator
                         Stage = "Export",
                         Message = $"[WorkItems] Work item {revision.WorkItemId} skipped by filter scope."
                     });
+
+                    if (_logger != null)
+                        _logger.LogDebug("[WorkItems] Work item {WorkItemId} skipped by filter scope.", revision.WorkItemId);
                 }
                 continue;
             }
@@ -172,6 +192,14 @@ public sealed class WorkItemExportOrchestrator
                     exportTags);
                 _metrics.RecordPayloadBytes(json.Length, exportTags);
             }
+
+            if (_logger != null)
+                _logger.LogDebug(
+                        "[WorkItems] WI {WorkItemId} rev {RevisionIndex}: fields={FieldCount}, attachments={AttachmentCount}, links={LinkCount}, bytes={PayloadBytes}",
+                        revision.WorkItemId, revision.RevisionIndex, revision.Fields.Count,
+                        revision.Attachments.Count,
+                        revision.ExternalLinks.Count + revision.RelatedLinks.Count + revision.Hyperlinks.Count,
+                        json.Length);
 
             // For comment edit/delete revisions, fetch the matching comment versions by timestamp
             // and write them as comment.json beside revision.json in the same revision folder.
@@ -215,6 +243,11 @@ public sealed class WorkItemExportOrchestrator
                         Stage = "Export",
                         Message = $"[WorkItems] Warning: inline comment fetch failed for work item {revision.WorkItemId} revision {revision.RevisionIndex}: {ex.Message}"
                     });
+
+                    if (_logger != null)
+                        _logger.LogWarning(ex,
+                                "[WorkItems] Inline comment fetch failed for WI {WorkItemId} rev {RevisionIndex}.",
+                                revision.WorkItemId, revision.RevisionIndex);
                 }
             }
 
@@ -223,12 +256,17 @@ public sealed class WorkItemExportOrchestrator
             if (revision.WorkItemId != lastWorkItemId)
             {
                 // Record completion of the previous work item (if any).
-                if (lastWorkItemId != 0 && _metrics != null)
+                if (lastWorkItemId != 0)
                 {
-                    _metrics.RecordWorkItemCompleted(exportTags);
-                    _metrics.RecordWorkItemDuration(workItemStopwatch.Elapsed.TotalMilliseconds, exportTags);
-                    _metrics.RecordRevisionCount(revisionsForCurrentWorkItem, exportTags);
-                    _metrics.DecrementInFlight(exportTags);
+                    if (_metrics != null)
+                    {
+                        _metrics.RecordWorkItemCompleted(exportTags);
+                        _metrics.RecordWorkItemDuration(workItemStopwatch.Elapsed.TotalMilliseconds, exportTags);
+                        _metrics.RecordRevisionCount(revisionsForCurrentWorkItem, exportTags);
+                        _metrics.DecrementInFlight(exportTags);
+                    }
+                    workItemActivity?.Dispose();
+                    workItemActivity = null;
                 }
 
                 // Record attempted for the new work item and restart timing.
@@ -237,9 +275,18 @@ public sealed class WorkItemExportOrchestrator
                 workItemStopwatch.Restart();
                 revisionsForCurrentWorkItem = 1; // This is the first revision of the new work item.
 
+                workItemActivity = ActivitySource.StartActivity("workitem.export", ActivityKind.Internal);
+                workItemActivity?.SetTag("job.id", _jobId ?? "not-set");
+                workItemActivity?.SetTag("workitem.id", revision.WorkItemId);
+
                 // Emit once per work item (not per revision) to avoid flooding the channel.
                 workItemsProcessed++;
                 lastWorkItemId = revision.WorkItemId;
+
+                if (_logger != null)
+                    _logger.LogInformation(
+                            "[WorkItems] Exporting WI {WorkItemId} ({WorkItemsProcessed} items / {RevisionsProcessed} revisions so far).",
+                            revision.WorkItemId, workItemsProcessed, revisionsProcessed);
 
                 _progressSink?.Emit(new ProgressEvent
                 {
@@ -272,10 +319,16 @@ public sealed class WorkItemExportOrchestrator
                     if (downloadUrl is { Length: > 0 } &&
                         previousAttachmentUrls.Contains(downloadUrl))
                     {
+                        if (_logger != null)
+                            _logger.LogDebug("[WorkItems] WI {WorkItemId} rev {RevisionIndex}: attachment delta-skipped (same URL as previous revision).",
+                                    revision.WorkItemId, revision.RevisionIndex);
                         continue;
                     }
 
                     var targetPath = $"{folderPath}{attachment.RelativePath}";
+
+                    using var attachmentActivity = ActivitySource.StartActivity("attachment.download", ActivityKind.Internal);
+                    attachmentActivity?.SetTag("workitem.id", revision.WorkItemId);
 
                     // Prefer streaming path when the source supports it (no byte[] buffering).
                     if (streamingSource != null)
@@ -334,6 +387,7 @@ public sealed class WorkItemExportOrchestrator
                 Stage = "Export",
                 Message = "[WorkItems] Warning: all work items were filtered out by filter scopes. Check your filter configuration."
             });
+            _logger?.LogWarning("[WorkItems] All work items were filtered out by filter scopes.");
         }
 
         // Record completion of the final work item.
@@ -344,6 +398,14 @@ public sealed class WorkItemExportOrchestrator
             _metrics.RecordRevisionCount(revisionsForCurrentWorkItem, exportTags);
             _metrics.DecrementInFlight(exportTags);
         }
+        workItemActivity?.Dispose();
+
+        _logger?.LogInformation(
+                "[WorkItems] Export complete. WorkItems={WorkItemsProcessed}, Revisions={RevisionsProcessed}, Attachments={AttachmentsProcessed}, AttachmentsFailed={AttachmentsFailed}.",
+                workItemsProcessed, revisionsProcessed, attachmentsProcessed, attachmentsFailed);
+
+        rootActivity?.SetTag("workitems.count", workItemsProcessed);
+        rootActivity?.SetTag("revisions.count", revisionsProcessed);
     }
 
     /// <summary>

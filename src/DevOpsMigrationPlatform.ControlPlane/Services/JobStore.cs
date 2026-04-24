@@ -5,7 +5,9 @@ using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Telemetry;
 using DevOpsMigrationPlatform.ControlPlane.Models;
+using Microsoft.Extensions.Logging;
 
 namespace DevOpsMigrationPlatform.ControlPlane.Services;
 
@@ -23,15 +25,23 @@ public sealed class JobStore : IJobStore
     private readonly SemaphoreSlim _pendingSignal = new(0);
     private readonly ConcurrentQueue<Guid> _pending = new();
     private readonly IJobLifecycleMetrics? _metrics;
+    private readonly ILogger? _logger;
 
-    public JobStore(IJobLifecycleMetrics? metrics = null)
+    private static readonly ActivitySource ActivitySource = new(WellKnownActivitySourceNames.ControlPlane);
+
+    public JobStore(IJobLifecycleMetrics? metrics = null, ILogger<JobStore>? logger = null)
     {
         _metrics = metrics;
+        _logger = logger;
     }
 
     /// <inheritdoc />
     public Guid Enqueue(Job job)
     {
+        using var activity = ActivitySource.StartActivity("job.enqueue", ActivityKind.Internal);
+        activity?.SetTag("job.id", job.JobId);
+        activity?.SetTag("job.type", GetJobType(job));
+
         var jobId = Guid.Parse(job.JobId);
         _all[jobId] = job;
         _states[jobId] = "Queued";
@@ -45,6 +55,8 @@ public sealed class JobStore : IJobStore
             { "job.type", GetJobType(job) }
         });
 
+        _logger?.LogInformation("[ControlPlane] Job {JobId} ({JobType}) enqueued.", job.JobId, GetJobType(job));
+
         return jobId;
     }
 
@@ -56,11 +68,16 @@ public sealed class JobStore : IJobStore
 
         if (_pending.TryDequeue(out var jobId) && _all.TryGetValue(jobId, out var job))
         {
+            using var activity = ActivitySource.StartActivity("job.dequeue", ActivityKind.Internal);
+            activity?.SetTag("job.id", job.JobId);
+            activity?.SetTag("job.type", GetJobType(job));
+
             _metrics?.JobDequeued(new TagList
             {
                 { "job.id", job.JobId },
                 { "job.type", GetJobType(job) }
             });
+            _logger?.LogDebug("[ControlPlane] Job {JobId} ({JobType}) dequeued for processing.", job.JobId, GetJobType(job));
             return job;
         }
 
@@ -94,8 +111,14 @@ public sealed class JobStore : IJobStore
     /// <inheritdoc />
     public void SetState(Guid jobId, string state)
     {
+        using var activity = ActivitySource.StartActivity("job.setState", ActivityKind.Internal);
+        activity?.SetTag("job.id", jobId.ToString());
+        activity?.SetTag("job.state", state);
+
         var previousState = _states.TryGetValue(jobId, out var prev) ? prev : null;
         _states[jobId] = state;
+
+        _logger?.LogDebug("[ControlPlane] Job {JobId} state: {PreviousState} → {NewState}.", jobId, previousState ?? "(none)", state);
 
         // Only fire JobStarted once (first transition to Running).
         if (state == "Running" && previousState != "Running")
@@ -119,16 +142,26 @@ public sealed class JobStore : IJobStore
                 { "job.type", GetJobType(job) }
             };
 
+            double? durationMs = null;
             if (_startedAt.TryRemove(jobId, out var started))
             {
-                var durationMs = (DateTimeOffset.UtcNow - started).TotalMilliseconds;
-                _metrics?.RecordJobDuration(durationMs, tags);
+                durationMs = (DateTimeOffset.UtcNow - started).TotalMilliseconds;
+                _metrics?.RecordJobDuration(durationMs.Value, tags);
             }
 
             if (state == "Completed")
+            {
                 _metrics?.JobCompleted(tags);
+                if (durationMs.HasValue)
+                    _logger?.LogInformation("[ControlPlane] Job {JobId} completed in {DurationMs:F0}ms.", jobId, durationMs.Value);
+                else
+                    _logger?.LogInformation("[ControlPlane] Job {JobId} completed.", jobId);
+            }
             else
+            {
                 _metrics?.JobFailed(tags);
+                _logger?.LogWarning("[ControlPlane] Job {JobId} failed.", jobId);
+            }
         }
     }
 

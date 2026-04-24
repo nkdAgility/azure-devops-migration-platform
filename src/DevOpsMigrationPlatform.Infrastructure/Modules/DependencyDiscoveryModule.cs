@@ -27,6 +27,8 @@ public sealed class DependencyDiscoveryModule : IDiscoveryModule
     private const string CursorKey = PackagePaths.Checkpoints + "/Dependencies.cursor.json";
     private const string RootCsvPath = "dependencies.csv";
 
+    private static readonly ActivitySource ActivitySource = new(WellKnownActivitySourceNames.Discovery);
+
     private readonly IDependencyDiscoveryServiceFactory _dependencyFactory;
     private readonly ILogger<DependencyDiscoveryModule> _logger;
     private readonly IDiscoveryMetrics? _metrics;
@@ -54,6 +56,9 @@ public sealed class DependencyDiscoveryModule : IDiscoveryModule
 
     public async Task RunAsync(DiscoveryContext context, CancellationToken ct)
     {
+        using var rootActivity = ActivitySource.StartActivity("discovery.dependencies", ActivityKind.Internal);
+        rootActivity?.SetTag("job.id", context.Job.JobId);
+
         var job = context.Job;
         var store = context.ArtefactStore;
         var state = context.StateStore;
@@ -496,6 +501,9 @@ public sealed class DependencyDiscoveryModule : IDiscoveryModule
         const string CsvHeader =
             "SourceWorkItemId,SourceWorkItemType,SourceProject,SourceOrganisationUrl," +
             "LinkType,LinkScope,TargetWorkItemId,TargetProject,TargetOrganisation,TargetStatus,LinkChangedDate,SourceWorkItemStateCategory";
+
+        // All data within the processing loop references org URLs, project names, and WI IDs — customer data.
+        using var _dataScope = DataClassificationScope.Begin(DataClassification.Customer);
 
         await foreach (var evt in dependencyService.DiscoverDependenciesAsync(completedProjects, null, ct).ConfigureAwait(false))
         {

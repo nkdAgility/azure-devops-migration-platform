@@ -147,7 +147,7 @@ The agent's `--level` and the control plane's floor are independent. Setting `--
 
 ### Data Sovereignty
 
-Customer-identifiable data (work item IDs, field values, project names, org URLs, attachment paths) must not leave the operator's infrastructure via the Azure Monitor / OTLP telemetry pipeline. The platform enforces this through a `DataClassification` scope mechanism:
+Customer-identifiable data (field values, project names, org URLs, attachment paths) must not leave the operator's infrastructure via the Azure Monitor / OTLP telemetry pipeline. The platform enforces this through a `DataClassification` scope mechanism:
 
 1. **`DataClassification` enum** (`Abstractions/Telemetry/DataClassification.cs`): `System` (default, safe for export), `Customer` (blocked from Azure Monitor), `Derived` (aggregates, safe for export).
 2. **`DataClassificationScope`** (`Abstractions/Telemetry/DataClassificationScope.cs`): `AsyncLocal`-backed ambient scope. Set via `DataClassificationScope.Begin(classification)` or the `ILogger.BeginDataScope(classification)` extension method.
