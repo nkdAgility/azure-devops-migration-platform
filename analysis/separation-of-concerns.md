@@ -1,53 +1,90 @@
-# Separation of Concerns — Abstractions & Project Boundary Analysis
+# Separation of Concerns — Abstractions & Project Boundary Specification
 
-## Context
+## Governing principle
 
-This document captures the boundary-violation analysis of `DevOpsMigrationPlatform.Abstractions`
-and `CLI.Migration` project references, and the proposed structural remediation.
-
-The system enforces a strict communication topology:
+The system enforces a strict three-channel communication topology:
 
 ```
-CLI  ←→  ControlPlane  ←→  Agent
+CLI  ←HTTP→  ControlPlane  ←HTTP→  Agent
 ```
 
-CLI and TUI must not hold Agent-internal contracts. The compiler should enforce this via
-project reference topology, not developer discipline.
+Each component runs in its own process. No component may compile against another
+component's internal contracts. The compiler enforces this via project reference
+topology — boundary violations are build errors, not code review findings.
 
 ---
 
-## Problem 1 — `Abstractions` is a technical bucket, not a boundary map
+## Current state — what is wrong
 
-### Current structure
+### `DevOpsMigrationPlatform.Abstractions` is a flat technical bucket
 
-| Folder | Files | Problem |
-|--------|-------|---------|
-| `Models/` | 70+ files | CLI contracts, Agent domain objects, and shared types all mixed together |
-| `Services/` | 40+ files | CLI-side interfaces mixed with Agent-execution interfaces |
-| `Telemetry/` | 18 files | Constants (cross-cutting) and OTel interfaces (Agent/CP-specific) mixed together |
-| `Checkpointing/` | 3 files | Agent-only — `CursorEntry` is only written by the Agent |
-| `Storage/` | 2 files | Agent-only — `IArtefactStore`/`IStateStore` have data residency restriction |
-| `Utilities/` | 2 files | Generic bucket name — screaming architecture violation |
-| `Options/` | 24 files | ✅ Cross-cutting — config schema only |
-| `Errors/` | 3 files | ✅ Cross-cutting |
-| `Validation/` | 2 files | ✅ Cross-cutting |
+| Folder | Problem |
+|--------|---------|
+| `Models/` (70+ files) | CLI contracts, Agent domain objects, and CP HTTP payloads all mixed together |
+| `Services/` (40+ files) | CLI config interfaces next to Agent execution interfaces |
+| `Telemetry/` (18 files) | Cross-cutting constants mixed with Agent/CP-specific OTel metric interfaces |
+| `Checkpointing/` (3 files) | Agent-only — only the Agent writes cursors |
+| `Storage/` (2 files) | Agent-only — `IArtefactStore`/`IStateStore` have a data residency restriction |
+| `Utilities/` (2 files) | Generic bucket name — screaming architecture violation |
 
-### Impact
+**Impact:** `IArtefactStore` and `IControlPlaneClient` are in the same assembly. A CLI
+command can accidentally inject `IArtefactStore` and the compiler will not object.
 
-`IArtefactStore` and `IControlPlaneClient` sit in the same project. A CLI command can
-accidentally inject `IArtefactStore` and the compiler will not object. The data residency
-guardrail (agents.md rule 23 — only the Migration Agent and TFS Export Agent may write
-to the package) relies entirely on code review.
+### `CLI.Migration` references five projects it should never touch
+
+```xml
+<ProjectReference Include="..\DevOpsMigrationPlatform.ControlPlane\..." />
+<ProjectReference Include="..\DevOpsMigrationPlatform.MigrationAgent\..." />
+<ProjectReference Include="..\DevOpsMigrationPlatform.Infrastructure\..." />
+<ProjectReference Include="..\DevOpsMigrationPlatform.Infrastructure.AzureDevOps\..." />
+<ProjectReference Include="..\DevOpsMigrationPlatform.Infrastructure.Simulated\..." />
+```
+
+**Root cause:** `LocalStackHost` has an in-process fallback that hosts the ControlPlane
+and MigrationAgent inside the CLI process when published binaries are not found. This
+makes the CLI the composition root for both CP and Agent — pulling in every Agent-internal
+contract, every Infrastructure implementation, and every backend-specific package.
+
+The correct pattern already exists: `ChildProcessHost` launches CP and Agent as separate
+OS processes (identical to how `ExternalToolRunner` launches `CLI.TfsMigration` for TFS
+export). The in-process fallback is unnecessary and must be deleted.
 
 ---
 
-## Proposed fix — split into three projects
+## Target state
 
-### `DevOpsMigrationPlatform.Abstractions` — truly cross-cutting
+### `CLI.Migration.csproj` — single reference
+
+```xml
+<ProjectReference Include="..\DevOpsMigrationPlatform.Abstractions\DevOpsMigrationPlatform.Abstractions.csproj" />
+```
+
+The CLI compiles against `Abstractions` only. It launches ControlPlane and Agent as child
+processes via `ChildProcessHost`. All communication with CP is via HTTP using the contracts
+in `Abstractions/ControlPlane/`.
+
+### Project reference topology — enforced by compiler
+
+| Project | Abstractions | Abstractions.ControlPlane | Abstractions.Agent |
+|---------|:---:|:---:|:---:|
+| `CLI.Migration` | ✅ | ❌ | ❌ |
+| `TUI` | ✅ | ❌ | ❌ |
+| `ControlPlane` / `ControlPlaneHost` | ✅ | ✅ | ❌ |
+| `MigrationAgent` | ✅ | ❌ | ✅ |
+| `CLI.TfsMigration` (.NET 4.8) | ✅ | ❌ | ✅ |
+| `Infrastructure` | ✅ | ❌ | ✅ |
+
+Every component talks to the ControlPlane exclusively via HTTP contracts in base
+`Abstractions`. Only `ControlPlane`/`ControlPlaneHost` references `Abstractions.ControlPlane`.
+The CP-internal store and OTel interfaces are invisible to everything outside the CP process.
+
+---
+
+## `DevOpsMigrationPlatform.Abstractions` — truly cross-cutting
 
 Shared types that all three components (CLI, ControlPlane, Agent) legitimately depend on.
 
-#### `Domain/`
+### `Domain/`
 ```
 Job.cs
 MigrationJob.cs
@@ -71,17 +108,16 @@ ValidationContext.cs
 FilterOperator.cs
 ```
 
-#### `Configuration/`
+### `Configuration/`
 CLI-facing service for loading and validating config files on disk before job submission.
-The CLI calls this directly; the Agent never touches it.
 ```
 IConfigurationService.cs
+IPreFlightValidator.cs            ← Tier 0/1 validation before job submission
 ```
 
-#### `ControlPlane/`
-The HTTP contracts and payload types the CLI and Agent use to communicate with the
-ControlPlane. These live in base `Abstractions` so any component that talks to CP
-compiles against them without needing a reference to `Abstractions.ControlPlane`.
+### `ControlPlane/`
+HTTP contracts and payload types for communicating with the ControlPlane.
+All components that talk to CP compile against these — no separate assembly needed.
 ```
 IControlPlaneClient.cs            ← CLI reads jobs, streams logs, gets telemetry via HTTP
 IJobRunner.cs                     ← CLI submits jobs to CP via HTTP
@@ -103,10 +139,16 @@ InventoryCounters.cs              ← embedded in DiscoveryCounters
 DependencyCounters.cs             ← embedded in DiscoveryCounters
 ```
 
-#### `Options/`
-All existing `Options/` files unchanged — config schema is cross-cutting.
+### `Options/`
+Config schema — cross-cutting. Includes backend-specific endpoint option types
+(currently in `Infrastructure.AzureDevOps.Options` and `Infrastructure.Simulated.Options`)
+because they are config schema, not execution contracts.
 ```
 AuthenticationType.cs
+AzureDevOpsEndpointOptions.cs     ← moved from Infrastructure.AzureDevOps.Options
+AzureDevOpsOrganisationEntry.cs   ← moved from Infrastructure.AzureDevOps.Options
+SimulatedEndpointOptions.cs       ← moved from Infrastructure.Simulated.Options
+SimulatedOrganisationEntry.cs     ← moved from Infrastructure.Simulated.Options
 CommentsExtensionOptionsConfig.cs
 DiscoveryOptions.cs
 EmbeddedImagesExtensionOptionsConfig.cs
@@ -132,20 +174,29 @@ WorkItemsModuleOptions.cs
 WorkItemsScopeOptions.cs
 ```
 
-#### `Errors/`
+### `Serialization/`
+Polymorphic JSON converters needed by anyone who deserialises config files or job payloads.
+Currently in `Infrastructure.Serialization` — must move here so CLI, CP, and Agent all
+have access without referencing `Infrastructure`.
+```
+PolymorphicEndpointOptionsConverter.cs
+MigrationPlatformJsonContext.cs   ← (or equivalent serializer setup)
+```
+
+### `Errors/`
 ```
 MigrationErrorCategory.cs
 MigrationException.cs
 PackageLockConflictException.cs
 ```
 
-#### `Validation/`
+### `Validation/`
 ```
 ValidationError.cs
 ValidationResult.cs
 ```
 
-#### `Telemetry/`
+### `Telemetry/`
 Constants and classification only — **no interfaces**.
 ```
 DataClassification.cs
@@ -160,25 +211,24 @@ WellKnownMetricNames.cs
 WellKnownServiceNames.cs
 ```
 
-#### `Diagnostics/`
+### `Diagnostics/`
 ```
 DiagnosticLogOptions.cs
 ```
 
-#### `Polyfills/`
+### `Polyfills/`
 ```
 IsExternalInit.cs
 ```
 
 ---
 
-### `DevOpsMigrationPlatform.Abstractions.ControlPlane` — CP-internal only
+## `DevOpsMigrationPlatform.Abstractions.ControlPlane` — CP-internal only
 
-Contracts that only the ControlPlane itself implements internally.
-Neither the CLI, TUI, nor the Agent reference this project — all three communicate
-with CP exclusively via the HTTP contracts in base `Abstractions`.
+Contracts that only the ControlPlane itself implements internally. No other component
+references this project.
 
-#### `Metrics/`
+### `Metrics/`
 ```
 IJobLifecycleMetrics.cs           ← OTel instruments emitted inside the CP process
 IJobMetricsStore.cs               ← CP persists incoming agent metrics
@@ -187,33 +237,34 @@ IJobSnapshotStore.cs              ← CP persists incoming agent snapshots
 
 ---
 
-### `DevOpsMigrationPlatform.Abstractions.Agent` — Agent-internal only
+## `DevOpsMigrationPlatform.Abstractions.Agent` — Agent-internal only
 
-Contracts used exclusively inside the Migration Agent (and `CLI.TfsMigration` which
-is the TFS Export Agent running inline).
+Contracts used exclusively inside the Migration Agent and `CLI.TfsMigration`
+(the TFS Export Agent running inline).
 
-#### `Storage/`
+### `Storage/`
 ```
 IArtefactStore.cs
 IStateStore.cs
 ```
 
-#### `Checkpointing/`
+### `Checkpointing/`
 ```
 CursorEntry.cs
 CursorStage.cs
 JobPhaseRecord.cs
 ```
 
-#### `Runtime/`
+### `Runtime/`
 Agent lifecycle singletons — set when a lease is acquired, cleared on release.
 ```
 ActiveLeaseState.cs
 ActivePackageState.cs
-PackagePaths.cs                   ← package path constants (IArtefactStore paths)
+PackagePaths.cs
+PathUtilities.cs                  ← moved from Utilities/; rename to PackagePathUtilities
 ```
 
-#### `WorkItems/`
+### `WorkItems/`
 ```
 WorkItemRevision.cs
 WorkItemField.cs
@@ -234,7 +285,7 @@ FetchedWorkItem.cs
 IdMapEntry.cs
 ```
 
-#### `Attachments/`
+### `Attachments/`
 ```
 AttachmentMetadata.cs
 AttachmentCounters.cs
@@ -244,30 +295,30 @@ EmbeddedImageMetadata.cs
 EmbeddedImageDownloadResult.cs
 ```
 
-#### `Export/`
+### `Export/`
 ```
 ExportContext.cs
 BatchContinuationToken.cs
 RevisionProcessResult.cs
 DiscoveryContext.cs
-InventoryReport.cs                ← written by Agent to inventory.json; CLI never compiles against this
+InventoryReport.cs
 InventorySummary.cs
-InventoryProgressEvent.cs         ← internal Agent progress signal; CLI receives ProgressEvent from CP instead
+InventoryProgressEvent.cs
 ProjectDiscoverySummary.cs
 DependencyRecord.cs
 DependencySummary.cs
 DependencyProgressEvent.cs
 ```
 
-#### `Import/`
+### `Import/`
 ```
 ImportContext.cs
 ImportedWorkItemResult.cs
 ```
 
-#### `Services/`
+### `Services/`
 ```
-ICatalogService.cs                ← queries source systems for project/count data; Agent-execution concern
+ICatalogService.cs
 IInventoryService.cs
 IInventoryServiceFactory.cs
 IProjectDiscoveryService.cs
@@ -288,7 +339,7 @@ IPackageStoreFactory.cs
 IPackageValidator.cs
 IPhaseTrackingService.cs
 IPhaseTrackingServiceFactory.cs
-IProgressSink.cs                  ← also used by CLI.TfsMigration (legitimate — it IS the TFS agent)
+IProgressSink.cs
 IQueryFingerprintService.cs
 IRevisionFolderProcessor.cs
 IRevisionFolderProcessorFactory.cs
@@ -306,7 +357,7 @@ IWorkItemRevisionSource.cs
 IWorkItemRevisionSourceFactory.cs
 ```
 
-#### `Telemetry/`
+### `Telemetry/`
 OTel metric interfaces — only emitted from within Agent execution.
 ```
 IDiscoveryMetrics.cs
@@ -315,7 +366,7 @@ IAttachmentDownloadMetrics.cs
 IMigrationMetrics.cs
 ```
 
-#### `Modules/`
+### `Modules/`
 ```
 IModule.cs
 IDiscoveryModule.cs
@@ -326,172 +377,80 @@ EmbeddedImagesExtensionOptions.cs
 
 ---
 
-## Project reference topology — enforced by compiler
+## Migration path
 
-| Project | Abstractions | Abstractions.ControlPlane | Abstractions.Agent |
-|---------|:---:|:---:|:---:|
-| `CLI.Migration` | ✅ | ❌ | ❌ |
-| `TUI` | ✅ | ❌ | ❌ |
-| `ControlPlane` / `ControlPlaneHost` | ✅ | ✅ | ❌ |
-| `MigrationAgent` | ✅ | ❌ | ✅ |
-| `CLI.TfsMigration` (.NET 4.8) | ✅ | ❌ | ✅ |
-| `Infrastructure` | ✅ | ❌ | ✅ |
+### Step 1 — Delete in-process fallback from `LocalStackHost`
 
-All three communicating components (CLI, Agent, TUI) talk to the ControlPlane exclusively
-via HTTP contracts in base `Abstractions` (`IControlPlaneClient`, `IJobRunner`,
-`IControlPlaneTelemetryClient`). No component other than `ControlPlane`/`ControlPlaneHost`
-needs `Abstractions.ControlPlane`. The CP-internal store and OTel interfaces are invisible
-to everything outside the CP process boundary.
+Remove `StartControlPlaneInProcessAsync()` and `StartAgentInProcessAsync()`.
+When published binaries are not found, fail with an actionable error:
+`"ControlPlane/Agent binaries not found. Run 'build.ps1 Install' to publish."`.
 
----
+This immediately removes the need for three project references:
+`ControlPlane`, `MigrationAgent`, and most of `Infrastructure`.
 
-## Problem 2 — `CLI.Migration` pulls in unused Agent-side execution services
+### Step 2 — Move config-schema types to `Abstractions/Options/`
 
-### Current `CLI.Migration.csproj` references (problematic lines)
+Move `AzureDevOpsEndpointOptions`, `AzureDevOpsOrganisationEntry`,
+`SimulatedEndpointOptions`, `SimulatedOrganisationEntry` from their
+`Infrastructure.*` projects into `Abstractions/Options/`.
 
+Move endpoint type-registration extension methods (`AddEndpointOptionsType`,
+`AddOrganisationEntryType`) to `Abstractions` so any component can register
+polymorphic config types without referencing `Infrastructure`.
+
+### Step 3 — Move serialization to `Abstractions/Serialization/`
+
+Move `PolymorphicEndpointOptionsConverter` and `AddMigrationPlatformPolymorphicSerializers()`
+from `Infrastructure.Serialization` to `Abstractions/Serialization/`.
+
+### Step 4 — Extract `IPreFlightValidator` to `Abstractions/Configuration/`
+
+`QueueCommand` currently references `AzureDevOpsValidation` (concrete class in
+`Infrastructure.AzureDevOps`). Extract `IPreFlightValidator` interface to
+`Abstractions/Configuration/`. The implementation stays in `Infrastructure.AzureDevOps`
+and is resolved via DI — the CLI never holds a direct reference.
+
+### Step 5 — Remove concrete `ConfigurationService` usage from CLI commands
+
+`QueueCommand`, `ConfigNewCommand`, `ConfigureCommand`, `PrepareCommand` all
+`new` up `ConfigurationService` (a concrete class in `Infrastructure.Services`).
+Register it via `IConfigurationService` from a CLI composition-root extension method.
+The concrete class stays in `Infrastructure`.
+
+### Step 6 — Move `TokenResolver` to `Abstractions/Options/`
+
+Currently in `Utilities/`. It resolves config tokens (`{env:VAR}`) — a cross-cutting
+config concern. Rename to `ConfigTokenResolver` for clarity.
+
+### Step 7 — Remove all invalid project references
+
+Delete from `CLI.Migration.csproj`:
 ```xml
+<ProjectReference Include="..\DevOpsMigrationPlatform.ControlPlane\..." />
+<ProjectReference Include="..\DevOpsMigrationPlatform.MigrationAgent\..." />
+<ProjectReference Include="..\DevOpsMigrationPlatform.Infrastructure\..." />
 <ProjectReference Include="..\DevOpsMigrationPlatform.Infrastructure.AzureDevOps\..." />
 <ProjectReference Include="..\DevOpsMigrationPlatform.Infrastructure.Simulated\..." />
 ```
 
-### What the CLI actually needs from these
+### Step 8 — Create `Abstractions.ControlPlane` and `Abstractions.Agent` projects
 
-`InventoryCommand` calls `AddAzureDevOpsInventory(config)`.
-`DependencyCommand` calls `AddAzureDevOpsDependencyAnalysis(config)`.
-
-Both commands then resolve **only**:
-- `IAnsiConsole`
-- `IOptions<DiscoveryOptions>` — config binding
-- `ControlPlaneClient` — HTTP submission
-
-They build a `DiscoveryJob` and submit it via HTTP. They **never** resolve the
-execution services from the CLI DI container.
-
-### Services registered in the CLI process but never resolved
-
-```
-IWorkItemDiscoveryService
-IProjectDiscoveryService
-IRepoDiscoveryService
-IWorkItemFetchService
-IWiqlQueryClientFactory
-IAzureDevOpsClientFactory
-IWorkItemQueryWindowStrategy
-IInventoryService
-IInventoryServiceFactory
-```
-
-`AddSimulatedServices()` (called unconditionally from `MigrationCliServiceCollectionExtensions`)
-also registers:
-```
-IWorkItemRevisionSourceFactory    ← Agent-only
-IWorkItemImportTargetFactory      ← Agent-only
-```
-
-### Root cause
-
-The `AddAzureDevOpsInventory()` and `AddSimulatedServices()` extension methods bundle
-CLI config concerns and Agent execution concerns into a single call. The CLI has no way
-to take only config binding without pulling in execution services.
-
-### Proposed fix — split infrastructure registration by audience
-
-```csharp
-// CLI-safe — config binding and endpoint type registration only
-services.AddAzureDevOpsDiscoveryConfiguration(config);
-services.AddSimulatedEndpointTypes();
-
-// Agent-only — execution services (registered only inside MigrationAgent DI setup)
-services.AddAzureDevOpsInventoryExecution();
-services.AddSimulatedWorkItemExecution();
-```
-
-Once split, `CLI.Migration` calls only `*Configuration` / `*EndpointTypes` variants.
-Config binding can then move to `Infrastructure` (already referenced by CLI), allowing
-the `Infrastructure.AzureDevOps` and `Infrastructure.Simulated` project references to
-be **removed from `CLI.Migration.csproj` entirely**.
-
-### Exception — `CLI.TfsMigration` is correct
-
-`CLI.TfsMigration` directly resolves `IWorkItemDiscoveryService` because it **is** the
-TFS Export Agent running inline — not a CLI submitting to ControlPlane. This reference
-is legitimate and is not a violation.
+Split the files from `DevOpsMigrationPlatform.Abstractions` into the three projects
+as specified above. Update all consuming projects to reference the correct subset.
 
 ---
 
-## Problem 3 — `CLI.Migration` is the composition root for ControlPlane and Agent
+## Notes
 
-### Current state
+### `CLI.TfsMigration` is not a violation
 
-`LocalStackHost` has two modes:
-1. **Process-per-component** (correct) — launches `ControlPlaneHost.exe` and `MigrationAgent.exe`
-   as child processes via `ChildProcessHost`. No assembly dependencies needed.
-2. **In-process fallback** (violation) — when published binaries are not found, `LocalStackHost`
-   calls `AddControlPlaneServices()`, `AddMigrationAgentServices()`, and hosts both components
-   inside the CLI process. This is why `CLI.Migration.csproj` references `ControlPlane`,
-   `MigrationAgent`, `Infrastructure`, `Infrastructure.AzureDevOps`, and `Infrastructure.Simulated`.
+`CLI.TfsMigration` IS the TFS Export Agent — it runs work item export inline, not via
+ControlPlane. It correctly references `Abstractions` + `Abstractions.Agent` and directly
+resolves `IWorkItemDiscoveryService`, `IProgressSink`, etc. This is by design.
 
-### Why the in-process fallback must be deleted
+### `Infrastructure` references `Abstractions.Agent`
 
-The fallback makes the CLI the composition root for CP and Agent. This:
-- **Breaks the three-channel topology.** The CLI holds `IArtefactStore`, `IModule`, every
-  Agent-internal contract. A developer can inject anything.
-- **Breaks telemetry isolation.** Multiple OTel pipelines in one process produce phantom
-  dependency arrows on Application Insights. The existing code already warns about this.
-- **Is unnecessary.** The TFS export pattern proves the CLI can launch child processes
-  without in-process hosting. `ChildProcessHost` and `ExternalToolRunner` already work.
-  The `dotnet run` case should build-then-launch rather than host in-process.
-
-### What the CLI should reference after remediation
-
-```xml
-<!-- CLI.Migration.csproj — target state -->
-<ProjectReference Include="..\DevOpsMigrationPlatform.Abstractions\DevOpsMigrationPlatform.Abstractions.csproj" />
-```
-
-That is it. The CLI should compile against `Abstractions` only. Everything else is
-launched as a child process or accessed via HTTP.
-
-### Detailed dependency analysis for remaining usages
-
-| Current usage | File | What it touches | Fix |
-|---|---|---|---|
-| `AddControlPlaneServices()` | `LocalStackHost.cs` | `ControlPlane` | Delete in-process fallback |
-| `AddMigrationAgentServices()` | `LocalStackHost.cs` | `MigrationAgent` | Delete in-process fallback |
-| `ControlPlaneServiceExtensions.Assembly` | `LocalStackHost.cs` | `ControlPlane` | Delete in-process fallback |
-| `AddEndpointOptionsType("AzureDevOpsServices", ...)` | `LocalStackHost.cs`, `MigrationCliServiceCollectionExtensions.cs` | `Infrastructure.AzureDevOps` (endpoint types) | Move type registration to `Abstractions` or to a thin `Infrastructure.Configuration` package |
-| `AddSimulatedServices()` | `MigrationCliServiceCollectionExtensions.cs` | `Infrastructure.Simulated` (Agent factories) | Replace with `AddSimulatedConfigurationTypes()` in thin config package |
-| `AddMigrationPlatformPolymorphicSerializers()` | `LocalStackHost.cs`, `MigrationPlatformHost.cs` | `Infrastructure` (serialisation) | Move polymorphic serializer registration to `Abstractions` or thin `Infrastructure.Serialization` package |
-| `ConfigurationService` (concrete class) | `QueueCommand.cs`, `ConfigNewCommand.cs`, `ConfigureCommand.cs`, `PrepareCommand.cs` | `Infrastructure.Services` | Register via `IConfigurationService` from a CLI composition-root extension method; move `ConfigurationService` into a thin config package |
-| `AzureDevOpsEndpointOptions` | `QueueCommand.cs`, `LocalStackHost.cs`, `InteractiveConfigurationBuilder.cs` | `Infrastructure.AzureDevOps.Options` | Move endpoint option types to `Abstractions/Options/` — they are config schema, not execution |
-| `SimulatedEndpointOptions` | `LocalStackHost.cs` | `Infrastructure.Simulated.Options` | Same — move to `Abstractions/Options/` |
-| `AzureDevOpsValidation` | `QueueCommand.cs` | `Infrastructure.AzureDevOps.Validation` | Extract `IPreFlightValidator` interface to `Abstractions`; implementation stays in `Infrastructure.AzureDevOps` but is resolved by DI, not direct reference |
-| `AddDataClassificationFilter()` | `LocalStackHost.cs` | `Infrastructure.Telemetry` | Delete in-process fallback |
-| `PolymorphicEndpointOptionsConverter` | `LocalStackHost.cs` | `Infrastructure.Serialization` | Delete in-process fallback |
-| `IProgressSink` + `AnsiProgressSink` | `QueueCommand.cs` | `Abstractions` (interface) + CLI (impl) | Already correct — `IProgressSink` moves to `Abstractions.Agent`, and `QueueCommand` only uses it for TFS subprocess output. The CLI can hold its own `AnsiProgressSink` implementation since the TFS CLI IS an agent. |
-
-### Execution plan (ordered)
-
-1. **Delete `StartControlPlaneInProcessAsync()` and `StartAgentInProcessAsync()` from `LocalStackHost`.** 
-   Require published binaries. If not found, fail with an actionable error message telling the
-   developer to run `build.ps1 Install`.
-2. **Move `AzureDevOpsEndpointOptions`, `SimulatedEndpointOptions`, and related type-registration
-   extension methods to `Abstractions/Options/`** — they are config schema, not execution contracts.
-3. **Move `ConfigurationService` registration to a `AddMigrationCliConfiguration()` extension
-   method** in `Infrastructure` so the CLI resolves only the interface.
-4. **Extract `IPreFlightValidator` to `Abstractions`** and remove direct reference to
-   `AzureDevOpsValidation` from `QueueCommand`.
-5. **Move polymorphic serialiser setup to `Abstractions`** — `PolymorphicEndpointOptionsConverter`
-   is needed by anyone who deserialises the config file (CLI, CP, Agent).
-6. **Remove all five invalid project references from `CLI.Migration.csproj`.**
-
----
-
-## `Utilities/` — screaming architecture violation
-
-`PathUtilities` is a package-path helper (Agent concern).
-`TokenResolver` resolves config tokens (cross-cutting / CLI concern).
-
-Neither belongs in a folder named `Utilities`. Resolution:
-- `PathUtilities` → inline into `PackagePaths` or move to `Abstractions.Agent/Runtime/`
-- `TokenResolver` → move to `Abstractions/Options/` or keep at root as `ConfigTokenResolver`
+`Infrastructure` implements Agent modules (`InventoryDiscoveryModule`,
+`WorkItemExportOrchestrator`, etc.) and uses `IArtefactStore`, `ICheckpointingService`,
+and other Agent-internal contracts. It correctly references `Abstractions` +
+`Abstractions.Agent`.
