@@ -226,6 +226,12 @@ public sealed class JobAgentWorker : BackgroundService
                 prepareFailed = true;
             }
 
+            // Flush before signalling terminal so that progress/log records written during
+            // Prepare are persisted to the package before the control plane notifies the CLI
+            // (which may kill the agent process immediately after seeing completion).
+            await _packageProgressSink.FlushAsync().ConfigureAwait(false);
+            await _packageLoggerProvider.FlushAsync().ConfigureAwait(false);
+
             var prepareTerminal = prepareFailed ? "fail" : "complete";
             await SignalTerminalAsync(controlPlane, leaseId, prepareTerminal, ct).ConfigureAwait(false);
             return;
@@ -299,6 +305,13 @@ public sealed class JobAgentWorker : BackgroundService
             _logger.LogError(ex, "Job {JobId} failed during module execution.", job.JobId);
             failed = true;
         }
+
+        // Flush before signalling terminal so that progress/log records written during
+        // execution are persisted to the package before the control plane notifies the CLI
+        // (which may kill the agent process immediately after seeing completion in
+        // process-per-component mode).
+        await _packageProgressSink.FlushAsync().ConfigureAwait(false);
+        await _packageLoggerProvider.FlushAsync().ConfigureAwait(false);
 
         var terminal = failed ? "fail" : "complete";
         await SignalTerminalAsync(controlPlane, leaseId, terminal, ct).ConfigureAwait(false);
@@ -387,6 +400,13 @@ public sealed class JobAgentWorker : BackgroundService
                 break;
             }
         }
+
+        // Flush before signalling terminal so that progress/log records written during
+        // execution are persisted to the package before the control plane notifies the CLI
+        // (which may kill the agent process immediately after seeing completion in
+        // process-per-component mode).
+        await _packageProgressSink.FlushAsync().ConfigureAwait(false);
+        await _packageLoggerProvider.FlushAsync().ConfigureAwait(false);
 
         var terminal = failed ? "fail" : "complete";
         await SignalTerminalAsync(controlPlane, leaseId, terminal, ct).ConfigureAwait(false);
