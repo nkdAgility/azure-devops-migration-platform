@@ -138,6 +138,7 @@ public sealed class WorkItemExportOrchestrator
         int lastWorkItemId = cursor?.LastWorkItemId ?? 0;
         double lastWorkItemDurationMs = 0;
         double totalWorkItemDurationMs = 0;
+        int lastCompletedRevisions = 0;
 
         // Determine total work items: use cached cursor value on resume, otherwise count via
         // discovery service. Counting happens here in the Agent — never in the CLI.
@@ -197,6 +198,10 @@ public sealed class WorkItemExportOrchestrator
 
         // Per-work-item timing for duration histogram.
         var workItemStopwatch = Stopwatch.StartNew();
+        // Per-revision timing so the CLI can show last/avg revision latency.
+        var revisionStopwatch = Stopwatch.StartNew();
+        double lastRevisionDurationMs = 0;
+        double totalRevisionDurationMs = 0;
         TagList exportTags = _metrics != null
             ? MigrationTagList.Create(_jobId ?? "not-set", "export", "workitems")
             : default;
@@ -316,6 +321,12 @@ public sealed class WorkItemExportOrchestrator
                 }
             }
 
+            // Capture revision duration before the WI-boundary check so it covers the
+            // full cost of writing revision.json + comments (but not attachments).
+            lastRevisionDurationMs = revisionStopwatch.Elapsed.TotalMilliseconds;
+            totalRevisionDurationMs += lastRevisionDurationMs;
+            revisionStopwatch.Restart();
+
             revisionsProcessed++;
 
             if (revision.WorkItemId != lastWorkItemId)
@@ -325,6 +336,7 @@ public sealed class WorkItemExportOrchestrator
                 {
                     lastWorkItemDurationMs = workItemStopwatch.Elapsed.TotalMilliseconds;
                     totalWorkItemDurationMs += lastWorkItemDurationMs;
+                    lastCompletedRevisions = revisionsForCurrentWorkItem;
                     if (_metrics != null)
                     {
                         _metrics.RecordWorkItemCompleted(exportTags);
@@ -373,7 +385,15 @@ public sealed class WorkItemExportOrchestrator
                                 LastWorkItemDurationMs = lastWorkItemDurationMs,
                                 AverageWorkItemDurationMs = workItemsProcessed > 1
                                     ? totalWorkItemDurationMs / (workItemsProcessed - 1)
-                                    : lastWorkItemDurationMs
+                                    : lastWorkItemDurationMs,
+                                LastWorkItemRevisions = lastCompletedRevisions,
+                                CurrentWorkItemId = revision.WorkItemId,
+                                CurrentWorkItemIndex = workItemsProcessed,
+                                CurrentWorkItemRevisionsWritten = revisionsForCurrentWorkItem,
+                                LastRevisionDurationMs = lastRevisionDurationMs,
+                                AverageRevisionDurationMs = revisionsProcessed > 0
+                                    ? totalRevisionDurationMs / revisionsProcessed
+                                    : lastRevisionDurationMs
                             }
                         }
                     }
@@ -382,6 +402,35 @@ public sealed class WorkItemExportOrchestrator
             else
             {
                 revisionsForCurrentWorkItem++;
+
+                // Emit a lightweight per-revision event so consumers can track intra-WI progress.
+                _progressSink?.Emit(new ProgressEvent
+                {
+                    Module = "WorkItems",
+                    Stage = "Export",
+                    Message = $"[WorkItems] WI {revision.WorkItemId} rev {revisionsForCurrentWorkItem}",
+                    LastCheckpointAt = DateTimeOffset.UtcNow,
+                    NextCheckpointDueAt = null,
+                    Metrics = new JobMetrics
+                    {
+                        Migration = new MigrationCounters
+                        {
+                            WorkItems = new WorkItemCounters
+                            {
+                                Completed = workItemsProcessed,
+                                RevisionsProcessed = revisionsProcessed,
+                                LastWorkItemRevisions = lastCompletedRevisions,
+                                CurrentWorkItemId = revision.WorkItemId,
+                                CurrentWorkItemIndex = workItemsProcessed,
+                                CurrentWorkItemRevisionsWritten = revisionsForCurrentWorkItem,
+                                LastRevisionDurationMs = lastRevisionDurationMs,
+                                AverageRevisionDurationMs = revisionsProcessed > 0
+                                    ? totalRevisionDurationMs / revisionsProcessed
+                                    : lastRevisionDurationMs
+                            }
+                        }
+                    }
+                });
             }
 
             // Write attachment binaries beside revision.json when a binary source is available.

@@ -33,6 +33,44 @@ public record WorkItemCounters
     /// </summary>
     public double AverageWorkItemDurationMs { get; init; }
 
+    /// <summary>
+    /// Number of revisions written for the most recently completed work item.
+    /// </summary>
+    public int LastWorkItemRevisions { get; init; }
+
+    // ── In-flight work item (current) ────────────────────────────────────────────
+
+    /// <summary>
+    /// Azure DevOps ID of the work item currently being exported.
+    /// Zero when no work item is in flight.
+    /// </summary>
+    public int CurrentWorkItemId { get; init; }
+
+    /// <summary>
+    /// 1-based ordinal position of <see cref="CurrentWorkItemId"/> in the overall
+    /// export run (i.e. how many distinct work items have been started so far).
+    /// Zero when no work item is in flight.
+    /// </summary>
+    public int CurrentWorkItemIndex { get; init; }
+
+    /// <summary>
+    /// Number of revisions written so far for <see cref="CurrentWorkItemId"/>.
+    /// Increments with each revision and resets to zero when the next WI starts.
+    /// </summary>
+    public int CurrentWorkItemRevisionsWritten { get; init; }
+
+    // ── Per-revision timing ───────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Duration in milliseconds for the most recently written revision.
+    /// </summary>
+    public double LastRevisionDurationMs { get; init; }
+
+    /// <summary>
+    /// Rolling average duration in milliseconds per revision across all revisions written so far.
+    /// </summary>
+    public double AverageRevisionDurationMs { get; init; }
+
     /// <summary>Optional attachment counters. Null when no attachments have been processed.</summary>
     public AttachmentCounters? Attachments { get; init; }
 }

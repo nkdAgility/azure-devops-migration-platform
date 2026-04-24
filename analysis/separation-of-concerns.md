@@ -61,7 +61,7 @@ export). The in-process fallback is unnecessary and must be deleted.
 
 The CLI compiles against `Abstractions` only. It launches ControlPlane and Agent as child
 processes via `ChildProcessHost`. All communication with CP is via HTTP using the contracts
-in `Abstractions/ControlPlane/`.
+in `Abstractions/ControlPlaneApi/`.
 
 ### Project reference topology — enforced by compiler
 
@@ -119,7 +119,9 @@ The CP-internal store and OTel interfaces are invisible to everything outside th
 
 | Test project | References (beyond test frameworks) |
 |---|---|
-| `Infrastructure.Tests` | `Abstractions`, `Abstractions.Agent`, `Infrastructure`, `Infrastructure.AzureDevOps`, `Infrastructure.Simulated` |
+| `Infrastructure.Tests` | `Abstractions`, `Infrastructure` |
+| `Infrastructure.Agent.Tests` | `Abstractions`, `Abstractions.Agent`, `Infrastructure`, `Infrastructure.Agent`, `Infrastructure.AzureDevOps`, `Infrastructure.Simulated` |
+| `Infrastructure.ControlPlane.Tests` | `Abstractions`, `Abstractions.ControlPlane`, `Infrastructure`, `Infrastructure.ControlPlane` |
 | `Infrastructure.Simulated.Tests` | `Abstractions`, `Abstractions.Agent`, `Infrastructure`, `Infrastructure.Simulated` |
 | `CLI.Migration.Tests` | `Abstractions`, `CLI.Migration` |
 | `ControlPlane.Tests` | `Abstractions`, `Abstractions.ControlPlane`, `ControlPlane` |
@@ -154,6 +156,7 @@ ResumeDecisionStatus.cs
 ResumeRejectedException.cs
 MigrationErrorCategory.cs         ← moved from Errors/
 MigrationException.cs             ← moved from Errors/
+IJobSubmissionClient.cs           ← renamed from IJobRunner; submits job to CP + streams progress
 ```
 
 ### `Streaming/`
@@ -178,12 +181,13 @@ IConfigurationService.cs
 IPreFlightValidator.cs            ← Tier 0/1 validation before job submission
 ```
 
-### `ControlPlane/`
+### `ControlPlaneApi/`
 HTTP contracts and payload types for communicating with the ControlPlane.
 All components that talk to CP compile against these — no separate assembly needed.
+The folder name distinguishes this from the `Abstractions.ControlPlane` project
+(which contains CP-internal contracts like metric stores).
 ```
 IControlPlaneClient.cs            ← CLI reads jobs, streams logs, gets telemetry via HTTP
-IJobRunner.cs                     ← CLI submits jobs to CP via HTTP
 IControlPlaneTelemetryClient.cs   ← Agent pushes metrics + snapshots to CP via HTTP
 JobSummary.cs                     ← returned by GET /jobs
 JobMetrics.cs                     ← pushed by Agent, read by CLI via CP
@@ -429,16 +433,16 @@ ActiveLeaseState.cs
 ActivePackageState.cs
 PackagePaths.cs
 PackagePathUtilities.cs
-IProgressSink.cs                  ← agent lifecycle progress reporting
 ```
 
 ### `Telemetry/`
-OTel metric interfaces — only emitted from within Agent execution.
+OTel metric interfaces and progress reporting — only emitted from within Agent execution.
 ```
 IDiscoveryMetrics.cs
 IWorkItemExportMetrics.cs
 IAttachmentDownloadMetrics.cs
 IMigrationMetrics.cs
+IProgressSink.cs                  ← agent progress reporting (console, package, CP)
 ```
 
 ### `Modules/`
@@ -457,11 +461,12 @@ Config binding, serialization, options validation, and DI extension methods that
 composition roots need. No Agent-specific or CP-specific implementations.
 
 ### `Config/`
-Options binding and validation.
+Options binding, validation, and config file services.
 ```
 MigrationPlatformServiceExtensions.cs   ← AddMigrationPlatformOptions(), AddMigrationPlatformPolymorphicSerializers()
 MigrationOptionsValidator.cs
 DiscoveryOptionsOrganisationsBinder.cs
+ConfigurationService.cs                 ← implements IConfigurationService (CLI registers this directly)
 ```
 
 ### `Serialization/`
@@ -471,6 +476,7 @@ What remains here are internal helpers:
 ```
 EndpointOptionsTypeRegistry.cs
 EndpointOptionsRegistration.cs
+EndpointOptionsRegistrationExtensions.cs  ← stays here (depends on serialization + DI)
 PolymorphicOrganisationEntryConverter.cs  ← if not also moved to Abstractions
 ```
 
@@ -570,16 +576,11 @@ PackageLockFileService.cs         ← implements IPackageLockService (moved from
 FileSystemIdentityMappingService.cs ← implements IIdentityMappingService (moved from Services/)
 ```
 
-### `Modules/`
-```
-WorkItemsModule.cs                ← implements IModule
-InventoryDiscoveryModule.cs       ← implements IDiscoveryModule
-DependencyDiscoveryModule.cs      ← implements IDiscoveryModule
-ModuleServiceCollectionExtensions.cs ← AddWorkItemsModule(), AddInventoryDiscoveryModule(), AddDependencyDiscoveryModule()
-```
+Note: `ConfigurationService` stays in base `Infrastructure/Config/` — it is CLI-facing
+(registered by CLI commands directly) and must remain reachable without `Infrastructure.Agent`.
 
-### `Modules/Discovery/`
-Internal utilities for dependency analysis:
+### `Discovery/DependencyGraph/`
+Internal graph analysis utilities used only by `DependencyDiscoveryModule`:
 ```
 ProjectDependencyRecord.cs
 MermaidUtilities.cs
@@ -589,6 +590,14 @@ ProjectPairKey.cs
 TransitiveDependencyWalker.cs
 TransitiveMermaidBuilder.cs
 UnionFindComponentLabeler.cs
+```
+
+### `Modules/`
+```
+WorkItemsModule.cs                ← implements IModule
+InventoryDiscoveryModule.cs       ← implements IDiscoveryModule
+DependencyDiscoveryModule.cs      ← implements IDiscoveryModule
+ModuleServiceCollectionExtensions.cs ← AddWorkItemsModule(), AddInventoryDiscoveryModule(), AddDependencyDiscoveryModule()
 ```
 
 ### `Telemetry/`
@@ -612,8 +621,8 @@ DiagnosticsServiceExtensions.cs   ← AddDiagnosticsServices() — Agent diagnos
 PackageValidator.cs               ← implements IPackageValidator
 ```
 
-### `DI/`
-Factory dispatcher registration — used by `Infrastructure.AzureDevOps` and `Infrastructure.Simulated`:
+### `Connectors/`
+Connector factory registration — used by `Infrastructure.AzureDevOps` and `Infrastructure.Simulated`:
 ```
 FactoryRegistrationExtensions.cs  ← moved from Extensions/
 ```
@@ -716,10 +725,9 @@ Removing it makes Steps 1.2–1.5 possible.
 Update namespaces from `DevOpsMigrationPlatform.Infrastructure.*.Options` →
 `DevOpsMigrationPlatform.Abstractions.Options`.
 
-Also move:
-| Source | Destination |
-|--------|-------------|
-| `Infrastructure/Extensions/EndpointOptionsRegistrationExtensions.cs` | `Abstractions/Options/EndpointOptionsRegistrationExtensions.cs` |
+Note: `EndpointOptionsRegistrationExtensions.cs` stays in base `Infrastructure` — it
+depends on `EndpointOptionsTypeRegistry` (serialization) and `IServiceCollection` (DI
+framework), which would invert the dependency rule if placed in `Abstractions`.
 
 #### Step 1.5 — Move serialization to `Abstractions/Serialization/`
 
@@ -809,8 +817,8 @@ namespace update + file move. Run build after each step.
 `Models/` is the largest technical bucket (70 files). Every file moves to a folder
 named after the business concept it represents.
 
-**Create new folders:** `Jobs/`, `Streaming/`, `Organisations/`, `ControlPlane/`
-(ControlPlane/ may already exist for `IControlPlaneClient.cs`).
+**Create new folders:** `Jobs/`, `Streaming/`, `Organisations/`, `ControlPlaneApi/`
+(`ControlPlaneApi/` may already exist for `IControlPlaneClient.cs`).
 
 | Source file in `Models/` | Destination folder | Notes |
 |--------------------------|-------------------|-------|
@@ -834,21 +842,21 @@ named after the business concept it represents.
 | `ScopedOrganisationEndpoint.cs` | `Organisations/` | |
 | `ValidationContext.cs` | `Validation/` | merge with existing |
 | `FilterOperator.cs` | `Options/` | config filter concern |
-| `JobSummary.cs` | `ControlPlane/` | |
-| `JobMetrics.cs` | `ControlPlane/` | |
-| `JobSnapshot.cs` | `ControlPlane/` | |
-| `JobBootstrap.cs` | `ControlPlane/` | |
-| `JobScopeCounters.cs` | `ControlPlane/` | |
-| `JobDiagnostics.cs` | `ControlPlane/` | |
-| `MigrationCounters.cs` | `ControlPlane/` | |
-| `MigrationDiagnostics.cs` | `ControlPlane/` | |
-| `OrgSnapshot.cs` | `ControlPlane/` | |
-| `ProjectSnapshot.cs` | `ControlPlane/` | |
-| `ProjectStatus.cs` | `ControlPlane/` | |
-| `TargetStatus.cs` | `ControlPlane/` | |
-| `DiscoveryCounters.cs` | `ControlPlane/` | |
-| `InventoryCounters.cs` | `ControlPlane/` | |
-| `DependencyCounters.cs` | `ControlPlane/` | |
+| `JobSummary.cs` | `ControlPlaneApi/` | |
+| `JobMetrics.cs` | `ControlPlaneApi/` | |
+| `JobSnapshot.cs` | `ControlPlaneApi/` | |
+| `JobBootstrap.cs` | `ControlPlaneApi/` | |
+| `JobScopeCounters.cs` | `ControlPlaneApi/` | |
+| `JobDiagnostics.cs` | `ControlPlaneApi/` | |
+| `MigrationCounters.cs` | `ControlPlaneApi/` | |
+| `MigrationDiagnostics.cs` | `ControlPlaneApi/` | |
+| `OrgSnapshot.cs` | `ControlPlaneApi/` | |
+| `ProjectSnapshot.cs` | `ControlPlaneApi/` | |
+| `ProjectStatus.cs` | `ControlPlaneApi/` | |
+| `TargetStatus.cs` | `ControlPlaneApi/` | |
+| `DiscoveryCounters.cs` | `ControlPlaneApi/` | |
+| `InventoryCounters.cs` | `ControlPlaneApi/` | |
+| `DependencyCounters.cs` | `ControlPlaneApi/` | |
 
 **Remaining `Models/` files are Agent-internal.** They stay in `Models/` temporarily —
 they move to `Abstractions.Agent` in Phase 3:
@@ -902,7 +910,7 @@ Delete `Models/` after Phase 3.
 | Source file in `Services/` | Destination folder | Notes |
 |----------------------------|-------------------|-------|
 | `IConfigurationService.cs` | `Configuration/` | stays in Abstractions |
-| `IJobRunner.cs` | `ControlPlane/` | HTTP contract — stays in Abstractions |
+| `IJobRunner.cs` | `Jobs/IJobSubmissionClient.cs` | rename: IJobRunner → IJobSubmissionClient |
 
 **Remaining 39 files are Agent-internal.** They stay in `Services/` temporarily —
 they move to `Abstractions.Agent` in Phase 3:
@@ -945,7 +953,7 @@ they move to `Abstractions.Agent` in Phase 3:
 | `IPackageValidator.cs` | `Agent/Storage/` |
 | `IIdMapStore.cs` | `Agent/Storage/` |
 | `IIdMapStoreFactory.cs` | `Agent/Storage/` |
-| `IProgressSink.cs` | `Agent/Lease/` |
+| `IProgressSink.cs` | `Agent/Telemetry/` |
 | `IModule.cs` | `Agent/Modules/` |
 | `IDiscoveryModule.cs` | `Agent/Modules/` |
 
@@ -966,7 +974,7 @@ Delete `Errors/` after Phase 3.
 
 | Source | Destination | Notes |
 |--------|-------------|-------|
-| `Abstractions/IControlPlaneClient.cs` | `Abstractions/ControlPlane/IControlPlaneClient.cs` | HTTP contract |
+| `Abstractions/IControlPlaneClient.cs` | `Abstractions/ControlPlaneApi/IControlPlaneClient.cs` | HTTP contract |
 | `Abstractions/ActiveLeaseState.cs` | stays at root temporarily | moves to `Agent/Lease/` in Phase 3 |
 | `Abstractions/ActivePackageState.cs` | stays at root temporarily | moves to `Agent/Lease/` in Phase 3 |
 | `Abstractions/PackagePaths.cs` | stays at root temporarily | moves to `Agent/Lease/` in Phase 3 |
@@ -999,7 +1007,7 @@ Delete `CLI.Migration/Utilities/` after this step.
 | `Telemetry/IJobLifecycleMetrics.cs` | stays temporarily | Phase 3: `Abstractions.ControlPlane/Metrics/` |
 | `Telemetry/IJobMetricsStore.cs` | stays temporarily | Phase 3: `Abstractions.ControlPlane/Metrics/` |
 | `Telemetry/IJobSnapshotStore.cs` | stays temporarily | Phase 3: `Abstractions.ControlPlane/Metrics/` |
-| `Telemetry/IControlPlaneTelemetryClient.cs` | `ControlPlane/IControlPlaneTelemetryClient.cs` | HTTP contract — cross-cutting |
+| `Telemetry/IControlPlaneTelemetryClient.cs` | `ControlPlaneApi/IControlPlaneTelemetryClient.cs` | HTTP contract — cross-cutting |
 | `Telemetry/IDiscoveryMetrics.cs` | stays temporarily | Phase 3: `Abstractions.Agent/Telemetry/` |
 | `Telemetry/IWorkItemExportMetrics.cs` | stays temporarily | Phase 3: `Abstractions.Agent/Telemetry/` |
 | `Telemetry/IAttachmentDownloadMetrics.cs` | stays temporarily | Phase 3: `Abstractions.Agent/Telemetry/` |
@@ -1317,15 +1325,15 @@ screaming-architecture folder in `Infrastructure.Agent/`. One move per file.
 | `Infrastructure/Services/QueryFingerprintService.cs` | `Infrastructure.Agent/Discovery/QueryFingerprintService.cs` |
 | `Infrastructure/Services/PackageLockFileService.cs` | `Infrastructure.Agent/Discovery/PackageLockFileService.cs` |
 | `Infrastructure/Services/FileSystemIdentityMappingService.cs` | `Infrastructure.Agent/Discovery/FileSystemIdentityMappingService.cs` |
-| `Infrastructure/Services/ConfigurationService.cs` | `Infrastructure.Agent/Discovery/ConfigurationService.cs` |
-| `Infrastructure/Modules/Discovery/ProjectDependencyRecord.cs` | `Infrastructure.Agent/Discovery/ProjectDependencyRecord.cs` |
-| `Infrastructure/Modules/Discovery/MermaidUtilities.cs` | `Infrastructure.Agent/Discovery/MermaidUtilities.cs` |
-| `Infrastructure/Modules/Discovery/MermaidDiagramBuilder.cs` | `Infrastructure.Agent/Discovery/MermaidDiagramBuilder.cs` |
-| `Infrastructure/Modules/Discovery/TransitiveDependencyEdge.cs` | `Infrastructure.Agent/Discovery/TransitiveDependencyEdge.cs` |
-| `Infrastructure/Modules/Discovery/ProjectPairKey.cs` | `Infrastructure.Agent/Discovery/ProjectPairKey.cs` |
-| `Infrastructure/Modules/Discovery/TransitiveDependencyWalker.cs` | `Infrastructure.Agent/Discovery/TransitiveDependencyWalker.cs` |
-| `Infrastructure/Modules/Discovery/TransitiveMermaidBuilder.cs` | `Infrastructure.Agent/Discovery/TransitiveMermaidBuilder.cs` |
-| `Infrastructure/Modules/Discovery/UnionFindComponentLabeler.cs` | `Infrastructure.Agent/Discovery/UnionFindComponentLabeler.cs` |
+| `Infrastructure/Services/ConfigurationService.cs` | `Infrastructure/Config/ConfigurationService.cs` ← stays in base (CLI-facing) |
+| `Infrastructure/Modules/Discovery/ProjectDependencyRecord.cs` | `Infrastructure.Agent/Discovery/DependencyGraph/ProjectDependencyRecord.cs` |
+| `Infrastructure/Modules/Discovery/MermaidUtilities.cs` | `Infrastructure.Agent/Discovery/DependencyGraph/MermaidUtilities.cs` |
+| `Infrastructure/Modules/Discovery/MermaidDiagramBuilder.cs` | `Infrastructure.Agent/Discovery/DependencyGraph/MermaidDiagramBuilder.cs` |
+| `Infrastructure/Modules/Discovery/TransitiveDependencyEdge.cs` | `Infrastructure.Agent/Discovery/DependencyGraph/TransitiveDependencyEdge.cs` |
+| `Infrastructure/Modules/Discovery/ProjectPairKey.cs` | `Infrastructure.Agent/Discovery/DependencyGraph/ProjectPairKey.cs` |
+| `Infrastructure/Modules/Discovery/TransitiveDependencyWalker.cs` | `Infrastructure.Agent/Discovery/DependencyGraph/TransitiveDependencyWalker.cs` |
+| `Infrastructure/Modules/Discovery/TransitiveMermaidBuilder.cs` | `Infrastructure.Agent/Discovery/DependencyGraph/TransitiveMermaidBuilder.cs` |
+| `Infrastructure/Modules/Discovery/UnionFindComponentLabeler.cs` | `Infrastructure.Agent/Discovery/DependencyGraph/UnionFindComponentLabeler.cs` |
 
 **Modules/** (from `Infrastructure/Modules/`):
 
@@ -1354,7 +1362,7 @@ screaming-architecture folder in `Infrastructure.Agent/`. One move per file.
 
 | Source | Destination |
 |--------|-------------|
-| `Infrastructure/Extensions/FactoryRegistrationExtensions.cs` | `Infrastructure.Agent/DI/FactoryRegistrationExtensions.cs` |
+| `Infrastructure/Extensions/FactoryRegistrationExtensions.cs` | `Infrastructure.Agent/Connectors/FactoryRegistrationExtensions.cs` |
 
 **Validation/** (from `Infrastructure/Validation/`):
 
@@ -1425,7 +1433,9 @@ Base `Infrastructure/` retains only:
 
 ### Phase 6 — Reference topology cleanup and verification
 
-#### Step 6.1 — Fix test project references
+#### Step 6.1 — Fix test project references and split Infrastructure.Tests
+
+**Test boundary cleanup:**
 
 | Test project | Remove reference | Reason |
 |---|---|---|
@@ -1433,14 +1443,29 @@ Base `Infrastructure/` retains only:
 | `CLI.Migration.Tests` | `Infrastructure` | CLI tests must mock abstractions, not use concrete infra |
 | `CLI.Migration.Tests` | `Infrastructure.AzureDevOps` | CLI tests must mock abstractions, not use concrete infra |
 
-For any test that currently depends on the removed reference:
+**Mandatory test project split:**
+
+Create `Infrastructure.Agent.Tests` and `Infrastructure.ControlPlane.Tests` to match
+the production project boundaries. Move existing tests from `Infrastructure.Tests` to
+the appropriate new project based on the system-under-test:
+
+| Test subject | Move to |
+|---|---|
+| Tests for `Infrastructure.Agent/` types (stores, orchestrators, modules) | `Infrastructure.Agent.Tests` |
+| Tests for `Infrastructure.ControlPlane/` types (metric stores, exporters) | `Infrastructure.ControlPlane.Tests` |
+| Tests for base `Infrastructure/` types (config binding, serialization) | Keep in `Infrastructure.Tests` |
+
+Each test project references only its system-under-test and the abstraction layers it
+needs — matching the topology table in the Target State section.
+
+For any test that currently depends on a removed reference:
 - If it tests CLI+Infrastructure integration → move to a dedicated integration test project
 - If it uses concrete types for test setup → replace with mocks of the abstraction interfaces
 - If it only uses config types → those are now in `Abstractions/Options/` (no reference needed)
 
-`Infrastructure.Tests` may need splitting into `Infrastructure.Tests`,
-`Infrastructure.Agent.Tests`, and `Infrastructure.ControlPlane.Tests` to match the
-production project boundaries. Each test project references only its system-under-test.
+`Infrastructure.Tests` may NOT reference `Abstractions.Agent` — only the split
+`Infrastructure.Agent.Tests` project can. This prevents Agent test types from leaking
+into base infrastructure tests.
 
 #### Step 6.2 — Build gate
 
@@ -1498,6 +1523,15 @@ Run at least one scenario config via `launch.json` debug profile and verify obse
 `CLI.TfsMigration` IS the TFS Export Agent — it runs work item export inline, not via
 ControlPlane. It correctly references `Abstractions` + `Abstractions.Agent` and directly
 resolves `IWorkItemDiscoveryService`, `IProgressSink`, etc. This is by design.
+
+### Agent activity tracking does not require `Abstractions.Agent`
+
+`IControlPlaneClient.IsAgentActiveAsync(string agentInstanceId)` needs the CP to know
+whether an agent is alive. The CP implements the server side of this endpoint using only
+primitive types (`string` agent ID, `bool` return). The agent registers/deregisters via
+heartbeat HTTP calls (`POST /agents/{id}/heartbeat`). The CP tracks active agents in its
+own in-memory or persistent store (e.g. `IAgentRegistryStore` in `Abstractions.ControlPlane`).
+No Agent-specific types (`IArtefactStore`, `ICheckpointingService`, etc.) cross the boundary.
 
 ### `Infrastructure` references `Abstractions.Agent` — temporary
 

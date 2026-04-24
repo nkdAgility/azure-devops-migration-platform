@@ -72,6 +72,7 @@ public sealed class TuiMetricsView : FrameView
         return
             $"Work Items Attempted : {wi?.Attempted ?? 0,8}\n" +
             $"Work Items Completed : {wi?.Completed ?? 0,8}\n" +
+            $"Revisions Written    : {wi?.RevisionsProcessed ?? 0,8:N0}\n" +
             $"Work Items Failed    : {wi?.Failed ?? 0,8}\n" +
             $"Work Items Skipped   : {wi?.Skipped ?? 0,8}\n" +
             $"In-Flight            : {diag?.WorkItemsInFlight ?? 0,8}\n" +

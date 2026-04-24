@@ -464,8 +464,13 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
         var progressStartTime = DateTimeOffset.UtcNow;
         int processed = 0;
         int revisions = 0;
+        int lastWiRevisions = 0;
+        int currentWiId = 0;
+        int currentWiIndex = 0;
+        int currentWiRevsWritten = 0;
         double lastWiDurationMs = 0;
         double avgWiDurationMs = 0;
+        double avgRevDurationMs = 0;
         string currentStage = string.Empty;
 
         if (Console.IsOutputRedirected)
@@ -488,6 +493,13 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
                         lastWiDurationMs = evt.Metrics.Migration.WorkItems.LastWorkItemDurationMs;
                     if (evt.Metrics?.Migration?.WorkItems?.AverageWorkItemDurationMs > 0)
                         avgWiDurationMs = evt.Metrics.Migration.WorkItems.AverageWorkItemDurationMs;
+                    var wi = evt.Metrics?.Migration?.WorkItems;
+                    if (wi?.CurrentWorkItemId > 0)
+                    {
+                        currentWiId = wi.CurrentWorkItemId;
+                        currentWiIndex = wi.CurrentWorkItemIndex;
+                        currentWiRevsWritten = wi.CurrentWorkItemRevisionsWritten;
+                    }
                 }
             }
             catch (InvalidOperationException ex) when (ex.Message.Contains("Job failed"))
@@ -519,7 +531,7 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
             try
             {
                 await console.Live(BuildProgressRenderable(
-                        0, totalWorkItems, 0, 0, 0, 0, string.Empty, progressStartTime))
+                        0, totalWorkItems, 0, 0, 0, 0, string.Empty))
                     .AutoClear(false)
                     .Overflow(VerticalOverflow.Ellipsis)
                     .StartAsync(async ctx =>
@@ -542,14 +554,26 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
                                 lastWiDurationMs = evt.Metrics.Migration.WorkItems.LastWorkItemDurationMs;
                             if (evt.Metrics?.Migration?.WorkItems?.AverageWorkItemDurationMs > 0)
                                 avgWiDurationMs = evt.Metrics.Migration.WorkItems.AverageWorkItemDurationMs;
+                            if (evt.Metrics?.Migration?.WorkItems?.LastWorkItemRevisions > 0)
+                                lastWiRevisions = (int)evt.Metrics.Migration.WorkItems.LastWorkItemRevisions;
+                            var wi = evt.Metrics?.Migration?.WorkItems;
+                            if (wi?.CurrentWorkItemId > 0)
+                            {
+                                currentWiId = wi.CurrentWorkItemId;
+                                currentWiIndex = wi.CurrentWorkItemIndex;
+                                currentWiRevsWritten = wi.CurrentWorkItemRevisionsWritten;
+                            }
+                            if (evt.Metrics?.Migration?.WorkItems?.AverageRevisionDurationMs > 0)
+                                avgRevDurationMs = evt.Metrics.Migration.WorkItems.AverageRevisionDurationMs;
 
                             ctx.UpdateTarget(BuildProgressRenderable(
                                 processed, totalWorkItems,
-                                0, 0,
-                                0, 0,
-                                currentStage, progressStartTime,
+                                currentWiId, currentWiRevsWritten,
+                                currentWiIndex, lastWiRevisions,
+                                currentStage,
                                 evt.LastCheckpointAt, evt.NextCheckpointDueAt,
-                                lastWiDurationMs, avgWiDurationMs));
+                                lastWiDurationMs, avgWiDurationMs,
+                                revisions, avgRevDurationMs));
                         }
                     });
             }
@@ -620,61 +644,81 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
         int processed, int total,
         int currentWiId, int currentWiRevisions,
         int lastCompletedWiId, int lastCompletedRevisions,
-        string stage, DateTimeOffset startTime,
+        string stage,
         DateTimeOffset? lastCheckpointAt = null, DateTimeOffset? nextCheckpointDueAt = null,
-        double lastWiDurationMs = 0, double avgWiDurationMs = 0)
+        double lastWiDurationMs = 0, double avgWiDurationMs = 0,
+        int totalRevisions = 0, double avgRevDurationMs = 0)
     {
         const int BarWidth = 38;
-        const int WiBarWidth = 20;
 
-        // ── Row 1: overall progress ──────────────────────────────────────────────────
-        var pct = total > 0 ? (double)processed / total : 0.0;
-        var filled = Math.Clamp((int)(pct * BarWidth), 0, BarWidth);
-        var overallBar = new string('━', filled) + new string('─', BarWidth - filled);
+        // Estimate total revisions (used for both the bar and ETA).
+        int estimatedTotalRevisions = processed > 0 && total > 0
+            ? (int)((double)totalRevisions / processed * total)
+            : 0;
+
+        // ── Row 1: work items progress bar (parent) ──────────────────────────────────
+        var wiPct = total > 0 ? (double)processed / total : 0.0;
+        var wiFilled = Math.Clamp((int)(wiPct * BarWidth), 0, BarWidth);
+        var wiBar = new string('━', wiFilled) + new string('─', BarWidth - wiFilled);
         var stageStr = string.IsNullOrEmpty(stage) ? string.Empty : $"  [grey]{Markup.Escape(stage)}[/]";
-        var etaStr = ComputeEta(startTime, processed, total);
-        var overall = new Markup(
-            $"[bold]WorkItems[/]{stageStr}  [blue]{Markup.Escape(overallBar)}[/]" +
-            $"  [bold]{processed:N0}[/][grey]/{total:N0}[/]" +
-            $"  [grey]{pct * 100.0:F1}%[/]  [grey]ETA: {Markup.Escape(etaStr)}[/]");
+        var etaStr = ComputeRevisionEta(totalRevisions, estimatedTotalRevisions, avgRevDurationMs);
+        var wiRow = new Markup(
+            $"[bold]WorkItems[/]{stageStr}  [blue]{Markup.Escape(wiBar)}[/]"
+            + $"  [bold]{processed:N0}[/][grey]/{total:N0}[/]"
+            + $"  [grey]{wiPct * 100.0:F1}%[/]  [grey]ETA: {Markup.Escape(etaStr)}[/]");
 
-        // ── Row 2: last completed WI (full bar = 100 %) ──────────────────────────────
-        IRenderable completedRow;
+        // ── Row 2: current work item revision counter (child) ────────────────────────
+        // Shows the in-progress WI's revision count.  The bar fills against the last
+        // completed WI's revision count as a rough reference — it overflows past 100 %
+        // if the current WI has more revisions than the previous one, which is fine.
+        IRenderable revRow;
+        if (currentWiId > 0)
+        {
+            // Use lastCompletedRevisions as a soft "expected" upper bound for the bar.
+            // Fall back to currentWiRevisions so the bar always shows some fill.
+            int refRevs = lastCompletedRevisions > 0 ? lastCompletedRevisions : currentWiRevisions;
+            var curPct = refRevs > 0 ? Math.Min(1.0, (double)currentWiRevisions / refRevs) : 0.0;
+            var curFilled = Math.Clamp((int)(curPct * BarWidth), 0, BarWidth);
+            var curBar = new string('━', curFilled) + new string('─', BarWidth - curFilled);
+            var cumStr = totalRevisions > 0 ? $"  [grey]total: {totalRevisions:N0} rev[/]" : string.Empty;
+            var lastRevStr = lastCompletedRevisions > 0 ? $"  [grey](prev: {lastCompletedRevisions} rev)[/]" : string.Empty;
+            revRow = new Markup(
+                $"  [grey]↳ WI {currentWiId}[/]   [blue]{Markup.Escape(curBar)}[/]"
+                + $"  [bold]{currentWiRevisions:N0}[/][grey] rev[/]"
+                + $"{lastRevStr}{cumStr}");
+        }
+        else if (totalRevisions > 0)
+        {
+            // No WI in flight yet — show cumulative totals.
+            var revPct = estimatedTotalRevisions > 0 ? Math.Min(1.0, (double)totalRevisions / estimatedTotalRevisions) : 0.0;
+            var revFilled = Math.Clamp((int)(revPct * BarWidth), 0, BarWidth);
+            var revBar = new string('━', revFilled) + new string('─', BarWidth - revFilled);
+            var revTotalStr = estimatedTotalRevisions > 0 ? $"[grey]/~{estimatedTotalRevisions:N0}[/]" : string.Empty;
+            revRow = new Markup(
+                $"  [grey]↳ Revisions[/]   [blue]{Markup.Escape(revBar)}[/]"
+                + $"  [bold]{totalRevisions:N0}[/]{revTotalStr}");
+        }
+        else
+        {
+            revRow = new Markup("  [grey]↳ Revisions   waiting…[/]");
+        }
+
+        // ── Row 3: last WI timing / throttle indicator ───────────────────────────────
+        IRenderable timingRow;
         if (lastWiDurationMs > 0)
         {
             var lastSec = lastWiDurationMs / 1000.0;
-            var avgSec  = avgWiDurationMs  / 1000.0;
-            // Flag likely throttling: last WI took more than 3× the average.
+            var avgSec = avgWiDurationMs / 1000.0;
             var isSlowdown = avgWiDurationMs > 0 && lastWiDurationMs > avgWiDurationMs * 3;
             var durationColor = isSlowdown ? "red" : lastWiDurationMs > avgWiDurationMs * 1.5 ? "yellow" : "green";
             var throttleWarning = isSlowdown ? "  [red bold]⚠ possible back-off[/]" : string.Empty;
-            completedRow = new Markup(
+            timingRow = new Markup(
                 $"  [grey]last:[/] [{durationColor}]{lastSec:F1}s[/]" +
                 $"  [grey]avg:[/] [grey]{avgSec:F1}s[/]{throttleWarning}");
         }
-        else if (lastCompletedWiId > 0)
-        {
-            completedRow = new Markup($"  [grey]✓ WI {lastCompletedWiId}  {new string('━', WiBarWidth)}  {lastCompletedRevisions} rev  done[/]");
-        }
         else
         {
-            completedRow = new Markup("  [grey]─[/]");
-        }
-
-        // ── Row 3: current WI in progress (partial bar, never reaches 100 %) ─────────
-        IRenderable currentRow;
-        if (currentWiId > 0)
-        {
-            // Bar fills as revisions arrive; capped one below full so it never
-            // reads as 100 % while the item is still being processed.
-            var wiBarFilled = Math.Min(currentWiRevisions, WiBarWidth - 1);
-            var wiBar = new string('━', wiBarFilled) + new string('─', WiBarWidth - wiBarFilled);
-            currentRow = new Markup(
-                $"  [grey]↳[/] WI [bold]{currentWiId}[/]  [blue]{Markup.Escape(wiBar)}[/]  [grey]{currentWiRevisions} rev[/]");
-        }
-        else
-        {
-            currentRow = new Markup("  [grey]↳ waiting…[/]");
+            timingRow = new Markup("  [grey]─[/]");
         }
 
         // ── Row 4: checkpoint safety indicator ───────────────────────────────────────
@@ -691,15 +735,15 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
         else
             checkpointRow = new Markup("  [grey]─[/]");
 
-        return new Rows(overall, completedRow, currentRow, checkpointRow);
+        return new Rows(wiRow, revRow, timingRow, checkpointRow);
     }
 
-    private static string ComputeEta(DateTimeOffset startTime, int processed, int total)
+    private static string ComputeRevisionEta(int revisionsWritten, int estimatedTotalRevisions, double avgRevDurationMs)
     {
-        if (processed <= 0 || total <= 0) return "--:--:--";
-        var elapsedSecs = (DateTimeOffset.UtcNow - startTime).TotalSeconds;
-        if (elapsedSecs < 1) return "--:--:--";
-        var remainingSecs = (total - processed) / (processed / elapsedSecs);
+        if (avgRevDurationMs <= 0 || estimatedTotalRevisions <= 0 || revisionsWritten <= 0)
+            return "--:--:--";
+        var remainingRevisions = Math.Max(0, estimatedTotalRevisions - revisionsWritten);
+        var remainingSecs = remainingRevisions * avgRevDurationMs / 1000.0;
         var eta = TimeSpan.FromSeconds(remainingSecs);
         return eta.TotalHours >= 1
             ? $"{(int)eta.TotalHours}:{eta.Minutes:D2}:{eta.Seconds:D2}"
