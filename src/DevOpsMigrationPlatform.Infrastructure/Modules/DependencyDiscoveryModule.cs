@@ -167,6 +167,12 @@ public sealed class DependencyDiscoveryModule : IDiscoveryModule
         var resumedProjectStats = new Dictionary<string, PerProjectStats>(StringComparer.OrdinalIgnoreCase);
         var existingCsvRows = new StringBuilder();
         var recordCount = 0;
+        string? inProgressProjectKey = null;
+        BatchContinuationToken? inProgressToken = null;
+        int inProgressProcessedWorkItems = 0;
+        int inProgressLinksFound = 0;
+        int inProgressCrossProjectCount = 0;
+        int inProgressCrossOrgCount = 0;
 
         var cursorJson = await state.ReadAsync(CursorKey, ct).ConfigureAwait(false);
 
@@ -213,6 +219,40 @@ public sealed class DependencyDiscoveryModule : IDiscoveryModule
                         );
                     }
                 }
+
+                // Parse in-progress project state for batch-level resume
+                if (doc.RootElement.TryGetProperty("inProgressProject", out var ipObj))
+                {
+                    if (ipObj.TryGetProperty("key", out var ipKey))
+                        inProgressProjectKey = ipKey.GetString();
+
+                    if (inProgressProjectKey is not null && ipObj.TryGetProperty("continuationToken", out var ctObj))
+                    {
+                        try
+                        {
+                            inProgressToken = JsonSerializer.Deserialize<BatchContinuationToken>(ctObj.GetRawText());
+                        }
+                        catch (JsonException)
+                        {
+                            _logger.LogWarning("Failed to deserialize in-progress continuation token — project will restart from beginning.");
+                            inProgressToken = null;
+                        }
+                    }
+
+                    if (ipObj.TryGetProperty("processedWorkItems", out var ipWi))
+                        inProgressProcessedWorkItems = ipWi.GetInt32();
+                    if (ipObj.TryGetProperty("linksFound", out var ipLf))
+                        inProgressLinksFound = ipLf.GetInt32();
+                    if (ipObj.TryGetProperty("crossProjectCount", out var ipCp))
+                        inProgressCrossProjectCount = ipCp.GetInt32();
+                    if (ipObj.TryGetProperty("crossOrgCount", out var ipCo))
+                        inProgressCrossOrgCount = ipCo.GetInt32();
+
+                    if (inProgressProjectKey is not null)
+                        _logger.LogInformation(
+                            "Found in-progress project {ProjectKey} with {ProcessedItems} items already processed — will attempt batch-level resume.",
+                            inProgressProjectKey, inProgressProcessedWorkItems);
+                }
             }
             catch (JsonException ex)
             {
@@ -223,12 +263,39 @@ public sealed class DependencyDiscoveryModule : IDiscoveryModule
             }
 
             // Reload existing CSV so we append rather than overwrite
-            if (completedProjects.Count > 0)
+            if (completedProjects.Count > 0 || inProgressProjectKey is not null)
             {
                 var existingCsv = await store.ReadAsync(RootCsvPath, ct).ConfigureAwait(false);
                 if (!string.IsNullOrEmpty(existingCsv))
                 {
-                    existingCsvRows.Append(existingCsv);
+                    // If resuming an in-progress project, strip its partial CSV rows
+                    // to avoid duplicates when the project is re-processed from the
+                    // continuation token point.
+                    if (inProgressProjectKey is not null)
+                    {
+                        var sep = inProgressProjectKey.IndexOf('|');
+                        if (sep > 0)
+                        {
+                            var ipOrgUrl = inProgressProjectKey.Substring(0, sep);
+                            var ipProject = inProgressProjectKey.Substring(sep + 1);
+                            var strippedCsv = StripCsvRowsForProject(existingCsv, ipOrgUrl, ipProject, out var strippedCount);
+                            existingCsvRows.Append(strippedCsv);
+                            recordCount -= strippedCount;
+                            if (recordCount < 0) recordCount = 0;
+                            _logger.LogInformation(
+                                "Stripped {StrippedCount} partial CSV rows for in-progress project {ProjectKey} before resume.",
+                                strippedCount, inProgressProjectKey);
+                        }
+                        else
+                        {
+                            existingCsvRows.Append(existingCsv);
+                        }
+                    }
+                    else
+                    {
+                        existingCsvRows.Append(existingCsv);
+                    }
+
                     _logger.LogInformation(
                         "Resuming dependency analysis — {CompletedCount} project(s) already completed, {RecordCount} records loaded.",
                         completedProjects.Count, recordCount);
@@ -313,7 +380,7 @@ public sealed class DependencyDiscoveryModule : IDiscoveryModule
                     var reconciledStats = ComputePerProjectStatsFromCsv(existingCsv!, inventoryReport);
 
                     // Persist the reconciled cursor so the next restart doesn't re-reconcile
-                    await WriteCursorAsync(state, recordCount, completedProjects, reconciledStats, ct).ConfigureAwait(false);
+                    await WriteCursorAsync(state, recordCount, completedProjects, reconciledStats, ct: ct).ConfigureAwait(false);
 
                     _logger.LogWarning(
                         "Reconciled dependencies cursor from CSV — {CompletedCount} project(s), {RecordCount} records. " +
@@ -512,10 +579,30 @@ public sealed class DependencyDiscoveryModule : IDiscoveryModule
             "SourceWorkItemId,SourceWorkItemType,SourceProject,SourceOrganisationUrl," +
             "LinkType,LinkScope,TargetWorkItemId,TargetProject,TargetOrganisation,TargetStatus,LinkChangedDate,SourceWorkItemStateCategory";
 
+        // Track in-progress project state for checkpoint writes
+        string? currentInProgressKey = inProgressProjectKey;
+        BatchContinuationToken? currentInProgressToken = inProgressToken;
+        int currentInProgressProcessed = inProgressProcessedWorkItems;
+        int currentInProgressLinks = inProgressLinksFound;
+        int currentInProgressCrossProject = inProgressCrossProjectCount;
+        int currentInProgressCrossOrg = inProgressCrossOrgCount;
+
+        // Checkpoint writer callback invoked by IWorkItemFetchService on each batch boundary.
+        // Updates the in-memory token and persists the cursor with in-progress state.
+        async Task OnBatchCheckpoint(BatchContinuationToken token, CancellationToken checkpointCt)
+        {
+            currentInProgressToken = token;
+            await WriteCursorAsync(state, recordCount, allCompletedProjects, allProjectStats,
+                currentInProgressKey, currentInProgressToken, currentInProgressProcessed,
+                currentInProgressLinks, currentInProgressCrossProject, currentInProgressCrossOrg,
+                checkpointCt).ConfigureAwait(false);
+        }
+
         // All data within the processing loop references org URLs, project names, and WI IDs — customer data.
         using var _dataScope = DataClassificationScope.Begin(DataClassification.Customer);
 
-        await foreach (var evt in dependencyService.DiscoverDependenciesAsync(completedProjects, null, ct).ConfigureAwait(false))
+        await foreach (var evt in dependencyService.DiscoverDependenciesAsync(
+            completedProjects, null, inProgressProjectKey, inProgressToken, OnBatchCheckpoint, ct).ConfigureAwait(false))
         {
             switch (evt)
             {
@@ -602,6 +689,12 @@ public sealed class DependencyDiscoveryModule : IDiscoveryModule
                     // projects produce visible output within minutes.
                     if (!heartbeat.IsComplete && heartbeat.Error is null)
                     {
+                        // Track this project as in-progress for cursor checkpoints
+                        currentInProgressKey = NormalizeProjectKey(heartbeat.OrganisationUrl, heartbeat.ProjectName);
+                        currentInProgressProcessed = heartbeat.WorkItemsAnalysed;
+                        currentInProgressLinks = heartbeat.ExternalLinksFound;
+                        currentInProgressCrossProject = heartbeat.CrossProjectCount;
+                        currentInProgressCrossOrg = heartbeat.CrossOrgCount;
                         // Start timing the project on the first non-complete heartbeat.
                         if (!projectSw.IsRunning)
                             projectSw.Restart();
@@ -694,6 +787,17 @@ public sealed class DependencyDiscoveryModule : IDiscoveryModule
                         var completedKey = NormalizeProjectKey(heartbeat.OrganisationUrl, heartbeat.ProjectName);
                         allCompletedProjects.Add(completedKey);
 
+                        // Clear in-progress state — the project is now fully completed
+                        if (string.Equals(currentInProgressKey, completedKey, StringComparison.OrdinalIgnoreCase))
+                        {
+                            currentInProgressKey = null;
+                            currentInProgressToken = null;
+                            currentInProgressProcessed = 0;
+                            currentInProgressLinks = 0;
+                            currentInProgressCrossProject = 0;
+                            currentInProgressCrossOrg = 0;
+                        }
+
                         // Save per-project stats so they are available when a resumed job
                         // emits synthetic ProjectComplete events for the CLI live table.
                         allProjectStats[completedKey] = new PerProjectStats(
@@ -728,7 +832,9 @@ public sealed class DependencyDiscoveryModule : IDiscoveryModule
             if (DateTime.UtcNow - lastCheckpoint >= checkpointInterval)
             {
                 await store.WriteAsync(RootCsvPath, csvBuilder.ToString(), ct).ConfigureAwait(false);
-                await WriteCursorAsync(state, recordCount, allCompletedProjects, allProjectStats, ct).ConfigureAwait(false);
+                await WriteCursorAsync(state, recordCount, allCompletedProjects, allProjectStats,
+                    currentInProgressKey, currentInProgressToken, currentInProgressProcessed,
+                    currentInProgressLinks, currentInProgressCrossProject, currentInProgressCrossOrg, ct).ConfigureAwait(false);
                 lastCheckpoint = DateTime.UtcNow;
                 metrics?.RecordCheckpointSaved(new TagList { { "job.id", job.JobId }, { "module", Name } });
                 _logger.LogDebug("Dependencies checkpoint saved at {RecordCount} records, {CompletedProjects} projects completed.",
@@ -844,8 +950,31 @@ public sealed class DependencyDiscoveryModule : IDiscoveryModule
             job.JobId, recordCount);
     }
 
-    private static Task WriteCursorAsync(IStateStore state, int recordCount, HashSet<string> completedProjects, Dictionary<string, PerProjectStats> projectStats, CancellationToken ct)
+    private static Task WriteCursorAsync(
+        IStateStore state,
+        int recordCount,
+        HashSet<string> completedProjects,
+        Dictionary<string, PerProjectStats> projectStats,
+        string? inProgressKey = null,
+        BatchContinuationToken? inProgressToken = null,
+        int inProgressProcessedWorkItems = 0,
+        int inProgressLinksFound = 0,
+        int inProgressCrossProjectCount = 0,
+        int inProgressCrossOrgCount = 0,
+        CancellationToken ct = default)
     {
+        object? inProgressObj = inProgressKey is not null
+            ? new
+            {
+                key = inProgressKey,
+                continuationToken = inProgressToken,
+                processedWorkItems = inProgressProcessedWorkItems,
+                linksFound = inProgressLinksFound,
+                crossProjectCount = inProgressCrossProjectCount,
+                crossOrgCount = inProgressCrossOrgCount
+            }
+            : null;
+
         var json = JsonSerializer.Serialize(new
         {
             recordCount,
@@ -860,6 +989,7 @@ public sealed class DependencyDiscoveryModule : IDiscoveryModule
                     crossOrgCount = kvp.Value.CrossOrgCount,
                     totalWorkItems = kvp.Value.TotalWorkItems
                 }),
+            inProgressProject = inProgressObj,
             savedAt = DateTime.UtcNow
         });
         return state.WriteAsync(CursorKey, json, ct);
@@ -988,6 +1118,66 @@ public sealed class DependencyDiscoveryModule : IDiscoveryModule
             Timestamp = DateTimeOffset.UtcNow,
             Organisations = orgSnapshots
         });
+    }
+
+    /// <summary>
+    /// Strips CSV rows that belong to a specific project (identified by org URL and project name)
+    /// from the root CSV content. Used on resume to remove partial rows for an in-progress project
+    /// before re-processing from the continuation token.
+    /// </summary>
+    /// <remarks>
+    /// CSV format: SourceWorkItemId,SourceWorkItemType,SourceProject,SourceOrganisationUrl,...
+    /// Column index 2 = SourceProject, Column index 3 = SourceOrganisationUrl.
+    /// Comparison is case-insensitive and org URLs are trimmed of trailing slashes.
+    /// </remarks>
+    internal static string StripCsvRowsForProject(string csvContent, string orgUrl, string projectName, out int strippedCount)
+    {
+        strippedCount = 0;
+        var lines = csvContent.Split(new[] { '\n' }, StringSplitOptions.None);
+        var result = new StringBuilder(csvContent.Length);
+        var normalizedOrgUrl = orgUrl.TrimEnd('/').ToLowerInvariant();
+        var normalizedProject = projectName.Trim().ToLowerInvariant();
+
+        foreach (var rawLine in lines)
+        {
+            var line = rawLine.TrimEnd('\r');
+            if (string.IsNullOrWhiteSpace(line))
+            {
+                // Preserve blank lines (e.g., trailing newline)
+                result.AppendLine();
+                continue;
+            }
+
+            // Parse CSV columns — handle quoted fields
+            var columns = ParseCsvLine(line);
+
+            // Header row or non-data rows: keep them
+            if (columns.Count < 4 || string.Equals(columns[0], "SourceWorkItemId", StringComparison.OrdinalIgnoreCase))
+            {
+                result.AppendLine(line);
+                continue;
+            }
+
+            // Column 2 = SourceProject, Column 3 = SourceOrganisationUrl
+            var rowProject = columns[2].Trim().ToLowerInvariant();
+            var rowOrgUrl = columns[3].TrimEnd('/').Trim().ToLowerInvariant();
+
+            if (string.Equals(rowProject, normalizedProject, StringComparison.Ordinal) &&
+                string.Equals(rowOrgUrl, normalizedOrgUrl, StringComparison.Ordinal))
+            {
+                strippedCount++;
+                continue; // Skip this row
+            }
+
+            result.AppendLine(line);
+        }
+
+        // Remove trailing blank line if the original didn't end with one
+        var resultStr = result.ToString();
+        if (!csvContent.EndsWith("\n") && resultStr.EndsWith(Environment.NewLine))
+            resultStr = resultStr.TrimEnd('\r', '\n');
+
+        return resultStr;
     }
 
     private static string EscapeCsv(string value)

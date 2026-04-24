@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
+using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -45,10 +46,16 @@ public sealed class DependencyDiscoveryService : IDependencyDiscoveryService
     /// fully analysed in a previous run. These projects are skipped entirely — no API calls.
     /// </param>
     /// <param name="wiqlFilter">Optional WIQL expression to filter the set of work items to analyse.</param>
+    /// <param name="inProgressProjectKey">Optional project key that was in progress when the previous run was interrupted.</param>
+    /// <param name="inProgressToken">Optional continuation token for the in-progress project.</param>
+    /// <param name="continuationCheckpointWriter">Optional callback invoked per-batch to persist resume state.</param>
     /// <param name="cancellationToken">Cancellation token for operation cancellation.</param>
     public async IAsyncEnumerable<DependencyProgressEvent> DiscoverDependenciesAsync(
         HashSet<string>? completedProjectKeys = null,
         string? wiqlFilter = null,
+        string? inProgressProjectKey = null,
+        BatchContinuationToken? inProgressToken = null,
+        Func<BatchContinuationToken, CancellationToken, Task>? continuationCheckpointWriter = null,
         [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         _logger.LogInformation("Starting dependency discovery across {OrganisationCount} organisations", _options.Value.Organisations.Count);
@@ -119,11 +126,23 @@ public sealed class DependencyDiscoveryService : IDependencyDiscoveryService
 
                 _logger.LogInformation("Analysing project {Project} in {Url}", project, orgEndpoint.GetResolvedUrl());
 
+                // Determine if this project should resume from a continuation token
+                BatchContinuationToken? projectToken = null;
+                Func<BatchContinuationToken, CancellationToken, Task>? projectCheckpointWriter = null;
+                if (inProgressProjectKey is not null && string.Equals(projectKey, inProgressProjectKey, StringComparison.OrdinalIgnoreCase))
+                {
+                    projectToken = inProgressToken;
+                    projectCheckpointWriter = continuationCheckpointWriter;
+                    _logger.LogInformation("Resuming in-progress project {Project} from continuation token.", project);
+                }
+
                 // Stream events from the service
                 await foreach (var evt in service.AnalyseLinksAsync(
                     orgEndpoint,
                     project,
                     wiqlFilter,
+                    projectToken,
+                    projectCheckpointWriter ?? continuationCheckpointWriter,
                     cancellationToken))
                 {
                     yield return evt;
