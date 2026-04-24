@@ -210,6 +210,11 @@ public sealed class WorkItemExportOrchestrator
         }
         int attachmentsProcessed = 0;
         int attachmentsFailed = 0;
+        double totalAttachmentDurationMs = 0;
+        double lastAttachmentDurationMs = 0;
+        long totalAttachmentBytes = 0;
+        long lastAttachmentBytes = 0;
+        var attachmentStopwatch = new Stopwatch();
 
         // Per-work-item timing for duration histogram.
         var workItemStopwatch = Stopwatch.StartNew();
@@ -492,15 +497,54 @@ public sealed class WorkItemExportOrchestrator
                         previousAttachmentUrls.Contains(downloadUrl))
                     {
                         if (_logger != null)
-                            _logger.LogDebug("[WorkItems] WI {WorkItemId} rev {RevisionIndex}: attachment delta-skipped (same URL as previous revision).",
+                            _logger.LogDebug("[Attachments] WI {WorkItemId} rev {RevisionIndex}: attachment delta-skipped (same URL as previous revision).",
                                     revision.WorkItemId, revision.RevisionIndex);
                         continue;
                     }
+
+                    var attachmentName = attachment.OriginalName is { Length: > 0 } n ? n : attachment.RelativePath ?? "(unknown)";
+
+                    // ── Found ──
+                    _logger?.LogInformation("[Attachments] WI {WorkItemId} rev {RevisionIndex}: found attachment '{Name}' ({Bytes} bytes).",
+                        revision.WorkItemId, revision.RevisionIndex, attachmentName, attachment.Size);
+                    _progressSink?.Emit(new ProgressEvent
+                    {
+                        Module = "WorkItems",
+                        Stage = "Attachment",
+                        Message = $"[Attachments] WI {revision.WorkItemId} rev {revision.RevisionIndex}: found '{attachmentName}' ({FormatBytes(attachment.Size)})",
+                        Metrics = new JobMetrics
+                        {
+                            Migration = new MigrationCounters
+                            {
+                                WorkItems = new WorkItemCounters
+                                {
+                                    Completed = workItemsProcessed,
+                                    RevisionsProcessed = revisionsProcessed,
+                                    CurrentWorkItemId = revision.WorkItemId,
+                                    Attachments = new AttachmentCounters
+                                    {
+                                        Processed = attachmentsProcessed,
+                                        Failed = attachmentsFailed,
+                                        TotalBytes = totalAttachmentBytes,
+                                        LastDownloadDurationMs = lastAttachmentDurationMs,
+                                        AverageDownloadDurationMs = attachmentsProcessed > 0 ? totalAttachmentDurationMs / attachmentsProcessed : 0,
+                                        LastSizeBytes = lastAttachmentBytes,
+                                        AverageSizeBytes = attachmentsProcessed > 0 ? totalAttachmentBytes / attachmentsProcessed : 0,
+                                        CurrentAttachmentName = attachmentName
+                                    }
+                                }
+                            }
+                        }
+                    });
 
                     var targetPath = $"{folderPath}{attachment.RelativePath}";
 
                     using var attachmentActivity = ActivitySource.StartActivity("attachment.download", ActivityKind.Internal);
                     attachmentActivity?.SetTag("workitem.id", revision.WorkItemId);
+
+                    attachmentStopwatch.Restart();
+                    long downloadedBytes = 0;
+                    bool downloadSucceeded;
 
                     // Prefer streaming path when the source supports it (no byte[] buffering).
                     if (streamingSource != null)
@@ -510,10 +554,9 @@ public sealed class WorkItemExportOrchestrator
                                 _artefactStore, targetPath, cancellationToken)
                             .ConfigureAwait(false);
 
+                        downloadSucceeded = result.HasValue;
                         if (result.HasValue)
-                            attachmentsProcessed++;
-                        else
-                            attachmentsFailed++;
+                            downloadedBytes = result.Value.Size;
                     }
                     else
                     {
@@ -527,12 +570,96 @@ public sealed class WorkItemExportOrchestrator
                             await _artefactStore
                                 .WriteBinaryAsync(targetPath, bytes, cancellationToken)
                                 .ConfigureAwait(false);
-                            attachmentsProcessed++;
+                            downloadedBytes = bytes.Length;
+                            downloadSucceeded = true;
                         }
                         else
                         {
-                            attachmentsFailed++;
+                            downloadSucceeded = false;
                         }
+                    }
+
+                    lastAttachmentDurationMs = attachmentStopwatch.Elapsed.TotalMilliseconds;
+
+                    if (downloadSucceeded)
+                    {
+                        attachmentsProcessed++;
+                        totalAttachmentDurationMs += lastAttachmentDurationMs;
+                        lastAttachmentBytes = downloadedBytes;
+                        totalAttachmentBytes += downloadedBytes;
+
+                        // Record per-download OTel metrics.
+                        if (_metrics != null)
+                        {
+                            _metrics.RecordAttachmentDownloadDuration(lastAttachmentDurationMs, exportTags);
+                            _metrics.RecordAttachmentDownloadBytes(downloadedBytes, exportTags);
+                        }
+
+                        // ── Done ──
+                        _logger?.LogInformation("[Attachments] WI {WorkItemId} rev {RevisionIndex}: downloaded '{Name}' — {Bytes} in {Ms:F0}ms.",
+                            revision.WorkItemId, revision.RevisionIndex, attachmentName, FormatBytes(downloadedBytes), lastAttachmentDurationMs);
+                        _progressSink?.Emit(new ProgressEvent
+                        {
+                            Module = "WorkItems",
+                            Stage = "Attachment",
+                            Message = $"[Attachments] WI {revision.WorkItemId}: '{attachmentName}' done — {FormatBytes(downloadedBytes)} in {lastAttachmentDurationMs:F0}ms",
+                            Metrics = new JobMetrics
+                            {
+                                Migration = new MigrationCounters
+                                {
+                                    WorkItems = new WorkItemCounters
+                                    {
+                                        Completed = workItemsProcessed,
+                                        RevisionsProcessed = revisionsProcessed,
+                                        CurrentWorkItemId = revision.WorkItemId,
+                                        Attachments = new AttachmentCounters
+                                        {
+                                            Processed = attachmentsProcessed,
+                                            Failed = attachmentsFailed,
+                                            TotalBytes = totalAttachmentBytes,
+                                            LastDownloadDurationMs = lastAttachmentDurationMs,
+                                            AverageDownloadDurationMs = totalAttachmentDurationMs / attachmentsProcessed,
+                                            LastSizeBytes = lastAttachmentBytes,
+                                            AverageSizeBytes = totalAttachmentBytes / attachmentsProcessed
+                                        }
+                                    }
+                                }
+                            }
+                        });
+                    }
+                    else
+                    {
+                        attachmentsFailed++;
+                        _logger?.LogWarning("[Attachments] WI {WorkItemId} rev {RevisionIndex}: failed to download '{Name}'.",
+                            revision.WorkItemId, revision.RevisionIndex, attachmentName);
+                        _progressSink?.Emit(new ProgressEvent
+                        {
+                            Module = "WorkItems",
+                            Stage = "Attachment",
+                            Message = $"[Attachments] WI {revision.WorkItemId}: '{attachmentName}' FAILED",
+                            Metrics = new JobMetrics
+                            {
+                                Migration = new MigrationCounters
+                                {
+                                    WorkItems = new WorkItemCounters
+                                    {
+                                        Completed = workItemsProcessed,
+                                        RevisionsProcessed = revisionsProcessed,
+                                        CurrentWorkItemId = revision.WorkItemId,
+                                        Attachments = new AttachmentCounters
+                                        {
+                                            Processed = attachmentsProcessed,
+                                            Failed = attachmentsFailed,
+                                            TotalBytes = totalAttachmentBytes,
+                                            LastDownloadDurationMs = lastAttachmentDurationMs,
+                                            AverageDownloadDurationMs = attachmentsProcessed > 0 ? totalAttachmentDurationMs / attachmentsProcessed : 0,
+                                            LastSizeBytes = lastAttachmentBytes,
+                                            AverageSizeBytes = attachmentsProcessed > 0 ? totalAttachmentBytes / attachmentsProcessed : 0
+                                        }
+                                    }
+                                }
+                            }
+                        });
                     }
                 }
             }
@@ -667,5 +794,14 @@ public sealed class WorkItemExportOrchestrator
         var ticks = changedDate.Ticks.ToString("D20");
         return $"WorkItems/{date}/{ticks}-{workItemId}-{revisionIndex}/";
     }
+
+    private static string FormatBytes(long bytes) =>
+        bytes switch
+        {
+            >= 1_073_741_824 => $"{bytes / 1_073_741_824.0:F1} GB",
+            >= 1_048_576     => $"{bytes / 1_048_576.0:F1} MB",
+            >= 1_024         => $"{bytes / 1_024.0:F1} KB",
+            _                => $"{bytes} B"
+        };
 }
 

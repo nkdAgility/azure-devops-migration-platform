@@ -471,6 +471,11 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
         double lastRevDurationMs = 0;
         double avgRevDurationMs = 0;
         string currentStage = string.Empty;
+        int attProcessed = 0;
+        int attFailed = 0;
+        double avgAttDurationMs = 0;
+        long avgAttSizeBytes = 0;
+        string? currentAttName = null;
 
         if (Console.IsOutputRedirected)
         {
@@ -492,6 +497,15 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
                         lastRevDurationMs = evt.Metrics.Migration.WorkItems.LastRevisionDurationMs;
                     if (evt.Metrics?.Migration?.WorkItems?.AverageRevisionDurationMs > 0)
                         avgRevDurationMs = evt.Metrics.Migration.WorkItems.AverageRevisionDurationMs;
+                    var att = evt.Metrics?.Migration?.WorkItems?.Attachments;
+                    if (att != null)
+                    {
+                        attProcessed = (int)att.Processed;
+                        attFailed = (int)att.Failed;
+                        avgAttDurationMs = att.AverageDownloadDurationMs;
+                        avgAttSizeBytes = att.AverageSizeBytes;
+                        currentAttName = att.CurrentAttachmentName;
+                    }
                     var wi = evt.Metrics?.Migration?.WorkItems;
                     if (wi?.CurrentWorkItemId > 0)
                     {
@@ -563,6 +577,16 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
                             if (evt.Metrics?.Migration?.WorkItems?.AverageRevisionDurationMs > 0)
                                 avgRevDurationMs = evt.Metrics.Migration.WorkItems.AverageRevisionDurationMs;
 
+                            var att = evt.Metrics?.Migration?.WorkItems?.Attachments;
+                            if (att != null)
+                            {
+                                attProcessed = (int)att.Processed;
+                                attFailed = (int)att.Failed;
+                                avgAttDurationMs = att.AverageDownloadDurationMs;
+                                avgAttSizeBytes = att.AverageSizeBytes;
+                                currentAttName = att.CurrentAttachmentName;
+                            }
+
                             ctx.UpdateTarget(BuildProgressRenderable(
                                 processed, totalWorkItems,
                                 currentWiId, currentWiRevsWritten,
@@ -570,7 +594,8 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
                                 currentStage,
                                 evt.LastCheckpointAt, evt.NextCheckpointDueAt,
                                 lastRevDurationMs, avgRevDurationMs,
-                                revisions));
+                                revisions,
+                                attProcessed, attFailed, avgAttDurationMs, avgAttSizeBytes, currentAttName));
                         }
                     });
             }
@@ -644,7 +669,10 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
         string stage,
         DateTimeOffset? lastCheckpointAt = null, DateTimeOffset? nextCheckpointDueAt = null,
         double lastRevDurationMs = 0, double avgRevDurationMs = 0,
-        int totalRevisions = 0)
+        int totalRevisions = 0,
+        int attProcessed = 0, int attFailed = 0,
+        double avgAttDurationMs = 0, long avgAttSizeBytes = 0,
+        string? currentAttName = null)
     {
         const int BarWidth = 38;
 
@@ -721,7 +749,25 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
         else
             checkpointRow = new Markup("  [grey]─[/]");
 
-        return new Rows(wiRow, revRow, timingRow, checkpointRow);
+        // ── Row 5: attachments summary ────────────────────────────────────────────────
+        IRenderable attachmentRow;
+        if (attProcessed > 0 || attFailed > 0 || currentAttName != null)
+        {
+            var avgDurStr = avgAttDurationMs > 0 ? $"  [grey]avg dl:[/] [white]{avgAttDurationMs / 1000.0:F1}s[/]" : string.Empty;
+            var avgSzStr = avgAttSizeBytes > 0 ? $"  [grey]avg size:[/] [white]{FormatBytes(avgAttSizeBytes)}[/]" : string.Empty;
+            var failStr = attFailed > 0 ? $"  [red]{attFailed} failed[/]" : string.Empty;
+            var inFlightStr = currentAttName != null
+                ? $"  [yellow]↓ {Markup.Escape(TruncateName(currentAttName, 28))}[/]"
+                : string.Empty;
+            attachmentRow = new Markup(
+                $"  [grey]Attachments:[/] [bold]{attProcessed:N0}[/][grey] done[/]{failStr}{inFlightStr}{avgDurStr}{avgSzStr}");
+        }
+        else
+        {
+            attachmentRow = new Markup("  [grey]Attachments   –[/]");
+        }
+
+        return new Rows(wiRow, revRow, timingRow, attachmentRow, checkpointRow);
     }
 
     private static string ComputeRevisionEta(int revisionsWritten, int estimatedTotalRevisions, double avgRevDurationMs)
@@ -735,6 +781,18 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
             ? $"{(int)eta.TotalHours}:{eta.Minutes:D2}:{eta.Seconds:D2}"
             : $"--:{eta.Minutes:D2}:{eta.Seconds:D2}";
     }
+
+    private static string FormatBytes(long bytes) =>
+        bytes switch
+        {
+            >= 1_073_741_824 => $"{bytes / 1_073_741_824.0:F1} GB",
+            >= 1_048_576     => $"{bytes / 1_048_576.0:F1} MB",
+            >= 1_024         => $"{bytes / 1_024.0:F1} KB",
+            _                => $"{bytes} B"
+        };
+
+    private static string TruncateName(string name, int maxLen) =>
+        name.Length <= maxLen ? name : "…" + name[^(maxLen - 1)..];
 
     /// <summary>
     /// Converts <see cref="MigrationOptions.Modules"/> into <see cref="JobModule"/> entries.

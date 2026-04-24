@@ -16,6 +16,8 @@ public static class WellKnownMetricNames
     // --- Payload / Complexity ---
     public const string FieldCount = "migration.workitem.fields.count";
     public const string AttachmentCount = "migration.workitem.attachments.count";
+    public const string AttachmentDownloadDurationMs = "migration.attachment.download.duration.ms";
+    public const string AttachmentDownloadBytes = "migration.attachment.download.bytes";
     public const string LinkCount = "migration.workitem.links.count";
     public const string RevisionCount = "migration.workitem.revisions.count";
     public const string PayloadBytes = "migration.workitem.payload.bytes";

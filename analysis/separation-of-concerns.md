@@ -483,7 +483,7 @@ What remains here are internal helpers:
 EndpointOptionsTypeRegistry.cs
 EndpointOptionsRegistration.cs
 EndpointOptionsRegistrationExtensions.cs  ← stays here (depends on serialization + DI)
-PolymorphicOrganisationEntryConverter.cs  ← if not also moved to Abstractions
+PolymorphicOrganisationEntryConverter.cs  ← stays here (depends on EndpointOptionsTypeRegistry)
 ```
 
 ### `Telemetry/`
@@ -1031,7 +1031,7 @@ Delete `Errors/` after Phase 3.
 
 | Source | Destination | Rename |
 |--------|-------------|--------|
-| `Abstractions/Utilities/TokenResolver.cs` | `Abstractions/Options/ConfigTokenResolver.cs` | class: `TokenResolver` → `ConfigTokenResolver` |
+| `Abstractions/Utilities/TokenResolver.cs` | `Abstractions/Options/ConfigTokenResolver.cs` | class: `TokenResolver` → `ConfigTokenResolver`. **Before renaming:** grep for string `"TokenResolver"` in config files, JSON, and attributes. Update any string references in the same commit. |
 | `Abstractions/Utilities/PathUtilities.cs` | stays temporarily | moves to `Agent/Lease/PackagePathUtilities.cs` in Phase 3 |
 | `CLI.Migration/Utilities/PathUtilities.cs` | `CLI.Migration/Services/CliPathUtilities.cs` | rename to distinguish from Agent version |
 | `CLI.Migration/Utilities/ExceptionSanitizer.cs` | `CLI.Migration/Services/ExceptionSanitizer.cs` | |
@@ -1569,6 +1569,43 @@ Any ❌ cell that has a reference is a violation. Fix before declaring done.
 #### Step 6.5 — Scenario smoke test
 
 Run at least one scenario config via `launch.json` debug profile and verify observable output.
+
+#### Step 6.6 — Aspire orchestration verification
+
+```powershell
+dotnet run --project AppHost
+```
+
+Verify that `ControlPlaneHost` and `MigrationAgent` launch correctly via Aspire
+orchestration. The new library projects (`Infrastructure.Agent`, `Infrastructure.ControlPlane`,
+`Abstractions.Agent`, `Abstractions.ControlPlane`) must not break the Aspire project
+discovery or build graph.
+
+#### Step 6.7 — Update `build.ps1`
+
+Add the four new projects to `build.ps1` build and publish targets:
+- `DevOpsMigrationPlatform.Abstractions.Agent`
+- `DevOpsMigrationPlatform.Abstractions.ControlPlane`
+- `DevOpsMigrationPlatform.Infrastructure.Agent`
+- `DevOpsMigrationPlatform.Infrastructure.ControlPlane`
+
+These are library projects (not deployable hosts), but they must be included in the
+build matrix for CI coverage.
+
+#### Step 6.8 — NuGet package distribution
+
+Verify that NuGet package references are correctly distributed after the split:
+
+| Package | Must be in | Must NOT be in |
+|---------|-----------|----------------|
+| `Microsoft.Data.Sqlite` | `Infrastructure.Agent` | base `Infrastructure` |
+| `Azure.Storage.Blobs` (if used) | `Infrastructure.Agent` | base `Infrastructure` |
+| `Microsoft.Extensions.Http` | `Infrastructure.Agent` (for CP telemetry client) | — |
+| OTel metric packages | both `Infrastructure.Agent` and `Infrastructure.ControlPlane` | — |
+| EF Core / Aspire packages | `Infrastructure.ControlPlane` | `Infrastructure.Agent` |
+
+Run `dotnet list package` for each new project and verify no unnecessary transitive
+dependencies leak across boundaries.
 
 ---
 

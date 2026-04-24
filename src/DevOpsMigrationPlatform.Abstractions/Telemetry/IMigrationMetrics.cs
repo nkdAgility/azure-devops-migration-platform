@@ -19,6 +19,8 @@ public interface IMigrationMetrics
     // --- Payload / Complexity ---
     void RecordFieldCount(int count, in TagList tags);
     void RecordAttachmentCount(int count, in TagList tags);
+    void RecordAttachmentDownloadDuration(double milliseconds, in TagList tags);
+    void RecordAttachmentDownloadBytes(long bytes, in TagList tags);
     void RecordLinkCount(int count, in TagList tags);
     void RecordRevisionCount(int count, in TagList tags);
     void RecordPayloadBytes(long bytes, in TagList tags);
