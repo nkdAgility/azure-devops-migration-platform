@@ -772,6 +772,10 @@ config and job payloads. Currently in `Infrastructure.Serialization`.
 Update namespace: `DevOpsMigrationPlatform.Infrastructure.Serialization` →
 `DevOpsMigrationPlatform.Abstractions.Serialization`.
 
+**Verify:** Round-trip test — serialise and deserialise a config file containing each
+endpoint type (AzureDevOps, Simulated). Confirm polymorphic type resolution still works
+after the assembly move.
+
 #### Step 1.6 — Remove invalid project references
 
 Delete from `CLI.Migration.csproj`:
@@ -1514,6 +1518,10 @@ For any test that currently depends on a removed reference:
 `Infrastructure.Tests` may NOT reference `Abstractions.Agent` — only the split
 `Infrastructure.Agent.Tests` project can. This prevents Agent test types from leaking
 into base infrastructure tests.
+
+**Internal type visibility:** If any test fails due to inaccessible `internal` types
+after the split, add `<InternalsVisibleTo Include="TestProjectName" />` to the
+production project's `.csproj`. Prefer making types `public` where possible.
 
 #### Step 6.2 — Build gate
 
