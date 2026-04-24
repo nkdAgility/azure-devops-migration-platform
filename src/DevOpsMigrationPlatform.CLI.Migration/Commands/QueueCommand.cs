@@ -464,6 +464,8 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
         var progressStartTime = DateTimeOffset.UtcNow;
         int processed = 0;
         int revisions = 0;
+        double lastWiDurationMs = 0;
+        double avgWiDurationMs = 0;
         string currentStage = string.Empty;
 
         if (Console.IsOutputRedirected)
@@ -482,6 +484,10 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
                         totalWorkItems = (int)evt.Metrics.Scope.WorkItemsTotal;
                     processed = (int)(evt.Metrics?.Migration?.WorkItems?.Completed ?? processed);
                     revisions = (int)(evt.Metrics?.Migration?.WorkItems?.RevisionsProcessed ?? revisions);
+                    if (evt.Metrics?.Migration?.WorkItems?.LastWorkItemDurationMs > 0)
+                        lastWiDurationMs = evt.Metrics.Migration.WorkItems.LastWorkItemDurationMs;
+                    if (evt.Metrics?.Migration?.WorkItems?.AverageWorkItemDurationMs > 0)
+                        avgWiDurationMs = evt.Metrics.Migration.WorkItems.AverageWorkItemDurationMs;
                 }
             }
             catch (InvalidOperationException ex) when (ex.Message.Contains("Job failed"))
@@ -532,13 +538,18 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
                                 totalWorkItems = (int)evt.Metrics.Scope.WorkItemsTotal;
                             processed = (int)(evt.Metrics?.Migration?.WorkItems?.Completed ?? processed);
                             revisions = (int)(evt.Metrics?.Migration?.WorkItems?.RevisionsProcessed ?? revisions);
+                            if (evt.Metrics?.Migration?.WorkItems?.LastWorkItemDurationMs > 0)
+                                lastWiDurationMs = evt.Metrics.Migration.WorkItems.LastWorkItemDurationMs;
+                            if (evt.Metrics?.Migration?.WorkItems?.AverageWorkItemDurationMs > 0)
+                                avgWiDurationMs = evt.Metrics.Migration.WorkItems.AverageWorkItemDurationMs;
 
                             ctx.UpdateTarget(BuildProgressRenderable(
                                 processed, totalWorkItems,
                                 0, 0,
                                 0, 0,
                                 currentStage, progressStartTime,
-                                evt.LastCheckpointAt, evt.NextCheckpointDueAt));
+                                evt.LastCheckpointAt, evt.NextCheckpointDueAt,
+                                lastWiDurationMs, avgWiDurationMs));
                         }
                     });
             }
@@ -610,7 +621,8 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
         int currentWiId, int currentWiRevisions,
         int lastCompletedWiId, int lastCompletedRevisions,
         string stage, DateTimeOffset startTime,
-        DateTimeOffset? lastCheckpointAt = null, DateTimeOffset? nextCheckpointDueAt = null)
+        DateTimeOffset? lastCheckpointAt = null, DateTimeOffset? nextCheckpointDueAt = null,
+        double lastWiDurationMs = 0, double avgWiDurationMs = 0)
     {
         const int BarWidth = 38;
         const int WiBarWidth = 20;
@@ -627,9 +639,27 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
             $"  [grey]{pct * 100.0:F1}%[/]  [grey]ETA: {Markup.Escape(etaStr)}[/]");
 
         // ── Row 2: last completed WI (full bar = 100 %) ──────────────────────────────
-        IRenderable completedRow = lastCompletedWiId > 0
-            ? new Markup($"  [grey]✓ WI {lastCompletedWiId}  {new string('━', WiBarWidth)}  {lastCompletedRevisions} rev  done[/]")
-            : new Markup("  [grey]─[/]");
+        IRenderable completedRow;
+        if (lastWiDurationMs > 0)
+        {
+            var lastSec = lastWiDurationMs / 1000.0;
+            var avgSec  = avgWiDurationMs  / 1000.0;
+            // Flag likely throttling: last WI took more than 3× the average.
+            var isSlowdown = avgWiDurationMs > 0 && lastWiDurationMs > avgWiDurationMs * 3;
+            var durationColor = isSlowdown ? "red" : lastWiDurationMs > avgWiDurationMs * 1.5 ? "yellow" : "green";
+            var throttleWarning = isSlowdown ? "  [red bold]⚠ possible back-off[/]" : string.Empty;
+            completedRow = new Markup(
+                $"  [grey]last:[/] [{durationColor}]{lastSec:F1}s[/]" +
+                $"  [grey]avg:[/] [grey]{avgSec:F1}s[/]{throttleWarning}");
+        }
+        else if (lastCompletedWiId > 0)
+        {
+            completedRow = new Markup($"  [grey]✓ WI {lastCompletedWiId}  {new string('━', WiBarWidth)}  {lastCompletedRevisions} rev  done[/]");
+        }
+        else
+        {
+            completedRow = new Markup("  [grey]─[/]");
+        }
 
         // ── Row 3: current WI in progress (partial bar, never reaches 100 %) ─────────
         IRenderable currentRow;

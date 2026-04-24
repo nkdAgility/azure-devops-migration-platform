@@ -21,6 +21,18 @@ public record WorkItemCounters
     /// <summary>Total revisions processed across all work items.</summary>
     public long RevisionsProcessed { get; init; }
 
+    /// <summary>
+    /// Duration in milliseconds for the most recently completed work item.
+    /// Used to detect back-off / throttling: a sudden spike indicates server-side rate limiting.
+    /// </summary>
+    public double LastWorkItemDurationMs { get; init; }
+
+    /// <summary>
+    /// Rolling average duration in milliseconds per completed work item.
+    /// Baseline to compare against <see cref="LastWorkItemDurationMs"/>.
+    /// </summary>
+    public double AverageWorkItemDurationMs { get; init; }
+
     /// <summary>Optional attachment counters. Null when no attachments have been processed.</summary>
     public AttachmentCounters? Attachments { get; init; }
 }

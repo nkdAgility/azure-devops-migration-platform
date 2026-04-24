@@ -136,6 +136,8 @@ public sealed class WorkItemExportOrchestrator
         int workItemsProcessed = cursor?.WorkItemsProcessed ?? 0;
         int revisionsProcessed = cursor?.RevisionsProcessed ?? 0;
         int lastWorkItemId = cursor?.LastWorkItemId ?? 0;
+        double lastWorkItemDurationMs = 0;
+        double totalWorkItemDurationMs = 0;
 
         // Determine total work items: use cached cursor value on resume, otherwise count via
         // discovery service. Counting happens here in the Agent — never in the CLI.
@@ -321,10 +323,12 @@ public sealed class WorkItemExportOrchestrator
                 // Record completion of the previous work item (if any).
                 if (lastWorkItemId != 0)
                 {
+                    lastWorkItemDurationMs = workItemStopwatch.Elapsed.TotalMilliseconds;
+                    totalWorkItemDurationMs += lastWorkItemDurationMs;
                     if (_metrics != null)
                     {
                         _metrics.RecordWorkItemCompleted(exportTags);
-                        _metrics.RecordWorkItemDuration(workItemStopwatch.Elapsed.TotalMilliseconds, exportTags);
+                        _metrics.RecordWorkItemDuration(lastWorkItemDurationMs, exportTags);
                         _metrics.RecordRevisionCount(revisionsForCurrentWorkItem, exportTags);
                         _metrics.DecrementInFlight(exportTags);
                     }
@@ -365,7 +369,11 @@ public sealed class WorkItemExportOrchestrator
                             WorkItems = new WorkItemCounters
                             {
                                 Completed = workItemsProcessed,
-                                RevisionsProcessed = revisionsProcessed
+                                RevisionsProcessed = revisionsProcessed,
+                                LastWorkItemDurationMs = lastWorkItemDurationMs,
+                                AverageWorkItemDurationMs = workItemsProcessed > 1
+                                    ? totalWorkItemDurationMs / (workItemsProcessed - 1)
+                                    : lastWorkItemDurationMs
                             }
                         }
                     }
