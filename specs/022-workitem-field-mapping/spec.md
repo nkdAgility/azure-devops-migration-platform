@@ -24,6 +24,9 @@
 - Q: In which phase(s) should transforms run? → A: Both phases supported — each extension tool reference declares `phase: export | import | both` with **import** as the default. Export captures raw source data for auditability; transforms apply at import time by default.
 - Q: What is the configuration structure for transforms? → A: `Tools.FieldTransform` is a singleton. Transforms are organised into `transformGroups` — an ordered array of named groups. Each group has optional `applyTo` (work item type filter) and `enabled`. Individual transforms also support `applyTo` and `enabled`. Execution: groups in array order, transforms within each group in array order. Omitting `applyTo` or setting `["*"]` means all types. Omitting `enabled` means `true`.
 - Q: Override merge semantics? → A: No override merge — the tool is a singleton with a single transform pipeline. Extensions reference it by name and declare phase only; they do not modify the transform list.
+- Q: Field type mismatch handling (RT-H2)? → A: A comprehensive pre-migration validation step runs during the `prepare` command. The FieldTransformTool validates all configured transforms against actual field definitions (names, types, allowed values) in both source and target, producing a validation report. Runtime type mismatches that escape prepare-time validation cause fail-fast.
+- Q: Bulk failure policy (RT-H4)? → A: Fail-fast on first transform error for v1. Future: P4 (Operator Interaction) will allow the Agent to pause, present choices to the operator via TUI/CLI follow-mode, and resume — see `analysis/proposed-features.md § P4`.
+- Q: Dry-run mode (RT-M4)? → A: Out of scope for v1. The prepare-time validation provides the primary safety net. Dry-run is a future feature.
 
 ## Naming Convention
 

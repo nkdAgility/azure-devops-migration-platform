@@ -93,6 +93,7 @@ Status legend:
 | P1 | [Checkpoint Reconciliation](#p1-checkpoint-reconciliation) | 🆕 ❌ | Rebuild missing/corrupted checkpoint state from existing package data across all modules |
 | P2 | [Three-Channel Telemetry Model](#p2-three-channel-telemetry-model) | ✅ | Rationalise Events, Metrics, and Snapshot into distinct channels with correct layering |
 | **P3** | **[Process-per-Component Standalone Mode](#p3-process-per-component-standalone-mode)** | **🔶** | **Eliminate OTel instrumentation bleed in standalone mode by running ControlPlane and Agent as separate processes (with in-process fallback)** |
+| P4 | [Operator Interaction / Pending Questions](#p4-operator-interaction--pending-questions) | 🆕 ❌ | Allow a running MigrationJob to pause and request operator input via TUI or CLI follow-mode; Agent enters "Pending" state on Control Plane until the answer is provided |
 
 ---
 
@@ -959,7 +960,30 @@ As an interim measure before the full `Reconcile` job is built, individual modul
 
 ---
 
-The following additions to the scenario JSON schema are implied by the proposals above:
+### P4: Operator Interaction / Pending Questions
+
+**Current state**: If a migration job encounters an ambiguous or unrecoverable situation at runtime (e.g., a field type mismatch that prepare-time validation did not catch, an unexpected value not in the mapping table, a permissions error on a subset of items), the only options are fail-fast or silently skip. There is no mechanism for the job to ask the operator a question and wait for a response.
+
+**Why it matters**: Fail-fast is too aggressive for long-running migrations — the operator may lose hours of work. Silent skip hides problems. The operator should be able to make an informed decision at runtime without aborting the entire job.
+
+**Proposed solution**:
+
+1. **Agent pauses**: When a module or tool encounters a situation requiring operator input, it raises a `PendingQuestion` through a platform service (e.g., `IOperatorInteractionService`). The Agent pauses the current job and transitions to `Pending` state on the Control Plane.
+2. **Control Plane queues the question**: The question (with context, options, and a timeout) is stored as part of the job state. The job remains in `Pending` until answered or timed out.
+3. **Operator connects**: The operator can connect via TUI or re-attach the CLI in follow mode (`devopsmigration follow --job <id>`) to the same job. The UI presents the pending question with available choices.
+4. **Answer flows back**: The operator's answer is recorded on the Control Plane and delivered to the Agent, which resumes processing with the chosen action.
+5. **Timeout behaviour**: If no answer is provided within a configurable timeout (default: 1 hour), the Agent applies a default action (e.g., skip the item and continue) or fails the job, depending on the question's severity.
+
+**Consumers in this proposal**:
+- **FieldTransformTool (this spec)**: Runtime transform errors could present "Skip this item / Abort / Retry" choices.
+- **General use**: Any module or tool can raise a `PendingQuestion` — this is a platform-level capability, not specific to field transforms.
+
+**Architectural constraints**:
+- The Agent MUST NOT block indefinitely — timeout with configurable default is mandatory.
+- Questions and answers MUST be recorded in the job log for auditability.
+- The Control Plane is the mediator — Agent and CLI/TUI never communicate directly about questions.
+
+> **Note**: This is a separate platform feature (P4). The FieldTransformTool spec references it as a future integration point but does not depend on it for v1. V1 uses fail-fast on transform errors.
 
 | Field | Location | Purpose |
 |---|---|---|
