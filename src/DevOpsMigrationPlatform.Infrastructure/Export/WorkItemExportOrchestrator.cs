@@ -110,17 +110,24 @@ public sealed class WorkItemExportOrchestrator
         if (_filterOptions is { Count: > 0 } && _fetchService != null && _endpoint != null &&
             !string.IsNullOrEmpty(_project))
         {
-            filteredIds = await BuildFilteredIdSetAsync(_filterOptions, cancellationToken)
-                .ConfigureAwait(false);
-
+            _logger?.LogInformation("[WorkItems] Starting pre-filter pass — fetching work items to evaluate {FilterCount} filter(s).", _filterOptions.Count);
             _progressSink?.Emit(new ProgressEvent
             {
                 Module = "WorkItems",
-                Stage = "Export",
-                Message = $"[WorkItems] Pre-filter pass complete: {filteredIds.Count} work items pass the configured filter(s)."
+                Stage = "Filtering",
+                Message = $"[WorkItems] Pre-filter pass starting — evaluating {_filterOptions.Count} filter(s)…"
             });
 
+            filteredIds = await BuildFilteredIdSetAsync(_filterOptions, cancellationToken)
+                .ConfigureAwait(false);
+
             _logger?.LogInformation("[WorkItems] Pre-filter pass complete: {FilteredCount} work items pass filters.", filteredIds.Count);
+            _progressSink?.Emit(new ProgressEvent
+            {
+                Module = "WorkItems",
+                Stage = "Filtering",
+                Message = $"[WorkItems] Pre-filter pass complete: {filteredIds.Count} work items pass the configured filter(s)."
+            });
         }
 
         var cursor = await _checkpointingService
@@ -128,9 +135,17 @@ public sealed class WorkItemExportOrchestrator
             .ConfigureAwait(false);
 
         if (cursor != null)
+        {
             _logger?.LogInformation(
                 "[WorkItems] Resuming export from cursor: {Cursor} (previously {WorkItemsProcessed} work items / {RevisionsProcessed} revisions)",
                 cursor.LastProcessed, cursor.WorkItemsProcessed, cursor.RevisionsProcessed);
+            _progressSink?.Emit(new ProgressEvent
+            {
+                Module = "WorkItems",
+                Stage = "Resuming",
+                Message = $"[WorkItems] Resuming from cursor — {cursor.WorkItemsProcessed} work items / {cursor.RevisionsProcessed} revisions already exported."
+            });
+        }
 
         // Seed counters from cursor so progress is accurate on resume.
         int workItemsProcessed = cursor?.WorkItemsProcessed ?? 0;
@@ -216,6 +231,8 @@ public sealed class WorkItemExportOrchestrator
 
         Activity? workItemActivity = null;
 
+        int resumeSkipLastWorkItemId = 0;
+
         await foreach (var revision in source.GetRevisionsAsync(cancellationToken))
         {
             var folderPath = BuildFolderPath(revision.WorkItemId, revision.RevisionIndex, revision.ChangedDate);
@@ -224,6 +241,30 @@ public sealed class WorkItemExportOrchestrator
             if (cursor != null &&
                 string.Compare(folderPath, cursor.LastProcessed, StringComparison.Ordinal) <= 0)
             {
+                // Emit a progress event each time we cross a new work item boundary during
+                // the skip phase so the CLI shows "Resuming…" activity rather than silence.
+                if (revision.WorkItemId != resumeSkipLastWorkItemId)
+                {
+                    resumeSkipLastWorkItemId = revision.WorkItemId;
+                    _progressSink?.Emit(new ProgressEvent
+                    {
+                        Module = "WorkItems",
+                        Stage = "Resuming",
+                        Message = $"[WorkItems] Resuming — skipping WI {revision.WorkItemId} (already exported)",
+                        Metrics = new JobMetrics
+                        {
+                            Scope = new JobScopeCounters { WorkItemsTotal = totalWorkItems },
+                            Migration = new MigrationCounters
+                            {
+                                WorkItems = new WorkItemCounters
+                                {
+                                    Completed = workItemsProcessed,
+                                    RevisionsProcessed = revisionsProcessed
+                                }
+                            }
+                        }
+                    });
+                }
                 continue;
             }
 
@@ -562,11 +603,25 @@ public sealed class WorkItemExportOrchestrator
         var scope = new WorkItemFetchScope(Fields: filterFields, FilterOptions: filterOptions);
 
         var orgEndpoint = _endpoint!.ToOrganisationEndpoint();
+        int fetched = 0;
 
         await foreach (var item in _fetchService!.FetchAsync(orgEndpoint, _project!, scope, cancellationToken)
             .ConfigureAwait(false))
         {
             ids.Add(item.Id);
+            fetched++;
+
+            // Emit progress every 500 items so the operator can see the fetch is alive.
+            if (fetched % 500 == 0)
+            {
+                _logger?.LogInformation("[WorkItems] Pre-filter pass: {Fetched} work items fetched so far…", fetched);
+                _progressSink?.Emit(new ProgressEvent
+                {
+                    Module = "WorkItems",
+                    Stage = "Filtering",
+                    Message = $"[WorkItems] Pre-filter pass: {fetched:N0} work items fetched so far…"
+                });
+            }
         }
 
         return ids;

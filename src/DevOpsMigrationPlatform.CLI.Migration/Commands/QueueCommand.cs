@@ -677,23 +677,11 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
             var curPct = refRevs > 0 ? Math.Min(1.0, (double)currentWiRevisions / refRevs) : 0.0;
             var curFilled = Math.Clamp((int)(curPct * BarWidth), 0, BarWidth);
             var curBar = new string('━', curFilled) + new string('─', BarWidth - curFilled);
-            var cumStr = totalRevisions > 0 ? $"  [grey]total: {totalRevisions:N0} rev[/]" : string.Empty;
             var lastRevStr = lastCompletedRevisions > 0 ? $"  [grey](prev: {lastCompletedRevisions} rev)[/]" : string.Empty;
             revRow = new Markup(
                 $"  [grey]↳ WI {currentWiId}[/]   [blue]{Markup.Escape(curBar)}[/]"
                 + $"  [bold]{currentWiRevisions:N0}[/][grey] rev[/]"
-                + $"{lastRevStr}{cumStr}");
-        }
-        else if (totalRevisions > 0)
-        {
-            // No WI in flight yet — show cumulative totals.
-            var revPct = estimatedTotalRevisions > 0 ? Math.Min(1.0, (double)totalRevisions / estimatedTotalRevisions) : 0.0;
-            var revFilled = Math.Clamp((int)(revPct * BarWidth), 0, BarWidth);
-            var revBar = new string('━', revFilled) + new string('─', BarWidth - revFilled);
-            var revTotalStr = estimatedTotalRevisions > 0 ? $"[grey]/~{estimatedTotalRevisions:N0}[/]" : string.Empty;
-            revRow = new Markup(
-                $"  [grey]↳ Revisions[/]   [blue]{Markup.Escape(revBar)}[/]"
-                + $"  [bold]{totalRevisions:N0}[/]{revTotalStr}");
+                + $"{lastRevStr}");
         }
         else
         {

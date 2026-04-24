@@ -53,15 +53,21 @@ export). The in-process fallback is unnecessary and must be deleted.
 
 ## Target state
 
-### `CLI.Migration.csproj` — single reference
+### `CLI.Migration.csproj` — two references
 
 ```xml
 <ProjectReference Include="..\DevOpsMigrationPlatform.Abstractions\DevOpsMigrationPlatform.Abstractions.csproj" />
+<ProjectReference Include="..\DevOpsMigrationPlatform.Infrastructure\DevOpsMigrationPlatform.Infrastructure.csproj" />
 ```
 
-The CLI compiles against `Abstractions` only. It launches ControlPlane and Agent as child
-processes via `ChildProcessHost`. All communication with CP is via HTTP using the contracts
-in `Abstractions/ControlPlaneApi/`.
+The CLI compiles against `Abstractions` (contracts) and base `Infrastructure` (config
+binding, options validation, and polymorphic serializer registration). It launches
+ControlPlane and Agent as child processes via `ChildProcessHost`. All communication with
+CP is via HTTP using the contracts in `Abstractions/ControlPlaneApi/`.
+
+The CLI MUST NOT reference `Infrastructure.Agent`, `Infrastructure.ControlPlane`,
+`Infrastructure.AzureDevOps`, `Infrastructure.Simulated`, `ControlPlane`, or
+`MigrationAgent`. Only cross-cutting infrastructure (config, serialization) is reachable.
 
 ### Project reference topology — enforced by compiler
 
@@ -500,7 +506,7 @@ Concrete implementations of `Abstractions.ControlPlane` interfaces. Only
 `ControlPlaneHost` references this project.
 
 ```xml
-<!-- Infrastructure.ControlPlane.csproj -->
+<!-- Infrastructure.ControlPlane.csproj — net10.0 only (no net481 consumers) -->
 <ProjectReference Include="..\DevOpsMigrationPlatform.Abstractions\..." />
 <ProjectReference Include="..\DevOpsMigrationPlatform.Abstractions.ControlPlane\..." />
 <ProjectReference Include="..\DevOpsMigrationPlatform.Infrastructure\..." />
@@ -523,7 +529,7 @@ Concrete implementations of `Abstractions.Agent` interfaces. Only `MigrationAgen
 and `CLI.TfsMigration` reference this project.
 
 ```xml
-<!-- Infrastructure.Agent.csproj -->
+<!-- Infrastructure.Agent.csproj — MUST multi-target net481;net10.0 (CLI.TfsMigration is net481) -->
 <ProjectReference Include="..\DevOpsMigrationPlatform.Abstractions\..." />
 <ProjectReference Include="..\DevOpsMigrationPlatform.Abstractions.Agent\..." />
 <ProjectReference Include="..\DevOpsMigrationPlatform.Infrastructure\..." />
@@ -641,7 +647,10 @@ Git tracks renames by content similarity. To maximise rename detection:
 1. **One move per file.** Every file moves ONCE to its final destination — never via an
    intermediate location. Phase 2 moves only files that stay in base `Abstractions`.
    Agent-targeted files skip Phase 2 and move directly to `Abstractions.Agent` in Phase 3.
-   Same pattern for Infrastructure in Phases 4–5.
+   Same pattern for Infrastructure in Phases 4–5. **Clarification:** files tagged
+   "stays temporarily" in Phase 2 tables are NOT moved — they stay at their current path
+   untouched. Their single move happens in Phase 3 (or Phase 5 for Infrastructure files)
+   directly to their final destination. "Staying in place" is not a move.
 
 2. **Separate rename from edit.** Each step is either a batch of `git mv` operations OR a
    batch of namespace/using edits — not both. Git's rename detection threshold (default 50%
@@ -658,6 +667,7 @@ Git tracks renames by content similarity. To maximise rename detection:
 
 | Phase | Description | Move type |
 |-------|-------------|-----------|
+| 0 | Pre-flight audit — record current state | No moves |
 | 1 | Code edits — sever CLI coupling | No moves |
 | 2 | Screaming architecture within base `Abstractions` | `git mv` within project |
 | 3 | Create `Abstractions.ControlPlane` + `Abstractions.Agent` | `git mv` across projects |
@@ -666,6 +676,22 @@ Git tracks renames by content similarity. To maximise rename detection:
 | 6 | Reference cleanup, test boundaries, verification | No moves |
 
 ---
+
+### Phase 0 — Pre-flight audit
+
+Before any restructuring, capture the current project reference graph and compare it
+against the target topology tables.
+
+| Action | Detail |
+|--------|--------|
+| Run | `dotnet list reference` for every project in the solution |
+| Record | Save output to `analysis/current-project-references.md` |
+| Compare | Diff current references against both topology tables (Abstractions layer + Implementation layer) in Target State |
+| Document | Any violation not already listed in Phase 1 steps — add new steps to Phase 1 for each |
+| Verify TFMs | Confirm `Abstractions` and `Infrastructure` multi-target `net481;net10.0` (required for `CLI.TfsMigration`) |
+
+This step produces no code changes. It ensures Phase 1 covers all violations, not just
+the known ones.
 
 ### Phase 1 — Sever the CLI ↔ Agent/CP compile-time coupling
 
@@ -703,9 +729,13 @@ Removing it makes Steps 1.2–1.5 possible.
 |--------|--------|
 | Update | `QueueCommand`, `ConfigNewCommand`, `ConfigureCommand`, `PrepareCommand` |
 | Change | Replace `new ConfigurationService(...)` → constructor-inject `IConfigurationService` |
-| Register | In `MigrationCliServiceCollectionExtensions`, add `services.AddSingleton<IConfigurationService, ConfigurationService>()` — but this still requires Infrastructure reference |
-| Split registration | Create `Abstractions/Configuration/ConfigurationServiceCollectionExtensions.cs` with `AddConfigurationService(this IServiceCollection)` method that takes a factory delegate |
-| Actual registration | Move to `Infrastructure` as an extension method that the CLI's composition root calls |
+| Create | `Abstractions/Configuration/ConfigurationServiceCollectionExtensions.cs` — defines `AddConfigurationService(this IServiceCollection, Func<IServiceProvider, IConfigurationService> factory)` accepting a factory delegate |
+| Implement | `Infrastructure/Config/ConfigurationServiceRegistration.cs` — extension method `AddFileSystemConfigurationService(this IServiceCollection)` that calls `AddConfigurationService(sp => new ConfigurationService(...))` |
+| Register | CLI composition root calls `services.AddFileSystemConfigurationService()` |
+
+**Why factory delegate:** Keeps `Abstractions` free of implementation references. If the
+CLI `Infrastructure` reference is ever removed, the registration still works via the
+factory delegate pattern in `Abstractions`.
 
 #### Step 1.4 — Move config-schema types to `Abstractions/Options/`
 
@@ -742,32 +772,46 @@ config and job payloads. Currently in `Infrastructure.Serialization`.
 Update namespace: `DevOpsMigrationPlatform.Infrastructure.Serialization` →
 `DevOpsMigrationPlatform.Abstractions.Serialization`.
 
-#### Step 1.6 — Remove all invalid project references
+#### Step 1.6 — Remove invalid project references
 
 Delete from `CLI.Migration.csproj`:
 ```xml
 <ProjectReference Include="..\DevOpsMigrationPlatform.ControlPlane\..." />
 <ProjectReference Include="..\DevOpsMigrationPlatform.MigrationAgent\..." />
-<ProjectReference Include="..\DevOpsMigrationPlatform.Infrastructure\..." />
 <ProjectReference Include="..\DevOpsMigrationPlatform.Infrastructure.AzureDevOps\..." />
 <ProjectReference Include="..\DevOpsMigrationPlatform.Infrastructure.Simulated\..." />
 ```
 
-**Build gate:** `CLI.Migration` must compile with only `Abstractions` as a project reference.
+The `Infrastructure` reference stays — the CLI needs it for `ConfigurationService`,
+`AddMigrationPlatformOptions()`, and `EndpointOptionsRegistrationExtensions`.
+
+**Build gate:** `CLI.Migration` must compile with `Abstractions` + `Infrastructure` only.
 Any remaining compile error means a dependency was missed in Steps 1.1–1.5.
 
 #### Step 1.7 — Remove `LogDownloadController` from ControlPlane
 
 **Why:** `LogDownloadController` injects `IPackageStoreFactory` and `IArtefactStore` to
-serve log files. This forces the ControlPlane to reference Agent-internal contracts.
-Operators can access logs directly from the well-known package directory.
+serve historical log files. This forces the ControlPlane to reference Agent-internal
+contracts. The CLI and TUI must NEVER access the package filesystem directly.
+
+**Current consumers:**
+- `ControlPlaneClient.DownloadDiagnosticsAsync()` → `GET /jobs/{id}/logs/download?type=diagnostics`
+- `ControlPlaneClient.DownloadProgressAsync()` → `GET /jobs/{id}/logs/download?type=progress`
+- `ManageDiagnosticsCommand` calls `DownloadDiagnosticsAsync()`
+- `TuiLogView` uses `IControlPlaneClient` (live streaming only — unaffected)
+
+**Resolution:** Live logs already stream via SSE through the CP (no `IArtefactStore`
+dependency). Historical log download is removed. The CP reports the log store location
+so operators can retrieve historical logs from the package store directly.
 
 | Action | Detail |
 |--------|--------|
 | Delete | `ControlPlane/Controllers/LogDownloadController.cs` |
-| Add field | `JobDiagnostics.LogPath` (string) — the Agent populates this with the absolute path to the package log directory |
+| Add field | `JobDiagnostics.LogPath` (string) — the Agent populates this with the store-relative path to the job's log directory |
 | Update Agent | Set `JobDiagnostics.LogPath` when reporting diagnostics to CP |
-| Update CLI | Display log path to operator: `"Logs available at: {logPath}"` |
+| Remove methods | `IControlPlaneClient.DownloadDiagnosticsAsync()`, `DownloadProgressAsync()` |
+| Update `ManageDiagnosticsCommand` | Display log path: `"Historical logs available at: {logPath}"` instead of downloading |
+| Update `TuiLogView` | Ensure it uses only live SSE streaming (no historical download calls) |
 
 After this step, ControlPlane has zero dependency on `IArtefactStore`, `IPackageStoreFactory`,
 or any other Agent-internal contract.
@@ -1032,7 +1076,7 @@ src/DevOpsMigrationPlatform.Abstractions.ControlPlane/
 ```
 
 ```xml
-<!-- Abstractions.ControlPlane.csproj -->
+<!-- Abstractions.ControlPlane.csproj — net10.0 only (no net481 consumers) -->
 <ProjectReference Include="..\DevOpsMigrationPlatform.Abstractions\DevOpsMigrationPlatform.Abstractions.csproj" />
 ```
 
@@ -1068,7 +1112,7 @@ src/DevOpsMigrationPlatform.Abstractions.Agent/
 ```
 
 ```xml
-<!-- Abstractions.Agent.csproj -->
+<!-- Abstractions.Agent.csproj — MUST multi-target net481;net10.0 (CLI.TfsMigration is net481) -->
 <ProjectReference Include="..\DevOpsMigrationPlatform.Abstractions\DevOpsMigrationPlatform.Abstractions.csproj" />
 ```
 
@@ -1095,7 +1139,7 @@ Move all files tagged "Phase 3" in Steps 2.1–2.7:
 | `IIdentityMappingService.cs` | `Identity/` |
 | 5 Checkpointing/PhaseTracking interfaces + factories | `Checkpointing/` |
 | 5 Package/IdMap interfaces + factories | `Storage/` |
-| `IProgressSink.cs` | `Lease/` |
+| `IProgressSink.cs` | `Telemetry/` |
 
 **From `Abstractions/Services/` → `Abstractions.Agent/Modules/`:**
 
@@ -1229,7 +1273,7 @@ src/DevOpsMigrationPlatform.Infrastructure.ControlPlane/
 ```
 
 ```xml
-<!-- Infrastructure.ControlPlane.csproj -->
+<!-- Infrastructure.ControlPlane.csproj — net10.0 only (no net481 consumers) -->
 <ProjectReference Include="..\DevOpsMigrationPlatform.Abstractions\..." />
 <ProjectReference Include="..\DevOpsMigrationPlatform.Abstractions.ControlPlane\..." />
 <ProjectReference Include="..\DevOpsMigrationPlatform.Infrastructure\..." />
@@ -1257,13 +1301,17 @@ Update `ControlPlaneHost/Program.cs` to call `AddControlPlaneTelemetryServices()
 
 #### Step 5.2a — Create `Infrastructure.Agent` project
 
+**Note:** Source paths below assume Phases 1–4 are complete. Phase 1 moves serialization
+files out of `Infrastructure/` but does not relocate any files listed in Steps 5.2b–5.2d.
+If the Phase 0 audit reveals additional file moves, update these tables accordingly.
+
 ```
 src/DevOpsMigrationPlatform.Infrastructure.Agent/
   DevOpsMigrationPlatform.Infrastructure.Agent.csproj
 ```
 
 ```xml
-<!-- Infrastructure.Agent.csproj -->
+<!-- Infrastructure.Agent.csproj — MUST multi-target net481;net10.0 (CLI.TfsMigration is net481) -->
 <ProjectReference Include="..\DevOpsMigrationPlatform.Abstractions\..." />
 <ProjectReference Include="..\DevOpsMigrationPlatform.Abstractions.Agent\..." />
 <ProjectReference Include="..\DevOpsMigrationPlatform.Infrastructure\..." />
