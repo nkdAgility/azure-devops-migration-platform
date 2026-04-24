@@ -52,6 +52,7 @@ builder.Services.AddControllers()
     });
 
 builder.Services.AddControlPlaneServices(builder.Configuration);
+builder.Services.AddTelemetryServices(builder.Configuration);
 
 // Post-configure ASP.NET JSON options to include the polymorphic endpoint converter
 // (needs the DI-resolved EndpointOptionsTypeRegistry, so cannot be done in AddJsonOptions).

@@ -1,6 +1,4 @@
 using DevOpsMigrationPlatform.Abstractions;
-using DevOpsMigrationPlatform.Infrastructure.Factories;
-using DevOpsMigrationPlatform.Infrastructure.Telemetry;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -16,9 +14,6 @@ public static class ControlPlaneServiceExtensions
         this IServiceCollection services,
         IConfiguration configuration)
     {
-        // Register snapshot exporter + IJobMetricsStore + TelemetryOptions.
-        services.AddTelemetryServices(configuration);
-
         // Job queue — holds all submitted Jobs (MigrationJob and DiscoveryJob) until an agent acquires a lease.
         services.AddSingleton<IJobStore, JobStore>();
 
@@ -44,10 +39,6 @@ public static class ControlPlaneServiceExtensions
                 .BindConfiguration(DiagnosticLogStoreOptions.SectionName)
                 .ValidateDataAnnotations()
                 .ValidateOnStart();
-
-        // Package store factory — resolves file:/// URIs to FileSystem stores.
-        // Used by LogDownloadController to read log files from completed job packages.
-        services.AddSingleton<IPackageStoreFactory, FileSystemPackageStoreFactory>();
 
         return services;
     }

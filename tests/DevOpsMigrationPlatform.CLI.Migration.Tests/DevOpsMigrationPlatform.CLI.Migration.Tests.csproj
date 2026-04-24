@@ -21,8 +21,10 @@
     <PackageReference Include="Spectre.Console.Cli" />
     <PackageReference Include="Spectre.Console.Cli.Testing" />
     <PackageReference Include="Moq" />
+    <PackageReference Include="Reqnroll.MSTest" />
     <PackageReference Include="Microsoft.Extensions.Configuration" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
+    <PackageReference Include="Microsoft.Extensions.Hosting" />
     <!-- Override vulnerable transitive packages pulled in through project references -->
     <PackageReference Include="System.Drawing.Common" />
     <PackageReference Include="System.Security.Cryptography.Xml" />
@@ -30,8 +32,18 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\DevOpsMigrationPlatform.CLI.Migration\DevOpsMigrationPlatform.CLI.Migration.csproj" />
-    <ProjectReference Include="..\..\src\DevOpsMigrationPlatform.Infrastructure\DevOpsMigrationPlatform.Infrastructure.csproj" />
-    <ProjectReference Include="..\..\src\DevOpsMigrationPlatform.Infrastructure.AzureDevOps\DevOpsMigrationPlatform.Infrastructure.AzureDevOps.csproj" />
   </ItemGroup>
+
+  <ItemGroup>
+    <ExternalFeatureFiles Include="..\..\features\cli\execute\migrate-logs.feature" />
+  </ItemGroup>
+
+  <!-- Copy external feature files into Features/ before Reqnroll codegen -->
+  <Target Name="PrepareReqnrollFeatureFiles" BeforeTargets="UpdateFeatureFilesInProject">
+    <MakeDir Directories="$(ProjectDir)Features" />
+    <Copy SourceFiles="@(ExternalFeatureFiles)"
+          DestinationFolder="$(ProjectDir)Features"
+          SkipUnchangedFiles="true" />
+  </Target>
 
 </Project>

@@ -5,7 +5,7 @@ using DevOpsMigrationPlatform.Abstractions.Models;
 using DevOpsMigrationPlatform.Infrastructure.Modules.Discovery;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
-namespace DevOpsMigrationPlatform.CLI.Migration.Tests.Commands.Discovery;
+namespace DevOpsMigrationPlatform.Infrastructure.Tests.Discovery;
 
 [TestClass]
 public class TransitiveMermaidBuilderTests
@@ -253,3 +253,4 @@ public class TransitiveMermaidBuilderTests
         };
     }
 }
+

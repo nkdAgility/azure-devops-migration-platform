@@ -12,7 +12,7 @@ using Moq;
 using Spectre.Console;
 using Spectre.Console.Cli;
 
-namespace DevOpsMigrationPlatform.Infrastructure.Tests.Cli;
+namespace DevOpsMigrationPlatform.CLI.Migration.Tests.Commands.Logs;
 
 internal sealed class MigrateLogsContext : IDisposable
 {

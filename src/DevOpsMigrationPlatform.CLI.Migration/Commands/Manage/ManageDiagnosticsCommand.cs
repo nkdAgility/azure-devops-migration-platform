@@ -7,7 +7,6 @@ using DevOpsMigrationPlatform.CLI.Migration.Commands;
 using DevOpsMigrationPlatform.CLI.Migration.Options;
 using DevOpsMigrationPlatform.CLI.Migration.Settings;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Spectre.Console;
 using Spectre.Console.Cli;
@@ -15,8 +14,7 @@ using Spectre.Console.Cli;
 namespace DevOpsMigrationPlatform.CLI.Commands.Manage;
 
 /// <summary>
-/// Downloads diagnostic logs from a completed job's package via the control plane
-/// download endpoint. No <c>--follow</c> — live streaming is TUI-only.
+/// Streams live diagnostic logs for an active job, or shows a message for completed jobs.
 /// See docs/cli.md for full specification.
 /// </summary>
 public sealed class ManageDiagnosticsCommand : ControlPlaneCommandBase<ManageDiagnosticsCommand.Settings>
@@ -43,13 +41,6 @@ public sealed class ManageDiagnosticsCommand : ControlPlaneCommandBase<ManageDia
             return 1;
         }
 
-        LogLevel? levelFilter = null;
-        if (!string.IsNullOrEmpty(settings.Level) &&
-            Enum.TryParse<LogLevel>(settings.Level, ignoreCase: true, out var parsed))
-        {
-            levelFilter = parsed;
-        }
-
         await CreateHost(Environment.GetCommandLineArgs(), (services, _) =>
         {
             services.AddHttpClient<ControlPlaneClient>((sp, client) =>
@@ -63,22 +54,10 @@ public sealed class ManageDiagnosticsCommand : ControlPlaneCommandBase<ManageDia
 
         try
         {
-            var records = await client.DownloadDiagnosticsAsync(jobId, cancellationToken);
-            if (records is null || records.Count == 0)
+            var hasRecords = false;
+            await foreach (var record in client.StreamDiagnosticsAsync(jobId, settings.Level, cancellationToken))
             {
-                AnsiConsole.MarkupLine("[yellow]No diagnostic records found for this job.[/]");
-                return 0;
-            }
-
-            foreach (var record in records)
-            {
-                if (levelFilter is not null &&
-                    Enum.TryParse<LogLevel>(record.Level, ignoreCase: true, out var rl) &&
-                    rl < levelFilter.Value)
-                {
-                    continue;
-                }
-
+                hasRecords = true;
                 var levelColor = record.Level switch
                 {
                     "Error" or "Critical" => "red",
@@ -92,6 +71,9 @@ public sealed class ManageDiagnosticsCommand : ControlPlaneCommandBase<ManageDia
                 if (record.Exception is not null)
                     AnsiConsole.MarkupLine($"  [grey]{Markup.Escape(record.Exception)}[/]");
             }
+
+            if (!hasRecords)
+                AnsiConsole.MarkupLine("[yellow]No diagnostic records found for this job. Historical logs are available in the job package.[/]");
 
             return 0;
         }
