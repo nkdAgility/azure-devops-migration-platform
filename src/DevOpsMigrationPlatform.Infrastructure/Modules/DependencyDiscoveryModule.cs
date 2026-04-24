@@ -278,7 +278,7 @@ public sealed class DependencyDiscoveryModule : IDiscoveryModule
                         {
                             var ipOrgUrl = inProgressProjectKey.Substring(0, sep);
                             var ipProject = inProgressProjectKey.Substring(sep + 1);
-                            var strippedCsv = StripCsvRowsForProject(existingCsv, ipOrgUrl, ipProject, out var strippedCount);
+                            var strippedCsv = StripCsvRowsForProject(existingCsv!, ipOrgUrl, ipProject, out var strippedCount);
                             existingCsvRows.Append(strippedCsv);
                             recordCount -= strippedCount;
                             if (recordCount < 0) recordCount = 0;
@@ -661,6 +661,17 @@ public sealed class DependencyDiscoveryModule : IDiscoveryModule
                     break;
 
                 case DependencyHeartbeatEvent heartbeat:
+                    // When resuming an in-progress project, the ADO service reports counts
+                    // from the resume point only. Offset with the saved counters so the
+                    // progress display shows cumulative totals.
+                    var hbProjectKey = NormalizeProjectKey(heartbeat.OrganisationUrl, heartbeat.ProjectName);
+                    var isResumedProject = inProgressProjectKey is not null
+                        && string.Equals(hbProjectKey, inProgressProjectKey, StringComparison.OrdinalIgnoreCase);
+                    var adjustedAnalysed = heartbeat.WorkItemsAnalysed + (isResumedProject ? inProgressProcessedWorkItems : 0);
+                    var adjustedLinks = heartbeat.ExternalLinksFound + (isResumedProject ? inProgressLinksFound : 0);
+                    var adjustedCrossProj = heartbeat.CrossProjectCount + (isResumedProject ? inProgressCrossProjectCount : 0);
+                    var adjustedCrossOrg = heartbeat.CrossOrgCount + (isResumedProject ? inProgressCrossOrgCount : 0);
+
                     sink.Emit(new ProgressEvent
                     {
                         Module = Name,
@@ -676,10 +687,10 @@ public sealed class DependencyDiscoveryModule : IDiscoveryModule
                             {
                                 Dependencies = new DependencyCounters
                                 {
-                                    WorkItemsAnalysed = heartbeat.WorkItemsAnalysed,
-                                    ExternalLinksFound = heartbeat.ExternalLinksFound,
-                                    CrossProjectLinks = heartbeat.CrossProjectCount,
-                                    CrossOrgLinks = heartbeat.CrossOrgCount
+                                    WorkItemsAnalysed = adjustedAnalysed,
+                                    ExternalLinksFound = adjustedLinks,
+                                    CrossProjectLinks = adjustedCrossProj,
+                                    CrossOrgLinks = adjustedCrossOrg
                                 }
                             }
                         }
@@ -689,12 +700,12 @@ public sealed class DependencyDiscoveryModule : IDiscoveryModule
                     // projects produce visible output within minutes.
                     if (!heartbeat.IsComplete && heartbeat.Error is null)
                     {
-                        // Track this project as in-progress for cursor checkpoints
+                        // Track this project as in-progress for cursor checkpoints (use adjusted cumulative values)
                         currentInProgressKey = NormalizeProjectKey(heartbeat.OrganisationUrl, heartbeat.ProjectName);
-                        currentInProgressProcessed = heartbeat.WorkItemsAnalysed;
-                        currentInProgressLinks = heartbeat.ExternalLinksFound;
-                        currentInProgressCrossProject = heartbeat.CrossProjectCount;
-                        currentInProgressCrossOrg = heartbeat.CrossOrgCount;
+                        currentInProgressProcessed = adjustedAnalysed;
+                        currentInProgressLinks = adjustedLinks;
+                        currentInProgressCrossProject = adjustedCrossProj;
+                        currentInProgressCrossOrg = adjustedCrossOrg;
                         // Start timing the project on the first non-complete heartbeat.
                         if (!projectSw.IsRunning)
                             projectSw.Restart();
@@ -801,10 +812,10 @@ public sealed class DependencyDiscoveryModule : IDiscoveryModule
                         // Save per-project stats so they are available when a resumed job
                         // emits synthetic ProjectComplete events for the CLI live table.
                         allProjectStats[completedKey] = new PerProjectStats(
-                            WorkItemsAnalysed: heartbeat.WorkItemsAnalysed,
-                            ExternalLinksFound: heartbeat.ExternalLinksFound,
-                            CrossProjectCount: heartbeat.CrossProjectCount,
-                            CrossOrgCount: heartbeat.CrossOrgCount,
+                            WorkItemsAnalysed: adjustedAnalysed,
+                            ExternalLinksFound: adjustedLinks,
+                            CrossProjectCount: adjustedCrossProj,
+                            CrossOrgCount: adjustedCrossOrg,
                             TotalWorkItems: heartbeat.TotalWorkItems);
 
                         // Flush per-project CSV to artefact store.
