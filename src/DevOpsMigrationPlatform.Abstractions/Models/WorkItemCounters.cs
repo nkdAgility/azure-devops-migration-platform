@@ -71,6 +71,21 @@ public record WorkItemCounters
     /// </summary>
     public double AverageRevisionDurationMs { get; init; }
 
+    // ── Last work item outcome ────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Azure DevOps ID of the most recently resolved work item (completed, skipped, or failed).
+    /// Zero until the first work item is resolved.
+    /// </summary>
+    public int LastWorkItemId { get; init; }
+
+    /// <summary>
+    /// Outcome of the most recently resolved work item.
+    /// One of: <c>"Exported"</c>, <c>"Skipped"</c>, <c>"Failed"</c>.
+    /// Null until the first work item is resolved.
+    /// </summary>
+    public string? LastWorkItemStatus { get; init; }
+
     /// <summary>Optional attachment counters. Null when no attachments have been processed.</summary>
     public AttachmentCounters? Attachments { get; init; }
 }

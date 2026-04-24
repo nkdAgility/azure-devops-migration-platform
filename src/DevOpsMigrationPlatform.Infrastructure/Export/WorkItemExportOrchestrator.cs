@@ -237,6 +237,12 @@ public sealed class WorkItemExportOrchestrator
         Activity? workItemActivity = null;
 
         int resumeSkipLastWorkItemId = 0;
+        // Separate counter for fast-forwarded (already-exported) work items during resume.
+        // This is NOT part of workItemsProcessed (which counts exported items only).
+        int workItemsSkipped = 0;
+        // Separate counter for filter-excluded work items.
+        int workItemsFilterSkipped = 0;
+        string lastWorkItemStatus = string.Empty;
 
         await foreach (var revision in source.GetRevisionsAsync(cancellationToken))
         {
@@ -251,6 +257,8 @@ public sealed class WorkItemExportOrchestrator
                 if (revision.WorkItemId != resumeSkipLastWorkItemId)
                 {
                     resumeSkipLastWorkItemId = revision.WorkItemId;
+                    workItemsSkipped++;
+                    lastWorkItemStatus = "Skipped";
                     _progressSink?.Emit(new ProgressEvent
                     {
                         Module = "WorkItems",
@@ -264,7 +272,11 @@ public sealed class WorkItemExportOrchestrator
                                 WorkItems = new WorkItemCounters
                                 {
                                     Completed = workItemsProcessed,
-                                    RevisionsProcessed = revisionsProcessed
+                                    Skipped = workItemsSkipped,
+                                    RevisionsProcessed = revisionsProcessed,
+                                    CurrentWorkItemId = revision.WorkItemId,
+                                    LastWorkItemId = revision.WorkItemId,
+                                    LastWorkItemStatus = "Skipped"
                                 }
                             }
                         }
@@ -278,12 +290,29 @@ public sealed class WorkItemExportOrchestrator
             {
                 if (revision.RevisionIndex == 0)
                 {
-                    // Log once per work item (at the first revision we encounter for it).
+                    workItemsFilterSkipped++;
+                    lastWorkItemStatus = "Skipped";
                     _progressSink?.Emit(new ProgressEvent
                     {
                         Module = "WorkItems",
                         Stage = "Export",
-                        Message = $"[WorkItems] Work item {revision.WorkItemId} skipped by filter scope."
+                        Message = $"[WorkItems] Work item {revision.WorkItemId} skipped by filter scope.",
+                        Metrics = new JobMetrics
+                        {
+                            Scope = new JobScopeCounters { WorkItemsTotal = totalWorkItems },
+                            Migration = new MigrationCounters
+                            {
+                                WorkItems = new WorkItemCounters
+                                {
+                                    Completed = workItemsProcessed,
+                                    Skipped = workItemsSkipped + workItemsFilterSkipped,
+                                    RevisionsProcessed = revisionsProcessed,
+                                    CurrentWorkItemId = revision.WorkItemId,
+                                    LastWorkItemId = revision.WorkItemId,
+                                    LastWorkItemStatus = "Skipped"
+                                }
+                            }
+                        }
                     });
 
                     if (_logger != null)
@@ -407,6 +436,7 @@ public sealed class WorkItemExportOrchestrator
                 // Emit once per work item (not per revision) to avoid flooding the channel.
                 workItemsProcessed++;
                 lastWorkItemId = revision.WorkItemId;
+                lastWorkItemStatus = "Exported";
 
                 if (_logger != null)
                     _logger.LogInformation(
@@ -427,6 +457,7 @@ public sealed class WorkItemExportOrchestrator
                             WorkItems = new WorkItemCounters
                             {
                                 Completed = workItemsProcessed,
+                                Skipped = workItemsSkipped + workItemsFilterSkipped,
                                 RevisionsProcessed = revisionsProcessed,
                                 LastWorkItemDurationMs = lastWorkItemDurationMs,
                                 AverageWorkItemDurationMs = workItemsProcessed > 1
@@ -439,7 +470,9 @@ public sealed class WorkItemExportOrchestrator
                                 LastRevisionDurationMs = lastRevisionDurationMs,
                                 AverageRevisionDurationMs = revisionsProcessed > 0
                                     ? totalRevisionDurationMs / revisionsProcessed
-                                    : lastRevisionDurationMs
+                                    : lastRevisionDurationMs,
+                                LastWorkItemId = lastWorkItemId,
+                                LastWorkItemStatus = lastWorkItemStatus
                             }
                         }
                     }
@@ -464,6 +497,7 @@ public sealed class WorkItemExportOrchestrator
                             WorkItems = new WorkItemCounters
                             {
                                 Completed = workItemsProcessed,
+                                Skipped = workItemsSkipped + workItemsFilterSkipped,
                                 RevisionsProcessed = revisionsProcessed,
                                 LastWorkItemRevisions = lastCompletedRevisions,
                                 CurrentWorkItemId = revision.WorkItemId,
@@ -472,7 +506,9 @@ public sealed class WorkItemExportOrchestrator
                                 LastRevisionDurationMs = lastRevisionDurationMs,
                                 AverageRevisionDurationMs = revisionsProcessed > 0
                                     ? totalRevisionDurationMs / revisionsProcessed
-                                    : lastRevisionDurationMs
+                                    : lastRevisionDurationMs,
+                                LastWorkItemId = lastWorkItemId,
+                                LastWorkItemStatus = lastWorkItemStatus
                             }
                         }
                     }
@@ -799,9 +835,9 @@ public sealed class WorkItemExportOrchestrator
         bytes switch
         {
             >= 1_073_741_824 => $"{bytes / 1_073_741_824.0:F1} GB",
-            >= 1_048_576     => $"{bytes / 1_048_576.0:F1} MB",
-            >= 1_024         => $"{bytes / 1_024.0:F1} KB",
-            _                => $"{bytes} B"
+            >= 1_048_576 => $"{bytes / 1_048_576.0:F1} MB",
+            >= 1_024 => $"{bytes / 1_024.0:F1} KB",
+            _ => $"{bytes} B"
         };
 }
 

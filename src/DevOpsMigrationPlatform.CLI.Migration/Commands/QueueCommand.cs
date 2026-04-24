@@ -462,7 +462,8 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
         }, followCts.Token);
 
         var progressStartTime = DateTimeOffset.UtcNow;
-        int processed = 0;
+        int completed = 0;
+        int skipped = 0;
         int revisions = 0;
         int lastWiRevisions = 0;
         int currentWiId = 0;
@@ -476,6 +477,7 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
         double avgAttDurationMs = 0;
         long avgAttSizeBytes = 0;
         string? currentAttName = null;
+        string? lastWiStatus = null;
 
         if (Console.IsOutputRedirected)
         {
@@ -491,12 +493,19 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
                         currentStage = evt.Stage;
                     if (evt.Metrics?.Scope?.WorkItemsTotal > 0)
                         totalWorkItems = (int)evt.Metrics.Scope.WorkItemsTotal;
-                    processed = (int)(evt.Metrics?.Migration?.WorkItems?.Completed ?? processed);
-                    revisions = (int)(evt.Metrics?.Migration?.WorkItems?.RevisionsProcessed ?? revisions);
-                    if (evt.Metrics?.Migration?.WorkItems?.LastRevisionDurationMs > 0)
-                        lastRevDurationMs = evt.Metrics.Migration.WorkItems.LastRevisionDurationMs;
-                    if (evt.Metrics?.Migration?.WorkItems?.AverageRevisionDurationMs > 0)
-                        avgRevDurationMs = evt.Metrics.Migration.WorkItems.AverageRevisionDurationMs;
+                    var wi = evt.Metrics?.Migration?.WorkItems;
+                    if (wi != null)
+                    {
+                        completed = (int)wi.Completed;
+                        skipped = (int)wi.Skipped;
+                        revisions = (int)(wi.RevisionsProcessed > 0 ? wi.RevisionsProcessed : revisions);
+                        if (wi.LastRevisionDurationMs > 0)
+                            lastRevDurationMs = wi.LastRevisionDurationMs;
+                        if (wi.AverageRevisionDurationMs > 0)
+                            avgRevDurationMs = wi.AverageRevisionDurationMs;
+                        if (wi.LastWorkItemStatus != null)
+                            lastWiStatus = wi.LastWorkItemStatus;
+                    }
                     var att = evt.Metrics?.Migration?.WorkItems?.Attachments;
                     if (att != null)
                     {
@@ -506,7 +515,6 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
                         avgAttSizeBytes = att.AverageSizeBytes;
                         currentAttName = att.CurrentAttachmentName;
                     }
-                    var wi = evt.Metrics?.Migration?.WorkItems;
                     if (wi?.CurrentWorkItemId > 0)
                     {
                         currentWiId = wi.CurrentWorkItemId;
@@ -520,7 +528,7 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
                 jobFailed = true;
                 ShowError(console, ex.Message);
                 if (lastEvt is not null)
-                    ShowError(console, $"Last progress: {processed} work items / {revisions} revisions");
+                    ShowError(console, $"Last progress: {completed} exported / {skipped} skipped / {revisions} revisions");
             }
             catch (OperationCanceledException)
             {
@@ -544,7 +552,7 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
             try
             {
                 await console.Live(BuildProgressRenderable(
-                        0, totalWorkItems, 0, 0, 0, 0, string.Empty))
+                        0, 0, totalWorkItems, 0, 0, 0, 0, string.Empty))
                     .AutoClear(false)
                     .Overflow(VerticalOverflow.Ellipsis)
                     .StartAsync(async ctx =>
@@ -561,21 +569,27 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
                             // The Agent emits a ScopeResolved event with WorkItemsTotal when it completes the count.
                             if (evt.Metrics?.Scope?.WorkItemsTotal > 0)
                                 totalWorkItems = (int)evt.Metrics.Scope.WorkItemsTotal;
-                            processed = (int)(evt.Metrics?.Migration?.WorkItems?.Completed ?? processed);
-                            revisions = (int)(evt.Metrics?.Migration?.WorkItems?.RevisionsProcessed ?? revisions);
-                            if (evt.Metrics?.Migration?.WorkItems?.LastWorkItemRevisions > 0)
-                                lastWiRevisions = (int)evt.Metrics.Migration.WorkItems.LastWorkItemRevisions;
                             var wi = evt.Metrics?.Migration?.WorkItems;
-                            if (wi?.CurrentWorkItemId > 0)
+                            if (wi != null)
                             {
-                                currentWiId = wi.CurrentWorkItemId;
-                                currentWiIndex = wi.CurrentWorkItemIndex;
-                                currentWiRevsWritten = wi.CurrentWorkItemRevisionsWritten;
+                                completed = (int)wi.Completed;
+                                skipped = (int)wi.Skipped;
+                                revisions = (int)(wi.RevisionsProcessed > 0 ? wi.RevisionsProcessed : revisions);
+                                if (wi.LastWorkItemRevisions > 0)
+                                    lastWiRevisions = (int)wi.LastWorkItemRevisions;
+                                if (wi.LastRevisionDurationMs > 0)
+                                    lastRevDurationMs = wi.LastRevisionDurationMs;
+                                if (wi.AverageRevisionDurationMs > 0)
+                                    avgRevDurationMs = wi.AverageRevisionDurationMs;
+                                if (wi.LastWorkItemStatus != null)
+                                    lastWiStatus = wi.LastWorkItemStatus;
+                                if (wi.CurrentWorkItemId > 0)
+                                {
+                                    currentWiId = wi.CurrentWorkItemId;
+                                    currentWiIndex = wi.CurrentWorkItemIndex;
+                                    currentWiRevsWritten = wi.CurrentWorkItemRevisionsWritten;
+                                }
                             }
-                            if (evt.Metrics?.Migration?.WorkItems?.LastRevisionDurationMs > 0)
-                                lastRevDurationMs = evt.Metrics.Migration.WorkItems.LastRevisionDurationMs;
-                            if (evt.Metrics?.Migration?.WorkItems?.AverageRevisionDurationMs > 0)
-                                avgRevDurationMs = evt.Metrics.Migration.WorkItems.AverageRevisionDurationMs;
 
                             var att = evt.Metrics?.Migration?.WorkItems?.Attachments;
                             if (att != null)
@@ -588,10 +602,10 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
                             }
 
                             ctx.UpdateTarget(BuildProgressRenderable(
-                                processed, totalWorkItems,
+                                completed, skipped, totalWorkItems,
                                 currentWiId, currentWiRevsWritten,
                                 currentWiIndex, lastWiRevisions,
-                                currentStage,
+                                currentStage, lastWiStatus,
                                 evt.LastCheckpointAt, evt.NextCheckpointDueAt,
                                 lastRevDurationMs, avgRevDurationMs,
                                 revisions,
@@ -604,7 +618,7 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
                 jobFailed = true;
                 ShowError(console, ex.Message);
                 if (lastEvt is not null)
-                    ShowError(console, $"Last progress: {processed} work items / {revisions} revisions");
+                    ShowError(console, $"Last progress: {completed} exported / {skipped} skipped / {revisions} revisions");
             }
             catch (OperationCanceledException)
             {
@@ -648,7 +662,7 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
             return 1;
 
         if (lastEvt is not null)
-            ShowSuccess(console, $"Export complete — {processed} work items / {revisions} revisions written to package.");
+            ShowSuccess(console, $"Export complete — {completed} exported / {skipped} skipped / {revisions} revisions written to package.");
         else
             ShowSuccess(console, "Work item export complete.");
         return 0;
@@ -663,10 +677,10 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
     /// Row count is always exactly 4 so Live()'s cursor-up stays stable.
     /// </summary>
     private static IRenderable BuildProgressRenderable(
-        int processed, int total,
+        int completed, int skipped, int total,
         int currentWiId, int currentWiRevisions,
         int lastCompletedWiId, int lastCompletedRevisions,
-        string stage,
+        string stage, string? lastWiStatus = null,
         DateTimeOffset? lastCheckpointAt = null, DateTimeOffset? nextCheckpointDueAt = null,
         double lastRevDurationMs = 0, double avgRevDurationMs = 0,
         int totalRevisions = 0,
@@ -675,39 +689,46 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
         string? currentAttName = null)
     {
         const int BarWidth = 38;
+        int processed = completed + skipped;
 
-        // Estimate total revisions (used for both the bar and ETA).
-        int estimatedTotalRevisions = processed > 0 && total > 0
-            ? (int)((double)totalRevisions / processed * total)
+        // Estimate total revisions — base only on completed (exported) items, not skipped.
+        int estimatedTotalRevisions = completed > 0 && total > 0
+            ? (int)((double)totalRevisions / completed * total)
             : 0;
 
         // ── Row 1: work items progress bar (parent) ──────────────────────────────────
+        // Bar position = processed (completed + skipped); counts shown separately.
         var wiPct = total > 0 ? (double)processed / total : 0.0;
         var wiFilled = Math.Clamp((int)(wiPct * BarWidth), 0, BarWidth);
         var wiBar = new string('━', wiFilled) + new string('─', BarWidth - wiFilled);
         var stageStr = string.IsNullOrEmpty(stage) ? string.Empty : $"  [grey]{Markup.Escape(stage)}[/]";
         var etaStr = ComputeRevisionEta(totalRevisions, estimatedTotalRevisions, avgRevDurationMs);
+        var skippedStr = skipped > 0 ? $"  [grey]{skipped:N0} skipped[/]" : string.Empty;
         var wiRow = new Markup(
             $"[bold]WorkItems[/]{stageStr}  [blue]{Markup.Escape(wiBar)}[/]"
-            + $"  [bold]{processed:N0}[/][grey]/{total:N0}[/]"
+            + $"  [bold]{completed:N0}[/][grey]/{total:N0}[/]{skippedStr}"
             + $"  [grey]{wiPct * 100.0:F1}%[/]  [grey]ETA: {Markup.Escape(etaStr)}[/]");
 
-        // ── Row 2: current work item revision counter (child) ────────────────────────
-        // Shows the in-progress WI's revision count.  The bar fills against the last
-        // completed WI's revision count as a rough reference — it overflows past 100 %
-        // if the current WI has more revisions than the previous one, which is fine.
+        // ── Row 2: current work item / fast-forward indicator ─────────────────────────
         IRenderable revRow;
-        if (currentWiId > 0)
+        var isResuming = string.Equals(stage, "Resuming", StringComparison.OrdinalIgnoreCase);
+        if (isResuming && currentWiId > 0)
         {
-            // Use lastCompletedRevisions as a soft "expected" upper bound for the bar.
-            // Fall back to currentWiRevisions so the bar always shows some fill.
+            revRow = new Markup(
+                $"  [grey]↳ Resuming WI {currentWiId}[/]  [grey](fast-forwarding {skipped:N0}/{total:N0})[/]");
+        }
+        else if (currentWiId > 0)
+        {
             int refRevs = lastCompletedRevisions > 0 ? lastCompletedRevisions : currentWiRevisions;
             var curPct = refRevs > 0 ? Math.Min(1.0, (double)currentWiRevisions / refRevs) : 0.0;
             var curFilled = Math.Clamp((int)(curPct * BarWidth), 0, BarWidth);
             var curBar = new string('━', curFilled) + new string('─', BarWidth - curFilled);
             var lastRevStr = lastCompletedRevisions > 0 ? $"  [grey](prev: {lastCompletedRevisions} rev)[/]" : string.Empty;
+            var statusBadge = lastWiStatus == "Exported" ? " [green]✓[/]"
+                            : lastWiStatus == "Failed"   ? " [red]✗[/]"
+                            : string.Empty;
             revRow = new Markup(
-                $"  [grey]↳ WI {currentWiId}[/]   [blue]{Markup.Escape(curBar)}[/]"
+                $"  [grey]↳ WI {currentWiId}[/]{statusBadge}   [blue]{Markup.Escape(curBar)}[/]"
                 + $"  [bold]{currentWiRevisions:N0}[/][grey] rev[/]"
                 + $"{lastRevStr}");
         }
@@ -717,12 +738,17 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
         }
 
         // ── Row 3: revision timing / back-off indicator ──────────────────────────────
+        // Suppressed during fast-forward — no revision work happening, stale values
+        // would produce false back-off warnings.
         IRenderable timingRow;
-        if (lastRevDurationMs > 0)
+        if (isResuming)
+        {
+            timingRow = new Markup("  [grey]─ (fast-forwarding, no timing)[/]");
+        }
+        else if (lastRevDurationMs > 0)
         {
             var lastSec = lastRevDurationMs / 1000.0;
             var avgSec = avgRevDurationMs / 1000.0;
-            // Flag likely throttling: last revision took more than 3× the average.
             var isSlowdown = avgRevDurationMs > 0 && lastRevDurationMs > avgRevDurationMs * 3;
             var durationColor = isSlowdown ? "red" : lastRevDurationMs > avgRevDurationMs * 1.5 ? "yellow" : "green";
             var throttleWarning = isSlowdown ? "  [red bold]⚠ possible back-off[/]" : string.Empty;
