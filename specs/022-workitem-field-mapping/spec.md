@@ -368,6 +368,13 @@ As a migration operator, I want to merge multiple source fields into a single ta
 - **FR-015**: Transforms MUST NOT alter identity fields. Identity mapping remains the exclusive responsibility of `IIdentityMappingService` (guardrail rule 8).
 - **FR-016**: Transform processing MUST be stateless across revisions — no transform may accumulate state from one revision to another.
 - **FR-017**: Each extension tool reference MUST declare the phase in which it applies (`export`, `import`, or `both`). The default phase MUST be `import`. Export-phase transforms modify `revision.json` before it is written to the package; import-phase transforms modify field values before they are sent to the target.
+- **FR-018**: The RegexFieldTransform MUST enforce a per-pattern execution timeout (default: 1 second). Patterns that exceed the timeout MUST be aborted and the transform MUST fail-fast with a clear error identifying the pattern and field. *(RT-C1: ReDoS mitigation)*
+- **FR-019**: The CalculateFieldTransform expression language MUST be restricted to arithmetic operators (`+`, `-`, `*`, `/`, `%`), string concatenation, and field references. No method calls, no property access beyond field values, no lambda expressions, no reflection. Division by zero MUST produce an error and skip the transform for that revision. *(RT-C2, RT-M5)*
+- **FR-020**: The FieldTransformTool MUST implement a `validate` method callable from the `prepare` command. This method MUST: (a) resolve all configured field references against source and target field definitions, (b) verify field type compatibility for each transform, (c) verify picklist values exist in the target for MapValueTransform targets, and (d) produce a structured validation report. Validation failures MUST block the migration from proceeding. *(RT-H2)*
+- **FR-021**: Transforms MUST execute BEFORE identity mapping. Transforms MUST reject any configuration that targets an identity field slot (`System.AssignedTo`, `System.CreatedBy`, `System.ChangedBy`, `System.AuthorizedAs`) at configuration validation time. *(RT-H7)*
+- **FR-022**: All tag-producing transforms (ConditionalTag, FieldToTag, MergeToTag, TreeToTag) MUST use `"; "` (semicolon-space) as the tag separator and MUST deduplicate tags case-insensitively across the entire `System.Tags` value after all tag transforms have been applied. *(RT-H5, RT-M3)*
+- **FR-023**: The system MUST emit a configuration warning when the total number of transforms across all groups exceeds 100. *(RT-M2)*
+- **FR-024**: Adding new transform types to the `FieldTransform` tool is a non-breaking change. Removing or renaming an existing transform type MUST require a `ConfigVersion` bump and a migration guide. *(RT-M1)*
 
 ### Key Entities
 
@@ -396,3 +403,5 @@ As a migration operator, I want to merge multiple source fields into a single ta
 - The 14 transform types defined in `analysis/proposed-features.md` represent the complete set for this feature; additional types may be added in future features.
 - Node structure mapping (area/iteration paths) is handled by a separate `NodeStructureTool` (T2) and is out of scope for this feature.
 - Work item type remapping is handled by a separate `WorkItemTypeMappingTool` (T3) and is out of scope for this feature.
+- Runtime error policy for v1 is fail-fast on first transform error. Future integration with P4 (Operator Interaction — see `analysis/proposed-features.md`) will allow pause-and-ask behaviour.
+- Dry-run mode (evaluate transforms without writing) is out of scope for v1. Prepare-time validation (FR-020) is the primary safety net.
