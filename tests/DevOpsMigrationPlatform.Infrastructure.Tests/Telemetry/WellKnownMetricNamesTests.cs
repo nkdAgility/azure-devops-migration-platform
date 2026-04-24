@@ -79,8 +79,8 @@ public class WellKnownMetricNamesTests
     [TestMethod]
     public void ConstantCount_Matches24Instruments()
     {
-        // Per spec SC-001: 24 total instruments
-        Assert.AreEqual(24, AllConstants.Length,
-            $"Expected 24 metric name constants but found {AllConstants.Length}.");
+        // Per spec SC-001: 24 total instruments + 2 attachment download instruments added in export-fix
+        Assert.AreEqual(26, AllConstants.Length,
+            $"Expected 26 metric name constants but found {AllConstants.Length}.");
     }
 }
