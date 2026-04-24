@@ -64,7 +64,7 @@ public sealed class TuiMetricsView : FrameView
         var diag = m.Migration?.Diagnostics;
 
         var lastMs = wi?.LastWorkItemDurationMs ?? 0;
-        var avgMs  = wi?.AverageWorkItemDurationMs ?? 0;
+        var avgMs = wi?.AverageWorkItemDurationMs ?? 0;
         var throttleIndicator = lastMs > 0 && avgMs > 0 && lastMs > avgMs * 3
             ? "  *** POSSIBLE BACK-OFF ***"
             : string.Empty;
