@@ -53,8 +53,11 @@ jobs:
       - name: Test
         run: pwsh ./build.ps1 -Mode Test
 
-      - name: System Test
-        run: pwsh ./build.ps1 -Mode SystemTest
+      - name: System Test (Simulated)
+        run: pwsh ./build.ps1 -Mode SystemTest_Simulated
+
+      - name: System Test (Live)
+        run: pwsh ./build.ps1 -Mode SystemTest_Live
         env:
           AZDEVOPS_SYSTEM_TEST_ORG: ${{ vars.AZDEVOPS_SYSTEM_TEST_ORG }}
           AZDEVOPS_SYSTEM_TEST_PAT: ${{ secrets.AZDEVOPS_SYSTEM_TEST_PAT }}
