@@ -1,7 +1,7 @@
 using System;
 using System.Text.RegularExpressions;
 
-namespace DevOpsMigrationPlatform.Abstractions.Agent.Lease;
+namespace DevOpsMigrationPlatform.Abstractions;
 
 /// <summary>
 /// Shared path helpers for resolving org/project folder names from Azure DevOps
