@@ -3,6 +3,12 @@
 **Input**: Design documents from `/specs/022-workitem-field-mapping/`
 **Prerequisites**: plan.md ✅, spec.md ✅, research.md ✅, data-model.md ✅, contracts/ ✅
 
+> **⚠️ 021.2 Project Boundary Update (2026-04-25)**: All file paths have been updated per the
+> 021.2 Separation of Concerns spec. Agent-only tool interfaces go in `Abstractions.Agent/Tools/`,
+> config-schema options stay in `Abstractions/Options/`, implementations go in
+> `Infrastructure.Agent/Tools/FieldTransform/`, and tests go in `Infrastructure.Agent.Tests/`.
+> The original spec referenced `Abstractions/Tools/` and `Infrastructure/Tools/` — those are now incorrect.
+
 **Tests**: Included — this project follows ATDD-first (Constitution VIII). Each user story gets a Gherkin `.feature` file and Reqnroll step definitions. Unit tests for every method with branching logic.
 
 **Organization**: Tasks grouped by user story. Each story is independently implementable and testable via the ATDD inner loop (Specification → Test Gen → Implementation → Review).
@@ -19,18 +25,18 @@
 
 **Purpose**: Create the foundational type system — interfaces, records, options, enums — that all user stories depend on. No implementations yet.
 
-- [ ] T001 Define `FieldTransformPhase` enum (`Export`, `Import`, `Both`) in `src/DevOpsMigrationPlatform.Abstractions/Tools/FieldTransformPhase.cs` — addresses architecture review HX-M1
-- [ ] T002 [P] Define `FieldTransformContext` record in `src/DevOpsMigrationPlatform.Abstractions/Tools/FieldTransformContext.cs` — includes `WorkItemId`, `RevisionIndex`, `WorkItemType`, `Phase` (using `FieldTransformPhase` enum)
-- [ ] T003 [P] Define `FieldTransformAction` record in `src/DevOpsMigrationPlatform.Abstractions/Tools/FieldTransformAction.cs` — telemetry data: group name, transform name, type, field, modified flag, old/new values
-- [ ] T004 [P] Define `FieldTransformResult` record in `src/DevOpsMigrationPlatform.Abstractions/Tools/FieldTransformResult.cs` — contains modified fields dictionary and actions list
-- [ ] T005 [P] Define `FieldTransformValidationReport` and `FieldTransformValidationEntry` records with `FieldTransformValidationSeverity` enum in `src/DevOpsMigrationPlatform.Abstractions/Tools/FieldTransformValidationReport.cs`
-- [ ] T006 [P] Define `FieldDefinition` record in `src/DevOpsMigrationPlatform.Abstractions/Tools/FieldDefinition.cs` — field metadata: `ReferenceName`, `Name`, `Type`, `IsReadOnly`, `AllowedValues`
-- [ ] T007 Define `IFieldTransform` interface in `src/DevOpsMigrationPlatform.Abstractions/Tools/IFieldTransform.cs` — `Type`, `Name` properties and `Apply(fields, context)` method returning `FieldTransformResult`
-- [ ] T008 [P] Define `IFieldTransformTool` interface in `src/DevOpsMigrationPlatform.Abstractions/Tools/IFieldTransformTool.cs` — `ApplyTransforms(fields, context)` and `IsEnabledForPhase(phase)` methods
-- [ ] T009 [P] Define `IFieldTransformFactory` interface in `src/DevOpsMigrationPlatform.Abstractions/Tools/IFieldTransformFactory.cs` — `Create(options, groupName, ordinal)` returning `IFieldTransform`
-- [ ] T010 [P] Define `IFieldTransformValidator` interface in `src/DevOpsMigrationPlatform.Abstractions/Tools/IFieldTransformValidator.cs` — `ValidateAsync()` with `CancellationToken`; inject `IFieldDefinitionProviderFactory` via constructor per CA-M1
-- [ ] T011 [P] Define `IFieldDefinitionProvider` and `IFieldDefinitionProviderFactory` interfaces in `src/DevOpsMigrationPlatform.Abstractions/Tools/IFieldDefinitionProvider.cs` — `GetFieldDefinitionsAsync(workItemType?, ct)` and factory methods `CreateSourceProvider()` / `CreateTargetProvider()`
-- [ ] T011b [P] Define `IExpressionEvaluator` interface in `src/DevOpsMigrationPlatform.Abstractions/Tools/IExpressionEvaluator.cs` — `Evaluate(expression, fieldValues)` returning computed value; abstracts expression evaluation for CalculateFieldTransform (Constitution V: interfaces in Abstractions)
+- [ ] T001 Define `FieldTransformPhase` enum (`Export`, `Import`, `Both`) in `src/DevOpsMigrationPlatform.Abstractions.Agent/Tools/FieldTransformPhase.cs` — addresses architecture review HX-M1
+- [ ] T002 [P] Define `FieldTransformContext` record in `src/DevOpsMigrationPlatform.Abstractions.Agent/Tools/FieldTransformContext.cs` — includes `WorkItemId`, `RevisionIndex`, `WorkItemType`, `Phase` (using `FieldTransformPhase` enum)
+- [ ] T003 [P] Define `FieldTransformAction` record in `src/DevOpsMigrationPlatform.Abstractions.Agent/Tools/FieldTransformAction.cs` — telemetry data: group name, transform name, type, field, modified flag, old/new values
+- [ ] T004 [P] Define `FieldTransformResult` record in `src/DevOpsMigrationPlatform.Abstractions.Agent/Tools/FieldTransformResult.cs` — contains modified fields dictionary and actions list
+- [ ] T005 [P] Define `FieldTransformValidationReport` and `FieldTransformValidationEntry` records with `FieldTransformValidationSeverity` enum in `src/DevOpsMigrationPlatform.Abstractions.Agent/Tools/FieldTransformValidationReport.cs`
+- [ ] T006 [P] Define `FieldDefinition` record in `src/DevOpsMigrationPlatform.Abstractions.Agent/Tools/FieldDefinition.cs` — field metadata: `ReferenceName`, `Name`, `Type`, `IsReadOnly`, `AllowedValues`
+- [ ] T007 Define `IFieldTransform` interface in `src/DevOpsMigrationPlatform.Abstractions.Agent/Tools/IFieldTransform.cs` — `Type`, `Name` properties and `Apply(fields, context)` method returning `FieldTransformResult`
+- [ ] T008 [P] Define `IFieldTransformTool` interface in `src/DevOpsMigrationPlatform.Abstractions.Agent/Tools/IFieldTransformTool.cs` — `ApplyTransforms(fields, context)` and `IsEnabledForPhase(phase)` methods
+- [ ] T009 [P] Define `IFieldTransformFactory` interface in `src/DevOpsMigrationPlatform.Abstractions.Agent/Tools/IFieldTransformFactory.cs` — `Create(options, groupName, ordinal)` returning `IFieldTransform`
+- [ ] T010 [P] Define `IFieldTransformValidator` interface in `src/DevOpsMigrationPlatform.Abstractions.Agent/Tools/IFieldTransformValidator.cs` — `ValidateAsync()` with `CancellationToken`; inject `IFieldDefinitionProviderFactory` via constructor per CA-M1
+- [ ] T011 [P] Define `IFieldDefinitionProvider` and `IFieldDefinitionProviderFactory` interfaces in `src/DevOpsMigrationPlatform.Abstractions.Agent/Tools/IFieldDefinitionProvider.cs` — `GetFieldDefinitionsAsync(workItemType?, ct)` and factory methods `CreateSourceProvider()` / `CreateTargetProvider()`
+- [ ] T011b [P] Define `IExpressionEvaluator` interface in `src/DevOpsMigrationPlatform.Abstractions.Agent/Tools/IExpressionEvaluator.cs` — `Evaluate(expression, fieldValues)` returning computed value; abstracts expression evaluation for CalculateFieldTransform (Constitution V: interfaces in Abstractions.Agent per 021.2)
 - [ ] T012 Define sealed `FieldTransformOptions` class in `src/DevOpsMigrationPlatform.Abstractions/Options/FieldTransformOptions.cs` — `SectionName = "MigrationPlatform:Tools:FieldTransform"`, `Enabled`, `TransformGroups` list
 - [ ] T013 [P] Define sealed `FieldTransformGroupOptions` class in `src/DevOpsMigrationPlatform.Abstractions/Options/FieldTransformGroupOptions.cs` — `Name?`, `Enabled`, `ApplyTo?`, `Transforms` list
 - [ ] T014 [P] Define sealed `FieldTransformRuleOptions` class in `src/DevOpsMigrationPlatform.Abstractions/Options/FieldTransformRuleOptions.cs` — flat property bag with `Type` discriminator and all type-specific properties (per CA-H1: serialization boundary only)
@@ -47,14 +53,14 @@
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete.
 
-- [ ] T017 Implement `FieldTransformFactory` in `src/DevOpsMigrationPlatform.Infrastructure/Tools/FieldTransform/FieldTransformFactory.cs` — switches on `Type` discriminator, validates required properties per type, projects flat `FieldTransformRuleOptions` into strongly-typed per-transform option records (CA-H1), generates default names per FR-009 naming rules (`{GroupName}.{Type}{ordinal}`)
-- [ ] T018 Implement `FieldTransformPipeline` in `src/DevOpsMigrationPlatform.Infrastructure/Tools/FieldTransform/FieldTransformPipeline.cs` — executes groups in order, transforms within groups in order (FR-004), applies `applyTo` filtering at group and transform level (FR-003), respects `enabled` at all three levels (FR-007), collects `FieldTransformAction` telemetry (FR-009), runs tag deduplication post-pass on `System.Tags` if any tag transform fired (FR-022)
-- [ ] T019 Implement `FieldTransformTool` in `src/DevOpsMigrationPlatform.Infrastructure/Tools/FieldTransform/FieldTransformTool.cs` — `IFieldTransformTool` implementation: constructs pipeline from `IOptions<FieldTransformOptions>` + `IFieldTransformFactory`, delegates to `FieldTransformPipeline.Execute()`, implements `IsEnabledForPhase()`, validates identity field guard at construction (FR-021), emits FR-023 warning when >100 transforms, validates config at startup (FR-008)
-- [ ] T020 Create `FieldTransformToolServiceCollectionExtensions` in `src/DevOpsMigrationPlatform.Infrastructure/Tools/FieldTransform/FieldTransformToolServiceCollectionExtensions.cs` — `AddFieldTransformToolServices(this IServiceCollection)` registering `IFieldTransformTool`, `IFieldTransformFactory`, `IFieldTransformValidator` as singletons with `IOptions<FieldTransformOptions>` binding (per MM-M2 naming)
-- [ ] T020b Wire `IFieldTransformTool` into `RevisionFolderProcessor` at Stage B (AppliedFields) — inject `IFieldTransformTool` via constructor, call `IsEnabledForPhase()` to check, call `ApplyTransforms(fields, context)` on each revision's field collection during import (FR-006). Export-phase wiring follows same pattern in the export revision processor. This is the integration point that makes the tool actually execute during migration.
-- [ ] T021 [P] Write unit tests for `FieldTransformPipeline` in `tests/DevOpsMigrationPlatform.Infrastructure.Tests/Tools/FieldTransform/FieldTransformPipelineTests.cs` — test: group ordering, transform ordering, `applyTo` filtering (group + transform level), `enabled` flags at all 3 levels, empty pipeline returns input unchanged, tag dedup post-pass, pipeline output feeds next transform
-- [ ] T022 [P] Write unit tests for `FieldTransformFactory` in `tests/DevOpsMigrationPlatform.Infrastructure.Tests/Tools/FieldTransform/FieldTransformFactoryTests.cs` — test: known type creates correct transform, unknown type throws, missing required property throws, default name generation, identity field rejection (FR-021)
-- [ ] T023 [P] Write unit tests for `FieldTransformTool` in `tests/DevOpsMigrationPlatform.Infrastructure.Tests/Tools/FieldTransform/FieldTransformToolTests.cs` — test: `IsEnabledForPhase()` routing, startup validation (FR-008), >100 transforms warning (FR-023), stateless across invocations (FR-016)
+- [ ] T017 Implement `FieldTransformFactory` in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Tools/FieldTransform/FieldTransformFactory.cs` — switches on `Type` discriminator, validates required properties per type, projects flat `FieldTransformRuleOptions` into strongly-typed per-transform option records (CA-H1), generates default names per FR-009 naming rules (`{GroupName}.{Type}{ordinal}`)
+- [ ] T018 Implement `FieldTransformPipeline` in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Tools/FieldTransform/FieldTransformPipeline.cs` — executes groups in order, transforms within groups in order (FR-004), applies `applyTo` filtering at group and transform level (FR-003), respects `enabled` at all three levels (FR-007), collects `FieldTransformAction` telemetry (FR-009), runs tag deduplication post-pass on `System.Tags` if any tag transform fired (FR-022)
+- [ ] T019 Implement `FieldTransformTool` in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Tools/FieldTransform/FieldTransformTool.cs` — `IFieldTransformTool` implementation: constructs pipeline from `IOptions<FieldTransformOptions>` + `IFieldTransformFactory`, delegates to `FieldTransformPipeline.Execute()`, implements `IsEnabledForPhase()`, validates identity field guard at construction (FR-021), emits FR-023 warning when >100 transforms, validates config at startup (FR-008)
+- [ ] T020 Create `FieldTransformToolServiceCollectionExtensions` in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Tools/FieldTransform/FieldTransformToolServiceCollectionExtensions.cs` — `AddFieldTransformToolServices(this IServiceCollection)` registering `IFieldTransformTool`, `IFieldTransformFactory`, `IFieldTransformValidator` as singletons with `IOptions<FieldTransformOptions>` binding (per MM-M2 naming)
+- [ ] T020b Wire `IFieldTransformTool` into `RevisionFolderProcessor` at Stage B (AppliedFields) — inject `IFieldTransformTool?` as optional constructor parameter (nullable, mirrors the pattern used for `IExportProgressStoreFactory?` in `WorkItemsModule`), call `IsEnabledForPhase()` to check, call `ApplyTransforms(fields, context)` on each revision's field collection during import (FR-006). Export-phase wiring follows same pattern in `WorkItemExportOrchestrator`. This is the integration point that makes the tool actually execute during migration.
+- [ ] T021 [P] Write unit tests for `FieldTransformPipeline` in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Tools/FieldTransform/FieldTransformPipelineTests.cs` — test: group ordering, transform ordering, `applyTo` filtering (group + transform level), `enabled` flags at all 3 levels, empty pipeline returns input unchanged, tag dedup post-pass, pipeline output feeds next transform
+- [ ] T022 [P] Write unit tests for `FieldTransformFactory` in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Tools/FieldTransform/FieldTransformFactoryTests.cs` — test: known type creates correct transform, unknown type throws, missing required property throws, default name generation, identity field rejection (FR-021)
+- [ ] T023 [P] Write unit tests for `FieldTransformTool` in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Tools/FieldTransform/FieldTransformToolTests.cs` — test: `IsEnabledForPhase()` routing, startup validation (FR-008), >100 transforms warning (FR-023), stateless across invocations (FR-016)
 - [ ] T024 Verify build and tests: run `dotnet clean && dotnet build --no-incremental && dotnet test` — all must pass
 
 **Checkpoint**: Pipeline infrastructure complete. Factory can create transforms (but only built-in types so far). Pipeline executes groups/transforms in order with filtering. DI registration works. All unit tests pass.
@@ -73,10 +79,10 @@
 
 ### Implementation
 
-- [ ] T026 [US1] Implement `MapValueTransform` in `src/DevOpsMigrationPlatform.Infrastructure/Tools/FieldTransform/Transforms/MapValueTransform.cs` — looks up `field` value in `valueMap` dictionary, replaces if found (FR-011: preserve original + warn if not found), supports `applyTo` work item type filter
+- [ ] T026 [US1] Implement `MapValueTransform` in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Tools/FieldTransform/Transforms/MapValueTransform.cs` — looks up `field` value in `valueMap` dictionary, replaces if found (FR-011: preserve original + warn if not found), supports `applyTo` work item type filter
 - [ ] T027 [US1] Register `MapValue` type discriminator in `FieldTransformFactory` — add case for `"MapValue"` → `MapValueTransform`, validate `field` and `valueMap` are present
-- [ ] T028 [P] [US1] Write unit tests for `MapValueTransform` in `tests/DevOpsMigrationPlatform.Infrastructure.Tests/Tools/FieldTransform/Transforms/MapValueTransformTests.cs` — test: value found and replaced, value not found preserves original + logs warning, null value handling, empty valueMap, case sensitivity of lookup keys
-- [ ] T029 [US1] Write Reqnroll step definitions for US1 in `tests/DevOpsMigrationPlatform.Infrastructure.Tests/Tools/FieldTransform/Steps/ValueRemappingSteps.cs` and `tests/DevOpsMigrationPlatform.Infrastructure.Tests/Tools/FieldTransform/Steps/ValueRemappingContext.cs` — implement Given/When/Then bindings for all 4 scenarios in the feature file
+- [ ] T028 [P] [US1] Write unit tests for `MapValueTransform` in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Tools/FieldTransform/Transforms/MapValueTransformTests.cs` — test: value found and replaced, value not found preserves original + logs warning, null value handling, empty valueMap, case sensitivity of lookup keys
+- [ ] T029 [US1] Write Reqnroll step definitions for US1 in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Tools/FieldTransform/Steps/ValueRemappingSteps.cs` and `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Tools/FieldTransform/Steps/ValueRemappingContext.cs` — implement Given/When/Then bindings for all 4 scenarios in the feature file
 - [ ] T030 [US1] Verify: `dotnet clean && dotnet build --no-incremental && dotnet test` — all US1 acceptance scenarios and unit tests pass
 
 **Checkpoint**: MapValueTransform works. An operator can remap field values via config. MVP is functional.
@@ -95,12 +101,12 @@
 
 ### Implementation
 
-- [ ] T032 [US2] Implement `CopyFieldTransform` in `src/DevOpsMigrationPlatform.Infrastructure/Tools/FieldTransform/Transforms/CopyFieldTransform.cs` — copies `sourceField` to `targetField`, supports `defaultValue` when source is absent (FR-010), empty value is copied (not defaulted), overwrites existing target value
-- [ ] T033 [P] [US2] Implement `CopyFieldBatchTransform` in `src/DevOpsMigrationPlatform.Infrastructure/Tools/FieldTransform/Transforms/CopyFieldBatchTransform.cs` — iterates `fieldMappings` dictionary, applies `CopyFieldTransform` logic for each pair
+- [ ] T032 [US2] Implement `CopyFieldTransform` in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Tools/FieldTransform/Transforms/CopyFieldTransform.cs` — copies `sourceField` to `targetField`, supports `defaultValue` when source is absent (FR-010), empty value is copied (not defaulted), overwrites existing target value
+- [ ] T033 [P] [US2] Implement `CopyFieldBatchTransform` in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Tools/FieldTransform/Transforms/CopyFieldBatchTransform.cs` — iterates `fieldMappings` dictionary, applies `CopyFieldTransform` logic for each pair
 - [ ] T034 [US2] Register `CopyField` and `CopyFieldBatch` type discriminators in `FieldTransformFactory` — validate required properties (`sourceField`/`targetField` for CopyField, `fieldMappings` for CopyFieldBatch)
-- [ ] T035 [P] [US2] Write unit tests for `CopyFieldTransform` in `tests/DevOpsMigrationPlatform.Infrastructure.Tests/Tools/FieldTransform/Transforms/CopyFieldTransformTests.cs` — test: basic copy, default value, empty vs absent, overwrite existing, missing source without default
-- [ ] T036 [P] [US2] Write unit tests for `CopyFieldBatchTransform` in `tests/DevOpsMigrationPlatform.Infrastructure.Tests/Tools/FieldTransform/Transforms/CopyFieldBatchTransformTests.cs` — test: multiple mappings applied, partial source fields, empty batch
-- [ ] T037 [US2] Write Reqnroll step definitions for US2 in `tests/DevOpsMigrationPlatform.Infrastructure.Tests/Tools/FieldTransform/Steps/CopyFieldSteps.cs` and `CopyFieldContext.cs`
+- [ ] T035 [P] [US2] Write unit tests for `CopyFieldTransform` in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Tools/FieldTransform/Transforms/CopyFieldTransformTests.cs` — test: basic copy, default value, empty vs absent, overwrite existing, missing source without default
+- [ ] T036 [P] [US2] Write unit tests for `CopyFieldBatchTransform` in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Tools/FieldTransform/Transforms/CopyFieldBatchTransformTests.cs` — test: multiple mappings applied, partial source fields, empty batch
+- [ ] T037 [US2] Write Reqnroll step definitions for US2 in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Tools/FieldTransform/Steps/CopyFieldSteps.cs` and `CopyFieldContext.cs`
 - [ ] T038 [US2] Verify: `dotnet clean && dotnet build --no-incremental && dotnet test` — all US2 acceptance and unit tests pass
 
 **Checkpoint**: CopyFieldTransform and CopyFieldBatchTransform work. Both P1 stories complete.
@@ -119,12 +125,12 @@
 
 ### Implementation
 
-- [ ] T040 [P] [US3] Implement `ExcludeFieldTransform` in `src/DevOpsMigrationPlatform.Infrastructure/Tools/FieldTransform/Transforms/ExcludeFieldTransform.cs` — removes field key from dictionary entirely (FR-012), silent no-op if field absent
-- [ ] T041 [P] [US3] Implement `ClearFieldTransform` in `src/DevOpsMigrationPlatform.Infrastructure/Tools/FieldTransform/Transforms/ClearFieldTransform.cs` — sets field value to null
+- [ ] T040 [P] [US3] Implement `ExcludeFieldTransform` in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Tools/FieldTransform/Transforms/ExcludeFieldTransform.cs` — removes field key from dictionary entirely (FR-012), silent no-op if field absent
+- [ ] T041 [P] [US3] Implement `ClearFieldTransform` in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Tools/FieldTransform/Transforms/ClearFieldTransform.cs` — sets field value to null
 - [ ] T042 [US3] Register `ExcludeField` and `ClearField` type discriminators in `FieldTransformFactory` — validate `field` property present
-- [ ] T043 [P] [US3] Write unit tests for `ExcludeFieldTransform` in `tests/DevOpsMigrationPlatform.Infrastructure.Tests/Tools/FieldTransform/Transforms/ExcludeFieldTransformTests.cs`
-- [ ] T044 [P] [US3] Write unit tests for `ClearFieldTransform` in `tests/DevOpsMigrationPlatform.Infrastructure.Tests/Tools/FieldTransform/Transforms/ClearFieldTransformTests.cs`
-- [ ] T045 [US3] Write Reqnroll step definitions for US3 in `tests/DevOpsMigrationPlatform.Infrastructure.Tests/Tools/FieldTransform/Steps/ExcludeClearSteps.cs` and `ExcludeClearContext.cs`
+- [ ] T043 [P] [US3] Write unit tests for `ExcludeFieldTransform` in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Tools/FieldTransform/Transforms/ExcludeFieldTransformTests.cs`
+- [ ] T044 [P] [US3] Write unit tests for `ClearFieldTransform` in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Tools/FieldTransform/Transforms/ClearFieldTransformTests.cs`
+- [ ] T045 [US3] Write Reqnroll step definitions for US3 in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Tools/FieldTransform/Steps/ExcludeClearSteps.cs` and `ExcludeClearContext.cs`
 - [ ] T046 [US3] Verify: `dotnet clean && dotnet build --no-incremental && dotnet test`
 
 **Checkpoint**: Exclude and Clear transforms work. Field cleanup is functional.
@@ -143,12 +149,12 @@
 
 ### Implementation
 
-- [ ] T048 [US4] Implement `SetFieldTransform` in `src/DevOpsMigrationPlatform.Infrastructure/Tools/FieldTransform/Transforms/SetFieldTransform.cs` — sets `field` to literal `value`, supports `${migration.timestamp}` variable substitution
-- [ ] T049 [US4] Implement `CalculateFieldTransform` in `src/DevOpsMigrationPlatform.Infrastructure/Tools/FieldTransform/Transforms/CalculateFieldTransform.cs` — safe expression evaluator restricted to arithmetic (`+`, `-`, `*`, `/`, `%`), string concatenation, and field references (FR-019); division by zero produces error and skips transform; no method calls, no lambdas, no reflection (FR-013); define `IExpressionEvaluator` abstraction to isolate evaluator choice
+- [ ] T048 [US4] Implement `SetFieldTransform` in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Tools/FieldTransform/Transforms/SetFieldTransform.cs` — sets `field` to literal `value`, supports `${migration.timestamp}` variable substitution
+- [ ] T049 [US4] Implement `CalculateFieldTransform` in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Tools/FieldTransform/Transforms/CalculateFieldTransform.cs` — safe expression evaluator restricted to arithmetic (`+`, `-`, `*`, `/`, `%`), string concatenation, and field references (FR-019); division by zero produces error and skips transform; no method calls, no lambdas, no reflection (FR-013); define `IExpressionEvaluator` abstraction to isolate evaluator choice
 - [ ] T050 [US4] Register `SetField` and `CalculateField` type discriminators in `FieldTransformFactory` — validate `field`+`value` for SetField, `field`+`expression` for CalculateField
-- [ ] T051 [P] [US4] Write unit tests for `SetFieldTransform` in `tests/DevOpsMigrationPlatform.Infrastructure.Tests/Tools/FieldTransform/Transforms/SetFieldTransformTests.cs`
-- [ ] T052 [P] [US4] Write unit tests for `CalculateFieldTransform` in `tests/DevOpsMigrationPlatform.Infrastructure.Tests/Tools/FieldTransform/Transforms/CalculateFieldTransformTests.cs` — test: arithmetic, string concat, field refs, division by zero, missing field ref, restricted language (no method calls)
-- [ ] T053 [US4] Write Reqnroll step definitions for US4 in `tests/DevOpsMigrationPlatform.Infrastructure.Tests/Tools/FieldTransform/Steps/SetCalculateSteps.cs` and `SetCalculateContext.cs`
+- [ ] T051 [P] [US4] Write unit tests for `SetFieldTransform` in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Tools/FieldTransform/Transforms/SetFieldTransformTests.cs`
+- [ ] T052 [P] [US4] Write unit tests for `CalculateFieldTransform` in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Tools/FieldTransform/Transforms/CalculateFieldTransformTests.cs` — test: arithmetic, string concat, field refs, division by zero, missing field ref, restricted language (no method calls)
+- [ ] T053 [US4] Write Reqnroll step definitions for US4 in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Tools/FieldTransform/Steps/SetCalculateSteps.cs` and `SetCalculateContext.cs`
 - [ ] T054 [US4] Verify: `dotnet clean && dotnet build --no-incremental && dotnet test`
 
 **Checkpoint**: Set and Calculate transforms work. Both P2 stories complete.
@@ -167,15 +173,15 @@
 
 ### Implementation
 
-- [ ] T056 [US5] Implement shared `TagUtilities` helper in `src/DevOpsMigrationPlatform.Infrastructure/Tools/FieldTransform/Transforms/TagUtilities.cs` — `AppendTag(existingTags, newTag)` and `DeduplicateTags(tags)` using `"; "` separator, case-insensitive dedup (FR-022)
-- [ ] T057 [P] [US5] Implement `FieldToTagTransform` in `src/DevOpsMigrationPlatform.Infrastructure/Tools/FieldTransform/Transforms/FieldToTagTransform.cs` — copies field value as tag via `TagUtilities.AppendTag()`
-- [ ] T058 [P] [US5] Implement `ConditionalTagTransform` in `src/DevOpsMigrationPlatform.Infrastructure/Tools/FieldTransform/Transforms/ConditionalTagTransform.cs` — adds `tag` to `System.Tags` when `field` value matches `condition` regex pattern (uses regex timeout from FR-018)
-- [ ] T059 [P] [US5] Implement `MergeToTagTransform` in `src/DevOpsMigrationPlatform.Infrastructure/Tools/FieldTransform/Transforms/MergeToTagTransform.cs` — merges multiple `sourceFields` tag values into `System.Tags`, deduplicates
-- [ ] T060 [P] [US5] Implement `TreeToTagTransform` in `src/DevOpsMigrationPlatform.Infrastructure/Tools/FieldTransform/Transforms/TreeToTagTransform.cs` — splits tree path field by `\`, adds each segment as tag
+- [ ] T056 [US5] Implement shared `TagUtilities` helper in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Tools/FieldTransform/Transforms/TagUtilities.cs` — `AppendTag(existingTags, newTag)` and `DeduplicateTags(tags)` using `"; "` separator, case-insensitive dedup (FR-022)
+- [ ] T057 [P] [US5] Implement `FieldToTagTransform` in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Tools/FieldTransform/Transforms/FieldToTagTransform.cs` — copies field value as tag via `TagUtilities.AppendTag()`
+- [ ] T058 [P] [US5] Implement `ConditionalTagTransform` in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Tools/FieldTransform/Transforms/ConditionalTagTransform.cs` — adds `tag` to `System.Tags` when `field` value matches `condition` regex pattern (uses regex timeout from FR-018)
+- [ ] T059 [P] [US5] Implement `MergeToTagTransform` in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Tools/FieldTransform/Transforms/MergeToTagTransform.cs` — merges multiple `sourceFields` tag values into `System.Tags`, deduplicates
+- [ ] T060 [P] [US5] Implement `TreeToTagTransform` in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Tools/FieldTransform/Transforms/TreeToTagTransform.cs` — splits tree path field by `\`, adds each segment as tag
 - [ ] T061 [US5] Register `FieldToTag`, `ConditionalTag`, `MergeToTag`, `TreeToTag` type discriminators in `FieldTransformFactory`
-- [ ] T062 [P] [US5] Write unit tests for `TagUtilities` in `tests/DevOpsMigrationPlatform.Infrastructure.Tests/Tools/FieldTransform/Transforms/TagUtilitiesTests.cs` — test: append, dedup case-insensitive, separator handling, empty tags
-- [ ] T063 [P] [US5] Write unit tests for all four tag transforms in `tests/DevOpsMigrationPlatform.Infrastructure.Tests/Tools/FieldTransform/Transforms/` — one test file per transform
-- [ ] T064 [US5] Write Reqnroll step definitions for US5 in `tests/DevOpsMigrationPlatform.Infrastructure.Tests/Tools/FieldTransform/Steps/TagTransformSteps.cs` and `TagTransformContext.cs`
+- [ ] T062 [P] [US5] Write unit tests for `TagUtilities` in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Tools/FieldTransform/Transforms/TagUtilitiesTests.cs` — test: append, dedup case-insensitive, separator handling, empty tags
+- [ ] T063 [P] [US5] Write unit tests for all four tag transforms in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Tools/FieldTransform/Transforms/` — one test file per transform
+- [ ] T064 [US5] Write Reqnroll step definitions for US5 in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Tools/FieldTransform/Steps/TagTransformSteps.cs` and `TagTransformContext.cs`
 - [ ] T065 [US5] Verify: `dotnet clean && dotnet build --no-incremental && dotnet test`
 
 **Checkpoint**: All four tag transforms work with deduplication. Tag-based fallback for tree structures is functional.
@@ -194,10 +200,10 @@
 
 ### Implementation
 
-- [ ] T067 [US6] Implement `RegexFieldTransform` in `src/DevOpsMigrationPlatform.Infrastructure/Tools/FieldTransform/Transforms/RegexFieldTransform.cs` — compiled `Regex` with `TimeSpan.FromSeconds(1)` timeout (FR-018), pattern validated at construction (FR-014), timeout aborts with fail-fast error identifying pattern and field
+- [ ] T067 [US6] Implement `RegexFieldTransform` in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Tools/FieldTransform/Transforms/RegexFieldTransform.cs` — compiled `Regex` with `TimeSpan.FromSeconds(1)` timeout (FR-018), pattern validated at construction (FR-014), timeout aborts with fail-fast error identifying pattern and field
 - [ ] T068 [US6] Register `RegexField` type discriminator in `FieldTransformFactory` — validate `field`, `pattern`, `replacement` present; pre-compile and validate pattern at factory construction time
-- [ ] T069 [P] [US6] Write unit tests for `RegexFieldTransform` in `tests/DevOpsMigrationPlatform.Infrastructure.Tests/Tools/FieldTransform/Transforms/RegexFieldTransformTests.cs` — test: match replaces, no match unchanged, invalid pattern rejected, timeout on catastrophic backtracking
-- [ ] T070 [US6] Write Reqnroll step definitions for US6 in `tests/DevOpsMigrationPlatform.Infrastructure.Tests/Tools/FieldTransform/Steps/RegexCleanupSteps.cs` and `RegexCleanupContext.cs`
+- [ ] T069 [P] [US6] Write unit tests for `RegexFieldTransform` in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Tools/FieldTransform/Transforms/RegexFieldTransformTests.cs` — test: match replaces, no match unchanged, invalid pattern rejected, timeout on catastrophic backtracking
+- [ ] T070 [US6] Write Reqnroll step definitions for US6 in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Tools/FieldTransform/Steps/RegexCleanupSteps.cs` and `RegexCleanupContext.cs`
 - [ ] T071 [US6] Verify: `dotnet clean && dotnet build --no-incremental && dotnet test`
 
 **Checkpoint**: Regex transform works with ReDoS protection.
@@ -216,12 +222,12 @@
 
 ### Implementation
 
-- [ ] T073 [US7] Implement `MergeFieldsTransform` in `src/DevOpsMigrationPlatform.Infrastructure/Tools/FieldTransform/Transforms/MergeFieldsTransform.cs` — resolves `sourceFields` values, applies `formatString` via `string.Format()`, absent fields treated as empty string
-- [ ] T074 [P] [US7] Implement `ConditionalFieldTransform` in `src/DevOpsMigrationPlatform.Infrastructure/Tools/FieldTransform/Transforms/ConditionalFieldTransform.cs` — evaluates `condition` regex against specified field, sets target field to `trueValue` or `falseValue`
+- [ ] T073 [US7] Implement `MergeFieldsTransform` in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Tools/FieldTransform/Transforms/MergeFieldsTransform.cs` — resolves `sourceFields` values, applies `formatString` via `string.Format()`, absent fields treated as empty string
+- [ ] T074 [P] [US7] Implement `ConditionalFieldTransform` in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Tools/FieldTransform/Transforms/ConditionalFieldTransform.cs` — evaluates `condition` regex against specified field, sets target field to `trueValue` or `falseValue`
 - [ ] T075 [US7] Register `MergeFields` and `ConditionalField` type discriminators in `FieldTransformFactory`
-- [ ] T076 [P] [US7] Write unit tests for `MergeFieldsTransform` in `tests/DevOpsMigrationPlatform.Infrastructure.Tests/Tools/FieldTransform/Transforms/MergeFieldsTransformTests.cs`
-- [ ] T077 [P] [US7] Write unit tests for `ConditionalFieldTransform` in `tests/DevOpsMigrationPlatform.Infrastructure.Tests/Tools/FieldTransform/Transforms/ConditionalFieldTransformTests.cs`
-- [ ] T078 [US7] Write Reqnroll step definitions for US7 in `tests/DevOpsMigrationPlatform.Infrastructure.Tests/Tools/FieldTransform/Steps/MergeFieldsSteps.cs` and `MergeFieldsContext.cs`
+- [ ] T076 [P] [US7] Write unit tests for `MergeFieldsTransform` in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Tools/FieldTransform/Transforms/MergeFieldsTransformTests.cs`
+- [ ] T077 [P] [US7] Write unit tests for `ConditionalFieldTransform` in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Tools/FieldTransform/Transforms/ConditionalFieldTransformTests.cs`
+- [ ] T078 [US7] Write Reqnroll step definitions for US7 in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Tools/FieldTransform/Steps/MergeFieldsSteps.cs` and `MergeFieldsContext.cs`
 - [ ] T079 [US7] Verify: `dotnet clean && dotnet build --no-incremental && dotnet test`
 
 **Checkpoint**: All 14 transform types implemented. All P3 stories complete.
@@ -233,10 +239,10 @@
 **Purpose**: Implement the `FieldTransformValidator` for prepare-time validation (FR-020) and the export-phase integration point (FR-017).
 
 - [ ] T080 Create `features/platform/field-transform/field-transform-validation.feature` — scenarios: valid config passes validation, invalid field reference detected, field type mismatch detected, picklist value not in target detected, sample dry-run executes against N items (per VS-M1)
-- [ ] T081 Implement `FieldTransformValidator` in `src/DevOpsMigrationPlatform.Infrastructure/Tools/FieldTransform/FieldTransformValidator.cs` — resolves field references against source+target via `IFieldDefinitionProviderFactory` (FR-020a,b), checks type compatibility (FR-020b), checks picklist values (FR-020c), executes sample dry-run (FR-020d), produces `FieldTransformValidationReport` (FR-020e)
-- [ ] T082 [P] Write unit tests for `FieldTransformValidator` in `tests/DevOpsMigrationPlatform.Infrastructure.Tests/Tools/FieldTransform/FieldTransformValidatorTests.cs` — test: all validation checks, sample dry-run with mock field definitions, validation report generation
+- [ ] T081 Implement `FieldTransformValidator` in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Tools/FieldTransform/FieldTransformValidator.cs` — resolves field references against source+target via `IFieldDefinitionProviderFactory` (FR-020a,b), checks type compatibility (FR-020b), checks picklist values (FR-020c), executes sample dry-run (FR-020d), produces `FieldTransformValidationReport` (FR-020e)
+- [ ] T082 [P] Write unit tests for `FieldTransformValidator` in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Tools/FieldTransform/FieldTransformValidatorTests.cs` — test: all validation checks, sample dry-run with mock field definitions, validation report generation
 - [ ] T083 Create `features/export/workitems/field-transform/export-phase-transform.feature` — scenarios: export-phase transform modifies revision.json before write, import-phase transform ignored during export, `both` phase runs in both directions
-- [ ] T084 Write Reqnroll step definitions for validation scenarios in `tests/DevOpsMigrationPlatform.Infrastructure.Tests/Tools/FieldTransform/Steps/ValidationSteps.cs` and `ValidationContext.cs`
+- [ ] T084 Write Reqnroll step definitions for validation scenarios in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Tools/FieldTransform/Steps/ValidationSteps.cs` and `ValidationContext.cs`
 - [ ] T085 Verify: `dotnet clean && dotnet build --no-incremental && dotnet test`
 - [ ] T085b Add OpenTelemetry structured logging to `FieldTransformTool` and `FieldTransformPipeline` — emit `Activity` spans for pipeline execution with group/transform name tags (FR-009, mandatory per Constitution X.7 Observability)
 

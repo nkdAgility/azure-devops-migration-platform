@@ -3,14 +3,14 @@
 **Feature**: 022-workitem-field-mapping  
 **Date**: 2026-04-24
 
-These are the proposed interface contracts for the FieldTransformTool. All interfaces will be defined in `DevOpsMigrationPlatform.Abstractions/Tools/`.
+These are the proposed interface contracts for the FieldTransformTool. Per the **021.2 Separation of Concerns** boundary rules, all tool interfaces are defined in `DevOpsMigrationPlatform.Abstractions.Agent/Tools/` (Agent-only). Config options (`FieldTransformOptions` etc.) remain in `DevOpsMigrationPlatform.Abstractions/Options/`.
 
 ## IFieldTransformTool
 
 The top-level tool interface. Singleton, stateless, invoked per-revision.
 
 ```csharp
-namespace DevOpsMigrationPlatform.Abstractions.Tools;
+namespace DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 
 /// <summary>
 /// Applies a configured pipeline of field transforms to a work item revision's field collection.
@@ -38,7 +38,7 @@ public interface IFieldTransformTool
 The contract for a single transform implementation.
 
 ```csharp
-namespace DevOpsMigrationPlatform.Abstractions.Tools;
+namespace DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 
 /// <summary>
 /// A single field transformation that operates on a revision's field collection.
@@ -67,7 +67,7 @@ public interface IFieldTransform
 Creates typed transform instances from configuration.
 
 ```csharp
-namespace DevOpsMigrationPlatform.Abstractions.Tools;
+namespace DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 
 /// <summary>
 /// Creates IFieldTransform instances from configuration options.
@@ -88,7 +88,7 @@ public interface IFieldTransformFactory
 Prepare-time validation — callable from the `prepare` command.
 
 ```csharp
-namespace DevOpsMigrationPlatform.Abstractions.Tools;
+namespace DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 
 /// <summary>
 /// Validates all configured field transforms against source and target field definitions.
@@ -113,7 +113,7 @@ public interface IFieldTransformValidator
 Abstracts field metadata retrieval from source/target systems.
 
 ```csharp
-namespace DevOpsMigrationPlatform.Abstractions.Tools;
+namespace DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 
 /// <summary>
 /// Provides field definition metadata for a target or source system.
@@ -141,7 +141,7 @@ public sealed record FieldDefinition(
 Creates source/target field definition providers. Injected into `IFieldTransformValidator` via constructor (CA-M1).
 
 ```csharp
-namespace DevOpsMigrationPlatform.Abstractions.Tools;
+namespace DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 
 /// <summary>
 /// Creates IFieldDefinitionProvider instances for source and target systems.
@@ -161,7 +161,7 @@ public interface IFieldDefinitionProviderFactory
 ## Dependency Registration
 
 ```csharp
-namespace DevOpsMigrationPlatform.Infrastructure.Tools.FieldTransform;
+namespace DevOpsMigrationPlatform.Infrastructure.Agent.Tools.FieldTransform;
 
 public static class FieldTransformToolServiceCollectionExtensions
 {
