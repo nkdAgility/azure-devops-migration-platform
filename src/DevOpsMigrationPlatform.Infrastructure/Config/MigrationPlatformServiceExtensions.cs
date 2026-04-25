@@ -1,6 +1,5 @@
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Options;
-using DevOpsMigrationPlatform.Infrastructure.Services;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
@@ -43,9 +42,6 @@ public static class MigrationPlatformServiceExtensions
         services.AddOptions<MigrationOptions>()
             .Bind(configuration.GetSection("MigrationPlatform"))
             .ValidateOnStart();
-
-        // Resumable batching: query fingerprint service (singleton — stateless, deterministic)
-        services.AddSingleton<IQueryFingerprintService, QueryFingerprintService>();
 
 #if !NET481
         // Polymorphic endpoint options registry — built from all EndpointOptionsRegistration entries

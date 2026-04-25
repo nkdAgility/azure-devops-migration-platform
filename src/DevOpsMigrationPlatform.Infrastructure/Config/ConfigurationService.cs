@@ -11,7 +11,7 @@ using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Infrastructure.Serialization;
 using Microsoft.Extensions.Logging;
 
-namespace DevOpsMigrationPlatform.Infrastructure.Services;
+namespace DevOpsMigrationPlatform.Infrastructure.Config;
 
 /// <summary>
 /// JSON file-based implementation of <see cref="IConfigurationService"/>.
