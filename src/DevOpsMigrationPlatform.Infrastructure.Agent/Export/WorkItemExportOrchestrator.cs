@@ -246,9 +246,14 @@ public sealed class WorkItemExportOrchestrator
         {
             var folderPath = BuildFolderPath(revision.WorkItemId, revision.RevisionIndex, revision.ChangedDate);
 
-            // Skip all revisions at or before the cursor (resume logic).
+            // Skip revisions already exported (resume logic).
+            // ExistsAsync is used instead of a lexicographic path comparison because the ADO
+            // source delivers work items in reverse-chronological creation-date window order
+            // (newest window first). Items from older windows have earlier ChangedDate-based
+            // folder paths that compare as <= the cursor even though they were never exported --
+            // a path comparison would permanently skip those items on resume.
             if (cursor != null &&
-                string.Compare(folderPath, cursor.LastProcessed, StringComparison.Ordinal) <= 0)
+                await _artefactStore.ExistsAsync($"{folderPath}revision.json", cancellationToken).ConfigureAwait(false))
             {
                 // Emit a progress event each time we cross a new work item boundary during
                 // the skip phase so the CLI shows "Resuming…" activity rather than silence.

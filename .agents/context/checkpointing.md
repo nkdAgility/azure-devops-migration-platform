@@ -120,7 +120,7 @@ Export modules use the same cursor schema as import. The key difference is that 
 - Export modules write `stage: "Completed"` after each revision folder is successfully written to the package.
 - The `lastProcessed` field holds the relative path of the last revision folder written (e.g. `WorkItems/2026-04-10/638760123456789012-42-17/`).
 - The cursor is updated after every individual revision folder so that an interruption results in at most one revision folder of re-work on resume.
-- On resume, the orchestrator skips all folders lexicographically less than or equal to `lastProcessed` in a single O(1) comparison per folder — no full scan.
+- On resume, the orchestrator checks `IArtefactStore.ExistsAsync("{folderPath}revision.json")` for each incoming revision. If the file already exists the revision was fully exported and is skipped. A lexicographic path comparison is **not used** for export because `AzureDevOpsWorkItemRevisionSource` delivers work items in reverse-chronological creation-date window order (newest first); folder paths from older windows sort below the cursor even when those revisions were never exported.
 
 ---
 

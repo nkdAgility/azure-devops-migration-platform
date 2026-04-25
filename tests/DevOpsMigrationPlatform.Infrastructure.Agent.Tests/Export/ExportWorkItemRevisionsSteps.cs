@@ -172,7 +172,7 @@ public class ExportWorkItemRevisionsSteps
     // ── Scenario 4: resume from cursor ───────────────────────────────────────
 
     [Given("the cursor file at {string} records the last processed folder as {string}")]
-    public void GivenTheCursorRecordsLastProcessedFolder(string _cursorPath, string _lastProcessed)
+    public async Task GivenTheCursorRecordsLastProcessedFolder(string _cursorPath, string _lastProcessed)
     {
         var dateA = new DateTimeOffset(2024, 1, 15, 0, 0, 0, TimeSpan.Zero);
         var dateB = new DateTimeOffset(2024, 1, 16, 0, 0, 0, TimeSpan.Zero);
@@ -190,6 +190,11 @@ public class ExportWorkItemRevisionsSteps
             new() { WorkItemId = 42, RevisionIndex = 1, ChangedDate = dateA },
             new() { WorkItemId = 42, RevisionIndex = 2, ChangedDate = dateB }
         };
+
+        // Pre-write revision.json for the cursor-position revision so ExistsAsync returns true,
+        // causing the orchestrator to skip it (simulating a prior run that already exported it).
+        await _ctx.RealArtefactStore!.WriteAsync($"{folderAtCursor}revision.json", "{}", CancellationToken.None);
+
         _ctx.MockCheckpointingService
             .Setup(s => s.ReadCursorAsync("workitems", It.IsAny<CancellationToken>()))
             .ReturnsAsync(_ctx.InitialCursor);
@@ -208,11 +213,12 @@ public class ExportWorkItemRevisionsSteps
     [Then("the export skips all revision folders at or before {string}")]
     public void ThenTheExportSkipsRevisionFoldersAtOrBefore(string _)
     {
-        // SourceRevisions[0] is the revision at the cursor — it must NOT have been written.
+        // SourceRevisions[0] is the revision at the cursor — the orchestrator must NOT have written
+        // a new cursor entry for it (only the next revision should have a cursor written).
         var rev = _ctx.SourceRevisions[0];
-        var skipped = WorkItemExportOrchestrator.BuildFolderPath(rev.WorkItemId, rev.RevisionIndex, rev.ChangedDate);
-        var file = Path.Combine(_ctx.PackageRoot!, skipped.Replace('/', Path.DirectorySeparatorChar), "revision.json");
-        Assert.IsFalse(File.Exists(file), "Revision at cursor position should have been skipped.");
+        var skippedFolder = WorkItemExportOrchestrator.BuildFolderPath(rev.WorkItemId, rev.RevisionIndex, rev.ChangedDate);
+        var skippedInCursors = _ctx.WrittenCursors.Any(c => c.LastProcessed == skippedFolder);
+        Assert.IsFalse(skippedInCursors, "No cursor should have been written for the already-exported revision.");
     }
 
     [Then("the export continues from the next unprocessed revision")]

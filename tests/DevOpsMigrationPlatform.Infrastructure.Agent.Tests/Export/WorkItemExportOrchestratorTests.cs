@@ -85,11 +85,12 @@ public class WorkItemExportOrchestratorTests
     }
 
     [TestMethod]
-    public async Task ExportAsync_WhenCursorSet_SkipsFoldersAtOrBeforeCursor()
+    public async Task ExportAsync_WhenCursorSet_SkipsAlreadyExportedRevisions()
     {
         var revisions = MakeRevisions(3, 42);
 
-        // Cursor sits at revision 1 — only revision 2 should be written.
+        // Cursor is present — revisions 0 and 1 have revision.json on disk (already exported),
+        // revision 2 does not. Only revision 2 should be written.
         var cursor = new CursorEntry
         {
             LastProcessed = WorkItemExportOrchestrator.BuildFolderPath(42, 1, revisions[1].ChangedDate),
@@ -101,6 +102,13 @@ public class WorkItemExportOrchestratorTests
         _mockCps.Setup(s => s.WriteCursorAsync("workitems", It.IsAny<CursorEntry>(), It.IsAny<CancellationToken>()))
                 .Returns(Task.CompletedTask);
 
+        var rev0Path = WorkItemExportOrchestrator.BuildFolderPath(42, 0, revisions[0].ChangedDate) + "revision.json";
+        var rev1Path = WorkItemExportOrchestrator.BuildFolderPath(42, 1, revisions[1].ChangedDate) + "revision.json";
+        var rev2Path = WorkItemExportOrchestrator.BuildFolderPath(42, 2, revisions[2].ChangedDate) + "revision.json";
+        _mockStore.Setup(s => s.ExistsAsync(rev0Path, It.IsAny<CancellationToken>())).ReturnsAsync(true);
+        _mockStore.Setup(s => s.ExistsAsync(rev1Path, It.IsAny<CancellationToken>())).ReturnsAsync(true);
+        _mockStore.Setup(s => s.ExistsAsync(rev2Path, It.IsAny<CancellationToken>())).ReturnsAsync(false);
+
         var written = new List<string>();
         _mockStore.Setup(s => s.WriteAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
                   .Callback<string, string, CancellationToken>((p, _, _) => written.Add(p))
@@ -111,6 +119,56 @@ public class WorkItemExportOrchestratorTests
 
         Assert.AreEqual(1, written.Count, "Only revision 2 should be written.");
         StringAssert.Contains(written[0], "-42-2/");
+    }
+
+    [TestMethod]
+    public async Task ExportAsync_WhenCursorSet_OutOfOrderDelivery_DoesNotSkipUnexportedOlderItems()
+    {
+        // Regression test: AzureDevOpsWorkItemRevisionSource delivers newest windows first.
+        // A 2020-era item arrives AFTER a 2024-era item even though the 2020 path sorts earlier.
+        // The old lexicographic comparison permanently skipped such items on resume; ExistsAsync does not.
+
+        var newerDate = new DateTimeOffset(2024, 3, 15, 0, 0, 0, TimeSpan.Zero);
+        var olderDate = new DateTimeOffset(2020, 6, 12, 0, 0, 0, TimeSpan.Zero);
+
+        var newerRevision = new WorkItemRevision { WorkItemId = 1000, RevisionIndex = 0, ChangedDate = newerDate };
+        var olderRevision = new WorkItemRevision { WorkItemId = 5,    RevisionIndex = 0, ChangedDate = olderDate };
+
+        // Cursor points to the newer item (was already exported in a prior run).
+        var cursor = new CursorEntry
+        {
+            LastProcessed = WorkItemExportOrchestrator.BuildFolderPath(1000, 0, newerDate),
+            Stage = CursorStage.Completed,
+            UpdatedAt = DateTimeOffset.UtcNow
+        };
+        _mockCps.Setup(s => s.ReadCursorAsync("workitems", It.IsAny<CancellationToken>()))
+                .ReturnsAsync(cursor);
+        _mockCps.Setup(s => s.WriteCursorAsync("workitems", It.IsAny<CursorEntry>(), It.IsAny<CancellationToken>()))
+                .Returns(Task.CompletedTask);
+
+        var newerPath = WorkItemExportOrchestrator.BuildFolderPath(1000, 0, newerDate) + "revision.json";
+        var olderPath  = WorkItemExportOrchestrator.BuildFolderPath(5,    0, olderDate)  + "revision.json";
+
+        // Newer item already on disk; older item was never exported (arrived from a later window).
+        _mockStore.Setup(s => s.ExistsAsync(newerPath, It.IsAny<CancellationToken>())).ReturnsAsync(true);
+        _mockStore.Setup(s => s.ExistsAsync(olderPath,  It.IsAny<CancellationToken>())).ReturnsAsync(false);
+
+        var written = new List<string>();
+        _mockStore.Setup(s => s.WriteAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+                  .Callback<string, string, CancellationToken>((p, _, _) => written.Add(p))
+                  .Returns(Task.CompletedTask);
+
+        // Source delivers newest item first (already exported), then older item (not yet exported).
+        // The older item path is lexicographically LESS THAN the cursor — old code would skip it.
+        _mockSource
+            .Setup(s => s.GetRevisionsAsync(It.IsAny<CancellationToken>()))
+            .Returns((CancellationToken ct) =>
+                new[] { newerRevision, olderRevision }.ToAsyncEnumerable(ct));
+
+        await _sut.ExportAsync(_mockSource.Object, CancellationToken.None);
+
+        Assert.AreEqual(1, written.Count, "Only the older (not-yet-exported) revision should be written.");
+        StringAssert.Contains(written[0], "-5-0/", "The 2020-era revision must be exported, not skipped.");
     }
 
     [TestMethod]
