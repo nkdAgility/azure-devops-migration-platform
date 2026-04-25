@@ -1,13 +1,15 @@
+#if !NETFRAMEWORK
 using System.Diagnostics;
 using System.Diagnostics.Metrics;
+using DevOpsMigrationPlatform.Abstractions.ControlPlane.Metrics;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Telemetry;
 
 /// <summary>
-/// Concrete implementation of <see cref="Abstractions.IJobLifecycleMetrics"/> backed by
+/// Concrete implementation of <see cref="IJobLifecycleMetrics"/> backed by
 /// the <see cref="Abstractions.WellKnownMeterNames.ControlPlane"/> meter.
 /// </summary>
-public sealed class JobLifecycleMetrics : Abstractions.IJobLifecycleMetrics
+public sealed class JobLifecycleMetrics : IJobLifecycleMetrics
 {
     private readonly Counter<long> _total;
     private readonly UpDownCounter<int> _queued;
@@ -92,3 +94,4 @@ public sealed class JobLifecycleMetrics : Abstractions.IJobLifecycleMetrics
         _duration.Record(milliseconds, tags);
     }
 }
+#endif

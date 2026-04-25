@@ -1,6 +1,6 @@
 using System.Diagnostics;
 
-namespace DevOpsMigrationPlatform.Abstractions;
+namespace DevOpsMigrationPlatform.Abstractions.ControlPlane.Metrics;
 
 /// <summary>
 /// Records job lifecycle metrics: submissions, queue depth, and in-progress count.

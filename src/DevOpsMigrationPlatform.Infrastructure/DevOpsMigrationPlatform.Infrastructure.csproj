@@ -10,6 +10,10 @@
     <ProjectReference Include="..\DevOpsMigrationPlatform.Abstractions\DevOpsMigrationPlatform.Abstractions.csproj" />
   </ItemGroup>
 
+  <ItemGroup Condition="'$(TargetFramework)' != 'net481'">
+    <ProjectReference Include="..\DevOpsMigrationPlatform.Abstractions.ControlPlane\DevOpsMigrationPlatform.Abstractions.ControlPlane.csproj" />
+  </ItemGroup>
+
   <!-- Options + config-binding -->
   <ItemGroup Condition="'$(TargetFramework)' == 'net481'">
     <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" VersionOverride="9.0.5" />
