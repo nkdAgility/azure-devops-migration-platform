@@ -3,7 +3,7 @@ using DevOpsMigrationPlatform.Abstractions;
 
 using System.Threading;
 
-namespace DevOpsMigrationPlatform.Infrastructure.ControlPlane.Metrics;
+namespace DevOpsMigrationPlatform.Infrastructure.Telemetry;
 
 /// <summary>
 /// Lock-free, single-value snapshot store backed by a volatile reference.
@@ -12,7 +12,7 @@ namespace DevOpsMigrationPlatform.Infrastructure.ControlPlane.Metrics;
 /// Signals <see cref="UpdateSignal"/> on each <see cref="Update"/> so the
 /// telemetry timer can wake immediately on project-boundary pushes.
 /// </summary>
-internal sealed class InMemoryJobSnapshotStore : IJobSnapshotStore
+public sealed class InMemoryJobSnapshotStore : IJobSnapshotStore
 {
     private volatile JobSnapshot? _latest;
     private readonly ManualResetEventSlim _signal = new(false);

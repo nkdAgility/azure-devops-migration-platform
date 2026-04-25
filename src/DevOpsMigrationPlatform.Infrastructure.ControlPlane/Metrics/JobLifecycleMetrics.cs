@@ -3,7 +3,7 @@ using System.Diagnostics;
 using System.Diagnostics.Metrics;
 using DevOpsMigrationPlatform.Abstractions.ControlPlane.Metrics;
 
-namespace DevOpsMigrationPlatform.Infrastructure.ControlPlane.Metrics;
+namespace DevOpsMigrationPlatform.Infrastructure.Telemetry;
 
 /// <summary>
 /// Concrete implementation of <see cref="IJobLifecycleMetrics"/> backed by

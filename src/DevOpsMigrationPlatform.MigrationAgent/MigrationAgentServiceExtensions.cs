@@ -5,7 +5,6 @@ using DevOpsMigrationPlatform.Infrastructure.Agent.Modules;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Storage;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Checkpointing;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Telemetry;
-using DevOpsMigrationPlatform.Infrastructure.ControlPlane.Metrics;
 using DevOpsMigrationPlatform.Infrastructure.Simulated;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -35,8 +34,8 @@ public static class MigrationAgentServiceExtensions
         // Register agent-specific telemetry (IMigrationMetrics, IDiscoveryMetrics, TelemetryOptions).
         builder.Services.AddAgentTelemetryServices(builder.Configuration);
 
-        // Register ControlPlane-specific metrics (IJobMetricsStore, IJobSnapshotStore, IJobLifecycleMetrics).
-        builder.Services.AddControlPlaneTelemetryServices(builder.Configuration);
+        // Register in-memory stores for job metrics and snapshots (IJobMetricsStore, IJobSnapshotStore).
+        builder.Services.AddAgentJobMetricsServices();
 
         // Register WellKnownMeterNames meters in the OTel pipeline.
         // Use ConfigureOpenTelemetryMeterProvider (the pattern recommended by the

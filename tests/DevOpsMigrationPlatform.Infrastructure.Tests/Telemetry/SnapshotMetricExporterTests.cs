@@ -1,6 +1,6 @@
 using System;
 using DevOpsMigrationPlatform.Abstractions;
-using DevOpsMigrationPlatform.Infrastructure.ControlPlane.Metrics;
+using DevOpsMigrationPlatform.Infrastructure.Telemetry;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Tests.Telemetry;

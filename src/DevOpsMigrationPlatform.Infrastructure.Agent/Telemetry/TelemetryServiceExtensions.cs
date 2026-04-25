@@ -1,6 +1,7 @@
 #if !NETFRAMEWORK
 using System;
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Infrastructure.Telemetry;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -32,6 +33,21 @@ public static class TelemetryServiceExtensions
         services.AddSingleton<IMigrationMetrics, MigrationMetrics>();
         services.AddSingleton<IDiscoveryMetrics, DiscoveryMetrics>();
 
+        return services;
+    }
+
+    /// <summary>
+    /// Registers the in-memory <see cref="IJobMetricsStore"/> and <see cref="IJobSnapshotStore"/>
+    /// implementations required by <c>ControlPlaneTelemetryTimer</c> in the Migration Agent.
+    /// These stores hold the latest snapshot that the timer pushes to the Control Plane.
+    /// ControlPlane-specific services (IJobLifecycleMetrics, OTel metric reader) are registered
+    /// separately via <c>AddControlPlaneTelemetryServices()</c> in Infrastructure.ControlPlane.
+    /// </summary>
+    public static IServiceCollection AddAgentJobMetricsServices(
+        this IServiceCollection services)
+    {
+        services.AddSingleton<IJobMetricsStore, InMemoryJobMetricsStore>();
+        services.AddSingleton<IJobSnapshotStore, InMemoryJobSnapshotStore>();
         return services;
     }
 
