@@ -4,7 +4,7 @@ using DevOpsMigrationPlatform.Abstractions;
 using OpenTelemetry;
 using OpenTelemetry.Metrics;
 
-namespace DevOpsMigrationPlatform.Infrastructure.Telemetry;
+namespace DevOpsMigrationPlatform.Infrastructure.ControlPlane.Metrics;
 
 /// <summary>
 /// OTel SDK <see cref="BaseExporter{T}"/> that converts aggregated <see cref="Metric"/> batches

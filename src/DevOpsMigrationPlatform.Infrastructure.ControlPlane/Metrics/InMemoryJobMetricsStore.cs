@@ -2,7 +2,7 @@ using DevOpsMigrationPlatform.Abstractions;
 #if !NETFRAMEWORK
 using System.Threading;
 
-namespace DevOpsMigrationPlatform.Infrastructure.Telemetry;
+namespace DevOpsMigrationPlatform.Infrastructure.ControlPlane.Metrics;
 
 /// <summary>
 /// Lock-free, single-value metrics store backed by a volatile reference.

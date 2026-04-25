@@ -3,7 +3,7 @@ using DevOpsMigrationPlatform.Abstractions;
 
 using System.Threading;
 
-namespace DevOpsMigrationPlatform.Infrastructure.Telemetry;
+namespace DevOpsMigrationPlatform.Infrastructure.ControlPlane.Metrics;
 
 /// <summary>
 /// Lock-free, single-value snapshot store backed by a volatile reference.
