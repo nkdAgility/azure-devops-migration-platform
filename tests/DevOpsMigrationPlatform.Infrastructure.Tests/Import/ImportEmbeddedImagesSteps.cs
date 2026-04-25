@@ -135,7 +135,7 @@ public class ImportEmbeddedImagesSteps
     {
         _ctx.Extensions = new WorkItemsModuleExtensions
         {
-            EmbeddedImages = new EmbeddedImagesExtensionOptions { Enabled = false }
+            EmbeddedImages = new EmbeddedImagesExtensionOptionsConfig { Enabled = false }
         };
     }
 

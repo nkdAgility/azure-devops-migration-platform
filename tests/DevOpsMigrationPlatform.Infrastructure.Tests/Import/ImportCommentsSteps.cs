@@ -152,7 +152,7 @@ public class ImportCommentsSteps
     {
         _ctx.Extensions = new WorkItemsModuleExtensions
         {
-            Comments = new CommentsExtensionOptions { Enabled = false }
+            Comments = new CommentsExtensionOptionsConfig { Enabled = false }
         };
     }
 

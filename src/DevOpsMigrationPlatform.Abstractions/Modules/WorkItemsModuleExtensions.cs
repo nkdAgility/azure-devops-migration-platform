@@ -36,10 +36,10 @@ public sealed class WorkItemsModuleExtensions
     public bool AttachmentsEnabled { get; init; } = true;
 
     /// <summary>Comments extension configuration. Default: enabled, no deleted comments.</summary>
-    public CommentsExtensionOptions Comments { get; init; } = new CommentsExtensionOptions();
+    public CommentsExtensionOptionsConfig Comments { get; init; } = new CommentsExtensionOptionsConfig();
 
     /// <summary>EmbeddedImages extension options. Default: enabled, 30 s timeout.</summary>
-    public EmbeddedImagesExtensionOptions EmbeddedImages { get; init; } = new EmbeddedImagesExtensionOptions();
+    public EmbeddedImagesExtensionOptionsConfig EmbeddedImages { get; init; } = new EmbeddedImagesExtensionOptionsConfig();
 
     /// <summary>
     /// Resolution strategy options. A <c>WorkItemResolutionStrategy</c> extension with a valid
@@ -92,8 +92,8 @@ public sealed class WorkItemsModuleExtensions
         bool revisionsEnabled = true;
         bool linksEnabled = true;
         bool attachmentsEnabled = true;
-        var comments = new CommentsExtensionOptions();
-        var embeddedImages = new EmbeddedImagesExtensionOptions();
+        var comments = new CommentsExtensionOptionsConfig();
+        var embeddedImages = new EmbeddedImagesExtensionOptionsConfig();
         var resolutionStrategy = new WorkItemResolutionStrategyOptions();
 
         foreach (var ext in module.Extensions)
@@ -135,18 +135,18 @@ public sealed class WorkItemsModuleExtensions
         };
     }
 
-    private static CommentsExtensionOptions ParseCommentsExtension(JobModuleExtension ext)
+    private static CommentsExtensionOptionsConfig ParseCommentsExtension(JobModuleExtension ext)
     {
-        return new CommentsExtensionOptions
+        return new CommentsExtensionOptionsConfig
         {
             Enabled = ext.Enabled,
             IncludeDeleted = GetBool(ext.Parameters, "includeDeleted", false),
         };
     }
 
-    private static EmbeddedImagesExtensionOptions ParseEmbeddedImagesExtension(JobModuleExtension ext)
+    private static EmbeddedImagesExtensionOptionsConfig ParseEmbeddedImagesExtension(JobModuleExtension ext)
     {
-        return new EmbeddedImagesExtensionOptions
+        return new EmbeddedImagesExtensionOptionsConfig
         {
             Enabled = ext.Enabled,
             DownloadTimeoutSeconds = GetInt(ext.Parameters, "downloadTimeoutSeconds", 30),
