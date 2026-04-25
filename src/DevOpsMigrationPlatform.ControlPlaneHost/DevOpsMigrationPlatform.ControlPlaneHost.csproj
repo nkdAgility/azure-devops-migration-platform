@@ -8,8 +8,6 @@
   </PropertyGroup>  <ItemGroup>
     <ProjectReference Include="..\DevOpsMigrationPlatform.Abstractions.ControlPlane\DevOpsMigrationPlatform.Abstractions.ControlPlane.csproj" />
     <ProjectReference Include="..\DevOpsMigrationPlatform.ControlPlane\DevOpsMigrationPlatform.ControlPlane.csproj" />
-    <ProjectReference Include="..\DevOpsMigrationPlatform.Infrastructure.AzureDevOps\DevOpsMigrationPlatform.Infrastructure.AzureDevOps.csproj" />
     <ProjectReference Include="..\DevOpsMigrationPlatform.Infrastructure.ControlPlane\DevOpsMigrationPlatform.Infrastructure.ControlPlane.csproj" />
-    <ProjectReference Include="..\DevOpsMigrationPlatform.Infrastructure.Simulated\DevOpsMigrationPlatform.Infrastructure.Simulated.csproj" />
     <ProjectReference Include="..\DevOpsMigrationPlatform.ServiceDefaults\DevOpsMigrationPlatform.ServiceDefaults.csproj" />
   </ItemGroup></Project>

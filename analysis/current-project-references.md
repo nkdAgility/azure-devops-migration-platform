@@ -1,6 +1,6 @@
 # Current Project Reference Topology
 
-> Updated after Phase 6 separation-of-concerns refactoring (Steps 1-3 source violations fixed; test projects reorganized).
+> Updated after Phase 6 separation-of-concerns refactoring (all source violations fixed; test projects reorganized; ControlPlaneHost cleaned).
 
 ## Production Projects
 
@@ -61,17 +61,13 @@
 ### DevOpsMigrationPlatform.ControlPlaneHost
 - DevOpsMigrationPlatform.Abstractions.ControlPlane
 - DevOpsMigrationPlatform.ControlPlane
-- DevOpsMigrationPlatform.Infrastructure.AzureDevOps
 - DevOpsMigrationPlatform.Infrastructure.ControlPlane
-- DevOpsMigrationPlatform.Infrastructure.Simulated
 - DevOpsMigrationPlatform.ServiceDefaults
 
 ### DevOpsMigrationPlatform.CLI.Migration
 - DevOpsMigrationPlatform.Abstractions
 - DevOpsMigrationPlatform.Abstractions.Agent
-- DevOpsMigrationPlatform.ControlPlane
 - DevOpsMigrationPlatform.Infrastructure
-- DevOpsMigrationPlatform.Infrastructure.ControlPlane
 
 ### DevOpsMigrationPlatform.CLI.TfsMigration
 - DevOpsMigrationPlatform.Abstractions
@@ -114,6 +110,7 @@
 |---|---|
 | ControlPlane referenced Infrastructure + Infrastructure.ControlPlane | Moved `AddControlPlaneTelemetryServices` call to ControlPlaneHost; added Infrastructure.ControlPlane ref to Host |
 | MigrationAgent referenced Infrastructure.ControlPlane | Moved InMemoryJobMetricsStore/InMemoryJobSnapshotStore to Infrastructure.Telemetry; added `AddAgentJobMetricsServices()` to Infrastructure.Agent |
-| CLI.Migration referenced Infrastructure.Agent | Moved `PackagePathUtilities` to Abstractions; removed Infrastructure.Agent ref (kept Abstractions.Agent) |
+| CLI.Migration referenced Infrastructure.Agent | Moved `PackagePathUtilities` to Abstractions; removed Infrastructure.Agent ref (kept Abstractions.Agent for IProgressSink, InventorySummary, etc.) |
+| ControlPlaneHost referenced Infrastructure.AzureDevOps + Infrastructure.Simulated | Removed unused references; Infrastructure types accessed transitively via Infrastructure.ControlPlane |
 | Infrastructure.Tests over-referenced (Agent + ControlPlane) | Created Infrastructure.Agent.Tests; moved all Agent/AzureDevOps-dependent tests there; Infrastructure.Tests now only references Abstractions + Infrastructure |
 | CLI.Migration.Tests over-referenced (Infrastructure + Infrastructure.AzureDevOps) | Moved Transitive*.cs tests to Infrastructure.Agent.Tests; CLI.Migration.Tests now only references CLI.Migration |
