@@ -1,6 +1,7 @@
 using DevOpsMigrationPlatform.Abstractions.Telemetry;
 using DevOpsMigrationPlatform.Abstractions.Jobs;
 using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
+using DevOpsMigrationPlatform.Abstractions.Streaming;
 using DevOpsMigrationPlatform.Abstractions.Agent.Telemetry;
 namespace DevOpsMigrationPlatform.Abstractions.Agent.Discovery;
 
@@ -38,3 +39,4 @@ public class DiscoveryContext
     /// </summary>
     public IJobSnapshotStore? SnapshotStore { get; init; }
 }
+

@@ -1,6 +1,6 @@
 using System;
 
-namespace DevOpsMigrationPlatform.Abstractions.Agent.Discovery;
+namespace DevOpsMigrationPlatform.Abstractions.ControlPlaneApi;
 
 /// <summary>
 /// Per-project result record written to <c>inventory.csv</c> on completion.

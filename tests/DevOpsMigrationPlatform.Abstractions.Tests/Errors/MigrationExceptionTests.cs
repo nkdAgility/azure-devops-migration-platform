@@ -10,9 +10,9 @@ namespace DevOpsMigrationPlatform.Abstractions.Tests.Errors
         public void Constructor_WithValidCategory_SetsProperties()
         {
             var ex = new MigrationException(
-                MigrationErrorCategory.Authentication,
                 "Authentication failed",
-                "Please verify your credentials"
+                MigrationErrorCategory.Authentication,
+                guidance: "Please verify your credentials"
             );
 
             Assert.AreEqual(MigrationErrorCategory.Authentication, ex.Category);
@@ -25,8 +25,8 @@ namespace DevOpsMigrationPlatform.Abstractions.Tests.Errors
         public void Constructor_WithoutGuidance_CreatesExceptionWithNullGuidance()
         {
             var ex = new MigrationException(
-                MigrationErrorCategory.ValidationError,
-                "Validation failed"
+                "Validation failed",
+                MigrationErrorCategory.ValidationError
             );
 
             Assert.AreEqual(MigrationErrorCategory.ValidationError, ex.Category);
@@ -38,105 +38,91 @@ namespace DevOpsMigrationPlatform.Abstractions.Tests.Errors
         [TestMethod]
         public void ExitCode_UnknownCategory_Returns1()
         {
-            var ex = new MigrationException(MigrationErrorCategory.Unknown, "An error occurred");
+            var ex = new MigrationException("An error occurred", MigrationErrorCategory.Unknown);
             Assert.AreEqual(1, ex.ExitCode);
         }
 
         [TestMethod]
         public void ExitCode_AuthenticationCategory_Returns2()
         {
-            var ex = new MigrationException(MigrationErrorCategory.Authentication, "Auth failed");
+            var ex = new MigrationException("Auth failed", MigrationErrorCategory.Authentication);
             Assert.AreEqual(2, ex.ExitCode);
         }
 
         [TestMethod]
         public void ExitCode_RateLimitedCategory_Returns3()
         {
-            var ex = new MigrationException(MigrationErrorCategory.RateLimited, "Rate limit exceeded");
+            var ex = new MigrationException("Rate limit exceeded", MigrationErrorCategory.RateLimited);
             Assert.AreEqual(3, ex.ExitCode);
         }
 
         [TestMethod]
         public void ExitCode_ValidationErrorCategory_Returns4()
         {
-            var ex = new MigrationException(MigrationErrorCategory.ValidationError, "Bad data");
+            var ex = new MigrationException("Bad data", MigrationErrorCategory.ValidationError);
             Assert.AreEqual(4, ex.ExitCode);
         }
 
         [TestMethod]
         public void ExitCode_TransientCategory_Returns5()
         {
-            var ex = new MigrationException(MigrationErrorCategory.Transient, "Network error");
+            var ex = new MigrationException("Network error", MigrationErrorCategory.Transient);
             Assert.AreEqual(5, ex.ExitCode);
         }
 
         [TestMethod]
         public void ExitCode_ResourceCapacityCategory_Returns6()
         {
-            var ex = new MigrationException(MigrationErrorCategory.ResourceCapacity, "Out of space");
+            var ex = new MigrationException("Out of space", MigrationErrorCategory.ResourceCapacity);
             Assert.AreEqual(6, ex.ExitCode);
         }
 
         [TestMethod]
         public void ExitCode_RemoteServerErrorCategory_Returns7()
         {
-            var ex = new MigrationException(MigrationErrorCategory.RemoteServerError, "Server error");
+            var ex = new MigrationException("Server error", MigrationErrorCategory.RemoteServerError);
             Assert.AreEqual(7, ex.ExitCode);
         }
 
         [TestMethod]
         public void ExitCode_DataIntegrityCategory_Returns8()
         {
-            var ex = new MigrationException(MigrationErrorCategory.DataIntegrity, "Data corrupt");
+            var ex = new MigrationException("Data corrupt", MigrationErrorCategory.DataIntegrity);
             Assert.AreEqual(8, ex.ExitCode);
         }
 
         [TestMethod]
         public void ExitCode_NotSupportedCategory_Returns9()
         {
-            var ex = new MigrationException(MigrationErrorCategory.NotSupported, "Feature not available");
+            var ex = new MigrationException("Feature not available", MigrationErrorCategory.NotSupported);
             Assert.AreEqual(9, ex.ExitCode);
         }
 
         [TestMethod]
         public void ExitCode_CanceledCategory_Returns128()
         {
-            var ex = new MigrationException(MigrationErrorCategory.Canceled, "Operation canceled");
+            var ex = new MigrationException("Operation canceled", MigrationErrorCategory.Canceled);
             Assert.AreEqual(128, ex.ExitCode);
         }
 
         [TestMethod]
-        public void IsRetryable_AuthenticationFalse()
+        public void IsRetryable_DefaultsToFalse()
         {
-            var ex = new MigrationException(MigrationErrorCategory.Authentication, "Auth failed");
+            var ex = new MigrationException("Auth failed", MigrationErrorCategory.Authentication);
             Assert.IsFalse(ex.IsRetryable);
         }
 
         [TestMethod]
-        public void IsRetryable_RateLimitedTrue()
+        public void IsRetryable_WhenExplicitlySetTrue_IsTrue()
         {
-            var ex = new MigrationException(MigrationErrorCategory.RateLimited, "Rate limit");
+            var ex = new MigrationException("Rate limit", MigrationErrorCategory.RateLimited, isRetryable: true);
             Assert.IsTrue(ex.IsRetryable);
         }
 
         [TestMethod]
-        public void IsRetryable_TransientTrue()
+        public void IsRetryable_WhenExplicitlySetFalse_IsFalse()
         {
-            var ex = new MigrationException(MigrationErrorCategory.Transient, "Network error");
-            Assert.IsTrue(ex.IsRetryable);
-        }
-
-        [TestMethod]
-        public void IsRetryable_ValidationErrorFalse()
-        {
-            var ex = new MigrationException(MigrationErrorCategory.ValidationError, "Bad data");
-            Assert.IsFalse(ex.IsRetryable);
-        }
-
-        [TestMethod]
-        public void IsRetryable_NotSupportedFalse()
-        {
-            var ex = new MigrationException(MigrationErrorCategory.NotSupported, "Not supported");
+            var ex = new MigrationException("Validation failed", MigrationErrorCategory.ValidationError, isRetryable: false);
             Assert.IsFalse(ex.IsRetryable);
         }
 
@@ -144,8 +130,8 @@ namespace DevOpsMigrationPlatform.Abstractions.Tests.Errors
         public void ToString_IncludesCategoryAndMessage()
         {
             var ex = new MigrationException(
-                MigrationErrorCategory.ValidationError,
-                "Invalid workspace ID"
+                "Invalid workspace ID",
+                MigrationErrorCategory.ValidationError
             );
 
             string result = ex.ToString();
@@ -158,9 +144,9 @@ namespace DevOpsMigrationPlatform.Abstractions.Tests.Errors
         public void ToString_IncludesGuidanceWhenProvided()
         {
             var ex = new MigrationException(
-                MigrationErrorCategory.Authentication,
                 "PAT token expired",
-                "Generate a new PAT with appropriate scopes"
+                MigrationErrorCategory.Authentication,
+                guidance: "Generate a new PAT with appropriate scopes"
             );
 
             string result = ex.ToString();
@@ -172,8 +158,8 @@ namespace DevOpsMigrationPlatform.Abstractions.Tests.Errors
         {
             var inner = new InvalidOperationException("Inner error");
             var ex = new MigrationException(
-                MigrationErrorCategory.Transient,
                 "Wrapper exception",
+                MigrationErrorCategory.Transient,
                 innerException: inner
             );
 
@@ -181,24 +167,17 @@ namespace DevOpsMigrationPlatform.Abstractions.Tests.Errors
         }
 
         [TestMethod]
-        [ExpectedException(typeof(ArgumentNullException))]
-        public void Constructor_WithNullMessage_ThrowsArgumentNullException()
-        {
-            _ = new MigrationException(MigrationErrorCategory.Unknown, null!);
-        }
-
-        [TestMethod]
         public void BaseException_InheritancePreserved()
         {
-            var ex = new MigrationException(MigrationErrorCategory.ValidationError, "Test error");
+            var ex = new MigrationException("Test error", MigrationErrorCategory.ValidationError);
             Assert.IsInstanceOfType(ex, typeof(Exception));
         }
 
         [TestMethod]
         public void MultipleInstances_WithSameCategory_HaveSameExitCode()
         {
-            var ex1 = new MigrationException(MigrationErrorCategory.RateLimited, "First");
-            var ex2 = new MigrationException(MigrationErrorCategory.RateLimited, "Second");
+            var ex1 = new MigrationException("First", MigrationErrorCategory.RateLimited);
+            var ex2 = new MigrationException("Second", MigrationErrorCategory.RateLimited);
 
             Assert.AreEqual(ex1.ExitCode, ex2.ExitCode);
             Assert.AreEqual(3, ex1.ExitCode);

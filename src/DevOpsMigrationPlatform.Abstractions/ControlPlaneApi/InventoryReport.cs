@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace DevOpsMigrationPlatform.Abstractions.Agent.Discovery;
+namespace DevOpsMigrationPlatform.Abstractions.ControlPlaneApi;
 
 /// <summary>
 /// Structured inventory report written to <c>inventory.json</c>.

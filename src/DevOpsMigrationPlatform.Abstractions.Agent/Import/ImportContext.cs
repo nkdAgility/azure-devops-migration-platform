@@ -1,6 +1,6 @@
 using DevOpsMigrationPlatform.Abstractions.Jobs;
 using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
-using DevOpsMigrationPlatform.Abstractions.Agent.Telemetry;
+using DevOpsMigrationPlatform.Abstractions.Streaming;
 namespace DevOpsMigrationPlatform.Abstractions.Agent.Import;
 
 /// <summary>
@@ -14,3 +14,4 @@ public class ImportContext
     public IStateStore StateStore { get; init; } = null!;
     public IProgressSink ProgressSink { get; init; } = null!;
 }
+
