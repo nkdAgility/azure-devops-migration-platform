@@ -9,6 +9,7 @@
 
   <ItemGroup>
     <InternalsVisibleTo Include="DevOpsMigrationPlatform.Infrastructure.Tests" />
+    <InternalsVisibleTo Include="DevOpsMigrationPlatform.Infrastructure.Agent.Tests" />
   </ItemGroup>
 
   <ItemGroup>

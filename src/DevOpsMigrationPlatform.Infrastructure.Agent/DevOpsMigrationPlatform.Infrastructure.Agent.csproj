@@ -46,5 +46,8 @@
     <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleTo">
       <_Parameter1>DevOpsMigrationPlatform.Infrastructure.Tests</_Parameter1>
     </AssemblyAttribute>
+    <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleTo">
+      <_Parameter1>DevOpsMigrationPlatform.Infrastructure.Agent.Tests</_Parameter1>
+    </AssemblyAttribute>
   </ItemGroup>
 </Project>

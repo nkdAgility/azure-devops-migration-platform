@@ -1,0 +1,12 @@
+{
+  "$schema": "https://schemas.reqnroll.net/reqnroll-config-2.0.json",
+  "bindingCulture": {
+    "name": "en-US"
+  },
+  "runtime": {
+    "missingOrPendingStepsOutcome": "error"
+  },
+  "trace": {
+    "traceSuccessfulSteps": true
+  }
+}

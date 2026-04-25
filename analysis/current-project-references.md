@@ -1,22 +1,42 @@
 # Current Project Reference Topology
 
-> Captured before Phase 1 separation-of-concerns refactoring.
+> Updated after Phase 6 separation-of-concerns refactoring (Steps 1-3 source violations fixed; test projects reorganized).
 
 ## Production Projects
 
 ### DevOpsMigrationPlatform.Abstractions
 - _(no project references — leaf dependency)_
 
+### DevOpsMigrationPlatform.Abstractions.Agent
+- DevOpsMigrationPlatform.Abstractions
+
+### DevOpsMigrationPlatform.Abstractions.ControlPlane
+- DevOpsMigrationPlatform.Abstractions
+
 ### DevOpsMigrationPlatform.Infrastructure
 - DevOpsMigrationPlatform.Abstractions
 
 ### DevOpsMigrationPlatform.Infrastructure.AzureDevOps
 - DevOpsMigrationPlatform.Abstractions
+- DevOpsMigrationPlatform.Abstractions.Agent
+- DevOpsMigrationPlatform.Infrastructure
+- DevOpsMigrationPlatform.Infrastructure.Agent
+
+### DevOpsMigrationPlatform.Infrastructure.Agent
+- DevOpsMigrationPlatform.Abstractions
+- DevOpsMigrationPlatform.Abstractions.Agent
+- DevOpsMigrationPlatform.Infrastructure
+
+### DevOpsMigrationPlatform.Infrastructure.ControlPlane
+- DevOpsMigrationPlatform.Abstractions
+- DevOpsMigrationPlatform.Abstractions.ControlPlane
 - DevOpsMigrationPlatform.Infrastructure
 
 ### DevOpsMigrationPlatform.Infrastructure.Simulated
 - DevOpsMigrationPlatform.Abstractions
+- DevOpsMigrationPlatform.Abstractions.Agent
 - DevOpsMigrationPlatform.Infrastructure
+- DevOpsMigrationPlatform.Infrastructure.Agent
 
 ### DevOpsMigrationPlatform.Infrastructure.TfsObjectModel
 - DevOpsMigrationPlatform.Abstractions
@@ -24,31 +44,34 @@
 
 ### DevOpsMigrationPlatform.ControlPlane
 - DevOpsMigrationPlatform.Abstractions
-- DevOpsMigrationPlatform.Infrastructure
+- DevOpsMigrationPlatform.Abstractions.ControlPlane
 
 ### DevOpsMigrationPlatform.ServiceDefaults
 - DevOpsMigrationPlatform.Abstractions
 
 ### DevOpsMigrationPlatform.MigrationAgent
 - DevOpsMigrationPlatform.Abstractions
+- DevOpsMigrationPlatform.Abstractions.Agent
 - DevOpsMigrationPlatform.Infrastructure
+- DevOpsMigrationPlatform.Infrastructure.Agent
 - DevOpsMigrationPlatform.Infrastructure.AzureDevOps
 - DevOpsMigrationPlatform.Infrastructure.Simulated
 - DevOpsMigrationPlatform.ServiceDefaults
 
 ### DevOpsMigrationPlatform.ControlPlaneHost
+- DevOpsMigrationPlatform.Abstractions.ControlPlane
 - DevOpsMigrationPlatform.ControlPlane
 - DevOpsMigrationPlatform.Infrastructure.AzureDevOps
+- DevOpsMigrationPlatform.Infrastructure.ControlPlane
 - DevOpsMigrationPlatform.Infrastructure.Simulated
 - DevOpsMigrationPlatform.ServiceDefaults
 
-### DevOpsMigrationPlatform.CLI.Migration ⚠️ (over-referenced — target of refactoring)
+### DevOpsMigrationPlatform.CLI.Migration
 - DevOpsMigrationPlatform.Abstractions
-- DevOpsMigrationPlatform.ControlPlane           ← **violation**: CLI must not reference ControlPlane directly
+- DevOpsMigrationPlatform.Abstractions.Agent
+- DevOpsMigrationPlatform.ControlPlane
 - DevOpsMigrationPlatform.Infrastructure
-- DevOpsMigrationPlatform.Infrastructure.AzureDevOps  ← **violation**: connector detail belongs in agent
-- DevOpsMigrationPlatform.Infrastructure.Simulated    ← **violation**: connector detail belongs in agent
-- DevOpsMigrationPlatform.MigrationAgent         ← **violation**: CLI must not reference MigrationAgent directly
+- DevOpsMigrationPlatform.Infrastructure.ControlPlane
 
 ### DevOpsMigrationPlatform.CLI.TfsMigration
 - DevOpsMigrationPlatform.Abstractions
@@ -61,36 +84,36 @@
 
 ## Test Projects
 
-### DevOpsMigrationPlatform.CLI.Migration.Tests
-- DevOpsMigrationPlatform.CLI.Migration
+### DevOpsMigrationPlatform.Infrastructure.Agent.Tests _(new in Phase 6)_
+- DevOpsMigrationPlatform.Abstractions
+- DevOpsMigrationPlatform.Abstractions.Agent
 - DevOpsMigrationPlatform.Infrastructure
+- DevOpsMigrationPlatform.Infrastructure.Agent
 - DevOpsMigrationPlatform.Infrastructure.AzureDevOps
+- DevOpsMigrationPlatform.Infrastructure.Simulated
+
+### DevOpsMigrationPlatform.Infrastructure.Tests _(cleaned in Phase 6)_
+- DevOpsMigrationPlatform.Abstractions
+- DevOpsMigrationPlatform.Infrastructure
+
+### DevOpsMigrationPlatform.CLI.Migration.Tests _(cleaned in Phase 6)_
+- DevOpsMigrationPlatform.CLI.Migration
 
 ### DevOpsMigrationPlatform.ControlPlane.Tests
 - DevOpsMigrationPlatform.Abstractions
 - DevOpsMigrationPlatform.ControlPlane
 
 ### DevOpsMigrationPlatform.Infrastructure.Simulated.Tests
-- DevOpsMigrationPlatform.Infrastructure.Simulated
 - DevOpsMigrationPlatform.Abstractions
 - DevOpsMigrationPlatform.Infrastructure
-
-### DevOpsMigrationPlatform.Infrastructure.Tests ⚠️ (over-referenced)
-- DevOpsMigrationPlatform.Abstractions
-- DevOpsMigrationPlatform.Infrastructure
-- DevOpsMigrationPlatform.Infrastructure.AzureDevOps
 - DevOpsMigrationPlatform.Infrastructure.Simulated
-- DevOpsMigrationPlatform.CLI.Migration            ← pulling CLI into Infrastructure tests
 
-## Known Violations (Goals of Phase 1 Refactoring)
+## Resolved Violations (Phase 6)
 
-| Violation | File | Target State |
-|---|---|---|
-| CLI references ControlPlane | CLI.Migration.csproj | Remove — CLI talks via HTTP only |
-| CLI references MigrationAgent | CLI.Migration.csproj | Remove — agent runs in subprocess |
-| CLI references Infrastructure.AzureDevOps | CLI.Migration.csproj | Remove — option types move to Abstractions |
-| CLI references Infrastructure.Simulated | CLI.Migration.csproj | Remove — option types move to Abstractions |
-| Option types in connector projects | AzureDevOps, Simulated | Move to Abstractions/Options/ |
-| WiqlValidator in AzureDevOps | Infrastructure.AzureDevOps | Move to Abstractions/Validation/ |
-| LogDownloadController in ControlPlane | ControlPlane project | Remove — logs live in package on disk |
-| MigrateLogsSteps in Infrastructure.Tests | Infrastructure.Tests | Move to CLI.Migration.Tests |
+| Violation | Resolution |
+|---|---|
+| ControlPlane referenced Infrastructure + Infrastructure.ControlPlane | Moved `AddControlPlaneTelemetryServices` call to ControlPlaneHost; added Infrastructure.ControlPlane ref to Host |
+| MigrationAgent referenced Infrastructure.ControlPlane | Moved InMemoryJobMetricsStore/InMemoryJobSnapshotStore to Infrastructure.Telemetry; added `AddAgentJobMetricsServices()` to Infrastructure.Agent |
+| CLI.Migration referenced Infrastructure.Agent | Moved `PackagePathUtilities` to Abstractions; removed Infrastructure.Agent ref (kept Abstractions.Agent) |
+| Infrastructure.Tests over-referenced (Agent + ControlPlane) | Created Infrastructure.Agent.Tests; moved all Agent/AzureDevOps-dependent tests there; Infrastructure.Tests now only references Abstractions + Infrastructure |
+| CLI.Migration.Tests over-referenced (Infrastructure + Infrastructure.AzureDevOps) | Moved Transitive*.cs tests to Infrastructure.Agent.Tests; CLI.Migration.Tests now only references CLI.Migration |
