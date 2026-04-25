@@ -23,6 +23,7 @@
     <Project Path="tests/DevOpsMigrationPlatform.Abstractions.Tests/DevOpsMigrationPlatform.Abstractions.Tests.csproj" />
     <Project Path="tests/DevOpsMigrationPlatform.CLI.Migration.Tests/DevOpsMigrationPlatform.CLI.Migration.Tests.csproj" />
     <Project Path="tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests.csproj" />
+    <Project Path="tests/DevOpsMigrationPlatform.Infrastructure.ControlPlane.Tests/DevOpsMigrationPlatform.Infrastructure.ControlPlane.Tests.csproj" />
     <Project Path="tests/DevOpsMigrationPlatform.Infrastructure.Simulated.Tests/DevOpsMigrationPlatform.Infrastructure.Simulated.Tests.csproj" />
   </Folder>
 </Solution>

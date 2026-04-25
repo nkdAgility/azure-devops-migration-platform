@@ -3,7 +3,7 @@ using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Infrastructure.Telemetry;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
-namespace DevOpsMigrationPlatform.Infrastructure.Tests.Telemetry;
+namespace DevOpsMigrationPlatform.Infrastructure.ControlPlane.Tests.Metrics;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // InMemoryJobMetricsStore — pure unit tests (no OTel dependency)

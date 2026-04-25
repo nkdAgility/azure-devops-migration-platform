@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <IsTestProject>true</IsTestProject>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="MSTest.TestAdapter" />
+    <PackageReference Include="MSTest.TestFramework" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\DevOpsMigrationPlatform.Abstractions\DevOpsMigrationPlatform.Abstractions.csproj" />
+    <ProjectReference Include="..\..\src\DevOpsMigrationPlatform.Abstractions.ControlPlane\DevOpsMigrationPlatform.Abstractions.ControlPlane.csproj" />
+    <ProjectReference Include="..\..\src\DevOpsMigrationPlatform.Infrastructure\DevOpsMigrationPlatform.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\src\DevOpsMigrationPlatform.Infrastructure.ControlPlane\DevOpsMigrationPlatform.Infrastructure.ControlPlane.csproj" />
+  </ItemGroup>
+
+</Project>
