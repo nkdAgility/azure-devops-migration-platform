@@ -84,9 +84,15 @@ Discovery modules implement `IDiscoveryModule` and run pre-migration analysis:
 
 Discovery modules follow the **delegation pattern**: they orchestrate checkpointing, progress reporting, and artefact writing, while the actual API interaction is delegated to injected services (e.g., `IInventoryService`, `IDependencyDiscoveryService`) created via factories. This keeps modules testable and connector-agnostic.
 
+### Tool Resolution
+
+Tools are declared in `MigrationPlatform.Tools.*` as shared singletons at the config root. Extensions load tools by key name at startup; the effective settings equal the singleton tool config merged with any phase-level overrides declared in the extension reference. Tools are pure transformations or lookup services — they perform no I/O and carry no mutable state.
+
+For the full tool schema and available tool types, see [docs/configuration.md — Tools](configuration.md#tools).
+
 ### Module Registration
 
-Module registrations belong at the **composition root** (`ModuleServiceCollectionExtensions`), not inside connector assemblies. Connector files (e.g., `ExportServiceCollectionExtensions`) only register connector-specific services (factories, HTTP clients, SDK adapters). This ensures connectors are decoupled from module implementations.
+Module registrations belong at the **composition root** (`ModuleServiceCollectionExtensions`), not inside connector assemblies.Connector files (e.g., `ExportServiceCollectionExtensions`) only register connector-specific services (factories, HTTP clients, SDK adapters). This ensures connectors are decoupled from module implementations.
 
 ### Discovery Utility Namespace
 

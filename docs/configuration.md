@@ -56,6 +56,28 @@ A single JSON configuration file drives the entire run.
       "enabled": true
     }
   ],
+  "Tools": {
+    "FieldTransform": {
+      "Enabled": true,
+      "TransformGroups": [
+        {
+          "Name": "StateRemapping",
+          "Enabled": true,
+          "ApplyTo": ["Bug", "UserStory"],
+          "Transforms": [
+            {
+              "Type": "MapValue",
+              "Field": "System.State",
+              "ValueMap": {
+                "Active": "In Progress",
+                "Resolved": "Done"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  },
   "modules": [
     {
       "name": "WorkItems",
@@ -123,6 +145,7 @@ A single JSON configuration file drives the entire run.
 | `target` | Required for `Import` and `Both` | Target system connection details. `type` must be `AzureDevOpsServices` or `Simulated`. |
 | `target.authentication` | No | Auth credentials block (`type` + `accessToken`). Not used for `Simulated` target type. |
 | `organisations` | Mode 2 inventory only | Multi-org tooling roster. Mutually exclusive with `source`. Each entry has `type`, `url`, `projects`, `authentication`, `enabled`, and an optional `scopes` array. |
+| `Tools` | No | Keyed object of shared tool declarations. Each key is the tool type name (e.g., `FieldTransform`), each value is tool-specific configuration. Extensions reference tools by key name. |
 | `modules` | Yes | Ordered list of modules to run. Each module declares `scopes` (selection criteria) and named `extensions`. |
 | `policies` | No | Retry and throttle policies |
 
@@ -470,5 +493,76 @@ using (logger.BeginDataScope(DataClassification.Customer))
 using (DataClassificationScope.Begin(DataClassification.Customer))
 {
     logger.LogDebug("Streaming revisions for project {Project}", project);
+}
+```
+
+---
+
+## Tools
+
+The `Tools` section at the `MigrationPlatform` config root declares shared, cross-cutting tool singletons. Each key is the tool type name; each value is tool-specific configuration. Extensions reference tools by key name and may declare per-extension overrides.
+
+### FieldTransform Tool
+
+The `FieldTransform` tool applies a declared set of field transformation rules to each work item revision. Rules are grouped into named `TransformGroups`, each with an optional work-item-type filter (`ApplyTo`). Groups and transforms within a group are applied in declaration order.
+
+#### Schema
+
+| Field | Required | Default | Description |
+|---|---|---|---|
+| `Tools.FieldTransform.Enabled` | No | `true` | Master switch. When `false`, all transform groups are skipped. |
+| `Tools.FieldTransform.TransformGroups[].Name` | Yes | — | Logical name for the group (used in logs and diagnostics). |
+| `Tools.FieldTransform.TransformGroups[].Enabled` | No | `true` | When `false`, the group is skipped entirely. |
+| `Tools.FieldTransform.TransformGroups[].ApplyTo` | No | all types | Optional array of work item type names. The group is applied only when the revision type matches. |
+| `Tools.FieldTransform.TransformGroups[].Transforms[].Type` | Yes | — | Transform discriminator. See transform types below. |
+| `Tools.FieldTransform.TransformGroups[].Transforms[].Field` | Varies | — | Reference name of the field to read or write (e.g. `System.State`). |
+
+#### Transform Types
+
+| Type | Purpose |
+|---|---|
+| `CopyField` | Copy field A → field B with optional default |
+| `CopyFieldMulti` | Multiple source→target field copy pairs |
+| `SetLiteral` | Set field to a literal value |
+| `MapValue` | Dictionary-based value remapping (e.g. State values) |
+| `MergeFields` | Merge multiple source fields into one with format string |
+| `CalculateField` | Compute field from an expression |
+| `ClearField` | Null-out a field |
+| `SkipField` | Exclude field from the written revision (not imported) |
+| `ValueToTag` | Append to `System.Tags` when field value matches a pattern |
+| `FieldToTag` | Append field value to `System.Tags` |
+| `MergeToTagField` | Merge multiple field values into a tag-style target field |
+| `ConditionalMap` | Conditional multi-field → single field mapping |
+| `RegexReplace` | Regex find-and-replace within a field value |
+| `TreeToTag` | Convert area/iteration tree path into a tag |
+
+#### Example
+
+```json
+{
+  "MigrationPlatform": {
+    "Tools": {
+      "FieldTransform": {
+        "Enabled": true,
+        "TransformGroups": [
+          {
+            "Name": "StateRemapping",
+            "Enabled": true,
+            "ApplyTo": ["Bug", "UserStory"],
+            "Transforms": [
+              {
+                "Type": "MapValue",
+                "Field": "System.State",
+                "ValueMap": {
+                  "Active": "In Progress",
+                  "Resolved": "Done"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    }
+  }
 }
 ```

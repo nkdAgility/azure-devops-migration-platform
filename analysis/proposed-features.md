@@ -13,7 +13,7 @@
 |------|---------|
 | **Module** | A domain-scoped unit that implements `IModule`. Runs inside the Migration Agent. Handles one concern (e.g. `WorkItems`, `Teams`). Has both export and import paths. |
 | **Extension** | A named sub-data collector declared inside a module config block (e.g. `Revisions`, `Links`, `Attachments`). Enabled/disabled independently per run. |
-| **Tool** | A shared, cross-cutting service declared once at MigrationPlatform config root (e.g. `FieldMappingTool`, `NodeStructureTool`). Extensions load tools by reference and may override selected values. Not a CLI command. |
+| **Tool** | A shared, cross-cutting service declared once at MigrationPlatform config root (e.g. `FieldTransformTool`, `NodeStructureTool`). Extensions load tools by reference and may override selected values. Not a CLI command. |
 | **Scope** | A mandatory selection criterion on a module (e.g. `wiql` query, project name). |
 | **Discovery command** | A `discovery *` CLI sub-command that runs locally without submitting a `MigrationJob`. Reads source systems directly via REST. |
 | **CLI feature** | A `queue`, `config`, `manage`, or `admin` command addition. |
@@ -44,7 +44,7 @@ Status legend:
 
 | # | Module | Status | Summary |
 |---|--------|--------|---------|
-| M1 | [WorkItemsModule — FieldMapping extensions](#m1-workitemsmodule--fieldmapping) | 🔶 Missing field-map engine | 14 field-map types required for cross-process-template migrations |
+| M1 | [WorkItemsModule — FieldTransform extensions](#m1-workitemsmodule--fieldtransform) | 🔶 Missing field-transform engine | 14 field-transform types required for cross-process-template migrations |
 | M2 | [WorkItemsModule — NodeStructure tool](#m2-workitemsmodule--nodestructure-tool) | ❌ | Area/iteration path mapping, creation, and language override |
 | M3 | [WorkItemsModule — WorkItemTypeMapping tool](#m3-workitemsmodule--workitemtypemapping-tool) | ❌ | Agile↔Scrum type remapping |
 | M4 | [WorkItemsModule — missing options](#m4-workitemsmodule--missing-options) | ❌ | CollapseRevisions, MaxRevisions, GracefulFailures, etc. |
@@ -59,7 +59,7 @@ Status legend:
 
 | # | Tool | Status | Summary |
 |---|------|--------|---------|
-| T1 | [FieldMappingTool](#t1-fieldmappingtool) | ❌ | 14 field-map types injected into WorkItemsModule |
+| T1 | [FieldTransformTool](#t1-fieldtransformtool) | ❌ | 14 field-transform types injected into WorkItemsModule |
 | T2 | [NodeStructureTool](#t2-nodestructuretool) | ❌ | Area/iteration path regex mapping + auto-creation |
 | T3 | [WorkItemTypeMappingTool](#t3-workitemtypemappingtool) | ❌ | Work item type name remapping table |
 | T4 | [StringManipulatorTool](#t4-stringmanipulatortool) | ❌ | Regex-based field string cleanup |
@@ -99,7 +99,7 @@ Status legend:
 
 ## Modules — Detail
 
-### M1: WorkItemsModule — FieldMapping
+### M1: WorkItemsModule — FieldTransform
 
 **Current state**: The module copies fields as opaque values. Identity fields are mapped by `IIdentityMappingService`. No general field transformation exists.
 
@@ -107,36 +107,40 @@ Status legend:
 
 **Proposed additions**:
 
-#### New Tool: `FieldMappingTool` (see [T1](#t1-fieldmappingtool))
+#### New Tool: `FieldTransformTool` (see [T1](#t1-fieldtransformtool))
 
-Declared once in `MigrationPlatform.tools[]`. The `WorkItems/Revisions` extension loads it by reference and may override selected values before writing `revision.json`.
+Declared once in `MigrationPlatform.Tools`. The `WorkItems/Revisions` extension loads it by reference and may override selected values before writing `revision.json`.
 
 ```json
 {
   "MigrationPlatform": {
-    "tools": [
-      {
-        "id": "fieldmap-default",
-        "type": "FieldMapping",
+    "Tools": {
+      "FieldTransform": {
+        "Enabled": true,
         "applyTo": ["User Story", "Bug"],
-        "maps": [
-          { "type": "FieldToField",    "sourceField": "Custom.OldField", "targetField": "Custom.NewField" },
-          { "type": "FieldValue",      "field": "System.State", "valueMap": { "Active": "In Progress", "Resolved": "Done" } },
-          { "type": "FieldLiteral",    "field": "Custom.MigratedBy", "value": "migration-platform" },
-          { "type": "FieldToTag",      "field": "System.AreaPath" },
-          { "type": "FieldValueToTag", "field": "System.State", "pattern": "^Resolved$" },
-          { "type": "RegexField",      "field": "System.Title", "pattern": "^\\[OLD\\]\\s*", "replacement": "" },
-          { "type": "FieldClear",      "field": "Custom.LegacyId" },
-          { "type": "FieldSkip",       "field": "Custom.InternalOnly" },
-          { "type": "FieldMerge",      "sourceFields": ["System.Title", "Custom.Subtitle"], "targetField": "System.Title", "format": "{0} — {1}" },
-          { "type": "FieldCalculation","targetField": "Custom.Score", "expression": "..." },
-          { "type": "FieldToTagField", "sourceFields": ["System.Tags", "Custom.Labels"], "targetField": "System.Tags" },
-          { "type": "TreeToTagField",  "field": "System.AreaPath", "targetField": "System.Tags" },
-          { "type": "MultiValueConditional", "conditions": [...], "targetField": "...", "value": "..." },
-          { "type": "FieldToFieldMulti", "maps": [ { "sourceField": "...", "targetField": "..." } ] }
+        "TransformGroups": [
+          {
+            "Name": "default",
+            "Transforms": [
+              { "type": "CopyField",    "sourceField": "Custom.OldField", "targetField": "Custom.NewField" },
+              { "type": "MapValue",     "field": "System.State", "valueMap": { "Active": "In Progress", "Resolved": "Done" } },
+              { "type": "SetLiteral",   "field": "Custom.MigratedBy", "value": "migration-platform" },
+              { "type": "FieldToTag",   "field": "System.AreaPath" },
+              { "type": "ValueToTag",   "field": "System.State", "pattern": "^Resolved$" },
+              { "type": "RegexReplace", "field": "System.Title", "pattern": "^\\[OLD\\]\\s*", "replacement": "" },
+              { "type": "ClearField",   "field": "Custom.LegacyId" },
+              { "type": "SkipField",    "field": "Custom.InternalOnly" },
+              { "type": "MergeFields",  "sourceFields": ["System.Title", "Custom.Subtitle"], "targetField": "System.Title", "format": "{0} — {1}" },
+              { "type": "CalculateField", "targetField": "Custom.Score", "expression": "..." },
+              { "type": "MergeToTagField", "sourceFields": ["System.Tags", "Custom.Labels"], "targetField": "System.Tags" },
+              { "type": "TreeToTag",    "field": "System.AreaPath", "targetField": "System.Tags" },
+              { "type": "ConditionalMap", "conditions": ["..."], "targetField": "...", "value": "..." },
+              { "type": "CopyFieldMulti", "maps": [ { "sourceField": "...", "targetField": "..." } ] }
+            ]
+          }
         ]
       }
-    ],
+    },
     "Modules": {
       "WorkItems": {
         "Enabled": true,
@@ -145,7 +149,7 @@ Declared once in `MigrationPlatform.tools[]`. The `WorkItems/Revisions` extensio
             "Enabled": true,
             "tools": [
               {
-                "ref": "fieldmap-default",
+                "ref": "FieldTransform",
                 "overrides": {
                   "applyTo": ["User Story", "Bug", "Task"]
                 }
@@ -159,26 +163,26 @@ Declared once in `MigrationPlatform.tools[]`. The `WorkItems/Revisions` extensio
 }
 ```
 
-**Map types to implement** (14 total):
+**Transform types to implement** (14 total):
 
-| Map Type | Purpose |
+| Transform Type | Purpose |
 |---|---|
-| `FieldToField` | Copy field A → field B with optional default |
-| `FieldToFieldMulti` | Multiple source→target field copy pairs |
-| `FieldLiteral` | Set field to a literal value |
-| `FieldValue` | Dictionary-based value remapping (e.g. State) |
-| `FieldMerge` | Merge multiple source fields into one with format string |
-| `FieldCalculation` | Compute field from an expression |
-| `FieldClear` | Null-out a field |
-| `FieldSkip` | Exclude field from the written revision (not imported) |
-| `FieldValueToTag` | Append to `System.Tags` when field value matches a pattern |
+| `CopyField` | Copy field A → field B with optional default |
+| `CopyFieldMulti` | Multiple source→target field copy pairs |
+| `SetLiteral` | Set field to a literal value |
+| `MapValue` | Dictionary-based value remapping (e.g. State) |
+| `MergeFields` | Merge multiple source fields into one with format string |
+| `CalculateField` | Compute field from an expression |
+| `ClearField` | Null-out a field |
+| `SkipField` | Exclude field from the written revision (not imported) |
+| `ValueToTag` | Append to `System.Tags` when field value matches a pattern |
 | `FieldToTag` | Append field value to `System.Tags` |
-| `FieldToTagField` | Merge multiple field values into a tag-style target field |
-| `MultiValueConditional` | Conditional multi-field → single field mapping |
-| `RegexField` | Regex find-and-replace within a field value |
-| `TreeToTagField` | Convert area/iteration tree path into a tag |
+| `MergeToTagField` | Merge multiple field values into a tag-style target field |
+| `ConditionalMap` | Conditional multi-field → single field mapping |
+| `RegexReplace` | Regex find-and-replace within a field value |
+| `TreeToTag` | Convert area/iteration tree path into a tag |
 
-**Per-map `applyTo` filter** — each map entry (or the tool itself) accepts an optional `applyTo` array of work item type names to restrict application.
+**Per-transform `applyTo` filter** — each transform entry (or the tool itself) accepts an optional `applyTo` array of work item type names to restrict application.
 
 ---
 
@@ -450,18 +454,18 @@ Options that belong directly on the `WorkItems` module config rather than as sep
 
 ## Tools — Detail
 
-### T1: FieldMappingTool
+### T1: FieldTransformTool
 
 **Used by**: `WorkItemsModule`  
 **Purpose**: Apply a declared set of field transformation rules to each work item revision before it is written to the package (export) or applied to the target (import).
 
-**Invocation**: Declared in `MigrationPlatform.tools[]`, then loaded by extension references (for example `WorkItems/Revisions`) with optional `overrides`. See [M1](#m1-workitemsmodule--fieldmapping) for the full map type list and JSON schema.
+**Invocation**: Declared in `MigrationPlatform.Tools.FieldTransform`, then loaded by extension references (for example `WorkItems/Revisions`) with optional `overrides`. See [M1](#m1-workitemsmodule--fieldtransform) for the full transform type list and JSON schema.
 
 **Key design rules**:
-- Maps are applied in declaration order.
-- `FieldSkip` maps remove the field from the revision before any write — they are not import-only.
-- All maps respect the `applyTo` work item type filter.
-- Map processing is a pure transformation (no I/O). The tool is injected as `IFieldMappingTool` and receives a `WorkItemRevision` value object; it returns a transformed copy.
+- Transforms are applied in declaration order.
+- `SkipField` transforms remove the field from the revision before any write — they are not import-only.
+- All transforms respect the `applyTo` work item type filter.
+- Transform processing is a pure transformation (no I/O). The tool is injected as `IFieldTransformTool` and receives a `WorkItemRevision` value object; it returns a transformed copy.
 
 ---
 
