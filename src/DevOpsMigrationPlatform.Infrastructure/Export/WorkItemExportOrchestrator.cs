@@ -248,10 +248,27 @@ public sealed class WorkItemExportOrchestrator
         {
             var folderPath = BuildFolderPath(revision.WorkItemId, revision.RevisionIndex, revision.ChangedDate);
 
-            // Skip all revisions at or before the cursor (resume logic).
+            // Skip revisions that were already exported during a previous (interrupted) run.
+            //
+            // IMPORTANT: The lexicographic path comparison alone is not a reliable skip guard
+            // because the source (AzureDevOpsWorkItemRevisionSource) delivers work items in
+            // reverse-chronological creation-date window order — the most recently created items
+            // arrive first.  Within each window items are ordered by [System.Id].  A work item
+            // created long ago (low ID, early creation date) therefore arrives LATER in the stream
+            // than a recently created item (high ID, late creation date).  Its revision folder
+            // paths are based on each revision's ChangedDate, which can be much earlier than the
+            // cursor's path even though the item has not yet been exported.  Skipping it purely
+            // on path comparison would silently lose those revisions.
+            //
+            // Fix: when the path falls at or before the cursor, confirm the revision was actually
+            // written by checking whether revision.json exists in the artefact store.  If it does
+            // not exist the item has not been exported yet and must be processed despite its
+            // earlier-than-cursor path.
             if (cursor != null &&
-                string.Compare(folderPath, cursor.LastProcessed, StringComparison.Ordinal) <= 0)
+                string.Compare(folderPath, cursor.LastProcessed, StringComparison.Ordinal) <= 0 &&
+                await _artefactStore.ExistsAsync($"{folderPath}revision.json", cancellationToken).ConfigureAwait(false))
             {
+                // Confirmed already exported — skip.
                 // Emit a progress event each time we cross a new work item boundary during
                 // the skip phase so the CLI shows "Resuming…" activity rather than silence.
                 if (revision.WorkItemId != resumeSkipLastWorkItemId)
