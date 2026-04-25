@@ -1,5 +1,5 @@
 using DevOpsMigrationPlatform.Abstractions.ControlPlaneApi;
-namespace DevOpsMigrationPlatform.Abstractions;
+namespace DevOpsMigrationPlatform.Abstractions.Telemetry;
 
 /// <summary>
 /// In-process store for the most recent <see cref="JobSnapshot"/>.

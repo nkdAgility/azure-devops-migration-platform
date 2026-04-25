@@ -16,3 +16,4 @@ global using DevOpsMigrationPlatform.Abstractions.Agent.Checkpointing;
 global using DevOpsMigrationPlatform.Abstractions.Agent.Lease;
 global using DevOpsMigrationPlatform.Abstractions.Agent.Telemetry;
 global using DevOpsMigrationPlatform.Abstractions.Agent.Modules;
+global using DevOpsMigrationPlatform.Abstractions.Telemetry;
