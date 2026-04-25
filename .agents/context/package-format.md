@@ -32,6 +32,9 @@ PackageRoot/
   Identities/
   .migration/
     Checkpoints/
+      workitems.cursor.json
+      idmap.db              ← source→target work item ID mappings
+      export_progress.db    ← per-WI export revision index (fast-forward resume)
     Logs/
       <ticks>-<jobId>/
         progress.jsonl

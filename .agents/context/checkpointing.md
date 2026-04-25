@@ -101,8 +101,9 @@ Each module maintains its own cursor file under `.migration/Checkpoints/`:
   permissions.cursor.json
   builds.cursor.json
   git.cursor.json
-  idmap.db          (ID map — source workItemId → target workItemId; backed by PostgreSQL Portable binary in Local/Dedicated Server topology or PostgreSQL Flexible Server in Cloud topologies)
-  idmap.json        (fallback for small packages or tooling)
+  idmap.db              (ID map — source workItemId → target workItemId; see identity-and-mapping.md)
+  idmap.json            (fallback for small packages or tooling)
+  export_progress.db    (export revision-index store — records last written RevisionIndex per work item for fast-forward resume)
 ```
 
 The convention is `<moduleName-lowercase>.cursor.json`. Modules must not share cursor files.
@@ -120,7 +121,24 @@ Export modules use the same cursor schema as import. The key difference is that 
 - Export modules write `stage: "Completed"` after each revision folder is successfully written to the package.
 - The `lastProcessed` field holds the relative path of the last revision folder written (e.g. `WorkItems/2026-04-10/638760123456789012-42-17/`).
 - The cursor is updated after every individual revision folder so that an interruption results in at most one revision folder of re-work on resume.
-- On resume, the orchestrator skips all folders lexicographically less than or equal to `lastProcessed` in a single O(1) comparison per folder — no full scan.
+
+### Two-Tier Resume Skip Strategy
+
+On resume the orchestrator applies two checks in order:
+
+**Tier 1 — Progress store (fast-forward by revision index)**
+
+`export_progress.db` (see [Per-Module Cursors](#per-module-cursors) below) records the `RevisionIndex` of the last successfully written revision for each work item. The orchestrator queries this store **once per work item** on first encounter, then skips any revision whose `RevisionIndex ≤ storedRev` in O(1) memory without touching the filesystem.
+
+- A fully-exported work item (all revisions ≤ `storedRev`) is skipped in its entirety.
+- A partially-exported work item (crashed mid-item) resumes from the first unwritten revision automatically.
+- The store is absent on packages created before this feature — those fall through to Tier 2.
+
+**Tier 2 — ExistsAsync fallback**
+
+`IArtefactStore.ExistsAsync("{folderPath}revision.json")` is called for any revision not covered by the progress store. If the file already exists the revision was fully exported and is skipped.
+
+A lexicographic path comparison is **not used** for export because `AzureDevOpsWorkItemRevisionSource` delivers work items in reverse-chronological creation-date window order (newest first); folder paths from older windows sort below the cursor even when those revisions were never exported.
 
 ---
 
