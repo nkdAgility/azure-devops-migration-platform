@@ -1,4 +1,5 @@
 using DevOpsMigrationPlatform.Abstractions.Options;
+using DevOpsMigrationPlatform.Infrastructure.Agent.Connectors;
 using DevOpsMigrationPlatform.Infrastructure.Extensions;
 using Microsoft.Extensions.DependencyInjection;
 

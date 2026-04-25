@@ -4,6 +4,8 @@
     <Project Path="src/DevOpsMigrationPlatform.Abstractions.ControlPlane/DevOpsMigrationPlatform.Abstractions.ControlPlane.csproj" />
     <Project Path="src/DevOpsMigrationPlatform.Abstractions.Agent/DevOpsMigrationPlatform.Abstractions.Agent.csproj" />
     <Project Path="src/DevOpsMigrationPlatform.Infrastructure/DevOpsMigrationPlatform.Infrastructure.csproj" />
+    <Project Path="src/DevOpsMigrationPlatform.Infrastructure.ControlPlane/DevOpsMigrationPlatform.Infrastructure.ControlPlane.csproj" />
+    <Project Path="src/DevOpsMigrationPlatform.Infrastructure.Agent/DevOpsMigrationPlatform.Infrastructure.Agent.csproj" />
     <Project Path="src/DevOpsMigrationPlatform.Infrastructure.AzureDevOps/DevOpsMigrationPlatform.Infrastructure.AzureDevOps.csproj" />
     <Project Path="src/DevOpsMigrationPlatform.Infrastructure.TfsObjectModel/DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.csproj" />
     <Project Path="src/DevOpsMigrationPlatform.ServiceDefaults/DevOpsMigrationPlatform.ServiceDefaults.csproj" />

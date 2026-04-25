@@ -1,8 +1,8 @@
 using System.Collections.Generic;
 using System.IO;
 using DevOpsMigrationPlatform.Abstractions;
-using DevOpsMigrationPlatform.Infrastructure.Services;
-using DevOpsMigrationPlatform.Infrastructure.Storage;
+using DevOpsMigrationPlatform.Infrastructure.Agent.Discovery;
+using DevOpsMigrationPlatform.Infrastructure.Agent.Storage;
 using Moq;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Tests.Services;

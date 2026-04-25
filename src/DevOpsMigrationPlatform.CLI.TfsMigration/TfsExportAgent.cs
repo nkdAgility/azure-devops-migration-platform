@@ -2,7 +2,7 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
-using DevOpsMigrationPlatform.Infrastructure.Export;
+using DevOpsMigrationPlatform.Infrastructure.Agent.Export;
 
 namespace DevOpsMigrationPlatform.CLI.TfsMigration;
 

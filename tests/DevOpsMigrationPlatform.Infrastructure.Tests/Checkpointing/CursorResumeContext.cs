@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 using DevOpsMigrationPlatform.Abstractions;
-using DevOpsMigrationPlatform.Infrastructure.Checkpointing;
+using DevOpsMigrationPlatform.Infrastructure.Agent.Checkpointing;
 using Moq;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Tests.Checkpointing;

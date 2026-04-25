@@ -8,11 +8,6 @@
 
   <ItemGroup>
     <ProjectReference Include="..\DevOpsMigrationPlatform.Abstractions\DevOpsMigrationPlatform.Abstractions.csproj" />
-    <ProjectReference Include="..\DevOpsMigrationPlatform.Abstractions.Agent\DevOpsMigrationPlatform.Abstractions.Agent.csproj" />
-  </ItemGroup>
-
-  <ItemGroup Condition="'$(TargetFramework)' != 'net481'">
-    <ProjectReference Include="..\DevOpsMigrationPlatform.Abstractions.ControlPlane\DevOpsMigrationPlatform.Abstractions.ControlPlane.csproj" />
   </ItemGroup>
 
   <!-- Options + config-binding -->
@@ -27,7 +22,6 @@
   <ItemGroup Condition="'$(TargetFramework)' != 'net481'">
     <PackageReference Include="OpenTelemetry" />
     <PackageReference Include="OpenTelemetry.Extensions.Hosting" />
-    <PackageReference Include="Microsoft.Extensions.Http" />
     <PackageReference Include="Microsoft.Extensions.Logging" />
   </ItemGroup>
 
@@ -38,17 +32,7 @@
     <PackageReference Include="System.Runtime.CompilerServices.Unsafe" />
   </ItemGroup>
 
-  <!-- HTML parsing for embedded image discovery in field values -->
-  <ItemGroup>
-    <PackageReference Include="HtmlAgilityPack" />
-  </ItemGroup>
-
-  <!-- SQLite for package-local idmap.db (not a control-plane database) -->
-  <ItemGroup Condition="'$(TargetFramework)' != 'net481'">
-    <PackageReference Include="Microsoft.Data.Sqlite" />
-  </ItemGroup>
-
-  <!-- Logging for export services -->
+  <!-- Logging for services -->
   <ItemGroup Condition="'$(TargetFramework)' == 'net481'">
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" VersionOverride="9.0.5" />
   </ItemGroup>

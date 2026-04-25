@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 using DevOpsMigrationPlatform.Abstractions;
-using DevOpsMigrationPlatform.Infrastructure.Export;
+using DevOpsMigrationPlatform.Infrastructure.Agent.Export;
 using Moq;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Tests.Export;

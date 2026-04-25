@@ -1,8 +1,8 @@
 using System.Collections.Generic;
 using System.IO;
 using DevOpsMigrationPlatform.Abstractions;
-using DevOpsMigrationPlatform.Infrastructure.Storage;
-using DevOpsMigrationPlatform.Infrastructure.Validation;
+using DevOpsMigrationPlatform.Infrastructure.Agent.Storage;
+using DevOpsMigrationPlatform.Infrastructure.Agent.Validation;
 using Moq;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Tests.Platform;

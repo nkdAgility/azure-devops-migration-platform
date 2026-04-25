@@ -2,8 +2,8 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
-using DevOpsMigrationPlatform.Infrastructure.Export;
-using DevOpsMigrationPlatform.Infrastructure.Storage;
+using DevOpsMigrationPlatform.Infrastructure.Agent.Export;
+using DevOpsMigrationPlatform.Infrastructure.Agent.Storage;
 using Moq;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Tests.Export;

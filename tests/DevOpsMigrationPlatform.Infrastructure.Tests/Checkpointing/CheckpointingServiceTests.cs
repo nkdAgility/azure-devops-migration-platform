@@ -2,7 +2,7 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
-using DevOpsMigrationPlatform.Infrastructure.Checkpointing;
+using DevOpsMigrationPlatform.Infrastructure.Agent.Checkpointing;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Moq;
 

@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using DevOpsMigrationPlatform.Infrastructure.Modules.Discovery;
+using DevOpsMigrationPlatform.Infrastructure.Agent.Discovery.DependencyGraph;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace DevOpsMigrationPlatform.CLI.Migration.Tests.Commands.Discovery;
