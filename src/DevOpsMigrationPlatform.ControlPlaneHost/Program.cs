@@ -19,7 +19,7 @@ using DevOpsMigrationPlatform.ControlPlane.Services;
 using DevOpsMigrationPlatform.ControlPlaneHost.Services;
 using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Infrastructure;
-using DevOpsMigrationPlatform.Infrastructure.Extensions;
+using DevOpsMigrationPlatform.Infrastructure.Serialization;
 using DevOpsMigrationPlatform.Infrastructure.ControlPlane.Metrics;
 using DevOpsMigrationPlatform.Infrastructure.Telemetry;
 

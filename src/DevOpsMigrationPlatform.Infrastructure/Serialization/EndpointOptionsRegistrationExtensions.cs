@@ -3,7 +3,7 @@ using System;
 using DevOpsMigrationPlatform.Infrastructure.Serialization;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace DevOpsMigrationPlatform.Infrastructure.Extensions;
+namespace DevOpsMigrationPlatform.Infrastructure.Serialization;
 
 /// <summary>
 /// Extension methods that register connector-specific endpoint option types into the

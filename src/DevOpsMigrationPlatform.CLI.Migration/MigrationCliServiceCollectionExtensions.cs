@@ -1,5 +1,5 @@
 using DevOpsMigrationPlatform.Abstractions.Options;
-using DevOpsMigrationPlatform.Infrastructure.Extensions;
+using DevOpsMigrationPlatform.Infrastructure.Serialization;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace DevOpsMigrationPlatform.CLI.Migration;

@@ -5,7 +5,7 @@ using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Services;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Connectors;
-using DevOpsMigrationPlatform.Infrastructure.Extensions;
+using DevOpsMigrationPlatform.Infrastructure.Serialization;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.TeamFoundation.WorkItemTracking.WebApi;
 using Polly;

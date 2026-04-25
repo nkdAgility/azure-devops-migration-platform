@@ -1,6 +1,6 @@
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Connectors;
-using DevOpsMigrationPlatform.Infrastructure.Extensions;
+using DevOpsMigrationPlatform.Infrastructure.Serialization;
 using DevOpsMigrationPlatform.Infrastructure.Simulated.Export;
 using DevOpsMigrationPlatform.Infrastructure.Simulated.Import;
 using DevOpsMigrationPlatform.Abstractions.Options;
