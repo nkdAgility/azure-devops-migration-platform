@@ -1,4 +1,4 @@
-namespace DevOpsMigrationPlatform.Abstractions.Errors;
+namespace DevOpsMigrationPlatform.Abstractions.Jobs;
 
 /// <summary>
 /// Categorizes migration exceptions by type, enabling proper retry logic, exit codes, and user guidance.

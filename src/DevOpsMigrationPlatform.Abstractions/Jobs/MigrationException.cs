@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace DevOpsMigrationPlatform.Abstractions.Errors;
+namespace DevOpsMigrationPlatform.Abstractions.Jobs;
 
 /// <summary>
 /// Custom exception for migration operations that includes error categorization, exit codes, and guidance.

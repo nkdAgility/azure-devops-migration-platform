@@ -4,5 +4,4 @@ global using DevOpsMigrationPlatform.Abstractions.Organisations;
 global using DevOpsMigrationPlatform.Abstractions.ControlPlaneApi;
 global using DevOpsMigrationPlatform.Abstractions.Options;
 global using DevOpsMigrationPlatform.Abstractions.Validation;
-global using DevOpsMigrationPlatform.Abstractions.Errors;
 global using DevOpsMigrationPlatform.Abstractions.Configuration;
