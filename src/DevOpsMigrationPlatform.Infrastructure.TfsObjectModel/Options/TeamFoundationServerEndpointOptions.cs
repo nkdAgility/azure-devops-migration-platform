@@ -1,7 +1,6 @@
 using System.Collections.Generic;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Options;
-using DevOpsMigrationPlatform.Abstractions.Utilities;
 
 namespace DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.Options;
 
@@ -16,7 +15,7 @@ public sealed class TeamFoundationServerEndpointOptions : MigrationEndpointOptio
     public string Url { get; set; } = string.Empty;
 
     /// <summary>The effective URL after <c>$ENV:VARNAME</c> expansion.</summary>
-    public string ResolvedUrl => TokenResolver.Resolve(Url) ?? string.Empty;
+    public string ResolvedUrl => ConfigTokenResolver.Resolve(Url) ?? string.Empty;
 
     /// <summary>Team project name.</summary>
     public string Project { get; set; } = string.Empty;

@@ -1,5 +1,4 @@
 using DevOpsMigrationPlatform.Abstractions;
-using DevOpsMigrationPlatform.Abstractions.Utilities;
 
 namespace DevOpsMigrationPlatform.Abstractions.Options;
 
@@ -16,7 +15,7 @@ public sealed class AzureDevOpsOrganisationEntry : OrganisationEntry
     public string Url { get; set; } = string.Empty;
 
     /// <summary>The effective URL after <c>$ENV:VARNAME</c> expansion.</summary>
-    public string ResolvedUrl => TokenResolver.Resolve(Url) ?? Url;
+    public string ResolvedUrl => ConfigTokenResolver.Resolve(Url) ?? Url;
 
     /// <summary>Pinned REST API version (e.g. <c>7.1</c>).</summary>
     public string? ApiVersion { get; set; }

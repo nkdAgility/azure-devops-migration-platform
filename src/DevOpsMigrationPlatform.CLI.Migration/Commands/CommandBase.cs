@@ -5,7 +5,6 @@ using Microsoft.Extensions.Logging;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Services;
 using DevOpsMigrationPlatform.CLI.Migration.Services;
-using DevOpsMigrationPlatform.CLI.Migration.Utilities;
 using Spectre.Console.Cli;
 using Spectre.Console;
 using System.ComponentModel;

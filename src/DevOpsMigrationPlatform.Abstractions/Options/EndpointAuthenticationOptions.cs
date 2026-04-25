@@ -1,4 +1,3 @@
-using DevOpsMigrationPlatform.Abstractions.Utilities;
 #if !NET481
 using System.Text.Json.Serialization;
 #endif
@@ -30,5 +29,5 @@ public sealed class EndpointAuthenticationOptions
 #if !NET481
     [JsonIgnore]
 #endif
-    public string? ResolvedAccessToken => TokenResolver.Resolve(AccessToken);
+    public string? ResolvedAccessToken => ConfigTokenResolver.Resolve(AccessToken);
 }

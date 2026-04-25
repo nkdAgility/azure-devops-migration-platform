@@ -1,7 +1,7 @@
 using System;
 using System.Text.RegularExpressions;
 
-namespace DevOpsMigrationPlatform.CLI.Migration.Utilities;
+namespace DevOpsMigrationPlatform.CLI.Migration.Services;
 
 /// <summary>
 /// Sanitizes exception messages to mask sensitive credentials (PAT tokens, basic auth, API keys, etc.)

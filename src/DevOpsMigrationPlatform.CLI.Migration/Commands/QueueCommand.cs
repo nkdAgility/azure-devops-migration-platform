@@ -10,7 +10,7 @@ using DevOpsMigrationPlatform.CLI.Commands;
 using DevOpsMigrationPlatform.CLI.JobRunners;
 using DevOpsMigrationPlatform.CLI.Migration.Options;
 using DevOpsMigrationPlatform.CLI.Migration.Settings;
-using DevOpsMigrationPlatform.CLI.Migration.Utilities;
+using DevOpsMigrationPlatform.CLI.Migration.Services;
 using DevOpsMigrationPlatform.CLI.Views;
 using DevOpsMigrationPlatform.Infrastructure.Services;
 using DevOpsMigrationPlatform.Abstractions.Validation;
@@ -103,7 +103,7 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
 
         var outputPath = Path.Combine(
             Path.GetFullPath(packagePath),
-            PathUtilities.ExtractOrgFolderName(orgUrl),
+            CliPathUtilities.ExtractOrgFolderName(orgUrl),
             project);
         console.MarkupLine($"[blue]ℹ[/] Importing into [bold]{Markup.Escape(orgUrl)}[/] / [bold]{Markup.Escape(project)}[/]");
         console.MarkupLine($"[blue]ℹ[/] Package path   : [blue]{Markup.Escape(outputPath)}[/]");
@@ -231,7 +231,7 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
 
         var outputPath = Path.Combine(
             Path.GetFullPath(config.Package.ExpandedPath),
-            PathUtilities.ExtractOrgFolderName(orgUrl),
+            CliPathUtilities.ExtractOrgFolderName(orgUrl),
             project);
 
         console.MarkupLine($"[blue]ℹ[/] Exporting from [bold]Simulated[/] source");
@@ -339,7 +339,7 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
 
         var outputPath = Path.Combine(
             Path.GetFullPath(config.Package.ExpandedPath),
-            PathUtilities.ExtractOrgFolderName(orgUrl),
+            CliPathUtilities.ExtractOrgFolderName(orgUrl),
             project);
 
         console.MarkupLine($"[blue]ℹ[/] Exporting from [bold]{Markup.Escape(orgUrl)}[/] / [bold]{Markup.Escape(project)}[/]");

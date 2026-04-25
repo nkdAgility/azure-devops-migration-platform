@@ -11,9 +11,9 @@ using DevOpsMigrationPlatform.Abstractions.Models;
 using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.CLI.JobRunners;
 using DevOpsMigrationPlatform.CLI.Migration.Commands;
+using DevOpsMigrationPlatform.CLI.Migration.Services;
 using DevOpsMigrationPlatform.CLI.Migration.Options;
 using DevOpsMigrationPlatform.CLI.Migration.Settings;
-using DevOpsMigrationPlatform.CLI.Migration.Utilities;
 using DevOpsMigrationPlatform.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
@@ -592,7 +592,7 @@ public sealed class DependencyCommand : ControlPlaneCommandBase<DependencyComman
     // ── Helpers ───────────────────────────────────────────────────────────────
 
     private static string ExtractOrgName(string orgUrl) =>
-        PathUtilities.ExtractOrgFolderName(orgUrl);
+        CliPathUtilities.ExtractOrgFolderName(orgUrl);
 
     private sealed class ProjectProgress
     {

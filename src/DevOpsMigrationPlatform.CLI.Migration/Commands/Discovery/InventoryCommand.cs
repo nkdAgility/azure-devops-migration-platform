@@ -13,9 +13,9 @@ using DevOpsMigrationPlatform.Abstractions.Models;
 using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.CLI.JobRunners;
 using DevOpsMigrationPlatform.CLI.Migration.Commands;
+using DevOpsMigrationPlatform.CLI.Migration.Services;
 using DevOpsMigrationPlatform.CLI.Migration.Options;
 using DevOpsMigrationPlatform.CLI.Migration.Settings;
-using DevOpsMigrationPlatform.CLI.Migration.Utilities;
 using DevOpsMigrationPlatform.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
@@ -509,5 +509,5 @@ public sealed class InventoryCommand : ControlPlaneCommandBase<InventoryCommand.
             : value;
 
     private static string SanitiseFolderName(string url) =>
-        PathUtilities.ExtractOrgFolderName(url);
+        CliPathUtilities.ExtractOrgFolderName(url);
 }

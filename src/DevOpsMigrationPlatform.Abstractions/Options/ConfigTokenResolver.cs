@@ -1,12 +1,12 @@
 using System;
 
-namespace DevOpsMigrationPlatform.Abstractions.Utilities;
+namespace DevOpsMigrationPlatform.Abstractions.Options;
 
 /// <summary>
 /// Resolves <c>accessToken</c> field values.
 /// Compiled for both net481 and net10.0.
 /// </summary>
-public static class TokenResolver
+public static class ConfigTokenResolver
 {
     private const string EnvPrefix = "$ENV:";
 
