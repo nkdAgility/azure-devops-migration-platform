@@ -1,3 +1,4 @@
+using DevOpsMigrationPlatform.Abstractions.Streaming;
 namespace DevOpsMigrationPlatform.Abstractions;
 
 /// <summary>

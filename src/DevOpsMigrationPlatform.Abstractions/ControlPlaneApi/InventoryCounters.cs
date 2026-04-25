@@ -1,4 +1,4 @@
-namespace DevOpsMigrationPlatform.Abstractions;
+namespace DevOpsMigrationPlatform.Abstractions.ControlPlaneApi;
 
 /// <summary>
 /// Counters for inventory discovery operations.

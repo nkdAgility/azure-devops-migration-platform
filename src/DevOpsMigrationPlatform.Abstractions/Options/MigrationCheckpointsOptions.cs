@@ -1,4 +1,4 @@
-namespace DevOpsMigrationPlatform.Abstractions;
+namespace DevOpsMigrationPlatform.Abstractions.Options;
 
 /// <summary>Checkpoint flush interval settings.</summary>
 public class MigrationCheckpointsOptions

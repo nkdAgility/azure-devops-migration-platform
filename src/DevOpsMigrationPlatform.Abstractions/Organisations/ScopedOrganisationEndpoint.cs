@@ -1,6 +1,8 @@
+using DevOpsMigrationPlatform.Abstractions.Jobs;
 using System.Collections.Generic;
+using DevOpsMigrationPlatform.Abstractions.Options;
 
-namespace DevOpsMigrationPlatform.Abstractions;
+namespace DevOpsMigrationPlatform.Abstractions.Organisations;
 
 /// <summary>
 /// Pairs a <see cref="MigrationEndpointOptions"/> with the list of projects to target.

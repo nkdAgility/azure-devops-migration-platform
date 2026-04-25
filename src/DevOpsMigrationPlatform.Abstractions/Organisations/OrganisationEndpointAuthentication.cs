@@ -1,6 +1,6 @@
 using DevOpsMigrationPlatform.Abstractions.Options;
 
-namespace DevOpsMigrationPlatform.Abstractions;
+namespace DevOpsMigrationPlatform.Abstractions.Organisations;
 
 /// <summary>
 /// Immutable, resolved authentication context for an organisation endpoint.

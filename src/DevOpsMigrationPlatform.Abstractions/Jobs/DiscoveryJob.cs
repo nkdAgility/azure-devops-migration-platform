@@ -1,6 +1,7 @@
 using System.Collections.Generic;
+using DevOpsMigrationPlatform.Abstractions.Organisations;
 
-namespace DevOpsMigrationPlatform.Abstractions;
+namespace DevOpsMigrationPlatform.Abstractions.Jobs;
 
 /// <summary>
 /// The internal serialisable unit of execution for discovery operations.

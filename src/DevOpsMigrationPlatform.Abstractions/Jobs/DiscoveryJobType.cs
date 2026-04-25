@@ -1,4 +1,4 @@
-namespace DevOpsMigrationPlatform.Abstractions;
+namespace DevOpsMigrationPlatform.Abstractions.Jobs;
 
 /// <summary>Which discovery operations the agent should perform for a <see cref="DiscoveryJob"/>.</summary>
 public enum DiscoveryJobType

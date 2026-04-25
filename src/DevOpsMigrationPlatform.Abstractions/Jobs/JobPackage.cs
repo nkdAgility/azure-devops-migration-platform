@@ -1,4 +1,4 @@
-namespace DevOpsMigrationPlatform.Abstractions;
+namespace DevOpsMigrationPlatform.Abstractions.Jobs;
 
 /// <summary>Package location and zip settings for a job.</summary>
 public class JobPackage

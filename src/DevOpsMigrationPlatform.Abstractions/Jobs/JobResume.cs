@@ -1,4 +1,4 @@
-namespace DevOpsMigrationPlatform.Abstractions;
+namespace DevOpsMigrationPlatform.Abstractions.Jobs;
 
 /// <summary>
 /// Resume options carried on a <see cref="Job"/>.

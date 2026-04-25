@@ -1,6 +1,6 @@
 using System;
 
-namespace DevOpsMigrationPlatform.Abstractions;
+namespace DevOpsMigrationPlatform.Abstractions.ControlPlaneApi;
 
 /// <summary>
 /// Aggregate counters for a running job, pushed by the agent on a fast timer.

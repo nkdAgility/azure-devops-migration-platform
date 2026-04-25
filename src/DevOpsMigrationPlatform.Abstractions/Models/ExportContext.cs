@@ -1,3 +1,4 @@
+using DevOpsMigrationPlatform.Abstractions.Jobs;
 namespace DevOpsMigrationPlatform.Abstractions;
 
 /// <summary>

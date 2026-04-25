@@ -1,4 +1,6 @@
-namespace DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Options;
+using DevOpsMigrationPlatform.Abstractions.Organisations;
+namespace DevOpsMigrationPlatform.Abstractions.Jobs;
 
 /// <summary>
 /// The internal serialisable unit of execution handed from the CLI → Control Plane → Migration Agent.

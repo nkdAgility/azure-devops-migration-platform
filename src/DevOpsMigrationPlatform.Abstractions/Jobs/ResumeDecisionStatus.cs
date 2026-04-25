@@ -1,4 +1,4 @@
-namespace DevOpsMigrationPlatform.Abstractions.Models;
+namespace DevOpsMigrationPlatform.Abstractions.Jobs;
 
 /// <summary>
 /// Outcome status of a resume decision evaluated at the start of fetch enumeration.

@@ -1,4 +1,4 @@
-namespace DevOpsMigrationPlatform.Abstractions;
+namespace DevOpsMigrationPlatform.Abstractions.Options;
 
 /// <summary>
 /// Marker interface for module-specific configuration options.

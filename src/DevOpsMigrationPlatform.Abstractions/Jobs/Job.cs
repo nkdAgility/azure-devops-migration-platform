@@ -1,8 +1,9 @@
+using DevOpsMigrationPlatform.Abstractions.ControlPlaneApi;
 #if NET7_0_OR_GREATER
 using System.Text.Json.Serialization;
 #endif
 
-namespace DevOpsMigrationPlatform.Abstractions;
+namespace DevOpsMigrationPlatform.Abstractions.Jobs;
 
 /// <summary>
 /// Base class for all job types submitted to the Control Plane.

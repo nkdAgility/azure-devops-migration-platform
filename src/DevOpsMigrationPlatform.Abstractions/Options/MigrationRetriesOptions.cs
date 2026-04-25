@@ -1,4 +1,4 @@
-namespace DevOpsMigrationPlatform.Abstractions;
+namespace DevOpsMigrationPlatform.Abstractions.Options;
 
 /// <summary>Transient-error retry policy.</summary>
 public class MigrationRetriesOptions

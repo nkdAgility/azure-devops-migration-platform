@@ -1,6 +1,6 @@
 using System;
 
-namespace DevOpsMigrationPlatform.Abstractions;
+namespace DevOpsMigrationPlatform.Abstractions.ControlPlaneApi;
 
 /// <summary>
 /// Lightweight job summary returned by <c>GET /jobs</c>.

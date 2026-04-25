@@ -1,4 +1,4 @@
-namespace DevOpsMigrationPlatform.Abstractions.Models;
+namespace DevOpsMigrationPlatform.Abstractions.Options;
 
 /// <summary>
 /// Supported filter comparison operators for <see cref="WorkItemFieldFilterOptions"/>.

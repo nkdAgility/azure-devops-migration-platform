@@ -1,4 +1,4 @@
-namespace DevOpsMigrationPlatform.Abstractions;
+namespace DevOpsMigrationPlatform.Abstractions.Options;
 
 /// <summary>
 /// Package storage options.  Determines where the migration package is written or read.

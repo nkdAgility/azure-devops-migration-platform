@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace DevOpsMigrationPlatform.Abstractions;
+namespace DevOpsMigrationPlatform.Abstractions.ControlPlaneApi;
 
 /// <summary>
 /// Full per-org, per-project state for late-joining clients.

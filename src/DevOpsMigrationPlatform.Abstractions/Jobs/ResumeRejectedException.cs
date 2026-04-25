@@ -1,6 +1,6 @@
 using System;
 
-namespace DevOpsMigrationPlatform.Abstractions.Models;
+namespace DevOpsMigrationPlatform.Abstractions.Jobs;
 
 /// <summary>
 /// Thrown when a resume attempt is rejected due to query fingerprint mismatch

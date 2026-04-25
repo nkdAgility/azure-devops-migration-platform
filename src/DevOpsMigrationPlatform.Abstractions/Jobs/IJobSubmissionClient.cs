@@ -1,3 +1,5 @@
+using DevOpsMigrationPlatform.Abstractions.Streaming;
+using DevOpsMigrationPlatform.Abstractions.Jobs;
 #if !NET481
 using System.Collections.Generic;
 using System.Threading;

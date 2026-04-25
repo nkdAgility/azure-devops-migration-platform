@@ -1,4 +1,4 @@
-namespace DevOpsMigrationPlatform.Abstractions.Models;
+namespace DevOpsMigrationPlatform.Abstractions.Jobs;
 
 /// <summary>
 /// Immutable outcome of a resume decision — returned before enumeration begins

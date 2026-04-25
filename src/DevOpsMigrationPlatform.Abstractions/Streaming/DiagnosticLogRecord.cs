@@ -1,6 +1,6 @@
 using System;
 
-namespace DevOpsMigrationPlatform.Abstractions;
+namespace DevOpsMigrationPlatform.Abstractions.Streaming;
 
 /// <summary>
 /// Structured diagnostic log record derived from <c>ILogger</c> output.

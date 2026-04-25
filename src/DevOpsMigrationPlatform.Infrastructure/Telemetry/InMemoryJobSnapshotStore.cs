@@ -1,3 +1,4 @@
+using DevOpsMigrationPlatform.Abstractions;
 #if !NETFRAMEWORK
 
 using System.Threading;
@@ -11,18 +12,18 @@ namespace DevOpsMigrationPlatform.Infrastructure.Telemetry;
 /// Signals <see cref="UpdateSignal"/> on each <see cref="Update"/> so the
 /// telemetry timer can wake immediately on project-boundary pushes.
 /// </summary>
-internal sealed class InMemoryJobSnapshotStore : DevOpsMigrationPlatform.Abstractions.IJobSnapshotStore
+internal sealed class InMemoryJobSnapshotStore : IJobSnapshotStore
 {
-    private volatile DevOpsMigrationPlatform.Abstractions.JobSnapshot? _latest;
+    private volatile JobSnapshot? _latest;
     private readonly ManualResetEventSlim _signal = new(false);
 
-    public void Update(DevOpsMigrationPlatform.Abstractions.JobSnapshot snapshot)
+    public void Update(JobSnapshot snapshot)
     {
         _latest = snapshot;
         _signal.Set();
     }
 
-    public DevOpsMigrationPlatform.Abstractions.JobSnapshot? Latest => _latest;
+    public JobSnapshot? Latest => _latest;
 
     public WaitHandle UpdateSignal => _signal.WaitHandle;
 

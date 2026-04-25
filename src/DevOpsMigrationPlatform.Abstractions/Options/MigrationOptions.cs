@@ -1,6 +1,6 @@
 using DevOpsMigrationPlatform.Abstractions.Options;
 
-namespace DevOpsMigrationPlatform.Abstractions;
+namespace DevOpsMigrationPlatform.Abstractions.Options;
 
 /// <summary>
 /// Top-level platform configuration options for migration commands.

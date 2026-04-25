@@ -1,4 +1,4 @@
-namespace DevOpsMigrationPlatform.Abstractions;
+namespace DevOpsMigrationPlatform.Abstractions.Jobs;
 
 /// <summary>Retry, throttle, and checkpoint policies for all job types.</summary>
 public class JobPolicies

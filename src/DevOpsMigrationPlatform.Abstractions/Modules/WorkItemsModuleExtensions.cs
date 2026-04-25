@@ -1,3 +1,5 @@
+using DevOpsMigrationPlatform.Abstractions.Options;
+using DevOpsMigrationPlatform.Abstractions.Jobs;
 #if !NET481
 using System;
 using System.Collections.Generic;
@@ -265,8 +267,8 @@ public sealed class WorkItemsModuleExtensions
             var filterOptions = new Models.WorkItemFieldFilterOptions(
                 field,
                 string.Equals(mode, "include", StringComparison.OrdinalIgnoreCase)
-                    ? Models.FilterOperator.Regex
-                    : Models.FilterOperator.NotRegex,
+                    ? FilterOperator.Regex
+                    : FilterOperator.NotRegex,
                 pattern);
 
             if (string.Equals(mode, "include", StringComparison.OrdinalIgnoreCase))

@@ -1,4 +1,6 @@
 using System.Collections.Generic;
+using DevOpsMigrationPlatform.Abstractions.Organisations;
+using DevOpsMigrationPlatform.Abstractions.Jobs;
 
 namespace DevOpsMigrationPlatform.Abstractions.Services;
 
@@ -14,6 +16,6 @@ public interface IInventoryServiceFactory
     /// Creates an <see cref="IInventoryService"/> scoped to the provided organisations.
     /// </summary>
     IInventoryService Create(
-        IReadOnlyList<DevOpsMigrationPlatform.Abstractions.ScopedOrganisationEndpoint> organisations,
-        DevOpsMigrationPlatform.Abstractions.JobPolicies policies);
+        IReadOnlyList<ScopedOrganisationEndpoint> organisations,
+        JobPolicies policies);
 }

@@ -1,4 +1,4 @@
-namespace DevOpsMigrationPlatform.Abstractions;
+namespace DevOpsMigrationPlatform.Abstractions.Organisations;
 
 /// <summary>
 /// Immutable, resolved connection context for an Azure DevOps organisation or TFS collection.

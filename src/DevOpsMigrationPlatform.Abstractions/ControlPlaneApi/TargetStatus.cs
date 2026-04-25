@@ -1,4 +1,4 @@
-namespace DevOpsMigrationPlatform.Abstractions.Models;
+namespace DevOpsMigrationPlatform.Abstractions.ControlPlaneApi;
 
 /// <summary>
 /// Enumeration of target work item accessibility states for discovered external links.

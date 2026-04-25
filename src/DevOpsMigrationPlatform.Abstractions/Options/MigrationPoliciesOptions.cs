@@ -1,6 +1,6 @@
 using System;
 
-namespace DevOpsMigrationPlatform.Abstractions;
+namespace DevOpsMigrationPlatform.Abstractions.Options;
 
 /// <summary>Retry, throttle, and checkpoint policy options.</summary>
 public class MigrationPoliciesOptions

@@ -1,6 +1,7 @@
+using DevOpsMigrationPlatform.Abstractions.ControlPlaneApi;
 using System;
 
-namespace DevOpsMigrationPlatform.Abstractions;
+namespace DevOpsMigrationPlatform.Abstractions.Streaming;
 
 /// <summary>
 /// A structured progress event (Channel 1: JobEvent) emitted by the Job Engine or a module.

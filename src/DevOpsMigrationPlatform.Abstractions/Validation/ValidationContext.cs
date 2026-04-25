@@ -1,4 +1,5 @@
-namespace DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Jobs;
+namespace DevOpsMigrationPlatform.Abstractions.Validation;
 
 /// <summary>
 /// Context passed to IModule.ValidateAsync.

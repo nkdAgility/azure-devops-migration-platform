@@ -1,4 +1,6 @@
 using System.Collections.Generic;
+using DevOpsMigrationPlatform.Abstractions.Organisations;
+using DevOpsMigrationPlatform.Abstractions.Jobs;
 
 namespace DevOpsMigrationPlatform.Abstractions.Services;
 
@@ -14,6 +16,6 @@ public interface IDependencyDiscoveryServiceFactory
     /// Creates an <see cref="IDependencyDiscoveryService"/> scoped to the provided organisations.
     /// </summary>
     IDependencyDiscoveryService Create(
-        IReadOnlyList<DevOpsMigrationPlatform.Abstractions.ScopedOrganisationEndpoint> organisations,
-        DevOpsMigrationPlatform.Abstractions.JobPolicies policies);
+        IReadOnlyList<ScopedOrganisationEndpoint> organisations,
+        JobPolicies policies);
 }

@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 
-namespace DevOpsMigrationPlatform.Abstractions;
+namespace DevOpsMigrationPlatform.Abstractions.ControlPlaneApi;
 
 /// <summary>
 /// Per-organisation state within a <see cref="JobSnapshot"/>.

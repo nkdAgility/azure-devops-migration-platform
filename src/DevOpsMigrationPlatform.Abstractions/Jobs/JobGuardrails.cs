@@ -1,4 +1,4 @@
-namespace DevOpsMigrationPlatform.Abstractions;
+namespace DevOpsMigrationPlatform.Abstractions.Jobs;
 
 /// <summary>Guardrails flags that the Job Engine enforces. Both must be true.</summary>
 public class JobGuardrails
