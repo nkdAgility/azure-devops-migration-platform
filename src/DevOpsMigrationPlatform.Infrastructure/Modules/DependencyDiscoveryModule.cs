@@ -7,10 +7,8 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
-using DevOpsMigrationPlatform.Abstractions.Models;
-using DevOpsMigrationPlatform.Abstractions.Services;
+using DevOpsMigrationPlatform.Abstractions.Agent.Lease;
 using DevOpsMigrationPlatform.Abstractions.Telemetry;
-using DevOpsMigrationPlatform.Abstractions.Utilities;
 using DevOpsMigrationPlatform.Infrastructure.Modules.Discovery;
 using Microsoft.Extensions.Logging;
 
@@ -620,8 +618,8 @@ public sealed class DependencyDiscoveryModule : IDiscoveryModule
                     recordCount++;
 
                     // Also append to per-project CSV builder.
-                    var recOrgFolder = PathUtilities.ExtractOrgFolderName(r.SourceOrganisationUrl);
-                    var recProjectFolder = $"{recOrgFolder}/{PathUtilities.Sanitise(r.SourceProject ?? "unknown")}";
+                    var recOrgFolder = PackagePathUtilities.ExtractOrgFolderName(r.SourceOrganisationUrl);
+                    var recProjectFolder = $"{recOrgFolder}/{PackagePathUtilities.Sanitise(r.SourceProject ?? "unknown")}";
                     if (!perProjectCsv.TryGetValue(recProjectFolder, out var projCsv))
                     {
                         projCsv = new StringBuilder();
@@ -715,8 +713,8 @@ public sealed class DependencyDiscoveryModule : IDiscoveryModule
                             await store.WriteAsync(RootCsvPath, csvBuilder.ToString(), ct).ConfigureAwait(false);
 
                             // Also flush the current project's partial CSV.
-                            var midOrgFolder = PathUtilities.ExtractOrgFolderName(heartbeat.OrganisationUrl);
-                            var midProjectFolder = $"{midOrgFolder}/{PathUtilities.Sanitise(heartbeat.ProjectName)}";
+                            var midOrgFolder = PackagePathUtilities.ExtractOrgFolderName(heartbeat.OrganisationUrl);
+                            var midProjectFolder = $"{midOrgFolder}/{PackagePathUtilities.Sanitise(heartbeat.ProjectName)}";
                             if (perProjectCsv.TryGetValue(midProjectFolder, out var midProjCsv))
                                 await store.WriteAsync($"{midProjectFolder}/dependencies.csv", midProjCsv.ToString(), ct).ConfigureAwait(false);
 
@@ -737,8 +735,8 @@ public sealed class DependencyDiscoveryModule : IDiscoveryModule
                                 "Completed project {Project} in {OrgUrl}: {Links} external links.",
                                 heartbeat.ProjectName, heartbeat.OrganisationUrl, heartbeat.ExternalLinksFound);
 
-                        var hbOrgFolder = PathUtilities.ExtractOrgFolderName(heartbeat.OrganisationUrl);
-                        var hbProjectFolder = $"{hbOrgFolder}/{PathUtilities.Sanitise(heartbeat.ProjectName)}";
+                        var hbOrgFolder = PackagePathUtilities.ExtractOrgFolderName(heartbeat.OrganisationUrl);
+                        var hbProjectFolder = $"{hbOrgFolder}/{PackagePathUtilities.Sanitise(heartbeat.ProjectName)}";
 
                         // Organisation transition tracking (metrics only — CSV accumulator
                         // transitions are handled by the DependencyFoundEvent handler).
@@ -1321,8 +1319,8 @@ public sealed class DependencyDiscoveryModule : IDiscoveryModule
             if (string.IsNullOrWhiteSpace(sourceProject) || string.IsNullOrWhiteSpace(sourceOrgUrl))
                 continue;
 
-            var orgFolder = PathUtilities.ExtractOrgFolderName(sourceOrgUrl);
-            var projectFolder = $"{orgFolder}/{PathUtilities.Sanitise(sourceProject)}";
+            var orgFolder = PackagePathUtilities.ExtractOrgFolderName(sourceOrgUrl);
+            var projectFolder = $"{orgFolder}/{PackagePathUtilities.Sanitise(sourceProject)}";
             var rawLine = lines[i].TrimEnd('\r');
 
             // Per-org accumulator
@@ -1539,7 +1537,7 @@ public sealed class DependencyDiscoveryModule : IDiscoveryModule
                 string.Equals(cols[2], sourceProject, StringComparison.OrdinalIgnoreCase) &&
                 !string.IsNullOrWhiteSpace(cols[3]))
             {
-                return PathUtilities.ExtractOrgFolderName(cols[3]);
+                return PackagePathUtilities.ExtractOrgFolderName(cols[3]);
             }
         }
         return null;

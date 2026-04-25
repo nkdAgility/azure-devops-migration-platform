@@ -2,7 +2,7 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace DevOpsMigrationPlatform.Abstractions;
+namespace DevOpsMigrationPlatform.Abstractions.Agent.Storage;
 
 /// <summary>
 /// The single permitted file abstraction. All modules read and write through this interface only.

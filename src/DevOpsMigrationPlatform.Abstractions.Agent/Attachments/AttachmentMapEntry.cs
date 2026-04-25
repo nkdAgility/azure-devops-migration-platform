@@ -1,4 +1,4 @@
-namespace DevOpsMigrationPlatform.Abstractions;
+namespace DevOpsMigrationPlatform.Abstractions.Agent.Attachments;
 
 /// <summary>
 /// Tracks an uploaded attachment for idempotency during import resume.

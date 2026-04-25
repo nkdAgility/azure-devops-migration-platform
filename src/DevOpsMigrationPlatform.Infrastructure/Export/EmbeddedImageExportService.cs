@@ -8,7 +8,6 @@ using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
-using DevOpsMigrationPlatform.Abstractions.Services;
 using DevOpsMigrationPlatform.Abstractions.Telemetry;
 using HtmlAgilityPack;
 using Microsoft.Extensions.Logging;

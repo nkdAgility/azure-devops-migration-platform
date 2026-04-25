@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using System.Threading;
 using DevOpsMigrationPlatform.Abstractions;
-using DevOpsMigrationPlatform.Abstractions.Services;
 using Microsoft.TeamFoundation.WorkItemTracking.Client;
 
 namespace DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.Services;
@@ -30,7 +29,7 @@ public sealed class TfsObjectModelWorkItemDiscoveryService : IWorkItemDiscoveryS
     public async IAsyncEnumerable<ProjectDiscoverySummary> DiscoverWorkItemsAsync(
         OrganisationEndpoint endpoint,
         string project,
-        Abstractions.Models.WorkItemFetchScope? scope = null,
+        WorkItemFetchScope? scope = null,
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         // TFS Object Model subprocess does not support field-level filter scopes.

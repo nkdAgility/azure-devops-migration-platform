@@ -1,6 +1,6 @@
 using System;
 
-namespace DevOpsMigrationPlatform.Abstractions.Models;
+namespace DevOpsMigrationPlatform.Abstractions.Agent.Discovery;
 
 /// <summary>
 /// Per-project result record written to <c>inventory.csv</c> on completion.

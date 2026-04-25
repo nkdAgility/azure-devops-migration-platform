@@ -4,7 +4,7 @@ using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Abstractions.Organisations;
 
-namespace DevOpsMigrationPlatform.Abstractions;
+namespace DevOpsMigrationPlatform.Abstractions.Agent.Discovery;
 
 /// <summary>
 /// Discovers projects and counts artefacts within an Azure DevOps organisation.

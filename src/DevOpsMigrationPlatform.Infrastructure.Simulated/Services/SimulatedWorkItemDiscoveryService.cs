@@ -3,7 +3,6 @@ using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Threading;
 using DevOpsMigrationPlatform.Abstractions;
-using DevOpsMigrationPlatform.Abstractions.Services;
 using DevOpsMigrationPlatform.Abstractions.Options;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Simulated.Services;
@@ -31,7 +30,7 @@ public sealed class SimulatedWorkItemDiscoveryService : IWorkItemDiscoveryServic
     public async IAsyncEnumerable<ProjectDiscoverySummary> DiscoverWorkItemsAsync(
         OrganisationEndpoint endpoint,
         string project,
-        Abstractions.Models.WorkItemFetchScope? scope = null,
+        WorkItemFetchScope? scope = null,
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();

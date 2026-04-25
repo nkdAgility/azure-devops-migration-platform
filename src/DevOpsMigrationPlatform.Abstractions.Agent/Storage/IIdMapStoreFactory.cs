@@ -1,4 +1,4 @@
-namespace DevOpsMigrationPlatform.Abstractions;
+namespace DevOpsMigrationPlatform.Abstractions.Agent.Storage;
 
 /// <summary>
 /// Creates <see cref="IIdMapStore"/> instances bound to a specific SQLite database path.

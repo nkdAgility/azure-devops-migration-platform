@@ -1,4 +1,4 @@
-namespace DevOpsMigrationPlatform.Abstractions;
+namespace DevOpsMigrationPlatform.Abstractions.Agent.WorkItems;
 
 /// <summary>
 /// A link to an external artefact (e.g. a build, test result, or commit).

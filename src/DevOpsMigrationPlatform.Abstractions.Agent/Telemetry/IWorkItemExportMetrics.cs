@@ -1,6 +1,6 @@
 using System;
 
-namespace DevOpsMigrationPlatform.Abstractions;
+namespace DevOpsMigrationPlatform.Abstractions.Agent.Telemetry;
 
 /// <summary>
 /// Records telemetry for work item export operations.

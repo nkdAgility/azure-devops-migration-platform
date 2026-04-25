@@ -1,4 +1,4 @@
-namespace DevOpsMigrationPlatform.Abstractions;
+namespace DevOpsMigrationPlatform.Abstractions.Agent.Storage;
 
 /// <summary>
 /// Creates the <see cref="IArtefactStore"/> and <see cref="IStateStore"/> pair

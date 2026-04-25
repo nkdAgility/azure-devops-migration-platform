@@ -1,4 +1,6 @@
 using DevOpsMigrationPlatform.Abstractions.Options;
+using DevOpsMigrationPlatform.Abstractions.Agent.WorkItems;
+using DevOpsMigrationPlatform.Abstractions.Agent.Import;
 using DevOpsMigrationPlatform.Abstractions.Jobs;
 #if !NET481
 using System;
@@ -7,7 +9,7 @@ using System.Linq;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 
-namespace DevOpsMigrationPlatform.Abstractions;
+namespace DevOpsMigrationPlatform.Abstractions.Agent.Modules;
 
 /// <summary>
 /// Resolved configuration for the WorkItems module, derived from the module's
@@ -54,8 +56,8 @@ public sealed class WorkItemsModuleExtensions
     /// All filters are applied as AND conditions.
     /// Empty when no include filter scopes are configured.
     /// </summary>
-    public IReadOnlyList<Models.WorkItemFieldFilterOptions> IncludeFilters { get; init; }
-        = Array.Empty<Models.WorkItemFieldFilterOptions>();
+    public IReadOnlyList<WorkItemFieldFilterOptions> IncludeFilters { get; init; }
+        = Array.Empty<WorkItemFieldFilterOptions>();
 
     /// <summary>
     /// Work item filters that, if matched, cause a work item to be excluded.
@@ -63,8 +65,8 @@ public sealed class WorkItemsModuleExtensions
     /// All filters are applied as AND conditions — a work item is excluded only if it matches all exclude filters.
     /// Empty when no exclude filter scopes are configured.
     /// </summary>
-    public IReadOnlyList<Models.WorkItemFieldFilterOptions> ExcludeFilters { get; init; }
-        = Array.Empty<Models.WorkItemFieldFilterOptions>();
+    public IReadOnlyList<WorkItemFieldFilterOptions> ExcludeFilters { get; init; }
+        = Array.Empty<WorkItemFieldFilterOptions>();
 
     /// <summary>
     /// Constructs a <see cref="WorkItemsModuleExtensions"/> from a <see cref="JobModule"/>.
@@ -219,7 +221,7 @@ public sealed class WorkItemsModuleExtensions
 
     /// <summary>
     /// Parses all <c>filter</c> scopes from <paramref name="scopes"/> into validated
-    /// <see cref="Models.WorkItemFieldFilterOptions"/> lists, separated by include/exclude mode.
+    /// <see cref="WorkItemFieldFilterOptions"/> lists, separated by include/exclude mode.
     /// <para>
     /// <strong>Design note:</strong> This method is intentionally shared between export and import
     /// via <see cref="WorkItemsModuleExtensions"/>. Both operations must apply identical filter
@@ -231,12 +233,12 @@ public sealed class WorkItemsModuleExtensions
     /// Thrown when a filter scope has an unsupported mode, an empty field name,
     /// or an invalid .NET regex pattern.
     /// </exception>
-    private static (IReadOnlyList<Models.WorkItemFieldFilterOptions> IncludeFilters,
-                    IReadOnlyList<Models.WorkItemFieldFilterOptions> ExcludeFilters)
+    private static (IReadOnlyList<WorkItemFieldFilterOptions> IncludeFilters,
+                    IReadOnlyList<WorkItemFieldFilterOptions> ExcludeFilters)
         ParseFilterScopes(System.Collections.Generic.List<JobModuleScope> scopes)
     {
-        var includeFilters = new List<Models.WorkItemFieldFilterOptions>();
-        var excludeFilters = new List<Models.WorkItemFieldFilterOptions>();
+        var includeFilters = new List<WorkItemFieldFilterOptions>();
+        var excludeFilters = new List<WorkItemFieldFilterOptions>();
 
         foreach (var scope in scopes)
         {
@@ -264,7 +266,7 @@ public sealed class WorkItemsModuleExtensions
                     $"Filter scope for field '{field}' has an invalid regex pattern '{pattern}': {ex.Message}", ex);
             }
 
-            var filterOptions = new Models.WorkItemFieldFilterOptions(
+            var filterOptions = new WorkItemFieldFilterOptions(
                 field,
                 string.Equals(mode, "include", StringComparison.OrdinalIgnoreCase)
                     ? FilterOperator.Regex

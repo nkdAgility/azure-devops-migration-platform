@@ -1,4 +1,4 @@
-namespace DevOpsMigrationPlatform.Abstractions.Models;
+namespace DevOpsMigrationPlatform.Abstractions.Agent.Discovery;
 
 /// <summary>
 /// Base type for events emitted during dependency discovery analysis.

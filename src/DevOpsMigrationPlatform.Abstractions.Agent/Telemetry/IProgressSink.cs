@@ -1,5 +1,5 @@
 using DevOpsMigrationPlatform.Abstractions.Streaming;
-namespace DevOpsMigrationPlatform.Abstractions;
+namespace DevOpsMigrationPlatform.Abstractions.Agent.Telemetry;
 
 /// <summary>
 /// Receives structured progress events emitted by the Job Engine, modules, and the TFS export agent.

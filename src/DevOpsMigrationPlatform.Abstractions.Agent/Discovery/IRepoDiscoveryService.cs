@@ -3,7 +3,7 @@ using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Abstractions.Organisations;
 
-namespace DevOpsMigrationPlatform.Abstractions.Services;
+namespace DevOpsMigrationPlatform.Abstractions.Agent.Discovery;
 
 /// <summary>
 /// Counts the Git repositories in a single team project.

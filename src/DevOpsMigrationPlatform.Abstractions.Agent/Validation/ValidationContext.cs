@@ -1,5 +1,7 @@
 using DevOpsMigrationPlatform.Abstractions.Jobs;
-namespace DevOpsMigrationPlatform.Abstractions.Validation;
+using DevOpsMigrationPlatform.Abstractions.Validation;
+using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
+namespace DevOpsMigrationPlatform.Abstractions.Agent.Validation;
 
 /// <summary>
 /// Context passed to IModule.ValidateAsync.

@@ -1,6 +1,4 @@
 using System.Collections.Generic;
-using DevOpsMigrationPlatform.Abstractions.Models;
-using DevOpsMigrationPlatform.Abstractions.Services;
 using Moq;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Tests.Services;

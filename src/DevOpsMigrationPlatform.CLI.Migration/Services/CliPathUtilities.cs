@@ -1,4 +1,4 @@
-using SharedPathUtilities = DevOpsMigrationPlatform.Abstractions.Utilities.PathUtilities;
+using SharedPathUtilities = DevOpsMigrationPlatform.Abstractions.Agent.Lease.PackagePathUtilities;
 
 namespace DevOpsMigrationPlatform.CLI.Migration.Services;
 

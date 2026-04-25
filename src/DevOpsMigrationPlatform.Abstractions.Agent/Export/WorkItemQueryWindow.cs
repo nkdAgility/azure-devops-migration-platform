@@ -1,8 +1,7 @@
 using System;
 using System.Collections.Generic;
-using DevOpsMigrationPlatform.Abstractions.Models;
 
-namespace DevOpsMigrationPlatform.Abstractions.Services;
+namespace DevOpsMigrationPlatform.Abstractions.Agent.Export;
 
 /// <summary>
 /// Options controlling the date-window algorithm.

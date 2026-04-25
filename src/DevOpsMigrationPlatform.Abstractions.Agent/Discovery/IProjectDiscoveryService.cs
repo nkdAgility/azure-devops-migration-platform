@@ -4,7 +4,7 @@ using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Abstractions.Organisations;
 
-namespace DevOpsMigrationPlatform.Abstractions.Services;
+namespace DevOpsMigrationPlatform.Abstractions.Agent.Discovery;
 
 /// <summary>
 /// Enumerates team projects in an Azure DevOps organisation or TFS collection.

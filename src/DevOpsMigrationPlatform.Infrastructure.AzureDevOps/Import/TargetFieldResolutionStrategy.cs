@@ -9,6 +9,8 @@ using Microsoft.TeamFoundation.WorkItemTracking.WebApi.Models;
 using Microsoft.VisualStudio.Services.WebApi.Patch;
 using Microsoft.VisualStudio.Services.WebApi.Patch.Json;
 
+using PlatformWorkItemField = DevOpsMigrationPlatform.Abstractions.Agent.WorkItems.WorkItemField;
+
 namespace DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Import;
 
 /// <summary>
@@ -102,7 +104,7 @@ public sealed class TargetFieldResolutionStrategy : IWorkItemResolutionStrategy
     /// <inheritdoc/>
     public async Task WriteProvenanceAsync(int sourceId, int targetId, CancellationToken ct)
     {
-        var fields = new List<global::DevOpsMigrationPlatform.Abstractions.WorkItemField>
+        var fields = new List<PlatformWorkItemField>
         {
             new() { ReferenceName = _fieldName, Value = sourceId.ToString() }
         };

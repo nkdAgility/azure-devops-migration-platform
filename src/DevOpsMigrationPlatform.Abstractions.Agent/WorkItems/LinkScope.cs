@@ -1,4 +1,4 @@
-namespace DevOpsMigrationPlatform.Abstractions.Models;
+namespace DevOpsMigrationPlatform.Abstractions.Agent.WorkItems;
 
 /// <summary>
 /// Enumeration of work item link scope types for the dependency discovery feature.

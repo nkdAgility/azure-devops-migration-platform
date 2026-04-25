@@ -1,9 +1,8 @@
 using System.Collections.Generic;
 using System.Threading;
-using DevOpsMigrationPlatform.Abstractions.Models;
 using DevOpsMigrationPlatform.Abstractions.Organisations;
 
-namespace DevOpsMigrationPlatform.Abstractions.Services;
+namespace DevOpsMigrationPlatform.Abstractions.Agent.Export;
 
 /// <summary>
 /// Abstraction over the date-window WIQL chunking strategy.

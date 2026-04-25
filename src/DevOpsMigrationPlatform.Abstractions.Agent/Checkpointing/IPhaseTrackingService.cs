@@ -1,7 +1,7 @@
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace DevOpsMigrationPlatform.Abstractions;
+namespace DevOpsMigrationPlatform.Abstractions.Agent.Checkpointing;
 
 /// <summary>
 /// Tracks and persists the overall job phase (Export / Import completed flags)

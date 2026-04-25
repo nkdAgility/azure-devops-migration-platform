@@ -1,5 +1,5 @@
 using DevOpsMigrationPlatform.Abstractions.Options;
-namespace DevOpsMigrationPlatform.Abstractions.Models;
+namespace DevOpsMigrationPlatform.Abstractions.Agent.WorkItems;
 
 /// <summary>
 /// Describes a single field-based filter predicate evaluated in-process by

@@ -1,6 +1,6 @@
 using System;
 
-namespace DevOpsMigrationPlatform.Abstractions;
+namespace DevOpsMigrationPlatform.Abstractions.Agent.Storage;
 
 /// <summary>
 /// Thrown when an agent attempts to acquire a lock on a package that is already held

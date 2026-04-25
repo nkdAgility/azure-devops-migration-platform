@@ -1,4 +1,4 @@
-namespace DevOpsMigrationPlatform.Abstractions;
+namespace DevOpsMigrationPlatform.Abstractions.Agent.Identity;
 
 /// <summary>
 /// Resolves a source identity to a target identity.

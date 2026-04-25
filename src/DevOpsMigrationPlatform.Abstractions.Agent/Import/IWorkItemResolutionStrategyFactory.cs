@@ -2,7 +2,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions.Options;
 
-namespace DevOpsMigrationPlatform.Abstractions;
+namespace DevOpsMigrationPlatform.Abstractions.Agent.Import;
 
 /// <summary>
 /// Options parsed from the <c>WorkItemResolutionStrategy</c> extension block in a module config.

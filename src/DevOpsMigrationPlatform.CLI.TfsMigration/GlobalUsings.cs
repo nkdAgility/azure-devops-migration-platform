@@ -1,10 +1,4 @@
-global using DevOpsMigrationPlatform.Abstractions.Jobs;
-global using DevOpsMigrationPlatform.Abstractions.Streaming;
-global using DevOpsMigrationPlatform.Abstractions.Organisations;
-global using DevOpsMigrationPlatform.Abstractions.ControlPlaneApi;
-global using DevOpsMigrationPlatform.Abstractions.Options;
-global using DevOpsMigrationPlatform.Abstractions.Validation;
-global using DevOpsMigrationPlatform.Abstractions.Configuration;
+global using DevOpsMigrationPlatform.Abstractions;
 global using DevOpsMigrationPlatform.Abstractions.Agent.WorkItems;
 global using DevOpsMigrationPlatform.Abstractions.Agent.Attachments;
 global using DevOpsMigrationPlatform.Abstractions.Agent.Export;

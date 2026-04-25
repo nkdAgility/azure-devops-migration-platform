@@ -1,9 +1,10 @@
+using DevOpsMigrationPlatform.Abstractions.Agent.WorkItems;
 using System.Collections.Generic;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace DevOpsMigrationPlatform.Abstractions;
+namespace DevOpsMigrationPlatform.Abstractions.Agent.Import;
 
 /// <summary>
 /// Abstraction for writing work items to a target system during import.

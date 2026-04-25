@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using DevOpsMigrationPlatform.Abstractions.Models;
 using DevOpsMigrationPlatform.Infrastructure.Modules.Discovery;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
@@ -242,7 +241,7 @@ public class TransitiveDependencyWalkerTests
                 TargetProject = target,
                 TargetOrganisation = targetOrg,
                 LinkCount = linkCount,
-                LinkScope = Enum.TryParse<LinkScope>(linkScope, true, out var ls) ? ls : Abstractions.Models.LinkScope.CrossProject
+                LinkScope = Enum.TryParse<LinkScope>(linkScope, true, out var ls) ? ls : LinkScope.CrossProject
             });
         }
         _data[key] = list;

@@ -1,4 +1,4 @@
-namespace DevOpsMigrationPlatform.Abstractions;
+namespace DevOpsMigrationPlatform.Abstractions.Agent.Import;
 
 /// <summary>
 /// Result returned by <see cref="IWorkItemImportTarget"/> after creating or updating a work item.

@@ -1,7 +1,7 @@
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace DevOpsMigrationPlatform.Abstractions.Services;
+namespace DevOpsMigrationPlatform.Abstractions.Agent.Attachments;
 
 /// <summary>
 /// Abstraction for processing text (HTML or Markdown) to extract embedded ADO-hosted images,

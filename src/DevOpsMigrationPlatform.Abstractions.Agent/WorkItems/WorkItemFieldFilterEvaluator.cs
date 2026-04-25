@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Text.RegularExpressions;
 using DevOpsMigrationPlatform.Abstractions.Options;
 
-namespace DevOpsMigrationPlatform.Abstractions.Models;
+namespace DevOpsMigrationPlatform.Abstractions.Agent.WorkItems;
 
 /// <summary>
 /// Evaluates <see cref="WorkItemFieldFilterOptions"/> predicates against

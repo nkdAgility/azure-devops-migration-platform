@@ -7,7 +7,6 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
-using DevOpsMigrationPlatform.Abstractions.Models;
 using DevOpsMigrationPlatform.Abstractions.Telemetry;
 using Microsoft.Extensions.Logging;
 
@@ -38,7 +37,7 @@ public sealed class WorkItemImportOrchestrator
     private readonly IRevisionFolderProcessor _processor;
     private readonly IWorkItemImportTarget _target;
     private readonly ILogger<WorkItemImportOrchestrator> _logger;
-    private readonly IReadOnlyList<DevOpsMigrationPlatform.Abstractions.Models.WorkItemFieldFilterOptions>? _filterOptions;
+    private readonly IReadOnlyList<WorkItemFieldFilterOptions>? _filterOptions;
     private readonly IMigrationMetrics? _metrics;
     private readonly string? _jobId;
 
@@ -51,7 +50,7 @@ public sealed class WorkItemImportOrchestrator
         IRevisionFolderProcessor processor,
         IWorkItemImportTarget target,
         ILogger<WorkItemImportOrchestrator> logger,
-        IReadOnlyList<DevOpsMigrationPlatform.Abstractions.Models.WorkItemFieldFilterOptions>? filterOptions = null,
+        IReadOnlyList<WorkItemFieldFilterOptions>? filterOptions = null,
         IMigrationMetrics? metrics = null,
         string? jobId = null)
     {
@@ -305,7 +304,7 @@ public sealed class WorkItemImportOrchestrator
     /// <paramref name="filterOptions"/>, and returns the set of passing work item IDs.
     /// </summary>
     private async Task<HashSet<int>> BuildFilteredIdSetAsync(
-        IReadOnlyList<DevOpsMigrationPlatform.Abstractions.Models.WorkItemFieldFilterOptions> filterOptions,
+        IReadOnlyList<WorkItemFieldFilterOptions> filterOptions,
         CancellationToken ct)
     {
         // Pass 1: collect the last folder path for each work item ID (folder names only, no reads).
@@ -344,12 +343,12 @@ public sealed class WorkItemImportOrchestrator
                 f => f.ReferenceName,
                 f => (object?)f.Value);
 
-            var fetchedItem = new DevOpsMigrationPlatform.Abstractions.Models.FetchedWorkItem(wiId, fields);
+            var fetchedItem = new FetchedWorkItem(wiId, fields);
 
             bool passes;
             try
             {
-                passes = DevOpsMigrationPlatform.Abstractions.Models.WorkItemFieldFilterEvaluator
+                passes = WorkItemFieldFilterEvaluator
                     .PassesFilters(fetchedItem, filterOptions);
             }
             catch (System.Text.RegularExpressions.RegexMatchTimeoutException)

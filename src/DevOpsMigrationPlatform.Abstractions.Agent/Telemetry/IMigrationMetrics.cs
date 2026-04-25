@@ -1,6 +1,6 @@
 using System.Diagnostics;
 
-namespace DevOpsMigrationPlatform.Abstractions;
+namespace DevOpsMigrationPlatform.Abstractions.Agent.Telemetry;
 
 /// <summary>
 /// Unified recording contract for all migration OTel metric instruments.

@@ -1,6 +1,6 @@
 using System;
 
-namespace DevOpsMigrationPlatform.Abstractions.Models;
+namespace DevOpsMigrationPlatform.Abstractions.Agent.Attachments;
 
 /// <summary>
 /// Result of downloading an embedded image from the source system.

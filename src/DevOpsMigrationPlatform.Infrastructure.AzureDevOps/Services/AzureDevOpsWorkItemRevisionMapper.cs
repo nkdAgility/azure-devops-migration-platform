@@ -4,6 +4,8 @@ using System.Linq;
 using DevOpsMigrationPlatform.Abstractions;
 using Microsoft.TeamFoundation.WorkItemTracking.WebApi.Models;
 
+using PlatformWorkItemField = DevOpsMigrationPlatform.Abstractions.Agent.WorkItems.WorkItemField;
+
 namespace DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Services;
 
 /// <summary>
@@ -86,9 +88,9 @@ public sealed class AzureDevOpsWorkItemRevisionMapper : IAzureDevOpsWorkItemRevi
         return DateTimeOffset.UtcNow;
     }
 
-    private static IReadOnlyList<DevOpsMigrationPlatform.Abstractions.WorkItemField> MapFields(WorkItem current, WorkItem? previous)
+    private static IReadOnlyList<PlatformWorkItemField> MapFields(WorkItem current, WorkItem? previous)
     {
-        var result = new List<DevOpsMigrationPlatform.Abstractions.WorkItemField>();
+        var result = new List<PlatformWorkItemField>();
 
         if (current.Fields is null)
             return result;
@@ -105,7 +107,7 @@ public sealed class AzureDevOpsWorkItemRevisionMapper : IAzureDevOpsWorkItemRevi
                 continue;
             }
 
-            result.Add(new DevOpsMigrationPlatform.Abstractions.WorkItemField
+            result.Add(new PlatformWorkItemField
             {
                 ReferenceName = kvp.Key,
                 Value = currentValue

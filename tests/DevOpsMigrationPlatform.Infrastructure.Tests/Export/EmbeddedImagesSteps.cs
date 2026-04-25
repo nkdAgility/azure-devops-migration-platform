@@ -6,8 +6,6 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
-using DevOpsMigrationPlatform.Abstractions.Models;
-using DevOpsMigrationPlatform.Abstractions.Services;
 using DevOpsMigrationPlatform.Infrastructure.Export;
 using DevOpsMigrationPlatform.Infrastructure.Storage;
 using Microsoft.Extensions.Logging;
@@ -81,23 +79,23 @@ public class EmbeddedImagesSteps
                 {
                     // External URL - return null
                     _context.LoggedWarnings.Add($"Could not download image {url}, preserving original");
-                    return Task.FromResult<DevOpsMigrationPlatform.Abstractions.Services.EmbeddedImageDownloadResult?>(null);
+                    return Task.FromResult<EmbeddedImageDownloadResult?>(null);
                 }
 
                 if (url.Contains("deleted404"))
                 {
                     // 404 case - return null with warning
                     _context.LoggedWarnings.Add($"Failed to download image {url}: HTTP 404");
-                    return Task.FromResult<DevOpsMigrationPlatform.Abstractions.Services.EmbeddedImageDownloadResult?>(null);
+                    return Task.FromResult<EmbeddedImageDownloadResult?>(null);
                 }
 
                 // ADO URL - return image
                 if (_context.DownloadedImages.TryGetValue(url, out var imageData))
                 {
                     var fileName = GenerateImageFileName(url);
-                    return Task.FromResult<DevOpsMigrationPlatform.Abstractions.Services.EmbeddedImageDownloadResult?>
+                    return Task.FromResult<EmbeddedImageDownloadResult?>
                     (
-                        new DevOpsMigrationPlatform.Abstractions.Services.EmbeddedImageDownloadResult
+                        new EmbeddedImageDownloadResult
                         {
                             Bytes = imageData,
                             Extension = "png"
@@ -105,7 +103,7 @@ public class EmbeddedImagesSteps
                     );
                 }
 
-                return Task.FromResult<DevOpsMigrationPlatform.Abstractions.Services.EmbeddedImageDownloadResult?>(null);
+                return Task.FromResult<EmbeddedImageDownloadResult?>(null);
             });
 
         var exportService = new EmbeddedImageExportService(
@@ -189,16 +187,16 @@ public class EmbeddedImagesSteps
                 _context.DownloadCallCount++;
                 if (_context.DownloadedImages.TryGetValue(url, out var imageData))
                 {
-                    return Task.FromResult<DevOpsMigrationPlatform.Abstractions.Services.EmbeddedImageDownloadResult?>
+                    return Task.FromResult<EmbeddedImageDownloadResult?>
                     (
-                        new DevOpsMigrationPlatform.Abstractions.Services.EmbeddedImageDownloadResult
+                        new EmbeddedImageDownloadResult
                         {
                             Bytes = imageData,
                             Extension = "png"
                         }
                     );
                 }
-                return Task.FromResult<DevOpsMigrationPlatform.Abstractions.Services.EmbeddedImageDownloadResult?>(null);
+                return Task.FromResult<EmbeddedImageDownloadResult?>(null);
             });
 
         var exportService = new EmbeddedImageExportService(
@@ -309,9 +307,9 @@ public class EmbeddedImagesSteps
                 if (url.Contains("deleted404"))
                 {
                     _context.LoggedWarnings.Add($"Failed to download image {url}: HTTP 404");
-                    return Task.FromResult<DevOpsMigrationPlatform.Abstractions.Services.EmbeddedImageDownloadResult?>(null);
+                    return Task.FromResult<EmbeddedImageDownloadResult?>(null);
                 }
-                return Task.FromResult<DevOpsMigrationPlatform.Abstractions.Services.EmbeddedImageDownloadResult?>(null);
+                return Task.FromResult<EmbeddedImageDownloadResult?>(null);
             });
 
         var exportService = new EmbeddedImageExportService(
@@ -376,16 +374,16 @@ public class EmbeddedImagesSteps
             {
                 if (_context.DownloadedImages.TryGetValue(url, out var imageData))
                 {
-                    return Task.FromResult<DevOpsMigrationPlatform.Abstractions.Services.EmbeddedImageDownloadResult?>
+                    return Task.FromResult<EmbeddedImageDownloadResult?>
                     (
-                        new DevOpsMigrationPlatform.Abstractions.Services.EmbeddedImageDownloadResult
+                        new EmbeddedImageDownloadResult
                         {
                             Bytes = imageData,
                             Extension = "png"
                         }
                     );
                 }
-                return Task.FromResult<DevOpsMigrationPlatform.Abstractions.Services.EmbeddedImageDownloadResult?>(null);
+                return Task.FromResult<EmbeddedImageDownloadResult?>(null);
             });
 
         var exportService = new EmbeddedImageExportService(

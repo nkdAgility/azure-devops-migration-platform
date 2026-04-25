@@ -1,4 +1,4 @@
-namespace DevOpsMigrationPlatform.Abstractions;
+namespace DevOpsMigrationPlatform.Abstractions.Agent.Attachments;
 
 /// <summary>
 /// Metadata for an embedded image referenced in a work item field value or comment.

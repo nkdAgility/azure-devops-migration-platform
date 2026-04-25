@@ -1,8 +1,8 @@
 using System.Collections.Generic;
 using System.Threading;
-using DevOpsMigrationPlatform.Abstractions.Models;
+using DevOpsMigrationPlatform.Abstractions.Agent.WorkItems;
 
-namespace DevOpsMigrationPlatform.Abstractions.Services;
+namespace DevOpsMigrationPlatform.Abstractions.Agent.Export;
 
 /// <summary>
 /// Abstraction for fetching work item comments from the source system.

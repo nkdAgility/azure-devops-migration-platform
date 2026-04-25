@@ -1,7 +1,5 @@
 using System;
 using System.Collections.Generic;
-using DevOpsMigrationPlatform.Abstractions.Models;
-using DevOpsMigrationPlatform.Abstractions.Services;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Tests.Checkpointing;
 

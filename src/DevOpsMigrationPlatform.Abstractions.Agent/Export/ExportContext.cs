@@ -1,5 +1,7 @@
 using DevOpsMigrationPlatform.Abstractions.Jobs;
-namespace DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
+using DevOpsMigrationPlatform.Abstractions.Agent.Telemetry;
+namespace DevOpsMigrationPlatform.Abstractions.Agent.Export;
 
 /// <summary>
 /// Context passed to IModule.ExportAsync.

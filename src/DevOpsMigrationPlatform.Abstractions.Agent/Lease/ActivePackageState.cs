@@ -1,6 +1,7 @@
 using System;
+using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
 
-namespace DevOpsMigrationPlatform.Abstractions;
+namespace DevOpsMigrationPlatform.Abstractions.Agent.Lease;
 
 /// <summary>
 /// Singleton that carries the agent's current <see cref="IArtefactStore"/> across services.

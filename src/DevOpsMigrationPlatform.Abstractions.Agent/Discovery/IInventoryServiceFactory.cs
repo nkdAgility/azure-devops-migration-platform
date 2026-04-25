@@ -2,7 +2,7 @@ using System.Collections.Generic;
 using DevOpsMigrationPlatform.Abstractions.Organisations;
 using DevOpsMigrationPlatform.Abstractions.Jobs;
 
-namespace DevOpsMigrationPlatform.Abstractions.Services;
+namespace DevOpsMigrationPlatform.Abstractions.Agent.Discovery;
 
 /// <summary>
 /// Factory that creates a configured <see cref="IInventoryService"/> from a list of

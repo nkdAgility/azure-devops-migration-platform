@@ -1,13 +1,13 @@
 using System;
 using System.Text.RegularExpressions;
 
-namespace DevOpsMigrationPlatform.Abstractions.Utilities;
+namespace DevOpsMigrationPlatform.Abstractions.Agent.Lease;
 
 /// <summary>
 /// Shared path helpers for resolving org/project folder names from Azure DevOps
 /// and TFS endpoint URLs.
 /// </summary>
-public static class PathUtilities
+public static class PackagePathUtilities
 {
     /// <summary>
     /// Extracts a filesystem-safe organisation name from an Azure DevOps or TFS URL.

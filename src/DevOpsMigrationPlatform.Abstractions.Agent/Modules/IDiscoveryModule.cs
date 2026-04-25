@@ -1,8 +1,9 @@
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions.Jobs;
+using DevOpsMigrationPlatform.Abstractions.Agent.Discovery;
 
-namespace DevOpsMigrationPlatform.Abstractions;
+namespace DevOpsMigrationPlatform.Abstractions.Agent.Modules;
 
 /// <summary>
 /// Contract for a discovery module. Discovery modules analyse source systems and write

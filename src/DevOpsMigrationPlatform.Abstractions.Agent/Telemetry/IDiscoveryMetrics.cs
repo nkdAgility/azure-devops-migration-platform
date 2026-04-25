@@ -1,6 +1,6 @@
 using System.Diagnostics;
 
-namespace DevOpsMigrationPlatform.Abstractions;
+namespace DevOpsMigrationPlatform.Abstractions.Agent.Telemetry;
 
 /// <summary>
 /// Recording contract for discovery OTel metric instruments (inventory + dependencies).

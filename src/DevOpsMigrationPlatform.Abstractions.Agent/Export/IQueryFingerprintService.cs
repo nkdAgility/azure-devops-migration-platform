@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 
-namespace DevOpsMigrationPlatform.Abstractions.Services;
+namespace DevOpsMigrationPlatform.Abstractions.Agent.Export;
 
 /// <summary>
 /// Computes a deterministic fingerprint from a WIQL query text and optional parameters.

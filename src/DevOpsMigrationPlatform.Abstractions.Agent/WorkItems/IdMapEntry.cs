@@ -1,4 +1,4 @@
-namespace DevOpsMigrationPlatform.Abstractions;
+namespace DevOpsMigrationPlatform.Abstractions.Agent.WorkItems;
 
 /// <summary>
 /// Represents a single source-to-target work item ID mapping stored in <c>Checkpoints/idmap.db</c>.

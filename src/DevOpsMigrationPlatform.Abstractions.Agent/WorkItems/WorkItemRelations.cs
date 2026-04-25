@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace DevOpsMigrationPlatform.Abstractions;
+namespace DevOpsMigrationPlatform.Abstractions.Agent.WorkItems;
 
 /// <summary>
 /// The current set of relations on a target work item, used for idempotency checks in Stage C.

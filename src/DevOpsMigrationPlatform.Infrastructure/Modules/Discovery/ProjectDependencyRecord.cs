@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using DevOpsMigrationPlatform.Abstractions.Models;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Modules.Discovery;
 

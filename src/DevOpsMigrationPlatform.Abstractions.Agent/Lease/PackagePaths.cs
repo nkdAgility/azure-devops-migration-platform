@@ -1,6 +1,6 @@
 using System;
 
-namespace DevOpsMigrationPlatform.Abstractions;
+namespace DevOpsMigrationPlatform.Abstractions.Agent.Lease;
 
 /// <summary>
 /// Centralised well-known paths for system files inside a migration package.

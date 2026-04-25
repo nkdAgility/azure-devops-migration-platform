@@ -7,10 +7,10 @@ using System.Threading.Tasks;
 namespace DevOpsMigrationPlatform.Infrastructure.Storage;
 
 /// <summary>
-/// Azure Blob Storage implementation of <see cref="Abstractions.IArtefactStore"/>.
+/// Azure Blob Storage implementation of <see cref="IArtefactStore"/>.
 /// Currently a stub — Azure Blob infrastructure is not yet in place.
 /// </summary>
-public sealed class AzureBlobArtefactStore : Abstractions.IArtefactStore
+public sealed class AzureBlobArtefactStore : IArtefactStore
 {
     public Task<string?> ReadAsync(string path, CancellationToken cancellationToken)
         => throw new NotImplementedException("AzureBlobArtefactStore is not yet implemented.");

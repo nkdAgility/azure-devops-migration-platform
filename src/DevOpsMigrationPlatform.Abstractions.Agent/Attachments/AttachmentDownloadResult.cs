@@ -1,6 +1,6 @@
 using System;
 
-namespace DevOpsMigrationPlatform.Abstractions;
+namespace DevOpsMigrationPlatform.Abstractions.Agent.Attachments;
 
 /// <summary>
 /// The outcome of a single attachment download attempt.

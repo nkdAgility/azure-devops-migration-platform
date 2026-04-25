@@ -1,7 +1,8 @@
+using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace DevOpsMigrationPlatform.Abstractions;
+namespace DevOpsMigrationPlatform.Abstractions.Agent.Attachments;
 
 /// <summary>
 /// Provides the raw binary content of a work item attachment during export.

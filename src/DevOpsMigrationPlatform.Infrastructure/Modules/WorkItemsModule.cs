@@ -5,6 +5,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Agent.Validation;
 using DevOpsMigrationPlatform.Abstractions.Telemetry;
 using DevOpsMigrationPlatform.Infrastructure.Export;
 using DevOpsMigrationPlatform.Infrastructure.Import;
@@ -42,9 +43,9 @@ public sealed class WorkItemsModule : IModule
     private readonly IRevisionFolderProcessorFactory _processorFactory;
     private readonly ILogger<WorkItemsModule> _logger;
     private readonly ILogger<WorkItemImportOrchestrator> _orchestratorLogger;
-    private readonly DevOpsMigrationPlatform.Abstractions.Services.IWorkItemFetchService? _fetchService;
+    private readonly IWorkItemFetchService? _fetchService;
     private readonly IMigrationMetrics? _metrics;
-    private readonly DevOpsMigrationPlatform.Abstractions.Services.IWorkItemDiscoveryService? _discoveryService;
+    private readonly IWorkItemDiscoveryService? _discoveryService;
 
     public WorkItemsModule(
         IWorkItemRevisionSourceFactory sourceFactory,
@@ -58,9 +59,9 @@ public sealed class WorkItemsModule : IModule
         IRevisionFolderProcessorFactory processorFactory,
         IAttachmentBinarySource? attachmentBinarySource = null,
         IWorkItemCommentSourceFactory? inlineCommentSourceFactory = null,
-        DevOpsMigrationPlatform.Abstractions.Services.IWorkItemFetchService? fetchService = null,
+        IWorkItemFetchService? fetchService = null,
         IMigrationMetrics? metrics = null,
-        DevOpsMigrationPlatform.Abstractions.Services.IWorkItemDiscoveryService? discoveryService = null)
+        IWorkItemDiscoveryService? discoveryService = null)
     {
         _sourceFactory = sourceFactory ?? throw new ArgumentNullException(nameof(sourceFactory));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));

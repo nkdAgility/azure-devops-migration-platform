@@ -1,7 +1,8 @@
 using System;
 using System.Collections.Generic;
+using DevOpsMigrationPlatform.Abstractions.Agent.Attachments;
 
-namespace DevOpsMigrationPlatform.Abstractions;
+namespace DevOpsMigrationPlatform.Abstractions.Agent.WorkItems;
 
 /// <summary>
 /// The full data for one revision of one work item.

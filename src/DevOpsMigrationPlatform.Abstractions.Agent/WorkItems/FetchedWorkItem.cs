@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 
-namespace DevOpsMigrationPlatform.Abstractions.Models;
+namespace DevOpsMigrationPlatform.Abstractions.Agent.WorkItems;
 
 /// <summary>
 /// Represents a single work item with only the requested field values.

@@ -1,5 +1,4 @@
 using System.Collections.Generic;
-using DevOpsMigrationPlatform.Abstractions.Models;
 using DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Services;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 

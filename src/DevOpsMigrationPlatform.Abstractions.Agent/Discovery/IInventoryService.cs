@@ -1,8 +1,7 @@
 using System.Collections.Generic;
 using System.Threading;
-using DevOpsMigrationPlatform.Abstractions.Models;
 
-namespace DevOpsMigrationPlatform.Abstractions.Services;
+namespace DevOpsMigrationPlatform.Abstractions.Agent.Discovery;
 
 /// <summary>
 /// Orchestrates a full inventory run across all configured organisations.

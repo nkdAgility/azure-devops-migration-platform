@@ -1,4 +1,3 @@
-using DevOpsMigrationPlatform.Abstractions.Models;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Modules.Discovery;
 

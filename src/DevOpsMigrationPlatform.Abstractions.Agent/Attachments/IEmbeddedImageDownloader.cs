@@ -1,24 +1,8 @@
-using System;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace DevOpsMigrationPlatform.Abstractions.Services;
+namespace DevOpsMigrationPlatform.Abstractions.Agent.Attachments;
 
-/// <summary>
-/// Result of a single embedded image download attempt.
-/// </summary>
-public record EmbeddedImageDownloadResult
-{
-    /// <summary>
-    /// Raw image bytes downloaded from the source.
-    /// </summary>
-    public byte[] Bytes { get; init; } = Array.Empty<byte>();
-
-    /// <summary>
-    /// File extension of the image (e.g., "png", "jpg", "gif"), inferred from Content-Type.
-    /// </summary>
-    public string Extension { get; init; } = string.Empty;
-}
 /// <summary>
 /// Abstraction for downloading embedded images from URLs in field values.
 /// </summary>

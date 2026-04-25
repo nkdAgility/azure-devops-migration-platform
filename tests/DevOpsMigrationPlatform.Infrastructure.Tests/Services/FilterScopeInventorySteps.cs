@@ -1,5 +1,4 @@
 using System.Linq;
-using DevOpsMigrationPlatform.Abstractions.Models;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Reqnroll;
 

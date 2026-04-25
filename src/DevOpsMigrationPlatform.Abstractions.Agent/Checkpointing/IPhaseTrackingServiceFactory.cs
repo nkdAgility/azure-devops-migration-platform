@@ -1,4 +1,6 @@
-namespace DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
+
+namespace DevOpsMigrationPlatform.Abstractions.Agent.Checkpointing;
 
 /// <summary>
 /// Creates <see cref="IPhaseTrackingService"/> instances bound to a specific <see cref="IStateStore"/>.

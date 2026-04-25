@@ -1,7 +1,8 @@
 using System.Collections.Generic;
 using System.Threading;
+using DevOpsMigrationPlatform.Abstractions.Agent.WorkItems;
 
-namespace DevOpsMigrationPlatform.Abstractions;
+namespace DevOpsMigrationPlatform.Abstractions.Agent.Export;
 
 /// <summary>
 /// Streams work item revisions from a source system.

@@ -1,4 +1,4 @@
-namespace DevOpsMigrationPlatform.Abstractions;
+namespace DevOpsMigrationPlatform.Abstractions.Agent.Lease;
 
 /// <summary>
 /// Singleton that carries the agent's currently-held lease identifier across services.

@@ -1,9 +1,10 @@
+using DevOpsMigrationPlatform.Abstractions.Agent.WorkItems;
 using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace DevOpsMigrationPlatform.Abstractions;
+namespace DevOpsMigrationPlatform.Abstractions.Agent.Storage;
 
 /// <summary>
 /// Abstraction for source-to-target work item ID and attachment ID mapping storage.

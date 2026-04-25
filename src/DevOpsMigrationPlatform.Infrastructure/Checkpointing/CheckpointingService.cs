@@ -2,7 +2,6 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
-using DevOpsMigrationPlatform.Abstractions.Models;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Checkpointing;
 

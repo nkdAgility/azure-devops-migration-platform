@@ -1,7 +1,8 @@
+using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace DevOpsMigrationPlatform.Abstractions;
+namespace DevOpsMigrationPlatform.Abstractions.Agent.Import;
 
 /// <summary>
 /// Pluggable strategy for discovering existing source-to-target work item mappings
