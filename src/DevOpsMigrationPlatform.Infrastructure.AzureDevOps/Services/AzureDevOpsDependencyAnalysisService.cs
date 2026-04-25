@@ -94,7 +94,7 @@ public sealed class AzureDevOpsDependencyAnalysisService : IWorkItemLinkAnalysis
             // must still participate in GUID-to-project-name resolution so that links
             // pointing at a disabled org are resolved to human-readable names.
             var configuredOrgs = _options.Value.Organisations
-                .OfType<Infrastructure.AzureDevOps.Options.AzureDevOpsOrganisationEntry>()
+                .OfType<Abstractions.Options.AzureDevOpsOrganisationEntry>()
                 .Where(o => !string.IsNullOrWhiteSpace(o.ResolvedUrl))
                 .ToDictionary(
                     o => ExtractOrgSegment(o.ResolvedUrl),

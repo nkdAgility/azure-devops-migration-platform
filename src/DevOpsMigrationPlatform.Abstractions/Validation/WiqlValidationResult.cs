@@ -1,4 +1,4 @@
-namespace DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Validation;
+namespace DevOpsMigrationPlatform.Abstractions.Validation;
 
 /// <summary>
 /// Result of WIQL query validation.
@@ -8,7 +8,7 @@ public sealed record WiqlValidationResult
     /// <summary>
     /// True if the WIQL query passed validation.
     /// </summary>
-    public required bool IsValid { get; init; }
+    public bool IsValid { get; init; }
 
     /// <summary>
     /// User-friendly validation error message. Null if IsValid is true.

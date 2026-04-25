@@ -1,7 +1,7 @@
 using System;
 using System.Text.RegularExpressions;
 
-namespace DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Validation;
+namespace DevOpsMigrationPlatform.Abstractions.Validation;
 
 /// <summary>
 /// Validates WIQL (Work Item Query Language) queries to prevent injection attacks
@@ -22,7 +22,7 @@ public static class WiqlValidator
         if (string.IsNullOrWhiteSpace(query))
             return WiqlValidationResult.Success();
 
-        var normalizedQuery = query.Trim();
+        var normalizedQuery = query!.Trim();
 
         // Rule 1: Query must start with SELECT (case-insensitive)
         if (!normalizedQuery.StartsWith("SELECT", StringComparison.OrdinalIgnoreCase))

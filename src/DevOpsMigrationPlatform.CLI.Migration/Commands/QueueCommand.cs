@@ -13,7 +13,7 @@ using DevOpsMigrationPlatform.CLI.Migration.Settings;
 using DevOpsMigrationPlatform.CLI.Migration.Utilities;
 using DevOpsMigrationPlatform.CLI.Views;
 using DevOpsMigrationPlatform.Infrastructure.Services;
-using DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Validation;
+using DevOpsMigrationPlatform.Abstractions.Validation;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using DevOpsMigrationPlatform.Abstractions.Options;

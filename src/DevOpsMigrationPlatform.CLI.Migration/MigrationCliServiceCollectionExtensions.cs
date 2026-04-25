@@ -1,17 +1,12 @@
-using DevOpsMigrationPlatform.Infrastructure.AzureDevOps;
 using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Infrastructure.Extensions;
-using DevOpsMigrationPlatform.Infrastructure.Simulated;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace DevOpsMigrationPlatform.CLI.Migration;
 
 /// <summary>
 /// Composition-root extensions for the migration CLI.
-/// This is the ONLY file in <c>DevOpsMigrationPlatform.CLI.Migration</c> that is
-/// permitted to reference <c>DevOpsMigrationPlatform.Infrastructure.AzureDevOps</c>.
-/// Individual command classes must call these methods rather than calling
-/// infrastructure extension methods directly.
+/// Registers all endpoint option types for polymorphic JSON deserialization.
 /// </summary>
 public static class MigrationCliServiceCollectionExtensions
 {
@@ -25,7 +20,8 @@ public static class MigrationCliServiceCollectionExtensions
     {
         services.AddEndpointOptionsType("AzureDevOpsServices", typeof(AzureDevOpsEndpointOptions));
         services.AddOrganisationEntryType("AzureDevOpsServices", typeof(AzureDevOpsOrganisationEntry));
-        services.AddSimulatedServices();
+        services.AddEndpointOptionsType("Simulated", typeof(SimulatedEndpointOptions));
+        services.AddOrganisationEntryType("Simulated", typeof(SimulatedOrganisationEntry));
         return services;
     }
 }
