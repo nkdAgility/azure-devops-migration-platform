@@ -8,6 +8,7 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Abstractions.Telemetry;
 using Microsoft.Extensions.Logging;
 
@@ -34,6 +35,7 @@ public sealed class RevisionFolderProcessor : IRevisionFolderProcessor
     private readonly ILogger<RevisionFolderProcessor> _logger;
     private readonly IMigrationMetrics? _metrics;
     private readonly string? _jobId;
+    private readonly IFieldTransformTool? _fieldTransformTool;
 
     private static readonly ActivitySource ActivitySource = new(WellKnownActivitySourceNames.Migration);
 
@@ -50,7 +52,8 @@ public sealed class RevisionFolderProcessor : IRevisionFolderProcessor
         IArtefactStore artefactStore,
         ILogger<RevisionFolderProcessor> logger,
         IMigrationMetrics? metrics = null,
-        string? jobId = null)
+        string? jobId = null,
+        IFieldTransformTool? fieldTransformTool = null)
     {
         _target = target ?? throw new ArgumentNullException(nameof(target));
         _idMapStore = idMapStore ?? throw new ArgumentNullException(nameof(idMapStore));
@@ -60,6 +63,7 @@ public sealed class RevisionFolderProcessor : IRevisionFolderProcessor
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _metrics = metrics;
         _jobId = jobId;
+        _fieldTransformTool = fieldTransformTool;
     }
 
     /// <summary>
@@ -165,6 +169,20 @@ public sealed class RevisionFolderProcessor : IRevisionFolderProcessor
             if (ext.EmbeddedImages.Enabled && revision.EmbeddedImages.Count > 0)
             {
                 fields = await RewriteEmbeddedImageUrlsAsync(fields, revision.EmbeddedImages, folderPath, ct).ConfigureAwait(false);
+            }
+
+            // Field transforms — apply if tool is registered and enabled for Import phase
+            if (_fieldTransformTool != null && _fieldTransformTool.IsEnabledForPhase(FieldTransformPhase.Import))
+            {
+                var workItemType = GetWorkItemType(revision.Fields);
+                var fieldDict = FieldsToDict(fields);
+                var transformResult = _fieldTransformTool.ApplyTransforms(
+                    fieldDict,
+                    new FieldTransformContext(revision.WorkItemId, revision.RevisionIndex, workItemType, FieldTransformPhase.Import));
+                fields = DictToFields(transformResult.Fields);
+                _logger.LogDebug(
+                    "[WorkItems] Applied {ActionCount} field transform actions to source WI {WorkItemId} revision {RevisionIndex}.",
+                    transformResult.Actions.Count, revision.WorkItemId, revision.RevisionIndex);
             }
 
             await _target.UpdateFieldsAsync(resolvedTargetId, fields, ct).ConfigureAwait(false);
@@ -341,5 +359,21 @@ public sealed class RevisionFolderProcessor : IRevisionFolderProcessor
             Stage = stage,
             UpdatedAt = DateTimeOffset.UtcNow
         }, ct);
+
+    private static Dictionary<string, object?> FieldsToDict(IReadOnlyList<WorkItemField> fields)
+    {
+        var dict = new Dictionary<string, object?>(fields.Count, StringComparer.OrdinalIgnoreCase);
+        foreach (var f in fields)
+            dict[f.ReferenceName] = f.Value;
+        return dict;
+    }
+
+    private static IReadOnlyList<WorkItemField> DictToFields(IReadOnlyDictionary<string, object?> dict)
+    {
+        var result = new List<WorkItemField>(dict.Count);
+        foreach (var kvp in dict)
+            result.Add(new WorkItemField { ReferenceName = kvp.Key, Value = kvp.Value?.ToString() });
+        return result;
+    }
 }
 #endif

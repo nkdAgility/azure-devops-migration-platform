@@ -35,7 +35,7 @@ Key technical decisions:
 - [x] **Streaming (II):** Transforms operate on a single revision's field collection at a time. FR-016 mandates statelessness across revisions — no accumulation. No in-memory buffering of multiple revisions.
 - [x] **WorkItems Layout (III):** The tool does not modify folder structure. It operates on field values within `revision.json` content only.
 - [x] **Checkpointing (IV):** Transform execution is part of the existing revision processing pipeline (Stage B: AppliedFields in `RevisionFolderProcessor`). Checkpointing is handled by the existing cursor mechanism. The transform tool itself is stateless and does not maintain its own cursor.
-- [x] **Module Isolation (V):** All interfaces (`IFieldTransformTool`, `IFieldTransform`, `IFieldTransformValidator`) defined in `DevOpsMigrationPlatform.Abstractions`. Implementations in `Infrastructure`. No direct filesystem access — the tool receives a field dictionary and returns a modified copy. Identity fields are explicitly rejected (FR-021); identity mapping via `IIdentityMappingService` is unaffected.
+- [x] **Module Isolation (V):** All interfaces (`IFieldTransformTool`, `IFieldTransform`, `IFieldTransformValidator`) defined in `DevOpsMigrationPlatform.Abstractions.Agent` per the 021.2 project boundary rules (Agent-only contracts). Config options (`FieldTransformOptions` etc.) in `DevOpsMigrationPlatform.Abstractions` (cross-cutting config schema). Implementations in `Infrastructure.Agent`. No direct filesystem access — the tool receives a field dictionary and returns a modified copy. Identity fields are explicitly rejected (FR-021); identity mapping via `IIdentityMappingService` is unaffected.
 - [x] **Separation of Planes (VI):** The transform tool lives in the Infrastructure layer, invoked by the Migration Agent during revision processing. No CLI, TUI, or control plane involvement in transform logic. Configuration validation runs during `prepare` command (which executes in the Agent).
 - [x] **Determinism (VII):** Same configuration + same field values = same output. All transforms are pure functions. FR-024 requires `ConfigVersion` bump for breaking changes.
 - [x] **ATDD-First (VIII):** Spec contains 7 user stories with 20+ acceptance scenarios (Given/When/Then). Each will be implemented via the ATDD inner loop. Feature files will live under `features/import/workitems/field-transform/` and `features/export/workitems/field-transform/`.
@@ -61,24 +61,41 @@ specs/022-workitem-field-mapping/
 
 ### Source Code (repository root)
 
+Per the **021.2 Separation of Concerns** boundary rules:
+- Agent-only interfaces → `Abstractions.Agent`
+- Config schema (options) → `Abstractions` (cross-cutting; CLI + Agent both bind config)
+- Agent-only implementations → `Infrastructure.Agent`
+- Agent-only tests → `Infrastructure.Agent.Tests`
+
 ```text
-src/DevOpsMigrationPlatform.Abstractions/
+src/DevOpsMigrationPlatform.Abstractions.Agent/
 ├── Tools/
-│   ├── IFieldTransformTool.cs          # Top-level tool interface
+│   ├── IFieldTransformTool.cs          # Top-level tool interface (Agent-only)
 │   ├── IFieldTransform.cs              # Individual transform contract
 │   ├── IFieldTransformValidator.cs     # Prepare-time validation contract
-│   ├── FieldTransformResult.cs         # Transform output record
-│   └── FieldTransformValidationReport.cs  # Validation report record
+│   ├── IFieldTransformFactory.cs       # Creates IFieldTransform from options
+│   ├── IFieldDefinitionProvider.cs     # Field metadata lookup (source + target)
+│   ├── IExpressionEvaluator.cs         # Safe arithmetic/string expression evaluator
+│   ├── FieldTransformPhase.cs          # Enum: Export | Import | Both
+│   ├── FieldTransformContext.cs        # WorkItemId, RevisionIndex, WorkItemType, Phase
+│   ├── FieldTransformAction.cs         # Telemetry: group, transform, field, old/new values
+│   ├── FieldTransformResult.cs         # Modified fields dictionary + actions list
+│   ├── FieldTransformValidationReport.cs  # Validation report + severity enum
+│   └── FieldDefinition.cs              # Field metadata: ReferenceName, Type, AllowedValues
+
+src/DevOpsMigrationPlatform.Abstractions/
 ├── Options/
 │   ├── FieldTransformOptions.cs        # Sealed options: SectionName, transformGroups
 │   ├── FieldTransformGroupOptions.cs   # Group: name, enabled, applyTo, transforms
-│   └── FieldTransformRuleOptions.cs    # Individual rule: type, name, enabled, applyTo, type-specific
+│   ├── FieldTransformRuleOptions.cs    # Individual rule: type + all type-specific props
+│   └── FieldTransformExtensionOptions.cs  # Extension reference: Enabled, Phase
 
-src/DevOpsMigrationPlatform.Infrastructure/
+src/DevOpsMigrationPlatform.Infrastructure.Agent/
 ├── Tools/
 │   ├── FieldTransform/
 │   │   ├── FieldTransformTool.cs             # IFieldTransformTool implementation
 │   │   ├── FieldTransformPipeline.cs         # Ordered group→transform execution
+│   │   ├── FieldTransformFactory.cs          # Switches on Type discriminator
 │   │   ├── FieldTransformValidator.cs        # Prepare-time validation logic
 │   │   ├── Transforms/
 │   │   │   ├── CopyFieldTransform.cs
@@ -94,15 +111,16 @@ src/DevOpsMigrationPlatform.Infrastructure/
 │   │   │   ├── MergeToTagTransform.cs
 │   │   │   ├── ConditionalFieldTransform.cs
 │   │   │   ├── RegexFieldTransform.cs
+│   │   │   ├── TagUtilities.cs
 │   │   │   └── TreeToTagTransform.cs
-│   │   └── FieldTransformServiceCollectionExtensions.cs  # DI registration
-│   └── ToolResolution/
-│       └── ToolResolver.cs                   # Tool singleton resolution from config
+│   │   └── FieldTransformToolServiceCollectionExtensions.cs  # AddFieldTransformToolServices()
 
-tests/DevOpsMigrationPlatform.Infrastructure.Tests/
+tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/
 ├── Tools/
 │   └── FieldTransform/
 │       ├── FieldTransformPipelineTests.cs
+│       ├── FieldTransformFactoryTests.cs
+│       ├── FieldTransformToolTests.cs
 │       ├── FieldTransformValidatorTests.cs
 │       ├── Transforms/
 │       │   ├── CopyFieldTransformTests.cs
@@ -129,7 +147,7 @@ features/
     └── field-transform-validation.feature    # Prepare-time validation (VS-M1)
 ```
 
-**Structure Decision**: The feature adds a `Tools/FieldTransform/` namespace under both Abstractions (interfaces + options) and Infrastructure (implementations). This follows the existing pattern where module-adjacent services live within Infrastructure with interfaces in Abstractions. The `Transforms/` subfolder holds the 14 individual transform implementations, each implementing `IFieldTransform`. No new projects are needed — all code fits within existing projects.
+**Structure Decision**: Per 021.2, Agent-only tool interfaces live in `Abstractions.Agent/Tools/`. Config options (the binding schema the CLI, CP, and Agent all parse) remain in `Abstractions/Options/`. Implementations live in `Infrastructure.Agent/Tools/FieldTransform/`, and tests in `Infrastructure.Agent.Tests/`. The `Transforms/` subfolder holds all 14 individual transform implementations. No new projects are needed — all code fits within existing projects.
 
 ## Architecture Review Findings
 
@@ -142,11 +160,12 @@ features/
 | ID | Severity | Finding | Resolution |
 |---|---|---|---|
 | CA-H1 | High | `FieldTransformRuleOptions` flat property bag violates type safety (X.2) | Keep flat class for JSON binding; factory projects into strongly-typed per-transform records at construction time |
-| HX-M1 | Medium | `Phase` as raw string — primitive obsession | Define `FieldTransformPhase` enum in Abstractions |
+| HX-M1 | Medium | `Phase` as raw string — primitive obsession | Define `FieldTransformPhase` enum in `Abstractions.Agent/Tools/` |
 | CA-M1 | Medium | Validator receives providers as method params, not constructor DI | Inject `IFieldDefinitionProviderFactory` via constructor; resolve internally |
 | MM-M1 | Medium | `IFieldDefinitionProvider` may be single-use (rule 21) | Document expected second consumer (ValidationModule) in research.md |
-| MM-M2 | Medium | Registration method name inconsistent | Use `AddFieldTransformToolServices()` |
-| VS-M1 | Medium | No feature file for prepare-time validation flow | Add `features/platform/field-transform-validation.feature` |
+| MM-M2 | Medium | Registration method name inconsistent | Use `AddFieldTransformToolServices()` in `Infrastructure.Agent` |
+| VS-M1 | Medium | No feature file for prepare-time validation flow | Add `features/platform/field-transform/field-transform-validation.feature` |
+| 021.2 | Architecture | Interfaces were in flat `Abstractions` project | Per 021.2: Agent-only interfaces → `Abstractions.Agent/Tools/`; Options remain in `Abstractions/Options/`; Implementations in `Infrastructure.Agent`; Tests in `Infrastructure.Agent.Tests` |
 
 ### Positive Findings
 

@@ -13,7 +13,7 @@
 |------|---------|
 | **Module** | A domain-scoped unit that implements `IModule`. Runs inside the Migration Agent. Handles one concern (e.g. `WorkItems`, `Teams`). Has both export and import paths. |
 | **Extension** | A named sub-data collector declared inside a module config block (e.g. `Revisions`, `Links`, `Attachments`). Enabled/disabled independently per run. |
-| **Tool** | A shared, cross-cutting service declared once at MigrationPlatform config root (e.g. `FieldMappingTool`, `NodeStructureTool`). Extensions load tools by reference and may override selected values. Not a CLI command. |
+| **Tool** | A shared, cross-cutting service declared once at MigrationPlatform config root (e.g. `FieldTransformTool`, `NodeStructureTool`). Extensions load tools by reference and may override selected values. Not a CLI command. |
 | **Scope** | A mandatory selection criterion on a module (e.g. `wiql` query, project name). |
 | **Discovery command** | A `discovery *` CLI sub-command that runs locally without submitting a `MigrationJob`. Reads source systems directly via REST. |
 | **CLI feature** | A `queue`, `config`, `manage`, or `admin` command addition. |
@@ -44,7 +44,6 @@ Status legend:
 
 | # | Module | Status | Summary |
 |---|--------|--------|---------|
-| M1 | [WorkItemsModule — FieldMapping extensions](#m1-workitemsmodule--fieldmapping) | 🔶 Missing field-map engine | 14 field-map types required for cross-process-template migrations |
 | M2 | [WorkItemsModule — NodeStructure tool](#m2-workitemsmodule--nodestructure-tool) | ❌ | Area/iteration path mapping, creation, and language override |
 | M3 | [WorkItemsModule — WorkItemTypeMapping tool](#m3-workitemsmodule--workitemtypemapping-tool) | ❌ | Agile↔Scrum type remapping |
 | M4 | [WorkItemsModule — missing options](#m4-workitemsmodule--missing-options) | ❌ | CollapseRevisions, MaxRevisions, GracefulFailures, etc. |
@@ -59,7 +58,6 @@ Status legend:
 
 | # | Tool | Status | Summary |
 |---|------|--------|---------|
-| T1 | [FieldMappingTool](#t1-fieldmappingtool) | ❌ | 14 field-map types injected into WorkItemsModule |
 | T2 | [NodeStructureTool](#t2-nodestructuretool) | ❌ | Area/iteration path regex mapping + auto-creation |
 | T3 | [WorkItemTypeMappingTool](#t3-workitemtypemappingtool) | ❌ | Work item type name remapping table |
 | T4 | [StringManipulatorTool](#t4-stringmanipulatortool) | ❌ | Regex-based field string cleanup |
@@ -91,96 +89,11 @@ Status legend:
 | # | Feature | Status | Summary |
 |---|---------|--------|---------|
 | P1 | [Checkpoint Reconciliation](#p1-checkpoint-reconciliation) | 🆕 ❌ | Rebuild missing/corrupted checkpoint state from existing package data across all modules |
-| P2 | [Three-Channel Telemetry Model](#p2-three-channel-telemetry-model) | ✅ | Rationalise Events, Metrics, and Snapshot into distinct channels with correct layering |
-| **P3** | **[Process-per-Component Standalone Mode](#p3-process-per-component-standalone-mode)** | **🔶** | **Eliminate OTel instrumentation bleed in standalone mode by running ControlPlane and Agent as separate processes (with in-process fallback)** |
 | P4 | [Operator Interaction / Pending Questions](#p4-operator-interaction--pending-questions) | 🆕 ❌ | Allow a running MigrationJob to pause and request operator input via TUI or CLI follow-mode; Agent enters "Pending" state on Control Plane until the answer is provided |
 
 ---
 
 ## Modules — Detail
-
-### M1: WorkItemsModule — FieldMapping
-
-**Current state**: The module copies fields as opaque values. Identity fields are mapped by `IIdentityMappingService`. No general field transformation exists.
-
-**Why it matters**: Any migration between organisations with different process templates (e.g. Agile source → Scrum target) requires value translation on State, Priority, and custom fields before import. Without this, work items import with invalid or missing field values.
-
-**Proposed additions**:
-
-#### New Tool: `FieldMappingTool` (see [T1](#t1-fieldmappingtool))
-
-Declared once in `MigrationPlatform.tools[]`. The `WorkItems/Revisions` extension loads it by reference and may override selected values before writing `revision.json`.
-
-```json
-{
-  "MigrationPlatform": {
-    "tools": [
-      {
-        "id": "fieldmap-default",
-        "type": "FieldMapping",
-        "applyTo": ["User Story", "Bug"],
-        "maps": [
-          { "type": "FieldToField",    "sourceField": "Custom.OldField", "targetField": "Custom.NewField" },
-          { "type": "FieldValue",      "field": "System.State", "valueMap": { "Active": "In Progress", "Resolved": "Done" } },
-          { "type": "FieldLiteral",    "field": "Custom.MigratedBy", "value": "migration-platform" },
-          { "type": "FieldToTag",      "field": "System.AreaPath" },
-          { "type": "FieldValueToTag", "field": "System.State", "pattern": "^Resolved$" },
-          { "type": "RegexField",      "field": "System.Title", "pattern": "^\\[OLD\\]\\s*", "replacement": "" },
-          { "type": "FieldClear",      "field": "Custom.LegacyId" },
-          { "type": "FieldSkip",       "field": "Custom.InternalOnly" },
-          { "type": "FieldMerge",      "sourceFields": ["System.Title", "Custom.Subtitle"], "targetField": "System.Title", "format": "{0} — {1}" },
-          { "type": "FieldCalculation","targetField": "Custom.Score", "expression": "..." },
-          { "type": "FieldToTagField", "sourceFields": ["System.Tags", "Custom.Labels"], "targetField": "System.Tags" },
-          { "type": "TreeToTagField",  "field": "System.AreaPath", "targetField": "System.Tags" },
-          { "type": "MultiValueConditional", "conditions": [...], "targetField": "...", "value": "..." },
-          { "type": "FieldToFieldMulti", "maps": [ { "sourceField": "...", "targetField": "..." } ] }
-        ]
-      }
-    ],
-    "Modules": {
-      "WorkItems": {
-        "Enabled": true,
-        "Extensions": {
-          "Revisions": {
-            "Enabled": true,
-            "tools": [
-              {
-                "ref": "fieldmap-default",
-                "overrides": {
-                  "applyTo": ["User Story", "Bug", "Task"]
-                }
-              }
-            ]
-          }
-        }
-      }
-    }
-  }
-}
-```
-
-**Map types to implement** (14 total):
-
-| Map Type | Purpose |
-|---|---|
-| `FieldToField` | Copy field A → field B with optional default |
-| `FieldToFieldMulti` | Multiple source→target field copy pairs |
-| `FieldLiteral` | Set field to a literal value |
-| `FieldValue` | Dictionary-based value remapping (e.g. State) |
-| `FieldMerge` | Merge multiple source fields into one with format string |
-| `FieldCalculation` | Compute field from an expression |
-| `FieldClear` | Null-out a field |
-| `FieldSkip` | Exclude field from the written revision (not imported) |
-| `FieldValueToTag` | Append to `System.Tags` when field value matches a pattern |
-| `FieldToTag` | Append field value to `System.Tags` |
-| `FieldToTagField` | Merge multiple field values into a tag-style target field |
-| `MultiValueConditional` | Conditional multi-field → single field mapping |
-| `RegexField` | Regex find-and-replace within a field value |
-| `TreeToTagField` | Convert area/iteration tree path into a tag |
-
-**Per-map `applyTo` filter** — each map entry (or the tool itself) accepts an optional `applyTo` array of work item type names to restrict application.
-
----
 
 ### M2: WorkItemsModule — NodeStructure Tool
 
@@ -449,21 +362,6 @@ Options that belong directly on the `WorkItems` module config rather than as sep
 ---
 
 ## Tools — Detail
-
-### T1: FieldMappingTool
-
-**Used by**: `WorkItemsModule`  
-**Purpose**: Apply a declared set of field transformation rules to each work item revision before it is written to the package (export) or applied to the target (import).
-
-**Invocation**: Declared in `MigrationPlatform.tools[]`, then loaded by extension references (for example `WorkItems/Revisions`) with optional `overrides`. See [M1](#m1-workitemsmodule--fieldmapping) for the full map type list and JSON schema.
-
-**Key design rules**:
-- Maps are applied in declaration order.
-- `FieldSkip` maps remove the field from the revision before any write — they are not import-only.
-- All maps respect the `applyTo` work item type filter.
-- Map processing is a pure transformation (no I/O). The tool is injected as `IFieldMappingTool` and receives a `WorkItemRevision` value object; it returns a transformed copy.
-
----
 
 ### T2: NodeStructureTool
 
@@ -951,12 +849,6 @@ devopsmigration admin page install --config migration.json --pages ./pages --dry
 
 As an interim measure before the full `Reconcile` job is built, individual modules can perform **automatic reconciliation on startup**: if the cursor is missing but data exists, reconstruct the cursor from the data and log a warning. This is implemented for:
 - `DependencyDiscoveryModule` — parses existing `dependencies.csv` to rebuild `completedProjects` set
-
----
-
-### P3: Process-per-Component Standalone Mode ✅
-
-> **Fully implemented.** `LocalStackHost` operates in dual mode — process-per-component (preferred) with in-process fallback. See [docs/cli.md](../docs/cli.md#standalone-local--server) and [docs/architecture.md](../docs/architecture.md#components-and-responsibilities) for the canonical reference.
 
 ---
 
