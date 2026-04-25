@@ -1,0 +1,30 @@
+#if !NET481
+using System;
+using System.Threading;
+using System.Threading.Tasks;
+
+namespace DevOpsMigrationPlatform.Abstractions.Agent.Storage;
+
+/// <summary>
+/// Tracks per-work-item export progress so the export orchestrator can
+/// skip already-written revisions on resume without per-revision <c>ExistsAsync</c> checks.
+/// </summary>
+public interface IExportProgressStore : IAsyncDisposable
+{
+    /// <summary>Creates the underlying schema if it does not already exist.</summary>
+    Task InitializeAsync(CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Returns the stored progress for <paramref name="workItemId"/>, or
+    /// <see langword="null"/> if the work item has never been recorded.
+    /// </summary>
+    Task<WorkItemExportProgress?> GetProgressAsync(int workItemId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Records that the revision with the given <paramref name="rev"/> index has been
+    /// successfully written for <paramref name="workItemId"/>.
+    /// On resume, revisions with an index ≤ <paramref name="rev"/> will be skipped.
+    /// </summary>
+    Task SetRevAsync(int workItemId, int rev, CancellationToken cancellationToken);
+}
+#endif

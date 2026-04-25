@@ -3,10 +3,12 @@ using System.Linq;
 using System.Net.Http;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Options;
+using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
 using DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Discovery;
 using DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Export;
 using DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Attachments;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Connectors;
+using DevOpsMigrationPlatform.Infrastructure.Agent.Export;
 using DevOpsMigrationPlatform.Infrastructure.Serialization;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.TeamFoundation.WorkItemTracking.WebApi;
@@ -26,6 +28,7 @@ public static class ExportServiceCollectionExtensions
     ///   <item><see cref="IAzureDevOpsClientFactory"/> — creates Azure DevOps HTTP clients.</item>
     ///   <item><see cref="IAzureDevOpsWorkItemRevisionMapper"/> — maps REST revisions to the package model.</item>
     ///   <item><see cref="IWorkItemRevisionSourceFactory"/> as <see cref="AzureDevOpsWorkItemRevisionSourceFactory"/> — constructs revision sources per job.</item>
+    ///   <item><see cref="IExportProgressStoreFactory"/> as <see cref="ExportProgressStoreFactory"/> — SQLite-backed per-work-item export progress for fast-forward resume.</item>
     ///   <item><see cref="AzureDevOpsAttachmentRegistry"/> — per-export-run attachment URL store (scoped).</item>
     ///   <item><see cref="IWorkItemCommentSourceFactory"/> as <see cref="AzureDevOpsWorkItemCommentSourceFactory"/> — creates comment sources per job (used for inline comment fetching when the Comments extension is enabled).</item>
     ///   <item><see cref="IEmbeddedImageDownloader"/> as <see cref="AzureDevOpsEmbeddedImageDownloader"/> — downloads embedded images with Polly resilience.</item>
@@ -40,6 +43,7 @@ public static class ExportServiceCollectionExtensions
         services.AddSingleton<IWiqlQueryClientFactory, AzureDevOpsWiqlQueryClientFactory>();
         services.AddSingleton<IWorkItemQueryWindowStrategy, WorkItemQueryWindowStrategy>();
         services.AddSingleton<IAzureDevOpsWorkItemRevisionMapper, AzureDevOpsWorkItemRevisionMapper>();
+        services.AddSingleton<IExportProgressStoreFactory, ExportProgressStoreFactory>();
         services.AddScoped<AzureDevOpsAttachmentRegistry>();
         services.AddScoped<AzureDevOpsWorkItemRevisionSourceFactory>();
         services.AddRevisionSourceFactory<AzureDevOpsWorkItemRevisionSourceFactory>("AzureDevOpsServices");
