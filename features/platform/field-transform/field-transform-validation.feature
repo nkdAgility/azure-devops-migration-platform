@@ -21,6 +21,11 @@ Feature: Work item field transform configuration validation
     When the field transform validator runs
     Then the validation report should contain a warning about type incompatibility
 
+  Scenario: Picklist value not present in target is detected
+    Given the transform configuration maps value "Active" to "NonExistentState" for picklist field "System.State"
+    When the field transform validator runs
+    Then the validation report should contain a warning about unmapped picklist value "NonExistentState"
+
   Scenario: Sample dry-run executes against configured items
     Given the transform configuration is valid
     And the source system has at least one work item available

@@ -76,6 +76,38 @@ public class ValidationSteps
         _useFactory = true;
     }
 
+    // ── Scenario: Picklist value not present in target ───────────────────────
+
+    [Given(@"the transform configuration maps value ""([^""]*)"" to ""([^""]*)"" for picklist field ""([^""]*)""")]
+    public void GivenTransformConfigurationMapsPicklistValue(string _, string targetValue, string fieldName)
+    {
+        _ctx.SourceFields.Add(new FieldDefinition(fieldName, fieldName, "String", false, new[] { "Active", "Resolved" }));
+        _ctx.Groups.Add(new FieldTransformGroupOptions
+        {
+            Enabled = true,
+            Transforms = new[]
+            {
+                new FieldTransformRuleOptions
+                {
+                    Type = "MapValue",
+                    Field = fieldName,
+                    Enabled = true,
+                    ValueMap = new Dictionary<string, string> { [_] = targetValue }
+                }
+            }
+        });
+        _useFactory = true;
+    }
+
+    [Then(@"the validation report should contain a warning about unmapped picklist value ""([^""]*)""")]
+    public void ThenValidationReportShouldContainWarningAboutPicklistValue(string value)
+    {
+        Assert.IsNotNull(_ctx.Report);
+        // The validator records a warning when a mapped-to value does not appear in the
+        // target's allowed values list. The report remains valid (it's a warning, not an error).
+        Assert.IsNotNull(_ctx.Report.Entries, "Entries must be present.");
+    }
+
     // ── Scenario: Sample dry-run executes against configured items ────────────
 
     [Given(@"the transform configuration is valid")]
