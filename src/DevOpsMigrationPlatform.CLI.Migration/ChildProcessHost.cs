@@ -196,10 +196,15 @@ internal sealed class ChildProcessHost : IAsyncDisposable
 
         var cliDir = AppContext.BaseDirectory;
 
-        // 2. Installed layout: ../ComponentName/ExeName
-        var installedPath = Path.Combine(cliDir, "..", componentName, exeName);
-        if (File.Exists(installedPath))
-            return Path.GetFullPath(installedPath);
+        // 2a. Installed layout (flat package): CLI at root, ComponentName/ subfolder
+        var flatPath = Path.Combine(cliDir, componentName, exeName);
+        if (File.Exists(flatPath))
+            return Path.GetFullPath(flatPath);
+
+        // 2b. Installed layout (sibling): ../ComponentName/ExeName
+        var siblingPath = Path.Combine(cliDir, "..", componentName, exeName);
+        if (File.Exists(siblingPath))
+            return Path.GetFullPath(siblingPath);
 
         // 3. Development layout: look for sibling project output
         // CLI is at src/CLI.Migration/bin/{config}/net10.0/ — walk up to src/

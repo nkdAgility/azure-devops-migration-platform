@@ -107,6 +107,8 @@ Module code never references a concrete store implementation.
 
 **Concurrent Write Protection**: Packages are protected from simultaneous writes by a lease-based protocol. Only one agent may hold a lease on a package at any time. See [docs/concurrent-write-detection.md](concurrent-write-detection.md) for the lease mechanism and data integrity guarantees.
 
+> **Single-job-per-package constraint**: Only one job runs against a given package at a time. This is a deliberate design decision — checkpoint keys (e.g. `PackagePaths.CursorFile("workitems")`) are scoped by module name only, not by job ID. Adding job-ID scoping would be premature — the lease protocol already prevents concurrent access, and a second job on the same package would re-export or re-import atop the first job's data, which is never valid. If you need parallel execution, use separate packages.
+
 ### Cross-Environment Package Handoff
 
 Because the package is a first-class artefact identified by URI, export and import can run in completely different environments:
@@ -250,8 +252,12 @@ Key properties:
 
 | Assembly | Target | Purpose |
 |---|---|---|
-| `DevOpsMigrationPlatform.Abstractions` | `net481;net10.0` | Core contracts: `IModule`, `IArtefactStore`, `IStateStore`, `IProgressSink`, `IWorkItemImportTargetFactory`, `IWorkItemRevisionSourceFactory`, `OrganisationEndpoint`, `MigrationEndpointOptions`, domain models |
-| `DevOpsMigrationPlatform.Infrastructure` | `net481;net10.0` | Shared infrastructure: `FileSystemArtefactStore`, `PackageCheckpointStateStore`, composite factory pattern, `EndpointOptionsTypeRegistry`, polymorphic JSON converters, `CatalogService` |
+| `DevOpsMigrationPlatform.Abstractions` | `net481;net10.0` | Shared contracts used across all components: `OrganisationEndpoint`, `MigrationEndpointOptions`, `IProgressSink`, job contract types (`MigrationJob`, `JobPhase`), control plane API types (job submission, inventory and dependency responses), configuration `Options` types, telemetry constants and shared interfaces (`IJobMetricsStore`, `IJobSnapshotStore`) |
+| `DevOpsMigrationPlatform.Abstractions.ControlPlane` | `net10.0` | Control-plane-only contracts: `IJobLifecycleMetrics` (agent-reported lifecycle events for in-flight jobs) |
+| `DevOpsMigrationPlatform.Abstractions.Agent` | `net481;net10.0` | Agent contracts: module interfaces (`IModule`, `IDiscoveryModule`), storage (`IArtefactStore`, `IStateStore`, `IPackageLockService`), checkpointing (`ICheckpointingService`, `IPhaseTrackingService`), export orchestration (`IWorkItemRevisionSource`, `IWorkItemRevisionSourceFactory`, `IWorkItemFetchService`), import orchestration (`IWorkItemImportTarget`, `IWorkItemImportTargetFactory`), attachments (`IAttachmentBinarySource`), identity (`IIdentityMappingService`), discovery (`ICatalogService`, `IInventoryService`, `IDependencyDiscoveryService`), telemetry metrics interfaces |
+| `DevOpsMigrationPlatform.Infrastructure` | `net481;net10.0` | Shared infrastructure used by multiple components: `EndpointOptionsTypeRegistry`, polymorphic JSON converters (`PolymorphicEndpointOptionsConverter`), `ConfigurationService`, `InMemoryJobMetricsStore`, `InMemoryJobSnapshotStore`, telemetry data-classification filter |
+| `DevOpsMigrationPlatform.Infrastructure.ControlPlane` | `net10.0` | Control plane infrastructure: `JobLifecycleMetrics` (OTel implementation of `IJobLifecycleMetrics`), `SnapshotMetricExporter`, telemetry DI registration |
+| `DevOpsMigrationPlatform.Infrastructure.Agent` | `net481;net10.0` | Agent infrastructure: `FileSystemArtefactStore`, `AzureBlobArtefactStore`, `CheckpointingService`, `PhaseTrackingService`, module implementations (`WorkItemsModule`, `InventoryDiscoveryModule`, `DependencyDiscoveryModule`), export/import orchestrators, identity mapping, progress sinks (`AnsiProgressSink`, `PackageProgressSink`, `ControlPlaneProgressSink`), connector factory registration, telemetry |
 | `DevOpsMigrationPlatform.Infrastructure.AzureDevOps` | `net10.0` | ADO connector: `AzureDevOpsEndpointOptions`, `AzureDevOpsWorkItemRevisionSource` (first concrete `IWorkItemRevisionSource`), `AzureDevOpsAttachmentBinarySource` (streaming `IStreamingAttachmentBinarySource`), `AzureDevOpsWorkItemImportTarget`, ADO SDK services |
 | `DevOpsMigrationPlatform.Infrastructure.TfsObjectModel` | `net481` | TFS connector: `TeamFoundationServerEndpointOptions`, TFS Object Model services |
 | `DevOpsMigrationPlatform.Infrastructure.Simulated` | `net10.0` | Simulated connector: Config-driven synthetic connector for offline testing. Implements all source and target interfaces with deterministic generated data. No credentials required. |

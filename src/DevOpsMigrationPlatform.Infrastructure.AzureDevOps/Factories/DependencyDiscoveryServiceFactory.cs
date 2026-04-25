@@ -2,9 +2,7 @@ using System.Collections.Generic;
 using System.Linq;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Options;
-using DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Options;
-using DevOpsMigrationPlatform.Abstractions.Services;
-using DevOpsMigrationPlatform.Infrastructure.Services;
+using DevOpsMigrationPlatform.Infrastructure.Agent.Discovery;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 

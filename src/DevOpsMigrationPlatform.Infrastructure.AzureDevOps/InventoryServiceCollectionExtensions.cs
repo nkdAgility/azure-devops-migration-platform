@@ -1,9 +1,9 @@
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Options;
-using DevOpsMigrationPlatform.Abstractions.Services;
 using DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Factories;
-using DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Services;
-using DevOpsMigrationPlatform.Infrastructure.Services;
+using DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Discovery;
+using DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Export;
+using DevOpsMigrationPlatform.Infrastructure.Agent.Discovery;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 

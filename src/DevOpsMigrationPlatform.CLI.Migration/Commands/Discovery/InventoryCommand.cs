@@ -9,14 +9,13 @@ using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
-using DevOpsMigrationPlatform.Abstractions.Models;
 using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.CLI.JobRunners;
 using DevOpsMigrationPlatform.CLI.Migration.Commands;
+using DevOpsMigrationPlatform.CLI.Migration.Configuration;
 using DevOpsMigrationPlatform.CLI.Migration.Options;
 using DevOpsMigrationPlatform.CLI.Migration.Settings;
-using DevOpsMigrationPlatform.CLI.Migration.Utilities;
-using DevOpsMigrationPlatform.Infrastructure.AzureDevOps;
+using DevOpsMigrationPlatform.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using Spectre.Console;
@@ -51,7 +50,8 @@ public sealed class InventoryCommand : ControlPlaneCommandBase<InventoryCommand.
                 var opts = sp.GetRequiredService<IOptions<EnvironmentOptions>>().Value;
                 client.BaseAddress = new Uri(opts.ControlPlane.BaseUrl);
             });
-            services.AddAzureDevOpsInventory(config);
+            services.AddOptions<DiscoveryOptions>().Bind(config.GetSection("MigrationPlatform"));
+            services.AddDiscoveryOptionsOrganisationsBinder();
         });
 
         var console = GetRequiredService<IAnsiConsole>();
@@ -508,5 +508,5 @@ public sealed class InventoryCommand : ControlPlaneCommandBase<InventoryCommand.
             : value;
 
     private static string SanitiseFolderName(string url) =>
-        PathUtilities.ExtractOrgFolderName(url);
+        CliPathUtilities.ExtractOrgFolderName(url);
 }

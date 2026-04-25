@@ -1,7 +1,7 @@
 using System;
 using System.Linq;
 using DevOpsMigrationPlatform.Abstractions;
-using DevOpsMigrationPlatform.ControlPlane.Services;
+using DevOpsMigrationPlatform.ControlPlane.Jobs;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace DevOpsMigrationPlatform.ControlPlane.Tests.Services;

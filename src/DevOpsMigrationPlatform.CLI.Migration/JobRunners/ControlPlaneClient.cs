@@ -19,7 +19,7 @@ namespace DevOpsMigrationPlatform.CLI.JobRunners;
 /// Switching between the two requires only a config change in appsettings.json;
 /// no code changes are needed.  See docs/cli.md and docs/control-plane.md.
 /// </summary>
-public sealed class ControlPlaneClient : IJobRunner, ILogsClient, IControlPlaneClient
+public sealed class ControlPlaneClient : IJobSubmissionClient, ILogsClient, IControlPlaneClient
 {
     private readonly JsonSerializerOptions _jsonOptions;
 
@@ -239,58 +239,6 @@ public sealed class ControlPlaneClient : IJobRunner, ILogsClient, IControlPlaneC
             if (record is not null)
                 yield return record;
         }
-    }
-
-    /// <summary>
-    /// Downloads <c>Logs/agent.jsonl</c> from the package via
-    /// <c>GET /jobs/{jobId}/logs/download?type=diagnostics</c>.
-    /// Parses the NDJSON response into a list of <see cref="DiagnosticLogRecord"/>.
-    /// </summary>
-    public async Task<IReadOnlyList<DiagnosticLogRecord>> DownloadDiagnosticsAsync(
-        Guid jobId, CancellationToken ct)
-    {
-        return await DownloadNdjsonAsync<DiagnosticLogRecord>(
-            $"/jobs/{jobId}/logs/download?type=diagnostics", ct).ConfigureAwait(false);
-    }
-
-    /// <summary>
-    /// Downloads <c>Logs/progress.jsonl</c> from the package via
-    /// <c>GET /jobs/{jobId}/logs/download?type=progress</c>.
-    /// Parses the NDJSON response into a list of <see cref="ProgressEvent"/>.
-    /// </summary>
-    public async Task<IReadOnlyList<ProgressEvent>> DownloadProgressAsync(
-        Guid jobId, CancellationToken ct)
-    {
-        return await DownloadNdjsonAsync<ProgressEvent>(
-            $"/jobs/{jobId}/logs/download?type=progress", ct).ConfigureAwait(false);
-    }
-
-    private async Task<IReadOnlyList<T>> DownloadNdjsonAsync<T>(string url, CancellationToken ct)
-    {
-        var response = await _http
-            .GetAsync(url, ct)
-            .ConfigureAwait(false);
-
-        // 404 means the job has no log files yet (agent hasn't run or hasn't written logs).
-        // Return an empty list so callers can show a "no records found" message
-        // rather than surfacing an error.
-        if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
-            return [];
-
-        response.EnsureSuccessStatusCode();
-
-        var body = await response.Content
-            .ReadAsStringAsync(ct)
-            .ConfigureAwait(false);
-
-        var records = new List<T>();
-        foreach (var line in body.Split('\n', StringSplitOptions.RemoveEmptyEntries))
-        {
-            var item = JsonSerializer.Deserialize<T>(line.Trim(), _jsonOptions);
-            if (item is not null)
-                records.Add(item);
-        }
-        return records;
     }
 
     // ── Discovery Job API ─────────────────────────────────────────────────────────

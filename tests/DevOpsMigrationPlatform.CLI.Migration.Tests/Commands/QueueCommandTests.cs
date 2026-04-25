@@ -105,7 +105,7 @@ public class QueueCommandTests
             "Expected CLI success message not found in output.");
 
         // Org/project nesting places WorkItems under <outputDir>/<org>/<project>/WorkItems/
-        var workItemsDirs = Directory.GetDirectories(outputDir, "WorkItems", SearchOption.AllDirectories);
+        var workItemsDirs = Directory.GetDirectories(outputDir, "workitems", SearchOption.AllDirectories);
         Assert.IsTrue(workItemsDirs.Length > 0,
             $"WorkItems directory was not created anywhere under {outputDir}");
 

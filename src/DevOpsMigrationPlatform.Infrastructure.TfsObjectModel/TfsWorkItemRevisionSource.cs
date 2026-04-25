@@ -6,9 +6,10 @@ using System.Threading;
 using Microsoft.Extensions.Logging;
 using Microsoft.TeamFoundation.WorkItemTracking.Client;
 using DevOpsMigrationPlatform.Abstractions;
-using DevOpsMigrationPlatform.Abstractions.Services;
 using DevOpsMigrationPlatform.Abstractions.Telemetry;
-using DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.Services;
+using DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.Attachments;
+using DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.Export;
+
 
 namespace DevOpsMigrationPlatform.Infrastructure.TfsObjectModel;
 

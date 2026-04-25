@@ -5,7 +5,7 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Telemetry;
-using DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.Services;
+using DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.Attachments;
 
 namespace DevOpsMigrationPlatform.Infrastructure.TfsObjectModel;
 

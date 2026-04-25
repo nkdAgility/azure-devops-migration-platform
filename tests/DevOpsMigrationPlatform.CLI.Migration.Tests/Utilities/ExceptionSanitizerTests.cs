@@ -1,7 +1,7 @@
 using System;
 using System.Diagnostics.CodeAnalysis;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
-using DevOpsMigrationPlatform.CLI.Migration.Utilities;
+using DevOpsMigrationPlatform.CLI.Migration.Configuration;
 
 namespace DevOpsMigrationPlatform.CLI.Migration.Tests.Utilities;
 

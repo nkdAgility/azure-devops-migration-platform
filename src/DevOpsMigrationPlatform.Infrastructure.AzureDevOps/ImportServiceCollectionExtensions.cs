@@ -1,8 +1,8 @@
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Import;
-using DevOpsMigrationPlatform.Infrastructure.Checkpointing;
-using DevOpsMigrationPlatform.Infrastructure.Extensions;
-using DevOpsMigrationPlatform.Infrastructure.Import;
+using DevOpsMigrationPlatform.Infrastructure.Agent.Checkpointing;
+using DevOpsMigrationPlatform.Infrastructure.Agent.Connectors;
+using DevOpsMigrationPlatform.Infrastructure.Agent.Import;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace DevOpsMigrationPlatform.Infrastructure.AzureDevOps;

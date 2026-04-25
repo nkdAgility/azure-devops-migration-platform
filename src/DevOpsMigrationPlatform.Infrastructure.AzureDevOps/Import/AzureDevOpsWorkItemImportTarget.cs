@@ -9,7 +9,7 @@ using Microsoft.TeamFoundation.WorkItemTracking.WebApi;
 using Microsoft.TeamFoundation.WorkItemTracking.WebApi.Models;
 using Microsoft.VisualStudio.Services.WebApi.Patch;
 using Microsoft.VisualStudio.Services.WebApi.Patch.Json;
-using PlatformWorkItemField = DevOpsMigrationPlatform.Abstractions.WorkItemField;
+using PlatformWorkItemField = DevOpsMigrationPlatform.Abstractions.Agent.WorkItems.WorkItemField;
 
 namespace DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Import;
 

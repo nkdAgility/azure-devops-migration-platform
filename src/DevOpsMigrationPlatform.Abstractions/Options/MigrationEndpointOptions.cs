@@ -1,6 +1,7 @@
 using System.Collections.Generic;
+using DevOpsMigrationPlatform.Abstractions.Organisations;
 
-namespace DevOpsMigrationPlatform.Abstractions;
+namespace DevOpsMigrationPlatform.Abstractions.Options;
 
 /// <summary>
 /// Base class for source or target endpoint connection options.

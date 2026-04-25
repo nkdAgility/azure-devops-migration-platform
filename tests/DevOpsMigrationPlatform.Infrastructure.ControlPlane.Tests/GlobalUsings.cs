@@ -1,0 +1,2 @@
+global using DevOpsMigrationPlatform.Abstractions.ControlPlaneApi;
+global using DevOpsMigrationPlatform.Abstractions.Telemetry;

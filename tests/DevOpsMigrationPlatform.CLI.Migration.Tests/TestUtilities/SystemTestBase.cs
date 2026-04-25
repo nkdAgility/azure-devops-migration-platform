@@ -2,7 +2,7 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
-using DevOpsMigrationPlatform.Abstractions.Utilities;
+using DevOpsMigrationPlatform.Abstractions.Options;
 
 namespace DevOpsMigrationPlatform.CLI.Migration.Tests.TestUtilities;
 
@@ -26,7 +26,7 @@ public abstract class SystemTestBase
     }
 
     /// <summary>
-    /// Validates Azure DevOps connectivity using existing TokenResolver pattern
+    /// Validates Azure DevOps connectivity using existing ConfigTokenResolver pattern
     /// </summary>
     /// <param name="configuration">System test configuration</param>
     /// <returns>Validation result with connectivity status</returns>
@@ -40,8 +40,8 @@ public abstract class SystemTestBase
 
         try
         {
-            // Use existing TokenResolver pattern for secure token resolution
-            var resolvedToken = TokenResolver.Resolve($"$ENV:AZDEVOPS_SYSTEM_TEST_PAT");
+            // Use existing ConfigTokenResolver pattern for secure token resolution
+            var resolvedToken = ConfigTokenResolver.Resolve($"$ENV:AZDEVOPS_SYSTEM_TEST_PAT");
             
             if (string.IsNullOrEmpty(resolvedToken))
             {
@@ -59,7 +59,7 @@ public abstract class SystemTestBase
             }
 
             return ValidationResult.Success("Connectivity", 
-                new() { "Token resolution validated using TokenResolver pattern" });
+                new() { "Token resolution validated using ConfigTokenResolver pattern" });
         }
         catch (InvalidOperationException ex)
         {

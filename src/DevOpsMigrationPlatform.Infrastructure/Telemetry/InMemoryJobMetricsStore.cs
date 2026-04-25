@@ -1,3 +1,4 @@
+using DevOpsMigrationPlatform.Abstractions;
 #if !NETFRAMEWORK
 using System.Threading;
 
@@ -8,13 +9,13 @@ namespace DevOpsMigrationPlatform.Infrastructure.Telemetry;
 /// Thread safety: volatile write/read is sufficient for the single-writer (SnapshotMetricExporter)
 /// single-reader (ControlPlaneTelemetryTimer) pattern used here.
 /// </summary>
-internal sealed class InMemoryJobMetricsStore : DevOpsMigrationPlatform.Abstractions.IJobMetricsStore
+public sealed class InMemoryJobMetricsStore : IJobMetricsStore
 {
-    private volatile DevOpsMigrationPlatform.Abstractions.JobMetrics? _latest;
+    private volatile JobMetrics? _latest;
 
-    public void Update(DevOpsMigrationPlatform.Abstractions.JobMetrics metrics) =>
+    public void Update(JobMetrics metrics) =>
         _latest = metrics;
 
-    public DevOpsMigrationPlatform.Abstractions.JobMetrics? Latest => _latest;
+    public JobMetrics? Latest => _latest;
 }
 #endif

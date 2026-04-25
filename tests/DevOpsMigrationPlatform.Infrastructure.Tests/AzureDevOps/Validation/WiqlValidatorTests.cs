@@ -1,6 +1,6 @@
 using System.Diagnostics.CodeAnalysis;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
-using DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Validation;
+using DevOpsMigrationPlatform.Abstractions.Validation;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Tests.AzureDevOps.Validation;
 

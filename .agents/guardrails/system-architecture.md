@@ -92,7 +92,7 @@ Silently working around a rule = violation. Blindly following a harmful rule = n
     - **Async patterns**: Use the same async/await patterns, `CancellationToken` propagation, and error handling as established modules. Do not invent new concurrency patterns.
     
     **When to create new abstractions:** Only when no existing abstraction covers the required use case AND no extension point exists on an existing abstraction. New abstractions must:
-    - Be defined in `DevOpsMigrationPlatform.Abstractions` or in a module-specific namespace if module-private.
+    - Be defined in `DevOpsMigrationPlatform.Abstractions`, `DevOpsMigrationPlatform.Abstractions.ControlPlane` (if control-plane-only), or `DevOpsMigrationPlatform.Abstractions.Agent` (if agent-only) — or in a module-specific namespace if module-private.
     - Be used by at least two independent modules (no single-use abstractions).
     - Have a documented motivation explaining why existing abstractions could not be reused or extended.
     

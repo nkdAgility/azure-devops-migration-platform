@@ -14,7 +14,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\DevOpsMigrationPlatform.Abstractions\DevOpsMigrationPlatform.Abstractions.csproj" />
-    <ProjectReference Include="..\DevOpsMigrationPlatform.Infrastructure\DevOpsMigrationPlatform.Infrastructure.csproj" />
+    <ProjectReference Include="..\DevOpsMigrationPlatform.Abstractions.ControlPlane\DevOpsMigrationPlatform.Abstractions.ControlPlane.csproj" />
   </ItemGroup>
 
 </Project>

@@ -1,7 +1,7 @@
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
-using DevOpsMigrationPlatform.Infrastructure.Import;
+using DevOpsMigrationPlatform.Infrastructure.Agent.Import;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Simulated.Import;
 

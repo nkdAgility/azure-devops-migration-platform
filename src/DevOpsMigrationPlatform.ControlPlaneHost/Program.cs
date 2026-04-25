@@ -15,13 +15,12 @@
 // See docs/control-plane.md, docs/aspire-integration.md.
 
 using System.Security.Claims;
-using DevOpsMigrationPlatform.ControlPlane.Services;
-using DevOpsMigrationPlatform.ControlPlaneHost.Services;
-using DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Options;
+using DevOpsMigrationPlatform.ControlPlane.Jobs;
+using DevOpsMigrationPlatform.ControlPlaneHost.AgentLifecycle;
+using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Infrastructure;
-using DevOpsMigrationPlatform.Infrastructure.Extensions;
-using DevOpsMigrationPlatform.Infrastructure.Simulated.Options;
-
+using DevOpsMigrationPlatform.Infrastructure.Serialization;
+using DevOpsMigrationPlatform.Infrastructure.ControlPlane.Metrics;
 using DevOpsMigrationPlatform.Infrastructure.Telemetry;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -52,6 +51,7 @@ builder.Services.AddControllers()
             System.Text.Json.Serialization.JsonUnmappedMemberHandling.Disallow;
     });
 
+builder.Services.AddControlPlaneTelemetryServices(builder.Configuration);
 builder.Services.AddControlPlaneServices(builder.Configuration);
 
 // Post-configure ASP.NET JSON options to include the polymorphic endpoint converter

@@ -3,6 +3,7 @@
 // Stateless: all durable state is written to the package via IArtefactStore/IStateStore.
 // See docs/migration-agent.md.
 
+using DevOpsMigrationPlatform.Infrastructure.Agent.Telemetry;
 using DevOpsMigrationPlatform.Infrastructure.Telemetry;
 using DevOpsMigrationPlatform.MigrationAgent;
 

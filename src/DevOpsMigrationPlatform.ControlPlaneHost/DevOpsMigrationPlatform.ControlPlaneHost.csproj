@@ -1,19 +1,13 @@
-<Project Sdk="Microsoft.NET.Sdk.Web">
-
-  <PropertyGroup>
+<Project Sdk="Microsoft.NET.Sdk.Web">  <PropertyGroup>
     <OutputType>Exe</OutputType>
     <TargetFramework>net10.0</TargetFramework>
     <LangVersion>latest</LangVersion>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <UserSecretsId>azure-devops-migration-platform-controlplanehost</UserSecretsId>
-  </PropertyGroup>
-
-  <ItemGroup>
+  </PropertyGroup>  <ItemGroup>
+    <ProjectReference Include="..\DevOpsMigrationPlatform.Abstractions.ControlPlane\DevOpsMigrationPlatform.Abstractions.ControlPlane.csproj" />
     <ProjectReference Include="..\DevOpsMigrationPlatform.ControlPlane\DevOpsMigrationPlatform.ControlPlane.csproj" />
-    <ProjectReference Include="..\DevOpsMigrationPlatform.Infrastructure.AzureDevOps\DevOpsMigrationPlatform.Infrastructure.AzureDevOps.csproj" />
-    <ProjectReference Include="..\DevOpsMigrationPlatform.Infrastructure.Simulated\DevOpsMigrationPlatform.Infrastructure.Simulated.csproj" />
+    <ProjectReference Include="..\DevOpsMigrationPlatform.Infrastructure.ControlPlane\DevOpsMigrationPlatform.Infrastructure.ControlPlane.csproj" />
     <ProjectReference Include="..\DevOpsMigrationPlatform.ServiceDefaults\DevOpsMigrationPlatform.ServiceDefaults.csproj" />
-  </ItemGroup>
-
-</Project>
+  </ItemGroup></Project>

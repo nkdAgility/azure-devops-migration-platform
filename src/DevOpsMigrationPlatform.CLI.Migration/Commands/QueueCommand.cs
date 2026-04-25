@@ -5,18 +5,17 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
-using DevOpsMigrationPlatform.Abstractions.Services;
 using DevOpsMigrationPlatform.CLI.Commands;
 using DevOpsMigrationPlatform.CLI.JobRunners;
 using DevOpsMigrationPlatform.CLI.Migration.Options;
 using DevOpsMigrationPlatform.CLI.Migration.Settings;
-using DevOpsMigrationPlatform.CLI.Migration.Utilities;
+using DevOpsMigrationPlatform.CLI.Migration.Configuration;
 using DevOpsMigrationPlatform.CLI.Views;
-using DevOpsMigrationPlatform.Infrastructure.Services;
-using DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Validation;
+using DevOpsMigrationPlatform.Infrastructure.Config;
+using DevOpsMigrationPlatform.Abstractions.Validation;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
-using DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Options;
+using DevOpsMigrationPlatform.Abstractions.Options;
 using Spectre.Console;
 using Spectre.Console.Cli;
 using Spectre.Console.Rendering;
@@ -52,7 +51,7 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
                 client.BaseAddress = new Uri(opts.ControlPlane.BaseUrl);
             });
 
-            services.AddTransient<IJobRunner>(sp => sp.GetRequiredService<ControlPlaneClient>());
+            services.AddTransient<IJobSubmissionClient>(sp => sp.GetRequiredService<ControlPlaneClient>());
 
             // TFS subprocess services — registered unconditionally so DI resolves them
             // correctly when the source type is TeamFoundationServer.
@@ -103,7 +102,7 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
 
         var outputPath = Path.Combine(
             Path.GetFullPath(packagePath),
-            PathUtilities.ExtractOrgFolderName(orgUrl),
+            CliPathUtilities.ExtractOrgFolderName(orgUrl),
             project);
         console.MarkupLine($"[blue]ℹ[/] Importing into [bold]{Markup.Escape(orgUrl)}[/] / [bold]{Markup.Escape(project)}[/]");
         console.MarkupLine($"[blue]ℹ[/] Package path   : [blue]{Markup.Escape(outputPath)}[/]");
@@ -231,7 +230,7 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
 
         var outputPath = Path.Combine(
             Path.GetFullPath(config.Package.ExpandedPath),
-            PathUtilities.ExtractOrgFolderName(orgUrl),
+            CliPathUtilities.ExtractOrgFolderName(orgUrl),
             project);
 
         console.MarkupLine($"[blue]ℹ[/] Exporting from [bold]Simulated[/] source");
@@ -339,7 +338,7 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
 
         var outputPath = Path.Combine(
             Path.GetFullPath(config.Package.ExpandedPath),
-            PathUtilities.ExtractOrgFolderName(orgUrl),
+            CliPathUtilities.ExtractOrgFolderName(orgUrl),
             project);
 
         console.MarkupLine($"[blue]ℹ[/] Exporting from [bold]{Markup.Escape(orgUrl)}[/] / [bold]{Markup.Escape(project)}[/]");

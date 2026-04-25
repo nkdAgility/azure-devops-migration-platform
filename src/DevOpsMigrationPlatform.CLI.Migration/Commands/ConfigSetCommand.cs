@@ -1,4 +1,4 @@
-using DevOpsMigrationPlatform.CLI.Migration.Services;
+using DevOpsMigrationPlatform.CLI.Migration.Configuration;
 using DevOpsMigrationPlatform.CLI.Migration.Settings;
 using Spectre.Console;
 using Spectre.Console.Cli;

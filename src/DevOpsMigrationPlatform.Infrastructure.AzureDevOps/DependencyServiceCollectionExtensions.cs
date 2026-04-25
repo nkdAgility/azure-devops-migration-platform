@@ -2,12 +2,11 @@ using System;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using DevOpsMigrationPlatform.Abstractions;
-using DevOpsMigrationPlatform.Abstractions.Models;
 using DevOpsMigrationPlatform.Abstractions.Options;
-using DevOpsMigrationPlatform.Abstractions.Services;
 using DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Factories;
-using DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Services;
-using DevOpsMigrationPlatform.Infrastructure.Services;
+using DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Discovery;
+using DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Export;
+using DevOpsMigrationPlatform.Infrastructure.Agent.Discovery;
 
 namespace DevOpsMigrationPlatform.Infrastructure.AzureDevOps;
 
@@ -69,13 +68,13 @@ public static class DependencyServiceCollectionExtensions
         }
 
         // Register the catalog service — now in Infrastructure; register here if not already registered
-        // (ICatalogService implementation lives in DevOpsMigrationPlatform.Infrastructure.Services.CatalogService)
+        // (ICatalogService implementation lives in DevOpsMigrationPlatform.Infrastructure.Agent.Discovery.CatalogService)
         if (!services.Any(x => x.ServiceType == typeof(ICatalogService)))
         {
-            // Note: CatalogService has moved to Infrastructure assembly.
+            // Note: CatalogService has moved to Infrastructure.Agent assembly.
             // The host must call AddInfrastructureCatalogService() or equivalent.
             // Kept as a fallback registration for backwards compatibility.
-            services.AddSingleton<ICatalogService, DevOpsMigrationPlatform.Infrastructure.Services.CatalogService>();
+            services.AddSingleton<ICatalogService, DevOpsMigrationPlatform.Infrastructure.Agent.Discovery.CatalogService>();
         }
 
         // Register AzureDevOpsDependencyAnalysisService as a keyed singleton

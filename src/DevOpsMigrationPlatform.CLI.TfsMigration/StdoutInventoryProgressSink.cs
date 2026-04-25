@@ -1,6 +1,5 @@
 using System;
 using System.Text.Json;
-using DevOpsMigrationPlatform.Abstractions.Models;
 
 namespace DevOpsMigrationPlatform.CLI.TfsMigration;
 

@@ -51,7 +51,7 @@ public static class SystemTestErrorMessages
         $"System test '{testName}' completed successfully in {durationSeconds:F2}s";
 
     public static string TokenResolutionSuccess => 
-        "Token resolution validated using TokenResolver pattern";
+        "Token resolution validated using ConfigTokenResolver pattern";
 
     public static string ConnectivityValidated => 
         "Azure DevOps connectivity validated successfully";

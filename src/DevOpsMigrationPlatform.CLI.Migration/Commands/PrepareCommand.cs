@@ -3,12 +3,11 @@ using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
-using DevOpsMigrationPlatform.Abstractions.Services;
 using DevOpsMigrationPlatform.CLI.JobRunners;
 using DevOpsMigrationPlatform.CLI.Migration.Commands;
 using DevOpsMigrationPlatform.CLI.Migration.Options;
 using DevOpsMigrationPlatform.CLI.Migration.Settings;
-using DevOpsMigrationPlatform.Infrastructure.Services;
+using DevOpsMigrationPlatform.Infrastructure.Config;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using Spectre.Console;
@@ -38,7 +37,7 @@ public sealed class PrepareCommand : ControlPlaneCommandBase<MigrationCommandSet
                 client.BaseAddress = new Uri(opts.ControlPlane.BaseUrl);
             });
 
-            services.AddTransient<IJobRunner>(sp => sp.GetRequiredService<ControlPlaneClient>());
+            services.AddTransient<IJobSubmissionClient>(sp => sp.GetRequiredService<ControlPlaneClient>());
         });
 
         var console = GetRequiredService<IAnsiConsole>();

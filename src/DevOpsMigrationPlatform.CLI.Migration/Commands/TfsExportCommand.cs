@@ -4,9 +4,9 @@ using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
-using DevOpsMigrationPlatform.CLI.Migration.Utilities;
 using DevOpsMigrationPlatform.CLI.Views;
 using DevOpsMigrationPlatform.CLI.Migration.Commands;
+using DevOpsMigrationPlatform.CLI.Migration.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace DevOpsMigrationPlatform.CLI.Commands;
@@ -56,7 +56,7 @@ internal static class TfsExportRunner
         var project = config.Source.GetProject();
         var outputFolder = Path.Combine(
             Path.GetFullPath(config.Package.ExpandedPath),
-            PathUtilities.ExtractOrgFolderName(collectionUrl),
+            CliPathUtilities.ExtractOrgFolderName(collectionUrl),
             project);
 
         var arguments = $"export" +

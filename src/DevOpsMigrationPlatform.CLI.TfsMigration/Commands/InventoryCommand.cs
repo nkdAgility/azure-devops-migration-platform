@@ -1,12 +1,11 @@
+using DevOpsMigrationPlatform.Abstractions.Organisations;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
-using DevOpsMigrationPlatform.Abstractions.Models;
 using DevOpsMigrationPlatform.Abstractions.Options;
-using DevOpsMigrationPlatform.Abstractions.Services;
 using DevOpsMigrationPlatform.Infrastructure.TfsObjectModel;
 using Spectre.Console.Cli;
 using SpectreValidationResult = Spectre.Console.ValidationResult;

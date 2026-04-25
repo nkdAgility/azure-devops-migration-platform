@@ -1,7 +1,11 @@
 <Solution>
   <Folder Name="/src/">
     <Project Path="src/DevOpsMigrationPlatform.Abstractions/DevOpsMigrationPlatform.Abstractions.csproj" />
+    <Project Path="src/DevOpsMigrationPlatform.Abstractions.ControlPlane/DevOpsMigrationPlatform.Abstractions.ControlPlane.csproj" />
+    <Project Path="src/DevOpsMigrationPlatform.Abstractions.Agent/DevOpsMigrationPlatform.Abstractions.Agent.csproj" />
     <Project Path="src/DevOpsMigrationPlatform.Infrastructure/DevOpsMigrationPlatform.Infrastructure.csproj" />
+    <Project Path="src/DevOpsMigrationPlatform.Infrastructure.ControlPlane/DevOpsMigrationPlatform.Infrastructure.ControlPlane.csproj" />
+    <Project Path="src/DevOpsMigrationPlatform.Infrastructure.Agent/DevOpsMigrationPlatform.Infrastructure.Agent.csproj" />
     <Project Path="src/DevOpsMigrationPlatform.Infrastructure.AzureDevOps/DevOpsMigrationPlatform.Infrastructure.AzureDevOps.csproj" />
     <Project Path="src/DevOpsMigrationPlatform.Infrastructure.TfsObjectModel/DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.csproj" />
     <Project Path="src/DevOpsMigrationPlatform.ServiceDefaults/DevOpsMigrationPlatform.ServiceDefaults.csproj" />
@@ -16,7 +20,10 @@
   <Folder Name="/tests/">
     <Project Path="tests/DevOpsMigrationPlatform.Infrastructure.Tests/DevOpsMigrationPlatform.Infrastructure.Tests.csproj" />
     <Project Path="tests/DevOpsMigrationPlatform.ControlPlane.Tests/DevOpsMigrationPlatform.ControlPlane.Tests.csproj" />
+    <Project Path="tests/DevOpsMigrationPlatform.Abstractions.Tests/DevOpsMigrationPlatform.Abstractions.Tests.csproj" />
     <Project Path="tests/DevOpsMigrationPlatform.CLI.Migration.Tests/DevOpsMigrationPlatform.CLI.Migration.Tests.csproj" />
+    <Project Path="tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests.csproj" />
+    <Project Path="tests/DevOpsMigrationPlatform.Infrastructure.ControlPlane.Tests/DevOpsMigrationPlatform.Infrastructure.ControlPlane.Tests.csproj" />
     <Project Path="tests/DevOpsMigrationPlatform.Infrastructure.Simulated.Tests/DevOpsMigrationPlatform.Infrastructure.Simulated.Tests.csproj" />
   </Folder>
 </Solution>

@@ -24,34 +24,14 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\DevOpsMigrationPlatform.Abstractions\DevOpsMigrationPlatform.Abstractions.csproj" />
     <ProjectReference Include="..\..\src\DevOpsMigrationPlatform.Infrastructure\DevOpsMigrationPlatform.Infrastructure.csproj" />
-    <ProjectReference Include="..\..\src\DevOpsMigrationPlatform.Infrastructure.AzureDevOps\DevOpsMigrationPlatform.Infrastructure.AzureDevOps.csproj" />
-    <ProjectReference Include="..\..\src\DevOpsMigrationPlatform.Infrastructure.Simulated\DevOpsMigrationPlatform.Infrastructure.Simulated.csproj" />
-    <ProjectReference Include="..\..\src\DevOpsMigrationPlatform.CLI.Migration\DevOpsMigrationPlatform.CLI.Migration.csproj" />
   </ItemGroup>
 
   <ItemGroup>
     <!-- External feature files to stage into Features/ before Reqnroll code-gen.
          Features/ is a build artefact; the canonical source is features/ at workspace root. -->
-    <ExternalFeatureFiles Include="..\..\features\platform\checkpointing\cursor-resume.feature" />
-    <ExternalFeatureFiles Include="..\..\features\export\work-items\revisions\export-work-item-revisions.feature" />
-    <ExternalFeatureFiles Include="..\..\features\export\work-items\links\export-work-item-links.feature" />
-    <ExternalFeatureFiles Include="..\..\features\export\work-items\attachments\export-attachments.feature" />
-    <ExternalFeatureFiles Include="..\..\features\services\identity-mapping\identity-mapping.feature" />
-    <ExternalFeatureFiles Include="..\..\features\platform\validation\package-validation.feature" />
     <ExternalFeatureFiles Include="..\..\features\platform\validation\config-validation.feature" />
     <ExternalFeatureFiles Include="..\..\features\cli\prepare\prepare-validates-config.feature" />
     <ExternalFeatureFiles Include="..\..\features\platform\telemetry\cli-otel.feature" />
-    <ExternalFeatureFiles Include="..\..\features\platform\telemetry\progress-sink.feature" />
-    <ExternalFeatureFiles Include="..\..\features\cli\execute\migrate-logs.feature" />
-    <!-- Import feature files -->
-    <ExternalFeatureFiles Include="..\..\features\import\work-items\revisions\import-work-item-revisions.feature" />
-    <ExternalFeatureFiles Include="..\..\features\platform\checkpointing\import-cursor-resume.feature" />
-    <ExternalFeatureFiles Include="..\..\features\platform\checkpointing\resumable-batching-cursor.feature" />
-    <ExternalFeatureFiles Include="..\..\features\import\work-items\revisions\streaming-memory-safety.feature" />
-    <ExternalFeatureFiles Include="..\..\features\services\identity-mapping\import-identity-resolution.feature" />
-    <ExternalFeatureFiles Include="..\..\features\import\work-items\comments\import-comments.feature" />
-    <ExternalFeatureFiles Include="..\..\features\import\work-items\revisions\import-embedded-images.feature" />
-    <ExternalFeatureFiles Include="..\..\features\import\work-items\revisions\work-item-resolution-strategies.feature" />
   </ItemGroup>
 
   <!-- Copy external feature files into Features/ before Reqnroll codegen so the default
