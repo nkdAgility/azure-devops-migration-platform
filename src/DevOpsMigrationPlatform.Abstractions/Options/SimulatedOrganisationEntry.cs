@@ -1,7 +1,6 @@
 using DevOpsMigrationPlatform.Abstractions;
-using DevOpsMigrationPlatform.Abstractions.Options;
 
-namespace DevOpsMigrationPlatform.Infrastructure.Simulated.Options;
+namespace DevOpsMigrationPlatform.Abstractions.Options;
 
 /// <summary>
 /// Simulated organisation entry for inventory discovery.

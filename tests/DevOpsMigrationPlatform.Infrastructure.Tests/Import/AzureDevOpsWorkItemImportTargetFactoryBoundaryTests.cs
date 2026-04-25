@@ -4,7 +4,7 @@ using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Infrastructure.AzureDevOps;
 using DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Import;
-using DevOpsMigrationPlatform.Infrastructure.Simulated.Options;
+using DevOpsMigrationPlatform.Abstractions.Options;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Moq;
 

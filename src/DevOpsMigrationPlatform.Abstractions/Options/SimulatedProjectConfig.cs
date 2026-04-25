@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 
-namespace DevOpsMigrationPlatform.Infrastructure.Simulated.Options;
+namespace DevOpsMigrationPlatform.Abstractions.Options;
 
 /// <summary>
 /// Configuration for one simulated project, including the work item types to generate

@@ -16,7 +16,7 @@ using DevOpsMigrationPlatform.Infrastructure.Services;
 using DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Validation;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
-using DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Options;
+using DevOpsMigrationPlatform.Abstractions.Options;
 using Spectre.Console;
 using Spectre.Console.Cli;
 using Spectre.Console.Rendering;

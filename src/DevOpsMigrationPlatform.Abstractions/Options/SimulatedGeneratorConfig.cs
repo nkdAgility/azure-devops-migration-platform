@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 
-namespace DevOpsMigrationPlatform.Infrastructure.Simulated.Options;
+namespace DevOpsMigrationPlatform.Abstractions.Options;
 
 /// <summary>
 /// Root generator configuration for the Simulated connector.

@@ -1,8 +1,7 @@
 using System.Collections.Generic;
 using DevOpsMigrationPlatform.Abstractions;
-using DevOpsMigrationPlatform.Abstractions.Options;
 
-namespace DevOpsMigrationPlatform.Infrastructure.Simulated.Options;
+namespace DevOpsMigrationPlatform.Abstractions.Options;
 
 /// <summary>
 /// Endpoint options for the Simulated connector. Requires no credentials and is used

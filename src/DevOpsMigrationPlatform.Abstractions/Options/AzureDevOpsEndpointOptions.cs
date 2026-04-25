@@ -1,8 +1,7 @@
 using DevOpsMigrationPlatform.Abstractions;
-using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Abstractions.Utilities;
 
-namespace DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Options;
+namespace DevOpsMigrationPlatform.Abstractions.Options;
 
 /// <summary>
 /// Azure DevOps–specific endpoint connection options.

@@ -1,4 +1,4 @@
-namespace DevOpsMigrationPlatform.Infrastructure.Simulated.Options;
+namespace DevOpsMigrationPlatform.Abstractions.Options;
 
 /// <summary>
 /// Describes one work item type to generate in a simulated project.
