@@ -44,7 +44,6 @@ Status legend:
 
 | # | Module | Status | Summary |
 |---|--------|--------|---------|
-| M1 | [WorkItemsModule — FieldTransform extensions](#m1-workitemsmodule--fieldtransform) | 🔶 Missing field-transform engine | 14 field-transform types required for cross-process-template migrations |
 | M2 | [WorkItemsModule — NodeStructure tool](#m2-workitemsmodule--nodestructure-tool) | ❌ | Area/iteration path mapping, creation, and language override |
 | M3 | [WorkItemsModule — WorkItemTypeMapping tool](#m3-workitemsmodule--workitemtypemapping-tool) | ❌ | Agile↔Scrum type remapping |
 | M4 | [WorkItemsModule — missing options](#m4-workitemsmodule--missing-options) | ❌ | CollapseRevisions, MaxRevisions, GracefulFailures, etc. |
@@ -59,7 +58,6 @@ Status legend:
 
 | # | Tool | Status | Summary |
 |---|------|--------|---------|
-| T1 | [FieldTransformTool](#t1-fieldtransformtool) | ❌ | 14 field-transform types injected into WorkItemsModule |
 | T2 | [NodeStructureTool](#t2-nodestructuretool) | ❌ | Area/iteration path regex mapping + auto-creation |
 | T3 | [WorkItemTypeMappingTool](#t3-workitemtypemappingtool) | ❌ | Work item type name remapping table |
 | T4 | [StringManipulatorTool](#t4-stringmanipulatortool) | ❌ | Regex-based field string cleanup |
@@ -91,100 +89,11 @@ Status legend:
 | # | Feature | Status | Summary |
 |---|---------|--------|---------|
 | P1 | [Checkpoint Reconciliation](#p1-checkpoint-reconciliation) | 🆕 ❌ | Rebuild missing/corrupted checkpoint state from existing package data across all modules |
-| P2 | [Three-Channel Telemetry Model](#p2-three-channel-telemetry-model) | ✅ | Rationalise Events, Metrics, and Snapshot into distinct channels with correct layering |
-| **P3** | **[Process-per-Component Standalone Mode](#p3-process-per-component-standalone-mode)** | **🔶** | **Eliminate OTel instrumentation bleed in standalone mode by running ControlPlane and Agent as separate processes (with in-process fallback)** |
 | P4 | [Operator Interaction / Pending Questions](#p4-operator-interaction--pending-questions) | 🆕 ❌ | Allow a running MigrationJob to pause and request operator input via TUI or CLI follow-mode; Agent enters "Pending" state on Control Plane until the answer is provided |
 
 ---
 
 ## Modules — Detail
-
-### M1: WorkItemsModule — FieldTransform
-
-**Current state**: The module copies fields as opaque values. Identity fields are mapped by `IIdentityMappingService`. No general field transformation exists.
-
-**Why it matters**: Any migration between organisations with different process templates (e.g. Agile source → Scrum target) requires value translation on State, Priority, and custom fields before import. Without this, work items import with invalid or missing field values.
-
-**Proposed additions**:
-
-#### New Tool: `FieldTransformTool` (see [T1](#t1-fieldtransformtool))
-
-Declared once in `MigrationPlatform.Tools`. The `WorkItems/Revisions` extension loads it by reference and may override selected values before writing `revision.json`.
-
-```json
-{
-  "MigrationPlatform": {
-    "Tools": {
-      "FieldTransform": {
-        "Enabled": true,
-        "applyTo": ["User Story", "Bug"],
-        "TransformGroups": [
-          {
-            "Name": "default",
-            "Transforms": [
-              { "type": "CopyField",    "sourceField": "Custom.OldField", "targetField": "Custom.NewField" },
-              { "type": "MapValue",     "field": "System.State", "valueMap": { "Active": "In Progress", "Resolved": "Done" } },
-              { "type": "SetLiteral",   "field": "Custom.MigratedBy", "value": "migration-platform" },
-              { "type": "FieldToTag",   "field": "System.AreaPath" },
-              { "type": "ValueToTag",   "field": "System.State", "pattern": "^Resolved$" },
-              { "type": "RegexReplace", "field": "System.Title", "pattern": "^\\[OLD\\]\\s*", "replacement": "" },
-              { "type": "ClearField",   "field": "Custom.LegacyId" },
-              { "type": "SkipField",    "field": "Custom.InternalOnly" },
-              { "type": "MergeFields",  "sourceFields": ["System.Title", "Custom.Subtitle"], "targetField": "System.Title", "format": "{0} — {1}" },
-              { "type": "CalculateField", "targetField": "Custom.Score", "expression": "..." },
-              { "type": "MergeToTagField", "sourceFields": ["System.Tags", "Custom.Labels"], "targetField": "System.Tags" },
-              { "type": "TreeToTag",    "field": "System.AreaPath", "targetField": "System.Tags" },
-              { "type": "ConditionalMap", "conditions": ["..."], "targetField": "...", "value": "..." },
-              { "type": "CopyFieldMulti", "maps": [ { "sourceField": "...", "targetField": "..." } ] }
-            ]
-          }
-        ]
-      }
-    },
-    "Modules": {
-      "WorkItems": {
-        "Enabled": true,
-        "Extensions": {
-          "Revisions": {
-            "Enabled": true,
-            "tools": [
-              {
-                "ref": "FieldTransform",
-                "overrides": {
-                  "applyTo": ["User Story", "Bug", "Task"]
-                }
-              }
-            ]
-          }
-        }
-      }
-    }
-  }
-}
-```
-
-**Transform types to implement** (14 total):
-
-| Transform Type | Purpose |
-|---|---|
-| `CopyField` | Copy field A → field B with optional default |
-| `CopyFieldMulti` | Multiple source→target field copy pairs |
-| `SetLiteral` | Set field to a literal value |
-| `MapValue` | Dictionary-based value remapping (e.g. State) |
-| `MergeFields` | Merge multiple source fields into one with format string |
-| `CalculateField` | Compute field from an expression |
-| `ClearField` | Null-out a field |
-| `SkipField` | Exclude field from the written revision (not imported) |
-| `ValueToTag` | Append to `System.Tags` when field value matches a pattern |
-| `FieldToTag` | Append field value to `System.Tags` |
-| `MergeToTagField` | Merge multiple field values into a tag-style target field |
-| `ConditionalMap` | Conditional multi-field → single field mapping |
-| `RegexReplace` | Regex find-and-replace within a field value |
-| `TreeToTag` | Convert area/iteration tree path into a tag |
-
-**Per-transform `applyTo` filter** — each transform entry (or the tool itself) accepts an optional `applyTo` array of work item type names to restrict application.
-
----
 
 ### M2: WorkItemsModule — NodeStructure Tool
 
@@ -453,21 +362,6 @@ Options that belong directly on the `WorkItems` module config rather than as sep
 ---
 
 ## Tools — Detail
-
-### T1: FieldTransformTool
-
-**Used by**: `WorkItemsModule`  
-**Purpose**: Apply a declared set of field transformation rules to each work item revision before it is written to the package (export) or applied to the target (import).
-
-**Invocation**: Declared in `MigrationPlatform.Tools.FieldTransform`, then loaded by extension references (for example `WorkItems/Revisions`) with optional `overrides`. See [M1](#m1-workitemsmodule--fieldtransform) for the full transform type list and JSON schema.
-
-**Key design rules**:
-- Transforms are applied in declaration order.
-- `SkipField` transforms remove the field from the revision before any write — they are not import-only.
-- All transforms respect the `applyTo` work item type filter.
-- Transform processing is a pure transformation (no I/O). The tool is injected as `IFieldTransformTool` and receives a `WorkItemRevision` value object; it returns a transformed copy.
-
----
 
 ### T2: NodeStructureTool
 
@@ -955,12 +849,6 @@ devopsmigration admin page install --config migration.json --pages ./pages --dry
 
 As an interim measure before the full `Reconcile` job is built, individual modules can perform **automatic reconciliation on startup**: if the cursor is missing but data exists, reconstruct the cursor from the data and log a warning. This is implemented for:
 - `DependencyDiscoveryModule` — parses existing `dependencies.csv` to rebuild `completedProjects` set
-
----
-
-### P3: Process-per-Component Standalone Mode ✅
-
-> **Fully implemented.** `LocalStackHost` operates in dual mode — process-per-component (preferred) with in-process fallback. See [docs/cli.md](../docs/cli.md#standalone-local--server) and [docs/architecture.md](../docs/architecture.md#components-and-responsibilities) for the canonical reference.
 
 ---
 
