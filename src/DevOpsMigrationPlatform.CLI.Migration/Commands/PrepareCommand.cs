@@ -38,7 +38,7 @@ public sealed class PrepareCommand : ControlPlaneCommandBase<MigrationCommandSet
                 client.BaseAddress = new Uri(opts.ControlPlane.BaseUrl);
             });
 
-            services.AddTransient<IJobRunner>(sp => sp.GetRequiredService<ControlPlaneClient>());
+            services.AddTransient<IJobSubmissionClient>(sp => sp.GetRequiredService<ControlPlaneClient>());
         });
 
         var console = GetRequiredService<IAnsiConsole>();

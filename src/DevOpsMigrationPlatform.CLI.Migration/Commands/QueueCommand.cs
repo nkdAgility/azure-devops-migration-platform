@@ -52,7 +52,7 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
                 client.BaseAddress = new Uri(opts.ControlPlane.BaseUrl);
             });
 
-            services.AddTransient<IJobRunner>(sp => sp.GetRequiredService<ControlPlaneClient>());
+            services.AddTransient<IJobSubmissionClient>(sp => sp.GetRequiredService<ControlPlaneClient>());
 
             // TFS subprocess services — registered unconditionally so DI resolves them
             // correctly when the source type is TeamFoundationServer.

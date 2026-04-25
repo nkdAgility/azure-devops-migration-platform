@@ -1,10 +1,10 @@
-using DevOpsMigrationPlatform.Abstractions.Streaming;
-using DevOpsMigrationPlatform.Abstractions.Jobs;
 #if !NET481
 using System.Collections.Generic;
 using System.Threading;
+using DevOpsMigrationPlatform.Abstractions.Streaming;
+using DevOpsMigrationPlatform.Abstractions.Jobs;
 
-namespace DevOpsMigrationPlatform.Abstractions;
+namespace DevOpsMigrationPlatform.Abstractions.Jobs;
 
 /// <summary>
 /// Abstraction for the job execution transport.
@@ -21,7 +21,7 @@ namespace DevOpsMigrationPlatform.Abstractions;
 ///    without a control plane. See guardrail rule #20 in
 ///    .agents/guardrails/system-architecture.md and docs/architecture.md.
 /// </summary>
-public interface IJobRunner
+public interface IJobSubmissionClient
 {
     /// <summary>
     /// Submit and execute (or enqueue) the job.

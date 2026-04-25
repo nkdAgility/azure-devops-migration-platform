@@ -19,7 +19,7 @@ namespace DevOpsMigrationPlatform.CLI.JobRunners;
 /// Switching between the two requires only a config change in appsettings.json;
 /// no code changes are needed.  See docs/cli.md and docs/control-plane.md.
 /// </summary>
-public sealed class ControlPlaneClient : IJobRunner, ILogsClient, IControlPlaneClient
+public sealed class ControlPlaneClient : IJobSubmissionClient, ILogsClient, IControlPlaneClient
 {
     private readonly JsonSerializerOptions _jsonOptions;
 
