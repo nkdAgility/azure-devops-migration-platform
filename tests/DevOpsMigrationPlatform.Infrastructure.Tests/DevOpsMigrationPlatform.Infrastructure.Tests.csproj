@@ -26,7 +26,6 @@
     <ProjectReference Include="..\..\src\DevOpsMigrationPlatform.Infrastructure\DevOpsMigrationPlatform.Infrastructure.csproj" />
     <ProjectReference Include="..\..\src\DevOpsMigrationPlatform.Infrastructure.AzureDevOps\DevOpsMigrationPlatform.Infrastructure.AzureDevOps.csproj" />
     <ProjectReference Include="..\..\src\DevOpsMigrationPlatform.Infrastructure.Simulated\DevOpsMigrationPlatform.Infrastructure.Simulated.csproj" />
-    <ProjectReference Include="..\..\src\DevOpsMigrationPlatform.CLI.Migration\DevOpsMigrationPlatform.CLI.Migration.csproj" />
   </ItemGroup>
 
   <ItemGroup>
@@ -42,7 +41,6 @@
     <ExternalFeatureFiles Include="..\..\features\cli\prepare\prepare-validates-config.feature" />
     <ExternalFeatureFiles Include="..\..\features\platform\telemetry\cli-otel.feature" />
     <ExternalFeatureFiles Include="..\..\features\platform\telemetry\progress-sink.feature" />
-    <ExternalFeatureFiles Include="..\..\features\cli\execute\migrate-logs.feature" />
     <!-- Import feature files -->
     <ExternalFeatureFiles Include="..\..\features\import\work-items\revisions\import-work-item-revisions.feature" />
     <ExternalFeatureFiles Include="..\..\features\platform\checkpointing\import-cursor-resume.feature" />

@@ -2,21 +2,17 @@ using System;
 using System.ComponentModel;
 using System.Threading;
 using System.Threading.Tasks;
-using DevOpsMigrationPlatform.CLI.JobRunners;
 using DevOpsMigrationPlatform.CLI.Migration.Commands;
-using DevOpsMigrationPlatform.CLI.Migration.Options;
 using DevOpsMigrationPlatform.CLI.Migration.Settings;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
 using Spectre.Console;
 using Spectre.Console.Cli;
 
 namespace DevOpsMigrationPlatform.CLI.Commands.Manage;
 
 /// <summary>
-/// Downloads diagnostic logs from a completed job's package via the control plane
-/// download endpoint. No <c>--follow</c> — live streaming is TUI-only.
+/// Reports the location of diagnostic logs for a completed job.
+/// Diagnostic logs are stored in the job's working directory under
+/// <c>.migration/Logs/&lt;ticks&gt;-&lt;jobId&gt;/agent.jsonl</c>.
 /// See docs/cli.md for full specification.
 /// </summary>
 public sealed class ManageDiagnosticsCommand : ControlPlaneCommandBase<ManageDiagnosticsCommand.Settings>
@@ -32,73 +28,16 @@ public sealed class ManageDiagnosticsCommand : ControlPlaneCommandBase<ManageDia
         public string? Level { get; init; }
     }
 
-    protected override async Task<int> ExecuteInternalAsync(
+    protected override Task<int> ExecuteInternalAsync(
         CommandContext context,
         Settings settings,
         CancellationToken cancellationToken = default)
     {
-        if (string.IsNullOrWhiteSpace(settings.JobId) || !Guid.TryParse(settings.JobId, out var jobId))
-        {
-            AnsiConsole.MarkupLine("[red]Error:[/] --job must be a valid GUID.");
-            return 1;
-        }
-
-        LogLevel? levelFilter = null;
-        if (!string.IsNullOrEmpty(settings.Level) &&
-            Enum.TryParse<LogLevel>(settings.Level, ignoreCase: true, out var parsed))
-        {
-            levelFilter = parsed;
-        }
-
-        await CreateHost(Environment.GetCommandLineArgs(), (services, _) =>
-        {
-            services.AddHttpClient<ControlPlaneClient>((sp, client) =>
-            {
-                var opts = sp.GetRequiredService<IOptions<EnvironmentOptions>>().Value;
-                client.BaseAddress = new Uri(opts.ControlPlane.BaseUrl);
-            });
-        });
-
-        var client = GetRequiredService<ControlPlaneClient>();
-
-        try
-        {
-            var records = await client.DownloadDiagnosticsAsync(jobId, cancellationToken);
-            if (records is null || records.Count == 0)
-            {
-                AnsiConsole.MarkupLine("[yellow]No diagnostic records found for this job.[/]");
-                return 0;
-            }
-
-            foreach (var record in records)
-            {
-                if (levelFilter is not null &&
-                    Enum.TryParse<LogLevel>(record.Level, ignoreCase: true, out var rl) &&
-                    rl < levelFilter.Value)
-                {
-                    continue;
-                }
-
-                var levelColor = record.Level switch
-                {
-                    "Error" or "Critical" => "red",
-                    "Warning" => "yellow",
-                    "Debug" or "Trace" => "grey",
-                    _ => "blue"
-                };
-                AnsiConsole.MarkupLine(
-                    $"[grey]{record.Timestamp:HH:mm:ss.fff}[/] [{levelColor}]{Markup.Escape(record.Level)}[/] [[{Markup.Escape(record.Category)}]] {Markup.Escape(record.Message)}");
-
-                if (record.Exception is not null)
-                    AnsiConsole.MarkupLine($"  [grey]{Markup.Escape(record.Exception)}[/]");
-            }
-
-            return 0;
-        }
-        catch (Exception ex)
-        {
-            AnsiConsole.MarkupLine($"[red]Error:[/] {Markup.Escape(ex.Message)}");
-            return 1;
-        }
+        AnsiConsole.MarkupLine("[yellow]Diagnostic logs are stored in the job's working directory:[/]");
+        AnsiConsole.MarkupLine("[grey].migration/Logs/<ticks>-<jobId>/agent.jsonl[/]");
+        AnsiConsole.MarkupLine("[grey]Use the --job option to identify the correct job folder.[/]");
+        if (!string.IsNullOrWhiteSpace(settings.JobId))
+            AnsiConsole.MarkupLine($"[grey]Job ID: {settings.JobId}[/]");
+        return Task.FromResult(0);
     }
 }

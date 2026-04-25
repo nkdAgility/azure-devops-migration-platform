@@ -3,12 +3,12 @@ using System.Reflection;
 using System.Text;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.CLI.Commands;
-using DevOpsMigrationPlatform.Infrastructure.Tests.Cli;
+using DevOpsMigrationPlatform.CLI.Migration.Tests.Cli;
 using Moq;
 using Reqnroll;
 using Spectre.Console.Cli;
 
-namespace DevOpsMigrationPlatform.Infrastructure.Tests.Cli;
+namespace DevOpsMigrationPlatform.CLI.Migration.Tests.Cli;
 
 [Binding]
 [Scope(Feature = "migrate logs command")]
