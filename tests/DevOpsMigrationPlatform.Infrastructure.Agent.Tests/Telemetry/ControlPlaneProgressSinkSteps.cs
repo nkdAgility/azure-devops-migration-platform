@@ -55,7 +55,7 @@ internal sealed class ControlPlaneProgressSinkSteps
     public async Task WhenJobEngineEmits()
     {
         Assert.IsNotNull(_sink, "Sink must be created in Given step.");
-        _sink.Emit(new ProgressEvent { Module = "WorkItems", Stage = "TestStage" });
+        _sink.Emit(new ProgressEvent { Module = "workitems", Stage = "TestStage" });
         await Task.Delay(300); // Allow background drain loop to process.
     }
 
@@ -103,7 +103,7 @@ internal sealed class ControlPlaneProgressSinkSteps
     {
         Assert.IsNotNull(_sink);
         // Re-emit after the failure — should not throw.
-        _sink.Emit(new ProgressEvent { Module = "WorkItems", Stage = "SubsequentStage" });
+        _sink.Emit(new ProgressEvent { Module = "workitems", Stage = "SubsequentStage" });
         await Task.Delay(300);
         // No exception means subsequent calls are unaffected.
         Assert.IsTrue(true);

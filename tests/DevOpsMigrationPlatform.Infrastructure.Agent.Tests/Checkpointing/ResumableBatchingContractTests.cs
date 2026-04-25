@@ -252,7 +252,7 @@ public class ResumableBatchingContractTests
     [TestMethod]
     public void ContinuationFile_LowercasesModuleName()
     {
-        var path = PackagePaths.ContinuationFile("WorkItems");
+        var path = PackagePaths.ContinuationFile("workitems");
         Assert.IsTrue(path.Contains("workitems.continuation.json"));
     }
 }

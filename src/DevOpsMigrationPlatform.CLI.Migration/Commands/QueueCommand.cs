@@ -9,7 +9,7 @@ using DevOpsMigrationPlatform.CLI.Commands;
 using DevOpsMigrationPlatform.CLI.JobRunners;
 using DevOpsMigrationPlatform.CLI.Migration.Options;
 using DevOpsMigrationPlatform.CLI.Migration.Settings;
-using DevOpsMigrationPlatform.CLI.Migration.Services;
+using DevOpsMigrationPlatform.CLI.Migration.Configuration;
 using DevOpsMigrationPlatform.CLI.Views;
 using DevOpsMigrationPlatform.Infrastructure.Config;
 using DevOpsMigrationPlatform.Abstractions.Validation;

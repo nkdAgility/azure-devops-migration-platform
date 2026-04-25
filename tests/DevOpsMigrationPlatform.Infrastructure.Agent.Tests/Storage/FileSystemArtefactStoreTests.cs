@@ -84,7 +84,7 @@ public class FileSystemArtefactStoreTests
     [TestMethod]
     public async Task EnumerateAsync_EmptyDirectory_YieldsNoResults()
     {
-        Directory.CreateDirectory(Path.Combine(_root, "WorkItems"));
+        Directory.CreateDirectory(Path.Combine(_root, "workitems"));
 
         var results = new List<string>();
         await foreach (var path in _sut.EnumerateAsync("WorkItems/", CancellationToken.None))

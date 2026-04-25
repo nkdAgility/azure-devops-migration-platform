@@ -27,8 +27,8 @@ internal sealed class MigrateLogsSteps
             .Setup(c => c.GetProgressAsync(_jobId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(new List<ProgressEvent>
             {
-                new() { Module = "WorkItems", Stage = "Stage1" },
-                new() { Module = "WorkItems", Stage = "Stage2" }
+                new() { Module = "workitems", Stage = "Stage1" },
+                new() { Module = "workitems", Stage = "Stage2" }
             });
     }
 
@@ -38,8 +38,8 @@ internal sealed class MigrateLogsSteps
         _jobId = Guid.Parse(jobIdString);
         var events = new List<ProgressEvent>
         {
-            new() { Module = "WorkItems", Stage = "Live1" },
-            new() { Module = "WorkItems", Stage = "Live2" }
+            new() { Module = "workitems", Stage = "Live1" },
+            new() { Module = "workitems", Stage = "Live2" }
         };
 
         _ctx.ClientMock

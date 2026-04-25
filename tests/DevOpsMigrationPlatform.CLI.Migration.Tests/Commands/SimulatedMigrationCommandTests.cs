@@ -49,7 +49,7 @@ public class SimulatedMigrationCommandTests
 
         // Verify WorkItems folder was created with at least one revision
         // (org/project nesting places it under <outputDir>/<org>/<project>/WorkItems/)
-        var workItemsDirs = Directory.GetDirectories(outputDir, "WorkItems", SearchOption.AllDirectories);
+        var workItemsDirs = Directory.GetDirectories(outputDir, "workitems", SearchOption.AllDirectories);
         Assert.IsTrue(workItemsDirs.Length > 0,
             $"Expected WorkItems/ folder to exist somewhere under {outputDir}");
 
@@ -123,7 +123,7 @@ public class SimulatedMigrationCommandTests
 
         // Roundtrip should produce a package (Both mode = export + import)
         // (org/project nesting places it under <outputDir>/<org>/<project>/WorkItems/)
-        var workItemsDirs = Directory.GetDirectories(outputDir, "WorkItems", SearchOption.AllDirectories);
+        var workItemsDirs = Directory.GetDirectories(outputDir, "workitems", SearchOption.AllDirectories);
         Assert.IsTrue(workItemsDirs.Length > 0,
             $"Expected WorkItems/ folder somewhere under {outputDir}");
 

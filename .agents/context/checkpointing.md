@@ -4,6 +4,8 @@
 
 Instead of per-work-item watermark tables, the system uses a forward-only cursor stored as a JSON file. This requires no database and makes resume O(1).
 
+> **Single-job-per-package**: Cursor file paths are scoped by module name only (e.g. `workitems.cursor.json`), not by job ID. This is intentional — only one job runs against a given package at a time, enforced by the lease protocol. Parallel execution requires separate packages.
+
 ### Cursor File Location
 
 ```

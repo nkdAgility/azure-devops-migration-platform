@@ -107,6 +107,8 @@ Module code never references a concrete store implementation.
 
 **Concurrent Write Protection**: Packages are protected from simultaneous writes by a lease-based protocol. Only one agent may hold a lease on a package at any time. See [docs/concurrent-write-detection.md](concurrent-write-detection.md) for the lease mechanism and data integrity guarantees.
 
+> **Single-job-per-package constraint**: Only one job runs against a given package at a time. This is a deliberate design decision — checkpoint keys (e.g. `PackagePaths.CursorFile("workitems")`) are scoped by module name only, not by job ID. Adding job-ID scoping would be premature — the lease protocol already prevents concurrent access, and a second job on the same package would re-export or re-import atop the first job's data, which is never valid. If you need parallel execution, use separate packages.
+
 ### Cross-Environment Package Handoff
 
 Because the package is a first-class artefact identified by URI, export and import can run in completely different environments:

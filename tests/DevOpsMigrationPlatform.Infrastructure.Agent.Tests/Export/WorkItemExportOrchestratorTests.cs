@@ -67,9 +67,9 @@ public class WorkItemExportOrchestratorTests
     [TestMethod]
     public async Task ExportAsync_WhenNoCursor_WritesAllRevisions()
     {
-        _mockCps.Setup(s => s.ReadCursorAsync("WorkItems", It.IsAny<CancellationToken>()))
+        _mockCps.Setup(s => s.ReadCursorAsync("workitems", It.IsAny<CancellationToken>()))
                 .ReturnsAsync((CursorEntry?)null);
-        _mockCps.Setup(s => s.WriteCursorAsync("WorkItems", It.IsAny<CursorEntry>(), It.IsAny<CancellationToken>()))
+        _mockCps.Setup(s => s.WriteCursorAsync("workitems", It.IsAny<CursorEntry>(), It.IsAny<CancellationToken>()))
                 .Returns(Task.CompletedTask);
 
         var written = new List<string>();
@@ -96,9 +96,9 @@ public class WorkItemExportOrchestratorTests
             Stage = CursorStage.Completed,
             UpdatedAt = DateTimeOffset.UtcNow
         };
-        _mockCps.Setup(s => s.ReadCursorAsync("WorkItems", It.IsAny<CancellationToken>()))
+        _mockCps.Setup(s => s.ReadCursorAsync("workitems", It.IsAny<CancellationToken>()))
                 .ReturnsAsync(cursor);
-        _mockCps.Setup(s => s.WriteCursorAsync("WorkItems", It.IsAny<CursorEntry>(), It.IsAny<CancellationToken>()))
+        _mockCps.Setup(s => s.WriteCursorAsync("workitems", It.IsAny<CursorEntry>(), It.IsAny<CancellationToken>()))
                 .Returns(Task.CompletedTask);
 
         var written = new List<string>();
@@ -116,11 +116,11 @@ public class WorkItemExportOrchestratorTests
     [TestMethod]
     public async Task ExportAsync_WritesOneCursorPerRevision()
     {
-        _mockCps.Setup(s => s.ReadCursorAsync("WorkItems", It.IsAny<CancellationToken>()))
+        _mockCps.Setup(s => s.ReadCursorAsync("workitems", It.IsAny<CancellationToken>()))
                 .ReturnsAsync((CursorEntry?)null);
 
         var cursors = new List<CursorEntry>();
-        _mockCps.Setup(s => s.WriteCursorAsync("WorkItems", It.IsAny<CursorEntry>(), It.IsAny<CancellationToken>()))
+        _mockCps.Setup(s => s.WriteCursorAsync("workitems", It.IsAny<CursorEntry>(), It.IsAny<CancellationToken>()))
                 .Callback<string, CursorEntry, CancellationToken>((_, c, _) => cursors.Add(c))
                 .Returns(Task.CompletedTask);
 
@@ -137,7 +137,7 @@ public class WorkItemExportOrchestratorTests
     [TestMethod]
     public async Task ExportAsync_WhenNoRevisions_WritesNothingAndNoCursor()
     {
-        _mockCps.Setup(s => s.ReadCursorAsync("WorkItems", It.IsAny<CancellationToken>()))
+        _mockCps.Setup(s => s.ReadCursorAsync("workitems", It.IsAny<CancellationToken>()))
                 .ReturnsAsync((CursorEntry?)null);
 
         SetupSource(new List<WorkItemRevision>());
@@ -160,9 +160,9 @@ public class WorkItemExportOrchestratorTests
     [TestMethod]
     public async Task ExportAsync_SerialisesFull_WorkItemRevision_NotJustMetadata()
     {
-        _mockCps.Setup(s => s.ReadCursorAsync("WorkItems", It.IsAny<CancellationToken>()))
+        _mockCps.Setup(s => s.ReadCursorAsync("workitems", It.IsAny<CancellationToken>()))
                 .ReturnsAsync((CursorEntry?)null);
-        _mockCps.Setup(s => s.WriteCursorAsync("WorkItems", It.IsAny<CursorEntry>(), It.IsAny<CancellationToken>()))
+        _mockCps.Setup(s => s.WriteCursorAsync("workitems", It.IsAny<CursorEntry>(), It.IsAny<CancellationToken>()))
                 .Returns(Task.CompletedTask);
 
         string? capturedJson = null;
@@ -310,9 +310,9 @@ public class WorkItemExportOrchestratorTests
             ModifiedDate = revisionDate  // Within ±1 second of revision.ChangedDate
         };
 
-        _mockCps.Setup(s => s.ReadCursorAsync("WorkItems", It.IsAny<CancellationToken>()))
+        _mockCps.Setup(s => s.ReadCursorAsync("workitems", It.IsAny<CancellationToken>()))
                 .ReturnsAsync((CursorEntry?)null);
-        _mockCps.Setup(s => s.WriteCursorAsync("WorkItems", It.IsAny<CursorEntry>(), It.IsAny<CancellationToken>()))
+        _mockCps.Setup(s => s.WriteCursorAsync("workitems", It.IsAny<CursorEntry>(), It.IsAny<CancellationToken>()))
                 .Returns(Task.CompletedTask);
 
         var written = new Dictionary<string, string>();
@@ -383,9 +383,9 @@ public class WorkItemExportOrchestratorTests
             ModifiedDate = revisionDate.AddSeconds(-60)
         };
 
-        _mockCps.Setup(s => s.ReadCursorAsync("WorkItems", It.IsAny<CancellationToken>()))
+        _mockCps.Setup(s => s.ReadCursorAsync("workitems", It.IsAny<CancellationToken>()))
                 .ReturnsAsync((CursorEntry?)null);
-        _mockCps.Setup(s => s.WriteCursorAsync("WorkItems", It.IsAny<CursorEntry>(), It.IsAny<CancellationToken>()))
+        _mockCps.Setup(s => s.WriteCursorAsync("workitems", It.IsAny<CursorEntry>(), It.IsAny<CancellationToken>()))
                 .Returns(Task.CompletedTask);
 
         var writtenPaths = new List<string>();
@@ -438,9 +438,9 @@ public class WorkItemExportOrchestratorTests
             }
         };
 
-        _mockCps.Setup(s => s.ReadCursorAsync("WorkItems", It.IsAny<CancellationToken>()))
+        _mockCps.Setup(s => s.ReadCursorAsync("workitems", It.IsAny<CancellationToken>()))
                 .ReturnsAsync((CursorEntry?)null);
-        _mockCps.Setup(s => s.WriteCursorAsync("WorkItems", It.IsAny<CursorEntry>(), It.IsAny<CancellationToken>()))
+        _mockCps.Setup(s => s.WriteCursorAsync("workitems", It.IsAny<CursorEntry>(), It.IsAny<CancellationToken>()))
                 .Returns(Task.CompletedTask);
 
         _mockStore.Setup(s => s.WriteAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
@@ -472,9 +472,9 @@ public class WorkItemExportOrchestratorTests
     [TestMethod]
     public async Task ExportAsync_WithAttachments_DownloadsAndWritesBinaries()
     {
-        _mockCps.Setup(s => s.ReadCursorAsync("WorkItems", It.IsAny<CancellationToken>()))
+        _mockCps.Setup(s => s.ReadCursorAsync("workitems", It.IsAny<CancellationToken>()))
                 .ReturnsAsync((CursorEntry?)null);
-        _mockCps.Setup(s => s.WriteCursorAsync("WorkItems", It.IsAny<CursorEntry>(), It.IsAny<CancellationToken>()))
+        _mockCps.Setup(s => s.WriteCursorAsync("workitems", It.IsAny<CursorEntry>(), It.IsAny<CancellationToken>()))
                 .Returns(Task.CompletedTask);
 
         _mockStore.Setup(s => s.WriteAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
@@ -514,9 +514,9 @@ public class WorkItemExportOrchestratorTests
     [TestMethod]
     public async Task ExportAsync_DeltaDetection_SkipsSameUrlOnAdjacentRevisions()
     {
-        _mockCps.Setup(s => s.ReadCursorAsync("WorkItems", It.IsAny<CancellationToken>()))
+        _mockCps.Setup(s => s.ReadCursorAsync("workitems", It.IsAny<CancellationToken>()))
                 .ReturnsAsync((CursorEntry?)null);
-        _mockCps.Setup(s => s.WriteCursorAsync("WorkItems", It.IsAny<CursorEntry>(), It.IsAny<CancellationToken>()))
+        _mockCps.Setup(s => s.WriteCursorAsync("workitems", It.IsAny<CursorEntry>(), It.IsAny<CancellationToken>()))
                 .Returns(Task.CompletedTask);
 
         _mockStore.Setup(s => s.WriteAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
@@ -563,9 +563,9 @@ public class WorkItemExportOrchestratorTests
     [TestMethod]
     public async Task ExportAsync_DeltaDetection_DownloadsDifferentUrls()
     {
-        _mockCps.Setup(s => s.ReadCursorAsync("WorkItems", It.IsAny<CancellationToken>()))
+        _mockCps.Setup(s => s.ReadCursorAsync("workitems", It.IsAny<CancellationToken>()))
                 .ReturnsAsync((CursorEntry?)null);
-        _mockCps.Setup(s => s.WriteCursorAsync("WorkItems", It.IsAny<CursorEntry>(), It.IsAny<CancellationToken>()))
+        _mockCps.Setup(s => s.WriteCursorAsync("workitems", It.IsAny<CursorEntry>(), It.IsAny<CancellationToken>()))
                 .Returns(Task.CompletedTask);
 
         _mockStore.Setup(s => s.WriteAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
@@ -606,9 +606,9 @@ public class WorkItemExportOrchestratorTests
     [TestMethod]
     public async Task ExportAsync_AttachmentFailure_IncrementsFailedCounter()
     {
-        _mockCps.Setup(s => s.ReadCursorAsync("WorkItems", It.IsAny<CancellationToken>()))
+        _mockCps.Setup(s => s.ReadCursorAsync("workitems", It.IsAny<CancellationToken>()))
                 .ReturnsAsync((CursorEntry?)null);
-        _mockCps.Setup(s => s.WriteCursorAsync("WorkItems", It.IsAny<CursorEntry>(), It.IsAny<CancellationToken>()))
+        _mockCps.Setup(s => s.WriteCursorAsync("workitems", It.IsAny<CursorEntry>(), It.IsAny<CancellationToken>()))
                 .Returns(Task.CompletedTask);
 
         _mockStore.Setup(s => s.WriteAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
@@ -654,9 +654,9 @@ public class WorkItemExportOrchestratorTests
     [TestMethod]
     public async Task ExportAsync_EmitsProgressPerWorkItem()
     {
-        _mockCps.Setup(s => s.ReadCursorAsync("WorkItems", It.IsAny<CancellationToken>()))
+        _mockCps.Setup(s => s.ReadCursorAsync("workitems", It.IsAny<CancellationToken>()))
                 .ReturnsAsync((CursorEntry?)null);
-        _mockCps.Setup(s => s.WriteCursorAsync("WorkItems", It.IsAny<CursorEntry>(), It.IsAny<CancellationToken>()))
+        _mockCps.Setup(s => s.WriteCursorAsync("workitems", It.IsAny<CursorEntry>(), It.IsAny<CancellationToken>()))
                 .Returns(Task.CompletedTask);
 
         _mockStore.Setup(s => s.WriteAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
@@ -699,7 +699,7 @@ public class WorkItemExportOrchestratorTests
     [TestMethod]
     public async Task ExportAsync_CursorWrittenAfterAttachments()
     {
-        _mockCps.Setup(s => s.ReadCursorAsync("WorkItems", It.IsAny<CancellationToken>()))
+        _mockCps.Setup(s => s.ReadCursorAsync("workitems", It.IsAny<CancellationToken>()))
                 .ReturnsAsync((CursorEntry?)null);
 
         var callOrder = new List<string>();
@@ -711,7 +711,7 @@ public class WorkItemExportOrchestratorTests
                   .Callback<string, byte[], CancellationToken>((p, _, _) => callOrder.Add($"binary:{p}"))
                   .Returns(Task.CompletedTask);
 
-        _mockCps.Setup(s => s.WriteCursorAsync("WorkItems", It.IsAny<CursorEntry>(), It.IsAny<CancellationToken>()))
+        _mockCps.Setup(s => s.WriteCursorAsync("workitems", It.IsAny<CursorEntry>(), It.IsAny<CancellationToken>()))
                 .Callback<string, CursorEntry, CancellationToken>((_, _, _) => callOrder.Add("cursor"))
                 .Returns(Task.CompletedTask);
 
@@ -751,9 +751,9 @@ public class WorkItemExportOrchestratorTests
     [TestMethod]
     public async Task ExportAsync_WithFilterAndMatchingItems_OnlyExportsMatchingWorkItems()
     {
-        _mockCps.Setup(s => s.ReadCursorAsync("WorkItems", It.IsAny<CancellationToken>()))
+        _mockCps.Setup(s => s.ReadCursorAsync("workitems", It.IsAny<CancellationToken>()))
                 .ReturnsAsync((CursorEntry?)null);
-        _mockCps.Setup(s => s.WriteCursorAsync("WorkItems", It.IsAny<CursorEntry>(), It.IsAny<CancellationToken>()))
+        _mockCps.Setup(s => s.WriteCursorAsync("workitems", It.IsAny<CursorEntry>(), It.IsAny<CancellationToken>()))
                 .Returns(Task.CompletedTask);
 
         var written = new List<string>();
@@ -805,9 +805,9 @@ public class WorkItemExportOrchestratorTests
     [TestMethod]
     public async Task ExportAsync_WithNoFilterOptions_ExportsAllWorkItems()
     {
-        _mockCps.Setup(s => s.ReadCursorAsync("WorkItems", It.IsAny<CancellationToken>()))
+        _mockCps.Setup(s => s.ReadCursorAsync("workitems", It.IsAny<CancellationToken>()))
                 .ReturnsAsync((CursorEntry?)null);
-        _mockCps.Setup(s => s.WriteCursorAsync("WorkItems", It.IsAny<CursorEntry>(), It.IsAny<CancellationToken>()))
+        _mockCps.Setup(s => s.WriteCursorAsync("workitems", It.IsAny<CursorEntry>(), It.IsAny<CancellationToken>()))
                 .Returns(Task.CompletedTask);
 
         var written = new List<string>();

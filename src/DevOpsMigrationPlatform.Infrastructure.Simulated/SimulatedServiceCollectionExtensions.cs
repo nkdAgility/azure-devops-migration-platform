@@ -4,7 +4,7 @@ using DevOpsMigrationPlatform.Infrastructure.Serialization;
 using DevOpsMigrationPlatform.Infrastructure.Simulated.Export;
 using DevOpsMigrationPlatform.Infrastructure.Simulated.Import;
 using DevOpsMigrationPlatform.Abstractions.Options;
-using DevOpsMigrationPlatform.Infrastructure.Simulated.Services;
+using DevOpsMigrationPlatform.Infrastructure.Simulated.Discovery;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 

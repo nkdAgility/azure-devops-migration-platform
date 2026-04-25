@@ -99,7 +99,7 @@ public class MigrationExportCommandTests
 
         // ── Assert: output folder contains revision.json files ────────────
         // Org/project nesting places WorkItems under <outputDir>/<org>/<project>/WorkItems/
-        var workItemsDirs = Directory.GetDirectories(outputDir, "WorkItems", SearchOption.AllDirectories);
+        var workItemsDirs = Directory.GetDirectories(outputDir, "workitems", SearchOption.AllDirectories);
         Assert.IsTrue(workItemsDirs.Length > 0,
             $"WorkItems directory was not created anywhere under {outputDir}");
         var workItemsDir = workItemsDirs[0];
@@ -184,7 +184,7 @@ public class MigrationExportCommandTests
 
         // ── Assert: comment folders exist ───────────────────────────────────
         // Org/project nesting places WorkItems under <outputDir>/<org>/<project>/WorkItems/
-        var workItemsDirs = Directory.GetDirectories(outputDir, "WorkItems", SearchOption.AllDirectories);
+        var workItemsDirs = Directory.GetDirectories(outputDir, "workitems", SearchOption.AllDirectories);
         Assert.IsTrue(workItemsDirs.Length > 0,
             $"WorkItems directory was not created anywhere under {outputDir}");
         var workItemsDir = workItemsDirs[0];
@@ -232,7 +232,7 @@ public class MigrationExportCommandTests
                 var ext = Path.GetExtension(f).ToLowerInvariant();
                 // Image files: SHA-256 hex + extension (e.g., abc123def456.png)
                 return Regex.IsMatch(fileName, @"^[a-f0-9]{64}\.(png|jpg|jpeg|gif|webp|svg|bmp)$") &&
-                       (f.Contains("-c") || Path.GetFileName(Path.GetDirectoryName(f)) == "WorkItems");
+                       (f.Contains("-c") || Path.GetFileName(Path.GetDirectoryName(f)) == "workitems");
             })
             .ToList();
 

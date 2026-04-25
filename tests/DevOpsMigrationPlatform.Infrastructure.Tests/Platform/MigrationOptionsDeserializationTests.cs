@@ -50,7 +50,7 @@ public class MigrationOptionsDeserializationTests
               "mode": "Export",
               "artefacts": { "workingDirectory": "D:\\exports" },
               "modules": {
-                "workItems": {
+                "workitems": {
                   "enabled": true,
                   "scope": {
                     "query": "SELECT [System.Id] FROM WorkItems"
@@ -81,7 +81,7 @@ public class MigrationOptionsDeserializationTests
               "mode": "Export",
               "artefacts": { "workingDirectory": "D:\\exports" },
               "modules": {
-                "workItems": {
+                "workitems": {
                   "scope": {
                     "query": "SELECT [System.Id] FROM WorkItems WHERE [System.TeamProject] = @project"
                   },
@@ -121,7 +121,7 @@ public class MigrationOptionsDeserializationTests
               "mode": "Export",
               "artefacts": { "workingDirectory": "D:\\exports" },
               "modules": {
-                "workItems": {
+                "workitems": {
                   "enabled": false
                 }
               }

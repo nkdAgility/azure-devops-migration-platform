@@ -3,7 +3,8 @@ using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Options;
-using DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Services;
+using DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Export;
+using DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Attachments;
 
 namespace DevOpsMigrationPlatform.Infrastructure.AzureDevOps;
 

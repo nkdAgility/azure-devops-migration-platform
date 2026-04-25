@@ -146,7 +146,7 @@ public class ExportCommentsSteps
     {
         // With the inline design, comments are stored as comment.json inside revision folders
         // (WorkItems/yyyy-MM-dd/<ticks>-<workItemId>-<revisionIndex>/comment.json).
-        var workItemsDir = Path.Combine(_context.PackageRoot, "WorkItems");
+        var workItemsDir = Path.Combine(_context.PackageRoot, "workitems");
         Assert.IsTrue(Directory.Exists(workItemsDir), "WorkItems directory should exist");
 
         var commentFiles = Directory.GetFiles(workItemsDir, "comment.json", SearchOption.AllDirectories)
@@ -158,7 +158,7 @@ public class ExportCommentsSteps
     }
     public void ThenEachFolderContainsAValidCommentJsonFile()
     {
-        var workItemsDir = Path.Combine(_context.PackageRoot, "WorkItems");
+        var workItemsDir = Path.Combine(_context.PackageRoot, "workitems");
         var commentJsonFiles = Directory.GetFiles(workItemsDir, "comment.json", SearchOption.AllDirectories);
 
         Assert.IsTrue(commentJsonFiles.Length > 0, "Should have written at least one comment.json");
@@ -177,7 +177,7 @@ public class ExportCommentsSteps
     [Then("all comment metadata is preserved")]
     public void ThenAllCommentMetadataIsPreserved()
     {
-        var workItemsDir = Path.Combine(_context.PackageRoot, "WorkItems");
+        var workItemsDir = Path.Combine(_context.PackageRoot, "workitems");
         var commentJsonFiles = Directory.GetFiles(workItemsDir, "comment.json", SearchOption.AllDirectories);
 
         Assert.IsTrue(commentJsonFiles.Length > 0, "Should have written at least one comment.json");
@@ -207,7 +207,7 @@ public class ExportCommentsSteps
     [Then("no comment folders are created for work item (\\d+)")]
     public void ThenNoCommentFoldersAreCreatedForWorkItem(int workItemId)
     {
-        var workItemsDir = Path.Combine(_context.PackageRoot, "WorkItems");
+        var workItemsDir = Path.Combine(_context.PackageRoot, "workitems");
         if (!Directory.Exists(workItemsDir))
             return; // No folders created is correct
 
@@ -269,7 +269,7 @@ public class ExportCommentsSteps
     [Then("all (\\d+) comments are exported across multiple comment folders")]
     public void ThenAllCommentsAreExportedAcrossMultipleFolders(int expectedCount)
     {
-        var workItemsDir = Path.Combine(_context.PackageRoot, "WorkItems");
+        var workItemsDir = Path.Combine(_context.PackageRoot, "workitems");
         var allCommentJsonFiles = Directory.GetFiles(workItemsDir, "comment.json", SearchOption.AllDirectories);
         Assert.AreEqual(expectedCount, allCommentJsonFiles.Length,
             $"Expected {expectedCount} comment.json files, found {allCommentJsonFiles.Length}");
@@ -415,7 +415,7 @@ public class ExportCommentsSteps
     public void ThenWorkItemCommentsAreNotReExported(int workItemId)
     {
         // Verify comment.json files exist for the first work item in revision folders.
-        var workItemsDir = Path.Combine(_context.PackageRoot, "WorkItems");
+        var workItemsDir = Path.Combine(_context.PackageRoot, "workitems");
         var files = Directory.GetFiles(workItemsDir, "comment.json", SearchOption.AllDirectories)
             .Where(f => Path.GetFileName(Path.GetDirectoryName(f)!)!.Contains($"-{workItemId}-"))
             .ToList();
@@ -425,7 +425,7 @@ public class ExportCommentsSteps
     [Then("work item (\\d+) comments are exported")]
     public void ThenWorkItemCommentsAreExported(int workItemId)
     {
-        var workItemsDir = Path.Combine(_context.PackageRoot, "WorkItems");
+        var workItemsDir = Path.Combine(_context.PackageRoot, "workitems");
         var files = Directory.GetFiles(workItemsDir, "comment.json", SearchOption.AllDirectories)
             .Where(f => Path.GetFileName(Path.GetDirectoryName(f)!)!.Contains($"-{workItemId}-"))
             .ToList();

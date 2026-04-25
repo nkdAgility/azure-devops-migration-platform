@@ -15,8 +15,8 @@
 // See docs/control-plane.md, docs/aspire-integration.md.
 
 using System.Security.Claims;
-using DevOpsMigrationPlatform.ControlPlane.Services;
-using DevOpsMigrationPlatform.ControlPlaneHost.Services;
+using DevOpsMigrationPlatform.ControlPlane.Jobs;
+using DevOpsMigrationPlatform.ControlPlaneHost.AgentLifecycle;
 using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Infrastructure;
 using DevOpsMigrationPlatform.Infrastructure.Serialization;

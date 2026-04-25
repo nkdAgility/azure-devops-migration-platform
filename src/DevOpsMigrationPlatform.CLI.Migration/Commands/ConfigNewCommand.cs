@@ -1,5 +1,5 @@
 using DevOpsMigrationPlatform.Abstractions;
-using DevOpsMigrationPlatform.CLI.Migration.Services;
+using DevOpsMigrationPlatform.CLI.Migration.Configuration;
 using DevOpsMigrationPlatform.CLI.Migration.Settings;
 using DevOpsMigrationPlatform.CLI.Migration.Views;
 using DevOpsMigrationPlatform.Infrastructure.Config;

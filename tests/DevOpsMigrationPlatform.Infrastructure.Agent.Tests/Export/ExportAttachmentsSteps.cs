@@ -26,10 +26,10 @@ public class ExportAttachmentsSteps
     private void SetupCursorNoOp()
     {
         _ctx.MockCheckpointingService
-            .Setup(s => s.ReadCursorAsync("WorkItems", It.IsAny<CancellationToken>()))
+            .Setup(s => s.ReadCursorAsync("workitems", It.IsAny<CancellationToken>()))
             .ReturnsAsync((CursorEntry?)null);
         _ctx.MockCheckpointingService
-            .Setup(s => s.WriteCursorAsync("WorkItems", It.IsAny<CursorEntry>(), It.IsAny<CancellationToken>()))
+            .Setup(s => s.WriteCursorAsync("workitems", It.IsAny<CursorEntry>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
     }
 

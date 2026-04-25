@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.CLI.Views;
 using DevOpsMigrationPlatform.CLI.Migration.Commands;
-using DevOpsMigrationPlatform.CLI.Migration.Services;
+using DevOpsMigrationPlatform.CLI.Migration.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace DevOpsMigrationPlatform.CLI.Commands;

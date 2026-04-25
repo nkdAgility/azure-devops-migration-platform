@@ -25,13 +25,13 @@ public class CheckpointingServiceTests
     public async Task ReadCursorAsync_WhenKeyIsMissing_ReturnsNull()
     {
         _mockStateStore
-            .Setup(s => s.ReadAsync(PackagePaths.CursorFile("WorkItems"), It.IsAny<CancellationToken>()))
+            .Setup(s => s.ReadAsync(PackagePaths.CursorFile("workitems"), It.IsAny<CancellationToken>()))
             .ReturnsAsync((string?)null);
         _mockStateStore
-            .Setup(s => s.ReadAsync(PackagePaths.LegacyCursorFile("WorkItems"), It.IsAny<CancellationToken>()))
+            .Setup(s => s.ReadAsync(PackagePaths.LegacyCursorFile("workitems"), It.IsAny<CancellationToken>()))
             .ReturnsAsync((string?)null);
 
-        var result = await _sut.ReadCursorAsync("WorkItems", CancellationToken.None);
+        var result = await _sut.ReadCursorAsync("workitems", CancellationToken.None);
 
         Assert.IsNull(result);
     }
@@ -48,10 +48,10 @@ public class CheckpointingServiceTests
         var json = JsonSerializer.Serialize(entry);
 
         _mockStateStore
-            .Setup(s => s.ReadAsync(PackagePaths.CursorFile("WorkItems"), It.IsAny<CancellationToken>()))
+            .Setup(s => s.ReadAsync(PackagePaths.CursorFile("workitems"), It.IsAny<CancellationToken>()))
             .ReturnsAsync(json);
 
-        var result = await _sut.ReadCursorAsync("WorkItems", CancellationToken.None);
+        var result = await _sut.ReadCursorAsync("workitems", CancellationToken.None);
 
         Assert.IsNotNull(result);
         Assert.AreEqual(entry.LastProcessed, result.LastProcessed);
@@ -75,9 +75,9 @@ public class CheckpointingServiceTests
             UpdatedAt = System.DateTimeOffset.UtcNow
         };
 
-        await _sut.WriteCursorAsync("WorkItems", entry, CancellationToken.None);
+        await _sut.WriteCursorAsync("workitems", entry, CancellationToken.None);
 
-        Assert.AreEqual(PackagePaths.CursorFile("WorkItems"), capturedKey);
+        Assert.AreEqual(PackagePaths.CursorFile("workitems"), capturedKey);
     }
 
     [TestMethod]
@@ -97,7 +97,7 @@ public class CheckpointingServiceTests
             UpdatedAt = System.DateTimeOffset.UtcNow
         };
 
-        await _sut.WriteCursorAsync("WorkItems", entry, CancellationToken.None);
+        await _sut.WriteCursorAsync("workitems", entry, CancellationToken.None);
 
         Assert.IsNotNull(capturedJson);
         var roundTripped = JsonSerializer.Deserialize<CursorEntry>(capturedJson);
