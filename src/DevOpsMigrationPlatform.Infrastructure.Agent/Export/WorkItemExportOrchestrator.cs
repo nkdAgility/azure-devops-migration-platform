@@ -11,6 +11,9 @@ using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Telemetry;
 using Microsoft.Extensions.Logging;
+#if !NET481
+using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
+#endif
 
 namespace DevOpsMigrationPlatform.Infrastructure.Agent.Export;
 
@@ -55,6 +58,10 @@ public sealed class WorkItemExportOrchestrator
     private readonly string? _jobId;
     private readonly ILogger? _logger;
     private readonly IWorkItemDiscoveryService? _discoveryService;
+#if !NET481
+    private readonly IExportProgressStoreFactory? _exportProgressStoreFactory;
+    private readonly string? _packageUri;
+#endif
 
     public WorkItemExportOrchestrator(
         IArtefactStore artefactStore,
@@ -70,7 +77,12 @@ public sealed class WorkItemExportOrchestrator
         string? jobId = null,
         ILogger? logger = null,
         string? wiqlQuery = null,
-        IWorkItemDiscoveryService? discoveryService = null)
+        IWorkItemDiscoveryService? discoveryService = null
+#if !NET481
+        , IExportProgressStoreFactory? exportProgressStoreFactory = null
+        , string? packageUri = null
+#endif
+        )
     {
         _artefactStore = artefactStore;
         _checkpointingService = checkpointingService;
@@ -86,6 +98,10 @@ public sealed class WorkItemExportOrchestrator
         _jobId = jobId;
         _logger = logger;
         _discoveryService = discoveryService;
+#if !NET481
+        _exportProgressStoreFactory = exportProgressStoreFactory;
+        _packageUri = packageUri;
+#endif
     }
 
     /// <summary>
@@ -144,6 +160,16 @@ public sealed class WorkItemExportOrchestrator
                 Message = $"[WorkItems] Resuming from cursor — {cursor.WorkItemsProcessed} work items / {cursor.RevisionsProcessed} revisions already exported."
             });
         }
+
+#if !NET481
+        var exportProgressStore = _exportProgressStoreFactory != null && _packageUri != null
+            ? _exportProgressStoreFactory.CreateFromPackageUri(_packageUri)
+            : null;
+        try
+        {
+        if (exportProgressStore != null)
+            await exportProgressStore.InitializeAsync(cancellationToken).ConfigureAwait(false);
+#endif
 
         // Seed counters from cursor so progress is accurate on resume.
         int workItemsProcessed = cursor?.WorkItemsProcessed ?? 0;
@@ -241,10 +267,67 @@ public sealed class WorkItemExportOrchestrator
         // Separate counter for filter-excluded work items.
         int workItemsFilterSkipped = 0;
         string lastWorkItemStatus = string.Empty;
+#if !NET481
+        // fastForwardWorkItemId: non-zero when the current WI is confirmed complete → skip all its revisions.
+        // lastCheckedWorkItemId:  tracks the last WI we queried so we query the store once per WI, not per revision.
+        int lastCheckedWorkItemId = 0;
+        int? currentWiStoredRev = null; // RevisionIndex of last written revision for the current WI (null = not in store)
+#endif
 
         await foreach (var revision in source.GetRevisionsAsync(cancellationToken))
         {
             var folderPath = BuildFolderPath(revision.WorkItemId, revision.RevisionIndex, revision.ChangedDate);
+
+#if !NET481
+            // Progress-store skip: on the first revision of each work item, query the store once.
+            // Then skip any revision whose RevisionIndex is <= the last recorded Rev — those are
+            // already on disk from a previous run. A fully-exported WI has all revisions ≤ storedRev
+            // and is therefore entirely skipped. A partially-exported WI resumes from the first
+            // unwritten revision without any ExistsAsync filesystem call.
+            if (exportProgressStore != null && cursor != null)
+            {
+                if (revision.WorkItemId != lastCheckedWorkItemId)
+                {
+                    lastCheckedWorkItemId = revision.WorkItemId;
+                    var progress = await exportProgressStore
+                        .GetProgressAsync(revision.WorkItemId, cancellationToken)
+                        .ConfigureAwait(false);
+                    currentWiStoredRev = progress?.Rev;
+                }
+
+                if (currentWiStoredRev.HasValue && revision.RevisionIndex <= currentWiStoredRev.Value)
+                {
+                    if (revision.RevisionIndex == 0)
+                    {
+                        workItemsSkipped++;
+                        lastWorkItemStatus = "Skipped";
+                        _progressSink?.Emit(new ProgressEvent
+                        {
+                            Module = "WorkItems",
+                            Stage = "Resuming",
+                            Message = $"[WorkItems] Fast-forward — skipping WI {revision.WorkItemId} (stored rev {currentWiStoredRev.Value})",
+                            Metrics = new JobMetrics
+                            {
+                                Scope = new JobScopeCounters { WorkItemsTotal = totalWorkItems },
+                                Migration = new MigrationCounters
+                                {
+                                    WorkItems = new WorkItemCounters
+                                    {
+                                        Completed = workItemsProcessed,
+                                        Skipped = workItemsSkipped,
+                                        RevisionsProcessed = revisionsProcessed,
+                                        CurrentWorkItemId = revision.WorkItemId,
+                                        LastWorkItemId = revision.WorkItemId,
+                                        LastWorkItemStatus = "Skipped"
+                                    }
+                                }
+                            }
+                        });
+                    }
+                    continue;
+                }
+            }
+#endif
 
             // Skip revisions already exported (resume logic).
             // ExistsAsync is used instead of a lexicographic path comparison because the ADO
@@ -329,6 +412,12 @@ public sealed class WorkItemExportOrchestrator
             // Write revision.json.
             var json = JsonSerializer.Serialize(revision, JsonOptions);
             await _artefactStore.WriteAsync($"{folderPath}revision.json", json, cancellationToken).ConfigureAwait(false);
+#if !NET481
+            // Record the highest RevisionIndex written for this work item so the next resume
+            // can skip revisions ≤ this value without ExistsAsync filesystem checks.
+            if (exportProgressStore != null)
+                await exportProgressStore.SetRevAsync(revision.WorkItemId, revision.RevisionIndex, cancellationToken).ConfigureAwait(false);
+#endif
 
             // Record payload complexity metrics per revision.
             if (_metrics != null)
@@ -752,6 +841,14 @@ public sealed class WorkItemExportOrchestrator
 
         rootActivity?.SetTag("workitems.count", workItemsProcessed);
         rootActivity?.SetTag("revisions.count", revisionsProcessed);
+#if !NET481
+        } // end try
+        finally
+        {
+            if (exportProgressStore != null)
+                await exportProgressStore.DisposeAsync().ConfigureAwait(false);
+        }
+#endif
     }
 
     /// <summary>

@@ -902,4 +902,213 @@ public class WorkItemExportOrchestratorTests
             It.IsAny<WorkItemFetchScope>(), It.IsAny<CancellationToken>()), Times.Never,
             "FetchAsync should not be called when no filter is configured.");
     }
+
+    // ── Export progress store (fast-forward) ────────────────────────────────────
+
+    [TestMethod]
+    public async Task FastForward_SkipsRevisionWhenStoredRevMatchesRevisionIndex()
+    {
+        // Progress store returns Rev=2 for WI 1 (revisions 0,1,2 already written).
+        // Stream delivers 3 revisions (index 0,1,2) → all should be skipped.
+        var mockProgressStore = new Mock<IExportProgressStore>(MockBehavior.Loose);
+        mockProgressStore
+            .Setup(s => s.InitializeAsync(It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+        mockProgressStore
+            .Setup(s => s.GetProgressAsync(1, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new WorkItemExportProgress(1, Rev: 2));
+        mockProgressStore
+            .Setup(s => s.DisposeAsync())
+            .Returns(ValueTask.CompletedTask);
+
+        var mockFactory = new Mock<IExportProgressStoreFactory>(MockBehavior.Strict);
+        mockFactory
+            .Setup(f => f.CreateFromPackageUri(It.IsAny<string>()))
+            .Returns(mockProgressStore.Object);
+
+        // Cursor must be non-null for fast-forward to activate.
+        var cursor = new CursorEntry { LastProcessed = "WorkItems/prior", Stage = CursorStage.Completed, UpdatedAt = DateTimeOffset.UtcNow };
+
+        var mockStore = new Mock<IArtefactStore>(MockBehavior.Loose);
+        var mockCps = new Mock<ICheckpointingService>(MockBehavior.Loose);
+        mockCps.Setup(s => s.ReadCursorAsync("workitems", It.IsAny<CancellationToken>()))
+               .ReturnsAsync(cursor);
+
+        var sut = new WorkItemExportOrchestrator(
+            mockStore.Object, mockCps.Object,
+            exportProgressStoreFactory: mockFactory.Object,
+            packageUri: "file:///C:/test");
+
+        var revisions = MakeRevisions(3, 1); // 3 revisions for WI 1 (index 0,1,2)
+        var mockSource = new Mock<IWorkItemRevisionSource>(MockBehavior.Strict);
+        mockSource.Setup(s => s.GetRevisionsAsync(It.IsAny<CancellationToken>()))
+                  .Returns((CancellationToken ct) => revisions.ToAsyncEnumerable(ct));
+
+        await sut.ExportAsync(mockSource.Object, CancellationToken.None);
+
+        mockStore.Verify(s => s.WriteAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()),
+            Times.Never, "No revision.json should be written when all revisions are at or below the stored rev.");
+    }
+
+    [TestMethod]
+    public async Task FastForward_WritesOnlyNewRevisionsWhenPartiallyExported()
+    {
+        // Progress store returns Rev=1 for WI 1 (revisions 0,1 already written).
+        // Stream delivers 4 revisions (index 0,1,2,3) → only 2,3 should be written.
+        var mockProgressStore = new Mock<IExportProgressStore>(MockBehavior.Loose);
+        mockProgressStore
+            .Setup(s => s.InitializeAsync(It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+        mockProgressStore
+            .Setup(s => s.GetProgressAsync(1, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new WorkItemExportProgress(1, Rev: 1));
+        mockProgressStore
+            .Setup(s => s.SetRevAsync(It.IsAny<int>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+        mockProgressStore
+            .Setup(s => s.DisposeAsync())
+            .Returns(ValueTask.CompletedTask);
+
+        var cursor = new CursorEntry { LastProcessed = "WorkItems/prior", Stage = CursorStage.Completed, UpdatedAt = DateTimeOffset.UtcNow };
+
+        var mockStore = new Mock<IArtefactStore>(MockBehavior.Loose);
+        var mockCps = new Mock<ICheckpointingService>(MockBehavior.Loose);
+        mockCps.Setup(s => s.ReadCursorAsync("workitems", It.IsAny<CancellationToken>()))
+               .ReturnsAsync(cursor);
+        mockCps.Setup(s => s.WriteCursorAsync("workitems", It.IsAny<CursorEntry>(), It.IsAny<CancellationToken>()))
+               .Returns(Task.CompletedTask);
+
+        mockStore.Setup(s => s.ExistsAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+                 .ReturnsAsync(false);
+        var written = new List<string>();
+        mockStore.Setup(s => s.WriteAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+                 .Callback<string, string, CancellationToken>((p, _, _) => written.Add(p))
+                 .Returns(Task.CompletedTask);
+
+        var mockFactory = new Mock<IExportProgressStoreFactory>(MockBehavior.Strict);
+        mockFactory.Setup(f => f.CreateFromPackageUri(It.IsAny<string>())).Returns(mockProgressStore.Object);
+
+        var sut = new WorkItemExportOrchestrator(
+            mockStore.Object, mockCps.Object,
+            exportProgressStoreFactory: mockFactory.Object,
+            packageUri: "file:///C:/test");
+
+        var revisions = MakeRevisions(4, 1); // 4 revisions for WI 1 (index 0,1,2,3)
+        var mockSource = new Mock<IWorkItemRevisionSource>(MockBehavior.Strict);
+        mockSource.Setup(s => s.GetRevisionsAsync(It.IsAny<CancellationToken>()))
+                  .Returns((CancellationToken ct) => revisions.ToAsyncEnumerable(ct));
+
+        await sut.ExportAsync(mockSource.Object, CancellationToken.None);
+
+        var revisionWrites = written.Where(p => p.EndsWith("revision.json")).ToList();
+        Assert.AreEqual(2, revisionWrites.Count, "Only revisions 2 and 3 should be written (0 and 1 are already stored).");
+    }
+
+    [TestMethod]
+    public async Task FastForward_DoesNotSkipWorkItemWhenProgressStoreReturnsNull()
+    {
+        var mockProgressStore = new Mock<IExportProgressStore>(MockBehavior.Loose);
+        mockProgressStore
+            .Setup(s => s.InitializeAsync(It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+        mockProgressStore
+            .Setup(s => s.GetProgressAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((WorkItemExportProgress?)null);
+        mockProgressStore
+            .Setup(s => s.SetRevAsync(It.IsAny<int>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+        mockProgressStore
+            .Setup(s => s.DisposeAsync())
+            .Returns(ValueTask.CompletedTask);
+
+        var mockFactory = new Mock<IExportProgressStoreFactory>(MockBehavior.Strict);
+        mockFactory
+            .Setup(f => f.CreateFromPackageUri(It.IsAny<string>()))
+            .Returns(mockProgressStore.Object);
+
+        var cursor = new CursorEntry { LastProcessed = "WorkItems/prior", Stage = CursorStage.Completed, UpdatedAt = DateTimeOffset.UtcNow };
+
+        var mockStore = new Mock<IArtefactStore>(MockBehavior.Loose);
+        var mockCps = new Mock<ICheckpointingService>(MockBehavior.Loose);
+        mockCps.Setup(s => s.ReadCursorAsync("workitems", It.IsAny<CancellationToken>()))
+               .ReturnsAsync(cursor);
+        mockCps.Setup(s => s.WriteCursorAsync("workitems", It.IsAny<CursorEntry>(), It.IsAny<CancellationToken>()))
+               .Returns(Task.CompletedTask);
+
+        // Progress store returns null → no stored rev → falls through to ExistsAsync.
+        mockStore.Setup(s => s.ExistsAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+                 .ReturnsAsync(false);
+        var written = new List<string>();
+        mockStore.Setup(s => s.WriteAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+                 .Callback<string, string, CancellationToken>((p, _, _) => written.Add(p))
+                 .Returns(Task.CompletedTask);
+
+        var sut = new WorkItemExportOrchestrator(
+            mockStore.Object, mockCps.Object,
+            exportProgressStoreFactory: mockFactory.Object,
+            packageUri: "file:///C:/test");
+
+        var revisions = MakeRevisions(2, 1);
+        var mockSource = new Mock<IWorkItemRevisionSource>(MockBehavior.Strict);
+        mockSource.Setup(s => s.GetRevisionsAsync(It.IsAny<CancellationToken>()))
+                  .Returns((CancellationToken ct) => revisions.ToAsyncEnumerable(ct));
+
+        await sut.ExportAsync(mockSource.Object, CancellationToken.None);
+
+        Assert.AreEqual(2, written.Count(p => p.EndsWith("revision.json")),
+            "All revisions should be written when progress store returns null.");
+    }
+
+    [TestMethod]
+    public async Task FastForward_RecordsRevAfterEachRevisionWrite()
+    {
+        var setRevCalls = new List<(int workItemId, int rev)>();
+        var mockProgressStore = new Mock<IExportProgressStore>(MockBehavior.Loose);
+        mockProgressStore
+            .Setup(s => s.InitializeAsync(It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+        mockProgressStore
+            .Setup(s => s.GetProgressAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((WorkItemExportProgress?)null);
+        mockProgressStore
+            .Setup(s => s.SetRevAsync(It.IsAny<int>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .Callback<int, int, CancellationToken>((wi, rev, _) => setRevCalls.Add((wi, rev)))
+            .Returns(Task.CompletedTask);
+        mockProgressStore
+            .Setup(s => s.DisposeAsync())
+            .Returns(ValueTask.CompletedTask);
+
+        var mockFactory = new Mock<IExportProgressStoreFactory>(MockBehavior.Strict);
+        mockFactory
+            .Setup(f => f.CreateFromPackageUri(It.IsAny<string>()))
+            .Returns(mockProgressStore.Object);
+
+        var mockStore = new Mock<IArtefactStore>(MockBehavior.Loose);
+        var mockCps = new Mock<ICheckpointingService>(MockBehavior.Loose);
+        mockCps.Setup(s => s.ReadCursorAsync("workitems", It.IsAny<CancellationToken>()))
+               .ReturnsAsync((CursorEntry?)null); // fresh export
+        mockCps.Setup(s => s.WriteCursorAsync("workitems", It.IsAny<CursorEntry>(), It.IsAny<CancellationToken>()))
+               .Returns(Task.CompletedTask);
+        mockStore.Setup(s => s.WriteAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+                 .Returns(Task.CompletedTask);
+
+        var sut = new WorkItemExportOrchestrator(
+            mockStore.Object, mockCps.Object,
+            exportProgressStoreFactory: mockFactory.Object,
+            packageUri: "file:///C:/test");
+
+        var revisions = MakeRevisions(3, 1); // 3 revisions for WI 1 (index 0,1,2)
+        var mockSource = new Mock<IWorkItemRevisionSource>(MockBehavior.Strict);
+        mockSource.Setup(s => s.GetRevisionsAsync(It.IsAny<CancellationToken>()))
+                  .Returns((CancellationToken ct) => revisions.ToAsyncEnumerable(ct));
+
+        await sut.ExportAsync(mockSource.Object, CancellationToken.None);
+
+        // SetRevAsync should be called once per revision with the correct RevisionIndex.
+        Assert.AreEqual(3, setRevCalls.Count, "SetRevAsync should be called once per written revision.");
+        CollectionAssert.AreEqual(
+            new[] { (1, 0), (1, 1), (1, 2) },
+            setRevCalls,
+            "SetRevAsync should be called with (workItemId=1, rev=0), (1,1), (1,2) in order.");
+    }
 }
