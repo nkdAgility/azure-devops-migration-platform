@@ -91,4 +91,15 @@ public static class PackagePaths
     /// </summary>
     public static string LegacyIdMapDbNative(string packageLocalRoot)
         => System.IO.Path.Combine(packageLocalRoot, "Checkpoints", "idmap.db");
+
+    /// <summary>
+    /// Returns the OS-native filesystem path for the export-progress database,
+    /// e.g. <c>&lt;packageRoot&gt;\.migration\Checkpoints\export_progress.db</c>.
+    /// </summary>
+    public static string ExportProgressDbNative(string packageLocalRoot)
+        => System.IO.Path.Combine(packageLocalRoot, SystemRoot, "Checkpoints", "export_progress.db");
+
+    /// <summary>Returns the legacy OS-native path for the export-progress database.</summary>
+    public static string LegacyExportProgressDbNative(string packageLocalRoot)
+        => System.IO.Path.Combine(packageLocalRoot, "Checkpoints", "export_progress.db");
 }

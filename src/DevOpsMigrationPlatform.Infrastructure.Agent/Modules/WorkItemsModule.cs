@@ -12,6 +12,7 @@ using DevOpsMigrationPlatform.Infrastructure.Agent.Import;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Telemetry;
 using DevOpsMigrationPlatform.Infrastructure.Telemetry;
 using Microsoft.Extensions.Logging;
+using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Agent.Modules;
 
@@ -47,6 +48,7 @@ public sealed class WorkItemsModule : IModule
     private readonly IWorkItemFetchService? _fetchService;
     private readonly IMigrationMetrics? _metrics;
     private readonly IWorkItemDiscoveryService? _discoveryService;
+    private readonly IExportProgressStoreFactory? _exportProgressStoreFactory;
 
     public WorkItemsModule(
         IWorkItemRevisionSourceFactory sourceFactory,
@@ -62,7 +64,8 @@ public sealed class WorkItemsModule : IModule
         IWorkItemCommentSourceFactory? inlineCommentSourceFactory = null,
         IWorkItemFetchService? fetchService = null,
         IMigrationMetrics? metrics = null,
-        IWorkItemDiscoveryService? discoveryService = null)
+        IWorkItemDiscoveryService? discoveryService = null,
+        IExportProgressStoreFactory? exportProgressStoreFactory = null)
     {
         _sourceFactory = sourceFactory ?? throw new ArgumentNullException(nameof(sourceFactory));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
@@ -78,6 +81,7 @@ public sealed class WorkItemsModule : IModule
         _fetchService = fetchService;
         _metrics = metrics;
         _discoveryService = discoveryService;
+        _exportProgressStoreFactory = exportProgressStoreFactory;
     }
 
     /// <inheritdoc/>
@@ -129,7 +133,9 @@ public sealed class WorkItemsModule : IModule
             jobId: job.JobId,
             logger: _logger,
             wiqlQuery: ext.Query,
-            discoveryService: _discoveryService);
+            discoveryService: _discoveryService,
+            exportProgressStoreFactory: _exportProgressStoreFactory,
+            packageUri: job.Package.PackageUri);
 
         await orchestrator.ExportAsync(source, ct).ConfigureAwait(false);
 
