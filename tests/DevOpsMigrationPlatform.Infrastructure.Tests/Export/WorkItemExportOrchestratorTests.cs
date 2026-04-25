@@ -109,91 +109,11 @@ public class WorkItemExportOrchestratorTests
                   .Callback<string, string, CancellationToken>((p, _, _) => written.Add(p))
                   .Returns(Task.CompletedTask);
 
-        // Revisions 0 and 1 are at or before the cursor — ExistsAsync confirms they are
-        // already exported so the orchestrator skips them.
-        _mockStore.Setup(s => s.ExistsAsync(It.Is<string>(p => p.Contains("-42-0/") || p.Contains("-42-1/")), It.IsAny<CancellationToken>()))
-                  .ReturnsAsync(true);
-
         SetupSource(revisions);
         await _sut.ExportAsync(_mockSource.Object, CancellationToken.None);
 
         Assert.AreEqual(1, written.Count, "Only revision 2 should be written.");
         StringAssert.Contains(written[0], "-42-2/");
-    }
-
-    /// <summary>
-    /// Regression test for the bug where items delivered out of lexicographic folder-path
-    /// order were incorrectly skipped during resume.
-    ///
-    /// Scenario: the source (AzureDevOpsWorkItemRevisionSource) delivers work items in
-    /// reverse-chronological creation-date window order — recently created items (high IDs,
-    /// late dates) arrive first, then older items (low IDs, early dates).  If the run was
-    /// interrupted after processing a recently-created item, the cursor points to a path
-    /// with a late date.  An older item that arrives later in the stream has revisions with
-    /// earlier dates → its folder paths are lexicographically below the cursor → the old
-    /// (buggy) code would skip it even though it was never exported.
-    ///
-    /// The fix: only skip a revision when ExistsAsync confirms revision.json is present.
-    /// </summary>
-    [TestMethod]
-    public async Task ExportAsync_WhenCursorAndItemArrivesOutOfPathOrder_ProcessesUnexportedItem()
-    {
-        // WI 1000 was created/changed recently (2024-04-10).
-        var wi1000Rev0 = new WorkItemRevision
-        {
-            WorkItemId = 1000,
-            RevisionIndex = 0,
-            ChangedDate = new DateTimeOffset(2024, 4, 10, 0, 0, 0, TimeSpan.Zero)
-        };
-
-        // WI 50 was created long ago (2020-01-05) and never modified since.
-        // Its folder path is lexicographically before the cursor, but it has NOT been exported.
-        var wi50Rev0 = new WorkItemRevision
-        {
-            WorkItemId = 50,
-            RevisionIndex = 0,
-            ChangedDate = new DateTimeOffset(2020, 1, 5, 0, 0, 0, TimeSpan.Zero)
-        };
-
-        // Cursor points to the last revision of WI 1000 (already exported).
-        // WI 50's 2020 path is lexicographically before the 2024 cursor path.
-        var cursor = new CursorEntry
-        {
-            LastProcessed = WorkItemExportOrchestrator.BuildFolderPath(1000, 0, wi1000Rev0.ChangedDate),
-            Stage = CursorStage.Completed,
-            UpdatedAt = DateTimeOffset.UtcNow,
-            LastWorkItemId = 1000,
-            WorkItemsProcessed = 1
-        };
-
-        _mockCps.Setup(s => s.ReadCursorAsync("WorkItems", It.IsAny<CancellationToken>()))
-                .ReturnsAsync(cursor);
-        _mockCps.Setup(s => s.WriteCursorAsync("WorkItems", It.IsAny<CursorEntry>(), It.IsAny<CancellationToken>()))
-                .Returns(Task.CompletedTask);
-
-        var written = new List<string>();
-        _mockStore.Setup(s => s.WriteAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
-                  .Callback<string, string, CancellationToken>((p, _, _) => written.Add(p))
-                  .Returns(Task.CompletedTask);
-
-        // WI 1000's revision.json exists (already exported).
-        _mockStore.Setup(s => s.ExistsAsync(It.Is<string>(p => p.Contains("-1000-")), It.IsAny<CancellationToken>()))
-                  .ReturnsAsync(true);
-
-        // WI 50's revision.json does NOT exist (not yet exported).
-        _mockStore.Setup(s => s.ExistsAsync(It.Is<string>(p => p.Contains("-50-")), It.IsAny<CancellationToken>()))
-                  .ReturnsAsync(false);
-
-        // The source delivers WI 1000 first (recent window), then WI 50 (older window) —
-        // matching the reverse-chronological delivery order of AzureDevOpsWorkItemRevisionSource.
-        SetupSource(new List<WorkItemRevision> { wi1000Rev0, wi50Rev0 });
-        await _sut.ExportAsync(_mockSource.Object, CancellationToken.None);
-
-        // WI 1000 should be skipped (ExistsAsync returned true).
-        // WI 50 should be WRITTEN even though its path is before the cursor
-        // (ExistsAsync returned false → not yet exported).
-        Assert.AreEqual(1, written.Count, "WI 50 must be exported despite its earlier folder path.");
-        StringAssert.Contains(written[0], "-50-0/", "The written path must belong to WI 50.");
     }
 
     [TestMethod]

@@ -1,4 +1,4 @@
-﻿# .agents/guardrails/migration-rules.md
+# .agents/guardrails/migration-rules.md
 
 # Migration Rules – Azure DevOps Migration Platform
 
@@ -139,8 +139,7 @@ Rules:
 
 Resume semantics:
 
-* **Import**: On restart, importer MUST skip folders <= lastProcessed (lexicographically). This is safe because `IArtefactStore.EnumerateAsync` guarantees lexicographic order.
-* **Export**: On restart, the exporter MUST NOT skip based on path comparison alone. Because export sources (e.g. `AzureDevOpsWorkItemRevisionSource`) deliver work items in reverse-chronological creation-date window order, a revision with a path <= lastProcessed may not yet have been exported. The exporter MUST call `IArtefactStore.ExistsAsync` to confirm each such revision was written before skipping it.
+* On restart, importer MUST skip folders <= lastProcessed (lexicographically).
 * If stage is not Completed, importer MUST resume within that folder’s stage safely.
 
 ## No per-work-item watermark databases

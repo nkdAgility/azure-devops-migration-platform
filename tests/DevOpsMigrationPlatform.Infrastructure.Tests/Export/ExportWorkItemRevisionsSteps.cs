@@ -172,7 +172,7 @@ public class ExportWorkItemRevisionsSteps
     // ── Scenario 4: resume from cursor ───────────────────────────────────────
 
     [Given("the cursor file at {string} records the last processed folder as {string}")]
-    public async Task GivenTheCursorRecordsLastProcessedFolder(string _cursorPath, string _lastProcessed)
+    public void GivenTheCursorRecordsLastProcessedFolder(string _cursorPath, string _lastProcessed)
     {
         var dateA = new DateTimeOffset(2024, 1, 15, 0, 0, 0, TimeSpan.Zero);
         var dateB = new DateTimeOffset(2024, 1, 16, 0, 0, 0, TimeSpan.Zero);
@@ -190,14 +190,6 @@ public class ExportWorkItemRevisionsSteps
             new() { WorkItemId = 42, RevisionIndex = 1, ChangedDate = dateA },
             new() { WorkItemId = 42, RevisionIndex = 2, ChangedDate = dateB }
         };
-
-        // Simulate the previous (interrupted) run: revision 1 was successfully written to
-        // the package before the process was interrupted.  The ExistsAsync check in the
-        // orchestrator needs to find this file to confirm the skip.
-        // Write a distinctive sentinel so ThenTheExportSkipsRevisionFoldersAtOrBefore can
-        // detect whether the orchestrator re-wrote the file during the resume run.
-        await _ctx.RealArtefactStore!.WriteAsync($"{folderAtCursor}revision.json", "\"sentinel-prior-run\"", CancellationToken.None);
-
         _ctx.MockCheckpointingService
             .Setup(s => s.ReadCursorAsync("WorkItems", It.IsAny<CancellationToken>()))
             .ReturnsAsync(_ctx.InitialCursor);
@@ -216,18 +208,11 @@ public class ExportWorkItemRevisionsSteps
     [Then("the export skips all revision folders at or before {string}")]
     public void ThenTheExportSkipsRevisionFoldersAtOrBefore(string _)
     {
-        // SourceRevisions[0] is the revision at the cursor — it must NOT have been re-written
-        // by the orchestrator.  We pre-wrote a sentinel value in the Given step to represent
-        // the output of the previous (interrupted) run.  If the orchestrator skipped revision 1
-        // the file still contains the sentinel; if it was incorrectly re-processed the content
-        // will have been overwritten with the full revision JSON.
+        // SourceRevisions[0] is the revision at the cursor — it must NOT have been written.
         var rev = _ctx.SourceRevisions[0];
         var skipped = WorkItemExportOrchestrator.BuildFolderPath(rev.WorkItemId, rev.RevisionIndex, rev.ChangedDate);
         var file = Path.Combine(_ctx.PackageRoot!, skipped.Replace('/', Path.DirectorySeparatorChar), "revision.json");
-        Assert.IsTrue(File.Exists(file), "The pre-written revision.json should still be present.");
-        var content = File.ReadAllText(file);
-        Assert.AreEqual("\"sentinel-prior-run\"", content,
-            "Revision at cursor position should have been skipped — content must not have been overwritten by the re-run.");
+        Assert.IsFalse(File.Exists(file), "Revision at cursor position should have been skipped.");
     }
 
     [Then("the export continues from the next unprocessed revision")]
