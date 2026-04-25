@@ -20,7 +20,7 @@ using DevOpsMigrationPlatform.ControlPlaneHost.Services;
 using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Infrastructure;
 using DevOpsMigrationPlatform.Infrastructure.Extensions;
-
+using DevOpsMigrationPlatform.Infrastructure.ControlPlane.Metrics;
 using DevOpsMigrationPlatform.Infrastructure.Telemetry;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -51,6 +51,7 @@ builder.Services.AddControllers()
             System.Text.Json.Serialization.JsonUnmappedMemberHandling.Disallow;
     });
 
+builder.Services.AddControlPlaneTelemetryServices(builder.Configuration);
 builder.Services.AddControlPlaneServices(builder.Configuration);
 
 // Post-configure ASP.NET JSON options to include the polymorphic endpoint converter

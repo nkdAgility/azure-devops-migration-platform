@@ -1,5 +1,4 @@
 using DevOpsMigrationPlatform.Abstractions;
-using DevOpsMigrationPlatform.Infrastructure.ControlPlane.Metrics;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -15,8 +14,6 @@ public static class ControlPlaneServiceExtensions
         this IServiceCollection services,
         IConfiguration configuration)
     {
-        // Register snapshot exporter + IJobMetricsStore + TelemetryOptions.
-        services.AddControlPlaneTelemetryServices(configuration);
 
         // Job queue — holds all submitted Jobs (MigrationJob and DiscoveryJob) until an agent acquires a lease.
         services.AddSingleton<IJobStore, JobStore>();
