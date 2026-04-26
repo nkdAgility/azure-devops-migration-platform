@@ -541,7 +541,43 @@ public class WorkItemsImportModule
 
 ---
 
-# � No `NotImplementedException` Stubs
+# 🔌 Full Connector Implementation Required (NON-NEGOTIABLE)
+
+Every feature that touches source or target interaction MUST be implemented for **all three connectors** where the APIs support the capability:
+
+1. **Simulated** — deterministic, no external connectivity, used by unit/integration/system tests.
+2. **AzureDevOpsServices** — REST API via .NET 10.
+3. **TeamFoundationServer** — TFS Object Model via the .NET 4.8 subprocess bridge.
+
+## Rule
+
+> When a spec introduces or modifies behaviour that flows through `IModule`, `IWorkItemRevisionSource`, `IArtefactStore`, or any source/target abstraction, the implementation MUST cover all three connectors. A feature that works only for one connector while the other two contain stubs, placeholders, or `NotImplementedException` is **incomplete and must not be merged**.
+
+## What counts as a violation
+
+- Implementing a feature for AzureDevOps but leaving the Simulated implementation as `throw new NotImplementedException()`.
+- Implementing export logic for Simulated and AzureDevOps but omitting TFS (when the TFS OM API supports the capability).
+- Adding a new field, link type, or attachment behaviour to one connector without propagating it to the others.
+- Creating an interface method that only one connector implements while others return `default` or throw.
+- Deferring connector implementations to "a future task" or "a follow-up PR".
+
+## When TFS is exempt
+
+TFS implementation may be deferred **only** when the TFS Object Model API does not expose the required capability (e.g., a REST-only feature with no SOAP equivalent). In this case, the TFS implementation MUST:
+- Emit a clear `ProgressEvent` with `EventKind.Warning` explaining the unsupported capability.
+- Log a structured warning at `Warning` level.
+- NOT throw `NotImplementedException` — it must gracefully skip the unsupported operation.
+
+## Enforcement in specs
+
+- `speckit.specify` MUST include acceptance scenarios covering all three connectors.
+- `speckit.plan` MUST include implementation tasks for all three connectors in the project structure.
+- `speckit.tasks` MUST generate tasks for Simulated, AzureDevOps, AND TFS implementations (with TFS marked as exempt only when documented).
+- `speckit.implement` MUST verify all three connectors are implemented before declaring a task complete.
+
+---
+
+# 🚫 No `NotImplementedException` Stubs
 
 A `throw new NotImplementedException()` (or any equivalent placeholder — `throw new NotSupportedException("... not yet implemented")`, `TODO: implement`, dead `return default`, `return null` where a real value is required) is **never permitted as a shipped state**.
 
