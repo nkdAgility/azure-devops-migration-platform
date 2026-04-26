@@ -15,6 +15,12 @@ hooks:
     optional: false
     description: Inspect, validate, and amend the specification to ensure complete decision-driven observability coverage across metrics, traces, and logs
     condition: null
+  - extension: connector-coverage-check
+    command: connector-coverage-check
+    enabled: true
+    optional: false
+    description: Inspect, validate, and amend the specification to ensure full implementation coverage across all three connectors (Simulated, AzureDevOps, TFS)
+    condition: null
   after_plan:
   - extension: architecture-review
     command: architecture-review
@@ -22,3 +28,11 @@ hooks:
     optional: false
     description: Run all five architecture perspective checks (Modular Monolith, Clean, Hexagonal, Vertical Slice, Screaming) before task generation begins
     condition: null
+  after_implement:
+  - extension: definition-of-done
+    command: definition-of-done
+    enabled: true
+    optional: false
+    description: Validate that the completed work meets every criterion in the Definition of Done — build, tests, code quality, connector coverage, documentation, and compliance review
+    condition: null
+  
