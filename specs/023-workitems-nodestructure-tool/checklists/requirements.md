@@ -38,7 +38,7 @@ Red team review completed 2026-05-13. Two Critical findings resolved:
 
 All High findings addressed:
 - RT-H1: Node-creation checkpoint added as FR-016a and SC-008
-- RT-H2: Regex vs. exact-match resolved — exact matching only; deferred to later feature
+- RT-H2: Regex vs. exact-match resolved — regex `Match`/`Replacement` model adopted (matching predecessor `TfsNodeStructureTool`), with `RegexOptions.NonBacktracking` for ReDoS protection (FR-004a/FR-004b)
 - RT-H3: ValidateAsync FR-021 added
 - RT-H4: Failure-path acceptance scenario added to User Story 1
 

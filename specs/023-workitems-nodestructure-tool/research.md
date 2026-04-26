@@ -13,7 +13,7 @@
 ### Decision
 Split the NodeStructureTool into two concerns:
 
-1. **Path Mapping (pure)** — `INodeStructureTool` interface exposes a pure method `TranslatePath(field, value, context) → PathTranslation` that applies language override, exact-match mapping, and auto-swap. This is stateless and performs no I/O. It mirrors `IFieldTransformTool.ApplyTransforms()`.
+1. **Path Mapping (pure)** — `INodeStructureTool` interface exposes a pure method `TranslatePath(field, value, context) → PathTranslation` that applies language override, regex mapping rules, and auto-swap. This is stateless and performs no I/O. It mirrors `IFieldTransformTool.ApplyTransforms()`.
 
 2. **Node Ensurer (I/O)** — `INodeCreator` is a separate abstraction that handles node existence checks, creation via ADO API, checkpointing via `IStateStore`, and retry logic. This is consumed at the orchestration layer (before revision processing begins), not inside the per-revision tool call.
 

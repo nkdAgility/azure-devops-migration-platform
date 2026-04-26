@@ -35,19 +35,21 @@ With this minimal config:
       "NodeStructure": {
         "Enabled": true,
         "AutoCreateNodes": true,
-        "AreaPathMappings": {
-          "OldProject\\Team Alpha": "NewProject\\Engineering\\Team Alpha",
-          "OldProject\\Team Beta": "NewProject\\Engineering\\Team Beta"
-        },
-        "IterationPathMappings": {
-          "OldProject\\Sprint 1": "NewProject\\Q1\\Sprint 1",
-          "OldProject\\Sprint 2": "NewProject\\Q1\\Sprint 2"
-        }
+        "AreaPathMappings": [
+          { "Match": "^OldProject\\\\Team Alpha(.*)", "Replacement": "NewProject\\Engineering\\Team Alpha$1" },
+          { "Match": "^OldProject\\\\Team Beta(.*)", "Replacement": "NewProject\\Engineering\\Team Beta$1" }
+        ],
+        "IterationPathMappings": [
+          { "Match": "^OldProject\\\\Sprint 1$", "Replacement": "NewProject\\Q1\\Sprint 1" },
+          { "Match": "^OldProject\\\\Sprint 2$", "Replacement": "NewProject\\Q1\\Sprint 2" }
+        ]
       }
     }
   }
 }
 ```
+
+Each mapping is a `NodeMapping` with a `Match` regex pattern and a `Replacement` string (supports `$1`, `$2` capture groups). First matching rule wins. Matching is case-insensitive.
 
 ## Full Tree Replication
 

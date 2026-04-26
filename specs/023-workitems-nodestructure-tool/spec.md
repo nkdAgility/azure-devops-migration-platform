@@ -32,7 +32,7 @@ Discrepancies logged in: `specs/023-workitems-nodestructure-tool/discrepancies.m
 
 A migration operator is moving work items from one Azure DevOps organisation (or project) to another where the area and iteration path structure has been renamed or restructured. Without path remapping, the import stage fails or silently places every work item at the root node, losing organisational structure.
 
-The operator declares a mapping table of source paths → target paths so that `System.AreaPath` and `System.IterationPath` values in `revision.json` are translated to the correct target path before the API call is made.
+The operator declares an ordered list of regex-based mapping rules (each with a `Match` pattern and a `Replacement` string) so that `System.AreaPath` and `System.IterationPath` values in `revision.json` are translated to the correct target path before the API call is made.
 
 **Why this priority**: Path resolution is a prerequisite for a successful cross-project import. Without it, nearly every cross-project or cross-organisation migration will produce incorrect data. All other tool features build on this core capability.
 
@@ -40,13 +40,13 @@ The operator declares a mapping table of source paths → target paths so that `
 
 **Acceptance Scenarios**:
 
-1. **Given** a `revision.json` contains `System.AreaPath: "OldOrg\\OldProject\\Team A"` and the tool has `AreaPathMappings: { "OldOrg\\OldProject\\Team A": "NewOrg\\NewProject\\Team A - Migrated" }`, **When** the import stage applies the tool, **Then** the work item is written to the target with `System.AreaPath: "NewOrg\\NewProject\\Team A - Migrated"`.
+1. **Given** a `revision.json` contains `System.AreaPath: "OldOrg\\OldProject\\Team A"` and the tool has an `AreaPathMappings` entry `{ Match: "^OldOrg\\\\OldProject\\\\Team A$", Replacement: "NewOrg\\NewProject\\Team A - Migrated" }`, **When** the import stage applies the tool, **Then** the work item is written to the target with `System.AreaPath: "NewOrg\\NewProject\\Team A - Migrated"`.
 
-2. **Given** a `revision.json` contains `System.IterationPath: "OldOrg\\OldProject\\Sprint 1"` and the tool has `IterationPathMappings: { "OldOrg\\OldProject\\Sprint 1": "NewOrg\\NewProject\\Sprint 1" }`, **When** the import stage applies the tool, **Then** the work item is written with `System.IterationPath: "NewOrg\\NewProject\\Sprint 1"`.
+2. **Given** a `revision.json` contains `System.IterationPath: "OldOrg\\OldProject\\Sprint 1"` and the tool has an `IterationPathMappings` entry `{ Match: "^OldOrg\\\\OldProject\\\\Sprint 1$", Replacement: "NewOrg\\NewProject\\Sprint 1" }`, **When** the import stage applies the tool, **Then** the work item is written with `System.IterationPath: "NewOrg\\NewProject\\Sprint 1"`.
 
-3. **Given** a `revision.json` contains a path that has no entry in `AreaPathMappings` or `IterationPathMappings`, and the path begins with the source project name, **When** the import stage applies the tool, **Then** the source project name prefix is automatically substituted with the target project name (auto-swap). If the path does not begin with the source project name it is passed through unchanged.
+3. **Given** a `revision.json` contains a path that no `AreaPathMappings` or `IterationPathMappings` rule matches, and the path begins with the source project name, **When** the import stage applies the tool, **Then** the source project name prefix is automatically substituted with the target project name (auto-swap). If the path does not begin with the source project name it is passed through unchanged.
 
-4. **Given** a `revision.json` contains a path that has no entry in `AreaPathMappings` or `IterationPathMappings`, and the path does not begin with the source project name, **When** the import stage applies the tool, **Then** the original path value is preserved without modification (pass-through — the path is not anchored in the source project).
+4. **Given** a `revision.json` contains a path that no `AreaPathMappings` or `IterationPathMappings` rule matches, and the path does not begin with the source project name, **When** the import stage applies the tool, **Then** the original path value is preserved without modification (pass-through — the path is not anchored in the source project).
 
 5. **Given** the `NodeStructure` tool is not declared under `MigrationPlatform.Tools`, **When** a module import runs, **Then** no path translation is applied and behaviour is identical to the pre-tool state.
 
@@ -120,13 +120,13 @@ The operator declares a language override so that localised root node names in b
 
 **Why this priority**: Affects cross-locale migrations only — a minority scenario, but a hard blocker when encountered.
 
-**Independent Test**: Configure `areaLanguageOverride: "Area"`, present a source revision with `System.AreaPath: "Área\\ProjectX\\Team A"`, and verify the tool normalises the root segment before path lookup.
+**Independent Test**: Configure `AreaLanguageOverride: "Area"`, present a source revision with `System.AreaPath: "Área\\ProjectX\\Team A"`, and verify the tool normalises the root segment before path lookup.
 
 **Acceptance Scenarios**:
 
-1. **Given** `areaLanguageOverride: "Area"` and a revision with `System.AreaPath: "Área\\ProjectX\\Team A"`, **When** the tool processes the path, **Then** the root segment is normalised to `"Area"` before the mapping lookup proceeds.
+1. **Given** `AreaLanguageOverride: "Area"` and a revision with `System.AreaPath: "Área\\ProjectX\\Team A"`, **When** the tool processes the path, **Then** the root segment is normalised to `"Area"` before the mapping lookup proceeds.
 
-2. **Given** `iterationLanguageOverride: "Iteration"` and a revision with `System.IterationPath: "Iteración\\ProjectX\\Sprint 1"`, **When** the tool processes the path, **Then** the root segment is normalised to `"Iteration"` before regex mapping is applied.
+2. **Given** `IterationLanguageOverride: "Iteration"` and a revision with `System.IterationPath: "Iteración\\ProjectX\\Sprint 1"`, **When** the tool processes the path, **Then** the root segment is normalised to `"Iteration"` before mapping rules are applied.
 
 ---
 
@@ -176,8 +176,9 @@ The discovered paths are saved to the package at `Nodes/referenced-paths.json`. 
 - What happens when a path does not begin with the source project name (unanchored path — e.g. a cross-project link whose area/iteration belongs to a third project)? → The auto-swap does not apply. The path is passed through unchanged. If the pass-through value does not exist in the target, skip/fail behaviour applies. The warning MUST identify the path as an external path.
 - What happens when the ADO Classification Nodes API returns a transient error (5xx, 408, 429) during node creation? → Retried with exponential back-off per FR-022. Persistent transient failures surface as import errors.
 - What happens when the ADO Classification Nodes API returns 401 or 403? → Non-retryable; the import fails immediately with a message identifying the missing permission. The operator must fix service account permissions before retrying.
-- What happens when an `AreaPathMappings` or `IterationPathMappings` target value is empty or contains characters illegal in ADO node names? → ValidateAsync (FR-021) flags this as a configuration error. At import time, the revision is treated as having an unresolvable path and skip/fail behaviour applies.
-- What happens when a source path's translated target path exceeds the maximum classification node depth supported by the target ADO instance? → The node creation attempt fails; the revision is treated as having an unresolvable path and skip/fail behaviour applies. ValidateAsync should flag paths whose nesting depth exceeds the known ADO limit.
+- What happens when an `AreaPathMappings` or `IterationPathMappings` `Match` pattern is invalid regex? → ValidateAsync (FR-004a/FR-021) flags this as a configuration error. At import time, the tool fails fast on initialisation.
+- What happens when a mapping rule's `Replacement` value, after substitution, produces a target path that is empty or contains characters illegal in ADO node names (`\`, `/`, `$`, `?`, `*`, `"`, `:`, `>`, `<`, `|`, `#`, `%`, `+`, control characters)? → ValidateAsync (FR-021) flags this as a configuration error. At import time, the revision is treated as having an unresolvable path and skip/fail behaviour applies.
+- What happens when a source path's translated target path (after regex replacement) exceeds the maximum classification node depth supported by the target ADO instance? → The node creation attempt fails; the revision is treated as having an unresolvable path and skip/fail behaviour applies. ValidateAsync should flag paths whose nesting depth exceeds the known ADO limit.
 - What happens when two revisions in different work items reference the same previously-unresolved path concurrently (future parallel worker scenario)? → The node-creation checkpoint (FR-016a) is the source of truth; idempotent check-before-POST (FR-007) prevents duplicate creation.
 - What happens when the tool is declared but not referenced by any extension? → The declaration is inert; no mapping, no node creation, no export artifact is produced.
 - What happens when `ReplicateSourceTree: true` is configured but `Nodes/source-tree.json` is absent from the package (e.g., a legacy package exported before this feature)? → The import logs a warning and skips the bulk replication step; `AutoCreateNodes` (if enabled) handles on-demand creation during revision processing.
@@ -384,13 +385,17 @@ traces
 
 - **FR-001**: The platform MUST provide a `NodeStructure` tool type declarable under `MigrationPlatform.Tools` as a keyed entry (key = `"NodeStructure"`), following the same keyed-object pattern as `FieldTransform`, and loadable by extension tool references.
 
-- **FR-002**: The tool MUST support an `AreaPathMappings` dictionary mapping source area path strings (exact full-path strings) to target area path strings, applied to `System.AreaPath` field values at import time. Matching is exact (not regex) and case-insensitive.
+- **FR-002**: The tool MUST support an `AreaPathMappings` ordered list of `NodeMapping` entries (each with a `Match` regex pattern and a `Replacement` regex replacement string), applied to `System.AreaPath` field values at import time. The first matching rule wins. Matching uses `Regex.IsMatch` with `RegexOptions.IgnoreCase`. Replacement uses `Regex.Replace` with the same pattern, supporting capture group back-references (`$1`, `$2`, etc.).
 
-- **FR-003**: The tool MUST support an `IterationPathMappings` dictionary mapping source iteration path strings (exact full-path strings) to target iteration path strings, applied to `System.IterationPath` field values at import time. Matching is exact and case-insensitive.
+- **FR-003**: The tool MUST support an `IterationPathMappings` ordered list of `NodeMapping` entries (each with `Match` and `Replacement`), applied to `System.IterationPath` field values at import time. Same regex semantics as FR-002.
 
-- **FR-004**: Path matching MUST be case-insensitive and trimmed of leading/trailing whitespace. The path separator is the backslash character (`\`), consistent with the ADO REST API path format.
+- **FR-004**: Path matching MUST be case-insensitive (`RegexOptions.IgnoreCase`) and the input path MUST be trimmed of leading/trailing whitespace before matching. The path separator is the backslash character (`\`), consistent with the ADO REST API path format.
 
-- **FR-005**: When no mapping entry matches a given path and the path begins with the source project name segment, the tool MUST automatically substitute the source project name prefix with the target project name (auto-swap). When no mapping entry matches and the path does NOT begin with the source project name (unanchored path), the original value MUST be passed through unchanged. Language override (FR-012/FR-013) is applied before this check.
+- **FR-004a** *(ReDoS protection)*: All user-supplied regex patterns in `AreaPathMappings` and `IterationPathMappings` MUST be compiled with `RegexOptions.NonBacktracking` (or a `MatchTimeout` of 1 second if `NonBacktracking` is unavailable on the target runtime). `ValidateAsync` (FR-021) MUST validate that each `Match` pattern is syntactically valid regex; invalid patterns MUST be reported as configuration errors.
+
+- **FR-004b** *(NodeMapping model)*: Each mapping entry is a `NodeMapping` record with two properties: `Match` (string — .NET regex pattern) and `Replacement` (string — .NET regex replacement supporting `$1`, `$2`, etc.). The `AreaPathMappings` and `IterationPathMappings` configuration properties are `IReadOnlyList<NodeMapping>` (ordered; first match wins).
+
+- **FR-005**: When no mapping rule matches a given path (i.e., no `Match` pattern in the mapping list produces a regex match) and the path begins with the source project name segment, the tool MUST automatically substitute the source project name prefix with the target project name (auto-swap). When no rule matches and the path does NOT begin with the source project name (unanchored path), the original value MUST be passed through unchanged. Language override (FR-012/FR-013) is applied before this check.
 
 - **FR-006**: The tool MUST support an `AutoCreateNodes` boolean flag (default `false`). When `true`, any target area or iteration path that does not exist in the target project MUST be created via the ADO Classification Nodes API before the work item is written.
 
@@ -404,11 +409,11 @@ traces
 
 - **FR-011**: When a skip flag is `false` and a path cannot be resolved, the import MUST fail immediately with a descriptive error that includes: the field name (`System.AreaPath` or `System.IterationPath`), the unresolvable path value, and the revision folder path (which encodes the work item ID and revision index).
 
-- **FR-012**: The tool MUST support an `areaLanguageOverride` string. When set, the root segment of all source area path strings is normalised to the override value before any mapping lookup.
+- **FR-012**: The tool MUST support an `AreaLanguageOverride` string. When set, the root segment of all source area path strings is normalised to the override value before any mapping lookup.
 
-- **FR-013**: The tool MUST support an `iterationLanguageOverride` string. When set, the root segment of all source iteration path strings is normalised to the override value before any mapping lookup.
+- **FR-013**: The tool MUST support an `IterationLanguageOverride` string. When set, the root segment of all source iteration path strings is normalised to the override value before any mapping lookup.
 
-- **FR-014**: Language override normalisation MUST be applied before exact-match mapping. The override applies to the root segment only; intermediate and leaf segment names are not modified.
+- **FR-014**: Language override normalisation MUST be applied before regex mapping rules are evaluated. The override applies to the root segment only; intermediate and leaf segment names are not modified.
 
 - **FR-015**: The tool MUST support a `ReplicateSourceTree` boolean flag (default `false`). When `true` and the package contains `Nodes/source-tree.json` (written by the export phase — see FR-015a), the import phase MUST enumerate all nodes from that artifact and create any that are missing in the target, before processing any revision folder.
 
@@ -445,11 +450,14 @@ traces
 
 - **FR-020**: `System.AreaPath` and `System.IterationPath` values are written verbatim into `revision.json` at export time (no export-time path transformation). The export phase additionally captures the full source tree (FR-015a/FR-028) and discovered paths (FR-015b/FR-029) to `Nodes/` as package metadata. Path remapping is applied exclusively at import time.
 
-- **FR-021**: `ValidateAsync` MUST scan all `revision.json` files in the package (or read from `Nodes/referenced-paths.json` if present), collect the union of all `System.AreaPath` and `System.IterationPath` values across all revisions, and report each distinct path that has no matching entry in `AreaPathMappings` / `IterationPathMappings` respectively, together with the count of revisions affected. ValidateAsync MUST also flag any `AreaPathMappings` or `IterationPathMappings` target path value that is empty or contains characters illegal in ADO node names.
+- **FR-021**: `ValidateAsync` MUST scan all `revision.json` files in the package (or read from `Nodes/referenced-paths.json` if present), collect the union of all `System.AreaPath` and `System.IterationPath` values across all revisions, and report each distinct path that no mapping rule matches (after applying `Regex.IsMatch` + `Regex.Replace` with the replacement string), together with the count of revisions affected. `ValidateAsync` MUST also:
+  - Validate that each `Match` pattern in `AreaPathMappings` / `IterationPathMappings` is syntactically valid regex (per FR-004a).
+  - Flag any mapping rule whose `Replacement` value, after regex substitution on a matched path, produces a target path that is empty or contains characters illegal in ADO classification node names. The illegal character set is: `\`, `/`, `$`, `?`, `*`, `"`, `:`, `>`, `<`, `|`, `#`, `%`, `+`, and control characters (Unicode category Cc).
+  - Flag external paths (FR-025) distinctly from unmapped paths.
 
 - **FR-022**: Node creation API calls MUST be retried on transient failures (5xx, 408, 429) using exponential back-off. Authentication and authorisation failures (401, 403) MUST NOT be retried; they MUST surface immediately as a fatal import error with a message identifying the missing permission. Client errors indicating an invalid path (400) MUST also surface as fatal errors without retry.
 
-- **FR-023**: The tool MUST support an `Enabled` boolean flag (default `true`). When `false`, all tool behaviour (path mapping, node creation) is bypassed. Export-side artifacts (`Nodes/source-tree.json`, `Nodes/referenced-paths.json`) are still written when the Nodes module is active, regardless of `Enabled`, because they serve as package metadata for downstream tooling. If the tool is `Enabled: false` and the source and target project names differ, the tool MUST log a warning indicating that path remapping is disabled and area/iteration paths may be incorrect in the target.
+- **FR-023**: The tool MUST support an `Enabled` boolean flag (default `true`). When `false`, all **import-side** tool behaviour (path mapping, node creation, pre-collection, replication) is bypassed. The `Enabled` flag has no effect on export-side behaviour: export artifacts (`Nodes/source-tree.json`, `Nodes/referenced-paths.json`) are always written unconditionally per FR-028/FR-029, because they serve as package metadata for downstream tooling. If the tool is `Enabled: false` and the source and target project names differ, the tool MUST log a warning indicating that path remapping is disabled and area/iteration paths may be incorrect in the target.
 
 - **FR-024**: When `AutoCreateNodes: true`, before processing any revision folder the tool MUST collect the complete set of distinct `System.AreaPath` and `System.IterationPath` values. If `Nodes/referenced-paths.json` exists in the package (written by the export phase — FR-015b), the tool MUST read discovered paths from that artifact. If the artifact is absent (legacy package), the tool MUST fall back to scanning all revision folders via `IArtefactStore.EnumerateAsync()`. The tool then applies mapping/auto-swap to each path and creates any missing nodes in the target in bulk. This pre-collection ensures all required nodes are present before the first API write call.
 
@@ -457,7 +465,7 @@ traces
 
 - **FR-026**: When creating iteration nodes (during `ReplicateSourceTree` bulk replication or `AutoCreateNodes` on-demand creation), the tool MUST set the node's `StartDate` and `FinishDate` from the values captured in `Nodes/source-tree.json` (for bulk replication) or from the source node metadata (not available for on-demand creation — dates are omitted). If the `SetIterationDates` API call fails, the failure MUST be logged as a warning (non-blocking); node creation is still considered successful.
 
-- **FR-027**: Glob-based node filters (`Areas.Filters` / `Iterations.Filters` — as implemented in the predecessor `TfsNodeStructureTool`) are **explicitly deferred** to a later feature. In this version, all nodes referenced by work item revisions are processed. Operators who require partial-tree migration must achieve this via explicit `AreaPathMappings`/`IterationPathMappings` entries.
+- **FR-027**: Glob-based node filters (`Areas.Filters` / `Iterations.Filters` — as implemented in the predecessor `TfsNodeStructureTool`) are **explicitly deferred** to a later feature. In this version, all nodes referenced by work item revisions are processed. Operators who require partial-tree migration can achieve this via `AreaPathMappings`/`IterationPathMappings` regex rules that selectively remap desired subtrees.
 
 - **FR-028** *(export-side — always-on)*: The source classification tree capture (`Nodes/source-tree.json`) MUST be written on every export regardless of any configuration flag. This ensures the package always contains the source tree for downstream tooling, documentation, and import-time `ReplicateSourceTree`. The `ReplicateSourceTree` flag controls only import-side behaviour.
 
@@ -465,7 +473,9 @@ traces
 
 ### Key Entities
 
-- **NodeStructureTool configuration**: Declared under `MigrationPlatform.Tools.NodeStructure`. Carries `Enabled`, `AreaPathMappings`, `IterationPathMappings`, `AreaLanguageOverride`, `IterationLanguageOverride`, `AutoCreateNodes`, `SkipOnUnresolvableArea`, `SkipOnUnresolvableIteration`, `ReplicateSourceTree`. No `id` or `type` discriminator fields — the key `"NodeStructure"` is the type.
+- **NodeStructureTool configuration**: Declared under `MigrationPlatform.Tools.NodeStructure`. Carries `Enabled`, `AreaPathMappings` (`IReadOnlyList<NodeMapping>`), `IterationPathMappings` (`IReadOnlyList<NodeMapping>`), `AreaLanguageOverride`, `IterationLanguageOverride`, `AutoCreateNodes`, `SkipOnUnresolvableArea`, `SkipOnUnresolvableIteration`, `ReplicateSourceTree`. No `id` or `type` discriminator fields — the key `"NodeStructure"` is the type.
+
+- **NodeMapping**: A record with two properties: `Match` (string — .NET regex pattern) and `Replacement` (string — .NET regex replacement string supporting `$1`, `$2`, etc.). Used in `AreaPathMappings` and `IterationPathMappings`. First matching rule wins.
 
 - **Area Path**: The `System.AreaPath` field value in `revision.json`. Represents the organisational area classification of a work item revision. Format: `"ProjectName\\...\\NodeName"` (backslash-separated).
 
@@ -487,7 +497,7 @@ traces
 
 ### Measurable Outcomes
 
-- **SC-001**: Work items whose `System.AreaPath` and `System.IterationPath` values are covered by `AreaPathMappings` and `IterationPathMappings` entries are placed in the correct target classification node in 100% of mapped cases.
+- **SC-001**: Work items whose `System.AreaPath` and `System.IterationPath` values match at least one `AreaPathMappings` or `IterationPathMappings` regex rule are placed in the correct target classification node (as produced by `Regex.Replace`) in 100% of matched cases.
 
 - **SC-002**: When `AutoCreateNodes: true`, a migration with a completely empty target classification tree completes successfully without any manual target preparation, for any package where all paths are either mapped or pass-through.
 
@@ -495,11 +505,11 @@ traces
 
 - **SC-004**: When `SkipOnUnresolvableArea: true` or `SkipOnUnresolvableIteration: true`, an import with at least one unresolvable path completes without aborting; every skipped revision appears in the progress event log with a warning.
 
-- **SC-005**: Path lookups are case-insensitive: `"Area\\Team a"` and `"Area\\Team A"` match the same map entry.
+- **SC-005**: Regex matching is case-insensitive (`RegexOptions.IgnoreCase`): a pattern `"Area\\\\Team A"` matches both `"Area\Team a"` and `"Area\Team A"`.
 
 - **SC-006**: Running the same import twice against the same package and a partially-populated target produces the same final state (idempotency): no duplicate nodes are created, no revision is applied twice.
 
-- **SC-007**: Operators can discover configuration gaps before running a full import: the `ValidateAsync` pass reports all distinct `System.AreaPath` and `System.IterationPath` values across all revisions in the package that have no matching map entry, identifying the count of affected revisions for each unmapped path.
+- **SC-007**: Operators can discover configuration gaps before running a full import: the `ValidateAsync` pass reports all distinct `System.AreaPath` and `System.IterationPath` values across all revisions in the package that no mapping rule matches, identifying the count of affected revisions for each unmatched path.
 
 - **SC-008**: When an import is interrupted during node replication (`ReplicateSourceTree: true`) and resumed, the tool does not re-create nodes already confirmed in the node-creation checkpoint; the resumed run completes correctly.
 
@@ -511,7 +521,7 @@ traces
 
 ## Assumptions
 
-- **Path matching is exact full-path string** (case-insensitive). Regex pattern matching is not supported in `AreaPathMappings`/`IterationPathMappings` in this version. If regex support is needed, it will be introduced as a separate configuration key in a later feature, with defined escaping rules and DoS protections.
+- **Path matching uses .NET regex** (`Regex.IsMatch` + `Regex.Replace`) with `RegexOptions.IgnoreCase` and `RegexOptions.NonBacktracking` (ReDoS protection). Each `AreaPathMappings`/`IterationPathMappings` entry is a `NodeMapping` with `Match` (regex pattern) and `Replacement` (regex replacement string supporting `$1`, `$2` capture group back-references). First matching rule wins. This matches the regex model of the predecessor `TfsNodeStructureTool` in `azure-devops-migration-tools`, with the addition of `NonBacktracking` for safety.
 - **Auto-swap is the default pass-through behaviour** when no explicit mapping matches. If a path begins with the source project name it is remapped to start with the target project name. This matches the predecessor `TfsNodeStructureTool` behaviour. Paths not anchored in the source project pass through unchanged.
 - **Glob-based node filters are deferred** (FR-027). The predecessor tool supported `Areas.Filters`/`Iterations.Filters` glob patterns; these are intentionally out of scope for this version.
 - The `NodeStructureTool` operates exclusively at **import time** for path remapping. Export always writes the source classification tree to `Nodes/source-tree.json` and discovered paths to `Nodes/referenced-paths.json`; import reads from these package artifacts — never from the live source API (package-only import invariant).

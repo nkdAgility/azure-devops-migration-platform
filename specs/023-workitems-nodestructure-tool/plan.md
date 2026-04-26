@@ -7,19 +7,19 @@
 
 ## Summary
 
-The NodeStructure Tool adds area/iteration path mapping, node creation, and classification tree replication to the WorkItemsModule. The design splits the feature into two concerns: a **pure path-mapping tool** (`INodeStructureTool`) called per-revision during import, and an **infrastructure service** (`INodeCreator`) that manages target-side ADO API calls for node creation. Export always captures the source classification tree (`Nodes/source-tree.json`) and discovered paths (`Nodes/referenced-paths.json`) as package metadata. Import uses these artifacts for bulk replication and pre-collection passes before streaming revision processing.
+The NodeStructure Tool adds area/iteration path mapping, node creation, and classification tree replication to the WorkItemsModule. The design splits the feature into two concerns: a **pure path-mapping tool** (`INodeStructureTool`) called per-revision during import, and an **infrastructure service** (`INodeCreator`) that manages target-side ADO API calls for node creation. Path mappings use an ordered list of regex `Match`/`Replacement` rules (first match wins, with `RegexOptions.NonBacktracking` for ReDoS protection), matching the model from the predecessor `TfsNodeStructureTool`. Export always captures the source classification tree (`Nodes/source-tree.json`) and discovered paths (`Nodes/referenced-paths.json`) as package metadata. Import uses these artifacts for bulk replication and pre-collection passes before streaming revision processing.
 
 ---
 
 ## Technical Context
 
 **Language/Version**: C# 10+, .NET 10 (multi-targeting `net481;net10.0` for Abstractions only)
-**Primary Dependencies**: `Microsoft.Extensions.DependencyInjection`, `Microsoft.Extensions.Options`, `System.Text.Json`, ADO REST API (Classification Nodes)
+**Primary Dependencies**: `Microsoft.Extensions.DependencyInjection`, `Microsoft.Extensions.Options`, `System.Text.Json`, `System.Text.RegularExpressions` (regex mapping with `NonBacktracking`), ADO REST API (Classification Nodes)
 **Storage**: `IArtefactStore` (package artifacts: `Nodes/source-tree.json`, `Nodes/referenced-paths.json`), `IStateStore` (checkpoint: `nodestructure-nodes-confirmed`)
 **Testing**: Reqnroll.MSTest + Moq (`MockBehavior.Strict`)
 **Target Platform**: .NET 10 (MigrationAgent, CLI); net481 (TFS exporter — no NodeStructure involvement)
 **Project Type**: Library/module extension within existing modular monolith
-**Performance Goals**: Path translation < 1µs per call (pure in-memory); node creation bound by ADO API latency (~100ms per call)
+**Performance Goals**: Path translation < 5µs per call (regex match + replace with pre-compiled `NonBacktracking` patterns); node creation bound by ADO API latency (~100ms per call)
 **Constraints**: Streaming — no in-memory buffer of all revisions; bounded path set (typically 10s–100s of distinct paths)
 **Scale/Scope**: Typical: 10–500 classification nodes, 10–100 distinct paths per project
 
@@ -65,7 +65,8 @@ specs/023-workitems-nodestructure-tool/
 src/
 ├── DevOpsMigrationPlatform.Abstractions/
 │   └── Options/
-│       └── NodeStructureOptions.cs          # Configuration model
+│       ├── NodeStructureOptions.cs          # Configuration model
+│       └── NodeMapping.cs                   # Regex Match/Replacement pair
 │
 ├── DevOpsMigrationPlatform.Abstractions.Agent/
 │   └── Tools/
@@ -185,6 +186,14 @@ features/
 
 **Rationale**: While `source-tree.json` is typically small (hundreds of nodes), the streaming approach is consistent with the architecture's streaming principle and prevents edge cases with unusually large classification trees from causing memory issues.
 
+### AD-7: Regex-based path mapping with ReDoS protection
+
+**Decision**: `AreaPathMappings` and `IterationPathMappings` are ordered lists of `NodeMapping` records (each with `Match` regex pattern and `Replacement` regex replacement string). Matching uses `Regex.IsMatch` + `Regex.Replace` with `RegexOptions.IgnoreCase | RegexOptions.NonBacktracking`. First matching rule wins.
+
+**Rationale**: The predecessor `TfsNodeStructureTool` in `azure-devops-migration-tools` uses regex mapping with capture groups (`$1`, `$2`), which operators rely on for complex path restructuring (e.g., consolidating multiple source subtrees into a single target hierarchy). Exact-match is impractical for real-world migrations. `NonBacktracking` prevents ReDoS from malicious or poorly-written patterns — the old tool had no such protection.
+
+**Alternatives rejected**: Exact-match dictionaries — too inflexible for production use cases requiring pattern-based restructuring. Regex without `NonBacktracking` — leaves a DoS vulnerability.
+
 ---
 
 ## Constitution Check — Post-Design Re-evaluation
@@ -200,4 +209,4 @@ All constitution principles re-checked against the completed design:
 - [x] **Determinism (VII):** Verified — additive schema change, artifact schemas documented in contracts.
 - [x] **ATDD-First (VIII):** Verified — 29 acceptance scenarios across 7 user stories.
 - [x] **SOLID & DI (IX):** Verified — constructor injection throughout, `IOptions<NodeStructureOptions>` for config, dedicated `AddNodeStructureToolServices()` extension.
-- [x] **Engineering Practice (X):** Verified — OpenTelemetry metrics/traces/logging defined in spec Observability section, `DataClassification.Customer` scoping for path values, retry with exponential back-off (FR-022).
+- [x] **Engineering Practice (X):** Verified — OpenTelemetry metrics/traces/logging defined in spec Observability section, `DataClassification.Customer` scoping for path values, retry with exponential back-off (FR-022), ReDoS protection via `RegexOptions.NonBacktracking` (FR-004a).

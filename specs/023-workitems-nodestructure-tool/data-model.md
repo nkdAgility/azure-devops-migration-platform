@@ -15,8 +15,8 @@
 | Property | Type | Default | Description |
 |---|---|---|---|
 | `Enabled` | `bool` | `true` | Master switch. When `false`, all import-side tool behaviour is bypassed. Export-side artifacts are still written. |
-| `AreaPathMappings` | `IReadOnlyDictionary<string, string>` | `{}` | Source area path → target area path. Exact match, case-insensitive. |
-| `IterationPathMappings` | `IReadOnlyDictionary<string, string>` | `{}` | Source iteration path → target iteration path. Exact match, case-insensitive. |
+| `AreaPathMappings` | `IReadOnlyList<NodeMapping>` | `[]` | Ordered regex mapping rules for area paths. Each entry has `Match` (regex pattern) and `Replacement` (regex replacement). First match wins. Case-insensitive. |
+| `IterationPathMappings` | `IReadOnlyList<NodeMapping>` | `[]` | Ordered regex mapping rules for iteration paths. Same semantics as `AreaPathMappings`. |
 | `AreaLanguageOverride` | `string?` | `null` | When set, normalises the root segment of source area paths to this value. |
 | `IterationLanguageOverride` | `string?` | `null` | When set, normalises the root segment of source iteration paths to this value. |
 | `AutoCreateNodes` | `bool` | `false` | When `true`, creates missing area/iteration nodes in the target via ADO API. |
@@ -27,11 +27,22 @@
 **Constraints**:
 - Class is `sealed` with `init`-only properties.
 - Declares `public static string SectionName => "MigrationPlatform:Tools:NodeStructure";`
-- `AreaPathMappings` and `IterationPathMappings` keys are trimmed and compared case-insensitively at runtime.
+- `AreaPathMappings` and `IterationPathMappings` rules use `Regex.IsMatch` with `RegexOptions.IgnoreCase | RegexOptions.NonBacktracking`. Input paths are trimmed before matching.
 
 ---
 
 ## Domain Entities
+
+### NodeMapping
+
+**Location**: `src/DevOpsMigrationPlatform.Abstractions/Options/NodeMapping.cs`
+
+| Property | Type | Description |
+|---|---|---|
+| `Match` | `string` | .NET regex pattern. Tested with `Regex.IsMatch(path, Match, RegexOptions.IgnoreCase \| RegexOptions.NonBacktracking)`. |
+| `Replacement` | `string` | .NET regex replacement string. Supports `$1`, `$2`, etc. Applied via `Regex.Replace`. |
+
+Record type. Immutable. Used in `NodeStructureOptions.AreaPathMappings` and `IterationPathMappings`.
 
 ### PathTranslation
 
@@ -40,7 +51,7 @@
 | Property | Type | Description |
 |---|---|---|
 | `TargetPath` | `string?` | The translated target path. `null` if unresolvable. |
-| `MatchedByMap` | `bool` | `true` if the path matched an `AreaPathMappings`/`IterationPathMappings` entry. |
+| `MatchedByMap` | `bool` | `true` if the path matched an `AreaPathMappings`/`IterationPathMappings` regex rule. |
 | `MatchedByProjectSwap` | `bool` | `true` if auto project-name swap was applied. |
 | `IsExternalPath` | `bool` | `true` if the source path did not begin with the source project name. |
 
@@ -128,9 +139,9 @@ Persisted in `IStateStore` under key `nodestructure-nodes-confirmed`.
 | Property | Type | Description |
 |---|---|---|
 | `IsValid` | `bool` | `true` if no validation findings. |
-| `UnmappedPaths` | `IReadOnlyList<UnmappedPathFinding>` | Paths with no mapping entry. |
+| `UnmappedPaths` | `IReadOnlyList<UnmappedPathFinding>` | Paths that no mapping rule matched. |
 | `UnanchoredPaths` | `IReadOnlyList<UnmappedPathFinding>` | Paths not anchored in the source project (external paths). |
-| `MalformedTargetPaths` | `IReadOnlyList<string>` | Target map values with empty or illegal characters. |
+| `MalformedTargetPaths` | `IReadOnlyList<string>` | Mapping rules whose `Replacement` produces a target path with empty value or ADO-illegal characters (`\`, `/`, `$`, `?`, `*`, `"`, `:`, `>`, `<`, `|`, `#`, `%`, `+`, control chars). |
 
 ### UnmappedPathFinding
 
@@ -271,7 +282,7 @@ Source path value
   ↓
 [Language override] → normalise root segment (if configured)
   ↓
-[Exact-match lookup] → check areaMap/iterationMap (case-insensitive)
+[Regex matching] → iterate AreaPathMappings/IterationPathMappings rules (first match wins, Regex.IsMatch + Regex.Replace)
   ↓ (no match)
 [Auto-swap check] → does path start with source project name?
   ├── Yes → substitute source prefix with target prefix

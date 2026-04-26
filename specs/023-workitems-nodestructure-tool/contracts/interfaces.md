@@ -22,7 +22,7 @@ Pure path-mapping tool. No I/O, no state. Called per-revision during import.
 public interface INodeStructureTool
 {
     /// <summary>
-    /// Translates a single path value using language override, explicit mapping,
+    /// Translates a single path value using language override, regex mapping rules,
     /// and auto project-name swap.
     /// </summary>
     /// <param name="fieldName">"System.AreaPath" or "System.IterationPath".</param>
@@ -123,12 +123,12 @@ public interface INodeStructureValidator
     "Tools": {
       "NodeStructure": {
         "Enabled": true,
-        "AreaPathMappings": {
-          "<source-area-path>": "<target-area-path>"
-        },
-        "IterationPathMappings": {
-          "<source-iteration-path>": "<target-iteration-path>"
-        },
+        "AreaPathMappings": [
+          { "Match": "^OldProject\\\\(.*)", "Replacement": "NewProject\\$1" }
+        ],
+        "IterationPathMappings": [
+          { "Match": "^OldProject\\\\(.*)", "Replacement": "NewProject\\$1" }
+        ],
         "AreaLanguageOverride": null,
         "IterationLanguageOverride": null,
         "AutoCreateNodes": false,
@@ -145,7 +145,8 @@ public interface INodeStructureValidator
 
 - Separator: `\` (backslash)
 - Format: `"ProjectName\\NodeLevel1\\NodeLevel2"`
-- Matching: case-insensitive, trimmed
+- Matching: regex with `RegexOptions.IgnoreCase | RegexOptions.NonBacktracking`, input trimmed
+- Mapping model: ordered `NodeMapping` list — each entry has `Match` (regex pattern) and `Replacement` (regex replacement with `$1`, `$2` back-references). First matching rule wins.
 
 ---
 

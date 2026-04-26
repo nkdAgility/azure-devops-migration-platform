@@ -23,7 +23,8 @@
 - [ ] T006 [P] Create `ReferencedPathsArtifact` record in `src/DevOpsMigrationPlatform.Abstractions.Agent/Tools/ReferencedPathsArtifact.cs`
 - [ ] T007 [P] Create `UnmappedPathFinding` record in `src/DevOpsMigrationPlatform.Abstractions.Agent/Tools/UnmappedPathFinding.cs`
 - [ ] T008 [P] Create `NodeStructureValidationReport` record in `src/DevOpsMigrationPlatform.Abstractions.Agent/Tools/NodeStructureValidationReport.cs`
-- [ ] T009 Create `NodeStructureOptions` sealed options class in `src/DevOpsMigrationPlatform.Abstractions/Options/NodeStructureOptions.cs` — `SectionName = "MigrationPlatform:Tools:NodeStructure"`, init-only properties, data annotation validation
+- [ ] T009 Create `NodeStructureOptions` sealed options class in `src/DevOpsMigrationPlatform.Abstractions/Options/NodeStructureOptions.cs` — `SectionName = "MigrationPlatform:Tools:NodeStructure"`, init-only properties, data annotation validation. `AreaPathMappings` and `IterationPathMappings` are `IReadOnlyList<NodeMapping>` (ordered regex rules).
+- [ ] T009a [P] Create `NodeMapping` sealed record in `src/DevOpsMigrationPlatform.Abstractions/Options/NodeMapping.cs` — `Match` (string, regex pattern) and `Replacement` (string, regex replacement). Init-only properties.
 - [ ] T010 [P] Create `INodeStructureTool` interface in `src/DevOpsMigrationPlatform.Abstractions.Agent/Tools/INodeStructureTool.cs`
 - [ ] T011 [P] Create `INodeCreator` interface in `src/DevOpsMigrationPlatform.Abstractions.Agent/Tools/INodeCreator.cs`
 - [ ] T012 [P] Create `IClassificationTreeReader` interface in `src/DevOpsMigrationPlatform.Abstractions.Agent/Tools/IClassificationTreeReader.cs`
@@ -40,9 +41,9 @@
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete.
 
-- [ ] T017 [US1] Create `features/import/workitems/nodestructure/path-mapping.feature` — translate spec.md User Story 1 acceptance scenarios (explicit mapping, auto-swap, pass-through, tool disabled) into conformant Gherkin per `.agents/guardrails/acceptance-test-format.md`
-- [ ] T018 Implement `NodeStructureTool` (`INodeStructureTool`) in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Tools/NodeStructure/NodeStructureTool.cs` — constructor takes `IOptions<NodeStructureOptions>`, implements `TranslatePath()` with language override → exact-match lookup → auto-swap → pass-through logic, `IsEnabled` property. Pure, no I/O.
-- [ ] T019 Create unit tests for `NodeStructureTool` in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Tools/NodeStructure/NodeStructureToolTests.cs` — cover explicit map hit, auto-swap, external path pass-through, case-insensitive matching, whitespace trimming, language override normalisation, tool disabled state
+- [ ] T017 [US1] Create `features/import/workitems/nodestructure/path-mapping.feature` — translate spec.md User Story 1 acceptance scenarios (regex mapping with Match/Replacement, auto-swap, pass-through, tool disabled) into conformant Gherkin per `.agents/guardrails/acceptance-test-format.md`
+- [ ] T018 Implement `NodeStructureTool` (`INodeStructureTool`) in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Tools/NodeStructure/NodeStructureTool.cs` — constructor takes `IOptions<NodeStructureOptions>`, pre-compiles all `NodeMapping` patterns with `RegexOptions.IgnoreCase | RegexOptions.NonBacktracking`. Implements `TranslatePath()` with language override → iterate mapping rules (`Regex.IsMatch` then `Regex.Replace`, first match wins) → auto-swap → pass-through logic, `IsEnabled` property. Pure, no I/O.
+- [ ] T019 Create unit tests for `NodeStructureTool` in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Tools/NodeStructure/NodeStructureToolTests.cs` — cover regex map hit (with capture groups `$1`/`$2`), auto-swap, external path pass-through, case-insensitive matching, whitespace trimming, language override normalisation, tool disabled state, `Enabled: false` with differing project names emits warning (FR-023)
 
 **Checkpoint**: Foundation ready — `INodeStructureTool` core path translation working, all user story implementation can proceed.
 
@@ -50,7 +51,7 @@
 
 ## Phase 3: User Story 1 — Map Area and Iteration Paths Across Projects (Priority: P1) 🎯 MVP
 
-**Goal**: Operators can declare source → target path mappings for `System.AreaPath` and `System.IterationPath` that are applied at import time.
+**Goal**: Operators can declare ordered regex mapping rules (`Match`/`Replacement` pairs) for `System.AreaPath` and `System.IterationPath` that are applied at import time.
 
 **Independent Test**: Configure a single source → target area path mapping, import work items, verify target work items carry the mapped path.
 
@@ -119,7 +120,7 @@
 ### Implementation for User Story 2
 
 - [ ] T034 [US2] Implement `AzureDevOpsNodeCreator` (`INodeCreator`) in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Tools/NodeStructure/AzureDevOpsNodeCreator.cs` — `NodeExistsAsync` (GET, 200/404), `EnsureExistsAsync` (check → POST, handle 409, ancestor-first for nested paths), `SetIterationDatesAsync` (PATCH). Exponential back-off retry on 5xx/408/429. Fatal on 401/403/400. Spans: `nodes.api.ensure`, `nodes.api.set_dates`
-- [ ] T035 [US2] Implement `NodeEnsurer` (pre-collection phase) in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Tools/NodeStructure/NodeEnsurer.cs` — reads `Nodes/referenced-paths.json` (fast path) or falls back to scanning all revision folders via `IArtefactStore.EnumerateAsync()`, applies `INodeStructureTool.TranslatePath()` to each, calls `INodeCreator.EnsureExistsAsync()` for each distinct translated path. Add span `nodes.import.precollect` and metrics `.count`, `.duration_ms`, `.errors`, `.in_flight`
+- [ ] T035 [US2] Implement `NodeEnsurer` (pre-collection phase) in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Tools/NodeStructure/NodeEnsurer.cs` — reads `Nodes/referenced-paths.json` (fast path) or falls back to scanning all revision folders via `IArtefactStore.EnumerateAsync()` (note: fallback reads and deserialises each `revision.json` — potentially expensive for large packages), applies `INodeStructureTool.TranslatePath()` to each, calls `INodeCreator.EnsureExistsAsync()` for each distinct translated path. Add span `nodes.import.precollect` and metrics `.count`, `.duration_ms`, `.errors`, `.in_flight`
 - [ ] T036 [US2] Integrate `NodeEnsurer` pre-collection into `WorkItemsModule.ImportAsync()` — call after `ReplicateSourceTree` step (Phase 8) and before `RevisionFolderProcessor` loop, when `AutoCreateNodes: true`
 - [ ] T037 [US2] Create unit tests for `NodeEnsurer` (pre-collection) in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Tools/NodeStructure/NodeEnsurerTests.cs` — cover fast path (referenced-paths.json), fallback scan, empty package, node already exists, API failure
 
@@ -140,7 +141,7 @@
 ### Implementation for User Story 3
 
 - [ ] T039 [US3] Add skip/fail logic in `RevisionFolderProcessor` integration point — when `PathTranslation.TargetPath` is null: check `SkipOnUnresolvableArea`/`SkipOnUnresolvableIteration`, emit warning progress event and skip revision, or fail with descriptive error (field name, path value, revision folder)
-- [ ] T040 [US3] Add structured logging for skip/fail events — `Revision skipped (unresolvable path)` (Warning), import failure with descriptive error message (Error). External path warning (FR-025).
+- [ ] T040 [US3] Add structured logging for skip/fail events — `Revision skipped (unresolvable path)` (Warning), import failure with descriptive error message (Error). External path warning (FR-025) — MUST identify the path as external (not anchored in source project) distinctly from generic unresolvable warnings. Add dedicated unit test cases verifying: (a) external path emits warning with "external" identification, (b) generic unresolvable path emits warning without "external" label.
 
 **Checkpoint**: Graceful degradation on bad paths. Large migrations can succeed with a small percentage of bad paths skipped.
 
@@ -170,7 +171,7 @@
 
 **Goal**: Cross-locale migrations normalise the root segment of paths before mapping.
 
-**Independent Test**: Configure `areaLanguageOverride: "Area"`, present a path starting with `"Área"`, verify root segment is normalised.
+**Independent Test**: Configure `AreaLanguageOverride: "Area"`, present a path starting with `"Área"`, verify root segment is normalised.
 
 ### Gherkin Feature File
 
@@ -209,12 +210,12 @@
 
 ### Gherkin Feature File
 
-- [ ] T050 Create `features/platform/validation/nodestructure-validation.feature` — translate spec.md validation requirements (FR-021: unmapped paths, external paths, malformed targets, revision count per path) into conformant Gherkin
+- [ ] T050 Create `features/platform/validation/nodestructure-validation.feature` — translate spec.md validation requirements (FR-021: unmapped paths, external paths, malformed targets, invalid regex patterns, revision count per path) into conformant Gherkin
 
 ### Implementation
 
-- [ ] T051 Implement `NodeStructureValidator` (`INodeStructureValidator`) in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Tools/NodeStructure/NodeStructureValidator.cs` — reads `Nodes/referenced-paths.json` (fast path) or scans all revision folders, applies `INodeStructureTool.TranslatePath()` to each path, collects `UnmappedPathFinding` entries (with affected revision counts), flags external paths distinctly, validates map target values for empty/illegal characters. Returns `NodeStructureValidationReport`. Add span `nodes.validate` and metrics `.duration_ms`, `.unmapped_paths`, `.external_paths`, `.malformed_targets`
-- [ ] T052 Create unit tests for `NodeStructureValidator` in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Tools/NodeStructure/NodeStructureValidatorTests.cs` — cover all mapped (valid), unmapped paths, external paths, malformed target values, empty package, referenced-paths fast path vs revision scan fallback
+- [ ] T051 Implement `NodeStructureValidator` (`INodeStructureValidator`) in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Tools/NodeStructure/NodeStructureValidator.cs` — reads `Nodes/referenced-paths.json` (fast path) or scans all revision folders, applies `INodeStructureTool.TranslatePath()` to each path, collects `UnmappedPathFinding` entries (with affected revision counts), flags external paths distinctly, validates `Match` patterns for syntactically valid regex (FR-004a), validates that `Replacement` values after substitution do not produce empty or ADO-illegal-character paths (`\`, `/`, `$`, `?`, `*`, `"`, `:`, `>`, `<`, `|`, `#`, `%`, `+`, control chars). Returns `NodeStructureValidationReport`. Add span `nodes.validate` and metrics `.duration_ms`, `.unmapped_paths`, `.external_paths`, `.malformed_targets`
+- [ ] T052 Create unit tests for `NodeStructureValidator` in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Tools/NodeStructure/NodeStructureValidatorTests.cs` — cover all mapped (valid), unmapped paths, external paths, malformed target values (ADO illegal chars), invalid regex patterns, empty package, referenced-paths fast path vs revision scan fallback
 
 **Checkpoint**: Validation provides operators with a complete picture of path coverage gaps before import.
 
