@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
+using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Abstractions.Options;
 using Microsoft.Extensions.Logging;
@@ -15,6 +17,8 @@ internal sealed class FieldTransformPipeline
     private readonly IReadOnlyList<(FieldTransformGroupOptions Group, IReadOnlyList<(FieldTransformRuleOptions Rule, IFieldTransform Transform)> Transforms)> _groups;
     private readonly ILogger<FieldTransformPipeline> _logger;
 
+    private static readonly ActivitySource s_activitySource = new(WellKnownActivitySourceNames.Migration);
+
     public FieldTransformPipeline(
         IReadOnlyList<(FieldTransformGroupOptions Group, IReadOnlyList<(FieldTransformRuleOptions Rule, IFieldTransform Transform)> Transforms)> groups,
         ILogger<FieldTransformPipeline> logger)
@@ -27,6 +31,10 @@ internal sealed class FieldTransformPipeline
         IReadOnlyDictionary<string, object?> fields,
         FieldTransformContext context)
     {
+        using var pipelineActivity = s_activitySource.StartActivity("fieldtransform.pipeline.execute");
+        pipelineActivity?.SetTag("wi.id", context.WorkItemId);
+        pipelineActivity?.SetTag("group_count", _groups.Count);
+
         var current = CopyDictionary(fields);
         var allActions = new List<FieldTransformAction>();
         bool tagTransformFired = false;
@@ -42,6 +50,10 @@ internal sealed class FieldTransformPipeline
             _logger.LogDebug(
                 "Executing transform group '{GroupName}' ({TransformCount} transforms)",
                 groupName, transforms.Count);
+
+            using var groupActivity = s_activitySource.StartActivity("fieldtransform.group.execute");
+            groupActivity?.SetTag("group.name", groupName);
+            groupActivity?.SetTag("wi.id", context.WorkItemId);
 
             foreach (var (rule, transform) in transforms)
             {

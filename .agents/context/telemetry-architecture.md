@@ -1,13 +1,15 @@
 # Telemetry Architecture — Agent Context
 
-This file explains the layered telemetry architecture, the cross-runtime strategy, and the step-by-step process for adding new metrics. It applies to both AI agents and human contributors.
+This file defines the layered telemetry architecture, the mandatory observability contract, the cross-runtime strategy, and the step-by-step process for adding new signals. It applies to both AI agents and human contributors.
 
 > **Canonical sources of truth — read these files, do not duplicate their content here:**
 > - Meter names: `src/DevOpsMigrationPlatform.Abstractions/Telemetry/WellKnownMeterNames.cs`
 > - Migration metric names: `src/DevOpsMigrationPlatform.Abstractions/Telemetry/WellKnownMetricNames.cs`
 > - Discovery metric names: `src/DevOpsMigrationPlatform.Abstractions/Telemetry/WellKnownDiscoveryMetricNames.cs`
+> - Tag/attribute names: `src/DevOpsMigrationPlatform.Abstractions/Telemetry/WellKnownTagNames.cs`
+> - ActivitySource names: `src/DevOpsMigrationPlatform.Abstractions/Telemetry/WellKnownActivitySourceNames.cs`
 >
-> Any list of metric or meter names that appears outside those files is a secondary reference that **will go stale**. Always read the source files directly.
+> Any list of names that appears outside those files is a secondary reference that **will go stale**. Always read the source files directly.
 
 ---
 
@@ -86,27 +88,9 @@ ProjectSnapshot { Name, Status, Migration?, Discovery? }
 
 ### Counter Record Types
 
-| Record | Scope | Properties |
-|--------|-------|------------|
-| `JobScopeCounters` | All job types | OrganisationsTotal/Completed/Failed, ProjectsTotal/Completed/Failed, WorkItemsTotal |
-| `WorkItemCounters` | Migration | Attempted, Completed, Failed, Skipped, RevisionsProcessed, Attachments? |
-| `AttachmentCounters` | Migration | Processed, Failed, TotalBytes |
-| `MigrationCounters` | Migration | WorkItems (WorkItemCounters), Diagnostics? (MigrationDiagnostics) |
-| `MigrationDiagnostics` | Aggregate only | OTel-derived means, correctness counters, in-flight gauges |
-| `InventoryCounters` | Discovery | RevisionsTotal, RepositoriesTotal, CheckpointsSaved |
-| `DependencyCounters` | Discovery | WorkItemsAnalysed, ExternalLinksFound, CrossProjectLinks, CrossOrgLinks |
+Counter and snapshot records live in `Abstractions/ControlPlaneApi/`. Read the source files directly for current properties — the list below is for orientation only:
 
----
-
-## Package Dependencies by Layer
-
-| Package | Used by | net481 | net10.0 |
-|---|---|---|---|
-| `System.Diagnostics.DiagnosticSource` | Recording + Instrument layers | ✅ (NuGet) | ✅ (inbox) |
-| `OpenTelemetry` | Pipeline layer | ✅ (only in `Infrastructure.TfsObjectModel`) | ✅ |
-| `OpenTelemetry.Extensions.Hosting` | Pipeline layer | ✅ (only in `Infrastructure.TfsObjectModel`) | ✅ |
-| `OpenTelemetry.Exporter.OpenTelemetryProtocol` | Pipeline layer | ✅ (only in `Infrastructure.TfsObjectModel`) | ✅ |
-| `Azure.Monitor.OpenTelemetry.Exporter` | Pipeline layer | ✅ (only in `Infrastructure.TfsObjectModel`) | ✅ |
+`JobScopeCounters`, `WorkItemCounters`, `AttachmentCounters`, `MigrationCounters`, `MigrationDiagnostics`, `InventoryCounters`, `DependencyCounters`, `DiscoveryCounters`, `JobMetrics`, `JobSnapshot`, `OrgSnapshot`, `ProjectSnapshot`, `JobBootstrap`.
 
 ---
 
@@ -114,16 +98,17 @@ ProjectSnapshot { Name, Status, Migration?, Discovery? }
 
 | File type | Project | Guard? | Example |
 |---|---|---|---|
-| Metric interface (`I*Metrics`) | `Abstractions/Telemetry/` | No | `IDiscoveryMetrics.cs` |
+| Metric interface (`I*Metrics`) | `Abstractions.Agent/Telemetry/` | No | `IMigrationMetrics.cs`, `IDiscoveryMetrics.cs` |
 | Metric name constants | `Abstractions/Telemetry/` | No | `WellKnownMetricNames.cs`, `WellKnownDiscoveryMetricNames.cs` |
 | Meter name constants | `Abstractions/Telemetry/` | No | `WellKnownMeterNames.cs` |
 | Tag builder helpers | `Abstractions/Telemetry/` | No | `MigrationTagList.cs` |
-| Counter record types | `Abstractions/Models/` | No | `WorkItemCounters.cs`, `AttachmentCounters.cs`, `MigrationCounters.cs`, `MigrationDiagnostics.cs`, `JobScopeCounters.cs`, `InventoryCounters.cs`, `DependencyCounters.cs`, `DiscoveryCounters.cs`, `JobMetrics.cs` |
-| Snapshot record types | `Abstractions/Models/` | No | `JobSnapshot.cs`, `OrgSnapshot.cs`, `ProjectSnapshot.cs`, `JobBootstrap.cs` |
+| Counter record types | `Abstractions/ControlPlaneApi/` | No | `WorkItemCounters.cs`, `MigrationCounters.cs`, `DiscoveryCounters.cs`, `JobMetrics.cs` |
+| Snapshot record types | `Abstractions/ControlPlaneApi/` | No | `JobSnapshot.cs`, `OrgSnapshot.cs`, `ProjectSnapshot.cs`, `JobBootstrap.cs` |
+| Tag name constants | `Abstractions/Telemetry/` | No | `WellKnownTagNames.cs` |
 | Store interfaces | `Abstractions/Telemetry/` | No | `IMetricSnapshotStore.cs` (contains `IJobMetricsStore`) |
-| Concrete metrics class | `Infrastructure/Telemetry/` | No | `DiscoveryMetrics.cs`, `MigrationMetrics.cs` |
-| OTel SDK exporter | `Infrastructure/Telemetry/` | `#if !NETFRAMEWORK` | `SnapshotMetricExporter.cs` |
-| DI registration extensions | `Infrastructure/Telemetry/` | `#if !NETFRAMEWORK` | `TelemetryServiceExtensions.cs` |
+| Concrete metrics class | `Infrastructure.Agent/Telemetry/` | No | `DiscoveryMetrics.cs`, `MigrationMetrics.cs` |
+| OTel SDK exporter | `Infrastructure.ControlPlane/Metrics/` | `#if !NETFRAMEWORK` | `SnapshotMetricExporter.cs` |
+| DI registration extensions | `Infrastructure.Agent/Telemetry/` | `#if !NETFRAMEWORK` | `TelemetryServiceExtensions.cs` |
 | TFS host composition root | `Infrastructure.TfsObjectModel/` | No (net481-only project) | `MigrationPlatformHost.cs` |
 
 ---
@@ -217,16 +202,19 @@ Three ActivitySources cover the entire system. Each is registered in `ServiceDef
 | Component | Span Name | Tags | Parent |
 |---|---|---|---|
 | `WorkItemExportOrchestrator` | `workitems.export` | job.id, operation, module, source.type | Root |
-| `WorkItemExportOrchestrator` | `workitem.export` | wi.id, wi.type | `workitems.export` |
-| `WorkItemExportOrchestrator` | `attachment.download` | wi.id, attachment.name | `workitem.export` |
+| `WorkItemExportOrchestrator` | `workitem.export` | workitem.id, wi.type | `workitems.export` |
+| `WorkItemExportOrchestrator` | `attachment.download` | workitem.id, attachment.name | `workitem.export` |
 | `WorkItemImportOrchestrator` | `workitems.import` | job.id, operation, module | Root |
-| `WorkItemImportOrchestrator` | `workitem.import` | wi.id | `workitems.import` |
-| `RevisionFolderProcessor` | `revision.process` | wi.id, revision.index | `workitem.import` |
-| `InventoryDiscoveryModule` | `discovery.inventory` | job.id | Root |
-| `DependencyDiscoveryModule` | `discovery.dependencies` | job.id | Root |
+| `WorkItemImportOrchestrator` | `workitem.import` | workitem.id | `workitems.import` |
+| `RevisionFolderProcessor` | `revision.import` | workitem.id, revision.index | `workitem.import` |
+| `FieldTransformTool` | `fieldtransform.apply` | job.id, wi.id, wi.type, operation, module, revision.index | Caller |
+| `FieldTransformPipeline` | `fieldtransform.group` | wi.id, group.name | `fieldtransform.apply` |
+| `FieldTransformValidator` | `fieldtransform.validate` | module, transform_count, is_valid, error_count | Caller |
+| `InventoryDiscoveryModule` | `discovery.inventory` | job.id, module | Root |
+| `DependencyDiscoveryModule` | `discovery.dependencies` | job.id, module | Root |
 | `JobStore` | `job.enqueue` | job.id, job.type | Caller |
 | `JobStore` | `job.dequeue` | job.id, job.type | Caller |
-| `JobStore` | `job.setState` | job.id, state | Caller |
+| `JobStore` | `job.setState` | job.id, job.state | Caller |
 
 ### Pattern for Adding Spans
 
@@ -291,30 +279,16 @@ using (DataClassificationScope.Begin(DataClassification.Customer))
 _logger.LogDebug("WI {WorkItemId}: fields={Count}, attachments={AttachmentCount}", wiId, count, attCount);
 ```
 
-### Logging Inventory by Component
-
-| Component | Logger | Levels Used | Customer Scope |
-|---|---|---|---|
-| `WorkItemExportOrchestrator` | `ILogger` | Debug, Info, Warning | No — only WI IDs and counts |
-| `WorkItemImportOrchestrator` | `ILogger` | Debug, Info, Warning | Yes — processes field values |
-| `RevisionFolderProcessor` | `ILogger` | Debug, Warning | Yes — processes field values and attachment paths |
-| `JobStore` | `ILogger<JobStore>` | Debug, Info, Warning | No — only job IDs and types |
-| `InventoryDiscoveryModule` | `ILogger` | Info | Yes — org URLs |
-| `DependencyDiscoveryModule` | `ILogger` | Info | Yes — org URLs |
-| `AzureDevOpsDependencyAnalysisService` | `ILogger` | Debug | Yes — link URLs |
-
 ---
 
 ## Obsolete Interfaces — Do Not Use
 
-Two legacy interfaces remain in `Abstractions/Telemetry/` marked `[Obsolete]`. They exist only to keep call sites in `Infrastructure.TfsObjectModel` compiling during the transition period. **Do NOT inject or implement these in new code.**
+Two legacy interfaces remain in `Abstractions.Agent/Telemetry/` marked `[Obsolete]`. They exist only to keep call sites in `Infrastructure.TfsObjectModel` compiling during the transition. **Do NOT inject or implement these in new code.**
 
 | Interface | Replace with |
 |---|---|
 | `IWorkItemExportMetrics` | `IMigrationMetrics` |
 | `IAttachmentDownloadMetrics` | `IMigrationMetrics` |
-
-These will be removed once all TFS Object Model call sites have been migrated to `IMigrationMetrics`.
 
 ---
 
@@ -355,3 +329,152 @@ All metric recordings MUST include mandatory dimension tags built via `Migration
 Discovery metrics use `job.id` + `module` + `organisation.url` as their mandatory tags (no `operation` tag — discovery is not export/import/validation).
 
 Tags MUST NOT include customer-identifiable data (project names, user emails, field values). Work item IDs are integer identifiers safe for tags. Use traces or `DataClassification.Customer`-scoped logs for customer content.
+
+---
+
+## Attribute (Tag) Conventions
+
+> **Canonical source:** `src/DevOpsMigrationPlatform.Abstractions/Telemetry/WellKnownTagNames.cs`
+
+All **dimension tag** names MUST use constants from `WellKnownTagNames`. Hardcoded string literals for dimension tags are prohibited in new code.
+
+### Dimension Tags vs. Span Result Attributes
+
+| Category | Purpose | Centralised? | Example |
+|---|---|---|---|
+| **Dimension tags** | Filtering, grouping, correlation across spans | Yes — `WellKnownTagNames` | `job.id`, `operation`, `workitem.id` |
+| **Span result attributes** | Contextual data local to a single span | No — inline strings co-located with the span | `"group_count"`, `"is_valid"`, `"workitems.count"` |
+
+Dimension tags answer "which entity?" or "what kind?" and are reused across multiple components. Span result attributes answer "what happened inside this span?" and are unique to the span that sets them. Do not add result attributes to `WellKnownTagNames`.
+
+### Naming Rules
+
+- **Format:** lowercase, dot-separated segments: `<entity>.<property>` (e.g. `job.id`, `workitem.id`, `revision.index`)
+- **Consistency:** One canonical name per concept. Do not create aliases (e.g. use `workitem.id` everywhere, never `wi.id` alongside it).
+- **New tags:** Add the constant to `WellKnownTagNames.cs` first, then use the constant in code.
+
+### Tag Cardinality Classification
+
+Tags are classified by cardinality to determine where they may be used:
+
+| Cardinality | Definition | Allowed on Metrics | Allowed on Traces | Allowed on Logs |
+|---|---|---|---|---|
+| **Low** | < 10 distinct values (e.g. `operation`, `module`) | ✅ | ✅ | ✅ |
+| **Medium** | 10–1000 distinct values (e.g. `wi.type`, `group.name`) | ⚠️ Use with caution | ✅ | ✅ |
+| **High** | Unbounded (e.g. `job.id`, `workitem.id`) | ❌ Never on metrics | ✅ | ✅ |
+
+### Channel Separation
+
+| Channel | Tags from | Purpose |
+|---|---|---|
+| **Metrics** | `MigrationTagList.Create()` only | Aggregate counters — low-cardinality dimensions only |
+| **Traces** | `Activity.SetTag()` using `WellKnownTagNames` constants | Per-request detail — high-cardinality entity IDs allowed |
+| **Logs** | Structured message templates `{Parameter}` | Per-event detail — customer data requires `DataClassification.Customer` scope |
+
+Metrics tags and trace attributes serve different purposes and MUST NOT be mixed. `MigrationTagList` is the only approved factory for metric tags. Trace attributes are set directly on `Activity` via `SetTag()`.
+
+---
+
+## Mandatory Observability Contract
+
+Every operation in the platform MUST meet the minimum observability requirements defined below. These standards apply to specifications (enforced by the `observability-contract` skill) and to implemented code.
+
+### Operator Decision Model
+
+Every telemetry signal (metric, span, log event) MUST map to at least one operator decision. Signals that do not support a decision are noise and MUST be rejected.
+
+| Decision | Question it answers |
+|---|---|
+| **Is it working?** | Are requests succeeding at an acceptable rate? |
+| **Is it fast enough?** | Is latency within SLO bounds? |
+| **Is it overloaded?** | Is concurrency or queue depth exceeding capacity? |
+| **What failed?** | Which specific operation failed and why? |
+| **Where is it slow?** | Which dependency or step is the bottleneck? |
+| **Is it correct?** | Do output counts match input counts? Are invariants maintained? |
+
+Every operation MUST support at minimum: `Is it working?`, `Is it fast enough?`, `Is it overloaded?`, and `What failed?`.
+
+### Mandatory Metrics Per Operation
+
+Every operation MUST emit at least these five metric types:
+
+| Metric | Instrument | Unit | Decision |
+|---|---|---|---|
+| Throughput | `Counter<long>` | `{operation}` | Is it working? |
+| Latency | `Histogram<double>` | `ms` | Is it fast enough? |
+| Outcome (success) | `Counter<long>` | `{operation}` | Is it working? |
+| Outcome (failure) | `Counter<long>` | `{operation}` | What failed? |
+| In-flight / queue depth | `UpDownCounter<long>` or `ObservableGauge<int>` | `{operation}` | Is it overloaded? |
+
+If the operation processes batches, add a batch-size `Histogram` metric.
+
+Metrics MUST represent business activity, not infrastructure (CPU, memory, GC are provided by the runtime).
+
+### Metric Naming Convention
+
+All metric names MUST use four dot-separated segments:
+
+```
+<domain>.<capability>.<operation>.<measure>
+```
+
+| Segment | Values | Example |
+|---|---|---|
+| `domain` | `migration`, `discovery` (matching `WellKnownMeterNames`) | `migration` |
+| `capability` | Module or subsystem name | `export`, `fieldtransform` |
+| `operation` | Specific action | `workitem`, `attachment`, `apply` |
+| `measure` | What is measured | `count`, `duration_ms`, `errors`, `in_flight` |
+
+Check `WellKnownMetricNames` before inventing new names — reuse where semantics match.
+
+### Mandatory Trace Coverage
+
+- Every operation MUST have exactly one root span.
+- Every dependency (store call, SDK call, HTTP call) MUST have a child span.
+- Context propagation method MUST be stated: automatic via `Activity` hierarchy or explicit `W3C TraceContext` headers.
+- Root span tags MUST include: `job.id`, `operation`, `module` (using `WellKnownTagNames` constants).
+- Child span tags MUST include the entity identifier (e.g. `workitem.id`, `revision.index`).
+- Span names MUST use lowercase dot-separated segments matching the metric naming domain.
+
+### Mandatory Structured Log Events Per Operation
+
+Every operation MUST emit at least these log events:
+
+| Event | Level | Required Fields |
+|---|---|---|
+| Operation started | `Information` | operationId, operation, input summary |
+| Operation completed | `Information` | operationId, operation, outcome, durationMs, output summary |
+| Operation failed | `Error` | operationId, operation, errorType, errorMessage, durationMs |
+| Dependency call slow | `Warning` | operationId, dependency, durationMs, threshold |
+| Retry attempt | `Warning` | operationId, operation, attempt, maxAttempts, delay |
+| Step detail | `Debug` | operationId, step, detail |
+| Wire-level detail | `Trace` | operationId, payload summary |
+
+`Debug` and `Trace` levels MUST be disabled by default. No unstructured string concatenation in log templates. Every log event MUST include `operationId` for correlation.
+
+### Mandatory Correlation Model
+
+All telemetry (metrics, traces, logs) for a given operation MUST be correlated via these fields:
+
+| Field | Source | Scope |
+|---|---|---|
+| `operationId` / `traceId` | `Activity.Current.TraceId` or generated GUID | All telemetry |
+| `parentId` | `Activity.Current.ParentSpanId` | Spans and logs within a parent context |
+| `job.id` | Job context | All telemetry within a job |
+| Domain identifiers | Feature-specific (e.g. `workitem.id`, `project.name`) | Where applicable |
+
+If correlation cannot be established for an operation, the observability contract is not met.
+
+### Validation Query Categories
+
+Observability is considered complete only when all five query categories can be answered using the defined signals:
+
+| Category | Proves | Signal source |
+|---|---|---|
+| Failure identification | Failures can be identified by operation and cause | Metrics (outcome.failure) + Logs (Error) |
+| Latency analysis | P50/P95/P99 latency can be computed per operation | Metrics (latency histogram) |
+| Load observation | In-flight concurrency or queue depth is visible | Metrics (in_flight / queue_depth) |
+| End-to-end trace | A single request can be traced from entry to all dependencies | Traces (root + child spans) |
+| Error diagnosis | Root cause can be determined from logs + traces | Logs (Error) joined with Traces |
+
+If any category cannot be expressed using the available signals, the observability contract is incomplete.

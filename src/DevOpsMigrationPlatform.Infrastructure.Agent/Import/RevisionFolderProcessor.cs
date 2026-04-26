@@ -9,6 +9,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
+using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Abstractions.Telemetry;
 using Microsoft.Extensions.Logging;
 
@@ -36,6 +37,9 @@ public sealed class RevisionFolderProcessor : IRevisionFolderProcessor
     private readonly IMigrationMetrics? _metrics;
     private readonly string? _jobId;
     private readonly IFieldTransformTool? _fieldTransformTool;
+    private readonly INodeStructureTool? _nodeStructureTool;
+    private readonly ProjectMapping? _nodeStructureContext;
+    private readonly NodeStructureOptions? _nodeStructureOptions;
 
     private static readonly ActivitySource ActivitySource = new(WellKnownActivitySourceNames.Migration);
 
@@ -53,7 +57,10 @@ public sealed class RevisionFolderProcessor : IRevisionFolderProcessor
         ILogger<RevisionFolderProcessor> logger,
         IMigrationMetrics? metrics = null,
         string? jobId = null,
-        IFieldTransformTool? fieldTransformTool = null)
+        IFieldTransformTool? fieldTransformTool = null,
+        INodeStructureTool? nodeStructureTool = null,
+        ProjectMapping? nodeStructureContext = null,
+        NodeStructureOptions? nodeStructureOptions = null)
     {
         _target = target ?? throw new ArgumentNullException(nameof(target));
         _idMapStore = idMapStore ?? throw new ArgumentNullException(nameof(idMapStore));
@@ -64,6 +71,14 @@ public sealed class RevisionFolderProcessor : IRevisionFolderProcessor
         _metrics = metrics;
         _jobId = jobId;
         _fieldTransformTool = fieldTransformTool;
+        _nodeStructureTool = nodeStructureTool;
+        _nodeStructureContext = nodeStructureContext;
+        _nodeStructureOptions = nodeStructureOptions;
+
+        if (_fieldTransformTool == null)
+            _logger.LogWarning("[WorkItems] IFieldTransformTool is not registered — field transforms will be skipped for all revisions. Call AddFieldTransformToolServices() in your DI setup to enable field transforms.");
+        if (_nodeStructureTool == null)
+            _logger.LogWarning("[WorkItems] INodeStructureTool is not registered — area/iteration path translation will be skipped for all revisions. Call AddNodeStructureToolServices() in your DI setup to enable path translation.");
     }
 
     /// <summary>
@@ -185,6 +200,19 @@ public sealed class RevisionFolderProcessor : IRevisionFolderProcessor
                     transformResult.Actions.Count, revision.WorkItemId, revision.RevisionIndex);
             }
 
+            // NodeStructure path translation
+            if (_nodeStructureTool != null && _nodeStructureTool.IsEnabled && _nodeStructureContext != null)
+            {
+                if (!TryApplyNodeStructureTranslation(fields, _nodeStructureContext, out var translatedFields))
+                {
+                    // Revision skipped — external/unresolvable path with SkipOnUnresolvable* enabled
+                    await _idMapStore.RecordSkippedRevisionAsync(revision.WorkItemId, "UnresolvablePath", ct).ConfigureAwait(false);
+                    await WriteCursorAsync(folderPath, CursorStage.Completed, ct).ConfigureAwait(false);
+                    return;
+                }
+                fields = translatedFields;
+            }
+
             await _target.UpdateFieldsAsync(resolvedTargetId, fields, ct).ConfigureAwait(false);
             await WriteCursorAsync(folderPath, CursorStage.AppliedFields, ct).ConfigureAwait(false);
         }
@@ -251,6 +279,79 @@ public sealed class RevisionFolderProcessor : IRevisionFolderProcessor
 
         // Final cursor — Completed
         await WriteCursorAsync(folderPath, CursorStage.Completed, ct).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Applies node structure path translation. Returns <c>false</c> if the revision should be skipped.
+    /// </summary>
+    private bool TryApplyNodeStructureTranslation(
+        IReadOnlyList<WorkItemField> fields,
+        ProjectMapping context,
+        out IReadOnlyList<WorkItemField> result)
+    {
+        result = fields;
+        var output = new List<WorkItemField>(fields.Count);
+        bool anyTranslated = false;
+
+        foreach (var field in fields)
+        {
+            if (field.ReferenceName is "System.AreaPath" or "System.IterationPath"
+                && field.Value is string pathValue
+                && !string.IsNullOrEmpty(pathValue))
+            {
+                var translation = _nodeStructureTool!.TranslatePath(field.ReferenceName, pathValue, context);
+
+                if (translation.IsExternalPath)
+                {
+                    bool isArea = field.ReferenceName == "System.AreaPath";
+                    bool skipEnabled = isArea
+                        ? (_nodeStructureOptions?.SkipOnUnresolvableArea ?? false)
+                        : (_nodeStructureOptions?.SkipOnUnresolvableIteration ?? false);
+
+                    string fieldLabel = isArea ? "area" : "iteration";
+
+                    if (skipEnabled)
+                    {
+                        using (DataClassificationScope.Begin(DataClassification.Customer))
+                            _logger.LogWarning(
+                                "[NodeStructure] Revision skipped — external (not anchored in source project) {FieldLabel} path: {Path}",
+                                fieldLabel, pathValue);
+                        return false;
+                    }
+                    else
+                    {
+                        using (DataClassificationScope.Begin(DataClassification.Customer))
+                            _logger.LogError(
+                                "[NodeStructure] Unresolvable {FieldLabel} path: {Path} — import aborted (set SkipOnUnresolvable{CapLabel} to skip instead)",
+                                fieldLabel, pathValue, isArea ? "Area" : "Iteration");
+                        throw new InvalidOperationException(
+                            $"[NodeStructure] Unresolvable {fieldLabel} path: '{pathValue}'. " +
+                            $"Set SkipOnUnresolvable{(isArea ? "Area" : "Iteration")}: true to skip instead.");
+                    }
+                }
+
+                if (translation.TargetPath != null && !string.Equals(translation.TargetPath, pathValue, StringComparison.Ordinal))
+                {
+                    output.Add(new WorkItemField { ReferenceName = field.ReferenceName, Value = translation.TargetPath });
+                    anyTranslated = true;
+                    _logger.LogTrace(
+                        "[NodeStructure] Path translated: {Field} = {Target} (mapHit={MapHit}, swap={Swap}, external={External})",
+                        field.ReferenceName, translation.TargetPath,
+                        translation.MatchedByMap, translation.MatchedByProjectSwap, translation.IsExternalPath);
+                }
+                else
+                {
+                    output.Add(field);
+                }
+            }
+            else
+            {
+                output.Add(field);
+            }
+        }
+
+        result = anyTranslated ? output : fields;
+        return true;
     }
 
     // --- Helpers ---

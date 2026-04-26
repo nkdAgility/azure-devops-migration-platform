@@ -66,19 +66,27 @@ public sealed class LogsCommand : ControlPlaneCommandBase<LogsCommand.Settings>
     {
         var client = GetRequiredService<ILogsClient>();
         using var cts = new CancellationTokenSource();
-        Console.CancelKeyPress += (_, e) => { e.Cancel = true; cts.Cancel(); };
+        ConsoleCancelEventHandler ctrlCHandler = (_, e) => { e.Cancel = true; cts.Cancel(); };
+        Console.CancelKeyPress += ctrlCHandler;
 
-        if (!settings.Follow)
+        try
         {
-            var events = await client.GetProgressAsync(settings.JobId, cts.Token);
-            foreach (var evt in events)
+            if (!settings.Follow)
+            {
+                var events = await client.GetProgressAsync(settings.JobId, cts.Token);
+                foreach (var evt in events)
+                    console.WriteLine(JsonSerializer.Serialize(evt, _jsonOptions));
+                return 0;
+            }
+
+            await foreach (var evt in client.FollowLogsAsync(settings.JobId, cts.Token))
                 console.WriteLine(JsonSerializer.Serialize(evt, _jsonOptions));
+
             return 0;
         }
-
-        await foreach (var evt in client.FollowLogsAsync(settings.JobId, cts.Token))
-            console.WriteLine(JsonSerializer.Serialize(evt, _jsonOptions));
-
-        return 0;
+        finally
+        {
+            Console.CancelKeyPress -= ctrlCHandler;
+        }
     }
 }

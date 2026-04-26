@@ -35,10 +35,41 @@ public static class WellKnownMetricNames
     public const string WorkItemsInFlight = "migration.workitems.in_flight";
     public const string QueueDepth = "migration.queue.workitems.depth";
 
+    // --- FieldTransform ---
+    public const string FieldTransformApplyCount = "migration.fieldtransform.apply.count";
+    public const string FieldTransformApplyDurationMs = "migration.fieldtransform.apply.duration_ms";
+    public const string FieldTransformApplyErrors = "migration.fieldtransform.apply.errors";
+    public const string FieldTransformApplyInFlight = "migration.fieldtransform.apply.in_flight";
+    public const string FieldTransformApplyFieldsModified = "migration.fieldtransform.apply.fields_modified";
+
     // --- Idempotency (deferred — instruments registered, not yet incremented) ---
     public const string Duplicated = "migration.workitems.duplicated";
     public const string ChangedOnRerun = "migration.workitems.changed_on_rerun";
     public const string ReprocessedAfterResume = "migration.workitems.reprocessed_after_resume";
     public const string DuplicatedAfterResume = "migration.workitems.duplicated_after_resume";
     public const string MissingAfterResume = "migration.workitems.missing_after_resume";
+
+    // --- NodeStructure ---
+    public const string NodeTranslateCount = "migration.nodes.import.translate.count";
+    public const string NodeTranslateMapHit = "migration.nodes.import.translate.map_hit";
+    public const string NodeTranslateAutoSwapHit = "migration.nodes.import.translate.autoswap_hit";
+    public const string NodeTranslateExternal = "migration.nodes.import.translate.external";
+    public const string NodeTranslateUnresolvable = "migration.nodes.import.translate.unresolvable";
+    public const string NodeExportDiscoverCount = "migration.nodes.export.discover.count";
+    public const string NodeExportTreeCount = "migration.nodes.export.tree.count";
+    public const string NodeExportTreeDurationMs = "migration.nodes.export.tree.duration_ms";
+    public const string NodeExportTreeErrors = "migration.nodes.export.tree.errors";
+    public const string NodeImportPreCollectCount = "migration.nodes.import.precollect.count";
+    public const string NodeImportPreCollectDurationMs = "migration.nodes.import.precollect.duration_ms";
+    public const string NodeImportPreCollectErrors = "migration.nodes.import.precollect.errors";
+    public const string NodeImportPreCollectInFlight = "migration.nodes.import.precollect.in_flight";
+    public const string NodeImportReplicateCount = "migration.nodes.import.replicate.count";
+    public const string NodeImportReplicateDurationMs = "migration.nodes.import.replicate.duration_ms";
+    public const string NodeImportReplicateErrors = "migration.nodes.import.replicate.errors";
+    public const string NodeImportReplicateSkipped = "migration.nodes.import.replicate.skipped";
+    public const string NodeImportReplicateInFlight = "migration.nodes.import.replicate.in_flight";
+    public const string NodeValidateDurationMs = "migration.nodes.validate.duration_ms";
+    public const string NodeValidateUnmappedPaths = "migration.nodes.validate.unmapped_paths";
+    public const string NodeValidateExternalPaths = "migration.nodes.validate.external_paths";
+    public const string NodeValidateMalformedTargets = "migration.nodes.validate.malformed_targets";
 }

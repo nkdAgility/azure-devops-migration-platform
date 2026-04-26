@@ -1,7 +1,7 @@
 using System;
 using System.Linq;
 using System.Net.Http;
-using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
 using DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Discovery;
@@ -11,6 +11,7 @@ using DevOpsMigrationPlatform.Infrastructure.Agent.Connectors;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Export;
 using DevOpsMigrationPlatform.Infrastructure.Serialization;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.TeamFoundation.WorkItemTracking.WebApi;
 using Polly;
 using Polly.Extensions.Http;
@@ -62,6 +63,9 @@ public static class ExportServiceCollectionExtensions
         {
             services.AddSingleton<IWorkItemDiscoveryService, AzureDevOpsWorkItemDiscoveryService>();
         }
+
+        // Classification tree reader — enumerates area/iteration nodes from the source ADO project.
+        services.AddClassificationTreeReader<AzureDevOpsClassificationTreeReader>("AzureDevOpsServices");
 
         // Embedded image download and processing
         services.AddHttpClient<AzureDevOpsEmbeddedImageDownloader>()

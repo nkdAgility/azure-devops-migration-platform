@@ -1,6 +1,39 @@
 <!--
 SYNC IMPACT REPORT
 ==================
+Version change:    1.3.4 → 1.4.0
+Bump rationale:    New principle — Full Connector Coverage (XI) added:
+                   Every feature interacting with source/target systems must be
+                   fully implemented for Simulated, AzureDevOpsServices, AND
+                   TeamFoundationServer (where APIs allow). Stubs, placeholders,
+                   and deferred connector implementations are forbidden.
+                   Two new reject conditions enforce this at the constitution level.
+                   Propagated to coding-standards.md, agents.md,
+                   copilot-instructions.md, definition-of-done.md,
+                   speckit.specify.agent.md, speckit.plan.agent.md,
+                   speckit.tasks.agent.md, and speckit.implement.agent.md.
+
+Principles modified:
+  None
+
+Principles added:
+  XI. Full Connector Coverage (NON-NEGOTIABLE)
+
+Sections modified:
+  Reject Conditions — 2 new entries added
+
+Templates updated:
+  ✅ .specify/templates/plan-template.md — no changes required
+  ✅ .specify/templates/spec-template.md — no changes required
+  ✅ .specify/templates/tasks-template.md — no changes required
+
+Deferred TODOs:
+  None
+-->
+
+<!--
+SYNC IMPACT REPORT
+==================
 Version change:    1.3.3 → 1.3.4
 Bump rationale:    Clarification — Spec-Completion Gate added to Governance:
                    (1) Every spec's last task requires discrepancies.md fully resolved.
@@ -301,6 +334,25 @@ concrete examples for each.
 21. **Documentation as an Engineering Asset** — ADRs for significant decisions;
     XML doc-comments on all public abstractions; living feature files.
 
+### XI. Full Connector Coverage (NON-NEGOTIABLE)
+
+Every feature that interacts with source or target systems MUST be fully implemented
+for all three connectors: **Simulated**, **AzureDevOpsServices**, and
+**TeamFoundationServer** (where the underlying API supports the capability).
+
+- A feature that works for one connector but leaves stubs, placeholders, or
+  `NotImplementedException` in the other connectors is **incomplete and must not
+  be merged**.
+- Specs MUST include acceptance scenarios for all three connectors.
+- Plans MUST allocate implementation tasks for all three connectors.
+- TFS may be exempted only when the TFS Object Model API does not expose the
+  required capability. In that case, the TFS code MUST gracefully skip the
+  operation with a structured warning — it MUST NOT throw.
+- Deferring a connector implementation to "a follow-up PR" or "a future task"
+  is forbidden.
+21. **Documentation as an Engineering Asset** — ADRs for significant decisions;
+    XML doc-comments on all public abstractions; living feature files.
+
 Any proposal that violates any of these categories MUST be rejected. The detailed
 enforcement rules, prohibited patterns, and code examples live in
 `.agents/guardrails/coding-standards.md` and MUST be consulted alongside this
@@ -400,6 +452,8 @@ Reject any proposal that:
 - Marks a spec's last task `[X]` without all items in `specs/<feature>/discrepancies.md` being `Resolved` or `N/A`.
 - Closes a spec branch without reviewing and removing resolved items from `analysis/pending-actions.md`.
 - Declares done without updating every canonical doc file (`/docs/*.md`, `.agents/context/*.md`) named in any doc-task in `tasks.md`.
+- Implements a feature for one connector (Simulated, AzureDevOps, or TFS) while leaving stubs, placeholders, or `NotImplementedException` in the other connectors where the API supports the capability.
+- Defers a connector implementation to a follow-up PR or future task instead of implementing all connectors in the same spec.
 
 ## Governance
 
@@ -446,4 +500,4 @@ Reject any proposal that:
 - All pull requests and agent reviews MUST verify compliance against this
   constitution and the guardrails before approving.
 
-**Version**: 1.3.4 | **Ratified**: 2026-04-02 | **Last Amended**: 2026-04-11
+**Version**: 1.4.0 | **Ratified**: 2026-04-02 | **Last Amended**: 2026-04-26

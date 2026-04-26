@@ -25,6 +25,9 @@ This resolution is performed by `PathUtilities.ExtractOrgFolderName()` and appli
 PackageRoot/
   manifest.json
   WorkItems/
+  Nodes/
+    referenced-paths.json   ← all area/iteration paths referenced by exported work item revisions
+    source-tree.json        ← full classification tree snapshot (area + iteration) from the source
   Teams/
   Permissions/
   Builds/

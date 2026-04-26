@@ -8,7 +8,7 @@ Every unit of work (feature, task, bugfix, refactor) must satisfy **all** of the
 
 - `dotnet clean && dotnet build --no-incremental` succeeds with **0 errors and 0 warnings treated as errors**.
 - Both Debug and Release configurations must build clean.
-- The `build.ps1 install` script must complete without error.
+- The `build.ps1 install` script must complete without error. 
 
 ## 2. Tests — All Green, No Exceptions
 
@@ -43,7 +43,14 @@ During active development, you **may** temporarily use `@ignore`, `[Ignore]`, or
 - No floating NuGet version ranges (`Version="*"`).
 - All coding standards in [coding-standards.md](./coding-standards.md) are satisfied.
 
-## 5. Documentation
+## 5. Connector Coverage
+
+- Every feature that interacts with source or target systems is fully implemented for **Simulated**, **AzureDevOpsServices**, and **TeamFoundationServer** (where the TFS OM API supports the capability).
+- No connector implementation is left as a stub, placeholder, or `NotImplementedException`.
+- No connector implementation is deferred to a follow-up PR or future task.
+- TFS exemptions have a specific API limitation rationale documented and the code gracefully skips the operation with a structured warning.
+
+## 6. Documentation
 
 - Every canonical doc named in any doc-task in `tasks.md` is updated.
 - CLI changes have a corresponding `.vscode/launch.json` entry.

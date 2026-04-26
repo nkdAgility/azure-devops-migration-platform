@@ -80,7 +80,9 @@ public class WellKnownMetricNamesTests
     public void ConstantCount_Matches24Instruments()
     {
         // Per spec SC-001: 24 total instruments + 2 attachment download instruments added in export-fix
-        Assert.AreEqual(26, AllConstants.Length,
-            $"Expected 26 metric name constants but found {AllConstants.Length}.");
+        // + 5 FieldTransform instruments added in spec 022
+        // + NodeStructure instruments added in spec 023
+        Assert.AreEqual(53, AllConstants.Length,
+            $"Expected 53 metric name constants but found {AllConstants.Length}.");
     }
 }

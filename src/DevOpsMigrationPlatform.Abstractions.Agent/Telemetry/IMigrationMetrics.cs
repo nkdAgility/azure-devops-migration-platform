@@ -38,10 +38,38 @@ public interface IMigrationMetrics
     void IncrementInFlight(in TagList tags);
     void DecrementInFlight(in TagList tags);
 
+    // --- FieldTransform ---
+    void RecordFieldTransformApplied(in TagList tags);
+    void RecordFieldTransformDuration(double milliseconds, in TagList tags);
+    void RecordFieldTransformError(in TagList tags);
+    void IncrementFieldTransformInFlight(in TagList tags);
+    void DecrementFieldTransformInFlight(in TagList tags);
+    void RecordFieldTransformFieldsModified(int count, in TagList tags);
+
     // --- Idempotency (deferred — counters registered, not yet incremented in production) ---
     void RecordDuplicated(in TagList tags);
     void RecordChangedOnRerun(in TagList tags);
     void RecordReprocessedAfterResume(in TagList tags);
     void RecordDuplicatedAfterResume(in TagList tags);
     void RecordMissingAfterResume(in TagList tags);
+
+    // --- NodeStructure Export ---
+    void RecordNodeExportTreeCount(int count, in TagList tags);
+    void RecordNodeExportTreeDuration(double milliseconds, in TagList tags);
+    void RecordNodeExportTreeError(in TagList tags);
+
+    // --- NodeStructure Import: Replicate ---
+    void RecordNodeImportReplicateCount(in TagList tags);
+    void RecordNodeImportReplicateDuration(double milliseconds, in TagList tags);
+    void RecordNodeImportReplicateError(in TagList tags);
+    void RecordNodeImportReplicateSkipped(in TagList tags);
+    void IncrementNodeImportReplicateInFlight(in TagList tags);
+    void DecrementNodeImportReplicateInFlight(in TagList tags);
+
+    // --- NodeStructure Import: PreCollect ---
+    void RecordNodeImportPreCollectCount(in TagList tags);
+    void RecordNodeImportPreCollectDuration(double milliseconds, in TagList tags);
+    void RecordNodeImportPreCollectError(in TagList tags);
+    void IncrementNodeImportPreCollectInFlight(in TagList tags);
+    void DecrementNodeImportPreCollectInFlight(in TagList tags);
 }

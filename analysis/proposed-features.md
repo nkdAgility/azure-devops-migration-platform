@@ -21,11 +21,10 @@
 
 ### Tool Resolution Model (Canonical for This Proposal)
 
-- Tools are declared at `MigrationPlatform.tools[]` (single source of truth for defaults).
+- Tools are declared under `MigrationPlatform.Tools` as a keyed object (key = tool type name, e.g. `"NodeStructure"`). This is the single source of truth.
 - Modules do not declare tool definitions.
-- Extensions load tools via `extensions[].tools[]` references.
-- Each extension tool reference can override a subset of values for that extension only.
-- Effective tool settings = migration-level tool defaults + extension-level overrides.
+- Extensions use the tool singleton declared at the `Tools` root; there is no per-extension tool reference array.
+- Per-type strategy overrides (e.g. on `WorkItemResolution`) are properties of the tool config itself, not extension-level schema constructs.
 
 Status legend:
 
@@ -108,10 +107,8 @@ Status legend:
 ```json
 {
   "MigrationPlatform": {
-    "tools": [
-      {
-        "id": "nodes-default",
-        "type": "NodeStructure",
+    "Tools": {
+      "NodeStructure": {
         "areaMap":      { "OldOrg\\OldProject\\Team A": "NewOrg\\NewProject\\Team A - Migrated" },
         "iterationMap": { "OldOrg\\OldProject\\Sprint 1": "NewOrg\\NewProject\\Sprint 1" },
         "areaLanguageOverride":      "Area",
@@ -121,22 +118,12 @@ Status legend:
         "skipRevisionWithInvalidIterationPath": false,
         "replicateAllExistingNodes": false
       }
-    ],
+    },
     "Modules": {
       "WorkItems": {
         "Enabled": true,
         "Extensions": {
-          "Revisions": {
-            "Enabled": true,
-            "tools": [
-              {
-                "ref": "nodes-default",
-                "overrides": {
-                  "createMissingNodes": true
-                }
-              }
-            ]
-          }
+          "Revisions": { "Enabled": true }
         }
       }
     }
@@ -170,26 +157,19 @@ Status legend:
 ```json
 {
   "MigrationPlatform": {
-    "tools": [
-      {
-        "id": "wit-map-default",
-        "type": "WorkItemTypeMapping",
+    "Tools": {
+      "WorkItemTypeMapping": {
         "map": {
           "User Story":    "Product Backlog Item",
           "Issue":         "Impediment"
         }
       }
-    ],
+    },
     "Modules": {
       "WorkItems": {
         "Enabled": true,
         "Extensions": {
-          "Revisions": {
-            "Enabled": true,
-            "tools": [
-              { "ref": "wit-map-default" }
-            ]
-          }
+          "Revisions": { "Enabled": true }
         }
       }
     }
@@ -368,7 +348,7 @@ Options that belong directly on the `WorkItems` module config rather than as sep
 **Used by**: `WorkItemsModule`, `TeamsModule`  
 **Purpose**: Remap `System.AreaPath` and `System.IterationPath` values before write/import; optionally create missing nodes in the target via the ADO Classification Nodes API.
 
-**Invocation**: Declared in `MigrationPlatform.tools[]`, then loaded by relevant extension references with optional overrides. See [M2](#m2-workitemsmodule--nodestructure-tool) for the JSON schema.
+**Invocation**: Declared under `MigrationPlatform.Tools` as a keyed entry (`"NodeStructure"`). See [M2](#m2-workitemsmodule--nodestructure-tool) for the JSON schema.
 
 **Key design rules**:
 - Node creation calls are idempotent (check before POST).
@@ -383,7 +363,7 @@ Options that belong directly on the `WorkItems` module config rather than as sep
 **Used by**: `WorkItemsModule`  
 **Purpose**: Translate source work item type names to target names at both export time (stored in package) and import time (used for item creation).
 
-**Invocation**: Declared in `MigrationPlatform.tools[]`, then loaded by extension references (typically `WorkItems/Revisions`). See [M3](#m3-workitemsmodule--workitemtypemapping-tool) for the JSON schema.
+**Invocation**: Declared under `MigrationPlatform.Tools` as a keyed entry (`"WorkItemTypeMapping"`). See [M3](#m3-workitemsmodule--workitemtypemapping-tool) for the JSON schema.
 
 **Features**:
 - Bidirectional: a map entry translates both the type name in the revision and any type-name references in link targets.
@@ -397,57 +377,41 @@ Options that belong directly on the `WorkItems` module config rather than as sep
 **Used by**: `WorkItemsModule`  
 **Purpose**: Apply regex-based find-and-replace rules to string field values (e.g. stripping legacy prefixes, sanitising invalid characters).
 
-**Invocation**: Declared in `MigrationPlatform.tools[]`, then loaded by extension references with optional overrides.
-
-```json
-  "MigrationPlatform": {
-    "tools": [
-      {
-        "id": "workitem-resolution-default",
-        "type": "WorkItemResolution",
-        "default": {
-          "strategy": "ReflectedWorkItemIdField",
-          "field": "Custom.ReflectedWorkItemId"
-- Invalid character cleanup as a named built-in rule: `{ "type": "StripControlCharacters" }`.
-        "overrides": [
-          {
-            "applyTo": ["Shared Steps", "Shared Parameter"],
-            "strategy": "ReflectedWorkItemIdHyperlink",
-            "hyperlinkComment": "ReflectedWorkItemId"
-          },
-          {
-            "applyTo": ["Test Case"],
-            "strategy": "ReflectedWorkItemIdField",
-            "field": "Custom.AltReflectedId"
-          }
-        ]
-      }
-    ],
-    "Modules": {
-      "WorkItems": {
-        "Enabled": true,
-        "Extensions": {
-          "Revisions": {
-            "Enabled": true,
-            "tools": [
-              {
-                "ref": "workitem-resolution-default"
-              }
-            ]
-```
----
-      }
-### T6: ChangesetMappingTool
-  }
-**Used by**: `WorkItemsModule` (link rewriting for TFVC changeset links)  
-**Purpose**: Map TFS changeset IDs to Git commit SHAs so that `Fixed In Changeset` links survive migration.
-
-**Invocation**: Declared in `MigrationPlatform.tools[]`, then loaded by `WorkItems` extension references.
+**Invocation**: Declared under `MigrationPlatform.Tools` as a keyed entry.
 
 ```json
 {
-  "type": "ChangesetMapping",
-  "mappingFile": "changeset-to-commit.json"
+  "MigrationPlatform": {
+    "Tools": {
+      "StringManipulator": {
+        "rules": [
+          { "type": "RegexReplace", "field": "System.Title", "pattern": "^\\[LEGACY\\]\\s*", "replacement": "" },
+          { "type": "StripControlCharacters", "field": "System.Description" }
+        ]
+      }
+    }
+  }
+}
+```
+
+---
+
+### T6: ChangesetMappingTool
+
+**Used by**: `WorkItemsModule` (link rewriting for TFVC changeset links)  
+**Purpose**: Map TFS changeset IDs to Git commit SHAs so that `Fixed In Changeset` links survive migration.
+
+**Invocation**: Declared under `MigrationPlatform.Tools` as a keyed entry.
+
+```json
+{
+  "MigrationPlatform": {
+    "Tools": {
+      "ChangesetMapping": {
+        "mappingFile": "changeset-to-commit.json"
+      }
+    }
+  }
 }
 ```
 
@@ -471,44 +435,36 @@ The ADO process model allows customisation only of *inherited* work item types. 
 
 ```json
 {
-  "tools": [
-    {
-      "id": "workitem-resolution-default",
-      "type": "WorkItemResolution",
-      "default": {
-        "strategy": "ReflectedWorkItemIdField",
-        "field": "Custom.ReflectedWorkItemId"
-      },
-      "overrides": [
-        {
-          "applyTo": ["Shared Steps", "Shared Parameter"],
-          "strategy": "ReflectedWorkItemIdHyperlink",
-          "hyperlinkComment": "ReflectedWorkItemId"
-        },
-        {
-          "applyTo": ["Test Case"],
+  "MigrationPlatform": {
+    "Tools": {
+      "WorkItemResolution": {
+        "default": {
           "strategy": "ReflectedWorkItemIdField",
-          "field": "Custom.AltReflectedId"
+          "field": "Custom.ReflectedWorkItemId"
+        },
+        "overrides": [
+          {
+            "applyTo": ["Shared Steps", "Shared Parameter"],
+            "strategy": "ReflectedWorkItemIdHyperlink",
+            "hyperlinkComment": "ReflectedWorkItemId"
+          },
+          {
+            "applyTo": ["Test Case"],
+            "strategy": "ReflectedWorkItemIdField",
+            "field": "Custom.AltReflectedId"
+          }
+        ]
+      }
+    },
+    "Modules": {
+      "WorkItems": {
+        "Enabled": true,
+        "Extensions": {
+          "Revisions": { "Enabled": true }
         }
-      ]
+      }
     }
-  ],
-  "modules": [
-    {
-      "name": "WorkItems",
-      "extensions": [
-        {
-          "type": "Import",
-          "enabled": true,
-          "tools": [
-            {
-              "ref": "workitem-resolution-default"
-            }
-          ]
-        }
-      ]
-    }
-  ]
+  }
 }
 ```
 
@@ -879,8 +835,8 @@ As an interim measure before the full `Reconcile` job is built, individual modul
 
 | Field | Location | Purpose |
 |---|---|---|
-| `MigrationPlatform.tools[]` | MigrationPlatform config root | Array of reusable tool declarations and defaults |
-| `MigrationPlatform.Modules.<Module>.Extensions.<Extension>.tools[]` | Extension config | Tool references loaded by an extension; may include `overrides` |
+| `MigrationPlatform.Tools.<ToolTypeName>` | MigrationPlatform config root | Keyed-object tool declarations (key = tool type name, e.g. `NodeStructure`) |
+| `MigrationPlatform.Modules.<Module>.Extensions.<Extension>` | Extension config | Extension-level config; no per-extension tool reference array |
 | `organisations[].processes[]` | Config root | Process metadata discovered by `discovery org-sync` |
 | `organisations[].projects[].enabled` | Config root | Already in schema; documented as relevant to `config generate` |
 | `scopes[].type: "ids"` | Module scopes | New scope type for explicit work item ID list |

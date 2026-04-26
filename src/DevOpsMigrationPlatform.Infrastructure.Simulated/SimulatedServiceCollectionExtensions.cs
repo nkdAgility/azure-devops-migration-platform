@@ -1,4 +1,5 @@
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Connectors;
 using DevOpsMigrationPlatform.Infrastructure.Serialization;
 using DevOpsMigrationPlatform.Infrastructure.Simulated.Export;
@@ -32,6 +33,9 @@ public static class SimulatedServiceCollectionExtensions
         // Register revision source factory for export
         services.AddRevisionSourceFactory<SimulatedWorkItemRevisionSourceFactory>("Simulated");
 
+        // Classification tree reader — returns a minimal deterministic tree for simulated sources.
+        services.AddClassificationTreeReader<SimulatedClassificationTreeReader>("Simulated");
+
         // Discovery services (for inventory of simulated sources)
         services.TryAddSingleton<SimulatedGeneratorConfig>();
         services.TryAddSingleton<IProjectDiscoveryService, SimulatedProjectDiscoveryService>();
@@ -54,6 +58,9 @@ public static class SimulatedServiceCollectionExtensions
 
         // Register resolution strategy factory — always returns NullResolutionStrategy
         services.AddResolutionStrategyFactory<SimulatedResolutionStrategyFactory, SimulatedWorkItemImportTarget>();
+
+        // Classification node creator — in-memory simulation of node creation.
+        services.AddNodeCreator<SimulatedNodeCreator>("Simulated");
 
         return services;
     }

@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
+using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Abstractions.Options;
 using Microsoft.Extensions.Logging;
@@ -19,6 +21,8 @@ public sealed class FieldTransformValidator : IFieldTransformValidator
     private readonly IFieldDefinitionProviderFactory? _providerFactory;
     private readonly ILogger<FieldTransformValidator> _logger;
 
+    private static readonly ActivitySource s_activitySource = new(WellKnownActivitySourceNames.Migration);
+
     public FieldTransformValidator(
         IOptions<FieldTransformOptions> options,
         ILogger<FieldTransformValidator> logger,
@@ -34,20 +38,61 @@ public sealed class FieldTransformValidator : IFieldTransformValidator
         int sampleSize = 10,
         CancellationToken cancellationToken = default)
     {
-        var entries = new List<FieldTransformValidationEntry>();
+        int transformCount = 0;
+        foreach (var g in _options.TransformGroups) transformCount += g.Transforms.Count;
 
-        if (!_options.Enabled)
-            return new FieldTransformValidationReport(true, entries);
+        _logger.LogInformation(
+            "FieldTransform validation starting ({TransformCount} transforms, {GroupCount} groups)",
+            transformCount, _options.TransformGroups.Count);
 
-        ValidateStructure(entries);
+        using var activity = s_activitySource.StartActivity("fieldtransform.validate");
+        activity?.SetTag("module", "FieldTransform");
+        activity?.SetTag("transform_count", transformCount);
 
-        if (_providerFactory != null)
+        var sw = Stopwatch.StartNew();
+        try
         {
-            await ValidateFieldReferencesAsync(entries, cancellationToken).ConfigureAwait(false);
-        }
+            var entries = new List<FieldTransformValidationEntry>();
 
-        bool isValid = !entries.Exists(e => e.Severity == FieldTransformValidationSeverity.Error);
-        return new FieldTransformValidationReport(isValid, entries);
+            if (!_options.Enabled)
+            {
+                sw.Stop();
+                _logger.LogInformation(
+                    "FieldTransform validation skipped: tool is disabled ({DurationMs}ms)", sw.ElapsedMilliseconds);
+                return new FieldTransformValidationReport(true, entries);
+            }
+
+            ValidateStructure(entries);
+
+            if (_providerFactory != null)
+            {
+                await ValidateFieldReferencesAsync(entries, cancellationToken).ConfigureAwait(false);
+            }
+
+            bool isValid = !entries.Exists(e => e.Severity == FieldTransformValidationSeverity.Error);
+            int errorCount = entries.FindAll(e => e.Severity == FieldTransformValidationSeverity.Error).Count;
+            int warnCount = entries.FindAll(e => e.Severity == FieldTransformValidationSeverity.Warning).Count;
+
+            sw.Stop();
+            activity?.SetTag("is_valid", isValid);
+            activity?.SetTag("error_count", errorCount);
+
+            _logger.LogInformation(
+                "FieldTransform validation complete: {IsValid}, {ErrorCount} errors, {WarnCount} warnings in {DurationMs}ms",
+                isValid, errorCount, warnCount, sw.ElapsedMilliseconds);
+
+            return new FieldTransformValidationReport(isValid, entries);
+        }
+        catch (Exception ex)
+        {
+            sw.Stop();
+            activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
+            _logger.LogError(
+                ex,
+                "FieldTransform validation failed after {DurationMs}ms: {ErrorType}",
+                sw.ElapsedMilliseconds, ex.GetType().Name);
+            throw;
+        }
     }
 
     private void ValidateStructure(List<FieldTransformValidationEntry> entries)

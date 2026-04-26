@@ -153,7 +153,14 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
         ProgressEvent? lastEvt = null;
         var jobFailed = false;
         using var followCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        Console.CancelKeyPress += (_, e) => { e.Cancel = true; followCts.Cancel(); };
+        var followCtsDisposed = false;
+        ConsoleCancelEventHandler ctrlCHandler = (_, e) =>
+        {
+            e.Cancel = true;
+            if (!followCtsDisposed)
+                followCts.Cancel();
+        };
+        Console.CancelKeyPress += ctrlCHandler;
 
         try
         {
@@ -172,6 +179,11 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
         {
             console.MarkupLine("[yellow]Detached from stream. Job continues running.[/]");
             return 0;
+        }
+        finally
+        {
+            Console.CancelKeyPress -= ctrlCHandler;
+            followCtsDisposed = true;
         }
 
         await followCts.CancelAsync();
@@ -282,7 +294,14 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
         ProgressEvent? lastEvt = null;
         var jobFailed = false;
         using var followCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        Console.CancelKeyPress += (_, e) => { e.Cancel = true; followCts.Cancel(); };
+        var followCtsDisposed = false;
+        ConsoleCancelEventHandler ctrlCHandler = (_, e) =>
+        {
+            e.Cancel = true;
+            if (!followCtsDisposed)
+                followCts.Cancel();
+        };
+        Console.CancelKeyPress += ctrlCHandler;
 
         try
         {
@@ -301,6 +320,11 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
         {
             console.MarkupLine("[yellow]Detached from stream. Job continues running.[/]");
             return 0;
+        }
+        finally
+        {
+            Console.CancelKeyPress -= ctrlCHandler;
+            followCtsDisposed = true;
         }
 
         await followCts.CancelAsync();
@@ -546,6 +570,7 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
             // Live renderer.  The buffer is flushed after Live() exits.
             var logBuffer = new StringWriter();
             var originalOut = Console.Out;
+            var cancelled = false;
             Console.SetOut(logBuffer);
 
             try
@@ -621,6 +646,7 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
             }
             catch (OperationCanceledException)
             {
+                cancelled = true;
                 // Ctrl+C pressed — detach.
                 if (isStandaloneMode)
                 {
@@ -640,12 +666,16 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
                 Console.CancelKeyPress -= ctrlCHandler;
                 followCtsDisposed = true;
 
-                // Restore stdout and flush anything the Console logger wrote during the live render.
+                // Restore stdout. On cancellation, discard the buffer — flushing thousands
+                // of accumulated Information-level log lines would flood the terminal.
                 Console.SetOut(originalOut);
-                var captured = logBuffer.ToString();
+                if (!cancelled)
+                {
+                    var captured = logBuffer.ToString();
+                    if (!string.IsNullOrWhiteSpace(captured))
+                        console.Write(new Text(captured.TrimEnd()));
+                }
                 logBuffer.Dispose();
-                if (!string.IsNullOrWhiteSpace(captured))
-                    console.Write(new Text(captured.TrimEnd()));
             }
         }
 
@@ -724,7 +754,7 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
             var curBar = new string('━', curFilled) + new string('─', BarWidth - curFilled);
             var lastRevStr = lastCompletedRevisions > 0 ? $"  [grey](prev: {lastCompletedRevisions} rev)[/]" : string.Empty;
             var statusBadge = lastWiStatus == "Exported" ? " [green]✓[/]"
-                            : lastWiStatus == "Failed"   ? " [red]✗[/]"
+                            : lastWiStatus == "Failed" ? " [red]✗[/]"
                             : string.Empty;
             revRow = new Markup(
                 $"  [grey]↳ WI {currentWiId}[/]{statusBadge}   [blue]{Markup.Escape(curBar)}[/]"
@@ -811,9 +841,9 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
         bytes switch
         {
             >= 1_073_741_824 => $"{bytes / 1_073_741_824.0:F1} GB",
-            >= 1_048_576     => $"{bytes / 1_048_576.0:F1} MB",
-            >= 1_024         => $"{bytes / 1_024.0:F1} KB",
-            _                => $"{bytes} B"
+            >= 1_048_576 => $"{bytes / 1_048_576.0:F1} MB",
+            >= 1_024 => $"{bytes / 1_024.0:F1} KB",
+            _ => $"{bytes} B"
         };
 
     private static string TruncateName(string name, int maxLen) =>

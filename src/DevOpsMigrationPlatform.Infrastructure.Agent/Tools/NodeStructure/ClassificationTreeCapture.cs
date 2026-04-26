@@ -1,0 +1,99 @@
+#if !NET481
+using System;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.Text.Json;
+using System.Text.Json.Serialization;
+using System.Threading;
+using System.Threading.Tasks;
+using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
+using DevOpsMigrationPlatform.Abstractions.Agent.Telemetry;
+using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
+using DevOpsMigrationPlatform.Abstractions.Options;
+using Microsoft.Extensions.Logging;
+
+namespace DevOpsMigrationPlatform.Infrastructure.Agent.Tools.NodeStructure;
+
+/// <summary>
+/// Captures the full source classification tree during export and writes
+/// <c>Nodes/source-tree.json</c> to the package via <see cref="IArtefactStore"/>.
+/// </summary>
+public sealed class ClassificationTreeCapture
+{
+    private const string ArtifactPath = "Nodes/source-tree.json";
+
+    private static readonly ActivitySource s_activitySource = new(WellKnownActivitySourceNames.Migration);
+
+    private static readonly JsonSerializerOptions s_jsonOptions = new()
+    {
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+        WriteIndented = false
+    };
+
+    private readonly IClassificationTreeReader _reader;
+    private readonly ILogger<ClassificationTreeCapture> _logger;
+
+    public ClassificationTreeCapture(
+        IClassificationTreeReader reader,
+        ILogger<ClassificationTreeCapture> logger)
+    {
+        _reader = reader ?? throw new ArgumentNullException(nameof(reader));
+        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+    }
+
+    /// <summary>
+    /// Captures the source classification tree and writes it to the package.
+    /// Emits <c>migration.nodes.export.*</c> OTel metrics.
+    /// </summary>
+    public async Task CaptureAsync(
+        IArtefactStore artefactStore,
+        MigrationEndpointOptions endpoint,
+        CancellationToken ct,
+        IMigrationMetrics? metrics = null,
+        string? jobId = null)
+    {
+        using var activity = s_activitySource.StartActivity("nodes.export.tree");
+        var sw = Stopwatch.StartNew();
+
+        var tags = MigrationTagList.Create(jobId ?? string.Empty, "export", "NodeStructure");
+        var areaNodes = new List<string>();
+        var iterationNodes = new List<IterationNodeEntry>();
+
+        try
+        {
+            await foreach (var path in _reader.EnumerateAreaNodesAsync(endpoint, ct).ConfigureAwait(false))
+                areaNodes.Add(path);
+
+            await foreach (var entry in _reader.EnumerateIterationNodesAsync(endpoint, ct).ConfigureAwait(false))
+                iterationNodes.Add(entry);
+
+            sw.Stop();
+
+            var snapshot = new ClassificationTreeSnapshot(areaNodes, iterationNodes);
+            var json = JsonSerializer.Serialize(snapshot, s_jsonOptions);
+            await artefactStore.WriteAsync(ArtifactPath, json, ct).ConfigureAwait(false);
+
+            var totalNodes = areaNodes.Count + iterationNodes.Count;
+            metrics?.RecordNodeExportTreeCount(totalNodes, tags);
+            metrics?.RecordNodeExportTreeDuration(sw.Elapsed.TotalMilliseconds, tags);
+
+            activity?.SetTag("nodes.area.count", areaNodes.Count);
+            activity?.SetTag("nodes.iteration.count", iterationNodes.Count);
+
+            _logger.LogInformation(
+                "[NodeStructure] Source tree captured: {AreaCount} area nodes, {IterCount} iteration nodes in {DurationMs}ms.",
+                areaNodes.Count, iterationNodes.Count, sw.ElapsedMilliseconds);
+        }
+        catch (Exception ex)
+        {
+            sw.Stop();
+            metrics?.RecordNodeExportTreeError(tags);
+            activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
+            _logger.LogError(ex, "[NodeStructure] Failed to capture source classification tree.");
+            throw;
+        }
+    }
+}
+#endif
