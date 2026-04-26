@@ -9,6 +9,7 @@ using Microsoft.TeamFoundation.WorkItemTracking.Client;
 using Microsoft.TeamFoundation.WorkItemTracking.Proxy;
 using Microsoft.VisualStudio.Services.Client;
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Checkpointing;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Storage;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Telemetry;
@@ -178,6 +179,9 @@ public static class MigrationPlatformHost
                     sp.GetRequiredService<ITfsAttachmentDownloader>(),
                     sp.GetRequiredService<TfsAttachmentRegistry>(),
                     sp.GetRequiredService<ILogger<TfsAttachmentBinarySource>>()));
+
+            // Classification tree reader — reads area/iteration nodes from the TFS collection.
+            services.AddSingleton<IClassificationTreeReader, TfsClassificationTreeReader>();
 
             // OpenTelemetry — metrics and traces.
             // OTLP exporter activates when OTEL_EXPORTER_OTLP_ENDPOINT is set.

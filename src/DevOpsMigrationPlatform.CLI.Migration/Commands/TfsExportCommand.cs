@@ -71,27 +71,35 @@ internal static class TfsExportRunner
         var runner = serviceProvider.GetRequiredService<IExternalToolRunner>();
 
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        Console.CancelKeyPress += (_, e) => { e.Cancel = true; cts.Cancel(); };
+        ConsoleCancelEventHandler ctrlCHandler = (_, e) => { e.Cancel = true; cts.Cancel(); };
+        Console.CancelKeyPress += ctrlCHandler;
 
-        var exitCode = await runner.RunWithStreamingAsync(
-            exePath,
-            arguments,
-            onOutput: line =>
-            {
-                adapter.OnStdoutLine(line, cts.Token);
-                panel.Render(AnsiConsole.Console);
-            },
-            onError: line => AnsiConsole.MarkupLineInterpolated($"[red]{line}[/]"));
-
-        if (exitCode != 0)
+        try
         {
-            AnsiConsole.MarkupLineInterpolated($"[red]✗[/] TFS export failed with exit code {exitCode}");
-            return exitCode;
-        }
+            var exitCode = await runner.RunWithStreamingAsync(
+                exePath,
+                arguments,
+                onOutput: line =>
+                {
+                    adapter.OnStdoutLine(line, cts.Token);
+                    panel.Render(AnsiConsole.Console);
+                },
+                onError: line => AnsiConsole.MarkupLineInterpolated($"[red]{line}[/]"));
 
-        AnsiConsole.MarkupLine("[green]✓[/] TFS export complete.");
-        AnsiConsole.MarkupLineInterpolated($"Package written to [blue]{outputFolder}[/]");
-        return 0;
+            if (exitCode != 0)
+            {
+                AnsiConsole.MarkupLineInterpolated($"[red]✗[/] TFS export failed with exit code {exitCode}");
+                return exitCode;
+            }
+
+            AnsiConsole.MarkupLine("[green]✓[/] TFS export complete.");
+            AnsiConsole.MarkupLineInterpolated($"Package written to [blue]{outputFolder}[/]");
+            return 0;
+        }
+        finally
+        {
+            Console.CancelKeyPress -= ctrlCHandler;
+        }
     }
 
     /// <summary>

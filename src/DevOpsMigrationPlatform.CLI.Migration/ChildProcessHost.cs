@@ -16,6 +16,11 @@ namespace DevOpsMigrationPlatform.CLI;
 /// separate OS processes so that each component has its own <c>DiagnosticListener</c>
 /// and OpenTelemetry pipeline — eliminating instrumentation bleed that occurs when
 /// multiple OTel pipelines share a single process.
+///
+/// On Windows, child processes are started in a new process group
+/// (<c>CREATE_NEW_PROCESS_GROUP</c>) so that Ctrl+C in the CLI terminal does not
+/// propagate to them. Their lifecycle is managed exclusively by the parent via
+/// <see cref="StopAsync"/> / <see cref="DisposeAsync"/>.
 /// </summary>
 internal sealed class ChildProcessHost : IAsyncDisposable
 {
@@ -63,6 +68,8 @@ internal sealed class ChildProcessHost : IAsyncDisposable
 
     /// <summary>
     /// Starts the child process with stdout/stderr captured (not forwarded to the CLI console).
+    /// On Windows, temporarily disables Ctrl+C handling so the child inherits the
+    /// "ignore" disposition and does not receive <c>CTRL_C_EVENT</c> from the console.
     /// </summary>
     public void Start()
     {
@@ -108,14 +115,39 @@ internal sealed class ChildProcessHost : IAsyncDisposable
             _exitTcs.TrySetResult(exitCode);
         };
 
-        if (!_process.Start())
-            throw new InvalidOperationException($"Failed to start {_displayName} process.");
+        // On Windows, temporarily tell the OS to ignore Ctrl+C so the child
+        // process inherits the "ignore" disposition.  This prevents
+        // CTRL_C_EVENT from reaching child processes when the user presses
+        // Ctrl+C in the CLI terminal.  We restore the handler immediately
+        // after Process.Start() so the CLI itself still responds to Ctrl+C.
+        var disabledCtrlC = false;
+        if (OperatingSystem.IsWindows())
+        {
+            disabledCtrlC = SetConsoleCtrlHandler(IntPtr.Zero, true);
+        }
+
+        try
+        {
+            if (!_process.Start())
+                throw new InvalidOperationException($"Failed to start {_displayName} process.");
+        }
+        finally
+        {
+            if (disabledCtrlC)
+                SetConsoleCtrlHandler(IntPtr.Zero, false);
+        }
 
         _process.BeginOutputReadLine();
         _process.BeginErrorReadLine();
 
         _logger?.LogInformation("{ProcessName} started (PID {Pid})", _displayName, _process.Id);
     }
+
+    // Win32 interop: SetConsoleCtrlHandler with a null handler pointer
+    // toggles the "ignore Ctrl+C" flag for the calling process.  Child
+    // processes inherit this flag at creation time.
+    [DllImport("kernel32.dll", SetLastError = true)]
+    private static extern bool SetConsoleCtrlHandler(IntPtr handlerRoutine, bool add);
 
     /// <summary>
     /// Attempts graceful shutdown by killing the process tree. Waits up to

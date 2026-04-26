@@ -2,7 +2,6 @@ using System;
 using System.Linq;
 using System.Net.Http;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
-using DevOpsMigrationPlatform.Infrastructure.Agent.Tools.NodeStructure;
 using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
 using DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Discovery;
@@ -65,8 +64,7 @@ public static class ExportServiceCollectionExtensions
             services.AddSingleton<IWorkItemDiscoveryService, AzureDevOpsWorkItemDiscoveryService>();
         }
 
-        // Classification tree reader — provides area/iteration node enumeration for export.
-        // Always registered; the placeholder implementation returns empty until real HTTP calls are added.
+        // Classification tree reader — enumerates area/iteration nodes from the source ADO project.
         services.TryAddSingleton<IClassificationTreeReader, AzureDevOpsClassificationTreeReader>();
 
         // Embedded image download and processing

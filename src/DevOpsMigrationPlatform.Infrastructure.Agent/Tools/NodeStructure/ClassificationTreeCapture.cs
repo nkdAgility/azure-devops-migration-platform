@@ -9,6 +9,7 @@ using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
+using DevOpsMigrationPlatform.Abstractions.Options;
 using Microsoft.Extensions.Logging;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Agent.Tools.NodeStructure;
@@ -44,7 +45,7 @@ public sealed class ClassificationTreeCapture
     /// <summary>
     /// Captures the source classification tree and writes it to the package.
     /// </summary>
-    public async Task CaptureAsync(IArtefactStore artefactStore, CancellationToken ct)
+    public async Task CaptureAsync(IArtefactStore artefactStore, MigrationEndpointOptions endpoint, CancellationToken ct)
     {
         using var activity = s_activitySource.StartActivity("nodes.export.tree");
         var sw = Stopwatch.StartNew();
@@ -54,10 +55,10 @@ public sealed class ClassificationTreeCapture
 
         try
         {
-            await foreach (var path in _reader.EnumerateAreaNodesAsync(ct).ConfigureAwait(false))
+            await foreach (var path in _reader.EnumerateAreaNodesAsync(endpoint, ct).ConfigureAwait(false))
                 areaNodes.Add(path);
 
-            await foreach (var entry in _reader.EnumerateIterationNodesAsync(ct).ConfigureAwait(false))
+            await foreach (var entry in _reader.EnumerateIterationNodesAsync(endpoint, ct).ConfigureAwait(false))
                 iterationNodes.Add(entry);
 
             sw.Stop();

@@ -61,7 +61,7 @@ public sealed class NodeEnsurer
     /// Reads Nodes/source-tree.json and ensures all nodes exist in the target.
     /// No-op when ReplicateSourceTree is false.
     /// </summary>
-    public async Task ReplicateSourceTreeAsync(ProjectMapping context, CancellationToken ct)
+    public async Task ReplicateSourceTreeAsync(ProjectMapping context, MigrationEndpointOptions endpoint, CancellationToken ct)
     {
         if (!_options.ReplicateSourceTree)
         {
@@ -96,7 +96,7 @@ public sealed class NodeEnsurer
 
             if (progress.ReplicatedPaths.Contains(targetPath)) { skipped++; continue; }
 
-            await _nodeCreator.EnsureExistsAsync(ClassificationNodeType.Area, targetPath, ct).ConfigureAwait(false);
+            await _nodeCreator.EnsureExistsAsync(ClassificationNodeType.Area, targetPath, endpoint, ct).ConfigureAwait(false);
             progress.ReplicatedPaths.Add(targetPath);
             progress.UpdatedAt = DateTimeOffset.UtcNow;
             await SaveProgressAsync(progress, ct).ConfigureAwait(false);
@@ -110,13 +110,13 @@ public sealed class NodeEnsurer
 
             if (progress.ReplicatedPaths.Contains(targetPath)) { skipped++; continue; }
 
-            await _nodeCreator.EnsureExistsAsync(ClassificationNodeType.Iteration, targetPath, ct).ConfigureAwait(false);
+            await _nodeCreator.EnsureExistsAsync(ClassificationNodeType.Iteration, targetPath, endpoint, ct).ConfigureAwait(false);
 
             if (iterEntry.StartDate.HasValue || iterEntry.FinishDate.HasValue)
             {
                 try
                 {
-                    await _nodeCreator.SetIterationDatesAsync(targetPath, iterEntry.StartDate, iterEntry.FinishDate, ct)
+                    await _nodeCreator.SetIterationDatesAsync(targetPath, iterEntry.StartDate, iterEntry.FinishDate, endpoint, ct)
                         .ConfigureAwait(false);
                 }
                 catch (Exception ex)
@@ -142,7 +142,7 @@ public sealed class NodeEnsurer
     /// Reads Nodes/referenced-paths.json and ensures all translated paths exist in the target.
     /// No-op when AutoCreateNodes is false.
     /// </summary>
-    public async Task EnsureReferencedPathsAsync(ProjectMapping context, CancellationToken ct)
+    public async Task EnsureReferencedPathsAsync(ProjectMapping context, MigrationEndpointOptions endpoint, CancellationToken ct)
     {
         if (!_options.AutoCreateNodes)
         {
@@ -168,7 +168,7 @@ public sealed class NodeEnsurer
         {
             var translated = _tool.TranslatePath("System.AreaPath", areaPath, context);
             if (translated.TargetPath is null) continue;
-            await _nodeCreator.EnsureExistsAsync(ClassificationNodeType.Area, translated.TargetPath, ct).ConfigureAwait(false);
+            await _nodeCreator.EnsureExistsAsync(ClassificationNodeType.Area, translated.TargetPath, endpoint, ct).ConfigureAwait(false);
             count++;
         }
 
@@ -176,7 +176,7 @@ public sealed class NodeEnsurer
         {
             var translated = _tool.TranslatePath("System.IterationPath", iterPath, context);
             if (translated.TargetPath is null) continue;
-            await _nodeCreator.EnsureExistsAsync(ClassificationNodeType.Iteration, translated.TargetPath, ct).ConfigureAwait(false);
+            await _nodeCreator.EnsureExistsAsync(ClassificationNodeType.Iteration, translated.TargetPath, endpoint, ct).ConfigureAwait(false);
             count++;
         }
 

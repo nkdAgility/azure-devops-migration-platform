@@ -1,5 +1,6 @@
 using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
+using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Tools.NodeStructure;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
@@ -36,7 +37,7 @@ public class ClassificationTreeCaptureTests
             .Returns(Task.CompletedTask);
 
         var capture = CreateCapture(reader);
-        await capture.CaptureAsync(storeMock.Object, CancellationToken.None);
+        await capture.CaptureAsync(storeMock.Object, new SimulatedEndpointOptions(), CancellationToken.None);
 
         storeMock.Verify(s => s.WriteAsync(
             "Nodes/source-tree.json", It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Once);
@@ -59,7 +60,7 @@ public class ClassificationTreeCaptureTests
             .Returns(Task.CompletedTask);
 
         var capture = CreateCapture(reader);
-        await capture.CaptureAsync(storeMock.Object, CancellationToken.None);
+        await capture.CaptureAsync(storeMock.Object, new SimulatedEndpointOptions(), CancellationToken.None);
 
         storeMock.Verify(s => s.WriteAsync(
             "Nodes/source-tree.json", It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Once);
@@ -74,7 +75,7 @@ public class ClassificationTreeCaptureTests
         var capture = CreateCapture(reader);
 
         await Assert.ThrowsExactlyAsync<InvalidOperationException>(
-            () => capture.CaptureAsync(storeMock.Object, CancellationToken.None));
+            () => capture.CaptureAsync(storeMock.Object, new SimulatedEndpointOptions(), CancellationToken.None));
 
         storeMock.Verify(s => s.WriteAsync(
             It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
@@ -96,6 +97,7 @@ public class ClassificationTreeCaptureTests
         }
 
         public async IAsyncEnumerable<string> EnumerateAreaNodesAsync(
+            MigrationEndpointOptions endpoint,
             [EnumeratorCancellation] CancellationToken ct)
         {
             foreach (var n in _areaNodes) { ct.ThrowIfCancellationRequested(); yield return n; }
@@ -103,6 +105,7 @@ public class ClassificationTreeCaptureTests
         }
 
         public async IAsyncEnumerable<IterationNodeEntry> EnumerateIterationNodesAsync(
+            MigrationEndpointOptions endpoint,
             [EnumeratorCancellation] CancellationToken ct)
         {
             foreach (var n in _iterationNodes) { ct.ThrowIfCancellationRequested(); yield return n; }
@@ -113,6 +116,7 @@ public class ClassificationTreeCaptureTests
     private sealed class ThrowingClassificationTreeReader : IClassificationTreeReader
     {
         public async IAsyncEnumerable<string> EnumerateAreaNodesAsync(
+            MigrationEndpointOptions endpoint,
             [EnumeratorCancellation] CancellationToken ct)
         {
             await Task.CompletedTask.ConfigureAwait(false);
@@ -123,6 +127,7 @@ public class ClassificationTreeCaptureTests
         }
 
         public async IAsyncEnumerable<IterationNodeEntry> EnumerateIterationNodesAsync(
+            MigrationEndpointOptions endpoint,
             [EnumeratorCancellation] CancellationToken ct)
         {
             await Task.CompletedTask.ConfigureAwait(false);

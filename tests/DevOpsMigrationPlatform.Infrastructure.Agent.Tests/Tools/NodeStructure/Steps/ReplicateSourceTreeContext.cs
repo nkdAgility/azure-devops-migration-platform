@@ -40,10 +40,10 @@ public class ReplicateSourceTreeContext
     public ReplicateSourceTreeContext()
     {
         NodeCreatorMock.Setup(c => c.EnsureExistsAsync(
-            It.IsAny<ClassificationNodeType>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            It.IsAny<ClassificationNodeType>(), It.IsAny<string>(), It.IsAny<MigrationEndpointOptions>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
         NodeCreatorMock.Setup(c => c.SetIterationDatesAsync(
-            It.IsAny<string>(), It.IsAny<DateTimeOffset?>(), It.IsAny<DateTimeOffset?>(), It.IsAny<CancellationToken>()))
+            It.IsAny<string>(), It.IsAny<DateTimeOffset?>(), It.IsAny<DateTimeOffset?>(), It.IsAny<MigrationEndpointOptions>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
         StateStoreMock.Setup(s => s.WriteAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
@@ -91,7 +91,7 @@ public class ReplicateSourceTreeContext
         if (SetIterationDatesThrows)
         {
             NodeCreatorMock.Setup(c => c.SetIterationDatesAsync(
-                It.IsAny<string>(), It.IsAny<DateTimeOffset?>(), It.IsAny<DateTimeOffset?>(), It.IsAny<CancellationToken>()))
+                It.IsAny<string>(), It.IsAny<DateTimeOffset?>(), It.IsAny<DateTimeOffset?>(), It.IsAny<MigrationEndpointOptions>(), It.IsAny<CancellationToken>()))
                 .ThrowsAsync(new Exception("Simulated date-setting failure"));
         }
     }
@@ -122,7 +122,7 @@ public class ReplicateSourceTreeContext
 
         try
         {
-            await ensurer.ReplicateSourceTreeAsync(context, CancellationToken.None);
+            await ensurer.ReplicateSourceTreeAsync(context, new SimulatedEndpointOptions(), CancellationToken.None);
         }
         catch (Exception ex)
         {

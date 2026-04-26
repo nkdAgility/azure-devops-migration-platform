@@ -1,14 +1,20 @@
 using System.Diagnostics;
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
+using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Infrastructure.TfsObjectModel;
+using DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.Options;
 using DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.Telemetry;
 using Spectre.Console;
 using Spectre.Console.Cli;
 using System;
 using System.ComponentModel;
 using System.IO;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Collections.Generic;
 using SpectreValidationResult = Spectre.Console.ValidationResult;
 
 namespace DevOpsMigrationPlatform.CLI.TfsMigration.Commands
@@ -69,6 +75,19 @@ namespace DevOpsMigrationPlatform.CLI.TfsMigration.Commands
             using var rootActivity = MigrationPlatformActivitySources.WorkItemExport
                 .StartActivity("TfsExport", ActivityKind.Server, parentContext);
 
+            // Capture the full classification tree (area + iteration nodes) before the work item export.
+            // This produces Nodes/source-tree.json in the package for use during import.
+            var artefactStore = GetRequiredService<IArtefactStore>();
+            var treeReader = GetRequiredService<IClassificationTreeReader>();
+            var tfsEndpoint = new TeamFoundationServerEndpointOptions
+            {
+                Url = settings.CollectionUrl,
+                Project = settings.Project,
+                Type = "TeamFoundationServer"
+            };
+            await CaptureClassificationTreeAsync(treeReader, tfsEndpoint, artefactStore, cancellationToken)
+                .ConfigureAwait(false);
+
             var agent = new TfsExportAgent(
                 GetRequiredService<IArtefactStore>(),
                 GetRequiredService<ICheckpointingService>(),
@@ -108,6 +127,37 @@ namespace DevOpsMigrationPlatform.CLI.TfsMigration.Commands
             }
 
             return 0;
+        }
+
+        private static readonly JsonSerializerOptions s_treeJsonOptions = new()
+        {
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+            DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+            WriteIndented = false
+        };
+
+        /// <summary>
+        /// Captures the full classification tree from TFS and writes Nodes/source-tree.json.
+        /// This mirrors the ClassificationTreeCapture behaviour used by the ADO agent path.
+        /// </summary>
+        private static async Task CaptureClassificationTreeAsync(
+            IClassificationTreeReader reader,
+            MigrationEndpointOptions endpoint,
+            IArtefactStore artefactStore,
+            CancellationToken ct)
+        {
+            var areaNodes = new List<string>();
+            var iterationNodes = new List<IterationNodeEntry>();
+
+            await foreach (var path in reader.EnumerateAreaNodesAsync(endpoint, ct).ConfigureAwait(false))
+                areaNodes.Add(path);
+
+            await foreach (var entry in reader.EnumerateIterationNodesAsync(endpoint, ct).ConfigureAwait(false))
+                iterationNodes.Add(entry);
+
+            var snapshot = new { areaNodes, iterationNodes };
+            var json = JsonSerializer.Serialize(snapshot, s_treeJsonOptions);
+            await artefactStore.WriteAsync("Nodes/source-tree.json", json, ct).ConfigureAwait(false);
         }
     }
 }

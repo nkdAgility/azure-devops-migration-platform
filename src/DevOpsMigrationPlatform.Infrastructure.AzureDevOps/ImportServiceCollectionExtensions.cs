@@ -1,9 +1,11 @@
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Import;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Checkpointing;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Connectors;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Import;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace DevOpsMigrationPlatform.Infrastructure.AzureDevOps;
 
@@ -35,6 +37,8 @@ public static class ImportServiceCollectionExtensions
         services.AddSingleton<ICheckpointingServiceFactory, CheckpointingServiceFactory>();
         services.AddSingleton<IIdMapStoreFactory, IdMapStoreFactory>();
         services.AddSingleton<IRevisionFolderProcessorFactory, RevisionFolderProcessorFactory>();
+        // Classification node creator — creates area/iteration nodes in the target ADO project.
+        services.TryAddSingleton<INodeCreator, AzureDevOpsNodeCreator>();
         return services;
     }
 }

@@ -134,7 +134,7 @@ public sealed class WorkItemsModule : IModule
             .ConfigureAwait(false);
 
         await _referencedPathTracker.InitializeAsync(context.ArtefactStore, ct).ConfigureAwait(false);
-        await _classificationTreeCapture.CaptureAsync(context.ArtefactStore, ct).ConfigureAwait(false);
+        await _classificationTreeCapture.CaptureAsync(context.ArtefactStore, endpointOptions, ct).ConfigureAwait(false);
 
         var checkpointingService = _checkpointingFactory.Create(context.StateStore);
 
@@ -209,8 +209,8 @@ public sealed class WorkItemsModule : IModule
         {
             var sourceProjectNameForEnsurer = job.Source?.GetProject() ?? string.Empty;
             var ensurerContext = new DevOpsMigrationPlatform.Abstractions.Agent.Tools.ProjectMapping(sourceProjectNameForEnsurer, project);
-            await _nodeEnsurer.ReplicateSourceTreeAsync(ensurerContext, ct).ConfigureAwait(false);
-            await _nodeEnsurer.EnsureReferencedPathsAsync(ensurerContext, ct).ConfigureAwait(false);
+            await _nodeEnsurer.ReplicateSourceTreeAsync(ensurerContext, endpointOptions, ct).ConfigureAwait(false);
+            await _nodeEnsurer.EnsureReferencedPathsAsync(ensurerContext, endpointOptions, ct).ConfigureAwait(false);
         }
 
         // Build processor — use NodeStructure-aware overload when available.

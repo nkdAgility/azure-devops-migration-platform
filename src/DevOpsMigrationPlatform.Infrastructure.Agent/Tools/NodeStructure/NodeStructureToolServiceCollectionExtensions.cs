@@ -1,5 +1,4 @@
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
-using DevOpsMigrationPlatform.Abstractions.Options;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Options;
@@ -15,13 +14,10 @@ public static class NodeStructureToolServiceCollectionExtensions
     /// Adds <see cref="INodeStructureTool"/> and <see cref="INodeStructureValidator"/>
     /// to the service collection.
     /// <para>
-    /// <see cref="INodeCreator"/> defaults to <see cref="AzureDevOpsNodeCreator"/>
-    /// (a no-op placeholder). Connector-specific DI may override it via
-    /// <see cref="ServiceCollectionDescriptorExtensions.Replace"/>.
-    /// </para>
-    /// <para>
-    /// <see cref="IClassificationTreeReader"/> is connector-specific and must be
-    /// registered by the connector DI.
+    /// <see cref="INodeCreator"/> and <see cref="IClassificationTreeReader"/> are
+    /// connector-specific and must be registered by the connector DI
+    /// (e.g. <c>AddAzureDevOpsWorkItemImport</c>, <c>AddSimulatedWorkItemImport</c>,
+    /// <c>TfsClassificationTreeReader</c>).
     /// </para>
     /// </summary>
     public static IServiceCollection AddNodeStructureToolServices(this IServiceCollection services)
@@ -36,9 +32,6 @@ public static class NodeStructureToolServiceCollectionExtensions
         services.AddSingleton<INodeStructureValidator, NodeStructureValidator>();
         services.AddTransient<ReferencedPathTracker>();
         services.AddTransient<ClassificationTreeCapture>();
-
-        // Default INodeCreator — no-op placeholder; connectors replace with a real HTTP implementation.
-        services.TryAddSingleton<INodeCreator, AzureDevOpsNodeCreator>();
 #endif
 
         return services;

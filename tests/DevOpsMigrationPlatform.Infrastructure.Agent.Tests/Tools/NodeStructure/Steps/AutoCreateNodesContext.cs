@@ -25,7 +25,7 @@ public class AutoCreateNodesContext
     public AutoCreateNodesContext()
     {
         NodeCreatorMock.Setup(c => c.EnsureExistsAsync(
-            It.IsAny<ClassificationNodeType>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            It.IsAny<ClassificationNodeType>(), It.IsAny<string>(), It.IsAny<MigrationEndpointOptions>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
         StateStoreMock.Setup(s => s.ReadAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((string?)null);
