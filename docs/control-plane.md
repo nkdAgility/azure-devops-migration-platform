@@ -31,7 +31,6 @@ The control plane's role is to accept, validate, track, and assign work — not 
 | Status and logs API | Expose job status, progress, and logs to the TUI and other clients. |
 | Pause / resume / cancel | Allow operators to signal state changes to Migration Agents via the job record. |
 | Artefact URLs | Provide Migration Agents with the package URI (`packageUri`) for the job. |
-| Secrets references | Store references to Key Vault secrets; never unwrap or proxy secrets. |
 
 The control plane does **not** run the Job Engine, call source or target APIs, or read or write the migration package directly. `ControlPlaneHost` adds agent lifecycle management but must not contain job execution logic.
 
@@ -212,7 +211,6 @@ The `ControlPlane` service library must not:
 - Call source or target Azure DevOps APIs.
 - Read or write the migration package.
 - Execute orchestrator logic.
-- Unwrap or cache secrets from Key Vault.
 
 `ControlPlaneHost` extends the control plane with agent lifecycle management but must not contain job execution logic.
 
@@ -333,7 +331,7 @@ The control plane deliberately does **not** store:
 
 - The migration package contents (revision files, cursors, attachments) — those live in `IArtefactStore` (filesystem or Azure Blob).
 - Log file contents — logs are written into the package's `.migration/Logs/` folder by the Migration Agent; the control plane stores only the URI prefix for the TUI to tail.
-- Source or target credentials — only Key Vault references (opaque strings) are stored in `job_json`; the actual secret is never held in the database.
+- Source or target credentials in plaintext — credentials are passed through the job definition as configured by the operator. The control plane persists `job_json` but does not inspect or proxy credential values.
 
 ---
 

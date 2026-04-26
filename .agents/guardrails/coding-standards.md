@@ -529,7 +529,7 @@ public class WorkItemsImportModule
 - Calling source or target APIs from within a Migration Agent outside of the orchestrator execution path.
 - Referencing `FileSystemArtefactStore` or `AzureBlobArtefactStore` directly in module code (use `IArtefactStore`).
 - Sorting `EnumerateAsync` results in memory.
-- Unwrapping Key Vault secrets in the control plane.
+- Inspecting or proxying source/target credentials in the control plane.
 - Writing to `Console` or `System.Console` from the Job Engine or any module.
 - Emitting progress as console text instead of `IProgressSink` events.
 - Placing migration execution logic in the TUI (parsing and transport selection only).

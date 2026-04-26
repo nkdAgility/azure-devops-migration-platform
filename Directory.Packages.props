@@ -10,9 +10,17 @@
     <PackageVersion Include="Aspire.Hosting.PostgreSQL" Version="9.3.0" />
   </ItemGroup>
 
+  <!-- ⚠️ Azure Monitor + OpenTelemetry Version Compatibility ⚠️
+       These Azure Monitor packages MUST be compatible with the OpenTelemetry SDK
+       versions below. Mismatched versions cause SILENT telemetry loss (no exceptions,
+       no errors — data simply never arrives in Application Insights).
+       When bumping OpenTelemetry SDK → also bump Azure Monitor packages.
+       When bumping Azure Monitor → check Azure.Core transitive deps
+       (System.Text.Json, Microsoft.Extensions.Hosting.Abstractions,
+        Microsoft.Extensions.Logging.Abstractions, Microsoft.Extensions.Options). -->
   <ItemGroup Label="Azure">
     <PackageVersion Include="Azure.Monitor.OpenTelemetry.AspNetCore" Version="1.4.0" />
-    <PackageVersion Include="Azure.Monitor.OpenTelemetry.Exporter" Version="1.5.0" />
+    <PackageVersion Include="Azure.Monitor.OpenTelemetry.Exporter" Version="1.7.0" />
   </ItemGroup>
 
   <ItemGroup Label="Kubernetes">
@@ -28,13 +36,13 @@
     <PackageVersion Include="Microsoft.Extensions.Configuration.Json" Version="10.0.0" />
     <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="10.0.5" />
     <PackageVersion Include="Microsoft.Extensions.Hosting" Version="10.0.0" />
-    <PackageVersion Include="Microsoft.Extensions.Hosting.Abstractions" Version="10.0.0" />
+    <PackageVersion Include="Microsoft.Extensions.Hosting.Abstractions" Version="10.0.3" />
     <PackageVersion Include="Microsoft.Extensions.Http" Version="10.0.0" />
     <PackageVersion Include="Microsoft.Extensions.Http.Polly" Version="10.0.0" />
     <PackageVersion Include="Microsoft.Extensions.Http.Resilience" Version="9.3.0" />
     <PackageVersion Include="Microsoft.Extensions.Logging" Version="10.0.0" />
-    <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.0" />
-    <PackageVersion Include="Microsoft.Extensions.Options" Version="10.0.0" />
+    <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.3" />
+    <PackageVersion Include="Microsoft.Extensions.Options" Version="10.0.3" />
     <PackageVersion Include="Microsoft.Extensions.Options.ConfigurationExtensions" Version="10.0.0" />
     <PackageVersion Include="Microsoft.Extensions.Options.DataAnnotations" Version="10.0.0" />
     <PackageVersion Include="Microsoft.Extensions.ServiceDiscovery" Version="9.3.0" />
@@ -87,7 +95,7 @@
     <PackageVersion Include="System.Diagnostics.DiagnosticSource" Version="9.0.5" />
     <PackageVersion Include="System.Runtime.CompilerServices.Unsafe" Version="6.1.2" />
     <PackageVersion Include="System.Security.Cryptography.Xml" Version="8.0.3" />
-    <PackageVersion Include="System.Text.Json" Version="10.0.0" />
+    <PackageVersion Include="System.Text.Json" Version="10.0.3" />
     <PackageVersion Include="Terminal.Gui" Version="2.0.0" />
   </ItemGroup>
 
