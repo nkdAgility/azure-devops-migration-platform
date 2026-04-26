@@ -329,3 +329,143 @@ All metric recordings MUST include mandatory dimension tags built via `Migration
 Discovery metrics use `job.id` + `module` + `organisation.url` as their mandatory tags (no `operation` tag — discovery is not export/import/validation).
 
 Tags MUST NOT include customer-identifiable data (project names, user emails, field values). Work item IDs are integer identifiers safe for tags. Use traces or `DataClassification.Customer`-scoped logs for customer content.
+
+---
+
+## Attribute (Tag) Conventions
+
+> **Canonical source:** `src/DevOpsMigrationPlatform.Abstractions/Telemetry/WellKnownTagNames.cs`
+
+All tag/attribute names MUST use constants from `WellKnownTagNames`. Hardcoded string literals for tag names are prohibited in new code.
+
+### Naming Rules
+
+- **Format:** lowercase, dot-separated segments: `<entity>.<property>` (e.g. `job.id`, `workitem.id`, `revision.index`)
+- **Consistency:** One canonical name per concept. Do not create aliases (e.g. use `workitem.id` everywhere, never `wi.id` alongside it).
+- **New tags:** Add the constant to `WellKnownTagNames.cs` first, then use the constant in code.
+
+### Tag Cardinality Classification
+
+Tags are classified by cardinality to determine where they may be used:
+
+| Cardinality | Definition | Allowed on Metrics | Allowed on Traces | Allowed on Logs |
+|---|---|---|---|---|
+| **Low** | < 10 distinct values (e.g. `operation`, `module`) | ✅ | ✅ | ✅ |
+| **Medium** | 10–1000 distinct values (e.g. `wi.type`, `group.name`) | ⚠️ Use with caution | ✅ | ✅ |
+| **High** | Unbounded (e.g. `job.id`, `workitem.id`) | ❌ Never on metrics | ✅ | ✅ |
+
+### Channel Separation
+
+| Channel | Tags from | Purpose |
+|---|---|---|
+| **Metrics** | `MigrationTagList.Create()` only | Aggregate counters — low-cardinality dimensions only |
+| **Traces** | `Activity.SetTag()` using `WellKnownTagNames` constants | Per-request detail — high-cardinality entity IDs allowed |
+| **Logs** | Structured message templates `{Parameter}` | Per-event detail — customer data requires `DataClassification.Customer` scope |
+
+Metrics tags and trace attributes serve different purposes and MUST NOT be mixed. `MigrationTagList` is the only approved factory for metric tags. Trace attributes are set directly on `Activity` via `SetTag()`.
+
+---
+
+## Mandatory Observability Contract
+
+Every operation in the platform MUST meet the minimum observability requirements defined below. These standards apply to specifications (enforced by the `observability-contract` skill) and to implemented code.
+
+### Operator Decision Model
+
+Every telemetry signal (metric, span, log event) MUST map to at least one operator decision. Signals that do not support a decision are noise and MUST be rejected.
+
+| Decision | Question it answers |
+|---|---|
+| **Is it working?** | Are requests succeeding at an acceptable rate? |
+| **Is it fast enough?** | Is latency within SLO bounds? |
+| **Is it overloaded?** | Is concurrency or queue depth exceeding capacity? |
+| **What failed?** | Which specific operation failed and why? |
+| **Where is it slow?** | Which dependency or step is the bottleneck? |
+| **Is it correct?** | Do output counts match input counts? Are invariants maintained? |
+
+Every operation MUST support at minimum: `Is it working?`, `Is it fast enough?`, `Is it overloaded?`, and `What failed?`.
+
+### Mandatory Metrics Per Operation
+
+Every operation MUST emit at least these five metric types:
+
+| Metric | Instrument | Unit | Decision |
+|---|---|---|---|
+| Throughput | `Counter<long>` | `{operation}` | Is it working? |
+| Latency | `Histogram<double>` | `ms` | Is it fast enough? |
+| Outcome (success) | `Counter<long>` | `{operation}` | Is it working? |
+| Outcome (failure) | `Counter<long>` | `{operation}` | What failed? |
+| In-flight / queue depth | `UpDownCounter<long>` or `ObservableGauge<int>` | `{operation}` | Is it overloaded? |
+
+If the operation processes batches, add a batch-size `Histogram` metric.
+
+Metrics MUST represent business activity, not infrastructure (CPU, memory, GC are provided by the runtime).
+
+### Metric Naming Convention
+
+All metric names MUST use four dot-separated segments:
+
+```
+<domain>.<capability>.<operation>.<measure>
+```
+
+| Segment | Values | Example |
+|---|---|---|
+| `domain` | `migration`, `discovery` (matching `WellKnownMeterNames`) | `migration` |
+| `capability` | Module or subsystem name | `export`, `fieldtransform` |
+| `operation` | Specific action | `workitem`, `attachment`, `apply` |
+| `measure` | What is measured | `count`, `duration_ms`, `errors`, `in_flight` |
+
+Check `WellKnownMetricNames` before inventing new names — reuse where semantics match.
+
+### Mandatory Trace Coverage
+
+- Every operation MUST have exactly one root span.
+- Every dependency (store call, SDK call, HTTP call) MUST have a child span.
+- Context propagation method MUST be stated: automatic via `Activity` hierarchy or explicit `W3C TraceContext` headers.
+- Root span tags MUST include: `job.id`, `operation`, `module` (using `WellKnownTagNames` constants).
+- Child span tags MUST include the entity identifier (e.g. `workitem.id`, `revision.index`).
+- Span names MUST use lowercase dot-separated segments matching the metric naming domain.
+
+### Mandatory Structured Log Events Per Operation
+
+Every operation MUST emit at least these log events:
+
+| Event | Level | Required Fields |
+|---|---|---|
+| Operation started | `Information` | operationId, operation, input summary |
+| Operation completed | `Information` | operationId, operation, outcome, durationMs, output summary |
+| Operation failed | `Error` | operationId, operation, errorType, errorMessage, durationMs |
+| Dependency call slow | `Warning` | operationId, dependency, durationMs, threshold |
+| Retry attempt | `Warning` | operationId, operation, attempt, maxAttempts, delay |
+| Step detail | `Debug` | operationId, step, detail |
+| Wire-level detail | `Trace` | operationId, payload summary |
+
+`Debug` and `Trace` levels MUST be disabled by default. No unstructured string concatenation in log templates. Every log event MUST include `operationId` for correlation.
+
+### Mandatory Correlation Model
+
+All telemetry (metrics, traces, logs) for a given operation MUST be correlated via these fields:
+
+| Field | Source | Scope |
+|---|---|---|
+| `operationId` / `traceId` | `Activity.Current.TraceId` or generated GUID | All telemetry |
+| `parentId` | `Activity.Current.ParentSpanId` | Spans and logs within a parent context |
+| `job.id` | Job context | All telemetry within a job |
+| Domain identifiers | Feature-specific (e.g. `workitem.id`, `project.name`) | Where applicable |
+
+If correlation cannot be established for an operation, the observability contract is not met.
+
+### Validation Query Categories
+
+Observability is considered complete only when all five query categories can be answered using the defined signals:
+
+| Category | Proves | Signal source |
+|---|---|---|
+| Failure identification | Failures can be identified by operation and cause | Metrics (outcome.failure) + Logs (Error) |
+| Latency analysis | P50/P95/P99 latency can be computed per operation | Metrics (latency histogram) |
+| Load observation | In-flight concurrency or queue depth is visible | Metrics (in_flight / queue_depth) |
+| End-to-end trace | A single request can be traced from entry to all dependencies | Traces (root + child spans) |
+| Error diagnosis | Root cause can be determined from logs + traces | Logs (Error) joined with Traces |
+
+If any category cannot be expressed using the available signals, the observability contract is incomplete.
