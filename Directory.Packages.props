@@ -10,6 +10,14 @@
     <PackageVersion Include="Aspire.Hosting.PostgreSQL" Version="9.3.0" />
   </ItemGroup>
 
+  <!-- ⚠️ Azure Monitor + OpenTelemetry Version Compatibility ⚠️
+       These Azure Monitor packages MUST be compatible with the OpenTelemetry SDK
+       versions below. Mismatched versions cause SILENT telemetry loss (no exceptions,
+       no errors — data simply never arrives in Application Insights).
+       When bumping OpenTelemetry SDK → also bump Azure Monitor packages.
+       When bumping Azure Monitor → check Azure.Core transitive deps
+       (System.Text.Json, Microsoft.Extensions.Hosting.Abstractions,
+        Microsoft.Extensions.Logging.Abstractions, Microsoft.Extensions.Options). -->
   <ItemGroup Label="Azure">
     <PackageVersion Include="Azure.Monitor.OpenTelemetry.AspNetCore" Version="1.4.0" />
     <PackageVersion Include="Azure.Monitor.OpenTelemetry.Exporter" Version="1.7.0" />
