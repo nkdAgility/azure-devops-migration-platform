@@ -114,15 +114,13 @@ public class ReplicateSourceTreeContext
             Options.Create(opts),
             tool,
             NodeCreatorMock.Object,
-            ArtefactStoreMock.Object,
-            StateStoreMock.Object,
             NullLogger<NodeEnsurer>.Instance);
 
         var context = new ProjectMapping("SourceProject", "TargetProject");
 
         try
         {
-            await ensurer.ReplicateSourceTreeAsync(context, new SimulatedEndpointOptions(), CancellationToken.None);
+            await ensurer.ReplicateSourceTreeAsync(context, new SimulatedEndpointOptions(), ArtefactStoreMock.Object, StateStoreMock.Object, CancellationToken.None);
         }
         catch (Exception ex)
         {

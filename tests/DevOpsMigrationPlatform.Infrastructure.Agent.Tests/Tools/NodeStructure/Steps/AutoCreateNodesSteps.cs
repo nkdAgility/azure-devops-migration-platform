@@ -76,7 +76,7 @@ public class AutoCreateNodesSteps
 
         var ensurer = _ctx.BuildEnsurer();
         var context = new ProjectMapping("SourceProject", "TargetProject");
-        await ensurer.EnsureReferencedPathsAsync(context, new SimulatedEndpointOptions(), CancellationToken.None);
+        await ensurer.EnsureReferencedPathsAsync(context, new SimulatedEndpointOptions(), _ctx.ArtefactStoreMock.Object, CancellationToken.None);
     }
 
     [Then(@"the area node ""(.*)"" is created in the target")]

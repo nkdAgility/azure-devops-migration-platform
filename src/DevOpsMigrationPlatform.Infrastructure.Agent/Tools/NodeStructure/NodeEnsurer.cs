@@ -38,23 +38,17 @@ public sealed class NodeEnsurer
     private readonly NodeStructureOptions _options;
     private readonly INodeStructureTool _tool;
     private readonly INodeCreator _nodeCreator;
-    private readonly IArtefactStore _artefactStore;
-    private readonly IStateStore _stateStore;
     private readonly ILogger<NodeEnsurer> _logger;
 
     public NodeEnsurer(
         IOptions<NodeStructureOptions> options,
         INodeStructureTool tool,
         INodeCreator nodeCreator,
-        IArtefactStore artefactStore,
-        IStateStore stateStore,
         ILogger<NodeEnsurer> logger)
     {
         _options = options?.Value ?? throw new ArgumentNullException(nameof(options));
         _tool = tool ?? throw new ArgumentNullException(nameof(tool));
         _nodeCreator = nodeCreator ?? throw new ArgumentNullException(nameof(nodeCreator));
-        _artefactStore = artefactStore ?? throw new ArgumentNullException(nameof(artefactStore));
-        _stateStore = stateStore ?? throw new ArgumentNullException(nameof(stateStore));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
@@ -66,6 +60,8 @@ public sealed class NodeEnsurer
     public async Task ReplicateSourceTreeAsync(
         ProjectMapping context,
         MigrationEndpointOptions endpoint,
+        IArtefactStore artefactStore,
+        IStateStore stateStore,
         CancellationToken ct,
         IMigrationMetrics? metrics = null,
         string? jobId = null)
@@ -76,7 +72,7 @@ public sealed class NodeEnsurer
             return;
         }
 
-        var json = await _artefactStore.ReadAsync(SourceTreePath, ct).ConfigureAwait(false);
+        var json = await artefactStore.ReadAsync(SourceTreePath, ct).ConfigureAwait(false);
         if (json is null)
         {
             _logger.LogWarning("[NodeStructure] {Path} not found in package — skipping ReplicateSourceTree.", SourceTreePath);
@@ -90,7 +86,7 @@ public sealed class NodeEnsurer
             return;
         }
 
-        var progress = await LoadProgressAsync(ct).ConfigureAwait(false);
+        var progress = await LoadProgressAsync(stateStore, ct).ConfigureAwait(false);
 
         using var activity = s_activitySource.StartActivity("nodes.import.replicate");
         var sw = Stopwatch.StartNew();
@@ -126,7 +122,7 @@ public sealed class NodeEnsurer
 
                 progress.ReplicatedPaths.Add(targetPath);
                 progress.UpdatedAt = DateTimeOffset.UtcNow;
-                await SaveProgressAsync(progress, ct).ConfigureAwait(false);
+                await SaveProgressAsync(stateStore, progress, ct).ConfigureAwait(false);
                 count++;
                 metrics?.RecordNodeImportReplicateCount(tags);
             }
@@ -171,7 +167,7 @@ public sealed class NodeEnsurer
 
                 progress.ReplicatedPaths.Add(targetPath);
                 progress.UpdatedAt = DateTimeOffset.UtcNow;
-                await SaveProgressAsync(progress, ct).ConfigureAwait(false);
+                await SaveProgressAsync(stateStore, progress, ct).ConfigureAwait(false);
                 count++;
                 metrics?.RecordNodeImportReplicateCount(tags);
             }
@@ -199,6 +195,7 @@ public sealed class NodeEnsurer
     public async Task EnsureReferencedPathsAsync(
         ProjectMapping context,
         MigrationEndpointOptions endpoint,
+        IArtefactStore artefactStore,
         CancellationToken ct,
         IMigrationMetrics? metrics = null,
         string? jobId = null)
@@ -209,7 +206,7 @@ public sealed class NodeEnsurer
             return;
         }
 
-        var json = await _artefactStore.ReadAsync(ReferencedPathsPath, ct).ConfigureAwait(false);
+        var json = await artefactStore.ReadAsync(ReferencedPathsPath, ct).ConfigureAwait(false);
         if (json is null)
         {
             _logger.LogDebug("[NodeStructure] {Path} not found — skipping pre-collection.", ReferencedPathsPath);
@@ -276,17 +273,17 @@ public sealed class NodeEnsurer
             count, sw.ElapsedMilliseconds);
     }
 
-    private async Task<NodeReplicationProgress> LoadProgressAsync(CancellationToken ct)
+    private async Task<NodeReplicationProgress> LoadProgressAsync(IStateStore stateStore, CancellationToken ct)
     {
-        var json = await _stateStore.ReadAsync(NodeReplicationProgress.StateKey, ct).ConfigureAwait(false);
+        var json = await stateStore.ReadAsync(NodeReplicationProgress.StateKey, ct).ConfigureAwait(false);
         if (json is null) return new NodeReplicationProgress();
         return JsonSerializer.Deserialize<NodeReplicationProgress>(json, s_jsonOptions) ?? new NodeReplicationProgress();
     }
 
-    private async Task SaveProgressAsync(NodeReplicationProgress progress, CancellationToken ct)
+    private async Task SaveProgressAsync(IStateStore stateStore, NodeReplicationProgress progress, CancellationToken ct)
     {
         var json = JsonSerializer.Serialize(progress, s_jsonOptions);
-        await _stateStore.WriteAsync(NodeReplicationProgress.StateKey, json, ct).ConfigureAwait(false);
+        await stateStore.WriteAsync(NodeReplicationProgress.StateKey, json, ct).ConfigureAwait(false);
     }
 }
 #endif

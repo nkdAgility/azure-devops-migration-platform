@@ -71,8 +71,6 @@ public class AutoCreateNodesContext
             Options.Create(opts),
             tool,
             NodeCreatorMock.Object,
-            ArtefactStoreMock.Object,
-            StateStoreMock.Object,
             NullLogger<NodeEnsurer>.Instance);
         return _ensurer;
     }
