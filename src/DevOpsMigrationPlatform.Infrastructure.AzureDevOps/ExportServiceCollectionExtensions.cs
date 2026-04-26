@@ -65,7 +65,7 @@ public static class ExportServiceCollectionExtensions
         }
 
         // Classification tree reader — enumerates area/iteration nodes from the source ADO project.
-        services.TryAddSingleton<IClassificationTreeReader, AzureDevOpsClassificationTreeReader>();
+        services.AddClassificationTreeReader<AzureDevOpsClassificationTreeReader>("AzureDevOpsServices");
 
         // Embedded image download and processing
         services.AddHttpClient<AzureDevOpsEmbeddedImageDownloader>()

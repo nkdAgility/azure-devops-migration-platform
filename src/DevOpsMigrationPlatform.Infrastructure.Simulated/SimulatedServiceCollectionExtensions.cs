@@ -34,7 +34,7 @@ public static class SimulatedServiceCollectionExtensions
         services.AddRevisionSourceFactory<SimulatedWorkItemRevisionSourceFactory>("Simulated");
 
         // Classification tree reader — returns a minimal deterministic tree for simulated sources.
-        services.TryAddSingleton<IClassificationTreeReader, SimulatedClassificationTreeReader>();
+        services.AddClassificationTreeReader<SimulatedClassificationTreeReader>("Simulated");
 
         // Discovery services (for inventory of simulated sources)
         services.TryAddSingleton<SimulatedGeneratorConfig>();
@@ -60,7 +60,7 @@ public static class SimulatedServiceCollectionExtensions
         services.AddResolutionStrategyFactory<SimulatedResolutionStrategyFactory, SimulatedWorkItemImportTarget>();
 
         // Classification node creator — in-memory simulation of node creation.
-        services.TryAddSingleton<INodeCreator, SimulatedNodeCreator>();
+        services.AddNodeCreator<SimulatedNodeCreator>("Simulated");
 
         return services;
     }

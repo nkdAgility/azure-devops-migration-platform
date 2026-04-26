@@ -38,7 +38,7 @@ public static class ImportServiceCollectionExtensions
         services.AddSingleton<IIdMapStoreFactory, IdMapStoreFactory>();
         services.AddSingleton<IRevisionFolderProcessorFactory, RevisionFolderProcessorFactory>();
         // Classification node creator — creates area/iteration nodes in the target ADO project.
-        services.TryAddSingleton<INodeCreator, AzureDevOpsNodeCreator>();
+        services.AddNodeCreator<AzureDevOpsNodeCreator>("AzureDevOpsServices");
         return services;
     }
 }

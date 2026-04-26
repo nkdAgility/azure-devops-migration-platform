@@ -1,8 +1,10 @@
 #if !NET481
 using System;
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Export;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Import;
+using DevOpsMigrationPlatform.Infrastructure.Agent.Tools.NodeStructure;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 
@@ -68,6 +70,44 @@ public static class FactoryRegistrationExtensions
                 target => target is TTarget,
                 sp.GetRequiredService<TFactory>()));
         services.TryAddSingleton<IWorkItemResolutionStrategyFactory, CompositeWorkItemResolutionStrategyFactory>();
+        return services;
+    }
+
+    /// <summary>
+    /// Registers a concrete <see cref="IClassificationTreeReader"/> implementation keyed by
+    /// <paramref name="typeKey"/> (the endpoint's <c>Type</c> discriminator, e.g.
+    /// <c>"AzureDevOpsServices"</c> or <c>"Simulated"</c>), and ensures the
+    /// <see cref="CompositeClassificationTreeReader"/> dispatcher is registered as
+    /// <see cref="IClassificationTreeReader"/>.
+    /// </summary>
+    public static IServiceCollection AddClassificationTreeReader<T>(
+        this IServiceCollection services,
+        string typeKey)
+        where T : class, IClassificationTreeReader
+    {
+        services.TryAddSingleton<T>();
+        services.AddSingleton(sp => new KeyedClassificationTreeReader(typeKey, sp.GetRequiredService<T>()));
+        services.TryAddSingleton<IClassificationTreeReader, CompositeClassificationTreeReader>();
+        return services;
+    }
+
+    /// <summary>
+    /// Registers a concrete <see cref="INodeCreator"/> implementation keyed by
+    /// <paramref name="typeKey"/> (the endpoint's <c>Type</c> discriminator, e.g.
+    /// <c>"AzureDevOpsServices"</c> or <c>"Simulated"</c>), and ensures the
+    /// <see cref="CompositeNodeCreator"/> dispatcher is registered as <see cref="INodeCreator"/>.
+    /// Also registers <see cref="NodeEnsurer"/> (if not already registered) so it can be
+    /// optionally injected by <c>WorkItemsModule</c>.
+    /// </summary>
+    public static IServiceCollection AddNodeCreator<T>(
+        this IServiceCollection services,
+        string typeKey)
+        where T : class, INodeCreator
+    {
+        services.TryAddSingleton<T>();
+        services.AddSingleton(sp => new KeyedNodeCreator(typeKey, sp.GetRequiredService<T>()));
+        services.TryAddSingleton<INodeCreator, CompositeNodeCreator>();
+        services.TryAddSingleton<NodeEnsurer>();
         return services;
     }
 }
