@@ -8,6 +8,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
+using DevOpsMigrationPlatform.Abstractions.Agent.Telemetry;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Abstractions.Options;
 using Microsoft.Extensions.Logging;
@@ -60,8 +61,14 @@ public sealed class NodeEnsurer
     /// <summary>
     /// Reads Nodes/source-tree.json and ensures all nodes exist in the target.
     /// No-op when ReplicateSourceTree is false.
+    /// Emits <c>migration.nodes.import.replicate.*</c> OTel metrics.
     /// </summary>
-    public async Task ReplicateSourceTreeAsync(ProjectMapping context, MigrationEndpointOptions endpoint, CancellationToken ct)
+    public async Task ReplicateSourceTreeAsync(
+        ProjectMapping context,
+        MigrationEndpointOptions endpoint,
+        CancellationToken ct,
+        IMigrationMetrics? metrics = null,
+        string? jobId = null)
     {
         if (!_options.ReplicateSourceTree)
         {
@@ -87,52 +94,98 @@ public sealed class NodeEnsurer
 
         using var activity = s_activitySource.StartActivity("nodes.import.replicate");
         var sw = Stopwatch.StartNew();
-        int count = 0, skipped = 0;
+        int count = 0, skipped = 0, errors = 0;
+        var tags = MigrationTagList.Create(jobId ?? string.Empty, "import", "NodeStructure");
 
-        foreach (var areaPath in snapshot.AreaNodes)
+        metrics?.IncrementNodeImportReplicateInFlight(tags);
+        try
         {
-            var translated = _tool.TranslatePath("System.AreaPath", areaPath, context);
-            var targetPath = translated.TargetPath ?? areaPath;
-
-            if (progress.ReplicatedPaths.Contains(targetPath)) { skipped++; continue; }
-
-            await _nodeCreator.EnsureExistsAsync(ClassificationNodeType.Area, targetPath, endpoint, ct).ConfigureAwait(false);
-            progress.ReplicatedPaths.Add(targetPath);
-            progress.UpdatedAt = DateTimeOffset.UtcNow;
-            await SaveProgressAsync(progress, ct).ConfigureAwait(false);
-            count++;
-        }
-
-        foreach (var iterEntry in snapshot.IterationNodes)
-        {
-            var translated = _tool.TranslatePath("System.IterationPath", iterEntry.Path, context);
-            var targetPath = translated.TargetPath ?? iterEntry.Path;
-
-            if (progress.ReplicatedPaths.Contains(targetPath)) { skipped++; continue; }
-
-            await _nodeCreator.EnsureExistsAsync(ClassificationNodeType.Iteration, targetPath, endpoint, ct).ConfigureAwait(false);
-
-            if (iterEntry.StartDate.HasValue || iterEntry.FinishDate.HasValue)
+            foreach (var areaPath in snapshot.AreaNodes)
             {
+                var translated = _tool.TranslatePath("System.AreaPath", areaPath, context);
+                var targetPath = translated.TargetPath ?? areaPath;
+
+                if (progress.ReplicatedPaths.Contains(targetPath))
+                {
+                    skipped++;
+                    metrics?.RecordNodeImportReplicateSkipped(tags);
+                    continue;
+                }
+
                 try
                 {
-                    await _nodeCreator.SetIterationDatesAsync(targetPath, iterEntry.StartDate, iterEntry.FinishDate, endpoint, ct)
-                        .ConfigureAwait(false);
+                    await _nodeCreator.EnsureExistsAsync(ClassificationNodeType.Area, targetPath, endpoint, ct).ConfigureAwait(false);
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogWarning(ex,
-                        "[NodeStructure] Failed to set dates for iteration node {Path} — non-blocking.", targetPath);
+                    errors++;
+                    metrics?.RecordNodeImportReplicateError(tags);
+                    _logger.LogError(ex, "[NodeStructure] Failed to ensure area node {Path}.", targetPath);
+                    throw;
                 }
+
+                progress.ReplicatedPaths.Add(targetPath);
+                progress.UpdatedAt = DateTimeOffset.UtcNow;
+                await SaveProgressAsync(progress, ct).ConfigureAwait(false);
+                count++;
+                metrics?.RecordNodeImportReplicateCount(tags);
             }
 
-            progress.ReplicatedPaths.Add(targetPath);
-            progress.UpdatedAt = DateTimeOffset.UtcNow;
-            await SaveProgressAsync(progress, ct).ConfigureAwait(false);
-            count++;
+            foreach (var iterEntry in snapshot.IterationNodes)
+            {
+                var translated = _tool.TranslatePath("System.IterationPath", iterEntry.Path, context);
+                var targetPath = translated.TargetPath ?? iterEntry.Path;
+
+                if (progress.ReplicatedPaths.Contains(targetPath))
+                {
+                    skipped++;
+                    metrics?.RecordNodeImportReplicateSkipped(tags);
+                    continue;
+                }
+
+                try
+                {
+                    await _nodeCreator.EnsureExistsAsync(ClassificationNodeType.Iteration, targetPath, endpoint, ct).ConfigureAwait(false);
+                }
+                catch (Exception ex)
+                {
+                    errors++;
+                    metrics?.RecordNodeImportReplicateError(tags);
+                    _logger.LogError(ex, "[NodeStructure] Failed to ensure iteration node {Path}.", targetPath);
+                    throw;
+                }
+
+                if (iterEntry.StartDate.HasValue || iterEntry.FinishDate.HasValue)
+                {
+                    try
+                    {
+                        await _nodeCreator.SetIterationDatesAsync(targetPath, iterEntry.StartDate, iterEntry.FinishDate, endpoint, ct)
+                            .ConfigureAwait(false);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex,
+                            "[NodeStructure] Failed to set dates for iteration node {Path} — non-blocking.", targetPath);
+                    }
+                }
+
+                progress.ReplicatedPaths.Add(targetPath);
+                progress.UpdatedAt = DateTimeOffset.UtcNow;
+                await SaveProgressAsync(progress, ct).ConfigureAwait(false);
+                count++;
+                metrics?.RecordNodeImportReplicateCount(tags);
+            }
+        }
+        finally
+        {
+            metrics?.DecrementNodeImportReplicateInFlight(tags);
         }
 
         sw.Stop();
+        metrics?.RecordNodeImportReplicateDuration(sw.Elapsed.TotalMilliseconds, tags);
+        activity?.SetTag("nodes.replicated", count);
+        activity?.SetTag("nodes.skipped", skipped);
+
         _logger.LogInformation(
             "[NodeStructure] Tree replication complete: {Count} created, {Skipped} skipped in {DurationMs}ms.",
             count, skipped, sw.ElapsedMilliseconds);
@@ -141,8 +194,14 @@ public sealed class NodeEnsurer
     /// <summary>
     /// Reads Nodes/referenced-paths.json and ensures all translated paths exist in the target.
     /// No-op when AutoCreateNodes is false.
+    /// Emits <c>migration.nodes.import.precollect.*</c> OTel metrics.
     /// </summary>
-    public async Task EnsureReferencedPathsAsync(ProjectMapping context, MigrationEndpointOptions endpoint, CancellationToken ct)
+    public async Task EnsureReferencedPathsAsync(
+        ProjectMapping context,
+        MigrationEndpointOptions endpoint,
+        CancellationToken ct,
+        IMigrationMetrics? metrics = null,
+        string? jobId = null)
     {
         if (!_options.AutoCreateNodes)
         {
@@ -163,24 +222,56 @@ public sealed class NodeEnsurer
         using var activity = s_activitySource.StartActivity("nodes.import.precollect");
         var sw = Stopwatch.StartNew();
         int count = 0;
+        var tags = MigrationTagList.Create(jobId ?? string.Empty, "import", "NodeStructure");
 
-        foreach (var areaPath in artifact.AreaPaths)
+        metrics?.IncrementNodeImportPreCollectInFlight(tags);
+        try
         {
-            var translated = _tool.TranslatePath("System.AreaPath", areaPath, context);
-            if (translated.TargetPath is null) continue;
-            await _nodeCreator.EnsureExistsAsync(ClassificationNodeType.Area, translated.TargetPath, endpoint, ct).ConfigureAwait(false);
-            count++;
+            foreach (var areaPath in artifact.AreaPaths)
+            {
+                var translated = _tool.TranslatePath("System.AreaPath", areaPath, context);
+                if (translated.TargetPath is null) continue;
+                try
+                {
+                    await _nodeCreator.EnsureExistsAsync(ClassificationNodeType.Area, translated.TargetPath, endpoint, ct).ConfigureAwait(false);
+                    count++;
+                    metrics?.RecordNodeImportPreCollectCount(tags);
+                }
+                catch (Exception ex)
+                {
+                    metrics?.RecordNodeImportPreCollectError(tags);
+                    _logger.LogError(ex, "[NodeStructure] Failed to ensure pre-collected area node {Path}.", translated.TargetPath);
+                    throw;
+                }
+            }
+
+            foreach (var iterPath in artifact.IterationPaths)
+            {
+                var translated = _tool.TranslatePath("System.IterationPath", iterPath, context);
+                if (translated.TargetPath is null) continue;
+                try
+                {
+                    await _nodeCreator.EnsureExistsAsync(ClassificationNodeType.Iteration, translated.TargetPath, endpoint, ct).ConfigureAwait(false);
+                    count++;
+                    metrics?.RecordNodeImportPreCollectCount(tags);
+                }
+                catch (Exception ex)
+                {
+                    metrics?.RecordNodeImportPreCollectError(tags);
+                    _logger.LogError(ex, "[NodeStructure] Failed to ensure pre-collected iteration node {Path}.", translated.TargetPath);
+                    throw;
+                }
+            }
         }
-
-        foreach (var iterPath in artifact.IterationPaths)
+        finally
         {
-            var translated = _tool.TranslatePath("System.IterationPath", iterPath, context);
-            if (translated.TargetPath is null) continue;
-            await _nodeCreator.EnsureExistsAsync(ClassificationNodeType.Iteration, translated.TargetPath, endpoint, ct).ConfigureAwait(false);
-            count++;
+            metrics?.DecrementNodeImportPreCollectInFlight(tags);
         }
 
         sw.Stop();
+        metrics?.RecordNodeImportPreCollectDuration(sw.Elapsed.TotalMilliseconds, tags);
+        activity?.SetTag("nodes.precollected", count);
+
         _logger.LogInformation("[NodeStructure] Pre-collection complete: {Count} paths processed in {DurationMs}ms.",
             count, sw.ElapsedMilliseconds);
     }

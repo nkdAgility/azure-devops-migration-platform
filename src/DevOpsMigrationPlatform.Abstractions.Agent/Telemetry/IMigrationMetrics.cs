@@ -52,4 +52,24 @@ public interface IMigrationMetrics
     void RecordReprocessedAfterResume(in TagList tags);
     void RecordDuplicatedAfterResume(in TagList tags);
     void RecordMissingAfterResume(in TagList tags);
+
+    // --- NodeStructure Export ---
+    void RecordNodeExportTreeCount(int count, in TagList tags);
+    void RecordNodeExportTreeDuration(double milliseconds, in TagList tags);
+    void RecordNodeExportTreeError(in TagList tags);
+
+    // --- NodeStructure Import: Replicate ---
+    void RecordNodeImportReplicateCount(in TagList tags);
+    void RecordNodeImportReplicateDuration(double milliseconds, in TagList tags);
+    void RecordNodeImportReplicateError(in TagList tags);
+    void RecordNodeImportReplicateSkipped(in TagList tags);
+    void IncrementNodeImportReplicateInFlight(in TagList tags);
+    void DecrementNodeImportReplicateInFlight(in TagList tags);
+
+    // --- NodeStructure Import: PreCollect ---
+    void RecordNodeImportPreCollectCount(in TagList tags);
+    void RecordNodeImportPreCollectDuration(double milliseconds, in TagList tags);
+    void RecordNodeImportPreCollectError(in TagList tags);
+    void IncrementNodeImportPreCollectInFlight(in TagList tags);
+    void DecrementNodeImportPreCollectInFlight(in TagList tags);
 }

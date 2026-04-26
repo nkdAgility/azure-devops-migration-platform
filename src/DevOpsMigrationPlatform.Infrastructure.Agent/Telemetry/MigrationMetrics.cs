@@ -56,6 +56,24 @@ internal sealed class MigrationMetrics : IMigrationMetrics, IDisposable
     private readonly Counter<long> _duplicatedAfterResume;
     private readonly Counter<long> _missingAfterResume;
 
+    // --- NodeStructure Export ---
+    private readonly Histogram<int> _nodeExportTreeCount;
+    private readonly Histogram<double> _nodeExportTreeDuration;
+    private readonly Counter<long> _nodeExportTreeErrors;
+
+    // --- NodeStructure Import: Replicate ---
+    private readonly Counter<long> _nodeImportReplicateCount;
+    private readonly Histogram<double> _nodeImportReplicateDuration;
+    private readonly Counter<long> _nodeImportReplicateErrors;
+    private readonly Counter<long> _nodeImportReplicateSkipped;
+    private readonly UpDownCounter<long> _nodeImportReplicateInFlight;
+
+    // --- NodeStructure Import: PreCollect ---
+    private readonly Counter<long> _nodeImportPreCollectCount;
+    private readonly Histogram<double> _nodeImportPreCollectDuration;
+    private readonly Counter<long> _nodeImportPreCollectErrors;
+    private readonly UpDownCounter<long> _nodeImportPreCollectInFlight;
+
     public MigrationMetrics()
     {
         _meter = new Meter(WellKnownMeterNames.Migration, "2.0");
@@ -101,9 +119,25 @@ internal sealed class MigrationMetrics : IMigrationMetrics, IDisposable
         _reprocessedAfterResume = _meter.CreateCounter<long>(WellKnownMetricNames.ReprocessedAfterResume, unit: "{work_item}");
         _duplicatedAfterResume = _meter.CreateCounter<long>(WellKnownMetricNames.DuplicatedAfterResume, unit: "{work_item}");
         _missingAfterResume = _meter.CreateCounter<long>(WellKnownMetricNames.MissingAfterResume, unit: "{work_item}");
-    }
 
-    // --- Execution ---
+        // NodeStructure Export
+        _nodeExportTreeCount = _meter.CreateHistogram<int>(WellKnownMetricNames.NodeExportTreeCount, unit: "{node}");
+        _nodeExportTreeDuration = _meter.CreateHistogram<double>(WellKnownMetricNames.NodeExportTreeDurationMs, unit: "ms");
+        _nodeExportTreeErrors = _meter.CreateCounter<long>(WellKnownMetricNames.NodeExportTreeErrors, unit: "{error}");
+
+        // NodeStructure Import: Replicate
+        _nodeImportReplicateCount = _meter.CreateCounter<long>(WellKnownMetricNames.NodeImportReplicateCount, unit: "{node}");
+        _nodeImportReplicateDuration = _meter.CreateHistogram<double>(WellKnownMetricNames.NodeImportReplicateDurationMs, unit: "ms");
+        _nodeImportReplicateErrors = _meter.CreateCounter<long>(WellKnownMetricNames.NodeImportReplicateErrors, unit: "{error}");
+        _nodeImportReplicateSkipped = _meter.CreateCounter<long>(WellKnownMetricNames.NodeImportReplicateSkipped, unit: "{node}");
+        _nodeImportReplicateInFlight = _meter.CreateUpDownCounter<long>(WellKnownMetricNames.NodeImportReplicateInFlight, unit: "{node}");
+
+        // NodeStructure Import: PreCollect
+        _nodeImportPreCollectCount = _meter.CreateCounter<long>(WellKnownMetricNames.NodeImportPreCollectCount, unit: "{node}");
+        _nodeImportPreCollectDuration = _meter.CreateHistogram<double>(WellKnownMetricNames.NodeImportPreCollectDurationMs, unit: "ms");
+        _nodeImportPreCollectErrors = _meter.CreateCounter<long>(WellKnownMetricNames.NodeImportPreCollectErrors, unit: "{error}");
+        _nodeImportPreCollectInFlight = _meter.CreateUpDownCounter<long>(WellKnownMetricNames.NodeImportPreCollectInFlight, unit: "{node}");
+    }
     public void RecordWorkItemAttempted(in TagList tags) => _attempted.Add(1, tags);
     public void RecordWorkItemCompleted(in TagList tags) => _completed.Add(1, tags);
     public void RecordWorkItemFailed(in TagList tags) => _failed.Add(1, tags);
@@ -146,6 +180,26 @@ internal sealed class MigrationMetrics : IMigrationMetrics, IDisposable
     public void RecordReprocessedAfterResume(in TagList tags) => _reprocessedAfterResume.Add(1, tags);
     public void RecordDuplicatedAfterResume(in TagList tags) => _duplicatedAfterResume.Add(1, tags);
     public void RecordMissingAfterResume(in TagList tags) => _missingAfterResume.Add(1, tags);
+
+    // --- NodeStructure Export ---
+    public void RecordNodeExportTreeCount(int count, in TagList tags) => _nodeExportTreeCount.Record(count, tags);
+    public void RecordNodeExportTreeDuration(double milliseconds, in TagList tags) => _nodeExportTreeDuration.Record(milliseconds, tags);
+    public void RecordNodeExportTreeError(in TagList tags) => _nodeExportTreeErrors.Add(1, tags);
+
+    // --- NodeStructure Import: Replicate ---
+    public void RecordNodeImportReplicateCount(in TagList tags) => _nodeImportReplicateCount.Add(1, tags);
+    public void RecordNodeImportReplicateDuration(double milliseconds, in TagList tags) => _nodeImportReplicateDuration.Record(milliseconds, tags);
+    public void RecordNodeImportReplicateError(in TagList tags) => _nodeImportReplicateErrors.Add(1, tags);
+    public void RecordNodeImportReplicateSkipped(in TagList tags) => _nodeImportReplicateSkipped.Add(1, tags);
+    public void IncrementNodeImportReplicateInFlight(in TagList tags) => _nodeImportReplicateInFlight.Add(1, tags);
+    public void DecrementNodeImportReplicateInFlight(in TagList tags) => _nodeImportReplicateInFlight.Add(-1, tags);
+
+    // --- NodeStructure Import: PreCollect ---
+    public void RecordNodeImportPreCollectCount(in TagList tags) => _nodeImportPreCollectCount.Add(1, tags);
+    public void RecordNodeImportPreCollectDuration(double milliseconds, in TagList tags) => _nodeImportPreCollectDuration.Record(milliseconds, tags);
+    public void RecordNodeImportPreCollectError(in TagList tags) => _nodeImportPreCollectErrors.Add(1, tags);
+    public void IncrementNodeImportPreCollectInFlight(in TagList tags) => _nodeImportPreCollectInFlight.Add(1, tags);
+    public void DecrementNodeImportPreCollectInFlight(in TagList tags) => _nodeImportPreCollectInFlight.Add(-1, tags);
 
     public void Dispose() => _meter.Dispose();
 }

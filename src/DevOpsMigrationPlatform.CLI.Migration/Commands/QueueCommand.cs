@@ -570,6 +570,7 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
             // Live renderer.  The buffer is flushed after Live() exits.
             var logBuffer = new StringWriter();
             var originalOut = Console.Out;
+            var cancelled = false;
             Console.SetOut(logBuffer);
 
             try
@@ -645,6 +646,7 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
             }
             catch (OperationCanceledException)
             {
+                cancelled = true;
                 // Ctrl+C pressed — detach.
                 if (isStandaloneMode)
                 {
@@ -664,12 +666,16 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
                 Console.CancelKeyPress -= ctrlCHandler;
                 followCtsDisposed = true;
 
-                // Restore stdout and flush anything the Console logger wrote during the live render.
+                // Restore stdout. On cancellation, discard the buffer — flushing thousands
+                // of accumulated Information-level log lines would flood the terminal.
                 Console.SetOut(originalOut);
-                var captured = logBuffer.ToString();
+                if (!cancelled)
+                {
+                    var captured = logBuffer.ToString();
+                    if (!string.IsNullOrWhiteSpace(captured))
+                        console.Write(new Text(captured.TrimEnd()));
+                }
                 logBuffer.Dispose();
-                if (!string.IsNullOrWhiteSpace(captured))
-                    console.Write(new Text(captured.TrimEnd()));
             }
         }
 

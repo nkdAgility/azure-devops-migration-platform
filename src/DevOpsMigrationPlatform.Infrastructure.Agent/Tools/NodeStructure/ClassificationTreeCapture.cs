@@ -8,6 +8,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
+using DevOpsMigrationPlatform.Abstractions.Agent.Telemetry;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Abstractions.Options;
 using Microsoft.Extensions.Logging;
@@ -44,12 +45,19 @@ public sealed class ClassificationTreeCapture
 
     /// <summary>
     /// Captures the source classification tree and writes it to the package.
+    /// Emits <c>migration.nodes.export.*</c> OTel metrics.
     /// </summary>
-    public async Task CaptureAsync(IArtefactStore artefactStore, MigrationEndpointOptions endpoint, CancellationToken ct)
+    public async Task CaptureAsync(
+        IArtefactStore artefactStore,
+        MigrationEndpointOptions endpoint,
+        CancellationToken ct,
+        IMigrationMetrics? metrics = null,
+        string? jobId = null)
     {
         using var activity = s_activitySource.StartActivity("nodes.export.tree");
         var sw = Stopwatch.StartNew();
 
+        var tags = MigrationTagList.Create(jobId ?? string.Empty, "export", "NodeStructure");
         var areaNodes = new List<string>();
         var iterationNodes = new List<IterationNodeEntry>();
 
@@ -67,6 +75,13 @@ public sealed class ClassificationTreeCapture
             var json = JsonSerializer.Serialize(snapshot, s_jsonOptions);
             await artefactStore.WriteAsync(ArtifactPath, json, ct).ConfigureAwait(false);
 
+            var totalNodes = areaNodes.Count + iterationNodes.Count;
+            metrics?.RecordNodeExportTreeCount(totalNodes, tags);
+            metrics?.RecordNodeExportTreeDuration(sw.Elapsed.TotalMilliseconds, tags);
+
+            activity?.SetTag("nodes.area.count", areaNodes.Count);
+            activity?.SetTag("nodes.iteration.count", iterationNodes.Count);
+
             _logger.LogInformation(
                 "[NodeStructure] Source tree captured: {AreaCount} area nodes, {IterCount} iteration nodes in {DurationMs}ms.",
                 areaNodes.Count, iterationNodes.Count, sw.ElapsedMilliseconds);
@@ -74,6 +89,8 @@ public sealed class ClassificationTreeCapture
         catch (Exception ex)
         {
             sw.Stop();
+            metrics?.RecordNodeExportTreeError(tags);
+            activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
             _logger.LogError(ex, "[NodeStructure] Failed to capture source classification tree.");
             throw;
         }
