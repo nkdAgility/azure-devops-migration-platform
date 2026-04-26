@@ -9,6 +9,12 @@ hooks:
     optional: false
     description: Challenge the specification with adversarial thinking to surface blind spots, wrong assumptions, and missing failure modes
     condition: null
+  - extension: observability-contract
+    command: observability-contract
+    enabled: true
+    optional: false
+    description: Inspect, validate, and amend the specification to ensure complete decision-driven observability coverage across metrics, traces, and logs
+    condition: null
   after_plan:
   - extension: architecture-review
     command: architecture-review

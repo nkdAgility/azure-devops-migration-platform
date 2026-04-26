@@ -26,12 +26,12 @@
 
 ---
 
-### classification-nodes.json package artifact not in canonical package layout
+### Nodes/ package artifacts not in canonical package layout
 
 - **Source doc**: `docs/architecture.md` / `.agents/context/package-format.md`
 - **Section**: Package layout specification
-- **Issue**: The spec introduces a new export artifact `WorkItems/classification-nodes.json` (FR-015a). This artifact is not documented in the canonical package layout. The package format docs need to list it alongside `revision.json` as a valid top-level artifact under `WorkItems/`.
-- **Suggested update**: Add `classification-nodes.json` to the `WorkItems/` section of the package layout documentation, with its schema (`{ "areaNodes": [...], "iterationNodes": [...] }`) and the condition under which it is written (`replicateAllExistingNodes: true`).
+- **Issue**: The spec introduces new export artifacts `Nodes/source-tree.json` and `Nodes/referenced-paths.json`. These artifacts are not documented in the canonical package layout. The package format docs need to add `Nodes/` as a top-level module folder alongside `WorkItems/`, `Teams/`, etc.
+- **Suggested update**: Add `Nodes/` to the package layout documentation with its two artifacts (`source-tree.json` with area/iteration tree schema, `referenced-paths.json` with discovered paths schema) and note that both are always written on export.
 
 ---
 
@@ -50,5 +50,25 @@
 - **Section**: `MigrationPlatform.Tools` config root
 - **Issue**: `analysis/proposed-features.md` proposes a new array-based tool declaration schema: `"tools": [{ "id": "nodes-default", "type": "NodeStructure", ... }]` with extension references via `{ "ref": "<id>", "overrides": { ... } }`. The established canonical pattern (used by `FieldTransform`) is a **keyed object**: `"Tools": { "NodeStructure": { ... } }` where the key is the type name and there is no `id` or `ref` field. The spec was initially drafted using the array-with-id pattern. This was **incorrect** — the spec has been corrected to use the keyed-object pattern. However, the conflict in `proposed-features.md` remains: if the `ref`/`overrides` mechanism is desired in the future (to allow per-extension overrides), that is a separate config schema evolution feature and must not be introduced here without a dedicated spec.
 - **Status**: Resolved in spec (array-with-id removed); `proposed-features.md` pattern deferred.
+
+---
+
+### NodeStructureTool violates documented tool purity contract
+
+- **Source doc**: `docs/modules.md`
+- **Section**: `### Tool Resolution` (line 86–91)
+- **Issue**: The Tool Resolution section states: "Tools are pure transformations or lookup services — they perform no I/O and carry no mutable state." The NodeStructureTool as specified requires ADO API calls (node creation) and `IStateStore` writes (checkpointing). This violates the documented purity contract.
+- **Resolution**: The plan splits the tool into two concerns: (1) `INodeStructureTool` — a **pure** path-mapping interface (no I/O, no state), consistent with the documented contract; (2) `INodeCreator` — a separate **infrastructure service** for node creation I/O, consumed at the orchestration layer (not inside the per-revision tool call). The `docs/modules.md` Tool Resolution section does NOT need amendment — the `INodeStructureTool` interface complies as-is. The `INodeCreator` is not a "tool" — it is an infrastructure service.
+- **Status**: Resolved in plan (split architecture).
+
+---
+
+### RevisionFolderProcessorFactory does not pass IFieldTransformTool (pre-existing)
+
+- **Source doc**: Implementation code
+- **Section**: `RevisionFolderProcessorFactory.Create()`
+- **Issue**: The factory does not currently pass `IFieldTransformTool` to `RevisionFolderProcessor` (constructor has optional `fieldTransformTool` parameter, factory passes `null`). This is a pre-existing integration gap. The NodeStructureTool will need the same factory integration path.
+- **Suggested update**: Extend `IRevisionFolderProcessorFactory.Create()` to accept optional tool parameters, or inject tools via factory constructor.
+- **Status**: Pending — to be addressed during implementation (factory must be updated for both `IFieldTransformTool` and `INodeStructureTool`).
 
 
