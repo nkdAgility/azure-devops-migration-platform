@@ -3,6 +3,8 @@ using DevOpsMigrationPlatform.Infrastructure;
 using DevOpsMigrationPlatform.Infrastructure.AzureDevOps;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Modules;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Storage;
+using DevOpsMigrationPlatform.Infrastructure.Agent.Tools.FieldTransform;
+using DevOpsMigrationPlatform.Infrastructure.Agent.Tools.NodeStructure;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Checkpointing;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Telemetry;
 using DevOpsMigrationPlatform.Infrastructure.Simulated;
@@ -77,6 +79,10 @@ public static class MigrationAgentServiceExtensions
 
         // Progress streaming to the Control Plane ring buffer.
         builder.Services.AddControlPlaneProgressSink(controlPlaneBaseUrl);
+
+        // Register cross-cutting tool services (NodeStructure + FieldTransform).
+        builder.Services.AddNodeStructureToolServices();
+        builder.Services.AddFieldTransformToolServices();
 
         // Register IModule implementations (WorkItemsModule + Azure DevOps infra).
         builder.Services.AddAzureDevOpsWorkItemExport();

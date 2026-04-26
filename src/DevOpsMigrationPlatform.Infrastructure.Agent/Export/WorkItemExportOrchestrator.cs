@@ -13,6 +13,7 @@ using DevOpsMigrationPlatform.Abstractions.Telemetry;
 using Microsoft.Extensions.Logging;
 #if !NET481
 using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
+using DevOpsMigrationPlatform.Infrastructure.Agent.Tools.NodeStructure;
 #endif
 
 namespace DevOpsMigrationPlatform.Infrastructure.Agent.Export;
@@ -61,6 +62,7 @@ public sealed class WorkItemExportOrchestrator
 #if !NET481
     private readonly IExportProgressStoreFactory? _exportProgressStoreFactory;
     private readonly string? _packageUri;
+    private readonly ReferencedPathTracker? _referencedPathTracker;
 #endif
 
     public WorkItemExportOrchestrator(
@@ -81,6 +83,7 @@ public sealed class WorkItemExportOrchestrator
 #if !NET481
         , IExportProgressStoreFactory? exportProgressStoreFactory = null
         , string? packageUri = null
+        , ReferencedPathTracker? referencedPathTracker = null
 #endif
         )
     {
@@ -101,6 +104,7 @@ public sealed class WorkItemExportOrchestrator
 #if !NET481
         _exportProgressStoreFactory = exportProgressStoreFactory;
         _packageUri = packageUri;
+        _referencedPathTracker = referencedPathTracker;
 #endif
     }
 
@@ -417,6 +421,20 @@ public sealed class WorkItemExportOrchestrator
             // can skip revisions ≤ this value without ExistsAsync filesystem checks.
             if (exportProgressStore != null)
                 await exportProgressStore.SetRevAsync(revision.WorkItemId, revision.RevisionIndex, cancellationToken).ConfigureAwait(false);
+
+            // Record area and iteration paths for the referenced-paths artifact.
+            if (_referencedPathTracker != null)
+            {
+                foreach (var field in revision.Fields)
+                {
+                    if (string.Equals(field.ReferenceName, "System.AreaPath", StringComparison.OrdinalIgnoreCase)
+                        && field.Value is string areaPath && !string.IsNullOrEmpty(areaPath))
+                        await _referencedPathTracker.RecordAreaPathAsync(areaPath, _artefactStore, cancellationToken).ConfigureAwait(false);
+                    else if (string.Equals(field.ReferenceName, "System.IterationPath", StringComparison.OrdinalIgnoreCase)
+                        && field.Value is string iterPath && !string.IsNullOrEmpty(iterPath))
+                        await _referencedPathTracker.RecordIterationPathAsync(iterPath, _artefactStore, cancellationToken).ConfigureAwait(false);
+                }
+            }
 #endif
 
             // Record payload complexity metrics per revision.

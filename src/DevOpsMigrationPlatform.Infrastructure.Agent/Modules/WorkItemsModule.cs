@@ -11,6 +11,7 @@ using DevOpsMigrationPlatform.Infrastructure.Agent.Export;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Import;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Telemetry;
 using DevOpsMigrationPlatform.Infrastructure.Telemetry;
+using DevOpsMigrationPlatform.Infrastructure.Agent.Tools.NodeStructure;
 using Microsoft.Extensions.Logging;
 using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
 
@@ -49,6 +50,9 @@ public sealed class WorkItemsModule : IModule
     private readonly IMigrationMetrics? _metrics;
     private readonly IWorkItemDiscoveryService? _discoveryService;
     private readonly IExportProgressStoreFactory? _exportProgressStoreFactory;
+    private readonly ClassificationTreeCapture _classificationTreeCapture;
+    private readonly ReferencedPathTracker _referencedPathTracker;
+    private readonly NodeEnsurer? _nodeEnsurer;
 
     public WorkItemsModule(
         IWorkItemRevisionSourceFactory sourceFactory,
@@ -65,7 +69,10 @@ public sealed class WorkItemsModule : IModule
         IWorkItemFetchService? fetchService = null,
         IMigrationMetrics? metrics = null,
         IWorkItemDiscoveryService? discoveryService = null,
-        IExportProgressStoreFactory? exportProgressStoreFactory = null)
+        IExportProgressStoreFactory? exportProgressStoreFactory = null,
+        ClassificationTreeCapture? classificationTreeCapture = null,
+        ReferencedPathTracker? referencedPathTracker = null,
+        NodeEnsurer? nodeEnsurer = null)
     {
         _sourceFactory = sourceFactory ?? throw new ArgumentNullException(nameof(sourceFactory));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
@@ -82,6 +89,9 @@ public sealed class WorkItemsModule : IModule
         _metrics = metrics;
         _discoveryService = discoveryService;
         _exportProgressStoreFactory = exportProgressStoreFactory;
+        _classificationTreeCapture = classificationTreeCapture ?? throw new ArgumentNullException(nameof(classificationTreeCapture));
+        _referencedPathTracker = referencedPathTracker ?? throw new ArgumentNullException(nameof(referencedPathTracker));
+        _nodeEnsurer = nodeEnsurer;
     }
 
     /// <inheritdoc/>
@@ -107,17 +117,29 @@ public sealed class WorkItemsModule : IModule
                 orgUrl, project, ext.AttachmentsEnabled, ext.Comments.Enabled);
         }
 
+        // Option C — warn when config enables a feature but the backing service is absent.
+        if (ext.AttachmentsEnabled && _attachmentBinarySource == null)
+            _logger.LogWarning("[WorkItems] AttachmentsEnabled is true but no IAttachmentBinarySource is registered — attachment binaries will NOT be written to the package. Register a connector-specific IAttachmentBinarySource to enable attachment export.");
+        if (ext.Comments.Enabled && _inlineCommentSourceFactory == null)
+            _logger.LogWarning("[WorkItems] Comments.Enabled is true but no IWorkItemCommentSourceFactory is registered — inline comments will NOT be exported. Register a connector-specific IWorkItemCommentSourceFactory to enable comment export.");
+
+        // Build combined filter options (include as Regex + exclude as NotRegex).
+        var allFilters = ext.IncludeFilters.Concat(ext.ExcludeFilters).ToList();
+
+        if (allFilters.Count > 0 && _fetchService == null)
+            _logger.LogWarning("[WorkItems] IncludeFilters/ExcludeFilters are configured but no IWorkItemFetchService is registered — filters will be ignored and all work items will be exported. Register a connector-specific IWorkItemFetchService to enable filtered export.");
+
         var source = await _sourceFactory
             .CreateAsync(endpointOptions, ct)
             .ConfigureAwait(false);
+
+        await _referencedPathTracker.InitializeAsync(context.ArtefactStore, ct).ConfigureAwait(false);
+        await _classificationTreeCapture.CaptureAsync(context.ArtefactStore, ct).ConfigureAwait(false);
 
         var checkpointingService = _checkpointingFactory.Create(context.StateStore);
 
         // Comments extension gates inline comment fetching.
         var inlineFactory = ext.Comments.Enabled ? _inlineCommentSourceFactory : null;
-
-        // Build combined filter options (include as Regex + exclude as NotRegex).
-        var allFilters = ext.IncludeFilters.Concat(ext.ExcludeFilters).ToList();
 
         var orchestrator = new WorkItemExportOrchestrator(
             context.ArtefactStore,
@@ -135,7 +157,8 @@ public sealed class WorkItemsModule : IModule
             wiqlQuery: ext.Query,
             discoveryService: _discoveryService,
             exportProgressStoreFactory: _exportProgressStoreFactory,
-            packageUri: job.Package.PackageUri);
+            packageUri: job.Package.PackageUri,
+            referencedPathTracker: _referencedPathTracker);
 
         await orchestrator.ExportAsync(source, ct).ConfigureAwait(false);
 
@@ -178,12 +201,36 @@ public sealed class WorkItemsModule : IModule
         // Derive the SQLite idmap.db from the package URI (legacy fallback handled by factory)
         var idMapStore = _idMapStoreFactory.CreateFromPackageUri(job.Package.PackageUri);
 
-        var processor = _processorFactory.Create(
-            target,
-            idMapStore,
-            checkpointingService,
-            _identityMappingService,
-            context.ArtefactStore);
+        // NodeEnsurer: pre-create missing classification nodes before the revision import loop.
+        if (_nodeEnsurer == null)
+            _logger.LogWarning("[WorkItems] NodeEnsurer is not available — AutoCreateNodes and ReplicateSourceTree will be skipped. Register INodeCreator (via a connector-specific implementation) to enable import-side node creation.");
+
+        if (_nodeEnsurer != null)
+        {
+            var sourceProjectNameForEnsurer = job.Source?.GetProject() ?? string.Empty;
+            var ensurerContext = new DevOpsMigrationPlatform.Abstractions.Agent.Tools.ProjectMapping(sourceProjectNameForEnsurer, project);
+            await _nodeEnsurer.ReplicateSourceTreeAsync(ensurerContext, ct).ConfigureAwait(false);
+            await _nodeEnsurer.EnsureReferencedPathsAsync(ensurerContext, ct).ConfigureAwait(false);
+        }
+
+        // Build processor — use NodeStructure-aware overload when available.
+        IRevisionFolderProcessor processor;
+        var sourceProjectName = job.Source?.GetProject() ?? string.Empty;
+        var nodeStructureContext = _processorFactory is RevisionFolderProcessorFactory
+            ? new DevOpsMigrationPlatform.Abstractions.Agent.Tools.ProjectMapping(sourceProjectName, project)
+            : null;
+
+        if (nodeStructureContext != null && _processorFactory is RevisionFolderProcessorFactory concreteFactory)
+        {
+            processor = concreteFactory.Create(
+                target, idMapStore, checkpointingService, _identityMappingService, context.ArtefactStore,
+                nodeStructureContext);
+        }
+        else
+        {
+            processor = _processorFactory.Create(
+                target, idMapStore, checkpointingService, _identityMappingService, context.ArtefactStore);
+        }
 
         // Build combined filter options for import (include as Regex + exclude as NotRegex).
         var importFilters = ext.IncludeFilters.Concat(ext.ExcludeFilters).ToList();

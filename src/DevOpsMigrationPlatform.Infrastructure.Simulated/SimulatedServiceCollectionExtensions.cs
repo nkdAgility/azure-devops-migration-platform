@@ -1,5 +1,7 @@
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Connectors;
+using DevOpsMigrationPlatform.Infrastructure.Agent.Tools.NodeStructure;
 using DevOpsMigrationPlatform.Infrastructure.Serialization;
 using DevOpsMigrationPlatform.Infrastructure.Simulated.Export;
 using DevOpsMigrationPlatform.Infrastructure.Simulated.Import;
@@ -31,6 +33,9 @@ public static class SimulatedServiceCollectionExtensions
 
         // Register revision source factory for export
         services.AddRevisionSourceFactory<SimulatedWorkItemRevisionSourceFactory>("Simulated");
+
+        // Classification tree reader — returns empty nodes for simulated sources (no real ADO tree).
+        services.TryAddSingleton<IClassificationTreeReader, AzureDevOpsClassificationTreeReader>();
 
         // Discovery services (for inventory of simulated sources)
         services.TryAddSingleton<SimulatedGeneratorConfig>();

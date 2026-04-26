@@ -18,7 +18,12 @@ public static class FieldTransformToolServiceCollectionExtensions
     public static IServiceCollection AddFieldTransformToolServices(this IServiceCollection services)
     {
         services.AddOptions<FieldTransformOptions>()
-            .BindConfiguration(FieldTransformOptions.SectionName);
+            .BindConfiguration(FieldTransformOptions.SectionName)
+            .ValidateOnStart();
+
+#if !NET481
+        services.AddSingleton<IValidateOptions<FieldTransformOptions>, FieldTransformOptionsValidator>();
+#endif
 
         services.AddSingleton<IFieldTransformFactory>(sp =>
             new FieldTransformFactory(sp.GetService<ILoggerFactory>()));

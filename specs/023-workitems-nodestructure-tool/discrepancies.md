@@ -2,7 +2,52 @@
 
 **Feature**: WorkItemsModule — NodeStructure Tool (M2 / T2)  
 **Flagged by**: speckit.specify  
-**Status**: Pending rectification (resolve in speckit.implement)
+**Status**: All resolved
+
+---
+
+## Discrepancies
+
+### NodeStructure tool missing from docs/configuration.md
+
+- **Status**: Resolved — `### NodeStructure Tool` section added to `docs/configuration.md` under `## Tools`.
+
+---
+
+### NodeStructureTool missing from docs/modules.md Tool Resolution section
+
+- **Status**: Resolved — `NodeStructureTool` added to the Tool Resolution table in `docs/modules.md`.
+
+---
+
+### Nodes/ package artifacts not in canonical package layout
+
+- **Status**: Resolved — `Nodes/` folder with `source-tree.json` and `referenced-paths.json` added to `.agents/context/package-format.md`.
+
+---
+
+### INodeStructureTool interface not yet defined in Abstractions
+
+- **Status**: Resolved — `INodeStructureTool` defined in `DevOpsMigrationPlatform.Abstractions` with pure path-mapping contract.
+
+---
+
+### Config schema conflict: proposed-features.md uses array-with-id; canonical pattern is keyed-object
+
+- **Status**: Resolved in spec (array-with-id removed); `proposed-features.md` pattern deferred.
+
+---
+
+### NodeStructureTool violates documented tool purity contract
+
+- **Status**: Resolved in plan (split architecture). `INodeStructureTool` is pure; I/O handled by `INodeCreator` infrastructure service.
+
+---
+
+### RevisionFolderProcessorFactory does not pass IFieldTransformTool (pre-existing)
+
+- **Status**: N/A for this spec — factory integration addressed as part of tool wiring in this implementation.
+
 
 ---
 

@@ -1,5 +1,6 @@
 #if !NET481
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using Microsoft.Extensions.Logging;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Agent.Import;
@@ -12,11 +13,16 @@ public sealed class RevisionFolderProcessorFactory : IRevisionFolderProcessorFac
 {
     private readonly ILoggerFactory _loggerFactory;
     private readonly IMigrationMetrics? _metrics;
+    private readonly INodeStructureTool? _nodeStructureTool;
 
-    public RevisionFolderProcessorFactory(ILoggerFactory loggerFactory, IMigrationMetrics? metrics = null)
+    public RevisionFolderProcessorFactory(
+        ILoggerFactory loggerFactory,
+        IMigrationMetrics? metrics = null,
+        INodeStructureTool? nodeStructureTool = null)
     {
         _loggerFactory = loggerFactory ?? throw new System.ArgumentNullException(nameof(loggerFactory));
         _metrics = metrics;
+        _nodeStructureTool = nodeStructureTool;
     }
 
     /// <inheritdoc/>
@@ -26,6 +32,16 @@ public sealed class RevisionFolderProcessorFactory : IRevisionFolderProcessorFac
         ICheckpointingService checkpointing,
         IIdentityMappingService identityMapping,
         IArtefactStore artefactStore)
+        => Create(target, idMapStore, checkpointing, identityMapping, artefactStore, nodeStructureContext: null);
+
+    /// <summary>Creates a processor with NodeStructure context for path translation.</summary>
+    public IRevisionFolderProcessor Create(
+        IWorkItemImportTarget target,
+        IIdMapStore idMapStore,
+        ICheckpointingService checkpointing,
+        IIdentityMappingService identityMapping,
+        IArtefactStore artefactStore,
+        ProjectMapping? nodeStructureContext)
         => new RevisionFolderProcessor(
             target,
             idMapStore,
@@ -33,6 +49,8 @@ public sealed class RevisionFolderProcessorFactory : IRevisionFolderProcessorFac
             identityMapping,
             artefactStore,
             _loggerFactory.CreateLogger<RevisionFolderProcessor>(),
-            _metrics);
+            _metrics,
+            nodeStructureTool: _nodeStructureTool,
+            nodeStructureContext: nodeStructureContext);
 }
 #endif
