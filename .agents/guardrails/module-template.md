@@ -61,3 +61,11 @@ See [docs/modules.md](../../docs/modules.md) for the full `IModule` contract and
 - [ ] Add a `docs/<modulename>.md` file describing the module's schema, folder layout, cursor, and any module-specific rules.
 - [ ] Add the module to the table in [docs/modules.md](../../docs/modules.md).
 - [ ] Add the module name to the `includedTypes` example in [.agents/context/package-format.md](../context/package-format.md) if it is a standard module.
+
+## 9. Full Connector Coverage
+
+- [ ] **Simulated** implementation is complete — deterministic, no external connectivity, generates realistic test data.
+- [ ] **AzureDevOpsServices** implementation is complete — full REST API integration via .NET 10.
+- [ ] **TeamFoundationServer** implementation is complete — TFS Object Model via the .NET 4.8 subprocess bridge, or explicitly exempted with a structured warning when the TFS OM API does not support the capability.
+- [ ] No `throw new NotImplementedException()` or equivalent placeholder in any connector implementation.
+- [ ] No connector implementation deferred to a follow-up PR or future task.

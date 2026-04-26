@@ -280,6 +280,8 @@ Reject any proposal that:
 - Declares a task complete without running at least one scenario config (e.g. `scenarios/queue-export-ado-workitems-single-project.json`) via a `launch.json` debug profile and verifying observable output.
 - Marks a spec's last task `[X]` without all items in `specs/<feature>/discrepancies.md` being `Resolved` or `N/A`.
 - Closes a spec branch without reviewing and updating `analysis/pending-actions.md`.
+- Implements a feature for one connector (Simulated, AzureDevOps, or TFS) while leaving stubs or placeholders in the others where the API supports the capability.
+- Defers a connector implementation to a follow-up PR or future task.
 - Declares done without updating every canonical doc named in any doc-task in `tasks.md`.
 ---
 

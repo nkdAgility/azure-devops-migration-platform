@@ -105,6 +105,7 @@ and formalised in [.specify/memory/constitution.md](../.specify/memory/constitut
 | 19 | Cost Awareness | Justified provisioning; explicit scaling bounds |
 | 20 | Operational Readiness | Health checks; correlation IDs; runbooks |
 | 21 | Documentation as Engineering Asset | ADRs; XML doc-comments; living feature files |
+| 22 | Full Connector Coverage | Every feature must be implemented for Simulated, AzureDevOps, AND TFS (where APIs allow) |
 
 ### Instant Reject Triggers
 
@@ -138,4 +139,6 @@ Reject any suggestion that:
 - Ships a CLI-exposed feature without a `[TestCategory("SystemTest")]` test asserting observable output
 - Marks a spec's last task `[X]` without all items in `specs/<feature>/discrepancies.md` being `Resolved` or `N/A`
 - Closes a spec branch without reviewing and updating `analysis/pending-actions.md`
+- Implements a feature for one connector (Simulated, AzureDevOps, or TFS) while leaving stubs or placeholders in the others where the API supports the capability
+- Defers a connector implementation to a follow-up PR or future task
 - Declares done without updating every canonical doc named in any doc-task in `tasks.md`
