@@ -202,4 +202,4 @@ Yes. Per guardrail rule 9, the new `NodeStructure` tool type under `MigrationPla
 
 ### Rationale
 - Additive changes don't break existing configs.
-- Existing packages without `classification-nodes.json` are handled gracefully (FR-015 edge case — log warning and skip).
+- Existing packages without `Nodes/source-tree.json` are handled gracefully (FR-015 edge case — log warning and skip).

@@ -1,13 +1,15 @@
 # Telemetry Architecture — Agent Context
 
-This file explains the layered telemetry architecture, the cross-runtime strategy, and the step-by-step process for adding new metrics. It applies to both AI agents and human contributors.
+This file defines the layered telemetry architecture, the mandatory observability contract, the cross-runtime strategy, and the step-by-step process for adding new signals. It applies to both AI agents and human contributors.
 
 > **Canonical sources of truth — read these files, do not duplicate their content here:**
 > - Meter names: `src/DevOpsMigrationPlatform.Abstractions/Telemetry/WellKnownMeterNames.cs`
 > - Migration metric names: `src/DevOpsMigrationPlatform.Abstractions/Telemetry/WellKnownMetricNames.cs`
 > - Discovery metric names: `src/DevOpsMigrationPlatform.Abstractions/Telemetry/WellKnownDiscoveryMetricNames.cs`
+> - Tag/attribute names: `src/DevOpsMigrationPlatform.Abstractions/Telemetry/WellKnownTagNames.cs`
+> - ActivitySource names: `src/DevOpsMigrationPlatform.Abstractions/Telemetry/WellKnownActivitySourceNames.cs`
 >
-> Any list of metric or meter names that appears outside those files is a secondary reference that **will go stale**. Always read the source files directly.
+> Any list of names that appears outside those files is a secondary reference that **will go stale**. Always read the source files directly.
 
 ---
 
@@ -86,27 +88,9 @@ ProjectSnapshot { Name, Status, Migration?, Discovery? }
 
 ### Counter Record Types
 
-| Record | Scope | Properties |
-|--------|-------|------------|
-| `JobScopeCounters` | All job types | OrganisationsTotal/Completed/Failed, ProjectsTotal/Completed/Failed, WorkItemsTotal |
-| `WorkItemCounters` | Migration | Attempted, Completed, Failed, Skipped, RevisionsProcessed, Attachments? |
-| `AttachmentCounters` | Migration | Processed, Failed, TotalBytes |
-| `MigrationCounters` | Migration | WorkItems (WorkItemCounters), Diagnostics? (MigrationDiagnostics) |
-| `MigrationDiagnostics` | Aggregate only | OTel-derived means, correctness counters, in-flight gauges |
-| `InventoryCounters` | Discovery | RevisionsTotal, RepositoriesTotal, CheckpointsSaved |
-| `DependencyCounters` | Discovery | WorkItemsAnalysed, ExternalLinksFound, CrossProjectLinks, CrossOrgLinks |
+Counter and snapshot records live in `Abstractions/ControlPlaneApi/`. Read the source files directly for current properties — the list below is for orientation only:
 
----
-
-## Package Dependencies by Layer
-
-| Package | Used by | net481 | net10.0 |
-|---|---|---|---|
-| `System.Diagnostics.DiagnosticSource` | Recording + Instrument layers | ✅ (NuGet) | ✅ (inbox) |
-| `OpenTelemetry` | Pipeline layer | ✅ (only in `Infrastructure.TfsObjectModel`) | ✅ |
-| `OpenTelemetry.Extensions.Hosting` | Pipeline layer | ✅ (only in `Infrastructure.TfsObjectModel`) | ✅ |
-| `OpenTelemetry.Exporter.OpenTelemetryProtocol` | Pipeline layer | ✅ (only in `Infrastructure.TfsObjectModel`) | ✅ |
-| `Azure.Monitor.OpenTelemetry.Exporter` | Pipeline layer | ✅ (only in `Infrastructure.TfsObjectModel`) | ✅ |
+`JobScopeCounters`, `WorkItemCounters`, `AttachmentCounters`, `MigrationCounters`, `MigrationDiagnostics`, `InventoryCounters`, `DependencyCounters`, `DiscoveryCounters`, `JobMetrics`, `JobSnapshot`, `OrgSnapshot`, `ProjectSnapshot`, `JobBootstrap`.
 
 ---
 
@@ -114,16 +98,17 @@ ProjectSnapshot { Name, Status, Migration?, Discovery? }
 
 | File type | Project | Guard? | Example |
 |---|---|---|---|
-| Metric interface (`I*Metrics`) | `Abstractions/Telemetry/` | No | `IDiscoveryMetrics.cs` |
+| Metric interface (`I*Metrics`) | `Abstractions.Agent/Telemetry/` | No | `IMigrationMetrics.cs`, `IDiscoveryMetrics.cs` |
 | Metric name constants | `Abstractions/Telemetry/` | No | `WellKnownMetricNames.cs`, `WellKnownDiscoveryMetricNames.cs` |
 | Meter name constants | `Abstractions/Telemetry/` | No | `WellKnownMeterNames.cs` |
 | Tag builder helpers | `Abstractions/Telemetry/` | No | `MigrationTagList.cs` |
-| Counter record types | `Abstractions/Models/` | No | `WorkItemCounters.cs`, `AttachmentCounters.cs`, `MigrationCounters.cs`, `MigrationDiagnostics.cs`, `JobScopeCounters.cs`, `InventoryCounters.cs`, `DependencyCounters.cs`, `DiscoveryCounters.cs`, `JobMetrics.cs` |
-| Snapshot record types | `Abstractions/Models/` | No | `JobSnapshot.cs`, `OrgSnapshot.cs`, `ProjectSnapshot.cs`, `JobBootstrap.cs` |
+| Counter record types | `Abstractions/ControlPlaneApi/` | No | `WorkItemCounters.cs`, `MigrationCounters.cs`, `DiscoveryCounters.cs`, `JobMetrics.cs` |
+| Snapshot record types | `Abstractions/ControlPlaneApi/` | No | `JobSnapshot.cs`, `OrgSnapshot.cs`, `ProjectSnapshot.cs`, `JobBootstrap.cs` |
+| Tag name constants | `Abstractions/Telemetry/` | No | `WellKnownTagNames.cs` |
 | Store interfaces | `Abstractions/Telemetry/` | No | `IMetricSnapshotStore.cs` (contains `IJobMetricsStore`) |
-| Concrete metrics class | `Infrastructure/Telemetry/` | No | `DiscoveryMetrics.cs`, `MigrationMetrics.cs` |
-| OTel SDK exporter | `Infrastructure/Telemetry/` | `#if !NETFRAMEWORK` | `SnapshotMetricExporter.cs` |
-| DI registration extensions | `Infrastructure/Telemetry/` | `#if !NETFRAMEWORK` | `TelemetryServiceExtensions.cs` |
+| Concrete metrics class | `Infrastructure.Agent/Telemetry/` | No | `DiscoveryMetrics.cs`, `MigrationMetrics.cs` |
+| OTel SDK exporter | `Infrastructure.ControlPlane/Metrics/` | `#if !NETFRAMEWORK` | `SnapshotMetricExporter.cs` |
+| DI registration extensions | `Infrastructure.Agent/Telemetry/` | `#if !NETFRAMEWORK` | `TelemetryServiceExtensions.cs` |
 | TFS host composition root | `Infrastructure.TfsObjectModel/` | No (net481-only project) | `MigrationPlatformHost.cs` |
 
 ---
@@ -217,16 +202,19 @@ Three ActivitySources cover the entire system. Each is registered in `ServiceDef
 | Component | Span Name | Tags | Parent |
 |---|---|---|---|
 | `WorkItemExportOrchestrator` | `workitems.export` | job.id, operation, module, source.type | Root |
-| `WorkItemExportOrchestrator` | `workitem.export` | wi.id, wi.type | `workitems.export` |
-| `WorkItemExportOrchestrator` | `attachment.download` | wi.id, attachment.name | `workitem.export` |
+| `WorkItemExportOrchestrator` | `workitem.export` | workitem.id, wi.type | `workitems.export` |
+| `WorkItemExportOrchestrator` | `attachment.download` | workitem.id, attachment.name | `workitem.export` |
 | `WorkItemImportOrchestrator` | `workitems.import` | job.id, operation, module | Root |
-| `WorkItemImportOrchestrator` | `workitem.import` | wi.id | `workitems.import` |
-| `RevisionFolderProcessor` | `revision.process` | wi.id, revision.index | `workitem.import` |
-| `InventoryDiscoveryModule` | `discovery.inventory` | job.id | Root |
-| `DependencyDiscoveryModule` | `discovery.dependencies` | job.id | Root |
+| `WorkItemImportOrchestrator` | `workitem.import` | workitem.id | `workitems.import` |
+| `RevisionFolderProcessor` | `revision.import` | workitem.id, revision.index | `workitem.import` |
+| `FieldTransformTool` | `fieldtransform.apply` | job.id, wi.id, wi.type, operation, module, revision.index | Caller |
+| `FieldTransformPipeline` | `fieldtransform.group` | wi.id, group.name | `fieldtransform.apply` |
+| `FieldTransformValidator` | `fieldtransform.validate` | module, transform_count, is_valid, error_count | Caller |
+| `InventoryDiscoveryModule` | `discovery.inventory` | job.id, module | Root |
+| `DependencyDiscoveryModule` | `discovery.dependencies` | job.id, module | Root |
 | `JobStore` | `job.enqueue` | job.id, job.type | Caller |
 | `JobStore` | `job.dequeue` | job.id, job.type | Caller |
-| `JobStore` | `job.setState` | job.id, state | Caller |
+| `JobStore` | `job.setState` | job.id, job.state | Caller |
 
 ### Pattern for Adding Spans
 
@@ -291,30 +279,16 @@ using (DataClassificationScope.Begin(DataClassification.Customer))
 _logger.LogDebug("WI {WorkItemId}: fields={Count}, attachments={AttachmentCount}", wiId, count, attCount);
 ```
 
-### Logging Inventory by Component
-
-| Component | Logger | Levels Used | Customer Scope |
-|---|---|---|---|
-| `WorkItemExportOrchestrator` | `ILogger` | Debug, Info, Warning | No — only WI IDs and counts |
-| `WorkItemImportOrchestrator` | `ILogger` | Debug, Info, Warning | Yes — processes field values |
-| `RevisionFolderProcessor` | `ILogger` | Debug, Warning | Yes — processes field values and attachment paths |
-| `JobStore` | `ILogger<JobStore>` | Debug, Info, Warning | No — only job IDs and types |
-| `InventoryDiscoveryModule` | `ILogger` | Info | Yes — org URLs |
-| `DependencyDiscoveryModule` | `ILogger` | Info | Yes — org URLs |
-| `AzureDevOpsDependencyAnalysisService` | `ILogger` | Debug | Yes — link URLs |
-
 ---
 
 ## Obsolete Interfaces — Do Not Use
 
-Two legacy interfaces remain in `Abstractions/Telemetry/` marked `[Obsolete]`. They exist only to keep call sites in `Infrastructure.TfsObjectModel` compiling during the transition period. **Do NOT inject or implement these in new code.**
+Two legacy interfaces remain in `Abstractions.Agent/Telemetry/` marked `[Obsolete]`. They exist only to keep call sites in `Infrastructure.TfsObjectModel` compiling during the transition. **Do NOT inject or implement these in new code.**
 
 | Interface | Replace with |
 |---|---|
 | `IWorkItemExportMetrics` | `IMigrationMetrics` |
 | `IAttachmentDownloadMetrics` | `IMigrationMetrics` |
-
-These will be removed once all TFS Object Model call sites have been migrated to `IMigrationMetrics`.
 
 ---
 

@@ -42,6 +42,13 @@ internal sealed class MigrationMetrics : IMigrationMetrics, IDisposable
     // --- In-Flight ---
     private readonly UpDownCounter<int> _inFlight;
 
+    // --- FieldTransform ---
+    private readonly Counter<long> _fieldTransformApplied;
+    private readonly Histogram<double> _fieldTransformDuration;
+    private readonly Counter<long> _fieldTransformErrors;
+    private readonly UpDownCounter<long> _fieldTransformInFlight;
+    private readonly Histogram<int> _fieldTransformFieldsModified;
+
     // --- Idempotency (deferred) ---
     private readonly Counter<long> _duplicated;
     private readonly Counter<long> _changedOnRerun;
@@ -81,6 +88,13 @@ internal sealed class MigrationMetrics : IMigrationMetrics, IDisposable
         // In-Flight
         _inFlight = _meter.CreateUpDownCounter<int>(WellKnownMetricNames.WorkItemsInFlight, unit: "{work_item}");
 
+        // FieldTransform
+        _fieldTransformApplied = _meter.CreateCounter<long>(WellKnownMetricNames.FieldTransformApplyCount, unit: "{revision}");
+        _fieldTransformDuration = _meter.CreateHistogram<double>(WellKnownMetricNames.FieldTransformApplyDurationMs, unit: "ms");
+        _fieldTransformErrors = _meter.CreateCounter<long>(WellKnownMetricNames.FieldTransformApplyErrors, unit: "{revision}");
+        _fieldTransformInFlight = _meter.CreateUpDownCounter<long>(WellKnownMetricNames.FieldTransformApplyInFlight, unit: "{revision}");
+        _fieldTransformFieldsModified = _meter.CreateHistogram<int>(WellKnownMetricNames.FieldTransformApplyFieldsModified, unit: "{field}");
+
         // Idempotency (deferred)
         _duplicated = _meter.CreateCounter<long>(WellKnownMetricNames.Duplicated, unit: "{work_item}");
         _changedOnRerun = _meter.CreateCounter<long>(WellKnownMetricNames.ChangedOnRerun, unit: "{work_item}");
@@ -117,6 +131,14 @@ internal sealed class MigrationMetrics : IMigrationMetrics, IDisposable
     // --- In-Flight ---
     public void IncrementInFlight(in TagList tags) => _inFlight.Add(1, tags);
     public void DecrementInFlight(in TagList tags) => _inFlight.Add(-1, tags);
+
+    // --- FieldTransform ---
+    public void RecordFieldTransformApplied(in TagList tags) => _fieldTransformApplied.Add(1, tags);
+    public void RecordFieldTransformDuration(double milliseconds, in TagList tags) => _fieldTransformDuration.Record(milliseconds, tags);
+    public void RecordFieldTransformError(in TagList tags) => _fieldTransformErrors.Add(1, tags);
+    public void IncrementFieldTransformInFlight(in TagList tags) => _fieldTransformInFlight.Add(1, tags);
+    public void DecrementFieldTransformInFlight(in TagList tags) => _fieldTransformInFlight.Add(-1, tags);
+    public void RecordFieldTransformFieldsModified(int count, in TagList tags) => _fieldTransformFieldsModified.Record(count, tags);
 
     // --- Idempotency ---
     public void RecordDuplicated(in TagList tags) => _duplicated.Add(1, tags);

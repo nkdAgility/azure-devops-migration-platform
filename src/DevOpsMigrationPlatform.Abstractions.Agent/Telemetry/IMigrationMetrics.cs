@@ -38,6 +38,14 @@ public interface IMigrationMetrics
     void IncrementInFlight(in TagList tags);
     void DecrementInFlight(in TagList tags);
 
+    // --- FieldTransform ---
+    void RecordFieldTransformApplied(in TagList tags);
+    void RecordFieldTransformDuration(double milliseconds, in TagList tags);
+    void RecordFieldTransformError(in TagList tags);
+    void IncrementFieldTransformInFlight(in TagList tags);
+    void DecrementFieldTransformInFlight(in TagList tags);
+    void RecordFieldTransformFieldsModified(int count, in TagList tags);
+
     // --- Idempotency (deferred — counters registered, not yet incremented in production) ---
     void RecordDuplicated(in TagList tags);
     void RecordChangedOnRerun(in TagList tags);

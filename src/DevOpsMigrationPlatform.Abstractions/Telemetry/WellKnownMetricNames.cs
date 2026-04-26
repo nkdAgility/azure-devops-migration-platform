@@ -35,6 +35,13 @@ public static class WellKnownMetricNames
     public const string WorkItemsInFlight = "migration.workitems.in_flight";
     public const string QueueDepth = "migration.queue.workitems.depth";
 
+    // --- FieldTransform ---
+    public const string FieldTransformApplyCount = "migration.fieldtransform.apply.count";
+    public const string FieldTransformApplyDurationMs = "migration.fieldtransform.apply.duration_ms";
+    public const string FieldTransformApplyErrors = "migration.fieldtransform.apply.errors";
+    public const string FieldTransformApplyInFlight = "migration.fieldtransform.apply.in_flight";
+    public const string FieldTransformApplyFieldsModified = "migration.fieldtransform.apply.fields_modified";
+
     // --- Idempotency (deferred — instruments registered, not yet incremented) ---
     public const string Duplicated = "migration.workitems.duplicated";
     public const string ChangedOnRerun = "migration.workitems.changed_on_rerun";

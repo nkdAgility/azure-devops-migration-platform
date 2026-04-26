@@ -3,51 +3,45 @@
 **Branch**: `023-workitems-nodestructure-tool` | **Date**: 2026-04-26 | **Spec**: [spec.md](spec.md)
 **Input**: Feature specification from `/specs/023-workitems-nodestructure-tool/spec.md`
 
-**Note**: This template is filled in by the `/speckit.plan` command. See `.specify/templates/plan-template.md` for the execution workflow.
+---
 
 ## Summary
 
-The NodeStructure Tool provides area and iteration path remapping for cross-project Azure DevOps work item migration. The tool is split into two architectural concerns:
+The NodeStructure Tool adds area/iteration path mapping, node creation, and classification tree replication to the WorkItemsModule. The design splits the feature into two concerns: a **pure path-mapping tool** (`INodeStructureTool`) called per-revision during import, and an **infrastructure service** (`INodeCreator`) that manages target-side ADO API calls for node creation. Export always captures the source classification tree (`Nodes/source-tree.json`) and discovered paths (`Nodes/referenced-paths.json`) as package metadata. Import uses these artifacts for bulk replication and pre-collection passes before streaming revision processing.
 
-1. **Pure path mapping** (`INodeStructureTool`) — translates `System.AreaPath`/`System.IterationPath` values via explicit maps, auto project-name swap, and language override. Stateless, no I/O. Called per-revision during import.
-
-2. **Node creation service** (`INodeCreator`) — ensures target classification nodes exist via the ADO REST API. Called during import pre-processing (bulk node creation before revision processing begins). Supports checkpointed resumability via `IStateStore`.
-
-Additionally, the export phase always captures the full source classification tree to `Nodes/source-tree.json` via `IClassificationTreeReader`, and incrementally writes `Nodes/referenced-paths.json` with all distinct paths discovered during revision export.
+---
 
 ## Technical Context
 
-**Language/Version**: C# 10+, .NET 10  
-**Primary Dependencies**: `IArtefactStore`, `IStateStore`, `IOptions<T>`, ADO REST API (Classification Nodes), OpenTelemetry, `System.Text.Json`  
-**Storage**: Package filesystem via `IArtefactStore` (`Nodes/source-tree.json`, `Nodes/referenced-paths.json`), `IStateStore` for node-creation checkpoint  
-**Testing**: Reqnroll.MSTest + Moq (`MockBehavior.Strict`)  
-**Target Platform**: Migration Agent (worker service), CLI (via Aspire)  
-**Project Type**: Library (tool + infrastructure services within existing solution)  
-**Performance Goals**: Pre-collection pass must complete in time proportional to revision count; path translation is O(1) per call (dictionary lookup).  
-**Constraints**: Node creation is bound by ADO API rate limits (200 req/s); pre-collection must not buffer all revision data (only distinct path strings).  
-**Scale/Scope**: Typical projects have 10–500 distinct area/iteration paths; large projects may have 1000+. Revision counts may be in the millions.
+**Language/Version**: C# 10+, .NET 10 (multi-targeting `net481;net10.0` for Abstractions only)
+**Primary Dependencies**: `Microsoft.Extensions.DependencyInjection`, `Microsoft.Extensions.Options`, `System.Text.Json`, ADO REST API (Classification Nodes)
+**Storage**: `IArtefactStore` (package artifacts: `Nodes/source-tree.json`, `Nodes/referenced-paths.json`), `IStateStore` (checkpoint: `nodestructure-nodes-confirmed`)
+**Testing**: Reqnroll.MSTest + Moq (`MockBehavior.Strict`)
+**Target Platform**: .NET 10 (MigrationAgent, CLI); net481 (TFS exporter — no NodeStructure involvement)
+**Project Type**: Library/module extension within existing modular monolith
+**Performance Goals**: Path translation < 1µs per call (pure in-memory); node creation bound by ADO API latency (~100ms per call)
+**Constraints**: Streaming — no in-memory buffer of all revisions; bounded path set (typically 10s–100s of distinct paths)
+**Scale/Scope**: Typical: 10–500 classification nodes, 10–100 distinct paths per project
+
+---
 
 ## Constitution Check
 
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
-> **Mandatory context loading:** Before completing this gate, confirm that ALL files in
-> `/.agents/guardrails/`, ALL files in `/.agents/context/`, and relevant `/docs/` files
-> have been read. Skipping either `.agents/` subdirectory is a constitution violation.
+> **Mandatory context loading:** Confirmed ALL files in `/.agents/guardrails/`, `/.agents/context/`, and relevant `/docs/` files have been read.
 
-**All guardrail files read**: `system-architecture.md`, `workitems-rules.md`, `migration-rules.md`, `coding-standards.md`, `testing-standards.md`, `definition-of-done.md`, `module-template.md`, `aspire-integration.md`, `acceptance-test-format.md`, `atdd-workflow.md`.  
-**Context files read**: `package-format.md`, `workitems-format.md`.  
-**Docs read**: `modules.md` (Tool Resolution), `configuration.md` (Tools section).
+- [x] **Package-First (I):** Export writes `Nodes/source-tree.json` and `Nodes/referenced-paths.json` via `IArtefactStore`. Import reads from these artifacts — never from the live source API. No direct source-to-target migration.
+- [x] **Streaming (II):** `Nodes/source-tree.json` is streamed one node at a time during import replication (FR-016). Revision processing is standard streaming via `RevisionFolderProcessor`. Only the distinct path set (bounded, ~100s) is held in memory for pre-collection.
+- [x] **WorkItems Layout (III):** No changes to `WorkItems/yyyy-MM-dd/<ticks>-<workItemId>-<revisionIndex>/` layout. New artifacts live under `Nodes/` (separate top-level folder).
+- [x] **Checkpointing (IV):** Node replication checkpoint stored in `IStateStore` under key `nodestructure-nodes-confirmed`. Standard cursor-based checkpointing.
+- [x] **Module Isolation (V):** All persistence through `IArtefactStore`/`IStateStore`. `INodeCreator` and `IClassificationTreeReader` are abstractions in `Abstractions.Agent`. No concrete store references in module code.
+- [x] **Separation of Planes (VI):** No migration logic in CLI, TUI, or control plane. All NodeStructure logic executes within the MigrationAgent.
+- [x] **Determinism (VII):** Same export input → same `source-tree.json` and `referenced-paths.json`. Config schema addition is additive (minor version bump, no upgrader needed). Package artifact schema is versioned in `manifest.json`.
+- [x] **ATDD-First (VIII):** All 7 user stories have Given/When/Then acceptance scenarios (29 scenarios total). Each scenario will be implemented via the ATDD inner loop.
+- [x] **SOLID & DI (IX):** All services via constructor injection. `NodeStructureOptions` is `sealed` with `init`-only properties and `SectionName` constant. Registration via `AddNodeStructureToolServices()` extension method. Interfaces in `Abstractions.Agent`.
 
-- [x] **Package-First (I):** Export always writes `Nodes/source-tree.json` and `Nodes/referenced-paths.json` to package via `IArtefactStore`. Import reads from package only — never from the live source API. Path remapping operates on `revision.json` data read from the package. No direct source-to-target migration.
-- [x] **Streaming (II):** Import processes one revision folder at a time. The pre-collection pass (FR-024) reads from `Nodes/referenced-paths.json` when available, otherwise streams revision folders via `EnumerateAsync` and collects only distinct path strings (bounded set, not full revision data). `ReplicateSourceTree` processes one node at a time from the artifact (FR-016).
-- [x] **WorkItems Layout (III):** No changes to `WorkItems/` folder structure. `Nodes/` is a new top-level module folder in the package, not a revision folder modification.
-- [x] **Checkpointing (IV):** Node-creation checkpoint stored in `IStateStore` (FR-016a). Work item import cursor under `.migration/Checkpoints/` is unchanged.
-- [x] **Module Isolation (V):** All persistence through `IArtefactStore`/`IStateStore`. `INodeStructureTool` and `INodeCreator` interfaces defined in Abstractions. ADO API calls wrapped behind `INodeCreator` (guardrail rule 12).
-- [x] **Separation of Planes (VI):** Tool logic lives in Infrastructure.Agent. No migration logic in CLI, TUI, or Control Plane. Export-side `IClassificationTreeReader` runs in Agent context only.
-- [x] **Determinism (VII):** Path translation is deterministic (same input → same output). Config schema addition is non-breaking (no upgrader needed for existing configs). New `Nodes/` package artifacts require schema version entries in manifest.
-- [x] **ATDD-First (VIII):** Spec has 7 user stories with 20+ Given/When/Then acceptance scenarios. Each will be implemented via ATDD inner loop.
-- [x] **SOLID & DI (IX):** `NodeStructureOptions` is sealed, `init`-only, with `SectionName` constant. All services registered via `AddNodeStructureToolServices()`. Constructor injection only. Interfaces in Abstractions.Agent.
+---
 
 ## Project Structure
 
@@ -55,125 +49,155 @@ Additionally, the export phase always captures the full source classification tr
 
 ```text
 specs/023-workitems-nodestructure-tool/
-├── spec.md              # Feature specification
 ├── plan.md              # This file
-├── discrepancies.md     # Architecture discrepancies
 ├── research.md          # Phase 0 output
 ├── data-model.md        # Phase 1 output
 ├── quickstart.md        # Phase 1 output
-├── contracts/
-│   └── interfaces.md    # Phase 1 output
-└── tasks.md             # Phase 2 output (/speckit.tasks — NOT created by /speckit.plan)
+├── contracts/           # Phase 1 output
+│   └── interfaces.md
+├── discrepancies.md     # Architecture discrepancies log
+└── tasks.md             # Phase 2 output (speckit.tasks)
 ```
 
-### Source Code (new and modified files)
+### Source Code (repository root)
 
 ```text
 src/
 ├── DevOpsMigrationPlatform.Abstractions/
 │   └── Options/
-│       └── NodeStructureOptions.cs                    # NEW — sealed config model
+│       └── NodeStructureOptions.cs          # Configuration model
 │
 ├── DevOpsMigrationPlatform.Abstractions.Agent/
 │   └── Tools/
-│       ├── INodeStructureTool.cs                      # NEW — pure path-mapping interface
-│       ├── INodeCreator.cs                            # NEW — target node creation interface
-│       ├── IClassificationTreeReader.cs               # NEW — source node enumeration (export)
-│       ├── INodeStructureValidator.cs                 # NEW — package validation interface
-│       ├── PathTranslation.cs                         # NEW — translation result record
-│       ├── ProjectMapping.cs                          # NEW — source/target project context
-│       ├── ClassificationNodeType.cs                  # NEW — Area/Iteration enum
-│       ├── IterationNodeEntry.cs                      # NEW — iteration node with dates + backlog flag
-│       ├── ClassificationTreeSnapshot.cs              # NEW — source-tree.json artifact model
-│       ├── ReferencedPathsArtifact.cs                 # NEW — referenced-paths.json artifact model
-│       └── NodeStructureValidationReport.cs           # NEW — validation result records
+│       ├── INodeStructureTool.cs            # Pure path-mapping interface
+│       ├── INodeCreator.cs                  # Target node creation interface
+│       ├── IClassificationTreeReader.cs     # Source tree enumeration interface
+│       ├── INodeStructureValidator.cs       # Package validation interface
+│       ├── PathTranslation.cs               # Translation result record
+│       ├── ProjectMapping.cs                # Source/target project context
+│       ├── ClassificationNodeType.cs        # Area/Iteration enum
+│       ├── IterationNodeEntry.cs            # Node entry with dates
+│       ├── ClassificationTreeSnapshot.cs    # source-tree.json DTO
+│       ├── ReferencedPathsArtifact.cs       # referenced-paths.json DTO
+│       ├── NodeStructureValidationReport.cs # Validation result
+│       └── UnmappedPathFinding.cs           # Unmapped path detail
 │
 ├── DevOpsMigrationPlatform.Infrastructure.Agent/
 │   └── Tools/
 │       └── NodeStructure/
-│           ├── NodeStructureTool.cs                   # NEW — INodeStructureTool impl
-│           ├── NodeStructureValidator.cs              # NEW — INodeStructureValidator impl
-│           ├── NodeStructureToolServiceCollectionExtensions.cs  # NEW — DI registration
-│           ├── NodeReplicationProgress.cs             # NEW — checkpoint record
-│           ├── ClassificationTreeCapture.cs           # NEW — export-side tree capture (always-on)
-│           ├── ReferencedPathTracker.cs               # NEW — export-side path discovery
-│           └── NodeEnsurer.cs                         # NEW — pre-collection + bulk create
+│           ├── NodeStructureTool.cs                    # INodeStructureTool impl
+│           ├── NodeStructureValidator.cs               # INodeStructureValidator impl
+│           ├── NodeEnsurer.cs                          # Pre-import node creation orchestration
+│           ├── ClassificationTreeCapture.cs            # Export-side tree capture
+│           ├── ReferencedPathTracker.cs                # Export-side path discovery
+│           ├── NodeReplicationProgress.cs              # Checkpoint record
+│           ├── AzureDevOpsNodeCreator.cs               # INodeCreator impl (ADO REST)
+│           ├── AzureDevOpsClassificationTreeReader.cs  # IClassificationTreeReader impl
+│           └── NodeStructureToolServiceCollectionExtensions.cs  # DI registration
 │
-│   └── Import/
-│       ├── RevisionFolderProcessor.cs                 # MODIFIED — integrate INodeStructureTool
-│       └── RevisionFolderProcessorFactory.cs          # MODIFIED — pass tool to processor
-│
-│   └── Modules/
-│       └── WorkItemsModule.cs                         # MODIFIED — call pre-processor + exporter
-│
-│   └── AzureDevOps/
-│       ├── AzureDevOpsNodeCreator.cs                  # NEW — INodeCreator impl
-│       └── AzureDevOpsClassificationTreeReader.cs     # NEW — IClassificationTreeReader impl
-
 tests/
-├── DevOpsMigrationPlatform.Infrastructure.Agent.Tests/
-│   └── Tools/
-│       └── NodeStructure/
-│           ├── NodeStructureToolTests.cs              # NEW — unit tests for path mapping
-│           ├── NodeStructureValidatorTests.cs         # NEW — unit tests for validation
-│           ├── NodeEnsurerTests.cs                    # NEW — unit tests for pre-processing
-│           ├── ClassificationTreeCaptureTests.cs      # NEW — unit tests for export
-│           ├── ReferencedPathTrackerTests.cs          # NEW — unit tests for path discovery
-│           └── Steps/                                 # NEW — Reqnroll step definitions
-│               ├── NodeStructureSteps.cs
-│               └── NodeStructureContext.cs
+└── DevOpsMigrationPlatform.Infrastructure.Agent.Tests/
+    └── Tools/
+        └── NodeStructure/
+            ├── NodeStructureToolTests.cs
+            ├── NodeStructureValidatorTests.cs
+            ├── NodeEnsurerTests.cs
+            ├── ClassificationTreeCaptureTests.cs
+            ├── ReferencedPathTrackerTests.cs
+            └── Steps/                        # Reqnroll step definitions
+                ├── NodeStructureSteps.cs
+                └── NodeStructureContext.cs
 
 features/
-├── import/
-│   └── work-items/
-│       └── node-structure/
-│           ├── path-mapping.feature                   # NEW — User Stories 1, 5
-│           ├── create-missing-nodes.feature           # NEW — User Story 2
-│           ├── skip-invalid-paths.feature             # NEW — User Story 3
-│           ├── replicate-all-nodes.feature            # NEW — User Stories 4, 6
-│           └── validation.feature                     # NEW — ValidateAsync scenarios
 ├── export/
-│   └── work-items/
-│       └── node-structure/
-│           ├── export-classification-tree.feature     # NEW — source tree capture (always-on)
-│           └── export-path-discovery.feature          # NEW — User Story 7 (referenced paths)
+│   └── workitems/
+│       └── nodestructure/
+│           ├── tree-capture.feature
+│           └── path-discovery.feature
+├── import/
+│   └── workitems/
+│       └── nodestructure/
+│           ├── path-mapping.feature
+│           ├── auto-create-nodes.feature
+│           ├── skip-unresolvable.feature
+│           ├── replicate-source-tree.feature
+│           └── language-override.feature
+└── platform/
+    └── validation/
+        └── nodestructure-validation.feature
 ```
 
-**Structure Decision**: Follows the established `IFieldTransformTool` pattern. All new interfaces in `Abstractions.Agent/Tools/`. Implementation in `Infrastructure.Agent/Tools/NodeStructure/`. ADO-specific implementations in `Infrastructure.Agent/AzureDevOps/`. Options in `Abstractions/Options/`.
+**Structure Decision**: The NodeStructure tool follows the established FieldTransform tool pattern — abstractions in `Abstractions.Agent/Tools/`, implementations in `Infrastructure.Agent/Tools/NodeStructure/`, tests alongside in the agent test project. New `Nodes/` package folder is documented in `contracts/interfaces.md`.
+
+---
 
 ## Complexity Tracking
 
-> **Fill ONLY if Constitution Check has violations that must be justified**
+> No constitution violations requiring justification.
 
-| Violation | Why Needed | Simpler Alternative Rejected Because |
-|-----------|------------|-------------------------------------|
-| `INodeCreator` performs I/O (not a pure tool) | Node creation requires ADO API calls; cannot be made pure | Split from `INodeStructureTool` to preserve tool purity contract. The service is infrastructure, not a "tool" per `docs/modules.md` |
-| `NodeEnsurer` reads all revision.json for distinct paths (fallback only) | FR-024 requires pre-collection pass when `Nodes/referenced-paths.json` is absent (legacy packages) | Only collects distinct path strings (bounded set); does not buffer full revision data. Modern packages use the referenced-paths artifact. |
+| Decision | Rationale |
+|----------|-----------|
+| In-memory `HashSet<string>` for path pre-collection | Bounded by distinct path count (10s–100s), not revision count. Acceptable per streaming constraint. |
+| In-memory `HashSet<string>` for confirmed nodes checkpoint | Same bounding — nodes per project, not revisions. |
+| `ReferencedPathsArtifact` loaded fully at import time | The artifact contains distinct paths (bounded set), not revision data. Not a streaming violation. |
 
 ---
 
 ## Architecture Decisions
 
-### AD-001: Split Tool vs Service
+### AD-1: Split pure tool from I/O service
 
-`INodeStructureTool` (pure path mapping) is separated from `INodeCreator` (target API I/O). This preserves the `docs/modules.md` contract that tools are "pure transformations or lookup services — they perform no I/O." The service is consumed at the orchestration layer (`WorkItemsModule.ImportAsync()` pre-processing), not inside the per-revision `RevisionFolderProcessor` hot path.
+**Decision**: `INodeStructureTool` (pure path mapping, no I/O) + `INodeCreator` (target ADO API calls, stateful).
 
-### AD-002: Pre-Collection Pass Design
+**Rationale**: Tools called inside `RevisionFolderProcessor` must be fast and deterministic. ADO API calls in the per-revision hot path would be a reliability disaster. The pre-collection pattern (FR-024) naturally separates path discovery from node creation.
 
-FR-024's pre-collection pass first checks for `Nodes/referenced-paths.json` in the package (written during export — FR-015b). If present, the discovered paths are read directly from this artifact (fast path). If absent (legacy package), it falls back to streaming all revision folders via `IArtefactStore.EnumerateAsync()`, extracting `System.AreaPath` and `System.IterationPath` from each `revision.json`, applying `INodeStructureTool.TranslatePath()`, and collecting distinct translated paths into a `HashSet<string>`. This set is bounded by the number of distinct paths (typically 10–500), not by the number of revisions (potentially millions). This does NOT violate Constitution Principle II (streaming) because it does not load all revisions into memory — it reads each revision once and retains only the path string.
+**Alternatives rejected**: Single fat `INodeStructureTool` with embedded API calls — violates documented tool purity contract in `docs/modules.md`.
 
-### AD-003: Factory Integration Pattern
+### AD-2: Export always captures source tree and discovered paths
 
-`RevisionFolderProcessorFactory` must be extended to pass both `IFieldTransformTool?` and `INodeStructureTool?` to `RevisionFolderProcessor`. The factory receives these via constructor injection (optional parameters). This also fixes the pre-existing gap where `IFieldTransformTool` is not passed through the factory.
+**Decision**: `Nodes/source-tree.json` and `Nodes/referenced-paths.json` are always written on export, regardless of configuration flags.
 
-### AD-004: Export-Import Artifact Boundary
+**Rationale**: These are package metadata. Always having them enables import-time decisions without re-scanning, and provides an audit trail of source structure. The `ReplicateSourceTree` flag controls import-side behaviour only.
 
-`Nodes/source-tree.json` is always written by `ClassificationTreeCapture` (export). `Nodes/referenced-paths.json` is written incrementally during work item revision export by `ReferencedPathTracker`. The import side reads from these package artifacts — MUST NOT call `IClassificationTreeReader` — enforcing the Source → Package → Target invariant.
+### AD-3: Pre-collection uses referenced-paths.json fast path
 
-### AD-005: TeamsModule Future Contract
+**Decision**: Import-time pre-collection reads `Nodes/referenced-paths.json` if present; falls back to scanning all revision folders if absent (legacy packages).
 
-`INodeStructureTool.TranslatePath(fieldName, sourcePathValue, context)` is designed to be field-agnostic. `TeamsModule` will call it with team-specific path fields (e.g., default team area path). The interface requires no changes for `TeamsModule` integration — the `fieldName` parameter is used for logging/diagnostics, not for dispatch logic.
+**Rationale**: Export-time path discovery (FR-015b/FR-029) makes import startup O(1) for path discovery instead of O(n) in revision count. Legacy packages without the artifact gracefully degrade to the scan path.
 
-### AD-006: Node Creation Order
+### AD-4: Node creation checkpoint in IStateStore
 
-When creating nested paths (e.g., `"Project\\Area\\SubArea"`), the implementation MUST create ancestors before descendants. `INodeCreator.EnsureExistsAsync()` is responsible for walking the path segments from root to leaf and creating each missing segment in order.
+**Decision**: `NodeReplicationProgress` with a `HashSet<string>` of confirmed paths, persisted after each node creation.
+
+**Rationale**: Simpler than cursor-based sequential checkpointing because node order in `source-tree.json` may not be lexicographic. A set-based approach handles any ordering and is still bounded by node count.
+
+**Constitution note**: This uses `IStateStore` (compliant with checkpoint guardrail IV) but uses a set rather than a forward-only cursor. The set approach is justified because: (a) nodes are not ordered lexicographically in the artifact, (b) the set is bounded by node count (~hundreds, not millions), (c) the alternative (sorting nodes and using a cursor) would require in-memory sort which violates streaming guardrail II.
+
+### AD-5: INodeStructureTool interface designed for dual consumers
+
+**Decision**: `TranslatePath(fieldName, sourcePathValue, ProjectMapping)` operates on individual path values, not field dictionaries.
+
+**Rationale**: Both `WorkItemsModule` (revision field values) and `TeamsModule` (team area/iteration path settings) work with individual path strings. A field-dictionary interface would couple the tool to revision structure.
+
+### AD-6: Streaming deserialization for source-tree.json at import time
+
+**Decision**: Use `System.Text.Json` streaming APIs (`Utf8JsonReader` or `DeserializeAsyncEnumerable`) to read `source-tree.json` one node at a time during bulk replication.
+
+**Rationale**: While `source-tree.json` is typically small (hundreds of nodes), the streaming approach is consistent with the architecture's streaming principle and prevents edge cases with unusually large classification trees from causing memory issues.
+
+---
+
+## Constitution Check — Post-Design Re-evaluation
+
+All constitution principles re-checked against the completed design:
+
+- [x] **Package-First (I):** Verified — all export writes go through `IArtefactStore`, all import reads from package artifacts.
+- [x] **Streaming (II):** Verified — `source-tree.json` streamed at import (AD-6). Only bounded sets (distinct paths, confirmed nodes) held in memory. No revision buffering.
+- [x] **WorkItems Layout (III):** Verified — no changes to WorkItems folder structure.
+- [x] **Checkpointing (IV):** Verified — `IStateStore` used for node replication progress (AD-4).
+- [x] **Module Isolation (V):** Verified — all 4 interfaces (`INodeStructureTool`, `INodeCreator`, `IClassificationTreeReader`, `INodeStructureValidator`) defined in `Abstractions.Agent`. Implementations in `Infrastructure.Agent`.
+- [x] **Separation of Planes (VI):** Verified — no migration logic in CLI/TUI/control plane.
+- [x] **Determinism (VII):** Verified — additive schema change, artifact schemas documented in contracts.
+- [x] **ATDD-First (VIII):** Verified — 29 acceptance scenarios across 7 user stories.
+- [x] **SOLID & DI (IX):** Verified — constructor injection throughout, `IOptions<NodeStructureOptions>` for config, dedicated `AddNodeStructureToolServices()` extension.
+- [x] **Engineering Practice (X):** Verified — OpenTelemetry metrics/traces/logging defined in spec Observability section, `DataClassification.Customer` scoping for path values, retry with exponential back-off (FR-022).

@@ -248,13 +248,13 @@ NodeStructureOptions (config)
     │           ├── TeamsModule (future — team area/iteration settings)
     │           └── INodeStructureValidator (ValidateAsync pre-scan)
     │
-    ├── IClassificationNodeService (target I/O)
-    │     └── EnsureNodeExistsAsync() called by:
-    │           ├── WorkItemsModule.ImportAsync() pre-processing step
-    │           └── Bulk replication from classification-nodes.json
+    ├── INodeCreator (target I/O)
+    │     └── EnsureExistsAsync() called by:
+    │           ├── NodeEnsurer pre-collection step
+    │           └── NodeEnsurer bulk replication from Nodes/source-tree.json
     │
-    ├── IClassificationNodeSource (source I/O — export only)
-    │     └── Called by ClassificationNodeExporter during export
+    ├── IClassificationTreeReader (source I/O — export only)
+    │     └── Called by ClassificationTreeCapture during export
     │
     └── INodeStructureValidator (package validation)
           └── Called by ValidateAsync pipeline
@@ -283,18 +283,17 @@ NodeStructurePathResult
 ### Import Pre-Processing Flow
 
 ```
-1. replicateAllExistingNodes (if true)
-   ├── Read classification-nodes.json from package (streaming)
+1. ReplicateSourceTree (if true)
+   ├── Read Nodes/source-tree.json from package (streaming)
    ├── For each node: check checkpoint → skip if confirmed
-   ├── EnsureNodeExistsAsync() → create if missing
+   ├── EnsureExistsAsync() → create if missing
    ├── SetIterationDatesAsync() (iteration nodes with dates)
    └── Update checkpoint after each node
 
-2. createMissingNodes pre-collection (if true)
-   ├── EnumerateAsync("WorkItems/") all revision folders
-   ├── For each revision.json: extract AreaPath + IterationPath
-   ├── TranslatePath() each value → collect distinct translated paths
-   └── EnsureNodeExistsAsync() for each distinct path not in target
+2. AutoCreateNodes pre-collection (if true)
+   ├── Read Nodes/referenced-paths.json (fast path) or scan all revision folders
+   ├── For each path: TranslatePath() → collect distinct translated paths
+   └── EnsureExistsAsync() for each distinct path not in target
 
 3. Revision processing loop (standard streaming import)
    └── RevisionFolderProcessor applies TranslatePath() per revision
