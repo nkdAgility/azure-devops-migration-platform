@@ -187,6 +187,197 @@ The discovered paths are saved to the package at `Nodes/referenced-paths.json`. 
 
 ---
 
+## Observability
+
+### Operations
+
+| Name | Type | Entry Point | Dependencies |
+|---|---|---|---|
+| `nodes.export.tree` | module | `ClassificationTreeCapture` | `IClassificationTreeReader` (source ADO API), `IArtefactStore` (write `Nodes/source-tree.json`) |
+| `nodes.export.discover` | module | `ReferencedPathTracker` | `IArtefactStore` (write `Nodes/referenced-paths.json`) |
+| `nodes.import.replicate` | module | `NodeEnsurer` (replicate phase) | `IArtefactStore` (read `Nodes/source-tree.json`), `INodeCreator` (target ADO API), `IStateStore` (checkpoint) |
+| `nodes.import.precollect` | module | `NodeEnsurer` (pre-collect phase) | `IArtefactStore` (read `Nodes/referenced-paths.json` or revision folders), `INodeCreator` (target ADO API) |
+| `nodes.import.translate` | module | `NodeStructureTool.TranslatePath()` | None (pure, in-memory) |
+| `nodes.validate` | module | `NodeStructureValidator.ValidateAsync()` | `IArtefactStore` (read `Nodes/referenced-paths.json` or revision folders) |
+
+### Operator Decisions
+
+| Operation | Decision | Question |
+|---|---|---|
+| `nodes.export.tree` | Is it working? | Did the source tree capture complete successfully? |
+| `nodes.export.tree` | Is it fast enough? | How long did the source tree API enumeration take? |
+| `nodes.export.tree` | Is it correct? | How many area and iteration nodes were captured? |
+| `nodes.export.discover` | Is it working? | Are referenced paths being discovered during export? |
+| `nodes.export.discover` | Is it correct? | How many distinct area/iteration paths were found? |
+| `nodes.import.replicate` | Is it working? | Are source tree nodes being replicated to the target? |
+| `nodes.import.replicate` | Is it fast enough? | How long does each node creation take? Is bulk replication within SLO? |
+| `nodes.import.replicate` | Is it overloaded? | Are we hitting ADO API rate limits during replication? |
+| `nodes.import.replicate` | What failed? | Which specific node creations failed and why? |
+| `nodes.import.precollect` | Is it working? | Did the pre-collection pass find and create all required nodes? |
+| `nodes.import.precollect` | Is it fast enough? | How long did the pre-collection scan + bulk create take? |
+| `nodes.import.precollect` | Is it overloaded? | How many nodes are being created concurrently? |
+| `nodes.import.precollect` | What failed? | Which node creation failed during pre-collection? |
+| `nodes.import.translate` | Is it working? | Are path translations succeeding? |
+| `nodes.import.translate` | What failed? | Which paths are unresolvable (no map match, no auto-swap)? |
+| `nodes.import.translate` | Is it correct? | What proportion of paths matched by map vs auto-swap vs external? |
+| `nodes.validate` | Is it working? | Did validation complete? |
+| `nodes.validate` | Is it fast enough? | How long did the validation scan take? |
+| `nodes.validate` | Is it correct? | How many unmapped/external/malformed paths were found? |
+
+### Metrics
+
+All metrics use the `Migration` meter (`WellKnownMeterNames.Migration`). New constants will be added to `WellKnownMetricNames`.
+
+| Metric Name | Instrument | Unit | Operation | Decision |
+|---|---|---|---|---|
+| `migration.nodes.export.tree.count` | `Counter<long>` | `{node}` | `nodes.export.tree` | Is it working? / Is it correct? |
+| `migration.nodes.export.tree.duration_ms` | `Histogram<double>` | `ms` | `nodes.export.tree` | Is it fast enough? |
+| `migration.nodes.export.tree.errors` | `Counter<long>` | `{operation}` | `nodes.export.tree` | What failed? |
+| `migration.nodes.export.discover.count` | `Counter<long>` | `{path}` | `nodes.export.discover` | Is it working? / Is it correct? |
+| `migration.nodes.import.replicate.count` | `Counter<long>` | `{node}` | `nodes.import.replicate` | Is it working? |
+| `migration.nodes.import.replicate.duration_ms` | `Histogram<double>` | `ms` | `nodes.import.replicate` | Is it fast enough? |
+| `migration.nodes.import.replicate.errors` | `Counter<long>` | `{node}` | `nodes.import.replicate` | What failed? |
+| `migration.nodes.import.replicate.skipped` | `Counter<long>` | `{node}` | `nodes.import.replicate` | Is it working? (resumed) |
+| `migration.nodes.import.replicate.in_flight` | `UpDownCounter<long>` | `{node}` | `nodes.import.replicate` | Is it overloaded? |
+| `migration.nodes.import.precollect.count` | `Counter<long>` | `{node}` | `nodes.import.precollect` | Is it working? |
+| `migration.nodes.import.precollect.duration_ms` | `Histogram<double>` | `ms` | `nodes.import.precollect` | Is it fast enough? |
+| `migration.nodes.import.precollect.errors` | `Counter<long>` | `{node}` | `nodes.import.precollect` | What failed? |
+| `migration.nodes.import.precollect.in_flight` | `UpDownCounter<long>` | `{node}` | `nodes.import.precollect` | Is it overloaded? |
+| `migration.nodes.import.translate.count` | `Counter<long>` | `{path}` | `nodes.import.translate` | Is it working? |
+| `migration.nodes.import.translate.unresolvable` | `Counter<long>` | `{path}` | `nodes.import.translate` | What failed? |
+| `migration.nodes.import.translate.map_hit` | `Counter<long>` | `{path}` | `nodes.import.translate` | Is it correct? |
+| `migration.nodes.import.translate.autoswap_hit` | `Counter<long>` | `{path}` | `nodes.import.translate` | Is it correct? |
+| `migration.nodes.import.translate.external` | `Counter<long>` | `{path}` | `nodes.import.translate` | Is it correct? |
+| `migration.nodes.validate.duration_ms` | `Histogram<double>` | `ms` | `nodes.validate` | Is it fast enough? |
+| `migration.nodes.validate.unmapped_paths` | `Counter<long>` | `{path}` | `nodes.validate` | Is it correct? |
+| `migration.nodes.validate.external_paths` | `Counter<long>` | `{path}` | `nodes.validate` | Is it correct? |
+| `migration.nodes.validate.malformed_targets` | `Counter<long>` | `{path}` | `nodes.validate` | Is it correct? |
+
+### Traces
+
+All spans use the `Migration` ActivitySource (`WellKnownActivitySourceNames.Migration`).
+
+| Component | Span Name | Tags | Parent | Decision |
+|---|---|---|---|---|
+| `ClassificationTreeCapture` | `nodes.export.tree` | `job.id`, `operation=export`, `module=WorkItems` | `workitems.export` (existing) | Is it working? / Is it fast enough? |
+| `ReferencedPathTracker` | `nodes.export.discover` | `job.id`, `operation=export`, `module=WorkItems` | `workitems.export` (existing) | Is it working? |
+| `NodeEnsurer` | `nodes.import.replicate` | `job.id`, `operation=import`, `module=WorkItems`, `nodes.total` | `workitems.import` (existing) | Is it working? / Is it fast enough? |
+| `NodeEnsurer` | `nodes.import.replicate.node` | `node.path`, `node.type` (area/iteration) | `nodes.import.replicate` | Where is it slow? / What failed? |
+| `NodeEnsurer` | `nodes.import.precollect` | `job.id`, `operation=import`, `module=WorkItems` | `workitems.import` (existing) | Is it working? / Is it fast enough? |
+| `NodeEnsurer` | `nodes.import.precollect.node` | `node.path`, `node.type` | `nodes.import.precollect` | Where is it slow? / What failed? |
+| `AzureDevOpsNodeCreator` | `nodes.api.ensure` | `node.path`, `node.type`, `http.status_code` | `nodes.import.replicate.node` or `nodes.import.precollect.node` | Where is it slow? / What failed? |
+| `AzureDevOpsNodeCreator` | `nodes.api.set_dates` | `node.path`, `http.status_code` | `nodes.import.replicate.node` | Where is it slow? |
+| `AzureDevOpsClassificationTreeReader` | `nodes.api.enumerate` | `node.type`, `project.name` | `nodes.export.tree` | Where is it slow? |
+| `NodeStructureValidator` | `nodes.validate` | `job.id`, `operation=validate`, `module=WorkItems` | Root | Is it fast enough? |
+
+**Context propagation:** Automatic via `Activity` hierarchy. All NodeStructure spans are children of existing `workitems.export` or `workitems.import` root spans (established by `WorkItemExportOrchestrator` / `WorkItemImportOrchestrator`). Validation runs as a standalone root span.
+
+### Logging
+
+| Event | Level | Fields | Operation | Decision |
+|---|---|---|---|---|
+| Source tree capture started | `Information` | operationId, nodeType (area/iteration), project.name | `nodes.export.tree` | Is it working? |
+| Source tree capture completed | `Information` | operationId, areaNodeCount, iterationNodeCount, durationMs | `nodes.export.tree` | Is it working? / Is it fast enough? |
+| Source tree capture failed | `Error` | operationId, errorType, errorMessage, durationMs | `nodes.export.tree` | What failed? |
+| New referenced path discovered | `Debug` | operationId, fieldName, pathValue (DataClassification.Customer) | `nodes.export.discover` | Is it correct? |
+| Referenced paths summary | `Information` | operationId, distinctAreaPaths, distinctIterationPaths | `nodes.export.discover` | Is it correct? |
+| Node replication started | `Information` | operationId, totalNodes, sourceFile | `nodes.import.replicate` | Is it working? |
+| Node replication completed | `Information` | operationId, created, skipped, failed, durationMs | `nodes.import.replicate` | Is it working? / Is it fast enough? |
+| Node replication failed | `Error` | operationId, errorType, errorMessage, durationMs | `nodes.import.replicate` | What failed? |
+| Node created | `Debug` | operationId, node.path, node.type | `nodes.import.replicate` | Is it correct? |
+| Node skipped (checkpoint) | `Debug` | operationId, node.path | `nodes.import.replicate` | Is it working? |
+| Node creation failed | `Warning` | operationId, node.path, node.type, errorType, httpStatusCode | `nodes.import.replicate` | What failed? |
+| Set iteration dates failed | `Warning` | operationId, node.path, errorType | `nodes.import.replicate` | What failed? |
+| Pre-collection started | `Information` | operationId, source (referenced-paths.json / revision-scan) | `nodes.import.precollect` | Is it working? |
+| Pre-collection completed | `Information` | operationId, distinctPaths, nodesCreated, durationMs | `nodes.import.precollect` | Is it working? / Is it fast enough? |
+| Pre-collection node failed | `Warning` | operationId, node.path, node.type, errorType, httpStatusCode | `nodes.import.precollect` | What failed? |
+| Path translated | `Trace` | operationId, fieldName, sourcePath (DataClassification.Customer), targetPath (DataClassification.Customer), matchType | `nodes.import.translate` | Is it correct? |
+| Path unresolvable | `Warning` | operationId, fieldName, sourcePath (DataClassification.Customer), isExternal, revisionFolder | `nodes.import.translate` | What failed? |
+| Revision skipped (unresolvable path) | `Warning` | operationId, revisionFolder, fieldName, sourcePath (DataClassification.Customer) | `nodes.import.translate` | What failed? |
+| ADO API retry | `Warning` | operationId, node.path, attempt, maxAttempts, delayMs, httpStatusCode | `nodes.import.replicate` / `nodes.import.precollect` | Is it overloaded? |
+| ADO API auth failure | `Error` | operationId, node.path, httpStatusCode | `nodes.import.replicate` / `nodes.import.precollect` | What failed? |
+| Validation started | `Information` | operationId, source (referenced-paths.json / revision-scan) | `nodes.validate` | Is it working? |
+| Validation completed | `Information` | operationId, unmappedCount, externalCount, malformedCount, durationMs | `nodes.validate` | Is it correct? |
+| Validation: unmapped path | `Warning` | operationId, fieldName, pathValue (DataClassification.Customer), affectedRevisions | `nodes.validate` | Is it correct? |
+| Tool disabled warning | `Warning` | operationId, sourceProject, targetProject | (startup) | Is it working? |
+
+> Debug and Trace levels are disabled by default.
+
+### Correlation
+
+| Field | Source | Scope |
+|---|---|---|
+| `operationId` / `traceId` | `Activity.Current.TraceId` | All telemetry |
+| `parentId` | `Activity.Current.ParentSpanId` | All child spans |
+| `job.id` | Job context (`IJobContext`) | All telemetry within a job |
+| `module` | `"WorkItems"` | All NodeStructure spans and metrics |
+| `operation` | `"export"` / `"import"` / `"validate"` | All spans |
+| `node.path` | Current node being processed | Node creation spans, logs, and error metrics (DataClassification.Customer) |
+| `node.type` | `"area"` / `"iteration"` | Node creation spans and metrics |
+| `wi.id` | Work item ID (integer, not customer data) | Translation logs within revision processing |
+
+### Validation Queries
+
+#### Failure Identification
+```kql
+// Which node creations failed and why?
+customMetrics
+| where name in ("migration.nodes.import.replicate.errors", "migration.nodes.import.precollect.errors")
+| extend node_path = tostring(customDimensions["node.path"]),
+         node_type = tostring(customDimensions["node.type"])
+| summarize failures = sum(value) by name, node_path, node_type, bin(timestamp, 1m)
+| order by failures desc
+```
+
+#### Latency Analysis
+```kql
+// P50/P95/P99 latency for node replication and pre-collection
+customMetrics
+| where name in ("migration.nodes.import.replicate.duration_ms", "migration.nodes.import.precollect.duration_ms")
+| summarize p50 = percentile(value, 50), p95 = percentile(value, 95), p99 = percentile(value, 99)
+    by name, bin(timestamp, 5m)
+```
+
+#### Load Observation
+```kql
+// In-flight node creation concurrency over time
+customMetrics
+| where name in ("migration.nodes.import.replicate.in_flight", "migration.nodes.import.precollect.in_flight")
+| summarize max_inflight = max(value), avg_inflight = avg(value) by name, bin(timestamp, 1m)
+```
+
+#### End-to-End Trace
+```kql
+// Trace a single import job's node structure operations
+dependencies
+| where customDimensions["job.id"] == "<job-id>"
+| where name startswith "nodes."
+| project timestamp, name, duration, success,
+         node_path = tostring(customDimensions["node.path"]),
+         parent = tostring(customDimensions["parentId"])
+| order by timestamp asc
+```
+
+#### Error Diagnosis
+```kql
+// Correlate node creation errors with logs and traces
+traces
+| where customDimensions["job.id"] == "<job-id>"
+| where severityLevel >= 2 // Warning+
+| where message has "node" or message has "Node"
+| join kind=inner (
+    dependencies
+    | where name startswith "nodes."
+    | where success == false
+) on $left.operation_Id == $right.operation_Id
+| project timestamp, message, name, duration,
+         node_path = tostring(customDimensions["node.path"]),
+         httpStatusCode = tostring(customDimensions["http.status_code"])
+| order by timestamp asc
+```
+
+---
+
 ## Requirements *(mandatory)*
 
 ### Functional Requirements
