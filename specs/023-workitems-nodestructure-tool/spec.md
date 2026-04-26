@@ -45,7 +45,7 @@ The operator declares a mapping table of source paths → target paths so that `
 
 3. **Given** a `revision.json` contains a path that has no entry in `areaMap` or `iterationMap`, **When** the import stage applies the tool, **Then** the original path value is preserved without modification (pass-through behaviour).
 
-4. **Given** the tool is not referenced in any extension's `tools[]` list, **When** a module import runs, **Then** no path translation is applied and behaviour is identical to the pre-tool state.
+4. **Given** the `NodeStructure` tool is not declared under `MigrationPlatform.Tools`, **When** a module import runs, **Then** no path translation is applied and behaviour is identical to the pre-tool state.
 
 ---
 
@@ -145,7 +145,7 @@ The operator declares a language override so that localised root node names in b
 
 ### Functional Requirements
 
-- **FR-001**: The platform MUST provide a `NodeStructure` tool type declarable in `MigrationPlatform.tools[]` with a unique `id`, loadable by extension tool references.
+- **FR-001**: The platform MUST provide a `NodeStructure` tool type declarable under `MigrationPlatform.Tools` as a keyed entry (key = `"NodeStructure"`), following the same keyed-object pattern as `FieldTransform`, and loadable by extension tool references.
 
 - **FR-002**: The tool MUST support an `areaMap` dictionary mapping source area path strings (exact full-path strings) to target area path strings, applied to `System.AreaPath` field values at import time. Matching is exact (not regex) and case-insensitive.
 
@@ -183,7 +183,7 @@ The operator declares a language override so that localised root node names in b
 
 - **FR-017**: The tool MUST be injectable as `INodeStructureTool` through the platform's dependency injection container, enabling resolution by `WorkItemsModule` and `TeamsModule` extensions. The interface MUST be designed to accommodate both consumers.
 
-- **FR-018**: The tool MUST be declared at the `MigrationPlatform` config root. Extensions reference it by `id` with optional per-extension `overrides`. Effective configuration MUST be the merge of the root tool declaration and the extension-level overrides, with overrides taking precedence.
+- **FR-018**: The tool MUST be declared at the `MigrationPlatform.Tools` config root using the type name `"NodeStructure"` as the key, following the established keyed-object pattern used by `FieldTransform`. Extensions reference it by type name. The extension-level `overrides` pattern proposed in `analysis/proposed-features.md` (array-with-id + `ref`) is **deferred** — see discrepancies.md.
 
 - **FR-019**: All path value logging MUST be scoped under `DataClassification.Customer` (path strings are customer data). Work item IDs embedded in revision folder paths are integer identifiers and are not customer data.
 
@@ -195,7 +195,7 @@ The operator declares a language override so that localised root node names in b
 
 ### Key Entities
 
-- **NodeStructureTool configuration**: The declared instance at `MigrationPlatform.tools[]`. Carries `id`, `type: "NodeStructure"`, `areaMap`, `iterationMap`, `areaLanguageOverride`, `iterationLanguageOverride`, `createMissingNodes`, `skipRevisionWithInvalidAreaPath`, `skipRevisionWithInvalidIterationPath`, `replicateAllExistingNodes`.
+- **NodeStructureTool configuration**: Declared under `MigrationPlatform.Tools.NodeStructure`. Carries `areaMap`, `iterationMap`, `areaLanguageOverride`, `iterationLanguageOverride`, `createMissingNodes`, `skipRevisionWithInvalidAreaPath`, `skipRevisionWithInvalidIterationPath`, `replicateAllExistingNodes`. No `id` or `type` discriminator fields — the key `"NodeStructure"` is the type.
 
 - **Area Path**: The `System.AreaPath` field value in `revision.json`. Represents the organisational area classification of a work item revision. Format: `"ProjectName\\...\\NodeName"` (backslash-separated).
 
@@ -207,7 +207,7 @@ The operator declares a language override so that localised root node names in b
 
 - **Node Creation Checkpoint**: A persisted record (in `IStateStore`) of which classification node paths have been confirmed present in the target during the current import run. Used to make `replicateAllExistingNodes` resumable without redundant API calls.
 
-- **Extension Tool Reference**: A `{ "ref": "<id>", "overrides": { ... } }` entry inside an extension's `tools[]` array. Binds the root tool declaration to the extension with optional value overrides.
+- **Extension Tool Reference**: The `NodeStructure` tool is declared once under `MigrationPlatform.Tools` (keyed-object pattern) and consumed by any extension that depends on it. There is no per-extension tool reference array.
 
 ---
 
@@ -239,7 +239,7 @@ The operator declares a language override so that localised root node names in b
 - The `NodeStructureTool` operates exclusively at **import time** for path remapping. For `replicateAllExistingNodes`, export writes the classification tree to `WorkItems/classification-nodes.json`; import reads from this package artifact — never from the live source API (package-only import invariant).
 - `createMissingNodes` defaults to `false`. Operators must explicitly opt in to target mutation. This avoids unexpected node creation in production targets for operators who add the tool without reading the documentation.
 - When both `replicateAllExistingNodes` and `createMissingNodes` are `true`, `replicateAllExistingNodes` executes as a pre-import bulk step (from the package artifact), and `createMissingNodes` serves as a safety net for any path encountered during revision processing that was not captured in the bulk step.
-- The tool is inert unless referenced by at least one extension's `tools[]` list; unreferenced declarations produce no side effects.
+- The tool is inert unless declared under `MigrationPlatform.Tools.NodeStructure`; if absent, extensions that depend on it skip path translation silently.
 - Initial consumer is `WorkItemsModule` (`Revisions` extension). `TeamsModule` will use the same `INodeStructureTool` interface. The interface MUST be designed with both consumers' calling contracts in mind from the outset; the plan phase MUST document the anticipated TeamsModule contract before the interface is finalised.
 - The ADO Classification Nodes API returns 404 when a node does not exist, 201 on successful creation, and 409 (treated as success) when the node already exists. Auth failures (401/403) are non-retryable fatal errors.
 - Language override applies only to the root segment of the path. Intermediate and leaf segment names are not modified.

@@ -42,3 +42,13 @@
 - **Issue**: The spec introduces `INodeStructureTool` as a new injectable interface. This interface does not yet exist in `DevOpsMigrationPlatform.Abstractions`. Per rule 21, new abstractions must be defined in `Abstractions` and must be used by at least two independent modules (`WorkItemsModule` and `TeamsModule` are the two planned consumers, satisfying the rule). The interface must be designed with both consumers in mind before it is finalised.
 - **Suggested update**: Document `INodeStructureTool` in `DevOpsMigrationPlatform.Abstractions` during implementation. The plan phase must document the anticipated `TeamsModule` calling contract to validate the interface is sufficiently general before it is frozen.
 
+---
+
+### Config schema conflict: proposed-features.md uses array-with-id; canonical pattern is keyed-object
+
+- **Source doc**: `analysis/proposed-features.md` M2, `docs/configuration.md` — Tools section
+- **Section**: `MigrationPlatform.Tools` config root
+- **Issue**: `analysis/proposed-features.md` proposes a new array-based tool declaration schema: `"tools": [{ "id": "nodes-default", "type": "NodeStructure", ... }]` with extension references via `{ "ref": "<id>", "overrides": { ... } }`. The established canonical pattern (used by `FieldTransform`) is a **keyed object**: `"Tools": { "NodeStructure": { ... } }` where the key is the type name and there is no `id` or `ref` field. The spec was initially drafted using the array-with-id pattern. This was **incorrect** — the spec has been corrected to use the keyed-object pattern. However, the conflict in `proposed-features.md` remains: if the `ref`/`overrides` mechanism is desired in the future (to allow per-extension overrides), that is a separate config schema evolution feature and must not be introduced here without a dedicated spec.
+- **Status**: Resolved in spec (array-with-id removed); `proposed-features.md` pattern deferred.
+
+
