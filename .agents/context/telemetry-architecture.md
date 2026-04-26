@@ -336,7 +336,16 @@ Tags MUST NOT include customer-identifiable data (project names, user emails, fi
 
 > **Canonical source:** `src/DevOpsMigrationPlatform.Abstractions/Telemetry/WellKnownTagNames.cs`
 
-All tag/attribute names MUST use constants from `WellKnownTagNames`. Hardcoded string literals for tag names are prohibited in new code.
+All **dimension tag** names MUST use constants from `WellKnownTagNames`. Hardcoded string literals for dimension tags are prohibited in new code.
+
+### Dimension Tags vs. Span Result Attributes
+
+| Category | Purpose | Centralised? | Example |
+|---|---|---|---|
+| **Dimension tags** | Filtering, grouping, correlation across spans | Yes — `WellKnownTagNames` | `job.id`, `operation`, `workitem.id` |
+| **Span result attributes** | Contextual data local to a single span | No — inline strings co-located with the span | `"group_count"`, `"is_valid"`, `"workitems.count"` |
+
+Dimension tags answer "which entity?" or "what kind?" and are reused across multiple components. Span result attributes answer "what happened inside this span?" and are unique to the span that sets them. Do not add result attributes to `WellKnownTagNames`.
 
 ### Naming Rules
 
