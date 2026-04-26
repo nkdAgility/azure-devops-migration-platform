@@ -175,7 +175,7 @@ The job contract and the local configuration file ([docs/configuration.md](confi
 | Package location | `artefacts.workingDirectory` (bare path) | `artefacts.packageUri` (URI) |
 | Identity | None | `jobId` (tracked by control plane in remote mode) |
 | Guardrails | Implicit | Explicit fields in `guardrails` |
-| Secrets | Referenced directly or via env vars | Referenced via Key Vault URIs (remote mode) |
+| Secrets | Referenced directly or via env vars | Passed through the job definition as configured |
 
 ---
 
@@ -192,7 +192,7 @@ These fields exist in the job contract so that guardrail enforcement is explicit
 
 ## Secrets Handling
 
-In cloud mode, connection credentials must not be inlined. Reference them as Key Vault URIs:
+Credentials are configured by the operator in the scenario config file and passed through the `MigrationJob` definition. The control plane persists `job_json` (which contains the credentials) but does not inspect or proxy credential values.
 
 ```json
 "source": {
@@ -202,14 +202,14 @@ In cloud mode, connection credentials must not be inlined. Reference them as Key
   "apiVersion": "7.1",
   "authentication": {
     "credential": {
-      "type": "KeyVaultSecret",
-      "uri": "https://myvault.vault.azure.net/secrets/ado-pat"
+      "type": "PersonalAccessToken",
+      "pat": "<token>"
     }
   }
 }
 ```
 
-Migration Agents resolve Key Vault references at startup. The control plane never unwraps secrets. In local mode, credentials may be supplied via environment variables or PAT fields directly.
+Migration Agents read credentials directly from the job definition at startup. In local mode, credentials may also be supplied via environment variables.
 
 ---
 

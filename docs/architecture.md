@@ -244,11 +244,10 @@ Key properties:
 
 ### Phase 3 — Operational hardening
 
-13. Key Vault integration
-14. Multi-tenant isolation
-15. Rate limiting per job
-16. Agent scale-out rules
-17. Artefact retention policies
+13. Multi-tenant isolation
+14. Rate limiting per job
+15. Agent scale-out rules
+16. Artefact retention policies
 
 ---
 

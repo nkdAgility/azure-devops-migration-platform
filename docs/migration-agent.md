@@ -17,7 +17,7 @@ The package contract, modules, and cursors are unchanged across all deployment t
 | Poll for work | Call the control plane lease endpoint to receive a job. |
 | Acquire lease | Hold a time-bounded lease on the assigned job. |
 | Mount artefact store | Connect to the package URI from the job definition (filesystem or blob). See [.agents/context/artefact-store.md](../.agents/context/artefact-store.md). |
-| Resolve secrets | Fetch credentials from Key Vault references in the job definition before executing. |
+| Read credentials | Extract credentials from the job definition as provided by the operator's config. |
 | Run orchestrator | Execute `ExportAsync`, `ImportAsync`, or both in sequence, exactly as in local mode. |
 | Write cursors | Write checkpoint cursors into the package's `.migration/Checkpoints/` folder after each stage, as always. |
 | Heartbeat | Signal liveness to the control plane at regular intervals. |
@@ -35,7 +35,7 @@ The Agent does **not** accept job submissions, manage other Agents, or store job
 ```
 Poll /agents/lease
   └─ Receive leased job definition
-       ├─ Resolve Key Vault secrets
+       ├─ Extract credentials from job definition
        ├─ Connect to artefact store (packageUri)
        ├─ Load cursor → determine resume position
        ├─ Start heartbeat loop (background)

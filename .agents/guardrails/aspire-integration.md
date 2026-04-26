@@ -259,7 +259,7 @@ dotnet user-secrets set "ConnectionStrings:controlplane-db" "Host=localhost;Data
 
 **MUST NOT:**
 - Retrieve secrets in Control Plane code (Container Apps injects them)
-- Unwrap Key Vault secrets in the CLI or TUI (the CLI submits only Key Vault URI references; the TUI never submits jobs at all)
+- Log sensitive data (PATs, connection strings)
 
 ---
 

@@ -350,8 +350,7 @@ Before any execution, the CLI converts the local config file into a `MigrationJo
 2. Compute `configHash` (SHA-256 of the normalised config JSON).
 3. Generate a fresh `jobId` (UUID v4).
 4. Normalise `artefacts.path` to a URI (`file:///` prefix if a bare filesystem path is given).
-5. Replace inline credentials with Key Vault URI references (cloud deployments only).
-6. Construct the `MigrationJob` with `guardrails` set to their required values.
+5. Construct the `MigrationJob` with `guardrails` set to their required values.
 
 The local config file is never sent directly anywhere. The `MigrationJob` is the only artefact that crosses boundaries. See [.agents/context/job-contract.md](../.agents/context/job-contract.md).
 
