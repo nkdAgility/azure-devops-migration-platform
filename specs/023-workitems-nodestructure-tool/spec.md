@@ -20,6 +20,7 @@ The following canonical documents were read before drafting this specification:
 | `.agents/guardrails/workitems-rules.md` | Confirmed accurate |
 | `.agents/guardrails/migration-rules.md` | Confirmed accurate |
 | `.agents/context/workitems-format.md` | Confirmed accurate |
+| `azure-devops-migration-tools` — `TfsNodeStructureTool.cs` | Cross-referenced for behavioural completeness — iteration dates, auto project-name swap, unanchored paths, bulk pre-collection |
 
 Discrepancies logged in: `specs/023-workitems-nodestructure-tool/discrepancies.md`
 
@@ -43,9 +44,11 @@ The operator declares a mapping table of source paths → target paths so that `
 
 2. **Given** a `revision.json` contains `System.IterationPath: "OldOrg\\OldProject\\Sprint 1"` and the tool has `iterationMap: { "OldOrg\\OldProject\\Sprint 1": "NewOrg\\NewProject\\Sprint 1" }`, **When** the import stage applies the tool, **Then** the work item is written with `System.IterationPath: "NewOrg\\NewProject\\Sprint 1"`.
 
-3. **Given** a `revision.json` contains a path that has no entry in `areaMap` or `iterationMap`, **When** the import stage applies the tool, **Then** the original path value is preserved without modification (pass-through behaviour).
+3. **Given** a `revision.json` contains a path that has no entry in `areaMap` or `iterationMap`, and the path begins with the source project name, **When** the import stage applies the tool, **Then** the source project name prefix is automatically substituted with the target project name (auto-swap). If the path does not begin with the source project name it is passed through unchanged.
 
-4. **Given** the `NodeStructure` tool is not declared under `MigrationPlatform.Tools`, **When** a module import runs, **Then** no path translation is applied and behaviour is identical to the pre-tool state.
+4. **Given** a `revision.json` contains a path that has no entry in `areaMap` or `iterationMap`, and the path does not begin with the source project name, **When** the import stage applies the tool, **Then** the original path value is preserved without modification (pass-through — the path is not anchored in the source project).
+
+5. **Given** the `NodeStructure` tool is not declared under `MigrationPlatform.Tools`, **When** a module import runs, **Then** no path translation is applied and behaviour is identical to the pre-tool state.
 
 ---
 
@@ -127,9 +130,28 @@ The operator declares a language override so that localised root node names in b
 
 ---
 
-### Edge Cases
+### User Story 6 — Preserve Iteration Node Start/Finish Dates (Priority: P4)
+
+When an operator replicates the full iteration tree from source to target (`replicateAllExistingNodes: true`), the sprint schedule dates (start and finish) defined on each iteration node in the source project must be preserved in the target. Without this, the target project has the correct iteration hierarchy but loses all sprint scheduling information.
+
+**Why this priority**: Sprint date loss is silent data loss. It does not block migration but degrades the usefulness of the target for planning. Rated P4 (same as `replicateAllExistingNodes`) because it only applies to that feature.
+
+**Independent Test**: Export a source project whose iteration tree contains nodes with `StartDate` and `FinishDate` set. Import with `replicateAllExistingNodes: true`. Verify that each iteration node in the target has the correct start and finish dates.
+
+**Acceptance Scenarios**:
+
+1. **Given** `replicateAllExistingNodes: true` and `classification-nodes.json` contains an iteration node with `startDate: "2024-01-15"` and `finishDate: "2024-01-28"`, **When** the import creates that iteration node in the target, **Then** the node's start and finish dates are set to the exported values.
+
+2. **Given** `replicateAllExistingNodes: true` and a source area node (not an iteration), **When** the import creates that area node, **Then** no date-setting API call is made (area nodes have no dates).
+
+3. **Given** `replicateAllExistingNodes: true` and an iteration node in `classification-nodes.json` has no `startDate` or `finishDate` (they were null on the source), **When** the import creates that node, **Then** the node is created without dates and no error is emitted.
+
+---
+
+
 
 - What happens when a source path is an empty string or null? → Treated as unresolvable; skip/fail behaviour applies according to configuration.
+- What happens when a path does not begin with the source project name (unanchored path — e.g. a cross-project link whose area/iteration belongs to a third project)? → The auto-swap does not apply. The path is passed through unchanged. If the pass-through value does not exist in the target, skip/fail behaviour applies. The warning MUST identify the path as unanchored.
 - What happens when the ADO Classification Nodes API returns a transient error (5xx, 408, 429) during node creation? → Retried with exponential back-off per FR-022. Persistent transient failures surface as import errors.
 - What happens when the ADO Classification Nodes API returns 401 or 403? → Non-retryable; the import fails immediately with a message identifying the missing permission. The operator must fix service account permissions before retrying.
 - What happens when an `areaMap` or `iterationMap` target value is empty or contains characters illegal in ADO node names? → ValidateAsync (FR-021) flags this as a configuration error. At import time, the revision is treated as having an unresolvable path and skip/fail behaviour applies.
@@ -138,6 +160,7 @@ The operator declares a language override so that localised root node names in b
 - What happens when the tool is declared but not referenced by any extension? → The declaration is inert; no mapping, no node creation, no export artifact is produced.
 - What happens when `replicateAllExistingNodes: true` is configured but `classification-nodes.json` is absent from the package (e.g., a package exported with the flag disabled)? → The import logs a warning and skips the bulk replication step; `createMissingNodes` (if enabled) handles on-demand creation during revision processing.
 - What happens when `ValidateAsync` encounters a revision where `System.AreaPath` is absent (field was unchanged in that revision)? → ValidateAsync MUST collect AreaPath/IterationPath values across ALL revisions of ALL work items, not only the first or last revision. A path not present in the map is flagged regardless of which revision introduced it.
+- What happens when `SetIterationDates` fails for a created node? → The failure is logged as a warning (non-blocking); the node is still present and the import continues. Date loss is surfaced in the progress log for operator review.
 
 ---
 
@@ -153,7 +176,7 @@ The operator declares a language override so that localised root node names in b
 
 - **FR-004**: Path matching MUST be case-insensitive and trimmed of leading/trailing whitespace. The path separator is the backslash character (`\`), consistent with the ADO REST API path format.
 
-- **FR-005**: When no mapping entry matches a given path, the original path value MUST be passed through unchanged (unless a language override modified the root segment first).
+- **FR-005**: When no mapping entry matches a given path and the path begins with the source project name segment, the tool MUST automatically substitute the source project name prefix with the target project name (auto-swap). When no mapping entry matches and the path does NOT begin with the source project name (unanchored path), the original value MUST be passed through unchanged. Language override (FR-012/FR-013) is applied before this check.
 
 - **FR-006**: The tool MUST support a `createMissingNodes` boolean flag (default `false`). When `true`, any target area or iteration path that does not exist in the target project MUST be created via the ADO Classification Nodes API before the work item is written.
 
@@ -175,7 +198,17 @@ The operator declares a language override so that localised root node names in b
 
 - **FR-015**: The tool MUST support a `replicateAllExistingNodes` boolean flag (default `false`). When `true` and the package contains a `WorkItems/classification-nodes.json` export artifact (written by the export phase — see FR-015a), the import phase MUST enumerate all nodes from that artifact and create any that are missing in the target, before processing any revision folder.
 
-- **FR-015a** *(export-side)*: When `replicateAllExistingNodes: true` is configured, the export phase MUST write a `WorkItems/classification-nodes.json` artifact containing the full area and iteration node tree from the source project. The artifact schema is: `{ "areaNodes": [ "<full-path>", ... ], "iterationNodes": [ "<full-path>", ... ] }`. This artifact is read-only at import time; import MUST NOT call the live source API to retrieve nodes.
+- **FR-015a** *(export-side)*: When `replicateAllExistingNodes: true` is configured, the export phase MUST write a `WorkItems/classification-nodes.json` artifact containing the full area and iteration node tree from the source project. The artifact schema is:
+  ```json
+  {
+    "areaNodes": ["ProjectName\\Area\\Child", ...],
+    "iterationNodes": [
+      { "path": "ProjectName\\Iteration\\Sprint 1", "startDate": "2024-01-15", "finishDate": "2024-01-28" },
+      { "path": "ProjectName\\Iteration\\Sprint 2", "startDate": null, "finishDate": null }
+    ]
+  }
+  ```
+  Area nodes are stored as plain path strings (no dates). Iteration nodes are stored as objects with `path`, `startDate` (ISO 8601 or null), and `finishDate` (ISO 8601 or null). This artifact is read-only at import time; import MUST NOT call the live source API to retrieve nodes.
 
 - **FR-016**: `replicateAllExistingNodes` node replication at import time MUST be processed one node at a time from the `classification-nodes.json` artifact; the full node list MUST NOT be buffered in memory.
 
@@ -193,9 +226,19 @@ The operator declares a language override so that localised root node names in b
 
 - **FR-022**: Node creation API calls MUST be retried on transient failures (5xx, 408, 429) using exponential back-off. Authentication and authorisation failures (401, 403) MUST NOT be retried; they MUST surface immediately as a fatal import error with a message identifying the missing permission. Client errors indicating an invalid path (400) MUST also surface as fatal errors without retry.
 
+- **FR-023**: The tool MUST support an `Enabled` boolean flag (default `true`). When `false`, all tool behaviour (path mapping, node creation, export artifact writing) is bypassed. If the tool is `Enabled: false` and the source and target project names differ, the tool MUST log a warning indicating that path remapping is disabled and area/iteration paths may be incorrect in the target.
+
+- **FR-024**: When `createMissingNodes: true`, before processing any revision folder the tool MUST collect the complete set of distinct `System.AreaPath` and `System.IterationPath` values across ALL revision folders in the package, apply mapping/auto-swap to each, and create any missing nodes in the target in bulk. This pre-collection pass prevents mid-stream node creation during revision write and ensures all required nodes are present before the first API write call.
+
+- **FR-025**: When an unanchored path (a path whose root segment does not match the source project name, after language override) is encountered at import time and the path does not exist in the target, the tool MUST emit a warning that explicitly identifies the path as unanchored (not anchored in the source project name). Skip/fail behaviour applies per `skipRevisionWithInvalidAreaPath` / `skipRevisionWithInvalidIterationPath`. ValidateAsync (FR-021) MUST also flag unanchored paths distinctly from unmapped paths.
+
+- **FR-026**: When creating iteration nodes (during `replicateAllExistingNodes` bulk replication or `createMissingNodes` on-demand creation), the tool MUST set the node's `StartDate` and `FinishDate` from the values captured in `classification-nodes.json` (for bulk replication) or from the source node metadata (not available for on-demand creation — dates are omitted). If the `SetIterationDates` API call fails, the failure MUST be logged as a warning (non-blocking); node creation is still considered successful.
+
+- **FR-027**: Glob-based node filters (`Areas.Filters` / `Iterations.Filters` — as implemented in the predecessor `TfsNodeStructureTool`) are **explicitly deferred** to a later feature. In this version, all nodes referenced by work item revisions are processed. Operators who require partial-tree migration must achieve this via explicit `areaMap`/`iterationMap` entries.
+
 ### Key Entities
 
-- **NodeStructureTool configuration**: Declared under `MigrationPlatform.Tools.NodeStructure`. Carries `areaMap`, `iterationMap`, `areaLanguageOverride`, `iterationLanguageOverride`, `createMissingNodes`, `skipRevisionWithInvalidAreaPath`, `skipRevisionWithInvalidIterationPath`, `replicateAllExistingNodes`. No `id` or `type` discriminator fields — the key `"NodeStructure"` is the type.
+- **NodeStructureTool configuration**: Declared under `MigrationPlatform.Tools.NodeStructure`. Carries `Enabled`, `areaMap`, `iterationMap`, `areaLanguageOverride`, `iterationLanguageOverride`, `createMissingNodes`, `skipRevisionWithInvalidAreaPath`, `skipRevisionWithInvalidIterationPath`, `replicateAllExistingNodes`. No `id` or `type` discriminator fields — the key `"NodeStructure"` is the type.
 
 - **Area Path**: The `System.AreaPath` field value in `revision.json`. Represents the organisational area classification of a work item revision. Format: `"ProjectName\\...\\NodeName"` (backslash-separated).
 
@@ -203,7 +246,7 @@ The operator declares a language override so that localised root node names in b
 
 - **Classification Node**: An ADO area or iteration node in the target project's classification tree. Created via the ADO Classification Nodes REST API. Identified by a full path string.
 
-- **Classification Tree Export Artifact** (`WorkItems/classification-nodes.json`): A package artifact written by the export phase when `replicateAllExistingNodes: true`. Contains the complete list of area and iteration node paths from the source project. Read at import time by the tool to drive bulk node replication without accessing the live source.
+- **Classification Tree Export Artifact** (`WorkItems/classification-nodes.json`): A package artifact written by the export phase when `replicateAllExistingNodes: true`. Area nodes are stored as plain path strings. Iteration nodes are stored as objects with `path`, `startDate`, and `finishDate` (nullable ISO 8601). Read at import time by the tool to drive bulk node replication without accessing the live source.
 
 - **Node Creation Checkpoint**: A persisted record (in `IStateStore`) of which classification node paths have been confirmed present in the target during the current import run. Used to make `replicateAllExistingNodes` resumable without redundant API calls.
 
@@ -236,6 +279,8 @@ The operator declares a language override so that localised root node names in b
 ## Assumptions
 
 - **Path matching is exact full-path string** (case-insensitive). Regex pattern matching is not supported in `areaMap`/`iterationMap` in this version. If regex support is needed, it will be introduced as a separate configuration key in a later feature, with defined escaping rules and DoS protections.
+- **Auto-swap is the default pass-through behaviour** when no explicit mapping matches. If a path begins with the source project name it is remapped to start with the target project name. This matches the predecessor `TfsNodeStructureTool` behaviour. Paths not anchored in the source project pass through unchanged.
+- **Glob-based node filters are deferred** (FR-027). The predecessor tool supported `Areas.Filters`/`Iterations.Filters` glob patterns; these are intentionally out of scope for this version.
 - The `NodeStructureTool` operates exclusively at **import time** for path remapping. For `replicateAllExistingNodes`, export writes the classification tree to `WorkItems/classification-nodes.json`; import reads from this package artifact — never from the live source API (package-only import invariant).
 - `createMissingNodes` defaults to `false`. Operators must explicitly opt in to target mutation. This avoids unexpected node creation in production targets for operators who add the tool without reading the documentation.
 - When both `replicateAllExistingNodes` and `createMissingNodes` are `true`, `replicateAllExistingNodes` executes as a pre-import bulk step (from the package artifact), and `createMissingNodes` serves as a safety net for any path encountered during revision processing that was not captured in the bulk step.
@@ -244,5 +289,6 @@ The operator declares a language override so that localised root node names in b
 - The ADO Classification Nodes API returns 404 when a node does not exist, 201 on successful creation, and 409 (treated as success) when the node already exists. Auth failures (401/403) are non-retryable fatal errors.
 - Language override applies only to the root segment of the path. Intermediate and leaf segment names are not modified.
 - The path separator is the backslash character (`\`), consistent with the ADO REST API path format.
+- Iteration node start/finish dates from the source are preserved in `classification-nodes.json` and applied when creating nodes via `replicateAllExistingNodes`. Dates are NOT available for on-demand `createMissingNodes` creation (the source is not queried at import time).
 - Schema versioning and a config upgrader for the new `NodeStructure` tool type and the new `classification-nodes.json` package artifact are required per system-architecture guardrail rule 9, and will be addressed in the plan/implementation phases.
-- Architecture sources: `analysis/proposed-features.md` M2 and T2 entries, cross-validated against all guardrail and context files listed in the Architecture References section.
+- Architecture sources: `analysis/proposed-features.md` M2 and T2 entries, cross-validated against `azure-devops-migration-tools` `TfsNodeStructureTool` implementation, and all guardrail and context files listed in the Architecture References section.
