@@ -34,5 +34,6 @@
     <Project Path="tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests.csproj" />
     <Project Path="tests/DevOpsMigrationPlatform.Infrastructure.ControlPlane.Tests/DevOpsMigrationPlatform.Infrastructure.ControlPlane.Tests.csproj" />
     <Project Path="tests/DevOpsMigrationPlatform.Infrastructure.Simulated.Tests/DevOpsMigrationPlatform.Infrastructure.Simulated.Tests.csproj" />
+    <Project Path="tests/DevOpsMigrationPlatform.TfsMigrationAgent.Tests/DevOpsMigrationPlatform.TfsMigrationAgent.Tests.csproj" />
   </Folder>
 </Solution>
