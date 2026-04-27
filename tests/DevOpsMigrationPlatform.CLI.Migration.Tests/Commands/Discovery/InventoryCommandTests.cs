@@ -13,13 +13,6 @@ public class InventoryCommandTests
 {
     // -- Unit tests --
 
-    [TestMethod]
-    public void InventoryCommand_CanBeConstructed_WithParameterlessConstructor()
-    {
-        var command = new InventoryCommand();
-        Assert.IsNotNull(command);
-    }
-
     // -- System tests --
 
     [TestMethod]

@@ -1,9 +1,9 @@
-# Feature Specification: IdentitiesModule & TeamsModule — Identity Mapping Pipeline and Team Migration
+# Feature Specification: IdentitiesModule, NodeStructureModule & TeamsModule — Identity Mapping, Node Structure, and Team Migration
 
 **Feature Branch**: `024-teams-module`  
 **Created**: 2026-04-27  
 **Status**: Draft  
-**Input**: User description: "M5: TeamsModule which also uses the Node tool as an expansion. This module should run before work items and be implemented in all three ADO, TFS, Simulated. Include IdentitiesModule as a prerequisite — TeamsModule cannot ship without it."
+**Input**: User description: "M5: TeamsModule which also uses the Node tool as an expansion. This module should run before work items and be implemented in all three ADO, TFS, Simulated. Include IdentitiesModule as a prerequisite. Promote NodeStructure from tool-embedded data-owning code to a proper module — extract the export/import lifecycle from the existing tool code."
 
 ## Architecture References
 
@@ -19,13 +19,13 @@
 
 ## Concepts: Extension → Tool → Module Promotion
 
-This spec introduces two modules. The following promotion model governs when a shared capability changes category:
+This spec introduces three modules. The following promotion model governs when a shared capability changes category:
 
 | Level | What it is | Promotion trigger |
 |---|---|---|
 | **Extension** | Sub-data collector scoped to one module (e.g., `Attachments` inside `WorkItems`). Enabled/disabled per module config. | Stays here while only one module uses it. |
 | **Tool** | Shared, stateless, cross-cutting transformation or lookup service used by 2+ modules (e.g., `NodeStructureTool`, `FieldTransformTool`). Injected via DI. Has no package folder, no cursor, no lifecycle. | Promote an extension to a tool when **two or more modules** need the same capability. |
-| **Module** | Domain-scoped unit owning export/import/validate for a concern (e.g., `IdentitiesModule`, `TeamsModule`). Owns a package folder, a cursor, and runs as a discrete phase. | Promote to a module when the concern **owns data** (package folder + cursor + schema) and has an independent export/import lifecycle. |
+| **Module** | Domain-scoped unit owning export/import/validate for a concern (e.g., `IdentitiesModule`, `NodeStructureModule`, `TeamsModule`). Owns a package folder, a cursor, and runs as a discrete phase. | Promote to a module when the concern **owns data** (package folder + cursor + schema) and has an independent export/import lifecycle. |
 
 **Identity mapping** is a **module** (`IdentitiesModule`), not a tool, because it:
 - Owns the `Identities/` package folder (`descriptors.jsonl`, `mapping.json`, `unresolved.json`)
@@ -33,10 +33,40 @@ This spec introduces two modules. The following promotion model governs when a s
 - Maintains its own cursor for resumability
 - Provides the `IIdentityMappingService` cross-cutting service to all downstream modules
 
-**NodeStructure** is a **tool** (`NodeStructureTool`), not a module, because it:
-- Does not own a package folder (it reads from the `Nodes/` data written by the orchestrator or another module)
-- Is a stateless transformation (source path → target path)
-- Is consumed by multiple modules (WorkItemsModule, TeamsModule)
+**NodeStructure** is split into a **module** + **tool**:
+
+- **`NodeStructureModule`** (new — extracted from existing code) owns the `Nodes/` package folder. During export, it captures the full source classification tree to `source-tree.json`. During import, it reads `source-tree.json` (when `ReplicateSourceTree: true`) and/or `referenced-paths.json` (when `AutoCreateNodes: true`) to create nodes on the target. The export/import code already exists in `ClassificationTreeCapture`, `NodeEnsurer`, and `NodeStructureValidator` — this is an extraction, not new development.
+- **`NodeStructureTool`** (existing, unchanged) remains a stateless `INodeStructureTool` with `TranslatePath()`. It performs pure source-path → target-path transformation with no I/O. Used by WorkItemsModule extensions, TeamsModule extensions, and by `NodeStructureModule` itself during import.
+- **`ReferencedPathTracker`** (existing service, shared) — accumulates the set of actually-referenced area/iteration paths discovered during export by other modules' extensions. Writes `Nodes/referenced-paths.json`. This is NOT part of `NodeStructureModule.ExportAsync` — it is fed by downstream module extensions during their export phase.
+
+**The referenced-paths collection flow:**
+- `NodeStructureModule.ExportAsync` captures the full source tree → `Nodes/source-tree.json`.
+- During **WorkItems export**, a NodeStructure extension on WorkItemsModule scans every revision's `System.AreaPath` and `System.IterationPath` fields and calls `ReferencedPathTracker.RecordAreaPathAsync()`/`RecordIterationPathAsync()` to accumulate the unique set of actually-referenced paths → written to `Nodes/referenced-paths.json`.
+- During **Teams export**, the Teams module similarly records team-assigned area/iteration paths to the same tracker.
+- During **NodeStructureModule import** (which runs *after* all exports), when `AutoCreateNodes: true`, only the paths in `referenced-paths.json` are created on the target (not the entire tree). When `ReplicateSourceTree: true`, the full tree is replicated.
+- The `NodeStructureTool.TranslatePath()` is then used by all downstream modules during import to translate source paths to target paths.
+
+**Why NodeStructure needed promotion from tool to module:**
+- It already owns data (`Nodes/source-tree.json`, `Nodes/referenced-paths.json`)
+- It already has an export lifecycle (`ClassificationTreeCapture.CaptureAsync`)
+- It already has an import lifecycle (`NodeEnsurer` — replicate tree, auto-create nodes)
+- It needs its own cursor for resumability
+- Multiple modules depend on its exported data existing before they run
+- `referenced-paths.json` is populated by extensions on other modules during export, then consumed by this module during import
+
+**Execution order** (operator-controlled via configuration):
+
+Export phase:
+1. `IdentitiesModule.ExportAsync` — export identity descriptors
+2. `NodeStructureModule.ExportAsync` — capture full source tree
+3. `TeamsModule.ExportAsync` — export teams (Teams NodeStructure extension records team paths to `ReferencedPathTracker`)
+4. `WorkItemsModule.ExportAsync` — export work items (WorkItems NodeStructure extension records revision paths to `ReferencedPathTracker`)
+
+Import phase:
+1. `IdentitiesModule.ImportAsync` — build identity mapping service
+2. `NodeStructureModule.ImportAsync` — create nodes on target from `source-tree.json` and/or `referenced-paths.json`
+3. `TeamsModule.ImportAsync` — import teams (Teams NodeStructure extension uses `NodeStructureTool.TranslatePath()` for path resolution)
+4. `WorkItemsModule.ImportAsync` — import work items (WorkItems NodeStructure extension uses `NodeStructureTool.TranslatePath()` for path fields)
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -56,6 +86,45 @@ As a migration operator, I want the platform to export all user and group identi
 4. **Given** a source identity that cannot be resolved by mapping or automatic matching, **When** the identity mapping service resolves it, **Then** the configured default identity is returned and the unresolved identity is recorded in `Identities/unresolved.json`.
 5. **Given** an export is interrupted mid-way, **When** the operator resumes, **Then** the module resumes from the last checkpoint and does not re-export already-captured descriptors.
 6. **Given** the `IdentitiesModule` has not completed export, **When** a downstream module (e.g., TeamsModule) attempts identity resolution during import, **Then** the system fails fast with a clear error indicating IdentitiesModule must run first.
+
+---
+
+### User Story 0b — NodeStructureModule: Export and Import Classification Node Trees (Priority: P0)
+
+As a migration operator, I want the platform to export the complete area path and iteration path trees from the source project and create/replicate them on the target, so that all downstream modules (Teams, WorkItems) can resolve paths without each implementing their own node export/import logic.
+
+**Why this priority**: Area and iteration paths are a structural prerequisite for Teams (iteration assignments, area path assignments) and WorkItems (every work item references area/iteration paths). Without the node tree on the target, nothing else can be imported correctly. This is already coded — the implementation lives in `ClassificationTreeCapture`, `NodeEnsurer`, and `NodeStructureValidator` under the existing Tool namespace. This user story extracts that code into a proper `IModule`.
+
+**Architecture note**: `NodeStructureModule.ExportAsync` only captures the full source tree → `Nodes/source-tree.json`. The `Nodes/referenced-paths.json` file is populated by extensions on *other* modules (WorkItems NodeStructure extension and Teams NodeStructure extension) via `ReferencedPathTracker` during their export phase. `NodeStructureModule.ImportAsync` then consumes both files to create nodes on the target.
+
+**Independent Test**: Can be tested by exporting nodes from a source, verifying `Nodes/source-tree.json` contains the full area + iteration tree, then importing into a target and confirming the trees exist with correct structure.
+
+**Acceptance Scenarios**:
+
+1. **Given** a source project with 20 area paths and 15 iteration paths (some nested 4 levels deep), **When** the operator runs an export with `NodeStructureModule` enabled, **Then** `Nodes/source-tree.json` contains all 35 nodes with their full paths and hierarchy.
+2. **Given** iteration nodes in the source have start/end dates, **When** the operator runs an export, **Then** the `source-tree.json` records those dates alongside the path.
+3. **Given** a package with `source-tree.json` and `ReplicateSourceTree: true`, **When** the operator runs an import, **Then** the entire source tree is replicated on the target project, creating any missing nodes.
+4. **Given** `AutoCreateNodes: true` and `Nodes/referenced-paths.json` has been populated by WorkItems/Teams export extensions, **When** the operator runs a NodeStructureModule import, **Then** only the referenced paths are created on the target (not the full tree).
+5. **Given** a node path in the package uses a different project root name than the target, **When** `NodeStructureModule` imports using `NodeStructureTool.TranslatePath()`, **Then** the project root is swapped correctly (e.g., `SourceProject\Sprint 1` → `TargetProject\Sprint 1`).
+6. **Given** an import is interrupted after creating 10 of 20 area nodes, **When** the operator resumes, **Then** the module resumes from the cursor and creates only the remaining 10 nodes (idempotent — already-existing nodes are skipped).
+7. **Given** the source tree contains localised root names (e.g., German `Bereich` instead of English `Area`), **When** the module exports, **Then** the root name is normalised to the canonical English form in the package.
+
+### User Story 0c — WorkItems NodeStructure Extension: Referenced Path Collection (Priority: P0)
+
+As a migration operator, I want the WorkItemsModule to have a NodeStructure extension that scans every exported work item revision's `System.AreaPath` and `System.IterationPath` fields and records them to `Nodes/referenced-paths.json`, so that the NodeStructureModule's import phase knows which paths are actually referenced and can create only those nodes when `AutoCreateNodes: true`.
+
+**Why this priority**: Without this extension, the NodeStructureModule has no way to know which paths are actually used by work items. It would have to replicate the entire source tree. This extension enables the `AutoCreateNodes` mode which is the most common import strategy.
+
+**Architecture note**: This extension runs during `WorkItemsModule.ExportAsync`. It uses `ReferencedPathTracker.RecordAreaPathAsync()`/`RecordIterationPathAsync()` to accumulate unique paths. The same `ReferencedPathTracker` instance is shared with the Teams NodeStructure extension. The output is `Nodes/referenced-paths.json`.
+
+**Independent Test**: Can be tested by exporting work items with the NodeStructure extension enabled, then verifying `Nodes/referenced-paths.json` contains exactly the unique set of area/iteration paths found across all exported revisions.
+
+**Acceptance Scenarios**:
+
+1. **Given** 100 work items across 5 area paths and 3 iteration paths, **When** the operator runs a WorkItems export with the NodeStructure extension enabled, **Then** `Nodes/referenced-paths.json` contains exactly 5 area paths and 3 iteration paths (deduplicated).
+2. **Given** a work item with 10 revisions that changed `System.IterationPath` three times across different sprints, **When** the extension processes that work item, **Then** all three unique iteration paths are recorded (historical paths matter).
+3. **Given** the NodeStructure extension is disabled on WorkItemsModule, **When** the operator runs an export, **Then** `Nodes/referenced-paths.json` is not updated by this module (other extensions may still contribute).
+4. **Given** both WorkItems and Teams modules export with their NodeStructure extensions enabled, **When** both complete, **Then** `referenced-paths.json` contains the union of all paths from both modules (no duplicates).
 
 ---
 
@@ -124,23 +193,29 @@ As a migration operator, I want the platform to export per-sprint capacity data 
 
 ---
 
-### User Story 5 — NodeStructure Extension: Area and Iteration Path Resolution (Priority: P5)
+### User Story 5 — NodeStructure Extension: Area and Iteration Path Resolution for Teams (Priority: P5)
 
-As a migration operator, I want the TeamsModule to use the shared NodeStructureTool (as an independently-enabled extension) to resolve and create area/iteration paths assigned to teams, so that team backlog and sprint board scoping is correct after migration.
+As a migration operator, I want the TeamsModule to use the shared `NodeStructureTool` (as an independently-enabled extension) to resolve source area/iteration paths in team assignments to target paths during import, so that team backlog and sprint board scoping is correct after migration.
 
-**Why this priority**: Area and iteration path resolution is the bridge between the Nodes package data and the team configuration. The NodeStructureTool already handles path mapping and node creation — this extension wires it into the TeamsModule context.
+**Why this priority**: The `NodeStructureModule` (US 0b) exports the full node tree and can replicate/create nodes on the target. This extension in TeamsModule uses the stateless `NodeStructureTool.TranslatePath()` to map the source paths stored in team assignments to their target equivalents. It does NOT export or create nodes itself — that is the module's job.
 
-**Independent Test**: Can be tested by exporting a team with area/iteration assignments, disabling the NodeStructure extension, and verifying source paths are used as-is. Then enabling the extension with mappings and verifying paths are resolved correctly.
+**Independent Test**: Can be tested by importing a team with area/iteration assignments, enabling the NodeStructure extension with path mappings, and verifying paths are resolved to target paths. Then disabling the extension and verifying source paths are used as-is.
 
 **Acceptance Scenarios**:
 
-1. **Given** a source team with a default area path and two additional area paths (one with include-sub-areas enabled), **When** the operator runs an export, **Then** the package records all area path assignments with their include-sub-areas flags as source path values.
-2. **Given** a package with team area/iteration assignments and the NodeStructure extension enabled with path mappings, **When** the operator runs an import, **Then** the target team has the mapped paths assigned with correct flags.
-3. **Given** the NodeStructure extension is disabled in the configuration, **When** the operator runs an import, **Then** source paths are used as-is and the module logs a warning for any path that does not exist in the target.
+1. **Given** a package with team area/iteration assignments and `NodeStructureModule` has already created the target nodes, **When** the operator runs a TeamsModule import with the NodeStructure extension enabled, **Then** the target team has the translated paths assigned with correct flags.
+2. **Given** a path mapping that remaps `SourceProject\Release 1` to `TargetProject\v1.0`, **When** the NodeStructure extension resolves a team's area assignment, **Then** the mapped path is used.
+3. **Given** the NodeStructure extension is disabled in the TeamsModule configuration, **When** the operator runs an import, **Then** source paths are used as-is and the module logs a warning for any path that does not exist in the target.
 
 ---
 
 ### Edge Cases
+
+**NodeStructureModule:**
+- What happens when the source has thousands of nodes? The module captures the entire tree in a single `source-tree.json` (this is bounded — typical projects have <500 nodes). Import creates nodes one at a time idempotently.
+- What happens when `ReplicateSourceTree` and `AutoCreateNodes` are both false? The module exports the tree for reference but creates no nodes on import. Downstream modules must handle missing paths.
+- What happens when the target already has some of the source nodes? Node creation is idempotent — existing nodes are skipped, not duplicated.
+- What happens when a node creation fails mid-import? The cursor tracks which nodes have been created. On resume, only remaining nodes are attempted.
 
 **IdentitiesModule:**
 - What happens when the source has thousands of identities? The module exports descriptors one at a time via streaming enumeration through IArtefactStore. No in-memory collection of all descriptors.
@@ -168,6 +243,9 @@ As a migration operator, I want the TeamsModule to use the shared NodeStructureT
 | `identities.export` | `module` | `IdentitiesModule.ExportAsync` | Source Identity API (ADO REST / TFS OM / Simulated), `IArtefactStore`, `IStateStore` |
 | `identities.import` | `module` | `IdentitiesModule.ImportAsync` | `IArtefactStore`, Target Directory API (for automatic UPN/display name matching) |
 | `identities.validate` | `module` | `IdentitiesModule.ValidateAsync` | `IArtefactStore` (read-only) |
+| `nodes.export` | `module` | `NodeStructureModule.ExportAsync` | Source Classification API (ADO REST / TFS OM / Simulated), `IArtefactStore`, `IStateStore` |
+| `nodes.import` | `module` | `NodeStructureModule.ImportAsync` | Target Classification API, `IArtefactStore`, `IStateStore`, `INodeStructureTool` |
+| `nodes.validate` | `module` | `NodeStructureModule.ValidateAsync` | `IArtefactStore` (read-only) |
 | `teams.export` | `module` | `TeamsModule.ExportAsync` | Source Teams API (ADO REST / TFS OM / Simulated), `IArtefactStore`, `IStateStore` |
 | `teams.import` | `module` | `TeamsModule.ImportAsync` | Target Teams API, `IArtefactStore`, `IStateStore`, `IIdentityMappingService`, `INodeStructureTool` |
 | `teams.validate` | `module` | `TeamsModule.ValidateAsync` | `IArtefactStore` (read-only) |
@@ -186,6 +264,16 @@ As a migration operator, I want the TeamsModule to use the shared NodeStructureT
 | `identities.import` | Is it correct? | How many identities were resolved vs unresolved? |
 | `identities.validate` | Is it working? | Is validation completing? |
 | `identities.validate` | What failed? | Which descriptor entries are malformed? |
+| `nodes.export` | Is it working? | Are area/iteration nodes being exported? |
+| `nodes.export` | Is it fast enough? | Is node tree capture completing promptly? |
+| `nodes.export` | What failed? | Which node export failed and why? |
+| `nodes.export` | Is it correct? | Does the node count match the source? |
+| `nodes.import` | Is it working? | Are nodes being created on the target? |
+| `nodes.import` | Is it fast enough? | Is node creation completing promptly? |
+| `nodes.import` | What failed? | Which node creation failed and why? |
+| `nodes.import` | Is it correct? | Were all required nodes created? |
+| `nodes.validate` | Is it working? | Is validation completing? |
+| `nodes.validate` | What failed? | Which entries in source-tree.json are malformed? |
 | `teams.export` | Is it working? | Are teams being exported successfully? |
 | `teams.export` | Is it fast enough? | Is export completing within acceptable time per team? |
 | `teams.export` | Is it overloaded? | How many teams are being processed concurrently? |

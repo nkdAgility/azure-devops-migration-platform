@@ -7,22 +7,9 @@ namespace DevOpsMigrationPlatform.CLI.Migration.Tests.Commands;
 public class LogsCommandTests
 {
     [TestMethod]
-    public void LogsCommand_CanBeConstructed_WithParameterlessConstructor()
+    public void LogsCommand_CanBeConstructed()
     {
-        // Act
         var command = new LogsCommand();
-
-        // Assert
-        Assert.IsNotNull(command);
-    }
-
-    [TestMethod]
-    public void LogsCommand_Constructor_SetsPropertiesCorrectly()
-    {
-        // Act
-        var command = new LogsCommand();
-
-        // Assert
         Assert.IsNotNull(command);
     }
 }

@@ -13,13 +13,6 @@ public class ManageDiagnosticsCommandTests
 {
     // ── Unit tests ────────────────────────────────────────────────────────────────
 
-    [TestMethod]
-    public void ManageDiagnosticsCommandSettings_CanBeConstructed()
-    {
-        var settings = new DevOpsMigrationPlatform.CLI.Commands.Manage.ManageDiagnosticsCommand.Settings();
-        Assert.IsNotNull(settings);
-    }
-
     // ── System tests ─────────────────────────────────────────────────────────
 
     /// <summary>

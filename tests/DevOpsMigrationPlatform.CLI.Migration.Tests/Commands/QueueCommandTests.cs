@@ -18,13 +18,6 @@ public class QueueCommandTests
     // ── Unit tests ─────────────────────────────────────────────────────────
 
     [TestMethod]
-    public void QueueCommand_CanBeConstructed_WithParameterlessConstructor()
-    {
-        var command = new DevOpsMigrationPlatform.CLI.Migration.Commands.QueueCommand();
-        Assert.IsNotNull(command);
-    }
-
-    [TestMethod]
     public void QueueCommandSettings_WithValidLevel_PassesValidation()
     {
         var settings = new DevOpsMigrationPlatform.CLI.Migration.Settings.QueueCommandSettings

@@ -10,16 +10,6 @@ namespace DevOpsMigrationPlatform.CLI.Migration.Tests.Commands;
 public class CommandBaseTests
 {
     [TestMethod]
-    public void Constructor_Parameterless_CanBeCreated()
-    {
-        // Act
-        var command = new TestCommand();
-
-        // Assert
-        Assert.IsNotNull(command);
-    }
-
-    [TestMethod]
     public async Task ExecuteAsync_WithSuccessfulCommand_ReturnsZero()
     {
         // Arrange

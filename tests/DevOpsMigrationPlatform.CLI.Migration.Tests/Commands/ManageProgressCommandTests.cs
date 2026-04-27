@@ -13,13 +13,6 @@ public class ManageProgressCommandTests
 {
     // ── Unit tests ────────────────────────────────────────────────────────────────
 
-    [TestMethod]
-    public void ManageProgressCommandSettings_CanBeConstructed()
-    {
-        var settings = new DevOpsMigrationPlatform.CLI.Commands.Manage.ManageProgressCommand.Settings();
-        Assert.IsNotNull(settings);
-    }
-
     // ── System tests ─────────────────────────────────────────────────────────
 
     /// <summary>

@@ -12,13 +12,6 @@ namespace DevOpsMigrationPlatform.CLI.Migration.Tests.Commands.Discovery;
 public class DependencyCommandTests
 {
     [TestMethod]
-    public void DependencyCommand_CanBeConstructed_WithParameterlessConstructor()
-    {
-        var command = new DependencyCommand();
-        Assert.IsNotNull(command);
-    }
-
-    [TestMethod]
     [TestCategory("SystemTest")]
     [TestCategory("SystemTest_Live")]
     [Timeout(300_000)]
