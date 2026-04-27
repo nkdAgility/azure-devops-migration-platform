@@ -4,11 +4,16 @@
 // See docs/tfs-exporter.md.
 
 using System;
+using System.Collections.Generic;
 using System.IO;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using OpenTelemetry;
+using OpenTelemetry.Metrics;
+using OpenTelemetry.Resources;
+using OpenTelemetry.Trace;
 using Serilog;
 using Serilog.Events;
 using DevOpsMigrationPlatform.Abstractions;
@@ -37,6 +42,15 @@ namespace DevOpsMigrationPlatform.TfsMigrationAgent
                 cfgBuilder.AddCommandLine(args);
             });
 
+            builder.ConfigureLogging((ctx, logging) =>
+            {
+                logging.AddOpenTelemetry(otelLogging =>
+                {
+                    otelLogging.IncludeFormattedMessage = true;
+                    otelLogging.IncludeScopes = true;
+                });
+            });
+
             builder.UseSerilog((ctx, _, loggerConfig) =>
             {
                 loggerConfig
@@ -53,6 +67,42 @@ namespace DevOpsMigrationPlatform.TfsMigrationAgent
                     ctx.Configuration["ControlPlane:BaseUrl"] ?? "http://localhost:5100");
 
                 services.AddTfsMigrationAgentServices(ctx.Configuration, controlPlaneBaseUrl);
+
+                // ── OpenTelemetry (inline — ServiceDefaults requires IHostApplicationBuilder) ──
+                var deploymentMode = ctx.Configuration["MigrationPlatform:Environment:Type"] ?? "Standalone";
+                var controlPlaneUrl = ctx.Configuration["MigrationPlatform:Environment:ControlPlane:BaseUrl"]
+                                     ?? "http://localhost:5100";
+
+                var otel = services.AddOpenTelemetry();
+
+                otel.ConfigureResource(rb => rb.AddAttributes(
+                    new Dictionary<string, object>
+                    {
+                        { "service.name", WellKnownServiceNames.TfsMigrationAgent },
+                        { "service.namespace", WellKnownServiceNames.Namespace },
+                        { WellKnownResourceAttributes.DeploymentMode, deploymentMode },
+                        { WellKnownResourceAttributes.ControlPlaneUrl, controlPlaneUrl }
+                    }));
+
+                otel.WithMetrics(metrics =>
+                    metrics.AddHttpClientInstrumentation()
+                           .AddRuntimeInstrumentation()
+                           .AddMeter(WellKnownMeterNames.Migration)
+                           .AddMeter(WellKnownMeterNames.Discovery)
+                           .AddMeter(WellKnownMeterNames.ControlPlane));
+
+                otel.WithTracing(tracing =>
+                    tracing.AddHttpClientInstrumentation()
+                           .AddSource(WellKnownActivitySourceNames.Migration)
+                           .AddSource(WellKnownActivitySourceNames.Discovery)
+                           .AddSource(WellKnownActivitySourceNames.ControlPlane));
+
+                // OTLP export — opt-in via standard OTEL_EXPORTER_OTLP_ENDPOINT env var.
+                var otlpEndpoint = ctx.Configuration["OTEL_EXPORTER_OTLP_ENDPOINT"];
+                if (!string.IsNullOrWhiteSpace(otlpEndpoint))
+                {
+                    otel.UseOtlpExporter();
+                }
             });
 
             builder.UseConsoleLifetime(o => o.SuppressStatusMessages = true);
