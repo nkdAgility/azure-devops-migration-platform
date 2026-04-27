@@ -14,6 +14,7 @@ using OpenTelemetry;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
+using Azure.Monitor.OpenTelemetry.Exporter;
 using Serilog;
 using Serilog.Events;
 using DevOpsMigrationPlatform.Abstractions;
@@ -72,6 +73,9 @@ namespace DevOpsMigrationPlatform.TfsMigrationAgent
                 var deploymentMode = ctx.Configuration["MigrationPlatform:Environment:Type"] ?? "Standalone";
                 var controlPlaneUrl = ctx.Configuration["MigrationPlatform:Environment:ControlPlane:BaseUrl"]
                                      ?? "http://localhost:5100";
+                var azureMonitorConnectionString = ctx.Configuration["Telemetry:AzureMonitorConnectionString"];
+                var hasAzureMonitor = !string.IsNullOrWhiteSpace(azureMonitorConnectionString);
+                var hasOtlpEndpoint = !string.IsNullOrWhiteSpace(ctx.Configuration["OTEL_EXPORTER_OTLP_ENDPOINT"]);
 
                 var otel = services.AddOpenTelemetry();
 
@@ -85,26 +89,33 @@ namespace DevOpsMigrationPlatform.TfsMigrationAgent
                     }));
 
                 otel.WithMetrics(metrics =>
+                {
                     metrics.AddHttpClientInstrumentation()
                            .AddRuntimeInstrumentation()
                            .AddMeter(WellKnownMeterNames.Migration)
                            .AddMeter(WellKnownMeterNames.Discovery)
-                           .AddMeter(WellKnownMeterNames.ControlPlane));
+                           .AddMeter(WellKnownMeterNames.ControlPlane);
+
+                    if (hasOtlpEndpoint)
+                        metrics.AddOtlpExporter();
+                    if (hasAzureMonitor)
+                        metrics.AddAzureMonitorMetricExporter(o => o.ConnectionString = azureMonitorConnectionString);
+                });
 
                 otel.WithTracing(tracing =>
+                {
                     tracing.AddHttpClientInstrumentation()
                            .AddSource(WellKnownActivitySourceNames.Migration)
                            .AddSource(WellKnownActivitySourceNames.Discovery)
                            .AddSource(WellKnownActivitySourceNames.ControlPlane)
                            .AddSource(Infrastructure.TfsObjectModel.Telemetry.MigrationPlatformActivitySources.WorkItemExport.Name)
-                           .AddSource(Infrastructure.TfsObjectModel.Telemetry.MigrationPlatformActivitySources.AttachmentDownload.Name));
+                           .AddSource(Infrastructure.TfsObjectModel.Telemetry.MigrationPlatformActivitySources.AttachmentDownload.Name);
 
-                // OTLP export — opt-in via standard OTEL_EXPORTER_OTLP_ENDPOINT env var.
-                var otlpEndpoint = ctx.Configuration["OTEL_EXPORTER_OTLP_ENDPOINT"];
-                if (!string.IsNullOrWhiteSpace(otlpEndpoint))
-                {
-                    otel.UseOtlpExporter();
-                }
+                    if (hasOtlpEndpoint)
+                        tracing.AddOtlpExporter();
+                    if (hasAzureMonitor)
+                        tracing.AddAzureMonitorTraceExporter(o => o.ConnectionString = azureMonitorConnectionString);
+                });
             });
 
             builder.UseConsoleLifetime(o => o.SuppressStatusMessages = true);
