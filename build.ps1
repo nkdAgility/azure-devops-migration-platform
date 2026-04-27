@@ -51,6 +51,9 @@
       Production (release) :  Build  →  Test  →  SystemTest_Simulated  →  SystemTest_Live  →  Package
       Developer local      :  Install  (or Start to also launch Aspire)
 
+    The -Fast switch skips all system tests (SystemTest, SystemTest_Simulated,
+    SystemTest_Live) in Install and Start modes for faster iteration.
+
     Prerequisites:
       - .NET SDK (see global.json)
       - GitVersion.Tool 6.1.0:
@@ -88,13 +91,16 @@
     pwsh ./build.ps1 -Mode Full
     pwsh ./build.ps1 -Mode Start
     pwsh ./build.ps1 -Mode Install
+    pwsh ./build.ps1 -Mode Install -Fast  # Skip system tests
     pwsh ./build.ps1 -Version 16.9.3  # Override version
 #>
 param(
     [ValidateSet('Build', 'Test', 'SystemTest', 'SystemTest_Simulated', 'SystemTest_Live', 'Package', 'Full', 'Start', 'Install')]
     [string]$Mode = 'Full',
 
-    [string]$Version
+    [string]$Version,
+
+    [switch]$Fast
 )
 
 $ErrorActionPreference = 'Stop'
@@ -719,8 +725,12 @@ switch ($Mode) {
         $localRid = Get-CurrentRid
         Invoke-Build   -VersionArgs $VersionArgs
         Invoke-UnitTests
-        Invoke-SimulatedSystemTests
-        Invoke-LiveSystemTests
+        if (-not $Fast) {
+            Invoke-SimulatedSystemTests
+            Invoke-LiveSystemTests
+        } else {
+            Write-Host "`n==> Skipping system tests (-Fast)" -ForegroundColor Yellow
+        }
         Invoke-Publish -StagingDir $StagingDir -VersionArgs $VersionArgs -TargetRids @($localRid)
         Invoke-Package -SemVer $SemVer -StagingDir $StagingDir -TargetRids @($localRid)
         $installedDir = Invoke-Install -SemVer $SemVer
@@ -735,8 +745,12 @@ switch ($Mode) {
         $localRid = Get-CurrentRid
         Invoke-Build   -VersionArgs $VersionArgs
         Invoke-UnitTests
-        Invoke-SimulatedSystemTests
-        Invoke-LiveSystemTests
+        if (-not $Fast) {
+            Invoke-SimulatedSystemTests
+            Invoke-LiveSystemTests
+        } else {
+            Write-Host "`n==> Skipping system tests (-Fast)" -ForegroundColor Yellow
+        }
         Invoke-Publish -StagingDir $StagingDir -VersionArgs $VersionArgs -TargetRids @($localRid)
         Invoke-Package -SemVer $SemVer -StagingDir $StagingDir -TargetRids @($localRid)
         Invoke-Install -SemVer $SemVer
