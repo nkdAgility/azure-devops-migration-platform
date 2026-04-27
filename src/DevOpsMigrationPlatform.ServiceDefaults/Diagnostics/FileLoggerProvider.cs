@@ -9,18 +9,20 @@ namespace DevOpsMigrationPlatform.Diagnostics;
 internal sealed class FileLoggerProvider : ILoggerProvider
 {
     private readonly StreamWriter _writer;
+    private readonly object _lock = new();
 
     public FileLoggerProvider(string filePath)
     {
         Directory.CreateDirectory(Path.GetDirectoryName(filePath)!);
-        _writer = new StreamWriter(filePath, append: true) { AutoFlush = true };
+        var stream = new FileStream(filePath, FileMode.Append, FileAccess.Write, FileShare.ReadWrite);
+        _writer = new StreamWriter(stream) { AutoFlush = true };
     }
 
-    public ILogger CreateLogger(string categoryName) => new FileLogger(_writer, categoryName);
+    public ILogger CreateLogger(string categoryName) => new FileLogger(this, categoryName);
 
     public void Dispose() => _writer.Dispose();
 
-    private sealed class FileLogger(StreamWriter writer, string categoryName) : ILogger
+    private sealed class FileLogger(FileLoggerProvider provider, string categoryName) : ILogger
     {
         public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
 
@@ -37,11 +39,14 @@ internal sealed class FileLoggerProvider : ILoggerProvider
                 return;
 
             var message = formatter(state, exception);
-            writer.WriteLine($"[{DateTimeOffset.UtcNow:O}] [{logLevel}] {categoryName}: {message}");
-
-            if (exception is not null)
+            lock (provider._lock)
             {
-                writer.WriteLine($"  Exception: {exception}");
+                provider._writer.WriteLine($"[{DateTimeOffset.UtcNow:O}] [{logLevel}] {categoryName}: {message}");
+
+                if (exception is not null)
+                {
+                    provider._writer.WriteLine($"  Exception: {exception}");
+                }
             }
         }
     }

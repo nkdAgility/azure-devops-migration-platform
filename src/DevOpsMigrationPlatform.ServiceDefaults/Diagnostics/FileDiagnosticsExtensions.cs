@@ -35,7 +35,7 @@ public static class FileDiagnosticsExtensions
         return builder.AddReader(
             new OpenTelemetry.Metrics.PeriodicExportingMetricReader(
                 new FileMetricExporter(filePath),
-                exportIntervalMilliseconds: 10_000));
+                exportIntervalMilliseconds: 2_000));
     }
 
     /// <summary>
@@ -50,9 +50,21 @@ public static class FileDiagnosticsExtensions
         return builder;
     }
 
+    private const string SessionIdEnvVar = "Telemetry__DiagnosticsSessionId";
+
     /// <summary>
     /// Resolves <c>Telemetry:DiagnosticsPath</c> from configuration.
-    /// Returns null if not configured.
+    /// Returns null if not configured. When configured, creates a session
+    /// subfolder so that all processes in the same run share one folder.
+    /// <para>
+    /// Session identity resolution order:
+    /// <list type="number">
+    /// <item><c>Telemetry:DiagnosticsSessionId</c> from configuration</item>
+    /// <item><c>Telemetry__DiagnosticsSessionId</c> environment variable (inherited from parent)</item>
+    /// <item>A new <c>yyyyMMdd-HHmmss</c> timestamp, which is then published to the
+    ///       environment variable so child processes inherit it.</item>
+    /// </list>
+    /// </para>
     /// </summary>
     public static string? GetDiagnosticsPath(IConfiguration configuration)
     {
@@ -60,7 +72,22 @@ public static class FileDiagnosticsExtensions
         if (string.IsNullOrWhiteSpace(path))
             return null;
 
-        // Resolve relative paths against current directory
-        return Path.IsPathRooted(path) ? path : Path.GetFullPath(path);
+        var basePath = Path.IsPathRooted(path) ? path : Path.GetFullPath(path);
+
+        // 1. Explicit config value
+        var sessionId = configuration["Telemetry:DiagnosticsSessionId"];
+
+        // 2. Inherited from parent process via env var
+        if (string.IsNullOrWhiteSpace(sessionId))
+            sessionId = Environment.GetEnvironmentVariable(SessionIdEnvVar);
+
+        // 3. Generate and publish for child processes
+        if (string.IsNullOrWhiteSpace(sessionId))
+        {
+            sessionId = DateTime.UtcNow.ToString("yyyyMMdd-HHmmss");
+            Environment.SetEnvironmentVariable(SessionIdEnvVar, sessionId);
+        }
+
+        return Path.Combine(basePath, sessionId);
     }
 }

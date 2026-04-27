@@ -91,8 +91,19 @@ namespace DevOpsMigrationPlatform.TfsMigrationAgent
                 var hasOtlpEndpoint = !string.IsNullOrWhiteSpace(ctx.Configuration["OTEL_EXPORTER_OTLP_ENDPOINT"]);
                 var diagnosticsPath = ctx.Configuration["Telemetry:DiagnosticsPath"];
                 var hasDiagnostics = !string.IsNullOrWhiteSpace(diagnosticsPath);
-                if (hasDiagnostics && !Path.IsPathRooted(diagnosticsPath))
-                    diagnosticsPath = Path.GetFullPath(diagnosticsPath);
+                if (hasDiagnostics)
+                {
+                    if (!Path.IsPathRooted(diagnosticsPath))
+                        diagnosticsPath = Path.GetFullPath(diagnosticsPath);
+                    var sessionId = ctx.Configuration["Telemetry:DiagnosticsSessionId"]
+                        ?? Environment.GetEnvironmentVariable("Telemetry__DiagnosticsSessionId");
+                    if (string.IsNullOrWhiteSpace(sessionId))
+                    {
+                        sessionId = DateTime.UtcNow.ToString("yyyyMMdd-HHmmss");
+                        Environment.SetEnvironmentVariable("Telemetry__DiagnosticsSessionId", sessionId);
+                    }
+                    diagnosticsPath = Path.Combine(diagnosticsPath, sessionId);
+                }
 
                 var otel = services.AddOpenTelemetry();
 
@@ -122,7 +133,7 @@ namespace DevOpsMigrationPlatform.TfsMigrationAgent
                         var metricsFile = Path.Combine(diagnosticsPath, $"{WellKnownServiceNames.TfsMigrationAgent}-metrics.log");
                         Directory.CreateDirectory(Path.GetDirectoryName(metricsFile));
                         metrics.AddReader(new OpenTelemetry.Metrics.PeriodicExportingMetricReader(
-                            new TfsFileMetricExporter(metricsFile), exportIntervalMilliseconds: 10_000));
+                            new TfsFileMetricExporter(metricsFile), exportIntervalMilliseconds: 2_000));
                     }
                 });
 

@@ -11,25 +11,30 @@ namespace DevOpsMigrationPlatform.Diagnostics;
 internal sealed class FileTraceExporter : BaseExporter<Activity>
 {
     private readonly StreamWriter _writer;
+    private readonly object _lock = new();
 
     public FileTraceExporter(string filePath)
     {
         Directory.CreateDirectory(Path.GetDirectoryName(filePath)!);
-        _writer = new StreamWriter(filePath, append: true) { AutoFlush = true };
+        var stream = new FileStream(filePath, FileMode.Append, FileAccess.Write, FileShare.ReadWrite);
+        _writer = new StreamWriter(stream) { AutoFlush = true };
     }
 
     public override ExportResult Export(in Batch<Activity> batch)
     {
-        foreach (var activity in batch)
+        lock (_lock)
         {
-            _writer.WriteLine(
-                $"[{activity.StartTimeUtc:O}] {activity.Source.Name}/{activity.DisplayName} " +
-                $"({activity.Duration.TotalMilliseconds:F1}ms) TraceId={activity.TraceId} " +
-                $"SpanId={activity.SpanId} Status={activity.Status}");
-
-            foreach (var tag in activity.TagObjects)
+            foreach (var activity in batch)
             {
-                _writer.WriteLine($"  {tag.Key}={tag.Value}");
+                _writer.WriteLine(
+                    $"[{activity.StartTimeUtc:O}] {activity.Source.Name}/{activity.DisplayName} " +
+                    $"({activity.Duration.TotalMilliseconds:F1}ms) TraceId={activity.TraceId} " +
+                    $"SpanId={activity.SpanId} Status={activity.Status}");
+
+                foreach (var tag in activity.TagObjects)
+                {
+                    _writer.WriteLine($"  {tag.Key}={tag.Value}");
+                }
             }
         }
 

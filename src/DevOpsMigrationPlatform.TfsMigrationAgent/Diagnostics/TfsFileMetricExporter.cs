@@ -11,49 +11,54 @@ namespace DevOpsMigrationPlatform.TfsMigrationAgent
     internal sealed class TfsFileMetricExporter : BaseExporter<Metric>
     {
         private readonly StreamWriter _writer;
+        private readonly object _lock = new object();
 
         public TfsFileMetricExporter(string filePath)
         {
             Directory.CreateDirectory(Path.GetDirectoryName(filePath));
-            _writer = new StreamWriter(filePath, append: true) { AutoFlush = true };
+            var stream = new FileStream(filePath, FileMode.Append, FileAccess.Write, FileShare.ReadWrite);
+            _writer = new StreamWriter(stream) { AutoFlush = true };
         }
 
         public override ExportResult Export(in Batch<Metric> batch)
         {
-            foreach (var metric in batch)
+            lock (_lock)
             {
-                foreach (ref readonly var point in metric.GetMetricPoints())
+                foreach (var metric in batch)
                 {
-                    _writer.Write($"[{point.EndTime:O}] {metric.MeterName}/{metric.Name}");
-
-                    switch (metric.MetricType)
+                    foreach (ref readonly var point in metric.GetMetricPoints())
                     {
-                        case MetricType.LongSum:
-                            _writer.Write($" Sum={point.GetSumLong()}");
-                            break;
-                        case MetricType.DoubleSum:
-                            _writer.Write($" Sum={point.GetSumDouble()}");
-                            break;
-                        case MetricType.LongGauge:
-                            _writer.Write($" Gauge={point.GetGaugeLastValueLong()}");
-                            break;
-                        case MetricType.DoubleGauge:
-                            _writer.Write($" Gauge={point.GetGaugeLastValueDouble()}");
-                            break;
-                        case MetricType.Histogram:
-                            _writer.Write($" Count={point.GetHistogramCount()} Sum={point.GetHistogramSum()}");
-                            break;
-                        default:
-                            _writer.Write($" ({metric.MetricType})");
-                            break;
-                    }
+                        _writer.Write($"[{point.EndTime:O}] {metric.MeterName}/{metric.Name}");
 
-                    foreach (var tag in point.Tags)
-                    {
-                        _writer.Write($" {tag.Key}={tag.Value}");
-                    }
+                        switch (metric.MetricType)
+                        {
+                            case MetricType.LongSum:
+                                _writer.Write($" Sum={point.GetSumLong()}");
+                                break;
+                            case MetricType.DoubleSum:
+                                _writer.Write($" Sum={point.GetSumDouble()}");
+                                break;
+                            case MetricType.LongGauge:
+                                _writer.Write($" Gauge={point.GetGaugeLastValueLong()}");
+                                break;
+                            case MetricType.DoubleGauge:
+                                _writer.Write($" Gauge={point.GetGaugeLastValueDouble()}");
+                                break;
+                            case MetricType.Histogram:
+                                _writer.Write($" Count={point.GetHistogramCount()} Sum={point.GetHistogramSum()}");
+                                break;
+                            default:
+                                _writer.Write($" ({metric.MetricType})");
+                                break;
+                        }
 
-                    _writer.WriteLine();
+                        foreach (var tag in point.Tags)
+                        {
+                            _writer.Write($" {tag.Key}={tag.Value}");
+                        }
+
+                        _writer.WriteLine();
+                    }
                 }
             }
 
