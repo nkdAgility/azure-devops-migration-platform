@@ -65,7 +65,7 @@ public static class TfsMigrationAgentServiceExtensions
 
         // Per-job TFS Object Model service factory — creates TFS connections, revision sources,
         // attachment sources, tree readers, and discovery services per job based on the endpoint.
-        services.AddSingleton<TfsJobServiceFactory>();
+        services.AddSingleton<ITfsJobServiceFactory, TfsJobServiceFactory>();
 
         // Diagnostic log pipeline — register inline since AddDiagnosticsServices requires
         // IHostApplicationBuilder (not available on net481 Host.CreateDefaultBuilder path).

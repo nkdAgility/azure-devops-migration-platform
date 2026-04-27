@@ -49,7 +49,7 @@ public sealed class TfsJobAgentWorker : AgentWorkerBase
     private readonly IJobSnapshotStore _snapshotStore;
     private readonly PackageProgressSink _packageProgressSink;
     private readonly PackageLoggerProvider _packageLoggerProvider;
-    private readonly TfsJobServiceFactory _tfsServiceFactory;
+    private readonly ITfsJobServiceFactory _tfsServiceFactory;
     private readonly ILogger<TfsJobAgentWorker> _logger;
 
     private static readonly ActivitySource ActivitySource = new(WellKnownActivitySourceNames.Migration);
@@ -73,7 +73,7 @@ public sealed class TfsJobAgentWorker : AgentWorkerBase
         IJobSnapshotStore snapshotStore,
         PackageProgressSink packageProgressSink,
         PackageLoggerProvider packageLoggerProvider,
-        TfsJobServiceFactory tfsServiceFactory,
+        ITfsJobServiceFactory tfsServiceFactory,
         ILogger<TfsJobAgentWorker> logger)
         : base(leaseState, packageState, httpClientFactory, logger)
     {

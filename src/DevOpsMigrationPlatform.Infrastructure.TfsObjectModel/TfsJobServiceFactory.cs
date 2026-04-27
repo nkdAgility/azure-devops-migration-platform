@@ -25,7 +25,7 @@ namespace DevOpsMigrationPlatform.Infrastructure.TfsObjectModel;
 /// Structural twin of the registrations in <see cref="MigrationPlatformHost.CreateDefaultBuilder"/>
 /// but designed for the agent model where the TFS endpoint comes from the job, not from CLI args.
 /// </summary>
-public sealed class TfsJobServiceFactory : IDisposable
+public sealed class TfsJobServiceFactory : ITfsJobServiceFactory, IDisposable
 {
     private readonly ILoggerFactory _loggerFactory;
 
