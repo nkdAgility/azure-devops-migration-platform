@@ -41,31 +41,21 @@ public class ExportCommandFollowTests
     /// </summary>
     [TestMethod]
     [TestCategory("SystemTest")]
-    [TestCategory("SystemTest_Live")]
-    [Timeout(1_200_000)] // 20 minutes
+    [TestCategory("SystemTest_Simulated")]
+    [Timeout(120_000)] // 2 minutes
     public async Task ExportCommand_WithFollowAndWarningLevel_ExitsZero_AndWritesRevisionFiles()
     {
-        // ── Guard ─────────────────────────────────────────────────────────────
-        if (string.IsNullOrEmpty(Environment.GetEnvironmentVariable("AZDEVOPS_SYSTEM_TEST_ORG")) ||
-            string.IsNullOrEmpty(Environment.GetEnvironmentVariable("AZDEVOPS_SYSTEM_TEST_PAT")))
-        {
-            Assert.Fail(
-                "System test skipped: AZDEVOPS_SYSTEM_TEST_ORG and AZDEVOPS_SYSTEM_TEST_PAT must be set. " +
-                "See docs/contributors.md for setup instructions.");
-            return;
-        }
-
         // ── Output folder ───────────────────────────────────────────────────────────
         var outputDir = Path.Combine(
-            CliRunner.FindRepoRoot(), "storage", "queue-export-ado-workitems-single-project");
+            CliRunner.FindRepoRoot(), "storage", "queue-export-workitems-simulated-source");
         if (Directory.Exists(outputDir))
             Directory.Delete(outputDir, recursive: true);
 
         // ── Act — run with --follow and --level Warning ────────────────────
         var result = await CliRunner.RunAsync(
-            args: ["queue", "--config", "scenarios/queue-export-ado-workitems-single-project.json",
+            args: ["queue", "--config", "scenarios/queue-export-workitems-simulated-source.json",
                    "--force-fresh", "--follow", "--level", "Warning"],
-            timeout: TimeSpan.FromMinutes(18));
+            timeout: TimeSpan.FromMinutes(1));
 
         Console.WriteLine("=== STDOUT ===");
         Console.WriteLine(result.StandardOutput);
@@ -105,31 +95,21 @@ public class ExportCommandFollowTests
     /// </summary>
     [TestMethod]
     [TestCategory("SystemTest")]
-    [TestCategory("SystemTest_Live")]
-    [Timeout(1_200_000)] // 20 minutes
+    [TestCategory("SystemTest_Simulated")]
+    [Timeout(120_000)] // 2 minutes
     public async Task ExportCommand_WithDebugLevel_WritesAgentJsonl()
     {
-        // ── Guard ─────────────────────────────────────────────────────────────
-        if (string.IsNullOrEmpty(Environment.GetEnvironmentVariable("AZDEVOPS_SYSTEM_TEST_ORG")) ||
-            string.IsNullOrEmpty(Environment.GetEnvironmentVariable("AZDEVOPS_SYSTEM_TEST_PAT")))
-        {
-            Assert.Fail(
-                "System test skipped: AZDEVOPS_SYSTEM_TEST_ORG and AZDEVOPS_SYSTEM_TEST_PAT must be set. " +
-                "See docs/contributors.md for setup instructions.");
-            return;
-        }
-
         // ── Output folder ───────────────────────────────────────────────────────────
         var outputDir = Path.Combine(
-            CliRunner.FindRepoRoot(), "storage", "queue-export-ado-workitems-single-project");
+            CliRunner.FindRepoRoot(), "storage", "queue-export-workitems-simulated-source");
         if (Directory.Exists(outputDir))
             Directory.Delete(outputDir, recursive: true);
 
         // ── Act — run with --level Debug ──────────────────────────────────
         var result = await CliRunner.RunAsync(
-            args: ["queue", "--config", "scenarios/queue-export-ado-workitems-single-project.json",
+            args: ["queue", "--config", "scenarios/queue-export-workitems-simulated-source.json",
                    "--force-fresh", "--level", "Debug"],
-            timeout: TimeSpan.FromMinutes(18));
+            timeout: TimeSpan.FromMinutes(1));
 
         Console.WriteLine("=== STDOUT ===");
         Console.WriteLine(result.StandardOutput);

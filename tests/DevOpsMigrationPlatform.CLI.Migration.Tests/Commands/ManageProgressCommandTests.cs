@@ -22,20 +22,10 @@ public class ManageProgressCommandTests
     /// </summary>
     [TestMethod]
     [TestCategory("SystemTest")]
-    [TestCategory("SystemTest_Live")]
-    [Timeout(1_500_000)] // 25 minutes — export + progress query
+    [TestCategory("SystemTest_Simulated")]
+    [Timeout(240_000)] // 4 minutes — export + progress query
     public async Task ManageProgressCommand_SystemTest_AfterExport_ExitsZero_AndShowsProgressEvents()
     {
-        // ── Guard ─────────────────────────────────────────────────────────────
-        if (string.IsNullOrEmpty(Environment.GetEnvironmentVariable("AZDEVOPS_SYSTEM_TEST_ORG")) ||
-            string.IsNullOrEmpty(Environment.GetEnvironmentVariable("AZDEVOPS_SYSTEM_TEST_PAT")))
-        {
-            Assert.Fail(
-                "System test skipped: AZDEVOPS_SYSTEM_TEST_ORG and AZDEVOPS_SYSTEM_TEST_PAT must be set. " +
-                "See docs/contributors.md for setup instructions.");
-            return;
-        }
-
         // ── Start control plane (reuse if already running) ──────────────────────
         await using var controlPlane = await ControlPlaneHostRunner.FindOrStartAsync(
             readyTimeout: TimeSpan.FromSeconds(30));
@@ -50,9 +40,9 @@ public class ManageProgressCommandTests
         };
 
         var exportResult = await CliRunner.RunAsync(
-            args: ["queue", "--config", "scenarios/queue-export-ado-workitems-single-project.json", "--force-fresh"],
+            args: ["queue", "--config", "scenarios/queue-export-workitems-simulated-source.json", "--force-fresh"],
             env: hostedEnv,
-            timeout: TimeSpan.FromMinutes(20));
+            timeout: TimeSpan.FromMinutes(2));
 
         Console.WriteLine("=== EXPORT STDOUT ===");
         Console.WriteLine(exportResult.StandardOutput);
