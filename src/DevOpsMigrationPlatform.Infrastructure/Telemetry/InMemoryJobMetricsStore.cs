@@ -1,5 +1,4 @@
 using DevOpsMigrationPlatform.Abstractions;
-#if !NETFRAMEWORK
 using System.Threading;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Telemetry;
@@ -18,4 +17,3 @@ public sealed class InMemoryJobMetricsStore : IJobMetricsStore
 
     public JobMetrics? Latest => _latest;
 }
-#endif

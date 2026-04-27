@@ -17,4 +17,7 @@ public class MigrationJob : Job
 
     /// <summary>Target system connection. Required for Import and Both.</summary>
     public MigrationEndpointOptions? Target { get; init; }
+
+    /// <inheritdoc />
+    public override string? GetSourceType() => Source?.Type;
 }

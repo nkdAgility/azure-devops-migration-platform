@@ -26,6 +26,13 @@ public interface IJobStore
     Task<Job?> DequeueAsync(TimeSpan timeout, CancellationToken cancellationToken);
 
     /// <summary>
+    /// Dequeues one pending job whose <see cref="Job.GetSourceType"/> matches one of
+    /// the given <paramref name="capabilities"/>. Non-matching jobs are re-enqueued.
+    /// Returns <c>null</c> if no matching job is found within <paramref name="timeout"/>.
+    /// </summary>
+    Task<Job?> DequeueAsync(TimeSpan timeout, IReadOnlyList<string> capabilities, CancellationToken cancellationToken);
+
+    /// <summary>
     /// Returns a snapshot of all submitted jobs.
     /// </summary>
     IReadOnlyList<Job> GetAll();

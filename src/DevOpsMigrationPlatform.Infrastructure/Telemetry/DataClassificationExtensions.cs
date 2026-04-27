@@ -1,4 +1,3 @@
-#if !NETFRAMEWORK
 using System;
 using DevOpsMigrationPlatform.Abstractions.Telemetry;
 using Microsoft.Extensions.Logging;
@@ -47,4 +46,3 @@ public static class DataClassificationExtensions
         }
     }
 }
-#endif

@@ -1,4 +1,3 @@
-#if !NETFRAMEWORK
 using System;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Telemetry;
@@ -32,4 +31,3 @@ public sealed class AnsiProgressSink : IProgressSink
         }
     }
 }
-#endif

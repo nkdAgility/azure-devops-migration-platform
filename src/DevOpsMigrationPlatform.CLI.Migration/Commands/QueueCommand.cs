@@ -26,12 +26,11 @@ namespace DevOpsMigrationPlatform.CLI.Migration.Commands;
 /// Submits a migration job to the control plane. Behaviour (export, import, or full
 /// lifecycle) is determined by the <c>mode</c> field in the configuration file.
 ///
-/// When <c>mode</c> is <c>Export</c> and <c>config.Source.Type == "TeamFoundationServer"</c>,
-/// the command transparently delegates to <see cref="TfsExportRunner"/> (the net481
-/// subprocess bridge). This keeps TFS OM handling invisible to the operator.
+/// All source types (AzureDevOpsServices, TeamFoundationServer, Simulated) submit
+/// jobs to the control plane. The appropriate agent picks up the job via
+/// capability-based routing.
 ///
-/// No migration logic runs in this command — all execution happens in the agent
-/// (Azure DevOps path) or the TFS subprocess (TFS path).
+/// No migration logic runs in this command — all execution happens in the agent.
 /// See docs/cli.md and system-architecture guardrail rules 16 and 19.
 /// </summary>
 public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
@@ -53,11 +52,7 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
 
             services.AddTransient<IJobSubmissionClient>(sp => sp.GetRequiredService<ControlPlaneClient>());
 
-            // TFS subprocess services — registered unconditionally so DI resolves them
-            // correctly when the source type is TeamFoundationServer.
             services.AddSingleton<IProgressSink, AnsiProgressSink>();
-            services.AddSingleton<TfsExporterProcessAdapter>();
-            services.AddSingleton<IExternalToolRunner, ExternalToolRunner>();
         });
 
         var config = await LoadConfigurationAsync(settings, cancellationToken);
@@ -222,14 +217,13 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
 
     private async Task<int> ExecuteExportAsync(MigrationOptions config, QueueCommandSettings settings, CancellationToken cancellationToken)
     {
-        // Delegate to the TFS subprocess runner for on-premises sources.
-        if (string.Equals(config.Source?.Type, "TeamFoundationServer", StringComparison.Ordinal))
-            return await TfsExportRunner.RunAsync(config, Host!.Services, tfsExportExePathOverride: null, cancellationToken);
-
         // Simulated source: no WIQL, no discovery, no credentials — build a minimal job.
         if (string.Equals(config.Source?.Type, "Simulated", StringComparison.Ordinal))
             return await ExecuteSimulatedExportAsync(config, settings, cancellationToken);
 
+        // All other source types (AzureDevOpsServices, TeamFoundationServer) submit
+        // to the control plane. The appropriate agent (MigrationAgent or TfsMigrationAgent)
+        // picks up the job via capability routing.
         return await ExecuteAdoExportAsync(config, settings, cancellationToken);
     }
 

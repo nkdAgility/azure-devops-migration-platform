@@ -1,4 +1,3 @@
-#if !NETFRAMEWORK
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -15,7 +14,7 @@ public sealed class CompositeProgressSink : IProgressSink
     public CompositeProgressSink(ILogger<CompositeProgressSink> logger, params IProgressSink[] sinks)
     {
         _logger = logger;
-        _sinks  = sinks.ToList();
+        _sinks = sinks.ToList();
     }
 
     public void Emit(ProgressEvent evt)
@@ -33,4 +32,3 @@ public sealed class CompositeProgressSink : IProgressSink
         }
     }
 }
-#endif

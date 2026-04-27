@@ -681,6 +681,21 @@
             "stopAtEntry": false,
             "preLaunchTask": "build-tfs-cli"
         },
+        // ── TFS Agent (net481): first-class polling agent ─────────────────────
+        {
+            "name": "🔴 TFS Agent: Run",
+            "type": "coreclr",
+            "request": "launch",
+            "program": "${workspaceFolder}/src/DevOpsMigrationPlatform.TfsMigrationAgent/bin/Debug/net481/tfsmigration.exe",
+            "args": [],
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "ControlPlane__BaseUrl": "http://localhost:5100"
+            },
+            "console": "integratedTerminal",
+            "stopAtEntry": false,
+            "preLaunchTask": "build-tfs-agent"
+        },
         // ── Standalone process-per-component debugging ────────────────────────
         // These profiles launch ControlPlane and MigrationAgent directly from
         // their project output, enabling breakpoints in all three processes

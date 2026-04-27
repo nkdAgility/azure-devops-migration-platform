@@ -15,6 +15,7 @@
     <Project Path="src/DevOpsMigrationPlatform.AppHost/DevOpsMigrationPlatform.AppHost.csproj" />
     <Project Path="src/DevOpsMigrationPlatform.CLI.Migration/DevOpsMigrationPlatform.CLI.Migration.csproj" />
     <Project Path="src/DevOpsMigrationPlatform.CLI.TfsMigration/DevOpsMigrationPlatform.CLI.TfsMigration.csproj" />
+    <Project Path="src/DevOpsMigrationPlatform.TfsMigrationAgent/DevOpsMigrationPlatform.TfsMigrationAgent.csproj" />
     <Project Path="src/DevOpsMigrationPlatform.Infrastructure.Simulated/DevOpsMigrationPlatform.Infrastructure.Simulated.csproj" />
   </Folder>
   <Folder Name="/tests/">

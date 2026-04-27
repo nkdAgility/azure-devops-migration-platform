@@ -1,4 +1,3 @@
-#if !NETFRAMEWORK
 using System;
 using System.Net.Http;
 using System.Net.Http.Json;
@@ -94,4 +93,3 @@ public sealed class ControlPlaneProgressSink : BackgroundService, IProgressSink
         }
     }
 }
-#endif

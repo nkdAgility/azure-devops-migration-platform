@@ -108,6 +108,7 @@ $TestResultsDir = Join-Path $RepoRoot 'TestResults'
 $AppHostProject      = Join-Path $RepoRoot 'src/DevOpsMigrationPlatform.AppHost/DevOpsMigrationPlatform.AppHost.csproj'
 $CliMigrationProject = Join-Path $RepoRoot 'src/DevOpsMigrationPlatform.CLI.Migration/DevOpsMigrationPlatform.CLI.Migration.csproj'
 $CliTfsProject       = Join-Path $RepoRoot 'src/DevOpsMigrationPlatform.CLI.TfsMigration/DevOpsMigrationPlatform.CLI.TfsMigration.csproj'
+$TfsAgentProject     = Join-Path $RepoRoot 'src/DevOpsMigrationPlatform.TfsMigrationAgent/DevOpsMigrationPlatform.TfsMigrationAgent.csproj'
 $ControlPlaneProject = Join-Path $RepoRoot 'src/DevOpsMigrationPlatform.ControlPlaneHost/DevOpsMigrationPlatform.ControlPlaneHost.csproj'
 $AgentProject        = Join-Path $RepoRoot 'src/DevOpsMigrationPlatform.MigrationAgent/DevOpsMigrationPlatform.MigrationAgent.csproj'
 
@@ -443,6 +444,16 @@ function Invoke-Publish {
             --output $script:CliTfsOut `
             @VersionArgs
     }
+
+    # TfsMigrationAgent — win-x64 only (net481 is Windows-only, no RID flag needed)
+    $script:TfsAgentOut = Join-Path $StagingDir 'tfs-agent-win-x64'
+    Invoke-Step 'Publishing TfsMigrationAgent [win-x64]' {
+        dotnet publish $TfsAgentProject `
+            --configuration Release `
+            --no-build `
+            --output $script:TfsAgentOut `
+            @VersionArgs
+    }
 }
 
 function Invoke-Package {
@@ -473,6 +484,14 @@ function Invoke-Package {
             $tfsSubDir = Join-Path $zipStaging 'TfsMigration'
             New-Item -ItemType Directory -Path $tfsSubDir -Force | Out-Null
             Copy-Item -Path (Join-Path $script:CliTfsOut '*') -Destination $tfsSubDir -Recurse -Force
+        }
+
+        # ── TfsMigrationAgent subfolder (win-x64 only) ──────────────────────
+        # First-class polling agent for TFS; peer of MigrationAgent.
+        if ($rid -eq 'win-x64') {
+            $tfsAgentSubDir = Join-Path $zipStaging 'TfsMigrationAgent'
+            New-Item -ItemType Directory -Path $tfsAgentSubDir -Force | Out-Null
+            Copy-Item -Path (Join-Path $script:TfsAgentOut '*') -Destination $tfsAgentSubDir -Recurse -Force
         }
 
         $displayRid = $rid -replace '^osx-', 'macos-'

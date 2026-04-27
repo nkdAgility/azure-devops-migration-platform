@@ -52,4 +52,12 @@ public abstract class Job
     /// Set to <see cref="ResumeMode.ForceFresh"/> to delete all cursor files and restart from scratch.
     /// </summary>
     public JobResume? Resume { get; init; }
+
+    /// <summary>
+    /// Returns the source endpoint type for capability-based routing.
+    /// Agents advertise capabilities (e.g. "ado", "tfs", "simulated"); the control
+    /// plane matches jobs to agents using this value.
+    /// Returns <c>null</c> when no source type is determinable.
+    /// </summary>
+    public virtual string? GetSourceType() => null;
 }

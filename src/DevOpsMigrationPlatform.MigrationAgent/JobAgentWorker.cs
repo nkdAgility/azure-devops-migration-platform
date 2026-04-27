@@ -2,42 +2,26 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
-using System.Net.Http.Json;
-using System.Text.Json;
-using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
-using DevOpsMigrationPlatform.Infrastructure.Serialization;
+using DevOpsMigrationPlatform.Infrastructure.Agent;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Telemetry;
-using Microsoft.Extensions.Hosting;
+using DevOpsMigrationPlatform.Infrastructure.Serialization;
 using Microsoft.Extensions.Logging;
 
 namespace DevOpsMigrationPlatform.MigrationAgent;
 
 /// <summary>
-/// Unified background worker that polls <c>GET /agents/lease</c> for any pending <see cref="Job"/>,
-/// then dispatches to the appropriate execution path based on the concrete job type:
-/// <list type="bullet">
-///   <item><see cref="MigrationJob"/> — runs <see cref="IModule"/> pipeline (export/import).</item>
-///   <item><see cref="DiscoveryJob"/> — runs <see cref="IDiscoveryModule"/> pipeline (inventory/dependencies).</item>
-/// </list>
-/// Replaces the previous separate <c>MigrationAgentWorker</c> and <c>DiscoveryAgentWorker</c>,
-/// eliminating the dual-queue / dual-lease-endpoint duplication and fixing a latent
-/// concurrency bug where both workers shared <see cref="ActiveLeaseState"/> and
-/// <see cref="ActivePackageState"/> singletons.
+/// MigrationAgent-specific worker that handles ADO and Simulated source jobs.
+/// Inherits the polling loop and lease protocol from <see cref="AgentWorkerBase"/>.
 /// </summary>
-public sealed class JobAgentWorker : BackgroundService
+public sealed class JobAgentWorker : AgentWorkerBase
 {
-    private readonly JsonSerializerOptions _jsonOptions;
-
     private readonly IEnumerable<IModule> _migrationModules;
     private readonly IEnumerable<IDiscoveryModule> _discoveryModules;
     private readonly IPackageStoreFactory _packageStoreFactory;
     private readonly IProgressSink _progressSink;
-    private readonly ActiveLeaseState _leaseState;
-    private readonly ActivePackageState _packageState;
-    private readonly IHttpClientFactory _httpClientFactory;
     private readonly ICheckpointingServiceFactory _checkpointingFactory;
     private readonly IPhaseTrackingServiceFactory _phaseTrackingFactory;
     private readonly IJobMetricsStore _metricsStore;
@@ -62,14 +46,12 @@ public sealed class JobAgentWorker : BackgroundService
         PackageLoggerProvider packageLoggerProvider,
         ILogger<JobAgentWorker> logger,
         PolymorphicEndpointOptionsConverter? endpointConverter = null)
+        : base(leaseState, packageState, httpClientFactory, logger, endpointConverter)
     {
         _migrationModules = migrationModules;
         _discoveryModules = discoveryModules;
         _packageStoreFactory = packageStoreFactory;
         _progressSink = progressSink;
-        _leaseState = leaseState;
-        _packageState = packageState;
-        _httpClientFactory = httpClientFactory;
         _checkpointingFactory = checkpointingFactory;
         _phaseTrackingFactory = phaseTrackingFactory;
         _metricsStore = metricsStore;
@@ -77,111 +59,25 @@ public sealed class JobAgentWorker : BackgroundService
         _packageProgressSink = packageProgressSink;
         _packageLoggerProvider = packageLoggerProvider;
         _logger = logger;
-        _jsonOptions = new JsonSerializerOptions
-        {
-            PropertyNameCaseInsensitive = true,
-            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-            Converters = { new JsonStringEnumConverter() }
-        };
-        if (endpointConverter is not null)
-            _jsonOptions.Converters.Add(endpointConverter);
     }
 
-    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+    protected override string[] Capabilities => new[] { "ado", "simulated" };
+
+    protected override async Task OnPostJobFlushAsync()
     {
-        _logger.LogInformation("Job Agent Worker started — polling for jobs.");
-
-        while (!stoppingToken.IsCancellationRequested)
-        {
-            try
-            {
-                await PollAndExecuteAsync(stoppingToken).ConfigureAwait(false);
-            }
-            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
-            {
-                break;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Unhandled error in agent poll loop; retrying in 10 s.");
-                await Task.Delay(TimeSpan.FromSeconds(10), stoppingToken).ConfigureAwait(false);
-            }
-        }
-
-        _logger.LogInformation("Job Agent Worker stopping.");
-    }
-
-    private async Task PollAndExecuteAsync(CancellationToken ct)
-    {
-        using var controlPlane = _httpClientFactory.CreateClient("ControlPlane");
-
-        using var leaseResponse = await controlPlane
-            .GetAsync("/agents/lease", ct)
-            .ConfigureAwait(false);
-
-        if (leaseResponse.StatusCode == System.Net.HttpStatusCode.NoContent)
-        {
-            await Task.Delay(TimeSpan.FromSeconds(5), ct).ConfigureAwait(false);
-            return;
-        }
-
-        leaseResponse.EnsureSuccessStatusCode();
-
-        var lease = await leaseResponse.Content
-            .ReadFromJsonAsync<AgentLeaseResponse>(_jsonOptions, ct)
-            .ConfigureAwait(false);
-
-        if (lease is null) return;
-
-        _logger.LogInformation(
-            "Acquired lease {LeaseId} for job {JobId} ({JobType})",
-            lease.LeaseId, lease.Job.JobId, lease.Job.GetType().Name);
-
-        _leaseState.CurrentLeaseId = lease.LeaseId;
-        _packageState.CurrentJobId = lease.Job.JobId;
-
-        switch (lease.Job)
-        {
-            case MigrationJob migrationJob:
-                await ExecuteMigrationAsync(migrationJob, controlPlane, lease.LeaseId, ct)
-                    .ConfigureAwait(false);
-                break;
-
-            case DiscoveryJob discoveryJob:
-                await ExecuteDiscoveryAsync(discoveryJob, controlPlane, lease.LeaseId, ct)
-                    .ConfigureAwait(false);
-                break;
-
-            default:
-                _logger.LogError(
-                    "Unknown job type {JobType} for lease {LeaseId} — failing job.",
-                    lease.Job.GetType().Name, lease.LeaseId);
-                await SignalTerminalAsync(controlPlane, lease.LeaseId, "fail", ct).ConfigureAwait(false);
-                break;
-        }
-
-        _leaseState.CurrentLeaseId = null;
-
-        // Flush buffered log and progress records to the package before clearing
-        // the store reference. Both sinks use background drain loops with a 500ms
-        // interval — without an explicit flush, records buffered after the last
-        // drain tick would be lost, especially in process-per-component mode where
-        // the CLI kills child processes immediately after job completion.
         await _packageProgressSink.FlushAsync().ConfigureAwait(false);
         await _packageLoggerProvider.FlushAsync().ConfigureAwait(false);
-
-        _packageState.Clear();
     }
 
     // ── Migration execution ───────────────────────────────────────────────────
 
-    private async Task ExecuteMigrationAsync(
+    protected override async Task OnMigrationJobAsync(
         MigrationJob job, HttpClient controlPlane, string leaseId, CancellationToken ct)
     {
         var (artefactStore, stateStore) = _packageStoreFactory.Create(
             job.Package.PackageUri ?? ".");
 
-        _packageState.CurrentStore = artefactStore;
+        PackageState.CurrentStore = artefactStore;
 
         var checkpointer = _checkpointingFactory.Create(stateStore);
         var phaseTracker = _phaseTrackingFactory.Create(stateStore);
@@ -306,26 +202,19 @@ public sealed class JobAgentWorker : BackgroundService
             failed = true;
         }
 
-        // Flush before signalling terminal so that progress/log records written during
-        // execution are persisted to the package before the control plane notifies the CLI
-        // (which may kill the agent process immediately after seeing completion in
-        // process-per-component mode).
-        await _packageProgressSink.FlushAsync().ConfigureAwait(false);
-        await _packageLoggerProvider.FlushAsync().ConfigureAwait(false);
-
         var terminal = failed ? "fail" : "complete";
         await SignalTerminalAsync(controlPlane, leaseId, terminal, ct).ConfigureAwait(false);
     }
 
     // ── Discovery execution ───────────────────────────────────────────────────
 
-    private async Task ExecuteDiscoveryAsync(
+    protected override async Task OnDiscoveryJobAsync(
         DiscoveryJob job, HttpClient controlPlane, string leaseId, CancellationToken ct)
     {
         var (artefactStore, stateStore) = _packageStoreFactory.Create(
             job.Package.PackageUri ?? ".");
 
-        _packageState.CurrentStore = artefactStore;
+        PackageState.CurrentStore = artefactStore;
 
         if (job.Resume?.Mode == ResumeMode.ForceFresh)
         {
@@ -401,50 +290,7 @@ public sealed class JobAgentWorker : BackgroundService
             }
         }
 
-        // Flush before signalling terminal so that progress/log records written during
-        // execution are persisted to the package before the control plane notifies the CLI
-        // (which may kill the agent process immediately after seeing completion in
-        // process-per-component mode).
-        await _packageProgressSink.FlushAsync().ConfigureAwait(false);
-        await _packageLoggerProvider.FlushAsync().ConfigureAwait(false);
-
         var terminal = failed ? "fail" : "complete";
         await SignalTerminalAsync(controlPlane, leaseId, terminal, ct).ConfigureAwait(false);
     }
-
-    // ── Shared ────────────────────────────────────────────────────────────────
-
-    private async Task SignalTerminalAsync(
-        HttpClient controlPlane, string leaseId, string terminal, CancellationToken ct)
-    {
-        const int maxAttempts = 5;
-        var delay = TimeSpan.FromSeconds(2);
-
-        for (int attempt = 1; attempt <= maxAttempts; attempt++)
-        {
-            try
-            {
-                var response = await controlPlane
-                    .PostAsync($"/agents/lease/{leaseId}/{terminal}", content: null, ct)
-                    .ConfigureAwait(false);
-                response.EnsureSuccessStatusCode();
-                return;
-            }
-            catch (Exception ex) when (attempt < maxAttempts && !ct.IsCancellationRequested)
-            {
-                _logger.LogWarning(
-                    ex,
-                    "Terminal signal attempt {Attempt}/{Max} failed for lease {LeaseId}; retrying in {Delay} s.",
-                    attempt, maxAttempts, leaseId, delay.TotalSeconds);
-                await Task.Delay(delay, ct).ConfigureAwait(false);
-                delay = TimeSpan.FromSeconds(delay.TotalSeconds * 2);
-            }
-        }
-
-        _logger.LogError(
-            "Failed to signal terminal state for lease {LeaseId} after {Max} attempts.",
-            leaseId, maxAttempts);
-    }
-
-    private sealed record AgentLeaseResponse(string LeaseId, Job Job);
 }

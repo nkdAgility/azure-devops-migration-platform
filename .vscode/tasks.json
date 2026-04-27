@@ -34,6 +34,22 @@
             "problemMatcher": "$msCompile"
         },
         {
+            "label": "build-tfs-agent",
+            "command": "dotnet",
+            "type": "process",
+            "args": [
+                "build",
+                "${workspaceFolder}/src/DevOpsMigrationPlatform.TfsMigrationAgent",
+                "/property:GenerateFullPaths=true",
+                "/consoleloggerparameters:NoSummary"
+            ],
+            "group": "build",
+            "presentation": {
+                "reveal": "silent"
+            },
+            "problemMatcher": "$msCompile"
+        },
+        {
             "label": "build-all",
             "command": "dotnet",
             "type": "process",
