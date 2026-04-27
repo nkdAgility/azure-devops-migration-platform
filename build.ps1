@@ -68,7 +68,7 @@
       /                  — devopsMigration CLI (root)
       /ControlPlane/     — Control Plane host
       /MigrationAgent/   — Migration Agent worker
-      /TfsMigration/     — TFS CLI subprocess (win-x64 only)
+      /TfsMigrationAgent/  — TFS polling agent (win-x64 only)
 
     RIDs produced: win-x64, win-arm64, linux-x64, osx-x64, osx-arm64
 
@@ -113,13 +113,12 @@ $TestResultsDir = Join-Path $RepoRoot 'TestResults'
 
 $AppHostProject      = Join-Path $RepoRoot 'src/DevOpsMigrationPlatform.AppHost/DevOpsMigrationPlatform.AppHost.csproj'
 $CliMigrationProject = Join-Path $RepoRoot 'src/DevOpsMigrationPlatform.CLI.Migration/DevOpsMigrationPlatform.CLI.Migration.csproj'
-$CliTfsProject       = Join-Path $RepoRoot 'src/DevOpsMigrationPlatform.CLI.TfsMigration/DevOpsMigrationPlatform.CLI.TfsMigration.csproj'
 $TfsAgentProject     = Join-Path $RepoRoot 'src/DevOpsMigrationPlatform.TfsMigrationAgent/DevOpsMigrationPlatform.TfsMigrationAgent.csproj'
 $ControlPlaneProject = Join-Path $RepoRoot 'src/DevOpsMigrationPlatform.ControlPlaneHost/DevOpsMigrationPlatform.ControlPlaneHost.csproj'
 $AgentProject        = Join-Path $RepoRoot 'src/DevOpsMigrationPlatform.MigrationAgent/DevOpsMigrationPlatform.MigrationAgent.csproj'
 
 # Runtime identifiers for per-platform publishing.
-# Only win-x64 gets the tfsmigration/ subfolder; TfsMigration (net481) is Windows-only.
+# Only win-x64 gets the TfsMigrationAgent/ subfolder; net481 is Windows-only.
 $AllRids = @('win-x64', 'win-arm64', 'linux-x64', 'osx-x64', 'osx-arm64')
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -441,16 +440,6 @@ function Invoke-Publish {
         if ($LASTEXITCODE -ne 0) { Write-Error "Publish failed: Agent [$rid] (exit $LASTEXITCODE)"; exit $LASTEXITCODE }
     }
 
-    # TfsMigration — win-x64 only (net481 is Windows-only, no RID flag needed)
-    $script:CliTfsOut = Join-Path $StagingDir 'cli-tfs-win-x64'
-    Invoke-Step 'Publishing TfsCLI (tfsmigration) [win-x64]' {
-        dotnet publish $CliTfsProject `
-            --configuration Release `
-            --no-build `
-            --output $script:CliTfsOut `
-            @VersionArgs
-    }
-
     # TfsMigrationAgent — win-x64 only (net481 is Windows-only, no RID flag needed)
     $script:TfsAgentOut = Join-Path $StagingDir 'tfs-agent-win-x64'
     Invoke-Step 'Publishing TfsMigrationAgent [win-x64]' {
@@ -482,15 +471,6 @@ function Invoke-Package {
         $agentSubDir = Join-Path $zipStaging 'MigrationAgent'
         New-Item -ItemType Directory -Path $agentSubDir -Force | Out-Null
         Copy-Item -Path (Join-Path $script:AgentOutByRid[$rid] '*') -Destination $agentSubDir -Recurse -Force
-
-        # ── TfsMigration subfolder (win-x64 only) ───────────────────────────
-        # net481 subprocess; other RIDs cannot run it and TfsExportRunner.RunAsync()
-        # will reject non-Windows early.
-        if ($rid -eq 'win-x64') {
-            $tfsSubDir = Join-Path $zipStaging 'TfsMigration'
-            New-Item -ItemType Directory -Path $tfsSubDir -Force | Out-Null
-            Copy-Item -Path (Join-Path $script:CliTfsOut '*') -Destination $tfsSubDir -Recurse -Force
-        }
 
         # ── TfsMigrationAgent subfolder (win-x64 only) ──────────────────────
         # First-class polling agent for TFS; peer of MigrationAgent.
@@ -565,7 +545,7 @@ function Invoke-Install {
     Write-Host "  Source: $zip"
 
     # Remove any previous install for this version then extract the full package.
-    # The zip contains: CLI at root, ControlPlane/, MigrationAgent/, TfsMigration/ (win-x64).
+    # The zip contains: CLI at root, ControlPlane/, MigrationAgent/, TfsMigrationAgent/ (win-x64).
     if (Test-Path $versionedDir) {
         Remove-Item $versionedDir -Recurse -Force
     }

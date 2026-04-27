@@ -2,9 +2,9 @@
   <Folder Name="/src/">
     <Project Path="src/DevOpsMigrationPlatform.Abstractions/DevOpsMigrationPlatform.Abstractions.csproj" />
     <Project Path="src/DevOpsMigrationPlatform.Infrastructure/DevOpsMigrationPlatform.Infrastructure.csproj" />
-    <Project Path="src/DevOpsMigrationPlatform.ServiceDefaults/DevOpsMigrationPlatform.ServiceDefaults.csproj" />
+    
   </Folder>
-  <Folder Name="/src/Agents/">
+  <Folder Name="/src/Service/Agents/">
     <Project Path="src/DevOpsMigrationPlatform.Infrastructure.Agent/DevOpsMigrationPlatform.Infrastructure.Agent.csproj" />
     <Project Path="src/DevOpsMigrationPlatform.Abstractions.Agent/DevOpsMigrationPlatform.Abstractions.Agent.csproj" />
     <Project Path="src/DevOpsMigrationPlatform.Infrastructure.Simulated/DevOpsMigrationPlatform.Infrastructure.Simulated.csproj" />
@@ -15,9 +15,11 @@
   </Folder>
   <Folder Name="/src/CLI/">
 <Project Path="src/DevOpsMigrationPlatform.CLI.Migration/DevOpsMigrationPlatform.CLI.Migration.csproj" />
-    <Project Path="src/DevOpsMigrationPlatform.CLI.TfsMigration/DevOpsMigrationPlatform.CLI.TfsMigration.csproj" />
   </Folder>
-  <Folder Name="/src/ControlPlane/">
+  <Folder Name="/src/Service/">
+<Project Path="src/DevOpsMigrationPlatform.ServiceDefaults/DevOpsMigrationPlatform.ServiceDefaults.csproj" />
+  </Folder>
+  <Folder Name="/src/Service/ControlPlane/">
      <Project Path="src/DevOpsMigrationPlatform.Infrastructure.ControlPlane/DevOpsMigrationPlatform.Infrastructure.ControlPlane.csproj" />
     <Project Path="src/DevOpsMigrationPlatform.AppHost/DevOpsMigrationPlatform.AppHost.csproj" />
     <Project Path="src/DevOpsMigrationPlatform.Abstractions.ControlPlane/DevOpsMigrationPlatform.Abstractions.ControlPlane.csproj" />

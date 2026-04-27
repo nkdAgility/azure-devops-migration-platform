@@ -89,13 +89,17 @@ namespace DevOpsMigrationPlatform.TfsMigrationAgent
                            .AddRuntimeInstrumentation()
                            .AddMeter(WellKnownMeterNames.Migration)
                            .AddMeter(WellKnownMeterNames.Discovery)
-                           .AddMeter(WellKnownMeterNames.ControlPlane));
+                           .AddMeter(WellKnownMeterNames.ControlPlane)
+                           .AddMeter(WellKnownMeterNames.WorkItemExport)
+                           .AddMeter(WellKnownMeterNames.AttachmentDownload));
 
                 otel.WithTracing(tracing =>
                     tracing.AddHttpClientInstrumentation()
                            .AddSource(WellKnownActivitySourceNames.Migration)
                            .AddSource(WellKnownActivitySourceNames.Discovery)
-                           .AddSource(WellKnownActivitySourceNames.ControlPlane));
+                           .AddSource(WellKnownActivitySourceNames.ControlPlane)
+                           .AddSource(Infrastructure.TfsObjectModel.Telemetry.MigrationPlatformActivitySources.WorkItemExport.Name)
+                           .AddSource(Infrastructure.TfsObjectModel.Telemetry.MigrationPlatformActivitySources.AttachmentDownload.Name));
 
                 // OTLP export — opt-in via standard OTEL_EXPORTER_OTLP_ENDPOINT env var.
                 var otlpEndpoint = ctx.Configuration["OTEL_EXPORTER_OTLP_ENDPOINT"];

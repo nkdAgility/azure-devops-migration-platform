@@ -13,6 +13,7 @@ using DevOpsMigrationPlatform.Infrastructure.Agent.Checkpointing;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Storage;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Telemetry;
 using DevOpsMigrationPlatform.Infrastructure.Telemetry;
+using DevOpsMigrationPlatform.Infrastructure.TfsObjectModel;
 
 namespace DevOpsMigrationPlatform.TfsMigrationAgent;
 
@@ -61,6 +62,10 @@ public static class TfsMigrationAgentServiceExtensions
 
         // Checkpointing factory for per-job cursor management.
         services.AddSingleton<ICheckpointingServiceFactory, CheckpointingServiceFactory>();
+
+        // Per-job TFS Object Model service factory — creates TFS connections, revision sources,
+        // attachment sources, tree readers, and discovery services per job based on the endpoint.
+        services.AddSingleton<TfsJobServiceFactory>();
 
         // Diagnostic log pipeline — register inline since AddDiagnosticsServices requires
         // IHostApplicationBuilder (not available on net481 Host.CreateDefaultBuilder path).
