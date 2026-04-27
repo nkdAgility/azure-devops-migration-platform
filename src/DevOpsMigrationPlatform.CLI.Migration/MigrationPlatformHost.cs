@@ -13,7 +13,6 @@ using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 using Spectre.Console;
-using System.Diagnostics;
 
 namespace DevOpsMigrationPlatform.CLI;
 
@@ -93,9 +92,6 @@ public static class MigrationPlatformHost
     /// </summary>
     private static void RegisterTelemetryServices(IServiceCollection services, IConfiguration configuration)
     {
-        var cliSource = new ActivitySource("DevOpsMigrationPlatform.CLI");
-        services.AddSingleton(cliSource);
-
         var telOpts = new TelemetryOptions();
         configuration.GetSection(TelemetryOptions.SectionName).Bind(telOpts);
 
@@ -123,7 +119,7 @@ public static class MigrationPlatformHost
                 }))
             .WithTracing(b =>
             {
-                b.AddSource("DevOpsMigrationPlatform.CLI")
+                b.AddSource(WellKnownActivitySourceNames.Cli)
                  .AddHttpClientInstrumentation();
                 if (!string.IsNullOrEmpty(telOpts.AzureMonitorConnectionString))
                     b.AddAzureMonitorTraceExporter(o => o.ConnectionString = telOpts.AzureMonitorConnectionString);
@@ -132,7 +128,8 @@ public static class MigrationPlatformHost
             })
             .WithMetrics(b =>
             {
-                b.AddHttpClientInstrumentation();
+                b.AddMeter(WellKnownMeterNames.Cli)
+                 .AddHttpClientInstrumentation();
                 if (!string.IsNullOrEmpty(telOpts.AzureMonitorConnectionString))
                     b.AddAzureMonitorMetricExporter(o => o.ConnectionString = telOpts.AzureMonitorConnectionString);
                 if (diagnosticsPath is not null)

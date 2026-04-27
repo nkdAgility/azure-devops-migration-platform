@@ -49,4 +49,12 @@ public static class WellKnownTagNames
 
     /// <summary>Transform group name. Medium cardinality.</summary>
     public const string GroupName = "group.name";
+
+    // --- CLI context ---
+
+    /// <summary>CLI command name (e.g. "queue", "prepare", "tui"). Low cardinality.</summary>
+    public const string Command = "command";
+
+    /// <summary>Command exit code (0 = success). Low cardinality.</summary>
+    public const string ExitCode = "exit.code";
 }

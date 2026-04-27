@@ -27,12 +27,15 @@ public static class FileDiagnosticsExtensions
     /// <summary>
     /// Adds a file-based metric exporter that writes metric snapshots to
     /// <c>{diagnosticsPath}/{serviceName}-metrics.log</c>.
+    /// Uses the factory overload of <c>AddReader</c> so that the reader is created
+    /// during <c>MeterProvider</c> build — avoiding orphaned readers when
+    /// <c>ConfigureOpenTelemetryMeterProvider</c> callbacks run later.
     /// </summary>
     public static MeterProviderBuilder AddFileExporter(
         this MeterProviderBuilder builder, string diagnosticsPath, string serviceName)
     {
         var filePath = Path.Combine(diagnosticsPath, $"{serviceName}-metrics.log");
-        return builder.AddReader(
+        return builder.AddReader(sp =>
             new OpenTelemetry.Metrics.PeriodicExportingMetricReader(
                 new FileMetricExporter(filePath),
                 exportIntervalMilliseconds: 2_000));

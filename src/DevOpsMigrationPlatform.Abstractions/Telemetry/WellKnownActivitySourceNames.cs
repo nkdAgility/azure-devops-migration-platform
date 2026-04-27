@@ -14,4 +14,7 @@ public static class WellKnownActivitySourceNames
 
     /// <summary>ActivitySource for job lifecycle operations in the control plane.</summary>
     public const string ControlPlane = "DevOpsMigrationPlatform.ControlPlane";
+
+    /// <summary>ActivitySource for CLI command execution and user-initiated operations.</summary>
+    public const string Cli = "DevOpsMigrationPlatform.CLI";
 }
