@@ -60,6 +60,19 @@ namespace DevOpsMigrationPlatform.TfsMigrationAgent
                     .Enrich.WithProcessId()
                     .MinimumLevel.Override("Microsoft", LogEventLevel.Warning)
                     .WriteTo.Console(restrictedToMinimumLevel: LogEventLevel.Information);
+
+                var serilogDiagPath = ctx.Configuration["Telemetry:DiagnosticsPath"];
+                if (!string.IsNullOrWhiteSpace(serilogDiagPath))
+                {
+                    var resolvedPath = Path.IsPathRooted(serilogDiagPath)
+                        ? serilogDiagPath
+                        : Path.GetFullPath(serilogDiagPath);
+                    var logFile = Path.Combine(resolvedPath, $"{WellKnownServiceNames.TfsMigrationAgent}-logs.log");
+                    Directory.CreateDirectory(Path.GetDirectoryName(logFile));
+                    loggerConfig.WriteTo.File(logFile,
+                        restrictedToMinimumLevel: LogEventLevel.Information,
+                        outputTemplate: "[{Timestamp:O}] [{Level:u3}] {SourceContext}: {Message:lj}{NewLine}{Exception}");
+                }
             });
 
             builder.ConfigureServices((ctx, services) =>
@@ -76,6 +89,10 @@ namespace DevOpsMigrationPlatform.TfsMigrationAgent
                 var azureMonitorConnectionString = ctx.Configuration["Telemetry:AzureMonitorConnectionString"];
                 var hasAzureMonitor = !string.IsNullOrWhiteSpace(azureMonitorConnectionString);
                 var hasOtlpEndpoint = !string.IsNullOrWhiteSpace(ctx.Configuration["OTEL_EXPORTER_OTLP_ENDPOINT"]);
+                var diagnosticsPath = ctx.Configuration["Telemetry:DiagnosticsPath"];
+                var hasDiagnostics = !string.IsNullOrWhiteSpace(diagnosticsPath);
+                if (hasDiagnostics && !Path.IsPathRooted(diagnosticsPath))
+                    diagnosticsPath = Path.GetFullPath(diagnosticsPath);
 
                 var otel = services.AddOpenTelemetry();
 
@@ -100,6 +117,13 @@ namespace DevOpsMigrationPlatform.TfsMigrationAgent
                         metrics.AddOtlpExporter();
                     if (hasAzureMonitor)
                         metrics.AddAzureMonitorMetricExporter(o => o.ConnectionString = azureMonitorConnectionString);
+                    if (hasDiagnostics)
+                    {
+                        var metricsFile = Path.Combine(diagnosticsPath, $"{WellKnownServiceNames.TfsMigrationAgent}-metrics.log");
+                        Directory.CreateDirectory(Path.GetDirectoryName(metricsFile));
+                        metrics.AddReader(new OpenTelemetry.Metrics.PeriodicExportingMetricReader(
+                            new TfsFileMetricExporter(metricsFile), exportIntervalMilliseconds: 10_000));
+                    }
                 });
 
                 otel.WithTracing(tracing =>
@@ -115,6 +139,13 @@ namespace DevOpsMigrationPlatform.TfsMigrationAgent
                         tracing.AddOtlpExporter();
                     if (hasAzureMonitor)
                         tracing.AddAzureMonitorTraceExporter(o => o.ConnectionString = azureMonitorConnectionString);
+                    if (hasDiagnostics)
+                    {
+                        var tracesFile = Path.Combine(diagnosticsPath, $"{WellKnownServiceNames.TfsMigrationAgent}-traces.log");
+                        Directory.CreateDirectory(Path.GetDirectoryName(tracesFile));
+                        tracing.AddProcessor(new OpenTelemetry.SimpleActivityExportProcessor(
+                            new TfsFileTraceExporter(tracesFile)));
+                    }
                 });
             });
 

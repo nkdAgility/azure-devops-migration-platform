@@ -18,6 +18,13 @@ public sealed class TelemetryOptions
     public string? AzureMonitorConnectionString { get; init; }
 
     /// <summary>
+    /// Absolute or relative path to a folder where diagnostic telemetry files are written.
+    /// When set, each host writes <c>{serviceName}-traces.log</c>, <c>{serviceName}-metrics.log</c>,
+    /// and <c>{serviceName}-logs.log</c> to this folder. Null or empty = file diagnostics disabled.
+    /// </summary>
+    public string? DiagnosticsPath { get; init; }
+
+    /// <summary>
     /// How often (seconds) the Migration Agent pushes a <see cref="JobMetrics"/> to the Control Plane.
     /// Default: 5 seconds.
     /// </summary>

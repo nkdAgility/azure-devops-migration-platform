@@ -1,5 +1,7 @@
 using Azure.Monitor.OpenTelemetry.AspNetCore;
+using DevOpsMigrationPlatform.Diagnostics;
 using Microsoft.AspNetCore.Builder;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Hosting;
@@ -37,11 +39,19 @@ public static class Extensions
 
     public static IHostApplicationBuilder ConfigureOpenTelemetry(this IHostApplicationBuilder builder, string? serviceName = null)
     {
+        var diagnosticsPath = FileDiagnosticsExtensions.GetDiagnosticsPath(builder.Configuration);
+        var resolvedServiceName = serviceName ?? "unknown";
+
         builder.Logging.AddOpenTelemetry(logging =>
         {
             logging.IncludeFormattedMessage = true;
             logging.IncludeScopes = true;
         });
+
+        if (diagnosticsPath is not null)
+        {
+            builder.Logging.AddFileDiagnostics(diagnosticsPath, resolvedServiceName);
+        }
 
         var otel = builder.Services.AddOpenTelemetry();
 
@@ -68,12 +78,14 @@ public static class Extensions
                 metrics.AddAspNetCoreInstrumentation()
                        .AddHttpClientInstrumentation()
                        .AddRuntimeInstrumentation()
-                       // Subscribe to platform custom meters so Azure Monitor exports them.
-                       // These meters are defined in Infrastructure/Telemetry/ and recorded
-                       // by the Migration Agent during job execution.
                        .AddMeter(DevOpsMigrationPlatform.Abstractions.WellKnownMeterNames.Migration)
                        .AddMeter(DevOpsMigrationPlatform.Abstractions.WellKnownMeterNames.Discovery)
                        .AddMeter(DevOpsMigrationPlatform.Abstractions.WellKnownMeterNames.ControlPlane);
+
+                if (diagnosticsPath is not null)
+                {
+                    metrics.AddFileExporter(diagnosticsPath, resolvedServiceName);
+                }
             })
             .WithTracing(tracing =>
             {
@@ -82,6 +94,11 @@ public static class Extensions
                        .AddSource(DevOpsMigrationPlatform.Abstractions.WellKnownActivitySourceNames.Migration)
                        .AddSource(DevOpsMigrationPlatform.Abstractions.WellKnownActivitySourceNames.Discovery)
                        .AddSource(DevOpsMigrationPlatform.Abstractions.WellKnownActivitySourceNames.ControlPlane);
+
+                if (diagnosticsPath is not null)
+                {
+                    tracing.AddFileExporter(diagnosticsPath, resolvedServiceName);
+                }
             });
 
         builder.AddOpenTelemetryExporters();
