@@ -1,4 +1,3 @@
-#if !NETFRAMEWORK
 using System;
 using System.Net.Http;
 using System.Net.Http.Json;
@@ -82,4 +81,3 @@ internal sealed class ControlPlaneTelemetryClient : IControlPlaneTelemetryClient
         }
     }
 }
-#endif

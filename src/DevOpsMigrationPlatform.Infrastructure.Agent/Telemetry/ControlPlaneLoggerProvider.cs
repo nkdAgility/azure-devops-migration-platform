@@ -1,4 +1,3 @@
-#if !NETFRAMEWORK
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -212,4 +211,3 @@ public sealed class ControlPlaneLoggerProvider : BackgroundService, ILoggerProvi
         }
     }
 }
-#endif

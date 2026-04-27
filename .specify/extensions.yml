@@ -29,6 +29,12 @@ hooks:
     description: Run all five architecture perspective checks (Modular Monolith, Clean, Hexagonal, Vertical Slice, Screaming) before task generation begins
     condition: null
   after_implement:
+  - extension: test-promotion
+    command: test-promotion
+    enabled: true
+    optional: false
+    description: Analyse tests touched by implementation — promote to faster categories and retire redundant slower tests
+    condition: null
   - extension: definition-of-done
     command: definition-of-done
     enabled: true

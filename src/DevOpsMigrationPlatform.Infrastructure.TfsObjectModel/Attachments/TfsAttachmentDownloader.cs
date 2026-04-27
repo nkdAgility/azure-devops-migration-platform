@@ -20,14 +20,12 @@ public class TfsAttachmentDownloader : ITfsAttachmentDownloader
 {
     private readonly WorkItemServer _workItemServer;
     private readonly ILogger<TfsAttachmentDownloader> _logger;
-#pragma warning disable CS0618 // Obsolete — retained until all call sites migrate to IMigrationMetrics
     private readonly IAttachmentDownloadMetrics _metrics;
 
     public TfsAttachmentDownloader(
         WorkItemStore store,
         ILogger<TfsAttachmentDownloader> logger,
         IAttachmentDownloadMetrics metrics)
-#pragma warning restore CS0618
     {
         _workItemServer = store.TeamProjectCollection.GetService<WorkItemServer>();
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));

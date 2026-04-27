@@ -626,60 +626,20 @@
             "stopAtEntry": false,
             "preLaunchTask": "build-migration-cli"
         },
-        // ── TFS CLI (net481): export & inventory ──────────────────────────────
-        // export:    --collection <URL> --project <NAME> [--output <PATH>]
-        // inventory: --collection <URL> (--project <NAME> | --all-projects)
+        // ── TFS Agent (net481): first-class polling agent ─────────────────────
         {
-            "name": "🔴 TFS CLI: Export",
+            "name": "🔴 TFS Agent: Run",
             "type": "coreclr",
             "request": "launch",
-            "program": "${workspaceFolder}/src/DevOpsMigrationPlatform.CLI.TfsMigration/bin/Debug/net481/tfsmigration.exe",
-            "args": [
-                "export",
-                "--collection",
-                "http://tfs:8080/tfs/DefaultCollection",
-                "--project",
-                "MyProject",
-                "--output",
-                "./test-tfs-package"
-            ],
+            "program": "${workspaceFolder}/src/DevOpsMigrationPlatform.TfsMigrationAgent/bin/Debug/net481/tfsmigration.exe",
+            "args": [],
             "cwd": "${workspaceFolder}",
+            "env": {
+                "ControlPlane__BaseUrl": "http://localhost:5100"
+            },
             "console": "integratedTerminal",
             "stopAtEntry": false,
-            "preLaunchTask": "build-tfs-cli"
-        },
-        {
-            "name": "🔴 TFS CLI: Inventory (All Projects)",
-            "type": "coreclr",
-            "request": "launch",
-            "program": "${workspaceFolder}/src/DevOpsMigrationPlatform.CLI.TfsMigration/bin/Debug/net481/tfsmigration.exe",
-            "args": [
-                "inventory",
-                "--collection",
-                "http://tfs:8080/tfs/DefaultCollection",
-                "--all-projects"
-            ],
-            "cwd": "${workspaceFolder}",
-            "console": "integratedTerminal",
-            "stopAtEntry": false,
-            "preLaunchTask": "build-tfs-cli"
-        },
-        {
-            "name": "🔴 TFS CLI: Inventory (Single Project)",
-            "type": "coreclr",
-            "request": "launch",
-            "program": "${workspaceFolder}/src/DevOpsMigrationPlatform.CLI.TfsMigration/bin/Debug/net481/tfsmigration.exe",
-            "args": [
-                "inventory",
-                "--collection",
-                "http://tfs:8080/tfs/DefaultCollection",
-                "--project",
-                "MyProject"
-            ],
-            "cwd": "${workspaceFolder}",
-            "console": "integratedTerminal",
-            "stopAtEntry": false,
-            "preLaunchTask": "build-tfs-cli"
+            "preLaunchTask": "build-tfs-agent"
         },
         // ── Standalone process-per-component debugging ────────────────────────
         // These profiles launch ControlPlane and MigrationAgent directly from

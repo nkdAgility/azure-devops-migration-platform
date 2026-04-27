@@ -13,17 +13,17 @@
 - `DevOpsMigrationPlatform.ControlPlane` — Service library: HTTP API controllers, job state machine, lease protocol, EF Core data model; no entry point
 - `DevOpsMigrationPlatform.ControlPlaneHost` — Deployable ASP.NET Core host: references `ControlPlane` library, manages Migration Agent lifecycle in all topologies, is the Aspire resource target
 - `DevOpsMigrationPlatform.MigrationAgent` — Worker Service: executes jobs under lease, polls `ControlPlaneHost`
-- `DevOpsMigrationPlatform.CLI.Migration` (net10.0) — Main CLI; drives Aspire for local and server execution; spawns `CLI.TfsMigration` as subprocess for TFS sources; connects to remote endpoint for cloud
-- `DevOpsMigrationPlatform.CLI.TfsMigration` (net481) — TFS exporter CLI; callable as subprocess OR independently
+- `DevOpsMigrationPlatform.CLI.Migration` (net10.0) — Main CLI; drives Aspire for local and server execution; submits all jobs (including TFS) to the control plane; connects to remote endpoint for cloud
+- `DevOpsMigrationPlatform.TfsMigrationAgent` (net481) — TFS migration agent; spawned by `AgentLifecycleService` on Windows or run independently; not added to AppHost resources
 
 ### MUST NOT Have
 
-- `CLI.Migration` or `CLI.TfsMigration` added to AppHost resources — both are always standalone
+- `CLI.Migration` or `TfsMigrationAgent` added to AppHost resources — CLI is always standalone; TFS agent is managed by `AgentLifecycleService`
 - Multiple AppHost projects — only one orchestrator per solution
 - Custom health check or metrics endpoints bypassing ServiceDefaults
 - Hardcoded URLs in `Agent` or `ControlPlaneHost` code (use service discovery)
-- A direct assembly or project reference from `CLI.Migration` (net10.0) to `CLI.TfsMigration` (net481) — subprocess via `ExternalToolRunner` only
-- Custom process management for starting the control plane or agents — use Aspire exclusively
+- A direct assembly or project reference from any .NET 10 project to `TfsMigrationAgent` (net481) — the TFS agent is a separate process
+- Custom process management for starting the control plane or agents — use Aspire for orchestration, `AgentLifecycleService` for agent spawning
 
 ---
 

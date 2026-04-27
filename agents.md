@@ -211,6 +211,7 @@ After completing any unit of work (a logical change, a file edit, a task), befor
 → .agents/skills/vertical-slice-check/SKILL.md — scan for Vertical Slice violations (cross-slice coupling, missing end-to-end slice ownership)
 → .agents/skills/screaming-architecture-check/SKILL.md — scan for Screaming Architecture violations (generic names, purpose-obscuring structure)
 → .agents/skills/architecture-review/SKILL.md — run all five architecture perspective checks and produce a combined prioritised report
+→ .agents/skills/test-promotion/SKILL.md — analyse tests and promote to faster categories; retire redundant slower tests
 
 ## Session Commands (Slash-command aliases)
 → .github/commands/start-session.md — /start-session

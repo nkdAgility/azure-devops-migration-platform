@@ -18,12 +18,12 @@
             "problemMatcher": "$msCompile"
         },
         {
-            "label": "build-tfs-cli",
+            "label": "build-tfs-agent",
             "command": "dotnet",
             "type": "process",
             "args": [
                 "build",
-                "${workspaceFolder}/src/DevOpsMigrationPlatform.CLI.TfsMigration",
+                "${workspaceFolder}/src/DevOpsMigrationPlatform.TfsMigrationAgent",
                 "/property:GenerateFullPaths=true",
                 "/consoleloggerparameters:NoSummary"
             ],

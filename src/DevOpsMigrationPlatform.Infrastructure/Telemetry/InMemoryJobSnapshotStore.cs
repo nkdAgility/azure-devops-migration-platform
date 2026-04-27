@@ -1,5 +1,4 @@
 using DevOpsMigrationPlatform.Abstractions;
-#if !NETFRAMEWORK
 
 using System.Threading;
 
@@ -30,4 +29,3 @@ public sealed class InMemoryJobSnapshotStore : IJobSnapshotStore
     /// <summary>Resets the signal after the timer has pushed the snapshot.</summary>
     internal void ResetSignal() => _signal.Reset();
 }
-#endif

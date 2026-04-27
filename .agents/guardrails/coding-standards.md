@@ -49,31 +49,23 @@ Types that MUST NOT be in multi-targeted projects:
 
 The ONLY allowed .NET Framework usage is:
 
-- `DevOpsMigrationPlatform.CLI.TfsMigration` — the TFS Object Model exporter subprocess
-- Built against .NET 4.8
-- Using the legacy TFS Object Model (SOAP)
+- `DevOpsMigrationPlatform.TfsMigrationAgent` — the TFS migration agent (net481)
+- `DevOpsMigrationPlatform.Infrastructure.TfsObjectModel` — TFS OM adapter library (net481)
+- Multi-targeted shared libraries (`Abstractions`, `Abstractions.Agent`, `Infrastructure`, `Infrastructure.Agent`) — compile for both `net481` and `net10.0`
 
 Rules for the carve-out:
 
-- The .NET 4.8 exporter MUST exist in a dedicated project that is **not** part of the .NET 10 solution build.
-- It MUST NOT share runtime dependencies with .NET 10 components.
-- It MUST be invoked only via `ExternalToolRunner` in `DevOpsMigrationPlatform.CLI.Migration` — never directly from any other .NET 10 code.
-- `TfsExporterProcessAdapter` in `CLI.Migration` is the **only** permitted TFS-aware .NET 10 class. It translates raw NDJSON stdout lines from the subprocess into `ProgressEvent` objects and forwards them to the CLI's progress pipeline. No other .NET 10 class may contain TFS-specific logic.
-- It MUST communicate with the .NET 10 host exclusively via the process bridge protocol:
-  - **stdin** — `TfsExportRequest` as UTF-8 JSON
-  - **stdout** — NDJSON progress lines (one JSON object per line)
-  - **stderr** — unstructured error detail only
-  - **exit code** — 0 for success, non-zero for failure
-  - **cancellation sentinel file** — a file written by the host to signal abort
+- The TFS agent is a standalone net481 polling agent that communicates with the ControlPlane via the same HTTP lease protocol as the MigrationAgent.
+- It inherits `AgentWorkerBase` from `Infrastructure.Agent` and uses `Microsoft.Extensions.Hosting` on net481 for structural symmetry with the MigrationAgent.
+- It uses the same shared telemetry, progress, and checkpointing infrastructure as the MigrationAgent — all compiled for net481 via multi-targeting.
 - It MUST NOT be referenced directly as a project dependency in any .NET 10 project.
 - It MUST NOT expose shared libraries consumed by modern modules.
-- Credentials MUST be passed via stdin JSON only — never via command-line arguments.
-
-The legacy exporter is a bounded extraction adapter only.
+- Credentials are passed via the job contract (same as MigrationAgent) — never via command-line arguments.
+- The TFS agent is spawned by `AgentLifecycleService` on Windows, or run independently. It is Windows-only and cannot run in containers.
 
 No other component may use .NET Framework.
 
-See [docs/tfs-exporter.md](../../docs/tfs-exporter.md) for the full process bridge protocol.
+See [docs/tfs-exporter.md](../../docs/tfs-exporter.md) for the agent protocol specification.
 
 ---
 

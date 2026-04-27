@@ -1,4 +1,3 @@
-#if !NETFRAMEWORK
 using DevOpsMigrationPlatform.Abstractions.Telemetry;
 using Microsoft.Extensions.Logging;
 using OpenTelemetry.Logs;
@@ -29,4 +28,3 @@ public static class DataClassificationLogging
         return builder;
     }
 }
-#endif

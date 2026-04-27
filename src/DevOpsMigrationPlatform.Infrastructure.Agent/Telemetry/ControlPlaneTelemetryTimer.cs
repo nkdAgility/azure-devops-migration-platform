@@ -2,11 +2,15 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Agent.Lease;
+using DevOpsMigrationPlatform.Abstractions.Agent.Telemetry;
+using DevOpsMigrationPlatform.Abstractions.ControlPlaneApi;
+using DevOpsMigrationPlatform.Abstractions.Telemetry;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
-namespace DevOpsMigrationPlatform.MigrationAgent;
+namespace DevOpsMigrationPlatform.Infrastructure.Agent.Telemetry;
 
 /// <summary>
 /// Background service that pushes the latest <see cref="JobMetrics"/> and
@@ -15,7 +19,7 @@ namespace DevOpsMigrationPlatform.MigrationAgent;
 /// Reads the current lease id from <see cref="ActiveLeaseState"/> — no push occurs
 /// when <see cref="ActiveLeaseState.CurrentLeaseId"/> is null.
 /// </summary>
-internal sealed class ControlPlaneTelemetryTimer : BackgroundService
+public sealed class ControlPlaneTelemetryTimer : BackgroundService
 {
     private readonly IJobMetricsStore _metricsStore;
     private readonly IJobSnapshotStore _snapshotStore;

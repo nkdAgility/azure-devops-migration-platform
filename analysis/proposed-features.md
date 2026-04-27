@@ -43,7 +43,7 @@ Status legend:
 
 | # | Module | Status | Summary |
 |---|--------|--------|---------|
-| M2 | [WorkItemsModule — NodeStructure tool](#m2-workitemsmodule--nodestructure-tool) | ❌ | Area/iteration path mapping, creation, and language override |
+| M2 | [WorkItemsModule — NodeStructure tool](#m2-workitemsmodule--nodestructure-tool) | ✅ | Area/iteration path mapping, creation, and language override |
 | M3 | [WorkItemsModule — WorkItemTypeMapping tool](#m3-workitemsmodule--workitemtypemapping-tool) | ❌ | Agile↔Scrum type remapping |
 | M4 | [WorkItemsModule — missing options](#m4-workitemsmodule--missing-options) | ❌ | CollapseRevisions, MaxRevisions, GracefulFailures, etc. |
 | M5 | [TeamsModule](#m5-teamsmodule) | ❌ Placeholder | Team settings, members, capacity, iteration paths |
@@ -57,12 +57,12 @@ Status legend:
 
 | # | Tool | Status | Summary |
 |---|------|--------|---------|
-| T2 | [NodeStructureTool](#t2-nodestructuretool) | ❌ | Area/iteration path regex mapping + auto-creation |
+| T2 | [NodeStructureTool](#t2-nodestructuretool) | ✅ | Area/iteration path regex mapping + auto-creation |
 | T3 | [WorkItemTypeMappingTool](#t3-workitemtypemappingtool) | ❌ | Work item type name remapping table |
-| T4 | [StringManipulatorTool](#t4-stringmanipulatortool) | ❌ | Regex-based field string cleanup |
+| T4 | [StringManipulatorTool](#t4-stringmanipulatortool) | ✅ Covered by `FieldTransformTool` | Regex-based field string cleanup (implemented via `RegexFieldTransform` and 14+ transform types in `FieldTransformTool`) |
 | T5 | [GitRepositoryMappingTool](#t5-gitrepositorymappingtool) | ❌ | Source→target repo name mapping for GitModule and link rewriting |
 | T6 | [ChangesetMappingTool](#t6-changesetmappingtool) | ❌ | TFS changeset → Git commit SHA mapping |
-| T7 | [WorkItemResolutionTool](#t7-workitemresolutiontool) | 🆕 ❌ | Per-work-item-type strategy for finding existing items in the target (field, hyperlink, or title match); handles types that cannot have custom fields (e.g. Shared Steps) |
+| T7 | [WorkItemResolutionTool](#t7-workitemresolutiontool) | 🆕 🔶 | Per-work-item-type strategy for finding existing items in the target (field, hyperlink, or title match); handles types that cannot have custom fields (e.g. Shared Steps). Strategy pattern (`IWorkItemResolutionStrategy`) exists; full tool config not yet implemented |
 
 ### Discovery Commands
 
@@ -87,8 +87,9 @@ Status legend:
 
 | # | Feature | Status | Summary |
 |---|---------|--------|---------|
-| P1 | [Checkpoint Reconciliation](#p1-checkpoint-reconciliation) | 🆕 ❌ | Rebuild missing/corrupted checkpoint state from existing package data across all modules |
+| P1 | [Checkpoint Reconciliation](#p1-checkpoint-reconciliation) | 🆕 🔶 | Rebuild missing/corrupted checkpoint state from existing package data across all modules. Implemented for discovery modules (`DependencyDiscoveryModule`); not yet generalised across all modules |
 | P4 | [Operator Interaction / Pending Questions](#p4-operator-interaction--pending-questions) | 🆕 ❌ | Allow a running MigrationJob to pause and request operator input via TUI or CLI follow-mode; Agent enters "Pending" state on Control Plane until the answer is provided |
+| P5 | [Cloud Deployment — Ring-Based ControlPlane + Agents](#p5-cloud-deployment--ring-based-controlplane--agents) | 🆕 ❌ | Deploy ControlPlaneHost and MigrationAgent(s) to Azure Container Apps via `azd up` with three deployment rings (canary, preview, release) on `devopsmigration.io` |
 
 ---
 
@@ -96,7 +97,7 @@ Status legend:
 
 ### M2: WorkItemsModule — NodeStructure Tool
 
-**Current state**: `System.AreaPath` and `System.IterationPath` are written verbatim into `revision.json`. On import, if those paths don't exist in the target, the import fails or the revision lands in the root.
+**Current state**: ✅ **Implemented.** `NodeStructureTool` (`src/DevOpsMigrationPlatform.Infrastructure.Agent/Tools/NodeStructure/NodeStructureTool.cs`) provides area/iteration path regex mapping, language override (`AreaLanguageOverride`, `IterationLanguageOverride`), auto-create missing nodes (`AutoCreateNodes`), skip on unresolvable paths, and replicate source tree. Options in `NodeStructureOptions.cs`.
 
 **Why it matters**: Almost every migration involves renaming or restructuring area/iteration trees. Without this, imports to a different project hierarchy fail silently or require manual remediation.
 
@@ -346,6 +347,7 @@ Options that belong directly on the `WorkItems` module config rather than as sep
 ### T2: NodeStructureTool
 
 **Used by**: `WorkItemsModule`, `TeamsModule`  
+**Status**: ✅ **Implemented** — `NodeStructureTool.cs`, `INodeStructureTool.cs`, `NodeStructureOptions.cs`  
 **Purpose**: Remap `System.AreaPath` and `System.IterationPath` values before write/import; optionally create missing nodes in the target via the ADO Classification Nodes API.
 
 **Invocation**: Declared under `MigrationPlatform.Tools` as a keyed entry (`"NodeStructure"`). See [M2](#m2-workitemsmodule--nodestructure-tool) for the JSON schema.
@@ -375,6 +377,7 @@ Options that belong directly on the `WorkItems` module config rather than as sep
 ### T4: StringManipulatorTool
 
 **Used by**: `WorkItemsModule`  
+**Status**: ✅ **Covered by `FieldTransformTool`** — `RegexFieldTransform` and 14+ other transform types in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Tools/FieldTransform/` provide equivalent and broader functionality.  
 **Purpose**: Apply regex-based find-and-replace rules to string field values (e.g. stripping legacy prefixes, sanitising invalid characters).
 
 **Invocation**: Declared under `MigrationPlatform.Tools` as a keyed entry.
@@ -422,7 +425,7 @@ The mapping file is a flat `{ "12345": "abc123def456..." }` JSON dictionary prod
 ### T7: WorkItemResolutionTool
 
 **Used by**: `WorkItemsModule` (import path)  
-**Status**: 🆕 ❌ Not implemented  
+**Status**: 🆕 🔶 Partially implemented — `IWorkItemResolutionStrategy` and `IWorkItemResolutionStrategyFactory` exist in `Abstractions.Agent/Import/`; full configurable tool with per-type overrides not yet implemented  
 **Priority**: High
 
 **Purpose**: Determine how the import path decides whether a work item already exists in the target before creating or updating it. Different work item types may require different resolution strategies — for example, standard types can use a `ReflectedWorkItemId` custom field, while types that cannot carry custom fields (e.g. `Shared Steps`, `Shared Parameter`) need a fallback such as a hyperlink, a title+type match, or a dedicated field on their inherited type.
@@ -608,6 +611,91 @@ devopsmigration discovery process --config migration.json --output ./process-aud
 - WIT presence gaps inform `WorkItemTypeMappingTool` configuration ([T3](#t3-workitemtypemappingtool)).
 - System-locked WIT detection informs `WorkItemResolutionTool` override configuration ([T7](#t7-workitemresolutiontool)).
 - The raw export can be used as input to `admin field install` ([C3](#c3-admin-field-install)) to understand which fields need installing on the target before migration begins.
+
+---
+
+### P5: Cloud Deployment — Ring-Based ControlPlane + Agents
+
+**Status**: 🆕 ❌ Not implemented
+**Priority**: High
+
+**Purpose**: Deploy the ControlPlaneHost and MigrationAgent(s) to Azure Container Apps (ACA) via the Aspire AppHost and `azd up`, with three independent deployment rings mapped to subdomains of `devopsmigration.io`. Each ring is a fully isolated environment (separate ACA environment, PostgreSQL, Blob Storage). The CLI connects to a ring via `Environment.ControlPlane.BaseUrl` — a preview CLI talks to `app-preview.devopsmigration.io`, a release CLI talks to `app.devopsmigration.io`.
+
+**Deployment rings**:
+
+| Ring | Domain | Trigger | `azd` Environment |
+|---|---|---|---|
+| Canary | `app-canary.devopsmigration.io` | `build.ps1 -Mode Deploy` (developer local) | `canary` |
+| Preview | `app-preview.devopsmigration.io` | CI on main merge | `preview` |
+| Release | `app.devopsmigration.io` | CI on release tag | `release` |
+
+**Key design decisions**:
+
+- **Code-to-ring only** — every ring is built from source and deployed directly. There is no image promotion between rings; the version is baked into the assemblies at build time.
+- **Full isolation per ring** — each ring has its own Azure resource group, ACA environment, PostgreSQL Flexible Server, and Blob Storage account. A preview bug cannot corrupt release data.
+- **CLI is the ring selector** — the customer's config `ControlPlane.BaseUrl` determines which ring they connect to. Preview customers get a preview CLI binary (or override the URL in config). The CLI version and ControlPlane version must match.
+- **MigrationAgent runs in ACA** — stateless worker containers, scaled by the ControlPlaneHost via `IAgentLauncher` (future `ContainerAgentLauncher`) or by KEDA based on job queue depth. A single container image supports all modes (Export, Import, Both).
+- **TfsMigrationAgent is NOT cloud-deployed** — it requires .NET Framework 4.8.1 and the TFS Object Model (SOAP/COM), which cannot run in Linux containers. The `Package` mode already produces a zip with `TfsMigrationAgent/` inside for manual deployment on a Windows machine near the TFS server. Customers may choose to deploy it on their own Windows VM or Azure VM with VPN/ExpressRoute to their TFS instance.
+- **Aspire replaces Docker Compose** — the AppHost `Program.cs` defines the full service topology. `azd up` generates ACA Bicep automatically. No `docker-compose.yml` is needed. Customers who want to self-host on a plain Docker host can use `azd config set platform.type compose` to generate one from the Aspire manifest.
+
+**Infrastructure per ring** (provisioned by `azd up`):
+
+```
+rg-devopsmigration-{ring}/
+  ├── Azure Container Apps Environment
+  │   ├── controlplane (container app, external ingress)
+  │   └── migration-agent (container app, N replicas, internal only)
+  ├── Azure PostgreSQL Flexible Server
+  │   └── controlplane-db
+  ├── Azure Storage Account
+  │   └── packages (blob container)
+  └── Azure Container Registry
+```
+
+**build.ps1 additions**:
+
+- New mode: `Deploy` — Build + Test + `azd up` to the target ring.
+- New parameter: `-Ring canary|preview|release` (defaults to `canary` for Deploy mode).
+- `azd up` handles container building, registry push, and ACA deployment from the Aspire manifest — no manual `docker build`/`docker push` required.
+
+**Ring configuration** (in build.ps1):
+
+| Ring | Agent Replicas | Notes |
+|---|---|---|
+| Canary | 1 | Developer testing; minimal resources |
+| Preview | 1 | Preview customers; early access to main builds |
+| Release | 2+ | Production customers; higher availability |
+
+**CI/CD pipeline flow**:
+
+| Trigger | Command |
+|---|---|
+| Developer local | `pwsh ./build.ps1 -Mode Deploy` (defaults to canary) |
+| Main merge | `pwsh ./build.ps1 -Mode Deploy -Ring preview` |
+| Release tag | `pwsh ./build.ps1 -Mode Deploy -Ring release` |
+
+**Prerequisites**:
+
+1. `azure.yaml` at repo root (Aspire `azd` project definition)
+2. Dockerfiles for ControlPlaneHost and MigrationAgent
+3. One-time `azd env new` for each ring with `AZURE_LOCATION` and `AZURE_RESOURCE_GROUP`
+4. DNS records: `app-canary.`, `app-preview.`, `app.` → ACA ingress IPs
+5. Wildcard TLS certificate for `*.devopsmigration.io` (or per-subdomain certs via ACA managed certificates)
+
+**Files to create**:
+
+| File | Purpose |
+|---|---|
+| `azure.yaml` | `azd` project definition mapping services to AppHost projects |
+| `src/DevOpsMigrationPlatform.ControlPlaneHost/Dockerfile` | Multi-stage build for ControlPlaneHost container |
+| `src/DevOpsMigrationPlatform.MigrationAgent/Dockerfile` | Multi-stage build for MigrationAgent container |
+
+**Relationship to existing architecture**:
+
+- The AppHost `Program.cs` already has `portable` and `docker` subprofiles. `azd up` uses the Aspire manifest generated from the `docker` subprofile's Azure resource declarations (`AddAzurePostgresFlexibleServer`, `AddAzureStorage`).
+- `ControlPlaneHost` already detects cloud mode (ACA/KEDA manages agents) and idles `AgentLifecycleService`.
+- The `IAgentLauncher` abstraction (documented in `docs/control-plane.md`) anticipates `ContainerAgentLauncher` for deploying and scaling agent containers to a configurable ACA environment.
+- Package storage uses `IArtefactStore` with `AzureBlobArtefactStore` in cloud mode — same `BlobContainerClient` code validated locally by the `dev-docker` subprofile via Azurite.
 
 ---
 

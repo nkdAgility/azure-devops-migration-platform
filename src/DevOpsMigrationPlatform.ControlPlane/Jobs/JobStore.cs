@@ -85,6 +85,63 @@ public sealed class JobStore : IJobStore
     }
 
     /// <inheritdoc />
+    public async Task<Job?> DequeueAsync(TimeSpan timeout, IReadOnlyList<string> capabilities, CancellationToken cancellationToken)
+    {
+        // Map capability labels to endpoint Type values.
+        // "ado" matches "AzureDevOpsServices", "tfs" matches "TeamFoundationServer", etc.
+        var allowedTypes = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var cap in capabilities)
+        {
+            switch (cap.ToLowerInvariant())
+            {
+                case "ado": allowedTypes.Add("AzureDevOpsServices"); break;
+                case "tfs": allowedTypes.Add("TeamFoundationServer"); break;
+                case "simulated": allowedTypes.Add("Simulated"); break;
+                default: allowedTypes.Add(cap); break;
+            }
+        }
+
+        var deadline = DateTimeOffset.UtcNow.Add(timeout);
+        while (DateTimeOffset.UtcNow < deadline && !cancellationToken.IsCancellationRequested)
+        {
+            var remaining = deadline - DateTimeOffset.UtcNow;
+            if (remaining <= TimeSpan.Zero) break;
+
+            if (!await _pendingSignal.WaitAsync(remaining, cancellationToken).ConfigureAwait(false))
+                return null;
+
+            if (_pending.TryDequeue(out var jobId) && _all.TryGetValue(jobId, out var job))
+            {
+                var sourceType = job.GetSourceType();
+                if (sourceType is null || allowedTypes.Contains(sourceType))
+                {
+                    using var activity = ActivitySource.StartActivity("job.dequeue", ActivityKind.Internal);
+                    activity?.SetTag("job.id", job.JobId);
+                    activity?.SetTag("job.type", GetJobType(job));
+
+                    _metrics?.JobDequeued(new TagList
+                    {
+                        { "job.id", job.JobId },
+                        { "job.type", GetJobType(job) }
+                    });
+                    _logger?.LogDebug("[ControlPlane] Job {JobId} ({JobType}) dequeued for agent with capabilities [{Capabilities}].",
+                        job.JobId, GetJobType(job), string.Join(", ", capabilities));
+                    return job;
+                }
+
+                // Re-enqueue non-matching job.
+                _pending.Enqueue(jobId);
+                _pendingSignal.Release();
+                _logger?.LogDebug(
+                    "[ControlPlane] Job {JobId} source type {SourceType} does not match capabilities [{Capabilities}] — re-queued.",
+                    job.JobId, sourceType, string.Join(", ", capabilities));
+            }
+        }
+
+        return null;
+    }
+
+    /// <inheritdoc />
     public IReadOnlyList<Job> GetAll()
     {
         var result = new List<Job>(_all.Values);

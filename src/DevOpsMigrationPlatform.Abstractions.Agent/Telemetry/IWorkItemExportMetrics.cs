@@ -5,8 +5,8 @@ namespace DevOpsMigrationPlatform.Abstractions.Agent.Telemetry;
 /// <summary>
 /// Records telemetry for work item export operations.
 /// Implementations use OpenTelemetry meters and histograms.
+/// Used by the net481 TFS path where <c>IMigrationMetrics</c> (which requires <c>TagList</c>) is unavailable.
 /// </summary>
-[System.Obsolete("Use IMigrationMetrics. Will be removed when all call sites are migrated.")]
 public interface IWorkItemExportMetrics
 {
     void RecordWorkItemExported(System.Guid teamProjectCollectionId);

@@ -4,8 +4,8 @@ namespace DevOpsMigrationPlatform.Abstractions.Agent.Telemetry;
 
 /// <summary>
 /// Records telemetry for attachment download operations.
+/// Used by the net481 TFS path where <c>IMigrationMetrics</c> (which requires <c>TagList</c>) is unavailable.
 /// </summary>
-[System.Obsolete("Use IMigrationMetrics. Will be removed when all call sites are migrated.")]
 public interface IAttachmentDownloadMetrics
 {
     void RecordAttempt();

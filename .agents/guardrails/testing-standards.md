@@ -6,6 +6,35 @@ See also: [.agents/guardrails/coding-standards.md](./coding-standards.md) for th
 
 ---
 
+## Test Priority Hierarchy
+
+Tests MUST be prioritised in this order — overwhelmingly favour the top of the list:
+
+| Priority | Category | Marker | Speed Target | When to Use |
+|----------|----------|--------|--------------|-------------|
+| 1 (highest) | **Unit Tests** | `[TestClass]` / `[TestMethod]` | < 50 ms each | All logic, branching, transforms, calculations. No I/O, no DI container. |
+| 2 | **Feature Tests** (Reqnroll) | `[Binding]` + `.feature` | < 500 ms each | Behaviour scenarios against in-memory fakes/mocks. Validates contracts. |
+| 3 | **Simulated System Tests** | `[TestCategory("SystemTest_Simulated")]` | < 10 s each | End-to-end through real code with `Simulated` connector. No network. |
+| 4 (lowest) | **Live System Tests** | `[TestCategory("SystemTest")]` or `[TestCategory("SystemTest_Live")]` | < 60 s each | Requires live Azure DevOps / TFS. Environment-gated. |
+
+### Guiding Principles
+
+1. **Fast validation is the goal.** The default inner-loop must complete in seconds, not minutes.
+2. **Push tests downward.** When reviewing or writing tests, actively ask: *"Can this be a unit test instead?"* If the answer is yes, make it a unit test.
+3. **Live tests are a last resort.** A live test is only justified when verifying connector-specific behaviour that cannot be reproduced with the `Simulated` connector or mocks.
+4. **Simulated tests replace live tests where possible.** The `Simulated` connector exists precisely to eliminate external dependencies while still exercising the full pipeline.
+5. **Refactor toward unit.** When fixing or extending existing Feature/Simulated/Live tests, extract testable logic into pure functions or small classes and cover them with unit tests. The higher-level test may then become a thin integration check.
+6. **CI gates run Unit + Feature by default.** Simulated and Live tests run in separate, slower pipelines.
+
+### Anti-patterns (reject immediately)
+
+- Writing a Simulated or Live test for logic that has no external dependency.
+- A Feature test that spins up real I/O when mocks would suffice.
+- Adding a new Live test without first proving the behaviour cannot be covered at a lower level.
+- Test suites where Feature/Simulated/Live tests outnumber Unit tests — this signals missing unit coverage.
+
+---
+
 ## Test Framework
 
 - **BDD layer:** Reqnroll (`Reqnroll.MSTest` NuGet package). Reqnroll reads the Gherkin `.feature` files and generates the test runner glue.

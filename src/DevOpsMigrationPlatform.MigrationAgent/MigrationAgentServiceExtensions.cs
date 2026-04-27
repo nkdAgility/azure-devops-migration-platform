@@ -43,14 +43,9 @@ public static class MigrationAgentServiceExtensions
         // Use ConfigureOpenTelemetryMeterProvider (the pattern recommended by the
         // Azure Monitor docs) so the subscription runs on the same MeterProvider
         // that UseAzureMonitor() exports from.
-        // Do NOT reference WorkItemExportMetrics.MeterName (lives in the .NET 4.8 assembly).
         builder.Services.ConfigureOpenTelemetryMeterProvider((sp, mb) => mb
                 .AddMeter(WellKnownMeterNames.Migration)
-                .AddMeter(WellKnownMeterNames.Discovery)
-#pragma warning disable CS0618 // Obsolete — retained for transition
-                .AddMeter(WellKnownMeterNames.WorkItemExport)
-                .AddMeter(WellKnownMeterNames.AttachmentDownload));
-#pragma warning restore CS0618
+                .AddMeter(WellKnownMeterNames.Discovery));
 
         // Singleton to carry the current lease id across services.
         builder.Services.AddSingleton<ActiveLeaseState>();

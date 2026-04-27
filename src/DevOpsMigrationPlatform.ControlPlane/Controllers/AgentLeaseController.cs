@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
@@ -37,14 +39,31 @@ public sealed class AgentLeaseController : ControllerBase
     [HttpGet("/agents/lease")]
     [ProducesResponseType(typeof(AgentLeaseResponse), 200)]
     [ProducesResponseType(204)]
-    public async Task<IActionResult> AcquireLease(CancellationToken cancellationToken)
+    public async Task<IActionResult> AcquireLease(
+        [FromQuery] string? capabilities,
+        CancellationToken cancellationToken)
     {
         Job? job;
         try
         {
-            job = await _jobStore
-                .DequeueAsync(LeasePollTimeout, cancellationToken)
-                .ConfigureAwait(false);
+            if (!string.IsNullOrWhiteSpace(capabilities))
+            {
+                var caps = capabilities
+                    .Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries)
+                    .Select(c => c.Trim())
+                    .Where(c => c.Length > 0)
+                    .ToList();
+
+                job = await _jobStore
+                    .DequeueAsync(LeasePollTimeout, caps, cancellationToken)
+                    .ConfigureAwait(false);
+            }
+            else
+            {
+                job = await _jobStore
+                    .DequeueAsync(LeasePollTimeout, cancellationToken)
+                    .ConfigureAwait(false);
+            }
         }
         catch (OperationCanceledException)
         {

@@ -1,4 +1,3 @@
-#if !NETFRAMEWORK
 using System;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Infrastructure.Telemetry;
@@ -82,4 +81,3 @@ public static class TelemetryServiceExtensions
         return services;
     }
 }
-#endif

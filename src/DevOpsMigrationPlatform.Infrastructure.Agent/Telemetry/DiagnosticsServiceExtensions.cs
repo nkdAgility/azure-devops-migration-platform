@@ -1,4 +1,3 @@
-#if !NETFRAMEWORK
 using System;
 using DevOpsMigrationPlatform.Abstractions;
 using Microsoft.Extensions.DependencyInjection;
@@ -60,4 +59,3 @@ public static class DiagnosticsServiceExtensions
         return services;
     }
 }
-#endif

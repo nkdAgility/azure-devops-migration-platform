@@ -21,6 +21,9 @@ public static class WellKnownServiceNames
 
     /// <summary>TFS Object Model export subprocess (.NET Framework).</summary>
     public const string TfsExport = "TfsExport";
+
+    /// <summary>TFS Migration Agent worker service (.NET Framework).</summary>
+    public const string TfsMigrationAgent = "TfsMigrationAgent";
 }
 
 /// <summary>
