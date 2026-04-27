@@ -15,4 +15,7 @@ public static class WellKnownMeterNames
 
     /// <summary>Meter for job lifecycle metrics (queue depth, in-progress, total runs).</summary>
     public const string ControlPlane = "DevOpsMigrationPlatform.ControlPlane";
+
+    /// <summary>Meter for CLI command execution metrics (invocations, duration, errors).</summary>
+    public const string Cli = "DevOpsMigrationPlatform.CLI";
 }

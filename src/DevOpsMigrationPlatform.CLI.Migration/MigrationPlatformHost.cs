@@ -2,6 +2,7 @@ using Azure.Monitor.OpenTelemetry.Exporter;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.CLI.Migration;
 using DevOpsMigrationPlatform.CLI.Migration.Options;
+using DevOpsMigrationPlatform.Diagnostics;
 using DevOpsMigrationPlatform.Infrastructure;
 using DevOpsMigrationPlatform.Infrastructure.Serialization;
 using Microsoft.Extensions.Configuration;
@@ -12,7 +13,6 @@ using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 using Spectre.Console;
-using System.Diagnostics;
 
 namespace DevOpsMigrationPlatform.CLI;
 
@@ -92,17 +92,21 @@ public static class MigrationPlatformHost
     /// </summary>
     private static void RegisterTelemetryServices(IServiceCollection services, IConfiguration configuration)
     {
-        var cliSource = new ActivitySource("DevOpsMigrationPlatform.CLI");
-        services.AddSingleton(cliSource);
-
         var telOpts = new TelemetryOptions();
         configuration.GetSection(TelemetryOptions.SectionName).Bind(telOpts);
+
+        var diagnosticsPath = FileDiagnosticsExtensions.GetDiagnosticsPath(configuration);
 
         // Read deployment context so Application Insights can distinguish
         // Standalone vs Hosted runs and correlate with a specific control plane.
         var envSection = configuration.GetSection("MigrationPlatform:Environment");
         var deploymentMode = envSection["Type"] ?? "Standalone";
         var controlPlaneUrl = envSection["ControlPlane:BaseUrl"] ?? "http://localhost:5100";
+
+        if (diagnosticsPath is not null)
+        {
+            services.AddLogging(logging => logging.AddFileDiagnostics(diagnosticsPath, WellKnownServiceNames.Cli));
+        }
 
         services.AddOpenTelemetry()
             .ConfigureResource(rb => rb.AddAttributes(
@@ -115,16 +119,21 @@ public static class MigrationPlatformHost
                 }))
             .WithTracing(b =>
             {
-                b.AddSource("DevOpsMigrationPlatform.CLI")
+                b.AddSource(WellKnownActivitySourceNames.Cli)
                  .AddHttpClientInstrumentation();
                 if (!string.IsNullOrEmpty(telOpts.AzureMonitorConnectionString))
                     b.AddAzureMonitorTraceExporter(o => o.ConnectionString = telOpts.AzureMonitorConnectionString);
+                if (diagnosticsPath is not null)
+                    b.AddFileExporter(diagnosticsPath, WellKnownServiceNames.Cli);
             })
             .WithMetrics(b =>
             {
-                b.AddHttpClientInstrumentation();
+                b.AddMeter(WellKnownMeterNames.Cli)
+                 .AddHttpClientInstrumentation();
                 if (!string.IsNullOrEmpty(telOpts.AzureMonitorConnectionString))
                     b.AddAzureMonitorMetricExporter(o => o.ConnectionString = telOpts.AzureMonitorConnectionString);
+                if (diagnosticsPath is not null)
+                    b.AddFileExporter(diagnosticsPath, WellKnownServiceNames.Cli);
             });
     }
 

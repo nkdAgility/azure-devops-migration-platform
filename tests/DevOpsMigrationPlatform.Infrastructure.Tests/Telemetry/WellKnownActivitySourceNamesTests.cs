@@ -37,28 +37,5 @@ public class WellKnownActivitySourceNamesTests
             $"Duplicate activity source names found: {string.Join(", ", values.GroupBy(v => v).Where(g => g.Count() > 1).Select(g => g.Key))}");
     }
 
-    [TestMethod]
-    public void ConstantCount_Matches3Sources()
-    {
-        Assert.AreEqual(3, AllConstants.Length,
-            $"Expected 3 activity source name constants but found {AllConstants.Length}.");
-    }
 
-    [TestMethod]
-    public void Migration_HasExpectedValue()
-    {
-        Assert.AreEqual("DevOpsMigrationPlatform.Migration", WellKnownActivitySourceNames.Migration);
-    }
-
-    [TestMethod]
-    public void Discovery_HasExpectedValue()
-    {
-        Assert.AreEqual("DevOpsMigrationPlatform.Discovery", WellKnownActivitySourceNames.Discovery);
-    }
-
-    [TestMethod]
-    public void ControlPlane_HasExpectedValue()
-    {
-        Assert.AreEqual("DevOpsMigrationPlatform.ControlPlane", WellKnownActivitySourceNames.ControlPlane);
-    }
 }

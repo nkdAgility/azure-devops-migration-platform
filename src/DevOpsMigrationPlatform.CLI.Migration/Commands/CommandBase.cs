@@ -8,6 +8,7 @@ using Spectre.Console.Cli;
 using Spectre.Console;
 using System.ComponentModel;
 using System.Diagnostics;
+using System.Diagnostics.Metrics;
 
 namespace DevOpsMigrationPlatform.CLI.Migration.Commands;
 
@@ -20,6 +21,11 @@ namespace DevOpsMigrationPlatform.CLI.Migration.Commands;
 public abstract class CommandBase<TSettings> : AsyncCommand<TSettings>
     where TSettings : CommandSettings
 {
+    private static readonly ActivitySource s_activitySource = new(WellKnownActivitySourceNames.Cli);
+    private static readonly Meter s_meter = new(WellKnownMeterNames.Cli);
+    private static readonly Counter<long> s_invocations = s_meter.CreateCounter<long>(WellKnownCliMetricNames.CommandInvocations, unit: "{invocation}", description: "Total CLI command invocations");
+    private static readonly Histogram<double> s_duration = s_meter.CreateHistogram<double>(WellKnownCliMetricNames.CommandDurationMs, unit: "ms", description: "CLI command execution duration");
+    private static readonly Counter<long> s_errors = s_meter.CreateCounter<long>(WellKnownCliMetricNames.CommandErrors, unit: "{error}", description: "CLI command errors");
     /// <summary>
     /// The host created by this command. Disposed at the end of execution.
     /// Available after <see cref="CreateHost"/> is called.
@@ -84,6 +90,18 @@ public abstract class CommandBase<TSettings> : AsyncCommand<TSettings>
     protected override async Task<int> ExecuteAsync(
         CommandContext context, TSettings settings, CancellationToken cancellationToken = default)
     {
+        var commandName = context.Name ?? GetType().Name.Replace("Command", "").ToLowerInvariant();
+        var tags = new TagList
+        {
+            { WellKnownTagNames.Command, commandName }
+        };
+
+        s_invocations.Add(1, tags);
+        var sw = Stopwatch.StartNew();
+
+        using var activity = s_activitySource.StartActivity("cli.command", ActivityKind.Internal);
+        activity?.SetTag(WellKnownTagNames.Command, commandName);
+
         // Link the Spectre.Console-provided token with the process-wide Ctrl+C signal
         // so that all downstream async operations honour both cancellation sources.
         using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(
@@ -108,21 +126,38 @@ public abstract class CommandBase<TSettings> : AsyncCommand<TSettings>
 
         try
         {
-            return await ExecuteInternalAsync(context, settings, ct);
+            var exitCode = await ExecuteInternalAsync(context, settings, ct);
+            activity?.SetTag(WellKnownTagNames.ExitCode, exitCode);
+            activity?.SetStatus(exitCode == 0 ? ActivityStatusCode.Ok : ActivityStatusCode.Error);
+            sw.Stop();
+            s_duration.Record(sw.Elapsed.TotalMilliseconds, tags);
+            return exitCode;
         }
         catch (OperationCanceledException)
         {
+            activity?.SetStatus(ActivityStatusCode.Error, "Cancelled");
+            activity?.SetTag(WellKnownTagNames.ExitCode, 130);
+            sw.Stop();
+            s_duration.Record(sw.Elapsed.TotalMilliseconds, tags);
+            s_errors.Add(1, tags);
             AnsiConsole.MarkupLine("[yellow]⚠[/] Operation cancelled.");
             return 130; // Standard Unix convention: 128 + SIGINT(2)
         }
         catch (Exception ex)
         {
+            activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
+            sw.Stop();
+            s_duration.Record(sw.Elapsed.TotalMilliseconds, tags);
+            s_errors.Add(1, tags);
+
             // Sanitize the exception message to mask any embedded credentials (PAT, API keys, etc.)
             var sanitized = ExceptionSanitizer.SanitizeException(ex);
             AnsiConsole.MarkupLine($"[red]✗[/] Unhandled exception: {Markup.Escape(sanitized.Message)}");
 
             // Extract the categorized exit code if available, otherwise use default
-            return ex is MigrationException migrationEx ? migrationEx.ExitCode : 1;
+            var exitCode = ex is MigrationException migrationEx ? migrationEx.ExitCode : 1;
+            activity?.SetTag(WellKnownTagNames.ExitCode, exitCode);
+            return exitCode;
         }
         finally
         {
