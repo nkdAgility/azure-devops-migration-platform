@@ -150,10 +150,8 @@ public static class MigrationPlatformHost
             // Export services
             services.AddSingleton<IWorkItemRevisionMapper, TfsWorkItemRevisionMapper>();
             services.AddSingleton<ITfsAttachmentDownloader, TfsAttachmentDownloader>();
-#pragma warning disable CS0618 // Obsolete — retained until all call sites migrate to IMigrationMetrics
             services.AddSingleton<IWorkItemExportMetrics, WorkItemExportMetrics>();
             services.AddSingleton<IAttachmentDownloadMetrics, AttachmentDownloadMetrics>();
-#pragma warning restore CS0618
             services.AddSingleton<IDiscoveryMetrics, DiscoveryMetrics>();
             services.AddSingleton<TfsWorkItemQueryWindowStrategy>();
             services.AddSingleton<IWorkItemFetchService, TfsWorkItemFetchService>();
@@ -210,8 +208,7 @@ public static class MigrationPlatformHost
                 })
                 .WithMetrics(mb =>
                 {
-                    mb.AddMeter(WorkItemExportMetrics.MeterName);
-                    mb.AddMeter(AttachmentDownloadMetrics.MeterName);
+                    mb.AddMeter(WellKnownMeterNames.Migration);
                     mb.AddMeter(WellKnownMeterNames.Discovery);
                     if (hasOtlpEndpoint)
                         mb.AddOtlpExporter();

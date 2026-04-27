@@ -5,11 +5,9 @@ using DevOpsMigrationPlatform.Abstractions;
 namespace DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.Telemetry;
 
 /// <summary>
-/// Legacy attachment download metrics emitted under the <see cref="WellKnownMeterNames.AttachmentDownload"/> meter.
-/// Superseded by <see cref="IMigrationMetrics"/> which consolidates all instruments under a single meter.
-/// Retained for the net481 TFS subprocess; will be removed once all call sites migrate to IMigrationMetrics.
+/// Attachment download metrics emitted under the consolidated <see cref="WellKnownMeterNames.Migration"/> meter.
+/// Used by the net481 TFS subprocess where <c>IMigrationMetrics</c> (which requires <c>TagList</c>) is unavailable.
 /// </summary>
-[Obsolete("Use IMigrationMetrics. Will be removed when all call sites are migrated.")]
 public class AttachmentDownloadMetrics : IAttachmentDownloadMetrics
 {
     // Inline legacy metric names — the old WellKnownMetricNames constants were removed in the v2.0 rename.
@@ -18,9 +16,7 @@ public class AttachmentDownloadMetrics : IAttachmentDownloadMetrics
     private const string AttachmentFailuresName = "attachment_download_failure_total";
     private const string AttachmentDurationName = "attachment_download_duration_ms";
 
-#pragma warning disable CS0618 // Obsolete meter name — retained for net481 subprocess
-    public const string MeterName = WellKnownMeterNames.AttachmentDownload;
-#pragma warning restore CS0618
+    public const string MeterName = WellKnownMeterNames.Migration;
     public const string MeterVersion = "1.0";
 
     private static readonly Meter _meter = new Meter(MeterName, MeterVersion);

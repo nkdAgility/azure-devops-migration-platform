@@ -71,10 +71,8 @@ public sealed class TfsJobServiceFactory : ITfsJobServiceFactory, IDisposable
         // Shared attachment registry — links revision enumeration to binary download.
         var attachmentRegistry = new TfsAttachmentRegistry();
 
-#pragma warning disable CS0618 // Obsolete metrics — retained for TFS path until migration to IMigrationMetrics
         var exportMetrics = new WorkItemExportMetrics();
         var attachmentMetrics = new AttachmentDownloadMetrics();
-#pragma warning restore CS0618
 
         var revisionMapper = new TfsWorkItemRevisionMapper(
             exportMetrics,
@@ -150,10 +148,8 @@ public sealed class TfsJobServices : IDisposable
     public IWorkItemFetchService FetchService { get; }
     public TeamFoundationServerEndpointOptions Endpoint { get; }
 
-#pragma warning disable CS0618
     public IWorkItemExportMetrics ExportMetrics { get; }
     public IAttachmentDownloadMetrics AttachmentMetrics { get; }
-#pragma warning restore CS0618
 
     private readonly TfsTeamProjectCollection _collection;
 
@@ -166,10 +162,8 @@ public sealed class TfsJobServices : IDisposable
         IProjectDiscoveryService projectDiscoveryService,
         IWorkItemFetchService fetchService,
         TeamFoundationServerEndpointOptions endpoint,
-#pragma warning disable CS0618
         IWorkItemExportMetrics exportMetrics,
         IAttachmentDownloadMetrics attachmentMetrics)
-#pragma warning restore CS0618
     {
         _collection = collection;
         RevisionSource = revisionSource;

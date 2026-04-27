@@ -1,5 +1,3 @@
-using System;
-
 namespace DevOpsMigrationPlatform.Abstractions;
 
 /// <summary>
@@ -17,10 +15,4 @@ public static class WellKnownMeterNames
 
     /// <summary>Meter for job lifecycle metrics (queue depth, in-progress, total runs).</summary>
     public const string ControlPlane = "DevOpsMigrationPlatform.ControlPlane";
-
-    [Obsolete("Use Migration. Will be removed in next major version.")]
-    public const string WorkItemExport = "DevOpsMigrationPlatform.WorkItemExport";
-
-    [Obsolete("Use Migration. Will be removed in next major version.")]
-    public const string AttachmentDownload = "DevOpsMigrationPlatform.AttachmentDownload";
 }

@@ -89,9 +89,7 @@ namespace DevOpsMigrationPlatform.TfsMigrationAgent
                            .AddRuntimeInstrumentation()
                            .AddMeter(WellKnownMeterNames.Migration)
                            .AddMeter(WellKnownMeterNames.Discovery)
-                           .AddMeter(WellKnownMeterNames.ControlPlane)
-                           .AddMeter(WellKnownMeterNames.WorkItemExport)
-                           .AddMeter(WellKnownMeterNames.AttachmentDownload));
+                           .AddMeter(WellKnownMeterNames.ControlPlane));
 
                 otel.WithTracing(tracing =>
                     tracing.AddHttpClientInstrumentation()
