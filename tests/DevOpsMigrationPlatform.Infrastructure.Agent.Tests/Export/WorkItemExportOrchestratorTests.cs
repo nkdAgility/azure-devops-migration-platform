@@ -1111,4 +1111,83 @@ public class WorkItemExportOrchestratorTests
             setRevCalls,
             "SetRevAsync should be called with (workItemId=1, rev=0), (1,1), (1,2) in order.");
     }
+
+    /// <summary>
+    /// Regression: on resume the fast-forward skip path increments workItemsSkipped for
+    /// previously-exported work items. The old code also seeded workItemsProcessed from
+    /// cursor.WorkItemsProcessed, which caused processed = Completed + Skipped to exceed
+    /// totalWorkItems (the "skipped counter goes above processed" bug).
+    ///
+    /// Fix: workItemsProcessed starts at 0 each run; the cursor accumulates cumulatively.
+    /// </summary>
+    [TestMethod]
+    public async Task ExportAsync_OnResume_SkippedPlusCompletedDoesNotExceedTotal()
+    {
+        // Two work items already exported in a prior run; one new item to export now.
+        // totalWorkItems = 3 (scope).
+        var wi1Rev0 = new WorkItemRevision { WorkItemId = 1, RevisionIndex = 0, ChangedDate = new DateTimeOffset(2024, 1, 1, 0, 0, 0, TimeSpan.Zero) };
+        var wi2Rev0 = new WorkItemRevision { WorkItemId = 2, RevisionIndex = 0, ChangedDate = new DateTimeOffset(2024, 1, 2, 0, 0, 0, TimeSpan.Zero) };
+        var wi3Rev0 = new WorkItemRevision { WorkItemId = 3, RevisionIndex = 0, ChangedDate = new DateTimeOffset(2024, 1, 3, 0, 0, 0, TimeSpan.Zero) };
+
+        // Cursor represents the previous run which exported WI 1 and WI 2.
+        var cursor = new CursorEntry
+        {
+            LastProcessed = "WorkItems/prior",
+            Stage = CursorStage.Completed,
+            UpdatedAt = DateTimeOffset.UtcNow,
+            WorkItemsProcessed = 2,
+            RevisionsProcessed = 2,
+            TotalWorkItems = 3
+        };
+
+        var mockCps = new Mock<ICheckpointingService>(MockBehavior.Strict);
+        mockCps.Setup(s => s.ReadCursorAsync("workitems", It.IsAny<CancellationToken>()))
+               .ReturnsAsync(cursor);
+
+        var savedCursors = new List<CursorEntry>();
+        mockCps.Setup(s => s.WriteCursorAsync("workitems", It.IsAny<CursorEntry>(), It.IsAny<CancellationToken>()))
+               .Callback<string, CursorEntry, CancellationToken>((_, c, _) => savedCursors.Add(c))
+               .Returns(Task.CompletedTask);
+
+        var wi1Path = WorkItemExportOrchestrator.BuildFolderPath(1, 0, wi1Rev0.ChangedDate) + "revision.json";
+        var wi2Path = WorkItemExportOrchestrator.BuildFolderPath(2, 0, wi2Rev0.ChangedDate) + "revision.json";
+        var wi3Path = WorkItemExportOrchestrator.BuildFolderPath(3, 0, wi3Rev0.ChangedDate) + "revision.json";
+
+        var mockStore = new Mock<IArtefactStore>(MockBehavior.Strict);
+        mockStore.Setup(s => s.ExistsAsync(wi1Path, It.IsAny<CancellationToken>())).ReturnsAsync(true);
+        mockStore.Setup(s => s.ExistsAsync(wi2Path, It.IsAny<CancellationToken>())).ReturnsAsync(true);
+        mockStore.Setup(s => s.ExistsAsync(wi3Path, It.IsAny<CancellationToken>())).ReturnsAsync(false);
+        mockStore.Setup(s => s.WriteAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+                 .Returns(Task.CompletedTask);
+
+        var progressEvents = new List<ProgressEvent>();
+        var progressSink = new Mock<IProgressSink>();
+        progressSink.Setup(p => p.Emit(It.IsAny<ProgressEvent>()))
+                    .Callback<ProgressEvent>(e => progressEvents.Add(e));
+
+        var mockSource = new Mock<IWorkItemRevisionSource>(MockBehavior.Strict);
+        mockSource.Setup(s => s.GetRevisionsAsync(It.IsAny<CancellationToken>()))
+                  .Returns((CancellationToken ct) => new[] { wi1Rev0, wi2Rev0, wi3Rev0 }.ToAsyncEnumerable(ct));
+
+        var sut = new WorkItemExportOrchestrator(mockStore.Object, mockCps.Object, progressSink: progressSink.Object);
+        await sut.ExportAsync(mockSource.Object, CancellationToken.None);
+
+        // Verify: the cursor accumulated correctly (previous 2 + this run's 1 = 3).
+        var finalCursor = savedCursors.Last();
+        Assert.AreEqual(3, finalCursor.WorkItemsProcessed, "Cursor should accumulate: 2 previous + 1 new = 3.");
+        Assert.AreEqual(3, finalCursor.RevisionsProcessed, "Cursor should accumulate revisions: 2 previous + 1 new = 3.");
+
+        // Verify: no progress event reported Completed + Skipped > TotalWorkItems.
+        foreach (var evt in progressEvents)
+        {
+            var wi = evt.Metrics?.Migration?.WorkItems;
+            if (wi is null) continue;
+            var totalWi = evt.Metrics?.Scope?.WorkItemsTotal ?? 0;
+            if (totalWi <= 0) continue;
+
+            var processed = wi.Completed + wi.Skipped;
+            Assert.IsTrue(processed <= totalWi,
+                $"processed ({processed}) must not exceed totalWorkItems ({totalWi}) — stage: {evt.Stage}");
+        }
+    }
 }
