@@ -123,13 +123,6 @@ namespace DevOpsMigrationPlatform.Abstractions.Tests.Errors
         }
 
         [TestMethod]
-        public void BaseException_InheritancePreserved()
-        {
-            var ex = new MigrationException("Test error", MigrationErrorCategory.ValidationError);
-            Assert.IsInstanceOfType(ex, typeof(Exception));
-        }
-
-        [TestMethod]
         public void MultipleInstances_WithSameCategory_HaveSameExitCode()
         {
             var ex1 = new MigrationException("First", MigrationErrorCategory.RateLimited);

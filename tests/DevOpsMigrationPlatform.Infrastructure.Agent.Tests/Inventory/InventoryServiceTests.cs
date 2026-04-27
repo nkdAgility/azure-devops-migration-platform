@@ -201,143 +201,130 @@ public class InventoryServiceTests
     // ── T020: Strategy behaviour — 20k-limit causes window halve ─────────────
 
     [TestMethod]
-    public void WindowStrategy_LimitThreshold_ConfiguredCorrectly()
+    public void DefaultOptions_LimitThreshold_DoesNotExceedWiqlHardLimit()
     {
-        // The default options must have LimitThreshold = 20000
+        // The WIQL engine imposes a hard cap of 20,000 items per query.
+        // If LimitThreshold is raised above this, windowed queries will silently
+        // truncate results and the export will miss work items.
         var opts = new WorkItemQueryWindowOptions();
-        Assert.AreEqual(20000, opts.LimitThreshold,
-            "LimitThreshold must default to 20,000 (the TFS/Azure DevOps WIQL hard limit)");
+        Assert.IsTrue(opts.LimitThreshold <= 20_000,
+            $"LimitThreshold ({opts.LimitThreshold}) must not exceed 20,000 — " +
+            "the hard WIQL item limit imposed by TFS/Azure DevOps");
     }
 
     [TestMethod]
-    public void WindowStrategy_InitialWindowDays_ConfiguredCorrectly()
+    public void DefaultOptions_InitialWindowDays_ExceedsMinWindowDays()
     {
+        // The window-halving algorithm requires InitialWindowDays > MinWindowDays.
+        // If this invariant is broken, the strategy begins at or below its floor
+        // and can never halve — producing an infinite loop for dense projects.
         var opts = new WorkItemQueryWindowOptions();
-        Assert.AreEqual(120, opts.InitialWindowDays,
-            "InitialWindowDays must default to 120 per spec");
+        Assert.IsTrue(opts.InitialWindowDays > opts.MinWindowDays,
+            $"InitialWindowDays ({opts.InitialWindowDays}) must be greater than " +
+            $"MinWindowDays ({opts.MinWindowDays}) so the halving loop can always reduce the window");
     }
 
     [TestMethod]
-    public void WindowStrategy_MinWindowDays_ConfiguredCorrectly()
+    public void DefaultOptions_MinWindowDays_IsPositive()
     {
+        // MinWindowDays must be at least 1. A zero or negative minimum would allow
+        // the halving algorithm to produce 0-day windows, causing infinite loops.
         var opts = new WorkItemQueryWindowOptions();
-        Assert.AreEqual(1, opts.MinWindowDays,
-            "MinWindowDays must default to 1 day (minimum safe resolution)");
+        Assert.IsTrue(opts.MinWindowDays >= 1,
+            $"MinWindowDays ({opts.MinWindowDays}) must be >= 1 to guarantee the halving loop terminates");
     }
 
     // ── T021: Running total accumulates across windows ────────────────────────
 
     [TestMethod]
-    public void WorkItemQueryWindow_WorkItemIds_StoredCorrectly()
+    public void WorkItemQueryWindow_DefaultWorkItemIds_IsEmptyNotNull()
     {
-        // WorkItemQueryWindow is a data model — verify it retains its data.
-        var ids = new[] { 1, 2, 3, 4, 5 };
-        var window = new WorkItemQueryWindow
-        {
-            WindowStart = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc),
-            WindowEnd = new DateTime(2024, 5, 1, 0, 0, 0, DateTimeKind.Utc),
-            WindowSize = TimeSpan.FromDays(120),
-            WorkItemIds = ids
-        };
-
-        CollectionAssert.AreEquivalent(ids, window.WorkItemIds.ToArray());
-        Assert.AreEqual(TimeSpan.FromDays(120), window.WindowSize);
+        // Callers iterate WorkItemIds without null-checking (e.g. .Count, foreach).
+        // A null default would throw a NullReferenceException on every empty window.
+        var window = new WorkItemQueryWindow();
+        Assert.IsNotNull(window.WorkItemIds,
+            "WorkItemIds must never be null — the strategy yields empty windows and callers iterate without null-guards");
+        Assert.AreEqual(0, window.WorkItemIds.Count,
+            "A default window should have no IDs");
     }
 
     // ── T022: Empty window yields IsComplete = true immediately ───────────────
 
     [TestMethod]
-    public void InventoryProgressEvent_IsComplete_DefaultsFalse()
+    public async Task RunInventoryAsync_Events_PopulateUrlFromEndpointConfiguration()
     {
-        var evt = new InventoryProgressEvent();
-        Assert.IsFalse(evt.IsComplete, "IsComplete must default to false");
-    }
+        // The URL field on every emitted event must be the resolved organisation URL
+        // from the configuration — consumers use it to correlate events back to the
+        // source system without needing to re-inspect the config themselves.
+        const string orgUrl = "https://dev.azure.com/testorg";
+        var discoveryMock = BuildDiscoveryMock(workItemCount: 5, revisionCount: 25);
+        var sut = BuildService(discoveryMock, options: BuildOptions(org: orgUrl));
 
-    [TestMethod]
-    public void InventoryProgressEvent_HasAllRequiredFields()
-    {
-        var now = DateTime.UtcNow;
-        var evt = new InventoryProgressEvent
-        {
-            ProjectName = "TestProject",
-            Url = "https://dev.azure.com/org",
-            WorkItemsCount = 42,
-            RevisionsCount = 100,
-            IsComplete = true,
-            WindowStart = now.AddDays(-120),
-            WindowEnd = now,
-            WindowSize = TimeSpan.FromDays(120),
-            Error = null,
-            Timestamp = now
-        };
+        var events = await CollectEventsAsync(sut);
 
-        Assert.AreEqual("TestProject", evt.ProjectName);
-        Assert.AreEqual(42, evt.WorkItemsCount);
-        Assert.AreEqual(100, evt.RevisionsCount);
-        Assert.IsTrue(evt.IsComplete);
-        Assert.IsNull(evt.Error);
+        Assert.IsTrue(events.Count >= 1, "Should yield at least one event");
+        foreach (var evt in events)
+            Assert.AreEqual(orgUrl, evt.Url,
+                "Each event — intermediate and final — must carry the organisation URL from config");
     }
 
     // ── T023: Window grows after narrow success (< 30 days) ──────────────────
 
     [TestMethod]
-    public void WorkItemQueryWindowOptions_AllowsCustomisation()
+    public void DefaultOptions_MaxWindowDays_ExceedsInitialWindowDays()
     {
-        var opts = new WorkItemQueryWindowOptions
-        {
-            InitialWindowDays = 60,
-            LimitThreshold = 10000,
-            MinWindowDays = 2
-        };
-
-        Assert.AreEqual(60, opts.InitialWindowDays);
-        Assert.AreEqual(10000, opts.LimitThreshold);
-        Assert.AreEqual(2, opts.MinWindowDays);
+        // After a narrow success (window returned < LimitThreshold items), the strategy
+        // expands the window toward MaxWindowDays. If MaxWindowDays ≤ InitialWindowDays
+        // the expansion can never grow past the starting size, defeating the optimisation.
+        var opts = new WorkItemQueryWindowOptions();
+        Assert.IsTrue(opts.MaxWindowDays > opts.InitialWindowDays,
+            $"MaxWindowDays ({opts.MaxWindowDays}) must be greater than " +
+            $"InitialWindowDays ({opts.InitialWindowDays}) so the strategy can skip empty date ranges quickly");
     }
 
     // ── T024: Error event on WIQL failure ────────────────────────────────────
 
     [TestMethod]
-    public void InventoryProgressEvent_ErrorField_ReportsError()
+    public async Task RunInventoryAsync_DiscoveryReturnsError_FinalEventCarriesError()
     {
-        var evt = new InventoryProgressEvent
-        {
-            Error = "WIQL query failed: TF50309",
-            IsComplete = true
-        };
+        // When DiscoverWorkItemsAsync yields a final summary that carries an error
+        // (e.g. a WIQL failure mid-scan), InventoryService must propagate that error
+        // onto the emitted final event so the caller can report it — not silently swallow it.
+        var errorDiscovery = new Mock<IWorkItemDiscoveryService>(MockBehavior.Strict);
+        errorDiscovery
+            .Setup(s => s.DiscoverWorkItemsAsync(
+                It.IsAny<OrganisationEndpoint>(), It.IsAny<string>(),
+                It.IsAny<WorkItemFetchScope?>(), It.IsAny<CancellationToken>()))
+            .Returns<OrganisationEndpoint, string, WorkItemFetchScope?, CancellationToken>(
+                (_, proj, _, _) => DiscoveryWithError(proj, "WIQL query failed: TF50309"));
 
-        Assert.IsNotNull(evt.Error);
-        Assert.IsTrue(evt.IsComplete, "Error event must also have IsComplete = true");
+        var sut = BuildService(errorDiscovery);
+        var events = await CollectEventsAsync(sut);
+
+        var finalEvent = events.Single(e => e.IsComplete);
+        Assert.IsNotNull(finalEvent.Error,
+            "Final event must carry the error message from the discovery service");
+        Assert.IsTrue(finalEvent.Error!.Contains("TF50309"),
+            $"Error message should include the WIQL error code; got: {finalEvent.Error}");
+    }
+
+    private static async IAsyncEnumerable<ProjectDiscoverySummary> DiscoveryWithError(
+        string project,
+        string errorMessage,
+        [EnumeratorCancellation] CancellationToken ct = default)
+    {
+        yield return new ProjectDiscoverySummary
+        {
+            ProjectName = project,
+            WorkItemsCount = 3,
+            RevisionsCount = 9,
+            IsWorkItemComplete = true,
+            Error = errorMessage,
+            LastUpdatedUtc = DateTime.UtcNow
+        };
     }
 
     // ── T025: IWorkItemQueryWindowStrategy contract ───────────────────────────
-
-    [TestMethod]
-    public void WorkItemQueryWindowStrategy_ImplementsInterface()
-    {
-        var clientFactory = new Mock<IWiqlQueryClientFactory>(MockBehavior.Strict);
-        var strategy = new WorkItemQueryWindowStrategy(clientFactory.Object);
-        Assert.IsInstanceOfType(strategy, typeof(IWorkItemQueryWindowStrategy),
-            "WorkItemQueryWindowStrategy must implement IWorkItemQueryWindowStrategy");
-    }
-
-    [TestMethod]
-    public void AzureDevOpsWorkItemDiscoveryService_ImplementsInterface()
-    {
-        var windowStrategy = new Mock<IWorkItemQueryWindowStrategy>(MockBehavior.Strict);
-        var fetchService = new Mock<IWorkItemFetchService>(MockBehavior.Strict);
-        var sut = new AzureDevOpsWorkItemDiscoveryService(windowStrategy.Object, fetchService.Object);
-        Assert.IsInstanceOfType(sut, typeof(IWorkItemDiscoveryService),
-            "AzureDevOpsWorkItemDiscoveryService must implement IWorkItemDiscoveryService");
-    }
-
-    [TestMethod]
-    public void InventoryService_AcceptsDiscoveryService()
-    {
-        var discoveryMock = new Mock<IWorkItemDiscoveryService>(MockBehavior.Strict);
-        var sut = BuildService(discoveryMock);
-        Assert.IsNotNull(sut);
-    }
 
     [TestMethod]
     public void InventoryService_ThrowsOnNullDiscovery()
@@ -422,15 +409,6 @@ public class InventoryServiceTests
         var finalEvent = events.Last();
         Assert.IsTrue(finalEvent.IsComplete);
         Assert.AreEqual(0, finalEvent.ReposCount, "Zero repos must be reported as 0");
-    }
-
-    [TestMethod]
-    public void AzureDevOpsRepoDiscoveryService_ImplementsInterface()
-    {
-        var clientFactory = new Mock<IAzureDevOpsClientFactory>(MockBehavior.Strict);
-        var sut = new AzureDevOpsRepoDiscoveryService(clientFactory.Object);
-        Assert.IsInstanceOfType(sut, typeof(IRepoDiscoveryService),
-            "AzureDevOpsRepoDiscoveryService must implement IRepoDiscoveryService");
     }
 
     [TestMethod]

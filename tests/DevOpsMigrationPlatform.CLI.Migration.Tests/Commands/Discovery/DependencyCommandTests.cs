@@ -31,7 +31,7 @@ public class DependencyCommandTests
 
         if (!File.Exists(scenarioPath))
         {
-            Assert.Inconclusive($"Scenario file not found: {scenarioPath}");
+            Assert.Fail($"Scenario file not found: {scenarioPath}");
         }
 
         var outputDir = Path.Combine(repoRoot, "output");
