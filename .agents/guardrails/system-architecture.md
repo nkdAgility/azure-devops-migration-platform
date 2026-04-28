@@ -1,196 +1,72 @@
 # System Architecture — Hard Guardrails
 
-These rules are non-negotiable. They are distilled from the full reference set in [docs/](../../docs/). In any conflict between these rules and any documentation in `/docs`, **these rules win**. The docs define architectural intent; the `.agents/guardrails` files enforce it. The binding entry point is [agents.md](../../agents.md).
+Non-negotiable rules distilled from [docs/](../../docs/). These rules override `/docs` in any conflict. Binding entry point: [agents.md](../../agents.md).
 
 ## Guardrail Challenge Protocol
 
-These rules are non-negotiable by default — but they are authored by humans and may contain errors or assumptions that do not hold in every context. If an agent determines that a rule below is forcing a **clearly worse outcome**, the agent MUST:
-
-1. **Stop** — do not implement the suboptimal path.
-2. **Identify** — cite the exact rule number and explain the concrete negative consequence.
-3. **Propose** — offer a specific replacement or amendment that preserves the architectural intent.
-4. **Ask** — present "change the guardrail" vs. "keep the guardrail" as explicit options and wait for a human decision.
-
-Silently working around a rule = violation. Blindly following a harmful rule = negligence. Transparent challenge = expected.
+If a rule below forces a **clearly worse outcome**: Stop → Cite rule number → Propose amendment → Ask human → Wait for decision. Silent workaround = violation. Blind compliance with harmful rule = negligence.
 
 ---
 
 ## Absolute Rules
 
-1. **WorkItems chronological layout is canonical.**
-   The folder structure `WorkItems/yyyy-MM-dd/<ticks>-<workItemId>-<revisionIndex>/` must not be altered. No renaming, reordering, or flattening.
+1. **WorkItems layout is canonical.** `WorkItems/yyyy-MM-dd/<ticks>-<workItemId>-<revisionIndex>/` — no renaming, reordering, or flattening.
 
-2. **Import must be streaming.**
-   Load and process one revision folder at a time. Loading all revisions into memory before processing is forbidden.
+2. **Import must be streaming.** One revision folder at a time. Loading all revisions into memory is forbidden.
 
-3. **No global in-memory sort.**
-   Enumeration order is determined by lexicographic folder traversal. Sorting in memory defeats the purpose of the layout and breaks memory safety for large datasets.
+3. **No global in-memory sort.** Enumeration order = lexicographic folder traversal. In-memory sorting of `EnumerateAsync` results is forbidden.
 
-4. **Cursor-based checkpoints are required.**
-   Every module must maintain a cursor file under `.migration/Checkpoints/`. Watermark tables, databases, or in-memory progress tracking are not acceptable substitutes.
+4. **Cursor-based checkpoints required.** Every module: `.migration/Checkpoints/`. No watermark tables, databases, or in-memory progress tracking.
 
-5. **Attachments are stored beside revision.json.**
-   Attachment files live in the same folder as their `revision.json`. There is no global `Attachments/` root and no mandatory blob store.
+5. **Attachments beside revision.json.** No global `Attachments/` root. No mandatory blob store.
 
-6. **No source-to-target direct migration.**
-   The system is a package platform. Source data is always written to the package first. Import always reads from the package. Direct source-to-target calls in any module are forbidden.
+6. **No source-to-target direct migration.** Source → Package → Target. Always.
 
-7. **Modules only through IArtefactStore and IStateStore.**
-   Modules must not access the filesystem directly, call source/target APIs outside of the export/import context, or share state through globals.
+7. **Modules only through IArtefactStore and IStateStore.** No direct filesystem access, no source/target API calls outside export/import context, no global shared state.
 
-8. **Identity is a cross-cutting service.**
-   No module implements its own identity resolution. All modules use `IIdentityMappingService`. `IdentitiesModule` must complete before any module that maps identities.
+8. **Identity is cross-cutting.** All modules use `IIdentityMappingService`. `IdentitiesModule` completes before any identity-mapping module.
 
-9. **Config and schema versioning with upgrader.**
-   Breaking changes to config or package schema require a version increment and a corresponding upgrader. There is no backwards compatibility without an upgrader.
+9. **Config/schema versioning with upgrader.** Breaking changes require version increment + upgrader.
 
-10. **Prepare before import.**
-    Import mode MUST verify that Prepare has completed by checking for `.migration/Checkpoints/prepare.complete.json`. If absent, Import auto-runs Prepare (each module's `PrepareAsync`). If Prepare finds any blocking issue, Import aborts. In `Migrate` mode, Prepare runs after Export and before Import; blocking issues abort the run. Structural validation (`ValidateAsync`) and Prepare are complementary: `ValidateAsync` checks package integrity (no side effects, no target needed), while `PrepareAsync` cross-validates the package against the specific target (writes mapping artefacts, needs target connection). Post-flight validation must also run after import. See [docs/validation.md](../../docs/validation.md) for the full check list and configuration.
+10. **Prepare before Import.** Import checks `.migration/Checkpoints/prepare.complete.json`. Absent → auto-run Prepare. Blocking issue → abort. In `Migrate` mode: Export → Prepare → Import; blocking issues abort after Prepare. See [docs/validation.md](../../docs/validation.md).
 
-11. **The `ControlPlane` service must not execute migrations.**
-    The `ControlPlane` service library accepts, stores, and assigns jobs. It does not call source or target APIs, run orchestrator logic, read or write the migration package, or unwrap secrets. `ControlPlaneHost` extends the control plane with agent lifecycle management but must not contain job execution logic. Violations break the separation between coordination (`ControlPlane`/`ControlPlaneHost`) and execution (`Agent`).
+11. **ControlPlane must not execute migrations.** Accepts, stores, assigns jobs only. No source/target API calls, no orchestrator logic, no package I/O, no secret unwrapping. `ControlPlaneHost` manages agent lifecycle but contains no job execution logic.
 
-12. **Agents are stateless; all durable state is in the package.**
-    Agents hold no state beyond the current lease. All durable state lives in the package (`.migration/Checkpoints/`, `.migration/Logs/`, revision folders) via `IArtefactStore` and `IStateStore`. An Agent that crashes is replaced by a new Agent that resumes from the cursor.
+12. **Agents are stateless; all durable state in the package.** All state lives in `.migration/Checkpoints/`, `.migration/Logs/`, revision folders via `IArtefactStore`/`IStateStore`. Crashed agent → new agent resumes from cursor.
 
-13. **IArtefactStore is the only permitted file abstraction.**
-    Both `FileSystemArtefactStore` and `AzureBlobArtefactStore` implement `IArtefactStore`. Module code must not reference either implementation directly. Switching from local to cloud mode must require zero module code changes.
+13. **IArtefactStore is the only file abstraction.** Module code must not reference `FileSystemArtefactStore` or `AzureBlobArtefactStore` directly. Switching local↔cloud = zero module code changes.
 
-14. **EnumerateAsync must be lexicographic.**
-    Both artefact store implementations must return results from `EnumerateAsync` in strict lexicographic (ascending) order. Out-of-order enumeration breaks streaming import and chronological replay. In-memory sorting of enumerated paths is forbidden.
+14. **EnumerateAsync must be lexicographic.** Both stores return strict ascending lexicographic order. Out-of-order enumeration breaks streaming import. In-memory sorting forbidden.
 
-15. **The job contract is the unit of work exchange.**
-    The CLI converts a local config file into a job contract before submission. The control plane stores and forwards the job contract. The Migration Agent executes it. Nothing else is permitted as an inter-component work handoff. The TUI is a pure progress viewer — it never submits jobs or builds job contracts.
+15. **Job contract is the unit of work exchange.** CLI → job contract → control plane → agent. TUI is a pure progress viewer — never submits jobs.
 
-16. **The CLI must not contain migration logic.**
-    The CLI parses arguments, builds a `MigrationJob`, and submits it to the control plane via `ControlPlaneClient`. When `Environment.Type` is `Standalone` (the default, when the `Environment` section is absent), the CLI starts **`LocalStackHost`** in-process — `ControlPlaneHost`, `MigrationAgent`(s), and PostgreSQL on the local machine — before submitting the job. When `Environment.Type` is `Hosted`, the CLI connects directly to the `ControlPlane.BaseUrl` configured in the `Environment` section. In both cases the CLI communicates with the control plane exclusively via HTTP — it never calls modules, writes cursors, or accesses `IArtefactStore` outside the Job Engine boundary. The `AppHost` project is the `azd up` provisioning target and developer standalone convenience tool — it is not in the CLI execution path.
-    
-    **CLI Infrastructure Pattern**: CLI infrastructure setup must follow the host builder pattern, with `Program.cs` limited to bootstrapping logic (< 50 lines) and commands managing their hosting lifecycle through dependency injection. All DI container setup, service registration, and infrastructure configuration must be centralized in a dedicated host builder class (e.g., `MigrationPlatformHost`). Commands must inherit from a base class providing `IServiceProvider` and `IHostApplicationLifetime` access, enabling proper separation between bootstrapping, infrastructure setup, and command logic.
+16. **CLI must not contain migration logic.** CLI parses args, builds `MigrationJob`, submits to control plane via HTTP. `Standalone` mode → starts `LocalStackHost` in-process. `Hosted` mode → connects to `ControlPlane.BaseUrl`. CLI never calls modules, writes cursors, or accesses `IArtefactStore`. Infrastructure: host builder pattern, `Program.cs` < 50 lines, DI in dedicated host builder class.
 
-17. **The Job Engine must be hostable independently of the TUI.**
-    The Job Engine has no dependency on any console, UI framework, or interactive terminal. It receives a `MigrationJob` and an `IProgressSink`; it produces package output and cursor state. It must be runnable in-process (local), in a container (Migration Agent), or in a test harness without modification.
+17. **Job Engine hostable independently of TUI.** No console/UI dependency. Receives `MigrationJob` + `IProgressSink`; produces package output + cursor state. Runnable in-process, in container, or in test harness.
 
-18. **No UI coupling in the Job Engine or modules.**
-    The Job Engine and all modules must not write to `Console`, reference `System.Console`, or use any interactive input mechanism. All output goes through `IProgressSink` (progress events) or `IArtefactStore` (logs written to `.migration/Logs/`). Any violation makes the engine unrunnable as a Migration Agent.
+18. **No UI coupling in Job Engine or modules.** No `Console`, no `System.Console`, no interactive input. All output via `IProgressSink` or `IArtefactStore` (`.migration/Logs/`).
 
-19. **TFS Object Model runs in a dedicated net481 agent process (`TfsMigrationAgent`).**
-    The TFS agent (`DevOpsMigrationPlatform.TfsMigrationAgent`) is a first-class polling agent that communicates with the ControlPlane via the same HTTP lease protocol as the MigrationAgent. It polls `GET /agents/lease?capabilities=tfs`, acquires TFS-specific jobs, and reports progress via `POST /agents/lease/{leaseId}/progress`. It dispatches work through `IModule` implementations (`TfsJobAgentWorker` accepts `IEnumerable<IModule>`) — the same pattern as `JobAgentWorker` in the MigrationAgent. TFS modules implement `ExportAsync` fully; `PrepareAsync`, `ImportAsync`, and `ValidateAsync` return `Task.CompletedTask` until TFS import is implemented. It uses the same `IArtefactStore`, `IStateStore`, and `IProgressSink` abstractions as the .NET 10 `MigrationAgent` — these interfaces are defined in the multi-targeted `DevOpsMigrationPlatform.Abstractions` (`net481;net10.0`). The TFS agent inherits `AgentWorkerBase` (shared with MigrationAgent) and uses `Microsoft.Extensions.Hosting` on net481 for structural symmetry. The TFS agent is Windows-only and cannot run in containers (TFS OM is .NET Framework, Windows-only). `AgentLifecycleService` in `ControlPlaneHost` spawns the TFS agent on Windows and skips it on other platforms. The .NET 10 host must never hold a compiled reference to the net481 TFS agent project. See [docs/migration-agent.md — TFS Migration Agent](../../docs/migration-agent.md#tfs-migration-agent) for the full specification.
+19. **TFS Object Model runs in dedicated net481 agent (`TfsMigrationAgent`).** First-class polling agent using same HTTP lease protocol as MigrationAgent. Dispatches via `IModule` (`TfsJobAgentWorker`). Uses same `IArtefactStore`/`IStateStore`/`IProgressSink`. Windows-only. `AgentLifecycleService` spawns on Windows, skips elsewhere. No compiled reference from .NET 10 projects. See [docs/migration-agent.md](../../docs/migration-agent.md#tfs-migration-agent).
 
-20. **The control plane requires a data store; the execution path is always CLI → ControlPlaneHost → MigrationAgent.**
-    The control plane uses EF Core for persistence. The execution path is **always** `CLI → ControlPlaneHost → MigrationAgent`. There is no topology in which the CLI executes migration logic directly or bypasses the control plane. From the user's perspective a local run appears seamless (single CLI command), but `ControlPlaneHost`, `MigrationAgent`(s), and the data store are still started by Aspire and used — they are transparent, not absent.
-    - **Local / Dedicated Server** (CLI-driven, single machine): the CLI drives Aspire programmatically to start `ControlPlaneHost` and `MigrationAgent`(s). `ControlPlaneHost` manages Migration Agent lifecycle. All services bind to localhost. Package storage is `file:///`. This topology is sometimes called "standalone" in conversation — it still uses the full control plane stack.
-    - **Cloud Self-Hosted** (customer Azure subscription): the same Azure stack as Managed — Container Apps, PostgreSQL Flexible Server, Blob Storage — provisioned by the customer via `azd up` in their own Azure subscription.
-    - **Cloud Managed** (`azd up`, Azure): the same stack runs in Azure Container Apps; PostgreSQL Flexible Server provisioned automatically from the same AppHost declaration.
-    Test isolation is achieved using the **Local/Server AppHost profile**, which supports two subprofiles selected via `DEVOPS_MIGRATION_INFRA`: `portable` (validates local/server: bundled PG binary + filesystem store, no Docker) and `docker` (validates cloud: Docker PostgreSQL + Azurite). Both subprofiles must pass in every CI pipeline stage. See [docs/control-plane.md](../../docs/control-plane.md) for the table schema and [docs/aspire-integration.md](../../docs/aspire-integration.md) for all AppHost profiles.
+20. **Execution path is always CLI → ControlPlaneHost → MigrationAgent.** Uses EF Core for persistence. No topology bypasses the control plane. Topologies: Local/Server (CLI drives Aspire, localhost, `file:///`), Cloud Self-Hosted (customer Azure via `azd up`), Cloud Managed (same stack, managed). Test isolation via `DEVOPS_MIGRATION_INFRA`: `portable` (bundled PG + filesystem) and `docker` (Docker PG + Azurite). See [docs/control-plane.md](../../docs/control-plane.md), [docs/aspire-integration.md](../../docs/aspire-integration.md).
 
-21. **Mandatory reuse of existing architecture and patterns.**
-    All new implementations MUST use existing architecture, abstractions, and established patterns before building new infrastructure. This applies to:
-    - **Work item iteration**: Use `WorkItemExportOrchestrator` and `IWorkItemRevisionSource` for all work item processing. Do not implement custom export/import loops.
-    - **Streaming and enumeration**: Use `IArtefactStore.EnumerateAsync()` for lexicographic traversal. Do not implement custom enumeration or sorting logic.
-    - **Progress tracking and checkpointing**: Use `ICheckpointingService` with `IStateStore` for cursor-based progress. Do not use watermark tables, in-memory dictionaries, or custom progress tracking.
-    - **Attachment and binary handling**: Stream binaries directly via `IArtefactStore.WriteBinaryAsync()` and `IAttachmentBinarySource`. Do not buffer attachments in memory or create alternative binary storage patterns.
-    - **Async patterns**: Use the same async/await patterns, `CancellationToken` propagation, and error handling as established modules. Do not invent new concurrency patterns.
-    
-    **When to create new abstractions:** Only when no existing abstraction covers the required use case AND no extension point exists on an existing abstraction. New abstractions must:
-    - Be defined in `DevOpsMigrationPlatform.Abstractions`, `DevOpsMigrationPlatform.Abstractions.ControlPlane` (if control-plane-only), or `DevOpsMigrationPlatform.Abstractions.Agent` (if agent-only) — or in a module-specific namespace if module-private.
-    - Be used by at least two independent modules (no single-use abstractions).
-    - Have a documented motivation explaining why existing abstractions could not be reused or extended.
-    
-    See [docs/work-item-iteration-pattern.md](../../docs/work-item-iteration-pattern.md) for the canonical work item iteration example.
+21. **Mandatory reuse of existing architecture.** Use `WorkItemExportOrchestrator`/`IWorkItemRevisionSource` for work item processing. Use `IArtefactStore.EnumerateAsync()` for traversal. Use `ICheckpointingService`/`IStateStore` for progress. Stream binaries via `IArtefactStore.WriteBinaryAsync()`/`IAttachmentBinarySource`. New abstractions only when: no existing abstraction covers the use case, defined in `Abstractions`/`Abstractions.Agent`/`Abstractions.ControlPlane`, used by ≥2 modules, motivation documented.
 
-22. **No architectural workarounds without explicit user acceptance.**
-    Adapter classes, type-bridging shims, deferred alignment markers (e.g. `D-xxx`), lossy type conversions, and any other mechanism that works around a proper architectural fix are **forbidden** unless the human operator explicitly approves the workaround in the current session. "Deferred to a future feature" is not an acceptable justification — if the correct fix is known, it must be implemented now. An agent MUST:
-    - Identify the workaround and the proper fix.
-    - Present both options to the user with a clear explanation of trade-offs.
-    - **Wait for an explicit user response** before proceeding. Autopilot / automated acceptance is not valid.
-    - Record the user's decision in the relevant spec's `discrepancies.md` if a workaround is accepted.
-    
-    This rule exists because "temporary" workarounds cause real bugs (e.g. authentication credential loss through adapter round-trips) and accumulate as hidden technical debt.
+22. **No architectural workarounds without explicit user acceptance.** Adapters, shims, deferred markers, lossy conversions forbidden unless human explicitly approves in-session. Agent must present workaround + proper fix, wait for response, record decision in `discrepancies.md`.
 
-24. **Module and Tool identifiers must be derived from the class name — no exceptions.**
-    For any class `{Stem}Module`:
-    - The `Name` property MUST return exactly `"{Stem}"` (class name minus the `Module` suffix).
-    - The config section MUST be `MigrationPlatform:Modules:{Stem}`.
-    - The cursor key MUST use `{Stem}` as its identifier.
-    - The code file MUST be named `{Stem}Module.cs`.
+23. **Only Migration Agent (and TFS Export Agent) may write to working directory/package.** CLI, TUI, ControlPlane have no write access. Data residency constraint. CLI read-only access for post-job display is permitted.
 
-    For any class `{Stem}Tool`:
-    - The code folder MUST be `Tools/{Stem}/`.
-    - The main file MUST be `{Stem}Tool.cs`.
-    - The DI extensions file MUST be `{Stem}ToolServiceCollectionExtensions.cs`.
-    - The public interface MUST be `I{Stem}Tool` in file `I{Stem}Tool.cs`.
-    - The options class MUST be `{Stem}Options` in file `{Stem}Options.cs`.
-    - The config section MUST be `MigrationPlatform:Tools:{Stem}`.
-    - All helper classes within the tool folder SHOULD use `{Stem}` as their prefix.
+24. **Module/Tool identifiers derived from class name.** `{Stem}Module`: `Name` = `"{Stem}"`, config = `MigrationPlatform:Modules:{Stem}`, cursor key = `{Stem}`, file = `{Stem}Module.cs`. `{Stem}Tool`: folder = `Tools/{Stem}/`, file = `{Stem}Tool.cs`, DI = `{Stem}ToolServiceCollectionExtensions.cs`, interface = `I{Stem}Tool`, options = `{Stem}Options`, config = `MigrationPlatform:Tools:{Stem}`. Any deviation = instant reject.
 
-    This rule exists to make the codebase self-documenting and to prevent the drift where a class, its file, its folder, its interface, its options, and its config key all use different names. Any deviation is an **instant reject**. Auditors checking naming consistency must use this rule as the canonical reference.
+25. **⛔ Full observability mandatory on every module and tool.**
+    - **O-1 Traces:** `using var activity = ActivitySource.StartActivity(...)` with tags. Source: `WellKnownActivitySourceNames.Migration`.
+    - **O-2 Metrics:** `IMigrationMetrics` for attempt, completion, error, duration, in-flight. Constants → `WellKnownMetricNames`.
+    - **O-3 Logging:** `Information` start/end; `Warning` skips/errors; `Debug` per-item. Structured params only. Customer data → `DataClassification.Customer` scope.
+    - **O-4 ProgressEvent:** `IProgressSink` (optional). Emit at start, per-item/batch ≤50, completion. `Metrics.Migration.{ModuleName}` populated. `BuildProgressRenderable` renders: Identities → Nodes → Teams → WorkItems.
+    - **⚠️ `ProgressEvent.Metrics` is null for .NET 10 agents.** CLI reads from `GET /jobs/{id}/telemetry`, NOT from `ProgressEvent.Metrics`.
 
-23. **Only the Migration Agent (and TFS Export Agent) may write to the working directory and package files — data residency requirement.**
-    The working directory (`Package.WorkingDirectory`) and all files within a migration package are write-accessible **only** to the Migration Agent (or TFS Export Agent for TFS sources). No other component — CLI, TUI, Control Plane, ControlPlaneHost, or any external process — may create, modify, or delete files in the working directory or package. This is a **data residency** constraint: customer data must remain under the exclusive control of the execution boundary (the Agent), which runs in the operator's chosen infrastructure. The CLI reads configuration and submits jobs; the TUI reads progress; the Control Plane coordinates — none of them touch the package. Violations compromise data residency guarantees and may expose customer data to unintended infrastructure.
+---
 
-    The only exception is CLI **read-only** access for post-job display (e.g. reading `dependencies.csv` or `inventory.json` to render summary tables after the Agent has completed). Read access does not violate data residency because it does not move or copy customer data outside the operator's infrastructure.
+## Reference
 
-25. **⛔ CRITICAL REDLINE — Full observability is mandatory on every module and tool. No exceptions.**
-
-    Every `IModule` implementation and every `IXxxTool` implementation MUST satisfy all four observability requirements below. A module or tool that violates any of these four requirements is **not done** regardless of functional correctness. Declaring done without full observability is a violation equivalent to failing to build.
-
-    ### Requirement O-1: Activity Spans (Traces)
-
-    - MUST call `ActivitySource.StartActivity("module.operation")` (or `"tool.operation"`) at the start of every significant operation (export, import, validate, per-item processing).
-    - The activity MUST be stored in a `using var activity = ...` block so it is disposed on completion.
-    - MUST set meaningful tags on the activity: `module`, `operation`, counts, error flags.
-    - Use `WellKnownActivitySourceNames.Migration` as the source name.
-
-    ### Requirement O-2: Business Metrics (OTel Instruments)
-
-    - MUST record metrics via the relevant metrics interface (`IMigrationMetrics`, `IDiscoveryMetrics`, or a new interface that follows the same three-layer pattern).
-    - At minimum, every module operation MUST record:
-      - **Attempt counter** — one increment per item entering the pipeline
-      - **Completion counter** — one increment per item successfully completed
-      - **Error counter** — one increment per item that fails permanently
-      - **Duration histogram** — elapsed milliseconds per operation
-      - **In-flight gauge** (UpDownCounter) — increment at start, decrement at end (for concurrent operations)
-    - All new metric name constants MUST be added to `WellKnownMetricNames` (or `WellKnownDiscoveryMetricNames` for discovery).
-    - All new method signatures MUST be added to `IMigrationMetrics`.
-    - All new instrument fields, registrations, and implementations MUST be added to `MigrationMetrics`.
-    - See `.agents/context/telemetry-architecture.md` for the step-by-step addition guide.
-
-    ### Requirement O-3: Structured Logging
-
-    - MUST log at `Information` level at the start and end of every export, import, and validate operation, including total counts.
-    - MUST log at `Warning` level for every skipped item, unresolvable identity, missing file, or degraded operation.
-    - MUST log at `Debug` level for per-item detail (individual team names, identity strings, node paths).
-    - MUST NOT log at `Information` for per-item detail when processing hundreds or thousands of items — use `Debug` to avoid log flooding.
-    - MUST use structured log parameters (`{Count}`, `{Module}`, `{Stage}`) — no string interpolation in log calls.
-    - Customer-identifiable data (project names, org URLs, identity strings, attachment paths) MUST be wrapped in a `DataClassification.Customer` scope.
-
-    ### Requirement O-4: ProgressEvent Emission — CLI/TUI Visibility ⛔ THIS IS THE MOST CRITICAL
-
-    **This is the binding contract between the Agent and the CLI/TUI.** Without ProgressEvent emission, the CLI renders no progress bar for the module, and operators are blind to what is happening.
-
-    - MUST inject `IProgressSink` as an **optional constructor parameter** (`IProgressSink? progressSink = null`).
-    - MUST emit a `ProgressEvent` **at start** of every operation (export, import, validate) with `Stage = "Starting"` and an informational `Message`.
-    - MUST emit a `ProgressEvent` **per item** (or per batch of ≤ 50 items) during streaming operations, with `Metrics` populated — including a `ModuleCounters` for the current module set on `JobMetrics.Migration.{ModuleName}`. This is what the CLI reads to render the progress bar.
-    - MUST emit a `ProgressEvent` **at completion** of every operation with final counts and `Stage = "Complete"`.
-    - The `Metrics` property on each emitted `ProgressEvent` MUST include the current module's `ModuleCounters` (`Completed`, `Failed`, `Skipped`, `Total` — set `Total = 0` when unknown).
-    - `IProgressSink` being null (e.g. in unit tests) MUST be handled gracefully — all emits MUST be null-checked (`_progressSink?.Emit(...)`).
-
-    ### The ProgressEvent → CLI/TUI Pipeline
-
-    The chain is: `Module emits ProgressEvent` → `ControlPlaneProgressSink buffers` → `SSE fan-out` → `CLI FollowLogsAsync` → `QueueCommand reads evt.Metrics.Migration.{ModuleName}` → `renders progress bar row`.
-
-    For this chain to work:
-    - `MigrationCounters` MUST have a `ModuleCounters?` property named after each module that emits counters (`Identities`, `Nodes`, `Teams`, and any future module).
-    - `JobMetrics.Migration` carries those counters to the CLI.
-    - `QueueCommand.BuildProgressRenderable` MUST render a row for every module that has a non-null counter, in execution order: **Identities → Nodes → Teams → WorkItems**.
-
-    ### Instant Reject Triggers (Observability)
-
-    Reject any code that:
-    - Adds or modifies a module or tool without a `using var activity = ActivitySource.StartActivity(...)` block
-    - Adds or modifies a module or tool without calling the relevant metrics interface (`IMigrationMetrics`) for attempt, completion, and error
-    - Adds or modifies a module or tool without injecting and using `IProgressSink` to emit `ProgressEvent` with `Metrics` populated
-    - Declares a module or tool done when its progress bar does not appear in the CLI during a scenario run
-    - Adds new module-level counters to `MigrationCounters` without also updating `QueueCommand.BuildProgressRenderable` to display them
-
-Consult [docs/architecture.md](../../docs/architecture.md). If the answer is not there, the safest default is to preserve the package layout, maintain streaming behaviour, and write state only through the defined interfaces.
+Consult [docs/architecture.md](../../docs/architecture.md). Default: preserve package layout, maintain streaming, write state only through defined interfaces.

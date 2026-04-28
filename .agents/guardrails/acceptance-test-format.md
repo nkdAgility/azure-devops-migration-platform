@@ -1,110 +1,73 @@
 # Acceptance Test Format
 
-This document defines the required format and naming conventions for Gherkin acceptance test files stored under `features/`.
+Gherkin `.feature` file conventions for this repository.
 
-## File Location and Naming
+---
+
+## File Location
 
 ```
-features/<tier>/<concern>[/<module>[/<sub-module>]]/<feature-name>.feature
+features/<tier>/<feature-name>.feature
 ```
 
 Tiers:
-- `platform/` — architectural guarantees the platform must honour regardless of which modules are active (e.g., checkpointing, validation).
-- `services/` — shared DI services that cut across all operations and connectors (e.g., identity-mapping).
-- `export/`, `import/`, `inventory/` — module features for this operation. No connector subfolder — use `@azure-devops-rest`, `@tfs-object-model`, `@jira`, `@github` tags on scenarios to declare which connector(s) a scenario applies to. Connector-specific edge-case files sit alongside the shared file and are named `<connector>-<concern>.feature`.
-- `cli/` — CLI command-wiring behaviour. Tests that `migrate <command>` builds the correct job, invokes the correct pipeline, and reports correctly. Does **not** duplicate module outcome tests that live under `export/`/`import/`.
+| Tier | Scope |
+|------|-------|
+| `platform/` | Cross-cutting (checkpointing, validation, orchestration) |
+| `services/` | Shared services (identity-mapping, field-transforms) |
+| `export/` | Export module behaviours |
+| `import/` | Import module behaviours |
+| `inventory/` | Discovery/inventory operations |
+| `cli/` | CLI-triggered end-to-end operations |
 
-Segments under `export/`, `import/`, `inventory/`:
-- `<module>` — `work-items`, `git-repos`, `pipelines`, `artifacts`, `teams`, `permissions`, `identities`.
-- `<sub-module>` — `revisions`, `attachments`, `links`. Omit when not applicable.
-- `<feature-name>` is kebab-case matching the `Feature:` declaration in the file (e.g., `export-work-item-revisions.feature`).
+**Rule:** If a feature is CLI-triggered AND module-specific, it goes in `cli/`. If it tests module internals, it goes in the module tier.
 
-Segments under `cli/`:
-- `prepare/` — `migrate prepare` config validation, dry-run output, `configHash` computation.
-- `execute/` — `migrate execute` job lifecycle: queuing, status polling, log streaming.
-- `export/` — `migrate export` CLI wiring (builds export job, delegates to export pipeline).
-- `import/` — `migrate import` CLI wiring (builds import job, delegates to import pipeline).
-- `inventory/` — `discover inventory` CLI presentation: table rendering, column layout, live updates, CSV output, exit codes.
-
-### CLI tier vs capability tier split
-
-The same feature often has **two** feature files — one under `cli/` and one under the capability tier. Use this rule to decide which file a scenario belongs in:
-
-| Question | Answer → file location |
-|---|---|
-| Does the scenario assert a terminal, table, column, exit code, or output file format? | `cli/` |
-| Does the scenario assert what data the platform produces, stores, or transmits? | capability tier (`export/`, `import/`, `inventory/`, etc.) |
-
-A `cli/` scenario may reference that a command ran and succeeded; it must not re-assert the underlying data outcomes already covered by the capability-tier file. A capability-tier scenario must not describe terminal rendering, column names, or CLI flags.
-
-Examples:
-```
-features/export/work-items/revisions/export-work-item-revisions.feature
-features/export/work-items/attachments/export-attachments.feature
-features/export/identities/export-identities.feature
-features/import/work-items/revisions/streaming-replay.feature
-features/platform/checkpointing/cursor-resume.feature
-features/platform/validation/package-validation.feature
-features/services/identity-mapping/identity-mapping.feature
-features/cli/prepare/prepare-validates-config.feature
-features/cli/export/export-command-wiring.feature
-```
+---
 
 ## Required File Structure
 
 ```gherkin
-Feature: <Feature Name>
-  As a <role>
-  I want <goal>
-  So that <benefit>
+@<tier>
+Feature: <Descriptive feature name>
+  <One-line description of business value>
 
-  Background:        # optional — shared preconditions for all scenarios in this file
-    Given ...
+  Background:
+    Given <shared precondition>
 
-  Scenario: <Scenario Title>
+  @<scenario-tag>
+  Scenario: <Action>_<Context>_<ExpectedOutcome>
     Given <precondition>
-    When  <triggering action>
-    Then  <expected outcome>
-    And   <additional expected outcome>   # optional
+    When <action>
+    Then <assertion>
 ```
 
-## Rules
+---
 
-### Feature Statement
-- Every `.feature` file must open with a `Feature:` declaration.
-- Include a three-line user story (`As a / I want / So that`) immediately below the Feature name.
+## Naming Rules
 
-### Background
-- Use `Background:` only for preconditions shared by **all** scenarios in the file.
-- Do not put conditional or optional setup in `Background:`.
+- **Feature:** noun phrase describing capability (e.g. `Work Item Export Checkpointing`).
+- **Scenario:** `Action_Context_ExpectedOutcome` in PascalCase with underscores (e.g. `Export_ResumedAfterCrash_ContinuesFromCursor`).
+- **Tags:** lowercase, hyphenated. Feature-level tag = tier. Scenario-level tags for filtering.
 
-### Scenario Titles
-- Scenario titles must be unique within a feature file.
-- Titles must describe observable behaviour, not implementation details.
-- Titles use sentence case with no trailing period.
-- Good: `Export records a cursor after each revision is written`
-- Bad: `Test_ExportModule_WritesCheckpointFile_AfterRevision`
+---
 
-### Given / When / Then
-- **Given** — establishes preconditions (state before the action).
-- **When** — describes the single triggering action.
-- **Then** — asserts observable outcome(s).
-- **And / But** — continues a Given, When, or Then clause.
-- Do not mix Given/When/Then concerns in a single step.
+## Content Rules
 
-### Content Rules
-- Scenarios must describe system behaviour from the outside (black-box).
-- Do not reference internal class names, method names, interface names, or property names in steps. These are implementation details, not observable behaviour.
-- File paths in steps should use the canonical pattern (`WorkItems/yyyy-MM-dd/...`) rather than specific generated values, unless the scenario specifically tests a known exact path.
+- `Given`: establish state (config, existing artefacts, cursor position). Use domain language.
+- `When`: single action under test. One `When` per scenario (strongly preferred).
+- `Then`: observable outcome. Must be verifiable (file exists, count > 0, field value matches).
+- `And`/`But`: extend previous step type. Keep to ≤ 3 per block.
+- Scenario Outline + Examples: use for parameterised variations (≤ 10 rows).
 
-### Scope
-- One `.feature` file per functional area.
-- Do not create more than one feature file for the same feature.
-- If a feature has many scenarios, group by theme using named scenarios (not separate files).
+---
 
-## Prohibited Patterns
+## Prohibited
 
-- No `Scenario Outline` unless the scenario genuinely requires data-driven examples.
-- No steps that describe internal implementation (e.g., "Call the ExportAsync method directly").
-- No steps that assert CI artefact paths or build numbers.
-- No steps that require live Azure DevOps connectivity.
+- Scenarios without assertions (`Then` block empty or trivial).
+- Implementation details in step text (class names, method names, internal paths).
+- `@ignore` committed to main branch (session-only isolation marker).
+- Scenarios testing multiple unrelated behaviours.
+- Steps referencing UI elements (this is not a UI test framework).
+- More than one `When` block per scenario (split into separate scenarios).
+- Feature files without a tier tag.
+- Scenario names that don't follow `Action_Context_Outcome` pattern.
