@@ -397,16 +397,16 @@
 |-------|-------|-----------|---------------|
 | 0: Research | All | 7 | 6 |
 | 1: Setup | All | 6 | 6 |
-| 2: Foundational | Refactoring | 6 | 3 |
-| 3: US 0 Identities | US0 | 14 | 6 |
+| 2: Foundational | Refactoring | 6 | 5 |
+| 3: US 0 Identities | US0 | 14 | 8 |
 | 3b: Prepare | US0 | 6 | 2 |
 | 4: US 0b NodeStructure | US0b | 7 | 2 |
-| 5: US 0c WorkItems Ext | US0c | 4 | 1 |
-| 6: US 1 Teams Core | US1 | 25 | 12 |
-| 7: US 2+5 Iterations | US2, US5 | 13 | 4 |
+| 5: US 0c WorkItems Ext | US0c | 5 | 1 |
+| 6: US 1 Teams Core | US1 | 32 | 17 |
+| 7: US 2+5 Iterations | US2, US5 | 13 | 5 |
 | 8: US 3 Members | US3 | 6 | 2 |
 | 9: US 4 Capacity | US4 | 7 | 2 |
 | 10: Connectors | All | 3 | 0 |
 | 11: Documentation | — | 11 | 3 |
 | 12: Polish | — | 4 | 2 |
-| **Total** | | **119** | **51** |
+| **Total** | | **127** | **61** |

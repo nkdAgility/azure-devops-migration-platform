@@ -111,7 +111,12 @@ Produce a structured report:
 
 ### Phase 5 — Implementation
 
-After presenting the report to the user and receiving confirmation:
+**Invocation mode determines whether confirmation is required:**
+
+- **Hook mode** (invoked via `after_implement` in `.specify/extensions.yml`): Apply all promotions and retirements immediately — no confirmation step. The user has implicitly approved all promotion actions by configuring this hook.
+- **Manual mode** (invoked directly by the user): Present the Phase 4 report and wait for explicit confirmation before making any changes.
+
+After confirmation (manual mode) or immediately (hook mode):
 
 1. **Promote tests:**
    - Extract the testable logic into a unit-testable shape if needed (extract method, inject dependency).
@@ -134,7 +139,7 @@ After presenting the report to the user and receiving confirmation:
 1. **Never delete a test without a faster replacement that covers the same behaviour.** Retirement requires proof of coverage.
 2. **Never promote a test if the promotion loses integration signal.** A Live test that catches real API pagination bugs has value that a unit test cannot replicate.
 3. **Prefer extracting logic over rewriting tests.** If a Simulated test exercises complex logic buried inside a large method, extract that logic into a testable class and unit-test it — then simplify the Simulated test to only verify wiring.
-4. **Report before acting.** Always present the promotion report and get user confirmation before making changes.
+4. **Report before acting (manual mode only).** In hook mode, apply changes directly after Phase 4 analysis. In manual mode, always present the promotion report and get user confirmation before making changes.
 5. **One promotion at a time.** Each promotion is a self-contained change: new test + old test removal + build + test pass.
 
 ---

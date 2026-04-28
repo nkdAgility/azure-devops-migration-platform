@@ -28,7 +28,7 @@
 - **Source doc**: `docs/modules.md`
 - **Section**: Dependency Graph Rules (line 30–36)
 - **Issue**: The dependency graph rules mention `IdentitiesModule` as a prerequisite for identity-mapping modules but do not explicitly state that `TeamsModule` must run before `WorkItemsModule`. The spec requires this ordering so that team board configurations are in place before work items are imported.
-- **Suggested update**: Add to the Dependency Graph Rules section: "`TeamsModule` depends on `IdentitiesModule` and must complete before `WorkItemsModule`. Any module that requires team board structures (iterations, areas) in the target must include `TeamsModule` in its `DependsOn` list or be ordered after it."
+- **Suggested update**: Add to the Dependency Graph Rules section: "`TeamsModule` should be ordered after `IdentitiesModule` and `NodeStructureModule`, and before `WorkItemsModule`. Module execution order is controlled by the operator via configuration — there is no `DependsOn` property. The operator must ensure prerequisite modules complete before dependent modules run."
 
 ### TeamsModule cursor file not listed in package-format.md
 - **Source doc**: `.agents/context/package-format.md`
