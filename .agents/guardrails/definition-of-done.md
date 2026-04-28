@@ -91,6 +91,57 @@ Produce a wiring table and confirm every link is ✅:
 - The run must complete without errors and produce expected observable output.
 - All enabled module progress bars must be visible in the CLI output.
 
+## 4a. Functional Correctness — Implementation Must Do the Thing ⛔ MANDATORY
+
+Compiling without error and running without exception is **not** sufficient. Every module and connector must be verified to produce the correct, non-trivial side effects that its name and spec promise. This gate exists because AI agents have been observed writing code that satisfies all structural checks (no stubs, no `NotImplementedException`, correct observability wiring) while silently producing no output.
+
+### Export Correctness
+
+| Check | Requirement | Verification |
+|-------|-------------|--------------|
+| **Artefacts written** | After `ExportAsync` completes, `IArtefactStore` MUST contain at least one file at the module's documented path (`Identities/descriptors.jsonl`, `Teams/*/team.json`, etc.) | `SystemTest_Simulated` asserts `ExistsAsync(expectedPath)` returns `true` AND the file is non-empty (length > 0 / line count > 0) |
+| **Count > 0** | The exported item count MUST be greater than zero when a non-empty source is used | `SystemTest_Simulated` asserts exported count > 0; asserting `>= 0` or not asserting count at all is a **failing test** |
+| **No silent no-op** | If export completes with count = 0 and the module is enabled, the module MUST emit a `Warning` log explaining why (e.g., source returned zero items) — never silent | Code review confirms `LogWarning` is present on the count=0 path |
+
+### Import Correctness
+
+| Check | Requirement | Verification |
+|-------|-------------|--------------|
+| **Target called** | After `ImportAsync` completes, the target connector MUST have received at least one call (e.g., `SimulatedTeamTarget.Teams.Count > 0`, `SimulatedNodeTarget.NodesCreated > 0`) | `SystemTest_Simulated` asserts the target collection/counter is non-empty |
+| **Count > 0** | The imported item count MUST be greater than zero when a non-empty package is used | `SystemTest_Simulated` asserts imported count > 0 |
+| **No silent no-op** | If import completes with count = 0 and the module is enabled, the module MUST emit a `Warning` — never silent | Code review confirms `LogWarning` is present on the count=0 path |
+
+### Connector Correctness
+
+| Check | Requirement | Verification |
+|-------|-------------|--------------|
+| **Simulated source returns data** | A `Simulated*Source` MUST yield at least 2 items per operation (enough to test filtering, deduplication, and pagination logic). A Simulated source that returns 0 items is a broken contract | Unit test asserts `EnumerateAsync` yields > 0 items |
+| **Simulated target records state** | A `Simulated*Target` MUST record every call made to it in an inspectable in-memory collection. A target whose methods are fire-and-forget with no state is untestable | `SystemTest_Simulated` asserts state was recorded |
+| **ADO connector calls the SDK** | An `AzureDevOps*` connector MUST call at least one `*HttpClient` method on the injected factory. An implementation that only logs "connected" but never calls the SDK is a fake | Code review confirms at least one `await _clientFactory.Create*Async(...)` call is present per method |
+
+### Test Assertion Rules
+
+These assertion patterns are **forbidden** in any test for a module or connector:
+
+```csharp
+// ❌ FORBIDDEN — asserts nothing about functional output
+Assert.IsTrue(true);
+Assert.IsNotNull(result);
+// count >= 0 is always true; it asserts nothing
+Assert.IsTrue(count >= 0);
+// Asserting no exception only means the module didn't crash, not that it worked
+// (the entire test body is the only assertion — missing any Assert entirely)
+```
+
+```csharp
+// ✅ REQUIRED — asserts functional output
+Assert.IsTrue(count > 0, $"Export must produce at least one artefact, got {count}.");
+Assert.IsTrue(await artefactStore.ExistsAsync("Identities/descriptors.jsonl", ct), "descriptors.jsonl must be written by export.");
+Assert.IsTrue(target.Teams.Count > 0, "Import must create at least one team in the target.");
+```
+
+**FAIL** if any `SystemTest_Simulated` for an export or import module does not assert both (a) the expected artefact/target-state exists AND (b) its count/content is non-trivially non-empty.
+
 ## 5. Code Quality
 
 - No `throw new NotSupportedException("... not yet implemented")` in reachable code paths.
@@ -139,6 +190,11 @@ After completing the work, re-read every relevant doc referenced by the guardrai
 [ ] DI wiring verified — every new class registered in Add*Services, extension called from host startup
 [ ] Scenario config executed — all module progress bars appear in CLI output
 [ ] Unit tests for O-1 (StartActivity called), O-2 (metrics recorded), O-4 (EmitAsync called at start and completion)
+[ ] Functional correctness — SystemTest_Simulated asserts artefact exists AND is non-empty after export (count > 0)
+[ ] Functional correctness — SystemTest_Simulated asserts target received data after import (count > 0, not just no exception)
+[ ] Simulated connector yields ≥ 2 items; unit test asserts count > 0
+[ ] No forbidden assertion patterns (Assert.IsTrue(count >= 0), Assert.IsNotNull only, or no Assert at all)
+[ ] ADO connector calls at least one SDK client method per operation (code review confirms)
 [ ] Docs updated where required
 [ ] Compliance review loop completed with 0 findings
 ```
