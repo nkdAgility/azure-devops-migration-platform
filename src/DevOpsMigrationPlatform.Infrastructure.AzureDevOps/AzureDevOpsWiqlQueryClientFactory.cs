@@ -1,7 +1,9 @@
 using System;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Agent.Export;
 using Microsoft.TeamFoundation.WorkItemTracking.WebApi;
 using Microsoft.TeamFoundation.WorkItemTracking.WebApi.Models;
 
@@ -9,8 +11,10 @@ namespace DevOpsMigrationPlatform.Infrastructure.AzureDevOps;
 
 /// <summary>
 /// Wraps a <see cref="WorkItemTrackingHttpClient"/> so that
-/// <see cref="Services.WorkItemQueryWindowStrategy"/> depends only on
+/// <see cref="Export.WorkItemQueryWindowStrategy"/> depends only on
 /// <see cref="IWiqlQueryClient"/> rather than the concrete SDK type.
+/// Maps the SDK <see cref="Microsoft.TeamFoundation.WorkItemTracking.WebApi.Models.WorkItemQueryResult"/>
+/// to the domain <see cref="WorkItemQueryResult"/> record.
 /// </summary>
 internal sealed class WiqlQueryClientAdapter : IWiqlQueryClient
 {
@@ -19,11 +23,18 @@ internal sealed class WiqlQueryClientAdapter : IWiqlQueryClient
     internal WiqlQueryClientAdapter(WorkItemTrackingHttpClient client)
         => _client = client ?? throw new ArgumentNullException(nameof(client));
 
-    public Task<WorkItemQueryResult> QueryByWiqlAsync(
-        Wiql wiql,
+    public async Task<Abstractions.Agent.Export.WorkItemQueryResult> QueryByWiqlAsync(
+        string wiql,
         string project,
         CancellationToken cancellationToken = default)
-        => _client.QueryByWiqlAsync(wiql, project, cancellationToken: cancellationToken);
+    {
+        var sdkResult = await _client.QueryByWiqlAsync(
+            new Wiql { Query = wiql },
+            project,
+            cancellationToken: cancellationToken);
+        return new Abstractions.Agent.Export.WorkItemQueryResult(
+            sdkResult.WorkItems.Select(r => r.Id).ToList());
+    }
 }
 
 /// <summary>

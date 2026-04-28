@@ -19,6 +19,7 @@ using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Abstractions.Agent.Validation;
 using DevOpsMigrationPlatform.Abstractions.Telemetry;
 using DevOpsMigrationPlatform.Abstractions.Validation;
+using DevOpsMigrationPlatform.Infrastructure.Telemetry;
 using DevOpsMigrationPlatform.Abstractions.Streaming;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Teams;
 using Microsoft.Extensions.Logging;
@@ -31,6 +32,15 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Modules;
 /// Exports all team definitions, settings, iterations, members, capacity, and area paths
 /// to <c>Teams/{slug}/team.json</c> files. Imports them idempotently.
 /// </summary>
+/// <remarks>
+/// <strong>Connector coverage:</strong> Team import is supported for
+/// <c>AzureDevOpsServices</c> and <c>Simulated</c> connectors only.
+/// TFS (TeamFoundationServer) is a <em>source-only</em> connector — it is always
+/// the migration origin, never the destination. No <see cref="ITeamTarget"/>
+/// implementation exists for TFS and none is required; <see cref="ITeamTarget"/>
+/// is also guarded by <c>#if !NET481</c> and therefore not reachable from the TFS
+/// subprocess. This is an explicit architectural decision, not an oversight.
+/// </remarks>
 public sealed class TeamsModule : IModule
 {
     private const string ModuleName = "Teams";
@@ -106,7 +116,8 @@ public sealed class TeamsModule : IModule
         var artefactStore = context.ArtefactStore;
         var projectName = job.Source?.GetProject() ?? string.Empty;
 
-        _logger.LogInformation("[Teams] Exporting teams for project '{Project}'.", projectName);
+        using (_logger.BeginDataScope(DataClassification.Customer))
+            _logger.LogInformation("[Teams] Exporting teams for project '{Project}'.", projectName);
 
         var sink = context.ProgressSink;
         sink?.Emit(new ProgressEvent
@@ -222,7 +233,8 @@ public sealed class TeamsModule : IModule
         var projectName = context.Job.Target?.GetProject() ?? string.Empty;
         var sourceProjectName = context.Job.Source?.GetProject() ?? projectName;
 
-        _logger.LogInformation("[Teams] Importing teams for project '{Project}'.", projectName);
+        using (_logger.BeginDataScope(DataClassification.Customer))
+            _logger.LogInformation("[Teams] Importing teams for project '{Project}'.", projectName);
 
         var importSink = context.ProgressSink;
         importSink?.Emit(new ProgressEvent

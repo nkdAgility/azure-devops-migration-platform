@@ -15,6 +15,7 @@ using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Abstractions.Agent.Validation;
 using DevOpsMigrationPlatform.Abstractions.Telemetry;
+using DevOpsMigrationPlatform.Infrastructure.Telemetry;
 using DevOpsMigrationPlatform.Abstractions.Validation;
 using DevOpsMigrationPlatform.Abstractions.Streaming;
 using Microsoft.Extensions.Logging;
@@ -105,7 +106,8 @@ public sealed class IdentitiesModule : IModule
         using var activity = s_activitySource.StartActivity("identities.export");
         activity?.SetTag("project", project);
 
-        _logger.LogInformation("[Identities] Starting identity export for project '{Project}'.", project);
+        using (_logger.BeginDataScope(DataClassification.Customer))
+            _logger.LogInformation("[Identities] Starting identity export for project '{Project}'.", project);
 
         var sink = context.ProgressSink;
         sink?.Emit(new ProgressEvent

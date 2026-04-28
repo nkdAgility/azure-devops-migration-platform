@@ -5,9 +5,8 @@ using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Options;
-using DevOpsMigrationPlatform.Infrastructure.AzureDevOps;
+using DevOpsMigrationPlatform.Abstractions.Agent.Export;
 using DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Export;
-using Microsoft.TeamFoundation.WorkItemTracking.WebApi.Models;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Moq;
 
@@ -48,24 +47,22 @@ public class WorkItemQueryWindowStrategyTests
     /// <summary>
     /// Builds a <see cref="WorkItemQueryResult"/> containing <paramref name="count"/> sequential IDs.
     /// </summary>
-    private static WorkItemQueryResult MakeResult(params int[] ids)
-        => new() { WorkItems = ids.Select(id => new WorkItemReference { Id = id }).ToList() };
+    private static WorkItemQueryResult MakeResult(params int[] ids) => new(ids);
 
-    private static WorkItemQueryResult EmptyResult()
-        => new() { WorkItems = Array.Empty<WorkItemReference>() };
+    private static WorkItemQueryResult EmptyResult() => new(Array.Empty<int>());
 
     /// <summary>
     /// Builds a mock factory whose client always returns the result produced by
     /// <paramref name="queryFunc"/> for every call to <c>QueryByWiqlAsync</c>.
     /// </summary>
     private static (WorkItemQueryWindowStrategy sut, Mock<IWiqlQueryClient> clientMock)
-        BuildSut(Func<Wiql, string, int, WorkItemQueryResult> queryFunc)
+        BuildSut(Func<string, string, int, WorkItemQueryResult> queryFunc)
     {
         var callIndex = 0;
         var clientMock = new Mock<IWiqlQueryClient>(MockBehavior.Strict);
         clientMock
-            .Setup(c => c.QueryByWiqlAsync(It.IsAny<Wiql>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync((Wiql wiql, string project, CancellationToken _) =>
+            .Setup(c => c.QueryByWiqlAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((string wiql, string project, CancellationToken _) =>
             {
                 var result = queryFunc(wiql, project, callIndex);
                 callIndex++;
@@ -104,7 +101,7 @@ public class WorkItemQueryWindowStrategyTests
 
         // Assert
         Assert.AreEqual(0, windows.Count, "Project with no items must yield no windows");
-        clientMock.Verify(c => c.QueryByWiqlAsync(It.IsAny<Wiql>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Once,
+        clientMock.Verify(c => c.QueryByWiqlAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Once,
             "Exactly one API call — the unbounded probe");
     }
 
@@ -180,7 +177,7 @@ public class WorkItemQueryWindowStrategyTests
         var idx = 0;
         var clientMock = new Mock<IWiqlQueryClient>(MockBehavior.Strict);
         clientMock
-            .Setup(c => c.QueryByWiqlAsync(It.IsAny<Wiql>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Setup(c => c.QueryByWiqlAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(() => responses[idx < responses.Length ? idx++ : ^1]);
 
         var factoryMock = new Mock<IWiqlQueryClientFactory>(MockBehavior.Strict);
@@ -197,7 +194,7 @@ public class WorkItemQueryWindowStrategyTests
         Assert.AreEqual(1, windows.Count, "Oversize window must not be yielded");
         Assert.AreEqual(5, windows[0].WorkItemIds.Count, "Only the retried smaller window should be yielded");
         clientMock.Verify(
-            c => c.QueryByWiqlAsync(It.IsAny<Wiql>(), It.IsAny<string>(), It.IsAny<CancellationToken>()),
+            c => c.QueryByWiqlAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()),
             Times.Exactly(3),
             "Three calls: oversize, retry (fits), stop");
     }
@@ -216,7 +213,7 @@ public class WorkItemQueryWindowStrategyTests
 
         var clientMock = new Mock<IWiqlQueryClient>(MockBehavior.Strict);
         clientMock
-            .Setup(c => c.QueryByWiqlAsync(It.IsAny<Wiql>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Setup(c => c.QueryByWiqlAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(() =>
             {
                 var count = responses[Math.Min(callIdx++, responses.Length - 1)];
@@ -266,7 +263,7 @@ public class WorkItemQueryWindowStrategyTests
 
         var clientMock = new Mock<IWiqlQueryClient>(MockBehavior.Strict);
         clientMock
-            .Setup(c => c.QueryByWiqlAsync(It.IsAny<Wiql>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Setup(c => c.QueryByWiqlAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(() =>
             {
                 var count = responses[Math.Min(callIdx++, responses.Length - 1)];
@@ -314,7 +311,7 @@ public class WorkItemQueryWindowStrategyTests
 
         var clientMock = new Mock<IWiqlQueryClient>(MockBehavior.Strict);
         clientMock
-            .Setup(c => c.QueryByWiqlAsync(It.IsAny<Wiql>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Setup(c => c.QueryByWiqlAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(() =>
             {
                 var count = responses[Math.Min(callIdx++, responses.Length - 1)];
@@ -363,11 +360,11 @@ public class WorkItemQueryWindowStrategyTests
         var boundedSuccessCount = 0;
         var clientMock = new Mock<IWiqlQueryClient>(MockBehavior.Strict);
         clientMock
-            .Setup(c => c.QueryByWiqlAsync(It.IsAny<Wiql>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync((Wiql wiql, string _, CancellationToken _) =>
+            .Setup(c => c.QueryByWiqlAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((string wiql, string _, CancellationToken _) =>
             {
                 var i = callIdx++;
-                var q = wiql.Query;
+                var q = wiql;
 
                 // Probe and date-only queries overflow
                 if (!q.Contains("[System.Id] >", StringComparison.OrdinalIgnoreCase))
@@ -416,10 +413,10 @@ public class WorkItemQueryWindowStrategyTests
 
         var clientMock = new Mock<IWiqlQueryClient>(MockBehavior.Strict);
         clientMock
-            .Setup(c => c.QueryByWiqlAsync(It.IsAny<Wiql>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync((Wiql wiql, string _, CancellationToken _) =>
+            .Setup(c => c.QueryByWiqlAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((string wiql, string _, CancellationToken _) =>
             {
-                var q = wiql.Query;
+                var q = wiql;
                 if (!q.Contains("[System.Id] >", StringComparison.OrdinalIgnoreCase))
                     throw overflowEx;
                 if (q.Contains("[System.Id] <=", StringComparison.OrdinalIgnoreCase))
@@ -460,10 +457,10 @@ public class WorkItemQueryWindowStrategyTests
 
         var clientMock = new Mock<IWiqlQueryClient>(MockBehavior.Strict);
         clientMock
-            .Setup(c => c.QueryByWiqlAsync(It.IsAny<Wiql>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync((Wiql wiql, string _, CancellationToken _) =>
+            .Setup(c => c.QueryByWiqlAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((string wiql, string _, CancellationToken _) =>
             {
-                var q = wiql.Query;
+                var q = wiql;
                 if (!q.Contains("[System.Id] >", StringComparison.OrdinalIgnoreCase))
                     throw overflowEx;
                 if (q.Contains("[System.Id] <=", StringComparison.OrdinalIgnoreCase))
@@ -514,10 +511,10 @@ public class WorkItemQueryWindowStrategyTests
 
         var clientMock = new Mock<IWiqlQueryClient>(MockBehavior.Strict);
         clientMock
-            .Setup(c => c.QueryByWiqlAsync(It.IsAny<Wiql>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync((Wiql wiql, string _, CancellationToken _) =>
+            .Setup(c => c.QueryByWiqlAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((string wiql, string _, CancellationToken _) =>
             {
-                var q = wiql.Query;
+                var q = wiql;
                 if (!q.Contains("[System.Id] >", StringComparison.OrdinalIgnoreCase))
                     throw overflowEx;
 
@@ -568,10 +565,10 @@ public class WorkItemQueryWindowStrategyTests
 
         var clientMock = new Mock<IWiqlQueryClient>(MockBehavior.Strict);
         clientMock
-            .Setup(c => c.QueryByWiqlAsync(It.IsAny<Wiql>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync((Wiql wiql, string _, CancellationToken _) =>
+            .Setup(c => c.QueryByWiqlAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((string wiql, string _, CancellationToken _) =>
             {
-                var q = wiql.Query;
+                var q = wiql;
                 if (!q.Contains("[System.Id] >", StringComparison.OrdinalIgnoreCase))
                     throw overflowEx;
                 if (q.Contains("[System.Id] <=", StringComparison.OrdinalIgnoreCase))
@@ -615,10 +612,10 @@ public class WorkItemQueryWindowStrategyTests
 
         var clientMock = new Mock<IWiqlQueryClient>(MockBehavior.Strict);
         clientMock
-            .Setup(c => c.QueryByWiqlAsync(It.IsAny<Wiql>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync((Wiql wiql, string _, CancellationToken _) =>
+            .Setup(c => c.QueryByWiqlAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((string wiql, string _, CancellationToken _) =>
             {
-                var q = wiql.Query;
+                var q = wiql;
                 if (!q.Contains("[System.Id] >", StringComparison.OrdinalIgnoreCase))
                     throw overflowEx;
                 if (q.Contains("[System.Id] <=", StringComparison.OrdinalIgnoreCase))
@@ -659,10 +656,10 @@ public class WorkItemQueryWindowStrategyTests
 
         var clientMock = new Mock<IWiqlQueryClient>(MockBehavior.Strict);
         clientMock
-            .Setup(c => c.QueryByWiqlAsync(It.IsAny<Wiql>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync((Wiql wiql, string _, CancellationToken _) =>
+            .Setup(c => c.QueryByWiqlAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((string wiql, string _, CancellationToken _) =>
             {
-                var q = wiql.Query;
+                var q = wiql;
                 if (!q.Contains("[System.Id] >", StringComparison.OrdinalIgnoreCase))
                     throw overflowEx;
                 if (q.Contains("[System.Id] <=", StringComparison.OrdinalIgnoreCase))
@@ -710,10 +707,10 @@ public class WorkItemQueryWindowStrategyTests
 
         var clientMock = new Mock<IWiqlQueryClient>(MockBehavior.Strict);
         clientMock
-            .Setup(c => c.QueryByWiqlAsync(It.IsAny<Wiql>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync((Wiql wiql, string _, CancellationToken _) =>
+            .Setup(c => c.QueryByWiqlAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((string wiql, string _, CancellationToken _) =>
             {
-                var q = wiql.Query;
+                var q = wiql;
 
                 // Level 2 ID-bounded query
                 if (q.Contains("[System.Id] >", StringComparison.OrdinalIgnoreCase)
@@ -774,7 +771,7 @@ public class WorkItemQueryWindowStrategyTests
         var callCount = 0;
         var clientMock = new Mock<IWiqlQueryClient>(MockBehavior.Strict);
         clientMock
-            .Setup(c => c.QueryByWiqlAsync(It.IsAny<Wiql>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Setup(c => c.QueryByWiqlAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(() =>
             {
                 if (callCount++ == 0)
@@ -798,7 +795,7 @@ public class WorkItemQueryWindowStrategyTests
 
         // 1 probe + 1 windowed original attempt + 3 windowed retries = 5 total calls
         clientMock.Verify(
-            c => c.QueryByWiqlAsync(It.IsAny<Wiql>(), It.IsAny<string>(), It.IsAny<CancellationToken>()),
+            c => c.QueryByWiqlAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()),
             Times.Exactly(5),
             "Probe (1) + windowed original attempt (1) + 3 windowed retries = 5 calls");
     }
@@ -813,7 +810,7 @@ public class WorkItemQueryWindowStrategyTests
 
         var clientMock = new Mock<IWiqlQueryClient>(MockBehavior.Strict);
         clientMock
-            .Setup(c => c.QueryByWiqlAsync(It.IsAny<Wiql>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Setup(c => c.QueryByWiqlAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(() =>
             {
                 var i = callIdx++;
@@ -868,10 +865,10 @@ public class WorkItemQueryWindowStrategyTests
 
         var clientMock = new Mock<IWiqlQueryClient>(MockBehavior.Strict);
         clientMock
-            .Setup(c => c.QueryByWiqlAsync(It.IsAny<Wiql>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync((Wiql wiql, string _, CancellationToken _) =>
+            .Setup(c => c.QueryByWiqlAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((string wiql, string _, CancellationToken _) =>
             {
-                var q = wiql.Query;
+                var q = wiql;
                 // Date-only queries (no ID bounds) all overflow — halving through date windows
                 if (!q.Contains("[System.Id] >", StringComparison.OrdinalIgnoreCase))
                     throw overflowEx;
@@ -920,10 +917,10 @@ public class WorkItemQueryWindowStrategyTests
 
         var clientMock = new Mock<IWiqlQueryClient>(MockBehavior.Strict);
         clientMock
-            .Setup(c => c.QueryByWiqlAsync(It.IsAny<Wiql>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync((Wiql wiql, string _, CancellationToken _) =>
+            .Setup(c => c.QueryByWiqlAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((string wiql, string _, CancellationToken _) =>
             {
-                var q = wiql.Query;
+                var q = wiql;
                 // Date-only queries overflow → eventually reaches Level 2
                 if (!q.Contains("[System.Id] >", StringComparison.OrdinalIgnoreCase))
                     throw overflowEx;
@@ -971,7 +968,7 @@ public class WorkItemQueryWindowStrategyTests
 
         var clientMock = new Mock<IWiqlQueryClient>(MockBehavior.Strict);
         clientMock
-            .Setup(c => c.QueryByWiqlAsync(It.IsAny<Wiql>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Setup(c => c.QueryByWiqlAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(() =>
             {
                 var count = responses[Math.Min(callIdx++, responses.Length - 1)];
@@ -1032,7 +1029,7 @@ public class WorkItemQueryWindowStrategyTests
 
         var clientMock = new Mock<IWiqlQueryClient>(MockBehavior.Strict);
         clientMock
-            .Setup(c => c.QueryByWiqlAsync(It.IsAny<Wiql>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Setup(c => c.QueryByWiqlAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .ThrowsAsync(new OperationCanceledException());
 
         var factoryMock = new Mock<IWiqlQueryClientFactory>(MockBehavior.Strict);
@@ -1061,7 +1058,7 @@ public class WorkItemQueryWindowStrategyTests
 
         Assert.AreEqual(0, windows.Count);
         clientMock.Verify(
-            c => c.QueryByWiqlAsync(It.IsAny<Wiql>(), It.IsAny<string>(), It.IsAny<CancellationToken>()),
+            c => c.QueryByWiqlAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()),
             Times.Once, "Only one API call — the unbounded probe");
     }
 
@@ -1077,7 +1074,7 @@ public class WorkItemQueryWindowStrategyTests
         Assert.AreEqual(1, windows.Count, "Below-limit project must yield exactly one window");
         CollectionAssert.AreEquivalent(new[] { 10, 20, 30, 40 }, windows[0].WorkItemIds.ToArray());
         clientMock.Verify(
-            c => c.QueryByWiqlAsync(It.IsAny<Wiql>(), It.IsAny<string>(), It.IsAny<CancellationToken>()),
+            c => c.QueryByWiqlAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()),
             Times.Once, "Only one API call — the unbounded probe");
     }
 
@@ -1123,7 +1120,7 @@ public class WorkItemQueryWindowStrategyTests
         var callIdx = 0;
         var clientMock = new Mock<IWiqlQueryClient>(MockBehavior.Strict);
         clientMock
-            .Setup(c => c.QueryByWiqlAsync(It.IsAny<Wiql>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Setup(c => c.QueryByWiqlAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(() =>
             {
                 var i = callIdx++;
@@ -1146,7 +1143,7 @@ public class WorkItemQueryWindowStrategyTests
         Assert.AreEqual(1, windows.Count, "Should yield 1 window from date-window scanning");
         CollectionAssert.AreEquivalent(new[] { 1, 2 }, windows[0].WorkItemIds.ToArray());
         clientMock.Verify(
-            c => c.QueryByWiqlAsync(It.IsAny<Wiql>(), It.IsAny<string>(), It.IsAny<CancellationToken>()),
+            c => c.QueryByWiqlAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()),
             Times.Exactly(3),
             "3 calls: probe (throws), first windowed (2 items), second windowed (0 → stop)");
     }
@@ -1160,7 +1157,7 @@ public class WorkItemQueryWindowStrategyTests
 
         var clientMock = new Mock<IWiqlQueryClient>(MockBehavior.Strict);
         clientMock
-            .Setup(c => c.QueryByWiqlAsync(It.IsAny<Wiql>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Setup(c => c.QueryByWiqlAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .ThrowsAsync(new OperationCanceledException());
 
         var factoryMock = new Mock<IWiqlQueryClientFactory>(MockBehavior.Strict);
@@ -1214,7 +1211,7 @@ public class WorkItemQueryWindowStrategyTests
             {
                 // First query in resume mode should include a date filter, not be unbounded
                 Assert.IsTrue(
-                    wiql.Query.Contains("System.ChangedDate") || wiql.Query.Contains("System.CreatedDate"),
+                    wiql.Contains("System.ChangedDate") || wiql.Contains("System.CreatedDate"),
                     "First query in resume mode should include a date filter, not be unbounded");
                 return MakeResult(500, 501, 502);
             }
@@ -1243,3 +1240,5 @@ public class WorkItemQueryWindowStrategyTests
         Assert.AreEqual(1, windows.Count);
     }
 }
+
+

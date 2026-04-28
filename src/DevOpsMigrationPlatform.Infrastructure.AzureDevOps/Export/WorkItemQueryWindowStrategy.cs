@@ -5,7 +5,7 @@ using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
-using Microsoft.TeamFoundation.WorkItemTracking.WebApi.Models;
+using DevOpsMigrationPlatform.Abstractions.Agent.Export;
 
 namespace DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Export;
 
@@ -89,16 +89,13 @@ public sealed class WorkItemQueryWindowStrategy : IWorkItemQueryWindowStrategy
         // export remain correct for large projects.
         // yield cannot appear inside a try-catch in C#; the result is extracted
         // first and the yield statements remain outside the try-catch below.
-        var unboundedWiql = new Wiql
-        {
-            Query = $"SELECT [System.Id] FROM WorkItems WHERE {wherePredicate} ORDER BY {orderBy}"
-        };
+        var unboundedWiql = $"SELECT [System.Id] FROM WorkItems WHERE {wherePredicate} ORDER BY {orderBy}";
 
         List<int>? unboundedIds = null;
         try
         {
             var unboundedResult = await witClient.QueryByWiqlAsync(unboundedWiql, project, cancellationToken);
-            unboundedIds = unboundedResult.WorkItems.Select(r => r.Id).ToList();
+            unboundedIds = unboundedResult.WorkItemIds.ToList();
         }
         catch (OperationCanceledException)
         {
@@ -163,15 +160,12 @@ public sealed class WorkItemQueryWindowStrategy : IWorkItemQueryWindowStrategy
                     ? $"{wherePredicate} AND {dateFilter}"
                     : dateFilter;
                 capturedWindowWhere = windowWhere;
-                var wiql = new Wiql
-                {
-                    Query = $"SELECT [System.Id] FROM WorkItems WHERE {windowWhere} ORDER BY {orderBy}"
-                };
+                var wiql = $"SELECT [System.Id] FROM WorkItems WHERE {windowWhere} ORDER BY {orderBy}";
 
                 try
                 {
                     var result = await witClient.QueryByWiqlAsync(wiql, project, cancellationToken);
-                    var fetched = result.WorkItems.Select(r => r.Id).ToList();
+                    var fetched = result.WorkItemIds.ToList();
 
                     if (fetched.Count >= options.LimitThreshold)
                     {
@@ -304,15 +298,12 @@ public sealed class WorkItemQueryWindowStrategy : IWorkItemQueryWindowStrategy
 
                 int idUpper = idCursor + idWindowSize;
                 var idFilter = $"[System.Id] > {idCursor} AND [System.Id] <= {idUpper}";
-                var wiql = new Wiql
-                {
-                    Query = $"SELECT [System.Id] FROM WorkItems WHERE {windowWhere} AND {idFilter} ORDER BY [System.Id]"
-                };
+                var wiql = $"SELECT [System.Id] FROM WorkItems WHERE {windowWhere} AND {idFilter} ORDER BY [System.Id]";
 
                 try
                 {
                     var result = await witClient.QueryByWiqlAsync(wiql, project, cancellationToken);
-                    var fetched = result.WorkItems.Select(r => r.Id).ToList();
+                    var fetched = result.WorkItemIds.ToList();
 
                     if (fetched.Count >= options.LimitThreshold)
                     {
@@ -403,15 +394,12 @@ public sealed class WorkItemQueryWindowStrategy : IWorkItemQueryWindowStrategy
         WorkItemQueryWindowOptions options,
         CancellationToken cancellationToken)
     {
-        var probeWiql = new Wiql
-        {
-            Query = $"SELECT [System.Id] FROM WorkItems WHERE {windowWhere} AND [System.Id] > {idFloor} ORDER BY [System.Id]"
-        };
+        var probeWiql = $"SELECT [System.Id] FROM WorkItems WHERE {windowWhere} AND [System.Id] > {idFloor} ORDER BY [System.Id]";
 
         try
         {
             var probeResult = await witClient.QueryByWiqlAsync(probeWiql, project, cancellationToken);
-            var probeIds = probeResult.WorkItems.Select(r => r.Id).ToList();
+            var probeIds = probeResult.WorkItemIds.ToList();
 
             if (probeIds.Count == 0)
                 return (null, true, options.InitialIdWindowSize);
@@ -497,10 +485,7 @@ public sealed class WorkItemQueryWindowStrategy : IWorkItemQueryWindowStrategy
                 ? $"{wherePredicate} AND {dateFilter}"
                 : dateFilter;
 
-            var wiql = new Wiql
-            {
-                Query = $"SELECT [System.Id] FROM WorkItems WHERE {windowWhere} ORDER BY {orderBy}"
-            };
+            var wiql = $"SELECT [System.Id] FROM WorkItems WHERE {windowWhere} ORDER BY {orderBy}";
 
             List<int>? ids = null;
             int transientRetries = 0;
@@ -512,7 +497,7 @@ public sealed class WorkItemQueryWindowStrategy : IWorkItemQueryWindowStrategy
                 try
                 {
                     var result = await witClient.QueryByWiqlAsync(wiql, project, cancellationToken);
-                    var fetched = result.WorkItems.Select(r => r.Id).ToList();
+                    var fetched = result.WorkItemIds.ToList();
 
                     if (fetched.Count >= options.LimitThreshold)
                     {
@@ -523,10 +508,7 @@ public sealed class WorkItemQueryWindowStrategy : IWorkItemQueryWindowStrategy
                         windowWhere = wherePredicate.Length > 0
                             ? $"{wherePredicate} AND {dateFilter}"
                             : dateFilter;
-                        wiql = new Wiql
-                        {
-                            Query = $"SELECT [System.Id] FROM WorkItems WHERE {windowWhere} ORDER BY {orderBy}"
-                        };
+                        wiql = $"SELECT [System.Id] FROM WorkItems WHERE {windowWhere} ORDER BY {orderBy}";
                     }
                     else
                     {
@@ -554,10 +536,7 @@ public sealed class WorkItemQueryWindowStrategy : IWorkItemQueryWindowStrategy
                         windowWhere = wherePredicate.Length > 0
                             ? $"{wherePredicate} AND {dateFilter}"
                             : dateFilter;
-                        wiql = new Wiql
-                        {
-                            Query = $"SELECT [System.Id] FROM WorkItems WHERE {windowWhere} ORDER BY {orderBy}"
-                        };
+                        wiql = $"SELECT [System.Id] FROM WorkItems WHERE {windowWhere} ORDER BY {orderBy}";
                     }
                 }
                 catch (Exception) when (transientRetries < maxTransientRetries)

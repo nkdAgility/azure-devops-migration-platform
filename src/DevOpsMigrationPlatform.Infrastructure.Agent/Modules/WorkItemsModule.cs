@@ -1,6 +1,7 @@
 ﻿#if !NET481
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -34,6 +35,8 @@ public sealed class WorkItemsModule : IModule
 {
     public string Name => "WorkItems";
     public IReadOnlyList<string> DependsOn => new[] { "Identities" };
+
+    private static readonly ActivitySource s_activitySource = new(WellKnownActivitySourceNames.Migration);
 
     private readonly IWorkItemRevisionSourceFactory _sourceFactory;
     private readonly IAttachmentBinarySource? _attachmentBinarySource;
@@ -97,6 +100,8 @@ public sealed class WorkItemsModule : IModule
     /// <inheritdoc/>
     public async Task ExportAsync(ExportContext context, CancellationToken ct)
     {
+        using var activity = s_activitySource.StartActivity("workitems.export");
+
         var job = context.Job;
 
         var endpointOptions = job.Source ?? throw new InvalidOperationException("Job.Source is required for export.");
@@ -175,6 +180,8 @@ public sealed class WorkItemsModule : IModule
 
     public async Task ImportAsync(ImportContext context, CancellationToken ct)
     {
+        using var activity = s_activitySource.StartActivity("workitems.import");
+
         var job = context.Job;
 
         var targetJob = job.Target ?? throw new InvalidOperationException("Job.Target is required for import.");

@@ -4,6 +4,8 @@
 
 The TFS Object Model (TFS OM) is a .NET Framework 3.x/4.x SOAP library that cannot run in .NET 9/10. The entire platform runs on .NET 10 — with one narrowly bounded exception: when the source is an on-premises Team Foundation Server, extraction must delegate to an isolated external subprocess built against .NET Framework 4.8.
 
+> **TFS is a source-only connector.** Team Foundation Server is always the migration *origin* — it is never the migration *destination*. As a consequence, `ITeamTarget`, `IWorkItemImportTarget`, and all other target-side interfaces are **not implemented for TFS** and none are required. The `#if !NET481` guards on those interfaces reinforce this: they are unreachable from the TFS subprocess by design. This is an explicit architectural decision.
+
 The subprocess is not a dumb pipe. It contains a `TfsExportAgent` class that is the structural parallel of the .NET 10 `MigrationAgent`: it receives a job definition, writes to the package using shared abstractions, maintains its own checkpoint cursor, and reports progress. The process boundary is the only seam — the contract is shared via multi-targeted `Abstractions`.
 
 This document specifies the process isolation boundary, the multi-targeting strategy for shared abstractions, the communication protocol, and the adapter contract that allow the .NET 10 host to invoke the .NET 4.8 exporter safely and without any runtime coupling.

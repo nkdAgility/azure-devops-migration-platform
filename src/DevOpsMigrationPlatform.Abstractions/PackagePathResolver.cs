@@ -4,10 +4,10 @@ using System.Text.RegularExpressions;
 namespace DevOpsMigrationPlatform.Abstractions;
 
 /// <summary>
-/// Shared path helpers for resolving org/project folder names from Azure DevOps
+/// Resolves filesystem-safe organisation and project folder names from Azure DevOps
 /// and TFS endpoint URLs.
 /// </summary>
-public static class PackagePathUtilities
+public static class PackagePathResolver
 {
     /// <summary>
     /// Extracts a filesystem-safe organisation name from an Azure DevOps or TFS URL.

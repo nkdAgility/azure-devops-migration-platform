@@ -895,7 +895,7 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
             teamsRow = new Markup("  [grey]Teams        –[/]");
         }
 
-        return new Rows(wiRow, revRow, timingRow, attachmentRow, checkpointRow, identitiesRow, nodesRow, teamsRow);
+        return new Rows(nodesRow, teamsRow, identitiesRow, wiRow, revRow, timingRow, attachmentRow, checkpointRow);
     }
 
     private static string ComputeRevisionEta(int revisionsWritten, int estimatedTotalRevisions, double avgRevDurationMs)

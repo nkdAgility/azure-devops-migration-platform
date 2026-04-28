@@ -618,8 +618,8 @@ public sealed class DependencyDiscoveryModule : IDiscoveryModule
                     recordCount++;
 
                     // Also append to per-project CSV builder.
-                    var recOrgFolder = PackagePathUtilities.ExtractOrgFolderName(r.SourceOrganisationUrl);
-                    var recProjectFolder = $"{recOrgFolder}/{PackagePathUtilities.Sanitise(r.SourceProject ?? "unknown")}";
+                    var recOrgFolder = PackagePathResolver.ExtractOrgFolderName(r.SourceOrganisationUrl);
+                    var recProjectFolder = $"{recOrgFolder}/{PackagePathResolver.Sanitise(r.SourceProject ?? "unknown")}";
                     if (!perProjectCsv.TryGetValue(recProjectFolder, out var projCsv))
                     {
                         projCsv = new StringBuilder();
@@ -713,8 +713,8 @@ public sealed class DependencyDiscoveryModule : IDiscoveryModule
                             await store.WriteAsync(RootCsvPath, csvBuilder.ToString(), ct).ConfigureAwait(false);
 
                             // Also flush the current project's partial CSV.
-                            var midOrgFolder = PackagePathUtilities.ExtractOrgFolderName(heartbeat.OrganisationUrl);
-                            var midProjectFolder = $"{midOrgFolder}/{PackagePathUtilities.Sanitise(heartbeat.ProjectName)}";
+                            var midOrgFolder = PackagePathResolver.ExtractOrgFolderName(heartbeat.OrganisationUrl);
+                            var midProjectFolder = $"{midOrgFolder}/{PackagePathResolver.Sanitise(heartbeat.ProjectName)}";
                             if (perProjectCsv.TryGetValue(midProjectFolder, out var midProjCsv))
                                 await store.WriteAsync($"{midProjectFolder}/dependencies.csv", midProjCsv.ToString(), ct).ConfigureAwait(false);
 
@@ -735,8 +735,8 @@ public sealed class DependencyDiscoveryModule : IDiscoveryModule
                                 "Completed project {Project} in {OrgUrl}: {Links} external links.",
                                 heartbeat.ProjectName, heartbeat.OrganisationUrl, heartbeat.ExternalLinksFound);
 
-                        var hbOrgFolder = PackagePathUtilities.ExtractOrgFolderName(heartbeat.OrganisationUrl);
-                        var hbProjectFolder = $"{hbOrgFolder}/{PackagePathUtilities.Sanitise(heartbeat.ProjectName)}";
+                        var hbOrgFolder = PackagePathResolver.ExtractOrgFolderName(heartbeat.OrganisationUrl);
+                        var hbProjectFolder = $"{hbOrgFolder}/{PackagePathResolver.Sanitise(heartbeat.ProjectName)}";
 
                         // Organisation transition tracking (metrics only — CSV accumulator
                         // transitions are handled by the DependencyFoundEvent handler).
@@ -1319,8 +1319,8 @@ public sealed class DependencyDiscoveryModule : IDiscoveryModule
             if (string.IsNullOrWhiteSpace(sourceProject) || string.IsNullOrWhiteSpace(sourceOrgUrl))
                 continue;
 
-            var orgFolder = PackagePathUtilities.ExtractOrgFolderName(sourceOrgUrl);
-            var projectFolder = $"{orgFolder}/{PackagePathUtilities.Sanitise(sourceProject)}";
+            var orgFolder = PackagePathResolver.ExtractOrgFolderName(sourceOrgUrl);
+            var projectFolder = $"{orgFolder}/{PackagePathResolver.Sanitise(sourceProject)}";
             var rawLine = lines[i].TrimEnd('\r');
 
             // Per-org accumulator
@@ -1537,7 +1537,7 @@ public sealed class DependencyDiscoveryModule : IDiscoveryModule
                 string.Equals(cols[2], sourceProject, StringComparison.OrdinalIgnoreCase) &&
                 !string.IsNullOrWhiteSpace(cols[3]))
             {
-                return PackagePathUtilities.ExtractOrgFolderName(cols[3]);
+                return PackagePathResolver.ExtractOrgFolderName(cols[3]);
             }
         }
         return null;

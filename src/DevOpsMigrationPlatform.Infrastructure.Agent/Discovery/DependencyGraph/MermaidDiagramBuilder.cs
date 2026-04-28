@@ -43,7 +43,7 @@ public sealed class MermaidDiagramBuilder
 
         foreach (var project in allProjects)
         {
-            var nodeId = MermaidUtilities.SanitizeNodeId(project);
+            var nodeId = DependencyGraphDiagramBuilder.SanitizeNodeId(project);
             nodeMap[project] = nodeId;
         }
 
@@ -88,8 +88,8 @@ public sealed class MermaidDiagramBuilder
 
     /// <summary>
     /// Sanitises a project name into a valid Mermaid node ID.
-    /// Delegates to <see cref="MermaidUtilities.SanitizeNodeId"/>.
+    /// Delegates to <see cref="DependencyGraphDiagramBuilder.SanitizeNodeId"/>.
     /// </summary>
     private static string SanitizeNodeId(string projectName) =>
-        MermaidUtilities.SanitizeNodeId(projectName);
+        DependencyGraphDiagramBuilder.SanitizeNodeId(projectName);
 }

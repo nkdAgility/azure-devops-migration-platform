@@ -1,8 +1,8 @@
 using System.Threading;
 using System.Threading.Tasks;
-using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Organisations;
 
-namespace DevOpsMigrationPlatform.Infrastructure.AzureDevOps;
+namespace DevOpsMigrationPlatform.Abstractions.Agent.Export;
 
 /// <summary>
 /// Creates an <see cref="IWiqlQueryClient"/> for a given <see cref="OrganisationEndpoint"/>,
