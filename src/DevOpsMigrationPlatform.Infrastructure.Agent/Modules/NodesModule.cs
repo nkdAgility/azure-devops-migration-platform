@@ -138,19 +138,9 @@ public sealed class NodesModule : IModule
                 context.ArtefactStore, context.StateStore,
                 ct).ConfigureAwait(false);
         }
-
-        if (_options.AutoCreateNodes)
+        else
         {
-            _logger.LogInformation("[Nodes] Ensuring referenced paths exist.");
-            await _nodeEnsurer.EnsureReferencedPathsAsync(
-                mapping, endpoint,
-                context.ArtefactStore,
-                ct).ConfigureAwait(false);
-        }
-
-        if (!_options.ReplicateSourceTree && !_options.AutoCreateNodes)
-        {
-            _logger.LogDebug("[Nodes] Both ReplicateSourceTree and AutoCreateNodes are disabled — nothing to import.");
+            _logger.LogDebug("[Nodes] ReplicateSourceTree disabled — nothing to import.");
         }
 
         // Write cursor after successful import.

@@ -146,8 +146,7 @@ public sealed class ModuleOptionsConfigurationTests
         var config = BuildConfig(new Dictionary<string, string?>
         {
             ["MigrationPlatform:Modules:Nodes:Enabled"] = "true",
-            ["MigrationPlatform:Modules:Nodes:ReplicateSourceTree"] = "true",
-            ["MigrationPlatform:Modules:Nodes:AutoCreateNodes"] = "false"
+            ["MigrationPlatform:Modules:Nodes:ReplicateSourceTree"] = "true"
         });
         var services = new ServiceCollection();
         services.Configure<NodesModuleOptions>(
@@ -160,7 +159,6 @@ public sealed class ModuleOptionsConfigurationTests
         // Assert
         Assert.IsTrue(opts.Enabled);
         Assert.IsTrue(opts.ReplicateSourceTree);
-        Assert.IsFalse(opts.AutoCreateNodes);
     }
 
     // TODO: [test-validity] Score 13/25 — Tests property initialiser defaults. Rewrite to test: when NodeTranslation
@@ -181,7 +179,6 @@ public sealed class ModuleOptionsConfigurationTests
         // Assert
         Assert.IsFalse(opts.Enabled);
         Assert.IsFalse(opts.ReplicateSourceTree);
-        Assert.IsFalse(opts.AutoCreateNodes);
     }
 
     // ─── IdentitiesModuleOptions ─────────────────────────────────────────────

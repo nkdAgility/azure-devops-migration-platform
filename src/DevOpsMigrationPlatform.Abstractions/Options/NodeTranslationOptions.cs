@@ -60,9 +60,4 @@ public sealed class NodeTranslationOptions
     /// </summary>
     public bool SkipOnUnresolvableIteration { get; init; } = false;
 
-    /// <summary>
-    /// When <c>true</c>, import reads <c>Nodes/source-tree.json</c> and replicates all
-    /// nodes to the target before processing revisions.
-    /// </summary>
-    public bool ReplicateSourceTree { get; init; } = false;
 }

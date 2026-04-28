@@ -1,4 +1,4 @@
-﻿using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
+using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Tools.NodeTranslation;
@@ -27,7 +27,7 @@ public class NodeEnsurerTests
             string? referencedPathsJson = null,
             string? sourceTreeJson = null)
     {
-        opts ??= new NodeTranslationOptions { Enabled = true, AutoCreateNodes = true, ReplicateSourceTree = false };
+        opts ??= new NodeTranslationOptions { Enabled = true, AutoCreateNodes = true };
         tool ??= CreatePassThroughTool();
 
         var creatorMock = new Mock<INodeCreator>(MockBehavior.Loose);
@@ -144,38 +144,9 @@ public class NodeEnsurerTests
     }
 
     [TestMethod]
-    public async Task ReplicateSourceTreeAsync_ReplicatesAreaAndIterationNodes()
-    {
-        var opts = new NodeTranslationOptions { Enabled = true, ReplicateSourceTree = true };
-        var treeJson = BuildSourceTreeJson(
-            areaNodes: new[] { @"SourceProject\Team A" },
-            iterNodes: new[] { new IterationNodeEntry(@"SourceProject\Sprint 1", null, null, false) });
-
-        var (sut, creatorMock, storeMock, stateMock) = CreateEnsurer(opts: opts, sourceTreeJson: treeJson);
-
-        await sut.ReplicateSourceTreeAsync(DefaultMapping, DefaultEndpoint, storeMock.Object, stateMock.Object, CancellationToken.None);
-
-        creatorMock.Verify(c => c.EnsureExistsAsync(ClassificationNodeType.Area, It.IsAny<string>(), It.IsAny<MigrationEndpointOptions>(), It.IsAny<CancellationToken>()), Times.Once);
-        creatorMock.Verify(c => c.EnsureExistsAsync(ClassificationNodeType.Iteration, It.IsAny<string>(), It.IsAny<MigrationEndpointOptions>(), It.IsAny<CancellationToken>()), Times.Once);
-    }
-
-    [TestMethod]
-    public async Task ReplicateSourceTreeAsync_ReplicateDisabled_SkipsAllNodes()
-    {
-        var opts = new NodeTranslationOptions { Enabled = true, ReplicateSourceTree = false };
-        var treeJson = BuildSourceTreeJson(areaNodes: new[] { @"SourceProject\Team A" });
-        var (sut, creatorMock, storeMock, stateMock) = CreateEnsurer(opts: opts, sourceTreeJson: treeJson);
-
-        await sut.ReplicateSourceTreeAsync(DefaultMapping, DefaultEndpoint, storeMock.Object, stateMock.Object, CancellationToken.None);
-
-        creatorMock.Verify(c => c.EnsureExistsAsync(
-            It.IsAny<ClassificationNodeType>(), It.IsAny<string>(), It.IsAny<MigrationEndpointOptions>(), It.IsAny<CancellationToken>()), Times.Never);
-    }
-
-    [TestMethod]
     public async Task ReplicateSourceTreeAsync_ResumesAndSkipsAlreadyReplicatedNodes()
     {
-        var opts = new NodeTranslationOptions { Enabled = true, ReplicateSourceTree = true };
+        var opts = new NodeTranslationOptions { Enabled = true };
         var treeJson = BuildSourceTreeJson(areaNodes: new[] { @"SourceProject\Team A" });
         var creatorMock = new Mock<INodeCreator>(MockBehavior.Loose);
         creatorMock.Setup(c => c.EnsureExistsAsync(It.IsAny<ClassificationNodeType>(), It.IsAny<string>(), It.IsAny<MigrationEndpointOptions>(), It.IsAny<CancellationToken>()))
@@ -208,7 +179,7 @@ public class NodeEnsurerTests
     [TestMethod]
     public async Task ReplicateSourceTreeAsync_SetsIterationDatesWhenProvided()
     {
-        var opts = new NodeTranslationOptions { Enabled = true, ReplicateSourceTree = true };
+        var opts = new NodeTranslationOptions { Enabled = true };
         var start = new DateTimeOffset(2024, 1, 15, 0, 0, 0, TimeSpan.Zero);
         var finish = new DateTimeOffset(2024, 1, 28, 0, 0, 0, TimeSpan.Zero);
         var treeJson = BuildSourceTreeJson(
@@ -231,7 +202,7 @@ public class NodeEnsurerTests
     [TestMethod]
     public async Task ReplicateSourceTreeAsync_DoesNotSetDatesForNullDates()
     {
-        var opts = new NodeTranslationOptions { Enabled = true, ReplicateSourceTree = true };
+        var opts = new NodeTranslationOptions { Enabled = true };
         var treeJson = BuildSourceTreeJson(
             iterNodes: new[] { new IterationNodeEntry(@"SourceProject\Sprint 2", null, null, false) });
 
@@ -248,7 +219,7 @@ public class NodeEnsurerTests
     [TestMethod]
     public async Task ReplicateSourceTreeAsync_SetIterationDatesFails_LogsWarningAndContinues()
     {
-        var opts = new NodeTranslationOptions { Enabled = true, ReplicateSourceTree = true };
+        var opts = new NodeTranslationOptions { Enabled = true };
         var start = new DateTimeOffset(2024, 1, 15, 0, 0, 0, TimeSpan.Zero);
         var finish = new DateTimeOffset(2024, 1, 28, 0, 0, 0, TimeSpan.Zero);
         var treeJson = BuildSourceTreeJson(
@@ -269,7 +240,7 @@ public class NodeEnsurerTests
     [TestMethod]
     public async Task ReplicateSourceTreeAsync_NoArtifact_LogsWarningAndDoesNotThrow()
     {
-        var opts = new NodeTranslationOptions { Enabled = true, ReplicateSourceTree = true };
+        var opts = new NodeTranslationOptions { Enabled = true };
         var (sut, creatorMock, storeMock, stateMock) = CreateEnsurer(opts: opts, sourceTreeJson: null);
 
         await sut.ReplicateSourceTreeAsync(DefaultMapping, DefaultEndpoint, storeMock.Object, stateMock.Object, CancellationToken.None);

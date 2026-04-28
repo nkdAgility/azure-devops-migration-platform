@@ -142,46 +142,14 @@ public class NodesModuleTests
     }
 
     [TestMethod]
-    public async Task ImportAsync_CallsEnsureReferencedPaths_WhenAutoCreateNodesEnabled()
-    {
-        // Arrange
-        var ensurerMock = new Mock<INodeEnsurer>(MockBehavior.Loose);
-        ensurerMock
-            .Setup(e => e.EnsureReferencedPathsAsync(
-                It.IsAny<ProjectMapping>(),
-                It.IsAny<MigrationEndpointOptions>(),
-                It.IsAny<IArtefactStore>(),
-                It.IsAny<CancellationToken>(),
-                null, null))
-            .Returns(Task.CompletedTask);
-
-        var opts = new NodesModuleOptions { Enabled = true, AutoCreateNodes = true };
-        var module = CreateModule(opts, nodeEnsurer: ensurerMock.Object);
-        var store = Mock.Of<IArtefactStore>();
-        var context = CreateImportContext(store);
-
-        // Act
-        await module.ImportAsync(context, CancellationToken.None);
-
-        // Assert
-        ensurerMock.Verify(e => e.EnsureReferencedPathsAsync(
-            It.IsAny<ProjectMapping>(),
-            It.IsAny<MigrationEndpointOptions>(),
-            It.IsAny<IArtefactStore>(),
-            It.IsAny<CancellationToken>(),
-            null, null), Times.Once);
-    }
-
-    [TestMethod]
-    public async Task ImportAsync_CallsNeitherMethod_WhenBothOptionsDisabled()
+    public async Task ImportAsync_DoesNotCallEnsurer_WhenReplicateSourceTreeDisabled()
     {
         // Arrange
         var ensurerMock = new Mock<INodeEnsurer>(MockBehavior.Strict);
         var opts = new NodesModuleOptions
         {
             Enabled = true,
-            ReplicateSourceTree = false,
-            AutoCreateNodes = false
+            ReplicateSourceTree = false
         };
         var module = CreateModule(opts, nodeEnsurer: ensurerMock.Object);
         var store = Mock.Of<IArtefactStore>();

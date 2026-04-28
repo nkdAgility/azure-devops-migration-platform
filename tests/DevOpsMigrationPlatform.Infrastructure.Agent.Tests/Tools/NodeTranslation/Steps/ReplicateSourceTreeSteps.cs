@@ -17,16 +17,10 @@ public class ReplicateSourceTreeSteps
 
     public ReplicateSourceTreeSteps(ReplicateSourceTreeContext ctx) => _ctx = ctx;
 
-    [Given(@"a NodeTranslation configuration with ReplicateSourceTree enabled")]
-    public void GivenReplicateEnabled()
+    [Given(@"a valid NodeTranslation configuration")]
+    public void GivenValidConfig()
     {
-        _ctx.ReplicateSourceTreeEnabled = true;
-    }
-
-    [Given(@"a NodeTranslation configuration with ReplicateSourceTree disabled")]
-    public void GivenReplicateDisabled()
-    {
-        _ctx.ReplicateSourceTreeEnabled = false;
+        // Default options used by context
     }
 
     [Given(@"a package containing Nodes/source-tree\.json")]

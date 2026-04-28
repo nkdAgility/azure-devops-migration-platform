@@ -23,7 +23,6 @@ public class ReplicateSourceTreeContext
         PropertyNameCaseInsensitive = true
     };
 
-    public bool ReplicateSourceTreeEnabled { get; set; } = true;
     public bool SourceTreeArtifactAbsent { get; set; } = false;
 
     private readonly List<string> _areaNodes = new();
@@ -103,7 +102,6 @@ public class ReplicateSourceTreeContext
         var opts = new NodeTranslationOptions
         {
             Enabled = true,
-            ReplicateSourceTree = ReplicateSourceTreeEnabled,
             AreaPathMappings = [],
             IterationPathMappings = []
         };

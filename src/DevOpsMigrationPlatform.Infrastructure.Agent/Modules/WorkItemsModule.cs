@@ -211,13 +211,12 @@ public sealed class WorkItemsModule : IModule
 
         // NodeEnsurer: pre-create missing classification nodes before the revision import loop.
         if (_nodeEnsurer == null)
-            _logger.LogWarning("[WorkItems] NodeEnsurer is not available — AutoCreateNodes and ReplicateSourceTree will be skipped. Register INodeCreator (via a connector-specific implementation) to enable import-side node creation.");
+            _logger.LogWarning("[WorkItems] NodeEnsurer is not available — AutoCreateNodes will be skipped. Register INodeCreator (via a connector-specific implementation) to enable import-side node creation.");
 
         if (_nodeEnsurer != null)
         {
             var sourceProjectNameForEnsurer = job.Source?.GetProject() ?? string.Empty;
             var ensurerContext = new DevOpsMigrationPlatform.Abstractions.Agent.Tools.ProjectMapping(sourceProjectNameForEnsurer, project);
-            await _nodeEnsurer.ReplicateSourceTreeAsync(ensurerContext, endpointOptions, context.ArtefactStore, context.StateStore, ct, _metrics, job.JobId).ConfigureAwait(false);
             await _nodeEnsurer.EnsureReferencedPathsAsync(ensurerContext, endpointOptions, context.ArtefactStore, ct, _metrics, job.JobId).ConfigureAwait(false);
         }
 

@@ -62,8 +62,7 @@
         "IterationLanguageOverride": "Iteration",
         "AutoCreateNodes": true,
         "SkipOnUnresolvableArea": false,
-        "SkipOnUnresolvableIteration": false,
-        "ReplicateSourceTree": true
+        "SkipOnUnresolvableIteration": false
       },
       "FieldTransform": {
         "Enabled": true,
@@ -143,8 +142,7 @@
       },
       "Nodes": {
         "Enabled": true,
-        "ReplicateSourceTree": true,
-        "AutoCreateNodes": true
+        "ReplicateSourceTree": true
       },
       "Teams": {
         "Enabled": true,

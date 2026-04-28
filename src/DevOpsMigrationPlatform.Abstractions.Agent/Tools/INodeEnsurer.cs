@@ -14,7 +14,7 @@ public interface INodeEnsurer
 {
     /// <summary>
     /// Reads <c>Nodes/source-tree.json</c> and ensures all nodes exist in the target.
-    /// No-op when ReplicateSourceTree is false.
+    /// Callers are responsible for checking whether replication is enabled before invoking.
     /// </summary>
     Task ReplicateSourceTreeAsync(
         ProjectMapping context,

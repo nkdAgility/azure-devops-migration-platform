@@ -20,7 +20,7 @@ public class IterationDatesSteps
     [Given(@"a NodeTranslation configuration with ReplicateSourceTree enabled")]
     public void GivenReplicateEnabled()
     {
-        _ctx.ReplicateSourceTreeEnabled = true;
+        // ReplicateSourceTree is a NodesModule concern — NodeEnsurer always executes when called
     }
 
     [Given(@"a package containing Nodes/source-tree\.json")]

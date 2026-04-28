@@ -18,7 +18,7 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Tools.NodeTranslation;
 
 /// <summary>
 /// Orchestrates import pre-processing:
-/// 1. ReplicateSourceTree — reads Nodes/source-tree.json when <c>ReplicateSourceTree: true</c>
+/// 1. ReplicateSourceTree — reads Nodes/source-tree.json and ensures all nodes exist in the target.
 /// 2. AutoCreateNodes pre-collection — reads Nodes/referenced-paths.json when <c>AutoCreateNodes: true</c>
 /// </summary>
 public sealed class NodeEnsurer : INodeEnsurer
@@ -54,7 +54,7 @@ public sealed class NodeEnsurer : INodeEnsurer
 
     /// <summary>
     /// Reads Nodes/source-tree.json and ensures all nodes exist in the target.
-    /// No-op when ReplicateSourceTree is false.
+    /// Callers are responsible for checking whether replication is enabled before invoking.
     /// Emits <c>migration.nodes.import.replicate.*</c> OTel metrics.
     /// </summary>
     public async Task ReplicateSourceTreeAsync(
@@ -66,12 +66,6 @@ public sealed class NodeEnsurer : INodeEnsurer
         IMigrationMetrics? metrics = null,
         string? jobId = null)
     {
-        if (!_options.ReplicateSourceTree)
-        {
-            _logger.LogDebug("[NodeTranslation] ReplicateSourceTree disabled — skipping.");
-            return;
-        }
-
         var json = await artefactStore.ReadAsync(SourceTreePath, ct).ConfigureAwait(false);
         if (json is null)
         {

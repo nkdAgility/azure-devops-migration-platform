@@ -62,7 +62,6 @@ public class AutoCreateNodesContext
         {
             Enabled = true,
             AutoCreateNodes = AutoCreateNodesEnabled,
-            ReplicateSourceTree = false,
             AreaPathMappings = [],
             IterationPathMappings = []
         };

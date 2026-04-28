@@ -1,10 +1,10 @@
-﻿Feature: Replicate source classification tree to target
+Feature: Replicate source classification tree to target
   As a migration operator
   I want the complete source area and iteration tree replicated to the target
   So that all paths exist before any work item revision is written
 
   Background:
-    Given a NodeTranslation configuration with ReplicateSourceTree enabled
+    Given a valid NodeTranslation configuration
     And a package containing Nodes/source-tree.json
 
   Scenario: All area and iteration nodes are created before import
@@ -13,11 +13,6 @@
     When the replicate-source-tree phase runs
     Then the area node "TargetProject\Team A" is created in the target
     And the iteration node "TargetProject\Sprint 1" is created in the target
-
-  Scenario: ReplicateSourceTree disabled skips replication
-    Given a NodeTranslation configuration with ReplicateSourceTree disabled
-    When the replicate-source-tree phase runs
-    Then no nodes are created in the target
 
   Scenario: Resume after interruption skips already confirmed nodes
     Given the source-tree artifact contains area node "SourceProject\Team A"
