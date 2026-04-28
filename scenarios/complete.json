@@ -1,7 +1,20 @@
 ﻿{
+  "Diagnostics": {
+    "MinimumLevel": "Information",
+    "ChannelCapacity": 1024,
+    "FlushIntervalMs": 500,
+    "FlushBatchSize": 50,
+    "MaxLogFileSizeMB": 50
+  },
   "MigrationPlatform": {
     "ConfigVersion": "1.0",
     "Mode": "Migrate",
+    "Environment": {
+      "Type": "Standalone",
+      "ControlPlane": {
+        "BaseUrl": "http://localhost:5100"
+      }
+    },
     "Policies": {
       "Retries": {
         "Max": 8
@@ -17,6 +30,7 @@
       "Type": "AzureDevOpsServices",
       "Url": "$ENV:SOURCE_ORG_URL",
       "Project": "$ENV:SOURCE_PROJECT",
+      "ApiVersion": "7.1",
       "Authentication": {
         "Type": "Pat",
         "AccessToken": "$ENV:SOURCE_PAT"
@@ -26,6 +40,7 @@
       "Type": "AzureDevOpsServices",
       "Url": "$ENV:TARGET_ORG_URL",
       "Project": "$ENV:TARGET_PROJECT",
+      "ApiVersion": "7.1",
       "Authentication": {
         "Type": "Pat",
         "AccessToken": "$ENV:TARGET_PAT"
@@ -33,7 +48,8 @@
     },
     "Package": {
       "WorkingDirectory": "storage\\complete",
-      "CreatePackage": true
+      "CreatePackage": true,
+      "PackagePath": ""
     },
     "Tools": {
       "NodeTranslation": {
@@ -196,6 +212,10 @@
             "Strategy": "TargetField",
             "FieldName": "Custom.SourceWorkItemId",
             "UrlPattern": ""
+          },
+          "FieldTransform": {
+            "Enabled": true,
+            "Phase": "Import"
           }
         }
       }
