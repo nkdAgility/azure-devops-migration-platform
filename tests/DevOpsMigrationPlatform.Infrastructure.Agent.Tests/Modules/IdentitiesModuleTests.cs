@@ -135,6 +135,9 @@ public class IdentitiesModuleTests
     }
 
     [TestMethod]
+    // TODO: [test-validity] Score 12/25 — No real assertion beyond "no exception thrown". Rewrite to test:
+    // assert the identity mapping service was NOT initialised (descriptors absent → skip import setup), or
+    // assert that a structured warning was emitted via IProgressSink/ILogger.
     public async Task ImportAsync_LogsWhenDescriptorsMissing()
     {
         // Arrange
@@ -151,6 +154,9 @@ public class IdentitiesModuleTests
     }
 
     [TestMethod]
+    // TODO: [test-validity] Score 12/25 — "No exception = pass" comment reveals there are no real assertions.
+    // Rewrite to assert observable state: e.g. verify IIdentityMappingService.LoadAsync was called with correct path,
+    // or assert the resulting mapping contains expected identity count.
     public async Task ImportAsync_LoadsMappingWhenDescriptorsPresent()
     {
         // Arrange

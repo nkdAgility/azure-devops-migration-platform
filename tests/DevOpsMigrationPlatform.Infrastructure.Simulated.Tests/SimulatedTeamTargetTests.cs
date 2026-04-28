@@ -26,6 +26,9 @@ public class SimulatedTeamTargetTests
     }
 
     [TestMethod]
+    // TODO: [test-validity] Score 13/25 — Tests trivial dictionary assignment in a test-double.
+    // Rewrite to assert a richer invariant: e.g. assert that setting team settings twice overwrites
+    // rather than accumulates, or that settings are keyed by teamId so two teams don't clash.
     public async Task SetTeamSettingsAsync_StoresSettings()
     {
         // Arrange
@@ -94,6 +97,9 @@ public class SimulatedTeamTargetTests
     }
 
     [TestMethod]
+    // TODO: [test-validity] Score 13/25 — Tests trivial dictionary assignment in a test-double.
+    // Rewrite to assert a richer invariant: e.g. assert that area paths are keyed by teamId so two
+    // teams don't overwrite each other, or that IncludedAreaPaths list length is preserved correctly.
     public async Task SetAreaPathsAsync_StoresAreaPaths()
     {
         // Arrange
