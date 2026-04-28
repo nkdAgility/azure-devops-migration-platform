@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading;
+using System.Threading.Channels;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.CLI.Commands;
@@ -415,7 +416,6 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
 
         // Follow mode: stream progress + diagnostics concurrently.
         var parsedJobId = Guid.Parse(job.JobId);
-        ProgressEvent? lastEvt = null;
         var jobFailed = false;
 
         // Use a linked CTS that we cancel on Ctrl+C to detach from diagnostics
@@ -480,46 +480,15 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
         }, followCts.Token);
 
         var progressStartTime = DateTimeOffset.UtcNow;
-        int completed = 0;
-        int skipped = 0;
-        int revisions = 0;
-        int lastWiRevisions = 0;
-        int currentWiId = 0;
-        int currentWiIndex = 0;
-        int currentWiRevsWritten = 0;
-        double lastRevDurationMs = 0;
-        double avgRevDurationMs = 0;
-        string currentStage = string.Empty;
-        int attProcessed = 0;
-        int attFailed = 0;
-        double avgAttDurationMs = 0;
-        long avgAttSizeBytes = 0;
-        string? currentAttName = null;
-        string? lastWiStatus = null;
+        var updates = Channel.CreateUnbounded<JobProgressUpdate>();
+        var state = JobProgressState.Initial(totalWorkItems);
 
-        // Channel 2: latest aggregate metrics polled from GET /jobs/{id}/telemetry every 5s.
-        // All counter display reads from latestMetrics — never from evt.Metrics (Channel 1,
-        // which is always null for .NET 10 agents).
-        JobMetrics? latestMetrics = null;
-        var telemetryTask = Task.Run(async () =>
-        {
-            try
-            {
-                while (!followCts.Token.IsCancellationRequested)
-                {
-                    try
-                    {
-                        var m = await client.GetTelemetryAsync(parsedJobId, followCts.Token).ConfigureAwait(false);
-                        if (m is not null)
-                            latestMetrics = m;
-                    }
-                    catch (OperationCanceledException) { return; }
-                    catch (Exception) { /* best-effort — do not propagate */ }
-                    await Task.Delay(5_000, followCts.Token).ConfigureAwait(false);
-                }
-            }
-            catch (OperationCanceledException) { }
-        }, followCts.Token);
+        // Channel 2: telemetry polling — pushes TelemetryPolled updates every 5 s.
+        // Channel 1: SSE stage stream — pushes StageAdvanced and JobTerminated updates.
+        // Both producers write into the same channel; the consumer applies each update
+        // via Apply() and re-renders, keeping all state in one immutable record.
+        var telemetryTask = Task.Run(() => FetchLatestMetrics(client, parsedJobId, updates.Writer, followCts.Token));
+        var progressTask = Task.Run(() => FollowJobProgress(client, parsedJobId, updates.Writer, followCts.Token));
 
         if (Console.IsOutputRedirected)
         {
@@ -528,49 +497,20 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
             // is invalid" on non-console handles; plain event iteration is sufficient.
             try
             {
-                await foreach (var evt in client.FollowLogsAsync(parsedJobId, followCts.Token).ConfigureAwait(false))
+                await foreach (var update in updates.Reader.ReadAllAsync(followCts.Token).ConfigureAwait(false))
                 {
-                    lastEvt = evt;
-                    if (!string.IsNullOrEmpty(evt.Stage))
-                        currentStage = evt.Stage;
-                    // Read counters from Channel 2 (latestMetrics), not Channel 1 (evt.Metrics).
-                    // evt.Metrics is always null for .NET 10 agents — only TFS subprocess populates it.
-                    var wi = latestMetrics?.Migration?.WorkItems;
-                    if (wi != null)
+                    state = Apply(state, update);
+                    if (update is JobTerminated jt)
                     {
-                        completed = (int)wi.Completed;
-                        skipped = (int)wi.Skipped;
-                        revisions = (int)(wi.RevisionsProcessed > 0 ? wi.RevisionsProcessed : revisions);
-                        if (wi.LastRevisionDurationMs > 0)
-                            lastRevDurationMs = wi.LastRevisionDurationMs;
-                        if (wi.AverageRevisionDurationMs > 0)
-                            avgRevDurationMs = wi.AverageRevisionDurationMs;
-                        if (wi.LastWorkItemStatus != null)
-                            lastWiStatus = wi.LastWorkItemStatus;
-                    }
-                    var att = latestMetrics?.Migration?.WorkItems?.Attachments;
-                    if (att != null)
-                    {
-                        attProcessed = (int)att.Processed;
-                        attFailed = (int)att.Failed;
-                        avgAttDurationMs = att.AverageDownloadDurationMs;
-                        avgAttSizeBytes = att.AverageSizeBytes;
-                        currentAttName = att.CurrentAttachmentName;
-                    }
-                    if (wi?.CurrentWorkItemId > 0)
-                    {
-                        currentWiId = wi.CurrentWorkItemId;
-                        currentWiIndex = wi.CurrentWorkItemIndex;
-                        currentWiRevsWritten = wi.CurrentWorkItemRevisionsWritten;
+                        if (jt.Failed)
+                        {
+                            jobFailed = true;
+                            ShowError(console, jt.Reason ?? "Job failed");
+                            ShowError(console, $"Last progress: {state.Completed} exported / {state.Skipped} skipped / {state.Revisions} revisions");
+                        }
+                        break;
                     }
                 }
-            }
-            catch (InvalidOperationException ex) when (ex.Message.Contains("Job failed"))
-            {
-                jobFailed = true;
-                ShowError(console, ex.Message);
-                if (lastEvt is not null)
-                    ShowError(console, $"Last progress: {completed} exported / {skipped} skipped / {revisions} revisions");
             }
             catch (OperationCanceledException)
             {
@@ -594,8 +534,7 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
 
             try
             {
-                await console.Live(BuildProgressRenderable(
-                        0, 0, totalWorkItems, 0, 0, 0, 0, string.Empty))
+                await console.Live(BuildProgressDisplay(state))
                     .AutoClear(false)
                     .Overflow(VerticalOverflow.Ellipsis)
                     .StartAsync(async ctx =>
@@ -604,66 +543,28 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
                         // calls Refresh/UpdateTarget. Force the initial render.
                         ctx.Refresh();
 
-                        await foreach (var evt in client.FollowLogsAsync(parsedJobId, followCts.Token).ConfigureAwait(false))
+                        await foreach (var update in updates.Reader.ReadAllAsync(followCts.Token).ConfigureAwait(false))
                         {
-                            lastEvt = evt;
-                            if (!string.IsNullOrEmpty(evt.Stage))
-                                currentStage = evt.Stage;
-                            // Read counters from Channel 2 (latestMetrics), not Channel 1 (evt.Metrics).
-                            // evt.Metrics is always null for .NET 10 agents — only TFS subprocess populates it.
-                            var wi = latestMetrics?.Migration?.WorkItems;
-                            if (wi != null)
+                            state = Apply(state, update);
+                            ctx.UpdateTarget(BuildProgressDisplay(state));
+                            if (update is JobTerminated jt)
                             {
-                                completed = (int)wi.Completed;
-                                skipped = (int)wi.Skipped;
-                                revisions = (int)(wi.RevisionsProcessed > 0 ? wi.RevisionsProcessed : revisions);
-                                if (wi.LastWorkItemRevisions > 0)
-                                    lastWiRevisions = (int)wi.LastWorkItemRevisions;
-                                if (wi.LastRevisionDurationMs > 0)
-                                    lastRevDurationMs = wi.LastRevisionDurationMs;
-                                if (wi.AverageRevisionDurationMs > 0)
-                                    avgRevDurationMs = wi.AverageRevisionDurationMs;
-                                if (wi.LastWorkItemStatus != null)
-                                    lastWiStatus = wi.LastWorkItemStatus;
-                                if (wi.CurrentWorkItemId > 0)
+                                if (jt.Failed)
                                 {
-                                    currentWiId = wi.CurrentWorkItemId;
-                                    currentWiIndex = wi.CurrentWorkItemIndex;
-                                    currentWiRevsWritten = wi.CurrentWorkItemRevisionsWritten;
+                                    jobFailed = true;
+                                    ShowError(console, jt.Reason ?? "Job failed");
                                 }
+                                break;
                             }
-
-                            var att = latestMetrics?.Migration?.WorkItems?.Attachments;
-                            if (att != null)
-                            {
-                                attProcessed = (int)att.Processed;
-                                attFailed = (int)att.Failed;
-                                avgAttDurationMs = att.AverageDownloadDurationMs;
-                                avgAttSizeBytes = att.AverageSizeBytes;
-                                currentAttName = att.CurrentAttachmentName;
-                            }
-
-                            ctx.UpdateTarget(BuildProgressRenderable(
-                                completed, skipped, totalWorkItems,
-                                currentWiId, currentWiRevsWritten,
-                                currentWiIndex, lastWiRevisions,
-                                currentStage, lastWiStatus,
-                                evt.LastCheckpointAt, evt.NextCheckpointDueAt,
-                                lastRevDurationMs, avgRevDurationMs,
-                                revisions,
-                                attProcessed, attFailed, avgAttDurationMs, avgAttSizeBytes, currentAttName,
-                                latestMetrics?.Migration?.Teams,
-                                latestMetrics?.Migration?.Nodes,
-                                latestMetrics?.Migration?.Identities));
                         }
                     });
             }
             catch (InvalidOperationException ex) when (ex.Message.Contains("Job failed"))
             {
+                // Normally handled via JobTerminated message from FollowJobProgress — safety net only.
                 jobFailed = true;
                 ShowError(console, ex.Message);
-                if (lastEvt is not null)
-                    ShowError(console, $"Last progress: {completed} exported / {skipped} skipped / {revisions} revisions");
+                ShowError(console, $"Last progress: {state.Completed} exported / {state.Skipped} skipped / {state.Revisions} revisions");
             }
             catch (OperationCanceledException)
             {
@@ -700,10 +601,11 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
             }
         }
 
-        // Stop diagnostics stream and telemetry polling.
+        // Stop diagnostics stream, telemetry polling, and progress streaming.
         await followCts.CancelAsync();
         try { await diagnosticsTask; } catch (OperationCanceledException) { }
         try { await telemetryTask; } catch (OperationCanceledException) { }
+        try { await progressTask; } catch (OperationCanceledException) { }
 
         // Flush buffered diagnostics now that the Progress() renderer has released the console.
         while (diagnosticsBuffer.TryDequeue(out var line))
@@ -712,12 +614,162 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
         if (jobFailed)
             return 1;
 
-        if (lastEvt is not null)
-            ShowSuccess(console, $"Export complete — {completed} exported / {skipped} skipped / {revisions} revisions written to package.");
+        if (state.LastEvent is not null)
+            ShowSuccess(console, $"Export complete — {state.Completed} exported / {state.Skipped} skipped / {state.Revisions} revisions written to package.");
         else
             ShowSuccess(console, "Work item export complete.");
         return 0;
     }
+
+    // ── Job progress state (MVU) ─────────────────────────────────────────────────────────
+    // All display state is held in one immutable record updated via Apply().
+    // Producers push JobProgressUpdate messages into a Channel; the consumer
+    // calls Apply() on each message and re-renders via BuildProgressDisplay().
+
+    private record JobProgressState(
+        int Completed,
+        int Skipped,
+        int TotalWorkItems,
+        int Revisions,
+        int LastWiRevisions,
+        int CurrentWiId,
+        int CurrentWiIndex,
+        int CurrentWiRevsWritten,
+        double LastRevDurationMs,
+        double AverageRevDurationMs,
+        string Stage,
+        int AttachmentsProcessed,
+        int AttachmentsFailed,
+        double AverageAttachmentDurationMs,
+        long AverageAttachmentSizeBytes,
+        string? CurrentAttachmentName,
+        string? LastWorkItemStatus,
+        JobMetrics? Metrics,
+        DateTimeOffset? LastCheckpointAt,
+        DateTimeOffset? NextCheckpointDueAt,
+        ProgressEvent? LastEvent)
+    {
+        public static JobProgressState Initial(int totalWorkItems) => new(
+            0, 0, totalWorkItems, 0, 0, 0, 0, 0, 0, 0,
+            string.Empty, 0, 0, 0, 0, null, null, null, null, null, null);
+    }
+
+    private abstract record JobProgressUpdate;
+    private record TelemetryPolled(JobMetrics Metrics) : JobProgressUpdate;
+    private record StageAdvanced(ProgressEvent Event) : JobProgressUpdate;
+    private record JobTerminated(bool Failed, string? Reason) : JobProgressUpdate;
+
+    private static JobProgressState Apply(JobProgressState state, JobProgressUpdate update) => update switch
+    {
+        TelemetryPolled t => ApplyTelemetry(state, t.Metrics),
+        StageAdvanced t => ApplyStageAdvance(state, t.Event),
+        _ => state
+    };
+
+    private static JobProgressState ApplyTelemetry(JobProgressState state, JobMetrics metrics)
+    {
+        var wi = metrics.Migration?.WorkItems;
+        var att = wi?.Attachments;
+        // Agent resolves the real scope total after querying the source — use it when available,
+        // retain the previous value between polls so the display never flashes to 0.
+        var scopeTotal = (int)(metrics.Scope?.WorkItemsTotal ?? 0);
+        return state with
+        {
+            Metrics = metrics,
+            TotalWorkItems = scopeTotal > 0 ? scopeTotal : state.TotalWorkItems,
+            Completed = wi is not null ? (int)wi.Completed : state.Completed,
+            Skipped = wi is not null ? (int)wi.Skipped : state.Skipped,
+            Revisions = wi is not null && wi.RevisionsProcessed > 0 ? (int)wi.RevisionsProcessed : state.Revisions,
+            LastWiRevisions = wi?.LastWorkItemRevisions > 0 ? (int)wi.LastWorkItemRevisions : state.LastWiRevisions,
+            LastRevDurationMs = wi?.LastRevisionDurationMs > 0 ? wi.LastRevisionDurationMs : state.LastRevDurationMs,
+            AverageRevDurationMs = wi?.AverageRevisionDurationMs > 0 ? wi.AverageRevisionDurationMs : state.AverageRevDurationMs,
+            LastWorkItemStatus = wi?.LastWorkItemStatus ?? state.LastWorkItemStatus,
+            CurrentWiId = wi?.CurrentWorkItemId > 0 ? wi.CurrentWorkItemId : state.CurrentWiId,
+            CurrentWiIndex = wi?.CurrentWorkItemId > 0 ? wi.CurrentWorkItemIndex : state.CurrentWiIndex,
+            CurrentWiRevsWritten = wi?.CurrentWorkItemId > 0 ? wi.CurrentWorkItemRevisionsWritten : state.CurrentWiRevsWritten,
+            AttachmentsProcessed = att is not null ? (int)att.Processed : state.AttachmentsProcessed,
+            AttachmentsFailed = att is not null ? (int)att.Failed : state.AttachmentsFailed,
+            AverageAttachmentDurationMs = att is not null ? att.AverageDownloadDurationMs : state.AverageAttachmentDurationMs,
+            AverageAttachmentSizeBytes = att is not null ? att.AverageSizeBytes : state.AverageAttachmentSizeBytes,
+            CurrentAttachmentName = att?.CurrentAttachmentName ?? state.CurrentAttachmentName,
+        };
+    }
+
+    private static JobProgressState ApplyStageAdvance(JobProgressState state, ProgressEvent evt) =>
+        state with
+        {
+            LastEvent = evt,
+            Stage = string.IsNullOrEmpty(evt.Stage) ? state.Stage : evt.Stage,
+            LastCheckpointAt = evt.LastCheckpointAt ?? state.LastCheckpointAt,
+            NextCheckpointDueAt = evt.NextCheckpointDueAt ?? state.NextCheckpointDueAt,
+        };
+
+    /// <summary>Renders the current <see cref="JobProgressState"/> into the Live display.</summary>
+    private static IRenderable BuildProgressDisplay(JobProgressState s) =>
+        BuildProgressRenderable(
+            s.Completed, s.Skipped, s.TotalWorkItems,
+            s.CurrentWiId, s.CurrentWiRevsWritten,
+            s.CurrentWiIndex, s.LastWiRevisions,
+            s.Stage, s.LastWorkItemStatus,
+            s.LastCheckpointAt, s.NextCheckpointDueAt,
+            s.LastRevDurationMs, s.AverageRevDurationMs,
+            s.Revisions,
+            s.AttachmentsProcessed, s.AttachmentsFailed,
+            s.AverageAttachmentDurationMs, s.AverageAttachmentSizeBytes, s.CurrentAttachmentName,
+            s.Metrics?.Migration?.Teams,
+            s.Metrics?.Migration?.Nodes,
+            s.Metrics?.Migration?.Identities);
+
+    /// <summary>
+    /// Polls <c>GET /jobs/{jobId}/telemetry</c> every 5 s and pushes
+    /// <see cref="TelemetryPolled"/> updates into <paramref name="updates"/>.
+    /// </summary>
+    private static async Task FetchLatestMetrics(
+        IControlPlaneClient client, Guid jobId,
+        ChannelWriter<JobProgressUpdate> updates, CancellationToken ct)
+    {
+        try
+        {
+            while (!ct.IsCancellationRequested)
+            {
+                try
+                {
+                    var m = await client.GetTelemetryAsync(jobId, ct).ConfigureAwait(false);
+                    if (m is not null)
+                        await updates.WriteAsync(new TelemetryPolled(m), ct).ConfigureAwait(false);
+                }
+                catch (OperationCanceledException) { return; }
+                catch (Exception) { /* best-effort — do not propagate */ }
+                await Task.Delay(5_000, ct).ConfigureAwait(false);
+            }
+        }
+        catch (OperationCanceledException) { }
+    }
+
+    /// <summary>
+    /// Subscribes to the SSE progress stream via <c>GET /jobs/{jobId}/progress?follow=true</c>
+    /// and pushes <see cref="StageAdvanced"/> updates (and a terminal <see cref="JobTerminated"/>)
+    /// into <paramref name="updates"/>.
+    /// </summary>
+    private static async Task FollowJobProgress(
+        IControlPlaneClient client, Guid jobId,
+        ChannelWriter<JobProgressUpdate> updates, CancellationToken ct)
+    {
+        try
+        {
+            await foreach (var evt in client.FollowLogsAsync(jobId, ct).ConfigureAwait(false))
+                await updates.WriteAsync(new StageAdvanced(evt), ct).ConfigureAwait(false);
+
+            await updates.WriteAsync(new JobTerminated(false, null), ct).ConfigureAwait(false);
+        }
+        catch (InvalidOperationException ex) when (ex.Message.Contains("Job failed"))
+        {
+            await updates.WriteAsync(new JobTerminated(true, ex.Message), ct).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) { }
+    }
+
+    // ── Progress renderable (pure render function) ───────────────────────────────────────
 
     /// <summary>
     /// Builds the fixed 3-row Live renderable:
