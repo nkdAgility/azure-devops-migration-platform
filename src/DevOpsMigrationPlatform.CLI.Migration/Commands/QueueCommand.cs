@@ -921,10 +921,10 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
         if (nodes is not null)
         {
             var nodesFailStr = nodes.Failed > 0 ? $"  [red]{nodes.Failed:N0} failed[/]" : string.Empty;
-            nodesRow = new Markup(
-                $"  [grey]Nodes:[/] [bold]{nodes.AreaPathsReplicated:N0}[/][grey] area[/]"
-                + $"  [bold]{nodes.IterationPathsReplicated:N0}[/][grey] iteration[/]"
-                + $"{nodesFailStr}");
+            var nodesExportedStr = nodes.Exported > 0 ? $"  [bold]{nodes.Exported:N0}[/][grey] captured[/]" : string.Empty;
+            var nodesAreaStr = nodes.AreaPathsReplicated > 0 ? $"  [bold]{nodes.AreaPathsReplicated:N0}[/][grey] area[/]" : string.Empty;
+            var nodesIterStr = nodes.IterationPathsReplicated > 0 ? $"  [bold]{nodes.IterationPathsReplicated:N0}[/][grey] iteration[/]" : string.Empty;
+            nodesRow = new Markup($"  [grey]Nodes:[/]{nodesExportedStr}{nodesAreaStr}{nodesIterStr}{nodesFailStr}");
         }
         else
         {

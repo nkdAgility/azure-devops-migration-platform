@@ -41,7 +41,7 @@ internal sealed class SnapshotMetricExporter : BaseExporter<Metric>
         long teamsExported = 0, teamsImported = 0, teamsFailed = 0, teamsMembers = 0, teamsIterations = 0;
 
         // Nodes
-        long nodesAreaReplicated = 0, nodesIterationReplicated = 0, nodesFailed = 0;
+        long nodesExported = 0, nodesAreaReplicated = 0, nodesIterationReplicated = 0, nodesFailed = 0;
 
         // Identities
         long identitiesExported = 0, identitiesResolved = 0, identitiesUnresolved = 0, identitiesFailed = 0;
@@ -124,6 +124,9 @@ internal sealed class SnapshotMetricExporter : BaseExporter<Metric>
                     break;
 
                 // --- Nodes ---
+                case WellKnownMetricNames.NodeExportDiscoverCount:
+                    nodesExported = ReadCounterSum(metric);
+                    break;
                 case WellKnownMetricNames.NodeImportReplicateAreaCount:
                     nodesAreaReplicated = ReadCounterSum(metric);
                     break;
@@ -164,9 +167,10 @@ internal sealed class SnapshotMetricExporter : BaseExporter<Metric>
             }
             : null;
 
-        var nodesCounters = nodesAreaReplicated > 0 || nodesIterationReplicated > 0 || nodesFailed > 0
+        var nodesCounters = nodesExported > 0 || nodesAreaReplicated > 0 || nodesIterationReplicated > 0 || nodesFailed > 0
             ? new NodesCounters
             {
+                Exported = nodesExported,
                 AreaPathsReplicated = nodesAreaReplicated,
                 IterationPathsReplicated = nodesIterationReplicated,
                 Failed = nodesFailed,

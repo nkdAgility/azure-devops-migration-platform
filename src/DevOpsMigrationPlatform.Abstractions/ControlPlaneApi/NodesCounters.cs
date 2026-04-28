@@ -6,6 +6,9 @@ namespace DevOpsMigrationPlatform.Abstractions.ControlPlaneApi;
 /// </summary>
 public record NodesCounters
 {
+    /// <summary>Total nodes discovered and captured from the source tree during export.</summary>
+    public long Exported { get; init; }
+
     /// <summary>Area nodes successfully created or verified in the target system.</summary>
     public long AreaPathsReplicated { get; init; }
 
