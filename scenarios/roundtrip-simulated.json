@@ -12,7 +12,7 @@
         "Interval": 300
       }
     },
-    "Mode": "Both",
+    "Mode": "Migrate",
     "Source": {
       "Type": "Simulated",
       "Generator": {
