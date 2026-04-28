@@ -39,7 +39,7 @@ Before executing, read the following context files:
 - `.agents/guardrails/coding-standards.md` — Full Connector Implementation Required section
 - `.agents/guardrails/migration-rules.md` — Connector-specific rules (AzureDevOps, TFS, Simulated)
 - `docs/source-types.md` — Source type capabilities and constraints
-- `docs/tfs-exporter.md` — TFS subprocess bridge protocol (for TFS capability assessment)
+- `docs/migration-agent.md` — TFS Migration Agent specification (for TFS capability assessment)
 - `.agents/guardrails/system-architecture.md` — Module isolation and abstraction rules
 
 These files establish the connector architecture and capability boundaries.
@@ -52,7 +52,7 @@ These files establish the connector architecture and capability boundaries.
 |---|---|---|---|
 | **Simulated** | .NET 10 | In-process, deterministic, no external connectivity | Used for testing and development. MUST implement the same `IModule` abstraction. |
 | **AzureDevOpsServices** | .NET 10 | Azure DevOps REST API | PAT or service principal auth. Pinned API version. |
-| **TeamFoundationServer** | .NET 4.8 subprocess | TFS Object Model (SOAP) via process bridge | Spawned by `ExternalToolRunner`. Communication via stdin/stdout/stderr/exit code. |
+| **TeamFoundationServer** | .NET 4.8 agent process | TFS Object Model (`WorkItemStore`, etc.) | `IModule` dispatch in `TfsMigrationAgent`. Export only for now; Import returns `Task.CompletedTask` until implemented. |
 
 ### TFS Exemption Rule
 
@@ -131,7 +131,7 @@ For each feature, determine which connectors MUST implement it:
 
 1. **Simulated** — Always required. The simulated connector MUST implement every feature for testing.
 2. **AzureDevOpsServices** — Required unless the feature is TFS-only (which should never happen in practice).
-3. **TeamFoundationServer** — Required unless the TFS Object Model API does not support the capability. Check `docs/tfs-exporter.md` and `docs/source-types.md` for known limitations.
+3. **TeamFoundationServer** — Required unless the TFS Object Model API does not support the capability. Check `docs/migration-agent.md#tfs-migration-agent` and `docs/source-types.md` for known limitations.
 
 For each connector-feature pair, assign one of:
 

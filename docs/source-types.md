@@ -44,28 +44,19 @@ The `devopsmigration discovery inventory` command uses the REST API directly for
 
 **Requirements:**
 
-- The .NET 10 host cannot call TFS Object Model APIs directly.
-- The export MUST be delegated to `TfsExportCommand` in `DevOpsMigrationPlatform.CLI.Migration`, which uses `ExternalToolRunner` to spawn the `DevOpsMigrationPlatform.CLI.TfsMigration` subprocess (built against .NET 4.8), and `TfsExporterProcessAdapter` to translate the subprocess's NDJSON stdout into progress events. These are the only permitted TFS-aware .NET 10 constructs.
-- The process bridge protocol is:
-  - **stdin** — `TfsExportRequest` as UTF-8 JSON (includes credentials; never via CLI args)
-  - **stdout** — NDJSON progress lines consumed by the adapter and forwarded to `IProgressSink`
-  - **stderr** — unstructured error detail captured for failure logging
-  - **exit code** — 0 for success, 1–5 for specific failure categories
-  - **cancellation** — adapter writes a sentinel file; subprocess polls and aborts gracefully
-- The subprocess writes package files and cursor checkpoints to `packageRootPath`.
-- The adapter validates and normalises the exporter's output before treating it as canonical package data.
-- If normalisation is required (e.g., field name casing differences), it is applied transparently.
+- The TFS Object Model (net481) cannot be called from .NET 10. Jobs with `source.type: TeamFoundationServer` are routed to `DevOpsMigrationPlatform.TfsMigrationAgent` via capability matching (`GET /agents/lease?capabilities=tfs`).
+- The TFS agent uses `IModule` dispatch — the same pattern as the .NET 10 `MigrationAgent`. `TfsWorkItemsModule.ExportAsync` drives the export via `IWorkItemRevisionSource` (TFS OM implementation) and `WorkItemExportOrchestrator`.
+- The TFS agent writes to the package via `IArtefactStore` (`FileSystemArtefactStore` only — blob store not supported on net481).
+- A job with `source.type: TeamFoundationServer` and a blob package URI MUST be rejected at Tier 0 validation.
+- Credentials are passed via the job contract (same as ADO Services) — never via command-line arguments.
+- The TFS agent is Windows-only and cannot run in containers. `AgentLifecycleService` spawns it on Windows and skips it elsewhere.
+- The package output is identical to an ADO export — the same canonical layout. An exported TFS package feeds directly into the standard `import` flow.
 
-See [docs/tfs-exporter.md](tfs-exporter.md) for the complete process bridge specification.
+See [docs/migration-agent.md — TFS Migration Agent](migration-agent.md#tfs-migration-agent) for the full specification.
 
 **Inventory:**
 
-For TFC/Azure DevOps Server source types, the `devopsmigration discovery inventory` command delegates to the `tfsmigration.exe` subprocess via `TfsInventoryProcessAdapter`:
-
-- The parent .NET 10 process spawns `tfsmigration.exe inventory --collection <url> [--project <name>] [--all-projects]`.
-- Credentials are passed via stdin as a single JSON line: `{"pat":"<token>"}` or `{}` for Windows-integrated auth.
-- The subprocess emits `InventoryProgressEvent` records as NDJSON on stdout; the parent process parses each line and drives the Spectre.Console live table.
-- The TFS subprocess uses `WorkItemStoreExtensions.QueryCountAllByDateChunk` for date-windowed counting (same 120-day / 20k algorithm as the ADO Services path).
+For TFS source types, the `devopsmigration discovery inventory` command submits a `DiscoveryJob` with `source.type: TeamFoundationServer` to the control plane. The TFS agent picks it up via capability matching and runs the TFS inventory module. The TFS inventory module uses `WorkItemStoreExtensions.QueryCountAllByDateChunk` for date-windowed counting (same 120-day / 20k algorithm as the ADO Services path).
 
 ### Validation and Normalisation
 

@@ -77,7 +77,7 @@ See [docs/modules.md](../../docs/modules.md) for the full `IModule` contract and
 
 - [ ] **Simulated** implementation is complete — deterministic, no external connectivity, generates realistic test data.
 - [ ] **AzureDevOpsServices** implementation is complete — full REST API integration via .NET 10.
-- [ ] **TeamFoundationServer** implementation is complete — TFS Object Model via the .NET 4.8 subprocess bridge, or explicitly exempted with a structured warning when the TFS OM API does not support the capability.
+- [ ] **TeamFoundationServer** implementation is complete — TFS Object Model connector running in `DevOpsMigrationPlatform.TfsMigrationAgent` (net481 polling agent, same `IModule` dispatch as `MigrationAgent`). `ExportAsync` must be fully implemented. `PrepareAsync`, `ImportAsync`, and `ValidateAsync` return `Task.CompletedTask` until TFS import is supported. If the TFS OM API does not support the capability at all, document the exemption explicitly with a structured warning.
 - [ ] No `throw new NotImplementedException()` or equivalent placeholder in any connector implementation.
 - [ ] No connector implementation deferred to a follow-up PR or future task.
 

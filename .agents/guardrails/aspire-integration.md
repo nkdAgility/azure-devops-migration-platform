@@ -317,30 +317,27 @@ resource migrationAgent 'Microsoft.App/containerApps@2023-05-01' = {
 - Support both local (`http://localhost:5100`) and cloud (`https://controlplane.azurecontainerapps.io`) endpoints
 - Validate job definitions before submission
 - Display job status via Control Plane API
-- Invoke `CLI.TfsMigration` via `ExternalToolRunner` (subprocess) for TFS source exports
-- Resolve the `CLI.TfsMigration` executable path from configuration (`tfsExporter:executablePath`) — never a hardcoded relative path in production
 
 ### CLI.Migration MUST NOT:
 
 - Be added to the Aspire AppHost
 - Use Aspire service discovery
 - Execute Job Engine logic directly (always submit to Control Plane)
-- Hold a direct project or assembly reference to `CLI.TfsMigration`
+- Hold a direct project or assembly reference to `TfsMigrationAgent`
 
-### CLI.TfsMigration (net481) — TFS Exporter CLI MUST:
+### TfsMigrationAgent (net481) — TFS Migration Agent MUST:
 
-- Be invocable as a standalone CLI without `CLI.Migration` present
-- Accept all required parameters via CLI arguments (`--tfsserver`, `--project`, `--output`, etc.)
-- Read credentials from stdin JSON when PAT authentication is required
-- Write output to the `--output` path following canonical package layouts
-- Write NDJSON progress lines to stdout (consumed by `CLI.Migration` or a calling script)
-- Exit with the standard exit codes defined in [docs/tfs-exporter.md](../../docs/tfs-exporter.md)
+- Poll `GET /agents/lease?capabilities=tfs` from the control plane (same protocol as `MigrationAgent`)
+- Use `IModule` dispatch (`TfsJobAgentWorker` accepts `IEnumerable<IModule>`)
+- Write to the package exclusively via `IArtefactStore` (`FileSystemArtefactStore`) and `IStateStore`
+- Report progress via `POST /agents/lease/{leaseId}/progress` to the control plane
+- Be spawned by `AgentLifecycleService` on Windows; skipped silently on Linux/macOS
 
-### CLI.TfsMigration MUST NOT:
+### TfsMigrationAgent MUST NOT:
 
 - Be added to the Aspire AppHost
 - Be referenced by any net10.0 project via `<ProjectReference>`
-- Accept credentials via CLI arguments (stdin JSON only)
+- Accept credentials via command-line arguments (job contract only)
 
 ---
 
@@ -348,10 +345,9 @@ resource migrationAgent 'Microsoft.App/containerApps@2023-05-01' = {
 
 Reject any code that:
 
-- Adds `CLI.Migration` or `CLI.TfsMigration` to AppHost resources.
-- Adds a direct project or assembly reference from `CLI.Migration` to `CLI.TfsMigration`.
-- Hardcodes the `CLI.TfsMigration` exe path to a development-relative path in production configuration.
-- Makes `CLI.TfsMigration` non-invocable as a standalone CLI (e.g. requires the main CLI to be present).
+- Adds `CLI.Migration` or `TfsMigrationAgent` to AppHost resources.
+- Adds a direct project or assembly reference from any net10.0 project to `TfsMigrationAgent`.
+- Spawns a TFS subprocess (`CLI.TfsMigration`, `tfsmigration.exe`) from the CLI or any .NET 10 component.
 - Hardcodes Control Plane URLs in Migration Agent code.
 - Bypasses ServiceDefaults observability configuration.
 - Uses custom health checks without calling `AddDefaultHealthChecks()`.
@@ -368,10 +364,9 @@ Reject any code that:
 Before accepting a change, verify:
 
 - [ ] ServiceDefaults is referenced by all services (Control Plane, Agent).
-- [ ] AppHost does not include `CLI.Migration` or `CLI.TfsMigration` project references.
-- [ ] `CLI.Migration` has no direct project reference to `CLI.TfsMigration` — subprocess via `ExternalToolRunner` only.
-- [ ] `CLI.TfsMigration` can be invoked standalone (no dependency on `CLI.Migration` being present).
-- [ ] `CLI.TfsMigration` exe path is read from configuration, not hardcoded in production.
+- [ ] AppHost does not include `CLI.Migration` or `TfsMigrationAgent` project references.
+- [ ] No net10.0 project holds a direct reference to `TfsMigrationAgent`.
+- [ ] No code spawns a TFS subprocess from a .NET 10 component.
 - [ ] Agent uses service discovery for `ControlPlaneHost` communication (when running under AppHost).
 - [ ] CLI reads `Environment.Type` from config to determine whether to start LocalStackHost (Standalone) or connect remotely (Hosted).
 - [ ] OpenTelemetry is configured via ServiceDefaults only.

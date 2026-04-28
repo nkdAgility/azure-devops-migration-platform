@@ -65,7 +65,7 @@ Rules for the carve-out:
 
 No other component may use .NET Framework.
 
-See [docs/tfs-exporter.md](../../docs/tfs-exporter.md) for the agent protocol specification.
+See [docs/migration-agent.md — TFS Migration Agent](../../docs/migration-agent.md#tfs-migration-agent) for the agent specification.
 
 ---
 

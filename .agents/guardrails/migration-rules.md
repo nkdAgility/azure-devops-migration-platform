@@ -226,14 +226,14 @@ Import MUST:
 
 When source.type == "TeamFoundationServer":
 
-* Export MUST be performed by the `TfsExportCommand` in `DevOpsMigrationPlatform.CLI.Migration`, which uses `ExternalToolRunner` to spawn `DevOpsMigrationPlatform.CLI.TfsMigration` as an isolated subprocess and `TfsExporterProcessAdapter` to translate its stdout into progress events. No other .NET 10 class may contain TFS-specific logic.
-* The .NET 10 host MUST NOT link against any .NET Framework assembly.
-* Communication with the subprocess MUST follow the process bridge protocol defined in [docs/tfs-exporter.md](../../docs/tfs-exporter.md): stdin JSON, stdout NDJSON progress, stderr errors, cancellation sentinel file, exit code.
-* Credentials MUST be passed via stdin JSON — never as command-line arguments.
-* The export output MUST be validated after the subprocess exits.
-* If the legacy output does not match the canonical package format, a normalisation step MUST convert it.
+* Export MUST be performed by `DevOpsMigrationPlatform.TfsMigrationAgent` — a first-class net481 polling agent that participates in the same control plane lease protocol as the .NET 10 `MigrationAgent`. No .NET 10 class may contain TFS Object Model logic or spawn a TFS subprocess.
+* The TFS agent MUST dispatch work through `IModule` implementations (`TfsJobAgentWorker` accepts `IEnumerable<IModule>`). `TfsWorkItemsModule.ExportAsync` performs the export; `PrepareAsync`, `ImportAsync`, and `ValidateAsync` return `Task.CompletedTask` until TFS import is implemented.
+* The .NET 10 host MUST NOT link against any .NET Framework assembly or the `TfsMigrationAgent` project.
+* Credentials MUST be passed via the job contract (same as ADO Services) — never via command-line arguments.
+* The TFS agent MUST use `IArtefactStore` (`FileSystemArtefactStore` only) and `IStateStore` for all package and checkpoint I/O.
+* A job with `source.type: TeamFoundationServer` and a non-`file:///` package URI MUST be rejected at Tier 0 validation.
 
-The external exporter is an extraction backend only.
+The TFS agent is an export-only connector for now. Prepare/Import support will be added to the same binary when implemented.
 
 ## Simulated (Testing and Development Only)
 

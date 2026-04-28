@@ -87,8 +87,8 @@ CLI:
 CLI command reference (canonical):
 → .agents/context/cli-commands.md
 
-TFS legacy process bridge:
-→ docs/tfs-exporter.md
+TFS Migration Agent and multi-targeting:
+→ docs/migration-agent.md
 
 Aspire orchestration:
 → docs/aspire-integration.md

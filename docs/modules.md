@@ -70,6 +70,19 @@ The Azure DevOps export path uses the following components:
 
 **Delta detection**: Adjacent revisions sharing the same attachment URL skip re-download — only new or changed URLs trigger a binary fetch.
 
+### WorkItemsModule — TFS Export
+
+The TFS export path runs inside `DevOpsMigrationPlatform.TfsMigrationAgent` (net481). It uses the same `WorkItemExportOrchestrator` and `IModule` dispatch as the ADO path — the only difference is the connector:
+
+| Component | Role |
+|---|---|
+| `TfsWorkItemsModule` | Implements `IModule`. `ExportAsync` drives the full TFS export; `PrepareAsync`, `ImportAsync`, `ValidateAsync` return `Task.CompletedTask` (TFS is source-only; import not yet implemented). |
+| `TfsWorkItemRevisionSource` | Enumerates work item revisions from the TFS Object Model (`WorkItemStore`). Uses date-windowed iteration, same chronological ordering as the ADO source. |
+| `TfsAttachmentBinarySource` | Downloads attachment binaries from TFS. |
+| `WorkItemExportOrchestrator` | Same orchestrator as ADO — enumerate revisions → write `revision.json` → download attachments → advance cursor. Shared from `DevOpsMigrationPlatform.Infrastructure.Agent`. |
+
+The package output is identical to an ADO export — the same `WorkItems/yyyy-MM-dd/<ticks>-<workItemId>-<revisionIndex>/revision.json` layout. An exported TFS package can be fed directly into the standard `import` flow without modification.
+
 ### Adding a New Module
 
 See [.agents/guardrails/module-template.md](../.agents/guardrails/module-template.md) for the full checklist.
