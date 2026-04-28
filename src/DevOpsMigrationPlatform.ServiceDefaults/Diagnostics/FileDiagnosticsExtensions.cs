@@ -75,6 +75,7 @@ public static class FileDiagnosticsExtensions
         if (string.IsNullOrWhiteSpace(path))
             return null;
 
+        path = Environment.ExpandEnvironmentVariables(path);
         var basePath = Path.IsPathRooted(path) ? path : Path.GetFullPath(path);
 
         // 1. Explicit config value
