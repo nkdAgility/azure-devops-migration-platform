@@ -347,7 +347,7 @@ Reject any code that:
 
 - Adds `CLI.Migration` or `TfsMigrationAgent` to AppHost resources.
 - Adds a direct project or assembly reference from any net10.0 project to `TfsMigrationAgent`.
-- Spawns a TFS subprocess (`CLI.TfsMigration`, `tfsmigration.exe`) from the CLI or any .NET 10 component.
+- Spawns a TFS subprocess (`tfsmigration.exe`) from the CLI or any .NET 10 component.
 - Hardcodes Control Plane URLs in Migration Agent code.
 - Bypasses ServiceDefaults observability configuration.
 - Uses custom health checks without calling `AddDefaultHealthChecks()`.

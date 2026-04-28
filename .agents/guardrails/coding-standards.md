@@ -42,7 +42,7 @@ Types permitted in multi-targeted projects:
 - Shared utility code with no platform-specific APIs
 
 Types that MUST NOT be in multi-targeted projects:
-- Any type referencing TFS OM assemblies (`Microsoft.TeamFoundation.*`) — net481 only, `CLI.TfsMigration` project only
+- Any type referencing TFS OM assemblies (`Microsoft.TeamFoundation.*`) — net481 only, `TfsMigrationAgent` project only
 - `AzureBlobArtefactStore` — net10.0 only (Azure Blob SDK not available for net481)
 
 ## Legacy Runtime (Explicit Carve-Out)
@@ -608,15 +608,14 @@ public class WorkItemsImportModule
 - Breaking schema or API changes without a version increment and corresponding upgrader.
 - Unbounded auto-scale configuration without a documented cost ceiling.
 - Deployable component without a liveness/readiness health-check endpoint.
-- Domain contract interface defined outside `DevOpsMigrationPlatform.Abstractions`. Infrastructure-internal testability seams whose signatures carry SDK types (e.g. `Microsoft.TeamFoundation.*`) are permitted in their infrastructure project provided: (a) no module, agent, or CLI code references them, and (b) a corresponding SDK-free abstraction exists in `Abstractions` for the domain boundary. Host-internal interfaces that serve testability or internal decoupling within a single deployable unit (e.g. `IJobStore` in the control plane, `IExternalToolRunner` in the CLI) are permitted in their host project provided they are not consumed across project boundaries by modules or agents.
+- Domain contract interface defined outside `DevOpsMigrationPlatform.Abstractions`. Infrastructure-internal testability seams whose signatures carry SDK types (e.g. `Microsoft.TeamFoundation.*`) are permitted in their infrastructure project provided: (a) no module, agent, or CLI code references them, and (b) a corresponding SDK-free abstraction exists in `Abstractions` for the domain boundary. Host-internal interfaces that serve testability or internal decoupling within a single deployable unit (e.g. `IJobStore` in the control plane) are permitted in their host project provided they are not consumed across project boundaries by modules or agents.
 - Code change submitted without a successful build verification.
 - Code change submitted without a passing test run (`dotnet test`).
 - Code change submitted without running at least one scenario config (e.g. `scenarios/queue-export-ado-workitems-single-project.json`) via a `.vscode/launch.json` debug profile and verifying observable output.
 - Known vulnerability shipped without either a fix or an explicit written rationale and tracked issue.
-- Holding a compiled reference to `DevOpsMigrationPlatform.CLI.TfsMigration` from any .NET 10 project.
-- Spawning the TFS exporter subprocess from any code other than `ExternalToolRunner` in `DevOpsMigrationPlatform.CLI.Migration`.
-- Passing credentials as command-line arguments to the TFS subprocess (stdin JSON only).
-- Parsing TFS exporter stdout as anything other than NDJSON progress lines.
+- Holding a compiled reference to `DevOpsMigrationPlatform.TfsMigrationAgent` from any .NET 10 project.
+- Spawning a TFS subprocess from any .NET 10 component (all TFS jobs go through the control plane lease protocol).
+- Passing credentials as command-line arguments to any external process (job contract only).
 - Calling source or target APIs from within the control plane.
 - Calling source or target APIs from within a Migration Agent outside of the orchestrator execution path.
 - Referencing `FileSystemArtefactStore` or `AzureBlobArtefactStore` directly in module code (use `IArtefactStore`).
@@ -639,7 +638,7 @@ Every feature that touches source or target interaction MUST be implemented for 
 
 1. **Simulated** — deterministic, no external connectivity, used by unit/integration/system tests.
 2. **AzureDevOpsServices** — REST API via .NET 10.
-3. **TeamFoundationServer** — TFS Object Model via the .NET 4.8 subprocess bridge.
+3. **TeamFoundationServer** — TFS Object Model via `TfsMigrationAgent` (net481 polling agent, `IModule` dispatch).
 
 ## Rule
 
@@ -711,9 +710,9 @@ Before merging changes, verify:
 - Does this code introduce non-deterministic behaviour?
 - Does this code violate module isolation?
 - Does this code bypass IArtefactStore?
-- Does this code introduce .NET Framework dependencies outside the legacy exporter?
-- Does this code hold a compiled reference to `DevOpsMigrationPlatform.CLI.TfsMigration`?
-- Does this code invoke the TFS subprocess from anywhere other than `ExternalToolRunner` in `CLI.Migration`?
+- Does this code introduce .NET Framework dependencies outside the TfsMigrationAgent?
+- Does this code hold a compiled reference to `DevOpsMigrationPlatform.TfsMigrationAgent` from a .NET 10 project?
+- Does this code spawn a TFS subprocess from a .NET 10 component instead of using the control plane lease protocol?
 - Does this code pass credentials via command-line arguments to any subprocess?
 - Does this code add migration execution logic to the control plane?
 - Does this code reference a concrete artefact store implementation inside a module?

@@ -266,7 +266,7 @@ Key properties:
 | `DevOpsMigrationPlatform.ControlPlaneHost` | `net10.0` | Deployable ASP.NET Core host for the control plane |
 | `DevOpsMigrationPlatform.MigrationAgent` | `net10.0` | Stateless migration worker: job engine, module executor |
 | `DevOpsMigrationPlatform.CLI.Migration` | `net10.0` | Operator CLI (`devopsmigration`) |
-| `DevOpsMigrationPlatform.CLI.TfsMigration` | `net481` | TFS export subprocess |
+| `DevOpsMigrationPlatform.TfsMigrationAgent` | `net481` | TFS Migration Agent (polling agent) |
 
 ## Full Reference Set
 
