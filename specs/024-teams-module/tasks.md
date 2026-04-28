@@ -79,11 +79,11 @@
 - [X] T017 [P] [US0] Create `src/DevOpsMigrationPlatform.Infrastructure.Agent/Identity/IdentityServiceCollectionExtensions.cs` — `AddIdentitiesModule()` registering module + options + mapping service
 - [X] T018 [P] [US0] Create `src/DevOpsMigrationPlatform.Infrastructure.Simulated/SimulatedIdentitySource.cs` — deterministic identity generation: produce N users + M groups from seed
 - [X] T019 [P] [US0] Create `src/DevOpsMigrationPlatform.Infrastructure.AzureDevOps/AzureDevOpsIdentitySource.cs` — Graph/Identity REST API: enumerate project identities (users + groups)
-- [ ] T020 [P] [US0] Create TFS identity export handler in `src/DevOpsMigrationPlatform.CLI.TfsExport/TfsIdentityExportHandler.cs` — TFS OM `IIdentityManagementService2.ReadIdentities()` for users and groups
-- [ ] T021 [US0] Create TFS identity bridge command in `src/DevOpsMigrationPlatform.TfsMigrationAgent/` — subprocess bridge command to invoke `TfsIdentityExportHandler` and relay results
+- [X] T020 [P] [US0] Create TFS identity export handler in `src/DevOpsMigrationPlatform.CLI.TfsExport/TfsIdentityExportHandler.cs` — TFS OM `IIdentityManagementService2.ReadIdentities()` for users and groups
+- [X] T021 [US0] Create TFS identity bridge command in `src/DevOpsMigrationPlatform.TfsMigrationAgent/` — subprocess bridge command to invoke `TfsIdentityExportHandler` and relay results
 - [X] T022 [US0] Update `src/DevOpsMigrationPlatform.Infrastructure.Simulated/SimulatedServiceCollectionExtensions.cs` — register `SimulatedIdentitySource` as `IIdentitySource`
 - [X] T023 [P] [US0] Update `src/DevOpsMigrationPlatform.Infrastructure.AzureDevOps/ExportServiceCollectionExtensions.cs` — register `AzureDevOpsIdentitySource` as `IIdentitySource`
-- [ ] T024 [US0] Add cursor-based checkpointing to `IdentitiesModule.ExportAsync` — write `identities.cursor.json` to `.migration/Checkpoints/` after each batch; resume from cursor on restart
+- [X] T024 [US0] Add cursor-based checkpointing to `IdentitiesModule.ExportAsync` — write `identities.cursor.json` to `.migration/Checkpoints/` after each batch; resume from cursor on restart
 
 ### Tests for US 0
 

@@ -7,6 +7,8 @@ using DevOpsMigrationPlatform.Infrastructure.Agent.Tools.FieldTransform;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Tools.NodeStructure;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Checkpointing;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Telemetry;
+using DevOpsMigrationPlatform.Infrastructure.Agent.Identity;
+using DevOpsMigrationPlatform.Infrastructure.Agent.Teams;
 using DevOpsMigrationPlatform.Infrastructure.Simulated;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -79,7 +81,10 @@ public static class MigrationAgentServiceExtensions
         builder.Services.AddNodeStructureToolServices();
         builder.Services.AddFieldTransformToolServices();
 
-        // Register IModule implementations (WorkItemsModule + Azure DevOps infra).
+        // Register IModule implementations.
+        builder.Services.AddIdentitiesModule(builder.Configuration);
+        builder.Services.AddNodeStructureModule();
+        builder.Services.AddTeamsModule(builder.Configuration);
         builder.Services.AddAzureDevOpsWorkItemExport();
         builder.Services.AddAzureDevOpsWorkItemImport();
         builder.Services.AddWorkItemsModule();
