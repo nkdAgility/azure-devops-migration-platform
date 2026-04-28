@@ -26,7 +26,7 @@ Runs entirely locally. No credentials are used. No network calls are made.
 | Config parses | The config file must be valid JSON. |
 | Schema version | `configVersion` must be a version supported by this CLI binary. |
 | Required fields | `mode`, `artefacts.path`, and `modules` must be present. |
-| Mode value | `mode` must be `Export`, `Import`, or `Both`. |
+| Mode value | `mode` must be `Export`, `Prepare`, `Import`, or `Migrate`. |
 | Module names | Every entry in `modules[].name` must match a module registered in the CLI binary. |
 | Module scope schema | Each module's `scopes[].parameters` must conform to the JSON Schema bundled with that module in the CLI binary. |
 | Policy ranges | Retry `max` and concurrency `maxConcurrency` must be positive integers within allowed bounds. |
@@ -48,12 +48,13 @@ Runs after Tier 0 passes. Verifies that the operator has the access needed to ex
 
 | Check | Applies to | Description |
 |---|---|---|
-| Source reachable | `Export`, `Both` | The source org/collection URL returns a successful response. |
-| Source project exists | `Export`, `Both` | The specified source project exists in the source org. |
-| Source read permissions | `Export`, `Both` | The source credentials have at minimum read access to work items in the source project. |
-| Target reachable | `Import`, `Both` | The target org URL returns a successful response. |
-| Target project exists | `Import`, `Both` | The specified target project exists in the target org. |
-| Target write permissions | `Import`, `Both` | The target credentials have at minimum write access to work items in the target project. |
+| Source reachable | `Export`, `Migrate` | The source org/collection URL returns a successful response. |
+| Source project exists | `Export`, `Migrate` | The specified source project exists in the source org. |
+| Source read permissions | `Export`, `Migrate` | The source credentials have at minimum read access to work items in the source project. |
+| Target reachable | `Prepare`, `Import`, `Migrate` | The target org URL returns a successful response. |
+| Target project exists | `Prepare`, `Import`, `Migrate` | The specified target project exists in the target org. |
+| Target write permissions | `Import`, `Migrate` | The target credentials have at minimum write access to work items in the target project. |
+| Target read permissions | `Prepare` | The target credentials have at minimum read access to the target project (Prepare only queries, does not write to the target). |
 | Package URI accessible | All | For `file:///`: the path exists (export) or is writable (import). For Azure Blob Storage URLs (`https://*.blob.core.windows.net/...`): the container exists and credentials are valid (SAS token or `DefaultAzureCredential`). |
 
 ### Failure Behaviour
@@ -88,8 +89,8 @@ The control plane performs a deduplication check on `jobId` and a final schema v
 
 Pre-flight validation runs:
 
-- Before any `ImportAsync` call in **Import** mode.
-- Between `ExportAsync` and `ImportAsync` in **Both** mode.
+- Before any `ImportAsync` call in **Import** mode (after the Prepare gate passes).
+- Between `ExportAsync` and `ImportAsync` in **Migrate** mode (after Prepare completes).
 - As part of each module's `ValidateAsync` during the orchestrator's pre-execution pass.
 
 ### Required Checks

@@ -9,11 +9,12 @@
 
 Build a migration package platform, not just a migration tool.
 
-The system supports three modes:
+The system supports four modes:
 
 1. **Export** — Azure DevOps Services → Files, or TeamFoundationServer (via .NET 4 OM exporter) → Files, or Simulated → Files (for testing and development)
-2. **Import** — Files → Azure DevOps Services, or Files → TeamFoundationServer (via .NET 4 OM importer — **not yet implemented**, see [docs/tfs-exporter.md](tfs-exporter.md#future-tfs-import-agent)), or Files → Simulated (for testing and development)
-3. **Both** — Export → Import in a single orchestrated run
+2. **Prepare** — Files + Target → Validation artefacts. Reads the exported package and connects to the target to cross-validate before import. Each module's `PrepareAsync` analyses the exported data against the target (e.g. identity mapping, node existence, field compatibility) and writes validation artefacts into the package for operator review. Any unresolved issue is blocking unless the operator adds an explicit skip. Prepare is idempotent and re-runnable; it overwrites its own output but never touches operator-edited mapping files.
+3. **Import** — Files → Azure DevOps Services, or Files → TeamFoundationServer (via .NET 4 OM importer — **not yet implemented**, see [docs/tfs-exporter.md](tfs-exporter.md#future-tfs-import-agent)), or Files → Simulated (for testing and development). If Prepare has not been run (no `.migration/Checkpoints/prepare.complete.json` marker), Import auto-runs Prepare first and aborts with a report if any blocking issues are found.
+4. **Migrate** — Export → Prepare → Import in a single orchestrated run. Aborts after Prepare if any blocking issues are found.
 
 The Files layer is first-class. It is:
 
@@ -38,7 +39,7 @@ The platform separates **job coordination** (control plane) from **job execution
 | **TUI** | Connects to any control plane endpoint — on the same machine, a dedicated server, or in the cloud — and renders live job state. Never submits jobs. |
 | **ControlPlane** | Service library (`DevOpsMigrationPlatform.ControlPlane`). Contains the HTTP API controllers, job state machine, lease protocol, progress tracking, and EF Core data model. Has no entry point — it is referenced and hosted by `ControlPlaneHost`. |
 | **ControlPlaneHost** | Deployable ASP.NET Core host (`DevOpsMigrationPlatform.ControlPlaneHost`). References the `ControlPlane` service library and adds: process entry point, agent lifecycle management via `IAgentLauncher`, and Aspire resource integration. Always reachable over HTTP. `LocalProcessAgentLauncher` spawns agent processes on the same machine; `ContainerAgentLauncher` deploys and scales agent containers to a configurable target context — either the managed ACA environment co-located with the control plane, or a user-specified environment (for network zone isolation). The agent image source is configured separately from the target context. |
-| **Migration Agent** | (`DevOpsMigrationPlatform.MigrationAgent`) Stateless worker that executes migration jobs. Polls `ControlPlaneHost` for assigned jobs under a time-bounded lease, runs modules via the Job Engine, writes to the package, reports progress back. Lifecycle managed by `ControlPlaneHost` via `IAgentLauncher`. A single binary and container image supports all modes (`Export`, `Import`, `Both`). |
+| **Migration Agent** | (`DevOpsMigrationPlatform.MigrationAgent`) Stateless worker that executes migration jobs. Polls `ControlPlaneHost` for assigned jobs under a time-bounded lease, runs modules via the Job Engine, writes to the package, reports progress back. Lifecycle managed by `ControlPlaneHost` via `IAgentLauncher`. A single binary and container image supports all modes (`Export`, `Prepare`, `Import`, `Migrate`). |
 | **TFS Export Agent** | A .NET 4.8 standalone exporter (`CLI.TfsMigration`) spawned **directly by the CLI** (`TfsExportCommand` in `CLI.Migration`) when the operator runs `devopsmigration tfsexport`. This is a direct CLI operation — it does **not** go through ControlPlane or MigrationAgent. The subprocess contains a `TfsExportAgent` class: receives a job definition via args + stdin, connects to TFS via the TFS Object Model, writes to the package via `IArtefactStore` (`FileSystemArtefactStore`), maintains checkpoints via `IStateStore`, and reports progress via `IProgressSink` (`StdoutProgressSink` → NDJSON on stdout). The CLI streams that NDJSON to the terminal via `TfsExporterProcessAdapter`. TFS OM cannot run in Docker, so this remains a CLI-only operation for all topologies. Uses the same abstractions as MigrationAgent via multi-targeted `Abstractions`. |
 | **TFS Import Agent** *(not yet implemented)* | The structural mirror of the TFS Export Agent. Will be a direct CLI operation spawned by `CLI.Migration` when the target is TFS, following the same pattern as TFS export — a dedicated CLI command, not routed through the Agent. See [docs/tfs-exporter.md](tfs-exporter.md#future-tfs-import-agent). |
 
@@ -121,7 +122,7 @@ Because the package is a first-class artefact identified by URI, export and impo
 |---|---|---|---|
 | Local / Server → Cloud | Local CLI-hosted control plane | Cloud (Self-Hosted/Managed) | Operator zips package, uploads to blob, resubmits import config pointing at `https://<account>.blob.core.windows.net/<container>/<prefix>` URL |
 | Cloud → Air-gapped | Cloud | Local CLI-hosted control plane | Operator downloads package or zip, resubmits import config pointing at `file:///` URI |
-| Both, same environment | Same control plane for both phases | — | Control plane chains export → import internally |
+| Migrate, same environment | Same control plane for both phases | — | Control plane chains export → prepare → import internally |
 
 The package format is identical in all cases. See [docs/packaging-zip.md](packaging-zip.md) for the zip transfer mechanism.
 
@@ -185,7 +186,7 @@ This constraint also ensures that the lease-based concurrent write protection (s
 
 > A versioned migration package platform with streaming chronological replay.
 
-Operators can run export and import as separate steps, or as a single end-to-end operation (`Both` mode). Either way, the migration package is always the intermediary — providing a complete, auditable, resumable record of every change. The package is a first-class artefact, not an internal implementation detail.
+Operators can run export, prepare, and import as separate steps, or as a single end-to-end operation (`Migrate` mode). Either way, the migration package is always the intermediary — providing a complete, auditable, resumable record of every change. The package is a first-class artefact, not an internal implementation detail.
 
 The platform has a single architecture across all hosting topologies. The same control plane, agent, and job engine run in every environment. The only variable is where the components are hosted.
 

@@ -153,6 +153,7 @@ Resume semantics:
 Each module MUST implement:
 
 * ExportAsync
+* PrepareAsync
 * ImportAsync
 * ValidateAsync
 * DependsOn (explicit dependencies)
@@ -384,6 +385,32 @@ Reject any design or implementation that:
 * Performs direct source-to-target migration.
 * Breaks deterministic folder naming.
 * Bypasses identity mapping or id mapping services.
+
+---
+
+# 🔍 Prepare Rules
+
+## Prepare is mandatory before Import
+
+* Import MUST verify that Prepare has completed successfully by checking for `.migration/Checkpoints/prepare.complete.json`.
+* If the marker is absent, Import MUST auto-run Prepare (execute each module's `PrepareAsync`).
+* If Prepare produces any blocking issue, Import MUST abort with a diagnostic report. The operator must resolve all issues before re-running Import.
+* Any unresolved issue (unmapped identity, missing node, unmapped field) is blocking unless the operator has added an explicit skip annotation.
+
+## PrepareAsync contract
+
+* `PrepareAsync` MUST read from the package via `IArtefactStore` (the exported data).
+* `PrepareAsync` MUST connect to the target system via injected services to cross-validate.
+* `PrepareAsync` MUST NOT connect to the source system.
+* `PrepareAsync` MUST write validation/mapping artefacts into the module's own package folder (e.g. `Identities/prepare-report.json`, `Nodes/prepare-report.json`).
+* `PrepareAsync` MUST be idempotent — re-running overwrites Prepare output artefacts.
+* `PrepareAsync` MUST NOT modify operator-edited mapping files (e.g. `Identities/mapping.json`).
+* On successful completion, the orchestrator MUST write `.migration/Checkpoints/prepare.complete.json`.
+
+## Migrate mode (formerly Both)
+
+* `Migrate` mode runs Export → Prepare → Import in a single orchestrated run.
+* If Prepare produces any blocking issue in Migrate mode, the orchestrator MUST abort after Prepare.
 
 ---
 

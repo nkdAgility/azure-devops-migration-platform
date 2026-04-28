@@ -266,7 +266,7 @@ The connection string value is:
 CREATE TABLE jobs (
     job_id            UUID         PRIMARY KEY,
     config_version    TEXT         NOT NULL,
-    mode              TEXT         NOT NULL CHECK (mode IN ('Export', 'Import', 'Both')),
+    mode              TEXT         NOT NULL CHECK (mode IN ('Export', 'Prepare', 'Import', 'Migrate')),
     state             TEXT         NOT NULL DEFAULT 'Queued'
                                    CHECK (state IN ('Queued', 'Leased', 'Running', 'Paused', 'Completed', 'Failed', 'Cancelled')),
     job_json          JSONB        NOT NULL,     -- full serialised MigrationJob

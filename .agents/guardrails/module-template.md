@@ -30,6 +30,7 @@ See [docs/modules.md](../../docs/modules.md) for the full `IModule` contract and
 - [ ] Implement `Name` — must match the key used in config `modules[].name` and in `manifest.json`.
 - [ ] Implement `DependsOn` — declare all modules that must complete before this one.
 - [ ] Implement `ExportAsync` — write only via `IArtefactStore`.
+- [ ] Implement `PrepareAsync` — read from package via `IArtefactStore`, query target via injected services, write validation/mapping artefacts into the module's package folder (e.g. `<ModuleName>/prepare-report.json`). Must be idempotent (re-run overwrites output). Must not modify operator-edited mapping files.
 - [ ] Implement `ImportAsync` — read via `IArtefactStore`, write state via `IStateStore`.
 - [ ] Implement `ValidateAsync` — no side effects; validate schema and required fields only.
 
@@ -39,6 +40,15 @@ See [docs/modules.md](../../docs/modules.md) for the full `IModule` contract and
 - [ ] `ValidateAsync` checks schema version compatibility.
 - [ ] `ValidateAsync` reports anomalies to `.migration/Logs/` rather than failing silently.
 - [ ] `ValidateAsync` fails fast on missing required fields.
+
+## 5a. Prepare Steps
+
+- [ ] `PrepareAsync` reads exported artefacts from the module's package folder via `IArtefactStore`.
+- [ ] `PrepareAsync` queries the target system via injected services (not direct API calls).
+- [ ] `PrepareAsync` writes a `<ModuleName>/prepare-report.json` with validation results.
+- [ ] `PrepareAsync` reports each issue with enough detail for the operator to resolve it.
+- [ ] `PrepareAsync` does NOT modify operator-edited mapping files.
+- [ ] `PrepareAsync` is idempotent — re-running produces identical output for identical inputs.
 
 ## 6. Identity Mapping (if applicable)
 
@@ -52,6 +62,7 @@ See [docs/modules.md](../../docs/modules.md) for the full `IModule` contract and
 - [ ] Reqnroll step definitions generated from the `.feature` file (`<ModuleName>Steps.cs` + `<ModuleName>Context.cs`).
 - [ ] Unit tests for `ValidateAsync` covering valid and invalid artefact schemas.
 - [ ] Unit tests for `ExportAsync` with a mock `IArtefactStore`.
+- [ ] Unit tests for `PrepareAsync` with a mock `IArtefactStore` and mock target services.
 - [ ] Unit tests for `ImportAsync` with a mock `IArtefactStore` and `IStateStore`.
 - [ ] Unit tests for cursor resume — simulate a mid-run crash and verify correct resume behaviour.
 - [ ] Integration test against a real or sandbox target (optional but strongly recommended).

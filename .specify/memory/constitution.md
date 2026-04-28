@@ -1,6 +1,13 @@
 <!--
 SYNC IMPACT REPORT
 ==================
+Version change:    1.4.0 → 1.4.1
+Bump rationale:    Principle V bullet 3 amended — removed `DependsOn` reference.
+                   Module ordering is operator-controlled via configuration,
+                   not via a `DependsOn` contract property. Aligns with the
+                   IdentitiesModule/NodeStructureModule/TeamsModule spec (024)
+                   which removed DependsOn entirely.
+
 Version change:    1.3.4 → 1.4.0
 Bump rationale:    New principle — Full Connector Coverage (XI) added:
                    Every feature interacting with source/target systems must be
@@ -166,8 +173,8 @@ and `IStateStore`. No module may access the filesystem directly.
   reference `FileSystemArtefactStore` or `AzureBlobArtefactStore` directly.
 - Identity resolution is a cross-cutting shared service. No module implements
   its own identity resolution. All modules MUST use `IIdentityMappingService`.
-- `IdentitiesModule` MUST complete before any module that maps identities
-  (declared via `DependsOn`).
+- `IdentitiesModule` MUST complete before any module that maps identities.
+  Module execution order is controlled by the operator via configuration.
 - Switching from local to cloud storage MUST require zero module code changes.
 
 ### VI. Separation of Planes
@@ -500,4 +507,4 @@ Reject any proposal that:
 - All pull requests and agent reviews MUST verify compliance against this
   constitution and the guardrails before approving.
 
-**Version**: 1.4.0 | **Ratified**: 2026-04-02 | **Last Amended**: 2026-04-26
+**Version**: 1.4.1 | **Ratified**: 2026-04-02 | **Last Amended**: 2026-04-28

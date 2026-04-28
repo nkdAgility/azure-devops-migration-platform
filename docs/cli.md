@@ -53,7 +53,7 @@ Spectre.Console is the only permitted CLI library in command-layer code. Do not 
 │  - Runs Job Engine                      │
 │  - Validates job                        │
 │  - Resolves module dependency graph     │
-│  - Runs Export / Import / Both          │
+│  - Runs Export / Prepare / Import / Migrate │
 │  - Writes package via IArtefactStore    │
 │  - Writes checkpoints via IStateStore   │
 │  - Emits progress via IProgressSink     │
@@ -180,8 +180,8 @@ These commands submit jobs to the control plane via `ControlPlaneClient`.
 
 | Command | Description |
 |---|---|
-| `prepare` | Submit a lightweight probe job through the full pipeline (CLI → Control Plane → Agent → ArtefactStore) to validate that permissions, configuration, and connectivity work end-to-end. The agent writes a single probe file to the artefact store and completes. |
-| `queue` | Submit a migration job. Behaviour is determined by the `mode` field in the config (`Export`, `Import`, or `Both`). `--follow` streams diagnostic logs inline (implicit in standalone mode). `--level` sets the agent's diagnostic minimum level per job. `--force-fresh` deletes module cursor(s) before running so enumeration restarts from the beginning (identity map preserved). |
+| `prepare` | Submit a Prepare job through the full pipeline (CLI → Control Plane → Agent). The agent reads the exported package, connects to the target, and runs each module's `PrepareAsync` to cross-validate before import. Produces validation artefacts (identity mapping reports, node validation, field mapping reports) in each module's package folder for operator review. Any unresolved issue is blocking unless the operator adds an explicit skip. Idempotent — re-running overwrites Prepare output but preserves operator-edited mapping files. Requires a completed Export (package with `manifest.json`). |
+| `queue` | Submit a migration job. Behaviour is determined by the `mode` field in the config (`Export`, `Prepare`, `Import`, or `Migrate`). `--follow` streams diagnostic logs inline (implicit in standalone mode). `--level` sets the agent's diagnostic minimum level per job. `--force-fresh` deletes module cursor(s) before running so enumeration restarts from the beginning (identity map preserved). |
 
 ### Job Management Commands (`manage`)
 

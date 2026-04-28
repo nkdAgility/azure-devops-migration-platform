@@ -13,6 +13,7 @@ interface IModule
     IReadOnlyList<string> DependsOn { get; }
 
     Task ExportAsync(ExportContext context, CancellationToken ct);
+    Task PrepareAsync(PrepareContext context, CancellationToken ct);
     Task ImportAsync(ImportContext context, CancellationToken ct);
     Task ValidateAsync(ValidationContext context, CancellationToken ct);
 }
@@ -22,7 +23,8 @@ interface IModule
 
 - `Name` is unique across all registered modules.
 - `DependsOn` declares ordering constraints. The orchestrator resolves the dependency graph before execution; circular dependencies are a fatal configuration error.
-- `ExportAsync` must write only via `IArtefactStore`.
+- `ExportAsync` must write only via `IArtefactStore`. Reads from the source system via injected services.
+- `PrepareAsync` must read from the package via `IArtefactStore`, query the target system via injected services, and write validation/mapping artefacts into the module's own package folder (e.g. `Identities/prepare-report.json`). Prepare artefacts are overwritten on re-run. Operator-edited mapping files (e.g. `mapping.json`) must not be modified by `PrepareAsync`.
 - `ImportAsync` must read only via `IArtefactStore` and write state only via `IStateStore`.
 - `ValidateAsync` must be side-effect free.
 - Modules must never call source or target APIs directly — only through injected services.
@@ -42,10 +44,10 @@ interface IModule
 
 | Module | Responsibility |
 |---|---|
-| `WorkItemsModule` | High-fidelity work item revision export/import. Accepts a `wiql` scope (with `query` parameter) and one or more `filter` scopes (with `mode`, `field`, and `pattern` parameters) to include or exclude work items by field value using a case-insensitive regex. Also accepts five independently-enabled named extensions: `Revisions`, `Links`, `Attachments`, `Comments` (fetches comment versions from the ADO Comments API), and `EmbeddedImages` (downloads and rewrites inline images from HTML/Markdown fields). |
-| `IdentitiesModule` | Export user/group descriptors; provide identity mapping service to all other modules |
-| `TeamsModule` | Export and import team membership and settings |
-| `PermissionsModule` | Export and import project and repository access control lists |
+| `WorkItemsModule` | High-fidelity work item revision export/import. **Prepare**: cross-references exported field names with configured `FieldTranslations` and reports unmapped fields; validates all referenced area/iteration paths exist on the target (via `INodeCreator.NodeExistsAsync`) and writes `Nodes/prepare-report.json`. Accepts a `wiql` scope (with `query` parameter) and one or more `filter` scopes (with `mode`, `field`, and `pattern` parameters) to include or exclude work items by field value using a case-insensitive regex. Also accepts five independently-enabled named extensions: `Revisions`, `Links`, `Attachments`, `Comments` (fetches comment versions from the ADO Comments API), and `EmbeddedImages` (downloads and rewrites inline images from HTML/Markdown fields). |
+| `IdentitiesModule` | Export user/group descriptors; provide identity mapping service to all other modules. **Prepare**: reads `descriptors.jsonl`, queries the target for matching identities (by UPN/display name), writes `Identities/prepare-report.json` with auto-matched and unresolved identities. |
+| `TeamsModule` | Export and import team membership and settings. **Prepare**: verifies target teams/groups exist or can be created; writes `Teams/prepare-report.json`. |
+| `PermissionsModule` | Export and import project and repository access control lists. **Prepare**: verifies target ACL structure compatibility; writes `Permissions/prepare-report.json`. |
 | `BuildsModule` | Export build pipeline definitions |
 | `GitModule` | Export Git repository structure and optionally pack contents |
 

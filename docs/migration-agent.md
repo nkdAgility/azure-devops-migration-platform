@@ -44,10 +44,12 @@ Poll /agents/lease
        │    ├─ PackageProgressSink     (.migration/Logs/progress.jsonl in package)
        │    └─ ControlPlaneProgressSink (POST /agents/lease/{id}/progress)
        └─ Run Job Engine
-            ├─ ExportAsync (if mode = Export or Both)
+            ├─ ExportAsync (if mode = Export or Migrate)
             │    └─ After each cursor write → Emit(ProgressEvent) via all sinks
-            ├─ Validate package (if mode = Both)
-            └─ ImportAsync (if mode = Import or Both)
+            ├─ Validate package (if mode = Migrate)
+            ├─ PrepareAsync (if mode = Prepare or Migrate)
+            │    └─ After each module → check for blocking issues; abort if found
+            └─ ImportAsync (if mode = Import or Migrate)
                  └─ After each cursor write → Emit(ProgressEvent) via all sinks
   ├─ Success → POST /agents/lease/{id}/complete
   └─ Failure → POST /agents/lease/{id}/fail  (cursor preserved for resume)
@@ -57,9 +59,9 @@ Poll /agents/lease
 
 ## Deployment and Zone Isolation
 
-A single agent binary and container image supports all three modes (`Export`, `Import`, `Both`) by reading `mode` from the job definition.
+A single agent binary and container image supports all four modes (`Export`, `Prepare`, `Import`, `Migrate`) by reading `mode` from the job definition.
 
-For network zone isolation — where source and target systems are in different network zones — `ControlPlaneHost` can deploy the same agent image to different target contexts via `ContainerAgentLauncher` configuration. One deployment runs in the source network zone (mode `Export`); another runs in the target network zone (mode `Import`). Both use the same package URI in the shared artefact store. The `manifest.json` and cursor files written by the export-mode agent are read by the import-mode agent without modification.
+For network zone isolation — where source and target systems are in different network zones — `ControlPlaneHost` can deploy the same agent image to different target contexts via `ContainerAgentLauncher` configuration. One deployment runs in the source network zone (mode `Export`); another runs in the target network zone (mode `Prepare` or `Import`). Both use the same package URI in the shared artefact store. The `manifest.json` and cursor files written by the export-mode agent are read by the prepare/import-mode agent without modification.
 
 ---
 
