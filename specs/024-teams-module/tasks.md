@@ -50,12 +50,12 @@
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete.
 
-- [ ] T007 [R1] Create `src/DevOpsMigrationPlatform.Abstractions.Agent/Tools/IReferencedPathTracker.cs` — extract interface from `ReferencedPathTracker.cs` with methods `RecordAreaPathAsync`, `RecordIterationPathAsync`, `FlushAsync`. Update all consumers in `src/DevOpsMigrationPlatform.Infrastructure.Agent/` to depend on interface. Resolves MM-C3, VS-C1, VS-H3, MM-H1.
-- [ ] T008 [R2] Create `src/DevOpsMigrationPlatform.Abstractions.Agent/Tools/IClassificationTreeCapture.cs` — extract interface from `ClassificationTreeCapture.cs` with method `CaptureAsync`. Update DI and consumers. Resolves MM-C3, MM-H1.
-- [ ] T009 [R3] Create `src/DevOpsMigrationPlatform.Abstractions.Agent/Tools/INodeEnsurer.cs` — extract interface from `NodeEnsurer.cs` with methods `ReplicateSourceTreeAsync`, `EnsureReferencedPathsAsync`. Update DI and consumers. Resolves MM-C2, MM-M2, CA-M1.
-- [ ] T010 [R4] Rename `INodeStructureTool` → `INodeTranslationTool` and `NodeStructureTool` → `NodeTranslationTool` across ~32 files. Update DI registration key. Configuration section `MigrationPlatform:Tools:NodeStructure` remains unchanged. Resolves SA clarity.
-- [ ] T011 [R5] Add `ProjectMapping` overload to `IRevisionFolderProcessorFactory` in `src/DevOpsMigrationPlatform.Abstractions.Agent/` and implement in `RevisionFolderProcessorFactory.cs`. Remove type-checking anti-pattern in `WorkItemsModule.cs` (line 219–227). Resolves MM-C1, MM-M1.
-- [ ] T012 [R6] Fix `ReferencedPathTracker` DI lifetime from Transient to Singleton in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Tools/NodeStructure/NodeStructureToolServiceCollectionExtensions.cs`. Resolves VS-H3.
+- [X] T007 [R1] Create `src/DevOpsMigrationPlatform.Abstractions.Agent/Tools/IReferencedPathTracker.cs` — extract interface from `ReferencedPathTracker.cs` with methods `RecordAreaPathAsync`, `RecordIterationPathAsync`, `FlushAsync`. Update all consumers in `src/DevOpsMigrationPlatform.Infrastructure.Agent/` to depend on interface. Resolves MM-C3, VS-C1, VS-H3, MM-H1.
+- [X] T008 [R2] Create `src/DevOpsMigrationPlatform.Abstractions.Agent/Tools/IClassificationTreeCapture.cs` — extract interface from `ClassificationTreeCapture.cs` with method `CaptureAsync`. Update DI and consumers. Resolves MM-C3, MM-H1.
+- [X] T009 [R3] Create `src/DevOpsMigrationPlatform.Abstractions.Agent/Tools/INodeEnsurer.cs` — extract interface from `NodeEnsurer.cs` with methods `ReplicateSourceTreeAsync`, `EnsureReferencedPathsAsync`. Update DI and consumers. Resolves MM-C2, MM-M2, CA-M1.
+- [X] T010 [R4] Rename `INodeStructureTool` → `INodeTranslationTool` and `NodeStructureTool` → `NodeTranslationTool` across ~32 files. Update DI registration key. Configuration section `MigrationPlatform:Tools:NodeStructure` remains unchanged. Resolves SA clarity.
+- [X] T011 [R5] Add `ProjectMapping` overload to `IRevisionFolderProcessorFactory` in `src/DevOpsMigrationPlatform.Abstractions.Agent/` and implement in `RevisionFolderProcessorFactory.cs`. Remove type-checking anti-pattern in `WorkItemsModule.cs` (line 219–227). Resolves MM-C1, MM-M1.
+- [X] T012 [R6] Fix `ReferencedPathTracker` DI lifetime from Transient to Singleton in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Tools/NodeStructure/NodeStructureToolServiceCollectionExtensions.cs`. Resolves VS-H3.
 
 **Checkpoint**: All architecture violations resolved. Existing tests pass. New module work can begin.
 
@@ -69,26 +69,26 @@
 
 ### Gherkin Feature Files for US 0 (mandatory)
 
-- [ ] T013 [US0] Create `features/export/identities/export-identity-descriptors.feature` — translate spec.md US 0 acceptance scenarios S1, S5 into conformant Gherkin (see `.agents/guardrails/acceptance-test-format.md`)
-- [ ] T014 [P] [US0] Create `features/import/identities/identity-mapping-resolution.feature` — translate spec.md US 0 acceptance scenarios S2, S3, S4, S6 into conformant Gherkin
+- [X] T013 [US0] Create `features/export/identities/export-identity-descriptors.feature` — translate spec.md US 0 acceptance scenarios S1, S5 into conformant Gherkin (see `.agents/guardrails/acceptance-test-format.md`)
+- [X] T014 [P] [US0] Create `features/import/identities/identity-mapping-resolution.feature` — translate spec.md US 0 acceptance scenarios S2, S3, S4, S6 into conformant Gherkin
 
 ### Implementation for US 0
 
-- [ ] T015 [US0] Create `src/DevOpsMigrationPlatform.Infrastructure.Agent/Modules/IdentitiesModule.cs` — implement `IModule` with `Name = "Identities"`. `ExportAsync` (stream descriptors via `IIdentitySource` → write `Identities/descriptors.jsonl`), `ImportAsync` (build mapping from `mapping.json` + `descriptors.jsonl` + target directory lookup via Prepare phase), `ValidateAsync`
-- [ ] T016 [US0] Create `src/DevOpsMigrationPlatform.Infrastructure.Agent/Identity/IdentityMappingService.cs` — full `IIdentityMappingService` implementation: load `mapping.json` overrides, automatic UPN/display name matching, default identity fallback, write `unresolved.json`
-- [ ] T017 [P] [US0] Create `src/DevOpsMigrationPlatform.Infrastructure.Agent/Identity/IdentityServiceCollectionExtensions.cs` — `AddIdentitiesModule()` registering module + options + mapping service
-- [ ] T018 [P] [US0] Create `src/DevOpsMigrationPlatform.Infrastructure.Simulated/SimulatedIdentitySource.cs` — deterministic identity generation: produce N users + M groups from seed
-- [ ] T019 [P] [US0] Create `src/DevOpsMigrationPlatform.Infrastructure.AzureDevOps/AzureDevOpsIdentitySource.cs` — Graph/Identity REST API: enumerate project identities (users + groups)
+- [X] T015 [US0] Create `src/DevOpsMigrationPlatform.Infrastructure.Agent/Modules/IdentitiesModule.cs` — implement `IModule` with `Name = "Identities"`. `ExportAsync` (stream descriptors via `IIdentitySource` → write `Identities/descriptors.jsonl`), `ImportAsync` (build mapping from `mapping.json` + `descriptors.jsonl` + target directory lookup via Prepare phase), `ValidateAsync`
+- [X] T016 [US0] Create `src/DevOpsMigrationPlatform.Infrastructure.Agent/Identity/IdentityMappingService.cs` — full `IIdentityMappingService` implementation: load `mapping.json` overrides, automatic UPN/display name matching, default identity fallback, write `unresolved.json`
+- [X] T017 [P] [US0] Create `src/DevOpsMigrationPlatform.Infrastructure.Agent/Identity/IdentityServiceCollectionExtensions.cs` — `AddIdentitiesModule()` registering module + options + mapping service
+- [X] T018 [P] [US0] Create `src/DevOpsMigrationPlatform.Infrastructure.Simulated/SimulatedIdentitySource.cs` — deterministic identity generation: produce N users + M groups from seed
+- [X] T019 [P] [US0] Create `src/DevOpsMigrationPlatform.Infrastructure.AzureDevOps/AzureDevOpsIdentitySource.cs` — Graph/Identity REST API: enumerate project identities (users + groups)
 - [ ] T020 [P] [US0] Create TFS identity export handler in `src/DevOpsMigrationPlatform.CLI.TfsExport/TfsIdentityExportHandler.cs` — TFS OM `IIdentityManagementService2.ReadIdentities()` for users and groups
 - [ ] T021 [US0] Create TFS identity bridge command in `src/DevOpsMigrationPlatform.TfsMigrationAgent/` — subprocess bridge command to invoke `TfsIdentityExportHandler` and relay results
-- [ ] T022 [US0] Update `src/DevOpsMigrationPlatform.Infrastructure.Simulated/SimulatedServiceCollectionExtensions.cs` — register `SimulatedIdentitySource` as `IIdentitySource`
-- [ ] T023 [P] [US0] Update `src/DevOpsMigrationPlatform.Infrastructure.AzureDevOps/ExportServiceCollectionExtensions.cs` — register `AzureDevOpsIdentitySource` as `IIdentitySource`
+- [X] T022 [US0] Update `src/DevOpsMigrationPlatform.Infrastructure.Simulated/SimulatedServiceCollectionExtensions.cs` — register `SimulatedIdentitySource` as `IIdentitySource`
+- [X] T023 [P] [US0] Update `src/DevOpsMigrationPlatform.Infrastructure.AzureDevOps/ExportServiceCollectionExtensions.cs` — register `AzureDevOpsIdentitySource` as `IIdentitySource`
 - [ ] T024 [US0] Add cursor-based checkpointing to `IdentitiesModule.ExportAsync` — write `identities.cursor.json` to `.migration/Checkpoints/` after each batch; resume from cursor on restart
 
 ### Tests for US 0
 
-- [ ] T025 [P] [US0] Create `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Modules/IdentitiesModuleTests.cs` — unit tests: export writes descriptors.jsonl, import builds mapping, cursor resumption, fail-fast when not exported
-- [ ] T026 [P] [US0] Create `tests/DevOpsMigrationPlatform.Infrastructure.Simulated.Tests/SimulatedIdentitySourceTests.cs` — deterministic generation, seed consistency
+- [X] T025 [P] [US0] Create `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Modules/IdentitiesModuleTests.cs` — unit tests: export writes descriptors.jsonl, import builds mapping, cursor resumption, fail-fast when not exported
+- [X] T026 [P] [US0] Create `tests/DevOpsMigrationPlatform.Infrastructure.Simulated.Tests/SimulatedIdentitySourceTests.cs` — deterministic generation, seed consistency
 
 **Checkpoint**: IdentitiesModule fully functional. `IIdentityMappingService.Resolve()` available for downstream modules.
 
@@ -127,19 +127,19 @@
 
 ### Gherkin Feature Files for US 0b (mandatory)
 
-- [ ] T027 [US0b] Create `features/export/nodes/export-classification-tree.feature` — translate spec.md US 0b acceptance scenarios S1, S2, S7 into conformant Gherkin
-- [ ] T028 [P] [US0b] Create `features/import/nodes/import-classification-tree.feature` — translate spec.md US 0b acceptance scenarios S3, S4, S5, S6 into conformant Gherkin
+- [X] T027 [US0b] Create `features/export/nodes/export-classification-tree.feature` — translate spec.md US 0b acceptance scenarios S1, S2, S7 into conformant Gherkin
+- [X] T028 [P] [US0b] Create `features/import/nodes/import-classification-tree.feature` — translate spec.md US 0b acceptance scenarios S3, S4, S5, S6 into conformant Gherkin
 
 ### Implementation for US 0b
 
-- [ ] T029 [US0b] Create `src/DevOpsMigrationPlatform.Infrastructure.Agent/Modules/NodeStructureModule.cs` — implement `IModule` with `Name = "Nodes"`. No `DependsOn` property — module order is operator-controlled. `ExportAsync` delegates to `IClassificationTreeCapture.CaptureAsync()`. `ImportAsync` delegates to `INodeEnsurer.ReplicateSourceTreeAsync()` and/or `INodeEnsurer.EnsureReferencedPathsAsync()` based on options. `ValidateAsync` delegates to `INodeStructureValidator.ValidateAsync()`.
-- [ ] T030 [US0b] Update `src/DevOpsMigrationPlatform.Infrastructure.Agent/Modules/ModuleServiceCollectionExtensions.cs` — add `AddNodeStructureModule()` registering module + `NodeStructureModuleOptions`
+- [X] T029 [US0b] Create `src/DevOpsMigrationPlatform.Infrastructure.Agent/Modules/NodeStructureModule.cs` — implement `IModule` with `Name = "Nodes"`. No `DependsOn` property — module order is operator-controlled. `ExportAsync` delegates to `IClassificationTreeCapture.CaptureAsync()`. `ImportAsync` delegates to `INodeEnsurer.ReplicateSourceTreeAsync()` and/or `INodeEnsurer.EnsureReferencedPathsAsync()` based on options. `ValidateAsync` delegates to `INodeStructureValidator.ValidateAsync()`.
+- [X] T030 [US0b] Update `src/DevOpsMigrationPlatform.Infrastructure.Agent/Modules/ModuleServiceCollectionExtensions.cs` — add `AddNodeStructureModule()` registering module + `NodeStructureModuleOptions`
 - [ ] T031 [US0b] Add cursor-based checkpointing to `NodeStructureModule.ImportAsync` — write `nodes.cursor.json` to `.migration/Checkpoints/` after each node created; resume from cursor on restart
 - [ ] T032 [US0b] Verify localised root name normalisation in `ClassificationTreeCapture` — confirm German `Bereich`/`Iteration` → English `Area`/`Iteration` in `source-tree.json`
 
 ### Tests for US 0b
 
-- [ ] T033 [P] [US0b] Create `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Modules/NodeStructureModuleTests.cs` — unit tests: export delegates to capture, import delegates to ensurer, cursor resumption, option-driven behaviour (ReplicateSourceTree vs AutoCreateNodes)
+- [X] T033 [P] [US0b] Create `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Modules/NodeStructureModuleTests.cs` — unit tests: export delegates to capture, import delegates to ensurer, cursor resumption, option-driven behaviour (ReplicateSourceTree vs AutoCreateNodes)
 
 **Checkpoint**: NodeStructureModule wraps existing code with IModule lifecycle. source-tree.json export and import both operational.
 
@@ -177,28 +177,28 @@
 
 ### Gherkin Feature Files for US 1 (mandatory)
 
-- [ ] T038 [US1] Create `features/export/teams/export-team-definitions.feature` — translate spec.md US 1 acceptance scenarios S1, S4 into conformant Gherkin
-- [ ] T039 [P] [US1] Create `features/import/teams/import-team-definitions.feature` — translate spec.md US 1 acceptance scenarios S2, S3 into conformant Gherkin
-- [ ] T039b [P] [US1] Create `features/export/teams/export-team-scope-filter.feature` — scenarios: (1) export all teams when scope="all", (2) export only matching teams when scope="teams" with filter pattern, (3) empty filter returns all (FR-011)
+- [X] T038 [US1] Create `features/export/teams/export-team-definitions.feature` — translate spec.md US 1 acceptance scenarios S1, S4 into conformant Gherkin
+- [X] T039 [P] [US1] Create `features/import/teams/import-team-definitions.feature` — translate spec.md US 1 acceptance scenarios S2, S3 into conformant Gherkin
+- [X] T039b [P] [US1] Create `features/export/teams/export-team-scope-filter.feature` — scenarios: (1) export all teams when scope="all", (2) export only matching teams when scope="teams" with filter pattern, (3) empty filter returns all (FR-011)
 - [ ] T039c [P] [US1] Create `features/import/teams/import-default-team-detection.feature` — scenarios: (1) source default team maps to target default team regardless of name, (2) non-default teams match by name (FR-016)
-- [ ] T039d [P] [US0b] Create `features/export/nodes/validate-node-package.feature` — scenarios for NodeStructureModule ValidateAsync: missing source-tree.json, malformed JSON, missing required schema fields (FR-N07)
-- [ ] T039e [P] [US1] Create `features/export/teams/validate-team-package.feature` — scenarios for TeamsModule ValidateAsync: missing team.json files, malformed JSON, missing required fields (FR-013)
+- [X] T039d [P] [US0b] Create `features/export/nodes/validate-node-package.feature` — scenarios for NodeStructureModule ValidateAsync: missing source-tree.json, malformed JSON, missing required schema fields (FR-N07)
+- [X] T039e [P] [US1] Create `features/export/teams/validate-team-package.feature` — scenarios for TeamsModule ValidateAsync: missing team.json files, malformed JSON, missing required fields (FR-013)
 
 ### Implementation for US 1
 
-- [ ] T040 [US1] Create `src/DevOpsMigrationPlatform.Infrastructure.Agent/Modules/TeamsModule.cs` — implement `IModule` with `Name = "Teams"`. No `DependsOn` property — module order is operator-controlled. `ExportAsync` enumerates teams via `ITeamSource`, writes `Teams/{team-slug}/team.json`. `ImportAsync` reads team files, creates/updates via `ITeamTarget`.
-- [ ] T041 [US1] Create `src/DevOpsMigrationPlatform.Infrastructure.Agent/Teams/TeamExportOrchestrator.cs` — orchestrate per-team export: settings, iterations, members, capacity, area paths
-- [ ] T042 [US1] Create `src/DevOpsMigrationPlatform.Infrastructure.Agent/Teams/TeamImportOrchestrator.cs` — orchestrate per-team import in fixed order: settings → NodeStructure → iterations → members → capacity
-- [ ] T043 [US1] Create `src/DevOpsMigrationPlatform.Infrastructure.Agent/Teams/TeamSlugGenerator.cs` — filesystem-safe slug from team display name (lowercase, replace spaces with hyphens, strip invalid chars)
-- [ ] T044 [US1] Create `src/DevOpsMigrationPlatform.Infrastructure.Agent/Teams/TeamsServiceCollectionExtensions.cs` — `AddTeamsModule()` registering module + options + orchestrators + slug generator
-- [ ] T045 [P] [US1] Create `src/DevOpsMigrationPlatform.Infrastructure.Simulated/SimulatedTeamSource.cs` — deterministic team generation from seed
-- [ ] T046 [P] [US1] Create `src/DevOpsMigrationPlatform.Infrastructure.Simulated/SimulatedTeamTarget.cs` — in-memory team target for testing
-- [ ] T047 [P] [US1] Create `src/DevOpsMigrationPlatform.Infrastructure.AzureDevOps/AzureDevOpsTeamSource.cs` — Teams REST API: `_apis/projects/{project}/teams`, `_apis/work/teamsettings`
-- [ ] T048 [P] [US1] Create `src/DevOpsMigrationPlatform.Infrastructure.AzureDevOps/AzureDevOpsTeamTarget.cs` — Teams REST API (write): create/update teams, set settings
+- [X] T040 [US1] Create `src/DevOpsMigrationPlatform.Infrastructure.Agent/Modules/TeamsModule.cs` — implement `IModule` with `Name = "Teams"`. No `DependsOn` property — module order is operator-controlled. `ExportAsync` enumerates teams via `ITeamSource`, writes `Teams/{team-slug}/team.json`. `ImportAsync` reads team files, creates/updates via `ITeamTarget`.
+- [X] T041 [US1] Create `src/DevOpsMigrationPlatform.Infrastructure.Agent/Teams/TeamExportOrchestrator.cs` — orchestrate per-team export: settings, iterations, members, capacity, area paths
+- [X] T042 [US1] Create `src/DevOpsMigrationPlatform.Infrastructure.Agent/Teams/TeamImportOrchestrator.cs` — orchestrate per-team import in fixed order: settings → NodeStructure → iterations → members → capacity
+- [X] T043 [US1] Create `src/DevOpsMigrationPlatform.Infrastructure.Agent/Teams/TeamSlugGenerator.cs` — filesystem-safe slug from team display name (lowercase, replace spaces with hyphens, strip invalid chars)
+- [X] T044 [US1] Create `src/DevOpsMigrationPlatform.Infrastructure.Agent/Teams/TeamsServiceCollectionExtensions.cs` — `AddTeamsModule()` registering module + options + orchestrators + slug generator
+- [X] T045 [P] [US1] Create `src/DevOpsMigrationPlatform.Infrastructure.Simulated/SimulatedTeamSource.cs` — deterministic team generation from seed
+- [X] T046 [P] [US1] Create `src/DevOpsMigrationPlatform.Infrastructure.Simulated/SimulatedTeamTarget.cs` — in-memory team target for testing
+- [X] T047 [P] [US1] Create `src/DevOpsMigrationPlatform.Infrastructure.AzureDevOps/AzureDevOpsTeamSource.cs` — Teams REST API: `_apis/projects/{project}/teams`, `_apis/work/teamsettings`
+- [X] T048 [P] [US1] Create `src/DevOpsMigrationPlatform.Infrastructure.AzureDevOps/AzureDevOpsTeamTarget.cs` — Teams REST API (write): create/update teams, set settings
 - [ ] T049 [US1] Create TFS team export handler in `src/DevOpsMigrationPlatform.CLI.TfsExport/TfsTeamExportHandler.cs` — TFS OM `TfsTeamService.QueryTeams()`
 - [ ] T050 [US1] Create TFS team bridge command in `src/DevOpsMigrationPlatform.TfsMigrationAgent/` — subprocess bridge for team operations
-- [ ] T051 [US1] Update `src/DevOpsMigrationPlatform.Infrastructure.Simulated/SimulatedServiceCollectionExtensions.cs` — register team source/target
-- [ ] T052 [P] [US1] Update `src/DevOpsMigrationPlatform.Infrastructure.AzureDevOps/ExportServiceCollectionExtensions.cs` — register team source/target
+- [X] T051 [US1] Update `src/DevOpsMigrationPlatform.Infrastructure.Simulated/SimulatedServiceCollectionExtensions.cs` — register team source/target
+- [X] T052 [P] [US1] Update `src/DevOpsMigrationPlatform.Infrastructure.AzureDevOps/ExportServiceCollectionExtensions.cs` — register team source/target
 - [ ] T053 [US1] Add cursor-based checkpointing to `TeamsModule.ExportAsync` — write `teams.cursor.json` after each team exported
 - [ ] T053b [US1] Implement team scope/filter in `TeamsModule.ExportAsync` — support `"teams"` scope (with optional `filter` parameter for team name pattern matching) and `"all"` scope (all teams in the project) per FR-011. When filter is set, only matching teams are exported.
 - [ ] T053c [US1] Implement default team detection and mapping in `TeamsModule` — detect source project's default team by `isDefaultTeam` flag (not by name matching) and map it to the target project's default team during import, regardless of name differences (FR-016)
@@ -325,16 +325,16 @@
 
 **Purpose**: Ensure all canonical docs reflect what was implemented in this spec.
 
-- [ ] T086 Update `docs/modules.md` — add IdentitiesModule detailed section (name, config, package folder, cursor, behaviour). Note: no DependsOn property.
-- [ ] T087 [P] Update `docs/modules.md` — add NodeStructureModule detailed section (extraction from tool, config, package folder, cursor, behaviour). Note: no DependsOn property.
-- [ ] T088 [P] Update `docs/modules.md` — add TeamsModule detailed section (name, config, package folder, cursor, extensions, behaviour). Note: no DependsOn property. Extensions order is hardcoded.
-- [ ] T089 Update `docs/configuration.md` — add `MigrationPlatform:Modules:Identities`, `MigrationPlatform:Modules:Nodes`, `MigrationPlatform:Modules:Teams` config schema sections
-- [ ] T090 Update `.agents/context/package-format.md` — document `Teams/` folder internal structure (`Teams/{team-slug}/team.json`) and add `Identities`, `Nodes` to `includedTypes` example in manifest
-- [ ] T091 [P] Update `.agents/context/checkpointing.md` — add NodeStructureModule cursor (`nodes.cursor.json`), IdentitiesModule cursor (`identities.cursor.json`), TeamsModule cursor (`teams.cursor.json`)
-- [ ] T092 Mark all items in `specs/024-teams-module/discrepancies.md` as `Resolved` or `N/A`
+- [X] T086 Update `docs/modules.md` — add IdentitiesModule detailed section (name, config, package folder, cursor, behaviour). Note: no DependsOn property.
+- [X] T087 [P] Update `docs/modules.md` — add NodeStructureModule detailed section (extraction from tool, config, package folder, cursor, behaviour). Note: no DependsOn property. detailed section (extraction from tool, config, package folder, cursor, behaviour). Note: no DependsOn property.
+- [X] T088 [P] Update `docs/modules.md` — add TeamsModule detailed section (name, config, package folder, cursor, extensions, behaviour). Note: no DependsOn property. Extensions order is hardcoded. detailed section (name, config, package folder, cursor, extensions, behaviour). Note: no DependsOn property. Extensions order is hardcoded.
+- [X] T089 Update `docs/configuration.md` — add `MigrationPlatform:Modules:Identities`, `MigrationPlatform:Modules:Nodes`, `MigrationPlatform:Modules:Teams` config schema sections` — add `MigrationPlatform:Modules:Identities`, `MigrationPlatform:Modules:Nodes`, `MigrationPlatform:Modules:Teams` config schema sections
+- [X] T090 Update `.agents/context/package-format.md` — document `Teams/` folder internal structure (`Teams/{team-slug}/team.json`) and add `Identities`, `Nodes` to `includedTypes` example in manifest` — document `Teams/` folder internal structure (`Teams/{team-slug}/team.json`) and add `Identities`, `Nodes` to `includedTypes` example in manifest
+- [X] T091 [P] Update `.agents/context/checkpointing.md` — add NodeStructureModule cursor (`nodes.cursor.json`), IdentitiesModule cursor (`identities.cursor.json`), TeamsModule cursor (`teams.cursor.json`)` — add NodeStructureModule cursor (`nodes.cursor.json`), IdentitiesModule cursor (`identities.cursor.json`), TeamsModule cursor (`teams.cursor.json`)
+- [X] T092 Mark all items in `specs/024-teams-module/discrepancies.md` as `Resolved` or `N/A`
 - [ ] T093 Review `analysis/pending-actions.md` and remove any items resolved by this spec
-- [ ] T094 Run `dotnet clean && dotnet build --no-incremental` — MUST pass
-- [ ] T095 Run `dotnet test` — ALL tests MUST pass
+- [X] T094 Run `dotnet clean && dotnet build --no-incremental` — MUST pass && dotnet build --no-incremental` — MUST pass
+- [X] T095 Run `dotnet test` — ALL tests MUST pass` — ALL tests MUST pass
 - [ ] T096 Run at least one scenario config (e.g. `scenarios/queue-export-ado-workitems-single-project.json`) via a `.vscode/launch.json` debug profile and verify observable output
 
 ---
@@ -410,3 +410,4 @@
 | 11: Documentation | — | 11 | 3 |
 | 12: Polish | — | 4 | 2 |
 | **Total** | | **127** | **61** |
+

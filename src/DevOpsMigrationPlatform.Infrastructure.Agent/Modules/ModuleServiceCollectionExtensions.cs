@@ -41,5 +41,16 @@ public static class ModuleServiceCollectionExtensions
         services.AddSingleton<IDiscoveryModule, DependencyDiscoveryModule>();
         return services;
     }
+
+    /// <summary>
+    /// Registers <see cref="NodeStructureModule"/> as an <see cref="IModule"/> implementation
+    /// for classification tree export/import operations.
+    /// </summary>
+    public static IServiceCollection AddNodeStructureModule(this IServiceCollection services)
+    {
+        services.AddTransient<IModule, NodeStructureModule>();
+        services.AddOptions<NodeStructureModuleOptions>();
+        return services;
+    }
 }
 #endif

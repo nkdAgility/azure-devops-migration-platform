@@ -1,0 +1,177 @@
+#if !NET481
+using System;
+using System.Diagnostics;
+using System.Threading;
+using System.Threading.Tasks;
+using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Agent.Identity;
+using DevOpsMigrationPlatform.Abstractions.Agent.Teams;
+using DevOpsMigrationPlatform.Abstractions.Agent.Telemetry;
+using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
+using Microsoft.Extensions.Logging;
+
+namespace DevOpsMigrationPlatform.Infrastructure.Agent.Teams;
+
+/// <summary>
+/// Orchestrates per-team import in fixed order:
+/// settings → NodeStructure (iterations/areas) → iterations → members → capacity.
+/// </summary>
+public sealed class TeamImportOrchestrator
+{
+    private static readonly ActivitySource s_activitySource = new(WellKnownActivitySourceNames.Migration);
+
+    private readonly ITeamTarget _teamTarget;
+    private readonly IIdentityMappingService _identityMappingService;
+    private readonly INodeTranslationTool? _nodeTranslationTool;
+    private readonly ILogger<TeamImportOrchestrator> _logger;
+
+    public TeamImportOrchestrator(
+        ITeamTarget teamTarget,
+        IIdentityMappingService identityMappingService,
+        ILogger<TeamImportOrchestrator> logger,
+        INodeTranslationTool? nodeTranslationTool = null)
+    {
+        _teamTarget = teamTarget ?? throw new ArgumentNullException(nameof(teamTarget));
+        _identityMappingService = identityMappingService ?? throw new ArgumentNullException(nameof(identityMappingService));
+        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        _nodeTranslationTool = nodeTranslationTool;
+    }
+
+    /// <summary>
+    /// Imports a single team from the package into the target system.
+    /// </summary>
+    public async Task<string> ImportTeamAsync(
+        string projectName,
+        TeamPackage teamPackage,
+        TeamsModuleExtensionsOptions extensions,
+        CancellationToken ct)
+    {
+        using var activity = s_activitySource.StartActivity("teams.import.team");
+        activity?.SetTag("team.name", teamPackage.Definition.Name);
+
+        // 1. Create or update team
+        var targetTeamId = await _teamTarget.CreateOrUpdateTeamAsync(
+            projectName, teamPackage.Definition, ct).ConfigureAwait(false);
+
+        // 2. Settings
+        if (extensions.TeamSettings && teamPackage.Settings is not null)
+        {
+            await _teamTarget.SetTeamSettingsAsync(
+                projectName, targetTeamId, teamPackage.Settings, ct).ConfigureAwait(false);
+        }
+
+        // 3. Iterations (with path translation)
+        if (extensions.TeamIterations)
+        {
+            foreach (var iteration in teamPackage.Iterations)
+            {
+                try
+                {
+                    var translatedPath = TranslatePath(iteration.Path);
+                    if (translatedPath is null)
+                    {
+                        _logger.LogWarning(
+                            "[Teams] Could not translate iteration path '{Path}' for team '{Team}' — skipping.",
+                            iteration.Path, teamPackage.Definition.Name);
+                        continue;
+                    }
+
+                    var translatedIteration = iteration with { Path = translatedPath };
+                    await _teamTarget.AssignIterationAsync(
+                        projectName, targetTeamId, translatedIteration, ct).ConfigureAwait(false);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex,
+                        "[Teams] Failed to assign iteration '{Path}' for team '{Team}' — skipping.",
+                        iteration.Path, teamPackage.Definition.Name);
+                }
+            }
+        }
+
+        // 4. Members (with identity mapping)
+        if (extensions.TeamMembers)
+        {
+            foreach (var member in teamPackage.Members)
+            {
+                try
+                {
+                    var resolvedDescriptor = _identityMappingService.Resolve(member.Descriptor);
+                    var resolvedMember = member with { Descriptor = resolvedDescriptor };
+                    await _teamTarget.AddMemberAsync(
+                        projectName, targetTeamId, resolvedMember, ct).ConfigureAwait(false);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex,
+                        "[Teams] Failed to add member '{Member}' to team '{Team}' — skipping.",
+                        member.DisplayName, teamPackage.Definition.Name);
+                }
+            }
+        }
+
+        // 5. Area paths (with path translation)
+        if (extensions.NodeStructure && teamPackage.AreaPaths is not null)
+        {
+            var defaultPath = TranslatePath(teamPackage.AreaPaths.DefaultAreaPath);
+            if (defaultPath is not null)
+            {
+                var translatedPaths = new System.Collections.Generic.List<string>();
+                foreach (var path in teamPackage.AreaPaths.IncludedAreaPaths)
+                {
+                    var translated = TranslatePath(path);
+                    if (translated is not null)
+                        translatedPaths.Add(translated);
+                    else
+                        _logger.LogWarning("[Teams] Could not translate area path '{Path}' — skipping.", path);
+                }
+
+                var translatedAreaPaths = new TeamAreaPaths(defaultPath, translatedPaths);
+                await _teamTarget.SetAreaPathsAsync(
+                    projectName, targetTeamId, translatedAreaPaths, ct).ConfigureAwait(false);
+            }
+        }
+
+        // 6. Capacity
+        if (extensions.TeamCapacity && teamPackage.CapacityByIteration.Count > 0)
+        {
+            foreach (var (iterationId, capacity) in teamPackage.CapacityByIteration)
+            {
+                try
+                {
+                    await _teamTarget.SetCapacityAsync(
+                        projectName, targetTeamId, iterationId, capacity, ct).ConfigureAwait(false);
+                }
+                catch (Exception ex) when (ex.Message.Contains("not supported", StringComparison.OrdinalIgnoreCase)
+                    || ex.Message.Contains("NotImplemented", StringComparison.OrdinalIgnoreCase))
+                {
+                    _logger.LogInformation(
+                        "[Teams] Capacity not supported on target for iteration '{IterationId}' — skipping.", iterationId);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex,
+                        "[Teams] Failed to set capacity for iteration '{IterationId}' in team '{Team}' — skipping.",
+                        iterationId, teamPackage.Definition.Name);
+                }
+            }
+        }
+
+        return targetTeamId;
+    }
+
+    private string? TranslatePath(string? sourcePath)
+    {
+        if (string.IsNullOrEmpty(sourcePath))
+            return sourcePath;
+
+        if (_nodeTranslationTool is null || !_nodeTranslationTool.IsEnabled)
+            return sourcePath; // pass through if tool disabled
+
+        // Use a default project mapping — caller should provide proper mapping in production
+        var mapping = new ProjectMapping(sourcePath.Split('\\')[0], sourcePath.Split('\\')[0]);
+        var result = _nodeTranslationTool.TranslatePath("System.AreaPath", sourcePath, mapping);
+        return result.TargetPath ?? sourcePath;
+    }
+}
+#endif
