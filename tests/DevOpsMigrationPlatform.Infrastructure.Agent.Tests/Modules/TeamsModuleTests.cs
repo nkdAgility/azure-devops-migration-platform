@@ -328,6 +328,190 @@ public class TeamsModuleTests
         Assert.AreEqual(0, context.Errors.Count, $"Unexpected errors: {string.Join("; ", context.Errors.ConvertAll(e => e.Message))}");
     }
 
+    // ── Iteration Tests (T068) ────────────────────────────────────────────────
+
+    [TestMethod]
+    public async Task ImportAsync_AssignsIterations_WithPathPassThrough_WhenNoTranslationTool()
+    {
+        // Arrange
+        var target = new SimulatedTeamTarget();
+        var identityMapping = Mock.Of<IIdentityMappingService>(m => m.Resolve(It.IsAny<string>()) == "tgt");
+
+        // No INodeTranslationTool → paths passed through as-is
+        var orchestrator = new TeamImportOrchestrator(target, identityMapping, NullLogger<TeamImportOrchestrator>.Instance);
+
+        var iteration = new TeamIteration("iter-1", "ProjectA\\Sprint 1", "Sprint 1", null, null, false, false);
+        var teamPackage = new TeamPackage
+        {
+            Definition = new TeamDefinition("src-1", "Alpha Team", "desc", true),
+            Iterations = new List<TeamIteration> { iteration },
+            Members = new List<TeamMember>(),
+            CapacityByIteration = new Dictionary<string, TeamCapacityEntry[]>()
+        };
+        var json = JsonSerializer.Serialize(teamPackage, s_jsonOptions);
+
+        var storeMock = new Mock<IArtefactStore>(MockBehavior.Loose);
+        storeMock.Setup(s => s.EnumerateAsync("Teams/", It.IsAny<CancellationToken>()))
+            .Returns(ToAsyncEnum(new[] { "Teams/alpha-team/team.json" }));
+        storeMock.Setup(s => s.ReadAsync("Teams/alpha-team/team.json", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(json);
+
+        var module = new TeamsModule(
+            NullLogger<TeamsModule>.Instance,
+            Options.Create(new TeamsModuleOptions { Enabled = true, Extensions = new TeamsModuleExtensionsOptions { TeamIterations = true } }),
+            new TeamSlugGenerator(),
+            teamTarget: target,
+            importOrchestrator: orchestrator);
+
+        // Act
+        await module.ImportAsync(CreateImportContext(storeMock.Object), CancellationToken.None);
+
+        // Assert — iteration was assigned to the created team
+        Assert.AreEqual(1, target.Teams.Count);
+        var teamId = new System.Collections.Generic.List<string>(target.Teams.Keys)[0];
+        Assert.IsTrue(target.Iterations.ContainsKey(teamId), "Iteration should have been assigned");
+        Assert.AreEqual("ProjectA\\Sprint 1", target.Iterations[teamId][0].Path);
+    }
+
+    // ── Member Tests (T075) ───────────────────────────────────────────────────
+
+    [TestMethod]
+    public async Task ImportAsync_AddsMembersWithIdentityMapping()
+    {
+        // Arrange
+        var target = new SimulatedTeamTarget();
+        var identityMapping = Mock.Of<IIdentityMappingService>(m =>
+            m.Resolve("src-alice") == "tgt-alice@target.com" &&
+            m.Resolve("src-bob") == "tgt-bob@target.com");
+
+        var orchestrator = new TeamImportOrchestrator(target, identityMapping, NullLogger<TeamImportOrchestrator>.Instance);
+
+        var teamPackage = new TeamPackage
+        {
+            Definition = new TeamDefinition("src-1", "Alpha Team", "desc", true),
+            Iterations = new List<TeamIteration>(),
+            Members = new List<TeamMember>
+            {
+                new TeamMember("src-alice", "Alice", "alice@src.com", true),
+                new TeamMember("src-bob", "Bob", "bob@src.com", false)
+            },
+            CapacityByIteration = new Dictionary<string, TeamCapacityEntry[]>()
+        };
+        var json = JsonSerializer.Serialize(teamPackage, s_jsonOptions);
+
+        var storeMock = new Mock<IArtefactStore>(MockBehavior.Loose);
+        storeMock.Setup(s => s.EnumerateAsync("Teams/", It.IsAny<CancellationToken>()))
+            .Returns(ToAsyncEnum(new[] { "Teams/alpha-team/team.json" }));
+        storeMock.Setup(s => s.ReadAsync("Teams/alpha-team/team.json", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(json);
+
+        var module = new TeamsModule(
+            NullLogger<TeamsModule>.Instance,
+            Options.Create(new TeamsModuleOptions { Enabled = true, Extensions = new TeamsModuleExtensionsOptions { TeamMembers = true } }),
+            new TeamSlugGenerator(),
+            teamTarget: target,
+            importOrchestrator: orchestrator);
+
+        // Act
+        await module.ImportAsync(CreateImportContext(storeMock.Object), CancellationToken.None);
+
+        // Assert — both members added with resolved descriptors
+        var teamId = new System.Collections.Generic.List<string>(target.Teams.Keys)[0];
+        Assert.IsTrue(target.Members.ContainsKey(teamId));
+        Assert.AreEqual(2, target.Members[teamId].Count);
+        Assert.IsTrue(target.Members[teamId].Exists(m => m.Descriptor == "tgt-alice@target.com" && m.IsAdmin));
+        Assert.IsTrue(target.Members[teamId].Exists(m => m.Descriptor == "tgt-bob@target.com"));
+    }
+
+    // ── Capacity Tests (T082) ─────────────────────────────────────────────────
+
+    [TestMethod]
+    public async Task ImportAsync_SetsCapacity_ForEachIteration()
+    {
+        // Arrange
+        var target = new SimulatedTeamTarget();
+        var identityMapping = Mock.Of<IIdentityMappingService>(m => m.Resolve(It.IsAny<string>()) == "tgt-user");
+        var orchestrator = new TeamImportOrchestrator(target, identityMapping, NullLogger<TeamImportOrchestrator>.Instance);
+
+        var capacity = new TeamCapacityEntry[]
+        {
+            new TeamCapacityEntry("desc-alice", "Alice", new[] { new ActivityEntry("Dev", 6) }, 0)
+        };
+        var teamPackage = new TeamPackage
+        {
+            Definition = new TeamDefinition("src-1", "Alpha Team", "desc", true),
+            Iterations = new List<TeamIteration>(),
+            Members = new List<TeamMember>(),
+            CapacityByIteration = new Dictionary<string, TeamCapacityEntry[]>
+            {
+                ["sprint-1"] = capacity
+            }
+        };
+        var json = JsonSerializer.Serialize(teamPackage, s_jsonOptions);
+
+        var storeMock = new Mock<IArtefactStore>(MockBehavior.Loose);
+        storeMock.Setup(s => s.EnumerateAsync("Teams/", It.IsAny<CancellationToken>()))
+            .Returns(ToAsyncEnum(new[] { "Teams/alpha-team/team.json" }));
+        storeMock.Setup(s => s.ReadAsync("Teams/alpha-team/team.json", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(json);
+
+        var module = new TeamsModule(
+            NullLogger<TeamsModule>.Instance,
+            Options.Create(new TeamsModuleOptions { Enabled = true, Extensions = new TeamsModuleExtensionsOptions { TeamCapacity = true } }),
+            new TeamSlugGenerator(),
+            teamTarget: target,
+            importOrchestrator: orchestrator);
+
+        // Act
+        await module.ImportAsync(CreateImportContext(storeMock.Object), CancellationToken.None);
+
+        // Assert — capacity was set
+        var teamId = new System.Collections.Generic.List<string>(target.Teams.Keys)[0];
+        var key = $"{teamId}/sprint-1";
+        Assert.IsTrue(target.Capacity.ContainsKey(key), $"Expected capacity for key '{key}'");
+        Assert.AreEqual(1, target.Capacity[key].Length);
+    }
+
+    [TestMethod]
+    public async Task ImportAsync_SkipsCapacity_WhenCapacityExtensionDisabled()
+    {
+        // Arrange
+        var target = new SimulatedTeamTarget();
+        var identityMapping = Mock.Of<IIdentityMappingService>(m => m.Resolve(It.IsAny<string>()) == "tgt");
+        var orchestrator = new TeamImportOrchestrator(target, identityMapping, NullLogger<TeamImportOrchestrator>.Instance);
+
+        var teamPackage = new TeamPackage
+        {
+            Definition = new TeamDefinition("src-1", "Alpha Team", "desc", true),
+            Iterations = new List<TeamIteration>(),
+            Members = new List<TeamMember>(),
+            CapacityByIteration = new Dictionary<string, TeamCapacityEntry[]>
+            {
+                ["sprint-1"] = new[] { new TeamCapacityEntry("d", "U", new[] { new ActivityEntry("Dev", 6) }, 0) }
+            }
+        };
+        var json = JsonSerializer.Serialize(teamPackage, s_jsonOptions);
+
+        var storeMock = new Mock<IArtefactStore>(MockBehavior.Loose);
+        storeMock.Setup(s => s.EnumerateAsync("Teams/", It.IsAny<CancellationToken>()))
+            .Returns(ToAsyncEnum(new[] { "Teams/alpha-team/team.json" }));
+        storeMock.Setup(s => s.ReadAsync("Teams/alpha-team/team.json", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(json);
+
+        var module = new TeamsModule(
+            NullLogger<TeamsModule>.Instance,
+            Options.Create(new TeamsModuleOptions { Enabled = true, Extensions = new TeamsModuleExtensionsOptions { TeamCapacity = false } }),
+            new TeamSlugGenerator(),
+            teamTarget: target,
+            importOrchestrator: orchestrator);
+
+        // Act
+        await module.ImportAsync(CreateImportContext(storeMock.Object), CancellationToken.None);
+
+        // Assert — no capacity entries stored
+        Assert.AreEqual(0, target.Capacity.Count, "Capacity should be empty when extension is disabled");
+    }
+
     // ── Helpers ───────────────────────────────────────────────────────────────
 
     private static async IAsyncEnumerable<string> ToAsyncEnum(

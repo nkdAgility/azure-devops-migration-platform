@@ -135,7 +135,7 @@
 - [X] T029 [US0b] Create `src/DevOpsMigrationPlatform.Infrastructure.Agent/Modules/NodeStructureModule.cs` — implement `IModule` with `Name = "Nodes"`. No `DependsOn` property — module order is operator-controlled. `ExportAsync` delegates to `IClassificationTreeCapture.CaptureAsync()`. `ImportAsync` delegates to `INodeEnsurer.ReplicateSourceTreeAsync()` and/or `INodeEnsurer.EnsureReferencedPathsAsync()` based on options. `ValidateAsync` delegates to `INodeStructureValidator.ValidateAsync()`.
 - [X] T030 [US0b] Update `src/DevOpsMigrationPlatform.Infrastructure.Agent/Modules/ModuleServiceCollectionExtensions.cs` — add `AddNodeStructureModule()` registering module + `NodeStructureModuleOptions`
 - [ ] T031 [US0b] Add cursor-based checkpointing to `NodeStructureModule.ImportAsync` — write `nodes.cursor.json` to `.migration/Checkpoints/` after each node created; resume from cursor on restart
-- [ ] T032 [US0b] Verify localised root name normalisation in `ClassificationTreeCapture` — confirm German `Bereich`/`Iteration` → English `Area`/`Iteration` in `source-tree.json`
+- [X] T032 [US0b] Verify localised root name normalisation in `ClassificationTreeCapture` — confirm German `Bereich`/`Iteration` → English `Area`/`Iteration` in `source-tree.json`
 
 ### Tests for US 0b
 
@@ -159,7 +159,7 @@
 
 - [X] T035 [US0c] Add NodeStructure extension hook to `src/DevOpsMigrationPlatform.Infrastructure.Agent/Modules/WorkItemsModule.cs` — during export, for each revision, call `IReferencedPathTracker.RecordAreaPathAsync(revision.AreaPath)` and `IReferencedPathTracker.RecordIterationPathAsync(revision.IterationPath)`
 - [X] T036 [US0c] Add configuration toggle for NodeStructure extension in WorkItemsModule — when disabled, skip path recording
-- [ ] T036b [US0c] Add import-side path translation to WorkItemsModule NodeStructure extension — during `WorkItemsModule.ImportAsync`, for each revision, call `INodeTranslationTool.TranslatePath()` to translate `System.AreaPath` and `System.IterationPath` field values before writing to the target (FR-W04)
+- [X] T036b [US0c] Add import-side path translation to WorkItemsModule NodeStructure extension — during `WorkItemsModule.ImportAsync`, for each revision, call `INodeTranslationTool.TranslatePath()` to translate `System.AreaPath` and `System.IterationPath` field values before writing to the target (FR-W04)
 
 ### Tests for US 0c
 
@@ -251,7 +251,7 @@
 
 ### Tests for US 2 + US 5
 
-- [ ] T068 [P] [US2] Add iteration tests to `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Modules/TeamsModuleTests.cs` — iteration assignment export/import, path translation, unresolvable path warning
+- [X] T068 [P] [US2] Add iteration tests to `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Modules/TeamsModuleTests.cs` — iteration assignment export/import, path translation, unresolvable path warning
 - [ ] T069 [P] [US5] Add NodeStructure extension tests — path recording during export, translation during import, disabled extension behaviour, union with WorkItems paths (union test lives here because both Teams and WorkItems extension code must exist)
 
 **Checkpoint**: Teams iterations and area paths fully operational with NodeTranslationTool integration.
@@ -277,7 +277,7 @@
 
 ### Tests for US 3
 
-- [ ] T075 [P] [US3] Add member tests to `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Modules/TeamsModuleTests.cs` — member export/import, identity mapping, unresolvable identity warning, admin flag preservation
+- [X] T075 [P] [US3] Add member tests to `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Modules/TeamsModuleTests.cs` — member export/import, identity mapping, unresolvable identity warning, admin flag preservation
 
 **Checkpoint**: Team members exported and imported with identity mapping.
 
@@ -303,7 +303,7 @@
 
 ### Tests for US 4
 
-- [ ] T082 [P] [US4] Add capacity tests to `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Modules/TeamsModuleTests.cs` — capacity export/import, iteration/member mapping, unassigned iteration warning, TFS exemption
+- [X] T082 [P] [US4] Add capacity tests to `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Modules/TeamsModuleTests.cs` — capacity export/import, iteration/member mapping, unassigned iteration warning, TFS exemption
 
 **Checkpoint**: Team capacity operational. TFS gracefully degraded.
 
@@ -313,7 +313,7 @@
 
 **Purpose**: Verify all acceptance scenarios pass for all three connectors.
 
-- [ ] T083 [US0–US5] Verify all acceptance scenarios pass with Simulated connector — run full test suite with Simulated DI registration
+- [X] T083 [US0–US5] Verify all acceptance scenarios pass with Simulated connector — run full test suite with Simulated DI registration
 - [ ] T084 [US0–US5] Verify all acceptance scenarios pass with AzureDevOps connector — run full test suite with ADO DI registration (requires live ADO org or recorded responses)
 - [ ] T085 [US0–US5] Verify all acceptance scenarios pass with TFS connector — run full test suite with TFS DI registration (capacity scenarios expected to gracefully skip on pre-2017.2)
 
@@ -410,6 +410,8 @@
 | 11: Documentation | — | 11 | 3 |
 | 12: Polish | — | 4 | 2 |
 | **Total** | | **127** | **61** |
+
+
 
 
 
