@@ -68,11 +68,11 @@ public static class ExportServiceCollectionExtensions
         // Classification tree reader — enumerates area/iteration nodes from the source ADO project.
         services.AddClassificationTreeReader<AzureDevOpsClassificationTreeReader>("AzureDevOpsServices");
 
-        // Identity source — Azure DevOps identity enumeration (stub — extends in future iteration)
-        services.TryAddSingleton<IIdentitySource, AzureDevOpsIdentitySource>();
+        // Identity source — Azure DevOps identity enumeration keyed by connector type.
+        services.AddIdentitySource<AzureDevOpsIdentitySource>("AzureDevOpsServices");
 
-        // Team source/target — Azure DevOps Teams REST API (stub — extends in future iteration)
-        services.TryAddSingleton<ITeamSource, AzureDevOpsTeamSource>();
+        // Team source — Azure DevOps Teams REST API keyed by connector type.
+        services.AddTeamSource<AzureDevOpsTeamSource>("AzureDevOpsServices");
         services.TryAddSingleton<ITeamTarget, AzureDevOpsTeamTarget>();
 
         // Embedded image download and processing

@@ -110,5 +110,37 @@ public static class FactoryRegistrationExtensions
         services.TryAddSingleton<NodeEnsurer>();
         return services;
     }
+
+    /// <summary>
+    /// Registers a concrete <see cref="IIdentitySource"/> implementation keyed by
+    /// <paramref name="typeKey"/> and ensures the <see cref="CompositeIdentitySource"/>
+    /// dispatcher is registered as <see cref="IIdentitySource"/>.
+    /// </summary>
+    public static IServiceCollection AddIdentitySource<T>(
+        this IServiceCollection services,
+        string typeKey)
+        where T : class, IIdentitySource
+    {
+        services.TryAddSingleton<T>();
+        services.AddSingleton(new KeyedIdentitySource(typeKey, typeof(T)));
+        services.TryAddSingleton<IIdentitySource, CompositeIdentitySource>();
+        return services;
+    }
+
+    /// <summary>
+    /// Registers a concrete <see cref="ITeamSource"/> implementation keyed by
+    /// <paramref name="typeKey"/> and ensures the <see cref="CompositeTeamSource"/>
+    /// dispatcher is registered as <see cref="ITeamSource"/>.
+    /// </summary>
+    public static IServiceCollection AddTeamSource<T>(
+        this IServiceCollection services,
+        string typeKey)
+        where T : class, ITeamSource
+    {
+        services.TryAddSingleton<T>();
+        services.AddSingleton(new KeyedTeamSource(typeKey, typeof(T)));
+        services.TryAddSingleton<ITeamSource, CompositeTeamSource>();
+        return services;
+    }
 }
 #endif
