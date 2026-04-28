@@ -43,13 +43,13 @@ public static class ModuleServiceCollectionExtensions
     }
 
     /// <summary>
-    /// Registers <see cref="NodeStructureModule"/> as an <see cref="IModule"/> implementation
+    /// Registers <see cref="NodesModule"/> as an <see cref="IModule"/> implementation
     /// for classification tree export/import operations.
     /// </summary>
-    public static IServiceCollection AddNodeStructureModule(this IServiceCollection services)
+    public static IServiceCollection AddNodesModule(this IServiceCollection services)
     {
-        services.AddTransient<IModule, NodeStructureModule>();
-        services.AddOptions<NodeStructureModuleOptions>();
+        services.AddTransient<IModule, NodesModule>();
+        services.AddOptions<NodesModuleOptions>();
         return services;
     }
 }

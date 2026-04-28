@@ -1,4 +1,4 @@
-#if !NET481
+﻿#if !NET481
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -38,8 +38,8 @@ public sealed class RevisionFolderProcessor : IRevisionFolderProcessor
     private readonly string? _jobId;
     private readonly IFieldTransformTool? _fieldTransformTool;
     private readonly INodeTranslationTool? _nodeStructureTool;
-    private readonly ProjectMapping? _nodeStructureContext;
-    private readonly NodeStructureOptions? _nodeStructureOptions;
+    private readonly ProjectMapping? _nodeTranslationContext;
+    private readonly NodeTranslationOptions? _nodeStructureOptions;
 
     private static readonly ActivitySource ActivitySource = new(WellKnownActivitySourceNames.Migration);
 
@@ -60,7 +60,7 @@ public sealed class RevisionFolderProcessor : IRevisionFolderProcessor
         IFieldTransformTool? fieldTransformTool = null,
         INodeTranslationTool? nodeStructureTool = null,
         ProjectMapping? nodeStructureContext = null,
-        NodeStructureOptions? nodeStructureOptions = null)
+        NodeTranslationOptions? nodeStructureOptions = null)
     {
         _target = target ?? throw new ArgumentNullException(nameof(target));
         _idMapStore = idMapStore ?? throw new ArgumentNullException(nameof(idMapStore));
@@ -72,13 +72,13 @@ public sealed class RevisionFolderProcessor : IRevisionFolderProcessor
         _jobId = jobId;
         _fieldTransformTool = fieldTransformTool;
         _nodeStructureTool = nodeStructureTool;
-        _nodeStructureContext = nodeStructureContext;
+        _nodeTranslationContext = nodeStructureContext;
         _nodeStructureOptions = nodeStructureOptions;
 
         if (_fieldTransformTool == null)
             _logger.LogWarning("[WorkItems] IFieldTransformTool is not registered — field transforms will be skipped for all revisions. Call AddFieldTransformToolServices() in your DI setup to enable field transforms.");
         if (_nodeStructureTool == null)
-            _logger.LogWarning("[WorkItems] INodeTranslationTool is not registered — area/iteration path translation will be skipped for all revisions. Call AddNodeStructureToolServices() in your DI setup to enable path translation.");
+            _logger.LogWarning("[WorkItems] INodeTranslationTool is not registered — area/iteration path translation will be skipped for all revisions. Call AddNodeTranslationToolServices() in your DI setup to enable path translation.");
     }
 
     /// <summary>
@@ -200,10 +200,10 @@ public sealed class RevisionFolderProcessor : IRevisionFolderProcessor
                     transformResult.Actions.Count, revision.WorkItemId, revision.RevisionIndex);
             }
 
-            // NodeStructure path translation
-            if (_nodeStructureTool != null && _nodeStructureTool.IsEnabled && _nodeStructureContext != null)
+            // NodeTranslation path translation
+            if (_nodeStructureTool != null && _nodeStructureTool.IsEnabled && _nodeTranslationContext != null)
             {
-                if (!TryApplyNodeStructureTranslation(fields, _nodeStructureContext, out var translatedFields))
+                if (!TryApplyNodeTranslation(fields, _nodeTranslationContext, out var translatedFields))
                 {
                     // Revision skipped — external/unresolvable path with SkipOnUnresolvable* enabled
                     await _idMapStore.RecordSkippedRevisionAsync(revision.WorkItemId, "UnresolvablePath", ct).ConfigureAwait(false);
@@ -284,7 +284,7 @@ public sealed class RevisionFolderProcessor : IRevisionFolderProcessor
     /// <summary>
     /// Applies node structure path translation. Returns <c>false</c> if the revision should be skipped.
     /// </summary>
-    private bool TryApplyNodeStructureTranslation(
+    private bool TryApplyNodeTranslation(
         IReadOnlyList<WorkItemField> fields,
         ProjectMapping context,
         out IReadOnlyList<WorkItemField> result)
@@ -314,7 +314,7 @@ public sealed class RevisionFolderProcessor : IRevisionFolderProcessor
                     {
                         using (DataClassificationScope.Begin(DataClassification.Customer))
                             _logger.LogWarning(
-                                "[NodeStructure] Revision skipped — external (not anchored in source project) {FieldLabel} path: {Path}",
+                                "[NodeTranslation] Revision skipped — external (not anchored in source project) {FieldLabel} path: {Path}",
                                 fieldLabel, pathValue);
                         return false;
                     }
@@ -322,10 +322,10 @@ public sealed class RevisionFolderProcessor : IRevisionFolderProcessor
                     {
                         using (DataClassificationScope.Begin(DataClassification.Customer))
                             _logger.LogError(
-                                "[NodeStructure] Unresolvable {FieldLabel} path: {Path} — import aborted (set SkipOnUnresolvable{CapLabel} to skip instead)",
+                                "[NodeTranslation] Unresolvable {FieldLabel} path: {Path} — import aborted (set SkipOnUnresolvable{CapLabel} to skip instead)",
                                 fieldLabel, pathValue, isArea ? "Area" : "Iteration");
                         throw new InvalidOperationException(
-                            $"[NodeStructure] Unresolvable {fieldLabel} path: '{pathValue}'. " +
+                            $"[NodeTranslation] Unresolvable {fieldLabel} path: '{pathValue}'. " +
                             $"Set SkipOnUnresolvable{(isArea ? "Area" : "Iteration")}: true to skip instead.");
                     }
                 }
@@ -335,7 +335,7 @@ public sealed class RevisionFolderProcessor : IRevisionFolderProcessor
                     output.Add(new WorkItemField { ReferenceName = field.ReferenceName, Value = translation.TargetPath });
                     anyTranslated = true;
                     _logger.LogTrace(
-                        "[NodeStructure] Path translated: {Field} = {Target} (mapHit={MapHit}, swap={Swap}, external={External})",
+                        "[NodeTranslation] Path translated: {Field} = {Target} (mapHit={MapHit}, swap={Swap}, external={External})",
                         field.ReferenceName, translation.TargetPath,
                         translation.MatchedByMap, translation.MatchedByProjectSwap, translation.IsExternalPath);
                 }

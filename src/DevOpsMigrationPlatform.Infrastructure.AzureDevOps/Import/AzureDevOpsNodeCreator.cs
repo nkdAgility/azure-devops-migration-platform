@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
@@ -100,7 +100,7 @@ public sealed class AzureDevOpsNodeCreator : INodeCreator
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "[NodeStructure] Failed to set dates for iteration {Path}.", path);
+            _logger.LogWarning(ex, "[NodeTranslation] Failed to set dates for iteration {Path}.", path);
             throw;
         }
     }
@@ -148,11 +148,11 @@ public sealed class AzureDevOpsNodeCreator : INodeCreator
                 node, project, group, path: parentPath, cancellationToken: ct)
                 .ConfigureAwait(false);
 
-            _logger.LogDebug("[NodeStructure] Created node {Group}/{Path} in project {Project}.", group, relativePath, project);
+            _logger.LogDebug("[NodeTranslation] Created node {Group}/{Path} in project {Project}.", group, relativePath, project);
         }
         catch (Exception ex) when (IsConflict(ex))
         {
-            _logger.LogDebug("[NodeStructure] Node {Group}/{Path} already exists (conflict — treating as success).", group, relativePath);
+            _logger.LogDebug("[NodeTranslation] Node {Group}/{Path} already exists (conflict — treating as success).", group, relativePath);
         }
     }
 

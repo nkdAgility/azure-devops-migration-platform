@@ -46,7 +46,7 @@ PackageRoot/
     Checkpoints/
       workitems.cursor.json
       identities.cursor.json  ← cursor for IdentitiesModule export/import resume
-      nodes.cursor.json       ← cursor for NodeStructureModule import resume
+      nodes.cursor.json       ← cursor for NodesModule import resume
       teams.cursor.json       ← cursor for TeamsModule export/import resume
       prepare.complete.json ← marker written when Prepare completes successfully; Import checks for this
       idmap.db              ← source→target work item ID mappings

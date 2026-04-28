@@ -49,7 +49,7 @@ public static class WellKnownMetricNames
     public const string DuplicatedAfterResume = "migration.workitems.duplicated_after_resume";
     public const string MissingAfterResume = "migration.workitems.missing_after_resume";
 
-    // --- NodeStructure ---
+    // --- NodeTranslation ---
     public const string NodeTranslateCount = "migration.nodes.import.translate.count";
     public const string NodeTranslateMapHit = "migration.nodes.import.translate.map_hit";
     public const string NodeTranslateAutoSwapHit = "migration.nodes.import.translate.autoswap_hit";

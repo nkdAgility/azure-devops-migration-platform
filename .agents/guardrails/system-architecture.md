@@ -107,6 +107,24 @@ Silently working around a rule = violation. Blindly following a harmful rule = n
     
     This rule exists because "temporary" workarounds cause real bugs (e.g. authentication credential loss through adapter round-trips) and accumulate as hidden technical debt.
 
+24. **Module and Tool identifiers must be derived from the class name — no exceptions.**
+    For any class `{Stem}Module`:
+    - The `Name` property MUST return exactly `"{Stem}"` (class name minus the `Module` suffix).
+    - The config section MUST be `MigrationPlatform:Modules:{Stem}`.
+    - The cursor key MUST use `{Stem}` as its identifier.
+    - The code file MUST be named `{Stem}Module.cs`.
+
+    For any class `{Stem}Tool`:
+    - The code folder MUST be `Tools/{Stem}/`.
+    - The main file MUST be `{Stem}Tool.cs`.
+    - The DI extensions file MUST be `{Stem}ToolServiceCollectionExtensions.cs`.
+    - The public interface MUST be `I{Stem}Tool` in file `I{Stem}Tool.cs`.
+    - The options class MUST be `{Stem}Options` in file `{Stem}Options.cs`.
+    - The config section MUST be `MigrationPlatform:Tools:{Stem}`.
+    - All helper classes within the tool folder SHOULD use `{Stem}` as their prefix.
+
+    This rule exists to make the codebase self-documenting and to prevent the drift where a class, its file, its folder, its interface, its options, and its config key all use different names. Any deviation is an **instant reject**. Auditors checking naming consistency must use this rule as the canonical reference.
+
 23. **Only the Migration Agent (and TFS Export Agent) may write to the working directory and package files — data residency requirement.**
     The working directory (`Package.WorkingDirectory`) and all files within a migration package are write-accessible **only** to the Migration Agent (or TFS Export Agent for TFS sources). No other component — CLI, TUI, Control Plane, ControlPlaneHost, or any external process — may create, modify, or delete files in the working directory or package. This is a **data residency** constraint: customer data must remain under the exclusive control of the execution boundary (the Agent), which runs in the operator's chosen infrastructure. The CLI reads configuration and submits jobs; the TUI reads progress; the Control Plane coordinates — none of them touch the package. Violations compromise data residency guarantees and may expose customer data to unintended infrastructure.
 

@@ -1,4 +1,4 @@
-#if !NET481
+﻿#if !NET481
 using System;
 using System.Diagnostics;
 using System.Threading;
@@ -15,7 +15,7 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Teams;
 
 /// <summary>
 /// Orchestrates per-team import in fixed order:
-/// settings → NodeStructure (iterations/areas) → iterations → members → capacity.
+/// settings → NodeTranslation (iterations/areas) → iterations → members → capacity.
 /// </summary>
 public sealed class TeamImportOrchestrator
 {
@@ -23,19 +23,19 @@ public sealed class TeamImportOrchestrator
 
     private readonly ITeamTarget _teamTarget;
     private readonly IIdentityMappingService _identityMappingService;
-    private readonly INodeTranslationTool? _nodeTranslationTool;
+    private readonly INodeTranslationTool? _NodeTransformTool;
     private readonly ILogger<TeamImportOrchestrator> _logger;
 
     public TeamImportOrchestrator(
         ITeamTarget teamTarget,
         IIdentityMappingService identityMappingService,
         ILogger<TeamImportOrchestrator> logger,
-        INodeTranslationTool? nodeTranslationTool = null)
+        INodeTranslationTool? NodeTransformTool = null)
     {
         _teamTarget = teamTarget ?? throw new ArgumentNullException(nameof(teamTarget));
         _identityMappingService = identityMappingService ?? throw new ArgumentNullException(nameof(identityMappingService));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
-        _nodeTranslationTool = nodeTranslationTool;
+        _NodeTransformTool = NodeTransformTool;
     }
 
     /// <summary>
@@ -113,7 +113,7 @@ public sealed class TeamImportOrchestrator
         }
 
         // 5. Area paths (with path translation)
-        if (extensions.NodeStructure && teamPackage.AreaPaths is not null)
+        if (extensions.NodeTranslation && teamPackage.AreaPaths is not null)
         {
             var defaultPath = TranslatePath(teamPackage.AreaPaths.DefaultAreaPath);
             if (defaultPath is not null)
@@ -167,12 +167,12 @@ public sealed class TeamImportOrchestrator
         if (string.IsNullOrEmpty(sourcePath))
             return sourcePath;
 
-        if (_nodeTranslationTool is null || !_nodeTranslationTool.IsEnabled)
+        if (_NodeTransformTool is null || !_NodeTransformTool.IsEnabled)
             return sourcePath; // pass through if tool disabled
 
         // Use a default project mapping — caller should provide proper mapping in production
         var mapping = new ProjectMapping(sourcePath.Split('\\')[0], sourcePath.Split('\\')[0]);
-        var result = _nodeTranslationTool.TranslatePath("System.AreaPath", sourcePath, mapping);
+        var result = _NodeTransformTool.TranslatePath("System.AreaPath", sourcePath, mapping);
         return result.TargetPath ?? sourcePath;
     }
 }

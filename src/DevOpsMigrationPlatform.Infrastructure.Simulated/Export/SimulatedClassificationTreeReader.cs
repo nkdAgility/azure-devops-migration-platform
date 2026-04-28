@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
@@ -10,7 +10,7 @@ namespace DevOpsMigrationPlatform.Infrastructure.Simulated.Export;
 
 /// <summary>
 /// Simulated implementation of <see cref="IClassificationTreeReader"/>.
-/// Returns a minimal but realistic classification tree so the NodeStructure file is always written
+/// Returns a minimal but realistic classification tree so the NodeTranslation source tree file is always written
 /// and downstream import tests have data to verify against.
 /// </summary>
 public sealed class SimulatedClassificationTreeReader : IClassificationTreeReader
@@ -31,7 +31,7 @@ public sealed class SimulatedClassificationTreeReader : IClassificationTreeReade
         var project = endpoint.GetProject();
         if (string.IsNullOrEmpty(project)) yield break;
 
-        _logger.LogDebug("[NodeStructure][Simulated] Yielding area nodes for {Project}.", project);
+        _logger.LogDebug("[NodeTranslation][Simulated] Yielding area nodes for {Project}.", project);
 
         // Project root
         yield return project;
@@ -49,7 +49,7 @@ public sealed class SimulatedClassificationTreeReader : IClassificationTreeReade
         var project = endpoint.GetProject();
         if (string.IsNullOrEmpty(project)) yield break;
 
-        _logger.LogDebug("[NodeStructure][Simulated] Yielding iteration nodes for {Project}.", project);
+        _logger.LogDebug("[NodeTranslation][Simulated] Yielding iteration nodes for {Project}.", project);
 
         var baseDate = new System.DateTimeOffset(2024, 1, 1, 0, 0, 0, System.TimeSpan.Zero);
 

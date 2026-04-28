@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using System.Threading;
@@ -45,7 +45,7 @@ public sealed class AzureDevOpsClassificationTreeReader : IClassificationTreeRea
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "[NodeStructure] Failed to fetch area classification tree for project {Project}.", project);
+            _logger.LogError(ex, "[NodeTranslation] Failed to fetch area classification tree for project {Project}.", project);
             throw;
         }
 
@@ -71,7 +71,7 @@ public sealed class AzureDevOpsClassificationTreeReader : IClassificationTreeRea
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "[NodeStructure] Failed to fetch iteration classification tree for project {Project}.", project);
+            _logger.LogError(ex, "[NodeTranslation] Failed to fetch iteration classification tree for project {Project}.", project);
             throw;
         }
 

@@ -1,0 +1,206 @@
+﻿{
+  "MigrationPlatform": {
+    "ConfigVersion": "1.0",
+    "Mode": "Migrate",
+    "Policies": {
+      "Retries": {
+        "Max": 8
+      },
+      "Throttle": {
+        "MaxConcurrency": 4
+      },
+      "Checkpoints": {
+        "Interval": 300
+      }
+    },
+    "Source": {
+      "Type": "AzureDevOpsServices",
+      "Url": "$ENV:SOURCE_ORG_URL",
+      "Project": "$ENV:SOURCE_PROJECT",
+      "Authentication": {
+        "Type": "Pat",
+        "AccessToken": "$ENV:SOURCE_PAT"
+      }
+    },
+    "Target": {
+      "Type": "AzureDevOpsServices",
+      "Url": "$ENV:TARGET_ORG_URL",
+      "Project": "$ENV:TARGET_PROJECT",
+      "Authentication": {
+        "Type": "Pat",
+        "AccessToken": "$ENV:TARGET_PAT"
+      }
+    },
+    "Package": {
+      "WorkingDirectory": "storage\\complete",
+      "CreatePackage": true
+    },
+    "Tools": {
+      "NodeTranslation": {
+        "Enabled": true,
+        "AreaPathMappings": [
+          {
+            "Match": "^SourceProject\\\\Team A",
+            "Replacement": "TargetProject\\Team Alpha"
+          },
+          {
+            "Match": "^SourceProject",
+            "Replacement": "TargetProject"
+          }
+        ],
+        "IterationPathMappings": [
+          {
+            "Match": "^SourceProject\\\\Sprint (\\d+)",
+            "Replacement": "TargetProject\\Sprint $1"
+          },
+          {
+            "Match": "^SourceProject",
+            "Replacement": "TargetProject"
+          }
+        ],
+        "AreaLanguageOverride": "Area",
+        "IterationLanguageOverride": "Iteration",
+        "AutoCreateNodes": true,
+        "SkipOnUnresolvableArea": false,
+        "SkipOnUnresolvableIteration": false,
+        "ReplicateSourceTree": true
+      },
+      "FieldTransform": {
+        "Enabled": true,
+        "TransformGroups": [
+          {
+            "Name": "StateRemapping",
+            "Enabled": true,
+            "ApplyTo": [
+              "Bug",
+              "User Story"
+            ],
+            "Transforms": [
+              {
+                "Type": "MapValue",
+                "Field": "System.State",
+                "ValueMap": {
+                  "Active": "In Progress",
+                  "Resolved": "Done"
+                }
+              }
+            ]
+          },
+          {
+            "Name": "FieldRename",
+            "Enabled": true,
+            "Transforms": [
+              {
+                "Type": "Copy",
+                "SourceField": "Custom.OldField",
+                "TargetField": "Custom.NewField"
+              },
+              {
+                "Type": "SetValue",
+                "Field": "Custom.MigrationFlag",
+                "Value": "Migrated"
+              },
+              {
+                "Type": "SetDefault",
+                "Field": "System.Tags",
+                "DefaultValue": "migrated"
+              },
+              {
+                "Type": "RegexReplace",
+                "Field": "System.Description",
+                "Pattern": "https://old-server/",
+                "Replacement": "https://new-server/"
+              },
+              {
+                "Type": "Format",
+                "SourceFields": [
+                  "System.Title",
+                  "Custom.Ref"
+                ],
+                "TargetField": "System.Title",
+                "FormatString": "[{1}] {0}"
+              },
+              {
+                "Type": "AddTag",
+                "Tag": "migrated"
+              },
+              {
+                "Type": "ConditionalSet",
+                "Condition": "System.State == 'Active'",
+                "Field": "Custom.ActiveFlag",
+                "TrueValue": "yes",
+                "FalseValue": "no"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "Modules": {
+      "Identities": {
+        "Enabled": true,
+        "DefaultIdentity": "migration-service@contoso.com"
+      },
+      "Nodes": {
+        "Enabled": true,
+        "ReplicateSourceTree": true,
+        "AutoCreateNodes": true
+      },
+      "Teams": {
+        "Enabled": true,
+        "Scope": "all",
+        "Filter": "",
+        "Extensions": {
+          "TeamSettings": true,
+          "NodeTranslation": true,
+          "TeamIterations": true,
+          "TeamMembers": true,
+          "TeamCapacity": true
+        }
+      },
+      "WorkItems": {
+        "Enabled": true,
+        "Scope": {
+          "Query": "SELECT [System.Id] FROM WorkItems WHERE [System.TeamProject] = @project ORDER BY [System.Id]",
+          "Filters": [
+            {
+              "Mode": "Include",
+              "Field": "System.AreaPath",
+              "Pattern": "^SourceProject\\\\Team A"
+            },
+            {
+              "Mode": "Exclude",
+              "Field": "System.WorkItemType",
+              "Pattern": "^Test (Case|Plan|Suite)$"
+            }
+          ]
+        },
+        "Extensions": {
+          "Revisions": {
+            "Enabled": true
+          },
+          "Links": {
+            "Enabled": true
+          },
+          "Attachments": {
+            "Enabled": true
+          },
+          "Comments": {
+            "Enabled": true,
+            "IncludeDeleted": false
+          },
+          "EmbeddedImages": {
+            "Enabled": true,
+            "DownloadTimeoutSeconds": 30
+          },
+          "WorkItemResolutionStrategy": {
+            "Enabled": false,
+            "Strategy": "TargetField",
+            "FieldName": "Custom.SourceWorkItemId",
+            "UrlPattern": ""
+          }
+        }
+      }
+    }
+  }
+}

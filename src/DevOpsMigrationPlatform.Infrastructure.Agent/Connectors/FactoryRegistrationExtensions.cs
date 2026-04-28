@@ -1,10 +1,10 @@
-#if !NET481
+﻿#if !NET481
 using System;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Export;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Import;
-using DevOpsMigrationPlatform.Infrastructure.Agent.Tools.NodeStructure;
+using DevOpsMigrationPlatform.Infrastructure.Agent.Tools.NodeTranslation;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 

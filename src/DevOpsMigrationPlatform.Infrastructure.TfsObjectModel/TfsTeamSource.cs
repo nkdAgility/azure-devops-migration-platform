@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.CompilerServices;
@@ -100,7 +100,7 @@ public sealed class TfsTeamSource : ITeamSource
 
         // TFS iteration access requires Work REST API or WIT client; the Object Model
         // exposes iteration nodes via ICommonStructureService but not team-specific assignments.
-        // Return empty — NodeStructureModule exports the iteration tree separately.
+        // Return empty — NodesModule exports the iteration tree separately.
         yield break;
     }
 
@@ -195,7 +195,7 @@ public sealed class TfsTeamSource : ITeamSource
     {
         await Task.CompletedTask.ConfigureAwait(false);
 
-        // Area path assignments require the Work REST API. Return empty so NodeStructure
+        // Area path assignments require the Work REST API. Return empty so NodeTranslation
         // export (which captures the full tree) remains the authoritative source.
         _logger.LogDebug(
             "[Teams][TFS] Area path assignments not available via TFS Object Model for team '{TeamId}'.", teamId);

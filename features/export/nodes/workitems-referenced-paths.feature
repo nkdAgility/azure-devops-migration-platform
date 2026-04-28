@@ -1,7 +1,7 @@
 Feature: WorkItems Referenced Paths Tracking
   As a platform operator
   I want WorkItemsModule to record every area path and iteration path encountered during export
-  So that NodeStructureModule can pre-create those nodes on the target before work items are imported
+  So that NodesModule can pre-create those nodes on the target before work items are imported
 
   Background:
     Given a simulated source project with work items spanning multiple area and iteration paths

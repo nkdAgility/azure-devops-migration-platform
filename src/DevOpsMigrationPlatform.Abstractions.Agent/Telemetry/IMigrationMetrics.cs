@@ -1,4 +1,4 @@
-using System.Diagnostics;
+﻿using System.Diagnostics;
 
 namespace DevOpsMigrationPlatform.Abstractions.Agent.Telemetry;
 
@@ -53,12 +53,12 @@ public interface IMigrationMetrics
     void RecordDuplicatedAfterResume(in TagList tags);
     void RecordMissingAfterResume(in TagList tags);
 
-    // --- NodeStructure Export ---
+    // --- NodeTranslation Export ---
     void RecordNodeExportTreeCount(int count, in TagList tags);
     void RecordNodeExportTreeDuration(double milliseconds, in TagList tags);
     void RecordNodeExportTreeError(in TagList tags);
 
-    // --- NodeStructure Import: Replicate ---
+    // --- NodeTranslation Import: Replicate ---
     void RecordNodeImportReplicateCount(in TagList tags);
     void RecordNodeImportReplicateDuration(double milliseconds, in TagList tags);
     void RecordNodeImportReplicateError(in TagList tags);
@@ -66,7 +66,7 @@ public interface IMigrationMetrics
     void IncrementNodeImportReplicateInFlight(in TagList tags);
     void DecrementNodeImportReplicateInFlight(in TagList tags);
 
-    // --- NodeStructure Import: PreCollect ---
+    // --- NodeTranslation Import: PreCollect ---
     void RecordNodeImportPreCollectCount(in TagList tags);
     void RecordNodeImportPreCollectDuration(double milliseconds, in TagList tags);
     void RecordNodeImportPreCollectError(in TagList tags);

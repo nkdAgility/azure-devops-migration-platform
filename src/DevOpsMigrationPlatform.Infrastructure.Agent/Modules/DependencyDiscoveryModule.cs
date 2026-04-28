@@ -28,7 +28,7 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Modules;
 /// </summary>
 public sealed class DependencyDiscoveryModule : IDiscoveryModule
 {
-    private static readonly string CursorKey = PackagePaths.CursorFile("Dependencies");
+    private static readonly string CursorKey = PackagePaths.CursorFile("DependencyDiscovery");
     private const string RootCsvPath = "dependencies.csv";
 
     private static readonly ActivitySource ActivitySource = new(WellKnownActivitySourceNames.Discovery);
@@ -37,7 +37,7 @@ public sealed class DependencyDiscoveryModule : IDiscoveryModule
     private readonly ILogger<DependencyDiscoveryModule> _logger;
     private readonly IDiscoveryMetrics? _metrics;
 
-    public string Name => "Dependencies";
+    public string Name => "DependencyDiscovery";
     public DiscoveryJobType DiscoveryType => DiscoveryJobType.Dependencies;
 
     /// <summary>

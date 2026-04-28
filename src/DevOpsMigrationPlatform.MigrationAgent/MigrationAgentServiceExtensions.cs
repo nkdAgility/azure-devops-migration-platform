@@ -1,10 +1,10 @@
-using DevOpsMigrationPlatform.Abstractions;
+﻿using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Infrastructure;
 using DevOpsMigrationPlatform.Infrastructure.AzureDevOps;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Modules;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Storage;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Tools.FieldTransform;
-using DevOpsMigrationPlatform.Infrastructure.Agent.Tools.NodeStructure;
+using DevOpsMigrationPlatform.Infrastructure.Agent.Tools.NodeTranslation;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Checkpointing;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Telemetry;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Identity;
@@ -77,13 +77,13 @@ public static class MigrationAgentServiceExtensions
         // Progress streaming to the Control Plane ring buffer.
         builder.Services.AddControlPlaneProgressSink(controlPlaneBaseUrl);
 
-        // Register cross-cutting tool services (NodeStructure + FieldTransform).
-        builder.Services.AddNodeStructureToolServices();
+        // Register cross-cutting tool services (NodeTranslation + FieldTransform).
+        builder.Services.AddNodeTranslationToolServices();
         builder.Services.AddFieldTransformToolServices();
 
         // Register IModule implementations.
         builder.Services.AddIdentitiesModule(builder.Configuration);
-        builder.Services.AddNodeStructureModule();
+        builder.Services.AddNodesModule();
         builder.Services.AddTeamsModule(builder.Configuration);
         builder.Services.AddAzureDevOpsWorkItemExport();
         builder.Services.AddAzureDevOpsWorkItemImport();

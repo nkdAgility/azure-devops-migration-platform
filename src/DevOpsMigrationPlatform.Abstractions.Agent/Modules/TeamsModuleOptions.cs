@@ -1,4 +1,4 @@
-#if !NET481
+﻿#if !NET481
 namespace DevOpsMigrationPlatform.Abstractions.Agent.Modules;
 
 /// <summary>Controls which extensions are enabled in the TeamsModule.</summary>
@@ -8,7 +8,7 @@ public sealed class TeamsModuleExtensionsOptions
     public bool TeamSettings { get; init; } = true;
 
     /// <summary>Record team area/iteration paths into ReferencedPathTracker during export.</summary>
-    public bool NodeStructure { get; init; } = true;
+    public bool NodeTranslation { get; init; } = true;
 
     /// <summary>Export/import team iteration assignments.</summary>
     public bool TeamIterations { get; init; } = true;

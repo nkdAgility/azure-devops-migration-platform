@@ -63,15 +63,15 @@
     <ExternalFeatureFiles Include="..\..\features\import\workitems\field-transform\merge-fields.feature" />
     <ExternalFeatureFiles Include="..\..\features\platform\field-transform\field-transform-validation.feature" />
     <ExternalFeatureFiles Include="..\..\features\export\workitems\field-transform\export-phase-transform.feature" />
-    <ExternalFeatureFiles Include="..\..\features\import\workitems\nodestructure\path-mapping.feature" />
-    <ExternalFeatureFiles Include="..\..\features\export\workitems\nodestructure\path-discovery.feature" />
-    <ExternalFeatureFiles Include="..\..\features\export\workitems\nodestructure\tree-capture.feature" />
-    <ExternalFeatureFiles Include="..\..\features\import\workitems\nodestructure\auto-create-nodes.feature" />
-    <ExternalFeatureFiles Include="..\..\features\import\workitems\nodestructure\skip-unresolvable.feature" />
-    <ExternalFeatureFiles Include="..\..\features\import\workitems\nodestructure\replicate-source-tree.feature" />
-    <ExternalFeatureFiles Include="..\..\features\import\workitems\nodestructure\language-override.feature" />
-    <ExternalFeatureFiles Include="..\..\features\import\workitems\nodestructure\iteration-dates.feature" />
-    <ExternalFeatureFiles Include="..\..\features\platform\validation\nodestructure-validation.feature" />
+    <ExternalFeatureFiles Include="..\..\features\import\workitems\nodetranslation\path-mapping.feature" />
+    <ExternalFeatureFiles Include="..\..\features\export\workitems\nodetranslation\path-discovery.feature" />
+    <ExternalFeatureFiles Include="..\..\features\export\workitems\nodetranslation\tree-capture.feature" />
+    <ExternalFeatureFiles Include="..\..\features\import\workitems\nodetranslation\auto-create-nodes.feature" />
+    <ExternalFeatureFiles Include="..\..\features\import\workitems\nodetranslation\skip-unresolvable.feature" />
+    <ExternalFeatureFiles Include="..\..\features\import\workitems\nodetranslation\replicate-source-tree.feature" />
+    <ExternalFeatureFiles Include="..\..\features\import\workitems\nodetranslation\language-override.feature" />
+    <ExternalFeatureFiles Include="..\..\features\import\workitems\nodetranslation\iteration-dates.feature" />
+    <ExternalFeatureFiles Include="..\..\features\platform\validation\nodetranslation-validation.feature" />
   </ItemGroup>
 
   <Target Name="PrepareReqnrollFeatureFiles" BeforeTargets="UpdateFeatureFilesInProject">

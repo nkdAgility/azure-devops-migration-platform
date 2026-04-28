@@ -1,4 +1,4 @@
-namespace DevOpsMigrationPlatform.Abstractions.Agent.Tools;
+﻿namespace DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 
 /// <summary>
 /// Translates area and iteration path values from source to target format.

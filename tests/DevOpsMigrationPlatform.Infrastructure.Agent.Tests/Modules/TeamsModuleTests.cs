@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using System.Text.Json;
@@ -512,10 +512,10 @@ public class TeamsModuleTests
         Assert.AreEqual(0, target.Capacity.Count, "Capacity should be empty when extension is disabled");
     }
 
-    // ── NodeStructure Extension Tests (T069) ─────────────────────────────────
+    // ── NodeTranslation Extension Tests (T069) ─────────────────────────────────
 
     [TestMethod]
-    public async Task ExportAsync_RecordsAreaAndIterationPaths_WhenNodeStructureExtensionEnabled()
+    public async Task ExportAsync_RecordsAreaAndIterationPaths_WhenNodeTranslationExtensionEnabled()
     {
         // Arrange
         var recordedAreaPaths = new List<string>();
@@ -543,7 +543,7 @@ public class TeamsModuleTests
         var opts = new TeamsModuleOptions
         {
             Enabled = true,
-            Extensions = new TeamsModuleExtensionsOptions { NodeStructure = true, TeamIterations = true }
+            Extensions = new TeamsModuleExtensionsOptions { NodeTranslation = true, TeamIterations = true }
         };
         var module = new TeamsModule(
             NullLogger<TeamsModule>.Instance,
@@ -560,7 +560,7 @@ public class TeamsModuleTests
     }
 
     [TestMethod]
-    public async Task ExportAsync_DoesNotRecordPaths_WhenNodeStructureExtensionDisabled()
+    public async Task ExportAsync_DoesNotRecordPaths_WhenNodeTranslationExtensionDisabled()
     {
         // Arrange
         var trackerMock = new Mock<IReferencedPathTracker>(MockBehavior.Strict);
@@ -578,7 +578,7 @@ public class TeamsModuleTests
         var opts = new TeamsModuleOptions
         {
             Enabled = true,
-            Extensions = new TeamsModuleExtensionsOptions { NodeStructure = false, TeamIterations = true }
+            Extensions = new TeamsModuleExtensionsOptions { NodeTranslation = false, TeamIterations = true }
         };
         var module = new TeamsModule(
             NullLogger<TeamsModule>.Instance,
@@ -590,12 +590,12 @@ public class TeamsModuleTests
         // Act
         await module.ExportAsync(CreateExportContext(storeMock.Object), CancellationToken.None);
 
-        // Assert — no path tracker calls when NodeStructure extension is disabled
+        // Assert — no path tracker calls when NodeTranslation extension is disabled
         trackerMock.VerifyNoOtherCalls();
     }
 
     [TestMethod]
-    public async Task ImportAsync_TranslatesIterationPaths_ViaNodeTranslationTool()
+    public async Task ImportAsync_TranslatesIterationPaths_ViaNodeTransformTool()
     {
         // Arrange
         var target = new SimulatedTeamTarget();
@@ -615,7 +615,7 @@ public class TeamsModuleTests
 
         var orchestrator = new TeamImportOrchestrator(
             target, identityMapping, NullLogger<TeamImportOrchestrator>.Instance,
-            nodeTranslationTool: translationToolMock.Object);
+            NodeTransformTool: translationToolMock.Object);
 
         var teamPackage = new TeamPackage
         {

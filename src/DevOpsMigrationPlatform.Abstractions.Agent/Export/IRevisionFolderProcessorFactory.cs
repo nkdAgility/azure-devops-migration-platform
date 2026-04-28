@@ -1,4 +1,4 @@
-#if !NET481
+﻿#if !NET481
 using DevOpsMigrationPlatform.Abstractions.Agent.Import;
 using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
 using DevOpsMigrationPlatform.Abstractions.Agent.Checkpointing;
@@ -23,7 +23,7 @@ public interface IRevisionFolderProcessorFactory
         IArtefactStore artefactStore);
 
     /// <summary>
-    /// Creates a new <see cref="IRevisionFolderProcessor"/> with NodeStructure context
+    /// Creates a new <see cref="IRevisionFolderProcessor"/> with NodeTranslation context
     /// for area/iteration path translation.
     /// </summary>
     IRevisionFolderProcessor Create(

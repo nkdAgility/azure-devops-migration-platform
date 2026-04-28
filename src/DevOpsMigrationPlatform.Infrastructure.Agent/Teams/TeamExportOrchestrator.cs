@@ -1,4 +1,4 @@
-#if !NET481
+﻿#if !NET481
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -73,8 +73,8 @@ public sealed class TeamExportOrchestrator
             {
                 iterations.Add(iteration);
 
-                // Record iteration paths for NodeStructure extension
-                if (extensions.NodeStructure && _referencedPathTracker is not null)
+                // Record iteration paths for NodeTranslation extension
+                if (extensions.NodeTranslation && _referencedPathTracker is not null)
                 {
                     await _referencedPathTracker.RecordIterationPathAsync(
                         iteration.Path, artefactStore, ct).ConfigureAwait(false);
@@ -90,11 +90,11 @@ public sealed class TeamExportOrchestrator
         }
 
         TeamAreaPaths? areaPaths = null;
-        if (extensions.NodeStructure)
+        if (extensions.NodeTranslation)
         {
             areaPaths = await _teamSource.GetTeamAreaPathsAsync(endpoint, projectName, team.Id, ct).ConfigureAwait(false);
 
-            // Record area paths for NodeStructure extension
+            // Record area paths for NodeTranslation extension
             if (_referencedPathTracker is not null && areaPaths is not null)
             {
                 if (!string.IsNullOrEmpty(areaPaths.DefaultAreaPath))

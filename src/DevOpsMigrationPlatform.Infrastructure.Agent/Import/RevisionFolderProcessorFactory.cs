@@ -1,4 +1,4 @@
-#if !NET481
+﻿#if !NET481
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using Microsoft.Extensions.Logging;

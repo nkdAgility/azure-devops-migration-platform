@@ -6,13 +6,13 @@ Feature: Export Classification Tree
   Scenario: Classification tree is written to the package on export
     Given the source project has area nodes "Area1" and "Area1/Sub1"
     And the source project has iteration nodes "Sprint 1" and "Sprint 2"
-    When the NodeStructureModule ExportAsync runs
+    When the NodesModule ExportAsync runs
     Then "Nodes/source-tree.json" is written to the package
     And it contains area path "Area1"
     And it contains iteration path "Sprint 1"
 
   Scenario: Source tree export is delegated to IClassificationTreeCapture
-    Given the NodeStructureModule is configured with Enabled = true
+    Given the NodesModule is configured with Enabled = true
     When ExportAsync is called
     Then IClassificationTreeCapture.CaptureAsync is invoked exactly once
 

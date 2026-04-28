@@ -5,7 +5,7 @@ Version change:    1.4.0 → 1.4.1
 Bump rationale:    Principle V bullet 3 amended — removed `DependsOn` reference.
                    Module ordering is operator-controlled via configuration,
                    not via a `DependsOn` contract property. Aligns with the
-                   IdentitiesModule/NodeStructureModule/TeamsModule spec (024)
+                   IdentitiesModule/NodesModule/TeamsModule spec (024)
                    which removed DependsOn entirely.
 
 Version change:    1.3.4 → 1.4.0

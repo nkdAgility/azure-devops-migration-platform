@@ -1,4 +1,4 @@
-#if !NET481
+﻿#if !NET481
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -221,7 +221,7 @@ public sealed class WorkItemsModule : IModule
             await _nodeEnsurer.EnsureReferencedPathsAsync(ensurerContext, endpointOptions, context.ArtefactStore, ct, _metrics, job.JobId).ConfigureAwait(false);
         }
 
-        // Build processor — use NodeStructure-aware overload when available.
+        // Build processor — use NodeTranslation-aware overload when available.
         IRevisionFolderProcessor processor;
         var sourceProjectName = job.Source?.GetProject() ?? string.Empty;
         var nodeStructureContext = new DevOpsMigrationPlatform.Abstractions.Agent.Tools.ProjectMapping(sourceProjectName, project);

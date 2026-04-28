@@ -1,4 +1,4 @@
-namespace DevOpsMigrationPlatform.Abstractions.Agent.Tools;
+﻿namespace DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 
 /// <summary>
 /// Holds source and target project name context passed to <see cref="INodeTranslationTool.TranslatePath"/>.

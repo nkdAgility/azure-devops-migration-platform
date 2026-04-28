@@ -1,4 +1,4 @@
-using DevOpsMigrationPlatform.Abstractions.Agent.Modules;
+﻿using DevOpsMigrationPlatform.Abstractions.Agent.Modules;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
@@ -80,7 +80,7 @@ public sealed class ModuleOptionsConfigurationTests
 
         // Assert
         Assert.IsTrue(opts.Extensions.TeamSettings);
-        Assert.IsTrue(opts.Extensions.NodeStructure);
+        Assert.IsTrue(opts.Extensions.NodeTranslation);
         Assert.IsTrue(opts.Extensions.TeamIterations);
         Assert.IsTrue(opts.Extensions.TeamMembers);
         Assert.IsTrue(opts.Extensions.TeamCapacity);
@@ -118,7 +118,7 @@ public sealed class ModuleOptionsConfigurationTests
         var config = BuildConfig(new Dictionary<string, string?>
         {
             ["MigrationPlatform:Modules:Teams:Extensions:TeamCapacity"] = "false",
-            ["MigrationPlatform:Modules:Teams:Extensions:NodeStructure"] = "false"
+            ["MigrationPlatform:Modules:Teams:Extensions:NodeTranslation"] = "false"
         });
         var services = new ServiceCollection();
         services.Configure<TeamsModuleOptions>(
@@ -130,17 +130,17 @@ public sealed class ModuleOptionsConfigurationTests
 
         // Assert
         Assert.IsFalse(opts.Extensions.TeamCapacity);
-        Assert.IsFalse(opts.Extensions.NodeStructure);
+        Assert.IsFalse(opts.Extensions.NodeTranslation);
         Assert.IsTrue(opts.Extensions.TeamIterations, "Other extensions should remain at their defaults.");
     }
 
-    // ─── NodeStructureModuleOptions ──────────────────────────────────────────
+    // ─── NodesModuleOptions ──────────────────────────────────────────
 
     // TODO: [test-validity] Score 13/25 — Mirrors TeamsModuleOptions_BindsEnabled_FromConfiguration.
-    // Rewrite to test: when NodeStructure is enabled via config, NodeStructureModule.ExportAsync
+    // Rewrite to test: when NodeTranslation is enabled via config, NodesModule.ExportAsync
     // actually writes referenced-paths.json (observable outcome), rather than asserting raw property binding.
     [TestMethod]
-    public void NodeStructureModuleOptions_BindsEnabled_FromConfiguration()
+    public void NodesModuleOptions_BindsEnabled_FromConfiguration()
     {
         // Arrange
         var config = BuildConfig(new Dictionary<string, string?>
@@ -150,12 +150,12 @@ public sealed class ModuleOptionsConfigurationTests
             ["MigrationPlatform:Modules:Nodes:AutoCreateNodes"] = "false"
         });
         var services = new ServiceCollection();
-        services.Configure<NodeStructureModuleOptions>(
-            config.GetSection(NodeStructureModuleOptions.SectionName));
+        services.Configure<NodesModuleOptions>(
+            config.GetSection(NodesModuleOptions.SectionName));
         var sp = services.BuildServiceProvider();
 
         // Act
-        var opts = sp.GetRequiredService<IOptions<NodeStructureModuleOptions>>().Value;
+        var opts = sp.GetRequiredService<IOptions<NodesModuleOptions>>().Value;
 
         // Assert
         Assert.IsTrue(opts.Enabled);
@@ -163,20 +163,20 @@ public sealed class ModuleOptionsConfigurationTests
         Assert.IsFalse(opts.AutoCreateNodes);
     }
 
-    // TODO: [test-validity] Score 13/25 — Tests property initialiser defaults. Rewrite to test: when NodeStructure
+    // TODO: [test-validity] Score 13/25 — Tests property initialiser defaults. Rewrite to test: when NodeTranslation
     // module is configured with defaults (Enabled:false), assert it writes nothing to the artefact store on ExportAsync.
     [TestMethod]
-    public void NodeStructureModuleOptions_DefaultsAreFalse()
+    public void NodesModuleOptions_DefaultsAreFalse()
     {
         // Arrange — empty config
         var config = BuildConfig(new Dictionary<string, string?>());
         var services = new ServiceCollection();
-        services.Configure<NodeStructureModuleOptions>(
-            config.GetSection(NodeStructureModuleOptions.SectionName));
+        services.Configure<NodesModuleOptions>(
+            config.GetSection(NodesModuleOptions.SectionName));
         var sp = services.BuildServiceProvider();
 
         // Act
-        var opts = sp.GetRequiredService<IOptions<NodeStructureModuleOptions>>().Value;
+        var opts = sp.GetRequiredService<IOptions<NodesModuleOptions>>().Value;
 
         // Assert
         Assert.IsFalse(opts.Enabled);
