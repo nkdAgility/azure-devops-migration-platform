@@ -28,7 +28,7 @@ When invoked manually, pass the target file or folder path. If no path is given,
 When this skill is active, inspect the target for compliance with every Definition of Done criterion and **fail explicitly** if any redline is violated.
 
 - **Document mode:** Inject or rewrite the `## Definition of Done` section to document which criteria are met and which are not. Useful for annotating a spec or plan with readiness status.
-- **Codebase mode:** Execute checks against the actual solution — build, test, code scan, file inspection — and produce an audit report listing pass/fail status per criterion. Does not fix violations automatically — reports findings with specific details and required actions.
+- **Codebase mode:** Execute checks against the actual solution — build, test, code scan, file inspection — and produce an audit report listing pass/fail status per criterion. In manual mode, does not fix violations — reports findings with specific details and required actions. In hook mode (invoked via `after_implement`), auto-fixes mechanical violations (see Step 0.5) and fails hard on violations that require human intervention.
 
 ---
 
@@ -70,7 +70,42 @@ Execute the following steps in order. Do not skip steps. Record every finding. A
 1. Examine the target path or context.
 2. If the target is a `.md` file, or the user asks to annotate a document → enter **Document mode**.
 3. If the target is a `.cs` file, `.csproj`, `.slnx`, folder, or the skill was invoked by a SpecKit hook → enter **Codebase mode**.
-4. Record the mode.
+4. If invoked by a SpecKit `after_implement` hook → also set **Hook mode = true**.
+5. Record the mode.
+
+### Step 0.5 — Hook Mode Auto-Fix (Codebase + Hook mode only)
+
+**Skip this step in manual mode. Only execute when Hook mode = true.**
+
+Auto-fix mechanical violations that have unambiguous correct actions. Apply fixes silently, then record each fix in the audit report under a "Auto-Fixed" section.
+
+| Violation | Auto-Fix Action |
+|---|---|
+| `Assert.Inconclusive()` found in test | Delete the entire test method (or the enclosing class if it becomes empty). These must not exist per guardrails. |
+| `[Ignore]` attribute on a test class or method | Remove the attribute. Forbidden in committed code. |
+| `@ignore` tag in a Gherkin `.feature` file | Remove the `@ignore` tag from the scenario. Forbidden in committed code. |
+
+**Do NOT auto-fix these** — they require human implementation or judgment:
+
+| Violation | Reason |
+|---|---|
+| `throw new NotImplementedException()` | Requires actual implementation, not deletion |
+| Missing connector implementation | Requires writing real code |
+| Build errors | Require developer diagnosis |
+| Missing documentation | Require content authoring |
+| Missing `launch.json` entries | Require developer decision |
+
+After auto-fixing, run `dotnet build` and `dotnet test` to confirm the fixes did not break anything. If they do break, restore the auto-fix (the violation was load-bearing — flag it as FAIL requiring manual resolution).
+
+Record all auto-fixes in the report under:
+
+```markdown
+### Auto-Fixed (Hook Mode)
+
+| File | Line | Violation | Action Taken |
+|---|---|---|---|
+| ... | ... | `Assert.Inconclusive()` | Deleted test method `MethodName` |
+```
 
 ### Step 1 — Gate 1: Build
 
@@ -385,6 +420,6 @@ Legend: ✅ = Pass, ❌ = Fail, ⬜ = Not yet verified
 - [ ] Documentation completeness was verified against tasks.md.
 - [ ] Compliance review compared implementation to relevant docs.
 - [ ] Required Actions list is prioritised (Critical > High > Medium).
-- [ ] No source files were modified without explicit user instruction.
+- [ ] No source files were modified without explicit user instruction (manual mode) or outside the auto-fix list (hook mode).
 
 The skill is not complete until all criteria are checked. Any unchecked criterion is a failure.
