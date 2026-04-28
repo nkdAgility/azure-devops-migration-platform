@@ -695,11 +695,18 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
         };
     }
 
+    // Only WorkItems events (or global job-engine events with no module) should update the
+    // WorkItems stage label. Events from Teams/Nodes/Identities must not overwrite it.
+    private static bool IsWorkItemsOrGlobalModule(ProgressEvent evt) =>
+        string.IsNullOrEmpty(evt.Module) || evt.Module == "WorkItems";
+
     private static JobProgressState ApplyStageAdvance(JobProgressState state, ProgressEvent evt) =>
         state with
         {
             LastEvent = evt,
-            Stage = string.IsNullOrEmpty(evt.Stage) ? state.Stage : evt.Stage,
+            Stage = IsWorkItemsOrGlobalModule(evt) && !string.IsNullOrEmpty(evt.Stage)
+                ? evt.Stage
+                : state.Stage,
             LastCheckpointAt = evt.LastCheckpointAt ?? state.LastCheckpointAt,
             NextCheckpointDueAt = evt.NextCheckpointDueAt ?? state.NextCheckpointDueAt,
         };
