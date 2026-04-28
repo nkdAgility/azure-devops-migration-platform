@@ -199,7 +199,7 @@
 - [ ] T050 [US1] Create TFS team bridge command in `src/DevOpsMigrationPlatform.TfsMigrationAgent/` — subprocess bridge for team operations
 - [X] T051 [US1] Update `src/DevOpsMigrationPlatform.Infrastructure.Simulated/SimulatedServiceCollectionExtensions.cs` — register team source/target
 - [X] T052 [P] [US1] Update `src/DevOpsMigrationPlatform.Infrastructure.AzureDevOps/ExportServiceCollectionExtensions.cs` — register team source/target
-- [ ] T053 [US1] Add cursor-based checkpointing to `TeamsModule.ExportAsync` — write `teams.cursor.json` after each team exported
+- [X] T053 [US1] Add cursor-based checkpointing to `TeamsModule.ExportAsync` — write `teams.cursor.json` after each team exported
 - [X] T053b [US1] Implement team scope/filter in `TeamsModule.ExportAsync` — support `"teams"` scope (with optional `filter` parameter for team name pattern matching) and `"all"` scope (all teams in the project) per FR-011. When filter is set, only matching teams are exported.
 - [ ] T053c [US1] Implement default team detection and mapping in `TeamsModule` — detect source project's default team by `isDefaultTeam` flag (not by name matching) and map it to the target project's default team during import, regardless of name differences (FR-016)
 
@@ -314,8 +314,8 @@
 **Purpose**: Verify all acceptance scenarios pass for all three connectors.
 
 - [X] T083 [US0–US5] Verify all acceptance scenarios pass with Simulated connector — run full test suite with Simulated DI registration
-- [ ] T084 [US0–US5] Verify all acceptance scenarios pass with AzureDevOps connector — run full test suite with ADO DI registration (requires live ADO org or recorded responses)
-- [ ] T085 [US0–US5] Verify all acceptance scenarios pass with TFS connector — run full test suite with TFS DI registration (capacity scenarios expected to gracefully skip on pre-2017.2)
+- [~] T084 [US0–US5] Verify all acceptance scenarios pass with AzureDevOps connector — run full test suite with ADO DI registration (requires live ADO org or recorded responses)
+- [~] T085 [US0–US5] Verify all acceptance scenarios pass with TFS connector — run full test suite with TFS DI registration (capacity scenarios expected to gracefully skip on pre-2017.2)
 
 **Checkpoint**: All three connectors verified. No stubs or placeholders remain.
 
