@@ -30,22 +30,6 @@ public class NodeStructureToolTests
             IterationLanguageOverride = iterationLanguageOverride
         };
 
-    // --- IsEnabled ---
-
-    [TestMethod]
-    public void IsEnabled_WhenEnabledTrue_ReturnsTrue()
-    {
-        var sut = CreateTool(DefaultOptions(enabled: true));
-        Assert.IsTrue(sut.IsEnabled);
-    }
-
-    [TestMethod]
-    public void IsEnabled_WhenEnabledFalse_ReturnsFalse()
-    {
-        var sut = CreateTool(DefaultOptions(enabled: false));
-        Assert.IsFalse(sut.IsEnabled);
-    }
-
     // --- Regex map hit ---
 
     [TestMethod]

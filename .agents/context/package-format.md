@@ -28,14 +28,19 @@ PackageRoot/
   Nodes/
     referenced-paths.json   ← all area/iteration paths referenced by exported work item revisions
     source-tree.json        ← full classification tree snapshot (area + iteration) from the source
+    prepare-report.json     ← written by PrepareAsync: node existence validation against target
   Teams/
+    prepare-report.json     ← written by PrepareAsync: team/group validation against target
   Permissions/
+    prepare-report.json     ← written by PrepareAsync: ACL compatibility validation against target
   Builds/
   Git/
   Identities/
+    prepare-report.json     ← written by PrepareAsync: identity auto-match and unresolved report
   .migration/
     Checkpoints/
       workitems.cursor.json
+      prepare.complete.json ← marker written when Prepare completes successfully; Import checks for this
       idmap.db              ← source→target work item ID mappings
       export_progress.db    ← per-WI export revision index (fast-forward resume)
     Logs/

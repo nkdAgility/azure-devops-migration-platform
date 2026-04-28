@@ -44,8 +44,8 @@ Silently working around a rule = violation. Blindly following a harmful rule = n
 9. **Config and schema versioning with upgrader.**
    Breaking changes to config or package schema require a version increment and a corresponding upgrader. There is no backwards compatibility without an upgrader.
 
-10. **Validate before import.**
-    In `Both` mode, a validation pass runs after export and before import. Import must not begin on a package that fails validation. Post-flight validation must also run after import. See [docs/validation.md](../../docs/validation.md) for the full check list and configuration.
+10. **Prepare before import.**
+    Import mode MUST verify that Prepare has completed by checking for `.migration/Checkpoints/prepare.complete.json`. If absent, Import auto-runs Prepare (each module's `PrepareAsync`). If Prepare finds any blocking issue, Import aborts. In `Migrate` mode, Prepare runs after Export and before Import; blocking issues abort the run. Structural validation (`ValidateAsync`) and Prepare are complementary: `ValidateAsync` checks package integrity (no side effects, no target needed), while `PrepareAsync` cross-validates the package against the specific target (writes mapping artefacts, needs target connection). Post-flight validation must also run after import. See [docs/validation.md](../../docs/validation.md) for the full check list and configuration.
 
 11. **The `ControlPlane` service must not execute migrations.**
     The `ControlPlane` service library accepts, stores, and assigns jobs. It does not call source or target APIs, run orchestrator logic, read or write the migration package, or unwrap secrets. `ControlPlaneHost` extends the control plane with agent lifecycle management but must not contain job execution logic. Violations break the separation between coordination (`ControlPlane`/`ControlPlaneHost`) and execution (`Agent`).

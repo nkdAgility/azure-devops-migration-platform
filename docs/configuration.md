@@ -9,7 +9,7 @@ A single JSON configuration file drives the entire run.
 ```json
 {
   "configVersion": "1.0",
-  "mode": "Export | Import | Both",
+  "mode": "Export | Prepare | Import | Migrate",
   "artefacts": {
     "path": "D:\\exports\\run-001",
     "zip": false
@@ -137,12 +137,12 @@ A single JSON configuration file drives the entire run.
 | Field | Required | Description |
 |---|---|---|
 | `configVersion` | Yes | Config schema version; used by the upgrader |
-| `mode` | Yes | `Export`, `Import`, or `Both` |
+| `mode` | Yes | `Export`, `Prepare`, `Import`, or `Migrate` |
 | `artefacts.path` | Yes | Absolute path to the package root directory |
 | `artefacts.zip` | No | If `true`, pack/unpack around the run; default `false` |
-| `source` | Required for `Export` and `Both`; Mode 1 inventory | Source system connection details. `type` must be one of `AzureDevOpsServices`, `TeamFoundationServer`, or `Simulated`. |
+| `source` | Required for `Export` and `Migrate`; Mode 1 inventory | Source system connection details. `type` must be one of `AzureDevOpsServices`, `TeamFoundationServer`, or `Simulated`. |
 | `source.authentication` | No | Auth credentials block (`type` + `accessToken`). If omitted, Windows-integrated auth is used. Not used for `Simulated` source type. |
-| `target` | Required for `Import` and `Both` | Target system connection details. `type` must be `AzureDevOpsServices` or `Simulated`. |
+| `target` | Required for `Prepare`, `Import`, and `Migrate` | Target system connection details. `type` must be `AzureDevOpsServices` or `Simulated`. |
 | `target.authentication` | No | Auth credentials block (`type` + `accessToken`). Not used for `Simulated` target type. |
 | `organisations` | Mode 2 inventory only | Multi-org tooling roster. Mutually exclusive with `source`. Each entry has `type`, `url`, `projects`, `authentication`, `enabled`, and an optional `scopes` array. |
 | `Tools` | No | Keyed object of shared tool declarations. Each key is the tool type name (e.g., `FieldTransform`), each value is tool-specific configuration. Extensions reference tools by key name. |

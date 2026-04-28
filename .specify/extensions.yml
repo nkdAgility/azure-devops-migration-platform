@@ -22,13 +22,19 @@ hooks:
     description: Inspect, validate, and amend the specification to ensure full implementation coverage across all three connectors (Simulated, AzureDevOps, TFS)
     condition: null
   after_plan:
-  - extension: architecture-review
-    command: architecture-review
+  - extension: plan-architecture-compliance
+    command: plan-architecture-compliance
     enabled: true
     optional: false
-    description: Run all five architecture perspective checks (Modular Monolith, Clean, Hexagonal, Vertical Slice, Screaming) before task generation begins
+    description: Design-time compliance review — validates spec.md and plan.md against all five architecture perspectives plus constitution and guardrails before task generation begins
     condition: null
   after_implement:
+  - extension: test-validity
+    command: test-validity
+    enabled: true
+    optional: false
+    description: Score every test for intrinsic value and delete WASTE tests before promotion analysis
+    condition: null
   - extension: test-promotion
     command: test-promotion
     enabled: true

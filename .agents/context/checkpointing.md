@@ -142,9 +142,9 @@ A lexicographic path comparison is **not used** for export because `AzureDevOpsW
 
 ---
 
-## Both-Mode Phase Tracking
+## Migrate-Mode Phase Tracking
 
-When a job runs in `Both` mode (export then import), a top-level phase record tracks whether each phase has completed. This allows a re-run to skip the export phase entirely if it already completed.
+When a job runs in `Migrate` mode (export → prepare → import), a top-level phase record tracks whether each phase has completed. This allows a re-run to skip completed phases entirely.
 
 ### Phase Record Location
 
@@ -157,16 +157,28 @@ When a job runs in `Both` mode (export then import), a top-level phase record tr
 ```json
 {
   "exportCompleted": true,
+  "prepareCompleted": true,
   "importCompleted": false,
   "updatedAt": "2026-04-10T12:34:56Z"
 }
 ```
 
-### Resume Logic (Both Mode)
+### Resume Logic (Migrate Mode)
 
 1. Read `.migration/Checkpoints/job.phase.json` before running any module.
-2. If `exportCompleted: true` → skip all export-phase modules; jump directly to import phase.
-3. If `importCompleted: true` → skip import-phase modules too; job is already complete.
-4. Otherwise run from the first incomplete phase, with each module resuming from its own cursor.
+2. If `exportCompleted: true` → skip all export-phase modules; jump to prepare phase.
+3. If `prepareCompleted: true` → skip prepare-phase modules; jump to import phase (but abort if blocking issues exist in prepare reports).
+4. If `importCompleted: true` → skip import-phase modules too; job is already complete.
+5. Otherwise run from the first incomplete phase, with each module resuming from its own cursor.
 
-The phase record is absent for `Export`-only or `Import`-only jobs. `PhaseTrackingService` returns a default record (both flags `false`) when the file is missing.
+The phase record is absent for `Export`-only, `Prepare`-only, or `Import`-only jobs. `PhaseTrackingService` returns a default record (all flags `false`) when the file is missing.
+
+### Prepare Checkpoint
+
+In addition to the phase record, a standalone marker file records successful Prepare completion:
+
+```
+.migration/Checkpoints/prepare.complete.json
+```
+
+Import mode checks for this marker. If absent, Import auto-runs Prepare first and aborts on any blocking issues.

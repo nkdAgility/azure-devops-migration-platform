@@ -63,8 +63,9 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
         return config.Mode switch
         {
             "Export" => await ExecuteExportAsync(config, settings, cancellationToken),
+            "Prepare" => await ExecutePrepareAsync(config, settings, cancellationToken),
             "Import" => await ExecuteImportAsync(config, settings, cancellationToken),
-            "Both" => await ExecuteBothAsync(config, settings, cancellationToken),
+            "Migrate" => await ExecuteMigrateAsync(config, settings, cancellationToken),
             _ => ExecuteInvalidMode(config.Mode)
         };
     }
@@ -200,18 +201,123 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
         return 1;
     }
 
-    private async Task<int> ExecuteBothAsync(MigrationOptions config, QueueCommandSettings settings, CancellationToken cancellationToken)
+    private async Task<int> ExecuteMigrateAsync(MigrationOptions config, QueueCommandSettings settings, CancellationToken cancellationToken)
     {
         var exportResult = await ExecuteExportAsync(config, settings, cancellationToken);
         if (exportResult != 0)
             return exportResult;
 
+        var prepareResult = await ExecutePrepareAsync(config, settings, cancellationToken);
+        if (prepareResult != 0)
+            return prepareResult;
+
         return await ExecuteImportAsync(config, settings, cancellationToken);
+    }
+
+    private async Task<int> ExecutePrepareAsync(MigrationOptions config, QueueCommandSettings settings, CancellationToken cancellationToken)
+    {
+        var console = GetRequiredService<IAnsiConsole>();
+
+        var packagePath = config.Package?.ExpandedPath;
+        if (string.IsNullOrWhiteSpace(packagePath))
+        {
+            ShowError(console, "Package.WorkingDirectory is required for prepare. Set it in the config file.");
+            return 1;
+        }
+
+        var outputPath = Path.GetFullPath(packagePath);
+        console.MarkupLine($"[blue]ℹ[/] Preparing package at [blue]{Markup.Escape(outputPath)}[/]");
+
+        var modules = BuildModules(config);
+
+        var job = new MigrationJob
+        {
+            JobId = Guid.NewGuid().ToString(),
+            Mode = "Prepare",
+            Source = config.Source,
+            Target = config.Target,
+            Package = new JobPackage
+            {
+                PackageUri = $"file:///{outputPath.Replace(Path.DirectorySeparatorChar, '/')}",
+                CreatePackage = config.Package!.CreatePackage
+            },
+            Modules = modules,
+            Diagnostics = new JobDiagnostics { MinimumLevel = settings.Level },
+            Resume = settings.ForceFresh ? new JobResume { Mode = ResumeMode.ForceFresh } : null
+        };
+
+        var envOpts = GetRequiredService<IOptions<EnvironmentOptions>>().Value;
+        var isStandaloneMode = envOpts.Type == EnvironmentType.Standalone;
+        var shouldFollow = settings.Follow || isStandaloneMode;
+
+        var client = GetRequiredService<ControlPlaneClient>();
+
+        if (!shouldFollow)
+        {
+            var jobId = await client.SubmitAsync(job, cancellationToken);
+            PrintJobSubmitted(console, jobId, GetControlPlaneUrl());
+            console.MarkupLine($"[grey]Use [blue]manage status --job {jobId}[/] to check progress.[/]");
+            return 0;
+        }
+
+        Guid parsedJobId;
+        try
+        {
+            parsedJobId = await client.SubmitAsync(job, cancellationToken);
+            PrintJobSubmitted(console, parsedJobId, GetControlPlaneUrl());
+        }
+        catch (Exception ex)
+        {
+            ShowError(console, $"Failed to submit job: {ex.Message}");
+            return 1;
+        }
+
+        ProgressEvent? lastEvt = null;
+        var jobFailed = false;
+        using var followCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        var followCtsDisposed = false;
+        ConsoleCancelEventHandler ctrlCHandler = (_, e) =>
+        {
+            e.Cancel = true;
+            if (!followCtsDisposed)
+                followCts.Cancel();
+        };
+        Console.CancelKeyPress += ctrlCHandler;
+
+        try
+        {
+            await foreach (var evt in client.FollowLogsAsync(parsedJobId, followCts.Token).ConfigureAwait(false))
+            {
+                lastEvt = evt;
+                console.MarkupLine($"[grey]{Markup.Escape(evt.Stage ?? string.Empty)}[/] {Markup.Escape(evt.Message ?? string.Empty)}");
+            }
+        }
+        catch (InvalidOperationException ex) when (ex.Message.Contains("Job failed"))
+        {
+            jobFailed = true;
+            ShowError(console, ex.Message);
+        }
+        catch (OperationCanceledException)
+        {
+            console.MarkupLine("[yellow]Detached from stream. Job continues running.[/]");
+            return 0;
+        }
+        finally
+        {
+            Console.CancelKeyPress -= ctrlCHandler;
+            followCtsDisposed = true;
+        }
+
+        await followCts.CancelAsync();
+        if (jobFailed) return 1;
+
+        ShowSuccess(console, "Prepare phase complete.");
+        return 0;
     }
 
     private int ExecuteInvalidMode(string mode)
     {
-        AnsiConsole.MarkupLine($"[red]Invalid mode '{Markup.Escape(mode)}'. Must be Export, Import, or Both.[/]");
+        AnsiConsole.MarkupLine($"[red]Invalid mode '{Markup.Escape(mode)}'. Must be Export, Prepare, Import, or Migrate.[/]");
         return 1;
     }
 

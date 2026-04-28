@@ -133,7 +133,7 @@ When watching a remote job, the TUI renders:
 
 ```
 Job:      550e8400-e29b-41d4-a716-446655440000
-Mode:     Both
+Mode:     Migrate
 State:    Running
 Agent:    migration-agent-pod-7d9f4
 

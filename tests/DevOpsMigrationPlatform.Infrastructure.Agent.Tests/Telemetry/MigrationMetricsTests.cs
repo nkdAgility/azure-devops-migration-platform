@@ -66,7 +66,9 @@ public class MigrationMetricsTests
         using var sut = new MigrationMetrics();
         sut.RecordWorkItemCompleted(CreateTestTags());
 
-        Assert.IsTrue(_recorded.Any(r => r.Name == WellKnownMetricNames.WorkItemsCompleted));
+        var entry = _recorded.Single(r => r.Name == WellKnownMetricNames.WorkItemsCompleted);
+        Assert.AreEqual(1L, entry.Value);
+        AssertHasTag(entry.Tags, "job.id", "test-job-1");
     }
 
     [TestMethod]
@@ -75,7 +77,9 @@ public class MigrationMetricsTests
         using var sut = new MigrationMetrics();
         sut.RecordWorkItemFailed(CreateTestTags());
 
-        Assert.IsTrue(_recorded.Any(r => r.Name == WellKnownMetricNames.WorkItemsFailed));
+        var entry = _recorded.Single(r => r.Name == WellKnownMetricNames.WorkItemsFailed);
+        Assert.AreEqual(1L, entry.Value);
+        AssertHasTag(entry.Tags, "job.id", "test-job-1");
     }
 
     [TestMethod]
@@ -84,7 +88,9 @@ public class MigrationMetricsTests
         using var sut = new MigrationMetrics();
         sut.RecordWorkItemRetried(CreateTestTags());
 
-        Assert.IsTrue(_recorded.Any(r => r.Name == WellKnownMetricNames.WorkItemsRetried));
+        var entry = _recorded.Single(r => r.Name == WellKnownMetricNames.WorkItemsRetried);
+        Assert.AreEqual(1L, entry.Value);
+        AssertHasTag(entry.Tags, "job.id", "test-job-1");
     }
 
     [TestMethod]
@@ -115,7 +121,9 @@ public class MigrationMetricsTests
         using var sut = new MigrationMetrics();
         sut.RecordAttachmentCount(3, CreateTestTags());
 
-        Assert.IsTrue(_recorded.Any(r => r.Name == WellKnownMetricNames.AttachmentCount));
+        var entry = _recorded.Single(r => r.Name == WellKnownMetricNames.AttachmentCount);
+        Assert.AreEqual(3, entry.Value);
+        AssertHasTag(entry.Tags, "job.id", "test-job-1");
     }
 
     [TestMethod]
@@ -124,7 +132,9 @@ public class MigrationMetricsTests
         using var sut = new MigrationMetrics();
         sut.RecordLinkCount(8, CreateTestTags());
 
-        Assert.IsTrue(_recorded.Any(r => r.Name == WellKnownMetricNames.LinkCount));
+        var entry = _recorded.Single(r => r.Name == WellKnownMetricNames.LinkCount);
+        Assert.AreEqual(8, entry.Value);
+        AssertHasTag(entry.Tags, "job.id", "test-job-1");
     }
 
     [TestMethod]
@@ -133,7 +143,9 @@ public class MigrationMetricsTests
         using var sut = new MigrationMetrics();
         sut.RecordRevisionCount(12, CreateTestTags());
 
-        Assert.IsTrue(_recorded.Any(r => r.Name == WellKnownMetricNames.RevisionCount));
+        var entry = _recorded.Single(r => r.Name == WellKnownMetricNames.RevisionCount);
+        Assert.AreEqual(12, entry.Value);
+        AssertHasTag(entry.Tags, "job.id", "test-job-1");
     }
 
     [TestMethod]
@@ -154,7 +166,9 @@ public class MigrationMetricsTests
         using var sut = new MigrationMetrics();
         sut.RecordRevisionSourceCount(10, CreateTestTags());
 
-        Assert.IsTrue(_recorded.Any(r => r.Name == WellKnownMetricNames.RevisionSourceCount));
+        var entry = _recorded.Single(r => r.Name == WellKnownMetricNames.RevisionSourceCount);
+        Assert.AreEqual(10, entry.Value);
+        AssertHasTag(entry.Tags, "job.id", "test-job-1");
     }
 
     [TestMethod]
@@ -163,7 +177,9 @@ public class MigrationMetricsTests
         using var sut = new MigrationMetrics();
         sut.RecordRevisionTargetCount(10, CreateTestTags());
 
-        Assert.IsTrue(_recorded.Any(r => r.Name == WellKnownMetricNames.RevisionTargetCount));
+        var entry = _recorded.Single(r => r.Name == WellKnownMetricNames.RevisionTargetCount);
+        Assert.AreEqual(10, entry.Value);
+        AssertHasTag(entry.Tags, "job.id", "test-job-1");
     }
 
     [TestMethod]
@@ -182,7 +198,9 @@ public class MigrationMetricsTests
         using var sut = new MigrationMetrics();
         sut.RecordRevisionsMissing(CreateTestTags());
 
-        Assert.IsTrue(_recorded.Any(r => r.Name == WellKnownMetricNames.RevisionsMissing));
+        var entry = _recorded.Single(r => r.Name == WellKnownMetricNames.RevisionsMissing);
+        Assert.AreEqual(1L, entry.Value);
+        AssertHasTag(entry.Tags, "job.id", "test-job-1");
     }
 
     [TestMethod]
@@ -191,7 +209,9 @@ public class MigrationMetricsTests
         using var sut = new MigrationMetrics();
         sut.RecordRevisionOrderError(CreateTestTags());
 
-        Assert.IsTrue(_recorded.Any(r => r.Name == WellKnownMetricNames.RevisionOrderErrors));
+        var entry = _recorded.Single(r => r.Name == WellKnownMetricNames.RevisionOrderErrors);
+        Assert.AreEqual(1L, entry.Value);
+        AssertHasTag(entry.Tags, "job.id", "test-job-1");
     }
 
     [TestMethod]
@@ -200,7 +220,9 @@ public class MigrationMetricsTests
         using var sut = new MigrationMetrics();
         sut.RecordBrokenLink(CreateTestTags());
 
-        Assert.IsTrue(_recorded.Any(r => r.Name == WellKnownMetricNames.BrokenLinks));
+        var entry = _recorded.Single(r => r.Name == WellKnownMetricNames.BrokenLinks);
+        Assert.AreEqual(1L, entry.Value);
+        AssertHasTag(entry.Tags, "job.id", "test-job-1");
     }
 
     [TestMethod]
@@ -209,7 +231,9 @@ public class MigrationMetricsTests
         using var sut = new MigrationMetrics();
         sut.RecordMissingWorkItem(CreateTestTags());
 
-        Assert.IsTrue(_recorded.Any(r => r.Name == WellKnownMetricNames.MissingWorkItems));
+        var entry = _recorded.Single(r => r.Name == WellKnownMetricNames.MissingWorkItems);
+        Assert.AreEqual(1L, entry.Value);
+        AssertHasTag(entry.Tags, "job.id", "test-job-1");
     }
 
     // --- In-Flight ---
@@ -239,7 +263,9 @@ public class MigrationMetricsTests
         using var sut = new MigrationMetrics();
         sut.RecordDuplicated(CreateTestTags());
 
-        Assert.IsTrue(_recorded.Any(r => r.Name == WellKnownMetricNames.Duplicated));
+        var entry = _recorded.Single(r => r.Name == WellKnownMetricNames.Duplicated);
+        Assert.AreEqual(1L, entry.Value);
+        AssertHasTag(entry.Tags, "job.id", "test-job-1");
     }
 
     [TestMethod]
@@ -248,7 +274,9 @@ public class MigrationMetricsTests
         using var sut = new MigrationMetrics();
         sut.RecordChangedOnRerun(CreateTestTags());
 
-        Assert.IsTrue(_recorded.Any(r => r.Name == WellKnownMetricNames.ChangedOnRerun));
+        var entry = _recorded.Single(r => r.Name == WellKnownMetricNames.ChangedOnRerun);
+        Assert.AreEqual(1L, entry.Value);
+        AssertHasTag(entry.Tags, "job.id", "test-job-1");
     }
 
     [TestMethod]
@@ -257,7 +285,9 @@ public class MigrationMetricsTests
         using var sut = new MigrationMetrics();
         sut.RecordReprocessedAfterResume(CreateTestTags());
 
-        Assert.IsTrue(_recorded.Any(r => r.Name == WellKnownMetricNames.ReprocessedAfterResume));
+        var entry = _recorded.Single(r => r.Name == WellKnownMetricNames.ReprocessedAfterResume);
+        Assert.AreEqual(1L, entry.Value);
+        AssertHasTag(entry.Tags, "job.id", "test-job-1");
     }
 
     [TestMethod]
@@ -266,7 +296,9 @@ public class MigrationMetricsTests
         using var sut = new MigrationMetrics();
         sut.RecordDuplicatedAfterResume(CreateTestTags());
 
-        Assert.IsTrue(_recorded.Any(r => r.Name == WellKnownMetricNames.DuplicatedAfterResume));
+        var entry = _recorded.Single(r => r.Name == WellKnownMetricNames.DuplicatedAfterResume);
+        Assert.AreEqual(1L, entry.Value);
+        AssertHasTag(entry.Tags, "job.id", "test-job-1");
     }
 
     [TestMethod]
@@ -275,7 +307,9 @@ public class MigrationMetricsTests
         using var sut = new MigrationMetrics();
         sut.RecordMissingAfterResume(CreateTestTags());
 
-        Assert.IsTrue(_recorded.Any(r => r.Name == WellKnownMetricNames.MissingAfterResume));
+        var entry = _recorded.Single(r => r.Name == WellKnownMetricNames.MissingAfterResume);
+        Assert.AreEqual(1L, entry.Value);
+        AssertHasTag(entry.Tags, "job.id", "test-job-1");
     }
 
     // --- Tag verification ---

@@ -103,20 +103,6 @@ public class ExceptionSanitizerTests
     }
 
     [TestMethod]
-    public void SanitizeException_WithNullException_ReturnsSanitized()
-    {
-        // Arrange
-        Exception? ex = null;
-
-        // Act
-        var result = ExceptionSanitizer.SanitizeException(ex!);
-
-        // Assert
-        // Null exception is handled appropriately by the sanitizer
-        Assert.IsTrue(true, "Null exception handled gracefully");
-    }
-
-    [TestMethod]
     public void SanitizeMessage_WithServerError_ReturnsUnchanged()
     {
         // Arrange

@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using DevOpsMigrationPlatform.Abstractions.Jobs;
 
@@ -36,73 +37,28 @@ namespace DevOpsMigrationPlatform.Abstractions.Tests.Errors
         }
 
         [TestMethod]
-        public void ExitCode_UnknownCategory_Returns1()
+        public void AllCategories_HaveExpectedExitCodes()
         {
-            var ex = new MigrationException("An error occurred", MigrationErrorCategory.Unknown);
-            Assert.AreEqual(1, ex.ExitCode);
-        }
+            var expected = new Dictionary<MigrationErrorCategory, int>
+            {
+                { MigrationErrorCategory.Unknown,           1   },
+                { MigrationErrorCategory.Authentication,    2   },
+                { MigrationErrorCategory.RateLimited,       3   },
+                { MigrationErrorCategory.ValidationError,   4   },
+                { MigrationErrorCategory.Transient,         5   },
+                { MigrationErrorCategory.ResourceCapacity,  6   },
+                { MigrationErrorCategory.RemoteServerError, 7   },
+                { MigrationErrorCategory.DataIntegrity,     8   },
+                { MigrationErrorCategory.NotSupported,      9   },
+                { MigrationErrorCategory.Canceled,          128 },
+            };
 
-        [TestMethod]
-        public void ExitCode_AuthenticationCategory_Returns2()
-        {
-            var ex = new MigrationException("Auth failed", MigrationErrorCategory.Authentication);
-            Assert.AreEqual(2, ex.ExitCode);
-        }
-
-        [TestMethod]
-        public void ExitCode_RateLimitedCategory_Returns3()
-        {
-            var ex = new MigrationException("Rate limit exceeded", MigrationErrorCategory.RateLimited);
-            Assert.AreEqual(3, ex.ExitCode);
-        }
-
-        [TestMethod]
-        public void ExitCode_ValidationErrorCategory_Returns4()
-        {
-            var ex = new MigrationException("Bad data", MigrationErrorCategory.ValidationError);
-            Assert.AreEqual(4, ex.ExitCode);
-        }
-
-        [TestMethod]
-        public void ExitCode_TransientCategory_Returns5()
-        {
-            var ex = new MigrationException("Network error", MigrationErrorCategory.Transient);
-            Assert.AreEqual(5, ex.ExitCode);
-        }
-
-        [TestMethod]
-        public void ExitCode_ResourceCapacityCategory_Returns6()
-        {
-            var ex = new MigrationException("Out of space", MigrationErrorCategory.ResourceCapacity);
-            Assert.AreEqual(6, ex.ExitCode);
-        }
-
-        [TestMethod]
-        public void ExitCode_RemoteServerErrorCategory_Returns7()
-        {
-            var ex = new MigrationException("Server error", MigrationErrorCategory.RemoteServerError);
-            Assert.AreEqual(7, ex.ExitCode);
-        }
-
-        [TestMethod]
-        public void ExitCode_DataIntegrityCategory_Returns8()
-        {
-            var ex = new MigrationException("Data corrupt", MigrationErrorCategory.DataIntegrity);
-            Assert.AreEqual(8, ex.ExitCode);
-        }
-
-        [TestMethod]
-        public void ExitCode_NotSupportedCategory_Returns9()
-        {
-            var ex = new MigrationException("Feature not available", MigrationErrorCategory.NotSupported);
-            Assert.AreEqual(9, ex.ExitCode);
-        }
-
-        [TestMethod]
-        public void ExitCode_CanceledCategory_Returns128()
-        {
-            var ex = new MigrationException("Operation canceled", MigrationErrorCategory.Canceled);
-            Assert.AreEqual(128, ex.ExitCode);
+            foreach (var (category, expectedCode) in expected)
+            {
+                var ex = new MigrationException("test", category);
+                Assert.AreEqual(expectedCode, ex.ExitCode,
+                    $"Category {category} should have exit code {expectedCode}");
+            }
         }
 
         [TestMethod]
@@ -164,13 +120,6 @@ namespace DevOpsMigrationPlatform.Abstractions.Tests.Errors
             );
 
             Assert.AreEqual(inner, ex.InnerException);
-        }
-
-        [TestMethod]
-        public void BaseException_InheritancePreserved()
-        {
-            var ex = new MigrationException("Test error", MigrationErrorCategory.ValidationError);
-            Assert.IsInstanceOfType(ex, typeof(Exception));
         }
 
         [TestMethod]

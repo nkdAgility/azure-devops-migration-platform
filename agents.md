@@ -23,8 +23,9 @@ Source → Files → Target
 
 Modes:
 - Export
+- Prepare
 - Import
-- Both
+- Migrate
 
 The filesystem package is the source of truth.
 

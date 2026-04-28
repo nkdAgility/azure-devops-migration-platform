@@ -11,7 +11,7 @@ See [docs/cli.md](cli.md) for how the CLI routes a job to the Job Engine. See [.
 1. **Validate job** — Check `MigrationJob` schema, `configVersion` compatibility, and `guardrails` values.
 2. **Validate package** — Run each module's `ValidateAsync` (pre-execution pass). Fail fast on errors.
 3. **Build module dependency graph** — Topological sort of all enabled modules using `DependsOn` declarations. Fail fast on circular dependencies.
-4. **Execute modules in order** — Run each module's `ExportAsync`, `ImportAsync`, or both, depending on `mode`.
+4. **Execute modules in order** — Run each module's `ExportAsync`, `PrepareAsync`, `ImportAsync`, or a combination, depending on `mode`.
 5. **Maintain state via cursors** — Each module writes its cursor after each unit of work via `IStateStore`.
 6. **Emit progress events** — After each cursor write, emit a `ProgressEvent` to `IProgressSink`.
 6a. **Record metrics** — After each work item processing step, record OTel metrics via `IMigrationMetrics` (execution counters, payload histograms, duration).
@@ -29,30 +29,47 @@ Validate job → Build graph → ExportAsync (each module) → Done
 - `target` is ignored.
 - Package is written to the URI in `artefacts.packageUri`.
 
+#### Prepare Mode
+
+```
+Validate job → Validate package → Build graph → PrepareAsync (each module) → Write prepare.complete.json → Done
+```
+
+- Requires a completed Export (package must exist with `manifest.json`).
+- Only `target` connection is required (reads the package, queries the target).
+- `source` is ignored.
+- Each module's `PrepareAsync` reads exported artefacts from the package, queries the target system, and writes validation/mapping artefacts into the module's own folder (e.g. `Identities/prepare-report.json`, `Nodes/prepare-report.json`).
+- On successful completion, writes `.migration/Checkpoints/prepare.complete.json` as the completion marker.
+- Prepare is **idempotent** — re-running overwrites Prepare output artefacts but never modifies operator-edited mapping files (e.g. `Identities/mapping.json`).
+- Any unresolved issue (unmapped identity, missing node, unmapped field) is a **blocking error** unless the operator has added an explicit skip annotation to the relevant mapping file.
+
 #### Import Mode
 
 ```
-Validate job → Build graph → ImportAsync (each module) → Done
+Validate job → Check Prepare gate → Build graph → ImportAsync (each module) → Done
 ```
 
 - Only `target` connection is required.
 - `source` is ignored.
 - Package is read from the URI in `artefacts.packageUri`.
+- **Prepare gate**: Before building the module graph, the orchestrator checks for `.migration/Checkpoints/prepare.complete.json`. If the marker is absent, the orchestrator **auto-runs Prepare** (runs `PrepareAsync` for each module). If Prepare produces any blocking issues, the orchestrator **aborts** with a diagnostic report and does not proceed to Import. The operator must resolve the issues and re-run Import (or run `prepare` explicitly).
 
-#### Both Mode
+#### Migrate Mode
 
 ```
-Validate job → Build graph → ExportAsync → Validate package → ImportAsync → Done
+Validate job → Build graph → ExportAsync → Validate package → PrepareAsync (each module) → Check for blocking issues → ImportAsync (each module) → Done
 ```
 
 - Both `source` and `target` connections are required.
-- A validation step runs between export and import to catch any package integrity issues before the import begins.
+- Runs Export, then Prepare, then Import in a single orchestrated run.
+- If Prepare produces any blocking issues, the orchestrator **aborts** after Prepare and does not proceed to Import. The operator must resolve the issues and re-run (with `mode: Import` to skip re-export, or `mode: Migrate` to repeat the full cycle).
 
 ### Validate Step Placement
 
 - Config validation runs **before** any module executes (fail fast on bad config).
-- Package validation in `Both` mode runs **after** all exports complete and **before** any imports begin.
+- Package validation in `Migrate` mode runs **after** all exports complete and **before** Prepare begins.
 - Each module's `ValidateAsync` is called as part of the pre-execution validation pass.
+- Prepare validation (the Prepare gate) runs **before** any import in `Import` mode and **after** all Prepare modules complete in `Migrate` mode.
 
 ### Fail-Fast Rules
 

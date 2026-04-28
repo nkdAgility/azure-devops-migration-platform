@@ -121,7 +121,7 @@ public class SimulatedMigrationCommandTests
         Assert.AreEqual(0, result.ExitCode,
             $"CLI exited with code {result.ExitCode}. STDOUT:\n{result.StandardOutput}\nSTDERR:\n{result.StandardError}");
 
-        // Roundtrip should produce a package (Both mode = export + import)
+        // Roundtrip should produce a package (Migrate mode = export + prepare + import)
         // (org/project nesting places it under <outputDir>/<org>/<project>/WorkItems/)
         var workItemsDirs = Directory.GetDirectories(outputDir, "workitems", SearchOption.AllDirectories);
         Assert.IsTrue(workItemsDirs.Length > 0,
@@ -133,77 +133,12 @@ public class SimulatedMigrationCommandTests
     }
 
     // ─────────────────────────────────────────────────────────────────────
-    // Spec 007 Observability verification (T010, T015, T055)
+    // Spec 007 Observability verification (T010+T015+T055 consolidated)
     // ─────────────────────────────────────────────────────────────────────
 
     /// <summary>
-    /// T010: Verifies .migration/Logs/progress.jsonl exists in the package after export.
-    /// </summary>
-    [TestMethod]
-    [TestCategory("SystemTest")]
-    [TestCategory("SystemTest_Simulated")]
-    [Timeout(120_000)]
-    public async Task QueueExportSimulated_ProducesProgressJsonl()
-    {
-        var outputDir = Path.Combine(
-            CliRunner.FindRepoRoot(), "storage", "queue-export-workitems-simulated-source");
-
-        if (Directory.Exists(outputDir))
-            Directory.Delete(outputDir, recursive: true);
-
-        var result = await CliRunner.RunAsync(
-            args: ["queue", "--config", "scenarios/queue-export-workitems-simulated-source.json", "--force-fresh"],
-            timeout: TimeSpan.FromMinutes(1));
-
-        Assert.IsFalse(result.TimedOut, "CLI timed out.");
-        Assert.AreEqual(0, result.ExitCode,
-            $"CLI exited with code {result.ExitCode}.");
-
-        // Job-scoped log folder: .migration/Logs/<ticks>-<jobId>/progress.jsonl
-        var progressFiles = Directory.GetFiles(outputDir, "progress.jsonl", SearchOption.AllDirectories);
-        Assert.IsTrue(progressFiles.Length > 0,
-            $"Expected progress.jsonl to exist somewhere under {outputDir}");
-
-        var lines = File.ReadAllLines(progressFiles[0]);
-        Assert.IsTrue(lines.Length >= 1,
-            "progress.jsonl must contain at least one NDJSON record per module stage transition.");
-    }
-
-    /// <summary>
-    /// T015: Verifies .migration/Logs/agent.jsonl exists in the package after export.
-    /// </summary>
-    [TestMethod]
-    [TestCategory("SystemTest")]
-    [TestCategory("SystemTest_Simulated")]
-    [Timeout(120_000)]
-    public async Task QueueExportSimulated_ProducesAgentJsonl()
-    {
-        var outputDir = Path.Combine(
-            CliRunner.FindRepoRoot(), "storage", "queue-export-workitems-simulated-source");
-
-        if (Directory.Exists(outputDir))
-            Directory.Delete(outputDir, recursive: true);
-
-        var result = await CliRunner.RunAsync(
-            args: ["queue", "--config", "scenarios/queue-export-workitems-simulated-source.json", "--force-fresh"],
-            timeout: TimeSpan.FromMinutes(1));
-
-        Assert.IsFalse(result.TimedOut, "CLI timed out.");
-        Assert.AreEqual(0, result.ExitCode,
-            $"CLI exited with code {result.ExitCode}.");
-
-        // Job-scoped log folder: .migration/Logs/<ticks>-<jobId>/agent.jsonl
-        var agentFiles = Directory.GetFiles(outputDir, "agent.jsonl", SearchOption.AllDirectories);
-        Assert.IsTrue(agentFiles.Length > 0,
-            $"Expected agent.jsonl to exist somewhere under {outputDir}");
-
-        var lines = File.ReadAllLines(agentFiles[0]);
-        Assert.IsTrue(lines.Length >= 1,
-            "agent.jsonl must contain at least one structured NDJSON record at Warning+ level.");
-    }
-
-    /// <summary>
-    /// T055: Verifies both progress.jsonl and agent.jsonl are produced in a single run.
+    /// T010+T015+T055: Verifies both progress.jsonl and agent.jsonl are produced
+    /// in a single run and each contains at least one NDJSON record.
     /// </summary>
     [TestMethod]
     [TestCategory("SystemTest")]
@@ -233,8 +168,13 @@ public class SimulatedMigrationCommandTests
         var progressFiles = Directory.GetFiles(outputDir, "progress.jsonl", SearchOption.AllDirectories);
         Assert.IsTrue(progressFiles.Length > 0,
             "progress.jsonl missing.");
+        Assert.IsTrue(File.ReadAllLines(progressFiles[0]).Length >= 1,
+            "progress.jsonl must contain at least one NDJSON record per module stage transition.");
+
         var agentFiles = Directory.GetFiles(outputDir, "agent.jsonl", SearchOption.AllDirectories);
         Assert.IsTrue(agentFiles.Length > 0,
             "agent.jsonl missing.");
+        Assert.IsTrue(File.ReadAllLines(agentFiles[0]).Length >= 1,
+            "agent.jsonl must contain at least one structured NDJSON record at Warning+ level.");
     }
 }

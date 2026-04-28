@@ -21,8 +21,8 @@ Submit and drive migration jobs via the control plane. Each command creates or q
 
 | Command | Settings Key | Description |
 |---------|-------------|-------------|
-| `prepare` | `MigrationCommandSettings` | Submit a lightweight probe job through the full pipeline (CLI → Control Plane → Agent → ArtefactStore) to validate that permissions, configuration, and connectivity work end-to-end. The agent writes a single probe file to the artefact store and completes. |
-| `queue` | `QueueCommandSettings` | Submit a migration job. Behaviour is determined by the `mode` field in the config (`Export`, `Import`, or `Both`). `--follow` streams diagnostic logs inline. `--level` sets the agent's diagnostic minimum level. `--force-fresh` deletes module cursor(s) before running so enumeration restarts from the beginning (identity map preserved). |
+| `prepare` | `MigrationCommandSettings` | Submit a Prepare job through the full pipeline (CLI → Control Plane → Agent). The agent reads the exported package, connects to the target, and runs each module's `PrepareAsync` to cross-validate before import. Produces validation artefacts (identity mapping reports, node validation, field mapping reports) in each module's package folder for operator review. Any unresolved issue is blocking unless the operator adds an explicit skip. Idempotent — re-running overwrites Prepare output but preserves operator-edited mapping files. Requires a completed Export (package with `manifest.json`). |
+| `queue` | `QueueCommandSettings` | Submit a migration job. Behaviour is determined by the `mode` field in the config (`Export`, `Prepare`, `Import`, or `Migrate`). `--follow` streams diagnostic logs inline. `--level` sets the agent's diagnostic minimum level. `--force-fresh` deletes module cursor(s) before running so enumeration restarts from the beginning (identity map preserved). |
 
 ### 2. Job Management Commands (`manage`)
 
@@ -119,7 +119,7 @@ The interactive prompt runs inside the command's `ExecuteInternalAsync` (before 
 
 | Option | Default | Description |
 |--------|---------|-------------|
-| `--force-fresh` | `false` | Delete module cursor file(s) (and the job phase record for `Both` mode) before job execution. Enumeration restarts from the beginning. The identity map (`.migration/Checkpoints/idmap.json`) is **not** deleted so no duplicate items are created in the target. |
+| `--force-fresh` | `false` | Delete module cursor file(s) (and the job phase record for `Migrate` mode) before job execution. Enumeration restarts from the beginning. The identity map (`.migration/Checkpoints/idmap.json`) is **not** deleted so no duplicate items are created in the target. |
 
 ## Control Plane Endpoint Resolution (control-plane commands only)
 

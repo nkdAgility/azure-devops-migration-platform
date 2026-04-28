@@ -48,37 +48,19 @@ public class DataClassificationScopeTests
     }
 
     [TestMethod]
-    public void DataClassificationState_HasCorrectKeyAndValue()
+    public void DataClassificationState_HasCorrectLoggingScopeShape()
     {
         var state = new DataClassificationState(DataClassification.Customer);
 
+        // Must expose exactly one key-value pair for ILogger.BeginScope to work
         Assert.AreEqual(1, state.Count);
-        Assert.AreEqual(DataClassificationScope.ScopeKey, state[0].Key);
-        Assert.AreEqual("Customer", state[0].Value);
-    }
+        var pair = state[0];
+        Assert.AreEqual(DataClassificationScope.ScopeKey, pair.Key);
+        Assert.AreEqual(DataClassification.Customer.ToString(), pair.Value);
 
-    [TestMethod]
-    public void DataClassificationState_IsEnumerable()
-    {
-        var state = new DataClassificationState(DataClassification.Derived);
-        var items = new List<KeyValuePair<string, object>>();
-
-        foreach (var item in state)
-        {
-            items.Add(item);
-        }
-
+        // Must be enumerable (IReadOnlyList contract)
+        var items = new System.Collections.Generic.List<System.Collections.Generic.KeyValuePair<string, object>>();
+        foreach (var item in state) items.Add(item);
         Assert.AreEqual(1, items.Count);
-        Assert.AreEqual("Derived", items[0].Value);
-    }
-
-    [TestMethod]
-    public void DataClassificationState_ToString_ContainsKeyAndValue()
-    {
-        var state = new DataClassificationState(DataClassification.System);
-        var str = state.ToString();
-
-        Assert.IsTrue(str.Contains("DataClassification"));
-        Assert.IsTrue(str.Contains("System"));
     }
 }

@@ -13,13 +13,6 @@ public class MigrationExportCommandTests
 {
     // ── Unit tests ─────────────────────────────────────────────────────────
 
-    [TestMethod]
-    public void QueueCommand_CanBeConstructed_WithParameterlessConstructor()
-    {
-        var command = new DevOpsMigrationPlatform.CLI.Migration.Commands.QueueCommand();
-        Assert.IsNotNull(command);
-    }
-
     // ── System tests ───────────────────────────────────────────────────────
 
     /// <summary>

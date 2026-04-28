@@ -76,13 +76,4 @@ public class WellKnownMetricNamesTests
             $"Duplicate metric names found: {string.Join(", ", values.GroupBy(v => v).Where(g => g.Count() > 1).Select(g => g.Key))}");
     }
 
-    [TestMethod]
-    public void ConstantCount_Matches24Instruments()
-    {
-        // Per spec SC-001: 24 total instruments + 2 attachment download instruments added in export-fix
-        // + 5 FieldTransform instruments added in spec 022
-        // + NodeStructure instruments added in spec 023
-        Assert.AreEqual(53, AllConstants.Length,
-            $"Expected 53 metric name constants but found {AllConstants.Length}.");
-    }
 }

@@ -17,21 +17,6 @@ public class PrepareCommandTests
 {
     // ── Unit tests ─────────────────────────────────────────────────────────
 
-    [TestMethod]
-    public void PrepareCommand_CanBeConstructed_WithParameterlessConstructor()
-    {
-        var command = new DevOpsMigrationPlatform.CLI.Commands.PrepareCommand();
-        Assert.IsNotNull(command);
-    }
-
-    [TestMethod]
-    public void PrepareCommand_UsesCorrectSettingsType()
-    {
-        var command = new DevOpsMigrationPlatform.CLI.Commands.PrepareCommand();
-        // PrepareCommand inherits ControlPlaneCommandBase<MigrationCommandSettings>
-        Assert.IsInstanceOfType<Spectre.Console.Cli.ICommand>(command);
-    }
-
     // ── System tests ───────────────────────────────────────────────────────
 
     /// <summary>

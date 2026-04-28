@@ -13,13 +13,6 @@ public class InventoryCommandTests
 {
     // -- Unit tests --
 
-    [TestMethod]
-    public void InventoryCommand_CanBeConstructed_WithParameterlessConstructor()
-    {
-        var command = new InventoryCommand();
-        Assert.IsNotNull(command);
-    }
-
     // -- System tests --
 
     [TestMethod]
@@ -116,7 +109,7 @@ public class InventoryCommandTests
 
         if (string.IsNullOrEmpty(org) || string.IsNullOrEmpty(pat))
         {
-            Assert.Inconclusive(
+            Assert.Fail(
                 "System test skipped: AZDEVOPS_SYSTEM_TEST_ORG and AZDEVOPS_SYSTEM_TEST_PAT required. " +
                 "See docs/contributors.md for setup instructions.");
             return;
@@ -137,30 +130,4 @@ public class InventoryCommandTests
             $"CLI exited with code {result.ExitCode} in CI environment.");
     }
 
-    // ─────────────────────────────────────────────────────────────────────
-    // T022: Missing secrets → graceful skip
-    // ─────────────────────────────────────────────────────────────────────
-
-    [TestMethod]
-    [TestCategory("SystemTest")]
-    public void InventoryCommand_SystemTest_MissingSecrets_ContinuesPipeline()
-    {
-        // This test validates the pattern: when secrets are missing,
-        // SystemTest_Live tests report Inconclusive rather than failing the pipeline.
-        var org = Environment.GetEnvironmentVariable("AZDEVOPS_SYSTEM_TEST_ORG");
-        var pat = Environment.GetEnvironmentVariable("AZDEVOPS_SYSTEM_TEST_PAT");
-
-        if (string.IsNullOrEmpty(org) || string.IsNullOrEmpty(pat))
-        {
-            // Expected path in CI without secrets: test is inconclusive, pipeline continues.
-            Assert.Inconclusive(
-                "Expected: no live ADO credentials available. Pipeline should continue. " +
-                "See docs/contributors.md for local setup.");
-        }
-        else
-        {
-            // When secrets ARE available, this test passes unconditionally.
-            Assert.IsTrue(true, "Secrets available — live tests will run.");
-        }
-    }
 }

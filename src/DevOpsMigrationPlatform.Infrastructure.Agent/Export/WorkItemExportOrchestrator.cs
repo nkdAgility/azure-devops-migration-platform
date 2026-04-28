@@ -175,9 +175,19 @@ public sealed class WorkItemExportOrchestrator
             await exportProgressStore.InitializeAsync(cancellationToken).ConfigureAwait(false);
 #endif
 
-        // Seed counters from cursor so progress is accurate on resume.
-        int workItemsProcessed = cursor?.WorkItemsProcessed ?? 0;
-        int revisionsProcessed = cursor?.RevisionsProcessed ?? 0;
+        // Do NOT seed workItemsProcessed / revisionsProcessed from the cursor.
+        //
+        // On resume the fast-forward skip paths (progress-store and ExistsAsync) count
+        // previously-exported work items in workItemsSkipped.  The progress bar uses
+        //   processed = Completed + Skipped
+        // so seeding Completed from cursor.WorkItemsProcessed would double-count those
+        // items and push `processed` above totalWorkItems (> 100 %).
+        //
+        // Instead, both counters start at zero each run and the cursor accumulates the
+        // cumulative total when it is written (see below).  The log messages above still
+        // show the cursor's historical counts for operator visibility.
+        int workItemsProcessed = 0;
+        int revisionsProcessed = 0;
         int lastWorkItemId = cursor?.LastWorkItemId ?? 0;
         double lastWorkItemDurationMs = 0;
         double totalWorkItemDurationMs = 0;
@@ -812,13 +822,17 @@ public sealed class WorkItemExportOrchestrator
 
             previousAttachmentUrls = currentAttachmentUrls;
 
+            // Accumulate historical counts from the cursor so the persisted value always
+            // reflects the cumulative total across all runs, not just this run's exports.
+            // This keeps the "Resuming from cursor — N work items already exported" log
+            // message accurate on subsequent resumes.
             var newCursor = new CursorEntry
             {
                 LastProcessed = folderPath,
                 Stage = CursorStage.Completed,
                 UpdatedAt = DateTimeOffset.UtcNow,
-                WorkItemsProcessed = workItemsProcessed,
-                RevisionsProcessed = revisionsProcessed,
+                WorkItemsProcessed = (cursor?.WorkItemsProcessed ?? 0) + workItemsProcessed,
+                RevisionsProcessed = (cursor?.RevisionsProcessed ?? 0) + revisionsProcessed,
                 LastWorkItemId = lastWorkItemId,
                 TotalWorkItems = totalWorkItems
             };

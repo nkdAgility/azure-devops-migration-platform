@@ -151,7 +151,7 @@ Items are grouped by feature spec and categorised as **Code**, **Tests**, or **D
 
 ### Code
 
-- ⬜ `T018` ~~`MigrationImportCommand` — add `PrintJobSubmitted` call.~~ **N/A** — `QueueCommand` handles all three modes (Export/Import/Both) and calls `PrintJobSubmitted` for all. Separate command classes are unnecessary.
+- ⬜ `T018` ~~`MigrationImportCommand` — add `PrintJobSubmitted` call.~~ **N/A** — `QueueCommand` handles all four modes (Export/Prepare/Import/Migrate) and calls `PrintJobSubmitted` for all. Separate command classes are unnecessary.
 - ⬜ `T019` ~~`MigrationMigrateCommand` — same as T018.~~ **N/A** — Same rationale as T018.
 - 🟢 `T044` Verified: `JobStore.Enqueue` sets `_states[jobId] = "Queued"` immediately on submission. All five transitions implemented.
 
@@ -190,7 +190,7 @@ Items are grouped by feature spec and categorised as **Code**, **Tests**, or **D
 
 ## Cross-Cutting: MigrationImportCommand and MigrationMigrateCommand
 
-`QueueCommand` handles all three modes (Export, Import, Both) directly. `ExecuteBothAsync` implements the phase-ordering logic (export then import sequentially). Separate `MigrationImportCommand` and `MigrationMigrateCommand` classes are unnecessary — the unified `QueueCommand` pattern is the canonical approach.
+`QueueCommand` handles all four modes (Export, Prepare, Import, Migrate) directly. `ExecuteMigrateAsync` implements the phase-ordering logic (export → prepare → import sequentially). Separate `MigrationImportCommand` and `MigrationMigrateCommand` classes are unnecessary — the unified `QueueCommand` pattern is the canonical approach.
 
 ---
 

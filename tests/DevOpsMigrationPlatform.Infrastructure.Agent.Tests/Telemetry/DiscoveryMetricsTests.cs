@@ -104,15 +104,6 @@ public class DiscoveryMetricsTests
         Assert.AreEqual(1500.5, entry.Value);
     }
 
-    [TestMethod]
-    public void SetProjectCount_StoresValueForObservableGauge()
-    {
-        using var sut = new DiscoveryMetrics();
-        // SetProjectCount uses Volatile.Write — no direct emission captured by MeterListener
-        // for push instruments. We verify it does not throw.
-        sut.SetProjectCount(42, CreateOrgTags());
-    }
-
     // --- Project ---
 
     [TestMethod]
@@ -229,7 +220,9 @@ public class DiscoveryMetricsTests
         var tags = new TagList { { "job.id", "test-job-1" }, { "module", "Inventory" } };
         sut.RecordCheckpointSaved(tags);
 
-        Assert.IsTrue(_recorded.Any(r => r.Name == WellKnownDiscoveryMetricNames.CheckpointsSaved));
+        var entry = _recorded.Single(r => r.Name == WellKnownDiscoveryMetricNames.CheckpointsSaved);
+        Assert.AreEqual(1L, entry.Value);
+        AssertHasTag(entry.Tags, "job.id", "test-job-1");
     }
 
     [TestMethod]
