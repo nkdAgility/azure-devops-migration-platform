@@ -30,6 +30,7 @@ public sealed class IdentitiesModule : IModule
 {
     private const string DescriptorsPath = "Identities/descriptors.jsonl";
     private const string MappingPath = "Identities/mapping.json";
+    private const string UnresolvedPath = "Identities/unresolved.json";
     private const string ModuleName = "Identities";
 
     private static readonly ActivitySource s_activitySource = new(WellKnownActivitySourceNames.Migration);
@@ -41,7 +42,9 @@ public sealed class IdentitiesModule : IModule
     };
 
     private readonly IIdentitySource? _identitySource;
+    private readonly IIdentityLookupTool? _identityLookupTool;
     private readonly ICheckpointingServiceFactory? _checkpointingFactory;
+    private readonly IMigrationMetrics? _migrationMetrics;
     private readonly ILogger<IdentitiesModule> _logger;
     private readonly IdentitiesModuleOptions _options;
 
@@ -52,12 +55,16 @@ public sealed class IdentitiesModule : IModule
         ILogger<IdentitiesModule> logger,
         IOptions<IdentitiesModuleOptions> options,
         IIdentitySource? identitySource = null,
-        ICheckpointingServiceFactory? checkpointingFactory = null)
+        ICheckpointingServiceFactory? checkpointingFactory = null,
+        IIdentityLookupTool? identityLookupTool = null,
+        IMigrationMetrics? migrationMetrics = null)
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _options = options?.Value ?? throw new ArgumentNullException(nameof(options));
         _identitySource = identitySource;
         _checkpointingFactory = checkpointingFactory;
+        _identityLookupTool = identityLookupTool;
+        _migrationMetrics = migrationMetrics;
     }
 
     /// <inheritdoc/>
@@ -100,12 +107,33 @@ public sealed class IdentitiesModule : IModule
         _logger.LogInformation("[Identities] Starting identity export for project '{Project}'.", project);
 
         var count = 0;
-
-        await foreach (var descriptor in _identitySource.EnumerateIdentitiesAsync(job.Source ?? throw new InvalidOperationException("Job.Source required for identity export"), project, ct).ConfigureAwait(false))
+        var exportTags = new TagList
         {
-            var line = JsonSerializer.Serialize(descriptor, s_jsonOptions);
-            await artefactStore.AppendAsync(DescriptorsPath, line + "\n", ct).ConfigureAwait(false);
-            count++;
+            { "module", "Identities" },
+            { "operation", "identities.export" }
+        };
+        _migrationMetrics?.IncrementIdentityExportInFlight(exportTags);
+        var exportSw = System.Diagnostics.Stopwatch.StartNew();
+        try
+        {
+            await foreach (var descriptor in _identitySource.EnumerateIdentitiesAsync(job.Source ?? throw new InvalidOperationException("Job.Source required for identity export"), project, ct).ConfigureAwait(false))
+            {
+                var line = JsonSerializer.Serialize(descriptor, s_jsonOptions);
+                await artefactStore.AppendAsync(DescriptorsPath, line + "\n", ct).ConfigureAwait(false);
+                count++;
+                _migrationMetrics?.RecordIdentityExportCount(exportTags);
+            }
+        }
+        catch
+        {
+            _migrationMetrics?.RecordIdentityExportError(exportTags);
+            throw;
+        }
+        finally
+        {
+            exportSw.Stop();
+            _migrationMetrics?.DecrementIdentityExportInFlight(exportTags);
+            _migrationMetrics?.RecordIdentityExportDuration(exportSw.Elapsed.TotalMilliseconds, exportTags);
         }
 
         activity?.SetTag("identities.count", count);
@@ -145,15 +173,34 @@ public sealed class IdentitiesModule : IModule
             return;
         }
 
-        var mappingJson = await artefactStore.ReadAsync(MappingPath, ct).ConfigureAwait(false);
-        var descriptorCount = CountLines(descriptorsJson);
-        var hasMapping = mappingJson is not null;
+        var importTags = new TagList
+        {
+            { "module", "Identities" },
+            { "operation", "identities.import" }
+        };
+        var importSw = System.Diagnostics.Stopwatch.StartNew();
 
-        _logger.LogInformation(
-            "[Identities] Identity package loaded: {DescriptorCount} descriptors, mapping overrides: {HasMapping}.",
-            descriptorCount, hasMapping);
+        if (_identityLookupTool is not null)
+        {
+            await _identityLookupTool.InitializeAsync(artefactStore, ct).ConfigureAwait(false);
+        }
 
-        activity?.SetTag("identities.descriptor.count", descriptorCount);
+        var resolvedCount = CountLines(descriptorsJson);
+        for (int i = 0; i < resolvedCount; i++)
+            _migrationMetrics?.RecordIdentityImportResolved(importTags);
+
+        if (_identityLookupTool is not null)
+        {
+            await _identityLookupTool.WriteUnresolvedAsync(artefactStore, ct).ConfigureAwait(false);
+        }
+
+        importSw.Stop();
+        _migrationMetrics?.RecordIdentityImportDuration(importSw.Elapsed.TotalMilliseconds, importTags);
+
+        var hasMapping = await artefactStore.ExistsAsync(MappingPath, ct).ConfigureAwait(false);
+        _logger.LogInformation("[Identities] Identity import complete: {Resolved} resolved, mapping overrides: {HasMapping}.", resolvedCount, hasMapping);
+
+        activity?.SetTag("identities.descriptor.resolved", resolvedCount);
         activity?.SetTag("identities.has.mapping", hasMapping);
     }
 
@@ -161,6 +208,11 @@ public sealed class IdentitiesModule : IModule
     public async Task ValidateAsync(ValidationContext context, CancellationToken ct)
     {
         var artefactStore = context.ArtefactStore;
+        var validateTags = new TagList
+        {
+            { "module", "Identities" },
+            { "operation", "identities.validate" }
+        };
 
         var exists = await artefactStore.ExistsAsync(DescriptorsPath, ct).ConfigureAwait(false);
         if (!exists)
@@ -170,6 +222,7 @@ public sealed class IdentitiesModule : IModule
                 Path = DescriptorsPath,
                 Message = $"[Identities] Required file '{DescriptorsPath}' is missing from the package."
             });
+            _migrationMetrics?.RecordIdentityValidateError(validateTags);
             return;
         }
 
@@ -181,6 +234,7 @@ public sealed class IdentitiesModule : IModule
                 Path = DescriptorsPath,
                 Message = $"[Identities] File '{DescriptorsPath}' exists but could not be read."
             });
+            _migrationMetrics?.RecordIdentityValidateError(validateTags);
             return;
         }
 
@@ -200,6 +254,11 @@ public sealed class IdentitiesModule : IModule
                         Path = DescriptorsPath,
                         Message = $"[Identities] Line {lineNumber} in '{DescriptorsPath}' is missing required field 'descriptor'."
                     });
+                    _migrationMetrics?.RecordIdentityValidateError(validateTags);
+                }
+                else
+                {
+                    _migrationMetrics?.RecordIdentityValidateCount(validateTags);
                 }
             }
             catch (JsonException ex)
@@ -209,6 +268,7 @@ public sealed class IdentitiesModule : IModule
                     Path = DescriptorsPath,
                     Message = $"[Identities] Line {lineNumber} in '{DescriptorsPath}' is malformed JSON: {ex.Message}"
                 });
+                _migrationMetrics?.RecordIdentityValidateError(validateTags);
             }
         }
     }

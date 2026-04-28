@@ -80,6 +80,10 @@
         "SkipOnUnresolvableArea": false,
         "SkipOnUnresolvableIteration": false
       },
+      "IdentityLookup": {
+        "Enabled": true,
+        "DefaultIdentity": ""
+      },
       "FieldTransform": {
         "Enabled": true,
         "TransformGroups": [
@@ -169,6 +173,7 @@
           "NodeTranslation": true,
           "TeamIterations": true,
           "TeamMembers": true,
+          "IdentityLookup": true,
           "TeamCapacity": true
         }
       },

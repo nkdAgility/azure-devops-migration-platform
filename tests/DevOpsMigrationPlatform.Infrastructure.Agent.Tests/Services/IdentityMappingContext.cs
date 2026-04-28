@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.IO;
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Discovery;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Storage;
 using Moq;
@@ -18,7 +19,7 @@ public class IdentityMappingContext
     public string? ResolvedIdentity { get; set; }
 
     // For scenario 3: structural test with mock service
-    public Mock<IIdentityMappingService> MockIdentityService { get; } = new(MockBehavior.Strict);
+    public Mock<IIdentityLookupTool> MockIdentityService { get; } = new(MockBehavior.Strict);
 
     public void BuildSut()
     {

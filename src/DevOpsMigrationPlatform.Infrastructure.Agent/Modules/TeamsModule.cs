@@ -49,6 +49,7 @@ public sealed class TeamsModule : IModule
     private readonly TeamImportOrchestrator? _importOrchestrator;
     private readonly TeamSlugGenerator _slugGenerator;
     private readonly ICheckpointingServiceFactory? _checkpointingFactory;
+    private readonly IMigrationMetrics? _migrationMetrics;
     private readonly ILogger<TeamsModule> _logger;
     private readonly TeamsModuleOptions _options;
 
@@ -63,7 +64,8 @@ public sealed class TeamsModule : IModule
         ITeamTarget? teamTarget = null,
         TeamExportOrchestrator? exportOrchestrator = null,
         TeamImportOrchestrator? importOrchestrator = null,
-        ICheckpointingServiceFactory? checkpointingFactory = null)
+        ICheckpointingServiceFactory? checkpointingFactory = null,
+        IMigrationMetrics? migrationMetrics = null)
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _options = options?.Value ?? throw new ArgumentNullException(nameof(options));
@@ -73,6 +75,7 @@ public sealed class TeamsModule : IModule
         _exportOrchestrator = exportOrchestrator;
         _importOrchestrator = importOrchestrator;
         _checkpointingFactory = checkpointingFactory;
+        _migrationMetrics = migrationMetrics;
     }
 
     /// <inheritdoc/>
@@ -127,10 +130,32 @@ public sealed class TeamsModule : IModule
 
             var slug = _slugGenerator.GenerateSlug(team.Name);
 
-            await _exportOrchestrator.ExportTeamAsync(
-                job.Source!, projectName, team, slug, artefactStore, _options.Extensions, ct).ConfigureAwait(false);
+            var exportTags = new TagList
+            {
+                { "module", "Teams" },
+                { "operation", "teams.export" }
+            };
+            _migrationMetrics?.IncrementTeamExportInFlight(exportTags);
+            var exportSw = Stopwatch.StartNew();
+            try
+            {
+                await _exportOrchestrator.ExportTeamAsync(
+                    job.Source!, projectName, team, slug, artefactStore, _options.Extensions, ct).ConfigureAwait(false);
 
-            count++;
+                count++;
+                _migrationMetrics?.RecordTeamExportCount(exportTags);
+            }
+            catch
+            {
+                _migrationMetrics?.RecordTeamExportError(exportTags);
+                throw;
+            }
+            finally
+            {
+                exportSw.Stop();
+                _migrationMetrics?.DecrementTeamExportInFlight(exportTags);
+                _migrationMetrics?.RecordTeamExportDuration(exportSw.Elapsed.TotalMilliseconds, exportTags);
+            }
         }
 
         activity?.SetTag("teams.count", count);
@@ -174,6 +199,7 @@ public sealed class TeamsModule : IModule
 
         var artefactStore = context.ArtefactStore;
         var projectName = context.Job.Target?.GetProject() ?? string.Empty;
+        var sourceProjectName = context.Job.Source?.GetProject() ?? projectName;
 
         _logger.LogInformation("[Teams] Importing teams for project '{Project}'.", projectName);
 
@@ -207,15 +233,50 @@ public sealed class TeamsModule : IModule
                 continue;
             }
 
-            await _importOrchestrator.ImportTeamAsync(
-                context.Job.Target ?? throw new InvalidOperationException("Job.Target required for import"),
-                projectName, teamPackage, _options.Extensions, ct).ConfigureAwait(false);
+            var importTags = new TagList
+            {
+                { "module", "Teams" },
+                { "operation", "teams.import" }
+            };
+            _migrationMetrics?.IncrementTeamImportInFlight(importTags);
+            var importSw = Stopwatch.StartNew();
+            try
+            {
+                await _importOrchestrator.ImportTeamAsync(
+                    context.Job.Target ?? throw new InvalidOperationException("Job.Target required for import"),
+                    projectName, sourceProjectName, teamPackage, _options.Extensions, ct).ConfigureAwait(false);
 
-            count++;
+                count++;
+                _migrationMetrics?.RecordTeamImportCount(importTags);
+            }
+            catch
+            {
+                _migrationMetrics?.RecordTeamImportError(importTags);
+                throw;
+            }
+            finally
+            {
+                importSw.Stop();
+                _migrationMetrics?.DecrementTeamImportInFlight(importTags);
+                _migrationMetrics?.RecordTeamImportDuration(importSw.Elapsed.TotalMilliseconds, importTags);
+            }
         }
 
         activity?.SetTag("teams.count", count);
         _logger.LogInformation("[Teams] Imported {Count} teams.", count);
+
+        // Write cursor after successful import.
+        if (_checkpointingFactory is not null)
+        {
+            var checkpointing = _checkpointingFactory.Create(context.StateStore);
+            await checkpointing.WriteCursorAsync(ModuleName, new CursorEntry
+            {
+                LastProcessed = $"Teams/{count}",
+                Stage = CursorStage.Completed,
+                UpdatedAt = DateTimeOffset.UtcNow,
+                WorkItemsProcessed = count
+            }, ct).ConfigureAwait(false);
+        }
     }
 
     /// <inheritdoc/>
@@ -223,6 +284,11 @@ public sealed class TeamsModule : IModule
     {
         var artefactStore = context.ArtefactStore;
         var teamCount = 0;
+        var validateTags = new TagList
+        {
+            { "module", "Teams" },
+            { "operation", "teams.validate" }
+        };
 
         await foreach (var teamPath in artefactStore.EnumerateAsync("Teams/", ct).ConfigureAwait(false))
         {
@@ -239,6 +305,7 @@ public sealed class TeamsModule : IModule
                     Path = teamPath,
                     Message = $"[Teams] Team file '{teamPath}' exists but could not be read."
                 });
+                _migrationMetrics?.RecordTeamValidateError(validateTags);
                 continue;
             }
 
@@ -253,6 +320,11 @@ public sealed class TeamsModule : IModule
                         Path = teamPath,
                         Message = $"[Teams] Team file '{teamPath}' is missing required field 'definition'."
                     });
+                    _migrationMetrics?.RecordTeamValidateError(validateTags);
+                }
+                else
+                {
+                    _migrationMetrics?.RecordTeamValidateCount(validateTags);
                 }
             }
             catch (JsonException ex)
@@ -262,6 +334,7 @@ public sealed class TeamsModule : IModule
                     Path = teamPath,
                     Message = $"[Teams] Team file '{teamPath}' contains malformed JSON: {ex.Message}"
                 });
+                _migrationMetrics?.RecordTeamValidateError(validateTags);
             }
         }
 

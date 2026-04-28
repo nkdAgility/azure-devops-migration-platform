@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Import;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
@@ -40,12 +41,11 @@ public class PreventDuplicateWorkItemsContext
 
     public RevisionFolderProcessor BuildProcessor()
     {
-        var mockIdentity = new Mock<IIdentityMappingService>(MockBehavior.Loose);
         return new RevisionFolderProcessor(
             MockTarget.Object,
             MockIdMapStore.Object,
             MockCheckpointing.Object,
-            mockIdentity.Object,
+            (IIdentityLookupTool?)null,
             MockArtefactStore.Object,
             NullLogger<RevisionFolderProcessor>.Instance);
     }

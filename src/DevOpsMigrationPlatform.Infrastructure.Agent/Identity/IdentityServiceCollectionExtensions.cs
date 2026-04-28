@@ -1,9 +1,9 @@
 #if !NET481
 using DevOpsMigrationPlatform.Abstractions;
-using DevOpsMigrationPlatform.Abstractions.Agent.Identity;
 using DevOpsMigrationPlatform.Abstractions.Agent.Modules;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Identity;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Modules;
+using DevOpsMigrationPlatform.Infrastructure.Agent.Tools.IdentityLookup;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -34,10 +34,9 @@ public static class IdentityServiceCollectionExtensions
             services.AddOptions<IdentitiesModuleOptions>();
         }
 
-        // Register the full mapping service — replaces the PassThroughIdentityMappingService
+        // Register the IdentityLookupTool — replaces the old IdentityMappingService
         // when the IdentitiesModule is active.
-        services.AddSingleton<IdentityMappingService>();
-        services.AddSingleton<IIdentityMappingService>(sp => sp.GetRequiredService<IdentityMappingService>());
+        services.AddIdentityLookupToolServices();
 
         return services;
     }

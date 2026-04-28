@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Checkpointing;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Import;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -41,12 +42,11 @@ public class ImportCursorResumeContext
 
     public WorkItemImportOrchestrator BuildOrchestrator()
     {
-        var mockIdentity = new Mock<IIdentityMappingService>(MockBehavior.Loose);
         var processor = new RevisionFolderProcessor(
             MockTarget.Object,
             MockIdMapStore.Object,
             CheckpointingService,
-            mockIdentity.Object,
+            (IIdentityLookupTool?)null,
             MockArtefactStore.Object,
             NullLogger<RevisionFolderProcessor>.Instance);
 

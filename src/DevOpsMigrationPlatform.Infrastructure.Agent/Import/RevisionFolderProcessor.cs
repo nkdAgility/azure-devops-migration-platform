@@ -31,7 +31,7 @@ public sealed class RevisionFolderProcessor : IRevisionFolderProcessor
     private readonly IWorkItemImportTarget _target;
     private readonly IIdMapStore _idMapStore;
     private readonly ICheckpointingService _checkpointing;
-    private readonly IIdentityMappingService _identityMapping;
+    private readonly IIdentityLookupTool? _identityLookupTool;
     private readonly IArtefactStore _artefactStore;
     private readonly ILogger<RevisionFolderProcessor> _logger;
     private readonly IMigrationMetrics? _metrics;
@@ -52,7 +52,7 @@ public sealed class RevisionFolderProcessor : IRevisionFolderProcessor
         IWorkItemImportTarget target,
         IIdMapStore idMapStore,
         ICheckpointingService checkpointing,
-        IIdentityMappingService identityMapping,
+        IIdentityLookupTool? identityLookupTool,
         IArtefactStore artefactStore,
         ILogger<RevisionFolderProcessor> logger,
         IMigrationMetrics? metrics = null,
@@ -65,7 +65,7 @@ public sealed class RevisionFolderProcessor : IRevisionFolderProcessor
         _target = target ?? throw new ArgumentNullException(nameof(target));
         _idMapStore = idMapStore ?? throw new ArgumentNullException(nameof(idMapStore));
         _checkpointing = checkpointing ?? throw new ArgumentNullException(nameof(checkpointing));
-        _identityMapping = identityMapping ?? throw new ArgumentNullException(nameof(identityMapping));
+        _identityLookupTool = identityLookupTool;
         _artefactStore = artefactStore ?? throw new ArgumentNullException(nameof(artefactStore));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _metrics = metrics;
@@ -374,8 +374,7 @@ public sealed class RevisionFolderProcessor : IRevisionFolderProcessor
 
     private IReadOnlyList<WorkItemField> ApplyIdentityResolution(IReadOnlyList<WorkItemField> fields)
     {
-        // Identity-type fields resolved via IIdentityMappingService (US4/T031 extends this).
-        // Current implementation is pass-through; the service is wired for future use.
+        // Identity-type fields resolved via IIdentityLookupTool when enabled.
         var identityFields = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
         {
             "System.AssignedTo", "System.ChangedBy", "System.CreatedBy"
@@ -386,7 +385,7 @@ public sealed class RevisionFolderProcessor : IRevisionFolderProcessor
         {
             if (identityFields.Contains(field.ReferenceName) && field.Value is string identity)
             {
-                var resolved = _identityMapping.Resolve(identity);
+                var resolved = _identityLookupTool?.IsEnabled == true ? _identityLookupTool.Resolve(identity) : identity;
                 result.Add(new WorkItemField { ReferenceName = field.ReferenceName, Value = resolved });
             }
             else

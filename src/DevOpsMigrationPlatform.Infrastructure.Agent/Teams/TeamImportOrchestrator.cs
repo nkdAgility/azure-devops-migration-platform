@@ -4,7 +4,6 @@ using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
-using DevOpsMigrationPlatform.Abstractions.Agent.Identity;
 using DevOpsMigrationPlatform.Abstractions.Agent.Teams;
 using DevOpsMigrationPlatform.Abstractions.Agent.Telemetry;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
@@ -22,34 +21,50 @@ public sealed class TeamImportOrchestrator
     private static readonly ActivitySource s_activitySource = new(WellKnownActivitySourceNames.Migration);
 
     private readonly ITeamTarget _teamTarget;
-    private readonly IIdentityMappingService _identityMappingService;
+    private readonly IIdentityLookupTool? _identityLookupTool;
     private readonly INodeTranslationTool? _NodeTransformTool;
     private readonly ILogger<TeamImportOrchestrator> _logger;
 
     public TeamImportOrchestrator(
         ITeamTarget teamTarget,
-        IIdentityMappingService identityMappingService,
         ILogger<TeamImportOrchestrator> logger,
-        INodeTranslationTool? NodeTransformTool = null)
+        INodeTranslationTool? NodeTransformTool = null,
+        IIdentityLookupTool? identityLookupTool = null)
     {
         _teamTarget = teamTarget ?? throw new ArgumentNullException(nameof(teamTarget));
-        _identityMappingService = identityMappingService ?? throw new ArgumentNullException(nameof(identityMappingService));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _NodeTransformTool = NodeTransformTool;
+        _identityLookupTool = identityLookupTool;
     }
 
     /// <summary>
     /// Imports a single team from the package into the target system.
     /// </summary>
+    /// <param name="endpoint">Target endpoint.</param>
+    /// <param name="projectName">Target project name.</param>
+    /// <param name="sourceProjectName">Source project name — used for path translation.</param>
+    /// <param name="teamPackage">The team package to import.</param>
+    /// <param name="extensions">Extension toggles.</param>
+    /// <param name="ct">Cancellation token.</param>
     public async Task<string> ImportTeamAsync(
         MigrationEndpointOptions endpoint,
         string projectName,
+        string sourceProjectName,
         TeamPackage teamPackage,
         TeamsModuleExtensionsOptions extensions,
         CancellationToken ct)
     {
         using var activity = s_activitySource.StartActivity("teams.import.team");
         activity?.SetTag("team.name", teamPackage.Definition.Name);
+
+        // Log a warning if this is the default team — ITeamTarget has no explicit default team assignment API.
+        if (teamPackage.Definition.IsDefault)
+        {
+            _logger.LogWarning(
+                "[Teams] Default team '{Name}' detected — target API does not support explicit default team assignment. " +
+                "Ensure the target project's default team matches the source.",
+                teamPackage.Definition.Name);
+        }
 
         // 1. Create or update team
         var targetTeamId = await _teamTarget.CreateOrUpdateTeamAsync(
@@ -65,11 +80,12 @@ public sealed class TeamImportOrchestrator
         // 3. Iterations (with path translation)
         if (extensions.TeamIterations)
         {
+            var projectMapping = new ProjectMapping(sourceProjectName, projectName);
             foreach (var iteration in teamPackage.Iterations)
             {
                 try
                 {
-                    var translatedPath = TranslatePath(iteration.Path);
+                    var translatedPath = TranslatePath(iteration.Path, projectMapping);
                     if (translatedPath is null)
                     {
                         _logger.LogWarning(
@@ -98,7 +114,7 @@ public sealed class TeamImportOrchestrator
             {
                 try
                 {
-                    var resolvedDescriptor = _identityMappingService.Resolve(member.Descriptor);
+                    var resolvedDescriptor = extensions.IdentityLookup && _identityLookupTool?.IsEnabled == true ? _identityLookupTool.Resolve(member.Descriptor) : member.Descriptor;
                     var resolvedMember = member with { Descriptor = resolvedDescriptor };
                     await _teamTarget.AddMemberAsync(
                         endpoint, projectName, targetTeamId, resolvedMember, ct).ConfigureAwait(false);
@@ -115,13 +131,14 @@ public sealed class TeamImportOrchestrator
         // 5. Area paths (with path translation)
         if (extensions.NodeTranslation && teamPackage.AreaPaths is not null)
         {
-            var defaultPath = TranslatePath(teamPackage.AreaPaths.DefaultAreaPath);
+            var projectMapping = new ProjectMapping(sourceProjectName, projectName);
+            var defaultPath = TranslatePath(teamPackage.AreaPaths.DefaultAreaPath, projectMapping);
             if (defaultPath is not null)
             {
                 var translatedPaths = new System.Collections.Generic.List<string>();
                 foreach (var path in teamPackage.AreaPaths.IncludedAreaPaths)
                 {
-                    var translated = TranslatePath(path);
+                    var translated = TranslatePath(path, projectMapping);
                     if (translated is not null)
                         translatedPaths.Add(translated);
                     else
@@ -162,7 +179,7 @@ public sealed class TeamImportOrchestrator
         return targetTeamId;
     }
 
-    private string? TranslatePath(string? sourcePath)
+    private string? TranslatePath(string? sourcePath, ProjectMapping projectMapping)
     {
         if (string.IsNullOrEmpty(sourcePath))
             return sourcePath;
@@ -170,9 +187,7 @@ public sealed class TeamImportOrchestrator
         if (_NodeTransformTool is null || !_NodeTransformTool.IsEnabled)
             return sourcePath; // pass through if tool disabled
 
-        // Use a default project mapping — caller should provide proper mapping in production
-        var mapping = new ProjectMapping(sourcePath.Split('\\')[0], sourcePath.Split('\\')[0]);
-        var result = _NodeTransformTool.TranslatePath("System.AreaPath", sourcePath, mapping);
+        var result = _NodeTransformTool.TranslatePath("System.AreaPath", sourcePath, projectMapping);
         return result.TargetPath ?? sourcePath;
     }
 }

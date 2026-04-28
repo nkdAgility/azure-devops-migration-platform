@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Threading;
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Import;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
@@ -37,12 +38,11 @@ public class WorkItemResolutionStrategiesContext
 
     public WorkItemImportOrchestrator BuildOrchestrator()
     {
-        var mockIdentity = new Mock<IIdentityMappingService>(MockBehavior.Loose);
         var processor = new RevisionFolderProcessor(
             MockTarget.Object,
             MockIdMapStore.Object,
             MockCheckpointing.Object,
-            mockIdentity.Object,
+            (IIdentityLookupTool?)null,
             MockArtefactStore.Object,
             NullLogger<RevisionFolderProcessor>.Instance);
 

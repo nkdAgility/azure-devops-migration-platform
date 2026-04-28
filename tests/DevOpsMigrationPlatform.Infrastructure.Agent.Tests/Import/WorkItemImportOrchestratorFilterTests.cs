@@ -5,6 +5,7 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Import;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
@@ -155,12 +156,11 @@ public class WorkItemImportOrchestratorFilterTests
     private WorkItemImportOrchestrator BuildOrchestrator(
         IReadOnlyList<WorkItemFieldFilterOptions>? filterOptions = null)
     {
-        var mockIdentity = new Mock<IIdentityMappingService>(MockBehavior.Loose);
         var processor = new RevisionFolderProcessor(
             _mockTarget.Object,
             _mockIdMap.Object,
             _mockCps.Object,
-            mockIdentity.Object,
+            (IIdentityLookupTool?)null,
             _mockStore.Object,
             NullLogger<RevisionFolderProcessor>.Instance);
 

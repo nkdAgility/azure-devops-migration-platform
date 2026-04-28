@@ -175,10 +175,8 @@ public class TeamsModuleTests
     {
         // Arrange
         var target = new SimulatedTeamTarget();
-        var identityMapping = Mock.Of<IIdentityMappingService>(
-            m => m.Resolve(It.IsAny<string>()) == "target-user");
 
-        var orchestrator = new TeamImportOrchestrator(target, identityMapping, NullLogger<TeamImportOrchestrator>.Instance);
+        var orchestrator = new TeamImportOrchestrator(target, NullLogger<TeamImportOrchestrator>.Instance);
 
         // Build a minimal team.json in the store
         var teamPackage = new TeamPackage
@@ -335,10 +333,9 @@ public class TeamsModuleTests
     {
         // Arrange
         var target = new SimulatedTeamTarget();
-        var identityMapping = Mock.Of<IIdentityMappingService>(m => m.Resolve(It.IsAny<string>()) == "tgt");
 
         // No INodeTranslationTool → paths passed through as-is
-        var orchestrator = new TeamImportOrchestrator(target, identityMapping, NullLogger<TeamImportOrchestrator>.Instance);
+        var orchestrator = new TeamImportOrchestrator(target, NullLogger<TeamImportOrchestrator>.Instance);
 
         var iteration = new TeamIteration("iter-1", "ProjectA\\Sprint 1", "Sprint 1", null, null, false, false);
         var teamPackage = new TeamPackage
@@ -380,11 +377,12 @@ public class TeamsModuleTests
     {
         // Arrange
         var target = new SimulatedTeamTarget();
-        var identityMapping = Mock.Of<IIdentityMappingService>(m =>
+        var identityLookupTool = Mock.Of<IIdentityLookupTool>(m =>
+            m.IsEnabled == true &&
             m.Resolve("src-alice") == "tgt-alice@target.com" &&
             m.Resolve("src-bob") == "tgt-bob@target.com");
 
-        var orchestrator = new TeamImportOrchestrator(target, identityMapping, NullLogger<TeamImportOrchestrator>.Instance);
+        var orchestrator = new TeamImportOrchestrator(target, NullLogger<TeamImportOrchestrator>.Instance, identityLookupTool: identityLookupTool);
 
         var teamPackage = new TeamPackage
         {
@@ -430,10 +428,9 @@ public class TeamsModuleTests
     {
         // Arrange
         var target = new SimulatedTeamTarget();
-        var identityMapping = Mock.Of<IIdentityMappingService>(m => m.Resolve(It.IsAny<string>()) == "tgt-user");
-        var orchestrator = new TeamImportOrchestrator(target, identityMapping, NullLogger<TeamImportOrchestrator>.Instance);
+        var orchestrator = new TeamImportOrchestrator(target, NullLogger<TeamImportOrchestrator>.Instance);
 
-        var capacity = new TeamCapacityEntry[]
+        var capacity= new TeamCapacityEntry[]
         {
             new TeamCapacityEntry("desc-alice", "Alice", new[] { new ActivityEntry("Dev", 6) }, 0)
         };
@@ -477,8 +474,7 @@ public class TeamsModuleTests
     {
         // Arrange
         var target = new SimulatedTeamTarget();
-        var identityMapping = Mock.Of<IIdentityMappingService>(m => m.Resolve(It.IsAny<string>()) == "tgt");
-        var orchestrator = new TeamImportOrchestrator(target, identityMapping, NullLogger<TeamImportOrchestrator>.Instance);
+        var orchestrator = new TeamImportOrchestrator(target, NullLogger<TeamImportOrchestrator>.Instance);
 
         var teamPackage = new TeamPackage
         {
@@ -599,7 +595,6 @@ public class TeamsModuleTests
     {
         // Arrange
         var target = new SimulatedTeamTarget();
-        var identityMapping = Mock.Of<IIdentityMappingService>(m => m.Resolve(It.IsAny<string>()) == "tgt");
 
         var translatedPaths = new List<string>();
         var translationToolMock = new Mock<INodeTranslationTool>(MockBehavior.Loose);
@@ -614,7 +609,7 @@ public class TeamsModuleTests
             });
 
         var orchestrator = new TeamImportOrchestrator(
-            target, identityMapping, NullLogger<TeamImportOrchestrator>.Instance,
+            target, NullLogger<TeamImportOrchestrator>.Instance,
             NodeTransformTool: translationToolMock.Object);
 
         var teamPackage = new TeamPackage

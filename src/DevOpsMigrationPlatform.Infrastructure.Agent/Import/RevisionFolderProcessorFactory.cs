@@ -30,23 +30,23 @@ public sealed class RevisionFolderProcessorFactory : IRevisionFolderProcessorFac
         IWorkItemImportTarget target,
         IIdMapStore idMapStore,
         ICheckpointingService checkpointing,
-        IIdentityMappingService identityMapping,
+        IIdentityLookupTool? identityLookupTool,
         IArtefactStore artefactStore)
-        => Create(target, idMapStore, checkpointing, identityMapping, artefactStore, nodeStructureContext: null);
+        => Create(target, idMapStore, checkpointing, identityLookupTool, artefactStore, nodeStructureContext: null);
 
     /// <inheritdoc/>
     public IRevisionFolderProcessor Create(
         IWorkItemImportTarget target,
         IIdMapStore idMapStore,
         ICheckpointingService checkpointing,
-        IIdentityMappingService identityMapping,
+        IIdentityLookupTool? identityLookupTool,
         IArtefactStore artefactStore,
         ProjectMapping? nodeStructureContext)
         => new RevisionFolderProcessor(
             target,
             idMapStore,
             checkpointing,
-            identityMapping,
+            identityLookupTool,
             artefactStore,
             _loggerFactory.CreateLogger<RevisionFolderProcessor>(),
             _metrics,

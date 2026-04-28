@@ -72,4 +72,42 @@ public static class WellKnownMetricNames
     public const string NodeValidateUnmappedPaths = "migration.nodes.validate.unmapped_paths";
     public const string NodeValidateExternalPaths = "migration.nodes.validate.external_paths";
     public const string NodeValidateMalformedTargets = "migration.nodes.validate.malformed_targets";
+
+    // --- Teams Export ---
+    public const string TeamsExportCount = "migration.teams.export.count";
+    public const string TeamsExportDurationMs = "migration.teams.export.duration_ms";
+    public const string TeamsExportErrors = "migration.teams.export.errors";
+    public const string TeamsExportInFlight = "migration.teams.export.in_flight";
+
+    // --- Teams Import ---
+    public const string TeamsImportCount = "migration.teams.import.count";
+    public const string TeamsImportDurationMs = "migration.teams.import.duration_ms";
+    public const string TeamsImportErrors = "migration.teams.import.errors";
+    public const string TeamsImportInFlight = "migration.teams.import.in_flight";
+    public const string TeamsImportMembersCount = "migration.teams.import.members.count";
+    public const string TeamsImportMembersUnresolved = "migration.teams.import.members.unresolved";
+    public const string TeamsImportIterationsCount = "migration.teams.import.iterations.count";
+    public const string TeamsImportIterationsUnresolvable = "migration.teams.import.iterations.unresolvable";
+    public const string TeamsImportCapacityCount = "migration.teams.import.capacity.count";
+    public const string TeamsImportExtensionDurationMs = "migration.teams.import.extension.duration_ms";
+
+    // --- Teams Validate ---
+    public const string TeamsValidateCount = "migration.teams.validate.count";
+    public const string TeamsValidateErrors = "migration.teams.validate.errors";
+
+    // --- Identities Export ---
+    public const string IdentitiesExportCount = "migration.identities.export.count";
+    public const string IdentitiesExportDurationMs = "migration.identities.export.duration_ms";
+    public const string IdentitiesExportErrors = "migration.identities.export.errors";
+    public const string IdentitiesExportInFlight = "migration.identities.export.in_flight";
+
+    // --- Identities Import ---
+    public const string IdentitiesImportResolved = "migration.identities.import.resolved";
+    public const string IdentitiesImportUnresolved = "migration.identities.import.unresolved";
+    public const string IdentitiesImportDurationMs = "migration.identities.import.duration_ms";
+    public const string IdentitiesImportErrors = "migration.identities.import.errors";
+
+    // --- Identities Validate ---
+    public const string IdentitiesValidateCount = "migration.identities.validate.count";
+    public const string IdentitiesValidateErrors = "migration.identities.validate.errors";
 }

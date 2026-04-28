@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Import;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
@@ -22,7 +23,7 @@ public class RevisionFolderProcessorTests
     private Mock<ICheckpointingService> _mockCheckpointing = null!;
     private Mock<IWorkItemImportTarget> _mockTarget = null!;
     private Mock<IIdMapStore> _mockIdMapStore = null!;
-    private Mock<IIdentityMappingService> _mockIdentityMapping = null!;
+    private Mock<IIdentityLookupTool> _mockIdentityMapping = null!;
     private Mock<IWorkItemResolutionStrategy> _mockResolutionStrategy = null!;
 
     [TestInitialize]
@@ -32,10 +33,13 @@ public class RevisionFolderProcessorTests
         _mockCheckpointing = new Mock<ICheckpointingService>(MockBehavior.Strict);
         _mockTarget = new Mock<IWorkItemImportTarget>(MockBehavior.Strict);
         _mockIdMapStore = new Mock<IIdMapStore>(MockBehavior.Strict);
-        _mockIdentityMapping = new Mock<IIdentityMappingService>(MockBehavior.Loose);
+        _mockIdentityMapping = new Mock<IIdentityLookupTool>(MockBehavior.Loose);
         _mockResolutionStrategy = new Mock<IWorkItemResolutionStrategy>(MockBehavior.Strict);
 
         // Default identity pass-through
+        _mockIdentityMapping
+            .Setup(s => s.IsEnabled)
+            .Returns(true);
         _mockIdentityMapping
             .Setup(s => s.Resolve(It.IsAny<string>()))
             .Returns<string>(id => id);

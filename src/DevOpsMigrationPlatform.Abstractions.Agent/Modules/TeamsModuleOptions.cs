@@ -16,6 +16,9 @@ public sealed class TeamsModuleExtensionsOptions
     /// <summary>Export/import team members with admin flags.</summary>
     public bool TeamMembers { get; init; } = true;
 
+    /// <summary>Resolve team member identities via <c>IdentityLookupTool</c>.</summary>
+    public bool IdentityLookup { get; init; } = true;
+
     /// <summary>Export/import per-member per-sprint capacity data.</summary>
     public bool TeamCapacity { get; init; } = true;
 }

@@ -12,5 +12,8 @@ public sealed class PassThroughIdentityMappingService : IIdentityMappingService
 {
     /// <inheritdoc/>
     public string Resolve(string sourceIdentity) => sourceIdentity;
+
+    /// <inheritdoc/>
+    public void LoadMappingOverrides(string? mappingJson) { }
 }
 #endif

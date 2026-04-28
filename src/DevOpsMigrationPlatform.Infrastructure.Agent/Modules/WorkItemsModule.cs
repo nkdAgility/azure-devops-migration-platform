@@ -40,7 +40,7 @@ public sealed class WorkItemsModule : IModule
     private readonly IWorkItemCommentSourceFactory? _inlineCommentSourceFactory;
     private readonly IWorkItemImportTargetFactory _importTargetFactory;
     private readonly IWorkItemResolutionStrategyFactory _resolutionStrategyFactory;
-    private readonly IIdentityMappingService _identityMappingService;
+    private readonly IIdentityLookupTool? _identityLookupTool;
     private readonly ICheckpointingServiceFactory _checkpointingFactory;
     private readonly IIdMapStoreFactory _idMapStoreFactory;
     private readonly IRevisionFolderProcessorFactory _processorFactory;
@@ -60,7 +60,6 @@ public sealed class WorkItemsModule : IModule
         ILogger<WorkItemImportOrchestrator> orchestratorLogger,
         IWorkItemImportTargetFactory importTargetFactory,
         IWorkItemResolutionStrategyFactory resolutionStrategyFactory,
-        IIdentityMappingService identityMappingService,
         ICheckpointingServiceFactory checkpointingFactory,
         IIdMapStoreFactory idMapStoreFactory,
         IRevisionFolderProcessorFactory processorFactory,
@@ -72,14 +71,14 @@ public sealed class WorkItemsModule : IModule
         IExportProgressStoreFactory? exportProgressStoreFactory = null,
         IClassificationTreeCapture? classificationTreeCapture = null,
         IReferencedPathTracker? referencedPathTracker = null,
-        INodeEnsurer? nodeEnsurer = null)
+        INodeEnsurer? nodeEnsurer = null,
+        IIdentityLookupTool? identityLookupTool = null)
     {
         _sourceFactory = sourceFactory ?? throw new ArgumentNullException(nameof(sourceFactory));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _orchestratorLogger = orchestratorLogger ?? throw new ArgumentNullException(nameof(orchestratorLogger));
         _importTargetFactory = importTargetFactory ?? throw new ArgumentNullException(nameof(importTargetFactory));
         _resolutionStrategyFactory = resolutionStrategyFactory ?? throw new ArgumentNullException(nameof(resolutionStrategyFactory));
-        _identityMappingService = identityMappingService ?? throw new ArgumentNullException(nameof(identityMappingService));
         _checkpointingFactory = checkpointingFactory ?? throw new ArgumentNullException(nameof(checkpointingFactory));
         _idMapStoreFactory = idMapStoreFactory ?? throw new ArgumentNullException(nameof(idMapStoreFactory));
         _processorFactory = processorFactory ?? throw new ArgumentNullException(nameof(processorFactory));
@@ -92,6 +91,7 @@ public sealed class WorkItemsModule : IModule
         _classificationTreeCapture = classificationTreeCapture;
         _referencedPathTracker = referencedPathTracker;
         _nodeEnsurer = nodeEnsurer;
+        _identityLookupTool = identityLookupTool;
     }
 
     /// <inheritdoc/>
@@ -226,7 +226,7 @@ public sealed class WorkItemsModule : IModule
         var nodeStructureContext = new DevOpsMigrationPlatform.Abstractions.Agent.Tools.ProjectMapping(sourceProjectName, project);
 
         processor = _processorFactory.Create(
-            target, idMapStore, checkpointingService, _identityMappingService, context.ArtefactStore,
+            target, idMapStore, checkpointingService, _identityLookupTool, context.ArtefactStore,
             nodeStructureContext);
 
         // Build combined filter options for import (include as Regex + exclude as NotRegex).

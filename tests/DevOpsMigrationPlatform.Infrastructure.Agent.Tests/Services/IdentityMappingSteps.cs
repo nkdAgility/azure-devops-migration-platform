@@ -80,7 +80,7 @@ public class IdentityMappingSteps
     [Given("any module that writes user references during import")]
     public void GivenAnyModuleThatWritesUserReferences()
     {
-        // Mock IIdentityMappingService so we can verify it was called.
+        // Mock IIdentityLookupTool so we can verify it was called.
         _ctx.MockIdentityService
             .Setup(s => s.Resolve(It.IsAny<string>()))
             .Returns("resolved@target.example.com");
@@ -89,7 +89,7 @@ public class IdentityMappingSteps
     [When("the module applies a revision")]
     public void WhenTheModuleAppliesARevision()
     {
-        // A properly designed module calls IIdentityMappingService.Resolve and nothing else.
+        // A properly designed module calls IIdentityLookupTool.Resolve and nothing else.
         var resolved = _ctx.MockIdentityService.Object.Resolve("source@example.com");
         Assert.AreEqual("resolved@target.example.com", resolved);
     }
@@ -101,7 +101,7 @@ public class IdentityMappingSteps
     [Then("the import module does not contact the identity service directly")]
     public void ThenImportModuleDoesNotContactIdentityServiceDirectly()
     {
-        // By design: the module takes IIdentityMappingService as a constructor parameter.
+        // By design: the module takes IIdentityLookupTool as a constructor parameter.
         // The strict mock would throw on any unexpected call — none occurred.
         _ctx.MockIdentityService.VerifyNoOtherCalls();
     }

@@ -72,4 +72,45 @@ public interface IMigrationMetrics
     void RecordNodeImportPreCollectError(in TagList tags);
     void IncrementNodeImportPreCollectInFlight(in TagList tags);
     void DecrementNodeImportPreCollectInFlight(in TagList tags);
+
+    // --- Teams Export ---
+    void RecordTeamExportCount(in TagList tags);
+    void RecordTeamExportDuration(double milliseconds, in TagList tags);
+    void RecordTeamExportError(in TagList tags);
+    void IncrementTeamExportInFlight(in TagList tags);
+    void DecrementTeamExportInFlight(in TagList tags);
+
+    // --- Teams Import ---
+    void RecordTeamImportCount(in TagList tags);
+    void RecordTeamImportDuration(double milliseconds, in TagList tags);
+    void RecordTeamImportError(in TagList tags);
+    void IncrementTeamImportInFlight(in TagList tags);
+    void DecrementTeamImportInFlight(in TagList tags);
+    void RecordTeamImportMemberCount(in TagList tags);
+    void RecordTeamImportMemberUnresolved(in TagList tags);
+    void RecordTeamImportIterationCount(in TagList tags);
+    void RecordTeamImportIterationUnresolvable(in TagList tags);
+    void RecordTeamImportCapacityCount(in TagList tags);
+    void RecordTeamImportExtensionDuration(double milliseconds, in TagList tags);
+
+    // --- Teams Validate ---
+    void RecordTeamValidateCount(in TagList tags);
+    void RecordTeamValidateError(in TagList tags);
+
+    // --- Identities Export ---
+    void RecordIdentityExportCount(in TagList tags);
+    void RecordIdentityExportDuration(double milliseconds, in TagList tags);
+    void RecordIdentityExportError(in TagList tags);
+    void IncrementIdentityExportInFlight(in TagList tags);
+    void DecrementIdentityExportInFlight(in TagList tags);
+
+    // --- Identities Import ---
+    void RecordIdentityImportResolved(in TagList tags);
+    void RecordIdentityImportUnresolved(in TagList tags);
+    void RecordIdentityImportDuration(double milliseconds, in TagList tags);
+    void RecordIdentityImportError(in TagList tags);
+
+    // --- Identities Validate ---
+    void RecordIdentityValidateCount(in TagList tags);
+    void RecordIdentityValidateError(in TagList tags);
 }
