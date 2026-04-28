@@ -17,13 +17,13 @@
 
 **Purpose**: Resolve API surface unknowns before implementation. Document findings in `specs/024-teams-module/research.md`.
 
-- [ ] T000a [P] Research TFS Identity API surface — confirm `IIdentityManagementService2.ReadIdentities()` works for both users and groups via TFS OM subprocess bridge
-- [ ] T000b [P] Research TFS Teams API surface — confirm `TfsTeamService.QueryTeams()`, `GetTeamMembers()`, team settings access. Document version-specific limitations.
-- [ ] T000c [P] Research ADO Teams REST API endpoints — confirm `_apis/projects/{project}/teams`, `_apis/work/teamsettings`, `_apis/work/teamsettings/iterations`, `_apis/work/teamsettings/iterations/{id}/capacities`, `_apis/projects/{project}/teams/{team}/members`
-- [ ] T000d [P] Research ADO Identity REST API — confirm Graph API or Identity Picker API for enumerating all project identities
-- [ ] T000e [P] Research default team detection — confirm `isDefaultTeam` flag (ADO) and `TfsTeamService` default team property (TFS)
-- [ ] T000f [P] Research team area paths API — confirm `_apis/work/teamsettings/teamfieldvalues` endpoint
-- [ ] T000g Compile research findings into `specs/024-teams-module/research.md`
+- [X] T000a [P] Research TFS Identity API surface — confirm `IIdentityManagementService2.ReadIdentities()` works for both users and groups via TFS OM subprocess bridge
+- [X] T000b [P] Research TFS Teams API surface — confirm `TfsTeamService.QueryTeams()`, `GetTeamMembers()`, team settings access. Document version-specific limitations.
+- [X] T000c [P] Research ADO Teams REST API endpoints — confirm `_apis/projects/{project}/teams`, `_apis/work/teamsettings`, `_apis/work/teamsettings/iterations`, `_apis/work/teamsettings/iterations/{id}/capacities`, `_apis/projects/{project}/teams/{team}/members`
+- [X] T000d [P] Research ADO Identity REST API — confirm Graph API or Identity Picker API for enumerating all project identities
+- [X] T000e [P] Research default team detection — confirm `isDefaultTeam` flag (ADO) and `TfsTeamService` default team property (TFS)
+- [X] T000f [P] Research team area paths API — confirm `_apis/work/teamsettings/teamfieldvalues` endpoint
+- [X] T000g Compile research findings into `specs/024-teams-module/research.md`
 
 **Checkpoint**: All API unknowns resolved. research.md produced.
 
@@ -33,12 +33,12 @@
 
 **Purpose**: Options classes, interface stubs, and DI wiring for all three modules
 
-- [ ] T001 [P] [US0] Create `src/DevOpsMigrationPlatform.Abstractions.Agent/Modules/IdentitiesModuleOptions.cs` — sealed class with `init`-only properties: `Enabled` (bool), `DefaultIdentity` (string), `SectionName = "MigrationPlatform:Modules:Identities"`
-- [ ] T002 [P] [US0b] Create `src/DevOpsMigrationPlatform.Abstractions.Agent/Modules/NodeStructureModuleOptions.cs` — sealed class with `init`-only properties: `Enabled` (bool), `ReplicateSourceTree` (bool), `AutoCreateNodes` (bool), `SectionName = "MigrationPlatform:Modules:Nodes"`
-- [ ] T003 [P] [US1] Create `src/DevOpsMigrationPlatform.Abstractions.Agent/Modules/TeamsModuleOptions.cs` — sealed class with `init`-only properties: `Enabled` (bool), `Extensions` (dictionary for enabling/disabling sub-extensions), `SectionName = "MigrationPlatform:Modules:Teams"`
-- [ ] T004 [P] [US0] Create `src/DevOpsMigrationPlatform.Abstractions.Agent/Tools/IIdentitySource.cs` — connector abstraction: `IAsyncEnumerable<IdentityDescriptor> EnumerateIdentitiesAsync(string projectName, CancellationToken ct)`
-- [ ] T005 [P] [US1] Create `src/DevOpsMigrationPlatform.Abstractions.Agent/Tools/ITeamSource.cs` — connector abstraction: `IAsyncEnumerable<TeamDefinition> EnumerateTeamsAsync(string projectName, CancellationToken ct)`, `GetTeamSettingsAsync`, `GetTeamIterationsAsync`, `GetTeamMembersAsync`, `GetTeamCapacityAsync`, `GetTeamAreaPathsAsync`
-- [ ] T006 [P] [US1] Create `src/DevOpsMigrationPlatform.Abstractions.Agent/Tools/ITeamTarget.cs` — connector abstraction: `CreateOrUpdateTeamAsync`, `SetTeamSettingsAsync`, `AssignIterationAsync`, `AddMemberAsync`, `SetCapacityAsync`, `SetAreaPathsAsync`
+- [X] T001 [P] [US0] Create `src/DevOpsMigrationPlatform.Abstractions.Agent/Modules/IdentitiesModuleOptions.cs` — sealed class with `init`-only properties: `Enabled` (bool), `DefaultIdentity` (string), `SectionName = "MigrationPlatform:Modules:Identities"`
+- [X] T002 [P] [US0b] Create `src/DevOpsMigrationPlatform.Abstractions.Agent/Modules/NodeStructureModuleOptions.cs` — sealed class with `init`-only properties: `Enabled` (bool), `ReplicateSourceTree` (bool), `AutoCreateNodes` (bool), `SectionName = "MigrationPlatform:Modules:Nodes"`
+- [X] T003 [P] [US1] Create `src/DevOpsMigrationPlatform.Abstractions.Agent/Modules/TeamsModuleOptions.cs` — sealed class with `init`-only properties: `Enabled` (bool), `Extensions` (dictionary for enabling/disabling sub-extensions), `SectionName = "MigrationPlatform:Modules:Teams"`
+- [X] T004 [P] [US0] Create `src/DevOpsMigrationPlatform.Abstractions.Agent/Tools/IIdentitySource.cs` — connector abstraction: `IAsyncEnumerable<IdentityDescriptor> EnumerateIdentitiesAsync(string projectName, CancellationToken ct)`
+- [X] T005 [P] [US1] Create `src/DevOpsMigrationPlatform.Abstractions.Agent/Tools/ITeamSource.cs` — connector abstraction: `IAsyncEnumerable<TeamDefinition> EnumerateTeamsAsync(string projectName, CancellationToken ct)`, `GetTeamSettingsAsync`, `GetTeamIterationsAsync`, `GetTeamMembersAsync`, `GetTeamCapacityAsync`, `GetTeamAreaPathsAsync`
+- [X] T006 [P] [US1] Create `src/DevOpsMigrationPlatform.Abstractions.Agent/Tools/ITeamTarget.cs` — connector abstraction: `CreateOrUpdateTeamAsync`, `SetTeamSettingsAsync`, `AssignIterationAsync`, `AddMemberAsync`, `SetCapacityAsync`, `SetAreaPathsAsync`
 
 **Checkpoint**: All abstractions in place — module and connector work can begin.
 

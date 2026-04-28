@@ -30,16 +30,24 @@ PackageRoot/
     source-tree.json        ← full classification tree snapshot (area + iteration) from the source
     prepare-report.json     ← written by PrepareAsync: node existence validation against target
   Teams/
+    {team-slug}/
+      team.json             ← team definition, settings, iterations, members, capacity, area paths
     prepare-report.json     ← written by PrepareAsync: team/group validation against target
   Permissions/
     prepare-report.json     ← written by PrepareAsync: ACL compatibility validation against target
   Builds/
   Git/
   Identities/
+    descriptors.jsonl       ← one identity descriptor JSON per line (JSONL format)
+    mapping.json            ← operator-editable identity override map (source → target)
+    unresolved.json         ← identities that could not be auto-resolved
     prepare-report.json     ← written by PrepareAsync: identity auto-match and unresolved report
   .migration/
     Checkpoints/
       workitems.cursor.json
+      identities.cursor.json  ← cursor for IdentitiesModule export/import resume
+      nodes.cursor.json       ← cursor for NodeStructureModule import resume
+      teams.cursor.json       ← cursor for TeamsModule export/import resume
       prepare.complete.json ← marker written when Prepare completes successfully; Import checks for this
       idmap.db              ← source→target work item ID mappings
       export_progress.db    ← per-WI export revision index (fast-forward resume)
@@ -128,6 +136,8 @@ Folder names sort lexicographically in chronological order. This invariant enabl
   "includedTypes": [
     "WorkItems",
     "Teams",
+    "Identities",
+    "Nodes",
     "Permissions",
     "Builds",
     "Git"

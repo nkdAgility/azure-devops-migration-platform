@@ -21,5 +21,18 @@ public interface IRevisionFolderProcessorFactory
         ICheckpointingService checkpointing,
         IIdentityMappingService identityMapping,
         IArtefactStore artefactStore);
+
+    /// <summary>
+    /// Creates a new <see cref="IRevisionFolderProcessor"/> with NodeStructure context
+    /// for area/iteration path translation.
+    /// </summary>
+    IRevisionFolderProcessor Create(
+        IWorkItemImportTarget target,
+        IIdMapStore idMapStore,
+        ICheckpointingService checkpointing,
+        IIdentityMappingService identityMapping,
+        IArtefactStore artefactStore,
+        DevOpsMigrationPlatform.Abstractions.Agent.Tools.ProjectMapping? nodeStructureContext);
 }
 #endif
+

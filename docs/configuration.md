@@ -80,6 +80,29 @@ A single JSON configuration file drives the entire run.
   },
   "modules": [
     {
+      "name": "Identities",
+      "enabled": true,
+      "defaultIdentity": "migration-service@contoso.com"
+    },
+    {
+      "name": "Nodes",
+      "enabled": true,
+      "replicateSourceTree": true,
+      "autoCreateNodes": true
+    },
+    {
+      "name": "Teams",
+      "enabled": true,
+      "scope": "all",
+      "filter": "",
+      "extensions": [
+        { "type": "TeamSettings",    "enabled": true },
+        { "type": "TeamIterations",  "enabled": true },
+        { "type": "TeamMembers",     "enabled": true },
+        { "type": "TeamCapacity",    "enabled": true }
+      ]
+    },
+    {
       "name": "WorkItems",
       "scopes": [
         {

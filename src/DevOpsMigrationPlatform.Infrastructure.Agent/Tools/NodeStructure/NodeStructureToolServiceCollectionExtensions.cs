@@ -11,7 +11,7 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Tools.NodeStructure;
 public static class NodeStructureToolServiceCollectionExtensions
 {
     /// <summary>
-    /// Adds <see cref="INodeStructureTool"/> and <see cref="INodeStructureValidator"/>
+    /// Adds <see cref="INodeStructureTool"/>, <see cref="INodeTranslationTool"/>, and <see cref="INodeStructureValidator"/>
     /// to the service collection.
     /// <para>
     /// <see cref="INodeCreator"/> and <see cref="IClassificationTreeReader"/> are
@@ -28,10 +28,17 @@ public static class NodeStructureToolServiceCollectionExtensions
 
 #if !NET481
         services.AddSingleton<IValidateOptions<NodeStructureOptions>, NodeStructureOptionsValidator>();
-        services.AddSingleton<INodeStructureTool, NodeStructureTool>();
+        services.AddSingleton<NodeStructureTool>();
+        services.AddSingleton<INodeStructureTool>(sp => sp.GetRequiredService<NodeStructureTool>());
+        services.AddSingleton<INodeTranslationTool>(sp => sp.GetRequiredService<NodeStructureTool>());
         services.AddSingleton<INodeStructureValidator, NodeStructureValidator>();
-        services.AddTransient<ReferencedPathTracker>();
-        services.AddTransient<ClassificationTreeCapture>();
+        // T012: ReferencedPathTracker must be Singleton so the same path set is shared across a single export run
+        services.AddSingleton<ReferencedPathTracker>();
+        services.AddSingleton<IReferencedPathTracker>(sp => sp.GetRequiredService<ReferencedPathTracker>());
+        services.AddSingleton<ClassificationTreeCapture>();
+        services.AddSingleton<IClassificationTreeCapture>(sp => sp.GetRequiredService<ClassificationTreeCapture>());
+        services.AddSingleton<NodeEnsurer>();
+        services.AddSingleton<INodeEnsurer>(sp => sp.GetRequiredService<NodeEnsurer>());
 #endif
 
         return services;

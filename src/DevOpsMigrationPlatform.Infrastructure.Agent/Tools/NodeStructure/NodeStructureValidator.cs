@@ -27,9 +27,9 @@ public sealed class NodeStructureValidator : INodeStructureValidator
     };
 
     private readonly NodeStructureOptions _options;
-    private readonly INodeStructureTool _tool;
+    private readonly INodeTranslationTool _tool;
 
-    public NodeStructureValidator(IOptions<NodeStructureOptions> options, INodeStructureTool tool)
+    public NodeStructureValidator(IOptions<NodeStructureOptions> options, INodeTranslationTool tool)
     {
         _options = options?.Value ?? throw new ArgumentNullException(nameof(options));
         _tool = tool ?? throw new ArgumentNullException(nameof(tool));

@@ -133,7 +133,7 @@ public class NodeStructureValidatorTests
         storeMock.Setup(s => s.ReadAsync("Nodes/referenced-paths.json", It.IsAny<CancellationToken>()))
             .ReturnsAsync((string?)null);
 
-        var toolMock = new Mock<INodeStructureTool>(MockBehavior.Loose);
+        var toolMock = new Mock<INodeTranslationTool>(MockBehavior.Loose);
         toolMock.Setup(t => t.IsEnabled).Returns(true);
 
         var validator = new NodeStructureValidator(Options.Create(opts), toolMock.Object);

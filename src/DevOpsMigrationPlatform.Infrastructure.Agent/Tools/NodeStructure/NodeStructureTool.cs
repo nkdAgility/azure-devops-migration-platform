@@ -15,7 +15,7 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Tools.NodeStructure;
 /// Pure path-mapping tool. Pre-compiles all <see cref="NodeMapping"/> patterns at construction time.
 /// Thread-safe — safe to call concurrently.
 /// </summary>
-public sealed class NodeStructureTool : INodeStructureTool
+public sealed class NodeStructureTool : INodeStructureTool, INodeTranslationTool
 {
     private static readonly ActivitySource s_activitySource = new(WellKnownActivitySourceNames.Migration);
 

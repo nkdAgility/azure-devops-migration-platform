@@ -21,7 +21,7 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Tools.NodeStructure;
 /// 1. ReplicateSourceTree — reads Nodes/source-tree.json when <c>ReplicateSourceTree: true</c>
 /// 2. AutoCreateNodes pre-collection — reads Nodes/referenced-paths.json when <c>AutoCreateNodes: true</c>
 /// </summary>
-public sealed class NodeEnsurer
+public sealed class NodeEnsurer : INodeEnsurer
 {
     private const string ReferencedPathsPath = "Nodes/referenced-paths.json";
     private const string SourceTreePath = "Nodes/source-tree.json";
@@ -36,13 +36,13 @@ public sealed class NodeEnsurer
     };
 
     private readonly NodeStructureOptions _options;
-    private readonly INodeStructureTool _tool;
+    private readonly INodeTranslationTool _tool;
     private readonly INodeCreator _nodeCreator;
     private readonly ILogger<NodeEnsurer> _logger;
 
     public NodeEnsurer(
         IOptions<NodeStructureOptions> options,
-        INodeStructureTool tool,
+        INodeTranslationTool tool,
         INodeCreator nodeCreator,
         ILogger<NodeEnsurer> logger)
     {

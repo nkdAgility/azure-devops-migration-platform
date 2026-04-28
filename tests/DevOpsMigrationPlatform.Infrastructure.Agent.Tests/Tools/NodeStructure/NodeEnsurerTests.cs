@@ -23,7 +23,7 @@ public class NodeEnsurerTests
     private static (NodeEnsurer sut, Mock<INodeCreator> creatorMock, Mock<IArtefactStore> storeMock, Mock<IStateStore> stateMock)
         CreateEnsurer(
             NodeStructureOptions? opts = null,
-            INodeStructureTool? tool = null,
+            INodeTranslationTool? tool = null,
             string? referencedPathsJson = null,
             string? sourceTreeJson = null)
     {
@@ -54,7 +54,7 @@ public class NodeEnsurerTests
         return (ensurer, creatorMock, storeMock, stateMock);
     }
 
-    private static INodeStructureTool CreatePassThroughTool()
+    private static INodeTranslationTool CreatePassThroughTool()
     {
         var opts = new NodeStructureOptions
         {

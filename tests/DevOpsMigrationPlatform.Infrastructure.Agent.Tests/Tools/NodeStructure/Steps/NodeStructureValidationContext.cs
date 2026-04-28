@@ -87,7 +87,7 @@ public class NodeStructureValidationContext
 
         // Use a mock tool since NodeStructureTool constructor rejects invalid regex.
         // The validator validates regex independently of the tool.
-        var toolMock = new Mock<INodeStructureTool>(MockBehavior.Loose);
+        var toolMock = new Mock<INodeTranslationTool>(MockBehavior.Loose);
         toolMock.Setup(t => t.IsEnabled).Returns(true);
 
         var validator = new NodeStructureValidator(Options.Create(optsWithInvalidRegex), toolMock.Object);

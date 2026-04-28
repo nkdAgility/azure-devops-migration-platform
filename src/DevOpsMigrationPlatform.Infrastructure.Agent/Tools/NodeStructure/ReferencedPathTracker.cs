@@ -18,7 +18,7 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Tools.NodeStructure;
 /// Persists to <c>Nodes/referenced-paths.json</c> via <see cref="IArtefactStore"/> on each new discovery.
 /// Supports resume: loads existing artifact on initialization.
 /// </summary>
-public sealed class ReferencedPathTracker
+public sealed class ReferencedPathTracker : IReferencedPathTracker
 {
     private const string ArtifactPath = "Nodes/referenced-paths.json";
 

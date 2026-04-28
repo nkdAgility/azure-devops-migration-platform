@@ -19,7 +19,7 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Tools.NodeStructure;
 /// Captures the full source classification tree during export and writes
 /// <c>Nodes/source-tree.json</c> to the package via <see cref="IArtefactStore"/>.
 /// </summary>
-public sealed class ClassificationTreeCapture
+public sealed class ClassificationTreeCapture : IClassificationTreeCapture
 {
     private const string ArtifactPath = "Nodes/source-tree.json";
 

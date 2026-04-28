@@ -5,13 +5,13 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Abstractions.Agent.Validation;
 using DevOpsMigrationPlatform.Abstractions.Telemetry;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Export;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Import;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Telemetry;
 using DevOpsMigrationPlatform.Infrastructure.Telemetry;
-using DevOpsMigrationPlatform.Infrastructure.Agent.Tools.NodeStructure;
 using Microsoft.Extensions.Logging;
 using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
 
@@ -50,9 +50,9 @@ public sealed class WorkItemsModule : IModule
     private readonly IMigrationMetrics? _metrics;
     private readonly IWorkItemDiscoveryService? _discoveryService;
     private readonly IExportProgressStoreFactory? _exportProgressStoreFactory;
-    private readonly ClassificationTreeCapture _classificationTreeCapture;
-    private readonly ReferencedPathTracker _referencedPathTracker;
-    private readonly NodeEnsurer? _nodeEnsurer;
+    private readonly IClassificationTreeCapture? _classificationTreeCapture;
+    private readonly IReferencedPathTracker? _referencedPathTracker;
+    private readonly INodeEnsurer? _nodeEnsurer;
 
     public WorkItemsModule(
         IWorkItemRevisionSourceFactory sourceFactory,
@@ -70,9 +70,9 @@ public sealed class WorkItemsModule : IModule
         IMigrationMetrics? metrics = null,
         IWorkItemDiscoveryService? discoveryService = null,
         IExportProgressStoreFactory? exportProgressStoreFactory = null,
-        ClassificationTreeCapture? classificationTreeCapture = null,
-        ReferencedPathTracker? referencedPathTracker = null,
-        NodeEnsurer? nodeEnsurer = null)
+        IClassificationTreeCapture? classificationTreeCapture = null,
+        IReferencedPathTracker? referencedPathTracker = null,
+        INodeEnsurer? nodeEnsurer = null)
     {
         _sourceFactory = sourceFactory ?? throw new ArgumentNullException(nameof(sourceFactory));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
@@ -89,8 +89,8 @@ public sealed class WorkItemsModule : IModule
         _metrics = metrics;
         _discoveryService = discoveryService;
         _exportProgressStoreFactory = exportProgressStoreFactory;
-        _classificationTreeCapture = classificationTreeCapture ?? throw new ArgumentNullException(nameof(classificationTreeCapture));
-        _referencedPathTracker = referencedPathTracker ?? throw new ArgumentNullException(nameof(referencedPathTracker));
+        _classificationTreeCapture = classificationTreeCapture;
+        _referencedPathTracker = referencedPathTracker;
         _nodeEnsurer = nodeEnsurer;
     }
 
@@ -133,8 +133,16 @@ public sealed class WorkItemsModule : IModule
             .CreateAsync(endpointOptions, ct)
             .ConfigureAwait(false);
 
-        await _referencedPathTracker.InitializeAsync(context.ArtefactStore, ct).ConfigureAwait(false);
-        await _classificationTreeCapture.CaptureAsync(context.ArtefactStore, endpointOptions, ct, _metrics, job.JobId).ConfigureAwait(false);
+        if (_referencedPathTracker is null)
+            _logger.LogWarning("[WorkItems] IReferencedPathTracker is not available — referenced path tracking will be skipped.");
+
+        if (_classificationTreeCapture is null)
+            _logger.LogWarning("[WorkItems] IClassificationTreeCapture is not available — source-tree.json will not be written.");
+
+        if (_referencedPathTracker is not null)
+            await _referencedPathTracker.InitializeAsync(context.ArtefactStore, ct).ConfigureAwait(false);
+        if (_classificationTreeCapture is not null)
+            await _classificationTreeCapture.CaptureAsync(context.ArtefactStore, endpointOptions, ct, _metrics, job.JobId).ConfigureAwait(false);
 
         var checkpointingService = _checkpointingFactory.Create(context.StateStore);
 
@@ -216,21 +224,11 @@ public sealed class WorkItemsModule : IModule
         // Build processor — use NodeStructure-aware overload when available.
         IRevisionFolderProcessor processor;
         var sourceProjectName = job.Source?.GetProject() ?? string.Empty;
-        var nodeStructureContext = _processorFactory is RevisionFolderProcessorFactory
-            ? new DevOpsMigrationPlatform.Abstractions.Agent.Tools.ProjectMapping(sourceProjectName, project)
-            : null;
+        var nodeStructureContext = new DevOpsMigrationPlatform.Abstractions.Agent.Tools.ProjectMapping(sourceProjectName, project);
 
-        if (nodeStructureContext != null && _processorFactory is RevisionFolderProcessorFactory concreteFactory)
-        {
-            processor = concreteFactory.Create(
-                target, idMapStore, checkpointingService, _identityMappingService, context.ArtefactStore,
-                nodeStructureContext);
-        }
-        else
-        {
-            processor = _processorFactory.Create(
-                target, idMapStore, checkpointingService, _identityMappingService, context.ArtefactStore);
-        }
+        processor = _processorFactory.Create(
+            target, idMapStore, checkpointingService, _identityMappingService, context.ArtefactStore,
+            nodeStructureContext);
 
         // Build combined filter options for import (include as Regex + exclude as NotRegex).
         var importFilters = ext.IncludeFilters.Concat(ext.ExcludeFilters).ToList();

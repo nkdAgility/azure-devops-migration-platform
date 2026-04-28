@@ -97,7 +97,9 @@ Each module maintains its own cursor file under `.migration/Checkpoints/`:
 ```
 .migration/Checkpoints/
   workitems.cursor.json
-  teams.cursor.json
+  identities.cursor.json    ← cursor for IdentitiesModule export/import resume
+  nodes.cursor.json         ← cursor for NodeStructureModule import resume
+  teams.cursor.json         ← cursor for TeamsModule export/import resume
   permissions.cursor.json
   builds.cursor.json
   git.cursor.json

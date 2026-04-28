@@ -37,7 +37,7 @@ public sealed class RevisionFolderProcessor : IRevisionFolderProcessor
     private readonly IMigrationMetrics? _metrics;
     private readonly string? _jobId;
     private readonly IFieldTransformTool? _fieldTransformTool;
-    private readonly INodeStructureTool? _nodeStructureTool;
+    private readonly INodeTranslationTool? _nodeStructureTool;
     private readonly ProjectMapping? _nodeStructureContext;
     private readonly NodeStructureOptions? _nodeStructureOptions;
 
@@ -58,7 +58,7 @@ public sealed class RevisionFolderProcessor : IRevisionFolderProcessor
         IMigrationMetrics? metrics = null,
         string? jobId = null,
         IFieldTransformTool? fieldTransformTool = null,
-        INodeStructureTool? nodeStructureTool = null,
+        INodeTranslationTool? nodeStructureTool = null,
         ProjectMapping? nodeStructureContext = null,
         NodeStructureOptions? nodeStructureOptions = null)
     {
@@ -78,7 +78,7 @@ public sealed class RevisionFolderProcessor : IRevisionFolderProcessor
         if (_fieldTransformTool == null)
             _logger.LogWarning("[WorkItems] IFieldTransformTool is not registered — field transforms will be skipped for all revisions. Call AddFieldTransformToolServices() in your DI setup to enable field transforms.");
         if (_nodeStructureTool == null)
-            _logger.LogWarning("[WorkItems] INodeStructureTool is not registered — area/iteration path translation will be skipped for all revisions. Call AddNodeStructureToolServices() in your DI setup to enable path translation.");
+            _logger.LogWarning("[WorkItems] INodeTranslationTool is not registered — area/iteration path translation will be skipped for all revisions. Call AddNodeStructureToolServices() in your DI setup to enable path translation.");
     }
 
     /// <summary>
