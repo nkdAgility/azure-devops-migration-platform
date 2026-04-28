@@ -1,5 +1,48 @@
 # Telemetry Architecture — Agent Context
 
+---
+
+> ## ⚠️ CRITICAL: Two Separate Metric Destinations — Do Not Confuse Them
+>
+> The system has **two completely independent metric pipelines**. Confusing them is the most common source of "metrics not showing in CLI/TUI" bugs.
+>
+> | Destination | Path | What sees it |
+> |---|---|---|
+> | **Azure Monitor / App Insights** | `IMigrationMetrics` → OTel SDK → OTLP exporter → Azure Monitor | Cloud dashboards, traces, long-term storage |
+> | **CLI / TUI progress display** | `ProgressEvent.Metrics` → SSE → `ProgressController` → `JobMetricsStore` → `GET /jobs/{id}/telemetry` | Live CLI progress rows, TUI metrics panel |
+>
+> **OTel instruments (`IMigrationMetrics.RecordXxx`) do NOT feed the CLI/TUI display.**
+>
+> The `.NET 10 MigrationAgent` has no `SnapshotMetricExporter` wired into its OTel pipeline, so `IJobMetricsStore` in the agent is never written and `ControlPlaneTelemetryTimer` pushes nothing useful for the display.
+>
+> ### The only working path for CLI/TUI metrics in .NET 10 agents
+>
+> Every module that wants counters shown in the CLI or TUI **MUST** embed `ProgressEvent.Metrics` on completion:
+>
+> ```csharp
+> sink?.Emit(new ProgressEvent
+> {
+>     Module = ModuleName,
+>     Stage = "MyModule.Export.Complete",
+>     Message = $"Export complete — {count} items.",
+>     Metrics = new JobMetrics          // ← THIS feeds the CLI/TUI
+>     {
+>         Migration = new MigrationCounters
+>         {
+>             MyCounters = new MyCounters { Exported = count }
+>         }
+>     }
+> });
+> ```
+>
+> `ProgressController.PostProgress` reads `ProgressEvent.Metrics` and calls `JobMetricsStore.Store()`, which **merges** sub-counters so later module events (e.g. WorkItems) do not erase earlier ones (Teams, Nodes, Identities).
+>
+> Calling only `_migrationMetrics?.RecordXxx(tags)` will appear in Application Insights but **not** in the CLI/TUI. Both calls are required for complete observability.
+>
+> See: `WorkItemExportOrchestrator` as the canonical example — it embeds `Metrics` in every `ProgressEvent` batch emission. All new modules MUST follow this pattern.
+
+---
+
 > ⛔ **STOP. Before proposing any change involving metrics, counters, progress, or observability:**
 >
 > The **Three-Channel Telemetry Model** described in this file is the **only permitted architecture**.
@@ -66,7 +109,7 @@ ProgressEvent { Module, Stage, Message, Timestamp, EventSequence, LastCheckpoint
 ```
 
 - `EventSequence` is a monotonic long assigned by the agent, scoped per job. Used as SSE `id:` for `Last-Event-ID` reconnect.
-- `Metrics` is only populated by the TFS subprocess (net481) every N revisions. Null when emitted by the .NET 10 Migration Agent (which pushes metrics via Channel 2).
+- `Metrics` MUST be populated by every module on its completion event. `ProgressController` merges it into `JobMetricsStore`, which feeds `GET /jobs/{id}/telemetry` (the CLI/TUI data source). The TFS subprocess (net481) also populates it every N revisions for in-stream counter updates.
 
 ### Channel 2: JobMetrics
 
