@@ -78,7 +78,7 @@ public class NodesModuleTests
                 It.IsAny<CancellationToken>(),
                 It.IsAny<IMigrationMetrics?>(),
                 It.IsAny<string?>()))
-            .Returns(Task.CompletedTask);
+            .Returns(Task.FromResult(0));
 
         var module = CreateModule(capture: captureMock.Object);
         var store = Mock.Of<IArtefactStore>();

@@ -154,6 +154,13 @@ public sealed class IdentitiesModule : IModule
             Module = ModuleName,
             Stage = "Identities.Export.Complete",
             Message = $"Identity export complete — {count} descriptors exported.",
+            Metrics = new JobMetrics
+            {
+                Migration = new MigrationCounters
+                {
+                    Identities = new IdentitiesCounters { Exported = count }
+                }
+            }
         });
 
         // Write cursor after successful export.

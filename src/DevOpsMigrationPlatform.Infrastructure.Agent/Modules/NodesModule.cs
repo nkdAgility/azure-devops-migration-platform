@@ -104,13 +104,20 @@ public sealed class NodesModule : IModule
             }
         }
 
-        await _capture.CaptureAsync(context.ArtefactStore, endpoint, ct, _migrationMetrics, context.Job.JobId).ConfigureAwait(false);
+        var nodeCount = await _capture.CaptureAsync(context.ArtefactStore, endpoint, ct, _migrationMetrics, context.Job.JobId).ConfigureAwait(false);
 
         exportSink?.Emit(new ProgressEvent
         {
             Module = ModuleName,
             Stage = "Nodes.Export.Complete",
-            Message = "Node tree capture complete.",
+            Message = $"Node tree capture complete — {nodeCount} nodes captured.",
+            Metrics = new JobMetrics
+            {
+                Migration = new MigrationCounters
+                {
+                    Nodes = new NodesCounters { Exported = nodeCount }
+                }
+            }
         });
 
         // Write cursor after successful export.

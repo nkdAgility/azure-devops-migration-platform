@@ -191,6 +191,13 @@ public sealed class TeamsModule : IModule
             Module = ModuleName,
             Stage = "Teams.Export.Complete",
             Message = $"Team export complete — {count} teams exported.",
+            Metrics = new JobMetrics
+            {
+                Migration = new MigrationCounters
+                {
+                    Teams = new TeamsCounters { Exported = count }
+                }
+            }
         });
 
         // Write cursor after successful export.

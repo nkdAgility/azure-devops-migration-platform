@@ -147,7 +147,7 @@ public sealed class WorkItemsModule : IModule
         if (_referencedPathTracker is not null)
             await _referencedPathTracker.InitializeAsync(context.ArtefactStore, ct).ConfigureAwait(false);
         if (_classificationTreeCapture is not null)
-            await _classificationTreeCapture.CaptureAsync(context.ArtefactStore, endpointOptions, ct, _metrics, job.JobId).ConfigureAwait(false);
+            _ = await _classificationTreeCapture.CaptureAsync(context.ArtefactStore, endpointOptions, ct, _metrics, job.JobId).ConfigureAwait(false);
 
         var checkpointingService = _checkpointingFactory.Create(context.StateStore);
 

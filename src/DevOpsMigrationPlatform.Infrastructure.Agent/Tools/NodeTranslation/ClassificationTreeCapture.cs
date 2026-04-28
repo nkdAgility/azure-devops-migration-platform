@@ -47,7 +47,8 @@ public sealed class ClassificationTreeCapture : IClassificationTreeCapture
     /// Captures the source classification tree and writes it to the package.
     /// Emits <c>migration.nodes.export.*</c> OTel metrics.
     /// </summary>
-    public async Task CaptureAsync(
+    /// <returns>Total number of nodes captured (area + iteration).</returns>
+    public async Task<int> CaptureAsync(
         IArtefactStore artefactStore,
         MigrationEndpointOptions endpoint,
         CancellationToken ct,
@@ -85,6 +86,8 @@ public sealed class ClassificationTreeCapture : IClassificationTreeCapture
             _logger.LogInformation(
                 "[NodeTranslation] Source tree captured: {AreaCount} area nodes, {IterCount} iteration nodes in {DurationMs}ms.",
                 areaNodes.Count, iterationNodes.Count, sw.ElapsedMilliseconds);
+
+            return totalNodes;
         }
         catch (Exception ex)
         {

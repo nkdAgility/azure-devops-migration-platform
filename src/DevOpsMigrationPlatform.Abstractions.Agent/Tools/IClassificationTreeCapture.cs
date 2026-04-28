@@ -15,7 +15,8 @@ public interface IClassificationTreeCapture
     /// <summary>
     /// Captures the source classification tree and writes <c>Nodes/source-tree.json</c>.
     /// </summary>
-    Task CaptureAsync(
+    /// <returns>Total number of nodes captured (area + iteration).</returns>
+    Task<int> CaptureAsync(
         IArtefactStore artefactStore,
         MigrationEndpointOptions endpoint,
         CancellationToken ct,
