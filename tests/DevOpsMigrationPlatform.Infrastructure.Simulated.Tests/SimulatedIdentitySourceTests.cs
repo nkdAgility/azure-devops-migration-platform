@@ -65,6 +65,10 @@ public class SimulatedIdentitySourceTests
     }
 
     [TestMethod]
+    // TODO: [test-validity] Score 14/25 — Only verifies count equality across two project names.
+    // The Simulated source is project-agnostic by design; this assertion rarely fails except by
+    // intentional change. Rewrite to compare descriptor values (not just count) between runs,
+    // or replace with an XML doc on SimulatedIdentitySource noting project-agnostic behaviour.
     public async Task EnumerateIdentitiesAsync_IgnoresProjectName_ReturnsSameSet()
     {
         // Arrange — verifies project name doesn't affect the result (simulated is project-agnostic)
