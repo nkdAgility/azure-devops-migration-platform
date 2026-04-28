@@ -512,6 +512,146 @@ public class TeamsModuleTests
         Assert.AreEqual(0, target.Capacity.Count, "Capacity should be empty when extension is disabled");
     }
 
+    // ── NodeStructure Extension Tests (T069) ─────────────────────────────────
+
+    [TestMethod]
+    public async Task ExportAsync_RecordsAreaAndIterationPaths_WhenNodeStructureExtensionEnabled()
+    {
+        // Arrange
+        var recordedAreaPaths = new List<string>();
+        var recordedIterPaths = new List<string>();
+
+        var trackerMock = new Mock<IReferencedPathTracker>(MockBehavior.Loose);
+        trackerMock
+            .Setup(t => t.RecordAreaPathAsync(It.IsAny<string>(), It.IsAny<IArtefactStore>(), It.IsAny<CancellationToken>()))
+            .Callback<string, IArtefactStore, CancellationToken>((path, _, __) => recordedAreaPaths.Add(path))
+            .Returns(Task.CompletedTask);
+        trackerMock
+            .Setup(t => t.RecordIterationPathAsync(It.IsAny<string>(), It.IsAny<IArtefactStore>(), It.IsAny<CancellationToken>()))
+            .Callback<string, IArtefactStore, CancellationToken>((path, _, __) => recordedIterPaths.Add(path))
+            .Returns(Task.CompletedTask);
+
+        var source = new SimulatedTeamSource();
+        var orchestrator = new TeamExportOrchestrator(source, NullLogger<TeamExportOrchestrator>.Instance,
+            referencedPathTracker: trackerMock.Object);
+
+        var storeMock = new Mock<IArtefactStore>(MockBehavior.Loose);
+        storeMock
+            .Setup(s => s.WriteAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        var opts = new TeamsModuleOptions
+        {
+            Enabled = true,
+            Extensions = new TeamsModuleExtensionsOptions { NodeStructure = true, TeamIterations = true }
+        };
+        var module = new TeamsModule(
+            NullLogger<TeamsModule>.Instance,
+            Options.Create(opts),
+            new TeamSlugGenerator(),
+            teamSource: source,
+            exportOrchestrator: orchestrator);
+
+        // Act
+        await module.ExportAsync(CreateExportContext(storeMock.Object), CancellationToken.None);
+
+        // Assert — iteration paths should be recorded (SimulatedTeamSource has sprint iterations)
+        Assert.IsTrue(recordedIterPaths.Count > 0, "Expected at least one iteration path to be recorded.");
+    }
+
+    [TestMethod]
+    public async Task ExportAsync_DoesNotRecordPaths_WhenNodeStructureExtensionDisabled()
+    {
+        // Arrange
+        var trackerMock = new Mock<IReferencedPathTracker>(MockBehavior.Strict);
+        // Strict: no calls should be made
+
+        var source = new SimulatedTeamSource();
+        var orchestrator = new TeamExportOrchestrator(source, NullLogger<TeamExportOrchestrator>.Instance,
+            referencedPathTracker: trackerMock.Object);
+
+        var storeMock = new Mock<IArtefactStore>(MockBehavior.Loose);
+        storeMock
+            .Setup(s => s.WriteAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        var opts = new TeamsModuleOptions
+        {
+            Enabled = true,
+            Extensions = new TeamsModuleExtensionsOptions { NodeStructure = false, TeamIterations = true }
+        };
+        var module = new TeamsModule(
+            NullLogger<TeamsModule>.Instance,
+            Options.Create(opts),
+            new TeamSlugGenerator(),
+            teamSource: source,
+            exportOrchestrator: orchestrator);
+
+        // Act
+        await module.ExportAsync(CreateExportContext(storeMock.Object), CancellationToken.None);
+
+        // Assert — no path tracker calls when NodeStructure extension is disabled
+        trackerMock.VerifyNoOtherCalls();
+    }
+
+    [TestMethod]
+    public async Task ImportAsync_TranslatesIterationPaths_ViaNodeTranslationTool()
+    {
+        // Arrange
+        var target = new SimulatedTeamTarget();
+        var identityMapping = Mock.Of<IIdentityMappingService>(m => m.Resolve(It.IsAny<string>()) == "tgt");
+
+        var translatedPaths = new List<string>();
+        var translationToolMock = new Mock<INodeTranslationTool>(MockBehavior.Loose);
+        translationToolMock.Setup(t => t.IsEnabled).Returns(true);
+        translationToolMock
+            .Setup(t => t.TranslatePath(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<ProjectMapping>()))
+            .Returns<string, string, ProjectMapping>((field, path, mapping) =>
+            {
+                var targetPath = path.Replace("SourceProject", "TargetProject");
+                translatedPaths.Add(targetPath);
+                return new PathTranslation(targetPath, false, true, false);
+            });
+
+        var orchestrator = new TeamImportOrchestrator(
+            target, identityMapping, NullLogger<TeamImportOrchestrator>.Instance,
+            nodeTranslationTool: translationToolMock.Object);
+
+        var teamPackage = new TeamPackage
+        {
+            Definition = new TeamDefinition("src-1", "Alpha Team", "desc", false),
+            Iterations = new List<TeamIteration>
+            {
+                new TeamIteration("i1", "SourceProject\\Sprint 1", "Sprint 1", null, null, false, false)
+            },
+            Members = new List<TeamMember>(),
+            CapacityByIteration = new Dictionary<string, TeamCapacityEntry[]>()
+        };
+        var json = JsonSerializer.Serialize(teamPackage, s_jsonOptions);
+
+        var storeMock = new Mock<IArtefactStore>(MockBehavior.Loose);
+        storeMock.Setup(s => s.EnumerateAsync("Teams/", It.IsAny<CancellationToken>()))
+            .Returns(ToAsyncEnum(new[] { "Teams/alpha-team/team.json" }));
+        storeMock.Setup(s => s.ReadAsync("Teams/alpha-team/team.json", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(json);
+
+        var module = new TeamsModule(
+            NullLogger<TeamsModule>.Instance,
+            Options.Create(new TeamsModuleOptions { Enabled = true, Extensions = new TeamsModuleExtensionsOptions { TeamIterations = true } }),
+            new TeamSlugGenerator(),
+            teamTarget: target,
+            importOrchestrator: orchestrator);
+
+        // Act
+        await module.ImportAsync(CreateImportContext(storeMock.Object), CancellationToken.None);
+
+        // Assert — TranslatePath was called and path was translated
+        translationToolMock.Verify(t => t.TranslatePath(
+            It.IsAny<string>(), "SourceProject\\Sprint 1", It.IsAny<ProjectMapping>()), Times.Once);
+        Assert.IsTrue(translatedPaths.Contains("TargetProject\\Sprint 1"),
+            "Expected translated path 'TargetProject\\Sprint 1'.");
+    }
+
     // ── Helpers ───────────────────────────────────────────────────────────────
 
     private static async IAsyncEnumerable<string> ToAsyncEnum(

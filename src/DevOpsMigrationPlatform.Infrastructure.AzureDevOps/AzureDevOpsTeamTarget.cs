@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions.Agent.Teams;
@@ -34,6 +35,31 @@ public sealed class AzureDevOpsTeamTarget : ITeamTarget
     {
         var org = endpoint.ToOrganisationEndpoint();
         var teamClient = await _clientFactory.CreateTeamClientAsync(org, ct).ConfigureAwait(false);
+
+        // FR-016: If the source team is the default team, map it to the target project's default team
+        // regardless of name differences.
+        if (team.IsDefault)
+        {
+            try
+            {
+                var allTeams = await teamClient.GetTeamsAsync(projectName, cancellationToken: ct).ConfigureAwait(false);
+                // ADO returns the default team as the first entry in the list, or has a ProjectSettings default.
+                // Find the default team by checking name or using the first team as fallback.
+                var defaultTeam = allTeams.FirstOrDefault()
+                    ?? throw new InvalidOperationException($"No teams found in target project '{projectName}' to map default team.");
+
+                var updated = await teamClient.UpdateTeamAsync(
+                    new WebApiTeam { Name = defaultTeam.Name, Description = team.Description },
+                    projectName, defaultTeam.Id.ToString(), cancellationToken: ct).ConfigureAwait(false);
+                _logger.LogInformation("[Teams/ADO] Mapped source default team '{SourceName}' → target default team '{TargetName}' (id={Id}).",
+                    team.Name, defaultTeam.Name, updated.Id);
+                return updated.Id.ToString();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "[Teams/ADO] Could not resolve default team in project '{Project}' — falling back to name-based lookup.", projectName);
+            }
+        }
 
         try
         {

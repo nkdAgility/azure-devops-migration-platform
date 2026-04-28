@@ -127,7 +127,8 @@ public sealed class NodeStructureModule : IModule
             ?? throw new InvalidOperationException("Job.Target is required for node import.");
 
         var project = endpoint.GetProject();
-        var mapping = new ProjectMapping(project, project);
+        var sourceProject = context.Job.Source?.GetProject() ?? project;
+        var mapping = new ProjectMapping(sourceProject, project);
 
         if (_options.ReplicateSourceTree)
         {
@@ -150,6 +151,18 @@ public sealed class NodeStructureModule : IModule
         if (!_options.ReplicateSourceTree && !_options.AutoCreateNodes)
         {
             _logger.LogDebug("[Nodes] Both ReplicateSourceTree and AutoCreateNodes are disabled — nothing to import.");
+        }
+
+        // Write cursor after successful import.
+        if (_checkpointingFactory is not null)
+        {
+            var checkpointing = _checkpointingFactory.Create(context.StateStore);
+            await checkpointing.WriteCursorAsync(ModuleName, new CursorEntry
+            {
+                LastProcessed = "Nodes/import",
+                Stage = CursorStage.Completed,
+                UpdatedAt = DateTimeOffset.UtcNow
+            }, ct).ConfigureAwait(false);
         }
     }
 

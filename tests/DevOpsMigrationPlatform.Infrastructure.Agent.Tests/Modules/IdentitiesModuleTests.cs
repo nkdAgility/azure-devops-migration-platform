@@ -247,6 +247,76 @@ public class IdentitiesModuleTests
         Assert.AreEqual(0, context.Errors.Count);
     }
 
+    // ── T024g: Prepare/Mapping resilience tests ───────────────────────────────
+
+    [TestMethod]
+    [TestCategory("UnitTest")]
+    public async Task ImportAsync_CompletesWithoutThrowing_WhenMappingJsonAbsent()
+    {
+        // Arrange — descriptors present, mapping.json missing
+        var descriptor = new IdentityDescriptor("desc-1", "Alice", "alice@src.com", "User", "Sim", true);
+        var line = JsonSerializer.Serialize(descriptor, s_jsonOptions);
+
+        var storeMock = new Mock<IArtefactStore>(MockBehavior.Loose);
+        storeMock
+            .Setup(s => s.ReadAsync("Identities/descriptors.jsonl", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(line + "\n");
+        storeMock
+            .Setup(s => s.ReadAsync("Identities/mapping.json", It.IsAny<CancellationToken>()))
+            .ReturnsAsync((string?)null);  // mapping absent
+
+        var module = CreateModule();
+        var context = CreateImportContext(storeMock);
+
+        // Act — must not throw; missing mapping is a warning, not an error
+        await module.ImportAsync(context, CancellationToken.None);
+    }
+
+    [TestMethod]
+    [TestCategory("UnitTest")]
+    public async Task ImportAsync_CompletesWithoutThrowing_WhenBothDescriptorsAndMappingAbsent()
+    {
+        // Arrange — store returns null for everything
+        var storeMock = new Mock<IArtefactStore>(MockBehavior.Loose);
+        storeMock
+            .Setup(s => s.ReadAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((string?)null);
+
+        var module = CreateModule();
+        var context = CreateImportContext(storeMock);
+
+        // Act — module must tolerate empty state (e.g. first run, prepare-only scenario)
+        await module.ImportAsync(context, CancellationToken.None);
+    }
+
+    [TestMethod]
+    [TestCategory("UnitTest")]
+    public async Task ImportAsync_AppliesMapping_WhenBothDescriptorsAndMappingPresent()
+    {
+        // Arrange
+        var descriptor = new IdentityDescriptor("desc-1", "Alice", "alice@src.com", "User", "Sim", true);
+        var descriptorLine = JsonSerializer.Serialize(descriptor, s_jsonOptions);
+
+        // Mapping: source descriptor → target identity
+        var mappingJson = JsonSerializer.Serialize(
+            new Dictionary<string, string> { ["desc-1"] = "alice@target.com" },
+            s_jsonOptions);
+
+        var storeMock = new Mock<IArtefactStore>(MockBehavior.Loose);
+        storeMock
+            .Setup(s => s.ReadAsync("Identities/descriptors.jsonl", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(descriptorLine + "\n");
+        storeMock
+            .Setup(s => s.ReadAsync("Identities/mapping.json", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(mappingJson);
+
+        var module = CreateModule();
+        var context = CreateImportContext(storeMock);
+
+        // Act — should load and apply mapping without error
+        await module.ImportAsync(context, CancellationToken.None);
+    }
+
     // ── Stub helpers ──────────────────────────────────────────────────────────
 
     private sealed class StubIdentitySource : IIdentitySource
