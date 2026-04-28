@@ -8,7 +8,7 @@ public sealed class IdentitiesModuleOptions
     public const string SectionName = "MigrationPlatform:Modules:Identities";
 
     /// <summary>Whether the module is enabled.</summary>
-    public bool Enabled { get; init; }
+    public bool Enabled { get; init; } = true;
 
     /// <summary>
     /// Default identity to use when an identity cannot be resolved.

@@ -30,7 +30,7 @@ public sealed class TeamsModuleOptions
     public const string SectionName = "MigrationPlatform:Modules:Teams";
 
     /// <summary>Whether the module is enabled.</summary>
-    public bool Enabled { get; init; }
+    public bool Enabled { get; init; } = true;
 
     /// <summary>
     /// Scope type: <c>"all"</c> (default) exports all teams;
