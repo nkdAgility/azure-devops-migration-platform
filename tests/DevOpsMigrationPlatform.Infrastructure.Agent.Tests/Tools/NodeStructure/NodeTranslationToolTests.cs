@@ -8,7 +8,7 @@ using System.Collections.Generic;
 namespace DevOpsMigrationPlatform.Infrastructure.Agent.Tests.Tools.NodeStructure;
 
 [TestClass]
-public class NodeStructureToolTests
+public class NodeTranslationToolTests
 {
     private static readonly ProjectMapping DefaultMapping = new("SourceProject", "TargetProject");
 

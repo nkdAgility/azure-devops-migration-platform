@@ -332,7 +332,7 @@
 - [X] T090 Update `.agents/context/package-format.md` — document `Teams/` folder internal structure (`Teams/{team-slug}/team.json`) and add `Identities`, `Nodes` to `includedTypes` example in manifest` — document `Teams/` folder internal structure (`Teams/{team-slug}/team.json`) and add `Identities`, `Nodes` to `includedTypes` example in manifest
 - [X] T091 [P] Update `.agents/context/checkpointing.md` — add NodeStructureModule cursor (`nodes.cursor.json`), IdentitiesModule cursor (`identities.cursor.json`), TeamsModule cursor (`teams.cursor.json`)` — add NodeStructureModule cursor (`nodes.cursor.json`), IdentitiesModule cursor (`identities.cursor.json`), TeamsModule cursor (`teams.cursor.json`)
 - [X] T092 Mark all items in `specs/024-teams-module/discrepancies.md` as `Resolved` or `N/A`
-- [ ] T093 Review `analysis/pending-actions.md` and remove any items resolved by this spec
+- [X] T093 Review `analysis/pending-actions.md` and remove any items resolved by this spec
 - [X] T094 Run `dotnet clean && dotnet build --no-incremental` — MUST pass && dotnet build --no-incremental` — MUST pass
 - [X] T095 Run `dotnet test` — ALL tests MUST pass` — ALL tests MUST pass
 - [ ] T096 Run at least one scenario config (e.g. `scenarios/queue-export-ado-workitems-single-project.json`) via a `.vscode/launch.json` debug profile and verify observable output
@@ -343,10 +343,10 @@
 
 **Purpose**: Final quality pass across all user stories.
 
-- [ ] T097 Verify OpenTelemetry instrumentation: all metrics, traces, and structured log events from spec.md Observability section are emitted. Cross-reference with spec.md § Observability (metrics: `identities.export.count`, `nodes.export.count`, `teams.export.count`, etc.)
+- [X] T097 Verify OpenTelemetry instrumentation: all metrics, traces, and structured log events from spec.md Observability section are emitted. Cross-reference with spec.md § Observability (metrics: `identities.export.count`, `nodes.export.count`, `teams.export.count`, etc.)
 - [ ] T098 [P] Verify configuration validation: invalid options (e.g., negative timeouts, empty default identity) produce clear error messages at startup
-- [ ] T099 [P] Verify all `INodeTranslationTool` rename references are consistent — no leftover `INodeStructureTool` references in code, config, or docs
-- [ ] T100 Update `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Tools/NodeStructure/` — rename `NodeStructureToolTests.cs` → `NodeTranslationToolTests.cs` if not already done in Phase 2
+- [X] T099 [P] Verify all `INodeTranslationTool` rename references are consistent — no leftover `INodeStructureTool` references in code, config, or docs
+- [X] T100 Update `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Tools/NodeStructure/` — rename `NodeStructureToolTests.cs` → `NodeTranslationToolTests.cs` if not already done in Phase 2
 
 ---
 
@@ -410,6 +410,7 @@
 | 11: Documentation | — | 11 | 3 |
 | 12: Polish | — | 4 | 2 |
 | **Total** | | **127** | **61** |
+
 
 
 
