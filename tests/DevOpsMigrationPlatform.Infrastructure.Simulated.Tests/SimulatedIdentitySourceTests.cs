@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions.Agent.Identity;
+using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Infrastructure.Simulated;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
@@ -79,7 +80,7 @@ public class SimulatedIdentitySourceTests
         SimulatedIdentitySource source, string project)
     {
         var result = new List<IdentityDescriptor>();
-        await foreach (var id in source.EnumerateIdentitiesAsync(project, CancellationToken.None))
+        await foreach (var id in source.EnumerateIdentitiesAsync(new SimulatedEndpointOptions(), project, CancellationToken.None))
             result.Add(id);
         return result;
     }

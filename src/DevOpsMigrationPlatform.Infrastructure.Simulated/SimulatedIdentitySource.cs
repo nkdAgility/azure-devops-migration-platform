@@ -3,6 +3,7 @@ using System.Runtime.CompilerServices;
 using System.Threading;
 using DevOpsMigrationPlatform.Abstractions.Agent.Identity;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
+using DevOpsMigrationPlatform.Abstractions.Options;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Simulated;
 
@@ -25,6 +26,7 @@ public sealed class SimulatedIdentitySource : IIdentitySource
 
     /// <inheritdoc/>
     public async IAsyncEnumerable<IdentityDescriptor> EnumerateIdentitiesAsync(
+        MigrationEndpointOptions endpoint,
         string projectName,
         [EnumeratorCancellation] CancellationToken cancellationToken)
     {

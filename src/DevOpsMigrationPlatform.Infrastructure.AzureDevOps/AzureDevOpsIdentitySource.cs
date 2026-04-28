@@ -1,15 +1,17 @@
 using System;
+using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using System.Threading;
 using DevOpsMigrationPlatform.Abstractions.Agent.Identity;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
+using DevOpsMigrationPlatform.Abstractions.Options;
 using Microsoft.Extensions.Logging;
 
 namespace DevOpsMigrationPlatform.Infrastructure.AzureDevOps;
 
 /// <summary>
 /// Azure DevOps REST API implementation of <see cref="IIdentitySource"/>.
-/// Enumerates users and groups for a project using the Azure DevOps Graph API.
+/// Enumerates project team members by listing all teams and deduplicating by UniqueName.
 /// </summary>
 public sealed class AzureDevOpsIdentitySource : IIdentitySource
 {
@@ -26,21 +28,52 @@ public sealed class AzureDevOpsIdentitySource : IIdentitySource
 
     /// <inheritdoc/>
     public async IAsyncEnumerable<IdentityDescriptor> EnumerateIdentitiesAsync(
+        MigrationEndpointOptions endpoint,
         string projectName,
         [EnumeratorCancellation] CancellationToken cancellationToken)
     {
         _logger.LogInformation("[Identities/ADO] Enumerating identities for project '{Project}'.", projectName);
 
-        // Full identity enumeration via Azure DevOps Graph API requires the organisation URL
-        // which is only available from the connector endpoint at export time.
-        // The current IIdentitySource contract passes only the project name.
-        // This implementation logs a warning and returns no identities.
-        // A future iteration should extend IIdentitySource to accept OrganisationEndpoint context.
-        _logger.LogWarning(
-            "[Identities/ADO] AzureDevOpsIdentitySource: full Graph API identity enumeration requires " +
-            "OrganisationEndpoint context. This implementation returns no identities. " +
-            "Extend IIdentitySource to accept endpoint context in a future iteration.");
+        var org = endpoint.ToOrganisationEndpoint();
+        var teamClient = await _clientFactory.CreateTeamClientAsync(org, cancellationToken).ConfigureAwait(false);
 
-        yield break;
+        var teams = await teamClient.GetTeamsAsync(projectName, cancellationToken: cancellationToken).ConfigureAwait(false);
+        _logger.LogDebug("[Identities/ADO] Found {Count} teams in project '{Project}'.", teams.Count, projectName);
+
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var team in teams)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            List<Microsoft.VisualStudio.Services.WebApi.TeamMember> members;
+            try
+            {
+                members = await teamClient.GetTeamMembersWithExtendedPropertiesAsync(
+                    projectName, team.Id.ToString(), cancellationToken: cancellationToken).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "[Identities/ADO] Failed to get members for team '{Team}' — skipping.", team.Name);
+                continue;
+            }
+
+            foreach (var member in members)
+            {
+                var uniqueName = member.Identity?.UniqueName;
+                if (string.IsNullOrEmpty(uniqueName) || !seen.Add(uniqueName))
+                    continue;
+
+                yield return new IdentityDescriptor(
+                    Descriptor: member.Identity?.UniqueName ?? member.Identity?.Id.ToString() ?? uniqueName,
+                    DisplayName: member.Identity?.DisplayName ?? uniqueName,
+                    UniqueName: uniqueName,
+                    SourceType: "User",
+                    Origin: "AzureDevOps",
+                    IsActive: true);
+            }
+        }
+
+        _logger.LogInformation("[Identities/ADO] Enumerated {Count} unique identities for project '{Project}'.", seen.Count, projectName);
     }
 }

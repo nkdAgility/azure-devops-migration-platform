@@ -84,7 +84,7 @@ public sealed class IdentitiesModule : IModule
 
         var count = 0;
 
-        await foreach (var descriptor in _identitySource.EnumerateIdentitiesAsync(project, ct).ConfigureAwait(false))
+        await foreach (var descriptor in _identitySource.EnumerateIdentitiesAsync(job.Source ?? throw new InvalidOperationException("Job.Source required for identity export"), project, ct).ConfigureAwait(false))
         {
             var line = JsonSerializer.Serialize(descriptor, s_jsonOptions);
             await artefactStore.AppendAsync(DescriptorsPath, line + "\n", ct).ConfigureAwait(false);

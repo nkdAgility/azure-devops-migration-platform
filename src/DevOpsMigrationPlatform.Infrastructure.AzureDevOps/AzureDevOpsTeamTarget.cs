@@ -1,17 +1,19 @@
 using System;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions.Agent.Teams;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
+using DevOpsMigrationPlatform.Abstractions.Options;
+using Microsoft.TeamFoundation.Core.WebApi;
 using Microsoft.Extensions.Logging;
+using WorkContext = Microsoft.TeamFoundation.Core.WebApi.Types.TeamContext;
 
 namespace DevOpsMigrationPlatform.Infrastructure.AzureDevOps;
 
 /// <summary>
 /// Azure DevOps REST API implementation of <see cref="ITeamTarget"/>.
-/// Note: Full endpoint context is required but not available via this interface.
-/// This implementation logs a warning and no-ops all writes.
-/// A future iteration should extend ITeamTarget to accept endpoint context.
+/// Uses the TeamHttpClient and WorkHttpClient from the Azure DevOps SDK.
 /// </summary>
 public sealed class AzureDevOpsTeamTarget : ITeamTarget
 {
@@ -27,37 +29,154 @@ public sealed class AzureDevOpsTeamTarget : ITeamTarget
     }
 
     /// <inheritdoc/>
-    public Task<string> CreateOrUpdateTeamAsync(
-        string projectName, TeamDefinition team, CancellationToken ct)
+    public async Task<string> CreateOrUpdateTeamAsync(
+        MigrationEndpointOptions endpoint, string projectName, TeamDefinition team, CancellationToken ct)
     {
-        _logger.LogWarning(
-            "[Teams/ADO] AzureDevOpsTeamTarget: CreateOrUpdateTeamAsync requires OrganisationEndpoint context. " +
-            "This implementation is a stub. Extend ITeamTarget in a future iteration.");
-        return Task.FromResult(team.Id);
+        var org = endpoint.ToOrganisationEndpoint();
+        var teamClient = await _clientFactory.CreateTeamClientAsync(org, ct).ConfigureAwait(false);
+
+        try
+        {
+            var existing = await teamClient.GetTeamAsync(projectName, team.Name, cancellationToken: ct).ConfigureAwait(false);
+            if (existing is not null)
+            {
+                var updated = await teamClient.UpdateTeamAsync(
+                    new WebApiTeam { Name = team.Name, Description = team.Description },
+                    projectName, existing.Id.ToString(), cancellationToken: ct).ConfigureAwait(false);
+                _logger.LogDebug("[Teams/ADO] Updated existing team '{Name}' with id '{Id}'.", team.Name, updated.Id);
+                return updated.Id.ToString();
+            }
+        }
+        catch (Exception)
+        {
+            // Team not found — fall through to create
+        }
+
+        var created = await teamClient.CreateTeamAsync(
+            new WebApiTeam { Name = team.Name, Description = team.Description },
+            projectName, cancellationToken: ct).ConfigureAwait(false);
+
+        _logger.LogInformation("[Teams/ADO] Created team '{Name}' with id '{Id}'.", team.Name, created.Id);
+        return created.Id.ToString();
     }
 
     /// <inheritdoc/>
-    public Task SetTeamSettingsAsync(
-        string projectName, string teamId, TeamSettings settings, CancellationToken ct)
-        => Task.CompletedTask;
+    public async Task SetTeamSettingsAsync(
+        MigrationEndpointOptions endpoint, string projectName, string teamId, TeamSettings settings, CancellationToken ct)
+    {
+        var org = endpoint.ToOrganisationEndpoint();
+        var workClient = await _clientFactory.CreateWorkClientAsync(org, ct).ConfigureAwait(false);
+        var teamContext = new WorkContext(projectName, teamId);
+
+        try
+        {
+            var patch = new Microsoft.TeamFoundation.Work.WebApi.TeamSettingsPatch
+            {
+                BugsBehavior = settings.BugsBehavior
+                    ? Microsoft.TeamFoundation.Work.WebApi.BugsBehavior.AsRequirements
+                    : Microsoft.TeamFoundation.Work.WebApi.BugsBehavior.Off
+            };
+            await workClient.UpdateTeamSettingsAsync(patch, teamContext, cancellationToken: ct).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "[Teams/ADO] Failed to set team settings for team '{TeamId}'.", teamId);
+        }
+    }
 
     /// <inheritdoc/>
-    public Task AssignIterationAsync(
-        string projectName, string teamId, TeamIteration iteration, CancellationToken ct)
-        => Task.CompletedTask;
+    public async Task AssignIterationAsync(
+        MigrationEndpointOptions endpoint, string projectName, string teamId, TeamIteration iteration, CancellationToken ct)
+    {
+        var org = endpoint.ToOrganisationEndpoint();
+        var workClient = await _clientFactory.CreateWorkClientAsync(org, ct).ConfigureAwait(false);
+        var teamContext = new WorkContext(projectName, teamId);
+
+        try
+        {
+            var patch = new Microsoft.TeamFoundation.Work.WebApi.TeamSettingsIteration { Path = iteration.Path };
+            await workClient.PostTeamIterationAsync(patch, teamContext, cancellationToken: ct).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "[Teams/ADO] Failed to assign iteration '{Path}' to team '{TeamId}'.", iteration.Path, teamId);
+        }
+    }
 
     /// <inheritdoc/>
     public Task AddMemberAsync(
-        string projectName, string teamId, TeamMember member, CancellationToken ct)
-        => Task.CompletedTask;
+        MigrationEndpointOptions endpoint, string projectName, string teamId, TeamMember member, CancellationToken ct)
+    {
+        // Adding team members via REST API requires the entitlements API (user entitlement management),
+        // which is a separate endpoint and requires additional permissions. Log a warning and skip.
+        _logger.LogWarning(
+            "[Teams/ADO] AddMemberAsync: adding team members via REST requires the Entitlement API. " +
+            "Member '{Member}' for team '{TeamId}' was not added. " +
+            "Use the Azure DevOps UI or Entitlement API to manage team membership.",
+            member.DisplayName, teamId);
+        return Task.CompletedTask;
+    }
 
     /// <inheritdoc/>
-    public Task SetCapacityAsync(
-        string projectName, string teamId, string iterationId, TeamCapacityEntry[] capacity, CancellationToken ct)
-        => Task.CompletedTask;
+    public async Task SetCapacityAsync(
+        MigrationEndpointOptions endpoint, string projectName, string teamId, string iterationId, TeamCapacityEntry[] capacity, CancellationToken ct)
+    {
+        var org = endpoint.ToOrganisationEndpoint();
+        var workClient = await _clientFactory.CreateWorkClientAsync(org, ct).ConfigureAwait(false);
+        var teamContext = new WorkContext(projectName, teamId);
+
+        try
+        {
+            var patches = new List<Microsoft.TeamFoundation.Work.WebApi.TeamMemberCapacityIdentityRef>();
+            foreach (var entry in capacity)
+            {
+                var activities = new List<Microsoft.TeamFoundation.Work.WebApi.Activity>();
+                foreach (var act in entry.Activities)
+                    activities.Add(new Microsoft.TeamFoundation.Work.WebApi.Activity { Name = act.Name, CapacityPerDay = (float)act.CapacityPerDay });
+
+                patches.Add(new Microsoft.TeamFoundation.Work.WebApi.TeamMemberCapacityIdentityRef
+                {
+                    TeamMember = new Microsoft.VisualStudio.Services.WebApi.IdentityRef { UniqueName = entry.MemberDescriptor },
+                    Activities = activities
+                });
+            }
+
+            await workClient.ReplaceCapacitiesWithIdentityRefAsync(patches, teamContext, new Guid(iterationId), cancellationToken: ct).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "[Teams/ADO] Failed to set capacity for team '{TeamId}' iteration '{IterationId}'.", teamId, iterationId);
+        }
+    }
 
     /// <inheritdoc/>
-    public Task SetAreaPathsAsync(
-        string projectName, string teamId, TeamAreaPaths areaPaths, CancellationToken ct)
-        => Task.CompletedTask;
+    public async Task SetAreaPathsAsync(
+        MigrationEndpointOptions endpoint, string projectName, string teamId, TeamAreaPaths areaPaths, CancellationToken ct)
+    {
+        var org = endpoint.ToOrganisationEndpoint();
+        var workClient = await _clientFactory.CreateWorkClientAsync(org, ct).ConfigureAwait(false);
+        var teamContext = new WorkContext(projectName, teamId);
+
+        try
+        {
+            var values = new List<Microsoft.TeamFoundation.Work.WebApi.TeamFieldValue>
+            {
+                new() { Value = areaPaths.DefaultAreaPath, IncludeChildren = true }
+            };
+            foreach (var path in areaPaths.IncludedAreaPaths)
+                if (!string.Equals(path, areaPaths.DefaultAreaPath, StringComparison.OrdinalIgnoreCase))
+                    values.Add(new Microsoft.TeamFoundation.Work.WebApi.TeamFieldValue { Value = path, IncludeChildren = true });
+
+            var patch = new Microsoft.TeamFoundation.Work.WebApi.TeamFieldValuesPatch
+            {
+                DefaultValue = areaPaths.DefaultAreaPath,
+                Values = values
+            };
+            await workClient.UpdateTeamFieldValuesAsync(patch, teamContext, cancellationToken: ct).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "[Teams/ADO] Failed to set area paths for team '{TeamId}'.", teamId);
+        }
+    }
 }

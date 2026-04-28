@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions.Agent.Teams;
+using DevOpsMigrationPlatform.Abstractions.Options;
 
 namespace DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 
@@ -12,21 +13,21 @@ namespace DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 public interface ITeamSource
 {
     /// <summary>Enumerates all teams in the given project.</summary>
-    IAsyncEnumerable<TeamDefinition> EnumerateTeamsAsync(string projectName, CancellationToken ct);
+    IAsyncEnumerable<TeamDefinition> EnumerateTeamsAsync(MigrationEndpointOptions endpoint, string projectName, CancellationToken ct);
 
     /// <summary>Returns team settings or null when unavailable.</summary>
-    Task<TeamSettings?> GetTeamSettingsAsync(string projectName, string teamId, CancellationToken ct);
+    Task<TeamSettings?> GetTeamSettingsAsync(MigrationEndpointOptions endpoint, string projectName, string teamId, CancellationToken ct);
 
     /// <summary>Enumerates iteration assignments for a team.</summary>
-    IAsyncEnumerable<TeamIteration> GetTeamIterationsAsync(string projectName, string teamId, CancellationToken ct);
+    IAsyncEnumerable<TeamIteration> GetTeamIterationsAsync(MigrationEndpointOptions endpoint, string projectName, string teamId, CancellationToken ct);
 
     /// <summary>Enumerates members of a team.</summary>
-    IAsyncEnumerable<TeamMember> GetTeamMembersAsync(string projectName, string teamId, CancellationToken ct);
+    IAsyncEnumerable<TeamMember> GetTeamMembersAsync(MigrationEndpointOptions endpoint, string projectName, string teamId, CancellationToken ct);
 
     /// <summary>Returns per-member capacity for a team/iteration pair.</summary>
-    Task<TeamCapacityEntry[]> GetTeamCapacityAsync(string projectName, string teamId, string iterationId, CancellationToken ct);
+    Task<TeamCapacityEntry[]> GetTeamCapacityAsync(MigrationEndpointOptions endpoint, string projectName, string teamId, string iterationId, CancellationToken ct);
 
     /// <summary>Returns area path assignments for a team.</summary>
-    Task<TeamAreaPaths?> GetTeamAreaPathsAsync(string projectName, string teamId, CancellationToken ct);
+    Task<TeamAreaPaths?> GetTeamAreaPathsAsync(MigrationEndpointOptions endpoint, string projectName, string teamId, CancellationToken ct);
 }
 #endif

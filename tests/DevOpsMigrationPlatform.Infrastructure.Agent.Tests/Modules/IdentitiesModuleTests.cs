@@ -257,6 +257,7 @@ public class IdentitiesModuleTests
             => _identities = identities;
 
         public async IAsyncEnumerable<IdentityDescriptor> EnumerateIdentitiesAsync(
+            MigrationEndpointOptions endpoint,
             string projectName,
             [EnumeratorCancellation] CancellationToken cancellationToken)
         {

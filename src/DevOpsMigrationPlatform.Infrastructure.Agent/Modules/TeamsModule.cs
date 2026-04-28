@@ -108,7 +108,7 @@ public sealed class TeamsModule : IModule
         }
 
         var count = 0;
-        await foreach (var team in _teamSource.EnumerateTeamsAsync(projectName, ct).ConfigureAwait(false))
+        await foreach (var team in _teamSource.EnumerateTeamsAsync(job.Source ?? throw new InvalidOperationException("Job.Source required for export"), projectName, ct).ConfigureAwait(false))
         {
             // Apply scope/filter
             if (filterRegex is not null && !filterRegex.IsMatch(team.Name))
@@ -121,7 +121,7 @@ public sealed class TeamsModule : IModule
             var slug = _slugGenerator.GenerateSlug(team.Name);
 
             await _exportOrchestrator.ExportTeamAsync(
-                projectName, team, slug, artefactStore, _options.Extensions, ct).ConfigureAwait(false);
+                job.Source!, projectName, team, slug, artefactStore, _options.Extensions, ct).ConfigureAwait(false);
 
             count++;
         }
@@ -189,6 +189,7 @@ public sealed class TeamsModule : IModule
             }
 
             await _importOrchestrator.ImportTeamAsync(
+                context.Job.Target ?? throw new InvalidOperationException("Job.Target required for import"),
                 projectName, teamPackage, _options.Extensions, ct).ConfigureAwait(false);
 
             count++;
