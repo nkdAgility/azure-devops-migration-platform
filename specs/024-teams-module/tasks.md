@@ -153,12 +153,12 @@
 
 ### Gherkin Feature Files for US 0c (mandatory)
 
-- [ ] T034 [US0c] Create `features/export/nodes/workitems-referenced-paths.feature` — translate spec.md US 0c acceptance scenarios S1, S2, S3, S4 into conformant Gherkin
+- [X] T034 [US0c] Create `features/export/nodes/workitems-referenced-paths.feature` — translate spec.md US 0c acceptance scenarios S1, S2, S3, S4 into conformant Gherkin
 
 ### Implementation for US 0c
 
-- [ ] T035 [US0c] Add NodeStructure extension hook to `src/DevOpsMigrationPlatform.Infrastructure.Agent/Modules/WorkItemsModule.cs` — during export, for each revision, call `IReferencedPathTracker.RecordAreaPathAsync(revision.AreaPath)` and `IReferencedPathTracker.RecordIterationPathAsync(revision.IterationPath)`
-- [ ] T036 [US0c] Add configuration toggle for NodeStructure extension in WorkItemsModule — when disabled, skip path recording
+- [X] T035 [US0c] Add NodeStructure extension hook to `src/DevOpsMigrationPlatform.Infrastructure.Agent/Modules/WorkItemsModule.cs` — during export, for each revision, call `IReferencedPathTracker.RecordAreaPathAsync(revision.AreaPath)` and `IReferencedPathTracker.RecordIterationPathAsync(revision.IterationPath)`
+- [X] T036 [US0c] Add configuration toggle for NodeStructure extension in WorkItemsModule — when disabled, skip path recording
 - [ ] T036b [US0c] Add import-side path translation to WorkItemsModule NodeStructure extension — during `WorkItemsModule.ImportAsync`, for each revision, call `INodeTranslationTool.TranslatePath()` to translate `System.AreaPath` and `System.IterationPath` field values before writing to the target (FR-W04)
 
 ### Tests for US 0c
@@ -213,8 +213,8 @@
 - [ ] T054c-2 [US1] Wire platform retry policy (exponential back-off) into `AzureDevOpsTeamSource` and `AzureDevOpsTeamTarget` — ensure 429/5xx/408 responses are retried (FR-018)
 - [ ] T054c-3 [US0–US1] Wire platform retry policy into TFS subprocess bridge commands — ensure retryable exit codes trigger re-invocation (FR-018)
 - [ ] T054c-4 [P] [US0–US1] Create `tests/DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Tests/RetryPolicyTests.cs` — test: given a 429 response, when retry fires, then the request succeeds on second attempt; given 3 consecutive 5xx responses, then retry exhausts and throws (FR-018)
-- [ ] T055 [P] [US1] Create `tests/DevOpsMigrationPlatform.Infrastructure.Simulated.Tests/SimulatedTeamSourceTests.cs` — deterministic generation
-- [ ] T056 [P] [US1] Create `tests/DevOpsMigrationPlatform.Infrastructure.Simulated.Tests/SimulatedTeamTargetTests.cs` — in-memory storage
+- [X] T055 [P] [US1] Create `tests/DevOpsMigrationPlatform.Infrastructure.Simulated.Tests/SimulatedTeamSourceTests.cs` — deterministic generation
+- [X] T056 [P] [US1] Create `tests/DevOpsMigrationPlatform.Infrastructure.Simulated.Tests/SimulatedTeamTargetTests.cs` — in-memory storage
 
 **Checkpoint**: TeamsModule core operational. Teams exported and imported with settings.
 
@@ -410,4 +410,5 @@
 | 11: Documentation | — | 11 | 3 |
 | 12: Polish | — | 4 | 2 |
 | **Total** | | **127** | **61** |
+
 
