@@ -726,10 +726,11 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
         var wiBar = new string('━', wiFilled) + new string('─', BarWidth - wiFilled);
         var stageStr = string.IsNullOrEmpty(stage) ? string.Empty : $"  [grey]{Markup.Escape(stage)}[/]";
         var etaStr = ComputeRevisionEta(totalRevisions, estimatedTotalRevisions, avgRevDurationMs);
+        var exportedStr = skipped > 0 ? $"  [green]{completed:N0} exported[/]" : string.Empty;
         var skippedStr = skipped > 0 ? $"  [grey]{skipped:N0} skipped[/]" : string.Empty;
         var wiRow = new Markup(
             $"[bold]WorkItems[/]{stageStr}  [blue]{Markup.Escape(wiBar)}[/]"
-            + $"  [bold]{completed:N0}[/][grey]/{total:N0}[/]{skippedStr}"
+            + $"  [bold]{processed:N0}[/][grey]/{total:N0}[/]{exportedStr}{skippedStr}"
             + $"  [grey]{wiPct * 100.0:F1}%[/]  [grey]ETA: {Markup.Escape(etaStr)}[/]");
 
         // ── Row 2: current work item / fast-forward indicator ─────────────────────────
