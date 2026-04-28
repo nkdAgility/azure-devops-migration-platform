@@ -909,49 +909,47 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
 
         // ── Row 6: identities ─────────────────────────────────────────────────────────
         IRenderable identitiesRow;
-        if (identities is not null)
         {
-            var unresolvedStr = identities.Unresolved > 0 ? $"  [yellow]{identities.Unresolved:N0} unresolved[/]" : string.Empty;
-            var idFailStr = identities.Failed > 0 ? $"  [red]{identities.Failed:N0} failed[/]" : string.Empty;
-            identitiesRow = new Markup(
-                $"  [grey]Identities:[/] [bold]{identities.Exported:N0}[/][grey] exported[/]"
-                + $"  [bold]{identities.Resolved:N0}[/][grey] resolved[/]"
-                + $"{unresolvedStr}{idFailStr}");
-        }
-        else
-        {
-            identitiesRow = new Markup("  [grey]Identities   –[/]");
+            var idBar = identities is not null ? new string('━', BarWidth) : new string('─', BarWidth);
+            var idBarColor = identities is not null ? "green" : "grey";
+            var idCheck = identities is not null ? " [green]✓[/]" : string.Empty;
+            var idCounts = identities is not null
+                ? $"  [bold]{identities.Exported:N0}[/][grey] exported[/]"
+                  + (identities.Resolved > 0 ? $"  [bold]{identities.Resolved:N0}[/][grey] resolved[/]" : string.Empty)
+                  + (identities.Unresolved > 0 ? $"  [yellow]{identities.Unresolved:N0} unresolved[/]" : string.Empty)
+                  + (identities.Failed > 0 ? $"  [red]{identities.Failed:N0} failed[/]" : string.Empty)
+                : string.Empty;
+            identitiesRow = new Markup($"[bold]Identities[/]{idCheck}  [{idBarColor}]{Markup.Escape(idBar)}[/]{idCounts}");
         }
 
         // ── Row 7: nodes ──────────────────────────────────────────────────────────────
         IRenderable nodesRow;
-        if (nodes is not null)
         {
-            var nodesFailStr = nodes.Failed > 0 ? $"  [red]{nodes.Failed:N0} failed[/]" : string.Empty;
-            var nodesExportedStr = nodes.Exported > 0 ? $"  [bold]{nodes.Exported:N0}[/][grey] captured[/]" : string.Empty;
-            var nodesAreaStr = nodes.AreaPathsReplicated > 0 ? $"  [bold]{nodes.AreaPathsReplicated:N0}[/][grey] area[/]" : string.Empty;
-            var nodesIterStr = nodes.IterationPathsReplicated > 0 ? $"  [bold]{nodes.IterationPathsReplicated:N0}[/][grey] iteration[/]" : string.Empty;
-            nodesRow = new Markup($"  [grey]Nodes:[/]{nodesExportedStr}{nodesAreaStr}{nodesIterStr}{nodesFailStr}");
-        }
-        else
-        {
-            nodesRow = new Markup("  [grey]Nodes        –[/]");
+            var ndBar = nodes is not null ? new string('━', BarWidth) : new string('─', BarWidth);
+            var ndBarColor = nodes is not null ? "green" : "grey";
+            var ndCheck = nodes is not null ? " [green]✓[/]" : string.Empty;
+            var ndCounts = nodes is not null
+                ? (nodes.Exported > 0 ? $"  [bold]{nodes.Exported:N0}[/][grey] captured[/]" : string.Empty)
+                  + (nodes.AreaPathsReplicated > 0 ? $"  [bold]{nodes.AreaPathsReplicated:N0}[/][grey] area[/]" : string.Empty)
+                  + (nodes.IterationPathsReplicated > 0 ? $"  [bold]{nodes.IterationPathsReplicated:N0}[/][grey] iteration[/]" : string.Empty)
+                  + (nodes.Failed > 0 ? $"  [red]{nodes.Failed:N0} failed[/]" : string.Empty)
+                : string.Empty;
+            nodesRow = new Markup($"[bold]Nodes[/]{ndCheck}  [{ndBarColor}]{Markup.Escape(ndBar)}[/]{ndCounts}");
         }
 
         // ── Row 8: teams ──────────────────────────────────────────────────────────────
         IRenderable teamsRow;
-        if (teams is not null)
         {
-            var teamsFailStr = teams.Failed > 0 ? $"  [red]{teams.Failed:N0} failed[/]" : string.Empty;
-            teamsRow = new Markup(
-                $"  [grey]Teams:[/] [bold]{teams.Exported:N0}[/][grey] exported[/]"
-                + $"  [bold]{teams.Imported:N0}[/][grey] imported[/]"
-                + $"  [grey]{teams.Members:N0} members[/]"
-                + $"{teamsFailStr}");
-        }
-        else
-        {
-            teamsRow = new Markup("  [grey]Teams        –[/]");
+            var tmBar = teams is not null ? new string('━', BarWidth) : new string('─', BarWidth);
+            var tmBarColor = teams is not null ? "green" : "grey";
+            var tmCheck = teams is not null ? " [green]✓[/]" : string.Empty;
+            var tmCounts = teams is not null
+                ? $"  [bold]{teams.Exported:N0}[/][grey] exported[/]"
+                  + (teams.Imported > 0 ? $"  [bold]{teams.Imported:N0}[/][grey] imported[/]" : string.Empty)
+                  + (teams.Members > 0 ? $"  [grey]{teams.Members:N0} members[/]" : string.Empty)
+                  + (teams.Failed > 0 ? $"  [red]{teams.Failed:N0} failed[/]" : string.Empty)
+                : string.Empty;
+            teamsRow = new Markup($"[bold]Teams[/]{tmCheck}  [{tmBarColor}]{Markup.Escape(tmBar)}[/]{tmCounts}");
         }
 
         return new Rows(nodesRow, teamsRow, identitiesRow, wiRow, revRow, timingRow, attachmentRow, checkpointRow);
