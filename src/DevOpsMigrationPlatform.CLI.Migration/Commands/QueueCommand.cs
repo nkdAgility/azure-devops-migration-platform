@@ -647,11 +647,15 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
         JobMetrics? Metrics,
         DateTimeOffset? LastCheckpointAt,
         DateTimeOffset? NextCheckpointDueAt,
-        ProgressEvent? LastEvent)
+        ProgressEvent? LastEvent,
+        int TeamsCount,
+        int NodesCount,
+        int IdentitiesCount)
     {
         public static JobProgressState Initial(int totalWorkItems) => new(
             0, 0, totalWorkItems, 0, 0, 0, 0, 0, 0, 0,
-            string.Empty, 0, 0, 0, 0, null, null, null, null, null, null);
+            string.Empty, 0, 0, 0, 0, null, null, null, null, null, null,
+            0, 0, 0);
     }
 
     private abstract record JobProgressUpdate;
@@ -709,6 +713,15 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
                 : state.Stage,
             LastCheckpointAt = evt.LastCheckpointAt ?? state.LastCheckpointAt,
             NextCheckpointDueAt = evt.NextCheckpointDueAt ?? state.NextCheckpointDueAt,
+            TeamsCount = evt.Module == "Teams" && evt.Stage == "Teams.Export.Team"
+                ? state.TeamsCount + 1
+                : state.TeamsCount,
+            NodesCount = evt.Module == "Nodes" && evt.Stage?.StartsWith("Nodes.", StringComparison.Ordinal) == true
+                ? state.NodesCount + 1
+                : state.NodesCount,
+            IdentitiesCount = evt.Module == "Identities" && evt.Stage?.StartsWith("Identities.", StringComparison.Ordinal) == true
+                ? state.IdentitiesCount + 1
+                : state.IdentitiesCount,
         };
 
     /// <summary>Renders the current <see cref="JobProgressState"/> into the Live display.</summary>
@@ -725,7 +738,8 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
             s.AverageAttachmentDurationMs, s.AverageAttachmentSizeBytes, s.CurrentAttachmentName,
             s.Metrics?.Migration?.Teams,
             s.Metrics?.Migration?.Nodes,
-            s.Metrics?.Migration?.Identities);
+            s.Metrics?.Migration?.Identities,
+            s.TeamsCount, s.NodesCount, s.IdentitiesCount);
 
     /// <summary>
     /// Polls <c>GET /jobs/{jobId}/telemetry</c> every 5 s and pushes
@@ -786,6 +800,8 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
     ///   Row 4 — checkpoint safety indicator
     /// Row count is always exactly 4 so Live()'s cursor-up stays stable.
     /// </summary>
+    private static readonly string[] s_spinnerFrames = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
+
     private static IRenderable BuildProgressRenderable(
         int completed, int skipped, int total,
         int currentWiId, int currentWiRevisions,
@@ -799,7 +815,8 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
         string? currentAttName = null,
         TeamsCounters? teams = null,
         NodesCounters? nodes = null,
-        IdentitiesCounters? identities = null)
+        IdentitiesCounters? identities = null,
+        int teamsCount = 0, int nodesCount = 0, int identitiesCount = 0)
     {
         const int BarWidth = 38;
         int processed = completed + skipped;
@@ -908,47 +925,81 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
         }
 
         // ── Row 6: identities ─────────────────────────────────────────────────────────
+        var spinnerFrame = s_spinnerFrames[(int)(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() / 100) % s_spinnerFrames.Length];
         IRenderable identitiesRow;
         {
-            var idBar = identities is not null ? new string('━', BarWidth) : new string('─', BarWidth);
-            var idBarColor = identities is not null ? "green" : "grey";
-            var idCheck = identities is not null ? " [green]✓[/]" : string.Empty;
-            var idCounts = identities is not null
-                ? $"  [bold]{identities.Exported:N0}[/][grey] exported[/]"
-                  + (identities.Resolved > 0 ? $"  [bold]{identities.Resolved:N0}[/][grey] resolved[/]" : string.Empty)
-                  + (identities.Unresolved > 0 ? $"  [yellow]{identities.Unresolved:N0} unresolved[/]" : string.Empty)
-                  + (identities.Failed > 0 ? $"  [red]{identities.Failed:N0} failed[/]" : string.Empty)
-                : string.Empty;
+            string idBar; string idBarColor; string idCheck; string idCounts;
+            if (identities is not null)
+            {
+                idBar = new string('━', BarWidth); idBarColor = "green"; idCheck = " [green]✓[/]";
+                idCounts = $"  [bold]{identities.Exported:N0}[/][grey] exported[/]"
+                    + (identities.Resolved > 0 ? $"  [bold]{identities.Resolved:N0}[/][grey] resolved[/]" : string.Empty)
+                    + (identities.Unresolved > 0 ? $"  [yellow]{identities.Unresolved:N0} unresolved[/]" : string.Empty)
+                    + (identities.Failed > 0 ? $"  [red]{identities.Failed:N0} failed[/]" : string.Empty);
+            }
+            else if (identitiesCount > 0)
+            {
+                var offset = (int)(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() / 80) % BarWidth;
+                idBar = new string('─', offset) + '━' + new string('─', BarWidth - offset - 1);
+                idBarColor = "blue"; idCheck = $" [blue]{spinnerFrame}[/]";
+                idCounts = $"  [grey]{identitiesCount:N0} so far[/]";
+            }
+            else
+            {
+                idBar = new string('─', BarWidth); idBarColor = "grey"; idCheck = string.Empty; idCounts = string.Empty;
+            }
             identitiesRow = new Markup($"[bold]Identities[/]{idCheck}  [{idBarColor}]{Markup.Escape(idBar)}[/]{idCounts}");
         }
 
         // ── Row 7: nodes ──────────────────────────────────────────────────────────────
         IRenderable nodesRow;
         {
-            var ndBar = nodes is not null ? new string('━', BarWidth) : new string('─', BarWidth);
-            var ndBarColor = nodes is not null ? "green" : "grey";
-            var ndCheck = nodes is not null ? " [green]✓[/]" : string.Empty;
-            var ndCounts = nodes is not null
-                ? (nodes.Exported > 0 ? $"  [bold]{nodes.Exported:N0}[/][grey] captured[/]" : string.Empty)
-                  + (nodes.AreaPathsReplicated > 0 ? $"  [bold]{nodes.AreaPathsReplicated:N0}[/][grey] area[/]" : string.Empty)
-                  + (nodes.IterationPathsReplicated > 0 ? $"  [bold]{nodes.IterationPathsReplicated:N0}[/][grey] iteration[/]" : string.Empty)
-                  + (nodes.Failed > 0 ? $"  [red]{nodes.Failed:N0} failed[/]" : string.Empty)
-                : string.Empty;
+            string ndBar; string ndBarColor; string ndCheck; string ndCounts;
+            if (nodes is not null)
+            {
+                ndBar = new string('━', BarWidth); ndBarColor = "green"; ndCheck = " [green]✓[/]";
+                ndCounts = (nodes.Exported > 0 ? $"  [bold]{nodes.Exported:N0}[/][grey] captured[/]" : string.Empty)
+                    + (nodes.AreaPathsReplicated > 0 ? $"  [bold]{nodes.AreaPathsReplicated:N0}[/][grey] area[/]" : string.Empty)
+                    + (nodes.IterationPathsReplicated > 0 ? $"  [bold]{nodes.IterationPathsReplicated:N0}[/][grey] iteration[/]" : string.Empty)
+                    + (nodes.Failed > 0 ? $"  [red]{nodes.Failed:N0} failed[/]" : string.Empty);
+            }
+            else if (nodesCount > 0)
+            {
+                var offset = (int)(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() / 80) % BarWidth;
+                ndBar = new string('─', offset) + '━' + new string('─', BarWidth - offset - 1);
+                ndBarColor = "blue"; ndCheck = $" [blue]{spinnerFrame}[/]";
+                ndCounts = $"  [grey]{nodesCount:N0} so far[/]";
+            }
+            else
+            {
+                ndBar = new string('─', BarWidth); ndBarColor = "grey"; ndCheck = string.Empty; ndCounts = string.Empty;
+            }
             nodesRow = new Markup($"[bold]Nodes[/]{ndCheck}  [{ndBarColor}]{Markup.Escape(ndBar)}[/]{ndCounts}");
         }
 
         // ── Row 8: teams ──────────────────────────────────────────────────────────────
         IRenderable teamsRow;
         {
-            var tmBar = teams is not null ? new string('━', BarWidth) : new string('─', BarWidth);
-            var tmBarColor = teams is not null ? "green" : "grey";
-            var tmCheck = teams is not null ? " [green]✓[/]" : string.Empty;
-            var tmCounts = teams is not null
-                ? $"  [bold]{teams.Exported:N0}[/][grey] exported[/]"
-                  + (teams.Imported > 0 ? $"  [bold]{teams.Imported:N0}[/][grey] imported[/]" : string.Empty)
-                  + (teams.Members > 0 ? $"  [grey]{teams.Members:N0} members[/]" : string.Empty)
-                  + (teams.Failed > 0 ? $"  [red]{teams.Failed:N0} failed[/]" : string.Empty)
-                : string.Empty;
+            string tmBar; string tmBarColor; string tmCheck; string tmCounts;
+            if (teams is not null)
+            {
+                tmBar = new string('━', BarWidth); tmBarColor = "green"; tmCheck = " [green]✓[/]";
+                tmCounts = $"  [bold]{teams.Exported:N0}[/][grey] exported[/]"
+                    + (teams.Imported > 0 ? $"  [bold]{teams.Imported:N0}[/][grey] imported[/]" : string.Empty)
+                    + (teams.Members > 0 ? $"  [grey]{teams.Members:N0} members[/]" : string.Empty)
+                    + (teams.Failed > 0 ? $"  [red]{teams.Failed:N0} failed[/]" : string.Empty);
+            }
+            else if (teamsCount > 0)
+            {
+                var offset = (int)(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() / 80) % BarWidth;
+                tmBar = new string('─', offset) + '━' + new string('─', BarWidth - offset - 1);
+                tmBarColor = "blue"; tmCheck = $" [blue]{spinnerFrame}[/]";
+                tmCounts = $"  [grey]{teamsCount:N0} so far[/]";
+            }
+            else
+            {
+                tmBar = new string('─', BarWidth); tmBarColor = "grey"; tmCheck = string.Empty; tmCounts = string.Empty;
+            }
             teamsRow = new Markup($"[bold]Teams[/]{tmCheck}  [{tmBarColor}]{Markup.Escape(tmBar)}[/]{tmCounts}");
         }
 
