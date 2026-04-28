@@ -478,9 +478,9 @@ traces
 #### IdentitiesModule
 
 - **FR-I01**: System MUST implement `IdentitiesModule` conforming to the `IModule` contract (`ExportAsync`, `ImportAsync`, `ValidateAsync`).
-- **FR-I02**: `IdentitiesModule` MUST have an empty `DependsOn` list — it has no module dependencies. Any module that performs identity mapping MUST include `"IdentitiesModule"` in its own `DependsOn`.
+- **FR-I02**: `IdentitiesModule` has no module dependencies. Module execution order is controlled entirely by the operator via configuration. There is no `DependsOn` property.
 - **FR-I03**: `ExportAsync` MUST enumerate all user and group identity descriptors from the source and write them to `Identities/descriptors.jsonl` (one JSON object per line) via `IArtefactStore`.
-- **FR-I04**: `ImportAsync` MUST load `Identities/mapping.json` (operator-provided overrides) and `Identities/descriptors.jsonl`, then build the `IIdentityMappingService` resolution index.
+- **FR-I04**: `ImportAsync` MUST load `Identities/mapping.json` (operator-provided overrides) and `Identities/descriptors.jsonl`, then build the `IIdentityMappingService` resolution index. Target identity discovery is performed during the **Prepare** phase (which queries the target Azure DevOps instance's identity APIs to find existing users/groups). If `prepare` has not been run before `import`, the import MUST run the prepare phase automatically and exit with a clear error if there are any contradictions or validation failures.
 - **FR-I05**: `IIdentityMappingService.Resolve(sourceIdentity)` MUST apply resolution in this order: (1) explicit `mapping.json` entry, (2) automatic match by UPN or display name in target directory, (3) configured default identity. Unresolved identities MUST be recorded in `Identities/unresolved.json`.
 - **FR-I06**: `IIdentityMappingService` MUST be registered as a singleton in DI — all downstream modules consume the same instance.
 - **FR-I07**: `ValidateAsync` MUST verify that `Identities/descriptors.jsonl` exists, is valid JSONL, and each entry contains the required fields (descriptor, display name, source type).
@@ -493,7 +493,7 @@ traces
 #### NodeStructureModule
 
 - **FR-N01**: System MUST implement `NodeStructureModule` conforming to the `IModule` contract (`ExportAsync`, `ImportAsync`, `ValidateAsync`). This is an extraction of existing code from `ClassificationTreeCapture`, `NodeEnsurer`, and `NodeStructureValidator`.
-- **FR-N02**: `NodeStructureModule` MUST have an empty `DependsOn` list — it has no module dependencies. However, its import MUST run after all exports complete (so `referenced-paths.json` is fully populated by downstream extensions).
+- **FR-N02**: `NodeStructureModule` has no module dependencies. Module execution order is controlled entirely by the operator via configuration. There is no `DependsOn` property. However, its import MUST run after all exports complete (so `referenced-paths.json` is fully populated by downstream extensions).
 - **FR-N03**: `ExportAsync` MUST use `IClassificationTreeReader` to enumerate all area and iteration nodes from the source and write them to `Nodes/source-tree.json` via `IArtefactStore`.
 - **FR-N04**: `ImportAsync` MUST support two complementary modes controlled by configuration: `ReplicateSourceTree` (create the full current tree from `source-tree.json`) and `AutoCreateNodes` (create historical paths listed in `referenced-paths.json` that no longer exist in the current tree). When both are true, the module creates the union of the current tree and historical referenced paths. When both are false, no nodes are created.
 - **FR-N05**: During import, the module MUST use `NodeTranslationTool.TranslatePath()` to translate source paths to target paths before creating nodes.
@@ -515,26 +515,39 @@ traces
 #### TeamsModule
 
 - **FR-001**: System MUST implement `TeamsModule` conforming to the `IModule` contract (`ExportAsync`, `ImportAsync`, `ValidateAsync`).
-- **FR-002**: `TeamsModule` MUST declare `DependsOn` containing `"IdentitiesModule"` to ensure identity mappings are available before team member import.
-- **FR-003**: `TeamsModule` MUST execute before `WorkItemsModule`. Module execution order is determined by configuration (modules are declared as named properties, not an ordered list). The operator controls execution order.
+- **FR-002**: `TeamsModule` has no `DependsOn` property. Module execution order is controlled entirely by the operator via configuration. The operator MUST configure TeamsModule to run after IdentitiesModule and NodeStructureModule (so identity mappings and node structures are available for team import) and before WorkItemsModule (so team-assigned paths are recorded to `ReferencedPathTracker` before work item export).
+- **FR-003**: *(Merged into FR-002.)*
 - **FR-004**: System MUST support five independently-enabled extensions: `TeamSettings`, `TeamIterations`, `TeamMembers`, `TeamCapacity`, and `NodeStructure`. The NodeStructure extension has two roles: (a) during export, records team-assigned area/iteration paths to `ReferencedPathTracker`; (b) during import, uses `NodeTranslationTool.TranslatePath()` to resolve paths.
 - **FR-005**: The `NodeStructure` extension MUST use the shared `NodeTranslationTool` to resolve source area and iteration paths to target paths during import. During export, it records team-assigned paths to `ReferencedPathTracker`. This extension does NOT create nodes on the target — node creation is exclusively `NodeStructureModule.ImportAsync`'s responsibility. This extension operates on the team's assigned area paths, assigned iteration paths, default area path, and default iteration path.
 - **FR-006**: The `TeamSettings` extension MUST capture and restore: backlog navigation levels, working days, default iteration path, default area path, and bug behaviour setting. Default paths are stored as source values; the `NodeStructure` extension resolves them to target values during import.
 - **FR-007**: The `TeamMembers` extension MUST use `IIdentityMappingService` for resolving source member identities to target identities during import.
 - **FR-008**: The `TeamCapacity` extension MUST export per-member capacity data (activities, hours per day, days off) for each iteration assigned to the team.
-- **FR-009**: System MUST write all team artefacts to the `Teams/` folder in the package via `IArtefactStore`. Layout: `Teams/{team-slug}/team.json` — one JSON file per team containing all extension data as nested objects (settings, iterations, members, capacity, area paths). The team slug is a filesystem-safe sanitisation of the team name: replace invalid characters, lowercase, truncate to 100 characters. The original team name is preserved inside `team.json`.
+- **FR-009**: System MUST write all team artefacts to the `Teams/` folder in the package via `IArtefactStore`. Layout: `Teams/{team-slug}/team.json` — one JSON file per team containing all extension data as nested objects (settings, iterations, members, capacity, area paths). The team slug is generated by `TeamSlugGenerator` using this algorithm: (1) lowercase the team display name, (2) replace whitespace with hyphens, (3) strip all characters except `[a-z0-9\-]`, (4) collapse consecutive hyphens, (5) trim leading/trailing hyphens, (6) truncate to 100 characters, (7) if a collision exists (two teams produce the same slug), append `-2`, `-3`, etc. The original team name is preserved inside `team.json`.
 - **FR-010**: System MUST maintain a cursor file at `.migration/Checkpoints/teams.cursor.json` for resumable export and import.
 - **FR-011**: System MUST support two scope types: `"teams"` (with optional `filter` parameter for team name pattern matching) and `"all"` (all teams in the project).
 - **FR-012**: System MUST implement all three connectors: **Simulated** (deterministic test data, no external connectivity), **AzureDevOpsServices** (REST API via .NET 10), and **TeamFoundationServer** (TFS Object Model via .NET 4.8 subprocess bridge).
 - **FR-013**: `ValidateAsync` MUST verify that all team artefact files in the package contain required fields and match the declared schema version.
 - **FR-014**: Import MUST be idempotent — re-running import against a target that already has the teams must produce the same result without errors or duplication.
-- **FR-015**: Extensions MUST be applied in a defined order per team: `TeamSettings` → `NodeStructure` → `TeamIterations` → `TeamMembers` → `TeamCapacity`. This ordering ensures each extension's prerequisites exist before it executes (e.g., iterations must be assigned before capacity can be set).
+- **FR-015**: Extensions are applied in a fixed, hardcoded order per team within the module: `TeamSettings` → `NodeStructure` → `TeamIterations` → `TeamMembers` → `TeamCapacity`. This order is controlled by the module implementation, not by operator configuration. This ordering ensures each extension's prerequisites exist before it executes (e.g., iterations must be assigned before capacity can be set).
 - **FR-016**: The module MUST detect the source project's default team and map it to the target project's default team during import, regardless of name differences. Non-default teams are matched by name.
 - **FR-017**: When the `NodeStructure` extension is disabled or the `NodeTranslationTool` is not configured, the module MUST use source paths as-is (identity mapping). If a source path does not exist in the target, the module MUST log a warning and skip that assignment.
 - **FR-018**: All target API calls MUST use the platform's standard retry policy (exponential back-off, handling 429/5xx/408 responses).
 - **FR-019**: The cursor MUST track per-team, per-extension progress. On resume, the module MUST re-apply remaining extensions for any team where not all extensions completed successfully.
 - **FR-020**: The Simulated connector MUST generate a configurable number of teams (default: 5) with deterministic names, settings, members, and capacity data based on a seed value.
-- **FR-021**: `IdentitiesModule` is specified in FR-I01 through FR-I12 above. TeamsModule cannot ship without a functioning identity mapping pipeline.
+
+### Migration Lifecycle: Export → Prepare → Import
+
+The migration follows a three-phase lifecycle:
+
+1. **Export** — Capture source data into the package (Identities/, Nodes/, Teams/, WorkItems/).
+2. **Prepare** — Run target-side discovery and validation: resolve target identities (build `mapping.json` candidates), verify target project exists, check node structure compatibility. The CLI `prepare` command sends a job to the Migration Agent that performs these checks. The operator reviews `unresolved.json` and makes decisions before proceeding.
+   - **Output files**: `Identities/mapping.json` (auto-resolved candidate mappings), `Identities/unresolved.json` (identities that could not be matched).
+   - **Detection**: Import detects whether Prepare has run by checking for the existence of `Identities/mapping.json` in the package via `IArtefactStore.ExistsAsync()`.
+   - **Auto-prepare**: If `mapping.json` does not exist when `import` starts, the import MUST run the prepare phase automatically before proceeding.
+   - **Failure mode**: If auto-prepare produces entries in `unresolved.json`, import MUST write a structured error to `IProgressSink` listing each unresolved identity and exit with `MigrationException("Prepare phase found {count} unresolved identities. Review Identities/unresolved.json and provide explicit mappings in mapping.json before re-running import.")`. Exit code: non-zero.
+3. **Import** — Apply package data to the target.
+
+This lifecycle ensures the operator has full visibility into potential issues (unresolved identities, missing paths) before any target writes occur.
 
 ### Key Entities
 
@@ -566,7 +579,7 @@ traces
 
 - **SC-I01**: All identity descriptors from a source project are exported to `Identities/descriptors.jsonl` with one entry per identity.
 - **SC-I02**: Operator-provided `mapping.json` overrides are respected — explicit mappings take priority over automatic resolution.
-- **SC-I03**: Automatic UPN/display name matching resolves at least 90% of identities in a typical enterprise migration.
+- **SC-I03**: *(Outcome expectation — depends on customer data, not verifiable by automated tests.)* Automatic UPN/display name matching resolves at least 90% of identities in a typical enterprise migration.
 - **SC-I04**: All unresolved identities are recorded in `Identities/unresolved.json` with clear reason codes.
 - **SC-I05**: Export and import are fully resumable — interrupting and re-running produces the same resolution index.
 - **SC-I06**: All three connectors (Simulated, AzureDevOpsServices, TeamFoundationServer) pass the same acceptance test scenarios.
@@ -596,11 +609,11 @@ traces
 
 - Q: When both `ReplicateSourceTree` and `AutoCreateNodes` are true, what should happen? → A: They are complementary, not conflicting. `ReplicateSourceTree` creates the current source tree on the target. `AutoCreateNodes` creates historical nodes from revisions (paths that no longer exist in the current tree but are referenced in work item history). Both should execute together — the union of current tree + historical referenced paths.
 
-- Q: What file layout should the `Teams/` folder use in the package? → A: One JSON file per team: `Teams/{team-name}/team.json` with extensions as nested objects (settings, iterations, members, capacity, area paths all within one file per team).
+- Q: What file layout should the `Teams/` folder use in the package? → A: One JSON file per team: `Teams/{team-slug}/team.json` with extensions as nested objects (settings, iterations, members, capacity, area paths all within one file per team).
 
 - Q: When does `ReferencedPathTracker` write `referenced-paths.json` to disk? → A: All exports complete before any imports begin (architectural constraint). The tracker flushes at the end of each module's export. By the time `NodeStructureModule.ImportAsync` runs, the file is guaranteed to contain all paths from all modules.
 
-- Q: How should team names with special characters be handled in `Teams/{team-name}/` folder names? → A: Sanitise to filesystem-safe slug: replace invalid chars, lowercase, truncate to 100 chars.
+- Q: How should team names with special characters be handled in `Teams/{team-slug}/` folder names? → A: Sanitise to filesystem-safe slug: replace invalid chars, lowercase, truncate to 100 chars. Use "team slug" for filesystem paths only. Use "team name" (the display name from the API) in all other contexts (UI, logs, JSON payloads, documentation).
 
 - Q: When importing team capacity for past (closed) iterations, what should happen if the target rejects? → A: All past iterations are exported and must be mapped for work item import. Past iteration paths are translated via `NodeTranslationTool`. If a path cannot be resolved, log a warning and skip that capacity entry. Capacity import is attempted for all iterations (current and past).
 
