@@ -163,7 +163,7 @@
 
 ### Tests for US 0c
 
-- [ ] T037 [P] [US0c] Add tests to `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Modules/NodeStructureModuleTests.cs` (or dedicated test class) — verify: 100 work items across 5 area/3 iteration paths → 8 unique paths in referenced-paths.json; historical paths across revisions; disabled extension produces no output; import-side path translation via NodeTranslationTool
+- [X] T037 [P] [US0c] Add tests to `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Modules/NodeStructureModuleTests.cs` (or dedicated test class) — verify: 100 work items across 5 area/3 iteration paths → 8 unique paths in referenced-paths.json; historical paths across revisions; disabled extension produces no output; import-side path translation via NodeTranslationTool
 
 **Checkpoint**: WorkItems NodeStructure extension operational. `referenced-paths.json` populated during WorkItems export.
 
@@ -180,7 +180,7 @@
 - [X] T038 [US1] Create `features/export/teams/export-team-definitions.feature` — translate spec.md US 1 acceptance scenarios S1, S4 into conformant Gherkin
 - [X] T039 [P] [US1] Create `features/import/teams/import-team-definitions.feature` — translate spec.md US 1 acceptance scenarios S2, S3 into conformant Gherkin
 - [X] T039b [P] [US1] Create `features/export/teams/export-team-scope-filter.feature` — scenarios: (1) export all teams when scope="all", (2) export only matching teams when scope="teams" with filter pattern, (3) empty filter returns all (FR-011)
-- [ ] T039c [P] [US1] Create `features/import/teams/import-default-team-detection.feature` — scenarios: (1) source default team maps to target default team regardless of name, (2) non-default teams match by name (FR-016)
+- [X] T039c [P] [US1] Create `features/import/teams/import-default-team-detection.feature` — scenarios: (1) source default team maps to target default team regardless of name, (2) non-default teams match by name (FR-016)
 - [X] T039d [P] [US0b] Create `features/export/nodes/validate-node-package.feature` — scenarios for NodeStructureModule ValidateAsync: missing source-tree.json, malformed JSON, missing required schema fields (FR-N07)
 - [X] T039e [P] [US1] Create `features/export/teams/validate-team-package.feature` — scenarios for TeamsModule ValidateAsync: missing team.json files, malformed JSON, missing required fields (FR-013)
 
@@ -200,15 +200,15 @@
 - [X] T051 [US1] Update `src/DevOpsMigrationPlatform.Infrastructure.Simulated/SimulatedServiceCollectionExtensions.cs` — register team source/target
 - [X] T052 [P] [US1] Update `src/DevOpsMigrationPlatform.Infrastructure.AzureDevOps/ExportServiceCollectionExtensions.cs` — register team source/target
 - [ ] T053 [US1] Add cursor-based checkpointing to `TeamsModule.ExportAsync` — write `teams.cursor.json` after each team exported
-- [ ] T053b [US1] Implement team scope/filter in `TeamsModule.ExportAsync` — support `"teams"` scope (with optional `filter` parameter for team name pattern matching) and `"all"` scope (all teams in the project) per FR-011. When filter is set, only matching teams are exported.
+- [X] T053b [US1] Implement team scope/filter in `TeamsModule.ExportAsync` — support `"teams"` scope (with optional `filter` parameter for team name pattern matching) and `"all"` scope (all teams in the project) per FR-011. When filter is set, only matching teams are exported.
 - [ ] T053c [US1] Implement default team detection and mapping in `TeamsModule` — detect source project's default team by `isDefaultTeam` flag (not by name matching) and map it to the target project's default team during import, regardless of name differences (FR-016)
 
 ### Tests for US 1
 
-- [ ] T054 [P] [US1] Create `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Modules/TeamsModuleTests.cs` — unit tests: export writes team.json per team, import creates teams, idempotent update, cursor resumption, scope/filter behaviour, default team detection
-- [ ] T054b-1 [P] [US0] Create `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Modules/IdentitiesModuleValidateTests.cs` — test ValidateAsync: missing descriptors.jsonl, malformed JSONL, missing required fields (FR-I07)
-- [ ] T054b-2 [P] [US0b] Create `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Modules/NodeStructureModuleValidateTests.cs` — test ValidateAsync: missing source-tree.json, malformed JSON, missing required schema fields (FR-N07)
-- [ ] T054b-3 [P] [US1] Create `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Modules/TeamsModuleValidateTests.cs` — test ValidateAsync: missing team.json files, malformed JSON, missing required fields (FR-013)
+- [X] T054 [P] [US1] Create `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Modules/TeamsModuleTests.cs` — unit tests: export writes team.json per team, import creates teams, idempotent update, cursor resumption, scope/filter behaviour, default team detection
+- [X] T054b-1 [P] [US0] Create `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Modules/IdentitiesModuleValidateTests.cs` — test ValidateAsync: missing descriptors.jsonl, malformed JSONL, missing required fields (FR-I07)
+- [X] T054b-2 [P] [US0b] Create `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Modules/NodeStructureModuleValidateTests.cs` — test ValidateAsync: missing source-tree.json, malformed JSON, missing required schema fields (FR-N07)
+- [X] T054b-3 [P] [US1] Create `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Modules/TeamsModuleValidateTests.cs` — test ValidateAsync: missing team.json files, malformed JSON, missing required fields (FR-013)
 - [ ] T054c-1 [US0] Wire platform retry policy (exponential back-off) into `AzureDevOpsIdentitySource` — ensure 429/5xx/408 responses are retried (FR-018)
 - [ ] T054c-2 [US1] Wire platform retry policy (exponential back-off) into `AzureDevOpsTeamSource` and `AzureDevOpsTeamTarget` — ensure 429/5xx/408 responses are retried (FR-018)
 - [ ] T054c-3 [US0–US1] Wire platform retry policy into TFS subprocess bridge commands — ensure retryable exit codes trigger re-invocation (FR-018)
@@ -228,26 +228,26 @@
 
 ### Gherkin Feature Files for US 2 + US 5 (mandatory)
 
-- [ ] T057 [US5] Create `features/export/teams/teams-node-structure-extension.feature` — translate spec.md US 5 acceptance scenarios S1, S5 into conformant Gherkin
-- [ ] T058 [P] [US2] Create `features/export/teams/export-team-iterations.feature` — translate spec.md US 2 acceptance scenario S1 into conformant Gherkin
-- [ ] T059 [P] [US2] Create `features/import/teams/import-team-iterations.feature` — translate spec.md US 2 acceptance scenarios S2, S3 into conformant Gherkin
-- [ ] T060 [P] [US5] Create `features/import/teams/import-team-area-paths.feature` — translate spec.md US 5 acceptance scenarios S2, S3, S4 into conformant Gherkin
+- [X] T057 [US5] Create `features/export/teams/teams-node-structure-extension.feature` — translate spec.md US 5 acceptance scenarios S1, S5 into conformant Gherkin
+- [X] T058 [P] [US2] Create `features/export/teams/export-team-iterations.feature` — translate spec.md US 2 acceptance scenario S1 into conformant Gherkin
+- [X] T059 [P] [US2] Create `features/import/teams/import-team-iterations.feature` — translate spec.md US 2 acceptance scenarios S2, S3 into conformant Gherkin
+- [X] T060 [P] [US5] Create `features/import/teams/import-team-area-paths.feature` — translate spec.md US 5 acceptance scenarios S2, S3, S4 into conformant Gherkin
 
 ### Implementation for US 5 (Export side — must come first)
 
-- [ ] T061 [US5] Add Teams NodeStructure extension to `TeamsModule.ExportAsync` — for each team, call `IReferencedPathTracker.RecordAreaPathAsync()` and `RecordIterationPathAsync()` for all team-assigned paths
-- [ ] T062 [US5] Add configuration toggle for NodeStructure extension in TeamsModuleOptions — `Extensions:NodeStructure:Enabled` (default: true)
+- [X] T061 [US5] Add Teams NodeStructure extension to `TeamsModule.ExportAsync` — for each team, call `IReferencedPathTracker.RecordAreaPathAsync()` and `RecordIterationPathAsync()` for all team-assigned paths
+- [X] T062 [US5] Add configuration toggle for NodeStructure extension in TeamsModuleOptions — `Extensions:NodeStructure:Enabled` (default: true)
 
 ### Implementation for US 2
 
-- [ ] T063 [US2] Extend `TeamExportOrchestrator` — export team iteration assignments (including default iteration) via `ITeamSource.GetTeamIterationsAsync()`, write to `team.json`
-- [ ] T064 [US2] Extend `TeamImportOrchestrator` — import iteration assignments using `INodeTranslationTool.TranslatePath()` to resolve source → target paths, call `ITeamTarget.AssignIterationAsync()`
-- [ ] T065 [US2] Handle unresolvable iteration paths — log warning and skip when `TranslatePath()` returns null
+- [X] T063 [US2] Extend `TeamExportOrchestrator` — export team iteration assignments (including default iteration) via `ITeamSource.GetTeamIterationsAsync()`, write to `team.json`
+- [X] T064 [US2] Extend `TeamImportOrchestrator` — import iteration assignments using `INodeTranslationTool.TranslatePath()` to resolve source → target paths, call `ITeamTarget.AssignIterationAsync()`
+- [X] T065 [US2] Handle unresolvable iteration paths — log warning and skip when `TranslatePath()` returns null
 
 ### Implementation for US 5 (Import side)
 
-- [ ] T066 [US5] Extend `TeamImportOrchestrator` — translate team area assignments via `INodeTranslationTool.TranslatePath()`, call `ITeamTarget.SetAreaPathsAsync()`
-- [ ] T067 [US5] Handle disabled NodeStructure extension on import — use source paths as-is, log warning for paths that don't exist on target
+- [X] T066 [US5] Extend `TeamImportOrchestrator` — translate team area assignments via `INodeTranslationTool.TranslatePath()`, call `ITeamTarget.SetAreaPathsAsync()`
+- [X] T067 [US5] Handle disabled NodeStructure extension on import — use source paths as-is, log warning for paths that don't exist on target
 
 ### Tests for US 2 + US 5
 
@@ -266,14 +266,14 @@
 
 ### Gherkin Feature Files for US 3 (mandatory)
 
-- [ ] T070 [US3] Create `features/export/teams/export-team-members.feature` — translate spec.md US 3 acceptance scenario S1 into conformant Gherkin
-- [ ] T071 [P] [US3] Create `features/import/teams/import-team-members.feature` — translate spec.md US 3 acceptance scenarios S2, S3 into conformant Gherkin
+- [X] T070 [US3] Create `features/export/teams/export-team-members.feature` — translate spec.md US 3 acceptance scenario S1 into conformant Gherkin
+- [X] T071 [P] [US3] Create `features/import/teams/import-team-members.feature` — translate spec.md US 3 acceptance scenarios S2, S3 into conformant Gherkin
 
 ### Implementation for US 3
 
-- [ ] T072 [US3] Extend `TeamExportOrchestrator` — export team members with admin flags via `ITeamSource.GetTeamMembersAsync()`, write to `team.json`
-- [ ] T073 [US3] Extend `TeamImportOrchestrator` — import members using `IIdentityMappingService.Resolve()` to map source → target identities, call `ITeamTarget.AddMemberAsync()`
-- [ ] T074 [US3] Handle unresolvable member identity — log warning and skip when `Resolve()` returns default/unresolved
+- [X] T072 [US3] Extend `TeamExportOrchestrator` — export team members with admin flags via `ITeamSource.GetTeamMembersAsync()`, write to `team.json`
+- [X] T073 [US3] Extend `TeamImportOrchestrator` — import members using `IIdentityMappingService.Resolve()` to map source → target identities, call `ITeamTarget.AddMemberAsync()`
+- [X] T074 [US3] Handle unresolvable member identity — log warning and skip when `Resolve()` returns default/unresolved
 
 ### Tests for US 3
 
@@ -291,15 +291,15 @@
 
 ### Gherkin Feature Files for US 4 (mandatory)
 
-- [ ] T076 [US4] Create `features/export/teams/export-team-capacity.feature` — translate spec.md US 4 acceptance scenario S1 into conformant Gherkin
-- [ ] T077 [P] [US4] Create `features/import/teams/import-team-capacity.feature` — translate spec.md US 4 acceptance scenarios S2, S3 into conformant Gherkin
+- [X] T076 [US4] Create `features/export/teams/export-team-capacity.feature` — translate spec.md US 4 acceptance scenario S1 into conformant Gherkin
+- [X] T077 [P] [US4] Create `features/import/teams/import-team-capacity.feature` — translate spec.md US 4 acceptance scenarios S2, S3 into conformant Gherkin
 
 ### Implementation for US 4
 
-- [ ] T078 [US4] Extend `TeamExportOrchestrator` — export per-member capacity via `ITeamSource.GetTeamCapacityAsync()` for each assigned iteration, write to `team.json`
-- [ ] T079 [US4] Extend `TeamImportOrchestrator` — import capacity with iteration mapping (`INodeTranslationTool`) and member mapping (`IIdentityMappingService`), call `ITeamTarget.SetCapacityAsync()`
-- [ ] T080 [US4] Handle capacity for unassigned iteration — log warning and skip
-- [ ] T081 [US4] TFS capacity exemption — TFS OM pre-2017.2 does not expose capacity API; log informational message and skip gracefully
+- [X] T078 [US4] Extend `TeamExportOrchestrator` — export per-member capacity via `ITeamSource.GetTeamCapacityAsync()` for each assigned iteration, write to `team.json`
+- [X] T079 [US4] Extend `TeamImportOrchestrator` — import capacity with iteration mapping (`INodeTranslationTool`) and member mapping (`IIdentityMappingService`), call `ITeamTarget.SetCapacityAsync()`
+- [X] T080 [US4] Handle capacity for unassigned iteration — log warning and skip
+- [X] T081 [US4] TFS capacity exemption — TFS OM pre-2017.2 does not expose capacity API; log informational message and skip gracefully
 
 ### Tests for US 4
 
@@ -410,5 +410,6 @@
 | 11: Documentation | — | 11 | 3 |
 | 12: Polish | — | 4 | 2 |
 | **Total** | | **127** | **61** |
+
 
 
