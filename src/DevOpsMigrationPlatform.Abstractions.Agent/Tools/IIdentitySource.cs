@@ -1,4 +1,3 @@
-#if !NET481
 using System.Collections.Generic;
 using System.Threading;
 using DevOpsMigrationPlatform.Abstractions.Agent.Identity;
@@ -19,4 +18,3 @@ public interface IIdentitySource
         string projectName,
         CancellationToken cancellationToken);
 }
-#endif

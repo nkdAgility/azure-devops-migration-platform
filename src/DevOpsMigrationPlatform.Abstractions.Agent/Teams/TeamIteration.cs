@@ -1,4 +1,3 @@
-#if !NET481
 using System;
 
 namespace DevOpsMigrationPlatform.Abstractions.Agent.Teams;
@@ -12,4 +11,3 @@ public sealed record TeamIteration(
     DateTimeOffset? FinishDate,
     bool IsDefault,
     bool IsBacklog);
-#endif

@@ -181,6 +181,10 @@ public static class MigrationPlatformHost
             // Classification tree reader — reads area/iteration nodes from the TFS collection.
             services.AddSingleton<IClassificationTreeReader, TfsClassificationTreeReader>();
 
+            // Identity and team export sources.
+            services.AddSingleton<IIdentitySource, TfsIdentitySource>();
+            services.AddSingleton<ITeamSource, TfsTeamSource>();
+
             // OpenTelemetry — metrics and traces.
             // OTLP exporter activates when OTEL_EXPORTER_OTLP_ENDPOINT is set.
             // Azure Monitor activates when Telemetry:AzureMonitorConnectionString is in appsettings.json.

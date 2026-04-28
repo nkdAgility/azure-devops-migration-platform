@@ -8,6 +8,7 @@ using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Agent.Checkpointing;
 using DevOpsMigrationPlatform.Abstractions.Agent.Export;
 using DevOpsMigrationPlatform.Abstractions.Agent.Import;
 using DevOpsMigrationPlatform.Abstractions.Agent.Modules;
@@ -47,6 +48,7 @@ public sealed class TeamsModule : IModule
     private readonly TeamExportOrchestrator? _exportOrchestrator;
     private readonly TeamImportOrchestrator? _importOrchestrator;
     private readonly TeamSlugGenerator _slugGenerator;
+    private readonly ICheckpointingServiceFactory? _checkpointingFactory;
     private readonly ILogger<TeamsModule> _logger;
     private readonly TeamsModuleOptions _options;
 
@@ -60,7 +62,8 @@ public sealed class TeamsModule : IModule
         ITeamSource? teamSource = null,
         ITeamTarget? teamTarget = null,
         TeamExportOrchestrator? exportOrchestrator = null,
-        TeamImportOrchestrator? importOrchestrator = null)
+        TeamImportOrchestrator? importOrchestrator = null,
+        ICheckpointingServiceFactory? checkpointingFactory = null)
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _options = options?.Value ?? throw new ArgumentNullException(nameof(options));
@@ -69,6 +72,7 @@ public sealed class TeamsModule : IModule
         _teamTarget = teamTarget;
         _exportOrchestrator = exportOrchestrator;
         _importOrchestrator = importOrchestrator;
+        _checkpointingFactory = checkpointingFactory;
     }
 
     /// <inheritdoc/>
@@ -100,6 +104,9 @@ public sealed class TeamsModule : IModule
 
         _logger.LogInformation("[Teams] Exporting teams for project '{Project}'.", projectName);
 
+        // Idempotency: check cursor (we still re-enumerate to ensure all team files exist).
+        var checkpointing = _checkpointingFactory?.Create(context.StateStore);
+
         Regex? filterRegex = null;
         if (string.Equals(_options.Scope, "teams", StringComparison.OrdinalIgnoreCase)
             && !string.IsNullOrEmpty(_options.Filter))
@@ -128,6 +135,18 @@ public sealed class TeamsModule : IModule
 
         activity?.SetTag("teams.count", count);
         _logger.LogInformation("[Teams] Exported {Count} teams.", count);
+
+        // Write cursor after successful export.
+        if (checkpointing is not null)
+        {
+            await checkpointing.WriteCursorAsync(ModuleName, new CursorEntry
+            {
+                LastProcessed = $"Teams/{count}",
+                Stage = CursorStage.Completed,
+                UpdatedAt = DateTimeOffset.UtcNow,
+                WorkItemsProcessed = count
+            }, ct).ConfigureAwait(false);
+        }
     }
 
     /// <inheritdoc/>

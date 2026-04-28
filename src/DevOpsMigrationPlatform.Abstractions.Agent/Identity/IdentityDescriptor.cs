@@ -1,4 +1,3 @@
-#if !NET481
 namespace DevOpsMigrationPlatform.Abstractions.Agent.Identity;
 
 /// <summary>
@@ -12,4 +11,3 @@ public sealed record IdentityDescriptor(
     string SourceType,
     string Origin,
     bool IsActive);
-#endif

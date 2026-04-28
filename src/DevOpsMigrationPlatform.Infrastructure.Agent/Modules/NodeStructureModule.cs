@@ -6,6 +6,7 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Agent.Checkpointing;
 using DevOpsMigrationPlatform.Abstractions.Agent.Export;
 using DevOpsMigrationPlatform.Abstractions.Agent.Import;
 using DevOpsMigrationPlatform.Abstractions.Agent.Modules;
@@ -36,6 +37,7 @@ public sealed class NodeStructureModule : IModule
 
     private readonly IClassificationTreeCapture? _capture;
     private readonly INodeEnsurer? _nodeEnsurer;
+    private readonly ICheckpointingServiceFactory? _checkpointingFactory;
     private readonly ILogger<NodeStructureModule> _logger;
     private readonly NodeStructureModuleOptions _options;
 
@@ -46,12 +48,14 @@ public sealed class NodeStructureModule : IModule
         ILogger<NodeStructureModule> logger,
         IOptions<NodeStructureModuleOptions> options,
         IClassificationTreeCapture? capture = null,
-        INodeEnsurer? nodeEnsurer = null)
+        INodeEnsurer? nodeEnsurer = null,
+        ICheckpointingServiceFactory? checkpointingFactory = null)
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _options = options?.Value ?? throw new ArgumentNullException(nameof(options));
         _capture = capture;
         _nodeEnsurer = nodeEnsurer;
+        _checkpointingFactory = checkpointingFactory;
     }
 
     /// <inheritdoc/>
@@ -74,7 +78,32 @@ public sealed class NodeStructureModule : IModule
         var endpoint = context.Job.Source
             ?? throw new InvalidOperationException("Job.Source is required for node export.");
 
+        // Idempotency: skip if already completed.
+        if (_checkpointingFactory is not null)
+        {
+            var checkpointing = _checkpointingFactory.Create(context.StateStore);
+            var cursor = await checkpointing.ReadCursorAsync(ModuleName, ct).ConfigureAwait(false);
+            if (cursor?.Stage == CursorStage.Completed
+                && await context.ArtefactStore.ExistsAsync(SourceTreePath, ct).ConfigureAwait(false))
+            {
+                _logger.LogInformation("[Nodes] Already exported (cursor found) — skipping re-export.");
+                return;
+            }
+        }
+
         await _capture.CaptureAsync(context.ArtefactStore, endpoint, ct).ConfigureAwait(false);
+
+        // Write cursor after successful export.
+        if (_checkpointingFactory is not null)
+        {
+            var checkpointing = _checkpointingFactory.Create(context.StateStore);
+            await checkpointing.WriteCursorAsync(ModuleName, new CursorEntry
+            {
+                LastProcessed = SourceTreePath,
+                Stage = CursorStage.Completed,
+                UpdatedAt = DateTimeOffset.UtcNow
+            }, ct).ConfigureAwait(false);
+        }
     }
 
     /// <inheritdoc/>

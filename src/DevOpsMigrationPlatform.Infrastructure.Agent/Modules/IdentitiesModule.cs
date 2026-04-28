@@ -7,6 +7,7 @@ using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Agent.Checkpointing;
 using DevOpsMigrationPlatform.Abstractions.Agent.Export;
 using DevOpsMigrationPlatform.Abstractions.Agent.Import;
 using DevOpsMigrationPlatform.Abstractions.Agent.Modules;
@@ -40,6 +41,7 @@ public sealed class IdentitiesModule : IModule
     };
 
     private readonly IIdentitySource? _identitySource;
+    private readonly ICheckpointingServiceFactory? _checkpointingFactory;
     private readonly ILogger<IdentitiesModule> _logger;
     private readonly IdentitiesModuleOptions _options;
 
@@ -49,11 +51,13 @@ public sealed class IdentitiesModule : IModule
     public IdentitiesModule(
         ILogger<IdentitiesModule> logger,
         IOptions<IdentitiesModuleOptions> options,
-        IIdentitySource? identitySource = null)
+        IIdentitySource? identitySource = null,
+        ICheckpointingServiceFactory? checkpointingFactory = null)
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _options = options?.Value ?? throw new ArgumentNullException(nameof(options));
         _identitySource = identitySource;
+        _checkpointingFactory = checkpointingFactory;
     }
 
     /// <inheritdoc/>
@@ -77,6 +81,19 @@ public sealed class IdentitiesModule : IModule
 
         var project = job.Source?.GetProject() ?? string.Empty;
 
+        // Idempotency: skip if already completed.
+        if (_checkpointingFactory is not null)
+        {
+            var checkpointing = _checkpointingFactory.Create(stateStore);
+            var cursor = await checkpointing.ReadCursorAsync(ModuleName, ct).ConfigureAwait(false);
+            if (cursor?.Stage == CursorStage.Completed
+                && await artefactStore.ExistsAsync(DescriptorsPath, ct).ConfigureAwait(false))
+            {
+                _logger.LogInformation("[Identities] Already exported (cursor found) — skipping re-export.");
+                return;
+            }
+        }
+
         using var activity = s_activitySource.StartActivity("identities.export");
         activity?.SetTag("project", project);
 
@@ -93,6 +110,19 @@ public sealed class IdentitiesModule : IModule
 
         activity?.SetTag("identities.count", count);
         _logger.LogInformation("[Identities] Exported {Count} identity descriptors to {Path}.", count, DescriptorsPath);
+
+        // Write cursor after successful export.
+        if (_checkpointingFactory is not null)
+        {
+            var checkpointing = _checkpointingFactory.Create(stateStore);
+            await checkpointing.WriteCursorAsync(ModuleName, new CursorEntry
+            {
+                LastProcessed = DescriptorsPath,
+                Stage = CursorStage.Completed,
+                UpdatedAt = DateTimeOffset.UtcNow,
+                WorkItemsProcessed = count
+            }, ct).ConfigureAwait(false);
+        }
     }
 
     /// <inheritdoc/>

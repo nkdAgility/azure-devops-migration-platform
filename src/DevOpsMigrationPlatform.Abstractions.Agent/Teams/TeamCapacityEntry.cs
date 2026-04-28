@@ -1,4 +1,3 @@
-#if !NET481
 using System.Collections.Generic;
 
 namespace DevOpsMigrationPlatform.Abstractions.Agent.Teams;
@@ -12,4 +11,3 @@ public sealed record TeamCapacityEntry(
     string MemberDisplayName,
     IReadOnlyList<ActivityEntry> Activities,
     int DaysOff);
-#endif

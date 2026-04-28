@@ -1,4 +1,3 @@
-#if !NET481
 using System.Collections.Generic;
 
 namespace DevOpsMigrationPlatform.Abstractions.Agent.Teams;
@@ -8,4 +7,3 @@ public sealed record TeamSettings(
     string BacklogNavigationLevel,
     bool BugsBehavior,
     IReadOnlyList<string> WorkingDays);
-#endif

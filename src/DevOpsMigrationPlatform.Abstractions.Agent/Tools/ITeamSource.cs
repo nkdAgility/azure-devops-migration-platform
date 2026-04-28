@@ -1,4 +1,3 @@
-#if !NET481
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
@@ -30,4 +29,3 @@ public interface ITeamSource
     /// <summary>Returns area path assignments for a team.</summary>
     Task<TeamAreaPaths?> GetTeamAreaPathsAsync(MigrationEndpointOptions endpoint, string projectName, string teamId, CancellationToken ct);
 }
-#endif

@@ -1,4 +1,3 @@
-#if !NET481
 using System.Collections.Generic;
 
 namespace DevOpsMigrationPlatform.Abstractions.Agent.Teams;
@@ -7,4 +6,3 @@ namespace DevOpsMigrationPlatform.Abstractions.Agent.Teams;
 public sealed record TeamAreaPaths(
     string DefaultAreaPath,
     IReadOnlyList<string> IncludedAreaPaths);
-#endif
