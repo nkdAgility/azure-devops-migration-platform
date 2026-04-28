@@ -1,5 +1,15 @@
 # Telemetry Architecture — Agent Context
 
+> ⛔ **STOP. Before proposing any change involving metrics, counters, progress, or observability:**
+>
+> The **Three-Channel Telemetry Model** described in this file is the **only permitted architecture**.
+>
+> - Proposing a new channel, a new counter DTO, a new progress sink flow, or any data path not described here is a **violation**.
+> - Before writing any code or suggesting any design, **quote the relevant section of this file** that covers your proposed change.
+> - If your proposed change cannot be mapped to an existing section, **stop and raise a guardrail challenge** — do not invent a new pattern.
+>
+> This rule is enforced. "I already know the rules" is not a substitute for quoting the section.
+
 This file defines the layered telemetry architecture, the mandatory observability contract, the cross-runtime strategy, and the step-by-step process for adding new signals. It applies to both AI agents and human contributors.
 
 > **Canonical sources of truth — read these files, do not duplicate their content here:**
@@ -299,6 +309,75 @@ Two legacy interfaces remain in `Abstractions.Agent/Telemetry/` marked `[Obsolet
 - **Do NOT** create a new `Meter` instance per metric recording call. Meters are created once in the constructor.
 - **Do NOT** add high-cardinality tags (work item IDs, user emails, file paths) to metrics. Use traces or structured logs for those.
 - **Do NOT** register the same meter name in multiple `AddMeter()` calls within the same host — it causes duplicate instrument registration.
+- **Do NOT** read `ProgressEvent.Metrics` in CLI or TUI code to populate progress counters for .NET 10 agents** — `ProgressEvent.Metrics` is only populated by the TFS subprocess (net481). For all .NET 10 Migration Agent jobs, `ProgressEvent.Metrics` is always null. CLI/TUI MUST use the dedicated telemetry polling endpoint instead (see CLI/TUI Data Sourcing Contract below).
+- **Do NOT** wire `QueueCommand.BuildProgressRenderable` to an in-process `IProgressSink`** — the CLI is never in the same process as the Migration Agent in production. Any in-process sink wiring is an architecture violation that silently breaks in remote, cloud, and Aspire-managed topologies.
+
+---
+
+## CLI/TUI Data Sourcing Contract ⛔ MANDATORY
+
+This contract governs where the CLI and TUI read their data. It is the single most common source of "progress shows zeros" and "CLI invisible in remote mode" bugs.
+
+### The Rule
+
+**CLI and TUI MUST source all display data exclusively from the ControlPlane API.** They are never in the same process as the Migration Agent. Any direct sink wiring is an architecture violation.
+
+### Why ProgressEvent.Metrics is Not Sufficient
+
+The three-channel model assigns metrics to Channel 2, not Channel 1:
+
+| Channel | Carries | .NET 10 Agent | TFS subprocess (net481) |
+|---------|---------|--------------|------------------------|
+| 1 — `ProgressEvent` (SSE) | Stage transitions, cursor position, timing | `Metrics` field = **always null** | `Metrics` field = populated every N revisions |
+| 2 — `JobMetrics` (polling) | Aggregate counters (attempts, completed, errors, duration) | **Primary metrics channel** | Secondary (also pushes via Channel 2) |
+| 3 — `JobSnapshot` (slow poll) | Per-org/project breakdown | Available | Available |
+
+Reading `ProgressEvent.Metrics` in CLI code is correct only for TFS subprocess jobs. For any .NET 10 agent job it silently returns zero for all counters.
+
+### Correct Data Flow
+
+```
+Migration Agent (any runtime)
+  ├─► IMigrationMetrics → OTel instruments
+  │       └─► SnapshotMetricExporter → InMemoryJobMetricsStore
+  │               └─► ControlPlaneTelemetryTimer → POST /agents/lease/{id}/telemetry [every ~5s]
+  │                       └─► ControlPlane stores latest JobMetrics snapshot
+  │                               ├─► CLI polls  GET /jobs/{id}/telemetry   → counters for BuildProgressRenderable
+  │                               └─► TUI polls  GET /jobs/{jobId}/telemetry → Metrics panel
+  │
+  └─► IProgressSink → ControlPlaneProgressSink
+          └─► POST /agents/lease/{id}/progress [per event]
+                  └─► ControlPlane ring buffer → SSE fan-out
+                          ├─► CLI subscribes  GET /jobs/{id}/progress?follow=true  → stage/cursor rows in BuildProgressRenderable
+                          └─► TUI subscribes  GET /jobs/{jobId}/progress?follow=true → Progress table rows
+```
+
+### Implementation Rules
+
+**CLI (`QueueCommand` and any future command that renders live progress):**
+- MUST subscribe to `GET /jobs/{id}/progress?follow=true` for real-time stage and cursor updates.
+- MUST poll `GET /jobs/{id}/telemetry` on a configurable interval (default 5 s) for aggregate counters.
+- MUST NOT read `ProgressEvent.Metrics` for counters destined for the progress display — use the telemetry endpoint instead.
+- `BuildProgressRenderable` receives counters from the telemetry poll result (`JobMetrics`) and stage/cursor from the SSE event stream (`ProgressEvent`). These are two separate inputs merged in the render call.
+
+**TUI (Terminal.Gui views):**
+- Metrics panel MUST poll `GET /jobs/{jobId}/telemetry` (default 5 s).
+- Progress table MUST subscribe to `GET /jobs/{jobId}/progress?follow=true` (SSE).
+- Log/Diagnostics panel MUST subscribe to `GET /jobs/{jobId}/diagnostics?follow=true` (SSE).
+- MUST NOT subscribe to `IProgressSink` directly.
+
+**Agent (source — never reads):**
+- Records OTel instruments via `IMigrationMetrics`. The OTel pipeline handles export.
+- Emits `ProgressEvent` via `IProgressSink` composite. Does not know which consumers exist.
+- Never reads from the ControlPlane telemetry endpoint.
+
+### Verification (Definition of Done)
+
+A new module or counter is not done until:
+1. `SnapshotMetricExporter.cs` has an extraction case that maps the OTel metric to the correct `JobMetrics` property.
+2. `QueueCommand.BuildProgressRenderable` reads the counter from the `JobMetrics` polling result, not from `ProgressEvent.Metrics`.
+3. Running a scenario shows the counter incrementing in the CLI output.
+4. Running a scenario shows the counter incrementing in the TUI Metrics panel.
 
 ---
 

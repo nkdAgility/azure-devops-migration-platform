@@ -269,19 +269,119 @@ Preferred:
 
 ---
 
-# 📊 Observability
+# 📊 Observability — Full Contract (MANDATORY — No Exceptions)
 
-- MUST use OpenTelemetry.
-- Each module execution MUST create an activity span.
-- Duration and failure metrics MUST be recorded.
-- No ad-hoc console logging for runtime diagnostics.
-- Metric interfaces (`IMigrationMetrics`, `IDiscoveryMetrics`), constants (`WellKnownMetricNames`), tag builders (`MigrationTagList`), and concrete metric classes (`MigrationMetrics`, `DiscoveryMetrics`) MUST NOT have `#if !NETFRAMEWORK` guards — they compile for both net481 and net10.0 via `System.Diagnostics.DiagnosticSource`.
-- Only pipeline-layer types that reference OTel SDK exporter/reader classes (`SnapshotMetricExporter`, `TelemetryServiceExtensions`, `InMemoryMetricSnapshotStore`) may use `#if !NETFRAMEWORK` guards.
-- See `.agents/context/telemetry-architecture.md` for the full three-layer model and step-by-step guide for adding new metrics.
-- Every `ILogger` call that references customer-identifiable data (field values, project names, org URLs, attachment paths) MUST be wrapped in a `DataClassification.Customer` scope — either `using (logger.BeginDataScope(DataClassification.Customer))` (.NET 10) or `using (DataClassificationScope.Begin(DataClassification.Customer))` (.NET 4.8). Work item IDs are integer identifiers, not customer data — they do NOT require a Customer scope.
-- Unclassified logs default to `System` and are exported to Azure Monitor. Gradual classification is permitted; unclassified logs are safe-by-default.
-- Error messages inside a `Customer` scope that need to reach Azure Monitor MUST use an inner `DataClassificationScope.Begin(DataClassification.System)` scope AND MUST NOT include customer data in the message template.
-- `AddDataClassificationFilter()` MUST be called on `builder.Logging` in every host that exports logs via OTel (ControlPlaneHost, MigrationAgent).
+> **⛔ CRITICAL REDLINE**: Full observability is a hard requirement on every module and tool. It is codified as rule 25 in `system-architecture.md`. A module or tool that does not satisfy all four requirements below is **not done** and must not be declared complete.
+
+## O-1: Activity Spans (Traces)
+
+- MUST call `ActivitySource.StartActivity("module.operation")` at the start of every significant operation.
+- Store in `using var activity = ActivitySource.StartActivity(...)` so it is disposed on completion.
+- MUST set meaningful tags: `module`, `operation`, counts, `error = true` on failure.
+- Use `WellKnownActivitySourceNames.Migration` as the source name for migration modules and tools.
+
+```csharp
+// ✅ CORRECT
+using var activity = s_activitySource.StartActivity("teams.export");
+activity?.SetTag("module", "Teams");
+// ... do work ...
+activity?.SetTag("teams.count", count);
+```
+
+## O-2: Business Metrics
+
+- Inject `IMigrationMetrics` (or the relevant interface) as an **optional constructor parameter**.
+- MUST record at minimum for every operation:
+  - **Attempt counter** — incremented per item entering the pipeline
+  - **Completion counter** — incremented per successfully completed item
+  - **Error counter** — incremented per permanently failed item
+  - **Duration histogram** — milliseconds elapsed for the operation
+  - **In-flight gauge** (UpDownCounter) — `+1` at start, `-1` at end
+- New metric name constants → `WellKnownMetricNames`.
+- New method signatures → `IMigrationMetrics`.
+- New instrument fields + implementations → `MigrationMetrics`.
+- See `.agents/context/telemetry-architecture.md` for the step-by-step guide.
+- Metric interfaces, constants, tag builders, and concrete metric classes MUST NOT have `#if !NETFRAMEWORK` guards — they compile for both runtimes via `System.Diagnostics.DiagnosticSource`.
+- Only pipeline-layer types (`SnapshotMetricExporter`, `TelemetryServiceExtensions`, `InMemoryMetricSnapshotStore`) may use `#if !NETFRAMEWORK` guards.
+
+```csharp
+// ✅ CORRECT
+_migrationMetrics?.IncrementTeamExportInFlight(tags);
+var sw = Stopwatch.StartNew();
+try
+{
+    // ... do work ...
+    _migrationMetrics?.RecordTeamExportCount(tags);
+}
+catch { _migrationMetrics?.RecordTeamExportError(tags); throw; }
+finally
+{
+    sw.Stop();
+    _migrationMetrics?.DecrementTeamExportInFlight(tags);
+    _migrationMetrics?.RecordTeamExportDuration(sw.Elapsed.TotalMilliseconds, tags);
+}
+```
+
+## O-3: Structured Logging
+
+- Log at `Information` at start and end of every export, import, and validate, including counts.
+- Log at `Warning` for every skipped item, unresolvable identity, missing file, or degraded path.
+- Log at `Debug` for per-item detail — never `Information` for per-item when hundreds of items are expected.
+- Use structured parameters (`{Count}`, `{Module}`, `{Stage}`) — no string interpolation in log calls.
+- Customer-identifiable data (project names, org URLs, identity strings, attachment paths) MUST use a `DataClassification.Customer` scope.
+- Unclassified logs default to `System` and are exported to Azure Monitor.
+- `AddDataClassificationFilter()` MUST be called on `builder.Logging` in every host that exports logs via OTel.
+
+## O-4: ProgressEvent Emission — CLI/TUI Visibility ⛔ MOST CRITICAL
+
+This is the binding contract between the Agent and the CLI/TUI. Without it, the CLI shows no progress bar for the module — operators are blind.
+
+- MUST inject `IProgressSink` as an **optional constructor parameter** (`IProgressSink? progressSink = null`).
+- MUST emit at **start** of each operation: `Stage = "Starting"`, message.
+- MUST emit **per item** (or per batch of ≤ 50 items) during loops: populate `Metrics` with the module's `ModuleCounters`.
+- MUST emit at **completion**: final counts, `Stage = "Complete"`.
+- The `Metrics.Migration.{ModuleName}` counter is what `QueueCommand.BuildProgressRenderable` reads to render the progress bar row.
+- All emits MUST be null-checked (`_progressSink?.Emit(...)`).
+
+```csharp
+// ✅ CORRECT — start event
+_progressSink?.Emit(new ProgressEvent
+{
+    Module = ModuleName,
+    Stage = "Export",
+    Message = $"[Teams] Starting export for project '{project}'."
+});
+
+// ✅ CORRECT — per-team event with Metrics
+_progressSink?.Emit(new ProgressEvent
+{
+    Module = ModuleName,
+    Stage = "Export",
+    Message = $"[Teams] Exported {count} teams.",
+    Metrics = new JobMetrics
+    {
+        Migration = new MigrationCounters
+        {
+            Teams = new ModuleCounters { Completed = count }
+        }
+    }
+});
+```
+
+### ProgressEvent → CLI/TUI Pipeline
+
+```
+Module.Emit(ProgressEvent) 
+  → ControlPlaneProgressSink (buffered)
+  → SSE fan-out
+  → CLI FollowLogsAsync
+  → QueueCommand reads evt.Metrics.Migration.{ModuleName}
+  → BuildProgressRenderable renders a row for each non-null module
+```
+
+- `MigrationCounters` MUST have a `ModuleCounters?` property for every module that emits counters.
+- `QueueCommand.BuildProgressRenderable` MUST render rows in execution order: **Identities → Nodes → Teams → WorkItems**.
+- Adding module counters to `MigrationCounters` without updating `BuildProgressRenderable` = instant reject.
 
 ---
 

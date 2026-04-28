@@ -130,4 +130,67 @@ Silently working around a rule = violation. Blindly following a harmful rule = n
 
     The only exception is CLI **read-only** access for post-job display (e.g. reading `dependencies.csv` or `inventory.json` to render summary tables after the Agent has completed). Read access does not violate data residency because it does not move or copy customer data outside the operator's infrastructure.
 
+25. **⛔ CRITICAL REDLINE — Full observability is mandatory on every module and tool. No exceptions.**
+
+    Every `IModule` implementation and every `IXxxTool` implementation MUST satisfy all four observability requirements below. A module or tool that violates any of these four requirements is **not done** regardless of functional correctness. Declaring done without full observability is a violation equivalent to failing to build.
+
+    ### Requirement O-1: Activity Spans (Traces)
+
+    - MUST call `ActivitySource.StartActivity("module.operation")` (or `"tool.operation"`) at the start of every significant operation (export, import, validate, per-item processing).
+    - The activity MUST be stored in a `using var activity = ...` block so it is disposed on completion.
+    - MUST set meaningful tags on the activity: `module`, `operation`, counts, error flags.
+    - Use `WellKnownActivitySourceNames.Migration` as the source name.
+
+    ### Requirement O-2: Business Metrics (OTel Instruments)
+
+    - MUST record metrics via the relevant metrics interface (`IMigrationMetrics`, `IDiscoveryMetrics`, or a new interface that follows the same three-layer pattern).
+    - At minimum, every module operation MUST record:
+      - **Attempt counter** — one increment per item entering the pipeline
+      - **Completion counter** — one increment per item successfully completed
+      - **Error counter** — one increment per item that fails permanently
+      - **Duration histogram** — elapsed milliseconds per operation
+      - **In-flight gauge** (UpDownCounter) — increment at start, decrement at end (for concurrent operations)
+    - All new metric name constants MUST be added to `WellKnownMetricNames` (or `WellKnownDiscoveryMetricNames` for discovery).
+    - All new method signatures MUST be added to `IMigrationMetrics`.
+    - All new instrument fields, registrations, and implementations MUST be added to `MigrationMetrics`.
+    - See `.agents/context/telemetry-architecture.md` for the step-by-step addition guide.
+
+    ### Requirement O-3: Structured Logging
+
+    - MUST log at `Information` level at the start and end of every export, import, and validate operation, including total counts.
+    - MUST log at `Warning` level for every skipped item, unresolvable identity, missing file, or degraded operation.
+    - MUST log at `Debug` level for per-item detail (individual team names, identity strings, node paths).
+    - MUST NOT log at `Information` for per-item detail when processing hundreds or thousands of items — use `Debug` to avoid log flooding.
+    - MUST use structured log parameters (`{Count}`, `{Module}`, `{Stage}`) — no string interpolation in log calls.
+    - Customer-identifiable data (project names, org URLs, identity strings, attachment paths) MUST be wrapped in a `DataClassification.Customer` scope.
+
+    ### Requirement O-4: ProgressEvent Emission — CLI/TUI Visibility ⛔ THIS IS THE MOST CRITICAL
+
+    **This is the binding contract between the Agent and the CLI/TUI.** Without ProgressEvent emission, the CLI renders no progress bar for the module, and operators are blind to what is happening.
+
+    - MUST inject `IProgressSink` as an **optional constructor parameter** (`IProgressSink? progressSink = null`).
+    - MUST emit a `ProgressEvent` **at start** of every operation (export, import, validate) with `Stage = "Starting"` and an informational `Message`.
+    - MUST emit a `ProgressEvent` **per item** (or per batch of ≤ 50 items) during streaming operations, with `Metrics` populated — including a `ModuleCounters` for the current module set on `JobMetrics.Migration.{ModuleName}`. This is what the CLI reads to render the progress bar.
+    - MUST emit a `ProgressEvent` **at completion** of every operation with final counts and `Stage = "Complete"`.
+    - The `Metrics` property on each emitted `ProgressEvent` MUST include the current module's `ModuleCounters` (`Completed`, `Failed`, `Skipped`, `Total` — set `Total = 0` when unknown).
+    - `IProgressSink` being null (e.g. in unit tests) MUST be handled gracefully — all emits MUST be null-checked (`_progressSink?.Emit(...)`).
+
+    ### The ProgressEvent → CLI/TUI Pipeline
+
+    The chain is: `Module emits ProgressEvent` → `ControlPlaneProgressSink buffers` → `SSE fan-out` → `CLI FollowLogsAsync` → `QueueCommand reads evt.Metrics.Migration.{ModuleName}` → `renders progress bar row`.
+
+    For this chain to work:
+    - `MigrationCounters` MUST have a `ModuleCounters?` property named after each module that emits counters (`Identities`, `Nodes`, `Teams`, and any future module).
+    - `JobMetrics.Migration` carries those counters to the CLI.
+    - `QueueCommand.BuildProgressRenderable` MUST render a row for every module that has a non-null counter, in execution order: **Identities → Nodes → Teams → WorkItems**.
+
+    ### Instant Reject Triggers (Observability)
+
+    Reject any code that:
+    - Adds or modifies a module or tool without a `using var activity = ActivitySource.StartActivity(...)` block
+    - Adds or modifies a module or tool without calling the relevant metrics interface (`IMigrationMetrics`) for attempt, completion, and error
+    - Adds or modifies a module or tool without injecting and using `IProgressSink` to emit `ProgressEvent` with `Metrics` populated
+    - Declares a module or tool done when its progress bar does not appear in the CLI during a scenario run
+    - Adds new module-level counters to `MigrationCounters` without also updating `QueueCommand.BuildProgressRenderable` to display them
+
 Consult [docs/architecture.md](../../docs/architecture.md). If the answer is not there, the safest default is to preserve the package layout, maintain streaming behaviour, and write state only through the defined interfaces.

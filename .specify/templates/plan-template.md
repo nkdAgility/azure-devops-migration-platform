@@ -44,6 +44,46 @@
 - [ ] **Determinism (VII):** Same inputs produce stable package layout. All breaking schema changes include an upgrader.
 - [ ] **ATDD-First (VIII):** Every user story in `spec.md` has at least one Given/When/Then acceptance scenario. Each scenario will be implemented via the ATDD inner loop (Specification → Test Gen → Implementation → Review) — one scenario per session per commit.
 - [ ] **SOLID & DI (IX):** All new services and modules receive dependencies via constructor injection only. Configuration is bound via `IOptions<T>` with a sealed options class and `SectionName` constant. No raw `IConfiguration` access inside services. Interfaces are defined in `DevOpsMigrationPlatform.Abstractions`. Registration lives in a dedicated `Add*Services` extension method.
+- [ ] **Full Connector Coverage (XI):** Every feature that interacts with source or target systems is designed for all three connectors — Simulated, AzureDevOpsServices, and TeamFoundationServer. No connector is left as a stub, placeholder, or deferred to a follow-up. TFS exemptions require a documented API limitation rationale.
+
+## Observability Contract
+
+*GATE: Must be completed before task generation. Every operation enumerated here MUST appear as explicit tasks in `tasks.md`. This is not optional — a feature without a complete observability contract will not reach done.*
+
+> **Read `.agents/context/telemetry-architecture.md` before completing this section.**
+> Read `WellKnownMetricNames.cs`, `WellKnownActivitySourceNames.cs`, and `WellKnownMeterNames.cs` to use correct existing names or define new ones following the established naming convention.
+
+For each operation introduced or modified by this feature, fill in one row. A feature with no operations (e.g. a pure refactor) must state "No operations — pure refactor" explicitly.
+
+### Operations Table
+
+| Operation | Class / Method | Span Name (O-1) | Metrics Instruments (O-2) | Log Events (O-3) | ProgressEvent Stage (O-4) |
+|-----------|---------------|-----------------|--------------------------|-----------------|--------------------------|
+| [e.g. Export work items] | [e.g. WorkItemsModule.ExportAsync] | `[e.g. export.workitems]` | `migration.workitems.attempts`, `migration.workitems.completed`, `migration.workitems.errors`, `migration.workitems.duration`, `migration.workitems.inflight` | `Information`: "Exporting {Count} work items"; `Warning`: "Skipping {Id}: {Reason}"; `Debug`: "Processing revision {Path}" | `Exporting`, `Exported`, `Failed` |
+| [add rows for every operation] | | | | | |
+
+### Wiring Checklist
+
+For this feature, confirm that data flows end-to-end from the module to the CLI:
+
+- [ ] **O-1 ActivitySource:** Span name(s) listed above exist in `WellKnownActivitySourceNames` (or new names are added)
+- [ ] **O-2 Metric instruments:** All metric names listed above exist in `WellKnownMetricNames` (or new names are added with matching `IMigrationMetrics` / `IDiscoveryMetrics` interface methods and `MigrationMetrics` / `DiscoveryMetrics` implementations)
+- [ ] **O-2 Meter registration:** If new meters are introduced, `.AddMeter(WellKnownMeterNames.X)` is added to BOTH the MigrationAgent host AND the TFS host registration sites
+- [ ] **O-3 Log structured params:** Every log call uses structured params (`{WorkItemId}`, `{Count}`, etc.) — no string interpolation
+- [ ] **O-4 IProgressSink wiring:** `IProgressSink` is injected as optional (`IProgressSink?`) and `EmitAsync` is called (not just injected)
+- [ ] **O-4 ModuleCounters property:** `MigrationCounters` (or `DiscoveryCounters`) has a property for this module's counters; `SnapshotMetricExporter.cs` is updated to extract this metric into `JobMetrics`
+- [ ] **O-4 CLI row:** `QueueCommand.BuildProgressRenderable` has a progress bar row for this module in correct execution order (Identities → Nodes → Teams → WorkItems → ...)
+- [ ] **DI wiring verified:** Every new `class` implementing an interface has a corresponding `services.AddSingleton<IFoo, Foo>()` (or appropriate lifetime) in a `ServiceCollectionExtensions` method that is itself called from the host startup
+
+### Tests Required for Observability
+
+These test tasks MUST appear in `tasks.md`:
+
+- [ ] Unit test: verify `ActivitySource.StartActivity` is called with correct span name (use `TestActivityListener` or mock)
+- [ ] Unit test: verify `IMigrationMetrics` receives attempt/completion/error calls (inject mock `IMigrationMetrics`)
+- [ ] Unit test: verify `IProgressSink.EmitAsync` is called at start, per-item (or per batch ≤50), and completion
+- [ ] Unit test: verify `ILogger` receives `Information` at start and end with correct structured parameters
+- [ ] Simulated system test: run scenario end-to-end → CLI output shows progress bar row for this module
 
 ## Project Structure
 

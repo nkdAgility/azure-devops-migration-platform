@@ -285,6 +285,13 @@ Reject any proposal that:
 - Implements a feature for one connector (Simulated, AzureDevOps, or TFS) while leaving stubs or placeholders in the others where the API supports the capability.
 - Defers a connector implementation to a follow-up PR or future task.
 - Declares done without updating every canonical doc named in any doc-task in `tasks.md`.
+- **Writes a module or tool without O-1 activity spans** — every operation MUST create an `ActivitySource.StartActivity` span with meaningful tags.
+- **Writes a module or tool without O-2 business metrics** — every operation MUST call `IMigrationMetrics` for attempt, completion, error, duration, and in-flight.
+- **Writes a module or tool without O-3 structured logging** — every operation MUST log at `Information` on start/end, `Warning` on skips/errors, `Debug` for per-item detail.
+- **Writes a module or tool without O-4 ProgressEvent emission** — `IProgressSink` MUST be injected (optional) and `ProgressEvent` MUST be emitted at start, per item (or per ≤50 batch), and completion with `Metrics.Migration.{ModuleName}` populated.
+- **Adds a module counter to `MigrationCounters` without a corresponding row in `QueueCommand.BuildProgressRenderable`** — every module counter added to the DTO MUST be rendered in the CLI progress display in correct execution order (Identities → Nodes → Teams → WorkItems).
+- **Wires `QueueCommand.BuildProgressRenderable` to an in-process `IProgressSink` or any source other than the ControlPlane API** — the CLI progress display MUST read aggregate counters from `GET /jobs/{id}/telemetry` (Channel 2 — `JobMetrics` polling) AND real-time stage/cursor updates from `GET /jobs/{id}/progress?follow=true` (Channel 1 — SSE). `ProgressEvent.Metrics` is populated only by the TFS subprocess (net481); for .NET 10 agents it is always null. CLI code that reads metrics from `ProgressEvent.Metrics` instead of the telemetry endpoint will silently display zeros for all .NET 10 jobs.
+- **Wires the TUI to an in-process `IProgressSink` or any source other than the ControlPlane API** — the TUI Metrics panel MUST poll `GET /jobs/{jobId}/telemetry`; the Progress table and Log panel MUST subscribe to `GET /jobs/{jobId}/progress?follow=true` and `GET /jobs/{jobId}/diagnostics?follow=true` respectively. No direct sink wiring is permitted in TUI code.
 ---
 
 # 🧭 Development Flow

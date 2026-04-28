@@ -168,6 +168,29 @@ The interactive prompt runs inside the command's `ExecuteInternalAsync` (before 
 
 ---
 
+## Live Progress Display
+
+When `queue --follow` is active, the CLI renders a live progress table using Spectre.Console's `Live` renderer. The data for this table comes from **two independent ControlPlane streams** that are consumed in parallel:
+
+| Stream | Source | Data provided |
+|--------|--------|--------------|
+| **Channel 1 — SSE** | `GET /jobs/{id}/progress?follow=true` | Real-time stage transitions, cursor position (`lastProcessed`), checkpoint timestamps. Carries `ProgressEvent` records. |
+| **Channel 2 — Polling** | `GET /jobs/{id}/telemetry` (every ~5 s) | Aggregate counters: attempts, completed, skipped, errors, durations, in-flight. Carries `JobMetrics` records. |
+
+`BuildProgressRenderable` receives both inputs and merges them into the rendered table. Stage/cursor rows come from Channel 1. Counter values (e.g. work items completed, revisions written, attachment counts) come from Channel 2.
+
+### Why Not ProgressEvent.Metrics?
+
+`ProgressEvent` has an optional `Metrics` field. It is **only populated by the TFS subprocess (net481)**; for all .NET 10 Migration Agent jobs it is always null. Reading counters from `ProgressEvent.Metrics` is therefore only correct for TFS jobs and silently displays zeros for all .NET 10 jobs.
+
+CLI code MUST read counters from the Channel 2 telemetry polling endpoint, not from `ProgressEvent.Metrics`.
+
+### Rule
+
+> `QueueCommand` (and any future command that renders live progress) MUST consume BOTH Channel 1 (SSE) and Channel 2 (polling) from the ControlPlane. It MUST NOT be wired to an in-process `IProgressSink`. The CLI is never in the same process as the Migration Agent in any production topology.
+
+---
+
 ## Commands
 
 Commands are organised into four groups. See [.agents/context/cli-commands.md](../.agents/context/cli-commands.md) for the canonical machine-readable reference.
