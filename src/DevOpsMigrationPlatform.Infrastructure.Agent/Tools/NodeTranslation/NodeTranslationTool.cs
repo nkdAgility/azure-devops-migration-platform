@@ -4,8 +4,10 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Text.RegularExpressions;
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Agent.Telemetry;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Abstractions.Options;
+using DevOpsMigrationPlatform.Abstractions.Telemetry;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
@@ -22,12 +24,14 @@ public sealed class NodeTranslationTool : INodeTranslationTool
     private readonly NodeTranslationOptions _options;
     private readonly IReadOnlyList<(Regex Pattern, string Replacement)> _areaRules;
     private readonly IReadOnlyList<(Regex Pattern, string Replacement)> _iterationRules;
+    private readonly IMigrationMetrics? _migrationMetrics;
     private readonly ILogger<NodeTranslationTool> _logger;
 
-    public NodeTranslationTool(IOptions<NodeTranslationOptions> options, ILogger<NodeTranslationTool>? logger = null)
+    public NodeTranslationTool(IOptions<NodeTranslationOptions> options, ILogger<NodeTranslationTool>? logger = null, IMigrationMetrics? migrationMetrics = null)
     {
         _options = options?.Value ?? throw new ArgumentNullException(nameof(options));
         _logger = logger ?? Microsoft.Extensions.Logging.Abstractions.NullLogger<NodeTranslationTool>.Instance;
+        _migrationMetrics = migrationMetrics;
         _areaRules = CompileRules(_options.AreaPathMappings);
         _iterationRules = CompileRules(_options.IterationPathMappings);
     }
@@ -48,6 +52,13 @@ public sealed class NodeTranslationTool : INodeTranslationTool
         using var activity = s_activitySource.StartActivity("nodes.translate");
         var path = sourcePathValue.Trim();
 
+        var tags = new TagList
+        {
+            { WellKnownTagNames.Module, "Nodes" },
+            { WellKnownTagNames.Operation, "nodes.translate" }
+        };
+        _migrationMetrics?.RecordNodeTranslateCount(tags);
+
         // Step 1 — Language override: normalise root segment
         path = ApplyLanguageOverride(fieldName, path, context);
 
@@ -60,6 +71,7 @@ public sealed class NodeTranslationTool : INodeTranslationTool
                 var mapped = pattern.Replace(path, replacement);
                 using (DataClassificationScope.Begin(DataClassification.Customer))
                     _logger.LogTrace("[NodeTranslation] Path translated via map rule: {Source} → {Target}", path, mapped);
+                _migrationMetrics?.RecordNodeTranslateMapHit(tags);
                 return new PathTranslation(
                     TargetPath: mapped,
                     MatchedByMap: true,
@@ -75,6 +87,7 @@ public sealed class NodeTranslationTool : INodeTranslationTool
             var swapped = context.TargetProjectName + path[context.SourceProjectName.Length..];
             using (DataClassificationScope.Begin(DataClassification.Customer))
                 _logger.LogTrace("[NodeTranslation] Path translated via auto-swap: {Source} → {Target}", path, swapped);
+            _migrationMetrics?.RecordNodeTranslateAutoSwapHit(tags);
             return new PathTranslation(
                 TargetPath: swapped,
                 MatchedByMap: false,
@@ -85,6 +98,7 @@ public sealed class NodeTranslationTool : INodeTranslationTool
         // Step 4 — External path: not anchored in source project — pass through
         using (DataClassificationScope.Begin(DataClassification.Customer))
             _logger.LogWarning("[NodeTranslation] Path is external (not anchored in source project): {Path}", path);
+        _migrationMetrics?.RecordNodeTranslateExternal(tags);
         return new PathTranslation(
             TargetPath: path,
             MatchedByMap: false,

@@ -19,6 +19,7 @@ using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Abstractions.Agent.Validation;
 using DevOpsMigrationPlatform.Abstractions.Telemetry;
 using DevOpsMigrationPlatform.Abstractions.Validation;
+using DevOpsMigrationPlatform.Abstractions.Streaming;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Teams;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -107,6 +108,14 @@ public sealed class TeamsModule : IModule
 
         _logger.LogInformation("[Teams] Exporting teams for project '{Project}'.", projectName);
 
+        var sink = context.ProgressSink;
+        sink?.Emit(new ProgressEvent
+        {
+            Module = ModuleName,
+            Stage = "Teams.Export.Started",
+            Message = $"Starting team export for project '{projectName}'."
+        });
+
         // Idempotency: check cursor (we still re-enumerate to ensure all team files exist).
         var checkpointing = _checkpointingFactory?.Create(context.StateStore);
 
@@ -144,6 +153,12 @@ public sealed class TeamsModule : IModule
 
                 count++;
                 _migrationMetrics?.RecordTeamExportCount(exportTags);
+                sink?.Emit(new ProgressEvent
+                {
+                    Module = ModuleName,
+                    Stage = "Teams.Export.Team",
+                    Message = $"Exported team '{team.Name}' ({count} total).",
+                });
             }
             catch
             {
@@ -160,6 +175,12 @@ public sealed class TeamsModule : IModule
 
         activity?.SetTag("teams.count", count);
         _logger.LogInformation("[Teams] Exported {Count} teams.", count);
+        sink?.Emit(new ProgressEvent
+        {
+            Module = ModuleName,
+            Stage = "Teams.Export.Complete",
+            Message = $"Team export complete — {count} teams exported.",
+        });
 
         // Write cursor after successful export.
         if (checkpointing is not null)
@@ -202,6 +223,14 @@ public sealed class TeamsModule : IModule
         var sourceProjectName = context.Job.Source?.GetProject() ?? projectName;
 
         _logger.LogInformation("[Teams] Importing teams for project '{Project}'.", projectName);
+
+        var importSink = context.ProgressSink;
+        importSink?.Emit(new ProgressEvent
+        {
+            Module = ModuleName,
+            Stage = "Teams.Import.Started",
+            Message = $"Starting team import for project '{projectName}'.",
+        });
 
         var count = 0;
         await foreach (var teamPath in artefactStore.EnumerateAsync("Teams/", ct).ConfigureAwait(false))
@@ -248,6 +277,12 @@ public sealed class TeamsModule : IModule
 
                 count++;
                 _migrationMetrics?.RecordTeamImportCount(importTags);
+                importSink?.Emit(new ProgressEvent
+                {
+                    Module = ModuleName,
+                    Stage = "Teams.Import.Team",
+                    Message = $"Imported team '{teamPackage.Definition?.Name}' ({count} total).",
+                });
             }
             catch
             {
@@ -264,6 +299,12 @@ public sealed class TeamsModule : IModule
 
         activity?.SetTag("teams.count", count);
         _logger.LogInformation("[Teams] Imported {Count} teams.", count);
+        importSink?.Emit(new ProgressEvent
+        {
+            Module = ModuleName,
+            Stage = "Teams.Import.Complete",
+            Message = $"Team import complete — {count} teams imported.",
+        });
 
         // Write cursor after successful import.
         if (_checkpointingFactory is not null)

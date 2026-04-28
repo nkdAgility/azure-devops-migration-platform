@@ -61,8 +61,17 @@ internal sealed class MigrationMetrics : IMigrationMetrics, IDisposable
     private readonly Histogram<double> _nodeExportTreeDuration;
     private readonly Counter<long> _nodeExportTreeErrors;
 
+    // --- NodeTranslation Translate ---
+    private readonly Counter<long> _nodeTranslateCount;
+    private readonly Counter<long> _nodeTranslateMapHit;
+    private readonly Counter<long> _nodeTranslateAutoSwapHit;
+    private readonly Counter<long> _nodeTranslateExternal;
+    private readonly Counter<long> _nodeTranslateUnresolvable;
+
     // --- NodeTranslation Import: Replicate ---
     private readonly Counter<long> _nodeImportReplicateCount;
+    private readonly Counter<long> _nodeImportReplicateAreaCount;
+    private readonly Counter<long> _nodeImportReplicateIterationCount;
     private readonly Histogram<double> _nodeImportReplicateDuration;
     private readonly Counter<long> _nodeImportReplicateErrors;
     private readonly Counter<long> _nodeImportReplicateSkipped;
@@ -163,8 +172,17 @@ internal sealed class MigrationMetrics : IMigrationMetrics, IDisposable
         _nodeExportTreeDuration = _meter.CreateHistogram<double>(WellKnownMetricNames.NodeExportTreeDurationMs, unit: "ms");
         _nodeExportTreeErrors = _meter.CreateCounter<long>(WellKnownMetricNames.NodeExportTreeErrors, unit: "{error}");
 
+        // NodeTranslation Translate
+        _nodeTranslateCount = _meter.CreateCounter<long>(WellKnownMetricNames.NodeTranslateCount, unit: "{path}");
+        _nodeTranslateMapHit = _meter.CreateCounter<long>(WellKnownMetricNames.NodeTranslateMapHit, unit: "{path}");
+        _nodeTranslateAutoSwapHit = _meter.CreateCounter<long>(WellKnownMetricNames.NodeTranslateAutoSwapHit, unit: "{path}");
+        _nodeTranslateExternal = _meter.CreateCounter<long>(WellKnownMetricNames.NodeTranslateExternal, unit: "{path}");
+        _nodeTranslateUnresolvable = _meter.CreateCounter<long>(WellKnownMetricNames.NodeTranslateUnresolvable, unit: "{path}");
+
         // NodeTranslation Import: Replicate
         _nodeImportReplicateCount = _meter.CreateCounter<long>(WellKnownMetricNames.NodeImportReplicateCount, unit: "{node}");
+        _nodeImportReplicateAreaCount = _meter.CreateCounter<long>(WellKnownMetricNames.NodeImportReplicateAreaCount, unit: "{node}");
+        _nodeImportReplicateIterationCount = _meter.CreateCounter<long>(WellKnownMetricNames.NodeImportReplicateIterationCount, unit: "{node}");
         _nodeImportReplicateDuration = _meter.CreateHistogram<double>(WellKnownMetricNames.NodeImportReplicateDurationMs, unit: "ms");
         _nodeImportReplicateErrors = _meter.CreateCounter<long>(WellKnownMetricNames.NodeImportReplicateErrors, unit: "{error}");
         _nodeImportReplicateSkipped = _meter.CreateCounter<long>(WellKnownMetricNames.NodeImportReplicateSkipped, unit: "{node}");
@@ -262,8 +280,17 @@ internal sealed class MigrationMetrics : IMigrationMetrics, IDisposable
     public void RecordNodeExportTreeDuration(double milliseconds, in TagList tags) => _nodeExportTreeDuration.Record(milliseconds, tags);
     public void RecordNodeExportTreeError(in TagList tags) => _nodeExportTreeErrors.Add(1, tags);
 
+    // --- NodeTranslation Translate ---
+    public void RecordNodeTranslateCount(in TagList tags) => _nodeTranslateCount.Add(1, tags);
+    public void RecordNodeTranslateMapHit(in TagList tags) => _nodeTranslateMapHit.Add(1, tags);
+    public void RecordNodeTranslateAutoSwapHit(in TagList tags) => _nodeTranslateAutoSwapHit.Add(1, tags);
+    public void RecordNodeTranslateExternal(in TagList tags) => _nodeTranslateExternal.Add(1, tags);
+    public void RecordNodeTranslateUnresolvable(in TagList tags) => _nodeTranslateUnresolvable.Add(1, tags);
+
     // --- NodeTranslation Import: Replicate ---
     public void RecordNodeImportReplicateCount(in TagList tags) => _nodeImportReplicateCount.Add(1, tags);
+    public void RecordNodeImportReplicateAreaCount(in TagList tags) => _nodeImportReplicateAreaCount.Add(1, tags);
+    public void RecordNodeImportReplicateIterationCount(in TagList tags) => _nodeImportReplicateIterationCount.Add(1, tags);
     public void RecordNodeImportReplicateDuration(double milliseconds, in TagList tags) => _nodeImportReplicateDuration.Record(milliseconds, tags);
     public void RecordNodeImportReplicateError(in TagList tags) => _nodeImportReplicateErrors.Add(1, tags);
     public void RecordNodeImportReplicateSkipped(in TagList tags) => _nodeImportReplicateSkipped.Add(1, tags);

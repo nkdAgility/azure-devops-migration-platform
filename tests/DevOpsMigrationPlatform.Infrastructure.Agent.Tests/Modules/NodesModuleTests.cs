@@ -5,6 +5,7 @@ using DevOpsMigrationPlatform.Abstractions.Agent.Export;
 using DevOpsMigrationPlatform.Abstractions.Agent.Import;
 using DevOpsMigrationPlatform.Abstractions.Agent.Modules;
 using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
+using DevOpsMigrationPlatform.Abstractions.Agent.Telemetry;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Abstractions.Agent.Validation;
 using DevOpsMigrationPlatform.Abstractions.Jobs;
@@ -75,7 +76,8 @@ public class NodesModuleTests
                 It.IsAny<IArtefactStore>(),
                 It.IsAny<MigrationEndpointOptions>(),
                 It.IsAny<CancellationToken>(),
-                null, null))
+                It.IsAny<IMigrationMetrics?>(),
+                It.IsAny<string?>()))
             .Returns(Task.CompletedTask);
 
         var module = CreateModule(capture: captureMock.Object);
@@ -90,7 +92,8 @@ public class NodesModuleTests
             It.IsAny<IArtefactStore>(),
             It.IsAny<MigrationEndpointOptions>(),
             It.IsAny<CancellationToken>(),
-            null, null), Times.Once);
+            It.IsAny<IMigrationMetrics?>(),
+            It.IsAny<string?>()), Times.Once);
     }
 
     [TestMethod]
@@ -120,7 +123,8 @@ public class NodesModuleTests
                 It.IsAny<IArtefactStore>(),
                 It.IsAny<IStateStore>(),
                 It.IsAny<CancellationToken>(),
-                null, null))
+                It.IsAny<IMigrationMetrics?>(),
+                It.IsAny<string?>()))
             .Returns(Task.CompletedTask);
 
         var opts = new NodesModuleOptions { Enabled = true, ReplicateSourceTree = true };
@@ -138,7 +142,8 @@ public class NodesModuleTests
             It.IsAny<IArtefactStore>(),
             It.IsAny<IStateStore>(),
             It.IsAny<CancellationToken>(),
-            null, null), Times.Once);
+            It.IsAny<IMigrationMetrics?>(),
+            It.IsAny<string?>()), Times.Once);
     }
 
     [TestMethod]

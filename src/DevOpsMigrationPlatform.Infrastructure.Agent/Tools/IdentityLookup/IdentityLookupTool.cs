@@ -1,13 +1,16 @@
 #if !NET481
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
+using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Abstractions.Options;
+using DevOpsMigrationPlatform.Abstractions.Telemetry;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
@@ -20,6 +23,7 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Tools.IdentityLookup;
 /// </summary>
 public sealed class IdentityLookupTool : IIdentityLookupTool
 {
+    private static readonly ActivitySource s_activitySource = new(WellKnownActivitySourceNames.Migration);
     private static readonly JsonSerializerOptions s_jsonOptions = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
@@ -44,6 +48,7 @@ public sealed class IdentityLookupTool : IIdentityLookupTool
     /// <inheritdoc/>
     public async Task InitializeAsync(IArtefactStore store, CancellationToken ct)
     {
+        using var activity = s_activitySource.StartActivity("identities.lookup.initialize");
         // Read descriptors
         var descriptorsContent = await store.ReadAsync("Identities/descriptors.jsonl", ct).ConfigureAwait(false);
         var allUniqueNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -94,11 +99,14 @@ public sealed class IdentityLookupTool : IIdentityLookupTool
         _logger.LogInformation(
             "[IdentityLookup] Initialized with {DescriptorCount} descriptors, {MappingCount} mapping overrides.",
             _allUniqueNames.Count, _overrides.Count);
+        activity?.SetTag("identities.descriptor.count", _allUniqueNames.Count);
+        activity?.SetTag("identities.mapping.count", _overrides.Count);
     }
 
     /// <inheritdoc/>
     public string Resolve(string sourceIdentity)
     {
+        using var activity = s_activitySource.StartActivity("identities.lookup.resolve");
         if (string.IsNullOrWhiteSpace(sourceIdentity))
             return sourceIdentity;
 

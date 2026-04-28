@@ -58,8 +58,17 @@ public interface IMigrationMetrics
     void RecordNodeExportTreeDuration(double milliseconds, in TagList tags);
     void RecordNodeExportTreeError(in TagList tags);
 
+    // --- NodeTranslation Translate ---
+    void RecordNodeTranslateCount(in TagList tags);
+    void RecordNodeTranslateMapHit(in TagList tags);
+    void RecordNodeTranslateAutoSwapHit(in TagList tags);
+    void RecordNodeTranslateExternal(in TagList tags);
+    void RecordNodeTranslateUnresolvable(in TagList tags);
+
     // --- NodeTranslation Import: Replicate ---
     void RecordNodeImportReplicateCount(in TagList tags);
+    void RecordNodeImportReplicateAreaCount(in TagList tags);
+    void RecordNodeImportReplicateIterationCount(in TagList tags);
     void RecordNodeImportReplicateDuration(double milliseconds, in TagList tags);
     void RecordNodeImportReplicateError(in TagList tags);
     void RecordNodeImportReplicateSkipped(in TagList tags);

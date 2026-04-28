@@ -119,6 +119,7 @@ public sealed class NodeEnsurer : INodeEnsurer
                 await SaveProgressAsync(stateStore, progress, ct).ConfigureAwait(false);
                 count++;
                 metrics?.RecordNodeImportReplicateCount(tags);
+                metrics?.RecordNodeImportReplicateAreaCount(tags);
             }
 
             foreach (var iterEntry in snapshot.IterationNodes)
@@ -164,6 +165,7 @@ public sealed class NodeEnsurer : INodeEnsurer
                 await SaveProgressAsync(stateStore, progress, ct).ConfigureAwait(false);
                 count++;
                 metrics?.RecordNodeImportReplicateCount(tags);
+                metrics?.RecordNodeImportReplicateIterationCount(tags);
             }
         }
         finally

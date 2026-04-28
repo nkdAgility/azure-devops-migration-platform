@@ -15,6 +15,8 @@ using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Abstractions.Agent.Validation;
 using DevOpsMigrationPlatform.Abstractions.Telemetry;
 using DevOpsMigrationPlatform.Abstractions.Validation;
+using DevOpsMigrationPlatform.Abstractions.Streaming;
+using DevOpsMigrationPlatform.Abstractions.Agent.Telemetry;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
@@ -38,6 +40,7 @@ public sealed class NodesModule : IModule
     private readonly IClassificationTreeCapture? _capture;
     private readonly INodeEnsurer? _nodeEnsurer;
     private readonly ICheckpointingServiceFactory? _checkpointingFactory;
+    private readonly IMigrationMetrics? _migrationMetrics;
     private readonly ILogger<NodesModule> _logger;
     private readonly NodesModuleOptions _options;
 
@@ -49,13 +52,15 @@ public sealed class NodesModule : IModule
         IOptions<NodesModuleOptions> options,
         IClassificationTreeCapture? capture = null,
         INodeEnsurer? nodeEnsurer = null,
-        ICheckpointingServiceFactory? checkpointingFactory = null)
+        ICheckpointingServiceFactory? checkpointingFactory = null,
+        IMigrationMetrics? migrationMetrics = null)
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _options = options?.Value ?? throw new ArgumentNullException(nameof(options));
         _capture = capture;
         _nodeEnsurer = nodeEnsurer;
         _checkpointingFactory = checkpointingFactory;
+        _migrationMetrics = migrationMetrics;
     }
 
     /// <inheritdoc/>
@@ -75,6 +80,14 @@ public sealed class NodesModule : IModule
 
         using var activity = s_activitySource.StartActivity("nodes.export");
 
+        var exportSink = context.ProgressSink;
+        exportSink?.Emit(new ProgressEvent
+        {
+            Module = ModuleName,
+            Stage = "Nodes.Export.Started",
+            Message = $"Starting node tree capture for project '{context.Job.Source?.GetProject()}'.",
+        });
+
         var endpoint = context.Job.Source
             ?? throw new InvalidOperationException("Job.Source is required for node export.");
 
@@ -91,7 +104,14 @@ public sealed class NodesModule : IModule
             }
         }
 
-        await _capture.CaptureAsync(context.ArtefactStore, endpoint, ct).ConfigureAwait(false);
+        await _capture.CaptureAsync(context.ArtefactStore, endpoint, ct, _migrationMetrics, context.Job.JobId).ConfigureAwait(false);
+
+        exportSink?.Emit(new ProgressEvent
+        {
+            Module = ModuleName,
+            Stage = "Nodes.Export.Complete",
+            Message = "Node tree capture complete.",
+        });
 
         // Write cursor after successful export.
         if (_checkpointingFactory is not null)
@@ -126,6 +146,14 @@ public sealed class NodesModule : IModule
         var endpoint = context.Job.Target
             ?? throw new InvalidOperationException("Job.Target is required for node import.");
 
+        var importSink = context.ProgressSink;
+        importSink?.Emit(new ProgressEvent
+        {
+            Module = ModuleName,
+            Stage = "Nodes.Import.Started",
+            Message = $"Starting node replication for project '{endpoint.GetProject()}'.",
+        });
+
         var project = endpoint.GetProject();
         var sourceProject = context.Job.Source?.GetProject() ?? project;
         var mapping = new ProjectMapping(sourceProject, project);
@@ -136,7 +164,13 @@ public sealed class NodesModule : IModule
             await _nodeEnsurer.ReplicateSourceTreeAsync(
                 mapping, endpoint,
                 context.ArtefactStore, context.StateStore,
-                ct).ConfigureAwait(false);
+                ct, _migrationMetrics, context.Job.JobId).ConfigureAwait(false);
+            importSink?.Emit(new ProgressEvent
+            {
+                Module = ModuleName,
+                Stage = "Nodes.Import.Complete",
+                Message = "Node replication complete.",
+            });
         }
         else
         {

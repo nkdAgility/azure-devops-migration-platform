@@ -16,6 +16,7 @@ using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Abstractions.Agent.Validation;
 using DevOpsMigrationPlatform.Abstractions.Telemetry;
 using DevOpsMigrationPlatform.Abstractions.Validation;
+using DevOpsMigrationPlatform.Abstractions.Streaming;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
@@ -106,6 +107,14 @@ public sealed class IdentitiesModule : IModule
 
         _logger.LogInformation("[Identities] Starting identity export for project '{Project}'.", project);
 
+        var sink = context.ProgressSink;
+        sink?.Emit(new ProgressEvent
+        {
+            Module = ModuleName,
+            Stage = "Identities.Export.Started",
+            Message = $"Starting identity export for project '{project}'.",
+        });
+
         var count = 0;
         var exportTags = new TagList
         {
@@ -138,6 +147,12 @@ public sealed class IdentitiesModule : IModule
 
         activity?.SetTag("identities.count", count);
         _logger.LogInformation("[Identities] Exported {Count} identity descriptors to {Path}.", count, DescriptorsPath);
+        sink?.Emit(new ProgressEvent
+        {
+            Module = ModuleName,
+            Stage = "Identities.Export.Complete",
+            Message = $"Identity export complete — {count} descriptors exported.",
+        });
 
         // Write cursor after successful export.
         if (_checkpointingFactory is not null)
@@ -165,6 +180,14 @@ public sealed class IdentitiesModule : IModule
         var artefactStore = context.ArtefactStore;
 
         using var activity = s_activitySource.StartActivity("identities.import");
+
+        var importSink = context.ProgressSink;
+        importSink?.Emit(new ProgressEvent
+        {
+            Module = ModuleName,
+            Stage = "Identities.Import.Started",
+            Message = "Starting identity import.",
+        });
 
         var descriptorsJson = await artefactStore.ReadAsync(DescriptorsPath, ct).ConfigureAwait(false);
         if (descriptorsJson is null)
@@ -199,6 +222,12 @@ public sealed class IdentitiesModule : IModule
 
         var hasMapping = await artefactStore.ExistsAsync(MappingPath, ct).ConfigureAwait(false);
         _logger.LogInformation("[Identities] Identity import complete: {Resolved} resolved, mapping overrides: {HasMapping}.", resolvedCount, hasMapping);
+        importSink?.Emit(new ProgressEvent
+        {
+            Module = ModuleName,
+            Stage = "Identities.Import.Complete",
+            Message = $"Identity import complete — {resolvedCount} resolved.",
+        });
 
         activity?.SetTag("identities.descriptor.resolved", resolvedCount);
         activity?.SetTag("identities.has.mapping", hasMapping);

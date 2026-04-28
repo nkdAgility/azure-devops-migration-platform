@@ -12,6 +12,7 @@ using DevOpsMigrationPlatform.CLI.Migration.Settings;
 using DevOpsMigrationPlatform.CLI.Migration.Configuration;
 using DevOpsMigrationPlatform.CLI.Views;
 using DevOpsMigrationPlatform.Infrastructure.Config;
+using DevOpsMigrationPlatform.Abstractions.ControlPlaneApi;
 using DevOpsMigrationPlatform.Abstractions.Validation;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
@@ -496,6 +497,30 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
         string? currentAttName = null;
         string? lastWiStatus = null;
 
+        // Channel 2: latest aggregate metrics polled from GET /jobs/{id}/telemetry every 5s.
+        // All counter display reads from latestMetrics — never from evt.Metrics (Channel 1,
+        // which is always null for .NET 10 agents).
+        JobMetrics? latestMetrics = null;
+        var telemetryTask = Task.Run(async () =>
+        {
+            try
+            {
+                while (!followCts.Token.IsCancellationRequested)
+                {
+                    try
+                    {
+                        var m = await client.GetTelemetryAsync(parsedJobId, followCts.Token).ConfigureAwait(false);
+                        if (m is not null)
+                            latestMetrics = m;
+                    }
+                    catch (OperationCanceledException) { return; }
+                    catch (Exception) { /* best-effort — do not propagate */ }
+                    await Task.Delay(5_000, followCts.Token).ConfigureAwait(false);
+                }
+            }
+            catch (OperationCanceledException) { }
+        }, followCts.Token);
+
         if (Console.IsOutputRedirected)
         {
             // Non-interactive (redirected stdout — subprocess, CI, test runner): skip the
@@ -508,9 +533,9 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
                     lastEvt = evt;
                     if (!string.IsNullOrEmpty(evt.Stage))
                         currentStage = evt.Stage;
-                    if (evt.Metrics?.Scope?.WorkItemsTotal > 0)
-                        totalWorkItems = (int)evt.Metrics.Scope.WorkItemsTotal;
-                    var wi = evt.Metrics?.Migration?.WorkItems;
+                    // Read counters from Channel 2 (latestMetrics), not Channel 1 (evt.Metrics).
+                    // evt.Metrics is always null for .NET 10 agents — only TFS subprocess populates it.
+                    var wi = latestMetrics?.Migration?.WorkItems;
                     if (wi != null)
                     {
                         completed = (int)wi.Completed;
@@ -523,7 +548,7 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
                         if (wi.LastWorkItemStatus != null)
                             lastWiStatus = wi.LastWorkItemStatus;
                     }
-                    var att = evt.Metrics?.Migration?.WorkItems?.Attachments;
+                    var att = latestMetrics?.Migration?.WorkItems?.Attachments;
                     if (att != null)
                     {
                         attProcessed = (int)att.Processed;
@@ -584,10 +609,9 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
                             lastEvt = evt;
                             if (!string.IsNullOrEmpty(evt.Stage))
                                 currentStage = evt.Stage;
-                            // The Agent emits a ScopeResolved event with WorkItemsTotal when it completes the count.
-                            if (evt.Metrics?.Scope?.WorkItemsTotal > 0)
-                                totalWorkItems = (int)evt.Metrics.Scope.WorkItemsTotal;
-                            var wi = evt.Metrics?.Migration?.WorkItems;
+                            // Read counters from Channel 2 (latestMetrics), not Channel 1 (evt.Metrics).
+                            // evt.Metrics is always null for .NET 10 agents — only TFS subprocess populates it.
+                            var wi = latestMetrics?.Migration?.WorkItems;
                             if (wi != null)
                             {
                                 completed = (int)wi.Completed;
@@ -609,7 +633,7 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
                                 }
                             }
 
-                            var att = evt.Metrics?.Migration?.WorkItems?.Attachments;
+                            var att = latestMetrics?.Migration?.WorkItems?.Attachments;
                             if (att != null)
                             {
                                 attProcessed = (int)att.Processed;
@@ -627,7 +651,10 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
                                 evt.LastCheckpointAt, evt.NextCheckpointDueAt,
                                 lastRevDurationMs, avgRevDurationMs,
                                 revisions,
-                                attProcessed, attFailed, avgAttDurationMs, avgAttSizeBytes, currentAttName));
+                                attProcessed, attFailed, avgAttDurationMs, avgAttSizeBytes, currentAttName,
+                                latestMetrics?.Migration?.Teams,
+                                latestMetrics?.Migration?.Nodes,
+                                latestMetrics?.Migration?.Identities));
                         }
                     });
             }
@@ -673,9 +700,10 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
             }
         }
 
-        // Stop diagnostics stream.
+        // Stop diagnostics stream and telemetry polling.
         await followCts.CancelAsync();
         try { await diagnosticsTask; } catch (OperationCanceledException) { }
+        try { await telemetryTask; } catch (OperationCanceledException) { }
 
         // Flush buffered diagnostics now that the Progress() renderer has released the console.
         while (diagnosticsBuffer.TryDequeue(out var line))
@@ -709,7 +737,10 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
         int totalRevisions = 0,
         int attProcessed = 0, int attFailed = 0,
         double avgAttDurationMs = 0, long avgAttSizeBytes = 0,
-        string? currentAttName = null)
+        string? currentAttName = null,
+        TeamsCounters? teams = null,
+        NodesCounters? nodes = null,
+        IdentitiesCounters? identities = null)
     {
         const int BarWidth = 38;
         int processed = completed + skipped;
@@ -817,7 +848,54 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
             attachmentRow = new Markup("  [grey]Attachments   –[/]");
         }
 
-        return new Rows(wiRow, revRow, timingRow, attachmentRow, checkpointRow);
+        // ── Row 6: identities ─────────────────────────────────────────────────────────
+        IRenderable identitiesRow;
+        if (identities is not null)
+        {
+            var unresolvedStr = identities.Unresolved > 0 ? $"  [yellow]{identities.Unresolved:N0} unresolved[/]" : string.Empty;
+            var idFailStr = identities.Failed > 0 ? $"  [red]{identities.Failed:N0} failed[/]" : string.Empty;
+            identitiesRow = new Markup(
+                $"  [grey]Identities:[/] [bold]{identities.Exported:N0}[/][grey] exported[/]"
+                + $"  [bold]{identities.Resolved:N0}[/][grey] resolved[/]"
+                + $"{unresolvedStr}{idFailStr}");
+        }
+        else
+        {
+            identitiesRow = new Markup("  [grey]Identities   –[/]");
+        }
+
+        // ── Row 7: nodes ──────────────────────────────────────────────────────────────
+        IRenderable nodesRow;
+        if (nodes is not null)
+        {
+            var nodesFailStr = nodes.Failed > 0 ? $"  [red]{nodes.Failed:N0} failed[/]" : string.Empty;
+            nodesRow = new Markup(
+                $"  [grey]Nodes:[/] [bold]{nodes.AreaPathsReplicated:N0}[/][grey] area[/]"
+                + $"  [bold]{nodes.IterationPathsReplicated:N0}[/][grey] iteration[/]"
+                + $"{nodesFailStr}");
+        }
+        else
+        {
+            nodesRow = new Markup("  [grey]Nodes        –[/]");
+        }
+
+        // ── Row 8: teams ──────────────────────────────────────────────────────────────
+        IRenderable teamsRow;
+        if (teams is not null)
+        {
+            var teamsFailStr = teams.Failed > 0 ? $"  [red]{teams.Failed:N0} failed[/]" : string.Empty;
+            teamsRow = new Markup(
+                $"  [grey]Teams:[/] [bold]{teams.Exported:N0}[/][grey] exported[/]"
+                + $"  [bold]{teams.Imported:N0}[/][grey] imported[/]"
+                + $"  [grey]{teams.Members:N0} members[/]"
+                + $"{teamsFailStr}");
+        }
+        else
+        {
+            teamsRow = new Markup("  [grey]Teams        –[/]");
+        }
+
+        return new Rows(wiRow, revRow, timingRow, attachmentRow, checkpointRow, identitiesRow, nodesRow, teamsRow);
     }
 
     private static string ComputeRevisionEta(int revisionsWritten, int estimatedTotalRevisions, double avgRevDurationMs)

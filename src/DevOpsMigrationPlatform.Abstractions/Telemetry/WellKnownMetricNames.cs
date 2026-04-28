@@ -64,6 +64,8 @@ public static class WellKnownMetricNames
     public const string NodeImportPreCollectErrors = "migration.nodes.import.precollect.errors";
     public const string NodeImportPreCollectInFlight = "migration.nodes.import.precollect.in_flight";
     public const string NodeImportReplicateCount = "migration.nodes.import.replicate.count";
+    public const string NodeImportReplicateAreaCount = "migration.nodes.import.replicate.area.count";
+    public const string NodeImportReplicateIterationCount = "migration.nodes.import.replicate.iteration.count";
     public const string NodeImportReplicateDurationMs = "migration.nodes.import.replicate.duration_ms";
     public const string NodeImportReplicateErrors = "migration.nodes.import.replicate.errors";
     public const string NodeImportReplicateSkipped = "migration.nodes.import.replicate.skipped";
