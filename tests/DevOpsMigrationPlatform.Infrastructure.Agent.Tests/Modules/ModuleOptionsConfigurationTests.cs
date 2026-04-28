@@ -162,9 +162,9 @@ public sealed class ModuleOptionsConfigurationTests
     }
 
     // TODO: [test-validity] Score 13/25 — Tests property initialiser defaults. Rewrite to test: when NodeTranslation
-    // module is configured with defaults (Enabled:false), assert it writes nothing to the artefact store on ExportAsync.
+    // module is configured with defaults (Enabled:true), assert it writes to the artefact store on ExportAsync.
     [TestMethod]
-    public void NodesModuleOptions_DefaultsAreFalse()
+    public void NodesModuleOptions_DefaultsAreCorrect()
     {
         // Arrange — empty config
         var config = BuildConfig(new Dictionary<string, string?>());
@@ -176,8 +176,8 @@ public sealed class ModuleOptionsConfigurationTests
         // Act
         var opts = sp.GetRequiredService<IOptions<NodesModuleOptions>>().Value;
 
-        // Assert
-        Assert.IsFalse(opts.Enabled);
+        // Assert — Enabled defaults to true so the module runs without explicit config
+        Assert.IsTrue(opts.Enabled);
         Assert.IsFalse(opts.ReplicateSourceTree);
     }
 
