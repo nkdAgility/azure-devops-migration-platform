@@ -16,6 +16,9 @@ public sealed class ModuleOptionsConfigurationTests
 {
     // ─── TeamsModuleOptions ──────────────────────────────────────────────────
 
+    // TODO: [test-validity] Score 13/25 — Tests Microsoft.Extensions.Configuration binding plumbing via SectionName constant.
+    // Rewrite to test: when SectionName binding is wrong (e.g. typo), module silently stays disabled → assert that a
+    // realistic misconfiguration produces a log warning or validation error rather than silent no-op.
     [TestMethod]
     public void TeamsModuleOptions_BindsEnabled_FromConfiguration()
     {
@@ -37,6 +40,9 @@ public sealed class ModuleOptionsConfigurationTests
         Assert.IsTrue(opts.Enabled);
     }
 
+    // TODO: [test-validity] Score 12/25 — Tests property initialiser defaults, not runtime or configuration behaviour.
+    // Rewrite to test: when no Teams section is present in appsettings, assert that the migration run skips teams
+    // (module disabled) rather than asserting raw property values.
     [TestMethod]
     public void TeamsModuleOptions_DefaultScope_IsAll()
     {
@@ -80,6 +86,9 @@ public sealed class ModuleOptionsConfigurationTests
         Assert.IsTrue(opts.Extensions.TeamCapacity);
     }
 
+    // TODO: [test-validity] Score 15/25 — Tests that Scope and Filter strings bind from config — partially
+    // redundant with BindsEnabled test. Rewrite to test: when Scope="teams" and Filter="^Foo", assert that only
+    // matching teams are exported (exercise the filter regex logic, not just the property binding).
     [TestMethod]
     public void TeamsModuleOptions_BindsScopeAndFilter_FromConfiguration()
     {
@@ -127,6 +136,9 @@ public sealed class ModuleOptionsConfigurationTests
 
     // ─── NodeStructureModuleOptions ──────────────────────────────────────────
 
+    // TODO: [test-validity] Score 13/25 — Mirrors TeamsModuleOptions_BindsEnabled_FromConfiguration.
+    // Rewrite to test: when NodeStructure is enabled via config, NodeStructureModule.ExportAsync
+    // actually writes referenced-paths.json (observable outcome), rather than asserting raw property binding.
     [TestMethod]
     public void NodeStructureModuleOptions_BindsEnabled_FromConfiguration()
     {
@@ -151,6 +163,8 @@ public sealed class ModuleOptionsConfigurationTests
         Assert.IsFalse(opts.AutoCreateNodes);
     }
 
+    // TODO: [test-validity] Score 13/25 — Tests property initialiser defaults. Rewrite to test: when NodeStructure
+    // module is configured with defaults (Enabled:false), assert it writes nothing to the artefact store on ExportAsync.
     [TestMethod]
     public void NodeStructureModuleOptions_DefaultsAreFalse()
     {
@@ -172,6 +186,9 @@ public sealed class ModuleOptionsConfigurationTests
 
     // ─── IdentitiesModuleOptions ─────────────────────────────────────────────
 
+    // TODO: [test-validity] Score 13/25 — Tests config binding of DefaultIdentity string. Rewrite to test: when
+    // DefaultIdentity is set via config, IdentityMappingService.Resolve returns the default for an unknown descriptor
+    // (exercise the mapping fallback, not just property binding).
     [TestMethod]
     public void IdentitiesModuleOptions_BindsDefaultIdentity_FromConfiguration()
     {
@@ -194,6 +211,9 @@ public sealed class ModuleOptionsConfigurationTests
         Assert.AreEqual("system@contoso.com", opts.DefaultIdentity);
     }
 
+    // TODO: [test-validity] Score 12/25 — Tests property initialiser default of DefaultIdentity="". Partially
+    // redundant with BindsDefaultIdentity test. Rewrite to test: when DefaultIdentity is absent from config,
+    // Resolve falls back to the source identity string, not an empty or null result.
     [TestMethod]
     public void IdentitiesModuleOptions_DefaultIdentity_IsEmptyStringByDefault()
     {

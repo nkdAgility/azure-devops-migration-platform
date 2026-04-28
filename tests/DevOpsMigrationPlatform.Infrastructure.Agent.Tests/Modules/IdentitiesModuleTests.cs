@@ -272,6 +272,9 @@ public class IdentitiesModuleTests
         await module.ImportAsync(context, CancellationToken.None);
     }
 
+    // TODO: [test-validity] Score 14/25 — No assertions beyond "no exception thrown". Rewrite to test:
+    // assert that the identity mapping service has zero entries loaded when both files are absent (first-run state
+    // is verifiably empty), or assert that IProgressSink emits a structured warning when descriptors are missing.
     [TestMethod]
     [TestCategory("UnitTest")]
     public async Task ImportAsync_CompletesWithoutThrowing_WhenBothDescriptorsAndMappingAbsent()
@@ -289,6 +292,9 @@ public class IdentitiesModuleTests
         await module.ImportAsync(context, CancellationToken.None);
     }
 
+    // TODO: [test-validity] Score 12/25 — No assertions beyond "no exception thrown". Rewrite to test:
+    // after ImportAsync runs with a mapping.json present, assert that IIdentityMappingService.Resolve("desc-1")
+    // returns "alice@target.com" (verify the mapping was actually applied, not just loaded without error).
     [TestMethod]
     [TestCategory("UnitTest")]
     public async Task ImportAsync_AppliesMapping_WhenBothDescriptorsAndMappingPresent()
