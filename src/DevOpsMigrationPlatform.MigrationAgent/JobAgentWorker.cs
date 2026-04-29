@@ -114,8 +114,8 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
                 prepareFailed = true;
             }
 
-            await _packageProgressSink.FlushAsync().ConfigureAwait(false);
-            await _packageLoggerProvider.FlushAsync().ConfigureAwait(false);
+            foreach (var flushable in _flushables)
+                await flushable.FlushAsync().ConfigureAwait(false);
 
             await SignalTerminalAsync(controlPlane, leaseId, prepareFailed ? "fail" : "complete", ct).ConfigureAwait(false);
             return;

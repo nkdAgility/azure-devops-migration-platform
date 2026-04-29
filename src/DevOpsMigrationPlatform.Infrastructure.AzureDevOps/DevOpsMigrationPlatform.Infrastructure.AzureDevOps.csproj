@@ -10,6 +10,7 @@
   <ItemGroup>
     <InternalsVisibleTo Include="DevOpsMigrationPlatform.Infrastructure.Tests" />
     <InternalsVisibleTo Include="DevOpsMigrationPlatform.Infrastructure.Agent.Tests" />
+    <InternalsVisibleTo Include="DynamicProxyGenAssembly2" />
   </ItemGroup>
 
   <ItemGroup>

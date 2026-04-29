@@ -172,7 +172,7 @@ public class PackageConfigStoreTests
         store.Setup(s => s.ExistsAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(false);
 
-        var sut = CreateSut();
+        var sut = CreateSut(store);
 
         // Act + Assert — exception must be thrown
         var ex = await Assert.ThrowsExactlyAsync<PackageConfigNotFoundException>(
@@ -193,7 +193,7 @@ public class PackageConfigStoreTests
         store.Setup(s => s.ReadAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync("{ NOT VALID JSON !!!!");
 
-        var sut = CreateSut();
+        var sut = CreateSut(store);
 
         // Act + Assert — corrupt JSON causes a parse exception (subclass of JsonException)
         var ex = await Assert.ThrowsAsync<System.Text.Json.JsonException>(
@@ -340,7 +340,7 @@ public class PackageConfigStoreTests
         };
         ActivitySource.AddActivityListener(listener);
 
-        var sut = CreateSut();
+        var sut = CreateSut(store);
 
         // Act
         await sut.ReadAsync(store.Object, CancellationToken.None);
