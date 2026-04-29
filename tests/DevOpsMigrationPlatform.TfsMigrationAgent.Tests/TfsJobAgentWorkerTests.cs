@@ -458,6 +458,73 @@ public class TfsJobAgentWorkerTests
         CollectionAssert.AreEqual(new[] { "tfs" }, caps);
     }
 
+    // ── T031: O-1 Activity spans on net481 path ───────────────────────────────
+    // Exercises PackageConfigStore directly (InternalsVisibleTo granted) to confirm
+    // Activity spans fire under the net481 runtime.
+
+    [TestMethod]
+    public async Task PackageConfigStore_ReadAsync_EmitsConfigReadSpan_Net481()
+    {
+        var captured = new System.Collections.Generic.List<string>();
+        using var listener = new System.Diagnostics.ActivityListener
+        {
+            ShouldListenTo = src => src.Name == DevOpsMigrationPlatform.Abstractions.WellKnownActivitySourceNames.Migration,
+            Sample = (ref System.Diagnostics.ActivityCreationOptions<System.Diagnostics.ActivityContext> _) =>
+                System.Diagnostics.ActivitySamplingResult.AllDataAndRecorded,
+            ActivityStarted = a => captured.Add(a.OperationName)
+        };
+        System.Diagnostics.ActivitySource.AddActivityListener(listener);
+
+        var store = new Mock<IArtefactStore>(MockBehavior.Loose);
+        store.Setup(s => s.ExistsAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+        store.Setup(s => s.ReadAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync("{\"MigrationPlatform\":{\"Mode\":\"Export\"}}");
+
+        var metrics = new Mock<IMigrationMetrics>(MockBehavior.Loose);
+        var sut = new DevOpsMigrationPlatform.Infrastructure.Agent.Storage.PackageConfigStore(
+            Microsoft.Extensions.Logging.Abstractions.NullLogger<DevOpsMigrationPlatform.Infrastructure.Agent.Storage.PackageConfigStore>.Instance,
+            metrics.Object);
+
+        var result = await sut.ReadAsync(store.Object, CancellationToken.None);
+
+        Assert.IsTrue(captured.Contains("config.read"),
+            $"Expected 'config.read' span on net481. Got: [{string.Join(", ", captured)}]");
+        Assert.IsNotNull(result);
+    }
+
+    [TestMethod]
+    public async Task PackageConfigStore_WriteAsync_EmitsConfigWriteSpan_Net481()
+    {
+        var captured = new System.Collections.Generic.List<string>();
+        using var listener = new System.Diagnostics.ActivityListener
+        {
+            ShouldListenTo = src => src.Name == DevOpsMigrationPlatform.Abstractions.WellKnownActivitySourceNames.Migration,
+            Sample = (ref System.Diagnostics.ActivityCreationOptions<System.Diagnostics.ActivityContext> _) =>
+                System.Diagnostics.ActivitySamplingResult.AllDataAndRecorded,
+            ActivityStarted = a => captured.Add(a.OperationName)
+        };
+        System.Diagnostics.ActivitySource.AddActivityListener(listener);
+
+        var store = new Mock<IArtefactStore>(MockBehavior.Loose);
+        store.Setup(s => s.ExistsAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+        store.Setup(s => s.WriteAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        var metrics = new Mock<IMigrationMetrics>(MockBehavior.Loose);
+        var sut = new DevOpsMigrationPlatform.Infrastructure.Agent.Storage.PackageConfigStore(
+            Microsoft.Extensions.Logging.Abstractions.NullLogger<DevOpsMigrationPlatform.Infrastructure.Agent.Storage.PackageConfigStore>.Instance,
+            metrics.Object);
+
+        await sut.WriteAsync(store.Object,
+            new DevOpsMigrationPlatform.Abstractions.Options.MigrationOptions { Mode = "Export" },
+            CancellationToken.None);
+
+        Assert.IsTrue(captured.Contains("config.write"),
+            $"Expected 'config.write' span on net481. Got: [{string.Join(", ", captured)}]");
+    }
+
     // ── Helpers ──────────────────────────────────────────────────────────────
 
     private static IConfiguration BuildTfsSourceConfig(TeamFoundationServerEndpointOptions source)

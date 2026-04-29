@@ -27,7 +27,7 @@ internal sealed class PackageConfigStore : IPackageConfigStore
         new(WellKnownActivitySourceNames.Migration);
 
     private readonly ILogger<PackageConfigStore> _logger;
-    private readonly IMigrationMetrics _metrics;
+    private readonly IMigrationMetrics? _metrics;
 
     private static readonly JsonSerializerOptions WriteOptions = new()
     {
@@ -37,10 +37,10 @@ internal sealed class PackageConfigStore : IPackageConfigStore
         Converters = { new JsonStringEnumConverter() }
     };
 
-    public PackageConfigStore(ILogger<PackageConfigStore> logger, IMigrationMetrics metrics)
+    public PackageConfigStore(ILogger<PackageConfigStore> logger, IMigrationMetrics? metrics = null)
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
-        _metrics = metrics ?? throw new ArgumentNullException(nameof(metrics));
+        _metrics = metrics;
     }
 
     /// <inheritdoc />
@@ -77,21 +77,21 @@ internal sealed class PackageConfigStore : IPackageConfigStore
 
             sw.Stop();
             var emptyTags = default(TagList);
-            _metrics.RecordConfigWriteCompleted(in emptyTags);
+            _metrics?.RecordConfigWriteCompleted(in emptyTags);
             activity?.SetTag("outcome", "success");
             _logger.LogInformation("Config written to package in {DurationMs}ms", sw.ElapsedMilliseconds);
         }
         catch (InvalidOperationException)
         {
             var emptyTags = default(TagList);
-            _metrics.RecordConfigWriteError(in emptyTags);
+            _metrics?.RecordConfigWriteError(in emptyTags);
             activity?.SetTag("outcome", "exists_error");
             throw;
         }
         catch (Exception)
         {
             var emptyTags = default(TagList);
-            _metrics.RecordConfigWriteError(in emptyTags);
+            _metrics?.RecordConfigWriteError(in emptyTags);
             activity?.SetTag("outcome", "error");
             _logger.LogError("Failed to write config to package");
             throw;
@@ -130,8 +130,8 @@ internal sealed class PackageConfigStore : IPackageConfigStore
         if (!exists)
         {
             var emptyTags = default(TagList);
-            _metrics.RecordConfigReadError(in emptyTags);
-            _metrics.RecordConfigReadFallback(in emptyTags);
+            _metrics?.RecordConfigReadError(in emptyTags);
+            _metrics?.RecordConfigReadFallback(in emptyTags);
             activity?.SetTag("outcome", "not_found");
             _logger.LogWarning(
                 "migration-config.json not found in package after retries. " +
@@ -147,7 +147,7 @@ internal sealed class PackageConfigStore : IPackageConfigStore
             if (string.IsNullOrWhiteSpace(json))
             {
                 var emptyTags = default(TagList);
-                _metrics.RecordConfigReadError(in emptyTags);
+                _metrics?.RecordConfigReadError(in emptyTags);
                 activity?.SetTag("outcome", "empty");
                 _logger.LogError("migration-config.json is empty in package");
                 throw new InvalidOperationException(
@@ -163,7 +163,7 @@ internal sealed class PackageConfigStore : IPackageConfigStore
 
             sw.Stop();
             var emptyTags2 = default(TagList);
-            _metrics.RecordConfigReadCompleted(in emptyTags2);
+            _metrics?.RecordConfigReadCompleted(in emptyTags2);
             activity?.SetTag("outcome", "success");
             _logger.LogInformation("Config read from package in {DurationMs}ms", sw.ElapsedMilliseconds);
 
@@ -176,7 +176,7 @@ internal sealed class PackageConfigStore : IPackageConfigStore
         catch (Exception)
         {
             var emptyTags = default(TagList);
-            _metrics.RecordConfigReadError(in emptyTags);
+            _metrics?.RecordConfigReadError(in emptyTags);
             activity?.SetTag("outcome", "parse_error");
             _logger.LogError("Failed to parse migration-config.json");
             throw;
