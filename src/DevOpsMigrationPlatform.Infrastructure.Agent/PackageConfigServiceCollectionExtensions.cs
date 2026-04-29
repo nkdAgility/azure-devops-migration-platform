@@ -1,6 +1,7 @@
 using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Storage;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Agent;
 
@@ -24,10 +25,12 @@ public static class PackageConfigServiceCollectionExtensions
 
     /// <summary>
     /// Registers <see cref="PackageConfigStore"/> as the singleton <see cref="IPackageConfigStore"/>.
+    /// Also registers <see cref="IPackageStoreFactory"/> if not already registered.
     /// Prefer <see cref="AddPackageManagementServices"/> when the full package stack is needed.
     /// </summary>
     public static IServiceCollection AddPackageConfigStore(this IServiceCollection services)
     {
+        services.TryAddSingleton<IPackageStoreFactory, FileSystemPackageStoreFactory>();
         services.AddSingleton<IPackageConfigStore, PackageConfigStore>();
         return services;
     }

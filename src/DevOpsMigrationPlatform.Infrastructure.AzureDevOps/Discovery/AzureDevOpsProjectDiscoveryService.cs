@@ -14,7 +14,7 @@ internal sealed class AzureDevOpsProjectDiscoveryService : IProjectDiscoveryServ
 {
     private readonly IAzureDevOpsClientFactory _clientFactory;
 
-    internal AzureDevOpsProjectDiscoveryService(IAzureDevOpsClientFactory clientFactory)
+    public AzureDevOpsProjectDiscoveryService(IAzureDevOpsClientFactory clientFactory)
     {
         _clientFactory = clientFactory ?? throw new ArgumentNullException(nameof(clientFactory));
     }

@@ -21,7 +21,7 @@ internal sealed class AzureDevOpsResolutionStrategyFactory : IWorkItemResolution
 {
     private readonly IAzureDevOpsClientFactory _clientFactory;
 
-    internal AzureDevOpsResolutionStrategyFactory(IAzureDevOpsClientFactory clientFactory)
+    public AzureDevOpsResolutionStrategyFactory(IAzureDevOpsClientFactory clientFactory)
     {
         _clientFactory = clientFactory ?? throw new ArgumentNullException(nameof(clientFactory));
     }

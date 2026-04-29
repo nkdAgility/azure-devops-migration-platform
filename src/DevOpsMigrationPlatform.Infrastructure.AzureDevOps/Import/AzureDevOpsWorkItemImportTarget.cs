@@ -26,7 +26,7 @@ internal sealed class AzureDevOpsWorkItemImportTarget : IWorkItemImportTarget
     /// <summary>Organisation URL used to establish the connection to this target.</summary>
     public string OrganisationUrl { get; }
 
-    internal AzureDevOpsWorkItemImportTarget(WorkItemTrackingHttpClient witClient, string project, string organisationUrl)
+    public AzureDevOpsWorkItemImportTarget(WorkItemTrackingHttpClient witClient, string project, string organisationUrl)
     {
         _witClient = witClient ?? throw new ArgumentNullException(nameof(witClient));
         _project = project ?? throw new ArgumentNullException(nameof(project));

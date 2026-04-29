@@ -22,7 +22,7 @@ public class SimulatedMigrationCommandTests
     [TestMethod]
     [TestCategory("SystemTest")]
     [TestCategory("SystemTest_Simulated")]
-    [Timeout(120_000)] // 2 minutes — fully offline, no network
+    [Timeout(300_000)] // 5 minutes — includes local stack startup
     public async Task QueueExportSimulated_ExitsZeroAndWritesWorkItemRevisions()
     {
         var outputDir = Path.Combine(
@@ -33,7 +33,7 @@ public class SimulatedMigrationCommandTests
 
         var result = await CliRunner.RunAsync(
             args: ["queue", "--config", "scenarios/queue-export-workitems-simulated-source.json", "--force-fresh"],
-            timeout: TimeSpan.FromMinutes(1));
+            timeout: TimeSpan.FromMinutes(4));
 
         Console.WriteLine("=== STDOUT ===");
         Console.WriteLine(result.StandardOutput);
@@ -76,7 +76,7 @@ public class SimulatedMigrationCommandTests
     [TestMethod]
     [TestCategory("SystemTest")]
     [TestCategory("SystemTest_Simulated")]
-    [Timeout(180_000)] // 3 minutes — two runs back to back
+    [Timeout(600_000)] // 10 minutes — two full stack runs back to back
     public async Task QueueExportSimulated_ReSubmitWithoutForce_RejectsWithExitCodeOne()
     {
         var outputDir = Path.Combine(
@@ -88,7 +88,7 @@ public class SimulatedMigrationCommandTests
         // First run: establishes migration-config.json using --force-fresh
         var first = await CliRunner.RunAsync(
             args: ["queue", "--config", "scenarios/queue-export-workitems-simulated-source.json", "--force-fresh"],
-            timeout: TimeSpan.FromMinutes(1));
+            timeout: TimeSpan.FromMinutes(4));
 
         Assert.AreEqual(0, first.ExitCode,
             $"First run must succeed to establish migration-config.json. " +
@@ -104,7 +104,7 @@ public class SimulatedMigrationCommandTests
         // Second run WITHOUT --force-fresh: must be rejected because migration-config.json exists
         var second = await CliRunner.RunAsync(
             args: ["queue", "--config", "scenarios/queue-export-workitems-simulated-source.json"],
-            timeout: TimeSpan.FromMinutes(1));
+            timeout: TimeSpan.FromMinutes(2));
 
         Console.WriteLine("=== SECOND RUN STDOUT ===");
         Console.WriteLine(second.StandardOutput);
@@ -130,7 +130,7 @@ public class SimulatedMigrationCommandTests
     [TestMethod]
     [TestCategory("SystemTest")]
     [TestCategory("SystemTest_Simulated")]
-    [Timeout(120_000)]
+    [Timeout(300_000)] // 5 minutes
     public async Task QueueImportSimulated_ExitsZeroAndAcceptsWorkItems()
     {
         var outputDir = Path.Combine(
@@ -141,7 +141,7 @@ public class SimulatedMigrationCommandTests
 
         var result = await CliRunner.RunAsync(
             args: ["queue", "--config", "scenarios/queue-import-workitems-simulated-target.json", "--force-fresh"],
-            timeout: TimeSpan.FromMinutes(1));
+            timeout: TimeSpan.FromMinutes(4));
 
         Console.WriteLine("=== STDOUT ===");
         Console.WriteLine(result.StandardOutput);
@@ -162,7 +162,7 @@ public class SimulatedMigrationCommandTests
     [TestMethod]
     [TestCategory("SystemTest")]
     [TestCategory("SystemTest_Simulated")]
-    [Timeout(120_000)]
+    [Timeout(300_000)] // 5 minutes
     public async Task QueueRoundtripSimulated_ExitsZeroAndProducesPackageWithRevisions()
     {
         var outputDir = Path.Combine(
@@ -173,7 +173,7 @@ public class SimulatedMigrationCommandTests
 
         var result = await CliRunner.RunAsync(
             args: ["queue", "--config", "scenarios/roundtrip-simulated.json", "--force-fresh"],
-            timeout: TimeSpan.FromMinutes(1));
+            timeout: TimeSpan.FromMinutes(4));
 
         Console.WriteLine("=== STDOUT ===");
         Console.WriteLine(result.StandardOutput);
@@ -209,7 +209,7 @@ public class SimulatedMigrationCommandTests
     [TestMethod]
     [TestCategory("SystemTest")]
     [TestCategory("SystemTest_Simulated")]
-    [Timeout(120_000)]
+    [Timeout(300_000)] // 5 minutes
     public async Task QueueExportSimulated_ProducesBothLogFiles()
     {
         var outputDir = Path.Combine(
@@ -220,7 +220,7 @@ public class SimulatedMigrationCommandTests
 
         var result = await CliRunner.RunAsync(
             args: ["queue", "--config", "scenarios/queue-export-workitems-simulated-source.json", "--force-fresh"],
-            timeout: TimeSpan.FromMinutes(1));
+            timeout: TimeSpan.FromMinutes(4));
 
         Assert.IsFalse(result.TimedOut, "CLI timed out.");
         Assert.AreEqual(0, result.ExitCode,

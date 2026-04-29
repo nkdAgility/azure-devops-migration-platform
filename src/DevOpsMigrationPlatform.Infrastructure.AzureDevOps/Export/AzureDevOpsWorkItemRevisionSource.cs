@@ -31,7 +31,7 @@ internal sealed class AzureDevOpsWorkItemRevisionSource : IWorkItemRevisionSourc
 
     private const int RevisionPageSize = 100;
 
-    internal AzureDevOpsWorkItemRevisionSource(
+    public AzureDevOpsWorkItemRevisionSource(
         WorkItemTrackingHttpClient client,
         IWorkItemQueryWindowStrategy windowStrategy,
         IAzureDevOpsWorkItemRevisionMapper mapper,

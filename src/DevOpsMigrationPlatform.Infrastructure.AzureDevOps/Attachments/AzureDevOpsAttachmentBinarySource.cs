@@ -23,7 +23,7 @@ internal sealed class AzureDevOpsAttachmentBinarySource : IStreamingAttachmentBi
     private readonly string _pat;
     private readonly ILogger<AzureDevOpsAttachmentBinarySource> _logger;
 
-    internal AzureDevOpsAttachmentBinarySource(
+    public AzureDevOpsAttachmentBinarySource(
         AzureDevOpsAttachmentRegistry registry,
         IHttpClientFactory httpClientFactory,
         string pat,

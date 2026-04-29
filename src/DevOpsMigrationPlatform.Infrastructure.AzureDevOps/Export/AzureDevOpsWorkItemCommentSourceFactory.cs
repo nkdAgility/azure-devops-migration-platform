@@ -16,7 +16,7 @@ internal sealed class AzureDevOpsWorkItemCommentSourceFactory : IWorkItemComment
     private readonly IAzureDevOpsClientFactory _clientFactory;
     private readonly ILoggerFactory _loggerFactory;
 
-    internal AzureDevOpsWorkItemCommentSourceFactory(
+    public AzureDevOpsWorkItemCommentSourceFactory(
         IAzureDevOpsClientFactory clientFactory,
         ILoggerFactory loggerFactory)
     {

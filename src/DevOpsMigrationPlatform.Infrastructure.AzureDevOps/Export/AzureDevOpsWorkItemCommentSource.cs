@@ -19,7 +19,7 @@ internal class AzureDevOpsWorkItemCommentSource : IWorkItemCommentSource
     private readonly ILogger<AzureDevOpsWorkItemCommentSource> _logger;
     private const int PageSize = 200; // ADO API max page size for comments
 
-    internal AzureDevOpsWorkItemCommentSource(
+    public AzureDevOpsWorkItemCommentSource(
         IAzureDevOpsClientFactory clientFactory,
         OrganisationEndpoint endpoint,
         string project,

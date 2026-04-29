@@ -21,7 +21,7 @@ internal sealed class AzureDevOpsWorkItemFetchService : IWorkItemFetchService
     private readonly IAzureDevOpsClientFactory _clientFactory;
     private const int BatchSize = 200;
 
-    internal AzureDevOpsWorkItemFetchService(
+    public AzureDevOpsWorkItemFetchService(
         IWorkItemQueryWindowStrategy windowStrategy,
         IAzureDevOpsClientFactory clientFactory)
     {

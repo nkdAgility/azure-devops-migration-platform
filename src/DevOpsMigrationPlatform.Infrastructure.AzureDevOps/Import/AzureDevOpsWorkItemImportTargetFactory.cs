@@ -15,7 +15,7 @@ internal sealed class AzureDevOpsWorkItemImportTargetFactory : IWorkItemImportTa
 {
     private readonly IAzureDevOpsClientFactory _clientFactory;
 
-    internal AzureDevOpsWorkItemImportTargetFactory(IAzureDevOpsClientFactory clientFactory)
+    public AzureDevOpsWorkItemImportTargetFactory(IAzureDevOpsClientFactory clientFactory)
     {
         _clientFactory = clientFactory ?? throw new ArgumentNullException(nameof(clientFactory));
     }

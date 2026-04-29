@@ -18,7 +18,7 @@ internal sealed class AzureDevOpsIdentitySource : IIdentitySource
     private readonly IAzureDevOpsClientFactory _clientFactory;
     private readonly ILogger<AzureDevOpsIdentitySource> _logger;
 
-    internal AzureDevOpsIdentitySource(
+    public AzureDevOpsIdentitySource(
         IAzureDevOpsClientFactory clientFactory,
         ILogger<AzureDevOpsIdentitySource> logger)
     {

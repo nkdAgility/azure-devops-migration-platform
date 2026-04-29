@@ -13,7 +13,7 @@ internal sealed class AzureDevOpsRepoDiscoveryService : IRepoDiscoveryService
 {
     private readonly IAzureDevOpsClientFactory _clientFactory;
 
-    internal AzureDevOpsRepoDiscoveryService(IAzureDevOpsClientFactory clientFactory)
+    public AzureDevOpsRepoDiscoveryService(IAzureDevOpsClientFactory clientFactory)
     {
         _clientFactory = clientFactory ?? throw new ArgumentNullException(nameof(clientFactory));
     }

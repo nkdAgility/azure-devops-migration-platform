@@ -16,7 +16,7 @@ internal class AzureDevOpsEmbeddedImageDownloader : IEmbeddedImageDownloader
     private readonly IAsyncPolicy<HttpResponseMessage> _resiliencePipeline;
     private readonly ILogger<AzureDevOpsEmbeddedImageDownloader> _logger;
 
-    internal AzureDevOpsEmbeddedImageDownloader(
+    public AzureDevOpsEmbeddedImageDownloader(
         HttpClient httpClient,
         ILogger<AzureDevOpsEmbeddedImageDownloader> logger)
     {
