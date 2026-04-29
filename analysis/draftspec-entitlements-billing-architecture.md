@@ -426,20 +426,33 @@ Composite → priority-ordered list → first valid provider wins
 
 ---
 
-# 10. Standalone Behaviour
+---
 
-Standalone mode MUST:
+# 11. Community Tier
 
-* operate without network
-* use LicenceFileProvider
-* maintain local usage ledger
-* enforce all limits identically to hosted mode
+The community/free tier:
 
-There is no special-case “offline logic” beyond provider selection.
+- Full-featured (all modules enabled)
+- Capped at a small item limit per module (e.g. 100 work items)
+- No licence file required — `CommunityProvider` returns a built-in entitlement with hard limits
+- Same enforcement path as all other tiers (no special-case logic)
 
 ---
 
-# 11. Prohibited Patterns
+# 12. Standalone Behaviour
+
+Standalone mode MUST:
+
+* Operate without network
+* Use `LicenceFileProvider` (or fall back to `CommunityProvider`)
+* Maintain local usage ledger in SQLite
+* Enforce all limits identically to hosted mode
+
+There is no special-case "offline logic" beyond provider selection and ledger backing store.
+
+---
+
+# 13. Prohibited Patterns
 
 The following are explicitly disallowed:
 
@@ -448,43 +461,19 @@ The following are explicitly disallowed:
 * Agent-side licence validation
 * Trusting client-reported usage
 * Encryption without signature
+* Implicit "unlimited" for any tier (including community)
+* Hard-stop mid-batch (always finish current batch, stop at checkpoint)
 
 ---
 
-# 12. Summary
+# 14. Summary
 
 The system defines:
 
 * Entitlement as a deterministic, signed input
 * ControlPlane as the local or remote authority
-* Agent as an execution enforcer
-* Usage as locally reconstructed state
+* Agent as an execution enforcer (snapshot delivered via lease, refreshed via heartbeat)
+* Usage as locally reconstructed from checkpoint cursors
+* Scope supporting tenant, tenant+user, and contract-level granularity
 
-Offline and online modes differ only in **entitlement source**, not behaviour.
-
-```
-
----
-
-# Key Improvements
-
-### Structural
-- Separated **provider vs authority**
-- Removed ambiguity around “snapshot generation”
-- Explicit offline model
-
-### Security
-- Signature requirement added
-- Removed implicit trust assumptions
-- Defined failure modes
-
-### Architectural alignment
-- Matches your ControlPlane authority model :contentReference[oaicite:1]{index=1}  
-- Uses existing checkpoint/state system for usage :contentReference[oaicite:2]{index=2}  
-
-### Behavioural clarity
-- No “unlimited”
-- No environment branching
-- Same enforcement everywhere
-
----
+Offline and online modes differ only in **entitlement source** and **usage ledger backing store**, not behaviour.
