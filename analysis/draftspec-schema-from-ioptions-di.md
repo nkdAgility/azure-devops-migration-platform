@@ -322,25 +322,50 @@ The CLI's `QueueCommand.BuildModules(config)` method is the translation boundary
 
 What modules actually access (`WorkItemsModule`, `NodesModule`, `TeamsModule`, `IdentitiesModule`) are properties on `context.Job` — the `MigrationJob` runtime DTO received from the control plane queue, not `MigrationOptions`. These are the correct types to access.
 
-### Implication for the IOptions migration
+### Finding: Tool options on the agent are always defaults — a current silent bug
 
-The IOptions-per-slice migration is **entirely a CLI-side concern**. The blast radius is:
+`MigrationAgentServiceExtensions` calls:
+```csharp
+builder.Services.AddFieldTransformToolServices();   // binds IOptions<FieldTransformOptions>
+builder.Services.AddNodeTranslationToolServices();  // binds IOptions<NodeTranslationOptions>
+```
 
-1. **`QueueCommand`** — reads `MigrationOptions` slices to build `MigrationJob`. Change to inject individual `IOptions<T>` slices.  
-2. **`MigrationOptionsValidator`** — whole-graph validator. Split into per-type `IValidateOptions<T>`.  
-3. **`ConfigurationService`** — load/save. Keep as-is for now (write path needs the full graph).  
-4. **Modules and agent workers** — **no changes needed at all**.
+These bind via `BindConfiguration("MigrationPlatform:Tools:FieldTransform")` etc.
 
-### Specific violations at job construction (CLI-side only)
+The agent's `appsettings.json` contains **no `MigrationPlatform` section**:
+```json
+{ "Logging": { ... }, "Telemetry": { ... } }
+```
 
-| File | Nature |
-|---|---|
-| `QueueCommand.cs` (20+ lines) | Reads `config.Source`, `config.Target`, `config.Package`, `config.Modules` — CLI-only, correct location, will change |
-| `PrepareCommand.cs` | Same pattern |
-| `MigrationOptionsValidator.cs` | Whole-graph validator — split per-type |
-| `ConfigurationService.cs` | Load/save — intentional, keep |
-| `InteractiveConfigurationBuilder.cs` | Wizard builds `MigrationOptions` — will rebuild per-slice |
-| `JobAgentWorker.cs`, `TfsJobAgentWorker.cs` | Receive `MigrationJob` from queue — no `MigrationOptions` usage at all |
+**Result: `FieldTransformOptions`, `NodeTranslationOptions`, `IdentityLookupOptions` are always empty/default on the agent. Any transform rules or node mappings the user configured in `migration.json` are silently ignored.**
+
+This is a pre-existing bug, not introduced by the IOptions migration proposal. The tool config is defined in the CLI-side `migration.json`, converted to a `MigrationJob`, but `JobModule.Extensions` only carries enabled flags and generic parameters — the full typed options (regex patterns, transform rules) are **never transferred to the agent**.
+
+The flow that should exist but doesn't:
+
+```
+migration.json:  MigrationPlatform.Tools.FieldTransform.TransformGroups[...]
+                                      ↓  MISSING STEP
+MigrationJob:   ??? FieldTransform config ???
+                                      ↓
+Agent:          IOptions<FieldTransformOptions>.Value  ← always empty
+```
+
+### What this means for the IOptions migration proposal
+
+The IOptions-per-slice model on the agent side is currently a **no-op** for tool options — they bind to nothing. This is an **existing architectural gap that the IOptions migration must solve**, not ignore.
+
+Two ways to fix it:
+
+**Fix A — Embed serialised tool config in `MigrationJob`**  
+Add typed tool config to `MigrationJob` (or a `JobTools` bag), populated by the CLI from `MigrationOptions.Tools.*` during job construction. The agent deserialises it and uses `IOptionsFactory`/`IPostConfigureOptions` to override the empty binding.
+
+**Fix B — Pass the raw config section as a JSON blob in the job**  
+`MigrationJob` carries a `RawConfig` JSON string (the `MigrationPlatform` section). The agent creates an `IConfiguration` from it per-job and overrides the empty `IOptions<T>` bindings. This is simpler but makes the job transport opaque.
+
+**Fix A is preferred** — it keeps the job contract explicit and typed, consistent with the rest of `MigrationJob`. The schema registry approach (section 3.2) naturally extends to this: every `SchemaOptionsEntry` that has a corresponding agent-side `IOptions<T>` also needs a `JobXxxOptions` projection in `MigrationJob`.
+
+This finding significantly changes the IOptions migration scope — the blast radius includes **`MigrationJob` itself**, which must grow to carry tool config explicitly.
 
 ---
 
