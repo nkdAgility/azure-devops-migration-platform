@@ -8,6 +8,7 @@ using DevOpsMigrationPlatform.Infrastructure.Agent.Tools.NodeTranslation;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Identity;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Teams;
 using DevOpsMigrationPlatform.Infrastructure.Simulated;
+using DevOpsMigrationPlatform.Infrastructure.Config;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using OpenTelemetry.Metrics;
@@ -72,6 +73,12 @@ public static class MigrationAgentServiceExtensions
 
         // Simulated connector — required for offline tests and CI scenarios.
         builder.Services.AddSimulatedServices();
+
+        // Register the polymorphic endpoint converter so JobAgentWorker can deserialise
+        // Source/Target from migration-config.json using System.Text.Json.
+        // Must be called AFTER all AddEndpointOptionsType registrations so the registry
+        // collects all connector types when it is first resolved.
+        builder.Services.AddMigrationPlatformPolymorphicSerializers();
 
         // Register IDiscoveryModule implementations for DiscoveryAgentWorker.
         builder.Services.AddAzureDevOpsInventory(builder.Configuration);
