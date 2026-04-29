@@ -18,6 +18,7 @@ using DevOpsMigrationPlatform.Abstractions.Jobs;
 using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Abstractions.Organisations;
 using DevOpsMigrationPlatform.Abstractions.Streaming;
+using Microsoft.Extensions.DependencyInjection;
 using DevOpsMigrationPlatform.Abstractions.Telemetry;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Telemetry;
 using DevOpsMigrationPlatform.Infrastructure.TfsObjectModel;
@@ -138,22 +139,33 @@ public class TfsJobAgentWorkerTests
     }
 
     private TfsJobAgentWorker CreateWorker(
-        IEnumerable<DevOpsMigrationPlatform.Abstractions.Agent.Modules.IModule>? modules = null) => new(
-        modules ?? System.Linq.Enumerable.Empty<DevOpsMigrationPlatform.Abstractions.Agent.Modules.IModule>(),
-        _packageStoreFactory.Object,
-        _progressSink.Object,
-        _leaseState,
-        _packageState,
-        new ActiveJobConfigState(),
-        _packageConfigStore.Object,
-        _httpClientFactory.Object,
-        _checkpointingFactory.Object,
-        _phaseTrackingFactory.Object,
-        _packageProgressSink,
-        _packageLoggerProvider,
-        _tfsServiceFactory.Object,
-        new DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.ActiveTfsJobServices(),
-        _logger);
+        IEnumerable<DevOpsMigrationPlatform.Abstractions.Agent.Modules.IModule>? modules = null)
+    {
+        // Build a minimal ServiceProvider that returns the caller-supplied modules
+        // from any IServiceScope so per-job scope resolution works in tests.
+        var sc = new Microsoft.Extensions.DependencyInjection.ServiceCollection();
+        foreach (var m in modules ?? System.Linq.Enumerable.Empty<DevOpsMigrationPlatform.Abstractions.Agent.Modules.IModule>())
+            sc.AddSingleton(m);
+        var sp = sc.BuildServiceProvider();
+
+        return new(
+            modules ?? System.Linq.Enumerable.Empty<DevOpsMigrationPlatform.Abstractions.Agent.Modules.IModule>(),
+            _packageStoreFactory.Object,
+            _progressSink.Object,
+            _leaseState,
+            _packageState,
+            new ActiveJobConfigState(),
+            _packageConfigStore.Object,
+            sp.GetRequiredService<Microsoft.Extensions.DependencyInjection.IServiceScopeFactory>(),
+            _httpClientFactory.Object,
+            _checkpointingFactory.Object,
+            _phaseTrackingFactory.Object,
+            _packageProgressSink,
+            _packageLoggerProvider,
+            _tfsServiceFactory.Object,
+            new DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.ActiveTfsJobServices(),
+            _logger);
+    }
 
     private HttpClient CreateControlPlaneClient() =>
         new(_httpHandler) { BaseAddress = new Uri("http://localhost:5100") };

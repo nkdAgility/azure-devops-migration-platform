@@ -13,6 +13,7 @@ using DevOpsMigrationPlatform.Infrastructure.Agent;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Telemetry;
 using DevOpsMigrationPlatform.Infrastructure.Serialization;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
 namespace DevOpsMigrationPlatform.MigrationAgent;
@@ -30,6 +31,7 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
     private readonly IJobSnapshotStore _snapshotStore;
     private readonly PackageProgressSink _packageProgressSink;
     private readonly PackageLoggerProvider _packageLoggerProvider;
+    private readonly IServiceScopeFactory _moduleScopeFactory;
     private readonly ILogger<JobAgentWorker> _logger;
 
     public JobAgentWorker(
@@ -41,6 +43,7 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
         ActivePackageState packageState,
         ActiveJobConfigState activeJobConfig,
         IPackageConfigStore packageConfigStore,
+        IServiceScopeFactory moduleScopeFactory,
         IHttpClientFactory httpClientFactory,
         ICheckpointingServiceFactory checkpointingFactory,
         IPhaseTrackingServiceFactory phaseTrackingFactory,
@@ -52,13 +55,14 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
         PolymorphicEndpointOptionsConverter? endpointConverter = null)
         : base(migrationModules, packageStoreFactory, progressSink, checkpointingFactory,
                phaseTrackingFactory, leaseState, packageState, activeJobConfig, packageConfigStore,
-               httpClientFactory, logger, endpointConverter)
+               moduleScopeFactory, httpClientFactory, logger, endpointConverter)
     {
         _discoveryModules = discoveryModules;
         _metricsStore = metricsStore;
         _snapshotStore = snapshotStore;
         _packageProgressSink = packageProgressSink;
         _packageLoggerProvider = packageLoggerProvider;
+        _moduleScopeFactory = moduleScopeFactory;
         _logger = logger;
     }
 
@@ -79,6 +83,44 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
             job.Package.PackageUri ?? ".");
 
         PackageState.CurrentStore = artefactStore;
+
+        // Prepare mode writes a probe file to validate connectivity — it does not need
+        // migration-config.json and must not block on ReadAsync.
+        if (string.Equals(job.Mode, "Prepare", StringComparison.OrdinalIgnoreCase))
+        {
+            bool prepareFailed = false;
+            try
+            {
+                _logger.LogInformation("Prepare mode — writing probe file for job {JobId}.", job.JobId);
+                var probeContent = System.Text.Json.JsonSerializer.Serialize(new
+                {
+                    jobId = job.JobId,
+                    timestamp = DateTimeOffset.UtcNow,
+                    status = "ok"
+                });
+                await artefactStore.WriteAsync("prepare-probe.json", probeContent, ct).ConfigureAwait(false);
+
+                ProgressSink.Emit(new ProgressEvent
+                {
+                    Module = "Prepare",
+                    Stage = "Completed",
+                    Message = "Probe file written successfully.",
+                    Timestamp = DateTimeOffset.UtcNow
+                });
+                _logger.LogInformation("Prepare probe file written successfully for job {JobId}.", job.JobId);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Prepare probe failed for job {JobId}.", job.JobId);
+                prepareFailed = true;
+            }
+
+            await _packageProgressSink.FlushAsync().ConfigureAwait(false);
+            await _packageLoggerProvider.FlushAsync().ConfigureAwait(false);
+
+            await SignalTerminalAsync(controlPlane, leaseId, prepareFailed ? "fail" : "complete", ct).ConfigureAwait(false);
+            return;
+        }
 
         // Load migration-config.json from the package so modules can read Source/Target/Policies.
         IConfiguration packageConfig;
@@ -122,6 +164,12 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
         ActiveJobConfig.Current = migrationOptions;
         ActiveJobConfig.PackageConfig = packageConfig;
 
+        // Create a per-job DI scope AFTER PackageConfig is set. Singleton tools (e.g.
+        // IFieldTransformTool) are resolved fresh within this scope so their IOptions<T>.Value
+        // is read from migration-config.json, not from the empty appsettings.json at host startup.
+        using var jobScope = _moduleScopeFactory.CreateScope();
+        var jobModules = jobScope.ServiceProvider.GetServices<IModule>().ToList();
+
         try
         {
             var checkpointer = CheckpointingFactory.Create(stateStore);
@@ -136,46 +184,6 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
                     _logger.LogDebug("Deleted cursor for module {Module}.", module.Name);
                 }
                 await phaseTracker.DeletePhaseRecordAsync(ct).ConfigureAwait(false);
-            }
-
-            if (string.Equals(job.Mode, "Prepare", StringComparison.OrdinalIgnoreCase))
-            {
-                bool prepareFailed = false;
-                try
-                {
-                    _logger.LogInformation("Prepare mode — writing probe file for job {JobId}.", job.JobId);
-                    var probeContent = System.Text.Json.JsonSerializer.Serialize(new
-                    {
-                        jobId = job.JobId,
-                        timestamp = DateTimeOffset.UtcNow,
-                        status = "ok"
-                    });
-                    await artefactStore.WriteAsync("prepare-probe.json", probeContent, ct).ConfigureAwait(false);
-
-                    ProgressSink.Emit(new ProgressEvent
-                    {
-                        Module = "Prepare",
-                        Stage = "Completed",
-                        Message = "Probe file written successfully.",
-                        Timestamp = DateTimeOffset.UtcNow
-                    });
-                    _logger.LogInformation("Prepare probe file written successfully for job {JobId}.", job.JobId);
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "Prepare probe failed for job {JobId}.", job.JobId);
-                    prepareFailed = true;
-                }
-
-                // Flush before signalling terminal so that progress/log records written during
-                // Prepare are persisted to the package before the control plane notifies the CLI
-                // (which may kill the agent process immediately after seeing completion).
-                await _packageProgressSink.FlushAsync().ConfigureAwait(false);
-                await _packageLoggerProvider.FlushAsync().ConfigureAwait(false);
-
-                var prepareTerminal = prepareFailed ? "fail" : "complete";
-                await SignalTerminalAsync(controlPlane, leaseId, prepareTerminal, ct).ConfigureAwait(false);
-                return;
             }
 
             var exportContext = new ExportContext
@@ -213,7 +221,7 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
             {
                 if (runExport)
                 {
-                    foreach (var module in MigrationModules)
+                    foreach (var module in jobModules)
                     {
                         _logger.LogInformation("Running module {Module}.ExportAsync", module.Name);
                         await module.ExportAsync(exportContext, ct).ConfigureAwait(false);
@@ -228,7 +236,7 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
 
                 if (runImport)
                 {
-                    foreach (var module in MigrationModules)
+                    foreach (var module in jobModules)
                     {
                         _logger.LogInformation("Running module {Module}.ImportAsync", module.Name);
                         await module.ImportAsync(importContext, ct).ConfigureAwait(false);

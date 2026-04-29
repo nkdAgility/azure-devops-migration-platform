@@ -13,6 +13,9 @@ using DevOpsMigrationPlatform.Abstractions.Agent.Telemetry;
 using DevOpsMigrationPlatform.Abstractions.Options;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
+#if !NET481
+using DevOpsMigrationPlatform.Infrastructure.Serialization;
+#endif
 
 namespace DevOpsMigrationPlatform.Infrastructure.Agent.Storage;
 
@@ -28,8 +31,11 @@ internal sealed class PackageConfigStore : IPackageConfigStore
 
     private readonly ILogger<PackageConfigStore> _logger;
     private readonly IMigrationMetrics? _metrics;
+#if !NET481
+    private readonly PolymorphicEndpointOptionsConverter? _endpointConverter;
+#endif
 
-    private static readonly JsonSerializerOptions WriteOptions = new()
+    private static readonly JsonSerializerOptions BaseWriteOptions = new()
     {
         WriteIndented = true,
         PropertyNamingPolicy = null,
@@ -37,10 +43,30 @@ internal sealed class PackageConfigStore : IPackageConfigStore
         Converters = { new JsonStringEnumConverter() }
     };
 
-    public PackageConfigStore(ILogger<PackageConfigStore> logger, IMigrationMetrics? metrics = null)
+    private JsonSerializerOptions GetWriteOptions()
+    {
+#if !NET481
+        if (_endpointConverter != null)
+        {
+            var opts = new JsonSerializerOptions(BaseWriteOptions);
+            opts.Converters.Add(_endpointConverter);
+            return opts;
+        }
+#endif
+        return BaseWriteOptions;
+    }
+
+    public PackageConfigStore(ILogger<PackageConfigStore> logger, IMigrationMetrics? metrics = null
+#if !NET481
+        , PolymorphicEndpointOptionsConverter? endpointConverter = null
+#endif
+        )
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _metrics = metrics;
+#if !NET481
+        _endpointConverter = endpointConverter;
+#endif
     }
 
     /// <inheritdoc />
@@ -72,7 +98,7 @@ internal sealed class PackageConfigStore : IPackageConfigStore
             }
 
             var wrapper = new MigrationOptionsWrapper { MigrationPlatform = options };
-            var json = JsonSerializer.Serialize(wrapper, WriteOptions);
+            var json = JsonSerializer.Serialize(wrapper, GetWriteOptions());
 
             await artefactStore.WriteAsync(PackagePaths.MigrationConfigFileName, json, cancellationToken)
                 .ConfigureAwait(false);

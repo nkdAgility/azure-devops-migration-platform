@@ -12,6 +12,7 @@ using DevOpsMigrationPlatform.Abstractions.Jobs;
 using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Abstractions.Streaming;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 #if !NET481
 using DevOpsMigrationPlatform.Infrastructure.Serialization;
@@ -33,7 +34,10 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent;
 /// </summary>
 public abstract class ModulePipelineWorkerBase : AgentWorkerBase
 {
-    /// <summary>Migration modules registered for this agent (ordered).</summary>
+    /// <summary>Migration modules registered for this agent (ordered).
+    /// Used only for ForceFresh cursor deletion by module name.
+    /// For execution, modules are resolved per-job from <see cref="_moduleScopeFactory"/>
+    /// after <see cref="ActiveJobConfig"/> is populated with the per-job config.</summary>
     protected IEnumerable<IModule> MigrationModules { get; }
 
     /// <summary>Factory for creating per-job artefact and state stores.</summary>
@@ -57,6 +61,14 @@ public abstract class ModulePipelineWorkerBase : AgentWorkerBase
     /// <summary>Ambient holder for the current job's <see cref="MigrationOptions"/>.</summary>
     protected ActiveJobConfigState ActiveJobConfig { get; }
 
+    /// <summary>
+    /// Used to create a per-job DI scope so that modules (and their tool dependencies)
+    /// are resolved AFTER <see cref="ActiveJobConfig.PackageConfig"/> is set from
+    /// <c>migration-config.json</c>. This ensures Singleton tools whose
+    /// <c>IOptions&lt;T&gt;.Value</c> is read at construction time receive the per-job config.
+    /// </summary>
+    private readonly IServiceScopeFactory _moduleScopeFactory;
+
     protected ModulePipelineWorkerBase(
         IEnumerable<IModule> migrationModules,
         IPackageStoreFactory packageStoreFactory,
@@ -67,6 +79,7 @@ public abstract class ModulePipelineWorkerBase : AgentWorkerBase
         ActivePackageState packageState,
         ActiveJobConfigState activeJobConfig,
         IPackageConfigStore packageConfigStore,
+        IServiceScopeFactory moduleScopeFactory,
         IHttpClientFactory httpClientFactory,
         ILogger logger
 #if !NET481
@@ -86,6 +99,7 @@ public abstract class ModulePipelineWorkerBase : AgentWorkerBase
         Logger = logger ?? throw new ArgumentNullException(nameof(logger));
         PackageConfigStore = packageConfigStore ?? throw new ArgumentNullException(nameof(packageConfigStore));
         ActiveJobConfig = activeJobConfig ?? throw new ArgumentNullException(nameof(activeJobConfig));
+        _moduleScopeFactory = moduleScopeFactory ?? throw new ArgumentNullException(nameof(moduleScopeFactory));
     }
 
     /// <summary>
@@ -150,6 +164,13 @@ public abstract class ModulePipelineWorkerBase : AgentWorkerBase
         ActiveJobConfig.Current = migrationOptions;
         ActiveJobConfig.PackageConfig = packageConfig;
 
+        // Create a per-job DI scope AFTER PackageConfig is set. Modules (and their Singleton
+        // tool dependencies like IFieldTransformTool) that read IOptions<T>.Value at
+        // construction time will now receive values from migration-config.json rather than
+        // the empty appsettings.json loaded at host startup.
+        using var jobScope = _moduleScopeFactory.CreateScope();
+        var jobModules = jobScope.ServiceProvider.GetServices<IModule>();
+
         var checkpointer = CheckpointingFactory.Create(stateStore);
 
         if (job.Resume?.Mode == ResumeMode.ForceFresh)
@@ -175,7 +196,7 @@ public abstract class ModulePipelineWorkerBase : AgentWorkerBase
         {
             await OnBeforeModulesAsync(job, ct).ConfigureAwait(false);
 
-            foreach (var module in MigrationModules)
+            foreach (var module in jobModules)
             {
                 Logger.LogInformation("Running module {Module}.ExportAsync", module.Name);
                 await module.ExportAsync(exportContext, ct).ConfigureAwait(false);

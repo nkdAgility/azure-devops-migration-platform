@@ -1,6 +1,10 @@
-﻿using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
+﻿using DevOpsMigrationPlatform.Abstractions.Agent.Lease;
+using DevOpsMigrationPlatform.Abstractions.Agent.Telemetry;
+using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Agent.Tools.NodeTranslation;
@@ -19,26 +23,44 @@ public static class NodeTranslationToolServiceCollectionExtensions
     /// (e.g. <c>AddAzureDevOpsWorkItemImport</c>, <c>AddSimulatedWorkItemImport</c>,
     /// <c>TfsClassificationTreeReader</c>).
     /// </para>
+    /// <para>
+    /// Tools are registered as <b>Scoped</b> so that <see cref="IOptionsSnapshot{TOptions}"/>
+    /// is recomputed from <see cref="ActiveJobConfigState.PackageConfig"/> on every per-job
+    /// DI scope.
+    /// </para>
     /// </summary>
     public static IServiceCollection AddNodeTranslationToolServices(this IServiceCollection services)
     {
+        // Bind from per-job PackageConfig via ActiveJobConfigState (set before job scope is created).
         services.AddOptions<NodeTranslationOptions>()
-            .BindConfiguration(NodeTranslationOptions.SectionName)
-            .ValidateOnStart();
+            .Configure<ActiveJobConfigState>((opts, state) =>
+            {
+                state.PackageConfig?.GetSection(NodeTranslationOptions.SectionName).Bind(opts);
+            });
 
 #if !NET481
         services.AddSingleton<IValidateOptions<NodeTranslationOptions>, NodeTranslationOptionsValidator>();
-        services.AddSingleton<NodeTranslationTool>();
-        services.AddSingleton<INodeTranslationTool>(sp => sp.GetRequiredService<NodeTranslationTool>());
-        services.AddSingleton<INodeTranslationTool>(sp => sp.GetRequiredService<NodeTranslationTool>());
-        services.AddSingleton<INodeTranslationValidator, NodeTranslationValidator>();
-        // T012: ReferencedPathTracker must be Singleton so the same path set is shared across a single export run
-        services.AddSingleton<ReferencedPathTracker>();
-        services.AddSingleton<IReferencedPathTracker>(sp => sp.GetRequiredService<ReferencedPathTracker>());
-        services.AddSingleton<ClassificationTreeCapture>();
-        services.AddSingleton<IClassificationTreeCapture>(sp => sp.GetRequiredService<ClassificationTreeCapture>());
-        services.AddSingleton<NodeEnsurer>();
-        services.AddSingleton<INodeEnsurer>(sp => sp.GetRequiredService<NodeEnsurer>());
+        // Scoped so IOptionsSnapshot<NodeTranslationOptions> is resolved per-job scope.
+        services.AddScoped<NodeTranslationTool>(sp => new NodeTranslationTool(
+            sp.GetRequiredService<IOptionsSnapshot<NodeTranslationOptions>>(),
+            sp.GetRequiredService<ILogger<NodeTranslationTool>>(),
+            sp.GetService<IMigrationMetrics>()));
+        services.AddScoped<INodeTranslationTool>(sp => sp.GetRequiredService<NodeTranslationTool>());
+        services.AddScoped<INodeTranslationValidator>(sp => new NodeTranslationValidator(
+            sp.GetRequiredService<IOptionsSnapshot<NodeTranslationOptions>>(),
+            sp.GetRequiredService<INodeTranslationTool>()));
+        // T012: ReferencedPathTracker is Scoped so the same path set is shared within one job
+        // (scope) and isolated across jobs.
+        services.AddScoped<ReferencedPathTracker>();
+        services.AddScoped<IReferencedPathTracker>(sp => sp.GetRequiredService<ReferencedPathTracker>());
+        services.AddScoped<ClassificationTreeCapture>();
+        services.AddScoped<IClassificationTreeCapture>(sp => sp.GetRequiredService<ClassificationTreeCapture>());
+        services.AddScoped<NodeEnsurer>(sp => new NodeEnsurer(
+            sp.GetRequiredService<IOptionsSnapshot<NodeTranslationOptions>>(),
+            sp.GetRequiredService<INodeTranslationTool>(),
+            sp.GetRequiredService<INodeCreator>(),
+            sp.GetRequiredService<ILogger<NodeEnsurer>>()));
+        services.AddScoped<INodeEnsurer>(sp => sp.GetRequiredService<NodeEnsurer>());
 #endif
 
         return services;

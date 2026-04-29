@@ -1,5 +1,8 @@
+using DevOpsMigrationPlatform.Abstractions.Agent.Lease;
+using DevOpsMigrationPlatform.Abstractions.Agent.Telemetry;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Abstractions.Options;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -14,25 +17,42 @@ public static class FieldTransformToolServiceCollectionExtensions
     /// <summary>
     /// Adds <see cref="IFieldTransformFactory"/>, <see cref="IFieldTransformTool"/>,
     /// and <see cref="IFieldTransformValidator"/> to the service collection.
+    /// <para>
+    /// Tools are registered as <b>Scoped</b> so that <see cref="IOptionsSnapshot{TOptions}"/>
+    /// is recomputed from <see cref="ActiveJobConfigState.PackageConfig"/> on every per-job
+    /// DI scope. This ensures options reflect the <c>migration-config.json</c> loaded for
+    /// the current job, not the empty <c>appsettings.json</c> present at host startup.
+    /// </para>
     /// </summary>
     public static IServiceCollection AddFieldTransformToolServices(this IServiceCollection services)
     {
+        // Bind from per-job PackageConfig (set on ActiveJobConfigState before the job scope is created).
+        // IOptionsSnapshot<T> computes .Value once per scope, so each job scope gets options from
+        // the migration-config.json that was loaded for that job.
         services.AddOptions<FieldTransformOptions>()
-            .BindConfiguration(FieldTransformOptions.SectionName)
-            .ValidateOnStart();
+            .Configure<ActiveJobConfigState>((opts, state) =>
+            {
+                state.PackageConfig?.GetSection(FieldTransformOptions.SectionName).Bind(opts);
+            });
 
 #if !NET481
         services.AddSingleton<IValidateOptions<FieldTransformOptions>, FieldTransformOptionsValidator>();
 #endif
 
-        services.AddSingleton<IFieldTransformFactory>(sp =>
+        services.AddScoped<IFieldTransformFactory>(sp =>
             new FieldTransformFactory(sp.GetService<ILoggerFactory>()));
-        services.AddSingleton<IFieldTransformTool, FieldTransformTool>();
+        // Scoped so IOptionsSnapshot<FieldTransformOptions> is resolved per-job scope,
+        // giving each job the options from its own migration-config.json.
+        services.AddScoped<IFieldTransformTool>(sp => new FieldTransformTool(
+            sp.GetRequiredService<IOptionsSnapshot<FieldTransformOptions>>(),
+            sp.GetRequiredService<IFieldTransformFactory>(),
+            sp.GetRequiredService<ILoggerFactory>(),
+            sp.GetService<IMigrationMetrics>()));
 
         // IFieldDefinitionProviderFactory is optional — connectors register it when available.
-        services.AddSingleton<IFieldTransformValidator>(sp =>
+        services.AddScoped<IFieldTransformValidator>(sp =>
             new FieldTransformValidator(
-                sp.GetRequiredService<IOptions<FieldTransformOptions>>(),
+                sp.GetRequiredService<IOptionsSnapshot<FieldTransformOptions>>(),
                 sp.GetRequiredService<ILoggerFactory>().CreateLogger<FieldTransformValidator>(),
                 sp.GetService<IFieldDefinitionProviderFactory>()));
 

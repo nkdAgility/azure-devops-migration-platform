@@ -24,6 +24,7 @@ using DevOpsMigrationPlatform.Infrastructure.Agent.Telemetry;
 using DevOpsMigrationPlatform.Infrastructure.TfsObjectModel;
 using DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.Options;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
 namespace DevOpsMigrationPlatform.TfsMigrationAgent;
@@ -55,6 +56,7 @@ public sealed class TfsJobAgentWorker : ModulePipelineWorkerBase
         ActivePackageState packageState,
         ActiveJobConfigState activeJobConfig,
         IPackageConfigStore packageConfigStore,
+        IServiceScopeFactory moduleScopeFactory,
         IHttpClientFactory httpClientFactory,
         ICheckpointingServiceFactory checkpointingFactory,
         IPhaseTrackingServiceFactory phaseTrackingFactory,
@@ -65,7 +67,7 @@ public sealed class TfsJobAgentWorker : ModulePipelineWorkerBase
         ILogger<TfsJobAgentWorker> logger)
         : base(migrationModules, packageStoreFactory, progressSink, checkpointingFactory,
                phaseTrackingFactory, leaseState, packageState, activeJobConfig, packageConfigStore,
-               httpClientFactory, logger)
+               moduleScopeFactory, httpClientFactory, logger)
     {
         _packageProgressSink = packageProgressSink;
         _packageLoggerProvider = packageLoggerProvider;
