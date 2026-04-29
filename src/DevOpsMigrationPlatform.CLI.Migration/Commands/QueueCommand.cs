@@ -704,10 +704,35 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
     private static bool IsWorkItemsOrGlobalModule(ProgressEvent evt) =>
         string.IsNullOrEmpty(evt.Module) || evt.Module == "WorkItems";
 
-    private static JobProgressState ApplyStageAdvance(JobProgressState state, ProgressEvent evt) =>
-        state with
+    private static JobProgressState ApplyStageAdvance(JobProgressState state, ProgressEvent evt)
+    {
+        // Merge module completion metrics carried on the SSE event immediately into state
+        // so the bar flips to green without waiting for the next telemetry poll.
+        JobMetrics? mergedMetrics = state.Metrics;
+        if (evt.Metrics is not null)
+        {
+            var existing = state.Metrics;
+            var incoming = evt.Metrics;
+            var inMig = incoming.Migration;
+            var exMig = existing?.Migration;
+            mergedMetrics = (incoming with
+            {
+                Migration = new MigrationCounters
+                {
+                    WorkItems = inMig?.WorkItems ?? exMig?.WorkItems ?? new WorkItemCounters(),
+                    Teams = inMig?.Teams ?? exMig?.Teams,
+                    Nodes = inMig?.Nodes ?? exMig?.Nodes,
+                    Identities = inMig?.Identities ?? exMig?.Identities,
+                    Diagnostics = inMig?.Diagnostics ?? exMig?.Diagnostics,
+                },
+                Scope = incoming.Scope ?? existing?.Scope ?? new JobScopeCounters(),
+            });
+        }
+
+        return state with
         {
             LastEvent = evt,
+            Metrics = mergedMetrics,
             Stage = IsWorkItemsOrGlobalModule(evt) && !string.IsNullOrEmpty(evt.Stage)
                 ? evt.Stage
                 : state.Stage,
@@ -723,6 +748,7 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
                 ? state.IdentitiesCount + 1
                 : state.IdentitiesCount,
         };
+    }
 
     /// <summary>Renders the current <see cref="JobProgressState"/> into the Live display.</summary>
     private static IRenderable BuildProgressDisplay(JobProgressState s) =>
@@ -942,7 +968,7 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
                 var offset = (int)(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() / 80) % BarWidth;
                 idBar = new string('─', offset) + '━' + new string('─', BarWidth - offset - 1);
                 idBarColor = "blue"; idCheck = $" [blue]{spinnerFrame}[/]";
-                idCounts = $"  [grey]{identitiesCount:N0} so far[/]";
+                idCounts = string.Empty;
             }
             else
             {
@@ -968,7 +994,7 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
                 var offset = (int)(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() / 80) % BarWidth;
                 ndBar = new string('─', offset) + '━' + new string('─', BarWidth - offset - 1);
                 ndBarColor = "blue"; ndCheck = $" [blue]{spinnerFrame}[/]";
-                ndCounts = $"  [grey]{nodesCount:N0} so far[/]";
+                ndCounts = string.Empty;
             }
             else
             {
