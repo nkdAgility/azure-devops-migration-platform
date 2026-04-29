@@ -133,9 +133,10 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
         // Write migration-config.json to the package before submitting.
         var packageConfigStore = GetRequiredService<IPackageConfigStore>();
         var packageStore = new FileSystemArtefactStore(outputPath);
+        var configFilePath = Path.GetFullPath(GetConfigurationPath(settings) ?? settings.ConfigFile!);
         try
         {
-            await packageConfigStore.WriteAsync(packageStore, config, settings.ForceFresh, cancellationToken);
+            await packageConfigStore.WriteAsync(packageStore, configFilePath, settings.ForceFresh, cancellationToken);
         }
         catch (InvalidOperationException ex) when (ex.Message.Contains("already exists"))
         {
@@ -270,9 +271,10 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
         // Write migration-config.json to the package before submitting.
         var packageConfigStore = GetRequiredService<IPackageConfigStore>();
         var packageStore = new FileSystemArtefactStore(outputPath);
+        var configFilePath = Path.GetFullPath(GetConfigurationPath(settings) ?? settings.ConfigFile!);
         try
         {
-            await packageConfigStore.WriteAsync(packageStore, config, settings.ForceFresh, cancellationToken);
+            await packageConfigStore.WriteAsync(packageStore, configFilePath, settings.ForceFresh, cancellationToken);
         }
         catch (InvalidOperationException ex) when (ex.Message.Contains("already exists"))
         {
@@ -401,9 +403,10 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
         // Write migration-config.json to the package before submitting.
         var packageConfigStore = GetRequiredService<IPackageConfigStore>();
         var packageStore = new FileSystemArtefactStore(outputPath);
+        var configFilePath = Path.GetFullPath(GetConfigurationPath(settings) ?? settings.ConfigFile!);
         try
         {
-            await packageConfigStore.WriteAsync(packageStore, config, settings.ForceFresh, cancellationToken);
+            await packageConfigStore.WriteAsync(packageStore, configFilePath, settings.ForceFresh, cancellationToken);
         }
         catch (InvalidOperationException ex) when (ex.Message.Contains("already exists"))
         {
@@ -549,9 +552,10 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
         // Write migration-config.json to the package before submitting.
         var packageConfigStore = GetRequiredService<IPackageConfigStore>();
         var packageStore = new FileSystemArtefactStore(outputPath);
+        var configFilePath = Path.GetFullPath(GetConfigurationPath(settings) ?? settings.ConfigFile!);
         try
         {
-            await packageConfigStore.WriteAsync(packageStore, config, settings.ForceFresh, cancellationToken);
+            await packageConfigStore.WriteAsync(packageStore, configFilePath, settings.ForceFresh, cancellationToken);
         }
         catch (InvalidOperationException ex) when (ex.Message.Contains("already exists"))
         {

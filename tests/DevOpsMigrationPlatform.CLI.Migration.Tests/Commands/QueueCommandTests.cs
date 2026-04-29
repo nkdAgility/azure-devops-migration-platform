@@ -39,7 +39,7 @@ public class QueueCommandTests
         configStoreMock
             .Setup(s => s.WriteAsync(
                 It.IsAny<IArtefactStore>(),
-                It.IsAny<MigrationOptions>(),
+                It.IsAny<string>(),
                 It.IsAny<bool>(),
                 It.IsAny<CancellationToken>()))
             .ThrowsAsync(new InvalidOperationException("migration-config.json already exists"));
@@ -53,7 +53,7 @@ public class QueueCommandTests
         {
             await configStoreMock.Object.WriteAsync(
                 new Mock<IArtefactStore>().Object,
-                new MigrationOptions(),
+                "dummy-config.json",
                 false,
                 CancellationToken.None);
 

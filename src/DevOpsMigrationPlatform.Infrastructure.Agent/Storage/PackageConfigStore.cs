@@ -2,20 +2,14 @@ using System;
 using System.Diagnostics;
 using System.IO;
 using System.Text;
-using System.Text.Json;
-using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Agent.Lease;
 using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
 using DevOpsMigrationPlatform.Abstractions.Agent.Telemetry;
-using DevOpsMigrationPlatform.Abstractions.Options;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
-#if !NET481
-using DevOpsMigrationPlatform.Infrastructure.Serialization;
-#endif
 
 namespace DevOpsMigrationPlatform.Infrastructure.Agent.Storage;
 
@@ -31,59 +25,29 @@ internal sealed class PackageConfigStore : IPackageConfigStore
 
     private readonly ILogger<PackageConfigStore> _logger;
     private readonly IMigrationMetrics? _metrics;
-#if !NET481
-    private readonly PolymorphicEndpointOptionsConverter? _endpointConverter;
-#endif
 
-    private static readonly JsonSerializerOptions BaseWriteOptions = new()
-    {
-        WriteIndented = true,
-        PropertyNamingPolicy = null,
-        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
-        Converters = { new JsonStringEnumConverter() }
-    };
-
-    private JsonSerializerOptions GetWriteOptions()
-    {
-#if !NET481
-        if (_endpointConverter != null)
-        {
-            var opts = new JsonSerializerOptions(BaseWriteOptions);
-            opts.Converters.Add(_endpointConverter);
-            return opts;
-        }
-#endif
-        return BaseWriteOptions;
-    }
-
-    public PackageConfigStore(ILogger<PackageConfigStore> logger, IMigrationMetrics? metrics = null
-#if !NET481
-        , PolymorphicEndpointOptionsConverter? endpointConverter = null
-#endif
-        )
+    public PackageConfigStore(ILogger<PackageConfigStore> logger, IMigrationMetrics? metrics = null)
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _metrics = metrics;
-#if !NET481
-        _endpointConverter = endpointConverter;
-#endif
     }
 
     /// <inheritdoc />
     public async Task WriteAsync(
         IArtefactStore artefactStore,
-        MigrationOptions options,
+        string sourceFilePath,
         bool force = false,
         CancellationToken cancellationToken = default)
     {
         if (artefactStore == null) throw new ArgumentNullException(nameof(artefactStore));
-        if (options == null) throw new ArgumentNullException(nameof(options));
+        if (string.IsNullOrWhiteSpace(sourceFilePath)) throw new ArgumentNullException(nameof(sourceFilePath));
+        if (!File.Exists(sourceFilePath)) throw new FileNotFoundException("Scenario config file not found.", sourceFilePath);
 
         using var activity = ActivitySource.StartActivity("config.write");
         activity?.SetTag("operation", "write");
         activity?.SetTag("force", force);
 
-        _logger.LogInformation("Writing config to package via {Path} (force={Force})", PackagePaths.MigrationConfigFileName, force);
+        _logger.LogInformation("Copying config file to package (force={Force})", force);
         var sw = Stopwatch.StartNew();
 
         try
@@ -97,17 +61,17 @@ internal sealed class PackageConfigStore : IPackageConfigStore
                     "Re-submit is not permitted without --force.");
             }
 
-            var wrapper = new MigrationOptionsWrapper { MigrationPlatform = options };
-            var json = JsonSerializer.Serialize(wrapper, GetWriteOptions());
+            var rawJson = await File.ReadAllTextAsync(sourceFilePath, cancellationToken)
+                .ConfigureAwait(false);
 
-            await artefactStore.WriteAsync(PackagePaths.MigrationConfigFileName, json, cancellationToken)
+            await artefactStore.WriteAsync(PackagePaths.MigrationConfigFileName, rawJson, cancellationToken)
                 .ConfigureAwait(false);
 
             sw.Stop();
             var emptyTags = default(TagList);
             _metrics?.RecordConfigWriteCompleted(in emptyTags);
             activity?.SetTag("outcome", "success");
-            _logger.LogInformation("Config written to package in {DurationMs}ms", sw.ElapsedMilliseconds);
+            _logger.LogInformation("Config copied to package in {DurationMs}ms", sw.ElapsedMilliseconds);
         }
         catch (InvalidOperationException)
         {
@@ -121,7 +85,7 @@ internal sealed class PackageConfigStore : IPackageConfigStore
             var emptyTags = default(TagList);
             _metrics?.RecordConfigWriteError(in emptyTags);
             activity?.SetTag("outcome", "error");
-            _logger.LogError("Failed to write config to package");
+            _logger.LogError("Failed to copy config to package");
             throw;
         }
     }
@@ -209,10 +173,5 @@ internal sealed class PackageConfigStore : IPackageConfigStore
             _logger.LogError("Failed to parse migration-config.json");
             throw;
         }
-    }
-
-    private sealed class MigrationOptionsWrapper
-    {
-        public MigrationOptions? MigrationPlatform { get; set; }
     }
 }

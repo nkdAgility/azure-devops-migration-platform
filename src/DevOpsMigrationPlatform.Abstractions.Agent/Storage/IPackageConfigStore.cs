@@ -1,6 +1,5 @@
 using System.Threading;
 using System.Threading.Tasks;
-using DevOpsMigrationPlatform.Abstractions.Options;
 using Microsoft.Extensions.Configuration;
 
 namespace DevOpsMigrationPlatform.Abstractions.Agent.Storage;
@@ -25,8 +24,10 @@ namespace DevOpsMigrationPlatform.Abstractions.Agent.Storage;
 public interface IPackageConfigStore
 {
     /// <summary>
-    /// Writes the full <paramref name="options"/> as JSON to <c>migration-config.json</c>
-    /// at the root of <paramref name="artefactStore"/>.
+    /// Copies the raw scenario config file at <paramref name="sourceFilePath"/> verbatim
+    /// to <c>migration-config.json</c> at the root of <paramref name="artefactStore"/>.
+    /// No deserialization or re-serialization is performed — every byte is preserved exactly,
+    /// including Tools, Generator, and any future sections not present in <c>MigrationOptions</c>.
     /// </summary>
     /// <remarks>
     /// Throws <see cref="System.InvalidOperationException"/> if the file already exists
@@ -34,16 +35,16 @@ public interface IPackageConfigStore
     /// (FR-012 — must not silently overwrite; the CLI must surface this as an error and
     /// require <c>--force</c> before overwriting).
     /// When <paramref name="force"/> is <c>true</c> the existing file is overwritten.
-    /// Credential fields in <paramref name="options"/> are written to the file but
+    /// Credential fields in the source file are written verbatim but
     /// MUST NOT appear in any log output (O-3 security constraint).
     /// </remarks>
     /// <param name="artefactStore">The package store to write to.</param>
-    /// <param name="options">The fully resolved migration options to serialise.</param>
+    /// <param name="sourceFilePath">Absolute path to the scenario config file to copy.</param>
     /// <param name="force">When <c>true</c>, overwrite an existing file instead of throwing.</param>
     /// <param name="cancellationToken">Propagated cancellation token.</param>
     Task WriteAsync(
         IArtefactStore artefactStore,
-        MigrationOptions options,
+        string sourceFilePath,
         bool force = false,
         CancellationToken cancellationToken = default);
 
