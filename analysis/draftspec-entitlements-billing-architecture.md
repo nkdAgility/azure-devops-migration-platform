@@ -3,7 +3,7 @@ title: Entitlements & Billing Architecture Specification
 id: spec-ENT-001
 status: draft
 owner: ControlPlane
-version: 1.1
+version: 1.2
 ---
 
 # 1. Purpose
