@@ -6,14 +6,13 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Telemetry
 {
     /// <summary>
     /// Writes exported <see cref="Activity"/> spans to a text file for agent diagnostics.
-    /// 
     /// </summary>
-    public sealed class FileTraceExporter : BaseExporter<Activity>
+    public sealed class DiagnosticsFileTraceExporter : BaseExporter<Activity>
     {
         private readonly StreamWriter _writer;
         private readonly object _lock = new object();
 
-        public FileTraceExporter(string filePath)
+        public DiagnosticsFileTraceExporter(string filePath)
         {
             var dir = Path.GetDirectoryName(filePath);
             if (dir is not null && dir.Length > 0)

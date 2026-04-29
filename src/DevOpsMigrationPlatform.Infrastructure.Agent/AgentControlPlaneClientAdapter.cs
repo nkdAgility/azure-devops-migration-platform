@@ -1,23 +1,19 @@
 using System;
-using System.Collections.Generic;
 using System.Net.Http;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
-using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.ControlPlaneApi;
-using DevOpsMigrationPlatform.Abstractions.Streaming;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Agent;
 
 /// <summary>
-/// Minimal <see cref="IControlPlaneClient"/> adapter for the Migration Agent.
-/// Uses the "ControlPlane" named <see cref="HttpClient"/> to call control-plane endpoints.
-/// Implements <see cref="IsAgentActiveAsync"/> for stale-lock detection by
-/// <c>PackageLockFileService</c>. Other methods are not needed by the agent and
-/// throw <see cref="NotSupportedException"/>.
+/// Minimal <see cref="IControlPlaneAgentClient"/> adapter for the Migration Agent.
+/// Uses the "ControlPlane" named <see cref="HttpClient"/> to call the agent-status endpoint.
+/// Implements <see cref="IControlPlaneAgentClient.IsAgentActiveAsync"/> for stale-lock detection
+/// by <c>PackageLockFileService</c>.
 /// </summary>
-public sealed class AgentControlPlaneClientAdapter : IControlPlaneClient
+public sealed class AgentControlPlaneClientAdapter : IControlPlaneAgentClient
 {
     private readonly IHttpClientFactory _httpClientFactory;
 
@@ -39,7 +35,7 @@ public sealed class AgentControlPlaneClientAdapter : IControlPlaneClient
 
             if (!response.IsSuccessStatusCode) return false;
 
-            #if NET481
+#if NET481
             var json = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
 #else
             var json = await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
@@ -54,29 +50,5 @@ public sealed class AgentControlPlaneClientAdapter : IControlPlaneClient
             return false; // treat network errors as stale
         }
     }
-
-    // The following methods are implemented by CLI's ControlPlaneClient.
-    // The agent uses HttpClient directly for job polling — these are not needed here.
-
-    Task<IReadOnlyList<JobSummary>> IControlPlaneClient.GetAllJobsAsync(CancellationToken ct)
-        => throw new NotSupportedException("GetAllJobsAsync is not supported in the agent adapter.");
-
-    Task<JobMetrics?> IControlPlaneClient.GetTelemetryAsync(Guid jobId, CancellationToken ct)
-        => throw new NotSupportedException("GetTelemetryAsync is not supported in the agent adapter.");
-
-    IAsyncEnumerable<ProgressEvent> IControlPlaneClient.FollowLogsAsync(
-        Guid jobId,
-        CancellationToken ct,
-        long? lastEventSequence)
-        => throw new NotSupportedException("FollowLogsAsync is not supported in the agent adapter.");
-
-    IAsyncEnumerable<DiagnosticLogRecord> IControlPlaneClient.StreamDiagnosticsAsync(
-        Guid jobId,
-        string? level,
-        CancellationToken ct)
-        => throw new NotSupportedException("StreamDiagnosticsAsync is not supported in the agent adapter.");
-
-    Task<JobBootstrap?> IControlPlaneClient.GetBootstrapAsync(Guid jobId, CancellationToken ct)
-        => throw new NotSupportedException("GetBootstrapAsync is not supported in the agent adapter.");
 }
 

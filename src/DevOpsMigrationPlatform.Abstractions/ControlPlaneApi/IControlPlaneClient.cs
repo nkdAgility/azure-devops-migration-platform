@@ -25,13 +25,6 @@ public interface IControlPlaneClient
     IAsyncEnumerable<DiagnosticLogRecord> StreamDiagnosticsAsync(Guid jobId, string? level, CancellationToken ct);
 
     /// <summary>
-    /// Checks whether the agent with <paramref name="agentInstanceId"/> is currently active.
-    /// Used by <c>PackageLockFileService</c> to distinguish live locks from stale locks.
-    /// Returns <see langword="false"/> if the status cannot be determined.
-    /// </summary>
-    Task<bool> IsAgentActiveAsync(string agentInstanceId, CancellationToken ct);
-
-    /// <summary>
     /// Returns the bootstrap payload for a job (snapshot + metrics + last event sequence),
     /// or <c>null</c> when the job has not yet emitted any telemetry.
     /// Calls <c>GET /jobs/{jobId}/bootstrap</c>.

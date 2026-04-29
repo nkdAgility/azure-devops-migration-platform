@@ -91,7 +91,7 @@ namespace DevOpsMigrationPlatform.TfsMigrationAgent
                     if (dir is not null)
                         Directory.CreateDirectory(dir);
                     metrics.AddReader(new PeriodicExportingMetricReader(
-                        new FileMetricExporter(metricsFile), exportIntervalMilliseconds: 2_000));
+                        new DiagnosticsFileMetricExporter(metricsFile), exportIntervalMilliseconds: 2_000));
                 }
             });
 
@@ -119,7 +119,7 @@ namespace DevOpsMigrationPlatform.TfsMigrationAgent
                     if (dir is not null)
                         Directory.CreateDirectory(dir);
                     tracing.AddProcessor(new SimpleActivityExportProcessor(
-                        new FileTraceExporter(tracesFile)));
+                        new DiagnosticsFileTraceExporter(tracesFile)));
                 }
             });
 

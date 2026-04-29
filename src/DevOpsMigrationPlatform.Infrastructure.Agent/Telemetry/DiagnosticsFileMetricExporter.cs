@@ -7,12 +7,12 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Telemetry
     /// <summary>
     /// Writes exported <see cref="Metric"/> snapshots to a text file for agent diagnostics.
     /// </summary>
-    public sealed class FileMetricExporter : BaseExporter<Metric>
+    public sealed class DiagnosticsFileMetricExporter : BaseExporter<Metric>
     {
         private readonly StreamWriter _writer;
         private readonly object _lock = new object();
 
-        public FileMetricExporter(string filePath)
+        public DiagnosticsFileMetricExporter(string filePath)
         {
             var dir = Path.GetDirectoryName(filePath);
             if (dir is not null && dir.Length > 0)

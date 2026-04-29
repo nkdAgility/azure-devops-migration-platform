@@ -2,6 +2,7 @@ using System;
 using DevOpsMigrationPlatform.Abstractions.Agent.Checkpointing;
 using DevOpsMigrationPlatform.Abstractions.Agent.Lease;
 using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
+using DevOpsMigrationPlatform.Abstractions.ControlPlaneApi;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Checkpointing;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Storage;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Telemetry;
@@ -27,7 +28,7 @@ public static class CoreAgentServiceExtensions
     ///   <item>Named <c>"ControlPlane"</c> <see cref="System.Net.Http.HttpClient"/> (optionally configured via <paramref name="configureControlPlane"/>).</item>
     ///   <item><see cref="ControlPlaneProgressSink"/>, <see cref="PackageProgressSink"/>, and <see cref="CompositeProgressSink"/> as <c>IProgressSink</c>.</item>
     ///   <item><see cref="IPhaseTrackingServiceFactory"/>, <see cref="IPackageStoreFactory"/>, <see cref="ICheckpointingServiceFactory"/>.</item>
-    ///   <item>Diagnostic log pipeline (<see cref="DiagnosticsServiceExtensions.AddDiagnosticsServices(IServiceCollection)"/>).</item>
+    ///   <item>Diagnostic log pipeline (<see cref="DiagnosticsServiceExtensions.AddDiagnosticsServices(IServiceCollection, Uri)"/>).</item>
     ///   <item><see cref="ControlPlaneTelemetryTimer"/> background service.</item>
     /// </list>
     /// </summary>
@@ -63,6 +64,11 @@ public static class CoreAgentServiceExtensions
             client => client.BaseAddress = controlPlaneBaseUrl);
         configureControlPlane?.Invoke(controlPlaneHttpBuilder);
 
+        // Agent-side control-plane client — used for stale-lock detection by PackageLockFileService.
+        services.AddSingleton<AgentControlPlaneClientAdapter>();
+        services.AddSingleton<IControlPlaneAgentClient>(sp =>
+            sp.GetRequiredService<AgentControlPlaneClientAdapter>());
+
         // Progress streaming to the Control Plane ring buffer.
         services.AddControlPlaneProgressSink(controlPlaneBaseUrl);
 
@@ -76,8 +82,7 @@ public static class CoreAgentServiceExtensions
         services.AddSingleton<ICheckpointingServiceFactory, CheckpointingServiceFactory>();
 
         // Diagnostic log pipeline (writes to Logs/agent.jsonl and pushes to control plane).
-        services.AddDiagnosticsServices();
-        services.ConfigureControlPlaneLoggerClient(controlPlaneBaseUrl);
+        services.AddDiagnosticsServices(controlPlaneBaseUrl);
 
         // Package progress persistence — writes ProgressEvent NDJSON to Logs/progress.jsonl.
         services.AddSingleton<PackageProgressSink>();

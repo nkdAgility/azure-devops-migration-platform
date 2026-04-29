@@ -51,9 +51,12 @@ public static class DiagnosticsServiceExtensions
     /// Registers the same diagnostic log pipeline as
     /// <see cref="AddDiagnosticsServices(IHostApplicationBuilder)"/> but registers
     /// <see cref="ILoggerProvider"/> directly on the service collection.
+    /// Configures the <see cref="ControlPlaneLoggerProvider"/> <see cref="System.Net.Http.HttpClient"/>
+    /// base address to <paramref name="controlPlaneBaseUrl"/>.
     /// </summary>
     public static IServiceCollection AddDiagnosticsServices(
-        this IServiceCollection services)
+        this IServiceCollection services,
+        Uri controlPlaneBaseUrl)
     {
         services.AddOptions<DiagnosticLogOptions>()
             .BindConfiguration(DiagnosticLogOptions.SectionName);
@@ -68,23 +71,10 @@ public static class DiagnosticsServiceExtensions
         services.AddSingleton<IHostedService>(sp => sp.GetRequiredService<ControlPlaneLoggerProvider>());
         services.AddSingleton<ILoggerProvider>(sp => sp.GetRequiredService<ControlPlaneLoggerProvider>());
 
-        // Named HttpClient for the diagnostics endpoint (base address set via ConfigureControlPlaneLoggerClient).
-        services.AddHttpClient(ControlPlaneLoggerProvider.HttpClientName);
-
-        return services;
-    }
-
-    /// <summary>
-    /// Configures the <see cref="ControlPlaneLoggerProvider"/> named <see cref="System.Net.Http.HttpClient"/>
-    /// with the specified control plane base address.
-    /// Call this after <see cref="AddDiagnosticsServices"/> to set the target endpoint.
-    /// </summary>
-    public static IServiceCollection ConfigureControlPlaneLoggerClient(
-        this IServiceCollection services,
-        Uri controlPlaneBaseUrl)
-    {
+        // Named HttpClient for the diagnostics endpoint.
         services.AddHttpClient(ControlPlaneLoggerProvider.HttpClientName,
             client => client.BaseAddress = controlPlaneBaseUrl);
+
         return services;
     }
 }
