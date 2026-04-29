@@ -81,12 +81,6 @@ public sealed class DependencyCommand : ControlPlaneCommandBase<DependencyComman
                     Endpoint = o.ToEndpointOptions(),
                     Projects = new List<string>(o.Projects)
                 }).ToList(),
-            Policies = new JobPolicies
-            {
-                MaxRetries = discoveryOpts.Policies.Retries.Max,
-                MaxConcurrency = discoveryOpts.Policies.Throttle.MaxConcurrency,
-                CheckpointIntervalSeconds = discoveryOpts.Policies.Checkpoints.Interval
-            },
             Package = new JobPackage { PackageUri = packageUri }
         };
 

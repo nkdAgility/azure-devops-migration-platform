@@ -5,6 +5,7 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Modules;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
@@ -25,7 +26,6 @@ public class DependencyDiscoveryModuleResumeTests
         ConfigVersion = "1.0",
         DiscoveryType = DiscoveryJobType.Dependencies,
         Organisations = new List<ScopedOrganisationEndpoint>(),
-        Policies = new JobPolicies { CheckpointIntervalSeconds = 60 },
         Package = new JobPackage { PackageUri = "file:///tmp/pkg" }
     };
 
@@ -315,16 +315,14 @@ public class DependencyDiscoveryModuleResumeTests
             .Returns(SingleEventAsync(heartbeat));
 
         var job = MakeJob();
-        // Checkpoint interval of 0 to force an immediate checkpoint write after the heartbeat
-        var jobWithZeroInterval = new DiscoveryJob
+        // Checkpoint interval of 0 forces an immediate checkpoint write after the heartbeat.
+        // Supply interval=0 via IOptions<DiscoveryOptions> since job.Policies no longer exists.
+        var zeroIntervalOpts = Microsoft.Extensions.Options.Options.Create(new DiscoveryOptions
         {
-            JobId = job.JobId,
-            ConfigVersion = job.ConfigVersion,
-            DiscoveryType = job.DiscoveryType,
-            Organisations = job.Organisations,
-            Policies = new JobPolicies { CheckpointIntervalSeconds = 0 },
-            Package = job.Package
-        };
+            Policies = new MigrationPoliciesOptions { Checkpoints = new MigrationCheckpointsOptions { Interval = 0 } }
+        });
+
+        var jobWithZeroInterval = job; // Policies now come from DI, not the job
 
         var mockFactory = new Mock<IDependencyDiscoveryServiceFactory>(MockBehavior.Strict);
         mockFactory.Setup(f => f.Create(
@@ -334,7 +332,8 @@ public class DependencyDiscoveryModuleResumeTests
 
         var sut = new DependencyDiscoveryModule(
             mockFactory.Object,
-            NullLogger<DependencyDiscoveryModule>.Instance);
+            NullLogger<DependencyDiscoveryModule>.Instance,
+            discoveryOptions: zeroIntervalOpts);
 
         var ctx = new DiscoveryContext
         {

@@ -22,6 +22,8 @@ using DevOpsMigrationPlatform.Abstractions.Telemetry;
 using DevOpsMigrationPlatform.Infrastructure.Agent;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Telemetry;
 using DevOpsMigrationPlatform.Infrastructure.TfsObjectModel;
+using DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.Options;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 
 namespace DevOpsMigrationPlatform.TfsMigrationAgent;
@@ -51,6 +53,8 @@ public sealed class TfsJobAgentWorker : ModulePipelineWorkerBase
         IProgressSink progressSink,
         ActiveLeaseState leaseState,
         ActivePackageState packageState,
+        ActiveJobConfigState activeJobConfig,
+        IPackageConfigStore packageConfigStore,
         IHttpClientFactory httpClientFactory,
         ICheckpointingServiceFactory checkpointingFactory,
         IPhaseTrackingServiceFactory phaseTrackingFactory,
@@ -60,7 +64,8 @@ public sealed class TfsJobAgentWorker : ModulePipelineWorkerBase
         ActiveTfsJobServices activeTfsJobServices,
         ILogger<TfsJobAgentWorker> logger)
         : base(migrationModules, packageStoreFactory, progressSink, checkpointingFactory,
-               phaseTrackingFactory, leaseState, packageState, httpClientFactory, logger)
+               phaseTrackingFactory, leaseState, packageState, activeJobConfig, packageConfigStore,
+               httpClientFactory, logger)
     {
         _packageProgressSink = packageProgressSink;
         _packageLoggerProvider = packageLoggerProvider;
@@ -85,13 +90,6 @@ public sealed class TfsJobAgentWorker : ModulePipelineWorkerBase
     protected override async Task OnMigrationJobAsync(
         MigrationJob job, HttpClient controlPlane, string leaseId, CancellationToken ct)
     {
-        if (job.Source == null)
-        {
-            _logger.LogError("Job {JobId} has no Source endpoint — failing.", job.JobId);
-            await SignalTerminalAsync(controlPlane, leaseId, "fail", ct).ConfigureAwait(false);
-            return;
-        }
-
         // TFS agent supports Export mode only.
         if (!string.Equals(job.Mode, "Export", StringComparison.OrdinalIgnoreCase))
         {
@@ -110,13 +108,39 @@ public sealed class TfsJobAgentWorker : ModulePipelineWorkerBase
     /// <inheritdoc/>
     protected override Task OnBeforeModulesAsync(MigrationJob job, CancellationToken ct)
     {
+        // Bind the concrete TFS source endpoint from the raw IConfiguration stored in the
+        // ambient state (IConfiguration.Bind cannot instantiate abstract MigrationEndpointOptions).
+        var section = ActiveJobConfig.PackageConfig?.GetSection("MigrationPlatform:Source");
+        TeamFoundationServerEndpointOptions? source = null;
+
+        if (section != null && section.Exists() && !string.IsNullOrEmpty(section["Url"]))
+            source = BindTfsSource(section);
+
+        source ??= (ActiveJobConfig.Current?.Source as TeamFoundationServerEndpointOptions);
+
+        if (source == null || string.IsNullOrEmpty(source.Url))
+            throw new InvalidOperationException(
+                $"Job {job.JobId}: migration-config.json has no Source endpoint. Cannot establish TFS connection.");
+
+        // Make the concrete source available on the ambient MigrationOptions so modules
+        // that read _activeJobConfig?.Current?.Source get the correct endpoint.
+        if (ActiveJobConfig.Current != null)
+            ActiveJobConfig.Current.Source = source;
+
         _logger.LogInformation(
             "Connecting to TFS for job {JobId} at {Url}/{Project}.",
-            job.JobId, job.Source!.GetResolvedUrl(), job.Source.GetProject());
+            job.JobId, source.GetResolvedUrl(), source.GetProject());
 
-        _currentTfsServices = _tfsServiceFactory.CreateForEndpoint(job.Source!);
+        _currentTfsServices = _tfsServiceFactory.CreateForEndpoint(source);
         _activeTfsJobServices.Current = _currentTfsServices;
         return Task.CompletedTask;
+    }
+
+    private static TeamFoundationServerEndpointOptions BindTfsSource(IConfiguration section)
+    {
+        var opts = new TeamFoundationServerEndpointOptions();
+        section.Bind(opts);
+        return opts;
     }
 
     /// <inheritdoc/>

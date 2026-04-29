@@ -54,7 +54,7 @@ public sealed class PrepareCommand : ControlPlaneCommandBase<MigrationCommandSet
         {
             JobId = Guid.NewGuid().ToString(),
             Mode = "Prepare",
-            Source = config.Source,
+            SourceType = config.Source?.Type ?? string.Empty,
             Package = new JobPackage
             {
                 PackageUri = $"file:///{outputPath.Replace(Path.DirectorySeparatorChar, '/')}",

@@ -24,6 +24,7 @@ This resolution is performed by `PathUtilities.ExtractOrgFolderName()` and appli
 ```
 PackageRoot/
   manifest.json
+  migration-config.json   ← tool configuration written by CLI before job submission; read by Agent at job start (feature 025-agent-config-package)
   WorkItems/
   Nodes/
     referenced-paths.json   ← all area/iteration paths referenced by exported work item revisions

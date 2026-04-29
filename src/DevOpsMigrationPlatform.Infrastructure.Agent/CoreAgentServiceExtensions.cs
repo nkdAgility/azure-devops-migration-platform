@@ -48,6 +48,7 @@ public static class CoreAgentServiceExtensions
         // Ambient singletons shared across services within a lease/job lifecycle.
         services.AddSingleton<ActiveLeaseState>();
         services.AddSingleton<ActivePackageState>();
+        services.AddSingleton<ActiveJobConfigState>();
 
         // Agent telemetry (IMigrationMetrics, IDiscoveryMetrics, TelemetryOptions).
         services.AddAgentTelemetryServices(configuration);

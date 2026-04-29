@@ -6,6 +6,7 @@ using System.Threading;
 using System.Threading.Channels;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
 using DevOpsMigrationPlatform.CLI.Commands;
 using DevOpsMigrationPlatform.CLI.JobRunners;
 using DevOpsMigrationPlatform.CLI.Migration.Options;
@@ -13,6 +14,8 @@ using DevOpsMigrationPlatform.CLI.Migration.Settings;
 using DevOpsMigrationPlatform.CLI.Migration.Configuration;
 using DevOpsMigrationPlatform.CLI.Views;
 using DevOpsMigrationPlatform.Infrastructure.Config;
+using DevOpsMigrationPlatform.Infrastructure.Agent;
+using DevOpsMigrationPlatform.Infrastructure.Agent.Storage;
 using DevOpsMigrationPlatform.Abstractions.ControlPlaneApi;
 using DevOpsMigrationPlatform.Abstractions.Validation;
 using Microsoft.Extensions.DependencyInjection;
@@ -55,6 +58,9 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
             services.AddTransient<IJobSubmissionClient>(sp => sp.GetRequiredService<ControlPlaneClient>());
 
             services.AddSingleton<IProgressSink, AnsiProgressSink>();
+
+            // Package config store — writes migration-config.json before job submission.
+            services.AddPackageConfigStore();
         });
 
         var config = await LoadConfigurationAsync(settings, cancellationToken);
@@ -107,17 +113,21 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
 
         var modules = BuildModules(config);
 
+        // Write migration-config.json to the package before submitting.
+        var packageConfigStore = GetRequiredService<IPackageConfigStore>();
+        var packageStore = new FileSystemArtefactStore(outputPath);
+        await packageConfigStore.WriteAsync(packageStore, config, cancellationToken);
+
         var job = new MigrationJob
         {
             JobId = Guid.NewGuid().ToString(),
             Mode = "Import",
-            Target = config.Target,
+            SourceType = config.Source?.Type ?? string.Empty,
             Package = new JobPackage
             {
                 PackageUri = $"file:///{outputPath.Replace(Path.DirectorySeparatorChar, '/')}",
                 CreatePackage = config.Package!.CreatePackage
             },
-            Modules = modules,
             Diagnostics = new JobDiagnostics { MinimumLevel = settings.Level },
             Resume = settings.ForceFresh ? new JobResume { Mode = ResumeMode.ForceFresh } : null
         };
@@ -232,18 +242,21 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
 
         var modules = BuildModules(config);
 
+        // Write migration-config.json to the package before submitting.
+        var packageConfigStore = GetRequiredService<IPackageConfigStore>();
+        var packageStore = new FileSystemArtefactStore(outputPath);
+        await packageConfigStore.WriteAsync(packageStore, config, cancellationToken);
+
         var job = new MigrationJob
         {
             JobId = Guid.NewGuid().ToString(),
             Mode = "Prepare",
-            Source = config.Source,
-            Target = config.Target,
+            SourceType = config.Source?.Type ?? string.Empty,
             Package = new JobPackage
             {
                 PackageUri = $"file:///{outputPath.Replace(Path.DirectorySeparatorChar, '/')}",
                 CreatePackage = config.Package!.CreatePackage
             },
-            Modules = modules,
             Diagnostics = new JobDiagnostics { MinimumLevel = settings.Level },
             Resume = settings.ForceFresh ? new JobResume { Mode = ResumeMode.ForceFresh } : null
         };
@@ -352,17 +365,21 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
 
         var modules = BuildModules(config);
 
+        // Write migration-config.json to the package before submitting.
+        var packageConfigStore = GetRequiredService<IPackageConfigStore>();
+        var packageStore = new FileSystemArtefactStore(outputPath);
+        await packageConfigStore.WriteAsync(packageStore, config, cancellationToken);
+
         var job = new MigrationJob
         {
             JobId = Guid.NewGuid().ToString(),
             Mode = "Export",
-            Source = config.Source,
+            SourceType = config.Source?.Type ?? string.Empty,
             Package = new JobPackage
             {
                 PackageUri = $"file:///{outputPath.Replace(Path.DirectorySeparatorChar, '/')}",
                 CreatePackage = config.Package.CreatePackage
             },
-            Modules = modules,
             Diagnostics = new JobDiagnostics { MinimumLevel = settings.Level },
             Resume = settings.ForceFresh ? new JobResume { Mode = ResumeMode.ForceFresh } : null
         };
@@ -488,18 +505,22 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
 
         var totalWorkItems = 0;
 
+        // Write migration-config.json to the package before submitting.
+        var packageConfigStore = GetRequiredService<IPackageConfigStore>();
+        var packageStore = new FileSystemArtefactStore(outputPath);
+        await packageConfigStore.WriteAsync(packageStore, config, cancellationToken);
+
         // Build MigrationJob — no migration logic here.
         var job = new MigrationJob
         {
             JobId = Guid.NewGuid().ToString(),
             Mode = "Export",
-            Source = config.Source,
+            SourceType = config.Source?.Type ?? string.Empty,
             Package = new JobPackage
             {
                 PackageUri = $"file:///{outputPath.Replace(Path.DirectorySeparatorChar, '/')}",
                 CreatePackage = config.Package.CreatePackage
             },
-            Modules = modules,
             Diagnostics = new JobDiagnostics { MinimumLevel = settings.Level },
             Resume = settings.ForceFresh ? new JobResume { Mode = ResumeMode.ForceFresh } : null
         };

@@ -8,6 +8,7 @@ using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Agent.Checkpointing;
 using DevOpsMigrationPlatform.Abstractions.Agent.Export;
 using DevOpsMigrationPlatform.Abstractions.Agent.Import;
+using DevOpsMigrationPlatform.Abstractions.Agent.Lease;
 using DevOpsMigrationPlatform.Abstractions.Agent.Modules;
 using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
@@ -47,6 +48,11 @@ public sealed class NodesModule : IModule
     private readonly ICheckpointingServiceFactory? _checkpointingFactory;
     private readonly ILogger<NodesModule> _logger;
     private readonly NodesModuleOptions _options;
+    // On net481 this field is injected via the base worker's static ambient state;
+    // the DI parameter does not exist on that TF so the field stays null.
+#pragma warning disable CS0649
+    private readonly ActiveJobConfigState? _activeJobConfig;
+#pragma warning restore CS0649
 
     public string Name => ModuleName;
     public IReadOnlyList<string> DependsOn => Array.Empty<string>();
@@ -61,6 +67,7 @@ public sealed class NodesModule : IModule
         ICheckpointingServiceFactory? checkpointingFactory = null
 #if !NET481
         , IMigrationMetrics? migrationMetrics = null
+        , ActiveJobConfigState? activeJobConfig = null
 #endif
         )
     {
@@ -70,6 +77,7 @@ public sealed class NodesModule : IModule
 #if !NET481
         _nodeEnsurer = nodeEnsurer;
         _migrationMetrics = migrationMetrics;
+        _activeJobConfig = activeJobConfig;
 #endif
         _checkpointingFactory = checkpointingFactory;
     }
@@ -96,11 +104,11 @@ public sealed class NodesModule : IModule
         {
             Module = ModuleName,
             Stage = "Nodes.Export.Started",
-            Message = $"Starting node tree capture for project '{context.Job.Source?.GetProject()}'.",
+            Message = $"Starting node tree capture for project '{_activeJobConfig?.Current?.Source?.GetProject()}'.",
         });
 
-        var endpoint = context.Job.Source
-            ?? throw new InvalidOperationException("Job.Source is required for node export.");
+        var endpoint = _activeJobConfig?.Current?.Source
+            ?? throw new InvalidOperationException("ActiveJobConfigState.Current.Source is required for node export — ensure migration-config.json is present.");
 
         // Idempotency: skip if already completed.
         if (_checkpointingFactory is not null)
@@ -171,8 +179,8 @@ public sealed class NodesModule : IModule
 
         using var activity = s_activitySource.StartActivity("nodes.import");
 
-        var endpoint = context.Job.Target
-            ?? throw new InvalidOperationException("Job.Target is required for node import.");
+        var endpoint = _activeJobConfig?.Current?.Target
+            ?? throw new InvalidOperationException("ActiveJobConfigState.Current.Target is required for node import — ensure migration-config.json is present.");
 
         var importSink = context.ProgressSink;
         importSink?.Emit(new ProgressEvent
@@ -183,7 +191,7 @@ public sealed class NodesModule : IModule
         });
 
         var project = endpoint.GetProject();
-        var sourceProject = context.Job.Source?.GetProject() ?? project;
+        var sourceProject = _activeJobConfig?.Current?.Source?.GetProject() ?? project;
         var mapping = new ProjectMapping(sourceProject, project);
 
         if (_options.ReplicateSourceTree)

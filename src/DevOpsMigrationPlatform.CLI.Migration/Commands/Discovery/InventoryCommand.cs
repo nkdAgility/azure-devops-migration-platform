@@ -88,12 +88,6 @@ public sealed class InventoryCommand : ControlPlaneCommandBase<InventoryCommand.
                             kvp => (object?)kvp.Value)
                     }).ToList()
                 }).ToList(),
-            Policies = new JobPolicies
-            {
-                MaxRetries = discoveryOpts.Policies.Retries.Max,
-                MaxConcurrency = discoveryOpts.Policies.Throttle.MaxConcurrency,
-                CheckpointIntervalSeconds = discoveryOpts.Policies.Checkpoints.Interval
-            },
             Package = new JobPackage { PackageUri = packageUri }
         };
 

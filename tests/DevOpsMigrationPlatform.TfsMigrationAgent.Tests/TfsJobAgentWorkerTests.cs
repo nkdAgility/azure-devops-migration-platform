@@ -26,6 +26,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.TeamFoundation.Client;
+using Microsoft.Extensions.Configuration;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Moq;
 
@@ -70,6 +71,7 @@ public class TfsJobAgentWorkerTests
     private Mock<IArtefactStore> _artefactStore = null!;
     private Mock<IStateStore> _stateStore = null!;
     private Mock<ICheckpointingService> _checkpointer = null!;
+    private Mock<IPackageConfigStore> _packageConfigStore = null!;
     private ActiveLeaseState _leaseState = null!;
     private ActivePackageState _packageState = null!;
     private PackageProgressSink _packageProgressSink = null!;
@@ -127,6 +129,12 @@ public class TfsJobAgentWorkerTests
             {
                 BaseAddress = new Uri("http://localhost:5100")
             });
+
+        // Package config store — default returns a config with a TFS source.
+        _packageConfigStore = new Mock<IPackageConfigStore>();
+        _packageConfigStore
+            .Setup(s => s.ReadAsync(It.IsAny<IArtefactStore>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(() => BuildTfsSourceConfig(CreateTfsEndpoint()));
     }
 
     private TfsJobAgentWorker CreateWorker(
@@ -136,6 +144,8 @@ public class TfsJobAgentWorkerTests
         _progressSink.Object,
         _leaseState,
         _packageState,
+        new ActiveJobConfigState(),
+        _packageConfigStore.Object,
         _httpClientFactory.Object,
         _checkpointingFactory.Object,
         _phaseTrackingFactory.Object,
@@ -153,7 +163,11 @@ public class TfsJobAgentWorkerTests
     [TestMethod]
     public async Task OnMigrationJob_NullSource_SignalsFail()
     {
-        // Arrange: MigrationJob with no Source
+        // Arrange: package config has no Source — worker should fail during OnBeforeModulesAsync.
+        _packageConfigStore
+            .Setup(s => s.ReadAsync(It.IsAny<IArtefactStore>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(BuildEmptyConfig()); // no Source
+
         var job = new MigrationJob
         {
             JobId = "test-job-1",
@@ -184,7 +198,6 @@ public class TfsJobAgentWorkerTests
         {
             JobId = "test-job-2",
             Mode = "Import",
-            Source = CreateTfsEndpoint(),
             Package = new JobPackage { PackageUri = "." }
         };
 
@@ -212,7 +225,6 @@ public class TfsJobAgentWorkerTests
         {
             JobId = "test-job-3",
             Mode = "Export",
-            Source = endpoint,
             Package = new JobPackage { PackageUri = "." }
         };
 
@@ -278,7 +290,6 @@ public class TfsJobAgentWorkerTests
         {
             JobId = "test-job-4",
             Mode = "Export",
-            Source = endpoint,
             Package = new JobPackage { PackageUri = "." },
             Resume = new JobResume { Mode = ResumeMode.ForceFresh }
         };
@@ -341,7 +352,6 @@ public class TfsJobAgentWorkerTests
         {
             JobId = "test-job-5",
             Mode = "Export",
-            Source = CreateTfsEndpoint(),
             Package = new JobPackage { PackageUri = "." }
         };
 
@@ -449,6 +459,21 @@ public class TfsJobAgentWorkerTests
     }
 
     // ── Helpers ──────────────────────────────────────────────────────────────
+
+    private static IConfiguration BuildTfsSourceConfig(TeamFoundationServerEndpointOptions source)
+        => new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["MigrationPlatform:Source:Type"] = source.Type,
+                ["MigrationPlatform:Source:Url"] = source.Url,
+                ["MigrationPlatform:Source:Project"] = source.Project,
+                ["MigrationPlatform:Source:Authentication:Type"] = source.Authentication?.Type.ToString(),
+                ["MigrationPlatform:Source:Authentication:AccessToken"] = source.Authentication?.AccessToken,
+            })
+            .Build();
+
+    private static IConfiguration BuildEmptyConfig()
+        => new ConfigurationBuilder().Build();
 
     private static TeamFoundationServerEndpointOptions CreateTfsEndpoint() => new()
     {

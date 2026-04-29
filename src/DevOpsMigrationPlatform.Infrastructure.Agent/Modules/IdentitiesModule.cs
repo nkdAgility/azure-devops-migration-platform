@@ -9,6 +9,7 @@ using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Agent.Checkpointing;
 using DevOpsMigrationPlatform.Abstractions.Agent.Export;
 using DevOpsMigrationPlatform.Abstractions.Agent.Import;
+using DevOpsMigrationPlatform.Abstractions.Agent.Lease;
 using DevOpsMigrationPlatform.Abstractions.Agent.Modules;
 using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
@@ -53,6 +54,7 @@ public sealed class IdentitiesModule : IModule
     private readonly ICheckpointingServiceFactory? _checkpointingFactory;
     private readonly ILogger<IdentitiesModule> _logger;
     private readonly IdentitiesModuleOptions _options;
+    private readonly ActiveJobConfigState? _activeJobConfig;
 
     public string Name => ModuleName;
     public IReadOnlyList<string> DependsOn => Array.Empty<string>();
@@ -66,6 +68,7 @@ public sealed class IdentitiesModule : IModule
         , IIdentityLookupTool? identityLookupTool = null
         , IMigrationMetrics? migrationMetrics = null
 #endif
+        , ActiveJobConfigState? activeJobConfig = null
         )
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
@@ -76,6 +79,7 @@ public sealed class IdentitiesModule : IModule
         _identityLookupTool = identityLookupTool;
         _migrationMetrics = migrationMetrics;
 #endif
+        _activeJobConfig = activeJobConfig;
     }
 
     /// <inheritdoc/>
@@ -97,7 +101,7 @@ public sealed class IdentitiesModule : IModule
         var artefactStore = context.ArtefactStore;
         var stateStore = context.StateStore;
 
-        var project = job.Source?.GetProject() ?? string.Empty;
+        var project = _activeJobConfig?.Current?.Source?.GetProject() ?? string.Empty;
 
         // Idempotency: skip if already completed.
         if (_checkpointingFactory is not null)
@@ -140,7 +144,7 @@ public sealed class IdentitiesModule : IModule
         var exportSw = System.Diagnostics.Stopwatch.StartNew();
         try
         {
-            await foreach (var descriptor in _identitySource.EnumerateIdentitiesAsync(job.Source ?? throw new InvalidOperationException("Job.Source required for identity export"), project, ct).ConfigureAwait(false))
+            await foreach (var descriptor in _identitySource.EnumerateIdentitiesAsync(_activeJobConfig?.Current?.Source ?? throw new InvalidOperationException("ActiveJobConfigState.Current.Source required for identity export — ensure migration-config.json is present."), project, ct).ConfigureAwait(false))
             {
                 var line = JsonSerializer.Serialize(descriptor, s_jsonOptions);
                 await artefactStore.AppendAsync(DescriptorsPath, line + "\n", ct).ConfigureAwait(false);

@@ -11,6 +11,7 @@ using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Agent.Checkpointing;
 using DevOpsMigrationPlatform.Abstractions.Agent.Export;
 using DevOpsMigrationPlatform.Abstractions.Agent.Import;
+using DevOpsMigrationPlatform.Abstractions.Agent.Lease;
 using DevOpsMigrationPlatform.Abstractions.Agent.Modules;
 using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
 using DevOpsMigrationPlatform.Abstractions.Agent.Teams;
@@ -63,6 +64,7 @@ public sealed class TeamsModule : IModule
     private readonly IMigrationMetrics? _migrationMetrics;
     private readonly ILogger<TeamsModule> _logger;
     private readonly TeamsModuleOptions _options;
+    private readonly ActiveJobConfigState? _activeJobConfig;
 
     public string Name => ModuleName;
     public IReadOnlyList<string> DependsOn => Array.Empty<string>();
@@ -76,7 +78,8 @@ public sealed class TeamsModule : IModule
         TeamExportOrchestrator? exportOrchestrator = null,
         TeamImportOrchestrator? importOrchestrator = null,
         ICheckpointingServiceFactory? checkpointingFactory = null,
-        IMigrationMetrics? migrationMetrics = null)
+        IMigrationMetrics? migrationMetrics = null,
+        ActiveJobConfigState? activeJobConfig = null)
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _options = options?.Value ?? throw new ArgumentNullException(nameof(options));
@@ -87,6 +90,7 @@ public sealed class TeamsModule : IModule
         _importOrchestrator = importOrchestrator;
         _checkpointingFactory = checkpointingFactory;
         _migrationMetrics = migrationMetrics;
+        _activeJobConfig = activeJobConfig;
     }
 
     /// <inheritdoc/>
@@ -114,7 +118,7 @@ public sealed class TeamsModule : IModule
 
         var job = context.Job;
         var artefactStore = context.ArtefactStore;
-        var projectName = job.Source?.GetProject() ?? string.Empty;
+        var projectName = _activeJobConfig?.Current?.Source?.GetProject() ?? string.Empty;
 
         using (_logger.BeginDataScope(DataClassification.Customer))
             _logger.LogInformation("[Teams] Exporting teams for project '{Project}'.", projectName);
@@ -139,7 +143,7 @@ public sealed class TeamsModule : IModule
 
         var count = 0;
         var skipped = 0;
-        await foreach (var team in _teamSource.EnumerateTeamsAsync(job.Source ?? throw new InvalidOperationException("Job.Source required for export"), projectName, ct).ConfigureAwait(false))
+        await foreach (var team in _teamSource.EnumerateTeamsAsync(_activeJobConfig?.Current?.Source ?? throw new InvalidOperationException("ActiveJobConfigState.Current.Source required for team export — ensure migration-config.json is present."), projectName, ct).ConfigureAwait(false))
         {
             // Apply scope/filter
             if (filterRegex is not null && !filterRegex.IsMatch(team.Name))
@@ -172,7 +176,7 @@ public sealed class TeamsModule : IModule
             try
             {
                 await _exportOrchestrator.ExportTeamAsync(
-                    job.Source!, projectName, team, slug, artefactStore, _options.Extensions, ct).ConfigureAwait(false);
+                    _activeJobConfig?.Current?.Source!, projectName, team, slug, artefactStore, _options.Extensions, ct).ConfigureAwait(false);
 
                 count++;
                 _migrationMetrics?.RecordTeamExportCount(exportTags);
@@ -253,8 +257,8 @@ public sealed class TeamsModule : IModule
         using var activity = s_activitySource.StartActivity("teams.import");
 
         var artefactStore = context.ArtefactStore;
-        var projectName = context.Job.Target?.GetProject() ?? string.Empty;
-        var sourceProjectName = context.Job.Source?.GetProject() ?? projectName;
+        var projectName = _activeJobConfig?.Current?.Target?.GetProject() ?? string.Empty;
+        var sourceProjectName = _activeJobConfig?.Current?.Source?.GetProject() ?? projectName;
 
         using (_logger.BeginDataScope(DataClassification.Customer))
             _logger.LogInformation("[Teams] Importing teams for project '{Project}'.", projectName);
@@ -307,7 +311,7 @@ public sealed class TeamsModule : IModule
             try
             {
                 await _importOrchestrator.ImportTeamAsync(
-                    context.Job.Target ?? throw new InvalidOperationException("Job.Target required for import"),
+                    _activeJobConfig?.Current?.Target ?? throw new InvalidOperationException("ActiveJobConfigState.Current.Target required for team import — ensure migration-config.json is present."),
                     projectName, sourceProjectName, teamPackage, _options.Extensions, ct).ConfigureAwait(false);
 
                 count++;
