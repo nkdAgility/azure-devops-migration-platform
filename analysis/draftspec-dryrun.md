@@ -1,28 +1,29 @@
-# Draft Specification: ExecutionMode — DryRun / Live
+# Draft Specification: ImportType — DryRun / ProductionRun
 
-**Status**: Draft — open questions below must be resolved before promotion to `specs/`  
+**Status**: Draft — all questions resolved; ready for promotion to `specs/`  
 **Created**: 2026-04-29  
-**Author**: Initial draft from design discussion
+**Author**: Initial draft from design discussion; decisions incorporated 2026-04-29
 
 ---
 
 ## Summary
 
-Add a first-class `ExecutionMode` concept to the platform with two values: `DryRun` (default) and `Live`.
+Add a first-class `ImportType` concept to the platform with two values: `DryRun` (default) and `ProductionRun`.
 
-`ExecutionMode` is a **safety guardrail**, not an operator tool. It is set in the config file but its enforcement is performed by the platform at import time — the operator cannot suppress or bypass the effects by overriding `NodeStructure` mappings or `FieldTransform` rules. It makes the system **safe by default**: if an operator forgets to set it or creates a new config file, the import cannot corrupt the live project tree.
+`ImportType` is a **safety guardrail**, not an operator tool. It is set in the config file but its enforcement is performed by the platform at import time — the operator cannot suppress or bypass the effects by overriding `NodeStructure` mappings or `FieldTransform` rules. It makes the system **safe by default**: if an operator forgets to set it or creates a new config file, the import cannot corrupt the live project tree.
 
 ### DryRun effects (applied automatically by the platform at import time)
 
 | What | How |
 |---|---|
 | All work items are placed under a root node `DryRun` in the area/iteration tree | Platform injects a terminal `DryRun\` prefix step **after** all operator `NodeStructure` mappings resolve |
-| All work item titles are prefixed with `[DryRun] ` | Platform injects a terminal `PrependString` transform on `System.Title` **after** all operator `FieldTransform` groups complete |
+| All work item titles are prefixed with `[DRY RUN] ` | Platform injects a terminal `PrependString` transform on `System.Title` **after** all operator `FieldTransform` groups complete |
 | The `DryRun` root node is auto-created if it does not already exist | Platform forces `AutoCreateNodes` equivalent for this single node |
+| Teams area/iteration path assignments use `DryRun\`-prefixed paths | Applied in `TeamsModule.ImportAsync` consistently with `WorkItemsModule` |
 
-### Live effects
+### ProductionRun effects
 
-No platform-injected changes. The operator's config runs as-is.
+No platform-injected changes. The operator's config runs as-is. No confirmation field or CLI flag required — setting `ImportType: ProductionRun` is sufficient.
 
 ---
 
@@ -30,13 +31,13 @@ No platform-injected changes. The operator's config runs as-is.
 
 Affects:
 
-- `MigrationOptions` (config model — new `ExecutionMode` property)
-- `MigrationJob` (job contract — carries `ExecutionMode` to the agent; operator cannot modify on the agent side)
-- `WorkItemsModule.ImportAsync` (enforces title prefix)
-- `NodesModule.ImportAsync` and `NodeEnsurer` (enforces path prefix and `DryRun` node creation)
-- `TeamsModule.ImportAsync` — **open question Q3**
-- `QueueCommand` (copies `ExecutionMode` from config to job contract)
-- `MigrationOptionsValidator` (emits structured `Warning` when `Live` is set)
+- `MigrationOptions` (config model — new `ImportType` property)
+- `MigrationJob` (job contract — carries `ImportType` to the agent; operator cannot modify on the agent side)
+- `WorkItemsModule.ImportAsync` (enforces `[DRY RUN] ` title prefix)
+- `NodesModule.ImportAsync` and `NodeEnsurer` (enforces `DryRun\` path prefix and root node creation)
+- `TeamsModule.ImportAsync` (enforces `DryRun\` area/iteration path assignments)
+- `QueueCommand` (copies `ImportType` from config to job contract)
+- `MigrationOptionsValidator` (emits structured `Warning` when `ProductionRun` is set)
 - `docs/configuration.md` (new top-level field documentation)
 - `.agents/context/job-contract.md` (new contract field)
 
@@ -55,7 +56,19 @@ Does **not** affect:
 ```json
 {
   "MigrationPlatform": {
-    "ExecutionMode": "DryRun",
+    "ImportType": "DryRun",
+    "Mode": "Import",
+    ...
+  }
+}
+```
+
+To run a production import:
+
+```json
+{
+  "MigrationPlatform": {
+    "ImportType": "ProductionRun",
     "Mode": "Import",
     ...
   }
@@ -64,7 +77,7 @@ Does **not** affect:
 
 | Field | Type | Default | Description |
 |---|---|---|---|
-| `ExecutionMode` | `string` | `"DryRun"` | `DryRun` or `Live`. Omitting the field is equivalent to `DryRun`. |
+| `ImportType` | `string` | `"DryRun"` | `DryRun` or `ProductionRun`. Omitting the field is equivalent to `DryRun`. No additional confirmation field is required. |
 
 ---
 
@@ -73,11 +86,11 @@ Does **not** affect:
 ### 1. New enum in `DevOpsMigrationPlatform.Abstractions`
 
 ```csharp
-// Abstractions/Options/ExecutionMode.cs
-public enum ExecutionMode
+// Abstractions/Options/ImportType.cs
+public enum ImportType
 {
     DryRun,
-    Live
+    ProductionRun
 }
 ```
 
@@ -85,23 +98,23 @@ public enum ExecutionMode
 
 ```csharp
 // Default to DryRun (safe by default)
-public ExecutionMode ExecutionMode { get; set; } = ExecutionMode.DryRun;
+public ImportType ImportType { get; set; } = ImportType.DryRun;
 ```
 
 ### 3. `MigrationJob` — add property (carries to agent; init-only)
 
 ```csharp
 // Abstractions/Jobs/MigrationJob.cs
-public ExecutionMode ExecutionMode { get; init; } = ExecutionMode.DryRun;
+public ImportType ImportType { get; init; } = ImportType.DryRun;
 ```
 
-### 4. `QueueCommand.BuildModules` / job construction
+### 4. `QueueCommand` / job construction
 
-Copy `config.ExecutionMode` → `job.ExecutionMode` when constructing the `MigrationJob`. The CLI does not enforce effects — it is a transparent pass-through.
+Copy `config.ImportType` → `job.ImportType` when constructing the `MigrationJob`. The CLI does not enforce effects — it is a transparent pass-through.
 
 ### 5. Node path enforcement (`NodesModule` / `NodeEnsurer`)
 
-When `job.ExecutionMode == DryRun`:
+When `job.ImportType == DryRun`:
 
 - Inject a post-processing step in `NodeEnsurer.EnsureReferencedPathsAsync` and `NodeEnsurer.ReplicateSourceTreeAsync` that wraps every target path as `DryRun\{translatedPath}`.
 - The `DryRun` root node itself must be created if absent (idempotent call to `INodeCreator.EnsureExistsAsync`).
@@ -110,133 +123,70 @@ When `job.ExecutionMode == DryRun`:
 
 ### 6. Work item title enforcement (`WorkItemsModule` / `RevisionFolderProcessor`)
 
-When `job.ExecutionMode == DryRun`:
+When `job.ImportType == DryRun`:
 
-- After the operator `FieldTransformTool.ApplyTransforms` result is obtained, apply a platform-owned `PrependStringTransform("[DryRun] ", "System.Title")` to the output.
+- After the operator `FieldTransformTool.ApplyTransforms` result is obtained, apply a platform-owned `PrependStringTransform("[DRY RUN] ", "System.Title")` to the output.
 - `PrependStringTransform` is a new, simple internal transform (not exposed to operator configuration) that prepends a literal string to a string field. It is idempotent: if the field already starts with the prefix it is not applied again.
 - Log at `Debug` level per work item: `[DryRun] Prepended title prefix for WI {id}`.
 
-**Idempotency requirement**: If the operator re-runs in `DryRun` mode, titles must not accumulate `[DryRun][DryRun]` prefixes. The transform must check before prepending.
+**Idempotency requirement**: If the operator re-runs in `DryRun` mode, titles must not accumulate `[DRY RUN][DRY RUN]` prefixes. The transform checks whether `System.Title` already starts with `[DRY RUN] ` before prepending.
 
-### 7. Validator warning
+### 7. TeamsModule path enforcement
 
-`MigrationOptionsValidator` emits a structured `Warning` log when `ExecutionMode == Live` (never an error — `Live` is a valid choice):
+When `job.ImportType == DryRun`, `TeamsModule.ImportAsync` applies the same `DryRun\` prefix to all area path and iteration path assignments for teams, using the same terminal injection pattern as `NodeEnsurer`.
+
+### 8. Validator warning
+
+`MigrationOptionsValidator` emits a structured `Warning` log when `ImportType == ProductionRun` (never an error — `ProductionRun` is a valid choice):
 
 ```
-WARN [ExecutionMode] ExecutionMode is 'Live'. Work items will be imported without the DryRun prefix and under the real area/iteration tree. Ensure you have reviewed the prepared mapping reports before proceeding.
+WARN [ImportType] ImportType is 'ProductionRun'. Work items will be imported without the DryRun prefix and under the real area/iteration tree. Ensure you have reviewed the prepared mapping reports before proceeding.
 ```
 
-### 8. Observability
+### 9. Observability
 
 | Metric / Span | Where | Description |
 |---|---|---|
-| `migration.execution_mode` tag | All import spans | Low-cardinality tag: `dry_run` or `live` |
-| Structured log at `Information` on import start | `WorkItemsModule.ImportAsync` | `[ExecutionMode] Running import in {mode} mode.` |
-| Structured log at `Warning` when `Live` | `MigrationOptionsValidator` | See §7 above |
+| `migration.import_type` tag | All import spans | Low-cardinality tag: `dry_run` or `production_run` |
+| Structured log at `Information` on import start | `WorkItemsModule.ImportAsync` | `[ImportType] Running import in {mode} mode.` |
+| Structured log at `Warning` when `ProductionRun` | `MigrationOptionsValidator` | See §8 above |
 
 ---
 
 ## Open Questions
 
-The following questions must be answered before this spec can be promoted and implementation can begin.
+None — all questions resolved. See Decisions table above.
 
 ---
 
-### Q1 — Title prefix string: is `[DryRun]` the right choice?
-
-**Context**: The feature description states "prefix all work item titles with `[DryRun]`". The prefix needs to be:
-- Visually obvious in Azure DevOps work item lists
-- Easy to find/filter (e.g. via a WIQL `WHERE System.Title LIKE '[DryRun]%'`)
-- Non-ambiguous (not a character that ADO strips or escapes)
-
-**Options**:
-- A: `[DryRun] ` (brackets, space after — as described)
-- B: `[DRY RUN] `
-- C: `🧪 ` (emoji — may not render everywhere or sort predictably)
-- D: Make it configurable — operator can set `DryRunTitlePrefix` — but this partially undermines the "not operator-controllable" intent
-
-**Decision needed**: Confirm A is correct. Is the prefix configurable or fixed?
 
 ---
 
-### Q2 — DryRun root node name: is `DryRun` the right string?
+## Decisions (recorded)
 
-**Context**: The feature description states "add root node of `DryRun`". This creates an area/iteration tree node like `MyProject\DryRun\TeamA\Sprint 1`.
-
-**Sub-questions**:
-- 2a: Is the root node name `DryRun` fixed, or should it be configurable (e.g. `DryRunRootNodeName`)? Making it configurable partially undermines the guardrail intent.
-- 2b: Should the `DryRun` node be created under the **project root** (i.e. `TargetProject\DryRun\...`) or as a peer of the translated project node?
-- 2c: After a DryRun import, should there be a way to delete the `DryRun` sub-tree cleanly? (Out of scope for this spec, but worth noting as a follow-up.)
-
----
-
-### Q3 — Does `ExecutionMode` affect `TeamsModule` import?
-
-**Context**: `TeamsModule` creates teams and assigns area/iteration paths to them. In `DryRun` mode, the area paths these teams reference will be `DryRun\...` paths.
-
-**Options**:
-- A: Yes — `TeamsModule` must also use `DryRun\` prefixed paths for its area/iteration assignments, so teams are created under the `DryRun` sub-tree. **This is likely correct** — otherwise team area assignments will point to non-existent real nodes.
-- B: No — teams are created normally with their real path assignments. `DryRun` is work-item-only.
-- C: In `DryRun` mode, `TeamsModule` is entirely skipped.
-
-**Decision needed**.
-
----
-
-### Q4 — Does `ExecutionMode` affect `IdentitiesModule` or `NodesModule` (export/replication)?
-
-**Context**: `NodesModule.ExportAsync` reads the source tree and writes `Nodes/source-tree.json`. `IdentitiesModule.ExportAsync` reads identities. Neither of these writes to the target — they are package-side artefacts.
-
-**Expected answer**: `ExecutionMode` is import-only. Export and package-side operations are unaffected. Confirm?
-
----
-
-### Q5 — DryRun mode for `Prepare` (not just `Import`)?
-
-**Context**: The `Prepare` mode connects to the target and validates field definitions, node existence, etc. If run in `DryRun` mode, should the prepare validation check whether the `DryRun\...` node paths are resolvable/creatable, rather than the literal translated paths?
-
-**Options**:
-- A: `Prepare` is unaffected — it validates the operator's translated paths. The `DryRun\` prefix is an import-time concern only.
-- B: `Prepare` should simulate the full `DryRun` path prefixing so the validation report reflects what import will actually create.
-
-**Decision needed**.
-
----
-
-### Q6 — Config validation: should `DryRun` mode block `Import` unless explicitly acknowledged?
-
-**Context**: The intent is "DryRun is the default — safe by default". The question is whether the platform should require an explicit acknowledgement when moving from `DryRun` to `Live`, beyond just the log warning.
-
-**Options**:
-- A: Log warning only (as in §7 above). No blocking.
-- B: Require `--confirm-live` CLI flag when `ExecutionMode: Live` to prevent accidental `Live` imports from a config that had `Live` set but was run carelessly.
-- C: Require an explicit `"ExecutionModeConfirmed": true` field in the config alongside `"ExecutionMode": "Live"` — validation fails if `Live` is set without this companion field.
-
-**Decision needed**.
-
----
-
-### Q7 — Idempotent re-run in DryRun mode: duplicate prefix prevention
-
-**Context**: If the same work item is imported twice in `DryRun` mode (e.g. after a `--force-fresh`), the title in the target already has `[DryRun] `. The resolution strategy (`TargetField` / `TargetHyperlink`) would find the existing item and update it. On update, the `PrependStringTransform` would need to detect the existing prefix.
-
-**Clarification needed**: The platform must check whether the current **target** title (i.e. the value being written in the revision) already starts with `[DryRun] ` before prepending. This is the revision value from `revision.json`, not the target state — the revision is re-applied each time. Confirm the check is on the revision value, not the live target state.
-
----
+| # | Decision |
+|---|---|
+| D1 | Title prefix is `[DRY RUN] ` (fixed, not configurable) |
+| D2 | DryRun root node name is `DryRun` (fixed, not configurable) |
+| D3 | `TeamsModule` applies `DryRun\` path prefix consistently with `WorkItemsModule` |
+| D4 | `Prepare` mode is unaffected — validates operator paths only, not DryRun-prefixed paths |
+| D5 | `ProductionRun` requires only setting `ImportType: ProductionRun` — no additional confirmation field |
+| D7 | `ImportType` is silently ignored on Export-only runs (no validation warning) |
+| D8 | Idempotency check for `[DRY RUN] ` is on the revision value from `revision.json`, not the live target state |
 
 ## Assumptions (to be validated)
 
-1. `ExecutionMode` applies only when `Mode` is `Import` or `Migrate` (import leg). Export-only runs ignore it entirely.
+1. `ImportType` applies only when `Mode` is `Import` or `Migrate` (import leg). Export-only runs ignore it entirely.
 2. The `DryRun` root node is created at the project root of the **target** project, not the source project name.
 3. `PrependStringTransform` is internal — not registered in `FieldTransformFactory`, not documented in the `FieldTransform` configuration schema, not visible to operators.
-4. The `MigrationJob.ExecutionMode` field is included in the `configHash` computation so a change from `DryRun` to `Live` produces a distinct hash.
-5. The existing `--dry-run` flag on `BaseCommandSettings` is currently unused. This spec repurposes it as a CLI override: `--dry-run` forces `ExecutionMode.DryRun` regardless of what is in the config file. A `--live` flag does not exist — to run `Live` you must set it in the config file explicitly.
+4. The `MigrationJob.ImportType` field is included in the `configHash` computation so a change from `DryRun` to `ProductionRun` produces a distinct hash.
+5. The existing `--dry-run` flag on `BaseCommandSettings` is currently unused. This spec repurposes it as a CLI override: `--dry-run` forces `ImportType.DryRun` regardless of what is in the config file.
 
 ---
 
 ## Deferred / Out of Scope
 
 - Cleanup command to delete the `DryRun\` sub-tree from the target after a dry run
-- Per-module `ExecutionMode` override (e.g. `DryRun` for `WorkItems` but `Live` for `Teams`)
-- UI/TUI indication of `ExecutionMode` in the job dashboard
-- `ExecutionMode` on `Export` — export has no write side-effects on the target system
+- Per-module `ImportType` override (e.g. `DryRun` for `WorkItems` but `ProductionRun` for `Teams`)
+- UI/TUI indication of `ImportType` in the job dashboard
+- `ImportType` on `Export` — export has no write side-effects on the target system
