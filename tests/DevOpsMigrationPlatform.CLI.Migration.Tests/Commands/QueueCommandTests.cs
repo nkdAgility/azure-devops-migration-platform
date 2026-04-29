@@ -40,6 +40,7 @@ public class QueueCommandTests
             .Setup(s => s.WriteAsync(
                 It.IsAny<IArtefactStore>(),
                 It.IsAny<MigrationOptions>(),
+                It.IsAny<bool>(),
                 It.IsAny<CancellationToken>()))
             .ThrowsAsync(new InvalidOperationException("migration-config.json already exists"));
 
@@ -53,6 +54,7 @@ public class QueueCommandTests
             await configStoreMock.Object.WriteAsync(
                 new Mock<IArtefactStore>().Object,
                 new MigrationOptions(),
+                false,
                 CancellationToken.None);
 
             // submit is reached ONLY when WriteAsync succeeds

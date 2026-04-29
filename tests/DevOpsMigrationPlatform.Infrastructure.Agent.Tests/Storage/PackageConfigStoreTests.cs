@@ -51,7 +51,33 @@ public class PackageConfigStoreTests
 
         // Act + Assert
         await Assert.ThrowsExactlyAsync<InvalidOperationException>(
-            () => sut.WriteAsync(store.Object, options, CancellationToken.None));
+            () => sut.WriteAsync(store.Object, options, false, CancellationToken.None));
+    }
+
+    [TestMethod]
+    // WriteAsync with force=true overwrites without throwing
+    public async Task WriteAsync_WhenFileAlreadyExistsAndForceTrue_OverwritesSuccessfully()
+    {
+        // Arrange: store that reports ExistsAsync = true
+        var store = new Mock<IArtefactStore>(MockBehavior.Loose);
+        store.Setup(s => s.ExistsAsync(
+                It.Is<string>(p => p.EndsWith("migration-config.json", StringComparison.OrdinalIgnoreCase)),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+        store.Setup(s => s.WriteAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        var sut = CreateSut();
+        var options = new MigrationOptions { Mode = "Export" };
+
+        // Act — should not throw
+        await sut.WriteAsync(store.Object, options, true, CancellationToken.None);
+
+        // Assert — WriteAsync was called on the artefact store
+        store.Verify(s => s.WriteAsync(
+            It.Is<string>(p => p.EndsWith("migration-config.json", StringComparison.OrdinalIgnoreCase)),
+            It.IsAny<string>(),
+            It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [TestMethod]
@@ -70,7 +96,7 @@ public class PackageConfigStoreTests
         var options = new MigrationOptions { Mode = "Export" };
 
         // Act
-        await sut.WriteAsync(store.Object, options, CancellationToken.None);
+        await sut.WriteAsync(store.Object, options, false, CancellationToken.None);
 
         // Assert: write-count metric incremented
         metricsMock.Verify(m => m.RecordConfigWriteCompleted(in It.Ref<System.Diagnostics.TagList>.IsAny), Times.Once);
@@ -93,7 +119,7 @@ public class PackageConfigStoreTests
 
         // Act
         await Assert.ThrowsExactlyAsync<IOException>(
-            () => sut.WriteAsync(store.Object, options, CancellationToken.None));
+            () => sut.WriteAsync(store.Object, options, false, CancellationToken.None));
 
         // Assert
         metricsMock.Verify(m => m.RecordConfigWriteError(in It.Ref<System.Diagnostics.TagList>.IsAny), Times.Once);
@@ -202,7 +228,7 @@ public class PackageConfigStoreTests
         var sut = new PackageConfigStore(capturingLogger, _metrics.Object);
 
         // Act
-        await sut.WriteAsync(store.Object, new MigrationOptions { Mode = "Export" }, CancellationToken.None);
+        await sut.WriteAsync(store.Object, new MigrationOptions { Mode = "Export" }, false, CancellationToken.None);
 
         // Assert: at least one LogInformation call
         Assert.IsTrue(
@@ -237,7 +263,7 @@ public class PackageConfigStoreTests
         var sut = CreateSut();
 
         // Act
-        await sut.WriteAsync(store.Object, new MigrationOptions { Mode = "Export" }, CancellationToken.None);
+        await sut.WriteAsync(store.Object, new MigrationOptions { Mode = "Export" }, false, CancellationToken.None);
 
         // Assert
         Assert.IsTrue(recordedActivities.Count > 0, "Expected at least one 'config.write' activity span.");

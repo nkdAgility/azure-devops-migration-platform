@@ -47,6 +47,7 @@ internal sealed class PackageConfigStore : IPackageConfigStore
     public async Task WriteAsync(
         IArtefactStore artefactStore,
         MigrationOptions options,
+        bool force = false,
         CancellationToken cancellationToken = default)
     {
         if (artefactStore == null) throw new ArgumentNullException(nameof(artefactStore));
@@ -54,15 +55,16 @@ internal sealed class PackageConfigStore : IPackageConfigStore
 
         using var activity = ActivitySource.StartActivity("config.write");
         activity?.SetTag("operation", "write");
+        activity?.SetTag("force", force);
 
-        _logger.LogInformation("Writing config to package via {Path}", PackagePaths.MigrationConfigFileName);
+        _logger.LogInformation("Writing config to package via {Path} (force={Force})", PackagePaths.MigrationConfigFileName, force);
         var sw = Stopwatch.StartNew();
 
         try
         {
             var exists = await artefactStore.ExistsAsync(PackagePaths.MigrationConfigFileName, cancellationToken)
                 .ConfigureAwait(false);
-            if (exists)
+            if (exists && !force)
             {
                 throw new InvalidOperationException(
                     "migration-config.json already exists in the package. " +

@@ -118,7 +118,7 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
         var packageStore = new FileSystemArtefactStore(outputPath);
         try
         {
-            await packageConfigStore.WriteAsync(packageStore, config, cancellationToken);
+            await packageConfigStore.WriteAsync(packageStore, config, settings.ForceFresh, cancellationToken);
         }
         catch (InvalidOperationException ex) when (ex.Message.Contains("already exists"))
         {
@@ -255,7 +255,7 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
         var packageStore = new FileSystemArtefactStore(outputPath);
         try
         {
-            await packageConfigStore.WriteAsync(packageStore, config, cancellationToken);
+            await packageConfigStore.WriteAsync(packageStore, config, settings.ForceFresh, cancellationToken);
         }
         catch (InvalidOperationException ex) when (ex.Message.Contains("already exists"))
         {
@@ -386,7 +386,7 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
         var packageStore = new FileSystemArtefactStore(outputPath);
         try
         {
-            await packageConfigStore.WriteAsync(packageStore, config, cancellationToken);
+            await packageConfigStore.WriteAsync(packageStore, config, settings.ForceFresh, cancellationToken);
         }
         catch (InvalidOperationException ex) when (ex.Message.Contains("already exists"))
         {
@@ -534,7 +534,7 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
         var packageStore = new FileSystemArtefactStore(outputPath);
         try
         {
-            await packageConfigStore.WriteAsync(packageStore, config, cancellationToken);
+            await packageConfigStore.WriteAsync(packageStore, config, settings.ForceFresh, cancellationToken);
         }
         catch (InvalidOperationException ex) when (ex.Message.Contains("already exists"))
         {

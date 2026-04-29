@@ -519,6 +519,7 @@ public class TfsJobAgentWorkerTests
 
         await sut.WriteAsync(store.Object,
             new DevOpsMigrationPlatform.Abstractions.Options.MigrationOptions { Mode = "Export" },
+            false,
             CancellationToken.None);
 
         Assert.IsTrue(captured.Contains("config.write"),

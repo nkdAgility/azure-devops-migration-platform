@@ -30,17 +30,21 @@ public interface IPackageConfigStore
     /// </summary>
     /// <remarks>
     /// Throws <see cref="System.InvalidOperationException"/> if the file already exists
+    /// and <paramref name="force"/> is <c>false</c>
     /// (FR-012 — must not silently overwrite; the CLI must surface this as an error and
     /// require <c>--force</c> before overwriting).
+    /// When <paramref name="force"/> is <c>true</c> the existing file is overwritten.
     /// Credential fields in <paramref name="options"/> are written to the file but
     /// MUST NOT appear in any log output (O-3 security constraint).
     /// </remarks>
     /// <param name="artefactStore">The package store to write to.</param>
     /// <param name="options">The fully resolved migration options to serialise.</param>
+    /// <param name="force">When <c>true</c>, overwrite an existing file instead of throwing.</param>
     /// <param name="cancellationToken">Propagated cancellation token.</param>
     Task WriteAsync(
         IArtefactStore artefactStore,
         MigrationOptions options,
+        bool force = false,
         CancellationToken cancellationToken = default);
 
     /// <summary>
