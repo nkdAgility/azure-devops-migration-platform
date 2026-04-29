@@ -142,5 +142,22 @@ public static class FactoryRegistrationExtensions
         services.TryAddSingleton<ITeamSource, CompositeTeamSource>();
         return services;
     }
+
+    /// <summary>
+    /// Registers a concrete <see cref="ITeamTarget"/> implementation keyed by
+    /// <paramref name="typeKey"/> (the endpoint's <c>Type</c> discriminator, e.g.
+    /// <c>"AzureDevOpsServices"</c> or <c>"Simulated"</c>), and ensures the
+    /// <see cref="CompositeTeamTarget"/> dispatcher is registered as <see cref="ITeamTarget"/>.
+    /// </summary>
+    public static IServiceCollection AddTeamTarget<T>(
+        this IServiceCollection services,
+        string typeKey)
+        where T : class, ITeamTarget
+    {
+        services.TryAddSingleton<T>();
+        services.AddSingleton(sp => new KeyedTeamTarget(typeKey, sp.GetRequiredService<T>()));
+        services.TryAddSingleton<ITeamTarget, CompositeTeamTarget>();
+        return services;
+    }
 }
 #endif

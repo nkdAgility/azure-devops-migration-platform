@@ -73,7 +73,9 @@ public static class ExportServiceCollectionExtensions
 
         // Team source — Azure DevOps Teams REST API keyed by connector type.
         services.AddTeamSource<AzureDevOpsTeamSource>("AzureDevOpsServices");
-        services.TryAddSingleton<ITeamTarget, AzureDevOpsTeamTarget>();
+
+        // Team target — Azure DevOps Teams REST API keyed by connector type.
+        services.AddTeamTarget<AzureDevOpsTeamTarget>("AzureDevOpsServices");
 
         // Embedded image download and processing
         services.AddHttpClient<AzureDevOpsEmbeddedImageDownloader>()
