@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Threading;
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Import;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
@@ -16,7 +17,7 @@ public class ImportIdentityResolutionContext
     public Mock<ICheckpointingService> MockCheckpointing { get; } = new(MockBehavior.Strict);
     public Mock<IWorkItemImportTarget> MockTarget { get; } = new(MockBehavior.Strict);
     public Mock<IIdMapStore> MockIdMapStore { get; } = new(MockBehavior.Strict);
-    public Mock<IIdentityMappingService> MockIdentityMapping { get; } = new(MockBehavior.Strict);
+    public Mock<IIdentityLookupTool> MockIdentityMapping { get; } = new(MockBehavior.Strict);
     public Mock<IWorkItemResolutionStrategy> MockResolutionStrategy { get; } = new(MockBehavior.Strict);
 
     public WorkItemsModuleExtensions Extensions { get; set; } = new WorkItemsModuleExtensions();
@@ -91,6 +92,11 @@ public class ImportIdentityResolutionContext
         MockResolutionStrategy
             .Setup(s => s.WriteProvenanceAsync(It.IsAny<int>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
             .Returns(System.Threading.Tasks.Task.CompletedTask);
+
+        // Identity tool - default to enabled so IsEnabled is always set up
+        MockIdentityMapping
+            .Setup(s => s.IsEnabled)
+            .Returns(true);
 
     }
 }

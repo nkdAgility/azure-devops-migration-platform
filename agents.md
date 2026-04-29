@@ -87,8 +87,8 @@ CLI:
 CLI command reference (canonical):
 → .agents/context/cli-commands.md
 
-TFS legacy process bridge:
-→ docs/tfs-exporter.md
+TFS Migration Agent and multi-targeting:
+→ docs/migration-agent.md
 
 Aspire orchestration:
 → docs/aspire-integration.md
@@ -285,6 +285,19 @@ Reject any proposal that:
 - Implements a feature for one connector (Simulated, AzureDevOps, or TFS) while leaving stubs or placeholders in the others where the API supports the capability.
 - Defers a connector implementation to a follow-up PR or future task.
 - Declares done without updating every canonical doc named in any doc-task in `tasks.md`.
+- **Writes a module or tool without O-1 activity spans** — every operation MUST create an `ActivitySource.StartActivity` span with meaningful tags.
+- **Writes a module or tool without O-2 business metrics** — every operation MUST call `IMigrationMetrics` for attempt, completion, error, duration, and in-flight.
+- **Writes a module or tool without O-3 structured logging** — every operation MUST log at `Information` on start/end, `Warning` on skips/errors, `Debug` for per-item detail.
+- **Writes a module or tool without O-4 ProgressEvent emission** — `IProgressSink` MUST be injected (optional) and `ProgressEvent` MUST be emitted at start, per item (or per ≤50 batch), and completion with `Metrics.Migration.{ModuleName}` populated.
+- **Adds a module counter to `MigrationCounters` without a corresponding row in `QueueCommand.BuildProgressRenderable`** — every module counter added to the DTO MUST be rendered in the CLI progress display in correct execution order (Identities → Nodes → Teams → WorkItems).
+- **Wires `QueueCommand.BuildProgressRenderable` to an in-process `IProgressSink` or any source other than the ControlPlane API** — the CLI progress display MUST read aggregate counters from `GET /jobs/{id}/telemetry` (Channel 2 — `JobMetrics` polling) AND real-time stage/cursor updates from `GET /jobs/{id}/progress?follow=true` (Channel 1 — SSE). `ProgressEvent.Metrics` is populated only by the TFS subprocess (net481); for .NET 10 agents it is always null. CLI code that reads metrics from `ProgressEvent.Metrics` instead of the telemetry endpoint will silently display zeros for all .NET 10 jobs.
+- **Wires the TUI to an in-process `IProgressSink` or any source other than the ControlPlane API** — the TUI Metrics panel MUST poll `GET /jobs/{jobId}/telemetry`; the Progress table and Log panel MUST subscribe to `GET /jobs/{jobId}/progress?follow=true` and `GET /jobs/{jobId}/diagnostics?follow=true` respectively. No direct sink wiring is permitted in TUI code.
+- **Ships an export module whose `SystemTest_Simulated` only asserts that no exception was thrown** — every export test MUST assert that the expected artefact path exists in `IArtefactStore` AND contains non-trivially non-empty content (line count > 0 or byte count > 0). A test that only checks `Assert.IsNotNull(result)` or does not assert artefact content is a failing test.
+- **Ships an import module whose `SystemTest_Simulated` only asserts that no exception was thrown** — every import test MUST assert that the target connector received data (e.g., `SimulatedTeamTarget.Teams.Count > 0`, `SimulatedNodeTarget.NodesCreated > 0`). Asserting count `>= 0` is always true and is forbidden.
+- **Ships a Simulated connector that returns an empty collection** — a `Simulated*Source` MUST yield at least 2 items per operation. A zero-item source silently makes every downstream test vacuously pass. Unit tests MUST assert `count > 0`.
+- **Ships a module that silently completes with count=0 when enabled** — if `ExportAsync` or `ImportAsync` completes with an item count of zero and the module is enabled, the module MUST emit a structured `Warning` log. A silent zero-count completion is indistinguishable from a fake implementation and is forbidden.
+- **Ships an ADO connector method that never calls the SDK** — every method in an `AzureDevOps*` connector MUST invoke at least one method on a client obtained from `IAzureDevOpsClientFactory`. An implementation that only logs "connected" or returns a hard-coded result without calling the SDK is a fake.
+- **Uses `Assert.IsTrue(count >= 0)` or `Assert.IsTrue(true)` as the sole assertion in a test** — these patterns assert nothing about functional output. They are forbidden in any test for a module or connector.
 ---
 
 # 🧭 Development Flow

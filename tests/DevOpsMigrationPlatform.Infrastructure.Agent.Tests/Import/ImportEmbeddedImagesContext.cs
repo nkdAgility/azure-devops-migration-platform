@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Threading;
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Import;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
@@ -16,7 +17,7 @@ public class ImportEmbeddedImagesContext
     public Mock<ICheckpointingService> MockCheckpointing { get; } = new(MockBehavior.Strict);
     public Mock<IWorkItemImportTarget> MockTarget { get; } = new(MockBehavior.Strict);
     public Mock<IIdMapStore> MockIdMapStore { get; } = new(MockBehavior.Strict);
-    public Mock<IIdentityMappingService> MockIdentityMapping { get; } = new(MockBehavior.Loose);
+    public Mock<IIdentityLookupTool> MockIdentityMapping { get; } = new(MockBehavior.Loose);
     public Mock<IWorkItemResolutionStrategy> MockResolutionStrategy { get; } = new(MockBehavior.Strict);
 
     public WorkItemsModuleExtensions Extensions { get; set; } = new WorkItemsModuleExtensions();
@@ -102,6 +103,9 @@ public class ImportEmbeddedImagesContext
             .ReturnsAsync(true);
 
         // Identity pass-through
+        MockIdentityMapping
+            .Setup(s => s.IsEnabled)
+            .Returns(true);
         MockIdentityMapping
             .Setup(s => s.Resolve(It.IsAny<string>()))
             .Returns<string>(id => id);

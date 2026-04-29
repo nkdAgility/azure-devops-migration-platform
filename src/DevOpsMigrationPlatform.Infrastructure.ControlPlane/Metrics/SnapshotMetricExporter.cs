@@ -37,6 +37,15 @@ internal sealed class SnapshotMetricExporter : BaseExporter<Metric>
         // In-Flight
         int inFlight = 0, queueDepth = 0;
 
+        // Teams
+        long teamsExported = 0, teamsImported = 0, teamsFailed = 0, teamsMembers = 0, teamsIterations = 0;
+
+        // Nodes
+        long nodesExported = 0, nodesAreaReplicated = 0, nodesIterationReplicated = 0, nodesFailed = 0;
+
+        // Identities
+        long identitiesExported = 0, identitiesResolved = 0, identitiesUnresolved = 0, identitiesFailed = 0;
+
         foreach (var metric in batch)
         {
             switch (metric.Name)
@@ -93,8 +102,90 @@ internal sealed class SnapshotMetricExporter : BaseExporter<Metric>
                 case WellKnownMetricNames.QueueDepth:
                     queueDepth = ReadGaugeLatest(metric);
                     break;
+
+                // --- Teams ---
+                case WellKnownMetricNames.TeamsExportCount:
+                    teamsExported = ReadCounterSum(metric);
+                    break;
+                case WellKnownMetricNames.TeamsImportCount:
+                    teamsImported = ReadCounterSum(metric);
+                    break;
+                case WellKnownMetricNames.TeamsExportErrors:
+                    teamsFailed += ReadCounterSum(metric);
+                    break;
+                case WellKnownMetricNames.TeamsImportErrors:
+                    teamsFailed += ReadCounterSum(metric);
+                    break;
+                case WellKnownMetricNames.TeamsImportMembersCount:
+                    teamsMembers = ReadCounterSum(metric);
+                    break;
+                case WellKnownMetricNames.TeamsImportIterationsCount:
+                    teamsIterations = ReadCounterSum(metric);
+                    break;
+
+                // --- Nodes ---
+                case WellKnownMetricNames.NodeExportDiscoverCount:
+                    nodesExported = ReadCounterSum(metric);
+                    break;
+                case WellKnownMetricNames.NodeImportReplicateAreaCount:
+                    nodesAreaReplicated = ReadCounterSum(metric);
+                    break;
+                case WellKnownMetricNames.NodeImportReplicateIterationCount:
+                    nodesIterationReplicated = ReadCounterSum(metric);
+                    break;
+                case WellKnownMetricNames.NodeImportReplicateErrors:
+                    nodesFailed = ReadCounterSum(metric);
+                    break;
+
+                // --- Identities ---
+                case WellKnownMetricNames.IdentitiesExportCount:
+                    identitiesExported = ReadCounterSum(metric);
+                    break;
+                case WellKnownMetricNames.IdentitiesImportResolved:
+                    identitiesResolved = ReadCounterSum(metric);
+                    break;
+                case WellKnownMetricNames.IdentitiesImportUnresolved:
+                    identitiesUnresolved = ReadCounterSum(metric);
+                    break;
+                case WellKnownMetricNames.IdentitiesExportErrors:
+                    identitiesFailed += ReadCounterSum(metric);
+                    break;
+                case WellKnownMetricNames.IdentitiesImportErrors:
+                    identitiesFailed += ReadCounterSum(metric);
+                    break;
             }
         }
+
+        var teamsCounters = teamsExported > 0 || teamsImported > 0 || teamsFailed > 0
+            ? new TeamsCounters
+            {
+                Exported = teamsExported,
+                Imported = teamsImported,
+                Failed = teamsFailed,
+                Members = teamsMembers,
+                Iterations = teamsIterations,
+            }
+            : null;
+
+        var nodesCounters = nodesExported > 0 || nodesAreaReplicated > 0 || nodesIterationReplicated > 0 || nodesFailed > 0
+            ? new NodesCounters
+            {
+                Exported = nodesExported,
+                AreaPathsReplicated = nodesAreaReplicated,
+                IterationPathsReplicated = nodesIterationReplicated,
+                Failed = nodesFailed,
+            }
+            : null;
+
+        var identitiesCounters = identitiesExported > 0 || identitiesResolved > 0 || identitiesUnresolved > 0
+            ? new IdentitiesCounters
+            {
+                Exported = identitiesExported,
+                Resolved = identitiesResolved,
+                Unresolved = identitiesUnresolved,
+                Failed = identitiesFailed,
+            }
+            : null;
 
         _store.Update(new JobMetrics
         {
@@ -107,6 +198,9 @@ internal sealed class SnapshotMetricExporter : BaseExporter<Metric>
                     Completed = completed,
                     Failed = failed,
                 },
+                Teams = teamsCounters,
+                Nodes = nodesCounters,
+                Identities = identitiesCounters,
                 Diagnostics = new MigrationDiagnostics
                 {
                     WorkItemDurationMeanMs = durationMeanMs,

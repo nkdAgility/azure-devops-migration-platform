@@ -116,6 +116,10 @@ public sealed class TfsJobServiceFactory : ITfsJobServiceFactory, IDisposable
             workItemStore,
             queryStrategy);
 
+        var identitySource = new TfsIdentitySource(
+            collection,
+            _loggerFactory.CreateLogger<TfsIdentitySource>());
+
         return new TfsJobServices(
             collection,
             revisionSource,
@@ -126,7 +130,8 @@ public sealed class TfsJobServiceFactory : ITfsJobServiceFactory, IDisposable
             fetchService,
             tfsEndpoint,
             exportMetrics,
-            attachmentMetrics);
+            attachmentMetrics,
+            identitySource);
     }
 
     public void Dispose()
@@ -147,6 +152,7 @@ public sealed class TfsJobServices : IDisposable
     public IProjectDiscoveryService ProjectDiscoveryService { get; }
     public IWorkItemFetchService FetchService { get; }
     public TeamFoundationServerEndpointOptions Endpoint { get; }
+    public IIdentitySource IdentitySource { get; }
 
     public IWorkItemExportMetrics ExportMetrics { get; }
     public IAttachmentDownloadMetrics AttachmentMetrics { get; }
@@ -163,7 +169,8 @@ public sealed class TfsJobServices : IDisposable
         IWorkItemFetchService fetchService,
         TeamFoundationServerEndpointOptions endpoint,
         IWorkItemExportMetrics exportMetrics,
-        IAttachmentDownloadMetrics attachmentMetrics)
+        IAttachmentDownloadMetrics attachmentMetrics,
+        IIdentitySource identitySource)
     {
         _collection = collection;
         RevisionSource = revisionSource;
@@ -175,6 +182,7 @@ public sealed class TfsJobServices : IDisposable
         Endpoint = endpoint;
         ExportMetrics = exportMetrics;
         AttachmentMetrics = attachmentMetrics;
+        IdentitySource = identitySource;
     }
 
     public void Dispose()

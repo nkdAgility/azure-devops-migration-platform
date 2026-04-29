@@ -1,4 +1,4 @@
-# Configuration
+﻿# Configuration
 
 ## 10. Configuration Model
 
@@ -79,6 +79,29 @@ A single JSON configuration file drives the entire run.
     }
   },
   "modules": [
+    {
+      "name": "Identities",
+      "enabled": true,
+      "defaultIdentity": "migration-service@contoso.com"
+    },
+    {
+      "name": "Nodes",
+      "enabled": true,
+      "replicateSourceTree": true,
+      "autoCreateNodes": true
+    },
+    {
+      "name": "Teams",
+      "enabled": true,
+      "scope": "all",
+      "filter": "",
+      "extensions": [
+        { "type": "TeamSettings",    "enabled": true },
+        { "type": "TeamIterations",  "enabled": true },
+        { "type": "TeamMembers",     "enabled": true },
+        { "type": "TeamCapacity",    "enabled": true }
+      ]
+    },
     {
       "name": "WorkItems",
       "scopes": [
@@ -569,27 +592,27 @@ The `FieldTransform` tool applies a declared set of field transformation rules t
 
 ---
 
-### NodeStructure Tool
+### NodeTranslation Tool
 
-The `NodeStructure` tool manages classification node (area/iteration) path translation, replication, and validation during import. It normalises localised root names (e.g. `Área` → `Area`), applies explicit path mappings, and can auto-create or replicate nodes from the source tree.
+The `NodeTranslation` tool manages classification node (area/iteration) path translation, replication, and validation during import. It normalises localised root names (e.g. `Área` → `Area`), applies explicit path mappings, and can auto-create or replicate nodes from the source tree.
 
 #### Schema
 
 | Field | Required | Default | Description |
 |---|---|---|---|
-| `Tools.NodeStructure.Enabled` | No | `true` | Master switch. When `false`, node-structure processing is entirely skipped. |
-| `Tools.NodeStructure.ReplicateSourceTree` | No | `false` | When `true`, the tool reads `Nodes/source-tree.json` and pre-creates every area and iteration node on the target before work items are imported. |
-| `Tools.NodeStructure.AreaLanguageOverride` | No | `null` | Localised name for the `Area` root node on the source (e.g. `"Área"` for Spanish-language ADO instances). |
-| `Tools.NodeStructure.IterationLanguageOverride` | No | `null` | Localised name for the `Iteration` root node on the source. |
-| `Tools.NodeStructure.AreaPathMappings[]` | No | `[]` | Ordered list of regex-based path rewriting rules for area paths. |
-| `Tools.NodeStructure.AreaPathMappings[].Match` | Yes | — | .NET regular-expression pattern applied to the full area path. Compiled with `RegexOptions.IgnoreCase \| RegexOptions.NonBacktracking`. |
-| `Tools.NodeStructure.AreaPathMappings[].Replacement` | Yes | — | Replacement string (supports `$1`, `$2`, … capture-group references). |
-| `Tools.NodeStructure.IterationPathMappings[]` | No | `[]` | Ordered list of regex-based path rewriting rules for iteration paths. |
-| `Tools.NodeStructure.IterationPathMappings[].Match` | Yes | — | .NET regular-expression pattern applied to the full iteration path. Compiled with `RegexOptions.IgnoreCase \| RegexOptions.NonBacktracking`. |
-| `Tools.NodeStructure.IterationPathMappings[].Replacement` | Yes | — | Replacement string (supports capture-group references). |
-| `Tools.NodeStructure.SkipOnUnresolvableArea` | No | `false` | When `true`, revisions with an unresolvable area path are skipped with a warning. When `false`, an unresolvable area path throws and halts the run. |
-| `Tools.NodeStructure.SkipOnUnresolvableIteration` | No | `false` | When `true`, revisions with an unresolvable iteration path are skipped with a warning. When `false`, an unresolvable iteration path throws and halts the run. |
-| `Tools.NodeStructure.AutoCreateNodes` | No | `false` | When `true`, nodes referenced by work item revisions are automatically created on the target if they do not already exist. |
+| `Tools.NodeTranslation.Enabled` | No | `true` | Master switch. When `false`, node-structure processing is entirely skipped. |
+| `Tools.NodeTranslation.ReplicateSourceTree` | No | `false` | When `true`, the tool reads `Nodes/source-tree.json` and pre-creates every area and iteration node on the target before work items are imported. |
+| `Tools.NodeTranslation.AreaLanguageOverride` | No | `null` | Localised name for the `Area` root node on the source (e.g. `"Área"` for Spanish-language ADO instances). |
+| `Tools.NodeTranslation.IterationLanguageOverride` | No | `null` | Localised name for the `Iteration` root node on the source. |
+| `Tools.NodeTranslation.AreaPathMappings[]` | No | `[]` | Ordered list of regex-based path rewriting rules for area paths. |
+| `Tools.NodeTranslation.AreaPathMappings[].Match` | Yes | — | .NET regular-expression pattern applied to the full area path. Compiled with `RegexOptions.IgnoreCase \| RegexOptions.NonBacktracking`. |
+| `Tools.NodeTranslation.AreaPathMappings[].Replacement` | Yes | — | Replacement string (supports `$1`, `$2`, … capture-group references). |
+| `Tools.NodeTranslation.IterationPathMappings[]` | No | `[]` | Ordered list of regex-based path rewriting rules for iteration paths. |
+| `Tools.NodeTranslation.IterationPathMappings[].Match` | Yes | — | .NET regular-expression pattern applied to the full iteration path. Compiled with `RegexOptions.IgnoreCase \| RegexOptions.NonBacktracking`. |
+| `Tools.NodeTranslation.IterationPathMappings[].Replacement` | Yes | — | Replacement string (supports capture-group references). |
+| `Tools.NodeTranslation.SkipOnUnresolvableArea` | No | `false` | When `true`, revisions with an unresolvable area path are skipped with a warning. When `false`, an unresolvable area path throws and halts the run. |
+| `Tools.NodeTranslation.SkipOnUnresolvableIteration` | No | `false` | When `true`, revisions with an unresolvable iteration path are skipped with a warning. When `false`, an unresolvable iteration path throws and halts the run. |
+| `Tools.NodeTranslation.AutoCreateNodes` | No | `false` | When `true`, nodes referenced by work item revisions are automatically created on the target if they do not already exist. |
 
 #### Example
 
@@ -597,7 +620,7 @@ The `NodeStructure` tool manages classification node (area/iteration) path trans
 {
   "MigrationPlatform": {
     "Tools": {
-      "NodeStructure": {
+      "NodeTranslation": {
         "Enabled": true,
         "ReplicateSourceTree": true,
         "AreaLanguageOverride": "Área",

@@ -17,7 +17,7 @@ The CLI does **not** drive AppHost programmatically. CLI commands manage their o
 | Component | Always Local | Aspire-Managed (Local/Server) | Aspire-Managed (Cloud) | Aspire Role |
 |---|---|---|---|---|
 | **CLI** (`CLI.Migration`, net10.0) | ✓ | ✗ | ✗ | Operator entry point — commands manage their own hosting; connects to ControlPlaneHost via HTTP |
-| **TFS Migration CLI** (`CLI.TfsMigration`, net481) | ✓ | ✗ | ✗ | Subprocess of CLI (not orchestrated by Aspire) |
+| **TFS Migration Agent** (`TfsMigrationAgent`, net481) | ✓ (Windows only) | ✗ | ✗ | Polling agent spawned by `AgentLifecycleService` on Windows; not an Aspire resource |
 | **ControlPlane** (service library) | — | ✓ (referenced by ControlPlaneHost) | ✓ (referenced by ControlPlaneHost) | Class library — not a standalone Aspire resource |
 | **ControlPlaneHost** | ✓ | ✓ | ✓ | Aspire `AddProject` resource; manages Agent lifecycle |
 | **Migration Agent(s)** | ✓ | ✓ | ✓ | Aspire `AddProject` resource; lifecycle managed by ControlPlaneHost via `IAgentLauncher` |
@@ -53,15 +53,14 @@ src/
     Worker.cs                                     ← lease polling and execution
     DevOpsMigrationPlatform.MigrationAgent.csproj
 
-  DevOpsMigrationPlatform.CLI.Migration/         ← CLI entry point; commands manage their own hosting lifecycle; connects to ControlPlaneHost via HTTP; spawns CLI.TfsMigration as subprocess
+  DevOpsMigrationPlatform.CLI.Migration/         ← CLI entry point; commands manage their own hosting lifecycle; connects to ControlPlaneHost via HTTP
     Program.cs                                    ← operator entry point
-    ExternalToolRunner.cs                         ← spawns net481 subprocess, streams stdout/stderr
     DevOpsMigrationPlatform.CLI.Migration.csproj  ← TargetFramework: net10.0
 
-  DevOpsMigrationPlatform.CLI.TfsMigration/      ← TFS exporter CLI (net481, not orchestrated by Aspire)
-    Program.cs                                    ← CLI entry point; receives job definition via args + stdin
-    TfsExportAgent.cs                             ← export executor: IWorkItemExportService + IArtefactStore + IStateStore + IProgressSink
-    DevOpsMigrationPlatform.CLI.TfsMigration.csproj  ← TargetFramework: net481
+  DevOpsMigrationPlatform.TfsMigrationAgent/     ← TFS Migration Agent (net481 polling agent, not orchestrated by Aspire)
+    Program.cs                                    ← agent entry point; polls ControlPlane for TFS jobs
+    TfsJobAgentWorker.cs                          ← IModule dispatch: TfsWorkItemsModule + WorkItemExportOrchestrator
+    DevOpsMigrationPlatform.TfsMigrationAgent.csproj  ← TargetFramework: net481
 ```
 
 ---
@@ -283,45 +282,7 @@ await localStack.StartAsync();
 // EnvironmentOptions.ControlPlane.BaseUrl resolves the endpoint
 ```
 
-When a TFS source is configured, `CLI.Migration` invokes `CLI.TfsMigration` as a subprocess via `ExternalToolRunner`, streaming its stdout in real time:
-
-```csharp
-// In TfsExportCommand inside CLI.Migration
-var exitCode = await ExternalToolRunner.RunWithStreamingAsync(
-    exeFullPath,                          // path to CLI.TfsMigration exe
-    $"export --tfsserver {settings.TfsServer} --project {settings.Project} --output {settings.OutputFolder}",
-    onOutput: line => AnsiConsole.MarkupLineInterpolated($"[grey]{line}[/]"),
-    onError:  line => AnsiConsole.MarkupLineInterpolated($"[red]{line}[/]")
-);
-```
-
-### CLI.TfsMigration (net481) — TFS Exporter CLI
-
-`CLI.TfsMigration` wraps the TFS Object Model and can be used in two ways:
-
-**1. As a subprocess of CLI.Migration** (the normal path)
-
-```powershell
-# Run the main CLI — it drives Aspire internally and spawns CLI.TfsMigration for TFS exports
-cd src/DevOpsMigrationPlatform.CLI.Migration
-dotnet run -- export --config migration.json
-```
-
-**2. As a standalone CLI** (direct invocation, no main TUI required)
-
-A user or script can call `CLI.TfsMigration` directly for simple one-off TFS exports without the full migration stack:
-
-```powershell
-# Run the net481 CLI directly
-.\TfsMigration.exe export --tfsserver http://tfs:8080/tfs --project MyProject --output D:\exports\run-001
-```
-
-This is useful for:
-- Running in an isolated network zone with access to TFS but not the Control Plane
-- Scripted or pipeline-driven exports without the interactive TUI
-- Debugging TFS connectivity issues independently of the migration stack
-
-The CLI submits jobs to the control plane (locally via Aspire at `http://localhost:5100`, or remote) for the import and orchestration phases; the TFS export phase runs via `CLI.TfsMigration` (subprocess or standalone) and writes directly to the package on disk.
+When a TFS source is configured, the CLI submits the job to the control plane in the same way as any other source. The control plane routes it to `TfsMigrationAgent` via capability matching (`GET /agents/lease?capabilities=tfs`). The TFS agent runs as a Windows polling agent — not as a subprocess of the CLI.
 
 ---
 
@@ -501,15 +462,10 @@ All telemetry uses OpenTelemetry and flows to the Aspire dashboard locally or Az
 cd src\DevOpsMigrationPlatform.AppHost
 dotnet run
 
-# In another terminal, run the main TUI (automatically spawns CLI.TfsMigration for TFS sources)
+# In another terminal, submit a job via the CLI (TFS jobs are routed automatically to TfsMigrationAgent)
 cd src\DevOpsMigrationPlatform.CLI.Migration
 dotnet run -- export --config config.json
-
-# Or invoke the TFS CLI directly without the main TUI
-.\src\DevOpsMigrationPlatform.CLI.TfsMigration\bin\Debug\net481\TfsMigration.exe export --tfsserver http://tfs:8080/tfs --project MyProject --output D:\exports\run-001
 ```
-
-> **Binary location**: `CLI.Migration` resolves the `CLI.TfsMigration` executable path from configuration (`tfsExporter.executablePath`). In development this points to the `bin/Debug/net481` output folder. In production it points to the pre-built binary shipped alongside the main TUI.
 
 ### Cloud Deployment (Azure Container Apps)
 
@@ -634,15 +590,14 @@ If the system was previously built without Aspire:
 
 ## Non-Negotiable Rules
 
-1. Neither `CLI.Migration` nor `CLI.TfsMigration` must ever be orchestrated by Aspire — both are always standalone CLIs.
-2. `CLI.TfsMigration` must be invocable independently, without`CLI.Migration` present. It writes directly to the package output path and exits with a standard exit code.
-3. `CLI.Migration` must invoke `CLI.TfsMigration` via `ExternalToolRunner` (subprocess) — never via a direct assembly or project reference.
-4. The `CLI.TfsMigration` executable path must come from configuration, not hardcoded development paths in production builds.
-5. The Control Plane and Migration Agent must call `builder.AddServiceDefaults()` for consistent observability.
-6. Service discovery must be used for agent-to-control-plane communication (no hardcoded URLs in agent code).
-7. The AppHost must support both filesystem and blob storage configurations.
-8. Aspire's dashboard is the primary local observability tool — do not build custom dashboards for local dev.
-9. Cloud deployment must use `azd` and Azure Container Apps — do not deploy Aspire-managed components to VMs or App Service.
+1. `CLI.Migration` must never be orchestrated by Aspire — it is always a standalone CLI.
+2. `TfsMigrationAgent` must never be added to the AppHost or referenced by any .NET 10 project. It is a peer process, spawned by `AgentLifecycleService` on Windows.
+3. All TFS jobs go through the control plane lease protocol — the CLI must not spawn TFS processes directly.
+4. The Control Plane and Migration Agent must call `builder.AddServiceDefaults()` for consistent observability.
+5. Service discovery must be used for agent-to-control-plane communication (no hardcoded URLs in agent code).
+6. The AppHost must support both filesystem and blob storage configurations.
+7. Aspire's dashboard is the primary local observability tool — do not build custom dashboards for local dev.
+8. Cloud deployment must use `azd` and Azure Container Apps — do not deploy Aspire-managed components to VMs or App Service.
 
 ---
 

@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.ControlPlaneApi;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Discovery;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
@@ -14,7 +15,7 @@ namespace DevOpsMigrationPlatform.Infrastructure.Tests.Platform;
 public class ExclusivePackageLockContext : IDisposable
 {
     public string TempDir { get; }
-    public Mock<IControlPlaneClient> MockControlPlane { get; } = new(MockBehavior.Strict);
+    public Mock<IControlPlaneAgentClient> MockControlPlane { get; } = new(MockBehavior.Strict);
 
     /// <summary>The lock handle returned by a successful AcquireAsync call.</summary>
     public IAsyncDisposable? LockHandle { get; set; }

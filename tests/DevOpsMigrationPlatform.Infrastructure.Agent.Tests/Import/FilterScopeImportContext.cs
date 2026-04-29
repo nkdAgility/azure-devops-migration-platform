@@ -3,6 +3,7 @@ using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Import;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
@@ -33,12 +34,11 @@ public class FilterScopeImportContext
     public WorkItemImportOrchestrator BuildOrchestrator()
     {
         var processorLogger = NullLogger<RevisionFolderProcessor>.Instance;
-        var mockIdentity = new Mock<IIdentityMappingService>(MockBehavior.Loose);
         var processor = new RevisionFolderProcessor(
             MockTarget.Object,
             MockIdMapStore.Object,
             MockCheckpointing.Object,
-            mockIdentity.Object,
+            (IIdentityLookupTool?)null,
             MockArtefactStore.Object,
             processorLogger);
 

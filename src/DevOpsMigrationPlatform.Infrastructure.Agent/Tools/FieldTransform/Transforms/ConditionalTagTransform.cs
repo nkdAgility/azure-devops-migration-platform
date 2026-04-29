@@ -54,7 +54,7 @@ public sealed class ConditionalTagTransform : IFieldTransform
             updated[kvp.Key] = kvp.Value;
 
         var oldTags = updated.TryGetValue(TagsField, out var ot) ? ot?.ToString() : null;
-        var newTags = TagUtilities.AppendTag(oldTags, _tag);
+        var newTags = WorkItemTagParser.AppendTag(oldTags, _tag);
         updated[TagsField] = newTags;
 
         return new FieldTransformResult(

@@ -116,3 +116,55 @@ Migration Agents write structured logs to both:
 - The control plane (pushed in real time via the lease API for TUI tailing).
 
 Both outputs use the same structured format (OpenTelemetry-compatible). No `Console.WriteLine` in module code.
+
+---
+
+## TFS Migration Agent
+
+The **TFS Migration Agent** (`DevOpsMigrationPlatform.TfsMigrationAgent`) is a second agent — a structural peer of the .NET 10 `MigrationAgent` — that handles jobs where the source is Team Foundation Server. It communicates with the control plane using the same HTTP lease protocol, dispatches work through `IModule` implementations, and writes to the package via the same `IArtefactStore` and `IStateStore` abstractions.
+
+The TFS agent exists because the TFS Object Model is a .NET Framework 3.x/4.x SOAP library that cannot run in .NET 9/10. Isolating it in a dedicated net481 process is the only way to use the TFS OM while keeping the rest of the platform on .NET 10.
+
+> **TFS is a source-only connector.** Team Foundation Server is always the migration *origin* — never the *destination*. As a consequence, `ITeamTarget`, `IWorkItemImportTarget`, and all other target-side interfaces are not implemented for TFS. This is an explicit architectural decision, not a gap.
+
+### Agent Symmetry
+
+The two agents use the same lease protocol, the same abstractions, and the same `IModule` dispatch pattern. The differences are runtime and capability constraints only:
+
+| Aspect | MigrationAgent | TfsMigrationAgent |
+|---|---|---|
+| Runtime | net10.0 | net481 |
+| Capabilities | `ado`, `simulated` | `tfs` |
+| Package store | `FileSystemArtefactStore` or `AzureBlobArtefactStore` | `FileSystemArtefactStore` only |
+| Progress reporting | `ControlPlaneProgressSink` | `ControlPlaneProgressSink` (plain net481 `HttpClient`) |
+| Checkpoint | `IStateStore` | `IStateStore` |
+| Module dispatch | `IEnumerable<IModule>` | `IEnumerable<IModule>` |
+| Supported modes | Export, Prepare, Import, Migrate | Export only (for now) |
+| Container support | Yes | No — Windows process only |
+
+### IModule Dispatch
+
+`TfsJobAgentWorker` accepts `IEnumerable<IModule>` exactly like `JobAgentWorker`. TFS-specific modules implement the same `IModule` contract:
+
+- `ExportAsync` — performs the full TFS OM export via a TFS `IWorkItemRevisionSource` implementation and `WorkItemExportOrchestrator`.
+- `PrepareAsync` — returns `Task.CompletedTask`. TFS is source-only; Prepare requires a target, which TFS is never used as.
+- `ImportAsync` — returns `Task.CompletedTask`. Not yet implemented; will be populated when TFS import is added to the TFS agent.
+- `ValidateAsync` — returns `Task.CompletedTask`. No-op until TFS import is implemented.
+
+### Multi-Targeting
+
+`DevOpsMigrationPlatform.Abstractions` and `DevOpsMigrationPlatform.Infrastructure` target both `net481` and `net10.0`. This allows the TFS agent to use the same interface definitions, models, and artefact store implementations as the .NET 10 `MigrationAgent` without any shared runtime binary.
+
+`IAsyncEnumerable<T>` (used by `IArtefactStore`) is satisfied on net481 via `Microsoft.Bcl.AsyncInterfaces`.
+
+The `DevOpsMigrationPlatform.TfsMigrationAgent` project MUST NOT be referenced by any .NET 10 project. It is built and deployed as a separate binary, peer to `MigrationAgent/` in the output layout.
+
+### Permanent Constraints
+
+- **Windows-only.** The TFS Object Model is .NET Framework, Windows-only. The TFS agent cannot run in Linux containers, Windows Nano Server, Azure Container Apps, or any container orchestrator.
+- **Filesystem package store only.** The Azure Blob SDK dependency chain is problematic on net481. TFS exports always run on a Windows machine with filesystem access, so `FileSystemArtefactStore` is the only supported store. A job with `source.type: TeamFoundationServer` and a blob package URI must be rejected at Tier 0 validation by the CLI.
+- **No `IHttpClientFactory` / Polly.** The net481 HTTP client is a plain `System.Net.Http.HttpClient`. The control plane is always on the same machine or LAN for TFS topologies; a simple retry loop is sufficient.
+
+### Lifecycle
+
+`AgentLifecycleService` in `ControlPlaneHost` spawns the TFS agent binary on Windows alongside the MigrationAgent. On Linux/macOS and in cloud container deployments, the TFS agent binary is absent and skipped — a log note is written, no error is raised. The TFS agent polls `GET /agents/lease?capabilities=tfs` and only acquires jobs with `source.type: TeamFoundationServer`.

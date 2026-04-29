@@ -82,6 +82,8 @@ Status legend:
 | C4 | [`admin field install-reflected-id`](#c4-admin-field-install-reflected-id) | ❌ | Install `Custom.ReflectedWorkItemId` across all orgs/processes/WITs |
 | C5 | [`admin field delete`](#c5-admin-field-delete) | ❌ | Delete a field by reference name from all enabled orgs |
 | C6 | [`admin page install`](#c6-admin-page-install) | ❌ | Idempotent page/group installation on WIT form layouts across orgs |
+| C7 | [`config validate`](#c7-config-validate) | 🆕 ❌ | Run Tier 0 (and optionally Tier 1) schema validation against a config file without queuing a job |
+| C8 | [`config schema`](#c8-config-schema) | 🆕 ❌ | Print or export the canonical JSON Schema for the migration config |
 
 ### Platform Features
 
@@ -90,6 +92,7 @@ Status legend:
 | P1 | [Checkpoint Reconciliation](#p1-checkpoint-reconciliation) | 🆕 🔶 | Rebuild missing/corrupted checkpoint state from existing package data across all modules. Implemented for discovery modules (`DependencyDiscoveryModule`); not yet generalised across all modules |
 | P4 | [Operator Interaction / Pending Questions](#p4-operator-interaction--pending-questions) | 🆕 ❌ | Allow a running MigrationJob to pause and request operator input via TUI or CLI follow-mode; Agent enters "Pending" state on Control Plane until the answer is provided |
 | P5 | [Cloud Deployment — Ring-Based ControlPlane + Agents](#p5-cloud-deployment--ring-based-controlplane--agents) | 🆕 ❌ | Deploy ControlPlaneHost and MigrationAgent(s) to Azure Container Apps via `azd up` with three deployment rings (canary, preview, release) on `devopsmigration.io` |
+| P6 | [Formal JSON Schema — Config Validation & Tooling](#p6-formal-json-schema--config-validation--tooling) | 🆕 ❌ | Bundle a machine-readable JSON Schema for the full migration config; use it for Tier 0 path-accurate error messages, VS Code IntelliSense, and config-generation tooling |
 
 ---
 
@@ -933,3 +936,205 @@ As an interim measure before the full `Reconcile` job is built, individual modul
 | `modules[].maxGracefulFailures` | WorkItems module | Integer option |
 | `modules[].generateMigrationComment` | WorkItems module | Boolean option |
 | `extensions[Attachments].maxSizeBytes` | WorkItems/Attachments extension | Integer option |
+
+---
+
+### C7: `config validate`
+
+**Status**: 🆕 ❌ Not implemented  
+**Priority**: High
+
+**Purpose**: Run structural (Tier 0) and optionally connectivity (Tier 1) validation against a config file without submitting a job to the control plane. Gives the operator a fast feedback loop when authoring or editing configs, and enables CI lint gates.
+
+**CLI syntax**:
+```
+devopsmigration config validate --config migration.json
+devopsmigration config validate --config migration.json --tier 0
+devopsmigration config validate --config migration.json --tier 1
+```
+
+**Flags**:
+
+| Flag | Description |
+|---|---|
+| `--tier 0` | Schema + structural validation only (default). No network calls. |
+| `--tier 1` | Also run connectivity and permission checks. Requires credentials. |
+
+**Behaviour**:
+1. Loads and parses the JSON config.
+2. Validates against the bundled JSON Schema (see [P6](#p6-formal-json-schema--config-validation--tooling)).
+3. Runs `MigrationOptionsValidator` and all registered `IValidateOptions<T>` validators.
+4. If `--tier 1`: executes the same connectivity checks as a real `queue` command but without submitting the job.
+5. Exits with code `0` on success; exits with code `1` and prints all errors (one per line, with JSON Pointer path) on failure.
+
+**Output** (success):
+```
+✓ Config is valid (Tier 0 passed, 0 errors)
+```
+
+**Output** (failure):
+```
+✗ Config validation failed (3 errors):
+  $.MigrationPlatform.mode: "Both" is not valid. Must be one of: Export, Prepare, Import, Migrate.
+  $.MigrationPlatform.source: required when mode is "Export".
+  $.MigrationPlatform.policies.retries.max: must be a positive integer.
+```
+
+**Relationship to existing behaviour**: Today these checks only fire when a job is actually queued. `config validate` surfaces them without side effects, enabling editor-based validation workflows and CI lint gates.
+
+---
+
+### C8: `config schema`
+
+**Status**: 🆕 ❌ Not implemented  
+**Priority**: Medium
+
+**Purpose**: Print or export the canonical JSON Schema bundled in the CLI binary. Enables local schema-first workflows (pinning a schema version, offline IntelliSense, input to config-generation tooling).
+
+**CLI syntax**:
+```
+devopsmigration config schema
+devopsmigration config schema --output migration.schema.json
+devopsmigration config schema --module WorkItems
+devopsmigration config schema --module WorkItems --scope wiql
+```
+
+**Flags**:
+
+| Flag | Description |
+|---|---|
+| `--output <file>` | Write schema to a file instead of stdout |
+| `--module <name>` | Emit only the schema for the named module's options block |
+| `--scope <type>` | Emit only the scope-parameter schema for the named scope type |
+
+**Notes**:
+- Without flags, prints the full `migration.schema.json` to stdout.
+- The schema is generated from the Options C# types at build time (see [P6](#p6-formal-json-schema--config-validation--tooling)).
+- Pinning the output file to your repo allows editors to validate configs against a known-good version even without network access.
+
+---
+
+### P6: Formal JSON Schema — Config Validation & Tooling
+
+**Status**: 🆕 ❌ Not implemented  
+**Priority**: High
+
+**Why it matters**:
+
+Today config validation is code-only (`MigrationOptionsValidator`, `NodeStructureOptionsValidator`, etc.). There is no machine-readable schema that:
+- Editors can use to provide IntelliSense, hover documentation, and inline error highlighting.
+- The CLI can use to produce precise, path-accurate Tier 0 error messages before `IOptions<T>` binding runs.
+- Config-generation tooling (e.g. `config generate`, future GUI tools) can use to compose and validate configs programmatically.
+- Operators can download and pin offline when working in air-gapped environments.
+
+The existing `docs/validation.md` Tier 0 table already references "Module scope schemas bundled inside the CLI binary — one JSON Schema file per module" as a required check; this feature makes that a reality.
+
+**Proposed artefacts**:
+
+| Artefact | Location | Description |
+|---|---|---|
+| `migration.schema.json` | Embedded resource in `DevOpsMigrationPlatform.CLI.Migration` | Full JSON Schema (draft 2020-12) for the `MigrationPlatform` root object |
+| `scopes/<module>.schema.json` | Embedded resource per module assembly | Per-module scope-parameter schema; contributed via `IModuleScopeSchemaProvider` |
+| Published schema URL | `https://schema.devopsmigration.io/migration/v1.json` | Canonical public URL for editor auto-discovery via `$schema` property |
+
+**Schema generation approach**:
+
+The schema is **generated at build time** from the C# Options classes using `NJsonSchema`. A `SchemaGenerator` build task:
+
+1. Reflects over all `IOptions<T>` types registered in `MigrationPlatform`.
+2. Honours `[Description]`, `[Required]`, `[JsonPropertyName]`, and `[AllowedValues]` attributes.
+3. Outputs a single `migration.schema.json` covering the full config surface including polymorphic `source`/`target`/`organisations` endpoint variants.
+4. Each module contributes its scope-parameter sub-schema via `IModuleScopeSchemaProvider`.
+
+**`$schema` property support**:
+
+```json
+{
+  "$schema": "https://schema.devopsmigration.io/migration/v1.json",
+  "MigrationPlatform": {
+    "configVersion": "1.0"
+  }
+}
+```
+
+When a config file contains `$schema`, VS Code and JetBrains IDEs automatically validate against it and provide hover documentation. The CLI uses the bundled schema regardless of whether `$schema` is present.
+
+**Tier 0 integration**:
+
+The Tier 0 structural check in `ConfigurationService.LoadConfigurationAsync` is augmented to run a JSON Schema validation pass *before* deserialization:
+
+1. Parse the raw JSON into a `JsonDocument`.
+2. Validate the document against the bundled `migration.schema.json` using `JsonSchema.Net`.
+3. Collect all validation errors, each annotated with the JSON Pointer path (e.g., `$.MigrationPlatform.source.type`).
+4. If any errors exist, throw a structured exception listing all errors — the CLI renders these as a human-readable block before exiting with code 1.
+5. Only if schema validation passes does deserialization into `MigrationOptions` proceed.
+
+**Error message format**:
+
+```
+Config validation failed — 2 errors found in 'migration.json':
+
+  [1] $.MigrationPlatform.source.type
+      Value "TFS" is not valid. Must be one of: AzureDevOpsServices, TeamFoundationServer, Simulated.
+
+  [2] $.MigrationPlatform.modules[0].name
+      Module "WorkItemz" is not registered. Known modules: WorkItems, Teams, Git, SharedQueries.
+```
+
+**Module scope schema registration**:
+
+Each module assembly registers a scope schema provider at startup:
+
+```csharp
+// In WorkItemsModuleServiceCollectionExtensions:
+services.AddSingleton<IModuleScopeSchemaProvider, WorkItemsScopeSchemaProvider>();
+```
+
+```csharp
+public sealed class WorkItemsScopeSchemaProvider : IModuleScopeSchemaProvider
+{
+    public string ModuleName => "WorkItems";
+    public JsonSchema GetScopeSchema(string scopeType) => scopeType switch
+    {
+        "wiql" => _wiqlScopeSchema,
+        "ids"  => _idsScopeSchema,
+        _      => throw new ArgumentOutOfRangeException(nameof(scopeType))
+    };
+}
+```
+
+The `IConfigSchemaService` composes all registered module scope schemas into the final `migration.schema.json` at startup and provides it to the CLI for both validation and `config schema` output.
+
+**Published schema versioning**:
+
+| Schema version | Tied to | URL |
+|---|---|---|
+| `v1` | `configVersion: "1.0"` | `https://schema.devopsmigration.io/migration/v1.json` |
+| `v2` (future) | `configVersion: "2.0"` | `https://schema.devopsmigration.io/migration/v2.json` |
+
+Breaking changes to the config shape bump the schema version and require a config upgrader (consistent with versioning rule 11 in `coding-standards.md`).
+
+**Tooling unlocked by this feature**:
+
+| Consumer | How the schema is used |
+|---|---|
+| VS Code / JetBrains | `$schema` property triggers IntelliSense, hover docs, and inline error highlighting |
+| `config validate` ([C7](#c7-config-validate)) | Runs schema-based validation on demand without queuing a job |
+| `config schema` ([C8](#c8-config-schema)) | Exports the schema for offline or pinned use |
+| `config generate` ([C1](#c1-config-generate)) | Validates generated configs before writing them to disk |
+| `queue` command | Tier 0 now returns path-accurate errors instead of generic deserialization failures |
+| Future GUI / web config builder | Schema drives form field types, allowed values, and required-field enforcement |
+| CI lint workflow | `devopsmigration config validate` as a lint step in pull request pipelines |
+
+**Libraries**:
+
+- `JsonSchema.Net` (`Gregsdennis.JsonSchema.Net`) — pure .NET, no native dependencies, supports Draft 2020-12. Used at **runtime** for validation.
+- `NJsonSchema` — used at **build time** for schema generation from C# types.
+
+**Key design constraints**:
+- Schema validation runs at Tier 0 — before any network call, before `IOptions<T>` binding.
+- Validation errors include JSON Pointer paths so operators can locate the problem without reading source code.
+- The schema is an embedded resource — no file-system reads required at runtime.
+- Module scope schemas are contributed via `IModuleScopeSchemaProvider` — no coupling between the core schema and module assemblies.
+- The published URL is only used for editor auto-discovery; the bundled embedded schema is authoritative at runtime.
+- No `IOptions<T>` validator is removed — schema validation is an additional Tier 0 gate, not a replacement.

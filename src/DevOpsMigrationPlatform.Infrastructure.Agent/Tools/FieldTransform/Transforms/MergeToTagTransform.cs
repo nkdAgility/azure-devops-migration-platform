@@ -47,10 +47,10 @@ public sealed class MergeToTagTransform : IFieldTransform
             // Only merge from non-tags source fields into the combined string
             // For the tags field itself, the value is already in combined
             if (!string.Equals(sourceField, TagsField, System.StringComparison.OrdinalIgnoreCase))
-                combined = TagUtilities.AppendTag(combined, value);
+                combined = WorkItemTagParser.AppendTag(combined, value);
         }
 
-        var newTags = TagUtilities.Deduplicate(combined);
+        var newTags = WorkItemTagParser.Deduplicate(combined);
         updated[TagsField] = newTags;
 
         return new FieldTransformResult(

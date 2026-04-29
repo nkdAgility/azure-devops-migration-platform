@@ -238,6 +238,23 @@ For each evaluated test, the detailed log must include:
 - Tests that duplicate another test's assertions with only cosmetic differences
 - `mock.Verify(x => x.SomeMethod(...))` with no assertion on the outcome of calling that method
 
+### Module & Connector-Specific WASTE Patterns (Instant 0 on Behaviour Value)
+
+The following patterns are unconditional WASTE in any test for a module (`ExportAsync`, `ImportAsync`) or a connector (`ITeamSource`, `IIdentitySource`, `ITeamTarget`, etc.):
+
+| Pattern | Why it is WASTE |
+|---------|-----------------|
+| `Assert.IsTrue(count >= 0)` | Always true; asserts nothing about whether the module produced any output |
+| `Assert.IsTrue(true)` | Tautology; the test body is meaningless |
+| `Assert.IsNotNull(result)` as **sole** assertion | Proves the method returned without throwing — not that it did anything useful |
+| No `Assert.*` call at all | The test only verifies "does not crash", not correctness |
+| Export test with no check that `IArtefactStore` contains the expected path | The module may have written nothing; the test cannot detect it |
+| Export test with no check that the written file is non-empty (length > 0 / line count > 0) | The module may have written an empty file; the test cannot detect it |
+| Import test with no check on `Simulated*Target` state (e.g., `.Teams.Count`, `.NodesCreated`) | The module may have called nothing on the target; the test cannot detect it |
+| Import test that asserts `targetState.Count >= 0` | Always true; equivalent to no assertion |
+
+**Scoring rule:** Any test containing solely one or more of the patterns above — with no additional assertion that checks artefact content or target state — scores **0 on Behaviour Value** and **0 on Credible Failure Mode**, giving a maximum possible total of 15 (all other dimensions at 5). This will almost always produce a WASTE classification. If it does not, override to WASTE explicitly and note the reason.
+
 ---
 
 ## Integration with SpecKit

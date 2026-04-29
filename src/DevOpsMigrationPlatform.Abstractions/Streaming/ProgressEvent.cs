@@ -38,10 +38,22 @@ public record ProgressEvent
 
     /// <summary>
     /// Optional <see cref="JobMetrics"/> emitted alongside this progress event.
-    /// Populated by the TFS subprocess every N revisions (controlled by
-    /// <see cref="TelemetryOptions.SubprocessSnapshotRevisionInterval"/>; default 100).
-    /// Null when emitted by the .NET 10 Migration Agent directly (metrics are pushed
-    /// via a separate HTTP channel in that case).
+    /// <para>
+    /// <strong>When to populate:</strong> Every module MUST set this on its completion event
+    /// (e.g. <c>MyModule.Export.Complete</c>) with its aggregate counters.
+    /// <c>ProgressController.PostProgress</c> reads this field and merges it into
+    /// <c>JobMetricsStore</c>, which is the source for <c>GET /jobs/{id}/telemetry</c>
+    /// — the only channel the CLI and TUI read for live counter display.
+    /// </para>
+    /// <para>
+    /// <strong>TFS subprocess (net481):</strong> Also populated every N revisions
+    /// (controlled by <see cref="TelemetryOptions.SubprocessSnapshotRevisionInterval"/>; default 100).
+    /// </para>
+    /// <para>
+    /// <strong>Relationship to OTel instruments (<c>IMigrationMetrics</c>):</strong>
+    /// OTel instruments flow to Azure Monitor / Application Insights only — they do NOT
+    /// reach the CLI/TUI display. Both must be called for complete observability.
+    /// </para>
     /// </summary>
     public JobMetrics? Metrics { get; init; }
 }

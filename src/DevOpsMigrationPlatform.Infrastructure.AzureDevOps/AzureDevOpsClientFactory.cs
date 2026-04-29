@@ -5,6 +5,7 @@ using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Options;
 using Microsoft.TeamFoundation.Core.WebApi;
 using Microsoft.TeamFoundation.SourceControl.WebApi;
+using Microsoft.TeamFoundation.Work.WebApi;
 using Microsoft.TeamFoundation.WorkItemTracking.WebApi;
 using Microsoft.VisualStudio.Services.Common;
 using Microsoft.VisualStudio.Services.WebApi;
@@ -36,6 +37,20 @@ public sealed class AzureDevOpsClientFactory : IAzureDevOpsClientFactory
     {
         var connection = CreateConnection(endpoint);
         return connection.GetClientAsync<GitHttpClient>(cancellationToken);
+    }
+
+    public Task<TeamHttpClient> CreateTeamClientAsync(
+        OrganisationEndpoint endpoint, CancellationToken cancellationToken = default)
+    {
+        var connection = CreateConnection(endpoint);
+        return connection.GetClientAsync<TeamHttpClient>(cancellationToken);
+    }
+
+    public Task<WorkHttpClient> CreateWorkClientAsync(
+        OrganisationEndpoint endpoint, CancellationToken cancellationToken = default)
+    {
+        var connection = CreateConnection(endpoint);
+        return connection.GetClientAsync<WorkHttpClient>(cancellationToken);
     }
 
     private static VssConnection CreateConnection(OrganisationEndpoint endpoint)

@@ -23,6 +23,76 @@ When invoked manually, pass the target file or folder path. If no path is given,
 
 ---
 
+## Argument Parsing
+
+The command MUST parse `--stage` before any other step.
+
+**Valid values:** `spec` | `plan` | `tasks` | `implement`
+
+- If `--stage` is present and valid: execute **Stage Precedence Rule** below. Do NOT execute Step 0.
+- If `--stage` is absent: fall through to Step 0 (auto-detection).
+- If `--stage` is present but invalid: STOP and emit:
+
+  ```
+  OBSERVABILITY CONTRACT FAILURE: Invalid --stage value "<value>".
+  Expected one of: spec, plan, tasks, implement
+  ```
+
+---
+
+## Stage Precedence Rule
+
+When `--stage` is provided it is the **single source of truth**. It overrides all auto-detection.
+
+- DO NOT execute Step 0.
+- DO NOT infer the target from file type or current editor context.
+- Resolve **target** and **enforcement behaviour** exclusively from the Stage Resolution table below.
+
+---
+
+## Stage Resolution (Authoritative)
+
+| Stage | Target (resolved from current feature dir) | Enforcement Focus | Required Action |
+|---|---|---|---|
+| `spec` | `<feature-dir>/spec.md` | `## Observability` section: operations, decisions, metrics, traces, logging, correlation, validation queries | Amend `spec.md` directly — inject/rewrite the section. Do not stop at listing gaps. |
+| `plan` | `<feature-dir>/plan.md` | Observability Contract section: O-1 spans, O-2 metrics, O-3 logs, O-4 progress events, CLI visibility per operation | Amend `plan.md` directly — inject/rewrite the section. Do not stop at listing gaps. |
+| `tasks` | `<feature-dir>/tasks.md` | Every user story phase contains explicit tasks for O-1 `ActivitySource.StartActivity`, O-2 `IMigrationMetrics`, O-3 structured `ILogger`, O-4 `IProgressSink.EmitAsync` | Amend `tasks.md` directly — insert missing observability tasks into each phase. Block until gap-free. |
+| `implement` | All `.cs` files created or modified in the current execution (see below) | O-1 span on every operation method; O-2 metrics at every boundary; O-3 structured logging (Info start/end, Warn skips/errors, Debug per-item); O-4 EmitAsync at start, per ≤50-item batch, and completion | Write missing instrumentation directly into source files. Produce gap table, fix every row to ✅. |
+
+If the resolved target file does not exist, STOP and emit:
+
+```
+OBSERVABILITY CONTRACT FAILURE: Target file not found: <path>.
+Ensure the target artefact exists before running this stage.
+```
+
+### Stage `implement` — target resolution
+
+The target is, in priority order:
+
+1. All `.cs` files explicitly passed as arguments.
+2. All `.cs` files created or modified in the current SpecKit implementation session (from the task execution log).
+3. If neither is available: all `.cs` files in the current feature namespace or project folder that contain a class implementing `IModule`, `IJob`, `ICommandHandler`, or a service/tool class.
+
+Do not scan the entire solution. Scope is the feature under implementation.
+
+**Resolve, do not just report.** For every stage:
+- Document stages (`spec`, `plan`, `tasks`): **write the missing content into the target file**. Produce the gap table, then immediately fix every gap.
+- Codebase stage (`implement`): **write the missing instrumentation code** into the correct source files. Produce the gap table, then immediately implement every fix.
+
+---
+
+## Execution Guard
+
+Before performing any stage action:
+
+1. Confirm the resolved target file or file set exists (see Stage Resolution above).
+2. Attempt to extract at least one operation from the target (Step 2 below).
+
+If either check fails: STOP execution and emit the appropriate failure message. Do not attempt inference or fallback.
+
+---
+
 ## Role
 
 When this skill is active, inspect the target for observability completeness and **fail explicitly** if minimum standards cannot be satisfied.
@@ -49,7 +119,9 @@ These files establish the naming conventions and existing instrumentation. New m
 
 Execute the following steps in order. Do not skip steps. Do not proceed past a FAIL gate.
 
-### Step 0 — Detect Mode
+**If `--stage` was provided, begin at Step 1 using the target resolved by the Stage Resolution table. Skip Step 0 entirely.**
+
+### Step 0 — Detect Mode (only when `--stage` is absent)
 
 1. Examine the target path or context.
 2. If the target is a `.md` file, or the skill was invoked by a SpecKit hook → enter **Document mode**.

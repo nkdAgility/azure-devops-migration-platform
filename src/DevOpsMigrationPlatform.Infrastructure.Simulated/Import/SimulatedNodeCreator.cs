@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Concurrent;
 using System.Threading;
 using System.Threading.Tasks;
@@ -32,7 +32,7 @@ public sealed class SimulatedNodeCreator : INodeCreator
     {
         var key = BuildKey(nodeType, path, endpoint.GetProject());
         var exists = _nodes.ContainsKey(key);
-        _logger.LogDebug("[NodeStructure][Simulated] NodeExistsAsync {Key} = {Exists}.", key, exists);
+        _logger.LogDebug("[NodeTranslation][Simulated] NodeExistsAsync {Key} = {Exists}.", key, exists);
         return Task.FromResult(exists);
     }
 
@@ -45,7 +45,7 @@ public sealed class SimulatedNodeCreator : INodeCreator
     {
         var key = BuildKey(nodeType, path, endpoint.GetProject());
         _nodes.TryAdd(key, true);
-        _logger.LogDebug("[NodeStructure][Simulated] EnsureExistsAsync {Key}.", key);
+        _logger.LogDebug("[NodeTranslation][Simulated] EnsureExistsAsync {Key}.", key);
         return Task.CompletedTask;
     }
 
@@ -58,7 +58,7 @@ public sealed class SimulatedNodeCreator : INodeCreator
         CancellationToken ct)
     {
         if (startDate is null && finishDate is null) return Task.CompletedTask;
-        _logger.LogDebug("[NodeStructure][Simulated] SetIterationDatesAsync for {Path} ({Start} – {Finish}).", path, startDate, finishDate);
+        _logger.LogDebug("[NodeTranslation][Simulated] SetIterationDatesAsync for {Path} ({Start} – {Finish}).", path, startDate, finishDate);
         return Task.CompletedTask;
     }
 

@@ -1,4 +1,4 @@
-# Module Architecture
+﻿# Module Architecture
 
 ## 7. Module Architecture
 
@@ -35,6 +35,7 @@ interface IModule
 - A module that depends on another module will not execute until the dependency completes successfully.
 - Modules with no declared dependencies may execute in any order (or in parallel, if the orchestrator supports it in a future version).
 - `IdentitiesModule` has no dependencies (`DependsOn` is empty) but must complete before any module that performs identity mapping. Any module that maps identities must include `"IdentitiesModule"` in its own `DependsOn` list. Failure to do so is a dependency graph error that the orchestrator must detect and reject at startup.
+- `TeamsModule` should be ordered after `IdentitiesModule` and `NodesModule`, and before `WorkItemsModule`. Module execution order is controlled by the operator via configuration — there is no `DependsOn` property on TeamsModule or NodesModule. The operator must ensure prerequisite modules complete before dependent modules run.
 
 ### Storage Rule
 
@@ -69,6 +70,19 @@ The Azure DevOps export path uses the following components:
 
 **Delta detection**: Adjacent revisions sharing the same attachment URL skip re-download — only new or changed URLs trigger a binary fetch.
 
+### WorkItemsModule — TFS Export
+
+The TFS export path runs inside `DevOpsMigrationPlatform.TfsMigrationAgent` (net481). It uses the same `WorkItemExportOrchestrator` and `IModule` dispatch as the ADO path — the only difference is the connector:
+
+| Component | Role |
+|---|---|
+| `TfsWorkItemsModule` | Implements `IModule`. `ExportAsync` drives the full TFS export; `PrepareAsync`, `ImportAsync`, `ValidateAsync` return `Task.CompletedTask` (TFS is source-only; import not yet implemented). |
+| `TfsWorkItemRevisionSource` | Enumerates work item revisions from the TFS Object Model (`WorkItemStore`). Uses date-windowed iteration, same chronological ordering as the ADO source. |
+| `TfsAttachmentBinarySource` | Downloads attachment binaries from TFS. |
+| `WorkItemExportOrchestrator` | Same orchestrator as ADO — enumerate revisions → write `revision.json` → download attachments → advance cursor. Shared from `DevOpsMigrationPlatform.Infrastructure.Agent`. |
+
+The package output is identical to an ADO export — the same `WorkItems/yyyy-MM-dd/<ticks>-<workItemId>-<revisionIndex>/revision.json` layout. An exported TFS package can be fed directly into the standard `import` flow without modification.
+
 ### Adding a New Module
 
 See [.agents/guardrails/module-template.md](../.agents/guardrails/module-template.md) for the full checklist.
@@ -95,13 +109,126 @@ Available tools:
 | Tool | Key | Purpose |
 |---|---|---|
 | `FieldTransformTool` | `FieldTransform` | Applies declared field transformation rules (copy, map, replace, etc.) to each work item revision. |
-| `NodeStructureTool` | `NodeStructure` | Translates and validates area/iteration classification node paths. Supports regex-based path mappings, localised root-name normalisation, source-tree replication, and auto-creation of missing nodes on the target. |
+| `NodeTranslationTool` | `NodeTranslation` | Translates and validates area/iteration classification node paths. Supports regex-based path mappings, localised root-name normalisation, source-tree replication, and auto-creation of missing nodes on the target. |
 
 For the full tool schema and available tool types, see [docs/configuration.md — Tools](configuration.md#tools).
 
+### IdentitiesModule
+
+| Property | Value |
+|---|---|
+| **Name** | `Identities` |
+| **DependsOn** | *(none — runs first)* |
+| **Package folder** | `Identities/` |
+| **Cursor** | `.migration/Checkpoints/identities.cursor.json` |
+
+**Behaviour:**
+- `ExportAsync`: streams all user and group identity descriptors from the source via `IIdentitySource`. Writes one descriptor per line to `Identities/descriptors.jsonl` (JSONL format). Emits `migration.identities.export.count` metric.
+- `ImportAsync`: reads `Identities/descriptors.jsonl`. If `Identities/mapping.json` exists, loads explicit overrides. Populates `IIdentityMappingService` singleton so all downstream modules can call `Resolve()`. Writes `Identities/unresolved.json` for identities that could not be matched.
+- `ValidateAsync`: checks `Identities/descriptors.jsonl` exists and is valid JSONL. Reports missing required fields as validation errors.
+
+**Configuration section**: `MigrationPlatform:Modules:Identities`
+
+```json
+{
+  "name": "Identities",
+  "enabled": true,
+  "defaultIdentity": "migration-service@contoso.com"
+}
+```
+
+**Cross-cutting service**: `IIdentityMappingService` is a singleton populated during `ImportAsync`. All modules requiring identity resolution inject this service.
+
+---
+
+### NodesModule
+
+| Property | Value |
+|---|---|
+| **Name** | `Nodes` |
+| **DependsOn** | *(none)* |
+| **Package folder** | `Nodes/` |
+| **Cursor** | `.migration/Checkpoints/nodes.cursor.json` |
+
+**Behaviour:**
+- `ExportAsync`: delegates to `IClassificationTreeCapture.CaptureAsync()` — writes `Nodes/source-tree.json` with the full area/iteration tree from the source.
+- `ImportAsync`: if `ReplicateSourceTree` is enabled, delegates to `INodeEnsurer.ReplicateSourceTreeAsync()`. If `AutoCreateNodes` is enabled, also calls `INodeEnsurer.EnsureReferencedPathsAsync()` using `Nodes/referenced-paths.json`. Writes `nodes.cursor.json` after completion.
+- `ValidateAsync`: delegates to `INodeTranslationValidator.ValidateAsync()`.
+
+**Configuration section**: `MigrationPlatform:Modules:Nodes`
+
+```json
+{
+  "name": "Nodes",
+  "enabled": true,
+  "replicateSourceTree": true,
+  "autoCreateNodes": true
+}
+```
+
+---
+
+### TeamsModule
+
+| Property | Value |
+|---|---|
+| **Name** | `Teams` |
+| **DependsOn** | *(none — order is operator-controlled)* |
+| **Package folder** | `Teams/` |
+| **Cursor** | `.migration/Checkpoints/teams.cursor.json` |
+
+**Recommended execution order**: After `IdentitiesModule` and `NodesModule`, before `WorkItemsModule`.
+
+**Scope types:**
+- `"all"` (default) — exports all teams in the project.
+- `"teams"` — exports only teams matching the optional `filter` pattern (case-insensitive regex on team name).
+
+**Extensions** (all enabled by default):
+| Extension | Description |
+|---|---|
+| `TeamSettings` | Board configuration, backlog navigation level, bugs behaviour, working days |
+| `TeamIterations` | Sprint/iteration assignments including default and backlog iterations |
+| `TeamMembers` | Team membership with admin flags; uses `IIdentityMappingService` for identity resolution |
+| `TeamCapacity` | Per-member capacity per sprint; uses `INodeTranslationTool` for iteration path translation |
+| `NodeTranslation` | Records team area/iteration paths into `IReferencedPathTracker` during export |
+
+**Behaviour:**
+- `ExportAsync`: enumerates teams via `ITeamSource`. For each team, writes `Teams/{team-slug}/team.json` (settings, iterations, members, capacity, area paths). Writes `teams.cursor.json` after each team. Supports scope/filter.
+- `ImportAsync`: reads team files, creates/updates via `ITeamTarget`. Uses `INodeTranslationTool` for path translation. Uses `IIdentityMappingService` for member mapping.
+- `ValidateAsync`: validates `Teams/` folder structure and JSON file integrity.
+
+**Configuration section**: `MigrationPlatform:Modules:Teams`
+
+```json
+{
+  "name": "Teams",
+  "enabled": true,
+  "scope": "all",
+  "filter": "",
+  "extensions": {
+    "teamSettings": true,
+    "nodeStructure": true,
+    "teamIterations": true,
+    "teamMembers": true,
+    "teamCapacity": true
+  }
+}
+```
+
+**Package layout:**
+```
+Teams/
+  {team-slug}/
+    team.json   ← definition, settings, iterations, members, capacity, area paths
+```
+
+Team slugs are generated from the team display name: lowercase, spaces → hyphens, special characters stripped.
+
+---
+
 ### Module Registration
 
-Module registrations belong at the **composition root** (`ModuleServiceCollectionExtensions`), not inside connector assemblies.Connector files (e.g., `ExportServiceCollectionExtensions`) only register connector-specific services (factories, HTTP clients, SDK adapters). This ensures connectors are decoupled from module implementations.
+Module registrations belong at the **composition root** (`ModuleServiceCollectionExtensions`), not inside connector assemblies. Connector files (e.g., `ExportServiceCollectionExtensions`) only register connector-specific services (factories, HTTP clients, SDK adapters). This ensures connectors are decoupled from module implementations.
 
 ### Discovery Utility Namespace
 

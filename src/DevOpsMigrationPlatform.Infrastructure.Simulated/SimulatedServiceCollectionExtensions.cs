@@ -36,6 +36,12 @@ public static class SimulatedServiceCollectionExtensions
         // Classification tree reader — returns a minimal deterministic tree for simulated sources.
         services.AddClassificationTreeReader<SimulatedClassificationTreeReader>("Simulated");
 
+        // Identity source — deterministic simulated identities keyed by connector type.
+        services.AddIdentitySource<SimulatedIdentitySource>("Simulated");
+
+        // Team source — deterministic simulated teams keyed by connector type.
+        services.AddTeamSource<SimulatedTeamSource>("Simulated");
+
         // Discovery services (for inventory of simulated sources)
         services.TryAddSingleton<SimulatedGeneratorConfig>();
         services.TryAddSingleton<IProjectDiscoveryService, SimulatedProjectDiscoveryService>();
@@ -61,6 +67,9 @@ public static class SimulatedServiceCollectionExtensions
 
         // Classification node creator — in-memory simulation of node creation.
         services.AddNodeCreator<SimulatedNodeCreator>("Simulated");
+
+        // Team target — in-memory simulation of team creation, keyed for composite dispatch.
+        services.AddTeamTarget<SimulatedTeamTarget>("Simulated");
 
         return services;
     }

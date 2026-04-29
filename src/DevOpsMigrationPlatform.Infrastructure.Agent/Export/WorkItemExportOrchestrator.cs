@@ -13,7 +13,7 @@ using DevOpsMigrationPlatform.Abstractions.Telemetry;
 using Microsoft.Extensions.Logging;
 #if !NET481
 using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
-using DevOpsMigrationPlatform.Infrastructure.Agent.Tools.NodeStructure;
+using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 #endif
 
 namespace DevOpsMigrationPlatform.Infrastructure.Agent.Export;
@@ -62,7 +62,7 @@ public sealed class WorkItemExportOrchestrator
 #if !NET481
     private readonly IExportProgressStoreFactory? _exportProgressStoreFactory;
     private readonly string? _packageUri;
-    private readonly ReferencedPathTracker? _referencedPathTracker;
+    private readonly IReferencedPathTracker? _referencedPathTracker;
 #endif
 
     public WorkItemExportOrchestrator(
@@ -83,7 +83,7 @@ public sealed class WorkItemExportOrchestrator
 #if !NET481
         , IExportProgressStoreFactory? exportProgressStoreFactory = null
         , string? packageUri = null
-        , ReferencedPathTracker? referencedPathTracker = null
+        , IReferencedPathTracker? referencedPathTracker = null
 #endif
         )
     {

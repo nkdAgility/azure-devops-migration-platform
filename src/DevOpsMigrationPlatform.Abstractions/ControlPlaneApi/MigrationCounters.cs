@@ -13,6 +13,15 @@ public record MigrationCounters
     /// <summary>Work item processing counters.</summary>
     public WorkItemCounters WorkItems { get; init; } = new();
 
+    /// <summary>Team export/import counters. Null when no teams module ran.</summary>
+    public TeamsCounters? Teams { get; init; }
+
+    /// <summary>Classification node (area/iteration) replication counters. Null when no nodes module ran.</summary>
+    public NodesCounters? Nodes { get; init; }
+
+    /// <summary>Identity export/import counters. Null when no identities module ran.</summary>
+    public IdentitiesCounters? Identities { get; init; }
+
     /// <summary>
     /// OTel-derived diagnostic means and correctness counters.
     /// Populated only at aggregate scope (<see cref="JobMetrics"/>); null at per-project scope.

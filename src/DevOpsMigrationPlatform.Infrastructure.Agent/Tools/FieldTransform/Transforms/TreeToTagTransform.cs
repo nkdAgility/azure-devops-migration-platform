@@ -53,7 +53,7 @@ public sealed class TreeToTagTransform : IFieldTransform
         {
             var trimmed = segment.Trim();
             if (!string.IsNullOrEmpty(trimmed))
-                currentTags = TagUtilities.AppendTag(currentTags, trimmed);
+                currentTags = WorkItemTagParser.AppendTag(currentTags, trimmed);
         }
 
         updated[TagsField] = currentTags;

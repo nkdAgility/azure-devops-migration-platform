@@ -13,7 +13,7 @@ The system supports four modes:
 
 1. **Export** — Azure DevOps Services → Files, or TeamFoundationServer (via .NET 4 OM exporter) → Files, or Simulated → Files (for testing and development)
 2. **Prepare** — Files + Target → Validation artefacts. Reads the exported package and connects to the target to cross-validate before import. Each module's `PrepareAsync` analyses the exported data against the target (e.g. identity mapping, node existence, field compatibility) and writes validation artefacts into the package for operator review. Any unresolved issue is blocking unless the operator adds an explicit skip. Prepare is idempotent and re-runnable; it overwrites its own output but never touches operator-edited mapping files.
-3. **Import** — Files → Azure DevOps Services, or Files → TeamFoundationServer (via .NET 4 OM importer — **not yet implemented**, see [docs/tfs-exporter.md](tfs-exporter.md#future-tfs-import-agent)), or Files → Simulated (for testing and development). If Prepare has not been run (no `.migration/Checkpoints/prepare.complete.json` marker), Import auto-runs Prepare first and aborts with a report if any blocking issues are found.
+3. **Import** — Files → Azure DevOps Services, or Files → TeamFoundationServer (via .NET 4.8 TFS Migration Agent — not yet implemented; the TFS agent currently handles Export only), or Files → Simulated (for testing and development). If Prepare has not been run (no `.migration/Checkpoints/prepare.complete.json` marker), Import auto-runs Prepare first and aborts with a report if any blocking issues are found.
 4. **Migrate** — Export → Prepare → Import in a single orchestrated run. Aborts after Prepare if any blocking issues are found.
 
 The Files layer is first-class. It is:
@@ -40,8 +40,7 @@ The platform separates **job coordination** (control plane) from **job execution
 | **ControlPlane** | Service library (`DevOpsMigrationPlatform.ControlPlane`). Contains the HTTP API controllers, job state machine, lease protocol, progress tracking, and EF Core data model. Has no entry point — it is referenced and hosted by `ControlPlaneHost`. |
 | **ControlPlaneHost** | Deployable ASP.NET Core host (`DevOpsMigrationPlatform.ControlPlaneHost`). References the `ControlPlane` service library and adds: process entry point, agent lifecycle management via `IAgentLauncher`, and Aspire resource integration. Always reachable over HTTP. `LocalProcessAgentLauncher` spawns agent processes on the same machine; `ContainerAgentLauncher` deploys and scales agent containers to a configurable target context — either the managed ACA environment co-located with the control plane, or a user-specified environment (for network zone isolation). The agent image source is configured separately from the target context. |
 | **Migration Agent** | (`DevOpsMigrationPlatform.MigrationAgent`) Stateless worker that executes migration jobs. Polls `ControlPlaneHost` for assigned jobs under a time-bounded lease, runs modules via the Job Engine, writes to the package, reports progress back. Lifecycle managed by `ControlPlaneHost` via `IAgentLauncher`. A single binary and container image supports all modes (`Export`, `Prepare`, `Import`, `Migrate`). |
-| **TFS Export Agent** | A .NET 4.8 standalone exporter (`CLI.TfsMigration`) spawned **directly by the CLI** (`TfsExportCommand` in `CLI.Migration`) when the operator runs `devopsmigration tfsexport`. This is a direct CLI operation — it does **not** go through ControlPlane or MigrationAgent. The subprocess contains a `TfsExportAgent` class: receives a job definition via args + stdin, connects to TFS via the TFS Object Model, writes to the package via `IArtefactStore` (`FileSystemArtefactStore`), maintains checkpoints via `IStateStore`, and reports progress via `IProgressSink` (`StdoutProgressSink` → NDJSON on stdout). The CLI streams that NDJSON to the terminal via `TfsExporterProcessAdapter`. TFS OM cannot run in Docker, so this remains a CLI-only operation for all topologies. Uses the same abstractions as MigrationAgent via multi-targeted `Abstractions`. |
-| **TFS Import Agent** *(not yet implemented)* | The structural mirror of the TFS Export Agent. Will be a direct CLI operation spawned by `CLI.Migration` when the target is TFS, following the same pattern as TFS export — a dedicated CLI command, not routed through the Agent. See [docs/tfs-exporter.md](tfs-exporter.md#future-tfs-import-agent). |
+| **TFS Migration Agent** | (`DevOpsMigrationPlatform.TfsMigrationAgent`) A .NET 4.8 polling agent — structural peer of the `MigrationAgent` — that handles jobs with `source.type: TeamFoundationServer`. Polls `GET /agents/lease?capabilities=tfs`, acquires TFS jobs, runs `IModule` dispatch (`TfsJobAgentWorker` accepts `IEnumerable<IModule>`), connects to TFS via the TFS Object Model, writes to the package via `IArtefactStore` (`FileSystemArtefactStore`), maintains checkpoints via `IStateStore`, and reports progress via `ControlPlaneProgressSink`. Currently supports Export mode only; Import support will be added to the same binary. Windows-only — TFS OM cannot run in containers. `AgentLifecycleService` spawns it on Windows and skips it elsewhere. See [docs/migration-agent.md — TFS Migration Agent](migration-agent.md#tfs-migration-agent). |
 
 ### Tools
 
@@ -72,11 +71,9 @@ Agent
   │  Tier 3: post-flight validation (counts, links, attachments)
   ▼
 Package (file:/// or https://<account>.blob.core.windows.net/...)
-
-> **TFS source:** `devopsmigration tfsexport` is a separate CLI command that bypasses this flow.
-> The CLI spawns `CLI.TfsMigration` directly via `ExternalToolRunner`. Progress streams to the terminal
-> via `TfsExporterProcessAdapter`. The resulting package can then be fed into the normal `import` flow.
 ```
+
+> **TFS source:** The `TfsMigrationAgent` participates in this same flow. The control plane routes jobs with `source.type: TeamFoundationServer` to the TFS agent via capability matching (`?capabilities=tfs`). From the CLI's perspective, TFS and ADO exports are submitted identically — `POST /jobs` — and the appropriate agent picks up the work.
 
 ### MigrationJob is the Internal Contract
 
@@ -168,12 +165,12 @@ See [docs/configuration.md — Data Classification](configuration.md#data-classi
 
 ### Data Residency — Agent-Only Write Access
 
-The working directory (`Package.WorkingDirectory`) and all package files are write-accessible **exclusively** by the Migration Agent (or TFS Export Agent for TFS sources). This is a non-negotiable data residency guarantee.
+The working directory (`Package.WorkingDirectory`) and all package files are write-accessible **exclusively** by the Migration Agent (or TFS Migration Agent for TFS sources). This is a non-negotiable data residency guarantee.
 
 | Component | Package Write | Package Read | Rationale |
-|---|---|---|---|
+|---|---|---|
 | **Migration Agent** | ✅ Yes (via `IArtefactStore` / `IStateStore`) | ✅ Yes | Execution boundary — the only component that processes customer data. |
-| **TFS Export Agent** | ✅ Yes (via `IArtefactStore` / `IStateStore`) | ✅ Yes | Same execution boundary for TFS sources; runs as CLI subprocess. |
+| **TFS Migration Agent** | ✅ Yes (via `IArtefactStore` / `IStateStore`) | ✅ Yes | Same execution boundary for TFS sources; runs as a Windows polling agent. |
 | **CLI** | ❌ No | ✅ Read-only (post-job summaries) | Reads `dependencies.csv`, `inventory.json`, etc. for display after the Agent completes. Never writes. |
 | **TUI** | ❌ No | ❌ No (reads via control plane API) | Pure progress viewer; all data arrives via SSE from the control plane. |
 | **Control Plane / ControlPlaneHost** | ❌ No | ❌ No | Coordinates jobs, manages leases, buffers progress events. Never accesses the package directly. |
@@ -269,7 +266,7 @@ Key properties:
 | `DevOpsMigrationPlatform.ControlPlaneHost` | `net10.0` | Deployable ASP.NET Core host for the control plane |
 | `DevOpsMigrationPlatform.MigrationAgent` | `net10.0` | Stateless migration worker: job engine, module executor |
 | `DevOpsMigrationPlatform.CLI.Migration` | `net10.0` | Operator CLI (`devopsmigration`) |
-| `DevOpsMigrationPlatform.CLI.TfsMigration` | `net481` | TFS export subprocess |
+| `DevOpsMigrationPlatform.TfsMigrationAgent` | `net481` | TFS Migration Agent (polling agent) |
 
 ## Full Reference Set
 

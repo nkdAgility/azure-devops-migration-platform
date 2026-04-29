@@ -1,10 +1,10 @@
-#if !NET481
+﻿#if !NET481
 using System;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Export;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Import;
-using DevOpsMigrationPlatform.Infrastructure.Agent.Tools.NodeStructure;
+using DevOpsMigrationPlatform.Infrastructure.Agent.Tools.NodeTranslation;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 
@@ -108,6 +108,55 @@ public static class FactoryRegistrationExtensions
         services.AddSingleton(sp => new KeyedNodeCreator(typeKey, sp.GetRequiredService<T>()));
         services.TryAddSingleton<INodeCreator, CompositeNodeCreator>();
         services.TryAddSingleton<NodeEnsurer>();
+        return services;
+    }
+
+    /// <summary>
+    /// Registers a concrete <see cref="IIdentitySource"/> implementation keyed by
+    /// <paramref name="typeKey"/> and ensures the <see cref="CompositeIdentitySource"/>
+    /// dispatcher is registered as <see cref="IIdentitySource"/>.
+    /// </summary>
+    public static IServiceCollection AddIdentitySource<T>(
+        this IServiceCollection services,
+        string typeKey)
+        where T : class, IIdentitySource
+    {
+        services.TryAddSingleton<T>();
+        services.AddSingleton(new KeyedIdentitySource(typeKey, typeof(T)));
+        services.TryAddSingleton<IIdentitySource, CompositeIdentitySource>();
+        return services;
+    }
+
+    /// <summary>
+    /// Registers a concrete <see cref="ITeamSource"/> implementation keyed by
+    /// <paramref name="typeKey"/> and ensures the <see cref="CompositeTeamSource"/>
+    /// dispatcher is registered as <see cref="ITeamSource"/>.
+    /// </summary>
+    public static IServiceCollection AddTeamSource<T>(
+        this IServiceCollection services,
+        string typeKey)
+        where T : class, ITeamSource
+    {
+        services.TryAddSingleton<T>();
+        services.AddSingleton(new KeyedTeamSource(typeKey, typeof(T)));
+        services.TryAddSingleton<ITeamSource, CompositeTeamSource>();
+        return services;
+    }
+
+    /// <summary>
+    /// Registers a concrete <see cref="ITeamTarget"/> implementation keyed by
+    /// <paramref name="typeKey"/> (the endpoint's <c>Type</c> discriminator, e.g.
+    /// <c>"AzureDevOpsServices"</c> or <c>"Simulated"</c>), and ensures the
+    /// <see cref="CompositeTeamTarget"/> dispatcher is registered as <see cref="ITeamTarget"/>.
+    /// </summary>
+    public static IServiceCollection AddTeamTarget<T>(
+        this IServiceCollection services,
+        string typeKey)
+        where T : class, ITeamTarget
+    {
+        services.TryAddSingleton<T>();
+        services.AddSingleton(sp => new KeyedTeamTarget(typeKey, sp.GetRequiredService<T>()));
+        services.TryAddSingleton<ITeamTarget, CompositeTeamTarget>();
         return services;
     }
 }

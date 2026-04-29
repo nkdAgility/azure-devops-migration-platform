@@ -8,7 +8,7 @@ description: "Task list template for feature implementation"
 **Input**: Design documents from `/specs/[###-feature-name]/`
 **Prerequisites**: plan.md (required), spec.md (required for user stories), research.md, data-model.md, contracts/
 
-**Tests**: The examples below include test tasks. Tests are OPTIONAL - only include them if explicitly requested in the feature specification.
+**Tests**: Test tasks for business logic are OPTIONAL — only include them if explicitly requested in the feature specification. Observability tests (O-1 through O-4) are MANDATORY in every user story phase, no exceptions.
 
 **Organization**: Tasks are grouped by user story to enable independent implementation and testing of each story.
 
@@ -100,9 +100,22 @@ Examples of foundational tasks (adjust based on your project):
 - [ ] T014 [US1] Implement [Service] in src/services/[service].py (depends on T012, T013)
 - [ ] T015 [US1] Implement [endpoint/feature] in src/[location]/[file].py
 - [ ] T016 [US1] Add validation and error handling
-- [ ] T017 [US1] Add logging for user story 1 operations
 
-**Checkpoint**: At this point, User Story 1 should be fully functional and testable independently
+### Observability for User Story 1 ⛔ MANDATORY — zero exceptions
+
+> These tasks are not optional. They are not "nice to have". Every item below MUST be implemented and verified before the checkpoint is reached. Reference the Operations Table in `plan.md ## Observability Contract` for the exact span names, metric instruments, log events, and ProgressEvent stages.
+
+- [ ] T017 [US1] **O-1 Traces** — Add `using var activity = ActivitySource.StartActivity("[span-name]")` to every operation in [Service/Module], with tags per `WellKnownTagNames` (jobId, module, connector at minimum)
+- [ ] T018 [US1] **O-2 Metrics** — Call `IMigrationMetrics.RecordAttempt(tags)`, `RecordCompleted(tags)`, `RecordError(tags)`, `RecordDuration(elapsed, tags)`, and `RecordInFlight(+1/-1, tags)` at every operation boundary in [Service/Module]
+- [ ] T019 [US1] **O-3 Logs** — Add `_logger.LogInformation("Starting [Operation] for {Count} items", count)` at operation start; `_logger.LogInformation("Completed [Operation]: {Processed} processed, {Skipped} skipped", ...)` at end; `_logger.LogWarning("Skipping {Id}: {Reason}", ...)` for skip paths; `_logger.LogDebug("Processing {Path}", ...)` per-item
+- [ ] T020 [US1] **O-4 ProgressEvents** — Inject `IProgressSink?` as optional constructor parameter; call `EmitAsync(new ProgressEvent { Module = Name, Stage = "Exporting", ... })` at start; call per-item (or per batch ≤50); call at completion with final counts; populate `Metrics.Migration.{ModuleName}` with `ModuleCounters`
+- [ ] T021 [US1] **O-4 CLI Visible** — Add/verify progress bar row for this module in `QueueCommand.BuildProgressRenderable` in correct execution order; verify row is visible when running a scenario config
+- [ ] T022 [US1] **DI Wiring** — Verify every new class implementing an interface has a `services.AddSingleton<IFoo, Foo>()` (or correct lifetime) in the feature's `Add*Services` extension method; verify that extension method is called from the host startup
+- [ ] T023 [P] [US1] **Test O-1** — Unit test: inject `TestActivityListener`; call [Service/Module] method; assert `StartActivity` was called with span name `"[span-name]"` and required tags
+- [ ] T024 [P] [US1] **Test O-2** — Unit test: inject `Mock<IMigrationMetrics>`; call [Service/Module] method; assert `RecordAttempt`, `RecordCompleted`, and `RecordDuration` called with correct `TagList`
+- [ ] T025 [P] [US1] **Test O-4** — Unit test: inject `Mock<IProgressSink>`; call [Service/Module] operation; assert `EmitAsync` called at start, once per item (or per batch ≤50), and at completion; assert `Metrics.Migration.{ModuleName}` is populated
+
+**Checkpoint**: At this point, User Story 1 is fully functional, fully observable, and has passing tests for all four observability requirements. No placeholder calls, no null sinks, no missing CLI rows.
 
 ---
 
@@ -130,7 +143,19 @@ Examples of foundational tasks (adjust based on your project):
 - [ ] T022 [US2] Implement [endpoint/feature] in src/[location]/[file].py
 - [ ] T023 [US2] Integrate with User Story 1 components (if needed)
 
-**Checkpoint**: At this point, User Stories 1 AND 2 should both work independently
+### Observability for User Story 2 ⛔ MANDATORY — zero exceptions
+
+> Reference the Operations Table in `plan.md ## Observability Contract` for exact names.
+
+- [ ] TXXX [US2] **O-1 Traces** — `StartActivity("[span-name]")` with required tags on every operation in [Service/Module]
+- [ ] TXXX [US2] **O-2 Metrics** — `IMigrationMetrics` attempt/completed/error/duration/in-flight calls at every operation boundary
+- [ ] TXXX [US2] **O-3 Logs** — `LogInformation` at start/end with counts; `LogWarning` on skips/errors; `LogDebug` per-item with structured params
+- [ ] TXXX [US2] **O-4 ProgressEvents** — `IProgressSink?` injected; `EmitAsync` called at start, per-item (≤50 batch), and completion; `Metrics.Migration.{ModuleName}` populated
+- [ ] TXXX [US2] **O-4 CLI Visible** — Progress bar row present in `QueueCommand.BuildProgressRenderable` in correct execution order
+- [ ] TXXX [US2] **DI Wiring** — All new classes registered in `Add*Services` extension; extension called from host startup
+- [ ] TXXX [P] [US2] **Test O-1/O-2/O-4** — Unit tests asserting `StartActivity`, `IMigrationMetrics`, and `IProgressSink.EmitAsync` called correctly
+
+**Checkpoint**: At this point, User Stories 1 AND 2 are both fully functional, fully observable, and independently testable.
 
 ---
 
@@ -157,7 +182,19 @@ Examples of foundational tasks (adjust based on your project):
 - [ ] T027 [US3] Implement [Service] in src/services/[service].py
 - [ ] T028 [US3] Implement [endpoint/feature] in src/[location]/[file].py
 
-**Checkpoint**: All user stories should now be independently functional
+### Observability for User Story 3 ⛔ MANDATORY — zero exceptions
+
+> Reference the Operations Table in `plan.md ## Observability Contract` for exact names.
+
+- [ ] TXXX [US3] **O-1 Traces** — `StartActivity("[span-name]")` with required tags on every operation
+- [ ] TXXX [US3] **O-2 Metrics** — `IMigrationMetrics` attempt/completed/error/duration/in-flight calls at every operation boundary
+- [ ] TXXX [US3] **O-3 Logs** — `LogInformation` at start/end with counts; `LogWarning` on skips/errors; `LogDebug` per-item with structured params
+- [ ] TXXX [US3] **O-4 ProgressEvents** — `IProgressSink?` injected; `EmitAsync` at start, per-item (≤50 batch), and completion; `Metrics.Migration.{ModuleName}` populated
+- [ ] TXXX [US3] **O-4 CLI Visible** — Progress bar row in `QueueCommand.BuildProgressRenderable` in correct order
+- [ ] TXXX [US3] **DI Wiring** — All new classes registered in `Add*Services`; extension called from host startup
+- [ ] TXXX [P] [US3] **Test O-1/O-2/O-4** — Unit tests asserting `StartActivity`, `IMigrationMetrics`, and `IProgressSink.EmitAsync` called correctly
+
+**Checkpoint**: All user stories are independently functional and fully observable.
 
 ---
 
@@ -280,3 +317,14 @@ With multiple developers:
 - Commit after each task or logical group
 - Stop at any checkpoint to validate story independently
 - Avoid: vague tasks, same file conflicts, cross-story dependencies that break independence
+
+## Observability Rules (Non-Negotiable)
+
+These rules apply to every generated `tasks.md` in this project. They are not suggestions.
+
+1. **Every user story phase MUST contain the full O-1 through O-4 + DI wiring task block.** There are no exceptions. A user story that touches production code but has no observability tasks is invalid and must not be marked complete.
+2. **Observability tasks are not "nice to have" additions at the end.** They are part of the definition of done for each story and must be implemented before the story checkpoint is reached.
+3. **The Operations Table in `plan.md ## Observability Contract` is the authoritative source** for span names, metric instruments, log events, and ProgressEvent stages. `tasks.md` tasks must reference those exact names — not placeholders.
+4. **O-4 CLI Visible is always required.** If a new module counter property is added to `MigrationCounters`, the corresponding `QueueCommand.BuildProgressRenderable` row MUST be added in the same task. These two changes are atomic.
+5. **DI wiring MUST be verified as a task.** It is not sufficient for a class to exist — it must be registered. Verify the `Add*Services` call chain from class → extension method → host startup.
+6. **Observability tests are mandatory.** At minimum: one test each for O-1 (span emitted), O-2 (metrics recorded), and O-4 (ProgressEvent emitted at start and completion). These are unit tests using mocks — they must not require a live connection.

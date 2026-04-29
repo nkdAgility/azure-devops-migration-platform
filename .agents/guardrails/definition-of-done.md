@@ -1,78 +1,116 @@
 # Definition of Done
 
-Every unit of work (feature, task, bugfix, refactor) must satisfy **all** of the following criteria before it can be declared complete. There are zero exceptions.
+Every unit of work must satisfy **all** criteria below. Zero exceptions.
 
 ---
 
 ## 1. Build
 
-- `dotnet clean && dotnet build --no-incremental` succeeds with **0 errors and 0 warnings treated as errors**.
-- Both Debug and Release configurations must build clean.
-- The `build.ps1 install` script must complete without error. 
+- `dotnet clean && dotnet build --no-incremental` — 0 errors, 0 warnings-as-errors.
+- Both Debug and Release must build clean.
+- `build.ps1 install` must complete without error.
 
-## 2. Tests — All Green, No Exceptions
+## 2. Tests
 
-| Rule | Detail |
-|------|--------|
-| **All tests run** | Every test in the solution is executed. No test may be excluded from the run. |
-| **All tests pass** | Exit code 0. Zero failures, zero errors. |
-| **No `Assert.Inconclusive`** | `Assert.Inconclusive()` is treated as a **build-breaking error**. Every test must assert a real outcome. The fix is always to **implement the assertion**. A test may only be removed if it is genuinely invalid (e.g. tests a deleted feature or contradicts the spec) — never to avoid implementation work. Only a human may decide to remove a test. |
-| **No `@ignore` tag** | Gherkin `@ignore` tags are forbidden in committed code. They may be used **temporarily within a single editing session** to isolate a problem, but must be removed before the work is declared done. |
-| **No `[Ignore]` attribute** | MSTest `[Ignore]` attributes are forbidden in committed code. Same temporary-use-only rule as `@ignore`. |
-| **No `throw new NotImplementedException()`** | Stubs are permitted only within a single session. Every reachable code path must have a real implementation before done. |
-| **No hanging tests** | Every test must complete within a reasonable time. Infinite loops, unbounded waits, and clock-racing conditions (e.g. comparing against a live `DateTime.UtcNow` in a tight loop) are bugs. |
+- All tests run and pass. Zero failures, zero errors.
+- No `Assert.Inconclusive()` — treated as build-breaking. Implement the assertion or delete the test.
+- No `@ignore` (Gherkin) or `[Ignore]` (MSTest) in committed code. Session-only temporary use permitted.
+- No `throw new NotImplementedException()` in any reachable code path.
+- No hanging tests (infinite loops, unbounded waits, clock-racing).
 
-### Temporary Isolation (Session-Only)
+## 3. Observability ⛔ MANDATORY
 
-During active development, you **may** temporarily use `@ignore`, `[Ignore]`, or `Assert.Inconclusive` to isolate a subset of tests while debugging. This is a valid workflow technique. However:
+Every module/tool must pass all four checks:
 
-- These markers must be removed before the session ends.
-- Code containing these markers must never be committed.
-- A build that contains any of these markers is **not done**.
+| Req | Check | Verification |
+|-----|-------|--------------|
+| O-1 | `using var activity = ActivitySource.StartActivity(...)` with meaningful tags | Grep for `StartActivity` in every I/O/iteration method |
+| O-2 | `IMigrationMetrics` called for attempt, completion, error, duration, in-flight | 5 call sites per operation boundary |
+| O-3 | `Information` start/end; `Warning` skips; `Debug` per-item; structured params only (no `$"` in log calls) | Grep for `Log*` calls |
+| O-4 | `IProgressSink` injected optional; `EmitAsync` called at start, per-item/batch ≤50, completion; `Metrics.Migration.{Module}` populated | Grep for `EmitAsync` in 3+ places |
+| O-4 CLI | Progress row in `QueueCommand.BuildProgressRenderable` in correct order | Inspect `QueueCommand.cs` |
 
-## 3. Scenario Execution
+**Pipeline wiring:** Verify both paths are intact:
+- Metrics path: Module → `IMigrationMetrics` → OTel → `SnapshotMetricExporter` → `JobMetrics` → `POST /telemetry` → CLI polls `GET /jobs/{id}/telemetry` → `BuildProgressRenderable`
+- Progress path: Module → `IProgressSink.EmitAsync` → `ControlPlaneProgressSink` → `POST /progress` → SSE → CLI subscribes `GET /jobs/{id}/progress?follow=true`
 
-- At least one scenario configuration (e.g. `scenarios/queue-export-ado-workitems-single-project.json`) must be executed via a `.vscode/launch.json` debug profile.
-- The run must complete without errors and produce expected observable output.
+**FAIL conditions:** Any link missing; counter read from `ProgressEvent.Metrics` in CLI/TUI (null for .NET 10 = silent zeros); direct `IProgressSink` wiring in CLI/TUI.
 
-## 4. Code Quality
+## 3a. DI Wiring
 
-- No `throw new NotSupportedException("... not yet implemented")` in reachable code paths.
+- Every new interface implementation has `services.Add*<IFoo, Foo>()` registration.
+- Extension method called from host startup.
+- Constructor injection only — no `new` in module/service code.
+- Verified by scenario run (missing reg → `InvalidOperationException`).
+
+## 4. Scenario Execution
+
+- At least one scenario config run via `.vscode/launch.json` debug profile.
+- Completes without errors, produces expected output.
+- All enabled module progress bars visible in CLI output.
+
+## 4a. Functional Correctness ⛔ MANDATORY
+
+Compiling + not crashing ≠ working. Every module must produce correct side effects:
+
+**Export:** `IArtefactStore` contains expected file at documented path AND file is non-empty (length > 0). Count > 0 when source is non-empty. Count = 0 → `Warning` log (never silent).
+
+**Import:** Target connector received data (e.g., `SimulatedTeamTarget.Teams.Count > 0`). Count > 0 when package is non-empty. Count = 0 → `Warning` log.
+
+**Connectors:** `Simulated*Source` yields ≥ 2 items. `Simulated*Target` records state in inspectable collection. `AzureDevOps*` calls at least one SDK client method per operation.
+
+**Forbidden assertion patterns:**
+- `Assert.IsTrue(true)` or `Assert.IsNotNull(result)` as sole assertion
+- `Assert.IsTrue(count >= 0)` — always true, asserts nothing
+- Test body with no `Assert` at all
+
+## 5. Code Quality
+
+- No `NotSupportedException("... not yet implemented")` in reachable code.
 - No `.Result` or `.Wait()` on `Task`.
-- No hard-coded secrets, credentials, or connection strings.
-- No floating NuGet version ranges (`Version="*"`).
-- All coding standards in [coding-standards.md](./coding-standards.md) are satisfied.
+- No hard-coded secrets.
+- No floating NuGet versions.
+- All coding standards satisfied.
 
-## 5. Connector Coverage
+## 6. Connector Coverage
 
-- Every feature that interacts with source or target systems is fully implemented for **Simulated**, **AzureDevOpsServices**, and **TeamFoundationServer** (where the TFS OM API supports the capability).
-- No connector implementation is left as a stub, placeholder, or `NotImplementedException`.
-- No connector implementation is deferred to a follow-up PR or future task.
-- TFS exemptions have a specific API limitation rationale documented and the code gracefully skips the operation with a structured warning.
+- Simulated, AzureDevOpsServices, and TeamFoundationServer all implemented (where API supports).
+- No stubs, placeholders, or deferred implementations.
+- TFS exemptions documented with structured warning in code.
 
-## 6. Documentation
+## 7. Documentation
 
-- Every canonical doc named in any doc-task in `tasks.md` is updated.
-- CLI changes have a corresponding `.vscode/launch.json` entry.
-- Deployable Host changes are covered in `build.ps1`.
+- Every canonical doc named in doc-tasks in `tasks.md` is updated.
+- CLI changes → `.vscode/launch.json` entry.
+- Host changes → `build.ps1` coverage.
 
-## 6. Compliance Review
+## 8. Compliance Review
 
-After completing the work, re-read every relevant doc referenced by the guardrails. Check each change against the docs line by line. If any non-compliance is found, fix it and repeat. Only when the review loop finds zero violations is the task done.
+Re-read every relevant doc. Check each change line by line. Fix any non-compliance and repeat. Done only when review loop finds zero violations.
 
 ---
 
 ## Summary Checklist
 
 ```
-[ ] dotnet clean && dotnet build --no-incremental — 0 errors
-[ ] dotnet test — all tests pass, 0 failures, 0 skipped-by-marker
-[ ] No Assert.Inconclusive in any test
-[ ] No @ignore or [Ignore] in committed code
-[ ] No NotImplementedException in reachable code
-[ ] No hanging tests
-[ ] build.ps1 install — passes
-[ ] Scenario config executed successfully
-[ ] Docs updated where required
-[ ] Compliance review loop completed with 0 findings
+[ ] Build passes (0 errors)
+[ ] All tests pass (0 failures, no Inconclusive/Ignore/NotImplementedException)
+[ ] build.ps1 install passes
+[ ] O-1: Traces verified
+[ ] O-2: Metrics verified (5 call sites per operation)
+[ ] O-3: Logs verified (structured, correct levels)
+[ ] O-4: ProgressEvents verified (3+ EmitAsync calls, Metrics populated)
+[ ] O-4: CLI progress row visible in BuildProgressRenderable
+[ ] Pipeline wiring table all ✅
+[ ] CLI reads counters from telemetry endpoint, NOT ProgressEvent.Metrics
+[ ] No direct IProgressSink wiring in CLI or TUI
+[ ] DI wiring verified
+[ ] Scenario executed — progress bars visible
+[ ] Functional correctness — artefacts exist AND non-empty (export)
+[ ] Functional correctness — target received data (import)
+[ ] Simulated yields ≥ 2 items; no forbidden assertions
+[ ] ADO connector calls SDK
+[ ] Connectors all implemented
+[ ] Docs updated
+[ ] Compliance review loop: 0 findings
 ```

@@ -222,3 +222,17 @@ Items are grouped by feature spec and categorised as **Code**, **Tests**, or **D
 | spec 015 — Work Item Scoped Fetch | ✅ Complete (T001–T031) | — | — | — |
 
 **Remaining real work**: 12 items total (3 in spec 004, 5 in spec 005, 3 in spec 006, 1 in spec 007). None are blocking. Specs 006 (code/docs), 007 (code fix applied), 008-simulated, 008-tui, 009, 013, and 015 are fully complete.
+
+
+---
+
+## Architecture Review — TUI Extraction (MM-M1)
+
+Identified by architecture review (architecture-review skill, 2025):
+
+- 🔴 **Extract TUI views into a dedicated DevOpsMigrationPlatform.TUI project** (architecture review finding MM-M1).  
+  Currently, TUI views (Spectre.Console Renderables, ANSI sink, live display logic) reside in  
+  DevOpsMigrationPlatform.CLI.Migration, violating the Modular Monolith boundary.  
+  Resolution: create a separate project that the CLI references rather than coupling TUI code directly  
+  to the CLI entry-point assembly.  
+  **Priority**: Medium. No functional impact; purely a structural concern.

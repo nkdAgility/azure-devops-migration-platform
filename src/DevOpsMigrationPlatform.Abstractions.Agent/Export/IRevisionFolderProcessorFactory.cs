@@ -1,13 +1,13 @@
-#if !NET481
+﻿#if !NET481
 using DevOpsMigrationPlatform.Abstractions.Agent.Import;
 using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
 using DevOpsMigrationPlatform.Abstractions.Agent.Checkpointing;
-using DevOpsMigrationPlatform.Abstractions.Agent.Identity;
+using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 namespace DevOpsMigrationPlatform.Abstractions.Agent.Export;
 
 /// <summary>
 /// Creates <see cref="IRevisionFolderProcessor"/> instances wired to a specific import target,
-/// id-map store, checkpointing service, identity mapping service, and artefact store.
+/// id-map store, checkpointing service, identity lookup tool, and artefact store.
 /// Injected into module classes to avoid constructing infrastructure types directly.
 /// </summary>
 public interface IRevisionFolderProcessorFactory
@@ -19,7 +19,20 @@ public interface IRevisionFolderProcessorFactory
         IWorkItemImportTarget target,
         IIdMapStore idMapStore,
         ICheckpointingService checkpointing,
-        IIdentityMappingService identityMapping,
+        IIdentityLookupTool? identityLookupTool,
         IArtefactStore artefactStore);
+
+    /// <summary>
+    /// Creates a new <see cref="IRevisionFolderProcessor"/> with NodeTranslation context
+    /// for area/iteration path translation.
+    /// </summary>
+    IRevisionFolderProcessor Create(
+        IWorkItemImportTarget target,
+        IIdMapStore idMapStore,
+        ICheckpointingService checkpointing,
+        IIdentityLookupTool? identityLookupTool,
+        IArtefactStore artefactStore,
+        DevOpsMigrationPlatform.Abstractions.Agent.Tools.ProjectMapping? nodeStructureContext);
 }
 #endif
+

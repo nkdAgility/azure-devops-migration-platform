@@ -41,6 +41,10 @@ public class FileSystemIdentityMappingService : IIdentityMappingService
         return _fallbackIdentity;
     }
 
+    /// <inheritdoc/>
+    /// <remarks>No-op: <see cref="FileSystemIdentityMappingService"/> is initialised with mappings at construction time.</remarks>
+    public void LoadMappingOverrides(string? mappingJson) { }
+
     /// <summary>
     /// All source identities that fell back to the default during this session.
     /// </summary>

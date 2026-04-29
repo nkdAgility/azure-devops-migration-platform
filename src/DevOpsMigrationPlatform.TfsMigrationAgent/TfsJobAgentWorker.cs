@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Net.Http;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -11,6 +10,7 @@ using DevOpsMigrationPlatform.Abstractions.Agent.Checkpointing;
 using DevOpsMigrationPlatform.Abstractions.Agent.Discovery;
 using DevOpsMigrationPlatform.Abstractions.Agent.Export;
 using DevOpsMigrationPlatform.Abstractions.Agent.Lease;
+using DevOpsMigrationPlatform.Abstractions.Agent.Modules;
 using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
 using DevOpsMigrationPlatform.Abstractions.Agent.Telemetry;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
@@ -20,48 +20,33 @@ using DevOpsMigrationPlatform.Abstractions.Organisations;
 using DevOpsMigrationPlatform.Abstractions.Streaming;
 using DevOpsMigrationPlatform.Abstractions.Telemetry;
 using DevOpsMigrationPlatform.Infrastructure.Agent;
-using DevOpsMigrationPlatform.Infrastructure.Agent.Export;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Telemetry;
 using DevOpsMigrationPlatform.Infrastructure.TfsObjectModel;
-using DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.Telemetry;
 using Microsoft.Extensions.Logging;
 
 namespace DevOpsMigrationPlatform.TfsMigrationAgent;
 
 /// <summary>
-/// TFS-specific agent worker. Inherits the polling loop and lease protocol from
-/// <see cref="AgentWorkerBase"/>; implements TFS export via <see cref="WorkItemExportOrchestrator"/>
-/// and TFS discovery via <see cref="IWorkItemDiscoveryService"/> obtained from
-/// <see cref="TfsJobServiceFactory"/>.
+/// TFS-specific agent worker. Extends <see cref="ModulePipelineWorkerBase"/> to inherit
+/// the connector-agnostic export pipeline (stores, checkpointing, ForceFresh, module loop).
+/// Overrides <see cref="ModulePipelineWorkerBase.OnBeforeModulesAsync"/> to open a per-job
+/// TFS Object Model connection and populate <see cref="ActiveTfsJobServices"/>, and
+/// <see cref="ModulePipelineWorkerBase.OnAfterModulesAsync"/> to release that connection.
 /// Advertises <c>Capabilities = ["tfs"]</c> so only TFS jobs are acquired.
-///
-/// Uses the same <see cref="WorkItemExportOrchestrator"/>, checkpointing, and progress sinks
-/// as the MigrationAgent — the only difference is the connector (TFS Object Model) and
-/// per-job service creation via <see cref="TfsJobServiceFactory"/>.
 /// </summary>
-public sealed class TfsJobAgentWorker : AgentWorkerBase
+public sealed class TfsJobAgentWorker : ModulePipelineWorkerBase
 {
-    private readonly IPackageStoreFactory _packageStoreFactory;
-    private readonly IProgressSink _progressSink;
-    private readonly ICheckpointingServiceFactory _checkpointingFactory;
-    private readonly IPhaseTrackingServiceFactory _phaseTrackingFactory;
-    private readonly IJobMetricsStore _metricsStore;
-    private readonly IJobSnapshotStore _snapshotStore;
     private readonly PackageProgressSink _packageProgressSink;
     private readonly PackageLoggerProvider _packageLoggerProvider;
     private readonly ITfsJobServiceFactory _tfsServiceFactory;
+    private readonly ActiveTfsJobServices _activeTfsJobServices;
     private readonly ILogger<TfsJobAgentWorker> _logger;
 
-    private static readonly ActivitySource ActivitySource = new(WellKnownActivitySourceNames.Migration);
-
-    private static readonly JsonSerializerOptions s_treeJsonOptions = new()
-    {
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
-        WriteIndented = false
-    };
+    // Per-job TFS connection — set in OnBeforeModulesAsync, cleared in OnAfterModulesAsync.
+    private TfsJobServices? _currentTfsServices;
 
     public TfsJobAgentWorker(
+        IEnumerable<IModule> migrationModules,
         IPackageStoreFactory packageStoreFactory,
         IProgressSink progressSink,
         ActiveLeaseState leaseState,
@@ -69,23 +54,18 @@ public sealed class TfsJobAgentWorker : AgentWorkerBase
         IHttpClientFactory httpClientFactory,
         ICheckpointingServiceFactory checkpointingFactory,
         IPhaseTrackingServiceFactory phaseTrackingFactory,
-        IJobMetricsStore metricsStore,
-        IJobSnapshotStore snapshotStore,
         PackageProgressSink packageProgressSink,
         PackageLoggerProvider packageLoggerProvider,
         ITfsJobServiceFactory tfsServiceFactory,
+        ActiveTfsJobServices activeTfsJobServices,
         ILogger<TfsJobAgentWorker> logger)
-        : base(leaseState, packageState, httpClientFactory, logger)
+        : base(migrationModules, packageStoreFactory, progressSink, checkpointingFactory,
+               phaseTrackingFactory, leaseState, packageState, httpClientFactory, logger)
     {
-        _packageStoreFactory = packageStoreFactory;
-        _progressSink = progressSink;
-        _checkpointingFactory = checkpointingFactory;
-        _phaseTrackingFactory = phaseTrackingFactory;
-        _metricsStore = metricsStore;
-        _snapshotStore = snapshotStore;
         _packageProgressSink = packageProgressSink;
         _packageLoggerProvider = packageLoggerProvider;
         _tfsServiceFactory = tfsServiceFactory;
+        _activeTfsJobServices = activeTfsJobServices;
         _logger = logger;
     }
 
@@ -99,11 +79,13 @@ public sealed class TfsJobAgentWorker : AgentWorkerBase
 
     // ── Migration execution ───────────────────────────────────────────────────
 
+    /// <summary>
+    /// Validates that the job is Export mode, then delegates to the base export pipeline.
+    /// </summary>
     protected override async Task OnMigrationJobAsync(
         MigrationJob job, HttpClient controlPlane, string leaseId, CancellationToken ct)
     {
-        var source = job.Source;
-        if (source == null)
+        if (job.Source == null)
         {
             _logger.LogError("Job {JobId} has no Source endpoint — failing.", job.JobId);
             await SignalTerminalAsync(controlPlane, leaseId, "fail", ct).ConfigureAwait(false);
@@ -114,81 +96,36 @@ public sealed class TfsJobAgentWorker : AgentWorkerBase
         if (!string.Equals(job.Mode, "Export", StringComparison.OrdinalIgnoreCase))
         {
             _logger.LogError(
-                "TFS agent does not support mode {Mode} for job {JobId} — failing.",
+                "TFS agent only supports Export mode — rejecting mode {Mode} for job {JobId}.",
                 job.Mode, job.JobId);
             await SignalTerminalAsync(controlPlane, leaseId, "fail", ct).ConfigureAwait(false);
             return;
         }
 
-        var (artefactStore, stateStore) = _packageStoreFactory.Create(
-            job.Package.PackageUri ?? ".");
+        // Delegate the full export pipeline to the base class.
+        // OnBeforeModulesAsync and OnAfterModulesAsync handle TFS connection setup/teardown.
+        await base.OnMigrationJobAsync(job, controlPlane, leaseId, ct).ConfigureAwait(false);
+    }
 
-        PackageState.CurrentStore = artefactStore;
+    /// <inheritdoc/>
+    protected override Task OnBeforeModulesAsync(MigrationJob job, CancellationToken ct)
+    {
+        _logger.LogInformation(
+            "Connecting to TFS for job {JobId} at {Url}/{Project}.",
+            job.JobId, job.Source!.GetResolvedUrl(), job.Source.GetProject());
 
-        var checkpointer = _checkpointingFactory.Create(stateStore);
+        _currentTfsServices = _tfsServiceFactory.CreateForEndpoint(job.Source!);
+        _activeTfsJobServices.Current = _currentTfsServices;
+        return Task.CompletedTask;
+    }
 
-        if (job.Resume?.Mode == ResumeMode.ForceFresh)
-        {
-            _logger.LogInformation("ForceFresh requested for TFS job {JobId} — deleting cursors.", job.JobId);
-            await checkpointer.DeleteCursorAsync("WorkItems", ct).ConfigureAwait(false);
-        }
-
-        bool failed = false;
-        TfsJobServices? tfsServices = null;
-        try
-        {
-            using var _dataScope = DataClassificationScope.Begin(DataClassification.Customer);
-            _logger.LogInformation(
-                "Starting TFS export for job {JobId} against {Url}/{Project}.",
-                job.JobId, source.GetResolvedUrl(), source.GetProject());
-
-            // Create per-job TFS OM services from the job's source endpoint.
-            tfsServices = _tfsServiceFactory.CreateForEndpoint(source);
-
-            using var rootActivity = ActivitySource.StartActivity("TfsExport", ActivityKind.Server);
-            rootActivity?.SetTag("job.id", job.JobId);
-            rootActivity?.SetTag("tfs.project", source.GetProject());
-
-            // Capture classification tree (area + iteration nodes) before work item export.
-            await CaptureClassificationTreeAsync(
-                tfsServices.ClassificationTreeReader, source, artefactStore, ct).ConfigureAwait(false);
-
-            _progressSink.Emit(new ProgressEvent
-            {
-                Module = "WorkItems",
-                Stage = "Starting",
-                Message = "Connecting to TFS and preparing export…",
-                Timestamp = DateTimeOffset.UtcNow
-            });
-
-            // Use the same WorkItemExportOrchestrator as the MigrationAgent.
-            var orchestrator = new WorkItemExportOrchestrator(
-                artefactStore,
-                checkpointer,
-                attachmentBinarySource: tfsServices.AttachmentSource,
-                progressSink: _progressSink,
-                endpoint: source,
-                project: source.GetProject(),
-                discoveryService: tfsServices.DiscoveryService,
-                jobId: job.JobId,
-                logger: _logger);
-
-            await orchestrator.ExportAsync(tfsServices.RevisionSource, ct).ConfigureAwait(false);
-
-            _logger.LogInformation("TFS export completed for job {JobId}.", job.JobId);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "TFS export failed for job {JobId}.", job.JobId);
-            failed = true;
-        }
-        finally
-        {
-            tfsServices?.Dispose();
-        }
-
-        var terminal = failed ? "fail" : "complete";
-        await SignalTerminalAsync(controlPlane, leaseId, terminal, ct).ConfigureAwait(false);
+    /// <inheritdoc/>
+    protected override Task OnAfterModulesAsync(CancellationToken ct)
+    {
+        _activeTfsJobServices.Clear();
+        _currentTfsServices?.Dispose();
+        _currentTfsServices = null;
+        return Task.CompletedTask;
     }
 
     // ── Discovery execution ───────────────────────────────────────────────────
@@ -196,7 +133,7 @@ public sealed class TfsJobAgentWorker : AgentWorkerBase
     protected override async Task OnDiscoveryJobAsync(
         DiscoveryJob job, HttpClient controlPlane, string leaseId, CancellationToken ct)
     {
-        var (artefactStore, stateStore) = _packageStoreFactory.Create(
+        var (artefactStore, stateStore) = PackageStoreFactory.Create(
             job.Package.PackageUri ?? ".");
 
         PackageState.CurrentStore = artefactStore;
@@ -224,7 +161,7 @@ public sealed class TfsJobAgentWorker : AgentWorkerBase
         TfsJobServices? tfsServices = null;
         try
         {
-            using var _dataScope = DataClassificationScope.Begin(DataClassification.Customer);
+            using var dataScope = DataClassificationScope.Begin(DataClassification.Customer);
             _logger.LogInformation(
                 "Starting TFS discovery for job {JobId} against {Url}.",
                 job.JobId, endpointOptions.GetResolvedUrl());
@@ -234,7 +171,7 @@ public sealed class TfsJobAgentWorker : AgentWorkerBase
             var orgEndpoint = endpointOptions.ToOrganisationEndpoint();
             var project = endpointOptions.GetProject();
 
-            _progressSink.Emit(new ProgressEvent
+            ProgressSink.Emit(new ProgressEvent
             {
                 Module = "Discovery",
                 Stage = "Starting",
@@ -246,7 +183,7 @@ public sealed class TfsJobAgentWorker : AgentWorkerBase
                 .CountWorkItemsAsync(orgEndpoint, project, cancellationToken: ct)
                 .ConfigureAwait(false))
             {
-                _progressSink.Emit(new ProgressEvent
+                ProgressSink.Emit(new ProgressEvent
                 {
                     Module = "Discovery",
                     Stage = summary.IsWorkItemComplete ? "Completed" : "Progress",
@@ -272,29 +209,4 @@ public sealed class TfsJobAgentWorker : AgentWorkerBase
     }
 
     // ── Classification tree capture ───────────────────────────────────────────
-
-    /// <summary>
-    /// Captures the full classification tree from TFS and writes Nodes/source-tree.json.
-    /// Same logic as the CLI.TfsMigration ExportCommand — mirrors the ClassificationTreeCapture
-    /// used by the ADO agent path.
-    /// </summary>
-    private static async Task CaptureClassificationTreeAsync(
-        IClassificationTreeReader reader,
-        MigrationEndpointOptions endpoint,
-        IArtefactStore artefactStore,
-        CancellationToken ct)
-    {
-        var areaNodes = new List<string>();
-        var iterationNodes = new List<IterationNodeEntry>();
-
-        await foreach (var path in reader.EnumerateAreaNodesAsync(endpoint, ct).ConfigureAwait(false))
-            areaNodes.Add(path);
-
-        await foreach (var entry in reader.EnumerateIterationNodesAsync(endpoint, ct).ConfigureAwait(false))
-            iterationNodes.Add(entry);
-
-        var snapshot = new { areaNodes, iterationNodes };
-        var json = JsonSerializer.Serialize(snapshot, s_treeJsonOptions);
-        await artefactStore.WriteAsync("Nodes/source-tree.json", json, ct).ConfigureAwait(false);
-    }
 }

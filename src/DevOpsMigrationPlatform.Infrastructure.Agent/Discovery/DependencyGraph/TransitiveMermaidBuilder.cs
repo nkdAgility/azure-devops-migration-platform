@@ -35,7 +35,7 @@ public sealed class TransitiveMermaidBuilder
         var edges = _result.Edges;
         if (edges.Count == 0)
         {
-            var rootId = MermaidUtilities.SanitizeNodeId(_rootProject);
+            var rootId = DependencyGraphDiagramBuilder.SanitizeNodeId(_rootProject);
             sb.AppendLine($"    {rootId}[\"{EscapeLabel(_rootProject)}\"]:::depth0");
             AppendClassDefs(sb);
             return sb.ToString();
@@ -88,20 +88,20 @@ public sealed class TransitiveMermaidBuilder
         foreach (var node in nodeMinDepth.Keys)
         {
             if (!collapsedNodeIds.Contains(node))
-                nodeMap[node] = MermaidUtilities.SanitizeNodeId(node);
+                nodeMap[node] = DependencyGraphDiagramBuilder.SanitizeNodeId(node);
         }
 
         // Add collapsed summary nodes.
         foreach (var kvp in collapsedOrgs)
         {
-            var summaryId = MermaidUtilities.SanitizeNodeId($"collapsed_{kvp.Key}");
+            var summaryId = DependencyGraphDiagramBuilder.SanitizeNodeId($"collapsed_{kvp.Key}");
             nodeMap[$"__collapsed__{kvp.Key}"] = summaryId;
         }
 
         // Emit node declarations for root (with label).
         string rootNodeId;
         if (!nodeMap.TryGetValue(_rootProject, out rootNodeId!) || rootNodeId is null)
-            rootNodeId = MermaidUtilities.SanitizeNodeId(_rootProject);
+            rootNodeId = DependencyGraphDiagramBuilder.SanitizeNodeId(_rootProject);
         sb.AppendLine($"    {rootNodeId}[\"{EscapeLabel(_rootProject)}\"]:::depth0");
 
         // Emit edges.

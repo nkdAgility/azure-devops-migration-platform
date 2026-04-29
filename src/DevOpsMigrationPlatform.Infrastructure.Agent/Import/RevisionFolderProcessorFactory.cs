@@ -1,4 +1,4 @@
-#if !NET481
+﻿#if !NET481
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using Microsoft.Extensions.Logging;
@@ -13,12 +13,12 @@ public sealed class RevisionFolderProcessorFactory : IRevisionFolderProcessorFac
 {
     private readonly ILoggerFactory _loggerFactory;
     private readonly IMigrationMetrics? _metrics;
-    private readonly INodeStructureTool? _nodeStructureTool;
+    private readonly INodeTranslationTool? _nodeStructureTool;
 
     public RevisionFolderProcessorFactory(
         ILoggerFactory loggerFactory,
         IMigrationMetrics? metrics = null,
-        INodeStructureTool? nodeStructureTool = null)
+        INodeTranslationTool? nodeStructureTool = null)
     {
         _loggerFactory = loggerFactory ?? throw new System.ArgumentNullException(nameof(loggerFactory));
         _metrics = metrics;
@@ -30,23 +30,23 @@ public sealed class RevisionFolderProcessorFactory : IRevisionFolderProcessorFac
         IWorkItemImportTarget target,
         IIdMapStore idMapStore,
         ICheckpointingService checkpointing,
-        IIdentityMappingService identityMapping,
+        IIdentityLookupTool? identityLookupTool,
         IArtefactStore artefactStore)
-        => Create(target, idMapStore, checkpointing, identityMapping, artefactStore, nodeStructureContext: null);
+        => Create(target, idMapStore, checkpointing, identityLookupTool, artefactStore, nodeStructureContext: null);
 
-    /// <summary>Creates a processor with NodeStructure context for path translation.</summary>
+    /// <inheritdoc/>
     public IRevisionFolderProcessor Create(
         IWorkItemImportTarget target,
         IIdMapStore idMapStore,
         ICheckpointingService checkpointing,
-        IIdentityMappingService identityMapping,
+        IIdentityLookupTool? identityLookupTool,
         IArtefactStore artefactStore,
         ProjectMapping? nodeStructureContext)
         => new RevisionFolderProcessor(
             target,
             idMapStore,
             checkpointing,
-            identityMapping,
+            identityLookupTool,
             artefactStore,
             _loggerFactory.CreateLogger<RevisionFolderProcessor>(),
             _metrics,

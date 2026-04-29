@@ -1,6 +1,7 @@
 using System;
 using System.Linq;
 using System.Net.Http;
+using DevOpsMigrationPlatform.Abstractions.Agent.Export;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
@@ -66,6 +67,15 @@ public static class ExportServiceCollectionExtensions
 
         // Classification tree reader — enumerates area/iteration nodes from the source ADO project.
         services.AddClassificationTreeReader<AzureDevOpsClassificationTreeReader>("AzureDevOpsServices");
+
+        // Identity source — Azure DevOps identity enumeration keyed by connector type.
+        services.AddIdentitySource<AzureDevOpsIdentitySource>("AzureDevOpsServices");
+
+        // Team source — Azure DevOps Teams REST API keyed by connector type.
+        services.AddTeamSource<AzureDevOpsTeamSource>("AzureDevOpsServices");
+
+        // Team target — Azure DevOps Teams REST API keyed by connector type.
+        services.AddTeamTarget<AzureDevOpsTeamTarget>("AzureDevOpsServices");
 
         // Embedded image download and processing
         services.AddHttpClient<AzureDevOpsEmbeddedImageDownloader>()

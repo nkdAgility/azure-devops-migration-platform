@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading;
+using System.Threading.Channels;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.CLI.Commands;
@@ -12,6 +13,7 @@ using DevOpsMigrationPlatform.CLI.Migration.Settings;
 using DevOpsMigrationPlatform.CLI.Migration.Configuration;
 using DevOpsMigrationPlatform.CLI.Views;
 using DevOpsMigrationPlatform.Infrastructure.Config;
+using DevOpsMigrationPlatform.Abstractions.ControlPlaneApi;
 using DevOpsMigrationPlatform.Abstractions.Validation;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
@@ -520,7 +522,6 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
 
         // Follow mode: stream progress + diagnostics concurrently.
         var parsedJobId = Guid.Parse(job.JobId);
-        ProgressEvent? lastEvt = null;
         var jobFailed = false;
 
         // Use a linked CTS that we cancel on Ctrl+C to detach from diagnostics
@@ -585,22 +586,15 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
         }, followCts.Token);
 
         var progressStartTime = DateTimeOffset.UtcNow;
-        int completed = 0;
-        int skipped = 0;
-        int revisions = 0;
-        int lastWiRevisions = 0;
-        int currentWiId = 0;
-        int currentWiIndex = 0;
-        int currentWiRevsWritten = 0;
-        double lastRevDurationMs = 0;
-        double avgRevDurationMs = 0;
-        string currentStage = string.Empty;
-        int attProcessed = 0;
-        int attFailed = 0;
-        double avgAttDurationMs = 0;
-        long avgAttSizeBytes = 0;
-        string? currentAttName = null;
-        string? lastWiStatus = null;
+        var updates = Channel.CreateUnbounded<JobProgressUpdate>();
+        var state = JobProgressState.Initial(totalWorkItems);
+
+        // Channel 2: telemetry polling — pushes TelemetryPolled updates every 5 s.
+        // Channel 1: SSE stage stream — pushes StageAdvanced and JobTerminated updates.
+        // Both producers write into the same channel; the consumer applies each update
+        // via Apply() and re-renders, keeping all state in one immutable record.
+        var telemetryTask = Task.Run(() => FetchLatestMetrics(client, parsedJobId, updates.Writer, followCts.Token));
+        var progressTask = Task.Run(() => FollowJobProgress(client, parsedJobId, updates.Writer, followCts.Token));
 
         if (Console.IsOutputRedirected)
         {
@@ -609,49 +603,20 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
             // is invalid" on non-console handles; plain event iteration is sufficient.
             try
             {
-                await foreach (var evt in client.FollowLogsAsync(parsedJobId, followCts.Token).ConfigureAwait(false))
+                await foreach (var update in updates.Reader.ReadAllAsync(followCts.Token).ConfigureAwait(false))
                 {
-                    lastEvt = evt;
-                    if (!string.IsNullOrEmpty(evt.Stage))
-                        currentStage = evt.Stage;
-                    if (evt.Metrics?.Scope?.WorkItemsTotal > 0)
-                        totalWorkItems = (int)evt.Metrics.Scope.WorkItemsTotal;
-                    var wi = evt.Metrics?.Migration?.WorkItems;
-                    if (wi != null)
+                    state = Apply(state, update);
+                    if (update is JobTerminated jt)
                     {
-                        completed = (int)wi.Completed;
-                        skipped = (int)wi.Skipped;
-                        revisions = (int)(wi.RevisionsProcessed > 0 ? wi.RevisionsProcessed : revisions);
-                        if (wi.LastRevisionDurationMs > 0)
-                            lastRevDurationMs = wi.LastRevisionDurationMs;
-                        if (wi.AverageRevisionDurationMs > 0)
-                            avgRevDurationMs = wi.AverageRevisionDurationMs;
-                        if (wi.LastWorkItemStatus != null)
-                            lastWiStatus = wi.LastWorkItemStatus;
-                    }
-                    var att = evt.Metrics?.Migration?.WorkItems?.Attachments;
-                    if (att != null)
-                    {
-                        attProcessed = (int)att.Processed;
-                        attFailed = (int)att.Failed;
-                        avgAttDurationMs = att.AverageDownloadDurationMs;
-                        avgAttSizeBytes = att.AverageSizeBytes;
-                        currentAttName = att.CurrentAttachmentName;
-                    }
-                    if (wi?.CurrentWorkItemId > 0)
-                    {
-                        currentWiId = wi.CurrentWorkItemId;
-                        currentWiIndex = wi.CurrentWorkItemIndex;
-                        currentWiRevsWritten = wi.CurrentWorkItemRevisionsWritten;
+                        if (jt.Failed)
+                        {
+                            jobFailed = true;
+                            ShowError(console, jt.Reason ?? "Job failed");
+                            ShowError(console, $"Last progress: {state.Completed} exported / {state.Skipped} skipped / {state.Revisions} revisions");
+                        }
+                        break;
                     }
                 }
-            }
-            catch (InvalidOperationException ex) when (ex.Message.Contains("Job failed"))
-            {
-                jobFailed = true;
-                ShowError(console, ex.Message);
-                if (lastEvt is not null)
-                    ShowError(console, $"Last progress: {completed} exported / {skipped} skipped / {revisions} revisions");
             }
             catch (OperationCanceledException)
             {
@@ -675,8 +640,7 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
 
             try
             {
-                await console.Live(BuildProgressRenderable(
-                        0, 0, totalWorkItems, 0, 0, 0, 0, string.Empty))
+                await console.Live(BuildProgressDisplay(state))
                     .AutoClear(false)
                     .Overflow(VerticalOverflow.Ellipsis)
                     .StartAsync(async ctx =>
@@ -685,64 +649,28 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
                         // calls Refresh/UpdateTarget. Force the initial render.
                         ctx.Refresh();
 
-                        await foreach (var evt in client.FollowLogsAsync(parsedJobId, followCts.Token).ConfigureAwait(false))
+                        await foreach (var update in updates.Reader.ReadAllAsync(followCts.Token).ConfigureAwait(false))
                         {
-                            lastEvt = evt;
-                            if (!string.IsNullOrEmpty(evt.Stage))
-                                currentStage = evt.Stage;
-                            // The Agent emits a ScopeResolved event with WorkItemsTotal when it completes the count.
-                            if (evt.Metrics?.Scope?.WorkItemsTotal > 0)
-                                totalWorkItems = (int)evt.Metrics.Scope.WorkItemsTotal;
-                            var wi = evt.Metrics?.Migration?.WorkItems;
-                            if (wi != null)
+                            state = Apply(state, update);
+                            ctx.UpdateTarget(BuildProgressDisplay(state));
+                            if (update is JobTerminated jt)
                             {
-                                completed = (int)wi.Completed;
-                                skipped = (int)wi.Skipped;
-                                revisions = (int)(wi.RevisionsProcessed > 0 ? wi.RevisionsProcessed : revisions);
-                                if (wi.LastWorkItemRevisions > 0)
-                                    lastWiRevisions = (int)wi.LastWorkItemRevisions;
-                                if (wi.LastRevisionDurationMs > 0)
-                                    lastRevDurationMs = wi.LastRevisionDurationMs;
-                                if (wi.AverageRevisionDurationMs > 0)
-                                    avgRevDurationMs = wi.AverageRevisionDurationMs;
-                                if (wi.LastWorkItemStatus != null)
-                                    lastWiStatus = wi.LastWorkItemStatus;
-                                if (wi.CurrentWorkItemId > 0)
+                                if (jt.Failed)
                                 {
-                                    currentWiId = wi.CurrentWorkItemId;
-                                    currentWiIndex = wi.CurrentWorkItemIndex;
-                                    currentWiRevsWritten = wi.CurrentWorkItemRevisionsWritten;
+                                    jobFailed = true;
+                                    ShowError(console, jt.Reason ?? "Job failed");
                                 }
+                                break;
                             }
-
-                            var att = evt.Metrics?.Migration?.WorkItems?.Attachments;
-                            if (att != null)
-                            {
-                                attProcessed = (int)att.Processed;
-                                attFailed = (int)att.Failed;
-                                avgAttDurationMs = att.AverageDownloadDurationMs;
-                                avgAttSizeBytes = att.AverageSizeBytes;
-                                currentAttName = att.CurrentAttachmentName;
-                            }
-
-                            ctx.UpdateTarget(BuildProgressRenderable(
-                                completed, skipped, totalWorkItems,
-                                currentWiId, currentWiRevsWritten,
-                                currentWiIndex, lastWiRevisions,
-                                currentStage, lastWiStatus,
-                                evt.LastCheckpointAt, evt.NextCheckpointDueAt,
-                                lastRevDurationMs, avgRevDurationMs,
-                                revisions,
-                                attProcessed, attFailed, avgAttDurationMs, avgAttSizeBytes, currentAttName));
                         }
                     });
             }
             catch (InvalidOperationException ex) when (ex.Message.Contains("Job failed"))
             {
+                // Normally handled via JobTerminated message from FollowJobProgress — safety net only.
                 jobFailed = true;
                 ShowError(console, ex.Message);
-                if (lastEvt is not null)
-                    ShowError(console, $"Last progress: {completed} exported / {skipped} skipped / {revisions} revisions");
+                ShowError(console, $"Last progress: {state.Completed} exported / {state.Skipped} skipped / {state.Revisions} revisions");
             }
             catch (OperationCanceledException)
             {
@@ -779,9 +707,11 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
             }
         }
 
-        // Stop diagnostics stream.
+        // Stop diagnostics stream, telemetry polling, and progress streaming.
         await followCts.CancelAsync();
         try { await diagnosticsTask; } catch (OperationCanceledException) { }
+        try { await telemetryTask; } catch (OperationCanceledException) { }
+        try { await progressTask; } catch (OperationCanceledException) { }
 
         // Flush buffered diagnostics now that the Progress() renderer has released the console.
         while (diagnosticsBuffer.TryDequeue(out var line))
@@ -790,12 +720,209 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
         if (jobFailed)
             return 1;
 
-        if (lastEvt is not null)
-            ShowSuccess(console, $"Export complete — {completed} exported / {skipped} skipped / {revisions} revisions written to package.");
+        if (state.LastEvent is not null)
+            ShowSuccess(console, $"Export complete — {state.Completed} exported / {state.Skipped} skipped / {state.Revisions} revisions written to package.");
         else
             ShowSuccess(console, "Work item export complete.");
         return 0;
     }
+
+    // ── Job progress state (MVU) ─────────────────────────────────────────────────────────
+    // All display state is held in one immutable record updated via Apply().
+    // Producers push JobProgressUpdate messages into a Channel; the consumer
+    // calls Apply() on each message and re-renders via BuildProgressDisplay().
+
+    private record JobProgressState(
+        int Completed,
+        int Skipped,
+        int TotalWorkItems,
+        int Revisions,
+        int LastWiRevisions,
+        int CurrentWiId,
+        int CurrentWiIndex,
+        int CurrentWiRevsWritten,
+        double LastRevDurationMs,
+        double AverageRevDurationMs,
+        string Stage,
+        int AttachmentsProcessed,
+        int AttachmentsFailed,
+        double AverageAttachmentDurationMs,
+        long AverageAttachmentSizeBytes,
+        string? CurrentAttachmentName,
+        string? LastWorkItemStatus,
+        JobMetrics? Metrics,
+        DateTimeOffset? LastCheckpointAt,
+        DateTimeOffset? NextCheckpointDueAt,
+        ProgressEvent? LastEvent,
+        int TeamsCount,
+        int NodesCount,
+        int IdentitiesCount)
+    {
+        public static JobProgressState Initial(int totalWorkItems) => new(
+            0, 0, totalWorkItems, 0, 0, 0, 0, 0, 0, 0,
+            string.Empty, 0, 0, 0, 0, null, null, null, null, null, null,
+            0, 0, 0);
+    }
+
+    private abstract record JobProgressUpdate;
+    private record TelemetryPolled(JobMetrics Metrics) : JobProgressUpdate;
+    private record StageAdvanced(ProgressEvent Event) : JobProgressUpdate;
+    private record JobTerminated(bool Failed, string? Reason) : JobProgressUpdate;
+
+    private static JobProgressState Apply(JobProgressState state, JobProgressUpdate update) => update switch
+    {
+        TelemetryPolled t => ApplyTelemetry(state, t.Metrics),
+        StageAdvanced t => ApplyStageAdvance(state, t.Event),
+        _ => state
+    };
+
+    private static JobProgressState ApplyTelemetry(JobProgressState state, JobMetrics metrics)
+    {
+        var wi = metrics.Migration?.WorkItems;
+        var att = wi?.Attachments;
+        // Agent resolves the real scope total after querying the source — use it when available,
+        // retain the previous value between polls so the display never flashes to 0.
+        var scopeTotal = (int)(metrics.Scope?.WorkItemsTotal ?? 0);
+        return state with
+        {
+            Metrics = metrics,
+            TotalWorkItems = scopeTotal > 0 ? scopeTotal : state.TotalWorkItems,
+            Completed = wi is not null ? (int)wi.Completed : state.Completed,
+            Skipped = wi is not null ? (int)wi.Skipped : state.Skipped,
+            Revisions = wi is not null && wi.RevisionsProcessed > 0 ? (int)wi.RevisionsProcessed : state.Revisions,
+            LastWiRevisions = wi?.LastWorkItemRevisions > 0 ? (int)wi.LastWorkItemRevisions : state.LastWiRevisions,
+            LastRevDurationMs = wi?.LastRevisionDurationMs > 0 ? wi.LastRevisionDurationMs : state.LastRevDurationMs,
+            AverageRevDurationMs = wi?.AverageRevisionDurationMs > 0 ? wi.AverageRevisionDurationMs : state.AverageRevDurationMs,
+            LastWorkItemStatus = wi?.LastWorkItemStatus ?? state.LastWorkItemStatus,
+            CurrentWiId = wi?.CurrentWorkItemId > 0 ? wi.CurrentWorkItemId : state.CurrentWiId,
+            CurrentWiIndex = wi?.CurrentWorkItemId > 0 ? wi.CurrentWorkItemIndex : state.CurrentWiIndex,
+            CurrentWiRevsWritten = wi?.CurrentWorkItemId > 0 ? wi.CurrentWorkItemRevisionsWritten : state.CurrentWiRevsWritten,
+            AttachmentsProcessed = att is not null ? (int)att.Processed : state.AttachmentsProcessed,
+            AttachmentsFailed = att is not null ? (int)att.Failed : state.AttachmentsFailed,
+            AverageAttachmentDurationMs = att is not null ? att.AverageDownloadDurationMs : state.AverageAttachmentDurationMs,
+            AverageAttachmentSizeBytes = att is not null ? att.AverageSizeBytes : state.AverageAttachmentSizeBytes,
+            CurrentAttachmentName = att?.CurrentAttachmentName ?? state.CurrentAttachmentName,
+        };
+    }
+
+    // Only WorkItems events (or global job-engine events with no module) should update the
+    // WorkItems stage label. Events from Teams/Nodes/Identities must not overwrite it.
+    private static bool IsWorkItemsOrGlobalModule(ProgressEvent evt) =>
+        string.IsNullOrEmpty(evt.Module) || evt.Module == "WorkItems";
+
+    private static JobProgressState ApplyStageAdvance(JobProgressState state, ProgressEvent evt)
+    {
+        // Merge module completion metrics carried on the SSE event immediately into state
+        // so the bar flips to green without waiting for the next telemetry poll.
+        JobMetrics? mergedMetrics = state.Metrics;
+        if (evt.Metrics is not null)
+        {
+            var existing = state.Metrics;
+            var incoming = evt.Metrics;
+            var inMig = incoming.Migration;
+            var exMig = existing?.Migration;
+            mergedMetrics = (incoming with
+            {
+                Migration = new MigrationCounters
+                {
+                    WorkItems = inMig?.WorkItems ?? exMig?.WorkItems ?? new WorkItemCounters(),
+                    Teams = inMig?.Teams ?? exMig?.Teams,
+                    Nodes = inMig?.Nodes ?? exMig?.Nodes,
+                    Identities = inMig?.Identities ?? exMig?.Identities,
+                    Diagnostics = inMig?.Diagnostics ?? exMig?.Diagnostics,
+                },
+                Scope = incoming.Scope ?? existing?.Scope ?? new JobScopeCounters(),
+            });
+        }
+
+        return state with
+        {
+            LastEvent = evt,
+            Metrics = mergedMetrics,
+            Stage = IsWorkItemsOrGlobalModule(evt) && !string.IsNullOrEmpty(evt.Stage)
+                ? evt.Stage
+                : state.Stage,
+            LastCheckpointAt = evt.LastCheckpointAt ?? state.LastCheckpointAt,
+            NextCheckpointDueAt = evt.NextCheckpointDueAt ?? state.NextCheckpointDueAt,
+            TeamsCount = evt.Module == "Teams" && evt.Stage == "Teams.Export.Team"
+                ? state.TeamsCount + 1
+                : state.TeamsCount,
+            NodesCount = evt.Module == "Nodes" && evt.Stage?.StartsWith("Nodes.", StringComparison.Ordinal) == true
+                ? state.NodesCount + 1
+                : state.NodesCount,
+            IdentitiesCount = evt.Module == "Identities" && evt.Stage?.StartsWith("Identities.", StringComparison.Ordinal) == true
+                ? state.IdentitiesCount + 1
+                : state.IdentitiesCount,
+        };
+    }
+
+    /// <summary>Renders the current <see cref="JobProgressState"/> into the Live display.</summary>
+    private static IRenderable BuildProgressDisplay(JobProgressState s) =>
+        BuildProgressRenderable(
+            s.Completed, s.Skipped, s.TotalWorkItems,
+            s.CurrentWiId, s.CurrentWiRevsWritten,
+            s.CurrentWiIndex, s.LastWiRevisions,
+            s.Stage, s.LastWorkItemStatus,
+            s.LastCheckpointAt, s.NextCheckpointDueAt,
+            s.LastRevDurationMs, s.AverageRevDurationMs,
+            s.Revisions,
+            s.AttachmentsProcessed, s.AttachmentsFailed,
+            s.AverageAttachmentDurationMs, s.AverageAttachmentSizeBytes, s.CurrentAttachmentName,
+            s.Metrics?.Migration?.Teams,
+            s.Metrics?.Migration?.Nodes,
+            s.Metrics?.Migration?.Identities,
+            s.TeamsCount, s.NodesCount, s.IdentitiesCount);
+
+    /// <summary>
+    /// Polls <c>GET /jobs/{jobId}/telemetry</c> every 5 s and pushes
+    /// <see cref="TelemetryPolled"/> updates into <paramref name="updates"/>.
+    /// </summary>
+    private static async Task FetchLatestMetrics(
+        IControlPlaneClient client, Guid jobId,
+        ChannelWriter<JobProgressUpdate> updates, CancellationToken ct)
+    {
+        try
+        {
+            while (!ct.IsCancellationRequested)
+            {
+                try
+                {
+                    var m = await client.GetTelemetryAsync(jobId, ct).ConfigureAwait(false);
+                    if (m is not null)
+                        await updates.WriteAsync(new TelemetryPolled(m), ct).ConfigureAwait(false);
+                }
+                catch (OperationCanceledException) { return; }
+                catch (Exception) { /* best-effort — do not propagate */ }
+                await Task.Delay(5_000, ct).ConfigureAwait(false);
+            }
+        }
+        catch (OperationCanceledException) { }
+    }
+
+    /// <summary>
+    /// Subscribes to the SSE progress stream via <c>GET /jobs/{jobId}/progress?follow=true</c>
+    /// and pushes <see cref="StageAdvanced"/> updates (and a terminal <see cref="JobTerminated"/>)
+    /// into <paramref name="updates"/>.
+    /// </summary>
+    private static async Task FollowJobProgress(
+        IControlPlaneClient client, Guid jobId,
+        ChannelWriter<JobProgressUpdate> updates, CancellationToken ct)
+    {
+        try
+        {
+            await foreach (var evt in client.FollowLogsAsync(jobId, ct).ConfigureAwait(false))
+                await updates.WriteAsync(new StageAdvanced(evt), ct).ConfigureAwait(false);
+
+            await updates.WriteAsync(new JobTerminated(false, null), ct).ConfigureAwait(false);
+        }
+        catch (InvalidOperationException ex) when (ex.Message.Contains("Job failed"))
+        {
+            await updates.WriteAsync(new JobTerminated(true, ex.Message), ct).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) { }
+    }
+
+    // ── Progress renderable (pure render function) ───────────────────────────────────────
 
     /// <summary>
     /// Builds the fixed 3-row Live renderable:
@@ -805,6 +932,8 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
     ///   Row 4 — checkpoint safety indicator
     /// Row count is always exactly 4 so Live()'s cursor-up stays stable.
     /// </summary>
+    private static readonly string[] s_spinnerFrames = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
+
     private static IRenderable BuildProgressRenderable(
         int completed, int skipped, int total,
         int currentWiId, int currentWiRevisions,
@@ -815,7 +944,11 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
         int totalRevisions = 0,
         int attProcessed = 0, int attFailed = 0,
         double avgAttDurationMs = 0, long avgAttSizeBytes = 0,
-        string? currentAttName = null)
+        string? currentAttName = null,
+        TeamsCounters? teams = null,
+        NodesCounters? nodes = null,
+        IdentitiesCounters? identities = null,
+        int teamsCount = 0, int nodesCount = 0, int identitiesCount = 0)
     {
         const int BarWidth = 38;
         int processed = completed + skipped;
@@ -832,10 +965,11 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
         var wiBar = new string('━', wiFilled) + new string('─', BarWidth - wiFilled);
         var stageStr = string.IsNullOrEmpty(stage) ? string.Empty : $"  [grey]{Markup.Escape(stage)}[/]";
         var etaStr = ComputeRevisionEta(totalRevisions, estimatedTotalRevisions, avgRevDurationMs);
+        var exportedStr = skipped > 0 ? $"  [green]{completed:N0} exported[/]" : string.Empty;
         var skippedStr = skipped > 0 ? $"  [grey]{skipped:N0} skipped[/]" : string.Empty;
         var wiRow = new Markup(
             $"[bold]WorkItems[/]{stageStr}  [blue]{Markup.Escape(wiBar)}[/]"
-            + $"  [bold]{completed:N0}[/][grey]/{total:N0}[/]{skippedStr}"
+            + $"  [bold]{processed:N0}[/][grey]/{total:N0}[/]{exportedStr}{skippedStr}"
             + $"  [grey]{wiPct * 100.0:F1}%[/]  [grey]ETA: {Markup.Escape(etaStr)}[/]");
 
         // ── Row 2: current work item / fast-forward indicator ─────────────────────────
@@ -922,7 +1056,86 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
             attachmentRow = new Markup("  [grey]Attachments   –[/]");
         }
 
-        return new Rows(wiRow, revRow, timingRow, attachmentRow, checkpointRow);
+        // ── Row 6: identities ─────────────────────────────────────────────────────────
+        var spinnerFrame = s_spinnerFrames[(int)(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() / 100) % s_spinnerFrames.Length];
+        IRenderable identitiesRow;
+        {
+            string idBar; string idBarColor; string idCheck; string idCounts;
+            if (identities is not null)
+            {
+                idBar = new string('━', BarWidth); idBarColor = "green"; idCheck = " [green]✓[/]";
+                idCounts = $"  [bold]{identities.Exported:N0}[/][grey] exported[/]"
+                    + (identities.Resolved > 0 ? $"  [bold]{identities.Resolved:N0}[/][grey] resolved[/]" : string.Empty)
+                    + (identities.Unresolved > 0 ? $"  [yellow]{identities.Unresolved:N0} unresolved[/]" : string.Empty)
+                    + (identities.Failed > 0 ? $"  [red]{identities.Failed:N0} failed[/]" : string.Empty);
+            }
+            else if (identitiesCount > 0)
+            {
+                var offset = (int)(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() / 80) % BarWidth;
+                idBar = new string('─', offset) + '━' + new string('─', BarWidth - offset - 1);
+                idBarColor = "blue"; idCheck = $" [blue]{spinnerFrame}[/]";
+                idCounts = string.Empty;
+            }
+            else
+            {
+                idBar = new string('─', BarWidth); idBarColor = "grey"; idCheck = string.Empty; idCounts = string.Empty;
+            }
+            identitiesRow = new Markup($"[bold]Identities[/]{idCheck}  [{idBarColor}]{Markup.Escape(idBar)}[/]{idCounts}");
+        }
+
+        // ── Row 7: nodes ──────────────────────────────────────────────────────────────
+        IRenderable nodesRow;
+        {
+            string ndBar; string ndBarColor; string ndCheck; string ndCounts;
+            if (nodes is not null)
+            {
+                ndBar = new string('━', BarWidth); ndBarColor = "green"; ndCheck = " [green]✓[/]";
+                ndCounts = (nodes.Exported > 0 ? $"  [bold]{nodes.Exported:N0}[/][grey] captured[/]" : string.Empty)
+                    + (nodes.AreaPathsReplicated > 0 ? $"  [bold]{nodes.AreaPathsReplicated:N0}[/][grey] area[/]" : string.Empty)
+                    + (nodes.IterationPathsReplicated > 0 ? $"  [bold]{nodes.IterationPathsReplicated:N0}[/][grey] iteration[/]" : string.Empty)
+                    + (nodes.Failed > 0 ? $"  [red]{nodes.Failed:N0} failed[/]" : string.Empty);
+            }
+            else if (nodesCount > 0)
+            {
+                var offset = (int)(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() / 80) % BarWidth;
+                ndBar = new string('─', offset) + '━' + new string('─', BarWidth - offset - 1);
+                ndBarColor = "blue"; ndCheck = $" [blue]{spinnerFrame}[/]";
+                ndCounts = string.Empty;
+            }
+            else
+            {
+                ndBar = new string('─', BarWidth); ndBarColor = "grey"; ndCheck = string.Empty; ndCounts = string.Empty;
+            }
+            nodesRow = new Markup($"[bold]Nodes[/]{ndCheck}  [{ndBarColor}]{Markup.Escape(ndBar)}[/]{ndCounts}");
+        }
+
+        // ── Row 8: teams ──────────────────────────────────────────────────────────────
+        IRenderable teamsRow;
+        {
+            string tmBar; string tmBarColor; string tmCheck; string tmCounts;
+            if (teams is not null)
+            {
+                tmBar = new string('━', BarWidth); tmBarColor = "green"; tmCheck = " [green]✓[/]";
+                tmCounts = $"  [bold]{teams.Exported:N0}[/][grey] exported[/]"
+                    + (teams.Imported > 0 ? $"  [bold]{teams.Imported:N0}[/][grey] imported[/]" : string.Empty)
+                    + (teams.Members > 0 ? $"  [grey]{teams.Members:N0} members[/]" : string.Empty)
+                    + (teams.Failed > 0 ? $"  [red]{teams.Failed:N0} failed[/]" : string.Empty);
+            }
+            else if (teamsCount > 0)
+            {
+                var offset = (int)(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() / 80) % BarWidth;
+                tmBar = new string('─', offset) + '━' + new string('─', BarWidth - offset - 1);
+                tmBarColor = "blue"; tmCheck = $" [blue]{spinnerFrame}[/]";
+                tmCounts = $"  [grey]{teamsCount:N0} so far[/]";
+            }
+            else
+            {
+                tmBar = new string('─', BarWidth); tmBarColor = "grey"; tmCheck = string.Empty; tmCounts = string.Empty;
+            }
+            teamsRow = new Markup($"[bold]Teams[/]{tmCheck}  [{tmBarColor}]{Markup.Escape(tmBar)}[/]{tmCounts}");
+        }
+
+        return new Rows(nodesRow, teamsRow, identitiesRow, wiRow, revRow, timingRow, attachmentRow, checkpointRow);
     }
 
     private static string ComputeRevisionEta(int revisionsWritten, int estimatedTotalRevisions, double avgRevDurationMs)

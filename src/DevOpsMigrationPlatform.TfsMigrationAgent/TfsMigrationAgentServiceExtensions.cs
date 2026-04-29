@@ -2,18 +2,14 @@ using System;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Logging;
 using DevOpsMigrationPlatform.Abstractions;
-using DevOpsMigrationPlatform.Abstractions.Agent.Checkpointing;
-using DevOpsMigrationPlatform.Abstractions.Agent.Lease;
-using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
-using DevOpsMigrationPlatform.Abstractions.Streaming;
-using DevOpsMigrationPlatform.Abstractions.Telemetry;
-using DevOpsMigrationPlatform.Infrastructure.Agent.Checkpointing;
-using DevOpsMigrationPlatform.Infrastructure.Agent.Storage;
-using DevOpsMigrationPlatform.Infrastructure.Agent.Telemetry;
-using DevOpsMigrationPlatform.Infrastructure.Telemetry;
+using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
+using DevOpsMigrationPlatform.Abstractions.Agent.Export;
+using DevOpsMigrationPlatform.Infrastructure.Agent;
+using DevOpsMigrationPlatform.Infrastructure.Agent.Identity;
+using DevOpsMigrationPlatform.Infrastructure.Agent.Modules;
 using DevOpsMigrationPlatform.Infrastructure.TfsObjectModel;
+using DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.Export;
 
 namespace DevOpsMigrationPlatform.TfsMigrationAgent;
 
@@ -30,69 +26,28 @@ public static class TfsMigrationAgentServiceExtensions
         IConfiguration configuration,
         Uri controlPlaneBaseUrl)
     {
-        // Singleton to carry the current lease id across services.
-        services.AddSingleton<ActiveLeaseState>();
-
-        // Singleton to carry the current job's artefact store across services.
-        services.AddSingleton<ActivePackageState>();
-
-        // Agent telemetry (IMigrationMetrics, IDiscoveryMetrics, TelemetryOptions).
-        services.AddAgentTelemetryServices(configuration);
-
-        // In-memory stores for job metrics and snapshots (IJobMetricsStore, IJobSnapshotStore).
-        services.AddAgentJobMetricsServices();
-
-        // Named HttpClient for the Control Plane telemetry push.
-        services.AddControlPlaneTelemetryClient(controlPlaneBaseUrl);
-
-        // Named HttpClient used by TfsJobAgentWorker to poll /agents/lease and signal completion.
-        // No AddStandardResilienceHandler on net481 — simple retry in the polling loop is sufficient
+        // Core shared services — ambient state, telemetry, HTTP clients, progress sinks,
+        // store factories, diagnostics, and the telemetry push timer.
+        // No Polly resilience handler on net481 — simple retry in the polling loop is sufficient
         // for localhost communication.
-        services.AddHttpClient("ControlPlane",
-            client => client.BaseAddress = controlPlaneBaseUrl);
-
-        // Progress streaming to the Control Plane ring buffer.
-        services.AddControlPlaneProgressSink(controlPlaneBaseUrl);
-
-        // Phase tracking factory for Both mode (export + import phases).
-        services.AddSingleton<IPhaseTrackingServiceFactory, PhaseTrackingServiceFactory>();
-
-        // Package store factory — resolves file:/// URIs to FileSystem stores.
-        services.AddSingleton<IPackageStoreFactory, FileSystemPackageStoreFactory>();
-
-        // Checkpointing factory for per-job cursor management.
-        services.AddSingleton<ICheckpointingServiceFactory, CheckpointingServiceFactory>();
+        services.AddCoreAgentServices(configuration, controlPlaneBaseUrl);
 
         // Per-job TFS Object Model service factory — creates TFS connections, revision sources,
         // attachment sources, tree readers, and discovery services per job based on the endpoint.
         services.AddSingleton<ITfsJobServiceFactory, TfsJobServiceFactory>();
 
-        // Diagnostic log pipeline — register inline since AddDiagnosticsServices requires
-        // IHostApplicationBuilder (not available on net481 Host.CreateDefaultBuilder path).
-        services.AddOptions<DiagnosticLogOptions>()
-            .BindConfiguration(DiagnosticLogOptions.SectionName);
-        services.AddSingleton<PackageLoggerProvider>();
-        services.AddSingleton<IHostedService>(sp => sp.GetRequiredService<PackageLoggerProvider>());
-        services.AddSingleton<ILoggerProvider>(sp => sp.GetRequiredService<PackageLoggerProvider>());
-        services.AddSingleton<ControlPlaneLoggerProvider>();
-        services.AddSingleton<IHostedService>(sp => sp.GetRequiredService<ControlPlaneLoggerProvider>());
-        services.AddSingleton<ILoggerProvider>(sp => sp.GetRequiredService<ControlPlaneLoggerProvider>());
-        services.ConfigureControlPlaneLoggerClient(controlPlaneBaseUrl);
+        // Ambient state carrying the current job's TFS services (set by TfsJobAgentWorker before running modules).
+        services.AddSingleton<ActiveTfsJobServices>();
 
-        // Package progress persistence — writes ProgressEvent NDJSON to Logs/progress.jsonl.
-        services.AddSingleton<PackageProgressSink>();
-        services.AddSingleton<IHostedService>(sp => sp.GetRequiredService<PackageProgressSink>());
+        // TFS adapter implementations for module contracts.
+        services.AddSingleton<IClassificationTreeCapture, TfsClassificationTreeCapture>();
+        services.AddSingleton<IWorkItemRevisionSourceFactory, TfsActiveJobWorkItemRevisionSourceFactory>();
+        services.AddSingleton<IIdentitySource, TfsActiveJobIdentitySource>();
 
-        // Composite sink fans out every ProgressEvent to all three sinks.
-        services.AddSingleton<AnsiProgressSink>();
-        services.AddSingleton<IProgressSink>(sp => new CompositeProgressSink(
-            sp.GetRequiredService<ILogger<CompositeProgressSink>>(),
-            sp.GetRequiredService<AnsiProgressSink>(),
-            sp.GetRequiredService<PackageProgressSink>(),
-            sp.GetRequiredService<ControlPlaneProgressSink>()));
-
-        // Background timer that pushes JobMetrics to the Control Plane.
-        services.AddSingleton<IHostedService, ControlPlaneTelemetryTimer>();
+        // Register IModule pipeline (export-only on net481).
+        services.AddIdentitiesModule(configuration);
+        services.AddNodesModule(configuration);
+        services.AddWorkItemsModule();
 
         // Unified worker — polls /agents/lease?capabilities=tfs and dispatches to TFS execution.
         services.AddSingleton<IHostedService, TfsJobAgentWorker>();

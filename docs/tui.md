@@ -2,9 +2,26 @@
 
 ## Purpose
 
-The TUI is the visual progress layer rendered in the terminal during a migration. It subscribes to structured progress events emitted by the Job Engine and renders them as a live progress display. It contains no migration logic and no command routing.
+The TUI is the visual progress layer rendered in the terminal during a migration. It subscribes to structured progress events and metrics **from the ControlPlane API**. It contains no migration logic, no command routing, and no direct connection to any `IProgressSink`.
 
 Command parsing, mode selection, and job dispatch are handled by the CLI shell. See [docs/cli.md](cli.md).
+
+---
+
+## Data Sourcing Contract ⛔ MANDATORY
+
+The TUI is **never** in the same process as the Migration Agent. All display data comes exclusively from the ControlPlane API via three independent streams:
+
+| Panel | Source | Mechanism |
+|-------|--------|-----------|
+| **Metrics panel** (counters, rates) | `GET /jobs/{jobId}/telemetry` | Polling every ~5 s — returns `JobMetrics` |
+| **Progress table** (module stages, cursor) | `GET /jobs/{jobId}/progress?follow=true` | Server-Sent Events (SSE) push — returns `ProgressEvent` stream |
+| **Log/Diagnostics panel** | `GET /jobs/{jobId}/diagnostics?follow=true` | Server-Sent Events (SSE) push — structured log records |
+
+TUI code MUST NOT:
+- Inject or subscribe to `IProgressSink` directly.
+- Read aggregate counters from `ProgressEvent.Metrics` — that field is only populated by the TFS subprocess (net481) and is always null for .NET 10 agents.
+- Maintain any in-process metric state. The ControlPlane is the single source of truth.
 
 ---
 

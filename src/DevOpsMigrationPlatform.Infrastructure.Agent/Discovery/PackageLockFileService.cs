@@ -5,6 +5,7 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.ControlPlaneApi;
 using Microsoft.Extensions.Logging;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Agent.Discovery;
@@ -23,12 +24,12 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Discovery;
 public sealed class PackageLockFileService : IPackageLockService
 {
     private readonly Guid _agentInstanceId;
-    private readonly IControlPlaneClient _controlPlane;
+    private readonly IControlPlaneAgentClient _controlPlane;
     private readonly ILogger<PackageLockFileService> _logger;
 
     public PackageLockFileService(
         Guid agentInstanceId,
-        IControlPlaneClient controlPlane,
+        IControlPlaneAgentClient controlPlane,
         ILogger<PackageLockFileService> logger)
     {
         _agentInstanceId = agentInstanceId;

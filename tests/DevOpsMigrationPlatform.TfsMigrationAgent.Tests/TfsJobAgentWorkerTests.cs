@@ -66,8 +66,6 @@ public class TfsJobAgentWorkerTests
     private Mock<IProgressSink> _progressSink = null!;
     private Mock<ICheckpointingServiceFactory> _checkpointingFactory = null!;
     private Mock<IPhaseTrackingServiceFactory> _phaseTrackingFactory = null!;
-    private Mock<IJobMetricsStore> _metricsStore = null!;
-    private Mock<IJobSnapshotStore> _snapshotStore = null!;
     private Mock<ITfsJobServiceFactory> _tfsServiceFactory = null!;
     private Mock<IArtefactStore> _artefactStore = null!;
     private Mock<IStateStore> _stateStore = null!;
@@ -87,8 +85,6 @@ public class TfsJobAgentWorkerTests
         _progressSink = new Mock<IProgressSink>();
         _checkpointingFactory = new Mock<ICheckpointingServiceFactory>();
         _phaseTrackingFactory = new Mock<IPhaseTrackingServiceFactory>();
-        _metricsStore = new Mock<IJobMetricsStore>();
-        _snapshotStore = new Mock<IJobSnapshotStore>();
         _tfsServiceFactory = new Mock<ITfsJobServiceFactory>();
         _artefactStore = new Mock<IArtefactStore>();
         _stateStore = new Mock<IStateStore>();
@@ -133,7 +129,9 @@ public class TfsJobAgentWorkerTests
             });
     }
 
-    private TfsJobAgentWorker CreateWorker() => new(
+    private TfsJobAgentWorker CreateWorker(
+        IEnumerable<DevOpsMigrationPlatform.Abstractions.Agent.Modules.IModule>? modules = null) => new(
+        modules ?? System.Linq.Enumerable.Empty<DevOpsMigrationPlatform.Abstractions.Agent.Modules.IModule>(),
         _packageStoreFactory.Object,
         _progressSink.Object,
         _leaseState,
@@ -141,11 +139,10 @@ public class TfsJobAgentWorkerTests
         _httpClientFactory.Object,
         _checkpointingFactory.Object,
         _phaseTrackingFactory.Object,
-        _metricsStore.Object,
-        _snapshotStore.Object,
         _packageProgressSink,
         _packageLoggerProvider,
         _tfsServiceFactory.Object,
+        new DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.ActiveTfsJobServices(),
         _logger);
 
     private HttpClient CreateControlPlaneClient() =>
@@ -266,11 +263,6 @@ public class TfsJobAgentWorkerTests
         _tfsServiceFactory.Verify(
             f => f.CreateForEndpoint(It.IsAny<MigrationEndpointOptions>()), Times.Once);
 
-        // Classification tree was written
-        _artefactStore.Verify(
-            s => s.WriteAsync("Nodes/source-tree.json", It.IsAny<string>(), It.IsAny<CancellationToken>()),
-            Times.Once);
-
         // Should signal complete (not fail)
         Assert.IsTrue(_httpHandler.RequestLog.Exists(r =>
             r.Method == HttpMethod.Post &&
@@ -319,16 +311,23 @@ public class TfsJobAgentWorkerTests
             .Returns(Task.CompletedTask);
 
         _checkpointer
-            .Setup(c => c.DeleteCursorAsync("WorkItems", It.IsAny<CancellationToken>()))
+            .Setup(c => c.DeleteCursorAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
 
-        var worker = CreateWorker();
+        // Provide a named module so ForceFresh has a cursor to delete.
+        var moduleA = new Mock<DevOpsMigrationPlatform.Abstractions.Agent.Modules.IModule>();
+        moduleA.Setup(m => m.Name).Returns("WorkItems");
+        moduleA.Setup(m => m.DependsOn).Returns(System.Array.Empty<string>());
+        moduleA.Setup(m => m.ExportAsync(It.IsAny<ExportContext>(), It.IsAny<CancellationToken>()))
+               .Returns(Task.CompletedTask);
+
+        var worker = CreateWorker(new[] { moduleA.Object });
 
         // Act
         await TfsJobAgentWorkerTestHelper.InvokeMigrationJobAsync(
             worker, job, CreateControlPlaneClient(), "test-lease", CancellationToken.None);
 
-        // Assert: cursor was deleted
+        // Assert: cursor was deleted for the registered module
         _checkpointer.Verify(
             c => c.DeleteCursorAsync("WorkItems", It.IsAny<CancellationToken>()),
             Times.Once);
@@ -510,7 +509,8 @@ internal static class TestTfsJobServicesFactory
                 Type = "TeamFoundationServer"
             },
             new Mock<IWorkItemExportMetrics>().Object,
-            new Mock<IAttachmentDownloadMetrics>().Object);
+            new Mock<IAttachmentDownloadMetrics>().Object,
+            new Mock<DevOpsMigrationPlatform.Abstractions.Agent.Tools.IIdentitySource>().Object);
     }
 }
 

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Diagnostics;
 using System.Diagnostics.Metrics;
 using DevOpsMigrationPlatform.Abstractions;
@@ -56,23 +56,70 @@ internal sealed class MigrationMetrics : IMigrationMetrics, IDisposable
     private readonly Counter<long> _duplicatedAfterResume;
     private readonly Counter<long> _missingAfterResume;
 
-    // --- NodeStructure Export ---
+    // --- NodeTranslation Export ---
     private readonly Histogram<int> _nodeExportTreeCount;
     private readonly Histogram<double> _nodeExportTreeDuration;
     private readonly Counter<long> _nodeExportTreeErrors;
 
-    // --- NodeStructure Import: Replicate ---
+    // --- NodeTranslation Translate ---
+    private readonly Counter<long> _nodeTranslateCount;
+    private readonly Counter<long> _nodeTranslateMapHit;
+    private readonly Counter<long> _nodeTranslateAutoSwapHit;
+    private readonly Counter<long> _nodeTranslateExternal;
+    private readonly Counter<long> _nodeTranslateUnresolvable;
+
+    // --- NodeTranslation Import: Replicate ---
     private readonly Counter<long> _nodeImportReplicateCount;
+    private readonly Counter<long> _nodeImportReplicateAreaCount;
+    private readonly Counter<long> _nodeImportReplicateIterationCount;
     private readonly Histogram<double> _nodeImportReplicateDuration;
     private readonly Counter<long> _nodeImportReplicateErrors;
     private readonly Counter<long> _nodeImportReplicateSkipped;
     private readonly UpDownCounter<long> _nodeImportReplicateInFlight;
 
-    // --- NodeStructure Import: PreCollect ---
+    // --- NodeTranslation Import: PreCollect ---
     private readonly Counter<long> _nodeImportPreCollectCount;
     private readonly Histogram<double> _nodeImportPreCollectDuration;
     private readonly Counter<long> _nodeImportPreCollectErrors;
     private readonly UpDownCounter<long> _nodeImportPreCollectInFlight;
+
+    // --- Teams Export ---
+    private readonly Counter<long> _teamExportCount;
+    private readonly Histogram<double> _teamExportDuration;
+    private readonly Counter<long> _teamExportErrors;
+    private readonly UpDownCounter<long> _teamExportInFlight;
+
+    // --- Teams Import ---
+    private readonly Counter<long> _teamImportCount;
+    private readonly Histogram<double> _teamImportDuration;
+    private readonly Counter<long> _teamImportErrors;
+    private readonly UpDownCounter<long> _teamImportInFlight;
+    private readonly Counter<long> _teamImportMembersCount;
+    private readonly Counter<long> _teamImportMembersUnresolved;
+    private readonly Counter<long> _teamImportIterationsCount;
+    private readonly Counter<long> _teamImportIterationsUnresolvable;
+    private readonly Counter<long> _teamImportCapacityCount;
+    private readonly Histogram<double> _teamImportExtensionDuration;
+
+    // --- Teams Validate ---
+    private readonly Counter<long> _teamValidateCount;
+    private readonly Counter<long> _teamValidateErrors;
+
+    // --- Identities Export ---
+    private readonly Counter<long> _identityExportCount;
+    private readonly Histogram<double> _identityExportDuration;
+    private readonly Counter<long> _identityExportErrors;
+    private readonly UpDownCounter<long> _identityExportInFlight;
+
+    // --- Identities Import ---
+    private readonly Counter<long> _identityImportResolved;
+    private readonly Counter<long> _identityImportUnresolved;
+    private readonly Histogram<double> _identityImportDuration;
+    private readonly Counter<long> _identityImportErrors;
+
+    // --- Identities Validate ---
+    private readonly Counter<long> _identityValidateCount;
+    private readonly Counter<long> _identityValidateErrors;
 
     public MigrationMetrics()
     {
@@ -120,23 +167,70 @@ internal sealed class MigrationMetrics : IMigrationMetrics, IDisposable
         _duplicatedAfterResume = _meter.CreateCounter<long>(WellKnownMetricNames.DuplicatedAfterResume, unit: "{work_item}");
         _missingAfterResume = _meter.CreateCounter<long>(WellKnownMetricNames.MissingAfterResume, unit: "{work_item}");
 
-        // NodeStructure Export
+        // NodeTranslation Export
         _nodeExportTreeCount = _meter.CreateHistogram<int>(WellKnownMetricNames.NodeExportTreeCount, unit: "{node}");
         _nodeExportTreeDuration = _meter.CreateHistogram<double>(WellKnownMetricNames.NodeExportTreeDurationMs, unit: "ms");
         _nodeExportTreeErrors = _meter.CreateCounter<long>(WellKnownMetricNames.NodeExportTreeErrors, unit: "{error}");
 
-        // NodeStructure Import: Replicate
+        // NodeTranslation Translate
+        _nodeTranslateCount = _meter.CreateCounter<long>(WellKnownMetricNames.NodeTranslateCount, unit: "{path}");
+        _nodeTranslateMapHit = _meter.CreateCounter<long>(WellKnownMetricNames.NodeTranslateMapHit, unit: "{path}");
+        _nodeTranslateAutoSwapHit = _meter.CreateCounter<long>(WellKnownMetricNames.NodeTranslateAutoSwapHit, unit: "{path}");
+        _nodeTranslateExternal = _meter.CreateCounter<long>(WellKnownMetricNames.NodeTranslateExternal, unit: "{path}");
+        _nodeTranslateUnresolvable = _meter.CreateCounter<long>(WellKnownMetricNames.NodeTranslateUnresolvable, unit: "{path}");
+
+        // NodeTranslation Import: Replicate
         _nodeImportReplicateCount = _meter.CreateCounter<long>(WellKnownMetricNames.NodeImportReplicateCount, unit: "{node}");
+        _nodeImportReplicateAreaCount = _meter.CreateCounter<long>(WellKnownMetricNames.NodeImportReplicateAreaCount, unit: "{node}");
+        _nodeImportReplicateIterationCount = _meter.CreateCounter<long>(WellKnownMetricNames.NodeImportReplicateIterationCount, unit: "{node}");
         _nodeImportReplicateDuration = _meter.CreateHistogram<double>(WellKnownMetricNames.NodeImportReplicateDurationMs, unit: "ms");
         _nodeImportReplicateErrors = _meter.CreateCounter<long>(WellKnownMetricNames.NodeImportReplicateErrors, unit: "{error}");
         _nodeImportReplicateSkipped = _meter.CreateCounter<long>(WellKnownMetricNames.NodeImportReplicateSkipped, unit: "{node}");
         _nodeImportReplicateInFlight = _meter.CreateUpDownCounter<long>(WellKnownMetricNames.NodeImportReplicateInFlight, unit: "{node}");
 
-        // NodeStructure Import: PreCollect
+        // NodeTranslation Import: PreCollect
         _nodeImportPreCollectCount = _meter.CreateCounter<long>(WellKnownMetricNames.NodeImportPreCollectCount, unit: "{node}");
         _nodeImportPreCollectDuration = _meter.CreateHistogram<double>(WellKnownMetricNames.NodeImportPreCollectDurationMs, unit: "ms");
         _nodeImportPreCollectErrors = _meter.CreateCounter<long>(WellKnownMetricNames.NodeImportPreCollectErrors, unit: "{error}");
         _nodeImportPreCollectInFlight = _meter.CreateUpDownCounter<long>(WellKnownMetricNames.NodeImportPreCollectInFlight, unit: "{node}");
+
+        // Teams Export
+        _teamExportCount = _meter.CreateCounter<long>(WellKnownMetricNames.TeamsExportCount, unit: "{team}");
+        _teamExportDuration = _meter.CreateHistogram<double>(WellKnownMetricNames.TeamsExportDurationMs, unit: "ms");
+        _teamExportErrors = _meter.CreateCounter<long>(WellKnownMetricNames.TeamsExportErrors, unit: "{error}");
+        _teamExportInFlight = _meter.CreateUpDownCounter<long>(WellKnownMetricNames.TeamsExportInFlight, unit: "{team}");
+
+        // Teams Import
+        _teamImportCount = _meter.CreateCounter<long>(WellKnownMetricNames.TeamsImportCount, unit: "{team}");
+        _teamImportDuration = _meter.CreateHistogram<double>(WellKnownMetricNames.TeamsImportDurationMs, unit: "ms");
+        _teamImportErrors = _meter.CreateCounter<long>(WellKnownMetricNames.TeamsImportErrors, unit: "{error}");
+        _teamImportInFlight = _meter.CreateUpDownCounter<long>(WellKnownMetricNames.TeamsImportInFlight, unit: "{team}");
+        _teamImportMembersCount = _meter.CreateCounter<long>(WellKnownMetricNames.TeamsImportMembersCount, unit: "{member}");
+        _teamImportMembersUnresolved = _meter.CreateCounter<long>(WellKnownMetricNames.TeamsImportMembersUnresolved, unit: "{member}");
+        _teamImportIterationsCount = _meter.CreateCounter<long>(WellKnownMetricNames.TeamsImportIterationsCount, unit: "{iteration}");
+        _teamImportIterationsUnresolvable = _meter.CreateCounter<long>(WellKnownMetricNames.TeamsImportIterationsUnresolvable, unit: "{iteration}");
+        _teamImportCapacityCount = _meter.CreateCounter<long>(WellKnownMetricNames.TeamsImportCapacityCount, unit: "{entry}");
+        _teamImportExtensionDuration = _meter.CreateHistogram<double>(WellKnownMetricNames.TeamsImportExtensionDurationMs, unit: "ms");
+
+        // Teams Validate
+        _teamValidateCount = _meter.CreateCounter<long>(WellKnownMetricNames.TeamsValidateCount, unit: "{team}");
+        _teamValidateErrors = _meter.CreateCounter<long>(WellKnownMetricNames.TeamsValidateErrors, unit: "{error}");
+
+        // Identities Export
+        _identityExportCount = _meter.CreateCounter<long>(WellKnownMetricNames.IdentitiesExportCount, unit: "{identity}");
+        _identityExportDuration = _meter.CreateHistogram<double>(WellKnownMetricNames.IdentitiesExportDurationMs, unit: "ms");
+        _identityExportErrors = _meter.CreateCounter<long>(WellKnownMetricNames.IdentitiesExportErrors, unit: "{error}");
+        _identityExportInFlight = _meter.CreateUpDownCounter<long>(WellKnownMetricNames.IdentitiesExportInFlight, unit: "{identity}");
+
+        // Identities Import
+        _identityImportResolved = _meter.CreateCounter<long>(WellKnownMetricNames.IdentitiesImportResolved, unit: "{identity}");
+        _identityImportUnresolved = _meter.CreateCounter<long>(WellKnownMetricNames.IdentitiesImportUnresolved, unit: "{identity}");
+        _identityImportDuration = _meter.CreateHistogram<double>(WellKnownMetricNames.IdentitiesImportDurationMs, unit: "ms");
+        _identityImportErrors = _meter.CreateCounter<long>(WellKnownMetricNames.IdentitiesImportErrors, unit: "{error}");
+
+        // Identities Validate
+        _identityValidateCount = _meter.CreateCounter<long>(WellKnownMetricNames.IdentitiesValidateCount, unit: "{identity}");
+        _identityValidateErrors = _meter.CreateCounter<long>(WellKnownMetricNames.IdentitiesValidateErrors, unit: "{error}");
     }
     public void RecordWorkItemAttempted(in TagList tags) => _attempted.Add(1, tags);
     public void RecordWorkItemCompleted(in TagList tags) => _completed.Add(1, tags);
@@ -181,25 +275,75 @@ internal sealed class MigrationMetrics : IMigrationMetrics, IDisposable
     public void RecordDuplicatedAfterResume(in TagList tags) => _duplicatedAfterResume.Add(1, tags);
     public void RecordMissingAfterResume(in TagList tags) => _missingAfterResume.Add(1, tags);
 
-    // --- NodeStructure Export ---
+    // --- NodeTranslation Export ---
     public void RecordNodeExportTreeCount(int count, in TagList tags) => _nodeExportTreeCount.Record(count, tags);
     public void RecordNodeExportTreeDuration(double milliseconds, in TagList tags) => _nodeExportTreeDuration.Record(milliseconds, tags);
     public void RecordNodeExportTreeError(in TagList tags) => _nodeExportTreeErrors.Add(1, tags);
 
-    // --- NodeStructure Import: Replicate ---
+    // --- NodeTranslation Translate ---
+    public void RecordNodeTranslateCount(in TagList tags) => _nodeTranslateCount.Add(1, tags);
+    public void RecordNodeTranslateMapHit(in TagList tags) => _nodeTranslateMapHit.Add(1, tags);
+    public void RecordNodeTranslateAutoSwapHit(in TagList tags) => _nodeTranslateAutoSwapHit.Add(1, tags);
+    public void RecordNodeTranslateExternal(in TagList tags) => _nodeTranslateExternal.Add(1, tags);
+    public void RecordNodeTranslateUnresolvable(in TagList tags) => _nodeTranslateUnresolvable.Add(1, tags);
+
+    // --- NodeTranslation Import: Replicate ---
     public void RecordNodeImportReplicateCount(in TagList tags) => _nodeImportReplicateCount.Add(1, tags);
+    public void RecordNodeImportReplicateAreaCount(in TagList tags) => _nodeImportReplicateAreaCount.Add(1, tags);
+    public void RecordNodeImportReplicateIterationCount(in TagList tags) => _nodeImportReplicateIterationCount.Add(1, tags);
     public void RecordNodeImportReplicateDuration(double milliseconds, in TagList tags) => _nodeImportReplicateDuration.Record(milliseconds, tags);
     public void RecordNodeImportReplicateError(in TagList tags) => _nodeImportReplicateErrors.Add(1, tags);
     public void RecordNodeImportReplicateSkipped(in TagList tags) => _nodeImportReplicateSkipped.Add(1, tags);
     public void IncrementNodeImportReplicateInFlight(in TagList tags) => _nodeImportReplicateInFlight.Add(1, tags);
     public void DecrementNodeImportReplicateInFlight(in TagList tags) => _nodeImportReplicateInFlight.Add(-1, tags);
 
-    // --- NodeStructure Import: PreCollect ---
+    // --- NodeTranslation Import: PreCollect ---
     public void RecordNodeImportPreCollectCount(in TagList tags) => _nodeImportPreCollectCount.Add(1, tags);
     public void RecordNodeImportPreCollectDuration(double milliseconds, in TagList tags) => _nodeImportPreCollectDuration.Record(milliseconds, tags);
     public void RecordNodeImportPreCollectError(in TagList tags) => _nodeImportPreCollectErrors.Add(1, tags);
     public void IncrementNodeImportPreCollectInFlight(in TagList tags) => _nodeImportPreCollectInFlight.Add(1, tags);
     public void DecrementNodeImportPreCollectInFlight(in TagList tags) => _nodeImportPreCollectInFlight.Add(-1, tags);
+
+    // --- Teams Export ---
+    public void RecordTeamExportCount(in TagList tags) => _teamExportCount.Add(1, tags);
+    public void RecordTeamExportDuration(double milliseconds, in TagList tags) => _teamExportDuration.Record(milliseconds, tags);
+    public void RecordTeamExportError(in TagList tags) => _teamExportErrors.Add(1, tags);
+    public void IncrementTeamExportInFlight(in TagList tags) => _teamExportInFlight.Add(1, tags);
+    public void DecrementTeamExportInFlight(in TagList tags) => _teamExportInFlight.Add(-1, tags);
+
+    // --- Teams Import ---
+    public void RecordTeamImportCount(in TagList tags) => _teamImportCount.Add(1, tags);
+    public void RecordTeamImportDuration(double milliseconds, in TagList tags) => _teamImportDuration.Record(milliseconds, tags);
+    public void RecordTeamImportError(in TagList tags) => _teamImportErrors.Add(1, tags);
+    public void IncrementTeamImportInFlight(in TagList tags) => _teamImportInFlight.Add(1, tags);
+    public void DecrementTeamImportInFlight(in TagList tags) => _teamImportInFlight.Add(-1, tags);
+    public void RecordTeamImportMemberCount(in TagList tags) => _teamImportMembersCount.Add(1, tags);
+    public void RecordTeamImportMemberUnresolved(in TagList tags) => _teamImportMembersUnresolved.Add(1, tags);
+    public void RecordTeamImportIterationCount(in TagList tags) => _teamImportIterationsCount.Add(1, tags);
+    public void RecordTeamImportIterationUnresolvable(in TagList tags) => _teamImportIterationsUnresolvable.Add(1, tags);
+    public void RecordTeamImportCapacityCount(in TagList tags) => _teamImportCapacityCount.Add(1, tags);
+    public void RecordTeamImportExtensionDuration(double milliseconds, in TagList tags) => _teamImportExtensionDuration.Record(milliseconds, tags);
+
+    // --- Teams Validate ---
+    public void RecordTeamValidateCount(in TagList tags) => _teamValidateCount.Add(1, tags);
+    public void RecordTeamValidateError(in TagList tags) => _teamValidateErrors.Add(1, tags);
+
+    // --- Identities Export ---
+    public void RecordIdentityExportCount(in TagList tags) => _identityExportCount.Add(1, tags);
+    public void RecordIdentityExportDuration(double milliseconds, in TagList tags) => _identityExportDuration.Record(milliseconds, tags);
+    public void RecordIdentityExportError(in TagList tags) => _identityExportErrors.Add(1, tags);
+    public void IncrementIdentityExportInFlight(in TagList tags) => _identityExportInFlight.Add(1, tags);
+    public void DecrementIdentityExportInFlight(in TagList tags) => _identityExportInFlight.Add(-1, tags);
+
+    // --- Identities Import ---
+    public void RecordIdentityImportResolved(in TagList tags) => _identityImportResolved.Add(1, tags);
+    public void RecordIdentityImportUnresolved(in TagList tags) => _identityImportUnresolved.Add(1, tags);
+    public void RecordIdentityImportDuration(double milliseconds, in TagList tags) => _identityImportDuration.Record(milliseconds, tags);
+    public void RecordIdentityImportError(in TagList tags) => _identityImportErrors.Add(1, tags);
+
+    // --- Identities Validate ---
+    public void RecordIdentityValidateCount(in TagList tags) => _identityValidateCount.Add(1, tags);
+    public void RecordIdentityValidateError(in TagList tags) => _identityValidateErrors.Add(1, tags);
 
     public void Dispose() => _meter.Dispose();
 }

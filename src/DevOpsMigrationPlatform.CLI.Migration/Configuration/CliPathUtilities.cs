@@ -1,4 +1,4 @@
-using SharedPathUtilities = DevOpsMigrationPlatform.Abstractions.PackagePathUtilities;
+using SharedPathUtilities = DevOpsMigrationPlatform.Abstractions.PackagePathResolver;
 
 namespace DevOpsMigrationPlatform.CLI.Migration.Configuration;
 

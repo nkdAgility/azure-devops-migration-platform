@@ -27,7 +27,7 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Modules;
 /// </summary>
 public sealed class InventoryDiscoveryModule : IDiscoveryModule
 {
-    private static readonly string CursorKey = PackagePaths.CursorFile("Inventory");
+    private static readonly string CursorKey = PackagePaths.CursorFile("InventoryDiscovery");
     private const string CsvOutputPath = "inventory.csv";
     private const string JsonOutputPath = "inventory.json";
 
@@ -37,7 +37,7 @@ public sealed class InventoryDiscoveryModule : IDiscoveryModule
     private readonly ILogger<InventoryDiscoveryModule> _logger;
     private readonly IDiscoveryMetrics? _metrics;
 
-    public string Name => "Inventory";
+    public string Name => "InventoryDiscovery";
     public DiscoveryJobType DiscoveryType => DiscoveryJobType.Inventory;
 
     public InventoryDiscoveryModule(

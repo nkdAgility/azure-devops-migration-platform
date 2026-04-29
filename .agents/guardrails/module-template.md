@@ -1,82 +1,103 @@
-# New Module Checklist
+# Module Template
 
-Use this checklist when adding a new module. Every item is required unless explicitly marked optional.
+Checklist for every new or modified module. All items mandatory unless marked optional.
 
-See [docs/modules.md](../../docs/modules.md) for the full `IModule` contract and [.agents/guardrails/system-architecture.md](system-architecture.md) for hard guardrails.
+---
 
-## 1. Schema
+## 1. Configuration Schema
 
-- [ ] Define the on-disk JSON schema for the module's artefacts.
-- [ ] Assign a `schemaVersion` (start at `"1.0"`).
-- [ ] Document all required and optional fields.
-- [ ] Add the schema version to `manifest.json` under `schemaVersions`.
-- [ ] Write a JSON Schema or equivalent validator.
+- Options class in `Abstractions/Options/`: `<Module>Options` with `init`-only properties.
+- Registered via `IOptions<T>` pattern.
+- Validation: `IValidateOptions<T>` — fail fast on invalid config.
 
-## 2. Folder Layout
+## 2. Package Folder Layout
 
-- [ ] Define the folder structure under `PackageRoot/<ModuleName>/`.
-- [ ] Document the naming convention for all files and folders.
-- [ ] Confirm the layout is deterministic (same input → same paths) and human-readable.
+- Module owns a single top-level folder (e.g. `WorkItems/`, `Teams/`, `Identities/`).
+- Sub-folder structure documented; immutable once versioned.
+- All reads/writes via `IArtefactStore` — never raw filesystem.
 
-## 3. Cursor Format
+## 3. Cursor / Checkpoint
 
-- [ ] Define the cursor file at `.migration/Checkpoints/<modulename>.cursor.json`.
-- [ ] Document the `lastProcessed` field semantics (what path or key it holds).
-- [ ] Document all valid `stage` values for this module.
-- [ ] Implement resume logic that reads the cursor and skips already-processed items.
+- File: `.migration/Checkpoints/<module>.cursor.json`.
+- Fields: `lastProcessed`, `stage`, `updatedAt`.
+- Resume: skip folders ≤ cursor lexicographically. Resume incomplete stage.
+- First run: cursor absent → start from beginning.
 
 ## 4. IModule Implementation
 
-- [ ] Implement `Name` — must match the key used in config `modules[].name` and in `manifest.json`.
-- [ ] Implement `DependsOn` — declare all modules that must complete before this one.
-- [ ] Implement `ExportAsync` — write only via `IArtefactStore`.
-- [ ] Implement `PrepareAsync` — read from package via `IArtefactStore`, query target via injected services, write validation/mapping artefacts into the module's package folder (e.g. `<ModuleName>/prepare-report.json`). Must be idempotent (re-run overwrites output). Must not modify operator-edited mapping files.
-- [ ] Implement `ImportAsync` — read via `IArtefactStore`, write state via `IStateStore`.
-- [ ] Implement `ValidateAsync` — no side effects; validate schema and required fields only.
+- Implements `IModule` (or derived: `IExportModule`, `IImportModule`).
+- Properties: `Name`, `DependsOn` (explicit module dependencies).
+- Methods: `ValidateAsync`, `ExportAsync`, `PrepareAsync`, `ImportAsync`.
+- Constructor-injected: `IArtefactStore`, `IStateStore`, `IOptions<T>`, `ILogger<T>`, `IMigrationMetrics`, `IProgressSink` (optional), connector interfaces.
 
-## 5. Validate Steps
+## 5. Validate
 
-- [ ] `ValidateAsync` checks that all required fields are present in every artefact file.
-- [ ] `ValidateAsync` checks schema version compatibility.
-- [ ] `ValidateAsync` reports anomalies to `.migration/Logs/` rather than failing silently.
-- [ ] `ValidateAsync` fails fast on missing required fields.
+- `ValidateAsync`: pre-flight checks. Returns validation result (not exceptions).
+- Checks: required config present, source reachable (export), artefacts readable (import), dependencies satisfied.
 
-## 5a. Prepare Steps
+## 6. Prepare
 
-- [ ] `PrepareAsync` reads exported artefacts from the module's package folder via `IArtefactStore`.
-- [ ] `PrepareAsync` queries the target system via injected services (not direct API calls).
-- [ ] `PrepareAsync` writes a `<ModuleName>/prepare-report.json` with validation results.
-- [ ] `PrepareAsync` reports each issue with enough detail for the operator to resolve it.
-- [ ] `PrepareAsync` does NOT modify operator-edited mapping files.
-- [ ] `PrepareAsync` is idempotent — re-running produces identical output for identical inputs.
+- `PrepareAsync`: reads package, connects to target, writes `<Module>/prepare-report.json`.
+- Idempotent. Does NOT connect to source. Does NOT modify user-edited mapping files.
 
-## 6. Identity Mapping (if applicable)
+## 7. Identity Mapping (if applicable)
 
-- [ ] If the module writes user or group references, consume `IIdentityMappingService`.
-- [ ] Do not implement identity resolution inline.
-- [ ] Declare dependency on `IdentitiesModule` in `DependsOn`.
+- Use `IIdentityMappingService` — never resolve identities directly.
+- Record unmapped identities in `Identities/unresolved.json`.
 
-## 7. Tests Required
+## 8. Tests
 
-- [ ] Write acceptance scenarios in `features/<operation>/<module>[/<sub-module>]/<feature-name>.feature` before implementation.
-- [ ] Reqnroll step definitions generated from the `.feature` file (`<ModuleName>Steps.cs` + `<ModuleName>Context.cs`).
-- [ ] Unit tests for `ValidateAsync` covering valid and invalid artefact schemas.
-- [ ] Unit tests for `ExportAsync` with a mock `IArtefactStore`.
-- [ ] Unit tests for `PrepareAsync` with a mock `IArtefactStore` and mock target services.
-- [ ] Unit tests for `ImportAsync` with a mock `IArtefactStore` and `IStateStore`.
-- [ ] Unit tests for cursor resume — simulate a mid-run crash and verify correct resume behaviour.
-- [ ] Integration test against a real or sandbox target (optional but strongly recommended).
+| Category | Required |
+|----------|----------|
+| Unit tests for all logic paths | Yes |
+| Feature tests (Reqnroll) for key behaviours | Yes |
+| SystemTest_Simulated (end-to-end, no network) | Yes |
+| Connector coverage: Simulated + AzureDevOps + TFS (where API allows) | Yes |
 
-## 8. Documentation
+Export tests MUST assert artefact exists AND content is non-empty.
+Import tests MUST assert target received data (count > 0).
 
-- [ ] Add a `docs/<modulename>.md` file describing the module's schema, folder layout, cursor, and any module-specific rules.
-- [ ] Add the module to the table in [docs/modules.md](../../docs/modules.md).
-- [ ] Add the module name to the `includedTypes` example in [.agents/context/package-format.md](../context/package-format.md) if it is a standard module.
+## 9. Documentation
 
-## 9. Full Connector Coverage
+- XML doc-comments on public API surface.
+- Module listed in `docs/modules.md`.
+- ADR if design decisions non-obvious.
 
-- [ ] **Simulated** implementation is complete — deterministic, no external connectivity, generates realistic test data.
-- [ ] **AzureDevOpsServices** implementation is complete — full REST API integration via .NET 10.
-- [ ] **TeamFoundationServer** implementation is complete — TFS Object Model via the .NET 4.8 subprocess bridge, or explicitly exempted with a structured warning when the TFS OM API does not support the capability.
-- [ ] No `throw new NotImplementedException()` or equivalent placeholder in any connector implementation.
-- [ ] No connector implementation deferred to a follow-up PR or future task.
+## 10. Connector Coverage
+
+Every module feature MUST be implemented for:
+- **Simulated** — deterministic, no network, ≥ 2 items per operation.
+- **AzureDevOps** — real SDK calls via `IAzureDevOpsClientFactory`.
+- **TFS** — real SDK calls in net481 agent (where API supports).
+
+Stubs, placeholders, or deferral to follow-up PRs = reject.
+
+## 11. Observability (O-1 through O-4)
+
+| ID | Requirement |
+|----|-------------|
+| O-1 | `ActivitySource.StartActivity` span with meaningful tags on every operation |
+| O-2 | `IMigrationMetrics` calls: attempt, completion, error, duration, in-flight |
+| O-3 | Structured logging: `Information` on start/end, `Warning` on skips/errors, `Debug` per-item |
+| O-4 | `IProgressSink` injected (optional), `ProgressEvent` emitted at start, per-item/batch (≤50), completion |
+
+Module counter added to `MigrationCounters` → MUST have row in `QueueCommand.BuildProgressRenderable`.
+
+## 12. DI Wiring
+
+- Extension method: `AddXxxModuleServices(this IServiceCollection)`.
+- Registered in host startup (Agent) and test harness.
+- No service locator. No static state. No ambient context.
+
+---
+
+## Quick Reject
+
+Reject module if:
+- Missing any of O-1..O-4.
+- Connector stub/placeholder remains.
+- Test asserts only "no exception" or `count >= 0`.
+- Raw filesystem instead of `IArtefactStore`.
+- State outside `.migration/Checkpoints/`.
+- Missing `DependsOn` declaration.
+- `ExportAsync`/`ImportAsync` completes with count=0 without emitting Warning log.

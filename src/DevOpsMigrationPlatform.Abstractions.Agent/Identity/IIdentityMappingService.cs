@@ -12,4 +12,10 @@ public interface IIdentityMappingService
     /// and records the unmapped identity for later warning output.
     /// </summary>
     string Resolve(string sourceIdentity);
+
+    /// <summary>
+    /// Loads explicit mapping overrides from the provided JSON string (contents of mapping.json).
+    /// Implementations that do not support runtime override loading may treat this as a no-op.
+    /// </summary>
+    void LoadMappingOverrides(string? mappingJson);
 }

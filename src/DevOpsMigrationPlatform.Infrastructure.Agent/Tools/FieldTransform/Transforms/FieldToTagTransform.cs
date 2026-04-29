@@ -41,7 +41,7 @@ public sealed class FieldToTagTransform : IFieldTransform
             updated[kvp.Key] = kvp.Value;
 
         var oldTags = updated.TryGetValue(TagsField, out var ot) ? ot?.ToString() : null;
-        var newTags = TagUtilities.AppendTag(oldTags, newTag);
+        var newTags = WorkItemTagParser.AppendTag(oldTags, newTag);
         updated[TagsField] = newTags;
 
         return new FieldTransformResult(

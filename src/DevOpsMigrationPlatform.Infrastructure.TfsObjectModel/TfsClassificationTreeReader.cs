@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using System.Threading;
@@ -63,7 +63,7 @@ public sealed class TfsClassificationTreeReader : IClassificationTreeReader
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "[NodeStructure][TFS] Failed to get project {Project} from TFS.", project);
+            _logger.LogError(ex, "[NodeTranslation][TFS] Failed to get project {Project} from TFS.", project);
             throw;
         }
 
@@ -74,7 +74,7 @@ public sealed class TfsClassificationTreeReader : IClassificationTreeReader
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "[NodeStructure][TFS] Failed to list structures for project {Project}.", project);
+            _logger.LogError(ex, "[NodeTranslation][TFS] Failed to list structures for project {Project}.", project);
             throw;
         }
 
@@ -100,7 +100,7 @@ public sealed class TfsClassificationTreeReader : IClassificationTreeReader
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "[NodeStructure][TFS] Failed to get project {Project} from TFS.", project);
+            _logger.LogError(ex, "[NodeTranslation][TFS] Failed to get project {Project} from TFS.", project);
             throw;
         }
 
@@ -111,7 +111,7 @@ public sealed class TfsClassificationTreeReader : IClassificationTreeReader
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "[NodeStructure][TFS] Failed to list structures for project {Project}.", project);
+            _logger.LogError(ex, "[NodeTranslation][TFS] Failed to list structures for project {Project}.", project);
             throw;
         }
 

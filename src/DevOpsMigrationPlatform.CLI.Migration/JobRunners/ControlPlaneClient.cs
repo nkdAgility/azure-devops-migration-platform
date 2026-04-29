@@ -264,14 +264,8 @@ public sealed class ControlPlaneClient : IJobSubmissionClient, ILogsClient, ICon
     }
 
     /// <summary>
-    /// Checks whether the agent with <paramref name="agentInstanceId"/> is currently active.
-    /// The CLI client always returns <see langword="false"/> — lock liveness checks are only
-    /// performed by the Migration Agent, which uses <c>AgentControlPlaneClientAdapter</c>.
+    /// Returns the job bootstrap data required by the Migration Agent to start work.
     /// </summary>
-    public Task<bool> IsAgentActiveAsync(string agentInstanceId, CancellationToken ct)
-        => Task.FromResult(false);
-
-    /// <inheritdoc/>
     public async Task<JobBootstrap?> GetBootstrapAsync(Guid jobId, CancellationToken ct)
     {
         var response = await _http
