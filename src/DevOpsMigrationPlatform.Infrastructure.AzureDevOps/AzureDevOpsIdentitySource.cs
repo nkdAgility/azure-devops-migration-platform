@@ -13,7 +13,7 @@ namespace DevOpsMigrationPlatform.Infrastructure.AzureDevOps;
 /// Azure DevOps REST API implementation of <see cref="IIdentitySource"/>.
 /// Enumerates project team members by listing all teams and deduplicating by UniqueName.
 /// </summary>
-public sealed class AzureDevOpsIdentitySource : IIdentitySource
+internal sealed class AzureDevOpsIdentitySource : IIdentitySource
 {
     private readonly IAzureDevOpsClientFactory _clientFactory;
     private readonly ILogger<AzureDevOpsIdentitySource> _logger;

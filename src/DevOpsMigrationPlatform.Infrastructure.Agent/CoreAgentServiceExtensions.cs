@@ -1,4 +1,5 @@
 using System;
+using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Agent.Checkpointing;
 using DevOpsMigrationPlatform.Abstractions.Agent.Lease;
 using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
@@ -48,6 +49,7 @@ public static class CoreAgentServiceExtensions
         // Ambient singletons shared across services within a lease/job lifecycle.
         services.AddSingleton<ActiveLeaseState>();
         services.AddSingleton<ActivePackageState>();
+        services.AddSingleton<ActiveJobConfigState>();
 
         // Agent telemetry (IMigrationMetrics, IDiscoveryMetrics, TelemetryOptions).
         services.AddAgentTelemetryServices(configuration);
@@ -75,8 +77,8 @@ public static class CoreAgentServiceExtensions
         // Phase tracking factory for Both mode (export + import phases).
         services.AddSingleton<IPhaseTrackingServiceFactory, PhaseTrackingServiceFactory>();
 
-        // Package store factory — resolves file:/// URIs to FileSystem stores.
-        services.AddSingleton<IPackageStoreFactory, FileSystemPackageStoreFactory>();
+        // Package management — store factory, preparer, and config store.
+        services.AddPackageManagementServices();
 
         // Checkpointing factory for per-job cursor management.
         services.AddSingleton<ICheckpointingServiceFactory, CheckpointingServiceFactory>();
@@ -87,6 +89,7 @@ public static class CoreAgentServiceExtensions
         // Package progress persistence — writes ProgressEvent NDJSON to Logs/progress.jsonl.
         services.AddSingleton<PackageProgressSink>();
         services.AddSingleton<IHostedService>(sp => sp.GetRequiredService<PackageProgressSink>());
+        services.AddSingleton<IFlushable>(sp => sp.GetRequiredService<PackageProgressSink>());
 
         // Composite sink fans out every ProgressEvent to all three sinks.
         services.AddCompositeProgressSink();

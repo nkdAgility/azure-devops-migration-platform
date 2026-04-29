@@ -15,7 +15,7 @@ namespace DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Factories;
 /// entries carried on a <see cref="DiscoveryJob"/>. Used by <c>InventoryDiscoveryModule</c>
 /// so the agent does not need a config file at runtime.
 /// </summary>
-public sealed class InventoryServiceFactory : IInventoryServiceFactory
+internal sealed class InventoryServiceFactory : IInventoryServiceFactory
 {
     private readonly IWorkItemDiscoveryService _workItemDiscovery;
     private readonly IProjectDiscoveryService _projectDiscovery;

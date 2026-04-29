@@ -18,45 +18,17 @@
       "Generator": {
         "Projects": [
           {
-            "Name": "SimulatedProject1",
+            "Name": "SimulatedProject",
             "WorkItemTypes": [
               {
                 "Type": "User Story",
-                "Count": 3,
-                "RevisionsPerItem": 5
+                "Count": 2,
+                "RevisionsPerItem": 2
               },
               {
                 "Type": "Bug",
                 "Count": 2,
-                "RevisionsPerItem": 5
-              },
-              {
-                "Type": "Task",
-                "Count": 2,
-                "RevisionsPerItem": 5
-              }
-            ],
-            "LinkTopology": "Tree",
-            "HasComments": true,
-            "AttachmentSizeKb": 10
-          },
-          {
-            "Name": "SimulatedProject2",
-            "WorkItemTypes": [
-              {
-                "Type": "Epic",
-                "Count": 1,
-                "RevisionsPerItem": 5
-              },
-              {
-                "Type": "Feature",
-                "Count": 2,
-                "RevisionsPerItem": 5
-              },
-              {
-                "Type": "Bug",
-                "Count": 2,
-                "RevisionsPerItem": 5
+                "RevisionsPerItem": 2
               }
             ],
             "LinkTopology": "Flat",

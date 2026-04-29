@@ -137,6 +137,62 @@ public sealed class WorkItemsModuleExtensions
         };
     }
 
+    /// <summary>
+    /// Constructs a <see cref="WorkItemsModuleExtensions"/> from typed <see cref="WorkItemsModuleOptions"/>.
+    /// Used when the module configuration is loaded from <c>migration-config.json</c>
+    /// via <c>ActiveJobConfigState</c> rather than from the job contract.
+    /// </summary>
+    /// <exception cref="InvalidOperationException">
+    /// Thrown when a filter entry has an invalid .NET regex pattern.
+    /// </exception>
+    public static WorkItemsModuleExtensions FromOptions(WorkItemsModuleOptions options)
+    {
+        var includeFilters = new List<WorkItemFieldFilterOptions>();
+        var excludeFilters = new List<WorkItemFieldFilterOptions>();
+
+        foreach (var filter in options.Scope.Filters)
+        {
+            if (string.IsNullOrEmpty(filter.Field))
+                throw new InvalidOperationException("A WorkItems filter entry has an empty Field name.");
+
+            try { _ = new Regex(filter.Pattern, RegexOptions.IgnoreCase, TimeSpan.FromSeconds(2)); }
+            catch (ArgumentException ex)
+            {
+                throw new InvalidOperationException(
+                    $"WorkItems filter for field '{filter.Field}' has an invalid regex pattern '{filter.Pattern}': {ex.Message}", ex);
+            }
+
+            var fieldFilter = new WorkItemFieldFilterOptions(
+                filter.Field,
+                filter.Mode == FilterMode.Include ? FilterOperator.Regex : FilterOperator.NotRegex,
+                filter.Pattern);
+
+            if (filter.Mode == FilterMode.Include)
+                includeFilters.Add(fieldFilter);
+            else
+                excludeFilters.Add(fieldFilter);
+        }
+
+        var rs = options.Extensions.WorkItemResolutionStrategy;
+        return new WorkItemsModuleExtensions
+        {
+            Query = options.Scope.Query,
+            RevisionsEnabled = options.Extensions.Revisions.Enabled,
+            LinksEnabled = options.Extensions.Links.Enabled,
+            AttachmentsEnabled = options.Extensions.Attachments.Enabled,
+            Comments = options.Extensions.Comments,
+            EmbeddedImages = options.Extensions.EmbeddedImages,
+            ResolutionStrategy = new WorkItemResolutionStrategyOptions
+            {
+                Strategy = rs.Strategy,
+                FieldName = rs.FieldName,
+                UrlPattern = rs.UrlPattern
+            },
+            IncludeFilters = includeFilters,
+            ExcludeFilters = excludeFilters
+        };
+    }
+
     private static CommentsExtensionOptionsConfig ParseCommentsExtension(JobModuleExtension ext)
     {
         return new CommentsExtensionOptionsConfig

@@ -16,7 +16,7 @@ namespace DevOpsMigrationPlatform.Infrastructure.AzureDevOps;
 /// Azure DevOps REST API implementation of <see cref="ITeamTarget"/>.
 /// Uses the TeamHttpClient and WorkHttpClient from the Azure DevOps SDK.
 /// </summary>
-public sealed class AzureDevOpsTeamTarget : ITeamTarget
+internal sealed class AzureDevOpsTeamTarget : ITeamTarget
 {
     private readonly IAzureDevOpsClientFactory _clientFactory;
     private readonly ILogger<AzureDevOpsTeamTarget> _logger;

@@ -5,8 +5,10 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Agent.Lease;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Abstractions.Agent.Validation;
+using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Abstractions.Telemetry;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Export;
 #if !NET481
@@ -57,14 +59,13 @@ public sealed class WorkItemsModule : IModule
     private readonly IWorkItemFetchService? _fetchService;
     private readonly IMigrationMetrics? _metrics;
     private readonly IWorkItemDiscoveryService? _discoveryService;
-#if !NET481
     private readonly IExportProgressStoreFactory? _exportProgressStoreFactory;
-#endif
     private readonly IClassificationTreeCapture? _classificationTreeCapture;
 #if !NET481
     private readonly IReferencedPathTracker? _referencedPathTracker;
     private readonly INodeEnsurer? _nodeEnsurer;
 #endif
+    private readonly ActiveJobConfigState? _activeJobConfig;
 
     public WorkItemsModule(
         IWorkItemRevisionSourceFactory sourceFactory,
@@ -84,15 +85,14 @@ public sealed class WorkItemsModule : IModule
         IWorkItemFetchService? fetchService = null,
         IMigrationMetrics? metrics = null,
         IWorkItemDiscoveryService? discoveryService = null,
-#if !NET481
         IExportProgressStoreFactory? exportProgressStoreFactory = null,
-#endif
         IClassificationTreeCapture? classificationTreeCapture = null,
 #if !NET481
         IReferencedPathTracker? referencedPathTracker = null,
         INodeEnsurer? nodeEnsurer = null,
 #endif
-        IIdentityLookupTool? identityLookupTool = null)
+        IIdentityLookupTool? identityLookupTool = null,
+        ActiveJobConfigState? activeJobConfig = null)
     {
         _sourceFactory = sourceFactory ?? throw new ArgumentNullException(nameof(sourceFactory));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
@@ -109,15 +109,14 @@ public sealed class WorkItemsModule : IModule
         _fetchService = fetchService;
         _metrics = metrics;
         _discoveryService = discoveryService;
-#if !NET481
         _exportProgressStoreFactory = exportProgressStoreFactory;
-#endif
         _classificationTreeCapture = classificationTreeCapture;
 #if !NET481
         _referencedPathTracker = referencedPathTracker;
         _nodeEnsurer = nodeEnsurer;
 #endif
         _identityLookupTool = identityLookupTool;
+        _activeJobConfig = activeJobConfig;
     }
 
     /// <inheritdoc/>
@@ -127,17 +126,13 @@ public sealed class WorkItemsModule : IModule
 
         var job = context.Job;
 
-        var endpointOptions = job.Source ?? throw new InvalidOperationException("Job.Source is required for export.");
+        var endpointOptions = _activeJobConfig?.Current?.Source ?? throw new InvalidOperationException("ActiveJobConfigState.Current.Source is required for export — ensure migration-config.json is present in the package.");
         var orgUrl = endpointOptions.GetResolvedUrl();
         var project = endpointOptions.GetProject();
 
-        var workItemsModule = job.Modules
-            ?.FirstOrDefault(m => string.Equals(m.Name, "WorkItems", StringComparison.OrdinalIgnoreCase));
-
 #if !NET481
-        var ext = workItemsModule is not null
-            ? WorkItemsModuleExtensions.FromModule(workItemsModule)
-            : new WorkItemsModuleExtensions();
+        var ext = WorkItemsModuleExtensions.FromOptions(
+            _activeJobConfig?.Current?.Modules?.WorkItems ?? new WorkItemsModuleOptions());
 
         using (_logger.BeginDataScope(DataClassification.Customer))
         {
@@ -213,13 +208,15 @@ public sealed class WorkItemsModule : IModule
             logger: _logger,
 #if !NET481
             wiqlQuery: ext.Query,
-            discoveryService: _discoveryService
-            , exportProgressStoreFactory: _exportProgressStoreFactory
-            , packageUri: job.Package.PackageUri
-            , referencedPathTracker: _referencedPathTracker
+            discoveryService: _discoveryService,
+            exportProgressStoreFactory: _exportProgressStoreFactory,
+            packageUri: job.Package.PackageUri,
+            referencedPathTracker: _referencedPathTracker
 #else
             wiqlQuery: wiqlQuery,
-            discoveryService: discoveryService481
+            discoveryService: discoveryService481,
+            exportProgressStoreFactory: _exportProgressStoreFactory,
+            packageUri: job.Package.PackageUri
 #endif
             );
 
@@ -238,18 +235,14 @@ public sealed class WorkItemsModule : IModule
 
         var job = context.Job;
 
-        var targetJob = job.Target ?? throw new InvalidOperationException("Job.Target is required for import.");
+        var targetJob = _activeJobConfig?.Current?.Target ?? throw new InvalidOperationException("ActiveJobConfigState.Current.Target is required for import — ensure migration-config.json is present in the package.");
         var orgUrl = targetJob.GetResolvedUrl();
         var project = targetJob.GetProject();
 
         var endpointOptions = targetJob;
 
-        var workItemsModule = job.Modules
-            ?.FirstOrDefault(m => string.Equals(m.Name, "WorkItems", StringComparison.OrdinalIgnoreCase));
-
-        var ext = workItemsModule is not null
-            ? WorkItemsModuleExtensions.FromModule(workItemsModule)
-            : new WorkItemsModuleExtensions();
+        var ext = WorkItemsModuleExtensions.FromOptions(
+            _activeJobConfig?.Current?.Modules?.WorkItems ?? new WorkItemsModuleOptions());
 
         using (_logger.BeginDataScope(DataClassification.Customer))
         {
@@ -276,14 +269,14 @@ public sealed class WorkItemsModule : IModule
 
         if (_nodeEnsurer != null)
         {
-            var sourceProjectNameForEnsurer = job.Source?.GetProject() ?? string.Empty;
+            var sourceProjectNameForEnsurer = _activeJobConfig?.Current?.Source?.GetProject() ?? string.Empty;
             var ensurerContext = new DevOpsMigrationPlatform.Abstractions.Agent.Tools.ProjectMapping(sourceProjectNameForEnsurer, project);
             await _nodeEnsurer.EnsureReferencedPathsAsync(ensurerContext, endpointOptions, context.ArtefactStore, ct, _metrics, job.JobId).ConfigureAwait(false);
         }
 
         // Build processor — use NodeTranslation-aware overload when available.
         IRevisionFolderProcessor processor;
-        var sourceProjectName = job.Source?.GetProject() ?? string.Empty;
+        var sourceProjectName = _activeJobConfig?.Current?.Source?.GetProject() ?? string.Empty;
         var nodeStructureContext = new DevOpsMigrationPlatform.Abstractions.Agent.Tools.ProjectMapping(sourceProjectName, project);
 
         processor = _processorFactory.Create(

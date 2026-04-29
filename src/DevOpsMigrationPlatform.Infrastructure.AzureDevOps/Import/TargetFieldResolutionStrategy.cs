@@ -19,7 +19,7 @@ namespace DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Import;
 /// During processing, if a source ID is not in <c>idmap.db</c>, a single WIQL query
 /// is performed as a live fallback. After creation, the provenance field is written.
 /// </summary>
-public sealed class TargetFieldResolutionStrategy : IWorkItemResolutionStrategy
+internal sealed class TargetFieldResolutionStrategy : IWorkItemResolutionStrategy
 {
     private readonly WorkItemTrackingHttpClient _witClient;
     private readonly IWorkItemImportTarget _target;

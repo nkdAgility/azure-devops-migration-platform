@@ -12,7 +12,6 @@ using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.CLI.JobRunners;
 using DevOpsMigrationPlatform.CLI.Migration.Commands;
-using DevOpsMigrationPlatform.CLI.Migration.Configuration;
 using DevOpsMigrationPlatform.CLI.Migration.Options;
 using DevOpsMigrationPlatform.CLI.Migration.Settings;
 using DevOpsMigrationPlatform.Infrastructure;
@@ -88,12 +87,6 @@ public sealed class InventoryCommand : ControlPlaneCommandBase<InventoryCommand.
                             kvp => (object?)kvp.Value)
                     }).ToList()
                 }).ToList(),
-            Policies = new JobPolicies
-            {
-                MaxRetries = discoveryOpts.Policies.Retries.Max,
-                MaxConcurrency = discoveryOpts.Policies.Throttle.MaxConcurrency,
-                CheckpointIntervalSeconds = discoveryOpts.Policies.Checkpoints.Interval
-            },
             Package = new JobPackage { PackageUri = packageUri }
         };
 
@@ -508,5 +501,5 @@ public sealed class InventoryCommand : ControlPlaneCommandBase<InventoryCommand.
             : value;
 
     private static string SanitiseFolderName(string url) =>
-        CliPathUtilities.ExtractOrgFolderName(url);
+        PackagePathResolver.ExtractOrgFolderName(url);
 }

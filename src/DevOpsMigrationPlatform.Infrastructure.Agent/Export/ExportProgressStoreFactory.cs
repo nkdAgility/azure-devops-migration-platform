@@ -1,4 +1,3 @@
-#if !NET481
 using System.IO;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
@@ -20,7 +19,7 @@ public sealed class ExportProgressStoreFactory : IExportProgressStoreFactory
     {
         string localRoot;
         if (packageUri.StartsWith("file:///", System.StringComparison.OrdinalIgnoreCase))
-            localRoot = packageUri["file:///".Length..].Replace('/', Path.DirectorySeparatorChar);
+            localRoot = packageUri.Substring("file:///".Length).Replace('/', Path.DirectorySeparatorChar);
         else
             localRoot = packageUri;
 
@@ -37,4 +36,3 @@ public sealed class ExportProgressStoreFactory : IExportProgressStoreFactory
         return new SqliteExportProgressStore(newPath);
     }
 }
-#endif

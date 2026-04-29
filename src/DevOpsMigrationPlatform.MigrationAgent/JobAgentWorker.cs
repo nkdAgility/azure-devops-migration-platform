@@ -2,12 +2,17 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Agent.Lease;
+using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
+using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Infrastructure.Agent;
-using DevOpsMigrationPlatform.Infrastructure.Agent.Telemetry;
 using DevOpsMigrationPlatform.Infrastructure.Serialization;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
 namespace DevOpsMigrationPlatform.MigrationAgent;
@@ -23,35 +28,40 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
     private readonly IEnumerable<IDiscoveryModule> _discoveryModules;
     private readonly IJobMetricsStore _metricsStore;
     private readonly IJobSnapshotStore _snapshotStore;
-    private readonly PackageProgressSink _packageProgressSink;
-    private readonly PackageLoggerProvider _packageLoggerProvider;
+    private readonly IEnumerable<IFlushable> _flushables;
+    private readonly IServiceScopeFactory _moduleScopeFactory;
+    private readonly IPackagePreparer _packagePreparer;
     private readonly ILogger<JobAgentWorker> _logger;
 
     public JobAgentWorker(
         IEnumerable<IModule> migrationModules,
         IEnumerable<IDiscoveryModule> discoveryModules,
         IPackageStoreFactory packageStoreFactory,
+        IPackagePreparer packagePreparer,
         IProgressSink progressSink,
         ActiveLeaseState leaseState,
         ActivePackageState packageState,
+        ActiveJobConfigState activeJobConfig,
+        IPackageConfigStore packageConfigStore,
+        IServiceScopeFactory moduleScopeFactory,
         IHttpClientFactory httpClientFactory,
         ICheckpointingServiceFactory checkpointingFactory,
         IPhaseTrackingServiceFactory phaseTrackingFactory,
         IJobMetricsStore metricsStore,
         IJobSnapshotStore snapshotStore,
-        PackageProgressSink packageProgressSink,
-        PackageLoggerProvider packageLoggerProvider,
+        IEnumerable<IFlushable> flushables,
         ILogger<JobAgentWorker> logger,
         PolymorphicEndpointOptionsConverter? endpointConverter = null)
         : base(migrationModules, packageStoreFactory, progressSink, checkpointingFactory,
-               phaseTrackingFactory, leaseState, packageState, httpClientFactory, logger,
-               endpointConverter)
+               phaseTrackingFactory, leaseState, packageState, activeJobConfig, packageConfigStore,
+               moduleScopeFactory, httpClientFactory, logger, endpointConverter)
     {
         _discoveryModules = discoveryModules;
         _metricsStore = metricsStore;
         _snapshotStore = snapshotStore;
-        _packageProgressSink = packageProgressSink;
-        _packageLoggerProvider = packageLoggerProvider;
+        _flushables = flushables;
+        _moduleScopeFactory = moduleScopeFactory;
+        _packagePreparer = packagePreparer;
         _logger = logger;
     }
 
@@ -59,8 +69,8 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
 
     protected override async Task OnPostJobFlushAsync()
     {
-        await _packageProgressSink.FlushAsync().ConfigureAwait(false);
-        await _packageLoggerProvider.FlushAsync().ConfigureAwait(false);
+        foreach (var flushable in _flushables)
+            await flushable.FlushAsync().ConfigureAwait(false);
     }
 
     // ── Migration execution ───────────────────────────────────────────────────
@@ -73,20 +83,8 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
 
         PackageState.CurrentStore = artefactStore;
 
-        var checkpointer = CheckpointingFactory.Create(stateStore);
-        var phaseTracker = PhaseTrackingFactory.Create(stateStore);
-
-        if (job.Resume?.Mode == ResumeMode.ForceFresh)
-        {
-            _logger.LogInformation("ForceFresh requested for job {JobId} — deleting module cursors.", job.JobId);
-            foreach (var module in MigrationModules)
-            {
-                await checkpointer.DeleteCursorAsync(module.Name, ct).ConfigureAwait(false);
-                _logger.LogDebug("Deleted cursor for module {Module}.", module.Name);
-            }
-            await phaseTracker.DeletePhaseRecordAsync(ct).ConfigureAwait(false);
-        }
-
+        // Prepare mode writes a probe file to validate connectivity — it does not need
+        // migration-config.json and must not block on ReadAsync.
         if (string.Equals(job.Mode, "Prepare", StringComparison.OrdinalIgnoreCase))
         {
             bool prepareFailed = false;
@@ -116,88 +114,175 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
                 prepareFailed = true;
             }
 
-            // Flush before signalling terminal so that progress/log records written during
-            // Prepare are persisted to the package before the control plane notifies the CLI
-            // (which may kill the agent process immediately after seeing completion).
-            await _packageProgressSink.FlushAsync().ConfigureAwait(false);
-            await _packageLoggerProvider.FlushAsync().ConfigureAwait(false);
+            foreach (var flushable in _flushables)
+                await flushable.FlushAsync().ConfigureAwait(false);
 
-            var prepareTerminal = prepareFailed ? "fail" : "complete";
-            await SignalTerminalAsync(controlPlane, leaseId, prepareTerminal, ct).ConfigureAwait(false);
+            await SignalTerminalAsync(controlPlane, leaseId, prepareFailed ? "fail" : "complete", ct).ConfigureAwait(false);
             return;
         }
 
-        var exportContext = new ExportContext
-        {
-            Job = job,
-            ArtefactStore = artefactStore,
-            StateStore = stateStore,
-            ProgressSink = ProgressSink
-        };
-        var importContext = new ImportContext
-        {
-            Job = job,
-            ArtefactStore = artefactStore,
-            StateStore = stateStore,
-            ProgressSink = ProgressSink
-        };
-
-        var isBoth = string.Equals(job.Mode, "Both", StringComparison.OrdinalIgnoreCase);
-        var phaseRecord = isBoth
-            ? await phaseTracker.ReadPhaseRecordAsync(ct).ConfigureAwait(false)
-            : new JobPhaseRecord();
-
-        var runExport = string.Equals(job.Mode, "Export", StringComparison.OrdinalIgnoreCase)
-            || (isBoth && !phaseRecord.ExportCompleted);
-        var runImport = string.Equals(job.Mode, "Import", StringComparison.OrdinalIgnoreCase)
-            || (isBoth && !phaseRecord.ImportCompleted);
-
-        if (isBoth && !runExport)
-            _logger.LogInformation("Export phase already completed for job {JobId} — skipping.", job.JobId);
-        if (isBoth && !runImport)
-            _logger.LogInformation("Import phase already completed for job {JobId} — skipping.", job.JobId);
-
-        bool failed = false;
+        // Load migration-config.json from the package so modules can read Source/Target/Policies.
+        IConfiguration packageConfig;
         try
         {
-            if (runExport)
-            {
-                foreach (var module in MigrationModules)
-                {
-                    _logger.LogInformation("Running module {Module}.ExportAsync", module.Name);
-                    await module.ExportAsync(exportContext, ct).ConfigureAwait(false);
-                }
-                if (isBoth)
-                {
-                    await phaseTracker.WritePhaseRecordAsync(
-                        new JobPhaseRecord { ExportCompleted = true, ImportCompleted = phaseRecord.ImportCompleted, UpdatedAt = DateTimeOffset.UtcNow },
-                        ct).ConfigureAwait(false);
-                }
-            }
+            packageConfig = await PackageConfigStore.ReadAsync(artefactStore, ct).ConfigureAwait(false);
+        }
+        catch (PackageConfigNotFoundException ex)
+        {
+            _logger.LogError(ex,
+                "Config file not found in {PackageUri}. Re-submit the job via CLI.",
+                job.Package.PackageUri);
+            await SignalTerminalAsync(controlPlane, leaseId, "fail", ct).ConfigureAwait(false);
+            ActiveJobConfig.Clear();
+            return;
+        }
 
-            if (runImport)
+        // Deserialize MigrationOptions from raw JSON using System.Text.Json.
+        // IConfiguration.Bind() cannot instantiate abstract types (Source/Target) or set init-only
+        // properties reliably in .NET 10. System.Text.Json handles both via the polymorphic
+        // endpoint converter (PolymorphicEndpointOptionsConverter) registered in AgentJsonOptions.
+        var migrationOptions = new MigrationOptions();
+        try
+        {
+            var rawJson = await artefactStore.ReadAsync(PackagePaths.MigrationConfigFileName, ct)
+                .ConfigureAwait(false);
+            if (!string.IsNullOrWhiteSpace(rawJson))
             {
-                foreach (var module in MigrationModules)
-                {
-                    _logger.LogInformation("Running module {Module}.ImportAsync", module.Name);
-                    await module.ImportAsync(importContext, ct).ConfigureAwait(false);
-                }
-                if (isBoth)
-                {
-                    await phaseTracker.WritePhaseRecordAsync(
-                        new JobPhaseRecord { ExportCompleted = true, ImportCompleted = true, UpdatedAt = DateTimeOffset.UtcNow },
-                        ct).ConfigureAwait(false);
-                }
+                var wrapper = JsonSerializer.Deserialize<MigrationConfigWrapper>(rawJson, AgentJsonOptions);
+                if (wrapper?.MigrationPlatform != null)
+                    migrationOptions = wrapper.MigrationPlatform;
             }
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Job {JobId} failed during module execution.", job.JobId);
-            failed = true;
+            _logger.LogWarning(ex,
+                "Could not deserialize migration-config.json for job {JobId}; proceeding with defaults.",
+                job.JobId);
         }
 
-        var terminal = failed ? "fail" : "complete";
-        await SignalTerminalAsync(controlPlane, leaseId, terminal, ct).ConfigureAwait(false);
+        ActiveJobConfig.Current = migrationOptions;
+        ActiveJobConfig.PackageConfig = packageConfig;
+
+        // Create a per-job DI scope AFTER PackageConfig is set. Singleton tools (e.g.
+        // IFieldTransformTool) are resolved fresh within this scope so their IOptions<T>.Value
+        // is read from migration-config.json, not from the empty appsettings.json at host startup.
+        using var jobScope = _moduleScopeFactory.CreateScope();
+        var jobModules = jobScope.ServiceProvider.GetServices<IModule>().ToList();
+
+        try
+        {
+            var checkpointer = CheckpointingFactory.Create(stateStore);
+            var phaseTracker = PhaseTrackingFactory.Create(stateStore);
+
+            if (job.Resume?.Mode == ResumeMode.ForceFresh)
+            {
+                _logger.LogInformation("ForceFresh requested for job {JobId} — deleting module cursors.", job.JobId);
+                foreach (var module in MigrationModules)
+                {
+                    await checkpointer.DeleteCursorAsync(module.Name, ct).ConfigureAwait(false);
+                    _logger.LogDebug("Deleted cursor for module {Module}.", module.Name);
+                }
+                await phaseTracker.DeletePhaseRecordAsync(ct).ConfigureAwait(false);
+            }
+
+            var exportContext = new ExportContext
+            {
+                Job = job,
+                ArtefactStore = artefactStore,
+                StateStore = stateStore,
+                ProgressSink = ProgressSink
+            };
+            var importContext = new ImportContext
+            {
+                Job = job,
+                ArtefactStore = artefactStore,
+                StateStore = stateStore,
+                ProgressSink = ProgressSink
+            };
+
+            var isBoth = string.Equals(job.Mode, "Both", StringComparison.OrdinalIgnoreCase);
+            var phaseRecord = isBoth
+                ? await phaseTracker.ReadPhaseRecordAsync(ct).ConfigureAwait(false)
+                : new JobPhaseRecord();
+
+            var runExport = string.Equals(job.Mode, "Export", StringComparison.OrdinalIgnoreCase)
+                || (isBoth && !phaseRecord.ExportCompleted);
+            var runImport = string.Equals(job.Mode, "Import", StringComparison.OrdinalIgnoreCase)
+                || (isBoth && !phaseRecord.ImportCompleted);
+
+            if (isBoth && !runExport)
+                _logger.LogInformation("Export phase already completed for job {JobId} — skipping.", job.JobId);
+            if (isBoth && !runImport)
+                _logger.LogInformation("Import phase already completed for job {JobId} — skipping.", job.JobId);
+
+            // If PackagePath is set and we are about to import, extract the fixture into the
+            // package store via IPackagePreparer. This is storage-backend agnostic — works for
+            // FileSystem today and Azure Blob Storage in the future.
+            if (runImport)
+            {
+                await _packagePreparer.PrepareForImportAsync(artefactStore, packageConfig, ct)
+                    .ConfigureAwait(false);
+            }
+
+            bool failed = false;
+            try
+            {
+                if (runExport)
+                {
+                    foreach (var module in jobModules)
+                    {
+                        _logger.LogInformation("Running module {Module}.ExportAsync", module.Name);
+                        await module.ExportAsync(exportContext, ct).ConfigureAwait(false);
+                    }
+                    if (isBoth)
+                    {
+                        await phaseTracker.WritePhaseRecordAsync(
+                            new JobPhaseRecord { ExportCompleted = true, ImportCompleted = phaseRecord.ImportCompleted, UpdatedAt = DateTimeOffset.UtcNow },
+                            ct).ConfigureAwait(false);
+                    }
+                }
+
+                if (runImport)
+                {
+                    foreach (var module in jobModules)
+                    {
+                        _logger.LogInformation("Running module {Module}.ImportAsync", module.Name);
+                        await module.ImportAsync(importContext, ct).ConfigureAwait(false);
+                    }
+                    if (isBoth)
+                    {
+                        await phaseTracker.WritePhaseRecordAsync(
+                            new JobPhaseRecord { ExportCompleted = true, ImportCompleted = true, UpdatedAt = DateTimeOffset.UtcNow },
+                            ct).ConfigureAwait(false);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Job {JobId} failed during module execution.", job.JobId);
+                failed = true;
+            }
+
+            var terminal = failed ? "fail" : "complete";
+            await SignalTerminalAsync(controlPlane, leaseId, terminal, ct).ConfigureAwait(false);
+        } // end outer try
+        finally
+        {
+            ActiveJobConfig.Clear();
+        }
+    }
+
+    // ── Deserialization helpers ───────────────────────────────────────────────
+
+    /// <summary>
+    /// Wrapper matching the top-level shape of migration-config.json:
+    /// <c>{ "MigrationPlatform": { ... } }</c>.
+    /// Used to deserialize the full config with System.Text.Json (which correctly handles
+    /// init-only properties and polymorphic endpoint types via the registered converters).
+    /// </summary>
+    private sealed class MigrationConfigWrapper
+    {
+        public MigrationOptions MigrationPlatform { get; set; } = new();
     }
 
     // ── Discovery execution ───────────────────────────────────────────────────

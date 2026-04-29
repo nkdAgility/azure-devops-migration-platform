@@ -10,7 +10,6 @@ using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.CLI.JobRunners;
 using DevOpsMigrationPlatform.CLI.Migration.Commands;
-using DevOpsMigrationPlatform.CLI.Migration.Configuration;
 using DevOpsMigrationPlatform.CLI.Migration.Options;
 using DevOpsMigrationPlatform.CLI.Migration.Settings;
 using DevOpsMigrationPlatform.Infrastructure;
@@ -81,12 +80,6 @@ public sealed class DependencyCommand : ControlPlaneCommandBase<DependencyComman
                     Endpoint = o.ToEndpointOptions(),
                     Projects = new List<string>(o.Projects)
                 }).ToList(),
-            Policies = new JobPolicies
-            {
-                MaxRetries = discoveryOpts.Policies.Retries.Max,
-                MaxConcurrency = discoveryOpts.Policies.Throttle.MaxConcurrency,
-                CheckpointIntervalSeconds = discoveryOpts.Policies.Checkpoints.Interval
-            },
             Package = new JobPackage { PackageUri = packageUri }
         };
 
@@ -591,7 +584,7 @@ public sealed class DependencyCommand : ControlPlaneCommandBase<DependencyComman
     // ── Helpers ───────────────────────────────────────────────────────────────
 
     private static string ExtractOrgName(string orgUrl) =>
-        CliPathUtilities.ExtractOrgFolderName(orgUrl);
+        PackagePathResolver.ExtractOrgFolderName(orgUrl);
 
     private sealed class ProjectProgress
     {

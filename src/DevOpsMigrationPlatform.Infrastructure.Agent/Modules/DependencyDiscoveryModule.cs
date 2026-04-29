@@ -8,9 +8,12 @@ using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Agent.Lease;
+using DevOpsMigrationPlatform.Abstractions.Jobs;
+using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Abstractions.Telemetry;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Discovery.DependencyGraph;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Agent.Modules;
 
@@ -36,6 +39,7 @@ public sealed class DependencyDiscoveryModule : IDiscoveryModule
     private readonly IDependencyDiscoveryServiceFactory _dependencyFactory;
     private readonly ILogger<DependencyDiscoveryModule> _logger;
     private readonly IDiscoveryMetrics? _metrics;
+    private readonly IOptions<DiscoveryOptions>? _discoveryOptions;
 
     public string Name => "DependencyDiscovery";
     public DiscoveryJobType DiscoveryType => DiscoveryJobType.Dependencies;
@@ -51,11 +55,13 @@ public sealed class DependencyDiscoveryModule : IDiscoveryModule
         IDependencyDiscoveryServiceFactory dependencyFactory,
         ILogger<DependencyDiscoveryModule> logger
         , IDiscoveryMetrics? metrics = null
+        , IOptions<DiscoveryOptions>? discoveryOptions = null
         )
     {
         _dependencyFactory = dependencyFactory;
         _logger = logger;
         _metrics = metrics;
+        _discoveryOptions = discoveryOptions;
     }
 
     public async Task RunAsync(DiscoveryContext context, CancellationToken ct)
@@ -158,7 +164,10 @@ public sealed class DependencyDiscoveryModule : IDiscoveryModule
             _logger.LogInformation("No inventory.json found — per-project counts will be discovered during analysis.");
         }
 
-        var dependencyService = _dependencyFactory.Create(job.Organisations, job.Policies);
+        var policies = _discoveryOptions?.Value?.Policies is { } p
+            ? new JobPolicies { MaxRetries = p.Retries.Max, MaxConcurrency = p.Throttle.MaxConcurrency, CheckpointIntervalSeconds = p.Checkpoints.Interval }
+            : new JobPolicies();
+        var dependencyService = _dependencyFactory.Create(job.Organisations, policies);
 
         // ── Resume: read existing cursor and CSV ─────────────────────────────
         var completedProjects = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -548,7 +557,8 @@ public sealed class DependencyDiscoveryModule : IDiscoveryModule
             }
         }
 
-        var checkpointInterval = TimeSpan.FromSeconds(job.Policies.CheckpointIntervalSeconds);
+        var checkpointInterval = TimeSpan.FromSeconds(
+            _discoveryOptions?.Value?.Policies?.Checkpoints?.Interval ?? 300);
         var lastCheckpoint = DateTime.UtcNow;
 
         var metrics = _metrics;

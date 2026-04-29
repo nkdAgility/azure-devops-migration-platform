@@ -26,7 +26,7 @@ namespace DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Export;
 ///    [System.Id] &lt;= upper</c>, halving the range on overflow, probing for
 ///    remaining items when a range is empty.
 /// </summary>
-public sealed class WorkItemQueryWindowStrategy : IWorkItemQueryWindowStrategy
+internal sealed class WorkItemQueryWindowStrategy : IWorkItemQueryWindowStrategy
 {
     private readonly IWiqlQueryClientFactory _clientFactory;
 

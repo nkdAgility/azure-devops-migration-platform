@@ -3,9 +3,11 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Abstractions.Agent.Export;
 using DevOpsMigrationPlatform.Infrastructure.Agent;
+using DevOpsMigrationPlatform.Infrastructure.Agent.Export;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Identity;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Modules;
 using DevOpsMigrationPlatform.Infrastructure.TfsObjectModel;
@@ -32,6 +34,9 @@ public static class TfsMigrationAgentServiceExtensions
         // for localhost communication.
         services.AddCoreAgentServices(configuration, controlPlaneBaseUrl);
 
+        // Package config store — reads migration-config.json from the package at job pickup.
+        services.AddPackageConfigStore();
+
         // Per-job TFS Object Model service factory — creates TFS connections, revision sources,
         // attachment sources, tree readers, and discovery services per job based on the endpoint.
         services.AddSingleton<ITfsJobServiceFactory, TfsJobServiceFactory>();
@@ -43,6 +48,9 @@ public static class TfsMigrationAgentServiceExtensions
         services.AddSingleton<IClassificationTreeCapture, TfsClassificationTreeCapture>();
         services.AddSingleton<IWorkItemRevisionSourceFactory, TfsActiveJobWorkItemRevisionSourceFactory>();
         services.AddSingleton<IIdentitySource, TfsActiveJobIdentitySource>();
+
+        // Export progress store — SQLite-backed fast-forward resume (now supported on net481).
+        services.AddSingleton<IExportProgressStoreFactory, ExportProgressStoreFactory>();
 
         // Register IModule pipeline (export-only on net481).
         services.AddIdentitiesModule(configuration);

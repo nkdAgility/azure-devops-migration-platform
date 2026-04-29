@@ -112,4 +112,11 @@ public static class WellKnownMetricNames
     // --- Identities Validate ---
     public const string IdentitiesValidateCount = "migration.identities.validate.count";
     public const string IdentitiesValidateErrors = "migration.identities.validate.errors";
+
+    // --- Package Config (migration-config.json) ---
+    public const string ConfigWriteCount = "migration.config.write.count";
+    public const string ConfigWriteErrors = "migration.config.write.errors";
+    public const string ConfigReadCount = "migration.config.read.count";
+    public const string ConfigReadErrors = "migration.config.read.errors";
+    public const string ConfigReadFallbacks = "migration.config.read.fallbacks";
 }

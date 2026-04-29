@@ -4,6 +4,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions.Agent.Export;
 using DevOpsMigrationPlatform.Abstractions.Agent.Import;
+using DevOpsMigrationPlatform.Abstractions.Agent.Lease;
 using DevOpsMigrationPlatform.Abstractions.Agent.Modules;
 using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
@@ -33,20 +34,32 @@ public class IdentitiesModuleTests
 
     private static IdentitiesModule CreateModule(
         IdentitiesModuleOptions? options = null,
-        IIdentitySource? identitySource = null)
+        IIdentitySource? identitySource = null,
+        ActiveJobConfigState? activeJobConfig = null)
     {
         options ??= new IdentitiesModuleOptions { Enabled = true };
         return new IdentitiesModule(
             NullLogger<IdentitiesModule>.Instance,
             Options.Create(options),
-            identitySource);
+            identitySource,
+            activeJobConfig: activeJobConfig);
+    }
+
+    private static ActiveJobConfigState CreateActiveJobConfig(string sourceProject = "TestProject")
+    {
+        var state = new ActiveJobConfigState();
+        state.Current = new MigrationOptions
+        {
+            Source = new SimulatedEndpointOptions { Project = sourceProject }
+        };
+        return state;
     }
 
     private static ExportContext CreateExportContext(Mock<IArtefactStore> store)
     {
         return new ExportContext
         {
-            Job = new MigrationJob { Mode = "Export", Source = new SimulatedEndpointOptions() },
+            Job = new MigrationJob { Mode = "Export" },
             ArtefactStore = store.Object,
             StateStore = Mock.Of<IStateStore>(),
             ProgressSink = Mock.Of<IProgressSink>()
@@ -90,7 +103,7 @@ public class IdentitiesModuleTests
             new IdentityDescriptor("desc-2", "Bob", "bob@src.com", "User", "Simulated", true),
         });
 
-        var module = CreateModule(identitySource: source);
+        var module = CreateModule(identitySource: source, activeJobConfig: CreateActiveJobConfig());
         var context = CreateExportContext(storeMock);
 
         // Act

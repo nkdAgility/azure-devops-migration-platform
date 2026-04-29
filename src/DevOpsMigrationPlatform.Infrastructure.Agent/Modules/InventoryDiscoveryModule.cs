@@ -7,8 +7,11 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Jobs;
+using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Abstractions.Telemetry;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Agent.Modules;
 
@@ -36,6 +39,7 @@ public sealed class InventoryDiscoveryModule : IDiscoveryModule
     private readonly IInventoryServiceFactory _inventoryFactory;
     private readonly ILogger<InventoryDiscoveryModule> _logger;
     private readonly IDiscoveryMetrics? _metrics;
+    private readonly IOptions<DiscoveryOptions>? _discoveryOptions;
 
     public string Name => "InventoryDiscovery";
     public DiscoveryJobType DiscoveryType => DiscoveryJobType.Inventory;
@@ -44,11 +48,13 @@ public sealed class InventoryDiscoveryModule : IDiscoveryModule
         IInventoryServiceFactory inventoryFactory,
         ILogger<InventoryDiscoveryModule> logger
         , IDiscoveryMetrics? metrics = null
+        , IOptions<DiscoveryOptions>? discoveryOptions = null
         )
     {
         _inventoryFactory = inventoryFactory;
         _logger = logger;
         _metrics = metrics;
+        _discoveryOptions = discoveryOptions;
     }
 
     public async Task RunAsync(DiscoveryContext context, CancellationToken ct)
@@ -73,7 +79,10 @@ public sealed class InventoryDiscoveryModule : IDiscoveryModule
             using (DataClassificationScope.Begin(DataClassification.Customer))
                 _logger.LogInformation("Resuming inventory after project '{LastCompleted}'.", lastCompleted);
 
-        var inventoryService = _inventoryFactory.Create(job.Organisations, job.Policies);
+        var policies = _discoveryOptions?.Value?.Policies is { } p
+            ? new JobPolicies { MaxRetries = p.Retries.Max, MaxConcurrency = p.Throttle.MaxConcurrency, CheckpointIntervalSeconds = p.Checkpoints.Interval }
+            : new JobPolicies();
+        var inventoryService = _inventoryFactory.Create(job.Organisations, policies);
 
         // Emit a probe event so the CLI live table transitions from "…" to "Starting"
         // immediately, proving the sink pipeline works before the API returns data.
@@ -142,7 +151,8 @@ public sealed class InventoryDiscoveryModule : IDiscoveryModule
             });
         }
 
-        var checkpointInterval = TimeSpan.FromSeconds(job.Policies.CheckpointIntervalSeconds);
+        var checkpointInterval = TimeSpan.FromSeconds(
+            _discoveryOptions?.Value?.Policies?.Checkpoints?.Interval ?? 300);
         var lastCheckpoint = DateTime.UtcNow;
 
         var metrics = _metrics;

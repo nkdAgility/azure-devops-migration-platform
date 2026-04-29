@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using System.Threading;
@@ -14,7 +14,7 @@ namespace DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Export;
 /// Azure DevOps REST implementation of <see cref="IClassificationTreeReader"/>.
 /// Reads the full area and iteration classification trees from the source project using the ADO WIT API.
 /// </summary>
-public sealed class AzureDevOpsClassificationTreeReader : IClassificationTreeReader
+internal sealed class AzureDevOpsClassificationTreeReader : IClassificationTreeReader
 {
     private readonly IAzureDevOpsClientFactory _clientFactory;
     private readonly ILogger<AzureDevOpsClassificationTreeReader> _logger;

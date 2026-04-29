@@ -18,7 +18,7 @@ namespace DevOpsMigrationPlatform.Infrastructure.AzureDevOps;
 /// are Azure DevOps SDK types. Moving this interface to <c>Abstractions</c> would introduce
 /// an SDK package dependency on the domain layer, violating the layering constraint.
 /// </remarks>
-public interface IAzureDevOpsClientFactory
+internal interface IAzureDevOpsClientFactory
 {
     /// <summary>Returns a <see cref="ProjectHttpClient"/> authenticated against <paramref name="endpoint"/>.</summary>
     Task<ProjectHttpClient> CreateProjectClientAsync(

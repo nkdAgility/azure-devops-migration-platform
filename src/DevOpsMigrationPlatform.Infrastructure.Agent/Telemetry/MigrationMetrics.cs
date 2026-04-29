@@ -121,6 +121,13 @@ internal sealed class MigrationMetrics : IMigrationMetrics, IDisposable
     private readonly Counter<long> _identityValidateCount;
     private readonly Counter<long> _identityValidateErrors;
 
+    // --- Package Config ---
+    private readonly Counter<long> _configWriteCount;
+    private readonly Counter<long> _configWriteErrors;
+    private readonly Counter<long> _configReadCount;
+    private readonly Counter<long> _configReadErrors;
+    private readonly Counter<long> _configReadFallbacks;
+
     public MigrationMetrics()
     {
         _meter = new Meter(WellKnownMeterNames.Migration, "2.0");
@@ -231,6 +238,13 @@ internal sealed class MigrationMetrics : IMigrationMetrics, IDisposable
         // Identities Validate
         _identityValidateCount = _meter.CreateCounter<long>(WellKnownMetricNames.IdentitiesValidateCount, unit: "{identity}");
         _identityValidateErrors = _meter.CreateCounter<long>(WellKnownMetricNames.IdentitiesValidateErrors, unit: "{error}");
+
+        // Package Config
+        _configWriteCount = _meter.CreateCounter<long>(WellKnownMetricNames.ConfigWriteCount, unit: "{operation}");
+        _configWriteErrors = _meter.CreateCounter<long>(WellKnownMetricNames.ConfigWriteErrors, unit: "{error}");
+        _configReadCount = _meter.CreateCounter<long>(WellKnownMetricNames.ConfigReadCount, unit: "{operation}");
+        _configReadErrors = _meter.CreateCounter<long>(WellKnownMetricNames.ConfigReadErrors, unit: "{error}");
+        _configReadFallbacks = _meter.CreateCounter<long>(WellKnownMetricNames.ConfigReadFallbacks, unit: "{fallback}");
     }
     public void RecordWorkItemAttempted(in TagList tags) => _attempted.Add(1, tags);
     public void RecordWorkItemCompleted(in TagList tags) => _completed.Add(1, tags);
@@ -344,6 +358,13 @@ internal sealed class MigrationMetrics : IMigrationMetrics, IDisposable
     // --- Identities Validate ---
     public void RecordIdentityValidateCount(in TagList tags) => _identityValidateCount.Add(1, tags);
     public void RecordIdentityValidateError(in TagList tags) => _identityValidateErrors.Add(1, tags);
+
+    // --- Package Config ---
+    public void RecordConfigWriteCompleted(in TagList tags) => _configWriteCount.Add(1, tags);
+    public void RecordConfigWriteError(in TagList tags) => _configWriteErrors.Add(1, tags);
+    public void RecordConfigReadCompleted(in TagList tags) => _configReadCount.Add(1, tags);
+    public void RecordConfigReadError(in TagList tags) => _configReadErrors.Add(1, tags);
+    public void RecordConfigReadFallback(in TagList tags) => _configReadFallbacks.Add(1, tags);
 
     public void Dispose() => _meter.Dispose();
 }

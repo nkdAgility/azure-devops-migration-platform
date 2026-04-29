@@ -54,7 +54,7 @@ If a rule below forces a **clearly worse outcome**: Stop â†’ Cite rule number â†
 
 22. **No architectural workarounds without explicit user acceptance.** Adapters, shims, deferred markers, lossy conversions forbidden unless human explicitly approves in-session. Agent must present workaround + proper fix, wait for response, record decision in `discrepancies.md`.
 
-23. **Only Migration Agent (and TFS Export Agent) may write to working directory/package.** CLI, TUI, ControlPlane have no write access. Data residency constraint. CLI read-only access for post-job display is permitted.
+23. **Only Migration Agent (and TFS Export Agent) may write to working directory/package.** CLI, TUI, ControlPlane have no write access. Data residency constraint. CLI read-only access for post-job display is permitted. **Exception (feature 025-agent-config-package, approved 2026-04-29):** The CLI MAY write `migration-config.json` to the package root as a pre-submission step before calling the control plane. This is the only package write permitted from the CLI. Rationale: the config must exist in the package before the job is dispatched so the agent can read it; the agent cannot write it before it has received the job.
 
 24. **Module/Tool identifiers derived from class name.** `{Stem}Module`: `Name` = `"{Stem}"`, config = `MigrationPlatform:Modules:{Stem}`, cursor key = `{Stem}`, file = `{Stem}Module.cs`. `{Stem}Tool`: folder = `Tools/{Stem}/`, file = `{Stem}Tool.cs`, DI = `{Stem}ToolServiceCollectionExtensions.cs`, interface = `I{Stem}Tool`, options = `{Stem}Options`, config = `MigrationPlatform:Tools:{Stem}`. Any deviation = instant reject.
 

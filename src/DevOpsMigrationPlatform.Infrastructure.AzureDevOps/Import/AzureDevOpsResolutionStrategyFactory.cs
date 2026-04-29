@@ -17,7 +17,7 @@ namespace DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Import;
 /// A <c>WorkItemResolutionStrategy</c> extension with a valid <c>strategy</c> parameter
 /// is mandatory for every import job.
 /// </summary>
-public sealed class AzureDevOpsResolutionStrategyFactory : IWorkItemResolutionStrategyFactory
+internal sealed class AzureDevOpsResolutionStrategyFactory : IWorkItemResolutionStrategyFactory
 {
     private readonly IAzureDevOpsClientFactory _clientFactory;
 

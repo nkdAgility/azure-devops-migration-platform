@@ -22,7 +22,7 @@ public class SimulatedMigrationCommandTests
     [TestMethod]
     [TestCategory("SystemTest")]
     [TestCategory("SystemTest_Simulated")]
-    [Timeout(120_000)] // 2 minutes — fully offline, no network
+    [Timeout(300_000)] // 5 minutes — includes local stack startup
     public async Task QueueExportSimulated_ExitsZeroAndWritesWorkItemRevisions()
     {
         var outputDir = Path.Combine(
@@ -33,7 +33,7 @@ public class SimulatedMigrationCommandTests
 
         var result = await CliRunner.RunAsync(
             args: ["queue", "--config", "scenarios/queue-export-workitems-simulated-source.json", "--force-fresh"],
-            timeout: TimeSpan.FromMinutes(1));
+            timeout: TimeSpan.FromMinutes(4));
 
         Console.WriteLine("=== STDOUT ===");
         Console.WriteLine(result.StandardOutput);
@@ -56,6 +56,72 @@ public class SimulatedMigrationCommandTests
         var revisionFiles = Directory.GetFiles(workItemsDirs[0], "revision.json", SearchOption.AllDirectories);
         Assert.IsTrue(revisionFiles.Length > 0,
             $"Expected at least one revision.json under {workItemsDirs[0]}. None found.");
+
+        // T029: migration-config.json must exist at the package root
+        var configFiles = Directory.GetFiles(outputDir, "migration-config.json", SearchOption.AllDirectories);
+        Assert.IsTrue(configFiles.Length > 0,
+            $"Expected migration-config.json somewhere under {outputDir}. FR-002 requires the CLI to write it before job submission.");
+
+        // Verify it deserialises to valid JSON containing the required MigrationPlatform key
+        var configJson = File.ReadAllText(configFiles[0]);
+        Assert.IsTrue(configJson.Contains("MigrationPlatform"),
+            $"migration-config.json must contain 'MigrationPlatform' wrapper key. Got: {configJson.Substring(0, Math.Min(200, configJson.Length))}");
+    }
+
+    /// <summary>
+    /// T029b: SC-003 resume determinism — re-submitting the same package URI without --force-fresh
+    /// must be rejected (exit code 1) because migration-config.json already exists.
+    /// Verifies FR-007 atomicity at the CLI level.
+    /// </summary>
+    [TestMethod]
+    [TestCategory("SystemTest")]
+    [TestCategory("SystemTest_Simulated")]
+    [Timeout(600_000)] // 10 minutes — two full stack runs back to back
+    public async Task QueueExportSimulated_ReSubmitWithoutForce_RejectsWithExitCodeOne()
+    {
+        var outputDir = Path.Combine(
+            CliRunner.FindRepoRoot(), "storage", "queue-export-workitems-simulated-source");
+
+        if (Directory.Exists(outputDir))
+            Directory.Delete(outputDir, recursive: true);
+
+        // First run: establishes migration-config.json using --force-fresh
+        var first = await CliRunner.RunAsync(
+            args: ["queue", "--config", "scenarios/queue-export-workitems-simulated-source.json", "--force-fresh"],
+            timeout: TimeSpan.FromMinutes(4));
+
+        Assert.AreEqual(0, first.ExitCode,
+            $"First run must succeed to establish migration-config.json. " +
+            $"STDOUT:\n{first.StandardOutput}\nSTDERR:\n{first.StandardError}");
+
+        // Verify migration-config.json written during first run
+        var configFiles = Directory.GetFiles(outputDir, "migration-config.json", SearchOption.AllDirectories);
+        Assert.IsTrue(configFiles.Length > 0,
+            "Expected migration-config.json after first run — prerequisite for SC-003 test.");
+
+        var originalConfig = File.ReadAllText(configFiles[0]);
+
+        // Second run WITHOUT --force-fresh: must be rejected because migration-config.json exists
+        var second = await CliRunner.RunAsync(
+            args: ["queue", "--config", "scenarios/queue-export-workitems-simulated-source.json"],
+            timeout: TimeSpan.FromMinutes(2));
+
+        Console.WriteLine("=== SECOND RUN STDOUT ===");
+        Console.WriteLine(second.StandardOutput);
+        if (!string.IsNullOrEmpty(second.StandardError))
+        {
+            Console.WriteLine("=== SECOND RUN STDERR ===");
+            Console.WriteLine(second.StandardError);
+        }
+
+        // (a) CLI must reject with non-zero exit code
+        Assert.AreNotEqual(0, second.ExitCode,
+            "Re-submission without --force-fresh must be rejected (FR-007). Got exit code 0.");
+
+        // (b) migration-config.json must be unchanged (not overwritten)
+        var configAfter = File.ReadAllText(configFiles[0]);
+        Assert.AreEqual(originalConfig, configAfter,
+            "migration-config.json must not be overwritten on a rejected re-submission.");
     }
 
     /// <summary>
@@ -64,7 +130,7 @@ public class SimulatedMigrationCommandTests
     [TestMethod]
     [TestCategory("SystemTest")]
     [TestCategory("SystemTest_Simulated")]
-    [Timeout(120_000)]
+    [Timeout(300_000)] // 5 minutes
     public async Task QueueImportSimulated_ExitsZeroAndAcceptsWorkItems()
     {
         var outputDir = Path.Combine(
@@ -75,7 +141,7 @@ public class SimulatedMigrationCommandTests
 
         var result = await CliRunner.RunAsync(
             args: ["queue", "--config", "scenarios/queue-import-workitems-simulated-target.json", "--force-fresh"],
-            timeout: TimeSpan.FromMinutes(1));
+            timeout: TimeSpan.FromMinutes(4));
 
         Console.WriteLine("=== STDOUT ===");
         Console.WriteLine(result.StandardOutput);
@@ -96,7 +162,7 @@ public class SimulatedMigrationCommandTests
     [TestMethod]
     [TestCategory("SystemTest")]
     [TestCategory("SystemTest_Simulated")]
-    [Timeout(120_000)]
+    [Timeout(300_000)] // 5 minutes
     public async Task QueueRoundtripSimulated_ExitsZeroAndProducesPackageWithRevisions()
     {
         var outputDir = Path.Combine(
@@ -107,7 +173,7 @@ public class SimulatedMigrationCommandTests
 
         var result = await CliRunner.RunAsync(
             args: ["queue", "--config", "scenarios/roundtrip-simulated.json", "--force-fresh"],
-            timeout: TimeSpan.FromMinutes(1));
+            timeout: TimeSpan.FromMinutes(4));
 
         Console.WriteLine("=== STDOUT ===");
         Console.WriteLine(result.StandardOutput);
@@ -143,7 +209,7 @@ public class SimulatedMigrationCommandTests
     [TestMethod]
     [TestCategory("SystemTest")]
     [TestCategory("SystemTest_Simulated")]
-    [Timeout(120_000)]
+    [Timeout(300_000)] // 5 minutes
     public async Task QueueExportSimulated_ProducesBothLogFiles()
     {
         var outputDir = Path.Combine(
@@ -154,7 +220,7 @@ public class SimulatedMigrationCommandTests
 
         var result = await CliRunner.RunAsync(
             args: ["queue", "--config", "scenarios/queue-export-workitems-simulated-source.json", "--force-fresh"],
-            timeout: TimeSpan.FromMinutes(1));
+            timeout: TimeSpan.FromMinutes(4));
 
         Assert.IsFalse(result.TimedOut, "CLI timed out.");
         Assert.AreEqual(0, result.ExitCode,

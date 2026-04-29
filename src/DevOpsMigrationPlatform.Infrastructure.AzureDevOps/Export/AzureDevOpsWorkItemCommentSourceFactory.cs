@@ -11,7 +11,7 @@ namespace DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Export;
 /// Carries the organization endpoint and project from the job context.
 /// Implements the generic <see cref="IWorkItemCommentSourceFactory"/> interface for use in Infrastructure-level services.
 /// </summary>
-public sealed class AzureDevOpsWorkItemCommentSourceFactory : IWorkItemCommentSourceFactory
+internal sealed class AzureDevOpsWorkItemCommentSourceFactory : IWorkItemCommentSourceFactory
 {
     private readonly IAzureDevOpsClientFactory _clientFactory;
     private readonly ILoggerFactory _loggerFactory;

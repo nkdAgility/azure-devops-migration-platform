@@ -18,7 +18,7 @@ namespace DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Import;
 /// All <see cref="WorkItemTrackingHttpClient"/> calls are wrapped here.
 /// Retry with exponential back-off is handled by the underlying VssConnection.
 /// </summary>
-public sealed class AzureDevOpsWorkItemImportTarget : IWorkItemImportTarget
+internal sealed class AzureDevOpsWorkItemImportTarget : IWorkItemImportTarget
 {
     private readonly WorkItemTrackingHttpClient _witClient;
     private readonly string _project;

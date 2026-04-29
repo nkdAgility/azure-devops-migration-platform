@@ -19,7 +19,7 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Telemetry;
 /// lazily from <see cref="ActivePackageState"/> because it is only available after a
 /// job lease is acquired.
 /// </summary>
-public sealed class PackageProgressSink : BackgroundService, IProgressSink
+public sealed class PackageProgressSink : BackgroundService, IProgressSink, IFlushable
 {
     private const int ChannelCapacity = 100;
     private const int FlushBatchSize = 50;

@@ -7,6 +7,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions.Agent.Export;
 using DevOpsMigrationPlatform.Abstractions.Agent.Import;
+using DevOpsMigrationPlatform.Abstractions.Agent.Lease;
 using DevOpsMigrationPlatform.Abstractions.Agent.Modules;
 using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
 using DevOpsMigrationPlatform.Abstractions.Agent.Teams;
@@ -35,10 +36,23 @@ public class TeamsModuleTests
         PropertyNameCaseInsensitive = true
     };
 
+    private static ActiveJobConfigState CreateActiveJobConfig(
+        string sourceProject = "TestProject",
+        string targetProject = "TargetProject")
+    {
+        var state = new ActiveJobConfigState();
+        state.Current = new MigrationOptions
+        {
+            Source = new SimulatedEndpointOptions { Project = sourceProject },
+            Target = new SimulatedEndpointOptions { Project = targetProject }
+        };
+        return state;
+    }
+
     private static ExportContext CreateExportContext(IArtefactStore store)
         => new()
         {
-            Job = new MigrationJob { Mode = "Export", Source = new SimulatedEndpointOptions { Project = "TestProject" } },
+            Job = new MigrationJob { Mode = "Export" },
             ArtefactStore = store,
             StateStore = Mock.Of<IStateStore>(),
             ProgressSink = Mock.Of<IProgressSink>()
@@ -47,7 +61,7 @@ public class TeamsModuleTests
     private static ImportContext CreateImportContext(IArtefactStore store)
         => new()
         {
-            Job = new MigrationJob { Mode = "Import", Target = new SimulatedEndpointOptions { Project = "TargetProject" } },
+            Job = new MigrationJob { Mode = "Import" },
             ArtefactStore = store,
             StateStore = Mock.Of<IStateStore>(),
             ProgressSink = Mock.Of<IProgressSink>()
@@ -113,7 +127,8 @@ public class TeamsModuleTests
             Options.Create(new TeamsModuleOptions { Enabled = true }),
             new TeamSlugGenerator(),
             teamSource: source,
-            exportOrchestrator: orchestrator);
+            exportOrchestrator: orchestrator,
+            activeJobConfig: CreateActiveJobConfig());
 
         // Act
         await module.ExportAsync(CreateExportContext(storeMock.Object), CancellationToken.None);
@@ -144,7 +159,8 @@ public class TeamsModuleTests
             Options.Create(opts),
             new TeamSlugGenerator(),
             teamSource: source,
-            exportOrchestrator: orchestrator);
+            exportOrchestrator: orchestrator,
+            activeJobConfig: CreateActiveJobConfig());
 
         // Act
         await module.ExportAsync(CreateExportContext(storeMock.Object), CancellationToken.None);
@@ -171,7 +187,8 @@ public class TeamsModuleTests
             Options.Create(new TeamsModuleOptions { Enabled = true, AlwaysExport = false }),
             new TeamSlugGenerator(),
             teamSource: source,
-            exportOrchestrator: orchestrator);
+            exportOrchestrator: orchestrator,
+            activeJobConfig: CreateActiveJobConfig());
 
         // Act
         await module.ExportAsync(CreateExportContext(storeMock.Object), CancellationToken.None);
@@ -205,7 +222,8 @@ public class TeamsModuleTests
             Options.Create(new TeamsModuleOptions { Enabled = true, AlwaysExport = true }),
             new TeamSlugGenerator(),
             teamSource: source,
-            exportOrchestrator: orchestrator);
+            exportOrchestrator: orchestrator,
+            activeJobConfig: CreateActiveJobConfig());
 
         // Act
         await module.ExportAsync(CreateExportContext(storeMock.Object), CancellationToken.None);
@@ -265,7 +283,8 @@ public class TeamsModuleTests
             Options.Create(new TeamsModuleOptions { Enabled = true }),
             new TeamSlugGenerator(),
             teamTarget: target,
-            importOrchestrator: orchestrator);
+            importOrchestrator: orchestrator,
+            activeJobConfig: CreateActiveJobConfig());
 
         // Act
         await module.ImportAsync(CreateImportContext(storeMock.Object), CancellationToken.None);
@@ -419,7 +438,8 @@ public class TeamsModuleTests
             Options.Create(new TeamsModuleOptions { Enabled = true, Extensions = new TeamsModuleExtensionsOptions { TeamIterations = true } }),
             new TeamSlugGenerator(),
             teamTarget: target,
-            importOrchestrator: orchestrator);
+            importOrchestrator: orchestrator,
+            activeJobConfig: CreateActiveJobConfig());
 
         // Act
         await module.ImportAsync(CreateImportContext(storeMock.Object), CancellationToken.None);
@@ -469,7 +489,8 @@ public class TeamsModuleTests
             Options.Create(new TeamsModuleOptions { Enabled = true, Extensions = new TeamsModuleExtensionsOptions { TeamMembers = true } }),
             new TeamSlugGenerator(),
             teamTarget: target,
-            importOrchestrator: orchestrator);
+            importOrchestrator: orchestrator,
+            activeJobConfig: CreateActiveJobConfig());
 
         // Act
         await module.ImportAsync(CreateImportContext(storeMock.Object), CancellationToken.None);
@@ -518,7 +539,8 @@ public class TeamsModuleTests
             Options.Create(new TeamsModuleOptions { Enabled = true, Extensions = new TeamsModuleExtensionsOptions { TeamCapacity = true } }),
             new TeamSlugGenerator(),
             teamTarget: target,
-            importOrchestrator: orchestrator);
+            importOrchestrator: orchestrator,
+            activeJobConfig: CreateActiveJobConfig());
 
         // Act
         await module.ImportAsync(CreateImportContext(storeMock.Object), CancellationToken.None);
@@ -560,7 +582,8 @@ public class TeamsModuleTests
             Options.Create(new TeamsModuleOptions { Enabled = true, Extensions = new TeamsModuleExtensionsOptions { TeamCapacity = false } }),
             new TeamSlugGenerator(),
             teamTarget: target,
-            importOrchestrator: orchestrator);
+            importOrchestrator: orchestrator,
+            activeJobConfig: CreateActiveJobConfig());
 
         // Act
         await module.ImportAsync(CreateImportContext(storeMock.Object), CancellationToken.None);
@@ -607,7 +630,8 @@ public class TeamsModuleTests
             Options.Create(opts),
             new TeamSlugGenerator(),
             teamSource: source,
-            exportOrchestrator: orchestrator);
+            exportOrchestrator: orchestrator,
+            activeJobConfig: CreateActiveJobConfig());
 
         // Act
         await module.ExportAsync(CreateExportContext(storeMock.Object), CancellationToken.None);
@@ -642,7 +666,8 @@ public class TeamsModuleTests
             Options.Create(opts),
             new TeamSlugGenerator(),
             teamSource: source,
-            exportOrchestrator: orchestrator);
+            exportOrchestrator: orchestrator,
+            activeJobConfig: CreateActiveJobConfig());
 
         // Act
         await module.ExportAsync(CreateExportContext(storeMock.Object), CancellationToken.None);
@@ -696,7 +721,8 @@ public class TeamsModuleTests
             Options.Create(new TeamsModuleOptions { Enabled = true, Extensions = new TeamsModuleExtensionsOptions { TeamIterations = true } }),
             new TeamSlugGenerator(),
             teamTarget: target,
-            importOrchestrator: orchestrator);
+            importOrchestrator: orchestrator,
+            activeJobConfig: CreateActiveJobConfig());
 
         // Act
         await module.ImportAsync(CreateImportContext(storeMock.Object), CancellationToken.None);
@@ -769,7 +795,8 @@ public class TeamsModuleTests
             }),
             new TeamSlugGenerator(),
             teamTarget: target,
-            importOrchestrator: orchestrator);
+            importOrchestrator: orchestrator,
+            activeJobConfig: CreateActiveJobConfig());
 
         // Act
         await module.ImportAsync(CreateImportContext(storeMock.Object), CancellationToken.None);

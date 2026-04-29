@@ -1,4 +1,3 @@
-#if !NET481
 using System;
 using System.IO;
 using System.Threading;
@@ -43,7 +42,11 @@ public sealed class SqliteExportProgressStore : IExportProgressStore
         _connection = new SqliteConnection($"Data Source={_dbFilePath}");
         await _connection.OpenAsync(cancellationToken).ConfigureAwait(false);
 
+#if NET481
+        using var cmd = _connection.CreateCommand();
+#else
         await using var cmd = _connection.CreateCommand();
+#endif
         cmd.CommandText = """
             CREATE TABLE IF NOT EXISTS export_progress (
                 work_item_id INTEGER PRIMARY KEY,
@@ -58,7 +61,11 @@ public sealed class SqliteExportProgressStore : IExportProgressStore
     public async Task<WorkItemExportProgress?> GetProgressAsync(int workItemId, CancellationToken cancellationToken)
     {
         EnsureInitialized();
+#if NET481
+        using var cmd = _connection!.CreateCommand();
+#else
         await using var cmd = _connection!.CreateCommand();
+#endif
         cmd.CommandText = """
             SELECT work_item_id, rev
             FROM export_progress
@@ -66,7 +73,11 @@ public sealed class SqliteExportProgressStore : IExportProgressStore
             """;
         cmd.Parameters.AddWithValue("@id", workItemId);
 
+#if NET481
+        using var reader = await cmd.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
+#else
         await using var reader = await cmd.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
+#endif
         if (!await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
             return null;
 
@@ -79,7 +90,11 @@ public sealed class SqliteExportProgressStore : IExportProgressStore
     public async Task SetRevAsync(int workItemId, int rev, CancellationToken cancellationToken)
     {
         EnsureInitialized();
+#if NET481
+        using var cmd = _connection!.CreateCommand();
+#else
         await using var cmd = _connection!.CreateCommand();
+#endif
         cmd.CommandText = """
             INSERT OR REPLACE INTO export_progress (work_item_id, rev, recorded_at)
             VALUES (@id, @rev, datetime('now'))
@@ -90,11 +105,29 @@ public sealed class SqliteExportProgressStore : IExportProgressStore
     }
 
     /// <inheritdoc/>
+    public async Task<int> CountAsync(CancellationToken cancellationToken)
+    {
+        EnsureInitialized();
+#if NET481
+        using var cmd = _connection!.CreateCommand();
+#else
+        await using var cmd = _connection!.CreateCommand();
+#endif
+        cmd.CommandText = "SELECT COUNT(*) FROM export_progress";
+        var result = await cmd.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false);
+        return result is long l ? (int)l : 0;
+    }
+
+    /// <inheritdoc/>
     public async ValueTask DisposeAsync()
     {
         if (_connection is not null)
         {
+#if NET481
+            _connection.Dispose();
+#else
             await _connection.DisposeAsync().ConfigureAwait(false);
+#endif
             _connection = null;
         }
     }
@@ -106,4 +139,3 @@ public sealed class SqliteExportProgressStore : IExportProgressStore
                 $"{nameof(SqliteExportProgressStore)} has not been initialised. Call {nameof(InitializeAsync)} first.");
     }
 }
-#endif

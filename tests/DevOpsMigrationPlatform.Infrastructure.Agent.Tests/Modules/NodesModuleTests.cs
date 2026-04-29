@@ -3,6 +3,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions.Agent.Export;
 using DevOpsMigrationPlatform.Abstractions.Agent.Import;
+using DevOpsMigrationPlatform.Abstractions.Agent.Lease;
 using DevOpsMigrationPlatform.Abstractions.Agent.Modules;
 using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
 using DevOpsMigrationPlatform.Abstractions.Agent.Telemetry;
@@ -25,21 +26,36 @@ public class NodesModuleTests
     private static NodesModule CreateModule(
         NodesModuleOptions? options = null,
         IClassificationTreeCapture? capture = null,
-        INodeEnsurer? nodeEnsurer = null)
+        INodeEnsurer? nodeEnsurer = null,
+        ActiveJobConfigState? activeJobConfig = null)
     {
         options ??= new NodesModuleOptions { Enabled = true };
         return new NodesModule(
             NullLogger<NodesModule>.Instance,
             Options.Create(options),
             capture,
-            nodeEnsurer);
+            nodeEnsurer,
+            activeJobConfig: activeJobConfig);
+    }
+
+    private static ActiveJobConfigState CreateActiveJobConfig(
+        string sourceProject = "TestProject",
+        string targetProject = "TargetProject")
+    {
+        var state = new ActiveJobConfigState();
+        state.Current = new MigrationOptions
+        {
+            Source = new SimulatedEndpointOptions { Project = sourceProject },
+            Target = new SimulatedEndpointOptions { Project = targetProject }
+        };
+        return state;
     }
 
     private static ExportContext CreateExportContext(IArtefactStore store)
     {
         return new ExportContext
         {
-            Job = new MigrationJob { Mode = "Export", Source = new SimulatedEndpointOptions() },
+            Job = new MigrationJob { Mode = "Export" },
             ArtefactStore = store,
             StateStore = Mock.Of<IStateStore>(),
             ProgressSink = Mock.Of<IProgressSink>()
@@ -50,7 +66,7 @@ public class NodesModuleTests
     {
         return new ImportContext
         {
-            Job = new MigrationJob { Mode = "Import", Target = new SimulatedEndpointOptions() },
+            Job = new MigrationJob { Mode = "Import" },
             ArtefactStore = store,
             StateStore = Mock.Of<IStateStore>(),
             ProgressSink = Mock.Of<IProgressSink>()
@@ -81,7 +97,7 @@ public class NodesModuleTests
                 It.IsAny<IProgressSink?>()))
             .Returns(Task.FromResult(0));
 
-        var module = CreateModule(capture: captureMock.Object);
+        var module = CreateModule(capture: captureMock.Object, activeJobConfig: CreateActiveJobConfig());
         var store = Mock.Of<IArtefactStore>();
         var context = CreateExportContext(store);
 
@@ -130,7 +146,7 @@ public class NodesModuleTests
             .Returns(Task.CompletedTask);
 
         var opts = new NodesModuleOptions { Enabled = true, ReplicateSourceTree = true };
-        var module = CreateModule(opts, nodeEnsurer: ensurerMock.Object);
+        var module = CreateModule(opts, nodeEnsurer: ensurerMock.Object, activeJobConfig: CreateActiveJobConfig());
         var store = Mock.Of<IArtefactStore>();
         var context = CreateImportContext(store);
 
@@ -158,7 +174,7 @@ public class NodesModuleTests
             Enabled = true,
             ReplicateSourceTree = false
         };
-        var module = CreateModule(opts, nodeEnsurer: ensurerMock.Object);
+        var module = CreateModule(opts, nodeEnsurer: ensurerMock.Object, activeJobConfig: CreateActiveJobConfig());
         var store = Mock.Of<IArtefactStore>();
         var context = CreateImportContext(store);
 

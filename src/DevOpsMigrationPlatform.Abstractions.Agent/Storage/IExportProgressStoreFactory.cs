@@ -1,4 +1,3 @@
-#if !NET481
 namespace DevOpsMigrationPlatform.Abstractions.Agent.Storage;
 
 /// <summary>
@@ -15,4 +14,3 @@ public interface IExportProgressStoreFactory
     /// </summary>
     IExportProgressStore CreateFromPackageUri(string packageUri);
 }
-#endif

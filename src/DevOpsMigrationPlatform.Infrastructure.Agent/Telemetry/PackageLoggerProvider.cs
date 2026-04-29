@@ -24,7 +24,7 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Telemetry;
 /// after a job lease is acquired.
 /// </summary>
 [ProviderAlias("PackageLogger")]
-public sealed class PackageLoggerProvider : BackgroundService, ILoggerProvider
+public sealed class PackageLoggerProvider : BackgroundService, ILoggerProvider, IFlushable
 {
     private const string LogBaseName = "agent";
     private const string LogExtension = ".jsonl";

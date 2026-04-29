@@ -26,7 +26,7 @@ public interface IAzureDevOpsWorkItemRevisionMapper
 /// <summary>
 /// Default implementation of <see cref="IAzureDevOpsWorkItemRevisionMapper"/>.
 /// </summary>
-public sealed class AzureDevOpsWorkItemRevisionMapper : IAzureDevOpsWorkItemRevisionMapper
+internal sealed class AzureDevOpsWorkItemRevisionMapper : IAzureDevOpsWorkItemRevisionMapper
 {
     private const string AttachedFileRel = "AttachedFile";
     private const string HyperlinkRel = "Hyperlink";

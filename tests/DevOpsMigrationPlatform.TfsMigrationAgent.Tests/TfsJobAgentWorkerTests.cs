@@ -18,6 +18,7 @@ using DevOpsMigrationPlatform.Abstractions.Jobs;
 using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Abstractions.Organisations;
 using DevOpsMigrationPlatform.Abstractions.Streaming;
+using Microsoft.Extensions.DependencyInjection;
 using DevOpsMigrationPlatform.Abstractions.Telemetry;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Telemetry;
 using DevOpsMigrationPlatform.Infrastructure.TfsObjectModel;
@@ -26,6 +27,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.TeamFoundation.Client;
+using Microsoft.Extensions.Configuration;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Moq;
 
@@ -70,10 +72,10 @@ public class TfsJobAgentWorkerTests
     private Mock<IArtefactStore> _artefactStore = null!;
     private Mock<IStateStore> _stateStore = null!;
     private Mock<ICheckpointingService> _checkpointer = null!;
+    private Mock<IPackageConfigStore> _packageConfigStore = null!;
     private ActiveLeaseState _leaseState = null!;
     private ActivePackageState _packageState = null!;
-    private PackageProgressSink _packageProgressSink = null!;
-    private PackageLoggerProvider _packageLoggerProvider = null!;
+    private IFlushable[] _flushables = null!;
     private MockHttpMessageHandler _httpHandler = null!;
     private Mock<IHttpClientFactory> _httpClientFactory = null!;
     private ILogger<TfsJobAgentWorker> _logger = null!;
@@ -93,11 +95,11 @@ public class TfsJobAgentWorkerTests
         _packageState = new ActivePackageState();
         _logger = NullLogger<TfsJobAgentWorker>.Instance;
 
-        _packageProgressSink = new PackageProgressSink(
-            _packageState, NullLogger<PackageProgressSink>.Instance);
-        _packageLoggerProvider = new PackageLoggerProvider(
-            _packageState,
-            Options.Create(new DiagnosticLogOptions()));
+        _flushables = new IFlushable[]
+        {
+            new PackageProgressSink(_packageState, NullLogger<PackageProgressSink>.Instance),
+            new PackageLoggerProvider(_packageState, Options.Create(new DiagnosticLogOptions())),
+        };
 
         _packageStoreFactory
             .Setup(f => f.Create(It.IsAny<string>()))
@@ -127,23 +129,41 @@ public class TfsJobAgentWorkerTests
             {
                 BaseAddress = new Uri("http://localhost:5100")
             });
+
+        // Package config store — default returns a config with a TFS source.
+        _packageConfigStore = new Mock<IPackageConfigStore>();
+        _packageConfigStore
+            .Setup(s => s.ReadAsync(It.IsAny<IArtefactStore>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(() => BuildTfsSourceConfig(CreateTfsEndpoint()));
     }
 
     private TfsJobAgentWorker CreateWorker(
-        IEnumerable<DevOpsMigrationPlatform.Abstractions.Agent.Modules.IModule>? modules = null) => new(
-        modules ?? System.Linq.Enumerable.Empty<DevOpsMigrationPlatform.Abstractions.Agent.Modules.IModule>(),
-        _packageStoreFactory.Object,
-        _progressSink.Object,
-        _leaseState,
-        _packageState,
-        _httpClientFactory.Object,
-        _checkpointingFactory.Object,
-        _phaseTrackingFactory.Object,
-        _packageProgressSink,
-        _packageLoggerProvider,
-        _tfsServiceFactory.Object,
-        new DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.ActiveTfsJobServices(),
-        _logger);
+        IEnumerable<DevOpsMigrationPlatform.Abstractions.Agent.Modules.IModule>? modules = null)
+    {
+        // Build a minimal ServiceProvider that returns the caller-supplied modules
+        // from any IServiceScope so per-job scope resolution works in tests.
+        var sc = new Microsoft.Extensions.DependencyInjection.ServiceCollection();
+        foreach (var m in modules ?? System.Linq.Enumerable.Empty<DevOpsMigrationPlatform.Abstractions.Agent.Modules.IModule>())
+            sc.AddSingleton(m);
+        var sp = sc.BuildServiceProvider();
+
+        return new(
+            modules ?? System.Linq.Enumerable.Empty<DevOpsMigrationPlatform.Abstractions.Agent.Modules.IModule>(),
+            _packageStoreFactory.Object,
+            _progressSink.Object,
+            _leaseState,
+            _packageState,
+            new ActiveJobConfigState(),
+            _packageConfigStore.Object,
+            sp.GetRequiredService<Microsoft.Extensions.DependencyInjection.IServiceScopeFactory>(),
+            _httpClientFactory.Object,
+            _checkpointingFactory.Object,
+            _phaseTrackingFactory.Object,
+            _flushables,
+            _tfsServiceFactory.Object,
+            new DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.ActiveTfsJobServices(),
+            _logger);
+    }
 
     private HttpClient CreateControlPlaneClient() =>
         new(_httpHandler) { BaseAddress = new Uri("http://localhost:5100") };
@@ -153,7 +173,11 @@ public class TfsJobAgentWorkerTests
     [TestMethod]
     public async Task OnMigrationJob_NullSource_SignalsFail()
     {
-        // Arrange: MigrationJob with no Source
+        // Arrange: package config has no Source — worker should fail during OnBeforeModulesAsync.
+        _packageConfigStore
+            .Setup(s => s.ReadAsync(It.IsAny<IArtefactStore>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(BuildEmptyConfig()); // no Source
+
         var job = new MigrationJob
         {
             JobId = "test-job-1",
@@ -184,7 +208,6 @@ public class TfsJobAgentWorkerTests
         {
             JobId = "test-job-2",
             Mode = "Import",
-            Source = CreateTfsEndpoint(),
             Package = new JobPackage { PackageUri = "." }
         };
 
@@ -212,7 +235,6 @@ public class TfsJobAgentWorkerTests
         {
             JobId = "test-job-3",
             Mode = "Export",
-            Source = endpoint,
             Package = new JobPackage { PackageUri = "." }
         };
 
@@ -278,7 +300,6 @@ public class TfsJobAgentWorkerTests
         {
             JobId = "test-job-4",
             Mode = "Export",
-            Source = endpoint,
             Package = new JobPackage { PackageUri = "." },
             Resume = new JobResume { Mode = ResumeMode.ForceFresh }
         };
@@ -341,7 +362,6 @@ public class TfsJobAgentWorkerTests
         {
             JobId = "test-job-5",
             Mode = "Export",
-            Source = CreateTfsEndpoint(),
             Package = new JobPackage { PackageUri = "." }
         };
 
@@ -448,7 +468,103 @@ public class TfsJobAgentWorkerTests
         CollectionAssert.AreEqual(new[] { "tfs" }, caps);
     }
 
+    // ── T031: O-1 Activity spans on net481 path ───────────────────────────────
+    // Exercises PackageConfigStore directly (InternalsVisibleTo granted) to confirm
+    // Activity spans fire under the net481 runtime.
+
+    [TestMethod]
+    public async Task PackageConfigStore_ReadAsync_EmitsConfigReadSpan_Net481()
+    {
+        var captured = new System.Collections.Generic.List<string>();
+        using var listener = new System.Diagnostics.ActivityListener
+        {
+            ShouldListenTo = src => src.Name == DevOpsMigrationPlatform.Abstractions.WellKnownActivitySourceNames.Migration,
+            Sample = (ref System.Diagnostics.ActivityCreationOptions<System.Diagnostics.ActivityContext> _) =>
+                System.Diagnostics.ActivitySamplingResult.AllDataAndRecorded,
+            ActivityStarted = a => captured.Add(a.OperationName)
+        };
+        System.Diagnostics.ActivitySource.AddActivityListener(listener);
+
+        var store = new Mock<IArtefactStore>(MockBehavior.Loose);
+        store.Setup(s => s.ExistsAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+        store.Setup(s => s.ReadAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync("{\"MigrationPlatform\":{\"Mode\":\"Export\"}}");
+
+        var factory = new Mock<IPackageStoreFactory>(MockBehavior.Loose);
+        factory.Setup(f => f.Create(It.IsAny<string>()))
+            .Returns((store.Object, new Mock<IStateStore>().Object));
+
+        var metrics = new Mock<IMigrationMetrics>(MockBehavior.Loose);
+        var sut = new DevOpsMigrationPlatform.Infrastructure.Agent.Storage.PackageConfigStore(
+            factory.Object,
+            Microsoft.Extensions.Logging.Abstractions.NullLogger<DevOpsMigrationPlatform.Infrastructure.Agent.Storage.PackageConfigStore>.Instance,
+            metrics.Object);
+
+        var result = await sut.ReadAsync(store.Object, CancellationToken.None);
+
+        Assert.IsTrue(captured.Contains("config.read"),
+            $"Expected 'config.read' span on net481. Got: [{string.Join(", ", captured)}]");
+        Assert.IsNotNull(result);
+    }
+
+    [TestMethod]
+    public async Task PackageConfigStore_WriteAsync_EmitsConfigWriteSpan_Net481()
+    {
+        var captured = new System.Collections.Generic.List<string>();
+        using var listener = new System.Diagnostics.ActivityListener
+        {
+            ShouldListenTo = src => src.Name == DevOpsMigrationPlatform.Abstractions.WellKnownActivitySourceNames.Migration,
+            Sample = (ref System.Diagnostics.ActivityCreationOptions<System.Diagnostics.ActivityContext> _) =>
+                System.Diagnostics.ActivitySamplingResult.AllDataAndRecorded,
+            ActivityStarted = a => captured.Add(a.OperationName)
+        };
+        System.Diagnostics.ActivitySource.AddActivityListener(listener);
+
+        var store = new Mock<IArtefactStore>(MockBehavior.Loose);
+        store.Setup(s => s.ExistsAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+        store.Setup(s => s.WriteAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        var factory = new Mock<IPackageStoreFactory>(MockBehavior.Loose);
+        factory.Setup(f => f.Create(It.IsAny<string>()))
+            .Returns((store.Object, new Mock<IStateStore>().Object));
+
+        var metrics = new Mock<IMigrationMetrics>(MockBehavior.Loose);
+        var sut = new DevOpsMigrationPlatform.Infrastructure.Agent.Storage.PackageConfigStore(
+            factory.Object,
+            Microsoft.Extensions.Logging.Abstractions.NullLogger<DevOpsMigrationPlatform.Infrastructure.Agent.Storage.PackageConfigStore>.Instance,
+            metrics.Object);
+
+        var configFile = System.IO.Path.GetTempFileName();
+        try
+        {
+            System.IO.File.WriteAllText(configFile, """{"MigrationPlatform":{"Mode":"Export"}}""");
+            await sut.WriteAsync("test://package", configFile, false, CancellationToken.None);
+        }
+        finally { System.IO.File.Delete(configFile); }
+
+        Assert.IsTrue(captured.Contains("config.write"),
+            $"Expected 'config.write' span on net481. Got: [{string.Join(", ", captured)}]");
+    }
+
     // ── Helpers ──────────────────────────────────────────────────────────────
+
+    private static IConfiguration BuildTfsSourceConfig(TeamFoundationServerEndpointOptions source)
+        => new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["MigrationPlatform:Source:Type"] = source.Type,
+                ["MigrationPlatform:Source:Url"] = source.Url,
+                ["MigrationPlatform:Source:Project"] = source.Project,
+                ["MigrationPlatform:Source:Authentication:Type"] = source.Authentication?.Type.ToString(),
+                ["MigrationPlatform:Source:Authentication:AccessToken"] = source.Authentication?.AccessToken,
+            })
+            .Build();
+
+    private static IConfiguration BuildEmptyConfig()
+        => new ConfigurationBuilder().Build();
 
     private static TeamFoundationServerEndpointOptions CreateTfsEndpoint() => new()
     {

@@ -19,7 +19,7 @@ namespace DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Discovery;
 /// Uses <see cref="IWorkItemFetchService"/> for field-projected pre-filtering,
 /// then fetches Relations only for items that pass the filter.
 /// </summary>
-public sealed class AzureDevOpsDependencyAnalysisService : IWorkItemLinkAnalysisService
+internal sealed class AzureDevOpsDependencyAnalysisService : IWorkItemLinkAnalysisService
 {
     private readonly IOptions<DiscoveryOptions> _options;
     private readonly IAzureDevOpsClientFactory _clientFactory;

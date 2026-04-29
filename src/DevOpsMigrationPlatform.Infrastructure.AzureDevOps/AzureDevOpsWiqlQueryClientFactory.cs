@@ -20,7 +20,7 @@ internal sealed class WiqlQueryClientAdapter : IWiqlQueryClient
 {
     private readonly WorkItemTrackingHttpClient _client;
 
-    internal WiqlQueryClientAdapter(WorkItemTrackingHttpClient client)
+    public WiqlQueryClientAdapter(WorkItemTrackingHttpClient client)
         => _client = client ?? throw new ArgumentNullException(nameof(client));
 
     public async Task<Abstractions.Agent.Export.WorkItemQueryResult> QueryByWiqlAsync(
@@ -41,7 +41,7 @@ internal sealed class WiqlQueryClientAdapter : IWiqlQueryClient
 /// Produces <see cref="IWiqlQueryClient"/> instances backed by
 /// <see cref="IAzureDevOpsClientFactory"/>.
 /// </summary>
-public sealed class AzureDevOpsWiqlQueryClientFactory : IWiqlQueryClientFactory
+internal sealed class AzureDevOpsWiqlQueryClientFactory : IWiqlQueryClientFactory
 {
     private readonly IAzureDevOpsClientFactory _inner;
 

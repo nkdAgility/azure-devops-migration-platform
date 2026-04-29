@@ -31,6 +31,13 @@ public abstract class AgentWorkerBase : BackgroundService
 
     private readonly JsonSerializerOptions _jsonOptions;
 
+    /// <summary>
+    /// JSON options used for lease deserialization. Includes the polymorphic endpoint
+    /// converter when registered. Exposed for subclasses that need to deserialize
+    /// migration-config.json using the same converter (e.g. to handle init-only properties).
+    /// </summary>
+    protected JsonSerializerOptions AgentJsonOptions => _jsonOptions;
+
     protected AgentWorkerBase(
         ActiveLeaseState leaseState,
         ActivePackageState packageState,

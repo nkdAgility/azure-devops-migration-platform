@@ -122,4 +122,11 @@ public interface IMigrationMetrics
     // --- Identities Validate ---
     void RecordIdentityValidateCount(in TagList tags);
     void RecordIdentityValidateError(in TagList tags);
+
+    // --- Package Config (feature 025-agent-config-package) ---
+    void RecordConfigWriteCompleted(in TagList tags);
+    void RecordConfigWriteError(in TagList tags);
+    void RecordConfigReadCompleted(in TagList tags);
+    void RecordConfigReadError(in TagList tags);
+    void RecordConfigReadFallback(in TagList tags);
 }

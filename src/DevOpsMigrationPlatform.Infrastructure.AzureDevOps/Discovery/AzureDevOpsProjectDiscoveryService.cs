@@ -10,7 +10,7 @@ namespace DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Discovery;
 /// <summary>
 /// Discovers team projects via the Azure DevOps REST API.
 /// </summary>
-public sealed class AzureDevOpsProjectDiscoveryService : IProjectDiscoveryService
+internal sealed class AzureDevOpsProjectDiscoveryService : IProjectDiscoveryService
 {
     private readonly IAzureDevOpsClientFactory _clientFactory;
 
