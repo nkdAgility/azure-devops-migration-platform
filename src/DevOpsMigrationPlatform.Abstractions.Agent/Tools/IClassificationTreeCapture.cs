@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
 using DevOpsMigrationPlatform.Abstractions.Agent.Telemetry;
 using DevOpsMigrationPlatform.Abstractions.Options;
+using DevOpsMigrationPlatform.Abstractions.Streaming;
 
 namespace DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 
@@ -21,6 +22,8 @@ public interface IClassificationTreeCapture
         MigrationEndpointOptions endpoint,
         CancellationToken ct,
         IMigrationMetrics? metrics = null,
-        string? jobId = null);
+        string? jobId = null,
+        IProgressSink? sink = null,
+        string moduleName = "Nodes");
 }
 #endif

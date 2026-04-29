@@ -77,7 +77,8 @@ public class NodesModuleTests
                 It.IsAny<MigrationEndpointOptions>(),
                 It.IsAny<CancellationToken>(),
                 It.IsAny<IMigrationMetrics?>(),
-                It.IsAny<string?>()))
+                It.IsAny<string?>(),
+                It.IsAny<IProgressSink?>()))
             .Returns(Task.FromResult(0));
 
         var module = CreateModule(capture: captureMock.Object);
@@ -93,7 +94,8 @@ public class NodesModuleTests
             It.IsAny<MigrationEndpointOptions>(),
             It.IsAny<CancellationToken>(),
             It.IsAny<IMigrationMetrics?>(),
-            It.IsAny<string?>()), Times.Once);
+            It.IsAny<string?>(),
+            It.IsAny<IProgressSink?>()), Times.Once);
     }
 
     [TestMethod]

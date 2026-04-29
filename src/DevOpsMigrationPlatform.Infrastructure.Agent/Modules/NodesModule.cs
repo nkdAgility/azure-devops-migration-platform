@@ -104,7 +104,7 @@ public sealed class NodesModule : IModule
             }
         }
 
-        var nodeCount = await _capture.CaptureAsync(context.ArtefactStore, endpoint, ct, _migrationMetrics, context.Job.JobId).ConfigureAwait(false);
+        var nodeCount = await _capture.CaptureAsync(context.ArtefactStore, endpoint, ct, _migrationMetrics, context.Job.JobId, context.ProgressSink, ModuleName).ConfigureAwait(false);
 
         exportSink?.Emit(new ProgressEvent
         {

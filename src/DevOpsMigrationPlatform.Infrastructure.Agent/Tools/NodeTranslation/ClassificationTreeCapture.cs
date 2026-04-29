@@ -11,6 +11,7 @@ using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
 using DevOpsMigrationPlatform.Abstractions.Agent.Telemetry;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Abstractions.Options;
+using DevOpsMigrationPlatform.Abstractions.Streaming;
 using Microsoft.Extensions.Logging;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Agent.Tools.NodeTranslation;
@@ -53,7 +54,9 @@ public sealed class ClassificationTreeCapture : IClassificationTreeCapture
         MigrationEndpointOptions endpoint,
         CancellationToken ct,
         IMigrationMetrics? metrics = null,
-        string? jobId = null)
+        string? jobId = null,
+        IProgressSink? sink = null,
+        string moduleName = "Nodes")
     {
         using var activity = s_activitySource.StartActivity("nodes.export.tree");
         var sw = Stopwatch.StartNew();
@@ -65,10 +68,16 @@ public sealed class ClassificationTreeCapture : IClassificationTreeCapture
         try
         {
             await foreach (var path in _reader.EnumerateAreaNodesAsync(endpoint, ct).ConfigureAwait(false))
+            {
                 areaNodes.Add(path);
+                sink?.Emit(new ProgressEvent { Module = moduleName, Stage = "Nodes.Export.AreaNode", Message = path });
+            }
 
             await foreach (var entry in _reader.EnumerateIterationNodesAsync(endpoint, ct).ConfigureAwait(false))
+            {
                 iterationNodes.Add(entry);
+                sink?.Emit(new ProgressEvent { Module = moduleName, Stage = "Nodes.Export.IterationNode", Message = entry.Path });
+            }
 
             sw.Stop();
 
