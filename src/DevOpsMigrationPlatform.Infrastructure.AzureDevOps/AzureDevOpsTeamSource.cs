@@ -20,7 +20,7 @@ internal sealed class AzureDevOpsTeamSource : ITeamSource
     private readonly IAzureDevOpsClientFactory _clientFactory;
     private readonly ILogger<AzureDevOpsTeamSource> _logger;
 
-    public AzureDevOpsTeamSource(
+    internal AzureDevOpsTeamSource(
         IAzureDevOpsClientFactory clientFactory,
         ILogger<AzureDevOpsTeamSource> logger)
     {

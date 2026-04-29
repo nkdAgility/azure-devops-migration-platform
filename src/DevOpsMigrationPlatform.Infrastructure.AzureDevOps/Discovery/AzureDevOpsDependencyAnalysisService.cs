@@ -27,7 +27,7 @@ internal sealed class AzureDevOpsDependencyAnalysisService : IWorkItemLinkAnalys
     private readonly IWorkItemDiscoveryService _discoveryService;
     private readonly ILogger<AzureDevOpsDependencyAnalysisService> _logger;
 
-    public AzureDevOpsDependencyAnalysisService(
+    internal AzureDevOpsDependencyAnalysisService(
         IOptions<DiscoveryOptions> options,
         IAzureDevOpsClientFactory clientFactory,
         IWorkItemFetchService fetchService,

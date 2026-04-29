@@ -21,7 +21,7 @@ internal sealed class AzureDevOpsWorkItemRevisionSourceFactory : IWorkItemRevisi
     private readonly IAzureDevOpsWorkItemRevisionMapper _mapper;
     private readonly AzureDevOpsAttachmentRegistry _registry;
 
-    public AzureDevOpsWorkItemRevisionSourceFactory(
+    internal AzureDevOpsWorkItemRevisionSourceFactory(
         IAzureDevOpsClientFactory clientFactory,
         IWorkItemQueryWindowStrategy windowStrategy,
         IAzureDevOpsWorkItemRevisionMapper mapper,

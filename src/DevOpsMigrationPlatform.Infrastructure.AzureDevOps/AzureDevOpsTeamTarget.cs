@@ -21,7 +21,7 @@ internal sealed class AzureDevOpsTeamTarget : ITeamTarget
     private readonly IAzureDevOpsClientFactory _clientFactory;
     private readonly ILogger<AzureDevOpsTeamTarget> _logger;
 
-    public AzureDevOpsTeamTarget(
+    internal AzureDevOpsTeamTarget(
         IAzureDevOpsClientFactory clientFactory,
         ILogger<AzureDevOpsTeamTarget> logger)
     {

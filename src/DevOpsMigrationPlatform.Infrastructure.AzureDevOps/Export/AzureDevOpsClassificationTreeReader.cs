@@ -19,7 +19,7 @@ internal sealed class AzureDevOpsClassificationTreeReader : IClassificationTreeR
     private readonly IAzureDevOpsClientFactory _clientFactory;
     private readonly ILogger<AzureDevOpsClassificationTreeReader> _logger;
 
-    public AzureDevOpsClassificationTreeReader(
+    internal AzureDevOpsClassificationTreeReader(
         IAzureDevOpsClientFactory clientFactory,
         ILogger<AzureDevOpsClassificationTreeReader> logger)
     {

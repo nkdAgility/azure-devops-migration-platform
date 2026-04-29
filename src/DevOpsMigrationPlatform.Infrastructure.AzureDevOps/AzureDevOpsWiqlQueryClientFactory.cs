@@ -45,7 +45,7 @@ internal sealed class AzureDevOpsWiqlQueryClientFactory : IWiqlQueryClientFactor
 {
     private readonly IAzureDevOpsClientFactory _inner;
 
-    public AzureDevOpsWiqlQueryClientFactory(IAzureDevOpsClientFactory inner)
+    internal AzureDevOpsWiqlQueryClientFactory(IAzureDevOpsClientFactory inner)
         => _inner = inner ?? throw new ArgumentNullException(nameof(inner));
 
     public async Task<IWiqlQueryClient> CreateAsync(

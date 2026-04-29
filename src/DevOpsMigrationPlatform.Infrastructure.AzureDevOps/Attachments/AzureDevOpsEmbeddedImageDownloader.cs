@@ -10,13 +10,13 @@ namespace DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Attachments;
 /// <summary>
 /// Downloads embedded images from Azure DevOps URLs using Polly resilience patterns.
 /// </summary>
-public class AzureDevOpsEmbeddedImageDownloader : IEmbeddedImageDownloader
+internal class AzureDevOpsEmbeddedImageDownloader : IEmbeddedImageDownloader
 {
     private readonly HttpClient _httpClient;
     private readonly IAsyncPolicy<HttpResponseMessage> _resiliencePipeline;
     private readonly ILogger<AzureDevOpsEmbeddedImageDownloader> _logger;
 
-    public AzureDevOpsEmbeddedImageDownloader(
+    internal AzureDevOpsEmbeddedImageDownloader(
         HttpClient httpClient,
         ILogger<AzureDevOpsEmbeddedImageDownloader> logger)
     {

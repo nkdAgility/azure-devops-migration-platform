@@ -11,7 +11,7 @@ namespace DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Export;
 /// Fetches work item comments from the Azure DevOps REST API using the Comments API v7.1-preview.4.
 /// Implements streaming enumeration with pagination support for memory safety on large comment volumes.
 /// </summary>
-public class AzureDevOpsWorkItemCommentSource : IWorkItemCommentSource
+internal class AzureDevOpsWorkItemCommentSource : IWorkItemCommentSource
 {
     private readonly IAzureDevOpsClientFactory _clientFactory;
     private readonly OrganisationEndpoint _endpoint;
@@ -19,7 +19,7 @@ public class AzureDevOpsWorkItemCommentSource : IWorkItemCommentSource
     private readonly ILogger<AzureDevOpsWorkItemCommentSource> _logger;
     private const int PageSize = 200; // ADO API max page size for comments
 
-    public AzureDevOpsWorkItemCommentSource(
+    internal AzureDevOpsWorkItemCommentSource(
         IAzureDevOpsClientFactory clientFactory,
         OrganisationEndpoint endpoint,
         string project,

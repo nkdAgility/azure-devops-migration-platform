@@ -20,7 +20,7 @@ internal sealed class AzureDevOpsNodeCreator : INodeCreator
     private readonly IAzureDevOpsClientFactory _clientFactory;
     private readonly ILogger<AzureDevOpsNodeCreator> _logger;
 
-    public AzureDevOpsNodeCreator(
+    internal AzureDevOpsNodeCreator(
         IAzureDevOpsClientFactory clientFactory,
         ILogger<AzureDevOpsNodeCreator> logger)
     {

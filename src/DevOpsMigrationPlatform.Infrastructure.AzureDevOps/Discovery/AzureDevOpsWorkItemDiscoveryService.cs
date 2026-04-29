@@ -19,7 +19,7 @@ internal sealed class AzureDevOpsWorkItemDiscoveryService : IWorkItemDiscoverySe
     private readonly IWorkItemFetchService _fetchService;
     private const int ProgressInterval = 200;
 
-    public AzureDevOpsWorkItemDiscoveryService(
+    internal AzureDevOpsWorkItemDiscoveryService(
         IWorkItemQueryWindowStrategy windowStrategy,
         IWorkItemFetchService fetchService)
     {
