@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
+using System.IO.Compression;
 using System.Linq;
 using System.Net.Http;
 using System.Text.Json;
@@ -215,6 +217,35 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
                 _logger.LogInformation("Export phase already completed for job {JobId} — skipping.", job.JobId);
             if (isBoth && !runImport)
                 _logger.LogInformation("Import phase already completed for job {JobId} — skipping.", job.JobId);
+
+            // If PackagePath is set and we are about to import, extract the fixture zip into
+            // the package directory. This is the agent's responsibility — the CLI must never
+            // write to the package location other than migration-config.json.
+            if (runImport)
+            {
+                var packageZipPath = packageConfig
+                    .GetSection("MigrationPlatform:Package:PackagePath").Value;
+                if (!string.IsNullOrWhiteSpace(packageZipPath))
+                {
+                    var resolvedZipPath = Path.GetFullPath(packageZipPath);
+                    if (File.Exists(resolvedZipPath))
+                    {
+                        var packageUri = job.Package.PackageUri
+                            ?? throw new InvalidOperationException("PackageUri is required for fixture extraction.");
+                        var packageLocalPath = new Uri(packageUri).LocalPath;
+                        _logger.LogInformation(
+                            "Extracting package fixture {ZipPath} into {PackagePath}.",
+                            resolvedZipPath, packageLocalPath);
+                        ZipFile.ExtractToDirectory(resolvedZipPath, packageLocalPath, overwriteFiles: true);
+                    }
+                    else
+                    {
+                        _logger.LogWarning(
+                            "PackagePath '{ZipPath}' not found — skipping fixture extraction.",
+                            packageZipPath);
+                    }
+                }
+            }
 
             bool failed = false;
             try
