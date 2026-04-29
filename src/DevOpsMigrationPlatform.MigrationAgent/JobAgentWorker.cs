@@ -1,7 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.IO;
-using System.IO.Compression;
 using System.Linq;
 using System.Net.Http;
 using System.Text.Json;
@@ -34,12 +32,14 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
     private readonly PackageProgressSink _packageProgressSink;
     private readonly PackageLoggerProvider _packageLoggerProvider;
     private readonly IServiceScopeFactory _moduleScopeFactory;
+    private readonly IPackagePreparer _packagePreparer;
     private readonly ILogger<JobAgentWorker> _logger;
 
     public JobAgentWorker(
         IEnumerable<IModule> migrationModules,
         IEnumerable<IDiscoveryModule> discoveryModules,
         IPackageStoreFactory packageStoreFactory,
+        IPackagePreparer packagePreparer,
         IProgressSink progressSink,
         ActiveLeaseState leaseState,
         ActivePackageState packageState,
@@ -65,6 +65,7 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
         _packageProgressSink = packageProgressSink;
         _packageLoggerProvider = packageLoggerProvider;
         _moduleScopeFactory = moduleScopeFactory;
+        _packagePreparer = packagePreparer;
         _logger = logger;
     }
 
@@ -218,33 +219,13 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
             if (isBoth && !runImport)
                 _logger.LogInformation("Import phase already completed for job {JobId} — skipping.", job.JobId);
 
-            // If PackagePath is set and we are about to import, extract the fixture zip into
-            // the package directory. This is the agent's responsibility — the CLI must never
-            // write to the package location other than migration-config.json.
+            // If PackagePath is set and we are about to import, extract the fixture into the
+            // package store via IPackagePreparer. This is storage-backend agnostic — works for
+            // FileSystem today and Azure Blob Storage in the future.
             if (runImport)
             {
-                var packageZipPath = packageConfig
-                    .GetSection("MigrationPlatform:Package:PackagePath").Value;
-                if (!string.IsNullOrWhiteSpace(packageZipPath))
-                {
-                    var resolvedZipPath = Path.GetFullPath(packageZipPath);
-                    if (File.Exists(resolvedZipPath))
-                    {
-                        var packageUri = job.Package.PackageUri
-                            ?? throw new InvalidOperationException("PackageUri is required for fixture extraction.");
-                        var packageLocalPath = new Uri(packageUri).LocalPath;
-                        _logger.LogInformation(
-                            "Extracting package fixture {ZipPath} into {PackagePath}.",
-                            resolvedZipPath, packageLocalPath);
-                        ZipFile.ExtractToDirectory(resolvedZipPath, packageLocalPath, overwriteFiles: true);
-                    }
-                    else
-                    {
-                        _logger.LogWarning(
-                            "PackagePath '{ZipPath}' not found — skipping fixture extraction.",
-                            packageZipPath);
-                    }
-                }
+                await _packagePreparer.PrepareForImportAsync(artefactStore, packageConfig, ct)
+                    .ConfigureAwait(false);
             }
 
             bool failed = false;

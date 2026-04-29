@@ -30,6 +30,8 @@
     <PackageReference Include="System.Diagnostics.DiagnosticSource" />
     <PackageReference Include="System.Text.Json" VersionOverride="10.0.0" />
     <PackageReference Include="System.Runtime.CompilerServices.Unsafe" />
+    <Reference Include="System.IO.Compression" />
+    <Reference Include="System.IO.Compression.FileSystem" />
   </ItemGroup>
   <ItemGroup Condition="'$(TargetFramework)' != 'net481'">
     <PackageReference Include="Microsoft.Data.Sqlite" />

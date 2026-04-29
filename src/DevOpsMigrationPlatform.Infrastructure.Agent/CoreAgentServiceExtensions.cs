@@ -79,6 +79,9 @@ public static class CoreAgentServiceExtensions
         // Package store factory — resolves file:/// URIs to FileSystem stores.
         services.AddSingleton<IPackageStoreFactory, FileSystemPackageStoreFactory>();
 
+        // Package preparer — extracts fixture ZIPs into the artefact store before import.
+        services.AddSingleton<IPackagePreparer, ZipPackagePreparer>();
+
         // Checkpointing factory for per-job cursor management.
         services.AddSingleton<ICheckpointingServiceFactory, CheckpointingServiceFactory>();
 
