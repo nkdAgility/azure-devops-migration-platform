@@ -155,6 +155,67 @@ public class TeamsModuleTests
     }
 
     [TestMethod]
+    public async Task ExportAsync_SkipsExistingTeam_WhenAlwaysExportFalse()
+    {
+        // Arrange — team.json already exists in the store
+        var storeMock = new Mock<IArtefactStore>(MockBehavior.Loose);
+        storeMock
+            .Setup(s => s.ExistsAsync(It.Is<string>(p => p.EndsWith("/team.json")), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true); // already exported
+
+        var source = new SimulatedTeamSource();
+        var orchestrator = new TeamExportOrchestrator(source, NullLogger<TeamExportOrchestrator>.Instance);
+
+        var module = new TeamsModule(
+            NullLogger<TeamsModule>.Instance,
+            Options.Create(new TeamsModuleOptions { Enabled = true, AlwaysExport = false }),
+            new TeamSlugGenerator(),
+            teamSource: source,
+            exportOrchestrator: orchestrator);
+
+        // Act
+        await module.ExportAsync(CreateExportContext(storeMock.Object), CancellationToken.None);
+
+        // Assert — no team.json writes (all skipped)
+        storeMock.Verify(
+            s => s.WriteAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()),
+            Times.Never,
+            "Expected zero writes when all teams are already present and AlwaysExport=false.");
+    }
+
+    [TestMethod]
+    public async Task ExportAsync_ReexportsExistingTeam_WhenAlwaysExportTrue()
+    {
+        // Arrange — team.json already exists, but AlwaysExport forces a fresh export
+        var writtenPaths = new List<string>();
+        var storeMock = new Mock<IArtefactStore>(MockBehavior.Loose);
+        storeMock
+            .Setup(s => s.ExistsAsync(It.Is<string>(p => p.EndsWith("/team.json")), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true); // already exported
+        storeMock
+            .Setup(s => s.WriteAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Callback<string, string, CancellationToken>((path, _, __) => writtenPaths.Add(path))
+            .Returns(Task.CompletedTask);
+
+        var source = new SimulatedTeamSource();
+        var orchestrator = new TeamExportOrchestrator(source, NullLogger<TeamExportOrchestrator>.Instance);
+
+        var module = new TeamsModule(
+            NullLogger<TeamsModule>.Instance,
+            Options.Create(new TeamsModuleOptions { Enabled = true, AlwaysExport = true }),
+            new TeamSlugGenerator(),
+            teamSource: source,
+            exportOrchestrator: orchestrator);
+
+        // Act
+        await module.ExportAsync(CreateExportContext(storeMock.Object), CancellationToken.None);
+
+        // Assert — both teams written despite artefacts already existing
+        Assert.AreEqual(2, writtenPaths.Count,
+            $"Expected 2 team writes with AlwaysExport=true. Written: {string.Join(", ", writtenPaths)}");
+    }
+
+    [TestMethod]
     public async Task ImportAsync_Skips_WhenModuleDisabled()
     {
         // Arrange

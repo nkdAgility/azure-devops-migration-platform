@@ -138,6 +138,7 @@ public sealed class TeamsModule : IModule
         }
 
         var count = 0;
+        var skipped = 0;
         await foreach (var team in _teamSource.EnumerateTeamsAsync(job.Source ?? throw new InvalidOperationException("Job.Source required for export"), projectName, ct).ConfigureAwait(false))
         {
             // Apply scope/filter
@@ -149,6 +150,17 @@ public sealed class TeamsModule : IModule
             }
 
             var slug = _slugGenerator.GenerateSlug(team.Name);
+            var artifactPath = $"Teams/{slug}/team.json";
+
+            // Resume support: skip teams already exported unless AlwaysExport is set.
+            if (!_options.AlwaysExport
+                && await artefactStore.ExistsAsync(artifactPath, ct).ConfigureAwait(false))
+            {
+                _logger.LogWarning("[Teams] Skipping already-exported team '{Name}' ({Path}) — use AlwaysExport: true to force re-export.",
+                    team.Name, artifactPath);
+                skipped++;
+                continue;
+            }
 
             var exportTags = new TagList
             {
@@ -185,12 +197,16 @@ public sealed class TeamsModule : IModule
         }
 
         activity?.SetTag("teams.count", count);
-        _logger.LogInformation("[Teams] Exported {Count} teams.", count);
+        activity?.SetTag("teams.skipped", skipped);
+        _logger.LogInformation("[Teams] Exported {Count} teams ({Skipped} skipped — already present).", count, skipped);
+        if (count == 0 && skipped == 0)
+            _logger.LogWarning("[Teams] Export completed with zero teams exported and zero skipped — verify the source project has teams.");
+
         sink?.Emit(new ProgressEvent
         {
             Module = ModuleName,
             Stage = "Teams.Export.Complete",
-            Message = $"Team export complete — {count} teams exported.",
+            Message = $"Team export complete — {count} teams exported, {skipped} skipped (already present).",
             Metrics = new JobMetrics
             {
                 Migration = new MigrationCounters
