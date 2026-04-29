@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
@@ -11,6 +12,7 @@ using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Infrastructure.Agent;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Telemetry;
 using DevOpsMigrationPlatform.Infrastructure.Serialization;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 
 namespace DevOpsMigrationPlatform.MigrationAgent;
@@ -79,9 +81,44 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
         PackageState.CurrentStore = artefactStore;
 
         // Load migration-config.json from the package so modules can read Source/Target/Policies.
-        var packageConfig = await PackageConfigStore.ReadAsync(artefactStore, ct).ConfigureAwait(false);
+        IConfiguration packageConfig;
+        try
+        {
+            packageConfig = await PackageConfigStore.ReadAsync(artefactStore, ct).ConfigureAwait(false);
+        }
+        catch (PackageConfigNotFoundException ex)
+        {
+            _logger.LogError(ex,
+                "Config file not found in {PackageUri}. Re-submit the job via CLI.",
+                job.Package.PackageUri);
+            await SignalTerminalAsync(controlPlane, leaseId, "fail", ct).ConfigureAwait(false);
+            ActiveJobConfig.Clear();
+            return;
+        }
+
+        // Deserialize MigrationOptions from raw JSON using System.Text.Json.
+        // IConfiguration.Bind() cannot instantiate abstract types (Source/Target) or set init-only
+        // properties reliably in .NET 10. System.Text.Json handles both via the polymorphic
+        // endpoint converter (PolymorphicEndpointOptionsConverter) registered in AgentJsonOptions.
         var migrationOptions = new MigrationOptions();
-        packageConfig.GetSection("MigrationPlatform").Bind(migrationOptions);
+        try
+        {
+            var rawJson = await artefactStore.ReadAsync(PackagePaths.MigrationConfigFileName, ct)
+                .ConfigureAwait(false);
+            if (!string.IsNullOrWhiteSpace(rawJson))
+            {
+                var wrapper = JsonSerializer.Deserialize<MigrationConfigWrapper>(rawJson, AgentJsonOptions);
+                if (wrapper?.MigrationPlatform != null)
+                    migrationOptions = wrapper.MigrationPlatform;
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex,
+                "Could not deserialize migration-config.json for job {JobId}; proceeding with defaults.",
+                job.JobId);
+        }
+
         ActiveJobConfig.Current = migrationOptions;
         ActiveJobConfig.PackageConfig = packageConfig;
 
@@ -217,6 +254,19 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
         {
             ActiveJobConfig.Clear();
         }
+    }
+
+    // ── Deserialization helpers ───────────────────────────────────────────────
+
+    /// <summary>
+    /// Wrapper matching the top-level shape of migration-config.json:
+    /// <c>{ "MigrationPlatform": { ... } }</c>.
+    /// Used to deserialize the full config with System.Text.Json (which correctly handles
+    /// init-only properties and polymorphic endpoint types via the registered converters).
+    /// </summary>
+    private sealed class MigrationConfigWrapper
+    {
+        public MigrationOptions MigrationPlatform { get; set; } = new();
     }
 
     // ── Discovery execution ───────────────────────────────────────────────────

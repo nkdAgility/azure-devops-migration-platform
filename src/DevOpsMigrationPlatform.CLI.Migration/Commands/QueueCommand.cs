@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.IO.Compression;
 using System.Linq;
 using System.Threading;
 using System.Threading.Channels;
@@ -112,6 +113,22 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
         console.MarkupLine($"[blue]ℹ[/] Package path   : [blue]{Markup.Escape(outputPath)}[/]");
 
         var modules = BuildModules(config);
+
+        // If a fixture zip is specified (PackagePath), extract it into outputPath so the agent
+        // can import from a pre-built package without a prior export run.
+        var packageZipPath = config.Package?.PackagePath;
+        if (!string.IsNullOrWhiteSpace(packageZipPath))
+        {
+            var resolvedZipPath = Path.GetFullPath(packageZipPath);
+            if (!File.Exists(resolvedZipPath))
+            {
+                ShowError(console, $"PackagePath zip file not found: {resolvedZipPath}");
+                return 1;
+            }
+            Directory.CreateDirectory(outputPath);
+            ZipFile.ExtractToDirectory(resolvedZipPath, outputPath, overwriteFiles: true);
+            console.MarkupLine($"[blue]ℹ[/] Extracted fixture : [blue]{Markup.Escape(resolvedZipPath)}[/]");
+        }
 
         // Write migration-config.json to the package before submitting.
         var packageConfigStore = GetRequiredService<IPackageConfigStore>();
