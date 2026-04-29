@@ -121,7 +121,7 @@ public class SimulatedMigrationCommandTests
         Assert.AreEqual(0, result.ExitCode,
             $"CLI exited with code {result.ExitCode}. STDOUT:\n{result.StandardOutput}\nSTDERR:\n{result.StandardError}");
 
-        // Roundtrip should produce a package (Both mode = export + import)
+        // Roundtrip should produce a package (Migrate mode = export + prepare + import)
         // (org/project nesting places it under <outputDir>/<org>/<project>/WorkItems/)
         var workItemsDirs = Directory.GetDirectories(outputDir, "workitems", SearchOption.AllDirectories);
         Assert.IsTrue(workItemsDirs.Length > 0,
