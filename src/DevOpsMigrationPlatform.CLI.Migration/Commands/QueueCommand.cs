@@ -116,7 +116,15 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
         // Write migration-config.json to the package before submitting.
         var packageConfigStore = GetRequiredService<IPackageConfigStore>();
         var packageStore = new FileSystemArtefactStore(outputPath);
-        await packageConfigStore.WriteAsync(packageStore, config, cancellationToken);
+        try
+        {
+            await packageConfigStore.WriteAsync(packageStore, config, cancellationToken);
+        }
+        catch (InvalidOperationException ex) when (ex.Message.Contains("already exists"))
+        {
+            ShowError(console, $"migration-config.json already exists in '{outputPath}'. Re-submit is not permitted for an existing package. Use --force to overwrite.");
+            return 1;
+        }
 
         var job = new MigrationJob
         {
@@ -245,7 +253,15 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
         // Write migration-config.json to the package before submitting.
         var packageConfigStore = GetRequiredService<IPackageConfigStore>();
         var packageStore = new FileSystemArtefactStore(outputPath);
-        await packageConfigStore.WriteAsync(packageStore, config, cancellationToken);
+        try
+        {
+            await packageConfigStore.WriteAsync(packageStore, config, cancellationToken);
+        }
+        catch (InvalidOperationException ex) when (ex.Message.Contains("already exists"))
+        {
+            ShowError(console, $"migration-config.json already exists in '{outputPath}'. Re-submit is not permitted for an existing package. Use --force to overwrite.");
+            return 1;
+        }
 
         var job = new MigrationJob
         {
@@ -368,7 +384,15 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
         // Write migration-config.json to the package before submitting.
         var packageConfigStore = GetRequiredService<IPackageConfigStore>();
         var packageStore = new FileSystemArtefactStore(outputPath);
-        await packageConfigStore.WriteAsync(packageStore, config, cancellationToken);
+        try
+        {
+            await packageConfigStore.WriteAsync(packageStore, config, cancellationToken);
+        }
+        catch (InvalidOperationException ex) when (ex.Message.Contains("already exists"))
+        {
+            ShowError(console, $"migration-config.json already exists in '{outputPath}'. Re-submit is not permitted for an existing package. Use --force to overwrite.");
+            return 1;
+        }
 
         var job = new MigrationJob
         {
@@ -508,7 +532,15 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
         // Write migration-config.json to the package before submitting.
         var packageConfigStore = GetRequiredService<IPackageConfigStore>();
         var packageStore = new FileSystemArtefactStore(outputPath);
-        await packageConfigStore.WriteAsync(packageStore, config, cancellationToken);
+        try
+        {
+            await packageConfigStore.WriteAsync(packageStore, config, cancellationToken);
+        }
+        catch (InvalidOperationException ex) when (ex.Message.Contains("already exists"))
+        {
+            ShowError(console, $"migration-config.json already exists in '{outputPath}'. Re-submit is not permitted for an existing package. Use --force to overwrite.");
+            return 1;
+        }
 
         // Build MigrationJob — no migration logic here.
         var job = new MigrationJob

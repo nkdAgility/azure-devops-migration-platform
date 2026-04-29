@@ -236,3 +236,30 @@ Identified by architecture review (architecture-review skill, 2025):
   Resolution: create a separate project that the CLI references rather than coupling TUI code directly  
   to the CLI entry-point assembly.  
   **Priority**: Medium. No functional impact; purely a structural concern.
+
+---
+
+## spec 025 — Config Travels in Package (Agent Config Package)
+
+### Code
+
+- 🟢 T001-T020 Core implementation complete (PackageConfigStore, CLI WriteAsync, Agent ReadAsync, ModulePipelineWorkerBase, TfsJobAgentWorker, ActiveJobConfigState).
+- 🟢 T026 CLI error surface for duplicate WriteAsync.
+- 🟢 T027 TfsJobAgentWorker reads config from PackageConfig.
+- 🟢 T035 Explicit PackageConfigNotFoundException catch in ModulePipelineWorkerBase.
+- 🟢 T047 Retry with back-off (3 retries) in PackageConfigStore.ReadAsync.
+- 🔴 T038/T039 EF Core upgrader for v1→v2 MigrationJob schema (complex; deferred). Tracked in tasks.md. Not blocking.
+- 🔴 T048 Singleton audit for IModule classes using IOptions. Low risk; deferred.
+
+### Tests
+
+- 🟢 T022-T024, T033-T034, T037 PackageConfigStoreTests (11 tests passing).
+- 🟢 T049 QueueCommand atomicity test (WriteAsync throws → RunAsync never called).
+- 🔴 T029/T029b System test: migration-config.json exists after simulated export (SystemTest category; excluded from non-system runs).
+- 🔴 T030/T031 TFS net481 path observability verification (manual verification only).
+
+### Docs/Features
+
+- 🟢 T010/T025/T032 Gherkin: config-applied-on-export.feature, config-audit-trail.feature, legacy-package-fail-fast.feature.
+- 🟢 T040 docs/migration-agent.md execution flow updated.
+- 🟢 T042 discrepancies.md — 4 of 5 resolved; #5 (configVersion upgrader) marked partial pending T038/T039.

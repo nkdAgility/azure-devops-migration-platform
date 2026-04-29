@@ -8,8 +8,7 @@ using DevOpsMigrationPlatform.Abstractions.Agent.Checkpointing;
 using DevOpsMigrationPlatform.Abstractions.Agent.Lease;
 using DevOpsMigrationPlatform.Abstractions.Agent.Modules;
 using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
-using DevOpsMigrationPlatform.Abstractions.Jobs;
-using DevOpsMigrationPlatform.Abstractions.Options;
+using DevOpsMigrationPlatform.Abstractions.Jobs;using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Abstractions.Streaming;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
@@ -119,9 +118,21 @@ public abstract class ModulePipelineWorkerBase : AgentWorkerBase
         var (artefactStore, stateStore) = PackageStoreFactory.Create(job.Package.PackageUri ?? ".");
         PackageState.CurrentStore = artefactStore;
 
-        // Load migration-config.json from the package and bind MigrationOptions into the
-        // ambient singleton so all modules can read Source, Target, Policies, Modules from it.
-        var packageConfig = await PackageConfigStore.ReadAsync(artefactStore, ct).ConfigureAwait(false);
+        // T035 — explicit fail-fast for pre-025 packages that have no migration-config.json.
+        IConfiguration packageConfig;
+        try
+        {
+            packageConfig = await PackageConfigStore.ReadAsync(artefactStore, ct).ConfigureAwait(false);
+        }
+        catch (PackageConfigNotFoundException ex)
+        {
+            Logger.LogError(ex,
+                "Config file not found: {PackageUri}. Re-submit the job via CLI.",
+                job.Package.PackageUri);
+            await SignalTerminalAsync(controlPlane, leaseId, "fail", ct).ConfigureAwait(false);
+            ActiveJobConfig.Clear();
+            return;
+        }
         var migrationOptions = new MigrationOptions();
         // Bind non-endpoint properties. Source/Target are abstract and cannot be bound directly;
         // each agent's OnBeforeModulesAsync binds the concrete endpoint type separately.

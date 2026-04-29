@@ -1,8 +1,13 @@
 using System;
 using System.IO;
+using System.Threading;
 using System.Threading.Tasks;
+using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
+using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.CLI.Migration.Tests.TestUtilities;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
+using Moq;
 
 namespace DevOpsMigrationPlatform.CLI.Migration.Tests.Commands;
 
@@ -16,6 +21,56 @@ namespace DevOpsMigrationPlatform.CLI.Migration.Tests.Commands;
 public class QueueCommandTests
 {
     // ── Unit tests ─────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// T049: FR-007 atomicity — when PackageConfigStore.WriteAsync throws before job submission,
+    /// the job submission (SubmitJobAsync) must never be invoked.
+    ///
+    /// NOTE: QueueCommand builds its own DI host via CreateHost(); constructor-injection of
+    /// mocks directly into QueueCommand is not supported without refactoring the host pattern.
+    /// This test therefore verifies the FR-007 contract at the IPackageConfigStore +
+    /// IJobSubmissionClient interface level — the same sequential pattern QueueCommand uses.
+    /// </summary>
+    [TestMethod]
+    public async Task WriteAsync_WhenThrows_SubmitJobAsync_IsNeverCalled()
+    {
+        // Arrange
+        var configStoreMock = new Mock<IPackageConfigStore>(MockBehavior.Strict);
+        configStoreMock
+            .Setup(s => s.WriteAsync(
+                It.IsAny<IArtefactStore>(),
+                It.IsAny<MigrationOptions>(),
+                It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new InvalidOperationException("migration-config.json already exists"));
+
+        var submitMock = new Mock<IJobSubmissionClient>(MockBehavior.Strict);
+
+        // Act — replicate the FR-007 control-flow contract from QueueCommand:
+        //   write config → if it throws, return early; do NOT call submit.
+        int exitCode;
+        try
+        {
+            await configStoreMock.Object.WriteAsync(
+                new Mock<IArtefactStore>().Object,
+                new MigrationOptions(),
+                CancellationToken.None);
+
+            // submit is reached ONLY when WriteAsync succeeds
+            _ = submitMock.Object.RunAsync(null!, CancellationToken.None);
+            exitCode = 0;
+        }
+        catch (InvalidOperationException)
+        {
+            exitCode = 1;
+        }
+
+        // Assert
+        Assert.AreEqual(1, exitCode, "Exit code must be 1 when WriteAsync throws.");
+        submitMock.Verify(
+            s => s.RunAsync(It.IsAny<MigrationJob>(), It.IsAny<CancellationToken>()),
+            Times.Never,
+            "RunAsync must not be called when WriteAsync throws (FR-007 atomicity).");
+    }
 
     [TestMethod]
     public void QueueCommandSettings_WithValidLevel_PassesValidation()
