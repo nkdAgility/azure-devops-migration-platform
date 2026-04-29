@@ -529,10 +529,13 @@ public class TfsJobAgentWorkerTests
             Microsoft.Extensions.Logging.Abstractions.NullLogger<DevOpsMigrationPlatform.Infrastructure.Agent.Storage.PackageConfigStore>.Instance,
             metrics.Object);
 
-        await sut.WriteAsync(store.Object,
-            new DevOpsMigrationPlatform.Abstractions.Options.MigrationOptions { Mode = "Export" },
-            false,
-            CancellationToken.None);
+        var configFile = System.IO.Path.GetTempFileName();
+        try
+        {
+            System.IO.File.WriteAllText(configFile, """{"MigrationPlatform":{"Mode":"Export"}}""");
+            await sut.WriteAsync(store.Object, configFile, false, CancellationToken.None);
+        }
+        finally { System.IO.File.Delete(configFile); }
 
         Assert.IsTrue(captured.Contains("config.write"),
             $"Expected 'config.write' span on net481. Got: [{string.Join(", ", captured)}]");

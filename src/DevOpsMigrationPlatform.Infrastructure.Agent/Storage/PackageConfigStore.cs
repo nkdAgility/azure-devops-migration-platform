@@ -61,8 +61,12 @@ internal sealed class PackageConfigStore : IPackageConfigStore
                     "Re-submit is not permitted without --force.");
             }
 
+#if NET481
+            var rawJson = File.ReadAllText(sourceFilePath);
+#else
             var rawJson = await File.ReadAllTextAsync(sourceFilePath, cancellationToken)
                 .ConfigureAwait(false);
+#endif
 
             await artefactStore.WriteAsync(PackagePaths.MigrationConfigFileName, rawJson, cancellationToken)
                 .ConfigureAwait(false);

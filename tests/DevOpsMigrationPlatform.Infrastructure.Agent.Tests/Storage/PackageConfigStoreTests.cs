@@ -5,7 +5,6 @@ using System.IO;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Storage;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -33,6 +32,13 @@ public class PackageConfigStoreTests
 
     private static PackageConfigStore CreateSut() => new(_logger, _metrics.Object);
 
+    private static string CreateTempConfigFile()
+    {
+        var path = Path.GetTempFileName();
+        File.WriteAllText(path, """{"MigrationPlatform":{"Mode":"Export"}}""");
+        return path;
+    }
+
     // ── WriteAsync ────────────────────────────────────────────────────────────
 
     [TestMethod]
@@ -47,11 +53,14 @@ public class PackageConfigStoreTests
             .ReturnsAsync(true);
 
         var sut = CreateSut();
-        var options = new MigrationOptions { Mode = "Export" };
-
-        // Act + Assert
-        await Assert.ThrowsExactlyAsync<InvalidOperationException>(
-            () => sut.WriteAsync(store.Object, options, false, CancellationToken.None));
+        var configFile = CreateTempConfigFile();
+        try
+        {
+            // Act + Assert
+            await Assert.ThrowsExactlyAsync<InvalidOperationException>(
+                () => sut.WriteAsync(store.Object, configFile, false, CancellationToken.None));
+        }
+        finally { File.Delete(configFile); }
     }
 
     [TestMethod]
@@ -68,10 +77,13 @@ public class PackageConfigStoreTests
             .Returns(Task.CompletedTask);
 
         var sut = CreateSut();
-        var options = new MigrationOptions { Mode = "Export" };
-
-        // Act — should not throw
-        await sut.WriteAsync(store.Object, options, true, CancellationToken.None);
+        var configFile = CreateTempConfigFile();
+        try
+        {
+            // Act — should not throw
+            await sut.WriteAsync(store.Object, configFile, true, CancellationToken.None);
+        }
+        finally { File.Delete(configFile); }
 
         // Assert — WriteAsync was called on the artefact store
         store.Verify(s => s.WriteAsync(
@@ -93,10 +105,13 @@ public class PackageConfigStoreTests
 
         var metricsMock = new Mock<IMigrationMetrics>(MockBehavior.Loose);
         var sut = new PackageConfigStore(_logger, metricsMock.Object);
-        var options = new MigrationOptions { Mode = "Export" };
-
-        // Act
-        await sut.WriteAsync(store.Object, options, false, CancellationToken.None);
+        var configFile = CreateTempConfigFile();
+        try
+        {
+            // Act
+            await sut.WriteAsync(store.Object, configFile, false, CancellationToken.None);
+        }
+        finally { File.Delete(configFile); }
 
         // Assert: write-count metric incremented
         metricsMock.Verify(m => m.RecordConfigWriteCompleted(in It.Ref<System.Diagnostics.TagList>.IsAny), Times.Once);
@@ -115,11 +130,14 @@ public class PackageConfigStoreTests
 
         var metricsMock = new Mock<IMigrationMetrics>(MockBehavior.Loose);
         var sut = new PackageConfigStore(_logger, metricsMock.Object);
-        var options = new MigrationOptions { Mode = "Export" };
-
-        // Act
-        await Assert.ThrowsExactlyAsync<IOException>(
-            () => sut.WriteAsync(store.Object, options, false, CancellationToken.None));
+        var configFile = CreateTempConfigFile();
+        try
+        {
+            // Act
+            await Assert.ThrowsExactlyAsync<IOException>(
+                () => sut.WriteAsync(store.Object, configFile, false, CancellationToken.None));
+        }
+        finally { File.Delete(configFile); }
 
         // Assert
         metricsMock.Verify(m => m.RecordConfigWriteError(in It.Ref<System.Diagnostics.TagList>.IsAny), Times.Once);
@@ -227,8 +245,13 @@ public class PackageConfigStoreTests
         var capturingLogger = new CapturingLogger<PackageConfigStore>();
         var sut = new PackageConfigStore(capturingLogger, _metrics.Object);
 
-        // Act
-        await sut.WriteAsync(store.Object, new MigrationOptions { Mode = "Export" }, false, CancellationToken.None);
+        var configFile = CreateTempConfigFile();
+        try
+        {
+            // Act
+            await sut.WriteAsync(store.Object, configFile, false, CancellationToken.None);
+        }
+        finally { File.Delete(configFile); }
 
         // Assert: at least one LogInformation call
         Assert.IsTrue(
@@ -262,8 +285,13 @@ public class PackageConfigStoreTests
 
         var sut = CreateSut();
 
-        // Act
-        await sut.WriteAsync(store.Object, new MigrationOptions { Mode = "Export" }, false, CancellationToken.None);
+        var configFile = CreateTempConfigFile();
+        try
+        {
+            // Act
+            await sut.WriteAsync(store.Object, configFile, false, CancellationToken.None);
+        }
+        finally { File.Delete(configFile); }
 
         // Assert
         Assert.IsTrue(recordedActivities.Count > 0, "Expected at least one 'config.write' activity span.");
