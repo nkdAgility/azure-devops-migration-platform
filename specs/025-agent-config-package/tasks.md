@@ -52,16 +52,16 @@
 
 - [ ] T011 [US1] Modify `src/DevOpsMigrationPlatform.CLI.Migration/Commands/QueueCommand.cs` — in all `Execute*Async` methods (ExportAsync, AdoExportAsync, SimulatedExportAsync, ImportAsync, PrepareAsync): (1) open transient `IArtefactStore` for `outputPath`; (2) `await _packageConfigStore.WriteAsync(artefactStore, config, ct)`; (3) strip `Source`, `Target`, `Modules`, `Policies` from the `MigrationJob` constructor calls; inject `IPackageConfigStore` via host builder (depends on T009)
 - [ ] T012 [US1] Register `IPackageConfigStore` in `src/DevOpsMigrationPlatform.CLI.Migration/Commands/QueueCommand.cs` host builder — add `services.AddPackageConfigStore()` call (depends on T009, T011)
-- [ ] T013 [US1] Modify `src/DevOpsMigrationPlatform.Infrastructure.Agent/ModulePipelineWorkerBase.cs` `OnMigrationJobAsync` — after opening `(artefactStore, stateStore)`, add: (1) `await _packageConfigStore.ReadAsync(artefactStore, ct)` → `packageConfig`; (2) build per-job `ServiceCollection` with `IOptions<FieldTransformOptions>`, `IOptions<NodeTranslationOptions>`, `IOptions<IdentityLookupOptions>` bound from `packageConfig`; (3) call relevant `Add*ToolServices()` extensions in per-job scope; (4) resolve `MigrationModules` from per-job `ServiceProvider`; (5) `await using` dispose per-job provider at job end. Inject `IPackageConfigStore` via constructor. (depends on T007, T009)
+- [ ] T013 [US1] Modify `src/DevOpsMigrationPlatform.Infrastructure.Agent/ModulePipelineWorkerBase.cs` `OnMigrationJobAsync` — after opening `(artefactStore, stateStore)`, add: (1) `await _packageConfigStore.ReadAsync(artefactStore, ct)` → `packageConfig`; (2) build per-job `ServiceCollection` by calling ALL `Add*ToolServices()` extensions (FieldTransform, NodeTranslation, IdentityLookup, and any future tool extensions — do NOT hard-code a closed list) with `packageConfig` as the `IConfiguration` source so that every registered `IOptions<T>` is bound from the package; (3) resolve `MigrationModules` from per-job `ServiceProvider`; (4) `await using` dispose per-job provider at job end. Inject `IPackageConfigStore` via constructor. New tool types added in future are included automatically without changing this method. (depends on T007, T009)
 - [ ] T014 [US1] Register `IPackageConfigStore` in `src/DevOpsMigrationPlatform.MigrationAgent/MigrationAgentServiceExtensions.cs` — add `services.AddPackageConfigStore()` (depends on T009)
 - [ ] T015 [US1] Modify `src/DevOpsMigrationPlatform.Abstractions/Jobs/Job.cs` — remove properties: `ConfigHash`, `Policies` (`JobPolicies`), `Modules` (`List<JobModule>`); update `ConfigVersion` default to `"2.0"` (breaking change)
-- [ ] T016 [US1] Modify `src/DevOpsMigrationPlatform.Abstractions/Jobs/MigrationJob.cs` — remove properties: `Source` (`MigrationEndpointOptions?`), `Target` (`MigrationEndpointOptions?`); retain `Mode`; update `GetSourceType()` to return `Mode` or null (depends on T015)
+- [ ] T016 [US1] Modify `src/DevOpsMigrationPlatform.Abstractions/Jobs/MigrationJob.cs` — remove properties: `Source` (`MigrationEndpointOptions?`), `Target` (`MigrationEndpointOptions?`); retain `Mode`. Add a new `SourceType` string property (set by the CLI from `config.Source?.Type` at job construction time — e.g. `"AzureDevOpsServices"`, `"Simulated"`, `"TeamFoundationServer"`) to preserve control-plane capability-based agent routing. Update `GetSourceType()` to return `this.SourceType`. (depends on T015)
 - [ ] T017 [US1] Fix all compilation errors caused by removing `Job.Modules`, `Job.Policies`, `Job.ConfigHash`, `MigrationJob.Source`, `MigrationJob.Target` across the solution — update all `new MigrationJob { ... }` callsites, all agent code that reads `job.Source`/`job.Target`/`job.Modules`/`job.Policies` (replace with reads from per-job config) (depends on T015, T016, T013)
 
 ### Observability for User Story 1 ⛔ MANDATORY
 
 - [ ] T018 [US1] **O-1 Traces** — In `PackageConfigStore.WriteAsync`, start `ActivitySource.StartActivity("config.write")` with tags: `job.id` (from ambient Activity or parameter), `package.uri`, `operation=write`. In `PackageConfigStore.ReadAsync`, start `ActivitySource.StartActivity("config.read")` with tags: `job.id`, `package.uri`, `operation=read`, `fallback=false` (set to `true` if file absent path taken) in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Storage/PackageConfigStore.cs`
-- [ ] T019 [US1] **O-2 Metrics** — In `PackageConfigStore.WriteAsync`, call `_metrics.Add(WellKnownMetricNames.ConfigWriteCount, 1)` on success and `_metrics.Add(WellKnownMetricNames.ConfigWriteErrors, 1)` on failure. In `ReadAsync`, call `ConfigReadCount` on success, `ConfigReadErrors` on failure, `ConfigReadFallbacks` when `PackageConfigNotFoundException` is thrown. Inject `IMigrationMetrics` via constructor (depends on T005, T008)
+- [ ] T019 [US1] **O-2 Metrics** — Inject `IMigrationMetrics` via constructor. Use the metric instrument pattern consistent with existing metrics in the codebase (obtain `Counter<long>` instruments via `IMigrationMetrics` or `Meter` and call `.Add(1)` on the instrument). In `PackageConfigStore.WriteAsync`: increment `ConfigWriteCount` on success and `ConfigWriteErrors` on failure. In `ReadAsync`: increment `ConfigReadCount` on success, `ConfigReadErrors` on failure, `ConfigReadFallbacks` when `PackageConfigNotFoundException` is thrown. Do NOT call a generic `_metrics.Add(metricName, value)` — use the same named-counter pattern as `WorkItemExportModule` and other existing modules. (depends on T005, T008)
 - [ ] T020 [US1] **O-3 Logs** — Add `ILogger<PackageConfigStore>`: `LogInformation` at start of write/read with `{PackageUri}`; `LogInformation` at completion with `{PackageUri}`, `{DurationMs}`; `LogWarning` when file absent (read path); `LogError` on parse failure and write failure. All structured params — no string interpolation. Credential fields MUST NOT be logged. (in `PackageConfigStore.cs`)
 - [ ] T021 [P] [US1] **DI Wiring** — Verify `AddPackageConfigStore()` is called from: MigrationAgent host startup, TfsMigrationAgent host startup (T009, T014 — verify both wired correctly, no orphaned registrations)
 - [ ] T022 [P] [US1] **Test O-1** — Unit test in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Storage/PackageConfigStoreTests.cs`: assert `ActivitySource.StartActivity` called with span name `"config.write"` and correct tags; assert `ActivitySource.StartActivity` called with `"config.read"` (use `TestActivityListener` or `ActivityListener`)
@@ -82,10 +82,11 @@
 
 ### Implementation for User Story 2
 
-- [ ] T026 [US2] Add `ExistsAsync` guard to `QueueCommand.WriteAsync` flow: if `migration-config.json` already exists in the package, emit a `LogWarning` "migration-config.json already exists in {PackageUri}. Overwriting is not permitted without --force. Re-submit aborted." and throw `InvalidOperationException` — the job MUST NOT be submitted (FR-012). This ensures the existing config is preserved for resume consistency. (in `PackageConfigStore.WriteAsync` — already partially handled in T008; verify CLI-level error reporting in `QueueCommand`)
+- [ ] T026 [US2] Verify CLI surfaces the `InvalidOperationException` from `PackageConfigStore.WriteAsync` as a user-readable error: `QueueCommand` MUST catch the exception, write a clear error message to the console (e.g. "`migration-config.json` already exists in `{PackageUri}`. Re-submit is not permitted for an existing package without `--force`. Use `--force` to overwrite."), and exit with a non-zero exit code. The job MUST NOT be submitted. This is distinct from T008's implementation of the guard — this task is about the CLI-level error surface only. (in `QueueCommand.cs`)
 - [ ] T027 [US2] Modify `src/DevOpsMigrationPlatform.TfsMigrationAgent/TfsJobAgentWorker.cs` `OnMigrationJobAsync` — add config read step before `base.OnMigrationJobAsync`: (1) open package store for `job.Package.PackageUri`; (2) `await _packageConfigStore.ReadAsync(artefactStore, ct)` → `packageConfig`; (3) extract `Source` from `packageConfig.GetSection(...)` (replaces removed `job.Source`); (4) validate not null + mode is Export; (5) pass extracted `Source` to `OnBeforeModulesAsync` via field or `ActiveTfsJobServices`. Inject `IPackageConfigStore` via constructor. (depends on T007, T009, T016)
 - [ ] T028 [US2] Register `IPackageConfigStore` in `src/DevOpsMigrationPlatform.TfsMigrationAgent/TfsMigrationAgentServiceExtensions.cs` — add `services.AddPackageConfigStore()` (depends on T009)
 - [ ] T029 [US2] System test: add assertions to existing simulated export scenario in `tests/DevOpsMigrationPlatform.CLI.Migration.Tests/Commands/QueueRoundtripSimulatedTests.cs` — after export completes: (a) assert `migration-config.json` exists at package root; (b) deserialise and assert it contains at least `MigrationPlatform.Mode`; (c) assert configured `FieldTransform` rules are present in the deserialised object (depends on T011, T013)
+- [ ] T029b [US2] System test for SC-003 (resume determinism): run simulated export to 50% completion (cancel mid-way), then re-submit the same job (same package URI, without `--force`), assert: (a) `migration-config.json` is NOT overwritten (write is rejected), (b) the resumed run applies the same `FieldTransform` rules as the initial run (assert transformed field values in resumed revisions are identical to those from the first run). This is the only test that directly verifies SC-003. (depends on T011, T013, T026)
 
 ### Observability for User Story 2 ⛔ MANDATORY
 
@@ -110,7 +111,7 @@
   - `ReadAsync_WhenFileAbsent_ThrowsPackageConfigNotFoundException` — assert message contains "Re-submit"
   - `ReadAsync_WhenFileCorrupt_ThrowsJsonException` — assert job-fail path is triggered (depends on T008)
 - [ ] T034 [US3] Unit test: `WriteAsync_WhenFileAlreadyExists_ThrowsInvalidOperationException` — verify CLI cannot silently overwrite (depends on T008)
-- [ ] T035 [P] [US3] Verify agent fail-fast path in `ModulePipelineWorkerBase.OnMigrationJobAsync` — when `ReadAsync` throws `PackageConfigNotFoundException`, the exception propagates to `AgentWorkerBase` which calls `SignalTerminalAsync(controlPlane, leaseId, "fail", ct)`. If the base does not catch `PackageConfigNotFoundException` specifically, add a `catch (PackageConfigNotFoundException ex)` block in `ModulePipelineWorkerBase` that logs a structured `Error` and calls `SignalTerminalAsync` with state `"fail"`. (in `src/DevOpsMigrationPlatform.Infrastructure.Agent/ModulePipelineWorkerBase.cs`, depends on T013)
+- [ ] T035 [P] [US3] Add explicit `catch (PackageConfigNotFoundException ex)` block in `ModulePipelineWorkerBase.OnMigrationJobAsync` (in `src/DevOpsMigrationPlatform.Infrastructure.Agent/ModulePipelineWorkerBase.cs`) that: (1) logs a structured `LogError` with the exception and message "Config file not found: {PackageUri}. Re-submit the job via CLI."; (2) calls `SignalTerminalAsync(controlPlane, leaseId, "fail", ct)`. This catch block is unconditionally required — do not rely on a base-class catch. Add even if `AgentWorkerBase` has a catch-all, because the structured log message and fail signal are mandatory observability requirements. (depends on T013)
 
 ### Observability for User Story 3 ⛔ MANDATORY
 
@@ -125,6 +126,16 @@
 
 - [ ] T038 Create EF Core data migration in the ControlPlane project (`src/DevOpsMigrationPlatform.ControlPlane/Migrations/`) — migrate all stored jobs with `ConfigVersion = "1.0"`: (a) read `Source`, `Target`, `Modules`, `Policies` from stored `JobPayload` JSON; (b) write `migration-config.json` to the package root at `Package.PackageUri` using `FileSystemArtefactStore`; (c) strip those fields from `JobPayload` and set `ConfigVersion = "2.0"`; (d) exclude jobs in `Running` state
 - [ ] T039 [P] Unit test for the EF Core upgrader: given a stored `"1.0"` job payload, assert the upgrader produces a valid `"2.0"` payload (stripped fields) and that the `migration-config.json` content is valid `MigrationOptions` JSON (in `tests/DevOpsMigrationPlatform.ControlPlane.Tests/`)
+
+---
+
+## Phase 6b: Robustness and Audit Tasks
+
+**Purpose**: Address robustness gaps identified in analysis — eventual-consistency retry, Singleton registration audit, and FR-007 atomicity test.
+
+- [ ] T047 [P] Implement retry-with-back-off in `PackageConfigStore.ReadAsync` for blob-store eventual consistency: if `IArtefactStore.ExistsAsync` returns `false` on a first check, retry up to 3 times with exponential back-off (100 ms, 300 ms, 900 ms) before throwing `PackageConfigNotFoundException`. Log `LogDebug` on each retry attempt with `{PackageUri}` and `{Attempt}`. Applies only when the package is a remote store — local filesystem stores should not need retries but the implementation need not special-case them. (in `PackageConfigStore.ReadAsync`, depends on T008)
+- [ ] T048 [P] Audit all `IModule`-implementing classes that consume `IOptions<FieldTransformOptions>`, `IOptions<NodeTranslationOptions>`, or `IOptions<IdentityLookupOptions>` — verify NONE are registered as `Singleton` in the root container (`MigrationAgentServiceExtensions` or `TfsMigrationAgentServiceExtensions`). Any found as `Singleton` MUST be changed to `Scoped`. Document findings in a comment block in the affected `ServiceCollectionExtensions` file. Failure to do this means the per-job scope in T013 provides no benefit for those modules.
+- [ ] T049 [P] Unit test: `WriteAsync_WhenWriteSucceeds_SubmitIsCalledOnce` and `WriteAsync_WhenWriteThrows_SubmitIsNeverCalled` — in `tests/DevOpsMigrationPlatform.CLI.Migration.Tests/Commands/QueueCommandTests.cs` (or equivalent), inject `Mock<IPackageConfigStore>` that throws on `WriteAsync` and assert `Mock<IControlPlaneClient>.SubmitJobAsync` is never called. This verifies FR-007 atomicity at the CLI level.
 
 ---
 
@@ -143,7 +154,7 @@
 - [ ] T043 Run `dotnet clean DevOpsMigrationPlatform.slnx --nologo -v quiet && dotnet build DevOpsMigrationPlatform.slnx --no-incremental --nologo` — MUST be error-free before done
 - [ ] T044 Run `dotnet test DevOpsMigrationPlatform.slnx --filter "TestCategory!=SystemTest&TestCategory!=SystemTest_Simulated&TestCategory!=SystemTest_Live" --nologo -v quiet` — ALL tests MUST pass before done
 - [ ] T045 Run at least one simulated scenario (e.g. `scenarios/queue-export-ado-workitems-single-project.json`) via a `.vscode/launch.json` debug profile — verify observable output: (a) CLI logs "Writing config to package"; (b) agent logs "Reading config from package"; (c) `migration-config.json` exists in the output package; (d) no field transform rule is silently ignored
-- [ ] T046 [P] Review `analysis/pending-actions.md` — confirm no new pending actions were created by this feature that are left untracked
+- [ ] T046 [P] Confirm no untracked pending actions remain after all phases complete — review `analysis/pending-actions.md` for any new entries created during this feature's implementation that have not been assigned an owner or scheduled for resolution. This is distinct from T041 (which adds the Rule 23 amendment entry); this task verifies that the file is in a clean, fully-tracked state before the branch closes.
 
 ---
 
@@ -173,6 +184,10 @@ Phase 5 US3 (T032–T037) — requires Phase 2 complete (can run alongside Phase
   T013 → T035 (agent wiring before fail-fast path)
 
 Phase 6 Upgrader (T038–T039) — requires Phase 3 complete (MigrationJob shape known)
+Phase 6b Robustness (T047–T049) — requires Phase 2 complete; can run alongside Phase 4–5
+  T008 → T047 (implementation before retry logic)
+  T013 → T048 (per-job scope before Singleton audit)
+  T011, T013 → T049 (CLI + agent wiring before atomicity test)
 Phase 7 Doc Sync (T040–T042) — requires Phases 3–5 complete
 Phase 8 Polish (T043–T046) — requires all phases complete
 ```
@@ -184,6 +199,7 @@ Phase 8 Polish (T043–T046) — requires all phases complete
 | Foundation setup | T001, T002, T003, T004, T005, T006 |
 | After T008: parallel test authoring | T022, T023, T024 |
 | US2 + US3 | T025–T031 can overlap with T032–T037 |
+| Robustness tasks | T047, T048, T049 (can run alongside Phase 5–6) |
 | Doc sync tasks | T040, T041, T042 |
 
 ## Implementation Strategy
@@ -192,14 +208,15 @@ Phase 8 Polish (T043–T046) — requires all phases complete
 
 **Full delivery** = Phases 1–8: includes TFS agent coverage (US2), fail-fast for legacy packages (US3), EF Core upgrader, and doc sync.
 
-**Total tasks**: 46
+**Total tasks**: 50
 - Phase 1 (Setup): 3
 - Phase 2 (Foundation): 6
 - Phase 3 (US1 — P1 MVP): 15
-- Phase 4 (US2 — P2): 7
+- Phase 4 (US2 — P2): 8 (includes T029b)
 - Phase 5 (US3 — P3): 6
 - Phase 6 (Upgrader): 2
+- Phase 6b (Robustness): 3 (T047, T048, T049)
 - Phase 7 (Doc Sync): 3
 - Phase 8 (Polish): 4
 
-**Parallel opportunities**: 18 tasks marked `[P]`
+**Parallel opportunities**: 21 tasks marked `[P]`

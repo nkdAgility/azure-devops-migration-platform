@@ -147,7 +147,7 @@ See [data-model.md](data-model.md) and [contracts/IPackageConfigStore.md](contra
 ### Key Design Decisions
 
 #### D-1: Where does `IPackageConfigStore` live?
-`DevOpsMigrationPlatform.Abstractions/Storage/IPackageConfigStore.cs` — same namespace as `IArtefactStore`. Both are pure storage abstractions. Interface is net481-compatible (no .NET 10-only APIs). Single assembly, no circular references.
+`DevOpsMigrationPlatform.Abstractions.Agent/Storage/IPackageConfigStore.cs` — agent-layer abstraction, net481-compatible (no .NET 10-only APIs). Lives alongside other agent-specific abstractions (e.g. `IArtefactStore` consumers). No circular references. Note: `IArtefactStore` itself lives in `DevOpsMigrationPlatform.Abstractions`; `IPackageConfigStore` is a higher-level composition that depends on it, so it belongs in the `.Agent` abstractions layer.
 
 #### D-2: What does `migration-config.json` contain?
 The complete serialised `MigrationOptions` POCO as written by `System.Text.Json`. The root JSON key is `MigrationPlatform` so it is directly compatible with `IConfiguration.AddJsonFile` / `AddJsonStream`. The agent builds an `IConfiguration` from the stream and binds `IOptions<T>` exactly as the CLI would from `migration.json`.
