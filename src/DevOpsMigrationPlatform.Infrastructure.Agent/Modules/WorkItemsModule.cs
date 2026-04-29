@@ -59,9 +59,7 @@ public sealed class WorkItemsModule : IModule
     private readonly IWorkItemFetchService? _fetchService;
     private readonly IMigrationMetrics? _metrics;
     private readonly IWorkItemDiscoveryService? _discoveryService;
-#if !NET481
     private readonly IExportProgressStoreFactory? _exportProgressStoreFactory;
-#endif
     private readonly IClassificationTreeCapture? _classificationTreeCapture;
 #if !NET481
     private readonly IReferencedPathTracker? _referencedPathTracker;
@@ -87,9 +85,7 @@ public sealed class WorkItemsModule : IModule
         IWorkItemFetchService? fetchService = null,
         IMigrationMetrics? metrics = null,
         IWorkItemDiscoveryService? discoveryService = null,
-#if !NET481
         IExportProgressStoreFactory? exportProgressStoreFactory = null,
-#endif
         IClassificationTreeCapture? classificationTreeCapture = null,
 #if !NET481
         IReferencedPathTracker? referencedPathTracker = null,
@@ -113,9 +109,7 @@ public sealed class WorkItemsModule : IModule
         _fetchService = fetchService;
         _metrics = metrics;
         _discoveryService = discoveryService;
-#if !NET481
         _exportProgressStoreFactory = exportProgressStoreFactory;
-#endif
         _classificationTreeCapture = classificationTreeCapture;
 #if !NET481
         _referencedPathTracker = referencedPathTracker;
@@ -214,13 +208,15 @@ public sealed class WorkItemsModule : IModule
             logger: _logger,
 #if !NET481
             wiqlQuery: ext.Query,
-            discoveryService: _discoveryService
-            , exportProgressStoreFactory: _exportProgressStoreFactory
-            , packageUri: job.Package.PackageUri
-            , referencedPathTracker: _referencedPathTracker
+            discoveryService: _discoveryService,
+            exportProgressStoreFactory: _exportProgressStoreFactory,
+            packageUri: job.Package.PackageUri,
+            referencedPathTracker: _referencedPathTracker
 #else
             wiqlQuery: wiqlQuery,
-            discoveryService: discoveryService481
+            discoveryService: discoveryService481,
+            exportProgressStoreFactory: _exportProgressStoreFactory,
+            packageUri: job.Package.PackageUri
 #endif
             );
 

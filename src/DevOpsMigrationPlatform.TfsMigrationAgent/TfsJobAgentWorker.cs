@@ -20,7 +20,6 @@ using DevOpsMigrationPlatform.Abstractions.Organisations;
 using DevOpsMigrationPlatform.Abstractions.Streaming;
 using DevOpsMigrationPlatform.Abstractions.Telemetry;
 using DevOpsMigrationPlatform.Infrastructure.Agent;
-using DevOpsMigrationPlatform.Infrastructure.Agent.Telemetry;
 using DevOpsMigrationPlatform.Infrastructure.TfsObjectModel;
 using DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.Options;
 using Microsoft.Extensions.Configuration;
@@ -39,8 +38,7 @@ namespace DevOpsMigrationPlatform.TfsMigrationAgent;
 /// </summary>
 public sealed class TfsJobAgentWorker : ModulePipelineWorkerBase
 {
-    private readonly PackageProgressSink _packageProgressSink;
-    private readonly PackageLoggerProvider _packageLoggerProvider;
+    private readonly IEnumerable<IFlushable> _flushables;
     private readonly ITfsJobServiceFactory _tfsServiceFactory;
     private readonly ActiveTfsJobServices _activeTfsJobServices;
     private readonly ILogger<TfsJobAgentWorker> _logger;
@@ -60,8 +58,7 @@ public sealed class TfsJobAgentWorker : ModulePipelineWorkerBase
         IHttpClientFactory httpClientFactory,
         ICheckpointingServiceFactory checkpointingFactory,
         IPhaseTrackingServiceFactory phaseTrackingFactory,
-        PackageProgressSink packageProgressSink,
-        PackageLoggerProvider packageLoggerProvider,
+        IEnumerable<IFlushable> flushables,
         ITfsJobServiceFactory tfsServiceFactory,
         ActiveTfsJobServices activeTfsJobServices,
         ILogger<TfsJobAgentWorker> logger)
@@ -69,8 +66,7 @@ public sealed class TfsJobAgentWorker : ModulePipelineWorkerBase
                phaseTrackingFactory, leaseState, packageState, activeJobConfig, packageConfigStore,
                moduleScopeFactory, httpClientFactory, logger)
     {
-        _packageProgressSink = packageProgressSink;
-        _packageLoggerProvider = packageLoggerProvider;
+        _flushables = flushables;
         _tfsServiceFactory = tfsServiceFactory;
         _activeTfsJobServices = activeTfsJobServices;
         _logger = logger;
@@ -80,8 +76,8 @@ public sealed class TfsJobAgentWorker : ModulePipelineWorkerBase
 
     protected override async Task OnPostJobFlushAsync()
     {
-        await _packageProgressSink.FlushAsync().ConfigureAwait(false);
-        await _packageLoggerProvider.FlushAsync().ConfigureAwait(false);
+        foreach (var flushable in _flushables)
+            await flushable.FlushAsync().ConfigureAwait(false);
     }
 
     // ── Migration execution ───────────────────────────────────────────────────

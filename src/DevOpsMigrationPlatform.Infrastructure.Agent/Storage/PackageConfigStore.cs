@@ -23,25 +23,32 @@ internal sealed class PackageConfigStore : IPackageConfigStore
     private static readonly ActivitySource ActivitySource =
         new(WellKnownActivitySourceNames.Migration);
 
+    private readonly IPackageStoreFactory _packageStoreFactory;
     private readonly ILogger<PackageConfigStore> _logger;
     private readonly IMigrationMetrics? _metrics;
 
-    public PackageConfigStore(ILogger<PackageConfigStore> logger, IMigrationMetrics? metrics = null)
+    public PackageConfigStore(
+        IPackageStoreFactory packageStoreFactory,
+        ILogger<PackageConfigStore> logger,
+        IMigrationMetrics? metrics = null)
     {
+        _packageStoreFactory = packageStoreFactory ?? throw new ArgumentNullException(nameof(packageStoreFactory));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _metrics = metrics;
     }
 
     /// <inheritdoc />
     public async Task WriteAsync(
-        IArtefactStore artefactStore,
+        string packageUri,
         string sourceFilePath,
         bool force = false,
         CancellationToken cancellationToken = default)
     {
-        if (artefactStore == null) throw new ArgumentNullException(nameof(artefactStore));
+        if (string.IsNullOrWhiteSpace(packageUri)) throw new ArgumentNullException(nameof(packageUri));
         if (string.IsNullOrWhiteSpace(sourceFilePath)) throw new ArgumentNullException(nameof(sourceFilePath));
         if (!File.Exists(sourceFilePath)) throw new FileNotFoundException("Scenario config file not found.", sourceFilePath);
+
+        var (artefactStore, _) = _packageStoreFactory.Create(packageUri);
 
         using var activity = ActivitySource.StartActivity("config.write");
         activity?.SetTag("operation", "write");

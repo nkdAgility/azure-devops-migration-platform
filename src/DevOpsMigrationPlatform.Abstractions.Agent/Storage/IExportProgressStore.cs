@@ -1,4 +1,3 @@
-#if !NET481
 using System;
 using System.Threading;
 using System.Threading.Tasks;
@@ -26,5 +25,12 @@ public interface IExportProgressStore : IAsyncDisposable
     /// On resume, revisions with an index ≤ <paramref name="rev"/> will be skipped.
     /// </summary>
     Task SetRevAsync(int workItemId, int rev, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Returns the total number of work items recorded in the store.
+    /// Used at orchestrator startup to seed the initial skipped count so the progress
+    /// display immediately reflects work already done in a prior run, even when the
+    /// cursor has been reset or corrupted.
+    /// </summary>
+    Task<int> CountAsync(CancellationToken cancellationToken);
 }
-#endif

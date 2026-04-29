@@ -1,4 +1,3 @@
-#if !NET481
 using System;
 using System.IO;
 using System.Threading;
@@ -90,6 +89,16 @@ public sealed class SqliteExportProgressStore : IExportProgressStore
     }
 
     /// <inheritdoc/>
+    public async Task<int> CountAsync(CancellationToken cancellationToken)
+    {
+        EnsureInitialized();
+        await using var cmd = _connection!.CreateCommand();
+        cmd.CommandText = "SELECT COUNT(*) FROM export_progress";
+        var result = await cmd.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false);
+        return result is long l ? (int)l : 0;
+    }
+
+    /// <inheritdoc/>
     public async ValueTask DisposeAsync()
     {
         if (_connection is not null)
@@ -106,4 +115,3 @@ public sealed class SqliteExportProgressStore : IExportProgressStore
                 $"{nameof(SqliteExportProgressStore)} has not been initialised. Call {nameof(InitializeAsync)} first.");
     }
 }
-#endif

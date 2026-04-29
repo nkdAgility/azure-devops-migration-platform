@@ -10,7 +10,6 @@ using DevOpsMigrationPlatform.Abstractions.Agent.Lease;
 using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
 using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Infrastructure.Agent;
-using DevOpsMigrationPlatform.Infrastructure.Agent.Telemetry;
 using DevOpsMigrationPlatform.Infrastructure.Serialization;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -29,8 +28,7 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
     private readonly IEnumerable<IDiscoveryModule> _discoveryModules;
     private readonly IJobMetricsStore _metricsStore;
     private readonly IJobSnapshotStore _snapshotStore;
-    private readonly PackageProgressSink _packageProgressSink;
-    private readonly PackageLoggerProvider _packageLoggerProvider;
+    private readonly IEnumerable<IFlushable> _flushables;
     private readonly IServiceScopeFactory _moduleScopeFactory;
     private readonly IPackagePreparer _packagePreparer;
     private readonly ILogger<JobAgentWorker> _logger;
@@ -51,8 +49,7 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
         IPhaseTrackingServiceFactory phaseTrackingFactory,
         IJobMetricsStore metricsStore,
         IJobSnapshotStore snapshotStore,
-        PackageProgressSink packageProgressSink,
-        PackageLoggerProvider packageLoggerProvider,
+        IEnumerable<IFlushable> flushables,
         ILogger<JobAgentWorker> logger,
         PolymorphicEndpointOptionsConverter? endpointConverter = null)
         : base(migrationModules, packageStoreFactory, progressSink, checkpointingFactory,
@@ -62,8 +59,7 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
         _discoveryModules = discoveryModules;
         _metricsStore = metricsStore;
         _snapshotStore = snapshotStore;
-        _packageProgressSink = packageProgressSink;
-        _packageLoggerProvider = packageLoggerProvider;
+        _flushables = flushables;
         _moduleScopeFactory = moduleScopeFactory;
         _packagePreparer = packagePreparer;
         _logger = logger;
@@ -73,8 +69,8 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
 
     protected override async Task OnPostJobFlushAsync()
     {
-        await _packageProgressSink.FlushAsync().ConfigureAwait(false);
-        await _packageLoggerProvider.FlushAsync().ConfigureAwait(false);
+        foreach (var flushable in _flushables)
+            await flushable.FlushAsync().ConfigureAwait(false);
     }
 
     // ── Migration execution ───────────────────────────────────────────────────

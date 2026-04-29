@@ -75,8 +75,7 @@ public class TfsJobAgentWorkerTests
     private Mock<IPackageConfigStore> _packageConfigStore = null!;
     private ActiveLeaseState _leaseState = null!;
     private ActivePackageState _packageState = null!;
-    private PackageProgressSink _packageProgressSink = null!;
-    private PackageLoggerProvider _packageLoggerProvider = null!;
+    private IFlushable[] _flushables = null!;
     private MockHttpMessageHandler _httpHandler = null!;
     private Mock<IHttpClientFactory> _httpClientFactory = null!;
     private ILogger<TfsJobAgentWorker> _logger = null!;
@@ -96,11 +95,11 @@ public class TfsJobAgentWorkerTests
         _packageState = new ActivePackageState();
         _logger = NullLogger<TfsJobAgentWorker>.Instance;
 
-        _packageProgressSink = new PackageProgressSink(
-            _packageState, NullLogger<PackageProgressSink>.Instance);
-        _packageLoggerProvider = new PackageLoggerProvider(
-            _packageState,
-            Options.Create(new DiagnosticLogOptions()));
+        _flushables = new IFlushable[]
+        {
+            new PackageProgressSink(_packageState, NullLogger<PackageProgressSink>.Instance),
+            new PackageLoggerProvider(_packageState, Options.Create(new DiagnosticLogOptions())),
+        };
 
         _packageStoreFactory
             .Setup(f => f.Create(It.IsAny<string>()))
@@ -160,8 +159,7 @@ public class TfsJobAgentWorkerTests
             _httpClientFactory.Object,
             _checkpointingFactory.Object,
             _phaseTrackingFactory.Object,
-            _packageProgressSink,
-            _packageLoggerProvider,
+            _flushables,
             _tfsServiceFactory.Object,
             new DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.ActiveTfsJobServices(),
             _logger);

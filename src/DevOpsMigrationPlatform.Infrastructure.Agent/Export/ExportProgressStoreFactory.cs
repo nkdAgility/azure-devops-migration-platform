@@ -1,4 +1,3 @@
-#if !NET481
 using System.IO;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
@@ -37,4 +36,3 @@ public sealed class ExportProgressStoreFactory : IExportProgressStoreFactory
         return new SqliteExportProgressStore(newPath);
     }
 }
-#endif

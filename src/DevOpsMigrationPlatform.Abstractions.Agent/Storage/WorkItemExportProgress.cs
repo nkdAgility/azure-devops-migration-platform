@@ -1,4 +1,3 @@
-#if !NET481
 namespace DevOpsMigrationPlatform.Abstractions.Agent.Storage;
 
 /// <summary>Per-work-item export progress returned by <see cref="IExportProgressStore"/>.</summary>
@@ -10,4 +9,3 @@ namespace DevOpsMigrationPlatform.Abstractions.Agent.Storage;
 /// has already been exported and can be safely skipped.
 /// </param>
 public sealed record WorkItemExportProgress(int WorkItemId, int Rev);
-#endif

@@ -91,6 +91,7 @@ public static class CoreAgentServiceExtensions
         // Package progress persistence — writes ProgressEvent NDJSON to Logs/progress.jsonl.
         services.AddSingleton<PackageProgressSink>();
         services.AddSingleton<IHostedService>(sp => sp.GetRequiredService<PackageProgressSink>());
+        services.AddSingleton<IFlushable>(sp => sp.GetRequiredService<PackageProgressSink>());
 
         // Composite sink fans out every ProgressEvent to all three sinks.
         services.AddCompositeProgressSink();

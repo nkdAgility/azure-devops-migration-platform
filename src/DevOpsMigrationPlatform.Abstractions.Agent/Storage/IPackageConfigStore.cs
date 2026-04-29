@@ -25,10 +25,10 @@ public interface IPackageConfigStore
 {
     /// <summary>
     /// Copies the raw scenario config file at <paramref name="sourceFilePath"/> verbatim
-    /// to <c>migration-config.json</c> at the root of <paramref name="artefactStore"/>.
+    /// to <c>migration-config.json</c> at the root of the package identified by
+    /// <paramref name="packageUri"/>.
     /// No deserialization or re-serialization is performed — every byte is preserved exactly,
-    /// including Tools, Generator, and any future sections not present in <c>MigrationOptions</c>.
-    /// </summary>
+    /// including Tools, Generator, and any future sections not present in <c>MigrationOptions</c>.</summary>
     /// <remarks>
     /// Throws <see cref="System.InvalidOperationException"/> if the file already exists
     /// and <paramref name="force"/> is <c>false</c>
@@ -38,12 +38,15 @@ public interface IPackageConfigStore
     /// Credential fields in the source file are written verbatim but
     /// MUST NOT appear in any log output (O-3 security constraint).
     /// </remarks>
-    /// <param name="artefactStore">The package store to write to.</param>
+    /// <param name="packageUri">
+    /// The package URI (e.g. <c>file:///C:/output/my-package</c> or a local path).
+    /// The implementation resolves the appropriate <see cref="IArtefactStore"/> internally.
+    /// </param>
     /// <param name="sourceFilePath">Absolute path to the scenario config file to copy.</param>
     /// <param name="force">When <c>true</c>, overwrite an existing file instead of throwing.</param>
     /// <param name="cancellationToken">Propagated cancellation token.</param>
     Task WriteAsync(
-        IArtefactStore artefactStore,
+        string packageUri,
         string sourceFilePath,
         bool force = false,
         CancellationToken cancellationToken = default);

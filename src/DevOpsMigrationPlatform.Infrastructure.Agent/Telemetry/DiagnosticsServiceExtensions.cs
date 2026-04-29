@@ -65,6 +65,7 @@ public static class DiagnosticsServiceExtensions
         services.AddSingleton<PackageLoggerProvider>();
         services.AddSingleton<IHostedService>(sp => sp.GetRequiredService<PackageLoggerProvider>());
         services.AddSingleton<ILoggerProvider>(sp => sp.GetRequiredService<PackageLoggerProvider>());
+        services.AddSingleton<IFlushable>(sp => sp.GetRequiredService<PackageLoggerProvider>());
 
         // Control plane logger — POSTs batches to /agents/lease/{leaseId}/diagnostics.
         services.AddSingleton<ControlPlaneLoggerProvider>();
