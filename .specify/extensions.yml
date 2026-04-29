@@ -10,20 +10,20 @@ hooks:
     description: Challenge the specification with adversarial thinking to surface blind spots, wrong assumptions, and missing failure modes
     condition: null
   - extension: observability-contract
-    command: observability-contract
+    command: "observability-contract --stage spec"
     enabled: true
     optional: false
     description: Inspect, validate, and amend the specification to ensure complete decision-driven observability coverage across metrics, traces, and logs
     condition: null
   - extension: connector-coverage-check
-    command: connector-coverage-check
+    command: "connector-coverage-check --stage spec"
     enabled: true
     optional: false
     description: Inspect, validate, and amend the specification to ensure full implementation coverage across all three connectors (Simulated, AzureDevOps, TFS)
     condition: null
   after_plan:
   - extension: observability-contract
-    command: observability-contract
+    command: "observability-contract --stage plan"
     enabled: true
     optional: false
     description: Validate and amend plan.md to ensure the Observability Contract section specifies complete, decision-driven observability coverage (O-1 traces, O-2 metrics, O-3 logs, O-4 progress events, CLI visibility) across metrics, traces, and logs for every operation
@@ -34,7 +34,20 @@ hooks:
     optional: false
     description: Design-time compliance review — validates spec.md and plan.md against all five architecture perspectives plus constitution and guardrails before task generation begins
     condition: null
+  after_tasks:
+  - extension: observability-contract
+    command: "observability-contract --stage tasks"
+    enabled: true
+    optional: false
+    description: Validate and amend tasks.md to ensure every user story phase contains explicit O-1, O-2, O-3, and O-4 observability tasks
+    condition: null
   after_implement:
+  - extension: observability-contract
+    command: "observability-contract --stage implement"
+    enabled: true
+    optional: false
+    description: Scan every modified .cs file for O-1 spans, O-2 metrics, O-3 structured logging, and O-4 progress events — implement any missing instrumentation before proceeding
+    condition: null
   - extension: test-validity
     command: test-validity
     enabled: true
