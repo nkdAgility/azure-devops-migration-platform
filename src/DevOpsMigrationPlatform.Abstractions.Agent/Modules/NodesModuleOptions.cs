@@ -1,4 +1,3 @@
-#if !NET481
 namespace DevOpsMigrationPlatform.Abstractions.Agent.Modules;
 
 /// <summary>Options for the NodesModule.</summary>
@@ -15,4 +14,3 @@ public sealed class NodesModuleOptions
     /// </summary>
     public bool ReplicateSourceTree { get; init; }
 }
-#endif

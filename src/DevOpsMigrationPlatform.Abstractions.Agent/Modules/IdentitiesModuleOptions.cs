@@ -1,4 +1,3 @@
-#if !NET481
 namespace DevOpsMigrationPlatform.Abstractions.Agent.Modules;
 
 /// <summary>Options for the IdentitiesModule.</summary>
@@ -16,4 +15,3 @@ public sealed class IdentitiesModuleOptions
     /// </summary>
     public string DefaultIdentity { get; init; } = string.Empty;
 }
-#endif

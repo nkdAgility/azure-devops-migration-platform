@@ -1,4 +1,3 @@
-#if !NET481
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Modules;
 using Microsoft.Extensions.DependencyInjection;
@@ -53,4 +52,3 @@ public static class ModuleServiceCollectionExtensions
         return services;
     }
 }
-#endif

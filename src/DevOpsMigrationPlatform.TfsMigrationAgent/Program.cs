@@ -4,21 +4,16 @@
 // See docs/tfs-exporter.md.
 
 using System;
-using System.Collections.Generic;
 using System.IO;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-using OpenTelemetry;
-using OpenTelemetry.Metrics;
-using OpenTelemetry.Resources;
-using OpenTelemetry.Trace;
-using Azure.Monitor.OpenTelemetry.Exporter;
 using Serilog;
 using Serilog.Events;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.TfsMigrationAgent;
+using DevOpsMigrationPlatform.Infrastructure.Telemetry;
 
 namespace DevOpsMigrationPlatform.TfsMigrationAgent
 {
@@ -50,6 +45,9 @@ namespace DevOpsMigrationPlatform.TfsMigrationAgent
                     otelLogging.IncludeFormattedMessage = true;
                     otelLogging.IncludeScopes = true;
                 });
+
+                // Prevent customer-classified log fields from reaching the OTel/Azure Monitor pipeline.
+                logging.AddDataClassificationFilter();
             });
 
             builder.UseSerilog((ctx, _, loggerConfig) =>
@@ -82,82 +80,14 @@ namespace DevOpsMigrationPlatform.TfsMigrationAgent
 
                 services.AddTfsMigrationAgentServices(ctx.Configuration, controlPlaneBaseUrl);
 
-                // ── OpenTelemetry (inline — ServiceDefaults requires IHostApplicationBuilder) ──
-                var deploymentMode = ctx.Configuration["MigrationPlatform:Environment:Type"] ?? "Standalone";
-                var controlPlaneUrl = ctx.Configuration["MigrationPlatform:Environment:ControlPlane:BaseUrl"]
-                                     ?? "http://localhost:5100";
-                var azureMonitorConnectionString = ctx.Configuration["Telemetry:AzureMonitorConnectionString"];
-                var hasAzureMonitor = !string.IsNullOrWhiteSpace(azureMonitorConnectionString);
-                var hasOtlpEndpoint = !string.IsNullOrWhiteSpace(ctx.Configuration["OTEL_EXPORTER_OTLP_ENDPOINT"]);
-                var diagnosticsPath = ctx.Configuration["Telemetry:DiagnosticsPath"];
-                var hasDiagnostics = !string.IsNullOrWhiteSpace(diagnosticsPath);
-                if (hasDiagnostics)
-                {
-                    if (!Path.IsPathRooted(diagnosticsPath))
-                        diagnosticsPath = Path.GetFullPath(diagnosticsPath);
-                    var sessionId = ctx.Configuration["Telemetry:DiagnosticsSessionId"]
-                        ?? Environment.GetEnvironmentVariable("Telemetry__DiagnosticsSessionId");
-                    if (string.IsNullOrWhiteSpace(sessionId))
+                services.AddAgentOtelPipeline(
+                    ctx.Configuration,
+                    WellKnownServiceNames.TfsMigrationAgent,
+                    new[]
                     {
-                        sessionId = DateTime.UtcNow.ToString("yyyyMMdd-HHmmss");
-                        Environment.SetEnvironmentVariable("Telemetry__DiagnosticsSessionId", sessionId);
-                    }
-                    diagnosticsPath = Path.Combine(diagnosticsPath, sessionId);
-                }
-
-                var otel = services.AddOpenTelemetry();
-
-                otel.ConfigureResource(rb => rb.AddAttributes(
-                    new Dictionary<string, object>
-                    {
-                        { "service.name", WellKnownServiceNames.TfsMigrationAgent },
-                        { "service.namespace", WellKnownServiceNames.Namespace },
-                        { WellKnownResourceAttributes.DeploymentMode, deploymentMode },
-                        { WellKnownResourceAttributes.ControlPlaneUrl, controlPlaneUrl }
-                    }));
-
-                otel.WithMetrics(metrics =>
-                {
-                    metrics.AddHttpClientInstrumentation()
-                           .AddRuntimeInstrumentation()
-                           .AddMeter(WellKnownMeterNames.Migration)
-                           .AddMeter(WellKnownMeterNames.Discovery)
-                           .AddMeter(WellKnownMeterNames.ControlPlane);
-
-                    if (hasOtlpEndpoint)
-                        metrics.AddOtlpExporter();
-                    if (hasAzureMonitor)
-                        metrics.AddAzureMonitorMetricExporter(o => o.ConnectionString = azureMonitorConnectionString);
-                    if (hasDiagnostics)
-                    {
-                        var metricsFile = Path.Combine(diagnosticsPath, $"{WellKnownServiceNames.TfsMigrationAgent}-metrics.log");
-                        Directory.CreateDirectory(Path.GetDirectoryName(metricsFile));
-                        metrics.AddReader(new OpenTelemetry.Metrics.PeriodicExportingMetricReader(
-                            new TfsFileMetricExporter(metricsFile), exportIntervalMilliseconds: 2_000));
-                    }
-                });
-
-                otel.WithTracing(tracing =>
-                {
-                    tracing.AddHttpClientInstrumentation()
-                           .AddSource(WellKnownActivitySourceNames.Migration)
-                           .AddSource(WellKnownActivitySourceNames.Discovery)
-                           .AddSource(WellKnownActivitySourceNames.ControlPlane)
-                           .AddSource(Infrastructure.TfsObjectModel.Telemetry.MigrationPlatformActivitySources.WorkItemExport.Name)
-                           .AddSource(Infrastructure.TfsObjectModel.Telemetry.MigrationPlatformActivitySources.AttachmentDownload.Name);
-
-                    if (hasOtlpEndpoint)
-                        tracing.AddOtlpExporter();
-                    if (hasAzureMonitor)
-                        tracing.AddAzureMonitorTraceExporter(o => o.ConnectionString = azureMonitorConnectionString);
-                    if (hasDiagnostics)
-                    {
-                        var tracesFile = Path.Combine(diagnosticsPath, $"{WellKnownServiceNames.TfsMigrationAgent}-traces.log");
-                        Directory.CreateDirectory(Path.GetDirectoryName(tracesFile));
-                        tracing.AddProcessor(new OpenTelemetry.SimpleActivityExportProcessor(
-                            new TfsFileTraceExporter(tracesFile)));
-                    }
-                });
+                        Infrastructure.TfsObjectModel.Telemetry.MigrationPlatformActivitySources.WorkItemExport.Name,
+                        Infrastructure.TfsObjectModel.Telemetry.MigrationPlatformActivitySources.AttachmentDownload.Name
+                    });
             });
 
             builder.UseConsoleLifetime(o => o.SuppressStatusMessages = true);

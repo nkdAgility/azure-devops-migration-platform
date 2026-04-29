@@ -3,6 +3,7 @@ using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Infrastructure.Telemetry;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Agent.Telemetry;
 
@@ -78,6 +79,25 @@ public static class TelemetryServiceExtensions
         services.AddSingleton<ControlPlaneProgressSink>();
         services.AddHostedService(sp => sp.GetRequiredService<ControlPlaneProgressSink>());
 
+        return services;
+    }
+
+    /// <summary>
+    /// Registers <see cref="AnsiProgressSink"/> and the <see cref="CompositeProgressSink"/>
+    /// that fans every <see cref="ProgressEvent"/> out to <see cref="AnsiProgressSink"/>,
+    /// <see cref="PackageProgressSink"/>, and <see cref="ControlPlaneProgressSink"/>.
+    /// Requires <see cref="PackageProgressSink"/> and <see cref="ControlPlaneProgressSink"/>
+    /// to already be registered (e.g. via <see cref="AddControlPlaneProgressSink"/>).
+    /// </summary>
+    public static IServiceCollection AddCompositeProgressSink(
+        this IServiceCollection services)
+    {
+        services.AddSingleton<AnsiProgressSink>();
+        services.AddSingleton<IProgressSink>(sp => new CompositeProgressSink(
+            sp.GetRequiredService<ILogger<CompositeProgressSink>>(),
+            sp.GetRequiredService<AnsiProgressSink>(),
+            sp.GetRequiredService<PackageProgressSink>(),
+            sp.GetRequiredService<ControlPlaneProgressSink>()));
         return services;
     }
 }

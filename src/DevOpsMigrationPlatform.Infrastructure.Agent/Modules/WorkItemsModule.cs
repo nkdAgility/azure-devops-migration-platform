@@ -1,5 +1,4 @@
-﻿#if !NET481
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
@@ -10,7 +9,9 @@ using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Abstractions.Agent.Validation;
 using DevOpsMigrationPlatform.Abstractions.Telemetry;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Export;
+#if !NET481
 using DevOpsMigrationPlatform.Infrastructure.Agent.Import;
+#endif
 using DevOpsMigrationPlatform.Infrastructure.Agent.Telemetry;
 using DevOpsMigrationPlatform.Infrastructure.Telemetry;
 using Microsoft.Extensions.Logging;
@@ -41,59 +42,81 @@ public sealed class WorkItemsModule : IModule
     private readonly IWorkItemRevisionSourceFactory _sourceFactory;
     private readonly IAttachmentBinarySource? _attachmentBinarySource;
     private readonly IWorkItemCommentSourceFactory? _inlineCommentSourceFactory;
+#if !NET481
     private readonly IWorkItemImportTargetFactory _importTargetFactory;
     private readonly IWorkItemResolutionStrategyFactory _resolutionStrategyFactory;
-    private readonly IIdentityLookupTool? _identityLookupTool;
-    private readonly ICheckpointingServiceFactory _checkpointingFactory;
     private readonly IIdMapStoreFactory _idMapStoreFactory;
     private readonly IRevisionFolderProcessorFactory _processorFactory;
+#endif
+    private readonly IIdentityLookupTool? _identityLookupTool;
+    private readonly ICheckpointingServiceFactory _checkpointingFactory;
     private readonly ILogger<WorkItemsModule> _logger;
+#if !NET481
     private readonly ILogger<WorkItemImportOrchestrator> _orchestratorLogger;
+#endif
     private readonly IWorkItemFetchService? _fetchService;
     private readonly IMigrationMetrics? _metrics;
     private readonly IWorkItemDiscoveryService? _discoveryService;
+#if !NET481
     private readonly IExportProgressStoreFactory? _exportProgressStoreFactory;
+#endif
     private readonly IClassificationTreeCapture? _classificationTreeCapture;
+#if !NET481
     private readonly IReferencedPathTracker? _referencedPathTracker;
     private readonly INodeEnsurer? _nodeEnsurer;
+#endif
 
     public WorkItemsModule(
         IWorkItemRevisionSourceFactory sourceFactory,
         ILogger<WorkItemsModule> logger,
+#if !NET481
         ILogger<WorkItemImportOrchestrator> orchestratorLogger,
         IWorkItemImportTargetFactory importTargetFactory,
         IWorkItemResolutionStrategyFactory resolutionStrategyFactory,
         ICheckpointingServiceFactory checkpointingFactory,
         IIdMapStoreFactory idMapStoreFactory,
         IRevisionFolderProcessorFactory processorFactory,
+#else
+        ICheckpointingServiceFactory checkpointingFactory,
+#endif
         IAttachmentBinarySource? attachmentBinarySource = null,
         IWorkItemCommentSourceFactory? inlineCommentSourceFactory = null,
         IWorkItemFetchService? fetchService = null,
         IMigrationMetrics? metrics = null,
         IWorkItemDiscoveryService? discoveryService = null,
+#if !NET481
         IExportProgressStoreFactory? exportProgressStoreFactory = null,
+#endif
         IClassificationTreeCapture? classificationTreeCapture = null,
+#if !NET481
         IReferencedPathTracker? referencedPathTracker = null,
         INodeEnsurer? nodeEnsurer = null,
+#endif
         IIdentityLookupTool? identityLookupTool = null)
     {
         _sourceFactory = sourceFactory ?? throw new ArgumentNullException(nameof(sourceFactory));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+#if !NET481
         _orchestratorLogger = orchestratorLogger ?? throw new ArgumentNullException(nameof(orchestratorLogger));
         _importTargetFactory = importTargetFactory ?? throw new ArgumentNullException(nameof(importTargetFactory));
         _resolutionStrategyFactory = resolutionStrategyFactory ?? throw new ArgumentNullException(nameof(resolutionStrategyFactory));
-        _checkpointingFactory = checkpointingFactory ?? throw new ArgumentNullException(nameof(checkpointingFactory));
         _idMapStoreFactory = idMapStoreFactory ?? throw new ArgumentNullException(nameof(idMapStoreFactory));
         _processorFactory = processorFactory ?? throw new ArgumentNullException(nameof(processorFactory));
+#endif
+        _checkpointingFactory = checkpointingFactory ?? throw new ArgumentNullException(nameof(checkpointingFactory));
         _attachmentBinarySource = attachmentBinarySource;
         _inlineCommentSourceFactory = inlineCommentSourceFactory;
         _fetchService = fetchService;
         _metrics = metrics;
         _discoveryService = discoveryService;
+#if !NET481
         _exportProgressStoreFactory = exportProgressStoreFactory;
+#endif
         _classificationTreeCapture = classificationTreeCapture;
+#if !NET481
         _referencedPathTracker = referencedPathTracker;
         _nodeEnsurer = nodeEnsurer;
+#endif
         _identityLookupTool = identityLookupTool;
     }
 
@@ -111,6 +134,7 @@ public sealed class WorkItemsModule : IModule
         var workItemsModule = job.Modules
             ?.FirstOrDefault(m => string.Equals(m.Name, "WorkItems", StringComparison.OrdinalIgnoreCase));
 
+#if !NET481
         var ext = workItemsModule is not null
             ? WorkItemsModuleExtensions.FromModule(workItemsModule)
             : new WorkItemsModuleExtensions();
@@ -133,31 +157,51 @@ public sealed class WorkItemsModule : IModule
 
         if (allFilters.Count > 0 && _fetchService == null)
             _logger.LogWarning("[WorkItems] IncludeFilters/ExcludeFilters are configured but no IWorkItemFetchService is registered — filters will be ignored and all work items will be exported. Register a connector-specific IWorkItemFetchService to enable filtered export.");
+#else
+        // net481: use defaults — attachments enabled, no filters, no comments.
+        _logger.LogInformation("[WorkItems] Exporting from {OrgUrl}/{Project} (attachments=true, comments=false)", orgUrl, project);
+        var wiqlQuery = (string?)null;
+        var discoveryService481 = _discoveryService;
+        var allFilters = new System.Collections.Generic.List<WorkItemFieldFilterOptions>();
+#endif
 
         var source = await _sourceFactory
             .CreateAsync(endpointOptions, ct)
             .ConfigureAwait(false);
 
-        if (_referencedPathTracker is null)
-            _logger.LogWarning("[WorkItems] IReferencedPathTracker is not available — referenced path tracking will be skipped.");
-
         if (_classificationTreeCapture is null)
             _logger.LogWarning("[WorkItems] IClassificationTreeCapture is not available — source-tree.json will not be written.");
+
+#if !NET481
+        if (_referencedPathTracker is null)
+            _logger.LogWarning("[WorkItems] IReferencedPathTracker is not available — referenced path tracking will be skipped.");
 
         if (_referencedPathTracker is not null)
             await _referencedPathTracker.InitializeAsync(context.ArtefactStore, ct).ConfigureAwait(false);
         if (_classificationTreeCapture is not null)
             _ = await _classificationTreeCapture.CaptureAsync(context.ArtefactStore, endpointOptions, ct, _metrics, job.JobId).ConfigureAwait(false);
+#else
+        if (_classificationTreeCapture is not null)
+            _ = await _classificationTreeCapture.CaptureAsync(context.ArtefactStore, endpointOptions, ct).ConfigureAwait(false);
+#endif
 
         var checkpointingService = _checkpointingFactory.Create(context.StateStore);
 
         // Comments extension gates inline comment fetching.
+#if !NET481
         var inlineFactory = ext.Comments.Enabled ? _inlineCommentSourceFactory : null;
+#else
+        var inlineFactory = (IWorkItemCommentSourceFactory?)null;
+#endif
 
         var orchestrator = new WorkItemExportOrchestrator(
             context.ArtefactStore,
             checkpointingService,
+#if !NET481
             ext.AttachmentsEnabled ? _attachmentBinarySource : null,
+#else
+            _attachmentBinarySource,
+#endif
             context.ProgressSink,
             endpoint: endpointOptions,
             project: project,
@@ -167,11 +211,17 @@ public sealed class WorkItemsModule : IModule
             metrics: _metrics,
             jobId: job.JobId,
             logger: _logger,
+#if !NET481
             wiqlQuery: ext.Query,
-            discoveryService: _discoveryService,
-            exportProgressStoreFactory: _exportProgressStoreFactory,
-            packageUri: job.Package.PackageUri,
-            referencedPathTracker: _referencedPathTracker);
+            discoveryService: _discoveryService
+            , exportProgressStoreFactory: _exportProgressStoreFactory
+            , packageUri: job.Package.PackageUri
+            , referencedPathTracker: _referencedPathTracker
+#else
+            wiqlQuery: wiqlQuery,
+            discoveryService: discoveryService481
+#endif
+            );
 
         await orchestrator.ExportAsync(source, ct).ConfigureAwait(false);
 
@@ -180,7 +230,11 @@ public sealed class WorkItemsModule : IModule
 
     public async Task ImportAsync(ImportContext context, CancellationToken ct)
     {
-        using var activity = s_activitySource.StartActivity("workitems.import");
+#if NET481
+        // TFS is a source-only connector — import is not supported.
+        _logger.LogDebug("[WorkItems] Import not supported on net481 (TFS agent) — skipping.");
+        await Task.CompletedTask.ConfigureAwait(false);
+#else
 
         var job = context.Job;
 
@@ -256,6 +310,7 @@ public sealed class WorkItemsModule : IModule
         await orchestrator.ImportAsync(ext, resumeMode, ct).ConfigureAwait(false);
 
         _logger.LogInformation("[WorkItems] Import complete.");
+#endif
     }
 
 
@@ -289,5 +344,3 @@ public sealed class WorkItemsModule : IModule
     }
 
 }
-
-#endif

@@ -1,4 +1,3 @@
-#if !NET481
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -15,7 +14,10 @@ using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Abstractions.Agent.Validation;
 using DevOpsMigrationPlatform.Abstractions.Telemetry;
+#if !NET481
 using DevOpsMigrationPlatform.Infrastructure.Telemetry;
+using DevOpsMigrationPlatform.Abstractions.Agent.Telemetry;
+#endif
 using DevOpsMigrationPlatform.Abstractions.Validation;
 using DevOpsMigrationPlatform.Abstractions.Streaming;
 using Microsoft.Extensions.Logging;
@@ -44,9 +46,11 @@ public sealed class IdentitiesModule : IModule
     };
 
     private readonly IIdentitySource? _identitySource;
+#if !NET481
     private readonly IIdentityLookupTool? _identityLookupTool;
-    private readonly ICheckpointingServiceFactory? _checkpointingFactory;
     private readonly IMigrationMetrics? _migrationMetrics;
+#endif
+    private readonly ICheckpointingServiceFactory? _checkpointingFactory;
     private readonly ILogger<IdentitiesModule> _logger;
     private readonly IdentitiesModuleOptions _options;
 
@@ -57,16 +61,21 @@ public sealed class IdentitiesModule : IModule
         ILogger<IdentitiesModule> logger,
         IOptions<IdentitiesModuleOptions> options,
         IIdentitySource? identitySource = null,
-        ICheckpointingServiceFactory? checkpointingFactory = null,
-        IIdentityLookupTool? identityLookupTool = null,
-        IMigrationMetrics? migrationMetrics = null)
+        ICheckpointingServiceFactory? checkpointingFactory = null
+#if !NET481
+        , IIdentityLookupTool? identityLookupTool = null
+        , IMigrationMetrics? migrationMetrics = null
+#endif
+        )
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _options = options?.Value ?? throw new ArgumentNullException(nameof(options));
         _identitySource = identitySource;
         _checkpointingFactory = checkpointingFactory;
+#if !NET481
         _identityLookupTool = identityLookupTool;
         _migrationMetrics = migrationMetrics;
+#endif
     }
 
     /// <inheritdoc/>
@@ -106,8 +115,10 @@ public sealed class IdentitiesModule : IModule
         using var activity = s_activitySource.StartActivity("identities.export");
         activity?.SetTag("project", project);
 
+#if !NET481
         using (_logger.BeginDataScope(DataClassification.Customer))
-            _logger.LogInformation("[Identities] Starting identity export for project '{Project}'.", project);
+#endif
+        _logger.LogInformation("[Identities] Starting identity export for project '{Project}'.", project);
 
         var sink = context.ProgressSink;
         sink?.Emit(new ProgressEvent
@@ -118,12 +129,14 @@ public sealed class IdentitiesModule : IModule
         });
 
         var count = 0;
+#if !NET481
         var exportTags = new TagList
         {
             { "module", "Identities" },
             { "operation", "identities.export" }
         };
         _migrationMetrics?.IncrementIdentityExportInFlight(exportTags);
+#endif
         var exportSw = System.Diagnostics.Stopwatch.StartNew();
         try
         {
@@ -132,19 +145,25 @@ public sealed class IdentitiesModule : IModule
                 var line = JsonSerializer.Serialize(descriptor, s_jsonOptions);
                 await artefactStore.AppendAsync(DescriptorsPath, line + "\n", ct).ConfigureAwait(false);
                 count++;
+#if !NET481
                 _migrationMetrics?.RecordIdentityExportCount(exportTags);
+#endif
             }
         }
         catch
         {
+#if !NET481
             _migrationMetrics?.RecordIdentityExportError(exportTags);
+#endif
             throw;
         }
         finally
         {
             exportSw.Stop();
+#if !NET481
             _migrationMetrics?.DecrementIdentityExportInFlight(exportTags);
             _migrationMetrics?.RecordIdentityExportDuration(exportSw.Elapsed.TotalMilliseconds, exportTags);
+#endif
         }
 
         activity?.SetTag("identities.count", count);
@@ -180,6 +199,11 @@ public sealed class IdentitiesModule : IModule
     /// <inheritdoc/>
     public async Task ImportAsync(ImportContext context, CancellationToken ct)
     {
+#if NET481
+        // TFS is a source-only connector — import is not supported.
+        _logger.LogDebug("[Identities] Import not supported on net481 (TFS agent) — skipping.");
+        await Task.CompletedTask.ConfigureAwait(false);
+#else
         if (!_options.Enabled)
         {
             _logger.LogDebug("[Identities] Module disabled — skipping import.");
@@ -240,17 +264,20 @@ public sealed class IdentitiesModule : IModule
 
         activity?.SetTag("identities.descriptor.resolved", resolvedCount);
         activity?.SetTag("identities.has.mapping", hasMapping);
+#endif
     }
 
     /// <inheritdoc/>
     public async Task ValidateAsync(ValidationContext context, CancellationToken ct)
     {
         var artefactStore = context.ArtefactStore;
+#if !NET481
         var validateTags = new TagList
         {
             { "module", "Identities" },
             { "operation", "identities.validate" }
         };
+#endif
 
         var exists = await artefactStore.ExistsAsync(DescriptorsPath, ct).ConfigureAwait(false);
         if (!exists)
@@ -260,7 +287,9 @@ public sealed class IdentitiesModule : IModule
                 Path = DescriptorsPath,
                 Message = $"[Identities] Required file '{DescriptorsPath}' is missing from the package."
             });
+#if !NET481
             _migrationMetrics?.RecordIdentityValidateError(validateTags);
+#endif
             return;
         }
 
@@ -272,12 +301,14 @@ public sealed class IdentitiesModule : IModule
                 Path = DescriptorsPath,
                 Message = $"[Identities] File '{DescriptorsPath}' exists but could not be read."
             });
+#if !NET481
             _migrationMetrics?.RecordIdentityValidateError(validateTags);
+#endif
             return;
         }
 
         var lineNumber = 0;
-        foreach (var line in content.Split('\n', StringSplitOptions.RemoveEmptyEntries))
+        foreach (var line in content.Split(new[] { '\n' }, StringSplitOptions.RemoveEmptyEntries))
         {
             lineNumber++;
             try
@@ -292,11 +323,15 @@ public sealed class IdentitiesModule : IModule
                         Path = DescriptorsPath,
                         Message = $"[Identities] Line {lineNumber} in '{DescriptorsPath}' is missing required field 'descriptor'."
                     });
+#if !NET481
                     _migrationMetrics?.RecordIdentityValidateError(validateTags);
+#endif
                 }
                 else
                 {
+#if !NET481
                     _migrationMetrics?.RecordIdentityValidateCount(validateTags);
+#endif
                 }
             }
             catch (JsonException ex)
@@ -306,7 +341,9 @@ public sealed class IdentitiesModule : IModule
                     Path = DescriptorsPath,
                     Message = $"[Identities] Line {lineNumber} in '{DescriptorsPath}' is malformed JSON: {ex.Message}"
                 });
+#if !NET481
                 _migrationMetrics?.RecordIdentityValidateError(validateTags);
+#endif
             }
         }
     }
@@ -314,7 +351,7 @@ public sealed class IdentitiesModule : IModule
     private static int CountLines(string content)
     {
         var count = 0;
-        foreach (var line in content.Split('\n', StringSplitOptions.RemoveEmptyEntries))
+        foreach (var line in content.Split(new[] { '\n' }, StringSplitOptions.RemoveEmptyEntries))
         {
             if (!string.IsNullOrWhiteSpace(line))
                 count++;
@@ -322,4 +359,3 @@ public sealed class IdentitiesModule : IModule
         return count;
     }
 }
-#endif

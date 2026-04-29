@@ -2,20 +2,22 @@ using System.Diagnostics;
 using System.IO;
 using OpenTelemetry;
 
-namespace DevOpsMigrationPlatform.TfsMigrationAgent
+namespace DevOpsMigrationPlatform.Infrastructure.Agent.Telemetry
 {
     /// <summary>
-    /// Writes exported <see cref="Activity"/> spans to a text file for TFS agent diagnostics.
-    /// net481-specific inline implementation (ServiceDefaults is net10.0 only).
+    /// Writes exported <see cref="Activity"/> spans to a text file for agent diagnostics.
+    /// 
     /// </summary>
-    internal sealed class TfsFileTraceExporter : BaseExporter<Activity>
+    public sealed class FileTraceExporter : BaseExporter<Activity>
     {
         private readonly StreamWriter _writer;
         private readonly object _lock = new object();
 
-        public TfsFileTraceExporter(string filePath)
+        public FileTraceExporter(string filePath)
         {
-            Directory.CreateDirectory(Path.GetDirectoryName(filePath));
+            var dir = Path.GetDirectoryName(filePath);
+            if (dir is not null && dir.Length > 0)
+                Directory.CreateDirectory(dir);
             var stream = new FileStream(filePath, FileMode.Append, FileAccess.Write, FileShare.ReadWrite);
             _writer = new StreamWriter(stream) { AutoFlush = true };
         }
@@ -52,3 +54,6 @@ namespace DevOpsMigrationPlatform.TfsMigrationAgent
         }
     }
 }
+
+
+

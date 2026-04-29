@@ -1,8 +1,9 @@
-#if !NET481
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
+#if !NET481
 using DevOpsMigrationPlatform.Abstractions.Agent.Telemetry;
+#endif
 using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Abstractions.Streaming;
 
@@ -20,10 +21,12 @@ public interface IClassificationTreeCapture
     Task<int> CaptureAsync(
         IArtefactStore artefactStore,
         MigrationEndpointOptions endpoint,
-        CancellationToken ct,
-        IMigrationMetrics? metrics = null,
-        string? jobId = null,
-        IProgressSink? sink = null,
-        string moduleName = "Nodes");
-}
+        CancellationToken ct
+#if !NET481
+        , IMigrationMetrics? metrics = null
+        , string? jobId = null
+        , IProgressSink? sink = null
+        , string moduleName = "Nodes"
 #endif
+    );
+}

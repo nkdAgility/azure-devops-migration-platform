@@ -1,4 +1,3 @@
-#if !NET481
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -16,7 +15,9 @@ using DevOpsMigrationPlatform.Abstractions.Agent.Validation;
 using DevOpsMigrationPlatform.Abstractions.Telemetry;
 using DevOpsMigrationPlatform.Abstractions.Validation;
 using DevOpsMigrationPlatform.Abstractions.Streaming;
+#if !NET481
 using DevOpsMigrationPlatform.Abstractions.Agent.Telemetry;
+#endif
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
@@ -26,7 +27,8 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Modules;
 /// <see cref="IModule"/> implementation for classification tree (node structure) export/import.
 /// Wraps the existing <see cref="IClassificationTreeCapture"/> and <see cref="INodeEnsurer"/>
 /// tools with the module lifecycle contract.
-/// 
+/// On net481 (TFS agent): only <see cref="ExportAsync"/> is active; <see cref="ImportAsync"/>
+/// is a no-op since TFS is a source-only connector.
 /// Note on localised root names: <see cref="IClassificationTreeCapture"/> normalises
 /// German "Bereich"/"Iteration" roots to English "Area"/"Iteration" in the captured JSON.
 /// </summary>
@@ -38,9 +40,11 @@ public sealed class NodesModule : IModule
     private static readonly ActivitySource s_activitySource = new(WellKnownActivitySourceNames.Migration);
 
     private readonly IClassificationTreeCapture? _capture;
+#if !NET481
     private readonly INodeEnsurer? _nodeEnsurer;
-    private readonly ICheckpointingServiceFactory? _checkpointingFactory;
     private readonly IMigrationMetrics? _migrationMetrics;
+#endif
+    private readonly ICheckpointingServiceFactory? _checkpointingFactory;
     private readonly ILogger<NodesModule> _logger;
     private readonly NodesModuleOptions _options;
 
@@ -51,16 +55,23 @@ public sealed class NodesModule : IModule
         ILogger<NodesModule> logger,
         IOptions<NodesModuleOptions> options,
         IClassificationTreeCapture? capture = null,
+#if !NET481
         INodeEnsurer? nodeEnsurer = null,
-        ICheckpointingServiceFactory? checkpointingFactory = null,
-        IMigrationMetrics? migrationMetrics = null)
+#endif
+        ICheckpointingServiceFactory? checkpointingFactory = null
+#if !NET481
+        , IMigrationMetrics? migrationMetrics = null
+#endif
+        )
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _options = options?.Value ?? throw new ArgumentNullException(nameof(options));
         _capture = capture;
+#if !NET481
         _nodeEnsurer = nodeEnsurer;
-        _checkpointingFactory = checkpointingFactory;
         _migrationMetrics = migrationMetrics;
+#endif
+        _checkpointingFactory = checkpointingFactory;
     }
 
     /// <inheritdoc/>
@@ -104,7 +115,12 @@ public sealed class NodesModule : IModule
             }
         }
 
-        var nodeCount = await _capture.CaptureAsync(context.ArtefactStore, endpoint, ct, _migrationMetrics, context.Job.JobId, context.ProgressSink, ModuleName).ConfigureAwait(false);
+        var nodeCount = await _capture.CaptureAsync(
+            context.ArtefactStore, endpoint, ct
+#if !NET481
+            , _migrationMetrics, context.Job.JobId, context.ProgressSink, ModuleName
+#endif
+            ).ConfigureAwait(false);
 
         exportSink?.Emit(new ProgressEvent
         {
@@ -136,6 +152,11 @@ public sealed class NodesModule : IModule
     /// <inheritdoc/>
     public async Task ImportAsync(ImportContext context, CancellationToken ct)
     {
+#if NET481
+        // TFS is a source-only connector — import is not supported.
+        _logger.LogDebug("[Nodes] Import not supported on net481 (TFS agent) — skipping.");
+        await Task.CompletedTask.ConfigureAwait(false);
+#else
         if (!_options.Enabled)
         {
             _logger.LogDebug("[Nodes] Module disabled — skipping import.");
@@ -195,6 +216,7 @@ public sealed class NodesModule : IModule
                 UpdatedAt = DateTimeOffset.UtcNow
             }, ct).ConfigureAwait(false);
         }
+#endif
     }
 
     /// <inheritdoc/>
@@ -238,4 +260,3 @@ public sealed class NodesModule : IModule
         }
     }
 }
-#endif

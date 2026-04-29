@@ -46,6 +46,35 @@ public static class DiagnosticsServiceExtensions
     }
 
     /// <summary>
+    /// <see cref="IServiceCollection"/> overload for net481 hosts (Host.CreateDefaultBuilder path)
+    /// that cannot use <see cref="IHostApplicationBuilder"/>.
+    /// Registers the same diagnostic log pipeline as
+    /// <see cref="AddDiagnosticsServices(IHostApplicationBuilder)"/> but registers
+    /// <see cref="ILoggerProvider"/> directly on the service collection.
+    /// </summary>
+    public static IServiceCollection AddDiagnosticsServices(
+        this IServiceCollection services)
+    {
+        services.AddOptions<DiagnosticLogOptions>()
+            .BindConfiguration(DiagnosticLogOptions.SectionName);
+
+        // Package logger — writes to Logs/agent.jsonl via IArtefactStore.
+        services.AddSingleton<PackageLoggerProvider>();
+        services.AddSingleton<IHostedService>(sp => sp.GetRequiredService<PackageLoggerProvider>());
+        services.AddSingleton<ILoggerProvider>(sp => sp.GetRequiredService<PackageLoggerProvider>());
+
+        // Control plane logger — POSTs batches to /agents/lease/{leaseId}/diagnostics.
+        services.AddSingleton<ControlPlaneLoggerProvider>();
+        services.AddSingleton<IHostedService>(sp => sp.GetRequiredService<ControlPlaneLoggerProvider>());
+        services.AddSingleton<ILoggerProvider>(sp => sp.GetRequiredService<ControlPlaneLoggerProvider>());
+
+        // Named HttpClient for the diagnostics endpoint (base address set via ConfigureControlPlaneLoggerClient).
+        services.AddHttpClient(ControlPlaneLoggerProvider.HttpClientName);
+
+        return services;
+    }
+
+    /// <summary>
     /// Configures the <see cref="ControlPlaneLoggerProvider"/> named <see cref="System.Net.Http.HttpClient"/>
     /// with the specified control plane base address.
     /// Call this after <see cref="AddDiagnosticsServices"/> to set the target endpoint.

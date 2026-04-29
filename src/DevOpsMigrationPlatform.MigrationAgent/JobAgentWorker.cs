@@ -14,16 +14,13 @@ namespace DevOpsMigrationPlatform.MigrationAgent;
 
 /// <summary>
 /// MigrationAgent-specific worker that handles ADO and Simulated source jobs.
-/// Inherits the polling loop and lease protocol from <see cref="AgentWorkerBase"/>.
+/// Inherits the module-pipeline infrastructure (stores, checkpointing, ForceFresh,
+/// module loop) from <see cref="ModulePipelineWorkerBase"/>, and overrides
+/// <see cref="AgentWorkerBase.OnMigrationJobAsync"/> to add Both, Import, and Prepare modes.
 /// </summary>
-public sealed class JobAgentWorker : AgentWorkerBase
+public sealed class JobAgentWorker : ModulePipelineWorkerBase
 {
-    private readonly IEnumerable<IModule> _migrationModules;
     private readonly IEnumerable<IDiscoveryModule> _discoveryModules;
-    private readonly IPackageStoreFactory _packageStoreFactory;
-    private readonly IProgressSink _progressSink;
-    private readonly ICheckpointingServiceFactory _checkpointingFactory;
-    private readonly IPhaseTrackingServiceFactory _phaseTrackingFactory;
     private readonly IJobMetricsStore _metricsStore;
     private readonly IJobSnapshotStore _snapshotStore;
     private readonly PackageProgressSink _packageProgressSink;
@@ -46,14 +43,11 @@ public sealed class JobAgentWorker : AgentWorkerBase
         PackageLoggerProvider packageLoggerProvider,
         ILogger<JobAgentWorker> logger,
         PolymorphicEndpointOptionsConverter? endpointConverter = null)
-        : base(leaseState, packageState, httpClientFactory, logger, endpointConverter)
+        : base(migrationModules, packageStoreFactory, progressSink, checkpointingFactory,
+               phaseTrackingFactory, leaseState, packageState, httpClientFactory, logger,
+               endpointConverter)
     {
-        _migrationModules = migrationModules;
         _discoveryModules = discoveryModules;
-        _packageStoreFactory = packageStoreFactory;
-        _progressSink = progressSink;
-        _checkpointingFactory = checkpointingFactory;
-        _phaseTrackingFactory = phaseTrackingFactory;
         _metricsStore = metricsStore;
         _snapshotStore = snapshotStore;
         _packageProgressSink = packageProgressSink;
@@ -74,18 +68,18 @@ public sealed class JobAgentWorker : AgentWorkerBase
     protected override async Task OnMigrationJobAsync(
         MigrationJob job, HttpClient controlPlane, string leaseId, CancellationToken ct)
     {
-        var (artefactStore, stateStore) = _packageStoreFactory.Create(
+        var (artefactStore, stateStore) = PackageStoreFactory.Create(
             job.Package.PackageUri ?? ".");
 
         PackageState.CurrentStore = artefactStore;
 
-        var checkpointer = _checkpointingFactory.Create(stateStore);
-        var phaseTracker = _phaseTrackingFactory.Create(stateStore);
+        var checkpointer = CheckpointingFactory.Create(stateStore);
+        var phaseTracker = PhaseTrackingFactory.Create(stateStore);
 
         if (job.Resume?.Mode == ResumeMode.ForceFresh)
         {
             _logger.LogInformation("ForceFresh requested for job {JobId} — deleting module cursors.", job.JobId);
-            foreach (var module in _migrationModules)
+            foreach (var module in MigrationModules)
             {
                 await checkpointer.DeleteCursorAsync(module.Name, ct).ConfigureAwait(false);
                 _logger.LogDebug("Deleted cursor for module {Module}.", module.Name);
@@ -107,7 +101,7 @@ public sealed class JobAgentWorker : AgentWorkerBase
                 });
                 await artefactStore.WriteAsync("prepare-probe.json", probeContent, ct).ConfigureAwait(false);
 
-                _progressSink.Emit(new ProgressEvent
+                ProgressSink.Emit(new ProgressEvent
                 {
                     Module = "Prepare",
                     Stage = "Completed",
@@ -138,14 +132,14 @@ public sealed class JobAgentWorker : AgentWorkerBase
             Job = job,
             ArtefactStore = artefactStore,
             StateStore = stateStore,
-            ProgressSink = _progressSink
+            ProgressSink = ProgressSink
         };
         var importContext = new ImportContext
         {
             Job = job,
             ArtefactStore = artefactStore,
             StateStore = stateStore,
-            ProgressSink = _progressSink
+            ProgressSink = ProgressSink
         };
 
         var isBoth = string.Equals(job.Mode, "Both", StringComparison.OrdinalIgnoreCase);
@@ -168,7 +162,7 @@ public sealed class JobAgentWorker : AgentWorkerBase
         {
             if (runExport)
             {
-                foreach (var module in _migrationModules)
+                foreach (var module in MigrationModules)
                 {
                     _logger.LogInformation("Running module {Module}.ExportAsync", module.Name);
                     await module.ExportAsync(exportContext, ct).ConfigureAwait(false);
@@ -183,7 +177,7 @@ public sealed class JobAgentWorker : AgentWorkerBase
 
             if (runImport)
             {
-                foreach (var module in _migrationModules)
+                foreach (var module in MigrationModules)
                 {
                     _logger.LogInformation("Running module {Module}.ImportAsync", module.Name);
                     await module.ImportAsync(importContext, ct).ConfigureAwait(false);
@@ -211,7 +205,7 @@ public sealed class JobAgentWorker : AgentWorkerBase
     protected override async Task OnDiscoveryJobAsync(
         DiscoveryJob job, HttpClient controlPlane, string leaseId, CancellationToken ct)
     {
-        var (artefactStore, stateStore) = _packageStoreFactory.Create(
+        var (artefactStore, stateStore) = PackageStoreFactory.Create(
             job.Package.PackageUri ?? ".");
 
         PackageState.CurrentStore = artefactStore;
@@ -266,7 +260,7 @@ public sealed class JobAgentWorker : AgentWorkerBase
             Job = job,
             ArtefactStore = artefactStore,
             StateStore = stateStore,
-            ProgressSink = _progressSink,
+            ProgressSink = ProgressSink,
             MetricsStore = _metricsStore,
             SnapshotStore = _snapshotStore
         };

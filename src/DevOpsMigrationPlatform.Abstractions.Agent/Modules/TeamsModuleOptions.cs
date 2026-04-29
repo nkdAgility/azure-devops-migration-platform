@@ -1,5 +1,4 @@
-﻿#if !NET481
-namespace DevOpsMigrationPlatform.Abstractions.Agent.Modules;
+﻿namespace DevOpsMigrationPlatform.Abstractions.Agent.Modules;
 
 /// <summary>Controls which extensions are enabled in the TeamsModule.</summary>
 public sealed class TeamsModuleExtensionsOptions
@@ -47,4 +46,3 @@ public sealed class TeamsModuleOptions
     /// <summary>Controls which extensions are active for this module.</summary>
     public TeamsModuleExtensionsOptions Extensions { get; init; } = new();
 }
-#endif
