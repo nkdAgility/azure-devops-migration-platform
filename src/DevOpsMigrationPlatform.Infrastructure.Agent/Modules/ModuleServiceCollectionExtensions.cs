@@ -1,5 +1,6 @@
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Modules;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Agent.Modules;
@@ -45,10 +46,11 @@ public static class ModuleServiceCollectionExtensions
     /// Registers <see cref="NodesModule"/> as an <see cref="IModule"/> implementation
     /// for classification tree export/import operations.
     /// </summary>
-    public static IServiceCollection AddNodesModule(this IServiceCollection services)
+    public static IServiceCollection AddNodesModule(this IServiceCollection services, IConfiguration configuration)
     {
         services.AddTransient<IModule, NodesModule>();
-        services.AddOptions<NodesModuleOptions>();
+        services.Configure<NodesModuleOptions>(
+            configuration.GetSection(NodesModuleOptions.SectionName));
         return services;
     }
 }

@@ -85,7 +85,7 @@ public sealed class TeamImportOrchestrator
             {
                 try
                 {
-                    var translatedPath = TranslatePath(iteration.Path, projectMapping);
+                    var translatedPath = TranslatePath("System.IterationPath", iteration.Path, projectMapping);
                     if (translatedPath is null)
                     {
                         _logger.LogWarning(
@@ -132,13 +132,13 @@ public sealed class TeamImportOrchestrator
         if (extensions.NodeTranslation && teamPackage.AreaPaths is not null)
         {
             var projectMapping = new ProjectMapping(sourceProjectName, projectName);
-            var defaultPath = TranslatePath(teamPackage.AreaPaths.DefaultAreaPath, projectMapping);
+            var defaultPath = TranslatePath("System.AreaPath", teamPackage.AreaPaths.DefaultAreaPath, projectMapping);
             if (defaultPath is not null)
             {
                 var translatedPaths = new System.Collections.Generic.List<string>();
                 foreach (var path in teamPackage.AreaPaths.IncludedAreaPaths)
                 {
-                    var translated = TranslatePath(path, projectMapping);
+                    var translated = TranslatePath("System.AreaPath", path, projectMapping);
                     if (translated is not null)
                         translatedPaths.Add(translated);
                     else
@@ -179,7 +179,7 @@ public sealed class TeamImportOrchestrator
         return targetTeamId;
     }
 
-    private string? TranslatePath(string? sourcePath, ProjectMapping projectMapping)
+    private string? TranslatePath(string fieldName, string? sourcePath, ProjectMapping projectMapping)
     {
         if (string.IsNullOrEmpty(sourcePath))
             return sourcePath;
@@ -187,7 +187,7 @@ public sealed class TeamImportOrchestrator
         if (_NodeTransformTool is null || !_NodeTransformTool.IsEnabled)
             return sourcePath; // pass through if tool disabled
 
-        var result = _NodeTransformTool.TranslatePath("System.AreaPath", sourcePath, projectMapping);
+        var result = _NodeTransformTool.TranslatePath(fieldName, sourcePath, projectMapping);
         return result.TargetPath ?? sourcePath;
     }
 }

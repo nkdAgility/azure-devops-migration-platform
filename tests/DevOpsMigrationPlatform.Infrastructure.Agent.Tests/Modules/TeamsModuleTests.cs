@@ -491,7 +491,7 @@ public class TeamsModuleTests
         var target = new SimulatedTeamTarget();
         var orchestrator = new TeamImportOrchestrator(target, NullLogger<TeamImportOrchestrator>.Instance);
 
-        var capacity= new TeamCapacityEntry[]
+        var capacity = new TeamCapacityEntry[]
         {
             new TeamCapacityEntry("desc-alice", "Alice", new[] { new ActivityEntry("Dev", 6) }, 0)
         };
@@ -706,6 +706,79 @@ public class TeamsModuleTests
             It.IsAny<string>(), "SourceProject\\Sprint 1", It.IsAny<ProjectMapping>()), Times.Once);
         Assert.IsTrue(translatedPaths.Contains("TargetProject\\Sprint 1"),
             "Expected translated path 'TargetProject\\Sprint 1'.");
+    }
+
+    [TestMethod]
+    public async Task ImportAsync_UsesIterationPathField_ForIterationTranslation()
+    {
+        // Regression guard: TranslatePath for iterations must pass "System.IterationPath",
+        // not "System.AreaPath". Using the wrong field applies area-path rules/overrides to
+        // iterations and produces incorrect assignments.
+        var target = new SimulatedTeamTarget();
+
+        string? capturedIterationField = null;
+        string? capturedAreaField = null;
+
+        var translationToolMock = new Mock<INodeTranslationTool>(MockBehavior.Loose);
+        translationToolMock.Setup(t => t.IsEnabled).Returns(true);
+        translationToolMock
+            .Setup(t => t.TranslatePath(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<ProjectMapping>()))
+            .Returns<string, string, ProjectMapping>((field, path, _) =>
+            {
+                // Record the first call per field type
+                if (path.Contains("Sprint"))
+                    capturedIterationField = field;
+                else if (path.Contains("\\Area"))
+                    capturedAreaField = field;
+                return new PathTranslation(path, false, true, false);
+            });
+
+        var orchestrator = new TeamImportOrchestrator(
+            target, NullLogger<TeamImportOrchestrator>.Instance,
+            NodeTransformTool: translationToolMock.Object);
+
+        var teamPackage = new TeamPackage
+        {
+            Definition = new TeamDefinition("src-1", "Alpha Team", "desc", false),
+            Iterations = new List<TeamIteration>
+            {
+                new TeamIteration("i1", "SrcProject\\Sprint 1", "Sprint 1", null, null, false, false)
+            },
+            Members = new List<TeamMember>(),
+            AreaPaths = new TeamAreaPaths("SrcProject\\Area", new List<string> { "SrcProject\\Area" }),
+            CapacityByIteration = new Dictionary<string, TeamCapacityEntry[]>()
+        };
+        var json = JsonSerializer.Serialize(teamPackage, s_jsonOptions);
+
+        var storeMock = new Mock<IArtefactStore>(MockBehavior.Loose);
+        storeMock.Setup(s => s.EnumerateAsync("Teams/", It.IsAny<CancellationToken>()))
+            .Returns(ToAsyncEnum(new[] { "Teams/alpha-team/team.json" }));
+        storeMock.Setup(s => s.ReadAsync("Teams/alpha-team/team.json", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(json);
+
+        var module = new TeamsModule(
+            NullLogger<TeamsModule>.Instance,
+            Options.Create(new TeamsModuleOptions
+            {
+                Enabled = true,
+                Extensions = new TeamsModuleExtensionsOptions
+                {
+                    TeamIterations = true,
+                    NodeTranslation = true,
+                }
+            }),
+            new TeamSlugGenerator(),
+            teamTarget: target,
+            importOrchestrator: orchestrator);
+
+        // Act
+        await module.ImportAsync(CreateImportContext(storeMock.Object), CancellationToken.None);
+
+        // Assert — iteration translation used System.IterationPath, area used System.AreaPath
+        Assert.AreEqual("System.IterationPath", capturedIterationField,
+            "Iteration path translation must use 'System.IterationPath', not 'System.AreaPath'.");
+        Assert.AreEqual("System.AreaPath", capturedAreaField,
+            "Area path translation must use 'System.AreaPath'.");
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────

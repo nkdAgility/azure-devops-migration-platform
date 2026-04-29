@@ -61,7 +61,7 @@ public static class MigrationAgentServiceExtensions
 
         // Register IModule implementations.
         builder.Services.AddIdentitiesModule(builder.Configuration);
-        builder.Services.AddNodesModule();
+        builder.Services.AddNodesModule(builder.Configuration);
         builder.Services.AddTeamsModule(builder.Configuration);
         builder.Services.AddAzureDevOpsWorkItemExport();
         builder.Services.AddAzureDevOpsWorkItemImport();

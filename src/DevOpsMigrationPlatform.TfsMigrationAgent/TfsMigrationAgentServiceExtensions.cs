@@ -46,7 +46,7 @@ public static class TfsMigrationAgentServiceExtensions
 
         // Register IModule pipeline (export-only on net481).
         services.AddIdentitiesModule(configuration);
-        services.AddNodesModule();
+        services.AddNodesModule(configuration);
         services.AddWorkItemsModule();
 
         // Unified worker — polls /agents/lease?capabilities=tfs and dispatches to TFS execution.

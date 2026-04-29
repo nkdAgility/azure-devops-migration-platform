@@ -69,7 +69,9 @@ public static class SimulatedServiceCollectionExtensions
         services.AddNodeCreator<SimulatedNodeCreator>("Simulated");
 
         // Team target — in-memory simulation of team creation.
-        services.AddSingleton<ITeamTarget, SimulatedTeamTarget>();
+        // TryAddSingleton ensures the ADO target (registered earlier) is not overridden when both
+        // connectors are registered in the same agent process.
+        services.TryAddSingleton<ITeamTarget, SimulatedTeamTarget>();
 
         return services;
     }
