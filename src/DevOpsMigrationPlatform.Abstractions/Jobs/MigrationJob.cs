@@ -20,6 +20,9 @@ public class MigrationJob : Job
     public string SourceType { get; init; } = string.Empty;
 
     /// <inheritdoc />
-    public override string? GetSourceType() => this.SourceType;
+    /// Returns <c>null</c> when <see cref="SourceType"/> is empty so the job store
+    /// treats it as "any agent can handle this" (e.g. import-only jobs with no source).
+    public override string? GetSourceType() =>
+        string.IsNullOrEmpty(this.SourceType) ? null : this.SourceType;
 }
 
