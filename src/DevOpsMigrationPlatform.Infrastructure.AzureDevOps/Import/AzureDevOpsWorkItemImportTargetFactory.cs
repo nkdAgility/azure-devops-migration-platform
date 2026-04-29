@@ -11,7 +11,7 @@ namespace DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Import;
 /// or <see cref="JobEndpointMigrationOptions"/>.
 /// Throws <see cref="ArgumentException"/> for any other endpoint type.
 /// </summary>
-public sealed class AzureDevOpsWorkItemImportTargetFactory : IWorkItemImportTargetFactory
+internal sealed class AzureDevOpsWorkItemImportTargetFactory : IWorkItemImportTargetFactory
 {
     private readonly IAzureDevOpsClientFactory _clientFactory;
 

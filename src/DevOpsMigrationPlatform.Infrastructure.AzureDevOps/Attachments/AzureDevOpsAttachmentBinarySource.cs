@@ -16,7 +16,7 @@ namespace DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Attachments;
 /// <see cref="AzureDevOpsWorkItemRevisionSource"/>) and fetches the binary via HTTP.
 /// Supports streaming download with in-flight SHA-256 calculation.
 /// </summary>
-public sealed class AzureDevOpsAttachmentBinarySource : IStreamingAttachmentBinarySource
+internal sealed class AzureDevOpsAttachmentBinarySource : IStreamingAttachmentBinarySource
 {
     private readonly AzureDevOpsAttachmentRegistry _registry;
     private readonly IHttpClientFactory _httpClientFactory;

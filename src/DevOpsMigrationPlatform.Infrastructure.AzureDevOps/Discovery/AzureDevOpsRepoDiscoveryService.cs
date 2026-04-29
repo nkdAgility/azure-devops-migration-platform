@@ -9,7 +9,7 @@ namespace DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Discovery;
 /// Azure DevOps implementation of <see cref="IRepoDiscoveryService"/>.
 /// Counts Git repositories in a team project via the Git REST API.
 /// </summary>
-public sealed class AzureDevOpsRepoDiscoveryService : IRepoDiscoveryService
+internal sealed class AzureDevOpsRepoDiscoveryService : IRepoDiscoveryService
 {
     private readonly IAzureDevOpsClientFactory _clientFactory;
 

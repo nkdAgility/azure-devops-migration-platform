@@ -1,4 +1,5 @@
 using System;
+using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Agent.Checkpointing;
 using DevOpsMigrationPlatform.Abstractions.Agent.Lease;
 using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
@@ -76,11 +77,8 @@ public static class CoreAgentServiceExtensions
         // Phase tracking factory for Both mode (export + import phases).
         services.AddSingleton<IPhaseTrackingServiceFactory, PhaseTrackingServiceFactory>();
 
-        // Package store factory — resolves file:/// URIs to FileSystem stores.
-        services.AddSingleton<IPackageStoreFactory, FileSystemPackageStoreFactory>();
-
-        // Package preparer — extracts fixture ZIPs into the artefact store before import.
-        services.AddSingleton<IPackagePreparer, ZipPackagePreparer>();
+        // Package management — store factory, preparer, and config store.
+        services.AddPackageManagementServices();
 
         // Checkpointing factory for per-job cursor management.
         services.AddSingleton<ICheckpointingServiceFactory, CheckpointingServiceFactory>();

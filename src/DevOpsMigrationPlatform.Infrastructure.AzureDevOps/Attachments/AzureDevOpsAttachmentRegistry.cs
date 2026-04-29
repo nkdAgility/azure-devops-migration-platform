@@ -10,7 +10,7 @@ namespace DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Attachments;
 /// requests the attachment bytes.
 /// Scoped to the lifetime of one export operation (register as scoped DI service).
 /// </summary>
-public sealed class AzureDevOpsAttachmentRegistry
+internal sealed class AzureDevOpsAttachmentRegistry
 {
     // Key: (workItemId, revisionIndex, originalName)  Value: download URL
     private readonly ConcurrentDictionary<AttachmentKey, string> _urls = new();

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
@@ -15,7 +15,7 @@ namespace DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Import;
 /// Creates and queries area/iteration classification nodes in the target ADO project.
 /// All operations are idempotent — 409 Conflict responses are treated as success.
 /// </summary>
-public sealed class AzureDevOpsNodeCreator : INodeCreator
+internal sealed class AzureDevOpsNodeCreator : INodeCreator
 {
     private readonly IAzureDevOpsClientFactory _clientFactory;
     private readonly ILogger<AzureDevOpsNodeCreator> _logger;

@@ -15,7 +15,7 @@ namespace DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Export;
 /// Evaluates <see cref="WorkItemFieldFilterOptions"/> predicates in-process
 /// before yielding each item.
 /// </summary>
-public sealed class AzureDevOpsWorkItemFetchService : IWorkItemFetchService
+internal sealed class AzureDevOpsWorkItemFetchService : IWorkItemFetchService
 {
     private readonly IWorkItemQueryWindowStrategy _windowStrategy;
     private readonly IAzureDevOpsClientFactory _clientFactory;

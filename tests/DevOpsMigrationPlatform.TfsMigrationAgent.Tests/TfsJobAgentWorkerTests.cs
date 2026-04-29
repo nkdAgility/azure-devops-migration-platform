@@ -491,8 +491,13 @@ public class TfsJobAgentWorkerTests
         store.Setup(s => s.ReadAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync("{\"MigrationPlatform\":{\"Mode\":\"Export\"}}");
 
+        var factory = new Mock<IPackageStoreFactory>(MockBehavior.Loose);
+        factory.Setup(f => f.Create(It.IsAny<string>()))
+            .Returns((store.Object, new Mock<IStateStore>().Object));
+
         var metrics = new Mock<IMigrationMetrics>(MockBehavior.Loose);
         var sut = new DevOpsMigrationPlatform.Infrastructure.Agent.Storage.PackageConfigStore(
+            factory.Object,
             Microsoft.Extensions.Logging.Abstractions.NullLogger<DevOpsMigrationPlatform.Infrastructure.Agent.Storage.PackageConfigStore>.Instance,
             metrics.Object);
 
@@ -522,8 +527,13 @@ public class TfsJobAgentWorkerTests
         store.Setup(s => s.WriteAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
 
+        var factory = new Mock<IPackageStoreFactory>(MockBehavior.Loose);
+        factory.Setup(f => f.Create(It.IsAny<string>()))
+            .Returns((store.Object, new Mock<IStateStore>().Object));
+
         var metrics = new Mock<IMigrationMetrics>(MockBehavior.Loose);
         var sut = new DevOpsMigrationPlatform.Infrastructure.Agent.Storage.PackageConfigStore(
+            factory.Object,
             Microsoft.Extensions.Logging.Abstractions.NullLogger<DevOpsMigrationPlatform.Infrastructure.Agent.Storage.PackageConfigStore>.Instance,
             metrics.Object);
 
@@ -531,7 +541,7 @@ public class TfsJobAgentWorkerTests
         try
         {
             System.IO.File.WriteAllText(configFile, """{"MigrationPlatform":{"Mode":"Export"}}""");
-            await sut.WriteAsync(store.Object, configFile, false, CancellationToken.None);
+            await sut.WriteAsync("test://package", configFile, false, CancellationToken.None);
         }
         finally { System.IO.File.Delete(configFile); }
 

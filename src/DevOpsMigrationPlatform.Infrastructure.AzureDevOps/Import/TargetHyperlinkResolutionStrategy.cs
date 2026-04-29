@@ -15,7 +15,7 @@ namespace DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Import;
 /// configured URL pattern. The source work item ID is extracted from the matching hyperlink URL.
 /// No live per-item fallback is performed (FR-022 compliance).
 /// </summary>
-public sealed class TargetHyperlinkResolutionStrategy : IWorkItemResolutionStrategy
+internal sealed class TargetHyperlinkResolutionStrategy : IWorkItemResolutionStrategy
 {
     private readonly WorkItemTrackingHttpClient _witClient;
     private readonly IWorkItemImportTarget _target;

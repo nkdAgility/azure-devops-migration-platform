@@ -41,7 +41,7 @@ internal sealed class WiqlQueryClientAdapter : IWiqlQueryClient
 /// Produces <see cref="IWiqlQueryClient"/> instances backed by
 /// <see cref="IAzureDevOpsClientFactory"/>.
 /// </summary>
-public sealed class AzureDevOpsWiqlQueryClientFactory : IWiqlQueryClientFactory
+internal sealed class AzureDevOpsWiqlQueryClientFactory : IWiqlQueryClientFactory
 {
     private readonly IAzureDevOpsClientFactory _inner;
 

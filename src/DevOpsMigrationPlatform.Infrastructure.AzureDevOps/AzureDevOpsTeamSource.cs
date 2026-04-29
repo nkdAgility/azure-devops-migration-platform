@@ -15,7 +15,7 @@ namespace DevOpsMigrationPlatform.Infrastructure.AzureDevOps;
 /// Azure DevOps REST API implementation of <see cref="ITeamSource"/>.
 /// Uses the TeamHttpClient and WorkHttpClient from the Azure DevOps SDK.
 /// </summary>
-public sealed class AzureDevOpsTeamSource : ITeamSource
+internal sealed class AzureDevOpsTeamSource : ITeamSource
 {
     private readonly IAzureDevOpsClientFactory _clientFactory;
     private readonly ILogger<AzureDevOpsTeamSource> _logger;

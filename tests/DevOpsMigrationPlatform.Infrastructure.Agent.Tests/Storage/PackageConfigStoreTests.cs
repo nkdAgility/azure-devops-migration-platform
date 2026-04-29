@@ -30,7 +30,25 @@ public class PackageConfigStoreTests
     private static readonly ILogger<PackageConfigStore> _logger =
         NullLogger<PackageConfigStore>.Instance;
 
-    private static PackageConfigStore CreateSut() => new(_logger, _metrics.Object);
+    private const string TestPackageUri = "test://package";
+
+    /// <summary>Creates a sut wired to return <paramref name="artefactStore"/> for any URI.</summary>
+    private static PackageConfigStore CreateSut(Mock<IArtefactStore> artefactStore)
+    {
+        var factory = new Mock<IPackageStoreFactory>(MockBehavior.Loose);
+        factory.Setup(f => f.Create(It.IsAny<string>()))
+            .Returns((artefactStore.Object, new Mock<IStateStore>().Object));
+        return new PackageConfigStore(factory.Object, _logger, _metrics.Object);
+    }
+
+    /// <summary>Creates a sut with a custom logger, wired to return <paramref name="artefactStore"/>.</summary>
+    private static PackageConfigStore CreateSut(Mock<IArtefactStore> artefactStore, ILogger<PackageConfigStore> logger, IMigrationMetrics? metrics = null)
+    {
+        var factory = new Mock<IPackageStoreFactory>(MockBehavior.Loose);
+        factory.Setup(f => f.Create(It.IsAny<string>()))
+            .Returns((artefactStore.Object, new Mock<IStateStore>().Object));
+        return new PackageConfigStore(factory.Object, logger, metrics ?? _metrics.Object);
+    }
 
     private static string CreateTempConfigFile()
     {
@@ -52,13 +70,13 @@ public class PackageConfigStoreTests
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync(true);
 
-        var sut = CreateSut();
+        var sut = CreateSut(store);
         var configFile = CreateTempConfigFile();
         try
         {
             // Act + Assert
             await Assert.ThrowsExactlyAsync<InvalidOperationException>(
-                () => sut.WriteAsync(store.Object, configFile, false, CancellationToken.None));
+                () => sut.WriteAsync(TestPackageUri, configFile, false, CancellationToken.None));
         }
         finally { File.Delete(configFile); }
     }
@@ -76,12 +94,12 @@ public class PackageConfigStoreTests
         store.Setup(s => s.WriteAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
 
-        var sut = CreateSut();
+        var sut = CreateSut(store);
         var configFile = CreateTempConfigFile();
         try
         {
             // Act — should not throw
-            await sut.WriteAsync(store.Object, configFile, true, CancellationToken.None);
+            await sut.WriteAsync(TestPackageUri, configFile, true, CancellationToken.None);
         }
         finally { File.Delete(configFile); }
 
@@ -104,12 +122,12 @@ public class PackageConfigStoreTests
             .Returns(Task.CompletedTask);
 
         var metricsMock = new Mock<IMigrationMetrics>(MockBehavior.Loose);
-        var sut = new PackageConfigStore(_logger, metricsMock.Object);
+        var sut = CreateSut(store, _logger, metricsMock.Object);
         var configFile = CreateTempConfigFile();
         try
         {
             // Act
-            await sut.WriteAsync(store.Object, configFile, false, CancellationToken.None);
+            await sut.WriteAsync(TestPackageUri, configFile, false, CancellationToken.None);
         }
         finally { File.Delete(configFile); }
 
@@ -129,13 +147,13 @@ public class PackageConfigStoreTests
             .ThrowsAsync(new IOException("disk full"));
 
         var metricsMock = new Mock<IMigrationMetrics>(MockBehavior.Loose);
-        var sut = new PackageConfigStore(_logger, metricsMock.Object);
+        var sut = CreateSut(store, _logger, metricsMock.Object);
         var configFile = CreateTempConfigFile();
         try
         {
             // Act
             await Assert.ThrowsExactlyAsync<IOException>(
-                () => sut.WriteAsync(store.Object, configFile, false, CancellationToken.None));
+                () => sut.WriteAsync(TestPackageUri, configFile, false, CancellationToken.None));
         }
         finally { File.Delete(configFile); }
 
@@ -193,7 +211,7 @@ public class PackageConfigStoreTests
             .ReturnsAsync(false);
 
         var capturingLogger = new CapturingLogger<PackageConfigStore>();
-        var sut = new PackageConfigStore(capturingLogger, _metrics.Object);
+        var sut = CreateSut(store, capturingLogger);
 
         // Act
         await Assert.ThrowsExactlyAsync<PackageConfigNotFoundException>(
@@ -219,7 +237,7 @@ public class PackageConfigStoreTests
             .ReturnsAsync(json);
 
         var capturingLogger = new CapturingLogger<PackageConfigStore>();
-        var sut = new PackageConfigStore(capturingLogger, _metrics.Object);
+        var sut = CreateSut(store, capturingLogger);
 
         // Act
         var result = await sut.ReadAsync(store.Object, CancellationToken.None);
@@ -243,13 +261,13 @@ public class PackageConfigStoreTests
             .Returns(Task.CompletedTask);
 
         var capturingLogger = new CapturingLogger<PackageConfigStore>();
-        var sut = new PackageConfigStore(capturingLogger, _metrics.Object);
+        var sut = CreateSut(store, capturingLogger);
 
         var configFile = CreateTempConfigFile();
         try
         {
             // Act
-            await sut.WriteAsync(store.Object, configFile, false, CancellationToken.None);
+            await sut.WriteAsync(TestPackageUri, configFile, false, CancellationToken.None);
         }
         finally { File.Delete(configFile); }
 
@@ -283,13 +301,13 @@ public class PackageConfigStoreTests
         };
         ActivitySource.AddActivityListener(listener);
 
-        var sut = CreateSut();
+        var sut = CreateSut(store);
 
         var configFile = CreateTempConfigFile();
         try
         {
             // Act
-            await sut.WriteAsync(store.Object, configFile, false, CancellationToken.None);
+            await sut.WriteAsync(TestPackageUri, configFile, false, CancellationToken.None);
         }
         finally { File.Delete(configFile); }
 
@@ -341,7 +359,7 @@ public class PackageConfigStoreTests
             .ReturnsAsync(false);
 
         var metricsMock = new Mock<IMigrationMetrics>(MockBehavior.Loose);
-        var sut = new PackageConfigStore(_logger, metricsMock.Object);
+        var sut = CreateSut(store, _logger, metricsMock.Object);
 
         // Act
         await Assert.ThrowsExactlyAsync<PackageConfigNotFoundException>(

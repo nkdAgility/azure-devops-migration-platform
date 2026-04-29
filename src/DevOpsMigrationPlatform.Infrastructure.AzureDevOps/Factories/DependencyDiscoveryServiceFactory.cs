@@ -13,7 +13,7 @@ namespace DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Factories;
 /// <see cref="ScopedOrganisationEndpoint"/> entries carried on a <see cref="DiscoveryJob"/>.
 /// Used by <c>DependencyDiscoveryModule</c> so the agent does not need a config file at runtime.
 /// </summary>
-public sealed class DependencyDiscoveryServiceFactory : IDependencyDiscoveryServiceFactory
+internal sealed class DependencyDiscoveryServiceFactory : IDependencyDiscoveryServiceFactory
 {
     private readonly System.IServiceProvider _serviceProvider;
     private readonly ICatalogService _catalogService;

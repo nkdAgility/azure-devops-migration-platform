@@ -16,7 +16,7 @@ namespace DevOpsMigrationPlatform.Infrastructure.AzureDevOps;
 /// Default implementation of <see cref="IAzureDevOpsClientFactory"/>.
 /// All <see cref="VssConnection"/> and credential construction is centralised here.
 /// </summary>
-public sealed class AzureDevOpsClientFactory : IAzureDevOpsClientFactory
+internal sealed class AzureDevOpsClientFactory : IAzureDevOpsClientFactory
 {
     public Task<ProjectHttpClient> CreateProjectClientAsync(
         OrganisationEndpoint endpoint, CancellationToken cancellationToken = default)

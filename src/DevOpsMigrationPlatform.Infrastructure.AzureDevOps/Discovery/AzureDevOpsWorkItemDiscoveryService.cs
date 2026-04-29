@@ -13,7 +13,7 @@ namespace DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Discovery;
 /// Uses <see cref="IWorkItemFetchService"/> for field-projected work item fetching
 /// and the shared <see cref="IWorkItemQueryWindowStrategy"/> for counting-only paths.
 /// </summary>
-public sealed class AzureDevOpsWorkItemDiscoveryService : IWorkItemDiscoveryService
+internal sealed class AzureDevOpsWorkItemDiscoveryService : IWorkItemDiscoveryService
 {
     private readonly IWorkItemQueryWindowStrategy _windowStrategy;
     private readonly IWorkItemFetchService _fetchService;

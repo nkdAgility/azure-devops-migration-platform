@@ -14,7 +14,7 @@ namespace DevOpsMigrationPlatform.Infrastructure.AzureDevOps;
 /// Accepts either <see cref="AzureDevOpsEndpointOptions"/> (preferred) or
 /// <see cref="JobEndpointMigrationOptions"/> (legacy bridge from <c>WorkItemsModule</c>).
 /// </summary>
-public sealed class AzureDevOpsWorkItemRevisionSourceFactory : IWorkItemRevisionSourceFactory
+internal sealed class AzureDevOpsWorkItemRevisionSourceFactory : IWorkItemRevisionSourceFactory
 {
     private readonly IAzureDevOpsClientFactory _clientFactory;
     private readonly IWorkItemQueryWindowStrategy _windowStrategy;

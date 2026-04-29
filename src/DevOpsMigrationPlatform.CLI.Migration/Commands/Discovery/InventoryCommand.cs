@@ -12,7 +12,6 @@ using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.CLI.JobRunners;
 using DevOpsMigrationPlatform.CLI.Migration.Commands;
-using DevOpsMigrationPlatform.CLI.Migration.Configuration;
 using DevOpsMigrationPlatform.CLI.Migration.Options;
 using DevOpsMigrationPlatform.CLI.Migration.Settings;
 using DevOpsMigrationPlatform.Infrastructure;
@@ -502,5 +501,5 @@ public sealed class InventoryCommand : ControlPlaneCommandBase<InventoryCommand.
             : value;
 
     private static string SanitiseFolderName(string url) =>
-        CliPathUtilities.ExtractOrgFolderName(url);
+        PackagePathResolver.ExtractOrgFolderName(url);
 }

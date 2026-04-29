@@ -38,7 +38,7 @@ public class QueueCommandTests
         var configStoreMock = new Mock<IPackageConfigStore>(MockBehavior.Strict);
         configStoreMock
             .Setup(s => s.WriteAsync(
-                It.IsAny<IArtefactStore>(),
+                It.IsAny<string>(),
                 It.IsAny<string>(),
                 It.IsAny<bool>(),
                 It.IsAny<CancellationToken>()))
@@ -52,7 +52,7 @@ public class QueueCommandTests
         try
         {
             await configStoreMock.Object.WriteAsync(
-                new Mock<IArtefactStore>().Object,
+                "test://package",
                 "dummy-config.json",
                 false,
                 CancellationToken.None);

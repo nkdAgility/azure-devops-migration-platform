@@ -19,7 +19,7 @@ namespace DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Export;
 /// one at a time (no full-load into memory). Registers attachment download URLs in
 /// <see cref="AzureDevOpsAttachmentRegistry"/> as each revision is mapped.
 /// </summary>
-public sealed class AzureDevOpsWorkItemRevisionSource : IWorkItemRevisionSource
+internal sealed class AzureDevOpsWorkItemRevisionSource : IWorkItemRevisionSource
 {
     private readonly WorkItemTrackingHttpClient _client;
     private readonly IWorkItemQueryWindowStrategy _windowStrategy;
