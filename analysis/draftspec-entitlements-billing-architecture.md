@@ -3,7 +3,7 @@ title: Entitlements & Billing Architecture Specification
 id: spec-ENT-001
 status: draft
 owner: ControlPlane
-version: 1.2
+version: 1.3
 ---
 
 # 1. Purpose
@@ -40,8 +40,9 @@ Define a pluggable entitlement and billing system that:
    - unit-of-work boundaries (Agent)
 9. The system MUST operate without network connectivity in Standalone mode.
 10. All entitlement inputs MUST be cryptographically verifiable.
-11. Usage MUST NOT be trusted from the Agent; ControlPlane reconstructs authoritative totals from checkpoint cursors.
+11. Usage MUST NOT be trusted from the Agent; ControlPlane reconstructs authoritative totals from agent-reported `UsageDelta` records persisted in its own database — NOT by reading the package directly.
 12. There MUST be no implicit or environment-based entitlement behaviour (e.g. "unlimited").
+13. Entitlement enforcement in the Agent MUST be implemented as a Job Engine pipeline behaviour — modules MUST NOT contain entitlement-checking logic.
 
 ---
 
@@ -152,40 +153,74 @@ public interface IEntitlementProvider
 
 ---
 
-## 4.3 IEntitlementAuthority
+## 4.3 IEntitlementSnapshotService
 
 ```csharp
-public interface IEntitlementAuthority
+public interface IEntitlementSnapshotService
 {
     Task<EntitlementSnapshot> GetSnapshotAsync(
         EntitlementContext context,
         CancellationToken ct);
+}
+```
 
+> Responsible for combining provider data with the usage ledger to produce a snapshot.
+
+---
+
+## 4.4 IJobAdmissionPolicy
+
+```csharp
+public interface IJobAdmissionPolicy
+{
     Task<EntitlementDecision> AuthoriseJobAsync(
         MigrationJob job,
-        CancellationToken ct);
-
-    Task RecordUsageAsync(
-        UsageDelta usage,
         CancellationToken ct);
 }
 ```
 
+> Called by the ControlPlane at job submission and lease renewal. Single responsibility: admit or reject.
+
 ---
 
-## 4.4 UsageDelta
+## 4.5 IUsageLedger
+
+```csharp
+public interface IUsageLedger
+{
+    Task RecordUsageAsync(
+        UsageDelta usage,
+        CancellationToken ct);
+
+    Task<long> GetTotalUsedAsync(
+        string entitlementId,
+        string meter,
+        CancellationToken ct);
+}
+```
+
+> Persists usage deltas reported by agents. Reconstructs totals from its own store — never reads the package.
+
+---
+
+## 4.6 UsageDelta
 
 ```csharp
 public sealed record UsageDelta
 {
     public required Guid JobId;
     public required string Module;
-    public required string Cursor;
+    /// <summary>Opaque idempotency key provided by the module.
+    /// Typically derived from checkpoint state but NOT an artefact store path.
+    /// Example: "batch-42" or "window-2026-02-25T18:00".</summary>
+    public required string IdempotencyKey;
     public required long Count;
 }
 ```
 
-Usage recording is idempotent: the combination of `JobId + Module + Cursor` is the natural key. Safe to replay.
+Usage recording is idempotent: the combination of `JobId + Module + IdempotencyKey` is the natural key. Safe to replay.
+
+> **Design note:** The `IdempotencyKey` is deliberately opaque — it decouples the usage model from `IArtefactStore` path conventions. Modules choose their own key scheme; the control plane treats it as an opaque string for deduplication.
 
 ---
 
@@ -236,6 +271,21 @@ public enum EnforcementBehaviour
     Audit
 }
 ```
+
+### Mode vs Behaviour Precedence
+
+`EntitlementMode` is a **global override** that takes precedence over per-item `EnforcementBehaviour`:
+
+| Mode | Effect on per-item Behaviour |
+|---|---|
+| `Enforce` | Per-item Behaviour applies as declared (Block/Warn/Audit) |
+| `WarnOnly` | All per-item behaviours are downgraded to `Warn` (nothing blocks) |
+| `AuditOnly` | All per-item behaviours are downgraded to `Audit` (silent recording only) |
+| `Deny` | All operations are blocked regardless of per-item Behaviour |
+
+### Signature Verification
+
+The Agent does **NOT** verify the snapshot signature. The ControlPlane verifies provider data at source; the snapshot is trusted once delivered via the authenticated lease channel (HTTPS + lease token). The `Signature` field exists for audit trail purposes — it allows offline verification that a snapshot was produced from a valid entitlement source.
 
 ---
 
@@ -313,7 +363,7 @@ Failure behaviour:
 
 * MUST use asymmetric signature (RSA or equivalent)
 * MUST NOT rely on encryption alone
-* Public key MUST be embedded in product binaries
+* Public key MUST be available to the ControlPlane via `IOptions<LicenceValidationOptions>` — not hard-coded or loaded via reflection in domain code
 
 ---
 
@@ -321,12 +371,20 @@ Failure behaviour:
 
 ## 8.1 Source of Truth
 
-Usage is reconstructed from **checkpoint cursors** — the authoritative record of what has been processed.
+Usage is reconstructed from **agent-reported `UsageDelta` records** persisted in the ControlPlane's own database — NOT by reading the package or its checkpoint files directly.
 
-- Hosted mode: ControlPlane PostgreSQL database
+The flow:
+1. Agent processes a batch and writes a checkpoint to the package.
+2. Agent reports a `UsageDelta` to ControlPlane via `POST /agents/lease/{leaseId}/usage`.
+3. ControlPlane persists the delta in its usage ledger (idempotent by `JobId + Module + IdempotencyKey`).
+4. ControlPlane reconstructs totals from its own ledger when building snapshots.
+
+This preserves the **data residency rule**: the ControlPlane never reads the package.
+
+- Hosted mode: ControlPlane PostgreSQL database (`usage_deltas` table)
 - Standalone mode: Local SQLite database (same schema, different backing store)
 
-Agent-reported usage is treated as advisory only.
+Agent-reported usage is the input to the ledger but is deduplicated and validated by the ControlPlane before counting.
 
 ---
 
@@ -336,7 +394,7 @@ Agent-reported usage is treated as advisory only.
 remaining = limit - totalUsed;
 ```
 
-`totalUsed` is reconstructed from checkpoint cursor positions per module.
+`totalUsed` is the sum of all `UsageDelta.Count` values in the ledger for the given `entitlementId + meter`, deduplicated by `IdempotencyKey`.
 
 ---
 
@@ -344,8 +402,9 @@ remaining = limit - totalUsed;
 
 Usage recording MUST be idempotent:
 
-* Natural key: `jobId + module + cursor`
+* Natural key: `jobId + module + idempotencyKey`
 * Safe to replay
+* Duplicate reports are silently ignored
 
 ---
 
@@ -385,16 +444,30 @@ if (limitExceeded)
 
 ---
 
-## 9.2 Agent Enforcement
+## 9.2 Agent Enforcement (Job Engine Pipeline Middleware)
 
-At unit-of-work boundaries (defined by each module's checkpoint cursor granularity):
+Entitlement enforcement is implemented as a **Job Engine pipeline behaviour** — NOT as code within individual modules. Modules have no knowledge of or reference to entitlement logic (constraint #7, #13).
+
+The `EntitlementEnforcementBehaviour` runs at unit-of-work boundaries (defined by each module's checkpoint cursor granularity):
 
 ```csharp
-if (!snapshot.CanProcess(nextBatch))
-    stop gracefully at checkpoint;
+// Job Engine pipeline — NOT module code
+public class EntitlementEnforcementBehaviour : IModulePipelineBehaviour
+{
+    public async Task<bool> BeforeNextBatchAsync(EntitlementSnapshot snapshot, ...)
+    {
+        if (!snapshot.CanProcess(nextBatch))
+        {
+            // Signal graceful stop — module will complete current batch,
+            // write checkpoint, then job transitions to Paused.
+            return false;
+        }
+        return true;
+    }
+}
 ```
 
-The agent finishes the current batch/window, writes the checkpoint, then pauses the job. It does NOT hard-stop mid-batch.
+The agent finishes the current batch/window, writes the checkpoint, reports usage via `POST /agents/lease/{leaseId}/usage`, then pauses the job. It does NOT hard-stop mid-batch.
 
 ---
 
@@ -412,10 +485,10 @@ The agent finishes the current batch/window, writes the checkpoint, then pauses 
 
 ```text
 IEntitlementProvider
-├── AzureMarketplaceProvider   (Azure Marketplace SaaS fulfilment API)
-├── LicenceServerProvider      (online licence server)
-├── LicenceFileProvider        (signed offline licence file)
-├── CommunityProvider          (capped, full-featured, no purchase required)
+├── AzureMarketplaceProvider       (Azure Marketplace SaaS fulfilment API)
+├── LicenceServerProvider          (online licence server)
+├── LicenceFileProvider            (signed offline licence file)
+├── BuiltInEntitlementProvider     (capped, full-featured, no purchase required)
 ```
 
 Resolution order is deterministic and configurable:
@@ -426,15 +499,13 @@ Composite → priority-ordered list → first valid provider wins
 
 ---
 
----
-
 # 11. Community Tier
 
 The community/free tier:
 
 - Full-featured (all modules enabled)
 - Capped at a small item limit per module (e.g. 100 work items)
-- No licence file required — `CommunityProvider` returns a built-in entitlement with hard limits
+- No licence file required — `BuiltInEntitlementProvider` returns a hardcoded entitlement with small caps
 - Same enforcement path as all other tiers (no special-case logic)
 
 ---
@@ -444,7 +515,7 @@ The community/free tier:
 Standalone mode MUST:
 
 * Operate without network
-* Use `LicenceFileProvider` (or fall back to `CommunityProvider`)
+* Use `LicenceFileProvider` (or fall back to `BuiltInEntitlementProvider`)
 * Maintain local usage ledger in SQLite
 * Enforce all limits identically to hosted mode
 
@@ -466,14 +537,70 @@ The following are explicitly disallowed:
 
 ---
 
-# 14. Summary
+# 14. Assembly Placement
+
+| Type | Assembly | Rationale |
+|---|---|---|
+| `EntitlementContext` | `Abstractions` | Domain value object |
+| `EntitlementSnapshot` | `Abstractions` | Immutable contract carried in lease |
+| `UsageDelta` | `Abstractions` | Domain value object |
+| `EntitlementMode`, `EnforcementBehaviour` | `Abstractions` | Domain enums |
+| `FeatureEntitlement`, `QuantityEntitlement` | `Abstractions` | Domain records |
+| `IEntitlementProvider` | `Abstractions` | Port interface |
+| `IEntitlementSnapshotService` | `Abstractions` | Port interface |
+| `IJobAdmissionPolicy` | `Abstractions` | Port interface |
+| `IUsageLedger` | `Abstractions` | Port interface |
+| `IEntitlementEnforcer` | `Abstractions.Agent` | Agent-side pipeline behaviour contract |
+| `EntitlementEnforcementBehaviour` | `Infrastructure.Agent` | Pipeline middleware implementation |
+| `AzureMarketplaceProvider` | `Infrastructure.ControlPlane` | External integration |
+| `LicenceFileProvider` | `Infrastructure.ControlPlane` | Offline licence reader |
+| `LicenceServerProvider` | `Infrastructure.ControlPlane` | Online licence reader |
+| `BuiltInEntitlementProvider` | `Infrastructure.ControlPlane` | Hardcoded community caps |
+| `LicenceValidationOptions` | `Abstractions` | Options record for key material |
+| `UsageLedgerPostgres` | `ControlPlane` | EF Core implementation |
+| `UsageLedgerSqlite` | `Infrastructure.Agent` | SQLite implementation for standalone |
+
+---
+
+# 15. Testing Strategy
+
+## 15.1 SimulatedEntitlementProvider
+
+A `SimulatedEntitlementProvider` MUST exist in `Infrastructure.Simulated` for system tests. It returns configurable entitlement data without network calls, enabling:
+
+- Tests that verify enforcement triggers at exact item counts
+- Tests that verify graceful stop behaviour
+- Tests that verify Mode/Behaviour precedence
+- Tests that verify TTL expiry handling
+
+## 15.2 Test Boundaries
+
+| Test category | What it validates |
+|---|---|
+| Unit | `IJobAdmissionPolicy` rejects when limits exceeded |
+| Unit | `IUsageLedger` deduplicates by idempotency key |
+| Unit | `EntitlementEnforcementBehaviour` signals stop when `CanProcess` returns false |
+| Unit | Mode precedence downgrades per-item Behaviour correctly |
+| SystemTest_Simulated | Full export with `BuiltInEntitlementProvider` caps at configured limit |
+| SystemTest_Simulated | Job pauses gracefully at checkpoint when limit hit mid-run |
+| SystemTest_Simulated | Heartbeat refresh delivers updated snapshot |
+
+## 15.3 Three-Connector Rule
+
+Entitlement enforcement is connector-agnostic (it operates at the Job Engine level). The `SimulatedEntitlementProvider` satisfies the simulated connector requirement. No ADO or TFS-specific entitlement logic exists — enforcement is identical across all connectors.
+
+---
+
+# 16. Summary
 
 The system defines:
 
 * Entitlement as a deterministic, signed input
 * ControlPlane as the local or remote authority
 * Agent as an execution enforcer (snapshot delivered via lease, refreshed via heartbeat)
-* Usage as locally reconstructed from checkpoint cursors
+* Enforcement as a Job Engine pipeline behaviour — modules are unaware of entitlements
+* Usage tracked via agent-reported deltas in the ControlPlane's own ledger (never reads the package)
+* Three focused interfaces: `IEntitlementSnapshotService`, `IJobAdmissionPolicy`, `IUsageLedger`
 * Scope supporting tenant, tenant+user, and contract-level granularity
 
 Offline and online modes differ only in **entitlement source** and **usage ledger backing store**, not behaviour.
