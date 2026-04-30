@@ -254,6 +254,9 @@ public sealed class TfsJobAgentWorker : ModulePipelineWorkerBase
         }
 
         var terminal = failed ? "fail" : "complete";
+        // Flush buffered sinks before signalling — the CLI kills this process on receipt.
+        foreach (var flushable in _flushables)
+            await flushable.FlushAsync().ConfigureAwait(false);
         await SignalTerminalAsync(controlPlane, leaseId, terminal, ct).ConfigureAwait(false);
     }
 

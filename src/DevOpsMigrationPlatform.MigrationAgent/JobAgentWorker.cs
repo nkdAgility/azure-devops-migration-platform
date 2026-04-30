@@ -316,6 +316,12 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
             }
 
             var terminal = failed ? "fail" : "complete";
+            // Flush buffered sinks (progress.jsonl, agent.jsonl) BEFORE signalling completion.
+            // The CLI kills this process as soon as it receives the terminal status from the
+            // control plane. OnPostJobFlushAsync (base class) runs AFTER SignalTerminalAsync,
+            // so without this pre-signal flush, async-batched sinks may never write their data.
+            foreach (var flushable in _flushables)
+                await flushable.FlushAsync().ConfigureAwait(false);
             await SignalTerminalAsync(controlPlane, leaseId, terminal, ct).ConfigureAwait(false);
         } // end outer try
         finally
@@ -459,6 +465,9 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
         }
 
         var terminal = failed ? "fail" : "complete";
+        // Flush buffered sinks before signalling — the CLI kills this process on receipt.
+        foreach (var flushable in _flushables)
+            await flushable.FlushAsync().ConfigureAwait(false);
         await SignalTerminalAsync(controlPlane, leaseId, terminal, ct).ConfigureAwait(false);
     }
 
