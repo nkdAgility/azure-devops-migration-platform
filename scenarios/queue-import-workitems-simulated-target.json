@@ -17,7 +17,7 @@
       "Type": "Simulated"
     },
     "Package": {
-      "WorkingDirectory": "storage\\queue-import-workitems-simulated-target",
+      "WorkingDirectory": "%DEVOPS_MIGRATION_TEST_STORAGE%",
       "CreatePackage": true,
       "PackagePath": "scenarios\\testdata\\workitems-2items-flat.zip"
     },

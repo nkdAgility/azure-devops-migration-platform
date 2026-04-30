@@ -169,13 +169,14 @@ public class QueueCommandTests
     public async Task QueueCommand_WithSimulatedImportMode_Fixture_ExitsZero_AndImportsBothWorkItems()
     {
         // ── Arrange ───────────────────────────────────────────────────────
-        var outputDir = Path.Combine(CliRunner.FindRepoRoot(), "storage", "queue-import-workitems-simulated-fixture");
+        var outputDir = Path.Combine(CliRunner.FindRepoRoot(), "storage", nameof(QueueCommand_WithSimulatedImportMode_Fixture_ExitsZero_AndImportsBothWorkItems));
         if (Directory.Exists(outputDir))
             Directory.Delete(outputDir, recursive: true);
 
         // ── Act ───────────────────────────────────────────────────────────
         var result = await CliRunner.RunAsync(
             args: ["queue", "--config", "scenarios/queue-import-workitems-simulated-fixture.json", "--force-fresh"],
+            env: new Dictionary<string, string> { ["DEVOPS_MIGRATION_TEST_STORAGE"] = Path.Combine("storage", nameof(QueueCommand_WithSimulatedImportMode_Fixture_ExitsZero_AndImportsBothWorkItems)) },
             timeout: TimeSpan.FromSeconds(110));
 
         Console.WriteLine("=== STDOUT ===");

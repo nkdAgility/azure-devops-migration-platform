@@ -19,7 +19,7 @@
       "Project": "SimulatedTarget"
     },
     "Package": {
-      "WorkingDirectory": "storage\\import-ado-workitems-single-project",
+      "WorkingDirectory": "%DEVOPS_MIGRATION_TEST_STORAGE%",
       "CreatePackage": false
     },
     "Modules": {

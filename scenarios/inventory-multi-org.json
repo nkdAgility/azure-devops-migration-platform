@@ -33,7 +33,7 @@
       }
     ],
     "Package": {
-      "WorkingDirectory": "storage\\inventory-multi-org"
+      "WorkingDirectory": "%DEVOPS_MIGRATION_TEST_STORAGE%"
     }
   }
 }

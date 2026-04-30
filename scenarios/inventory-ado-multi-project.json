@@ -24,7 +24,7 @@
       }
     ],
     "Package": {
-      "WorkingDirectory": "storage\\inventory-ado-multi-project"
+      "WorkingDirectory": "%DEVOPS_MIGRATION_TEST_STORAGE%"
     }
   }
 }

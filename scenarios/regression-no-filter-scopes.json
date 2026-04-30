@@ -23,7 +23,7 @@
       }
     },
     "Package": {
-      "WorkingDirectory": "storage\\regression-no-filter-scopes",
+      "WorkingDirectory": "%DEVOPS_MIGRATION_TEST_STORAGE%",
       "CreatePackage": true
     },
     "Modules": {

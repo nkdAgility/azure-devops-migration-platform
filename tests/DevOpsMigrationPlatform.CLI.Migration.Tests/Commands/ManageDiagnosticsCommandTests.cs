@@ -37,6 +37,7 @@ public class ManageDiagnosticsCommandTests
         {
             ["MigrationPlatform__Environment__Type"] = "Hosted",
             ["MigrationPlatform__Environment__ControlPlane__BaseUrl"] = ControlPlaneHostRunner.DefaultUrl,
+            ["DEVOPS_MIGRATION_TEST_STORAGE"] = Path.Combine("storage", nameof(ManageDiagnosticsCommand_SystemTest_AfterExport_ExitsZero_AndShowsDiagnosticOutput)),
         };
 
         var exportResult = await CliRunner.RunAsync(
