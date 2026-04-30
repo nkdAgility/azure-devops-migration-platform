@@ -42,7 +42,7 @@ public sealed class DependencyDiscoveryModule : IDiscoveryModule
     private readonly IOptions<DiscoveryOptions>? _discoveryOptions;
 
     public string Name => "DependencyDiscovery";
-    public DiscoveryJobType DiscoveryType => DiscoveryJobType.Dependencies;
+    public JobKind DiscoveryKind => JobKind.Dependencies;
 
     /// <summary>
     /// Normalizes an organisation URL + project name pair into a canonical key
@@ -73,6 +73,16 @@ public sealed class DependencyDiscoveryModule : IDiscoveryModule
         var store = context.ArtefactStore;
         var state = context.StateStore;
         var sink = context.ProgressSink;
+
+        // Organisations are supplied via DiscoveryOptions (migration-config.json) rather than the job.
+        var organisations = (_discoveryOptions?.Value?.Organisations ?? new System.Collections.Generic.List<DevOpsMigrationPlatform.Abstractions.Options.OrganisationEntry>())
+            .Where(o => o.Enabled)
+            .Select(o => new ScopedOrganisationEndpoint
+            {
+                Endpoint = o.ToEndpointOptions(),
+                Projects = new System.Collections.Generic.List<string>(o.Projects)
+            })
+            .ToList<ScopedOrganisationEndpoint>();
         var metricsStore = context.MetricsStore;
         var snapshotStore = context.SnapshotStore;
 
@@ -167,7 +177,7 @@ public sealed class DependencyDiscoveryModule : IDiscoveryModule
         var policies = _discoveryOptions?.Value?.Policies is { } p
             ? new JobPolicies { MaxRetries = p.Retries.Max, MaxConcurrency = p.Throttle.MaxConcurrency, CheckpointIntervalSeconds = p.Checkpoints.Interval }
             : new JobPolicies();
-        var dependencyService = _dependencyFactory.Create(job.Organisations, policies);
+        var dependencyService = _dependencyFactory.Create(organisations, policies);
 
         // ── Resume: read existing cursor and CSV ─────────────────────────────
         var completedProjects = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -458,7 +468,7 @@ public sealed class DependencyDiscoveryModule : IDiscoveryModule
             var allProjectKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             // Keep a mapping from normalized key → display-friendly key for event emission.
             var displayKeys = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-            foreach (var org in job.Organisations)
+            foreach (var org in organisations)
             {
                 foreach (var project in org.Projects)
                 {
@@ -539,8 +549,8 @@ public sealed class DependencyDiscoveryModule : IDiscoveryModule
                 await state.DeleteAsync(CursorKey, ct).ConfigureAwait(false);
 
                 // Push aggregate metrics for the reconciled-complete path
-                PushAggregateMetrics(metricsStore, perProjectStats, inventoryReport, job);
-                PushSnapshot(snapshotStore, perProjectStats, inventoryReport, job);
+                PushAggregateMetrics(metricsStore, perProjectStats, inventoryReport, organisations);
+                PushSnapshot(snapshotStore, perProjectStats, inventoryReport, organisations);
 
                 sink.Emit(new ProgressEvent
                 {
@@ -860,8 +870,8 @@ public sealed class DependencyDiscoveryModule : IDiscoveryModule
                     recordCount, allCompletedProjects.Count);
 
                 // Push aggregate metrics to Channel 2 snapshot store
-                PushAggregateMetrics(metricsStore, allProjectStats, inventoryReport, job);
-                PushSnapshot(snapshotStore, allProjectStats, inventoryReport, job);
+                PushAggregateMetrics(metricsStore, allProjectStats, inventoryReport, organisations);
+                PushSnapshot(snapshotStore, allProjectStats, inventoryReport, organisations);
             }
         }
 
@@ -896,7 +906,7 @@ public sealed class DependencyDiscoveryModule : IDiscoveryModule
         // Emit ProjectComplete events for any configured project that did not receive one
         // during the main loop (e.g. projects with zero external links where the service
         // did not emit a heartbeat).
-        foreach (var org in job.Organisations)
+        foreach (var org in organisations)
         {
             foreach (var project in org.Projects)
             {
@@ -946,8 +956,8 @@ public sealed class DependencyDiscoveryModule : IDiscoveryModule
         await state.DeleteAsync(CursorKey, ct).ConfigureAwait(false);
 
         // Final snapshot push
-        PushAggregateMetrics(metricsStore, allProjectStats, inventoryReport, job);
-        PushSnapshot(snapshotStore, allProjectStats, inventoryReport, job);
+        PushAggregateMetrics(metricsStore, allProjectStats, inventoryReport, organisations);
+        PushSnapshot(snapshotStore, allProjectStats, inventoryReport, organisations);
 
         jobSw.Stop();
         metrics?.RecordJobDuration(jobSw.Elapsed.TotalMilliseconds, new TagList
@@ -1024,7 +1034,7 @@ public sealed class DependencyDiscoveryModule : IDiscoveryModule
         IJobMetricsStore? metricsStore,
         Dictionary<string, PerProjectStats> allProjectStats,
         InventoryReport? inventoryReport,
-        DiscoveryJob job)
+        IReadOnlyList<ScopedOrganisationEndpoint> organisations)
     {
         if (metricsStore is null)
             return;
@@ -1042,10 +1052,10 @@ public sealed class DependencyDiscoveryModule : IDiscoveryModule
             depProjectsCompleted++;
         }
 
-        // Total projects from job configuration
+        // Total projects from configuration
         int projectsTotal = 0;
         int orgsTotal = 0;
-        foreach (var org in job.Organisations)
+        foreach (var org in organisations)
         {
             orgsTotal++;
             projectsTotal += org.Projects.Count;
@@ -1091,13 +1101,13 @@ public sealed class DependencyDiscoveryModule : IDiscoveryModule
         IJobSnapshotStore? snapshotStore,
         Dictionary<string, PerProjectStats> allProjectStats,
         InventoryReport? inventoryReport,
-        DiscoveryJob job)
+        IReadOnlyList<ScopedOrganisationEndpoint> organisations)
     {
         if (snapshotStore is null)
             return;
 
         var orgSnapshots = new List<OrgSnapshot>();
-        foreach (var org in job.Organisations)
+        foreach (var org in organisations)
         {
             var orgUrl = org.Endpoint.GetResolvedUrl();
             var projectSnapshots = new List<ProjectSnapshot>();

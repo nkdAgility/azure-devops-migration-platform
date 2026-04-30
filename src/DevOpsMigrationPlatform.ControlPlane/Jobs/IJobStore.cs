@@ -9,7 +9,6 @@ namespace DevOpsMigrationPlatform.ControlPlane.Jobs;
 
 /// <summary>
 /// Persistence contract for <see cref="Job"/> instances submitted to the control plane.
-/// Accepts any concrete subtype (<see cref="MigrationJob"/>, <see cref="DiscoveryJob"/>, etc.).
 /// </summary>
 public interface IJobStore
 {
@@ -26,11 +25,11 @@ public interface IJobStore
     Task<Job?> DequeueAsync(TimeSpan timeout, CancellationToken cancellationToken);
 
     /// <summary>
-    /// Dequeues one pending job whose <see cref="Job.GetSourceType"/> matches one of
-    /// the given <paramref name="capabilities"/>. Non-matching jobs are re-enqueued.
+    /// Dequeues one pending job whose <see cref="Job.Connectors"/> are all satisfied by
+    /// the agent's advertised <paramref name="capabilities"/>. Non-matching jobs are re-enqueued.
     /// Returns <c>null</c> if no matching job is found within <paramref name="timeout"/>.
     /// </summary>
-    Task<Job?> DequeueAsync(TimeSpan timeout, IReadOnlyList<string> capabilities, CancellationToken cancellationToken);
+    Task<Job?> DequeueAsync(TimeSpan timeout, IReadOnlyList<ConnectorType> capabilities, CancellationToken cancellationToken);
 
     /// <summary>
     /// Returns a snapshot of all submitted jobs.

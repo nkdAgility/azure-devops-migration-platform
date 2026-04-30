@@ -7,6 +7,7 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Jobs;
 using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.CLI.JobRunners;
 using DevOpsMigrationPlatform.CLI.Migration.Commands;
@@ -23,7 +24,7 @@ namespace DevOpsMigrationPlatform.CLI.Commands.Discovery;
 
 /// <summary>
 /// CLI command: discovery dependencies
-/// Submits a <see cref="DiscoveryJob"/> of type Dependencies to the control plane.
+/// Submits a <see cref="Job"/> of kind <see cref="JobKind.Dependencies"/> to the control plane.
 /// In standalone mode follows progress inline with a live table; in hosted mode prints the jobId and exits.
 /// After job completion reads the root dependencies.csv from the package and generates per-project/per-org
 /// output (grouped CSVs, Mermaid diagrams) plus console summary tables.
@@ -68,18 +69,23 @@ public sealed class DependencyCommand : ControlPlaneCommandBase<DependencyComman
             : Path.GetFullPath(settings.OutputDirectory);
         var packageUri = $"file:///{outputPath.Replace(Path.DirectorySeparatorChar, '/')}";
 
-        var job = new DiscoveryJob
+        var job = new Job
         {
             JobId = Guid.NewGuid().ToString(),
-            ConfigVersion = "1.0",
-            DiscoveryType = DiscoveryJobType.Dependencies,
-            Organisations = discoveryOpts.Organisations
+            ConfigVersion = "2.0",
+            Kind = JobKind.Dependencies,
+            Connectors = discoveryOpts.Organisations
                 .Where(o => o.Enabled)
-                .Select(o => new ScopedOrganisationEndpoint
+                .Select(o => o.Type switch
                 {
-                    Endpoint = o.ToEndpointOptions(),
-                    Projects = new List<string>(o.Projects)
-                }).ToList(),
+                    "TeamFoundationServer" => ConnectorType.TeamFoundationServer,
+                    "AzureDevOpsServices" => ConnectorType.AzureDevOps,
+                    _ => (ConnectorType?)null
+                })
+                .Where(c => c.HasValue)
+                .Select(c => c!.Value)
+                .Distinct()
+                .ToArray(),
             Package = new JobPackage { PackageUri = packageUri }
         };
 
@@ -87,7 +93,7 @@ public sealed class DependencyCommand : ControlPlaneCommandBase<DependencyComman
         var isStandalone = envOpts.Type == EnvironmentType.Standalone;
         var client = GetRequiredService<ControlPlaneClient>();
 
-        console.MarkupLine($"[blue]ℹ[/] Submitting dependency discovery job for [bold]{job.Organisations.Count}[/] organisation(s).");
+        console.MarkupLine($"[blue]ℹ[/] Submitting dependency discovery job for [bold]{discoveryOpts.Organisations.Count(o => o.Enabled)}[/] organisation(s).");
         console.MarkupLine($"[blue]ℹ[/] Output path: [blue]{Markup.Escape(outputPath)}[/]");
 
         // ── Pre-load inventory.json for grand totals display ─────────────────
@@ -114,7 +120,7 @@ public sealed class DependencyCommand : ControlPlaneCommandBase<DependencyComman
         Guid jobId;
         try
         {
-            jobId = await client.SubmitDiscoveryAsync(job, cancellationToken);
+            jobId = await client.SubmitAsync(job, cancellationToken);
             PrintJobSubmitted(console, jobId, controlPlaneUrl);
         }
         catch (Exception ex)
@@ -132,9 +138,9 @@ public sealed class DependencyCommand : ControlPlaneCommandBase<DependencyComman
         // Pre-populate the progress table with known projects from config so the user gets
         // immediate visual feedback while the agent acquires a lease and starts processing.
         var progressState = new Dictionary<string, ProjectProgress>(StringComparer.OrdinalIgnoreCase);
-        foreach (var org in job.Organisations)
+        foreach (var org in discoveryOpts.Organisations.Where(o => o.Enabled))
         {
-            var url = org.Endpoint.GetResolvedUrl();
+            var url = org.ToEndpointOptions().GetResolvedUrl();
             foreach (var project in org.Projects)
             {
                 var key = $"{url}|{project}";

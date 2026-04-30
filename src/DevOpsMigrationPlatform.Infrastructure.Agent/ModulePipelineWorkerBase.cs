@@ -107,7 +107,7 @@ public abstract class ModulePipelineWorkerBase : AgentWorkerBase
     /// Override to set up connector-specific state (e.g. open a TFS connection,
     /// populate an ambient service holder).
     /// </summary>
-    protected virtual Task OnBeforeModulesAsync(MigrationJob job, CancellationToken ct)
+    protected virtual Task OnBeforeModulesAsync(Job job, CancellationToken ct)
         => Task.CompletedTask;
 
     /// <summary>
@@ -119,16 +119,16 @@ public abstract class ModulePipelineWorkerBase : AgentWorkerBase
         => Task.CompletedTask;
 
     /// <summary>
-    /// Default Export-only migration job implementation.
+    /// Default Export-only job implementation.
     /// Sets up stores and checkpointing, handles ForceFresh (deleting cursors for every
     /// registered module), invokes the connector setup hook, runs the module export loop,
     /// invokes the connector teardown hook, then signals a terminal state to the control plane.
     ///
     /// Override completely (and call connector hooks manually if needed) when the worker
-    /// must support additional modes such as Both, Import, or Prepare.
+    /// must support additional modes such as Migrate, Import, or Prepare.
     /// </summary>
-    protected override async Task OnMigrationJobAsync(
-        MigrationJob job, HttpClient controlPlane, string leaseId, CancellationToken ct)
+    protected override async Task OnJobAsync(
+        Job job, HttpClient controlPlane, string leaseId, CancellationToken ct)
     {
         var (artefactStore, stateStore) = PackageStoreFactory.Create(job.Package.PackageUri ?? ".");
         PackageState.CurrentStore = artefactStore;

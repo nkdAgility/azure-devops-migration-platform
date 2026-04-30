@@ -10,7 +10,7 @@ namespace DevOpsMigrationPlatform.Abstractions.Agent.Export;
 /// </summary>
 public class ExportContext
 {
-    public MigrationJob Job { get; init; } = null!;
+    public Job Job { get; init; } = null!;
     public IArtefactStore ArtefactStore { get; init; } = null!;
     public IStateStore StateStore { get; init; } = null!;
     public IProgressSink ProgressSink { get; init; } = null!;

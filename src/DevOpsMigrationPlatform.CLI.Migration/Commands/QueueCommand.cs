@@ -7,6 +7,7 @@ using System.Threading.Channels;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
+using DevOpsMigrationPlatform.Abstractions.Jobs;
 using DevOpsMigrationPlatform.CLI.Commands;
 using DevOpsMigrationPlatform.CLI.JobRunners;
 using DevOpsMigrationPlatform.CLI.Migration.Options;
@@ -124,11 +125,11 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
             return 1;
         }
 
-        var job = new MigrationJob
+        var job = new Job
         {
             JobId = Guid.NewGuid().ToString(),
-            Mode = "Import",
-            SourceType = config.Source?.Type ?? string.Empty,
+            Kind = JobKind.Import,
+            Connectors = GetConnectors(config),
             Package = new JobPackage
             {
                 PackageUri = $"file:///{outputPath.Replace(Path.DirectorySeparatorChar, '/')}",
@@ -261,11 +262,11 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
             return 1;
         }
 
-        var job = new MigrationJob
+        var job = new Job
         {
             JobId = Guid.NewGuid().ToString(),
-            Mode = "Prepare",
-            SourceType = config.Source?.Type ?? string.Empty,
+            Kind = JobKind.Prepare,
+            Connectors = GetConnectors(config),
             Package = new JobPackage
             {
                 PackageUri = $"file:///{outputPath.Replace(Path.DirectorySeparatorChar, '/')}",
@@ -344,6 +345,21 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
         return 0;
     }
 
+    private static ConnectorType[] GetConnectors(MigrationOptions config)
+    {
+        var connectors = new System.Collections.Generic.HashSet<ConnectorType>();
+        void AddForType(string? type)
+        {
+            if (string.Equals(type, "TeamFoundationServer", StringComparison.OrdinalIgnoreCase))
+                connectors.Add(ConnectorType.TeamFoundationServer);
+            else if (string.Equals(type, "AzureDevOpsServices", StringComparison.OrdinalIgnoreCase))
+                connectors.Add(ConnectorType.AzureDevOps);
+        }
+        AddForType(config.Source?.Type);
+        AddForType(config.Target?.Type);
+        return connectors.Count > 0 ? connectors.ToArray() : Array.Empty<ConnectorType>();
+    }
+
     private int ExecuteInvalidMode(string mode)
     {
         AnsiConsole.MarkupLine($"[red]Invalid mode '{Markup.Escape(mode)}'. Must be Export, Prepare, Import, or Migrate.[/]");
@@ -392,11 +408,11 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
             return 1;
         }
 
-        var job = new MigrationJob
+        var job = new Job
         {
             JobId = Guid.NewGuid().ToString(),
-            Mode = "Export",
-            SourceType = config.Source?.Type ?? string.Empty,
+            Kind = JobKind.Export,
+            Connectors = GetConnectors(config),
             Package = new JobPackage
             {
                 PackageUri = $"file:///{outputPath.Replace(Path.DirectorySeparatorChar, '/')}",
@@ -540,12 +556,12 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
             return 1;
         }
 
-        // Build MigrationJob — no migration logic here.
-        var job = new MigrationJob
+        // Build Job — no migration logic here.
+        var job = new Job
         {
             JobId = Guid.NewGuid().ToString(),
-            Mode = "Export",
-            SourceType = config.Source?.Type ?? string.Empty,
+            Kind = JobKind.Export,
+            Connectors = GetConnectors(config),
             Package = new JobPackage
             {
                 PackageUri = $"file:///{outputPath.Replace(Path.DirectorySeparatorChar, '/')}",

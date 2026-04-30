@@ -12,8 +12,8 @@ namespace DevOpsMigrationPlatform.Abstractions.Agent.Discovery;
 /// </summary>
 public class DiscoveryContext
 {
-    /// <summary>The discovery job definition.</summary>
-    public DiscoveryJob Job { get; init; } = null!;
+    /// <summary>The job definition.</summary>
+    public Job Job { get; init; } = null!;
 
     /// <summary>Output store for discovery results (CSVs, logs).</summary>
     public IArtefactStore ArtefactStore { get; init; } = null!;

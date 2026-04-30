@@ -9,7 +9,7 @@ namespace DevOpsMigrationPlatform.Abstractions.Agent.Validation;
 /// </summary>
 public class ValidationContext
 {
-    public MigrationJob Job { get; init; } = null!;
+    public Job Job { get; init; } = null!;
     public IArtefactStore ArtefactStore { get; init; } = null!;
     public System.Collections.Generic.List<ValidationError> Errors { get; } = new();
 }

@@ -38,7 +38,7 @@ public sealed class JobsController : ControllerBase
         var records = _jobStore.GetAllRecords();
         var summaries = records.Select(r => new JobSummary(
             Guid.Parse(r.Job.JobId),
-            r.Job is MigrationJob mj ? mj.Mode : (r.Job is DiscoveryJob dj ? dj.DiscoveryType.ToString() : "Unknown"),
+            r.Job.Kind.ToString(),
             r.State,
             r.SubmittedByUpn,
             r.SubmittedAt
@@ -48,7 +48,7 @@ public sealed class JobsController : ControllerBase
     }
 
     /// <summary>
-    /// CLI submits a <see cref="MigrationJob"/>.
+    /// CLI submits a <see cref="Job"/>.
     /// <c>POST /jobs</c>
     /// Returns 201 with the assigned jobId.
     /// </summary>
@@ -60,14 +60,8 @@ public sealed class JobsController : ControllerBase
         if (string.IsNullOrWhiteSpace(job.JobId))
             return BadRequest("jobId is required.");
 
-        if (job is MigrationJob migJob && string.IsNullOrWhiteSpace(migJob.Mode))
-            return BadRequest("mode is required.");
-
-        if (job is DiscoveryJob discJob && discJob.Organisations.Count == 0)
-            return BadRequest("At least one organisation is required.");
-
         var jobId = _jobStore.Enqueue(job);
-        _logger.LogInformation("Job {JobId} accepted ({JobType})", jobId, job.GetType().Name);
+        _logger.LogInformation("Job {JobId} accepted ({JobKind})", jobId, job.Kind);
 
         return CreatedAtAction(
             nameof(GetJob),

@@ -4,6 +4,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
+using DevOpsMigrationPlatform.Abstractions.Jobs;
 using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.CLI.Migration.Tests.TestUtilities;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
@@ -69,7 +70,7 @@ public class QueueCommandTests
         // Assert
         Assert.AreEqual(1, exitCode, "Exit code must be 1 when WriteAsync throws.");
         submitMock.Verify(
-            s => s.RunAsync(It.IsAny<MigrationJob>(), It.IsAny<CancellationToken>()),
+            s => s.RunAsync(It.IsAny<Job>(), It.IsAny<CancellationToken>()),
             Times.Never,
             "RunAsync must not be called when WriteAsync throws (FR-007 atomicity).");
     }

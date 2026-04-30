@@ -10,7 +10,7 @@ namespace DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Factories;
 
 /// <summary>
 /// Creates a configured <see cref="IDependencyDiscoveryService"/> from
-/// <see cref="ScopedOrganisationEndpoint"/> entries carried on a <see cref="DiscoveryJob"/>.
+/// <see cref="ScopedOrganisationEndpoint"/> entries carried in the migration config.
 /// Used by <c>DependencyDiscoveryModule</c> so the agent does not need a config file at runtime.
 /// </summary>
 internal sealed class DependencyDiscoveryServiceFactory : IDependencyDiscoveryServiceFactory

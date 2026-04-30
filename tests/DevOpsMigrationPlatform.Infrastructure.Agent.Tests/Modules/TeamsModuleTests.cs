@@ -52,7 +52,7 @@ public class TeamsModuleTests
     private static ExportContext CreateExportContext(IArtefactStore store)
         => new()
         {
-            Job = new MigrationJob { Mode = "Export" },
+            Job = new Job { Kind = JobKind.Export },
             ArtefactStore = store,
             StateStore = Mock.Of<IStateStore>(),
             ProgressSink = Mock.Of<IProgressSink>()
@@ -61,7 +61,7 @@ public class TeamsModuleTests
     private static ImportContext CreateImportContext(IArtefactStore store)
         => new()
         {
-            Job = new MigrationJob { Mode = "Import" },
+            Job = new Job { Kind = JobKind.Import },
             ArtefactStore = store,
             StateStore = Mock.Of<IStateStore>(),
             ProgressSink = Mock.Of<IProgressSink>()
@@ -70,7 +70,7 @@ public class TeamsModuleTests
     private static ValidationContext CreateValidationContext(Mock<IArtefactStore> store)
         => new()
         {
-            Job = new MigrationJob(),
+            Job = new Job(),
             ArtefactStore = store.Object
         };
 

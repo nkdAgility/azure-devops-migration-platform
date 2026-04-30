@@ -8,7 +8,7 @@ using Microsoft.Extensions.Logging;
 namespace DevOpsMigrationPlatform.CLI.JobRunners;
 
 /// <summary>
-/// Submits a <see cref="MigrationJob"/> to a running Control Plane over HTTP,
+/// Submits a <see cref="Job"/> to a running Control Plane over HTTP,
 /// then polls the progress endpoint and streams <see cref="ProgressEvent"/> items
 /// back to the caller until the job reaches a terminal state.
 ///
@@ -48,7 +48,7 @@ public sealed class ControlPlaneClient : IJobSubmissionClient, ILogsClient, ICon
 
     /// <inheritdoc/>
     public async IAsyncEnumerable<ProgressEvent> RunAsync(
-        MigrationJob job,
+        Job job,
         [EnumeratorCancellation] CancellationToken ct = default)
     {
         var jobId = await SubmitAsync(job, ct).ConfigureAwait(false);
@@ -244,14 +244,7 @@ public sealed class ControlPlaneClient : IJobSubmissionClient, ILogsClient, ICon
     // ── Discovery Job API ─────────────────────────────────────────────────────────
 
     /// <summary>
-    /// Submits a <see cref="DiscoveryJob"/> to the control plane via the same
-    /// <c>POST /jobs</c> endpoint used by migration jobs.
-    /// Returns the assigned jobId.
-    /// </summary>
-    public Task<Guid> SubmitDiscoveryAsync(DiscoveryJob job, CancellationToken ct = default)
-        => SubmitAsync(job, ct);
 
-    /// <summary>
     /// Streams live <see cref="ProgressEvent"/> records for a discovery job via SSE.
     /// Uses the same progress endpoint as migration jobs.
     /// </summary>

@@ -65,7 +65,7 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
         _logger = logger;
     }
 
-    protected override string[] Capabilities => new[] { "ado", "simulated" };
+    protected override ConnectorType[] Capabilities => new[] { ConnectorType.AzureDevOps, ConnectorType.Simulated };
 
     protected override async Task OnPostJobFlushAsync()
     {
@@ -73,19 +73,46 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
             await flushable.FlushAsync().ConfigureAwait(false);
     }
 
+    // ── Job dispatch ─────────────────────────────────────────────────────────
+
+    protected override async Task OnJobAsync(
+        Job job, HttpClient controlPlane, string leaseId, CancellationToken ct)
+    {
+        switch (job.Kind)
+        {
+            case JobKind.Export:
+            case JobKind.Import:
+            case JobKind.Migrate:
+            case JobKind.Prepare:
+                await OnMigrationJobAsync(job, controlPlane, leaseId, ct).ConfigureAwait(false);
+                break;
+
+            case JobKind.Inventory:
+            case JobKind.Dependencies:
+                await OnDiscoveryJobAsync(job, controlPlane, leaseId, ct).ConfigureAwait(false);
+                break;
+
+            default:
+                _logger.LogError(
+                    "Unknown job kind {JobKind} for lease — failing job {JobId}.",
+                    job.Kind, job.JobId);
+                await SignalTerminalAsync(controlPlane, leaseId, "fail", ct).ConfigureAwait(false);
+                break;
+        }
+    }
+
     // ── Migration execution ───────────────────────────────────────────────────
 
-    protected override async Task OnMigrationJobAsync(
-        MigrationJob job, HttpClient controlPlane, string leaseId, CancellationToken ct)
+    private async Task OnMigrationJobAsync(
+        Job job, HttpClient controlPlane, string leaseId, CancellationToken ct)
     {
         var (artefactStore, stateStore) = PackageStoreFactory.Create(
             job.Package.PackageUri ?? ".");
 
         PackageState.CurrentStore = artefactStore;
 
-        // Prepare mode writes a probe file to validate connectivity — it does not need
-        // migration-config.json and must not block on ReadAsync.
-        if (string.Equals(job.Mode, "Prepare", StringComparison.OrdinalIgnoreCase))
+        // Prepare mode writes a probe file to validate connectivity.
+        if (job.Kind == JobKind.Prepare)
         {
             bool prepareFailed = false;
             try
@@ -200,15 +227,13 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
                 ProgressSink = ProgressSink
             };
 
-            var isBoth = string.Equals(job.Mode, "Both", StringComparison.OrdinalIgnoreCase);
+            var isBoth = job.Kind == JobKind.Migrate;
             var phaseRecord = isBoth
                 ? await phaseTracker.ReadPhaseRecordAsync(ct).ConfigureAwait(false)
                 : new JobPhaseRecord();
 
-            var runExport = string.Equals(job.Mode, "Export", StringComparison.OrdinalIgnoreCase)
-                || (isBoth && !phaseRecord.ExportCompleted);
-            var runImport = string.Equals(job.Mode, "Import", StringComparison.OrdinalIgnoreCase)
-                || (isBoth && !phaseRecord.ImportCompleted);
+            var runExport = job.Kind == JobKind.Export || (isBoth && !phaseRecord.ExportCompleted);
+            var runImport = job.Kind == JobKind.Import || (isBoth && !phaseRecord.ImportCompleted);
 
             if (isBoth && !runExport)
                 _logger.LogInformation("Export phase already completed for job {JobId} — skipping.", job.JobId);
@@ -287,8 +312,8 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
 
     // ── Discovery execution ───────────────────────────────────────────────────
 
-    protected override async Task OnDiscoveryJobAsync(
-        DiscoveryJob job, HttpClient controlPlane, string leaseId, CancellationToken ct)
+    private async Task OnDiscoveryJobAsync(
+        Job job, HttpClient controlPlane, string leaseId, CancellationToken ct)
     {
         var (artefactStore, stateStore) = PackageStoreFactory.Create(
             job.Package.PackageUri ?? ".");
@@ -310,14 +335,11 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
             }
         }
 
-        var modulesToRun = job.DiscoveryType == DiscoveryJobType.Both
-            ? _discoveryModules.OrderBy(m => (int)m.DiscoveryType).ToList()
-            : _discoveryModules.Where(m => m.DiscoveryType == job.DiscoveryType).ToList();
+        var modulesToRun = _discoveryModules.Where(m => m.DiscoveryKind == job.Kind).ToList();
 
         // When running dependency analysis, auto-run inventory first if inventory.json
-        // does not yet exist in the package. The dependency module reads inventory.json
-        // for pre-counts; without it, the analysis has no baseline.
-        if (job.DiscoveryType == DiscoveryJobType.Dependencies)
+        // does not yet exist in the package.
+        if (job.Kind == JobKind.Dependencies)
         {
             var inventoryExists = await artefactStore.ExistsAsync("inventory.json", ct).ConfigureAwait(false);
             if (!inventoryExists)
@@ -325,7 +347,7 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
                 _logger.LogInformation(
                     "No inventory.json found for dependency job {JobId} — prepending inventory module.", job.JobId);
                 var inventoryModules = _discoveryModules
-                    .Where(m => m.DiscoveryType == DiscoveryJobType.Inventory)
+                    .Where(m => m.DiscoveryKind == JobKind.Inventory)
                     .ToList();
                 modulesToRun = inventoryModules.Concat(modulesToRun).ToList();
             }
@@ -334,8 +356,8 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
         if (modulesToRun.Count == 0)
         {
             _logger.LogError(
-                "No discovery module found for type {DiscoveryType} — failing job {JobId}.",
-                job.DiscoveryType, job.JobId);
+                "No discovery module found for kind {JobKind} — failing job {JobId}.",
+                job.Kind, job.JobId);
             await SignalTerminalAsync(controlPlane, leaseId, "fail", ct).ConfigureAwait(false);
             return;
         }

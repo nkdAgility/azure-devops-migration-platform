@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Jobs;
 using DevOpsMigrationPlatform.ControlPlane.Models;
 using DevOpsMigrationPlatform.ControlPlane.Jobs;
 using Microsoft.AspNetCore.Mvc;
@@ -52,6 +53,9 @@ public sealed class AgentLeaseController : ControllerBase
                     .Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries)
                     .Select(c => c.Trim())
                     .Where(c => c.Length > 0)
+                    .Select(c => Enum.TryParse<ConnectorType>(c, ignoreCase: true, out var ct) ? ct : (ConnectorType?)null)
+                    .Where(c => c.HasValue)
+                    .Select(c => c!.Value)
                     .ToList();
 
                 job = await _jobStore

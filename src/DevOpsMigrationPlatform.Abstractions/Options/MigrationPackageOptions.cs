@@ -8,7 +8,7 @@ public class MigrationPackageOptions
     /// <summary>
     /// Root working directory of the migration package.
     /// Supports <c>%USERPROFILE%</c> and other environment variable expansions.
-    /// Bare paths are normalised to <c>file:///</c> URIs when building a <see cref="MigrationJob"/>.
+    /// Bare paths are normalised to <c>file:///</c> URIs when building a <see cref="DevOpsMigrationPlatform.Abstractions.Jobs.Job"/>.
     /// Default: <c>%userprofile%\.DevOpsMigrationPlatform</c>.
     /// </summary>
     public string WorkingDirectory { get; set; } = "%userprofile%\\.DevOpsMigrationPlatform";

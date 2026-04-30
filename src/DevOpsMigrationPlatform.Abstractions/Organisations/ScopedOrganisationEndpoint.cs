@@ -6,7 +6,7 @@ namespace DevOpsMigrationPlatform.Abstractions.Organisations;
 
 /// <summary>
 /// Pairs a <see cref="MigrationEndpointOptions"/> with the list of projects to target.
-/// Lives on <see cref="DiscoveryJob.Organisations"/> only.
+/// Lives in the migration config (discovery commands only).
 /// Factory implementations extract <see cref="Endpoint"/> for service calls and
 /// <see cref="Projects"/> for scope filtering.
 /// </summary>
