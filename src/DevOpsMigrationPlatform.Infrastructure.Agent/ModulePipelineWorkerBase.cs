@@ -84,10 +84,12 @@ public abstract class ModulePipelineWorkerBase : AgentWorkerBase
         ILogger logger
 #if !NET481
         , PolymorphicEndpointOptionsConverter? endpointConverter = null
+        , PolymorphicOrganisationEntryConverter? organisationConverter = null
 #endif
         ) : base(leaseState, packageState, httpClientFactory, logger
 #if !NET481
                  , endpointConverter
+                 , organisationConverter
 #endif
                  )
     {

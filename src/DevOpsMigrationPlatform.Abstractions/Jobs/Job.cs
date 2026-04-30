@@ -44,4 +44,12 @@ public class Job
     /// Set to <see cref="ResumeMode.ForceFresh"/> to delete all cursor files and restart from scratch.
     /// </summary>
     public JobResume? Resume { get; init; }
+
+    /// <summary>
+    /// Raw JSON contents of the migration-config file.
+    /// Set by the CLI from the scenario config file before job submission.
+    /// The agent writes this to <c>migration-config.json</c> at the package root on job startup,
+    /// before any module reads the config. Null when not provided.
+    /// </summary>
+    public string? ConfigPayload { get; init; }
 }

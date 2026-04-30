@@ -1,6 +1,8 @@
+using System.Collections.Generic;
 using DevOpsMigrationPlatform.Abstractions.Telemetry;
 using DevOpsMigrationPlatform.Abstractions.Jobs;
 using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
+using DevOpsMigrationPlatform.Abstractions.Organisations;
 using DevOpsMigrationPlatform.Abstractions.Streaming;
 using DevOpsMigrationPlatform.Abstractions.Agent.Telemetry;
 namespace DevOpsMigrationPlatform.Abstractions.Agent.Discovery;
@@ -38,5 +40,13 @@ public class DiscoveryContext
     /// Null when running inside the TFS subprocess or unit tests.
     /// </summary>
     public IJobSnapshotStore? SnapshotStore { get; init; }
+
+    /// <summary>
+    /// Organisations scoped to this job. Populated by the agent from <c>migration-config.json</c>
+    /// in the package. Modules must read from this property rather than injecting
+    /// <c>IOptions&lt;DiscoveryOptions&gt;</c> directly, so that per-job config is used.
+    /// Empty list when running in unit tests without a package.
+    /// </summary>
+    public IReadOnlyList<ScopedOrganisationEndpoint> Organisations { get; init; } = [];
 }
 

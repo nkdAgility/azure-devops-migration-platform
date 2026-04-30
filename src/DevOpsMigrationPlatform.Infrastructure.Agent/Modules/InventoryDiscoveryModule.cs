@@ -79,20 +79,23 @@ public sealed class InventoryDiscoveryModule : IDiscoveryModule
             using (DataClassificationScope.Begin(DataClassification.Customer))
                 _logger.LogInformation("Resuming inventory after project '{LastCompleted}'.", lastCompleted);
 
-        // Organisations are supplied via DiscoveryOptions (migration-config.json) rather than the job.
-        var organisations = (_discoveryOptions?.Value?.Organisations ?? new System.Collections.Generic.List<DevOpsMigrationPlatform.Abstractions.Options.OrganisationEntry>())
-            .Where(o => o.Enabled)
-            .Select(o => new ScopedOrganisationEndpoint
-            {
-                Endpoint = o.ToEndpointOptions(),
-                Projects = new System.Collections.Generic.List<string>(o.Projects),
-                Scopes = o.Scopes.Select(s => new JobModuleScope
+        // Organisations come from context.Organisations (populated by the agent from migration-config.json).
+        // Fall back to _discoveryOptions for backward compatibility in unit tests without a package.
+        var organisations = context.Organisations.Count > 0
+            ? context.Organisations.ToList()
+            : (_discoveryOptions?.Value?.Organisations ?? new System.Collections.Generic.List<DevOpsMigrationPlatform.Abstractions.Options.OrganisationEntry>())
+                .Where(o => o.Enabled)
+                .Select(o => new ScopedOrganisationEndpoint
                 {
-                    Type = s.Type,
-                    Parameters = s.Parameters.ToDictionary(kvp => kvp.Key, kvp => (object?)kvp.Value)
-                }).ToList()
-            })
-            .ToList<ScopedOrganisationEndpoint>();
+                    Endpoint = o.ToEndpointOptions(),
+                    Projects = new System.Collections.Generic.List<string>(o.Projects),
+                    Scopes = o.Scopes.Select(s => new JobModuleScope
+                    {
+                        Type = s.Type,
+                        Parameters = s.Parameters.ToDictionary(kvp => kvp.Key, kvp => (object?)kvp.Value)
+                    }).ToList()
+                })
+                .ToList<ScopedOrganisationEndpoint>();
 
         var policies = _discoveryOptions?.Value?.Policies is { } p
             ? new JobPolicies { MaxRetries = p.Retries.Max, MaxConcurrency = p.Throttle.MaxConcurrency, CheckpointIntervalSeconds = p.Checkpoints.Interval }

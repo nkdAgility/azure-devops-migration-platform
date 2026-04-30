@@ -6,7 +6,6 @@ using System.Threading;
 using System.Threading.Channels;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
-using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
 using DevOpsMigrationPlatform.Abstractions.Jobs;
 using DevOpsMigrationPlatform.CLI.Commands;
 using DevOpsMigrationPlatform.CLI.JobRunners;
@@ -14,7 +13,6 @@ using DevOpsMigrationPlatform.CLI.Migration.Options;
 using DevOpsMigrationPlatform.CLI.Migration.Settings;
 using DevOpsMigrationPlatform.CLI.Views;
 using DevOpsMigrationPlatform.Infrastructure.Config;
-using DevOpsMigrationPlatform.Infrastructure.Agent;
 using DevOpsMigrationPlatform.Abstractions.ControlPlaneApi;
 using DevOpsMigrationPlatform.Abstractions.Validation;
 using Microsoft.Extensions.DependencyInjection;
@@ -58,8 +56,6 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
 
             services.AddSingleton<IProgressSink, AnsiProgressSink>();
 
-            // Package config store — writes migration-config.json before job submission.
-            services.AddPackageConfigStore();
         });
 
         var config = await LoadConfigurationAsync(settings, cancellationToken);
@@ -111,24 +107,13 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
         console.MarkupLine($"[blue]ℹ[/] Package path   : [blue]{Markup.Escape(outputPath)}[/]");
 
         var modules = BuildModules(config);
-
-        // Write migration-config.json to the package before submitting.
-        var packageConfigStore = GetRequiredService<IPackageConfigStore>();
-        var configFilePath = Path.GetFullPath(GetConfigurationPath(settings) ?? settings.ConfigFile!);
-        try
-        {
-            await packageConfigStore.WriteAsync(outputPath, configFilePath, settings.ForceFresh, cancellationToken);
-        }
-        catch (InvalidOperationException ex) when (ex.Message.Contains("already exists"))
-        {
-            ShowError(console, $"migration-config.json already exists in '{outputPath}'. Re-submit is not permitted for an existing package. Use --force to overwrite.");
-            return 1;
-        }
+        var configPayload = await File.ReadAllTextAsync(Path.GetFullPath(GetConfigurationPath(settings) ?? settings.ConfigFile!), cancellationToken);
 
         var job = new Job
         {
             JobId = Guid.NewGuid().ToString(),
             Kind = JobKind.Import,
+            ConfigPayload = configPayload,
             Connectors = GetConnectors(config),
             Package = new JobPackage
             {
@@ -248,24 +233,13 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
         console.MarkupLine($"[blue]ℹ[/] Preparing package at [blue]{Markup.Escape(outputPath)}[/]");
 
         var modules = BuildModules(config);
-
-        // Write migration-config.json to the package before submitting.
-        var packageConfigStore = GetRequiredService<IPackageConfigStore>();
-        var configFilePath = Path.GetFullPath(GetConfigurationPath(settings) ?? settings.ConfigFile!);
-        try
-        {
-            await packageConfigStore.WriteAsync(outputPath, configFilePath, settings.ForceFresh, cancellationToken);
-        }
-        catch (InvalidOperationException ex) when (ex.Message.Contains("already exists"))
-        {
-            ShowError(console, $"migration-config.json already exists in '{outputPath}'. Re-submit is not permitted for an existing package. Use --force to overwrite.");
-            return 1;
-        }
+        var configPayload = await File.ReadAllTextAsync(Path.GetFullPath(GetConfigurationPath(settings) ?? settings.ConfigFile!), cancellationToken);
 
         var job = new Job
         {
             JobId = Guid.NewGuid().ToString(),
             Kind = JobKind.Prepare,
+            ConfigPayload = configPayload,
             Connectors = GetConnectors(config),
             Package = new JobPackage
             {
@@ -396,22 +370,13 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
         var modules = BuildModules(config);
 
         // Write migration-config.json to the package before submitting.
-        var packageConfigStore = GetRequiredService<IPackageConfigStore>();
-        var configFilePath = Path.GetFullPath(GetConfigurationPath(settings) ?? settings.ConfigFile!);
-        try
-        {
-            await packageConfigStore.WriteAsync(outputPath, configFilePath, settings.ForceFresh, cancellationToken);
-        }
-        catch (InvalidOperationException ex) when (ex.Message.Contains("already exists"))
-        {
-            ShowError(console, $"migration-config.json already exists in '{outputPath}'. Re-submit is not permitted for an existing package. Use --force to overwrite.");
-            return 1;
-        }
+        var configPayload = await File.ReadAllTextAsync(Path.GetFullPath(GetConfigurationPath(settings) ?? settings.ConfigFile!), cancellationToken);
 
         var job = new Job
         {
             JobId = Guid.NewGuid().ToString(),
             Kind = JobKind.Export,
+            ConfigPayload = configPayload,
             Connectors = GetConnectors(config),
             Package = new JobPackage
             {
@@ -543,24 +508,14 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
 
         var totalWorkItems = 0;
 
-        // Write migration-config.json to the package before submitting.
-        var packageConfigStore = GetRequiredService<IPackageConfigStore>();
-        var configFilePath = Path.GetFullPath(GetConfigurationPath(settings) ?? settings.ConfigFile!);
-        try
-        {
-            await packageConfigStore.WriteAsync(outputPath, configFilePath, settings.ForceFresh, cancellationToken);
-        }
-        catch (InvalidOperationException ex) when (ex.Message.Contains("already exists"))
-        {
-            ShowError(console, $"migration-config.json already exists in '{outputPath}'. Re-submit is not permitted for an existing package. Use --force to overwrite.");
-            return 1;
-        }
+        var configPayload = await File.ReadAllTextAsync(Path.GetFullPath(GetConfigurationPath(settings) ?? settings.ConfigFile!), cancellationToken);
 
         // Build Job — no migration logic here.
         var job = new Job
         {
             JobId = Guid.NewGuid().ToString(),
             Kind = JobKind.Export,
+            ConfigPayload = configPayload,
             Connectors = GetConnectors(config),
             Package = new JobPackage
             {

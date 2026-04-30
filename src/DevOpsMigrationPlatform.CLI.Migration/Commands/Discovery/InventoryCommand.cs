@@ -68,12 +68,14 @@ public sealed class InventoryCommand : ControlPlaneCommandBase<InventoryCommand.
             ? Path.GetFullPath(discoveryOpts.Package.ExpandedPath)
             : Path.GetFullPath(settings.OutputDirectory);
         var packageUri = $"file:///{outputPath.Replace(Path.DirectorySeparatorChar, '/')}";
+        var configPayload = await File.ReadAllTextAsync(Path.GetFullPath(settings.ConfigFile!), cancellationToken);
 
         var job = new Job
         {
             JobId = Guid.NewGuid().ToString(),
             ConfigVersion = "2.0",
             Kind = JobKind.Inventory,
+            ConfigPayload = configPayload,
             Connectors = discoveryOpts.Organisations
                 .Where(o => o.Enabled)
                 .Select(o => o.Type switch

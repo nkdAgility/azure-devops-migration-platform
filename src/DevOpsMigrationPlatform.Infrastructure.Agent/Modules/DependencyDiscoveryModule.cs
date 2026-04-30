@@ -74,15 +74,18 @@ public sealed class DependencyDiscoveryModule : IDiscoveryModule
         var state = context.StateStore;
         var sink = context.ProgressSink;
 
-        // Organisations are supplied via DiscoveryOptions (migration-config.json) rather than the job.
-        var organisations = (_discoveryOptions?.Value?.Organisations ?? new System.Collections.Generic.List<DevOpsMigrationPlatform.Abstractions.Options.OrganisationEntry>())
-            .Where(o => o.Enabled)
-            .Select(o => new ScopedOrganisationEndpoint
-            {
-                Endpoint = o.ToEndpointOptions(),
-                Projects = new System.Collections.Generic.List<string>(o.Projects)
-            })
-            .ToList<ScopedOrganisationEndpoint>();
+        // Organisations come from context.Organisations (populated by the agent from migration-config.json).
+        // Fall back to _discoveryOptions for backward compatibility in unit tests without a package.
+        var organisations = context.Organisations.Count > 0
+            ? context.Organisations.ToList()
+            : (_discoveryOptions?.Value?.Organisations ?? new System.Collections.Generic.List<DevOpsMigrationPlatform.Abstractions.Options.OrganisationEntry>())
+                .Where(o => o.Enabled)
+                .Select(o => new ScopedOrganisationEndpoint
+                {
+                    Endpoint = o.ToEndpointOptions(),
+                    Projects = new System.Collections.Generic.List<string>(o.Projects)
+                })
+                .ToList<ScopedOrganisationEndpoint>();
         var metricsStore = context.MetricsStore;
         var snapshotStore = context.SnapshotStore;
 

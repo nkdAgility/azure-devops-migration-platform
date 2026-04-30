@@ -45,6 +45,7 @@ public abstract class AgentWorkerBase : BackgroundService
         ILogger logger
 #if !NET481
         , PolymorphicEndpointOptionsConverter? endpointConverter = null
+        , PolymorphicOrganisationEntryConverter? organisationConverter = null
 #endif
         )
     {
@@ -62,6 +63,8 @@ public abstract class AgentWorkerBase : BackgroundService
 #if !NET481
         if (endpointConverter is not null)
             _jsonOptions.Converters.Add(endpointConverter);
+        if (organisationConverter is not null)
+            _jsonOptions.Converters.Add(organisationConverter);
 #endif
     }
 

@@ -51,10 +51,11 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
         IJobSnapshotStore snapshotStore,
         IEnumerable<IFlushable> flushables,
         ILogger<JobAgentWorker> logger,
-        PolymorphicEndpointOptionsConverter? endpointConverter = null)
+        PolymorphicEndpointOptionsConverter? endpointConverter = null,
+        PolymorphicOrganisationEntryConverter? organisationConverter = null)
         : base(migrationModules, packageStoreFactory, progressSink, checkpointingFactory,
                phaseTrackingFactory, leaseState, packageState, activeJobConfig, packageConfigStore,
-               moduleScopeFactory, httpClientFactory, logger, endpointConverter)
+               moduleScopeFactory, httpClientFactory, logger, endpointConverter, organisationConverter)
     {
         _discoveryModules = discoveryModules;
         _metricsStore = metricsStore;
@@ -103,6 +104,21 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
 
     // ── Migration execution ───────────────────────────────────────────────────
 
+    /// <summary>
+    /// If <see cref="Job.ConfigPayload"/> is set, writes it to <c>migration-config.json</c>
+    /// in the package before any module reads the config.
+    /// </summary>
+    private static async Task WriteConfigPayloadAsync(
+        Job job, IArtefactStore artefactStore, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(job.ConfigPayload))
+            return;
+
+        await artefactStore.WriteAsync(
+            PackagePaths.MigrationConfigFileName, job.ConfigPayload, ct)
+            .ConfigureAwait(false);
+    }
+
     private async Task OnMigrationJobAsync(
         Job job, HttpClient controlPlane, string leaseId, CancellationToken ct)
     {
@@ -110,6 +126,9 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
             job.Package.PackageUri ?? ".");
 
         PackageState.CurrentStore = artefactStore;
+
+        // Write config payload from the Job into the package before any config reads.
+        await WriteConfigPayloadAsync(job, artefactStore, ct).ConfigureAwait(false);
 
         // Prepare mode writes a probe file to validate connectivity.
         if (job.Kind == JobKind.Prepare)
@@ -320,6 +339,9 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
 
         PackageState.CurrentStore = artefactStore;
 
+        // Write config payload from the Job into the package before any config reads.
+        await WriteConfigPayloadAsync(job, artefactStore, ct).ConfigureAwait(false);
+
         if (job.Resume?.Mode == ResumeMode.ForceFresh)
         {
             _logger.LogInformation(
@@ -333,6 +355,42 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
                     _logger.LogWarning(ex, "Could not delete cursor for discovery module {Module}.", module.Name);
                 }
             }
+        }
+
+        // Read migration-config.json from the package and extract DiscoveryOptions.
+        var organisations = new List<ScopedOrganisationEndpoint>();
+        var policies = new JobPolicies();
+        try
+        {
+            var rawJson = await artefactStore.ReadAsync(PackagePaths.MigrationConfigFileName, ct).ConfigureAwait(false);
+            if (!string.IsNullOrWhiteSpace(rawJson))
+            {
+                var wrapper = JsonSerializer.Deserialize<DiscoveryConfigWrapper>(rawJson, AgentJsonOptions);
+                if (wrapper?.MigrationPlatform?.Organisations is { Count: > 0 } orgs)
+                {
+                    organisations = orgs
+                        .Where(o => o.Enabled)
+                        .Select(o => new ScopedOrganisationEndpoint
+                        {
+                            Endpoint = o.ToEndpointOptions(),
+                            Projects = new List<string>(o.Projects),
+                            Scopes = o.Scopes.Select(s => new JobModuleScope
+                            {
+                                Type = s.Type,
+                                Parameters = s.Parameters.ToDictionary(kvp => kvp.Key, kvp => (object?)kvp.Value)
+                            }).ToList()
+                        })
+                        .ToList();
+                }
+                if (wrapper?.MigrationPlatform?.Policies is { } p)
+                    policies = new JobPolicies { MaxRetries = p.Retries.Max, MaxConcurrency = p.Throttle.MaxConcurrency, CheckpointIntervalSeconds = p.Checkpoints.Interval };
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex,
+                "Could not read migration-config.json for discovery job {JobId}; organisations will be empty.",
+                job.JobId);
         }
 
         var modulesToRun = _discoveryModules.Where(m => m.DiscoveryKind == job.Kind).ToList();
@@ -369,7 +427,8 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
             StateStore = stateStore,
             ProgressSink = ProgressSink,
             MetricsStore = _metricsStore,
-            SnapshotStore = _snapshotStore
+            SnapshotStore = _snapshotStore,
+            Organisations = organisations
         };
 
         bool failed = false;
@@ -393,5 +452,10 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
 
         var terminal = failed ? "fail" : "complete";
         await SignalTerminalAsync(controlPlane, leaseId, terminal, ct).ConfigureAwait(false);
+    }
+
+    private sealed class DiscoveryConfigWrapper
+    {
+        public DiscoveryOptions? MigrationPlatform { get; set; }
     }
 }
