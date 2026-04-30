@@ -1,8 +1,8 @@
 # Draft Spec: Schema Generation from IOptions DI Registrations
 
-**Status**: Draft — discussion in progress  
-**Branch**: 024-teams-module  
-**Date**: 2026-04-29  
+**Status**: Draft — updated after 025-agent-config-package preparatory changes  
+**Branch**: 024-teams-module → next branch (025+ complete)  
+**Date**: 2026-04-29 (updated 2026-04-30)
 
 ---
 
@@ -276,40 +276,53 @@ A scan of all `src/**/*.cs` files was performed looking for:
 - Direct injection of `IOptions<MigrationOptions>`  
 - Navigation via `.Source`, `.Target`, `.Package`, `.Modules`, `.Policies` on options objects inside modules/tools
 
-### Finding: The config file never travels to the agent
+### Finding: The config file never travels to the agent ~~(RESOLVED — feature 025)~~
 
-The complete flow is:
+> **⚠️ UPDATE (2026-04-30):** Feature `025-agent-config-package` resolved this. Config now travels to the agent via `Job.ConfigPayload`. See updated flow below.
+
+The actual implemented flow (post-025) is:
 
 ```
 migration.json
   └─ CLI loads via ConfigurationService → MigrationOptions (C# object, in-process only)
-       └─ QueueCommand builds MigrationJob from MigrationOptions
-            └─ ControlPlaneClient.SubmitAsync → POST /jobs  (JSON over HTTP)
-                 └─ ControlPlane stores MigrationJob in JobStore (in-memory or persistent)
-                      └─ Agent polls → DequeueAsync → receives MigrationJob (JSON → deserialised)
-                           └─ modules receive ExportContext / ImportContext which contains the MigrationJob
+       └─ QueueCommand serialises MigrationOptions → JSON string → Job.ConfigPayload
+            └─ ControlPlaneClient.SubmitAsync → POST /jobs  (JSON over HTTP, ConfigPayload inline)
+                 └─ ControlPlane stores Job in JobStore
+                      └─ Agent polls → DequeueAsync → receives Job with ConfigPayload
+                           └─ Agent writes ConfigPayload → migration-config.json at package root
+                                └─ Agent reads migration-config.json → IConfiguration
+                                     └─ Per-job ServiceCollection built with IOptions<T> bound from IConfiguration
+                                          └─ Modules resolved from per-job ServiceProvider
 ```
 
-The **config file (`migration.json`) is never sent to the agent**. It is read once by the CLI, converted into a `MigrationJob` DTO, serialised to JSON, `POST`ed to the Control Plane over HTTP, stored, then dequeued by the agent and deserialised back into a `MigrationJob`. The `MigrationOptions` C# object is ephemeral — it exists only within the CLI process during job construction.
+The **config travels through `Job.ConfigPayload`** — a raw JSON string property on `Job`. The agent materialises it to `migration-config.json` at the package root on startup before any module executes. The `MigrationOptions` C# object is ephemeral — it exists only within the CLI process during job construction.
 
-This is confirmed by `ControlPlaneClient.SubmitAsync`:
+Key implementation details in `Job.cs`:
 ```csharp
-await _http.PostAsJsonAsync("/jobs", job, _jsonOptions, ct)
+/// Raw JSON contents of the migration-config file.
+/// Set by the CLI from the scenario config file before job submission.
+/// The agent writes this to migration-config.json at the package root on job startup,
+/// before any module reads the config.
+public string? ConfigPayload { get; init; }
 ```
-...and `JobAgentWorker.OnMigrationJobAsync(MigrationJob job, ...)` which receives the already-deserialised job.
 
-### What `MigrationJob` contains vs `MigrationOptions`
+### What `Job` contains after feature 025
 
-`MigrationJob` is NOT a projection of `MigrationOptions`. It is a **resolved, validated, execution-ready contract** with its own parallel types:
+`Job` (v2.0) is now a **minimal dispatch token** — credentials and config are in `ConfigPayload`/`migration-config.json`:
 
-| `MigrationOptions` (config-time) | `MigrationJob` (runtime) | Difference |
+| Field | Status | Purpose |
 |---|---|---|
-| `MigrationPackageOptions` (raw path, env vars) | `JobPackage` (resolved `file:///` URI) | CLI expands paths before submitting |
-| `MigrationModulesOptions` (typed per-module config) | `List<JobModule>` (name + scopes + extensions bag) | Lossy projection — only what the agent needs |
-| `MigrationPoliciesOptions` (nested sub-objects) | `JobPolicies` (flat scalars only) | Simplified for transport |
-| `MigrationEndpointOptions` (polymorphic) | `MigrationEndpointOptions` (same type — carried as-is) | Endpoint options are shared |
-
-The CLI's `QueueCommand.BuildModules(config)` method is the translation boundary — it maps `MigrationModulesOptions` → `List<JobModule>`. Config detail that the agent doesn't need is dropped here.
+| `JobId` | Kept | Dispatch identity |
+| `ConfigVersion` | Kept (`"2.0"`) | Schema versioning |
+| `Kind` | Kept | Operation routing |
+| `Connectors` | Kept | Agent capability matching |
+| `Package` (URI) | Kept | Where the package lives |
+| `Diagnostics` | Kept | Per-run log level |
+| `Resume` | Kept | ForceFresh flag |
+| `ConfigPayload` | **New** | Full `MigrationOptions` as JSON — written to `migration-config.json` by agent |
+| `Source` / `Target` | **Removed** | Now in `migration-config.json` |
+| `Modules` / `Policies` | **Removed** | Now in `migration-config.json` |
+| `ConfigHash` | **Removed** | Redundant once config is on disk |
 
 ### Finding: No module or tool injects `IOptions<MigrationOptions>`
 
@@ -322,59 +335,48 @@ The CLI's `QueueCommand.BuildModules(config)` method is the translation boundary
 
 What modules actually access (`WorkItemsModule`, `NodesModule`, `TeamsModule`, `IdentitiesModule`) are properties on `context.Job` — the `MigrationJob` runtime DTO received from the control plane queue, not `MigrationOptions`. These are the correct types to access.
 
-### Finding: Tool options on the agent are always defaults — a current silent bug
+### Finding: Tool options on the agent are always defaults — ~~a current silent bug~~ RESOLVED
 
-`MigrationAgentServiceExtensions` calls:
-```csharp
-builder.Services.AddFieldTransformToolServices();   // binds IOptions<FieldTransformOptions>
-builder.Services.AddNodeTranslationToolServices();  // binds IOptions<NodeTranslationOptions>
-```
+> **⚠️ UPDATE (2026-04-30):** Feature `025-agent-config-package` resolved this bug. See below.
 
-These bind via `BindConfiguration("MigrationPlatform:Tools:FieldTransform")` etc.
+Previously, `MigrationAgentServiceExtensions` bound `IOptions<FieldTransformOptions>` etc. from `appsettings.json`, which had no `MigrationPlatform` section. All tool options were silently empty.
 
-The agent's `appsettings.json` contains **no `MigrationPlatform` section**:
-```json
-{ "Logging": { ... }, "Telemetry": { ... } }
-```
-
-**Result: `FieldTransformOptions`, `NodeTranslationOptions`, `IdentityLookupOptions` are always empty/default on the agent. Any transform rules or node mappings the user configured in `migration.json` are silently ignored.**
-
-This is a pre-existing bug, not introduced by the IOptions migration proposal. The tool config is defined in the CLI-side `migration.json`, converted to a `MigrationJob`, but `JobModule.Extensions` only carries enabled flags and generic parameters — the full typed options (regex patterns, transform rules) are **never transferred to the agent**.
-
-The flow that should exist but doesn't:
+**This is now fixed.** The agent receives `Job.ConfigPayload` (the full serialised `MigrationOptions` JSON), writes it to `migration-config.json` at the package root, then builds a per-job `IConfiguration` from that file. A fresh `ServiceCollection` is constructed per job with all `IOptions<T>` bound from the per-job `IConfiguration`:
 
 ```
 migration.json:  MigrationPlatform.Tools.FieldTransform.TransformGroups[...]
-                                      ↓  MISSING STEP
-MigrationJob:   ??? FieldTransform config ???
-                                      ↓
-Agent:          IOptions<FieldTransformOptions>.Value  ← always empty
+                    ↓  CLI serialises to JSON → Job.ConfigPayload
+Job.ConfigPayload:  { "MigrationPlatform": { "Tools": { "FieldTransform": { ... } } } }
+                    ↓  Agent writes to package
+migration-config.json: at package root
+                    ↓  Agent reads → IConfiguration
+IOptions<FieldTransformOptions>.Value  ← correctly populated per-job
 ```
+
+The implementation used **a variant of Fix B** (raw JSON blob in the job, not a typed projection). The `Job.ConfigPayload` string is opaque to the control plane and agent router — it is the complete `MigrationPlatform` JSON section, structurally identical to the source `migration.json`. This is simpler than Fix A and does not require `MigrationJob` to grow typed tool-config properties.
 
 ### What this means for the IOptions migration proposal
 
-The IOptions-per-slice model on the agent side is currently a **no-op** for tool options — they bind to nothing. This is an **existing architectural gap that the IOptions migration must solve**, not ignore.
-
-Two ways to fix it:
-
-**Fix A — Embed serialised tool config in `MigrationJob`**  
-Add typed tool config to `MigrationJob` (or a `JobTools` bag), populated by the CLI from `MigrationOptions.Tools.*` during job construction. The agent deserialises it and uses `IOptionsFactory`/`IPostConfigureOptions` to override the empty binding.
-
-**Fix B — Pass the raw config section as a JSON blob in the job**  
-`MigrationJob` carries a `RawConfig` JSON string (the `MigrationPlatform` section). The agent creates an `IConfiguration` from it per-job and overrides the empty `IOptions<T>` bindings. This is simpler but makes the job transport opaque.
-
-**Fix A is preferred** — it keeps the job contract explicit and typed, consistent with the rest of `MigrationJob`. The schema registry approach (section 3.2) naturally extends to this: every `SchemaOptionsEntry` that has a corresponding agent-side `IOptions<T>` also needs a `JobXxxOptions` projection in `MigrationJob`.
-
-This finding significantly changes the IOptions migration scope — the blast radius includes **`MigrationJob` itself**, which must grow to carry tool config explicitly.
+The per-job `IOptions<T>` override is **already implemented and working**. The IOptions migration scope is therefore scoped to the **CLI-side** only (moving module/tool constructors from `IOptions<MigrationOptions>` navigation to direct `IOptions<T>` injection) and the **schema generation** concern. The agent-side transport is solved.
 
 ---
 
 ## 10. Proposed Next Steps
 
-1. Add `SchemaOptionsEntry` to `Abstractions`  
-2. Add `AddSchemaEntry<T>()` helper to `MigrationPlatformServiceExtensions`  
-3. Migrate `Tools` (FieldTransform, NodeTranslation, IdentityLookup) as the pilot — they already use the right pattern  
-4. Validate schema output matches `docs/configuration.md`  
-5. Decide on `MigrationOptions` fate (question 1 above) before migrating Modules and Policies  
-6. Full migration of all module constructors  
-7. Wire schema generation into MSBuild and CI  
+> **Updated 2026-04-30** — Steps 1–2 of the original list are unchanged. Step 3 (agent-side config transport) is **complete** via `025-agent-config-package`. Remaining work is CLI-side DI cleanup and schema generation.
+
+**Already done (025-agent-config-package):**
+- `Job.ConfigPayload` carries the full `MigrationOptions` JSON to the agent
+- Agent materialises `migration-config.json` at the package root
+- Per-job `ServiceCollection` built with `IOptions<T>` bound from per-job `IConfiguration`
+- `IPackageConfigStore` abstraction + `PackageConfigStore` implementation shipped
+- `Job` v2.0 schema: `Source`, `Target`, `Modules`, `Policies`, `ConfigHash` removed
+
+**Remaining work:**
+1. Add `SchemaOptionsEntry` to `Abstractions` and `AddSchemaEntry<T>()` helper  
+2. Migrate `Tools` (FieldTransform, NodeTranslation, IdentityLookup) constructor injection as pilot — they already use `SectionName`, just need `SchemaOptionsEntry` registration  
+3. Validate schema output matches `docs/configuration.md`  
+4. Decide on `MigrationOptions` fate (Open Question 1) before migrating Modules and Policies  
+5. Full migration of all module constructors from `IOptions<MigrationOptions>` navigation to direct `IOptions<T>` injection  
+6. Wire schema generation into MSBuild and CI  
+7. Register `.vscode/settings.json` `json.schemas` entry for IDE IntelliSense on `migration.json`  
