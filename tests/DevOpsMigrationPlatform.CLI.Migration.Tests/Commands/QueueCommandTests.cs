@@ -73,13 +73,15 @@ public class QueueCommandTests
             return;
         }
 
-        var outputDir = Path.Combine(CliRunner.FindRepoRoot(), "storage", "queue-export-ado-workitems-single-project");
+        var testStorage = Path.Combine("storage", nameof(QueueCommand_WithExportMode_ExitsZero_AndWritesRevisionFiles));
+        var outputDir = Path.Combine(CliRunner.FindRepoRoot(), testStorage);
         if (Directory.Exists(outputDir))
             Directory.Delete(outputDir, recursive: true);
 
         // ── Act ───────────────────────────────────────────────────────────
         var result = await CliRunner.RunAsync(
             args: ["queue", "--config", "scenarios/queue-export-ado-workitems-single-project.json", "--force-fresh"],
+            env: new Dictionary<string, string> { ["DEVOPS_MIGRATION_TEST_STORAGE"] = testStorage },
             timeout: TimeSpan.FromMinutes(18));
 
         Console.WriteLine("=== STDOUT ===");

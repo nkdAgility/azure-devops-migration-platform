@@ -37,10 +37,8 @@ public class MigrationExportCommandTests
             return;
         }
 
-        // ── Output folder (matches scenario Package.WorkingDirectory exactly) ──
-        // scenarios/queue-export-ado-workitems-single-project.json has
-        //   "WorkingDirectory": "storage\\queue-export-ado-workitems-single-project"
-        // The CLI runs with workingDirectory = repoRoot, so the absolute output path is:
+        // ── Output folder ──────────────────────────────────────────
+        // WorkingDirectory uses %DEVOPS_MIGRATION_TEST_STORAGE% (expanded by env var below).
         var outputDir = Path.Combine(CliRunner.FindRepoRoot(), "storage", nameof(MigrationExportCommand_SystemTest_AdoSingleProject_ExitsZero_AndWritesRevisionFiles));
 
         if (Directory.Exists(outputDir))
@@ -139,10 +137,8 @@ public class MigrationExportCommandTests
             return;
         }
 
-        // ── Output folder (matches scenario Package.WorkingDirectory exactly) ──
-        // scenarios/queue-export-ado-workitems-single-project.json has
-        //   "WorkingDirectory": "storage\\queue-export-ado-workitems-single-project"
-        // The CLI runs with workingDirectory = repoRoot, so the absolute output path is:
+        // ── Output folder ──────────────────────────────────────────
+        // WorkingDirectory uses %DEVOPS_MIGRATION_TEST_STORAGE% (expanded by env var below).
         var outputDir = Path.Combine(CliRunner.FindRepoRoot(), "storage", nameof(MigrationExportCommand_SystemTest_WorkItemComments_ExitsZero_AndWritesCommentFolders));
 
         if (Directory.Exists(outputDir))
