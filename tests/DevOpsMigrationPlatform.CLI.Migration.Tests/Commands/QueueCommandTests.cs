@@ -130,6 +130,7 @@ public class QueueCommandTests
             args: ["queue", "--config", "scenarios/queue-export-workitems-simulated-source.json"],
             env: new Dictionary<string, string>
             {
+                ["DEVOPS_MIGRATION_TEST_STORAGE"] = Path.Combine("storage", nameof(QueueCommand_WithHostedModeAndUnreachableControlPlane_FailsFast)),
                 ["MigrationPlatform__Environment__Type"] = "Hosted",
                 ["MigrationPlatform__Environment__ControlPlane__BaseUrl"] = "http://localhost:59999"
             },
