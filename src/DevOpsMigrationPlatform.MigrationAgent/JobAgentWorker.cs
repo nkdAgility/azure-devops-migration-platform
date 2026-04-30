@@ -107,7 +107,10 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
     /// <summary>
     /// If <see cref="Job.ConfigPayload"/> is set, writes it to <c>migration-config.json</c>
     /// in the package before any module reads the config.
-    /// FR-007: if the file already exists and ForceFresh is not set, throws to reject re-submission.
+    /// Resume behaviour: if the file already exists and ForceFresh is not set, verifies that
+    /// the Source and Target identity fields are unchanged before overwriting. An incompatible
+    /// config (different source URL/project or target URL/project) is rejected with a clear error.
+    /// Use <see cref="ResumeMode.ForceFresh"/> to restart with a completely new configuration.
     /// </summary>
     private static async Task WriteConfigPayloadAsync(
         Job job, IArtefactStore artefactStore, CancellationToken ct)
@@ -115,16 +118,78 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
         if (string.IsNullOrWhiteSpace(job.ConfigPayload))
             return;
 
-        // FR-007: Reject re-submission without --force-fresh. The CLI cannot check this
-        // because the package may live on a remote machine. The agent is the authoritative guard.
         var forceFresh = job.Resume?.Mode == DevOpsMigrationPlatform.Abstractions.Jobs.ResumeMode.ForceFresh;
-        if (!forceFresh && await artefactStore.ExistsAsync(PackagePaths.MigrationConfigFileName, ct).ConfigureAwait(false))
-            throw new InvalidOperationException(
-                $"Package already contains migration-config.json. Use --force-fresh to restart from scratch (FR-007).");
+        var exists = await artefactStore.ExistsAsync(PackagePaths.MigrationConfigFileName, ct).ConfigureAwait(false);
+
+        if (exists && !forceFresh)
+        {
+            // Resume mode: verify the Source and Target endpoints are unchanged.
+            // A compatible re-submission overwrites the config (picking up any non-identity
+            // changes such as module settings) while preserving cursor state.
+            var existingJson = await artefactStore.ReadAsync(PackagePaths.MigrationConfigFileName, ct).ConfigureAwait(false);
+            var mismatch = GetSourceTargetMismatch(existingJson ?? string.Empty, job.ConfigPayload);
+            if (mismatch != null)
+                throw new InvalidOperationException(
+                    $"Cannot resume migration: {mismatch}. " +
+                    "Use --force-fresh to restart with the updated configuration.");
+            // Compatible — fall through and overwrite (cursor state is preserved separately).
+        }
 
         await artefactStore.WriteAsync(
             PackagePaths.MigrationConfigFileName, job.ConfigPayload, ct)
             .ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Compares the Source and Target identity fields (Type, Url/Collection, Project) between
+    /// the existing <c>migration-config.json</c> and the incoming config payload.
+    /// Returns <c>null</c> when the configs are compatible; otherwise returns a human-readable
+    /// description of the first mismatch found.
+    /// If either JSON cannot be parsed, returns <c>null</c> (allow the write).
+    /// </summary>
+    private static string? GetSourceTargetMismatch(string existingJson, string newJson)
+    {
+        static (string? type, string? url, string? project) ExtractEndpoint(JsonElement root, string role)
+        {
+            if (!root.TryGetProperty("MigrationPlatform", out var platform))
+                return (null, null, null);
+            if (!platform.TryGetProperty(role, out var endpoint))
+                return (null, null, null);
+            var type    = endpoint.TryGetProperty("Type",       out var t) ? t.GetString() : null;
+            var url     = endpoint.TryGetProperty("Url",        out var u) ? u.GetString()
+                        : endpoint.TryGetProperty("Collection", out var c) ? c.GetString()
+                        : null;
+            var project = endpoint.TryGetProperty("Project",    out var p) ? p.GetString() : null;
+            return (type, url, project);
+        }
+
+        try
+        {
+            using var existingDoc = JsonDocument.Parse(existingJson);
+            using var newDoc      = JsonDocument.Parse(newJson);
+
+            var (eSrcType, eSrcUrl, eSrcProject) = ExtractEndpoint(existingDoc.RootElement, "Source");
+            var (nSrcType, nSrcUrl, nSrcProject) = ExtractEndpoint(newDoc.RootElement,      "Source");
+
+            if (!StringComparer.OrdinalIgnoreCase.Equals(eSrcType,    nSrcType)    ||
+                !StringComparer.OrdinalIgnoreCase.Equals(eSrcUrl,     nSrcUrl)     ||
+                !StringComparer.OrdinalIgnoreCase.Equals(eSrcProject, nSrcProject))
+                return $"Source changed from '{eSrcType}:{eSrcUrl}/{eSrcProject}' to '{nSrcType}:{nSrcUrl}/{nSrcProject}'";
+
+            var (eTgtType, eTgtUrl, eTgtProject) = ExtractEndpoint(existingDoc.RootElement, "Target");
+            var (nTgtType, nTgtUrl, nTgtProject) = ExtractEndpoint(newDoc.RootElement,      "Target");
+
+            if (!StringComparer.OrdinalIgnoreCase.Equals(eTgtType,    nTgtType)    ||
+                !StringComparer.OrdinalIgnoreCase.Equals(eTgtUrl,     nTgtUrl)     ||
+                !StringComparer.OrdinalIgnoreCase.Equals(eTgtProject, nTgtProject))
+                return $"Target changed from '{eTgtType}:{eTgtUrl}/{eTgtProject}' to '{nTgtType}:{nTgtUrl}/{nTgtProject}'";
+
+            return null; // compatible
+        }
+        catch (System.Text.Json.JsonException)
+        {
+            return null; // unparseable JSON — allow write (agent will catch the real error later)
+        }
     }
 
     private async Task OnMigrationJobAsync(

@@ -70,17 +70,17 @@ public class SimulatedMigrationCommandTests
     }
 
     /// <summary>
-    /// T029b: SC-003 resume determinism — re-submitting the same package URI without --force-fresh
-    /// must be rejected (exit code 1) because migration-config.json already exists.
-    /// Verifies FR-007 atomicity at the CLI level.
+    /// T029b (updated): SC-003 resume determinism — re-submitting the same package URI without
+    /// --force-fresh must be accepted (exit code 0) because the Source and Target are unchanged.
+    /// The config is overwritten with the new payload; cursor state is preserved for resume.
     /// </summary>
     [TestMethod]
     [TestCategory("SystemTest")]
     [TestCategory("SystemTest_Simulated")]
     [Timeout(600_000)] // 10 minutes — two full stack runs back to back
-    public async Task QueueExportSimulated_ReSubmitWithoutForce_RejectsWithExitCodeOne()
+    public async Task QueueExportSimulated_ReSubmitWithoutForce_ResumesSuccessfully()
     {
-        var testStorage = Path.Combine("storage", nameof(QueueExportSimulated_ReSubmitWithoutForce_RejectsWithExitCodeOne));
+        var testStorage = Path.Combine("storage", nameof(QueueExportSimulated_ReSubmitWithoutForce_ResumesSuccessfully));
         var outputDir = Path.Combine(CliRunner.FindRepoRoot(), testStorage);
         var testEnv = new System.Collections.Generic.Dictionary<string, string> { ["DEVOPS_MIGRATION_TEST_STORAGE"] = testStorage };
 
@@ -102,13 +102,11 @@ public class SimulatedMigrationCommandTests
         Assert.IsTrue(configFiles.Length > 0,
             "Expected migration-config.json after first run — prerequisite for SC-003 test.");
 
-        var originalConfig = File.ReadAllText(configFiles[0]);
-
-        // Second run WITHOUT --force-fresh: must be rejected because migration-config.json exists
+        // Second run WITHOUT --force-fresh: same source/target → must be accepted (resume)
         var second = await CliRunner.RunAsync(
             args: ["queue", "--config", "scenarios/queue-export-workitems-simulated-source.json"],
             env: testEnv,
-            timeout: TimeSpan.FromMinutes(2));
+            timeout: TimeSpan.FromMinutes(4));
 
         Console.WriteLine("=== SECOND RUN STDOUT ===");
         Console.WriteLine(second.StandardOutput);
@@ -118,14 +116,14 @@ public class SimulatedMigrationCommandTests
             Console.WriteLine(second.StandardError);
         }
 
-        // (a) CLI must reject with non-zero exit code
-        Assert.AreNotEqual(0, second.ExitCode,
-            "Re-submission without --force-fresh must be rejected (FR-007). Got exit code 0.");
+        // Re-submission with compatible config must succeed (resume, not reject)
+        Assert.AreEqual(0, second.ExitCode,
+            $"Re-submission without --force-fresh must resume (exit 0) when source/target are unchanged. " +
+            $"STDOUT:\n{second.StandardOutput}\nSTDERR:\n{second.StandardError}");
 
-        // (b) migration-config.json must be unchanged (not overwritten)
-        var configAfter = File.ReadAllText(configFiles[0]);
-        Assert.AreEqual(originalConfig, configAfter,
-            "migration-config.json must not be overwritten on a rejected re-submission.");
+        // migration-config.json must still be present after the resume run
+        var configFilesAfter = Directory.GetFiles(outputDir, "migration-config.json", SearchOption.AllDirectories);
+        Assert.IsTrue(configFilesAfter.Length > 0, "migration-config.json must still exist after a resume run.");
     }
 
     /// <summary>
