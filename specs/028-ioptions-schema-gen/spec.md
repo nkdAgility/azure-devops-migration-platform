@@ -14,7 +14,7 @@ The following documents were read as part of the architecture check for this spe
 | Document | Status |
 | -------- | ------ |
 | `docs/architecture.md` | Confirmed accurate — no conflicts with this feature |
-| `docs/configuration.md` | **Has discrepancies** — see `discrepancies.md`. Does not describe SchemaOptionsEntry, IMigrationJobContext, json.schemas integration, or the DI-driven schema generation pattern |
+| `docs/configuration.md` | **Has discrepancies** — see `discrepancies.md`. Does not describe SchemaOptionsEntry, IAgentJobContext, json.schemas integration, or the DI-driven schema generation pattern |
 | `.agents/guardrails/system-architecture.md` | Confirmed — rules 21 (mandatory reuse), 24 (module/tool identifier derivation), 25 (observability) apply. No conflicts. |
 | `agents.md` | Confirmed — binding entry point read |
 
@@ -234,6 +234,7 @@ None — all connector-specific requirements are captured in Functional Requirem
 - **FR-013**: The TFS agent (net481) MUST continue to function throughout and after the migration — the schema generator is net10.0 only and the TFS agent has no schema generation dependency.
 - **FR-014**: The schema generator host MUST explicitly reference every connector assembly present in the solution. CI MUST verify that the set of connector assemblies referenced by the schema generator matches the set of connector assemblies in the solution — an unreferenced connector assembly is a build error.
 - **FR-015**: The schema generation step MUST fail if two options classes are registered with the same section path, regardless of whether the conflict is detected at startup or at build time. The CI schema generation job is the primary enforcement point.
+- **FR-016**: `MigrationOptions` MUST be deleted from `DevOpsMigrationPlatform.Abstractions` in this feature. `JobAgentWorker` MUST be updated to build `IConfiguration` directly from the raw `ConfigPayload` string using `ConfigurationBuilder.AddJsonStream`. `MigrationModulesOptions` MUST also be deleted. `MigrationPackageOptions` and `MigrationPoliciesOptions` MUST each gain a `SectionName` constant and a flat `IOptions<T>` DI registration.
 
 ### Key Entities
 
@@ -251,7 +252,7 @@ None — all connector-specific requirements are captured in Functional Requirem
 - **SC-001**: Every key present in a valid `migration.json` file is present in the generated schema — zero keys are silently unrecognised by the schema.
 - **SC-002**: Every key present in the generated schema corresponds to a real configuration binding in the running system — zero schema-only keys exist.
 - **SC-003**: Adding a new options class and registering it in DI produces an updated schema in the next build without any additional manual step.
-- **SC-004**: A build in which the committed schema differs from the generated schema fails CI with a meaningful diff, preventing undetected schema drift. The comparison MUST be semantic (normalised JSON, not text diff) to avoid false positives from whitespace or key-ordering differences.
+- **SC-004**: A build in which the committed schema differs from the generated schema fails CI with a meaningful diff, preventing undetected schema drift. `git diff --exit-code` on the committed schema file is sufficient — NJsonSchema output is deterministic (same DI registrations produce identical byte-for-byte output), so a text diff is semantically equivalent and avoids a `jq` dependency in CI.
 - **SC-010**: Running `devopsmigration queue` with a `migration.json` containing an unknown key exits with a non-zero code and identifies the offending path before any control plane contact is made.
 - **SC-011**: A published CLI build contains `migration.schema.json` in the same directory as the CLI binary.
 - **SC-005**: A module unit test requires only that module's own options class to construct the module — no other options classes are needed.
@@ -259,17 +260,19 @@ None — all connector-specific requirements are captured in Functional Requirem
 - **SC-007**: A wrong section path constant is detected and reported at application startup — not at the point of first use during a migration run.
 - **SC-008**: All existing tests pass after the migration without modification of test assertions — the observable behaviour of the running system is identical before and after this feature.
 - **SC-009**: `ActiveJobConfigState` is deleted from the codebase — zero references remain in any module, tool, or test after the migration is complete.
+- **SC-012**: `MigrationOptions` is deleted from the codebase — zero injection sites, zero constructor references, zero field declarations reference it after this feature is complete. `JobAgentWorker` builds `IConfiguration` directly from `ConfigPayload` (raw JSON bytes) without an intermediate `MigrationOptions` deserialisation step.
 
 ---
 
 ## Assumptions
 
 - The `Tools` section options (FieldTransform, NodeTranslation, IdentityLookup) already use the correct self-registration pattern and serve as the pilot for the migration.
-- `MigrationOptions` is a **deserialisation-only** type. Config files are operator-authored JSON; the platform never writes config files. `SaveConfigurationAsync`, `ConfigNewCommand`, and `ConfigureCommand` are out of scope — config authoring is entirely the operator's responsibility and the platform has no legitimate need to serialise a `MigrationOptions` object to JSON. `MigrationOptions` survives only as a transient deserialisation target in `JobAgentWorker` during the bootstrap window before the per-job `IConfiguration` is built; once the agent can build `IConfiguration` directly from the raw JSON payload without that intermediate step, `MigrationOptions` can be deleted entirely.
+- `MigrationOptions` IS fully deleted in this feature. `JobAgentWorker` is updated to build `IConfiguration` directly from the raw `ConfigPayload` bytes (already available as a `string` from `File.ReadAllTextAsync`) using `new ConfigurationBuilder().AddJsonStream(...)`, eliminating the intermediate deserialisation step. `SaveConfigurationAsync`, `ConfigNewCommand`, and `ConfigureCommand` are permanently out of scope — config authoring is entirely the operator's responsibility.
+- `MigrationOptions`'s container types (`MigrationPackageOptions`, `MigrationPoliciesOptions`) are promoted to their own flat `IOptions<T>` registrations with `SectionName` constants — they are NOT deleted, but their `MigrationOptions` navigation path (`MigrationOptions.Package`, `MigrationOptions.Policies`) is removed. `MigrationModulesOptions` IS deleted — all its properties are now individual flat `IOptions<T>` per-module registrations.
 - The schema generator will be implemented as a separate host project (not a hidden CLI command) to keep schema generation concerns cleanly separated from the CLI binary.
 - Schema generation is net10.0 only; the TFS agent (net481) is entirely unaffected.
 - The `EndpointOptionsTypeRegistry` already provides the list of registered concrete endpoint types and will be reused by the schema generator for discriminated union generation.
-- Container classes (`MigrationToolsOptions`, `MigrationModulesOptions`) are retained as pure schema-structure markers with no constructor injection — only leaf options classes are injected via `IOptions<T>`.
+- `MigrationModulesOptions` is deleted — all its per-module properties are superseded by individual flat `IOptions<T>` per-module registrations. `MigrationToolsOptions` may be retained or deleted depending on whether the schema generator requires a nesting node for the `Tools.*` section. All leaf options classes are injected via `IOptions<T>`; no container type is injected.
 - VS Code is the primary IDE target for the `json.schemas` registration; other editors are out of scope.
 - The schema validation in the `queue` command uses `NJsonSchema` or equivalent for JSON Schema v7 validation against the raw file bytes — it does not re-implement schema parsing.
 - All other commands that load a config file (`prepare`, `validate`, etc.) are out of scope for schema validation in this feature — only `queue` is required. Other commands can be added in a follow-up.
