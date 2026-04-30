@@ -30,7 +30,7 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent;
 /// <see cref="OnAfterModulesAsync"/> template-method hooks.
 ///
 /// Workers that support additional migration modes (Both, Import, Prepare) should override
-/// <see cref="OnMigrationJobAsync"/> completely and use the protected fields directly.
+/// <see cref="AgentWorkerBase.OnJobAsync"/> completely and use the protected fields directly.
 /// </summary>
 public abstract class ModulePipelineWorkerBase : AgentWorkerBase
 {

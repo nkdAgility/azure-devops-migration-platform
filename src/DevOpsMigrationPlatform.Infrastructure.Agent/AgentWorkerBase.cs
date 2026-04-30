@@ -20,8 +20,7 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent;
 /// <summary>
 /// Shared base class for all migration agents (MigrationAgent, TfsMigrationAgent).
 /// Implements the polling loop, lease acquisition, and terminal signalling.
-/// Subclasses implement <see cref="OnMigrationJobAsync"/> and <see cref="OnDiscoveryJobAsync"/>
-/// with their specific module registrations.
+/// Subclasses implement <see cref="OnJobAsync"/> to dispatch on <see cref="Job.Kind"/>.
 /// </summary>
 public abstract class AgentWorkerBase : BackgroundService
 {

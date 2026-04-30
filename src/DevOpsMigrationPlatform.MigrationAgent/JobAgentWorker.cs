@@ -21,7 +21,7 @@ namespace DevOpsMigrationPlatform.MigrationAgent;
 /// MigrationAgent-specific worker that handles ADO and Simulated source jobs.
 /// Inherits the module-pipeline infrastructure (stores, checkpointing, ForceFresh,
 /// module loop) from <see cref="ModulePipelineWorkerBase"/>, and overrides
-/// <see cref="AgentWorkerBase.OnMigrationJobAsync"/> to add Both, Import, and Prepare modes.
+/// <see cref="AgentWorkerBase.OnJobAsync"/> to dispatch on <see cref="Job.Kind"/>.
 /// </summary>
 public sealed class JobAgentWorker : ModulePipelineWorkerBase
 {
