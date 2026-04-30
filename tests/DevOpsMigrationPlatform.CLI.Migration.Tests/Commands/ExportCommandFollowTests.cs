@@ -46,8 +46,8 @@ public class ExportCommandFollowTests
     public async Task ExportCommand_WithFollowAndWarningLevel_ExitsZero_AndWritesRevisionFiles()
     {
         // ── Output folder ───────────────────────────────────────────────────────────
-        var outputDir = Path.Combine(
-            CliRunner.FindRepoRoot(), "storage", "queue-export-workitems-simulated-source");
+        var testStorage = Path.Combine("storage", nameof(ExportCommand_WithFollowAndWarningLevel_ExitsZero_AndWritesRevisionFiles));
+        var outputDir = Path.Combine(CliRunner.FindRepoRoot(), testStorage);
         if (Directory.Exists(outputDir))
             Directory.Delete(outputDir, recursive: true);
 
@@ -55,6 +55,7 @@ public class ExportCommandFollowTests
         var result = await CliRunner.RunAsync(
             args: ["queue", "--config", "scenarios/queue-export-workitems-simulated-source.json",
                    "--force-fresh", "--follow", "--level", "Warning"],
+            env: new System.Collections.Generic.Dictionary<string, string> { ["DEVOPS_MIGRATION_TEST_STORAGE"] = testStorage },
             timeout: TimeSpan.FromMinutes(1));
 
         Console.WriteLine("=== STDOUT ===");
@@ -100,8 +101,8 @@ public class ExportCommandFollowTests
     public async Task ExportCommand_WithDebugLevel_WritesAgentJsonl()
     {
         // ── Output folder ───────────────────────────────────────────────────────────
-        var outputDir = Path.Combine(
-            CliRunner.FindRepoRoot(), "storage", "queue-export-workitems-simulated-source");
+        var testStorage = Path.Combine("storage", nameof(ExportCommand_WithDebugLevel_WritesAgentJsonl));
+        var outputDir = Path.Combine(CliRunner.FindRepoRoot(), testStorage);
         if (Directory.Exists(outputDir))
             Directory.Delete(outputDir, recursive: true);
 
@@ -109,6 +110,7 @@ public class ExportCommandFollowTests
         var result = await CliRunner.RunAsync(
             args: ["queue", "--config", "scenarios/queue-export-workitems-simulated-source.json",
                    "--force-fresh", "--level", "Debug"],
+            env: new System.Collections.Generic.Dictionary<string, string> { ["DEVOPS_MIGRATION_TEST_STORAGE"] = testStorage },
             timeout: TimeSpan.FromMinutes(1));
 
         Console.WriteLine("=== STDOUT ===");

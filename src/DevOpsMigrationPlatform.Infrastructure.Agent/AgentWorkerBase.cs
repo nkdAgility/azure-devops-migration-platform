@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Json;
@@ -19,8 +20,7 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent;
 /// <summary>
 /// Shared base class for all migration agents (MigrationAgent, TfsMigrationAgent).
 /// Implements the polling loop, lease acquisition, and terminal signalling.
-/// Subclasses implement <see cref="OnMigrationJobAsync"/> and <see cref="OnDiscoveryJobAsync"/>
-/// with their specific module registrations.
+/// Subclasses implement <see cref="OnJobAsync"/> to dispatch on <see cref="Job.Kind"/>.
 /// </summary>
 public abstract class AgentWorkerBase : BackgroundService
 {
@@ -45,6 +45,7 @@ public abstract class AgentWorkerBase : BackgroundService
         ILogger logger
 #if !NET481
         , PolymorphicEndpointOptionsConverter? endpointConverter = null
+        , PolymorphicOrganisationEntryConverter? organisationConverter = null
 #endif
         )
     {
@@ -62,26 +63,23 @@ public abstract class AgentWorkerBase : BackgroundService
 #if !NET481
         if (endpointConverter is not null)
             _jsonOptions.Converters.Add(endpointConverter);
+        if (organisationConverter is not null)
+            _jsonOptions.Converters.Add(organisationConverter);
 #endif
     }
 
     /// <summary>
-    /// Capabilities this agent advertises to the control plane for job routing.
-    /// Examples: <c>["ado", "simulated"]</c> or <c>["tfs"]</c>.
+    /// Connector types this agent advertises to the control plane for job routing.
+    /// Examples: <c>[ConnectorType.AzureDevOps, ConnectorType.Simulated]</c> or <c>[ConnectorType.TeamFoundationServer]</c>.
     /// </summary>
-    protected abstract string[] Capabilities { get; }
+    protected abstract ConnectorType[] Capabilities { get; }
 
     /// <summary>
-    /// Called when a <see cref="MigrationJob"/> is acquired from the control plane.
+    /// Called when a <see cref="Job"/> is acquired from the control plane.
+    /// Subclasses dispatch on <see cref="Job.Kind"/>.
     /// </summary>
-    protected abstract Task OnMigrationJobAsync(
-        MigrationJob job, HttpClient controlPlane, string leaseId, CancellationToken ct);
-
-    /// <summary>
-    /// Called when a <see cref="DiscoveryJob"/> is acquired from the control plane.
-    /// </summary>
-    protected abstract Task OnDiscoveryJobAsync(
-        DiscoveryJob job, HttpClient controlPlane, string leaseId, CancellationToken ct);
+    protected abstract Task OnJobAsync(
+        Job job, HttpClient controlPlane, string leaseId, CancellationToken ct);
 
     /// <summary>
     /// Called after a job completes (success or failure) and before <see cref="ActivePackageState.Clear"/>.
@@ -122,7 +120,7 @@ public abstract class AgentWorkerBase : BackgroundService
     {
         using var controlPlane = _httpClientFactory.CreateClient("ControlPlane");
 
-        var capabilitiesParam = string.Join(",", Capabilities);
+        var capabilitiesParam = string.Join(",", Capabilities.Select(c => c.ToString()));
         var leaseUrl = $"/agents/lease?capabilities={Uri.EscapeDataString(capabilitiesParam)}";
 
         using var leaseResponse = await controlPlane
@@ -144,31 +142,13 @@ public abstract class AgentWorkerBase : BackgroundService
         if (lease is null) return;
 
         _logger.LogInformation(
-            "Acquired lease {LeaseId} for job {JobId} ({JobType})",
-            lease.LeaseId, lease.Job.JobId, lease.Job.GetType().Name);
+            "Acquired lease {LeaseId} for job {JobId} ({JobKind})",
+            lease.LeaseId, lease.Job.JobId, lease.Job.Kind);
 
         _leaseState.CurrentLeaseId = lease.LeaseId;
         _packageState.CurrentJobId = lease.Job.JobId;
 
-        switch (lease.Job)
-        {
-            case MigrationJob migrationJob:
-                await OnMigrationJobAsync(migrationJob, controlPlane, lease.LeaseId, ct)
-                    .ConfigureAwait(false);
-                break;
-
-            case DiscoveryJob discoveryJob:
-                await OnDiscoveryJobAsync(discoveryJob, controlPlane, lease.LeaseId, ct)
-                    .ConfigureAwait(false);
-                break;
-
-            default:
-                _logger.LogError(
-                    "Unknown job type {JobType} for lease {LeaseId} — failing job.",
-                    lease.Job.GetType().Name, lease.LeaseId);
-                await SignalTerminalAsync(controlPlane, lease.LeaseId, "fail", ct).ConfigureAwait(false);
-                break;
-        }
+        await OnJobAsync(lease.Job, controlPlane, lease.LeaseId, ct).ConfigureAwait(false);
 
         _leaseState.CurrentLeaseId = null;
 

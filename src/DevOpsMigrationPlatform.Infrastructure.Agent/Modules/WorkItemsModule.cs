@@ -8,6 +8,7 @@ using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Agent.Lease;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Abstractions.Agent.Validation;
+using DevOpsMigrationPlatform.Abstractions.Jobs;
 using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Abstractions.Telemetry;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Export;
@@ -310,11 +311,9 @@ public sealed class WorkItemsModule : IModule
     public async Task ValidateAsync(ValidationContext context, CancellationToken ct)
     {
         var job = context.Job;
-        var mode = job.Mode ?? "Export";
 
-        // Only perform package-side validation for Import or Both modes
-        if (!string.Equals(mode, "Import", StringComparison.OrdinalIgnoreCase) &&
-            !string.Equals(mode, "Both", StringComparison.OrdinalIgnoreCase))
+        // Only perform package-side validation for Import
+        if (job.Kind != JobKind.Import)
             return;
 
         // Tier 2: Verify the WorkItems/ prefix has at least one revision folder

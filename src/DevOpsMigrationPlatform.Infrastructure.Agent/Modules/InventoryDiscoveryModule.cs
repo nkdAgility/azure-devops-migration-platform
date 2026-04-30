@@ -42,7 +42,7 @@ public sealed class InventoryDiscoveryModule : IDiscoveryModule
     private readonly IOptions<DiscoveryOptions>? _discoveryOptions;
 
     public string Name => "InventoryDiscovery";
-    public DiscoveryJobType DiscoveryType => DiscoveryJobType.Inventory;
+    public JobKind DiscoveryKind => JobKind.Inventory;
 
     public InventoryDiscoveryModule(
         IInventoryServiceFactory inventoryFactory,
@@ -79,10 +79,28 @@ public sealed class InventoryDiscoveryModule : IDiscoveryModule
             using (DataClassificationScope.Begin(DataClassification.Customer))
                 _logger.LogInformation("Resuming inventory after project '{LastCompleted}'.", lastCompleted);
 
+        // Organisations come from context.Organisations (populated by the agent from migration-config.json).
+        // Fall back to _discoveryOptions for backward compatibility in unit tests without a package.
+        var organisations = context.Organisations.Count > 0
+            ? context.Organisations.ToList()
+            : (_discoveryOptions?.Value?.Organisations ?? new System.Collections.Generic.List<DevOpsMigrationPlatform.Abstractions.Options.OrganisationEntry>())
+                .Where(o => o.Enabled)
+                .Select(o => new ScopedOrganisationEndpoint
+                {
+                    Endpoint = o.ToEndpointOptions(),
+                    Projects = new System.Collections.Generic.List<string>(o.Projects),
+                    Scopes = o.Scopes.Select(s => new JobModuleScope
+                    {
+                        Type = s.Type,
+                        Parameters = s.Parameters.ToDictionary(kvp => kvp.Key, kvp => (object?)kvp.Value)
+                    }).ToList()
+                })
+                .ToList<ScopedOrganisationEndpoint>();
+
         var policies = _discoveryOptions?.Value?.Policies is { } p
             ? new JobPolicies { MaxRetries = p.Retries.Max, MaxConcurrency = p.Throttle.MaxConcurrency, CheckpointIntervalSeconds = p.Checkpoints.Interval }
             : new JobPolicies();
-        var inventoryService = _inventoryFactory.Create(job.Organisations, policies);
+        var inventoryService = _inventoryFactory.Create(organisations, policies);
 
         // Emit a probe event so the CLI live table transitions from "…" to "Starting"
         // immediately, proving the sink pipeline works before the API returns data.
@@ -302,8 +320,8 @@ public sealed class InventoryDiscoveryModule : IDiscoveryModule
 
             // Push aggregate metrics to the snapshot store (Channel 2) so the
             // TUI/CLI can read them via GET /jobs/{id}/telemetry.
-            PushAggregateMetrics(metricsStore, orgProjectData, job);
-            PushSnapshot(snapshotStore, orgProjectData, job);
+            PushAggregateMetrics(metricsStore, orgProjectData, organisations);
+            PushSnapshot(snapshotStore, orgProjectData, organisations);
 
             // Checkpoint cursor at configured interval for resume support.
             if (DateTime.UtcNow - lastCheckpoint >= checkpointInterval)
@@ -337,8 +355,8 @@ public sealed class InventoryDiscoveryModule : IDiscoveryModule
         await state.DeleteAsync(CursorKey, ct).ConfigureAwait(false);
 
         // Final snapshot push
-        PushAggregateMetrics(metricsStore, orgProjectData, job);
-        PushSnapshot(snapshotStore, orgProjectData, job);
+        PushAggregateMetrics(metricsStore, orgProjectData, organisations);
+        PushSnapshot(snapshotStore, orgProjectData, organisations);
 
         jobSw.Stop();
         metrics?.RecordJobDuration(jobSw.Elapsed.TotalMilliseconds, new TagList
@@ -421,7 +439,7 @@ public sealed class InventoryDiscoveryModule : IDiscoveryModule
     private static void PushAggregateMetrics(
         IJobMetricsStore? metricsStore,
         Dictionary<string, List<(string Project, long WorkItems, long Revisions, int Repos, bool IsComplete, string? Error)>> orgProjectData,
-        DiscoveryJob job)
+        IReadOnlyList<ScopedOrganisationEndpoint> organisations)
     {
         if (metricsStore is null)
             return;
@@ -454,7 +472,7 @@ public sealed class InventoryDiscoveryModule : IDiscoveryModule
         }
 
         // Include configured orgs/projects that haven't started yet
-        foreach (var org in job.Organisations)
+        foreach (var org in organisations)
         {
             var url = org.Endpoint.GetResolvedUrl();
             if (!orgProjectData.ContainsKey(url))
@@ -491,13 +509,13 @@ public sealed class InventoryDiscoveryModule : IDiscoveryModule
     private static void PushSnapshot(
         IJobSnapshotStore? snapshotStore,
         Dictionary<string, List<(string Project, long WorkItems, long Revisions, int Repos, bool IsComplete, string? Error)>> orgProjectData,
-        DiscoveryJob job)
+        IReadOnlyList<ScopedOrganisationEndpoint> organisations)
     {
         if (snapshotStore is null)
             return;
 
         var orgSnapshots = new List<OrgSnapshot>();
-        foreach (var org in job.Organisations)
+        foreach (var org in organisations)
         {
             var url = org.Endpoint.GetResolvedUrl();
             var projectSnapshots = new List<ProjectSnapshot>();

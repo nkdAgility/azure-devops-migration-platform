@@ -19,11 +19,10 @@ public interface IDiscoveryModule
     string Name { get; }
 
     /// <summary>
-    /// The discovery type this module handles.
-    /// Used by <c>DiscoveryAgentWorker</c> to route a <see cref="DiscoveryJob"/> to
-    /// the correct module (or both, for <see cref="DiscoveryJobType.Both"/>).
+    /// The job kind this module handles (<see cref="JobKind.Inventory"/> or <see cref="JobKind.Dependencies"/>).
+    /// Used by the agent worker to route a <see cref="Job"/> to the correct module.
     /// </summary>
-    DiscoveryJobType DiscoveryType { get; }
+    JobKind DiscoveryKind { get; }
 
     /// <summary>
     /// Run the discovery operation. Reads from source systems via injected services,

@@ -32,6 +32,9 @@
                     Package in sequence.
                     Use for Preview (push to main) and Production releases.
 
+      Stats       — Read existing .trx files in TestResults/ and output the
+                    test summary and 10 slowest tests. No build or test run.
+
       Start       — Install (build + unit test + publish + install to versioned
                     folder + update 'current' junction), then launches the
                     Aspire AppHost (ControlPlane + MigrationAgent) so you can
@@ -73,7 +76,7 @@
     RIDs produced: win-x64, win-arm64, linux-x64, osx-x64, osx-arm64
 
 .PARAMETER Mode
-    Build | Test | SystemTest | SystemTest_Simulated | SystemTest_Live | Package | Full | Start | Install   (default: Full)
+    Build | Test | SystemTest | SystemTest_Simulated | SystemTest_Live | Package | Full | Stats | Start | Install   (default: Full)
 
 .PARAMETER Version
     Override the version string instead of resolving via GitVersion.
@@ -92,13 +95,21 @@
     pwsh ./build.ps1 -Mode Start
     pwsh ./build.ps1 -Mode Install
     pwsh ./build.ps1 -Mode Install -Fast  # Skip system tests
+    pwsh ./build.ps1 -Mode Stats           # Show stats from last test run
+    pwsh ./build.ps1 RunTest "MyTestName"  # Run a single test by (partial) name
     pwsh ./build.ps1 -Version 16.9.3  # Override version
 #>
 param(
-    [ValidateSet('Build', 'Test', 'SystemTest', 'SystemTest_Simulated', 'SystemTest_Live', 'Package', 'Full', 'Start', 'Install')]
+    [Parameter(Position=0)]
+    [ValidateSet('Build', 'Test', 'SystemTest', 'SystemTest_Simulated', 'SystemTest_Live', 'Package', 'Full', 'Stats', 'Start', 'Install', 'RunTest')]
     [string]$Mode = 'Full',
 
     [string]$Version,
+
+    # Used with -Mode RunTest: runs a single test by (partial) name.
+    # Example: .\build.ps1 RunTest "DependencyCommand_SystemTest_AdoSingleProject_ExecutesSuccessfully"
+    [Parameter(Position=1)]
+    [string]$TestName,
 
     [switch]$Fast
 )
@@ -110,6 +121,7 @@ $RepoRoot       = $PSScriptRoot
 $SolutionFile   = Join-Path $RepoRoot 'DevOpsMigrationPlatform.slnx'
 $ArtifactsDir   = Join-Path $RepoRoot 'output'
 $TestResultsDir = Join-Path $RepoRoot 'TestResults'
+$TimingsFile    = Join-Path $TestResultsDir 'build-timings.json'
 
 $AppHostProject      = Join-Path $RepoRoot 'src/DevOpsMigrationPlatform.AppHost/DevOpsMigrationPlatform.AppHost.csproj'
 $CliMigrationProject = Join-Path $RepoRoot 'src/DevOpsMigrationPlatform.CLI.Migration/DevOpsMigrationPlatform.CLI.Migration.csproj'
@@ -178,6 +190,9 @@ function Write-TestSummary {
         $skipped = [int]$counters.notExecuted
         $total   = [int]$counters.total
 
+        # Skip empty result files (e.g. bare environment .trx files with no tests)
+        if ($total -eq 0) { continue }
+
         $totalPassed  += $passed
         $totalFailed  += $failed
         $totalSkipped += $skipped
@@ -210,6 +225,42 @@ function Write-TestSummary {
     $summaryLine = '  {0} {1,-42} {2,5} passed  {3,3} failed  {4,3} skipped  {5,5} total' -f $summaryIcon, 'ALL TESTS', $totalPassed, $totalFailed, $totalSkipped, $totalTests
     Write-Host $summaryLine -ForegroundColor $summaryColor
     Write-Host ('─' * 72) -ForegroundColor DarkGray
+
+    # ── 10 slowest tests ─────────────────────────────────────────────────────
+    $allResults = foreach ($trx in $trxFiles) {
+        [xml]$xml = Get-Content -LiteralPath $trx.FullName -Raw
+        $ns = @{ t = 'http://microsoft.com/schemas/VisualStudio/TeamTest/2010' }
+        Select-Xml -Xml $xml -XPath '//t:Results/t:UnitTestResult' -Namespace $ns |
+            Select-Object -ExpandProperty Node |
+            Where-Object { $_.duration } |
+            ForEach-Object {
+                [PSCustomObject]@{
+                    Name     = $_.testName
+                    Duration = [TimeSpan]::Parse($_.duration)
+                }
+            }
+    }
+
+    $slowest = $allResults | Sort-Object Duration -Descending | Select-Object -First 10
+    if ($slowest) {
+        Write-Host ""
+        Write-Host '  10 Slowest Tests' -ForegroundColor White
+        Write-Host ('─' * 72) -ForegroundColor DarkGray
+        $rank = 1
+        foreach ($t in $slowest) {
+            $dur = $t.Duration
+            $formatted = if ($dur.TotalMinutes -ge 1) {
+                '{0}m {1:D2}.{2:D3}s' -f [int]$dur.TotalMinutes, $dur.Seconds, $dur.Milliseconds
+            } else {
+                '{0:D2}.{1:D3}s' -f $dur.Seconds, $dur.Milliseconds
+            }
+            $shortName = if ($t.Name.Length -gt 58) { $t.Name.Substring(0, 55) + '...' } else { $t.Name }
+            Write-Host ('  {0,2}. {1,-58} {2,9}' -f $rank, $shortName, $formatted) -ForegroundColor DarkYellow
+            $rank++
+        }
+        Write-Host ('─' * 72) -ForegroundColor DarkGray
+    }
+
     Write-Host ''
 }
 
@@ -226,22 +277,51 @@ function Write-BuildSummary {
     Write-Host ('─' * 72) -ForegroundColor DarkGray
 
     foreach ($entry in $script:StepTimings) {
-        $t = $entry.Elapsed
-        $formatted = if ($t.TotalMinutes -ge 1) {
-            '{0}m {1:D2}s' -f [int]$t.TotalMinutes, $t.Seconds
-        } else {
-            '{0:D2}s {1:D3}ms' -f $t.Seconds, $t.Milliseconds
-        }
-        Write-Host ('  {0,-55} {1,10}' -f $entry.Step, $formatted) -ForegroundColor Gray
+        Write-Host ('  {0,-55} {1,10}' -f $entry.Step, (Format-Elapsed $entry.Elapsed.TotalSeconds)) -ForegroundColor Gray
     }
 
     Write-Host ('─' * 72) -ForegroundColor DarkGray
-    $tf = if ($total.TotalMinutes -ge 1) {
-        '{0}m {1:D2}s' -f [int]$total.TotalMinutes, $total.Seconds
-    } else {
-        '{0:D2}s {1:D3}ms' -f $total.Seconds, $total.Milliseconds
+    Write-Host ('  {0,-55} {1,10}' -f 'TOTAL', (Format-Elapsed $total.TotalSeconds)) -ForegroundColor White
+    Write-Host ('─' * 72) -ForegroundColor DarkGray
+    Write-Host ''
+
+    # Persist timings so 'Stats' mode can display them without a full run
+    try {
+        New-Item -ItemType Directory -Path $TestResultsDir -Force | Out-Null
+        $payload = [PSCustomObject]@{
+            RunAt        = (Get-Date -Format 'yyyy-MM-dd HH:mm:ss')
+            Mode         = $Mode
+            TotalSeconds = $total.TotalSeconds
+            Steps        = @($script:StepTimings | ForEach-Object {
+                [PSCustomObject]@{ Step = $_.Step; ElapsedSeconds = $_.Elapsed.TotalSeconds }
+            })
+        }
+        $payload | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath $TimingsFile -Encoding UTF8
+    } catch { <# non-fatal #> }
+}
+
+function Format-Elapsed {
+    param([double]$TotalSeconds)
+    $ts = [TimeSpan]::FromSeconds($TotalSeconds)
+    if ($ts.TotalMinutes -ge 1) { '{0}m {1:D2}s' -f [int]$ts.TotalMinutes, $ts.Seconds }
+    else                        { '{0:D2}s {1:D3}ms' -f $ts.Seconds, $ts.Milliseconds }
+}
+
+function Write-BuildTimings {
+    if (-not (Test-Path $TimingsFile)) {
+        Write-Host '  (No saved build timings found — run a build/test first)' -ForegroundColor DarkGray
+        return
     }
-    Write-Host ('  {0,-55} {1,10}' -f 'TOTAL', $tf) -ForegroundColor White
+    $data = Get-Content -LiteralPath $TimingsFile -Raw | ConvertFrom-Json
+    Write-Host ''
+    Write-Host ('─' * 72) -ForegroundColor DarkGray
+    Write-Host ('  Build Timings  (last run: {0}  mode: {1})' -f $data.RunAt, $data.Mode) -ForegroundColor White
+    Write-Host ('─' * 72) -ForegroundColor DarkGray
+    foreach ($entry in $data.Steps) {
+        Write-Host ('  {0,-55} {1,10}' -f $entry.Step, (Format-Elapsed $entry.ElapsedSeconds)) -ForegroundColor Gray
+    }
+    Write-Host ('─' * 72) -ForegroundColor DarkGray
+    Write-Host ('  {0,-55} {1,10}' -f 'TOTAL', (Format-Elapsed $data.TotalSeconds)) -ForegroundColor White
     Write-Host ('─' * 72) -ForegroundColor DarkGray
     Write-Host ''
 }
@@ -592,6 +672,31 @@ function Invoke-Install {
 }
 
 # ─────────────────────────────────────────────────────────────────────────────
+# Stats / RunTest modes — no version resolution, no build required
+# ─────────────────────────────────────────────────────────────────────────────
+if ($Mode -eq 'Stats') {
+    Write-BuildTimings
+    Write-TestSummary
+    exit 0
+}
+
+if ($Mode -eq 'RunTest') {
+    if (-not $TestName) {
+        Write-Error ('Usage: .\build.ps1 RunTest "<TestName>"' + "`nProvide a full or partial test method name via -TestName.")
+        exit 1
+    }
+    Write-Host "`n==> Running single test: $TestName" -ForegroundColor Cyan
+    dotnet test $SolutionFile `
+        --no-build `
+        --configuration Release `
+        --filter "FullyQualifiedName~$TestName" `
+        --logger 'trx' `
+        --logger 'console;verbosity=normal' `
+        --results-directory $TestResultsDir
+    exit $LASTEXITCODE
+}
+
+# ─────────────────────────────────────────────────────────────────────────────
 # Orchestration
 # ─────────────────────────────────────────────────────────────────────────────
 if ($Version) {
@@ -665,6 +770,12 @@ switch ($Mode) {
         Write-BuildSummary
     }
 
+    'RunTest' {
+        # Handled above before version resolution — should not reach here.
+        Write-Error "RunTest mode must be handled before version resolution. This is a bug."
+        exit 1
+    }
+
     'Package' {
         # ── Publish + zip only (requires prior Build) ────────────────────────
         Invoke-Publish -StagingDir $StagingDir -VersionArgs $VersionArgs
@@ -716,6 +827,11 @@ switch ($Mode) {
         $installedDir = Invoke-Install -SemVer $SemVer
         Write-BuildSummary
         Start-AppHost -InstallPath $installedDir
+    }
+
+    'Stats' {
+        # ── Read existing .trx files and print test summary + slowest tests ──
+        Write-TestSummary
     }
 
     'Install' {

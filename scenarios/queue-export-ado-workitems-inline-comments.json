@@ -23,7 +23,7 @@
       }
     },
     "Package": {
-      "WorkingDirectory": "storage\\queue-export-ado-workitems-inline-comments",
+      "WorkingDirectory": "%DEVOPS_MIGRATION_TEST_STORAGE%",
       "CreatePackage": true
     },
     "Modules": {

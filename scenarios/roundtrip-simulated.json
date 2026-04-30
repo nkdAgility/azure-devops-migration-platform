@@ -42,7 +42,7 @@
       "Type": "Simulated"
     },
     "Package": {
-      "WorkingDirectory": "storage\\roundtrip-simulated",
+      "WorkingDirectory": "%DEVOPS_MIGRATION_TEST_STORAGE%",
       "CreatePackage": true
     },
     "Modules": {

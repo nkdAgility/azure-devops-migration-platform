@@ -1,7 +1,7 @@
 namespace DevOpsMigrationPlatform.Abstractions.Jobs;
 
 /// <summary>
-/// A module entry in a <see cref="MigrationJob"/>.
+/// A module entry in a <see cref="Job"/>.
 /// Carries one or more scopes (selection criteria) and a list of named extensions
 /// that independently control each sub-operation.
 /// </summary>

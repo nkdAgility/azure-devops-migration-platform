@@ -160,6 +160,16 @@ public sealed class LocalStackHost : IAsyncDisposable
         while (DateTime.UtcNow < deadline)
         {
             cancellationToken.ThrowIfCancellationRequested();
+
+            // If the control plane process exited before becoming healthy, the port was
+            // likely already in use (e.g. a ControlPlaneHostRunner from a previous test
+            // run is still alive). Fail fast rather than accidentally connecting to the
+            // stale process and hanging indefinitely.
+            if (_controlPlaneProcess?.HasExited == true)
+                throw new InvalidOperationException(
+                    $"ControlPlane process exited prematurely. " +
+                    $"Port {_controlPlaneUrl.Port} may already be in use by another process.");
+
             try
             {
                 var response = await http.GetAsync("/jobs", cancellationToken);

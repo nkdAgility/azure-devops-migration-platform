@@ -1,6 +1,7 @@
 using System;
 using System.Linq;
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Jobs;
 using DevOpsMigrationPlatform.ControlPlane.Jobs;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
@@ -10,11 +11,11 @@ namespace DevOpsMigrationPlatform.ControlPlane.Tests.Services;
 [TestCategory("Unit")]
 public class JobStoreStateTests
 {
-    private static MigrationJob CreateJob(string id) =>
-        new MigrationJob
+    private static Job CreateJob(string id) =>
+        new Job
         {
             JobId = id,
-            Mode = "Export"
+            Kind = JobKind.Export
         };
 
     [TestMethod]

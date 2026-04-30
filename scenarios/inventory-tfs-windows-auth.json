@@ -23,7 +23,7 @@
       }
     ],
     "Package": {
-      "WorkingDirectory": "storage\\inventory-tfs-windows-auth"
+      "WorkingDirectory": "%DEVOPS_MIGRATION_TEST_STORAGE%"
     }
   }
 }

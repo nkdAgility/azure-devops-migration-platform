@@ -10,7 +10,7 @@ namespace DevOpsMigrationPlatform.Abstractions.Jobs;
 /// Abstraction for the job execution transport.
 ///
 /// The only permitted implementation is <c>ControlPlaneClient</c>, which submits the
-/// <see cref="MigrationJob"/> to a running control plane over HTTP, then streams
+/// <see cref="Job"/> to a running control plane over HTTP, then streams
 /// progress events back. The control plane is always present — in local/server mode
 /// it is started in-process by the CLI via Aspire (http://localhost:5100); in cloud
 /// mode it is a remote Azure Container Apps endpoint.
@@ -29,7 +29,7 @@ public interface IJobSubmissionClient
     /// completes, fails, or the token is cancelled.
     /// </summary>
     IAsyncEnumerable<ProgressEvent> RunAsync(
-        MigrationJob job,
+        Job job,
         CancellationToken ct = default);
 }
 #endif

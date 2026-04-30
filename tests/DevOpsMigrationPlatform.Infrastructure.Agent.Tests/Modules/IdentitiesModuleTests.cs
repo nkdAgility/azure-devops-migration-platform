@@ -59,7 +59,7 @@ public class IdentitiesModuleTests
     {
         return new ExportContext
         {
-            Job = new MigrationJob { Mode = "Export" },
+            Job = new Job { Kind = JobKind.Export },
             ArtefactStore = store.Object,
             StateStore = Mock.Of<IStateStore>(),
             ProgressSink = Mock.Of<IProgressSink>()
@@ -70,7 +70,7 @@ public class IdentitiesModuleTests
     {
         return new ImportContext
         {
-            Job = new MigrationJob { Mode = "Import" },
+            Job = new Job { Kind = JobKind.Import },
             ArtefactStore = store.Object,
             StateStore = Mock.Of<IStateStore>(),
             ProgressSink = Mock.Of<IProgressSink>()
@@ -81,7 +81,7 @@ public class IdentitiesModuleTests
     {
         return new ValidationContext
         {
-            Job = new MigrationJob(),
+            Job = new Job(),
             ArtefactStore = store.Object
         };
     }

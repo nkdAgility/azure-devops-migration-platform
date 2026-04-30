@@ -72,7 +72,7 @@ public sealed class TfsJobAgentWorker : ModulePipelineWorkerBase
         _logger = logger;
     }
 
-    protected override string[] Capabilities => new[] { "tfs" };
+    protected override ConnectorType[] Capabilities => new[] { ConnectorType.TeamFoundationServer };
 
     protected override async Task OnPostJobFlushAsync()
     {
@@ -80,31 +80,46 @@ public sealed class TfsJobAgentWorker : ModulePipelineWorkerBase
             await flushable.FlushAsync().ConfigureAwait(false);
     }
 
+    // ── Job dispatch ─────────────────────────────────────────────────────────
+
+    protected override async Task OnJobAsync(
+        Job job, HttpClient controlPlane, string leaseId, CancellationToken ct)
+    {
+        switch (job.Kind)
+        {
+            case JobKind.Export:
+                await OnExportJobAsync(job, controlPlane, leaseId, ct).ConfigureAwait(false);
+                break;
+
+            case JobKind.Inventory:
+            case JobKind.Dependencies:
+                await OnDiscoveryJobAsync(job, controlPlane, leaseId, ct).ConfigureAwait(false);
+                break;
+
+            default:
+                _logger.LogError(
+                    "TFS agent only supports Export, Inventory, and Dependencies — rejecting kind {JobKind} for job {JobId}.",
+                    job.Kind, job.JobId);
+                await SignalTerminalAsync(controlPlane, leaseId, "fail", ct).ConfigureAwait(false);
+                break;
+        }
+    }
+
     // ── Migration execution ───────────────────────────────────────────────────
 
     /// <summary>
-    /// Validates that the job is Export mode, then delegates to the base export pipeline.
+    /// Validates that the job is Export kind, then delegates to the base export pipeline.
     /// </summary>
-    protected override async Task OnMigrationJobAsync(
-        MigrationJob job, HttpClient controlPlane, string leaseId, CancellationToken ct)
+    private async Task OnExportJobAsync(
+        Job job, HttpClient controlPlane, string leaseId, CancellationToken ct)
     {
-        // TFS agent supports Export mode only.
-        if (!string.Equals(job.Mode, "Export", StringComparison.OrdinalIgnoreCase))
-        {
-            _logger.LogError(
-                "TFS agent only supports Export mode — rejecting mode {Mode} for job {JobId}.",
-                job.Mode, job.JobId);
-            await SignalTerminalAsync(controlPlane, leaseId, "fail", ct).ConfigureAwait(false);
-            return;
-        }
-
         // Delegate the full export pipeline to the base class.
         // OnBeforeModulesAsync and OnAfterModulesAsync handle TFS connection setup/teardown.
-        await base.OnMigrationJobAsync(job, controlPlane, leaseId, ct).ConfigureAwait(false);
+        await base.OnJobAsync(job, controlPlane, leaseId, ct).ConfigureAwait(false);
     }
 
     /// <inheritdoc/>
-    protected override Task OnBeforeModulesAsync(MigrationJob job, CancellationToken ct)
+    protected override Task OnBeforeModulesAsync(Job job, CancellationToken ct)
     {
         // Bind the concrete TFS source endpoint from the raw IConfiguration stored in the
         // ambient state (IConfiguration.Bind cannot instantiate abstract MigrationEndpointOptions).
@@ -152,29 +167,41 @@ public sealed class TfsJobAgentWorker : ModulePipelineWorkerBase
 
     // ── Discovery execution ───────────────────────────────────────────────────
 
-    protected override async Task OnDiscoveryJobAsync(
-        DiscoveryJob job, HttpClient controlPlane, string leaseId, CancellationToken ct)
+    private async Task OnDiscoveryJobAsync(
+        Job job, HttpClient controlPlane, string leaseId, CancellationToken ct)
     {
         var (artefactStore, stateStore) = PackageStoreFactory.Create(
             job.Package.PackageUri ?? ".");
 
         PackageState.CurrentStore = artefactStore;
 
-        // Discovery jobs carry the endpoint in Source or in Organisations.
-        var endpointOptions = job.Source;
-        if (endpointOptions == null && job.Organisations.Count > 0)
+        // Discovery config (organisations, endpoint) is read from migration-config.json.
+        // Read the raw config section for the TFS source endpoint.
+        IConfiguration packageConfig;
+        try
         {
-            _logger.LogWarning(
-                "TFS discovery job {JobId} has no Source — falling back to Organisations[0].", job.JobId);
-            // For discovery, we use IWorkItemDiscoveryService which works with OrganisationEndpoint,
-            // not the per-job factory. Signal not supported for now.
+            packageConfig = await PackageConfigStore.ReadAsync(artefactStore, ct).ConfigureAwait(false);
+        }
+        catch (PackageConfigNotFoundException ex)
+        {
+            _logger.LogError(ex,
+                "Config file not found in {PackageUri}. Re-submit the job via CLI.",
+                job.Package.PackageUri);
             await SignalTerminalAsync(controlPlane, leaseId, "fail", ct).ConfigureAwait(false);
             return;
         }
 
-        if (endpointOptions == null)
+        var section = packageConfig.GetSection("MigrationPlatform:Source");
+        TeamFoundationServerEndpointOptions? endpointOptions = null;
+        if (section != null && section.Exists() && !string.IsNullOrEmpty(section["Url"]))
         {
-            _logger.LogError("Discovery job {JobId} has no endpoint — failing.", job.JobId);
+            endpointOptions = new TeamFoundationServerEndpointOptions();
+            section.Bind(endpointOptions);
+        }
+
+        if (endpointOptions == null || string.IsNullOrEmpty(endpointOptions.Url))
+        {
+            _logger.LogError("Discovery job {JobId} has no TFS Source endpoint in migration-config.json — failing.", job.JobId);
             await SignalTerminalAsync(controlPlane, leaseId, "fail", ct).ConfigureAwait(false);
             return;
         }
@@ -227,6 +254,9 @@ public sealed class TfsJobAgentWorker : ModulePipelineWorkerBase
         }
 
         var terminal = failed ? "fail" : "complete";
+        // Flush buffered sinks before signalling — the CLI kills this process on receipt.
+        foreach (var flushable in _flushables)
+            await flushable.FlushAsync().ConfigureAwait(false);
         await SignalTerminalAsync(controlPlane, leaseId, terminal, ct).ConfigureAwait(false);
     }
 

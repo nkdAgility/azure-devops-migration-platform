@@ -38,9 +38,9 @@ namespace DevOpsMigrationPlatform.TfsMigrationAgent.Tests;
 /// </summary>
 internal static class TfsJobAgentWorkerTestHelper
 {
-    private static readonly System.Reflection.MethodInfo OnMigrationJobMethod =
+    private static readonly System.Reflection.MethodInfo OnJobMethod =
         typeof(TfsJobAgentWorker).GetMethod(
-            "OnMigrationJobAsync",
+            "OnJobAsync",
             System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!;
 
     private static readonly System.Reflection.MethodInfo OnDiscoveryJobMethod =
@@ -49,13 +49,13 @@ internal static class TfsJobAgentWorkerTestHelper
             System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!;
 
     public static Task InvokeMigrationJobAsync(
-        TfsJobAgentWorker worker, MigrationJob job, HttpClient client, string leaseId, CancellationToken ct)
+        TfsJobAgentWorker worker, Job job, HttpClient client, string leaseId, CancellationToken ct)
     {
-        return (Task)OnMigrationJobMethod.Invoke(worker, new object[] { job, client, leaseId, ct })!;
+        return (Task)OnJobMethod.Invoke(worker, new object[] { job, client, leaseId, ct })!;
     }
 
     public static Task InvokeDiscoveryJobAsync(
-        TfsJobAgentWorker worker, DiscoveryJob job, HttpClient client, string leaseId, CancellationToken ct)
+        TfsJobAgentWorker worker, Job job, HttpClient client, string leaseId, CancellationToken ct)
     {
         return (Task)OnDiscoveryJobMethod.Invoke(worker, new object[] { job, client, leaseId, ct })!;
     }
@@ -178,10 +178,10 @@ public class TfsJobAgentWorkerTests
             .Setup(s => s.ReadAsync(It.IsAny<IArtefactStore>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(BuildEmptyConfig()); // no Source
 
-        var job = new MigrationJob
+        var job = new Job
         {
             JobId = "test-job-1",
-            Mode = "Export",
+            Kind = JobKind.Export,
             Package = new JobPackage { PackageUri = "." }
         };
 
@@ -204,10 +204,10 @@ public class TfsJobAgentWorkerTests
     public async Task OnMigrationJob_NonExportMode_SignalsFail()
     {
         // Arrange
-        var job = new MigrationJob
+        var job = new Job
         {
             JobId = "test-job-2",
-            Mode = "Import",
+            Kind = JobKind.Import,
             Package = new JobPackage { PackageUri = "." }
         };
 
@@ -231,10 +231,10 @@ public class TfsJobAgentWorkerTests
     {
         // Arrange
         var endpoint = CreateTfsEndpoint();
-        var job = new MigrationJob
+        var job = new Job
         {
             JobId = "test-job-3",
-            Mode = "Export",
+            Kind = JobKind.Export,
             Package = new JobPackage { PackageUri = "." }
         };
 
@@ -296,10 +296,10 @@ public class TfsJobAgentWorkerTests
     {
         // Arrange
         var endpoint = CreateTfsEndpoint();
-        var job = new MigrationJob
+        var job = new Job
         {
             JobId = "test-job-4",
-            Mode = "Export",
+            Kind = JobKind.Export,
             Package = new JobPackage { PackageUri = "." },
             Resume = new JobResume { Mode = ResumeMode.ForceFresh }
         };
@@ -358,10 +358,10 @@ public class TfsJobAgentWorkerTests
     public async Task OnMigrationJob_FactoryThrows_SignalsFail()
     {
         // Arrange
-        var job = new MigrationJob
+        var job = new Job
         {
             JobId = "test-job-5",
-            Mode = "Export",
+            Kind = JobKind.Export,
             Package = new JobPackage { PackageUri = "." }
         };
 
@@ -387,9 +387,10 @@ public class TfsJobAgentWorkerTests
     public async Task OnDiscoveryJob_NullEndpoint_SignalsFail()
     {
         // Arrange
-        var job = new DiscoveryJob
+        var job = new Job
         {
             JobId = "disc-job-1",
+            Kind = JobKind.Inventory,
             Package = new JobPackage { PackageUri = "." }
         };
 
@@ -410,10 +411,10 @@ public class TfsJobAgentWorkerTests
     {
         // Arrange
         var endpoint = CreateTfsEndpoint();
-        var job = new DiscoveryJob
+        var job = new Job
         {
             JobId = "disc-job-2",
-            Source = endpoint,
+            Kind = JobKind.Inventory,
             Package = new JobPackage { PackageUri = "." }
         };
 
@@ -463,9 +464,9 @@ public class TfsJobAgentWorkerTests
         var prop = typeof(TfsJobAgentWorker)
             .GetProperty("Capabilities",
                 System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-        var caps = (string[])prop!.GetValue(worker)!;
+        var caps = (DevOpsMigrationPlatform.Abstractions.Jobs.ConnectorType[])prop!.GetValue(worker)!;
 
-        CollectionAssert.AreEqual(new[] { "tfs" }, caps);
+        CollectionAssert.AreEqual(new[] { DevOpsMigrationPlatform.Abstractions.Jobs.ConnectorType.TeamFoundationServer }, caps);
     }
 
     // ── T031: O-1 Activity spans on net481 path ───────────────────────────────

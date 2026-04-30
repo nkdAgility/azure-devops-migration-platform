@@ -39,7 +39,7 @@
       }
     },
     "Package": {
-      "WorkingDirectory": "storage\\queue-export-workitems-simulated-source",
+      "WorkingDirectory": "%DEVOPS_MIGRATION_TEST_STORAGE%",
       "CreatePackage": true
     },
     "Modules": {

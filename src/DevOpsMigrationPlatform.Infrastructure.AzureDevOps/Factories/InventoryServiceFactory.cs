@@ -12,7 +12,7 @@ namespace DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Factories;
 
 /// <summary>
 /// Creates a configured <see cref="IInventoryService"/> from <see cref="ScopedOrganisationEndpoint"/>
-/// entries carried on a <see cref="DiscoveryJob"/>. Used by <c>InventoryDiscoveryModule</c>
+/// entries carried in the migration config. Used by <c>InventoryDiscoveryModule</c>
 /// so the agent does not need a config file at runtime.
 /// </summary>
 internal sealed class InventoryServiceFactory : IInventoryServiceFactory

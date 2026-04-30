@@ -47,7 +47,7 @@
       }
     },
     "Package": {
-      "WorkingDirectory": "storage\\complete",
+      "WorkingDirectory": "%DEVOPS_MIGRATION_TEST_STORAGE%",
       "CreatePackage": true,
       "PackagePath": ""
     },

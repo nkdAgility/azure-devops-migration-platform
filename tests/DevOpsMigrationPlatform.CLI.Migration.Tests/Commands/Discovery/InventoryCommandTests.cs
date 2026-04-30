@@ -3,7 +3,6 @@ using DevOpsMigrationPlatform.CLI.Migration.Tests.TestUtilities;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using System;
 using System.IO;
-using System.Text.Json;
 
 namespace DevOpsMigrationPlatform.CLI.Migration.Tests.Commands.Discovery;
 
@@ -31,26 +30,8 @@ public class InventoryCommandTests
         }
 
         var repoRoot = CliRunner.FindRepoRoot();
-        var scenarioConfigPath = Path.Combine(repoRoot, "scenarios", "inventory-ado-single-project.json");
-
-        // Read the artefacts path from the scenario config (MigrationPlatform.Package.WorkingDirectory).
-        // Falls back to the platform default when the scenario omits the key.
-        var configJson = File.ReadAllText(scenarioConfigPath);
-        using var doc = JsonDocument.Parse(configJson);
-        var artefactsElement = doc.RootElement
-            .GetProperty("MigrationPlatform")
-            .GetProperty("Package");
-
-        var artefactsPath = artefactsElement.TryGetProperty("WorkingDirectory", out var wdProp)
-            ? wdProp.GetString()!
-            : @"%userprofile%\.DevOpsMigrationPlatform";
-
-        artefactsPath = Environment.ExpandEnvironmentVariables(artefactsPath);
-
-        // Relative paths are resolved from the repo root (the CLI's working directory).
-        var outputDir = Path.IsPathRooted(artefactsPath)
-            ? artefactsPath
-            : Path.GetFullPath(Path.Combine(repoRoot, artefactsPath));
+        var testStorage = Path.Combine("storage", nameof(InventoryCommand_SystemTest_AdoSingleProject_ScenarioFile_ExecutesSuccessfully));
+        var outputDir = Path.GetFullPath(Path.Combine(repoRoot, testStorage));
         var csvPath = Path.Combine(outputDir, "inventory.csv");
 
         if (File.Exists(csvPath))
@@ -58,6 +39,7 @@ public class InventoryCommandTests
 
         var result = await CliRunner.RunAsync(
             args: ["discovery", "inventory", "--config", "scenarios/inventory-ado-single-project.json"],
+            env: new System.Collections.Generic.Dictionary<string, string> { ["DEVOPS_MIGRATION_TEST_STORAGE"] = testStorage },
             timeout: TimeSpan.FromMinutes(4));
 
         Console.WriteLine("=== STDOUT ===");
@@ -117,6 +99,10 @@ public class InventoryCommandTests
 
         var result = await CliRunner.RunAsync(
             args: ["discovery", "inventory", "--config", "scenarios/inventory-ado-single-project.json"],
+            env: new System.Collections.Generic.Dictionary<string, string>
+            {
+                ["DEVOPS_MIGRATION_TEST_STORAGE"] = Path.Combine("storage", nameof(InventoryCommand_SystemTest_CIEnvironment_ExecutesSecurely))
+            },
             timeout: TimeSpan.FromMinutes(4));
 
         // T023: Verify no credentials appear in output

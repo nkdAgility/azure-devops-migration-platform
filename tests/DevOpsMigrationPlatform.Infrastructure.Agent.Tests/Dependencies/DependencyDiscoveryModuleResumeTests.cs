@@ -5,6 +5,7 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Jobs;
 using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Modules;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -20,12 +21,11 @@ public class DependencyDiscoveryModuleResumeTests
 
     // ── helpers ───────────────────────────────────────────────────────────────
 
-    private static DiscoveryJob MakeJob() => new()
+    private static Job MakeJob() => new()
     {
         JobId = "test-job",
-        ConfigVersion = "1.0",
-        DiscoveryType = DiscoveryJobType.Dependencies,
-        Organisations = new List<ScopedOrganisationEndpoint>(),
+        ConfigVersion = "2.0",
+        Kind = JobKind.Dependencies,
         Package = new JobPackage { PackageUri = "file:///tmp/pkg" }
     };
 

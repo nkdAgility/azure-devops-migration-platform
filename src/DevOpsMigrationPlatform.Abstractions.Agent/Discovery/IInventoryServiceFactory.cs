@@ -7,7 +7,7 @@ namespace DevOpsMigrationPlatform.Abstractions.Agent.Discovery;
 /// <summary>
 /// Factory that creates a configured <see cref="IInventoryService"/> from a list of
 /// <see cref="ScopedOrganisationEndpoint"/> entries supplied at runtime.
-/// Required because the agent receives organisations via the <see cref="DiscoveryJob"/>
+/// Required because the agent receives organisations via the migration config
 /// contract rather than from a config file bound at host startup.
 /// </summary>
 public interface IInventoryServiceFactory

@@ -19,7 +19,7 @@
       "Project": "SimulatedTarget"
     },
     "Package": {
-      "WorkingDirectory": "storage\\queue-import-workitems-simulated-fixture",
+      "WorkingDirectory": "%DEVOPS_MIGRATION_TEST_STORAGE%",
       "CreatePackage": true,
       "PackagePath": "scenarios\\testdata\\workitems-2items-flat.zip"
     },

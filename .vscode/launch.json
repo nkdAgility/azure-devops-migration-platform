@@ -101,7 +101,8 @@
             ],
             "env": {
                 "AZDEVOPS_SYSTEM_TEST_ORG": "${env:AZDEVOPS_SYSTEM_TEST_ORG}",
-                "AZDEVOPS_SYSTEM_TEST_PAT": "${env:AZDEVOPS_SYSTEM_TEST_PAT}"
+                "AZDEVOPS_SYSTEM_TEST_PAT": "${env:AZDEVOPS_SYSTEM_TEST_PAT}",
+                "DEVOPS_MIGRATION_TEST_STORAGE": "storage/inventory-ado-single-project"
             },
             "cwd": "${workspaceFolder}",
             "console": "integratedTerminal",
@@ -121,7 +122,8 @@
             ],
             "env": {
                 "AZDEVOPS_SYSTEM_TEST_ORG": "${env:AZDEVOPS_SYSTEM_TEST_ORG}",
-                "AZDEVOPS_SYSTEM_TEST_PAT": "${env:AZDEVOPS_SYSTEM_TEST_PAT}"
+                "AZDEVOPS_SYSTEM_TEST_PAT": "${env:AZDEVOPS_SYSTEM_TEST_PAT}",
+                "DEVOPS_MIGRATION_TEST_STORAGE": "storage/inventory-ado-multi-project"
             },
             "cwd": "${workspaceFolder}",
             "console": "integratedTerminal",
@@ -160,6 +162,9 @@
                 "scenarios/inventory-tfs-windows-auth.json",
                 "--verbose"
             ],
+            "env": {
+                "DEVOPS_MIGRATION_TEST_STORAGE": "storage/inventory-tfs-windows-auth"
+            },
             "cwd": "${workspaceFolder}",
             "console": "integratedTerminal",
             "stopAtEntry": false,
@@ -179,7 +184,8 @@
             ],
             "env": {
                 "AZDEVOPS_PAT_ORG1": "${env:AZDEVOPS_PAT_ORG1}",
-                "AZDEVOPS_PAT_ORG2": "${env:AZDEVOPS_PAT_ORG2}"
+                "AZDEVOPS_PAT_ORG2": "${env:AZDEVOPS_PAT_ORG2}",
+                "DEVOPS_MIGRATION_TEST_STORAGE": "storage/inventory-multi-org"
             },
             "cwd": "${workspaceFolder}",
             "console": "integratedTerminal",
@@ -201,7 +207,8 @@
             ],
             "env": {
                 "AZDEVOPS_SYSTEM_TEST_ORG": "${env:AZDEVOPS_SYSTEM_TEST_ORG}",
-                "AZDEVOPS_SYSTEM_TEST_PAT": "${env:AZDEVOPS_SYSTEM_TEST_PAT}"
+                "AZDEVOPS_SYSTEM_TEST_PAT": "${env:AZDEVOPS_SYSTEM_TEST_PAT}",
+                "DEVOPS_MIGRATION_TEST_STORAGE": "storage/discovery-dependency-ado-single-project"
             },
             "cwd": "${workspaceFolder}",
             "console": "integratedTerminal",
@@ -243,7 +250,8 @@
             ],
             "env": {
                 "AZDEVOPS_SYSTEM_TEST_ORG": "${env:AZDEVOPS_SYSTEM_TEST_ORG}",
-                "AZDEVOPS_SYSTEM_TEST_PAT": "${env:AZDEVOPS_SYSTEM_TEST_PAT}"
+                "AZDEVOPS_SYSTEM_TEST_PAT": "${env:AZDEVOPS_SYSTEM_TEST_PAT}",
+                "DEVOPS_MIGRATION_TEST_STORAGE": "storage/discovery-dependency-ado-single-project"
             },
             "cwd": "${workspaceFolder}",
             "console": "integratedTerminal",
@@ -264,7 +272,8 @@
             ],
             "env": {
                 "AZDEVOPS_SYSTEM_TEST_ORG": "${env:AZDEVOPS_SYSTEM_TEST_ORG}",
-                "AZDEVOPS_SYSTEM_TEST_PAT": "${env:AZDEVOPS_SYSTEM_TEST_PAT}"
+                "AZDEVOPS_SYSTEM_TEST_PAT": "${env:AZDEVOPS_SYSTEM_TEST_PAT}",
+                "DEVOPS_MIGRATION_TEST_STORAGE": "storage/queue-export-ado-workitems-single-project"
             },
             "cwd": "${workspaceFolder}",
             "console": "integratedTerminal",
@@ -286,7 +295,8 @@
             ],
             "env": {
                 "AZDEVOPS_SYSTEM_TEST_ORG": "${env:AZDEVOPS_SYSTEM_TEST_ORG}",
-                "AZDEVOPS_SYSTEM_TEST_PAT": "${env:AZDEVOPS_SYSTEM_TEST_PAT}"
+                "AZDEVOPS_SYSTEM_TEST_PAT": "${env:AZDEVOPS_SYSTEM_TEST_PAT}",
+                "DEVOPS_MIGRATION_TEST_STORAGE": "storage/queue-export-ado-workitems-single-project"
             },
             "cwd": "${workspaceFolder}",
             "console": "integratedTerminal",
@@ -306,7 +316,8 @@
             ],
             "env": {
                 "AZDEVOPS_SYSTEM_TEST_ORG": "${env:AZDEVOPS_SYSTEM_TEST_ORG}",
-                "AZDEVOPS_SYSTEM_TEST_PAT": "${env:AZDEVOPS_SYSTEM_TEST_PAT}"
+                "AZDEVOPS_SYSTEM_TEST_PAT": "${env:AZDEVOPS_SYSTEM_TEST_PAT}",
+                "DEVOPS_MIGRATION_TEST_STORAGE": "storage/queue-export-ado-workitems-single-project"
             },
             "cwd": "${workspaceFolder}",
             "console": "integratedTerminal",
@@ -328,7 +339,8 @@
             ],
             "env": {
                 "AZDEVOPS_SYSTEM_TEST_ORG": "${env:AZDEVOPS_SYSTEM_TEST_ORG}",
-                "AZDEVOPS_SYSTEM_TEST_PAT": "${env:AZDEVOPS_SYSTEM_TEST_PAT}"
+                "AZDEVOPS_SYSTEM_TEST_PAT": "${env:AZDEVOPS_SYSTEM_TEST_PAT}",
+                "DEVOPS_MIGRATION_TEST_STORAGE": "storage/queue-export-ado-workitems-single-project"
             },
             "cwd": "${workspaceFolder}",
             "console": "integratedTerminal",
@@ -364,6 +376,9 @@
                 "--config",
                 "scenarios/inventory-tfs-windows-auth.json"
             ],
+            "env": {
+                "DEVOPS_MIGRATION_TEST_STORAGE": "storage/inventory-tfs-windows-auth"
+            },
             "cwd": "${workspaceFolder}",
             "console": "integratedTerminal",
             "stopAtEntry": false,
@@ -380,8 +395,9 @@
                 "--config",
                 "scenarios/queue-export-workitems-simulated-source.json",
                 "--force-fresh"
-            ],
-            "cwd": "${workspaceFolder}",
+            ],            "env": {
+                "DEVOPS_MIGRATION_TEST_STORAGE": "storage/queue-export-workitems-simulated-source"
+            },            "cwd": "${workspaceFolder}",
             "console": "integratedTerminal",
             "stopAtEntry": false,
             "preLaunchTask": "build-migration-cli"
@@ -397,6 +413,9 @@
                 "scenarios/queue-import-workitems-simulated-target.json",
                 "--force-fresh"
             ],
+            "env": {
+                "DEVOPS_MIGRATION_TEST_STORAGE": "storage/queue-import-workitems-simulated-target"
+            },
             "cwd": "${workspaceFolder}",
             "console": "integratedTerminal",
             "stopAtEntry": false,
@@ -413,6 +432,9 @@
                 "scenarios/roundtrip-simulated.json",
                 "--force-fresh"
             ],
+            "env": {
+                "DEVOPS_MIGRATION_TEST_STORAGE": "storage/roundtrip-simulated"
+            },
             "cwd": "${workspaceFolder}",
             "console": "integratedTerminal",
             "stopAtEntry": false,
@@ -428,8 +450,9 @@
                 "--config",
                 "scenarios/queue-import-workitems-simulated-fixture.json",
                 "--force-fresh"
-            ],
-            "cwd": "${workspaceFolder}",
+            ],            "env": {
+                "DEVOPS_MIGRATION_TEST_STORAGE": "storage/queue-import-workitems-simulated-fixture"
+            },            "cwd": "${workspaceFolder}",
             "console": "integratedTerminal",
             "stopAtEntry": false,
             "preLaunchTask": "build-migration-cli"
@@ -444,6 +467,9 @@
                 "--config",
                 "scenarios/import-ado-workitems-single-project.json"
             ],
+            "env": {
+                "DEVOPS_MIGRATION_TEST_STORAGE": "storage/import-ado-workitems-single-project"
+            },
             "cwd": "${workspaceFolder}",
             "console": "integratedTerminal",
             "stopAtEntry": false,

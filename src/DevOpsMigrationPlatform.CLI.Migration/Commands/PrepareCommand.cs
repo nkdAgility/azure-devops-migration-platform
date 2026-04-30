@@ -3,6 +3,7 @@ using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Jobs;
 using DevOpsMigrationPlatform.CLI.JobRunners;
 using DevOpsMigrationPlatform.CLI.Migration.Commands;
 using DevOpsMigrationPlatform.CLI.Migration.Options;
@@ -50,11 +51,16 @@ public sealed class PrepareCommand : ControlPlaneCommandBase<MigrationCommandSet
         console.MarkupLine("[blue]ℹ[/] Running end-to-end preparation check…");
         console.MarkupLine($"[blue]ℹ[/] Package path: [blue]{Markup.Escape(outputPath)}[/]");
 
-        var job = new MigrationJob
+        var job = new Job
         {
             JobId = Guid.NewGuid().ToString(),
-            Mode = "Prepare",
-            SourceType = config.Source?.Type ?? string.Empty,
+            Kind = JobKind.Prepare,
+            Connectors = config.Source?.Type switch
+            {
+                "TeamFoundationServer" => new[] { ConnectorType.TeamFoundationServer },
+                "AzureDevOpsServices" => new[] { ConnectorType.AzureDevOps },
+                _ => Array.Empty<ConnectorType>()
+            },
             Package = new JobPackage
             {
                 PackageUri = $"file:///{outputPath.Replace(Path.DirectorySeparatorChar, '/')}",

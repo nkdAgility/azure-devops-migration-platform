@@ -9,7 +9,7 @@ namespace DevOpsMigrationPlatform.Abstractions.Agent.Storage;
 /// that the CLI writes to the package root before job submission.
 /// The agent reads this file to obtain the full <see cref="MigrationOptions"/> —
 /// source, target, credentials, modules, policies, and tools — that is not carried
-/// in the minimal <see cref="DevOpsMigrationPlatform.Abstractions.Jobs.MigrationJob"/>.
+/// in the minimal <see cref="DevOpsMigrationPlatform.Abstractions.Jobs.Job"/>.
 /// </summary>
 /// <remarks>
 /// <para><b>CLI usage (write path)</b>: Call <see cref="WriteAsync"/> after resolving

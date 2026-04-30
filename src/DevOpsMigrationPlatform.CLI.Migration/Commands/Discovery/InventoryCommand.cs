@@ -9,6 +9,7 @@ using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Jobs;
 using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.CLI.JobRunners;
 using DevOpsMigrationPlatform.CLI.Migration.Commands;
@@ -25,7 +26,7 @@ namespace DevOpsMigrationPlatform.CLI.Commands.Discovery;
 
 /// <summary>
 /// CLI command: discovery inventory
-/// Submits a <see cref="DiscoveryJob"/> of type Inventory to the control plane.
+/// Submits a <see cref="Job"/> of kind <see cref="JobKind.Inventory"/> to the control plane.
 /// In standalone mode follows progress inline with a live table; in hosted mode prints the jobId and exits.
 /// </summary>
 public sealed class InventoryCommand : ControlPlaneCommandBase<InventoryCommand.Settings>
@@ -67,26 +68,26 @@ public sealed class InventoryCommand : ControlPlaneCommandBase<InventoryCommand.
             ? Path.GetFullPath(discoveryOpts.Package.ExpandedPath)
             : Path.GetFullPath(settings.OutputDirectory);
         var packageUri = $"file:///{outputPath.Replace(Path.DirectorySeparatorChar, '/')}";
+        var configPayload = await File.ReadAllTextAsync(Path.GetFullPath(settings.ConfigFile!), cancellationToken);
 
-        var job = new DiscoveryJob
+        var job = new Job
         {
             JobId = Guid.NewGuid().ToString(),
-            ConfigVersion = "1.0",
-            DiscoveryType = DiscoveryJobType.Inventory,
-            Organisations = discoveryOpts.Organisations
+            ConfigVersion = "2.0",
+            Kind = JobKind.Inventory,
+            ConfigPayload = configPayload,
+            Connectors = discoveryOpts.Organisations
                 .Where(o => o.Enabled)
-                .Select(o => new ScopedOrganisationEndpoint
+                .Select(o => o.Type switch
                 {
-                    Endpoint = o.ToEndpointOptions(),
-                    Projects = new List<string>(o.Projects),
-                    Scopes = o.Scopes.Select(s => new JobModuleScope
-                    {
-                        Type = s.Type,
-                        Parameters = s.Parameters.ToDictionary(
-                            kvp => kvp.Key,
-                            kvp => (object?)kvp.Value)
-                    }).ToList()
-                }).ToList(),
+                    "TeamFoundationServer" => ConnectorType.TeamFoundationServer,
+                    "AzureDevOpsServices" => ConnectorType.AzureDevOps,
+                    _ => (ConnectorType?)null
+                })
+                .Where(c => c.HasValue)
+                .Select(c => c!.Value)
+                .Distinct()
+                .ToArray(),
             Package = new JobPackage { PackageUri = packageUri }
         };
 
@@ -94,7 +95,7 @@ public sealed class InventoryCommand : ControlPlaneCommandBase<InventoryCommand.
         var isStandalone = envOpts.Type == EnvironmentType.Standalone;
         var client = GetRequiredService<ControlPlaneClient>();
 
-        console.MarkupLine($"[blue]ℹ[/] Submitting inventory job for [bold]{job.Organisations.Count}[/] organisation(s).");
+        console.MarkupLine($"[blue]ℹ[/] Submitting inventory job for [bold]{discoveryOpts.Organisations.Count(o => o.Enabled)}[/] organisation(s).");
         console.MarkupLine($"[blue]ℹ[/] Output path: [blue]{Markup.Escape(outputPath)}[/]");
 
         var controlPlaneUrl = GetControlPlaneUrl();
@@ -102,7 +103,7 @@ public sealed class InventoryCommand : ControlPlaneCommandBase<InventoryCommand.
         Guid jobId;
         try
         {
-            jobId = await client.SubmitDiscoveryAsync(job, cancellationToken);
+            jobId = await client.SubmitAsync(job, cancellationToken);
             PrintJobSubmitted(console, jobId, controlPlaneUrl);
         }
         catch (Exception ex)
@@ -120,9 +121,9 @@ public sealed class InventoryCommand : ControlPlaneCommandBase<InventoryCommand.
         // Pre-populate the table with known projects from config so the user gets
         // immediate visual feedback while the agent acquires a lease and starts processing.
         var summaries = new Dictionary<string, InventorySummary>(StringComparer.OrdinalIgnoreCase);
-        foreach (var org in job.Organisations)
+        foreach (var org in discoveryOpts.Organisations.Where(o => o.Enabled))
         {
-            var url = org.Endpoint.GetResolvedUrl();
+            var url = org.ToEndpointOptions().GetResolvedUrl();
             foreach (var project in org.Projects)
             {
                 var key = $"{url}|{project}";
