@@ -38,9 +38,9 @@ namespace DevOpsMigrationPlatform.TfsMigrationAgent.Tests;
 /// </summary>
 internal static class TfsJobAgentWorkerTestHelper
 {
-    private static readonly System.Reflection.MethodInfo OnMigrationJobMethod =
+    private static readonly System.Reflection.MethodInfo OnJobMethod =
         typeof(TfsJobAgentWorker).GetMethod(
-            "OnMigrationJobAsync",
+            "OnJobAsync",
             System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!;
 
     private static readonly System.Reflection.MethodInfo OnDiscoveryJobMethod =
@@ -51,7 +51,7 @@ internal static class TfsJobAgentWorkerTestHelper
     public static Task InvokeMigrationJobAsync(
         TfsJobAgentWorker worker, Job job, HttpClient client, string leaseId, CancellationToken ct)
     {
-        return (Task)OnMigrationJobMethod.Invoke(worker, new object[] { job, client, leaseId, ct })!;
+        return (Task)OnJobMethod.Invoke(worker, new object[] { job, client, leaseId, ct })!;
     }
 
     public static Task InvokeDiscoveryJobAsync(
@@ -464,9 +464,9 @@ public class TfsJobAgentWorkerTests
         var prop = typeof(TfsJobAgentWorker)
             .GetProperty("Capabilities",
                 System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-        var caps = (string[])prop!.GetValue(worker)!;
+        var caps = (DevOpsMigrationPlatform.Abstractions.Jobs.ConnectorType[])prop!.GetValue(worker)!;
 
-        CollectionAssert.AreEqual(new[] { "tfs" }, caps);
+        CollectionAssert.AreEqual(new[] { DevOpsMigrationPlatform.Abstractions.Jobs.ConnectorType.TeamFoundationServer }, caps);
     }
 
     // ── T031: O-1 Activity spans on net481 path ───────────────────────────────
