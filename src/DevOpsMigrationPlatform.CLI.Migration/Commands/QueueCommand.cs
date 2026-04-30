@@ -369,7 +369,7 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
 
         var modules = BuildModules(config);
 
-        // Write migration-config.json to the package before submitting.
+        // Config payload is transported in the Job so the agent can write it to the package.
         var configPayload = await File.ReadAllTextAsync(Path.GetFullPath(GetConfigurationPath(settings) ?? settings.ConfigFile!), cancellationToken);
 
         var job = new Job

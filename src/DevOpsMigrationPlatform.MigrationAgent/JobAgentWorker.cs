@@ -107,12 +107,20 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
     /// <summary>
     /// If <see cref="Job.ConfigPayload"/> is set, writes it to <c>migration-config.json</c>
     /// in the package before any module reads the config.
+    /// FR-007: if the file already exists and ForceFresh is not set, throws to reject re-submission.
     /// </summary>
     private static async Task WriteConfigPayloadAsync(
         Job job, IArtefactStore artefactStore, CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(job.ConfigPayload))
             return;
+
+        // FR-007: Reject re-submission without --force-fresh. The CLI cannot check this
+        // because the package may live on a remote machine. The agent is the authoritative guard.
+        var forceFresh = job.Resume?.Mode == DevOpsMigrationPlatform.Abstractions.Jobs.ResumeMode.ForceFresh;
+        if (!forceFresh && await artefactStore.ExistsAsync(PackagePaths.MigrationConfigFileName, ct).ConfigureAwait(false))
+            throw new InvalidOperationException(
+                $"Package already contains migration-config.json. Use --force-fresh to restart from scratch (FR-007).");
 
         await artefactStore.WriteAsync(
             PackagePaths.MigrationConfigFileName, job.ConfigPayload, ct)
