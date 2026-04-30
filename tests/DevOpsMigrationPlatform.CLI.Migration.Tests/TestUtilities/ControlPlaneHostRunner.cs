@@ -29,6 +29,11 @@ public sealed class ControlPlaneHostRunner : IAsyncDisposable
 
     private const string ExeName = "DevOpsMigrationPlatform.ControlPlaneHost.exe";
 
+    // Serialises startup so two test classes running in parallel cannot both try to
+    // bind port 5101 simultaneously.  The second caller waits, then re-checks
+    // IsReadyAsync and reuses the already-started instance.
+    private static readonly SemaphoreSlim _startLock = new(1, 1);
+
     private readonly Process? _process;   // null when we reused an already-running instance
     private bool _disposed;
 
@@ -51,57 +56,72 @@ public sealed class ControlPlaneHostRunner : IAsyncDisposable
     {
         var timeout = readyTimeout ?? TimeSpan.FromSeconds(30);
 
-        // Reuse an already-running instance (e.g. started by VS Code launch profile).
+        // Fast path: already running (e.g. started by a VS Code launch profile or a
+        // parallel test class that won the startup race).
         if (await IsReadyAsync(cancellationToken).ConfigureAwait(false))
             return new ControlPlaneHostRunner(process: null);
 
-        // Locate the built binary.
-        var exePath = FindExe();
-
-        var psi = new ProcessStartInfo
+        // Serialise startup: only one thread starts the process; any concurrent caller
+        // waits here, then takes the fast path above once the process is ready.
+        await _startLock.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
         {
-            FileName = exePath,
-            // Force binding on port 5101 so the health probe and the CLI --url flag agree.
-            Arguments = $"--urls {DefaultUrl}",
-            WorkingDirectory = CliRunner.FindRepoRoot(),
-            UseShellExecute = false,
-            RedirectStandardOutput = false,
-            RedirectStandardError = false,
-            CreateNoWindow = true,
-        };
-        // Development mode enables the auth bypass middleware so unauthenticated
-        // CLI requests (manage progress, manage diagnostics) are accepted.
-        psi.Environment["ASPNETCORE_ENVIRONMENT"] = "Development";
+            // Re-check under the lock — another thread may have started it while we waited.
+            if (await IsReadyAsync(cancellationToken).ConfigureAwait(false))
+                return new ControlPlaneHostRunner(process: null);
 
-        var process = Process.Start(psi)
-            ?? throw new InvalidOperationException($"Failed to start process: {exePath}");
+            // Locate the built binary.
+            var exePath = FindExe();
 
-        // Ensure the child process is killed if the test host exits abnormally
-        // (e.g. test runner abort), preventing locked DLLs from blocking the next build.
-        AppDomain.CurrentDomain.ProcessExit += (_, _) =>
-        {
-            try
+            var psi = new ProcessStartInfo
             {
-                if (!process.HasExited)
-                    process.Kill(entireProcessTree: true);
+                FileName = exePath,
+                // Force binding on port 5101 so the health probe and the CLI --url flag agree.
+                Arguments = $"--urls {DefaultUrl}",
+                WorkingDirectory = CliRunner.FindRepoRoot(),
+                UseShellExecute = false,
+                RedirectStandardOutput = false,
+                RedirectStandardError = false,
+                CreateNoWindow = true,
+            };
+            // Development mode enables the auth bypass middleware so unauthenticated
+            // CLI requests (manage progress, manage diagnostics) are accepted.
+            psi.Environment["ASPNETCORE_ENVIRONMENT"] = "Development";
+
+            var process = Process.Start(psi)
+                ?? throw new InvalidOperationException($"Failed to start process: {exePath}");
+
+            // Ensure the child process is killed if the test host exits abnormally
+            // (e.g. test runner abort), preventing locked DLLs from blocking the next build.
+            AppDomain.CurrentDomain.ProcessExit += (_, _) =>
+            {
+                try
+                {
+                    if (!process.HasExited)
+                        process.Kill(entireProcessTree: true);
+                }
+                catch { /* best effort — process may have already exited */ }
+            };
+
+            // Wait for the control plane to become ready.
+            using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            timeoutCts.CancelAfter(timeout);
+
+            while (!await IsReadyAsync(timeoutCts.Token).ConfigureAwait(false))
+            {
+                if (process.HasExited)
+                    throw new InvalidOperationException(
+                        $"ControlPlaneHost exited prematurely with code {process.ExitCode}.");
+
+                await Task.Delay(500, timeoutCts.Token).ConfigureAwait(false);
             }
-            catch { /* best effort — process may have already exited */ }
-        };
 
-        // Wait for the control plane to become ready.
-        using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        timeoutCts.CancelAfter(timeout);
-
-        while (!await IsReadyAsync(timeoutCts.Token).ConfigureAwait(false))
-        {
-            if (process.HasExited)
-                throw new InvalidOperationException(
-                    $"ControlPlaneHost exited prematurely with code {process.ExitCode}.");
-
-            await Task.Delay(500, timeoutCts.Token).ConfigureAwait(false);
+            return new ControlPlaneHostRunner(process);
         }
-
-        return new ControlPlaneHostRunner(process);
+        finally
+        {
+            _startLock.Release();
+        }
     }
 
     // ── Public helpers ────────────────────────────────────────────────────────
