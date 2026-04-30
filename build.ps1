@@ -96,13 +96,20 @@
     pwsh ./build.ps1 -Mode Install
     pwsh ./build.ps1 -Mode Install -Fast  # Skip system tests
     pwsh ./build.ps1 -Mode Stats           # Show stats from last test run
+    pwsh ./build.ps1 RunTest "MyTestName"  # Run a single test by (partial) name
     pwsh ./build.ps1 -Version 16.9.3  # Override version
 #>
 param(
-    [ValidateSet('Build', 'Test', 'SystemTest', 'SystemTest_Simulated', 'SystemTest_Live', 'Package', 'Full', 'Stats', 'Start', 'Install')]
+    [Parameter(Position=0)]
+    [ValidateSet('Build', 'Test', 'SystemTest', 'SystemTest_Simulated', 'SystemTest_Live', 'Package', 'Full', 'Stats', 'Start', 'Install', 'RunTest')]
     [string]$Mode = 'Full',
 
     [string]$Version,
+
+    # Used with -Mode RunTest: runs a single test by (partial) name.
+    # Example: .\build.ps1 RunTest "DependencyCommand_SystemTest_AdoSingleProject_ExecutesSuccessfully"
+    [Parameter(Position=1)]
+    [string]$TestName,
 
     [switch]$Fast
 )
@@ -665,12 +672,28 @@ function Invoke-Install {
 }
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Stats mode — no version resolution, no build required
+# Stats / RunTest modes — no version resolution, no build required
 # ─────────────────────────────────────────────────────────────────────────────
 if ($Mode -eq 'Stats') {
     Write-BuildTimings
     Write-TestSummary
     exit 0
+}
+
+if ($Mode -eq 'RunTest') {
+    if (-not $TestName) {
+        Write-Error ('Usage: .\build.ps1 RunTest "<TestName>"' + "`nProvide a full or partial test method name via -TestName.")
+        exit 1
+    }
+    Write-Host "`n==> Running single test: $TestName" -ForegroundColor Cyan
+    dotnet test $SolutionFile `
+        --no-build `
+        --configuration Release `
+        --filter "FullyQualifiedName~$TestName" `
+        --logger 'trx' `
+        --logger 'console;verbosity=normal' `
+        --results-directory $TestResultsDir
+    exit $LASTEXITCODE
 }
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -745,6 +768,12 @@ switch ($Mode) {
 
         Write-Host "`n==> Live system tests complete!" -ForegroundColor Green
         Write-BuildSummary
+    }
+
+    'RunTest' {
+        # Handled above before version resolution — should not reach here.
+        Write-Error "RunTest mode must be handled before version resolution. This is a bug."
+        exit 1
     }
 
     'Package' {
