@@ -97,7 +97,9 @@ specs/028-ioptions-schema-gen/
 src/
 ├── DevOpsMigrationPlatform.Abstractions/
 │   └── Options/
-│       └── SchemaOptionsEntry.cs               ← NEW: registry record
+│       ├── SchemaOptionsEntry.cs               ← NEW: registry record
+│       ├── SchemaOptionsEntryExtensions.cs      ← NEW: AddSchemaEntry<T>() where T : IConfigSection
+│       └── IConfigSection.cs                   ← NEW: static abstract SectionName (#if NET7_0_OR_GREATER)
 │   └── Configuration/
 │       └── IConfigSchemaValidator.cs           ← NEW: CLI Tier 0 contract
 │

@@ -216,8 +216,8 @@ None — all connector-specific requirements are captured in Functional Requirem
 
 ### Functional Requirements
 
-- **FR-001**: Every options class that participates in the configuration file MUST declare a canonical section path constant that uniquely identifies its position in the configuration tree.
-- **FR-002**: Every options class registered for configuration binding MUST also register itself with a schema registry at the time of its DI registration — no separate manual step is required.
+- **FR-001**: Every options class that participates in the configuration file MUST implement `IConfigSection` (C# 11 static abstract interface member defined in `Abstractions/Options/IConfigSection.cs`, guarded `#if NET7_0_OR_GREATER`) and thereby declare a `static string SectionName { get; }` that uniquely identifies its position in the configuration tree. This provides **compile-time enforcement**: an options class without `SectionName` will not satisfy the `where T : IConfigSection` constraint on `AddSchemaEntry<T>()` and the registration call will not compile.
+- **FR-002**: Every options class registered for configuration binding MUST also register itself with a schema registry at the time of its DI registration via `services.AddSchemaEntry<T>()` — no separate manual step is required. The `IConfigSection` constraint on `AddSchemaEntry<T>()` ensures `SectionName` is always present at the call site.
 - **FR-003**: The schema generator MUST derive the full JSON Schema by resolving all schema registry entries from the same DI container that the production host uses — not by walking type graphs or hardcoded lists.
 - **FR-004**: The generated schema MUST represent polymorphic endpoint types (source, target) as discriminated unions, with one sub-schema per registered concrete type.
 - **FR-005**: The generated schema file MUST be committed to source control and its path registered in the VS Code workspace settings so that editors apply it automatically to `migration.json` files.
@@ -238,7 +238,8 @@ None — all connector-specific requirements are captured in Functional Requirem
 
 ### Key Entities
 
-- **SchemaOptionsEntry**: A registration record linking an options type to its canonical section path. Registered as a singleton by each `Add*Services()` call that also registers `IOptions<T>`. Resolved in bulk by the schema generator.
+- **IConfigSection**: A C# 11 static abstract interface (`#if NET7_0_OR_GREATER`) in `Abstractions/Options/`. Declares `static abstract string SectionName { get; }`. Every options class that calls `AddSchemaEntry<T>()` MUST implement this interface — enforced by the `where T : class, IConfigSection` generic constraint. On `net481` the interface is not emitted; the TFS agent never calls `AddSchemaEntry<T>()`, so the guard is sufficient.
+- **SchemaOptionsEntry**: A registration record linking an options type to its canonical section path. Registered as a singleton by each `Add*Services()` call that also registers `IOptions<T>`. `SectionPath` is populated by reading `T.SectionName` at the `AddSchemaEntry<T>()` call site — no runtime reflection. Resolved in bulk by the schema generator.
 - **IAgentJobContext**: A read-only service (in `Abstractions.Agent`) scoped to a single agent job execution. Exposes: `Mode` (the operation being run), `PackagePath` (the resolved output directory), `ConfigVersion` (for upgrader checks). No sub-graphs.
 - **ISourceEndpointInfo / ITargetEndpointInfo**: Connector-registered services exposing the resolved URL and project for the source and target endpoints respectively. Registered by each connector assembly's own DI extension.
 - **Schema Registry**: The collection of all `SchemaOptionsEntry` singletons in the DI container. Queried exclusively by the schema generator host; not used at runtime.
