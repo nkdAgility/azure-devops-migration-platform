@@ -46,7 +46,7 @@ Replace the `ActiveJobConfigState` global mutable singleton with a flat `IOption
 
 | Operation | Class / Method | Span Name (O-1) | Metrics Instruments (O-2) | Log Events (O-3) | ProgressEvent Stage (O-4) |
 |-----------|---------------|-----------------|--------------------------|-----------------|--------------------------|
-| Schema generation | `SchemaGeneratorHost.RunAsync` | `schema.generate` (source: `WellKnownActivitySourceNames.Migration`) | None — build-time tool; no runtime OTel exporter | `Information`: "Schema generation started — {EntryCount} entries"; `Information`: "Schema generation succeeded — {EntryCount} entries in {DurationMs}ms → {OutputPath}"; `Error`: "Schema generation failed at step '{Step}': {Error}"; `Error`: "Duplicate SectionName '{SectionPath}' registered by {Type1} and {Type2}" | N/A — build tool |
+| Schema generation | `SchemaGeneratorHost.RunAsync` | `schema.generate` (source: `WellKnownActivitySourceNames.Migration`) — **build-time tool; span is advisory/no-op unless OTel is wired by caller** | None — build-time tool; no runtime OTel exporter | `Information`: "Schema generation started — {EntryCount} entries"; `Information`: "Schema generation succeeded — {EntryCount} entries in {DurationMs}ms → {OutputPath}"; `Error`: "Schema generation failed at step '{Step}': {Error}"; `Error`: "Duplicate SectionName '{SectionPath}' registered by {Type1} and {Type2}" | N/A — build tool |
 | Tier 0 JSON Schema validation | `QueueCommand` (before `LoadConfigurationAsync`) | None — synchronous pre-flight, no distributed trace needed | None | `Error`: "Config validation failed: {JsonPath} — {Constraint} ({ConfigFile})"; `Warning`: "Schema validation skipped — schema file not found at {ExpectedSchemaPath}" | N/A — CLI pre-flight |
 | `IAgentJobContext` resolution | `AgentJobContext` (registered per-job) | None — DI registration, not an operation | None | `Debug`: "Agent job context resolved — Mode={Mode} ConfigVersion={ConfigVersion}" | N/A |
 
@@ -79,67 +79,268 @@ Replace the `ActiveJobConfigState` global mutable singleton with a flat `IOption
 ### Documentation (this feature)
 
 ```text
-specs/[###-feature]/
-├── plan.md              # This file (/speckit.plan command output)
-├── research.md          # Phase 0 output (/speckit.plan command)
-├── data-model.md        # Phase 1 output (/speckit.plan command)
-├── quickstart.md        # Phase 1 output (/speckit.plan command)
-├── contracts/           # Phase 1 output (/speckit.plan command)
-└── tasks.md             # Phase 2 output (/speckit.tasks command - NOT created by /speckit.plan)
+specs/028-ioptions-schema-gen/
+├── spec.md
+├── plan.md              ← this file
+├── research.md          ← Phase 0 output
+├── data-model.md        ← Phase 1 output
+├── contracts/           ← Phase 1 output
+│   ├── IAgentJobContext.md
+│   ├── ISourceEndpointInfo.md
+│   └── SchemaOptionsEntry.md
+└── tasks.md             ← Phase 2 output (speckit.tasks)
 ```
 
-### Source Code (repository root)
-<!--
-  ACTION REQUIRED: Replace the placeholder tree below with the concrete layout
-  for this feature. Delete unused options and expand the chosen structure with
-  real paths (e.g., apps/admin, packages/something). The delivered plan must
-  not include Option labels.
--->
+### Source Code Changes
 
 ```text
-# [REMOVE IF UNUSED] Option 1: Single project (DEFAULT)
 src/
-├── models/
-├── services/
-├── cli/
-└── lib/
+├── DevOpsMigrationPlatform.Abstractions/
+│   └── Options/
+│       └── SchemaOptionsEntry.cs               ← NEW: registry record
+│   └── Configuration/
+│       └── IConfigSchemaValidator.cs           ← NEW: CLI Tier 0 contract
+│
+├── DevOpsMigrationPlatform.Abstractions.Agent/
+│   └── Context/
+│       ├── IAgentJobContext.cs                 ← NEW
+│       ├── ISourceEndpointInfo.cs              ← NEW
+│       └── ITargetEndpointInfo.cs              ← NEW
+│   └── Lease/
+│       └── ActiveJobConfigState.cs             ← DELETE (after all consumers migrated)
+│
+├── DevOpsMigrationPlatform.Infrastructure.Agent/
+│   └── Context/
+│       └── AgentJobContext.cs                  ← NEW: IAgentJobContext impl
+│   └── Modules/
+│       ├── WorkItemsModule.cs                  ← MODIFY: remove ActiveJobConfigState, inject IOptions<WorkItemsModuleOptions>, IAgentJobContext, ISourceEndpointInfo, ITargetEndpointInfo
+│       ├── TeamsModule.cs                      ← MODIFY: same
+│       ├── NodesModule.cs                      ← MODIFY: same
+│       └── IdentitiesModule.cs                 ← MODIFY: same
+│   └── MigrationAgentServiceExtensions.cs      ← MODIFY: register IAgentJobContext
+│
+├── DevOpsMigrationPlatform.Infrastructure.Simulated/
+│   └── SimulatedConnectorServiceExtensions.cs  ← MODIFY: register SchemaOptionsEntry + ISourceEndpointInfo + ITargetEndpointInfo
+│
+├── DevOpsMigrationPlatform.Infrastructure.AzureDevOps/
+│   └── AzureDevOpsConnectorServiceExtensions.cs ← MODIFY: register SchemaOptionsEntry + ISourceEndpointInfo + ITargetEndpointInfo
+│
+├── DevOpsMigrationPlatform.Infrastructure.TfsObjectModel/
+│   └── TfsConnectorServiceExtensions.cs        ← MODIFY: register SchemaOptionsEntry + ISourceEndpointInfo (source only)
+│
+├── DevOpsMigrationPlatform.Infrastructure/
+│   └── Config/
+│       └── JsonSchemaConfigValidator.cs        ← NEW: IConfigSchemaValidator impl (NJsonSchema)
+│
+├── DevOpsMigrationPlatform.CLI.Migration/
+│   └── Commands/
+│       └── QueueCommand.cs                     ← MODIFY: Tier 0 schema validation before LoadConfigurationAsync
+│   └── DevOpsMigrationPlatform.CLI.Migration.csproj ← MODIFY: copy migration.schema.json to output
+│
+├── DevOpsMigrationPlatform.MigrationAgent/
+│   └── JobAgentWorker.cs                       ← MODIFY: remove ActiveJobConfigState population; build IAgentJobContext from parsed MigrationOptions
+│
+└── DevOpsMigrationPlatform.SchemaGenerator/    ← NEW PROJECT
+    ├── DevOpsMigrationPlatform.SchemaGenerator.csproj
+    ├── Program.cs
+    └── SchemaGeneratorHost.cs
+
+features/
+└── cli/
+    └── schema-validation.feature               ← NEW: Tier 0 schema validation Gherkin
+export/
+    └── ioptions-migration.feature              ← NEW: module config isolation Gherkin
 
 tests/
-├── contract/
-├── integration/
-└── unit/
-
-# [REMOVE IF UNUSED] Option 2: Web application (when "frontend" + "backend" detected)
-backend/
-├── src/
-│   ├── models/
-│   ├── services/
-│   └── api/
-└── tests/
-
-frontend/
-├── src/
-│   ├── components/
-│   ├── pages/
-│   └── services/
-└── tests/
-
-# [REMOVE IF UNUSED] Option 3: Mobile + API (when "iOS/Android" detected)
-api/
-└── [same as backend above]
-
-ios/ or android/
-└── [platform-specific structure: feature modules, UI flows, platform tests]
+└── DevOpsMigrationPlatform.CLI.Migration.Tests/
+    └── SchemaValidation/
+        ├── SchemaValidationSteps.cs            ← NEW
+        └── SchemaValidationContext.cs          ← NEW
+└── DevOpsMigrationPlatform.Infrastructure.Agent.Tests/
+    └── Context/
+        └── AgentJobContextTests.cs             ← NEW
 ```
 
-**Structure Decision**: [Document the selected structure and reference the real
-directories captured above]
+**Structure Decision**: Single `SchemaGenerator` project (`net10.0` only) that references all connector assemblies and `Infrastructure` to build the DI container. The CLI project gets a build dependency on `SchemaGenerator` output via an MSBuild `Exec` target and a `<Content CopyToOutputDirectory="PreserveNewest">` item for `migration.schema.json`.
 
 ## Complexity Tracking
 
-> **Fill ONLY if Constitution Check has violations that must be justified**
+No constitution violations. The `SchemaGenerator` project is the minimal additional project needed — the alternative (a hidden `schema export` CLI command) would couple schema generation to the CLI binary and prevent build-time schema drift detection without running the full CLI.
 
-| Violation | Why Needed | Simpler Alternative Rejected Because |
-|-----------|------------|-------------------------------------|
-| [e.g., 4th project] | [current need] | [why 3 projects insufficient] |
-| [e.g., Repository pattern] | [specific problem] | [why direct DB access insufficient] |
+---
+
+## Phase 0: Research
+
+> **Output**: [research.md](research.md)
+
+### Unknowns to Resolve
+
+| Unknown | Research Task |
+|---------|--------------|
+| NJsonSchema API for `oneOf` discriminated union generation | Verify `JsonSchema.OneOf` collection and `JsonSchemaProperty.IsRequired` for `type` discriminator constant |
+| MSBuild `Exec` target dependency ordering for schema generator | Verify `AfterTargets="Build"` vs `BeforeTargets` and output file freshness |
+| `IOptions<T>` registration from `Abstractions` multi-target (`net481;net10.0`) | Confirm `SchemaOptionsEntry` can be registered in a multi-targeted project without `Microsoft.Extensions.Options` version conflict |
+| `ActiveJobConfigState` usage in TfsMigrationAgent | Scan TfsMigrationAgent for `ActiveJobConfigState` references — must remain functional throughout migration |
+
+---
+
+## Phase 1: Design & Contracts
+
+> **Prerequisites**: research.md complete
+> **Outputs**: data-model.md, contracts/, quickstart.md
+
+### New Types
+
+#### `SchemaOptionsEntry` (in `Abstractions`)
+
+```csharp
+/// <summary>
+/// Registration record linking an options type to its canonical config section path.
+/// Registered as a singleton by each Add*Services() call that also registers IOptions&lt;T&gt;.
+/// Resolved in bulk by the SchemaGenerator at build time.
+/// </summary>
+public sealed class SchemaOptionsEntry
+{
+    public required Type OptionsType { get; init; }
+    public required string SectionPath { get; init; }   // e.g. "MigrationPlatform:Tools:FieldTransform"
+    public string? Description { get; init; }
+}
+```
+
+Registration helper (extension method on `IServiceCollection`):
+```csharp
+public static IServiceCollection AddSchemaEntry<T>(
+    this IServiceCollection services, string? description = null)
+    where T : class
+    => services.AddSingleton(new SchemaOptionsEntry
+    {
+        OptionsType = typeof(T),
+        SectionPath = (string)typeof(T).GetField("SectionName",
+            BindingFlags.Public | BindingFlags.Static)!.GetValue(null)!,
+        Description = description
+    });
+```
+
+#### `IAgentJobContext` (in `Abstractions.Agent`)
+
+```csharp
+/// <summary>
+/// Read-only view of the current agent job's execution context.
+/// Registered per-job in the per-job ServiceCollection.
+/// Provides scalar values modules need without exposing MigrationOptions.
+/// </summary>
+public interface IAgentJobContext
+{
+    string Mode { get; }            // "Export" | "Import" | "Prepare" | "Migrate"
+    string PackagePath { get; }     // resolved, expanded absolute path
+    string ConfigVersion { get; }   // e.g. "2.0"
+}
+```
+
+#### `ISourceEndpointInfo` / `ITargetEndpointInfo` (in `Abstractions.Agent`)
+
+```csharp
+public interface ISourceEndpointInfo
+{
+    string Url { get; }
+    string Project { get; }
+    string ConnectorType { get; }   // "AzureDevOpsServices" | "TeamFoundationServer" | "Simulated"
+}
+
+public interface ITargetEndpointInfo
+{
+    string Url { get; }
+    string Project { get; }
+    string ConnectorType { get; }
+}
+```
+
+#### `IConfigSchemaValidator` (in `Abstractions`)
+
+```csharp
+/// <summary>
+/// Validates a raw JSON config string against the platform's migration.schema.json.
+/// Used by QueueCommand as a Tier 0 pre-flight check.
+/// </summary>
+public interface IConfigSchemaValidator
+{
+    /// <summary>
+    /// Returns an empty collection on success; one entry per violation on failure.
+    /// </summary>
+    IReadOnlyList<SchemaValidationError> Validate(string rawJson);
+}
+
+public sealed class SchemaValidationError
+{
+    public required string JsonPath { get; init; }
+    public required string Constraint { get; init; }
+}
+```
+
+### Module Migration Pattern
+
+Before (current):
+```csharp
+// Constructor injects ActiveJobConfigState
+var projectName = _activeJobConfig?.Current?.Source?.GetProject() ?? string.Empty;
+var opts = _activeJobConfig?.Current?.Modules?.WorkItems ?? new WorkItemsModuleOptions();
+```
+
+After (target):
+```csharp
+// Constructor injects IOptions<WorkItemsModuleOptions>, IAgentJobContext, ISourceEndpointInfo
+var projectName = _sourceEndpointInfo.Project;
+var opts = _options;   // IOptions<WorkItemsModuleOptions>.Value bound at DI build time
+```
+
+### Connector Registration Pattern
+
+Each connector's `Add*Services()` extension adds:
+```csharp
+services.AddSchemaEntry<SimulatedEndpointOptions>();
+services.AddSingleton<ISourceEndpointInfo>(sp => {
+    var opts = sp.GetRequiredService<IOptions<SimulatedEndpointOptions>>().Value;
+    return new SimulatedSourceEndpointInfo(opts.Project);
+});
+```
+
+### `SchemaGenerator` — build-time host
+
+```csharp
+// Program.cs — net10.0 only
+var services = new ServiceCollection();
+// Register all the same Add*Services() calls as the production host
+AddAllPlatformServices(services);
+var provider = services.BuildServiceProvider();
+
+var entries = provider.GetServices<SchemaOptionsEntry>().ToList();
+// Build JSON Schema tree from entries using NJsonSchema
+// Write to --output path
+```
+
+MSBuild target in `CLI.Migration.csproj`:
+```xml
+<Target Name="GenerateConfigSchema" AfterTargets="Build" Condition="'$(TargetFramework)' == 'net10.0'">
+  <Exec Command="dotnet run --project $(SolutionDir)src\DevOpsMigrationPlatform.SchemaGenerator\ -- --output $(OutDir)migration.schema.json" />
+</Target>
+<Content Include="$(OutDir)migration.schema.json" CopyToOutputDirectory="PreserveNewest" Condition="Exists('$(OutDir)migration.schema.json')" />
+```
+
+CI drift check:
+```yaml
+- name: Verify schema not drifted
+  run: |
+    git diff --exit-code migration.schema.json
+```
+
+---
+
+## Complexity Tracking
+
+No constitution violations introduced. No architectural workarounds required.
+
+| Concern | Decision | Rationale |
+|---------|----------|-----------|
+| SchemaGenerator as separate project | Adopted | Avoids coupling schema generation to CLI binary; enables independent build-time invocation |
+| `MigrationOptions` retained as bootstrap shim | Retained transiently | `JobAgentWorker` needs to parse `migration-config.json` before building per-job DI; once the agent can bind `IConfiguration` directly from raw JSON, `MigrationOptions` can be deleted |
+| `net481` multi-target for `SchemaOptionsEntry` | Required | `Abstractions` is multi-targeted; `SchemaOptionsEntry` carries only a `Type` and two strings — no platform APIs needed |
