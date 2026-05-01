@@ -56,6 +56,9 @@ public static class CoreAgentServiceExtensions
         // Execution plan builder — builds the ordered task list at job start.
         services.AddSingleton<IJobExecutionPlanBuilder, JobExecutionPlanBuilder>();
 
+        // Execution plan executor — runs tasks in dependency-tier order with Task.WhenAll per tier.
+        services.AddSingleton<IJobPlanExecutor, JobPlanExecutor>();
+
         // Agent telemetry (IMigrationMetrics, IDiscoveryMetrics, TelemetryOptions).
         services.AddAgentTelemetryServices(configuration);
 

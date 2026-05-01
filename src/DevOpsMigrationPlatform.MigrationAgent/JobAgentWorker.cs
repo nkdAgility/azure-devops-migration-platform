@@ -11,6 +11,7 @@ using DevOpsMigrationPlatform.Abstractions.Agent.Lease;
 using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
 using DevOpsMigrationPlatform.Abstractions.ControlPlaneApi;
 using DevOpsMigrationPlatform.Infrastructure.Agent;
+using DevOpsMigrationPlatform.Infrastructure.Agent.Context;
 using DevOpsMigrationPlatform.Infrastructure.Serialization;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -33,6 +34,7 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
     private readonly IServiceScopeFactory _moduleScopeFactory;
     private readonly IPackagePreparer _packagePreparer;
     private readonly IJobExecutionPlanBuilder _planBuilder;
+    private readonly IJobPlanExecutor _planExecutor;
     private readonly IControlPlaneTelemetryClient _telemetryClient;
     private readonly ILogger<JobAgentWorker> _logger;
 
@@ -54,6 +56,7 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
         IJobSnapshotStore snapshotStore,
         IEnumerable<IFlushable> flushables,
         IJobExecutionPlanBuilder planBuilder,
+        IJobPlanExecutor planExecutor,
         IControlPlaneTelemetryClient telemetryClient,
         ILogger<JobAgentWorker> logger,
         PolymorphicEndpointOptionsConverter? endpointConverter = null,
@@ -69,6 +72,7 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
         _moduleScopeFactory = moduleScopeFactory;
         _packagePreparer = packagePreparer;
         _planBuilder = planBuilder;
+        _planExecutor = planExecutor;
         _telemetryClient = telemetryClient;
         _logger = logger;
     }
@@ -276,6 +280,7 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
 
         // Build the execution plan and push it to the Control Plane so clients can
         // see the ordered task list immediately via GET /jobs/{id}/bootstrap.
+        JobTaskList executionPlan;
         try
         {
             ProgressSink.Emit(new ProgressEvent
@@ -286,23 +291,55 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
                 Timestamp = DateTimeOffset.UtcNow
             });
 
-            var plan = await _planBuilder
-                .BuildPlanAsync(packageConfig, job.Kind, artefactStore, stateStore, ct)
+            // Attempt to load persisted plan from package (resume scenario).
+            var loadedPlan = await JobPlanExecutor.LoadOrResetAsync(stateStore, ct)
                 .ConfigureAwait(false);
-            await _telemetryClient.PushTaskListAsync(leaseId, plan, ct).ConfigureAwait(false);
+
+            if (loadedPlan is not null)
+            {
+                _logger.LogInformation(
+                    "Loaded execution plan from package: {TaskCount} task(s), {PendingCount} pending, {CompletedCount} completed.",
+                    loadedPlan.Tasks.Count,
+                    loadedPlan.Tasks.Count(t => t.Status == JobTaskStatus.Pending),
+                    loadedPlan.Tasks.Count(t => t.Status == JobTaskStatus.Completed));
+                executionPlan = loadedPlan;
+            }
+            else
+            {
+                // No persisted plan — build fresh.
+                var freshPlan = await _planBuilder
+                    .BuildPlanAsync(packageConfig, job.Kind, artefactStore, stateStore, ct)
+                    .ConfigureAwait(false);
+
+                _logger.LogInformation(
+                    "Built fresh execution plan: {TaskCount} task(s).",
+                    freshPlan.Tasks.Count);
+
+                // Persist the fresh plan immediately.
+                var json = System.Text.Json.JsonSerializer.Serialize(freshPlan);
+                await stateStore.WriteAsync(PackagePaths.PlanFile, json, ct).ConfigureAwait(false);
+
+                executionPlan = freshPlan;
+            }
+
+            // Push plan to the control plane for display.
+            await _telemetryClient.PushTaskListAsync(leaseId, executionPlan, ct).ConfigureAwait(false);
 
             ProgressSink.Emit(new ProgressEvent
             {
                 Module = "Job",
                 Stage = "Job.Ready",
-                Message = $"Execution plan ready. {plan.Tasks.Count} task(s) queued.",
+                Message = $"Execution plan ready. {executionPlan.Tasks.Count} task(s) queued.",
                 Timestamp = DateTimeOffset.UtcNow
             });
         }
         catch (Exception ex)
         {
-            // Non-fatal — the job continues without a task list.
-            _logger.LogWarning(ex, "Failed to build or push execution plan for job {JobId}.", job.JobId);
+            // Fatal — plan build failure means we can't proceed.
+            _logger.LogError(ex, "Failed to build or load execution plan for job {JobId}.", job.JobId);
+            await SignalTerminalAsync(controlPlane, leaseId, "fail", ct).ConfigureAwait(false);
+            ActiveJobConfig.Clear();
+            return;
         }
 
         // Create a per-job DI scope AFTER PackageConfig is set. Singleton tools (e.g.
@@ -318,13 +355,24 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
 
             if (job.Resume?.Mode == ResumeMode.ForceFresh)
             {
-                _logger.LogInformation("ForceFresh requested for job {JobId} — deleting module cursors.", job.JobId);
+                _logger.LogInformation("ForceFresh requested for job {JobId} — deleting module cursors and plan file.", job.JobId);
                 foreach (var module in MigrationModules)
                 {
                     await checkpointer.DeleteCursorAsync(module.Name, ct).ConfigureAwait(false);
                     _logger.LogDebug("Deleted cursor for module {Module}.", module.Name);
                 }
                 await phaseTracker.DeletePhaseRecordAsync(ct).ConfigureAwait(false);
+
+                // Delete the persisted plan file so a fresh plan is built.
+                try
+                {
+                    await stateStore.DeleteAsync(PackagePaths.PlanFile, ct).ConfigureAwait(false);
+                    _logger.LogDebug("Deleted plan file {Path}.", PackagePaths.PlanFile);
+                }
+                catch (System.IO.FileNotFoundException)
+                {
+                    // Plan file didn't exist — not an error.
+                }
             }
 
             var exportContext = new ExportContext
@@ -369,44 +417,80 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
             {
                 if (runExport)
                 {
-                    foreach (var module in jobModules)
+                    // When running export, auto-run inventory first if inventory.json
+                    // does not yet exist in the package.
+                    var inventoryExists = await artefactStore.ExistsAsync("inventory.json", ct).ConfigureAwait(false);
+                    if (!inventoryExists)
                     {
-                        var taskId = $"export.{module.Name.ToLowerInvariant()}";
-                        _logger.LogInformation("Running module {Module}.ExportAsync", module.Name);
-                        ProgressSink.Emit(new ProgressEvent
+                        _logger.LogInformation(
+                            "No inventory.json found for export job {JobId} — running inventory module first.", job.JobId);
+                        var inventoryModules = _discoveryModules
+                            .Where(m => m.DiscoveryKind == JobKind.Inventory)
+                            .ToList();
+
+                        if (inventoryModules.Count > 0)
                         {
-                            Module = module.Name,
-                            Stage = "Export.Start",
-                            Timestamp = DateTimeOffset.UtcNow,
-                            TaskId = taskId,
-                            TaskStatus = JobTaskStatus.Running
-                        });
-                        try
-                        {
-                            await module.ExportAsync(exportContext, ct).ConfigureAwait(false);
-                            ProgressSink.Emit(new ProgressEvent
+                            var discoveryContext = new DiscoveryContext
                             {
-                                Module = module.Name,
-                                Stage = "Export.Complete",
-                                Timestamp = DateTimeOffset.UtcNow,
-                                TaskId = taskId,
-                                TaskStatus = JobTaskStatus.Completed
-                            });
+                                Job = job,
+                                ArtefactStore = artefactStore,
+                                StateStore = stateStore,
+                                ProgressSink = ProgressSink
+                            };
+
+                            foreach (var module in inventoryModules)
+                            {
+                                var taskId = $"inventory.{module.Name.ToLowerInvariant()}";
+                                _logger.LogInformation("Running inventory module {Module}.RunAsync", module.Name);
+                                ProgressSink.Emit(new ProgressEvent
+                                {
+                                    Module = module.Name,
+                                    Stage = "Inventory.Start",
+                                    Timestamp = DateTimeOffset.UtcNow,
+                                    TaskId = taskId,
+                                    TaskStatus = JobTaskStatus.Running
+                                });
+                                try
+                                {
+                                    await module.RunAsync(discoveryContext, ct).ConfigureAwait(false);
+                                    ProgressSink.Emit(new ProgressEvent
+                                    {
+                                        Module = module.Name,
+                                        Stage = "Inventory.Complete",
+                                        Timestamp = DateTimeOffset.UtcNow,
+                                        TaskId = taskId,
+                                        TaskStatus = JobTaskStatus.Completed
+                                    });
+                                }
+                                catch
+                                {
+                                    ProgressSink.Emit(new ProgressEvent
+                                    {
+                                        Module = module.Name,
+                                        Stage = "Inventory.Failed",
+                                        Timestamp = DateTimeOffset.UtcNow,
+                                        TaskId = taskId,
+                                        TaskStatus = JobTaskStatus.Failed
+                                    });
+                                    throw;
+                                }
+                            }
                         }
-                        catch
+                        else
                         {
-                            ProgressSink.Emit(new ProgressEvent
-                            {
-                                Module = module.Name,
-                                Stage = "Export.Failed",
-                                Timestamp = DateTimeOffset.UtcNow,
-                                TaskId = taskId,
-                                TaskStatus = JobTaskStatus.Failed
-                            });
-                            throw;
+                            _logger.LogWarning(
+                                "No inventory module registered — proceeding with export without inventory for job {JobId}.", job.JobId);
                         }
                     }
-                    if (isBoth)
+
+                    // Execute export phase using the plan executor.
+                    var moduleMap = jobModules.ToDictionary(m => m.Name, m => (IModule)m, StringComparer.OrdinalIgnoreCase);
+                    var exportOk = await _planExecutor.ExecuteExportPhaseAsync(
+                        executionPlan, moduleMap, exportContext, stateStore, ct).ConfigureAwait(false);
+
+                    failed = !exportOk;
+
+                    if (isBoth && exportOk)
                     {
                         await phaseTracker.WritePhaseRecordAsync(
                             new JobPhaseRecord { ExportCompleted = true, ImportCompleted = phaseRecord.ImportCompleted, UpdatedAt = DateTimeOffset.UtcNow },
@@ -416,44 +500,14 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
 
                 if (runImport)
                 {
-                    foreach (var module in jobModules)
-                    {
-                        var taskId = $"import.{module.Name.ToLowerInvariant()}";
-                        _logger.LogInformation("Running module {Module}.ImportAsync", module.Name);
-                        ProgressSink.Emit(new ProgressEvent
-                        {
-                            Module = module.Name,
-                            Stage = "Import.Start",
-                            Timestamp = DateTimeOffset.UtcNow,
-                            TaskId = taskId,
-                            TaskStatus = JobTaskStatus.Running
-                        });
-                        try
-                        {
-                            await module.ImportAsync(importContext, ct).ConfigureAwait(false);
-                            ProgressSink.Emit(new ProgressEvent
-                            {
-                                Module = module.Name,
-                                Stage = "Import.Complete",
-                                Timestamp = DateTimeOffset.UtcNow,
-                                TaskId = taskId,
-                                TaskStatus = JobTaskStatus.Completed
-                            });
-                        }
-                        catch
-                        {
-                            ProgressSink.Emit(new ProgressEvent
-                            {
-                                Module = module.Name,
-                                Stage = "Import.Failed",
-                                Timestamp = DateTimeOffset.UtcNow,
-                                TaskId = taskId,
-                                TaskStatus = JobTaskStatus.Failed
-                            });
-                            throw;
-                        }
-                    }
-                    if (isBoth)
+                    // Execute import phase using the plan executor.
+                    var moduleMap = jobModules.ToDictionary(m => m.Name, m => (IModule)m, StringComparer.OrdinalIgnoreCase);
+                    var importOk = await _planExecutor.ExecuteImportPhaseAsync(
+                        executionPlan, moduleMap, importContext, stateStore, ct).ConfigureAwait(false);
+
+                    failed = !importOk;
+
+                    if (isBoth && importOk)
                     {
                         await phaseTracker.WritePhaseRecordAsync(
                             new JobPhaseRecord { ExportCompleted = true, ImportCompleted = true, UpdatedAt = DateTimeOffset.UtcNow },

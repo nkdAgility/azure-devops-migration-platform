@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 
 namespace DevOpsMigrationPlatform.Abstractions.ControlPlaneApi;
 
@@ -40,4 +41,10 @@ public sealed record JobTask
 
     /// <summary>Human-readable reason this task was skipped. Non-null only when <see cref="Status"/> is <see cref="JobTaskStatus.Skipped"/>.</summary>
     public string? SkipReason { get; init; }
+
+    /// <summary>
+    /// Task IDs (e.g. "import.identities") that must complete successfully before this task may execute.
+    /// Null or empty = no dependencies. Dependencies are evaluated per-phase; Export tasks have no dependencies.
+    /// </summary>
+    public IReadOnlyList<string>? DependsOn { get; init; }
 }

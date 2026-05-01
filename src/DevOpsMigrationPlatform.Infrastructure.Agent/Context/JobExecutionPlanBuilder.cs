@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
@@ -21,6 +22,7 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Context;
 ///   <item>Module-enabled flags in <c>migration-config.json</c>.</item>
 ///   <item>Phase records in the state store to detect already-completed phases on resume.</item>
 ///   <item><c>inventory.json</c> in the artefact store to populate <see cref="JobTask.KnownTotal"/> for WorkItems tasks.</item>
+///   <item>Module <c>DependsOn</c> declarations to build the dependency graph for Import-phase tasks.</item>
 /// </list>
 /// </summary>
 internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
@@ -30,13 +32,18 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
         PropertyNameCaseInsensitive = true
     };
 
+    private readonly IEnumerable<IModule> _modules;
+    private readonly Dictionary<string, IModule> _modulesByName;
     private readonly IPhaseTrackingServiceFactory _phaseTrackingFactory;
     private readonly ILogger<JobExecutionPlanBuilder> _logger;
 
     public JobExecutionPlanBuilder(
+        IEnumerable<IModule> modules,
         IPhaseTrackingServiceFactory phaseTrackingFactory,
         ILogger<JobExecutionPlanBuilder> logger)
     {
+        _modules = modules;
+        _modulesByName = modules.ToDictionary(m => m.Name, StringComparer.OrdinalIgnoreCase);
         _phaseTrackingFactory = phaseTrackingFactory;
         _logger = logger;
     }
@@ -76,6 +83,12 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
             tasks.AddRange(BuildImportTasks(packageConfig, phaseRecord, ref order));
         }
 
+        // Validate no circular dependencies in Import phase before returning.
+        if (includeImport)
+        {
+            ValidateNoCycles(tasks.Where(t => t.Phase == "Import").ToList());
+        }
+
         _logger.LogInformation(
             "Built execution plan with {TaskCount} tasks for job kind {Kind}.",
             tasks.Count, kind);
@@ -89,7 +102,7 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
 
     // ── Export phase ─────────────────────────────────────────────────────────
 
-    private static List<JobTask> BuildExportTasks(
+    private List<JobTask> BuildExportTasks(
         IConfiguration config,
         JobPhaseRecord? phaseRecord,
         long? workItemKnownTotal,
@@ -97,42 +110,76 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
     {
         bool exportAlreadyDone = phaseRecord?.ExportCompleted == true;
 
-        var tasks = new List<JobTask>
+        var tasks = new List<JobTask>();
+
+        // Export tasks have no dependencies — all modules run concurrently.
+        foreach (var module in _modules)
         {
-            MakeTask("export.identities", "Identities Export", "Export",
-                IsEnabled(config, "Identities"), exportAlreadyDone, order++),
-            MakeTask("export.nodes", "Nodes Export", "Export",
-                IsEnabled(config, "Nodes"), exportAlreadyDone, order++),
-            MakeTask("export.teams", "Teams Export", "Export",
-                IsEnabled(config, "Teams"), exportAlreadyDone, order++),
-            MakeTask("export.workitems", "WorkItems Export", "Export",
-                IsEnabled(config, "WorkItems"), exportAlreadyDone, order++,
-                knownTotal: workItemKnownTotal),
-        };
+            var taskId = $"export.{module.Name.ToLowerInvariant()}";
+            var enabled = IsEnabled(config, module.Name);
+            var knownTotal = module.Name.Equals("WorkItems", StringComparison.OrdinalIgnoreCase)
+                ? workItemKnownTotal
+                : null;
+
+            tasks.Add(MakeTask(
+                taskId,
+                $"{module.Name} Export",
+                "Export",
+                enabled,
+                exportAlreadyDone,
+                order++,
+                knownTotal: knownTotal,
+                dependsOn: null)); // Export tasks have no inter-module dependencies
+        }
 
         return tasks;
     }
 
     // ── Import phase ─────────────────────────────────────────────────────────
 
-    private static List<JobTask> BuildImportTasks(
+    private List<JobTask> BuildImportTasks(
         IConfiguration config,
         JobPhaseRecord? phaseRecord,
         ref int order)
     {
         bool importAlreadyDone = phaseRecord?.ImportCompleted == true;
 
-        return new List<JobTask>
+        var tasks = new List<JobTask>();
+
+        // Build task for each enabled module, mapping its DependsOn to task IDs.
+        foreach (var module in _modules)
         {
-            MakeTask("import.identities", "Identities Import", "Import",
-                IsEnabled(config, "Identities"), importAlreadyDone, order++),
-            MakeTask("import.nodes", "Nodes Import", "Import",
-                IsEnabled(config, "Nodes"), importAlreadyDone, order++),
-            MakeTask("import.teams", "Teams Import", "Import",
-                IsEnabled(config, "Teams"), importAlreadyDone, order++),
-            MakeTask("import.workitems", "WorkItems Import", "Import",
-                IsEnabled(config, "WorkItems"), importAlreadyDone, order++),
-        };
+            var taskId = $"import.{module.Name.ToLowerInvariant()}";
+            var enabled = IsEnabled(config, module.Name);
+
+            // Map module dependencies to task IDs; skip dependencies that are not enabled or registered.
+            var dependsOn = module.DependsOn
+                .Where(depName => _modulesByName.ContainsKey(depName) && IsEnabled(config, depName))
+                .Select(depName => $"import.{depName.ToLowerInvariant()}")
+                .ToList();
+
+            if (module.DependsOn.Count > dependsOn.Count)
+            {
+                var missing = module.DependsOn.Where(d => !_modulesByName.ContainsKey(d) || !IsEnabled(config, d));
+                foreach (var dep in missing)
+                {
+                    _logger.LogWarning(
+                        "Module {Module} depends on {Dependency}, but that module is not enabled or not registered. Dependency omitted from task.",
+                        module.Name, dep);
+                }
+            }
+
+            tasks.Add(MakeTask(
+                taskId,
+                $"{module.Name} Import",
+                "Import",
+                enabled,
+                importAlreadyDone,
+                order++,
+                dependsOn: dependsOn.Count > 0 ? dependsOn.AsReadOnly() : null));
+        }
+
+        return tasks;
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
@@ -144,7 +191,8 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
         bool enabled,
         bool phaseAlreadyDone,
         int order,
-        long? knownTotal = null)
+        long? knownTotal = null,
+        IReadOnlyList<string>? dependsOn = null)
     {
         var (status, skipReason) = !enabled
             ? (JobTaskStatus.Skipped, "Module disabled in configuration.")
@@ -160,7 +208,8 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
             Order = order,
             Status = status,
             KnownTotal = knownTotal,
-            SkipReason = skipReason
+            SkipReason = skipReason,
+            DependsOn = dependsOn
         };
     }
 
@@ -195,5 +244,114 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
         }
 
         return null;
+    }
+
+    /// <summary>
+    /// Validates that the Import-phase tasks have no circular dependencies.
+    /// Uses Kahn's algorithm (topological sort) to detect cycles.
+    /// Throws <see cref="InvalidOperationException"/> if a cycle is found.
+    /// </summary>
+    private static void ValidateNoCycles(List<JobTask> importTasks)
+    {
+        if (importTasks.Count == 0)
+            return;
+
+        // Build adjacency list and in-degree count.
+        var graph = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
+        var inDegree = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var task in importTasks)
+        {
+            graph[task.Id] = new List<string>();
+            inDegree[task.Id] = 0;
+        }
+
+        foreach (var task in importTasks)
+        {
+            if (task.DependsOn is not null)
+            {
+                foreach (var dep in task.DependsOn)
+                {
+                    if (graph.ContainsKey(dep))
+                    {
+                        graph[dep].Add(task.Id);
+                        inDegree[task.Id]++;
+                    }
+                    // If dep is not in the graph (disabled/not registered), it's already filtered out upstream.
+                }
+            }
+        }
+
+        // Kahn's algorithm: process tasks with no dependencies.
+        var queue = new Queue<string>(inDegree.Where(kvp => kvp.Value == 0).Select(kvp => kvp.Key));
+        var processed = 0;
+
+        while (queue.Count > 0)
+        {
+            var current = queue.Dequeue();
+            processed++;
+
+            foreach (var neighbor in graph[current])
+            {
+                inDegree[neighbor]--;
+                if (inDegree[neighbor] == 0)
+                    queue.Enqueue(neighbor);
+            }
+        }
+
+        if (processed < importTasks.Count)
+        {
+            // Cycle detected — find one cycle for the error message.
+            var cycle = FindCycle(graph, inDegree);
+            throw new InvalidOperationException(
+                $"Circular dependency detected in Import-phase modules: {string.Join(" → ", cycle)}");
+        }
+    }
+
+    /// <summary>
+    /// Finds one cycle in the dependency graph for error reporting.
+    /// Uses DFS from a node with non-zero in-degree (known to be in a cycle).
+    /// </summary>
+    private static List<string> FindCycle(
+        Dictionary<string, List<string>> graph,
+        Dictionary<string, int> inDegree)
+    {
+        var visited = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var recStack = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var path = new List<string>();
+
+        // Start from any node with in-degree > 0 (known to be in a cycle).
+        var start = inDegree.First(kvp => kvp.Value > 0).Key;
+
+        bool Dfs(string node)
+        {
+            visited.Add(node);
+            recStack.Add(node);
+            path.Add(node);
+
+            foreach (var neighbor in graph[node])
+            {
+                if (!visited.Contains(neighbor))
+                {
+                    if (Dfs(neighbor))
+                        return true;
+                }
+                else if (recStack.Contains(neighbor))
+                {
+                    // Cycle found — trim path to the cycle.
+                    var cycleStart = path.IndexOf(neighbor);
+                    path = path.Skip(cycleStart).ToList();
+                    path.Add(neighbor); // Close the cycle.
+                    return true;
+                }
+            }
+
+            recStack.Remove(node);
+            path.RemoveAt(path.Count - 1);
+            return false;
+        }
+
+        Dfs(start);
+        return path;
     }
 }

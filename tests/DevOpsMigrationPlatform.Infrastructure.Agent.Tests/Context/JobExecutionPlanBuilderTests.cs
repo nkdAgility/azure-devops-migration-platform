@@ -25,7 +25,8 @@ public sealed class JobExecutionPlanBuilderTests
         phaseFactory
             .Setup(f => f.Create(It.IsAny<IStateStore>()))
             .Returns(phaseService.Object);
-        return new JobExecutionPlanBuilder(phaseFactory.Object, NullLogger<JobExecutionPlanBuilder>.Instance);
+        var modules = new List<IModule>(); // Empty for basic tests
+        return new JobExecutionPlanBuilder(modules, phaseFactory.Object, NullLogger<JobExecutionPlanBuilder>.Instance);
     }
 
     private static IConfiguration AllEnabledConfig()
