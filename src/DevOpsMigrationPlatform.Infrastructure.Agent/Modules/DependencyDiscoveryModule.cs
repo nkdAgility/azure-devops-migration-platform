@@ -53,7 +53,7 @@ public sealed class DependencyDiscoveryModule : IModule
 
     public string Name => "Dependencies";
     public IReadOnlyList<ModuleDependency> DependsOn => Array.Empty<ModuleDependency>(); // No dependencies
-    public bool SupportsExport => false; // Handled via BuildInventoryTasks — not the standard export loop
+    public bool SupportsExport => true; // First-class export module — discovered via dependency resolution
     public bool SupportsImport => false; // Dependencies runs only during the Export phase
 
     /// <summary>

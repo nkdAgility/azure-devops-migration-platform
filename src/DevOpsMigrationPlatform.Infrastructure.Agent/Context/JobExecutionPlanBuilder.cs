@@ -73,27 +73,12 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
         long? workItemKnownTotal = await TryReadWorkItemTotalAsync(artefactStore, ct)
             .ConfigureAwait(false);
 
-        // For Export jobs, auto-add Inventory task when WorkItems module is enabled.
-        // WorkItems depends on inventory.json for totals and pagination.
-        // The InventoryModule itself will detect if inventory.json already exists and skip creation.
-        // These tasks use Phase="Export" so ExecuteExportPhaseAsync runs them in tier order
-        // (inventory tier 0, other modules tier 1 via DependsOn).
-        List<string>? inventoryTaskIds = null;
+        // Export phase: Inventory is now a first-class export module with SupportsExport = true.
+        // It's discovered automatically when WorkItemsModule.DependsOn references it.
+        // No special-case logic needed — normal dependency resolution handles it.
         if (includeExport)
         {
-            var workItemsEnabled = IsEnabled(packageConfig, "WorkItems");
-            if (workItemsEnabled)
-            {
-                var inventoryTasks = BuildInventoryTasks(ref order);
-                tasks.AddRange(inventoryTasks);
-                inventoryTaskIds = inventoryTasks.Select(t => t.Id).ToList();
-                _logger.LogInformation("Inventory task added automatically (WorkItems module enabled).");
-            }
-        }
-
-        if (includeExport)
-        {
-            tasks.AddRange(BuildExportTasks(packageConfig, phaseRecord, workItemKnownTotal, ref order, inventoryTaskIds));
+            tasks.AddRange(BuildExportTasks(packageConfig, phaseRecord, workItemKnownTotal, ref order));
         }
 
         if (includeImport)
@@ -118,39 +103,13 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
         };
     }
 
-    // ── Inventory phase ──────────────────────────────────────────────────────
-
-    private List<JobTask> BuildInventoryTasks(ref int order)
-    {
-        var tasks = new List<JobTask>();
-
-        // Add task for the Inventory module.
-        // Phase="Export" so ExecuteExportPhaseAsync picks it up in tier 0 (no DependsOn = earliest tier).
-        var inventoryModule = _modules.FirstOrDefault(m => m.Name.Equals("Inventory", StringComparison.OrdinalIgnoreCase));
-        if (inventoryModule is not null)
-        {
-            var taskId = $"inventory.{inventoryModule.Name.ToLowerInvariant()}";
-            tasks.Add(MakeTask(
-                taskId,
-                $"{inventoryModule.Name} Inventory",
-                "Export",
-                enabled: true, // Inventory always enabled when added
-                phaseAlreadyDone: false,
-                order++,
-                dependsOn: null)); // Inventory has no dependencies — runs in tier 0
-        }
-
-        return tasks;
-    }
-
     // ── Export phase ─────────────────────────────────────────────────────────
 
     private List<JobTask> BuildExportTasks(
         IConfiguration config,
         JobPhaseRecord? phaseRecord,
         long? workItemKnownTotal,
-        ref int order,
-        List<string>? inventoryTaskIds = null)
+        ref int order)
     {
         bool exportAlreadyDone = phaseRecord?.ExportCompleted == true;
 
@@ -176,17 +135,13 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
                 : null;
 
             // Export tasks honor module.DependsOn entries where phase is Export or Both.
+            // Dependencies are automatically resolved — including Inventory when WorkItems references it.
             var exportDeps = new List<string>();
-            
-            // Add inventory dependency if enabled
-            if (inventoryTaskIds is not null && inventoryTaskIds.Count > 0)
-                exportDeps.AddRange(inventoryTaskIds);
-            
-            // Add module dependencies that apply to export phase
             foreach (var dep in module.DependsOn.Where(d => d.AppliesToExport))
             {
                 var depTaskId = $"export.{dep.ModuleName.ToLowerInvariant()}";
-                if (!exportDeps.Contains(depTaskId, StringComparer.OrdinalIgnoreCase))
+                // Only add dependency if the target module is enabled and supports export
+                if (exportTaskIds.Contains(depTaskId) && !exportDeps.Contains(depTaskId, StringComparer.OrdinalIgnoreCase))
                     exportDeps.Add(depTaskId);
             }
 

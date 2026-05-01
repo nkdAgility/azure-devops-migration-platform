@@ -52,8 +52,8 @@ public sealed class InventoryDiscoveryModule : IModule
     private readonly IOptions<DiscoveryOptions>? _discoveryOptions;
 
     public string Name => "Inventory";
-    public IReadOnlyList<ModuleDependency> DependsOn => Array.Empty<ModuleDependency>(); // No dependencies — runs first
-    public bool SupportsExport => false; // Handled via BuildInventoryTasks — not the standard export loop
+    public IReadOnlyList<ModuleDependency> DependsOn => Array.Empty<ModuleDependency>(); // No dependencies — runs first (tier 0)
+    public bool SupportsExport => true; // First-class export module — discovered via WorkItems dependency
     public bool SupportsImport => false; // Inventory runs only during the Export phase
 
     public InventoryDiscoveryModule(
