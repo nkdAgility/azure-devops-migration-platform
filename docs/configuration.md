@@ -8,7 +8,7 @@ A single JSON configuration file drives the entire run.
 
 ```json
 {
-  "configVersion": "1.0",
+  "configVersion": "2.0",
   "mode": "Export | Prepare | Import | Migrate",
   "artefacts": {
     "path": "D:\\exports\\run-001",
@@ -16,32 +16,23 @@ A single JSON configuration file drives the entire run.
   },
   "source": {
     "type": "AzureDevOpsServices | TeamFoundationServer | Simulated",
-    "orgOrCollection": "...",
-    "project": "...",
-    "apiVersion": "...",
+    "url": "https://dev.azure.com/myorg",
+    "project": "MyProject",
+    "apiVersion": "7.1",
     "authentication": {
       "type": "Pat | Windows",
       "accessToken": "<literal-token> | $ENV:MY_PAT_VAR"
-    },
-    "_simulatedOnly_seed": 42,
-    "_simulatedOnly_workItemCount": 25000,
-    "_simulatedOnly_projectCount": 1,
-    "_simulatedOnly_workItemTypeDistribution": { "Bug": 40, "Task": 40, "User Story": 20 },
-    "_simulatedOnly_avgRevisionsPerItem": 3,
-    "_simulatedOnly_includeAttachments": false,
-    "_simulatedOnly_includeLinks": true
+    }
   },
   "target": {
     "type": "AzureDevOpsServices | Simulated",
-    "orgOrCollection": "...",
-    "project": "...",
-    "apiVersion": "...",
+    "url": "https://dev.azure.com/targetorg",
+    "project": "TargetProject",
+    "apiVersion": "7.1",
     "authentication": {
       "type": "Pat",
       "accessToken": "$ENV:TARGET_PAT"
-    },
-    "_simulatedOnly_validateOnWrite": true,
-    "_simulatedOnly_failOnFirstError": true
+    }
   },
   "organisations": [
     {
@@ -76,6 +67,17 @@ A single JSON configuration file drives the entire run.
           ]
         }
       ]
+    },
+    "NodeTranslation": {
+      "Enabled": true,
+      "ReplicateSourceTree": true,
+      "AutoCreateNodes": true,
+      "SkipOnUnresolvableArea": false,
+      "SkipOnUnresolvableIteration": false,
+      "AreaPathMappings": [
+        { "Match": "^OldProject\\\\", "Replacement": "NewProject\\" }
+      ],
+      "IterationPathMappings": []
     }
   },
   "modules": [
@@ -86,9 +88,7 @@ A single JSON configuration file drives the entire run.
     },
     {
       "name": "Nodes",
-      "enabled": true,
-      "replicateSourceTree": true,
-      "autoCreateNodes": true
+      "enabled": true
     },
     {
       "name": "Teams",
@@ -108,7 +108,7 @@ A single JSON configuration file drives the entire run.
         {
           "type": "wiql",
           "parameters": {
-            "query": "SELECT [System.Id] FROM WorkItems WHERE ..."
+            "query": "SELECT [System.Id] FROM WorkItems WHERE [System.TeamProject] = @project ORDER BY [System.ChangedDate] ASC"
           }
         }
       ],
@@ -303,8 +303,175 @@ Source data can change between runs. When resume is active, the same work item I
 - An upgrader must exist for each version transition (e.g., `1.0 → 2.0`).
 - The tool must detect an outdated config version and either auto-upgrade (with warning) or fail fast with instructions.
 - Configs from future versions must fail fast with a clear error message.
+- **Current version**: `"2.0"` (since feature 025-agent-config-package). Config travels as `configPayload` inside the `Job` dispatch token; the agent writes it to `migration-config.json` at job startup.
+
+---
+
+### Runtime Config Injection — `IOptions<T>` Pattern
+
+The runtime **does not** inject the monolithic `MigrationOptions` type into modules or tools. Instead, each module or tool declares a dependency on its own isolated options slice via `IOptions<T>`:
+
+- Each options class declares a `public const string SectionName` constant (e.g. `"MigrationPlatform:Modules:WorkItems"`).
+- The options class is registered in the connector or module's `Add*Services()` extension method via `AddSchemaEntry<T>()`, which both registers the `IOptions<T>` binding and adds a `SchemaOptionsEntry` to drive schema generation.
+- Modules receive only their own options: `IOptions<WorkItemsModuleOptions>`, `IOptions<TeamsModuleOptions>`, etc.
+
+`MigrationOptions` is a **serialisation-only DTO** — it describes the config file shape and is used by the CLI to write `migration-config.json`. It is **not** injected into modules or tools at runtime.
+
+---
+
+### Cross-Cutting Job Values — `IAgentJobContext`
+
+Modules and tools that need access to the current job's execution mode, package path, or config version **must** use `IAgentJobContext` — not navigate the options graph. This keeps the module's dependency on the job context explicit and independent from config binding:
+
+```csharp
+public interface IAgentJobContext
+{
+    string Mode { get; }          // "Export", "Import", "Prepare", or "Migrate"
+    string PackagePath { get; }   // Resolved absolute path to the package root on disk
+    string ConfigVersion { get; } // e.g. "2.0"
+}
+```
+
+`IAgentJobContext` is scoped to a single agent job. It is constructed once when the job starts and never mutated. It is registered by `MigrationAgentServiceExtensions` (and by `TfsMigrationAgentServiceExtensions` for the TFS agent) before any module executes.
+
+---
+
+### Connector Endpoint Info — `ISourceEndpointInfo` / `ITargetEndpointInfo`
+
+Modules and tools that need the resolved source or target URL and project name **must** use `ISourceEndpointInfo` / `ITargetEndpointInfo`. These are registered by each connector's `Add*Services()` method and resolve against the job's config at startup:
+
+```csharp
+public interface ISourceEndpointInfo
+{
+    string Url { get; }           // e.g. https://dev.azure.com/myorg
+    string Project { get; }       // Project name
+    string ConnectorType { get; } // "AzureDevOpsServices" | "TeamFoundationServer" | "Simulated"
+}
+
+public interface ITargetEndpointInfo  // not registered for TFS (source-only)
+{
+    string Url { get; }
+    string Project { get; }
+    string ConnectorType { get; }
+}
+```
+
+Modules **must not** inject connector-specific options classes (e.g. `AzureDevOpsEndpointOptions`) directly. Using `ISourceEndpointInfo` and `ITargetEndpointInfo` keeps modules connector-agnostic and independently testable.
+
+---
+
+### Schema Generation — `SchemaOptionsEntry`
+
+The committed `migration.schema.json` (in `src/DevOpsMigrationPlatform.CLI.Migration/`) is generated automatically from DI registrations at build time by the `DevOpsMigrationPlatform.SchemaGenerator` project.
+
+How it works:
+1. Each options class that contributes to the schema calls `services.AddSchemaEntry<T>(SectionName)` in its connector's or module's `Add*Services()` extension.
+2. This registers a `SchemaOptionsEntry` singleton (containing the CLR type and the JSON path) into the DI container.
+3. The schema generator resolves all `SchemaOptionsEntry` instances from the container, derives JSON Schema from each type using NJsonSchema reflection, and assembles the merged schema.
+4. The schema is written to `migration.schema.json` and committed to the repository.
+
+To add a new configurable section to the schema:
+- Add a `public const string SectionName = "MigrationPlatform:...";` to the options class.
+- Call `services.AddSchemaEntry<YourOptions>(YourOptions.SectionName)` in the appropriate `Add*Services()` method.
+- Rebuild — the schema generator updates `migration.schema.json` automatically.
+
+---
+
+### IDE IntelliSense — `json.schemas` Integration
+
+The repository registers `migration.schema.json` in `.vscode/settings.json` so VS Code automatically applies it to any `migration.json` file opened in the workspace:
+
+```json
+{
+  "json.schemas": [
+    {
+      "fileMatch": ["**/migration*.json", "**/scenario*.json"],
+      "url": "./src/DevOpsMigrationPlatform.CLI.Migration/migration.schema.json"
+    }
+  ]
+}
+```
+
+This provides:
+- IntelliSense completions for all sections (`source`, `target`, `Tools`, `modules`, etc.)
+- Hover documentation on each key
+- Validation warnings for unknown or wrongly-typed keys
+- Discriminated-union completions for `source.type` / `target.type`
+
+---
+
+### Tier 0 Validation — Schema Check Before Submission
+
+Before the CLI serialises the config into `Job.ConfigPayload` or makes any network call, it validates the raw `migration.json` file against the committed `migration.schema.json`. This is **Tier 0** — purely local, no connectivity required.
+
+- Unknown keys at any nesting level → non-zero exit, JSON path printed
+- Missing required fields → non-zero exit, field path printed
+- Wrong value types → non-zero exit, path + constraint printed
+- `migration.schema.json` absent from the CLI output directory → warning logged, Tier 0 skipped, Tier 1 proceeds
+
+See [docs/validation.md](validation.md) for the full four-tier model.
+
+---
+
+### NodeTranslation Tool
+
+The `NodeTranslation` tool (config key `Tools.NodeTranslation`) controls area and iteration path remapping, node auto-creation, and source tree replication:
+
+| Field | Type | Default | Description |
+|---|---|---|---|
+| `Enabled` | bool | `true` | Enable/disable the tool entirely |
+| `ReplicateSourceTree` | bool | `false` | Copy the full source area/iteration tree to the target before import |
+| `AutoCreateNodes` | bool | `true` | Auto-create any referenced path that does not exist on the target |
+| `SkipOnUnresolvableArea` | bool | `false` | If `true`, skip a work item rather than failing when its area path cannot be resolved or created |
+| `SkipOnUnresolvableIteration` | bool | `false` | If `true`, skip rather than fail on unresolvable iteration paths |
+| `AreaLanguageOverride` | string | `null` | Override the default localised root node name for area paths (e.g. `"Area"` in English, `"Bereich"` in German) |
+| `IterationLanguageOverride` | string | `null` | Override the localised root node name for iteration paths |
+| `AreaPathMappings` | array | `[]` | Regex-based area path transformations applied before node creation. Each entry has `Match` (regex) and `Replacement`. Applied in order. |
+| `IterationPathMappings` | array | `[]` | Same as `AreaPathMappings` but for iteration paths |
+
+**Example**: Rename the project root prefix on all paths:
+
+```json
+"Tools": {
+  "NodeTranslation": {
+    "Enabled": true,
+    "AutoCreateNodes": true,
+    "AreaPathMappings": [
+      { "Match": "^OldProject\\\\", "Replacement": "NewProject\\" }
+    ]
+  }
+}
+```
+
+---
+
+### FieldTransform Tool — Available Transform Types
+
+The `FieldTransform` tool (`Tools.FieldTransform`) applies a named sequence of transform groups to work item revisions. Transforms execute in array order within each group; groups execute in array order. The `Phase` field (default: `Import`) controls when the transform runs.
+
+Available transform types:
+
+| Type | Description |
+|---|---|
+| `CopyField` | Copy value from one field to another |
+| `CopyFieldBatch` | Copy multiple fields in a single declaration (shorthand for multiple `CopyField` transforms) |
+| `SetField` | Set a field to a literal constant value |
+| `MapValue` | Translate values via a key→value map |
+| `MergeFields` | Concatenate multiple source fields into one target field using a format template |
+| `CalculateField` | Compute a new value from an arithmetic/string expression |
+| `ClearField` | Remove (null-out) a field's value |
+| `ExcludeField` | Remove a field from the revision entirely |
+| `ConditionalTag` | Add or remove a tag based on a condition |
+| `FieldToTag` | Promote a field value to a tag |
+| `MergeToTag` | Merge multiple field values into a single tag |
+| `ConditionalField` | Set or transform a field only when a condition is met |
+| `RegexField` | Apply a regex find-and-replace to a field value |
+| `TreeToTag` | Flatten a hierarchical tree path (area/iteration) into tag values |
+
+Each transform must specify at minimum `Type` and `Field`. Additional fields are type-specific.
 
 ### Polymorphic Endpoint Config
+
 
 `source` and `target` blocks use a **type-discriminated polymorphic model**. The `type` field is the discriminator — it must appear first (or at minimum be present) in the JSON object. The platform reads the `type` value, looks up the registered `MigrationEndpointOptions` subtype, then deserialises the remaining fields into that subtype.
 

@@ -2,13 +2,13 @@
 
 ## Job Engine
 
-The **Job Engine** is the shared execution core used by Migration Agents in all hosting topologies. It receives a `MigrationJob`, resolves the execution plan, and runs modules in dependency order. It has no knowledge of the TUI, the console, or any progress renderer.
+The **Job Engine** is the shared execution core used by Migration Agents in all hosting topologies. It receives a `Job`, resolves the execution plan, and runs modules in dependency order. It has no knowledge of the TUI, the console, or any progress renderer.
 
-See [docs/cli.md](cli.md) for how the CLI routes a job to the Job Engine. See [.agents/context/job-contract.md](../.agents/context/job-contract.md) for the `MigrationJob` schema.
+See [docs/cli.md](cli.md) for how the CLI routes a job to the Job Engine. See [.agents/context/job-contract.md](../.agents/context/job-contract.md) for the `Job` wire format.
 
 ### Steps
 
-1. **Validate job** — Check `MigrationJob` schema, `configVersion` compatibility, and `guardrails` values.
+1. **Validate job** — Check `Job` schema, `configVersion` compatibility, and `kind` value.
 2. **Validate package** — Run each module's `ValidateAsync` (pre-execution pass). Fail fast on errors.
 3. **Build module dependency graph** — Topological sort of all enabled modules using `DependsOn` declarations. Fail fast on circular dependencies.
 4. **Execute modules in order** — Run each module's `ExportAsync`, `PrepareAsync`, `ImportAsync`, or a combination, depending on `mode`.
@@ -95,7 +95,7 @@ See [docs/cli.md](cli.md) for local and server command details.
 
 ### Agent (Cloud)
 
-- A Migration Agent calls the Job Engine after receiving a leased `MigrationJob` from the remote control plane.
+- A Migration Agent calls the Job Engine after receiving a leased `Job` from the remote control plane.
 - `IArtefactStore` is backed by the shared artefact store (`AzureBlobArtefactStore` or equivalent).
 - Progress is consumed by `ControlPlaneProgressSink`, which pushes events to the control plane.
 - The control plane's progress view mirrors the cursor; the cursor in the package remains authoritative for resume.

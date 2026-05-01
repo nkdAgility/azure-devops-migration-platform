@@ -262,14 +262,14 @@ The connection string value is:
 ### Table Schema
 
 ```sql
--- Persists the full MigrationJob definition and tracks its lifecycle state.
+-- Persists the full Job definition and tracks its lifecycle state.
 CREATE TABLE jobs (
     job_id            UUID         PRIMARY KEY,
     config_version    TEXT         NOT NULL,
     mode              TEXT         NOT NULL CHECK (mode IN ('Export', 'Prepare', 'Import', 'Migrate')),
     state             TEXT         NOT NULL DEFAULT 'Queued'
                                    CHECK (state IN ('Queued', 'Leased', 'Running', 'Paused', 'Completed', 'Failed', 'Cancelled')),
-    job_json          JSONB        NOT NULL,     -- full serialised MigrationJob
+    job_json          JSONB        NOT NULL,     -- full serialised Job
     -- Identity & visibility
     tenant_id         TEXT         NOT NULL,     -- Entra tenant GUID or AD domain FQDN
     submitted_by_oid  TEXT         NOT NULL,     -- Entra Object ID or AD SID of the submitter

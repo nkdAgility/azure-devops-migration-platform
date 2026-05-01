@@ -17,7 +17,7 @@ The package contract, modules, and cursors are unchanged across all deployment t
 | Poll for work | Call the control plane lease endpoint to receive a job. |
 | Acquire lease | Hold a time-bounded lease on the assigned job. |
 | Mount artefact store | Connect to the package URI from the job definition (filesystem or blob). See [.agents/context/artefact-store.md](../.agents/context/artefact-store.md). |
-| Read credentials | Extract credentials from the job definition as provided by the operator's config. |
+| Materialise config | Write `Job.ConfigPayload` → `migration-config.json` at the package root. Build per-job `IConfiguration` and `IOptions<T>` DI scope. Fail fast with `PackageConfigNotFoundException` if no payload and no existing file. |
 | Run orchestrator | Execute `ExportAsync`, `ImportAsync`, or both in sequence, exactly as in local mode. |
 | Write cursors | Write checkpoint cursors into the package's `.migration/Checkpoints/` folder after each stage, as always. |
 | Heartbeat | Signal liveness to the control plane at regular intervals. |

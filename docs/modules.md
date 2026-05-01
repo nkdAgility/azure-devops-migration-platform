@@ -41,18 +41,107 @@ interface IModule
 
 > Modules only use `IArtefactStore` and `IStateStore`. Direct filesystem access outside of these interfaces is forbidden.
 
+### Module Dependencies — Job Context and Endpoint Info
+
+Modules declare constructor dependencies on three key interfaces to access job-level context without coupling to the full config graph:
+
+#### `IAgentJobContext`
+Provides cross-cutting scalar values about the current job. Every module that needs to branch on execution mode or access the package path **must** use this instead of navigating `IOptions<MigrationOptions>`:
+
+```csharp
+public interface IAgentJobContext
+{
+    string Mode { get; }          // "Export", "Import", "Prepare", or "Migrate"
+    string PackagePath { get; }   // Resolved absolute path to the package root
+    string ConfigVersion { get; } // e.g. "2.0"
+}
+```
+
+Scoped to the job lifetime. Registered by the agent worker before any module executes.
+
+#### `ISourceEndpointInfo` / `ITargetEndpointInfo`
+Provide the resolved source and target connection details. Modules that need the URL or project name for API calls **must** inject these instead of connector-specific options:
+
+```csharp
+public interface ISourceEndpointInfo
+{
+    string Url { get; }           // e.g. https://dev.azure.com/myorg
+    string Project { get; }       // Project name
+    string ConnectorType { get; } // "AzureDevOpsServices" | "TeamFoundationServer" | "Simulated"
+}
+```
+
+`ITargetEndpointInfo` has the same shape. It is **not registered for TFS** (TFS is source-only). Registered by each connector's `Add*Services()` extension method.
+
+**Why this matters**: Using these interfaces keeps modules connector-agnostic and independently testable. Injecting `AzureDevOpsEndpointOptions` directly into a module would couple it to the ADO connector and prevent unit testing without a full ADO config.
+
 ### Module Responsibilities
 
 | Module | Responsibility |
 |---|---|
+| `IdentitiesModule` | Export user/group descriptors; provide identity mapping service to all other modules. **Prepare**: reads `descriptors.jsonl`, queries the target for matching identities (by UPN/display name), writes `Identities/prepare-report.json` with auto-matched and unresolved identities. Must run first — all other modules that map identities depend on it. |
+| `NodesModule` | Export and import area/iteration node classification trees. **Export**: captures source tree to `Nodes/source-tree.json`. **Import**: replicates source tree and/or ensures all referenced paths exist on the target. **Prepare**: validates referenced paths against target. |
+| `TeamsModule` | Export and import team membership, settings, iterations, members, and capacity. **Prepare**: verifies target teams/groups exist or can be created; writes `Teams/prepare-report.json`. |
 | `WorkItemsModule` | High-fidelity work item revision export/import. **Prepare**: cross-references exported field names with configured `FieldTranslations` and reports unmapped fields; validates all referenced area/iteration paths exist on the target (via `INodeCreator.NodeExistsAsync`) and writes `Nodes/prepare-report.json`. Accepts a `wiql` scope (with `query` parameter) and one or more `filter` scopes (with `mode`, `field`, and `pattern` parameters) to include or exclude work items by field value using a case-insensitive regex. Also accepts five independently-enabled named extensions: `Revisions`, `Links`, `Attachments`, `Comments` (fetches comment versions from the ADO Comments API), and `EmbeddedImages` (downloads and rewrites inline images from HTML/Markdown fields). |
-| `IdentitiesModule` | Export user/group descriptors; provide identity mapping service to all other modules. **Prepare**: reads `descriptors.jsonl`, queries the target for matching identities (by UPN/display name), writes `Identities/prepare-report.json` with auto-matched and unresolved identities. |
-| `TeamsModule` | Export and import team membership and settings. **Prepare**: verifies target teams/groups exist or can be created; writes `Teams/prepare-report.json`. |
 | `PermissionsModule` | Export and import project and repository access control lists. **Prepare**: verifies target ACL structure compatibility; writes `Permissions/prepare-report.json`. |
 | `BuildsModule` | Export build pipeline definitions |
 | `GitModule` | Export Git repository structure and optionally pack contents |
 
+**Execution order** (operator-controlled via config; recommended order): `IdentitiesModule` → `NodesModule` → `TeamsModule` → `WorkItemsModule`. Any module that maps identities must declare a dependency on `IdentitiesModule` via `DependsOn`.
+
 > **Field-projected fetching**: Inventory and dependency analysis modules use `IWorkItemFetchService` for streaming, field-projected work item retrieval. This abstraction handles WIQL windowing, batch API calls, and in-process filtering — modules should not call `GetWorkItemsAsync` directly.
+
+### WorkItemsModule — Scopes and Filter Rules
+
+`WorkItemsModule` supports two scope types in its `scopes` array:
+
+| Scope type | Purpose |
+|---|---|
+| `wiql` | Selects work items via a WIQL query (`parameters.query`). Required. |
+| `filter` | Post-fetch field-value filter. Multiple filters are AND-combined. |
+
+**Filter scope semantics:**
+- `mode: "include"` — retain only items where `field` matches `pattern` (case-insensitive regex, 2s timeout).
+- `mode: "exclude"` — discard items where `field` matches `pattern`.
+- Items where the filtered field is absent: pass `exclude` (does not match), fail `include`.
+- Prefer short indexed fields (`System.AreaPath`, `System.WorkItemType`) to minimise API pre-fetch time.
+
+### WorkItemsModule — Import Stages
+
+Streaming import processes each revision folder in four ordered stages. The cursor advances after each stage completes, enabling fine-grained resume:
+
+```
+CreatedOrUpdated → AppliedFields → AppliedLinks → UploadedAttachments → Completed
+```
+
+| Stage | What happens |
+|---|---|
+| `CreatedOrUpdated` | Target work item is created (new ID recorded in `idmap.db`) or identified (ID already in map) |
+| `AppliedFields` | All field values from `revision.json` are written to the target work item |
+| `AppliedLinks` | Related links, external links, and hyperlinks are applied |
+| `UploadedAttachments` | Binary attachment files are uploaded and attached to the target revision |
+
+### WorkItemsModule — ID Resolution Strategies (Import)
+
+When importing into a target that already has some work items (partial re-import), the `WorkItemResolutionStrategy` extension seeds `idmap.db` at startup by reading existing items from the target:
+
+| Strategy | How target IDs are located |
+|---|---|
+| `TargetField` | Reads a custom field (e.g. `Custom.SourceWorkItemId`) on each target item; maps source ID → target ID |
+| `TargetHyperlink` | Scans hyperlinks on each target item for URLs matching a pattern (e.g. `https://source.example.com/wi/{id}`) |
+
+Configure in the `WorkItems` module extensions block:
+
+```json
+{
+  "type": "WorkItemResolutionStrategy",
+  "enabled": true,
+  "parameters": {
+    "strategy": "TargetField",
+    "fieldName": "Custom.SourceWorkItemId"
+  }
+}
+```
 
 ### WorkItemsModule — ADO Export
 
@@ -108,10 +197,29 @@ Available tools:
 
 | Tool | Key | Purpose |
 |---|---|---|
-| `FieldTransformTool` | `FieldTransform` | Applies declared field transformation rules (copy, map, replace, etc.) to each work item revision. |
+| `FieldTransformTool` | `FieldTransform` | Applies declared field transformation groups to each work item revision. Groups are applied in array order. Each group may target specific work item types (`ApplyTo`). See transform types below. |
 | `NodeTranslationTool` | `NodeTranslation` | Translates and validates area/iteration classification node paths. Supports regex-based path mappings, localised root-name normalisation, source-tree replication, and auto-creation of missing nodes on the target. |
 
-For the full tool schema and available tool types, see [docs/configuration.md — Tools](configuration.md#tools).
+**FieldTransformTool — Transform Types:**
+
+| Type | Description |
+|---|---------|
+| `CopyField` | Copy a field value from one field to another |
+| `CopyFieldBatch` | Copy multiple fields in a single declaration (shorthand for multiple `CopyField` transforms) |
+| `SetField` | Set a field to a literal constant value |
+| `MapValue` | Translate values via a `ValueMap` dictionary |
+| `MergeFields` | Concatenate multiple source fields into one target field using a format template |
+| `CalculateField` | Compute a field value from an arithmetic/string expression |
+| `ClearField` | Null out a field's value |
+| `ExcludeField` | Remove the field from the revision entirely |
+| `ConditionalTag` | Add or remove a tag when a field value matches a pattern |
+| `FieldToTag` | Promote a field's value to a tag |
+| `MergeToTag` | Merge multiple field values into a single tag |
+| `ConditionalField` | Apply a field transformation only when a condition is met |
+| `RegexField` | Apply a regex find-and-replace to a field value |
+| `TreeToTag` | Flatten a hierarchical path (area/iteration) into tag values |
+
+For the full tool schema and available options, see [docs/configuration.md — Tools](configuration.md#fieldtransform-tool--available-transform-types).
 
 ### IdentitiesModule
 

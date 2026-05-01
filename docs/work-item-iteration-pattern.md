@@ -129,6 +129,57 @@ public interface IWorkItemRevisionSource
 - Must propagate `CancellationToken` to all underlying async operations.
 - Failures are fatal; exceptions halt enumeration.
 
+### IWorkItemFetchService
+
+`IWorkItemFetchService` is the canonical entry point for inventory, dependency analysis, and catalog operations. It returns a field-projected, optionally filtered, async stream of work items. Modules and callers **must not** call `GetWorkItemsAsync` directly — they must use this service.
+
+```csharp
+public interface IWorkItemFetchService
+{
+    IAsyncEnumerable<FetchedWorkItem> FetchAsync(
+        WorkItemFetchScope scope,
+        CancellationToken cancellationToken);
+}
+
+public record WorkItemFetchScope
+{
+    public required string OrgUrl              { get; init; }
+    public required string Project             { get; init; }
+    public required string? Wiql               { get; init; }
+    public required IReadOnlyList<string> Fields { get; init; }
+    public bool ResumeEnabled                  { get; init; } = false;
+    public BatchContinuationToken? SavedContinuationToken { get; init; }
+    public Action<BatchContinuationToken>? ContinuationCheckpointWriter { get; init; }
+}
+
+public record FetchedWorkItem
+{
+    public required int Id                     { get; init; }
+    public required IReadOnlyDictionary<string, object?> Fields { get; init; }
+}
+```
+
+**Scope semantics:**
+- `Fields` must be the exact list of ADO field reference names to project. Requesting only the fields you need reduces API payload and memory pressure.
+- `Wiql` may be `null` to use the platform default query (`SELECT [System.Id] FROM WorkItems WHERE [System.TeamProject] = @project ORDER BY [System.ChangedDate] ASC`).
+- `ResumeEnabled = true` activates resumable batching (see section 11). Default is `false`.
+- `ContinuationCheckpointWriter` is the caller's persistence callback for `BatchContinuationToken` checkpoints. If `null` and `ResumeEnabled = true`, a warning is logged and checkpoints are silently skipped.
+
+**Usage pattern (inventory):**
+
+```csharp
+await foreach (var item in _fetchService.FetchAsync(new WorkItemFetchScope
+{
+    OrgUrl  = orgUrl,
+    Project = projectName,
+    Wiql    = null,   // use default
+    Fields  = ["System.Id", "System.WorkItemType", "System.ChangedDate"]
+}, ct))
+{
+    // process item.Fields["System.WorkItemType"]
+}
+```
+
 ### IArtefactStore
 
 ```csharp

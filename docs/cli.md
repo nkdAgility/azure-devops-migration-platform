@@ -2,7 +2,7 @@
 
 ## Purpose
 
-The CLI is the operator's entry point to the migration platform. It is a **thin shell** — it parses arguments, builds a `MigrationJob`, and delegates execution to the control plane via HTTP. It contains no migration logic.
+The CLI is the operator's entry point to the migration platform. It is a **thin shell** — it parses arguments, builds a `Job`, and delegates execution to the control plane via HTTP. It contains no migration logic.
 
 Migration logic lives exclusively in the **Job Engine**, which runs inside Migration Agents. CLI commands manage their own hosting lifecycle — starting or connecting to the required services as needed before submitting the job. The CLI always communicates with the control plane via `ControlPlaneClient`.
 
@@ -24,12 +24,15 @@ Spectre.Console is the only permitted CLI library in command-layer code. Do not 
 ┌─────────────────────────────────────────┐
 │  CLI Shell                              │
 │  - Parses args                          │
-│  - Loads config                         │
-│  - Builds MigrationJob                  │
+│  - Loads config (migration.json)        │
+│  - Tier 0: JSON Schema validation       │
+│  - Tier 1: Connectivity checks          │
+│  - Builds Job (serialises config        │
+│    into Job.ConfigPayload)              │
 │  - Commands manage hosting lifecycle    │
 │    (start or connect to services)       │
-└────────────────┬────────────────────────┘
-                 │  MigrationJob
+└────────────────┤────────────────────────┘
+                 │  Job
                  │
         ┌────────▼────────┐
         │ ControlPlane    │
@@ -224,12 +227,12 @@ All job management commands live under the `manage` sub-command.
 
 ### Discovery Commands (`discovery`)
 
-Discovery commands run **locally** and do **not** submit a `MigrationJob` to the control plane. Results are written directly to output files.
+Discovery commands run **locally** and do **not** submit a `Job` to the control plane. Results are written directly to output files.
 
 | Command | Description |
 |---|---|
 | `discovery inventory` | Count work items and revisions per project. Read-only pre-flight operation. Results written to `inventory.csv` and `inventory.json` at the output root plus per-org/per-project subfolders. Accepts `--output <dir>` to override the config's `Artefacts.WorkingDirectory`. |
-| `discovery dependencies` | Analyse cross-project and cross-organisation work item links. Loads `inventory.json` (if present) for grand totals before analysis. Results written to `dependencies.csv` in the output directory. Accepts `--output <dir>` to override the config's `Artefacts.WorkingDirectory`. |
+| `discovery dependencies` | Analyse cross-project and cross-organisation work item links. Loads `inventory.json` (if present) for grand totals before analysis. Results written to `dependencies.csv` in the output directory. Accepts `--output <dir>` to override the config's `Artefacts.WorkingDirectory`. Output also includes `discovery-project-dependencies.md` (Mermaid flowchart of project dependency pairs). |
 
 ### Configuration Management (`config`)
 
@@ -300,7 +303,7 @@ devopsmigration controlplane start --port 5200
 devopsmigration tui
 ```
 
-> **Note**: `discovery *` commands run locally and read the config directly. They do not submit a `MigrationJob` to the control plane. Results are written to `inventory.csv` / `inventory.json` (inventory) and `dependencies.csv` (dependencies) in the `--output` directory (default: current working directory).
+> **Note**: `discovery *` commands run locally and read the config directly. They do not submit a `Job` to the control plane. Results are written to `inventory.csv` / `inventory.json` (inventory) and `dependencies.csv` / `discovery-project-dependencies.csv` / `discovery-project-dependencies.md` (dependencies) in the `--output` directory (default: current working directory).
 
 ---
 
@@ -365,17 +368,17 @@ Running `devopsmigration export --config migration.json` on a local machine with
 
 ---
 
-## Config → MigrationJob Conversion
+## Config → Job Conversion
 
-Before any execution, the CLI converts the local config file into a `MigrationJob`:
+Before any execution, the CLI converts the local config file into a `Job` (dispatch token):
 
 1. Read and validate the config file schema.
 2. Compute `configHash` (SHA-256 of the normalised config JSON).
 3. Generate a fresh `jobId` (UUID v4).
 4. Normalise `artefacts.path` to a URI (`file:///` prefix if a bare filesystem path is given).
-5. Construct the `MigrationJob` with `guardrails` set to their required values.
+5. Construct the `Job` — set `Kind` from `mode`, `Connectors` from the endpoint config, serialise the config JSON into `Job.ConfigPayload`.
 
-The local config file is never sent directly anywhere. The `MigrationJob` is the only artefact that crosses boundaries. See [.agents/context/job-contract.md](../.agents/context/job-contract.md).
+The local config file is never sent directly anywhere. The `Job` (with `ConfigPayload`) is the only artefact that crosses boundaries. See [.agents/context/job-contract.md](../.agents/context/job-contract.md).
 
 ---
 
