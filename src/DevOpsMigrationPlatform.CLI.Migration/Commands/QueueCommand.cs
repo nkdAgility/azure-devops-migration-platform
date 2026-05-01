@@ -878,7 +878,7 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
     {
         TelemetryPolled t => ApplyTelemetry(state, t.Metrics),
         StageAdvanced t => ApplyStageAdvance(state, t.Event),
-        TaskListReceived t => state with { Tasks = t.Tasks },
+        TaskListReceived t => ApplyTaskListReceived(state, t.Tasks),
         TaskUpdated t => ApplyTaskUpdate(state, t.TaskId, t.Status, t.CompletedCount),
         _ => state
     };
@@ -909,6 +909,20 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
             AverageAttachmentDurationMs = att is not null ? att.AverageDownloadDurationMs : state.AverageAttachmentDurationMs,
             AverageAttachmentSizeBytes = att is not null ? att.AverageSizeBytes : state.AverageAttachmentSizeBytes,
             CurrentAttachmentName = att?.CurrentAttachmentName ?? state.CurrentAttachmentName,
+        };
+    }
+
+    private static JobProgressState ApplyTaskListReceived(JobProgressState state, JobTaskList taskList)
+    {
+        // Seed TotalWorkItems from the plan's KnownTotal so the bar renders
+        // correctly before the first telemetry poll arrives.
+        var wiTask = taskList.Tasks.FirstOrDefault(t =>
+            t.Id.Contains("workitems", StringComparison.OrdinalIgnoreCase));
+        var knownTotal = (int)(wiTask?.KnownTotal ?? 0);
+        return state with
+        {
+            Tasks = taskList,
+            TotalWorkItems = knownTotal > 0 ? knownTotal : state.TotalWorkItems,
         };
     }
 
@@ -999,15 +1013,17 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
     /// <summary>Renders the current <see cref="JobProgressState"/> into the Live display.</summary>
     private static IRenderable BuildProgressDisplay(JobProgressState s)
     {
-        // Task list panel (shown as soon as bootstrap returns the plan)
-        IRenderable? taskPanel = s.Tasks switch
-        {
-            null => new Markup("[grey]⠋ Initialising — waiting for agent to start…[/]"),
-            { Tasks.Count: 0 } => null,
-            var tasks => BuildTaskListRenderable(tasks)
-        };
+        // When the task list has arrived, render a single unified view where every
+        // task row IS its module progress bar. No separate checklist + divider.
+        if (s.Tasks is { Tasks.Count: > 0 })
+            return BuildUnifiedTaskDisplay(s);
 
-        var detailPanel = BuildProgressRenderable(
+        // Initialising: task list not yet received.
+        if (s.Tasks is null)
+            return new Markup("[grey]⠋ Initialising — waiting for agent to start…[/]");
+
+        // Tasks received but empty (shouldn't happen in practice) — show legacy detail.
+        return BuildProgressRenderable(
             s.Completed, s.Skipped, s.TotalWorkItems,
             s.CurrentWiId, s.CurrentWiRevsWritten,
             s.CurrentWiIndex, s.LastWiRevisions,
@@ -1021,22 +1037,21 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
             s.Metrics?.Migration?.Nodes,
             s.Metrics?.Migration?.Identities,
             s.TeamsCount, s.NodesCount, s.IdentitiesCount);
-
-        if (taskPanel is null)
-            return detailPanel;
-
-        return new Rows(taskPanel, new Rule(), detailPanel);
     }
 
     /// <summary>
-    /// Renders the ordered task list as a checklist, grouped by phase.
+    /// Single unified display: each task row IS its module progress bar.
+    /// Identities/Nodes/Teams show their completion bar inline.
+    /// WorkItems shows the full bar + sub-rows (current WI, timing, attachments, checkpoint).
     /// </summary>
-    private static IRenderable BuildTaskListRenderable(JobTaskList taskList)
+    private static IRenderable BuildUnifiedTaskDisplay(JobProgressState s)
     {
+        const int BarWidth = 38;
+        var spinnerFrame = s_spinnerFrames[(int)(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() / 80 % s_spinnerFrames.Length)];
         var rows = new System.Collections.Generic.List<IRenderable>();
         string? currentPhase = null;
 
-        foreach (var task in taskList.Tasks.OrderBy(t => t.Order))
+        foreach (var task in s.Tasks!.Tasks.OrderBy(t => t.Order))
         {
             if (task.Phase != currentPhase)
             {
@@ -1045,34 +1060,217 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
                     rows.Add(new Markup($"[bold grey]{Markup.Escape(currentPhase)}[/]"));
             }
 
-            var (icon, color) = task.Status switch
+            var (icon, iconColor) = task.Status switch
             {
-                JobTaskStatus.Running => (s_spinnerFrames[(int)(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() / 80 % s_spinnerFrames.Length)], "blue"),
+                JobTaskStatus.Running => (spinnerFrame, "blue"),
                 JobTaskStatus.Completed => ("✓", "green"),
                 JobTaskStatus.Failed => ("✗", "red"),
                 JobTaskStatus.Skipped => ("→", "grey"),
                 _ => ("·", "grey"),
             };
 
-            var countStr = string.Empty;
-            if (task.KnownTotal.HasValue && task.KnownTotal > 0)
-            {
-                var done = task.CompletedCount ?? 0;
-                var pct = Math.Clamp((double)done / task.KnownTotal.Value, 0, 1);
-                const int barW = 20;
-                var filled = (int)(pct * barW);
-                var bar = new string('━', filled) + new string('─', barW - filled);
-                countStr = $"  [{color}]{Markup.Escape(bar)}[/]  [grey]{done:N0}/{task.KnownTotal.Value:N0}[/]";
-            }
-            else if (task.CompletedCount.HasValue && task.CompletedCount > 0)
-            {
-                countStr = $"  [grey]{task.CompletedCount.Value:N0}[/]";
-            }
+            var taskLower = task.Id.ToLowerInvariant();
 
-            rows.Add(new Markup($"  [{color}]{icon}[/]  {Markup.Escape(task.Name)}{countStr}"));
+            if (taskLower.Contains("identities"))
+            {
+                var id = s.Metrics?.Migration?.Identities;
+                string bar; string barColor; string counts;
+                if (id != null || task.Status == JobTaskStatus.Completed)
+                {
+                    bar = new string('━', BarWidth); barColor = iconColor;
+                    counts = id != null
+                        ? $"  [bold]{id.Exported:N0}[/][grey] exported[/]"
+                            + (id.Resolved > 0 ? $"  [bold]{id.Resolved:N0}[/][grey] resolved[/]" : string.Empty)
+                            + (id.Unresolved > 0 ? $"  [yellow]{id.Unresolved:N0} unresolved[/]" : string.Empty)
+                            + (id.Failed > 0 ? $"  [red]{id.Failed:N0} failed[/]" : string.Empty)
+                        : (s.IdentitiesCount > 0 ? $"  [grey]{s.IdentitiesCount:N0}[/]" : string.Empty);
+                }
+                else if (task.Status == JobTaskStatus.Running)
+                {
+                    var offset = (int)(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() / 80) % BarWidth;
+                    bar = new string('─', offset) + '━' + new string('─', BarWidth - offset - 1);
+                    barColor = "blue"; counts = string.Empty;
+                }
+                else
+                {
+                    bar = new string('─', BarWidth); barColor = "grey"; counts = string.Empty;
+                }
+                rows.Add(new Markup($"  [{iconColor}]{icon}[/]  [bold]{Markup.Escape(task.Name)}[/]  [{barColor}]{Markup.Escape(bar)}[/]{counts}"));
+            }
+            else if (taskLower.Contains("nodes"))
+            {
+                var nd = s.Metrics?.Migration?.Nodes;
+                string bar; string barColor; string counts;
+                if (nd != null || task.Status == JobTaskStatus.Completed)
+                {
+                    bar = new string('━', BarWidth); barColor = iconColor;
+                    counts = nd != null
+                        ? (nd.Exported > 0 ? $"  [bold]{nd.Exported:N0}[/][grey] captured[/]" : string.Empty)
+                            + (nd.AreaPathsReplicated > 0 ? $"  [bold]{nd.AreaPathsReplicated:N0}[/][grey] area[/]" : string.Empty)
+                            + (nd.IterationPathsReplicated > 0 ? $"  [bold]{nd.IterationPathsReplicated:N0}[/][grey] iteration[/]" : string.Empty)
+                            + (nd.Failed > 0 ? $"  [red]{nd.Failed:N0} failed[/]" : string.Empty)
+                        : (s.NodesCount > 0 ? $"  [grey]{s.NodesCount:N0}[/]" : string.Empty);
+                }
+                else if (task.Status == JobTaskStatus.Running)
+                {
+                    var offset = (int)(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() / 80) % BarWidth;
+                    bar = new string('─', offset) + '━' + new string('─', BarWidth - offset - 1);
+                    barColor = "blue"; counts = string.Empty;
+                }
+                else
+                {
+                    bar = new string('─', BarWidth); barColor = "grey"; counts = string.Empty;
+                }
+                rows.Add(new Markup($"  [{iconColor}]{icon}[/]  [bold]{Markup.Escape(task.Name)}[/]  [{barColor}]{Markup.Escape(bar)}[/]{counts}"));
+            }
+            else if (taskLower.Contains("teams"))
+            {
+                var tm = s.Metrics?.Migration?.Teams;
+                string bar; string barColor; string counts;
+                if (tm != null || task.Status == JobTaskStatus.Completed)
+                {
+                    bar = new string('━', BarWidth); barColor = iconColor;
+                    counts = tm != null
+                        ? (tm.Exported > 0 ? $"  [bold]{tm.Exported:N0}[/][grey] exported[/]" : string.Empty)
+                            + (tm.Skipped > 0 ? $"  [grey]{tm.Skipped:N0} already present[/]" : string.Empty)
+                            + (tm.Imported > 0 ? $"  [bold]{tm.Imported:N0}[/][grey] imported[/]" : string.Empty)
+                            + (tm.Members > 0 ? $"  [grey]{tm.Members:N0} members[/]" : string.Empty)
+                            + (tm.Failed > 0 ? $"  [red]{tm.Failed:N0} failed[/]" : string.Empty)
+                            + (tm.Exported == 0 && tm.Skipped == 0 && tm.Imported == 0 ? $"  [grey]0 teams[/]" : string.Empty)
+                        : (s.TeamsCount > 0 ? $"  [grey]{s.TeamsCount:N0}[/]" : string.Empty);
+                }
+                else if (task.Status == JobTaskStatus.Running)
+                {
+                    var offset = (int)(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() / 80) % BarWidth;
+                    bar = new string('─', offset) + '━' + new string('─', BarWidth - offset - 1);
+                    barColor = "blue"; counts = string.Empty;
+                }
+                else
+                {
+                    bar = new string('─', BarWidth); barColor = "grey"; counts = string.Empty;
+                }
+                rows.Add(new Markup($"  [{iconColor}]{icon}[/]  [bold]{Markup.Escape(task.Name)}[/]  [{barColor}]{Markup.Escape(bar)}[/]{counts}"));
+            }
+            else if (taskLower.Contains("workitems"))
+            {
+                // WorkItems: full bar + detailed sub-rows
+                int processed = s.Completed + s.Skipped;
+                string wiBar; string wiBarColor; string countsSuffix;
+                if (s.TotalWorkItems > 0)
+                {
+                    var wiPct = (double)processed / s.TotalWorkItems;
+                    var wiFilled = Math.Clamp((int)(wiPct * BarWidth), 0, BarWidth);
+                    wiBar = new string('━', wiFilled) + new string('─', BarWidth - wiFilled);
+                    wiBarColor = task.Status == JobTaskStatus.Completed ? "green"
+                                : task.Status == JobTaskStatus.Running ? "blue" : "grey";
+                    var exportedStr = s.Skipped > 0 ? $"  [green]{s.Completed:N0} exported[/]" : string.Empty;
+                    var skippedStr = s.Skipped > 0 ? $"  [grey]{s.Skipped:N0} skipped[/]" : string.Empty;
+                    int estimatedTotalRevisions = s.Completed > 0
+                        ? (int)((double)s.Revisions / s.Completed * s.TotalWorkItems) : 0;
+                    var etaStr = ComputeRevisionEta(s.Revisions, estimatedTotalRevisions, s.AverageRevDurationMs);
+                    countsSuffix = $"  [bold]{processed:N0}[/][grey]/{s.TotalWorkItems:N0}[/]{exportedStr}{skippedStr}"
+                                 + $"  [grey]{wiPct * 100.0:F1}%[/]  [grey]ETA: {Markup.Escape(etaStr)}[/]";
+                }
+                else if (task.Status == JobTaskStatus.Running)
+                {
+                    // Total unknown — animated indeterminate scanner bar
+                    var offset = (int)(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() / 80) % BarWidth;
+                    wiBar = new string('─', offset) + '━' + new string('─', BarWidth - offset - 1);
+                    wiBarColor = "blue";
+                    countsSuffix = processed > 0 ? $"  [bold]{processed:N0}[/][grey] processed[/]" : string.Empty;
+                }
+                else
+                {
+                    wiBar = new string('─', BarWidth);
+                    wiBarColor = "grey";
+                    countsSuffix = string.Empty;
+                }
+                var stageStr = string.IsNullOrEmpty(s.Stage) ? string.Empty : $"  [grey]{Markup.Escape(s.Stage)}[/]";
+                rows.Add(new Markup(
+                    $"  [{iconColor}]{icon}[/]  [bold]{Markup.Escape(task.Name)}[/]{stageStr}  [{wiBarColor}]{Markup.Escape(wiBar)}[/]{countsSuffix}"));
+
+                if (task.Status == JobTaskStatus.Running || s.CurrentWiId > 0)
+                {
+                    var isResuming = string.Equals(s.Stage, "Resuming", StringComparison.OrdinalIgnoreCase);
+                    if (isResuming && s.CurrentWiId > 0)
+                    {
+                        var totalStr = s.TotalWorkItems > 0 ? $"/{s.TotalWorkItems:N0}" : string.Empty;
+                        rows.Add(new Markup($"     [grey]↳ Resuming WI {s.CurrentWiId}[/]  [grey](fast-forwarding {s.Skipped:N0}{totalStr})[/]"));
+                    }
+                    else if (s.CurrentWiId > 0)
+                    {
+                        int refRevs = s.LastWiRevisions > 0 ? s.LastWiRevisions : s.CurrentWiRevsWritten;
+                        var curPct = refRevs > 0 ? Math.Min(1.0, (double)s.CurrentWiRevsWritten / refRevs) : 0.0;
+                        var curFilled = Math.Clamp((int)(curPct * BarWidth), 0, BarWidth);
+                        var curBar = new string('━', curFilled) + new string('─', BarWidth - curFilled);
+                        var lastRevStr = s.LastWiRevisions > 0 ? $"  [grey](prev: {s.LastWiRevisions} rev)[/]" : string.Empty;
+                        var statusBadge = s.LastWorkItemStatus == "Exported" ? " [green]✓[/]"
+                                        : s.LastWorkItemStatus == "Failed" ? " [red]✗[/]" : string.Empty;
+                        rows.Add(new Markup(
+                            $"     [grey]↳ WI {s.CurrentWiId}[/]{statusBadge}   [blue]{Markup.Escape(curBar)}[/]"
+                            + $"  [bold]{s.CurrentWiRevsWritten:N0}[/][grey] rev[/]{lastRevStr}"));
+                    }
+                    else
+                        rows.Add(new Markup("     [grey]↳ Revisions   waiting…[/]"));
+
+                    if (isResuming)
+                        rows.Add(new Markup("     [grey]─ (fast-forwarding, no timing)[/]"));
+                    else if (s.LastRevDurationMs > 0)
+                    {
+                        var lastSec = s.LastRevDurationMs / 1000.0;
+                        var avgSec = s.AverageRevDurationMs / 1000.0;
+                        var isSlowdown = s.AverageRevDurationMs > 0 && s.LastRevDurationMs > s.AverageRevDurationMs * 3;
+                        var durationColor = isSlowdown ? "red" : s.LastRevDurationMs > s.AverageRevDurationMs * 1.5 ? "yellow" : "green";
+                        var throttleWarning = isSlowdown ? "  [red bold]⚠ possible back-off[/]" : string.Empty;
+                        rows.Add(new Markup($"     [grey]last:[/] [{durationColor}]{lastSec:F1}s[/]  [grey]avg:[/] [grey]{avgSec:F1}s[/]{throttleWarning}"));
+                    }
+                    else
+                        rows.Add(new Markup("     [grey]─[/]"));
+
+                    if (s.AttachmentsProcessed > 0 || s.AttachmentsFailed > 0 || s.CurrentAttachmentName != null)
+                    {
+                        var avgDurStr = s.AverageAttachmentDurationMs > 0 ? $"  [grey]avg dl:[/] [white]{s.AverageAttachmentDurationMs / 1000.0:F1}s[/]" : string.Empty;
+                        var avgSzStr = s.AverageAttachmentSizeBytes > 0 ? $"  [grey]avg size:[/] [white]{FormatBytes(s.AverageAttachmentSizeBytes)}[/]" : string.Empty;
+                        var failStr = s.AttachmentsFailed > 0 ? $"  [red]{s.AttachmentsFailed} failed[/]" : string.Empty;
+                        var inFlightStr = s.CurrentAttachmentName != null
+                            ? $"  [yellow]↓ {Markup.Escape(TruncateName(s.CurrentAttachmentName, 28))}[/]" : string.Empty;
+                        rows.Add(new Markup($"     [grey]Attachments:[/] [bold]{s.AttachmentsProcessed:N0}[/][grey] done[/]{failStr}{inFlightStr}{avgDurStr}{avgSzStr}"));
+                    }
+                    else
+                        rows.Add(new Markup("     [grey]Attachments   –[/]"));
+
+                    if (s.NextCheckpointDueAt is null && s.LastCheckpointAt is not null)
+                        rows.Add(new Markup("     [green]✓ Safe to cancel — checkpointed per revision[/]"));
+                    else if (s.NextCheckpointDueAt is not null)
+                    {
+                        var remaining = s.NextCheckpointDueAt.Value - DateTimeOffset.UtcNow;
+                        rows.Add(remaining <= TimeSpan.Zero
+                            ? new Markup("     [green]✓ Save point due now[/]")
+                            : new Markup($"     [yellow]⏳ Next save in {(int)remaining.TotalMinutes}m {remaining.Seconds:D2}s[/]"));
+                    }
+                    else
+                        rows.Add(new Markup("     [grey]─[/]"));
+                }
+            }
+            else
+            {
+                // Generic task — show name + optional progress from KnownTotal
+                string suffix = string.Empty;
+                if (task.KnownTotal.HasValue && task.KnownTotal > 0)
+                {
+                    var done = task.CompletedCount ?? 0;
+                    var pct = Math.Clamp((double)done / task.KnownTotal.Value, 0, 1);
+                    var filled = (int)(pct * BarWidth);
+                    var bar = new string('━', filled) + new string('─', BarWidth - filled);
+                    suffix = $"  [{iconColor}]{Markup.Escape(bar)}[/]  [grey]{done:N0}/{task.KnownTotal.Value:N0}[/]";
+                }
+                else if (task.CompletedCount > 0)
+                    suffix = $"  [grey]{task.CompletedCount.Value:N0}[/]";
+                rows.Add(new Markup($"  [{iconColor}]{icon}[/]  {Markup.Escape(task.Name)}{suffix}"));
+            }
         }
 
-        return rows.Count > 0 ? new Rows(rows) : new Markup("[grey]─[/]");
+        return rows.Count > 0 ? new Rows(rows) : new Markup("[grey]⠋ Running…[/]");
     }
 
     /// <summary>

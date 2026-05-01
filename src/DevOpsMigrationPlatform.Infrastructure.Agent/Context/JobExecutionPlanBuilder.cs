@@ -182,12 +182,12 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
             if (json is null)
                 return null;
 
-            using var doc = JsonDocument.Parse(json);
-            if (doc.RootElement.TryGetProperty("Totals", out var totals) &&
-                totals.TryGetProperty("WorkItems", out var wi))
-            {
-                return wi.GetInt64();
-            }
+            // inventory.json is serialised with camelCase naming policy, so use the
+            // deserialiser (case-insensitive by default) rather than JsonElement
+            // TryGetProperty (case-sensitive) to avoid a silent miss.
+            var report = JsonSerializer.Deserialize<InventoryReport>(json, _jsonOptions);
+            if (report?.Totals.WorkItems > 0)
+                return report.Totals.WorkItems;
         }
         catch (Exception)
         {

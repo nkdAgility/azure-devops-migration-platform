@@ -221,7 +221,7 @@ public sealed class TeamsModule : IModule
             {
                 Migration = new MigrationCounters
                 {
-                    Teams = new TeamsCounters { Exported = count }
+                    Teams = new TeamsCounters { Exported = count, Skipped = skipped }
                 }
             }
         });

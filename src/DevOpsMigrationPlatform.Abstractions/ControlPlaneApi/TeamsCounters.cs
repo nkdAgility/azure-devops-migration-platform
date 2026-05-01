@@ -9,6 +9,9 @@ public record TeamsCounters
     /// <summary>Teams successfully written to the package during export.</summary>
     public long Exported { get; init; }
 
+    /// <summary>Teams skipped during export because they were already present in the package.</summary>
+    public long Skipped { get; init; }
+
     /// <summary>Teams successfully created or updated in the target system during import.</summary>
     public long Imported { get; init; }
 
