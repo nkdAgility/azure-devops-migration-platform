@@ -1,4 +1,4 @@
-using DevOpsMigrationPlatform.Abstractions.Agent.Lease;
+using DevOpsMigrationPlatform.Abstractions.Agent.Context;
 using DevOpsMigrationPlatform.Abstractions.Agent.Telemetry;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Abstractions.Options;
@@ -35,7 +35,7 @@ public static class FieldTransformToolServiceCollectionExtensions
         // IOptionsSnapshot<T> computes .Value once per scope, so each job scope gets options from
         // the migration-config.json that was loaded for that job.
         services.AddOptions<FieldTransformOptions>()
-            .Configure<ActiveJobConfigState>((opts, state) =>
+            .Configure<IJobConfiguration>((opts, state) =>
             {
                 state.PackageConfig?.GetSection(FieldTransformOptions.SectionName).Bind(opts);
             });

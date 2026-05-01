@@ -2,7 +2,7 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
-using DevOpsMigrationPlatform.Abstractions.Agent.Lease;
+using DevOpsMigrationPlatform.Abstractions.Agent.Context;
 using DevOpsMigrationPlatform.Abstractions.Options;
 using Microsoft.Extensions.Configuration;
 
@@ -17,9 +17,9 @@ namespace DevOpsMigrationPlatform.Infrastructure.Simulated.Export;
 /// </summary>
 public sealed class SimulatedWorkItemRevisionSourceFactory : IWorkItemRevisionSourceFactory
 {
-    private readonly ActiveJobConfigState _activeJobConfig;
+    private readonly IJobConfiguration _activeJobConfig;
 
-    public SimulatedWorkItemRevisionSourceFactory(ActiveJobConfigState activeJobConfig)
+    public SimulatedWorkItemRevisionSourceFactory(IJobConfiguration activeJobConfig)
     {
         _activeJobConfig = activeJobConfig ?? throw new ArgumentNullException(nameof(activeJobConfig));
     }

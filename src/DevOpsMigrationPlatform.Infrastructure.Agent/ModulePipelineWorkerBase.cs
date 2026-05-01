@@ -4,6 +4,7 @@ using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions.Agent.Checkpointing;
+using DevOpsMigrationPlatform.Abstractions.Agent.Context;
 using DevOpsMigrationPlatform.Abstractions.Agent.Lease;
 using DevOpsMigrationPlatform.Abstractions.Agent.Modules;
 using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
@@ -57,7 +58,7 @@ public abstract class ModulePipelineWorkerBase : AgentWorkerBase
     protected IPackageConfigStore PackageConfigStore { get; }
 
     /// <summary>Ambient holder for the current job's per-job <see cref="Microsoft.Extensions.Configuration.IConfiguration"/> (PackageConfig).</summary>
-    protected ActiveJobConfigState ActiveJobConfig { get; }
+    protected IJobConfiguration ActiveJobConfig { get; }
 
     /// <summary>
     /// Used to create a per-job DI scope so that modules (and their tool dependencies)
@@ -75,7 +76,7 @@ public abstract class ModulePipelineWorkerBase : AgentWorkerBase
         IPhaseTrackingServiceFactory phaseTrackingFactory,
         ActiveLeaseState leaseState,
         ActivePackageState packageState,
-        ActiveJobConfigState activeJobConfig,
+        IJobConfiguration activeJobConfig,
         IPackageConfigStore packageConfigStore,
         IServiceScopeFactory moduleScopeFactory,
         IHttpClientFactory httpClientFactory,

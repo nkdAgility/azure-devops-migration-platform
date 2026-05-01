@@ -7,7 +7,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions.Agent.Context;
 using DevOpsMigrationPlatform.Abstractions.Agent.Export;
-using DevOpsMigrationPlatform.Abstractions.Agent.Import;
+
 using DevOpsMigrationPlatform.Abstractions.Agent.Lease;
 using DevOpsMigrationPlatform.Abstractions.Agent.Modules;
 using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
@@ -17,6 +17,7 @@ using DevOpsMigrationPlatform.Abstractions.Agent.Validation;
 using DevOpsMigrationPlatform.Abstractions.Jobs;
 using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Abstractions.Streaming;
+using DevOpsMigrationPlatform.Infrastructure.Agent.Context;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Modules;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Teams;
 using DevOpsMigrationPlatform.Infrastructure.Simulated;
@@ -38,11 +39,11 @@ public class TeamsModuleTests
         PropertyNameCaseInsensitive = true
     };
 
-    private static ActiveJobConfigState CreateActiveJobConfig(
+    private static JobConfiguration CreateActiveJobConfig(
         string sourceProject = "TestProject",
         string targetProject = "TargetProject")
     {
-        var state = new ActiveJobConfigState();
+        var state = new JobConfiguration();
         state.PackageConfig = new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?>
             {
@@ -55,7 +56,7 @@ public class TeamsModuleTests
         return state;
     }
 
-    private static IAgentJobContext CreateAgentJobContext(ActiveJobConfigState? activeJobConfig = null)
+    private static IAgentJobContext CreateAgentJobContext(JobConfiguration? activeJobConfig = null)
     {
         activeJobConfig ??= CreateActiveJobConfig();
         var mock = new Mock<IAgentJobContext>();
@@ -65,7 +66,7 @@ public class TeamsModuleTests
         return mock.Object;
     }
 
-    private static ISourceEndpointInfo CreateSourceEndpointInfo(ActiveJobConfigState? activeJobConfig = null)
+    private static ISourceEndpointInfo CreateSourceEndpointInfo(JobConfiguration? activeJobConfig = null)
     {
         activeJobConfig ??= CreateActiveJobConfig();
         var mock = new Mock<ISourceEndpointInfo>();
@@ -75,7 +76,7 @@ public class TeamsModuleTests
         return mock.Object;
     }
 
-    private static ITargetEndpointInfo CreateTargetEndpointInfo(ActiveJobConfigState? activeJobConfig = null)
+    private static ITargetEndpointInfo CreateTargetEndpointInfo(JobConfiguration? activeJobConfig = null)
     {
         activeJobConfig ??= CreateActiveJobConfig();
         var mock = new Mock<ITargetEndpointInfo>();

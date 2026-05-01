@@ -4,7 +4,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions.Agent.Context;
 using DevOpsMigrationPlatform.Abstractions.Agent.Export;
-using DevOpsMigrationPlatform.Abstractions.Agent.Import;
+
 using DevOpsMigrationPlatform.Abstractions.Agent.Lease;
 using DevOpsMigrationPlatform.Abstractions.Agent.Modules;
 using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
@@ -14,6 +14,7 @@ using DevOpsMigrationPlatform.Abstractions.Agent.Validation;
 using DevOpsMigrationPlatform.Abstractions.Jobs;
 using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Abstractions.Streaming;
+using DevOpsMigrationPlatform.Infrastructure.Agent.Context;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Modules;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -30,7 +31,7 @@ public class NodesModuleTests
         NodesModuleOptions? options = null,
         IClassificationTreeCapture? capture = null,
         INodeEnsurer? nodeEnsurer = null,
-        ActiveJobConfigState? activeJobConfig = null)
+        JobConfiguration? activeJobConfig = null)
     {
         options ??= new NodesModuleOptions { Enabled = true };
         activeJobConfig ??= CreateActiveJobConfig();
@@ -43,11 +44,11 @@ public class NodesModuleTests
             nodeEnsurer: nodeEnsurer);
     }
 
-    private static ActiveJobConfigState CreateActiveJobConfig(
+    private static JobConfiguration CreateActiveJobConfig(
         string sourceProject = "TestProject",
         string targetProject = "TargetProject")
     {
-        var state = new ActiveJobConfigState();
+        var state = new JobConfiguration();
         state.PackageConfig = new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?>
             {
@@ -60,7 +61,7 @@ public class NodesModuleTests
         return state;
     }
 
-    private static IAgentJobContext CreateAgentJobContext(ActiveJobConfigState activeJobConfig)
+    private static IAgentJobContext CreateAgentJobContext(JobConfiguration activeJobConfig)
     {
         var mock = new Mock<IAgentJobContext>();
         mock.SetupGet(x => x.PackagePath).Returns("/tmp/test-package");
@@ -69,7 +70,7 @@ public class NodesModuleTests
         return mock.Object;
     }
 
-    private static ISourceEndpointInfo CreateSourceEndpointInfo(ActiveJobConfigState activeJobConfig)
+    private static ISourceEndpointInfo CreateSourceEndpointInfo(JobConfiguration activeJobConfig)
     {
         var mock = new Mock<ISourceEndpointInfo>();
         mock.SetupGet(x => x.Url).Returns("https://dev.azure.com/test");

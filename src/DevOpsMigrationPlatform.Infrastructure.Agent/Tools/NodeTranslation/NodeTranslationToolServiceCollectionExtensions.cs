@@ -1,4 +1,4 @@
-﻿using DevOpsMigrationPlatform.Abstractions.Agent.Lease;
+﻿using DevOpsMigrationPlatform.Abstractions.Agent.Context;
 using DevOpsMigrationPlatform.Abstractions.Agent.Telemetry;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using Microsoft.Extensions.Configuration;
@@ -38,7 +38,7 @@ public static class NodeTranslationToolServiceCollectionExtensions
 
         // Bind from per-job PackageConfig via ActiveJobConfigState (set before job scope is created).
         services.AddOptions<NodeTranslationOptions>()
-            .Configure<ActiveJobConfigState>((opts, state) =>
+            .Configure<IJobConfiguration>((opts, state) =>
             {
                 state.PackageConfig?.GetSection(NodeTranslationOptions.SectionName).Bind(opts);
             });

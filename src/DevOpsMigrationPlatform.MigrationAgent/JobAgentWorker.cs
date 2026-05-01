@@ -6,6 +6,7 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Agent.Context;
 using DevOpsMigrationPlatform.Abstractions.Agent.Lease;
 using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
 using DevOpsMigrationPlatform.Infrastructure.Agent;
@@ -40,7 +41,7 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
         IProgressSink progressSink,
         ActiveLeaseState leaseState,
         ActivePackageState packageState,
-        ActiveJobConfigState activeJobConfig,
+        IJobConfiguration activeJobConfig,
         IPackageConfigStore packageConfigStore,
         IServiceScopeFactory moduleScopeFactory,
         IHttpClientFactory httpClientFactory,
@@ -154,32 +155,32 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
                 return (null, null, null);
             if (!platform.TryGetProperty(role, out var endpoint))
                 return (null, null, null);
-            var type    = endpoint.TryGetProperty("Type",       out var t) ? t.GetString() : null;
-            var url     = endpoint.TryGetProperty("Url",        out var u) ? u.GetString()
+            var type = endpoint.TryGetProperty("Type", out var t) ? t.GetString() : null;
+            var url = endpoint.TryGetProperty("Url", out var u) ? u.GetString()
                         : endpoint.TryGetProperty("Collection", out var c) ? c.GetString()
                         : null;
-            var project = endpoint.TryGetProperty("Project",    out var p) ? p.GetString() : null;
+            var project = endpoint.TryGetProperty("Project", out var p) ? p.GetString() : null;
             return (type, url, project);
         }
 
         try
         {
             using var existingDoc = JsonDocument.Parse(existingJson);
-            using var newDoc      = JsonDocument.Parse(newJson);
+            using var newDoc = JsonDocument.Parse(newJson);
 
             var (eSrcType, eSrcUrl, eSrcProject) = ExtractEndpoint(existingDoc.RootElement, "Source");
-            var (nSrcType, nSrcUrl, nSrcProject) = ExtractEndpoint(newDoc.RootElement,      "Source");
+            var (nSrcType, nSrcUrl, nSrcProject) = ExtractEndpoint(newDoc.RootElement, "Source");
 
-            if (!StringComparer.OrdinalIgnoreCase.Equals(eSrcType,    nSrcType)    ||
-                !StringComparer.OrdinalIgnoreCase.Equals(eSrcUrl,     nSrcUrl)     ||
+            if (!StringComparer.OrdinalIgnoreCase.Equals(eSrcType, nSrcType) ||
+                !StringComparer.OrdinalIgnoreCase.Equals(eSrcUrl, nSrcUrl) ||
                 !StringComparer.OrdinalIgnoreCase.Equals(eSrcProject, nSrcProject))
                 return $"Source changed from '{eSrcType}:{eSrcUrl}/{eSrcProject}' to '{nSrcType}:{nSrcUrl}/{nSrcProject}'";
 
             var (eTgtType, eTgtUrl, eTgtProject) = ExtractEndpoint(existingDoc.RootElement, "Target");
-            var (nTgtType, nTgtUrl, nTgtProject) = ExtractEndpoint(newDoc.RootElement,      "Target");
+            var (nTgtType, nTgtUrl, nTgtProject) = ExtractEndpoint(newDoc.RootElement, "Target");
 
-            if (!StringComparer.OrdinalIgnoreCase.Equals(eTgtType,    nTgtType)    ||
-                !StringComparer.OrdinalIgnoreCase.Equals(eTgtUrl,     nTgtUrl)     ||
+            if (!StringComparer.OrdinalIgnoreCase.Equals(eTgtType, nTgtType) ||
+                !StringComparer.OrdinalIgnoreCase.Equals(eTgtUrl, nTgtUrl) ||
                 !StringComparer.OrdinalIgnoreCase.Equals(eTgtProject, nTgtProject))
                 return $"Target changed from '{eTgtType}:{eTgtUrl}/{eTgtProject}' to '{nTgtType}:{nTgtUrl}/{nTgtProject}'";
 

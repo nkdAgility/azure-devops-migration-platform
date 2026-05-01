@@ -6,7 +6,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions.Agent.Context;
 using DevOpsMigrationPlatform.Abstractions.Agent.Export;
-using DevOpsMigrationPlatform.Abstractions.Agent.Import;
+
 using DevOpsMigrationPlatform.Abstractions.Agent.Lease;
 using DevOpsMigrationPlatform.Abstractions.Agent.Modules;
 using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
@@ -16,6 +16,7 @@ using DevOpsMigrationPlatform.Abstractions.Agent.Identity;
 using DevOpsMigrationPlatform.Abstractions.Jobs;
 using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Abstractions.Streaming;
+using DevOpsMigrationPlatform.Infrastructure.Agent.Context;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Modules;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -37,7 +38,7 @@ public class IdentitiesModuleTests
     private static IdentitiesModule CreateModule(
         IdentitiesModuleOptions? options = null,
         IIdentitySource? identitySource = null,
-        ActiveJobConfigState? activeJobConfig = null)
+        JobConfiguration? activeJobConfig = null)
     {
         options ??= new IdentitiesModuleOptions { Enabled = true };
         activeJobConfig ??= CreateActiveJobConfig();
@@ -48,9 +49,9 @@ public class IdentitiesModuleTests
             identitySource: identitySource);
     }
 
-    private static ActiveJobConfigState CreateActiveJobConfig(string sourceProject = "TestProject")
+    private static JobConfiguration CreateActiveJobConfig(string sourceProject = "TestProject")
     {
-        var state = new ActiveJobConfigState();
+        var state = new JobConfiguration();
         state.PackageConfig = new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?>
             {
@@ -61,7 +62,7 @@ public class IdentitiesModuleTests
         return state;
     }
 
-    private static IAgentJobContext CreateAgentJobContext(ActiveJobConfigState activeJobConfig)
+    private static IAgentJobContext CreateAgentJobContext(JobConfiguration activeJobConfig)
     {
         var mock = new Mock<IAgentJobContext>();
         mock.SetupGet(x => x.PackagePath).Returns("/tmp/test-package");
@@ -70,7 +71,7 @@ public class IdentitiesModuleTests
         return mock.Object;
     }
 
-    private static ISourceEndpointInfo CreateSourceEndpointInfo(ActiveJobConfigState activeJobConfig)
+    private static ISourceEndpointInfo CreateSourceEndpointInfo(JobConfiguration activeJobConfig)
     {
         var mock = new Mock<ISourceEndpointInfo>();
         mock.SetupGet(x => x.Url).Returns("https://dev.azure.com/test");
