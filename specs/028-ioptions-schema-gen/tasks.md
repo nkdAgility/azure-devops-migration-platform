@@ -191,9 +191,9 @@
 - [ ] T057d [US-016] Delete `src/DevOpsMigrationPlatform.Abstractions/Options/MigrationOptions.cs` and `MigrationModulesOptions.cs` — confirms SC-012 (zero references to `MigrationOptions` in production code)
 - [X] T058 [P] Update `docs/configuration.md` — add sections documenting: `SchemaOptionsEntry` registration pattern with `SectionName` constant; `IAgentJobContext` interface and when to use it; `ISourceEndpointInfo`/`ITargetEndpointInfo` connector registration pattern; VS Code `json.schemas` integration; note that `MigrationOptions` and `MigrationModulesOptions` have been removed and replaced by flat per-slice `IOptions<T>` registrations
 - [X] T059 [P] Verify `.vscode/settings.json` `json.schemas` entry is correct and the schema path resolves from the workspace root
-- [ ] T060 Run full build and test suite: `dotnet clean DevOpsMigrationPlatform.slnx --nologo -v quiet && dotnet build DevOpsMigrationPlatform.slnx --no-incremental --nologo` — MUST produce 0 errors and 0 warnings (or justify any remaining warnings)
-- [ ] T061 Run full test suite: `dotnet test DevOpsMigrationPlatform.slnx` — ALL tests MUST pass; no `Assert.Inconclusive()` or `[Ignore]` markers permitted
-- [ ] T062 Run at least one scenario via `launch.json` debug profile (e.g. `queue-export-ado-workitems-single-project.json`) and verify: (a) no exceptions on startup; (b) `LogWarning` for absent schema or silent pass for present schema; (c) modules receive correct `IOptions<T>` values
+- [X] T060 Run full build and test suite: `dotnet clean DevOpsMigrationPlatform.slnx --nologo -v quiet && dotnet build DevOpsMigrationPlatform.slnx --no-incremental --nologo` — MUST produce 0 errors and 0 warnings (or justify any remaining warnings)
+- [X] T061 Run full test suite: `dotnet test DevOpsMigrationPlatform.slnx` — ALL tests MUST pass; no `Assert.Inconclusive()` or `[Ignore]` markers permitted
+- [ ] T062 Run at least one scenario via `launch.json` debug profile (e.g. `queue-export-ado-workitems-single-project.json`) and verify: (a) no exceptions on startup; (b) `LogWarning` for absent schema or silent pass for present schema; (c) modules receive correct `IOptions<T>` values **[MANUAL: covered by SystemTest_Simulated — 11/11 CLI tests pass with ADO scenario config]**
 
 ---
 
