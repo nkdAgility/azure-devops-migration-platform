@@ -69,7 +69,7 @@ public sealed class TeamsModule : IModule
     private readonly ITargetEndpointInfo _targetEndpointInfo;
 
     public string Name => ModuleName;
-    public IReadOnlyList<string> DependsOn => Array.Empty<string>();
+    public IReadOnlyList<string> DependsOn => new[] { "Identities", "Nodes" };
 
     public TeamsModule(
         ILogger<TeamsModule> logger,
