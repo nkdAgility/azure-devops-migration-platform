@@ -33,16 +33,19 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
     };
 
     private readonly IEnumerable<IModule> _modules;
+    private readonly IEnumerable<IDiscoveryModule> _discoveryModules;
     private readonly Dictionary<string, IModule> _modulesByName;
     private readonly IPhaseTrackingServiceFactory _phaseTrackingFactory;
     private readonly ILogger<JobExecutionPlanBuilder> _logger;
 
     public JobExecutionPlanBuilder(
         IEnumerable<IModule> modules,
+        IEnumerable<IDiscoveryModule> discoveryModules,
         IPhaseTrackingServiceFactory phaseTrackingFactory,
         ILogger<JobExecutionPlanBuilder> logger)
     {
         _modules = modules;
+        _discoveryModules = discoveryModules;
         _modulesByName = modules.ToDictionary(m => m.Name, StringComparer.OrdinalIgnoreCase);
         _phaseTrackingFactory = phaseTrackingFactory;
         _logger = logger;
@@ -73,9 +76,21 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
         long? workItemKnownTotal = await TryReadWorkItemTotalAsync(artefactStore, ct)
             .ConfigureAwait(false);
 
+        // For Export jobs, auto-add Inventory task if inventory.json doesn't exist.
+        bool hasInventory = false;
         if (includeExport)
         {
-            tasks.AddRange(BuildExportTasks(packageConfig, phaseRecord, workItemKnownTotal, ref order));
+            var inventoryExists = await artefactStore.ExistsAsync("inventory.json", ct).ConfigureAwait(false);
+            if (!inventoryExists)
+            {
+                tasks.AddRange(BuildInventoryTasks(ref order));
+                hasInventory = tasks.Any(t => t.Phase == "Inventory");
+            }
+        }
+
+        if (includeExport)
+        {
+            tasks.AddRange(BuildExportTasks(packageConfig, phaseRecord, workItemKnownTotal, ref order, hasInventory ? tasks.Where(t => t.Phase == "Inventory").Select(t => t.Id).ToList() : null));
         }
 
         if (includeImport)
@@ -100,19 +115,46 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
         };
     }
 
+    // ── Inventory phase ──────────────────────────────────────────────────────
+
+    private List<JobTask> BuildInventoryTasks(ref int order)
+    {
+        var tasks = new List<JobTask>();
+
+        // Add task for each registered inventory module.
+        foreach (var module in _discoveryModules.Where(m => m.DiscoveryKind == JobKind.Inventory))
+        {
+            var taskId = $"inventory.{module.Name.ToLowerInvariant()}";
+            tasks.Add(MakeTask(
+                taskId,
+                $"{module.Name} Inventory",
+                "Inventory",
+                enabled: true, // Inventory always enabled when added
+                phaseAlreadyDone: false,
+                order++,
+                dependsOn: null)); // Inventory has no dependencies
+        }
+
+        return tasks;
+    }
+
     // ── Export phase ─────────────────────────────────────────────────────────
 
     private List<JobTask> BuildExportTasks(
         IConfiguration config,
         JobPhaseRecord? phaseRecord,
         long? workItemKnownTotal,
-        ref int order)
+        ref int order,
+        List<string>? inventoryTaskIds = null)
     {
         bool exportAlreadyDone = phaseRecord?.ExportCompleted == true;
 
         var tasks = new List<JobTask>();
 
-        // Export tasks have no dependencies — all modules run concurrently.
+        // Export tasks depend on Inventory tasks if Inventory is in the plan.
+        var exportDependencies = inventoryTaskIds?.AsReadOnly();
+
+        // Export tasks have no inter-module dependencies, but may depend on Inventory.
         foreach (var module in _modules)
         {
             var taskId = $"export.{module.Name.ToLowerInvariant()}";
@@ -129,7 +171,7 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
                 exportAlreadyDone,
                 order++,
                 knownTotal: knownTotal,
-                dependsOn: null)); // Export tasks have no inter-module dependencies
+                dependsOn: exportDependencies)); // All export tasks depend on Inventory
         }
 
         return tasks;

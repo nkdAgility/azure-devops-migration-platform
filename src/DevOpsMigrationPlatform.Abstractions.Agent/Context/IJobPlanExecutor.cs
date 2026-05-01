@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using DevOpsMigrationPlatform.Abstractions.Agent.Discovery;
 using DevOpsMigrationPlatform.Abstractions.Agent.Export;
 using DevOpsMigrationPlatform.Abstractions.Agent.Import;
 using DevOpsMigrationPlatform.Abstractions.Agent.Modules;
@@ -38,6 +39,24 @@ public interface IJobPlanExecutor
         JobTaskList plan,
         IReadOnlyDictionary<string, IModule> modulesByName,
         ExportContext exportContext,
+        IStateStore stateStore,
+        CancellationToken ct);
+
+    /// <summary>
+    /// Executes all Inventory-phase tasks in <paramref name="plan"/> concurrently.
+    /// Inventory tasks run before Export and have no dependencies.
+    /// Returns <c>true</c> if all executed tasks succeeded; <c>false</c> if any failed.
+    /// </summary>
+    /// <param name="plan">The execution plan containing Inventory-phase tasks.</param>
+    /// <param name="discoveryModulesByName">Discovery module instances keyed by Name (case-insensitive).</param>
+    /// <param name="discoveryContext">Shared discovery context passed to <see cref="IDiscoveryModule.RunAsync"/>.</param>
+    /// <param name="stateStore">State store for persisting the plan after each task transition.</param>
+    /// <param name="ct">Cancellation token propagated to all running tasks.</param>
+    /// <returns><c>true</c> if no task failed; <c>false</c> otherwise.</returns>
+    Task<bool> ExecuteInventoryPhaseAsync(
+        JobTaskList plan,
+        IReadOnlyDictionary<string, IDiscoveryModule> discoveryModulesByName,
+        DiscoveryContext discoveryContext,
         IStateStore stateStore,
         CancellationToken ct);
 
