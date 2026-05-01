@@ -55,4 +55,17 @@ public sealed class ActiveJobTargetEndpointInfo : ITargetEndpointInfo
             : new OrganisationEndpoint { ResolvedUrl = Url, Type = ConnectorType };
     }
 }
+
+/// <summary>
+/// Dynamic <see cref="IAgentJobContext"/> that resolves Mode, PackagePath, and ConfigVersion
+/// from <see cref="ActiveJobConfigState.Current"/> on every access.
+/// Registered as a singleton so the same object survives across jobs while always
+/// reflecting the active job's configuration.
+/// </summary>
+public sealed class ActiveJobAgentJobContext(ActiveJobConfigState state) : IAgentJobContext
+{
+    public string Mode => state.Current?.Mode ?? string.Empty;
+    public string PackagePath => state.Current?.Package?.ExpandedPath ?? string.Empty;
+    public string ConfigVersion => state.Current?.ConfigVersion ?? string.Empty;
+}
 #endif

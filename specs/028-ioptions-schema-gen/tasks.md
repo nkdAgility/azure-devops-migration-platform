@@ -150,10 +150,10 @@
 
 ### Observability for User Story 3 ⛔ MANDATORY
 
-- [ ] T049 [US3] **O-1 Traces** — Verify existing `ActivitySource.StartActivity` span calls in all four migrated modules still compile and use correct span names after constructor refactor (no span names changed — this is a DI refactor only)
-- [ ] T050 [US3] **O-2 Metrics** — Verify `IMigrationMetrics` calls in all four migrated modules still compile correctly after constructor refactor (metrics calls unchanged — DI refactor only)
-- [ ] T049a [P] [US3] **O-3 Logs** — Verify all four migrated modules retain structured `LogInformation` at export/import start and end with item counts, `LogWarning` on skip paths, `LogDebug` per-item; no string interpolation introduced during refactor; check that no log call references `ActiveJobConfigState` field names
-- [ ] T051 [P] [US3] **DI Wiring** — Verify `Add*Services()` registration for all four modules includes the new `IOptions<T>` registrations; verify `IAgentJobContext`, `ISourceEndpointInfo`, `ITargetEndpointInfo` are all registered before modules are resolved; run `SystemTest_Simulated` for each module to catch DI resolution errors
+- [X] T049 [US3] **O-1 Traces** — Verify existing `ActivitySource.StartActivity` span calls in all four migrated modules still compile and use correct span names after constructor refactor (no span names changed — this is a DI refactor only)
+- [X] T050 [US3] **O-2 Metrics** — Verify `IMigrationMetrics` calls in all four migrated modules still compile correctly after constructor refactor (metrics calls unchanged — DI refactor only)
+- [X] T049a [P] [US3] **O-3 Logs** — Verify all four migrated modules retain structured `LogInformation` at export/import start and end with item counts, `LogWarning` on skip paths, `LogDebug` per-item; no string interpolation introduced during refactor; check that no log call references `ActiveJobConfigState` field names
+- [X] T051 [P] [US3] **DI Wiring** — Verify `Add*Services()` registration for all four modules includes the new `IOptions<T>` registrations; verify `IAgentJobContext`, `ISourceEndpointInfo`, `ITargetEndpointInfo` are all registered before modules are resolved; run `SystemTest_Simulated` for each module to catch DI resolution errors
 
 ---
 
@@ -167,13 +167,13 @@
 
 ### Implementation for User Story 4
 
-- [ ] T052 [US4] Verify `IAgentJobContext` is correctly populated end-to-end: `JobAgentWorker` builds `AgentJobContext` → registered as `IAgentJobContext` → injected into modules → readable during `ExportAsync`/`ImportAsync`; add a `LogDebug` call in `AgentJobContext` constructor logging `{Mode}` and `{ConfigVersion}` (NOT `PackagePath` — customer data)
-- [ ] T053 [P] [US4] Unit test: `AgentJobContextIntegrationTests.cs` — Given `IAgentJobContext` with `Mode = "Export"`, `PackagePath = "/abs/path"`, `ConfigVersion = "2.0"`, When module reads `agentJobContext.Mode`, Then returns `"Export"` without accessing any other service
+- [X] T052 [US4] Verify `IAgentJobContext` is correctly populated end-to-end: `JobAgentWorker` builds `AgentJobContext` → registered as `IAgentJobContext` → injected into modules → readable during `ExportAsync`/`ImportAsync`; add a `LogDebug` call in `AgentJobContext` constructor logging `{Mode}` and `{ConfigVersion}` (NOT `PackagePath` — customer data)
+- [X] T053 [P] [US4] Unit test: `AgentJobContextIntegrationTests.cs` — Given `IAgentJobContext` with `Mode = "Export"`, `PackagePath = "/abs/path"`, `ConfigVersion = "2.0"`, When module reads `agentJobContext.Mode`, Then returns `"Export"` without accessing any other service
 
 ### Observability for User Story 4 ⛔ MANDATORY
 
-- [ ] T054 [US4] **O-3 Logs** — Add `LogDebug` in `AgentJobContext` constructor: `"Agent job context resolved — Mode={Mode} ConfigVersion={ConfigVersion}"` (PackagePath omitted — `DataClassification.Customer`); structured params only
-- [ ] T055 [P] [US4] **Test O-3** — Unit test: construct `AgentJobContext` with known values; assert `LogDebug` called once with `{Mode}` and `{ConfigVersion}` params; assert `PackagePath` value does NOT appear in any log output
+- [X] T054 [US4] **O-3 Logs** — Add `LogDebug` in `AgentJobContext` constructor: `"Agent job context resolved — Mode={Mode} ConfigVersion={ConfigVersion}"` (PackagePath omitted — `DataClassification.Customer`); structured params only
+- [X] T055 [P] [US4] **Test O-3** — Unit test: construct `AgentJobContext` with known values; assert `LogDebug` called once with `{Mode}` and `{ConfigVersion}` params; assert `PackagePath` value does NOT appear in any log output
 
 ---
 
@@ -189,8 +189,8 @@
 - [ ] T057b [US-016] Add `SectionName` constant to `MigrationPoliciesOptions` (e.g. `"MigrationPlatform:Policies"`) and register flat `IOptions<MigrationPoliciesOptions>` + `SchemaOptionsEntry` in the same extension; inject `IOptions<MigrationPoliciesOptions>` wherever `MigrationOptions.Policies` was previously accessed
 - [ ] T057c [US-016] Update `JobAgentWorker.StartJobAsync` to build `IConfiguration` directly from the raw `ConfigPayload` string: `new ConfigurationBuilder().AddJsonStream(new MemoryStream(Encoding.UTF8.GetBytes(job.ConfigPayload))).Build()` — remove the `JsonSerializer.Deserialize<MigrationOptions>` call; seed `AgentJobContext` from the built `IConfiguration` directly (`configuration["MigrationPlatform:Mode"]`, `configuration["MigrationPlatform:Package:Path"]`, `configuration["MigrationPlatform:ConfigVersion"]`). **Also update the `IAgentJobContext` registration added in T045/T046 to use these `IConfiguration` key reads instead of `MigrationOptions` properties — `MigrationOptions` is deleted immediately after this task in T057d.**
 - [ ] T057d [US-016] Delete `src/DevOpsMigrationPlatform.Abstractions/Options/MigrationOptions.cs` and `MigrationModulesOptions.cs` — confirms SC-012 (zero references to `MigrationOptions` in production code)
-- [ ] T058 [P] Update `docs/configuration.md` — add sections documenting: `SchemaOptionsEntry` registration pattern with `SectionName` constant; `IAgentJobContext` interface and when to use it; `ISourceEndpointInfo`/`ITargetEndpointInfo` connector registration pattern; VS Code `json.schemas` integration; note that `MigrationOptions` and `MigrationModulesOptions` have been removed and replaced by flat per-slice `IOptions<T>` registrations
-- [ ] T059 [P] Verify `.vscode/settings.json` `json.schemas` entry is correct and the schema path resolves from the workspace root
+- [X] T058 [P] Update `docs/configuration.md` — add sections documenting: `SchemaOptionsEntry` registration pattern with `SectionName` constant; `IAgentJobContext` interface and when to use it; `ISourceEndpointInfo`/`ITargetEndpointInfo` connector registration pattern; VS Code `json.schemas` integration; note that `MigrationOptions` and `MigrationModulesOptions` have been removed and replaced by flat per-slice `IOptions<T>` registrations
+- [X] T059 [P] Verify `.vscode/settings.json` `json.schemas` entry is correct and the schema path resolves from the workspace root
 - [ ] T060 Run full build and test suite: `dotnet clean DevOpsMigrationPlatform.slnx --nologo -v quiet && dotnet build DevOpsMigrationPlatform.slnx --no-incremental --nologo` — MUST produce 0 errors and 0 warnings (or justify any remaining warnings)
 - [ ] T061 Run full test suite: `dotnet test DevOpsMigrationPlatform.slnx` — ALL tests MUST pass; no `Assert.Inconclusive()` or `[Ignore]` markers permitted
 - [ ] T062 Run at least one scenario via `launch.json` debug profile (e.g. `queue-export-ado-workitems-single-project.json`) and verify: (a) no exceptions on startup; (b) `LogWarning` for absent schema or silent pass for present schema; (c) modules receive correct `IOptions<T>` values

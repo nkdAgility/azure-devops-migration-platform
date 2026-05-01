@@ -69,6 +69,7 @@ public static class MigrationAgentServiceExtensions
         // so connectors never override these with a static per-connector value.
         builder.Services.TryAddSingleton<ISourceEndpointInfo, ActiveJobSourceEndpointInfo>();
         builder.Services.TryAddSingleton<ITargetEndpointInfo, ActiveJobTargetEndpointInfo>();
+        builder.Services.TryAddSingleton<IAgentJobContext, ActiveJobAgentJobContext>();
         builder.Services.AddFieldTransformToolServices();
 
         // Package config store — reads migration-config.json from the package at job pickup.

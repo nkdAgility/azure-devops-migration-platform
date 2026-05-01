@@ -1,4 +1,6 @@
+using DevOpsMigrationPlatform.Abstractions.Agent.Context;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Context;
+using Microsoft.Extensions.Logging;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Agent.Tests.Context;
@@ -127,5 +129,70 @@ public sealed class AgentJobContextTests
         };
 
         Assert.AreEqual(@"\\server\share\package", context.PackagePath);
+    }
+
+    // T053: IAgentJobContext readable without full options graph
+    [TestMethod]
+    public void IAgentJobContext_Mode_ReadableWithoutFullOptionsGraph()
+    {
+        // Given IAgentJobContext with Mode = "Export"
+        IAgentJobContext context = new AgentJobContext
+        {
+            Mode = "Export",
+            PackagePath = @"C:\temp\package",
+            ConfigVersion = "2.0"
+        };
+
+        // When module reads agentJobContext.Mode
+        var mode = context.Mode;
+
+        // Then returns "Export" without accessing any other service
+        Assert.AreEqual("Export", mode);
+    }
+
+    [TestMethod]
+    public void IAgentJobContext_IsReadOnly_NoWritePathExists()
+    {
+        // The interface exposes only getters — verified by type system (no set accessors on IAgentJobContext).
+        var properties = typeof(IAgentJobContext).GetProperties();
+        foreach (var prop in properties)
+        {
+            Assert.IsNull(prop.SetMethod, $"Property {prop.Name} should not have a public setter on IAgentJobContext");
+        }
+    }
+
+    // T055: LogDebug called with Mode and ConfigVersion
+    [TestMethod]
+    public void Constructor_LogsDebug_WithModeAndConfigVersion_WhenBothSet()
+    {
+        var logMessages = new System.Collections.Generic.List<(LogLevel Level, string Message)>();
+        var logger = new CapturingLogger(logMessages);
+
+        _ = new AgentJobContext(logger)
+        {
+            Mode = "Import",
+            PackagePath = @"C:\temp\package",
+            ConfigVersion = "3.0"
+        };
+
+        Assert.IsTrue(logMessages.Count > 0, "Expected at least one LogDebug call");
+        var debugMsg = logMessages.Find(m => m.Level == LogLevel.Debug);
+        Assert.IsNotNull(debugMsg.Message, "Expected a Debug-level log entry");
+        Assert.IsTrue(debugMsg.Message.Contains("Import"), "Expected Mode in log");
+        Assert.IsTrue(debugMsg.Message.Contains("3.0"), "Expected ConfigVersion in log");
+        // PackagePath must NOT appear in any log (DataClassification.Customer)
+        foreach (var (_, msg) in logMessages)
+        {
+            Assert.IsFalse(msg.Contains(@"C:\temp\package"), "PackagePath must not appear in logs");
+        }
+    }
+
+    private sealed class CapturingLogger(System.Collections.Generic.List<(LogLevel, string)> captured)
+        : ILogger<AgentJobContext>
+    {
+        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+        public bool IsEnabled(LogLevel logLevel) => true;
+        public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter)
+            => captured.Add((logLevel, formatter(state, exception)));
     }
 }
