@@ -37,12 +37,9 @@ public class DependencyCommandTests
         var outputDir = Path.Combine(repoRoot, "output");
         Directory.CreateDirectory(outputDir);
 
-        var result = await CliRunner.RunAsync(
+        var result = await CliRunner.RunTestAsync(
+            testName: nameof(DependencyCommand_SystemTest_AdoSingleProject_ExecutesSuccessfully),
             args: ["discovery", "dependencies", "--config", "scenarios/discovery-dependency-ado-single-project.json", "--output", outputDir],
-            env: new System.Collections.Generic.Dictionary<string, string>
-            {
-                ["DEVOPS_MIGRATION_TEST_STORAGE"] = Path.Combine("storage", nameof(DependencyCommand_SystemTest_AdoSingleProject_ExecutesSuccessfully))
-            },
             timeout: TimeSpan.FromMinutes(4));
 
         Console.WriteLine("=== STDOUT ===");

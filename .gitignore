@@ -4,6 +4,7 @@
 **/output/
 scenarios/client/**
 storage/**
+TestWorkingFolder/**
 
 # Visual Studio / VS Code
 .vs/

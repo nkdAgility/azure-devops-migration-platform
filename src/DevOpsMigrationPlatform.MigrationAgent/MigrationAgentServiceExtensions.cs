@@ -2,6 +2,7 @@
 using DevOpsMigrationPlatform.Infrastructure;
 using DevOpsMigrationPlatform.Infrastructure.AzureDevOps;
 using DevOpsMigrationPlatform.Infrastructure.Agent;
+using DevOpsMigrationPlatform.Infrastructure.Agent.Connectors;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Modules;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Tools.FieldTransform;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Tools.NodeTranslation;
@@ -9,7 +10,9 @@ using DevOpsMigrationPlatform.Infrastructure.Agent.Identity;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Teams;
 using DevOpsMigrationPlatform.Infrastructure.Simulated;
 using DevOpsMigrationPlatform.Infrastructure.Config;
+using DevOpsMigrationPlatform.Abstractions.Agent.Context;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
 using OpenTelemetry.Metrics;
 
@@ -58,6 +61,14 @@ public static class MigrationAgentServiceExtensions
 
         // Register cross-cutting tool services (NodeTranslation + FieldTransform).
         builder.Services.AddNodeTranslationToolServices();
+
+        // Register dynamic endpoint info — reads ConnectorType/Url/Project from
+        // ActiveJobConfigState.Current on every access, so every job picks the
+        // correct connector regardless of which connectors are registered.
+        // Must be registered BEFORE any connector calls AddSingleton/TryAddSingleton
+        // so connectors never override these with a static per-connector value.
+        builder.Services.TryAddSingleton<ISourceEndpointInfo, ActiveJobSourceEndpointInfo>();
+        builder.Services.TryAddSingleton<ITargetEndpointInfo, ActiveJobTargetEndpointInfo>();
         builder.Services.AddFieldTransformToolServices();
 
         // Package config store — reads migration-config.json from the package at job pickup.

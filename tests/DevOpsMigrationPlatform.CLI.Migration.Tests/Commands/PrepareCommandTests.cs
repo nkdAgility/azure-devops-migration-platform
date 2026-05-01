@@ -41,14 +41,16 @@ public class PrepareCommandTests
             return;
         }
 
-        var testStorage = Path.Combine("storage", nameof(PrepareCommand_WithValidConfig_ExitsZero_AndWritesProbeFile));
+        var testStorage = Path.Combine(CliRunner.TestWorkingFolder, nameof(PrepareCommand_WithValidConfig_ExitsZero_AndWritesProbeFile));
         var outputDir = Path.Combine(CliRunner.FindRepoRoot(), testStorage);
 
         // ── Act ───────────────────────────────────────────────────────────
-        var result = await CliRunner.RunAsync(
+        var result = await CliRunner.RunTestAsync(
+            testName: nameof(PrepareCommand_WithValidConfig_ExitsZero_AndWritesProbeFile),
             args: ["prepare", "--config", "scenarios/queue-export-ado-workitems-single-project.json"],
-            env: new System.Collections.Generic.Dictionary<string, string> { ["DEVOPS_MIGRATION_TEST_STORAGE"] = testStorage },
-            timeout: TimeSpan.FromMinutes(4));
+            timeout: TimeSpan.FromMinutes(4),
+            cleanOutputFolder: true);
+        outputDir = result.OutputDirectory;
 
         Console.WriteLine("=== STDOUT ===");
         Console.WriteLine(result.StandardOutput);

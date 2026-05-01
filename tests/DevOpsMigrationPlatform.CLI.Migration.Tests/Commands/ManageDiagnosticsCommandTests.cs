@@ -37,13 +37,14 @@ public class ManageDiagnosticsCommandTests
         {
             ["MigrationPlatform__Environment__Type"] = "Hosted",
             ["MigrationPlatform__Environment__ControlPlane__BaseUrl"] = ControlPlaneHostRunner.DefaultUrl,
-            ["DEVOPS_MIGRATION_TEST_STORAGE"] = Path.Combine("storage", nameof(ManageDiagnosticsCommand_SystemTest_AfterExport_ExitsZero_AndShowsDiagnosticOutput)),
         };
 
-        var exportResult = await CliRunner.RunAsync(
+        var exportResult = await CliRunner.RunTestAsync(
+            testName: nameof(ManageDiagnosticsCommand_SystemTest_AfterExport_ExitsZero_AndShowsDiagnosticOutput),
             args: ["queue", "--config", "scenarios/queue-export-workitems-simulated-source.json", "--force-fresh"],
             env: hostedEnv,
-            timeout: TimeSpan.FromMinutes(2));
+            timeout: TimeSpan.FromMinutes(2),
+            cleanOutputFolder: true);
 
         Console.WriteLine("=== EXPORT STDOUT ===");
         Console.WriteLine(exportResult.StandardOutput);

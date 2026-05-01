@@ -1,5 +1,6 @@
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Agent.Context;
+using DevOpsMigrationPlatform.Abstractions.Agent.Lease;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Connectors;
 using DevOpsMigrationPlatform.Infrastructure.Serialization;
@@ -103,12 +104,13 @@ public static class SimulatedServiceCollectionExtensions
 
     /// <summary>
     /// Registers <see cref="ISourceEndpointInfo"/> and <see cref="ITargetEndpointInfo"/> for the Simulated connector.
-    /// Reads values from <see cref="IOptions{SimulatedEndpointOptions}"/>.
+    /// Uses TryAddSingleton so the dynamic ActiveJobConfigState-backed implementations registered
+    /// by the MigrationAgent take precedence when both connectors are in the same host.
     /// </summary>
     private static IServiceCollection AddSimulatedEndpointInfo(this IServiceCollection services)
     {
-        // Source endpoint info
-        services.AddSingleton<ISourceEndpointInfo>(sp =>
+        // Source endpoint info — TryAdd so dynamic per-job impl takes precedence
+        services.TryAddSingleton<ISourceEndpointInfo>(sp =>
         {
             var opts = sp.GetRequiredService<IOptions<SimulatedEndpointOptions>>().Value;
             return new SimulatedSourceEndpointInfo
@@ -119,8 +121,8 @@ public static class SimulatedServiceCollectionExtensions
             };
         });
 
-        // Target endpoint info
-        services.AddSingleton<ITargetEndpointInfo>(sp =>
+        // Target endpoint info — TryAdd so dynamic per-job impl takes precedence
+        services.TryAddSingleton<ITargetEndpointInfo>(sp =>
         {
             var opts = sp.GetRequiredService<IOptions<SimulatedEndpointOptions>>().Value;
             return new SimulatedTargetEndpointInfo

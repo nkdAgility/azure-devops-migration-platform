@@ -25,16 +25,12 @@ public class SimulatedMigrationCommandTests
     [Timeout(300_000)] // 5 minutes — includes local stack startup
     public async Task QueueExportSimulated_ExitsZeroAndWritesWorkItemRevisions()
     {
-        var testStorage = Path.Combine("storage", nameof(QueueExportSimulated_ExitsZeroAndWritesWorkItemRevisions));
-        var outputDir = Path.Combine(CliRunner.FindRepoRoot(), testStorage);
-
-        if (Directory.Exists(outputDir))
-            Directory.Delete(outputDir, recursive: true);
-
-        var result = await CliRunner.RunAsync(
+        var result = await CliRunner.RunTestAsync(
+            testName: nameof(QueueExportSimulated_ExitsZeroAndWritesWorkItemRevisions),
             args: ["queue", "--config", "scenarios/queue-export-workitems-simulated-source.json", "--force-fresh"],
-            env: new System.Collections.Generic.Dictionary<string, string> { ["DEVOPS_MIGRATION_TEST_STORAGE"] = testStorage },
-            timeout: TimeSpan.FromMinutes(4));
+            timeout: TimeSpan.FromMinutes(4),
+            cleanOutputFolder: true);
+        var outputDir = result.OutputDirectory;
 
         Console.WriteLine("=== STDOUT ===");
         Console.WriteLine(result.StandardOutput);
@@ -80,21 +76,13 @@ public class SimulatedMigrationCommandTests
     [Timeout(600_000)] // 10 minutes — two full stack runs back to back
     public async Task QueueExportSimulated_ReSubmitWithoutForce_ResumesSuccessfully()
     {
-        var testStorage = Path.Combine("storage", nameof(QueueExportSimulated_ReSubmitWithoutForce_ResumesSuccessfully));
-        var outputDir = Path.Combine(CliRunner.FindRepoRoot(), testStorage);
-        var testEnv = new System.Collections.Generic.Dictionary<string, string>
-        {
-            ["DEVOPS_MIGRATION_TEST_STORAGE"] = testStorage
-        };
-
-        if (Directory.Exists(outputDir))
-            Directory.Delete(outputDir, recursive: true);
-
         // First run: establishes migration-config.json using --force-fresh
-        var first = await CliRunner.RunAsync(
+        var first = await CliRunner.RunTestAsync(
+            testName: nameof(QueueExportSimulated_ReSubmitWithoutForce_ResumesSuccessfully),
             args: ["queue", "--config", "scenarios/queue-export-workitems-simulated-source.json", "--force-fresh"],
-            env: testEnv,
-            timeout: TimeSpan.FromMinutes(4));
+            timeout: TimeSpan.FromMinutes(4),
+            cleanOutputFolder: true);
+        var outputDir = first.OutputDirectory;
 
         Assert.AreEqual(0, first.ExitCode,
             $"First run must succeed to establish migration-config.json. " +
@@ -106,9 +94,9 @@ public class SimulatedMigrationCommandTests
             "Expected migration-config.json after first run — prerequisite for SC-003 test.");
 
         // Second run WITHOUT --force-fresh: same source/target → must be accepted (resume)
-        var second = await CliRunner.RunAsync(
+        var second = await CliRunner.RunTestAsync(
+            testName: nameof(QueueExportSimulated_ReSubmitWithoutForce_ResumesSuccessfully),
             args: ["queue", "--config", "scenarios/queue-export-workitems-simulated-source.json"],
-            env: testEnv,
             timeout: TimeSpan.FromMinutes(4));
 
         Console.WriteLine("=== SECOND RUN STDOUT ===");
@@ -138,16 +126,11 @@ public class SimulatedMigrationCommandTests
     [Timeout(300_000)] // 5 minutes
     public async Task QueueImportSimulated_ExitsZeroAndAcceptsWorkItems()
     {
-        var testStorage = Path.Combine("storage", nameof(QueueImportSimulated_ExitsZeroAndAcceptsWorkItems));
-        var outputDir = Path.Combine(CliRunner.FindRepoRoot(), testStorage);
-
-        if (Directory.Exists(outputDir))
-            Directory.Delete(outputDir, recursive: true);
-
-        var result = await CliRunner.RunAsync(
+        var result = await CliRunner.RunTestAsync(
+            testName: nameof(QueueImportSimulated_ExitsZeroAndAcceptsWorkItems),
             args: ["queue", "--config", "scenarios/queue-import-workitems-simulated-target.json", "--force-fresh"],
-            env: new System.Collections.Generic.Dictionary<string, string> { ["DEVOPS_MIGRATION_TEST_STORAGE"] = testStorage },
-            timeout: TimeSpan.FromMinutes(4));
+            timeout: TimeSpan.FromMinutes(4),
+            cleanOutputFolder: true);
 
         Console.WriteLine("=== STDOUT ===");
         Console.WriteLine(result.StandardOutput);
@@ -171,16 +154,12 @@ public class SimulatedMigrationCommandTests
     [Timeout(300_000)] // 5 minutes
     public async Task QueueRoundtripSimulated_ExitsZeroAndProducesPackageWithRevisions()
     {
-        var testStorage = Path.Combine("storage", nameof(QueueRoundtripSimulated_ExitsZeroAndProducesPackageWithRevisions));
-        var outputDir = Path.Combine(CliRunner.FindRepoRoot(), testStorage);
-
-        if (Directory.Exists(outputDir))
-            Directory.Delete(outputDir, recursive: true);
-
-        var result = await CliRunner.RunAsync(
+        var result = await CliRunner.RunTestAsync(
+            testName: nameof(QueueRoundtripSimulated_ExitsZeroAndProducesPackageWithRevisions),
             args: ["queue", "--config", "scenarios/roundtrip-simulated.json", "--force-fresh"],
-            env: new System.Collections.Generic.Dictionary<string, string> { ["DEVOPS_MIGRATION_TEST_STORAGE"] = testStorage },
-            timeout: TimeSpan.FromMinutes(4));
+            timeout: TimeSpan.FromMinutes(4),
+            cleanOutputFolder: true);
+        var outputDir = result.OutputDirectory;
 
         Console.WriteLine("=== STDOUT ===");
         Console.WriteLine(result.StandardOutput);
@@ -219,16 +198,12 @@ public class SimulatedMigrationCommandTests
     [Timeout(300_000)] // 5 minutes
     public async Task QueueExportSimulated_ProducesBothLogFiles()
     {
-        var testStorage = Path.Combine("storage", nameof(QueueExportSimulated_ProducesBothLogFiles));
-        var outputDir = Path.Combine(CliRunner.FindRepoRoot(), testStorage);
-
-        if (Directory.Exists(outputDir))
-            Directory.Delete(outputDir, recursive: true);
-
-        var result = await CliRunner.RunAsync(
+        var result = await CliRunner.RunTestAsync(
+            testName: nameof(QueueExportSimulated_ProducesBothLogFiles),
             args: ["queue", "--config", "scenarios/queue-export-workitems-simulated-source.json", "--force-fresh"],
-            env: new System.Collections.Generic.Dictionary<string, string> { ["DEVOPS_MIGRATION_TEST_STORAGE"] = testStorage },
-            timeout: TimeSpan.FromMinutes(4));
+            timeout: TimeSpan.FromMinutes(4),
+            cleanOutputFolder: true);
+        var outputDir = result.OutputDirectory;
 
         Assert.IsFalse(result.TimedOut, "CLI timed out.");
         Assert.AreEqual(0, result.ExitCode,

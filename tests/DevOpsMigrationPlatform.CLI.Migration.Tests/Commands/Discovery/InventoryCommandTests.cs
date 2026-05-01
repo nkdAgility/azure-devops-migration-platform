@@ -29,18 +29,13 @@ public class InventoryCommandTests
             return;
         }
 
-        var repoRoot = CliRunner.FindRepoRoot();
-        var testStorage = Path.Combine("storage", nameof(InventoryCommand_SystemTest_AdoSingleProject_ScenarioFile_ExecutesSuccessfully));
-        var outputDir = Path.GetFullPath(Path.Combine(repoRoot, testStorage));
-        var csvPath = Path.Combine(outputDir, "inventory.csv");
-
-        if (File.Exists(csvPath))
-            File.Delete(csvPath);
-
-        var result = await CliRunner.RunAsync(
+        var result = await CliRunner.RunTestAsync(
+            testName: nameof(InventoryCommand_SystemTest_AdoSingleProject_ScenarioFile_ExecutesSuccessfully),
             args: ["discovery", "inventory", "--config", "scenarios/inventory-ado-single-project.json"],
-            env: new System.Collections.Generic.Dictionary<string, string> { ["DEVOPS_MIGRATION_TEST_STORAGE"] = testStorage },
-            timeout: TimeSpan.FromMinutes(4));
+            timeout: TimeSpan.FromMinutes(4),
+            cleanOutputFolder: true);
+        var outputDir = result.OutputDirectory;
+        var csvPath = Path.Combine(outputDir, "inventory.csv");
 
         Console.WriteLine("=== STDOUT ===");
         Console.WriteLine(result.StandardOutput);
@@ -97,13 +92,11 @@ public class InventoryCommandTests
             return;
         }
 
-        var result = await CliRunner.RunAsync(
+        var result = await CliRunner.RunTestAsync(
+            testName: nameof(InventoryCommand_SystemTest_CIEnvironment_ExecutesSecurely),
             args: ["discovery", "inventory", "--config", "scenarios/inventory-ado-single-project.json"],
-            env: new System.Collections.Generic.Dictionary<string, string>
-            {
-                ["DEVOPS_MIGRATION_TEST_STORAGE"] = Path.Combine("storage", nameof(InventoryCommand_SystemTest_CIEnvironment_ExecutesSecurely))
-            },
-            timeout: TimeSpan.FromMinutes(4));
+            timeout: TimeSpan.FromMinutes(4),
+            cleanOutputFolder: true);
 
         // T023: Verify no credentials appear in output
         var combinedOutput = result.StandardOutput + result.StandardError;

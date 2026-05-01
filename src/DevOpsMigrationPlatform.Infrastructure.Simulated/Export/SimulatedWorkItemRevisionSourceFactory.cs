@@ -1,33 +1,34 @@
 using System;
-using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
-using DevOpsMigrationPlatform.Abstractions.Agent.Context;
+using DevOpsMigrationPlatform.Abstractions.Agent.Lease;
 using DevOpsMigrationPlatform.Abstractions.Options;
-using Microsoft.Extensions.Options;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Simulated.Export;
 
 /// <summary>
 /// Creates a <see cref="SimulatedWorkItemRevisionSource"/> for endpoints with
 /// <c>Type == "Simulated"</c>. No credentials are required.
-/// Accepts <see cref="SimulatedEndpointOptions"/> from DI.
+/// Reads the <see cref="SimulatedGeneratorConfig"/> from the current job's Source
+/// via <see cref="ActiveJobConfigState"/> so that the Generator (including Projects)
+/// always reflects the per-job migration-config.json rather than a stale singleton value.
 /// </summary>
 public sealed class SimulatedWorkItemRevisionSourceFactory : IWorkItemRevisionSourceFactory
 {
-    private readonly IOptions<SimulatedEndpointOptions> _options;
+    private readonly ActiveJobConfigState _activeJobConfig;
 
-    public SimulatedWorkItemRevisionSourceFactory(IOptions<SimulatedEndpointOptions> options)
+    public SimulatedWorkItemRevisionSourceFactory(ActiveJobConfigState activeJobConfig)
     {
-        _options = options ?? throw new ArgumentNullException(nameof(options));
+        _activeJobConfig = activeJobConfig ?? throw new ArgumentNullException(nameof(activeJobConfig));
     }
 
     /// <inheritdoc/>
     public Task<IWorkItemRevisionSource> CreateAsync(CancellationToken cancellationToken)
     {
-        var simOpts = _options.Value;
+        var generator = (_activeJobConfig.Current?.Source as SimulatedEndpointOptions)?.Generator
+            ?? new SimulatedGeneratorConfig();
         return Task.FromResult<IWorkItemRevisionSource>(
-            new SimulatedWorkItemRevisionSource(simOpts.Generator));
+            new SimulatedWorkItemRevisionSource(generator));
     }
 }

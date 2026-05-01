@@ -1,6 +1,7 @@
 using System;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Agent.Context;
@@ -74,7 +75,7 @@ public static class TfsMigrationAgentServiceExtensions
     /// </summary>
     private static IServiceCollection AddTfsSourceEndpointInfo(this IServiceCollection services)
     {
-        services.AddSingleton<ISourceEndpointInfo>(sp =>
+        services.TryAddSingleton<ISourceEndpointInfo>(sp =>
         {
             var activeServices = sp.GetRequiredService<ActiveTfsJobServices>();
             var endpoint = activeServices.Require().Endpoint;

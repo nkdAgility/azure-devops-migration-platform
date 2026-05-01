@@ -45,18 +45,14 @@ public class ExportCommandFollowTests
     [Timeout(120_000)] // 2 minutes
     public async Task ExportCommand_WithFollowAndWarningLevel_ExitsZero_AndWritesRevisionFiles()
     {
-        // ── Output folder ───────────────────────────────────────────────────────────
-        var testStorage = Path.Combine("storage", nameof(ExportCommand_WithFollowAndWarningLevel_ExitsZero_AndWritesRevisionFiles));
-        var outputDir = Path.Combine(CliRunner.FindRepoRoot(), testStorage);
-        if (Directory.Exists(outputDir))
-            Directory.Delete(outputDir, recursive: true);
-
-        // ── Act — run with --follow and --level Warning ────────────────────
-        var result = await CliRunner.RunAsync(
+        // ── Act — run with --follow and --level Warning ──────────────────
+        var result = await CliRunner.RunTestAsync(
+            testName: nameof(ExportCommand_WithFollowAndWarningLevel_ExitsZero_AndWritesRevisionFiles),
             args: ["queue", "--config", "scenarios/queue-export-workitems-simulated-source.json",
                    "--force-fresh", "--follow", "--level", "Warning"],
-            env: new System.Collections.Generic.Dictionary<string, string> { ["DEVOPS_MIGRATION_TEST_STORAGE"] = testStorage },
-            timeout: TimeSpan.FromMinutes(1));
+            timeout: TimeSpan.FromMinutes(1),
+            cleanOutputFolder: true);
+        var outputDir = result.OutputDirectory;
 
         Console.WriteLine("=== STDOUT ===");
         Console.WriteLine(result.StandardOutput);
@@ -100,18 +96,14 @@ public class ExportCommandFollowTests
     [Timeout(120_000)] // 2 minutes
     public async Task ExportCommand_WithDebugLevel_WritesAgentJsonl()
     {
-        // ── Output folder ───────────────────────────────────────────────────────────
-        var testStorage = Path.Combine("storage", nameof(ExportCommand_WithDebugLevel_WritesAgentJsonl));
-        var outputDir = Path.Combine(CliRunner.FindRepoRoot(), testStorage);
-        if (Directory.Exists(outputDir))
-            Directory.Delete(outputDir, recursive: true);
-
-        // ── Act — run with --level Debug ──────────────────────────────────
-        var result = await CliRunner.RunAsync(
+        // ── Act — run with --level Debug ──────────────────────────────────────
+        var result = await CliRunner.RunTestAsync(
+            testName: nameof(ExportCommand_WithDebugLevel_WritesAgentJsonl),
             args: ["queue", "--config", "scenarios/queue-export-workitems-simulated-source.json",
                    "--force-fresh", "--level", "Debug"],
-            env: new System.Collections.Generic.Dictionary<string, string> { ["DEVOPS_MIGRATION_TEST_STORAGE"] = testStorage },
-            timeout: TimeSpan.FromMinutes(1));
+            timeout: TimeSpan.FromMinutes(1),
+            cleanOutputFolder: true);
+        var outputDir = result.OutputDirectory;
 
         Console.WriteLine("=== STDOUT ===");
         Console.WriteLine(result.StandardOutput);
