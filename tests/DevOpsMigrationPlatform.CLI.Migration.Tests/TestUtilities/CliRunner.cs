@@ -152,11 +152,10 @@ public sealed class CliRunner
                 psi.Environment[key] = value;
         }
 
-        // Auto-set OTel file diagnostics path alongside the test storage folder
-        // so that .otel-diagnostics trace/log files land next to the package output.
+        // Always override OTel file diagnostics path to land next to the test storage folder,
+        // even if Telemetry__DiagnosticsPath is set in the inherited environment or user config.
         if (psi.Environment.TryGetValue("DEVOPS_MIGRATION_TEST_STORAGE", out var testStorageRel)
-            && !string.IsNullOrWhiteSpace(testStorageRel)
-            && !psi.Environment.ContainsKey("Telemetry__DiagnosticsPath"))
+            && !string.IsNullOrWhiteSpace(testStorageRel))
         {
             psi.Environment["Telemetry__DiagnosticsPath"] =
                 Path.GetFullPath(Path.Combine(FindRepoRoot(), testStorageRel, ".otel-diagnostics"));
