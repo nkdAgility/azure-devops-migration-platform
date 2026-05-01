@@ -8,6 +8,7 @@ using DevOpsMigrationPlatform.Abstractions.Agent.Context;
 using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Abstractions.Agent.Export;
+using DevOpsMigrationPlatform.Abstractions.Organisations;
 using DevOpsMigrationPlatform.Infrastructure.Agent;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Export;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Identity;
@@ -92,5 +93,10 @@ public static class TfsMigrationAgentServiceExtensions
     /// <summary>
     /// Inline implementation of <see cref="ISourceEndpointInfo"/> for TFS connector.
     /// </summary>
-    private sealed record TfsSourceEndpointInfo(string Url, string Project, string ConnectorType) : ISourceEndpointInfo;
+    private sealed record TfsSourceEndpointInfo(string Url, string Project, string ConnectorType) : ISourceEndpointInfo
+    {
+        // TFS uses its own SDK for auth — return a minimal endpoint for compatibility.
+        public OrganisationEndpoint ToOrganisationEndpoint() =>
+            new OrganisationEndpoint { ResolvedUrl = Url, Type = ConnectorType };
+    }
 }

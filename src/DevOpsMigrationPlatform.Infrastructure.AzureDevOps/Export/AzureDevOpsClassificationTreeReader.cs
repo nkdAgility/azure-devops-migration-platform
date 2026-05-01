@@ -37,11 +37,7 @@ internal sealed class AzureDevOpsClassificationTreeReader : IClassificationTreeR
         [EnumeratorCancellation] CancellationToken ct)
     {
         var project = _sourceEndpointInfo.Project;
-        var orgEndpoint = new OrganisationEndpoint
-        {
-            ResolvedUrl = _sourceEndpointInfo.Url,
-            Type = _sourceEndpointInfo.ConnectorType
-        };
+        var orgEndpoint = _sourceEndpointInfo.ToOrganisationEndpoint();
         var client = await _clientFactory.CreateWorkItemClientAsync(orgEndpoint, ct).ConfigureAwait(false);
 
         WorkItemClassificationNode root;
@@ -66,11 +62,7 @@ internal sealed class AzureDevOpsClassificationTreeReader : IClassificationTreeR
         [EnumeratorCancellation] CancellationToken ct)
     {
         var project = _sourceEndpointInfo.Project;
-        var orgEndpoint = new OrganisationEndpoint
-        {
-            ResolvedUrl = _sourceEndpointInfo.Url,
-            Type = _sourceEndpointInfo.ConnectorType
-        };
+        var orgEndpoint = _sourceEndpointInfo.ToOrganisationEndpoint();
         var client = await _clientFactory.CreateWorkItemClientAsync(orgEndpoint, ct).ConfigureAwait(false);
 
         WorkItemClassificationNode root;

@@ -27,11 +27,7 @@ internal sealed class AzureDevOpsWorkItemImportTargetFactory : IWorkItemImportTa
     /// <inheritdoc/>
     public async Task<IWorkItemImportTarget> CreateAsync(CancellationToken ct)
     {
-        var orgEndpoint = new OrganisationEndpoint
-        {
-            ResolvedUrl = _endpointInfo.Url,
-            Type = _endpointInfo.ConnectorType
-        };
+        var orgEndpoint = _endpointInfo.ToOrganisationEndpoint();
         var project = _endpointInfo.Project;
         var resolvedUrl = _endpointInfo.Url;
 

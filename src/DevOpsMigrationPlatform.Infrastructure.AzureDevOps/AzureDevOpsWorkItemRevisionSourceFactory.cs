@@ -39,11 +39,7 @@ internal sealed class AzureDevOpsWorkItemRevisionSourceFactory : IWorkItemRevisi
     /// <inheritdoc/>
     public async Task<IWorkItemRevisionSource> CreateAsync(CancellationToken ct)
     {
-        var organisationEndpoint = new OrganisationEndpoint
-        {
-            ResolvedUrl = _endpointInfo.Url,
-            Type = _endpointInfo.ConnectorType
-        };
+        var organisationEndpoint = _endpointInfo.ToOrganisationEndpoint();
         var project = _endpointInfo.Project;
 
         var witClient = await _clientFactory

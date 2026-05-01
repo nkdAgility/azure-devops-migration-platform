@@ -1,3 +1,5 @@
+using DevOpsMigrationPlatform.Abstractions.Organisations;
+
 namespace DevOpsMigrationPlatform.Abstractions.Agent.Context;
 
 /// <summary>
@@ -17,4 +19,15 @@ public interface ITargetEndpointInfo
     /// Connector type identifier: "AzureDevOpsServices" | "Simulated".
     /// </summary>
     string ConnectorType { get; }
+
+    /// <summary>
+    /// Returns the full <see cref="OrganisationEndpoint"/> for this endpoint, including authentication.
+    /// Default implementation returns an endpoint with no authentication (backward-compatible).
+    /// Override in connector-specific implementations to include auth credentials.
+    /// </summary>
+#if !NET481
+    OrganisationEndpoint ToOrganisationEndpoint() => new() { ResolvedUrl = Url, Type = ConnectorType };
+#else
+    OrganisationEndpoint ToOrganisationEndpoint();
+#endif
 }

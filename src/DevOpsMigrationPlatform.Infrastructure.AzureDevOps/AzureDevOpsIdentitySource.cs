@@ -38,11 +38,7 @@ internal sealed class AzureDevOpsIdentitySource : IIdentitySource
     {
         _logger.LogInformation("[Identities/ADO] Enumerating identities for project '{Project}'.", projectName);
 
-        var org = new OrganisationEndpoint
-        {
-            ResolvedUrl = _endpointInfo.Url,
-            Type = _endpointInfo.ConnectorType
-        };
+        var org = _endpointInfo.ToOrganisationEndpoint();
         var teamClient = await _clientFactory.CreateTeamClientAsync(org, cancellationToken).ConfigureAwait(false);
 
         var teams = await teamClient.GetTeamsAsync(projectName, cancellationToken: cancellationToken).ConfigureAwait(false);

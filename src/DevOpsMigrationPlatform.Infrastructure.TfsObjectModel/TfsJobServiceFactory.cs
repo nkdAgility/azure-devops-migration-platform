@@ -4,6 +4,7 @@ using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Agent.Context;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Abstractions.Options;
+using DevOpsMigrationPlatform.Abstractions.Organisations;
 using DevOpsMigrationPlatform.Abstractions.Telemetry;
 using DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.Attachments;
 using DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.Discovery;
@@ -208,4 +209,8 @@ internal sealed class SourceEndpointInfo : ISourceEndpointInfo
     public string Url { get; init; } = string.Empty;
     public string Project { get; init; } = string.Empty;
     public string ConnectorType { get; init; } = string.Empty;
+
+    // TFS uses its own SDK for auth — return a minimal endpoint for compatibility.
+    public OrganisationEndpoint ToOrganisationEndpoint() =>
+        new OrganisationEndpoint { ResolvedUrl = Url, Type = ConnectorType };
 }

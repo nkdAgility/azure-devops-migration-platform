@@ -38,11 +38,7 @@ internal sealed class AzureDevOpsTeamSource : ITeamSource
         string projectName,
         [EnumeratorCancellation] CancellationToken ct)
     {
-        var org = new OrganisationEndpoint
-        {
-            ResolvedUrl = _endpointInfo.Url,
-            Type = _endpointInfo.ConnectorType
-        };
+        var org = _endpointInfo.ToOrganisationEndpoint();
         var teamClient = await _clientFactory.CreateTeamClientAsync(org, ct).ConfigureAwait(false);
         var teams = await teamClient.GetTeamsAsync(projectName, cancellationToken: ct).ConfigureAwait(false);
 
@@ -61,11 +57,7 @@ internal sealed class AzureDevOpsTeamSource : ITeamSource
     public async Task<TeamSettings?> GetTeamSettingsAsync(
         string projectName, string teamId, CancellationToken ct)
     {
-        var org = new OrganisationEndpoint
-        {
-            ResolvedUrl = _endpointInfo.Url,
-            Type = _endpointInfo.ConnectorType
-        };
+        var org = _endpointInfo.ToOrganisationEndpoint();
         var workClient = await _clientFactory.CreateWorkClientAsync(org, ct).ConfigureAwait(false);
         var teamContext = new WorkContext(projectName, teamId);
 
@@ -89,11 +81,7 @@ internal sealed class AzureDevOpsTeamSource : ITeamSource
         string projectName, string teamId,
         [EnumeratorCancellation] CancellationToken ct)
     {
-        var org = new OrganisationEndpoint
-        {
-            ResolvedUrl = _endpointInfo.Url,
-            Type = _endpointInfo.ConnectorType
-        };
+        var org = _endpointInfo.ToOrganisationEndpoint();
         var workClient = await _clientFactory.CreateWorkClientAsync(org, ct).ConfigureAwait(false);
         var teamContext = new WorkContext(projectName, teamId);
 
@@ -127,11 +115,7 @@ internal sealed class AzureDevOpsTeamSource : ITeamSource
         string projectName, string teamId,
         [EnumeratorCancellation] CancellationToken ct)
     {
-        var org = new OrganisationEndpoint
-        {
-            ResolvedUrl = _endpointInfo.Url,
-            Type = _endpointInfo.ConnectorType
-        };
+        var org = _endpointInfo.ToOrganisationEndpoint();
         var teamClient = await _clientFactory.CreateTeamClientAsync(org, ct).ConfigureAwait(false);
 
         List<Microsoft.VisualStudio.Services.WebApi.TeamMember> members;
@@ -162,11 +146,7 @@ internal sealed class AzureDevOpsTeamSource : ITeamSource
     public async Task<TeamCapacityEntry[]> GetTeamCapacityAsync(
         string projectName, string teamId, string iterationId, CancellationToken ct)
     {
-        var org = new OrganisationEndpoint
-        {
-            ResolvedUrl = _endpointInfo.Url,
-            Type = _endpointInfo.ConnectorType
-        };
+        var org = _endpointInfo.ToOrganisationEndpoint();
         var workClient = await _clientFactory.CreateWorkClientAsync(org, ct).ConfigureAwait(false);
         var teamContext = new WorkContext(projectName, teamId);
 
@@ -204,11 +184,7 @@ internal sealed class AzureDevOpsTeamSource : ITeamSource
     public async Task<TeamAreaPaths?> GetTeamAreaPathsAsync(
         string projectName, string teamId, CancellationToken ct)
     {
-        var org = new OrganisationEndpoint
-        {
-            ResolvedUrl = _endpointInfo.Url,
-            Type = _endpointInfo.ConnectorType
-        };
+        var org = _endpointInfo.ToOrganisationEndpoint();
         var workClient = await _clientFactory.CreateWorkClientAsync(org, ct).ConfigureAwait(false);
         var teamContext = new WorkContext(projectName, teamId);
 

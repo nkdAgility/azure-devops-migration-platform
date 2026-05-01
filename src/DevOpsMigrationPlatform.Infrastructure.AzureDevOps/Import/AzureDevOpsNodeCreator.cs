@@ -42,11 +42,7 @@ internal sealed class AzureDevOpsNodeCreator : INodeCreator
         var (project, relativePath) = SplitPath(path, _endpointInfo.Project);
         if (string.IsNullOrEmpty(relativePath)) return true; // project root always exists
 
-        var orgEndpoint = new OrganisationEndpoint
-        {
-            ResolvedUrl = _endpointInfo.Url,
-            Type = _endpointInfo.ConnectorType
-        };
+        var orgEndpoint = _endpointInfo.ToOrganisationEndpoint();
         var client = await _clientFactory.CreateWorkItemClientAsync(orgEndpoint, ct).ConfigureAwait(false);
         var group = ToTreeStructureGroup(nodeType);
 
@@ -71,11 +67,7 @@ internal sealed class AzureDevOpsNodeCreator : INodeCreator
         var (project, relativePath) = SplitPath(path, _endpointInfo.Project);
         if (string.IsNullOrEmpty(relativePath)) return; // project root always exists
 
-        var orgEndpoint = new OrganisationEndpoint
-        {
-            ResolvedUrl = _endpointInfo.Url,
-            Type = _endpointInfo.ConnectorType
-        };
+        var orgEndpoint = _endpointInfo.ToOrganisationEndpoint();
         var client = await _clientFactory.CreateWorkItemClientAsync(orgEndpoint, ct).ConfigureAwait(false);
         var group = ToTreeStructureGroup(nodeType);
 
@@ -94,11 +86,7 @@ internal sealed class AzureDevOpsNodeCreator : INodeCreator
         var (project, relativePath) = SplitPath(path, _endpointInfo.Project);
         if (string.IsNullOrEmpty(relativePath)) return;
 
-        var orgEndpoint = new OrganisationEndpoint
-        {
-            ResolvedUrl = _endpointInfo.Url,
-            Type = _endpointInfo.ConnectorType
-        };
+        var orgEndpoint = _endpointInfo.ToOrganisationEndpoint();
         var client = await _clientFactory.CreateWorkItemClientAsync(orgEndpoint, ct).ConfigureAwait(false);
 
         var attributes = new Dictionary<string, object>();
