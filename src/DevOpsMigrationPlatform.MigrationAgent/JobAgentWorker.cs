@@ -27,7 +27,6 @@ namespace DevOpsMigrationPlatform.MigrationAgent;
 /// </summary>
 public sealed class JobAgentWorker : ModulePipelineWorkerBase
 {
-    private readonly IEnumerable<IDiscoveryModule> _discoveryModules;
     private readonly IJobMetricsStore _metricsStore;
     private readonly IJobSnapshotStore _snapshotStore;
     private readonly IEnumerable<IFlushable> _flushables;
@@ -40,7 +39,6 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
 
     public JobAgentWorker(
         IEnumerable<IModule> migrationModules,
-        IEnumerable<IDiscoveryModule> discoveryModules,
         IPackageStoreFactory packageStoreFactory,
         IPackagePreparer packagePreparer,
         IProgressSink progressSink,
@@ -65,7 +63,6 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
                phaseTrackingFactory, leaseState, packageState, activeJobConfig, packageConfigStore,
                moduleScopeFactory, httpClientFactory, logger, endpointConverter, organisationConverter)
     {
-        _discoveryModules = discoveryModules;
         _metricsStore = metricsStore;
         _snapshotStore = snapshotStore;
         _flushables = flushables;
@@ -417,73 +414,7 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
             {
                 if (runExport)
                 {
-                    // When running export, auto-run inventory first if inventory.json
-                    // does not yet exist in the package.
-                    var inventoryExists = await artefactStore.ExistsAsync("inventory.json", ct).ConfigureAwait(false);
-                    if (!inventoryExists)
-                    {
-                        _logger.LogInformation(
-                            "No inventory.json found for export job {JobId} — running inventory module first.", job.JobId);
-                        var inventoryModules = _discoveryModules
-                            .Where(m => m.DiscoveryKind == JobKind.Inventory)
-                            .ToList();
-
-                        if (inventoryModules.Count > 0)
-                        {
-                            var discoveryContext = new DiscoveryContext
-                            {
-                                Job = job,
-                                ArtefactStore = artefactStore,
-                                StateStore = stateStore,
-                                ProgressSink = ProgressSink
-                            };
-
-                            foreach (var module in inventoryModules)
-                            {
-                                var taskId = $"inventory.{module.Name.ToLowerInvariant()}";
-                                _logger.LogInformation("Running inventory module {Module}.RunAsync", module.Name);
-                                ProgressSink.Emit(new ProgressEvent
-                                {
-                                    Module = module.Name,
-                                    Stage = "Inventory.Start",
-                                    Timestamp = DateTimeOffset.UtcNow,
-                                    TaskId = taskId,
-                                    TaskStatus = JobTaskStatus.Running
-                                });
-                                try
-                                {
-                                    await module.RunAsync(discoveryContext, ct).ConfigureAwait(false);
-                                    ProgressSink.Emit(new ProgressEvent
-                                    {
-                                        Module = module.Name,
-                                        Stage = "Inventory.Complete",
-                                        Timestamp = DateTimeOffset.UtcNow,
-                                        TaskId = taskId,
-                                        TaskStatus = JobTaskStatus.Completed
-                                    });
-                                }
-                                catch
-                                {
-                                    ProgressSink.Emit(new ProgressEvent
-                                    {
-                                        Module = module.Name,
-                                        Stage = "Inventory.Failed",
-                                        Timestamp = DateTimeOffset.UtcNow,
-                                        TaskId = taskId,
-                                        TaskStatus = JobTaskStatus.Failed
-                                    });
-                                    throw;
-                                }
-                            }
-                        }
-                        else
-                        {
-                            _logger.LogWarning(
-                                "No inventory module registered — proceeding with export without inventory for job {JobId}.", job.JobId);
-                        }
-                    }
-
-                    // Execute export phase using the plan executor.
+                    // Execute export phase using the plan executor (includes Inventory if needed).
                     var moduleMap = jobModules.ToDictionary(m => m.Name, m => (IModule)m, StringComparer.OrdinalIgnoreCase);
                     var exportOk = await _planExecutor.ExecuteExportPhaseAsync(
                         executionPlan, moduleMap, exportContext, stateStore, ct).ConfigureAwait(false);
@@ -553,7 +484,7 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
         {
             _logger.LogInformation(
                 "ForceFresh requested for discovery job {JobId} — deleting module cursors.", job.JobId);
-            foreach (var module in _discoveryModules)
+            foreach (var module in _migrationModules)
             {
                 var cursorPath = PackagePaths.CursorFile(module.Name);
                 try { await stateStore.DeleteAsync(cursorPath, ct).ConfigureAwait(false); }
@@ -600,19 +531,21 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
                 job.JobId);
         }
 
-        var modulesToRun = _discoveryModules.Where(m => m.DiscoveryKind == job.Kind).ToList();
+        // Route to the right modules by job kind name (e.g. "Inventory", "Dependencies").
+        var modulesToRun = _migrationModules
+            .Where(m => m.Name.Equals(job.Kind.ToString(), StringComparison.OrdinalIgnoreCase))
+            .ToList();
 
-        // When running dependency analysis, auto-run inventory first if inventory.json
-        // does not yet exist in the package.
+        // When running dependency analysis, prepend Inventory if inventory.json is missing.
         if (job.Kind == JobKind.Dependencies)
         {
             var inventoryExists = await artefactStore.ExistsAsync("inventory.json", ct).ConfigureAwait(false);
             if (!inventoryExists)
             {
                 _logger.LogInformation(
-                    "No inventory.json found for dependency job {JobId} — prepending inventory module.", job.JobId);
-                var inventoryModules = _discoveryModules
-                    .Where(m => m.DiscoveryKind == JobKind.Inventory)
+                    "No inventory.json found for dependency job {JobId} — prepending Inventory module.", job.JobId);
+                var inventoryModules = _migrationModules
+                    .Where(m => m.Name.Equals("Inventory", StringComparison.OrdinalIgnoreCase))
                     .ToList();
                 modulesToRun = inventoryModules.Concat(modulesToRun).ToList();
             }
@@ -621,13 +554,13 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
         if (modulesToRun.Count == 0)
         {
             _logger.LogError(
-                "No discovery module found for kind {JobKind} — failing job {JobId}.",
+                "No module found for kind {JobKind} — failing job {JobId}.",
                 job.Kind, job.JobId);
             await SignalTerminalAsync(controlPlane, leaseId, "fail", ct).ConfigureAwait(false);
             return;
         }
 
-        var context = new DiscoveryContext
+        var context = new ExportContext
         {
             Job = job,
             ArtefactStore = artefactStore,
@@ -645,7 +578,7 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
             {
                 _logger.LogInformation(
                     "Running discovery module {Module} for job {JobId}.", module.Name, job.JobId);
-                await module.RunAsync(context, ct).ConfigureAwait(false);
+                await module.ExportAsync(context, ct).ConfigureAwait(false);
                 _logger.LogInformation(
                     "Discovery module {Module} completed for job {JobId}.", module.Name, job.JobId);
             }

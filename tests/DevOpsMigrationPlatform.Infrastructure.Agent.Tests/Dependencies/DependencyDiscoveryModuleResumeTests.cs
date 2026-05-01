@@ -116,7 +116,7 @@ public class DependencyDiscoveryModuleResumeTests
             mockFactory.Object,
             NullLogger<DependencyDiscoveryModule>.Instance);
 
-        var ctx = new DiscoveryContext
+        var ctx = new ExportContext
         {
             Job = MakeJob(),
             ArtefactStore = mockStore.Object,
@@ -125,7 +125,7 @@ public class DependencyDiscoveryModuleResumeTests
         };
 
         // Act
-        await sut.RunAsync(ctx, CancellationToken.None);
+        await sut.ExportAsync(ctx, CancellationToken.None);
 
         // Assert — a synthetic ProjectComplete event must be emitted for the resumed project.
         // The module puts the structured key (orgUrl|project) in Message and counts in Metrics.
@@ -188,7 +188,7 @@ public class DependencyDiscoveryModuleResumeTests
             mockFactory.Object,
             NullLogger<DependencyDiscoveryModule>.Instance);
 
-        var ctx = new DiscoveryContext
+        var ctx = new ExportContext
         {
             Job = MakeJob(),
             ArtefactStore = mockStore.Object,
@@ -197,7 +197,7 @@ public class DependencyDiscoveryModuleResumeTests
         };
 
         // Act
-        await sut.RunAsync(ctx, CancellationToken.None);
+        await sut.ExportAsync(ctx, CancellationToken.None);
 
         // Assert — event is still emitted with the structured key even for old cursors without stats
         var resumedEvent = emittedEvents.Find(e =>
@@ -250,7 +250,7 @@ public class DependencyDiscoveryModuleResumeTests
             mockFactory.Object,
             NullLogger<DependencyDiscoveryModule>.Instance);
 
-        var ctx = new DiscoveryContext
+        var ctx = new ExportContext
         {
             Job = MakeJob(),
             ArtefactStore = mockStore.Object,
@@ -259,7 +259,7 @@ public class DependencyDiscoveryModuleResumeTests
         };
 
         // Act
-        await sut.RunAsync(ctx, CancellationToken.None);
+        await sut.ExportAsync(ctx, CancellationToken.None);
 
         // Assert — only the Completed event, no synthetic ProjectComplete events
         var projectCompleteBeforeCompleted = emittedEvents.FindAll(e => e.Stage == "ProjectComplete");
@@ -335,7 +335,7 @@ public class DependencyDiscoveryModuleResumeTests
             NullLogger<DependencyDiscoveryModule>.Instance,
             discoveryOptions: zeroIntervalOpts);
 
-        var ctx = new DiscoveryContext
+        var ctx = new ExportContext
         {
             Job = jobWithZeroInterval,
             ArtefactStore = mockStore.Object,
@@ -344,7 +344,7 @@ public class DependencyDiscoveryModuleResumeTests
         };
 
         // Act
-        await sut.RunAsync(ctx, CancellationToken.None);
+        await sut.ExportAsync(ctx, CancellationToken.None);
 
         // Assert — cursor should have been written with projectStats
         Assert.IsNotNull(writtenCursorJson, "Cursor should have been written during the run.");
@@ -520,7 +520,7 @@ public class DependencyDiscoveryModuleResumeTests
             mockFactory.Object,
             NullLogger<DependencyDiscoveryModule>.Instance);
 
-        var ctx = new DiscoveryContext
+        var ctx = new ExportContext
         {
             Job = MakeJob(),
             ArtefactStore = mockStore.Object,
@@ -529,7 +529,7 @@ public class DependencyDiscoveryModuleResumeTests
         };
 
         // Act
-        await sut.RunAsync(ctx, CancellationToken.None);
+        await sut.ExportAsync(ctx, CancellationToken.None);
 
         // Assert — the in-progress project key and token must be passed through
         Assert.AreEqual(inProgressKey, capturedInProgressKey,
@@ -611,7 +611,7 @@ public class DependencyDiscoveryModuleResumeTests
             mockFactory.Object,
             NullLogger<DependencyDiscoveryModule>.Instance);
 
-        var ctx = new DiscoveryContext
+        var ctx = new ExportContext
         {
             Job = MakeJob(),
             ArtefactStore = mockStore.Object,
@@ -620,7 +620,7 @@ public class DependencyDiscoveryModuleResumeTests
         };
 
         // Act
-        await sut.RunAsync(ctx, CancellationToken.None);
+        await sut.ExportAsync(ctx, CancellationToken.None);
 
         // Assert — the CSV written should not contain the partial MyProject rows
         Assert.IsNotNull(writtenCsv, "CSV should have been written to the store");

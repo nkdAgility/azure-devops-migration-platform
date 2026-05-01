@@ -109,8 +109,8 @@ public static class MigrationAgentServiceExtensions
         builder.Services.AddSingleton<ICatalogService, CatalogService>();
         builder.Services.AddAzureDevOpsInventory(builder.Configuration);
         builder.Services.AddAzureDevOpsDependencyAnalysis(builder.Configuration);
-        builder.Services.AddInventoryDiscoveryModule();
-        builder.Services.AddDependencyDiscoveryModule();
+        builder.Services.AddInventoryModule();
+        builder.Services.AddDependenciesModule();
 
         // Unified worker — polls /agents/lease and dispatches to migration or discovery execution.
         builder.Services.AddHostedService<JobAgentWorker>();

@@ -40,7 +40,7 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Modules;
 public sealed class WorkItemsModule : IModule
 {
     public string Name => "WorkItems";
-    public IReadOnlyList<string> DependsOn => new[] { "Identities", "Nodes" };
+    public IReadOnlyList<string> DependsOn => new[] { "Inventory", "Identities", "Nodes" };
 
     private static readonly ActivitySource s_activitySource = new(WellKnownActivitySourceNames.Migration);
 

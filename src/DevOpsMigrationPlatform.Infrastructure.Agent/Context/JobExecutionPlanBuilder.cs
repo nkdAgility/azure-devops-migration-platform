@@ -33,19 +33,16 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
     };
 
     private readonly IEnumerable<IModule> _modules;
-    private readonly IEnumerable<IDiscoveryModule> _discoveryModules;
     private readonly Dictionary<string, IModule> _modulesByName;
     private readonly IPhaseTrackingServiceFactory _phaseTrackingFactory;
     private readonly ILogger<JobExecutionPlanBuilder> _logger;
 
     public JobExecutionPlanBuilder(
         IEnumerable<IModule> modules,
-        IEnumerable<IDiscoveryModule> discoveryModules,
         IPhaseTrackingServiceFactory phaseTrackingFactory,
         ILogger<JobExecutionPlanBuilder> logger)
     {
         _modules = modules;
-        _discoveryModules = discoveryModules;
         _modulesByName = modules.ToDictionary(m => m.Name, StringComparer.OrdinalIgnoreCase);
         _phaseTrackingFactory = phaseTrackingFactory;
         _logger = logger;
@@ -121,13 +118,14 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
     {
         var tasks = new List<JobTask>();
 
-        // Add task for each registered inventory module.
-        foreach (var module in _discoveryModules.Where(m => m.DiscoveryKind == JobKind.Inventory))
+        // Add task for the Inventory module (filters to only "Inventory" by name).
+        var inventoryModule = _modules.FirstOrDefault(m => m.Name.Equals("Inventory", StringComparison.OrdinalIgnoreCase));
+        if (inventoryModule is not null)
         {
-            var taskId = $"inventory.{module.Name.ToLowerInvariant()}";
+            var taskId = $"inventory.{inventoryModule.Name.ToLowerInvariant()}";
             tasks.Add(MakeTask(
                 taskId,
-                $"{module.Name} Inventory",
+                $"{inventoryModule.Name} Inventory",
                 "Inventory",
                 enabled: true, // Inventory always enabled when added
                 phaseAlreadyDone: false,

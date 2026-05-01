@@ -7,28 +7,38 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Agent.Export;
+using DevOpsMigrationPlatform.Abstractions.Agent.Import;
+using DevOpsMigrationPlatform.Abstractions.Agent.Modules;
+using DevOpsMigrationPlatform.Abstractions.Agent.Validation;
 using DevOpsMigrationPlatform.Abstractions.Jobs;
 using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Abstractions.Telemetry;
+using DevOpsMigrationPlatform.Abstractions.Validation;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Agent.Modules;
 
 /// <summary>
-/// Discovery module that counts work items and revisions per project across all configured
+/// Inventory module that counts work items and revisions per project across all configured
 /// organisations. Wraps <see cref="IInventoryService"/> and writes <c>inventory.csv</c>
 /// and <c>inventory.json</c> to the artefact store. Checkpoints after each project so
-/// a 20+ hour run can resume. The JSON report is consumed by the dependency analysis
-/// pass to obtain grand totals before link analysis begins.
+/// a 20+ hour run can resume. The JSON report is consumed by WorkItems export for progress
+/// reporting and by dependency analysis for grand totals before link analysis begins.
 /// <para>
 /// <strong>Architecture note:</strong> This module follows the delegation pattern: it orchestrates
 /// checkpointing, progress reporting, and artefact writing, while the actual Azure DevOps API
 /// interaction is delegated to <see cref="IInventoryService"/> (created via factory). This separation
 /// keeps the module testable with mocked services and decoupled from any specific connector.
 /// </para>
+/// <para>
+/// <strong>Module contract:</strong> Implements <see cref="IModule.ExportAsync"/> to perform
+/// inventory discovery. Import and validation are not supported (throw <see cref="NotSupportedException"/>).
+/// Has no dependencies — always runs first in the Export phase when inventory.json is missing.
+/// </para>
 /// </summary>
-public sealed class InventoryDiscoveryModule : IDiscoveryModule
+public sealed class InventoryDiscoveryModule : IModule
 {
     private static readonly string CursorKey = PackagePaths.CursorFile("InventoryDiscovery");
     private const string CsvOutputPath = "inventory.csv";
@@ -41,8 +51,8 @@ public sealed class InventoryDiscoveryModule : IDiscoveryModule
     private readonly IDiscoveryMetrics? _metrics;
     private readonly IOptions<DiscoveryOptions>? _discoveryOptions;
 
-    public string Name => "InventoryDiscovery";
-    public JobKind DiscoveryKind => JobKind.Inventory;
+    public string Name => "Inventory";
+    public IReadOnlyList<string> DependsOn => Array.Empty<string>(); // No dependencies — runs first
 
     public InventoryDiscoveryModule(
         IInventoryServiceFactory inventoryFactory,
@@ -57,7 +67,10 @@ public sealed class InventoryDiscoveryModule : IDiscoveryModule
         _discoveryOptions = discoveryOptions;
     }
 
-    public async Task RunAsync(DiscoveryContext context, CancellationToken ct)
+    /// <summary>
+    /// Performs inventory discovery during the Export phase. Writes inventory.csv and inventory.json.
+    /// </summary>
+    public async Task ExportAsync(ExportContext context, CancellationToken ct)
     {
         using var rootActivity = ActivitySource.StartActivity("discovery.inventory", ActivityKind.Internal);
         rootActivity?.SetTag("job.id", context.Job.JobId);
@@ -629,5 +642,22 @@ public sealed class InventoryDiscoveryModule : IDiscoveryModule
         if (value.Length >= 2 && value[0] == '"' && value[value.Length - 1] == '"')
             return value.Substring(1, value.Length - 2).Replace("\"\"", "\"");
         return value;
+    }
+
+    /// <summary>
+    /// Import is not supported for the Inventory module.
+    /// Inventory is an analysis-only operation that runs during Export.
+    /// </summary>
+    public Task ImportAsync(ImportContext context, CancellationToken ct)
+    {
+        throw new NotSupportedException("Inventory module does not support import operations. Inventory runs only during the Export phase.");
+    }
+
+    /// <summary>
+    /// Validation is not supported for the Inventory module.
+    /// </summary>
+    public Task ValidateAsync(ValidationContext context, CancellationToken ct)
+    {
+        return Task.CompletedTask; // No-op: Inventory has no validation logic
     }
 }
