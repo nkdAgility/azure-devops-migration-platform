@@ -42,6 +42,12 @@ hooks:
     description: Validate and amend tasks.md to ensure every user story phase contains explicit O-1, O-2, O-3, and O-4 observability tasks
     condition: null
   after_implement:
+  - extension: update-docs
+    command: update-docs
+    enabled: true
+    optional: false
+    description: Scan every changed file and update every affected canonical doc in /docs and /.agents/context — CLI commands, configuration keys, modules, connectors, architecture. Mark all doc-tasks in tasks.md as complete.
+    condition: null
   - extension: observability-contract
     command: "observability-contract --stage implement"
     enabled: true
