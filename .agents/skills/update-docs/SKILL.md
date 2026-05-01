@@ -12,7 +12,8 @@ Scan the completed implementation and propagate every observable behaviour chang
 | Mode | How to invoke | Input | Output |
 |---|---|---|---|
 | **SpecKit hook** | Automatic via `after_implement` in `.specify/extensions.yml` | The feature directory being implemented | Updated `/docs` and `/.agents/context` files; updated tasks.md doc-tasks marked `[X]` |
-| **Manual** | `/update-docs` or `/update-docs --feature <dir>` | Feature directory or current working spec | Same as hook mode |
+| **Manual (incremental)** | `/update-docs` or `/update-docs --feature <dir>` | Feature directory or current working spec | Same as hook mode — uses `git diff` to scope changes |
+| **Reconcile (full audit)** | `/update-docs --reconcile` | Entire solution root | Walks every canonical doc against the actual codebase; no git diff dependency. Use once to bring existing docs up to date. |
 
 ---
 
@@ -74,7 +75,9 @@ Use this table to decide which docs to open and potentially update based on what
 
 ### Step 1 — Build the change inventory
 
-Enumerate every file changed or created by the implementation:
+**If invoked in incremental mode (hook or `--feature`):**
+
+Use git to find changed files scoped to the current session:
 
 ```
 git diff --name-only HEAD
@@ -86,6 +89,25 @@ Categorise each changed file:
 - **Config/schema** (`.json`, `.yml`, `.props`) → may require `docs/configuration.md` or `.agents/context/` update
 - **Feature files** (`.feature`) → no doc update required (features are self-documenting)
 - **Existing doc files** (`.md` in `docs/`, `.agents/`) → already updated; verify they are accurate
+
+**If invoked in reconcile mode (`--reconcile`):**
+
+Do not use `git diff`. Instead, build the inventory by reading the codebase directly:
+
+1. **Enumerate all modules** — find every class in `src/` implementing `IModule` (grep for `: IModule`). For each, note its name, options class, and which connector(s) it uses.
+2. **Enumerate all CLI commands** — find every class with `[Command]` attribute or registered in a `RootCommand`/`CommandApp`. For each, note its verb, all options/arguments and their types and defaults.
+3. **Enumerate all options classes** — find every class implementing `IConfigSection` (grep for `: IConfigSection`). For each, note its `SectionName` and all `init`-only properties.
+4. **Enumerate all connectors** — find every class in `src/` matching `*Source`, `*Target`, `*Connector` or implementing `ISourceEndpointInfo`/`ITargetEndpointInfo`. Note the `ConnectorType` string.
+5. **Enumerate all interfaces in Abstractions** — find every `public interface` in `src/DevOpsMigrationPlatform.Abstractions*/`. Note new ones that may need docs.
+6. **Enumerate all telemetry metrics** — find every `IMigrationMetrics` method call site and every `ActivitySource.StartActivity` span name. Note any span names or metric names not present in `.agents/context/telemetry-architecture.md`.
+
+Then use this enumerated inventory as the change set for Steps 2–7, treating every item as "potentially underdocumented" and checking each against the canonical docs.
+
+After the reconcile pass, produce a summary count:
+- Items checked
+- Docs updated (with file names)
+- Items already accurately documented (no change needed)
+- Items that could not be auto-documented and require human review
 
 ### Step 2 — Identify doc-tasks in tasks.md
 
