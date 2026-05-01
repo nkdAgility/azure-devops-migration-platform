@@ -83,9 +83,9 @@ public interface ISourceEndpointInfo
 | `NodesModule` | Export and import area/iteration node classification trees. **Export**: captures source tree to `Nodes/source-tree.json`. **Import**: replicates source tree and/or ensures all referenced paths exist on the target. **Prepare**: validates referenced paths against target. |
 | `TeamsModule` | Export and import team membership, settings, iterations, members, and capacity. **Prepare**: verifies target teams/groups exist or can be created; writes `Teams/prepare-report.json`. |
 | `WorkItemsModule` | High-fidelity work item revision export/import. **Prepare**: cross-references exported field names with configured `FieldTranslations` and reports unmapped fields; validates all referenced area/iteration paths exist on the target (via `INodeCreator.NodeExistsAsync`) and writes `Nodes/prepare-report.json`. Accepts a `wiql` scope (with `query` parameter) and one or more `filter` scopes (with `mode`, `field`, and `pattern` parameters) to include or exclude work items by field value using a case-insensitive regex. Also accepts five independently-enabled named extensions: `Revisions`, `Links`, `Attachments`, `Comments` (fetches comment versions from the ADO Comments API), and `EmbeddedImages` (downloads and rewrites inline images from HTML/Markdown fields). |
-| `PermissionsModule` | Export and import project and repository access control lists. **Prepare**: verifies target ACL structure compatibility; writes `Permissions/prepare-report.json`. |
-| `BuildsModule` | Export build pipeline definitions |
-| `GitModule` | Export Git repository structure and optionally pack contents |
+| `PermissionsModule` | _(Planned — not yet implemented)_ Export and import project and repository access control lists. |
+| `BuildsModule` | _(Planned — not yet implemented)_ Export build pipeline definitions. |
+| `GitModule` | _(Planned — not yet implemented)_ Export Git repository structure and optionally pack contents. |
 
 **Execution order** (operator-controlled via config; recommended order): `IdentitiesModule` → `NodesModule` → `TeamsModule` → `WorkItemsModule`. Any module that maps identities must declare a dependency on `IdentitiesModule` via `DependsOn`.
 
