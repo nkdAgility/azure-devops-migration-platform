@@ -37,6 +37,27 @@ public record ProgressEvent
     public DateTimeOffset? NextCheckpointDueAt { get; init; }
 
     /// <summary>
+    /// Identifies the <see cref="JobTask.Id"/> this event is attributed to.
+    /// Set on module-lifecycle events (start, complete, fail) so the Control Plane
+    /// can derive task-level status without a separate push channel.
+    /// Null for events not tied to a specific planned task.
+    /// </summary>
+    public string? TaskId { get; init; }
+
+    /// <summary>
+    /// New status to apply to the task identified by <see cref="TaskId"/>.
+    /// Null when <see cref="TaskId"/> is null.
+    /// </summary>
+    public JobTaskStatus? TaskStatus { get; init; }
+
+    /// <summary>
+    /// Running completed-item count for the task identified by <see cref="TaskId"/>.
+    /// Used to track progress toward <see cref="JobTask.KnownTotal"/>.
+    /// Null when not applicable.
+    /// </summary>
+    public long? CompletedCount { get; init; }
+
+    /// <summary>
     /// Optional <see cref="JobMetrics"/> emitted alongside this progress event.
     /// <para>
     /// <strong>When to populate:</strong> Every module MUST set this on its completion event

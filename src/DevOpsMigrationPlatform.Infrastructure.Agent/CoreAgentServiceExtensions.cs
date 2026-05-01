@@ -53,6 +53,9 @@ public static class CoreAgentServiceExtensions
         services.AddSingleton<ActivePackageState>();
         services.AddSingleton<IJobConfiguration, JobConfiguration>();
 
+        // Execution plan builder — builds the ordered task list at job start.
+        services.AddSingleton<IJobExecutionPlanBuilder, JobExecutionPlanBuilder>();
+
         // Agent telemetry (IMigrationMetrics, IDiscoveryMetrics, TelemetryOptions).
         services.AddAgentTelemetryServices(configuration);
 

@@ -3,6 +3,7 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.ControlPlaneApi;
 using DevOpsMigrationPlatform.ControlPlane.Jobs;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -23,6 +24,7 @@ public sealed class ProgressController : ControllerBase
     private readonly ILeaseJobResolver _resolver;
     private readonly ILogger<ProgressController> _logger;
     private readonly JobMetricsStore _metricsStore;
+    private readonly InMemoryJobTaskStore _taskStore;
 
     private readonly DiagnosticLogStore _diagnosticStore;
 
@@ -30,6 +32,7 @@ public sealed class ProgressController : ControllerBase
         JobProgressStore store,
         DiagnosticLogStore diagnosticStore,
         JobMetricsStore metricsStore,
+        InMemoryJobTaskStore taskStore,
         IJobStore jobStore,
         ILeaseJobResolver resolver,
         ILogger<ProgressController> logger)
@@ -37,6 +40,7 @@ public sealed class ProgressController : ControllerBase
         _store = store;
         _diagnosticStore = diagnosticStore;
         _metricsStore = metricsStore;
+        _taskStore = taskStore;
         _jobStore = jobStore;
         _resolver = resolver;
         _logger = logger;
@@ -62,6 +66,17 @@ public sealed class ProgressController : ControllerBase
         // Channel 2 SnapshotMetricExporter → ControlPlaneTelemetryTimer push cycle.
         if (evt.Metrics is not null)
             _metricsStore.Store(jobId.Value, evt.Metrics);
+
+        // Derive task-level status transitions from ProgressEvent.TaskId / TaskStatus.
+        if (evt.TaskId is not null && evt.TaskStatus is not null)
+        {
+            _taskStore.UpdateTask(
+                jobId.Value,
+                evt.TaskId,
+                evt.TaskStatus.Value,
+                evt.CompletedCount,
+                evt.Timestamp);
+        }
 
         // First ProgressEvent transitions job from Leased → Running
         _jobStore.SetState(jobId.Value, "Running");

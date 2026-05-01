@@ -9,6 +9,7 @@ using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Agent.Context;
 using DevOpsMigrationPlatform.Abstractions.Agent.Lease;
 using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
+using DevOpsMigrationPlatform.Abstractions.ControlPlaneApi;
 using DevOpsMigrationPlatform.Infrastructure.Agent;
 using DevOpsMigrationPlatform.Infrastructure.Serialization;
 using Microsoft.Extensions.Configuration;
@@ -31,6 +32,8 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
     private readonly IEnumerable<IFlushable> _flushables;
     private readonly IServiceScopeFactory _moduleScopeFactory;
     private readonly IPackagePreparer _packagePreparer;
+    private readonly IJobExecutionPlanBuilder _planBuilder;
+    private readonly IControlPlaneTelemetryClient _telemetryClient;
     private readonly ILogger<JobAgentWorker> _logger;
 
     public JobAgentWorker(
@@ -50,6 +53,8 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
         IJobMetricsStore metricsStore,
         IJobSnapshotStore snapshotStore,
         IEnumerable<IFlushable> flushables,
+        IJobExecutionPlanBuilder planBuilder,
+        IControlPlaneTelemetryClient telemetryClient,
         ILogger<JobAgentWorker> logger,
         PolymorphicEndpointOptionsConverter? endpointConverter = null,
         PolymorphicOrganisationEntryConverter? organisationConverter = null)
@@ -63,6 +68,8 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
         _flushables = flushables;
         _moduleScopeFactory = moduleScopeFactory;
         _packagePreparer = packagePreparer;
+        _planBuilder = planBuilder;
+        _telemetryClient = telemetryClient;
         _logger = logger;
     }
 
@@ -258,6 +265,21 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
 
         ActiveJobConfig.PackageConfig = packageConfig;
 
+        // Build the execution plan and push it to the Control Plane so clients can
+        // see the ordered task list immediately via GET /jobs/{id}/bootstrap.
+        try
+        {
+            var plan = await _planBuilder
+                .BuildPlanAsync(packageConfig, job.Kind, artefactStore, stateStore, ct)
+                .ConfigureAwait(false);
+            await _telemetryClient.PushTaskListAsync(leaseId, plan, ct).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            // Non-fatal — the job continues without a task list.
+            _logger.LogWarning(ex, "Failed to build or push execution plan for job {JobId}.", job.JobId);
+        }
+
         // Create a per-job DI scope AFTER PackageConfig is set. Singleton tools (e.g.
         // IFieldTransformTool) are resolved fresh within this scope so their IOptions<T>.Value
         // is read from migration-config.json, not from the empty appsettings.json at host startup.
@@ -324,8 +346,40 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
                 {
                     foreach (var module in jobModules)
                     {
+                        var taskId = $"export.{module.Name.ToLowerInvariant()}";
                         _logger.LogInformation("Running module {Module}.ExportAsync", module.Name);
-                        await module.ExportAsync(exportContext, ct).ConfigureAwait(false);
+                        ProgressSink.Emit(new ProgressEvent
+                        {
+                            Module = module.Name,
+                            Stage = "Export.Start",
+                            Timestamp = DateTimeOffset.UtcNow,
+                            TaskId = taskId,
+                            TaskStatus = JobTaskStatus.Running
+                        });
+                        try
+                        {
+                            await module.ExportAsync(exportContext, ct).ConfigureAwait(false);
+                            ProgressSink.Emit(new ProgressEvent
+                            {
+                                Module = module.Name,
+                                Stage = "Export.Complete",
+                                Timestamp = DateTimeOffset.UtcNow,
+                                TaskId = taskId,
+                                TaskStatus = JobTaskStatus.Completed
+                            });
+                        }
+                        catch
+                        {
+                            ProgressSink.Emit(new ProgressEvent
+                            {
+                                Module = module.Name,
+                                Stage = "Export.Failed",
+                                Timestamp = DateTimeOffset.UtcNow,
+                                TaskId = taskId,
+                                TaskStatus = JobTaskStatus.Failed
+                            });
+                            throw;
+                        }
                     }
                     if (isBoth)
                     {
@@ -339,8 +393,40 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
                 {
                     foreach (var module in jobModules)
                     {
+                        var taskId = $"import.{module.Name.ToLowerInvariant()}";
                         _logger.LogInformation("Running module {Module}.ImportAsync", module.Name);
-                        await module.ImportAsync(importContext, ct).ConfigureAwait(false);
+                        ProgressSink.Emit(new ProgressEvent
+                        {
+                            Module = module.Name,
+                            Stage = "Import.Start",
+                            Timestamp = DateTimeOffset.UtcNow,
+                            TaskId = taskId,
+                            TaskStatus = JobTaskStatus.Running
+                        });
+                        try
+                        {
+                            await module.ImportAsync(importContext, ct).ConfigureAwait(false);
+                            ProgressSink.Emit(new ProgressEvent
+                            {
+                                Module = module.Name,
+                                Stage = "Import.Complete",
+                                Timestamp = DateTimeOffset.UtcNow,
+                                TaskId = taskId,
+                                TaskStatus = JobTaskStatus.Completed
+                            });
+                        }
+                        catch
+                        {
+                            ProgressSink.Emit(new ProgressEvent
+                            {
+                                Module = module.Name,
+                                Stage = "Import.Failed",
+                                Timestamp = DateTimeOffset.UtcNow,
+                                TaskId = taskId,
+                                TaskStatus = JobTaskStatus.Failed
+                            });
+                            throw;
+                        }
                     }
                     if (isBoth)
                     {
