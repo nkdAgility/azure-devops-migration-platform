@@ -73,23 +73,21 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
         long? workItemKnownTotal = await TryReadWorkItemTotalAsync(artefactStore, ct)
             .ConfigureAwait(false);
 
-        // For Export jobs, auto-add Inventory task only when explicitly enabled in config
-        // and inventory.json doesn't already exist.
+        // For Export jobs, auto-add Inventory task when WorkItems module is enabled.
+        // WorkItems depends on inventory.json for totals and pagination.
+        // The InventoryModule itself will detect if inventory.json already exists and skip creation.
         // These tasks use Phase="Export" so ExecuteExportPhaseAsync runs them in tier order
         // (inventory tier 0, other modules tier 1 via DependsOn).
         List<string>? inventoryTaskIds = null;
         if (includeExport)
         {
-            var inventoryEnabled = IsInventoryEnabled(packageConfig);
-            if (inventoryEnabled)
+            var workItemsEnabled = IsEnabled(packageConfig, "WorkItems");
+            if (workItemsEnabled)
             {
-                var inventoryExists = await artefactStore.ExistsAsync("inventory.json", ct).ConfigureAwait(false);
-                if (!inventoryExists)
-                {
-                    var inventoryTasks = BuildInventoryTasks(ref order);
-                    tasks.AddRange(inventoryTasks);
-                    inventoryTaskIds = inventoryTasks.Select(t => t.Id).ToList();
-                }
+                var inventoryTasks = BuildInventoryTasks(ref order);
+                tasks.AddRange(inventoryTasks);
+                inventoryTaskIds = inventoryTasks.Select(t => t.Id).ToList();
+                _logger.LogInformation("Inventory task added automatically (WorkItems module enabled).");
             }
         }
 
@@ -301,16 +299,7 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
         return !string.Equals(raw, "false", StringComparison.OrdinalIgnoreCase);
     }
 
-    /// <summary>
-    /// Inventory is opt-in: only runs when explicitly enabled in config
-    /// (<c>MigrationPlatform:Modules:Inventory:Enabled = true</c>).
-    /// Simulated and fixture-based scenarios that don't configure Inventory will skip it.
-    /// </summary>
-    private static bool IsInventoryEnabled(IConfiguration config) =>
-        string.Equals(
-            config["MigrationPlatform:Modules:Inventory:Enabled"],
-            "true",
-            StringComparison.OrdinalIgnoreCase);
+
 
     private static async Task<long?> TryReadWorkItemTotalAsync(
         IArtefactStore artefactStore,
