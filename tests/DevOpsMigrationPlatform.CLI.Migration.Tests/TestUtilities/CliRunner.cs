@@ -19,7 +19,7 @@ public sealed class CliRunner
     /// <summary>
     /// Root folder (relative to the repo root) used by system tests as their working directory.
     /// </summary>
-    public const string TestWorkingFolder = "TestWorkingFolder";
+    public const string TestWorkingFolder = "TestWork";
 
     // Matches any ANSI/VT escape sequence (e.g. bold \e[1m, colour \e[32m, reset \e[0m).
     // Even with NO_COLOR=1, Spectre.Console may still emit bold/dim sequences on Windows

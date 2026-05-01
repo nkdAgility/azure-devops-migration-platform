@@ -44,7 +44,7 @@ public sealed class SqliteIdMapStore : IIdMapStore
         if (dir is not null && !Directory.Exists(dir))
             Directory.CreateDirectory(dir); // Permitted: SQLite requires real file-system path (see class remarks)
 
-        _connection = new SqliteConnection($"Data Source={_dbFilePath}");
+        _connection = new SqliteConnection($"Data Source={_dbFilePath};Journal Mode=Memory;");
         await _connection.OpenAsync(ct).ConfigureAwait(false);
 
         await using var cmd = _connection.CreateCommand();
