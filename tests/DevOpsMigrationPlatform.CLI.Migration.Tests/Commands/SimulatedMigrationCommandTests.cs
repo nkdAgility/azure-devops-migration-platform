@@ -82,7 +82,10 @@ public class SimulatedMigrationCommandTests
     {
         var testStorage = Path.Combine("storage", nameof(QueueExportSimulated_ReSubmitWithoutForce_ResumesSuccessfully));
         var outputDir = Path.Combine(CliRunner.FindRepoRoot(), testStorage);
-        var testEnv = new System.Collections.Generic.Dictionary<string, string> { ["DEVOPS_MIGRATION_TEST_STORAGE"] = testStorage };
+        var testEnv = new System.Collections.Generic.Dictionary<string, string>
+        {
+            ["DEVOPS_MIGRATION_TEST_STORAGE"] = testStorage
+        };
 
         if (Directory.Exists(outputDir))
             Directory.Delete(outputDir, recursive: true);

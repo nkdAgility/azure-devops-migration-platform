@@ -43,7 +43,6 @@ public class IdentitiesModuleTests
         return new IdentitiesModule(
             NullLogger<IdentitiesModule>.Instance,
             Options.Create(options),
-            agentJobContext: CreateAgentJobContext(activeJobConfig),
             sourceEndpointInfo: CreateSourceEndpointInfo(activeJobConfig),
             identitySource: identitySource);
     }

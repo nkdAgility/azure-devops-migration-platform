@@ -35,7 +35,6 @@ public class NodesModuleTests
         return new NodesModule(
             NullLogger<NodesModule>.Instance,
             Options.Create(options),
-            agentJobContext: CreateAgentJobContext(activeJobConfig),
             sourceEndpointInfo: CreateSourceEndpointInfo(activeJobConfig),
             capture: capture,
             targetEndpointInfo: Mock.Of<ITargetEndpointInfo>(),

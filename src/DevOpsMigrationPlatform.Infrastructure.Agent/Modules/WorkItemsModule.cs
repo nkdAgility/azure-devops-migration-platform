@@ -69,7 +69,6 @@ public sealed class WorkItemsModule : IModule
     private readonly INodeEnsurer? _nodeEnsurer;
 #endif
     private readonly IOptions<WorkItemsModuleOptions> _options;
-    private readonly IAgentJobContext _agentJobContext;
     private readonly ISourceEndpointInfo _sourceEndpointInfo;
 #if !NET481
     private readonly ITargetEndpointInfo _targetEndpointInfo;
@@ -79,7 +78,6 @@ public sealed class WorkItemsModule : IModule
         IWorkItemRevisionSourceFactory sourceFactory,
         ILogger<WorkItemsModule> logger,
         IOptions<WorkItemsModuleOptions> options,
-        IAgentJobContext agentJobContext,
         ISourceEndpointInfo sourceEndpointInfo,
 #if !NET481
         ILogger<WorkItemImportOrchestrator> orchestratorLogger,
@@ -108,7 +106,6 @@ public sealed class WorkItemsModule : IModule
         _sourceFactory = sourceFactory ?? throw new ArgumentNullException(nameof(sourceFactory));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _options = options ?? throw new ArgumentNullException(nameof(options));
-        _agentJobContext = agentJobContext ?? throw new ArgumentNullException(nameof(agentJobContext));
         _sourceEndpointInfo = sourceEndpointInfo ?? throw new ArgumentNullException(nameof(sourceEndpointInfo));
 #if !NET481
         _orchestratorLogger = orchestratorLogger ?? throw new ArgumentNullException(nameof(orchestratorLogger));

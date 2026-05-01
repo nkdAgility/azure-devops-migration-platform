@@ -127,9 +127,7 @@ public static class FactoryRegistrationExtensions
     {
         services.TryAddSingleton<T>();
         services.AddSingleton(new KeyedIdentitySource(typeKey, typeof(T)));
-#pragma warning disable CS0618 // Type is obsolete - TODO: Remove composite pattern in favor of direct registration
         services.TryAddSingleton<IIdentitySource, CompositeIdentitySource>();
-#pragma warning restore CS0618
         return services;
     }
 

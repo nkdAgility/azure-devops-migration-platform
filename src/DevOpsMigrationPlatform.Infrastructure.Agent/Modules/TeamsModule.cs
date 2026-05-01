@@ -65,7 +65,6 @@ public sealed class TeamsModule : IModule
     private readonly IMigrationMetrics? _migrationMetrics;
     private readonly ILogger<TeamsModule> _logger;
     private readonly TeamsModuleOptions _options;
-    private readonly IAgentJobContext _agentJobContext;
     private readonly ISourceEndpointInfo _sourceEndpointInfo;
     private readonly ITargetEndpointInfo _targetEndpointInfo;
 
@@ -75,7 +74,6 @@ public sealed class TeamsModule : IModule
     public TeamsModule(
         ILogger<TeamsModule> logger,
         IOptions<TeamsModuleOptions> options,
-        IAgentJobContext agentJobContext,
         ISourceEndpointInfo sourceEndpointInfo,
         ITargetEndpointInfo targetEndpointInfo,
         TeamSlugGenerator slugGenerator,
@@ -88,7 +86,6 @@ public sealed class TeamsModule : IModule
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _options = options?.Value ?? throw new ArgumentNullException(nameof(options));
-        _agentJobContext = agentJobContext ?? throw new ArgumentNullException(nameof(agentJobContext));
         _sourceEndpointInfo = sourceEndpointInfo ?? throw new ArgumentNullException(nameof(sourceEndpointInfo));
         _targetEndpointInfo = targetEndpointInfo ?? throw new ArgumentNullException(nameof(targetEndpointInfo));
         _slugGenerator = slugGenerator ?? throw new ArgumentNullException(nameof(slugGenerator));

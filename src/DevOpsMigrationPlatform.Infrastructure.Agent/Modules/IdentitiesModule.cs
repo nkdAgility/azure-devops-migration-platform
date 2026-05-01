@@ -54,7 +54,6 @@ public sealed class IdentitiesModule : IModule
     private readonly ICheckpointingServiceFactory? _checkpointingFactory;
     private readonly ILogger<IdentitiesModule> _logger;
     private readonly IdentitiesModuleOptions _options;
-    private readonly IAgentJobContext _agentJobContext;
     private readonly ISourceEndpointInfo _sourceEndpointInfo;
 
     public string Name => ModuleName;
@@ -63,7 +62,6 @@ public sealed class IdentitiesModule : IModule
     public IdentitiesModule(
         ILogger<IdentitiesModule> logger,
         IOptions<IdentitiesModuleOptions> options,
-        IAgentJobContext agentJobContext,
         ISourceEndpointInfo sourceEndpointInfo,
         IIdentitySource? identitySource = null,
         ICheckpointingServiceFactory? checkpointingFactory = null
@@ -75,7 +73,6 @@ public sealed class IdentitiesModule : IModule
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _options = options?.Value ?? throw new ArgumentNullException(nameof(options));
-        _agentJobContext = agentJobContext ?? throw new ArgumentNullException(nameof(agentJobContext));
         _sourceEndpointInfo = sourceEndpointInfo ?? throw new ArgumentNullException(nameof(sourceEndpointInfo));
         _identitySource = identitySource;
         _checkpointingFactory = checkpointingFactory;
@@ -125,7 +122,7 @@ public sealed class IdentitiesModule : IModule
 #if !NET481
         using (_logger.BeginDataScope(DataClassification.Customer))
 #endif
-        _logger.LogInformation("[Identities] Starting identity export for project '{Project}'.", project);
+            _logger.LogInformation("[Identities] Starting identity export for project '{Project}'.", project);
 
         var sink = context.ProgressSink;
         sink?.Emit(new ProgressEvent

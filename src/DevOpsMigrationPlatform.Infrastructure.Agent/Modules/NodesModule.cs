@@ -48,7 +48,6 @@ public sealed class NodesModule : IModule
     private readonly ICheckpointingServiceFactory? _checkpointingFactory;
     private readonly ILogger<NodesModule> _logger;
     private readonly NodesModuleOptions _options;
-    private readonly IAgentJobContext _agentJobContext;
     private readonly ISourceEndpointInfo _sourceEndpointInfo;
 #if !NET481
     private readonly ITargetEndpointInfo _targetEndpointInfo;
@@ -60,7 +59,6 @@ public sealed class NodesModule : IModule
     public NodesModule(
         ILogger<NodesModule> logger,
         IOptions<NodesModuleOptions> options,
-        IAgentJobContext agentJobContext,
         ISourceEndpointInfo sourceEndpointInfo,
         IClassificationTreeCapture? capture = null,
 #if !NET481
@@ -75,7 +73,6 @@ public sealed class NodesModule : IModule
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _options = options?.Value ?? throw new ArgumentNullException(nameof(options));
-        _agentJobContext = agentJobContext ?? throw new ArgumentNullException(nameof(agentJobContext));
         _sourceEndpointInfo = sourceEndpointInfo ?? throw new ArgumentNullException(nameof(sourceEndpointInfo));
         _capture = capture;
 #if !NET481

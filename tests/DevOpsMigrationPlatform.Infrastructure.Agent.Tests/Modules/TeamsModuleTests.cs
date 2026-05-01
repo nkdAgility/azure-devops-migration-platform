@@ -114,7 +114,6 @@ public class TeamsModuleTests
         var module = new TeamsModule(
             NullLogger<TeamsModule>.Instance,
             Options.Create(new TeamsModuleOptions { Enabled = false }),
-            agentJobContext: CreateAgentJobContext(),
             sourceEndpointInfo: CreateSourceEndpointInfo(),
             targetEndpointInfo: CreateTargetEndpointInfo(),
             slugGenerator: new TeamSlugGenerator(),
@@ -134,7 +133,6 @@ public class TeamsModuleTests
         var module = new TeamsModule(
             NullLogger<TeamsModule>.Instance,
             Options.Create(new TeamsModuleOptions { Enabled = true }),
-            agentJobContext: CreateAgentJobContext(),
             sourceEndpointInfo: CreateSourceEndpointInfo(),
             targetEndpointInfo: CreateTargetEndpointInfo(),
             slugGenerator: new TeamSlugGenerator()); // no teamSource
@@ -166,7 +164,6 @@ public class TeamsModuleTests
         var module = new TeamsModule(
             NullLogger<TeamsModule>.Instance,
             Options.Create(new TeamsModuleOptions { Enabled = true }),
-            agentJobContext: CreateAgentJobContext(activeJobConfig),
             sourceEndpointInfo: CreateSourceEndpointInfo(activeJobConfig),
             targetEndpointInfo: CreateTargetEndpointInfo(activeJobConfig),
             slugGenerator: new TeamSlugGenerator(),
@@ -200,7 +197,6 @@ public class TeamsModuleTests
         var module = new TeamsModule(
             NullLogger<TeamsModule>.Instance,
             Options.Create(opts),
-            agentJobContext: CreateAgentJobContext(),
             sourceEndpointInfo: CreateSourceEndpointInfo(),
             targetEndpointInfo: CreateTargetEndpointInfo(),
             slugGenerator: new TeamSlugGenerator(),
@@ -230,7 +226,6 @@ public class TeamsModuleTests
         var module = new TeamsModule(
             NullLogger<TeamsModule>.Instance,
             Options.Create(new TeamsModuleOptions { Enabled = true, AlwaysExport = false }),
-            agentJobContext: CreateAgentJobContext(),
             sourceEndpointInfo: CreateSourceEndpointInfo(),
             targetEndpointInfo: CreateTargetEndpointInfo(),
             slugGenerator: new TeamSlugGenerator(),
@@ -267,7 +262,6 @@ public class TeamsModuleTests
         var module = new TeamsModule(
             NullLogger<TeamsModule>.Instance,
             Options.Create(new TeamsModuleOptions { Enabled = true, AlwaysExport = true }),
-            agentJobContext: CreateAgentJobContext(),
             sourceEndpointInfo: CreateSourceEndpointInfo(),
             targetEndpointInfo: CreateTargetEndpointInfo(),
             slugGenerator: new TeamSlugGenerator(),
@@ -290,7 +284,6 @@ public class TeamsModuleTests
         var module = new TeamsModule(
             NullLogger<TeamsModule>.Instance,
             Options.Create(new TeamsModuleOptions { Enabled = false }),
-            agentJobContext: CreateAgentJobContext(),
             sourceEndpointInfo: CreateSourceEndpointInfo(),
             targetEndpointInfo: CreateTargetEndpointInfo(),
             slugGenerator: new TeamSlugGenerator());
@@ -333,7 +326,6 @@ public class TeamsModuleTests
         var module = new TeamsModule(
             NullLogger<TeamsModule>.Instance,
             Options.Create(new TeamsModuleOptions { Enabled = true }),
-            agentJobContext: CreateAgentJobContext(),
             sourceEndpointInfo: CreateSourceEndpointInfo(),
             targetEndpointInfo: CreateTargetEndpointInfo(),
             slugGenerator: new TeamSlugGenerator(),
@@ -359,7 +351,6 @@ public class TeamsModuleTests
         var module = new TeamsModule(
             NullLogger<TeamsModule>.Instance,
             Options.Create(new TeamsModuleOptions { Enabled = true }),
-            agentJobContext: CreateAgentJobContext(),
             sourceEndpointInfo: CreateSourceEndpointInfo(),
             targetEndpointInfo: CreateTargetEndpointInfo(),
             slugGenerator: new TeamSlugGenerator());
@@ -389,7 +380,6 @@ public class TeamsModuleTests
         var module = new TeamsModule(
             NullLogger<TeamsModule>.Instance,
             Options.Create(new TeamsModuleOptions { Enabled = true }),
-            agentJobContext: CreateAgentJobContext(),
             sourceEndpointInfo: CreateSourceEndpointInfo(),
             targetEndpointInfo: CreateTargetEndpointInfo(),
             slugGenerator: new TeamSlugGenerator());
@@ -419,7 +409,6 @@ public class TeamsModuleTests
         var module = new TeamsModule(
             NullLogger<TeamsModule>.Instance,
             Options.Create(new TeamsModuleOptions { Enabled = true }),
-            agentJobContext: CreateAgentJobContext(),
             sourceEndpointInfo: CreateSourceEndpointInfo(),
             targetEndpointInfo: CreateTargetEndpointInfo(),
             slugGenerator: new TeamSlugGenerator());
@@ -458,7 +447,6 @@ public class TeamsModuleTests
         var module = new TeamsModule(
             NullLogger<TeamsModule>.Instance,
             Options.Create(new TeamsModuleOptions { Enabled = true }),
-            agentJobContext: CreateAgentJobContext(),
             sourceEndpointInfo: CreateSourceEndpointInfo(),
             targetEndpointInfo: CreateTargetEndpointInfo(),
             slugGenerator: new TeamSlugGenerator());
@@ -502,7 +490,6 @@ public class TeamsModuleTests
         var module = new TeamsModule(
             NullLogger<TeamsModule>.Instance,
             Options.Create(new TeamsModuleOptions { Enabled = true, Extensions = new TeamsModuleExtensionsOptions { TeamIterations = true } }),
-            agentJobContext: CreateAgentJobContext(),
             sourceEndpointInfo: CreateSourceEndpointInfo(),
             targetEndpointInfo: CreateTargetEndpointInfo(),
             slugGenerator: new TeamSlugGenerator(),
@@ -555,7 +542,6 @@ public class TeamsModuleTests
         var module = new TeamsModule(
             NullLogger<TeamsModule>.Instance,
             Options.Create(new TeamsModuleOptions { Enabled = true, Extensions = new TeamsModuleExtensionsOptions { TeamMembers = true } }),
-            agentJobContext: CreateAgentJobContext(),
             sourceEndpointInfo: CreateSourceEndpointInfo(),
             targetEndpointInfo: CreateTargetEndpointInfo(),
             slugGenerator: new TeamSlugGenerator(),
@@ -607,7 +593,6 @@ public class TeamsModuleTests
         var module = new TeamsModule(
             NullLogger<TeamsModule>.Instance,
             Options.Create(new TeamsModuleOptions { Enabled = true, Extensions = new TeamsModuleExtensionsOptions { TeamCapacity = true } }),
-            agentJobContext: CreateAgentJobContext(),
             sourceEndpointInfo: CreateSourceEndpointInfo(),
             targetEndpointInfo: CreateTargetEndpointInfo(),
             slugGenerator: new TeamSlugGenerator(),
@@ -652,7 +637,6 @@ public class TeamsModuleTests
         var module = new TeamsModule(
             NullLogger<TeamsModule>.Instance,
             Options.Create(new TeamsModuleOptions { Enabled = true, Extensions = new TeamsModuleExtensionsOptions { TeamCapacity = false } }),
-            agentJobContext: CreateAgentJobContext(),
             sourceEndpointInfo: CreateSourceEndpointInfo(),
             targetEndpointInfo: CreateTargetEndpointInfo(),
             slugGenerator: new TeamSlugGenerator(),
@@ -702,7 +686,6 @@ public class TeamsModuleTests
         var module = new TeamsModule(
             NullLogger<TeamsModule>.Instance,
             Options.Create(opts),
-            agentJobContext: CreateAgentJobContext(),
             sourceEndpointInfo: CreateSourceEndpointInfo(),
             targetEndpointInfo: CreateTargetEndpointInfo(),
             slugGenerator: new TeamSlugGenerator(),
@@ -740,7 +723,6 @@ public class TeamsModuleTests
         var module = new TeamsModule(
             NullLogger<TeamsModule>.Instance,
             Options.Create(opts),
-            agentJobContext: CreateAgentJobContext(),
             sourceEndpointInfo: CreateSourceEndpointInfo(),
             targetEndpointInfo: CreateTargetEndpointInfo(),
             slugGenerator: new TeamSlugGenerator(),
@@ -798,7 +780,6 @@ public class TeamsModuleTests
         var module = new TeamsModule(
             NullLogger<TeamsModule>.Instance,
             Options.Create(new TeamsModuleOptions { Enabled = true, Extensions = new TeamsModuleExtensionsOptions { TeamIterations = true } }),
-            agentJobContext: CreateAgentJobContext(),
             sourceEndpointInfo: CreateSourceEndpointInfo(),
             targetEndpointInfo: CreateTargetEndpointInfo(),
             slugGenerator: new TeamSlugGenerator(),
@@ -875,7 +856,6 @@ public class TeamsModuleTests
                     NodeTranslation = true,
                 }
             }),
-            agentJobContext: CreateAgentJobContext(),
             sourceEndpointInfo: CreateSourceEndpointInfo(),
             targetEndpointInfo: CreateTargetEndpointInfo(),
             slugGenerator: new TeamSlugGenerator(),
