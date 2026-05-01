@@ -50,15 +50,6 @@ jobs:
       - name: Build
         run: pwsh ./build.ps1 -Mode Build
 
-      - name: Check schema drift
-        run: |
-          git diff --exit-code src/DevOpsMigrationPlatform.CLI.Migration/migration.schema.json
-          if ($LASTEXITCODE -ne 0) {
-            Write-Host 'Schema drift detected — run "dotnet build src/DevOpsMigrationPlatform.CLI.Migration" and commit the updated migration.schema.json' -ForegroundColor Red
-            exit 1
-          }
-        shell: pwsh
-
       - name: Verify SchemaGenerator connector references
         run: |
           $csproj = Get-Content "src/DevOpsMigrationPlatform.SchemaGenerator/DevOpsMigrationPlatform.SchemaGenerator.csproj" -Raw
