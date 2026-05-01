@@ -273,4 +273,24 @@ public sealed class ControlPlaneClient : IJobSubmissionClient, ILogsClient, ICon
             .ReadFromJsonAsync<JobBootstrap>(_jsonOptions, ct)
             .ConfigureAwait(false);
     }
+
+    /// <summary>
+    /// Returns the current <see cref="JobTaskList"/> for a job, or <c>null</c> when the
+    /// agent has not yet pushed an execution plan.
+    /// Calls <c>GET /jobs/{jobId}/tasks</c>.
+    /// </summary>
+    public async Task<JobTaskList?> GetTasksAsync(Guid jobId, CancellationToken ct)
+    {
+        var response = await _http
+            .GetAsync($"/jobs/{jobId}/tasks", ct)
+            .ConfigureAwait(false);
+
+        if (response.StatusCode == System.Net.HttpStatusCode.NoContent)
+            return null;
+
+        response.EnsureSuccessStatusCode();
+        return await response.Content
+            .ReadFromJsonAsync<JobTaskList>(_jsonOptions, ct)
+            .ConfigureAwait(false);
+    }
 }

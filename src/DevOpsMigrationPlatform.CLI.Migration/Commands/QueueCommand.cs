@@ -661,12 +661,26 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
         var updates = Channel.CreateUnbounded<JobProgressUpdate>();
         var state = JobProgressState.Initial(totalWorkItems);
 
+        // Bootstrap poller: fires once when the agent pushes its execution plan.
+        // Also resolves the LastEventSequence so the SSE subscriber can use it as Last-Event-ID.
+        var lastEventSequenceTcs = new TaskCompletionSource<long>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var bootstrapTask = Task.Run(() => PollForBootstrap(client, parsedJobId, updates.Writer, lastEventSequenceTcs, followCts.Token));
+
         // Channel 2: telemetry polling — pushes TelemetryPolled updates every 5 s.
         // Channel 1: SSE stage stream — pushes StageAdvanced and JobTerminated updates.
         // Both producers write into the same channel; the consumer applies each update
         // via Apply() and re-renders, keeping all state in one immutable record.
         var telemetryTask = Task.Run(() => FetchLatestMetrics(client, parsedJobId, updates.Writer, followCts.Token));
-        var progressTask = Task.Run(() => FollowJobProgress(client, parsedJobId, updates.Writer, followCts.Token));
+        var progressTask = Task.Run(async () =>
+        {
+            // Wait for the bootstrap poller to capture LastEventSequence before starting SSE
+            // so we don't replay events the bootstrap already described. The poller resolves
+            // within 1 s of the agent starting; fall back to 0 if it times out first.
+            long lastSeq = 0;
+            try { lastSeq = await lastEventSequenceTcs.Task.WaitAsync(TimeSpan.FromSeconds(65), followCts.Token).ConfigureAwait(false); }
+            catch { /* cancelled or timed out — start SSE from beginning */ }
+            await FollowJobProgress(client, parsedJobId, updates.Writer, followCts.Token, lastSeq).ConfigureAwait(false);
+        });
 
         if (Console.IsOutputRedirected)
         {
@@ -678,6 +692,26 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
                 await foreach (var update in updates.Reader.ReadAllAsync(followCts.Token).ConfigureAwait(false))
                 {
                     state = Apply(state, update);
+                    // In non-interactive mode emit task transitions as plain log lines.
+                    if (update is TaskListReceived tlr && tlr.Tasks.Tasks.Count > 0)
+                    {
+                        console.MarkupLine("[grey]Execution plan:[/]");
+                        foreach (var t in tlr.Tasks.Tasks.OrderBy(t => t.Order))
+                            console.MarkupLine($"[grey]  · {Markup.Escape(t.Name)}[/]");
+                    }
+                    if (update is TaskUpdated tu)
+                    {
+                        var icon = tu.Status switch
+                        {
+                            JobTaskStatus.Running => "⠋",
+                            JobTaskStatus.Completed => "✓",
+                            JobTaskStatus.Failed => "✗",
+                            JobTaskStatus.Skipped => "→",
+                            _ => "·"
+                        };
+                        var taskName = state.Tasks?.Tasks.FirstOrDefault(t => t.Id == tu.TaskId)?.Name ?? tu.TaskId;
+                        console.MarkupLine($"[grey]{icon} {Markup.Escape(taskName)}[/]");
+                    }
                     if (update is JobTerminated jt)
                     {
                         if (jt.Failed)
@@ -784,6 +818,7 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
         try { await diagnosticsTask; } catch (OperationCanceledException) { }
         try { await telemetryTask; } catch (OperationCanceledException) { }
         try { await progressTask; } catch (OperationCanceledException) { }
+        try { await bootstrapTask; } catch (OperationCanceledException) { }
 
         // Flush buffered diagnostics now that the Progress() renderer has released the console.
         while (diagnosticsBuffer.TryDequeue(out var line))
@@ -828,23 +863,30 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
         ProgressEvent? LastEvent,
         int TeamsCount,
         int NodesCount,
-        int IdentitiesCount)
+        int IdentitiesCount,
+        JobTaskList? Tasks)
     {
         public static JobProgressState Initial(int totalWorkItems) => new(
             0, 0, totalWorkItems, 0, 0, 0, 0, 0, 0, 0,
             string.Empty, 0, 0, 0, 0, null, null, null, null, null, null,
-            0, 0, 0);
+            0, 0, 0, null);
     }
 
     private abstract record JobProgressUpdate;
     private record TelemetryPolled(JobMetrics Metrics) : JobProgressUpdate;
     private record StageAdvanced(ProgressEvent Event) : JobProgressUpdate;
     private record JobTerminated(bool Failed, string? Reason) : JobProgressUpdate;
+    /// <summary>Fired once when the bootstrap poll returns a non-null task list.</summary>
+    private record TaskListReceived(JobTaskList Tasks, long LastEventSequence) : JobProgressUpdate;
+    /// <summary>Fired per SSE event when <see cref="ProgressEvent.TaskId"/> is set.</summary>
+    private record TaskUpdated(string TaskId, JobTaskStatus Status, long? CompletedCount) : JobProgressUpdate;
 
     private static JobProgressState Apply(JobProgressState state, JobProgressUpdate update) => update switch
     {
         TelemetryPolled t => ApplyTelemetry(state, t.Metrics),
         StageAdvanced t => ApplyStageAdvance(state, t.Event),
+        TaskListReceived t => state with { Tasks = t.Tasks },
+        TaskUpdated t => ApplyTaskUpdate(state, t.TaskId, t.Status, t.CompletedCount),
         _ => state
     };
 
@@ -877,6 +919,33 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
         };
     }
 
+    private static JobProgressState ApplyTaskUpdate(
+        JobProgressState state, string taskId, JobTaskStatus newStatus, long? completedCount)
+    {
+        if (state.Tasks is null) return state;
+
+        var updatedTasks = new System.Collections.Generic.List<JobTask>(state.Tasks.Tasks.Count);
+        foreach (var task in state.Tasks.Tasks)
+        {
+            if (task.Id != taskId)
+            {
+                updatedTasks.Add(task);
+                continue;
+            }
+            var now = DateTimeOffset.UtcNow;
+            updatedTasks.Add(task with
+            {
+                Status = newStatus,
+                CompletedCount = completedCount ?? task.CompletedCount,
+                StartedAt = newStatus == JobTaskStatus.Running ? task.StartedAt ?? now : task.StartedAt,
+                CompletedAt = newStatus is JobTaskStatus.Completed or JobTaskStatus.Failed or JobTaskStatus.Skipped
+                    ? now
+                    : task.CompletedAt,
+            });
+        }
+        return state with { Tasks = state.Tasks with { Tasks = updatedTasks.AsReadOnly() } };
+    }
+
     // Only WorkItems events (or global job-engine events with no module) should update the
     // WorkItems stage label. Events from Teams/Nodes/Identities must not overwrite it.
     private static bool IsWorkItemsOrGlobalModule(ProgressEvent evt) =>
@@ -907,7 +976,7 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
             });
         }
 
-        return state with
+        var afterMetrics = state with
         {
             LastEvent = evt,
             Metrics = mergedMetrics,
@@ -926,11 +995,26 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
                 ? state.IdentitiesCount + 1
                 : state.IdentitiesCount,
         };
+
+        // Apply task status transition derived from the ProgressEvent — same logic as ProgressController.
+        if (evt.TaskId is not null && evt.TaskStatus.HasValue)
+            return ApplyTaskUpdate(afterMetrics, evt.TaskId, evt.TaskStatus.Value, evt.CompletedCount);
+
+        return afterMetrics;
     }
 
     /// <summary>Renders the current <see cref="JobProgressState"/> into the Live display.</summary>
-    private static IRenderable BuildProgressDisplay(JobProgressState s) =>
-        BuildProgressRenderable(
+    private static IRenderable BuildProgressDisplay(JobProgressState s)
+    {
+        // Task list panel (shown as soon as bootstrap returns the plan)
+        IRenderable? taskPanel = s.Tasks switch
+        {
+            null => new Markup("[grey]⠋ Initialising — waiting for agent to start…[/]"),
+            { Tasks.Count: 0 } => null,
+            var tasks => BuildTaskListRenderable(tasks)
+        };
+
+        var detailPanel = BuildProgressRenderable(
             s.Completed, s.Skipped, s.TotalWorkItems,
             s.CurrentWiId, s.CurrentWiRevsWritten,
             s.CurrentWiIndex, s.LastWiRevisions,
@@ -944,6 +1028,103 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
             s.Metrics?.Migration?.Nodes,
             s.Metrics?.Migration?.Identities,
             s.TeamsCount, s.NodesCount, s.IdentitiesCount);
+
+        if (taskPanel is null)
+            return detailPanel;
+
+        return new Rows(taskPanel, new Rule(), detailPanel);
+    }
+
+    /// <summary>
+    /// Renders the ordered task list as a checklist, grouped by phase.
+    /// </summary>
+    private static IRenderable BuildTaskListRenderable(JobTaskList taskList)
+    {
+        var rows = new System.Collections.Generic.List<IRenderable>();
+        string? currentPhase = null;
+
+        foreach (var task in taskList.Tasks.OrderBy(t => t.Order))
+        {
+            if (task.Phase != currentPhase)
+            {
+                currentPhase = task.Phase;
+                if (!string.IsNullOrEmpty(currentPhase))
+                    rows.Add(new Markup($"[bold grey]{Markup.Escape(currentPhase)}[/]"));
+            }
+
+            var (icon, color) = task.Status switch
+            {
+                JobTaskStatus.Running => (s_spinnerFrames[(int)(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() / 80 % s_spinnerFrames.Length)], "blue"),
+                JobTaskStatus.Completed => ("✓", "green"),
+                JobTaskStatus.Failed => ("✗", "red"),
+                JobTaskStatus.Skipped => ("→", "grey"),
+                _ => ("·", "grey"),
+            };
+
+            var countStr = string.Empty;
+            if (task.KnownTotal.HasValue && task.KnownTotal > 0)
+            {
+                var done = task.CompletedCount ?? 0;
+                var pct = Math.Clamp((double)done / task.KnownTotal.Value, 0, 1);
+                const int barW = 20;
+                var filled = (int)(pct * barW);
+                var bar = new string('━', filled) + new string('─', barW - filled);
+                countStr = $"  [{color}]{Markup.Escape(bar)}[/]  [grey]{done:N0}/{task.KnownTotal.Value:N0}[/]";
+            }
+            else if (task.CompletedCount.HasValue && task.CompletedCount > 0)
+            {
+                countStr = $"  [grey]{task.CompletedCount.Value:N0}[/]";
+            }
+
+            rows.Add(new Markup($"  [{color}]{icon}[/]  {Markup.Escape(task.Name)}{countStr}"));
+        }
+
+        return rows.Count > 0 ? new Rows(rows) : new Markup("[grey]─[/]");
+    }
+
+    /// <summary>
+    /// Polls <c>GET /jobs/{jobId}/bootstrap</c> at 1-second intervals until the agent
+    /// has pushed an execution plan (<see cref="JobBootstrap.Tasks"/> is non-null) or
+    /// the timeout of 60 seconds elapses, then writes a single
+    /// <see cref="TaskListReceived"/> into <paramref name="updates"/> and exits.
+    /// Also captures <see cref="JobBootstrap.LastEventSequence"/> for SSE reconnect.
+    /// </summary>
+    private static async Task PollForBootstrap(
+        IControlPlaneClient client, Guid jobId,
+        ChannelWriter<JobProgressUpdate> updates,
+        TaskCompletionSource<long> lastEventSequenceTcs,
+        CancellationToken ct)
+    {
+        var deadline = DateTimeOffset.UtcNow.AddSeconds(60);
+        try
+        {
+            while (!ct.IsCancellationRequested && DateTimeOffset.UtcNow < deadline)
+            {
+                try
+                {
+                    var bootstrap = await client.GetBootstrapAsync(jobId, ct).ConfigureAwait(false);
+                    if (bootstrap?.Tasks is not null)
+                    {
+                        lastEventSequenceTcs.TrySetResult(bootstrap.LastEventSequence);
+                        await updates.WriteAsync(
+                            new TaskListReceived(bootstrap.Tasks, bootstrap.LastEventSequence), ct)
+                            .ConfigureAwait(false);
+                        return;
+                    }
+                }
+                catch (OperationCanceledException) { return; }
+                catch (Exception) { /* best-effort — retry on next tick */ }
+
+                await Task.Delay(1_000, ct).ConfigureAwait(false);
+            }
+
+            // Timeout — signal with empty list so the display can exit "Initialising" state.
+            lastEventSequenceTcs.TrySetResult(0);
+            var empty = new JobTaskList { Tasks = Array.Empty<JobTask>(), PushedAt = DateTimeOffset.UtcNow };
+            await updates.WriteAsync(new TaskListReceived(empty, 0), ct).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) { }
+    }
 
     /// <summary>
     /// Polls <c>GET /jobs/{jobId}/telemetry</c> every 5 s and pushes
@@ -978,11 +1159,13 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
     /// </summary>
     private static async Task FollowJobProgress(
         IControlPlaneClient client, Guid jobId,
-        ChannelWriter<JobProgressUpdate> updates, CancellationToken ct)
+        ChannelWriter<JobProgressUpdate> updates, CancellationToken ct,
+        long lastEventSequence = 0)
     {
         try
         {
-            await foreach (var evt in client.FollowLogsAsync(jobId, ct).ConfigureAwait(false))
+            await foreach (var evt in client.FollowLogsAsync(jobId, ct,
+                lastEventSequence > 0 ? lastEventSequence : null).ConfigureAwait(false))
                 await updates.WriteAsync(new StageAdvanced(evt), ct).ConfigureAwait(false);
 
             await updates.WriteAsync(new JobTerminated(false, null), ct).ConfigureAwait(false);
