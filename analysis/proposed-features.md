@@ -93,6 +93,8 @@ Status legend:
 | P4 | [Operator Interaction / Pending Questions](#p4-operator-interaction--pending-questions) | 🆕 ❌ | Allow a running MigrationJob to pause and request operator input via TUI or CLI follow-mode; Agent enters "Pending" state on Control Plane until the answer is provided |
 | P5 | [Cloud Deployment — Ring-Based ControlPlane + Agents](#p5-cloud-deployment--ring-based-controlplane--agents) | 🆕 ❌ | Deploy ControlPlaneHost and MigrationAgent(s) to Azure Container Apps via `azd up` with three deployment rings (canary, preview, release) on `devopsmigration.io` |
 | P6 | [Formal JSON Schema — Config Validation & Tooling](#p6-formal-json-schema--config-validation--tooling) | 🆕 ❌ | Bundle a machine-readable JSON Schema for the full migration config; use it for Tier 0 path-accurate error messages, VS Code IntelliSense, and config-generation tooling |
+| P7 | [Inventory — Eliminate DiscoveryOptions Round-Trip](#p7-inventory--eliminate-discoveryoptions-round-trip) | 🆕 ❌ | Refactor `InventoryService` to accept `OrganisationEndpoint` directly instead of round-tripping through `DiscoveryOptions` → `OrganisationEntry` → `MigrationEndpointOptions` → `OrganisationEndpoint` |
+| P8 | [Per-Project Task Expansion for Inventory](#p8-per-project-task-expansion-for-inventory) | 🆕 ❌ | Plan builder creates one Inventory task per project per org — module always operates on a single `(endpoint, project)` pair; multiplexing is the orchestrator's job |
 
 ---
 
@@ -1138,3 +1140,41 @@ Breaking changes to the config shape bump the schema version and require a confi
 - Module scope schemas are contributed via `IModuleScopeSchemaProvider` — no coupling between the core schema and module assemblies.
 - The published URL is only used for editor auto-discovery; the bundled embedded schema is authoritative at runtime.
 - No `IOptions<T>` validator is removed — schema validation is an additional Tier 0 gate, not a replacement.
+
+---
+
+### P7: Inventory — Eliminate DiscoveryOptions Round-Trip
+
+**Current state**: `InventoryService` was built for the standalone CLI `discovery inventory` command. It reads `IOptions<DiscoveryOptions>`, iterates `opts.Organisations` (which are `OrganisationEntry` config objects), calls `entry.ToEndpointOptions()` to get `MigrationEndpointOptions`, then `.ToOrganisationEndpoint()` to get the runtime `OrganisationEndpoint`. When Inventory runs as a module inside the Migration Agent (Path 1 — single source), the module must fabricate a `ScopedOrganisationEndpoint` → pass it through `IInventoryServiceFactory` → which builds `DiscoveryOptions` → which `InventoryService` then decomposes back into an `OrganisationEndpoint`. This is a round-trip through config-time objects that adds no value.
+
+**Why it matters**: Every other module connects via DI-injected services + `ISourceEndpointInfo`. The `DiscoveryOptions` round-trip is legacy from the CLI's multi-org design leaking into the module path. It also caused an auth-loss bug: fabricating `MigrationEndpointOptions` from `ISourceEndpointInfo` lost the runtime-resolved PAT token because `MigrationEndpointOptions` is a config-time object that doesn't carry resolved auth.
+
+**Proposed solution**: `InventoryService` should accept `OrganisationEndpoint` directly (a single-endpoint overload exists as of spec 028.2). The multi-org overload that reads `DiscoveryOptions` stays for the standalone CLI path. The factory is only used for Path 2 (multi-org). Long term, consider whether `InventoryService` should work with a list of `OrganisationEndpoint` objects rather than `DiscoveryOptions` at all — the `DiscoveryOptions` → `OrganisationEntry` → `MigrationEndpointOptions` chain exists only because the CLI reads JSON config.
+
+**Interim state (028.2)**: `IInventoryService` has two overloads — `RunInventoryAsync(completedProjectKeys, ct)` for multi-org and `RunInventoryAsync(endpoint, projects, completedProjectKeys, ct)` for single source. The module branches cleanly between them. The `entry.ToEndpointOptions().ToOrganisationEndpoint()` chain remains in the multi-org path and should be eliminated when this item is implemented.
+
+**Related**: `IWorkItemLinkAnalysisService.AnalyseLinksAsync` still takes `MigrationEndpointOptions` — it should be standardised on `OrganisationEndpoint` as part of this work (deferred from 028.2 as out-of-scope).
+
+---
+
+### P8: Per-Project Task Expansion for Inventory
+
+**Current state**: `JobExecutionPlanBuilder` creates one task per module. When Inventory has multiple organisations with multiple projects, the single Inventory task internally iterates all orgs × projects. This means the module contains iteration logic, multi-org orchestration, and per-project checkpointing — responsibilities that belong in the execution plan layer.
+
+**Why it matters**: Every other module operates on a single scope defined by the job. The Inventory module is the exception because it inherited multi-org iteration from the CLI discovery command. This makes it harder to parallelise, harder to resume at project granularity, and harder to reason about (the module has two fundamentally different execution paths).
+
+**Proposed solution**: When organisations are configured (multi-org path), `JobExecutionPlanBuilder` expands Inventory into N tasks — one per project per org. Each task carries a scoped `(OrganisationEndpoint, project)` pair. The module always operates on a single endpoint + single project. Multi-org multiplexing is the plan builder's responsibility, not the module's.
+
+**Impact**:
+
+| Component | Change |
+|-----------|--------|
+| `JobExecutionPlanBuilder` | Expand Inventory tasks: for each enabled org, enumerate projects (or call `IProjectDiscoveryService`), create one `JobTask` per `(org, project)` |
+| `InventoryDiscoveryModule` | Remove multi-org iteration. Always receive a single `(endpoint, project)` via task context. Simplifies to ~50% of current code |
+| `IInventoryServiceFactory` | May become unnecessary — the module calls discovery services directly with the endpoint from task context |
+| `InventoryService` | Multi-org `RunInventoryAsync` overload retained for standalone CLI; single-endpoint overload used by module |
+| Checkpointing | Per-project cursor becomes one cursor per task — natural, no special logic |
+| Resume | Failed project = re-run that one task. No re-scanning of completed projects |
+| Parallelism | Plan builder can run independent project tasks in parallel (tier-based scheduling) |
+
+**Prerequisite**: P7 (eliminate DiscoveryOptions round-trip) should be done first so the single-endpoint path is clean.
