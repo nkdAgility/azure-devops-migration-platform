@@ -288,6 +288,32 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
                 Timestamp = DateTimeOffset.UtcNow
             });
 
+            // Handle ForceFresh BEFORE loading the plan — delete cursors, phase record, and plan file.
+            if (job.Resume?.Mode == ResumeMode.ForceFresh)
+            {
+                var checkpointer = CheckpointingFactory.Create(stateStore);
+                var phaseTracker = PhaseTrackingFactory.Create(stateStore);
+                
+                _logger.LogInformation("ForceFresh requested for job {JobId} — deleting module cursors and plan file.", job.JobId);
+                foreach (var module in MigrationModules)
+                {
+                    await checkpointer.DeleteCursorAsync(module.Name, ct).ConfigureAwait(false);
+                    _logger.LogDebug("Deleted cursor for module {Module}.", module.Name);
+                }
+                await phaseTracker.DeletePhaseRecordAsync(ct).ConfigureAwait(false);
+
+                // Delete the persisted plan file so a fresh plan is built.
+                try
+                {
+                    await stateStore.DeleteAsync(PackagePaths.PlanFile, ct).ConfigureAwait(false);
+                    _logger.LogDebug("Deleted plan file {Path}.", PackagePaths.PlanFile);
+                }
+                catch (System.IO.FileNotFoundException)
+                {
+                    // Plan file didn't exist — not an error.
+                }
+            }
+
             // Attempt to load persisted plan from package (resume scenario).
             var loadedPlan = await JobPlanExecutor.LoadOrResetAsync(stateStore, ct)
                 .ConfigureAwait(false);
@@ -347,31 +373,6 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
 
         try
         {
-            var checkpointer = CheckpointingFactory.Create(stateStore);
-            var phaseTracker = PhaseTrackingFactory.Create(stateStore);
-
-            if (job.Resume?.Mode == ResumeMode.ForceFresh)
-            {
-                _logger.LogInformation("ForceFresh requested for job {JobId} — deleting module cursors and plan file.", job.JobId);
-                foreach (var module in MigrationModules)
-                {
-                    await checkpointer.DeleteCursorAsync(module.Name, ct).ConfigureAwait(false);
-                    _logger.LogDebug("Deleted cursor for module {Module}.", module.Name);
-                }
-                await phaseTracker.DeletePhaseRecordAsync(ct).ConfigureAwait(false);
-
-                // Delete the persisted plan file so a fresh plan is built.
-                try
-                {
-                    await stateStore.DeleteAsync(PackagePaths.PlanFile, ct).ConfigureAwait(false);
-                    _logger.LogDebug("Deleted plan file {Path}.", PackagePaths.PlanFile);
-                }
-                catch (System.IO.FileNotFoundException)
-                {
-                    // Plan file didn't exist — not an error.
-                }
-            }
-
             var exportContext = new ExportContext
             {
                 Job = job,
