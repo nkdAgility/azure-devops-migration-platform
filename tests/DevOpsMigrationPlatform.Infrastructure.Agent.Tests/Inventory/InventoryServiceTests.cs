@@ -123,7 +123,7 @@ public class InventoryServiceTests
     {
         var mock = new Mock<IRepoDiscoveryService>(MockBehavior.Strict);
         mock.Setup(s => s.CountReposAsync(
-                It.IsAny<MigrationEndpointOptions>(), It.IsAny<string>(),
+                It.IsAny<OrganisationEndpoint>(), It.IsAny<string>(),
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync(repoCount);
         return mock;

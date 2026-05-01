@@ -129,14 +129,17 @@ public sealed class InventoryDiscoveryModule : IModule
         else if (_sourceEndpointInfo is not null)
         {
             // Infer from the job's source connector — empty Projects = all projects.
+            // Use ToOrganisationEndpoint() which carries resolved URL + auth token.
             _logger.LogInformation(
                 "No organisations configured for Inventory — inferring from source connector ({ConnectorType}, {Url}).",
                 _sourceEndpointInfo.ConnectorType, _sourceEndpointInfo.Url);
+            var resolvedEndpoint = _sourceEndpointInfo.ToOrganisationEndpoint();
             organisations = new System.Collections.Generic.List<ScopedOrganisationEndpoint>
             {
                 new ScopedOrganisationEndpoint
                 {
-                    Endpoint = InferEndpointOptions(_sourceEndpointInfo),
+                    Endpoint = new SimulatedEndpointOptions { Type = _sourceEndpointInfo.ConnectorType, Url = _sourceEndpointInfo.Url },
+                    ResolvedEndpoint = resolvedEndpoint,
                     Projects = new System.Collections.Generic.List<string>(),
                     Scopes = System.Array.Empty<JobModuleScope>()
                 }
@@ -700,27 +703,7 @@ public sealed class InventoryDiscoveryModule : IModule
 
     /// <summary>
     /// Validation is not supported for the Inventory module.
-    /// <summary>
-    /// Builds a <see cref="MigrationEndpointOptions"/> from <see cref="ISourceEndpointInfo"/>
-    /// so inventory can run when no explicit organisations list is configured (queue/export jobs).
     /// </summary>
-    private static MigrationEndpointOptions InferEndpointOptions(ISourceEndpointInfo source)
-    {
-        return source.ConnectorType switch
-        {
-            "Simulated" => new SimulatedEndpointOptions
-            {
-                Type = "Simulated",
-                Url = source.Url
-            },
-            "AzureDevOpsServices" => new AzureDevOpsEndpointOptions
-            {
-                Type = "AzureDevOpsServices",
-                Url = source.Url
-            },
-            _ => new SimulatedEndpointOptions { Type = source.ConnectorType, Url = source.Url }
-        };
-    }
 
     /// <summary>
     /// Validates the inventory module configuration.

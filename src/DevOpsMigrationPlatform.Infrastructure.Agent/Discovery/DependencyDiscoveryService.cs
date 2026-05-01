@@ -60,14 +60,15 @@ public sealed class DependencyDiscoveryService : IDependencyDiscoveryService
 
         foreach (var organisation in _options.Value.Organisations)
         {
-            var orgEndpointForLog = organisation.ToEndpointOptions();
+            var endpointOptions = organisation.ToEndpointOptions();
+            var orgEndpoint = endpointOptions.ToOrganisationEndpoint();
             if (!organisation.Enabled)
             {
-                _logger.LogInformation("Skipping disabled organisation: {Url}", orgEndpointForLog.GetResolvedUrl());
+                _logger.LogInformation("Skipping disabled organisation: {Url}", orgEndpoint.ResolvedUrl);
                 continue;
             }
 
-            _logger.LogInformation("Analysing organisation: {Url}, type: {Type}", orgEndpointForLog.GetResolvedUrl(), organisation.Type);
+            _logger.LogInformation("Analysing organisation: {Url}, type: {Type}", orgEndpoint.ResolvedUrl, organisation.Type);
 
             // Resolve the per-source implementation by keyed DI
             var key = organisation.Type ?? "Unknown";
@@ -90,18 +91,17 @@ public sealed class DependencyDiscoveryService : IDependencyDiscoveryService
             var projectsToAnalyse = organisation.Projects;
             if (projectsToAnalyse.Count == 0)
             {
-                _logger.LogInformation("Projects list is empty, fetching all projects from {Url}", orgEndpointForLog.GetResolvedUrl());
-                var endpoint = orgEndpointForLog;
+                _logger.LogInformation("Projects list is empty, fetching all projects from {Url}", orgEndpoint.ResolvedUrl);
                 try
                 {
                     projectsToAnalyse = (await _catalogService.GetProjectsAsync(
-                        endpoint,
+                        orgEndpoint,
                         cancellationToken)).ToList();
-                    _logger.LogInformation("Found {ProjectCount} projects in {Url}", projectsToAnalyse.Count, orgEndpointForLog.GetResolvedUrl());
+                    _logger.LogInformation("Found {ProjectCount} projects in {Url}", projectsToAnalyse.Count, orgEndpoint.ResolvedUrl);
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, "Failed to fetch projects from {Url}", orgEndpointForLog.GetResolvedUrl());
+                    _logger.LogError(ex, "Failed to fetch projects from {Url}", orgEndpoint.ResolvedUrl);
                     throw;
                 }
             }
@@ -109,20 +109,19 @@ public sealed class DependencyDiscoveryService : IDependencyDiscoveryService
             // Analyse each project in the organisation
             foreach (var project in projectsToAnalyse)
             {
-                var orgEndpoint = orgEndpointForLog;
-                var projectKey = $"{orgEndpoint.GetResolvedUrl()}|{project}";
+                var projectKey = $"{orgEndpoint.ResolvedUrl}|{project}";
 
                 if (completedProjectKeys?.Contains(projectKey) == true)
                 {
-                    _logger.LogInformation("Skipping completed project: {OrgUrl} / {Project}", orgEndpoint.GetResolvedUrl(), project);
+                    _logger.LogInformation("Skipping completed project: {OrgUrl} / {Project}", orgEndpoint.ResolvedUrl, project);
                     // Emit a heartbeat so the CLI/TUI can display the skip
                     yield return new DependencyHeartbeatEvent(
-                        orgEndpoint.GetResolvedUrl(), project, 0, 0, 0, 0, true,
+                        orgEndpoint.ResolvedUrl, project, 0, 0, 0, 0, true,
                         TotalWorkItems: 0, SkippedWorkItems: 0);
                     continue;
                 }
 
-                _logger.LogInformation("Analysing project {Project} in {Url}", project, orgEndpoint.GetResolvedUrl());
+                _logger.LogInformation("Analysing project {Project} in {Url}", project, orgEndpoint.ResolvedUrl);
 
                 // Determine if this project should resume from a continuation token
                 BatchContinuationToken? projectToken = null;
@@ -138,12 +137,12 @@ public sealed class DependencyDiscoveryService : IDependencyDiscoveryService
                 // If resume is rejected (fingerprint mismatch), fall back to a fresh start.
                 var effectiveToken = projectToken;
                 var effectiveWriter = projectCheckpointWriter ?? continuationCheckpointWriter;
-                var eventStream = service.AnalyseLinksAsync(orgEndpoint, project, wiqlFilter,
+                var eventStream = service.AnalyseLinksAsync(endpointOptions, project, wiqlFilter,
                     effectiveToken, effectiveWriter, cancellationToken);
 
                 var resumed = effectiveToken is not null;
                 await foreach (var evt in WrapWithResumeFallbackAsync(
-                    eventStream, resumed, service, orgEndpoint, project, wiqlFilter,
+                    eventStream, resumed, service, endpointOptions, project, wiqlFilter,
                     effectiveWriter, cancellationToken, _logger).ConfigureAwait(false))
                 {
                     yield return evt;

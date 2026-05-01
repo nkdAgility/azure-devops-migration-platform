@@ -1,7 +1,7 @@
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions.Agent.Discovery;
-using DevOpsMigrationPlatform.Abstractions.Options;
+using DevOpsMigrationPlatform.Abstractions.Organisations;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Simulated.Discovery;
 
@@ -15,7 +15,7 @@ public sealed class SimulatedRepoDiscoveryService : IRepoDiscoveryService
 
     /// <inheritdoc/>
     public Task<int> CountReposAsync(
-        MigrationEndpointOptions endpoint,
+        OrganisationEndpoint endpoint,
         string project,
         CancellationToken cancellationToken = default)
         => Task.FromResult(SimulatedReposPerProject);

@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Organisations;
 
 namespace DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Discovery;
 
@@ -20,11 +21,10 @@ internal sealed class AzureDevOpsProjectDiscoveryService : IProjectDiscoveryServ
     }
 
     public async Task<List<string>> DiscoverProjectsAsync(
-        MigrationEndpointOptions endpoint,
+        OrganisationEndpoint endpoint,
         CancellationToken cancellationToken = default)
     {
-        var orgEndpoint = endpoint.ToOrganisationEndpoint();
-        var projectClient = await _clientFactory.CreateProjectClientAsync(orgEndpoint, cancellationToken);
+        var projectClient = await _clientFactory.CreateProjectClientAsync(endpoint, cancellationToken);
         var projects = await projectClient.GetProjects();
         return projects.Select(p => p.Name).ToList();
     }

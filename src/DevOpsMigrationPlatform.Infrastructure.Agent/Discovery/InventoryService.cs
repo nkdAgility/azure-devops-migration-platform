@@ -45,8 +45,7 @@ public sealed class InventoryService : IInventoryService
 
         foreach (var entry in opts.Organisations.Where(e => e.Enabled))
         {
-            var endpoint = entry.ToEndpointOptions();
-            var orgEndpoint = endpoint.ToOrganisationEndpoint();
+            var orgEndpoint = entry.ToEndpointOptions().ToOrganisationEndpoint();
 
 #if !NET481
             var fetchScope = BuildOrgFetchScope(entry.Scopes);
@@ -56,17 +55,17 @@ public sealed class InventoryService : IInventoryService
 
             var projects = entry.Projects.Count > 0
                 ? entry.Projects
-                : await _projectDiscovery.DiscoverProjectsAsync(endpoint, cancellationToken).ConfigureAwait(false);
+                : await _projectDiscovery.DiscoverProjectsAsync(orgEndpoint, cancellationToken).ConfigureAwait(false);
 
             foreach (var project in projects)
             {
                 // Skip projects already completed in a previous run — no API calls.
-                var projectKey = $"{endpoint.GetResolvedUrl()}|{project}";
+                var projectKey = $"{orgEndpoint.ResolvedUrl}|{project}";
                 if (completedProjectKeys?.Contains(projectKey) == true)
                     continue;
 
                 // Start repo count concurrently while work items are being enumerated
-                var repoCountTask = _repoDiscovery.CountReposAsync(endpoint, project, cancellationToken);
+                var repoCountTask = _repoDiscovery.CountReposAsync(orgEndpoint, project, cancellationToken);
 
                 InventoryProgressEvent? pendingFinalEvent = null;
 
@@ -78,7 +77,7 @@ public sealed class InventoryService : IInventoryService
                         yield return new InventoryProgressEvent
                         {
                             ProjectName = project,
-                            Url = endpoint.GetResolvedUrl(),
+                            Url = orgEndpoint.ResolvedUrl,
                             WorkItemsCount = summary.WorkItemsCount,
                             RevisionsCount = summary.RevisionsCount,
                             ReposCount = 0,
@@ -91,7 +90,7 @@ public sealed class InventoryService : IInventoryService
                         pendingFinalEvent = new InventoryProgressEvent
                         {
                             ProjectName = project,
-                            Url = endpoint.GetResolvedUrl(),
+                            Url = orgEndpoint.ResolvedUrl,
                             WorkItemsCount = summary.WorkItemsCount,
                             RevisionsCount = summary.RevisionsCount,
                             IsComplete = true,
