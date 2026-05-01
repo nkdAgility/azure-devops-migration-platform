@@ -8,7 +8,6 @@ using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Agent.Lease;
 using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
-using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Infrastructure.Agent;
 using DevOpsMigrationPlatform.Infrastructure.Serialization;
 using Microsoft.Extensions.Configuration;
@@ -256,30 +255,6 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
             return;
         }
 
-        // Deserialize MigrationOptions from raw JSON using System.Text.Json.
-        // IConfiguration.Bind() cannot instantiate abstract types (Source/Target) or set init-only
-        // properties reliably in .NET 10. System.Text.Json handles both via the polymorphic
-        // endpoint converter (PolymorphicEndpointOptionsConverter) registered in AgentJsonOptions.
-        var migrationOptions = new MigrationOptions();
-        try
-        {
-            var rawJson = await artefactStore.ReadAsync(PackagePaths.MigrationConfigFileName, ct)
-                .ConfigureAwait(false);
-            if (!string.IsNullOrWhiteSpace(rawJson))
-            {
-                var wrapper = JsonSerializer.Deserialize<MigrationConfigWrapper>(rawJson, AgentJsonOptions);
-                if (wrapper?.MigrationPlatform != null)
-                    migrationOptions = wrapper.MigrationPlatform;
-            }
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex,
-                "Could not deserialize migration-config.json for job {JobId}; proceeding with defaults.",
-                job.JobId);
-        }
-
-        ActiveJobConfig.Current = migrationOptions;
         ActiveJobConfig.PackageConfig = packageConfig;
 
         // Create a per-job DI scope AFTER PackageConfig is set. Singleton tools (e.g.
@@ -393,19 +368,6 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
         {
             ActiveJobConfig.Clear();
         }
-    }
-
-    // ── Deserialization helpers ───────────────────────────────────────────────
-
-    /// <summary>
-    /// Wrapper matching the top-level shape of migration-config.json:
-    /// <c>{ "MigrationPlatform": { ... } }</c>.
-    /// Used to deserialize the full config with System.Text.Json (which correctly handles
-    /// init-only properties and polymorphic endpoint types via the registered converters).
-    /// </summary>
-    private sealed class MigrationConfigWrapper
-    {
-        public MigrationOptions MigrationPlatform { get; set; } = new();
     }
 
     // ── Discovery execution ───────────────────────────────────────────────────

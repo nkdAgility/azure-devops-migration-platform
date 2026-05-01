@@ -20,6 +20,7 @@ using DevOpsMigrationPlatform.Abstractions.Streaming;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Modules;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Teams;
 using DevOpsMigrationPlatform.Infrastructure.Simulated;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
@@ -42,11 +43,15 @@ public class TeamsModuleTests
         string targetProject = "TargetProject")
     {
         var state = new ActiveJobConfigState();
-        state.Current = new MigrationOptions
-        {
-            Source = new SimulatedEndpointOptions { Project = sourceProject },
-            Target = new SimulatedEndpointOptions { Project = targetProject }
-        };
+        state.PackageConfig = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["MigrationPlatform:Source:Type"] = "Simulated",
+                ["MigrationPlatform:Source:Project"] = sourceProject,
+                ["MigrationPlatform:Target:Type"] = "Simulated",
+                ["MigrationPlatform:Target:Project"] = targetProject,
+            })
+            .Build();
         return state;
     }
 
@@ -65,7 +70,7 @@ public class TeamsModuleTests
         activeJobConfig ??= CreateActiveJobConfig();
         var mock = new Mock<ISourceEndpointInfo>();
         mock.SetupGet(x => x.Url).Returns("https://dev.azure.com/test");
-        mock.SetupGet(x => x.Project).Returns(activeJobConfig.Current?.Source?.GetProject() ?? "TestProject");
+        mock.SetupGet(x => x.Project).Returns(activeJobConfig.PackageConfig?["MigrationPlatform:Source:Project"] ?? "TestProject");
         mock.SetupGet(x => x.ConnectorType).Returns("Simulated");
         return mock.Object;
     }
@@ -75,7 +80,7 @@ public class TeamsModuleTests
         activeJobConfig ??= CreateActiveJobConfig();
         var mock = new Mock<ITargetEndpointInfo>();
         mock.SetupGet(x => x.Url).Returns("https://dev.azure.com/target");
-        mock.SetupGet(x => x.Project).Returns(activeJobConfig.Current?.Target?.GetProject() ?? "TargetProject");
+        mock.SetupGet(x => x.Project).Returns(activeJobConfig.PackageConfig?["MigrationPlatform:Target:Project"] ?? "TargetProject");
         mock.SetupGet(x => x.ConnectorType).Returns("Simulated");
         return mock.Object;
     }

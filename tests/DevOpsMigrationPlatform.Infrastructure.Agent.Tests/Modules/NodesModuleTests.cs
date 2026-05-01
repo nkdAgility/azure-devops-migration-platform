@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions.Agent.Context;
@@ -14,6 +15,7 @@ using DevOpsMigrationPlatform.Abstractions.Jobs;
 using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Abstractions.Streaming;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Modules;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
@@ -46,11 +48,15 @@ public class NodesModuleTests
         string targetProject = "TargetProject")
     {
         var state = new ActiveJobConfigState();
-        state.Current = new MigrationOptions
-        {
-            Source = new SimulatedEndpointOptions { Project = sourceProject },
-            Target = new SimulatedEndpointOptions { Project = targetProject }
-        };
+        state.PackageConfig = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["MigrationPlatform:Source:Type"] = "Simulated",
+                ["MigrationPlatform:Source:Project"] = sourceProject,
+                ["MigrationPlatform:Target:Type"] = "Simulated",
+                ["MigrationPlatform:Target:Project"] = targetProject,
+            })
+            .Build();
         return state;
     }
 
@@ -67,7 +73,7 @@ public class NodesModuleTests
     {
         var mock = new Mock<ISourceEndpointInfo>();
         mock.SetupGet(x => x.Url).Returns("https://dev.azure.com/test");
-        mock.SetupGet(x => x.Project).Returns(activeJobConfig.Current?.Source?.GetProject() ?? "TestProject");
+        mock.SetupGet(x => x.Project).Returns(activeJobConfig.PackageConfig?["MigrationPlatform:Source:Project"] ?? "TestProject");
         mock.SetupGet(x => x.ConnectorType).Returns("Simulated");
         return mock.Object;
     }

@@ -129,16 +129,9 @@ public sealed class TfsJobAgentWorker : ModulePipelineWorkerBase
         if (section != null && section.Exists() && !string.IsNullOrEmpty(section["Url"]))
             source = BindTfsSource(section);
 
-        source ??= (ActiveJobConfig.Current?.Source as TeamFoundationServerEndpointOptions);
-
         if (source == null || string.IsNullOrEmpty(source.Url))
             throw new InvalidOperationException(
                 $"Job {job.JobId}: migration-config.json has no Source endpoint. Cannot establish TFS connection.");
-
-        // Make the concrete source available on the ambient MigrationOptions so modules
-        // that read _activeJobConfig?.Current?.Source get the correct endpoint.
-        if (ActiveJobConfig.Current != null)
-            ActiveJobConfig.Current.Source = source;
 
         _logger.LogInformation(
             "Connecting to TFS for job {JobId} at {Url}/{Project}.",

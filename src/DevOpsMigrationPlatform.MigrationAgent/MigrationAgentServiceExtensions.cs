@@ -1,4 +1,5 @@
 ﻿using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Infrastructure;
 using DevOpsMigrationPlatform.Infrastructure.AzureDevOps;
 using DevOpsMigrationPlatform.Infrastructure.Agent;
@@ -58,6 +59,16 @@ public static class MigrationAgentServiceExtensions
                 options.TotalRequestTimeout.Timeout = TimeSpan.FromSeconds(150);
                 options.CircuitBreaker.SamplingDuration = TimeSpan.FromSeconds(61);
             }));
+
+        // Register flat IOptions<T> bindings for top-level config sections.
+        // These are read-only per-host bindings; per-job re-reads go through IOptionsSnapshot<T>
+        // with ActiveJobConfigState.PackageConfig (see tool DI extensions).
+        builder.Services.AddOptions<MigrationPackageOptions>()
+            .BindConfiguration(MigrationPackageOptions.SectionName);
+        builder.Services.AddSchemaEntry<MigrationPackageOptions>("Package storage and path configuration");
+        builder.Services.AddOptions<MigrationPoliciesOptions>()
+            .BindConfiguration(MigrationPoliciesOptions.SectionName);
+        builder.Services.AddSchemaEntry<MigrationPoliciesOptions>("Retry, throttle, and checkpoint policy configuration");
 
         // Register cross-cutting tool services (NodeTranslation + FieldTransform).
         builder.Services.AddNodeTranslationToolServices();
