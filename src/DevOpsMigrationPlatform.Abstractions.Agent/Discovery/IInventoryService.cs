@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Threading;
+using DevOpsMigrationPlatform.Abstractions.Organisations;
 
 namespace DevOpsMigrationPlatform.Abstractions.Agent.Discovery;
 
@@ -22,6 +23,21 @@ public interface IInventoryService
     /// </param>
     /// <param name="cancellationToken">Cancellation token.</param>
     IAsyncEnumerable<InventoryProgressEvent> RunInventoryAsync(
+        HashSet<string>? completedProjectKeys = null,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Runs inventory against a single pre-resolved endpoint — the same mechanism other
+    /// modules use when connecting via <see cref="ISourceEndpointInfo"/>. No factory or
+    /// <see cref="Options.DiscoveryOptions"/> required.
+    /// </summary>
+    /// <param name="endpoint">Fully resolved endpoint with auth (e.g. from <c>ISourceEndpointInfo.ToOrganisationEndpoint()</c>).</param>
+    /// <param name="projects">Optional explicit project list. Empty or null = discover all projects.</param>
+    /// <param name="completedProjectKeys">Projects to skip (resume support).</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    IAsyncEnumerable<InventoryProgressEvent> RunInventoryAsync(
+        OrganisationEndpoint endpoint,
+        IReadOnlyList<string>? projects = null,
         HashSet<string>? completedProjectKeys = null,
         CancellationToken cancellationToken = default);
 }

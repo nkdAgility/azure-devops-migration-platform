@@ -59,25 +59,13 @@ internal sealed class InventoryServiceFactory : IInventoryServiceFactory
             Organisations = organisations.Select(o =>
             {
                 var ado = o.Endpoint as AzureDevOpsEndpointOptions;
-                var resolved = o.ResolvedEndpoint;
-
-                // Prefer auth from ResolvedEndpoint (carries runtime-resolved PAT from
-                // the job's source connector) over the config-time Endpoint auth.
-                var auth = resolved is not null
-                    ? new EndpointAuthenticationOptions
-                    {
-                        Type = resolved.Authentication.Type,
-                        AccessToken = resolved.Authentication.ResolvedAccessToken ?? string.Empty
-                    }
-                    : ado?.Authentication ?? new EndpointAuthenticationOptions();
-
                 return new AzureDevOpsOrganisationEntry
                 {
-                    Type = resolved?.Type ?? o.Endpoint.Type,
-                    Url = resolved?.ResolvedUrl ?? ado?.Url ?? o.Endpoint.GetResolvedUrl(),
+                    Type = o.Endpoint.Type,
+                    Url = ado?.Url ?? o.Endpoint.GetResolvedUrl(),
                     Projects = new System.Collections.Generic.List<string>(o.Projects),
-                    ApiVersion = resolved?.ApiVersion ?? ado?.ApiVersion,
-                    Authentication = auth,
+                    ApiVersion = ado?.ApiVersion,
+                    Authentication = ado?.Authentication ?? new EndpointAuthenticationOptions(),
                     Enabled = true,
                     Scopes = o.Scopes.Select(s => new MigrationOptionsScope
                     {

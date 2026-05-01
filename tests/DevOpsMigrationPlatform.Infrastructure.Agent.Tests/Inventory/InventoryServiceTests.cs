@@ -678,7 +678,7 @@ public class InventoryServiceTests
 
         // Act: null completed keys = fresh run
         var events = new List<InventoryProgressEvent>();
-        await foreach (var evt in sut.RunInventoryAsync(null))
+        await foreach (var evt in sut.RunInventoryAsync(completedProjectKeys: null))
             events.Add(evt);
 
         // Assert: all events yielded

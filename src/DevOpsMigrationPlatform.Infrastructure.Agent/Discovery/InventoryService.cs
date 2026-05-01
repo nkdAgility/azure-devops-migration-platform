@@ -6,6 +6,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Options;
+using DevOpsMigrationPlatform.Abstractions.Organisations;
 using Microsoft.Extensions.Options;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Agent.Discovery;
@@ -107,6 +108,85 @@ public sealed class InventoryService : IInventoryService
                     pendingFinalEvent.ReposCount = repoCount;
                     yield return pendingFinalEvent;
                 }
+            }
+        }
+    }
+
+    /// <inheritdoc/>
+    public async IAsyncEnumerable<InventoryProgressEvent> RunInventoryAsync(
+        OrganisationEndpoint endpoint,
+        IReadOnlyList<string>? projects = null,
+        HashSet<string>? completedProjectKeys = null,
+        [EnumeratorCancellation] CancellationToken cancellationToken = default)
+    {
+        var resolvedProjects = projects is { Count: > 0 }
+            ? projects.ToList()
+            : await _projectDiscovery.DiscoverProjectsAsync(endpoint, cancellationToken).ConfigureAwait(false);
+
+        await foreach (var evt in RunForEndpointAsync(
+            endpoint, resolvedProjects, null, completedProjectKeys, cancellationToken).ConfigureAwait(false))
+        {
+            yield return evt;
+        }
+    }
+
+    /// <summary>
+    /// Shared per-endpoint iteration: discovers projects, counts repos concurrently,
+    /// streams work-item discovery events.
+    /// </summary>
+    private async IAsyncEnumerable<InventoryProgressEvent> RunForEndpointAsync(
+        OrganisationEndpoint orgEndpoint,
+        List<string> projects,
+        WorkItemFetchScope? fetchScope,
+        HashSet<string>? completedProjectKeys,
+        [EnumeratorCancellation] CancellationToken cancellationToken)
+    {
+        foreach (var project in projects)
+        {
+            var projectKey = $"{orgEndpoint.ResolvedUrl}|{project}";
+            if (completedProjectKeys?.Contains(projectKey) == true)
+                continue;
+
+            var repoCountTask = _repoDiscovery.CountReposAsync(orgEndpoint, project, cancellationToken);
+
+            InventoryProgressEvent? pendingFinalEvent = null;
+
+            await foreach (var summary in _workItemDiscovery.DiscoverWorkItemsAsync(
+                orgEndpoint, project, fetchScope, cancellationToken))
+            {
+                if (!summary.IsWorkItemComplete)
+                {
+                    yield return new InventoryProgressEvent
+                    {
+                        ProjectName = project,
+                        Url = orgEndpoint.ResolvedUrl,
+                        WorkItemsCount = summary.WorkItemsCount,
+                        RevisionsCount = summary.RevisionsCount,
+                        ReposCount = 0,
+                        IsComplete = false,
+                        Timestamp = summary.LastUpdatedUtc
+                    };
+                }
+                else
+                {
+                    pendingFinalEvent = new InventoryProgressEvent
+                    {
+                        ProjectName = project,
+                        Url = orgEndpoint.ResolvedUrl,
+                        WorkItemsCount = summary.WorkItemsCount,
+                        RevisionsCount = summary.RevisionsCount,
+                        IsComplete = true,
+                        Error = summary.Error,
+                        Timestamp = summary.LastUpdatedUtc
+                    };
+                }
+            }
+
+            var repoCount = await repoCountTask.ConfigureAwait(false);
+            if (pendingFinalEvent != null)
+            {
+                pendingFinalEvent.ReposCount = repoCount;
+                yield return pendingFinalEvent;
             }
         }
     }

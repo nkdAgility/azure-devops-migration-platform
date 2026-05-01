@@ -15,13 +15,6 @@ public sealed class ScopedOrganisationEndpoint
     /// <summary>Connection context (resolved URL + auth + type + API version).</summary>
     public MigrationEndpointOptions Endpoint { get; init; } = null!;
 
-    /// <summary>
-    /// Optional pre-resolved endpoint. When set (e.g. by the job's source connector),
-    /// callers use this instead of <c>Endpoint.ToOrganisationEndpoint()</c> to avoid
-    /// losing authentication credentials that are only available at runtime.
-    /// </summary>
-    public OrganisationEndpoint? ResolvedEndpoint { get; init; }
-
     /// <summary>Projects to target. Empty = all projects in the organisation.</summary>
     public List<string> Projects { get; init; } = new();
 
@@ -32,11 +25,4 @@ public sealed class ScopedOrganisationEndpoint
     /// <see cref="WorkItemFetchScope"/> passed to <see cref="Services.IWorkItemDiscoveryService"/>.
     /// </summary>
     public IReadOnlyList<JobModuleScope> Scopes { get; init; } = System.Array.Empty<JobModuleScope>();
-
-    /// <summary>
-    /// Returns the best available <see cref="OrganisationEndpoint"/>: the pre-resolved one
-    /// if present, otherwise derived from <see cref="Endpoint"/>.
-    /// </summary>
-    public OrganisationEndpoint ToOrganisationEndpoint()
-        => ResolvedEndpoint ?? Endpoint.ToOrganisationEndpoint();
 }

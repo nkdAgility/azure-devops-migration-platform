@@ -101,67 +101,75 @@ public sealed class InventoryDiscoveryModule : IModule
             using (DataClassificationScope.Begin(DataClassification.Customer))
                 _logger.LogInformation("Resuming inventory after project '{LastCompleted}'.", lastCompleted);
 
-        // Organisations come from context.Organisations (populated by the agent from migration-config.json).
-        // Fall back to _discoveryOptions for backward compatibility with standalone discovery commands.
-        // Final fallback: infer a single-org scope from the job's source connector (queue/export jobs
-        // where no explicit organisations list is configured — empty list = all projects).
-        List<ScopedOrganisationEndpoint> organisations;
-        if (context.Organisations.Count > 0)
+        // ── Resolve inventory service ──
+        // Path 1 (module dependency): Use source endpoint directly — same as every other module.
+        // Path 2 (multi-org): Use organisations from context or config → factory → InventoryService.
+        IInventoryService inventoryService;
+        bool useSingleEndpoint = false;
+        OrganisationEndpoint? singleEndpoint = null;
+        IReadOnlyList<ScopedOrganisationEndpoint> organisations = Array.Empty<ScopedOrganisationEndpoint>();
+
+        if (context.Organisations.Count > 0 || _discoveryOptions?.Value?.Organisations is { Count: > 0 })
         {
-            organisations = context.Organisations.ToList();
-        }
-        else if (_discoveryOptions?.Value?.Organisations is { Count: > 0 } discoveryOrgs)
-        {
-            organisations = discoveryOrgs
-                .Where(o => o.Enabled)
-                .Select(o => new ScopedOrganisationEndpoint
-                {
-                    Endpoint = o.ToEndpointOptions(),
-                    Projects = new System.Collections.Generic.List<string>(o.Projects),
-                    Scopes = o.Scopes.Select(s => new JobModuleScope
+            // Path 2: Multi-org — use factory to build InventoryService from organisations list.
+            List<ScopedOrganisationEndpoint> orgs;
+            if (context.Organisations.Count > 0)
+            {
+                orgs = context.Organisations.ToList();
+            }
+            else
+            {
+                var discoveryOrgs = _discoveryOptions!.Value.Organisations;
+                orgs = discoveryOrgs
+                    .Where(o => o.Enabled)
+                    .Select(o => new ScopedOrganisationEndpoint
                     {
-                        Type = s.Type,
-                        Parameters = s.Parameters.ToDictionary(kvp => kvp.Key, kvp => (object?)kvp.Value)
-                    }).ToList()
-                })
-                .ToList<ScopedOrganisationEndpoint>();
+                        Endpoint = o.ToEndpointOptions(),
+                        Projects = new System.Collections.Generic.List<string>(o.Projects),
+                        Scopes = o.Scopes.Select(s => new JobModuleScope
+                        {
+                            Type = s.Type,
+                            Parameters = s.Parameters.ToDictionary(kvp => kvp.Key, kvp => (object?)kvp.Value)
+                        }).ToList()
+                    })
+                    .ToList<ScopedOrganisationEndpoint>();
+            }
+            organisations = orgs;
+
+            var connectorType = _sourceEndpointInfo?.ConnectorType ?? string.Empty;
+            var factory = (!string.IsNullOrEmpty(connectorType)
+                ? _serviceProvider.GetKeyedService<IInventoryServiceFactory>(connectorType)
+                : null) ?? _inventoryFactory;
+
+            var policies = _discoveryOptions?.Value?.Policies is { } p
+                ? new JobPolicies { MaxRetries = p.Retries.Max, MaxConcurrency = p.Throttle.MaxConcurrency, CheckpointIntervalSeconds = p.Checkpoints.Interval }
+                : new JobPolicies();
+
+            inventoryService = factory.Create(orgs, policies);
         }
         else if (_sourceEndpointInfo is not null)
         {
-            // Infer from the job's source connector — empty Projects = all projects.
-            // Use ToOrganisationEndpoint() which carries resolved URL + auth token.
+            // Path 1: Single source — connect like every other module.
             _logger.LogInformation(
-                "No organisations configured for Inventory — inferring from source connector ({ConnectorType}, {Url}).",
+                "No organisations configured for Inventory — using source connector ({ConnectorType}, {Url}).",
                 _sourceEndpointInfo.ConnectorType, _sourceEndpointInfo.Url);
-            var resolvedEndpoint = _sourceEndpointInfo.ToOrganisationEndpoint();
-            organisations = new System.Collections.Generic.List<ScopedOrganisationEndpoint>
-            {
-                new ScopedOrganisationEndpoint
-                {
-                    Endpoint = new SimulatedEndpointOptions { Type = _sourceEndpointInfo.ConnectorType, Url = _sourceEndpointInfo.Url },
-                    ResolvedEndpoint = resolvedEndpoint,
-                    Projects = new System.Collections.Generic.List<string>(),
-                    Scopes = System.Array.Empty<JobModuleScope>()
-                }
-            };
+            singleEndpoint = _sourceEndpointInfo.ToOrganisationEndpoint();
+            useSingleEndpoint = true;
+
+            // Resolve the correct keyed InventoryService for this connector.
+            var connectorType = _sourceEndpointInfo.ConnectorType;
+            var factory = (!string.IsNullOrEmpty(connectorType)
+                ? _serviceProvider.GetKeyedService<IInventoryServiceFactory>(connectorType)
+                : null) ?? _inventoryFactory;
+            inventoryService = factory.Create(
+                new System.Collections.Generic.List<ScopedOrganisationEndpoint>(),
+                new JobPolicies());
         }
         else
         {
-            organisations = new System.Collections.Generic.List<ScopedOrganisationEndpoint>();
+            _logger.LogWarning("Inventory module has no source endpoint and no organisations — skipping.");
+            return;
         }
-
-        var policies = _discoveryOptions?.Value?.Policies is { } p
-            ? new JobPolicies { MaxRetries = p.Retries.Max, MaxConcurrency = p.Throttle.MaxConcurrency, CheckpointIntervalSeconds = p.Checkpoints.Interval }
-            : new JobPolicies();
-        // Resolve the connector-specific inventory factory by connector type (keyed) so Simulated
-        // connector uses Simulated discovery services and ADO uses ADO services.
-        // Falls back to the non-keyed factory if no keyed one is registered for this connector.
-        var connectorType = _sourceEndpointInfo?.ConnectorType ?? string.Empty;
-        var inventoryFactory = (!string.IsNullOrEmpty(connectorType)
-            ? _serviceProvider.GetKeyedService<IInventoryServiceFactory>(connectorType)
-            : null) ?? _inventoryFactory;
-
-        var inventoryService = inventoryFactory.Create(organisations, policies);
 
         // Emit a probe event so the CLI live table transitions from "…" to "Starting"
         // immediately, proving the sink pipeline works before the API returns data.
@@ -245,8 +253,13 @@ public sealed class InventoryDiscoveryModule : IModule
         using var _dataScope = DataClassificationScope.Begin(DataClassification.Customer);
 
         // Pass completed keys so the service skips them — no re-counting.
-        await foreach (var evt in inventoryService.RunInventoryAsync(
-            completedKeys.Count > 0 ? completedKeys : null, ct).ConfigureAwait(false))
+        // Path 1 uses the single-endpoint overload; Path 2 uses the multi-org overload.
+        var completedKeysArg = completedKeys.Count > 0 ? completedKeys : null;
+        var eventStream = useSingleEndpoint
+            ? inventoryService.RunInventoryAsync(singleEndpoint!, projects: null, completedKeysArg, ct)
+            : inventoryService.RunInventoryAsync(completedKeysArg, ct);
+
+        await foreach (var evt in eventStream.ConfigureAwait(false))
         {
             var projectKey = $"{evt.Url}|{evt.ProjectName}";
 
