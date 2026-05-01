@@ -104,7 +104,8 @@ public static class MigrationAgentServiceExtensions
         // collects all connector types when it is first resolved.
         builder.Services.AddMigrationPlatformPolymorphicSerializers();
 
-        // Register IDiscoveryModule implementations for DiscoveryAgentWorker.
+        // Register discovery modules (Inventory, Dependencies) as IModule implementations.
+        // They run as part of the Export plan when needed, not via a separate DiscoveryAgentWorker.
         // ICatalogService must be registered before AddAzureDevOpsDependencyAnalysis.
         builder.Services.AddSingleton<ICatalogService, CatalogService>();
         builder.Services.AddAzureDevOpsInventory(builder.Configuration);
