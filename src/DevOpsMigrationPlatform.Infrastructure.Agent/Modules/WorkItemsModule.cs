@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
@@ -40,7 +40,14 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Modules;
 public sealed class WorkItemsModule : IModule
 {
     public string Name => "WorkItems";
-    public IReadOnlyList<string> DependsOn => new[] { "Inventory", "Identities", "Nodes" };
+    public IReadOnlyList<ModuleDependency> DependsOn => new[]
+    {
+        new ModuleDependency(typeof(InventoryDiscoveryModule), DependencyPhase.Both),
+        new ModuleDependency(typeof(IdentitiesModule), DependencyPhase.Import),
+        new ModuleDependency(typeof(NodesModule), DependencyPhase.Import)
+    };
+    public bool SupportsExport => true;
+    public bool SupportsImport => true;
 
     private static readonly ActivitySource s_activitySource = new(WellKnownActivitySourceNames.Migration);
 
@@ -63,7 +70,6 @@ public sealed class WorkItemsModule : IModule
     private readonly IMigrationMetrics? _metrics;
     private readonly IWorkItemDiscoveryService? _discoveryService;
     private readonly IExportProgressStoreFactory? _exportProgressStoreFactory;
-    private readonly IClassificationTreeCapture? _classificationTreeCapture;
 #if !NET481
     private readonly IReferencedPathTracker? _referencedPathTracker;
     private readonly INodeEnsurer? _nodeEnsurer;
@@ -96,7 +102,6 @@ public sealed class WorkItemsModule : IModule
         IMigrationMetrics? metrics = null,
         IWorkItemDiscoveryService? discoveryService = null,
         IExportProgressStoreFactory? exportProgressStoreFactory = null,
-        IClassificationTreeCapture? classificationTreeCapture = null,
 #if !NET481
         IReferencedPathTracker? referencedPathTracker = null,
         INodeEnsurer? nodeEnsurer = null,
@@ -122,7 +127,6 @@ public sealed class WorkItemsModule : IModule
         _metrics = metrics;
         _discoveryService = discoveryService;
         _exportProgressStoreFactory = exportProgressStoreFactory;
-        _classificationTreeCapture = classificationTreeCapture;
 #if !NET481
         _referencedPathTracker = referencedPathTracker;
         _nodeEnsurer = nodeEnsurer;
@@ -174,20 +178,12 @@ public sealed class WorkItemsModule : IModule
             .CreateAsync(ct)
             .ConfigureAwait(false);
 
-        if (_classificationTreeCapture is null)
-            _logger.LogWarning("[WorkItems] IClassificationTreeCapture is not available — source-tree.json will not be written.");
-
 #if !NET481
         if (_referencedPathTracker is null)
             _logger.LogWarning("[WorkItems] IReferencedPathTracker is not available — referenced path tracking will be skipped.");
 
         if (_referencedPathTracker is not null)
             await _referencedPathTracker.InitializeAsync(context.ArtefactStore, ct).ConfigureAwait(false);
-        if (_classificationTreeCapture is not null)
-            _ = await _classificationTreeCapture.CaptureAsync(context.ArtefactStore, ct, _metrics, job.JobId).ConfigureAwait(false);
-#else
-        if (_classificationTreeCapture is not null)
-            _ = await _classificationTreeCapture.CaptureAsync(context.ArtefactStore, ct).ConfigureAwait(false);
 #endif
 
         var checkpointingService = _checkpointingFactory.Create(context.StateStore);

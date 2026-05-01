@@ -69,7 +69,13 @@ public sealed class TeamsModule : IModule
     private readonly ITargetEndpointInfo _targetEndpointInfo;
 
     public string Name => ModuleName;
-    public IReadOnlyList<string> DependsOn => new[] { "Identities", "Nodes" };
+    public IReadOnlyList<ModuleDependency> DependsOn => new[]
+    {
+        new ModuleDependency(typeof(IdentitiesModule), DependencyPhase.Import),
+        new ModuleDependency(typeof(NodesModule), DependencyPhase.Import)
+    };
+    public bool SupportsExport => true;
+    public bool SupportsImport => true;
 
     public TeamsModule(
         ILogger<TeamsModule> logger,

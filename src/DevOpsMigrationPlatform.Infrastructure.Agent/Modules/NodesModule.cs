@@ -54,7 +54,9 @@ public sealed class NodesModule : IModule
 #endif
 
     public string Name => ModuleName;
-    public IReadOnlyList<string> DependsOn => Array.Empty<string>();
+    public IReadOnlyList<ModuleDependency> DependsOn => Array.Empty<ModuleDependency>();
+    public bool SupportsExport => true;
+    public bool SupportsImport => true;
 
     public NodesModule(
         ILogger<NodesModule> logger,

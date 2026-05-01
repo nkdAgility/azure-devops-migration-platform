@@ -57,7 +57,9 @@ public sealed class IdentitiesModule : IModule
     private readonly ISourceEndpointInfo _sourceEndpointInfo;
 
     public string Name => ModuleName;
-    public IReadOnlyList<string> DependsOn => Array.Empty<string>();
+    public IReadOnlyList<ModuleDependency> DependsOn => Array.Empty<ModuleDependency>();
+    public bool SupportsExport => true;
+    public bool SupportsImport => true;
 
     public IdentitiesModule(
         ILogger<IdentitiesModule> logger,

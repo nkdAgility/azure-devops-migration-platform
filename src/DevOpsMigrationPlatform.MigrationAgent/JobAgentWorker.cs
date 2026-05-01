@@ -484,7 +484,7 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
         {
             _logger.LogInformation(
                 "ForceFresh requested for discovery job {JobId} — deleting module cursors.", job.JobId);
-            foreach (var module in _migrationModules)
+            foreach (var module in MigrationModules)
             {
                 var cursorPath = PackagePaths.CursorFile(module.Name);
                 try { await stateStore.DeleteAsync(cursorPath, ct).ConfigureAwait(false); }
@@ -532,7 +532,7 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
         }
 
         // Route to the right modules by job kind name (e.g. "Inventory", "Dependencies").
-        var modulesToRun = _migrationModules
+        var modulesToRun = MigrationModules
             .Where(m => m.Name.Equals(job.Kind.ToString(), StringComparison.OrdinalIgnoreCase))
             .ToList();
 
@@ -544,7 +544,7 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
             {
                 _logger.LogInformation(
                     "No inventory.json found for dependency job {JobId} — prepending Inventory module.", job.JobId);
-                var inventoryModules = _migrationModules
+                var inventoryModules = MigrationModules
                     .Where(m => m.Name.Equals("Inventory", StringComparison.OrdinalIgnoreCase))
                     .ToList();
                 modulesToRun = inventoryModules.Concat(modulesToRun).ToList();

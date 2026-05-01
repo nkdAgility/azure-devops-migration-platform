@@ -52,7 +52,9 @@ public sealed class DependencyDiscoveryModule : IModule
     private readonly IOptions<DiscoveryOptions>? _discoveryOptions;
 
     public string Name => "Dependencies";
-    public IReadOnlyList<string> DependsOn => Array.Empty<string>(); // No dependencies
+    public IReadOnlyList<ModuleDependency> DependsOn => Array.Empty<ModuleDependency>(); // No dependencies
+    public bool SupportsExport => false; // Handled via BuildInventoryTasks — not the standard export loop
+    public bool SupportsImport => false; // Dependencies runs only during the Export phase
 
     /// <summary>
     /// Normalizes an organisation URL + project name pair into a canonical key

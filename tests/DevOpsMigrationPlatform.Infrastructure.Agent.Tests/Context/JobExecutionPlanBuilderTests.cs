@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
@@ -15,7 +16,20 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Tests.Context;
 [TestClass]
 public sealed class JobExecutionPlanBuilderTests
 {
-    private static JobExecutionPlanBuilder CreateBuilder()
+    // The four standard export/import modules in execution order.
+    private static readonly string[] StandardModuleNames = ["Identities", "Nodes", "Teams", "WorkItems"];
+
+    private static IModule MockModule(string name, params ModuleDependency[] dependsOn)
+    {
+        var m = new Mock<IModule>(MockBehavior.Loose);
+        m.SetupGet(x => x.Name).Returns(name);
+        m.SetupGet(x => x.DependsOn).Returns((IReadOnlyList<ModuleDependency>)dependsOn);
+        m.SetupGet(x => x.SupportsExport).Returns(true);
+        m.SetupGet(x => x.SupportsImport).Returns(true);
+        return m.Object;
+    }
+
+    private static JobExecutionPlanBuilder CreateBuilder(IEnumerable<IModule>? modules = null)
     {
         var phaseFactory = new Mock<IPhaseTrackingServiceFactory>(MockBehavior.Loose);
         var phaseService = new Mock<IPhaseTrackingService>(MockBehavior.Loose);
@@ -25,8 +39,9 @@ public sealed class JobExecutionPlanBuilderTests
         phaseFactory
             .Setup(f => f.Create(It.IsAny<IStateStore>()))
             .Returns(phaseService.Object);
-        var modules = new List<IModule>(); // Empty for basic tests
-        return new JobExecutionPlanBuilder(modules, phaseFactory.Object, NullLogger<JobExecutionPlanBuilder>.Instance);
+        var moduleList = modules?.ToList()
+            ?? StandardModuleNames.Select(n => MockModule(n)).ToList();
+        return new JobExecutionPlanBuilder(moduleList, phaseFactory.Object, NullLogger<JobExecutionPlanBuilder>.Instance);
     }
 
     private static IConfiguration AllEnabledConfig()
@@ -87,7 +102,7 @@ public sealed class JobExecutionPlanBuilderTests
     }
 
     [TestMethod]
-    public async Task BuildPlanAsync_DisabledModule_MarksTaskAsSkipped()
+    public async Task BuildPlanAsync_DisabledModule_DoesNotCreateTask()
     {
         var builder = CreateBuilder();
         var store = new Mock<IArtefactStore>(MockBehavior.Loose);
@@ -105,9 +120,13 @@ public sealed class JobExecutionPlanBuilderTests
         var plan = await builder.BuildPlanAsync(
             config, JobKind.Export, store.Object, stateStore.Object, CancellationToken.None);
 
-        var identitiesTask = plan.Tasks[0];
-        Assert.AreEqual(JobTaskStatus.Skipped, identitiesTask.Status);
-        Assert.IsNotNull(identitiesTask.SkipReason);
+        // Identities is disabled, so it should not have a task
+        Assert.IsFalse(plan.Tasks.Any(t => t.Id.Contains("identities")),
+            "Disabled Identities module should not have a task");
+        
+        // Only 3 enabled modules should have export tasks
+        Assert.AreEqual(3, plan.Tasks.Count(t => t.Phase == "Export"),
+            "Should have 3 export tasks (Nodes, Teams, WorkItems)");
     }
 
     [TestMethod]
@@ -123,6 +142,9 @@ public sealed class JobExecutionPlanBuilderTests
         store
             .Setup(s => s.ReadAsync("inventory.json", It.IsAny<CancellationToken>()))
             .ReturnsAsync(inventoryJson);
+        store
+            .Setup(s => s.ExistsAsync("inventory.json", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true); // inventory.json exists → no Inventory phase prepended
         var stateStore = new Mock<IStateStore>(MockBehavior.Loose);
 
         var plan = await builder.BuildPlanAsync(

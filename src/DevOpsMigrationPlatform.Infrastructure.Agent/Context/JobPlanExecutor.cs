@@ -63,20 +63,90 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
             return true;
         }
 
-        using var activity = _activitySource.StartActivity("job.plan.execute.tier");
-        activity?.SetTag("job.phase", "Export");
-        activity?.SetTag("job.tier_index", 0);
-        activity?.SetTag("job.tier_task_count", tasks.Count);
+        // Use the same tier-based execution as Import so that tasks with DependsOn
+        // (e.g. Inventory → WorkItems) run in the correct order.
+        var tiers = ExtractTiers(tasks);
+        _logger.LogInformation(
+            "Export phase: {TaskCount} task(s) organized into {TierCount} tier(s).",
+            tasks.Count, tiers.Count);
 
-        _logger.LogInformation("Executing tier 0 ({TaskCount} tasks) for Export phase.", tasks.Count);
+        bool anyFailed = false;
+        var failedTasks = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-        var failed = await ExecuteTierAsync(
-            tasks, modulesByName, exportContext, null, stateStore, plan, ct)
-            .ConfigureAwait(false);
-
-        if (failed.Count > 0)
+        for (int tierIndex = 0; tierIndex < tiers.Count; tierIndex++)
         {
-            _logger.LogWarning("Export phase completed with {FailedCount} failed task(s).", failed.Count);
+            var tier = tiers[tierIndex];
+
+            using var activity = _activitySource.StartActivity("job.plan.execute.tier");
+            activity?.SetTag("job.phase", "Export");
+            activity?.SetTag("job.tier_index", tierIndex);
+            activity?.SetTag("job.tier_task_count", tier.Count);
+
+            _logger.LogInformation(
+                "Executing tier {TierIndex} ({TaskCount} tasks) for Export phase: {TaskIds}",
+                tierIndex, tier.Count, string.Join(", ", tier.Select(t => t.Id)));
+
+            var result = await ExecuteTierAsync(
+                tier, modulesByName, exportContext, null, stateStore, plan, ct)
+                .ConfigureAwait(false);
+
+            plan = result.UpdatedPlan; // Propagate plan updates
+
+            if (result.FailedTaskIds.Count > 0)
+            {
+                anyFailed = true;
+                foreach (var id in result.FailedTaskIds)
+                    failedTasks.Add(id);
+
+                // Mark dependent tasks in subsequent tiers as Skipped.
+                for (int nextTierIdx = tierIndex + 1; nextTierIdx < tiers.Count; nextTierIdx++)
+                {
+                    foreach (var task in tiers[nextTierIdx])
+                    {
+                        if (task.DependsOn is not null && task.DependsOn.Any(dep => failedTasks.Contains(dep)))
+                        {
+                            var matchedDep = task.DependsOn.First(dep => failedTasks.Contains(dep));
+                            var updated = task with
+                            {
+                                Status = JobTaskStatus.Skipped,
+                                SkipReason = $"Dependency '{matchedDep}' failed or was skipped."
+                            };
+
+                            var taskList = plan.Tasks.ToList();
+                            var idx = taskList.FindIndex(t => t.Id == task.Id);
+                            if (idx >= 0)
+                            {
+                                taskList[idx] = updated;
+                                plan = plan with { Tasks = taskList.AsReadOnly() };
+                                await PersistPlanAsync(plan, stateStore, ct).ConfigureAwait(false);
+
+                                _progressSink?.Emit(new ProgressEvent
+                                {
+                                    Module = GetModuleName(task.Id, modulesByName.Keys),
+                                    Stage = "Export.Skipped",
+                                    Message = $"Skipped due to failed dependency: {matchedDep}",
+                                    Timestamp = DateTimeOffset.UtcNow,
+                                    TaskId = task.Id,
+                                    TaskStatus = JobTaskStatus.Skipped
+                                });
+
+                                _logger.LogWarning(
+                                    "Task {TaskId} skipped — dependency {Dependency} failed.",
+                                    task.Id, matchedDep);
+                            }
+                        }
+                    }
+                }
+            }
+
+            _logger.LogInformation(
+                "Export tier {TierIndex} complete: {Succeeded} succeeded, {Failed} failed.",
+                tierIndex, tier.Count - result.FailedTaskIds.Count, result.FailedTaskIds.Count);
+        }
+
+        if (anyFailed)
+        {
+            _logger.LogWarning("Export phase completed with {FailedCount} failed task(s).", failedTasks.Count);
             return false;
         }
 
@@ -90,20 +160,67 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
         IStateStore stateStore,
         CancellationToken ct)
     {
-        var tasks = plan.Tasks
-            .Where(t => t.Phase == "Import" && t.Status != JobTaskStatus.Skipped && t.Status != JobTaskStatus.Completed)
-            .ToList();
+        // Filter out already-completed or skipped tasks, and mark tasks with skipped dependencies as skipped.
+        var skippedOrCompletedIds = plan.Tasks
+            .Where(t => t.Phase == "Import" && (t.Status == JobTaskStatus.Skipped || t.Status == JobTaskStatus.Completed || t.Status == JobTaskStatus.Failed))
+            .Select(t => t.Id)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
-        if (tasks.Count == 0)
+        // Mark tasks depending on skipped/failed tasks as skipped before tier extraction.
+        var tasksToExecute = new List<JobTask>();
+        foreach (var task in plan.Tasks.Where(t => t.Phase == "Import"))
+        {
+            if (skippedOrCompletedIds.Contains(task.Id))
+                continue; // Already skipped/completed/failed
+
+            // Check if any dependency is skipped or failed
+            if (task.DependsOn is not null && task.DependsOn.Any(dep => skippedOrCompletedIds.Contains(dep)))
+            {
+                var matchedDep = task.DependsOn.First(dep => skippedOrCompletedIds.Contains(dep));
+                var updated = task with
+                {
+                    Status = JobTaskStatus.Skipped,
+                    SkipReason = $"Dependency '{matchedDep}' was skipped or failed."
+                };
+
+                // Update in plan and persist
+                var taskList = plan.Tasks.ToList();
+                var idx = taskList.FindIndex(t => t.Id == task.Id);
+                if (idx >= 0)
+                {
+                    taskList[idx] = updated;
+                    plan = plan with { Tasks = taskList.AsReadOnly() };
+                    await PersistPlanAsync(plan, stateStore, ct).ConfigureAwait(false);
+
+                    _progressSink?.Emit(new ProgressEvent
+                    {
+                        Module = GetModuleName(task.Id, modulesByName.Keys),
+                        Stage = "Import.Skipped",
+                        Message = $"Skipped due to dependency: {matchedDep}",
+                        Timestamp = DateTimeOffset.UtcNow,
+                        TaskId = task.Id,
+                        TaskStatus = JobTaskStatus.Skipped
+                    });
+                }
+
+                skippedOrCompletedIds.Add(task.Id); // Add to skipped set for cascading dependencies
+            }
+            else
+            {
+                tasksToExecute.Add(task);
+            }
+        }
+
+        if (tasksToExecute.Count == 0)
         {
             _logger.LogInformation("Import phase: no tasks to execute (all skipped or completed).");
             return true;
         }
 
-        var tiers = ExtractTiers(tasks);
+        var tiers = ExtractTiers(tasksToExecute);
         _logger.LogInformation(
             "Import phase: {TaskCount} task(s) organized into {TierCount} tier(s).",
-            tasks.Count, tiers.Count);
+            tasksToExecute.Count, tiers.Count);
 
         bool anyFailed = false;
         var failedTasks = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -125,10 +242,12 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
                 tier, modulesByName, null, importContext, stateStore, plan, ct)
                 .ConfigureAwait(false);
 
-            if (failed.Count > 0)
+            plan = failed.UpdatedPlan; // Propagate plan updates from tier execution
+
+            if (failed.FailedTaskIds.Count > 0)
             {
                 anyFailed = true;
-                foreach (var id in failed)
+                foreach (var id in failed.FailedTaskIds)
                     failedTasks.Add(id);
 
                 // Mark dependent tasks in subsequent tiers as Skipped.
@@ -176,8 +295,8 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
             _logger.LogInformation(
                 "Tier {TierIndex} complete: {Succeeded} succeeded, {Failed} failed, {Skipped} skipped.",
                 tierIndex,
-                tier.Count - failed.Count,
-                failed.Count,
+                tier.Count - failed.FailedTaskIds.Count,
+                failed.FailedTaskIds.Count,
                 0); // Skipped count is zero at tier-exec time; skips happen after failures.
         }
 
@@ -192,7 +311,9 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
 
     // ── Tier Execution ───────────────────────────────────────────────────────
 
-    private async Task<List<string>> ExecuteTierAsync(
+    private record TierExecutionResult(List<string> FailedTaskIds, JobTaskList UpdatedPlan);
+
+    private async Task<TierExecutionResult> ExecuteTierAsync(
         IReadOnlyList<JobTask> tier,
         IReadOnlyDictionary<string, IModule> modulesByName,
         ExportContext? exportContext,
@@ -202,9 +323,19 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
         CancellationToken ct)
     {
         var failedTaskIds = new List<string>();
+        var planLock = new object();
+        var persistLock = new SemaphoreSlim(1, 1); // Serialize file writes
 
         var tierTasks = tier.Select(task => Task.Run(async () =>
         {
+            // Check if this task has been marked as Skipped in the plan (e.g. due to failed dependency)
+            var currentTask = plan.Tasks.FirstOrDefault(t => t.Id == task.Id);
+            if (currentTask?.Status == JobTaskStatus.Skipped)
+            {
+                _logger.LogInformation("Skipping task {TaskId} — already marked as Skipped in plan.", task.Id);
+                return;
+            }
+
             var moduleName = GetModuleName(task.Id, modulesByName.Keys);
             if (!modulesByName.TryGetValue(moduleName, out var module))
             {
@@ -221,24 +352,42 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
                 StartedAt = DateTimeOffset.UtcNow
             };
 
-            var taskList = plan.Tasks.ToList();
-            var idx = taskList.FindIndex(t => t.Id == task.Id);
-            if (idx >= 0)
+            JobTaskList updatedPlan;
+            lock (planLock)
             {
-                taskList[idx] = updated;
-                plan = plan with { Tasks = taskList.AsReadOnly() };
-                await PersistPlanAsync(plan, stateStore, ct).ConfigureAwait(false);
-
-                _progressSink?.Emit(new ProgressEvent
+                var taskList = plan.Tasks.ToList();
+                var idx = taskList.FindIndex(t => t.Id == task.Id);
+                if (idx >= 0)
                 {
-                    Module = moduleName,
-                    Stage = exportContext is not null ? "Export.Start" : "Import.Start",
-                    Message = $"{moduleName} {(exportContext is not null ? "export" : "import")} starting.",
-                    Timestamp = updated.StartedAt.Value,
-                    TaskId = task.Id,
-                    TaskStatus = JobTaskStatus.Running
-                });
+                    taskList[idx] = updated;
+                    updatedPlan = plan with { Tasks = taskList.AsReadOnly() };
+                    plan = updatedPlan;
+                }
+                else
+                {
+                    updatedPlan = plan;
+                }
             }
+
+            await persistLock.WaitAsync(ct).ConfigureAwait(false);
+            try
+            {
+                await PersistPlanAsync(updatedPlan, stateStore, ct).ConfigureAwait(false);
+            }
+            finally
+            {
+                persistLock.Release();
+            }
+
+            _progressSink?.Emit(new ProgressEvent
+            {
+                Module = moduleName,
+                Stage = exportContext is not null ? "Export.Start" : "Import.Start",
+                Message = $"{moduleName} {(exportContext is not null ? "export" : "import")} starting.",
+                Timestamp = updated.StartedAt.Value,
+                TaskId = task.Id,
+                TaskStatus = JobTaskStatus.Running
+            });
 
             try
             {
@@ -257,24 +406,33 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
                     CompletedAt = DateTimeOffset.UtcNow
                 };
 
-                taskList = plan.Tasks.ToList();
-                idx = taskList.FindIndex(t => t.Id == task.Id);
-                if (idx >= 0)
+                lock (planLock)
                 {
-                    taskList[idx] = updated;
-                    plan = plan with { Tasks = taskList.AsReadOnly() };
-                    await PersistPlanAsync(plan, stateStore, ct).ConfigureAwait(false);
-
-                    _progressSink?.Emit(new ProgressEvent
+                    var taskList = plan.Tasks.ToList();
+                    var idx = taskList.FindIndex(t => t.Id == task.Id);
+                    if (idx >= 0)
                     {
-                        Module = moduleName,
-                        Stage = exportContext is not null ? "Export.Complete" : "Import.Complete",
-                        Message = $"{moduleName} {(exportContext is not null ? "export" : "import")} completed.",
-                        Timestamp = updated.CompletedAt.Value,
-                        TaskId = task.Id,
-                        TaskStatus = JobTaskStatus.Completed
-                    });
+                        taskList[idx] = updated;
+                        updatedPlan = plan with { Tasks = taskList.AsReadOnly() };
+                        plan = updatedPlan;
+                    }
+                    else
+                    {
+                        updatedPlan = plan;
+                    }
                 }
+
+                await PersistPlanAsync(updatedPlan, stateStore, ct).ConfigureAwait(false);
+
+                _progressSink?.Emit(new ProgressEvent
+                {
+                    Module = moduleName,
+                    Stage = exportContext is not null ? "Export.Complete" : "Import.Complete",
+                    Message = $"{moduleName} {(exportContext is not null ? "export" : "import")} completed.",
+                    Timestamp = updated.CompletedAt.Value,
+                    TaskId = task.Id,
+                    TaskStatus = JobTaskStatus.Completed
+                });
             }
             catch (OperationCanceledException)
             {
@@ -293,28 +451,45 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
                     CompletedAt = DateTimeOffset.UtcNow
                 };
 
-                taskList = plan.Tasks.ToList();
-                idx = taskList.FindIndex(t => t.Id == task.Id);
-                if (idx >= 0)
+                lock (planLock)
                 {
-                    taskList[idx] = updated;
-                    plan = plan with { Tasks = taskList.AsReadOnly() };
-                    await PersistPlanAsync(plan, stateStore, ct).ConfigureAwait(false);
-
-                    _progressSink?.Emit(new ProgressEvent
+                    var taskList = plan.Tasks.ToList();
+                    var idx = taskList.FindIndex(t => t.Id == task.Id);
+                    if (idx >= 0)
                     {
-                        Module = moduleName,
-                        Stage = exportContext is not null ? "Export.Failed" : "Import.Failed",
-                        Message = $"{moduleName} {(exportContext is not null ? "export" : "import")} failed: {ex.Message}",
-                        Timestamp = updated.CompletedAt.Value,
-                        TaskId = task.Id,
-                        TaskStatus = JobTaskStatus.Failed
-                    });
-
-                    lock (failedTaskIds)
-                    {
-                        failedTaskIds.Add(task.Id);
+                        taskList[idx] = updated;
+                        updatedPlan = plan with { Tasks = taskList.AsReadOnly() };
+                        plan = updatedPlan;
                     }
+                    else
+                    {
+                        updatedPlan = plan;
+                    }
+                }
+
+                await persistLock.WaitAsync(ct).ConfigureAwait(false);
+                try
+                {
+                    await PersistPlanAsync(updatedPlan, stateStore, ct).ConfigureAwait(false);
+                }
+                finally
+                {
+                    persistLock.Release();
+                }
+
+                _progressSink?.Emit(new ProgressEvent
+                {
+                    Module = moduleName,
+                    Stage = exportContext is not null ? "Export.Failed" : "Import.Failed",
+                    Message = $"{moduleName} {(exportContext is not null ? "export" : "import")} failed: {ex.Message}",
+                    Timestamp = updated.CompletedAt.Value,
+                    TaskId = task.Id,
+                    TaskStatus = JobTaskStatus.Failed
+                });
+
+                lock (failedTaskIds)
+                {
+                    failedTaskIds.Add(task.Id);
                 }
 
                 // Do NOT rethrow — allow sibling tasks to continue.
@@ -323,7 +498,7 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
 
         await Task.WhenAll(tierTasks).ConfigureAwait(false);
 
-        return failedTaskIds;
+        return new TierExecutionResult(failedTaskIds, plan);
     }
 
     // ── Plan Persistence ─────────────────────────────────────────────────────

@@ -73,21 +73,29 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
         long? workItemKnownTotal = await TryReadWorkItemTotalAsync(artefactStore, ct)
             .ConfigureAwait(false);
 
-        // For Export jobs, auto-add Inventory task if inventory.json doesn't exist.
-        bool hasInventory = false;
+        // For Export jobs, auto-add Inventory task only when explicitly enabled in config
+        // and inventory.json doesn't already exist.
+        // These tasks use Phase="Export" so ExecuteExportPhaseAsync runs them in tier order
+        // (inventory tier 0, other modules tier 1 via DependsOn).
+        List<string>? inventoryTaskIds = null;
         if (includeExport)
         {
-            var inventoryExists = await artefactStore.ExistsAsync("inventory.json", ct).ConfigureAwait(false);
-            if (!inventoryExists)
+            var inventoryEnabled = IsInventoryEnabled(packageConfig);
+            if (inventoryEnabled)
             {
-                tasks.AddRange(BuildInventoryTasks(ref order));
-                hasInventory = tasks.Any(t => t.Phase == "Inventory");
+                var inventoryExists = await artefactStore.ExistsAsync("inventory.json", ct).ConfigureAwait(false);
+                if (!inventoryExists)
+                {
+                    var inventoryTasks = BuildInventoryTasks(ref order);
+                    tasks.AddRange(inventoryTasks);
+                    inventoryTaskIds = inventoryTasks.Select(t => t.Id).ToList();
+                }
             }
         }
 
         if (includeExport)
         {
-            tasks.AddRange(BuildExportTasks(packageConfig, phaseRecord, workItemKnownTotal, ref order, hasInventory ? tasks.Where(t => t.Phase == "Inventory").Select(t => t.Id).ToList() : null));
+            tasks.AddRange(BuildExportTasks(packageConfig, phaseRecord, workItemKnownTotal, ref order, inventoryTaskIds));
         }
 
         if (includeImport)
@@ -118,7 +126,8 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
     {
         var tasks = new List<JobTask>();
 
-        // Add task for the Inventory module (filters to only "Inventory" by name).
+        // Add task for the Inventory module.
+        // Phase="Export" so ExecuteExportPhaseAsync picks it up in tier 0 (no DependsOn = earliest tier).
         var inventoryModule = _modules.FirstOrDefault(m => m.Name.Equals("Inventory", StringComparison.OrdinalIgnoreCase));
         if (inventoryModule is not null)
         {
@@ -126,11 +135,11 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
             tasks.Add(MakeTask(
                 taskId,
                 $"{inventoryModule.Name} Inventory",
-                "Inventory",
+                "Export",
                 enabled: true, // Inventory always enabled when added
                 phaseAlreadyDone: false,
                 order++,
-                dependsOn: null)); // Inventory has no dependencies
+                dependsOn: null)); // Inventory has no dependencies — runs in tier 0
         }
 
         return tasks;
@@ -147,29 +156,53 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
     {
         bool exportAlreadyDone = phaseRecord?.ExportCompleted == true;
 
+        // Pre-compute the set of export task IDs so we can resolve inter-module DependsOn.
+        var exportModules = _modules.Where(m => m.SupportsExport).ToList();
+        var exportTaskIds = new HashSet<string>(
+            exportModules.Select(m => $"export.{m.Name.ToLowerInvariant()}"),
+            StringComparer.OrdinalIgnoreCase);
+
         var tasks = new List<JobTask>();
 
-        // Export tasks depend on Inventory tasks if Inventory is in the plan.
-        var exportDependencies = inventoryTaskIds?.AsReadOnly();
-
-        // Export tasks have no inter-module dependencies, but may depend on Inventory.
-        foreach (var module in _modules)
+        foreach (var module in exportModules)
         {
-            var taskId = $"export.{module.Name.ToLowerInvariant()}";
             var enabled = IsEnabled(config, module.Name);
+            
+            // Skip disabled modules - no task should be created.
+            if (!enabled)
+                continue;
+
+            var taskId = $"export.{module.Name.ToLowerInvariant()}";
             var knownTotal = module.Name.Equals("WorkItems", StringComparison.OrdinalIgnoreCase)
                 ? workItemKnownTotal
                 : null;
+
+            // Export tasks honor module.DependsOn entries where phase is Export or Both.
+            var exportDeps = new List<string>();
+            
+            // Add inventory dependency if enabled
+            if (inventoryTaskIds is not null && inventoryTaskIds.Count > 0)
+                exportDeps.AddRange(inventoryTaskIds);
+            
+            // Add module dependencies that apply to export phase
+            foreach (var dep in module.DependsOn.Where(d => d.AppliesToExport))
+            {
+                var depTaskId = $"export.{dep.ModuleName.ToLowerInvariant()}";
+                if (!exportDeps.Contains(depTaskId, StringComparer.OrdinalIgnoreCase))
+                    exportDeps.Add(depTaskId);
+            }
+
+            var dependsOn = exportDeps.Count > 0 ? exportDeps.AsReadOnly() : null;
 
             tasks.Add(MakeTask(
                 taskId,
                 $"{module.Name} Export",
                 "Export",
-                enabled,
+                enabled: true,  // Always true here since we skipped disabled modules above
                 exportAlreadyDone,
                 order++,
                 knownTotal: knownTotal,
-                dependsOn: exportDependencies)); // All export tasks depend on Inventory
+                dependsOn: dependsOn));
         }
 
         return tasks;
@@ -186,26 +219,33 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
 
         var tasks = new List<JobTask>();
 
-        // Build task for each enabled module, mapping its DependsOn to task IDs.
-        foreach (var module in _modules)
+        // Build task for each module that supports import AND is enabled.
+        foreach (var module in _modules.Where(m => m.SupportsImport))
         {
-            var taskId = $"import.{module.Name.ToLowerInvariant()}";
             var enabled = IsEnabled(config, module.Name);
+            
+            // Skip disabled modules - no task should be created.
+            if (!enabled)
+                continue;
 
-            // Map module dependencies to task IDs; skip dependencies that are not enabled or registered.
+            var taskId = $"import.{module.Name.ToLowerInvariant()}";
+
+            // Map module dependencies that apply to import phase to task IDs; skip dependencies that are not enabled or registered.
             var dependsOn = module.DependsOn
-                .Where(depName => _modulesByName.ContainsKey(depName) && IsEnabled(config, depName))
-                .Select(depName => $"import.{depName.ToLowerInvariant()}")
+                .Where(dep => dep.AppliesToImport)
+                .Where(dep => _modulesByName.ContainsKey(dep.ModuleName) && IsEnabled(config, dep.ModuleName))
+                .Select(dep => $"import.{dep.ModuleName.ToLowerInvariant()}")
                 .ToList();
 
-            if (module.DependsOn.Count > dependsOn.Count)
+            var importDeps = module.DependsOn.Where(d => d.AppliesToImport).ToList();
+            if (importDeps.Count > dependsOn.Count)
             {
-                var missing = module.DependsOn.Where(d => !_modulesByName.ContainsKey(d) || !IsEnabled(config, d));
+                var missing = importDeps.Where(d => !_modulesByName.ContainsKey(d.ModuleName) || !IsEnabled(config, d.ModuleName));
                 foreach (var dep in missing)
                 {
                     _logger.LogWarning(
-                        "Module {Module} depends on {Dependency}, but that module is not enabled or not registered. Dependency omitted from task.",
-                        module.Name, dep);
+                        "Module {Module} depends on {Dependency} for import, but that module is not enabled or not registered. Dependency omitted from task.",
+                        module.Name, dep.ModuleName);
                 }
             }
 
@@ -213,7 +253,7 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
                 taskId,
                 $"{module.Name} Import",
                 "Import",
-                enabled,
+                enabled: true,  // Always true here since we skipped disabled modules above
                 importAlreadyDone,
                 order++,
                 dependsOn: dependsOn.Count > 0 ? dependsOn.AsReadOnly() : null));
@@ -260,6 +300,17 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
             return true; // default on when not explicitly set
         return !string.Equals(raw, "false", StringComparison.OrdinalIgnoreCase);
     }
+
+    /// <summary>
+    /// Inventory is opt-in: only runs when explicitly enabled in config
+    /// (<c>MigrationPlatform:Modules:Inventory:Enabled = true</c>).
+    /// Simulated and fixture-based scenarios that don't configure Inventory will skip it.
+    /// </summary>
+    private static bool IsInventoryEnabled(IConfiguration config) =>
+        string.Equals(
+            config["MigrationPlatform:Modules:Inventory:Enabled"],
+            "true",
+            StringComparison.OrdinalIgnoreCase);
 
     private static async Task<long?> TryReadWorkItemTotalAsync(
         IArtefactStore artefactStore,
