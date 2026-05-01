@@ -64,8 +64,9 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
         var tasks = new List<JobTask>();
         int order = 0;
 
-        var includeExport = kind == JobKind.Export || kind == JobKind.Migrate;
-        var includeImport = kind == JobKind.Import || kind == JobKind.Migrate;
+        var includeExport = kind is JobKind.Export or JobKind.Migrate
+                            or JobKind.Inventory or JobKind.Dependencies;
+        var includeImport = kind is JobKind.Import or JobKind.Migrate;
 
         // Read phase record once (only relevant for Migrate kind).
         JobPhaseRecord? phaseRecord = null;
@@ -79,12 +80,9 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
         long? workItemKnownTotal = await TryReadWorkItemTotalAsync(artefactStore, ct)
             .ConfigureAwait(false);
 
-        // Export phase: Inventory is now a first-class export module with SupportsExport = true.
-        // It's discovered automatically when WorkItemsModule.DependsOn references it.
-        // No special-case logic needed — normal dependency resolution handles it.
         if (includeExport)
         {
-            tasks.AddRange(BuildExportTasks(packageConfig, phaseRecord, workItemKnownTotal, ref order));
+            tasks.AddRange(BuildExportTasks(packageConfig, kind, phaseRecord, workItemKnownTotal, ref order));
         }
 
         if (includeImport)
@@ -113,40 +111,47 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
 
     private List<JobTask> BuildExportTasks(
         IConfiguration config,
+        JobKind kind,
         JobPhaseRecord? phaseRecord,
         long? workItemKnownTotal,
         ref int order)
     {
         bool exportAlreadyDone = phaseRecord?.ExportCompleted == true;
 
-        // Pre-compute the set of export task IDs so we can resolve inter-module DependsOn.
         var exportModules = _modules.Where(m => m.SupportsExport).ToList();
         
         _logger.LogDebug(
             "Discovered {Count} export modules: {Modules}",
             exportModules.Count,
             string.Join(", ", exportModules.Select(m => m.Name)));
-        
+
+        // Determine which modules are needed based on job kind.
+        // For Inventory/Dependencies, only the specific module (+ transitive deps) is needed.
+        // For Export/Migrate, modules listed in config (+ transitive deps) are needed.
+        var needed = ResolveNeededExportModules(config, kind, exportModules);
+
+        // Pre-compute the set of export task IDs so we can resolve inter-module DependsOn.
         var exportTaskIds = new HashSet<string>(
-            exportModules.Select(m => $"export.{m.Name.ToLowerInvariant()}"),
+            exportModules
+                .Where(m => needed.Contains(m.Name))
+                .Select(m => $"export.{m.Name.ToLowerInvariant()}"),
             StringComparer.OrdinalIgnoreCase);
 
         var tasks = new List<JobTask>();
 
         foreach (var module in exportModules)
         {
-            var enabled = IsEnabled(config, module.Name);
-            
-            _logger.LogDebug(
-                "Module {ModuleName}: Enabled={Enabled}, SupportsExport={SupportsExport}",
-                module.Name, enabled, module.SupportsExport);
-            
-            // Skip disabled modules - no task should be created.
-            if (!enabled)
+            // Module must be needed: either explicitly enabled in config,
+            // or transitively required by a module that is.
+            if (!needed.Contains(module.Name))
             {
-                _logger.LogInformation("Skipping disabled module: {ModuleName}", module.Name);
+                _logger.LogDebug("Skipping module {ModuleName}: not needed (not in config and no enabled module depends on it)", module.Name);
                 continue;
             }
+            
+            _logger.LogDebug(
+                "Module {ModuleName}: Needed={Needed}, SupportsExport={SupportsExport}",
+                module.Name, needed.Contains(module.Name), module.SupportsExport);
 
             var taskId = $"export.{module.Name.ToLowerInvariant()}";
             var knownTotal = module.Name.Equals("WorkItems", StringComparison.OrdinalIgnoreCase)
@@ -154,12 +159,10 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
                 : null;
 
             // Export tasks honor module.DependsOn entries where phase is Export or Both.
-            // Dependencies are automatically resolved — including Inventory when WorkItems references it.
             var exportDeps = new List<string>();
             foreach (var dep in module.DependsOn.Where(d => d.AppliesToExport))
             {
                 var depTaskId = $"export.{dep.ModuleName.ToLowerInvariant()}";
-                // Only add dependency if the target module is enabled and supports export
                 if (exportTaskIds.Contains(depTaskId) && !exportDeps.Contains(depTaskId, StringComparer.OrdinalIgnoreCase))
                     exportDeps.Add(depTaskId);
             }
@@ -170,12 +173,18 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
                 taskId,
                 $"{module.Name} Export",
                 "Export",
-                enabled: true,  // Always true here since we skipped disabled modules above
+                enabled: true,
                 exportAlreadyDone,
-                order++,
+                0, // placeholder — reassigned after topological sort
                 knownTotal: knownTotal,
                 dependsOn: dependsOn));
         }
+
+        // Topologically sort so Order reflects dependency order in the CLI display
+        // (e.g. Inventory appears before WorkItems which depends on it).
+        tasks = TopologicalSort(tasks);
+        for (int i = 0; i < tasks.Count; i++)
+            tasks[i] = tasks[i] with { Order = order++ };
 
         return tasks;
     }
@@ -271,6 +280,82 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
         if (raw is null)
             return true; // default on when not explicitly set
         return !string.Equals(raw, "false", StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
+    /// Determines which export modules are needed for the given job kind.
+    /// <list type="bullet">
+    ///   <item><b>Inventory</b>: only InventoryDiscovery (+ transitive deps).</item>
+    ///   <item><b>Dependencies</b>: only DependencyDiscovery (+ transitive deps).</item>
+    ///   <item><b>Export / Migrate</b>: modules explicitly listed in config (+ transitive deps).</item>
+    /// </list>
+    /// Transitive deps are walked via export-phase <see cref="ModuleDependency"/> entries.
+    /// </summary>
+    private HashSet<string> ResolveNeededExportModules(
+        IConfiguration config,
+        JobKind kind,
+        List<IModule> exportModules)
+    {
+        // Seed the set based on job kind.
+        var seeds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        switch (kind)
+        {
+            case JobKind.Inventory:
+                seeds.Add("Inventory");
+                break;
+
+            case JobKind.Dependencies:
+                seeds.Add("Dependencies");
+                break;
+
+            default: // Export, Migrate
+                foreach (var module in exportModules)
+                {
+                    if (IsExplicitlyEnabled(config, module.Name))
+                        seeds.Add(module.Name);
+                }
+                break;
+        }
+
+        // Walk export-phase dependencies transitively.
+        var needed = new HashSet<string>(seeds, StringComparer.OrdinalIgnoreCase);
+        var queue = new Queue<string>(seeds);
+        while (queue.Count > 0)
+        {
+            var name = queue.Dequeue();
+            if (!_modulesByName.TryGetValue(name, out var mod))
+                continue;
+            foreach (var dep in mod.DependsOn.Where(d => d.AppliesToExport))
+            {
+                if (needed.Add(dep.ModuleName))
+                    queue.Enqueue(dep.ModuleName);
+            }
+        }
+
+        _logger.LogDebug(
+            "Export modules needed for {Kind} (seeds + transitive): {Modules}",
+            kind, string.Join(", ", needed));
+
+        return needed;
+    }
+
+    /// <summary>
+    /// Returns true if the module has a config section AND is not explicitly disabled.
+    /// A module with no config section at all is NOT considered explicitly enabled —
+    /// it can only appear in the plan if transitively required by another module's DependsOn.
+    /// This prevents discovery modules (Dependencies, Inventory) from appearing unless
+    /// pulled in by a dependency or explicitly listed in the config.
+    /// </summary>
+    private static bool IsExplicitlyEnabled(IConfiguration config, string moduleName)
+    {
+        var section = config.GetSection($"MigrationPlatform:Modules:{moduleName}");
+        if (!section.Exists())
+            return false; // not listed in config — not explicitly enabled
+        var raw = section["Enabled"];
+        if (raw is null)
+            return true; // section exists but no Enabled key — default on
+        return string.Equals(raw, "true", StringComparison.OrdinalIgnoreCase);
     }
 
 
@@ -407,5 +492,60 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
 
         Dfs(start);
         return path;
+    }
+
+    /// <summary>
+    /// Topologically sorts tasks by their <see cref="JobTask.DependsOn"/> edges using Kahn's algorithm.
+    /// Tasks with no dependencies come first; tasks that depend on others come after their dependencies.
+    /// Within the same tier, original list order is preserved.
+    /// </summary>
+    private static List<JobTask> TopologicalSort(List<JobTask> tasks)
+    {
+        if (tasks.Count <= 1)
+            return tasks;
+
+        var taskDict = tasks.ToDictionary(t => t.Id, StringComparer.OrdinalIgnoreCase);
+        var graph = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
+        var inDegree = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var task in tasks)
+        {
+            graph[task.Id] = new List<string>();
+            inDegree[task.Id] = 0;
+        }
+
+        foreach (var task in tasks)
+        {
+            if (task.DependsOn is not null)
+            {
+                foreach (var dep in task.DependsOn)
+                {
+                    if (graph.ContainsKey(dep))
+                    {
+                        graph[dep].Add(task.Id);
+                        inDegree[task.Id]++;
+                    }
+                }
+            }
+        }
+
+        var sorted = new List<JobTask>();
+        var ready = new Queue<string>(
+            tasks.Where(t => inDegree[t.Id] == 0).Select(t => t.Id));
+
+        while (ready.Count > 0)
+        {
+            var current = ready.Dequeue();
+            sorted.Add(taskDict[current]);
+
+            foreach (var neighbor in graph[current])
+            {
+                inDegree[neighbor]--;
+                if (inDegree[neighbor] == 0)
+                    ready.Enqueue(neighbor);
+            }
+        }
+
+        return sorted;
     }
 }
