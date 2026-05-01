@@ -1,4 +1,4 @@
-﻿using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
+using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Abstractions.Options;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Moq;
@@ -69,7 +69,6 @@ public class IterationDatesSteps
             It.Is<string>(p => p.Equals(targetPath, StringComparison.OrdinalIgnoreCase)),
             It.Is<DateTimeOffset?>(d => d.HasValue && d.Value.Date == expectedStart.Date),
             It.Is<DateTimeOffset?>(d => d.HasValue && d.Value.Date == expectedFinish.Date),
-            It.IsAny<MigrationEndpointOptions>(),
             It.IsAny<CancellationToken>()), Times.Once);
     }
 
@@ -80,7 +79,7 @@ public class IterationDatesSteps
             It.IsAny<string>(),
             It.IsAny<DateTimeOffset?>(),
             It.IsAny<DateTimeOffset?>(),
-            It.IsAny<MigrationEndpointOptions>(),
+
             It.IsAny<CancellationToken>()), Times.Never);
     }
 
@@ -99,13 +98,13 @@ public class IterationDatesSteps
             It.IsAny<string>(),
             It.IsAny<DateTimeOffset?>(),
             It.IsAny<DateTimeOffset?>(),
-            It.IsAny<MigrationEndpointOptions>(),
+
             It.IsAny<CancellationToken>()), Times.AtLeastOnce,
             "SetIterationDatesAsync should have been attempted before the failure.");
         _ctx.NodeCreatorMock.Verify(c => c.EnsureExistsAsync(
             It.IsAny<ClassificationNodeType>(),
             It.IsAny<string>(),
-            It.IsAny<MigrationEndpointOptions>(),
+
             It.IsAny<CancellationToken>()), Times.AtLeastOnce,
             "EnsureExistsAsync should have been called (node creation succeeded before date failure).");
     }

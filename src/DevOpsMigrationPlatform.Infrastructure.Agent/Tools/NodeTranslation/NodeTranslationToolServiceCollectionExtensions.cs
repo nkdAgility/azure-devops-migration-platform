@@ -31,6 +31,11 @@ public static class NodeTranslationToolServiceCollectionExtensions
     /// </summary>
     public static IServiceCollection AddNodeTranslationToolServices(this IServiceCollection services)
     {
+#if NET7_0_OR_GREATER
+        // Register schema entry for migration.schema.json generation
+        services.AddSchemaEntry<NodeTranslationOptions>("Classification node path translation configuration");
+#endif
+
         // Bind from per-job PackageConfig via ActiveJobConfigState (set before job scope is created).
         services.AddOptions<NodeTranslationOptions>()
             .Configure<ActiveJobConfigState>((opts, state) =>

@@ -10,7 +10,6 @@ using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
 using DevOpsMigrationPlatform.Abstractions.Agent.Telemetry;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
-using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Abstractions.Streaming;
 using Microsoft.Extensions.Logging;
 
@@ -51,7 +50,6 @@ public sealed class ClassificationTreeCapture : IClassificationTreeCapture
     /// <returns>Total number of nodes captured (area + iteration).</returns>
     public async Task<int> CaptureAsync(
         IArtefactStore artefactStore,
-        MigrationEndpointOptions endpoint,
         CancellationToken ct,
         IMigrationMetrics? metrics = null,
         string? jobId = null,
@@ -67,13 +65,13 @@ public sealed class ClassificationTreeCapture : IClassificationTreeCapture
 
         try
         {
-            await foreach (var path in _reader.EnumerateAreaNodesAsync(endpoint, ct).ConfigureAwait(false))
+            await foreach (var path in _reader.EnumerateAreaNodesAsync(ct).ConfigureAwait(false))
             {
                 areaNodes.Add(path);
                 sink?.Emit(new ProgressEvent { Module = moduleName, Stage = "Nodes.Export.AreaNode", Message = path });
             }
 
-            await foreach (var entry in _reader.EnumerateIterationNodesAsync(endpoint, ct).ConfigureAwait(false))
+            await foreach (var entry in _reader.EnumerateIterationNodesAsync(ct).ConfigureAwait(false))
             {
                 iterationNodes.Add(entry);
                 sink?.Emit(new ProgressEvent { Module = moduleName, Stage = "Nodes.Export.IterationNode", Message = entry.Path });

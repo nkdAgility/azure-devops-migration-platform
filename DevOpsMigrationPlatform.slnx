@@ -2,6 +2,7 @@
   <Folder Name="/src/">
     <Project Path="src/DevOpsMigrationPlatform.Abstractions/DevOpsMigrationPlatform.Abstractions.csproj" />
     <Project Path="src/DevOpsMigrationPlatform.Infrastructure/DevOpsMigrationPlatform.Infrastructure.csproj" />
+    <Project Path="src/DevOpsMigrationPlatform.SchemaGenerator/DevOpsMigrationPlatform.SchemaGenerator.csproj" />
     
   </Folder>
   <Folder Name="/src/Service/Agents/">

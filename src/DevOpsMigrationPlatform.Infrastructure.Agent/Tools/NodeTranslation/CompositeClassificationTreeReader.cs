@@ -4,60 +4,34 @@ using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using System.Threading;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
-using DevOpsMigrationPlatform.Abstractions.Options;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Agent.Tools.NodeTranslation;
 
 /// <summary>
-/// Dispatches <see cref="IClassificationTreeReader"/> calls to the concrete reader
-/// registered for the endpoint's <c>Type</c> discriminator.
+/// DEPRECATED: This composite dispatcher is incompatible with the new IOptions-based DI model.
+/// Connector-specific implementations should be registered directly via their Add*Services() extensions.
 /// </summary>
+[Obsolete("Register concrete implementations directly in connector service extensions.")]
 public sealed class CompositeClassificationTreeReader : IClassificationTreeReader
 {
-    private readonly IReadOnlyDictionary<string, IClassificationTreeReader> _readers;
-
-    public CompositeClassificationTreeReader(IEnumerable<KeyedClassificationTreeReader> registrations)
+    public CompositeClassificationTreeReader()
     {
-        var dict = new Dictionary<string, IClassificationTreeReader>(StringComparer.OrdinalIgnoreCase);
-        foreach (var reg in registrations)
-            dict[reg.Key] = reg.Reader;
-        _readers = dict;
     }
 
     /// <inheritdoc/>
-    public async IAsyncEnumerable<string> EnumerateAreaNodesAsync(
-        MigrationEndpointOptions endpoint,
-        [EnumeratorCancellation] CancellationToken ct)
+    public IAsyncEnumerable<string> EnumerateAreaNodesAsync(
+        CancellationToken ct)
     {
-        var reader = GetReader(endpoint);
-        await foreach (var node in reader.EnumerateAreaNodesAsync(endpoint, ct).ConfigureAwait(false))
-            yield return node;
+        throw new NotSupportedException(
+            "CompositeClassificationTreeReader is deprecated. Register concrete IClassificationTreeReader implementations directly in connector service extensions.");
     }
 
     /// <inheritdoc/>
-    public async IAsyncEnumerable<IterationNodeEntry> EnumerateIterationNodesAsync(
-        MigrationEndpointOptions endpoint,
-        [EnumeratorCancellation] CancellationToken ct)
+    public IAsyncEnumerable<IterationNodeEntry> EnumerateIterationNodesAsync(
+        CancellationToken ct)
     {
-        var reader = GetReader(endpoint);
-        await foreach (var entry in reader.EnumerateIterationNodesAsync(endpoint, ct).ConfigureAwait(false))
-            yield return entry;
-    }
-
-    private IClassificationTreeReader GetReader(MigrationEndpointOptions endpoint)
-    {
-        if (endpoint is null) throw new ArgumentNullException(nameof(endpoint));
-
-        var typeKey = endpoint.Type;
-        if (string.IsNullOrWhiteSpace(typeKey))
-            throw new ArgumentException("Endpoint has no Type discriminator.", nameof(endpoint));
-
-        if (!_readers.TryGetValue(typeKey, out var reader))
-            throw new InvalidOperationException(
-                $"No IClassificationTreeReader is registered for endpoint type '{typeKey}'. " +
-                "Register one with AddClassificationTreeReader(key, reader).");
-
-        return reader;
+        throw new NotSupportedException(
+            "CompositeClassificationTreeReader is deprecated. Register concrete IClassificationTreeReader implementations directly in connector service extensions.");
     }
 }
 

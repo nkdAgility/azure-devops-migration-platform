@@ -1,0 +1,10 @@
+{
+  "mode": "Export",
+  "source": {
+    "url": "https://dev.azure.com/test",
+    "project": "TestProject"
+  },
+  "package": {
+    "workingDirectory": "./test-package"
+  }
+}

@@ -4,12 +4,13 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Agent.Context;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Agent.Import;
 
 /// <summary>
 /// Dispatches <see cref="IWorkItemImportTargetFactory.CreateAsync"/> to the concrete
-/// factory registered for the endpoint's <c>Type</c> discriminator.
+/// factory registered for the endpoint's <c>Type</c> discriminator (resolved from DI).
 /// Connector assemblies register their factories via
 /// <see cref="IServiceCollection.AddKeyedSingleton{TService}"/> or by calling
 /// <c>AddImportTargetFactory</c>.
@@ -17,34 +18,33 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Import;
 public sealed class CompositeWorkItemImportTargetFactory : IWorkItemImportTargetFactory
 {
     private readonly IReadOnlyDictionary<string, IWorkItemImportTargetFactory> _factories;
+    private readonly ITargetEndpointInfo _endpointInfo;
 
     public CompositeWorkItemImportTargetFactory(
-        IEnumerable<KeyedWorkItemImportTargetFactory> registrations)
+        IEnumerable<KeyedWorkItemImportTargetFactory> registrations,
+        ITargetEndpointInfo endpointInfo)
     {
         var dict = new Dictionary<string, IWorkItemImportTargetFactory>(StringComparer.OrdinalIgnoreCase);
         foreach (var reg in registrations)
             dict[reg.Key] = reg.Factory;
         _factories = dict;
+        _endpointInfo = endpointInfo ?? throw new ArgumentNullException(nameof(endpointInfo));
     }
 
     /// <inheritdoc/>
-    public Task<IWorkItemImportTarget> CreateAsync(
-        MigrationEndpointOptions endpoint,
-        CancellationToken ct)
+    public Task<IWorkItemImportTarget> CreateAsync(CancellationToken ct)
     {
-        if (endpoint is null) throw new ArgumentNullException(nameof(endpoint));
-
-        var typeKey = endpoint.Type;
+        var typeKey = _endpointInfo.ConnectorType;
 
         if (string.IsNullOrWhiteSpace(typeKey))
-            throw new ArgumentException("Endpoint has no Type discriminator.", nameof(endpoint));
+            throw new InvalidOperationException("ITargetEndpointInfo has no ConnectorType.");
 
         if (!_factories.TryGetValue(typeKey, out var factory))
             throw new InvalidOperationException(
                 $"No IWorkItemImportTargetFactory is registered for endpoint type '{typeKey}'. " +
                 "Register one with AddImportTargetFactory(key, factory).");
 
-        return factory.CreateAsync(endpoint, ct);
+        return factory.CreateAsync(ct);
     }
 }
 

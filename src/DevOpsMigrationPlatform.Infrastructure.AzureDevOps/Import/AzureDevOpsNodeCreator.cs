@@ -2,8 +2,10 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using DevOpsMigrationPlatform.Abstractions.Agent.Context;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Abstractions.Options;
+using DevOpsMigrationPlatform.Abstractions.Organisations;
 using Microsoft.Extensions.Logging;
 using Microsoft.TeamFoundation.WorkItemTracking.WebApi;
 using Microsoft.TeamFoundation.WorkItemTracking.WebApi.Models;
@@ -19,26 +21,33 @@ internal sealed class AzureDevOpsNodeCreator : INodeCreator
 {
     private readonly IAzureDevOpsClientFactory _clientFactory;
     private readonly ILogger<AzureDevOpsNodeCreator> _logger;
+    private readonly ITargetEndpointInfo _endpointInfo;
 
     public AzureDevOpsNodeCreator(
         IAzureDevOpsClientFactory clientFactory,
-        ILogger<AzureDevOpsNodeCreator> logger)
+        ILogger<AzureDevOpsNodeCreator> logger,
+        ITargetEndpointInfo endpointInfo)
     {
         _clientFactory = clientFactory ?? throw new ArgumentNullException(nameof(clientFactory));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        _endpointInfo = endpointInfo ?? throw new ArgumentNullException(nameof(endpointInfo));
     }
 
     /// <inheritdoc/>
     public async Task<bool> NodeExistsAsync(
         ClassificationNodeType nodeType,
         string path,
-        MigrationEndpointOptions endpoint,
         CancellationToken ct)
     {
-        var (project, relativePath) = SplitPath(path, endpoint.GetProject());
+        var (project, relativePath) = SplitPath(path, _endpointInfo.Project);
         if (string.IsNullOrEmpty(relativePath)) return true; // project root always exists
 
-        var client = await _clientFactory.CreateWorkItemClientAsync(endpoint.ToOrganisationEndpoint(), ct).ConfigureAwait(false);
+        var orgEndpoint = new OrganisationEndpoint
+        {
+            ResolvedUrl = _endpointInfo.Url,
+            Type = _endpointInfo.ConnectorType
+        };
+        var client = await _clientFactory.CreateWorkItemClientAsync(orgEndpoint, ct).ConfigureAwait(false);
         var group = ToTreeStructureGroup(nodeType);
 
         try
@@ -57,13 +66,17 @@ internal sealed class AzureDevOpsNodeCreator : INodeCreator
     public async Task EnsureExistsAsync(
         ClassificationNodeType nodeType,
         string path,
-        MigrationEndpointOptions endpoint,
         CancellationToken ct)
     {
-        var (project, relativePath) = SplitPath(path, endpoint.GetProject());
+        var (project, relativePath) = SplitPath(path, _endpointInfo.Project);
         if (string.IsNullOrEmpty(relativePath)) return; // project root always exists
 
-        var client = await _clientFactory.CreateWorkItemClientAsync(endpoint.ToOrganisationEndpoint(), ct).ConfigureAwait(false);
+        var orgEndpoint = new OrganisationEndpoint
+        {
+            ResolvedUrl = _endpointInfo.Url,
+            Type = _endpointInfo.ConnectorType
+        };
+        var client = await _clientFactory.CreateWorkItemClientAsync(orgEndpoint, ct).ConfigureAwait(false);
         var group = ToTreeStructureGroup(nodeType);
 
         await EnsurePathExistsAsync(client, project, group, relativePath, ct).ConfigureAwait(false);
@@ -74,15 +87,19 @@ internal sealed class AzureDevOpsNodeCreator : INodeCreator
         string path,
         DateTimeOffset? startDate,
         DateTimeOffset? finishDate,
-        MigrationEndpointOptions endpoint,
         CancellationToken ct)
     {
         if (startDate is null && finishDate is null) return;
 
-        var (project, relativePath) = SplitPath(path, endpoint.GetProject());
+        var (project, relativePath) = SplitPath(path, _endpointInfo.Project);
         if (string.IsNullOrEmpty(relativePath)) return;
 
-        var client = await _clientFactory.CreateWorkItemClientAsync(endpoint.ToOrganisationEndpoint(), ct).ConfigureAwait(false);
+        var orgEndpoint = new OrganisationEndpoint
+        {
+            ResolvedUrl = _endpointInfo.Url,
+            Type = _endpointInfo.ConnectorType
+        };
+        var client = await _clientFactory.CreateWorkItemClientAsync(orgEndpoint, ct).ConfigureAwait(false);
 
         var attributes = new Dictionary<string, object>();
         if (startDate.HasValue)

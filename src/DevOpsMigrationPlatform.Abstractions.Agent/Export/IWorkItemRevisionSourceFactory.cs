@@ -12,11 +12,8 @@ namespace DevOpsMigrationPlatform.Abstractions.Agent.Export;
 public interface IWorkItemRevisionSourceFactory
 {
     /// <summary>
-    /// Creates a source that streams revisions for the given endpoint.
+    /// Creates a source that streams revisions. Endpoint info is resolved from DI.
     /// </summary>
-    /// <param name="endpoint">Endpoint options; concrete type determines the connector used.</param>
     /// <param name="ct">Cancellation token for the async connection step.</param>
-    Task<IWorkItemRevisionSource> CreateAsync(
-        MigrationEndpointOptions endpoint,
-        CancellationToken ct);
+    Task<IWorkItemRevisionSource> CreateAsync(CancellationToken ct);
 }

@@ -1,10 +1,11 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
+using DevOpsMigrationPlatform.Abstractions.Agent.Context;
 using DevOpsMigrationPlatform.Abstractions.Agent.Export;
 using DevOpsMigrationPlatform.Abstractions.Agent.Import;
 using DevOpsMigrationPlatform.Abstractions.Agent.Lease;
@@ -49,6 +50,36 @@ public class TeamsModuleTests
         return state;
     }
 
+    private static IAgentJobContext CreateAgentJobContext(ActiveJobConfigState? activeJobConfig = null)
+    {
+        activeJobConfig ??= CreateActiveJobConfig();
+        var mock = new Mock<IAgentJobContext>();
+        mock.SetupGet(x => x.PackagePath).Returns("/tmp/test-package");
+        mock.SetupGet(x => x.Mode).Returns("Export");
+        mock.SetupGet(x => x.ConfigVersion).Returns("2.0");
+        return mock.Object;
+    }
+
+    private static ISourceEndpointInfo CreateSourceEndpointInfo(ActiveJobConfigState? activeJobConfig = null)
+    {
+        activeJobConfig ??= CreateActiveJobConfig();
+        var mock = new Mock<ISourceEndpointInfo>();
+        mock.SetupGet(x => x.Url).Returns("https://dev.azure.com/test");
+        mock.SetupGet(x => x.Project).Returns(activeJobConfig.Current?.Source?.GetProject() ?? "TestProject");
+        mock.SetupGet(x => x.ConnectorType).Returns("Simulated");
+        return mock.Object;
+    }
+
+    private static ITargetEndpointInfo CreateTargetEndpointInfo(ActiveJobConfigState? activeJobConfig = null)
+    {
+        activeJobConfig ??= CreateActiveJobConfig();
+        var mock = new Mock<ITargetEndpointInfo>();
+        mock.SetupGet(x => x.Url).Returns("https://dev.azure.com/target");
+        mock.SetupGet(x => x.Project).Returns(activeJobConfig.Current?.Target?.GetProject() ?? "TargetProject");
+        mock.SetupGet(x => x.ConnectorType).Returns("Simulated");
+        return mock.Object;
+    }
+
     private static ExportContext CreateExportContext(IArtefactStore store)
         => new()
         {
@@ -83,7 +114,10 @@ public class TeamsModuleTests
         var module = new TeamsModule(
             NullLogger<TeamsModule>.Instance,
             Options.Create(new TeamsModuleOptions { Enabled = false }),
-            new TeamSlugGenerator(),
+            agentJobContext: CreateAgentJobContext(),
+            sourceEndpointInfo: CreateSourceEndpointInfo(),
+            targetEndpointInfo: CreateTargetEndpointInfo(),
+            slugGenerator: new TeamSlugGenerator(),
             teamSource: source);
 
         // Act — no store calls expected
@@ -100,7 +134,10 @@ public class TeamsModuleTests
         var module = new TeamsModule(
             NullLogger<TeamsModule>.Instance,
             Options.Create(new TeamsModuleOptions { Enabled = true }),
-            new TeamSlugGenerator()); // no teamSource
+            agentJobContext: CreateAgentJobContext(),
+            sourceEndpointInfo: CreateSourceEndpointInfo(),
+            targetEndpointInfo: CreateTargetEndpointInfo(),
+            slugGenerator: new TeamSlugGenerator()); // no teamSource
 
         // Act
         await module.ExportAsync(CreateExportContext(storeMock.Object), CancellationToken.None);
@@ -120,15 +157,21 @@ public class TeamsModuleTests
             .Returns(Task.CompletedTask);
 
         var source = new SimulatedTeamSource();
-        var orchestrator = new TeamExportOrchestrator(source, NullLogger<TeamExportOrchestrator>.Instance);
+        var activeJobConfig = CreateActiveJobConfig();
+        var orchestrator = new TeamExportOrchestrator(
+            source,
+            NullLogger<TeamExportOrchestrator>.Instance,
+            endpointInfo: CreateSourceEndpointInfo(activeJobConfig));
 
         var module = new TeamsModule(
             NullLogger<TeamsModule>.Instance,
             Options.Create(new TeamsModuleOptions { Enabled = true }),
-            new TeamSlugGenerator(),
+            agentJobContext: CreateAgentJobContext(activeJobConfig),
+            sourceEndpointInfo: CreateSourceEndpointInfo(activeJobConfig),
+            targetEndpointInfo: CreateTargetEndpointInfo(activeJobConfig),
+            slugGenerator: new TeamSlugGenerator(),
             teamSource: source,
-            exportOrchestrator: orchestrator,
-            activeJobConfig: CreateActiveJobConfig());
+            exportOrchestrator: orchestrator);
 
         // Act
         await module.ExportAsync(CreateExportContext(storeMock.Object), CancellationToken.None);
@@ -150,17 +193,19 @@ public class TeamsModuleTests
             .Returns(Task.CompletedTask);
 
         var source = new SimulatedTeamSource();
-        var orchestrator = new TeamExportOrchestrator(source, NullLogger<TeamExportOrchestrator>.Instance);
+        var orchestrator = new TeamExportOrchestrator(source, NullLogger<TeamExportOrchestrator>.Instance, endpointInfo: CreateSourceEndpointInfo());
 
         // Filter to only teams matching "Alpha"
         var opts = new TeamsModuleOptions { Enabled = true, Scope = "teams", Filter = "^Alpha" };
         var module = new TeamsModule(
             NullLogger<TeamsModule>.Instance,
             Options.Create(opts),
-            new TeamSlugGenerator(),
+            agentJobContext: CreateAgentJobContext(),
+            sourceEndpointInfo: CreateSourceEndpointInfo(),
+            targetEndpointInfo: CreateTargetEndpointInfo(),
+            slugGenerator: new TeamSlugGenerator(),
             teamSource: source,
-            exportOrchestrator: orchestrator,
-            activeJobConfig: CreateActiveJobConfig());
+            exportOrchestrator: orchestrator);
 
         // Act
         await module.ExportAsync(CreateExportContext(storeMock.Object), CancellationToken.None);
@@ -180,15 +225,17 @@ public class TeamsModuleTests
             .ReturnsAsync(true); // already exported
 
         var source = new SimulatedTeamSource();
-        var orchestrator = new TeamExportOrchestrator(source, NullLogger<TeamExportOrchestrator>.Instance);
+        var orchestrator = new TeamExportOrchestrator(source, NullLogger<TeamExportOrchestrator>.Instance, endpointInfo: CreateSourceEndpointInfo());
 
         var module = new TeamsModule(
             NullLogger<TeamsModule>.Instance,
             Options.Create(new TeamsModuleOptions { Enabled = true, AlwaysExport = false }),
-            new TeamSlugGenerator(),
+            agentJobContext: CreateAgentJobContext(),
+            sourceEndpointInfo: CreateSourceEndpointInfo(),
+            targetEndpointInfo: CreateTargetEndpointInfo(),
+            slugGenerator: new TeamSlugGenerator(),
             teamSource: source,
-            exportOrchestrator: orchestrator,
-            activeJobConfig: CreateActiveJobConfig());
+            exportOrchestrator: orchestrator);
 
         // Act
         await module.ExportAsync(CreateExportContext(storeMock.Object), CancellationToken.None);
@@ -215,15 +262,17 @@ public class TeamsModuleTests
             .Returns(Task.CompletedTask);
 
         var source = new SimulatedTeamSource();
-        var orchestrator = new TeamExportOrchestrator(source, NullLogger<TeamExportOrchestrator>.Instance);
+        var orchestrator = new TeamExportOrchestrator(source, NullLogger<TeamExportOrchestrator>.Instance, endpointInfo: CreateSourceEndpointInfo());
 
         var module = new TeamsModule(
             NullLogger<TeamsModule>.Instance,
             Options.Create(new TeamsModuleOptions { Enabled = true, AlwaysExport = true }),
-            new TeamSlugGenerator(),
+            agentJobContext: CreateAgentJobContext(),
+            sourceEndpointInfo: CreateSourceEndpointInfo(),
+            targetEndpointInfo: CreateTargetEndpointInfo(),
+            slugGenerator: new TeamSlugGenerator(),
             teamSource: source,
-            exportOrchestrator: orchestrator,
-            activeJobConfig: CreateActiveJobConfig());
+            exportOrchestrator: orchestrator);
 
         // Act
         await module.ExportAsync(CreateExportContext(storeMock.Object), CancellationToken.None);
@@ -241,7 +290,10 @@ public class TeamsModuleTests
         var module = new TeamsModule(
             NullLogger<TeamsModule>.Instance,
             Options.Create(new TeamsModuleOptions { Enabled = false }),
-            new TeamSlugGenerator());
+            agentJobContext: CreateAgentJobContext(),
+            sourceEndpointInfo: CreateSourceEndpointInfo(),
+            targetEndpointInfo: CreateTargetEndpointInfo(),
+            slugGenerator: new TeamSlugGenerator());
 
         // Act
         await module.ImportAsync(CreateImportContext(storeMock.Object), CancellationToken.None);
@@ -255,7 +307,7 @@ public class TeamsModuleTests
         // Arrange
         var target = new SimulatedTeamTarget();
 
-        var orchestrator = new TeamImportOrchestrator(target, NullLogger<TeamImportOrchestrator>.Instance);
+        var orchestrator = new TeamImportOrchestrator(target, NullLogger<TeamImportOrchestrator>.Instance, endpointInfo: CreateTargetEndpointInfo());
 
         // Build a minimal team.json in the store
         var teamPackage = new TeamPackage
@@ -281,10 +333,12 @@ public class TeamsModuleTests
         var module = new TeamsModule(
             NullLogger<TeamsModule>.Instance,
             Options.Create(new TeamsModuleOptions { Enabled = true }),
-            new TeamSlugGenerator(),
+            agentJobContext: CreateAgentJobContext(),
+            sourceEndpointInfo: CreateSourceEndpointInfo(),
+            targetEndpointInfo: CreateTargetEndpointInfo(),
+            slugGenerator: new TeamSlugGenerator(),
             teamTarget: target,
-            importOrchestrator: orchestrator,
-            activeJobConfig: CreateActiveJobConfig());
+            importOrchestrator: orchestrator);
 
         // Act
         await module.ImportAsync(CreateImportContext(storeMock.Object), CancellationToken.None);
@@ -305,7 +359,10 @@ public class TeamsModuleTests
         var module = new TeamsModule(
             NullLogger<TeamsModule>.Instance,
             Options.Create(new TeamsModuleOptions { Enabled = true }),
-            new TeamSlugGenerator());
+            agentJobContext: CreateAgentJobContext(),
+            sourceEndpointInfo: CreateSourceEndpointInfo(),
+            targetEndpointInfo: CreateTargetEndpointInfo(),
+            slugGenerator: new TeamSlugGenerator());
 
         var context = CreateValidationContext(storeMock);
 
@@ -332,7 +389,10 @@ public class TeamsModuleTests
         var module = new TeamsModule(
             NullLogger<TeamsModule>.Instance,
             Options.Create(new TeamsModuleOptions { Enabled = true }),
-            new TeamSlugGenerator());
+            agentJobContext: CreateAgentJobContext(),
+            sourceEndpointInfo: CreateSourceEndpointInfo(),
+            targetEndpointInfo: CreateTargetEndpointInfo(),
+            slugGenerator: new TeamSlugGenerator());
 
         var context = CreateValidationContext(storeMock);
 
@@ -359,7 +419,10 @@ public class TeamsModuleTests
         var module = new TeamsModule(
             NullLogger<TeamsModule>.Instance,
             Options.Create(new TeamsModuleOptions { Enabled = true }),
-            new TeamSlugGenerator());
+            agentJobContext: CreateAgentJobContext(),
+            sourceEndpointInfo: CreateSourceEndpointInfo(),
+            targetEndpointInfo: CreateTargetEndpointInfo(),
+            slugGenerator: new TeamSlugGenerator());
 
         var context = CreateValidationContext(storeMock);
 
@@ -395,7 +458,10 @@ public class TeamsModuleTests
         var module = new TeamsModule(
             NullLogger<TeamsModule>.Instance,
             Options.Create(new TeamsModuleOptions { Enabled = true }),
-            new TeamSlugGenerator());
+            agentJobContext: CreateAgentJobContext(),
+            sourceEndpointInfo: CreateSourceEndpointInfo(),
+            targetEndpointInfo: CreateTargetEndpointInfo(),
+            slugGenerator: new TeamSlugGenerator());
 
         var context = CreateValidationContext(storeMock);
 
@@ -415,7 +481,7 @@ public class TeamsModuleTests
         var target = new SimulatedTeamTarget();
 
         // No INodeTranslationTool → paths passed through as-is
-        var orchestrator = new TeamImportOrchestrator(target, NullLogger<TeamImportOrchestrator>.Instance);
+        var orchestrator = new TeamImportOrchestrator(target, NullLogger<TeamImportOrchestrator>.Instance, endpointInfo: CreateTargetEndpointInfo());
 
         var iteration = new TeamIteration("iter-1", "ProjectA\\Sprint 1", "Sprint 1", null, null, false, false);
         var teamPackage = new TeamPackage
@@ -436,10 +502,12 @@ public class TeamsModuleTests
         var module = new TeamsModule(
             NullLogger<TeamsModule>.Instance,
             Options.Create(new TeamsModuleOptions { Enabled = true, Extensions = new TeamsModuleExtensionsOptions { TeamIterations = true } }),
-            new TeamSlugGenerator(),
+            agentJobContext: CreateAgentJobContext(),
+            sourceEndpointInfo: CreateSourceEndpointInfo(),
+            targetEndpointInfo: CreateTargetEndpointInfo(),
+            slugGenerator: new TeamSlugGenerator(),
             teamTarget: target,
-            importOrchestrator: orchestrator,
-            activeJobConfig: CreateActiveJobConfig());
+            importOrchestrator: orchestrator);
 
         // Act
         await module.ImportAsync(CreateImportContext(storeMock.Object), CancellationToken.None);
@@ -463,7 +531,7 @@ public class TeamsModuleTests
             m.Resolve("src-alice") == "tgt-alice@target.com" &&
             m.Resolve("src-bob") == "tgt-bob@target.com");
 
-        var orchestrator = new TeamImportOrchestrator(target, NullLogger<TeamImportOrchestrator>.Instance, identityLookupTool: identityLookupTool);
+        var orchestrator = new TeamImportOrchestrator(target, NullLogger<TeamImportOrchestrator>.Instance, endpointInfo: CreateTargetEndpointInfo(), identityLookupTool: identityLookupTool);
 
         var teamPackage = new TeamPackage
         {
@@ -487,10 +555,12 @@ public class TeamsModuleTests
         var module = new TeamsModule(
             NullLogger<TeamsModule>.Instance,
             Options.Create(new TeamsModuleOptions { Enabled = true, Extensions = new TeamsModuleExtensionsOptions { TeamMembers = true } }),
-            new TeamSlugGenerator(),
+            agentJobContext: CreateAgentJobContext(),
+            sourceEndpointInfo: CreateSourceEndpointInfo(),
+            targetEndpointInfo: CreateTargetEndpointInfo(),
+            slugGenerator: new TeamSlugGenerator(),
             teamTarget: target,
-            importOrchestrator: orchestrator,
-            activeJobConfig: CreateActiveJobConfig());
+            importOrchestrator: orchestrator);
 
         // Act
         await module.ImportAsync(CreateImportContext(storeMock.Object), CancellationToken.None);
@@ -510,7 +580,7 @@ public class TeamsModuleTests
     {
         // Arrange
         var target = new SimulatedTeamTarget();
-        var orchestrator = new TeamImportOrchestrator(target, NullLogger<TeamImportOrchestrator>.Instance);
+        var orchestrator = new TeamImportOrchestrator(target, NullLogger<TeamImportOrchestrator>.Instance, endpointInfo: CreateTargetEndpointInfo());
 
         var capacity = new TeamCapacityEntry[]
         {
@@ -537,10 +607,12 @@ public class TeamsModuleTests
         var module = new TeamsModule(
             NullLogger<TeamsModule>.Instance,
             Options.Create(new TeamsModuleOptions { Enabled = true, Extensions = new TeamsModuleExtensionsOptions { TeamCapacity = true } }),
-            new TeamSlugGenerator(),
+            agentJobContext: CreateAgentJobContext(),
+            sourceEndpointInfo: CreateSourceEndpointInfo(),
+            targetEndpointInfo: CreateTargetEndpointInfo(),
+            slugGenerator: new TeamSlugGenerator(),
             teamTarget: target,
-            importOrchestrator: orchestrator,
-            activeJobConfig: CreateActiveJobConfig());
+            importOrchestrator: orchestrator);
 
         // Act
         await module.ImportAsync(CreateImportContext(storeMock.Object), CancellationToken.None);
@@ -557,7 +629,7 @@ public class TeamsModuleTests
     {
         // Arrange
         var target = new SimulatedTeamTarget();
-        var orchestrator = new TeamImportOrchestrator(target, NullLogger<TeamImportOrchestrator>.Instance);
+        var orchestrator = new TeamImportOrchestrator(target, NullLogger<TeamImportOrchestrator>.Instance, endpointInfo: CreateTargetEndpointInfo());
 
         var teamPackage = new TeamPackage
         {
@@ -580,10 +652,12 @@ public class TeamsModuleTests
         var module = new TeamsModule(
             NullLogger<TeamsModule>.Instance,
             Options.Create(new TeamsModuleOptions { Enabled = true, Extensions = new TeamsModuleExtensionsOptions { TeamCapacity = false } }),
-            new TeamSlugGenerator(),
+            agentJobContext: CreateAgentJobContext(),
+            sourceEndpointInfo: CreateSourceEndpointInfo(),
+            targetEndpointInfo: CreateTargetEndpointInfo(),
+            slugGenerator: new TeamSlugGenerator(),
             teamTarget: target,
-            importOrchestrator: orchestrator,
-            activeJobConfig: CreateActiveJobConfig());
+            importOrchestrator: orchestrator);
 
         // Act
         await module.ImportAsync(CreateImportContext(storeMock.Object), CancellationToken.None);
@@ -612,7 +686,7 @@ public class TeamsModuleTests
             .Returns(Task.CompletedTask);
 
         var source = new SimulatedTeamSource();
-        var orchestrator = new TeamExportOrchestrator(source, NullLogger<TeamExportOrchestrator>.Instance,
+        var orchestrator = new TeamExportOrchestrator(source, NullLogger<TeamExportOrchestrator>.Instance, endpointInfo: CreateSourceEndpointInfo(),
             referencedPathTracker: trackerMock.Object);
 
         var storeMock = new Mock<IArtefactStore>(MockBehavior.Loose);
@@ -628,10 +702,12 @@ public class TeamsModuleTests
         var module = new TeamsModule(
             NullLogger<TeamsModule>.Instance,
             Options.Create(opts),
-            new TeamSlugGenerator(),
+            agentJobContext: CreateAgentJobContext(),
+            sourceEndpointInfo: CreateSourceEndpointInfo(),
+            targetEndpointInfo: CreateTargetEndpointInfo(),
+            slugGenerator: new TeamSlugGenerator(),
             teamSource: source,
-            exportOrchestrator: orchestrator,
-            activeJobConfig: CreateActiveJobConfig());
+            exportOrchestrator: orchestrator);
 
         // Act
         await module.ExportAsync(CreateExportContext(storeMock.Object), CancellationToken.None);
@@ -648,7 +724,7 @@ public class TeamsModuleTests
         // Strict: no calls should be made
 
         var source = new SimulatedTeamSource();
-        var orchestrator = new TeamExportOrchestrator(source, NullLogger<TeamExportOrchestrator>.Instance,
+        var orchestrator = new TeamExportOrchestrator(source, NullLogger<TeamExportOrchestrator>.Instance, endpointInfo: CreateSourceEndpointInfo(),
             referencedPathTracker: trackerMock.Object);
 
         var storeMock = new Mock<IArtefactStore>(MockBehavior.Loose);
@@ -664,10 +740,12 @@ public class TeamsModuleTests
         var module = new TeamsModule(
             NullLogger<TeamsModule>.Instance,
             Options.Create(opts),
-            new TeamSlugGenerator(),
+            agentJobContext: CreateAgentJobContext(),
+            sourceEndpointInfo: CreateSourceEndpointInfo(),
+            targetEndpointInfo: CreateTargetEndpointInfo(),
+            slugGenerator: new TeamSlugGenerator(),
             teamSource: source,
-            exportOrchestrator: orchestrator,
-            activeJobConfig: CreateActiveJobConfig());
+            exportOrchestrator: orchestrator);
 
         // Act
         await module.ExportAsync(CreateExportContext(storeMock.Object), CancellationToken.None);
@@ -696,6 +774,7 @@ public class TeamsModuleTests
 
         var orchestrator = new TeamImportOrchestrator(
             target, NullLogger<TeamImportOrchestrator>.Instance,
+            endpointInfo: CreateTargetEndpointInfo(),
             NodeTransformTool: translationToolMock.Object);
 
         var teamPackage = new TeamPackage
@@ -719,10 +798,12 @@ public class TeamsModuleTests
         var module = new TeamsModule(
             NullLogger<TeamsModule>.Instance,
             Options.Create(new TeamsModuleOptions { Enabled = true, Extensions = new TeamsModuleExtensionsOptions { TeamIterations = true } }),
-            new TeamSlugGenerator(),
+            agentJobContext: CreateAgentJobContext(),
+            sourceEndpointInfo: CreateSourceEndpointInfo(),
+            targetEndpointInfo: CreateTargetEndpointInfo(),
+            slugGenerator: new TeamSlugGenerator(),
             teamTarget: target,
-            importOrchestrator: orchestrator,
-            activeJobConfig: CreateActiveJobConfig());
+            importOrchestrator: orchestrator);
 
         // Act
         await module.ImportAsync(CreateImportContext(storeMock.Object), CancellationToken.None);
@@ -761,6 +842,7 @@ public class TeamsModuleTests
 
         var orchestrator = new TeamImportOrchestrator(
             target, NullLogger<TeamImportOrchestrator>.Instance,
+            endpointInfo: CreateTargetEndpointInfo(),
             NodeTransformTool: translationToolMock.Object);
 
         var teamPackage = new TeamPackage
@@ -793,10 +875,12 @@ public class TeamsModuleTests
                     NodeTranslation = true,
                 }
             }),
-            new TeamSlugGenerator(),
+            agentJobContext: CreateAgentJobContext(),
+            sourceEndpointInfo: CreateSourceEndpointInfo(),
+            targetEndpointInfo: CreateTargetEndpointInfo(),
+            slugGenerator: new TeamSlugGenerator(),
             teamTarget: target,
-            importOrchestrator: orchestrator,
-            activeJobConfig: CreateActiveJobConfig());
+            importOrchestrator: orchestrator);
 
         // Act
         await module.ImportAsync(CreateImportContext(storeMock.Object), CancellationToken.None);

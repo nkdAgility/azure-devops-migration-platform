@@ -18,7 +18,6 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Tests.Tools.NodeTranslati
 public class NodeEnsurerTests
 {
     private static readonly ProjectMapping DefaultMapping = new("SourceProject", "TargetProject");
-    private static readonly MigrationEndpointOptions DefaultEndpoint = new SimulatedEndpointOptions();
 
     private static (NodeEnsurer sut, Mock<INodeCreator> creatorMock, Mock<IArtefactStore> storeMock, Mock<IStateStore> stateMock)
         CreateEnsurer(
@@ -31,7 +30,7 @@ public class NodeEnsurerTests
         tool ??= CreatePassThroughTool();
 
         var creatorMock = new Mock<INodeCreator>(MockBehavior.Loose);
-        creatorMock.Setup(c => c.EnsureExistsAsync(It.IsAny<ClassificationNodeType>(), It.IsAny<string>(), It.IsAny<MigrationEndpointOptions>(), It.IsAny<CancellationToken>()))
+        creatorMock.Setup(c => c.EnsureExistsAsync(It.IsAny<ClassificationNodeType>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
 
         var storeMock = new Mock<IArtefactStore>(MockBehavior.Loose);
@@ -77,12 +76,12 @@ public class NodeEnsurerTests
         var json = BuildReferencedPathsJson(new[] { @"TargetProject\Team A" });
         var (sut, creatorMock, storeMock, _) = CreateEnsurer(referencedPathsJson: json);
 
-        await sut.EnsureReferencedPathsAsync(DefaultMapping, DefaultEndpoint, storeMock.Object, CancellationToken.None);
+        await sut.EnsureReferencedPathsAsync(DefaultMapping, storeMock.Object, CancellationToken.None);
 
         creatorMock.Verify(c => c.EnsureExistsAsync(
             ClassificationNodeType.Area,
             It.IsAny<string>(),
-            It.IsAny<MigrationEndpointOptions>(),
+
             It.IsAny<CancellationToken>()), Times.Once);
     }
 
@@ -93,12 +92,12 @@ public class NodeEnsurerTests
         var json = BuildReferencedPathsJson(new[] { @"TargetProject\Team A" });
         var (sut, creatorMock, storeMock, _) = CreateEnsurer(opts: opts, referencedPathsJson: json);
 
-        await sut.EnsureReferencedPathsAsync(DefaultMapping, DefaultEndpoint, storeMock.Object, CancellationToken.None);
+        await sut.EnsureReferencedPathsAsync(DefaultMapping, storeMock.Object, CancellationToken.None);
 
         creatorMock.Verify(c => c.EnsureExistsAsync(
             It.IsAny<ClassificationNodeType>(),
             It.IsAny<string>(),
-            It.IsAny<MigrationEndpointOptions>(),
+
             It.IsAny<CancellationToken>()), Times.Never);
     }
 
@@ -107,12 +106,12 @@ public class NodeEnsurerTests
     {
         var (sut, creatorMock, storeMock, _) = CreateEnsurer(referencedPathsJson: null);
 
-        await sut.EnsureReferencedPathsAsync(DefaultMapping, DefaultEndpoint, storeMock.Object, CancellationToken.None);
+        await sut.EnsureReferencedPathsAsync(DefaultMapping, storeMock.Object, CancellationToken.None);
 
         creatorMock.Verify(c => c.EnsureExistsAsync(
             It.IsAny<ClassificationNodeType>(),
             It.IsAny<string>(),
-            It.IsAny<MigrationEndpointOptions>(),
+
             It.IsAny<CancellationToken>()), Times.Never);
     }
 
@@ -122,12 +121,12 @@ public class NodeEnsurerTests
         var json = BuildReferencedPathsJson(new List<string>());
         var (sut, creatorMock, storeMock, _) = CreateEnsurer(referencedPathsJson: json);
 
-        await sut.EnsureReferencedPathsAsync(DefaultMapping, DefaultEndpoint, storeMock.Object, CancellationToken.None);
+        await sut.EnsureReferencedPathsAsync(DefaultMapping, storeMock.Object, CancellationToken.None);
 
         creatorMock.Verify(c => c.EnsureExistsAsync(
             It.IsAny<ClassificationNodeType>(),
             It.IsAny<string>(),
-            It.IsAny<MigrationEndpointOptions>(),
+
             It.IsAny<CancellationToken>()), Times.Never);
     }
 
@@ -149,7 +148,7 @@ public class NodeEnsurerTests
         var opts = new NodeTranslationOptions { Enabled = true };
         var treeJson = BuildSourceTreeJson(areaNodes: new[] { @"SourceProject\Team A" });
         var creatorMock = new Mock<INodeCreator>(MockBehavior.Loose);
-        creatorMock.Setup(c => c.EnsureExistsAsync(It.IsAny<ClassificationNodeType>(), It.IsAny<string>(), It.IsAny<MigrationEndpointOptions>(), It.IsAny<CancellationToken>()))
+        creatorMock.Setup(c => c.EnsureExistsAsync(It.IsAny<ClassificationNodeType>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
 
         var storeMock = new Mock<IArtefactStore>(MockBehavior.Loose);
@@ -170,10 +169,10 @@ public class NodeEnsurerTests
         var tool = CreatePassThroughTool();
         var ensurer = new NodeEnsurer(Options.Create(opts), tool, creatorMock.Object, NullLogger<NodeEnsurer>.Instance);
 
-        await ensurer.ReplicateSourceTreeAsync(DefaultMapping, DefaultEndpoint, storeMock.Object, stateMock.Object, CancellationToken.None);
+        await ensurer.ReplicateSourceTreeAsync(DefaultMapping, storeMock.Object, stateMock.Object, CancellationToken.None);
 
         creatorMock.Verify(c => c.EnsureExistsAsync(
-            It.IsAny<ClassificationNodeType>(), It.IsAny<string>(), It.IsAny<MigrationEndpointOptions>(), It.IsAny<CancellationToken>()), Times.Never);
+            It.IsAny<ClassificationNodeType>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [TestMethod]
@@ -186,16 +185,16 @@ public class NodeEnsurerTests
             iterNodes: new[] { new IterationNodeEntry(@"SourceProject\Sprint 1", start, finish, false) });
 
         var (sut, creatorMock, storeMock, stateMock) = CreateEnsurer(opts: opts, sourceTreeJson: treeJson);
-        creatorMock.Setup(c => c.SetIterationDatesAsync(It.IsAny<string>(), It.IsAny<DateTimeOffset?>(), It.IsAny<DateTimeOffset?>(), It.IsAny<MigrationEndpointOptions>(), It.IsAny<CancellationToken>()))
+        creatorMock.Setup(c => c.SetIterationDatesAsync(It.IsAny<string>(), It.IsAny<DateTimeOffset?>(), It.IsAny<DateTimeOffset?>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
 
-        await sut.ReplicateSourceTreeAsync(DefaultMapping, DefaultEndpoint, storeMock.Object, stateMock.Object, CancellationToken.None);
+        await sut.ReplicateSourceTreeAsync(DefaultMapping, storeMock.Object, stateMock.Object, CancellationToken.None);
 
         creatorMock.Verify(c => c.SetIterationDatesAsync(
             It.IsAny<string>(),
             It.Is<DateTimeOffset?>(d => d.HasValue),
             It.Is<DateTimeOffset?>(d => d.HasValue),
-            It.IsAny<MigrationEndpointOptions>(),
+
             It.IsAny<CancellationToken>()), Times.Once);
     }
 
@@ -207,13 +206,13 @@ public class NodeEnsurerTests
             iterNodes: new[] { new IterationNodeEntry(@"SourceProject\Sprint 2", null, null, false) });
 
         var (sut, creatorMock, storeMock, stateMock) = CreateEnsurer(opts: opts, sourceTreeJson: treeJson);
-        creatorMock.Setup(c => c.SetIterationDatesAsync(It.IsAny<string>(), It.IsAny<DateTimeOffset?>(), It.IsAny<DateTimeOffset?>(), It.IsAny<MigrationEndpointOptions>(), It.IsAny<CancellationToken>()))
+        creatorMock.Setup(c => c.SetIterationDatesAsync(It.IsAny<string>(), It.IsAny<DateTimeOffset?>(), It.IsAny<DateTimeOffset?>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
 
-        await sut.ReplicateSourceTreeAsync(DefaultMapping, DefaultEndpoint, storeMock.Object, stateMock.Object, CancellationToken.None);
+        await sut.ReplicateSourceTreeAsync(DefaultMapping, storeMock.Object, stateMock.Object, CancellationToken.None);
 
         creatorMock.Verify(c => c.SetIterationDatesAsync(
-            It.IsAny<string>(), It.IsAny<DateTimeOffset?>(), It.IsAny<DateTimeOffset?>(), It.IsAny<MigrationEndpointOptions>(), It.IsAny<CancellationToken>()), Times.Never);
+            It.IsAny<string>(), It.IsAny<DateTimeOffset?>(), It.IsAny<DateTimeOffset?>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [TestMethod]
@@ -226,15 +225,15 @@ public class NodeEnsurerTests
             iterNodes: new[] { new IterationNodeEntry(@"SourceProject\Sprint 1", start, finish, false) });
 
         var (sut, creatorMock, storeMock, stateMock) = CreateEnsurer(opts: opts, sourceTreeJson: treeJson);
-        creatorMock.Setup(c => c.SetIterationDatesAsync(It.IsAny<string>(), It.IsAny<DateTimeOffset?>(), It.IsAny<DateTimeOffset?>(), It.IsAny<MigrationEndpointOptions>(), It.IsAny<CancellationToken>()))
+        creatorMock.Setup(c => c.SetIterationDatesAsync(It.IsAny<string>(), It.IsAny<DateTimeOffset?>(), It.IsAny<DateTimeOffset?>(), It.IsAny<CancellationToken>()))
             .ThrowsAsync(new Exception("Simulated failure"));
 
         // Must not throw
-        await sut.ReplicateSourceTreeAsync(DefaultMapping, DefaultEndpoint, storeMock.Object, stateMock.Object, CancellationToken.None);
+        await sut.ReplicateSourceTreeAsync(DefaultMapping, storeMock.Object, stateMock.Object, CancellationToken.None);
 
         // Node should still have been created
         creatorMock.Verify(c => c.EnsureExistsAsync(
-            ClassificationNodeType.Iteration, It.IsAny<string>(), It.IsAny<MigrationEndpointOptions>(), It.IsAny<CancellationToken>()), Times.Once);
+            ClassificationNodeType.Iteration, It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [TestMethod]
@@ -243,9 +242,9 @@ public class NodeEnsurerTests
         var opts = new NodeTranslationOptions { Enabled = true };
         var (sut, creatorMock, storeMock, stateMock) = CreateEnsurer(opts: opts, sourceTreeJson: null);
 
-        await sut.ReplicateSourceTreeAsync(DefaultMapping, DefaultEndpoint, storeMock.Object, stateMock.Object, CancellationToken.None);
+        await sut.ReplicateSourceTreeAsync(DefaultMapping, storeMock.Object, stateMock.Object, CancellationToken.None);
 
         creatorMock.Verify(c => c.EnsureExistsAsync(
-            It.IsAny<ClassificationNodeType>(), It.IsAny<string>(), It.IsAny<MigrationEndpointOptions>(), It.IsAny<CancellationToken>()), Times.Never);
+            It.IsAny<ClassificationNodeType>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 }

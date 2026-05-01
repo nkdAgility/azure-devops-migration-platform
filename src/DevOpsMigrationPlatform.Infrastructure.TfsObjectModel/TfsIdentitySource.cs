@@ -34,7 +34,6 @@ public sealed class TfsIdentitySource : IIdentitySource
 
     /// <inheritdoc/>
     public async IAsyncEnumerable<AgentIdentityDescriptor> EnumerateIdentitiesAsync(
-        MigrationEndpointOptions endpoint,
         string projectName,
         [EnumeratorCancellation] CancellationToken cancellationToken)
     {

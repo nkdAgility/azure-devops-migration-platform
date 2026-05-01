@@ -5,6 +5,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Agent.Context;
 using DevOpsMigrationPlatform.Abstractions.Agent.Lease;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Abstractions.Agent.Validation;
@@ -18,6 +19,7 @@ using DevOpsMigrationPlatform.Infrastructure.Agent.Import;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Telemetry;
 using DevOpsMigrationPlatform.Infrastructure.Telemetry;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Agent.Modules;
@@ -66,11 +68,19 @@ public sealed class WorkItemsModule : IModule
     private readonly IReferencedPathTracker? _referencedPathTracker;
     private readonly INodeEnsurer? _nodeEnsurer;
 #endif
-    private readonly ActiveJobConfigState? _activeJobConfig;
+    private readonly IOptions<WorkItemsModuleOptions> _options;
+    private readonly IAgentJobContext _agentJobContext;
+    private readonly ISourceEndpointInfo _sourceEndpointInfo;
+#if !NET481
+    private readonly ITargetEndpointInfo _targetEndpointInfo;
+#endif
 
     public WorkItemsModule(
         IWorkItemRevisionSourceFactory sourceFactory,
         ILogger<WorkItemsModule> logger,
+        IOptions<WorkItemsModuleOptions> options,
+        IAgentJobContext agentJobContext,
+        ISourceEndpointInfo sourceEndpointInfo,
 #if !NET481
         ILogger<WorkItemImportOrchestrator> orchestratorLogger,
         IWorkItemImportTargetFactory importTargetFactory,
@@ -78,6 +88,7 @@ public sealed class WorkItemsModule : IModule
         ICheckpointingServiceFactory checkpointingFactory,
         IIdMapStoreFactory idMapStoreFactory,
         IRevisionFolderProcessorFactory processorFactory,
+        ITargetEndpointInfo targetEndpointInfo,
 #else
         ICheckpointingServiceFactory checkpointingFactory,
 #endif
@@ -92,17 +103,20 @@ public sealed class WorkItemsModule : IModule
         IReferencedPathTracker? referencedPathTracker = null,
         INodeEnsurer? nodeEnsurer = null,
 #endif
-        IIdentityLookupTool? identityLookupTool = null,
-        ActiveJobConfigState? activeJobConfig = null)
+        IIdentityLookupTool? identityLookupTool = null)
     {
         _sourceFactory = sourceFactory ?? throw new ArgumentNullException(nameof(sourceFactory));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        _options = options ?? throw new ArgumentNullException(nameof(options));
+        _agentJobContext = agentJobContext ?? throw new ArgumentNullException(nameof(agentJobContext));
+        _sourceEndpointInfo = sourceEndpointInfo ?? throw new ArgumentNullException(nameof(sourceEndpointInfo));
 #if !NET481
         _orchestratorLogger = orchestratorLogger ?? throw new ArgumentNullException(nameof(orchestratorLogger));
         _importTargetFactory = importTargetFactory ?? throw new ArgumentNullException(nameof(importTargetFactory));
         _resolutionStrategyFactory = resolutionStrategyFactory ?? throw new ArgumentNullException(nameof(resolutionStrategyFactory));
         _idMapStoreFactory = idMapStoreFactory ?? throw new ArgumentNullException(nameof(idMapStoreFactory));
         _processorFactory = processorFactory ?? throw new ArgumentNullException(nameof(processorFactory));
+        _targetEndpointInfo = targetEndpointInfo ?? throw new ArgumentNullException(nameof(targetEndpointInfo));
 #endif
         _checkpointingFactory = checkpointingFactory ?? throw new ArgumentNullException(nameof(checkpointingFactory));
         _attachmentBinarySource = attachmentBinarySource;
@@ -117,7 +131,6 @@ public sealed class WorkItemsModule : IModule
         _nodeEnsurer = nodeEnsurer;
 #endif
         _identityLookupTool = identityLookupTool;
-        _activeJobConfig = activeJobConfig;
     }
 
     /// <inheritdoc/>
@@ -127,13 +140,11 @@ public sealed class WorkItemsModule : IModule
 
         var job = context.Job;
 
-        var endpointOptions = _activeJobConfig?.Current?.Source ?? throw new InvalidOperationException("ActiveJobConfigState.Current.Source is required for export — ensure migration-config.json is present in the package.");
-        var orgUrl = endpointOptions.GetResolvedUrl();
-        var project = endpointOptions.GetProject();
+        var orgUrl = _sourceEndpointInfo.Url;
+        var project = _sourceEndpointInfo.Project;
 
 #if !NET481
-        var ext = WorkItemsModuleExtensions.FromOptions(
-            _activeJobConfig?.Current?.Modules?.WorkItems ?? new WorkItemsModuleOptions());
+        var ext = WorkItemsModuleExtensions.FromOptions(_options.Value);
 
         using (_logger.BeginDataScope(DataClassification.Customer))
         {
@@ -161,8 +172,9 @@ public sealed class WorkItemsModule : IModule
         var allFilters = new System.Collections.Generic.List<WorkItemFieldFilterOptions>();
 #endif
 
+        // NOTE: Connectors now resolve their own credentials from DI; no need to pass endpoint options.
         var source = await _sourceFactory
-            .CreateAsync(endpointOptions, ct)
+            .CreateAsync(ct)
             .ConfigureAwait(false);
 
         if (_classificationTreeCapture is null)
@@ -175,10 +187,10 @@ public sealed class WorkItemsModule : IModule
         if (_referencedPathTracker is not null)
             await _referencedPathTracker.InitializeAsync(context.ArtefactStore, ct).ConfigureAwait(false);
         if (_classificationTreeCapture is not null)
-            _ = await _classificationTreeCapture.CaptureAsync(context.ArtefactStore, endpointOptions, ct, _metrics, job.JobId).ConfigureAwait(false);
+            _ = await _classificationTreeCapture.CaptureAsync(context.ArtefactStore, ct, _metrics, job.JobId).ConfigureAwait(false);
 #else
         if (_classificationTreeCapture is not null)
-            _ = await _classificationTreeCapture.CaptureAsync(context.ArtefactStore, endpointOptions, ct).ConfigureAwait(false);
+            _ = await _classificationTreeCapture.CaptureAsync(context.ArtefactStore, ct).ConfigureAwait(false);
 #endif
 
         var checkpointingService = _checkpointingFactory.Create(context.StateStore);
@@ -199,7 +211,7 @@ public sealed class WorkItemsModule : IModule
             _attachmentBinarySource,
 #endif
             context.ProgressSink,
-            endpoint: endpointOptions,
+            endpoint: null, // Connectors now resolve from DI
             project: project,
             inlineCommentSourceFactory: inlineFactory,
             fetchService: allFilters.Count > 0 ? _fetchService : null,
@@ -236,14 +248,10 @@ public sealed class WorkItemsModule : IModule
 
         var job = context.Job;
 
-        var targetJob = _activeJobConfig?.Current?.Target ?? throw new InvalidOperationException("ActiveJobConfigState.Current.Target is required for import — ensure migration-config.json is present in the package.");
-        var orgUrl = targetJob.GetResolvedUrl();
-        var project = targetJob.GetProject();
+        var orgUrl = _targetEndpointInfo.Url;
+        var project = _targetEndpointInfo.Project;
 
-        var endpointOptions = targetJob;
-
-        var ext = WorkItemsModuleExtensions.FromOptions(
-            _activeJobConfig?.Current?.Modules?.WorkItems ?? new WorkItemsModuleOptions());
+        var ext = WorkItemsModuleExtensions.FromOptions(_options.Value);
 
         using (_logger.BeginDataScope(DataClassification.Customer))
         {
@@ -252,13 +260,16 @@ public sealed class WorkItemsModule : IModule
                 orgUrl, project, ext.RevisionsEnabled, ext.LinksEnabled, ext.AttachmentsEnabled, ext.Comments.Enabled);
         }
 
-        var target = await _importTargetFactory.CreateAsync(endpointOptions, ct).ConfigureAwait(false);
+        // NOTE: Connectors now resolve their own credentials from DI; no need to pass endpoint options.
+        var target = await _importTargetFactory.CreateAsync(ct).ConfigureAwait(false);
         var checkpointingService = _checkpointingFactory.Create(context.StateStore);
 
         // Resolve the strategy at execution time — the factory creates the correct implementation
         // based on the module config and target connection parameters.
+        // TODO T051+: IWorkItemResolutionStrategyFactory and ITeamTarget still require MigrationEndpointOptions
+        // These interfaces need IOptions<TargetEndpointOptions> injection or to be split into Info + Options
         var resolutionStrategy = await _resolutionStrategyFactory
-            .CreateAsync(ext.ResolutionStrategy, target, endpointOptions, ct)
+            .CreateAsync(ext.ResolutionStrategy, target, null!, ct)
             .ConfigureAwait(false);
 
         // Derive the SQLite idmap.db from the package URI (legacy fallback handled by factory)
@@ -270,15 +281,15 @@ public sealed class WorkItemsModule : IModule
 
         if (_nodeEnsurer != null)
         {
-            var sourceProjectNameForEnsurer = _activeJobConfig?.Current?.Source?.GetProject() ?? string.Empty;
-            var ensurerContext = new DevOpsMigrationPlatform.Abstractions.Agent.Tools.ProjectMapping(sourceProjectNameForEnsurer, project);
-            await _nodeEnsurer.EnsureReferencedPathsAsync(ensurerContext, endpointOptions, context.ArtefactStore, ct, _metrics, job.JobId).ConfigureAwait(false);
+            var sourceProjectName = _sourceEndpointInfo.Project;
+            var ensurerContext = new DevOpsMigrationPlatform.Abstractions.Agent.Tools.ProjectMapping(sourceProjectName, project);
+            await _nodeEnsurer.EnsureReferencedPathsAsync(ensurerContext, context.ArtefactStore, ct, _metrics, job.JobId).ConfigureAwait(false);
         }
 
         // Build processor — use NodeTranslation-aware overload when available.
         IRevisionFolderProcessor processor;
-        var sourceProjectName = _activeJobConfig?.Current?.Source?.GetProject() ?? string.Empty;
-        var nodeStructureContext = new DevOpsMigrationPlatform.Abstractions.Agent.Tools.ProjectMapping(sourceProjectName, project);
+        var sourceProjectNameForProcessor = _sourceEndpointInfo.Project;
+        var nodeStructureContext = new DevOpsMigrationPlatform.Abstractions.Agent.Tools.ProjectMapping(sourceProjectNameForProcessor, project);
 
         processor = _processorFactory.Create(
             target, idMapStore, checkpointingService, _identityLookupTool, context.ArtefactStore,

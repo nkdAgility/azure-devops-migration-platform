@@ -84,7 +84,7 @@ public class SimulatedIdentitySourceTests
         SimulatedIdentitySource source, string project)
     {
         var result = new List<IdentityDescriptor>();
-        await foreach (var id in source.EnumerateIdentitiesAsync(new SimulatedEndpointOptions(), project, CancellationToken.None))
+        await foreach (var id in source.EnumerateIdentitiesAsync(project, CancellationToken.None))
             result.Add(id);
         return result;
     }

@@ -15,12 +15,15 @@ using DevOpsMigrationPlatform.CLI.Views;
 using DevOpsMigrationPlatform.Infrastructure.Config;
 using DevOpsMigrationPlatform.Abstractions.ControlPlaneApi;
 using DevOpsMigrationPlatform.Abstractions.Validation;
+using DevOpsMigrationPlatform.Abstractions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using DevOpsMigrationPlatform.Abstractions.Options;
 using Spectre.Console;
 using Spectre.Console.Cli;
 using Spectre.Console.Rendering;
+using MsOptions = Microsoft.Extensions.Options.Options;
 
 namespace DevOpsMigrationPlatform.CLI.Migration.Commands;
 
@@ -56,7 +59,54 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
 
             services.AddSingleton<IProgressSink, AnsiProgressSink>();
 
+            // T033: Register IConfigSchemaValidator with schema path
+            services.AddSingleton<IOptions<JsonSchemaConfigValidatorOptions>>(sp =>
+                MsOptions.Create(new JsonSchemaConfigValidatorOptions
+                {
+                    SchemaPath = Path.Combine(AppContext.BaseDirectory, "migration.schema.json")
+                }));
+            services.AddSingleton<IConfigSchemaValidator, JsonSchemaConfigValidator>();
+
         });
+
+        // T034: Validate config against schema before loading
+        var configPath = GetConfigurationPath(settings);
+        if (configPath != null)
+        {
+            var schemaValidator = GetRequiredService<IConfigSchemaValidator>();
+            var logger = GetRequiredService<ILogger<QueueCommand>>();
+            var console = GetRequiredService<IAnsiConsole>();
+
+            try
+            {
+                var rawJson = await File.ReadAllTextAsync(Path.GetFullPath(configPath), cancellationToken);
+                var validationErrors = schemaValidator.Validate(rawJson);
+
+                if (validationErrors.Count > 0)
+                {
+                    console.MarkupLine("[red]Configuration validation failed:[/]");
+                    foreach (var error in validationErrors)
+                    {
+                        logger.LogError(
+                            "Schema validation error at {JsonPath}: {Constraint} in {ConfigFile}",
+                            error.JsonPath,
+                            error.Constraint,
+                            configPath);
+                        console.MarkupLine($"  [red]•[/] {error.JsonPath}: {error.Constraint}");
+                    }
+                    return 1; // Non-zero exit
+                }
+            }
+            catch (FileNotFoundException ex) when (ex.Message.Contains("migration.schema.json"))
+            {
+                // Schema file absent - log warning and proceed
+                var expectedSchemaPath = Path.Combine(AppContext.BaseDirectory, "migration.schema.json");
+                logger.LogWarning(
+                    "Schema file not found at {ExpectedSchemaPath}. Validation skipped.",
+                    expectedSchemaPath);
+                console.MarkupLine($"[yellow]⚠[/] Schema file not found at {Markup.Escape(expectedSchemaPath)}. Validation skipped.");
+            }
+        }
 
         var config = await LoadConfigurationAsync(settings, cancellationToken);
         if (config is null)

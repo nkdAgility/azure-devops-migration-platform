@@ -50,7 +50,7 @@ public class TreeCaptureContext
 
         try
         {
-            await capture.CaptureAsync(ArtefactStoreMock.Object, new SimulatedEndpointOptions(), CancellationToken.None);
+            await capture.CaptureAsync(ArtefactStoreMock.Object, CancellationToken.None);
         }
         catch (Exception ex)
         {
@@ -68,16 +68,16 @@ public class TreeCaptureContext
         public FakeReader(IEnumerable<string> area, IEnumerable<IterationNodeEntry> iter)
         { _area = area; _iter = iter; }
 
-        public async IAsyncEnumerable<string> EnumerateAreaNodesAsync(MigrationEndpointOptions endpoint, [EnumeratorCancellation] CancellationToken ct)
+        public async IAsyncEnumerable<string> EnumerateAreaNodesAsync([EnumeratorCancellation] CancellationToken ct)
         { foreach (var n in _area) yield return n; await Task.CompletedTask.ConfigureAwait(false); }
 
-        public async IAsyncEnumerable<IterationNodeEntry> EnumerateIterationNodesAsync(MigrationEndpointOptions endpoint, [EnumeratorCancellation] CancellationToken ct)
+        public async IAsyncEnumerable<IterationNodeEntry> EnumerateIterationNodesAsync([EnumeratorCancellation] CancellationToken ct)
         { foreach (var n in _iter) yield return n; await Task.CompletedTask.ConfigureAwait(false); }
     }
 
     private sealed class ThrowingReader : IClassificationTreeReader
     {
-        public async IAsyncEnumerable<string> EnumerateAreaNodesAsync(MigrationEndpointOptions endpoint, [EnumeratorCancellation] CancellationToken ct)
+        public async IAsyncEnumerable<string> EnumerateAreaNodesAsync([EnumeratorCancellation] CancellationToken ct)
         {
             await Task.CompletedTask.ConfigureAwait(false);
             throw new InvalidOperationException("API failure");
@@ -86,7 +86,7 @@ public class TreeCaptureContext
 #pragma warning restore CS0162
         }
 
-        public async IAsyncEnumerable<IterationNodeEntry> EnumerateIterationNodesAsync(MigrationEndpointOptions endpoint, [EnumeratorCancellation] CancellationToken ct)
+        public async IAsyncEnumerable<IterationNodeEntry> EnumerateIterationNodesAsync([EnumeratorCancellation] CancellationToken ct)
         { await Task.CompletedTask.ConfigureAwait(false); yield break; }
     }
 }

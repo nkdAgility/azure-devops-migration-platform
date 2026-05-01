@@ -44,7 +44,6 @@ public sealed class TfsClassificationTreeCapture : IClassificationTreeCapture
     /// <inheritdoc/>
     public async Task<int> CaptureAsync(
         IArtefactStore artefactStore,
-        MigrationEndpointOptions endpoint,
         CancellationToken ct)
     {
         var services = _activeServices.Require();
@@ -55,10 +54,10 @@ public sealed class TfsClassificationTreeCapture : IClassificationTreeCapture
         var areaNodes = new List<string>();
         var iterationNodes = new List<IterationNodeEntry>();
 
-        await foreach (var path in reader.EnumerateAreaNodesAsync(endpoint, ct).ConfigureAwait(false))
+        await foreach (var path in reader.EnumerateAreaNodesAsync(ct).ConfigureAwait(false))
             areaNodes.Add(path);
 
-        await foreach (var entry in reader.EnumerateIterationNodesAsync(endpoint, ct).ConfigureAwait(false))
+        await foreach (var entry in reader.EnumerateIterationNodesAsync(ct).ConfigureAwait(false))
             iterationNodes.Add(entry);
 
         var snapshot = new { areaNodes, iterationNodes };

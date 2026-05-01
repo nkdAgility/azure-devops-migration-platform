@@ -1,4 +1,8 @@
-﻿namespace DevOpsMigrationPlatform.Abstractions.Agent.Modules;
+#if NET7_0_OR_GREATER
+using DevOpsMigrationPlatform.Abstractions.Options;
+#endif
+
+namespace DevOpsMigrationPlatform.Abstractions.Agent.Modules;
 
 /// <summary>Controls which extensions are enabled in the TeamsModule.</summary>
 public sealed class TeamsModuleExtensionsOptions
@@ -23,10 +27,14 @@ public sealed class TeamsModuleExtensionsOptions
 }
 
 /// <summary>Options for the TeamsModule.</summary>
+#if NET7_0_OR_GREATER
+public sealed class TeamsModuleOptions : IConfigSection
+#else
 public sealed class TeamsModuleOptions
+#endif
 {
     /// <summary>Configuration section name.</summary>
-    public const string SectionName = "MigrationPlatform:Modules:Teams";
+    public static string SectionName => "MigrationPlatform:Modules:Teams";
 
     /// <summary>Whether the module is enabled.</summary>
     public bool Enabled { get; init; } = true;

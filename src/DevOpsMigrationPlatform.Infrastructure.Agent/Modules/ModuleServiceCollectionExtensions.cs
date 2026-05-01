@@ -18,6 +18,11 @@ public static class ModuleServiceCollectionExtensions
     /// </summary>
     public static IServiceCollection AddWorkItemsModule(this IServiceCollection services)
     {
+#if NET7_0_OR_GREATER
+        // Register schema entry for migration.schema.json generation
+        services.AddSchemaEntry<WorkItemsModuleOptions>("Work items export/import module configuration");
+#endif
+
         services.AddTransient<IModule, WorkItemsModule>();
         return services;
     }
@@ -48,6 +53,11 @@ public static class ModuleServiceCollectionExtensions
     /// </summary>
     public static IServiceCollection AddNodesModule(this IServiceCollection services, IConfiguration configuration)
     {
+#if NET7_0_OR_GREATER
+        // Register schema entry for migration.schema.json generation
+        services.AddSchemaEntry<NodesModuleOptions>("Classification nodes (area/iteration paths) module configuration");
+#endif
+
         services.AddTransient<IModule, NodesModule>();
         services.Configure<NodesModuleOptions>(
             configuration.GetSection(NodesModuleOptions.SectionName));

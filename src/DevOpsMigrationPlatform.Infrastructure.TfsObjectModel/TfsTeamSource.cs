@@ -6,7 +6,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions.Agent.Teams;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
-using DevOpsMigrationPlatform.Abstractions.Options;
 using Microsoft.Extensions.Logging;
 using Microsoft.TeamFoundation.Client;
 using Microsoft.TeamFoundation.Framework.Client;
@@ -34,7 +33,6 @@ public sealed class TfsTeamSource : ITeamSource
 
     /// <inheritdoc/>
     public async IAsyncEnumerable<TeamDefinition> EnumerateTeamsAsync(
-        MigrationEndpointOptions endpoint,
         string projectName,
         [EnumeratorCancellation] CancellationToken ct)
     {
@@ -67,7 +65,6 @@ public sealed class TfsTeamSource : ITeamSource
 
     /// <inheritdoc/>
     public async Task<TeamSettings?> GetTeamSettingsAsync(
-        MigrationEndpointOptions endpoint,
         string projectName,
         string teamId,
         CancellationToken ct)
@@ -88,7 +85,6 @@ public sealed class TfsTeamSource : ITeamSource
 
     /// <inheritdoc/>
     public async IAsyncEnumerable<TeamIteration> GetTeamIterationsAsync(
-        MigrationEndpointOptions endpoint,
         string projectName,
         string teamId,
         [EnumeratorCancellation] CancellationToken ct)
@@ -106,7 +102,6 @@ public sealed class TfsTeamSource : ITeamSource
 
     /// <inheritdoc/>
     public async IAsyncEnumerable<TeamMember> GetTeamMembersAsync(
-        MigrationEndpointOptions endpoint,
         string projectName,
         string teamId,
         [EnumeratorCancellation] CancellationToken ct)
@@ -169,7 +164,6 @@ public sealed class TfsTeamSource : ITeamSource
 
     /// <inheritdoc/>
     public async Task<TeamCapacityEntry[]> GetTeamCapacityAsync(
-        MigrationEndpointOptions endpoint,
         string projectName,
         string teamId,
         string iterationId,
@@ -188,7 +182,6 @@ public sealed class TfsTeamSource : ITeamSource
 
     /// <inheritdoc/>
     public async Task<TeamAreaPaths?> GetTeamAreaPathsAsync(
-        MigrationEndpointOptions endpoint,
         string projectName,
         string teamId,
         CancellationToken ct)

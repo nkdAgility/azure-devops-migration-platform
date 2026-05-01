@@ -1,0 +1,131 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Azure DevOps Migration Platform Configuration Schema",
+  "description": "JSON Schema for migration configuration files (migration.json, migration-config.json)",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "MigrationPlatform": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "ConfigVersion": {
+          "type": "string",
+          "description": "Configuration version"
+        },
+        "Mode": {
+          "type": "string",
+          "enum": ["Export", "Import", "Prepare", "Migrate"],
+          "description": "Migration mode"
+        },
+        "Source": {
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": {
+                "Type": { "type": "string", "enum": ["AzureDevOpsServices"] },
+                "Url": { "type": "string" },
+                "Project": { "type": "string" },
+                "Authentication": { "type": "object" }
+              },
+              "required": ["Type", "Url", "Project"]
+            },
+            {
+              "type": "object",
+              "properties": {
+                "Type": { "type": "string", "enum": ["TeamFoundationServer"] },
+                "Url": { "type": "string" },
+                "Project": { "type": "string" },
+                "Authentication": { "type": "object" }
+              },
+              "required": ["Type", "Url", "Project"]
+            },
+            {
+              "type": "object",
+              "properties": {
+                "Type": { "type": "string", "enum": ["Simulated"] },
+                "Generator": { "type": "object" }
+              },
+              "required": ["Type"]
+            }
+          ]
+        },
+        "Target": {
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": {
+                "Type": { "type": "string", "enum": ["AzureDevOpsServices"] },
+                "Url": { "type": "string" },
+                "Project": { "type": "string" },
+                "Authentication": { "type": "object" }
+              },
+              "required": ["Type", "Url", "Project"]
+            },
+            {
+              "type": "object",
+              "properties": {
+                "Type": { "type": "string", "enum": ["Simulated"] },
+                "Generator": { "type": "object" }
+              },
+              "required": ["Type"]
+            }
+          ]
+        },
+        "Package": {
+          "type": "object",
+          "properties": {
+            "WorkingDirectory": { "type": "string" },
+            "CreatePackage": { "type": "boolean" }
+          }
+        },
+        "Policies": {
+          "type": "object",
+          "properties": {
+            "Retries": { "type": "object" },
+            "Throttle": { "type": "object" },
+            "Checkpoints": { "type": "object" }
+          }
+        },
+        "Modules": {
+          "type": "object",
+          "properties": {
+            "WorkItems": {
+              "type": "object",
+              "description": "Work items export/import module configuration"
+            },
+            "Teams": {
+              "type": "object",
+              "description": "Teams export/import module configuration"
+            },
+            "Nodes": {
+              "type": "object",
+              "description": "Classification nodes (area/iteration paths) module configuration"
+            },
+            "Identities": {
+              "type": "object",
+              "description": "Identities export/import module configuration"
+            }
+          }
+        },
+        "Tools": {
+          "type": "object",
+          "properties": {
+            "FieldTransform": {
+              "type": "object",
+              "description": "Field transformation configuration for work item import"
+            },
+            "NodeTranslation": {
+              "type": "object",
+              "description": "Classification node path translation configuration"
+            },
+            "IdentityLookup": {
+              "type": "object",
+              "description": "Identity mapping and resolution configuration"
+            }
+          }
+        }
+      }
+    }
+  }
+}

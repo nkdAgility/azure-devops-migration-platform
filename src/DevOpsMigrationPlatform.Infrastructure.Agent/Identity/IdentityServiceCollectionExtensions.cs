@@ -23,6 +23,11 @@ public static class IdentityServiceCollectionExtensions
         this IServiceCollection services,
         IConfiguration? configuration = null)
     {
+#if NET7_0_OR_GREATER
+        // Register schema entry for migration.schema.json generation
+        services.AddSchemaEntry<IdentitiesModuleOptions>("Identities export/import module configuration");
+#endif
+
         services.AddTransient<IModule, IdentitiesModule>();
 
         if (configuration is not null)

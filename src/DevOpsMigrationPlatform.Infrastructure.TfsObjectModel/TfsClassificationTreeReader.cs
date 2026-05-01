@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
+using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Agent.Context;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Abstractions.Options;
 using Microsoft.Extensions.Logging;
@@ -20,22 +22,24 @@ public sealed class TfsClassificationTreeReader : IClassificationTreeReader
 {
     private readonly TfsTeamProjectCollection _collection;
     private readonly ILogger<TfsClassificationTreeReader> _logger;
+    private readonly ISourceEndpointInfo _endpointInfo;
 
     public TfsClassificationTreeReader(
         TfsTeamProjectCollection collection,
-        ILogger<TfsClassificationTreeReader> logger)
+        ILogger<TfsClassificationTreeReader> logger,
+        ISourceEndpointInfo endpointInfo)
     {
         _collection = collection ?? throw new ArgumentNullException(nameof(collection));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        _endpointInfo = endpointInfo ?? throw new ArgumentNullException(nameof(endpointInfo));
     }
 
     /// <inheritdoc/>
     public async IAsyncEnumerable<string> EnumerateAreaNodesAsync(
-        MigrationEndpointOptions endpoint,
         [EnumeratorCancellation] CancellationToken ct)
     {
         await Task.CompletedTask.ConfigureAwait(false);
-        var project = endpoint.GetProject();
+        var project = _endpointInfo.Project;
 
         foreach (var path in EnumerateNodes(project, "Area"))
             yield return path;
@@ -43,11 +47,10 @@ public sealed class TfsClassificationTreeReader : IClassificationTreeReader
 
     /// <inheritdoc/>
     public async IAsyncEnumerable<IterationNodeEntry> EnumerateIterationNodesAsync(
-        MigrationEndpointOptions endpoint,
         [EnumeratorCancellation] CancellationToken ct)
     {
         await Task.CompletedTask.ConfigureAwait(false);
-        var project = endpoint.GetProject();
+        var project = _endpointInfo.Project;
 
         foreach (var node in EnumerateIterationNodeInfos(project))
             yield return node;

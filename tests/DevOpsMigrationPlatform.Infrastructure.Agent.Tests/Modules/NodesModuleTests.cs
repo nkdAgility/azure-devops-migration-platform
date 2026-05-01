@@ -1,6 +1,7 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
+using DevOpsMigrationPlatform.Abstractions.Agent.Context;
 using DevOpsMigrationPlatform.Abstractions.Agent.Export;
 using DevOpsMigrationPlatform.Abstractions.Agent.Import;
 using DevOpsMigrationPlatform.Abstractions.Agent.Lease;
@@ -30,12 +31,15 @@ public class NodesModuleTests
         ActiveJobConfigState? activeJobConfig = null)
     {
         options ??= new NodesModuleOptions { Enabled = true };
+        activeJobConfig ??= CreateActiveJobConfig();
         return new NodesModule(
             NullLogger<NodesModule>.Instance,
             Options.Create(options),
-            capture,
-            nodeEnsurer,
-            activeJobConfig: activeJobConfig);
+            agentJobContext: CreateAgentJobContext(activeJobConfig),
+            sourceEndpointInfo: CreateSourceEndpointInfo(activeJobConfig),
+            capture: capture,
+            targetEndpointInfo: Mock.Of<ITargetEndpointInfo>(),
+            nodeEnsurer: nodeEnsurer);
     }
 
     private static ActiveJobConfigState CreateActiveJobConfig(
@@ -49,6 +53,24 @@ public class NodesModuleTests
             Target = new SimulatedEndpointOptions { Project = targetProject }
         };
         return state;
+    }
+
+    private static IAgentJobContext CreateAgentJobContext(ActiveJobConfigState activeJobConfig)
+    {
+        var mock = new Mock<IAgentJobContext>();
+        mock.SetupGet(x => x.PackagePath).Returns("/tmp/test-package");
+        mock.SetupGet(x => x.Mode).Returns("Export");
+        mock.SetupGet(x => x.ConfigVersion).Returns("2.0");
+        return mock.Object;
+    }
+
+    private static ISourceEndpointInfo CreateSourceEndpointInfo(ActiveJobConfigState activeJobConfig)
+    {
+        var mock = new Mock<ISourceEndpointInfo>();
+        mock.SetupGet(x => x.Url).Returns("https://dev.azure.com/test");
+        mock.SetupGet(x => x.Project).Returns(activeJobConfig.Current?.Source?.GetProject() ?? "TestProject");
+        mock.SetupGet(x => x.ConnectorType).Returns("Simulated");
+        return mock.Object;
     }
 
     private static ExportContext CreateExportContext(IArtefactStore store)
@@ -90,11 +112,11 @@ public class NodesModuleTests
         captureMock
             .Setup(c => c.CaptureAsync(
                 It.IsAny<IArtefactStore>(),
-                It.IsAny<MigrationEndpointOptions>(),
                 It.IsAny<CancellationToken>(),
                 It.IsAny<IMigrationMetrics?>(),
                 It.IsAny<string?>(),
-                It.IsAny<IProgressSink?>()))
+                It.IsAny<IProgressSink?>(),
+                It.IsAny<string>()))
             .Returns(Task.FromResult(0));
 
         var module = CreateModule(capture: captureMock.Object, activeJobConfig: CreateActiveJobConfig());
@@ -107,11 +129,11 @@ public class NodesModuleTests
         // Assert
         captureMock.Verify(c => c.CaptureAsync(
             It.IsAny<IArtefactStore>(),
-            It.IsAny<MigrationEndpointOptions>(),
             It.IsAny<CancellationToken>(),
             It.IsAny<IMigrationMetrics?>(),
             It.IsAny<string?>(),
-            It.IsAny<IProgressSink?>()), Times.Once);
+            It.IsAny<IProgressSink?>(),
+            It.IsAny<string>()), Times.Once);
     }
 
     [TestMethod]
@@ -137,7 +159,6 @@ public class NodesModuleTests
         ensurerMock
             .Setup(e => e.ReplicateSourceTreeAsync(
                 It.IsAny<ProjectMapping>(),
-                It.IsAny<MigrationEndpointOptions>(),
                 It.IsAny<IArtefactStore>(),
                 It.IsAny<IStateStore>(),
                 It.IsAny<CancellationToken>(),
@@ -156,7 +177,6 @@ public class NodesModuleTests
         // Assert
         ensurerMock.Verify(e => e.ReplicateSourceTreeAsync(
             It.IsAny<ProjectMapping>(),
-            It.IsAny<MigrationEndpointOptions>(),
             It.IsAny<IArtefactStore>(),
             It.IsAny<IStateStore>(),
             It.IsAny<CancellationToken>(),

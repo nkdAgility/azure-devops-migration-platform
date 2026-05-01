@@ -1,4 +1,5 @@
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Agent.Context;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Connectors;
 using DevOpsMigrationPlatform.Infrastructure.Serialization;
@@ -8,6 +9,7 @@ using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Infrastructure.Simulated.Discovery;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Options;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Simulated;
 
@@ -95,7 +97,61 @@ public static class SimulatedServiceCollectionExtensions
         services.AddSimulatedWorkItemExport();
         services.AddSimulatedWorkItemImport();
         services.AddSimulatedDependencyAnalysis();
+        services.AddSimulatedEndpointInfo();
         return services;
+    }
+
+    /// <summary>
+    /// Registers <see cref="ISourceEndpointInfo"/> and <see cref="ITargetEndpointInfo"/> for the Simulated connector.
+    /// Reads values from <see cref="IOptions{SimulatedEndpointOptions}"/>.
+    /// </summary>
+    private static IServiceCollection AddSimulatedEndpointInfo(this IServiceCollection services)
+    {
+        // Source endpoint info
+        services.AddSingleton<ISourceEndpointInfo>(sp =>
+        {
+            var opts = sp.GetRequiredService<IOptions<SimulatedEndpointOptions>>().Value;
+            return new SimulatedSourceEndpointInfo
+            {
+                Url = opts.GetResolvedUrl(),
+                Project = opts.GetProject(),
+                ConnectorType = "Simulated"
+            };
+        });
+
+        // Target endpoint info
+        services.AddSingleton<ITargetEndpointInfo>(sp =>
+        {
+            var opts = sp.GetRequiredService<IOptions<SimulatedEndpointOptions>>().Value;
+            return new SimulatedTargetEndpointInfo
+            {
+                Url = opts.GetResolvedUrl(),
+                Project = opts.GetProject(),
+                ConnectorType = "Simulated"
+            };
+        });
+
+        return services;
+    }
+
+    /// <summary>
+    /// Inline implementation of <see cref="ISourceEndpointInfo"/> for Simulated connector.
+    /// </summary>
+    private sealed record SimulatedSourceEndpointInfo : ISourceEndpointInfo
+    {
+        public required string Url { get; init; }
+        public required string Project { get; init; }
+        public required string ConnectorType { get; init; }
+    }
+
+    /// <summary>
+    /// Inline implementation of <see cref="ITargetEndpointInfo"/> for Simulated connector.
+    /// </summary>
+    private sealed record SimulatedTargetEndpointInfo : ITargetEndpointInfo
+    {
+        public required string Url { get; init; }
+        public required string Project { get; init; }
+        public required string ConnectorType { get; init; }
     }
 }
 

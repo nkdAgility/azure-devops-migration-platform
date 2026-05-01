@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 
 namespace DevOpsMigrationPlatform.Abstractions.Options;
 
@@ -6,7 +6,11 @@ namespace DevOpsMigrationPlatform.Abstractions.Options;
 /// Root options for the NodeTranslation tool.
 /// Bound from <c>MigrationPlatform:Tools:NodeTranslation</c>.
 /// </summary>
+#if NET7_0_OR_GREATER
+public sealed class NodeTranslationOptions : IConfigSection
+#else
 public sealed class NodeTranslationOptions
+#endif
 {
     /// <summary>Configuration section path.</summary>
     public static string SectionName => "MigrationPlatform:Tools:NodeTranslation";

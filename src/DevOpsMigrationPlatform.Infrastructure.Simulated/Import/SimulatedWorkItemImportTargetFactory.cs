@@ -2,32 +2,28 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Agent.Context;
 using DevOpsMigrationPlatform.Abstractions.Options;
+using Microsoft.Extensions.Options;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Simulated.Import;
 
 /// <summary>
 /// Creates a <see cref="SimulatedWorkItemImportTarget"/> for endpoints with
-/// <c>Type == "Simulated"</c>.  No credentials are required.
-/// Accepts <see cref="SimulatedEndpointOptions"/> (polymorphic config).
+/// <c>Type == "Simulated"</c>. No credentials are required.
 /// </summary>
 public sealed class SimulatedWorkItemImportTargetFactory : IWorkItemImportTargetFactory
 {
-    /// <inheritdoc/>
-    public Task<IWorkItemImportTarget> CreateAsync(
-        MigrationEndpointOptions endpoint,
-        CancellationToken ct)
+    private readonly IOptions<SimulatedEndpointOptions> _options;
+
+    public SimulatedWorkItemImportTargetFactory(IOptions<SimulatedEndpointOptions> options)
     {
-        if (endpoint is null)
-            throw new ArgumentNullException(nameof(endpoint));
+        _options = options ?? throw new ArgumentNullException(nameof(options));
+    }
 
-        if (endpoint is not SimulatedEndpointOptions)
-        {
-            throw new ArgumentException(
-                $"Expected {nameof(SimulatedEndpointOptions)} but received {endpoint.GetType().Name}.",
-                nameof(endpoint));
-        }
-
+    /// <inheritdoc/>
+    public Task<IWorkItemImportTarget> CreateAsync(CancellationToken ct)
+    {
         return Task.FromResult<IWorkItemImportTarget>(new SimulatedWorkItemImportTarget());
     }
 }

@@ -3,7 +3,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
 using DevOpsMigrationPlatform.Abstractions.Agent.Telemetry;
-using DevOpsMigrationPlatform.Abstractions.Options;
 
 namespace DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 
@@ -18,7 +17,6 @@ public interface INodeEnsurer
     /// </summary>
     Task ReplicateSourceTreeAsync(
         ProjectMapping context,
-        MigrationEndpointOptions endpoint,
         IArtefactStore artefactStore,
         IStateStore stateStore,
         CancellationToken ct,
@@ -31,7 +29,6 @@ public interface INodeEnsurer
     /// </summary>
     Task EnsureReferencedPathsAsync(
         ProjectMapping context,
-        MigrationEndpointOptions endpoint,
         IArtefactStore artefactStore,
         CancellationToken ct,
         IMigrationMetrics? metrics = null,

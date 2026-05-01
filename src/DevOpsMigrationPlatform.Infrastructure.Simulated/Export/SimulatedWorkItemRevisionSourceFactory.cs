@@ -3,32 +3,30 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Agent.Context;
 using DevOpsMigrationPlatform.Abstractions.Options;
+using Microsoft.Extensions.Options;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Simulated.Export;
 
 /// <summary>
 /// Creates a <see cref="SimulatedWorkItemRevisionSource"/> for endpoints with
 /// <c>Type == "Simulated"</c>. No credentials are required.
-/// Accepts <see cref="SimulatedEndpointOptions"/> carrying the generator config.
+/// Accepts <see cref="SimulatedEndpointOptions"/> from DI.
 /// </summary>
 public sealed class SimulatedWorkItemRevisionSourceFactory : IWorkItemRevisionSourceFactory
 {
-    /// <inheritdoc/>
-    public Task<IWorkItemRevisionSource> CreateAsync(
-        MigrationEndpointOptions endpoint,
-        CancellationToken cancellationToken)
+    private readonly IOptions<SimulatedEndpointOptions> _options;
+
+    public SimulatedWorkItemRevisionSourceFactory(IOptions<SimulatedEndpointOptions> options)
     {
-        if (endpoint is null)
-            throw new ArgumentNullException(nameof(endpoint));
+        _options = options ?? throw new ArgumentNullException(nameof(options));
+    }
 
-        if (endpoint is not SimulatedEndpointOptions simOpts)
-        {
-            throw new ArgumentException(
-                $"Expected {nameof(SimulatedEndpointOptions)} but received {endpoint.GetType().Name}.",
-                nameof(endpoint));
-        }
-
+    /// <inheritdoc/>
+    public Task<IWorkItemRevisionSource> CreateAsync(CancellationToken cancellationToken)
+    {
+        var simOpts = _options.Value;
         return Task.FromResult<IWorkItemRevisionSource>(
             new SimulatedWorkItemRevisionSource(simOpts.Generator));
     }

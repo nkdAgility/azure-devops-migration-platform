@@ -21,6 +21,11 @@ public static class TeamsServiceCollectionExtensions
         this IServiceCollection services,
         IConfiguration? configuration = null)
     {
+#if NET7_0_OR_GREATER
+        // Register schema entry for migration.schema.json generation
+        services.AddSchemaEntry<TeamsModuleOptions>("Teams export/import module configuration");
+#endif
+
         services.AddTransient<IModule, TeamsModule>();
 
         if (configuration is not null)

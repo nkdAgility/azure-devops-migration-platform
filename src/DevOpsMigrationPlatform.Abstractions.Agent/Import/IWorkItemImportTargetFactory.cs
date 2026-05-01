@@ -11,11 +11,8 @@ namespace DevOpsMigrationPlatform.Abstractions.Agent.Import;
 public interface IWorkItemImportTargetFactory
 {
     /// <summary>
-    /// Creates an import target for the given endpoint.
+    /// Creates an import target. Endpoint info is resolved from DI.
     /// </summary>
-    /// <param name="endpoint">Endpoint options; concrete type determines the connector used.</param>
     /// <param name="ct">Cancellation token.</param>
-    Task<IWorkItemImportTarget> CreateAsync(
-        MigrationEndpointOptions endpoint,
-        CancellationToken ct);
+    Task<IWorkItemImportTarget> CreateAsync(CancellationToken ct);
 }

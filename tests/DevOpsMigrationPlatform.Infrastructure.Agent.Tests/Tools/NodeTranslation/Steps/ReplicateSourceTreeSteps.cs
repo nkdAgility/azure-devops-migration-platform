@@ -1,4 +1,4 @@
-﻿using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
+using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Abstractions.Options;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Moq;
@@ -65,7 +65,6 @@ public class ReplicateSourceTreeSteps
         _ctx.NodeCreatorMock.Verify(c => c.EnsureExistsAsync(
             ClassificationNodeType.Area,
             It.Is<string>(p => p.Equals(targetPath, StringComparison.OrdinalIgnoreCase)),
-            It.IsAny<MigrationEndpointOptions>(),
             It.IsAny<CancellationToken>()), Times.Once);
     }
 
@@ -75,7 +74,6 @@ public class ReplicateSourceTreeSteps
         _ctx.NodeCreatorMock.Verify(c => c.EnsureExistsAsync(
             ClassificationNodeType.Iteration,
             It.Is<string>(p => p.Equals(targetPath, StringComparison.OrdinalIgnoreCase)),
-            It.IsAny<MigrationEndpointOptions>(),
             It.IsAny<CancellationToken>()), Times.Once);
     }
 
@@ -85,7 +83,6 @@ public class ReplicateSourceTreeSteps
         _ctx.NodeCreatorMock.Verify(c => c.EnsureExistsAsync(
             It.IsAny<ClassificationNodeType>(),
             It.IsAny<string>(),
-            It.IsAny<MigrationEndpointOptions>(),
             It.IsAny<CancellationToken>()), Times.Never);
     }
 
@@ -95,7 +92,6 @@ public class ReplicateSourceTreeSteps
         _ctx.NodeCreatorMock.Verify(c => c.EnsureExistsAsync(
             It.IsAny<ClassificationNodeType>(),
             It.Is<string>(p => p.Equals(targetPath, StringComparison.OrdinalIgnoreCase)),
-            It.IsAny<MigrationEndpointOptions>(),
             It.IsAny<CancellationToken>()), Times.Never);
     }
 
@@ -106,7 +102,6 @@ public class ReplicateSourceTreeSteps
         _ctx.NodeCreatorMock.Verify(c => c.EnsureExistsAsync(
             It.IsAny<ClassificationNodeType>(),
             It.IsAny<string>(),
-            It.IsAny<MigrationEndpointOptions>(),
             It.IsAny<CancellationToken>()), Times.Never);
         Assert.IsNull(_ctx.CaughtException, "Expected no exception to be thrown.");
     }

@@ -87,7 +87,9 @@ public static class FactoryRegistrationExtensions
     {
         services.TryAddSingleton<T>();
         services.AddSingleton(sp => new KeyedClassificationTreeReader(typeKey, sp.GetRequiredService<T>()));
+#pragma warning disable CS0618 // Type is obsolete - TODO: Remove composite pattern in favor of direct registration
         services.TryAddSingleton<IClassificationTreeReader, CompositeClassificationTreeReader>();
+#pragma warning restore CS0618
         return services;
     }
 
@@ -106,7 +108,9 @@ public static class FactoryRegistrationExtensions
     {
         services.TryAddSingleton<T>();
         services.AddSingleton(sp => new KeyedNodeCreator(typeKey, sp.GetRequiredService<T>()));
+#pragma warning disable CS0618 // Type is obsolete - TODO: Remove composite pattern in favor of direct registration
         services.TryAddSingleton<INodeCreator, CompositeNodeCreator>();
+#pragma warning restore CS0618
         services.TryAddSingleton<NodeEnsurer>();
         return services;
     }
@@ -123,7 +127,9 @@ public static class FactoryRegistrationExtensions
     {
         services.TryAddSingleton<T>();
         services.AddSingleton(new KeyedIdentitySource(typeKey, typeof(T)));
+#pragma warning disable CS0618 // Type is obsolete - TODO: Remove composite pattern in favor of direct registration
         services.TryAddSingleton<IIdentitySource, CompositeIdentitySource>();
+#pragma warning restore CS0618
         return services;
     }
 

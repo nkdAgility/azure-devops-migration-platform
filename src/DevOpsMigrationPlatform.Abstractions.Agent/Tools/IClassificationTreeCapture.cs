@@ -4,7 +4,6 @@ using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
 #if !NET481
 using DevOpsMigrationPlatform.Abstractions.Agent.Telemetry;
 #endif
-using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Abstractions.Streaming;
 
 namespace DevOpsMigrationPlatform.Abstractions.Agent.Tools;
@@ -20,7 +19,6 @@ public interface IClassificationTreeCapture
     /// <returns>Total number of nodes captured (area + iteration).</returns>
     Task<int> CaptureAsync(
         IArtefactStore artefactStore,
-        MigrationEndpointOptions endpoint,
         CancellationToken ct
 #if !NET481
         , IMigrationMetrics? metrics = null

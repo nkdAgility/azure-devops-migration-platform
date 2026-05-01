@@ -66,7 +66,7 @@ public class SimulatedTeamSourceTests
         var teams = await CollectTeamsAsync(source, "ProjectA");
 
         // Act
-        var settings = await source.GetTeamSettingsAsync(new SimulatedEndpointOptions(), "ProjectA", teams[0].Id, CancellationToken.None);
+        var settings = await source.GetTeamSettingsAsync("ProjectA", teams[0].Id, CancellationToken.None);
 
         // Assert
         Assert.IsNotNull(settings, "Settings should not be null");
@@ -82,7 +82,7 @@ public class SimulatedTeamSourceTests
         var iterations = new List<TeamIteration>();
 
         // Act
-        await foreach (var it in source.GetTeamIterationsAsync(new SimulatedEndpointOptions(), "ProjectA", teams[0].Id, CancellationToken.None))
+        await foreach (var it in source.GetTeamIterationsAsync("ProjectA", teams[0].Id, CancellationToken.None))
             iterations.Add(it);
 
         // Assert
@@ -103,7 +103,7 @@ public class SimulatedTeamSourceTests
         var members = new List<TeamMember>();
 
         // Act
-        await foreach (var m in source.GetTeamMembersAsync(new SimulatedEndpointOptions(), "ProjectA", teams[0].Id, CancellationToken.None))
+        await foreach (var m in source.GetTeamMembersAsync("ProjectA", teams[0].Id, CancellationToken.None))
             members.Add(m);
 
         // Assert
@@ -123,7 +123,7 @@ public class SimulatedTeamSourceTests
         var teams = await CollectTeamsAsync(source, "ProjectA");
 
         // Act
-        var areaPaths = await source.GetTeamAreaPathsAsync(new SimulatedEndpointOptions(), "ProjectA", teams[0].Id, CancellationToken.None);
+        var areaPaths = await source.GetTeamAreaPathsAsync("ProjectA", teams[0].Id, CancellationToken.None);
 
         // Assert
         Assert.IsNotNull(areaPaths, "AreaPaths should not be null");
@@ -133,7 +133,7 @@ public class SimulatedTeamSourceTests
     private static async Task<List<TeamDefinition>> CollectTeamsAsync(SimulatedTeamSource source, string project)
     {
         var result = new List<TeamDefinition>();
-        await foreach (var t in source.EnumerateTeamsAsync(new SimulatedEndpointOptions(), project, CancellationToken.None))
+        await foreach (var t in source.EnumerateTeamsAsync(project, CancellationToken.None))
             result.Add(t);
         return result;
     }

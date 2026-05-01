@@ -13,6 +13,7 @@
   <!-- Options + config-binding -->
   <ItemGroup>
     <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" />
+    <PackageReference Include="NJsonSchema" />
   </ItemGroup>
 
   <!-- OpenTelemetry -->

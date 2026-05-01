@@ -2,6 +2,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
+using DevOpsMigrationPlatform.Abstractions.Agent.Context;
 using DevOpsMigrationPlatform.Abstractions.Agent.Export;
 using DevOpsMigrationPlatform.Abstractions.Agent.Import;
 using DevOpsMigrationPlatform.Abstractions.Agent.Lease;
@@ -38,11 +39,13 @@ public class IdentitiesModuleTests
         ActiveJobConfigState? activeJobConfig = null)
     {
         options ??= new IdentitiesModuleOptions { Enabled = true };
+        activeJobConfig ??= CreateActiveJobConfig();
         return new IdentitiesModule(
             NullLogger<IdentitiesModule>.Instance,
             Options.Create(options),
-            identitySource,
-            activeJobConfig: activeJobConfig);
+            agentJobContext: CreateAgentJobContext(activeJobConfig),
+            sourceEndpointInfo: CreateSourceEndpointInfo(activeJobConfig),
+            identitySource: identitySource);
     }
 
     private static ActiveJobConfigState CreateActiveJobConfig(string sourceProject = "TestProject")
@@ -53,6 +56,24 @@ public class IdentitiesModuleTests
             Source = new SimulatedEndpointOptions { Project = sourceProject }
         };
         return state;
+    }
+
+    private static IAgentJobContext CreateAgentJobContext(ActiveJobConfigState activeJobConfig)
+    {
+        var mock = new Mock<IAgentJobContext>();
+        mock.SetupGet(x => x.PackagePath).Returns("/tmp/test-package");
+        mock.SetupGet(x => x.Mode).Returns("Export");
+        mock.SetupGet(x => x.ConfigVersion).Returns("2.0");
+        return mock.Object;
+    }
+
+    private static ISourceEndpointInfo CreateSourceEndpointInfo(ActiveJobConfigState activeJobConfig)
+    {
+        var mock = new Mock<ISourceEndpointInfo>();
+        mock.SetupGet(x => x.Url).Returns("https://dev.azure.com/test");
+        mock.SetupGet(x => x.Project).Returns(activeJobConfig.Current?.Source?.GetProject() ?? "TestProject");
+        mock.SetupGet(x => x.ConnectorType).Returns("Simulated");
+        return mock.Object;
     }
 
     private static ExportContext CreateExportContext(Mock<IArtefactStore> store)
@@ -346,7 +367,6 @@ public class IdentitiesModuleTests
             => _identities = identities;
 
         public async IAsyncEnumerable<IdentityDescriptor> EnumerateIdentitiesAsync(
-            MigrationEndpointOptions endpoint,
             string projectName,
             [EnumeratorCancellation] CancellationToken cancellationToken)
         {

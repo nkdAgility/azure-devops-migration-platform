@@ -1,7 +1,9 @@
-﻿using System.Collections.Generic;
+using System;
+using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
+using DevOpsMigrationPlatform.Abstractions.Agent.Context;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Abstractions.Options;
 using Microsoft.Extensions.Logging;
@@ -16,19 +18,22 @@ namespace DevOpsMigrationPlatform.Infrastructure.Simulated.Export;
 public sealed class SimulatedClassificationTreeReader : IClassificationTreeReader
 {
     private readonly ILogger<SimulatedClassificationTreeReader> _logger;
+    private readonly ISourceEndpointInfo _endpointInfo;
 
-    public SimulatedClassificationTreeReader(ILogger<SimulatedClassificationTreeReader> logger)
+    public SimulatedClassificationTreeReader(
+        ILogger<SimulatedClassificationTreeReader> logger,
+        ISourceEndpointInfo endpointInfo)
     {
-        _logger = logger;
+        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        _endpointInfo = endpointInfo ?? throw new ArgumentNullException(nameof(endpointInfo));
     }
 
     /// <inheritdoc/>
     public async IAsyncEnumerable<string> EnumerateAreaNodesAsync(
-        MigrationEndpointOptions endpoint,
         [EnumeratorCancellation] CancellationToken ct)
     {
         await Task.CompletedTask.ConfigureAwait(false);
-        var project = endpoint.GetProject();
+        var project = _endpointInfo.Project;
         if (string.IsNullOrEmpty(project)) yield break;
 
         _logger.LogDebug("[NodeTranslation][Simulated] Yielding area nodes for {Project}.", project);
@@ -42,11 +47,10 @@ public sealed class SimulatedClassificationTreeReader : IClassificationTreeReade
 
     /// <inheritdoc/>
     public async IAsyncEnumerable<IterationNodeEntry> EnumerateIterationNodesAsync(
-        MigrationEndpointOptions endpoint,
         [EnumeratorCancellation] CancellationToken ct)
     {
         await Task.CompletedTask.ConfigureAwait(false);
-        var project = endpoint.GetProject();
+        var project = _endpointInfo.Project;
         if (string.IsNullOrEmpty(project)) yield break;
 
         _logger.LogDebug("[NodeTranslation][Simulated] Yielding iteration nodes for {Project}.", project);

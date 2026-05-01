@@ -25,9 +25,7 @@ public sealed class TfsActiveJobWorkItemRevisionSourceFactory : IWorkItemRevisio
     }
 
     /// <inheritdoc/>
-    public Task<IWorkItemRevisionSource> CreateAsync(
-        MigrationEndpointOptions endpoint,
-        CancellationToken ct)
+    public Task<IWorkItemRevisionSource> CreateAsync(CancellationToken ct)
     {
         var services = _activeServices.Require();
         return Task.FromResult(services.RevisionSource);

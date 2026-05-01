@@ -26,6 +26,11 @@ public static class FieldTransformToolServiceCollectionExtensions
     /// </summary>
     public static IServiceCollection AddFieldTransformToolServices(this IServiceCollection services)
     {
+#if NET7_0_OR_GREATER
+        // Register schema entry for migration.schema.json generation
+        services.AddSchemaEntry<FieldTransformOptions>("Field transformation configuration for work item import");
+#endif
+
         // Bind from per-job PackageConfig (set on ActiveJobConfigState before the job scope is created).
         // IOptionsSnapshot<T> computes .Value once per scope, so each job scope gets options from
         // the migration-config.json that was loaded for that job.
