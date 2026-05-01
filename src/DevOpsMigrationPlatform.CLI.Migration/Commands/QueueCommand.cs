@@ -1163,7 +1163,7 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
                     wiBar = new string('━', wiFilled) + new string('─', BarWidth - wiFilled);
                     wiBarColor = task.Status == JobTaskStatus.Completed ? "green"
                                 : task.Status == JobTaskStatus.Running ? "blue" : "grey";
-                    var exportedStr = s.Skipped > 0 ? $"  [green]{s.Completed:N0} exported[/]" : string.Empty;
+                    var exportedStr = s.Completed > 0 ? $"  [green]{s.Completed:N0} exported[/]" : string.Empty;
                     var skippedStr = s.Skipped > 0 ? $"  [grey]{s.Skipped:N0} skipped[/]" : string.Empty;
                     int estimatedTotalRevisions = s.Completed > 0
                         ? (int)((double)s.Revisions / s.Completed * s.TotalWorkItems) : 0;
@@ -1177,7 +1177,13 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
                     var offset = (int)(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() / 80) % BarWidth;
                     wiBar = new string('─', offset) + '━' + new string('─', BarWidth - offset - 1);
                     wiBarColor = "blue";
-                    countsSuffix = processed > 0 ? $"  [bold]{processed:N0}[/][grey] processed[/]" : string.Empty;
+                    // Don't say "N processed" — that's just exported+skipped restated and
+                    // makes the line too long. Show the breakdown directly like the deterministic branch.
+                    var expStr = s.Completed > 0 ? $"  [green]{s.Completed:N0} exported[/]" : string.Empty;
+                    var skipStr = s.Skipped > 0 ? $"  [grey]{s.Skipped:N0} skipped[/]" : string.Empty;
+                    countsSuffix = expStr.Length > 0 || skipStr.Length > 0
+                        ? expStr + skipStr
+                        : string.Empty;
                 }
                 else
                 {
