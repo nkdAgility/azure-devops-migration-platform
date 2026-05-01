@@ -4,6 +4,7 @@ using DevOpsMigrationPlatform.Infrastructure;
 using DevOpsMigrationPlatform.Infrastructure.AzureDevOps;
 using DevOpsMigrationPlatform.Infrastructure.Agent;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Connectors;
+using DevOpsMigrationPlatform.Infrastructure.Agent.Discovery;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Modules;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Tools.FieldTransform;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Tools.NodeTranslation;
@@ -104,6 +105,8 @@ public static class MigrationAgentServiceExtensions
         builder.Services.AddMigrationPlatformPolymorphicSerializers();
 
         // Register IDiscoveryModule implementations for DiscoveryAgentWorker.
+        // ICatalogService must be registered before AddAzureDevOpsDependencyAnalysis.
+        builder.Services.AddSingleton<ICatalogService, CatalogService>();
         builder.Services.AddAzureDevOpsInventory(builder.Configuration);
         builder.Services.AddAzureDevOpsDependencyAnalysis(builder.Configuration);
         builder.Services.AddInventoryDiscoveryModule();
