@@ -661,26 +661,19 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
         var updates = Channel.CreateUnbounded<JobProgressUpdate>();
         var state = JobProgressState.Initial(totalWorkItems);
 
-        // Bootstrap poller: fires once when the agent pushes its execution plan.
-        // Also resolves the LastEventSequence so the SSE subscriber can use it as Last-Event-ID.
-        var lastEventSequenceTcs = new TaskCompletionSource<long>(TaskCreationOptions.RunContinuationsAsynchronously);
-        var bootstrapTask = Task.Run(() => PollForBootstrap(client, parsedJobId, updates.Writer, lastEventSequenceTcs, followCts.Token));
+        // Bootstrap trigger: fires when the agent emits Job.Ready on the SSE stream,
+        // which signals that the task list has been pushed and GET /jobs/{id}/bootstrap
+        // will return a non-null Tasks list. Using an event-driven trigger instead of
+        // a 1-second polling loop removes the latency between plan push and display.
+        var bootstrapTrigger = new TaskCompletionSource<long>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var bootstrapTask = Task.Run(() => FetchBootstrapOnReady(client, parsedJobId, updates.Writer, bootstrapTrigger, followCts.Token));
 
         // Channel 2: telemetry polling — pushes TelemetryPolled updates every 5 s.
         // Channel 1: SSE stage stream — pushes StageAdvanced and JobTerminated updates.
         // Both producers write into the same channel; the consumer applies each update
         // via Apply() and re-renders, keeping all state in one immutable record.
         var telemetryTask = Task.Run(() => FetchLatestMetrics(client, parsedJobId, updates.Writer, followCts.Token));
-        var progressTask = Task.Run(async () =>
-        {
-            // Wait for the bootstrap poller to capture LastEventSequence before starting SSE
-            // so we don't replay events the bootstrap already described. The poller resolves
-            // within 1 s of the agent starting; fall back to 0 if it times out first.
-            long lastSeq = 0;
-            try { lastSeq = await lastEventSequenceTcs.Task.WaitAsync(TimeSpan.FromSeconds(65), followCts.Token).ConfigureAwait(false); }
-            catch { /* cancelled or timed out — start SSE from beginning */ }
-            await FollowJobProgress(client, parsedJobId, updates.Writer, followCts.Token, lastSeq).ConfigureAwait(false);
-        });
+        var progressTask = Task.Run(() => FollowJobProgress(client, parsedJobId, updates.Writer, bootstrapTrigger, followCts.Token));
 
         if (Console.IsOutputRedirected)
         {
@@ -1083,29 +1076,35 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
     }
 
     /// <summary>
-    /// Polls <c>GET /jobs/{jobId}/bootstrap</c> at 1-second intervals until the agent
-    /// has pushed an execution plan (<see cref="JobBootstrap.Tasks"/> is non-null) or
-    /// the timeout of 60 seconds elapses, then writes a single
-    /// <see cref="TaskListReceived"/> into <paramref name="updates"/> and exits.
-    /// Also captures <see cref="JobBootstrap.LastEventSequence"/> for SSE reconnect.
+    /// Awaits a <c>Job.Ready</c> signal from the SSE stream (via <paramref name="bootstrapTrigger"/>),
+    /// then performs a single <c>GET /jobs/{jobId}/bootstrap</c> call to retrieve the task list and
+    /// writes a <see cref="TaskListReceived"/> update. Falls back to polling at 2-second intervals
+    /// if the agent does not support lifecycle events (older agent, or plan-build failure).
     /// </summary>
-    private static async Task PollForBootstrap(
+    private static async Task FetchBootstrapOnReady(
         IControlPlaneClient client, Guid jobId,
         ChannelWriter<JobProgressUpdate> updates,
-        TaskCompletionSource<long> lastEventSequenceTcs,
+        TaskCompletionSource<long> bootstrapTrigger,
         CancellationToken ct)
     {
-        var deadline = DateTimeOffset.UtcNow.AddSeconds(60);
         try
         {
-            while (!ct.IsCancellationRequested && DateTimeOffset.UtcNow < deadline)
+            // Wait for Job.Ready signal (or fall back after 60 s for older agents).
+            await Task.WhenAny(bootstrapTrigger.Task, Task.Delay(TimeSpan.FromSeconds(60), ct))
+                .ConfigureAwait(false);
+
+            ct.ThrowIfCancellationRequested();
+
+            // One-shot bootstrap GET — the task list should be present by now.
+            // If not (e.g. plan-build failure), retry at 2 s intervals up to 10 s.
+            var deadline = DateTimeOffset.UtcNow.AddSeconds(10);
+            while (DateTimeOffset.UtcNow < deadline && !ct.IsCancellationRequested)
             {
                 try
                 {
                     var bootstrap = await client.GetBootstrapAsync(jobId, ct).ConfigureAwait(false);
                     if (bootstrap?.Tasks is not null)
                     {
-                        lastEventSequenceTcs.TrySetResult(bootstrap.LastEventSequence);
                         await updates.WriteAsync(
                             new TaskListReceived(bootstrap.Tasks, bootstrap.LastEventSequence), ct)
                             .ConfigureAwait(false);
@@ -1113,13 +1112,12 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
                     }
                 }
                 catch (OperationCanceledException) { return; }
-                catch (Exception) { /* best-effort — retry on next tick */ }
+                catch (Exception) { /* best-effort — retry */ }
 
-                await Task.Delay(1_000, ct).ConfigureAwait(false);
+                await Task.Delay(2_000, ct).ConfigureAwait(false);
             }
 
-            // Timeout — signal with empty list so the display can exit "Initialising" state.
-            lastEventSequenceTcs.TrySetResult(0);
+            // Final fallback: signal with empty list so the display exits "Initialising" state.
             var empty = new JobTaskList { Tasks = Array.Empty<JobTask>(), PushedAt = DateTimeOffset.UtcNow };
             await updates.WriteAsync(new TaskListReceived(empty, 0), ct).ConfigureAwait(false);
         }
@@ -1159,14 +1157,20 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
     /// </summary>
     private static async Task FollowJobProgress(
         IControlPlaneClient client, Guid jobId,
-        ChannelWriter<JobProgressUpdate> updates, CancellationToken ct,
-        long lastEventSequence = 0)
+        ChannelWriter<JobProgressUpdate> updates,
+        TaskCompletionSource<long> bootstrapTrigger,
+        CancellationToken ct)
     {
         try
         {
-            await foreach (var evt in client.FollowLogsAsync(jobId, ct,
-                lastEventSequence > 0 ? lastEventSequence : null).ConfigureAwait(false))
+            await foreach (var evt in client.FollowLogsAsync(jobId, ct, null).ConfigureAwait(false))
+            {
+                // Job.Ready signals the task list is available — trigger the one-shot bootstrap GET.
+                if (evt.Module == "Job" && evt.Stage == "Job.Ready")
+                    bootstrapTrigger.TrySetResult(evt.EventSequence);
+
                 await updates.WriteAsync(new StageAdvanced(evt), ct).ConfigureAwait(false);
+            }
 
             await updates.WriteAsync(new JobTerminated(false, null), ct).ConfigureAwait(false);
         }

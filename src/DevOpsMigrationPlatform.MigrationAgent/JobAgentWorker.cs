@@ -210,6 +210,15 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
         // Write config payload from the Job into the package before any config reads.
         await WriteConfigPayloadAsync(job, artefactStore, ct).ConfigureAwait(false);
 
+        // Signal to live clients that the agent has the job and is starting up.
+        ProgressSink.Emit(new ProgressEvent
+        {
+            Module = "Job",
+            Stage = "Job.Received",
+            Message = $"Job {job.JobId} acquired. Loading configuration.",
+            Timestamp = DateTimeOffset.UtcNow
+        });
+
         // Prepare mode writes a probe file to validate connectivity.
         if (job.Kind == JobKind.Prepare)
         {
@@ -269,10 +278,26 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
         // see the ordered task list immediately via GET /jobs/{id}/bootstrap.
         try
         {
+            ProgressSink.Emit(new ProgressEvent
+            {
+                Module = "Job",
+                Stage = "Job.Planning",
+                Message = "Building execution plan from package configuration.",
+                Timestamp = DateTimeOffset.UtcNow
+            });
+
             var plan = await _planBuilder
                 .BuildPlanAsync(packageConfig, job.Kind, artefactStore, stateStore, ct)
                 .ConfigureAwait(false);
             await _telemetryClient.PushTaskListAsync(leaseId, plan, ct).ConfigureAwait(false);
+
+            ProgressSink.Emit(new ProgressEvent
+            {
+                Module = "Job",
+                Stage = "Job.Ready",
+                Message = $"Execution plan ready. {plan.Tasks.Count} task(s) queued.",
+                Timestamp = DateTimeOffset.UtcNow
+            });
         }
         catch (Exception ex)
         {
