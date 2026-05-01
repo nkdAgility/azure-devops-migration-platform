@@ -46,6 +46,12 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
         _modulesByName = modules.ToDictionary(m => m.Name, StringComparer.OrdinalIgnoreCase);
         _phaseTrackingFactory = phaseTrackingFactory;
         _logger = logger;
+        
+        // Diagnostic: log all discovered modules at startup
+        _logger.LogInformation(
+            "JobExecutionPlanBuilder initialized with {Count} modules: {Modules}",
+            _modules.Count(),
+            string.Join(", ", _modules.Select(m => $"{m.Name}(Export:{m.SupportsExport},Import:{m.SupportsImport})")));
     }
 
     public async Task<JobTaskList> BuildPlanAsync(
@@ -115,6 +121,12 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
 
         // Pre-compute the set of export task IDs so we can resolve inter-module DependsOn.
         var exportModules = _modules.Where(m => m.SupportsExport).ToList();
+        
+        _logger.LogDebug(
+            "Discovered {Count} export modules: {Modules}",
+            exportModules.Count,
+            string.Join(", ", exportModules.Select(m => m.Name)));
+        
         var exportTaskIds = new HashSet<string>(
             exportModules.Select(m => $"export.{m.Name.ToLowerInvariant()}"),
             StringComparer.OrdinalIgnoreCase);
@@ -125,9 +137,16 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
         {
             var enabled = IsEnabled(config, module.Name);
             
+            _logger.LogDebug(
+                "Module {ModuleName}: Enabled={Enabled}, SupportsExport={SupportsExport}",
+                module.Name, enabled, module.SupportsExport);
+            
             // Skip disabled modules - no task should be created.
             if (!enabled)
+            {
+                _logger.LogInformation("Skipping disabled module: {ModuleName}", module.Name);
                 continue;
+            }
 
             var taskId = $"export.{module.Name.ToLowerInvariant()}";
             var knownTotal = module.Name.Equals("WorkItems", StringComparison.OrdinalIgnoreCase)
