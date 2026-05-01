@@ -16,6 +16,7 @@ using DevOpsMigrationPlatform.Abstractions.Jobs;
 using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Abstractions.Telemetry;
 using DevOpsMigrationPlatform.Abstractions.Validation;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
@@ -52,6 +53,7 @@ public sealed class InventoryDiscoveryModule : IModule
     private readonly IDiscoveryMetrics? _metrics;
     private readonly IOptions<DiscoveryOptions>? _discoveryOptions;
     private readonly ISourceEndpointInfo? _sourceEndpointInfo;
+    private readonly IServiceProvider _serviceProvider;
 
     public string Name => "Inventory";
     public IReadOnlyList<ModuleDependency> DependsOn => Array.Empty<ModuleDependency>(); // No dependencies — runs first (tier 0)
@@ -60,12 +62,14 @@ public sealed class InventoryDiscoveryModule : IModule
 
     public InventoryDiscoveryModule(
         IInventoryServiceFactory inventoryFactory,
+        IServiceProvider serviceProvider,
         ILogger<InventoryDiscoveryModule> logger,
         IDiscoveryMetrics? metrics = null,
         IOptions<DiscoveryOptions>? discoveryOptions = null,
         ISourceEndpointInfo? sourceEndpointInfo = null)
     {
         _inventoryFactory = inventoryFactory;
+        _serviceProvider = serviceProvider;
         _logger = logger;
         _metrics = metrics;
         _discoveryOptions = discoveryOptions;
@@ -146,7 +150,15 @@ public sealed class InventoryDiscoveryModule : IModule
         var policies = _discoveryOptions?.Value?.Policies is { } p
             ? new JobPolicies { MaxRetries = p.Retries.Max, MaxConcurrency = p.Throttle.MaxConcurrency, CheckpointIntervalSeconds = p.Checkpoints.Interval }
             : new JobPolicies();
-        var inventoryService = _inventoryFactory.Create(organisations, policies);
+        // Resolve the connector-specific inventory factory by connector type (keyed) so Simulated
+        // connector uses Simulated discovery services and ADO uses ADO services.
+        // Falls back to the non-keyed factory if no keyed one is registered for this connector.
+        var connectorType = _sourceEndpointInfo?.ConnectorType ?? string.Empty;
+        var inventoryFactory = (!string.IsNullOrEmpty(connectorType)
+            ? _serviceProvider.GetKeyedService<IInventoryServiceFactory>(connectorType)
+            : null) ?? _inventoryFactory;
+
+        var inventoryService = inventoryFactory.Create(organisations, policies);
 
         // Emit a probe event so the CLI live table transitions from "…" to "Starting"
         // immediately, proving the sink pipeline works before the API returns data.

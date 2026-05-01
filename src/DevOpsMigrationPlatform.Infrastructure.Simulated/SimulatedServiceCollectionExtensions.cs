@@ -1,13 +1,15 @@
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Agent.Context;
+using DevOpsMigrationPlatform.Abstractions.Agent.Discovery;
 using DevOpsMigrationPlatform.Abstractions.Agent.Lease;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Connectors;
 using DevOpsMigrationPlatform.Infrastructure.Serialization;
+using DevOpsMigrationPlatform.Infrastructure.Simulated.Discovery;
 using DevOpsMigrationPlatform.Infrastructure.Simulated.Export;
+using DevOpsMigrationPlatform.Infrastructure.Simulated.Factories;
 using DevOpsMigrationPlatform.Infrastructure.Simulated.Import;
 using DevOpsMigrationPlatform.Abstractions.Options;
-using DevOpsMigrationPlatform.Infrastructure.Simulated.Discovery;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Options;
@@ -49,6 +51,15 @@ public static class SimulatedServiceCollectionExtensions
         services.TryAddSingleton<SimulatedGeneratorConfig>();
         services.TryAddSingleton<IProjectDiscoveryService, SimulatedProjectDiscoveryService>();
         services.TryAddSingleton<IWorkItemDiscoveryService, SimulatedWorkItemDiscoveryService>();
+
+        // Keyed discovery services — always resolve to simulated impls regardless of other registrations.
+        // These are consumed by SimulatedInventoryServiceFactory via [FromKeyedServices("Simulated")].
+        services.AddKeyedSingleton<IProjectDiscoveryService, SimulatedProjectDiscoveryService>("Simulated");
+        services.AddKeyedSingleton<IWorkItemDiscoveryService, SimulatedWorkItemDiscoveryService>("Simulated");
+        services.AddKeyedSingleton<IRepoDiscoveryService, SimulatedRepoDiscoveryService>("Simulated");
+
+        // Keyed inventory factory — used by InventoryDiscoveryModule when connector type is "Simulated".
+        services.AddKeyedSingleton<IInventoryServiceFactory, SimulatedInventoryServiceFactory>("Simulated");
 
         return services;
     }
