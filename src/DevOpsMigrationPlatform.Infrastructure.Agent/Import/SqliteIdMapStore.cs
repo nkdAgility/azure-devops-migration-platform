@@ -44,8 +44,16 @@ public sealed class SqliteIdMapStore : IIdMapStore
         if (dir is not null && !Directory.Exists(dir))
             Directory.CreateDirectory(dir); // Permitted: SQLite requires real file-system path (see class remarks)
 
-        _connection = new SqliteConnection($"Data Source={_dbFilePath};Journal Mode=Memory;");
+        _connection = new SqliteConnection($"Data Source={_dbFilePath}");
         await _connection.OpenAsync(ct).ConfigureAwait(false);
+
+        // Use memory journal to avoid creating <filename>-journal files whose path
+        // may exceed MAX_PATH (260 chars) on Windows when LongPathsEnabled=0.
+        // The ID-map store is rebuilt from the source on re-import, so no
+        // crash-durable journal is required.
+        await using var pragmaCmd = _connection.CreateCommand();
+        pragmaCmd.CommandText = "PRAGMA journal_mode=MEMORY;";
+        await pragmaCmd.ExecuteNonQueryAsync(ct).ConfigureAwait(false);
 
         await using var cmd = _connection.CreateCommand();
         cmd.CommandText = """
