@@ -373,6 +373,9 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
 
         try
         {
+            var checkpointer = CheckpointingFactory.Create(stateStore);
+            var phaseTracker = PhaseTrackingFactory.Create(stateStore);
+            
             var exportContext = new ExportContext
             {
                 Job = job,

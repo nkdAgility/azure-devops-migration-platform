@@ -7,6 +7,7 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Agent.Context;
 using DevOpsMigrationPlatform.Abstractions.Agent.Export;
 using DevOpsMigrationPlatform.Abstractions.Agent.Import;
 using DevOpsMigrationPlatform.Abstractions.Agent.Modules;
@@ -50,6 +51,7 @@ public sealed class InventoryDiscoveryModule : IModule
     private readonly ILogger<InventoryDiscoveryModule> _logger;
     private readonly IDiscoveryMetrics? _metrics;
     private readonly IOptions<DiscoveryOptions>? _discoveryOptions;
+    private readonly ISourceEndpointInfo? _sourceEndpointInfo;
 
     public string Name => "Inventory";
     public IReadOnlyList<ModuleDependency> DependsOn => Array.Empty<ModuleDependency>(); // No dependencies — runs first (tier 0)
@@ -58,15 +60,16 @@ public sealed class InventoryDiscoveryModule : IModule
 
     public InventoryDiscoveryModule(
         IInventoryServiceFactory inventoryFactory,
-        ILogger<InventoryDiscoveryModule> logger
-        , IDiscoveryMetrics? metrics = null
-        , IOptions<DiscoveryOptions>? discoveryOptions = null
-        )
+        ILogger<InventoryDiscoveryModule> logger,
+        IDiscoveryMetrics? metrics = null,
+        IOptions<DiscoveryOptions>? discoveryOptions = null,
+        ISourceEndpointInfo? sourceEndpointInfo = null)
     {
         _inventoryFactory = inventoryFactory;
         _logger = logger;
         _metrics = metrics;
         _discoveryOptions = discoveryOptions;
+        _sourceEndpointInfo = sourceEndpointInfo;
     }
 
     /// <summary>
@@ -95,10 +98,17 @@ public sealed class InventoryDiscoveryModule : IModule
                 _logger.LogInformation("Resuming inventory after project '{LastCompleted}'.", lastCompleted);
 
         // Organisations come from context.Organisations (populated by the agent from migration-config.json).
-        // Fall back to _discoveryOptions for backward compatibility in unit tests without a package.
-        var organisations = context.Organisations.Count > 0
-            ? context.Organisations.ToList()
-            : (_discoveryOptions?.Value?.Organisations ?? new System.Collections.Generic.List<DevOpsMigrationPlatform.Abstractions.Options.OrganisationEntry>())
+        // Fall back to _discoveryOptions for backward compatibility with standalone discovery commands.
+        // Final fallback: infer a single-org scope from the job's source connector (queue/export jobs
+        // where no explicit organisations list is configured — empty list = all projects).
+        List<ScopedOrganisationEndpoint> organisations;
+        if (context.Organisations.Count > 0)
+        {
+            organisations = context.Organisations.ToList();
+        }
+        else if (_discoveryOptions?.Value?.Organisations is { Count: > 0 } discoveryOrgs)
+        {
+            organisations = discoveryOrgs
                 .Where(o => o.Enabled)
                 .Select(o => new ScopedOrganisationEndpoint
                 {
@@ -111,6 +121,27 @@ public sealed class InventoryDiscoveryModule : IModule
                     }).ToList()
                 })
                 .ToList<ScopedOrganisationEndpoint>();
+        }
+        else if (_sourceEndpointInfo is not null)
+        {
+            // Infer from the job's source connector — empty Projects = all projects.
+            _logger.LogInformation(
+                "No organisations configured for Inventory — inferring from source connector ({ConnectorType}, {Url}).",
+                _sourceEndpointInfo.ConnectorType, _sourceEndpointInfo.Url);
+            organisations = new System.Collections.Generic.List<ScopedOrganisationEndpoint>
+            {
+                new ScopedOrganisationEndpoint
+                {
+                    Endpoint = InferEndpointOptions(_sourceEndpointInfo),
+                    Projects = new System.Collections.Generic.List<string>(),
+                    Scopes = System.Array.Empty<JobModuleScope>()
+                }
+            };
+        }
+        else
+        {
+            organisations = new System.Collections.Generic.List<ScopedOrganisationEndpoint>();
+        }
 
         var policies = _discoveryOptions?.Value?.Policies is { } p
             ? new JobPolicies { MaxRetries = p.Retries.Max, MaxConcurrency = p.Throttle.MaxConcurrency, CheckpointIntervalSeconds = p.Checkpoints.Interval }
@@ -657,6 +688,30 @@ public sealed class InventoryDiscoveryModule : IModule
 
     /// <summary>
     /// Validation is not supported for the Inventory module.
+    /// <summary>
+    /// Builds a <see cref="MigrationEndpointOptions"/> from <see cref="ISourceEndpointInfo"/>
+    /// so inventory can run when no explicit organisations list is configured (queue/export jobs).
+    /// </summary>
+    private static MigrationEndpointOptions InferEndpointOptions(ISourceEndpointInfo source)
+    {
+        return source.ConnectorType switch
+        {
+            "Simulated" => new SimulatedEndpointOptions
+            {
+                Type = "Simulated",
+                Url = source.Url
+            },
+            "AzureDevOpsServices" => new AzureDevOpsEndpointOptions
+            {
+                Type = "AzureDevOpsServices",
+                Url = source.Url
+            },
+            _ => new SimulatedEndpointOptions { Type = source.ConnectorType, Url = source.Url }
+        };
+    }
+
+    /// <summary>
+    /// Validates the inventory module configuration.
     /// </summary>
     public Task ValidateAsync(ValidationContext context, CancellationToken ct)
     {
