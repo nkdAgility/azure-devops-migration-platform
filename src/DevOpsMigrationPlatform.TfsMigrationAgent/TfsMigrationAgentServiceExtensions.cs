@@ -78,12 +78,11 @@ public static class TfsMigrationAgentServiceExtensions
         {
             var activeServices = sp.GetRequiredService<ActiveTfsJobServices>();
             var endpoint = activeServices.Require().Endpoint;
-            return new TfsSourceEndpointInfo
-            {
-                Url = endpoint.GetResolvedUrl(),
-                Project = endpoint.GetProject(),
-                ConnectorType = "TeamFoundationServer"
-            };
+            return new TfsSourceEndpointInfo(
+                Url: endpoint.GetResolvedUrl(),
+                Project: endpoint.GetProject(),
+                ConnectorType: "TeamFoundationServer"
+            );
         });
 
         return services;
@@ -92,10 +91,5 @@ public static class TfsMigrationAgentServiceExtensions
     /// <summary>
     /// Inline implementation of <see cref="ISourceEndpointInfo"/> for TFS connector.
     /// </summary>
-    private sealed record TfsSourceEndpointInfo : ISourceEndpointInfo
-    {
-        public required string Url { get; init; }
-        public required string Project { get; init; }
-        public required string ConnectorType { get; init; }
-    }
+    private sealed record TfsSourceEndpointInfo(string Url, string Project, string ConnectorType) : ISourceEndpointInfo;
 }

@@ -246,10 +246,10 @@ public class TfsJobAgentWorkerTests
         var mockAttachmentSource = new Mock<IAttachmentBinarySource>();
         var mockTreeReader = new Mock<IClassificationTreeReader>();
         mockTreeReader
-            .Setup(r => r.EnumerateAreaNodesAsync(It.IsAny<MigrationEndpointOptions>(), It.IsAny<CancellationToken>()))
+            .Setup(r => r.EnumerateAreaNodesAsync(It.IsAny<CancellationToken>()))
             .Returns(EmptyAsyncEnumerable<string>());
         mockTreeReader
-            .Setup(r => r.EnumerateIterationNodesAsync(It.IsAny<MigrationEndpointOptions>(), It.IsAny<CancellationToken>()))
+            .Setup(r => r.EnumerateIterationNodesAsync(It.IsAny<CancellationToken>()))
             .Returns(EmptyAsyncEnumerable<IterationNodeEntry>());
 
         var mockDiscovery = new Mock<IWorkItemDiscoveryService>();
@@ -311,10 +311,10 @@ public class TfsJobAgentWorkerTests
 
         var mockTreeReader = new Mock<IClassificationTreeReader>();
         mockTreeReader
-            .Setup(r => r.EnumerateAreaNodesAsync(It.IsAny<MigrationEndpointOptions>(), It.IsAny<CancellationToken>()))
+            .Setup(r => r.EnumerateAreaNodesAsync(It.IsAny<CancellationToken>()))
             .Returns(EmptyAsyncEnumerable<string>());
         mockTreeReader
-            .Setup(r => r.EnumerateIterationNodesAsync(It.IsAny<MigrationEndpointOptions>(), It.IsAny<CancellationToken>()))
+            .Setup(r => r.EnumerateIterationNodesAsync(It.IsAny<CancellationToken>()))
             .Returns(EmptyAsyncEnumerable<IterationNodeEntry>());
 
         var tfsServices = TestTfsJobServicesFactory.Create(
