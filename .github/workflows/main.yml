@@ -50,6 +50,20 @@ jobs:
       - name: Build
         run: pwsh ./build.ps1 -Mode Build
 
+      - name: Check schema drift
+        run: |
+          git diff --exit-code src/DevOpsMigrationPlatform.CLI.Migration/migration.schema.json || (Write-Host "Schema drift detected — run \`dotnet build src/DevOpsMigrationPlatform.CLI.Migration\` and commit the updated migration.schema.json" -ForegroundColor Red; exit 1)
+        shell: pwsh
+
+      - name: Verify SchemaGenerator connector references
+        run: |
+          $csproj = Get-Content "src/DevOpsMigrationPlatform.SchemaGenerator/DevOpsMigrationPlatform.SchemaGenerator.csproj" -Raw
+          $connectors = @("Infrastructure.Simulated", "Infrastructure.AzureDevOps", "Infrastructure.TfsObjectModel")
+          $missing = $connectors | Where-Object { $csproj -notmatch $_ }
+          if ($missing) { Write-Host "Missing SchemaGenerator connector references: $($missing -join ', ')" -ForegroundColor Red; exit 1 }
+          Write-Host "All connector references present in SchemaGenerator.csproj"
+        shell: pwsh
+
       - name: Test
         run: pwsh ./build.ps1 -Mode Test
 

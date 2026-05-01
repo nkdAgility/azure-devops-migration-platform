@@ -1,127 +1,1259 @@
 {
-  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$schema": "http://json-schema.org/draft-04/schema#",
   "title": "Azure DevOps Migration Platform Configuration Schema",
-  "description": "JSON Schema for migration configuration files (migration.json, migration-config.json)",
   "type": "object",
+  "description": "JSON Schema for migration configuration files (migration.json, migration-config.json)",
   "additionalProperties": false,
   "properties": {
     "MigrationPlatform": {
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "ConfigVersion": {
-          "type": "string",
-          "description": "Configuration version"
+        "Tools": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "IdentityLookup": {
+              "$ref": "#/definitions/IdentityLookupOptions"
+            },
+            "FieldTransform": {
+              "$ref": "#/definitions/FieldTransformOptions"
+            },
+            "NodeTranslation": {
+              "$ref": "#/definitions/NodeTranslationOptions"
+            }
+          }
+        },
+        "Modules": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "Identities": {
+              "$ref": "#/definitions/IdentitiesModuleOptions"
+            },
+            "Nodes": {
+              "$ref": "#/definitions/NodesModuleOptions"
+            },
+            "Teams": {
+              "$ref": "#/definitions/TeamsModuleOptions"
+            },
+            "WorkItems": {
+              "$ref": "#/definitions/WorkItemsModuleOptions"
+            }
+          }
+        },
+        "Package": {
+          "$ref": "#/definitions/MigrationPackageOptions"
+        },
+        "Policies": {
+          "$ref": "#/definitions/MigrationPoliciesOptions"
         },
         "Mode": {
           "type": "string",
-          "enum": ["Export", "Import", "Prepare", "Migrate"],
-          "description": "Migration mode"
+          "enum": [
+            "Export",
+            "Import",
+            "Prepare",
+            "Migrate"
+          ]
+        },
+        "ConfigVersion": {
+          "type": "string"
         },
         "Source": {
           "oneOf": [
             {
-              "type": "object",
+              "title": "SimulatedEndpointOptions",
+              "required": [
+                "Type"
+              ],
               "properties": {
-                "Type": { "type": "string", "enum": ["AzureDevOpsServices"] },
-                "Url": { "type": "string" },
-                "Project": { "type": "string" },
-                "Authentication": { "type": "object" }
+                "Type": {
+                  "type": "string",
+                  "enum": [
+                    "Simulated"
+                  ]
+                }
               },
-              "required": ["Type", "Url", "Project"]
+              "definitions": {
+                "SimulatedGeneratorConfig": {
+                  "type": "object",
+                  "properties": {
+                    "Projects": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/properties/MigrationPlatform/properties/Source/oneOf/0/definitions/SimulatedProjectConfig"
+                      }
+                    }
+                  }
+                },
+                "SimulatedProjectConfig": {
+                  "type": "object",
+                  "properties": {
+                    "Name": {
+                      "type": "string"
+                    },
+                    "WorkItemTypes": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/properties/MigrationPlatform/properties/Source/oneOf/0/definitions/SimulatedWorkItemTypeConfig"
+                      }
+                    },
+                    "LinkTopology": {
+                      "type": "string"
+                    },
+                    "AttachmentSizeKb": {
+                      "type": "integer",
+                      "format": "int32"
+                    },
+                    "HasComments": {
+                      "type": "boolean"
+                    },
+                    "HasEmbeddedImages": {
+                      "type": "boolean"
+                    }
+                  }
+                },
+                "SimulatedWorkItemTypeConfig": {
+                  "type": "object",
+                  "properties": {
+                    "Type": {
+                      "type": "string"
+                    },
+                    "Count": {
+                      "type": "integer",
+                      "format": "int32"
+                    },
+                    "RevisionsPerItem": {
+                      "type": "integer",
+                      "format": "int32"
+                    }
+                  }
+                },
+                "MigrationEndpointOptions": {
+                  "type": "object",
+                  "x-abstract": true,
+                  "properties": {
+                    "Type": {
+                      "type": "string"
+                    }
+                  }
+                }
+              },
+              "allOf": [
+                {
+                  "$ref": "#/properties/MigrationPlatform/properties/Source/oneOf/0/definitions/MigrationEndpointOptions"
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "Url": {
+                      "type": [
+                        "null",
+                        "string"
+                      ]
+                    },
+                    "Project": {
+                      "type": [
+                        "null",
+                        "string"
+                      ]
+                    },
+                    "Generator": {
+                      "$ref": "#/properties/MigrationPlatform/properties/Source/oneOf/0/definitions/SimulatedGeneratorConfig"
+                    }
+                  }
+                }
+              ]
             },
             {
-              "type": "object",
+              "title": "AzureDevOpsEndpointOptions",
+              "required": [
+                "Type"
+              ],
               "properties": {
-                "Type": { "type": "string", "enum": ["TeamFoundationServer"] },
-                "Url": { "type": "string" },
-                "Project": { "type": "string" },
-                "Authentication": { "type": "object" }
+                "Type": {
+                  "type": "string",
+                  "enum": [
+                    "AzureDevOpsServices"
+                  ]
+                }
               },
-              "required": ["Type", "Url", "Project"]
+              "definitions": {
+                "EndpointAuthenticationOptions": {
+                  "type": "object",
+                  "properties": {
+                    "Type": {
+                      "$ref": "#/properties/MigrationPlatform/properties/Source/oneOf/1/definitions/AuthenticationType"
+                    },
+                    "AccessToken": {
+                      "type": [
+                        "null",
+                        "string"
+                      ]
+                    }
+                  }
+                },
+                "AuthenticationType": {
+                  "type": "string",
+                  "description": "",
+                  "x-enum-names": [
+                    "None",
+                    "Pat",
+                    "Windows"
+                  ],
+                  "x-enum-varnames": [
+                    "None",
+                    "Pat",
+                    "Windows"
+                  ],
+                  "x-enumNames": [
+                    "None",
+                    "Pat",
+                    "Windows"
+                  ],
+                  "x-enum-descriptions": [
+                    null,
+                    null,
+                    null
+                  ],
+                  "x-enumDescriptions": [
+                    null,
+                    null,
+                    null
+                  ],
+                  "enum": [
+                    "None",
+                    "Pat",
+                    "Windows"
+                  ]
+                },
+                "MigrationEndpointOptions": {
+                  "type": "object",
+                  "x-abstract": true,
+                  "properties": {
+                    "Type": {
+                      "type": "string"
+                    }
+                  }
+                }
+              },
+              "allOf": [
+                {
+                  "$ref": "#/properties/MigrationPlatform/properties/Source/oneOf/1/definitions/MigrationEndpointOptions"
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "Url": {
+                      "type": "string"
+                    },
+                    "ResolvedUrl": {
+                      "type": "string"
+                    },
+                    "Project": {
+                      "type": "string"
+                    },
+                    "ApiVersion": {
+                      "type": [
+                        "null",
+                        "string"
+                      ]
+                    },
+                    "Authentication": {
+                      "oneOf": [
+                        {
+                          "type": "null"
+                        },
+                        {
+                          "$ref": "#/properties/MigrationPlatform/properties/Source/oneOf/1/definitions/EndpointAuthenticationOptions"
+                        }
+                      ]
+                    }
+                  }
+                }
+              ]
             },
             {
-              "type": "object",
+              "title": "TeamFoundationServerEndpointOptions",
+              "required": [
+                "Type"
+              ],
               "properties": {
-                "Type": { "type": "string", "enum": ["Simulated"] },
-                "Generator": { "type": "object" }
+                "Type": {
+                  "type": "string",
+                  "enum": [
+                    "TeamFoundationServer"
+                  ]
+                }
               },
-              "required": ["Type"]
+              "definitions": {
+                "EndpointAuthenticationOptions": {
+                  "type": "object",
+                  "properties": {
+                    "Type": {
+                      "$ref": "#/properties/MigrationPlatform/properties/Source/oneOf/2/definitions/AuthenticationType"
+                    },
+                    "AccessToken": {
+                      "type": [
+                        "null",
+                        "string"
+                      ]
+                    }
+                  }
+                },
+                "AuthenticationType": {
+                  "type": "string",
+                  "description": "",
+                  "x-enum-names": [
+                    "None",
+                    "Pat",
+                    "Windows"
+                  ],
+                  "x-enum-varnames": [
+                    "None",
+                    "Pat",
+                    "Windows"
+                  ],
+                  "x-enumNames": [
+                    "None",
+                    "Pat",
+                    "Windows"
+                  ],
+                  "x-enum-descriptions": [
+                    null,
+                    null,
+                    null
+                  ],
+                  "x-enumDescriptions": [
+                    null,
+                    null,
+                    null
+                  ],
+                  "enum": [
+                    "None",
+                    "Pat",
+                    "Windows"
+                  ]
+                },
+                "MigrationEndpointOptions": {
+                  "type": "object",
+                  "x-abstract": true,
+                  "properties": {
+                    "Type": {
+                      "type": "string"
+                    }
+                  }
+                }
+              },
+              "allOf": [
+                {
+                  "$ref": "#/properties/MigrationPlatform/properties/Source/oneOf/2/definitions/MigrationEndpointOptions"
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "Url": {
+                      "type": "string"
+                    },
+                    "ResolvedUrl": {
+                      "type": "string"
+                    },
+                    "Project": {
+                      "type": "string"
+                    },
+                    "ApiVersion": {
+                      "type": [
+                        "null",
+                        "string"
+                      ]
+                    },
+                    "Authentication": {
+                      "oneOf": [
+                        {
+                          "type": "null"
+                        },
+                        {
+                          "$ref": "#/properties/MigrationPlatform/properties/Source/oneOf/2/definitions/EndpointAuthenticationOptions"
+                        }
+                      ]
+                    }
+                  }
+                }
+              ]
             }
           ]
         },
         "Target": {
           "oneOf": [
             {
-              "type": "object",
+              "title": "SimulatedEndpointOptions",
+              "required": [
+                "Type"
+              ],
               "properties": {
-                "Type": { "type": "string", "enum": ["AzureDevOpsServices"] },
-                "Url": { "type": "string" },
-                "Project": { "type": "string" },
-                "Authentication": { "type": "object" }
+                "Type": {
+                  "type": "string",
+                  "enum": [
+                    "Simulated"
+                  ]
+                }
               },
-              "required": ["Type", "Url", "Project"]
+              "definitions": {
+                "SimulatedGeneratorConfig": {
+                  "type": "object",
+                  "properties": {
+                    "Projects": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/properties/MigrationPlatform/properties/Target/oneOf/0/definitions/SimulatedProjectConfig"
+                      }
+                    }
+                  }
+                },
+                "SimulatedProjectConfig": {
+                  "type": "object",
+                  "properties": {
+                    "Name": {
+                      "type": "string"
+                    },
+                    "WorkItemTypes": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/properties/MigrationPlatform/properties/Target/oneOf/0/definitions/SimulatedWorkItemTypeConfig"
+                      }
+                    },
+                    "LinkTopology": {
+                      "type": "string"
+                    },
+                    "AttachmentSizeKb": {
+                      "type": "integer",
+                      "format": "int32"
+                    },
+                    "HasComments": {
+                      "type": "boolean"
+                    },
+                    "HasEmbeddedImages": {
+                      "type": "boolean"
+                    }
+                  }
+                },
+                "SimulatedWorkItemTypeConfig": {
+                  "type": "object",
+                  "properties": {
+                    "Type": {
+                      "type": "string"
+                    },
+                    "Count": {
+                      "type": "integer",
+                      "format": "int32"
+                    },
+                    "RevisionsPerItem": {
+                      "type": "integer",
+                      "format": "int32"
+                    }
+                  }
+                },
+                "MigrationEndpointOptions": {
+                  "type": "object",
+                  "x-abstract": true,
+                  "properties": {
+                    "Type": {
+                      "type": "string"
+                    }
+                  }
+                }
+              },
+              "allOf": [
+                {
+                  "$ref": "#/properties/MigrationPlatform/properties/Target/oneOf/0/definitions/MigrationEndpointOptions"
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "Url": {
+                      "type": [
+                        "null",
+                        "string"
+                      ]
+                    },
+                    "Project": {
+                      "type": [
+                        "null",
+                        "string"
+                      ]
+                    },
+                    "Generator": {
+                      "$ref": "#/properties/MigrationPlatform/properties/Target/oneOf/0/definitions/SimulatedGeneratorConfig"
+                    }
+                  }
+                }
+              ]
+            },
+            {
+              "title": "AzureDevOpsEndpointOptions",
+              "required": [
+                "Type"
+              ],
+              "properties": {
+                "Type": {
+                  "type": "string",
+                  "enum": [
+                    "AzureDevOpsServices"
+                  ]
+                }
+              },
+              "definitions": {
+                "EndpointAuthenticationOptions": {
+                  "type": "object",
+                  "properties": {
+                    "Type": {
+                      "$ref": "#/properties/MigrationPlatform/properties/Target/oneOf/1/definitions/AuthenticationType"
+                    },
+                    "AccessToken": {
+                      "type": [
+                        "null",
+                        "string"
+                      ]
+                    }
+                  }
+                },
+                "AuthenticationType": {
+                  "type": "string",
+                  "description": "",
+                  "x-enum-names": [
+                    "None",
+                    "Pat",
+                    "Windows"
+                  ],
+                  "x-enum-varnames": [
+                    "None",
+                    "Pat",
+                    "Windows"
+                  ],
+                  "x-enumNames": [
+                    "None",
+                    "Pat",
+                    "Windows"
+                  ],
+                  "x-enum-descriptions": [
+                    null,
+                    null,
+                    null
+                  ],
+                  "x-enumDescriptions": [
+                    null,
+                    null,
+                    null
+                  ],
+                  "enum": [
+                    "None",
+                    "Pat",
+                    "Windows"
+                  ]
+                },
+                "MigrationEndpointOptions": {
+                  "type": "object",
+                  "x-abstract": true,
+                  "properties": {
+                    "Type": {
+                      "type": "string"
+                    }
+                  }
+                }
+              },
+              "allOf": [
+                {
+                  "$ref": "#/properties/MigrationPlatform/properties/Target/oneOf/1/definitions/MigrationEndpointOptions"
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "Url": {
+                      "type": "string"
+                    },
+                    "ResolvedUrl": {
+                      "type": "string"
+                    },
+                    "Project": {
+                      "type": "string"
+                    },
+                    "ApiVersion": {
+                      "type": [
+                        "null",
+                        "string"
+                      ]
+                    },
+                    "Authentication": {
+                      "oneOf": [
+                        {
+                          "type": "null"
+                        },
+                        {
+                          "$ref": "#/properties/MigrationPlatform/properties/Target/oneOf/1/definitions/EndpointAuthenticationOptions"
+                        }
+                      ]
+                    }
+                  }
+                }
+              ]
+            },
+            {
+              "title": "TeamFoundationServerEndpointOptions",
+              "required": [
+                "Type"
+              ],
+              "properties": {
+                "Type": {
+                  "type": "string",
+                  "enum": [
+                    "TeamFoundationServer"
+                  ]
+                }
+              },
+              "definitions": {
+                "EndpointAuthenticationOptions": {
+                  "type": "object",
+                  "properties": {
+                    "Type": {
+                      "$ref": "#/properties/MigrationPlatform/properties/Target/oneOf/2/definitions/AuthenticationType"
+                    },
+                    "AccessToken": {
+                      "type": [
+                        "null",
+                        "string"
+                      ]
+                    }
+                  }
+                },
+                "AuthenticationType": {
+                  "type": "string",
+                  "description": "",
+                  "x-enum-names": [
+                    "None",
+                    "Pat",
+                    "Windows"
+                  ],
+                  "x-enum-varnames": [
+                    "None",
+                    "Pat",
+                    "Windows"
+                  ],
+                  "x-enumNames": [
+                    "None",
+                    "Pat",
+                    "Windows"
+                  ],
+                  "x-enum-descriptions": [
+                    null,
+                    null,
+                    null
+                  ],
+                  "x-enumDescriptions": [
+                    null,
+                    null,
+                    null
+                  ],
+                  "enum": [
+                    "None",
+                    "Pat",
+                    "Windows"
+                  ]
+                },
+                "MigrationEndpointOptions": {
+                  "type": "object",
+                  "x-abstract": true,
+                  "properties": {
+                    "Type": {
+                      "type": "string"
+                    }
+                  }
+                }
+              },
+              "allOf": [
+                {
+                  "$ref": "#/properties/MigrationPlatform/properties/Target/oneOf/2/definitions/MigrationEndpointOptions"
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "Url": {
+                      "type": "string"
+                    },
+                    "ResolvedUrl": {
+                      "type": "string"
+                    },
+                    "Project": {
+                      "type": "string"
+                    },
+                    "ApiVersion": {
+                      "type": [
+                        "null",
+                        "string"
+                      ]
+                    },
+                    "Authentication": {
+                      "oneOf": [
+                        {
+                          "type": "null"
+                        },
+                        {
+                          "$ref": "#/properties/MigrationPlatform/properties/Target/oneOf/2/definitions/EndpointAuthenticationOptions"
+                        }
+                      ]
+                    }
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      }
+    }
+  },
+  "definitions": {
+    "IdentityLookupOptions": {
+      "title": "IdentityLookupOptions",
+      "type": "object",
+      "description": "Identity mapping and resolution configuration",
+      "properties": {
+        "Enabled": {
+          "type": "boolean"
+        },
+        "DefaultIdentity": {
+          "type": [
+            "null",
+            "string"
+          ]
+        }
+      }
+    },
+    "IdentitiesModuleOptions": {
+      "title": "IdentitiesModuleOptions",
+      "type": "object",
+      "description": "Identities export/import module configuration",
+      "properties": {
+        "Enabled": {
+          "type": "boolean"
+        },
+        "DefaultIdentity": {
+          "type": "string"
+        }
+      }
+    },
+    "NodesModuleOptions": {
+      "title": "NodesModuleOptions",
+      "type": "object",
+      "description": "Classification nodes (area/iteration paths) module configuration",
+      "properties": {
+        "Enabled": {
+          "type": "boolean"
+        },
+        "ReplicateSourceTree": {
+          "type": "boolean"
+        }
+      }
+    },
+    "TeamsModuleOptions": {
+      "title": "TeamsModuleOptions",
+      "type": "object",
+      "description": "Teams export/import module configuration",
+      "properties": {
+        "Enabled": {
+          "type": "boolean"
+        },
+        "AlwaysExport": {
+          "type": "boolean"
+        },
+        "Scope": {
+          "type": "string"
+        },
+        "Filter": {
+          "type": "string"
+        },
+        "Extensions": {
+          "$ref": "#/definitions/TeamsModuleOptions/definitions/TeamsModuleExtensionsOptions"
+        }
+      },
+      "definitions": {
+        "TeamsModuleExtensionsOptions": {
+          "type": "object",
+          "properties": {
+            "TeamSettings": {
+              "type": "boolean"
+            },
+            "NodeTranslation": {
+              "type": "boolean"
+            },
+            "TeamIterations": {
+              "type": "boolean"
+            },
+            "TeamMembers": {
+              "type": "boolean"
+            },
+            "IdentityLookup": {
+              "type": "boolean"
+            },
+            "TeamCapacity": {
+              "type": "boolean"
+            }
+          }
+        }
+      }
+    },
+    "WorkItemsModuleOptions": {
+      "title": "WorkItemsModuleOptions",
+      "type": "object",
+      "description": "Work items export/import module configuration",
+      "properties": {
+        "Enabled": {
+          "type": "boolean"
+        },
+        "Scope": {
+          "$ref": "#/definitions/WorkItemsModuleOptions/definitions/WorkItemsScopeOptions"
+        },
+        "Extensions": {
+          "$ref": "#/definitions/WorkItemsModuleOptions/definitions/WorkItemsExtensionsOptions"
+        }
+      },
+      "definitions": {
+        "WorkItemsScopeOptions": {
+          "type": "object",
+          "properties": {
+            "Query": {
+              "type": "string"
+            },
+            "Filters": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/WorkItemsModuleOptions/definitions/WorkItemFilterOptions"
+              }
+            }
+          }
+        },
+        "WorkItemFilterOptions": {
+          "type": "object",
+          "properties": {
+            "Mode": {
+              "$ref": "#/definitions/WorkItemsModuleOptions/definitions/FilterMode"
+            },
+            "Field": {
+              "type": "string"
+            },
+            "Pattern": {
+              "type": "string"
+            }
+          }
+        },
+        "FilterMode": {
+          "type": "string",
+          "description": "",
+          "x-enum-names": [
+            "Include",
+            "Exclude"
+          ],
+          "x-enum-varnames": [
+            "Include",
+            "Exclude"
+          ],
+          "x-enumNames": [
+            "Include",
+            "Exclude"
+          ],
+          "x-enum-descriptions": [
+            null,
+            null
+          ],
+          "x-enumDescriptions": [
+            null,
+            null
+          ],
+          "enum": [
+            "Include",
+            "Exclude"
+          ]
+        },
+        "WorkItemsExtensionsOptions": {
+          "type": "object",
+          "properties": {
+            "Revisions": {
+              "$ref": "#/definitions/WorkItemsModuleOptions/definitions/EnabledExtensionOptions"
+            },
+            "Links": {
+              "$ref": "#/definitions/WorkItemsModuleOptions/definitions/EnabledExtensionOptions"
+            },
+            "Attachments": {
+              "$ref": "#/definitions/WorkItemsModuleOptions/definitions/EnabledExtensionOptions"
+            },
+            "Comments": {
+              "$ref": "#/definitions/WorkItemsModuleOptions/definitions/CommentsExtensionOptionsConfig"
+            },
+            "EmbeddedImages": {
+              "$ref": "#/definitions/WorkItemsModuleOptions/definitions/EmbeddedImagesExtensionOptionsConfig"
+            },
+            "WorkItemResolutionStrategy": {
+              "$ref": "#/definitions/WorkItemsModuleOptions/definitions/WorkItemResolutionStrategyOptionsConfig"
+            }
+          }
+        },
+        "EnabledExtensionOptions": {
+          "type": "object",
+          "properties": {
+            "Enabled": {
+              "type": "boolean"
+            }
+          }
+        },
+        "CommentsExtensionOptionsConfig": {
+          "allOf": [
+            {
+              "$ref": "#/definitions/WorkItemsModuleOptions/definitions/EnabledExtensionOptions"
             },
             {
               "type": "object",
               "properties": {
-                "Type": { "type": "string", "enum": ["Simulated"] },
-                "Generator": { "type": "object" }
-              },
-              "required": ["Type"]
+                "IncludeDeleted": {
+                  "type": "boolean"
+                }
+              }
             }
           ]
         },
-        "Package": {
-          "type": "object",
-          "properties": {
-            "WorkingDirectory": { "type": "string" },
-            "CreatePackage": { "type": "boolean" }
-          }
+        "EmbeddedImagesExtensionOptionsConfig": {
+          "allOf": [
+            {
+              "$ref": "#/definitions/WorkItemsModuleOptions/definitions/EnabledExtensionOptions"
+            },
+            {
+              "type": "object",
+              "properties": {
+                "DownloadTimeoutSeconds": {
+                  "type": "integer",
+                  "format": "int32"
+                }
+              }
+            }
+          ]
         },
-        "Policies": {
-          "type": "object",
-          "properties": {
-            "Retries": { "type": "object" },
-            "Throttle": { "type": "object" },
-            "Checkpoints": { "type": "object" }
-          }
+        "WorkItemResolutionStrategyOptionsConfig": {
+          "allOf": [
+            {
+              "$ref": "#/definitions/WorkItemsModuleOptions/definitions/EnabledExtensionOptions"
+            },
+            {
+              "type": "object",
+              "properties": {
+                "Strategy": {
+                  "type": "string"
+                },
+                "FieldName": {
+                  "type": "string"
+                },
+                "UrlPattern": {
+                  "type": "string"
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
+    "FieldTransformOptions": {
+      "title": "FieldTransformOptions",
+      "type": "object",
+      "description": "Field transformation configuration for work item import",
+      "properties": {
+        "Enabled": {
+          "type": "boolean"
         },
-        "Modules": {
+        "TransformGroups": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/FieldTransformOptions/definitions/FieldTransformGroupOptions"
+          }
+        }
+      },
+      "definitions": {
+        "FieldTransformGroupOptions": {
           "type": "object",
           "properties": {
-            "WorkItems": {
-              "type": "object",
-              "description": "Work items export/import module configuration"
+            "Name": {
+              "type": [
+                "null",
+                "string"
+              ]
             },
-            "Teams": {
-              "type": "object",
-              "description": "Teams export/import module configuration"
+            "Enabled": {
+              "type": "boolean"
             },
-            "Nodes": {
-              "type": "object",
-              "description": "Classification nodes (area/iteration paths) module configuration"
+            "ApplyTo": {
+              "type": [
+                "array",
+                "null"
+              ],
+              "items": {
+                "type": "string"
+              }
             },
-            "Identities": {
-              "type": "object",
-              "description": "Identities export/import module configuration"
+            "Transforms": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/FieldTransformOptions/definitions/FieldTransformRuleOptions"
+              }
             }
           }
         },
-        "Tools": {
+        "FieldTransformRuleOptions": {
           "type": "object",
           "properties": {
-            "FieldTransform": {
-              "type": "object",
-              "description": "Field transformation configuration for work item import"
+            "Name": {
+              "type": [
+                "null",
+                "string"
+              ]
             },
-            "NodeTranslation": {
-              "type": "object",
-              "description": "Classification node path translation configuration"
+            "Type": {
+              "type": "string"
             },
-            "IdentityLookup": {
-              "type": "object",
-              "description": "Identity mapping and resolution configuration"
+            "Enabled": {
+              "type": "boolean"
+            },
+            "ApplyTo": {
+              "type": [
+                "array",
+                "null"
+              ],
+              "items": {
+                "type": "string"
+              }
+            },
+            "SourceField": {
+              "type": [
+                "null",
+                "string"
+              ]
+            },
+            "TargetField": {
+              "type": [
+                "null",
+                "string"
+              ]
+            },
+            "DefaultValue": {
+              "type": [
+                "null",
+                "string"
+              ]
+            },
+            "FieldMappings": {
+              "type": [
+                "null",
+                "object"
+              ],
+              "additionalProperties": {
+                "type": "string"
+              }
+            },
+            "Field": {
+              "type": [
+                "null",
+                "string"
+              ]
+            },
+            "Value": {
+              "type": [
+                "null",
+                "string"
+              ]
+            },
+            "ValueMap": {
+              "type": [
+                "null",
+                "object"
+              ],
+              "additionalProperties": {
+                "type": "string"
+              }
+            },
+            "SourceFields": {
+              "type": [
+                "array",
+                "null"
+              ],
+              "items": {
+                "type": "string"
+              }
+            },
+            "FormatString": {
+              "type": [
+                "null",
+                "string"
+              ]
+            },
+            "Expression": {
+              "type": [
+                "null",
+                "string"
+              ]
+            },
+            "Pattern": {
+              "type": [
+                "null",
+                "string"
+              ]
+            },
+            "Replacement": {
+              "type": [
+                "null",
+                "string"
+              ]
+            },
+            "Condition": {
+              "type": [
+                "null",
+                "string"
+              ]
+            },
+            "Tag": {
+              "type": [
+                "null",
+                "string"
+              ]
+            },
+            "TrueValue": {
+              "type": [
+                "null",
+                "string"
+              ]
+            },
+            "FalseValue": {
+              "type": [
+                "null",
+                "string"
+              ]
+            }
+          }
+        }
+      }
+    },
+    "NodeTranslationOptions": {
+      "title": "NodeTranslationOptions",
+      "type": "object",
+      "description": "Classification node path translation configuration",
+      "properties": {
+        "Enabled": {
+          "type": "boolean"
+        },
+        "AreaPathMappings": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/NodeTranslationOptions/definitions/NodeMapping"
+          }
+        },
+        "IterationPathMappings": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/NodeTranslationOptions/definitions/NodeMapping"
+          }
+        },
+        "AreaLanguageOverride": {
+          "type": [
+            "null",
+            "string"
+          ]
+        },
+        "IterationLanguageOverride": {
+          "type": [
+            "null",
+            "string"
+          ]
+        },
+        "AutoCreateNodes": {
+          "type": "boolean"
+        },
+        "SkipOnUnresolvableArea": {
+          "type": "boolean"
+        },
+        "SkipOnUnresolvableIteration": {
+          "type": "boolean"
+        }
+      },
+      "definitions": {
+        "NodeMapping": {
+          "type": "object",
+          "properties": {
+            "Match": {
+              "type": "string"
+            },
+            "Replacement": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "MigrationPackageOptions": {
+      "title": "MigrationPackageOptions",
+      "type": "object",
+      "description": "Package storage configuration",
+      "properties": {
+        "WorkingDirectory": {
+          "type": "string"
+        },
+        "ExpandedPath": {
+          "type": "string"
+        },
+        "CreatePackage": {
+          "type": "boolean"
+        },
+        "PackagePath": {
+          "type": [
+            "null",
+            "string"
+          ]
+        }
+      }
+    },
+    "MigrationPoliciesOptions": {
+      "title": "MigrationPoliciesOptions",
+      "type": "object",
+      "description": "Retry, throttle, and checkpoint policies",
+      "properties": {
+        "Retries": {
+          "$ref": "#/definitions/MigrationPoliciesOptions/definitions/MigrationRetriesOptions"
+        },
+        "Throttle": {
+          "$ref": "#/definitions/MigrationPoliciesOptions/definitions/MigrationThrottleOptions"
+        },
+        "Checkpoints": {
+          "$ref": "#/definitions/MigrationPoliciesOptions/definitions/MigrationCheckpointsOptions"
+        }
+      },
+      "definitions": {
+        "MigrationRetriesOptions": {
+          "type": "object",
+          "properties": {
+            "Max": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        },
+        "MigrationThrottleOptions": {
+          "type": "object",
+          "properties": {
+            "MaxConcurrency": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        },
+        "MigrationCheckpointsOptions": {
+          "type": "object",
+          "properties": {
+            "Interval": {
+              "type": "integer",
+              "format": "int32"
             }
           }
         }

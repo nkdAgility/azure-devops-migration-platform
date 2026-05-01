@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
@@ -107,14 +108,26 @@ public sealed class SchemaGeneratorHost
         List<SchemaOptionsEntry> entries,
         CancellationToken cancellationToken)
     {
+        // Permissive settings for individual type schemas — allOf inheritance in NJsonSchema
+        // combined with additionalProperties:false causes validation failures for inherited
+        // properties (e.g. MigrationEndpointOptions.Type appearing in a SimulatedEndpointOptions
+        // allOf child). Individual type schemas allow additional properties; the root schema
+        // enforces strict key validation at the MigrationPlatform level.
+        //
+        // JsonStringEnumConverter is included to match the runtime serialiser — enums are
+        // serialised as strings in config files (e.g. "Pat" not 1 for AuthenticationType).
         var settings = new SystemTextJsonSchemaGeneratorSettings
         {
             SchemaType = SchemaType.JsonSchema,
-            AlwaysAllowAdditionalObjectProperties = false,
-            DefaultReferenceTypeNullHandling = ReferenceTypeNullHandling.NotNull
+            AlwaysAllowAdditionalObjectProperties = true,
+            DefaultReferenceTypeNullHandling = ReferenceTypeNullHandling.NotNull,
+            SerializerOptions = new JsonSerializerOptions
+            {
+                Converters = { new JsonStringEnumConverter() }
+            }
         };
 
-        // Create root schema
+        // Create root schema — strict at root and MigrationPlatform level only
         var rootSchema = new JsonSchema
         {
             Type = JsonObjectType.Object,
@@ -151,7 +164,7 @@ public sealed class SchemaGeneratorHost
                         // Add to definitions and reference it
                         var defName = entry.OptionsType.Name;
                         rootSchema.Definitions[defName] = typeSchema;
-                        
+
                         currentSchema.Properties[part] = new JsonSchemaProperty
                         {
                             Reference = typeSchema
@@ -176,6 +189,33 @@ public sealed class SchemaGeneratorHost
             }
         }
 
+        // Ensure the MigrationPlatform node exists (created by the entries loop above)
+        // and add the scalar root properties: Mode and ConfigVersion.
+        if (rootSchema.Properties.TryGetValue("MigrationPlatform", out var platformProp))
+        {
+            var platformSchema = platformProp.ActualSchema;
+
+            // Mode — string enum for the four operation modes
+            if (!platformSchema.Properties.ContainsKey("Mode"))
+            {
+                var modeSchema = new JsonSchemaProperty { Type = JsonObjectType.String };
+                modeSchema.Enumeration.Add("Export");
+                modeSchema.Enumeration.Add("Import");
+                modeSchema.Enumeration.Add("Prepare");
+                modeSchema.Enumeration.Add("Migrate");
+                platformSchema.Properties["Mode"] = modeSchema;
+            }
+
+            // ConfigVersion — free-form string (e.g. "1.0")
+            if (!platformSchema.Properties.ContainsKey("ConfigVersion"))
+            {
+                platformSchema.Properties["ConfigVersion"] = new JsonSchemaProperty
+                {
+                    Type = JsonObjectType.String
+                };
+            }
+        }
+
         // Handle discriminated unions for source/target using EndpointOptionsTypeRegistry
         var registry = _serviceProvider.GetService<EndpointOptionsTypeRegistry>();
         if (registry != null)
@@ -192,77 +232,39 @@ public sealed class SchemaGeneratorHost
         JsonSchemaGeneratorSettings settings,
         CancellationToken cancellationToken)
     {
-        // Check if MigrationPlatform:Source exists in the schema tree
-        if (rootSchema.Properties.TryGetValue("MigrationPlatform", out var platformSchema))
+        if (!rootSchema.Properties.TryGetValue("MigrationPlatform", out var platformProp))
+            return;
+
+        var platformSchema = platformProp.ActualSchema;
+        var endpointTypes = GetRegisteredEndpointTypes(registry);
+        if (!endpointTypes.Any())
+            return;
+
+        // Build Source and Target as discriminated unions using oneOf.
+        // These are created here (not via SchemaOptionsEntry) because they are polymorphic —
+        // the concrete type is determined by the "Type" discriminator field.
+        foreach (var propertyName in new[] { "Source", "Target" })
         {
-            if (platformSchema.Properties.TryGetValue("Source", out var sourceSchema))
+            var unionSchema = new JsonSchemaProperty();
+
+            foreach (var (key, type) in endpointTypes)
             {
-                // Replace with oneOf discriminated union
-                var sourceOneOf = new List<JsonSchema>();
+                var generator = new JsonSchemaGenerator(settings);
+                var typeSchema = await Task.Run(() => generator.Generate(type), cancellationToken);
 
-                // Get all registered endpoint types
-                var endpointTypes = GetRegisteredEndpointTypes(registry);
-
-                foreach (var (key, type) in endpointTypes)
+                // Add or overwrite the "Type" discriminator as a const string
+                typeSchema.Properties["Type"] = new JsonSchemaProperty
                 {
-                    var generator = new JsonSchemaGenerator(settings);
-                    var typeSchema = await Task.Run(() => generator.Generate(type), cancellationToken);
-                    
-                    // Add discriminator constant
-                    var discriminatorProperty = new JsonSchemaProperty
-                    {
-                        Type = JsonObjectType.String,
-                        IsRequired = true
-                    };
-                    discriminatorProperty.Enumeration.Add(key);
-                    typeSchema.Properties["type"] = discriminatorProperty;
-                    
-                    sourceOneOf.Add(typeSchema);
-                }
+                    Type = JsonObjectType.String,
+                    IsRequired = true,
+                    Enumeration = { key }
+                };
 
-                if (sourceOneOf.Any())
-                {
-                    sourceSchema.OneOf.Clear();
-                    foreach (var schema in sourceOneOf)
-                    {
-                        sourceSchema.OneOf.Add(schema);
-                    }
-                }
+                unionSchema.OneOf.Add(typeSchema);
             }
 
-            if (platformSchema.Properties.TryGetValue("Target", out var targetSchema))
-            {
-                // Replace with oneOf discriminated union (same logic as Source)
-                var targetOneOf = new List<JsonSchema>();
-
-                var endpointTypes = GetRegisteredEndpointTypes(registry);
-
-                foreach (var (key, type) in endpointTypes)
-                {
-                    var generator = new JsonSchemaGenerator(settings);
-                    var typeSchema = await Task.Run(() => generator.Generate(type), cancellationToken);
-                    
-                    // Add discriminator constant
-                    var discriminatorProperty = new JsonSchemaProperty
-                    {
-                        Type = JsonObjectType.String,
-                        IsRequired = true
-                    };
-                    discriminatorProperty.Enumeration.Add(key);
-                    typeSchema.Properties["type"] = discriminatorProperty;
-                    
-                    targetOneOf.Add(typeSchema);
-                }
-
-                if (targetOneOf.Any())
-                {
-                    targetSchema.OneOf.Clear();
-                    foreach (var schema in targetOneOf)
-                    {
-                        targetSchema.OneOf.Add(schema);
-                    }
-                }
-            }
+            // Replace whatever was there (or create the property for the first time)
+            platformSchema.Properties[propertyName] = unionSchema;
         }
     }
 

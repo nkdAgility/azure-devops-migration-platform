@@ -1,5 +1,6 @@
 using System;
 using System.Threading.Tasks;
+using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Infrastructure;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Identity;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Modules;
@@ -9,6 +10,8 @@ using DevOpsMigrationPlatform.Infrastructure.Agent.Tools.IdentityLookup;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Tools.NodeTranslation;
 using DevOpsMigrationPlatform.Infrastructure.AzureDevOps;
 using DevOpsMigrationPlatform.Infrastructure.Simulated;
+using DevOpsMigrationPlatform.Infrastructure.Serialization;
+using DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.Options;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -45,6 +48,11 @@ public static class Program
         services.AddAzureDevOpsWorkItemExport();
         services.AddAzureDevOpsWorkItemImport();
 
+        // T019: Register TFS endpoint type for the discriminated union schema.
+        // TFS targets net481 only and cannot call AddSchemaEntry<T>() directly,
+        // so the endpoint type is registered here via EndpointOptionsTypeRegistry.
+        services.AddEndpointOptionsType("TeamFoundationServer", typeof(TeamFoundationServerEndpointOptions));
+
         // Register module services
         services.AddIdentitiesModule(builder.Configuration);
         services.AddNodesModule(builder.Configuration);
@@ -58,6 +66,12 @@ public static class Program
 
         // Register core infrastructure services (for EndpointOptionsTypeRegistry)
         services.AddMigrationPlatformPolymorphicSerializers();
+
+        // Register platform root schema entries — Package and Policies are flat options
+        // with known SectionName constants; Mode and ConfigVersion are added directly by
+        // SchemaGeneratorHost as explicit string properties on the MigrationPlatform node.
+        services.AddSchemaEntry<MigrationPackageOptions>("Package storage configuration");
+        services.AddSchemaEntry<MigrationPoliciesOptions>("Retry, throttle, and checkpoint policies");
 
         // Register logging
         services.AddLogging(logging =>
