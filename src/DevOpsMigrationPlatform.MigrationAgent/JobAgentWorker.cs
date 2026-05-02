@@ -88,26 +88,78 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
     protected override async Task OnJobAsync(
         Job job, HttpClient controlPlane, string leaseId, CancellationToken ct)
     {
-        switch (job.Kind)
+        // ── Shared preamble: package stores, config write, config load ────────
+        var (artefactStore, stateStore) = PackageStoreFactory.Create(
+            job.Package.PackageUri ?? ".");
+
+        PackageState.CurrentStore = artefactStore;
+
+        // Write config payload from the Job into the package before any config reads.
+        await WriteConfigPayloadAsync(job, artefactStore, ct).ConfigureAwait(false);
+
+        // Load migration-config.json so singleton services (ActiveJobSourceEndpointInfo,
+        // IOptions<T> bound from PackageConfig, etc.) resolve per-job values.
+        IConfiguration? packageConfig = null;
+        try
         {
-            case JobKind.Export:
-            case JobKind.Import:
-            case JobKind.Migrate:
-            case JobKind.Prepare:
-                await OnMigrationJobAsync(job, controlPlane, leaseId, ct).ConfigureAwait(false);
-                break;
-
-            case JobKind.Inventory:
-            case JobKind.Dependencies:
-                await OnDiscoveryJobAsync(job, controlPlane, leaseId, ct).ConfigureAwait(false);
-                break;
-
-            default:
-                _logger.LogError(
-                    "Unknown job kind {JobKind} for lease — failing job {JobId}.",
-                    job.Kind, job.JobId);
+            packageConfig = await PackageConfigStore.ReadAsync(artefactStore, ct).ConfigureAwait(false);
+            ActiveJobConfig.PackageConfig = packageConfig;
+        }
+        catch (PackageConfigNotFoundException ex)
+        {
+            if (job.Kind == JobKind.Prepare)
+            {
+                // Prepare jobs only write a probe file — config is not required.
+                _logger.LogDebug(ex, "Config not found for Prepare job {JobId} — proceeding without it.", job.JobId);
+            }
+            else
+            {
+                _logger.LogError(ex,
+                    "Config file not found in {PackageUri} for job {JobId}. Re-submit the job via CLI.",
+                    job.Package.PackageUri, job.JobId);
                 await SignalTerminalAsync(controlPlane, leaseId, "fail", ct).ConfigureAwait(false);
-                break;
+                ActiveJobConfig.Clear();
+                return;
+            }
+        }
+
+        // Signal to live clients that the agent has the job and is starting up.
+        ProgressSink.Emit(new ProgressEvent
+        {
+            Module = "Job",
+            Stage = "Job.Received",
+            Message = $"Job {job.JobId} acquired. Loading configuration.",
+            Timestamp = DateTimeOffset.UtcNow
+        });
+
+        // ── Dispatch to kind-specific handler ─────────────────────────────────
+        try
+        {
+            switch (job.Kind)
+            {
+                case JobKind.Export:
+                case JobKind.Import:
+                case JobKind.Migrate:
+                case JobKind.Prepare:
+                    await OnMigrationJobAsync(job, controlPlane, leaseId, artefactStore, stateStore, ct).ConfigureAwait(false);
+                    break;
+
+                case JobKind.Inventory:
+                case JobKind.Dependencies:
+                    await OnDiscoveryJobAsync(job, controlPlane, leaseId, artefactStore, stateStore, ct).ConfigureAwait(false);
+                    break;
+
+                default:
+                    _logger.LogError(
+                        "Unknown job kind {JobKind} for lease — failing job {JobId}.",
+                        job.Kind, job.JobId);
+                    await SignalTerminalAsync(controlPlane, leaseId, "fail", ct).ConfigureAwait(false);
+                    break;
+            }
+        }
+        finally
+        {
+            ActiveJobConfig.Clear();
         }
     }
 
@@ -202,25 +254,9 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
     }
 
     private async Task OnMigrationJobAsync(
-        Job job, HttpClient controlPlane, string leaseId, CancellationToken ct)
+        Job job, HttpClient controlPlane, string leaseId,
+        IArtefactStore artefactStore, IStateStore stateStore, CancellationToken ct)
     {
-        var (artefactStore, stateStore) = PackageStoreFactory.Create(
-            job.Package.PackageUri ?? ".");
-
-        PackageState.CurrentStore = artefactStore;
-
-        // Write config payload from the Job into the package before any config reads.
-        await WriteConfigPayloadAsync(job, artefactStore, ct).ConfigureAwait(false);
-
-        // Signal to live clients that the agent has the job and is starting up.
-        ProgressSink.Emit(new ProgressEvent
-        {
-            Module = "Job",
-            Stage = "Job.Received",
-            Message = $"Job {job.JobId} acquired. Loading configuration.",
-            Timestamp = DateTimeOffset.UtcNow
-        });
-
         // Prepare mode writes a probe file to validate connectivity.
         if (job.Kind == JobKind.Prepare)
         {
@@ -258,25 +294,10 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
             return;
         }
 
-        // Load migration-config.json from the package so modules can read Source/Target/Policies.
-        IConfiguration packageConfig;
-        try
-        {
-            packageConfig = await PackageConfigStore.ReadAsync(artefactStore, ct).ConfigureAwait(false);
-        }
-        catch (PackageConfigNotFoundException ex)
-        {
-            _logger.LogError(ex,
-                "Config file not found in {PackageUri}. Re-submit the job via CLI.",
-                job.Package.PackageUri);
-            await SignalTerminalAsync(controlPlane, leaseId, "fail", ct).ConfigureAwait(false);
-            ActiveJobConfig.Clear();
-            return;
-        }
+        // PackageConfig is already loaded by OnJobAsync — use it directly.
+        var packageConfig = ActiveJobConfig.PackageConfig!;
 
-        ActiveJobConfig.PackageConfig = packageConfig;
-
-        // Build the execution plan and push it to the Control Plane so clients can
+        // Build the execution planand push it to the Control Plane so clients can
         // see the ordered task list immediately via GET /jobs/{id}/bootstrap.
         JobTaskList executionPlan;
         try
@@ -292,16 +313,16 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
             // Handle ForceFresh BEFORE loading the plan — delete cursors, phase record, and plan file.
             if (job.Resume?.Mode == ResumeMode.ForceFresh)
             {
-                var checkpointer = CheckpointingFactory.Create(stateStore);
-                var phaseTracker = PhaseTrackingFactory.Create(stateStore);
+                var freshCheckpointer = CheckpointingFactory.Create(stateStore);
+                var freshPhaseTracker = PhaseTrackingFactory.Create(stateStore);
                 
                 _logger.LogInformation("ForceFresh requested for job {JobId} — deleting module cursors and plan file.", job.JobId);
                 foreach (var module in MigrationModules)
                 {
-                    await checkpointer.DeleteCursorAsync(module.Name, ct).ConfigureAwait(false);
+                    await freshCheckpointer.DeleteCursorAsync(module.Name, ct).ConfigureAwait(false);
                     _logger.LogDebug("Deleted cursor for module {Module}.", module.Name);
                 }
-                await phaseTracker.DeletePhaseRecordAsync(ct).ConfigureAwait(false);
+                await freshPhaseTracker.DeletePhaseRecordAsync(ct).ConfigureAwait(false);
 
                 // Delete the persisted plan file so a fresh plan is built.
                 try
@@ -362,7 +383,6 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
             // Fatal — plan build failure means we can't proceed.
             _logger.LogError(ex, "Failed to build or load execution plan for job {JobId}.", job.JobId);
             await SignalTerminalAsync(controlPlane, leaseId, "fail", ct).ConfigureAwait(false);
-            ActiveJobConfig.Clear();
             return;
         }
 
@@ -372,119 +392,105 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
         using var jobScope = _moduleScopeFactory.CreateScope();
         var jobModules = jobScope.ServiceProvider.GetServices<IModule>().ToList();
 
+        var checkpointer = CheckpointingFactory.Create(stateStore);
+        var phaseTracker = PhaseTrackingFactory.Create(stateStore);
+        
+        var exportContext = new ExportContext
+        {
+            Job = job,
+            ArtefactStore = artefactStore,
+            StateStore = stateStore,
+            ProgressSink = ProgressSink
+        };
+        var importContext = new ImportContext
+        {
+            Job = job,
+            ArtefactStore = artefactStore,
+            StateStore = stateStore,
+            ProgressSink = ProgressSink
+        };
+
+        var isBoth = job.Kind == JobKind.Migrate;
+        var phaseRecord = isBoth
+            ? await phaseTracker.ReadPhaseRecordAsync(ct).ConfigureAwait(false)
+            : new JobPhaseRecord();
+
+        var runExport = job.Kind == JobKind.Export || (isBoth && !phaseRecord.ExportCompleted);
+        var runImport = job.Kind == JobKind.Import || (isBoth && !phaseRecord.ImportCompleted);
+
+        if (isBoth && !runExport)
+            _logger.LogInformation("Export phase already completed for job {JobId} — skipping.", job.JobId);
+        if (isBoth && !runImport)
+            _logger.LogInformation("Import phase already completed for job {JobId} — skipping.", job.JobId);
+
+        // If PackagePath is set and we are about to import, extract the fixture into the
+        // package store via IPackagePreparer. This is storage-backend agnostic — works for
+        // FileSystem today and Azure Blob Storage in the future.
+        if (runImport)
+        {
+            await _packagePreparer.PrepareForImportAsync(artefactStore, packageConfig, ct)
+                .ConfigureAwait(false);
+        }
+
+        bool failed = false;
         try
         {
-            var checkpointer = CheckpointingFactory.Create(stateStore);
-            var phaseTracker = PhaseTrackingFactory.Create(stateStore);
-            
-            var exportContext = new ExportContext
+            if (runExport)
             {
-                Job = job,
-                ArtefactStore = artefactStore,
-                StateStore = stateStore,
-                ProgressSink = ProgressSink
-            };
-            var importContext = new ImportContext
-            {
-                Job = job,
-                ArtefactStore = artefactStore,
-                StateStore = stateStore,
-                ProgressSink = ProgressSink
-            };
+                // Execute export phase using the plan executor (includes Inventory if needed).
+                var moduleMap = jobModules.ToDictionary(m => m.Name, m => (IModule)m, StringComparer.OrdinalIgnoreCase);
+                var exportOk = await _planExecutor.ExecuteExportPhaseAsync(
+                    executionPlan, moduleMap, exportContext, stateStore, ct).ConfigureAwait(false);
 
-            var isBoth = job.Kind == JobKind.Migrate;
-            var phaseRecord = isBoth
-                ? await phaseTracker.ReadPhaseRecordAsync(ct).ConfigureAwait(false)
-                : new JobPhaseRecord();
+                failed = !exportOk;
 
-            var runExport = job.Kind == JobKind.Export || (isBoth && !phaseRecord.ExportCompleted);
-            var runImport = job.Kind == JobKind.Import || (isBoth && !phaseRecord.ImportCompleted);
+                if (isBoth && exportOk)
+                {
+                    await phaseTracker.WritePhaseRecordAsync(
+                        new JobPhaseRecord { ExportCompleted = true, ImportCompleted = phaseRecord.ImportCompleted, UpdatedAt = DateTimeOffset.UtcNow },
+                        ct).ConfigureAwait(false);
+                }
+            }
 
-            if (isBoth && !runExport)
-                _logger.LogInformation("Export phase already completed for job {JobId} — skipping.", job.JobId);
-            if (isBoth && !runImport)
-                _logger.LogInformation("Import phase already completed for job {JobId} — skipping.", job.JobId);
-
-            // If PackagePath is set and we are about to import, extract the fixture into the
-            // package store via IPackagePreparer. This is storage-backend agnostic — works for
-            // FileSystem today and Azure Blob Storage in the future.
             if (runImport)
             {
-                await _packagePreparer.PrepareForImportAsync(artefactStore, packageConfig, ct)
-                    .ConfigureAwait(false);
-            }
+                // Execute import phase using the plan executor.
+                var moduleMap = jobModules.ToDictionary(m => m.Name, m => (IModule)m, StringComparer.OrdinalIgnoreCase);
+                var importOk = await _planExecutor.ExecuteImportPhaseAsync(
+                    executionPlan, moduleMap, importContext, stateStore, ct).ConfigureAwait(false);
 
-            bool failed = false;
-            try
-            {
-                if (runExport)
+                failed = !importOk;
+
+                if (isBoth && importOk)
                 {
-                    // Execute export phase using the plan executor (includes Inventory if needed).
-                    var moduleMap = jobModules.ToDictionary(m => m.Name, m => (IModule)m, StringComparer.OrdinalIgnoreCase);
-                    var exportOk = await _planExecutor.ExecuteExportPhaseAsync(
-                        executionPlan, moduleMap, exportContext, stateStore, ct).ConfigureAwait(false);
-
-                    failed = !exportOk;
-
-                    if (isBoth && exportOk)
-                    {
-                        await phaseTracker.WritePhaseRecordAsync(
-                            new JobPhaseRecord { ExportCompleted = true, ImportCompleted = phaseRecord.ImportCompleted, UpdatedAt = DateTimeOffset.UtcNow },
-                            ct).ConfigureAwait(false);
-                    }
-                }
-
-                if (runImport)
-                {
-                    // Execute import phase using the plan executor.
-                    var moduleMap = jobModules.ToDictionary(m => m.Name, m => (IModule)m, StringComparer.OrdinalIgnoreCase);
-                    var importOk = await _planExecutor.ExecuteImportPhaseAsync(
-                        executionPlan, moduleMap, importContext, stateStore, ct).ConfigureAwait(false);
-
-                    failed = !importOk;
-
-                    if (isBoth && importOk)
-                    {
-                        await phaseTracker.WritePhaseRecordAsync(
-                            new JobPhaseRecord { ExportCompleted = true, ImportCompleted = true, UpdatedAt = DateTimeOffset.UtcNow },
-                            ct).ConfigureAwait(false);
-                    }
+                    await phaseTracker.WritePhaseRecordAsync(
+                        new JobPhaseRecord { ExportCompleted = true, ImportCompleted = true, UpdatedAt = DateTimeOffset.UtcNow },
+                        ct).ConfigureAwait(false);
                 }
             }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Job {JobId} failed during module execution.", job.JobId);
-                failed = true;
-            }
-
-            var terminal = failed ? "fail" : "complete";
-            // Flush buffered sinks (progress.jsonl, agent.jsonl) BEFORE signalling completion.
-            // The CLI kills this process as soon as it receives the terminal status from the
-            // control plane. OnPostJobFlushAsync (base class) runs AFTER SignalTerminalAsync,
-            // so without this pre-signal flush, async-batched sinks may never write their data.
-            foreach (var flushable in _flushables)
-                await flushable.FlushAsync().ConfigureAwait(false);
-            await SignalTerminalAsync(controlPlane, leaseId, terminal, ct).ConfigureAwait(false);
-        } // end outer try
-        finally
-        {
-            ActiveJobConfig.Clear();
         }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Job {JobId} failed during module execution.", job.JobId);
+            failed = true;
+        }
+
+        var terminal = failed ? "fail" : "complete";
+        // Flush buffered sinks (progress.jsonl, agent.jsonl) BEFORE signalling completion.
+        // The CLI kills this process as soon as it receives the terminal status from the
+        // control plane. OnPostJobFlushAsync (base class) runs AFTER SignalTerminalAsync,
+        // so without this pre-signal flush, async-batched sinks may never write their data.
+        foreach (var flushable in _flushables)
+            await flushable.FlushAsync().ConfigureAwait(false);
+        await SignalTerminalAsync(controlPlane, leaseId, terminal, ct).ConfigureAwait(false);
     }
 
     // ── Discovery execution ───────────────────────────────────────────────────
 
     private async Task OnDiscoveryJobAsync(
-        Job job, HttpClient controlPlane, string leaseId, CancellationToken ct)
+        Job job, HttpClient controlPlane, string leaseId,
+        IArtefactStore artefactStore, IStateStore stateStore, CancellationToken ct)
     {
-        var (artefactStore, stateStore) = PackageStoreFactory.Create(
-            job.Package.PackageUri ?? ".");
-
-        PackageState.CurrentStore = artefactStore;
-
-        // Write config payload from the Job into the package before any config reads.
-        await WriteConfigPayloadAsync(job, artefactStore, ct).ConfigureAwait(false);
-
         if (job.Resume?.Mode == ResumeMode.ForceFresh)
         {
             _logger.LogInformation(
