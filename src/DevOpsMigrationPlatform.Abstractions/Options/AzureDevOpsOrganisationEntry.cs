@@ -62,7 +62,7 @@ public sealed class AzureDevOpsOrganisationEntry : OrganisationEntry
             var resolved = Authentication.ResolvedAccessToken;
             if (string.IsNullOrWhiteSpace(resolved))
                 throw new System.InvalidOperationException(
-                    $"Config error: PAT for '{resolvedUrl}' resolved to an empty string. " +
+                    $"Config error: access token for '{resolvedUrl}' resolved to an empty string. " +
                     "Set 'authentication.accessToken' to a literal value or '$ENV:VARNAME'.");
         }
     }

@@ -7,7 +7,7 @@ using System.Text.RegularExpressions;
 namespace DevOpsMigrationPlatform.CLI.Migration.Configuration;
 
 /// <summary>
-/// Sanitizes exception messages to mask sensitive credentials (PAT tokens, basic auth, API keys, etc.)
+/// Sanitizes exception messages to mask sensitive credentials (access tokens, basic auth, API keys, etc.)
 /// before displaying them to users or logging them.
 /// Prevents accidental credential exposure in CLI output, logs, and error messages.
 /// </summary>

@@ -15,7 +15,7 @@ public enum MigrationErrorCategory
     Unknown = 0,
 
     /// <summary>
-    /// Authentication or authorization failure (invalid PAT, expired credentials, insufficient permissions).
+    /// Authentication or authorization failure (invalid access token, expired credentials, insufficient permissions).
     /// Exit code: 2 (do not retry - credentials are invalid or have expired).
     /// </summary>
     Authentication = 1,

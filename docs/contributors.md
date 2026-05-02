@@ -51,7 +51,7 @@ System tests for Azure DevOps functionality require the following environment va
 
 **For Local Development:**
 
-1. Create a Personal Access Token (PAT) in Azure DevOps:
+1. Create an access token (Personal Access Token) in Azure DevOps:
    - Go to Azure DevOps → User Settings → Personal Access Tokens
    - Create a new token with the following scopes:
      - **Project and Team**: Read
@@ -140,19 +140,19 @@ If system tests fail:
 
 1. **Check Environment Variables:**
    ```bash
-   # Verify variables are set (don't echo the PAT value)
+   # Verify variables are set (don't echo the access token value)
    echo "Org: $AZDEVOPS_SYSTEM_TEST_ORG"
-   echo "PAT set: $(if [ -n "$AZDEVOPS_SYSTEM_TEST_PAT" ]; then echo "Yes"; else echo "No"; fi)"
+   echo "Access token set: $(if [ -n "$AZDEVOPS_SYSTEM_TEST_PAT" ]; then echo "Yes"; else echo "No"; fi)"
    ```
 
 2. **Verify Token Permissions:**
-   - Ensure the PAT has the required scopes
+   - Ensure the access token has the required scopes
    - Test the token manually with Azure DevOps REST API
    - Check if the token has expired
 
 3. **Check Organization Access:**
    - Verify the organization name is correct
-   - Ensure the account associated with the PAT has access to the organization
+   - Ensure the account associated with the access token has access to the organization
 
 4. **Network Connectivity:**
    - Verify internet connectivity

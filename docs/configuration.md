@@ -217,7 +217,7 @@ Setting `enabled: false` only suppresses the discovery iteration for that organi
 }
 ```
 
-In this configuration, discovery runs only against `org1/MyProject`. Any cross-org links pointing at `org2` or `org3` are still resolved to their human-readable project names (rather than remaining as raw GUIDs), and are marked `Reachable` in the output CSV because credentials are present. If no PAT is provided for a disabled organisation, project GUIDs in that org cannot be resolved and the raw GUID is used as the project name in the output.
+In this configuration, discovery runs only against `org1/MyProject`. Any cross-org links pointing at `org2` or `org3` are still resolved to their human-readable project names (rather than remaining as raw GUIDs), and are marked `Reachable` in the output CSV because credentials are present. If no access token is provided for a disabled organisation, project GUIDs in that org cannot be resolved and the raw GUID is used as the project name in the output.
 
 ### Module Scopes and Extensions Pattern
 
@@ -634,11 +634,11 @@ Ready-to-run example configuration files live under `/scenarios/` at the reposit
 
 | File | Scenario |
 |---|---|
-| `inventory-ado-single-project.json` | Single Azure DevOps project inventory (PAT auth) |
-| `inventory-ado-multi-project.json` | Multi-project Azure DevOps inventory (PAT auth) |
+| `inventory-ado-single-project.json` | Single Azure DevOps project inventory (access token auth) |
+| `inventory-ado-multi-project.json` | Multi-project Azure DevOps inventory (access token auth) |
 | `inventory-tfs-windows-auth.json` | On-premises TFS inventory (Windows-integrated auth) |
-| `inventory-multi-org.json` | Multi-organisation inventory with per-org PAT tokens |
-| `queue-export-ado-workitems-single-project.json` | Export all work items from a single Azure DevOps project (PAT auth); inline comment fetching enabled by default |
+| `inventory-multi-org.json` | Multi-organisation inventory with per-org access tokens |
+| `queue-export-ado-workitems-single-project.json` | Export all work items from a single Azure DevOps project (access token auth); inline comment fetching enabled by default |
 | `queue-export-ado-workitems-inline-comments.json` | Export all work items with inline comment fetching explicitly disabled (`inlineComments.enabled: false`) for performance-sensitive runs |
 | `export-simulated.json` | Simulated source export (25,000 work items, no external connectivity required) |
 | `migrate-simulated.json` | Full simulated end-to-end migration — both source and target simulated (25,000 work items) |

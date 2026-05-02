@@ -270,7 +270,7 @@ internal sealed class AzureDevOpsDependencyAnalysisService : IWorkItemLinkAnalys
                     {
                         counters.CrossOrg++;
                         // Use credentials presence to determine reachability — no extra HTTP call needed.
-                        // Calling with the source PAT always yields AccessDenied against a foreign org.
+                        // Calling with the source access token always yields AccessDenied against a foreign org.
                         var targetStatus = configuredOrgs.ContainsKey(targetOrgSegment)
                             ? TargetStatus.Reachable
                             : TargetStatus.Unknown;
