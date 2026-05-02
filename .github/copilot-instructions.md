@@ -136,7 +136,7 @@ Reject any suggestion that:
     ```
   - **`DevOpsMigrationPlatform.Proprietary.*` assemblies** only:
     ```
-    // SPDX-License-Identifier: LicenseRef-NKD-Proprietary
+    // SPDX-License-Identifier: LicenseRef-NakedAgility-Separate
     // Copyright (c) NKD Agility Limited
     ```
 - Leaves any `Assert.Inconclusive()` in a test — `Inconclusive` is treated as a build-breaking error. Either implement the assertion or delete the test.

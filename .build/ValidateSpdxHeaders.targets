@@ -9,8 +9,8 @@
 
     Rules:
       • All assemblies default to:                AGPL-3.0-only
-      • DevOpsMigrationPlatform.Proprietary.*:    LicenseRef-NKD-Proprietary
-        → set <PackageLicenseExpression>LicenseRef-NKD-Proprietary</PackageLicenseExpression>
+      • DevOpsMigrationPlatform.Proprietary.*:    LicenseRef-NakedAgility-Separate
+        → set <PackageLicenseExpression>LicenseRef-NakedAgility-Separate</PackageLicenseExpression>
           in the individual .csproj to override the default.
 
     Disable per-project:    <SkipSpdxValidation>true</SkipSpdxValidation>
@@ -127,4 +127,3 @@
   </Target>
 
 </Project>
-

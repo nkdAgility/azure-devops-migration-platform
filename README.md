@@ -42,3 +42,11 @@ See [docs/architecture.md](docs/architecture.md) for the full architectural over
 Contributions are welcome through pull requests.
 
 All contributions must pass the configured GitHub Contributor Licence Agreement (CLA) check before they can be merged. See [CONTRIBUTING.md](CONTRIBUTING.md) for details.
+
+## Security
+
+Do not include secrets, PATs, SAS tokens, customer data, migration packages, logs, or `.migration` folders in issues or pull requests. See [SECURITY.md](SECURITY.md).
+
+## Licensing
+
+The platform core is licensed under AGPL-3.0-only. Optional add-in assemblies or separately distributed components may be provided by NKD Agility Limited under separate licence terms. See [NOTICE](NOTICE) and [LICENSE](LICENSE).

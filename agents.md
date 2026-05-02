@@ -288,7 +288,7 @@ Reject any proposal that:
     ```
   - **`DevOpsMigrationPlatform.Proprietary.*` assemblies** only:
     ```
-    // SPDX-License-Identifier: LicenseRef-NKD-Proprietary
+    // SPDX-License-Identifier: LicenseRef-NakedAgility-Separate
     // Copyright (c) NKD Agility Limited
     ```
 - Declares a task complete without running at least one scenario config (e.g. `scenarios/queue-export-ado-workitems-single-project.json`) via a `launch.json` debug profile and verifying observable output.
