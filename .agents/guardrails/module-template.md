@@ -23,12 +23,35 @@ Checklist for every new or modified module. All items mandatory unless marked op
 - Resume: skip folders ≤ cursor lexicographically. Resume incomplete stage.
 - First run: cursor absent → start from beginning.
 
-## 4. IModule Implementation
+## 4. IModule Implementation — Three-Layer Pattern
 
-- Implements `IModule` (or derived: `IExportModule`, `IImportModule`).
-- Properties: `Name`, `DependsOn` (explicit module dependencies).
-- Methods: `ValidateAsync`, `ExportAsync`, `PrepareAsync`, `ImportAsync`.
-- Constructor-injected: `IArtefactStore`, `IStateStore`, `IOptions<T>`, `ILogger<T>`, `IMigrationMetrics`, `IProgressSink` (optional), connector interfaces.
+All modules follow the mandatory **Module → Orchestrator → Service** pattern:
+
+```
+Module (thin wrapper: ~100–130 lines)
+  → Orchestrator (business logic: checkpointing, progress, metrics, enumeration, resume)
+    → Service / Source / Target (connector-specific SDK/API calls)
+```
+
+### Module Layer (thin wrapper)
+- Implements `IModule`.
+- Properties: `Name`, `DependsOn` (explicit module dependencies), `SupportsExport`, `SupportsImport`.
+- Guard checks: is module enabled? are required services registered?
+- Resolves config and endpoints, then delegates to the orchestrator.
+- Contains **no business logic** — only config resolution and null checks.
+- Constructor-injected: `IOptions<T>`, `ILogger<T>`, `ISourceEndpointInfo`, `ITargetEndpointInfo`, orchestrator interface, connector services.
+
+### Orchestrator Layer (business logic)
+- Interface declared in `Abstractions.Agent` (e.g. `INodesOrchestrator`, `ITeamsOrchestrator`).
+- Implementation is `internal sealed` in `Infrastructure.Agent`.
+- Registered as a singleton in DI (stateless between calls — all operation state passed via method parameters).
+- Handles: checkpointing (cursor read/write via `ICheckpointingServiceFactory`), progress events (`IProgressSink`), metrics (OTel `ActivitySource` + `IMigrationMetrics`), CSV/JSON writing, enumeration loops, resume logic.
+- Receives connector services as method parameters (not constructor-injected), so the same orchestrator can work with any connector.
+
+### Service Layer (external calls)
+- Connector-specific SDK/API calls behind abstraction interfaces (e.g. `ITeamSource`, `IIdentitySource`, `IClassificationTreeCapture`).
+- One implementation per connector (AzureDevOps, TFS, Simulated).
+- Injected into the module by DI, passed to the orchestrator at call time.
 
 ## 5. Validate
 
@@ -86,6 +109,8 @@ Module counter added to `MigrationCounters` → MUST have row in `QueueCommand.B
 ## 12. DI Wiring
 
 - Extension method: `AddXxxModuleServices(this IServiceCollection)`.
+- Register orchestrator as singleton: `services.AddSingleton<IXxxOrchestrator, XxxOrchestrator>();`
+- Register module as transient: `services.AddTransient<IModule, XxxModule>();`
 - Registered in host startup (Agent) and test harness.
 - No service locator. No static state. No ambient context.
 
@@ -94,6 +119,10 @@ Module counter added to `MigrationCounters` → MUST have row in `QueueCommand.B
 ## Quick Reject
 
 Reject module if:
+- Does not follow Module → Orchestrator → Service pattern.
+- Orchestrator interface missing from `Abstractions.Agent`.
+- Module contains business logic (checkpointing, enumeration, metrics) instead of delegating to orchestrator.
+- Orchestrator instantiated via `new` instead of DI injection.
 - Missing any of O-1..O-4.
 - Connector stub/placeholder remains.
 - Test asserts only "no exception" or `count >= 0`.
