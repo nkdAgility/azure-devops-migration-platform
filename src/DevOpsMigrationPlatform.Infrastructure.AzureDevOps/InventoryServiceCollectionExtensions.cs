@@ -33,6 +33,9 @@ public static class InventoryServiceCollectionExtensions
         services.AddSingleton<IRepoDiscoveryService, AzureDevOpsRepoDiscoveryService>();
         services.AddSingleton<IInventoryService, InventoryService>();
         services.AddSingleton<IInventoryServiceFactory, InventoryServiceFactory>();
+        // Keyed registration — resolves when connector type is "AzureDevOpsServices" or "TeamFoundationServer".
+        services.AddKeyedSingleton<IInventoryServiceFactory, InventoryServiceFactory>("AzureDevOpsServices");
+        services.AddKeyedSingleton<IInventoryServiceFactory, InventoryServiceFactory>("TeamFoundationServer");
         return services;
     }
 }

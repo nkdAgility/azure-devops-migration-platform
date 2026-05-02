@@ -1,7 +1,6 @@
 using System.Collections.Generic;
 using System.Threading;
 using DevOpsMigrationPlatform.Abstractions.Agent.Identity;
-using DevOpsMigrationPlatform.Abstractions.Options;
 
 namespace DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 
@@ -14,7 +13,6 @@ public interface IIdentitySource
     /// Enumerates all user and group identity descriptors for the given project.
     /// </summary>
     IAsyncEnumerable<IdentityDescriptor> EnumerateIdentitiesAsync(
-        MigrationEndpointOptions endpoint,
         string projectName,
         CancellationToken cancellationToken);
 }

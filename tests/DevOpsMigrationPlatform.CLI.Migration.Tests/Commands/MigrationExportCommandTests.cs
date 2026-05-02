@@ -37,18 +37,13 @@ public class MigrationExportCommandTests
             return;
         }
 
-        // ── Output folder ──────────────────────────────────────────
-        // WorkingDirectory uses %DEVOPS_MIGRATION_TEST_STORAGE% (expanded by env var below).
-        var outputDir = Path.Combine(CliRunner.FindRepoRoot(), "storage", nameof(MigrationExportCommand_SystemTest_AdoSingleProject_ExitsZero_AndWritesRevisionFiles));
-
-        if (Directory.Exists(outputDir))
-            Directory.Delete(outputDir, recursive: true);
-
-        // ── Act — run the CLI exactly as the launch profile does ──────────
-        var result = await CliRunner.RunAsync(
+        // ── Act — run the CLI exactly as the launch profile does ────────
+        var result = await CliRunner.RunTestAsync(
+            testName: nameof(MigrationExportCommand_SystemTest_AdoSingleProject_ExitsZero_AndWritesRevisionFiles),
             args: ["queue", "--config", "scenarios/queue-export-ado-workitems-single-project.json", "--force-fresh"],
-            env: new Dictionary<string, string> { ["DEVOPS_MIGRATION_TEST_STORAGE"] = Path.Combine("storage", nameof(MigrationExportCommand_SystemTest_AdoSingleProject_ExitsZero_AndWritesRevisionFiles)) },
-            timeout: TimeSpan.FromMinutes(18)); // generous — MSTest [Timeout] is the hard ceiling
+            timeout: TimeSpan.FromMinutes(18),
+            cleanOutputFolder: true);
+        var outputDir = result.OutputDirectory;
 
         // Always dump output so failures are diagnosable in test results.
         Console.WriteLine("=== STDOUT ===");
@@ -137,18 +132,13 @@ public class MigrationExportCommandTests
             return;
         }
 
-        // ── Output folder ──────────────────────────────────────────
-        // WorkingDirectory uses %DEVOPS_MIGRATION_TEST_STORAGE% (expanded by env var below).
-        var outputDir = Path.Combine(CliRunner.FindRepoRoot(), "storage", nameof(MigrationExportCommand_SystemTest_WorkItemComments_ExitsZero_AndWritesCommentFolders));
-
-        if (Directory.Exists(outputDir))
-            Directory.Delete(outputDir, recursive: true);
-
         // ── Act — run the CLI with comments and embedded images enabled ────
-        var result = await CliRunner.RunAsync(
+        var result = await CliRunner.RunTestAsync(
+            testName: nameof(MigrationExportCommand_SystemTest_WorkItemComments_ExitsZero_AndWritesCommentFolders),
             args: ["queue", "--config", "scenarios/queue-export-ado-workitems-single-project.json", "--force-fresh"],
-            env: new Dictionary<string, string> { ["DEVOPS_MIGRATION_TEST_STORAGE"] = Path.Combine("storage", nameof(MigrationExportCommand_SystemTest_WorkItemComments_ExitsZero_AndWritesCommentFolders)) },
-            timeout: TimeSpan.FromMinutes(18));
+            timeout: TimeSpan.FromMinutes(18),
+            cleanOutputFolder: true);
+        var outputDir = result.OutputDirectory;
 
         // Always dump output for diagnostics
         Console.WriteLine("=== STDOUT ===");

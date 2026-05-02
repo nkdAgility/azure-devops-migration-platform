@@ -1,6 +1,7 @@
 using System;
 using System.Linq;
 using System.Net.Http;
+using DevOpsMigrationPlatform.Abstractions.Agent.Context;
 using DevOpsMigrationPlatform.Abstractions.Agent.Export;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Abstractions.Options;
@@ -13,6 +14,7 @@ using DevOpsMigrationPlatform.Infrastructure.Agent.Export;
 using DevOpsMigrationPlatform.Infrastructure.Serialization;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Options;
 using Microsoft.TeamFoundation.WorkItemTracking.WebApi;
 using Polly;
 using Polly.Extensions.Http;
@@ -93,6 +95,8 @@ public static class ExportServiceCollectionExtensions
         services.AddHttpClient("AttachmentDownload")
             .AddPolicyHandler(GetAttachmentRetryPolicy());
 
+        services.AddAzureDevOpsEndpointInfo();
+
         return services;
     }
 
@@ -162,5 +166,60 @@ public static class ExportServiceCollectionExtensions
         services.AddOrganisationEntryType("AzureDevOpsServices", typeof(AzureDevOpsOrganisationEntry));
 
         return services;
+    }
+
+    /// <summary>
+    /// Registers <see cref="ISourceEndpointInfo"/> and <see cref="ITargetEndpointInfo"/> for the AzureDevOps connector.
+    /// Reads values from <see cref="IOptions{AzureDevOpsEndpointOptions}"/>.
+    /// Uses TryAddSingleton so the dynamic ActiveJobConfigState-backed implementations registered
+    /// by the MigrationAgent take precedence when both connectors are in the same host.
+    /// </summary>
+    private static IServiceCollection AddAzureDevOpsEndpointInfo(this IServiceCollection services)
+    {
+        // Source endpoint info — TryAdd so dynamic per-job impl takes precedence
+        services.TryAddSingleton<ISourceEndpointInfo>(sp =>
+        {
+            var opts = sp.GetRequiredService<IOptions<AzureDevOpsEndpointOptions>>().Value;
+            return new AzureDevOpsSourceEndpointInfo
+            {
+                Url = opts.GetResolvedUrl(),
+                Project = opts.GetProject(),
+                ConnectorType = "AzureDevOpsServices"
+            };
+        });
+
+        // Target endpoint info — TryAdd so dynamic per-job impl takes precedence
+        services.TryAddSingleton<ITargetEndpointInfo>(sp =>
+        {
+            var opts = sp.GetRequiredService<IOptions<AzureDevOpsEndpointOptions>>().Value;
+            return new AzureDevOpsTargetEndpointInfo
+            {
+                Url = opts.GetResolvedUrl(),
+                Project = opts.GetProject(),
+                ConnectorType = "AzureDevOpsServices"
+            };
+        });
+
+        return services;
+    }
+
+    /// <summary>
+    /// Inline implementation of <see cref="ISourceEndpointInfo"/> for AzureDevOps connector.
+    /// </summary>
+    private sealed record AzureDevOpsSourceEndpointInfo : ISourceEndpointInfo
+    {
+        public required string Url { get; init; }
+        public required string Project { get; init; }
+        public required string ConnectorType { get; init; }
+    }
+
+    /// <summary>
+    /// Inline implementation of <see cref="ITargetEndpointInfo"/> for AzureDevOps connector.
+    /// </summary>
+    private sealed record AzureDevOpsTargetEndpointInfo : ITargetEndpointInfo
+    {
+        public required string Url { get; init; }
+        public required string Project { get; init; }
+        public required string ConnectorType { get; init; }
     }
 }

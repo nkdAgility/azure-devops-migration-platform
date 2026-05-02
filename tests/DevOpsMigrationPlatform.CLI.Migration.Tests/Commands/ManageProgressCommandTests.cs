@@ -37,13 +37,14 @@ public class ManageProgressCommandTests
         {
             ["MigrationPlatform__Environment__Type"] = "Hosted",
             ["MigrationPlatform__Environment__ControlPlane__BaseUrl"] = ControlPlaneHostRunner.DefaultUrl,
-            ["DEVOPS_MIGRATION_TEST_STORAGE"] = Path.Combine("storage", nameof(ManageProgressCommand_SystemTest_AfterExport_ExitsZero_AndShowsProgressEvents)),
         };
 
-        var exportResult = await CliRunner.RunAsync(
+        var exportResult = await CliRunner.RunTestAsync(
+            testName: nameof(ManageProgressCommand_SystemTest_AfterExport_ExitsZero_AndShowsProgressEvents),
             args: ["queue", "--config", "scenarios/queue-export-workitems-simulated-source.json", "--force-fresh"],
             env: hostedEnv,
-            timeout: TimeSpan.FromMinutes(2));
+            timeout: TimeSpan.FromMinutes(2),
+            cleanOutputFolder: true);
 
         Console.WriteLine("=== EXPORT STDOUT ===");
         Console.WriteLine(exportResult.StandardOutput);

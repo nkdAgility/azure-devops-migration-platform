@@ -1,4 +1,4 @@
-﻿using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
+using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Abstractions.Options;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Moq;
@@ -50,7 +50,7 @@ public class AutoCreateNodesSteps
     public void GivenNodeDoesNotExist(string path)
     {
         _ctx.NodeCreatorMock.Setup(c => c.NodeExistsAsync(
-            ClassificationNodeType.Area, path, It.IsAny<MigrationEndpointOptions>(), It.IsAny<CancellationToken>()))
+            ClassificationNodeType.Area, path, It.IsAny<CancellationToken>()))
             .ReturnsAsync(false);
     }
 
@@ -58,7 +58,7 @@ public class AutoCreateNodesSteps
     public void GivenNodeAlreadyExists(string path)
     {
         _ctx.NodeCreatorMock.Setup(c => c.NodeExistsAsync(
-            ClassificationNodeType.Area, path, It.IsAny<MigrationEndpointOptions>(), It.IsAny<CancellationToken>()))
+            ClassificationNodeType.Area, path, It.IsAny<CancellationToken>()))
             .ReturnsAsync(true);
     }
 
@@ -76,7 +76,7 @@ public class AutoCreateNodesSteps
 
         var ensurer = _ctx.BuildEnsurer();
         var context = new ProjectMapping("SourceProject", "TargetProject");
-        await ensurer.EnsureReferencedPathsAsync(context, new SimulatedEndpointOptions(), _ctx.ArtefactStoreMock.Object, CancellationToken.None);
+        await ensurer.EnsureReferencedPathsAsync(context, _ctx.ArtefactStoreMock.Object, CancellationToken.None);
     }
 
     [Then(@"the area node ""(.*)"" is created in the target")]
@@ -85,7 +85,6 @@ public class AutoCreateNodesSteps
         _ctx.NodeCreatorMock.Verify(c => c.EnsureExistsAsync(
             ClassificationNodeType.Area,
             It.IsAny<string>(),
-            It.IsAny<MigrationEndpointOptions>(),
             It.IsAny<CancellationToken>()), Times.AtLeastOnce);
     }
 
@@ -95,7 +94,6 @@ public class AutoCreateNodesSteps
         _ctx.NodeCreatorMock.Verify(c => c.EnsureExistsAsync(
             ClassificationNodeType.Area,
             It.IsAny<string>(),
-            It.IsAny<MigrationEndpointOptions>(),
             It.IsAny<CancellationToken>()), Times.Once);
     }
 
@@ -105,7 +103,6 @@ public class AutoCreateNodesSteps
         _ctx.NodeCreatorMock.Verify(c => c.EnsureExistsAsync(
             It.IsAny<ClassificationNodeType>(),
             It.IsAny<string>(),
-            It.IsAny<MigrationEndpointOptions>(),
             It.IsAny<CancellationToken>()), Times.Never);
     }
 }

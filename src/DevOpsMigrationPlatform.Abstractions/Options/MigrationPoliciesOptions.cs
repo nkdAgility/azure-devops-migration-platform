@@ -4,7 +4,17 @@ namespace DevOpsMigrationPlatform.Abstractions.Options;
 
 /// <summary>Retry, throttle, and checkpoint policy options.</summary>
 public class MigrationPoliciesOptions
+#if NET7_0_OR_GREATER
+    : IConfigSection
+#endif
 {
+#if NET7_0_OR_GREATER
+    /// <summary>
+    /// The canonical config section path for policies options.
+    /// </summary>
+    public static string SectionName => "MigrationPlatform:Policies";
+#endif
+
     /// <summary>Retry policy settings.</summary>
     public MigrationRetriesOptions Retries { get; set; } = new();
 

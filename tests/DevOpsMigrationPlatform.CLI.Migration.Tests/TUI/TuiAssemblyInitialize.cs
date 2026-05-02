@@ -1,4 +1,5 @@
 using System.IO;
+using DevOpsMigrationPlatform.CLI.Migration.Tests.TestUtilities;
 using Reqnroll;
 using Terminal.Gui;
 
@@ -37,8 +38,8 @@ public static class TuiAssemblyInitialize
     /// </summary>
     private static void CleanStorageFolder()
     {
-        var repoRoot = TestUtilities.CliRunner.FindRepoRoot();
-        var storageDir = Path.Combine(repoRoot, "storage");
+        var repoRoot = CliRunner.FindRepoRoot();
+        var storageDir = Path.Combine(repoRoot, CliRunner.TestWorkingFolder);
         if (!Directory.Exists(storageDir))
             return;
 

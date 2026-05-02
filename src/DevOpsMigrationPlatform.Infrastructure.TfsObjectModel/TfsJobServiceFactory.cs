@@ -1,8 +1,10 @@
 using System;
 using System.Threading;
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Agent.Context;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Abstractions.Options;
+using DevOpsMigrationPlatform.Abstractions.Organisations;
 using DevOpsMigrationPlatform.Abstractions.Telemetry;
 using DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.Attachments;
 using DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.Discovery;
@@ -102,9 +104,17 @@ public sealed class TfsJobServiceFactory : ITfsJobServiceFactory, IDisposable
             attachmentRegistry,
             _loggerFactory.CreateLogger<TfsAttachmentBinarySource>());
 
+        var endpointInfo = new SourceEndpointInfo
+        {
+            Url = tfsEndpoint.ResolvedUrl,
+            Project = project,
+            ConnectorType = "TeamFoundationServer"
+        };
+
         var classificationTreeReader = new TfsClassificationTreeReader(
             collection,
-            _loggerFactory.CreateLogger<TfsClassificationTreeReader>());
+            _loggerFactory.CreateLogger<TfsClassificationTreeReader>(),
+            endpointInfo);
 
         var discoveryService = new TfsObjectModelWorkItemDiscoveryService(
             workItemStore,
@@ -189,4 +199,18 @@ public sealed class TfsJobServices : IDisposable
     {
         _collection.Dispose();
     }
+}
+
+/// <summary>
+/// Simple implementation of ISourceEndpointInfo for TFS jobs.
+/// </summary>
+internal sealed class SourceEndpointInfo : ISourceEndpointInfo
+{
+    public string Url { get; init; } = string.Empty;
+    public string Project { get; init; } = string.Empty;
+    public string ConnectorType { get; init; } = string.Empty;
+
+    // TFS uses its own SDK for auth — return a minimal endpoint for compatibility.
+    public OrganisationEndpoint ToOrganisationEndpoint() =>
+        new OrganisationEndpoint { ResolvedUrl = Url, Type = ConnectorType };
 }

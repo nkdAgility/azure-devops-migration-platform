@@ -23,4 +23,10 @@ public record JobBootstrap
     /// Zero if no events have been emitted yet.
     /// </summary>
     public long LastEventSequence { get; init; }
+
+    /// <summary>
+    /// The agent's execution plan pushed at job start.
+    /// Null if the agent has not yet pushed a task list.
+    /// </summary>
+    public JobTaskList? Tasks { get; init; }
 }

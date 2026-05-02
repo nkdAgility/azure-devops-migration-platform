@@ -10,6 +10,7 @@ using DevOpsMigrationPlatform.Abstractions.Agent.Checkpointing;
 using DevOpsMigrationPlatform.Abstractions.Agent.Discovery;
 using DevOpsMigrationPlatform.Abstractions.Agent.Export;
 using DevOpsMigrationPlatform.Abstractions.Agent.Lease;
+using DevOpsMigrationPlatform.Infrastructure.Agent.Context;
 using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
 using DevOpsMigrationPlatform.Abstractions.Agent.Telemetry;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
@@ -153,7 +154,7 @@ public class TfsJobAgentWorkerTests
             _progressSink.Object,
             _leaseState,
             _packageState,
-            new ActiveJobConfigState(),
+            new JobConfiguration(),
             _packageConfigStore.Object,
             sp.GetRequiredService<Microsoft.Extensions.DependencyInjection.IServiceScopeFactory>(),
             _httpClientFactory.Object,
@@ -246,10 +247,10 @@ public class TfsJobAgentWorkerTests
         var mockAttachmentSource = new Mock<IAttachmentBinarySource>();
         var mockTreeReader = new Mock<IClassificationTreeReader>();
         mockTreeReader
-            .Setup(r => r.EnumerateAreaNodesAsync(It.IsAny<MigrationEndpointOptions>(), It.IsAny<CancellationToken>()))
+            .Setup(r => r.EnumerateAreaNodesAsync(It.IsAny<CancellationToken>()))
             .Returns(EmptyAsyncEnumerable<string>());
         mockTreeReader
-            .Setup(r => r.EnumerateIterationNodesAsync(It.IsAny<MigrationEndpointOptions>(), It.IsAny<CancellationToken>()))
+            .Setup(r => r.EnumerateIterationNodesAsync(It.IsAny<CancellationToken>()))
             .Returns(EmptyAsyncEnumerable<IterationNodeEntry>());
 
         var mockDiscovery = new Mock<IWorkItemDiscoveryService>();
@@ -311,10 +312,10 @@ public class TfsJobAgentWorkerTests
 
         var mockTreeReader = new Mock<IClassificationTreeReader>();
         mockTreeReader
-            .Setup(r => r.EnumerateAreaNodesAsync(It.IsAny<MigrationEndpointOptions>(), It.IsAny<CancellationToken>()))
+            .Setup(r => r.EnumerateAreaNodesAsync(It.IsAny<CancellationToken>()))
             .Returns(EmptyAsyncEnumerable<string>());
         mockTreeReader
-            .Setup(r => r.EnumerateIterationNodesAsync(It.IsAny<MigrationEndpointOptions>(), It.IsAny<CancellationToken>()))
+            .Setup(r => r.EnumerateIterationNodesAsync(It.IsAny<CancellationToken>()))
             .Returns(EmptyAsyncEnumerable<IterationNodeEntry>());
 
         var tfsServices = TestTfsJobServicesFactory.Create(
@@ -338,7 +339,7 @@ public class TfsJobAgentWorkerTests
         // Provide a named module so ForceFresh has a cursor to delete.
         var moduleA = new Mock<DevOpsMigrationPlatform.Abstractions.Agent.Modules.IModule>();
         moduleA.Setup(m => m.Name).Returns("WorkItems");
-        moduleA.Setup(m => m.DependsOn).Returns(System.Array.Empty<string>());
+        moduleA.Setup(m => m.DependsOn).Returns(System.Array.Empty<DevOpsMigrationPlatform.Abstractions.Agent.Modules.ModuleDependency>());
         moduleA.Setup(m => m.ExportAsync(It.IsAny<ExportContext>(), It.IsAny<CancellationToken>()))
                .Returns(Task.CompletedTask);
 

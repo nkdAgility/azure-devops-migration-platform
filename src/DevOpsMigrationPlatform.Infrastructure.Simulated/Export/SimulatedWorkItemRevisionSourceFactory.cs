@@ -1,35 +1,37 @@
 using System;
-using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Agent.Context;
 using DevOpsMigrationPlatform.Abstractions.Options;
+using Microsoft.Extensions.Configuration;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Simulated.Export;
 
 /// <summary>
 /// Creates a <see cref="SimulatedWorkItemRevisionSource"/> for endpoints with
 /// <c>Type == "Simulated"</c>. No credentials are required.
-/// Accepts <see cref="SimulatedEndpointOptions"/> carrying the generator config.
+/// Reads the <see cref="SimulatedGeneratorConfig"/> from the current job's Source
+/// via <see cref="ActiveJobConfigState.PackageConfig"/> so that the Generator (including Projects)
+/// always reflects the per-job migration-config.json rather than a stale singleton value.
 /// </summary>
 public sealed class SimulatedWorkItemRevisionSourceFactory : IWorkItemRevisionSourceFactory
 {
-    /// <inheritdoc/>
-    public Task<IWorkItemRevisionSource> CreateAsync(
-        MigrationEndpointOptions endpoint,
-        CancellationToken cancellationToken)
+    private readonly IJobConfiguration _activeJobConfig;
+
+    public SimulatedWorkItemRevisionSourceFactory(IJobConfiguration activeJobConfig)
     {
-        if (endpoint is null)
-            throw new ArgumentNullException(nameof(endpoint));
+        _activeJobConfig = activeJobConfig ?? throw new ArgumentNullException(nameof(activeJobConfig));
+    }
 
-        if (endpoint is not SimulatedEndpointOptions simOpts)
-        {
-            throw new ArgumentException(
-                $"Expected {nameof(SimulatedEndpointOptions)} but received {endpoint.GetType().Name}.",
-                nameof(endpoint));
-        }
-
+    /// <inheritdoc/>
+    public Task<IWorkItemRevisionSource> CreateAsync(CancellationToken cancellationToken)
+    {
+        var generator = new SimulatedGeneratorConfig();
+        _activeJobConfig.PackageConfig?
+            .GetSection("MigrationPlatform:Source:Generator")
+            .Bind(generator);
         return Task.FromResult<IWorkItemRevisionSource>(
-            new SimulatedWorkItemRevisionSource(simOpts.Generator));
+            new SimulatedWorkItemRevisionSource(generator));
     }
 }

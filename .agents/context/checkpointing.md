@@ -96,8 +96,18 @@ Each module maintains its own cursor file under `.migration/Checkpoints/`:
 
 ```
 .migration/Checkpoints/
-  workitems.cursor.json
-  identities.cursor.json    ← cursor for IdentitiesModule export/import resume
+  workitems.cursor.json       ← WorkItemsModule export/import resume
+  identities.cursor.json      ← IdentitiesModule export/import resume
+  nodes.cursor.json           ← NodesModule import resume
+  teams.cursor.json           ← TeamsModule export/import resume
+  idmap.db                    ← SQLite work item and attachment ID map
+  agent.lock                  ← Exclusive write lock held by the agent during execution
+  prepare.complete.json       ← Marker written when Prepare completes; Import checks for this
+  export_progress.db          ← Per-WI export revision index (fast-forward resume, legacy)
+  <module>.continuation.json  ← BatchContinuationToken files for IWorkItemFetchService callers
+```
+
+`ForceFresh` mode (via `--force-fresh` CLI flag or `Job.Resume.Mode = ForceFresh`) deletes all cursor files and the `prepare.complete.json` marker before execution begins. `idmap.db` is preserved — identity mapping survives a fresh restart.
   nodes.cursor.json         ← cursor for NodesModule import resume
   teams.cursor.json         ← cursor for TeamsModule export/import resume
   permissions.cursor.json

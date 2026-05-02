@@ -7,10 +7,10 @@ using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Agent.Context;
 using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
 using DevOpsMigrationPlatform.Abstractions.Agent.Telemetry;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
-using DevOpsMigrationPlatform.Abstractions.Options;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
@@ -59,7 +59,6 @@ public sealed class NodeEnsurer : INodeEnsurer
     /// </summary>
     public async Task ReplicateSourceTreeAsync(
         ProjectMapping context,
-        MigrationEndpointOptions endpoint,
         IArtefactStore artefactStore,
         IStateStore stateStore,
         CancellationToken ct,
@@ -104,7 +103,7 @@ public sealed class NodeEnsurer : INodeEnsurer
 
                 try
                 {
-                    await _nodeCreator.EnsureExistsAsync(ClassificationNodeType.Area, targetPath, endpoint, ct).ConfigureAwait(false);
+                    await _nodeCreator.EnsureExistsAsync(ClassificationNodeType.Area, targetPath, ct).ConfigureAwait(false);
                 }
                 catch (Exception ex)
                 {
@@ -136,7 +135,7 @@ public sealed class NodeEnsurer : INodeEnsurer
 
                 try
                 {
-                    await _nodeCreator.EnsureExistsAsync(ClassificationNodeType.Iteration, targetPath, endpoint, ct).ConfigureAwait(false);
+                    await _nodeCreator.EnsureExistsAsync(ClassificationNodeType.Iteration, targetPath, ct).ConfigureAwait(false);
                 }
                 catch (Exception ex)
                 {
@@ -150,7 +149,7 @@ public sealed class NodeEnsurer : INodeEnsurer
                 {
                     try
                     {
-                        await _nodeCreator.SetIterationDatesAsync(targetPath, iterEntry.StartDate, iterEntry.FinishDate, endpoint, ct)
+                        await _nodeCreator.SetIterationDatesAsync(targetPath, iterEntry.StartDate, iterEntry.FinishDate, ct)
                             .ConfigureAwait(false);
                     }
                     catch (Exception ex)
@@ -190,7 +189,6 @@ public sealed class NodeEnsurer : INodeEnsurer
     /// </summary>
     public async Task EnsureReferencedPathsAsync(
         ProjectMapping context,
-        MigrationEndpointOptions endpoint,
         IArtefactStore artefactStore,
         CancellationToken ct,
         IMigrationMetrics? metrics = null,
@@ -226,7 +224,7 @@ public sealed class NodeEnsurer : INodeEnsurer
                 if (translated.TargetPath is null) continue;
                 try
                 {
-                    await _nodeCreator.EnsureExistsAsync(ClassificationNodeType.Area, translated.TargetPath, endpoint, ct).ConfigureAwait(false);
+                    await _nodeCreator.EnsureExistsAsync(ClassificationNodeType.Area, translated.TargetPath, ct).ConfigureAwait(false);
                     count++;
                     metrics?.RecordNodeImportPreCollectCount(tags);
                 }
@@ -244,7 +242,7 @@ public sealed class NodeEnsurer : INodeEnsurer
                 if (translated.TargetPath is null) continue;
                 try
                 {
-                    await _nodeCreator.EnsureExistsAsync(ClassificationNodeType.Iteration, translated.TargetPath, endpoint, ct).ConfigureAwait(false);
+                    await _nodeCreator.EnsureExistsAsync(ClassificationNodeType.Iteration, translated.TargetPath, ct).ConfigureAwait(false);
                     count++;
                     metrics?.RecordNodeImportPreCollectCount(tags);
                 }

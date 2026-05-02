@@ -61,5 +61,16 @@
     "[gherkin]": {
         "editor.tabSize": 2,
         "editor.insertSpaces": true
-    }
+    },
+    
+    // JSON schema mappings for migration configuration files
+    "json.schemas": [
+        {
+            "fileMatch": [
+                "**/migration*.json",
+                "**/migration-config.json"
+            ],
+            "url": "./src/DevOpsMigrationPlatform.CLI.Migration/migration.schema.json"
+        }
+    ]
 }

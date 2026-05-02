@@ -3,8 +3,10 @@ using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
+using DevOpsMigrationPlatform.Abstractions.Agent.Context;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Abstractions.Options;
+using DevOpsMigrationPlatform.Abstractions.Organisations;
 using Microsoft.Extensions.Logging;
 using Microsoft.TeamFoundation.WorkItemTracking.WebApi.Models;
 
@@ -17,23 +19,25 @@ namespace DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Export;
 internal sealed class AzureDevOpsClassificationTreeReader : IClassificationTreeReader
 {
     private readonly IAzureDevOpsClientFactory _clientFactory;
+    private readonly ISourceEndpointInfo _sourceEndpointInfo;
     private readonly ILogger<AzureDevOpsClassificationTreeReader> _logger;
 
     public AzureDevOpsClassificationTreeReader(
         IAzureDevOpsClientFactory clientFactory,
+        ISourceEndpointInfo sourceEndpointInfo,
         ILogger<AzureDevOpsClassificationTreeReader> logger)
     {
         _clientFactory = clientFactory ?? throw new ArgumentNullException(nameof(clientFactory));
+        _sourceEndpointInfo = sourceEndpointInfo ?? throw new ArgumentNullException(nameof(sourceEndpointInfo));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
     /// <inheritdoc/>
     public async IAsyncEnumerable<string> EnumerateAreaNodesAsync(
-        MigrationEndpointOptions endpoint,
         [EnumeratorCancellation] CancellationToken ct)
     {
-        var project = endpoint.GetProject();
-        var orgEndpoint = endpoint.ToOrganisationEndpoint();
+        var project = _sourceEndpointInfo.Project;
+        var orgEndpoint = _sourceEndpointInfo.ToOrganisationEndpoint();
         var client = await _clientFactory.CreateWorkItemClientAsync(orgEndpoint, ct).ConfigureAwait(false);
 
         WorkItemClassificationNode root;
@@ -55,11 +59,10 @@ internal sealed class AzureDevOpsClassificationTreeReader : IClassificationTreeR
 
     /// <inheritdoc/>
     public async IAsyncEnumerable<IterationNodeEntry> EnumerateIterationNodesAsync(
-        MigrationEndpointOptions endpoint,
         [EnumeratorCancellation] CancellationToken ct)
     {
-        var project = endpoint.GetProject();
-        var orgEndpoint = endpoint.ToOrganisationEndpoint();
+        var project = _sourceEndpointInfo.Project;
+        var orgEndpoint = _sourceEndpointInfo.ToOrganisationEndpoint();
         var client = await _clientFactory.CreateWorkItemClientAsync(orgEndpoint, ct).ConfigureAwait(false);
 
         WorkItemClassificationNode root;

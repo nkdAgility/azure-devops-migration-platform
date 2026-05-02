@@ -1,11 +1,13 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Net.Http;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Agent.Context;
 using DevOpsMigrationPlatform.Abstractions.Agent.Checkpointing;
 using DevOpsMigrationPlatform.Abstractions.Agent.Discovery;
 using DevOpsMigrationPlatform.Abstractions.Agent.Export;
@@ -14,6 +16,7 @@ using DevOpsMigrationPlatform.Abstractions.Agent.Modules;
 using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
 using DevOpsMigrationPlatform.Abstractions.Agent.Telemetry;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
+using DevOpsMigrationPlatform.Abstractions.ControlPlaneApi;
 using DevOpsMigrationPlatform.Abstractions.Jobs;
 using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Abstractions.Organisations;
@@ -45,6 +48,9 @@ public sealed class TfsJobAgentWorker : ModulePipelineWorkerBase
 
     // Per-job TFS connection — set in OnBeforeModulesAsync, cleared in OnAfterModulesAsync.
     private TfsJobServices? _currentTfsServices;
+    
+    // Package URI for the current job — set in OnBeforeModulesAsync, used in OnAfterModulesAsync.
+    private string? _currentPackageUri;
 
     public TfsJobAgentWorker(
         IEnumerable<IModule> migrationModules,
@@ -52,7 +58,7 @@ public sealed class TfsJobAgentWorker : ModulePipelineWorkerBase
         IProgressSink progressSink,
         ActiveLeaseState leaseState,
         ActivePackageState packageState,
-        ActiveJobConfigState activeJobConfig,
+        IJobConfiguration activeJobConfig,
         IPackageConfigStore packageConfigStore,
         IServiceScopeFactory moduleScopeFactory,
         IHttpClientFactory httpClientFactory,
@@ -119,7 +125,7 @@ public sealed class TfsJobAgentWorker : ModulePipelineWorkerBase
     }
 
     /// <inheritdoc/>
-    protected override Task OnBeforeModulesAsync(Job job, CancellationToken ct)
+    protected override async Task OnBeforeModulesAsync(Job job, CancellationToken ct)
     {
         // Bind the concrete TFS source endpoint from the raw IConfiguration stored in the
         // ambient state (IConfiguration.Bind cannot instantiate abstract MigrationEndpointOptions).
@@ -129,16 +135,9 @@ public sealed class TfsJobAgentWorker : ModulePipelineWorkerBase
         if (section != null && section.Exists() && !string.IsNullOrEmpty(section["Url"]))
             source = BindTfsSource(section);
 
-        source ??= (ActiveJobConfig.Current?.Source as TeamFoundationServerEndpointOptions);
-
         if (source == null || string.IsNullOrEmpty(source.Url))
             throw new InvalidOperationException(
                 $"Job {job.JobId}: migration-config.json has no Source endpoint. Cannot establish TFS connection.");
-
-        // Make the concrete source available on the ambient MigrationOptions so modules
-        // that read _activeJobConfig?.Current?.Source get the correct endpoint.
-        if (ActiveJobConfig.Current != null)
-            ActiveJobConfig.Current.Source = source;
 
         _logger.LogInformation(
             "Connecting to TFS for job {JobId} at {Url}/{Project}.",
@@ -146,7 +145,12 @@ public sealed class TfsJobAgentWorker : ModulePipelineWorkerBase
 
         _currentTfsServices = _tfsServiceFactory.CreateForEndpoint(source);
         _activeTfsJobServices.Current = _currentTfsServices;
-        return Task.CompletedTask;
+        _currentPackageUri = job.Package.PackageUri ?? ".";
+
+        // Update plan file to mark TFS export task as Running (best-effort).
+        var (_, stateStore) = PackageStoreFactory.Create(_currentPackageUri);
+        await UpdatePlanTaskStatusAsync(stateStore, "export.workitems", JobTaskStatus.Running, ct)
+            .ConfigureAwait(false);
     }
 
     private static TeamFoundationServerEndpointOptions BindTfsSource(IConfiguration section)
@@ -157,12 +161,75 @@ public sealed class TfsJobAgentWorker : ModulePipelineWorkerBase
     }
 
     /// <inheritdoc/>
-    protected override Task OnAfterModulesAsync(CancellationToken ct)
+    protected override async Task OnAfterModulesAsync(CancellationToken ct)
     {
         _activeTfsJobServices.Clear();
         _currentTfsServices?.Dispose();
         _currentTfsServices = null;
-        return Task.CompletedTask;
+
+        // Update plan file to mark TFS export task as Completed (best-effort).
+        // If the job failed, the status remains Failed (set in the exception handler).
+        if (_currentPackageUri != null)
+        {
+            var (_, stateStore) = PackageStoreFactory.Create(_currentPackageUri);
+            await UpdatePlanTaskStatusAsync(stateStore, "export.workitems", JobTaskStatus.Completed, ct)
+                .ConfigureAwait(false);
+            _currentPackageUri = null;
+        }
+    }
+
+    /// <summary>
+    /// Updates the task status in the persisted plan file.
+    /// Best-effort — logs warnings on failure but does not throw.
+    /// </summary>
+    private async Task UpdatePlanTaskStatusAsync(
+        IStateStore stateStore,
+        string taskId,
+        JobTaskStatus newStatus,
+        CancellationToken ct)
+    {
+        try
+        {
+            var json = await stateStore.ReadAsync(PackagePaths.PlanFile, ct).ConfigureAwait(false);
+            if (json == null)
+            {
+                _logger.LogDebug("No plan file found at {Path} — skipping TFS task status update.", PackagePaths.PlanFile);
+                return;
+            }
+
+            var plan = JsonSerializer.Deserialize<JobTaskList>(json);
+            if (plan == null)
+                return;
+
+            var taskList = plan.Tasks.ToList();
+            var idx = taskList.FindIndex(t => t.Id.Equals(taskId, StringComparison.OrdinalIgnoreCase));
+            if (idx < 0)
+            {
+                _logger.LogDebug("Task {TaskId} not found in plan — skipping status update.", taskId);
+                return;
+            }
+
+            var updated = taskList[idx] with
+            {
+                Status = newStatus,
+                StartedAt = newStatus == JobTaskStatus.Running ? DateTimeOffset.UtcNow : taskList[idx].StartedAt,
+                CompletedAt = newStatus == JobTaskStatus.Completed || newStatus == JobTaskStatus.Failed
+                    ? DateTimeOffset.UtcNow
+                    : taskList[idx].CompletedAt
+            };
+
+            taskList[idx] = updated;
+            plan = plan with { Tasks = taskList.AsReadOnly() };
+
+            var updatedJson = JsonSerializer.Serialize(plan);
+            await stateStore.WriteAsync(PackagePaths.PlanFile, updatedJson, ct).ConfigureAwait(false);
+
+            _logger.LogDebug("Updated TFS task {TaskId} to {Status} in plan file.", taskId, newStatus);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to update TFS task status in plan file — job will continue.");
+        }
     }
 
     // ── Discovery execution ───────────────────────────────────────────────────

@@ -7,6 +7,7 @@ using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Agent.Context;
 using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
 using DevOpsMigrationPlatform.Abstractions.Agent.Teams;
 using DevOpsMigrationPlatform.Abstractions.Agent.Telemetry;
@@ -34,14 +35,17 @@ public sealed class TeamExportOrchestrator
     private readonly ITeamSource _teamSource;
     private readonly IReferencedPathTracker? _referencedPathTracker;
     private readonly ILogger<TeamExportOrchestrator> _logger;
+    private readonly ISourceEndpointInfo _endpointInfo;
 
     public TeamExportOrchestrator(
         ITeamSource teamSource,
         ILogger<TeamExportOrchestrator> logger,
+        ISourceEndpointInfo endpointInfo,
         IReferencedPathTracker? referencedPathTracker = null)
     {
         _teamSource = teamSource ?? throw new ArgumentNullException(nameof(teamSource));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        _endpointInfo = endpointInfo ?? throw new ArgumentNullException(nameof(endpointInfo));
         _referencedPathTracker = referencedPathTracker;
     }
 
@@ -50,7 +54,6 @@ public sealed class TeamExportOrchestrator
     /// <c>Teams/{slug}/team.json</c>.
     /// </summary>
     public async Task ExportTeamAsync(
-        MigrationEndpointOptions endpoint,
         string projectName,
         TeamDefinition team,
         string slug,
@@ -63,13 +66,13 @@ public sealed class TeamExportOrchestrator
         activity?.SetTag("team.slug", slug);
 
         var teamSettings = extensions.TeamSettings
-            ? await _teamSource.GetTeamSettingsAsync(endpoint, projectName, team.Id, ct).ConfigureAwait(false)
+            ? await _teamSource.GetTeamSettingsAsync(projectName, team.Id, ct).ConfigureAwait(false)
             : null;
 
         var iterations = new List<TeamIteration>();
         if (extensions.TeamIterations)
         {
-            await foreach (var iteration in _teamSource.GetTeamIterationsAsync(endpoint, projectName, team.Id, ct).ConfigureAwait(false))
+            await foreach (var iteration in _teamSource.GetTeamIterationsAsync(projectName, team.Id, ct).ConfigureAwait(false))
             {
                 iterations.Add(iteration);
 
@@ -85,14 +88,14 @@ public sealed class TeamExportOrchestrator
         var members = new List<TeamMember>();
         if (extensions.TeamMembers)
         {
-            await foreach (var member in _teamSource.GetTeamMembersAsync(endpoint, projectName, team.Id, ct).ConfigureAwait(false))
+            await foreach (var member in _teamSource.GetTeamMembersAsync(projectName, team.Id, ct).ConfigureAwait(false))
                 members.Add(member);
         }
 
         TeamAreaPaths? areaPaths = null;
         if (extensions.NodeTranslation)
         {
-            areaPaths = await _teamSource.GetTeamAreaPathsAsync(endpoint, projectName, team.Id, ct).ConfigureAwait(false);
+            areaPaths = await _teamSource.GetTeamAreaPathsAsync(projectName, team.Id, ct).ConfigureAwait(false);
 
             // Record area paths for NodeTranslation extension
             if (_referencedPathTracker is not null && areaPaths is not null)
@@ -114,7 +117,7 @@ public sealed class TeamExportOrchestrator
                 try
                 {
                     var capacity = await _teamSource.GetTeamCapacityAsync(
-                        endpoint, projectName, team.Id, iteration.Id, ct).ConfigureAwait(false);
+                        projectName, team.Id, iteration.Id, ct).ConfigureAwait(false);
                     if (capacity.Length > 0)
                         capacityByIteration[iteration.Id] = capacity;
                 }

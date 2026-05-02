@@ -140,7 +140,7 @@ public sealed class WorkItemsModuleExtensions
     /// <summary>
     /// Constructs a <see cref="WorkItemsModuleExtensions"/> from typed <see cref="WorkItemsModuleOptions"/>.
     /// Used when the module configuration is loaded from <c>migration-config.json</c>
-    /// via <c>ActiveJobConfigState</c> rather than from the job contract.
+    /// via <c>IOptions&lt;T&gt;</c> rather than from the job contract.
     /// </summary>
     /// <exception cref="InvalidOperationException">
     /// Thrown when a filter entry has an invalid .NET regex pattern.

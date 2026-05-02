@@ -1,6 +1,7 @@
 using System;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.ControlPlaneApi;
 using DevOpsMigrationPlatform.ControlPlane.Jobs;
 using Microsoft.AspNetCore.Mvc;
 
@@ -15,17 +16,20 @@ public sealed class TelemetryController : ControllerBase
     private readonly JobMetricsStore _telemetryStore;
     private readonly JobSnapshotStore _snapshotStore;
     private readonly JobProgressStore _progressStore;
+    private readonly InMemoryJobTaskStore _taskStore;
     private readonly ILeaseJobResolver _leaseResolver;
 
     public TelemetryController(
         JobMetricsStore telemetryStore,
         JobSnapshotStore snapshotStore,
         JobProgressStore progressStore,
+        InMemoryJobTaskStore taskStore,
         ILeaseJobResolver leaseResolver)
     {
         _telemetryStore = telemetryStore;
         _snapshotStore = snapshotStore;
         _progressStore = progressStore;
+        _taskStore = taskStore;
         _leaseResolver = leaseResolver;
     }
 
@@ -124,9 +128,49 @@ public sealed class TelemetryController : ControllerBase
         {
             Snapshot = _snapshotStore.GetLatest(id),
             Metrics = _telemetryStore.GetLatest(id),
-            LastEventSequence = _progressStore.GetMaxEventSequence(id)
+            LastEventSequence = _progressStore.GetMaxEventSequence(id),
+            Tasks = _taskStore.GetLatest(id)
         };
 
         return Ok(bootstrap);
+    }
+
+    /// <summary>
+    /// Migration Agent pushes its execution plan (task list) at job start.
+    /// <c>POST /agents/lease/{leaseId}/tasks</c>
+    /// </summary>
+    [HttpPost("/agents/lease/{leaseId}/tasks")]
+    [ProducesResponseType(204)]
+    [ProducesResponseType(400)]
+    [ProducesResponseType(404)]
+    public IActionResult PushTasks(string leaseId, [FromBody] JobTaskList taskList)
+    {
+        if (string.IsNullOrWhiteSpace(leaseId))
+            return BadRequest("leaseId must not be empty.");
+
+        var jobId = _leaseResolver.ResolveJobId(leaseId);
+        if (jobId is null)
+            return NotFound($"Lease '{leaseId}' is not recognised.");
+
+        _taskStore.Store(jobId.Value, taskList);
+        return NoContent();
+    }
+
+    /// <summary>
+    /// Returns the current task list for a job.
+    /// <c>GET /jobs/{jobId}/tasks</c>
+    /// Returns 200+body when a task list exists, 204 when none yet, 400 for bad id.
+    /// </summary>
+    [HttpGet("/jobs/{jobId}/tasks")]
+    [ProducesResponseType(200)]
+    [ProducesResponseType(204)]
+    [ProducesResponseType(400)]
+    public IActionResult GetTasks(string jobId)
+    {
+        if (!Guid.TryParse(jobId, out var id))
+            return BadRequest("jobId must be a valid GUID.");
+
+        var tasks = _taskStore.GetLatest(id);
+        return tasks is null ? NoContent() : Ok(tasks);
     }
 }

@@ -47,6 +47,14 @@ public sealed class SqliteIdMapStore : IIdMapStore
         _connection = new SqliteConnection($"Data Source={_dbFilePath}");
         await _connection.OpenAsync(ct).ConfigureAwait(false);
 
+        // Use memory journal to avoid creating <filename>-journal files whose path
+        // may exceed MAX_PATH (260 chars) on Windows when LongPathsEnabled=0.
+        // The ID-map store is rebuilt from the source on re-import, so no
+        // crash-durable journal is required.
+        await using var pragmaCmd = _connection.CreateCommand();
+        pragmaCmd.CommandText = "PRAGMA journal_mode=MEMORY;";
+        await pragmaCmd.ExecuteNonQueryAsync(ct).ConfigureAwait(false);
+
         await using var cmd = _connection.CreateCommand();
         cmd.CommandText = """
             CREATE TABLE IF NOT EXISTS work_item_map (

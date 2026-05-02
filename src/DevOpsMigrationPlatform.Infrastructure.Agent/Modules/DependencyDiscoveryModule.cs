@@ -7,10 +7,15 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Agent.Export;
+using DevOpsMigrationPlatform.Abstractions.Agent.Import;
 using DevOpsMigrationPlatform.Abstractions.Agent.Lease;
+using DevOpsMigrationPlatform.Abstractions.Agent.Modules;
+using DevOpsMigrationPlatform.Abstractions.Agent.Validation;
 using DevOpsMigrationPlatform.Abstractions.Jobs;
 using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Abstractions.Telemetry;
+using DevOpsMigrationPlatform.Abstractions.Validation;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Discovery.DependencyGraph;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -18,7 +23,7 @@ using Microsoft.Extensions.Options;
 namespace DevOpsMigrationPlatform.Infrastructure.Agent.Modules;
 
 /// <summary>
-/// Discovery module that analyses cross-project and cross-organisation work item links.
+/// Dependency analysis module that discovers cross-project and cross-organisation work item links.
 /// Wraps <see cref="IDependencyDiscoveryService"/> and writes <c>dependencies.csv</c>
 /// to the artefact store. Checkpoints periodically so multi-hour runs can resume without
 /// reprocessing already-analysed work items.
@@ -28,8 +33,13 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Modules;
 /// delegated to <see cref="IDependencyDiscoveryService"/> (created via factory). This separation
 /// keeps the module testable with mocked services and decoupled from any specific connector.
 /// </para>
+/// <para>
+/// <strong>Module contract:</strong> Implements <see cref="IModule.ExportAsync"/> to perform
+/// dependency discovery. Import and validation are not supported (throw <see cref="NotSupportedException"/>).
+/// Has no dependencies — runs during Export phase after Inventory completes.
+/// </para>
 /// </summary>
-public sealed class DependencyDiscoveryModule : IDiscoveryModule
+public sealed class DependencyDiscoveryModule : IModule
 {
     private static readonly string CursorKey = PackagePaths.CursorFile("DependencyDiscovery");
     private const string RootCsvPath = "dependencies.csv";
@@ -41,8 +51,10 @@ public sealed class DependencyDiscoveryModule : IDiscoveryModule
     private readonly IDiscoveryMetrics? _metrics;
     private readonly IOptions<DiscoveryOptions>? _discoveryOptions;
 
-    public string Name => "DependencyDiscovery";
-    public JobKind DiscoveryKind => JobKind.Dependencies;
+    public string Name => "Dependencies";
+    public IReadOnlyList<ModuleDependency> DependsOn => Array.Empty<ModuleDependency>(); // No dependencies
+    public bool SupportsExport => true; // First-class export module — discovered via dependency resolution
+    public bool SupportsImport => false; // Dependencies runs only during the Export phase
 
     /// <summary>
     /// Normalizes an organisation URL + project name pair into a canonical key
@@ -64,7 +76,10 @@ public sealed class DependencyDiscoveryModule : IDiscoveryModule
         _discoveryOptions = discoveryOptions;
     }
 
-    public async Task RunAsync(DiscoveryContext context, CancellationToken ct)
+    /// <summary>
+    /// Performs dependency discovery during the Export phase. Writes dependencies.csv.
+    /// </summary>
+    public async Task ExportAsync(ExportContext context, CancellationToken ct)
     {
         using var rootActivity = ActivitySource.StartActivity("discovery.dependencies", ActivityKind.Internal);
         rootActivity?.SetTag("job.id", context.Job.JobId);
@@ -1627,4 +1642,21 @@ public sealed class DependencyDiscoveryModule : IDiscoveryModule
         int CrossProjectCount,
         int CrossOrgCount,
         int TotalWorkItems);
+
+    /// <summary>
+    /// Import is not supported for the Dependencies module.
+    /// Dependencies is an analysis-only operation that runs during Export.
+    /// </summary>
+    public Task ImportAsync(ImportContext context, CancellationToken ct)
+    {
+        throw new NotSupportedException("Dependencies module does not support import operations. Dependencies runs only during the Export phase.");
+    }
+
+    /// <summary>
+    /// Validation is not supported for the Dependencies module.
+    /// </summary>
+    public Task ValidateAsync(ValidationContext context, CancellationToken ct)
+    {
+        return Task.CompletedTask; // No-op: Dependencies has no validation logic
+    }
 }

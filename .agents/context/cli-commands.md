@@ -17,7 +17,7 @@ The CLI binary is named **`devopsmigration`** (assembly name set in `DevOpsMigra
 
 ### 1. Migration Commands
 
-Submit and drive migration jobs via the control plane. Each command creates or queries a `MigrationJob`.
+Submit and drive migration jobs via the control plane. Each command creates or queries a `Job`.
 
 | Command | Settings Key | Description |
 |---------|-------------|-------------|
@@ -42,12 +42,12 @@ Query and control existing jobs. Registered as a Spectre.Console branch named `m
 
 ### 3. Discovery Commands (`discovery`)
 
-Run **locally**. Do **not** submit a `MigrationJob`. Registered as a Spectre.Console branch named `discovery`.
+Run **locally**. Do **not** submit a `Job`. Registered as a Spectre.Console branch named `discovery`.
 
 | Command | Settings Key | Description |
 |---------|-------------|-------------|
 | `discovery inventory` | `InventoryCommand.Settings` | Count work items and revisions per project. Results written to `inventory.csv` and `inventory.json` at the output root plus per-org/per-project subfolders. Accepts `--output <dir>` to override `Artefacts.WorkingDirectory` from the config. |
-| `discovery dependencies` | `DependencyCommand.Settings` | Analyse cross-project and cross-organisation work item links. Loads `inventory.json` (if present) for grand totals before analysis. Results written to `dependencies.csv` in the output directory. Accepts `--output <dir>` to override `Artefacts.WorkingDirectory` from the config. |
+| `discovery dependencies` | `DependencyCommand.Settings` | Analyse cross-project and cross-organisation work item links. Loads `inventory.json` (if present) for grand totals before analysis. Results written to `dependencies.csv` (work-item level), `discovery-project-dependencies.csv` (project pairs), and `discovery-project-dependencies.md` (Mermaid flowchart) in the output directory. Accepts `--output <dir>` to override `Artefacts.WorkingDirectory` from the config. |
 
 ### 4. Configuration Management (`config`)
 
@@ -217,7 +217,7 @@ devopsmigration tui
 
 - The `manage`, `discovery`, `config`, and `controlplane` branches are registered as Spectre.Console `AddBranch` entries — they are not standalone commands.
 - `controlplane start` resolves the sibling binary by convention (`ControlPlane/` subdirectory of `AppContext.BaseDirectory`). Accepts `--port <port>` (default: `5100`); the value overrides the child process's listen address via the `ASPNETCORE_URLS` environment variable. Only available in the packaged zip distribution; in a dev/source build it prints an informative error and returns exit code 1.
-- `discovery *` commands must never submit a `MigrationJob` to the control plane.
+- `discovery *` commands must never submit a `Job` to the control plane.
 - `manage login` / `manage logout` store and revoke credentials only; they do not trigger any job operations.
 - `config set` / `config get` read and write user-level preferences only; they do not affect migration configuration files.
 - All commands inherit from `CommandBase<T>`, which injects `IServiceProvider`, `IHostApplicationLifetime`, `ILogger`, and `ActivitySource`.

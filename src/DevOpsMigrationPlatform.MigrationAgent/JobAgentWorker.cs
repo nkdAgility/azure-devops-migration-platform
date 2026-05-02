@@ -6,10 +6,12 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Agent.Context;
 using DevOpsMigrationPlatform.Abstractions.Agent.Lease;
 using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
-using DevOpsMigrationPlatform.Abstractions.Options;
+using DevOpsMigrationPlatform.Abstractions.ControlPlaneApi;
 using DevOpsMigrationPlatform.Infrastructure.Agent;
+using DevOpsMigrationPlatform.Infrastructure.Agent.Context;
 using DevOpsMigrationPlatform.Infrastructure.Serialization;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -25,23 +27,24 @@ namespace DevOpsMigrationPlatform.MigrationAgent;
 /// </summary>
 public sealed class JobAgentWorker : ModulePipelineWorkerBase
 {
-    private readonly IEnumerable<IDiscoveryModule> _discoveryModules;
     private readonly IJobMetricsStore _metricsStore;
     private readonly IJobSnapshotStore _snapshotStore;
     private readonly IEnumerable<IFlushable> _flushables;
     private readonly IServiceScopeFactory _moduleScopeFactory;
     private readonly IPackagePreparer _packagePreparer;
+    private readonly IJobExecutionPlanBuilder _planBuilder;
+    private readonly IJobPlanExecutor _planExecutor;
+    private readonly IControlPlaneTelemetryClient _telemetryClient;
     private readonly ILogger<JobAgentWorker> _logger;
 
     public JobAgentWorker(
         IEnumerable<IModule> migrationModules,
-        IEnumerable<IDiscoveryModule> discoveryModules,
         IPackageStoreFactory packageStoreFactory,
         IPackagePreparer packagePreparer,
         IProgressSink progressSink,
         ActiveLeaseState leaseState,
         ActivePackageState packageState,
-        ActiveJobConfigState activeJobConfig,
+        IJobConfiguration activeJobConfig,
         IPackageConfigStore packageConfigStore,
         IServiceScopeFactory moduleScopeFactory,
         IHttpClientFactory httpClientFactory,
@@ -50,6 +53,9 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
         IJobMetricsStore metricsStore,
         IJobSnapshotStore snapshotStore,
         IEnumerable<IFlushable> flushables,
+        IJobExecutionPlanBuilder planBuilder,
+        IJobPlanExecutor planExecutor,
+        IControlPlaneTelemetryClient telemetryClient,
         ILogger<JobAgentWorker> logger,
         PolymorphicEndpointOptionsConverter? endpointConverter = null,
         PolymorphicOrganisationEntryConverter? organisationConverter = null)
@@ -57,12 +63,14 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
                phaseTrackingFactory, leaseState, packageState, activeJobConfig, packageConfigStore,
                moduleScopeFactory, httpClientFactory, logger, endpointConverter, organisationConverter)
     {
-        _discoveryModules = discoveryModules;
         _metricsStore = metricsStore;
         _snapshotStore = snapshotStore;
         _flushables = flushables;
         _moduleScopeFactory = moduleScopeFactory;
         _packagePreparer = packagePreparer;
+        _planBuilder = planBuilder;
+        _planExecutor = planExecutor;
+        _telemetryClient = telemetryClient;
         _logger = logger;
     }
 
@@ -155,32 +163,32 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
                 return (null, null, null);
             if (!platform.TryGetProperty(role, out var endpoint))
                 return (null, null, null);
-            var type    = endpoint.TryGetProperty("Type",       out var t) ? t.GetString() : null;
-            var url     = endpoint.TryGetProperty("Url",        out var u) ? u.GetString()
+            var type = endpoint.TryGetProperty("Type", out var t) ? t.GetString() : null;
+            var url = endpoint.TryGetProperty("Url", out var u) ? u.GetString()
                         : endpoint.TryGetProperty("Collection", out var c) ? c.GetString()
                         : null;
-            var project = endpoint.TryGetProperty("Project",    out var p) ? p.GetString() : null;
+            var project = endpoint.TryGetProperty("Project", out var p) ? p.GetString() : null;
             return (type, url, project);
         }
 
         try
         {
             using var existingDoc = JsonDocument.Parse(existingJson);
-            using var newDoc      = JsonDocument.Parse(newJson);
+            using var newDoc = JsonDocument.Parse(newJson);
 
             var (eSrcType, eSrcUrl, eSrcProject) = ExtractEndpoint(existingDoc.RootElement, "Source");
-            var (nSrcType, nSrcUrl, nSrcProject) = ExtractEndpoint(newDoc.RootElement,      "Source");
+            var (nSrcType, nSrcUrl, nSrcProject) = ExtractEndpoint(newDoc.RootElement, "Source");
 
-            if (!StringComparer.OrdinalIgnoreCase.Equals(eSrcType,    nSrcType)    ||
-                !StringComparer.OrdinalIgnoreCase.Equals(eSrcUrl,     nSrcUrl)     ||
+            if (!StringComparer.OrdinalIgnoreCase.Equals(eSrcType, nSrcType) ||
+                !StringComparer.OrdinalIgnoreCase.Equals(eSrcUrl, nSrcUrl) ||
                 !StringComparer.OrdinalIgnoreCase.Equals(eSrcProject, nSrcProject))
                 return $"Source changed from '{eSrcType}:{eSrcUrl}/{eSrcProject}' to '{nSrcType}:{nSrcUrl}/{nSrcProject}'";
 
             var (eTgtType, eTgtUrl, eTgtProject) = ExtractEndpoint(existingDoc.RootElement, "Target");
-            var (nTgtType, nTgtUrl, nTgtProject) = ExtractEndpoint(newDoc.RootElement,      "Target");
+            var (nTgtType, nTgtUrl, nTgtProject) = ExtractEndpoint(newDoc.RootElement, "Target");
 
-            if (!StringComparer.OrdinalIgnoreCase.Equals(eTgtType,    nTgtType)    ||
-                !StringComparer.OrdinalIgnoreCase.Equals(eTgtUrl,     nTgtUrl)     ||
+            if (!StringComparer.OrdinalIgnoreCase.Equals(eTgtType, nTgtType) ||
+                !StringComparer.OrdinalIgnoreCase.Equals(eTgtUrl, nTgtUrl) ||
                 !StringComparer.OrdinalIgnoreCase.Equals(eTgtProject, nTgtProject))
                 return $"Target changed from '{eTgtType}:{eTgtUrl}/{eTgtProject}' to '{nTgtType}:{nTgtUrl}/{nTgtProject}'";
 
@@ -202,6 +210,15 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
 
         // Write config payload from the Job into the package before any config reads.
         await WriteConfigPayloadAsync(job, artefactStore, ct).ConfigureAwait(false);
+
+        // Signal to live clients that the agent has the job and is starting up.
+        ProgressSink.Emit(new ProgressEvent
+        {
+            Module = "Job",
+            Stage = "Job.Received",
+            Message = $"Job {job.JobId} acquired. Loading configuration.",
+            Timestamp = DateTimeOffset.UtcNow
+        });
 
         // Prepare mode writes a probe file to validate connectivity.
         if (job.Kind == JobKind.Prepare)
@@ -256,31 +273,97 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
             return;
         }
 
-        // Deserialize MigrationOptions from raw JSON using System.Text.Json.
-        // IConfiguration.Bind() cannot instantiate abstract types (Source/Target) or set init-only
-        // properties reliably in .NET 10. System.Text.Json handles both via the polymorphic
-        // endpoint converter (PolymorphicEndpointOptionsConverter) registered in AgentJsonOptions.
-        var migrationOptions = new MigrationOptions();
+        ActiveJobConfig.PackageConfig = packageConfig;
+
+        // Build the execution plan and push it to the Control Plane so clients can
+        // see the ordered task list immediately via GET /jobs/{id}/bootstrap.
+        JobTaskList executionPlan;
         try
         {
-            var rawJson = await artefactStore.ReadAsync(PackagePaths.MigrationConfigFileName, ct)
-                .ConfigureAwait(false);
-            if (!string.IsNullOrWhiteSpace(rawJson))
+            ProgressSink.Emit(new ProgressEvent
             {
-                var wrapper = JsonSerializer.Deserialize<MigrationConfigWrapper>(rawJson, AgentJsonOptions);
-                if (wrapper?.MigrationPlatform != null)
-                    migrationOptions = wrapper.MigrationPlatform;
+                Module = "Job",
+                Stage = "Job.Planning",
+                Message = "Building execution plan from package configuration.",
+                Timestamp = DateTimeOffset.UtcNow
+            });
+
+            // Handle ForceFresh BEFORE loading the plan — delete cursors, phase record, and plan file.
+            if (job.Resume?.Mode == ResumeMode.ForceFresh)
+            {
+                var checkpointer = CheckpointingFactory.Create(stateStore);
+                var phaseTracker = PhaseTrackingFactory.Create(stateStore);
+                
+                _logger.LogInformation("ForceFresh requested for job {JobId} — deleting module cursors and plan file.", job.JobId);
+                foreach (var module in MigrationModules)
+                {
+                    await checkpointer.DeleteCursorAsync(module.Name, ct).ConfigureAwait(false);
+                    _logger.LogDebug("Deleted cursor for module {Module}.", module.Name);
+                }
+                await phaseTracker.DeletePhaseRecordAsync(ct).ConfigureAwait(false);
+
+                // Delete the persisted plan file so a fresh plan is built.
+                try
+                {
+                    await stateStore.DeleteAsync(PackagePaths.PlanFile, ct).ConfigureAwait(false);
+                    _logger.LogDebug("Deleted plan file {Path}.", PackagePaths.PlanFile);
+                }
+                catch (System.IO.FileNotFoundException)
+                {
+                    // Plan file didn't exist — not an error.
+                }
             }
+
+            // Attempt to load persisted plan from package (resume scenario).
+            var loadedPlan = await JobPlanExecutor.LoadOrResetAsync(stateStore, ct)
+                .ConfigureAwait(false);
+
+            if (loadedPlan is not null)
+            {
+                _logger.LogInformation(
+                    "Loaded execution plan from package: {TaskCount} task(s), {PendingCount} pending, {CompletedCount} completed.",
+                    loadedPlan.Tasks.Count,
+                    loadedPlan.Tasks.Count(t => t.Status == JobTaskStatus.Pending),
+                    loadedPlan.Tasks.Count(t => t.Status == JobTaskStatus.Completed));
+                executionPlan = loadedPlan;
+            }
+            else
+            {
+                // No persisted plan — build fresh.
+                var freshPlan = await _planBuilder
+                    .BuildPlanAsync(packageConfig, job.Kind, artefactStore, stateStore, ct)
+                    .ConfigureAwait(false);
+
+                _logger.LogInformation(
+                    "Built fresh execution plan: {TaskCount} task(s).",
+                    freshPlan.Tasks.Count);
+
+                // Persist the fresh plan immediately.
+                var json = System.Text.Json.JsonSerializer.Serialize(freshPlan);
+                await stateStore.WriteAsync(PackagePaths.PlanFile, json, ct).ConfigureAwait(false);
+
+                executionPlan = freshPlan;
+            }
+
+            // Push plan to the control plane for display.
+            await _telemetryClient.PushTaskListAsync(leaseId, executionPlan, ct).ConfigureAwait(false);
+
+            ProgressSink.Emit(new ProgressEvent
+            {
+                Module = "Job",
+                Stage = "Job.Ready",
+                Message = $"Execution plan ready. {executionPlan.Tasks.Count} task(s) queued.",
+                Timestamp = DateTimeOffset.UtcNow
+            });
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex,
-                "Could not deserialize migration-config.json for job {JobId}; proceeding with defaults.",
-                job.JobId);
+            // Fatal — plan build failure means we can't proceed.
+            _logger.LogError(ex, "Failed to build or load execution plan for job {JobId}.", job.JobId);
+            await SignalTerminalAsync(controlPlane, leaseId, "fail", ct).ConfigureAwait(false);
+            ActiveJobConfig.Clear();
+            return;
         }
-
-        ActiveJobConfig.Current = migrationOptions;
-        ActiveJobConfig.PackageConfig = packageConfig;
 
         // Create a per-job DI scope AFTER PackageConfig is set. Singleton tools (e.g.
         // IFieldTransformTool) are resolved fresh within this scope so their IOptions<T>.Value
@@ -292,18 +375,7 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
         {
             var checkpointer = CheckpointingFactory.Create(stateStore);
             var phaseTracker = PhaseTrackingFactory.Create(stateStore);
-
-            if (job.Resume?.Mode == ResumeMode.ForceFresh)
-            {
-                _logger.LogInformation("ForceFresh requested for job {JobId} — deleting module cursors.", job.JobId);
-                foreach (var module in MigrationModules)
-                {
-                    await checkpointer.DeleteCursorAsync(module.Name, ct).ConfigureAwait(false);
-                    _logger.LogDebug("Deleted cursor for module {Module}.", module.Name);
-                }
-                await phaseTracker.DeletePhaseRecordAsync(ct).ConfigureAwait(false);
-            }
-
+            
             var exportContext = new ExportContext
             {
                 Job = job,
@@ -346,12 +418,14 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
             {
                 if (runExport)
                 {
-                    foreach (var module in jobModules)
-                    {
-                        _logger.LogInformation("Running module {Module}.ExportAsync", module.Name);
-                        await module.ExportAsync(exportContext, ct).ConfigureAwait(false);
-                    }
-                    if (isBoth)
+                    // Execute export phase using the plan executor (includes Inventory if needed).
+                    var moduleMap = jobModules.ToDictionary(m => m.Name, m => (IModule)m, StringComparer.OrdinalIgnoreCase);
+                    var exportOk = await _planExecutor.ExecuteExportPhaseAsync(
+                        executionPlan, moduleMap, exportContext, stateStore, ct).ConfigureAwait(false);
+
+                    failed = !exportOk;
+
+                    if (isBoth && exportOk)
                     {
                         await phaseTracker.WritePhaseRecordAsync(
                             new JobPhaseRecord { ExportCompleted = true, ImportCompleted = phaseRecord.ImportCompleted, UpdatedAt = DateTimeOffset.UtcNow },
@@ -361,12 +435,14 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
 
                 if (runImport)
                 {
-                    foreach (var module in jobModules)
-                    {
-                        _logger.LogInformation("Running module {Module}.ImportAsync", module.Name);
-                        await module.ImportAsync(importContext, ct).ConfigureAwait(false);
-                    }
-                    if (isBoth)
+                    // Execute import phase using the plan executor.
+                    var moduleMap = jobModules.ToDictionary(m => m.Name, m => (IModule)m, StringComparer.OrdinalIgnoreCase);
+                    var importOk = await _planExecutor.ExecuteImportPhaseAsync(
+                        executionPlan, moduleMap, importContext, stateStore, ct).ConfigureAwait(false);
+
+                    failed = !importOk;
+
+                    if (isBoth && importOk)
                     {
                         await phaseTracker.WritePhaseRecordAsync(
                             new JobPhaseRecord { ExportCompleted = true, ImportCompleted = true, UpdatedAt = DateTimeOffset.UtcNow },
@@ -395,19 +471,6 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
         }
     }
 
-    // ── Deserialization helpers ───────────────────────────────────────────────
-
-    /// <summary>
-    /// Wrapper matching the top-level shape of migration-config.json:
-    /// <c>{ "MigrationPlatform": { ... } }</c>.
-    /// Used to deserialize the full config with System.Text.Json (which correctly handles
-    /// init-only properties and polymorphic endpoint types via the registered converters).
-    /// </summary>
-    private sealed class MigrationConfigWrapper
-    {
-        public MigrationOptions MigrationPlatform { get; set; } = new();
-    }
-
     // ── Discovery execution ───────────────────────────────────────────────────
 
     private async Task OnDiscoveryJobAsync(
@@ -425,7 +488,7 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
         {
             _logger.LogInformation(
                 "ForceFresh requested for discovery job {JobId} — deleting module cursors.", job.JobId);
-            foreach (var module in _discoveryModules)
+            foreach (var module in MigrationModules)
             {
                 var cursorPath = PackagePaths.CursorFile(module.Name);
                 try { await stateStore.DeleteAsync(cursorPath, ct).ConfigureAwait(false); }
@@ -472,19 +535,21 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
                 job.JobId);
         }
 
-        var modulesToRun = _discoveryModules.Where(m => m.DiscoveryKind == job.Kind).ToList();
+        // Route to the right modules by job kind name (e.g. "Inventory", "Dependencies").
+        var modulesToRun = MigrationModules
+            .Where(m => m.Name.Equals(job.Kind.ToString(), StringComparison.OrdinalIgnoreCase))
+            .ToList();
 
-        // When running dependency analysis, auto-run inventory first if inventory.json
-        // does not yet exist in the package.
+        // When running dependency analysis, prepend Inventory if inventory.json is missing.
         if (job.Kind == JobKind.Dependencies)
         {
             var inventoryExists = await artefactStore.ExistsAsync("inventory.json", ct).ConfigureAwait(false);
             if (!inventoryExists)
             {
                 _logger.LogInformation(
-                    "No inventory.json found for dependency job {JobId} — prepending inventory module.", job.JobId);
-                var inventoryModules = _discoveryModules
-                    .Where(m => m.DiscoveryKind == JobKind.Inventory)
+                    "No inventory.json found for dependency job {JobId} — prepending Inventory module.", job.JobId);
+                var inventoryModules = MigrationModules
+                    .Where(m => m.Name.Equals("Inventory", StringComparison.OrdinalIgnoreCase))
                     .ToList();
                 modulesToRun = inventoryModules.Concat(modulesToRun).ToList();
             }
@@ -493,13 +558,13 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
         if (modulesToRun.Count == 0)
         {
             _logger.LogError(
-                "No discovery module found for kind {JobKind} — failing job {JobId}.",
+                "No module found for kind {JobKind} — failing job {JobId}.",
                 job.Kind, job.JobId);
             await SignalTerminalAsync(controlPlane, leaseId, "fail", ct).ConfigureAwait(false);
             return;
         }
 
-        var context = new DiscoveryContext
+        var context = new ExportContext
         {
             Job = job,
             ArtefactStore = artefactStore,
@@ -517,7 +582,7 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
             {
                 _logger.LogInformation(
                     "Running discovery module {Module} for job {JobId}.", module.Name, job.JobId);
-                await module.RunAsync(context, ct).ConfigureAwait(false);
+                await module.ExportAsync(context, ct).ConfigureAwait(false);
                 _logger.LogInformation(
                     "Discovery module {Module} completed for job {JobId}.", module.Name, job.JobId);
             }

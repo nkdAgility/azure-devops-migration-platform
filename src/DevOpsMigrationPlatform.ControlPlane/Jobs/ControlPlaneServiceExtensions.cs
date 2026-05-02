@@ -41,6 +41,9 @@ public static class ControlPlaneServiceExtensions
                 .ValidateDataAnnotations()
                 .ValidateOnStart();
 
+        // In-memory job task list store — populated by agents at job start.
+        services.AddSingleton<InMemoryJobTaskStore>();
+
         return services;
     }
 }

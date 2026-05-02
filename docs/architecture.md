@@ -35,7 +35,7 @@ The platform separates **job coordination** (control plane) from **job execution
 
 | Component | Role |
 |---|---|
-| **CLI** | Operator interface. When `Environment.Type` is `Standalone` (the default), starts `LocalStackHost` which launches `ControlPlaneHost` and `MigrationAgent` locally — preferring **process-per-component** mode (separate child processes via `ChildProcessHost`) when published binaries are found, with automatic **in-process** fallback otherwise. When `Environment.Type` is `Hosted`, connects directly to the `ControlPlane.BaseUrl` from config. Always communicates with the control plane via HTTP. Submits jobs, queries status, and manages job lifecycle. Contains no migration execution logic. |
+| **CLI** | Operator interface. When `Environment.Type` is `Standalone` (the default), uses Aspire `DistributedApplication` APIs to start `ControlPlaneHost` and `MigrationAgent` as separate child processes (`ChildProcessHost`). When `Environment.Type` is `Hosted`, connects directly to `ControlPlane.BaseUrl` from config. Always communicates with the control plane via HTTP. Submits jobs, queries status, and manages job lifecycle. Contains no migration execution logic. |
 | **TUI** | Connects to any control plane endpoint — on the same machine, a dedicated server, or in the cloud — and renders live job state. Never submits jobs. |
 | **ControlPlane** | Service library (`DevOpsMigrationPlatform.ControlPlane`). Contains the HTTP API controllers, job state machine, lease protocol, progress tracking, and EF Core data model. Has no entry point — it is referenced and hosted by `ControlPlaneHost`. |
 | **ControlPlaneHost** | Deployable ASP.NET Core host (`DevOpsMigrationPlatform.ControlPlaneHost`). References the `ControlPlane` service library and adds: process entry point, agent lifecycle management via `IAgentLauncher`, and Aspire resource integration. Always reachable over HTTP. `LocalProcessAgentLauncher` spawns agent processes on the same machine; `ContainerAgentLauncher` deploys and scales agent containers to a configurable target context — either the managed ACA environment co-located with the control plane, or a user-specified environment (for network zone isolation). The agent image source is configured separately from the target context. |
@@ -44,27 +44,46 @@ The platform separates **job coordination** (control plane) from **job execution
 
 ### Tools
 
-A **Tool** is a shared, cross-cutting service declared once at the `MigrationPlatform` config root (under `Tools.*`). Extensions load tools by reference and may override selected values for a specific phase. Tools are pure transformations or lookup services — they perform no I/O and hold no mutable state. The `FieldTransformTool` is the canonical example: it receives a `WorkItemRevision` value object, applies a declared sequence of transform rules, and returns a transformed copy without touching any store or external API.
+A **Tool** is a shared, cross-cutting service declared once at the `MigrationPlatform` config root (under `Tools.*`). Tools are pure transformations or lookup services — they perform no I/O and hold no mutable state. The `FieldTransformTool` is the canonical example: it receives a `WorkItemRevision` value object, applies a declared sequence of transform rules, and returns a transformed copy without touching any store or external API. The `NodeTranslationTool` translates area/iteration path strings against configured mappings.
+
+Available tools: `FieldTransform`, `NodeTranslation`, `IdentityLookup`.
+
+### Project Boundary Rules
+
+Project references are compiler-enforced (no cyclic references allowed). Each layer may only reference the layers below it:
+
+| Layer | Project(s) | May reference |
+|---|---|---|
+| CLI | `DevOpsMigrationPlatform.CLI.Migration` | `Abstractions`, `Infrastructure` |
+| TUI | `DevOpsMigrationPlatform.TUI` | `Abstractions` |
+| Control Plane Host | `DevOpsMigrationPlatform.ControlPlaneHost` | `Abstractions`, `Abstractions.ControlPlane`, `Infrastructure`, `ControlPlane` |
+| Control Plane Library | `DevOpsMigrationPlatform.ControlPlane` | `Abstractions.ControlPlane` |
+| Migration Agent | `DevOpsMigrationPlatform.MigrationAgent` | `Abstractions.Agent`, `Infrastructure.Agent`, `Infrastructure` |
+| TFS Migration Agent | `DevOpsMigrationPlatform.TfsMigrationAgent` | `Abstractions.Agent`, `Infrastructure.Agent`, `Infrastructure.TfsObjectModel` |
+| Infrastructure | `DevOpsMigrationPlatform.Infrastructure.*` | `Abstractions`, `Abstractions.Agent` (where needed) |
+| Abstractions | `DevOpsMigrationPlatform.Abstractions`, `Abstractions.Agent`, `Abstractions.ControlPlane` | Nothing (leaf nodes) |
+
+The CLI must **not** reference `Abstractions.Agent` or `Abstractions.ControlPlane`. Agent projects must **not** reference `ControlPlane`. `TfsMigrationAgent` must **not** be referenced from any .NET 10 project.
 
 ### Flow
 
 ```
 Operator
-  │  (config file)
+  │  (config file — migration.json)
   ▼
 CLI
-  │  Tier 0: structural validation (local, no network)
+  │  Tier 0: JSON Schema validation (local, no network — against migration.schema.json)
   │  Tier 1: connectivity + permission checks (network)
-  │  → creates MigrationJob (assigns jobId, normalises URI, computes configHash)
+  │  → creates Job (assigns jobId, normalises URI, serialises config into Job.ConfigPayload)
   │
   ▼
 ControlPlaneHost (Aspire-managed or remote — same HTTP interface)
   │  deduplication check (jobId)
-  │  final schema validation
-  │  assigns to available agent
+  │  assigns to available agent by Job.Connectors capability matching
   │
   ▼
 Agent
+  │  writes Job.ConfigPayload → migration-config.json at package root
   │  Tier 2: pre-flight validation (package structure, before import)
   │  runs job engine + modules
   │  writes to package
@@ -75,9 +94,9 @@ Package (file:/// or https://<account>.blob.core.windows.net/...)
 
 > **TFS source:** The `TfsMigrationAgent` participates in this same flow. The control plane routes jobs with `source.type: TeamFoundationServer` to the TFS agent via capability matching (`?capabilities=tfs`). From the CLI's perspective, TFS and ADO exports are submitted identically — `POST /jobs` — and the appropriate agent picks up the work.
 
-### MigrationJob is the Internal Contract
+### `Job` is the Internal Contract
 
-The `ControlPlaneHost` receives the `MigrationJob` from the CLI. It is the fully serialisable object that `ControlPlaneHost` passes to an Agent under a lease. The config file is never passed to the Agent directly.
+The `ControlPlaneHost` receives a `Job` from the CLI. It is the fully serialisable dispatch token that `ControlPlaneHost` passes to an Agent under a lease. The class was named `MigrationJob` until feature 025.1-fold-to-job unified the class hierarchy (replacing both `MigrationJob` and `DiscoveryJob`). All job kinds now use the same `Job` wire format with a `Kind` discriminator (`JobKind` enum). The config file is never sent to the Agent directly — it travels as `Job.ConfigPayload` (raw JSON) and the Agent writes it to `migration-config.json` at the package root before any module executes.
 
 See [.agents/context/job-contract.md](../.agents/context/job-contract.md).
 
@@ -92,7 +111,7 @@ Switching from local to cloud requires only a config change. No code changes.
 
 ### All Stores are URI-Based
 
-The package location is expressed as a URI in the `MigrationJob`. The Migration Agent resolves the URI to an `IArtefactStore` implementation:
+The package location is expressed as a URI in the `Job`. The Migration Agent resolves the URI to an `IArtefactStore` implementation:
 
 | URI pattern | Implementation |
 |---|---|
@@ -103,7 +122,7 @@ Module code never references a concrete store implementation.
 
 ### OrganisationEndpoint — Canonical Connection Context
 
-`OrganisationEndpoint` (in `DevOpsMigrationPlatform.Abstractions`) is the immutable connection context type used by all service interfaces. It bundles `ResolvedUrl`, `Type`, `Authentication` (`OrganisationEndpointAuthentication`), and optional `ApiVersion` into a single parameter, replacing separate `(string url, string pat)` arguments. `ScopedOrganisationEndpoint` pairs an `OrganisationEndpoint` with a project list for job-level scoping (e.g., `DiscoveryJob.Organisations`).
+`OrganisationEndpoint` (in `DevOpsMigrationPlatform.Abstractions`) is the immutable connection context type used by all service interfaces. It bundles `ResolvedUrl`, `Type`, `Authentication` (`OrganisationEndpointAuthentication`), and optional `ApiVersion` into a single parameter, replacing separate `(string url, string pat)` arguments. `ScopedOrganisationEndpoint` pairs an `OrganisationEndpoint` with a project list for job-level scoping.
 
 **Consumers**: `IWorkItemFetchService.FetchAsync`, `IAzureDevOpsClientFactory.CreateWorkItemClientAsync`, `IWorkItemQueryWindowStrategy.EnumerateWindowsAsync`, `IWorkItemDiscoveryService`, and discovery/dependency analysis services all accept `OrganisationEndpoint` as their connection context.
 
@@ -215,7 +234,7 @@ Key properties:
 
 ### Phase 1 — Local-first
 
-1. `MigrationJob` model + schema
+1. `Job` model + schema
 2. Control plane API (job submission, lease, status, logs) — embedded in CLI for local execution
 3. Migration Agent worker service (poll, execute, heartbeat, report) — spawned as child process by CLI
 4. Job Engine (orchestrator + modules contract + cursors)
@@ -253,7 +272,7 @@ Key properties:
 
 | Assembly | Target | Purpose |
 |---|---|---|
-| `DevOpsMigrationPlatform.Abstractions` | `net481;net10.0` | Shared contracts used across all components: `OrganisationEndpoint`, `MigrationEndpointOptions`, `IProgressSink`, job contract types (`MigrationJob`, `JobPhase`), control plane API types (job submission, inventory and dependency responses), configuration `Options` types, telemetry constants and shared interfaces (`IJobMetricsStore`, `IJobSnapshotStore`) |
+| `DevOpsMigrationPlatform.Abstractions` | `net481;net10.0` | Shared contracts used across all components: `OrganisationEndpoint`, `MigrationEndpointOptions`, `IProgressSink`, job contract types (`Job`, `JobKind`), control plane API types (job submission, inventory and dependency responses), configuration `Options` types, telemetry constants and shared interfaces (`IJobMetricsStore`, `IJobSnapshotStore`) |
 | `DevOpsMigrationPlatform.Abstractions.ControlPlane` | `net10.0` | Control-plane-only contracts: `IJobLifecycleMetrics` (agent-reported lifecycle events for in-flight jobs) |
 | `DevOpsMigrationPlatform.Abstractions.Agent` | `net481;net10.0` | Agent contracts: module interfaces (`IModule`, `IDiscoveryModule`), storage (`IArtefactStore`, `IStateStore`, `IPackageLockService`), checkpointing (`ICheckpointingService`, `IPhaseTrackingService`), export orchestration (`IWorkItemRevisionSource`, `IWorkItemRevisionSourceFactory`, `IWorkItemFetchService`), import orchestration (`IWorkItemImportTarget`, `IWorkItemImportTargetFactory`), attachments (`IAttachmentBinarySource`), identity (`IIdentityMappingService`), discovery (`ICatalogService`, `IInventoryService`, `IDependencyDiscoveryService`), telemetry metrics interfaces |
 | `DevOpsMigrationPlatform.Infrastructure` | `net481;net10.0` | Shared infrastructure used by multiple components: `EndpointOptionsTypeRegistry`, polymorphic JSON converters (`PolymorphicEndpointOptionsConverter`), `ConfigurationService`, `InMemoryJobMetricsStore`, `InMemoryJobSnapshotStore`, telemetry data-classification filter |

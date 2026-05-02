@@ -2,9 +2,11 @@ using System;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using System.Threading;
+using DevOpsMigrationPlatform.Abstractions.Agent.Context;
 using DevOpsMigrationPlatform.Abstractions.Agent.Identity;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Abstractions.Options;
+using DevOpsMigrationPlatform.Abstractions.Organisations;
 using Microsoft.Extensions.Logging;
 
 namespace DevOpsMigrationPlatform.Infrastructure.AzureDevOps;
@@ -17,24 +19,26 @@ internal sealed class AzureDevOpsIdentitySource : IIdentitySource
 {
     private readonly IAzureDevOpsClientFactory _clientFactory;
     private readonly ILogger<AzureDevOpsIdentitySource> _logger;
+    private readonly ISourceEndpointInfo _endpointInfo;
 
     public AzureDevOpsIdentitySource(
         IAzureDevOpsClientFactory clientFactory,
-        ILogger<AzureDevOpsIdentitySource> logger)
+        ILogger<AzureDevOpsIdentitySource> logger,
+        ISourceEndpointInfo endpointInfo)
     {
         _clientFactory = clientFactory ?? throw new ArgumentNullException(nameof(clientFactory));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        _endpointInfo = endpointInfo ?? throw new ArgumentNullException(nameof(endpointInfo));
     }
 
     /// <inheritdoc/>
     public async IAsyncEnumerable<IdentityDescriptor> EnumerateIdentitiesAsync(
-        MigrationEndpointOptions endpoint,
         string projectName,
         [EnumeratorCancellation] CancellationToken cancellationToken)
     {
         _logger.LogInformation("[Identities/ADO] Enumerating identities for project '{Project}'.", projectName);
 
-        var org = endpoint.ToOrganisationEndpoint();
+        var org = _endpointInfo.ToOrganisationEndpoint();
         var teamClient = await _clientFactory.CreateTeamClientAsync(org, cancellationToken).ConfigureAwait(false);
 
         var teams = await teamClient.GetTeamsAsync(projectName, cancellationToken: cancellationToken).ConfigureAwait(false);

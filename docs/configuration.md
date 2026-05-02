@@ -6,140 +6,143 @@ A single JSON configuration file drives the entire run.
 
 ### Full Schema
 
+> **Note**: All configuration is nested under the top-level `MigrationPlatform` key. Keys are PascalCase. The root key is mandatory — config without it is rejected at startup.
+
 ```json
 {
-  "configVersion": "1.0",
-  "mode": "Export | Prepare | Import | Migrate",
-  "artefacts": {
-    "path": "D:\\exports\\run-001",
-    "zip": false
-  },
-  "source": {
-    "type": "AzureDevOpsServices | TeamFoundationServer | Simulated",
-    "orgOrCollection": "...",
-    "project": "...",
-    "apiVersion": "...",
-    "authentication": {
-      "type": "Pat | Windows",
-      "accessToken": "<literal-token> | $ENV:MY_PAT_VAR"
+  "MigrationPlatform": {
+    "ConfigVersion": "1.0",
+    "Mode": "Export | Prepare | Import | Migrate",
+    "Package": {
+      "WorkingDirectory": "D:\\exports\\run-001",
+      "CreatePackage": false
     },
-    "_simulatedOnly_seed": 42,
-    "_simulatedOnly_workItemCount": 25000,
-    "_simulatedOnly_projectCount": 1,
-    "_simulatedOnly_workItemTypeDistribution": { "Bug": 40, "Task": 40, "User Story": 20 },
-    "_simulatedOnly_avgRevisionsPerItem": 3,
-    "_simulatedOnly_includeAttachments": false,
-    "_simulatedOnly_includeLinks": true
-  },
-  "target": {
-    "type": "AzureDevOpsServices | Simulated",
-    "orgOrCollection": "...",
-    "project": "...",
-    "apiVersion": "...",
-    "authentication": {
-      "type": "Pat",
-      "accessToken": "$ENV:TARGET_PAT"
+    "Source": {
+      "Type": "AzureDevOpsServices | TeamFoundationServer | Simulated",
+      "Url": "https://dev.azure.com/<org>",
+      "Project": "<project>",
+      "ApiVersion": "7.1",
+      "Authentication": {
+        "Type": "Pat | Windows",
+        "AccessToken": "<literal-token> | $ENV:MY_PAT_VAR"
+      }
     },
-    "_simulatedOnly_validateOnWrite": true,
-    "_simulatedOnly_failOnFirstError": true
-  },
-  "organisations": [
-    {
-      "type": "AzureDevOpsServices | TeamFoundationServer",
-      "url": "https://dev.azure.com/myorg",
-      "projects": ["Alpha", "Beta"],
-      "apiVersion": "7.1",
-      "authentication": {
-        "type": "Pat",
-        "accessToken": "$ENV:ORG_PAT"
-      },
-      "enabled": true
-    }
-  ],
-  "Tools": {
-    "FieldTransform": {
-      "Enabled": true,
-      "TransformGroups": [
-        {
-          "Name": "StateRemapping",
-          "Enabled": true,
-          "ApplyTo": ["Bug", "UserStory"],
-          "Transforms": [
-            {
-              "Type": "MapValue",
-              "Field": "System.State",
-              "ValueMap": {
-                "Active": "In Progress",
-                "Resolved": "Done"
+    "Target": {
+      "Type": "AzureDevOpsServices | Simulated",
+      "Url": "https://dev.azure.com/<targetorg>",
+      "Project": "<targetproject>",
+      "ApiVersion": "7.1",
+      "Authentication": {
+        "Type": "Pat",
+        "AccessToken": "$ENV:TARGET_PAT"
+      }
+    },
+    "Organisations": [
+      {
+        "Type": "AzureDevOpsServices | TeamFoundationServer",
+        "Url": "https://dev.azure.com/<org>",
+        "Projects": ["Alpha", "Beta"],
+        "ApiVersion": "7.1",
+        "Authentication": {
+          "Type": "Pat",
+          "AccessToken": "$ENV:ORG_PAT"
+        },
+        "Enabled": true
+      }
+    ],
+    "Tools": {
+      "FieldTransform": {
+        "Enabled": true,
+        "TransformGroups": [
+          {
+            "Name": "StateRemapping",
+            "Enabled": true,
+            "ApplyTo": ["Bug", "UserStory"],
+            "Transforms": [
+              {
+                "Type": "MapValue",
+                "Field": "System.State",
+                "ValueMap": {
+                  "Active": "In Progress",
+                  "Resolved": "Done"
+                }
               }
-            }
-          ]
-        }
-      ]
-    }
-  },
-  "modules": [
-    {
-      "name": "Identities",
-      "enabled": true,
-      "defaultIdentity": "migration-service@contoso.com"
-    },
-    {
-      "name": "Nodes",
-      "enabled": true,
-      "replicateSourceTree": true,
-      "autoCreateNodes": true
-    },
-    {
-      "name": "Teams",
-      "enabled": true,
-      "scope": "all",
-      "filter": "",
-      "extensions": [
-        { "type": "TeamSettings",    "enabled": true },
-        { "type": "TeamIterations",  "enabled": true },
-        { "type": "TeamMembers",     "enabled": true },
-        { "type": "TeamCapacity",    "enabled": true }
-      ]
-    },
-    {
-      "name": "WorkItems",
-      "scopes": [
-        {
-          "type": "wiql",
-          "parameters": {
-            "query": "SELECT [System.Id] FROM WorkItems WHERE ..."
+            ]
           }
-        }
-      ],
-      "extensions": [
-        { "type": "Revisions",      "enabled": true },
-        { "type": "Links",          "enabled": true },
-        { "type": "Attachments",    "enabled": true },
-        { "type": "Comments",       "enabled": true },
-        { "type": "EmbeddedImages", "enabled": true }
-      ]
-    }
-  ],
-  "policies": {
-    "retries": { "max": 8 },
-    "throttle": { "maxConcurrency": 4 }
-  },
-  "environment": {
-    "type": "Standalone | Hosted",
-    "controlPlane": {
-      "baseUrl": "http://localhost:5100"
+        ]
+      },
+      "NodeTranslation": {
+        "Enabled": true,
+        "ReplicateSourceTree": true,
+        "AutoCreateNodes": true,
+        "SkipOnUnresolvableArea": false,
+        "SkipOnUnresolvableIteration": false,
+        "AreaPathMappings": [
+          { "Match": "^OldProject\\\\", "Replacement": "NewProject\\" }
+        ],
+        "IterationPathMappings": []
+      },
+      "IdentityLookup": {
+        "Enabled": true,
+        "DefaultIdentity": ""
+      }
     },
-    "agentRunner": {
-      "type": "AzureContainerApps",
-      "subscriptionId": "$ENV:AZURE_SUBSCRIPTION_ID",
-      "resourceGroup": "$ENV:AZURE_RESOURCE_GROUP",
-      "environmentName": "$ENV:ACA_ENVIRONMENT",
-      "auth": {
-        "type": "ServicePrincipal",
-        "tenantId": "$ENV:AZURE_TENANT_ID",
-        "clientId": "$ENV:AZURE_CLIENT_ID",
-        "clientSecret": "$ENV:AZURE_CLIENT_SECRET"
+    "Modules": {
+      "Identities": {
+        "Enabled": true,
+        "DefaultIdentity": "migration-service@contoso.com"
+      },
+      "Nodes": {
+        "Enabled": true,
+        "ReplicateSourceTree": true
+      },
+      "Teams": {
+        "Enabled": true,
+        "AlwaysExport": false,
+        "Extensions": {
+          "TeamSettings": true,
+          "NodeTranslation": true,
+          "TeamIterations": true,
+          "TeamMembers": true,
+          "IdentityLookup": true,
+          "TeamCapacity": true
+        }
+      },
+      "WorkItems": {
+        "Enabled": true,
+        "Scope": {
+          "Query": "SELECT [System.Id] FROM WorkItems WHERE [System.TeamProject] = @project ORDER BY [System.ChangedDate] ASC"
+        },
+        "Extensions": {
+          "Revisions": { "Enabled": true },
+          "Links": { "Enabled": true },
+          "Attachments": { "Enabled": true },
+          "Comments": { "Enabled": true },
+          "EmbeddedImages": { "Enabled": true }
+        }
+      }
+    },
+    "Policies": {
+      "Retries": { "Max": 8 },
+      "Throttle": { "MaxConcurrency": 4 },
+      "Checkpoints": { "Interval": 300 }
+    },
+    "Environment": {
+      "Type": "Standalone | Hosted",
+      "ControlPlane": {
+        "BaseUrl": "http://localhost:5100"
+      },
+      "AgentRunner": {
+        "Type": "AzureContainerApps",
+        "SubscriptionId": "$ENV:AZURE_SUBSCRIPTION_ID",
+        "ResourceGroup": "$ENV:AZURE_RESOURCE_GROUP",
+        "EnvironmentName": "$ENV:ACA_ENVIRONMENT",
+        "Auth": {
+          "Type": "ServicePrincipal",
+          "TenantId": "$ENV:AZURE_TENANT_ID",
+          "ClientId": "$ENV:AZURE_CLIENT_ID",
+          "ClientSecret": "$ENV:AZURE_CLIENT_SECRET"
+        }
       }
     }
   }
@@ -157,20 +160,23 @@ A single JSON configuration file drives the entire run.
 
 ### Top-Level Fields
 
+All fields below are children of the `MigrationPlatform` root key. Keys are PascalCase.
+
 | Field | Required | Description |
 |---|---|---|
-| `configVersion` | Yes | Config schema version; used by the upgrader |
-| `mode` | Yes | `Export`, `Prepare`, `Import`, or `Migrate` |
-| `artefacts.path` | Yes | Absolute path to the package root directory |
-| `artefacts.zip` | No | If `true`, pack/unpack around the run; default `false` |
-| `source` | Required for `Export` and `Migrate`; Mode 1 inventory | Source system connection details. `type` must be one of `AzureDevOpsServices`, `TeamFoundationServer`, or `Simulated`. |
-| `source.authentication` | No | Auth credentials block (`type` + `accessToken`). If omitted, Windows-integrated auth is used. Not used for `Simulated` source type. |
-| `target` | Required for `Prepare`, `Import`, and `Migrate` | Target system connection details. `type` must be `AzureDevOpsServices` or `Simulated`. |
-| `target.authentication` | No | Auth credentials block (`type` + `accessToken`). Not used for `Simulated` target type. |
-| `organisations` | Mode 2 inventory only | Multi-org tooling roster. Mutually exclusive with `source`. Each entry has `type`, `url`, `projects`, `authentication`, `enabled`, and an optional `scopes` array. |
-| `Tools` | No | Keyed object of shared tool declarations. Each key is the tool type name (e.g., `FieldTransform`), each value is tool-specific configuration. Extensions reference tools by key name. |
-| `modules` | Yes | Ordered list of modules to run. Each module declares `scopes` (selection criteria) and named `extensions`. |
-| `policies` | No | Retry and throttle policies |
+| `ConfigVersion` | Yes | Config schema version; used by the upgrader. Current value: `"1.0"`. |
+| `Mode` | Yes | `Export`, `Prepare`, `Import`, or `Migrate` |
+| `Package.WorkingDirectory` | Yes | Absolute or `%ENV%`-expanded path to the package root directory |
+| `Package.CreatePackage` | No | If `true`, zip/unzip the package around the run; default `false` |
+| `Source` | Required for `Export` and `Migrate`; Mode 1 inventory | Source system connection details. `Type` must be one of `AzureDevOpsServices`, `TeamFoundationServer`, or `Simulated`. |
+| `Source.Authentication` | No | Auth credentials block (`Type` + `AccessToken`). If omitted, Windows-integrated auth is used. Not used for `Simulated` source type. |
+| `Target` | Required for `Prepare`, `Import`, and `Migrate` | Target system connection details. `Type` must be `AzureDevOpsServices` or `Simulated`. |
+| `Target.Authentication` | No | Auth credentials block (`Type` + `AccessToken`). Not used for `Simulated` target type. |
+| `Organisations` | Mode 2 inventory only | Multi-org tooling roster. Mutually exclusive with `Source`. Each entry has `Type`, `Url`, `Projects`, `Authentication`, `Enabled`, and an optional `Scopes` array. |
+| `Tools` | No | Keyed object of shared tool configuration. Keys are tool names (`FieldTransform`, `NodeTranslation`, `IdentityLookup`). |
+| `Modules` | Yes | Object keyed by module name (`Identities`, `Nodes`, `Teams`, `WorkItems`). Each value is the module-specific options object. |
+| `Policies` | No | Retry, throttle, and checkpoint policies |
+| `Environment` | No | Control plane endpoint and agent runner config. Defaults to Standalone on `http://localhost:5100`. |
 
 ### Organisation `enabled` Flag — Discovery Behaviour
 
@@ -236,32 +242,43 @@ WorkItems extensions:
 
 | Policy | Field | Default | Description |
 |---|---|---|---|
-| Retries | `policies.retries.max` | `3` | Maximum retry attempts for transient failures |
-| Concurrency | `policies.throttle.maxConcurrency` | `2` | Maximum parallel API requests |
+| Retries | `Policies.Retries.Max` | `3` | Maximum retry attempts for transient failures |
+| Concurrency | `Policies.Throttle.MaxConcurrency` | `2` | Maximum parallel API requests |
+| Checkpoints | `Policies.Checkpoints.Interval` | `300` | Seconds between checkpoint flushes |
+
+### Teams Module Options
+
+The `Modules.Teams` object controls `TeamsModule` behaviour:
+
+| Field | Type | Default | Description |
+|---|---|---|---|
+| `Modules.Teams.Enabled` | bool | `true` | Enable/disable the module |
+| `Modules.Teams.AlwaysExport` | bool | `false` | When `false` (default), a team whose `Teams/{slug}/team.json` artefact already exists in the package is skipped on re-run (resumable). When `true`, every team is always re-fetched from the source. |
+| `Modules.Teams.Extensions.TeamSettings` | bool | `true` | Export/import backlog level, bugs behaviour, and working days |
+| `Modules.Teams.Extensions.NodeTranslation` | bool | `true` | Record team area/iteration paths into the node reference tracker during export |
+| `Modules.Teams.Extensions.TeamIterations` | bool | `true` | Export/import sprint iteration assignments |
+| `Modules.Teams.Extensions.TeamMembers` | bool | `true` | Export/import team members with admin flags |
+| `Modules.Teams.Extensions.IdentityLookup` | bool | `true` | Resolve team member identities via `IdentityLookupTool` |
+| `Modules.Teams.Extensions.TeamCapacity` | bool | `true` | Export/import per-member per-sprint capacity data |
 
 ### WorkItems Module — Scopes and Extensions
 
-The `WorkItems` module accepts a `scopes` array and named extensions:
+The `Modules.WorkItems` object accepts `Scope` (query + filters) and `Extensions` (named sub-modules):
 
 | Field / Extension | Type | Default | Description |
 |---|---|---|---|
-| `scopes[wiql].parameters.query` | string | platform default | WIQL query selecting work items. `@project` is substituted with the configured project name. |
-| `scopes[filter].parameters.mode` | string | — | Filter direction: `include` (only items matching the pattern are processed) or `exclude` (items matching the pattern are skipped). Required when scope type is `filter`. |
-| `scopes[filter].parameters.field` | string | — | Reference name of the ADO field to evaluate (e.g. `System.AreaPath`). Must be non-empty. |
-| `scopes[filter].parameters.pattern` | string | — | Case-insensitive regex pattern applied to the field value (using `System.Text.RegularExpressions`, 2 s timeout). Must be a valid regex. |
-| `extensions[Revisions].enabled` | bool | `true` | When `true`, export all revision history. When `false`, export latest state only. |
-| `extensions[Links].enabled` | bool | `true` | When `true`, export related links, external links, and hyperlinks. |
-| `extensions[Attachments].enabled` | bool | `true` | When `true`, download and store attachment binaries beside each `revision.json`. |
-| `extensions[Comments].enabled` | bool | `true` | When `true`, fetch comment versions from the ADO Comments API and write `comment.json` beside matching revisions. |
-| `extensions[Comments].parameters.includeDeleted` | bool | `false` | When `true`, include soft-deleted comments in the export. |
-| `extensions[EmbeddedImages].enabled` | bool | `true` | When `true`, download inline images from HTML/Markdown fields and rewrite URLs. |
-| `extensions[EmbeddedImages].parameters.downloadTimeoutSeconds` | int | `30` | Timeout in seconds for individual image downloads. |
-| `extensions[WorkItemResolutionStrategy].enabled` | bool | `false` | When `true`, seed `idmap.db` from the target at import startup using the configured strategy. Applicable to **import** only. |
-| `extensions[WorkItemResolutionStrategy].parameters.strategy` | string | — | Strategy name: `TargetField` or `TargetHyperlink`. Required when enabled. |
-| `extensions[WorkItemResolutionStrategy].parameters.fieldName` | string | — | **TargetField only**: Reference name of the custom field that holds the source work item ID (e.g. `Custom.SourceWorkItemId`). |
-| `extensions[WorkItemResolutionStrategy].parameters.urlPattern` | string | — | **TargetHyperlink only**: URL pattern with `{id}` as the source ID placeholder (e.g. `https://source.example.com/wi/{id}`). |
+| `Modules.WorkItems.Enabled` | bool | `true` | Enable/disable the module |
+| `Modules.WorkItems.Scope.Query` | string | platform default | WIQL query selecting work items. `@project` is substituted with the configured project name. |
+| `Modules.WorkItems.Scope.Filters[].Mode` | string | — | Filter direction: `Include` (only items matching the pattern are processed) or `Exclude` (items matching the pattern are skipped). Required when a filter is declared. |
+| `Modules.WorkItems.Scope.Filters[].Field` | string | — | Reference name of the ADO field to evaluate (e.g. `System.AreaPath`). Must be non-empty. |
+| `Modules.WorkItems.Scope.Filters[].Pattern` | string | — | Case-insensitive regex pattern applied to the field value (using `System.Text.RegularExpressions`, 2 s timeout). Must be a valid regex. |
+| `Modules.WorkItems.Extensions.Revisions.Enabled` | bool | `true` | When `true`, export all revision history. When `false`, export latest state only. |
+| `Modules.WorkItems.Extensions.Links.Enabled` | bool | `true` | When `true`, export related links, external links, and hyperlinks. |
+| `Modules.WorkItems.Extensions.Attachments.Enabled` | bool | `true` | When `true`, download and store attachment binaries beside each `revision.json`. |
+| `Modules.WorkItems.Extensions.Comments.Enabled` | bool | `true` | When `true`, fetch comment versions from the ADO Comments API and write `comment.json` beside matching revisions. |
+| `Modules.WorkItems.Extensions.EmbeddedImages.Enabled` | bool | `true` | When `true`, download inline images from HTML/Markdown fields and rewrite URLs. |
 
-> **Filter scope semantics**: Multiple `filter` scopes are evaluated with AND logic. An `include` filter retains only items whose field value matches the pattern; an `exclude` filter discards items whose field value matches. Items where the filtered field is absent pass `exclude` (absent = does not match) and fail `include`. Prefer short, indexed reference-data fields (e.g. `System.AreaPath`, `System.WorkItemType`) to minimise pre-fetch time.
+> **Filter scope semantics**: Multiple `Filters` entries are evaluated with AND logic. An `Include` filter retains only items whose field value matches the pattern; an `Exclude` filter discards items whose field value matches. Items where the filtered field is absent pass `Exclude` (absent = does not match) and fail `Include`. Prefer short, indexed reference-data fields (e.g. `System.AreaPath`, `System.WorkItemType`) to minimise pre-fetch time.
 
 ### Resumable Batching — Operational Responsibilities
 
@@ -303,8 +320,189 @@ Source data can change between runs. When resume is active, the same work item I
 - An upgrader must exist for each version transition (e.g., `1.0 → 2.0`).
 - The tool must detect an outdated config version and either auto-upgrade (with warning) or fail fast with instructions.
 - Configs from future versions must fail fast with a clear error message.
+- **Current version**: `"2.0"` (since feature 025-agent-config-package). Config travels as `configPayload` inside the `Job` dispatch token; the agent writes it to `migration-config.json` at job startup.
+
+---
+
+### Runtime Config Injection — `IOptions<T>` Pattern
+
+The runtime **does not** inject the monolithic `MigrationOptions` type into modules or tools. Instead, each module or tool declares a dependency on its own isolated options slice via `IOptions<T>`:
+
+- Each options class declares a `public static string SectionName` constant (e.g. `"MigrationPlatform:Modules:WorkItems"`).
+- The options class is registered in the connector or module's `Add*Services()` extension method via `AddSchemaEntry<T>()`, which both registers the `IOptions<T>` binding and adds a `SchemaOptionsEntry` to drive schema generation.
+- Modules receive only their own options: `IOptions<WorkItemsModuleOptions>`, `IOptions<TeamsModuleOptions>`, etc.
+
+`MigrationOptions` is a **serialisation-only DTO** — it describes the config file shape and is used by the CLI to write `migration-config.json`. It is **not** injected into modules or tools at runtime.
+
+#### Registered IConfigSection Types
+
+| Options class | `SectionName` | Injected into |
+|---|---|---|
+| `MigrationPackageOptions` | `MigrationPlatform:Package` | Agent worker, artefact store |
+| `MigrationPoliciesOptions` | `MigrationPlatform:Policies` | Resilience pipeline, checkpointing |
+| `IdentitiesModuleOptions` | `MigrationPlatform:Modules:Identities` | `IdentitiesModule` |
+| `NodesModuleOptions` | `MigrationPlatform:Modules:Nodes` | `NodesModule` |
+| `TeamsModuleOptions` | `MigrationPlatform:Modules:Teams` | `TeamsModule` |
+| `WorkItemsModuleOptions` | `MigrationPlatform:Modules:WorkItems` | `WorkItemsModule` |
+| `FieldTransformOptions` | `MigrationPlatform:Tools:FieldTransform` | `FieldTransformTool` |
+| `NodeTranslationOptions` | `MigrationPlatform:Tools:NodeTranslation` | `NodeTranslationTool` |
+| `IdentityLookupOptions` | `MigrationPlatform:Tools:IdentityLookup` | `IdentityLookupTool` |
+
+---
+
+### Cross-Cutting Job Values — `IAgentJobContext`
+
+Modules and tools that need access to the current job's execution mode, package path, or config version **must** use `IAgentJobContext` — not navigate the options graph. This keeps the module's dependency on the job context explicit and independent from config binding:
+
+```csharp
+public interface IAgentJobContext
+{
+    string Mode { get; }          // "Export", "Import", "Prepare", or "Migrate"
+    string PackagePath { get; }   // Resolved absolute path to the package root on disk
+    string ConfigVersion { get; } // e.g. "2.0"
+}
+```
+
+`IAgentJobContext` is scoped to a single agent job. It is constructed once when the job starts and never mutated. It is registered by `MigrationAgentServiceExtensions` (and by `TfsMigrationAgentServiceExtensions` for the TFS agent) before any module executes.
+
+---
+
+### Connector Endpoint Info — `ISourceEndpointInfo` / `ITargetEndpointInfo`
+
+Modules and tools that need the resolved source or target URL and project name **must** use `ISourceEndpointInfo` / `ITargetEndpointInfo`. These are registered by each connector's `Add*Services()` method and resolve against the job's config at startup:
+
+```csharp
+public interface ISourceEndpointInfo
+{
+    string Url { get; }           // e.g. https://dev.azure.com/myorg
+    string Project { get; }       // Project name
+    string ConnectorType { get; } // "AzureDevOpsServices" | "TeamFoundationServer" | "Simulated"
+}
+
+public interface ITargetEndpointInfo  // not registered for TFS (source-only)
+{
+    string Url { get; }
+    string Project { get; }
+    string ConnectorType { get; }
+}
+```
+
+Modules **must not** inject connector-specific options classes (e.g. `AzureDevOpsEndpointOptions`) directly. Using `ISourceEndpointInfo` and `ITargetEndpointInfo` keeps modules connector-agnostic and independently testable.
+
+---
+
+### Schema Generation — `SchemaOptionsEntry`
+
+The committed `migration.schema.json` (in `src/DevOpsMigrationPlatform.CLI.Migration/`) is generated automatically from DI registrations at build time by the `DevOpsMigrationPlatform.SchemaGenerator` project.
+
+How it works:
+1. Each options class that contributes to the schema calls `services.AddSchemaEntry<T>(SectionName)` in its connector's or module's `Add*Services()` extension.
+2. This registers a `SchemaOptionsEntry` singleton (containing the CLR type and the JSON path) into the DI container.
+3. The schema generator resolves all `SchemaOptionsEntry` instances from the container, derives JSON Schema from each type using NJsonSchema reflection, and assembles the merged schema.
+4. The schema is written to `migration.schema.json` and committed to the repository.
+
+To add a new configurable section to the schema:
+- Add a `public const string SectionName = "MigrationPlatform:...";` to the options class.
+- Call `services.AddSchemaEntry<YourOptions>(YourOptions.SectionName)` in the appropriate `Add*Services()` method.
+- Rebuild — the schema generator updates `migration.schema.json` automatically.
+
+---
+
+### IDE IntelliSense — `json.schemas` Integration
+
+The repository registers `migration.schema.json` in `.vscode/settings.json` so VS Code automatically applies it to any `migration.json` file opened in the workspace:
+
+```json
+{
+  "json.schemas": [
+    {
+      "fileMatch": ["**/migration*.json", "**/scenario*.json"],
+      "url": "./src/DevOpsMigrationPlatform.CLI.Migration/migration.schema.json"
+    }
+  ]
+}
+```
+
+This provides:
+- IntelliSense completions for all sections (`source`, `target`, `Tools`, `modules`, etc.)
+- Hover documentation on each key
+- Validation warnings for unknown or wrongly-typed keys
+- Discriminated-union completions for `source.type` / `target.type`
+
+---
+
+### Tier 0 Validation — Schema Check Before Submission
+
+Before the CLI serialises the config into `Job.ConfigPayload` or makes any network call, it validates the raw `migration.json` file against the committed `migration.schema.json`. This is **Tier 0** — purely local, no connectivity required.
+
+- Unknown keys at any nesting level → non-zero exit, JSON path printed
+- Missing required fields → non-zero exit, field path printed
+- Wrong value types → non-zero exit, path + constraint printed
+- `migration.schema.json` absent from the CLI output directory → warning logged, Tier 0 skipped, Tier 1 proceeds
+
+See [docs/validation.md](validation.md) for the full four-tier model.
+
+---
+
+### NodeTranslation Tool
+
+The `NodeTranslation` tool (config key `Tools.NodeTranslation`) controls area and iteration path remapping, node auto-creation, and source tree replication:
+
+| Field | Type | Default | Description |
+|---|---|---|---|
+| `Enabled` | bool | `true` | Enable/disable the tool entirely |
+| `ReplicateSourceTree` | bool | `false` | Copy the full source area/iteration tree to the target before import |
+| `AutoCreateNodes` | bool | `true` | Auto-create any referenced path that does not exist on the target |
+| `SkipOnUnresolvableArea` | bool | `false` | If `true`, skip a work item rather than failing when its area path cannot be resolved or created |
+| `SkipOnUnresolvableIteration` | bool | `false` | If `true`, skip rather than fail on unresolvable iteration paths |
+| `AreaLanguageOverride` | string | `null` | Override the default localised root node name for area paths (e.g. `"Area"` in English, `"Bereich"` in German) |
+| `IterationLanguageOverride` | string | `null` | Override the localised root node name for iteration paths |
+| `AreaPathMappings` | array | `[]` | Regex-based area path transformations applied before node creation. Each entry has `Match` (regex) and `Replacement`. Applied in order. |
+| `IterationPathMappings` | array | `[]` | Same as `AreaPathMappings` but for iteration paths |
+
+**Example**: Rename the project root prefix on all paths:
+
+```json
+"Tools": {
+  "NodeTranslation": {
+    "Enabled": true,
+    "AutoCreateNodes": true,
+    "AreaPathMappings": [
+      { "Match": "^OldProject\\\\", "Replacement": "NewProject\\" }
+    ]
+  }
+}
+```
+
+---
+
+### FieldTransform Tool — Available Transform Types
+
+The `FieldTransform` tool (`Tools.FieldTransform`) applies a named sequence of transform groups to work item revisions. Transforms execute in array order within each group; groups execute in array order. The `Phase` field (default: `Import`) controls when the transform runs.
+
+Available transform types:
+
+| Type | Description |
+|---|---|
+| `CopyField` | Copy value from one field to another |
+| `CopyFieldBatch` | Copy multiple fields in a single declaration (shorthand for multiple `CopyField` transforms) |
+| `SetField` | Set a field to a literal constant value |
+| `MapValue` | Translate values via a key→value map |
+| `MergeFields` | Concatenate multiple source fields into one target field using a format template |
+| `CalculateField` | Compute a new value from an arithmetic/string expression |
+| `ClearField` | Remove (null-out) a field's value |
+| `ExcludeField` | Remove a field from the revision entirely |
+| `ConditionalTag` | Add or remove a tag based on a condition |
+| `FieldToTag` | Promote a field value to a tag |
+| `MergeToTag` | Merge multiple field values into a single tag |
+| `ConditionalField` | Set or transform a field only when a condition is met |
+| `RegexField` | Apply a regex find-and-replace to a field value |
+| `TreeToTag` | Flatten a hierarchical tree path (area/iteration) into tag values |
+
+Each transform must specify at minimum `Type` and `Field`. Additional fields are type-specific.
 
 ### Polymorphic Endpoint Config
+
 
 `source` and `target` blocks use a **type-discriminated polymorphic model**. The `type` field is the discriminator — it must appear first (or at minimum be present) in the JSON object. The platform reads the `type` value, looks up the registered `MigrationEndpointOptions` subtype, then deserialises the remaining fields into that subtype.
 
@@ -638,3 +836,33 @@ The `NodeTranslation` tool manages classification node (area/iteration) path tra
   }
 }
 ```
+
+---
+
+### IdentityLookup Tool
+
+The `IdentityLookup` tool (`Tools.IdentityLookup`) controls automatic identity resolution during export. It maps source identity strings (UPNs, display names) to target identity descriptors using the configured identity store.
+
+#### Schema
+
+| Field | Required | Default | Description |
+|---|---|---|---|
+| `Tools.IdentityLookup.Enabled` | No | `true` | Master switch. When `false`, all identity resolution returns the source identity string unchanged. |
+| `Tools.IdentityLookup.DefaultIdentity` | No | `""` | Fallback identity applied when no mapping override is found and no automatic match succeeds. When empty, the source identity string is returned unchanged. |
+
+#### Example
+
+```json
+{
+  "MigrationPlatform": {
+    "Tools": {
+      "IdentityLookup": {
+        "Enabled": true,
+        "DefaultIdentity": "migration-service@contoso.com"
+      }
+    }
+  }
+}
+```
+
+> **Relationship to `Modules.Identities.DefaultIdentity`**: The `IdentitiesModule` has its own `DefaultIdentity` field for identities that cannot be resolved via the identity lookup store. The `IdentityLookup.DefaultIdentity` is the fallback at the tool level for any module that calls the tool directly (e.g. `TeamsModule`). If both are set, module-level identity resolution consults the tool first.

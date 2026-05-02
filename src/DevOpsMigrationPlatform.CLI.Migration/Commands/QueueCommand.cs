@@ -15,12 +15,15 @@ using DevOpsMigrationPlatform.CLI.Views;
 using DevOpsMigrationPlatform.Infrastructure.Config;
 using DevOpsMigrationPlatform.Abstractions.ControlPlaneApi;
 using DevOpsMigrationPlatform.Abstractions.Validation;
+using DevOpsMigrationPlatform.Abstractions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using DevOpsMigrationPlatform.Abstractions.Options;
 using Spectre.Console;
 using Spectre.Console.Cli;
 using Spectre.Console.Rendering;
+using MsOptions = Microsoft.Extensions.Options.Options;
 
 namespace DevOpsMigrationPlatform.CLI.Migration.Commands;
 
@@ -56,7 +59,54 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
 
             services.AddSingleton<IProgressSink, AnsiProgressSink>();
 
+            // T033: Register IConfigSchemaValidator with schema path
+            services.AddSingleton<IOptions<JsonSchemaConfigValidatorOptions>>(sp =>
+                MsOptions.Create(new JsonSchemaConfigValidatorOptions
+                {
+                    SchemaPath = Path.Combine(AppContext.BaseDirectory, "migration.schema.json")
+                }));
+            services.AddSingleton<IConfigSchemaValidator, JsonSchemaConfigValidator>();
+
         });
+
+        // T034: Validate config against schema before loading
+        var configPath = GetConfigurationPath(settings);
+        if (configPath != null)
+        {
+            var schemaValidator = GetRequiredService<IConfigSchemaValidator>();
+            var logger = GetRequiredService<ILogger<QueueCommand>>();
+            var console = GetRequiredService<IAnsiConsole>();
+
+            try
+            {
+                var rawJson = await File.ReadAllTextAsync(Path.GetFullPath(configPath), cancellationToken);
+                var validationErrors = schemaValidator.Validate(rawJson);
+
+                if (validationErrors.Count > 0)
+                {
+                    console.MarkupLine("[red]Configuration validation failed:[/]");
+                    foreach (var error in validationErrors)
+                    {
+                        logger.LogError(
+                            "Schema validation error at {JsonPath}: {Constraint} in {ConfigFile}",
+                            error.JsonPath,
+                            error.Constraint,
+                            configPath);
+                        console.MarkupLine($"  [red]•[/] {error.JsonPath}: {error.Constraint}");
+                    }
+                    return 1; // Non-zero exit
+                }
+            }
+            catch (FileNotFoundException ex) when (ex.Message.Contains("migration.schema.json"))
+            {
+                // Schema file absent - log warning and proceed
+                var expectedSchemaPath = Path.Combine(AppContext.BaseDirectory, "migration.schema.json");
+                logger.LogWarning(
+                    "Schema file not found at {ExpectedSchemaPath}. Validation skipped.",
+                    expectedSchemaPath);
+                console.MarkupLine($"[yellow]⚠[/] Schema file not found at {Markup.Escape(expectedSchemaPath)}. Validation skipped.");
+            }
+        }
 
         var config = await LoadConfigurationAsync(settings, cancellationToken);
         if (config is null)
@@ -611,12 +661,19 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
         var updates = Channel.CreateUnbounded<JobProgressUpdate>();
         var state = JobProgressState.Initial(totalWorkItems);
 
+        // Bootstrap trigger: fires when the agent emits Job.Ready on the SSE stream,
+        // which signals that the task list has been pushed and GET /jobs/{id}/bootstrap
+        // will return a non-null Tasks list. Using an event-driven trigger instead of
+        // a 1-second polling loop removes the latency between plan push and display.
+        var bootstrapTrigger = new TaskCompletionSource<long>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var bootstrapTask = Task.Run(() => FetchBootstrapOnReady(client, parsedJobId, updates.Writer, bootstrapTrigger, followCts.Token));
+
         // Channel 2: telemetry polling — pushes TelemetryPolled updates every 5 s.
         // Channel 1: SSE stage stream — pushes StageAdvanced and JobTerminated updates.
         // Both producers write into the same channel; the consumer applies each update
         // via Apply() and re-renders, keeping all state in one immutable record.
         var telemetryTask = Task.Run(() => FetchLatestMetrics(client, parsedJobId, updates.Writer, followCts.Token));
-        var progressTask = Task.Run(() => FollowJobProgress(client, parsedJobId, updates.Writer, followCts.Token));
+        var progressTask = Task.Run(() => FollowJobProgress(client, parsedJobId, updates.Writer, bootstrapTrigger, followCts.Token));
 
         if (Console.IsOutputRedirected)
         {
@@ -628,6 +685,26 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
                 await foreach (var update in updates.Reader.ReadAllAsync(followCts.Token).ConfigureAwait(false))
                 {
                     state = Apply(state, update);
+                    // In non-interactive mode emit task transitions as plain log lines.
+                    if (update is TaskListReceived tlr && tlr.Tasks.Tasks.Count > 0)
+                    {
+                        console.MarkupLine("[grey]Execution plan:[/]");
+                        foreach (var t in tlr.Tasks.Tasks.OrderBy(t => t.Order))
+                            console.MarkupLine($"[grey]  · {Markup.Escape(t.Name)}[/]");
+                    }
+                    if (update is TaskUpdated tu)
+                    {
+                        var icon = tu.Status switch
+                        {
+                            JobTaskStatus.Running => "⠋",
+                            JobTaskStatus.Completed => "✓",
+                            JobTaskStatus.Failed => "✗",
+                            JobTaskStatus.Skipped => "→",
+                            _ => "·"
+                        };
+                        var taskName = state.Tasks?.Tasks.FirstOrDefault(t => t.Id == tu.TaskId)?.Name ?? tu.TaskId;
+                        console.MarkupLine($"[grey]{icon} {Markup.Escape(taskName)}[/]");
+                    }
                     if (update is JobTerminated jt)
                     {
                         if (jt.Failed)
@@ -734,6 +811,7 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
         try { await diagnosticsTask; } catch (OperationCanceledException) { }
         try { await telemetryTask; } catch (OperationCanceledException) { }
         try { await progressTask; } catch (OperationCanceledException) { }
+        try { await bootstrapTask; } catch (OperationCanceledException) { }
 
         // Flush buffered diagnostics now that the Progress() renderer has released the console.
         while (diagnosticsBuffer.TryDequeue(out var line))
@@ -778,23 +856,30 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
         ProgressEvent? LastEvent,
         int TeamsCount,
         int NodesCount,
-        int IdentitiesCount)
+        int IdentitiesCount,
+        JobTaskList? Tasks)
     {
         public static JobProgressState Initial(int totalWorkItems) => new(
             0, 0, totalWorkItems, 0, 0, 0, 0, 0, 0, 0,
             string.Empty, 0, 0, 0, 0, null, null, null, null, null, null,
-            0, 0, 0);
+            0, 0, 0, null);
     }
 
     private abstract record JobProgressUpdate;
     private record TelemetryPolled(JobMetrics Metrics) : JobProgressUpdate;
     private record StageAdvanced(ProgressEvent Event) : JobProgressUpdate;
     private record JobTerminated(bool Failed, string? Reason) : JobProgressUpdate;
+    /// <summary>Fired once when the bootstrap poll returns a non-null task list.</summary>
+    private record TaskListReceived(JobTaskList Tasks, long LastEventSequence) : JobProgressUpdate;
+    /// <summary>Fired per SSE event when <see cref="ProgressEvent.TaskId"/> is set.</summary>
+    private record TaskUpdated(string TaskId, JobTaskStatus Status, long? CompletedCount) : JobProgressUpdate;
 
     private static JobProgressState Apply(JobProgressState state, JobProgressUpdate update) => update switch
     {
         TelemetryPolled t => ApplyTelemetry(state, t.Metrics),
         StageAdvanced t => ApplyStageAdvance(state, t.Event),
+        TaskListReceived t => ApplyTaskListReceived(state, t.Tasks),
+        TaskUpdated t => ApplyTaskUpdate(state, t.TaskId, t.Status, t.CompletedCount),
         _ => state
     };
 
@@ -827,6 +912,47 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
         };
     }
 
+    private static JobProgressState ApplyTaskListReceived(JobProgressState state, JobTaskList taskList)
+    {
+        // Seed TotalWorkItems from the plan's KnownTotal so the bar renders
+        // correctly before the first telemetry poll arrives.
+        var wiTask = taskList.Tasks.FirstOrDefault(t =>
+            t.Id.Contains("workitems", StringComparison.OrdinalIgnoreCase));
+        var knownTotal = (int)(wiTask?.KnownTotal ?? 0);
+        return state with
+        {
+            Tasks = taskList,
+            TotalWorkItems = knownTotal > 0 ? knownTotal : state.TotalWorkItems,
+        };
+    }
+
+    private static JobProgressState ApplyTaskUpdate(
+        JobProgressState state, string taskId, JobTaskStatus newStatus, long? completedCount)
+    {
+        if (state.Tasks is null) return state;
+
+        var updatedTasks = new System.Collections.Generic.List<JobTask>(state.Tasks.Tasks.Count);
+        foreach (var task in state.Tasks.Tasks)
+        {
+            if (task.Id != taskId)
+            {
+                updatedTasks.Add(task);
+                continue;
+            }
+            var now = DateTimeOffset.UtcNow;
+            updatedTasks.Add(task with
+            {
+                Status = newStatus,
+                CompletedCount = completedCount ?? task.CompletedCount,
+                StartedAt = newStatus == JobTaskStatus.Running ? task.StartedAt ?? now : task.StartedAt,
+                CompletedAt = newStatus is JobTaskStatus.Completed or JobTaskStatus.Failed or JobTaskStatus.Skipped
+                    ? now
+                    : task.CompletedAt,
+            });
+        }
+        return state with { Tasks = state.Tasks with { Tasks = updatedTasks.AsReadOnly() } };
+    }
+
     // Only WorkItems events (or global job-engine events with no module) should update the
     // WorkItems stage label. Events from Teams/Nodes/Identities must not overwrite it.
     private static bool IsWorkItemsOrGlobalModule(ProgressEvent evt) =>
@@ -857,7 +983,7 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
             });
         }
 
-        return state with
+        var afterMetrics = state with
         {
             LastEvent = evt,
             Metrics = mergedMetrics,
@@ -876,11 +1002,28 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
                 ? state.IdentitiesCount + 1
                 : state.IdentitiesCount,
         };
+
+        // Apply task status transition derived from the ProgressEvent — same logic as ProgressController.
+        if (evt.TaskId is not null && evt.TaskStatus.HasValue)
+            return ApplyTaskUpdate(afterMetrics, evt.TaskId, evt.TaskStatus.Value, evt.CompletedCount);
+
+        return afterMetrics;
     }
 
     /// <summary>Renders the current <see cref="JobProgressState"/> into the Live display.</summary>
-    private static IRenderable BuildProgressDisplay(JobProgressState s) =>
-        BuildProgressRenderable(
+    private static IRenderable BuildProgressDisplay(JobProgressState s)
+    {
+        // When the task list has arrived, render a single unified view where every
+        // task row IS its module progress bar. No separate checklist + divider.
+        if (s.Tasks is { Tasks.Count: > 0 })
+            return BuildUnifiedTaskDisplay(s);
+
+        // Initialising: task list not yet received.
+        if (s.Tasks is null)
+            return new Markup("[grey]⠋ Initialising — waiting for agent to start…[/]");
+
+        // Tasks received but empty (shouldn't happen in practice) — show legacy detail.
+        return BuildProgressRenderable(
             s.Completed, s.Skipped, s.TotalWorkItems,
             s.CurrentWiId, s.CurrentWiRevsWritten,
             s.CurrentWiIndex, s.LastWiRevisions,
@@ -894,6 +1037,296 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
             s.Metrics?.Migration?.Nodes,
             s.Metrics?.Migration?.Identities,
             s.TeamsCount, s.NodesCount, s.IdentitiesCount);
+    }
+
+    /// <summary>
+    /// Single unified display: each task row IS its module progress bar.
+    /// Identities/Nodes/Teams show their completion bar inline.
+    /// WorkItems shows the full bar + sub-rows (current WI, timing, attachments, checkpoint).
+    /// </summary>
+    private static IRenderable BuildUnifiedTaskDisplay(JobProgressState s)
+    {
+        const int BarWidth = 38;
+        var spinnerFrame = s_spinnerFrames[(int)(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() / 80 % s_spinnerFrames.Length)];
+        var rows = new System.Collections.Generic.List<IRenderable>();
+        string? currentPhase = null;
+
+        foreach (var task in s.Tasks!.Tasks.OrderBy(t => t.Order))
+        {
+            if (task.Phase != currentPhase)
+            {
+                currentPhase = task.Phase;
+                if (!string.IsNullOrEmpty(currentPhase))
+                    rows.Add(new Markup($"[bold grey]{Markup.Escape(currentPhase)}[/]"));
+            }
+
+            var (icon, iconColor) = task.Status switch
+            {
+                JobTaskStatus.Running => (spinnerFrame, "blue"),
+                JobTaskStatus.Completed => ("✓", "green"),
+                JobTaskStatus.Failed => ("✗", "red"),
+                JobTaskStatus.Skipped => ("→", "grey"),
+                _ => ("·", "grey"),
+            };
+
+            var taskLower = task.Id.ToLowerInvariant();
+
+            if (taskLower.Contains("identities"))
+            {
+                var id = s.Metrics?.Migration?.Identities;
+                string bar; string barColor; string counts;
+                if (id != null || task.Status == JobTaskStatus.Completed)
+                {
+                    bar = new string('━', BarWidth); barColor = iconColor;
+                    counts = id != null
+                        ? $"  [bold]{id.Exported:N0}[/][grey] exported[/]"
+                            + (id.Resolved > 0 ? $"  [bold]{id.Resolved:N0}[/][grey] resolved[/]" : string.Empty)
+                            + (id.Unresolved > 0 ? $"  [yellow]{id.Unresolved:N0} unresolved[/]" : string.Empty)
+                            + (id.Failed > 0 ? $"  [red]{id.Failed:N0} failed[/]" : string.Empty)
+                        : (s.IdentitiesCount > 0 ? $"  [grey]{s.IdentitiesCount:N0}[/]" : string.Empty);
+                }
+                else if (task.Status == JobTaskStatus.Running)
+                {
+                    var offset = (int)(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() / 80) % BarWidth;
+                    bar = new string('─', offset) + '━' + new string('─', BarWidth - offset - 1);
+                    barColor = "blue"; counts = string.Empty;
+                }
+                else
+                {
+                    bar = new string('─', BarWidth); barColor = "grey"; counts = string.Empty;
+                }
+                rows.Add(new Markup($"  [{iconColor}]{icon}[/]  [bold]{Markup.Escape(task.Name)}[/]  [{barColor}]{Markup.Escape(bar)}[/]{counts}"));
+            }
+            else if (taskLower.Contains("nodes"))
+            {
+                var nd = s.Metrics?.Migration?.Nodes;
+                string bar; string barColor; string counts;
+                if (nd != null || task.Status == JobTaskStatus.Completed)
+                {
+                    bar = new string('━', BarWidth); barColor = iconColor;
+                    counts = nd != null
+                        ? (nd.Exported > 0 ? $"  [bold]{nd.Exported:N0}[/][grey] captured[/]" : string.Empty)
+                            + (nd.AreaPathsReplicated > 0 ? $"  [bold]{nd.AreaPathsReplicated:N0}[/][grey] area[/]" : string.Empty)
+                            + (nd.IterationPathsReplicated > 0 ? $"  [bold]{nd.IterationPathsReplicated:N0}[/][grey] iteration[/]" : string.Empty)
+                            + (nd.Failed > 0 ? $"  [red]{nd.Failed:N0} failed[/]" : string.Empty)
+                        : (s.NodesCount > 0 ? $"  [grey]{s.NodesCount:N0}[/]" : string.Empty);
+                }
+                else if (task.Status == JobTaskStatus.Running)
+                {
+                    var offset = (int)(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() / 80) % BarWidth;
+                    bar = new string('─', offset) + '━' + new string('─', BarWidth - offset - 1);
+                    barColor = "blue"; counts = string.Empty;
+                }
+                else
+                {
+                    bar = new string('─', BarWidth); barColor = "grey"; counts = string.Empty;
+                }
+                rows.Add(new Markup($"  [{iconColor}]{icon}[/]  [bold]{Markup.Escape(task.Name)}[/]  [{barColor}]{Markup.Escape(bar)}[/]{counts}"));
+            }
+            else if (taskLower.Contains("teams"))
+            {
+                var tm = s.Metrics?.Migration?.Teams;
+                string bar; string barColor; string counts;
+                if (tm != null || task.Status == JobTaskStatus.Completed)
+                {
+                    bar = new string('━', BarWidth); barColor = iconColor;
+                    counts = tm != null
+                        ? (tm.Exported > 0 ? $"  [bold]{tm.Exported:N0}[/][grey] exported[/]" : string.Empty)
+                            + (tm.Skipped > 0 ? $"  [grey]{tm.Skipped:N0} already present[/]" : string.Empty)
+                            + (tm.Imported > 0 ? $"  [bold]{tm.Imported:N0}[/][grey] imported[/]" : string.Empty)
+                            + (tm.Members > 0 ? $"  [grey]{tm.Members:N0} members[/]" : string.Empty)
+                            + (tm.Failed > 0 ? $"  [red]{tm.Failed:N0} failed[/]" : string.Empty)
+                            + (tm.Exported == 0 && tm.Skipped == 0 && tm.Imported == 0 ? $"  [grey]0 teams[/]" : string.Empty)
+                        : (s.TeamsCount > 0 ? $"  [grey]{s.TeamsCount:N0}[/]" : string.Empty);
+                }
+                else if (task.Status == JobTaskStatus.Running)
+                {
+                    var offset = (int)(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() / 80) % BarWidth;
+                    bar = new string('─', offset) + '━' + new string('─', BarWidth - offset - 1);
+                    barColor = "blue"; counts = string.Empty;
+                }
+                else
+                {
+                    bar = new string('─', BarWidth); barColor = "grey"; counts = string.Empty;
+                }
+                rows.Add(new Markup($"  [{iconColor}]{icon}[/]  [bold]{Markup.Escape(task.Name)}[/]  [{barColor}]{Markup.Escape(bar)}[/]{counts}"));
+            }
+            else if (taskLower.Contains("workitems"))
+            {
+                // WorkItems: full bar + detailed sub-rows
+                int processed = s.Completed + s.Skipped;
+                string wiBar; string wiBarColor; string countsSuffix;
+                if (s.TotalWorkItems > 0)
+                {
+                    var wiPct = (double)processed / s.TotalWorkItems;
+                    var wiFilled = Math.Clamp((int)(wiPct * BarWidth), 0, BarWidth);
+                    wiBar = new string('━', wiFilled) + new string('─', BarWidth - wiFilled);
+                    wiBarColor = task.Status == JobTaskStatus.Completed ? "green"
+                                : task.Status == JobTaskStatus.Running ? "blue" : "grey";
+                    var exportedStr = s.Completed > 0 ? $"  [green]{s.Completed:N0} exported[/]" : string.Empty;
+                    var skippedStr = s.Skipped > 0 ? $"  [grey]{s.Skipped:N0} skipped[/]" : string.Empty;
+                    int estimatedTotalRevisions = s.Completed > 0
+                        ? (int)((double)s.Revisions / s.Completed * s.TotalWorkItems) : 0;
+                    var etaStr = ComputeRevisionEta(s.Revisions, estimatedTotalRevisions, s.AverageRevDurationMs);
+                    countsSuffix = $"  [bold]{processed:N0}[/][grey]/{s.TotalWorkItems:N0}[/]{exportedStr}{skippedStr}"
+                                 + $"  [grey]{wiPct * 100.0:F1}%[/]  [grey]ETA: {Markup.Escape(etaStr)}[/]";
+                }
+                else if (task.Status == JobTaskStatus.Running)
+                {
+                    // Total unknown — animated indeterminate scanner bar
+                    var offset = (int)(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() / 80) % BarWidth;
+                    wiBar = new string('─', offset) + '━' + new string('─', BarWidth - offset - 1);
+                    wiBarColor = "blue";
+                    // Don't say "N processed" — that's just exported+skipped restated and
+                    // makes the line too long. Show the breakdown directly like the deterministic branch.
+                    var expStr = s.Completed > 0 ? $"  [green]{s.Completed:N0} exported[/]" : string.Empty;
+                    var skipStr = s.Skipped > 0 ? $"  [grey]{s.Skipped:N0} skipped[/]" : string.Empty;
+                    countsSuffix = expStr.Length > 0 || skipStr.Length > 0
+                        ? expStr + skipStr
+                        : string.Empty;
+                }
+                else
+                {
+                    wiBar = new string('─', BarWidth);
+                    wiBarColor = "grey";
+                    countsSuffix = string.Empty;
+                }
+                var stageStr = string.IsNullOrEmpty(s.Stage) ? string.Empty : $"  [grey]{Markup.Escape(s.Stage)}[/]";
+                rows.Add(new Markup(
+                    $"  [{iconColor}]{icon}[/]  [bold]{Markup.Escape(task.Name)}[/]{stageStr}  [{wiBarColor}]{Markup.Escape(wiBar)}[/]{countsSuffix}"));
+
+                if (task.Status == JobTaskStatus.Running || s.CurrentWiId > 0)
+                {
+                    var isResuming = string.Equals(s.Stage, "Resuming", StringComparison.OrdinalIgnoreCase);
+                    if (isResuming && s.CurrentWiId > 0)
+                    {
+                        var totalStr = s.TotalWorkItems > 0 ? $"/{s.TotalWorkItems:N0}" : string.Empty;
+                        rows.Add(new Markup($"     [grey]↳ Resuming WI {s.CurrentWiId}[/]  [grey](fast-forwarding {s.Skipped:N0}{totalStr})[/]"));
+                    }
+                    else if (s.CurrentWiId > 0)
+                    {
+                        int refRevs = s.LastWiRevisions > 0 ? s.LastWiRevisions : s.CurrentWiRevsWritten;
+                        var curPct = refRevs > 0 ? Math.Min(1.0, (double)s.CurrentWiRevsWritten / refRevs) : 0.0;
+                        var curFilled = Math.Clamp((int)(curPct * BarWidth), 0, BarWidth);
+                        var curBar = new string('━', curFilled) + new string('─', BarWidth - curFilled);
+                        var lastRevStr = s.LastWiRevisions > 0 ? $"  [grey](prev: {s.LastWiRevisions} rev)[/]" : string.Empty;
+                        var statusBadge = s.LastWorkItemStatus == "Exported" ? " [green]✓[/]"
+                                        : s.LastWorkItemStatus == "Failed" ? " [red]✗[/]" : string.Empty;
+                        rows.Add(new Markup(
+                            $"     [grey]↳ WI {s.CurrentWiId}[/]{statusBadge}   [blue]{Markup.Escape(curBar)}[/]"
+                            + $"  [bold]{s.CurrentWiRevsWritten:N0}[/][grey] rev[/]{lastRevStr}"));
+                    }
+                    else
+                        rows.Add(new Markup("     [grey]↳ Revisions   waiting…[/]"));
+
+                    if (isResuming)
+                        rows.Add(new Markup("     [grey]─ (fast-forwarding, no timing)[/]"));
+                    else if (s.LastRevDurationMs > 0)
+                    {
+                        var lastSec = s.LastRevDurationMs / 1000.0;
+                        var avgSec = s.AverageRevDurationMs / 1000.0;
+                        var isSlowdown = s.AverageRevDurationMs > 0 && s.LastRevDurationMs > s.AverageRevDurationMs * 3;
+                        var durationColor = isSlowdown ? "red" : s.LastRevDurationMs > s.AverageRevDurationMs * 1.5 ? "yellow" : "green";
+                        var throttleWarning = isSlowdown ? "  [red bold]⚠ possible back-off[/]" : string.Empty;
+                        rows.Add(new Markup($"     [grey]last:[/] [{durationColor}]{lastSec:F1}s[/]  [grey]avg:[/] [grey]{avgSec:F1}s[/]{throttleWarning}"));
+                    }
+                    else
+                        rows.Add(new Markup("     [grey]─[/]"));
+
+                    if (s.AttachmentsProcessed > 0 || s.AttachmentsFailed > 0 || s.CurrentAttachmentName != null)
+                    {
+                        var avgDurStr = s.AverageAttachmentDurationMs > 0 ? $"  [grey]avg dl:[/] [white]{s.AverageAttachmentDurationMs / 1000.0:F1}s[/]" : string.Empty;
+                        var avgSzStr = s.AverageAttachmentSizeBytes > 0 ? $"  [grey]avg size:[/] [white]{FormatBytes(s.AverageAttachmentSizeBytes)}[/]" : string.Empty;
+                        var failStr = s.AttachmentsFailed > 0 ? $"  [red]{s.AttachmentsFailed} failed[/]" : string.Empty;
+                        var inFlightStr = s.CurrentAttachmentName != null
+                            ? $"  [yellow]↓ {Markup.Escape(TruncateName(s.CurrentAttachmentName, 28))}[/]" : string.Empty;
+                        rows.Add(new Markup($"     [grey]Attachments:[/] [bold]{s.AttachmentsProcessed:N0}[/][grey] done[/]{failStr}{inFlightStr}{avgDurStr}{avgSzStr}"));
+                    }
+                    else
+                        rows.Add(new Markup("     [grey]Attachments   –[/]"));
+
+                    if (s.NextCheckpointDueAt is null && s.LastCheckpointAt is not null)
+                        rows.Add(new Markup("     [green]✓ Safe to cancel — checkpointed per revision[/]"));
+                    else if (s.NextCheckpointDueAt is not null)
+                    {
+                        var remaining = s.NextCheckpointDueAt.Value - DateTimeOffset.UtcNow;
+                        rows.Add(remaining <= TimeSpan.Zero
+                            ? new Markup("     [green]✓ Save point due now[/]")
+                            : new Markup($"     [yellow]⏳ Next save in {(int)remaining.TotalMinutes}m {remaining.Seconds:D2}s[/]"));
+                    }
+                    else
+                        rows.Add(new Markup("     [grey]─[/]"));
+                }
+            }
+            else
+            {
+                // Generic task — show name + optional progress from KnownTotal
+                string suffix = string.Empty;
+                if (task.KnownTotal.HasValue && task.KnownTotal > 0)
+                {
+                    var done = task.CompletedCount ?? 0;
+                    var pct = Math.Clamp((double)done / task.KnownTotal.Value, 0, 1);
+                    var filled = (int)(pct * BarWidth);
+                    var bar = new string('━', filled) + new string('─', BarWidth - filled);
+                    suffix = $"  [{iconColor}]{Markup.Escape(bar)}[/]  [grey]{done:N0}/{task.KnownTotal.Value:N0}[/]";
+                }
+                else if (task.CompletedCount > 0)
+                    suffix = $"  [grey]{task.CompletedCount.Value:N0}[/]";
+                rows.Add(new Markup($"  [{iconColor}]{icon}[/]  {Markup.Escape(task.Name)}{suffix}"));
+            }
+        }
+
+        return rows.Count > 0 ? new Rows(rows) : new Markup("[grey]⠋ Running…[/]");
+    }
+
+    /// <summary>
+    /// Awaits a <c>Job.Ready</c> signal from the SSE stream (via <paramref name="bootstrapTrigger"/>),
+    /// then performs a single <c>GET /jobs/{jobId}/bootstrap</c> call to retrieve the task list and
+    /// writes a <see cref="TaskListReceived"/> update. Falls back to polling at 2-second intervals
+    /// if the agent does not support lifecycle events (older agent, or plan-build failure).
+    /// </summary>
+    private static async Task FetchBootstrapOnReady(
+        IControlPlaneClient client, Guid jobId,
+        ChannelWriter<JobProgressUpdate> updates,
+        TaskCompletionSource<long> bootstrapTrigger,
+        CancellationToken ct)
+    {
+        try
+        {
+            // Wait for Job.Ready signal (or fall back after 60 s for older agents).
+            await Task.WhenAny(bootstrapTrigger.Task, Task.Delay(TimeSpan.FromSeconds(60), ct))
+                .ConfigureAwait(false);
+
+            ct.ThrowIfCancellationRequested();
+
+            // One-shot bootstrap GET — the task list should be present by now.
+            // If not (e.g. plan-build failure), retry at 2 s intervals up to 10 s.
+            var deadline = DateTimeOffset.UtcNow.AddSeconds(10);
+            while (DateTimeOffset.UtcNow < deadline && !ct.IsCancellationRequested)
+            {
+                try
+                {
+                    var bootstrap = await client.GetBootstrapAsync(jobId, ct).ConfigureAwait(false);
+                    if (bootstrap?.Tasks is not null)
+                    {
+                        await updates.WriteAsync(
+                            new TaskListReceived(bootstrap.Tasks, bootstrap.LastEventSequence), ct)
+                            .ConfigureAwait(false);
+                        return;
+                    }
+                }
+                catch (OperationCanceledException) { return; }
+                catch (Exception) { /* best-effort — retry */ }
+
+                await Task.Delay(2_000, ct).ConfigureAwait(false);
+            }
+
+            // Final fallback: signal with empty list so the display exits "Initialising" state.
+            var empty = new JobTaskList { Tasks = Array.Empty<JobTask>(), PushedAt = DateTimeOffset.UtcNow };
+            await updates.WriteAsync(new TaskListReceived(empty, 0), ct).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) { }
+    }
 
     /// <summary>
     /// Polls <c>GET /jobs/{jobId}/telemetry</c> every 5 s and pushes
@@ -928,12 +1361,20 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
     /// </summary>
     private static async Task FollowJobProgress(
         IControlPlaneClient client, Guid jobId,
-        ChannelWriter<JobProgressUpdate> updates, CancellationToken ct)
+        ChannelWriter<JobProgressUpdate> updates,
+        TaskCompletionSource<long> bootstrapTrigger,
+        CancellationToken ct)
     {
         try
         {
-            await foreach (var evt in client.FollowLogsAsync(jobId, ct).ConfigureAwait(false))
+            await foreach (var evt in client.FollowLogsAsync(jobId, ct, null).ConfigureAwait(false))
+            {
+                // Job.Ready signals the task list is available — trigger the one-shot bootstrap GET.
+                if (evt.Module == "Job" && evt.Stage == "Job.Ready")
+                    bootstrapTrigger.TrySetResult(evt.EventSequence);
+
                 await updates.WriteAsync(new StageAdvanced(evt), ct).ConfigureAwait(false);
+            }
 
             await updates.WriteAsync(new JobTerminated(false, null), ct).ConfigureAwait(false);
         }

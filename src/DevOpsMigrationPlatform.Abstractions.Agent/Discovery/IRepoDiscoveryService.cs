@@ -1,6 +1,5 @@
 using System.Threading;
 using System.Threading.Tasks;
-using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Abstractions.Organisations;
 
 namespace DevOpsMigrationPlatform.Abstractions.Agent.Discovery;
@@ -14,7 +13,7 @@ public interface IRepoDiscoveryService
     /// Returns the number of Git repositories in <paramref name="project"/>.
     /// </summary>
     Task<int> CountReposAsync(
-        MigrationEndpointOptions endpoint,
+        OrganisationEndpoint endpoint,
         string project,
         CancellationToken cancellationToken = default);
 }

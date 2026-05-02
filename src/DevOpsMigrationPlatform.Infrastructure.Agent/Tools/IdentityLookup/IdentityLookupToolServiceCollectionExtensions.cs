@@ -3,7 +3,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using DevOpsMigrationPlatform.Abstractions.Agent.Lease;
+using DevOpsMigrationPlatform.Abstractions.Agent.Context;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Abstractions.Options;
 
@@ -13,10 +13,15 @@ public static class IdentityLookupToolServiceCollectionExtensions
 {
     public static IServiceCollection AddIdentityLookupToolServices(this IServiceCollection services)
     {
+#if NET7_0_OR_GREATER
+        // Register schema entry for migration.schema.json generation
+        services.AddSchemaEntry<IdentityLookupOptions>("Identity mapping and resolution configuration");
+#endif
+
         // Bind from per-job PackageConfig via ActiveJobConfigState (set before job scope is created).
         // IOptionsSnapshot<T> computes .Value once per scope, giving per-job options.
         services.AddOptions<IdentityLookupOptions>()
-            .Configure<ActiveJobConfigState>((opts, state) =>
+            .Configure<IJobConfiguration>((opts, state) =>
             {
                 state.PackageConfig?.GetSection(IdentityLookupOptions.SectionName).Bind(opts);
             });

@@ -30,4 +30,11 @@ public interface IControlPlaneClient
     /// Calls <c>GET /jobs/{jobId}/bootstrap</c>.
     /// </summary>
     Task<JobBootstrap?> GetBootstrapAsync(Guid jobId, CancellationToken ct);
+
+    /// <summary>
+    /// Returns the current <see cref="JobTaskList"/> for a job, or <c>null</c> when the
+    /// agent has not yet pushed an execution plan.
+    /// Calls <c>GET /jobs/{jobId}/tasks</c>.
+    /// </summary>
+    Task<JobTaskList?> GetTasksAsync(Guid jobId, CancellationToken ct);
 }

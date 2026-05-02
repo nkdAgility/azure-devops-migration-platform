@@ -1,6 +1,5 @@
 using System.Collections.Generic;
 using System.Threading;
-using DevOpsMigrationPlatform.Abstractions.Options;
 
 namespace DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 
@@ -10,9 +9,9 @@ namespace DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 /// </summary>
 public interface IClassificationTreeReader
 {
-    /// <summary>Enumerates all area node paths from the source project identified by <paramref name="endpoint"/>.</summary>
-    IAsyncEnumerable<string> EnumerateAreaNodesAsync(MigrationEndpointOptions endpoint, CancellationToken ct);
+    /// <summary>Enumerates all area node paths from the source project.</summary>
+    IAsyncEnumerable<string> EnumerateAreaNodesAsync(CancellationToken ct);
 
-    /// <summary>Enumerates all iteration nodes (with dates) from the source project identified by <paramref name="endpoint"/>.</summary>
-    IAsyncEnumerable<IterationNodeEntry> EnumerateIterationNodesAsync(MigrationEndpointOptions endpoint, CancellationToken ct);
+    /// <summary>Enumerates all iteration nodes (with dates) from the source project.</summary>
+    IAsyncEnumerable<IterationNodeEntry> EnumerateIterationNodesAsync(CancellationToken ct);
 }

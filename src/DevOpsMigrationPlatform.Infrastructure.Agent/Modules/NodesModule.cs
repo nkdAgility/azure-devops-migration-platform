@@ -6,9 +6,9 @@ using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Agent.Checkpointing;
+using DevOpsMigrationPlatform.Abstractions.Agent.Context;
 using DevOpsMigrationPlatform.Abstractions.Agent.Export;
 using DevOpsMigrationPlatform.Abstractions.Agent.Import;
-using DevOpsMigrationPlatform.Abstractions.Agent.Lease;
 using DevOpsMigrationPlatform.Abstractions.Agent.Modules;
 using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
@@ -48,36 +48,39 @@ public sealed class NodesModule : IModule
     private readonly ICheckpointingServiceFactory? _checkpointingFactory;
     private readonly ILogger<NodesModule> _logger;
     private readonly NodesModuleOptions _options;
-    // On net481 this field is injected via the base worker's static ambient state;
-    // the DI parameter does not exist on that TF so the field stays null.
-#pragma warning disable CS0649
-    private readonly ActiveJobConfigState? _activeJobConfig;
-#pragma warning restore CS0649
+    private readonly ISourceEndpointInfo _sourceEndpointInfo;
+#if !NET481
+    private readonly ITargetEndpointInfo _targetEndpointInfo;
+#endif
 
     public string Name => ModuleName;
-    public IReadOnlyList<string> DependsOn => Array.Empty<string>();
+    public IReadOnlyList<ModuleDependency> DependsOn => Array.Empty<ModuleDependency>();
+    public bool SupportsExport => true;
+    public bool SupportsImport => true;
 
     public NodesModule(
         ILogger<NodesModule> logger,
         IOptions<NodesModuleOptions> options,
+        ISourceEndpointInfo sourceEndpointInfo,
         IClassificationTreeCapture? capture = null,
 #if !NET481
+        ITargetEndpointInfo? targetEndpointInfo = null,
         INodeEnsurer? nodeEnsurer = null,
 #endif
         ICheckpointingServiceFactory? checkpointingFactory = null
 #if !NET481
         , IMigrationMetrics? migrationMetrics = null
-        , ActiveJobConfigState? activeJobConfig = null
 #endif
         )
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _options = options?.Value ?? throw new ArgumentNullException(nameof(options));
+        _sourceEndpointInfo = sourceEndpointInfo ?? throw new ArgumentNullException(nameof(sourceEndpointInfo));
         _capture = capture;
 #if !NET481
+        _targetEndpointInfo = targetEndpointInfo ?? throw new ArgumentNullException(nameof(targetEndpointInfo));
         _nodeEnsurer = nodeEnsurer;
         _migrationMetrics = migrationMetrics;
-        _activeJobConfig = activeJobConfig;
 #endif
         _checkpointingFactory = checkpointingFactory;
     }
@@ -104,11 +107,8 @@ public sealed class NodesModule : IModule
         {
             Module = ModuleName,
             Stage = "Nodes.Export.Started",
-            Message = $"Starting node tree capture for project '{_activeJobConfig?.Current?.Source?.GetProject()}'.",
+            Message = $"Starting node tree capture for project '{_sourceEndpointInfo.Project}'.",
         });
-
-        var endpoint = _activeJobConfig?.Current?.Source
-            ?? throw new InvalidOperationException("ActiveJobConfigState.Current.Source is required for node export — ensure migration-config.json is present.");
 
         // Idempotency: skip if already completed.
         if (_checkpointingFactory is not null)
@@ -124,7 +124,7 @@ public sealed class NodesModule : IModule
         }
 
         var nodeCount = await _capture.CaptureAsync(
-            context.ArtefactStore, endpoint, ct
+            context.ArtefactStore, ct
 #if !NET481
             , _migrationMetrics, context.Job.JobId, context.ProgressSink, ModuleName
 #endif
@@ -179,26 +179,23 @@ public sealed class NodesModule : IModule
 
         using var activity = s_activitySource.StartActivity("nodes.import");
 
-        var endpoint = _activeJobConfig?.Current?.Target
-            ?? throw new InvalidOperationException("ActiveJobConfigState.Current.Target is required for node import — ensure migration-config.json is present.");
-
         var importSink = context.ProgressSink;
         importSink?.Emit(new ProgressEvent
         {
             Module = ModuleName,
             Stage = "Nodes.Import.Started",
-            Message = $"Starting node replication for project '{endpoint.GetProject()}'.",
+            Message = $"Starting node replication for project '{_targetEndpointInfo.Project}'.",
         });
 
-        var project = endpoint.GetProject();
-        var sourceProject = _activeJobConfig?.Current?.Source?.GetProject() ?? project;
+        var project = _targetEndpointInfo.Project;
+        var sourceProject = _sourceEndpointInfo.Project;
         var mapping = new ProjectMapping(sourceProject, project);
 
         if (_options.ReplicateSourceTree)
         {
             _logger.LogInformation("[Nodes] Replicating source tree.");
             await _nodeEnsurer.ReplicateSourceTreeAsync(
-                mapping, endpoint,
+                mapping,
                 context.ArtefactStore, context.StateStore,
                 ct, _migrationMetrics, context.Job.JobId).ConfigureAwait(false);
             importSink?.Emit(new ProgressEvent

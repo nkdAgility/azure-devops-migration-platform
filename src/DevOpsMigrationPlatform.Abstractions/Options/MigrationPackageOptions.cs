@@ -4,7 +4,17 @@ namespace DevOpsMigrationPlatform.Abstractions.Options;
 /// Package storage options.  Determines where the migration package is written or read.
 /// </summary>
 public class MigrationPackageOptions
+#if NET7_0_OR_GREATER
+    : IConfigSection
+#endif
 {
+#if NET7_0_OR_GREATER
+    /// <summary>
+    /// The canonical config section path for package options.
+    /// </summary>
+    public static string SectionName => "MigrationPlatform:Package";
+#endif
+
     /// <summary>
     /// Root working directory of the migration package.
     /// Supports <c>%USERPROFILE%</c> and other environment variable expansions.

@@ -1,15 +1,14 @@
 using System;
 using System.Collections.Generic;
 using System.Net.Http;
-using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions.Agent.Checkpointing;
+using DevOpsMigrationPlatform.Abstractions.Agent.Context;
 using DevOpsMigrationPlatform.Abstractions.Agent.Lease;
 using DevOpsMigrationPlatform.Abstractions.Agent.Modules;
 using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
 using DevOpsMigrationPlatform.Abstractions.Jobs;
-using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Abstractions.Streaming;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -58,8 +57,8 @@ public abstract class ModulePipelineWorkerBase : AgentWorkerBase
     /// <summary>Reads <c>migration-config.json</c> from the package at job start.</summary>
     protected IPackageConfigStore PackageConfigStore { get; }
 
-    /// <summary>Ambient holder for the current job's <see cref="MigrationOptions"/>.</summary>
-    protected ActiveJobConfigState ActiveJobConfig { get; }
+    /// <summary>Ambient holder for the current job's per-job <see cref="Microsoft.Extensions.Configuration.IConfiguration"/> (PackageConfig).</summary>
+    protected IJobConfiguration ActiveJobConfig { get; }
 
     /// <summary>
     /// Used to create a per-job DI scope so that modules (and their tool dependencies)
@@ -77,7 +76,7 @@ public abstract class ModulePipelineWorkerBase : AgentWorkerBase
         IPhaseTrackingServiceFactory phaseTrackingFactory,
         ActiveLeaseState leaseState,
         ActivePackageState packageState,
-        ActiveJobConfigState activeJobConfig,
+        IJobConfiguration activeJobConfig,
         IPackageConfigStore packageConfigStore,
         IServiceScopeFactory moduleScopeFactory,
         IHttpClientFactory httpClientFactory,
@@ -150,20 +149,8 @@ public abstract class ModulePipelineWorkerBase : AgentWorkerBase
             ActiveJobConfig.Clear();
             return;
         }
-        var migrationOptions = new MigrationOptions();
-        // Bind non-endpoint properties. Source/Target are abstract and cannot be bound directly;
-        // each agent's OnBeforeModulesAsync binds the concrete endpoint type separately.
-        try
-        {
-            packageConfig.GetSection("MigrationPlatform").Bind(migrationOptions);
-        }
-        catch (InvalidOperationException)
-        {
-            // Binding failed because Source/Target are abstract. Modules, Policies, and other
-            // scalar properties must be populated separately from the raw IConfiguration.
-        }
-        // Store both the parsed options and the raw IConfiguration (for concrete endpoint binding).
-        ActiveJobConfig.Current = migrationOptions;
+        // Store the raw IConfiguration for per-job tool options binding.
+        // Modules resolve IOptionsSnapshot<T> from this config via ActiveJobConfigState.PackageConfig.
         ActiveJobConfig.PackageConfig = packageConfig;
 
         // Create a per-job DI scope AFTER PackageConfig is set. Modules (and their Singleton

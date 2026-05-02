@@ -43,6 +43,10 @@ Define a pluggable entitlement and billing system that:
 11. Usage MUST NOT be trusted from the Agent; ControlPlane reconstructs authoritative totals from agent-reported `UsageDelta` records persisted in its own database — NOT by reading the package directly.
 12. There MUST be no implicit or environment-based entitlement behaviour (e.g. "unlimited").
 13. Entitlement enforcement in the Agent MUST be implemented as a Job Engine pipeline behaviour — modules MUST NOT contain entitlement-checking logic.
+14. Usage MUST be emitted **after** the corresponding checkpoint write is durable. Usage MUST NOT be emitted before checkpoint persistence.
+15. `UsageDelta.IdempotencyKey` MUST be derived from the cursor position at the end of the processed batch — not from a transient batch index, sequential counter, or artefact store path.
+16. In Hosted mode, the Agent operates as a trusted boundary. In Standalone and Self-hosted modes, usage accounting is **best-effort only** — agent-reported deltas are accepted without external verification.
+17. Processing throughput parameters (parallelism, batch size, inter-batch delay) MUST remain in `IOptions<T>` module configuration. They MUST NOT be placed in the entitlement snapshot.
 
 ---
 
@@ -112,6 +116,31 @@ Entitlement may be scoped at multiple levels:
 A consulting company operating on behalf of customers MUST be supported via both models:
 - Consultant's own licence covering all client work
 - Per-customer entitlement operated by the consultant
+
+---
+
+## 3.6 Deployment Mode
+
+Three deployment modes are defined. All modes support the same entitlement sources (Azure Marketplace or signed licence file) — the mode affects only the billing authority and usage ledger backing store.
+
+| Mode | ControlPlane | Usage Ledger | Azure Marketplace | Licence File |
+|---|---|---|---|---|
+| **Standalone** | Absent (no ControlPlane) | Local SQLite | Optional | Optional |
+| **Self-hosted** | Customer-operated (private/on-premises) | Local or private DB | Optional | Optional |
+| **Hosted** | NKD Agility–operated | PostgreSQL | Optional | Optional |
+
+In all modes, the `BuiltInEntitlementProvider` enforces a small hard cap when no entitlement source is configured. Mode is declared in the agent configuration — there is no environment-based auto-detection.
+
+### Contract Aggregation
+
+When both tenant-level and contract-level limits are active:
+
+- Each contract has its own independent limit.
+- The tenant's total limit is a hard cap across all contracts combined.
+- If the sum of contract limits would exceed the tenant limit, the tenant limit takes precedence.
+- Contracts that would exceed the remaining tenant quota are rejected at job admission.
+
+Example: tenant limit = 1 M, contract A = 500 k, contract B = 500 k. After contract A exhausts 600 k of the tenant pool, contract B has only 400 k remaining regardless of its declared limit.
 
 ---
 
@@ -220,7 +249,32 @@ public sealed record UsageDelta
 
 Usage recording is idempotent: the combination of `JobId + Module + IdempotencyKey` is the natural key. Safe to replay.
 
-> **Design note:** The `IdempotencyKey` is deliberately opaque — it decouples the usage model from `IArtefactStore` path conventions. Modules choose their own key scheme; the control plane treats it as an opaque string for deduplication.
+> **Design note:** The `IdempotencyKey` is deliberately opaque — it decouples the usage model from `IArtefactStore` path conventions. Modules choose their own key scheme; the control plane treats it as an opaque string for deduplication. Keys MUST be derived from the cursor position at batch completion (e.g. `"cursor:wi-00042"`) — never from a transient batch counter.
+
+---
+
+## 4.7 IBillingReporter
+
+```csharp
+public interface IBillingReporter
+{
+    /// <summary>Reports a metered usage event to the configured billing provider.
+    /// Implementations MUST be idempotent and MUST batch events before submission
+    /// (required by the Azure Marketplace API).</summary>
+    Task ReportUsageAsync(MeterEvent evt, CancellationToken ct);
+}
+
+public sealed record MeterEvent
+{
+    public required string EntitlementId { get; init; }
+    public required string Meter { get; init; }
+    public required long Quantity { get; init; }
+    public required DateTimeOffset EffectiveStartTime { get; init; }
+    public required string IdempotencyKey { get; init; }
+}
+```
+
+> Only ControlPlane MUST call `IBillingReporter`. Agents MUST NOT call billing providers directly (Constraint #2). Implementations MUST accumulate events and submit batches to meet the Azure Marketplace API requirements.
 
 ---
 
@@ -267,6 +321,7 @@ public sealed record QuantityEntitlement
 public enum EnforcementBehaviour
 {
     Block,
+    Degrade,
     Warn,
     Audit
 }
@@ -406,21 +461,59 @@ Usage recording MUST be idempotent:
 * Safe to replay
 * Duplicate reports are silently ignored
 
+The idempotency key MUST be derived from the **cursor position** at the end of the processed batch (e.g. `"cursor:wi-00042"`). Keys derived from transient batch counters (e.g. `"batch-42"`) are explicitly forbidden — they are not stable across retries (Constraint #15).
+
+Usage MUST be emitted **after** the corresponding checkpoint write. This ensures that if the agent crashes before emitting, the replay will re-process the batch, produce the same cursor-derived key, and the ControlPlane will deduplicate it (Constraint #14).
+
 ---
 
 ## 8.4 Quantity Meters
 
-Entitlements can cap per-module processed counts:
+Entitlements cap per-module processed counts. Canonical meters are:
 
-| Meter | Description |
+| Meter | Description | Emitted by |
+|---|---|---|
+| `WorkItems.ItemsProcessed` | Distinct work items processed (primary billing unit) | `WorkItemExportOrchestrator`, `WorkItemImportOrchestrator` |
+| `WorkItems.RevisionsProcessed` | Total revision records processed | `WorkItemExportOrchestrator` |
+| `WorkItems.AttachmentBytes` | Bytes of attachment data transferred | `WorkItemExportOrchestrator` |
+| `Pipelines.Processed` | Total pipelines processed | Pipeline export/import orchestrator |
+| `Repos.Processed` | Total repositories processed | Repo export/import orchestrator |
+| `Teams.Processed` | Total teams processed | Teams export/import module |
+| `Agents.Concurrent` | Maximum concurrent agents | ControlPlane admission policy |
+
+`WorkItems.ItemsProcessed` is the primary billing unit; revision and attachment meters exist for informational and future pricing purposes. Each orchestrator is responsible for emitting its own meters via `UsageDelta`. New modules register new meters in this table.
+
+---
+
+## 8.5 Trust Model
+
+Usage accounting trustworthiness depends on deployment mode:
+
+| Mode | Trust model |
 |---|---|
-| `WorkItems.Processed` | Total work items processed across all jobs |
-| `Pipelines.Processed` | Total pipelines processed |
-| `Repos.Processed` | Total repositories processed |
-| `Teams.Processed` | Total teams processed |
-| `Agents.Concurrent` | Maximum concurrent agents |
+| **Hosted** | Trusted boundary. NKD Agility operates both the ControlPlane and the billing pipeline. Agent-reported deltas are accepted and billed. |
+| **Self-hosted** | Best-effort. The customer operates their own ControlPlane. Usage is tracked locally but cannot be externally verified. Azure Marketplace billing is optional and voluntary. |
+| **Standalone** | Best-effort. No ControlPlane. SQLite ledger is local only and not connected to any billing provider. |
 
-Each module defines its own meter. New modules register new meters.
+The ControlPlane NEVER trusts client-reported usage as authoritative for billing decisions — it uses deduplicated totals from its own ledger (Constraint #11). In OSS and self-hosted modes, a sufficiently motivated operator could modify the agent to under-report. This is accepted: the system is open-source. The entitlement caps enforced by `BuiltInEntitlementProvider` or a signed licence file remain the primary enforcement mechanism.
+
+---
+
+## 8.6 Cost Estimation
+
+The ControlPlane derives a cost estimate from its own usage ledger — it does not read the package (data residency rule). The estimate is based on current usage progress and, where available, agent-reported discovery totals (total item count reported at job start via `UsageDelta` with meter `WorkItems.ItemsDiscovered`).
+
+```csharp
+public sealed record EstimatedCostSnapshot
+{
+    public required long CurrentUsage { get; init; }
+    public required long? ProjectedTotalUsage { get; init; }
+    public required string Meter { get; init; }
+    public required DateTimeOffset GeneratedAt { get; init; }
+}
+```
+
+Exposed via the ControlPlane API. Projection is omitted (`null`) when no discovery total has been reported.
 
 ---
 
@@ -476,7 +569,8 @@ The agent finishes the current batch/window, writes the checkpoint, reports usag
 | Behaviour | Meaning |
 |---|---|
 | Block | Graceful stop at next checkpoint |
-| Warn | Continue with structured warning log |
+| Degrade | Continue at reduced throughput — the pipeline applies a degraded `IOptions<T>` processing profile (lower parallelism, larger inter-batch delay). No data is lost; the job completes more slowly. |
+| Warn | Continue with a structured warning log entry |
 | Audit | Record only (no user-visible effect) |
 
 ---
@@ -510,16 +604,36 @@ The community/free tier:
 
 ---
 
-# 12. Standalone Behaviour
+# 12. Deployment Mode Behaviour
 
-Standalone mode MUST:
+All three deployment modes share the same entitlement evaluation path. They differ only in ControlPlane presence, usage ledger backing store, and billing integration.
 
-* Operate without network
-* Use `LicenceFileProvider` (or fall back to `BuiltInEntitlementProvider`)
-* Maintain local usage ledger in SQLite
-* Enforce all limits identically to hosted mode
+## 12.1 Standalone
 
-There is no special-case "offline logic" beyond provider selection and ledger backing store.
+* No ControlPlane process — the agent runs directly.
+* Entitlement source: `LicenceFileProvider` (signed file) or `BuiltInEntitlementProvider` (community caps).
+* Usage ledger: local SQLite database.
+* Azure Marketplace billing: not connected (best-effort accounting only).
+* Enforcement is identical to hosted mode.
+
+## 12.2 Self-hosted
+
+* Customer operates their own ControlPlane (on-premises or private cloud).
+* Entitlement source: `LicenceFileProvider` or `AzureMarketplaceProvider` (customer configures).
+* Usage ledger: customer-operated database (PostgreSQL or SQLite).
+* Azure Marketplace billing: optional — customer configures their own marketplace subscription.
+* Enforcement is identical to hosted mode.
+* Usage accounting is best-effort (Constraint #16).
+
+## 12.3 Hosted
+
+* NKD Agility–operated ControlPlane.
+* Entitlement source: `AzureMarketplaceProvider` or `LicenceFileProvider` — tenant configures in settings.
+* Usage ledger: NKD Agility–operated PostgreSQL.
+* Azure Marketplace billing: active — `IBillingReporter` emits usage events to the Azure Marketplace SaaS fulfilment API.
+* Enforcement is authoritative.
+
+There is no special-case logic per mode beyond provider selection and ledger backing store. The `EntitlementEnforcementBehaviour` pipeline middleware is identical in all three modes.
 
 ---
 
@@ -534,6 +648,11 @@ The following are explicitly disallowed:
 * Encryption without signature
 * Implicit "unlimited" for any tier (including community)
 * Hard-stop mid-batch (always finish current batch, stop at checkpoint)
+* Deriving `UsageDelta.IdempotencyKey` from a batch index or sequential counter
+* Emitting usage before the corresponding checkpoint write is durable
+* Placing `ProcessingProfile` or throughput parameters (parallelism, batch size, delay) in the entitlement snapshot
+* Calling `IBillingReporter` from any component other than ControlPlane
+* Emitting `UsageDelta` with meter `WorkItems.Processed` — use `WorkItems.ItemsProcessed` instead (canonical meter name)
 
 ---
 
@@ -559,6 +678,11 @@ The following are explicitly disallowed:
 | `LicenceValidationOptions` | `Abstractions` | Options record for key material |
 | `UsageLedgerPostgres` | `ControlPlane` | EF Core implementation |
 | `UsageLedgerSqlite` | `Infrastructure.Agent` | SQLite implementation for standalone |
+| `IBillingReporter` | `Abstractions` | Port interface for billing provider |
+| `MeterEvent` | `Abstractions` | Value object for billing events |
+| `AzureMarketplaceBillingReporter` | `Infrastructure.ControlPlane` | Azure Marketplace SaaS fulfilment |
+| `NoOpBillingReporter` | `Infrastructure.ControlPlane` | Standalone / self-hosted (no billing) |
+| `EstimatedCostSnapshot` | `Abstractions` | Cost projection returned by ControlPlane API |
 
 ---
 
@@ -600,7 +724,10 @@ The system defines:
 * Agent as an execution enforcer (snapshot delivered via lease, refreshed via heartbeat)
 * Enforcement as a Job Engine pipeline behaviour — modules are unaware of entitlements
 * Usage tracked via agent-reported deltas in the ControlPlane's own ledger (never reads the package)
-* Three focused interfaces: `IEntitlementSnapshotService`, `IJobAdmissionPolicy`, `IUsageLedger`
-* Scope supporting tenant, tenant+user, and contract-level granularity
+* Four focused interfaces: `IEntitlementSnapshotService`, `IJobAdmissionPolicy`, `IUsageLedger`, `IBillingReporter`
+* Scope supporting tenant, tenant+user, and contract-level granularity with deterministic aggregation rules
+* Three deployment modes (Standalone, Self-hosted, Hosted) all supporting the same entitlement sources
 
-Offline and online modes differ only in **entitlement source** and **usage ledger backing store**, not behaviour.
+Offline and online modes differ only in **entitlement source**, **usage ledger backing store**, and **billing reporter** — not in enforcement behaviour.
+
+Economic shaping (slow vs. fast execution) is expressed through the `Degrade` enforcement behaviour combined with `IOptions<T>` processing profiles — not through snapshot-delivered throughput parameters. This keeps the snapshot contract stable and avoids coupling billing decisions to internal agent configuration.

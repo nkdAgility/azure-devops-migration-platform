@@ -1,0 +1,12 @@
+{
+  "mode": "Export",
+  "source": {
+    "type": "Simulated",
+    "url": "https://dev.azure.com/test",
+    "project": "TestProject"
+  },
+  "package": {
+    "workingDirectory": "./test-package"
+  },
+  "unknownField": "This key is not in the schema and should cause a validation error"
+}

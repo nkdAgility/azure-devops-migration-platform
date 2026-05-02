@@ -1,11 +1,14 @@
 using System;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Agent.Context;
 using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Abstractions.Agent.Export;
+using DevOpsMigrationPlatform.Abstractions.Organisations;
 using DevOpsMigrationPlatform.Infrastructure.Agent;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Export;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Identity;
@@ -57,9 +60,43 @@ public static class TfsMigrationAgentServiceExtensions
         services.AddNodesModule(configuration);
         services.AddWorkItemsModule();
 
+        // TFS source endpoint info — reads from ActiveTfsJobServices (source-only, no target).
+        services.AddTfsSourceEndpointInfo();
+
         // Unified worker — polls /agents/lease?capabilities=tfs and dispatches to TFS execution.
         services.AddSingleton<IHostedService, TfsJobAgentWorker>();
 
         return services;
+    }
+
+    /// <summary>
+    /// Registers <see cref="ISourceEndpointInfo"/> for the TFS connector (source-only).
+    /// Reads values from <see cref="ActiveTfsJobServices"/>, which is populated by
+    /// <see cref="TfsJobAgentWorker"/> when a job is picked up.
+    /// </summary>
+    private static IServiceCollection AddTfsSourceEndpointInfo(this IServiceCollection services)
+    {
+        services.TryAddSingleton<ISourceEndpointInfo>(sp =>
+        {
+            var activeServices = sp.GetRequiredService<ActiveTfsJobServices>();
+            var endpoint = activeServices.Require().Endpoint;
+            return new TfsSourceEndpointInfo(
+                Url: endpoint.GetResolvedUrl(),
+                Project: endpoint.GetProject(),
+                ConnectorType: "TeamFoundationServer"
+            );
+        });
+
+        return services;
+    }
+
+    /// <summary>
+    /// Inline implementation of <see cref="ISourceEndpointInfo"/> for TFS connector.
+    /// </summary>
+    private sealed record TfsSourceEndpointInfo(string Url, string Project, string ConnectorType) : ISourceEndpointInfo
+    {
+        // TFS uses its own SDK for auth — return a minimal endpoint for compatibility.
+        public OrganisationEndpoint ToOrganisationEndpoint() =>
+            new OrganisationEndpoint { ResolvedUrl = Url, Type = ConnectorType };
     }
 }

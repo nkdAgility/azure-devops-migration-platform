@@ -16,6 +16,11 @@ public sealed class CliRunner
 {
     private const string ExeName = "devopsmigration.exe";
 
+    /// <summary>
+    /// Root folder (relative to the repo root) used by system tests as their working directory.
+    /// </summary>
+    public const string TestWorkingFolder = "TestWork";
+
     // Matches any ANSI/VT escape sequence (e.g. bold \e[1m, colour \e[32m, reset \e[0m).
     // Even with NO_COLOR=1, Spectre.Console may still emit bold/dim sequences on Windows
     // runners where VT processing is enabled.  Stripping them ensures regex assertions work.
@@ -33,6 +38,30 @@ public sealed class CliRunner
         public string StandardOutput { get; init; } = string.Empty;
         public string StandardError { get; init; } = string.Empty;
         public bool TimedOut { get; init; }
+    }
+
+    /// <summary>
+    /// Result of a <see cref="RunTestAsync"/> invocation, extending <see cref="CliResult"/>
+    /// with the resolved output directory so tests do not need to reconstruct the path.
+    /// </summary>
+    public sealed class TestCliResult
+    {
+        internal TestCliResult(CliResult inner, string outputDirectory)
+        {
+            ExitCode = inner.ExitCode;
+            StandardOutput = inner.StandardOutput;
+            StandardError = inner.StandardError;
+            TimedOut = inner.TimedOut;
+            OutputDirectory = outputDirectory;
+        }
+
+        public int ExitCode { get; }
+        public string StandardOutput { get; }
+        public string StandardError { get; }
+        public bool TimedOut { get; }
+
+        /// <summary>Absolute path to the test-scoped output folder under <see cref="TestWorkingFolder"/>.</summary>
+        public string OutputDirectory { get; }
     }
 
     /// <summary>
@@ -97,6 +126,41 @@ public sealed class CliRunner
     }
 
     /// <summary>
+    /// Convenience wrapper for system tests: builds the test-scoped storage path from
+    /// <paramref name="testName"/>, injects <c>DEVOPS_MIGRATION_TEST_STORAGE</c>, and
+    /// delegates to <see cref="RunAsync"/>. Returns a <see cref="TestCliResult"/> that
+    /// includes the resolved <c>OutputDirectory</c> so tests need not reconstruct the path.
+    /// </summary>
+    /// <param name="testName">MSTest method name (pass <c>nameof(MyTest)</c>).</param>
+    /// <param name="args">CLI arguments.</param>
+    /// <param name="env">Additional environment variables (merged on top of the defaults).</param>
+    /// <param name="timeout">Process timeout. Defaults to 10 minutes.</param>
+    /// <param name="cleanOutputFolder">When <c>true</c>, deletes the output folder before running.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    public static async Task<TestCliResult> RunTestAsync(
+        string testName,
+        IReadOnlyList<string> args,
+        IDictionary<string, string>? env = null,
+        TimeSpan? timeout = null,
+        bool cleanOutputFolder = false,
+        CancellationToken cancellationToken = default)
+    {
+        var testStorage = Path.Combine(TestWorkingFolder, testName);
+        var outputDir = Path.GetFullPath(Path.Combine(FindRepoRoot(), testStorage));
+
+        if (cleanOutputFolder && Directory.Exists(outputDir))
+            Directory.Delete(outputDir, recursive: true);
+
+        var mergedEnv = new Dictionary<string, string>(env ?? new Dictionary<string, string>())
+        {
+            ["DEVOPS_MIGRATION_TEST_STORAGE"] = testStorage
+        };
+
+        var result = await RunAsync(args, env: mergedEnv, timeout: timeout, cancellationToken: cancellationToken);
+        return new TestCliResult(result, outputDir);
+    }
+
+    /// <summary>
     /// Runs the CLI with the supplied arguments, inheriting the current process's
     /// environment variables and merging any extras supplied via <paramref name="env"/>.
     /// </summary>
@@ -150,6 +214,15 @@ public sealed class CliRunner
         {
             foreach (var (key, value) in env)
                 psi.Environment[key] = value;
+        }
+
+        // Always override OTel file diagnostics path to land next to the test storage folder,
+        // even if Telemetry__DiagnosticsPath is set in the inherited environment or user config.
+        if (psi.Environment.TryGetValue("DEVOPS_MIGRATION_TEST_STORAGE", out var testStorageRel)
+            && !string.IsNullOrWhiteSpace(testStorageRel))
+        {
+            psi.Environment["Telemetry__DiagnosticsPath"] =
+                Path.GetFullPath(Path.Combine(FindRepoRoot(), testStorageRel, ".otel-diagnostics"));
         }
 
         using var process = new Process { StartInfo = psi, EnableRaisingEvents = true };

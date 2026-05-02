@@ -1,7 +1,6 @@
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
-using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Abstractions.Organisations;
 
 namespace DevOpsMigrationPlatform.Abstractions.Agent.Discovery;
@@ -13,9 +12,9 @@ namespace DevOpsMigrationPlatform.Abstractions.Agent.Discovery;
 public interface ICatalogService
 {
     /// <summary>
-    /// Returns the names of all team projects in <paramref name="orgUrl"/>.
+    /// Returns the names of all team projects in the organisation.
     /// </summary>
-    Task<IReadOnlyList<string>> GetProjectsAsync(MigrationEndpointOptions endpoint, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<string>> GetProjectsAsync(OrganisationEndpoint endpoint, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Streams incremental discovery summaries for <paramref name="project"/>.
@@ -23,7 +22,7 @@ public interface ICatalogService
     /// all countable artefacts have been tallied.
     /// </summary>
     IAsyncEnumerable<ProjectDiscoverySummary> CountAllWorkItemsAsync(
-        MigrationEndpointOptions endpoint,
+        OrganisationEndpoint endpoint,
         string project,
         CancellationToken cancellationToken = default);
 }

@@ -6,7 +6,11 @@ namespace DevOpsMigrationPlatform.Abstractions.Options;
 /// Root options for the field-transform tool.
 /// Bound from <c>MigrationPlatform:Tools:FieldTransform</c>.
 /// </summary>
+#if NET7_0_OR_GREATER
+public sealed class FieldTransformOptions : IConfigSection
+#else
 public sealed class FieldTransformOptions
+#endif
 {
     /// <summary>Configuration section path.</summary>
     public static string SectionName => "MigrationPlatform:Tools:FieldTransform";

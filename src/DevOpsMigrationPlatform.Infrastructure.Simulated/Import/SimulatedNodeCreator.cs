@@ -1,7 +1,8 @@
-﻿using System;
+using System;
 using System.Collections.Concurrent;
 using System.Threading;
 using System.Threading.Tasks;
+using DevOpsMigrationPlatform.Abstractions.Agent.Context;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Abstractions.Options;
 using Microsoft.Extensions.Logging;
@@ -17,20 +18,22 @@ public sealed class SimulatedNodeCreator : INodeCreator
 {
     private readonly ConcurrentDictionary<string, bool> _nodes = new(StringComparer.OrdinalIgnoreCase);
     private readonly ILogger<SimulatedNodeCreator> _logger;
+    private readonly ITargetEndpointInfo _endpointInfo;
 
-    public SimulatedNodeCreator(ILogger<SimulatedNodeCreator> logger)
+    public SimulatedNodeCreator(
+        ILogger<SimulatedNodeCreator> logger,
+        ITargetEndpointInfo endpointInfo)
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        _endpointInfo = endpointInfo ?? throw new ArgumentNullException(nameof(endpointInfo));
     }
 
     /// <inheritdoc/>
     public Task<bool> NodeExistsAsync(
         ClassificationNodeType nodeType,
-        string path,
-        MigrationEndpointOptions endpoint,
-        CancellationToken ct)
+        string path,CancellationToken ct)
     {
-        var key = BuildKey(nodeType, path, endpoint.GetProject());
+        var key = BuildKey(nodeType, path, _endpointInfo.Project);
         var exists = _nodes.ContainsKey(key);
         _logger.LogDebug("[NodeTranslation][Simulated] NodeExistsAsync {Key} = {Exists}.", key, exists);
         return Task.FromResult(exists);
@@ -39,11 +42,9 @@ public sealed class SimulatedNodeCreator : INodeCreator
     /// <inheritdoc/>
     public Task EnsureExistsAsync(
         ClassificationNodeType nodeType,
-        string path,
-        MigrationEndpointOptions endpoint,
-        CancellationToken ct)
+        string path,CancellationToken ct)
     {
-        var key = BuildKey(nodeType, path, endpoint.GetProject());
+        var key = BuildKey(nodeType, path, _endpointInfo.Project);
         _nodes.TryAdd(key, true);
         _logger.LogDebug("[NodeTranslation][Simulated] EnsureExistsAsync {Key}.", key);
         return Task.CompletedTask;
@@ -53,9 +54,7 @@ public sealed class SimulatedNodeCreator : INodeCreator
     public Task SetIterationDatesAsync(
         string path,
         DateTimeOffset? startDate,
-        DateTimeOffset? finishDate,
-        MigrationEndpointOptions endpoint,
-        CancellationToken ct)
+        DateTimeOffset? finishDate,CancellationToken ct)
     {
         if (startDate is null && finishDate is null) return Task.CompletedTask;
         _logger.LogDebug("[NodeTranslation][Simulated] SetIterationDatesAsync for {Path} ({Start} – {Finish}).", path, startDate, finishDate);

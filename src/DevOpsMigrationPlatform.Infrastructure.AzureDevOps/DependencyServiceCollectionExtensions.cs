@@ -68,15 +68,14 @@ public static class DependencyServiceCollectionExtensions
             services.AddSingleton<IProjectDiscoveryService, AzureDevOpsProjectDiscoveryService>();
         }
 
-        // Register the catalog service — now in Infrastructure; register here if not already registered
-        // (ICatalogService implementation lives in DevOpsMigrationPlatform.Infrastructure.Agent.Discovery.CatalogService)
+        // ICatalogService must be registered by the host before calling this method.
+        // The standard registration is AddSingleton<ICatalogService, CatalogService>() in
+        // MigrationAgentServiceExtensions.cs. Failing fast here makes the ordering
+        // requirement explicit and prevents silent misconfiguration.
         if (!services.Any(x => x.ServiceType == typeof(ICatalogService)))
-        {
-            // Note: CatalogService has moved to Infrastructure.Agent assembly.
-            // The host must call AddInfrastructureCatalogService() or equivalent.
-            // Kept as a fallback registration for backwards compatibility.
-            services.AddSingleton<ICatalogService, DevOpsMigrationPlatform.Infrastructure.Agent.Discovery.CatalogService>();
-        }
+            throw new InvalidOperationException(
+                "ICatalogService is not registered. Call 'services.AddSingleton<ICatalogService, CatalogService>()' " +
+                "(or equivalent) before calling AddAzureDevOpsDependencyAnalysis().");
 
         // Register AzureDevOpsDependencyAnalysisService as a keyed singleton
         services.AddKeyedSingleton<IWorkItemLinkAnalysisService, AzureDevOpsDependencyAnalysisService>(

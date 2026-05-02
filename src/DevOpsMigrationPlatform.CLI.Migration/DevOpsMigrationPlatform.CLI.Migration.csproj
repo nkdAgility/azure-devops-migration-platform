@@ -44,4 +44,14 @@
     </None>
   </ItemGroup>
 
+  <!-- T022: Generate migration.schema.json at build time from DI registrations. -->
+  <!-- Only runs for net10.0 to avoid double-run in multi-targeted builds. -->
+  <!-- MSBuildThisFileDirectory points to the CLI project dir; SchemaGenerator is a sibling. -->
+  <Target Name="GenerateConfigSchema" AfterTargets="Build" Condition="'$(TargetFramework)' == 'net10.0'">
+    <Exec Command="dotnet run --project $(MSBuildThisFileDirectory)..\DevOpsMigrationPlatform.SchemaGenerator\ -- --output $(OutDir)migration.schema.json" />
+  </Target>
+  <ItemGroup>
+    <Content Include="$(OutDir)migration.schema.json" CopyToOutputDirectory="PreserveNewest" Condition="Exists('$(OutDir)migration.schema.json')" />
+  </ItemGroup>
+
 </Project>

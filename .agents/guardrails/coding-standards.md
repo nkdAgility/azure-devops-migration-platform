@@ -156,7 +156,9 @@ See [`coding-standards-examples.md`](coding-standards-examples.md) for async exa
 
 ## Configuration
 
-- Configuration MUST flow through `IOptions<T>` or `IOptionsSnapshot<T>` only.
+- Configuration MUST flow through `IOptions<T>` only. `MigrationOptions` is a serialisation-only DTO and MUST NOT be injected into any module, tool, or service.
+- Each options class MUST declare `public const string SectionName = "MigrationPlatform:...";` and be registered via `AddSchemaEntry<T>()`.
+- The `migration.schema.json` MUST be generated from DI registrations. CI fails if the committed schema differs from the generated output.
 - MUST NOT read `IConfiguration` keys directly or call `Environment.GetEnvironmentVariable` inside any service or module.
 - Options classes MUST be `sealed`, `init`-only, and declare `public static string SectionName`.
 - MUST call `.ValidateDataAnnotations()` during registration.

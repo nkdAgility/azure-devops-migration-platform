@@ -7,28 +7,40 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Agent.Context;
+using DevOpsMigrationPlatform.Abstractions.Agent.Export;
+using DevOpsMigrationPlatform.Abstractions.Agent.Import;
+using DevOpsMigrationPlatform.Abstractions.Agent.Modules;
+using DevOpsMigrationPlatform.Abstractions.Agent.Validation;
 using DevOpsMigrationPlatform.Abstractions.Jobs;
 using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Abstractions.Telemetry;
+using DevOpsMigrationPlatform.Abstractions.Validation;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Agent.Modules;
 
 /// <summary>
-/// Discovery module that counts work items and revisions per project across all configured
+/// Inventory module that counts work items and revisions per project across all configured
 /// organisations. Wraps <see cref="IInventoryService"/> and writes <c>inventory.csv</c>
 /// and <c>inventory.json</c> to the artefact store. Checkpoints after each project so
-/// a 20+ hour run can resume. The JSON report is consumed by the dependency analysis
-/// pass to obtain grand totals before link analysis begins.
+/// a 20+ hour run can resume. The JSON report is consumed by WorkItems export for progress
+/// reporting and by dependency analysis for grand totals before link analysis begins.
 /// <para>
 /// <strong>Architecture note:</strong> This module follows the delegation pattern: it orchestrates
 /// checkpointing, progress reporting, and artefact writing, while the actual Azure DevOps API
 /// interaction is delegated to <see cref="IInventoryService"/> (created via factory). This separation
 /// keeps the module testable with mocked services and decoupled from any specific connector.
 /// </para>
+/// <para>
+/// <strong>Module contract:</strong> Implements <see cref="IModule.ExportAsync"/> to perform
+/// inventory discovery. Import and validation are not supported (throw <see cref="NotSupportedException"/>).
+/// Has no dependencies — always runs first in the Export phase when inventory.json is missing.
+/// </para>
 /// </summary>
-public sealed class InventoryDiscoveryModule : IDiscoveryModule
+public sealed class InventoryDiscoveryModule : IModule
 {
     private static readonly string CursorKey = PackagePaths.CursorFile("InventoryDiscovery");
     private const string CsvOutputPath = "inventory.csv";
@@ -40,24 +52,34 @@ public sealed class InventoryDiscoveryModule : IDiscoveryModule
     private readonly ILogger<InventoryDiscoveryModule> _logger;
     private readonly IDiscoveryMetrics? _metrics;
     private readonly IOptions<DiscoveryOptions>? _discoveryOptions;
+    private readonly ISourceEndpointInfo? _sourceEndpointInfo;
+    private readonly IServiceProvider _serviceProvider;
 
-    public string Name => "InventoryDiscovery";
-    public JobKind DiscoveryKind => JobKind.Inventory;
+    public string Name => "Inventory";
+    public IReadOnlyList<ModuleDependency> DependsOn => Array.Empty<ModuleDependency>(); // No dependencies — runs first (tier 0)
+    public bool SupportsExport => true; // First-class export module — discovered via WorkItems dependency
+    public bool SupportsImport => false; // Inventory runs only during the Export phase
 
     public InventoryDiscoveryModule(
         IInventoryServiceFactory inventoryFactory,
-        ILogger<InventoryDiscoveryModule> logger
-        , IDiscoveryMetrics? metrics = null
-        , IOptions<DiscoveryOptions>? discoveryOptions = null
-        )
+        IServiceProvider serviceProvider,
+        ILogger<InventoryDiscoveryModule> logger,
+        IDiscoveryMetrics? metrics = null,
+        IOptions<DiscoveryOptions>? discoveryOptions = null,
+        ISourceEndpointInfo? sourceEndpointInfo = null)
     {
         _inventoryFactory = inventoryFactory;
+        _serviceProvider = serviceProvider;
         _logger = logger;
         _metrics = metrics;
         _discoveryOptions = discoveryOptions;
+        _sourceEndpointInfo = sourceEndpointInfo;
     }
 
-    public async Task RunAsync(DiscoveryContext context, CancellationToken ct)
+    /// <summary>
+    /// Performs inventory discovery during the Export phase. Writes inventory.csv and inventory.json.
+    /// </summary>
+    public async Task ExportAsync(ExportContext context, CancellationToken ct)
     {
         using var rootActivity = ActivitySource.StartActivity("discovery.inventory", ActivityKind.Internal);
         rootActivity?.SetTag("job.id", context.Job.JobId);
@@ -79,28 +101,75 @@ public sealed class InventoryDiscoveryModule : IDiscoveryModule
             using (DataClassificationScope.Begin(DataClassification.Customer))
                 _logger.LogInformation("Resuming inventory after project '{LastCompleted}'.", lastCompleted);
 
-        // Organisations come from context.Organisations (populated by the agent from migration-config.json).
-        // Fall back to _discoveryOptions for backward compatibility in unit tests without a package.
-        var organisations = context.Organisations.Count > 0
-            ? context.Organisations.ToList()
-            : (_discoveryOptions?.Value?.Organisations ?? new System.Collections.Generic.List<DevOpsMigrationPlatform.Abstractions.Options.OrganisationEntry>())
-                .Where(o => o.Enabled)
-                .Select(o => new ScopedOrganisationEndpoint
-                {
-                    Endpoint = o.ToEndpointOptions(),
-                    Projects = new System.Collections.Generic.List<string>(o.Projects),
-                    Scopes = o.Scopes.Select(s => new JobModuleScope
-                    {
-                        Type = s.Type,
-                        Parameters = s.Parameters.ToDictionary(kvp => kvp.Key, kvp => (object?)kvp.Value)
-                    }).ToList()
-                })
-                .ToList<ScopedOrganisationEndpoint>();
+        // ── Resolve inventory service ──
+        // Path 1 (module dependency): Use source endpoint directly — same as every other module.
+        // Path 2 (multi-org): Use organisations from context or config → factory → InventoryService.
+        IInventoryService inventoryService;
+        bool useSingleEndpoint = false;
+        OrganisationEndpoint? singleEndpoint = null;
+        IReadOnlyList<ScopedOrganisationEndpoint> organisations = Array.Empty<ScopedOrganisationEndpoint>();
 
-        var policies = _discoveryOptions?.Value?.Policies is { } p
-            ? new JobPolicies { MaxRetries = p.Retries.Max, MaxConcurrency = p.Throttle.MaxConcurrency, CheckpointIntervalSeconds = p.Checkpoints.Interval }
-            : new JobPolicies();
-        var inventoryService = _inventoryFactory.Create(organisations, policies);
+        if (context.Organisations.Count > 0 || _discoveryOptions?.Value?.Organisations is { Count: > 0 })
+        {
+            // Path 2: Multi-org — use factory to build InventoryService from organisations list.
+            List<ScopedOrganisationEndpoint> orgs;
+            if (context.Organisations.Count > 0)
+            {
+                orgs = context.Organisations.ToList();
+            }
+            else
+            {
+                var discoveryOrgs = _discoveryOptions!.Value.Organisations;
+                orgs = discoveryOrgs
+                    .Where(o => o.Enabled)
+                    .Select(o => new ScopedOrganisationEndpoint
+                    {
+                        Endpoint = o.ToEndpointOptions(),
+                        Projects = new System.Collections.Generic.List<string>(o.Projects),
+                        Scopes = o.Scopes.Select(s => new JobModuleScope
+                        {
+                            Type = s.Type,
+                            Parameters = s.Parameters.ToDictionary(kvp => kvp.Key, kvp => (object?)kvp.Value)
+                        }).ToList()
+                    })
+                    .ToList<ScopedOrganisationEndpoint>();
+            }
+            organisations = orgs;
+
+            var connectorType = _sourceEndpointInfo?.ConnectorType ?? string.Empty;
+            var factory = (!string.IsNullOrEmpty(connectorType)
+                ? _serviceProvider.GetKeyedService<IInventoryServiceFactory>(connectorType)
+                : null) ?? _inventoryFactory;
+
+            var policies = _discoveryOptions?.Value?.Policies is { } p
+                ? new JobPolicies { MaxRetries = p.Retries.Max, MaxConcurrency = p.Throttle.MaxConcurrency, CheckpointIntervalSeconds = p.Checkpoints.Interval }
+                : new JobPolicies();
+
+            inventoryService = factory.Create(orgs, policies);
+        }
+        else if (_sourceEndpointInfo is not null)
+        {
+            // Path 1: Single source — connect like every other module.
+            _logger.LogInformation(
+                "No organisations configured for Inventory — using source connector ({ConnectorType}, {Url}).",
+                _sourceEndpointInfo.ConnectorType, _sourceEndpointInfo.Url);
+            singleEndpoint = _sourceEndpointInfo.ToOrganisationEndpoint();
+            useSingleEndpoint = true;
+
+            // Resolve the correct keyed InventoryService for this connector.
+            var connectorType = _sourceEndpointInfo.ConnectorType;
+            var factory = (!string.IsNullOrEmpty(connectorType)
+                ? _serviceProvider.GetKeyedService<IInventoryServiceFactory>(connectorType)
+                : null) ?? _inventoryFactory;
+            inventoryService = factory.Create(
+                new System.Collections.Generic.List<ScopedOrganisationEndpoint>(),
+                new JobPolicies());
+        }
+        else
+        {
+            _logger.LogWarning("Inventory module has no source endpoint and no organisations — skipping.");
+            return;
+        }
 
         // Emit a probe event so the CLI live table transitions from "…" to "Starting"
         // immediately, proving the sink pipeline works before the API returns data.
@@ -184,8 +253,13 @@ public sealed class InventoryDiscoveryModule : IDiscoveryModule
         using var _dataScope = DataClassificationScope.Begin(DataClassification.Customer);
 
         // Pass completed keys so the service skips them — no re-counting.
-        await foreach (var evt in inventoryService.RunInventoryAsync(
-            completedKeys.Count > 0 ? completedKeys : null, ct).ConfigureAwait(false))
+        // Path 1 uses the single-endpoint overload; Path 2 uses the multi-org overload.
+        var completedKeysArg = completedKeys.Count > 0 ? completedKeys : null;
+        var eventStream = useSingleEndpoint
+            ? inventoryService.RunInventoryAsync(singleEndpoint!, projects: null, completedKeysArg, ct)
+            : inventoryService.RunInventoryAsync(completedKeysArg, ct);
+
+        await foreach (var evt in eventStream.ConfigureAwait(false))
         {
             var projectKey = $"{evt.Url}|{evt.ProjectName}";
 
@@ -629,5 +703,26 @@ public sealed class InventoryDiscoveryModule : IDiscoveryModule
         if (value.Length >= 2 && value[0] == '"' && value[value.Length - 1] == '"')
             return value.Substring(1, value.Length - 2).Replace("\"\"", "\"");
         return value;
+    }
+
+    /// <summary>
+    /// Import is not supported for the Inventory module.
+    /// Inventory is an analysis-only operation that runs during Export.
+    /// </summary>
+    public Task ImportAsync(ImportContext context, CancellationToken ct)
+    {
+        throw new NotSupportedException("Inventory module does not support import operations. Inventory runs only during the Export phase.");
+    }
+
+    /// <summary>
+    /// Validation is not supported for the Inventory module.
+    /// </summary>
+
+    /// <summary>
+    /// Validates the inventory module configuration.
+    /// </summary>
+    public Task ValidateAsync(ValidationContext context, CancellationToken ct)
+    {
+        return Task.CompletedTask; // No-op: Inventory has no validation logic
     }
 }

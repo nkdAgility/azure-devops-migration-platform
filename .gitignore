@@ -4,6 +4,11 @@
 **/output/
 scenarios/client/**
 storage/**
+TestWorkingFolder/**
+TestWork/**
+
+# Generated at build time by SchemaGenerator — not committed
+src/DevOpsMigrationPlatform.CLI.Migration/migration.schema.json
 
 # Visual Studio / VS Code
 .vs/

@@ -4,7 +4,11 @@ namespace DevOpsMigrationPlatform.Abstractions.Options;
 /// Root options for the IdentityLookup tool.
 /// Bound from <c>MigrationPlatform:Tools:IdentityLookup</c>.
 /// </summary>
+#if NET7_0_OR_GREATER
+public sealed class IdentityLookupOptions : IConfigSection
+#else
 public sealed class IdentityLookupOptions
+#endif
 {
     /// <summary>Configuration section path.</summary>
     public static string SectionName => "MigrationPlatform:Tools:IdentityLookup";

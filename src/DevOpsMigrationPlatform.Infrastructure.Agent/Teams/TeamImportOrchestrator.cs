@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Agent.Context;
 using DevOpsMigrationPlatform.Abstractions.Agent.Teams;
 using DevOpsMigrationPlatform.Abstractions.Agent.Telemetry;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
@@ -24,15 +25,18 @@ public sealed class TeamImportOrchestrator
     private readonly IIdentityLookupTool? _identityLookupTool;
     private readonly INodeTranslationTool? _NodeTransformTool;
     private readonly ILogger<TeamImportOrchestrator> _logger;
+    private readonly ITargetEndpointInfo _endpointInfo;
 
     public TeamImportOrchestrator(
         ITeamTarget teamTarget,
         ILogger<TeamImportOrchestrator> logger,
+        ITargetEndpointInfo endpointInfo,
         INodeTranslationTool? NodeTransformTool = null,
         IIdentityLookupTool? identityLookupTool = null)
     {
         _teamTarget = teamTarget ?? throw new ArgumentNullException(nameof(teamTarget));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        _endpointInfo = endpointInfo ?? throw new ArgumentNullException(nameof(endpointInfo));
         _NodeTransformTool = NodeTransformTool;
         _identityLookupTool = identityLookupTool;
     }
@@ -40,14 +44,12 @@ public sealed class TeamImportOrchestrator
     /// <summary>
     /// Imports a single team from the package into the target system.
     /// </summary>
-    /// <param name="endpoint">Target endpoint.</param>
     /// <param name="projectName">Target project name.</param>
     /// <param name="sourceProjectName">Source project name — used for path translation.</param>
     /// <param name="teamPackage">The team package to import.</param>
     /// <param name="extensions">Extension toggles.</param>
     /// <param name="ct">Cancellation token.</param>
     public async Task<string> ImportTeamAsync(
-        MigrationEndpointOptions endpoint,
         string projectName,
         string sourceProjectName,
         TeamPackage teamPackage,
@@ -67,14 +69,16 @@ public sealed class TeamImportOrchestrator
         }
 
         // 1. Create or update team
+        // TODO T051+: ITeamTarget still requires MigrationEndpointOptions parameter
+        // This interface needs IOptions<TargetEndpointOptions> injection or to be split into Info + Options
         var targetTeamId = await _teamTarget.CreateOrUpdateTeamAsync(
-            endpoint, projectName, teamPackage.Definition, ct).ConfigureAwait(false);
+            null!, projectName, teamPackage.Definition, ct).ConfigureAwait(false);
 
         // 2. Settings
         if (extensions.TeamSettings && teamPackage.Settings is not null)
         {
             await _teamTarget.SetTeamSettingsAsync(
-                endpoint, projectName, targetTeamId, teamPackage.Settings, ct).ConfigureAwait(false);
+                null!, projectName, targetTeamId, teamPackage.Settings, ct).ConfigureAwait(false);
         }
 
         // 3. Iterations (with path translation)
@@ -96,7 +100,7 @@ public sealed class TeamImportOrchestrator
 
                     var translatedIteration = iteration with { Path = translatedPath };
                     await _teamTarget.AssignIterationAsync(
-                        endpoint, projectName, targetTeamId, translatedIteration, ct).ConfigureAwait(false);
+                        null!, projectName, targetTeamId, translatedIteration, ct).ConfigureAwait(false);
                 }
                 catch (Exception ex)
                 {
@@ -117,7 +121,7 @@ public sealed class TeamImportOrchestrator
                     var resolvedDescriptor = extensions.IdentityLookup && _identityLookupTool?.IsEnabled == true ? _identityLookupTool.Resolve(member.Descriptor) : member.Descriptor;
                     var resolvedMember = member with { Descriptor = resolvedDescriptor };
                     await _teamTarget.AddMemberAsync(
-                        endpoint, projectName, targetTeamId, resolvedMember, ct).ConfigureAwait(false);
+                        null!, projectName, targetTeamId, resolvedMember, ct).ConfigureAwait(false);
                 }
                 catch (Exception ex)
                 {
@@ -147,7 +151,7 @@ public sealed class TeamImportOrchestrator
 
                 var translatedAreaPaths = new TeamAreaPaths(defaultPath, translatedPaths);
                 await _teamTarget.SetAreaPathsAsync(
-                    endpoint, projectName, targetTeamId, translatedAreaPaths, ct).ConfigureAwait(false);
+                    null!, projectName, targetTeamId, translatedAreaPaths, ct).ConfigureAwait(false);
             }
         }
 
@@ -159,7 +163,7 @@ public sealed class TeamImportOrchestrator
                 try
                 {
                     await _teamTarget.SetCapacityAsync(
-                        endpoint, projectName, targetTeamId, iterationId, capacity, ct).ConfigureAwait(false);
+                        null!, projectName, targetTeamId, iterationId, capacity, ct).ConfigureAwait(false);
                 }
                 catch (Exception ex) when (ex.Message.Contains("not supported", StringComparison.OrdinalIgnoreCase)
                     || ex.Message.Contains("NotImplemented", StringComparison.OrdinalIgnoreCase))

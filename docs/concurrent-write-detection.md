@@ -87,7 +87,7 @@ The Migration Agent holds the lease for the duration of the job:
 ```csharp
 public class MigrationAgent
 {
-    public async Task RunJobAsync(MigrationJob job, string leaseToken, CancellationToken ct)
+    public async Task RunJobAsync(Job job, string leaseToken, CancellationToken ct)
     {
         // Verify lease is still valid before each critical operation
         await _leaseService.RenewAsync(leaseToken, ct);

@@ -1,27 +1,33 @@
 using System.Collections.Generic;
-using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Options;
+using DevOpsMigrationPlatform.Abstractions.Organisations;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Simulated.Discovery;
 
 /// <summary>
 /// Simulated implementation of <see cref="IProjectDiscoveryService"/>.
-/// Returns project names from the <see cref="SimulatedEndpointOptions.Generator"/> configuration,
+/// Returns project names from the injected <see cref="SimulatedGeneratorConfig"/>,
 /// or a single <c>"SimulatedProject"</c> placeholder when no projects are configured.
 /// No network calls are made.
 /// </summary>
 public sealed class SimulatedProjectDiscoveryService : IProjectDiscoveryService
 {
+    private readonly SimulatedGeneratorConfig? _generatorConfig;
+
+    public SimulatedProjectDiscoveryService(SimulatedGeneratorConfig? generatorConfig = null)
+    {
+        _generatorConfig = generatorConfig;
+    }
+
     /// <inheritdoc/>
     public Task<List<string>> DiscoverProjectsAsync(
-        MigrationEndpointOptions endpoint,
+        OrganisationEndpoint endpoint,
         CancellationToken cancellationToken = default)
     {
-        if (endpoint is SimulatedEndpointOptions simulated
-            && simulated.Generator?.Projects is { Count: > 0 } projects)
+        if (_generatorConfig?.Projects is { Count: > 0 } projects)
         {
             var projectNames = projects
                 .Select(p => p.Name)

@@ -1,13 +1,18 @@
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Agent.Context;
+using DevOpsMigrationPlatform.Abstractions.Agent.Discovery;
+using DevOpsMigrationPlatform.Abstractions.Agent.Lease;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Connectors;
 using DevOpsMigrationPlatform.Infrastructure.Serialization;
+using DevOpsMigrationPlatform.Infrastructure.Simulated.Discovery;
 using DevOpsMigrationPlatform.Infrastructure.Simulated.Export;
+using DevOpsMigrationPlatform.Infrastructure.Simulated.Factories;
 using DevOpsMigrationPlatform.Infrastructure.Simulated.Import;
 using DevOpsMigrationPlatform.Abstractions.Options;
-using DevOpsMigrationPlatform.Infrastructure.Simulated.Discovery;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Options;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Simulated;
 
@@ -46,6 +51,15 @@ public static class SimulatedServiceCollectionExtensions
         services.TryAddSingleton<SimulatedGeneratorConfig>();
         services.TryAddSingleton<IProjectDiscoveryService, SimulatedProjectDiscoveryService>();
         services.TryAddSingleton<IWorkItemDiscoveryService, SimulatedWorkItemDiscoveryService>();
+
+        // Keyed discovery services — always resolve to simulated impls regardless of other registrations.
+        // These are consumed by SimulatedInventoryServiceFactory via [FromKeyedServices("Simulated")].
+        services.AddKeyedSingleton<IProjectDiscoveryService, SimulatedProjectDiscoveryService>("Simulated");
+        services.AddKeyedSingleton<IWorkItemDiscoveryService, SimulatedWorkItemDiscoveryService>("Simulated");
+        services.AddKeyedSingleton<IRepoDiscoveryService, SimulatedRepoDiscoveryService>("Simulated");
+
+        // Keyed inventory factory — used by InventoryDiscoveryModule when connector type is "Simulated".
+        services.AddKeyedSingleton<IInventoryServiceFactory, SimulatedInventoryServiceFactory>("Simulated");
 
         return services;
     }
@@ -95,7 +109,62 @@ public static class SimulatedServiceCollectionExtensions
         services.AddSimulatedWorkItemExport();
         services.AddSimulatedWorkItemImport();
         services.AddSimulatedDependencyAnalysis();
+        services.AddSimulatedEndpointInfo();
         return services;
+    }
+
+    /// <summary>
+    /// Registers <see cref="ISourceEndpointInfo"/> and <see cref="ITargetEndpointInfo"/> for the Simulated connector.
+    /// Uses TryAddSingleton so the dynamic ActiveJobConfigState-backed implementations registered
+    /// by the MigrationAgent take precedence when both connectors are in the same host.
+    /// </summary>
+    private static IServiceCollection AddSimulatedEndpointInfo(this IServiceCollection services)
+    {
+        // Source endpoint info — TryAdd so dynamic per-job impl takes precedence
+        services.TryAddSingleton<ISourceEndpointInfo>(sp =>
+        {
+            var opts = sp.GetRequiredService<IOptions<SimulatedEndpointOptions>>().Value;
+            return new SimulatedSourceEndpointInfo
+            {
+                Url = opts.GetResolvedUrl(),
+                Project = opts.GetProject(),
+                ConnectorType = "Simulated"
+            };
+        });
+
+        // Target endpoint info — TryAdd so dynamic per-job impl takes precedence
+        services.TryAddSingleton<ITargetEndpointInfo>(sp =>
+        {
+            var opts = sp.GetRequiredService<IOptions<SimulatedEndpointOptions>>().Value;
+            return new SimulatedTargetEndpointInfo
+            {
+                Url = opts.GetResolvedUrl(),
+                Project = opts.GetProject(),
+                ConnectorType = "Simulated"
+            };
+        });
+
+        return services;
+    }
+
+    /// <summary>
+    /// Inline implementation of <see cref="ISourceEndpointInfo"/> for Simulated connector.
+    /// </summary>
+    private sealed record SimulatedSourceEndpointInfo : ISourceEndpointInfo
+    {
+        public required string Url { get; init; }
+        public required string Project { get; init; }
+        public required string ConnectorType { get; init; }
+    }
+
+    /// <summary>
+    /// Inline implementation of <see cref="ITargetEndpointInfo"/> for Simulated connector.
+    /// </summary>
+    private sealed record SimulatedTargetEndpointInfo : ITargetEndpointInfo
+    {
+        public required string Url { get; init; }
+        public required string Project { get; init; }
+        public required string ConnectorType { get; init; }
     }
 }
 

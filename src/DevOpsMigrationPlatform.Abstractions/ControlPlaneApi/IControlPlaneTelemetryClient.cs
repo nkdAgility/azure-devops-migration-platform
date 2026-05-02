@@ -21,4 +21,10 @@ public interface IControlPlaneTelemetryClient
     /// Best-effort — implementations must not throw on transient failures or non-success responses.
     /// </summary>
     Task PushSnapshotAsync(string leaseId, JobSnapshot snapshot, CancellationToken ct);
+
+    /// <summary>
+    /// Pushes the job execution plan to <c>POST /agents/lease/{leaseId}/tasks</c>.
+    /// Called once at job start after the plan is built. Best-effort.
+    /// </summary>
+    Task PushTaskListAsync(string leaseId, JobTaskList tasks, CancellationToken ct);
 }

@@ -42,6 +42,18 @@ public sealed class SqliteExportProgressStore : IExportProgressStore
         _connection = new SqliteConnection($"Data Source={_dbFilePath}");
         await _connection.OpenAsync(cancellationToken).ConfigureAwait(false);
 
+        // Use memory journal to avoid creating <filename>-journal files whose path
+        // may exceed MAX_PATH (260 chars) on Windows when LongPathsEnabled=0.
+        // The export-progress store is rebuilt from cursors on resume, so no
+        // crash-durable journal is required.
+#if NET481
+        using var pragmaCmd = _connection.CreateCommand();
+#else
+        await using var pragmaCmd = _connection.CreateCommand();
+#endif
+        pragmaCmd.CommandText = "PRAGMA journal_mode=MEMORY;";
+        await pragmaCmd.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+
 #if NET481
         using var cmd = _connection.CreateCommand();
 #else

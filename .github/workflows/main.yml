@@ -50,6 +50,15 @@ jobs:
       - name: Build
         run: pwsh ./build.ps1 -Mode Build
 
+      - name: Verify SchemaGenerator connector references
+        run: |
+          $csproj = Get-Content "src/DevOpsMigrationPlatform.SchemaGenerator/DevOpsMigrationPlatform.SchemaGenerator.csproj" -Raw
+          $connectors = @("Infrastructure.Simulated", "Infrastructure.AzureDevOps", "Infrastructure.TfsObjectModel")
+          $missing = $connectors | Where-Object { $csproj -notmatch $_ }
+          if ($missing) { Write-Host "Missing SchemaGenerator connector references: $($missing -join ', ')" -ForegroundColor Red; exit 1 }
+          Write-Host "All connector references present in SchemaGenerator.csproj"
+        shell: pwsh
+
       - name: Test
         run: pwsh ./build.ps1 -Mode Test
 

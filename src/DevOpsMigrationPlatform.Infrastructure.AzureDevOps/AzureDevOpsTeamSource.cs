@@ -3,9 +3,10 @@ using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
+using DevOpsMigrationPlatform.Abstractions.Agent.Context;
 using DevOpsMigrationPlatform.Abstractions.Agent.Teams;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
-using DevOpsMigrationPlatform.Abstractions.Options;
+using DevOpsMigrationPlatform.Abstractions.Organisations;
 using Microsoft.Extensions.Logging;
 using WorkContext = Microsoft.TeamFoundation.Core.WebApi.Types.TeamContext;
 
@@ -14,27 +15,30 @@ namespace DevOpsMigrationPlatform.Infrastructure.AzureDevOps;
 /// <summary>
 /// Azure DevOps REST API implementation of <see cref="ITeamSource"/>.
 /// Uses the TeamHttpClient and WorkHttpClient from the Azure DevOps SDK.
+/// Endpoint info is resolved from DI.
 /// </summary>
 internal sealed class AzureDevOpsTeamSource : ITeamSource
 {
     private readonly IAzureDevOpsClientFactory _clientFactory;
     private readonly ILogger<AzureDevOpsTeamSource> _logger;
+    private readonly ISourceEndpointInfo _endpointInfo;
 
     public AzureDevOpsTeamSource(
         IAzureDevOpsClientFactory clientFactory,
-        ILogger<AzureDevOpsTeamSource> logger)
+        ILogger<AzureDevOpsTeamSource> logger,
+        ISourceEndpointInfo endpointInfo)
     {
         _clientFactory = clientFactory ?? throw new ArgumentNullException(nameof(clientFactory));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        _endpointInfo = endpointInfo ?? throw new ArgumentNullException(nameof(endpointInfo));
     }
 
     /// <inheritdoc/>
     public async IAsyncEnumerable<TeamDefinition> EnumerateTeamsAsync(
-        MigrationEndpointOptions endpoint,
         string projectName,
         [EnumeratorCancellation] CancellationToken ct)
     {
-        var org = endpoint.ToOrganisationEndpoint();
+        var org = _endpointInfo.ToOrganisationEndpoint();
         var teamClient = await _clientFactory.CreateTeamClientAsync(org, ct).ConfigureAwait(false);
         var teams = await teamClient.GetTeamsAsync(projectName, cancellationToken: ct).ConfigureAwait(false);
 
@@ -51,9 +55,9 @@ internal sealed class AzureDevOpsTeamSource : ITeamSource
 
     /// <inheritdoc/>
     public async Task<TeamSettings?> GetTeamSettingsAsync(
-        MigrationEndpointOptions endpoint, string projectName, string teamId, CancellationToken ct)
+        string projectName, string teamId, CancellationToken ct)
     {
-        var org = endpoint.ToOrganisationEndpoint();
+        var org = _endpointInfo.ToOrganisationEndpoint();
         var workClient = await _clientFactory.CreateWorkClientAsync(org, ct).ConfigureAwait(false);
         var teamContext = new WorkContext(projectName, teamId);
 
@@ -74,10 +78,10 @@ internal sealed class AzureDevOpsTeamSource : ITeamSource
 
     /// <inheritdoc/>
     public async IAsyncEnumerable<TeamIteration> GetTeamIterationsAsync(
-        MigrationEndpointOptions endpoint, string projectName, string teamId,
+        string projectName, string teamId,
         [EnumeratorCancellation] CancellationToken ct)
     {
-        var org = endpoint.ToOrganisationEndpoint();
+        var org = _endpointInfo.ToOrganisationEndpoint();
         var workClient = await _clientFactory.CreateWorkClientAsync(org, ct).ConfigureAwait(false);
         var teamContext = new WorkContext(projectName, teamId);
 
@@ -108,10 +112,10 @@ internal sealed class AzureDevOpsTeamSource : ITeamSource
 
     /// <inheritdoc/>
     public async IAsyncEnumerable<TeamMember> GetTeamMembersAsync(
-        MigrationEndpointOptions endpoint, string projectName, string teamId,
+        string projectName, string teamId,
         [EnumeratorCancellation] CancellationToken ct)
     {
-        var org = endpoint.ToOrganisationEndpoint();
+        var org = _endpointInfo.ToOrganisationEndpoint();
         var teamClient = await _clientFactory.CreateTeamClientAsync(org, ct).ConfigureAwait(false);
 
         List<Microsoft.VisualStudio.Services.WebApi.TeamMember> members;
@@ -140,9 +144,9 @@ internal sealed class AzureDevOpsTeamSource : ITeamSource
 
     /// <inheritdoc/>
     public async Task<TeamCapacityEntry[]> GetTeamCapacityAsync(
-        MigrationEndpointOptions endpoint, string projectName, string teamId, string iterationId, CancellationToken ct)
+        string projectName, string teamId, string iterationId, CancellationToken ct)
     {
-        var org = endpoint.ToOrganisationEndpoint();
+        var org = _endpointInfo.ToOrganisationEndpoint();
         var workClient = await _clientFactory.CreateWorkClientAsync(org, ct).ConfigureAwait(false);
         var teamContext = new WorkContext(projectName, teamId);
 
@@ -178,9 +182,9 @@ internal sealed class AzureDevOpsTeamSource : ITeamSource
 
     /// <inheritdoc/>
     public async Task<TeamAreaPaths?> GetTeamAreaPathsAsync(
-        MigrationEndpointOptions endpoint, string projectName, string teamId, CancellationToken ct)
+        string projectName, string teamId, CancellationToken ct)
     {
-        var org = endpoint.ToOrganisationEndpoint();
+        var org = _endpointInfo.ToOrganisationEndpoint();
         var workClient = await _clientFactory.CreateWorkClientAsync(org, ct).ConfigureAwait(false);
         var teamContext = new WorkContext(projectName, teamId);
 

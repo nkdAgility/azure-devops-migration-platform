@@ -4,7 +4,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions.Agent.Teams;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
-using DevOpsMigrationPlatform.Abstractions.Options;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Simulated;
 
@@ -38,7 +37,7 @@ public sealed class SimulatedTeamSource : ITeamSource
 
     /// <inheritdoc/>
     public async IAsyncEnumerable<TeamDefinition> EnumerateTeamsAsync(
-        MigrationEndpointOptions endpoint, string projectName,
+        string projectName,
         [EnumeratorCancellation] CancellationToken ct)
     {
         foreach (var team in s_teams)
@@ -50,7 +49,7 @@ public sealed class SimulatedTeamSource : ITeamSource
     }
 
     /// <inheritdoc/>
-    public Task<TeamSettings?> GetTeamSettingsAsync(MigrationEndpointOptions endpoint, string projectName, string teamId, CancellationToken ct)
+    public Task<TeamSettings?> GetTeamSettingsAsync(string projectName, string teamId, CancellationToken ct)
     {
         TeamSettings? settings = new TeamSettings("Backlog", false, new[] { "Monday", "Tuesday", "Wednesday", "Thursday", "Friday" });
         return Task.FromResult<TeamSettings?>(settings);
@@ -58,7 +57,7 @@ public sealed class SimulatedTeamSource : ITeamSource
 
     /// <inheritdoc/>
     public async IAsyncEnumerable<TeamIteration> GetTeamIterationsAsync(
-        MigrationEndpointOptions endpoint, string projectName, string teamId,
+        string projectName, string teamId,
         [EnumeratorCancellation] CancellationToken ct)
     {
         ct.ThrowIfCancellationRequested();
@@ -68,7 +67,7 @@ public sealed class SimulatedTeamSource : ITeamSource
 
     /// <inheritdoc/>
     public async IAsyncEnumerable<TeamMember> GetTeamMembersAsync(
-        MigrationEndpointOptions endpoint, string projectName, string teamId,
+        string projectName, string teamId,
         [EnumeratorCancellation] CancellationToken ct)
     {
         var members = teamId == "team-alpha-id" ? s_alphaMembers : s_betaMembers;
@@ -82,7 +81,7 @@ public sealed class SimulatedTeamSource : ITeamSource
 
     /// <inheritdoc/>
     public Task<TeamCapacityEntry[]> GetTeamCapacityAsync(
-        MigrationEndpointOptions endpoint, string projectName, string teamId, string iterationId, CancellationToken ct)
+        string projectName, string teamId, string iterationId, CancellationToken ct)
     {
         TeamCapacityEntry[] capacity = new[]
         {
@@ -94,7 +93,7 @@ public sealed class SimulatedTeamSource : ITeamSource
 
     /// <inheritdoc/>
     public Task<TeamAreaPaths?> GetTeamAreaPathsAsync(
-        MigrationEndpointOptions endpoint, string projectName, string teamId, CancellationToken ct)
+        string projectName, string teamId, CancellationToken ct)
     {
         TeamAreaPaths? areaPaths = new TeamAreaPaths(
             projectName,

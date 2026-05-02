@@ -73,16 +73,18 @@ public class QueueCommandTests
             return;
         }
 
-        var testStorage = Path.Combine("storage", nameof(QueueCommand_WithExportMode_ExitsZero_AndWritesRevisionFiles));
+        var testStorage = Path.Combine(CliRunner.TestWorkingFolder, nameof(QueueCommand_WithExportMode_ExitsZero_AndWritesRevisionFiles));
         var outputDir = Path.Combine(CliRunner.FindRepoRoot(), testStorage);
         if (Directory.Exists(outputDir))
             Directory.Delete(outputDir, recursive: true);
 
         // ── Act ───────────────────────────────────────────────────────────
-        var result = await CliRunner.RunAsync(
+        var result = await CliRunner.RunTestAsync(
+            testName: nameof(QueueCommand_WithExportMode_ExitsZero_AndWritesRevisionFiles),
             args: ["queue", "--config", "scenarios/queue-export-ado-workitems-single-project.json", "--force-fresh"],
-            env: new Dictionary<string, string> { ["DEVOPS_MIGRATION_TEST_STORAGE"] = testStorage },
-            timeout: TimeSpan.FromMinutes(18));
+            timeout: TimeSpan.FromMinutes(18),
+            cleanOutputFolder: true);
+        outputDir = result.OutputDirectory;
 
         Console.WriteLine("=== STDOUT ===");
         Console.WriteLine(result.StandardOutput);
@@ -126,11 +128,11 @@ public class QueueCommandTests
     public async Task QueueCommand_WithHostedModeAndUnreachableControlPlane_FailsFast()
     {
         // ── Act — override to Hosted mode pointing at a port nothing listens on ──
-        var result = await CliRunner.RunAsync(
+        var result = await CliRunner.RunTestAsync(
+            testName: nameof(QueueCommand_WithHostedModeAndUnreachableControlPlane_FailsFast),
             args: ["queue", "--config", "scenarios/queue-export-workitems-simulated-source.json"],
             env: new Dictionary<string, string>
             {
-                ["DEVOPS_MIGRATION_TEST_STORAGE"] = Path.Combine("storage", nameof(QueueCommand_WithHostedModeAndUnreachableControlPlane_FailsFast)),
                 ["MigrationPlatform__Environment__Type"] = "Hosted",
                 ["MigrationPlatform__Environment__ControlPlane__BaseUrl"] = "http://localhost:59999"
             },
@@ -171,16 +173,13 @@ public class QueueCommandTests
     [Timeout(120_000)] // 2 minutes — no network I/O
     public async Task QueueCommand_WithSimulatedImportMode_Fixture_ExitsZero_AndImportsBothWorkItems()
     {
-        // ── Arrange ───────────────────────────────────────────────────────
-        var outputDir = Path.Combine(CliRunner.FindRepoRoot(), "storage", nameof(QueueCommand_WithSimulatedImportMode_Fixture_ExitsZero_AndImportsBothWorkItems));
-        if (Directory.Exists(outputDir))
-            Directory.Delete(outputDir, recursive: true);
-
         // ── Act ───────────────────────────────────────────────────────────
-        var result = await CliRunner.RunAsync(
+        var result = await CliRunner.RunTestAsync(
+            testName: nameof(QueueCommand_WithSimulatedImportMode_Fixture_ExitsZero_AndImportsBothWorkItems),
             args: ["queue", "--config", "scenarios/queue-import-workitems-simulated-fixture.json", "--force-fresh"],
-            env: new Dictionary<string, string> { ["DEVOPS_MIGRATION_TEST_STORAGE"] = Path.Combine("storage", nameof(QueueCommand_WithSimulatedImportMode_Fixture_ExitsZero_AndImportsBothWorkItems)) },
-            timeout: TimeSpan.FromSeconds(110));
+            timeout: TimeSpan.FromSeconds(110),
+            cleanOutputFolder: true);
+        var outputDir = result.OutputDirectory;
 
         Console.WriteLine("=== STDOUT ===");
         Console.WriteLine(result.StandardOutput);

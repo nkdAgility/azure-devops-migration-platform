@@ -123,7 +123,7 @@ public class InventoryServiceTests
     {
         var mock = new Mock<IRepoDiscoveryService>(MockBehavior.Strict);
         mock.Setup(s => s.CountReposAsync(
-                It.IsAny<MigrationEndpointOptions>(), It.IsAny<string>(),
+                It.IsAny<OrganisationEndpoint>(), It.IsAny<string>(),
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync(repoCount);
         return mock;
@@ -678,7 +678,7 @@ public class InventoryServiceTests
 
         // Act: null completed keys = fresh run
         var events = new List<InventoryProgressEvent>();
-        await foreach (var evt in sut.RunInventoryAsync(null))
+        await foreach (var evt in sut.RunInventoryAsync(completedProjectKeys: null))
             events.Add(evt);
 
         // Assert: all events yielded

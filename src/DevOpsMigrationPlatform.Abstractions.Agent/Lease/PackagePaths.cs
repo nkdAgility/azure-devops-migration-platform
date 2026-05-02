@@ -47,6 +47,12 @@ public static class PackagePaths
     public const string PhaseFile = $"{Checkpoints}/job.phase.json";
 
     /// <summary>
+    /// The execution plan file persisted after every task status transition:
+    /// <c>.migration/Checkpoints/plan.json</c>.
+    /// </summary>
+    public const string PlanFile = $"{Checkpoints}/plan.json";
+
+    /// <summary>
     /// Returns the OS-native filesystem path for the ID-map database,
     /// e.g. <c>&lt;packageRoot&gt;\.migration\Checkpoints\idmap.db</c>.
     /// Use this when constructing a SQLite connection string (which needs native separators).

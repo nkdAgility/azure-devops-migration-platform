@@ -213,6 +213,7 @@ After completing any unit of work (a logical change, a file edit, a task), befor
 → .agents/skills/screaming-architecture-check/SKILL.md — scan for Screaming Architecture violations (generic names, purpose-obscuring structure)
 → .agents/skills/architecture-review/SKILL.md — run all five architecture perspective checks and produce a combined prioritised report
 → .agents/skills/test-promotion/SKILL.md — analyse tests and promote to faster categories; retire redundant slower tests
+→ .agents/skills/update-docs/SKILL.md — update every affected canonical doc in /docs and /.agents/context after implementation; mark doc-tasks complete
 
 ## Session Commands (Slash-command aliases)
 → .github/commands/start-session.md — /start-session

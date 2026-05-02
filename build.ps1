@@ -685,6 +685,9 @@ if ($Mode -eq 'RunTest') {
         Write-Error ('Usage: .\build.ps1 RunTest "<TestName>"' + "`nProvide a full or partial test method name via -TestName.")
         exit 1
     }
+    Invoke-Step 'Building solution (incremental)' {
+        dotnet build $SolutionFile --configuration Release
+    }
     Write-Host "`n==> Running single test: $TestName" -ForegroundColor Cyan
     dotnet test $SolutionFile `
         --no-build `

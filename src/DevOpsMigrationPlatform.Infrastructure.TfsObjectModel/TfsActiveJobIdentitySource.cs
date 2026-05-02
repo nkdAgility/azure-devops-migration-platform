@@ -26,12 +26,11 @@ public sealed class TfsActiveJobIdentitySource : IIdentitySource
 
     /// <inheritdoc/>
     public async IAsyncEnumerable<AgentIdentityDescriptor> EnumerateIdentitiesAsync(
-        MigrationEndpointOptions endpoint,
         string projectName,
         [EnumeratorCancellation] CancellationToken cancellationToken)
     {
         var source = _activeServices.Require().IdentitySource;
-        await foreach (var descriptor in source.EnumerateIdentitiesAsync(endpoint, projectName, cancellationToken).ConfigureAwait(false))
+        await foreach (var descriptor in source.EnumerateIdentitiesAsync(projectName, cancellationToken).ConfigureAwait(false))
             yield return descriptor;
     }
 }

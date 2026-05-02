@@ -1,7 +1,10 @@
 ﻿using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Infrastructure;
 using DevOpsMigrationPlatform.Infrastructure.AzureDevOps;
 using DevOpsMigrationPlatform.Infrastructure.Agent;
+using DevOpsMigrationPlatform.Infrastructure.Agent.Connectors;
+using DevOpsMigrationPlatform.Infrastructure.Agent.Discovery;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Modules;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Tools.FieldTransform;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Tools.NodeTranslation;
@@ -9,7 +12,9 @@ using DevOpsMigrationPlatform.Infrastructure.Agent.Identity;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Teams;
 using DevOpsMigrationPlatform.Infrastructure.Simulated;
 using DevOpsMigrationPlatform.Infrastructure.Config;
+using DevOpsMigrationPlatform.Abstractions.Agent.Context;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
 using OpenTelemetry.Metrics;
 
@@ -56,8 +61,27 @@ public static class MigrationAgentServiceExtensions
                 options.CircuitBreaker.SamplingDuration = TimeSpan.FromSeconds(61);
             }));
 
+        // Register flat IOptions<T> bindings for top-level config sections.
+        // These are read-only per-host bindings; per-job re-reads go through IOptionsSnapshot<T>
+        // with ActiveJobConfigState.PackageConfig (see tool DI extensions).
+        builder.Services.AddOptions<MigrationPackageOptions>()
+            .BindConfiguration(MigrationPackageOptions.SectionName);
+        builder.Services.AddSchemaEntry<MigrationPackageOptions>("Package storage and path configuration");
+        builder.Services.AddOptions<MigrationPoliciesOptions>()
+            .BindConfiguration(MigrationPoliciesOptions.SectionName);
+        builder.Services.AddSchemaEntry<MigrationPoliciesOptions>("Retry, throttle, and checkpoint policy configuration");
+
         // Register cross-cutting tool services (NodeTranslation + FieldTransform).
         builder.Services.AddNodeTranslationToolServices();
+
+        // Register dynamic endpoint info — reads ConnectorType/Url/Project from
+        // ActiveJobConfigState.Current on every access, so every job picks the
+        // correct connector regardless of which connectors are registered.
+        // Must be registered BEFORE any connector calls AddSingleton/TryAddSingleton
+        // so connectors never override these with a static per-connector value.
+        builder.Services.TryAddSingleton<ISourceEndpointInfo, ActiveJobSourceEndpointInfo>();
+        builder.Services.TryAddSingleton<ITargetEndpointInfo, ActiveJobTargetEndpointInfo>();
+        builder.Services.TryAddSingleton<IAgentJobContext, ActiveJobAgentJobContext>();
         builder.Services.AddFieldTransformToolServices();
 
         // Package config store — reads migration-config.json from the package at job pickup.
@@ -80,11 +104,14 @@ public static class MigrationAgentServiceExtensions
         // collects all connector types when it is first resolved.
         builder.Services.AddMigrationPlatformPolymorphicSerializers();
 
-        // Register IDiscoveryModule implementations for DiscoveryAgentWorker.
+        // Register discovery modules (Inventory, Dependencies) as IModule implementations.
+        // They run as part of the Export plan when needed, not via a separate DiscoveryAgentWorker.
+        // ICatalogService must be registered before AddAzureDevOpsDependencyAnalysis.
+        builder.Services.AddSingleton<ICatalogService, CatalogService>();
         builder.Services.AddAzureDevOpsInventory(builder.Configuration);
         builder.Services.AddAzureDevOpsDependencyAnalysis(builder.Configuration);
-        builder.Services.AddInventoryDiscoveryModule();
-        builder.Services.AddDependencyDiscoveryModule();
+        builder.Services.AddInventoryModule();
+        builder.Services.AddDependenciesModule();
 
         // Unified worker — polls /agents/lease and dispatches to migration or discovery execution.
         builder.Services.AddHostedService<JobAgentWorker>();

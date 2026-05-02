@@ -4,6 +4,7 @@ using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Organisations;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Agent.Discovery;
 
@@ -26,7 +27,7 @@ public class CatalogService : ICatalogService
     }
 
     public async Task<IReadOnlyList<string>> GetProjectsAsync(
-        MigrationEndpointOptions endpoint,
+        OrganisationEndpoint endpoint,
         CancellationToken cancellationToken = default)
     {
         var projects = await _projectDiscovery.DiscoverProjectsAsync(endpoint, cancellationToken);
@@ -34,13 +35,12 @@ public class CatalogService : ICatalogService
     }
 
     public async IAsyncEnumerable<ProjectDiscoverySummary> CountAllWorkItemsAsync(
-        MigrationEndpointOptions endpoint,
+        OrganisationEndpoint endpoint,
         string project,
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
-        var orgEndpoint = endpoint.ToOrganisationEndpoint();
         await foreach (var summary in _workItemDiscovery.DiscoverWorkItemsAsync(
-            orgEndpoint, project, cancellationToken: cancellationToken))
+            endpoint, project, cancellationToken: cancellationToken))
         {
             yield return summary;
         }

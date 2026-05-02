@@ -56,7 +56,7 @@ See [docs/migration-agent.md — TFS Migration Agent](migration-agent.md#tfs-mig
 
 **Inventory:**
 
-For TFS source types, the `devopsmigration discovery inventory` command submits a `DiscoveryJob` with `source.type: TeamFoundationServer` to the control plane. The TFS agent picks it up via capability matching and runs the TFS inventory module. The TFS inventory module uses `WorkItemStoreExtensions.QueryCountAllByDateChunk` for date-windowed counting (same 120-day / 20k algorithm as the ADO Services path).
+For TFS source types, the `devopsmigration discovery inventory` command submits a `Job` (with `Kind: Inventory` and `Connectors: [TeamFoundationServer]`) to the control plane. The TFS agent picks it up via capability matching (`GET /agents/lease?capabilities=tfs`) and runs the TFS inventory module. The TFS inventory module uses `WorkItemStoreExtensions.QueryCountAllByDateChunk` for date-windowed counting (same 120-day / 20k algorithm as the ADO Services path).
 
 ### Validation and Normalisation
 
@@ -74,14 +74,18 @@ The control plane performs a secondary validation pass before beginning import w
 "source": {
   "type": "Simulated",
   "seed": 42,
-  "workItemCount": 25000,
-  "projectCount": 1,
-  "workItemTypeDistribution": {
-    "Bug": 40,
-    "Task": 40,
-    "User Story": 20
+  "generator": {
+    "projects": [
+      {
+        "name": "SimulatedProject1",
+        "workItemTypes": [
+          { "type": "Bug",        "count": 10000, "revisionsPerItem": 3 },
+          { "type": "Task",       "count": 10000, "revisionsPerItem": 3 },
+          { "type": "User Story", "count":  5000, "revisionsPerItem": 4 }
+        ]
+      }
+    ]
   },
-  "avgRevisionsPerItem": 3,
   "includeAttachments": false,
   "includeLinks": true
 }
@@ -90,11 +94,12 @@ The control plane performs a secondary validation pass before beginning import w
 **Requirements:**
 
 - Intended for **testing and development only**. No real data is read from or written to an external server.
-- Generates work items deterministically: given the same `seed` and `workItemCount`, every run produces identical work item identifiers, field values, revision counts, and link structures.
+- Generates work items deterministically: given the same `seed` and the same `generator.projects` configuration, every run produces identical work item identifiers, field values, revision counts, and link structures.
 - Simulated work item field values are prefixed with `[SIMULATED]` so a package produced by simulation cannot be mistaken for a real export.
 - Plugs into the existing module architecture as a standard `IModule` export implementation — the same `IArtefactStore` path as real sources.
 - When `seed` is omitted, a random seed is chosen automatically, logged at `Information` level, and recorded in `manifest.json` so the run is reproducible.
 - Identity mapping still runs for simulated migrations: the simulated source generates a fixed set of synthetic user identities and the `IdentitiesModule` processes them in the normal order.
+- A `Simulated*Source` MUST yield at least 2 items per operation. Zero-item sources silently make all downstream tests pass vacuously and are forbidden.
 
 **Simulated target configuration** is also supported for full end-to-end testing without a live Azure DevOps organisation:
 
@@ -110,7 +115,7 @@ The simulated target accepts all work items presented during import without writ
 
 **Inventory:**
 
-The `devopsmigration discovery inventory` command with `source.type: Simulated` returns per-project work item and revision counts derived directly from configuration (no query windowing is needed). Output format is identical to the real ADO Services path.
+The `devopsmigration discovery inventory` command with `source.type: Simulated` returns per-project work item and revision counts derived directly from `generator.projects` configuration (no query windowing is needed). Output format is identical to the real ADO Services path.
 
 **Scenario configs:**
 

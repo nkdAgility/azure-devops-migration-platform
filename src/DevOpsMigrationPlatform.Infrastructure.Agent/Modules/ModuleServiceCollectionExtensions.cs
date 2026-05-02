@@ -18,27 +18,34 @@ public static class ModuleServiceCollectionExtensions
     /// </summary>
     public static IServiceCollection AddWorkItemsModule(this IServiceCollection services)
     {
+#if NET7_0_OR_GREATER
+        // Register schema entry for migration.schema.json generation
+        services.AddSchemaEntry<WorkItemsModuleOptions>("Work items export/import module configuration");
+#endif
+
         services.AddTransient<IModule, WorkItemsModule>();
         return services;
     }
 
     /// <summary>
-    /// Registers <see cref="InventoryDiscoveryModule"/> as an <see cref="IDiscoveryModule"/>
-    /// implementation for inventory discovery operations.
+    /// Registers <see cref="InventoryDiscoveryModule"/> as an <see cref="IModule"/>
+    /// implementation for inventory discovery operations. Runs during the Export phase
+    /// to count work items and revisions per project.
     /// </summary>
-    public static IServiceCollection AddInventoryDiscoveryModule(this IServiceCollection services)
+    public static IServiceCollection AddInventoryModule(this IServiceCollection services)
     {
-        services.AddSingleton<IDiscoveryModule, InventoryDiscoveryModule>();
+        services.AddTransient<IModule, InventoryDiscoveryModule>();
         return services;
     }
 
     /// <summary>
-    /// Registers <see cref="DependencyDiscoveryModule"/> as an <see cref="IDiscoveryModule"/>
-    /// implementation for dependency analysis operations.
+    /// Registers <see cref="DependencyDiscoveryModule"/> as an <see cref="IModule"/>
+    /// implementation for dependency analysis operations. Runs during the Export phase
+    /// to analyze work item links across projects.
     /// </summary>
-    public static IServiceCollection AddDependencyDiscoveryModule(this IServiceCollection services)
+    public static IServiceCollection AddDependenciesModule(this IServiceCollection services)
     {
-        services.AddSingleton<IDiscoveryModule, DependencyDiscoveryModule>();
+        services.AddTransient<IModule, DependencyDiscoveryModule>();
         return services;
     }
 
@@ -48,6 +55,11 @@ public static class ModuleServiceCollectionExtensions
     /// </summary>
     public static IServiceCollection AddNodesModule(this IServiceCollection services, IConfiguration configuration)
     {
+#if NET7_0_OR_GREATER
+        // Register schema entry for migration.schema.json generation
+        services.AddSchemaEntry<NodesModuleOptions>("Classification nodes (area/iteration paths) module configuration");
+#endif
+
         services.AddTransient<IModule, NodesModule>();
         services.Configure<NodesModuleOptions>(
             configuration.GetSection(NodesModuleOptions.SectionName));

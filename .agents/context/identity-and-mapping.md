@@ -25,15 +25,19 @@ Identities/
 
 ### ID Mapping (Work Item IDs)
 
-Source work item IDs do not map 1:1 to target IDs. The ID map tracks the relationship:
+Source work item IDs do not map 1:1 to target IDs. The ID map is stored as a SQLite database in the package:
 
 ```
-Checkpoints/
-  idmap.db      (PostgreSQL Portable binary in Local/Dedicated Server topology, PostgreSQL Flexible Server in Cloud topologies; preferred for large datasets)
-  idmap.json    (fallback for small datasets or tooling compatibility)
+.migration/Checkpoints/
+  idmap.db     ← SQLite database; tables: work_item_map, attachment_map
+                 Locked exclusively by the agent via agent.lock during execution.
 ```
 
-The ID map is consulted during Stage A (Create) of streaming import. It replaces the old per-work-item watermark model.
+The `work_item_map` table stores `(source_id, target_id, revision_index)` rows. The `attachment_map` table stores `(source_attachment_id, target_attachment_url)` rows. Both tables use `INSERT OR IGNORE` for idempotent writes.
+
+The ID map is consulted during Stage A (`CreatedOrUpdated`) of streaming import. It is seeded at import startup from the target system when the `WorkItemResolutionStrategy` extension is enabled (strategies: `TargetField`, `TargetHyperlink`).
+
+An `agent.lock` file is written beside `idmap.db` while the agent holds the lease. Attempting to run a second agent against the same package will detect the lock and fail fast (concurrent write protection).
 
 ### Identity Resolution Rules
 

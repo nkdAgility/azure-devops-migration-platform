@@ -87,6 +87,36 @@ tests/<Project>.Tests/<Area>/<ClassName>Tests.cs              ← plain MSTest u
 
 ---
 
+## Diagnosing System Test Failures
+
+When a `SystemTest_Simulated` or `SystemTest` test fails, every CLI and agent process spawned by that test writes full OTel file diagnostics (structured NDJSON logs) to:
+
+```
+storage/{TestName}/.otel-diagnostics/
+```
+
+where `{TestName}` is the **exact MSTest method name** (e.g. `QueueCommand_WithExportMode_ExitsZero_AndWritesRevisionFiles`), and the path is relative to the **repository root**.
+
+**Absolute path pattern:**
+```
+<repo-root>\storage\<TestMethodName>\.otel-diagnostics\
+```
+
+**How it works:**
+- Each test sets `DEVOPS_MIGRATION_TEST_STORAGE=storage/{TestName}` in the spawned process environment.
+- `CliRunner` reads this env var and overrides `Telemetry__DiagnosticsPath` to `{repoRoot}/{testStorageRel}/.otel-diagnostics`.
+- All processes (CLI, ControlPlaneHost, MigrationAgent) log to this path for the duration of that test invocation.
+
+**Debugging workflow:**
+1. Identify the failing test method name exactly.
+2. Navigate to `storage/{TestMethodName}/.otel-diagnostics/` in the repo root.
+3. Open the NDJSON log files — each line is a structured log event with `{Level}`, `{Message}`, `{Exception}`, and span context.
+4. Look for `Error` or `Critical` entries; the `{Exception}` field contains the full stack trace.
+
+> **Note**: `storage/` is `.gitignore`d. These files exist only after a local test run. They are not available in CI — use the test output/stderr captured in the test result for CI failures.
+
+---
+
 ## CLI Feature → System Test Requirement
 
 Every CLI command MUST have `[TestCategory("SystemTest")]` test that:

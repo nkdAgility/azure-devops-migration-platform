@@ -11,7 +11,7 @@ Validation runs at four points in the lifecycle. Fail-fast is the default at eve
 | **2 — Pre-flight** | Before import begins | Migration Agent / Job Engine | Yes |
 | **3 — Post-flight** | After import completes | Migration Agent / Job Engine | Yes |
 
-Tiers 0 and 1 together are the **CLI pre-validation pass**. The CLI creates a `MigrationJob` and submits it to the control plane only if both tiers pass.
+Tiers 0 and 1 together are the **CLI pre-validation pass**. The CLI creates a `Job` (with `ConfigPayload`) and submits it to the control plane only if both tiers pass.
 
 ---
 
@@ -69,14 +69,14 @@ Any connectivity failure causes the CLI to exit with an actionable error message
 
 ---
 
-## MigrationJob Creation
+## Job Creation
 
 After Tiers 0 and 1 pass, the CLI:
 
 1. Normalises `artefacts.path` to a URI (`packageUri`).
 2. Assigns a UUID `jobId`.
 3. Computes `configHash` (SHA-256 of the normalised config JSON).
-4. Constructs the `MigrationJob`.
+4. Constructs the `Job` (serialises config into `ConfigPayload`, sets `Kind`, `Connectors`, and `Diagnostics`).
 5. Serialises and submits it to the control plane.
 
 The control plane performs a deduplication check on `jobId` and a final schema validation before accepting the job.

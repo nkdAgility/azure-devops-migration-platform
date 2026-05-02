@@ -1,10 +1,18 @@
+#if NET7_0_OR_GREATER
+using DevOpsMigrationPlatform.Abstractions.Options;
+#endif
+
 namespace DevOpsMigrationPlatform.Abstractions.Agent.Modules;
 
 /// <summary>Options for the IdentitiesModule.</summary>
+#if NET7_0_OR_GREATER
+public sealed class IdentitiesModuleOptions : IConfigSection
+#else
 public sealed class IdentitiesModuleOptions
+#endif
 {
     /// <summary>Configuration section name.</summary>
-    public const string SectionName = "MigrationPlatform:Modules:Identities";
+    public static string SectionName => "MigrationPlatform:Modules:Identities";
 
     /// <summary>Whether the module is enabled.</summary>
     public bool Enabled { get; init; } = true;

@@ -31,10 +31,12 @@ internal sealed class ProgressControllerContext
 
         var jobStore = new JobStore();
         MetricsStore = new JobMetricsStore();
+        var taskStore = new InMemoryJobTaskStore();
         Controller = new ProgressController(
             Store,
             diagnosticStore,
             MetricsStore,
+            taskStore,
             jobStore,
             LeaseResolver.Object,
             NullLogger<ProgressController>.Instance);

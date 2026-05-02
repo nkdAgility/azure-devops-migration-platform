@@ -1,7 +1,9 @@
 using System;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Agent.Checkpointing;
+using DevOpsMigrationPlatform.Abstractions.Agent.Context;
 using DevOpsMigrationPlatform.Abstractions.Agent.Lease;
+using DevOpsMigrationPlatform.Infrastructure.Agent.Context;
 using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
 using DevOpsMigrationPlatform.Abstractions.ControlPlaneApi;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Checkpointing;
@@ -49,7 +51,13 @@ public static class CoreAgentServiceExtensions
         // Ambient singletons shared across services within a lease/job lifecycle.
         services.AddSingleton<ActiveLeaseState>();
         services.AddSingleton<ActivePackageState>();
-        services.AddSingleton<ActiveJobConfigState>();
+        services.AddSingleton<IJobConfiguration, JobConfiguration>();
+
+        // Execution plan builder — builds the ordered task list at job start.
+        services.AddSingleton<IJobExecutionPlanBuilder, JobExecutionPlanBuilder>();
+
+        // Execution plan executor — runs tasks in dependency-tier order with Task.WhenAll per tier.
+        services.AddSingleton<IJobPlanExecutor, JobPlanExecutor>();
 
         // Agent telemetry (IMigrationMetrics, IDiscoveryMetrics, TelemetryOptions).
         services.AddAgentTelemetryServices(configuration);

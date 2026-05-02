@@ -9,6 +9,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Agent.Checkpointing;
+using DevOpsMigrationPlatform.Abstractions.Agent.Context;
 using DevOpsMigrationPlatform.Abstractions.Agent.Export;
 using DevOpsMigrationPlatform.Abstractions.Agent.Import;
 using DevOpsMigrationPlatform.Abstractions.Agent.Lease;
@@ -64,25 +65,35 @@ public sealed class TeamsModule : IModule
     private readonly IMigrationMetrics? _migrationMetrics;
     private readonly ILogger<TeamsModule> _logger;
     private readonly TeamsModuleOptions _options;
-    private readonly ActiveJobConfigState? _activeJobConfig;
+    private readonly ISourceEndpointInfo _sourceEndpointInfo;
+    private readonly ITargetEndpointInfo _targetEndpointInfo;
 
     public string Name => ModuleName;
-    public IReadOnlyList<string> DependsOn => Array.Empty<string>();
+    public IReadOnlyList<ModuleDependency> DependsOn => new[]
+    {
+        new ModuleDependency(typeof(IdentitiesModule), DependencyPhase.Import),
+        new ModuleDependency(typeof(NodesModule), DependencyPhase.Import)
+    };
+    public bool SupportsExport => true;
+    public bool SupportsImport => true;
 
     public TeamsModule(
         ILogger<TeamsModule> logger,
         IOptions<TeamsModuleOptions> options,
+        ISourceEndpointInfo sourceEndpointInfo,
+        ITargetEndpointInfo targetEndpointInfo,
         TeamSlugGenerator slugGenerator,
         ITeamSource? teamSource = null,
         ITeamTarget? teamTarget = null,
         TeamExportOrchestrator? exportOrchestrator = null,
         TeamImportOrchestrator? importOrchestrator = null,
         ICheckpointingServiceFactory? checkpointingFactory = null,
-        IMigrationMetrics? migrationMetrics = null,
-        ActiveJobConfigState? activeJobConfig = null)
+        IMigrationMetrics? migrationMetrics = null)
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _options = options?.Value ?? throw new ArgumentNullException(nameof(options));
+        _sourceEndpointInfo = sourceEndpointInfo ?? throw new ArgumentNullException(nameof(sourceEndpointInfo));
+        _targetEndpointInfo = targetEndpointInfo ?? throw new ArgumentNullException(nameof(targetEndpointInfo));
         _slugGenerator = slugGenerator ?? throw new ArgumentNullException(nameof(slugGenerator));
         _teamSource = teamSource;
         _teamTarget = teamTarget;
@@ -90,7 +101,6 @@ public sealed class TeamsModule : IModule
         _importOrchestrator = importOrchestrator;
         _checkpointingFactory = checkpointingFactory;
         _migrationMetrics = migrationMetrics;
-        _activeJobConfig = activeJobConfig;
     }
 
     /// <inheritdoc/>
@@ -118,7 +128,7 @@ public sealed class TeamsModule : IModule
 
         var job = context.Job;
         var artefactStore = context.ArtefactStore;
-        var projectName = _activeJobConfig?.Current?.Source?.GetProject() ?? string.Empty;
+        var projectName = _sourceEndpointInfo.Project;
 
         using (_logger.BeginDataScope(DataClassification.Customer))
             _logger.LogInformation("[Teams] Exporting teams for project '{Project}'.", projectName);
@@ -143,7 +153,8 @@ public sealed class TeamsModule : IModule
 
         var count = 0;
         var skipped = 0;
-        await foreach (var team in _teamSource.EnumerateTeamsAsync(_activeJobConfig?.Current?.Source ?? throw new InvalidOperationException("ActiveJobConfigState.Current.Source required for team export — ensure migration-config.json is present."), projectName, ct).ConfigureAwait(false))
+        // NOTE: Connectors now resolve their own credentials from DI; no need to pass endpoint options.
+        await foreach (var team in _teamSource.EnumerateTeamsAsync(projectName, ct).ConfigureAwait(false))
         {
             // Apply scope/filter
             if (filterRegex is not null && !filterRegex.IsMatch(team.Name))
@@ -175,8 +186,9 @@ public sealed class TeamsModule : IModule
             var exportSw = Stopwatch.StartNew();
             try
             {
+                // NOTE: Connectors now resolve their own credentials from DI; no need to pass endpoint options.
                 await _exportOrchestrator.ExportTeamAsync(
-                    _activeJobConfig?.Current?.Source!, projectName, team, slug, artefactStore, _options.Extensions, ct).ConfigureAwait(false);
+                    projectName, team, slug, artefactStore, _options.Extensions, ct).ConfigureAwait(false);
 
                 count++;
                 _migrationMetrics?.RecordTeamExportCount(exportTags);
@@ -215,7 +227,7 @@ public sealed class TeamsModule : IModule
             {
                 Migration = new MigrationCounters
                 {
-                    Teams = new TeamsCounters { Exported = count }
+                    Teams = new TeamsCounters { Exported = count, Skipped = skipped }
                 }
             }
         });
@@ -257,8 +269,8 @@ public sealed class TeamsModule : IModule
         using var activity = s_activitySource.StartActivity("teams.import");
 
         var artefactStore = context.ArtefactStore;
-        var projectName = _activeJobConfig?.Current?.Target?.GetProject() ?? string.Empty;
-        var sourceProjectName = _activeJobConfig?.Current?.Source?.GetProject() ?? projectName;
+        var projectName = _targetEndpointInfo.Project;
+        var sourceProjectName = _sourceEndpointInfo.Project;
 
         using (_logger.BeginDataScope(DataClassification.Customer))
             _logger.LogInformation("[Teams] Importing teams for project '{Project}'.", projectName);
@@ -310,8 +322,8 @@ public sealed class TeamsModule : IModule
             var importSw = Stopwatch.StartNew();
             try
             {
+                // NOTE: Connectors now resolve their own credentials from DI; no need to pass endpoint options.
                 await _importOrchestrator.ImportTeamAsync(
-                    _activeJobConfig?.Current?.Target ?? throw new InvalidOperationException("ActiveJobConfigState.Current.Target required for team import — ensure migration-config.json is present."),
                     projectName, sourceProjectName, teamPackage, _options.Extensions, ct).ConfigureAwait(false);
 
                 count++;
