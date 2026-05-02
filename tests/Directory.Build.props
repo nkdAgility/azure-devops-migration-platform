@@ -4,11 +4,17 @@
     <FileVersion>0.0.0.0</FileVersion>
     <InformationalVersion>0.0.0-local</InformationalVersion>
     <Authors>Martin Hinshelwood</Authors>
-    <Company>naked Agility with Martin Hinshelwood</Company>
+    <Company>NKD Agility Limited</Company>
     <Product>Azure DevOps Migration Platform</Product>
     <LangVersion>12</LangVersion>
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
      <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <PackageLicenseExpression>AGPL-3.0-only</PackageLicenseExpression>
   </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="StyleCop.Analyzers" PrivateAssets="all" />
+    <AdditionalFiles Include="$(MSBuildThisFileDirectory)..\stylecop.json" />
+  </ItemGroup>
 
 </Project>

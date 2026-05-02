@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (c) Naked Agility Limited
+
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -315,7 +318,7 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
             {
                 var freshCheckpointer = CheckpointingFactory.Create(stateStore);
                 var freshPhaseTracker = PhaseTrackingFactory.Create(stateStore);
-                
+
                 _logger.LogInformation("ForceFresh requested for job {JobId} — deleting module cursors and plan file.", job.JobId);
                 foreach (var module in MigrationModules)
                 {
@@ -394,7 +397,7 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
 
         var checkpointer = CheckpointingFactory.Create(stateStore);
         var phaseTracker = PhaseTrackingFactory.Create(stateStore);
-        
+
         var exportContext = new ExportContext
         {
             Job = job,

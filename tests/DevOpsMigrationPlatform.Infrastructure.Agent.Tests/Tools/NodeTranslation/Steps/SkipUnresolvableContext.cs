@@ -1,4 +1,7 @@
-﻿using DevOpsMigrationPlatform.Abstractions;
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (c) NKD Agility Limited
+
+using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Agent.Import;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Abstractions.Options;

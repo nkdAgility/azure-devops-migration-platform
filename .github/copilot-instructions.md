@@ -100,7 +100,7 @@ and formalised in [.specify/memory/constitution.md](../.specify/memory/constitut
 | 14 | Resilience & Fault Tolerance | Retry + back-off; circuit breakers; explicit timeouts |
 | 15 | Security by Design | Validate input; secrets via Key Vault; no creds in args; all vulnerabilities fixed or tracked |
 | 16 | Deployment & Release Discipline | CI/CD; reproducible builds; safe strategies |
-| 17 | Build & Dependency Hygiene | Every change must build clean and all tests must pass; pinned versions; vulnerability scan after build |
+| 17 | Build & Dependency Hygiene | Every change must build clean and all tests must pass; pinned versions; vulnerability scan after build; every `.cs` file MUST begin with an SPDX header |
 | 18 | Performance & Resource Efficiency | Measure first; stream unbounded data; bounded caches |
 | 19 | Cost Awareness | Justified provisioning; explicit scaling bounds |
 | 20 | Operational Readiness | Health checks; correlation IDs; runbooks |
@@ -128,6 +128,17 @@ Reject any suggestion that:
 - Performs direct Source → Target migration
 - Submits a change without a successful `dotnet clean && dotnet build --no-incremental`
 - Declares done without all tests passing (`dotnet test`)
+- Creates a new `.cs` file without the correct SPDX header block (enforced by SA1633 as a build error):
+  - **All assemblies** (default):
+    ```
+    // SPDX-License-Identifier: AGPL-3.0-only
+    // Copyright (c) NKD Agility Limited
+    ```
+  - **`DevOpsMigrationPlatform.Proprietary.*` assemblies** only:
+    ```
+    // SPDX-License-Identifier: LicenseRef-NKD-Proprietary
+    // Copyright (c) NKD Agility Limited
+    ```
 - Leaves any `Assert.Inconclusive()` in a test — `Inconclusive` is treated as a build-breaking error. Either implement the assertion or delete the test.
 - Commits code containing `@ignore` (Gherkin) or `[Ignore]` (MSTest) — these markers may only be used temporarily within a session for isolation; they must be removed before done.
 - Declares done without running at least one scenario config (e.g. `scenarios/queue-export-ado-workitems-single-project.json`) via a `launch.json` debug profile and verifying observable output

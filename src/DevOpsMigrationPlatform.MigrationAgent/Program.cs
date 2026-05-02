@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (c) Naked Agility Limited
+
 // Migration Agent — Worker Service
 // Polls the control plane for jobs, executes them, and reports progress.
 // Stateless: all durable state is written to the package via IArtefactStore/IStateStore.

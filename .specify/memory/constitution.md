@@ -331,7 +331,12 @@ concrete examples for each.
     `dotnet clean && dotnet build --no-incremental` before it is considered complete.** **Every code change
     MUST also produce a passing `dotnet test` before it is considered complete.** A change
     that does not compile or that causes test failures is not done. Vulnerability scanning
-    MUST follow every build step.
+    MUST follow every build step. **Every new `.cs` source file MUST begin with the SPDX
+    header block** (enforced by SA1633 as a build error):
+    ```
+    // SPDX-License-Identifier: AGPL-3.0-or-later
+    // Copyright (c) NKD Agility Limited
+    ```
 18. **Performance & Resource Efficiency** — Measure before optimising; streaming for
     unbounded data; bounded caches.
 19. **Cost Awareness** — Justified provisioning; explicit scaling bounds; progress
@@ -451,6 +456,12 @@ Reject any proposal that:
 - Introduces unbounded auto-scale configuration without a documented cost ceiling.
 - Submits a code change without verifying it produces a successful build (`dotnet clean && dotnet build --no-incremental`).
 - Declares a task complete without all tests passing (`dotnet test`).
+- Creates a new `.cs` file without the SPDX header block:
+  ```
+  // SPDX-License-Identifier: AGPL-3.0-or-later
+  // Copyright (c) NKD Agility Limited
+  ```
+  SA1633 is enforced as a build error — any file missing this header will fail the build.
 - Ships a known vulnerability without either remediating it or providing an explicit written rationale and a tracked issue.
 - Adds or changes a CLI command without a corresponding entry in `.vscode/launch.json`.
 - Adds or changes a deployable Host (`AppHost`, `ControlPlaneHost`, `MigrationAgent`) without a corresponding mode or build step covered by `build.ps1`.

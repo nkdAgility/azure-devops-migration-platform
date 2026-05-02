@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (c) Naked Agility Limited
+
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -46,7 +49,7 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
         _modulesByName = modules.ToDictionary(m => m.Name, StringComparer.OrdinalIgnoreCase);
         _phaseTrackingFactory = phaseTrackingFactory;
         _logger = logger;
-        
+
         // Diagnostic: log all discovered modules at startup
         _logger.LogInformation(
             "JobExecutionPlanBuilder initialized with {Count} modules: {Modules}",
@@ -119,7 +122,7 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
         bool exportAlreadyDone = phaseRecord?.ExportCompleted == true;
 
         var exportModules = _modules.Where(m => m.SupportsExport).ToList();
-        
+
         _logger.LogDebug(
             "Discovered {Count} export modules: {Modules}",
             exportModules.Count,
@@ -148,7 +151,7 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
                 _logger.LogDebug("Skipping module {ModuleName}: not needed (not in config and no enabled module depends on it)", module.Name);
                 continue;
             }
-            
+
             _logger.LogDebug(
                 "Module {ModuleName}: Needed={Needed}, SupportsExport={SupportsExport}",
                 module.Name, needed.Contains(module.Name), module.SupportsExport);
@@ -204,7 +207,7 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
         foreach (var module in _modules.Where(m => m.SupportsImport))
         {
             var enabled = IsEnabled(config, module.Name);
-            
+
             // Skip disabled modules - no task should be created.
             if (!enabled)
                 continue;

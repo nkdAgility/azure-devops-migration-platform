@@ -1,4 +1,7 @@
-﻿using Microsoft.VisualStudio.TestTools.UnitTesting;
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (c) NKD Agility Limited
+
+using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Reqnroll;
 using System.Collections.Generic;
 using System.Threading;

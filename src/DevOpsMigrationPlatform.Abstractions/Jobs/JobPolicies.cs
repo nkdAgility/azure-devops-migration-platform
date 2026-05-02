@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (c) Naked Agility Limited
+
 namespace DevOpsMigrationPlatform.Abstractions.Jobs;
 
 /// <summary>Retry, throttle, and checkpoint policies for all job types.</summary>

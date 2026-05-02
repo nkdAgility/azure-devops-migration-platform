@@ -1,0 +1,10 @@
+{
+  "$schema": "https://raw.githubusercontent.com/DotNetAnalyzers/StyleCopAnalyzers/master/StyleCop.Analyzers/StyleCop.Analyzers/Settings/stylecop.schema.json",
+  "settings": {
+    "documentationRules": {
+      "companyName": "NKD Agility Limited",
+      "copyrightText": "SPDX-License-Identifier: AGPL-3.0-only\nCopyright (c) {companyName}",
+      "xmlHeader": false
+    }
+  }
+}

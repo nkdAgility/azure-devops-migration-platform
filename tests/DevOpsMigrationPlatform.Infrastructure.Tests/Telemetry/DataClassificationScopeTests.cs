@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (c) NKD Agility Limited
+
 using System.Collections.Generic;
 using DevOpsMigrationPlatform.Abstractions.Telemetry;
 using Microsoft.VisualStudio.TestTools.UnitTesting;

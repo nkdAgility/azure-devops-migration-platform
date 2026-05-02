@@ -1,4 +1,7 @@
-﻿using System;
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (c) Naked Agility Limited
+
+using System;
 using System.Collections.Generic;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Agent.Tools.NodeTranslation;

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (c) Naked Agility Limited
+
 #if NET7_0_OR_GREATER
 using DevOpsMigrationPlatform.Abstractions.Options;
 #endif

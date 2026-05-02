@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (c) NKD Agility Limited
+
 using Microsoft.Extensions.Configuration;
 
 namespace DevOpsMigrationPlatform.CLI.Migration.Tests.TestUtilities;

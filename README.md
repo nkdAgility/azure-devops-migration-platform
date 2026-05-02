@@ -1,5 +1,8 @@
 # Azure DevOps Migration Platform
 
+> **Copyright (c) NKD Agility Limited.**
+> Created and maintained by Martin Hinshelwood. Licensed under [AGPL-3.0-only](LICENSE).
+
 A versioned migration package platform with streaming chronological replay. Not a live migration tool — it produces and consumes portable, auditable, zip-friendly migration packages.
 
 **Modes:** `Export` (source → files), `Prepare` (files + target → validation/mapping), `Import` (files → target), `Migrate` (export → prepare → import in a single run).
@@ -33,3 +36,9 @@ See [docs/architecture.md](docs/architecture.md) for the full architectural over
 | Hard architectural constraints | [.agents/guardrails/system-architecture.md](.agents/guardrails/system-architecture.md) |
 | WorkItems rules | [.agents/guardrails/workitems-rules.md](.agents/guardrails/workitems-rules.md) |
 | New module checklist | [.agents/guardrails/module-template.md](.agents/guardrails/module-template.md) |
+
+## Contributing
+
+Contributions are welcome through pull requests.
+
+All contributions must pass the configured GitHub Contributor Licence Agreement (CLA) check before they can be merged. See [CONTRIBUTING.md](CONTRIBUTING.md) for details.

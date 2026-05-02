@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (c) Naked Agility Limited
+
 using System;
 using System.Collections.Concurrent;
 using System.Threading;
@@ -31,7 +34,8 @@ public sealed class SimulatedNodeCreator : INodeCreator
     /// <inheritdoc/>
     public Task<bool> NodeExistsAsync(
         ClassificationNodeType nodeType,
-        string path,CancellationToken ct)
+        string path,
+CancellationToken ct)
     {
         var key = BuildKey(nodeType, path, _endpointInfo.Project);
         var exists = _nodes.ContainsKey(key);
@@ -42,7 +46,8 @@ public sealed class SimulatedNodeCreator : INodeCreator
     /// <inheritdoc/>
     public Task EnsureExistsAsync(
         ClassificationNodeType nodeType,
-        string path,CancellationToken ct)
+        string path,
+CancellationToken ct)
     {
         var key = BuildKey(nodeType, path, _endpointInfo.Project);
         _nodes.TryAdd(key, true);
@@ -54,7 +59,8 @@ public sealed class SimulatedNodeCreator : INodeCreator
     public Task SetIterationDatesAsync(
         string path,
         DateTimeOffset? startDate,
-        DateTimeOffset? finishDate,CancellationToken ct)
+        DateTimeOffset? finishDate,
+CancellationToken ct)
     {
         if (startDate is null && finishDate is null) return Task.CompletedTask;
         _logger.LogDebug("[NodeTranslation][Simulated] SetIterationDatesAsync for {Path} ({Start} – {Finish}).", path, startDate, finishDate);
