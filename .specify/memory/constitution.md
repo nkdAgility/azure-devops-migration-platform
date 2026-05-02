@@ -335,7 +335,7 @@ concrete examples for each.
     header block** (enforced by SA1633 as a build error):
     ```
     // SPDX-License-Identifier: AGPL-3.0-or-later
-    // Copyright (c) NKD Agility Limited
+    // Copyright (c) Naked Agility Limited
     ```
 18. **Performance & Resource Efficiency** — Measure before optimising; streaming for
     unbounded data; bounded caches.
@@ -459,7 +459,7 @@ Reject any proposal that:
 - Creates a new `.cs` file without the SPDX header block:
   ```
   // SPDX-License-Identifier: AGPL-3.0-or-later
-  // Copyright (c) NKD Agility Limited
+  // Copyright (c) Naked Agility Limited
   ```
   SA1633 is enforced as a build error — any file missing this header will fail the build.
 - Ships a known vulnerability without either remediating it or providing an explicit written rationale and a tracked issue.

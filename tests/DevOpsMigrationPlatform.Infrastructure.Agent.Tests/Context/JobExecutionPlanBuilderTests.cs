@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-// Copyright (c) NKD Agility Limited
+// Copyright (c) Naked Agility Limited
 
 using System;
 using System.Collections.Generic;
@@ -126,7 +126,7 @@ public sealed class JobExecutionPlanBuilderTests
         // Identities is disabled, so it should not have a task
         Assert.IsFalse(plan.Tasks.Any(t => t.Id.Contains("identities")),
             "Disabled Identities module should not have a task");
-        
+
         // Only 3 enabled modules should have export tasks
         Assert.AreEqual(3, plan.Tasks.Count(t => t.Phase == "Export"),
             "Should have 3 export tasks (Nodes, Teams, WorkItems)");

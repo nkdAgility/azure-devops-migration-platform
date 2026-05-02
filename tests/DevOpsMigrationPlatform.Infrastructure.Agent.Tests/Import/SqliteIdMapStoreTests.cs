@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-// Copyright (c) NKD Agility Limited
+// Copyright (c) Naked Agility Limited
 
 using System.IO;
 using System.Runtime.CompilerServices;

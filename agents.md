@@ -284,12 +284,12 @@ Reject any proposal that:
   - **All assemblies** (default):
     ```
     // SPDX-License-Identifier: AGPL-3.0-only
-    // Copyright (c) NKD Agility Limited
+    // Copyright (c) Naked Agility Limited
     ```
   - **`DevOpsMigrationPlatform.Proprietary.*` assemblies** only:
     ```
     // SPDX-License-Identifier: LicenseRef-NakedAgility-Separate
-    // Copyright (c) NKD Agility Limited
+    // Copyright (c) Naked Agility Limited
     ```
 - Declares a task complete without running at least one scenario config (e.g. `scenarios/queue-export-ado-workitems-single-project.json`) via a `launch.json` debug profile and verifying observable output.
 - Marks a spec's last task `[X]` without all items in `specs/<feature>/discrepancies.md` being `Resolved` or `N/A`.

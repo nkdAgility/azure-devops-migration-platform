@@ -5,7 +5,7 @@
     begins with the required two-line SPDX header block:
 
       // SPDX-License-Identifier: <PackageLicenseExpression>
-      // Copyright (c) NKD Agility Limited.
+      // Copyright (c) Naked Agility Limited.
 
     Rules:
       • All assemblies default to:                AGPL-3.0-only
@@ -123,7 +123,7 @@
     <ValidateSpdxHeaders
         SourceFiles="@(Compile)"
         ExpectedLicense="$(PackageLicenseExpression)"
-        ExpectedCopyright="NKD Agility Limited" />
+        ExpectedCopyright="Naked Agility Limited" />
   </Target>
 
 </Project>

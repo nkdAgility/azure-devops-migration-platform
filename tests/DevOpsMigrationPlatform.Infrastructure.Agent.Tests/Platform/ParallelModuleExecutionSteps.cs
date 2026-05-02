@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-// Copyright (c) NKD Agility Limited
+// Copyright (c) Naked Agility Limited
 
 using System;
 using System.Collections.Generic;
@@ -84,16 +84,16 @@ public sealed class ParallelModuleExecutionSteps
     {
         // Simulate import execution with tiered timing
         var now = DateTimeOffset.UtcNow;
-        
+
         // Tier 0: Identities, Nodes, Teams start together
         _context.TaskStartTimes["import.identities"] = now;
         _context.TaskStartTimes["import.nodes"] = now.AddMilliseconds(50);
         _context.TaskStartTimes["import.teams"] = now.AddMilliseconds(100);
-        
+
         _context.TaskCompleteTimes["import.identities"] = now.AddMilliseconds(500);
         _context.TaskCompleteTimes["import.nodes"] = now.AddMilliseconds(550);
         _context.TaskCompleteTimes["import.teams"] = now.AddMilliseconds(600);
-        
+
         // Tier 1: WorkItems starts after Identities and Nodes complete
         _context.TaskStartTimes["import.workitems"] = now.AddMilliseconds(600);
         _context.TaskCompleteTimes["import.workitems"] = now.AddMilliseconds(1000);

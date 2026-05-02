@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-// Copyright (c) NKD Agility Limited
+// Copyright (c) Naked Agility Limited
 
 using System;
 using System.Collections.Generic;
@@ -31,8 +31,8 @@ public sealed class JobExecutionPlanBuilderDependsOnTests
     public async Task BuildPlanAsync_ImportPhase_WorkItemsDependsOnIdentitiesAndNodes()
     {
         // Arrange
-        var workItemsModule = CreateModule("WorkItems", new[] 
-        { 
+        var workItemsModule = CreateModule("WorkItems", new[]
+        {
             new ModuleDependency(typeof(FakeIdentitiesModule), DependencyPhase.Import) { ModuleNameOverride = "Identities" },
             new ModuleDependency(typeof(FakeNodesModule), DependencyPhase.Import) { ModuleNameOverride = "Nodes" }
         });
@@ -61,8 +61,8 @@ public sealed class JobExecutionPlanBuilderDependsOnTests
     public async Task BuildPlanAsync_ExportPhase_NoDependsOn()
     {
         // Arrange
-        var workItemsModule = CreateModule("WorkItems", new[] 
-        { 
+        var workItemsModule = CreateModule("WorkItems", new[]
+        {
             new ModuleDependency(typeof(FakeIdentitiesModule), DependencyPhase.Import) { ModuleNameOverride = "Identities" },
             new ModuleDependency(typeof(FakeNodesModule), DependencyPhase.Import) { ModuleNameOverride = "Nodes" }
         });

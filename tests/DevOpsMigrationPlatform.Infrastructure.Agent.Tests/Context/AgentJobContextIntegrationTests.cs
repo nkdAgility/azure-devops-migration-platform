@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-// Copyright (c) NKD Agility Limited
+// Copyright (c) Naked Agility Limited
 
 using DevOpsMigrationPlatform.Infrastructure.Agent.Context;
 using Microsoft.Extensions.Logging;
@@ -122,9 +122,9 @@ public sealed class AgentJobContextIntegrationTests
 
         // The state object should support enumeration of key-value pairs for structured logging
         var stateStr = capturedState[0].ToString();
-        Assert.IsTrue(stateStr!.Contains("Mode=Import") || stateStr.Contains("Mode = Import"), 
+        Assert.IsTrue(stateStr!.Contains("Mode=Import") || stateStr.Contains("Mode = Import"),
             $"Expected structured param Mode=Import, got: {stateStr}");
-        Assert.IsTrue(stateStr.Contains("ConfigVersion=3.1") || stateStr.Contains("ConfigVersion = 3.1"), 
+        Assert.IsTrue(stateStr.Contains("ConfigVersion=3.1") || stateStr.Contains("ConfigVersion = 3.1"),
             $"Expected structured param ConfigVersion=3.1, got: {stateStr}");
     }
 }

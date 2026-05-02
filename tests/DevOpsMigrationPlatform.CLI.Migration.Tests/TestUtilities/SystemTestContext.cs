@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-// Copyright (c) NKD Agility Limited
+// Copyright (c) Naked Agility Limited
 
 using System;
 using System.Collections.Concurrent;
@@ -48,7 +48,7 @@ public class SystemTestContext : IDisposable
         TestName = testName ?? throw new ArgumentNullException(nameof(testName));
         Configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
         TestStartTime = DateTime.UtcNow;
-        
+
         // Create temporary output directory
         OutputDirectory = CreateTempDirectory();
     }

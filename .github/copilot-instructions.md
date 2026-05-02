@@ -132,12 +132,12 @@ Reject any suggestion that:
   - **All assemblies** (default):
     ```
     // SPDX-License-Identifier: AGPL-3.0-only
-    // Copyright (c) NKD Agility Limited
+    // Copyright (c) Naked Agility Limited
     ```
   - **`DevOpsMigrationPlatform.Proprietary.*` assemblies** only:
     ```
     // SPDX-License-Identifier: LicenseRef-NakedAgility-Separate
-    // Copyright (c) NKD Agility Limited
+    // Copyright (c) Naked Agility Limited
     ```
 - Leaves any `Assert.Inconclusive()` in a test — `Inconclusive` is treated as a build-breaking error. Either implement the assertion or delete the test.
 - Commits code containing `@ignore` (Gherkin) or `[Ignore]` (MSTest) — these markers may only be used temporarily within a session for isolation; they must be removed before done.

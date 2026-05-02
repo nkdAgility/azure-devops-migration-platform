@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-// Copyright (c) NKD Agility Limited
+// Copyright (c) Naked Agility Limited
 
 using System;
 using System.Threading;
@@ -37,7 +37,7 @@ public abstract class SystemTestBase
     {
         if (!configuration.IsConfigured)
         {
-            return ValidationResult.Failure("Connectivity", 
+            return ValidationResult.Failure("Connectivity",
                 "Cannot test connectivity: Environment not configured");
         }
 
@@ -45,10 +45,10 @@ public abstract class SystemTestBase
         {
             // Use existing ConfigTokenResolver pattern for secure token resolution
             var resolvedToken = ConfigTokenResolver.Resolve($"$ENV:AZDEVOPS_SYSTEM_TEST_PAT");
-            
+
             if (string.IsNullOrEmpty(resolvedToken))
             {
-                return ValidationResult.Failure("Connectivity", 
+                return ValidationResult.Failure("Connectivity",
                     "Token resolution failed: AZDEVOPS_SYSTEM_TEST_PAT could not be resolved");
             }
 
@@ -57,21 +57,21 @@ public abstract class SystemTestBase
             // For now, we validate the token resolution pattern works
             if (resolvedToken.Length < 10) // Basic sanity check
             {
-                return ValidationResult.Failure("Connectivity", 
+                return ValidationResult.Failure("Connectivity",
                     "Invalid token format: Token appears too short to be valid");
             }
 
-            return ValidationResult.Success("Connectivity", 
+            return ValidationResult.Success("Connectivity",
                 new() { "Token resolution validated using ConfigTokenResolver pattern" });
         }
         catch (InvalidOperationException ex)
         {
-            return ValidationResult.Failure("Connectivity", 
+            return ValidationResult.Failure("Connectivity",
                 $"Token resolution failed: {ex.Message}");
         }
         catch (Exception ex)
         {
-            return ValidationResult.Failure("Connectivity", 
+            return ValidationResult.Failure("Connectivity",
                 $"Connectivity validation failed: {ex.Message}");
         }
     }
@@ -84,11 +84,11 @@ public abstract class SystemTestBase
     public static async Task ExecuteSystemTestAsync(Func<SystemTestContext, Task> testAction, SystemTestContext context)
     {
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(MaxExecutionTimeSeconds));
-        
+
         try
         {
             await testAction(context);
-            
+
             // Log test success
             Console.WriteLine($"System test '{context.TestName}' completed successfully in {context.Duration.TotalSeconds:F2}s");
         }
@@ -138,7 +138,7 @@ public abstract class SystemTestBase
 
         context.ConnectionValidated = true;
         Console.WriteLine($"System test environment validated for '{testName}'");
-        
+
         return context;
     }
 }

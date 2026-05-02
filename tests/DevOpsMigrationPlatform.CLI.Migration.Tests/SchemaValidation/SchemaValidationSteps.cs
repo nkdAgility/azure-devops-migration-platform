@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-// Copyright (c) NKD Agility Limited
+// Copyright (c) Naked Agility Limited
 
 using System;
 using System.Collections.Generic;
@@ -31,7 +31,7 @@ public sealed class SchemaValidationSteps
     public void GivenTheCliHasADeployedSchema()
     {
         _context.SchemaFileAbsent = false;
-        
+
         // Create a minimal valid schema for testing
         var minimalSchema = new
         {
@@ -159,12 +159,12 @@ public sealed class SchemaValidationSteps
         // In a real test, we would need to invoke the CLI with proper DI setup
         // For now, we'll simulate the validation logic behavior
         // This will be fully tested once QueueCommand.cs is modified in T034
-        
+
         // Placeholder: actual CLI invocation would go here
         // The test will be completed after T034 modifies QueueCommand.cs
-        
+
         await Task.CompletedTask;
-        
+
         // Simulate behavior based on context state
         if (_context.SchemaFileAbsent)
         {
@@ -223,9 +223,9 @@ public sealed class SchemaValidationSteps
     [Then(@"an error is logged with the JSON path ""([^""]*)""")]
     public void ThenAnErrorIsLoggedWithJsonPath(string expectedJsonPath)
     {
-        var errorLog = _context.CapturedLogs.FirstOrDefault(log => 
-            log.Level == LogLevel.Error && 
-            log.State.ContainsKey("JsonPath") && 
+        var errorLog = _context.CapturedLogs.FirstOrDefault(log =>
+            log.Level == LogLevel.Error &&
+            log.State.ContainsKey("JsonPath") &&
             log.State["JsonPath"].ToString()!.Contains(expectedJsonPath));
 
         Assert.IsNotNull(errorLog, $"Expected an error log with JsonPath containing '{expectedJsonPath}'.");
@@ -234,12 +234,12 @@ public sealed class SchemaValidationSteps
     [Then(@"the error includes the constraint ""([^""]*)""")]
     public void ThenTheErrorIncludesConstraint(string expectedConstraint)
     {
-        var errorLog = _context.CapturedLogs.FirstOrDefault(log => 
-            log.Level == LogLevel.Error && 
+        var errorLog = _context.CapturedLogs.FirstOrDefault(log =>
+            log.Level == LogLevel.Error &&
             log.State.ContainsKey("Constraint"));
 
         Assert.IsNotNull(errorLog, $"Expected an error log with Constraint field.");
-        Assert.IsTrue(errorLog.State["Constraint"].ToString()!.Contains(expectedConstraint), 
+        Assert.IsTrue(errorLog.State["Constraint"].ToString()!.Contains(expectedConstraint),
             $"Expected Constraint to contain '{expectedConstraint}'.");
     }
 
@@ -258,8 +258,8 @@ public sealed class SchemaValidationSteps
     [Then(@"a warning is logged identifying the expected schema path")]
     public void ThenAWarningIsLoggedWithSchemaPath()
     {
-        var warningLog = _context.CapturedLogs.FirstOrDefault(log => 
-            log.Level == LogLevel.Warning && 
+        var warningLog = _context.CapturedLogs.FirstOrDefault(log =>
+            log.Level == LogLevel.Warning &&
             log.State.ContainsKey("ExpectedSchemaPath"));
 
         Assert.IsNotNull(warningLog, "Expected a warning log with ExpectedSchemaPath field.");

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-// Copyright (c) NKD Agility Limited
+// Copyright (c) Naked Agility Limited
 
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using DevOpsMigrationPlatform.CLI.Migration.Configuration;

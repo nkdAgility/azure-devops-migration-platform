@@ -1,6 +1,6 @@
 # Azure DevOps Migration Platform
 
-> **Copyright (c) NKD Agility Limited.**
+> **Copyright (c) Naked Agility Limited.**
 > Created and maintained by Martin Hinshelwood. Licensed under [AGPL-3.0-only](LICENSE).
 
 A versioned migration package platform with streaming chronological replay. Not a live migration tool — it produces and consumes portable, auditable, zip-friendly migration packages.
@@ -49,4 +49,4 @@ Do not include secrets, PATs, SAS tokens, customer data, migration packages, log
 
 ## Licensing
 
-The platform core is licensed under AGPL-3.0-only. Optional add-in assemblies or separately distributed components may be provided by NKD Agility Limited under separate licence terms. See [NOTICE](NOTICE) and [LICENSE](LICENSE).
+The platform core is licensed under AGPL-3.0-only. Optional add-in assemblies or separately distributed components may be provided by Naked Agility Limited under separate licence terms. See [NOTICE](NOTICE) and [LICENSE](LICENSE).

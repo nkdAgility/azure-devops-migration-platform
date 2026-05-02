@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-// Copyright (c) NKD Agility Limited
+// Copyright (c) Naked Agility Limited
 
 using System;
 using System.Collections.Generic;
@@ -30,8 +30,8 @@ public class SystemTestConfiguration
     /// <summary>
     /// Whether all required environment variables are present and valid
     /// </summary>
-    public bool IsConfigured => ValidationErrors.Count == 0 && 
-                                !string.IsNullOrEmpty(OrganizationUrl) && 
+    public bool IsConfigured => ValidationErrors.Count == 0 &&
+                                !string.IsNullOrEmpty(OrganizationUrl) &&
                                 !string.IsNullOrEmpty(AccessToken);
 
     /// <summary>

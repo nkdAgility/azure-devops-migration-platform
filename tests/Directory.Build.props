@@ -4,7 +4,7 @@
     <FileVersion>0.0.0.0</FileVersion>
     <InformationalVersion>0.0.0-local</InformationalVersion>
     <Authors>Martin Hinshelwood</Authors>
-    <Company>NKD Agility Limited</Company>
+    <Company>Naked Agility Limited</Company>
     <Product>Azure DevOps Migration Platform</Product>
     <LangVersion>12</LangVersion>
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-// Copyright (c) NKD Agility Limited
+// Copyright (c) Naked Agility Limited
 
 using System;
 using System.Collections.Generic;
@@ -161,11 +161,11 @@ public sealed class PlanDrivenExecutionSteps
         _context.Modules.Add(new TestModule { Name = "Identities" });
         _context.Modules.Add(new TestModule { Name = "Nodes" });
         _context.Modules.Add(new TestModule { Name = "Teams" });
-        _context.Modules.Add(new TestModule 
-        { 
-            Name = "WorkItems", 
-            DependsOn = new[] 
-            { 
+        _context.Modules.Add(new TestModule
+        {
+            Name = "WorkItems",
+            DependsOn = new[]
+            {
                 new ModuleDependency(typeof(TestIdentitiesModule), DependencyPhase.Import) { ModuleNameOverride = "Identities" },
                 new ModuleDependency(typeof(TestNodesModule), DependencyPhase.Import) { ModuleNameOverride = "Nodes" }
             }
@@ -194,9 +194,9 @@ public sealed class PlanDrivenExecutionSteps
         {
             _context.Modules.Remove(identities);
         }
-        _context.Modules.Add(new TestModule 
-        { 
-            Name = "Identities", 
+        _context.Modules.Add(new TestModule
+        {
+            Name = "Identities",
             DependsOn = new[] { new ModuleDependency(typeof(TestWorkItemsModule), DependencyPhase.Import) { ModuleNameOverride = "WorkItems" } }
         });
     }
