@@ -28,12 +28,14 @@ public static class ModuleServiceCollectionExtensions
     }
 
     /// <summary>
-    /// Registers <see cref="InventoryDiscoveryModule"/> as an <see cref="IModule"/>
-    /// implementation for inventory discovery operations. Runs during the Export phase
-    /// to count work items and revisions per project.
+    /// Registers <see cref="InventoryModule"/> and <see cref="InventoryDiscoveryModule"/>
+    /// as <see cref="IModule"/> implementations. <c>InventoryModule</c> handles single-source
+    /// inventory during Export/Migrate (pulled by WorkItems dependency). <c>InventoryDiscoveryModule</c>
+    /// handles standalone multi-org inventory discovery jobs.
     /// </summary>
     public static IServiceCollection AddInventoryModule(this IServiceCollection services)
     {
+        services.AddTransient<IModule, InventoryModule>();
         services.AddTransient<IModule, InventoryDiscoveryModule>();
         return services;
     }

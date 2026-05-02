@@ -302,7 +302,7 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
         switch (kind)
         {
             case JobKind.Inventory:
-                seeds.Add("Inventory");
+                seeds.Add("InventoryDiscovery");
                 break;
 
             case JobKind.Dependencies:

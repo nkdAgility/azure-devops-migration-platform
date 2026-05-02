@@ -372,6 +372,8 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
             await persistLock.WaitAsync(ct).ConfigureAwait(false);
             try
             {
+                // Re-read plan under persist lock to avoid stale overwrites
+                lock (planLock) { updatedPlan = plan; }
                 await PersistPlanAsync(updatedPlan, stateStore, ct).ConfigureAwait(false);
             }
             finally
@@ -422,7 +424,17 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
                     }
                 }
 
-                await PersistPlanAsync(updatedPlan, stateStore, ct).ConfigureAwait(false);
+                await persistLock.WaitAsync(ct).ConfigureAwait(false);
+                try
+                {
+                    // Re-read plan under persist lock to avoid stale overwrites
+                    lock (planLock) { updatedPlan = plan; }
+                    await PersistPlanAsync(updatedPlan, stateStore, ct).ConfigureAwait(false);
+                }
+                finally
+                {
+                    persistLock.Release();
+                }
 
                 _progressSink?.Emit(new ProgressEvent
                 {
@@ -470,6 +482,8 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
                 await persistLock.WaitAsync(ct).ConfigureAwait(false);
                 try
                 {
+                    // Re-read plan under persist lock to avoid stale overwrites
+                    lock (planLock) { updatedPlan = plan; }
                     await PersistPlanAsync(updatedPlan, stateStore, ct).ConfigureAwait(false);
                 }
                 finally

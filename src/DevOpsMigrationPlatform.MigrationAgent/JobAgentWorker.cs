@@ -535,21 +535,28 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
                 job.JobId);
         }
 
-        // Route to the right modules by job kind name (e.g. "Inventory", "Dependencies").
+        // Route to the right modules by job kind.
+        // JobKind.Inventory maps to "InventoryDiscovery" (multi-org standalone module).
+        // Other kinds use name matching (e.g. "Dependencies" → DependencyDiscoveryModule).
+        var targetModuleName = job.Kind switch
+        {
+            JobKind.Inventory => "InventoryDiscovery",
+            _ => job.Kind.ToString()
+        };
         var modulesToRun = MigrationModules
-            .Where(m => m.Name.Equals(job.Kind.ToString(), StringComparison.OrdinalIgnoreCase))
+            .Where(m => m.Name.Equals(targetModuleName, StringComparison.OrdinalIgnoreCase))
             .ToList();
 
-        // When running dependency analysis, prepend Inventory if inventory.json is missing.
+        // When running dependency analysis, prepend InventoryDiscovery if inventory.json is missing.
         if (job.Kind == JobKind.Dependencies)
         {
             var inventoryExists = await artefactStore.ExistsAsync("inventory.json", ct).ConfigureAwait(false);
             if (!inventoryExists)
             {
                 _logger.LogInformation(
-                    "No inventory.json found for dependency job {JobId} — prepending Inventory module.", job.JobId);
+                    "No inventory.json found for dependency job {JobId} — prepending InventoryDiscovery module.", job.JobId);
                 var inventoryModules = MigrationModules
-                    .Where(m => m.Name.Equals("Inventory", StringComparison.OrdinalIgnoreCase))
+                    .Where(m => m.Name.Equals("InventoryDiscovery", StringComparison.OrdinalIgnoreCase))
                     .ToList();
                 modulesToRun = inventoryModules.Concat(modulesToRun).ToList();
             }
