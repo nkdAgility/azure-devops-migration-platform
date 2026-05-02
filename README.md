@@ -3,6 +3,8 @@
 > **Copyright (c) Naked Agility Limited.**
 > Created and maintained by Martin Hinshelwood. Licensed under [AGPL-3.0-only](LICENSE).
 
+> ⚠️ **Pre-release — not production-ready.** This project is under active development and has not reached a stable release. APIs, configuration schemas, and package formats may change without notice. The repository is available for feedback on features and capability — [open an issue](https://github.com/nkdAgility/azure-devops-migration-platform/issues) to share your thoughts.
+
 A versioned migration package platform with streaming chronological replay. Not a live migration tool — it produces and consumes portable, auditable, zip-friendly migration packages.
 
 **Key properties:** deterministic, resumable, portable, auditable, extensible, memory-safe for large datasets.
@@ -42,9 +44,29 @@ The file-based package is a complete, self-contained snapshot. You can zip it, m
 
 ## Prerequisites
 
-- **.NET 10 SDK** (or the published self-contained binary)
+- **.NET 10 SDK**
 - **Azure DevOps access token** (PAT, service principal, or managed identity) with appropriate scopes for source and/or target
 - **Windows** required only if migrating from Team Foundation Server (TFS Object Model dependency)
+
+---
+
+## Installation
+
+> **This product is in active development and does not have a production release yet.** Install from source.
+
+```bash
+git clone https://github.com/nkdAgility/azure-devops-migration-platform.git
+cd azure-devops-migration-platform
+./build.ps1 install
+```
+
+This builds, runs unit tests, publishes for your platform, and installs to `%USERPROFILE%\source\Tools\MigrationPlatform\{version}\` with a `devopsmigrationdev` shim on your PATH (via `%USERPROFILE%\.dotnet\tools\`).
+
+To also start the Aspire AppHost (ControlPlane + MigrationAgent) after install:
+
+```bash
+./build.ps1 start
+```
 
 ---
 
