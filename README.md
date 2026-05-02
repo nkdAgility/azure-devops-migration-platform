@@ -1,7 +1,7 @@
 # Azure DevOps Migration Platform
 
 > **Copyright (c) Naked Agility Limited.**
-> Created and maintained by Martin Hinshelwood. Licensed under [AGPL-3.0-only](LICENSE).
+> Created and maintained by [Martin Hinshelwood](http://nkdagility.com). Licensed under [AGPL-3.0-only](LICENSE).
 
 > ⚠️ **Pre-release — not production-ready.** This project is under active development and has not reached a stable release. APIs, configuration schemas, and package formats may change without notice. The repository is available for feedback on features and capability — [open an issue](https://github.com/nkdAgility/azure-devops-migration-platform/issues) to share your thoughts.
 
