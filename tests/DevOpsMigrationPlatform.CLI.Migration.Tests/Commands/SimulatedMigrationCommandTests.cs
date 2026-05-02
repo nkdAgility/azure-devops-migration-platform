@@ -225,5 +225,53 @@ public class SimulatedMigrationCommandTests
             "agent.jsonl missing.");
         Assert.IsTrue(File.ReadAllLines(agentFiles[0]).Length >= 1,
             "agent.jsonl must contain at least one structured NDJSON record at Warning+ level.");
+    /// <summary>
+    /// VS-H3: Verifies the simulated inventory scenario produces inventory.csv and inventory.json.
+    /// Runs the <c>discovery inventory</c> command against the Simulated connector.
+    /// </summary>
+    [TestMethod]
+    [TestCategory("SystemTest")]
+    [TestCategory("SystemTest_Simulated")]
+    [Timeout(300_000)] // 5 minutes
+    public async Task DiscoveryInventorySimulated_ExitsZeroAndWritesInventoryArtefacts()
+    {
+        var result = await CliRunner.RunTestAsync(
+            testName: nameof(DiscoveryInventorySimulated_ExitsZeroAndWritesInventoryArtefacts),
+            args: ["discovery", "inventory", "--config", "scenarios/inventory-simulated.json", "--force-fresh"],
+            timeout: TimeSpan.FromMinutes(4),
+            cleanOutputFolder: true);
+        var outputDir = result.OutputDirectory;
+
+        Console.WriteLine("=== STDOUT ===");
+        Console.WriteLine(result.StandardOutput);
+        if (!string.IsNullOrEmpty(result.StandardError))
+        {
+            Console.WriteLine("=== STDERR ===");
+            Console.WriteLine(result.StandardError);
+        }
+
+        Assert.IsFalse(result.TimedOut, "CLI timed out.");
+        Assert.AreEqual(0, result.ExitCode,
+            $"CLI exited with code {result.ExitCode}. STDOUT:\n{result.StandardOutput}\nSTDERR:\n{result.StandardError}");
+
+        // inventory.csv must exist and contain at least one data row (header + 1)
+        var csvFiles = Directory.GetFiles(outputDir, "inventory.csv", SearchOption.AllDirectories);
+        Assert.IsTrue(csvFiles.Length > 0,
+            $"Expected inventory.csv somewhere under {outputDir}. None found.");
+
+        var csvLines = File.ReadAllLines(csvFiles[0]);
+        Assert.IsTrue(csvLines.Length > 1,
+            $"inventory.csv must contain at least a header + one data row. Got {csvLines.Length} lines.");
+
+        // inventory.json must exist and contain non-trivially non-empty content
+        var jsonFiles = Directory.GetFiles(outputDir, "inventory.json", SearchOption.AllDirectories);
+        Assert.IsTrue(jsonFiles.Length > 0,
+            $"Expected inventory.json somewhere under {outputDir}. None found.");
+
+        var jsonContent = File.ReadAllText(jsonFiles[0]);
+        Assert.IsTrue(jsonContent.Length > 10,
+            $"inventory.json must contain meaningful content. Got {jsonContent.Length} chars.");
+        Assert.IsTrue(jsonContent.Contains("SimulatedProject", StringComparison.OrdinalIgnoreCase),
+            "inventory.json must reference the SimulatedProject that was discovered.");
     }
 }

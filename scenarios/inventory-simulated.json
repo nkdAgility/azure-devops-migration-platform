@@ -1,0 +1,28 @@
+{
+  "MigrationPlatform": {
+    "ConfigVersion": "1.0",
+    "Policies": {
+      "Retries": {
+        "Max": 3
+      },
+      "Throttle": {
+        "MaxConcurrency": 1
+      },
+      "Checkpoints": {
+        "Interval": 300
+      }
+    },
+    "Organisations": [
+      {
+        "Type": "Simulated",
+        "Enabled": true,
+        "Projects": [
+          "SimulatedProject"
+        ]
+      }
+    ],
+    "Package": {
+      "WorkingDirectory": "%DEVOPS_MIGRATION_TEST_STORAGE%"
+    }
+  }
+}
