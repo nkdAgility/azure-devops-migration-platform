@@ -12,6 +12,26 @@
         "Interval": 300
       }
     },
+    "Source": {
+      "Type": "Simulated",
+      "Generator": {
+        "Projects": [
+          {
+            "Name": "SimulatedProject",
+            "WorkItemTypes": [
+              {
+                "Type": "User Story",
+                "Count": 5,
+                "RevisionsPerItem": 1
+              }
+            ],
+            "LinkTopology": "Flat",
+            "HasComments": false,
+            "AttachmentSizeKb": 0
+          }
+        ]
+      }
+    },
     "Organisations": [
       {
         "Type": "Simulated",

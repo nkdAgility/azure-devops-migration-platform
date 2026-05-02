@@ -82,6 +82,7 @@ public sealed class InventoryCommand : ControlPlaneCommandBase<InventoryCommand.
                 {
                     "TeamFoundationServer" => ConnectorType.TeamFoundationServer,
                     "AzureDevOpsServices" => ConnectorType.AzureDevOps,
+                    "Simulated" => ConnectorType.Simulated,
                     _ => (ConnectorType?)null
                 })
                 .Where(c => c.HasValue)
