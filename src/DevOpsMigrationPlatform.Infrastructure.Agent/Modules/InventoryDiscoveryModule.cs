@@ -102,8 +102,10 @@ public sealed class InventoryDiscoveryModule : IModule
             return;
         }
 
-        var connectorType = _sourceEndpointInfo?.ConnectorType
-            ?? (orgs.Count > 0 ? orgs[0].Endpoint.Type : string.Empty);
+        var sourceConnectorType = _sourceEndpointInfo?.ConnectorType;
+        var connectorType = !string.IsNullOrEmpty(sourceConnectorType)
+            ? sourceConnectorType
+            : (orgs.Count > 0 ? orgs[0].Endpoint.Type : string.Empty);
         var factory = (!string.IsNullOrEmpty(connectorType)
             ? _serviceProvider.GetKeyedService<IInventoryServiceFactory>(connectorType)
             : null) ?? _inventoryFactory;
