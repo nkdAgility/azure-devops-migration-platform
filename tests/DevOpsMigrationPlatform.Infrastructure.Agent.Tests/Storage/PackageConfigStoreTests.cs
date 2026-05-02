@@ -1,10 +1,11 @@
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Diagnostics;
+using DevOpsMigrationPlatform.Abstractions.Telemetry;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Storage;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -132,7 +133,7 @@ public class PackageConfigStoreTests
         finally { File.Delete(configFile); }
 
         // Assert: write-count metric incremented
-        metricsMock.Verify(m => m.RecordConfigWriteCompleted(in It.Ref<System.Diagnostics.TagList>.IsAny), Times.Once);
+        metricsMock.Verify(m => m.RecordConfigWriteCompleted(It.IsAny<MetricsTagList>()), Times.Once);
     }
 
     [TestMethod]
@@ -158,7 +159,7 @@ public class PackageConfigStoreTests
         finally { File.Delete(configFile); }
 
         // Assert
-        metricsMock.Verify(m => m.RecordConfigWriteError(in It.Ref<System.Diagnostics.TagList>.IsAny), Times.Once);
+        metricsMock.Verify(m => m.RecordConfigWriteError(It.IsAny<MetricsTagList>()), Times.Once);
     }
 
     // ── ReadAsync ─────────────────────────────────────────────────────────────
@@ -366,7 +367,9 @@ public class PackageConfigStoreTests
             () => sut.ReadAsync(store.Object, CancellationToken.None));
 
         // Assert: both error and fallback counters incremented
-        metricsMock.Verify(m => m.RecordConfigReadError(in It.Ref<System.Diagnostics.TagList>.IsAny), Times.Once);
-        metricsMock.Verify(m => m.RecordConfigReadFallback(in It.Ref<System.Diagnostics.TagList>.IsAny), Times.Once);
+        metricsMock.Verify(m => m.RecordConfigReadError(It.IsAny<MetricsTagList>()), Times.Once);
+        metricsMock.Verify(m => m.RecordConfigReadFallback(It.IsAny<MetricsTagList>()), Times.Once);
     }
 }
+
+

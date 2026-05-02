@@ -1,0 +1,48 @@
+{
+  "MigrationPlatform": {
+    "ConfigVersion": "1.0",
+    "Policies": {
+      "Retries": {
+        "Max": 3
+      },
+      "Throttle": {
+        "MaxConcurrency": 1
+      },
+      "Checkpoints": {
+        "Interval": 300
+      }
+    },
+    "Source": {
+      "Type": "Simulated",
+      "Generator": {
+        "Projects": [
+          {
+            "Name": "SimulatedProject",
+            "WorkItemTypes": [
+              {
+                "Type": "User Story",
+                "Count": 5,
+                "RevisionsPerItem": 1
+              }
+            ],
+            "LinkTopology": "Flat",
+            "HasComments": false,
+            "AttachmentSizeKb": 0
+          }
+        ]
+      }
+    },
+    "Organisations": [
+      {
+        "Type": "Simulated",
+        "Enabled": true,
+        "Projects": [
+          "SimulatedProject"
+        ]
+      }
+    ],
+    "Package": {
+      "WorkingDirectory": "%DEVOPS_MIGRATION_TEST_STORAGE%"
+    }
+  }
+}

@@ -1,37 +1,37 @@
-using System.Diagnostics;
+using DevOpsMigrationPlatform.Abstractions.Telemetry;
 
 namespace DevOpsMigrationPlatform.Abstractions.Agent.Telemetry;
 
 /// <summary>
 /// Recording contract for discovery OTel metric instruments (inventory + dependencies).
-/// All methods accept a pre-built <see cref="TagList"/> carrying the mandatory
+/// All methods accept a pre-built <see cref="MetricsTagList"/> carrying the mandatory
 /// <c>job.id</c> and <c>module</c> dimension tags.
 /// </summary>
 public interface IDiscoveryMetrics
 {
     // --- Organisation ---
-    void OrganisationStarted(in TagList tags);
-    void OrganisationCompleted(in TagList tags);
-    void OrganisationFailed(in TagList tags);
-    void RecordOrganisationDuration(double milliseconds, in TagList tags);
-    void SetProjectCount(int count, in TagList tags);
+    void OrganisationStarted(MetricsTagList tags);
+    void OrganisationCompleted(MetricsTagList tags);
+    void OrganisationFailed(MetricsTagList tags);
+    void RecordOrganisationDuration(double milliseconds, MetricsTagList tags);
+    void SetProjectCount(int count, MetricsTagList tags);
 
     // --- Project ---
-    void ProjectStarted(in TagList tags);
-    void ProjectCompleted(in TagList tags);
-    void ProjectFailed(in TagList tags);
-    void RecordProjectDuration(double milliseconds, in TagList tags);
+    void ProjectStarted(MetricsTagList tags);
+    void ProjectCompleted(MetricsTagList tags);
+    void ProjectFailed(MetricsTagList tags);
+    void RecordProjectDuration(double milliseconds, MetricsTagList tags);
 
     // --- Inventory ---
-    void RecordWorkItemsCounted(int count, in TagList tags);
-    void RecordRevisionsCounted(int count, in TagList tags);
-    void RecordReposCounted(int count, in TagList tags);
+    void RecordWorkItemsCounted(int count, MetricsTagList tags);
+    void RecordRevisionsCounted(int count, MetricsTagList tags);
+    void RecordReposCounted(int count, MetricsTagList tags);
 
     // --- Dependencies ---
-    void RecordLinksFound(int count, in TagList tags);
-    void RecordWorkItemsAnalysed(int count, in TagList tags);
+    void RecordLinksFound(int count, MetricsTagList tags);
+    void RecordWorkItemsAnalysed(int count, MetricsTagList tags);
 
     // --- Operational ---
-    void RecordCheckpointSaved(in TagList tags);
-    void RecordJobDuration(double milliseconds, in TagList tags);
+    void RecordCheckpointSaved(MetricsTagList tags);
+    void RecordJobDuration(double milliseconds, MetricsTagList tags);
 }

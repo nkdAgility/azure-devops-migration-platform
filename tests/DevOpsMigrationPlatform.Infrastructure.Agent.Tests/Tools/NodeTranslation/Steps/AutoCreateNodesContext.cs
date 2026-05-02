@@ -1,6 +1,9 @@
+using DevOpsMigrationPlatform.Abstractions.Agent.Modules;
+using DevOpsMigrationPlatform.Abstractions.Agent.Modules;
 using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Abstractions.Options;
+using DevOpsMigrationPlatform.Infrastructure.Agent.Modules;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Tools.NodeTranslation;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
@@ -20,7 +23,7 @@ public class AutoCreateNodesContext
     public Mock<INodeCreator> NodeCreatorMock { get; } = new(MockBehavior.Loose);
     public Mock<IArtefactStore> ArtefactStoreMock { get; } = new(MockBehavior.Loose);
     public Mock<IStateStore> StateStoreMock { get; } = new(MockBehavior.Loose);
-    private NodeEnsurer? _ensurer;
+    private INodesOrchestrator? _orchestrator;
 
     public AutoCreateNodesContext()
     {
@@ -56,7 +59,7 @@ public class AutoCreateNodesContext
             .ReturnsAsync((string?)null);
     }
 
-    public NodeEnsurer BuildEnsurer()
+    public INodesOrchestrator BuildOrchestrator()
     {
         var opts = new NodeTranslationOptions
         {
@@ -66,13 +69,15 @@ public class AutoCreateNodesContext
             IterationPathMappings = []
         };
         var tool = new NodeTranslationTool(Options.Create(opts), NullLogger<NodeTranslationTool>.Instance);
-        _ensurer = new NodeEnsurer(
-            Options.Create(opts),
+        var optionsMonitor = new Mock<IOptionsMonitor<NodeTranslationOptions>>();
+        optionsMonitor.SetupGet(o => o.CurrentValue).Returns(opts);
+        _orchestrator = new NodesOrchestrator(
+            NullLogger<NodesOrchestrator>.Instance,
             tool,
             NodeCreatorMock.Object,
-            NullLogger<NodeEnsurer>.Instance);
-        return _ensurer;
+            optionsMonitor.Object);
+        return _orchestrator;
     }
 
-    public NodeEnsurer GetEnsurer() => _ensurer ?? BuildEnsurer();
+    public INodesOrchestrator GetOrchestrator() => _orchestrator ?? BuildOrchestrator();
 }

@@ -60,12 +60,6 @@ public static class NodeTranslationToolServiceCollectionExtensions
         services.AddScoped<IReferencedPathTracker>(sp => sp.GetRequiredService<ReferencedPathTracker>());
         services.AddScoped<ClassificationTreeCapture>();
         services.AddScoped<IClassificationTreeCapture>(sp => sp.GetRequiredService<ClassificationTreeCapture>());
-        services.AddScoped<NodeEnsurer>(sp => new NodeEnsurer(
-            sp.GetRequiredService<IOptionsSnapshot<NodeTranslationOptions>>(),
-            sp.GetRequiredService<INodeTranslationTool>(),
-            sp.GetRequiredService<INodeCreator>(),
-            sp.GetRequiredService<ILogger<NodeEnsurer>>()));
-        services.AddScoped<INodeEnsurer>(sp => sp.GetRequiredService<NodeEnsurer>());
 #endif
 
         return services;

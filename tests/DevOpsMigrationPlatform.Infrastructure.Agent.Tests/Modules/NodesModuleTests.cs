@@ -16,6 +16,7 @@ using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Abstractions.Streaming;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Context;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Modules;
+using DevOpsMigrationPlatform.Infrastructure.Agent.Tools.NodeTranslation;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
@@ -30,7 +31,7 @@ public class NodesModuleTests
     private static NodesModule CreateModule(
         NodesModuleOptions? options = null,
         IClassificationTreeCapture? capture = null,
-        INodeEnsurer? nodeEnsurer = null,
+        INodesOrchestrator? orchestrator = null,
         JobConfiguration? activeJobConfig = null)
     {
         options ??= new NodesModuleOptions { Enabled = true };
@@ -39,9 +40,21 @@ public class NodesModuleTests
             NullLogger<NodesModule>.Instance,
             Options.Create(options),
             sourceEndpointInfo: CreateSourceEndpointInfo(activeJobConfig),
+            orchestrator: orchestrator ?? CreateRealOrchestrator(),
             capture: capture,
-            targetEndpointInfo: Mock.Of<ITargetEndpointInfo>(),
-            nodeEnsurer: nodeEnsurer);
+            targetEndpointInfo: Mock.Of<ITargetEndpointInfo>());
+    }
+
+    private static NodesOrchestrator CreateRealOrchestrator()
+    {
+        var opts = new NodeTranslationOptions { Enabled = true };
+        var optsMon = new Mock<IOptionsMonitor<NodeTranslationOptions>>();
+        optsMon.SetupGet(o => o.CurrentValue).Returns(opts);
+        return new NodesOrchestrator(
+            NullLogger<NodesOrchestrator>.Instance,
+            Mock.Of<INodeTranslationTool>(),
+            Mock.Of<INodeCreator>(),
+            optsMon.Object);
     }
 
     private static JobConfiguration CreateActiveJobConfig(
@@ -161,19 +174,19 @@ public class NodesModuleTests
     public async Task ImportAsync_CallsReplicateSourceTree_WhenOptionEnabled()
     {
         // Arrange
-        var ensurerMock = new Mock<INodeEnsurer>(MockBehavior.Loose);
-        ensurerMock
-            .Setup(e => e.ReplicateSourceTreeAsync(
-                It.IsAny<ProjectMapping>(),
-                It.IsAny<IArtefactStore>(),
-                It.IsAny<IStateStore>(),
-                It.IsAny<CancellationToken>(),
-                It.IsAny<IMigrationMetrics?>(),
-                It.IsAny<string?>()))
+        var orchestratorMock = new Mock<INodesOrchestrator>(MockBehavior.Loose);
+        orchestratorMock
+            .Setup(o => o.ImportAsync(
+                It.IsAny<ImportContext>(),
+                It.IsAny<ISourceEndpointInfo>(),
+                It.IsAny<ITargetEndpointInfo>(),
+                It.IsAny<ICheckpointingServiceFactory?>(),
+                It.IsAny<bool>(),
+                It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
 
         var opts = new NodesModuleOptions { Enabled = true, ReplicateSourceTree = true };
-        var module = CreateModule(opts, nodeEnsurer: ensurerMock.Object, activeJobConfig: CreateActiveJobConfig());
+        var module = CreateModule(opts, orchestrator: orchestratorMock.Object, activeJobConfig: CreateActiveJobConfig());
         var store = Mock.Of<IArtefactStore>();
         var context = CreateImportContext(store);
 
@@ -181,34 +194,50 @@ public class NodesModuleTests
         await module.ImportAsync(context, CancellationToken.None);
 
         // Assert
-        ensurerMock.Verify(e => e.ReplicateSourceTreeAsync(
-            It.IsAny<ProjectMapping>(),
-            It.IsAny<IArtefactStore>(),
-            It.IsAny<IStateStore>(),
-            It.IsAny<CancellationToken>(),
-            It.IsAny<IMigrationMetrics?>(),
-            It.IsAny<string?>()), Times.Once);
+        orchestratorMock.Verify(o => o.ImportAsync(
+            It.IsAny<ImportContext>(),
+            It.IsAny<ISourceEndpointInfo>(),
+            It.IsAny<ITargetEndpointInfo>(),
+            It.IsAny<ICheckpointingServiceFactory?>(),
+            true,
+            It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [TestMethod]
     public async Task ImportAsync_DoesNotCallEnsurer_WhenReplicateSourceTreeDisabled()
     {
         // Arrange
-        var ensurerMock = new Mock<INodeEnsurer>(MockBehavior.Strict);
+        var orchestratorMock = new Mock<INodesOrchestrator>(MockBehavior.Strict);
+        orchestratorMock
+            .Setup(o => o.ImportAsync(
+                It.IsAny<ImportContext>(),
+                It.IsAny<ISourceEndpointInfo>(),
+                It.IsAny<ITargetEndpointInfo>(),
+                It.IsAny<ICheckpointingServiceFactory?>(),
+                false,
+                It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
         var opts = new NodesModuleOptions
         {
             Enabled = true,
             ReplicateSourceTree = false
         };
-        var module = CreateModule(opts, nodeEnsurer: ensurerMock.Object, activeJobConfig: CreateActiveJobConfig());
+        var module = CreateModule(opts, orchestrator: orchestratorMock.Object, activeJobConfig: CreateActiveJobConfig());
         var store = Mock.Of<IArtefactStore>();
         var context = CreateImportContext(store);
 
         // Act
         await module.ImportAsync(context, CancellationToken.None);
 
-        // Assert — strict mock: no calls should have been made
-        ensurerMock.VerifyNoOtherCalls();
+        // Assert — orchestrator is called with replicateSourceTree=false
+        orchestratorMock.Verify(o => o.ImportAsync(
+            It.IsAny<ImportContext>(),
+            It.IsAny<ISourceEndpointInfo>(),
+            It.IsAny<ITargetEndpointInfo>(),
+            It.IsAny<ICheckpointingServiceFactory?>(),
+            false,
+            It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [TestMethod]

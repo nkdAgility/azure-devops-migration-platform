@@ -5,9 +5,12 @@ using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Telemetry;
 using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
+using DevOpsMigrationPlatform.Abstractions.Agent.Telemetry;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Abstractions.Options;
+using DevOpsMigrationPlatform.Abstractions.Streaming;
 
 using Microsoft.Extensions.Logging;
 
@@ -44,27 +47,40 @@ public sealed class TfsClassificationTreeCapture : IClassificationTreeCapture
     /// <inheritdoc/>
     public async Task<int> CaptureAsync(
         IArtefactStore artefactStore,
-        CancellationToken ct)
+        CancellationToken ct,
+        IMigrationMetrics? metrics = null,
+        string? jobId = null,
+        IProgressSink? sink = null,
+        string moduleName = "Nodes")
     {
         var services = _activeServices.Require();
         var reader = services.ClassificationTreeReader;
 
         _logger.LogInformation("[TfsNodes] Capturing classification tree.");
 
+        var tags = MetricsTagList.Create(jobId ?? string.Empty, "export", "NodeTranslation");
         var areaNodes = new List<string>();
         var iterationNodes = new List<IterationNodeEntry>();
 
         await foreach (var path in reader.EnumerateAreaNodesAsync(ct).ConfigureAwait(false))
+        {
             areaNodes.Add(path);
+            sink?.Emit(new ProgressEvent { Module = moduleName, Stage = "Nodes.Export.AreaNode", Message = path });
+        }
 
         await foreach (var entry in reader.EnumerateIterationNodesAsync(ct).ConfigureAwait(false))
+        {
             iterationNodes.Add(entry);
+            sink?.Emit(new ProgressEvent { Module = moduleName, Stage = "Nodes.Export.IterationNode", Message = entry.Path });
+        }
 
         var snapshot = new { areaNodes, iterationNodes };
         var json = JsonSerializer.Serialize(snapshot, s_jsonOptions);
         await artefactStore.WriteAsync(ArtifactPath, json, ct).ConfigureAwait(false);
 
         var total = areaNodes.Count + iterationNodes.Count;
+        metrics?.RecordNodeExportTreeCount(total, tags);
+
         _logger.LogInformation(
             "[TfsNodes] Classification tree captured: {AreaCount} area nodes, {IterCount} iteration nodes.",
             areaNodes.Count, iterationNodes.Count);
@@ -72,3 +88,4 @@ public sealed class TfsClassificationTreeCapture : IClassificationTreeCapture
         return total;
     }
 }
+

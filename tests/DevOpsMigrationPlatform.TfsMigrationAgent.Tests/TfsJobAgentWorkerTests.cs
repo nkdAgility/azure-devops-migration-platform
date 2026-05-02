@@ -11,6 +11,7 @@ using DevOpsMigrationPlatform.Abstractions.Agent.Discovery;
 using DevOpsMigrationPlatform.Abstractions.Agent.Export;
 using DevOpsMigrationPlatform.Abstractions.Agent.Lease;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Context;
+using DevOpsMigrationPlatform.Abstractions.Agent.Context;
 using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
 using DevOpsMigrationPlatform.Abstractions.Agent.Telemetry;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
@@ -74,6 +75,7 @@ public class TfsJobAgentWorkerTests
     private Mock<IStateStore> _stateStore = null!;
     private Mock<ICheckpointingService> _checkpointer = null!;
     private Mock<IPackageConfigStore> _packageConfigStore = null!;
+    private Mock<IActiveJobState> _activeJobState = null!;
     private ActiveLeaseState _leaseState = null!;
     private ActivePackageState _packageState = null!;
     private IFlushable[] _flushables = null!;
@@ -133,6 +135,7 @@ public class TfsJobAgentWorkerTests
 
         // Package config store — default returns a config with a TFS source.
         _packageConfigStore = new Mock<IPackageConfigStore>();
+        _activeJobState = new Mock<IActiveJobState>();
         _packageConfigStore
             .Setup(s => s.ReadAsync(It.IsAny<IArtefactStore>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(() => BuildTfsSourceConfig(CreateTfsEndpoint()));
@@ -155,6 +158,7 @@ public class TfsJobAgentWorkerTests
             _leaseState,
             _packageState,
             new JobConfiguration(),
+            _activeJobState.Object,
             _packageConfigStore.Object,
             sp.GetRequiredService<Microsoft.Extensions.DependencyInjection.IServiceScopeFactory>(),
             _httpClientFactory.Object,

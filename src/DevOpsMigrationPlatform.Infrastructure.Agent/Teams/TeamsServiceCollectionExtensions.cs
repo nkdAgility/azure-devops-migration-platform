@@ -26,6 +26,7 @@ public static class TeamsServiceCollectionExtensions
         services.AddSchemaEntry<TeamsModuleOptions>("Teams export/import module configuration");
 #endif
 
+        services.AddSingleton<ITeamsOrchestrator, TeamsOrchestrator>();
         services.AddTransient<IModule, TeamsModule>();
 
         if (configuration is not null)

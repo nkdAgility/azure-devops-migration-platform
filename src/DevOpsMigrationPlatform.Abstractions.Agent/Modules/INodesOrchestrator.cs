@@ -1,0 +1,52 @@
+using System.Threading;
+using System.Threading.Tasks;
+using DevOpsMigrationPlatform.Abstractions.Agent.Checkpointing;
+using DevOpsMigrationPlatform.Abstractions.Agent.Context;
+using DevOpsMigrationPlatform.Abstractions.Agent.Export;
+using DevOpsMigrationPlatform.Abstractions.Agent.Import;
+using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
+using DevOpsMigrationPlatform.Abstractions.Agent.Telemetry;
+using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
+using DevOpsMigrationPlatform.Abstractions.Agent.Validation;
+using DevOpsMigrationPlatform.Abstractions.Validation;
+
+namespace DevOpsMigrationPlatform.Abstractions.Agent.Modules;
+
+/// <summary>
+/// Orchestrates classification-tree (node) export, import, and validation operations.
+/// </summary>
+public interface INodesOrchestrator
+{
+    Task ExportAsync(
+        IClassificationTreeCapture capture,
+        ExportContext context,
+        ISourceEndpointInfo sourceEndpointInfo,
+        ICheckpointingServiceFactory? checkpointingFactory,
+        CancellationToken ct);
+
+#if !NET481
+    Task ImportAsync(
+        ImportContext context,
+        ISourceEndpointInfo sourceEndpointInfo,
+        ITargetEndpointInfo targetEndpointInfo,
+        ICheckpointingServiceFactory? checkpointingFactory,
+        bool replicateSourceTree,
+        CancellationToken ct);
+
+    /// <summary>
+    /// Reads Nodes/referenced-paths.json and ensures all translated paths exist in the target.
+    /// Called by WorkItemsModule before work item import. No-op when AutoCreateNodes is false.
+    /// </summary>
+    Task EnsureReferencedPathsAsync(
+        ProjectMapping context,
+        IArtefactStore artefactStore,
+        CancellationToken ct,
+        IMigrationMetrics? metrics = null,
+        string? jobId = null);
+#endif
+
+    Task ValidateAsync(
+        IArtefactStore artefactStore,
+        ValidationContext context,
+        CancellationToken ct);
+}

@@ -1,8 +1,10 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Diagnostics.Metrics;
 using System.Threading;
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Telemetry;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Agent.Telemetry;
 
@@ -96,75 +98,84 @@ public sealed class DiscoveryMetrics : IDiscoveryMetrics, IDisposable
     }
 
     // --- Organisation ---
-    public void OrganisationStarted(in TagList tags)
+    public void OrganisationStarted(MetricsTagList tags)
     {
-        _organisationsQueued.Add(1, tags);
+        _organisationsQueued.Add(1, ToTagList(tags));
         Interlocked.Increment(ref _activeJobs);
     }
 
-    public void OrganisationCompleted(in TagList tags)
+    public void OrganisationCompleted(MetricsTagList tags)
     {
-        _organisationsQueued.Add(-1, tags);
-        _organisationsCompleted.Add(1, tags);
+        _organisationsQueued.Add(-1, ToTagList(tags));
+        _organisationsCompleted.Add(1, ToTagList(tags));
     }
 
-    public void OrganisationFailed(in TagList tags)
+    public void OrganisationFailed(MetricsTagList tags)
     {
-        _organisationsQueued.Add(-1, tags);
-        _organisationsFailed.Add(1, tags);
+        _organisationsQueued.Add(-1, ToTagList(tags));
+        _organisationsFailed.Add(1, ToTagList(tags));
     }
 
-    public void RecordOrganisationDuration(double milliseconds, in TagList tags)
-        => _organisationDuration.Record(milliseconds, tags);
+    public void RecordOrganisationDuration(double milliseconds, MetricsTagList tags)
+        => _organisationDuration.Record(milliseconds, ToTagList(tags));
 
-    public void SetProjectCount(int count, in TagList tags)
+    public void SetProjectCount(int count, MetricsTagList tags)
         => Volatile.Write(ref _lastProjectCount, count);
 
     // --- Project ---
-    public void ProjectStarted(in TagList tags)
-        => _projectsQueued.Add(1, tags);
+    public void ProjectStarted(MetricsTagList tags)
+        => _projectsQueued.Add(1, ToTagList(tags));
 
-    public void ProjectCompleted(in TagList tags)
+    public void ProjectCompleted(MetricsTagList tags)
     {
-        _projectsQueued.Add(-1, tags);
-        _projectsCompleted.Add(1, tags);
+        _projectsQueued.Add(-1, ToTagList(tags));
+        _projectsCompleted.Add(1, ToTagList(tags));
     }
 
-    public void ProjectFailed(in TagList tags)
+    public void ProjectFailed(MetricsTagList tags)
     {
-        _projectsQueued.Add(-1, tags);
-        _projectsFailed.Add(1, tags);
+        _projectsQueued.Add(-1, ToTagList(tags));
+        _projectsFailed.Add(1, ToTagList(tags));
     }
 
-    public void RecordProjectDuration(double milliseconds, in TagList tags)
-        => _projectDuration.Record(milliseconds, tags);
+    public void RecordProjectDuration(double milliseconds, MetricsTagList tags)
+        => _projectDuration.Record(milliseconds, ToTagList(tags));
 
     // --- Inventory ---
-    public void RecordWorkItemsCounted(int count, in TagList tags)
-        => _inventoryWorkItems.Add(count, tags);
+    public void RecordWorkItemsCounted(int count, MetricsTagList tags)
+        => _inventoryWorkItems.Add(count, ToTagList(tags));
 
-    public void RecordRevisionsCounted(int count, in TagList tags)
-        => _inventoryRevisions.Add(count, tags);
+    public void RecordRevisionsCounted(int count, MetricsTagList tags)
+        => _inventoryRevisions.Add(count, ToTagList(tags));
 
-    public void RecordReposCounted(int count, in TagList tags)
-        => _inventoryRepos.Add(count, tags);
+    public void RecordReposCounted(int count, MetricsTagList tags)
+        => _inventoryRepos.Add(count, ToTagList(tags));
 
     // --- Dependencies ---
-    public void RecordLinksFound(int count, in TagList tags)
-        => _dependencyLinks.Add(count, tags);
+    public void RecordLinksFound(int count, MetricsTagList tags)
+        => _dependencyLinks.Add(count, ToTagList(tags));
 
-    public void RecordWorkItemsAnalysed(int count, in TagList tags)
-        => _dependencyWorkItemsAnalysed.Add(count, tags);
+    public void RecordWorkItemsAnalysed(int count, MetricsTagList tags)
+        => _dependencyWorkItemsAnalysed.Add(count, ToTagList(tags));
 
     // --- Operational ---
-    public void RecordCheckpointSaved(in TagList tags)
-        => _checkpointsSaved.Add(1, tags);
+    public void RecordCheckpointSaved(MetricsTagList tags)
+        => _checkpointsSaved.Add(1, ToTagList(tags));
 
-    public void RecordJobDuration(double milliseconds, in TagList tags)
+    public void RecordJobDuration(double milliseconds, MetricsTagList tags)
     {
-        _jobDuration.Record(milliseconds, tags);
+        _jobDuration.Record(milliseconds, ToTagList(tags));
         Interlocked.Decrement(ref _activeJobs);
+    }
+
+    private static TagList ToTagList(MetricsTagList tags)
+    {
+        var tagList = new TagList();
+        for (var i = 0; i < tags.Count; i++)
+            tagList.Add(tags[i].Key, tags[i].Value);
+        return tagList;
     }
 
     public void Dispose() => _meter.Dispose();
 }
+

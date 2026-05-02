@@ -28,6 +28,7 @@ public static class IdentityServiceCollectionExtensions
         services.AddSchemaEntry<IdentitiesModuleOptions>("Identities export/import module configuration");
 #endif
 
+        services.AddSingleton<IIdentitiesOrchestrator, IdentitiesOrchestrator>();
         services.AddTransient<IModule, IdentitiesModule>();
 
         if (configuration is not null)

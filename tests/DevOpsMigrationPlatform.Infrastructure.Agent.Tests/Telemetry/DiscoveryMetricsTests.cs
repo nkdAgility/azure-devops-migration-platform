@@ -1,9 +1,9 @@
 #if !NETFRAMEWORK
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Diagnostics.Metrics;
 using System.Linq;
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Telemetry;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Telemetry;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
@@ -40,20 +40,22 @@ public class DiscoveryMetricsTests
     [TestCleanup]
     public void Cleanup() => _listener.Dispose();
 
-    private static TagList CreateOrgTags() => new()
-    {
-        { "job.id", "test-job-1" },
-        { "module", "Inventory" },
-        { "organisation.url", "https://dev.azure.com/testorg" }
-    };
+    private static MetricsTagList CreateOrgTags() =>
+        new()
+        {
+            { "job.id", "test-job-1" },
+            { "module", "Inventory" },
+            { "organisation.url", "https://dev.azure.com/testorg" }
+        };
 
-    private static TagList CreateProjectTags() => new()
-    {
-        { "job.id", "test-job-1" },
-        { "module", "Inventory" },
-        { "organisation.url", "https://dev.azure.com/testorg" },
-        { "project.name", "TestProject" }
-    };
+    private static MetricsTagList CreateProjectTags() =>
+        new()
+        {
+            { "job.id", "test-job-1" },
+            { "module", "Inventory" },
+            { "organisation.url", "https://dev.azure.com/testorg" },
+            { "project.name", "TestProject" }
+        };
 
     // --- Organisation ---
 
@@ -188,7 +190,7 @@ public class DiscoveryMetricsTests
     public void RecordLinksFound_EmitsCounterWithCorrectValue()
     {
         using var sut = new DiscoveryMetrics();
-        var tags = new TagList
+        var tags = new MetricsTagList
         {
             { "job.id", "test-job-1" },
             { "module", "Dependencies" },
@@ -217,7 +219,7 @@ public class DiscoveryMetricsTests
     public void RecordCheckpointSaved_EmitsCounter()
     {
         using var sut = new DiscoveryMetrics();
-        var tags = new TagList { { "job.id", "test-job-1" }, { "module", "Inventory" } };
+        var tags = new MetricsTagList { { "job.id", "test-job-1" }, { "module", "Inventory" } };
         sut.RecordCheckpointSaved(tags);
 
         var entry = _recorded.Single(r => r.Name == WellKnownDiscoveryMetricNames.CheckpointsSaved);
@@ -229,7 +231,7 @@ public class DiscoveryMetricsTests
     public void RecordJobDuration_EmitsHistogramValue()
     {
         using var sut = new DiscoveryMetrics();
-        var tags = new TagList
+        var tags = new MetricsTagList
         {
             { "job.id", "test-job-1" },
             { "discovery.type", "Inventory" }

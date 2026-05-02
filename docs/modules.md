@@ -29,6 +29,57 @@ interface IModule
 - `ValidateAsync` must be side-effect free.
 - Modules must never call source or target APIs directly — only through injected services.
 
+### Module → Orchestrator → Service Pattern
+
+All modules follow a mandatory three-layer architecture. This pattern separates concerns cleanly and ensures orchestrators — the business logic — are reusable across Modules, Tools, and future Extensions.
+
+```
+Module (thin wrapper)
+  → Orchestrator (business logic)
+    → Service / Source / Target (external calls)
+```
+
+#### Layer Responsibilities
+
+| Layer | Responsibility | Examples |
+|---|---|---|
+| **Module** | Guard checks (enabled? null service?), resolve config/endpoints, delegate to orchestrator. Contains no business logic. ~100–130 lines. | `NodesModule`, `TeamsModule`, `IdentitiesModule` |
+| **Orchestrator** | All cross-cutting orchestration: checkpointing (cursor read/write), progress events (`IProgressSink`), metrics (OTel), CSV/JSON writing, enumeration loops, resume logic. This is the reusable business logic layer. | `INodesOrchestrator`, `ITeamsOrchestrator`, `IIdentitiesOrchestrator` |
+| **Service / Source / Target** | Connector-specific SDK/API calls. One implementation per connector (AzureDevOps, TFS, Simulated). Injected into the orchestrator via method parameters. | `ITeamSource`, `IIdentitySource`, `IClassificationTreeCapture`, `INodeEnsurer` |
+
+#### Interface Contracts
+
+Orchestrator interfaces are declared in `DevOpsMigrationPlatform.Abstractions.Agent` so they can be injected, mocked, and reused:
+
+| Interface | Location | Purpose |
+|---|---|---|
+| `INodesOrchestrator` | `Abstractions.Agent/Modules/` | Classification-tree export, import, and validation |
+| `IIdentitiesOrchestrator` | `Abstractions.Agent/Modules/` | Identity descriptor export, import (lookup/resolution), and validation |
+| `ITeamsOrchestrator` | `Abstractions.Agent/Modules/` | Team export, import, and validation (net10.0 only) |
+| `IDependencyOrchestrator` | `Abstractions.Agent/Modules/` | Dependency discovery export |
+| `IInventoryOrchestrator` | `Abstractions.Agent/Discovery/` | Inventory collection (shared by `InventoryModule` and `InventoryDiscoveryModule`) |
+
+Orchestrator *implementations* are `internal sealed` classes in `Infrastructure.Agent`. They are registered in DI by the module's `ServiceCollectionExtensions` and constructor-injected into the module.
+
+#### Why This Pattern
+
+1. **Reusability** — Orchestrators are the business logic. They can be consumed by Modules today and by Tools or Extensions in the future without duplicating cross-cutting concerns.
+2. **Testability** — Modules are thin and trivial. Orchestrators can be unit-tested with mocked services. Services can be tested against real APIs.
+3. **Consistency** — Every module follows the same structure. New contributors can navigate any module by recognising the pattern.
+4. **Separation of concerns** — Guard checks and config resolution (Module) are separate from enumeration/checkpoint/progress logic (Orchestrator), which is separate from SDK calls (Service).
+
+#### Module ↔ Orchestrator Mapping
+
+| Module | Orchestrator | Services |
+|---|---|---|
+| `NodesModule` | `INodesOrchestrator` | `IClassificationTreeCapture`, `INodeEnsurer` |
+| `IdentitiesModule` | `IIdentitiesOrchestrator` | `IIdentitySource`, `IIdentityLookupTool` |
+| `TeamsModule` | `ITeamsOrchestrator` | `ITeamSource`, `ITeamTarget`, `TeamExportOrchestrator`, `TeamImportOrchestrator` |
+| `WorkItemsModule` | `WorkItemExportOrchestrator`, `WorkItemImportOrchestrator` | `IWorkItemRevisionSource`, `IAttachmentBinarySource` |
+| `DependencyDiscoveryModule` | `IDependencyOrchestrator` | `IDependencyDiscoveryService` |
+| `InventoryModule` | `IInventoryOrchestrator` | `IInventoryService` |
+| `InventoryDiscoveryModule` | `IInventoryOrchestrator` (shared) | `IInventoryService` |
+
 ### Dependency Graph Rules
 
 - Dependencies are resolved topologically before execution begins.
@@ -180,14 +231,15 @@ See [.agents/guardrails/module-template.md](../.agents/guardrails/module-templat
 
 ### Discovery Modules
 
-Discovery modules implement `IDiscoveryModule` and run pre-migration analysis:
+Discovery modules implement `IModule` and run pre-migration analysis. They follow the same Module → Orchestrator → Service pattern as all other modules:
 
-| Module | Responsibility |
-|---|---|
-| `InventoryDiscoveryModule` | Counts work items and revisions per project; writes `inventory.csv` and `inventory.json`. |
-| `DependencyDiscoveryModule` | Analyses cross-project and cross-organisation work item links; writes `dependencies.csv`. |
+| Module | Orchestrator | Service | Responsibility |
+|---|---|---|---|
+| `InventoryModule` | `IInventoryOrchestrator` | `IInventoryService` | Counts work items and revisions for a single source project; writes `inventory.csv` and `inventory.json`. Pulled in as a dependency by `WorkItemsModule`. |
+| `InventoryDiscoveryModule` | `IInventoryOrchestrator` (shared) | `IInventoryService` | Standalone multi-org inventory discovery; writes the same artefacts as `InventoryModule` but for all configured organisations. |
+| `DependencyDiscoveryModule` | `IDependencyOrchestrator` | `IDependencyDiscoveryService` | Analyses cross-project and cross-organisation work item links; writes `dependencies.csv`. |
 
-Discovery modules follow the **delegation pattern**: they orchestrate checkpointing, progress reporting, and artefact writing, while the actual API interaction is delegated to injected services (e.g., `IInventoryService`, `IDependencyDiscoveryService`) created via factories. This keeps modules testable and connector-agnostic.
+`InventoryModule` and `InventoryDiscoveryModule` share the same `IInventoryOrchestrator` instance from DI. The orchestrator handles checkpointing, progress reporting, and artefact writing; the `IInventoryService` (created via `IInventoryServiceFactory`) performs the actual API calls.
 
 ### Tool Resolution
 
@@ -336,7 +388,17 @@ Team slugs are generated from the team display name: lowercase, spaces → hyphe
 
 ### Module Registration
 
-Module registrations belong at the **composition root** (`ModuleServiceCollectionExtensions`), not inside connector assemblies. Connector files (e.g., `ExportServiceCollectionExtensions`) only register connector-specific services (factories, HTTP clients, SDK adapters). This ensures connectors are decoupled from module implementations.
+Module and orchestrator registrations belong at the **composition root** (`ModuleServiceCollectionExtensions`, `IdentityServiceCollectionExtensions`, `TeamsServiceCollectionExtensions`), not inside connector assemblies. Connector files (e.g., `ExportServiceCollectionExtensions`) only register connector-specific services (factories, HTTP clients, SDK adapters). This ensures connectors are decoupled from module and orchestrator implementations.
+
+Orchestrators are registered as singletons (they hold only an `ILogger` and optional metrics — all operation state is passed via method parameters):
+
+```csharp
+services.AddSingleton<INodesOrchestrator, NodesOrchestrator>();
+services.AddSingleton<IIdentitiesOrchestrator, IdentitiesOrchestrator>();
+services.AddSingleton<ITeamsOrchestrator, TeamsOrchestrator>();       // net10.0 only
+services.AddSingleton<IDependencyOrchestrator, DependencyOrchestrator>();
+services.AddSingleton<IInventoryOrchestrator, InventoryOrchestrator>();
+```
 
 ### Discovery Utility Namespace
 

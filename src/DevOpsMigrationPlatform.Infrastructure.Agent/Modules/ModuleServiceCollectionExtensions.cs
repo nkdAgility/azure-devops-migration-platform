@@ -1,5 +1,12 @@
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Agent.Discovery;
+using DevOpsMigrationPlatform.Abstractions.Agent.Modules;
+using DevOpsMigrationPlatform.Infrastructure.Agent.Discovery;
+using DevOpsMigrationPlatform.Infrastructure.Agent.Identity;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Modules;
+#if !NET481
+using DevOpsMigrationPlatform.Infrastructure.Agent.Teams;
+#endif
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -12,6 +19,27 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Modules;
 /// </summary>
 public static class ModuleServiceCollectionExtensions
 {
+    /// <summary>
+    /// Convenience method that registers all agent modules and their orchestrators.
+    /// Calls <see cref="AddWorkItemsModule"/>, <see cref="AddInventoryModule"/>,
+    /// <see cref="AddDependenciesModule"/>, <see cref="AddNodesModule"/>,
+    /// <see cref="AddIdentitiesModule"/>, and (on net10.0+) <see cref="TeamsServiceCollectionExtensions.AddTeamsModule"/>.
+    /// </summary>
+    public static IServiceCollection AddAllAgentModules(
+        this IServiceCollection services,
+        IConfiguration configuration)
+    {
+        services.AddWorkItemsModule();
+        services.AddInventoryModule();
+        services.AddDependenciesModule();
+        services.AddNodesModule(configuration);
+        services.AddIdentitiesModule(configuration);
+#if !NET481
+        services.AddTeamsModule(configuration);
+#endif
+        return services;
+    }
+
     /// <summary>
     /// Registers <see cref="WorkItemsModule"/> as the <see cref="IModule"/> implementation
     /// for work item export/import operations.
@@ -28,12 +56,15 @@ public static class ModuleServiceCollectionExtensions
     }
 
     /// <summary>
-    /// Registers <see cref="InventoryDiscoveryModule"/> as an <see cref="IModule"/>
-    /// implementation for inventory discovery operations. Runs during the Export phase
-    /// to count work items and revisions per project.
+    /// Registers <see cref="InventoryModule"/> and <see cref="InventoryDiscoveryModule"/>
+    /// as <see cref="IModule"/> implementations. <c>InventoryModule</c> handles single-source
+    /// inventory during Export/Migrate (pulled by WorkItems dependency). <c>InventoryDiscoveryModule</c>
+    /// handles standalone multi-org inventory discovery jobs.
     /// </summary>
     public static IServiceCollection AddInventoryModule(this IServiceCollection services)
     {
+        services.AddSingleton<IInventoryOrchestrator, InventoryOrchestrator>();
+        services.AddTransient<IModule, InventoryModule>();
         services.AddTransient<IModule, InventoryDiscoveryModule>();
         return services;
     }
@@ -45,6 +76,7 @@ public static class ModuleServiceCollectionExtensions
     /// </summary>
     public static IServiceCollection AddDependenciesModule(this IServiceCollection services)
     {
+        services.AddSingleton<IDependencyOrchestrator, DependencyOrchestrator>();
         services.AddTransient<IModule, DependencyDiscoveryModule>();
         return services;
     }
@@ -60,6 +92,7 @@ public static class ModuleServiceCollectionExtensions
         services.AddSchemaEntry<NodesModuleOptions>("Classification nodes (area/iteration paths) module configuration");
 #endif
 
+        services.AddScoped<INodesOrchestrator, NodesOrchestrator>();
         services.AddTransient<IModule, NodesModule>();
         services.Configure<NodesModuleOptions>(
             configuration.GetSection(NodesModuleOptions.SectionName));

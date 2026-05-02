@@ -133,9 +133,7 @@ public sealed class WorkItemImportOrchestrator
         int lastImportedWorkItemId = 0;
         int revisionsForCurrentWorkItem = 0;
 
-        var importTags = _metrics != null
-            ? MigrationTagList.Create(_jobId ?? "not-set", "import", "workitems")
-            : default;
+        var importTags = MetricsTagList.Create(_jobId ?? "not-set", "import", "workitems");
         var workItemStopwatch = Stopwatch.StartNew();
         Activity? workItemActivity = null;
 
@@ -452,3 +450,4 @@ public sealed class WorkItemImportOrchestrator
         }, ct);
 }
 #endif
+
