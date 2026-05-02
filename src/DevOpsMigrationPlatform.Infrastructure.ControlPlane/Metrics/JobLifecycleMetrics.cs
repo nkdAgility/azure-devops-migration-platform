@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (c) Naked Agility Limited
+
 #if !NETFRAMEWORK
 using System.Diagnostics;
 using System.Diagnostics.Metrics;

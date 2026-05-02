@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (c) Naked Agility Limited
+
 // TFS Migration Agent — Worker Service (net481)
 // Polls the control plane for TFS-specific jobs, executes them, and reports progress.
 // Structural twin of MigrationAgent but targets net481 for TFS Object Model access.

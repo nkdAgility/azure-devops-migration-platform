@@ -1,4 +1,7 @@
-﻿namespace DevOpsMigrationPlatform.Abstractions.Agent.Tools;
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (c) Naked Agility Limited
+
+namespace DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 
 /// <summary>
 /// Translates area and iteration path values from source to target format.

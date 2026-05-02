@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (c) Naked Agility Limited
+
 using Azure.Monitor.OpenTelemetry.AspNetCore;
 using DevOpsMigrationPlatform.Diagnostics;
 using Microsoft.AspNetCore.Builder;

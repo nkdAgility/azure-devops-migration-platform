@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (c) Naked Agility Limited
+
 namespace DevOpsMigrationPlatform.Abstractions.Options;
 
 // ── Legacy compatibility type (kept for OrganisationEntry and InventoryService until they are migrated) ──

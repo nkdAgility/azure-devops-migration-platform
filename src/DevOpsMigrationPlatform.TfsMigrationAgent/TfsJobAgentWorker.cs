@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (c) Naked Agility Limited
+
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -48,7 +51,7 @@ public sealed class TfsJobAgentWorker : ModulePipelineWorkerBase
 
     // Per-job TFS connection — set in OnBeforeModulesAsync, cleared in OnAfterModulesAsync.
     private TfsJobServices? _currentTfsServices;
-    
+
     // Package URI for the current job — set in OnBeforeModulesAsync, used in OnAfterModulesAsync.
     private string? _currentPackageUri;
 

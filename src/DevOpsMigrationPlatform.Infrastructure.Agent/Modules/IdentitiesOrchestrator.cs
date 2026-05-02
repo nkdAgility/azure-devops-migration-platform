@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (c) Naked Agility Limited
+
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -88,7 +91,7 @@ internal sealed class IdentitiesOrchestrator : IIdentitiesOrchestrator
 #if !NET481
         using (_logger.BeginDataScope(DataClassification.Customer))
 #endif
-            _logger.LogInformation("[Identities] Starting identity export for project '{Project}'.", project);
+        _logger.LogInformation("[Identities] Starting identity export for project '{Project}'.", project);
 
         var sink = context.ProgressSink;
         sink?.Emit(new ProgressEvent

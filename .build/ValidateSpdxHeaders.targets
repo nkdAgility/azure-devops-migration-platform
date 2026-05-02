@@ -1,0 +1,129 @@
+<Project>
+
+  <!--
+    ValidateSpdxHeaders — MSBuild inline task that enforces every .cs file
+    begins with the required two-line SPDX header block:
+
+      // SPDX-License-Identifier: <PackageLicenseExpression>
+      // Copyright (c) Naked Agility Limited.
+
+    Rules:
+      • All assemblies default to:                AGPL-3.0-only
+      • DevOpsMigrationPlatform.Proprietary.*:    LicenseRef-NakedAgility-Separate
+        → set <PackageLicenseExpression>LicenseRef-NakedAgility-Separate</PackageLicenseExpression>
+          in the individual .csproj to override the default.
+
+    Disable per-project:    <SkipSpdxValidation>true</SkipSpdxValidation>
+    Disable per-invocation: dotnet build -p:SkipSpdxValidation=true
+
+    Complementary to StyleCop SA1633, which enforces header format.
+    This task enforces license identity + copyright consistency.
+
+    Error codes:
+      SPDX001 — SPDX-License-Identifier present but wrong value
+      SPDX002 — SPDX-License-Identifier missing from first 10 lines
+      SPDX003 — Copyright line missing or wrong (must follow SPDX line)
+  -->
+
+  <UsingTask TaskName="ValidateSpdxHeaders"
+             TaskFactory="RoslynCodeTaskFactory"
+             AssemblyFile="$(MSBuildToolsPath)\Microsoft.Build.Tasks.Core.dll">
+    <ParameterGroup>
+      <SourceFiles ParameterType="Microsoft.Build.Framework.ITaskItem[]" Required="true" />
+      <ExpectedLicense ParameterType="System.String" Required="true" />
+      <ExpectedCopyright ParameterType="System.String" Required="true" />
+    </ParameterGroup>
+    <Task>
+      <Using Namespace="System.IO" />
+      <Using Namespace="System.Text.RegularExpressions" />
+      <Code Type="Fragment" Language="cs">
+        <![CDATA[
+          bool hasErrors = false;
+          var sep = System.IO.Path.DirectorySeparatorChar;
+          var objSeg = sep + "obj" + sep;
+          var spdxPattern  = new Regex(@"^//\s*SPDX-License-Identifier:\s*(.+)$", RegexOptions.Compiled);
+          var copyPattern  = new Regex(@"^//\s*Copyright\s+\(c\)\s+(.+)$", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
+          foreach (var file in SourceFiles)
+          {
+              var path = file.GetMetadata("FullPath");
+
+              // Skip auto-generated files inside obj\ directories
+              if (path.Contains(objSeg)) continue;
+              // Skip NuGet package source files injected at build time
+              if (path.Contains(sep + ".nuget" + sep)) continue;
+              // Skip Reqnroll / SpecFlow generated feature code-behind files
+              if (path.EndsWith(".feature.cs", StringComparison.OrdinalIgnoreCase)) continue;
+              if (!File.Exists(path)) continue;
+
+              var lines = File.ReadLines(path).Take(10).ToArray();
+
+              // --- SPDX line ---
+              int spdxLine = -1;
+              string actualLicense = null;
+              for (int i = 0; i < lines.Length; i++)
+              {
+                  var m = spdxPattern.Match(lines[i]);
+                  if (!m.Success) continue;
+                  spdxLine = i + 1;
+                  actualLicense = m.Groups[1].Value.Trim();
+                  break;
+              }
+
+              if (spdxLine == -1)
+              {
+                  Log.LogError(null, "SPDX002", null, path, 1, 1, 1, 1,
+                      "No SPDX-License-Identifier found in first 10 lines. " +
+                      "Expected: // SPDX-License-Identifier: {0}", ExpectedLicense);
+                  hasErrors = true;
+                  continue;
+              }
+
+              if (actualLicense != ExpectedLicense)
+              {
+                  Log.LogError(null, "SPDX001", null, path, spdxLine, 1, spdxLine, 1,
+                      "SPDX-License-Identifier is '{0}' but PackageLicenseExpression is '{1}'. " +
+                      "Update the file header or the project's <PackageLicenseExpression>.",
+                      actualLicense, ExpectedLicense);
+                  hasErrors = true;
+              }
+
+              // --- Copyright line (must be on the line immediately after SPDX) ---
+              string copyrightLineContent = spdxLine < lines.Length ? lines[spdxLine] : null;
+              bool copyrightOk = false;
+              if (copyrightLineContent != null)
+              {
+                  var cm = copyPattern.Match(copyrightLineContent);
+                  if (cm.Success)
+                  {
+                      var actualHolder = cm.Groups[1].Value.Trim().TrimEnd('.');
+                      var expectedHolder = ExpectedCopyright.TrimEnd('.');
+                      copyrightOk = string.Equals(actualHolder, expectedHolder, StringComparison.OrdinalIgnoreCase);
+                  }
+              }
+
+              if (!copyrightOk)
+              {
+                  int copyrightLineNum = spdxLine + 1;
+                  Log.LogError(null, "SPDX003", null, path, copyrightLineNum, 1, copyrightLineNum, 1,
+                      "Copyright line is missing or incorrect. " +
+                      "Expected: // Copyright (c) {0}.", ExpectedCopyright);
+                  hasErrors = true;
+              }
+          }
+          return !hasErrors;
+        ]]>
+      </Code>
+    </Task>
+  </UsingTask>
+
+  <Target Name="ValidateSpdxHeaders"
+          BeforeTargets="CoreCompile"
+          Condition="'$(PackageLicenseExpression)' != '' and '$(SkipSpdxValidation)' != 'true'">
+    <ValidateSpdxHeaders
+        SourceFiles="@(Compile)"
+        ExpectedLicense="$(PackageLicenseExpression)"
+        ExpectedCopyright="Naked Agility Limited" />
+  </Target>
+
+</Project>
