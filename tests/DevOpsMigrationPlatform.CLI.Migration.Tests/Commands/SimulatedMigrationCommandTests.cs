@@ -225,6 +225,8 @@ public class SimulatedMigrationCommandTests
             "agent.jsonl missing.");
         Assert.IsTrue(File.ReadAllLines(agentFiles[0]).Length >= 1,
             "agent.jsonl must contain at least one structured NDJSON record at Warning+ level.");
+    }
+
     /// <summary>
     /// VS-H3: Verifies the simulated inventory scenario produces inventory.csv and inventory.json.
     /// Runs the <c>discovery inventory</c> command against the Simulated connector.
