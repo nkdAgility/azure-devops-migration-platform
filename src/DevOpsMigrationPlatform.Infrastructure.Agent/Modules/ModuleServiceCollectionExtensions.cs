@@ -67,7 +67,7 @@ public static class ModuleServiceCollectionExtensions
         services.AddSchemaEntry<NodesModuleOptions>("Classification nodes (area/iteration paths) module configuration");
 #endif
 
-        services.AddSingleton<INodesOrchestrator, NodesOrchestrator>();
+        services.AddScoped<INodesOrchestrator, NodesOrchestrator>();
         services.AddTransient<IModule, NodesModule>();
         services.Configure<NodesModuleOptions>(
             configuration.GetSection(NodesModuleOptions.SectionName));

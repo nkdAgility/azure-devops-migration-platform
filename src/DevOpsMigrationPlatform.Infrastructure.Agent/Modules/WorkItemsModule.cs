@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Agent.Context;
 using DevOpsMigrationPlatform.Abstractions.Agent.Lease;
+using DevOpsMigrationPlatform.Abstractions.Agent.Modules;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Abstractions.Agent.Validation;
 using DevOpsMigrationPlatform.Abstractions.Jobs;
@@ -72,7 +73,7 @@ public sealed class WorkItemsModule : IModule
     private readonly IExportProgressStoreFactory? _exportProgressStoreFactory;
 #if !NET481
     private readonly IReferencedPathTracker? _referencedPathTracker;
-    private readonly INodeEnsurer? _nodeEnsurer;
+    private readonly INodesOrchestrator? _nodesOrchestrator;
 #endif
     private readonly IOptions<WorkItemsModuleOptions> _options;
     private readonly ISourceEndpointInfo _sourceEndpointInfo;
@@ -104,7 +105,7 @@ public sealed class WorkItemsModule : IModule
         IExportProgressStoreFactory? exportProgressStoreFactory = null,
 #if !NET481
         IReferencedPathTracker? referencedPathTracker = null,
-        INodeEnsurer? nodeEnsurer = null,
+        INodesOrchestrator? nodesOrchestrator = null,
 #endif
         IIdentityLookupTool? identityLookupTool = null)
     {
@@ -129,7 +130,7 @@ public sealed class WorkItemsModule : IModule
         _exportProgressStoreFactory = exportProgressStoreFactory;
 #if !NET481
         _referencedPathTracker = referencedPathTracker;
-        _nodeEnsurer = nodeEnsurer;
+        _nodesOrchestrator = nodesOrchestrator;
 #endif
         _identityLookupTool = identityLookupTool;
     }
@@ -268,15 +269,14 @@ public sealed class WorkItemsModule : IModule
         // Derive the SQLite idmap.db from the package URI (legacy fallback handled by factory)
         var idMapStore = _idMapStoreFactory.CreateFromPackageUri(job.Package.PackageUri);
 
-        // NodeEnsurer: pre-create missing classification nodes before the revision import loop.
-        if (_nodeEnsurer == null)
-            _logger.LogWarning("[WorkItems] NodeEnsurer is not available — AutoCreateNodes will be skipped. Register INodeCreator (via a connector-specific implementation) to enable import-side node creation.");
-
-        if (_nodeEnsurer != null)
+        // NodesOrchestrator: pre-create missing classification nodes before the revision import loop.
+        if (_nodesOrchestrator == null)
+            _logger.LogWarning("[WorkItems] NodesOrchestrator is not available — AutoCreateNodes will be skipped. Register INodesOrchestrator to enable import-side node creation.");
+        else
         {
             var sourceProjectName = _sourceEndpointInfo.Project;
             var ensurerContext = new DevOpsMigrationPlatform.Abstractions.Agent.Tools.ProjectMapping(sourceProjectName, project);
-            await _nodeEnsurer.EnsureReferencedPathsAsync(ensurerContext, context.ArtefactStore, ct, _metrics, job.JobId).ConfigureAwait(false);
+            await _nodesOrchestrator.EnsureReferencedPathsAsync(ensurerContext, context.ArtefactStore, ct, _metrics, job.JobId).ConfigureAwait(false);
         }
 
         // Build processor — use NodeTranslation-aware overload when available.

@@ -18,9 +18,8 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Modules;
 
 /// <summary>
 /// Thin <see cref="IModule"/> wrapper for classification tree (node structure) export/import.
-/// Delegates all orchestration to <see cref="NodesOrchestrator"/>, which in turn delegates
-/// the actual tree capture to <see cref="IClassificationTreeCapture"/> and node replication
-/// to <see cref="INodeEnsurer"/>.
+/// Delegates all orchestration to <see cref="NodesOrchestrator"/>, which handles tree capture
+/// and node replication directly.
 /// On net481 (TFS agent): only <see cref="ExportAsync"/> is active; <see cref="ImportAsync"/>
 /// is a no-op since TFS is a source-only connector.
 /// </summary>
@@ -28,7 +27,6 @@ public sealed class NodesModule : IModule
 {
     private readonly IClassificationTreeCapture? _capture;
 #if !NET481
-    private readonly INodeEnsurer? _nodeEnsurer;
     private readonly ITargetEndpointInfo _targetEndpointInfo;
 #endif
     private readonly ICheckpointingServiceFactory? _checkpointingFactory;
@@ -50,7 +48,6 @@ public sealed class NodesModule : IModule
         IClassificationTreeCapture? capture = null,
 #if !NET481
         ITargetEndpointInfo? targetEndpointInfo = null,
-        INodeEnsurer? nodeEnsurer = null,
 #endif
         ICheckpointingServiceFactory? checkpointingFactory = null)
     {
@@ -61,7 +58,6 @@ public sealed class NodesModule : IModule
         _capture = capture;
 #if !NET481
         _targetEndpointInfo = targetEndpointInfo ?? throw new ArgumentNullException(nameof(targetEndpointInfo));
-        _nodeEnsurer = nodeEnsurer;
 #endif
         _checkpointingFactory = checkpointingFactory;
     }
@@ -100,14 +96,8 @@ public sealed class NodesModule : IModule
             return;
         }
 
-        if (_nodeEnsurer is null)
-        {
-            _logger.LogWarning("[Nodes] No INodeEnsurer registered — node import skipped.");
-            return;
-        }
-
         await _orchestrator.ImportAsync(
-            _nodeEnsurer, context, _sourceEndpointInfo, _targetEndpointInfo,
+            context, _sourceEndpointInfo, _targetEndpointInfo,
             _checkpointingFactory, _options.ReplicateSourceTree, ct).ConfigureAwait(false);
 #endif
     }

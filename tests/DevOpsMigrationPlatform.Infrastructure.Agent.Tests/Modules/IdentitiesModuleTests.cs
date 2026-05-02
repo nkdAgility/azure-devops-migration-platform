@@ -46,7 +46,7 @@ public class IdentitiesModuleTests
             NullLogger<IdentitiesModule>.Instance,
             Options.Create(options),
             sourceEndpointInfo: CreateSourceEndpointInfo(activeJobConfig),
-            orchestrator: Mock.Of<IIdentitiesOrchestrator>(),
+            orchestrator: new IdentitiesOrchestrator(NullLogger<IdentitiesOrchestrator>.Instance),
             identitySource: identitySource);
     }
 

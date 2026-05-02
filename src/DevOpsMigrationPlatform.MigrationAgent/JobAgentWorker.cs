@@ -45,6 +45,7 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
         ActiveLeaseState leaseState,
         ActivePackageState packageState,
         IJobConfiguration activeJobConfig,
+        IActiveJobState activeJobState,
         IPackageConfigStore packageConfigStore,
         IServiceScopeFactory moduleScopeFactory,
         IHttpClientFactory httpClientFactory,
@@ -61,7 +62,7 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
         PolymorphicOrganisationEntryConverter? organisationConverter = null)
         : base(migrationModules, packageStoreFactory, progressSink, checkpointingFactory,
                phaseTrackingFactory, leaseState, packageState, activeJobConfig, packageConfigStore,
-               moduleScopeFactory, httpClientFactory, logger, endpointConverter, organisationConverter)
+               moduleScopeFactory, httpClientFactory, logger, activeJobState, endpointConverter, organisationConverter)
     {
         _metricsStore = metricsStore;
         _snapshotStore = snapshotStore;

@@ -96,8 +96,6 @@ public static class FactoryRegistrationExtensions
     /// <paramref name="typeKey"/> (the endpoint's <c>Type</c> discriminator, e.g.
     /// <c>"AzureDevOpsServices"</c> or <c>"Simulated"</c>), and ensures the
     /// <see cref="CompositeNodeCreator"/> dispatcher is registered as <see cref="INodeCreator"/>.
-    /// Also registers <see cref="NodeEnsurer"/> (if not already registered) so it can be
-    /// optionally injected by <c>WorkItemsModule</c>.
     /// </summary>
     public static IServiceCollection AddNodeCreator<T>(
         this IServiceCollection services,
@@ -107,7 +105,6 @@ public static class FactoryRegistrationExtensions
         services.TryAddSingleton<T>();
         services.AddSingleton(sp => new KeyedNodeCreator(typeKey, sp.GetRequiredService<T>()));
         services.TryAddSingleton<INodeCreator, CompositeNodeCreator>();
-        services.TryAddSingleton<NodeEnsurer>();
         return services;
     }
 

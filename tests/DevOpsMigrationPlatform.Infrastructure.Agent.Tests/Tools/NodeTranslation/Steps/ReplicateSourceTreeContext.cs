@@ -1,6 +1,11 @@
+using DevOpsMigrationPlatform.Abstractions.Agent.Context;
+using DevOpsMigrationPlatform.Abstractions.Agent.Import;
 using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
+using DevOpsMigrationPlatform.Abstractions.Jobs;
 using DevOpsMigrationPlatform.Abstractions.Options;
+using DevOpsMigrationPlatform.Abstractions.Streaming;
+using DevOpsMigrationPlatform.Infrastructure.Agent.Modules;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Tools.NodeTranslation;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
@@ -107,18 +112,28 @@ public class ReplicateSourceTreeContext
         };
 
         var tool = new NodeTranslationTool(Options.Create(opts), NullLogger<NodeTranslationTool>.Instance);
+        var optionsMonitor = new Mock<IOptionsMonitor<NodeTranslationOptions>>();
+        optionsMonitor.SetupGet(o => o.CurrentValue).Returns(opts);
 
-        var ensurer = new NodeEnsurer(
-            Options.Create(opts),
+        var orchestrator = new NodesOrchestrator(
+            NullLogger<NodesOrchestrator>.Instance,
             tool,
             NodeCreatorMock.Object,
-            NullLogger<NodeEnsurer>.Instance);
+            optionsMonitor.Object);
 
-        var context = new ProjectMapping("SourceProject", "TargetProject");
+        var sourceEndpoint = Mock.Of<ISourceEndpointInfo>(e => e.Project == "SourceProject");
+        var targetEndpoint = Mock.Of<ITargetEndpointInfo>(e => e.Project == "TargetProject");
+        var importContext = new ImportContext
+        {
+            Job = new Job { Kind = JobKind.Import },
+            ArtefactStore = ArtefactStoreMock.Object,
+            StateStore = StateStoreMock.Object,
+            ProgressSink = Mock.Of<IProgressSink>()
+        };
 
         try
         {
-            await ensurer.ReplicateSourceTreeAsync(context, ArtefactStoreMock.Object, StateStoreMock.Object, CancellationToken.None);
+            await orchestrator.ImportAsync(importContext, sourceEndpoint, targetEndpoint, null, true, CancellationToken.None);
         }
         catch (Exception ex)
         {

@@ -6,6 +6,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Telemetry;
+using DevOpsMigrationPlatform.Abstractions.Agent.Context;
 using DevOpsMigrationPlatform.Abstractions.Agent.Lease;
 using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
 using DevOpsMigrationPlatform.Abstractions.Agent.Telemetry;
@@ -24,19 +25,29 @@ internal sealed class PackageConfigStore : IPackageConfigStore
     private static readonly ActivitySource ActivitySource =
         new(WellKnownActivitySourceNames.Migration);
 
+    private const string ModuleName = "PackageConfigStore";
+
     private readonly IPackageStoreFactory _packageStoreFactory;
     private readonly ILogger<PackageConfigStore> _logger;
     private readonly IMigrationMetrics? _metrics;
+    private readonly IActiveJobState? _activeJobState;
 
     public PackageConfigStore(
         IPackageStoreFactory packageStoreFactory,
         ILogger<PackageConfigStore> logger,
-        IMigrationMetrics? metrics = null)
+        IMigrationMetrics? metrics = null,
+        IActiveJobState? activeJobState = null)
     {
         _packageStoreFactory = packageStoreFactory ?? throw new ArgumentNullException(nameof(packageStoreFactory));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _metrics = metrics;
+        _activeJobState = activeJobState;
     }
+
+    private MetricsTagList Tags(string operation) =>
+        _activeJobState?.JobId is { } jobId
+            ? MetricsTagList.Create(jobId, operation, ModuleName)
+            : MetricsTagList.Empty;
 
     /// <inheritdoc />
     public async Task WriteAsync(
@@ -80,19 +91,19 @@ internal sealed class PackageConfigStore : IPackageConfigStore
                 .ConfigureAwait(false);
 
             sw.Stop();
-            _metrics?.RecordConfigWriteCompleted(MetricsTagList.Empty);
+            _metrics?.RecordConfigWriteCompleted(Tags("config.write"));
             activity?.SetTag("outcome", "success");
             _logger.LogInformation("Config copied to package in {DurationMs}ms", sw.ElapsedMilliseconds);
         }
         catch (InvalidOperationException)
         {
-            _metrics?.RecordConfigWriteError(MetricsTagList.Empty);
+            _metrics?.RecordConfigWriteError(Tags("config.write"));
             activity?.SetTag("outcome", "exists_error");
             throw;
         }
         catch (Exception)
         {
-            _metrics?.RecordConfigWriteError(MetricsTagList.Empty);
+            _metrics?.RecordConfigWriteError(Tags("config.write"));
             activity?.SetTag("outcome", "error");
             _logger.LogError("Failed to copy config to package");
             throw;
@@ -130,9 +141,8 @@ internal sealed class PackageConfigStore : IPackageConfigStore
 
         if (!exists)
         {
-            var empty = MetricsTagList.Empty;
-            _metrics?.RecordConfigReadError(empty);
-            _metrics?.RecordConfigReadFallback(empty);
+            _metrics?.RecordConfigReadError(Tags("config.read"));
+            _metrics?.RecordConfigReadFallback(Tags("config.read"));
             activity?.SetTag("outcome", "not_found");
             _logger.LogWarning(
                 "migration-config.json not found in package after retries. " +
@@ -147,7 +157,7 @@ internal sealed class PackageConfigStore : IPackageConfigStore
 
             if (string.IsNullOrWhiteSpace(json))
             {
-                _metrics?.RecordConfigReadError(MetricsTagList.Empty);
+                _metrics?.RecordConfigReadError(Tags("config.read"));
                 activity?.SetTag("outcome", "empty");
                 _logger.LogError("migration-config.json is empty in package");
                 throw new InvalidOperationException(
@@ -162,7 +172,7 @@ internal sealed class PackageConfigStore : IPackageConfigStore
                 .Build();
 
             sw.Stop();
-            _metrics?.RecordConfigReadCompleted(MetricsTagList.Empty);
+            _metrics?.RecordConfigReadCompleted(Tags("config.read"));
             activity?.SetTag("outcome", "success");
             _logger.LogInformation("Config read from package in {DurationMs}ms", sw.ElapsedMilliseconds);
 
@@ -174,7 +184,7 @@ internal sealed class PackageConfigStore : IPackageConfigStore
         }
         catch (Exception)
         {
-            _metrics?.RecordConfigReadError(MetricsTagList.Empty);
+            _metrics?.RecordConfigReadError(Tags("config.read"));
             activity?.SetTag("outcome", "parse_error");
             _logger.LogError("Failed to parse migration-config.json");
             throw;

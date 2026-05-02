@@ -60,6 +60,12 @@ public abstract class ModulePipelineWorkerBase : AgentWorkerBase
     /// <summary>Ambient holder for the current job's per-job <see cref="Microsoft.Extensions.Configuration.IConfiguration"/> (PackageConfig).</summary>
     protected IJobConfiguration ActiveJobConfig { get; }
 
+    /// <summary>Ambient holder for the identity (JobId, Kind) of the currently executing job.</summary>
+    private readonly IActiveJobState? _activeJobState;
+
+    /// <summary>Exposes the active job state to subclasses that override <see cref="AgentWorkerBase.OnJobAsync"/> completely.</summary>
+    protected IActiveJobState? ActiveJobIdentity => _activeJobState;
+
     /// <summary>
     /// Used to create a per-job DI scope so that modules (and their tool dependencies)
     /// are resolved AFTER <see cref="ActiveJobConfig.PackageConfig"/> is set from
@@ -80,7 +86,8 @@ public abstract class ModulePipelineWorkerBase : AgentWorkerBase
         IPackageConfigStore packageConfigStore,
         IServiceScopeFactory moduleScopeFactory,
         IHttpClientFactory httpClientFactory,
-        ILogger logger
+        ILogger logger,
+        IActiveJobState? activeJobState = null
 #if !NET481
         , PolymorphicEndpointOptionsConverter? endpointConverter = null
         , PolymorphicOrganisationEntryConverter? organisationConverter = null
@@ -100,6 +107,7 @@ public abstract class ModulePipelineWorkerBase : AgentWorkerBase
         Logger = logger ?? throw new ArgumentNullException(nameof(logger));
         PackageConfigStore = packageConfigStore ?? throw new ArgumentNullException(nameof(packageConfigStore));
         ActiveJobConfig = activeJobConfig ?? throw new ArgumentNullException(nameof(activeJobConfig));
+        _activeJobState = activeJobState;
         _moduleScopeFactory = moduleScopeFactory ?? throw new ArgumentNullException(nameof(moduleScopeFactory));
     }
 
@@ -131,6 +139,7 @@ public abstract class ModulePipelineWorkerBase : AgentWorkerBase
     protected override async Task OnJobAsync(
         Job job, HttpClient controlPlane, string leaseId, CancellationToken ct)
     {
+        _activeJobState?.Set(job.JobId, job.Kind.ToString());
         var (artefactStore, stateStore) = PackageStoreFactory.Create(job.Package.PackageUri ?? ".");
         PackageState.CurrentStore = artefactStore;
 
@@ -202,6 +211,7 @@ public abstract class ModulePipelineWorkerBase : AgentWorkerBase
         {
             await OnAfterModulesAsync(ct).ConfigureAwait(false);
             ActiveJobConfig.Clear();
+            _activeJobState?.Clear();
         }
 
         await SignalTerminalAsync(controlPlane, leaseId, failed ? "fail" : "complete", ct)

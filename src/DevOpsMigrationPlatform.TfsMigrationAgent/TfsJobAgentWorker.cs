@@ -59,6 +59,7 @@ public sealed class TfsJobAgentWorker : ModulePipelineWorkerBase
         ActiveLeaseState leaseState,
         ActivePackageState packageState,
         IJobConfiguration activeJobConfig,
+        IActiveJobState activeJobState,
         IPackageConfigStore packageConfigStore,
         IServiceScopeFactory moduleScopeFactory,
         IHttpClientFactory httpClientFactory,
@@ -70,7 +71,7 @@ public sealed class TfsJobAgentWorker : ModulePipelineWorkerBase
         ILogger<TfsJobAgentWorker> logger)
         : base(migrationModules, packageStoreFactory, progressSink, checkpointingFactory,
                phaseTrackingFactory, leaseState, packageState, activeJobConfig, packageConfigStore,
-               moduleScopeFactory, httpClientFactory, logger)
+               moduleScopeFactory, httpClientFactory, logger, activeJobState)
     {
         _flushables = flushables;
         _tfsServiceFactory = tfsServiceFactory;
@@ -237,6 +238,7 @@ public sealed class TfsJobAgentWorker : ModulePipelineWorkerBase
     private async Task OnDiscoveryJobAsync(
         Job job, HttpClient controlPlane, string leaseId, CancellationToken ct)
     {
+        ActiveJobIdentity?.Set(job.JobId, job.Kind.ToString());
         var (artefactStore, stateStore) = PackageStoreFactory.Create(
             job.Package.PackageUri ?? ".");
 
@@ -318,6 +320,7 @@ public sealed class TfsJobAgentWorker : ModulePipelineWorkerBase
         finally
         {
             tfsServices?.Dispose();
+            ActiveJobIdentity?.Clear();
         }
 
         var terminal = failed ? "fail" : "complete";

@@ -5,6 +5,7 @@ using DevOpsMigrationPlatform.Abstractions.Agent.Context;
 using DevOpsMigrationPlatform.Abstractions.Agent.Export;
 using DevOpsMigrationPlatform.Abstractions.Agent.Import;
 using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
+using DevOpsMigrationPlatform.Abstractions.Agent.Telemetry;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Abstractions.Agent.Validation;
 using DevOpsMigrationPlatform.Abstractions.Validation;
@@ -25,13 +26,23 @@ public interface INodesOrchestrator
 
 #if !NET481
     Task ImportAsync(
-        INodeEnsurer nodeEnsurer,
         ImportContext context,
         ISourceEndpointInfo sourceEndpointInfo,
         ITargetEndpointInfo targetEndpointInfo,
         ICheckpointingServiceFactory? checkpointingFactory,
         bool replicateSourceTree,
         CancellationToken ct);
+
+    /// <summary>
+    /// Reads Nodes/referenced-paths.json and ensures all translated paths exist in the target.
+    /// Called by WorkItemsModule before work item import. No-op when AutoCreateNodes is false.
+    /// </summary>
+    Task EnsureReferencedPathsAsync(
+        ProjectMapping context,
+        IArtefactStore artefactStore,
+        CancellationToken ct,
+        IMigrationMetrics? metrics = null,
+        string? jobId = null);
 #endif
 
     Task ValidateAsync(
