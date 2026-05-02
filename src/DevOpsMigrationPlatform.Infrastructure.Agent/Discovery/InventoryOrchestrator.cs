@@ -25,7 +25,11 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Discovery;
 /// </summary>
 internal sealed class InventoryOrchestrator : IInventoryOrchestrator
 {
-    private static readonly string CursorKey = PackagePaths.CursorFile("InventoryDiscovery");
+    /// <summary>
+    /// Derives a module-scoped cursor key so that InventoryModule and InventoryDiscoveryModule
+    /// can checkpoint independently when running in the same job.
+    /// </summary>
+    private static string CursorKeyFor(string moduleName) => PackagePaths.CursorFile(moduleName);
     private const string CsvOutputPath = "inventory.csv";
     private const string JsonOutputPath = "inventory.json";
 
@@ -62,7 +66,7 @@ internal sealed class InventoryOrchestrator : IInventoryOrchestrator
         _logger.LogInformation("Inventory orchestrator starting for job {JobId}, module {Module}.", job.JobId, moduleName);
 
         // Read checkpoint — presence means a previous run was interrupted.
-        var lastCompleted = await ReadCursorAsync(state, ct).ConfigureAwait(false);
+        var lastCompleted = await ReadCursorAsync(state, moduleName, ct).ConfigureAwait(false);
         var isResuming = lastCompleted is not null;
 
         if (isResuming)
@@ -279,7 +283,7 @@ internal sealed class InventoryOrchestrator : IInventoryOrchestrator
             // Checkpoint cursor at configured interval for resume support.
             if (DateTime.UtcNow - lastCheckpoint >= checkpointInterval)
             {
-                await WriteCursorAsync(state, projectKey, ct).ConfigureAwait(false);
+                await WriteCursorAsync(state, moduleName, projectKey, ct).ConfigureAwait(false);
                 lastCheckpoint = DateTime.UtcNow;
                 metrics?.RecordCheckpointSaved(new MetricsTagList { { "job.id", job.JobId }, { "module", moduleName } });
                 using (DataClassificationScope.Begin(DataClassification.Customer))
@@ -305,7 +309,7 @@ internal sealed class InventoryOrchestrator : IInventoryOrchestrator
         // Final write — CSV and JSON.
         await store.WriteAsync(CsvOutputPath, csvBuilder.ToString(), ct).ConfigureAwait(false);
         await WriteInventoryJsonAsync(store, orgProjectData, ct).ConfigureAwait(false);
-        await state.DeleteAsync(CursorKey, ct).ConfigureAwait(false);
+        await state.DeleteAsync(CursorKeyFor(moduleName), ct).ConfigureAwait(false);
 
         // Final snapshot push.
         PushAggregateMetrics(metricsStore, orgProjectData, organisations);
@@ -336,9 +340,10 @@ internal sealed class InventoryOrchestrator : IInventoryOrchestrator
     public static async Task<HashSet<string>?> LoadCompletedKeysAsync(
         IArtefactStore store,
         IStateStore state,
+        string moduleName,
         CancellationToken ct)
     {
-        var lastCompleted = await ReadCursorAsync(state, ct).ConfigureAwait(false);
+        var lastCompleted = await ReadCursorAsync(state, moduleName, ct).ConfigureAwait(false);
         if (lastCompleted is null)
             return null;
 
@@ -537,9 +542,9 @@ internal sealed class InventoryOrchestrator : IInventoryOrchestrator
 
     // ── Checkpoint helpers ────────────────────────────────────────────────────
 
-    private static async Task<string?> ReadCursorAsync(IStateStore state, CancellationToken ct)
+    private static async Task<string?> ReadCursorAsync(IStateStore state, string moduleName, CancellationToken ct)
     {
-        var raw = await state.ReadAsync(CursorKey, ct).ConfigureAwait(false);
+        var raw = await state.ReadAsync(CursorKeyFor(moduleName), ct).ConfigureAwait(false);
 
         if (raw is null)
             raw = await state.ReadAsync(PackagePaths.Checkpoints + "/Inventory.cursor.json", ct).ConfigureAwait(false);
@@ -552,10 +557,10 @@ internal sealed class InventoryOrchestrator : IInventoryOrchestrator
         return doc.RootElement.TryGetProperty("lastCompleted", out var el) ? el.GetString() : null;
     }
 
-    private static Task WriteCursorAsync(IStateStore state, string lastCompleted, CancellationToken ct)
+    private static Task WriteCursorAsync(IStateStore state, string moduleName, string lastCompleted, CancellationToken ct)
     {
         var json = JsonSerializer.Serialize(new { lastCompleted });
-        return state.WriteAsync(CursorKey, json, ct);
+        return state.WriteAsync(CursorKeyFor(moduleName), json, ct);
     }
 
     // ── CSV helpers ──────────────────────────────────────────────────────────

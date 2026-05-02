@@ -115,7 +115,7 @@ public sealed class InventoryDiscoveryModule : IModule
 
         // Load completed keys for resume support.
         var completedKeys = await InventoryOrchestrator.LoadCompletedKeysAsync(
-            context.ArtefactStore, context.StateStore, ct).ConfigureAwait(false);
+            context.ArtefactStore, context.StateStore, Name, ct).ConfigureAwait(false);
 
         // Get the event stream — single-endpoint fallback or multi-org.
         IAsyncEnumerable<InventoryProgressEvent> eventStream;
