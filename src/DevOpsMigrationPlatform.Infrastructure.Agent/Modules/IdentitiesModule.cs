@@ -1,8 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
-using System.Text.Json;
-using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
@@ -11,41 +8,24 @@ using DevOpsMigrationPlatform.Abstractions.Agent.Context;
 using DevOpsMigrationPlatform.Abstractions.Agent.Export;
 using DevOpsMigrationPlatform.Abstractions.Agent.Import;
 using DevOpsMigrationPlatform.Abstractions.Agent.Modules;
-using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Abstractions.Agent.Validation;
-using DevOpsMigrationPlatform.Abstractions.Telemetry;
+using DevOpsMigrationPlatform.Abstractions.Validation;
 #if !NET481
-using DevOpsMigrationPlatform.Infrastructure.Telemetry;
 using DevOpsMigrationPlatform.Abstractions.Agent.Telemetry;
 #endif
-using DevOpsMigrationPlatform.Abstractions.Validation;
-using DevOpsMigrationPlatform.Abstractions.Streaming;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Agent.Modules;
 
 /// <summary>
-/// <see cref="IModule"/> implementation for identity export/import.
-/// Exports identity descriptors from the source system to <c>Identities/descriptors.jsonl</c>
-/// and makes the mapping available to downstream modules via <see cref="IIdentityMappingService"/>.
+/// Thin <see cref="IModule"/> wrapper for identity export/import.
+/// Delegates all orchestration to <see cref="IdentitiesOrchestrator"/>, which handles
+/// JSONL streaming, checkpointing, progress events, and metrics.
 /// </summary>
 public sealed class IdentitiesModule : IModule
 {
-    private const string DescriptorsPath = "Identities/descriptors.jsonl";
-    private const string MappingPath = "Identities/mapping.json";
-    private const string UnresolvedPath = "Identities/unresolved.json";
-    private const string ModuleName = "Identities";
-
-    private static readonly ActivitySource s_activitySource = new(WellKnownActivitySourceNames.Migration);
-
-    private static readonly JsonSerializerOptions s_jsonOptions = new()
-    {
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
-    };
-
     private readonly IIdentitySource? _identitySource;
 #if !NET481
     private readonly IIdentityLookupTool? _identityLookupTool;
@@ -55,8 +35,9 @@ public sealed class IdentitiesModule : IModule
     private readonly ILogger<IdentitiesModule> _logger;
     private readonly IdentitiesModuleOptions _options;
     private readonly ISourceEndpointInfo _sourceEndpointInfo;
+    private readonly IdentitiesOrchestrator _orchestrator;
 
-    public string Name => ModuleName;
+    public string Name => "Identities";
     public IReadOnlyList<ModuleDependency> DependsOn => Array.Empty<ModuleDependency>();
     public bool SupportsExport => true;
     public bool SupportsImport => true;
@@ -81,6 +62,9 @@ public sealed class IdentitiesModule : IModule
 #if !NET481
         _identityLookupTool = identityLookupTool;
         _migrationMetrics = migrationMetrics;
+        _orchestrator = new IdentitiesOrchestrator(logger, migrationMetrics);
+#else
+        _orchestrator = new IdentitiesOrchestrator(logger);
 #endif
     }
 
@@ -99,107 +83,9 @@ public sealed class IdentitiesModule : IModule
             return;
         }
 
-        var job = context.Job;
-        var artefactStore = context.ArtefactStore;
-        var stateStore = context.StateStore;
-
-        var project = _sourceEndpointInfo.Project;
-
-        // Idempotency: skip if already completed.
-        if (_checkpointingFactory is not null)
-        {
-            var checkpointing = _checkpointingFactory.Create(stateStore);
-            var cursor = await checkpointing.ReadCursorAsync(ModuleName, ct).ConfigureAwait(false);
-            if (cursor?.Stage == CursorStage.Completed
-                && await artefactStore.ExistsAsync(DescriptorsPath, ct).ConfigureAwait(false))
-            {
-                _logger.LogInformation("[Identities] Already exported (cursor found) — skipping re-export.");
-                return;
-            }
-        }
-
-        using var activity = s_activitySource.StartActivity("identities.export");
-        activity?.SetTag("project", project);
-
-#if !NET481
-        using (_logger.BeginDataScope(DataClassification.Customer))
-#endif
-            _logger.LogInformation("[Identities] Starting identity export for project '{Project}'.", project);
-
-        var sink = context.ProgressSink;
-        sink?.Emit(new ProgressEvent
-        {
-            Module = ModuleName,
-            Stage = "Identities.Export.Started",
-            Message = $"Starting identity export for project '{project}'.",
-        });
-
-        var count = 0;
-#if !NET481
-        var exportTags = new TagList
-        {
-            { "module", "Identities" },
-            { "operation", "identities.export" }
-        };
-        _migrationMetrics?.IncrementIdentityExportInFlight(exportTags);
-#endif
-        var exportSw = System.Diagnostics.Stopwatch.StartNew();
-        try
-        {
-            await foreach (var descriptor in _identitySource.EnumerateIdentitiesAsync(project, ct).ConfigureAwait(false))
-            {
-                var line = JsonSerializer.Serialize(descriptor, s_jsonOptions);
-                await artefactStore.AppendAsync(DescriptorsPath, line + "\n", ct).ConfigureAwait(false);
-                count++;
-#if !NET481
-                _migrationMetrics?.RecordIdentityExportCount(exportTags);
-#endif
-            }
-        }
-        catch
-        {
-#if !NET481
-            _migrationMetrics?.RecordIdentityExportError(exportTags);
-#endif
-            throw;
-        }
-        finally
-        {
-            exportSw.Stop();
-#if !NET481
-            _migrationMetrics?.DecrementIdentityExportInFlight(exportTags);
-            _migrationMetrics?.RecordIdentityExportDuration(exportSw.Elapsed.TotalMilliseconds, exportTags);
-#endif
-        }
-
-        activity?.SetTag("identities.count", count);
-        _logger.LogInformation("[Identities] Exported {Count} identity descriptors to {Path}.", count, DescriptorsPath);
-        sink?.Emit(new ProgressEvent
-        {
-            Module = ModuleName,
-            Stage = "Identities.Export.Complete",
-            Message = $"Identity export complete — {count} descriptors exported.",
-            Metrics = new JobMetrics
-            {
-                Migration = new MigrationCounters
-                {
-                    Identities = new IdentitiesCounters { Exported = count }
-                }
-            }
-        });
-
-        // Write cursor after successful export.
-        if (_checkpointingFactory is not null)
-        {
-            var checkpointing = _checkpointingFactory.Create(stateStore);
-            await checkpointing.WriteCursorAsync(ModuleName, new CursorEntry
-            {
-                LastProcessed = DescriptorsPath,
-                Stage = CursorStage.Completed,
-                UpdatedAt = DateTimeOffset.UtcNow,
-                WorkItemsProcessed = count
-            }, ct).ConfigureAwait(false);
-        }
+        await _orchestrator.ExportAsync(
+            _identitySource, context, _sourceEndpointInfo.Project,
+            _checkpointingFactory, ct).ConfigureAwait(false);
     }
 
     /// <inheritdoc/>
@@ -216,152 +102,19 @@ public sealed class IdentitiesModule : IModule
             return;
         }
 
-        var artefactStore = context.ArtefactStore;
-
-        using var activity = s_activitySource.StartActivity("identities.import");
-
-        var importSink = context.ProgressSink;
-        importSink?.Emit(new ProgressEvent
-        {
-            Module = ModuleName,
-            Stage = "Identities.Import.Started",
-            Message = "Starting identity import.",
-        });
-
-        var descriptorsJson = await artefactStore.ReadAsync(DescriptorsPath, ct).ConfigureAwait(false);
-        if (descriptorsJson is null)
-        {
-            _logger.LogWarning("[Identities] {Path} not found in package — identity mapping will not be available.", DescriptorsPath);
-            return;
-        }
-
-        var importTags = new TagList
-        {
-            { "module", "Identities" },
-            { "operation", "identities.import" }
-        };
-        var importSw = System.Diagnostics.Stopwatch.StartNew();
-
-        if (_identityLookupTool is not null)
-        {
-            await _identityLookupTool.InitializeAsync(artefactStore, ct).ConfigureAwait(false);
-        }
-
-        var resolvedCount = CountLines(descriptorsJson);
-        for (int i = 0; i < resolvedCount; i++)
-            _migrationMetrics?.RecordIdentityImportResolved(importTags);
-
-        if (_identityLookupTool is not null)
-        {
-            await _identityLookupTool.WriteUnresolvedAsync(artefactStore, ct).ConfigureAwait(false);
-        }
-
-        importSw.Stop();
-        _migrationMetrics?.RecordIdentityImportDuration(importSw.Elapsed.TotalMilliseconds, importTags);
-
-        var hasMapping = await artefactStore.ExistsAsync(MappingPath, ct).ConfigureAwait(false);
-        _logger.LogInformation("[Identities] Identity import complete: {Resolved} resolved, mapping overrides: {HasMapping}.", resolvedCount, hasMapping);
-        importSink?.Emit(new ProgressEvent
-        {
-            Module = ModuleName,
-            Stage = "Identities.Import.Complete",
-            Message = $"Identity import complete — {resolvedCount} resolved.",
-        });
-
-        activity?.SetTag("identities.descriptor.resolved", resolvedCount);
-        activity?.SetTag("identities.has.mapping", hasMapping);
+        await _orchestrator.ImportAsync(
+            _identityLookupTool, context, _checkpointingFactory, ct).ConfigureAwait(false);
 #endif
     }
 
     /// <inheritdoc/>
     public async Task ValidateAsync(ValidationContext context, CancellationToken ct)
     {
-        var artefactStore = context.ArtefactStore;
+        await _orchestrator.ValidateAsync(
+            context.ArtefactStore, context,
 #if !NET481
-        var validateTags = new TagList
-        {
-            { "module", "Identities" },
-            { "operation", "identities.validate" }
-        };
+            _migrationMetrics,
 #endif
-
-        var exists = await artefactStore.ExistsAsync(DescriptorsPath, ct).ConfigureAwait(false);
-        if (!exists)
-        {
-            context.Errors.Add(new ValidationError
-            {
-                Path = DescriptorsPath,
-                Message = $"[Identities] Required file '{DescriptorsPath}' is missing from the package."
-            });
-#if !NET481
-            _migrationMetrics?.RecordIdentityValidateError(validateTags);
-#endif
-            return;
-        }
-
-        var content = await artefactStore.ReadAsync(DescriptorsPath, ct).ConfigureAwait(false);
-        if (content is null)
-        {
-            context.Errors.Add(new ValidationError
-            {
-                Path = DescriptorsPath,
-                Message = $"[Identities] File '{DescriptorsPath}' exists but could not be read."
-            });
-#if !NET481
-            _migrationMetrics?.RecordIdentityValidateError(validateTags);
-#endif
-            return;
-        }
-
-        var lineNumber = 0;
-        foreach (var line in content.Split(new[] { '\n' }, StringSplitOptions.RemoveEmptyEntries))
-        {
-            lineNumber++;
-            try
-            {
-                using var doc = JsonDocument.Parse(line);
-                var root = doc.RootElement;
-                if (!root.TryGetProperty("descriptor", out _) &&
-                    !root.TryGetProperty("Descriptor", out _))
-                {
-                    context.Errors.Add(new ValidationError
-                    {
-                        Path = DescriptorsPath,
-                        Message = $"[Identities] Line {lineNumber} in '{DescriptorsPath}' is missing required field 'descriptor'."
-                    });
-#if !NET481
-                    _migrationMetrics?.RecordIdentityValidateError(validateTags);
-#endif
-                }
-                else
-                {
-#if !NET481
-                    _migrationMetrics?.RecordIdentityValidateCount(validateTags);
-#endif
-                }
-            }
-            catch (JsonException ex)
-            {
-                context.Errors.Add(new ValidationError
-                {
-                    Path = DescriptorsPath,
-                    Message = $"[Identities] Line {lineNumber} in '{DescriptorsPath}' is malformed JSON: {ex.Message}"
-                });
-#if !NET481
-                _migrationMetrics?.RecordIdentityValidateError(validateTags);
-#endif
-            }
-        }
-    }
-
-    private static int CountLines(string content)
-    {
-        var count = 0;
-        foreach (var line in content.Split(new[] { '\n' }, StringSplitOptions.RemoveEmptyEntries))
-        {
-            if (!string.IsNullOrWhiteSpace(line))
-                count++;
-        }
-        return count;
+            ct).ConfigureAwait(false);
     }
 }
