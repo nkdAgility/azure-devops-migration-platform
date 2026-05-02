@@ -61,7 +61,7 @@ Or start from one of the [example scenarios](scenarios/) in this repo. A minimal
 ```json
 {
   "MigrationPlatform": {
-    "ConfigVersion": "1.0",
+    "ConfigVersion": "2.0",
     "Mode": "Export",
     "Source": {
       "Type": "AzureDevOpsServices",
@@ -181,14 +181,20 @@ See [docs/configuration.md](docs/configuration.md) for the full schema reference
 
 | Topic | Document |
 |---|---|
+| **Operator guide** (start here) | [docs/operator-guide.md](docs/operator-guide.md) |
 | Architecture & design decisions | [docs/architecture.md](docs/architecture.md) |
 | CLI commands & options | [docs/cli.md](docs/cli.md) |
 | Configuration schema | [docs/configuration.md](docs/configuration.md) |
 | Module architecture | [docs/modules.md](docs/modules.md) |
 | Source types & connectors | [docs/source-types.md](docs/source-types.md) |
 | Orchestration | [docs/orchestration.md](docs/orchestration.md) |
+| Control plane | [docs/control-plane.md](docs/control-plane.md) |
+| Migration agent | [docs/migration-agent.md](docs/migration-agent.md) |
+| Aspire integration | [docs/aspire-integration.md](docs/aspire-integration.md) |
 | Package format & manifest | [docs/packaging-zip.md](docs/packaging-zip.md) |
 | Validation | [docs/validation.md](docs/validation.md) |
+| Resilience patterns | [docs/resilience.md](docs/resilience.md) |
+| Terminal UI | [docs/tui.md](docs/tui.md) |
 
 ---
 
