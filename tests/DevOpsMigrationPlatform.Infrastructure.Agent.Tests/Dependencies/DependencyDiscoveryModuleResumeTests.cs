@@ -116,7 +116,7 @@ public class DependencyDiscoveryModuleResumeTests
         var sut = new DependencyDiscoveryModule(
             mockFactory.Object,
             NullLogger<DependencyDiscoveryModule>.Instance,
-            Mock.Of<IDependencyOrchestrator>());
+            new DependencyOrchestrator(NullLogger<DependencyOrchestrator>.Instance));
 
         var ctx = new ExportContext
         {
@@ -189,7 +189,7 @@ public class DependencyDiscoveryModuleResumeTests
         var sut = new DependencyDiscoveryModule(
             mockFactory.Object,
             NullLogger<DependencyDiscoveryModule>.Instance,
-            Mock.Of<IDependencyOrchestrator>());
+            new DependencyOrchestrator(NullLogger<DependencyOrchestrator>.Instance));
 
         var ctx = new ExportContext
         {
@@ -252,7 +252,7 @@ public class DependencyDiscoveryModuleResumeTests
         var sut = new DependencyDiscoveryModule(
             mockFactory.Object,
             NullLogger<DependencyDiscoveryModule>.Instance,
-            Mock.Of<IDependencyOrchestrator>());
+            new DependencyOrchestrator(NullLogger<DependencyOrchestrator>.Instance));
 
         var ctx = new ExportContext
         {
@@ -337,7 +337,7 @@ public class DependencyDiscoveryModuleResumeTests
         var sut = new DependencyDiscoveryModule(
             mockFactory.Object,
             NullLogger<DependencyDiscoveryModule>.Instance,
-            Mock.Of<IDependencyOrchestrator>(),
+            new DependencyOrchestrator(NullLogger<DependencyOrchestrator>.Instance),
             discoveryOptions: zeroIntervalOpts);
 
         var ctx = new ExportContext
@@ -524,7 +524,7 @@ public class DependencyDiscoveryModuleResumeTests
         var sut = new DependencyDiscoveryModule(
             mockFactory.Object,
             NullLogger<DependencyDiscoveryModule>.Instance,
-            Mock.Of<IDependencyOrchestrator>());
+            new DependencyOrchestrator(NullLogger<DependencyOrchestrator>.Instance));
 
         var ctx = new ExportContext
         {
@@ -616,7 +616,7 @@ public class DependencyDiscoveryModuleResumeTests
         var sut = new DependencyDiscoveryModule(
             mockFactory.Object,
             NullLogger<DependencyDiscoveryModule>.Instance,
-            Mock.Of<IDependencyOrchestrator>());
+            new DependencyOrchestrator(NullLogger<DependencyOrchestrator>.Instance));
 
         var ctx = new ExportContext
         {
