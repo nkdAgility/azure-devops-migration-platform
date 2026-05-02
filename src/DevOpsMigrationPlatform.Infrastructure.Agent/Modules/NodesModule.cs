@@ -11,9 +11,6 @@ using DevOpsMigrationPlatform.Abstractions.Agent.Modules;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Abstractions.Agent.Validation;
 using DevOpsMigrationPlatform.Abstractions.Validation;
-#if !NET481
-using DevOpsMigrationPlatform.Abstractions.Agent.Telemetry;
-#endif
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
@@ -32,14 +29,13 @@ public sealed class NodesModule : IModule
     private readonly IClassificationTreeCapture? _capture;
 #if !NET481
     private readonly INodeEnsurer? _nodeEnsurer;
-    private readonly IMigrationMetrics? _migrationMetrics;
     private readonly ITargetEndpointInfo _targetEndpointInfo;
 #endif
     private readonly ICheckpointingServiceFactory? _checkpointingFactory;
     private readonly ILogger<NodesModule> _logger;
     private readonly NodesModuleOptions _options;
     private readonly ISourceEndpointInfo _sourceEndpointInfo;
-    private readonly NodesOrchestrator _orchestrator;
+    private readonly INodesOrchestrator _orchestrator;
 
     public string Name => "Nodes";
     public IReadOnlyList<ModuleDependency> DependsOn => Array.Empty<ModuleDependency>();
@@ -50,28 +46,24 @@ public sealed class NodesModule : IModule
         ILogger<NodesModule> logger,
         IOptions<NodesModuleOptions> options,
         ISourceEndpointInfo sourceEndpointInfo,
+        INodesOrchestrator orchestrator,
         IClassificationTreeCapture? capture = null,
 #if !NET481
         ITargetEndpointInfo? targetEndpointInfo = null,
         INodeEnsurer? nodeEnsurer = null,
 #endif
-        ICheckpointingServiceFactory? checkpointingFactory = null
-#if !NET481
-        , IMigrationMetrics? migrationMetrics = null
-#endif
-        )
+        ICheckpointingServiceFactory? checkpointingFactory = null)
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _options = options?.Value ?? throw new ArgumentNullException(nameof(options));
         _sourceEndpointInfo = sourceEndpointInfo ?? throw new ArgumentNullException(nameof(sourceEndpointInfo));
+        _orchestrator = orchestrator ?? throw new ArgumentNullException(nameof(orchestrator));
         _capture = capture;
 #if !NET481
         _targetEndpointInfo = targetEndpointInfo ?? throw new ArgumentNullException(nameof(targetEndpointInfo));
         _nodeEnsurer = nodeEnsurer;
-        _migrationMetrics = migrationMetrics;
 #endif
         _checkpointingFactory = checkpointingFactory;
-        _orchestrator = new NodesOrchestrator(logger);
     }
 
     /// <inheritdoc/>
@@ -91,9 +83,6 @@ public sealed class NodesModule : IModule
 
         await _orchestrator.ExportAsync(
             _capture, context, _sourceEndpointInfo, _checkpointingFactory,
-#if !NET481
-            _migrationMetrics,
-#endif
             ct).ConfigureAwait(false);
     }
 
@@ -119,7 +108,7 @@ public sealed class NodesModule : IModule
 
         await _orchestrator.ImportAsync(
             _nodeEnsurer, context, _sourceEndpointInfo, _targetEndpointInfo,
-            _checkpointingFactory, _migrationMetrics, _options.ReplicateSourceTree, ct).ConfigureAwait(false);
+            _checkpointingFactory, _options.ReplicateSourceTree, ct).ConfigureAwait(false);
 #endif
     }
 
@@ -129,4 +118,3 @@ public sealed class NodesModule : IModule
         await _orchestrator.ValidateAsync(context.ArtefactStore, context, ct).ConfigureAwait(false);
     }
 }
-

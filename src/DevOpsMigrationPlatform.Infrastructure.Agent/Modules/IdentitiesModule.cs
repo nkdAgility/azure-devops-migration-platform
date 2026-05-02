@@ -11,9 +11,6 @@ using DevOpsMigrationPlatform.Abstractions.Agent.Modules;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Abstractions.Agent.Validation;
 using DevOpsMigrationPlatform.Abstractions.Validation;
-#if !NET481
-using DevOpsMigrationPlatform.Abstractions.Agent.Telemetry;
-#endif
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
@@ -29,13 +26,12 @@ public sealed class IdentitiesModule : IModule
     private readonly IIdentitySource? _identitySource;
 #if !NET481
     private readonly IIdentityLookupTool? _identityLookupTool;
-    private readonly IMigrationMetrics? _migrationMetrics;
 #endif
     private readonly ICheckpointingServiceFactory? _checkpointingFactory;
     private readonly ILogger<IdentitiesModule> _logger;
     private readonly IdentitiesModuleOptions _options;
     private readonly ISourceEndpointInfo _sourceEndpointInfo;
-    private readonly IdentitiesOrchestrator _orchestrator;
+    private readonly IIdentitiesOrchestrator _orchestrator;
 
     public string Name => "Identities";
     public IReadOnlyList<ModuleDependency> DependsOn => Array.Empty<ModuleDependency>();
@@ -46,25 +42,22 @@ public sealed class IdentitiesModule : IModule
         ILogger<IdentitiesModule> logger,
         IOptions<IdentitiesModuleOptions> options,
         ISourceEndpointInfo sourceEndpointInfo,
+        IIdentitiesOrchestrator orchestrator,
         IIdentitySource? identitySource = null,
         ICheckpointingServiceFactory? checkpointingFactory = null
 #if !NET481
         , IIdentityLookupTool? identityLookupTool = null
-        , IMigrationMetrics? migrationMetrics = null
 #endif
         )
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _options = options?.Value ?? throw new ArgumentNullException(nameof(options));
         _sourceEndpointInfo = sourceEndpointInfo ?? throw new ArgumentNullException(nameof(sourceEndpointInfo));
+        _orchestrator = orchestrator ?? throw new ArgumentNullException(nameof(orchestrator));
         _identitySource = identitySource;
         _checkpointingFactory = checkpointingFactory;
 #if !NET481
         _identityLookupTool = identityLookupTool;
-        _migrationMetrics = migrationMetrics;
-        _orchestrator = new IdentitiesOrchestrator(logger, migrationMetrics);
-#else
-        _orchestrator = new IdentitiesOrchestrator(logger);
 #endif
     }
 
@@ -112,9 +105,6 @@ public sealed class IdentitiesModule : IModule
     {
         await _orchestrator.ValidateAsync(
             context.ArtefactStore, context,
-#if !NET481
-            _migrationMetrics,
-#endif
             ct).ConfigureAwait(false);
     }
 }

@@ -23,7 +23,7 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Discovery;
 /// progress events, metrics, and snapshots. Both <c>InventoryModule</c> (single-source export)
 /// and <c>InventoryDiscoveryModule</c> (multi-org standalone) delegate to this orchestrator.
 /// </summary>
-internal sealed class InventoryOrchestrator
+internal sealed class InventoryOrchestrator : IInventoryOrchestrator
 {
     private static readonly string CursorKey = PackagePaths.CursorFile("InventoryDiscovery");
     private const string CsvOutputPath = "inventory.csv";
@@ -33,7 +33,7 @@ internal sealed class InventoryOrchestrator
     private readonly IDiscoveryMetrics? _metrics;
 
     public InventoryOrchestrator(
-        ILogger logger,
+        ILogger<InventoryOrchestrator> logger,
         IDiscoveryMetrics? metrics = null)
     {
         _logger = logger;
@@ -191,7 +191,7 @@ internal sealed class InventoryOrchestrator
                 if (currentOrg is not null)
                 {
                     orgSw.Stop();
-                    var orgCompleteTags = new TagList
+                    var orgCompleteTags = new MetricsTagList
                     {
                         { "job.id", job.JobId },
                         { "module", moduleName },
@@ -204,7 +204,7 @@ internal sealed class InventoryOrchestrator
                 currentOrg = evt.Url;
                 orgProjectCount = 0;
                 orgSw.Restart();
-                var orgStartTags = new TagList
+                var orgStartTags = new MetricsTagList
                 {
                     { "job.id", job.JobId },
                     { "module", moduleName },
@@ -225,7 +225,7 @@ internal sealed class InventoryOrchestrator
             orgList.Add((evt.ProjectName, evt.WorkItemsCount, evt.RevisionsCount, evt.ReposCount, evt.Error is null, evt.Error));
 
             projectSw.Stop();
-            var projectTags = new TagList
+            var projectTags = new MetricsTagList
             {
                 { "job.id", job.JobId },
                 { "module", moduleName },
@@ -281,7 +281,7 @@ internal sealed class InventoryOrchestrator
             {
                 await WriteCursorAsync(state, projectKey, ct).ConfigureAwait(false);
                 lastCheckpoint = DateTime.UtcNow;
-                metrics?.RecordCheckpointSaved(new TagList { { "job.id", job.JobId }, { "module", moduleName } });
+                metrics?.RecordCheckpointSaved(new MetricsTagList { { "job.id", job.JobId }, { "module", moduleName } });
                 using (DataClassificationScope.Begin(DataClassification.Customer))
                     _logger.LogDebug("Inventory checkpoint saved after project '{ProjectKey}'.", projectKey);
             }
@@ -291,7 +291,7 @@ internal sealed class InventoryOrchestrator
         if (currentOrg is not null)
         {
             orgSw.Stop();
-            var finalOrgTags = new TagList
+            var finalOrgTags = new MetricsTagList
             {
                 { "job.id", job.JobId },
                 { "module", moduleName },
@@ -312,7 +312,7 @@ internal sealed class InventoryOrchestrator
         PushSnapshot(snapshotStore, orgProjectData, organisations);
 
         jobSw.Stop();
-        metrics?.RecordJobDuration(jobSw.Elapsed.TotalMilliseconds, new TagList
+        metrics?.RecordJobDuration(jobSw.Elapsed.TotalMilliseconds, new MetricsTagList
         {
             { "job.id", job.JobId },
             { "module", moduleName }
@@ -606,3 +606,4 @@ internal sealed class InventoryOrchestrator
         });
     }
 }
+

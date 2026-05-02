@@ -1,132 +1,132 @@
-﻿using System.Diagnostics;
+﻿using DevOpsMigrationPlatform.Abstractions.Telemetry;
 
 namespace DevOpsMigrationPlatform.Abstractions.Agent.Telemetry;
 
 /// <summary>
 /// Unified recording contract for all migration OTel metric instruments.
-/// All methods accept a pre-built <see cref="TagList"/> carrying the mandatory
+/// All methods accept a pre-built <see cref="MetricsTagList"/> carrying the mandatory
 /// <c>job.id</c>, <c>operation</c>, and <c>module</c> dimension tags.
 /// </summary>
 public interface IMigrationMetrics
 {
     // --- Execution ---
-    void RecordWorkItemAttempted(in TagList tags);
-    void RecordWorkItemCompleted(in TagList tags);
-    void RecordWorkItemFailed(in TagList tags);
-    void RecordWorkItemRetried(in TagList tags);
-    void RecordWorkItemDuration(double milliseconds, in TagList tags);
+    void RecordWorkItemAttempted(MetricsTagList tags);
+    void RecordWorkItemCompleted(MetricsTagList tags);
+    void RecordWorkItemFailed(MetricsTagList tags);
+    void RecordWorkItemRetried(MetricsTagList tags);
+    void RecordWorkItemDuration(double milliseconds, MetricsTagList tags);
 
     // --- Payload / Complexity ---
-    void RecordFieldCount(int count, in TagList tags);
-    void RecordAttachmentCount(int count, in TagList tags);
-    void RecordAttachmentDownloadDuration(double milliseconds, in TagList tags);
-    void RecordAttachmentDownloadBytes(long bytes, in TagList tags);
-    void RecordLinkCount(int count, in TagList tags);
-    void RecordRevisionCount(int count, in TagList tags);
-    void RecordPayloadBytes(long bytes, in TagList tags);
+    void RecordFieldCount(int count, MetricsTagList tags);
+    void RecordAttachmentCount(int count, MetricsTagList tags);
+    void RecordAttachmentDownloadDuration(double milliseconds, MetricsTagList tags);
+    void RecordAttachmentDownloadBytes(long bytes, MetricsTagList tags);
+    void RecordLinkCount(int count, MetricsTagList tags);
+    void RecordRevisionCount(int count, MetricsTagList tags);
+    void RecordPayloadBytes(long bytes, MetricsTagList tags);
 
     // --- Correctness (Tier 3 only) ---
-    void RecordRevisionSourceCount(int count, in TagList tags);
-    void RecordRevisionTargetCount(int count, in TagList tags);
-    void RecordRevisionDelta(int delta, in TagList tags);
-    void RecordRevisionsMissing(in TagList tags);
-    void RecordRevisionOrderError(in TagList tags);
-    void RecordBrokenLink(in TagList tags);
-    void RecordMissingWorkItem(in TagList tags);
+    void RecordRevisionSourceCount(int count, MetricsTagList tags);
+    void RecordRevisionTargetCount(int count, MetricsTagList tags);
+    void RecordRevisionDelta(int delta, MetricsTagList tags);
+    void RecordRevisionsMissing(MetricsTagList tags);
+    void RecordRevisionOrderError(MetricsTagList tags);
+    void RecordBrokenLink(MetricsTagList tags);
+    void RecordMissingWorkItem(MetricsTagList tags);
 
     // --- In-Flight ---
-    void IncrementInFlight(in TagList tags);
-    void DecrementInFlight(in TagList tags);
+    void IncrementInFlight(MetricsTagList tags);
+    void DecrementInFlight(MetricsTagList tags);
 
     // --- FieldTransform ---
-    void RecordFieldTransformApplied(in TagList tags);
-    void RecordFieldTransformDuration(double milliseconds, in TagList tags);
-    void RecordFieldTransformError(in TagList tags);
-    void IncrementFieldTransformInFlight(in TagList tags);
-    void DecrementFieldTransformInFlight(in TagList tags);
-    void RecordFieldTransformFieldsModified(int count, in TagList tags);
+    void RecordFieldTransformApplied(MetricsTagList tags);
+    void RecordFieldTransformDuration(double milliseconds, MetricsTagList tags);
+    void RecordFieldTransformError(MetricsTagList tags);
+    void IncrementFieldTransformInFlight(MetricsTagList tags);
+    void DecrementFieldTransformInFlight(MetricsTagList tags);
+    void RecordFieldTransformFieldsModified(int count, MetricsTagList tags);
 
     // --- Idempotency (deferred — counters registered, not yet incremented in production) ---
-    void RecordDuplicated(in TagList tags);
-    void RecordChangedOnRerun(in TagList tags);
-    void RecordReprocessedAfterResume(in TagList tags);
-    void RecordDuplicatedAfterResume(in TagList tags);
-    void RecordMissingAfterResume(in TagList tags);
+    void RecordDuplicated(MetricsTagList tags);
+    void RecordChangedOnRerun(MetricsTagList tags);
+    void RecordReprocessedAfterResume(MetricsTagList tags);
+    void RecordDuplicatedAfterResume(MetricsTagList tags);
+    void RecordMissingAfterResume(MetricsTagList tags);
 
     // --- NodeTranslation Export ---
-    void RecordNodeExportTreeCount(int count, in TagList tags);
-    void RecordNodeExportTreeDuration(double milliseconds, in TagList tags);
-    void RecordNodeExportTreeError(in TagList tags);
+    void RecordNodeExportTreeCount(int count, MetricsTagList tags);
+    void RecordNodeExportTreeDuration(double milliseconds, MetricsTagList tags);
+    void RecordNodeExportTreeError(MetricsTagList tags);
 
     // --- NodeTranslation Translate ---
-    void RecordNodeTranslateCount(in TagList tags);
-    void RecordNodeTranslateMapHit(in TagList tags);
-    void RecordNodeTranslateAutoSwapHit(in TagList tags);
-    void RecordNodeTranslateExternal(in TagList tags);
-    void RecordNodeTranslateUnresolvable(in TagList tags);
+    void RecordNodeTranslateCount(MetricsTagList tags);
+    void RecordNodeTranslateMapHit(MetricsTagList tags);
+    void RecordNodeTranslateAutoSwapHit(MetricsTagList tags);
+    void RecordNodeTranslateExternal(MetricsTagList tags);
+    void RecordNodeTranslateUnresolvable(MetricsTagList tags);
 
     // --- NodeTranslation Import: Replicate ---
-    void RecordNodeImportReplicateCount(in TagList tags);
-    void RecordNodeImportReplicateAreaCount(in TagList tags);
-    void RecordNodeImportReplicateIterationCount(in TagList tags);
-    void RecordNodeImportReplicateDuration(double milliseconds, in TagList tags);
-    void RecordNodeImportReplicateError(in TagList tags);
-    void RecordNodeImportReplicateSkipped(in TagList tags);
-    void IncrementNodeImportReplicateInFlight(in TagList tags);
-    void DecrementNodeImportReplicateInFlight(in TagList tags);
+    void RecordNodeImportReplicateCount(MetricsTagList tags);
+    void RecordNodeImportReplicateAreaCount(MetricsTagList tags);
+    void RecordNodeImportReplicateIterationCount(MetricsTagList tags);
+    void RecordNodeImportReplicateDuration(double milliseconds, MetricsTagList tags);
+    void RecordNodeImportReplicateError(MetricsTagList tags);
+    void RecordNodeImportReplicateSkipped(MetricsTagList tags);
+    void IncrementNodeImportReplicateInFlight(MetricsTagList tags);
+    void DecrementNodeImportReplicateInFlight(MetricsTagList tags);
 
     // --- NodeTranslation Import: PreCollect ---
-    void RecordNodeImportPreCollectCount(in TagList tags);
-    void RecordNodeImportPreCollectDuration(double milliseconds, in TagList tags);
-    void RecordNodeImportPreCollectError(in TagList tags);
-    void IncrementNodeImportPreCollectInFlight(in TagList tags);
-    void DecrementNodeImportPreCollectInFlight(in TagList tags);
+    void RecordNodeImportPreCollectCount(MetricsTagList tags);
+    void RecordNodeImportPreCollectDuration(double milliseconds, MetricsTagList tags);
+    void RecordNodeImportPreCollectError(MetricsTagList tags);
+    void IncrementNodeImportPreCollectInFlight(MetricsTagList tags);
+    void DecrementNodeImportPreCollectInFlight(MetricsTagList tags);
 
     // --- Teams Export ---
-    void RecordTeamExportCount(in TagList tags);
-    void RecordTeamExportDuration(double milliseconds, in TagList tags);
-    void RecordTeamExportError(in TagList tags);
-    void IncrementTeamExportInFlight(in TagList tags);
-    void DecrementTeamExportInFlight(in TagList tags);
+    void RecordTeamExportCount(MetricsTagList tags);
+    void RecordTeamExportDuration(double milliseconds, MetricsTagList tags);
+    void RecordTeamExportError(MetricsTagList tags);
+    void IncrementTeamExportInFlight(MetricsTagList tags);
+    void DecrementTeamExportInFlight(MetricsTagList tags);
 
     // --- Teams Import ---
-    void RecordTeamImportCount(in TagList tags);
-    void RecordTeamImportDuration(double milliseconds, in TagList tags);
-    void RecordTeamImportError(in TagList tags);
-    void IncrementTeamImportInFlight(in TagList tags);
-    void DecrementTeamImportInFlight(in TagList tags);
-    void RecordTeamImportMemberCount(in TagList tags);
-    void RecordTeamImportMemberUnresolved(in TagList tags);
-    void RecordTeamImportIterationCount(in TagList tags);
-    void RecordTeamImportIterationUnresolvable(in TagList tags);
-    void RecordTeamImportCapacityCount(in TagList tags);
-    void RecordTeamImportExtensionDuration(double milliseconds, in TagList tags);
+    void RecordTeamImportCount(MetricsTagList tags);
+    void RecordTeamImportDuration(double milliseconds, MetricsTagList tags);
+    void RecordTeamImportError(MetricsTagList tags);
+    void IncrementTeamImportInFlight(MetricsTagList tags);
+    void DecrementTeamImportInFlight(MetricsTagList tags);
+    void RecordTeamImportMemberCount(MetricsTagList tags);
+    void RecordTeamImportMemberUnresolved(MetricsTagList tags);
+    void RecordTeamImportIterationCount(MetricsTagList tags);
+    void RecordTeamImportIterationUnresolvable(MetricsTagList tags);
+    void RecordTeamImportCapacityCount(MetricsTagList tags);
+    void RecordTeamImportExtensionDuration(double milliseconds, MetricsTagList tags);
 
     // --- Teams Validate ---
-    void RecordTeamValidateCount(in TagList tags);
-    void RecordTeamValidateError(in TagList tags);
+    void RecordTeamValidateCount(MetricsTagList tags);
+    void RecordTeamValidateError(MetricsTagList tags);
 
     // --- Identities Export ---
-    void RecordIdentityExportCount(in TagList tags);
-    void RecordIdentityExportDuration(double milliseconds, in TagList tags);
-    void RecordIdentityExportError(in TagList tags);
-    void IncrementIdentityExportInFlight(in TagList tags);
-    void DecrementIdentityExportInFlight(in TagList tags);
+    void RecordIdentityExportCount(MetricsTagList tags);
+    void RecordIdentityExportDuration(double milliseconds, MetricsTagList tags);
+    void RecordIdentityExportError(MetricsTagList tags);
+    void IncrementIdentityExportInFlight(MetricsTagList tags);
+    void DecrementIdentityExportInFlight(MetricsTagList tags);
 
     // --- Identities Import ---
-    void RecordIdentityImportResolved(in TagList tags);
-    void RecordIdentityImportUnresolved(in TagList tags);
-    void RecordIdentityImportDuration(double milliseconds, in TagList tags);
-    void RecordIdentityImportError(in TagList tags);
+    void RecordIdentityImportResolved(MetricsTagList tags);
+    void RecordIdentityImportUnresolved(MetricsTagList tags);
+    void RecordIdentityImportDuration(double milliseconds, MetricsTagList tags);
+    void RecordIdentityImportError(MetricsTagList tags);
 
     // --- Identities Validate ---
-    void RecordIdentityValidateCount(in TagList tags);
-    void RecordIdentityValidateError(in TagList tags);
+    void RecordIdentityValidateCount(MetricsTagList tags);
+    void RecordIdentityValidateError(MetricsTagList tags);
 
     // --- Package Config (feature 025-agent-config-package) ---
-    void RecordConfigWriteCompleted(in TagList tags);
-    void RecordConfigWriteError(in TagList tags);
-    void RecordConfigReadCompleted(in TagList tags);
-    void RecordConfigReadError(in TagList tags);
-    void RecordConfigReadFallback(in TagList tags);
+    void RecordConfigWriteCompleted(MetricsTagList tags);
+    void RecordConfigWriteError(MetricsTagList tags);
+    void RecordConfigReadCompleted(MetricsTagList tags);
+    void RecordConfigReadError(MetricsTagList tags);
+    void RecordConfigReadFallback(MetricsTagList tags);
 }

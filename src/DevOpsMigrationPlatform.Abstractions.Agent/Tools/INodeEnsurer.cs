@@ -1,4 +1,3 @@
-#if !NET481
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
@@ -34,4 +33,3 @@ public interface INodeEnsurer
         IMigrationMetrics? metrics = null,
         string? jobId = null);
 }
-#endif

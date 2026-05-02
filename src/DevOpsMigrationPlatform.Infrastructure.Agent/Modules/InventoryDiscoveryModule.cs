@@ -6,6 +6,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Agent.Context;
+using DevOpsMigrationPlatform.Abstractions.Agent.Discovery;
 using DevOpsMigrationPlatform.Abstractions.Agent.Export;
 using DevOpsMigrationPlatform.Abstractions.Agent.Import;
 using DevOpsMigrationPlatform.Abstractions.Agent.Modules;
@@ -36,6 +37,7 @@ public sealed class InventoryDiscoveryModule : IModule
     private readonly IOptions<DiscoveryOptions>? _discoveryOptions;
     private readonly ISourceEndpointInfo? _sourceEndpointInfo;
     private readonly IServiceProvider _serviceProvider;
+    private readonly IInventoryOrchestrator _orchestrator;
 
     public string Name => "InventoryDiscovery";
     public IReadOnlyList<ModuleDependency> DependsOn => Array.Empty<ModuleDependency>();
@@ -46,6 +48,7 @@ public sealed class InventoryDiscoveryModule : IModule
         IInventoryServiceFactory inventoryFactory,
         IServiceProvider serviceProvider,
         ILogger<InventoryDiscoveryModule> logger,
+        IInventoryOrchestrator orchestrator,
         IDiscoveryMetrics? metrics = null,
         IOptions<DiscoveryOptions>? discoveryOptions = null,
         ISourceEndpointInfo? sourceEndpointInfo = null)
@@ -53,6 +56,7 @@ public sealed class InventoryDiscoveryModule : IModule
         _inventoryFactory = inventoryFactory;
         _serviceProvider = serviceProvider;
         _logger = logger;
+        _orchestrator = orchestrator ?? throw new ArgumentNullException(nameof(orchestrator));
         _metrics = metrics;
         _discoveryOptions = discoveryOptions;
         _sourceEndpointInfo = sourceEndpointInfo;
@@ -127,8 +131,7 @@ public sealed class InventoryDiscoveryModule : IModule
 
         // Delegate all orchestration to the shared orchestrator.
         var checkpointInterval = _discoveryOptions?.Value?.Policies?.Checkpoints?.Interval ?? 300;
-        var orchestrator = new InventoryOrchestrator(_logger, _metrics);
-        await orchestrator.RunAsync(
+        await _orchestrator.RunAsync(
             Name,
             eventStream,
             context,

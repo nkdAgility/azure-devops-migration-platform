@@ -1,4 +1,3 @@
-﻿#if !NET481
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -7,6 +6,7 @@ using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Telemetry;
 using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
 using DevOpsMigrationPlatform.Abstractions.Agent.Telemetry;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
@@ -59,7 +59,7 @@ public sealed class ClassificationTreeCapture : IClassificationTreeCapture
         using var activity = s_activitySource.StartActivity("nodes.export.tree");
         var sw = Stopwatch.StartNew();
 
-        var tags = MigrationTagList.Create(jobId ?? string.Empty, "export", "NodeTranslation");
+        var tags = MetricsTagList.Create(jobId ?? string.Empty, "export", "NodeTranslation");
         var areaNodes = new List<string>();
         var iterationNodes = new List<IterationNodeEntry>();
 
@@ -106,4 +106,4 @@ public sealed class ClassificationTreeCapture : IClassificationTreeCapture
         }
     }
 }
-#endif
+

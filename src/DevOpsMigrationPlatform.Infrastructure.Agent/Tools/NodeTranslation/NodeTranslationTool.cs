@@ -1,4 +1,4 @@
-﻿#if !NET481
+#if !NET481
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -52,7 +52,7 @@ public sealed class NodeTranslationTool : INodeTranslationTool
         using var activity = s_activitySource.StartActivity("nodes.translate");
         var path = sourcePathValue.Trim();
 
-        var tags = new TagList
+        var tags = new MetricsTagList
         {
             { WellKnownTagNames.Module, "Nodes" },
             { WellKnownTagNames.Operation, "nodes.translate" }
@@ -146,3 +146,4 @@ public sealed class NodeTranslationTool : INodeTranslationTool
         => string.Equals(fieldName, "System.AreaPath", StringComparison.OrdinalIgnoreCase);
 }
 #endif
+

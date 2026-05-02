@@ -34,6 +34,7 @@ public sealed class InventoryModule : IModule
     private readonly IServiceProvider _serviceProvider;
     private readonly ILogger<InventoryModule> _logger;
     private readonly IDiscoveryMetrics? _metrics;
+    private readonly IInventoryOrchestrator _orchestrator;
 
     public string Name => "Inventory";
     public IReadOnlyList<ModuleDependency> DependsOn => Array.Empty<ModuleDependency>();
@@ -45,12 +46,14 @@ public sealed class InventoryModule : IModule
         IInventoryServiceFactory inventoryFactory,
         IServiceProvider serviceProvider,
         ILogger<InventoryModule> logger,
+        IInventoryOrchestrator orchestrator,
         IDiscoveryMetrics? metrics = null)
     {
         _sourceEndpointInfo = sourceEndpointInfo;
         _inventoryFactory = inventoryFactory;
         _serviceProvider = serviceProvider;
         _logger = logger;
+        _orchestrator = orchestrator ?? throw new ArgumentNullException(nameof(orchestrator));
         _metrics = metrics;
     }
 
@@ -85,8 +88,7 @@ public sealed class InventoryModule : IModule
             endpoint, projects: null, completedKeys, ct);
 
         // Delegate all orchestration to the shared orchestrator.
-        var orchestrator = new InventoryOrchestrator(_logger, _metrics);
-        await orchestrator.RunAsync(
+        await _orchestrator.RunAsync(
             Name,
             eventStream,
             context,

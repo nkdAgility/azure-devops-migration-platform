@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -10,6 +11,7 @@ using DevOpsMigrationPlatform.Abstractions.Agent.Context;
 using DevOpsMigrationPlatform.Abstractions.Agent.Export;
 using DevOpsMigrationPlatform.Abstractions.Agent.Import;
 using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
+using DevOpsMigrationPlatform.Abstractions.Agent.Telemetry;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Abstractions.Agent.Validation;
 using DevOpsMigrationPlatform.Abstractions.Telemetry;
@@ -17,7 +19,6 @@ using DevOpsMigrationPlatform.Abstractions.Streaming;
 using DevOpsMigrationPlatform.Abstractions.Validation;
 #if !NET481
 using DevOpsMigrationPlatform.Infrastructure.Telemetry;
-using DevOpsMigrationPlatform.Abstractions.Agent.Telemetry;
 #endif
 using Microsoft.Extensions.Logging;
 
@@ -29,7 +30,7 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Modules;
 /// the actual identity enumeration to <see cref="IIdentitySource"/> and mapping to
 /// <see cref="IIdentityLookupTool"/>.
 /// </summary>
-internal sealed class IdentitiesOrchestrator
+internal sealed class IdentitiesOrchestrator : IIdentitiesOrchestrator
 {
     private const string DescriptorsPath = "Identities/descriptors.jsonl";
     private const string MappingPath = "Identities/mapping.json";
@@ -44,21 +45,14 @@ internal sealed class IdentitiesOrchestrator
     };
 
     private readonly ILogger _logger;
-#if !NET481
     private readonly IMigrationMetrics? _migrationMetrics;
-#endif
 
     public IdentitiesOrchestrator(
-        ILogger logger
-#if !NET481
-        , IMigrationMetrics? migrationMetrics = null
-#endif
-        )
+        ILogger<IdentitiesOrchestrator> logger,
+        IMigrationMetrics? migrationMetrics = null)
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
-#if !NET481
         _migrationMetrics = migrationMetrics;
-#endif
     }
 
     /// <summary>
@@ -105,14 +99,12 @@ internal sealed class IdentitiesOrchestrator
         });
 
         var count = 0;
-#if !NET481
-        var exportTags = new TagList
+        var exportTags = new MetricsTagList
         {
-            { "module", "Identities" },
-            { "operation", "identities.export" }
+            new("module", "Identities"),
+            new("operation", "identities.export")
         };
         _migrationMetrics?.IncrementIdentityExportInFlight(exportTags);
-#endif
         var exportSw = Stopwatch.StartNew();
         try
         {
@@ -121,25 +113,19 @@ internal sealed class IdentitiesOrchestrator
                 var line = JsonSerializer.Serialize(descriptor, s_jsonOptions);
                 await artefactStore.AppendAsync(DescriptorsPath, line + "\n", ct).ConfigureAwait(false);
                 count++;
-#if !NET481
                 _migrationMetrics?.RecordIdentityExportCount(exportTags);
-#endif
             }
         }
         catch
         {
-#if !NET481
             _migrationMetrics?.RecordIdentityExportError(exportTags);
-#endif
             throw;
         }
         finally
         {
             exportSw.Stop();
-#if !NET481
             _migrationMetrics?.DecrementIdentityExportInFlight(exportTags);
             _migrationMetrics?.RecordIdentityExportDuration(exportSw.Elapsed.TotalMilliseconds, exportTags);
-#endif
         }
 
         activity?.SetTag("identities.count", count);
@@ -202,7 +188,7 @@ internal sealed class IdentitiesOrchestrator
             return;
         }
 
-        var importTags = new TagList
+        var importTags = new MetricsTagList
         {
             { "module", "Identities" },
             { "operation", "identities.import" }
@@ -247,18 +233,13 @@ internal sealed class IdentitiesOrchestrator
     public async Task ValidateAsync(
         IArtefactStore artefactStore,
         ValidationContext context,
-#if !NET481
-        IMigrationMetrics? migrationMetrics,
-#endif
         CancellationToken ct)
     {
-#if !NET481
-        var validateTags = new TagList
+        var validateTags = new MetricsTagList
         {
-            { "module", "Identities" },
-            { "operation", "identities.validate" }
+            new("module", "Identities"),
+            new("operation", "identities.validate")
         };
-#endif
 
         var exists = await artefactStore.ExistsAsync(DescriptorsPath, ct).ConfigureAwait(false);
         if (!exists)
@@ -268,9 +249,7 @@ internal sealed class IdentitiesOrchestrator
                 Path = DescriptorsPath,
                 Message = $"[Identities] Required file '{DescriptorsPath}' is missing from the package."
             });
-#if !NET481
-            migrationMetrics?.RecordIdentityValidateError(validateTags);
-#endif
+            _migrationMetrics?.RecordIdentityValidateError(validateTags);
             return;
         }
 
@@ -282,9 +261,7 @@ internal sealed class IdentitiesOrchestrator
                 Path = DescriptorsPath,
                 Message = $"[Identities] File '{DescriptorsPath}' exists but could not be read."
             });
-#if !NET481
-            migrationMetrics?.RecordIdentityValidateError(validateTags);
-#endif
+            _migrationMetrics?.RecordIdentityValidateError(validateTags);
             return;
         }
 
@@ -304,15 +281,11 @@ internal sealed class IdentitiesOrchestrator
                         Path = DescriptorsPath,
                         Message = $"[Identities] Line {lineNumber} in '{DescriptorsPath}' is missing required field 'descriptor'."
                     });
-#if !NET481
-                    migrationMetrics?.RecordIdentityValidateError(validateTags);
-#endif
+                    _migrationMetrics?.RecordIdentityValidateError(validateTags);
                 }
                 else
                 {
-#if !NET481
-                    migrationMetrics?.RecordIdentityValidateCount(validateTags);
-#endif
+                    _migrationMetrics?.RecordIdentityValidateCount(validateTags);
                 }
             }
             catch (JsonException ex)
@@ -322,9 +295,7 @@ internal sealed class IdentitiesOrchestrator
                     Path = DescriptorsPath,
                     Message = $"[Identities] Line {lineNumber} in '{DescriptorsPath}' is malformed JSON: {ex.Message}"
                 });
-#if !NET481
-                migrationMetrics?.RecordIdentityValidateError(validateTags);
-#endif
+                _migrationMetrics?.RecordIdentityValidateError(validateTags);
             }
         }
     }
@@ -340,3 +311,4 @@ internal sealed class IdentitiesOrchestrator
         return count;
     }
 }
+

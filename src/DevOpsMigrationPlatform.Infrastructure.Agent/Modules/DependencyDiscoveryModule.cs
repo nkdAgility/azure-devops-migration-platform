@@ -20,7 +20,7 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Modules;
 /// <summary>
 /// Dependency analysis module that discovers cross-project and cross-organisation work item links.
 /// Thin wrapper that resolves configuration, creates the service, and delegates all orchestration
-/// logic to <see cref="DependencyDiscoveryOrchestrator"/>.
+/// logic to <see cref="DependencyOrchestrator"/>.
 /// <para>
 /// <strong>Module contract:</strong> Implements <see cref="IModule.ExportAsync"/> to perform
 /// dependency discovery. Import and validation are not supported.
@@ -33,7 +33,7 @@ public sealed class DependencyDiscoveryModule : IModule
     private readonly ILogger<DependencyDiscoveryModule> _logger;
     private readonly IDiscoveryMetrics? _metrics;
     private readonly IOptions<DiscoveryOptions>? _discoveryOptions;
-    private readonly DependencyDiscoveryOrchestrator _orchestrator;
+    private readonly IDependencyOrchestrator _orchestrator;
 
     public string Name => "Dependencies";
     public IReadOnlyList<ModuleDependency> DependsOn => Array.Empty<ModuleDependency>();
@@ -43,14 +43,15 @@ public sealed class DependencyDiscoveryModule : IModule
     public DependencyDiscoveryModule(
         IDependencyDiscoveryServiceFactory dependencyFactory,
         ILogger<DependencyDiscoveryModule> logger,
+        IDependencyOrchestrator orchestrator,
         IDiscoveryMetrics? metrics = null,
         IOptions<DiscoveryOptions>? discoveryOptions = null)
     {
         _dependencyFactory = dependencyFactory;
         _logger = logger;
+        _orchestrator = orchestrator ?? throw new ArgumentNullException(nameof(orchestrator));
         _metrics = metrics;
         _discoveryOptions = discoveryOptions;
-        _orchestrator = new DependencyDiscoveryOrchestrator(logger, metrics);
     }
 
     /// <summary>
@@ -101,5 +102,5 @@ public sealed class DependencyDiscoveryModule : IModule
 
     // Expose static helpers for backward compatibility with tests that reference them directly.
     internal static string StripCsvRowsForProject(string csvContent, string orgUrl, string projectName, out int strippedCount)
-        => DependencyDiscoveryOrchestrator.StripCsvRowsForProject(csvContent, orgUrl, projectName, out strippedCount);
+        => DependencyOrchestrator.StripCsvRowsForProject(csvContent, orgUrl, projectName, out strippedCount);
 }

@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.Diagnostics.Metrics;
 using System.Linq;
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Telemetry;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Telemetry;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
@@ -40,8 +41,8 @@ public class MigrationMetricsTests
     [TestCleanup]
     public void Cleanup() => _listener.Dispose();
 
-    private static TagList CreateTestTags() =>
-        MigrationTagList.Create("test-job-1", "export", "workitems");
+    private static MetricsTagList CreateTestTags() =>
+        MetricsTagList.Create("test-job-1", "export", "workitems");
 
     // --- Execution ---
 
@@ -336,3 +337,4 @@ public class MigrationMetricsTests
     }
 }
 #endif
+

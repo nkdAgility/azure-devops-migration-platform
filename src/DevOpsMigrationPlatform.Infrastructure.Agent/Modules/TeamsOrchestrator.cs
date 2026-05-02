@@ -11,6 +11,7 @@ using DevOpsMigrationPlatform.Abstractions.Agent.Checkpointing;
 using DevOpsMigrationPlatform.Abstractions.Agent.Context;
 using DevOpsMigrationPlatform.Abstractions.Agent.Export;
 using DevOpsMigrationPlatform.Abstractions.Agent.Import;
+using DevOpsMigrationPlatform.Abstractions.Agent.Modules;
 using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
 using DevOpsMigrationPlatform.Abstractions.Agent.Teams;
 using DevOpsMigrationPlatform.Abstractions.Agent.Telemetry;
@@ -30,7 +31,7 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Modules;
 /// Handles the enumeration loop, checkpointing, progress events, and metrics — delegates
 /// per-team operations to <see cref="TeamExportOrchestrator"/> and <see cref="TeamImportOrchestrator"/>.
 /// </summary>
-internal sealed class TeamsOrchestrator
+internal sealed class TeamsOrchestrator : ITeamsOrchestrator
 {
     private const string ModuleName = "Teams";
 
@@ -45,11 +46,22 @@ internal sealed class TeamsOrchestrator
 
     private readonly ILogger _logger;
     private readonly IMigrationMetrics? _migrationMetrics;
+    private readonly TeamExportOrchestrator? _exportOrchestrator;
+    private readonly TeamImportOrchestrator? _importOrchestrator;
+    private readonly TeamSlugGenerator? _slugGenerator;
 
-    public TeamsOrchestrator(ILogger logger, IMigrationMetrics? migrationMetrics = null)
+    public TeamsOrchestrator(
+        ILogger<TeamsOrchestrator> logger,
+        IMigrationMetrics? migrationMetrics = null,
+        TeamExportOrchestrator? exportOrchestrator = null,
+        TeamImportOrchestrator? importOrchestrator = null,
+        TeamSlugGenerator? slugGenerator = null)
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _migrationMetrics = migrationMetrics;
+        _exportOrchestrator = exportOrchestrator;
+        _importOrchestrator = importOrchestrator;
+        _slugGenerator = slugGenerator;
     }
 
     /// <summary>
@@ -58,14 +70,23 @@ internal sealed class TeamsOrchestrator
     /// </summary>
     public async Task ExportAsync(
         ITeamSource teamSource,
-        TeamExportOrchestrator exportOrchestrator,
-        TeamSlugGenerator slugGenerator,
         ExportContext context,
         ISourceEndpointInfo sourceEndpointInfo,
         ICheckpointingServiceFactory? checkpointingFactory,
         TeamsModuleOptions options,
         CancellationToken ct)
     {
+        if (_exportOrchestrator is null)
+        {
+            _logger.LogWarning("[Teams] No TeamExportOrchestrator available — team export skipped.");
+            return;
+        }
+
+        if (_slugGenerator is null)
+        {
+            _logger.LogWarning("[Teams] No TeamSlugGenerator available — team export skipped.");
+            return;
+        }
         using var activity = s_activitySource.StartActivity("teams.export");
 
         var artefactStore = context.ArtefactStore;
@@ -102,7 +123,7 @@ internal sealed class TeamsOrchestrator
                 continue;
             }
 
-            var slug = slugGenerator.GenerateSlug(team.Name);
+            var slug = _slugGenerator.GenerateSlug(team.Name);
             var artifactPath = $"Teams/{slug}/team.json";
 
             if (!options.AlwaysExport
@@ -114,7 +135,7 @@ internal sealed class TeamsOrchestrator
                 continue;
             }
 
-            var exportTags = new TagList
+            var exportTags = new MetricsTagList
             {
                 { "module", "Teams" },
                 { "operation", "teams.export" }
@@ -123,7 +144,7 @@ internal sealed class TeamsOrchestrator
             var exportSw = Stopwatch.StartNew();
             try
             {
-                await exportOrchestrator.ExportTeamAsync(
+                await _exportOrchestrator.ExportTeamAsync(
                     projectName, team, slug, artefactStore, options.Extensions, ct).ConfigureAwait(false);
 
                 count++;
@@ -186,7 +207,6 @@ internal sealed class TeamsOrchestrator
     /// Writes checkpoint on completion.
     /// </summary>
     public async Task ImportAsync(
-        TeamImportOrchestrator importOrchestrator,
         ImportContext context,
         ISourceEndpointInfo sourceEndpointInfo,
         ITargetEndpointInfo targetEndpointInfo,
@@ -194,6 +214,11 @@ internal sealed class TeamsOrchestrator
         TeamsModuleOptions options,
         CancellationToken ct)
     {
+        if (_importOrchestrator is null)
+        {
+            _logger.LogWarning("[Teams] No TeamImportOrchestrator available — team import skipped.");
+            return;
+        }
         using var activity = s_activitySource.StartActivity("teams.import");
 
         var artefactStore = context.ArtefactStore;
@@ -241,7 +266,7 @@ internal sealed class TeamsOrchestrator
                 continue;
             }
 
-            var importTags = new TagList
+            var importTags = new MetricsTagList
             {
                 { "module", "Teams" },
                 { "operation", "teams.import" }
@@ -250,7 +275,7 @@ internal sealed class TeamsOrchestrator
             var importSw = Stopwatch.StartNew();
             try
             {
-                await importOrchestrator.ImportTeamAsync(
+                await _importOrchestrator.ImportTeamAsync(
                     projectName, sourceProjectName, teamPackage, options.Extensions, ct).ConfigureAwait(false);
 
                 count++;
@@ -307,7 +332,7 @@ internal sealed class TeamsOrchestrator
         CancellationToken ct)
     {
         var teamCount = 0;
-        var validateTags = new TagList
+        var validateTags = new MetricsTagList
         {
             { "module", "Teams" },
             { "operation", "teams.validate" }
@@ -372,3 +397,4 @@ internal sealed class TeamsOrchestrator
     }
 }
 #endif
+

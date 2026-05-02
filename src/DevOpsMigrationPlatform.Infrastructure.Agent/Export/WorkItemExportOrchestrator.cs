@@ -291,9 +291,7 @@ public sealed class WorkItemExportOrchestrator
             var revisionStopwatch = Stopwatch.StartNew();
             double lastRevisionDurationMs = 0;
             double totalRevisionDurationMs = 0;
-            TagList exportTags = _metrics != null
-                ? MigrationTagList.Create(_jobId ?? "not-set", "export", "workitems")
-                : default;
+            var exportTags = MetricsTagList.Create(_jobId ?? "not-set", "export", "workitems");
             int revisionsForCurrentWorkItem = 0;
 
             // Delta detection: track download URLs from the previous revision to skip
@@ -1005,4 +1003,5 @@ public sealed class WorkItemExportOrchestrator
             _ => $"{bytes} B"
         };
 }
+
 

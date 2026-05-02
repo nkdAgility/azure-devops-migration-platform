@@ -1,4 +1,4 @@
-﻿#if !NET481
+#if !NET481
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -7,6 +7,7 @@ using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Telemetry;
 using DevOpsMigrationPlatform.Abstractions.Agent.Context;
 using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
 using DevOpsMigrationPlatform.Abstractions.Agent.Telemetry;
@@ -84,7 +85,7 @@ public sealed class NodeEnsurer : INodeEnsurer
         using var activity = s_activitySource.StartActivity("nodes.import.replicate");
         var sw = Stopwatch.StartNew();
         int count = 0, skipped = 0, errors = 0;
-        var tags = MigrationTagList.Create(jobId ?? string.Empty, "import", "NodeTranslation");
+        var tags = MetricsTagList.Create(jobId ?? string.Empty, "import", "NodeTranslation");
 
         metrics?.IncrementNodeImportReplicateInFlight(tags);
         try
@@ -213,7 +214,7 @@ public sealed class NodeEnsurer : INodeEnsurer
         using var activity = s_activitySource.StartActivity("nodes.import.precollect");
         var sw = Stopwatch.StartNew();
         int count = 0;
-        var tags = MigrationTagList.Create(jobId ?? string.Empty, "import", "NodeTranslation");
+        var tags = MetricsTagList.Create(jobId ?? string.Empty, "import", "NodeTranslation");
 
         metrics?.IncrementNodeImportPreCollectInFlight(tags);
         try
@@ -281,3 +282,4 @@ public sealed class NodeEnsurer : INodeEnsurer
     }
 }
 #endif
+

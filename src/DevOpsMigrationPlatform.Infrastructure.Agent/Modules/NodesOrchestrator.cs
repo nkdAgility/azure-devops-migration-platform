@@ -7,15 +7,14 @@ using DevOpsMigrationPlatform.Abstractions.Agent.Checkpointing;
 using DevOpsMigrationPlatform.Abstractions.Agent.Context;
 using DevOpsMigrationPlatform.Abstractions.Agent.Export;
 using DevOpsMigrationPlatform.Abstractions.Agent.Import;
+using DevOpsMigrationPlatform.Abstractions.Agent.Modules;
 using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
+using DevOpsMigrationPlatform.Abstractions.Agent.Telemetry;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Abstractions.Agent.Validation;
 using DevOpsMigrationPlatform.Abstractions.Streaming;
 using DevOpsMigrationPlatform.Abstractions.Telemetry;
 using DevOpsMigrationPlatform.Abstractions.Validation;
-#if !NET481
-using DevOpsMigrationPlatform.Abstractions.Agent.Telemetry;
-#endif
 using Microsoft.Extensions.Logging;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Agent.Modules;
@@ -26,7 +25,7 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Modules;
 /// tree capture to <see cref="IClassificationTreeCapture"/> and node replication
 /// to <see cref="INodeEnsurer"/>.
 /// </summary>
-internal sealed class NodesOrchestrator
+internal sealed class NodesOrchestrator : INodesOrchestrator
 {
     private const string SourceTreePath = "Nodes/source-tree.json";
     private const string ModuleName = "Nodes";
@@ -34,10 +33,21 @@ internal sealed class NodesOrchestrator
     private static readonly ActivitySource s_activitySource = new(WellKnownActivitySourceNames.Migration);
 
     private readonly ILogger _logger;
+#if !NET481
+    private readonly IMigrationMetrics? _migrationMetrics;
+#endif
 
-    public NodesOrchestrator(ILogger logger)
+    public NodesOrchestrator(
+        ILogger<NodesOrchestrator> logger
+#if !NET481
+        , IMigrationMetrics? migrationMetrics = null
+#endif
+    )
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+#if !NET481
+        _migrationMetrics = migrationMetrics;
+#endif
     }
 
     /// <summary>
@@ -49,9 +59,6 @@ internal sealed class NodesOrchestrator
         ExportContext context,
         ISourceEndpointInfo sourceEndpointInfo,
         ICheckpointingServiceFactory? checkpointingFactory,
-#if !NET481
-        IMigrationMetrics? migrationMetrics,
-#endif
         CancellationToken ct)
     {
         using var activity = s_activitySource.StartActivity("nodes.export");
@@ -78,10 +85,13 @@ internal sealed class NodesOrchestrator
         }
 
         var nodeCount = await capture.CaptureAsync(
-            context.ArtefactStore, ct
+            context.ArtefactStore, ct,
 #if !NET481
-            , migrationMetrics, context.Job.JobId, context.ProgressSink, ModuleName
+            _migrationMetrics,
+#else
+            null,
 #endif
+            context.Job.JobId, context.ProgressSink, ModuleName
             ).ConfigureAwait(false);
 
         exportSink?.Emit(new ProgressEvent
@@ -122,7 +132,6 @@ internal sealed class NodesOrchestrator
         ISourceEndpointInfo sourceEndpointInfo,
         ITargetEndpointInfo targetEndpointInfo,
         ICheckpointingServiceFactory? checkpointingFactory,
-        IMigrationMetrics? migrationMetrics,
         bool replicateSourceTree,
         CancellationToken ct)
     {
@@ -146,7 +155,7 @@ internal sealed class NodesOrchestrator
             await nodeEnsurer.ReplicateSourceTreeAsync(
                 mapping,
                 context.ArtefactStore, context.StateStore,
-                ct, migrationMetrics, context.Job.JobId).ConfigureAwait(false);
+                ct, _migrationMetrics, context.Job.JobId).ConfigureAwait(false);
             importSink?.Emit(new ProgressEvent
             {
                 Module = ModuleName,

@@ -39,6 +39,7 @@ public class NodesModuleTests
             NullLogger<NodesModule>.Instance,
             Options.Create(options),
             sourceEndpointInfo: CreateSourceEndpointInfo(activeJobConfig),
+            orchestrator: Mock.Of<INodesOrchestrator>(),
             capture: capture,
             targetEndpointInfo: Mock.Of<ITargetEndpointInfo>(),
             nodeEnsurer: nodeEnsurer);

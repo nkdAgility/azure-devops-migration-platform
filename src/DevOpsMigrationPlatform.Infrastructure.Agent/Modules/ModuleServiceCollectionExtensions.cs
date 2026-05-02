@@ -1,4 +1,7 @@
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Agent.Discovery;
+using DevOpsMigrationPlatform.Abstractions.Agent.Modules;
+using DevOpsMigrationPlatform.Infrastructure.Agent.Discovery;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Modules;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -35,6 +38,7 @@ public static class ModuleServiceCollectionExtensions
     /// </summary>
     public static IServiceCollection AddInventoryModule(this IServiceCollection services)
     {
+        services.AddSingleton<IInventoryOrchestrator, InventoryOrchestrator>();
         services.AddTransient<IModule, InventoryModule>();
         services.AddTransient<IModule, InventoryDiscoveryModule>();
         return services;
@@ -47,6 +51,7 @@ public static class ModuleServiceCollectionExtensions
     /// </summary>
     public static IServiceCollection AddDependenciesModule(this IServiceCollection services)
     {
+        services.AddSingleton<IDependencyOrchestrator, DependencyOrchestrator>();
         services.AddTransient<IModule, DependencyDiscoveryModule>();
         return services;
     }
@@ -62,6 +67,7 @@ public static class ModuleServiceCollectionExtensions
         services.AddSchemaEntry<NodesModuleOptions>("Classification nodes (area/iteration paths) module configuration");
 #endif
 
+        services.AddSingleton<INodesOrchestrator, NodesOrchestrator>();
         services.AddTransient<IModule, NodesModule>();
         services.Configure<NodesModuleOptions>(
             configuration.GetSection(NodesModuleOptions.SectionName));

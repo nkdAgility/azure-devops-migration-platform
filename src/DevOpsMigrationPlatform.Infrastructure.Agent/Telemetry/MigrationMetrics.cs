@@ -1,7 +1,9 @@
-﻿using System;
+using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Diagnostics.Metrics;
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Telemetry;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Agent.Telemetry;
 
@@ -246,125 +248,140 @@ internal sealed class MigrationMetrics : IMigrationMetrics, IDisposable
         _configReadErrors = _meter.CreateCounter<long>(WellKnownMetricNames.ConfigReadErrors, unit: "{error}");
         _configReadFallbacks = _meter.CreateCounter<long>(WellKnownMetricNames.ConfigReadFallbacks, unit: "{fallback}");
     }
-    public void RecordWorkItemAttempted(in TagList tags) => _attempted.Add(1, tags);
-    public void RecordWorkItemCompleted(in TagList tags) => _completed.Add(1, tags);
-    public void RecordWorkItemFailed(in TagList tags) => _failed.Add(1, tags);
-    public void RecordWorkItemRetried(in TagList tags) => _retried.Add(1, tags);
-    public void RecordWorkItemDuration(double milliseconds, in TagList tags) => _duration.Record(milliseconds, tags);
+
+    /// <summary>
+    /// Converts the portable <see cref="IReadOnlyList{T}"/> tag representation into an OTel
+    /// <see cref="TagList"/> for zero-overhead passing to instrument recording methods.
+    /// TagList is kept as a private OTel implementation detail; it never appears on public boundaries.
+    /// </summary>
+    private static TagList ToTagList(MetricsTagList tags)
+    {
+        var tagList = new TagList();
+        for (var i = 0; i < tags.Count; i++)
+            tagList.Add(tags[i].Key, tags[i].Value);
+        return tagList;
+    }
+
+    public void RecordWorkItemAttempted(MetricsTagList tags) => _attempted.Add(1, ToTagList(tags));
+    public void RecordWorkItemCompleted(MetricsTagList tags) => _completed.Add(1, ToTagList(tags));
+    public void RecordWorkItemFailed(MetricsTagList tags) => _failed.Add(1, ToTagList(tags));
+    public void RecordWorkItemRetried(MetricsTagList tags) => _retried.Add(1, ToTagList(tags));
+    public void RecordWorkItemDuration(double milliseconds, MetricsTagList tags) => _duration.Record(milliseconds, ToTagList(tags));
 
     // --- Payload ---
-    public void RecordFieldCount(int count, in TagList tags) => _fieldCount.Record(count, tags);
-    public void RecordAttachmentCount(int count, in TagList tags) => _attachmentCount.Record(count, tags);
-    public void RecordAttachmentDownloadDuration(double milliseconds, in TagList tags) => _attachmentDownloadDuration.Record(milliseconds, tags);
-    public void RecordAttachmentDownloadBytes(long bytes, in TagList tags) => _attachmentDownloadBytes.Record(bytes, tags);
-    public void RecordLinkCount(int count, in TagList tags) => _linkCount.Record(count, tags);
-    public void RecordRevisionCount(int count, in TagList tags) => _revisionCount.Record(count, tags);
-    public void RecordPayloadBytes(long bytes, in TagList tags) => _payloadBytes.Record(bytes, tags);
+    public void RecordFieldCount(int count, MetricsTagList tags) => _fieldCount.Record(count, ToTagList(tags));
+    public void RecordAttachmentCount(int count, MetricsTagList tags) => _attachmentCount.Record(count, ToTagList(tags));
+    public void RecordAttachmentDownloadDuration(double milliseconds, MetricsTagList tags) => _attachmentDownloadDuration.Record(milliseconds, ToTagList(tags));
+    public void RecordAttachmentDownloadBytes(long bytes, MetricsTagList tags) => _attachmentDownloadBytes.Record(bytes, ToTagList(tags));
+    public void RecordLinkCount(int count, MetricsTagList tags) => _linkCount.Record(count, ToTagList(tags));
+    public void RecordRevisionCount(int count, MetricsTagList tags) => _revisionCount.Record(count, ToTagList(tags));
+    public void RecordPayloadBytes(long bytes, MetricsTagList tags) => _payloadBytes.Record(bytes, ToTagList(tags));
 
     // --- Correctness ---
-    public void RecordRevisionSourceCount(int count, in TagList tags) => _revisionSourceCount.Record(count, tags);
-    public void RecordRevisionTargetCount(int count, in TagList tags) => _revisionTargetCount.Record(count, tags);
-    public void RecordRevisionDelta(int delta, in TagList tags) => _revisionDelta.Record(delta, tags);
-    public void RecordRevisionsMissing(in TagList tags) => _revisionsMissing.Add(1, tags);
-    public void RecordRevisionOrderError(in TagList tags) => _revisionOrderErrors.Add(1, tags);
-    public void RecordBrokenLink(in TagList tags) => _brokenLinks.Add(1, tags);
-    public void RecordMissingWorkItem(in TagList tags) => _missingWorkItems.Add(1, tags);
+    public void RecordRevisionSourceCount(int count, MetricsTagList tags) => _revisionSourceCount.Record(count, ToTagList(tags));
+    public void RecordRevisionTargetCount(int count, MetricsTagList tags) => _revisionTargetCount.Record(count, ToTagList(tags));
+    public void RecordRevisionDelta(int delta, MetricsTagList tags) => _revisionDelta.Record(delta, ToTagList(tags));
+    public void RecordRevisionsMissing(MetricsTagList tags) => _revisionsMissing.Add(1, ToTagList(tags));
+    public void RecordRevisionOrderError(MetricsTagList tags) => _revisionOrderErrors.Add(1, ToTagList(tags));
+    public void RecordBrokenLink(MetricsTagList tags) => _brokenLinks.Add(1, ToTagList(tags));
+    public void RecordMissingWorkItem(MetricsTagList tags) => _missingWorkItems.Add(1, ToTagList(tags));
 
     // --- In-Flight ---
-    public void IncrementInFlight(in TagList tags) => _inFlight.Add(1, tags);
-    public void DecrementInFlight(in TagList tags) => _inFlight.Add(-1, tags);
+    public void IncrementInFlight(MetricsTagList tags) => _inFlight.Add(1, ToTagList(tags));
+    public void DecrementInFlight(MetricsTagList tags) => _inFlight.Add(-1, ToTagList(tags));
 
     // --- FieldTransform ---
-    public void RecordFieldTransformApplied(in TagList tags) => _fieldTransformApplied.Add(1, tags);
-    public void RecordFieldTransformDuration(double milliseconds, in TagList tags) => _fieldTransformDuration.Record(milliseconds, tags);
-    public void RecordFieldTransformError(in TagList tags) => _fieldTransformErrors.Add(1, tags);
-    public void IncrementFieldTransformInFlight(in TagList tags) => _fieldTransformInFlight.Add(1, tags);
-    public void DecrementFieldTransformInFlight(in TagList tags) => _fieldTransformInFlight.Add(-1, tags);
-    public void RecordFieldTransformFieldsModified(int count, in TagList tags) => _fieldTransformFieldsModified.Record(count, tags);
+    public void RecordFieldTransformApplied(MetricsTagList tags) => _fieldTransformApplied.Add(1, ToTagList(tags));
+    public void RecordFieldTransformDuration(double milliseconds, MetricsTagList tags) => _fieldTransformDuration.Record(milliseconds, ToTagList(tags));
+    public void RecordFieldTransformError(MetricsTagList tags) => _fieldTransformErrors.Add(1, ToTagList(tags));
+    public void IncrementFieldTransformInFlight(MetricsTagList tags) => _fieldTransformInFlight.Add(1, ToTagList(tags));
+    public void DecrementFieldTransformInFlight(MetricsTagList tags) => _fieldTransformInFlight.Add(-1, ToTagList(tags));
+    public void RecordFieldTransformFieldsModified(int count, MetricsTagList tags) => _fieldTransformFieldsModified.Record(count, ToTagList(tags));
 
     // --- Idempotency ---
-    public void RecordDuplicated(in TagList tags) => _duplicated.Add(1, tags);
-    public void RecordChangedOnRerun(in TagList tags) => _changedOnRerun.Add(1, tags);
-    public void RecordReprocessedAfterResume(in TagList tags) => _reprocessedAfterResume.Add(1, tags);
-    public void RecordDuplicatedAfterResume(in TagList tags) => _duplicatedAfterResume.Add(1, tags);
-    public void RecordMissingAfterResume(in TagList tags) => _missingAfterResume.Add(1, tags);
+    public void RecordDuplicated(MetricsTagList tags) => _duplicated.Add(1, ToTagList(tags));
+    public void RecordChangedOnRerun(MetricsTagList tags) => _changedOnRerun.Add(1, ToTagList(tags));
+    public void RecordReprocessedAfterResume(MetricsTagList tags) => _reprocessedAfterResume.Add(1, ToTagList(tags));
+    public void RecordDuplicatedAfterResume(MetricsTagList tags) => _duplicatedAfterResume.Add(1, ToTagList(tags));
+    public void RecordMissingAfterResume(MetricsTagList tags) => _missingAfterResume.Add(1, ToTagList(tags));
 
     // --- NodeTranslation Export ---
-    public void RecordNodeExportTreeCount(int count, in TagList tags) => _nodeExportTreeCount.Record(count, tags);
-    public void RecordNodeExportTreeDuration(double milliseconds, in TagList tags) => _nodeExportTreeDuration.Record(milliseconds, tags);
-    public void RecordNodeExportTreeError(in TagList tags) => _nodeExportTreeErrors.Add(1, tags);
+    public void RecordNodeExportTreeCount(int count, MetricsTagList tags) => _nodeExportTreeCount.Record(count, ToTagList(tags));
+    public void RecordNodeExportTreeDuration(double milliseconds, MetricsTagList tags) => _nodeExportTreeDuration.Record(milliseconds, ToTagList(tags));
+    public void RecordNodeExportTreeError(MetricsTagList tags) => _nodeExportTreeErrors.Add(1, ToTagList(tags));
 
     // --- NodeTranslation Translate ---
-    public void RecordNodeTranslateCount(in TagList tags) => _nodeTranslateCount.Add(1, tags);
-    public void RecordNodeTranslateMapHit(in TagList tags) => _nodeTranslateMapHit.Add(1, tags);
-    public void RecordNodeTranslateAutoSwapHit(in TagList tags) => _nodeTranslateAutoSwapHit.Add(1, tags);
-    public void RecordNodeTranslateExternal(in TagList tags) => _nodeTranslateExternal.Add(1, tags);
-    public void RecordNodeTranslateUnresolvable(in TagList tags) => _nodeTranslateUnresolvable.Add(1, tags);
+    public void RecordNodeTranslateCount(MetricsTagList tags) => _nodeTranslateCount.Add(1, ToTagList(tags));
+    public void RecordNodeTranslateMapHit(MetricsTagList tags) => _nodeTranslateMapHit.Add(1, ToTagList(tags));
+    public void RecordNodeTranslateAutoSwapHit(MetricsTagList tags) => _nodeTranslateAutoSwapHit.Add(1, ToTagList(tags));
+    public void RecordNodeTranslateExternal(MetricsTagList tags) => _nodeTranslateExternal.Add(1, ToTagList(tags));
+    public void RecordNodeTranslateUnresolvable(MetricsTagList tags) => _nodeTranslateUnresolvable.Add(1, ToTagList(tags));
 
     // --- NodeTranslation Import: Replicate ---
-    public void RecordNodeImportReplicateCount(in TagList tags) => _nodeImportReplicateCount.Add(1, tags);
-    public void RecordNodeImportReplicateAreaCount(in TagList tags) => _nodeImportReplicateAreaCount.Add(1, tags);
-    public void RecordNodeImportReplicateIterationCount(in TagList tags) => _nodeImportReplicateIterationCount.Add(1, tags);
-    public void RecordNodeImportReplicateDuration(double milliseconds, in TagList tags) => _nodeImportReplicateDuration.Record(milliseconds, tags);
-    public void RecordNodeImportReplicateError(in TagList tags) => _nodeImportReplicateErrors.Add(1, tags);
-    public void RecordNodeImportReplicateSkipped(in TagList tags) => _nodeImportReplicateSkipped.Add(1, tags);
-    public void IncrementNodeImportReplicateInFlight(in TagList tags) => _nodeImportReplicateInFlight.Add(1, tags);
-    public void DecrementNodeImportReplicateInFlight(in TagList tags) => _nodeImportReplicateInFlight.Add(-1, tags);
+    public void RecordNodeImportReplicateCount(MetricsTagList tags) => _nodeImportReplicateCount.Add(1, ToTagList(tags));
+    public void RecordNodeImportReplicateAreaCount(MetricsTagList tags) => _nodeImportReplicateAreaCount.Add(1, ToTagList(tags));
+    public void RecordNodeImportReplicateIterationCount(MetricsTagList tags) => _nodeImportReplicateIterationCount.Add(1, ToTagList(tags));
+    public void RecordNodeImportReplicateDuration(double milliseconds, MetricsTagList tags) => _nodeImportReplicateDuration.Record(milliseconds, ToTagList(tags));
+    public void RecordNodeImportReplicateError(MetricsTagList tags) => _nodeImportReplicateErrors.Add(1, ToTagList(tags));
+    public void RecordNodeImportReplicateSkipped(MetricsTagList tags) => _nodeImportReplicateSkipped.Add(1, ToTagList(tags));
+    public void IncrementNodeImportReplicateInFlight(MetricsTagList tags) => _nodeImportReplicateInFlight.Add(1, ToTagList(tags));
+    public void DecrementNodeImportReplicateInFlight(MetricsTagList tags) => _nodeImportReplicateInFlight.Add(-1, ToTagList(tags));
 
     // --- NodeTranslation Import: PreCollect ---
-    public void RecordNodeImportPreCollectCount(in TagList tags) => _nodeImportPreCollectCount.Add(1, tags);
-    public void RecordNodeImportPreCollectDuration(double milliseconds, in TagList tags) => _nodeImportPreCollectDuration.Record(milliseconds, tags);
-    public void RecordNodeImportPreCollectError(in TagList tags) => _nodeImportPreCollectErrors.Add(1, tags);
-    public void IncrementNodeImportPreCollectInFlight(in TagList tags) => _nodeImportPreCollectInFlight.Add(1, tags);
-    public void DecrementNodeImportPreCollectInFlight(in TagList tags) => _nodeImportPreCollectInFlight.Add(-1, tags);
+    public void RecordNodeImportPreCollectCount(MetricsTagList tags) => _nodeImportPreCollectCount.Add(1, ToTagList(tags));
+    public void RecordNodeImportPreCollectDuration(double milliseconds, MetricsTagList tags) => _nodeImportPreCollectDuration.Record(milliseconds, ToTagList(tags));
+    public void RecordNodeImportPreCollectError(MetricsTagList tags) => _nodeImportPreCollectErrors.Add(1, ToTagList(tags));
+    public void IncrementNodeImportPreCollectInFlight(MetricsTagList tags) => _nodeImportPreCollectInFlight.Add(1, ToTagList(tags));
+    public void DecrementNodeImportPreCollectInFlight(MetricsTagList tags) => _nodeImportPreCollectInFlight.Add(-1, ToTagList(tags));
 
     // --- Teams Export ---
-    public void RecordTeamExportCount(in TagList tags) => _teamExportCount.Add(1, tags);
-    public void RecordTeamExportDuration(double milliseconds, in TagList tags) => _teamExportDuration.Record(milliseconds, tags);
-    public void RecordTeamExportError(in TagList tags) => _teamExportErrors.Add(1, tags);
-    public void IncrementTeamExportInFlight(in TagList tags) => _teamExportInFlight.Add(1, tags);
-    public void DecrementTeamExportInFlight(in TagList tags) => _teamExportInFlight.Add(-1, tags);
+    public void RecordTeamExportCount(MetricsTagList tags) => _teamExportCount.Add(1, ToTagList(tags));
+    public void RecordTeamExportDuration(double milliseconds, MetricsTagList tags) => _teamExportDuration.Record(milliseconds, ToTagList(tags));
+    public void RecordTeamExportError(MetricsTagList tags) => _teamExportErrors.Add(1, ToTagList(tags));
+    public void IncrementTeamExportInFlight(MetricsTagList tags) => _teamExportInFlight.Add(1, ToTagList(tags));
+    public void DecrementTeamExportInFlight(MetricsTagList tags) => _teamExportInFlight.Add(-1, ToTagList(tags));
 
     // --- Teams Import ---
-    public void RecordTeamImportCount(in TagList tags) => _teamImportCount.Add(1, tags);
-    public void RecordTeamImportDuration(double milliseconds, in TagList tags) => _teamImportDuration.Record(milliseconds, tags);
-    public void RecordTeamImportError(in TagList tags) => _teamImportErrors.Add(1, tags);
-    public void IncrementTeamImportInFlight(in TagList tags) => _teamImportInFlight.Add(1, tags);
-    public void DecrementTeamImportInFlight(in TagList tags) => _teamImportInFlight.Add(-1, tags);
-    public void RecordTeamImportMemberCount(in TagList tags) => _teamImportMembersCount.Add(1, tags);
-    public void RecordTeamImportMemberUnresolved(in TagList tags) => _teamImportMembersUnresolved.Add(1, tags);
-    public void RecordTeamImportIterationCount(in TagList tags) => _teamImportIterationsCount.Add(1, tags);
-    public void RecordTeamImportIterationUnresolvable(in TagList tags) => _teamImportIterationsUnresolvable.Add(1, tags);
-    public void RecordTeamImportCapacityCount(in TagList tags) => _teamImportCapacityCount.Add(1, tags);
-    public void RecordTeamImportExtensionDuration(double milliseconds, in TagList tags) => _teamImportExtensionDuration.Record(milliseconds, tags);
+    public void RecordTeamImportCount(MetricsTagList tags) => _teamImportCount.Add(1, ToTagList(tags));
+    public void RecordTeamImportDuration(double milliseconds, MetricsTagList tags) => _teamImportDuration.Record(milliseconds, ToTagList(tags));
+    public void RecordTeamImportError(MetricsTagList tags) => _teamImportErrors.Add(1, ToTagList(tags));
+    public void IncrementTeamImportInFlight(MetricsTagList tags) => _teamImportInFlight.Add(1, ToTagList(tags));
+    public void DecrementTeamImportInFlight(MetricsTagList tags) => _teamImportInFlight.Add(-1, ToTagList(tags));
+    public void RecordTeamImportMemberCount(MetricsTagList tags) => _teamImportMembersCount.Add(1, ToTagList(tags));
+    public void RecordTeamImportMemberUnresolved(MetricsTagList tags) => _teamImportMembersUnresolved.Add(1, ToTagList(tags));
+    public void RecordTeamImportIterationCount(MetricsTagList tags) => _teamImportIterationsCount.Add(1, ToTagList(tags));
+    public void RecordTeamImportIterationUnresolvable(MetricsTagList tags) => _teamImportIterationsUnresolvable.Add(1, ToTagList(tags));
+    public void RecordTeamImportCapacityCount(MetricsTagList tags) => _teamImportCapacityCount.Add(1, ToTagList(tags));
+    public void RecordTeamImportExtensionDuration(double milliseconds, MetricsTagList tags) => _teamImportExtensionDuration.Record(milliseconds, ToTagList(tags));
 
     // --- Teams Validate ---
-    public void RecordTeamValidateCount(in TagList tags) => _teamValidateCount.Add(1, tags);
-    public void RecordTeamValidateError(in TagList tags) => _teamValidateErrors.Add(1, tags);
+    public void RecordTeamValidateCount(MetricsTagList tags) => _teamValidateCount.Add(1, ToTagList(tags));
+    public void RecordTeamValidateError(MetricsTagList tags) => _teamValidateErrors.Add(1, ToTagList(tags));
 
     // --- Identities Export ---
-    public void RecordIdentityExportCount(in TagList tags) => _identityExportCount.Add(1, tags);
-    public void RecordIdentityExportDuration(double milliseconds, in TagList tags) => _identityExportDuration.Record(milliseconds, tags);
-    public void RecordIdentityExportError(in TagList tags) => _identityExportErrors.Add(1, tags);
-    public void IncrementIdentityExportInFlight(in TagList tags) => _identityExportInFlight.Add(1, tags);
-    public void DecrementIdentityExportInFlight(in TagList tags) => _identityExportInFlight.Add(-1, tags);
+    public void RecordIdentityExportCount(MetricsTagList tags) => _identityExportCount.Add(1, ToTagList(tags));
+    public void RecordIdentityExportDuration(double milliseconds, MetricsTagList tags) => _identityExportDuration.Record(milliseconds, ToTagList(tags));
+    public void RecordIdentityExportError(MetricsTagList tags) => _identityExportErrors.Add(1, ToTagList(tags));
+    public void IncrementIdentityExportInFlight(MetricsTagList tags) => _identityExportInFlight.Add(1, ToTagList(tags));
+    public void DecrementIdentityExportInFlight(MetricsTagList tags) => _identityExportInFlight.Add(-1, ToTagList(tags));
 
     // --- Identities Import ---
-    public void RecordIdentityImportResolved(in TagList tags) => _identityImportResolved.Add(1, tags);
-    public void RecordIdentityImportUnresolved(in TagList tags) => _identityImportUnresolved.Add(1, tags);
-    public void RecordIdentityImportDuration(double milliseconds, in TagList tags) => _identityImportDuration.Record(milliseconds, tags);
-    public void RecordIdentityImportError(in TagList tags) => _identityImportErrors.Add(1, tags);
+    public void RecordIdentityImportResolved(MetricsTagList tags) => _identityImportResolved.Add(1, ToTagList(tags));
+    public void RecordIdentityImportUnresolved(MetricsTagList tags) => _identityImportUnresolved.Add(1, ToTagList(tags));
+    public void RecordIdentityImportDuration(double milliseconds, MetricsTagList tags) => _identityImportDuration.Record(milliseconds, ToTagList(tags));
+    public void RecordIdentityImportError(MetricsTagList tags) => _identityImportErrors.Add(1, ToTagList(tags));
 
     // --- Identities Validate ---
-    public void RecordIdentityValidateCount(in TagList tags) => _identityValidateCount.Add(1, tags);
-    public void RecordIdentityValidateError(in TagList tags) => _identityValidateErrors.Add(1, tags);
+    public void RecordIdentityValidateCount(MetricsTagList tags) => _identityValidateCount.Add(1, ToTagList(tags));
+    public void RecordIdentityValidateError(MetricsTagList tags) => _identityValidateErrors.Add(1, ToTagList(tags));
 
     // --- Package Config ---
-    public void RecordConfigWriteCompleted(in TagList tags) => _configWriteCount.Add(1, tags);
-    public void RecordConfigWriteError(in TagList tags) => _configWriteErrors.Add(1, tags);
-    public void RecordConfigReadCompleted(in TagList tags) => _configReadCount.Add(1, tags);
-    public void RecordConfigReadError(in TagList tags) => _configReadErrors.Add(1, tags);
-    public void RecordConfigReadFallback(in TagList tags) => _configReadFallbacks.Add(1, tags);
+    public void RecordConfigWriteCompleted(MetricsTagList tags) => _configWriteCount.Add(1, ToTagList(tags));
+    public void RecordConfigWriteError(MetricsTagList tags) => _configWriteErrors.Add(1, ToTagList(tags));
+    public void RecordConfigReadCompleted(MetricsTagList tags) => _configReadCount.Add(1, ToTagList(tags));
+    public void RecordConfigReadError(MetricsTagList tags) => _configReadErrors.Add(1, ToTagList(tags));
+    public void RecordConfigReadFallback(MetricsTagList tags) => _configReadFallbacks.Add(1, ToTagList(tags));
 
     public void Dispose() => _meter.Dispose();
 }
+

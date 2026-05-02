@@ -1,4 +1,4 @@
-﻿#if !NET481
+#if !NET481
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -114,7 +114,7 @@ public sealed class RevisionFolderProcessor : IRevisionFolderProcessor
         // Record import-side payload complexity metrics.
         if (_metrics != null)
         {
-            var importTags = MigrationTagList.Create(_jobId ?? "not-set", "import", "workitems");
+            var importTags = MetricsTagList.Create(_jobId ?? "not-set", "import", "workitems");
             _metrics.RecordFieldCount(revision.Fields.Count, importTags);
             _metrics.RecordAttachmentCount(revision.Attachments.Count, importTags);
             _metrics.RecordLinkCount(
@@ -477,3 +477,4 @@ public sealed class RevisionFolderProcessor : IRevisionFolderProcessor
     }
 }
 #endif
+

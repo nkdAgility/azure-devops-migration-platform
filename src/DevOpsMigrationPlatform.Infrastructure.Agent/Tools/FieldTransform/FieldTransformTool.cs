@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Telemetry;
 using DevOpsMigrationPlatform.Abstractions.Agent.Telemetry;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Abstractions.Options;
@@ -69,7 +70,7 @@ public sealed class FieldTransformTool : IFieldTransformTool
     /// <inheritdoc />
     public FieldTransformResult ApplyTransforms(IReadOnlyDictionary<string, object?> fields, FieldTransformContext context)
     {
-        var tags = new TagList
+        var tags = new MetricsTagList
         {
             { "operation", PhaseToOperationTag(context.Phase) },
             { "module", "FieldTransform" },
@@ -157,3 +158,5 @@ public sealed class FieldTransformTool : IFieldTransformTool
         _ => "import"  // Both is a config sentinel; concrete execution defaults to import
     };
 }
+
+
