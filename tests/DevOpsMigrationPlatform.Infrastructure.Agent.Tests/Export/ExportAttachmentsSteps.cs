@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (c) Naked Agility Limited
+
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -84,7 +87,7 @@ public class ExportAttachmentsSteps
     [Then(@"""(.*?)"" is stored at ""WorkItems/yyyy-MM-dd/<ticks>-(\d+)-(\d+)/(.*?)""")]
     public void ThenAttachmentIsStoredAtExpectedPath(string fileName, int workItemId, int revisionIndex, string _)
     {
-        var rev  = FindRevision(workItemId, revisionIndex);
+        var rev = FindRevision(workItemId, revisionIndex);
         var path = Path.Combine(AbsoluteFolderPath(rev), fileName);
         Assert.IsTrue(File.Exists(path), $"Expected attachment file at {path}");
     }
@@ -93,7 +96,7 @@ public class ExportAttachmentsSteps
     public void ThenRevisionJsonReferencesAttachment(string fileName)
     {
         // revision.json should exist in the same folder and list the attachment.
-        var rev  = _ctx.SourceRevisions[0];
+        var rev = _ctx.SourceRevisions[0];
         var json = File.ReadAllText(Path.Combine(AbsoluteFolderPath(rev), "revision.json"));
         StringAssert.Contains(json, fileName);
     }
@@ -144,7 +147,7 @@ public class ExportAttachmentsSteps
     public void ThenRevisionFolderContainsAllAttachments(int workItemId, int revisionIndex, string namesCsv)
     {
         // namesCsv is e.g. `"spec.docx", "design.png", and "notes.txt"` — extract quoted names.
-        var rev  = FindRevision(workItemId, revisionIndex);
+        var rev = FindRevision(workItemId, revisionIndex);
         foreach (var name in ParseQuotedNames(namesCsv))
         {
             var path = Path.Combine(AbsoluteFolderPath(rev), name);
@@ -155,7 +158,7 @@ public class ExportAttachmentsSteps
     [Then(@"""revision.json"" lists all three attachments")]
     public void ThenRevisionJsonListsAllThreeAttachments()
     {
-        var rev  = _ctx.SourceRevisions[0];
+        var rev = _ctx.SourceRevisions[0];
         var json = File.ReadAllText(Path.Combine(AbsoluteFolderPath(rev), "revision.json"));
         StringAssert.Contains(json, "attachments");
         foreach (var att in rev.Attachments)
@@ -176,7 +179,7 @@ public class ExportAttachmentsSteps
     [Then(@"""WorkItems/yyyy-MM-dd/<ticks>-(\d+)-(\d+)/"" contains only ""revision.json""")]
     public void ThenRevisionFolderContainsOnlyRevisionJson(int workItemId, int revisionIndex)
     {
-        var rev   = FindRevision(workItemId, revisionIndex);
+        var rev = FindRevision(workItemId, revisionIndex);
         var folder = AbsoluteFolderPath(rev);
         Assert.IsTrue(Directory.Exists(folder), $"Revision folder should exist at {folder}");
 
@@ -204,7 +207,7 @@ public class ExportAttachmentsSteps
     [Then("the attachment binary is written into the package at the correct revision path")]
     public void ThenAttachmentBinaryIsWrittenIntoPackage()
     {
-        var rev  = FindRevision(42, 0);
+        var rev = FindRevision(42, 0);
         var path = Path.Combine(AbsoluteFolderPath(rev), "document.pdf");
         Assert.IsTrue(File.Exists(path), $"Attachment binary should exist at {path}");
     }
@@ -225,7 +228,7 @@ public class ExportAttachmentsSteps
     private static IReadOnlyList<string> ParseQuotedNames(string raw)
     {
         var result = new List<string>();
-        var parts  = raw.Split('"');
+        var parts = raw.Split('"');
         for (int i = 1; i < parts.Length; i += 2)
         {
             var name = parts[i].Trim();
@@ -241,9 +244,9 @@ public class ExportAttachmentsSteps
         {
             _ctx.SourceRevisions.Add(new WorkItemRevision
             {
-                WorkItemId    = workItemId,
+                WorkItemId = workItemId,
                 RevisionIndex = revisionIndex,
-                ChangedDate   = date
+                ChangedDate = date
             });
         }
     }

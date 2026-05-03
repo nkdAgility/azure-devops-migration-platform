@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (c) Naked Agility Limited
+
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -132,7 +135,7 @@ public class WorkItemExportOrchestratorTests
         var olderDate = new DateTimeOffset(2020, 6, 12, 0, 0, 0, TimeSpan.Zero);
 
         var newerRevision = new WorkItemRevision { WorkItemId = 1000, RevisionIndex = 0, ChangedDate = newerDate };
-        var olderRevision = new WorkItemRevision { WorkItemId = 5,    RevisionIndex = 0, ChangedDate = olderDate };
+        var olderRevision = new WorkItemRevision { WorkItemId = 5, RevisionIndex = 0, ChangedDate = olderDate };
 
         // Cursor points to the newer item (was already exported in a prior run).
         var cursor = new CursorEntry
@@ -147,11 +150,11 @@ public class WorkItemExportOrchestratorTests
                 .Returns(Task.CompletedTask);
 
         var newerPath = WorkItemExportOrchestrator.BuildFolderPath(1000, 0, newerDate) + "revision.json";
-        var olderPath  = WorkItemExportOrchestrator.BuildFolderPath(5,    0, olderDate)  + "revision.json";
+        var olderPath = WorkItemExportOrchestrator.BuildFolderPath(5, 0, olderDate) + "revision.json";
 
         // Newer item already on disk; older item was never exported (arrived from a later window).
         _mockStore.Setup(s => s.ExistsAsync(newerPath, It.IsAny<CancellationToken>())).ReturnsAsync(true);
-        _mockStore.Setup(s => s.ExistsAsync(olderPath,  It.IsAny<CancellationToken>())).ReturnsAsync(false);
+        _mockStore.Setup(s => s.ExistsAsync(olderPath, It.IsAny<CancellationToken>())).ReturnsAsync(false);
 
         var written = new List<string>();
         _mockStore.Setup(s => s.WriteAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))

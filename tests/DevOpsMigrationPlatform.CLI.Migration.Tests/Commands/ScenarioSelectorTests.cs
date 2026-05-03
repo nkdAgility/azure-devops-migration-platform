@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (c) Naked Agility Limited
+
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using DevOpsMigrationPlatform.CLI.Migration.Configuration;
 
@@ -26,7 +29,7 @@ public class ScenarioSelectorTests
     {
         Directory.SetCurrentDirectory(_originalCwd);
         UserPreferencesService.OverridePreferencesDirectory = null;
-        Environment.SetEnvironmentVariable("MigrationPlatform_Scenario_Folder", 
+        Environment.SetEnvironmentVariable("MigrationPlatform_Scenario_Folder",
             string.IsNullOrEmpty(_originalEnv) ? null : _originalEnv);
         if (Directory.Exists(_tempDir))
             Directory.Delete(_tempDir, recursive: true);

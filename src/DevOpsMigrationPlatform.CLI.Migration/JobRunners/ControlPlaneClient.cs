@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (c) Naked Agility Limited
+
 using System.Net.Http.Json;
 using System.Runtime.CompilerServices;
 using System.Text.Json;

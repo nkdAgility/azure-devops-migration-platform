@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (c) Naked Agility Limited
+
 global using DevOpsMigrationPlatform.Abstractions.Jobs;
 global using DevOpsMigrationPlatform.Abstractions.Streaming;
 global using DevOpsMigrationPlatform.Abstractions.Organisations;

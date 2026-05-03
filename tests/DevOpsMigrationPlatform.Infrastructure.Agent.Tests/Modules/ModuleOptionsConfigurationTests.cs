@@ -1,4 +1,7 @@
-﻿using DevOpsMigrationPlatform.Abstractions.Agent.Modules;
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (c) Naked Agility Limited
+
+using DevOpsMigrationPlatform.Abstractions.Agent.Modules;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;

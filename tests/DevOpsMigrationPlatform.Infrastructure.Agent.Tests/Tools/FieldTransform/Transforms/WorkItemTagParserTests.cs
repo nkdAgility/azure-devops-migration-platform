@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (c) Naked Agility Limited
+
 using DevOpsMigrationPlatform.Infrastructure.Agent.Tools.FieldTransform.Transforms;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 

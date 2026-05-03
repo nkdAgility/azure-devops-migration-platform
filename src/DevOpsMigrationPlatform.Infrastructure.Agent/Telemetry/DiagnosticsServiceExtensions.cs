@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (c) Naked Agility Limited
+
 using System;
 using DevOpsMigrationPlatform.Abstractions;
 using Microsoft.Extensions.DependencyInjection;

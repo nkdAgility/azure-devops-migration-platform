@@ -1,4 +1,7 @@
-﻿using DevOpsMigrationPlatform.Abstractions.Telemetry;
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (c) Naked Agility Limited
+
+using DevOpsMigrationPlatform.Abstractions.Telemetry;
 
 namespace DevOpsMigrationPlatform.Abstractions.Agent.Telemetry;
 

@@ -280,6 +280,17 @@ Reject any proposal that:
 - Commits code containing `@ignore` (Gherkin) or `[Ignore]` (MSTest) — these markers may only be used temporarily within a session for isolation; they must be removed before done.
 - Declares a task complete without a passing `dotnet clean && dotnet build --no-incremental`.
 - Declares a task complete without all tests passing (`dotnet test`).
+- Creates a new `.cs` file without the correct SPDX header block (enforced by SA1633 as a build error):
+  - **All assemblies** (default):
+    ```
+    // SPDX-License-Identifier: AGPL-3.0-only
+    // Copyright (c) Naked Agility Limited
+    ```
+  - **`DevOpsMigrationPlatform.Proprietary.*` assemblies** only:
+    ```
+    // SPDX-License-Identifier: LicenseRef-NakedAgility-Separate
+    // Copyright (c) Naked Agility Limited
+    ```
 - Declares a task complete without running at least one scenario config (e.g. `scenarios/queue-export-ado-workitems-single-project.json`) via a `launch.json` debug profile and verifying observable output.
 - Marks a spec's last task `[X]` without all items in `specs/<feature>/discrepancies.md` being `Resolved` or `N/A`.
 - Closes a spec branch without reviewing and updating `analysis/pending-actions.md`.

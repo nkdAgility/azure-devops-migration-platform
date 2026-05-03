@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (c) Naked Agility Limited
+
 // AppHost — Aspire orchestration entry point
 //
 // PURPOSE: This project has two uses only:

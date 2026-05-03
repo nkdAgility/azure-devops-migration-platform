@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (c) Naked Agility Limited
+
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -81,7 +84,7 @@ public class ValidationResult
             }
             return message;
         }
-        
+
         return $"{Context} validation failed: {string.Join("; ", ErrorMessages)}";
     }
 }
