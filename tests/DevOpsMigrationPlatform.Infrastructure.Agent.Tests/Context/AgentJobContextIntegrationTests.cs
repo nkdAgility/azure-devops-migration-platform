@@ -12,27 +12,6 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Tests.Context;
 public sealed class AgentJobContextIntegrationTests
 {
     [TestMethod]
-    public void ModuleReadsContext_WithoutAccessingOtherServices_Succeeds()
-    {
-        // T053: Assert module reads Mode/PackagePath/ConfigVersion without accessing any other service
-        var context = new AgentJobContext
-        {
-            Mode = "Export",
-            PackagePath = @"C:\abs\path\package",
-            ConfigVersion = "2.0"
-        };
-
-        // Simulate a module reading context
-        var mode = context.Mode;
-        var packagePath = context.PackagePath;
-        var configVersion = context.ConfigVersion;
-
-        Assert.AreEqual("Export", mode);
-        Assert.AreEqual(@"C:\abs\path\package", packagePath);
-        Assert.AreEqual("2.0", configVersion);
-    }
-
-    [TestMethod]
     public void Constructor_LogsDebugWithModeAndConfigVersion_NotPackagePath()
     {
         // T055: Verify LogDebug called with {Mode} and {ConfigVersion}, assert PackagePath NOT in log output

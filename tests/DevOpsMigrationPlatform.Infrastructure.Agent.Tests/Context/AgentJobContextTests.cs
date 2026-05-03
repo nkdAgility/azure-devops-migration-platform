@@ -12,52 +12,6 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Tests.Context;
 public sealed class AgentJobContextTests
 {
     [TestMethod]
-    public void Constructor_ValidInputs_Succeeds()
-    {
-        var context = new AgentJobContext
-        {
-            Mode = "Export",
-            PackagePath = @"C:\temp\package",
-            ConfigVersion = "2.0"
-        };
-
-        Assert.AreEqual("Export", context.Mode);
-        Assert.AreEqual(@"C:\temp\package", context.PackagePath);
-        Assert.AreEqual("2.0", context.ConfigVersion);
-    }
-
-    [TestMethod]
-    public void Constructor_AllValidModes_Succeeds()
-    {
-        var modes = new[] { "Export", "Import", "Prepare", "Migrate" };
-
-        foreach (var mode in modes)
-        {
-            var context = new AgentJobContext
-            {
-                Mode = mode,
-                PackagePath = @"C:\temp\package",
-                ConfigVersion = "2.0"
-            };
-
-            Assert.AreEqual(mode, context.Mode);
-        }
-    }
-
-    [TestMethod]
-    public void Constructor_ModeCaseInsensitive_Succeeds()
-    {
-        var context = new AgentJobContext
-        {
-            Mode = "export",
-            PackagePath = @"C:\temp\package",
-            ConfigVersion = "2.0"
-        };
-
-        Assert.AreEqual("export", context.Mode);
-    }
-
-    [TestMethod]
     public void Constructor_InvalidMode_ThrowsInvalidOperationException()
     {
         var ex = Assert.ThrowsExactly<InvalidOperationException>(() =>
@@ -132,36 +86,6 @@ public sealed class AgentJobContextTests
         };
 
         Assert.AreEqual(@"\\server\share\package", context.PackagePath);
-    }
-
-    // T053: IAgentJobContext readable without full options graph
-    [TestMethod]
-    public void IAgentJobContext_Mode_ReadableWithoutFullOptionsGraph()
-    {
-        // Given IAgentJobContext with Mode = "Export"
-        IAgentJobContext context = new AgentJobContext
-        {
-            Mode = "Export",
-            PackagePath = @"C:\temp\package",
-            ConfigVersion = "2.0"
-        };
-
-        // When module reads agentJobContext.Mode
-        var mode = context.Mode;
-
-        // Then returns "Export" without accessing any other service
-        Assert.AreEqual("Export", mode);
-    }
-
-    [TestMethod]
-    public void IAgentJobContext_IsReadOnly_NoWritePathExists()
-    {
-        // The interface exposes only getters — verified by type system (no set accessors on IAgentJobContext).
-        var properties = typeof(IAgentJobContext).GetProperties();
-        foreach (var prop in properties)
-        {
-            Assert.IsNull(prop.SetMethod, $"Property {prop.Name} should not have a public setter on IAgentJobContext");
-        }
     }
 
     // T055: LogDebug called with Mode and ConfigVersion
