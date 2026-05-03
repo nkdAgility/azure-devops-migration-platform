@@ -37,8 +37,30 @@
 - Q: What assertion is required in the Simulated system test for FR-041? → A: Assert that the target connector received a field value matching the post-transform result (e.g. transformed `System.AreaPath` value equals the expected mapped path). See SC-008.
 - Q: How should the Polly retry policy in FR-040 handle ADO rate limiting? → A: The Polly policy MUST handle `HTTP 429 Too Many Requests` in addition to transient failures (5xx / network errors). When a 429 response includes a `Retry-After` header, the policy MUST wait the specified number of seconds before retrying. `X-RateLimit-Remaining` SHOULD be monitored and logged at `Debug` level when it approaches zero. See updated FR-040.
 - Q: What is the default value for `extensions[Attachments].maxSizeBytes`? → A: Per ADO documentation — ADO Services enforces a hard limit of **60 MB** (62,914,560 bytes) per attachment; ADO Server defaults to **4 MB** (4,194,304 bytes) but is configurable up to 2 GB. The platform default for `maxSizeBytes` MUST be `0` (meaning no platform-side cap — the target API enforces its own limits). Operators targeting large attachment workloads should set this explicitly. See updated Edge Case.
+- Q: When WorkItemsModule.PrepareAsync detects problems (missing WI types, missing node paths, unresolved identities), what's the operator override model? → A: Always blocking — Import refuses to start if any Prepare finding is Error-level. No `--force` or `IgnorePrepareFailures` override is supported; the operator must fix the underlying issue and re-run Prepare. Warnings (unmapped fields, unresolved identities, oversized attachments) do not block Import. See FR-P01 through FR-P09.
+- Q: Should spec 029 own PrepareAsync FRs for both NodesModule and WorkItemsModule? → A: Yes — both modules get PrepareAsync. FR-P01 (IModule interface extension) through FR-P09 (WorkItemsModule prepare report output) are added to this spec. The foundational `IModule` gap (interface currently has no `PrepareAsync`) is noted in the infrastructure preamble of the Prepare Phase section.
 
 ## User Scenarios & Testing *(mandatory)*
+
+### User Story 0 — Prepare Phase Pre-flight (Priority: P1)
+
+A migration operator has completed export and has a package ready. Before running Import, they run Prepare to surface any issues — missing node paths, unknown work item types, unresolved identities, unmapped fields — so they can fix configuration before any write operations occur on the target. Prepare is re-runnable; the operator can fix an issue and re-run until `prepare.complete.json` is written.
+
+**Why this priority**: Import can fail mid-run if node paths or work item types are missing. Prepare surfaces these failures upfront so the operator can correct config without having to clean up a partial import. The goal is the fewest import failures possible.
+
+**Independent Test**: Can be fully tested using a Simulated connector. The Simulated source returns a `referenced-paths.json` listing a path that does not exist on the Simulated target, and a `revision.json` containing a work item type unknown to the target. Prepare MUST write `Nodes/prepare-report.json` with that path in `Missing`, `WorkItems/prepare-report.json` with that type in `WorkItemTypeErrors`, and MUST NOT write `prepare.complete.json`.
+
+**Acceptance Scenarios**:
+
+1. **Given** a package where `Nodes/referenced-paths.json` lists a path absent from the Simulated target and `AutoCreateNodes = false`, **When** `NodesModule.PrepareAsync` runs, **Then** `Nodes/prepare-report.json` contains the path in `Missing`, an `Error` log is emitted, and `prepare.complete.json` is NOT written.
+2. **Given** a package containing a `revision.json` with `WorkItemType = "Epic"` and the Simulated target does not have `"Epic"`, **When** `WorkItemsModule.PrepareAsync` runs, **Then** `WorkItems/prepare-report.json` has `"Epic"` in `WorkItemTypeErrors`, an `Error` log is emitted, and `prepare.complete.json` is NOT written.
+3. **Given** all Prepare checks pass (no Error-level findings), **When** both `NodesModule.PrepareAsync` and `WorkItemsModule.PrepareAsync` run, **Then** `prepare.complete.json` is written to `.migration/Checkpoints/`.
+4. **Given** `prepare.complete.json` already exists, **When** Import is started, **Then** Prepare is NOT re-run (the marker is honoured and import proceeds directly).
+5. **Given** `prepare.complete.json` is absent, **When** Import is started, **Then** Prepare is automatically executed first; if Prepare produces Error-level findings, Import halts with a report before making any writes to the target.
+6. **Given** `Identities/prepare-report.json` reports 3 unresolved identities, **When** `WorkItemsModule.PrepareAsync` runs, **Then** `WorkItems/prepare-report.json` has `UnresolvedIdentityCount = 3`, a `Warning` is logged, and `prepare.complete.json` IS still written (unresolved identities are a warning, not a blocker).
+7. **Given** Prepare is re-run after the operator fixes a missing node path (now present on the target), **When** `NodesModule.PrepareAsync` runs again, **Then** `Nodes/prepare-report.json` is overwritten showing the path in `Present`, no Error is logged, and `prepare.complete.json` is written.
+
+---
 
 ### User Story 1 — Node Structure Import (Priority: P1)
 
@@ -144,6 +166,28 @@ A migration operator runs a full import job. The platform ensures that `NodesMod
 
 ### Functional Requirements
 
+**Prepare Phase (IModule.PrepareAsync)**
+
+> **Infrastructure note**: As of the investigation date (2026-05-03), `IModule` does NOT contain a `PrepareAsync` method — the interface currently declares only `ExportAsync`, `ImportAsync`, and `ValidateAsync`. The FRs below require that `PrepareAsync(PrepareContext context, CancellationToken ct)` be added to `IModule` and that `PrepareContext` be created as a new context type in `DevOpsMigrationPlatform.Abstractions.Agent.Context`. This is a foundational interface extension; it must be addressed before any of the Prepare FRs below can be implemented. A `prepare.complete.json` marker is written to `.migration/Checkpoints/` only after all module `PrepareAsync` calls complete without Error-level findings. Import refuses to start if any Prepare finding is Error-level — no operator override or `--force` flag is supported; the operator must fix the underlying issue and re-run Prepare.
+
+- **FR-P01**: `IModule` MUST be extended with `Task PrepareAsync(PrepareContext context, CancellationToken ct)`. All existing module implementations MUST provide a non-throwing default implementation (returning `Task.CompletedTask`) so existing modules are not broken. `PrepareAsync` MUST be called by the Job Engine before `ImportAsync` in Import mode (or Migrate mode); if `prepare.complete.json` already exists, `PrepareAsync` is skipped unless explicitly re-run. `PrepareAsync` MUST be idempotent — re-running it overwrites its output artefacts but MUST NOT modify operator-edited mapping files (e.g. `Identities/mapping.json`).
+
+- **FR-P02** *(NodesModule PrepareAsync — path existence check)*: `NodesModule.PrepareAsync` MUST read `Nodes/referenced-paths.json` and, for each listed area/iteration path, call the target connector to check whether the path already exists (e.g. `INodeCreator.NodeExistsAsync`). The result MUST be written to `Nodes/prepare-report.json` containing: a `Present` list (paths already on the target), a `Missing` list (paths absent from the target), and a `WouldAutoCreate` boolean indicating whether `AutoCreateNodes = true` would resolve all missing paths. `PrepareAsync` MUST NOT create any nodes — that is the responsibility of `ImportAsync`.
+
+- **FR-P03** *(NodesModule PrepareAsync — blocking rule)*: If any paths are in the `Missing` list AND `AutoCreateNodes = false`, `NodesModule.PrepareAsync` MUST log each missing path at `Error` level and mark the prepare result as failed. This MUST prevent `prepare.complete.json` from being written and MUST block Import from starting.
+
+- **FR-P04** *(WorkItemsModule PrepareAsync — work item type check)*: `WorkItemsModule.PrepareAsync` MUST enumerate all `revision.json` files in the package, collect the unique set of `WorkItemType` values, and query the target for the list of valid work item types. Any type in the package that does not exist on the target MUST be logged at `Error` level. If any unknown types are found, the prepare result MUST be marked as failed (blocking import). This check corresponds to and pre-empts the import-time check in FR-034; if Prepare was run and passed, FR-034's `ValidateAsync` will not find new type errors at import time.
+
+- **FR-P05** *(WorkItemsModule PrepareAsync — field translation completeness)*: `WorkItemsModule.PrepareAsync` MUST enumerate all field names across all `revision.json` files and cross-check against the configured `FieldTranslations` dictionary. Any field name present in the package that has no entry in `FieldTranslations` MUST be logged at `Warning` level (not `Error`). Unmapped fields do not block import — they are written to the target as-is, using the source field name. The warning is surfaced so the operator can decide whether to add a translation rule or accept the default.
+
+- **FR-P06** *(WorkItemsModule PrepareAsync — node path completeness)*: `WorkItemsModule.PrepareAsync` MUST collect all unique `System.AreaPath` and `System.IterationPath` values from all `revision.json` files and check each against the target (via `INodeCreator.NodeExistsAsync`). Paths already confirmed present in `Nodes/prepare-report.json` (from FR-P02) SHOULD be skipped to avoid duplicate calls. Any path that is missing on the target AND would not be auto-created (`AutoCreateNodes = false`) MUST be logged at `Error` level and mark the prepare result as failed. When `AutoCreateNodes = true`, missing paths MUST be logged at `Warning` level only (they will be created by `NodesModule.ImportAsync`).
+
+- **FR-P07** *(WorkItemsModule PrepareAsync — identity gap report)*: If `Identities/prepare-report.json` exists in the package, `WorkItemsModule.PrepareAsync` MUST read it and log the count of unresolved identities at `Warning` level. Unresolved identities do not block import — they will cause identity fields to be written with the source descriptor value. The warning is surfaced so the operator can resolve them in `Identities/mapping.json` before import if required.
+
+- **FR-P08** *(WorkItemsModule PrepareAsync — attachment size pre-scan)*: If `extensions[Attachments].maxSizeBytes > 0`, `WorkItemsModule.PrepareAsync` MUST scan attachment metadata in all `revision.json` files and log at `Warning` level any attachment whose declared size (from `revision.json`) exceeds `maxSizeBytes`. These attachments will be skipped at import time (FR-020 edge case). This check does not block import; it gives the operator advance notice of which attachments will be skipped.
+
+- **FR-P09** *(WorkItemsModule PrepareAsync — prepare report output)*: On completion, `WorkItemsModule.PrepareAsync` MUST write `WorkItems/prepare-report.json` containing: `WorkItemTypeErrors` (list of unknown types), `UnmappedFields` (list of unmapped field names), `MissingNodePaths` (list of missing area/iteration paths), `UnresolvedIdentityCount` (integer), `OversizedAttachments` (list of `{WorkItemId, RevisionIndex, FileName, SizeBytes}` objects for attachments exceeding `maxSizeBytes`). If any `WorkItemTypeErrors` or `MissingNodePaths` (where `AutoCreateNodes = false`) are non-empty, the prepare run MUST be marked failed and `prepare.complete.json` MUST NOT be written.
+
 **Nodes Import**
 
 - **FR-001**: `NodesModule ImportAsync` MUST read `Nodes/referenced-paths.json` and create all listed area and iteration paths on the target when `AutoCreateNodes = true`.
@@ -234,6 +278,10 @@ A migration operator runs a full import job. The platform ensures that `NodesMod
 - **`idmap.db`**: A SQLite database at `.migration/Checkpoints/idmap.db` that stores `sourceId → targetId` work item mappings and `(workItemId, revisionIndex, relativePath) → targetAttachmentId` attachment mappings.
 - **Node**: An area path or iteration path entry in the Azure DevOps classification tree, e.g. `Project\Team A\Sprint 1`.
 - **Import Cursor**: A JSON file under `.migration/Checkpoints/` recording the last successfully processed folder path and stage. Enables resume after interruption.
+- **`prepare.complete.json`**: A marker file written to `.migration/Checkpoints/` after all module `PrepareAsync` calls complete with no Error-level findings. Import skips Prepare when this file is present. Prepare overwrites it on successful re-run.
+- **`Nodes/prepare-report.json`**: Written by `NodesModule.PrepareAsync`. Contains `Present` (paths on target), `Missing` (paths absent), `WouldAutoCreate` boolean.
+- **`WorkItems/prepare-report.json`**: Written by `WorkItemsModule.PrepareAsync`. Contains `WorkItemTypeErrors`, `UnmappedFields`, `MissingNodePaths`, `UnresolvedIdentityCount`, `OversizedAttachments`.
+- **`PrepareContext`**: A new context type (to be created in `DevOpsMigrationPlatform.Abstractions.Agent.Context`) passed to `IModule.PrepareAsync`. Provides `IArtefactStore`, `Job`, and target connectivity info.
 
 ## Success Criteria *(mandatory)*
 
@@ -246,6 +294,7 @@ A migration operator runs a full import job. The platform ensures that `NodesMod
 - **SC-005**: Every import operation (nodes, revisions, attachments) emits observable progress events that are visible in the CLI and TUI progress display, reporting item counts, current cursor position, and stage.
 - **SC-006**: All import behaviours have passing Simulated connector system tests (`[TestCategory("SystemTest")]`) that assert non-trivial artefact content — not merely absence of exceptions.
 - **SC-008**: A Simulated system test for FR-041 (`FieldTransform` extension enabled) MUST assert that the target connector received a field value matching the post-transform result. Example: a `SetField` or regex-replace transform on `System.AreaPath` is applied, and the `UpdateFields` call on the simulated target receives the transformed value — not the original source value.
+- **SC-009**: A Simulated system test for the Prepare phase (FR-P01 through FR-P09) MUST assert: (a) when a missing WI type is present in the package, `WorkItems/prepare-report.json` contains the type in `WorkItemTypeErrors` and `prepare.complete.json` is NOT written; (b) when all checks pass, `prepare.complete.json` IS written; (c) Prepare is idempotent — running it twice overwrites the report artefacts without error.
 - **SC-007**: Import runs in modes `Import` and `Migrate` complete without error for the reference scenario config (`scenarios/queue-export-ado-workitems-single-project.json`).
 
 ## Assumptions

@@ -21,11 +21,18 @@ Build a deterministic, resumable, versioned migration package platform:
 
 Source → Files → Target
 
-Modes:
-- Export
-- Prepare
-- Import
-- Migrate
+Pipeline phases (each runnable independently or chained):
+
+**Inventory → Export → Prepare → Import → Validate**
+
+- **Inventory** — Count and catalogue everything in scope
+- **Export** — Extract all in-scope data to the package
+- **Prepare** — Cross-validate export + target config before import
+- **Import** — Apply the package to the target system
+- **Validate** — Verify import completeness against export data
+
+Convenience mode:
+- **Migrate** — Chains all five phases: Inventory → Export → Prepare → Import → Validate
 
 The filesystem package is the source of truth.
 

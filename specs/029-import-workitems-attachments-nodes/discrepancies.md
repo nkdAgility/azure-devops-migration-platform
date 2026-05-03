@@ -42,3 +42,11 @@
 - **Issue**: `FieldTransformTool` (`IFieldTransformTool`) is fully implemented. However, `WorkItemsModuleExtensions` does not recognise a `FieldTransform` extension type, so there is no way to enable it for a `WorkItemsModule` import run. Stage B (`AppliedFields`) has no hook for field transformation.
 - **Severity**: **Blocking for FR-041/FR-042/FR-043** — field transformation cannot be enabled for import without this wiring.
 - **Suggested fix**: Add `FieldTransformEnabled` (default `false`) to `WorkItemsModuleExtensions`. Add `case "FieldTransform":` to the switch in `FromModule` and a corresponding block in `FromOptions`. In `WorkItemsModule.ImportAsync`, inject `IFieldTransformTool?` (optional) and call `ApplyTransforms` on the field dictionary during Stage B when the extension is enabled.
+
+### PrepareAsync not present in IModule interface
+
+- **Source doc**: `src/DevOpsMigrationPlatform.Abstractions.Agent/Modules/IModule.cs`
+- **Section**: Interface declaration
+- **Issue**: `IModule` currently declares only `ExportAsync`, `ImportAsync`, and `ValidateAsync`. `PrepareAsync(PrepareContext context, CancellationToken ct)` is described in `docs/modules.md` but is absent from the actual C# interface. `PrepareContext` does not exist as a type. All module `PrepareAsync` implementations described in FR-P02 through FR-P09 cannot be built until this foundation is in place.
+- **Severity**: **Blocking for FR-P01 through FR-P09** — no Prepare phase FRs can be implemented without this interface extension.
+- **Suggested fix**: Add `Task PrepareAsync(PrepareContext context, CancellationToken ct)` to `IModule`. Create `PrepareContext` in `DevOpsMigrationPlatform.Abstractions.Agent.Context` (mirroring `ImportContext` / `ValidationContext` — should carry `IArtefactStore`, `Job`, `ITargetEndpointInfo`). Update all existing module implementations to provide a default `return Task.CompletedTask` body so they remain non-breaking. Add `SupportsPrepare` bool property to `IModule` (defaulting to `false`) following the pattern of `SupportsExport` / `SupportsImport`.

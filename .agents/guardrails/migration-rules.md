@@ -8,6 +8,14 @@ Enforceable migration behaviour rules. If code conflicts with this file, reject 
 
 Source → Files → Target. Migrations are: deterministic, resumable, portable, auditable, memory-safe (streaming).
 
+**Pipeline phases** (each runnable independently or chained via `Migrate`):
+
+**Inventory → Export → Prepare → Import → Validate**
+
+Phase gates ensure prerequisites are met automatically:
+- Export auto-runs Inventory if `.migration/Checkpoints/inventory.complete.json` is absent.
+- Import auto-runs Prepare if `.migration/Checkpoints/prepare.complete.json` is absent.
+
 ---
 
 ## Non-Negotiable Invariants
