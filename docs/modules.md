@@ -102,7 +102,7 @@ Provides cross-cutting scalar values about the current job. Every module that ne
 ```csharp
 public interface IAgentJobContext
 {
-    string Mode { get; }          // "Export", "Import", "Prepare", or "Migrate"
+    string Mode { get; }          // "Inventory", "Export", "Prepare", "Import", "Validate", or "Migrate"
     string PackagePath { get; }   // Resolved absolute path to the package root
     string ConfigVersion { get; } // e.g. "2.0"
 }

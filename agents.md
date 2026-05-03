@@ -247,14 +247,16 @@ If code conflicts with these, reject the change.
 
 # 🔒 Non-Negotiable Summary
 
-1. WorkItems layout is canonical and chronological.
-2. Import must be streaming and memory-safe.
-3. Resume must use cursor-based checkpointing.
-4. Attachments must live beside revision.json.
-5. No direct Source → Target migration.
-6. Modules must be isolated.
-7. All persistence goes through IArtefactStore and IStateStore.
-8. Determinism is mandatory.
+1. Pipeline phases are: **Inventory → Export → Prepare → Import → Validate** (each independent, or chained via Migrate).
+2. Export auto-runs Inventory if inventory artefacts are missing. Import auto-runs Prepare if prepare artefacts are missing.
+3. WorkItems layout is canonical and chronological.
+4. Import must be streaming and memory-safe.
+5. Resume must use cursor-based checkpointing.
+6. Attachments must live beside revision.json.
+7. No direct Source → Target migration.
+8. Modules must be isolated.
+9. All persistence goes through IArtefactStore and IStateStore.
+10. Determinism is mandatory.
 
 Detailed logic is in `/.agents/guardrails`.
 

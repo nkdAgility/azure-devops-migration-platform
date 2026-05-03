@@ -9,13 +9,39 @@ See [docs/cli.md](cli.md) for how the CLI routes a job to the Job Engine. See [.
 ### Steps
 
 1. **Validate job** — Check `Job` schema, `configVersion` compatibility, and `kind` value.
-2. **Validate package** — Run each module's `ValidateAsync` (pre-execution pass). Fail fast on errors.
-3. **Build module dependency graph** — Topological sort of all enabled modules using `DependsOn` declarations. Fail fast on circular dependencies.
-4. **Execute modules in order** — Run each module's `ExportAsync`, `PrepareAsync`, `ImportAsync`, or a combination, depending on `mode`.
-5. **Maintain state via cursors** — Each module writes its cursor after each unit of work via `IStateStore`.
-6. **Emit progress events** — After each cursor write, emit a `ProgressEvent` to `IProgressSink`.
-6a. **Record metrics** — After each work item processing step, record OTel metrics via `IMigrationMetrics` (execution counters, payload histograms, duration).
-7. **Fail fast on module failure** — A non-recoverable error in any module halts the run. Cursor state allows resume.
+2. **Build execution plan** — Produce a `JobTaskList` containing one `JobTask` per enabled module per applicable phase. Each task has an `Id` (e.g. `inventory.workitems`, `export.workitems`, `prepare.identities`, `import.nodes`, `validate.workitems`), a `Phase` grouping, dependency edges, and an execution `Order`. The plan is pushed to the control plane so CLI and TUI can render progress before execution begins.
+3. **Validate package** — Run each module's `ValidateAsync` (pre-execution pass). Fail fast on errors.
+4. **Build module dependency graph** — Topological sort of all enabled modules using `DependsOn` declarations per phase. Fail fast on circular dependencies.
+5. **Execute tasks in order** — Walk the task list phase by phase. Within each phase, execute tasks in topological dependency order. Each task invokes one module method (`ExportAsync`, `PrepareAsync`, `ImportAsync`, or `ValidateAsync`) depending on the phase.
+6. **Maintain state via cursors** — Each module writes its cursor after each unit of work via `IStateStore`.
+7. **Emit progress events** — After each cursor write, emit a `ProgressEvent` to `IProgressSink`.
+7a. **Record metrics** — After each work item processing step, record OTel metrics via `IMigrationMetrics` (execution counters, payload histograms, duration).
+8. **Fail fast on module failure** — A non-recoverable error in any module halts the run. Cursor state allows resume.
+
+### Task Plan Structure
+
+The agent emits a `JobTaskList` — an ordered list of `JobTask` records — at job start. The plan contains **one task per module per phase**:
+
+| Phase | Task ID pattern | Module method | Example |
+|---|---|---|---|
+| **Inventory** | `inventory.{module}` | `ExportAsync` (inventory-capable modules) | `inventory.inventory`, `inventory.workitems` |
+| **Export** | `export.{module}` | `ExportAsync` | `export.identities`, `export.nodes`, `export.workitems` |
+| **Prepare** | `prepare.{module}` | `PrepareAsync` | `prepare.identities`, `prepare.nodes` |
+| **Import** | `import.{module}` | `ImportAsync` | `import.identities`, `import.nodes`, `import.workitems` |
+| **Validate** | `validate.{module}` | `ValidateAsync` | `validate.identities`, `validate.workitems` |
+
+Which phases appear depends on the job `mode`:
+
+| Mode | Phases included |
+|---|---|
+| `Inventory` | Inventory |
+| `Export` | Inventory (if gate missing) + Export |
+| `Prepare` | Prepare |
+| `Import` | Prepare (if gate missing) + Import |
+| `Validate` | Validate |
+| `Migrate` | Inventory + Export + Prepare + Import + Validate |
+
+Tasks within a phase are topologically sorted by `DependsOn`. Tasks across phases execute sequentially (all Inventory tasks complete before Export begins, etc.). Phase gates (Inventory before Export, Prepare before Import) are enforced by the plan builder — prerequisite phase tasks are injected automatically when the completion marker is absent.
 
 ### Mode Behaviour
 

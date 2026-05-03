@@ -50,6 +50,8 @@ Root MUST contain: `manifest.json`, `WorkItems/`, `.migration/Checkpoints/`, `.m
 
 Each module MUST implement: `ExportAsync`, `PrepareAsync`, `ImportAsync`, `ValidateAsync`, `DependsOn`.
 
+Modules MAY declare `SupportsExport` and `SupportsImport` flags. Inventory-only modules (e.g. `InventoryModule`) set `SupportsImport = false` and perform inventory work inside `ExportAsync`.
+
 MUST: write only through `IArtefactStore`, persist state only through `IStateStore`, declare dependencies explicitly.
 
 MUST NOT: access another module's folder, persist state outside Checkpoints, perform ad-hoc file IO, perform live migrations.
