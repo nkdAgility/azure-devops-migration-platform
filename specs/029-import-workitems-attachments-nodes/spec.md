@@ -35,6 +35,8 @@
 - Q: When `FieldTransformTool.ApplyTransforms` throws during Stage B, how should the failure be handled? → A: Always halt immediately — field transforms are a critical configuration error. The failure does NOT count against `MaxGracefulFailures`; the import always halts regardless of the budget. See FR-041a.
 - Q: Can the `FieldTransform` job contract extension carry inline `TransformGroups` configuration, or does it only toggle the globally-configured `FieldTransformOptions`? → A: Toggle only — the extension only enables/disables the globally-configured `FieldTransformOptions`. No per-job override of transform groups is supported. See FR-043.
 - Q: What assertion is required in the Simulated system test for FR-041? → A: Assert that the target connector received a field value matching the post-transform result (e.g. transformed `System.AreaPath` value equals the expected mapped path). See SC-008.
+- Q: How should the Polly retry policy in FR-040 handle ADO rate limiting? → A: The Polly policy MUST handle `HTTP 429 Too Many Requests` in addition to transient failures (5xx / network errors). When a 429 response includes a `Retry-After` header, the policy MUST wait the specified number of seconds before retrying. `X-RateLimit-Remaining` SHOULD be monitored and logged at `Debug` level when it approaches zero. See updated FR-040.
+- Q: What is the default value for `extensions[Attachments].maxSizeBytes`? → A: Per ADO documentation — ADO Services enforces a hard limit of **60 MB** (62,914,560 bytes) per attachment; ADO Server defaults to **4 MB** (4,194,304 bytes) but is configurable up to 2 GB. The platform default for `maxSizeBytes` MUST be `0` (meaning no platform-side cap — the target API enforces its own limits). Operators targeting large attachment workloads should set this explicitly. See updated Edge Case.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -118,7 +120,7 @@ A migration operator runs a full import job. The platform ensures that `NodesMod
 - What happens when the target already contains a work item with the same `ReflectedWorkItemId`?  
   → The `IWorkItemResolutionStrategy` detects the existing item, records the mapping in `idmap.db`, and proceeds to update fields rather than create a duplicate.
 - What happens when an attachment binary is larger than `extensions[Attachments].maxSizeBytes`?  
-  → The attachment is skipped with a `Warning` log; the cursor still advances to `UploadedAttachments` for that revision.
+  → The attachment is skipped with a `Warning` log; the cursor still advances to `UploadedAttachments` for that revision. The default value of `maxSizeBytes` is `0` (no platform-side cap). ADO Services enforces a hard upload limit of **60 MB** per attachment; ADO Server defaults to **4 MB** (configurable up to 2 GB). Operators should set `maxSizeBytes` explicitly if they want to skip oversized attachments before attempting the API call — particularly useful when migrating to an ADO Server instance with a low default limit.
 - What happens if `idmap.db` is deleted after a partial import run?  
   → All work items that were previously created on the target will be duplicated unless the operator runs checkpoint reconciliation (`devopsmigration reconcile`) to rebuild the mapping from the target.
 - What happens when a revision folder name does not match the canonical `<ticks>-<workItemId>-<revisionIndex>` format?  
@@ -203,7 +205,7 @@ A migration operator runs a full import job. The platform ensures that `NodesMod
 
 **Save Retry**
 
-- **FR-040**: All calls to `IWorkItemImportTarget.CreateOrUpdateAsync` and `IWorkItemImportTarget.UploadAttachmentAsync` MUST be wrapped in a Polly retry policy with exponential back-off. The retry limit MUST be configurable via `WorkItemCreateRetryLimit` (default `5`); on exhaustion the failure MUST be escalated to the `MaxGracefulFailures` counter.
+- **FR-040**: All calls to `IWorkItemImportTarget.CreateOrUpdateAsync` and `IWorkItemImportTarget.UploadAttachmentAsync` MUST be wrapped in a Polly retry policy with exponential back-off. The retry limit MUST be configurable via `WorkItemCreateRetryLimit` (default `5`); on exhaustion the failure MUST be escalated to the `MaxGracefulFailures` counter. The Polly policy MUST handle `HTTP 429 Too Many Requests` (ADO rate-limit response) in addition to transient network/5xx failures. When a 429 response includes a `Retry-After` header, the retry delay MUST be the value specified in that header (in seconds); the `Retry-After` wait does NOT consume one of the `WorkItemCreateRetryLimit` attempts — it is a mandatory back-off pause. `X-RateLimit-Remaining` SHOULD be logged at `Debug` level when present to aid operator visibility. When a 429 response arrives without a `Retry-After` header, the standard exponential back-off applies.
 
 **Field Transform Extension**
 
