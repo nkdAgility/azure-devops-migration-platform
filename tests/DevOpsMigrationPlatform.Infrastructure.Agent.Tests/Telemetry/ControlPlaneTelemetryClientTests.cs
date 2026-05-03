@@ -36,23 +36,7 @@ public class ControlPlaneTelemetryClientTests
     [TestCleanup]
     public void Cleanup() => _httpClient.Dispose();
 
-    [TestMethod]
-    public async Task PushMetricsAsync_WhenServerReturns204_DoesNotThrow()
-    {
-        _handler.RespondWith(HttpStatusCode.NoContent);
-
-        var metrics = new JobMetrics
-        {
-            Migration = new MigrationCounters
-            {
-                WorkItems = new WorkItemCounters { Attempted = 10 }
-            }
-        };
-        await _sut.PushMetricsAsync("lease-1", metrics, CancellationToken.None);
-
-        // No exception = test passes.
-    }
-
+    // TODO: [test-validity] LOW VALUE — only asserts no exception on 404; covered by RequestBodyContainsValidJobMetrics which also uses 204
     [TestMethod]
     public async Task PushMetricsAsync_WhenServerReturns404_LogsWarningAndDoesNotThrow()
     {
@@ -99,6 +83,7 @@ public class ControlPlaneTelemetryClientTests
         Assert.AreEqual(40, deserialized!.Migration!.WorkItems.Completed);
     }
 
+    // TODO: [test-validity] LOW VALUE — only asserts no exception on network failure; no assertion on logged warning or retry behaviour
     [TestMethod]
     public async Task PushMetricsAsync_WhenNetworkFails_DoesNotThrow()
     {

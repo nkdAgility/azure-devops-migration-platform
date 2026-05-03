@@ -71,6 +71,7 @@ namespace DevOpsMigrationPlatform.Abstractions.Tests.Errors
             Assert.IsFalse(ex.IsRetryable);
         }
 
+        // TODO: [test-validity] LOW VALUE — tests property round-trip (isRetryable: true → IsRetryable == true); no meaningful failure scenario
         [TestMethod]
         public void IsRetryable_WhenExplicitlySetTrue_IsTrue()
         {
@@ -78,6 +79,7 @@ namespace DevOpsMigrationPlatform.Abstractions.Tests.Errors
             Assert.IsTrue(ex.IsRetryable);
         }
 
+        // TODO: [test-validity] LOW VALUE — tests property round-trip (isRetryable: false → IsRetryable == false); false is also the default so this adds no unique coverage
         [TestMethod]
         public void IsRetryable_WhenExplicitlySetFalse_IsFalse()
         {
@@ -125,6 +127,7 @@ namespace DevOpsMigrationPlatform.Abstractions.Tests.Errors
             Assert.AreEqual(inner, ex.InnerException);
         }
 
+        // TODO: [test-validity] LOW VALUE — redundant with AllCategories_HaveExpectedExitCodes which exhaustively tests all exit codes
         [TestMethod]
         public void MultipleInstances_WithSameCategory_HaveSameExitCode()
         {
