@@ -79,14 +79,6 @@ namespace DevOpsMigrationPlatform.Abstractions.Tests.Errors
             Assert.IsTrue(ex.IsRetryable);
         }
 
-        // TODO: [test-validity] LOW VALUE — tests property round-trip (isRetryable: false → IsRetryable == false); false is also the default so this adds no unique coverage
-        [TestMethod]
-        public void IsRetryable_WhenExplicitlySetFalse_IsFalse()
-        {
-            var ex = new MigrationException("Validation failed", MigrationErrorCategory.ValidationError, isRetryable: false);
-            Assert.IsFalse(ex.IsRetryable);
-        }
-
         [TestMethod]
         public void ToString_IncludesCategoryAndMessage()
         {
@@ -127,16 +119,5 @@ namespace DevOpsMigrationPlatform.Abstractions.Tests.Errors
             Assert.AreEqual(inner, ex.InnerException);
         }
 
-        // TODO: [test-validity] LOW VALUE — redundant with AllCategories_HaveExpectedExitCodes which exhaustively tests all exit codes
-        [TestMethod]
-        public void MultipleInstances_WithSameCategory_HaveSameExitCode()
-        {
-            var ex1 = new MigrationException("First", MigrationErrorCategory.RateLimited);
-            var ex2 = new MigrationException("Second", MigrationErrorCategory.RateLimited);
-
-            Assert.AreEqual(ex1.ExitCode, ex2.ExitCode);
-            Assert.AreEqual(3, ex1.ExitCode);
-            Assert.AreEqual(3, ex2.ExitCode);
-        }
     }
 }
