@@ -167,10 +167,58 @@ function Invoke-Step {
     }
 }
 
+function Get-TrxRows {
+    # Parse a list of .trx file paths and return per-assembly result rows.
+    param([string[]]$TrxPaths)
+    $rows = [System.Collections.Generic.List[PSCustomObject]]::new()
+    foreach ($path in $TrxPaths) {
+        [xml]$xml = Get-Content -LiteralPath $path -Raw
+        $ns = @{ t = 'http://microsoft.com/schemas/VisualStudio/TeamTest/2010' }
+        $counters = Select-Xml -Xml $xml -XPath '//t:ResultSummary/t:Counters' -Namespace $ns |
+            Select-Object -ExpandProperty Node
+        if (-not $counters) { continue }
+        $passed  = [int]$counters.passed
+        $failed  = [int]$counters.failed
+        $skipped = [int]$counters.notExecuted
+        $total   = [int]$counters.total
+        if ($total -eq 0) { continue }
+        $assembly = [System.IO.Path]::GetFileNameWithoutExtension($path)
+        $defNode = Select-Xml -Xml $xml -XPath '//t:TestDefinitions/t:UnitTest[1]/t:TestMethod' -Namespace $ns |
+            Select-Object -ExpandProperty Node
+        if ($defNode -and $defNode.className) {
+            $assembly = ($defNode.className -split ',')[0] -replace '\.Tests\..*|\.Test\..*', '.Tests'
+        }
+        $rows.Add([PSCustomObject]@{ Assembly = $assembly; Passed = $passed; Failed = $failed; Skipped = $skipped; Total = $total })
+    }
+    return $rows
+}
+
+function Write-TrxSection {
+    # Render a labelled section of per-assembly rows and return totals.
+    param([string]$Label, [System.Collections.Generic.List[PSCustomObject]]$Rows)
+    if (-not $Rows -or $Rows.Count -eq 0) { return [PSCustomObject]@{ Passed = 0; Failed = 0; Skipped = 0; Total = 0 } }
+    Write-Host ""
+    Write-Host "  ── $Label" -ForegroundColor DarkCyan
+    $secPassed = 0; $secFailed = 0; $secSkipped = 0; $secTotal = 0
+    foreach ($row in $Rows) {
+        $secPassed  += $row.Passed
+        $secFailed  += $row.Failed
+        $secSkipped += $row.Skipped
+        $secTotal   += $row.Total
+        $icon  = if ($row.Failed -gt 0) { '✗' } else { '✓' }
+        $color = if ($row.Failed -gt 0) { 'Red' } else { 'Green' }
+        Write-Host ('  {0} {1,-42} {2,5} passed  {3,3} failed  {4,3} skipped  {5,5} total' -f $icon, $row.Assembly, $row.Passed, $row.Failed, $row.Skipped, $row.Total) -ForegroundColor $color
+    }
+    return [PSCustomObject]@{ Passed = $secPassed; Failed = $secFailed; Skipped = $secSkipped; Total = $secTotal }
+}
+
 function Write-TestSummary {
-    # Parse .trx files from TestResults/ to show per-assembly test counts.
-    $trxFiles = Get-ChildItem -LiteralPath $TestResultsDir -Filter '*.trx' -ErrorAction SilentlyContinue
-    if (-not $trxFiles -or $trxFiles.Count -eq 0) { return }
+    # Parse .trx files from TestResults/ subdirectories (unit/simulated/live/system)
+    # and show a categorised test summary.  Falls back to the flat root view for
+    # backwards-compat when no subdirectory files exist (e.g. Stats on an old run).
+
+    $allTrxFiles = Get-ChildItem -LiteralPath $TestResultsDir -Filter '*.trx' -Recurse -ErrorAction SilentlyContinue
+    if (-not $allTrxFiles -or $allTrxFiles.Count -eq 0) { return }
 
     Write-Host ""
     Write-Host ('─' * 72) -ForegroundColor DarkGray
@@ -179,69 +227,62 @@ function Write-TestSummary {
 
     $totalPassed = 0; $totalFailed = 0; $totalSkipped = 0; $totalTests = 0
 
-    foreach ($trx in $trxFiles) {
-        [xml]$xml = Get-Content -LiteralPath $trx.FullName -Raw
-        $ns = @{ t = 'http://microsoft.com/schemas/VisualStudio/TeamTest/2010' }
-        $counters = Select-Xml -Xml $xml -XPath '//t:ResultSummary/t:Counters' -Namespace $ns |
-        Select-Object -ExpandProperty Node
+    # ── Categorised sections ─────────────────────────────────────────────────
+    $categorySections = @(
+        [PSCustomObject]@{ Label = 'Unit Tests';               Dir = Join-Path $TestResultsDir 'unit'      },
+        [PSCustomObject]@{ Label = 'System Tests (Simulated)'; Dir = Join-Path $TestResultsDir 'simulated' },
+        [PSCustomObject]@{ Label = 'System Tests (Live)';      Dir = Join-Path $TestResultsDir 'live'      },
+        [PSCustomObject]@{ Label = 'System Tests';             Dir = Join-Path $TestResultsDir 'system'    }
+    )
 
-        if (-not $counters) { continue }
-
-        $passed = [int]$counters.passed
-        $failed = [int]$counters.failed
-        $skipped = [int]$counters.notExecuted
-        $total = [int]$counters.total
-
-        # Skip empty result files (e.g. bare environment .trx files with no tests)
-        if ($total -eq 0) { continue }
-
-        $totalPassed += $passed
-        $totalFailed += $failed
-        $totalSkipped += $skipped
-        $totalTests += $total
-
-        # Derive assembly name from the .trx storage attribute or filename
-        $firstResult = Select-Xml -Xml $xml -XPath '//t:Results/t:UnitTestResult[1]' -Namespace $ns |
-        Select-Object -ExpandProperty Node
-        $assembly = if ($firstResult -and $firstResult.testName) {
-            $firstResult.testName -replace '\..*', ''
-        }
-        else {
-            [System.IO.Path]::GetFileNameWithoutExtension($trx.Name)
-        }
-        # Try to get a cleaner name from TestDefinitions
-        $defNode = Select-Xml -Xml $xml -XPath '//t:TestDefinitions/t:UnitTest[1]/t:TestMethod' -Namespace $ns |
-        Select-Object -ExpandProperty Node
-        if ($defNode -and $defNode.className) {
-            $assembly = ($defNode.className -split ',')[0] -replace '\.Tests\..*|\.Test\..*', '.Tests'
-        }
-
-        $statusIcon = if ($failed -gt 0) { '✗' } else { '✓' }
-        $statusColor = if ($failed -gt 0) { 'Red' } else { 'Green' }
-        $line = '  {0} {1,-42} {2,5} passed  {3,3} failed  {4,3} skipped  {5,5} total' -f $statusIcon, $assembly, $passed, $failed, $skipped, $total
-        Write-Host $line -ForegroundColor $statusColor
+    $hasSubdirData = $false
+    foreach ($section in $categorySections) {
+        if (-not (Test-Path $section.Dir -ErrorAction SilentlyContinue)) { continue }
+        $sectionTrx = Get-ChildItem -LiteralPath $section.Dir -Filter '*.trx' -ErrorAction SilentlyContinue
+        if (-not $sectionTrx -or $sectionTrx.Count -eq 0) { continue }
+        $hasSubdirData = $true
+        $rows = Get-TrxRows -TrxPaths ($sectionTrx | Select-Object -ExpandProperty FullName)
+        $totals = Write-TrxSection -Label $section.Label -Rows $rows
+        $totalPassed  += $totals.Passed
+        $totalFailed  += $totals.Failed
+        $totalSkipped += $totals.Skipped
+        $totalTests   += $totals.Total
     }
 
+    # ── Fallback: flat root .trx files (backwards-compat / legacy Stats run) ─
+    if (-not $hasSubdirData) {
+        $rootTrx = Get-ChildItem -LiteralPath $TestResultsDir -Filter '*.trx' -ErrorAction SilentlyContinue
+        if ($rootTrx -and $rootTrx.Count -gt 0) {
+            $rows = Get-TrxRows -TrxPaths ($rootTrx | Select-Object -ExpandProperty FullName)
+            foreach ($row in $rows) {
+                $totalPassed  += $row.Passed
+                $totalFailed  += $row.Failed
+                $totalSkipped += $row.Skipped
+                $totalTests   += $row.Total
+                $icon  = if ($row.Failed -gt 0) { '✗' } else { '✓' }
+                $color = if ($row.Failed -gt 0) { 'Red' } else { 'Green' }
+                Write-Host ('  {0} {1,-42} {2,5} passed  {3,3} failed  {4,3} skipped  {5,5} total' -f $icon, $row.Assembly, $row.Passed, $row.Failed, $row.Skipped, $row.Total) -ForegroundColor $color
+            }
+        }
+    }
+
+    Write-Host ""
     Write-Host ('─' * 72) -ForegroundColor DarkGray
-    $summaryIcon = if ($totalFailed -gt 0) { '✗' } else { '✓' }
+    $summaryIcon  = if ($totalFailed -gt 0) { '✗' } else { '✓' }
     $summaryColor = if ($totalFailed -gt 0) { 'Red' } else { 'Green' }
-    $summaryLine = '  {0} {1,-42} {2,5} passed  {3,3} failed  {4,3} skipped  {5,5} total' -f $summaryIcon, 'ALL TESTS', $totalPassed, $totalFailed, $totalSkipped, $totalTests
-    Write-Host $summaryLine -ForegroundColor $summaryColor
+    Write-Host ('  {0} {1,-42} {2,5} passed  {3,3} failed  {4,3} skipped  {5,5} total' -f $summaryIcon, 'ALL TESTS', $totalPassed, $totalFailed, $totalSkipped, $totalTests) -ForegroundColor $summaryColor
     Write-Host ('─' * 72) -ForegroundColor DarkGray
 
     # ── 10 slowest tests ─────────────────────────────────────────────────────
-    $allResults = foreach ($trx in $trxFiles) {
+    $allResults = foreach ($trx in $allTrxFiles) {
         [xml]$xml = Get-Content -LiteralPath $trx.FullName -Raw
         $ns = @{ t = 'http://microsoft.com/schemas/VisualStudio/TeamTest/2010' }
         Select-Xml -Xml $xml -XPath '//t:Results/t:UnitTestResult' -Namespace $ns |
-        Select-Object -ExpandProperty Node |
-        Where-Object { $_.duration } |
-        ForEach-Object {
-            [PSCustomObject]@{
-                Name     = $_.testName
-                Duration = [TimeSpan]::Parse($_.duration)
+            Select-Object -ExpandProperty Node |
+            Where-Object { $_.duration } |
+            ForEach-Object {
+                [PSCustomObject]@{ Name = $_.testName; Duration = [TimeSpan]::Parse($_.duration) }
             }
-        }
     }
 
     $slowest = $allResults | Sort-Object Duration -Descending | Select-Object -First 10
@@ -423,11 +464,13 @@ function Invoke-Build {
 }
 
 function Invoke-UnitTests {
-    # Clear stale .trx files so the summary only reflects the current run
+    # Clear all stale .trx files (including subdirs) so the summary only reflects the current run.
     if (Test-Path $TestResultsDir) {
-        Get-ChildItem -LiteralPath $TestResultsDir -Filter '*.trx' -ErrorAction SilentlyContinue |
-        Remove-Item -Force -ErrorAction SilentlyContinue
+        Get-ChildItem -LiteralPath $TestResultsDir -Filter '*.trx' -Recurse -ErrorAction SilentlyContinue |
+            Remove-Item -Force -ErrorAction SilentlyContinue
     }
+    $unitDir = Join-Path $TestResultsDir 'unit'
+    New-Item -ItemType Directory -Path $unitDir -Force | Out-Null
     # All tests EXCEPT SystemTest-categorised tests (including sub-categories)
     Invoke-Step 'Running unit tests (excluding SystemTests)' {
         dotnet test $SolutionFile `
@@ -436,27 +479,19 @@ function Invoke-UnitTests {
             --filter 'TestCategory!=SystemTest&TestCategory!=SystemTest_Simulated&TestCategory!=SystemTest_Live' `
             --logger 'trx' `
             --logger 'console;verbosity=normal' `
-            --results-directory $TestResultsDir
+            --results-directory $unitDir
     }
 }
 
 function Invoke-AllTests {
-    # Clear stale .trx files so the summary only reflects the current run
-    if (Test-Path $TestResultsDir) {
-        Get-ChildItem -LiteralPath $TestResultsDir -Filter '*.trx' -ErrorAction SilentlyContinue |
-        Remove-Item -Force -ErrorAction SilentlyContinue
-    }
-    Invoke-Step 'Running all tests' {
-        dotnet test $SolutionFile `
-            --no-build `
-            --configuration Release `
-            --logger 'trx' `
-            --logger 'console;verbosity=normal' `
-            --results-directory $TestResultsDir
-    }
+    # Run all four categories in order so the summary is broken out by section.
+    Invoke-UnitTests
+    Invoke-SystemTests
 }
 
 function Invoke-SimulatedSystemTests {
+    $simulatedDir = Join-Path $TestResultsDir 'simulated'
+    New-Item -ItemType Directory -Path $simulatedDir -Force | Out-Null
     # Only tests tagged [TestCategory("SystemTest_Simulated")]
     Invoke-Step 'Running simulated system tests (TestCategory=SystemTest_Simulated)' {
         dotnet test $SolutionFile `
@@ -465,11 +500,13 @@ function Invoke-SimulatedSystemTests {
             --filter 'TestCategory=SystemTest_Simulated' `
             --logger 'trx' `
             --logger 'console;verbosity=normal' `
-            --results-directory $TestResultsDir
+            --results-directory $simulatedDir
     }
 }
 
 function Invoke-LiveSystemTests {
+    $liveDir = Join-Path $TestResultsDir 'live'
+    New-Item -ItemType Directory -Path $liveDir -Force | Out-Null
     # Only tests tagged [TestCategory("SystemTest_Live")]
     Invoke-Step 'Running live system tests (TestCategory=SystemTest_Live)' {
         dotnet test $SolutionFile `
@@ -478,11 +515,13 @@ function Invoke-LiveSystemTests {
             --filter 'TestCategory=SystemTest_Live' `
             --logger 'trx' `
             --logger 'console;verbosity=normal' `
-            --results-directory $TestResultsDir
+            --results-directory $liveDir
     }
 }
 
 function Invoke-RemainingSystemTests {
+    $systemDir = Join-Path $TestResultsDir 'system'
+    New-Item -ItemType Directory -Path $systemDir -Force | Out-Null
     # System tests that are tagged SystemTest but NOT in the simulated/live sub-categories.
     Invoke-Step 'Running remaining system tests (SystemTest excluding Simulated/Live)' {
         dotnet test $SolutionFile `
@@ -491,7 +530,7 @@ function Invoke-RemainingSystemTests {
             --filter 'TestCategory=SystemTest&TestCategory!=SystemTest_Simulated&TestCategory!=SystemTest_Live' `
             --logger 'trx' `
             --logger 'console;verbosity=normal' `
-            --results-directory $TestResultsDir
+            --results-directory $systemDir
     }
 }
 
@@ -793,6 +832,11 @@ switch ($Mode) {
 
     'SystemTest' {
         # ── Simulated system tests then live system tests (requires prior Build) ─
+        # Clear stale .trx files so the summary only reflects this run.
+        if (Test-Path $TestResultsDir) {
+            Get-ChildItem -LiteralPath $TestResultsDir -Filter '*.trx' -Recurse -ErrorAction SilentlyContinue |
+                Remove-Item -Force -ErrorAction SilentlyContinue
+        }
         Invoke-SystemTests
 
         Write-Host "`n==> System tests complete!" -ForegroundColor Green
@@ -801,6 +845,10 @@ switch ($Mode) {
 
     'SystemTest_Simulated' {
         # ── Simulated system tests only (requires prior Build) ────────────────
+        if (Test-Path $TestResultsDir) {
+            Get-ChildItem -LiteralPath $TestResultsDir -Filter '*.trx' -Recurse -ErrorAction SilentlyContinue |
+                Remove-Item -Force -ErrorAction SilentlyContinue
+        }
         Invoke-SimulatedSystemTests
 
         Write-Host "`n==> Simulated system tests complete!" -ForegroundColor Green
@@ -809,6 +857,10 @@ switch ($Mode) {
 
     'SystemTest_Live' {
         # ── Live system tests only (requires prior Build) ─────────────────────
+        if (Test-Path $TestResultsDir) {
+            Get-ChildItem -LiteralPath $TestResultsDir -Filter '*.trx' -Recurse -ErrorAction SilentlyContinue |
+                Remove-Item -Force -ErrorAction SilentlyContinue
+        }
         Invoke-LiveSystemTests
 
         Write-Host "`n==> Live system tests complete!" -ForegroundColor Green
