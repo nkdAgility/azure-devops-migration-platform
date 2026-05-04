@@ -1,21 +1,21 @@
 ---
 name: architecture-review
-description: Runs all five architecture perspective checks (Modular Monolith, Clean Architecture, Hexagonal, Vertical Slice, Screaming Architecture) and produces a single combined, prioritised report.
+description: Runs all five architecture perspective checks (Modular Monolith, Clean Architecture, Hexagonal, Vertical Slice, Screaming Architecture), then runs improve-codebase-architecture to propose deepening opportunities, and produces a single combined, prioritised report.
 ---
 
 # Skill: Architecture Review
 
-Use this skill when you need a complete, cross-perspective audit of the codebase before a major release, after a significant refactoring, or when onboarding to the codebase for the first time. It runs all five architecture checks and aggregates their findings into a single prioritised report.
+Use this skill when you need a complete, cross-perspective audit of the codebase before a major release, after a significant refactoring, or when onboarding to the codebase for the first time. It runs all five architecture checks, then runs a deepening-opportunities pass, and aggregates findings into a single prioritised report.
 
 ---
 
 ## Role
 
-When this skill is active, execute all five architecture-perspective skills in sequence, collect every violation found, and produce a consolidated report. Do **not** apply any fixes automatically — report findings first. If instructed to fix, address the highest-severity violations first and re-run the affected checks to confirm resolution.
+When this skill is active, execute all five architecture-perspective skills in sequence, then execute `improve-codebase-architecture`, collect every violation and deepening opportunity found, and produce a consolidated report. Do **not** apply any fixes automatically — report findings first. If instructed to fix, address the highest-severity violations first and re-run the affected checks to confirm resolution.
 
 ---
 
-## The Five Perspectives
+## The Six Perspectives
 
 Each perspective answers a different architectural question about this codebase:
 
@@ -26,6 +26,7 @@ Each perspective answers a different architectural question about this codebase:
 | **Hexagonal Architecture** | How do we interact with the outside world? | `hexagonal-check` |
 | **Vertical Slice** | How do we deliver value? | `vertical-slice-check` |
 | **Screaming Architecture** | How do we make intent visible? | `screaming-architecture-check` |
+| **Architecture Deepening** | Where can we increase depth, leverage, and locality? | `improve-codebase-architecture` |
 
 These perspectives are **orthogonal, not mutually exclusive**. A single violation may surface in more than one perspective — this is intentional and helps prioritise fixes.
 
@@ -80,11 +81,20 @@ Key questions:
 - Do `.feature` file scenario names use business language?
 - Do public method names use business verbs?
 
+### Step 6 — Architecture Deepening Pass
+
+Execute the full `improve-codebase-architecture` skill. Record all deepening opportunities tagged `[DC]`.
+
+Key questions:
+- Which seams are currently shallow and leaking complexity to callers?
+- Which modules can be deepened to improve leverage and locality?
+- Which refactors improve testability and AI-navigability without violating ADRs?
+
 ---
 
 ## Combined Report Format
 
-After completing all five checks, produce a report in the following format:
+After completing all six checks, produce a report in the following format:
 
 ---
 
@@ -92,7 +102,7 @@ After completing all five checks, produce a report in the following format:
 
 **Date:** `<date>`  
 **Scope:** `<entire solution | project name | file path>`  
-**Perspectives checked:** Modular Monolith · Clean Architecture · Hexagonal · Vertical Slice · Screaming Architecture
+**Perspectives checked:** Modular Monolith · Clean Architecture · Hexagonal · Vertical Slice · Screaming Architecture · Architecture Deepening
 
 ---
 
@@ -105,6 +115,7 @@ After completing all five checks, produce a report in the following format:
 | Hexagonal [HX] | `n` | `n` | `n` | `n` | — |
 | Vertical Slice [VS] | `n` | `n` | `n` | `n` | — |
 | Screaming Architecture [SA] | `n` | `n` | `n` | `n` | `n` |
+| Architecture Deepening [DC] | `n` | `n` | `n` | `n` | `n` |
 | **Total** | **`n`** | **`n`** | **`n`** | **`n`** | **`n`** |
 
 ---
@@ -160,6 +171,18 @@ List each High violation:
   Fix:  Use key pattern "import/workitems/{jobId}/checkpoint".
 ```
 
+#### Deepening Opportunities (candidate refactors)
+
+List each deepening opportunity surfaced by `improve-codebase-architecture`:
+
+```
+[DC-H1] Work item field normalisation split across three pass-through helpers
+  Files: src/DevOpsMigrationPlatform.WorkItems.Export/..., src/DevOpsMigrationPlatform.WorkItems.Import/...
+  Problem: shallow seams force callers to orchestrate ordering and error handling.
+  Solution: deepen into one module-level normalisation seam with explicit invariants.
+  Benefits: higher locality (one place to change), higher leverage (simpler callers), cleaner test surface.
+```
+
 ---
 
 #### Cross-Cutting Patterns
@@ -194,10 +217,11 @@ Example:
 - [ ] **Hexagonal Architecture** check executed and all findings recorded.
 - [ ] **Vertical Slice** check executed and all findings recorded.
 - [ ] **Screaming Architecture** check executed and all findings recorded.
+- [ ] **Architecture Deepening** pass executed and all opportunities recorded.
 - [ ] Combined summary table completed.
 - [ ] All Critical violations listed with file, line, and fix suggestion.
 - [ ] All High violations listed with file, line, and fix suggestion.
 - [ ] Cross-cutting patterns identified and noted.
 - [ ] Recommended fix order provided.
 
-The review is not complete until all five checks have been run and all sections of the report are populated.
+The review is not complete until all six checks have been run and all sections of the report are populated.

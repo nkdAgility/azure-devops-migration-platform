@@ -1,6 +1,6 @@
 # Spec: Module Refactor — IModule Phase Consolidation + IAnalyser
 
-**Status**: Design Complete — Awaiting Implementation  
+**Status**: Superseded by spec 030 (`specs/030-module-analiser-refactor`)  
 **Date**: 2026-05-03  
 **Author**: MartinHinshelwoodNKD + Copilot  
 **Supersedes**: Current `IModule` contract in `DevOpsMigrationPlatform.Abstractions.Agent`

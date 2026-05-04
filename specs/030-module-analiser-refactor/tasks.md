@@ -69,7 +69,7 @@
   - `migration.teams.prepare.resolved` / `.unresolved` / `.errors` / `.duration_ms` / `.in_flight`
 - [ ] T014 [P] Add `Inventory` and `Prepare` sub-counter properties to `MigrationCounters` DTO (wherever it lives in `Abstractions` or `Infrastructure.Agent`); update `SnapshotMetricExporter.cs` to extract these into `JobMetrics`
 - [ ] T014a [P] **Rename `DiscoveryOptions` → `AnalyserOptions`** (FR-022): (1) rename class and file `src/DevOpsMigrationPlatform.Abstractions/Options/DiscoveryOptions.cs` → `AnalyserOptions.cs`; (2) rename `DiscoveryOptionsOrganisationsBinder` → `AnalyserOptionsOrganisationsBinder` in `src/DevOpsMigrationPlatform.Infrastructure/Config/DiscoveryOptionsOrganisationsBinder.cs`; (3) rename `AddDiscoveryOptionsOrganisationsBinder` → `AddAnalyserOptionsOrganisationsBinder` and all `DiscoveryOptions` references in `src/DevOpsMigrationPlatform.Infrastructure/Config/MigrationPlatformServiceExtensions.cs`; (4) update all `IOptions<DiscoveryOptions>`, `AddOptions<DiscoveryOptions>`, and `BuildDiscoveryOptions` usages across `src/`; (5) rename `DiscoveryOptionsValidationTests` → `AnalyserOptionsValidationTests` in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Inventory/`; (6) update `docs/source-types.md` Known Limitations section to replace `DiscoveryOptions` with `AnalyserOptions`
-- [ ] T015 Run `dotnet clean && dotnet build --no-incremental` — MUST pass before any user story phase begins
+- [X] T015 Run `dotnet clean && dotnet build --no-incremental` — MUST pass before any user story phase begins
 
 **Checkpoint**: All new abstractions compile. `IModule` contract extended. Metric names defined. No user story work starts until T015 passes.
 
@@ -86,7 +86,7 @@
 - [ ] T017 Update `JobAgentWorker`— add multi-org loop for `JobKind.Inventory`: iterate over configured source endpoints and call each enabled `IModule.InventoryAsync` per endpoint; add `JobKind.Prepare` dispatch: execute any hoisted `analyse` tasks first (per plan builder ordering), then call `PrepareAsync` on each enabled module in `src/DevOpsMigrationPlatform.MigrationAgent/JobAgentWorker.cs`
 - [ ] T018 Update `InventoryOrchestrator` concrete implementation — adapt to accept `InventoryContext` instead of `ExportContext`; remove multi-org parameter (single-org per call) in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Discovery/InventoryOrchestrator.cs`
 - [ ] T019 Update `IDependencyOrchestrator` (if it takes `ExportContext`) to accept `AnalyseContext` in `src/DevOpsMigrationPlatform.Abstractions.Agent/Discovery/IDependencyOrchestrator.cs`
-- [ ] T020 Run `dotnet clean && dotnet build --no-incremental` — MUST pass
+- [X] T020 Run `dotnet clean && dotnet build --no-incremental` — MUST pass
 
 **Checkpoint**: Plan builder wires all five phases and hoists `analyse` before `prepare` when `DependsOn` requires it. Multi-org loop in place. Build passes.
 
@@ -131,8 +131,8 @@
 - [ ] T040a [P] [US1] **Test O-1 Identities/Nodes/Teams** — Unit tests (one per module): `TestActivityListener`; call `IdentitiesModule.InventoryAsync`, `NodesModule.InventoryAsync`, `TeamsModule.InventoryAsync`; assert `StartActivity("inventory.identities")`, `StartActivity("inventory.nodes")`, `StartActivity("inventory.teams")` emitted with `job.id` and `module` tags in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Modules/IdentitiesModuleInventoryTests.cs`, `NodesModuleInventoryTests.cs`, `TeamsModuleInventoryTests.cs`
 - [ ] T040b [P] [US1] **Test O-2 Identities/Nodes/Teams** — Unit tests: `Mock<IDiscoveryMetrics>(MockBehavior.Strict)`; call each module's `InventoryAsync`; assert `RecordInventory*` metric methods called with correct tags in respective test files
 - [ ] T040c [P] [US1] **Test O-4 Identities/Nodes/Teams** — Unit tests: `Mock<IProgressSink>`; call each module's `InventoryAsync`; assert `EmitAsync` called at start and completion with non-null `Metrics` in respective test files
-- [ ] T041 [US1] Run `dotnet clean && dotnet build --no-incremental` — MUST pass
-- [ ] T042 [US1] Run `dotnet test` — ALL tests MUST pass
+- [X] T041 [US1] Run `dotnet clean && dotnet build --no-incremental` — MUST pass
+- [X] T042 [US1] Run `dotnet test` — ALL tests MUST pass
 
 **Checkpoint**: `JobKind.Inventory` runs without `InventoryModule`. All four domain modules contribute counts. Per-module `{Module}/inventory.json` files written with non-zero counts (Simulated). Three connectors covered. Observability tests pass.
 
@@ -168,8 +168,8 @@
 - [ ] T053 [US2] **DI Wiring** — Verify `InventoryDiscoveryModule` is unregistered (not in DI); verify multi-org loop picks up all enabled `IModule` registrations where `SupportsInventory = true`
 - [ ] T054 [P] [US2] **Test O-1/O-2/O-3** — Unit test: two-org `JobAgentWorker` invocation; assert `InventoryAsync` called twice; assert `LogInformation` with `OrgCount=2`; assert metrics incremented twice in `tests/DevOpsMigrationPlatform.MigrationAgent.Tests/JobAgentWorkerInventoryTests.cs`
 - [ ] T055 [P] [US2] **Test O-4 error path** — Unit test: second org returns connection error; assert `LogWarning` emitted; assert first org's inventory artefacts are present; assert job does not fail in `JobAgentWorkerInventoryTests.cs`
-- [ ] T056 [US2] Run `dotnet clean && dotnet build --no-incremental` — MUST pass
-- [ ] T057 [US2] Run `dotnet test` — ALL tests MUST pass
+- [X] T056 [US2] Run `dotnet clean && dotnet build --no-incremental` — MUST pass
+- [X] T057 [US2] Run `dotnet test` — ALL tests MUST pass
 
 **Checkpoint**: Multi-org inventory works end-to-end. `InventoryDiscoveryModule` deleted. Partial failure tolerant. Three connectors covered.
 
@@ -209,8 +209,8 @@
 - [ ] T074 [P] [US3] **Test O-2** — Unit test: `Mock<IMigrationMetrics>(MockBehavior.Strict)`; call `PrepareAsync`; assert `RecordPrepareResolved`, `RecordPrepareUnresolved`, and `RecordPrepareDuration` called with correct `TagList` in `WorkItemsModulePrepareTests.cs`
 - [ ] T075 [P] [US3] **Test O-4** — Unit test: `Mock<IProgressSink>`; call `PrepareAsync`; assert `EmitAsync` called at start (Stage="Preparing") and at completion (Stage="Prepared") with non-null Metrics in `WorkItemsModulePrepareTests.cs`
 - [ ] T076 [P] [US3] **Test prepare-report content** — Simulated system test: `JobKind.Prepare` completes → assert `WorkItems/prepare-report.json` exists in `IArtefactStore` AND has byte count > 0 AND `ResolvedCount >= 0` AND `UnresolvedCount >= 0` in `WorkItemsModulePrepareTests.cs`
-- [ ] T077 [US3] Run `dotnet clean && dotnet build --no-incremental` — MUST pass
-- [ ] T078 [US3] Run `dotnet test` — ALL tests MUST pass
+- [X] T077 [US3] Run `dotnet clean && dotnet build --no-incremental` — MUST pass
+- [X] T078 [US3] Run `dotnet test` — ALL tests MUST pass
 
 **Checkpoint**: `JobKind.Prepare` runs end-to-end. Four `prepare-report.json` files written. TFS no-op confirmed. Three connectors covered. Prepare row visible in CLI.
 
@@ -264,8 +264,8 @@
 - [ ] T094 [P] [US4] **Test O-4** — Unit test: `Mock<IProgressSink>`; call `AnalyseAsync`; assert `EmitAsync` called at start (Stage="Analysing") and completion (Stage="Analysed") in `DependencyAnalyserTests.cs`
 - [ ] T095 [P] [US4] **Test O-3 zero-output warning** — Unit test: simulated `IDependencyDiscoveryService` yields zero records; call `AnalyseAsync`; assert `LogWarning` emitted with `"Zero cross-project dependency links written"` in `DependencyAnalyserTests.cs`
 - [ ] T096 [P] [US4] **Test artefact content** — System test: `JobKind.Dependencies` (Simulated, `SimulatedDependencyDiscoveryService` yields ≥2 cross-project records); assert `analysis/dependencies.csv` exists in `IArtefactStore` AND line count > 1 (header + ≥1 data row) in `DependencyAnalyserTests.cs`
-- [ ] T097 [US4] Run `dotnet clean && dotnet build --no-incremental` — MUST pass
-- [ ] T098 [US4] Run `dotnet test` — ALL tests MUST pass
+- [X] T097 [US4] Run `dotnet clean && dotnet build --no-incremental` — MUST pass
+- [X] T098 [US4] Run `dotnet test` — ALL tests MUST pass
 
 **Checkpoint**: `DependencyAnalyser` replaces `DependencyDiscoveryModule`. `JobKind.Dependencies` dispatches correctly. `analysis/dependencies.csv` written. Dependencies row visible in CLI. All observability tests pass.
 
@@ -280,10 +280,10 @@
 - [X] T101 [P] Update `.agents/guardrails/system-architecture.md` Rule 24 — add `{Stem}Analyser` naming convention (`Name = "{Stem}"`, config = `"MigrationPlatform:Analysers:{Stem}"`, DI = `Add{Stem}AnalyserServices`, interface = `IAnalyser`, file = `{Stem}Analyser.cs`). See `discrepancies.md` entry for exact wording.
 - [X] T102 [P] Update `.agents/guardrails/module-template.md` — add `InventoryAsync` and `PrepareAsync` implementation checklist items; add `SupportsInventory`/`SupportsPrepare` property declarations; add `prepare-report.json` output contract
 - [X] T103 Mark all 8 items in `specs/030-module-analiser-refactor/discrepancies.md` as `Resolved` or `N/A`
-- [ ] T104 Review `analysis/pending-actions.md` — remove or update any items resolved by this spec
-- [ ] T105 Update `analysis/draftspec-Module-refactor-consolidation.md` — mark as `Superseded by spec 030` (or archive)
-- [ ] T106 Run `dotnet clean && dotnet build --no-incremental` — MUST pass (final clean build)
-- [ ] T107 Run `dotnet test` — ALL tests MUST pass (final full test run)
+- [X] T104 Review `analysis/pending-actions.md` — remove or update any items resolved by this spec
+- [X] T105 Update `analysis/draftspec-Module-refactor-consolidation.md` — mark as `Superseded by spec 030` (or archive)
+- [X] T106 Run `dotnet clean && dotnet build --no-incremental` — MUST pass (final clean build)
+- [X] T107 Run `dotnet test` — ALL tests MUST pass (final full test run)
 - [ ] T108 Run at least one scenario config (e.g. `scenarios/queue-export-ado-workitems-single-project.json`) via a `.vscode/launch.json` debug profile and verify observable output in terminal (inventory phase must emit progress events)
 
 **Checkpoint**: All discrepancies resolved. All canonical docs updated. Clean build. All tests pass. Scenario verified.

@@ -21,6 +21,11 @@ Items are grouped by feature spec and categorised as **Code**, **Tests**, or **D
 
 ---
 
+## spec 030 review note (2026-05-04)
+
+- Reviewed against `specs/030-module-analiser-refactor/tasks.md` during implementation continuation.
+- No explicit spec-030 entries existed in this backlog; existing entries remain for earlier specs and are unchanged.
+
 ## spec 004 — Fix CLI Architecture and Add Command Testing
 
 ### Tests
