@@ -197,18 +197,25 @@ function Write-TrxSection {
     # Render a labelled section of per-assembly rows and return totals.
     param([string]$Label, [System.Collections.Generic.List[PSCustomObject]]$Rows)
     if (-not $Rows -or $Rows.Count -eq 0) { return [PSCustomObject]@{ Passed = 0; Failed = 0; Skipped = 0; Total = 0 } }
-    Write-Host ""
-    Write-Host "  ── $Label" -ForegroundColor DarkCyan
+
     $secPassed = 0; $secFailed = 0; $secSkipped = 0; $secTotal = 0
+
+    Write-Host ''
+    Write-Host "  $Label" -ForegroundColor DarkCyan
     foreach ($row in $Rows) {
         $secPassed  += $row.Passed
         $secFailed  += $row.Failed
         $secSkipped += $row.Skipped
         $secTotal   += $row.Total
-        $icon  = if ($row.Failed -gt 0) { '✗' } else { '✓' }
+        $icon  = if ($row.Failed -gt 0) { '!' } else { ' ' }
         $color = if ($row.Failed -gt 0) { 'Red' } else { 'Green' }
-        Write-Host ('  {0} {1,-42} {2,5} passed  {3,3} failed  {4,3} skipped  {5,5} total' -f $icon, $row.Assembly, $row.Passed, $row.Failed, $row.Skipped, $row.Total) -ForegroundColor $color
+        $asm   = if ($row.Assembly.Length -gt 42) { $row.Assembly.Substring(0, 39) + '...' } else { $row.Assembly }
+        Write-Host ('  {0} {1,-42}  {2,6}  {3,6}  {4,5}  {5,6}' -f $icon, $asm, $row.Passed, $row.Failed, $row.Skipped, $row.Total) -ForegroundColor $color
     }
+    Write-Host ('    {0}  {1}  {2}  {3}  {4}' -f ('─' * 42), ('─' * 6), ('─' * 6), ('─' * 5), ('─' * 6)) -ForegroundColor DarkGray
+    $subColor = if ($secFailed -gt 0) { 'Red' } else { 'White' }
+    Write-Host ('    {0,-42}  {1,6}  {2,6}  {3,5}  {4,6}' -f 'Subtotal', $secPassed, $secFailed, $secSkipped, $secTotal) -ForegroundColor $subColor
+
     return [PSCustomObject]@{ Passed = $secPassed; Failed = $secFailed; Skipped = $secSkipped; Total = $secTotal }
 }
 
@@ -220,10 +227,15 @@ function Write-TestSummary {
     $allTrxFiles = Get-ChildItem -LiteralPath $TestResultsDir -Filter '*.trx' -Recurse -ErrorAction SilentlyContinue
     if (-not $allTrxFiles -or $allTrxFiles.Count -eq 0) { return }
 
-    Write-Host ""
-    Write-Host ('─' * 72) -ForegroundColor DarkGray
+    $hr = '─' * 78
+    Write-Host ''
+    Write-Host $hr -ForegroundColor DarkGray
     Write-Host '  Test Summary' -ForegroundColor White
-    Write-Host ('─' * 72) -ForegroundColor DarkGray
+    Write-Host $hr -ForegroundColor DarkGray
+
+    # Column header
+    Write-Host ('    {0,-42}  {1,6}  {2,6}  {3,5}  {4,6}' -f 'Assembly', 'Passed', 'Failed', 'Skip', 'Total') -ForegroundColor DarkGray
+    Write-Host ('    {0}  {1}  {2}  {3}  {4}' -f ('─' * 42), ('─' * 6), ('─' * 6), ('─' * 5), ('─' * 6)) -ForegroundColor DarkGray
 
     $totalPassed = 0; $totalFailed = 0; $totalSkipped = 0; $totalTests = 0
 
@@ -254,24 +266,26 @@ function Write-TestSummary {
         $rootTrx = Get-ChildItem -LiteralPath $TestResultsDir -Filter '*.trx' -ErrorAction SilentlyContinue
         if ($rootTrx -and $rootTrx.Count -gt 0) {
             $rows = Get-TrxRows -TrxPaths ($rootTrx | Select-Object -ExpandProperty FullName)
+            Write-Host ''
             foreach ($row in $rows) {
                 $totalPassed  += $row.Passed
                 $totalFailed  += $row.Failed
                 $totalSkipped += $row.Skipped
                 $totalTests   += $row.Total
-                $icon  = if ($row.Failed -gt 0) { '✗' } else { '✓' }
+                $icon  = if ($row.Failed -gt 0) { '!' } else { ' ' }
                 $color = if ($row.Failed -gt 0) { 'Red' } else { 'Green' }
-                Write-Host ('  {0} {1,-42} {2,5} passed  {3,3} failed  {4,3} skipped  {5,5} total' -f $icon, $row.Assembly, $row.Passed, $row.Failed, $row.Skipped, $row.Total) -ForegroundColor $color
+                $asm   = if ($row.Assembly.Length -gt 42) { $row.Assembly.Substring(0, 39) + '...' } else { $row.Assembly }
+                Write-Host ('  {0} {1,-42}  {2,6}  {3,6}  {4,5}  {5,6}' -f $icon, $asm, $row.Passed, $row.Failed, $row.Skipped, $row.Total) -ForegroundColor $color
             }
         }
     }
 
-    Write-Host ""
-    Write-Host ('─' * 72) -ForegroundColor DarkGray
-    $summaryIcon  = if ($totalFailed -gt 0) { '✗' } else { '✓' }
+    Write-Host ''
+    Write-Host $hr -ForegroundColor DarkGray
+    $summaryIcon  = if ($totalFailed -gt 0) { '!' } else { ' ' }
     $summaryColor = if ($totalFailed -gt 0) { 'Red' } else { 'Green' }
-    Write-Host ('  {0} {1,-42} {2,5} passed  {3,3} failed  {4,3} skipped  {5,5} total' -f $summaryIcon, 'ALL TESTS', $totalPassed, $totalFailed, $totalSkipped, $totalTests) -ForegroundColor $summaryColor
-    Write-Host ('─' * 72) -ForegroundColor DarkGray
+    Write-Host ('  {0} {1,-42}  {2,6}  {3,6}  {4,5}  {5,6}' -f $summaryIcon, 'ALL TESTS', $totalPassed, $totalFailed, $totalSkipped, $totalTests) -ForegroundColor $summaryColor
+    Write-Host $hr -ForegroundColor DarkGray
 
     # ── 10 slowest tests ─────────────────────────────────────────────────────
     $allResults = foreach ($trx in $allTrxFiles) {
@@ -287,23 +301,24 @@ function Write-TestSummary {
 
     $slowest = $allResults | Sort-Object Duration -Descending | Select-Object -First 10
     if ($slowest) {
-        Write-Host ""
+        Write-Host ''
         Write-Host '  10 Slowest Tests' -ForegroundColor White
-        Write-Host ('─' * 72) -ForegroundColor DarkGray
+        Write-Host $hr -ForegroundColor DarkGray
+        Write-Host ('  {0,3}  {1,-62}  {2,9}' -f '#', 'Test', 'Duration') -ForegroundColor DarkGray
+        Write-Host ('  {0}  {1}  {2}' -f ('─' * 3), ('─' * 62), ('─' * 9)) -ForegroundColor DarkGray
         $rank = 1
         foreach ($t in $slowest) {
             $dur = $t.Duration
             $formatted = if ($dur.TotalMinutes -ge 1) {
                 '{0}m {1:D2}.{2:D3}s' -f [int]$dur.TotalMinutes, $dur.Seconds, $dur.Milliseconds
-            }
-            else {
+            } else {
                 '{0:D2}.{1:D3}s' -f $dur.Seconds, $dur.Milliseconds
             }
-            $shortName = if ($t.Name.Length -gt 58) { $t.Name.Substring(0, 55) + '...' } else { $t.Name }
-            Write-Host ('  {0,2}. {1,-58} {2,9}' -f $rank, $shortName, $formatted) -ForegroundColor DarkYellow
+            $shortName = if ($t.Name.Length -gt 62) { $t.Name.Substring(0, 59) + '...' } else { $t.Name }
+            Write-Host ('  {0,3}  {1,-62}  {2,9}' -f $rank, $shortName, $formatted) -ForegroundColor DarkYellow
             $rank++
         }
-        Write-Host ('─' * 72) -ForegroundColor DarkGray
+        Write-Host $hr -ForegroundColor DarkGray
     }
 
     Write-Host ''
@@ -316,36 +331,38 @@ function Write-BuildSummary {
     # Show test counts first (if any tests were run)
     Write-TestSummary
 
+    $hr = '─' * 78
     Write-Host ""
-    Write-Host ('─' * 72) -ForegroundColor DarkGray
+    Write-Host $hr -ForegroundColor DarkGray
     Write-Host '  Build Summary' -ForegroundColor White
-    Write-Host ('─' * 72) -ForegroundColor DarkGray
+    Write-Host $hr -ForegroundColor DarkGray
+
+    # Column header
+    Write-Host ('  {0,-54}  {1,9}  {2,7}' -f 'Step', 'Elapsed', 'Tests') -ForegroundColor DarkGray
+    Write-Host ('  {0}  {1}  {2}' -f ('─' * 54), ('─' * 9), ('─' * 7)) -ForegroundColor DarkGray
 
     foreach ($entry in $script:StepTimings) {
         $elapsed = Format-Elapsed $entry.Elapsed.TotalSeconds
         $subdirName = $script:StepTrxDirMap[$entry.Step]
         $testCount = $null
-        $countStr = ''
-        $countColor = 'Gray'
+        $testStr = ''
+        $testColor = 'Gray'
         if ($subdirName) {
             $testCount = Get-TrxTotalCount (Join-Path $TestResultsDir $subdirName)
             if ($null -ne $testCount) {
-                if ($testCount -eq 0) {
-                    $countStr = '  (0 tests)'
-                    $countColor = 'DarkYellow'
-                } else {
-                    $countStr = '  ({0} tests)' -f $testCount
-                }
+                $testStr  = '{0,7}' -f $testCount
+                $testColor = if ($testCount -eq 0) { 'DarkYellow' } else { 'Gray' }
             }
         }
-        Write-Host ('  {0,-55} {1,10}' -f $entry.Step, $elapsed) -ForegroundColor Gray -NoNewline
-        if ($countStr) { Write-Host $countStr -ForegroundColor $countColor } else { Write-Host '' }
+        $stepName = if ($entry.Step.Length -gt 54) { $entry.Step.Substring(0, 51) + '...' } else { $entry.Step }
+        Write-Host ('  {0,-54}  {1,9}' -f $stepName, $elapsed) -ForegroundColor Gray -NoNewline
+        if ($testStr) { Write-Host "  $testStr" -ForegroundColor $testColor } else { Write-Host '' }
         $entry | Add-Member -NotePropertyName 'TestCount' -NotePropertyValue $testCount -Force
     }
 
-    Write-Host ('─' * 72) -ForegroundColor DarkGray
-    Write-Host ('  {0,-55} {1,10}' -f 'TOTAL', (Format-Elapsed $total.TotalSeconds)) -ForegroundColor White
-    Write-Host ('─' * 72) -ForegroundColor DarkGray
+    Write-Host ('  {0}  {1}  {2}' -f ('─' * 54), ('─' * 9), ('─' * 7)) -ForegroundColor DarkGray
+    Write-Host ('  {0,-54}  {1,9}' -f 'TOTAL', (Format-Elapsed $total.TotalSeconds)) -ForegroundColor White
+    Write-Host $hr -ForegroundColor DarkGray
     Write-Host ''
 
     # Persist timings so 'Stats' mode can display them without a full run
@@ -400,28 +417,32 @@ function Write-BuildTimings {
         return
     }
     $data = Get-Content -LiteralPath $TimingsFile -Raw | ConvertFrom-Json
+    $hr = '─' * 78
     Write-Host ''
-    Write-Host ('─' * 72) -ForegroundColor DarkGray
+    Write-Host $hr -ForegroundColor DarkGray
     Write-Host ('  Build Timings  (last run: {0}  mode: {1})' -f $data.RunAt, $data.Mode) -ForegroundColor White
-    Write-Host ('─' * 72) -ForegroundColor DarkGray
+    Write-Host $hr -ForegroundColor DarkGray
+
+    # Column header
+    Write-Host ('  {0,-54}  {1,9}  {2,7}' -f 'Step', 'Elapsed', 'Tests') -ForegroundColor DarkGray
+    Write-Host ('  {0}  {1}  {2}' -f ('─' * 54), ('─' * 9), ('─' * 7)) -ForegroundColor DarkGray
+
     foreach ($entry in $data.Steps) {
-        $elapsed = Format-Elapsed $entry.ElapsedSeconds
-        $countStr = ''
-        $countColor = 'Gray'
+        $elapsed  = Format-Elapsed $entry.ElapsedSeconds
+        $stepName = if ($entry.Step.Length -gt 54) { $entry.Step.Substring(0, 51) + '...' } else { $entry.Step }
+        $testStr  = ''
+        $testColor = 'Gray'
         if ($null -ne $entry.TestCount) {
-            if ($entry.TestCount -eq 0) {
-                $countStr = '  (0 tests)'
-                $countColor = 'DarkYellow'
-            } else {
-                $countStr = '  ({0} tests)' -f $entry.TestCount
-            }
+            $testStr   = '{0,7}' -f $entry.TestCount
+            $testColor = if ($entry.TestCount -eq 0) { 'DarkYellow' } else { 'Gray' }
         }
-        Write-Host ('  {0,-55} {1,10}' -f $entry.Step, $elapsed) -ForegroundColor Gray -NoNewline
-        if ($countStr) { Write-Host $countStr -ForegroundColor $countColor } else { Write-Host '' }
+        Write-Host ('  {0,-54}  {1,9}' -f $stepName, $elapsed) -ForegroundColor Gray -NoNewline
+        if ($testStr) { Write-Host "  $testStr" -ForegroundColor $testColor } else { Write-Host '' }
     }
-    Write-Host ('─' * 72) -ForegroundColor DarkGray
-    Write-Host ('  {0,-55} {1,10}' -f 'TOTAL', (Format-Elapsed $data.TotalSeconds)) -ForegroundColor White
-    Write-Host ('─' * 72) -ForegroundColor DarkGray
+
+    Write-Host ('  {0}  {1}  {2}' -f ('─' * 54), ('─' * 9), ('─' * 7)) -ForegroundColor DarkGray
+    Write-Host ('  {0,-54}  {1,9}' -f 'TOTAL', (Format-Elapsed $data.TotalSeconds)) -ForegroundColor White
+    Write-Host $hr -ForegroundColor DarkGray
     Write-Host ''
 }
 
