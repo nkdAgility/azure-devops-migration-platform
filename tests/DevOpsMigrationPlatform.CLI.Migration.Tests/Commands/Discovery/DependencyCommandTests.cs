@@ -16,6 +16,40 @@ public class DependencyCommandTests
 {
     [TestMethod]
     [TestCategory("SystemTest")]
+    [TestCategory("SystemTest_Simulated")]
+    [Timeout(300_000)]
+    public async Task DependencyCommand_SystemTest_Simulated_ExecutesSuccessfully()
+    {
+        var result = await CliRunner.RunTestAsync(
+            testName: nameof(DependencyCommand_SystemTest_Simulated_ExecutesSuccessfully),
+            args: ["discovery", "dependencies", "--config", "scenarios/inventory-simulated.json", "--force-fresh"],
+            timeout: TimeSpan.FromMinutes(4),
+            cleanOutputFolder: true);
+
+        Console.WriteLine("=== STDOUT ===");
+        Console.WriteLine(result.StandardOutput);
+        if (!string.IsNullOrEmpty(result.StandardError))
+        {
+            Console.WriteLine("=== STDERR ===");
+            Console.WriteLine(result.StandardError);
+        }
+
+        Assert.IsFalse(result.TimedOut,
+            "CLI timed out during simulated dependency discovery.");
+        Assert.AreEqual(0, result.ExitCode,
+            $"CLI exited with code {result.ExitCode}. Check STDOUT/STDERR above.");
+
+        var depsPath = Path.Combine(result.OutputDirectory, "dependencies.csv");
+        Assert.IsTrue(File.Exists(depsPath),
+            $"dependencies.csv was not created at {depsPath}");
+
+        var csvLines = File.ReadAllLines(depsPath);
+        Assert.IsTrue(csvLines.Length >= 1,
+            $"dependencies.csv should have at least a header row, but has {csvLines.Length} line(s).");
+    }
+
+    [TestMethod]
+    [TestCategory("SystemTest")]
     [TestCategory("SystemTest_Live")]
     [Timeout(300_000)]
     public async Task DependencyCommand_SystemTest_AdoSingleProject_ExecutesSuccessfully()

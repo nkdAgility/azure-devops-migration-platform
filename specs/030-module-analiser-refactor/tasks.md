@@ -292,9 +292,9 @@
 
 ## Phase 8: Polish & Cross-Cutting Concerns (OPTIONAL)
 
-- [ ] T109 [P] Add `[TestCategory("SystemTest")]` attribute to Simulated system tests for inventory, prepare, and dependency analysis to ensure CLI-observable output is asserted
-- [ ] T110 [P] Consider adding `ConnectorCoverageTests` asserting all three connector implementations of `InventoryAsync` return ≥2 items per operation
-- [ ] T111 [P] Performance: verify `InventoryAsync` streaming — add a test asserting `IArtefactStore.WriteJsonAsync` is called incrementally (not after materialising all items)
+- [X] T109 [P] Add `[TestCategory("SystemTest")]` attribute to Simulated system tests for inventory, prepare, and dependency analysis to ensure CLI-observable output is asserted
+- [X] T110 [P] Consider adding `ConnectorCoverageTests` asserting all three connector implementations of `InventoryAsync` return ≥2 items per operation
+- [X] T111 [P] Performance: verify `InventoryAsync` streaming — add a test asserting `IArtefactStore.WriteJsonAsync` is called incrementally (not after materialising all items)
 
 ---
 
