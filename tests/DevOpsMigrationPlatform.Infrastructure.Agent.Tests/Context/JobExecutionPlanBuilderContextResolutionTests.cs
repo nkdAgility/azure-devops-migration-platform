@@ -91,6 +91,7 @@ public sealed class JobExecutionPlanBuilderContextResolutionTests
         phaseFactory.Setup(x => x.Create(It.IsAny<IStateStore>())).Returns(phaseService.Object);
         return new JobExecutionPlanBuilder(
             [],
+            [],
             phaseFactory.Object,
             NullLogger<JobExecutionPlanBuilder>.Instance);
     }

@@ -1601,7 +1601,8 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
             teamsRow = new Markup($"[bold]Teams[/]{tmCheck}  [{tmBarColor}]{Markup.Escape(tmBar)}[/]{tmCounts}");
         }
 
-        return new Rows(nodesRow, teamsRow, identitiesRow, wiRow, revRow, timingRow, attachmentRow, checkpointRow);
+        var dependenciesRow = new Markup("[bold]Dependencies[/]  [grey]─[/]");
+        return new Rows(dependenciesRow, nodesRow, teamsRow, identitiesRow, wiRow, revRow, timingRow, attachmentRow, checkpointRow);
     }
 
     private static string ComputeRevisionEta(int revisionsWritten, int estimatedTotalRevisions, double avgRevDurationMs)

@@ -10,6 +10,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Agent.Context;
+using DevOpsMigrationPlatform.Abstractions.Agent.Discovery;
 using DevOpsMigrationPlatform.Abstractions.Agent.Lease;
 using DevOpsMigrationPlatform.Abstractions.Agent.Modules;
 using DevOpsMigrationPlatform.Abstractions.Agent.Telemetry;
@@ -48,7 +49,6 @@ public sealed class WorkItemsModule : IModule
     public string Name => "WorkItems";
     public IReadOnlyList<ModuleDependency> DependsOn => new[]
     {
-        new ModuleDependency(typeof(InventoryModule), DependencyPhase.Export),
         new ModuleDependency(typeof(IdentitiesModule), DependencyPhase.Import),
         new ModuleDependency(typeof(NodesModule), DependencyPhase.Import)
     };
@@ -76,6 +76,7 @@ public sealed class WorkItemsModule : IModule
     private readonly ILogger<WorkItemImportOrchestrator> _orchestratorLogger;
 #endif
     private readonly IWorkItemFetchService? _fetchService;
+    private readonly IInventoryOrchestrator? _inventoryOrchestrator;
     private readonly IMigrationMetrics? _metrics;
     private readonly IDiscoveryMetrics? _discoveryMetrics;
     private readonly IWorkItemDiscoveryService? _discoveryService;
@@ -109,6 +110,7 @@ public sealed class WorkItemsModule : IModule
         IAttachmentBinarySource? attachmentBinarySource = null,
         IWorkItemCommentSourceFactory? inlineCommentSourceFactory = null,
         IWorkItemFetchService? fetchService = null,
+        IInventoryOrchestrator? inventoryOrchestrator = null,
         IMigrationMetrics? metrics = null,
         IDiscoveryMetrics? discoveryMetrics = null,
         IWorkItemDiscoveryService? discoveryService = null,
@@ -135,6 +137,7 @@ public sealed class WorkItemsModule : IModule
         _attachmentBinarySource = attachmentBinarySource;
         _inlineCommentSourceFactory = inlineCommentSourceFactory;
         _fetchService = fetchService;
+        _inventoryOrchestrator = inventoryOrchestrator;
         _metrics = metrics;
         _discoveryMetrics = discoveryMetrics;
         _discoveryService = discoveryService;
@@ -148,6 +151,7 @@ public sealed class WorkItemsModule : IModule
 
     public async Task InventoryAsync(InventoryContext context, CancellationToken ct)
     {
+        var sw = Stopwatch.StartNew();
         using var activity = s_discoveryActivitySource.StartActivity("inventory.workitems");
         activity?.SetTag("job.id", context.Job.JobId);
         activity?.SetTag("module", Name);
@@ -175,21 +179,41 @@ public sealed class WorkItemsModule : IModule
             }
         }
 
+        if (_inventoryOrchestrator is not null)
+        {
+            async IAsyncEnumerable<InventoryProgressEvent> BuildEventStream()
+            {
+                yield return new InventoryProgressEvent
+                {
+                    Url = context.SourceEndpoint.ResolvedUrl,
+                    ProjectName = _sourceEndpointInfo.Project,
+                    WorkItemsCount = totalWorkItems,
+                    RevisionsCount = totalRevisions,
+                    IsComplete = true,
+                };
+                await Task.CompletedTask;
+            }
+
+            await _inventoryOrchestrator.RunAsync(Name, BuildEventStream(), context, ct: ct).ConfigureAwait(false);
+        }
+        else
+        {
+            await context.ArtefactStore.WriteAsync(
+                "WorkItems/inventory.json",
+                JsonSerializer.Serialize(new { module = Name, workItems = totalWorkItems, revisions = totalRevisions, generatedAt = DateTimeOffset.UtcNow }),
+                ct).ConfigureAwait(false);
+        }
+
         var tags = new MetricsTagList { { "job.id", context.Job.JobId }, { "module", Name } };
         _discoveryMetrics?.RecordInventoryWorkItems(totalWorkItems, tags);
-        _discoveryMetrics?.RecordInventoryWorkItemsDuration(0, tags);
+        var durationMs = sw.Elapsed.TotalMilliseconds;
+        _discoveryMetrics?.RecordInventoryWorkItemsDuration(durationMs, tags);
         if (totalWorkItems == 0)
         {
             _discoveryMetrics?.RecordInventoryWorkItemsErrors(tags);
             _logger.LogWarning("Zero items inventoried for {Module} in {Project}", Name, _sourceEndpointInfo.Project);
         }
-
-        await context.ArtefactStore.WriteAsync(
-            "WorkItems/inventory.json",
-            JsonSerializer.Serialize(new { module = Name, workItems = totalWorkItems, revisions = totalRevisions, generatedAt = DateTimeOffset.UtcNow }),
-            ct).ConfigureAwait(false);
-
-        _logger.LogInformation("Inventoried {Module}: {Count} items in {DurationMs}ms", Name, totalWorkItems, 0);
+        _logger.LogInformation("Inventoried {Module}: {Count} items in {DurationMs}ms", Name, totalWorkItems, durationMs);
         context.ProgressSink?.Emit(new ProgressEvent
         {
             Module = Name,

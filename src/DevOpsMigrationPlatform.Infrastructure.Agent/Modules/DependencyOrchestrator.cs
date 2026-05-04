@@ -10,11 +10,14 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Agent.Analysis;
 using DevOpsMigrationPlatform.Abstractions.Agent.Export;
 using DevOpsMigrationPlatform.Abstractions.Agent.Lease;
 using DevOpsMigrationPlatform.Abstractions.Agent.Modules;
 using DevOpsMigrationPlatform.Abstractions.Jobs;
 using DevOpsMigrationPlatform.Abstractions.Options;
+using DevOpsMigrationPlatform.Abstractions.Organisations;
+using DevOpsMigrationPlatform.Abstractions.Streaming;
 using DevOpsMigrationPlatform.Abstractions.Telemetry;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Discovery.DependencyGraph;
 using Microsoft.Extensions.Logging;
@@ -53,23 +56,30 @@ internal sealed class DependencyOrchestrator : IDependencyOrchestrator
     /// <summary>
     /// Performs dependency discovery during the Export phase. Writes dependencies.csv.
     /// </summary>
-    public async Task ExportAsync(
+    public async Task AnalyseAsync(
         IDependencyDiscoveryService dependencyService,
-        ExportContext context,
-        IReadOnlyList<ScopedOrganisationEndpoint> organisations,
+        OrganisationsAnalyseContext context,
         JobPolicies policies,
         int checkpointIntervalSeconds,
         CancellationToken ct)
     {
+        var organisations = context.Organisations
+            .Select(o => new ScopedOrganisationEndpoint
+            {
+                Endpoint = new OrganisationMigrationEndpointOptions(o),
+                Projects = new List<string>()
+            })
+            .ToList();
+
         using var rootActivity = ActivitySource.StartActivity("discovery.dependencies", ActivityKind.Internal);
         rootActivity?.SetTag("job.id", context.Job.JobId);
 
         var job = context.Job;
         var store = context.ArtefactStore;
         var state = context.StateStore;
-        var sink = context.ProgressSink;
-        var metricsStore = context.MetricsStore;
-        var snapshotStore = context.SnapshotStore;
+        var sink = context.ProgressSink ?? NullProgressSink.Instance;
+        IJobMetricsStore? metricsStore = null;
+        IJobSnapshotStore? snapshotStore = null;
 
         _logger.LogInformation("Dependencies module starting for job {JobId}.", job.JobId);
 
@@ -1575,6 +1585,18 @@ internal sealed class DependencyOrchestrator : IDependencyOrchestrator
 
         fields.Add(current.ToString());
         return fields;
+    }
+
+    private sealed class OrganisationMigrationEndpointOptions(OrganisationEndpoint endpoint) : MigrationEndpointOptions
+    {
+        public override OrganisationEndpoint ToOrganisationEndpoint() => endpoint;
+        public override string GetResolvedUrl() => endpoint.ResolvedUrl;
+    }
+
+    private sealed class NullProgressSink : IProgressSink
+    {
+        public static readonly NullProgressSink Instance = new();
+        public void Emit(ProgressEvent evt) { }
     }
 
     private sealed record PerProjectStats(

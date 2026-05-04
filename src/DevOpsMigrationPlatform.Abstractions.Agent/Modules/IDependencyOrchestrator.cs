@@ -4,10 +4,9 @@
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
-using DevOpsMigrationPlatform.Abstractions.Agent.Export;
 using DevOpsMigrationPlatform.Abstractions.Agent.Discovery;
+using DevOpsMigrationPlatform.Abstractions.Agent.Analysis;
 using DevOpsMigrationPlatform.Abstractions.Jobs;
-using DevOpsMigrationPlatform.Abstractions.Organisations;
 
 namespace DevOpsMigrationPlatform.Abstractions.Agent.Modules;
 
@@ -17,10 +16,9 @@ namespace DevOpsMigrationPlatform.Abstractions.Agent.Modules;
 /// </summary>
 public interface IDependencyOrchestrator
 {
-    Task ExportAsync(
+    Task AnalyseAsync(
         IDependencyDiscoveryService dependencyService,
-        ExportContext context,
-        IReadOnlyList<ScopedOrganisationEndpoint> organisations,
+        OrganisationsAnalyseContext context,
         JobPolicies policies,
         int checkpointIntervalSeconds,
         CancellationToken ct);

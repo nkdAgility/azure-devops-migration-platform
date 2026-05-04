@@ -15,6 +15,9 @@ using DevOpsMigrationPlatform.Abstractions.Agent.Context;
 using DevOpsMigrationPlatform.Abstractions.Agent.Export;
 using DevOpsMigrationPlatform.Abstractions.Agent.Modules;
 using DevOpsMigrationPlatform.Abstractions.Jobs;
+using DevOpsMigrationPlatform.Abstractions.Options;
+using DevOpsMigrationPlatform.Abstractions.Organisations;
+using DevOpsMigrationPlatform.Abstractions.Streaming;
 using DevOpsMigrationPlatform.Abstractions.Telemetry;
 using Microsoft.Extensions.Logging;
 
@@ -33,8 +36,11 @@ internal sealed class InventoryOrchestrator : IInventoryOrchestrator
     /// can checkpoint independently when running in the same job.
     /// </summary>
     private static string CursorKeyFor(string moduleName) => PackagePaths.CursorFile(moduleName);
-    private const string CsvOutputPath = "inventory.csv";
-    private const string JsonOutputPath = "inventory.json";
+    private static string CsvOutputPathFor(string moduleName)
+        => moduleName.Equals("WorkItems", StringComparison.OrdinalIgnoreCase) ? "WorkItems/inventory.csv" : "inventory.csv";
+
+    private static string JsonOutputPathFor(string moduleName)
+        => moduleName.Equals("WorkItems", StringComparison.OrdinalIgnoreCase) ? "WorkItems/inventory.json" : "inventory.json";
 
     private readonly ILogger _logger;
     private readonly IDiscoveryMetrics? _metrics;
@@ -54,17 +60,18 @@ internal sealed class InventoryOrchestrator : IInventoryOrchestrator
     public async Task RunAsync(
         string moduleName,
         IAsyncEnumerable<InventoryProgressEvent> eventStream,
-        ExportContext context,
-        IReadOnlyList<ScopedOrganisationEndpoint> organisations,
+        InventoryContext context,
         int checkpointIntervalSeconds = 300,
         CancellationToken ct = default)
     {
         var job = context.Job;
         var store = context.ArtefactStore;
         var state = context.StateStore;
-        var sink = context.ProgressSink;
+        var sink = context.ProgressSink ?? NullProgressSink.Instance;
         var metricsStore = context.MetricsStore;
         var snapshotStore = context.SnapshotStore;
+        var csvOutputPath = CsvOutputPathFor(moduleName);
+        var jsonOutputPath = JsonOutputPathFor(moduleName);
 
         _logger.LogInformation("Inventory orchestrator starting for job {JobId}, module {Module}.", job.JobId, moduleName);
 
@@ -93,7 +100,7 @@ internal sealed class InventoryOrchestrator : IInventoryOrchestrator
         // Reload completed projects from existing CSV for resume support.
         if (isResuming)
         {
-            var existingCsv = await store.ReadAsync(CsvOutputPath, ct).ConfigureAwait(false);
+            var existingCsv = await store.ReadAsync(csvOutputPath, ct).ConfigureAwait(false);
             if (existingCsv is not null)
             {
                 var lines = existingCsv.Split('\n');
@@ -183,8 +190,8 @@ internal sealed class InventoryOrchestrator : IInventoryOrchestrator
                 // Flush CSV to disk at the checkpoint interval even mid-project.
                 if (DateTime.UtcNow - lastCheckpoint >= checkpointInterval)
                 {
-                    await store.WriteAsync(CsvOutputPath, csvBuilder.ToString(), ct).ConfigureAwait(false);
-                    await WriteInventoryJsonAsync(store, orgProjectData, ct).ConfigureAwait(false);
+                    await store.WriteAsync(csvOutputPath, csvBuilder.ToString(), ct).ConfigureAwait(false);
+                    await WriteInventoryJsonAsync(store, jsonOutputPath, orgProjectData, ct).ConfigureAwait(false);
                     lastCheckpoint = DateTime.UtcNow;
                     _logger.LogDebug("Inventory mid-project flush at checkpoint interval.");
                 }
@@ -277,11 +284,12 @@ internal sealed class InventoryOrchestrator : IInventoryOrchestrator
             });
 
             // Flush CSV and JSON after every completed project.
-            await store.WriteAsync(CsvOutputPath, csvBuilder.ToString(), ct).ConfigureAwait(false);
-            await WriteInventoryJsonAsync(store, orgProjectData, ct).ConfigureAwait(false);
+            await store.WriteAsync(csvOutputPath, csvBuilder.ToString(), ct).ConfigureAwait(false);
+            await WriteInventoryJsonAsync(store, jsonOutputPath, orgProjectData, ct).ConfigureAwait(false);
 
-            PushAggregateMetrics(metricsStore, orgProjectData, organisations);
-            PushSnapshot(snapshotStore, orgProjectData, organisations);
+            var snapshots = BuildScopedOrganisations(orgProjectData);
+            PushAggregateMetrics(metricsStore, orgProjectData, snapshots);
+            PushSnapshot(snapshotStore, orgProjectData, snapshots);
 
             // Checkpoint cursor at configured interval for resume support.
             if (DateTime.UtcNow - lastCheckpoint >= checkpointInterval)
@@ -310,13 +318,14 @@ internal sealed class InventoryOrchestrator : IInventoryOrchestrator
         }
 
         // Final write — CSV and JSON.
-        await store.WriteAsync(CsvOutputPath, csvBuilder.ToString(), ct).ConfigureAwait(false);
-        await WriteInventoryJsonAsync(store, orgProjectData, ct).ConfigureAwait(false);
+        await store.WriteAsync(csvOutputPath, csvBuilder.ToString(), ct).ConfigureAwait(false);
+        await WriteInventoryJsonAsync(store, jsonOutputPath, orgProjectData, ct).ConfigureAwait(false);
         await state.DeleteAsync(CursorKeyFor(moduleName), ct).ConfigureAwait(false);
 
         // Final snapshot push.
-        PushAggregateMetrics(metricsStore, orgProjectData, organisations);
-        PushSnapshot(snapshotStore, orgProjectData, organisations);
+        var finalSnapshots = BuildScopedOrganisations(orgProjectData);
+        PushAggregateMetrics(metricsStore, orgProjectData, finalSnapshots);
+        PushSnapshot(snapshotStore, orgProjectData, finalSnapshots);
 
         jobSw.Stop();
         metrics?.RecordJobDuration(jobSw.Elapsed.TotalMilliseconds, new MetricsTagList
@@ -351,7 +360,7 @@ internal sealed class InventoryOrchestrator : IInventoryOrchestrator
             return null;
 
         var completedKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        var existingCsv = await store.ReadAsync(CsvOutputPath, ct).ConfigureAwait(false);
+        var existingCsv = await store.ReadAsync(CsvOutputPathFor(moduleName), ct).ConfigureAwait(false);
         if (existingCsv is not null)
         {
             var lines = existingCsv.Split('\n');
@@ -376,6 +385,7 @@ internal sealed class InventoryOrchestrator : IInventoryOrchestrator
 
     private static async Task WriteInventoryJsonAsync(
         IArtefactStore store,
+        string jsonOutputPath,
         Dictionary<string, List<(string Project, long WorkItems, long Revisions, int Repos, bool IsComplete, string? Error)>> orgProjectData,
         CancellationToken ct)
     {
@@ -423,7 +433,27 @@ internal sealed class InventoryOrchestrator : IInventoryOrchestrator
             WriteIndented = true,
             PropertyNamingPolicy = JsonNamingPolicy.CamelCase
         });
-        await store.WriteAsync(JsonOutputPath, json, ct).ConfigureAwait(false);
+        await store.WriteAsync(jsonOutputPath, json, ct).ConfigureAwait(false);
+    }
+
+    private static IReadOnlyList<ScopedOrganisationEndpoint> BuildScopedOrganisations(
+        Dictionary<string, List<(string Project, long WorkItems, long Revisions, int Repos, bool IsComplete, string? Error)>> orgProjectData)
+        => orgProjectData.Select(kvp => new ScopedOrganisationEndpoint
+        {
+            Endpoint = new DerivedMigrationEndpointOptions(kvp.Key),
+            Projects = kvp.Value.Select(p => p.Project).ToList()
+        }).ToList();
+
+    private sealed class NullProgressSink : IProgressSink
+    {
+        public static readonly NullProgressSink Instance = new();
+        public void Emit(ProgressEvent evt) { }
+    }
+
+    private sealed class DerivedMigrationEndpointOptions(string resolvedUrl) : MigrationEndpointOptions
+    {
+        public override OrganisationEndpoint ToOrganisationEndpoint() => new() { ResolvedUrl = resolvedUrl };
+        public override string GetResolvedUrl() => resolvedUrl;
     }
 
     private static void PushAggregateMetrics(

@@ -4,8 +4,7 @@
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
-using DevOpsMigrationPlatform.Abstractions.Agent.Export;
-using DevOpsMigrationPlatform.Abstractions.Organisations;
+using DevOpsMigrationPlatform.Abstractions.Agent.Modules;
 
 namespace DevOpsMigrationPlatform.Abstractions.Agent.Discovery;
 
@@ -18,8 +17,7 @@ public interface IInventoryOrchestrator
     Task RunAsync(
         string moduleName,
         IAsyncEnumerable<InventoryProgressEvent> eventStream,
-        ExportContext context,
-        IReadOnlyList<ScopedOrganisationEndpoint> organisations,
+        InventoryContext context,
         int checkpointIntervalSeconds = 300,
         CancellationToken ct = default);
 }

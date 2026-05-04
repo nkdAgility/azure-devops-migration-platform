@@ -171,7 +171,7 @@ public sealed class JobExecutionPlanBuilderDependsOnTests
             .Setup(f => f.Create(It.IsAny<IStateStore>()))
             .Returns(phaseService.Object);
 
-        return new JobExecutionPlanBuilder(modules, phaseFactory.Object, NullLogger<JobExecutionPlanBuilder>.Instance);
+        return new JobExecutionPlanBuilder(modules, [], phaseFactory.Object, NullLogger<JobExecutionPlanBuilder>.Instance);
     }
 
     private static IModule CreateModule(string name, ModuleDependency[] dependsOn)

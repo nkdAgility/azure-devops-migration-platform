@@ -40,16 +40,21 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
 
     private readonly IEnumerable<IModule> _modules;
     private readonly Dictionary<string, IModule> _modulesByName;
+    private readonly IEnumerable<IAnalyser> _analysers;
+    private readonly Dictionary<string, IAnalyser> _analysersByName;
     private readonly IPhaseTrackingServiceFactory _phaseTrackingFactory;
     private readonly ILogger<JobExecutionPlanBuilder> _logger;
 
     public JobExecutionPlanBuilder(
         IEnumerable<IModule> modules,
+        IEnumerable<IAnalyser> analysers,
         IPhaseTrackingServiceFactory phaseTrackingFactory,
         ILogger<JobExecutionPlanBuilder> logger)
     {
         _modules = modules;
         _modulesByName = modules.ToDictionary(m => m.Name, StringComparer.OrdinalIgnoreCase);
+        _analysers = analysers;
+        _analysersByName = analysers.ToDictionary(a => a.Name, StringComparer.OrdinalIgnoreCase);
         _phaseTrackingFactory = phaseTrackingFactory;
         _logger = logger;
 
@@ -58,6 +63,10 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
             "JobExecutionPlanBuilder initialized with {Count} modules: {Modules}",
             _modules.Count(),
             string.Join(", ", _modules.Select(m => $"{m.Name}(Export:{m.SupportsExport},Import:{m.SupportsImport})")));
+        _logger.LogInformation(
+            "JobExecutionPlanBuilder initialized with {Count} analysers: {Analysers}",
+            _analysers.Count(),
+            string.Join(", ", _analysers.Select(a => a.Name)));
     }
 
     public async Task<JobTaskList> BuildPlanAsync(
@@ -70,8 +79,18 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
         var tasks = new List<JobTask>();
         int order = 0;
 
+        if (kind is JobKind.Inventory or JobKind.Dependencies)
+        {
+            return BuildDiscoveryPlan(packageConfig, kind);
+        }
+
+        if (kind == JobKind.Prepare)
+        {
+            return BuildPreparePlan(packageConfig);
+        }
+
         var includeExport = kind is JobKind.Export or JobKind.Migrate
-                            or JobKind.Inventory or JobKind.Dependencies;
+                            ;
         var includeImport = kind is JobKind.Import or JobKind.Migrate;
 
         // Read phase record once (only relevant for Migrate kind).
@@ -290,6 +309,116 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
             ArtefactStore = artefactStore,
             StateStore = stateStore,
             ProgressSink = progressSink
+        };
+    }
+
+    private JobTaskList BuildDiscoveryPlan(IConfiguration config, JobKind kind)
+    {
+        var tasks = new List<JobTask>();
+        var order = 0;
+
+        if (kind == JobKind.Inventory)
+        {
+            var inventoryTasks = _modules
+                .Where(m => m.SupportsInventory && IsEnabled(config, m.Name))
+                .OrderBy(m => m.Name, StringComparer.OrdinalIgnoreCase)
+                .Select(m => MakeTask(
+                    $"inventory.{m.Name.ToLowerInvariant()}",
+                    $"{m.Name} Inventory",
+                    "inventory",
+                    enabled: true,
+                    phaseAlreadyDone: false,
+                    order: order++))
+                .ToList();
+
+            tasks.AddRange(inventoryTasks);
+
+            if (_analysersByName.TryGetValue("Inventory", out var inventoryAnalyser))
+            {
+                tasks.Add(MakeTask(
+                    "analyse.inventory",
+                    $"{inventoryAnalyser.Name} Analyse",
+                    "analyse",
+                    enabled: true,
+                    phaseAlreadyDone: false,
+                    order: order++,
+                    dependsOn: inventoryTasks.Select(t => t.Id).ToList().AsReadOnly()));
+            }
+        }
+        else if (kind == JobKind.Dependencies)
+        {
+            if (_analysersByName.TryGetValue("Dependencies", out var dependencyAnalyser))
+            {
+                tasks.Add(MakeTask(
+                    "analyse.dependencies",
+                    $"{dependencyAnalyser.Name} Analyse",
+                    "analyse",
+                    enabled: true,
+                    phaseAlreadyDone: false,
+                    order: order++));
+            }
+        }
+
+        return new JobTaskList
+        {
+            Tasks = tasks.AsReadOnly(),
+            PushedAt = DateTimeOffset.UtcNow
+        };
+    }
+
+    private JobTaskList BuildPreparePlan(IConfiguration config)
+    {
+        var tasks = new List<JobTask>();
+        var order = 0;
+        var queuedAnalysers = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        var prepareModules = _modules
+            .Where(m => m.SupportsPrepare && IsEnabled(config, m.Name))
+            .OrderBy(m => m.Name, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        foreach (var module in prepareModules)
+        {
+            foreach (var dependency in module.DependsOn.Where(d => d.AppliesToAnalyse))
+            {
+                if (!_analysersByName.TryGetValue(dependency.ModuleName, out var analyser))
+                    continue;
+
+                if (queuedAnalysers.Add(analyser.Name))
+                {
+                    tasks.Add(MakeTask(
+                        $"analyse.{analyser.Name.ToLowerInvariant()}",
+                        $"{analyser.Name} Analyse",
+                        "analyse",
+                        enabled: true,
+                        phaseAlreadyDone: false,
+                        order: order++));
+                }
+            }
+        }
+
+        foreach (var module in prepareModules)
+        {
+            var dependsOn = module.DependsOn
+                .Where(d => d.AppliesToAnalyse)
+                .Select(d => $"analyse.{d.ModuleName.ToLowerInvariant()}")
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            tasks.Add(MakeTask(
+                $"prepare.{module.Name.ToLowerInvariant()}",
+                $"{module.Name} Prepare",
+                "prepare",
+                enabled: true,
+                phaseAlreadyDone: false,
+                order: order++,
+                dependsOn: dependsOn.Count > 0 ? dependsOn.AsReadOnly() : null));
+        }
+
+        return new JobTaskList
+        {
+            Tasks = tasks.AsReadOnly(),
+            PushedAt = DateTimeOffset.UtcNow
         };
     }
 
