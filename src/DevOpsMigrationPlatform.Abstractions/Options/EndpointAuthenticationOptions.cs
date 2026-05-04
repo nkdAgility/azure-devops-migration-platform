@@ -13,7 +13,7 @@ namespace DevOpsMigrationPlatform.Abstractions.Options;
 public sealed class EndpointAuthenticationOptions
 {
     /// <summary>Authentication type. Defaults to <see cref="AuthenticationType.None"/> so that
-    /// entries which omit the <c>authentication</c> block entirely do not trigger PAT validation.</summary>
+    /// entries which omit the <c>authentication</c> block entirely do not trigger access token validation.</summary>
     public AuthenticationType Type { get; init; } = AuthenticationType.None;
 
     /// <summary>

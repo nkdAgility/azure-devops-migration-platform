@@ -91,31 +91,35 @@ public sealed class PackageProgressSink : BackgroundService, IProgressSink, IFlu
 
                 batch.Clear();
 
-                // Wait for at least one item, or flush interval — whichever comes first.
+                // Wait for at least one item (with timeout), then drain all immediately
+                // available items without delay. This ensures that events are flushed to
+                // disk as soon as they arrive rather than accumulating in the local batch
+                // for up to FlushInterval ms. Without this, a fast job can complete and
+                // the process can be killed before the timer fires, losing all records.
                 using var cts = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken);
                 cts.CancelAfter(FlushInterval);
 
                 try
                 {
-                    while (batch.Count < FlushBatchSize)
-                    {
-                        var evt = await _channel.Reader.ReadAsync(cts.Token).ConfigureAwait(false);
-                        batch.Add(evt);
-                    }
+                    // Block until the first event arrives (or timeout/cancellation).
+                    var first = await _channel.Reader.ReadAsync(cts.Token).ConfigureAwait(false);
+                    batch.Add(first);
                 }
                 catch (OperationCanceledException)
                 {
-                    // Either flush interval elapsed or host shutdown — flush what we have.
+                    // Flush interval elapsed or host shutdown with nothing to flush — loop back.
+                    continue;
                 }
 
-                if (batch.Count > 0)
-                {
-                    // Use CancellationToken.None so that records are not dropped when
-                    // stoppingToken fires while a batch is mid-flush. File.AppendAllTextAsync
-                    // returns Task.FromCanceled immediately for a pre-cancelled token, silently
-                    // discarding records. Log appends are fast local I/O and should always complete.
-                    await FlushBatchAsync(batch, CancellationToken.None).ConfigureAwait(false);
-                }
+                // Drain all additional immediately-available items without blocking.
+                while (batch.Count < FlushBatchSize && _channel.Reader.TryRead(out var additional))
+                    batch.Add(additional);
+
+                // Use CancellationToken.None so that records are not dropped when
+                // stoppingToken fires while a batch is mid-flush. File.AppendAllTextAsync
+                // returns Task.FromCanceled immediately for a pre-cancelled token, silently
+                // discarding records. Log appends are fast local I/O and should always complete.
+                await FlushBatchAsync(batch, CancellationToken.None).ConfigureAwait(false);
             }
         }
         catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
@@ -144,6 +148,9 @@ public sealed class PackageProgressSink : BackgroundService, IProgressSink, IFlu
         {
             // No store has ever been set — count as dropped.
             Interlocked.Add(ref _droppedCount, batch.Count);
+            _logger.LogWarning(
+                "Dropping {Count} progress records — no artefact store available. Total dropped: {DroppedCount}.",
+                batch.Count, Interlocked.Read(ref _droppedCount));
             return;
         }
 
@@ -160,7 +167,7 @@ public sealed class PackageProgressSink : BackgroundService, IProgressSink, IFlu
         catch (Exception ex)
         {
             Interlocked.Add(ref _droppedCount, batch.Count);
-            _logger.LogDebug(ex,
+            _logger.LogWarning(ex,
                 "Failed to write {Count} progress records to package. Total dropped: {DroppedCount}.",
                 batch.Count, Interlocked.Read(ref _droppedCount));
         }

@@ -52,7 +52,7 @@ public sealed class TfsJobServiceFactory : ITfsJobServiceFactory, IDisposable
         var serverUrl = new Uri(tfsEndpoint.ResolvedUrl);
         var project = tfsEndpoint.Project;
 
-        // Authenticate — PAT or Windows-integrated depending on config.
+        // Authenticate — access token or Windows-integrated depending on config.
         VssClientCredentials creds;
         if (tfsEndpoint.Authentication?.Type == AuthenticationType.Pat &&
             !string.IsNullOrEmpty(tfsEndpoint.Authentication.ResolvedAccessToken))

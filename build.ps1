@@ -12,9 +12,11 @@
       Test        — Run unit tests (TestCategory!=SystemTest) against the
                     already-compiled binaries.
 
-      SystemTest           — Run all system tests in order: first
-                             SystemTest_Simulated, then SystemTest_Live,
-                             against the already-compiled binaries.
+    SystemTest           — Run all system tests in order: first
+                     SystemTest_Simulated, then SystemTest_Live,
+                     then remaining SystemTest tests that are not
+                     Simulated or Live, against the already-compiled
+                     binaries.
 
       SystemTest_Simulated — Run only simulated/offline system tests
                              (TestCategory=SystemTest_Simulated) against the
@@ -40,8 +42,8 @@
                     Aspire AppHost (ControlPlane + MigrationAgent) so you can
                     run 'devopsmigrationdev' against it. Ctrl-C to stop.
 
-      Install     — Build + Test (unit only) + publish for the current
-                    platform, then installs to
+    Install     — Build + full test pass + publish for the current
+              platform, then installs to
                     %USERPROFILE%\source\Tools\MigrationPlatform\{version}\
                     and updates a 'current' junction so that the
                     'devopsmigrationdev' alias always runs the latest build.
@@ -100,7 +102,7 @@
     pwsh ./build.ps1 -Version 16.9.3  # Override version
 #>
 param(
-    [Parameter(Position=0)]
+    [Parameter(Position = 0)]
     [ValidateSet('Build', 'Test', 'SystemTest', 'SystemTest_Simulated', 'SystemTest_Live', 'Package', 'Full', 'Stats', 'Start', 'Install', 'RunTest')]
     [string]$Mode = 'Full',
 
@@ -108,26 +110,26 @@ param(
 
     # Used with -Mode RunTest: runs a single test by (partial) name.
     # Example: .\build.ps1 RunTest "DependencyCommand_SystemTest_AdoSingleProject_ExecutesSuccessfully"
-    [Parameter(Position=1)]
+    [Parameter(Position = 1)]
     [string]$TestName,
 
     [switch]$Fast
 )
 
 $ErrorActionPreference = 'Stop'
-$ProgressPreference    = 'SilentlyContinue'
+$ProgressPreference = 'SilentlyContinue'
 
-$RepoRoot       = $PSScriptRoot
-$SolutionFile   = Join-Path $RepoRoot 'DevOpsMigrationPlatform.slnx'
-$ArtifactsDir   = Join-Path $RepoRoot 'output'
+$RepoRoot = $PSScriptRoot
+$SolutionFile = Join-Path $RepoRoot 'DevOpsMigrationPlatform.slnx'
+$ArtifactsDir = Join-Path $RepoRoot 'output'
 $TestResultsDir = Join-Path $RepoRoot 'TestResults'
-$TimingsFile    = Join-Path $TestResultsDir 'build-timings.json'
+$TimingsFile = Join-Path $TestResultsDir 'build-timings.json'
 
-$AppHostProject      = Join-Path $RepoRoot 'src/DevOpsMigrationPlatform.AppHost/DevOpsMigrationPlatform.AppHost.csproj'
+$AppHostProject = Join-Path $RepoRoot 'src/DevOpsMigrationPlatform.AppHost/DevOpsMigrationPlatform.AppHost.csproj'
 $CliMigrationProject = Join-Path $RepoRoot 'src/DevOpsMigrationPlatform.CLI.Migration/DevOpsMigrationPlatform.CLI.Migration.csproj'
-$TfsAgentProject     = Join-Path $RepoRoot 'src/DevOpsMigrationPlatform.TfsMigrationAgent/DevOpsMigrationPlatform.TfsMigrationAgent.csproj'
+$TfsAgentProject = Join-Path $RepoRoot 'src/DevOpsMigrationPlatform.TfsMigrationAgent/DevOpsMigrationPlatform.TfsMigrationAgent.csproj'
 $ControlPlaneProject = Join-Path $RepoRoot 'src/DevOpsMigrationPlatform.ControlPlaneHost/DevOpsMigrationPlatform.ControlPlaneHost.csproj'
-$AgentProject        = Join-Path $RepoRoot 'src/DevOpsMigrationPlatform.MigrationAgent/DevOpsMigrationPlatform.MigrationAgent.csproj'
+$AgentProject = Join-Path $RepoRoot 'src/DevOpsMigrationPlatform.MigrationAgent/DevOpsMigrationPlatform.MigrationAgent.csproj'
 
 # Runtime identifiers for per-platform publishing.
 # Only win-x64 gets the TfsMigrationAgent/ subfolder; net481 is Windows-only.
@@ -137,12 +139,12 @@ $AllRids = @('win-x64', 'win-arm64', 'linux-x64', 'osx-x64', 'osx-arm64')
 # Helpers
 # ─────────────────────────────────────────────────────────────────────────────
 $script:StepTimings = [System.Collections.Generic.List[PSCustomObject]]::new()
-$script:BuildStart  = [System.Diagnostics.Stopwatch]::StartNew()
+$script:BuildStart = [System.Diagnostics.Stopwatch]::StartNew()
 
 function Write-Banner {
     param([string]$SemVer, [string]$Mode)
     $width = 60
-    $line  = '═' * $width
+    $line = '═' * $width
     Write-Host ""
     Write-Host $line -ForegroundColor DarkCyan
     Write-Host ('  Azure DevOps Migration Platform  —  build.ps1') -ForegroundColor Cyan
@@ -181,34 +183,35 @@ function Write-TestSummary {
         [xml]$xml = Get-Content -LiteralPath $trx.FullName -Raw
         $ns = @{ t = 'http://microsoft.com/schemas/VisualStudio/TeamTest/2010' }
         $counters = Select-Xml -Xml $xml -XPath '//t:ResultSummary/t:Counters' -Namespace $ns |
-                    Select-Object -ExpandProperty Node
+        Select-Object -ExpandProperty Node
 
         if (-not $counters) { continue }
 
-        $passed  = [int]$counters.passed
-        $failed  = [int]$counters.failed
+        $passed = [int]$counters.passed
+        $failed = [int]$counters.failed
         $skipped = [int]$counters.notExecuted
-        $total   = [int]$counters.total
+        $total = [int]$counters.total
 
         # Skip empty result files (e.g. bare environment .trx files with no tests)
         if ($total -eq 0) { continue }
 
-        $totalPassed  += $passed
-        $totalFailed  += $failed
+        $totalPassed += $passed
+        $totalFailed += $failed
         $totalSkipped += $skipped
-        $totalTests   += $total
+        $totalTests += $total
 
         # Derive assembly name from the .trx storage attribute or filename
         $firstResult = Select-Xml -Xml $xml -XPath '//t:Results/t:UnitTestResult[1]' -Namespace $ns |
-                       Select-Object -ExpandProperty Node
+        Select-Object -ExpandProperty Node
         $assembly = if ($firstResult -and $firstResult.testName) {
             $firstResult.testName -replace '\..*', ''
-        } else {
+        }
+        else {
             [System.IO.Path]::GetFileNameWithoutExtension($trx.Name)
         }
         # Try to get a cleaner name from TestDefinitions
         $defNode = Select-Xml -Xml $xml -XPath '//t:TestDefinitions/t:UnitTest[1]/t:TestMethod' -Namespace $ns |
-                   Select-Object -ExpandProperty Node
+        Select-Object -ExpandProperty Node
         if ($defNode -and $defNode.className) {
             $assembly = ($defNode.className -split ',')[0] -replace '\.Tests\..*|\.Test\..*', '.Tests'
         }
@@ -231,14 +234,14 @@ function Write-TestSummary {
         [xml]$xml = Get-Content -LiteralPath $trx.FullName -Raw
         $ns = @{ t = 'http://microsoft.com/schemas/VisualStudio/TeamTest/2010' }
         Select-Xml -Xml $xml -XPath '//t:Results/t:UnitTestResult' -Namespace $ns |
-            Select-Object -ExpandProperty Node |
-            Where-Object { $_.duration } |
-            ForEach-Object {
-                [PSCustomObject]@{
-                    Name     = $_.testName
-                    Duration = [TimeSpan]::Parse($_.duration)
-                }
+        Select-Object -ExpandProperty Node |
+        Where-Object { $_.duration } |
+        ForEach-Object {
+            [PSCustomObject]@{
+                Name     = $_.testName
+                Duration = [TimeSpan]::Parse($_.duration)
             }
+        }
     }
 
     $slowest = $allResults | Sort-Object Duration -Descending | Select-Object -First 10
@@ -251,7 +254,8 @@ function Write-TestSummary {
             $dur = $t.Duration
             $formatted = if ($dur.TotalMinutes -ge 1) {
                 '{0}m {1:D2}.{2:D3}s' -f [int]$dur.TotalMinutes, $dur.Seconds, $dur.Milliseconds
-            } else {
+            }
+            else {
                 '{0:D2}.{1:D3}s' -f $dur.Seconds, $dur.Milliseconds
             }
             $shortName = if ($t.Name.Length -gt 58) { $t.Name.Substring(0, 55) + '...' } else { $t.Name }
@@ -293,18 +297,19 @@ function Write-BuildSummary {
             Mode         = $Mode
             TotalSeconds = $total.TotalSeconds
             Steps        = @($script:StepTimings | ForEach-Object {
-                [PSCustomObject]@{ Step = $_.Step; ElapsedSeconds = $_.Elapsed.TotalSeconds }
-            })
+                    [PSCustomObject]@{ Step = $_.Step; ElapsedSeconds = $_.Elapsed.TotalSeconds }
+                })
         }
         $payload | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath $TimingsFile -Encoding UTF8
-    } catch { <# non-fatal #> }
+    }
+    catch { <# non-fatal #> }
 }
 
 function Format-Elapsed {
     param([double]$TotalSeconds)
     $ts = [TimeSpan]::FromSeconds($TotalSeconds)
     if ($ts.TotalMinutes -ge 1) { '{0}m {1:D2}s' -f [int]$ts.TotalMinutes, $ts.Seconds }
-    else                        { '{0:D2}s {1:D3}ms' -f $ts.Seconds, $ts.Milliseconds }
+    else { '{0:D2}s {1:D3}ms' -f $ts.Seconds, $ts.Milliseconds }
 }
 
 function Write-BuildTimings {
@@ -352,7 +357,8 @@ function Resolve-GitVersion {
     $gvCmd = Get-Command 'dotnet-gitversion' -ErrorAction SilentlyContinue
     if ($gvCmd) {
         $rawOutput = & dotnet-gitversion /config $ConfigFile /output json 2>&1
-    } else {
+    }
+    else {
         # Fall back to local tool manifest
         dotnet tool restore --verbosity quiet 2>&1 | Out-Null
         if ($LASTEXITCODE -ne 0) {
@@ -397,7 +403,8 @@ Or restore the local manifest:
 
     try {
         return $jsonText | ConvertFrom-Json
-    } catch {
+    }
+    catch {
         Write-Error "Failed to parse GitVersion JSON: $_`nRaw output:`n$jsonText"
         exit 1
     }
@@ -419,7 +426,7 @@ function Invoke-UnitTests {
     # Clear stale .trx files so the summary only reflects the current run
     if (Test-Path $TestResultsDir) {
         Get-ChildItem -LiteralPath $TestResultsDir -Filter '*.trx' -ErrorAction SilentlyContinue |
-            Remove-Item -Force -ErrorAction SilentlyContinue
+        Remove-Item -Force -ErrorAction SilentlyContinue
     }
     # All tests EXCEPT SystemTest-categorised tests (including sub-categories)
     Invoke-Step 'Running unit tests (excluding SystemTests)' {
@@ -427,6 +434,22 @@ function Invoke-UnitTests {
             --no-build `
             --configuration Release `
             --filter 'TestCategory!=SystemTest&TestCategory!=SystemTest_Simulated&TestCategory!=SystemTest_Live' `
+            --logger 'trx' `
+            --logger 'console;verbosity=normal' `
+            --results-directory $TestResultsDir
+    }
+}
+
+function Invoke-AllTests {
+    # Clear stale .trx files so the summary only reflects the current run
+    if (Test-Path $TestResultsDir) {
+        Get-ChildItem -LiteralPath $TestResultsDir -Filter '*.trx' -ErrorAction SilentlyContinue |
+        Remove-Item -Force -ErrorAction SilentlyContinue
+    }
+    Invoke-Step 'Running all tests' {
+        dotnet test $SolutionFile `
+            --no-build `
+            --configuration Release `
             --logger 'trx' `
             --logger 'console;verbosity=normal' `
             --results-directory $TestResultsDir
@@ -459,11 +482,25 @@ function Invoke-LiveSystemTests {
     }
 }
 
+function Invoke-RemainingSystemTests {
+    # System tests that are tagged SystemTest but NOT in the simulated/live sub-categories.
+    Invoke-Step 'Running remaining system tests (SystemTest excluding Simulated/Live)' {
+        dotnet test $SolutionFile `
+            --no-build `
+            --configuration Release `
+            --filter 'TestCategory=SystemTest&TestCategory!=SystemTest_Simulated&TestCategory!=SystemTest_Live' `
+            --logger 'trx' `
+            --logger 'console;verbosity=normal' `
+            --results-directory $TestResultsDir
+    }
+}
+
 function Invoke-SystemTests {
     # Run simulated tests first; only proceed to live tests if simulated pass.
     # This minimises time-to-failure when simulated tests catch an issue early.
     Invoke-SimulatedSystemTests
     Invoke-LiveSystemTests
+    Invoke-RemainingSystemTests
 }
 
 function Invoke-Publish {
@@ -471,7 +508,7 @@ function Invoke-Publish {
 
     $script:CliMigrationOutByRid = @{}
     $script:ControlPlaneOutByRid = @{}
-    $script:AgentOutByRid        = @{}
+    $script:AgentOutByRid = @{}
 
     foreach ($rid in $TargetRids) {
         # ── CLI (devopsMigration) ────────────────────────────────────────────
@@ -582,7 +619,8 @@ function Start-AppHost {
         # MigrationAgent executables via AddExecutable instead of AddProject.
         dotnet run --project $AppHostProject --configuration Release
         # Non-zero exit (e.g. Ctrl-C) is expected and not treated as a failure here.
-    } finally {
+    }
+    finally {
         Remove-Item Env:\MIGRATION_INSTALL_PATH -ErrorAction SilentlyContinue
     }
 }
@@ -595,11 +633,13 @@ function Get-CurrentRid {
         $arch = [System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture
         if ($arch -eq [System.Runtime.InteropServices.Architecture]::Arm64) { return 'win-arm64' }
         return 'win-x64'
-    } elseif ($IsMacOS) {
+    }
+    elseif ($IsMacOS) {
         $arch = [System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture
         if ($arch -eq [System.Runtime.InteropServices.Architecture]::Arm64) { return 'osx-arm64' }
         return 'osx-x64'
-    } else {
+    }
+    else {
         return 'linux-x64'
     }
 }
@@ -607,9 +647,9 @@ function Get-CurrentRid {
 function Invoke-Install {
     param([string]$SemVer)
 
-    $rid        = Get-CurrentRid
+    $rid = Get-CurrentRid
     $displayRid = $rid -replace '^osx-', 'macos-'
-    $zip        = Join-Path $ArtifactsDir "MigrationTools-$SemVer-$displayRid.zip"
+    $zip = Join-Path $ArtifactsDir "MigrationTools-$SemVer-$displayRid.zip"
 
     if (-not (Test-Path $zip)) {
         Write-Error "Package not found: $zip`nRun './build.ps1 -Mode Package' (or 'Install') to build the package first."
@@ -617,9 +657,9 @@ function Invoke-Install {
     }
 
     # ── Install root: %USERPROFILE%\source\Tools\MigrationPlatform\ ──────────
-    $installRoot  = Join-Path $env:USERPROFILE 'source\Tools\MigrationPlatform'
+    $installRoot = Join-Path $env:USERPROFILE 'source\Tools\MigrationPlatform'
     $versionedDir = Join-Path $installRoot $SemVer
-    $currentDir   = Join-Path $installRoot 'current'
+    $currentDir = Join-Path $installRoot 'current'
 
     Write-Host "`n==> Installing $SemVer [$rid] from package to $versionedDir" -ForegroundColor Cyan
     Write-Host "  Source: $zip"
@@ -637,7 +677,8 @@ function Invoke-Install {
         $existing = Get-Item $currentDir -Force
         if ($existing.LinkType -in @('Junction', 'SymbolicLink')) {
             [System.IO.Directory]::Delete($currentDir)   # removes link only, not target
-        } else {
+        }
+        else {
             Remove-Item $currentDir -Recurse -Force
         }
     }
@@ -651,12 +692,12 @@ function Invoke-Install {
     # CMD shim — works in cmd.exe, PowerShell, and Windows Terminal
     $cmdShim = Join-Path $shimDir 'devopsmigrationdev.cmd'
     "@echo off`r`n""%USERPROFILE%\source\Tools\MigrationPlatform\current\devopsmigration.exe"" %*" |
-        Set-Content -Path $cmdShim -Encoding ASCII
+    Set-Content -Path $cmdShim -Encoding ASCII
 
     # PS1 shim — explicit PowerShell invocation path
     $ps1Shim = Join-Path $shimDir 'devopsmigrationdev.ps1'
     "& (Join-Path `$env:USERPROFILE 'source\Tools\MigrationPlatform\current\devopsmigration.exe') @args" |
-        Set-Content -Path $ps1Shim
+    Set-Content -Path $ps1Shim
 
     Write-Host "`n==> Install complete!" -ForegroundColor Green
     Write-Host "  Version:       $SemVer"
@@ -704,14 +745,15 @@ if ($Mode -eq 'RunTest') {
 # ─────────────────────────────────────────────────────────────────────────────
 if ($Version) {
     Write-Host "`n==> Using explicit version override: $Version" -ForegroundColor Cyan
-    $SemVer               = $Version
-    $AssemblySemVer       = $Version
+    $SemVer = $Version
+    $AssemblySemVer = $Version
     $InformationalVersion = $Version
-} else {
+}
+else {
     $versionInfo = Resolve-GitVersion
 
-    $SemVer               = $versionInfo.SemVer
-    $AssemblySemVer       = $versionInfo.AssemblySemVer
+    $SemVer = $versionInfo.SemVer
+    $AssemblySemVer = $versionInfo.AssemblySemVer
     $InformationalVersion = $versionInfo.InformationalVersion
 }
 
@@ -797,8 +839,7 @@ switch ($Mode) {
         # ── Everything: Build + Test + SystemTest_Simulated + SystemTest_Live + Package ──
         Invoke-Build       -VersionArgs $VersionArgs
         Invoke-UnitTests
-        Invoke-SimulatedSystemTests
-        Invoke-LiveSystemTests
+        Invoke-SystemTests
         Invoke-Publish     -StagingDir $StagingDir -VersionArgs $VersionArgs
         Invoke-Package     -SemVer $SemVer -StagingDir $StagingDir -TargetRids $AllRids
 
@@ -820,9 +861,9 @@ switch ($Mode) {
         Invoke-Build   -VersionArgs $VersionArgs
         Invoke-UnitTests
         if (-not $Fast) {
-            Invoke-SimulatedSystemTests
-            Invoke-LiveSystemTests
-        } else {
+            Invoke-SystemTests
+        }
+        else {
             Write-Host "`n==> Skipping system tests (-Fast)" -ForegroundColor Yellow
         }
         Invoke-Publish -StagingDir $StagingDir -VersionArgs $VersionArgs -TargetRids @($localRid)
@@ -838,17 +879,17 @@ switch ($Mode) {
     }
 
     'Install' {
-        # ── Build + unit tests + package (this platform only) + extract package to install dir ─
+        # ── Build + all tests + package (this platform only) + extract package to install dir ─
         # The zip contains the full layout: CLI at root, ControlPlane/, MigrationAgent/,
         # TfsMigration/ (win-x64 only). Invoke-Install locates the zip and extracts it.
         $localRid = Get-CurrentRid
         Invoke-Build   -VersionArgs $VersionArgs
-        Invoke-UnitTests
-        if (-not $Fast) {
-            Invoke-SimulatedSystemTests
-            Invoke-LiveSystemTests
-        } else {
-            Write-Host "`n==> Skipping system tests (-Fast)" -ForegroundColor Yellow
+        if ($Fast) {
+            Write-Host "`n==> Running unit tests only (-Fast)" -ForegroundColor Yellow
+            Invoke-UnitTests
+        }
+        else {
+            Invoke-AllTests
         }
         Invoke-Publish -StagingDir $StagingDir -VersionArgs $VersionArgs -TargetRids @($localRid)
         Invoke-Package -SemVer $SemVer -StagingDir $StagingDir -TargetRids @($localRid)

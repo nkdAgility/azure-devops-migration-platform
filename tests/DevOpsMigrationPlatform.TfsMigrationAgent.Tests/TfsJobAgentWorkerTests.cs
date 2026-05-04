@@ -67,6 +67,7 @@ internal static class TfsJobAgentWorkerTestHelper
 }
 
 [TestClass]
+[TestCategory("NET481")]
 public class TfsJobAgentWorkerTests
 {
     private Mock<IPackageStoreFactory> _packageStoreFactory = null!;

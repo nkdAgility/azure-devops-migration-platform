@@ -16,7 +16,7 @@ public sealed class OrganisationEndpointAuthentication
     public AuthenticationType Type { get; init; }
 
     /// <summary>
-    /// Effective PAT after <c>$ENV:VARNAME</c> expansion.
+    /// Effective access token after <c>$ENV:VARNAME</c> expansion.
     /// Null for <see cref="AuthenticationType.Windows"/> auth — this is valid.
     /// </summary>
     public string? ResolvedAccessToken { get; init; }
