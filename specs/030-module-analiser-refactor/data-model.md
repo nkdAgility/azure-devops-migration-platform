@@ -44,6 +44,34 @@ IAnalyser
 
 ---
 
+### `IOrganisationsAnalyser` — New Sub-Interface
+
+**Assembly**: `DevOpsMigrationPlatform.Abstractions.Agent`  
+**File**: `Analysis/IOrganisationsAnalyser.cs` (new file)
+
+```
+IOrganisationsAnalyser : IAnalyser
+  AnalyseAsync(OrganisationsAnalyseContext, CancellationToken): Task
+```
+
+Used by analysers that need to iterate over source organisations (e.g., a cross-org dependency analyser that fetches live data rather than reading cached artefacts). The plan builder detects this interface and passes `OrganisationsAnalyseContext` instead of the base `AnalyseContext`.
+
+---
+
+### `IEndpointPairAnalyser` — New Sub-Interface
+
+**Assembly**: `DevOpsMigrationPlatform.Abstractions.Agent`  
+**File**: `Analysis/IEndpointPairAnalyser.cs` (new file)
+
+```
+IEndpointPairAnalyser : IAnalyser
+  AnalyseAsync(EndpointPairAnalyseContext, CancellationToken): Task
+```
+
+Used by analysers that compare live source and target data (e.g., field mapping compatibility analysis). The plan builder detects this interface and passes `EndpointPairAnalyseContext`. Checked after `IEndpointPairAnalyser` and before the base `IAnalyser` fallback.
+
+---
+
 ### `InventoryContext` — New Context Record
 
 **Assembly**: `DevOpsMigrationPlatform.Abstractions.Agent`  
@@ -77,7 +105,7 @@ PrepareContext (record, init-only)
 
 ---
 
-### `AnalyseContext` — New Context Record
+### `AnalyseContext` — New Context Record (Base)
 
 **Assembly**: `DevOpsMigrationPlatform.Abstractions.Agent`  
 **File**: `Analysis/AnalyseContext.cs` (new file)
@@ -88,8 +116,37 @@ AnalyseContext (record, init-only)
   ArtefactStore: IArtefactStore        (read inventory/export artefacts; write analysis artefacts)
   StateStore: IStateStore
   ProgressSink: IProgressSink?
-  // No source or target endpoint — analysers are artefact-only
+  // No source or target endpoint — base analysers are artefact-only
 ```
+
+---
+
+### `OrganisationsAnalyseContext` — New Context Record
+
+**Assembly**: `DevOpsMigrationPlatform.Abstractions.Agent`  
+**File**: `Analysis/OrganisationsAnalyseContext.cs` (new file)
+
+```
+OrganisationsAnalyseContext : AnalyseContext (record, init-only)
+  Organisations: IReadOnlyList<OrganisationEndpoint>   (source orgs from job config)
+```
+
+Passed to `IOrganisationsAnalyser` implementations by the plan builder. `Organisations` carries the same endpoint list as used by the multi-org inventory loop in `JobAgentWorker`.
+
+---
+
+### `EndpointPairAnalyseContext` — New Context Record
+
+**Assembly**: `DevOpsMigrationPlatform.Abstractions.Agent`  
+**File**: `Analysis/EndpointPairAnalyseContext.cs` (new file)
+
+```
+EndpointPairAnalyseContext : AnalyseContext (record, init-only)
+  SourceEndpoint: ISourceEndpointInfo
+  TargetEndpoint: ITargetEndpointInfo
+```
+
+Passed to `IEndpointPairAnalyser` implementations by the plan builder. Both endpoints are sourced from the job configuration; no separate endpoint config is needed.
 
 ---
 
