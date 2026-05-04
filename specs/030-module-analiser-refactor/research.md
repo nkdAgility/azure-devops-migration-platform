@@ -114,11 +114,11 @@ public interface IInventoryOrchestrator
 - **Rationale**: `JobAgentWorker` already handles job dispatch by `JobKind`. Adding a loop over source endpoints is a natural extension of the existing dispatch method. A new interface (`IInventoryPhaseExecutor`) would be used by only one caller — this fails the "≥2 modules" new-abstraction rule (guardrail 21).
 - **Alternatives considered**: New `IInventoryPhaseExecutor`. Rejected — guardrail 21.
 
-### Decision 7: Inventory artefact format — shared file vs per-module
+### Decision 7: Inventory artefact format — per-module files consolidated by InventoryAnalyser
 
-- **Decision**: Single shared `inventory.json` (and `inventory.csv`). Each module appends/merges its domain counts into the shared artefact via the `IInventoryOrchestrator`.
-- **Rationale**: Consistent with current `InventoryModule` output. Operators and downstream analysers have a single well-known path to read.
-- **Alternatives considered**: Per-module files (`WorkItems/inventory.json`, `Nodes/inventory.json`). Rejected — would require aggregation logic in every consumer.
+- **Decision**: Each `IModule.InventoryAsync` writes its own per-module counts file (`{Module}/inventory-counts.json`). A new `InventoryAnalyser : IAnalyser` declares `DependsOn` on all four domain modules' `Inventory` phase and produces the consolidated `inventory.json` + `inventory.csv` at the package root.
+- **Rationale**: Eliminates shared-file write race conditions between parallel `InventoryAsync` calls. Each module owns its own output with no merge logic inside the module. The consolidation step is explicit, testable, and follows the same `DependsOn` pattern as `DependencyAnalyser`. Operators still have a single canonical `inventory.json` at the package root. Decision updated during spec analysis (2026-05-04) after design discussion with project owner.
+- **Alternatives considered**: (1) Single shared `inventory.json` with per-module append/merge via `IInventoryOrchestrator` — rejected because parallel writes require coordination logic and violates single-responsibility. (2) Per-module files consumed directly by downstream analysers — rejected because every consumer would need to aggregate.
 
 ### Decision 8: `DependencyAnalyser` orchestrator
 

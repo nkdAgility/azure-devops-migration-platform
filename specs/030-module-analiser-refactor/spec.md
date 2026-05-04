@@ -80,7 +80,7 @@ An operator planning a cross-project migration wants to run `queue dependencies`
 
 **Acceptance Scenarios**:
 
-1. **Given** a `JobKind.Dependencies` job with `WorkItemsModule` enabled, **When** the job executes, **Then** `WorkItemsModule.InventoryAsync` runs first and `DependencyAnalyser.AnalyseAsync` runs after, producing `analysis/dependencies.csv` and `analysis/dependencies.mmd`.
+1. **Given** a `JobKind.Dependencies` job with `DependencyAnalyser` registered, **When** the job executes, **Then** `DependencyAnalyser.AnalyseAsync` runs directly (no inventory prerequisite), producing `analysis/dependencies.csv` and `analysis/dependencies.mmd`.
 2. **Given** the inventory artefacts are already present in the package, **When** a `JobKind.Dependencies` job runs, **Then** the inventory phase is skipped (checkpoint present) and analysis runs directly against existing artefacts.
 3. **Given** a `JobKind.Inventory` job with `DependencyAnalyser` registered, **When** the job executes, **Then** `AnalyseAsync` runs after all `InventoryAsync` calls complete, and the analysis artefacts are written.
 
@@ -106,16 +106,16 @@ An operator planning a cross-project migration wants to run `queue dependencies`
 - **FR-001**: The platform MUST dispatch `JobKind.Inventory` to an `InventoryAsync` method on each enabled `IModule` where `SupportsInventory` is `true`, NOT to `ExportAsync`.
 - **FR-002**: The platform MUST dispatch `JobKind.Prepare` to a `PrepareAsync` method on each enabled `IModule` where `SupportsPrepare` is `true`.
 - **FR-003**: Each `IModule` implementation MUST declare whether it supports each phase via `SupportsInventory`, `SupportsExport`, `SupportsPrepare`, and `SupportsImport` boolean properties.
-- **FR-004**: `WorkItemsModule` MUST implement `InventoryAsync` and produce the same `inventory.csv` and `inventory.json` artefacts that `InventoryModule.ExportAsync` currently produces.
-- **FR-005**: `IdentitiesModule`, `NodesModule`, and `TeamsModule` MUST implement `InventoryAsync` with optional count contributions to the shared inventory artefact; each may produce a count of zero if no domain data is in scope.
+- **FR-004**: `WorkItemsModule` MUST implement `InventoryAsync` and write its domain counts to `WorkItems/inventory-counts.json` via `IArtefactStore`. It MUST NOT write the consolidated `inventory.json` or `inventory.csv` directly — those are produced by `InventoryAnalyser` (FR-027).
+- **FR-005**: `IdentitiesModule`, `NodesModule`, and `TeamsModule` MUST implement `InventoryAsync` and each write their domain counts to a per-module file (`Identities/inventory-counts.json`, `Nodes/inventory-counts.json`, `Teams/inventory-counts.json`) via `IArtefactStore`; each may produce a count of zero if no domain data is in scope, but MUST emit a structured `Warning` log when count is zero.
 - **FR-006**: Multi-organisation inventory MUST be handled by the job orchestrator looping over configured source endpoints and calling each module's `InventoryAsync` per endpoint — NOT by a dedicated `InventoryDiscoveryModule`.
 - **FR-007**: `InventoryModule` and `InventoryDiscoveryModule` MUST be eliminated as standalone classes; their behaviour MUST be absorbed into `WorkItemsModule.InventoryAsync` and the job orchestrator respectively.
 - **FR-008**: A new `IAnalyser` interface MUST be introduced in `DevOpsMigrationPlatform.Abstractions.Agent` for participants that read artefacts and produce analysis outputs but never write to a target system.
 - **FR-009**: `DependencyDiscoveryModule` MUST be eliminated and replaced by `DependencyAnalyser` which implements `IAnalyser`, not `IModule`.
-- **FR-010**: `DependencyAnalyser.AnalyseAsync` MUST declare a dependency on `WorkItemsModule` inventory output via a `DependsOn` entry so the plan builder can enforce ordering.
+- **FR-010**: `DependencyAnalyser` is a self-contained `IOrganisationsAnalyser`. It has an empty `DependsOn` list — it receives its scope via `OrganisationsAnalyseContext.Organisations` and calls `IDependencyDiscoveryServiceFactory` directly to stream link data from live ADO. It MUST NOT declare a dependency on `InventoryAnalyser` or any module inventory phase. Reading `inventory.json` from `IArtefactStore` for progress-display purposes is permitted but optional.
 - **FR-011**: The job execution plan builder MUST discover both `IModule` and `IAnalyser` registrations and include both in the `JobTaskList` with correct phase labels (`inventory`, `export`, `prepare`, `import`, `analyse`).
 - **FR-012**: `DependencyPhase` MUST be extended to include `Inventory`, `Prepare`, and `Analyse` values so cross-type dependencies can be declared.
-- **FR-013**: `JobKind.Dependencies` MUST dispatch via `inventory` (WorkItems only) → `analyse` (DependencyAnalyser only), not via the export phase.
+- **FR-013**: `JobKind.Dependencies` MUST dispatch via the `analyse` phase only (`DependencyAnalyser`). No `inventory` phase runs as a prerequisite. `DependencyAnalyser` is self-sufficient — it sources org scope from job config and streams link data from live ADO. It MUST NOT run via the export phase.
 - **FR-014**: The `JobKind.Migrate` pipeline MUST execute phases in order: `inventory` → `export` → `prepare` → `import` → `validate`.
 - **FR-015**: Each module's `PrepareAsync` MUST write a `{Module}/prepare-report.json` to `IArtefactStore` containing at minimum: resolved items count, unresolved items count, and a list of unresolved items.
 - **FR-016**: All new phase methods (`InventoryAsync`, `PrepareAsync`) MUST be observable: O-1 activity spans, O-2 metrics, O-3 structured logging, and O-4 progress events (per guardrail 25).
@@ -129,6 +129,7 @@ An operator planning a cross-project migration wants to run `queue dependencies`
 - **FR-024**: `IOrganisationsAnalyser` MUST extend `IAnalyser` and override `AnalyseAsync` with `OrganisationsAnalyseContext`, which carries `Organisations: IReadOnlyList<OrganisationEndpoint>` in addition to all base `AnalyseContext` fields. This shape is used by analysers that iterate over source organisations (same pattern as the multi-org inventory loop).
 - **FR-025**: `IEndpointPairAnalyser` MUST extend `IAnalyser` and override `AnalyseAsync` with `EndpointPairAnalyseContext`, which carries `SourceEndpoint: ISourceEndpointInfo` and `TargetEndpoint: ITargetEndpointInfo` in addition to all base `AnalyseContext` fields. This shape is used by analysers that compare live source and target data (e.g., field mapping compatibility analysis).
 - **FR-026**: The plan builder MUST resolve the correct context type by checking `analyser is IEndpointPairAnalyser` before `analyser is IOrganisationsAnalyser` before falling back to `AnalyseContext`. Endpoint data MUST be sourced from the same job configuration used by the module orchestrator — no separate endpoint configuration is required.
+- **FR-027**: An `InventoryAnalyser : IAnalyser` MUST be introduced. It MUST declare `DependsOn` on all four domain modules' `Inventory` phase (`WorkItemsModule`, `IdentitiesModule`, `NodesModule`, `TeamsModule`). Its `AnalyseAsync` MUST read the four per-module `inventory-counts.json` files and write the consolidated `inventory.json` and `inventory.csv` at the package root via `IArtefactStore`. This is the ONLY component permitted to write `inventory.json` and `inventory.csv`.
 
 ### Key Entities
 
@@ -143,7 +144,8 @@ An operator planning a cross-project migration wants to run `queue dependencies`
 - **`EndpointPairAnalyseContext`**: Extends `AnalyseContext` with `SourceEndpoint: ISourceEndpointInfo` and `TargetEndpoint: ITargetEndpointInfo`. Passed to `IEndpointPairAnalyser` implementations.
 - **`DependencyPhase`**: Enum extended with `Inventory` (0), `Prepare` (4), and `Analyse` (5) values.
 - **`JobTaskList`**: Unchanged structure, but now includes tasks with phase labels `"inventory"`, `"prepare"`, and `"analyse"` alongside existing `"export"` and `"import"`.
-- **`DependencyAnalyser`**: First `IAnalyser` implementation. Replaces `DependencyDiscoveryModule`. Reads `inventory.json` and writes `analysis/dependencies.csv` and `analysis/dependencies.mmd`.
+- **`DependencyAnalyser`**: First domain-specific `IOrganisationsAnalyser` implementation. Replaces `DependencyDiscoveryModule`. Receives `OrganisationsAnalyseContext` from the plan builder. Calls `IDependencyDiscoveryServiceFactory` to stream cross-project work item links from live ADO. Writes `analysis/dependencies.csv` and `analysis/dependencies.mmd` via `IArtefactStore`. `DependsOn = []` — no artefact prerequisites. May optionally read `inventory.json` for UI progress counters but MUST NOT gate on its presence.
+- **`InventoryAnalyser`**: Second `IAnalyser` implementation. Declares `DependsOn` on all four domain modules' `Inventory` phase. Reads per-module `inventory-counts.json` files and consolidates them into the canonical `inventory.json` and `inventory.csv` at the package root. Always runs as part of any `JobKind.Inventory` job plan.
 
 ---
 
@@ -169,7 +171,7 @@ An operator planning a cross-project migration wants to run `queue dependencies`
 - The abstract base class (`ModuleBase`) pattern is preferred over pure interface-only to avoid forcing every module to implement all five methods; `Supports*` properties default to `false`.
 - Incremental migration is assumed: the refactor proceeds in five phases (add methods with defaults → move WorkItems inventory → multi-org orchestrator → implement PrepareAsync → clean up), maintaining backward compatibility at each step.
 - The `ValidateAsync` method signature remains unchanged; no `ValidateInventoryAsync` or `ValidateExportAsync` variants are introduced.
-- `InventoryAsync` per-module writes count contributions to a shared `inventory.json`; each module appends or merges its domain counts rather than owning a separate file.
+- Each `IModule.InventoryAsync` writes its domain counts to a per-module file (`{Module}/inventory-counts.json`); `InventoryAnalyser` reads all per-module files and produces the consolidated `inventory.json` and `inventory.csv` at the package root. No module writes to `inventory.json` directly.
 - The `IAnalyser` interface is placed in `DevOpsMigrationPlatform.Abstractions.Agent` (same assembly as `IModule`) per the project reference boundary rules (guardrail 20a).
 - `JobKind.Dependencies` remains a valid `JobKind` value and continues to dispatch as `inventory (WorkItems only) → analyse (DependencyAnalyser only)`.
 - Docs read: `docs/modules.md`, `docs/architecture.md`, `.agents/guardrails/system-architecture.md`, `.agents/guardrails/module-template.md`. Gaps found — see `discrepancies.md`.

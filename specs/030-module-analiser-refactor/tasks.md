@@ -96,10 +96,10 @@
 
 ### Implementation for User Story 1
 
-- [ ] T024 [US1] Implement `WorkItemsModule.InventoryAsync` — set `SupportsInventory = true`; delegate to `IInventoryOrchestrator`; write work item and revision counts to shared `inventory.json` via `IArtefactStore`; delete `InventoryModule.cs` in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Modules/WorkItemsModule.cs`
-- [ ] T025 [P] [US1] Implement `IdentitiesModule.InventoryAsync` — set `SupportsInventory = true`; enumerate identities from source connector via existing service; append identity count to `inventory.json` in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Modules/IdentitiesModule.cs`
-- [ ] T026 [P] [US1] Implement `NodesModule.InventoryAsync` — set `SupportsInventory = true`; enumerate area/iteration nodes; append node count to `inventory.json` in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Modules/NodesModule.cs`
-- [ ] T027 [P] [US1] Implement `TeamsModule.InventoryAsync` — set `SupportsInventory = true`; enumerate teams; append team count to `inventory.json` in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Modules/TeamsModule.cs`
+- [ ] T024 [US1] Implement `WorkItemsModule.InventoryAsync` — set `SupportsInventory = true`; delegate to `IInventoryOrchestrator`; write work item and revision counts to **`WorkItems/inventory-counts.json`** via `IArtefactStore` (NOT to shared `inventory.json`); delete `InventoryModule.cs` in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Modules/WorkItemsModule.cs`
+- [ ] T025 [P] [US1] Implement `IdentitiesModule.InventoryAsync` — set `SupportsInventory = true`; enumerate identities from source connector via existing service; write identity count to **`Identities/inventory-counts.json`** via `IArtefactStore` in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Modules/IdentitiesModule.cs`
+- [ ] T026 [P] [US1] Implement `NodesModule.InventoryAsync` — set `SupportsInventory = true`; enumerate area/iteration nodes; write node count to **`Nodes/inventory-counts.json`** via `IArtefactStore` in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Modules/NodesModule.cs`
+- [ ] T027 [P] [US1] Implement `TeamsModule.InventoryAsync` — set `SupportsInventory = true`; enumerate teams; write team count to **`Teams/inventory-counts.json`** via `IArtefactStore` in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Modules/TeamsModule.cs`
 - [ ] T028 [US1] Implement TFS-compatible `TfsWorkItemsModule.InventoryAsync` — set `SupportsInventory = true`; delegate to `IInventoryOrchestrator` (same as WorkItemsModule); adapts to net481 in `src/DevOpsMigrationPlatform.Infrastructure.TfsObjectModel/Modules/TfsWorkItemsModule.cs`
 - [ ] T029 [US1] Delete `InventoryModule.cs` from `src/DevOpsMigrationPlatform.Infrastructure.Agent/Modules/InventoryModule.cs` (replaced by WorkItemsModule.InventoryAsync)
 - [ ] T030 [US1] Add Simulated connector `InventoryAsync` implementations — `SimulatedWorkItemSource.InventoryAsync`, `SimulatedIdentitiesSource.InventoryAsync`, `SimulatedNodesSource.InventoryAsync`, `SimulatedTeamsSource.InventoryAsync` must return ≥2 items each in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Connectors/Simulated/`
@@ -206,17 +206,27 @@
 
 ## Phase 6: User Story 4 — Dependency Analysis as a Distinct IAnalyser Operation (Priority: P3)
 
-**Goal**: `DependencyDiscoveryModule` replaced by `DependencyAnalyser : IAnalyser`. `JobKind.Dependencies` dispatches `inventory (WorkItems only) → analyse (DependencyAnalyser only)`.
+**Goal**: `DependencyDiscoveryModule` replaced by `DependencyAnalyser : IAnalyser`. `JobKind.Dependencies` dispatches `inventory (WorkItems only) → analyse (InventoryAnalyser, then DependencyAnalyser)`.
 
-**Independent Test**: Submit a `JobKind.Dependencies` job (Simulated). Assert `analysis/dependencies.csv` exists with ≥1 row and `analysis/dependencies.mmd` exists.
+**Independent Test**: Submit a `JobKind.Dependencies` job (Simulated). Assert `inventory.json` and `inventory.csv` exist at package root, `analysis/dependencies.csv` exists with ≥1 row, and `analysis/dependencies.mmd` exists.
 
 ### Gherkin Feature Files for User Story 4 (mandatory)
 
 - [ ] T079 [US4] Create `features/analysis/simulated/dependency-analysis.feature` — translate spec.md US4 acceptance scenarios 1, 2, and 3: `Dependencies_WorkItemsInventoriedFirst_ProducesDependenciesCsv`, `Dependencies_InventoryAlreadyPresent_SkipsInventoryPhase`, `Dependencies_RunWithInventoryJob_AnalyserRunsAfterAllModules`
+- [ ] T079a [US4] Create `features/analysis/simulated/inventory-analysis.feature` — scenarios: `Inventory_AllModulesComplete_ConsolidatedInventoryJsonWritten`, `Inventory_AllModulesComplete_InventoryCsvWritten`, `Inventory_ZeroCountModule_EmitsWarning`
 
 ### Implementation for User Story 4
 
-- [ ] T080 [US4] Create `DependencyAnalyser : IAnalyser` — `Name = "Dependencies"`, `DependsOn = [ModuleDependency(typeof(WorkItemsModule), DependencyPhase.Inventory)]`, `AnalyseAsync` delegates to updated `IDependencyOrchestrator`; reads `inventory.json`; writes `analysis/dependencies.csv` and `analysis/dependencies.mmd` via `IArtefactStore` in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Analysis/DependencyAnalyser.cs`
+- [ ] T079b [US4] Create `InventoryAnalyser : IAnalyser` — `Name = "Inventory"`, `DependsOn = [ModuleDependency(typeof(WorkItemsModule), DependencyPhase.Inventory), ModuleDependency(typeof(IdentitiesModule), DependencyPhase.Inventory), ModuleDependency(typeof(NodesModule), DependencyPhase.Inventory), ModuleDependency(typeof(TeamsModule), DependencyPhase.Inventory)]`; `AnalyseAsync` reads the four per-module `inventory-counts.json` files, aggregates, and writes `inventory.json` + `inventory.csv` at package root via `IArtefactStore` in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Analysis/InventoryAnalyser.cs`
+- [ ] T079c [US4] Create `AddInventoryAnalyserServices(this IServiceCollection)` extension method — registers `InventoryAnalyser` as `IAnalyser` in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Analysis/InventoryAnalyserServiceCollectionExtensions.cs`
+- [ ] T079d [US4] Wire `AddInventoryAnalyserServices` into `MigrationAgent` host startup
+- [ ] T079e [US4] **O-1 Traces** — Add `WellKnownActivitySourceNames.Discovery.StartActivity("analyse.inventory")` with tag `job.id` to `InventoryAnalyser.AnalyseAsync`
+- [ ] T079f [US4] **O-2 Metrics** — Instrument `InventoryAnalyser.AnalyseAsync` with attempt, completion, error, and duration metrics via `IMigrationMetrics`
+- [ ] T079g [US4] **O-3 Logging** — Log `Information` on start/end, `Warning` if any per-module count file is missing; `Warning` if total consolidated count is zero
+- [ ] T079h [US4] **O-4 Progress** — Emit `ProgressEvent` at start and completion from `InventoryAnalyser.AnalyseAsync` with `Metrics.Migration.Inventory` populated
+- [ ] T079i [US4] **SystemTest_Simulated** for `InventoryAnalyser` — Assert `inventory.json` exists at package root with non-empty content AND `inventory.csv` exists with ≥1 data row
+
+- [ ] T080 [US4] Create `DependencyAnalyser : IOrganisationsAnalyser` — `Name = "Dependencies"`, `DependsOn = []`, `AnalyseAsync(OrganisationsAnalyseContext)` delegates to `IDependencyDiscoveryServiceFactory` (injected) to stream cross-project work item links; writes `analysis/dependencies.csv` and `analysis/dependencies.mmd` via `IArtefactStore`; optionally reads `inventory.json` for progress UI counters (non-gating) in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Analysis/DependencyAnalyser.cs`
 - [ ] T081 [US4] Update `IDependencyOrchestrator` concrete implementation — adapt to accept `AnalyseContext` in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Discovery/DependencyOrchestrator.cs`
 - [ ] T082 [US4] Delete `DependencyDiscoveryModule.cs` from `src/DevOpsMigrationPlatform.Infrastructure.Agent/Modules/DependencyDiscoveryModule.cs` (replaced by DependencyAnalyser)
 - [ ] T083 [US4] Create `AddDependencyAnalyserServices(this IServiceCollection)` extension method — registers `DependencyAnalyser` as `IAnalyser`; registers `IDependencyOrchestrator` if not already registered in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Analysis/DependencyAnalyserServiceCollectionExtensions.cs`
@@ -297,7 +307,7 @@ Phase 8 (Polish) → optional, any time after Phase 7
 - T003, T004, T005/T006, T007/T007a/T007b/T007c/T007d, T008 — all Phase 1 new type files (different files, parallel)
 - T012, T013 — different metric constants files (parallel)
 - T024–T027 — four modules' `InventoryAsync` (different files, parallel)
-- T025, T026, T027 — Identities/Nodes/Teams `InventoryAsync` (parallel after T024 defines shared `inventory.json` write pattern)
+- T025, T026, T027 — Identities/Nodes/Teams `InventoryAsync` (all parallel; each writes its own per-module file, no shared-write dependency)
 - T062, T063, T064 — Identities/Nodes/Teams `PrepareAsync` (parallel after T061 defines `PrepareReport` write pattern)
 - T037, T038, T039, T040, T040a, T040b, T040c — observability unit tests for US1 (all parallel)
 
