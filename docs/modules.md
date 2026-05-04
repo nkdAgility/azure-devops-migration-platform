@@ -156,7 +156,7 @@ public interface ISourceEndpointInfo
 | `BuildsModule` | _(Planned — not yet implemented)_ Export build pipeline definitions. |
 | `GitModule` | _(Planned — not yet implemented)_ Export Git repository structure and optionally pack contents. |
 
-**Execution order** (operator-controlled via config; recommended order): `IdentitiesModule` → `NodesModule` → `TeamsModule` → `WorkItemsModule`. Any module that maps identities must declare a dependency on `IdentitiesModule` via `DependsOn`.
+**Execution order** (operator-controlled via config; recommended order): `IdentitiesModule` → `NodesModule` → `TeamsModule` → `WorkItemsModule`. Export plans include `InventoryModule` before `WorkItemsModule` when WorkItems is enabled, so package-level `inventory.csv`/`inventory.json` is produced prior to work item export. Any module that maps identities must declare a dependency on `IdentitiesModule` via `DependsOn`.
 
 > **Field-projected fetching**: Inventory and dependency analysis modules use `IWorkItemFetchService` for streaming, field-projected work item retrieval. This abstraction handles WIQL windowing, batch API calls, and in-process filtering — modules should not call `GetWorkItemsAsync` directly.
 

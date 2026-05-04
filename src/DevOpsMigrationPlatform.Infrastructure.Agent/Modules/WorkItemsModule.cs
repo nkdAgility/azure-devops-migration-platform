@@ -48,6 +48,7 @@ public sealed class WorkItemsModule : IModule
     public string Name => "WorkItems";
     public IReadOnlyList<ModuleDependency> DependsOn => new[]
     {
+        new ModuleDependency(typeof(InventoryModule), DependencyPhase.Export),
         new ModuleDependency(typeof(IdentitiesModule), DependencyPhase.Import),
         new ModuleDependency(typeof(NodesModule), DependencyPhase.Import)
     };

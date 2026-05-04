@@ -246,7 +246,7 @@ public class SimulatedMigrationCommandTests
     {
         var result = await CliRunner.RunTestAsync(
             testName: nameof(DiscoveryInventorySimulated_ExitsZeroAndWritesInventoryArtefacts),
-            args: ["queue", "--config", "scenarios/queue-export-workitems-simulated-source.json", "--force-fresh"],
+            args: ["discovery", "inventory", "--config", "scenarios/inventory-simulated.json", "--force-fresh"],
             timeout: TimeSpan.FromMinutes(4),
             cleanOutputFolder: true);
         var outputDir = result.OutputDirectory;
