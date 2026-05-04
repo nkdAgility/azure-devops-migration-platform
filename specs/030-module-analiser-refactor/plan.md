@@ -45,8 +45,8 @@ Research findings are in [research.md](research.md). Data model is in [data-mode
 - [x] **Separation of Planes (VI):** `JobAgentWorker` (MigrationAgent) handles multi-org loop — not the control plane. No UI coupling. TFS exporter unchanged. Verified.
 - [x] **Determinism (VII):** Same inputs → same inventory artefacts. `PrepareAsync` is idempotent (overwrites prepare-report.json). `AnalyseAsync` is idempotent (rewrites analysis artefacts). No schema breaking changes in this refactor — `DependencyPhase` enum extends with new values (additive, backward-compatible). Verified.
 - [x] **ATDD-First (VIII):** All 4 user stories have Given/When/Then scenarios. Each will be delivered via ATDD inner loop. Verified.
-- [x] **SOLID & DI (IX):** `IAnalyser`, `InventoryContext`, `PrepareContext`, `AnalyseContext` in `Abstractions.Agent`. Constructor injection. `IOptions<T>` for config. `AddAnalyserServices()` extension method. Verified.
-- [x] **Full Connector Coverage (XI):** All three connectors (Simulated, AzureDevOps, TFS) require `InventoryAsync` and `PrepareAsync`. TFS is source-only; `PrepareAsync` and `ImportAsync` are no-ops on `TfsWorkItemsModule` — graceful skip with Warning log (not throw). `DependencyAnalyser` is artefact-only — no connector dependency. Verified.
+- [x] **SOLID & DI (IX):** `IAnalyser`, `InventoryContext`, `PrepareContext`, `AnalyseContext` in `Abstractions.Agent`. Constructor injection. `IOptions<T>` for config. `AddDependencyAnalyserServices()` and `AddInventoryAnalyserServices()` extension methods. Verified.
+- [x] **Full Connector Coverage (XI):** All three connectors (Simulated, AzureDevOps, TFS) require `InventoryAsync` and `PrepareAsync`. TFS is source-only; `PrepareAsync` and `ImportAsync` are no-ops on `TfsWorkItemsModule` — graceful skip with Warning log (not throw). `DependencyAnalyser` implements `IOrganisationsAnalyser` and calls `IDependencyDiscoveryServiceFactory` against live ADO — all three connector feature files are required (`features/analysis/{simulated,ado,tfs}/dependency-analysis.feature`). Verified.
 
 **No constitution violations. All gates pass.**
 
@@ -66,7 +66,8 @@ Research findings are in [research.md](research.md). Data model is in [data-mode
 | `prepare.identities` | module | `IdentitiesModule.PrepareAsync` | `IArtefactStore`, `IMigrationMetrics`, `IProgressSink?` |
 | `prepare.nodes` | module | `NodesModule.PrepareAsync` | `IArtefactStore`, `IMigrationMetrics`, `IProgressSink?` |
 | `prepare.teams` | module | `TeamsModule.PrepareAsync` | `IArtefactStore`, `IMigrationMetrics`, `IProgressSink?` |
-| `analyse.dependencies` | analyser | `DependencyAnalyser.AnalyseAsync` | `IArtefactStore` (read inventory; write CSV), `IDiscoveryMetrics`, `IProgressSink?` |
+| `analyse.inventory` | analyser | `InventoryAnalyser.AnalyseAsync` | `IArtefactStore` (read per-module `{Module}/inventory.json`; write `inventory.json` + `inventory.csv`), `IDiscoveryMetrics`, `IProgressSink?` |
+| `analyse.dependencies` | analyser | `DependencyAnalyser.AnalyseAsync` | `IDependencyDiscoveryServiceFactory`, `IArtefactStore`, `IDiscoveryMetrics`, `IProgressSink?` |
 
 ### Operator Decisions
 
@@ -84,6 +85,9 @@ Research findings are in [research.md](research.md). Data model is in [data-mode
 | `analyse.dependencies` | Is it correct? | How many dependency links were found? Zero is suspicious. |
 | `analyse.dependencies` | What failed? | Did analysis fail mid-way? Which work item caused failure? |
 | `analyse.dependencies` | Is it fast enough? | Did analysis complete within expected duration? |
+| `analyse.inventory` | Is it working? | Did `InventoryAnalyser` produce consolidated `inventory.json` and `inventory.csv`? |
+| `analyse.inventory` | Is it correct? | Do consolidated counts match sum of per-module files? |
+| `analyse.inventory` | What failed? | Which per-module `{Module}/inventory.json` file was missing or zero? |
 
 ### Metrics
 
@@ -112,6 +116,9 @@ Research findings are in [research.md](research.md). Data model is in [data-mode
 | `migration.teams.prepare.resolved` | `Counter<long>` | `{item}` | `prepare.teams` | Is it correct? | NEW → add to `WellKnownMetricNames` |
 | `migration.teams.prepare.unresolved` | `Counter<long>` | `{item}` | `prepare.teams` | What failed? | NEW → add to `WellKnownMetricNames` |
 | `migration.teams.prepare.duration_ms` | `Histogram<double>` | `ms` | `prepare.teams` | Is it fast enough? | NEW → add to `WellKnownMetricNames` |
+| `discovery.inventory.consolidated` | `Counter<long>` | `{module}` | `analyse.inventory` | Is it correct? | NEW → add to `WellKnownDiscoveryMetricNames` |
+| `discovery.inventory.consolidated.duration_ms` | `Histogram<double>` | `ms` | `analyse.inventory` | Is it fast enough? | NEW → add to `WellKnownDiscoveryMetricNames` |
+| `discovery.inventory.consolidated.errors` | `Counter<long>` | `{error}` | `analyse.inventory` | What failed? | NEW → add to `WellKnownDiscoveryMetricNames` |
 | `discovery.dependencies.links` | `Counter<long>` | `{link}` | `analyse.dependencies` | Is it correct? | **REUSE** existing |
 | `discovery.dependencies.workitems_analysed` | `Counter<long>` | `{workitem}` | `analyse.dependencies` | Is it working? | **REUSE** existing |
 | `discovery.dependencies.analyse.duration_ms` | `Histogram<double>` | `ms` | `analyse.dependencies` | Is it fast enough? | NEW → add to `WellKnownDiscoveryMetricNames` |
@@ -135,6 +142,7 @@ Research findings are in [research.md](research.md). Data model is in [data-mode
 | `TeamsModule` | `prepare.teams` | `job.id`, `module=Teams` | Root | Is it working? |
 | `DependencyAnalyser` | `analyse.dependencies` | `job.id`, `module=Dependencies` | Root | Is it working? |
 | `DependencyAnalyser` (child) | `analyse.dependencies.workitem` | `job.id`, `wi.id` | `analyse.dependencies` | What failed? |
+| `InventoryAnalyser` | `analyse.inventory` | `job.id`, `module=Inventory` | Root | Is it working? |
 
 **Context propagation:** Automatic via `Activity` hierarchy. `Activity.Current` is ambient in all async operations. `job.id` added as tag via `ActivityTagsCollection` at start of each root span. No W3C header injection needed (in-process).
 
@@ -159,6 +167,11 @@ Research findings are in [research.md](research.md). Data model is in [data-mode
 | Analyse zero warning | `Warning` | `job.id` | `analyse.dependencies` | What failed? |
 | Analyse failed | `Error` | `job.id`, `errorType`, `errorMessage`, `durationMs` | `analyse.dependencies` | What failed? |
 | Analyse item detail | `Debug` | `job.id`, `wi.id` | `analyse.dependencies` | (diagnostic) |
+| Inventory analyse started | `Information` | `job.id` | `analyse.inventory` | Is it working? |
+| Inventory analyse completed | `Information` | `job.id`, `moduleCount`, `durationMs` | `analyse.inventory` | Is it working? / Is it correct? |
+| Inventory analyse missing source | `Warning` | `job.id`, `module` | `analyse.inventory` | What failed? |
+| Inventory analyse zero warning | `Warning` | `job.id` | `analyse.inventory` | What failed? |
+| Inventory analyse failed | `Error` | `job.id`, `errorType`, `errorMessage`, `durationMs` | `analyse.inventory` | What failed? |
 
 > Debug and Trace levels are disabled by default. Enabled via `Logging:LogLevel:DevOpsMigrationPlatform=Debug` in appsettings.
 
@@ -250,7 +263,7 @@ traces
 - [x] **O-4 IProgressSink wiring:** `IProgressSink?` injected as optional into all modules and `DependencyAnalyser`. `EmitAsync` called at start, per-batch (≤50), and completion.
 - [x] **O-4 ModuleCounters property:** `MigrationCounters` gains `Inventory` and `Prepare` sub-counters. `SnapshotMetricExporter.cs` maps these into `JobMetrics` for CLI/TUI.
 - [x] **O-4 CLI row:** `QueueCommand.BuildProgressRenderable` gains rows for Inventory and Prepare phases in correct order. Dependencies analysis row added.
-- [x] **DI wiring verified:** `DependencyAnalyser` registered via `AddAnalyserServices()`. `IInventoryOrchestrator` updated to accept `InventoryContext`.
+- [x] **DI wiring verified:** `DependencyAnalyser` registered via `AddDependencyAnalyserServices()`. `InventoryAnalyser` registered via `AddInventoryAnalyserServices()`. `IInventoryOrchestrator` updated to accept `InventoryContext`.
 
 ### Tests Required for Observability
 
@@ -298,7 +311,11 @@ src/DevOpsMigrationPlatform.Abstractions.Agent/
 │   └── PrepareReport.cs                  ← NEW (produced by PrepareAsync — belongs with Modules)
 ├── Analysis/
 │   ├── IAnalyser.cs                      ← NEW
-│   └── AnalyseContext.cs                 ← NEW
+│   ├── IOrganisationsAnalyser.cs         ← NEW
+│   ├── IEndpointPairAnalyser.cs          ← NEW
+│   ├── AnalyseContext.cs                 ← NEW
+│   ├── OrganisationsAnalyseContext.cs    ← NEW
+│   └── EndpointPairAnalyseContext.cs     ← NEW
 └── Discovery/
     └── IInventoryOrchestrator.cs         ← MODIFY: ExportContext → InventoryContext; remove organisations param
 
@@ -311,9 +328,13 @@ src/DevOpsMigrationPlatform.Infrastructure.Agent/
 │   ├── InventoryModule.cs                ← DELETE
 │   └── InventoryDiscoveryModule.cs       ← DELETE
 ├── Analysis/
-│   └── DependencyAnalyser.cs             ← NEW (replaces DependencyDiscoveryModule)
+│   ├── DependencyAnalyser.cs             ← NEW (replaces DependencyDiscoveryModule)
+│   ├── DependencyAnalyserServiceCollectionExtensions.cs ← NEW
+│   ├── InventoryAnalyser.cs              ← NEW
+│   └── InventoryAnalyserServiceCollectionExtensions.cs ← NEW
 ├── Discovery/
 │   ├── DependencyDiscoveryModule.cs      ← DELETE
+│   └── DependencyOrchestrator.cs        ← MODIFY (adapt to OrganisationsAnalyseContext)
 │   └── InventoryOrchestrator.cs          ← MODIFY: adapt to InventoryContext
 └── Context/
     └── JobExecutionPlanBuilder.cs        ← MODIFY: discover IAnalyser; build inventory/prepare/analyse tasks
@@ -346,8 +367,13 @@ features/
 │   └── tfs/
 │       └── prepare-graceful-skip.feature     ← NEW (TFS source-only no-op scenario)
 └── analysis/
-    └── simulated/
-        └── dependency-analysis.feature       ← NEW
+    ├── simulated/
+    │   ├── dependency-analysis.feature   ← NEW
+    │   └── inventory-analysis.feature    ← NEW
+    ├── ado/
+    │   └── dependency-analysis.feature   ← NEW
+    └── tfs/
+        └── dependency-analysis.feature   ← NEW
 
 tests/
 └── DevOpsMigrationPlatform.Infrastructure.Agent.Tests/
@@ -358,7 +384,8 @@ tests/
     │   ├── NodesModuleInventoryTests.cs       ← NEW
     │   └── TeamsModuleInventoryTests.cs       ← NEW
     └── Analysis/
-        └── DependencyAnalyserTests.cs         ← NEW
+        ├── DependencyAnalyserTests.cs     ← NEW
+        └── InventoryAnalyserTests.cs      ← NEW
 ```
 
 **Structure Decision**: Single repo, modifying existing assemblies. No new assemblies. New types in `Abstractions.Agent` (interfaces and context records) and `Infrastructure.Agent` (implementations and analyser).
