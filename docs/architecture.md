@@ -32,6 +32,17 @@ The Files layer is first-class. It is:
 - Stream-importable
 - Human-readable
 
+### JobKind → Phase Dispatch
+
+| JobKind | Phases executed (in order) |
+|---|---|
+| `Inventory` | `inventory` (all `IModule` with `SupportsInventory`) → `analyse` (all `IAnalyser` with satisfied `DependsOn`) |
+| `Export` | `inventory` → `export` |
+| `Prepare` | `analyse` (where required by module dependencies) → `prepare` |
+| `Import` | `import` |
+| `Migrate` | `inventory` → `export` → `prepare` → `import` → `validate` |
+| `Dependencies` | `inventory` (work-item inventory only) → `analyse` (dependency analysis) |
+
 ---
 
 ## 2. Execution Model
@@ -54,6 +65,8 @@ The platform separates **job coordination** (control plane) from **job execution
 A **Tool** is a shared, cross-cutting service declared once at the `MigrationPlatform` config root (under `Tools.*`). Tools are pure transformations or lookup services — they perform no I/O and hold no mutable state. The `FieldTransformTool` is the canonical example: it receives a `WorkItemRevision` value object, applies a declared sequence of transform rules, and returns a transformed copy without touching any store or external API. The `NodeTranslationTool` translates area/iteration path strings against configured mappings.
 
 Available tools: `FieldTransform`, `NodeTranslation`, `IdentityLookup`.
+
+Extension points in the execution engine are `IModule` (phase methods) and `IAnalyser` (`AnalyseAsync` for cross-cutting analysis artefacts).
 
 ### Project Boundary Rules
 

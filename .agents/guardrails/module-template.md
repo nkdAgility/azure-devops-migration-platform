@@ -35,7 +35,7 @@ Module (thin wrapper: ~100–130 lines)
 
 ### Module Layer (thin wrapper)
 - Implements `IModule`.
-- Properties: `Name`, `DependsOn` (explicit module dependencies), `SupportsExport`, `SupportsImport`.
+- Properties: `Name`, `DependsOn` (explicit module dependencies), `SupportsInventory`, `SupportsExport`, `SupportsPrepare`, `SupportsImport`.
 - Guard checks: is module enabled? are required services registered?
 - Resolves config and endpoints, then delegates to the orchestrator.
 - Contains **no business logic** — only config resolution and null checks.
@@ -53,22 +53,28 @@ Module (thin wrapper: ~100–130 lines)
 - One implementation per connector (AzureDevOps, TFS, Simulated).
 - Injected into the module by DI, passed to the orchestrator at call time.
 
-## 5. Validate
+## 5. Inventory
+
+- `InventoryAsync`: source-side counting/cataloguing phase.
+- Write per-module inventory artefacts via `IArtefactStore` (for example `<Module>/inventory.json`).
+- Emit start/per-item/completion progress and metrics.
+
+## 6. Validate
 
 - `ValidateAsync`: pre-flight checks. Returns validation result (not exceptions).
 - Checks: required config present, source reachable (export), artefacts readable (import), dependencies satisfied.
 
-## 6. Prepare
+## 7. Prepare
 
 - `PrepareAsync`: reads package, connects to target, writes `<Module>/prepare-report.json`.
 - Idempotent. Does NOT connect to source. Does NOT modify user-edited mapping files.
 
-## 7. Identity Mapping (if applicable)
+## 8. Identity Mapping (if applicable)
 
 - Use `IIdentityMappingService` — never resolve identities directly.
 - Record unmapped identities in `Identities/unresolved.json`.
 
-## 8. Tests
+## 9. Tests
 
 | Category | Required |
 |----------|----------|
@@ -80,13 +86,13 @@ Module (thin wrapper: ~100–130 lines)
 Export tests MUST assert artefact exists AND content is non-empty.
 Import tests MUST assert target received data (count > 0).
 
-## 9. Documentation
+## 10. Documentation
 
 - XML doc-comments on public API surface.
 - Module listed in `docs/modules.md`.
 - ADR if design decisions non-obvious.
 
-## 10. Connector Coverage
+## 11. Connector Coverage
 
 Every module feature MUST be implemented for:
 - **Simulated** — deterministic, no network, ≥ 2 items per operation.
@@ -95,7 +101,7 @@ Every module feature MUST be implemented for:
 
 Stubs, placeholders, or deferral to follow-up PRs = reject.
 
-## 11. Observability (O-1 through O-4)
+## 12. Observability (O-1 through O-4)
 
 | ID | Requirement |
 |----|-------------|
@@ -106,7 +112,7 @@ Stubs, placeholders, or deferral to follow-up PRs = reject.
 
 Module counter added to `MigrationCounters` → MUST have row in `QueueCommand.BuildProgressRenderable`.
 
-## 12. DI Wiring
+## 13. DI Wiring
 
 - Extension method: `AddXxxModuleServices(this IServiceCollection)`.
 - Register orchestrator as singleton: `services.AddSingleton<IXxxOrchestrator, XxxOrchestrator>();`
