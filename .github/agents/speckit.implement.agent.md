@@ -214,7 +214,9 @@ You **MUST** consider the user input before proceeding (if not empty).
 9. Completion validation:
    - Verify all required tasks are completed
    - Check that implemented features match the original specification
+   - Validate that tests pass and coverage meets requirements
    - Confirm the implementation follows the technical plan
+   - Report final status with summary of completed work
 
 9a. **Mandatory test run** — run the full test suite and fix any failures before declaring done:
    - Build the solution: detect the build system from plan.md (e.g. `dotnet clean <solution> && dotnet build <solution> --no-incremental`)
@@ -228,11 +230,8 @@ You **MUST** consider the user input before proceeding (if not empty).
    - Report final status with summary of completed work and test results
 
 9b. **End-to-end pipeline wiring verification** — verify the complete telemetry and progress data flow before declaring done:
-
    This step is mandatory. It verifies that data actually flows from module code through to the CLI display. Confirming that code compiles is not sufficient.
-
    **Trace the pipeline for every new or modified module/tool:**
-
    ```
    Module/Tool
      → IProgressSink.EmitAsync(ProgressEvent)          [O-4: verify EmitAsync is CALLED, not just injected]
@@ -241,9 +240,7 @@ You **MUST** consider the user input before proceeding (if not empty).
      → SnapshotMetricExporter extracts the counter      [verify SnapshotMetricExporter.cs maps the OTel metric to JobMetrics]
      → QueueCommand.BuildProgressRenderable shows row   [verify the CLI renders it]
    ```
-
    For each link in the chain above, identify the concrete class/method responsible and confirm it exists and is non-stub:
-
    | Pipeline Link | Concrete class/method | Status |
    |--------------|----------------------|--------|
    | EmitAsync called | `[ClassName].Method` line `[N]` | ✅ / ❌ |
@@ -251,7 +248,6 @@ You **MUST** consider the user input before proceeding (if not empty).
    | Counter property on DTO | `MigrationCounters.[PropertyName]` | ✅ / ❌ |
    | Exporter maps counter | `SnapshotMetricExporter.cs` case for `[metric-name]` | ✅ / ❌ |
    | CLI row rendered | `QueueCommand.BuildProgressRenderable` row | ✅ / ❌ |
-
    Fix every ❌ before proceeding. A module that emits events but is invisible in the CLI is not done.
 
 Note: This command assumes a complete task breakdown exists in tasks.md. If tasks are incomplete or missing, suggest running `/speckit.tasks` first to regenerate the task list.

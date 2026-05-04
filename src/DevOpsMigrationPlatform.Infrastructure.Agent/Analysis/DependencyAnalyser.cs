@@ -45,7 +45,13 @@ public sealed class DependencyAnalyser : IOrganisationsAnalyser
     public IReadOnlyList<ModuleDependency> DependsOn => Array.Empty<ModuleDependency>();
 
     public Task AnalyseAsync(AnalyseContext context, CancellationToken ct)
-        => AnalyseAsync(new OrganisationsAnalyseContext
+    {
+        // If the caller already created an OrganisationsAnalyseContext (e.g. JobAgentWorker),
+        // preserve the organisations it populated rather than discarding them.
+        if (context is OrganisationsAnalyseContext orgsContext)
+            return AnalyseAsync(orgsContext, ct);
+
+        return AnalyseAsync(new OrganisationsAnalyseContext
         {
             Job = context.Job,
             ArtefactStore = context.ArtefactStore,
@@ -53,6 +59,7 @@ public sealed class DependencyAnalyser : IOrganisationsAnalyser
             ProgressSink = context.ProgressSink,
             Organisations = []
         }, ct);
+    }
 
     public async Task AnalyseAsync(OrganisationsAnalyseContext context, CancellationToken ct)
     {
