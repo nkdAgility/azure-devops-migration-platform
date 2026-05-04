@@ -322,7 +322,25 @@ function Write-BuildSummary {
     Write-Host ('─' * 72) -ForegroundColor DarkGray
 
     foreach ($entry in $script:StepTimings) {
-        Write-Host ('  {0,-55} {1,10}' -f $entry.Step, (Format-Elapsed $entry.Elapsed.TotalSeconds)) -ForegroundColor Gray
+        $elapsed = Format-Elapsed $entry.Elapsed.TotalSeconds
+        $subdirName = $script:StepTrxDirMap[$entry.Step]
+        $testCount = $null
+        $countStr = ''
+        $countColor = 'Gray'
+        if ($subdirName) {
+            $testCount = Get-TrxTotalCount (Join-Path $TestResultsDir $subdirName)
+            if ($null -ne $testCount) {
+                if ($testCount -eq 0) {
+                    $countStr = '  (0 tests)'
+                    $countColor = 'DarkYellow'
+                } else {
+                    $countStr = '  ({0} tests)' -f $testCount
+                }
+            }
+        }
+        Write-Host ('  {0,-55} {1,10}' -f $entry.Step, $elapsed) -ForegroundColor Gray -NoNewline
+        if ($countStr) { Write-Host $countStr -ForegroundColor $countColor } else { Write-Host '' }
+        $entry | Add-Member -NotePropertyName 'TestCount' -NotePropertyValue $testCount -Force
     }
 
     Write-Host ('─' * 72) -ForegroundColor DarkGray
@@ -338,7 +356,7 @@ function Write-BuildSummary {
             Mode         = $Mode
             TotalSeconds = $total.TotalSeconds
             Steps        = @($script:StepTimings | ForEach-Object {
-                    [PSCustomObject]@{ Step = $_.Step; ElapsedSeconds = $_.Elapsed.TotalSeconds }
+                    [PSCustomObject]@{ Step = $_.Step; ElapsedSeconds = $_.Elapsed.TotalSeconds; TestCount = $_.TestCount }
                 })
         }
         $payload | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath $TimingsFile -Encoding UTF8
@@ -353,6 +371,29 @@ function Format-Elapsed {
     else { '{0:D2}s {1:D3}ms' -f $ts.Seconds, $ts.Milliseconds }
 }
 
+function Get-TrxTotalCount {
+    # Sum the 'total' counter across all .trx files in a directory.
+    param([string]$Dir)
+    if (-not (Test-Path $Dir -ErrorAction SilentlyContinue)) { return $null }
+    $trxFiles = Get-ChildItem -LiteralPath $Dir -Filter '*.trx' -ErrorAction SilentlyContinue
+    if (-not $trxFiles -or $trxFiles.Count -eq 0) { return $null }
+    $total = 0
+    foreach ($f in $trxFiles) {
+        [xml]$xml = Get-Content -LiteralPath $f.FullName -Raw
+        $c = $xml.TestRun.ResultSummary.Counters
+        if ($c) { $total += [int]$c.total }
+    }
+    return $total
+}
+
+# Maps build step descriptions to the TRX subdirectory that holds their results.
+$script:StepTrxDirMap = @{
+    'Running unit tests (excluding SystemTests)'                                     = 'unit'
+    'Running simulated system tests (TestCategory=SystemTest_Simulated)'             = 'simulated'
+    'Running live system tests (TestCategory=SystemTest_Live)'                       = 'live'
+    'Running remaining system tests (SystemTest excluding Simulated/Live)'           = 'system'
+}
+
 function Write-BuildTimings {
     if (-not (Test-Path $TimingsFile)) {
         Write-Host '  (No saved build timings found — run a build/test first)' -ForegroundColor DarkGray
@@ -364,7 +405,19 @@ function Write-BuildTimings {
     Write-Host ('  Build Timings  (last run: {0}  mode: {1})' -f $data.RunAt, $data.Mode) -ForegroundColor White
     Write-Host ('─' * 72) -ForegroundColor DarkGray
     foreach ($entry in $data.Steps) {
-        Write-Host ('  {0,-55} {1,10}' -f $entry.Step, (Format-Elapsed $entry.ElapsedSeconds)) -ForegroundColor Gray
+        $elapsed = Format-Elapsed $entry.ElapsedSeconds
+        $countStr = ''
+        $countColor = 'Gray'
+        if ($null -ne $entry.TestCount) {
+            if ($entry.TestCount -eq 0) {
+                $countStr = '  (0 tests)'
+                $countColor = 'DarkYellow'
+            } else {
+                $countStr = '  ({0} tests)' -f $entry.TestCount
+            }
+        }
+        Write-Host ('  {0,-55} {1,10}' -f $entry.Step, $elapsed) -ForegroundColor Gray -NoNewline
+        if ($countStr) { Write-Host $countStr -ForegroundColor $countColor } else { Write-Host '' }
     }
     Write-Host ('─' * 72) -ForegroundColor DarkGray
     Write-Host ('  {0,-55} {1,10}' -f 'TOTAL', (Format-Elapsed $data.TotalSeconds)) -ForegroundColor White
