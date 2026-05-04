@@ -29,6 +29,10 @@
 - [ ] T005 [P] Create `PrepareIssueSeverity` enum (`Warning = 0`, `Blocking = 1`) and `UnresolvedItem` record (`Key`, `Reason`, `Severity`) in `src/DevOpsMigrationPlatform.Abstractions.Agent/Modules/PrepareReport.cs`
 - [ ] T006 [P] Create `PrepareReport` record (serialised to `{Module}/prepare-report.json` — `ModuleName`, `ResolvedCount`, `UnresolvedCount`, `UnresolvedItems: IReadOnlyList<UnresolvedItem>`, `GeneratedAt: DateTimeOffset`) in `src/DevOpsMigrationPlatform.Abstractions.Agent/Modules/PrepareReport.cs` (same file as T005)
 - [ ] T007 [P] Create `AnalyseContext` record (`init`-only, `Job`, `IArtefactStore`, `IStateStore`, `IProgressSink?` — no source/target endpoint) in `src/DevOpsMigrationPlatform.Abstractions.Agent/Analysis/AnalyseContext.cs`
+- [ ] T007a [P] Create `OrganisationsAnalyseContext` record — extends `AnalyseContext`; adds `Organisations: IReadOnlyList<OrganisationEndpoint>` (init-only); used by `IOrganisationsAnalyser` implementations that iterate over source orgs (FR-024) in `src/DevOpsMigrationPlatform.Abstractions.Agent/Analysis/OrganisationsAnalyseContext.cs`
+- [ ] T007b [P] Create `EndpointPairAnalyseContext` record — extends `AnalyseContext`; adds `SourceEndpoint: ISourceEndpointInfo` and `TargetEndpoint: ITargetEndpointInfo` (both init-only); used by `IEndpointPairAnalyser` implementations that compare live source and target data (FR-025) in `src/DevOpsMigrationPlatform.Abstractions.Agent/Analysis/EndpointPairAnalyseContext.cs`
+- [ ] T007c [P] Create `IOrganisationsAnalyser` interface — extends `IAnalyser`; overrides `AnalyseAsync` with `OrganisationsAnalyseContext` parameter; for analysers that iterate over source organisations (FR-023, FR-024) in `src/DevOpsMigrationPlatform.Abstractions.Agent/Analysis/IOrganisationsAnalyser.cs`
+- [ ] T007d [P] Create `IEndpointPairAnalyser` interface — extends `IAnalyser`; overrides `AnalyseAsync` with `EndpointPairAnalyseContext` parameter; for analysers that compare live source and target data (FR-023, FR-025) in `src/DevOpsMigrationPlatform.Abstractions.Agent/Analysis/IEndpointPairAnalyser.cs`
 - [ ] T008 [P] Create `IAnalyser` interface (`Name: string`, `DependsOn: IReadOnlyList<ModuleDependency>`, `AnalyseAsync(AnalyseContext, CancellationToken): Task`) in `src/DevOpsMigrationPlatform.Abstractions.Agent/Analysis/IAnalyser.cs`
 - [ ] T009 Extend `IModule` interface — add `SupportsInventory: bool`, `SupportsPrepare: bool`, `InventoryAsync(InventoryContext, CancellationToken): Task`, `PrepareAsync(PrepareContext, CancellationToken): Task` in `src/DevOpsMigrationPlatform.Abstractions.Agent/Modules/IModule.cs`
 - [ ] T010 Update `ModuleBase` abstract class — add default no-op implementations for `InventoryAsync` and `PrepareAsync` (emit one structured `Warning` log then return `Task.CompletedTask`; MUST NOT throw); default `SupportsInventory = false`, `SupportsPrepare = false` in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Modules/ModuleBase.cs` (or wherever the base class lives)
@@ -66,7 +70,8 @@
 **⚠️ CRITICAL**: US1 can begin after Phase 1. US2 (multi-org), US3 (Prepare dispatch), and US4 (IAnalyser dispatch) depend on this phase.
 
 - [ ] T016 Update `JobExecutionPlanBuilder` — discover `IAnalyser` registrations alongside `IModule`; produce `JobTask` entries with phase labels `"inventory"`, `"prepare"`, `"analyse"`; when building a plan that includes `prepare` tasks, inspect each prepare module's `DependsOn` for `DependencyPhase.Analyse` entries and hoist the referenced `IAnalyser` tasks before the `prepare` tasks (FR-021) in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Context/JobExecutionPlanBuilder.cs`
-- [ ] T017 Update `JobAgentWorker` — add multi-org loop for `JobKind.Inventory`: iterate over configured source endpoints and call each enabled `IModule.InventoryAsync` per endpoint; add `JobKind.Prepare` dispatch: execute any hoisted `analyse` tasks first (per plan builder ordering), then call `PrepareAsync` on each enabled module in `src/DevOpsMigrationPlatform.MigrationAgent/JobAgentWorker.cs`
+- [ ] T016a Implement plan builder context-type resolution (FR-026) — when constructing the `AnalyseContext` for an `IAnalyser`, check `analyser is IEndpointPairAnalyser` first (construct `EndpointPairAnalyseContext`), then `analyser is IOrganisationsAnalyser` (construct `OrganisationsAnalyseContext`), then fall back to base `AnalyseContext`; endpoint data sourced from job configuration; add unit tests asserting each branch produces the correct context type in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Context/JobExecutionPlanBuilder.cs` (tests in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Context/JobExecutionPlanBuilderContextResolutionTests.cs`)
+- [ ] T017 Update `JobAgentWorker`— add multi-org loop for `JobKind.Inventory`: iterate over configured source endpoints and call each enabled `IModule.InventoryAsync` per endpoint; add `JobKind.Prepare` dispatch: execute any hoisted `analyse` tasks first (per plan builder ordering), then call `PrepareAsync` on each enabled module in `src/DevOpsMigrationPlatform.MigrationAgent/JobAgentWorker.cs`
 - [ ] T018 Update `InventoryOrchestrator` concrete implementation — adapt to accept `InventoryContext` instead of `ExportContext`; remove multi-org parameter (single-org per call) in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Discovery/InventoryOrchestrator.cs`
 - [ ] T019 Update `IDependencyOrchestrator` (if it takes `ExportContext`) to accept `AnalyseContext` in `src/DevOpsMigrationPlatform.Abstractions.Agent/Discovery/IDependencyOrchestrator.cs`
 - [ ] T020 Run `dotnet clean && dotnet build --no-incremental` — MUST pass
@@ -111,6 +116,9 @@
 - [ ] T038 [P] [US1] **Test O-2** — Unit test: `Mock<IDiscoveryMetrics>(MockBehavior.Strict)`; call `InventoryAsync`; assert `RecordInventoryWorkItems` and `RecordInventoryWorkItemsDuration` called with correct tags in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Modules/WorkItemsModuleInventoryTests.cs`
 - [ ] T039 [P] [US1] **Test O-4** — Unit test: `Mock<IProgressSink>`; call `InventoryAsync`; assert `EmitAsync` called at start (Stage="Inventorying") and at completion (Stage="Inventoried"); assert completion event has non-null `Metrics` in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Modules/WorkItemsModuleInventoryTests.cs`
 - [ ] T040 [P] [US1] **Test O-3 zero-count warning** — Unit test: Simulated source returns 0 items; call `InventoryAsync`; assert `ILogger.LogWarning` called with `"Zero items inventoried for {Module}"` structured param in `WorkItemsModuleInventoryTests.cs`
+- [ ] T040a [P] [US1] **Test O-1 Identities/Nodes/Teams** — Unit tests (one per module): `TestActivityListener`; call `IdentitiesModule.InventoryAsync`, `NodesModule.InventoryAsync`, `TeamsModule.InventoryAsync`; assert `StartActivity("inventory.identities")`, `StartActivity("inventory.nodes")`, `StartActivity("inventory.teams")` emitted with `job.id` and `module` tags in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Modules/IdentitiesModuleInventoryTests.cs`, `NodesModuleInventoryTests.cs`, `TeamsModuleInventoryTests.cs`
+- [ ] T040b [P] [US1] **Test O-2 Identities/Nodes/Teams** — Unit tests: `Mock<IDiscoveryMetrics>(MockBehavior.Strict)`; call each module's `InventoryAsync`; assert `RecordInventory*` metric methods called with correct tags in respective test files
+- [ ] T040c [P] [US1] **Test O-4 Identities/Nodes/Teams** — Unit tests: `Mock<IProgressSink>`; call each module's `InventoryAsync`; assert `EmitAsync` called at start and completion with non-null `Metrics` in respective test files
 - [ ] T041 [US1] Run `dotnet clean && dotnet build --no-incremental` — MUST pass
 - [ ] T042 [US1] Run `dotnet test` — ALL tests MUST pass
 
@@ -127,6 +135,8 @@
 ### Gherkin Feature Files for User Story 2 (mandatory)
 
 - [ ] T043 [US2] Create `features/inventory/simulated/inventory-multi-org.feature` — translate spec.md US2 acceptance scenarios 1, 2, and 3 into conformant Gherkin: `Inventory_TwoOrganisations_BothContributeToInventory`, `Inventory_WithoutInventoryDiscoveryModule_ProducesSameArtefacts`, `Inventory_OneOrgUnreachable_RemainingOrgsStillProcessed`
+- [ ] T043a [P] [US2] Create `features/inventory/ado/inventory-multi-org.feature` — same US2 acceptance scenarios 1, 2, and 3 using AzureDevOpsServices connector (scenario tag: `@ado`); ensures Constitution XI full-connector coverage for multi-org behaviour
+- [ ] T043b [P] [US2] Create `features/inventory/tfs/inventory-multi-org.feature` — same US2 acceptance scenarios using TeamFoundationServer connector (scenario tag: `@tfs`); TFS multi-org may use `inventory-graceful-skip.feature` naming if TFS does not support multi-endpoint — assert at minimum scenario 3 (unreachable org → warning + continue)
 
 ### Implementation for User Story 2
 
@@ -162,6 +172,7 @@
 ### Gherkin Feature Files for User Story 3 (mandatory)
 
 - [ ] T058 [US3] Create `features/prepare/simulated/prepare-modules.feature` — translate spec.md US3 acceptance scenarios 1, 2, and 3: `Prepare_AllModulesEnabled_WritesReportPerModule`, `Prepare_UnresolvedIdentities_CompletesWithWarning`, `Prepare_InMigratePipeline_RunsBeforeImport`
+- [ ] T058a [P] [US3] Add US3 Acceptance Scenario 4 to `features/prepare/simulated/prepare-modules.feature` — `Prepare_ModuleWithAnalyserDependsOn_HoistsAnalyseBeforePrepare`: Given a module declares `DependsOn` on `IAnalyser` with `DependencyPhase.Analyse`, When a `JobKind.Prepare` job runs, Then the plan builder hoists the analyse tasks before prepare tasks and the module's `PrepareAsync` can read the analyser's artefacts (FR-021)
 - [ ] T059 [P] [US3] Create `features/prepare/ado/prepare-modules.feature` — same scenarios using AzureDevOpsServices connector
 - [ ] T060 [P] [US3] Create `features/prepare/tfs/prepare-graceful-skip.feature` — TFS source-only no-op scenario: `Prepare_TfsSourceOnlyModule_SkipsGracefullyWithWarning` (verifies `SupportsPrepare = false` + no-op base implementation)
 
@@ -283,12 +294,12 @@ Phase 8 (Polish) → optional, any time after Phase 7
 
 ### Parallel Opportunities Within Each Story
 
-- T003, T004, T005/T006, T007, T008 — all Phase 1 new type files (different files, parallel)
+- T003, T004, T005/T006, T007/T007a/T007b/T007c/T007d, T008 — all Phase 1 new type files (different files, parallel)
 - T012, T013 — different metric constants files (parallel)
 - T024–T027 — four modules' `InventoryAsync` (different files, parallel)
 - T025, T026, T027 — Identities/Nodes/Teams `InventoryAsync` (parallel after T024 defines shared `inventory.json` write pattern)
 - T062, T063, T064 — Identities/Nodes/Teams `PrepareAsync` (parallel after T061 defines `PrepareReport` write pattern)
-- T037, T038, T039, T040 — observability unit tests for US1 (all parallel)
+- T037, T038, T039, T040, T040a, T040b, T040c — observability unit tests for US1 (all parallel)
 
 ---
 
