@@ -66,6 +66,7 @@ public sealed class InventoryAnalyser : IAnalyser
             };
 
             var rows = new List<(string Module, long Count)>();
+            JsonElement? workItemsInventory = null;
             foreach (var pair in moduleFiles)
             {
                 var json = await context.ArtefactStore.ReadAsync(pair.Value, ct).ConfigureAwait(false);
@@ -77,6 +78,8 @@ public sealed class InventoryAnalyser : IAnalyser
 
                 using var doc = JsonDocument.Parse(json!);
                 var root = doc.RootElement;
+                if (pair.Key == "WorkItems")
+                    workItemsInventory = root.Clone();
                 long count = 0;
                 if (root.TryGetProperty("workItems", out var wi)) count = wi.GetInt64();
                 else if (root.TryGetProperty("identities", out var id)) count = id.GetInt64();
@@ -89,19 +92,20 @@ public sealed class InventoryAnalyser : IAnalyser
             if (total == 0)
                 _logger.LogWarning("Zero consolidated inventory total for {JobId}", context.Job.JobId);
 
-            var csv = new StringBuilder();
-            csv.AppendLine("Module,Count");
-            foreach (var row in rows)
-                csv.AppendLine($"{row.Module},{row.Count}");
+            var workItemsCsv = await context.ArtefactStore.ReadAsync("WorkItems/inventory.csv", ct).ConfigureAwait(false);
+            var csv = !string.IsNullOrWhiteSpace(workItemsCsv)
+                ? workItemsCsv!
+                : BuildModuleSummaryCsv(rows);
 
             var consolidated = new
             {
                 generatedAt = DateTimeOffset.UtcNow,
                 totals = new { workItems = rows.Where(r => r.Module == "WorkItems").Sum(r => r.Count), all = total },
-                modules = rows.Select(r => new { name = r.Module, count = r.Count }).ToArray()
+                modules = rows.Select(r => new { name = r.Module, count = r.Count }).ToArray(),
+                workItems = workItemsInventory
             };
 
-            await context.ArtefactStore.WriteAsync("inventory.csv", csv.ToString(), ct).ConfigureAwait(false);
+            await context.ArtefactStore.WriteAsync("inventory.csv", csv, ct).ConfigureAwait(false);
             await context.ArtefactStore.WriteAsync("inventory.json", JsonSerializer.Serialize(consolidated), ct).ConfigureAwait(false);
 
             var elapsed = (DateTime.UtcNow - startedAt).TotalMilliseconds;
@@ -135,6 +139,19 @@ public sealed class InventoryAnalyser : IAnalyser
             _metrics?.RecordInventoryConsolidatedErrors(new MetricsTagList { { "job.id", context.Job.JobId }, { "module", Name } });
             throw;
         }
+    }
+
+    private static string BuildModuleSummaryCsv(IEnumerable<(string Module, long Count)> rows)
+    {
+        var csv = new StringBuilder();
+        csv.AppendLine("Module,Count,WorkItemsCount");
+        foreach (var row in rows)
+        {
+            var workItemsCount = row.Module.Equals("WorkItems", StringComparison.OrdinalIgnoreCase) ? row.Count.ToString() : string.Empty;
+            csv.AppendLine($"{row.Module},{row.Count},{workItemsCount}");
+        }
+
+        return csv.ToString();
     }
 }
 

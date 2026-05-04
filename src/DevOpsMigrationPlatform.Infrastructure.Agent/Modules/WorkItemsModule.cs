@@ -152,12 +152,19 @@ public sealed class WorkItemsModule : IModule
     public async Task InventoryAsync(InventoryContext context, CancellationToken ct)
     {
         var sw = Stopwatch.StartNew();
+        var projects = (context.Projects ?? Array.Empty<string>())
+            .Where(p => !string.IsNullOrWhiteSpace(p))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        if (projects.Count == 0 && !string.IsNullOrWhiteSpace(_sourceEndpointInfo.Project))
+            projects.Add(_sourceEndpointInfo.Project);
+
         using var activity = s_discoveryActivitySource.StartActivity("inventory.workitems");
         activity?.SetTag("job.id", context.Job.JobId);
         activity?.SetTag("module", Name);
-        activity?.SetTag("project", _sourceEndpointInfo.Project);
+        activity?.SetTag("project", projects.FirstOrDefault() ?? string.Empty);
 
-        _logger.LogInformation("Inventorying {Module} for {Project}", Name, _sourceEndpointInfo.Project);
+        _logger.LogInformation("Inventorying {Module} for {Project}", Name, projects.FirstOrDefault() ?? string.Empty);
         context.ProgressSink?.Emit(new ProgressEvent
         {
             Module = Name,
@@ -168,14 +175,31 @@ public sealed class WorkItemsModule : IModule
 
         var totalWorkItems = 0;
         var totalRevisions = 0;
+        var projectSummaries = new List<InventoryProgressEvent>();
         if (_discoveryService is not null)
         {
             var endpoint = context.SourceEndpoint;
-            await foreach (var summary in _discoveryService.CountWorkItemsAsync(endpoint, _sourceEndpointInfo.Project, cancellationToken: ct).ConfigureAwait(false))
+            foreach (var project in projects)
             {
-                totalWorkItems = summary.WorkItemsCount;
-                totalRevisions = summary.RevisionsCount;
-                _logger.LogDebug("Inventory window {WindowIndex}: {ItemCount} items", 0, totalWorkItems);
+                var projectWorkItems = 0;
+                var projectRevisions = 0;
+                await foreach (var summary in _discoveryService.CountWorkItemsAsync(endpoint, project, cancellationToken: ct).ConfigureAwait(false))
+                {
+                    projectWorkItems = summary.WorkItemsCount;
+                    projectRevisions = summary.RevisionsCount;
+                    _logger.LogDebug("Inventory window {WindowIndex}: {ItemCount} items", 0, projectWorkItems);
+                }
+
+                totalWorkItems += projectWorkItems;
+                totalRevisions += projectRevisions;
+                projectSummaries.Add(new InventoryProgressEvent
+                {
+                    Url = context.SourceEndpoint.ResolvedUrl,
+                    ProjectName = project,
+                    WorkItemsCount = projectWorkItems,
+                    RevisionsCount = projectRevisions,
+                    IsComplete = true,
+                });
             }
         }
 
@@ -183,14 +207,21 @@ public sealed class WorkItemsModule : IModule
         {
             async IAsyncEnumerable<InventoryProgressEvent> BuildEventStream()
             {
-                yield return new InventoryProgressEvent
+                if (projectSummaries.Count == 0)
                 {
-                    Url = context.SourceEndpoint.ResolvedUrl,
-                    ProjectName = _sourceEndpointInfo.Project,
-                    WorkItemsCount = totalWorkItems,
-                    RevisionsCount = totalRevisions,
-                    IsComplete = true,
-                };
+                    projectSummaries.Add(new InventoryProgressEvent
+                    {
+                        Url = context.SourceEndpoint.ResolvedUrl,
+                        ProjectName = projects.FirstOrDefault() ?? string.Empty,
+                        WorkItemsCount = totalWorkItems,
+                        RevisionsCount = totalRevisions,
+                        IsComplete = true,
+                    });
+                }
+
+                foreach (var summary in projectSummaries)
+                    yield return summary;
+
                 await Task.CompletedTask;
             }
 

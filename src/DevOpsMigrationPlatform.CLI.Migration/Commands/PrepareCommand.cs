@@ -50,6 +50,9 @@ public sealed class PrepareCommand : ControlPlaneCommandBase<MigrationCommandSet
             return 1;
 
         var outputPath = Path.GetFullPath(config.Package.ExpandedPath);
+        var configPayload = await File.ReadAllTextAsync(
+            Path.GetFullPath(GetConfigurationPath(settings) ?? settings.ConfigFile!),
+            cancellationToken);
 
         console.MarkupLine("[blue]ℹ[/] Running end-to-end preparation check…");
         console.MarkupLine($"[blue]ℹ[/] Package path: [blue]{Markup.Escape(outputPath)}[/]");
@@ -58,6 +61,7 @@ public sealed class PrepareCommand : ControlPlaneCommandBase<MigrationCommandSet
         {
             JobId = Guid.NewGuid().ToString(),
             Kind = JobKind.Prepare,
+            ConfigPayload = configPayload,
             Connectors = config.Source?.Type switch
             {
                 "TeamFoundationServer" => new[] { ConnectorType.TeamFoundationServer },

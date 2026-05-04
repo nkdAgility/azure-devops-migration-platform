@@ -153,7 +153,7 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
         // Determine which modules are needed based on job kind.
         // For Inventory/Dependencies, only the specific module (+ transitive deps) is needed.
         // For Export/Migrate, modules listed in config (+ transitive deps) are needed.
-        var needed = ResolveNeededExportModules(config, kind, exportModules);
+        var needed = ResolveNeededExportModules(config, exportModules);
 
         // Pre-compute the set of export task IDs so we can resolve inter-module DependsOn.
         var exportTaskIds = new HashSet<string>(
@@ -460,39 +460,20 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
     }
 
     /// <summary>
-    /// Determines which export modules are needed for the given job kind.
-    /// <list type="bullet">
-    ///   <item><b>Inventory</b>: only InventoryDiscovery (+ transitive deps).</item>
-    ///   <item><b>Dependencies</b>: only DependencyDiscovery (+ transitive deps).</item>
-    ///   <item><b>Export / Migrate</b>: modules explicitly listed in config (+ transitive deps).</item>
-    /// </list>
+    /// Determines which export modules are needed for Export/Migrate job kinds.
+    /// Modules explicitly enabled in config are selected, then transitive export
+    /// dependencies are added.
     /// Transitive deps are walked via export-phase <see cref="ModuleDependency"/> entries.
     /// </summary>
     private HashSet<string> ResolveNeededExportModules(
         IConfiguration config,
-        JobKind kind,
         List<IModule> exportModules)
     {
-        // Seed the set based on job kind.
         var seeds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-
-        switch (kind)
+        foreach (var module in exportModules)
         {
-            case JobKind.Inventory:
-                seeds.Add("InventoryDiscovery");
-                break;
-
-            case JobKind.Dependencies:
-                seeds.Add("Dependencies");
-                break;
-
-            default: // Export, Migrate
-                foreach (var module in exportModules)
-                {
-                    if (IsExplicitlyEnabled(config, module.Name))
-                        seeds.Add(module.Name);
-                }
-                break;
+            if (IsExplicitlyEnabled(config, module.Name))
+                seeds.Add(module.Name);
         }
 
         // Walk export-phase dependencies transitively.
@@ -511,8 +492,8 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
         }
 
         _logger.LogDebug(
-            "Export modules needed for {Kind} (seeds + transitive): {Modules}",
-            kind, string.Join(", ", needed));
+            "Export modules needed (seeds + transitive): {Modules}",
+            string.Join(", ", needed));
 
         return needed;
     }
