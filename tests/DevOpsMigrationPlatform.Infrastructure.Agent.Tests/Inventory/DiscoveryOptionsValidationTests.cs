@@ -74,7 +74,7 @@ public class DiscoveryOptionsValidationTests
             }
         };
         var ex = Assert.ThrowsExactly<InvalidOperationException>(() => opts.Validate());
-        StringAssert.Contains(ex.Message, "PAT");
+        StringAssert.Contains(ex.Message, "access token");
     }
 
     [TestMethod]
