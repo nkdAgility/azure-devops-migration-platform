@@ -61,3 +61,11 @@
 - **Section**: N/A
 - **Issue**: `DependencyPhase` currently has values `Export`, `Import`, and `Both`. This spec adds `Inventory = 0`, `Prepare = 4`, and `Analyse = 5`. No doc describes the current or extended enum values.
 - **Suggested update**: Document `DependencyPhase` values and their usage in a new "Module Dependencies and DependsOn" subsection in `docs/modules.md`.
+
+### system-architecture.md Rule 24 does not define the {Stem}Analyser naming convention
+
+- **Source doc**: `.agents/guardrails/system-architecture.md`
+- **Section**: Rule 24 — Module/Tool identifier naming convention
+- **Issue**: Rule 24 defines conventions for `{Stem}Module` (config path, Name property, cursor key, file name) and `{Stem}Tool` (folder, file, DI extension, interface, options, config). It does not define the equivalent convention for `{Stem}Analyser`, which this spec introduces. Without a documented convention, subsequent analysers could be named or configured inconsistently.
+- **Suggested update**: Extend Rule 24 to include: `{Stem}Analyser: Name = "{Stem}", config = "MigrationPlatform:Analysers:{Stem}", DI extension = Add{Stem}AnalyserServices (or grouped in AddAnalyserServices), interface = IAnalyser, file = {Stem}Analyser.cs`. This must be updated in `system-architecture.md` as a doc-task in `tasks.md`.
+- **Status**: Pending — must be resolved as part of implement phase doc updates.

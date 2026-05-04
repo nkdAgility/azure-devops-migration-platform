@@ -66,6 +66,7 @@ An operator who has completed an export wants to run `queue prepare` to check wh
 1. **Given** a package produced by a successful export and a configured target, **When** a `JobKind.Prepare` job runs, **Then** each domain module writes a `prepare-report.json` to its package folder containing resolved and unresolved mappings.
 2. **Given** a `PrepareAsync` run finds unresolved identity mappings, **When** the prepare job completes, **Then** unresolved items appear in `Identities/prepare-report.json` and the job completes with a warning (not an error) unless the operator has configured `blockOnUnresolved: true`.
 3. **Given** a `JobKind.Migrate` job, **When** the pipeline executes, **Then** `PrepareAsync` runs automatically between the Export and Import phases as per the phase gate rules.
+4. **Given** a module declares a `DependsOn` entry on an `IAnalyser` with `DependencyPhase.Analyse`, **When** a `JobKind.Prepare` job runs, **Then** the plan builder hoists the required `analyse` tasks before the `prepare` tasks and the module's `PrepareAsync` can read the analyser's artefacts from `IArtefactStore`.
 
 ---
 
@@ -91,7 +92,10 @@ An operator planning a cross-project migration wants to run `queue dependencies`
 - What happens when `PrepareAsync` finds a blocking issue (e.g., required field mapping is entirely absent)? → If `blockOnUnresolved` is `true`, the job fails with a structured error and the Import phase does not start.
 - What happens when a multi-org inventory job has one org with zero work items? → The module MUST emit a structured `Warning` log (silent zero-count completion is forbidden) and the aggregate inventory still completes.
 - What happens when an `IAnalyser` declares a `DependsOn` on a module phase that was not executed in the current job plan? → The plan builder detects the unsatisfied dependency and fails the job at plan-build time with a descriptive error.
-- What happens when the `IModule` contract is extended but an existing module does not implement the new methods? → The abstract base class (`ModuleBase`) provides default `throw new NotSupportedException()` implementations; the `Supports*` properties default to `false` so unsupported phases are never called.
+- What happens when the `IModule` contract is extended but an existing module does not implement the new methods? → The abstract base class (`ModuleBase`) provides default **no-op implementations** that emit one structured `Warning` log (`"Module {Name} does not support phase {Phase} — skipping"`) and return `Task.CompletedTask`. They MUST NOT throw `NotSupportedException` or `NotImplementedException`. The `Supports*` guard in the plan builder ensures unsupported phases are never called, but the default implementation must be safe even if the guard misfires.
+- What happens when `TfsWorkItemsModule.PrepareAsync` is called? → `TfsWorkItemsModule` is source-only. `SupportsPrepare` returns `false` and the plan builder will not call `PrepareAsync`. If called directly (e.g., in a test), the `ModuleBase` default no-op fires: one structured `Warning` log (`"TfsWorkItemsModule does not support Prepare — skipping"`) and returns `Task.CompletedTask`. This behaviour is asserted by `features/prepare/tfs/prepare-graceful-skip.feature`.
+- What happens when a `PrepareAsync` module declares `DependsOn` an `IAnalyser`, but the analyser's own `DependsOn` (e.g., on `WorkItemsModule` inventory output) is not satisfiable in the current job plan? → The plan builder detects the transitive unsatisfied dependency and fails the job at plan-build time with a descriptive error, the same as for any other unsatisfied `DependsOn`.
+- What happens when a module's `PrepareAsync` reads analyser artefacts via `IArtefactStore` but the analyser has not yet been registered? → The plan builder enforces the `DependsOn` declaration; if no registered `IAnalyser` satisfies the dependency, plan-build fails. Modules MUST NOT read analyser artefacts without a corresponding `DependsOn` — silent reads on absent artefacts are forbidden.
 
 ---
 
@@ -119,6 +123,7 @@ An operator planning a cross-project migration wants to run `queue dependencies`
 - **FR-018**: An `IAnalyser` that completes with zero artefacts written MUST emit a structured `Warning` log (same rule as modules — silent zero-output is forbidden).
 - **FR-019**: Both `IModule` and `IAnalyser` MUST be registered in DI and participate in the same `JobTaskList`; `DependsOn` references MUST work across the `IModule`/`IAnalyser` boundary.
 - **FR-020**: The existing `ValidateAsync` signature on `IModule` MUST remain unchanged.
+- **FR-021**: An `IModule` MAY declare a `DependsOn` entry referencing an `IAnalyser` with `DependencyPhase.Analyse` to express that its `PrepareAsync` reads that analyser's artefacts from `IArtefactStore`. When such a dependency is present, the plan builder MUST hoist the required `analyse` tasks before the `prepare` tasks in the `JobTaskList`, regardless of the `JobKind` being executed. Modules MUST NOT read analyser artefacts without a corresponding `DependsOn` declaration.
 
 ### Key Entities
 
