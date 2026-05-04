@@ -47,6 +47,8 @@ This fragmented state means:
 | D8 | `WellKnownMeterNames.ControlPlane` and `.Cli` meter names are NOT changed | Meter names remain component-scoped; only the metric string values change |
 | D9 | Version bump: `DevOpsMigrationPlatform.Abstractions` → 4.0 | Metric names are the public contract; this is a breaking change across all components |
 | D10 | Old constants deprecated (not deleted) in 4.0 with `[Obsolete]` pointing to new name | Allows gradual migration; compile-time warnings surface un-migrated usages |
+| D11 | Restructure `WellKnownTagNames` into nested static classes (`Job`, `Operation`, `WorkItem`, `Transform`, `Cli`) | Provides IDE grouping and domain clarity while keeping a single file — correlation value requires the same string across all components | 
+| D12 | Remove `WorkItemId` and `RevisionIndex` from `WellKnownTagNames` entirely | High-cardinality identifiers must never appear as metric tags; they belong in span attributes and structured log fields only |
 
 ---
 
@@ -369,6 +371,7 @@ public interface IPlatformMetrics
 | `WellKnownJobMetricNames.cs` | Mark all constants `[Obsolete("Use WellKnownControlPlaneMetricNames.<Name>")]`. Do not delete. |
 | `WellKnownControlPlaneMetricNames.cs` | **NEW** — 6 renamed ControlPlane constants (see §ControlPlane Mapping) |
 | `WellKnownCliMetricNames.cs` | Update string values from `cli.*` → `platform.command.*`. Mark old string values `[Obsolete]` via wrapper constants. |
+| `WellKnownTagNames.cs` | Restructure into nested classes (`Job`, `Operation`, `WorkItem`, `Transform`, `Cli`). Remove `WorkItemId` and `RevisionIndex`. |
 | `IDiscoveryMetrics.cs` (Abstractions.Agent) | Mark `[Obsolete("Use IPlatformMetrics")]`. Keep for one release cycle. |
 | `IMigrationMetrics.cs` (Abstractions.Agent) | Mark `[Obsolete("Use IPlatformMetrics")]`. Keep for one release cycle. |
 | `IPlatformMetrics.cs` (Abstractions.Agent) | **NEW** — unified agent interface (see § Interface above) |
