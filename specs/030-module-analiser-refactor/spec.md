@@ -27,11 +27,11 @@ A migration operator running `queue inventory` against a project wants a complet
 
 **Why this priority**: The current `InventoryModule` abuses `ExportAsync` to run inventory logic. Every operator who runs `queue inventory` is affected by this semantic mismatch. Correcting it is the most visible observable change.
 
-**Independent Test**: Can be fully tested by submitting a `JobKind.Inventory` job with `WorkItemsModule` enabled and no `InventoryModule` configured, and asserting that `inventory.json` is written with non-zero work item and revision counts.
+**Independent Test**: Can be fully tested by submitting a `JobKind.Inventory` job with `WorkItemsModule` enabled and no `InventoryModule` configured, and asserting that `WorkItems/inventory.json` is written with non-zero work item and revision counts.
 
 **Acceptance Scenarios**:
 
-1. **Given** a job of kind `Inventory` with `WorkItemsModule`, `TeamsModule`, `NodesModule`, and `IdentitiesModule` enabled, **When** the job executes, **Then** each module's inventory contribution is written to the package and a complete `inventory.json` is present with non-zero counts for each domain.
+1. **Given** a job of kind `Inventory` with `WorkItemsModule`, `TeamsModule`, `NodesModule`, and `IdentitiesModule` enabled, **When** the job executes, **Then** each module's inventory contribution is written to the package as `{Module}/inventory.json` with non-zero counts for each domain.
 2. **Given** `InventoryModule` is not referenced in the config, **When** a `JobKind.Inventory` job runs, **Then** the job succeeds and produces inventory artefacts identical to those previously produced by `InventoryModule`.
 3. **Given** a `JobKind.Export` job, **When** the job executes, **Then** the inventory phase runs automatically before the export phase (phase gate rule 10), and the package contains both inventory and export artefacts.
 
@@ -231,6 +231,7 @@ An operator planning a cross-project migration wants to run `queue dependencies`
 | Inventory analyse started | `Information` | `job.id` | `analyse.inventory` | Is it working? |
 | Inventory analyse completed | `Information` | `job.id`, `consolidatedCount`, `durationMs` | `analyse.inventory` | Is it working? / Is it fast enough? |
 | Inventory analyse missing source | `Warning` | `job.id`, `module`, `file` | `analyse.inventory` | What failed? |
+| Inventory analyse zero count | `Warning` | `job.id` | `analyse.inventory` | What failed? |
 | Inventory analyse failed | `Error` | `job.id`, `errorType`, `errorMessage`, `durationMs` | `analyse.inventory` | What failed? |
 | Dependency analyse started | `Information` | `job.id` | `analyse.dependencies` | Is it working? |
 | Dependency analyse completed | `Information` | `job.id`, `links`, `workitemsAnalysed`, `durationMs` | `analyse.dependencies` | Is it working? / Is it correct? |
@@ -390,7 +391,7 @@ traces
 - **SC-004**: Multi-organisation inventory (2+ source endpoints) completes with a single config change (no special module required) and produces the same aggregate inventory artefacts as the previous `InventoryDiscoveryModule`-based approach.
 - **SC-005**: The codebase module count is reduced from 7 (`InventoryModule`, `InventoryDiscoveryModule`, `DependencyDiscoveryModule`, `WorkItemsModule`, `IdentitiesModule`, `NodesModule`, `TeamsModule`) to 4 domain modules plus N analysers.
 - **SC-006**: All simulated-connector system tests for inventory, export, prepare, import, and dependency analysis pass with assertions on artefact content (non-empty, correct structure) — not just "no exception thrown".
-- **SC-007**: The `DependencyAnalyser` produces `analysis/dependencies.csv` with at least one row when at least one linked work item pair exists in the inventory artefacts.
+- **SC-007**: The `DependencyAnalyser` produces `analysis/dependencies.csv` with at least one row when at least one linked work item pair exists in the source organisations' work item links.
 - **SC-008**: Every new `InventoryAsync` and `PrepareAsync` phase emits observable telemetry: at least one activity span, one metric increment, and one structured log entry per module invocation.
 
 ---

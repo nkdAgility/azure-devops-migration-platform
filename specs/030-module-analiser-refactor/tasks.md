@@ -96,7 +96,7 @@
 
 **Goal**: Each domain module contributes its own inventory counts when `JobKind.Inventory` runs — no `InventoryModule` or `InventoryDiscoveryModule` required.
 
-**Independent Test**: Submit a `JobKind.Inventory` job with all four domain modules enabled and no discovery modules. Assert `inventory.json` is present with non-zero counts for each domain.
+**Independent Test**: Submit a `JobKind.Inventory` job with all four domain modules enabled and no discovery modules. Assert `WorkItems/inventory.json`, `Identities/inventory.json`, `Nodes/inventory.json`, and `Teams/inventory.json` are present with non-zero counts for each domain.
 
 ### Gherkin Feature Files for User Story 1 (mandatory)
 
