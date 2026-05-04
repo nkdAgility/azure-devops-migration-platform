@@ -35,7 +35,7 @@ public sealed class DependencyDiscoveryModule : IModule
     private readonly IDependencyDiscoveryServiceFactory _dependencyFactory;
     private readonly ILogger<DependencyDiscoveryModule> _logger;
     private readonly IDiscoveryMetrics? _metrics;
-    private readonly IOptions<DiscoveryOptions>? _discoveryOptions;
+    private readonly IOptions<AnalyserOptions>? _discoveryOptions;
     private readonly IDependencyOrchestrator _orchestrator;
 
     public string Name => "Dependencies";
@@ -50,7 +50,7 @@ public sealed class DependencyDiscoveryModule : IModule
         ILogger<DependencyDiscoveryModule> logger,
         IDependencyOrchestrator orchestrator,
         IDiscoveryMetrics? metrics = null,
-        IOptions<DiscoveryOptions>? discoveryOptions = null)
+        IOptions<AnalyserOptions>? discoveryOptions = null)
     {
         _dependencyFactory = dependencyFactory;
         _logger = logger;

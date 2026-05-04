@@ -53,12 +53,12 @@ public sealed class InventoryCommand : ControlPlaneCommandBase<InventoryCommand.
                 var opts = sp.GetRequiredService<IOptions<EnvironmentOptions>>().Value;
                 client.BaseAddress = new Uri(opts.ControlPlane.BaseUrl);
             });
-            services.AddOptions<DiscoveryOptions>().Bind(config.GetSection("MigrationPlatform"));
-            services.AddDiscoveryOptionsOrganisationsBinder();
+            services.AddOptions<AnalyserOptions>().Bind(config.GetSection("MigrationPlatform"));
+            services.AddAnalyserOptionsOrganisationsBinder();
         });
 
         var console = GetRequiredService<IAnsiConsole>();
-        var discoveryOpts = GetRequiredService<IOptions<DiscoveryOptions>>().Value;
+        var discoveryOpts = GetRequiredService<IOptions<AnalyserOptions>>().Value;
 
         try { discoveryOpts.Validate(); }
         catch (InvalidOperationException ex)

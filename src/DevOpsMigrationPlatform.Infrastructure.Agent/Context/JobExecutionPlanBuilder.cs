@@ -8,10 +8,13 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions.Agent.Checkpointing;
+using DevOpsMigrationPlatform.Abstractions.Agent.Analysis;
 using DevOpsMigrationPlatform.Abstractions.Agent.Context;
 using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
 using DevOpsMigrationPlatform.Abstractions.ControlPlaneApi;
 using DevOpsMigrationPlatform.Abstractions.Jobs;
+using DevOpsMigrationPlatform.Abstractions.Organisations;
+using DevOpsMigrationPlatform.Abstractions.Streaming;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 
@@ -248,6 +251,48 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
 
     // ── Helpers ───────────────────────────────────────────────────────────────
 
+    internal AnalyseContext ResolveAnalyseContextForAnalyser(
+        IAnalyser analyser,
+        Job job,
+        IConfiguration packageConfig,
+        IArtefactStore artefactStore,
+        IStateStore stateStore,
+        IProgressSink? progressSink)
+    {
+        if (analyser is IEndpointPairAnalyser)
+        {
+            return new EndpointPairAnalyseContext
+            {
+                Job = job,
+                ArtefactStore = artefactStore,
+                StateStore = stateStore,
+                ProgressSink = progressSink,
+                SourceEndpoint = BuildSourceEndpointInfo(packageConfig),
+                TargetEndpoint = BuildTargetEndpointInfo(packageConfig)
+            };
+        }
+
+        if (analyser is IOrganisationsAnalyser)
+        {
+            return new OrganisationsAnalyseContext
+            {
+                Job = job,
+                ArtefactStore = artefactStore,
+                StateStore = stateStore,
+                ProgressSink = progressSink,
+                Organisations = BuildOrganisationEndpoints(packageConfig)
+            };
+        }
+
+        return new AnalyseContext
+        {
+            Job = job,
+            ArtefactStore = artefactStore,
+            StateStore = stateStore,
+            ProgressSink = progressSink
+        };
+    }
+
     private static JobTask MakeTask(
         string id,
         string name,
@@ -386,6 +431,67 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
         }
 
         return null;
+    }
+
+    private static IReadOnlyList<OrganisationEndpoint> BuildOrganisationEndpoints(IConfiguration packageConfig)
+    {
+        var organisations = new List<OrganisationEndpoint>();
+        var configured = packageConfig.GetSection("MigrationPlatform:Organisations").GetChildren();
+        foreach (var child in configured)
+        {
+            var url = child["Url"];
+            if (string.IsNullOrWhiteSpace(url))
+                continue;
+
+            organisations.Add(new OrganisationEndpoint
+            {
+                Type = child["Type"] ?? "Unknown",
+                ResolvedUrl = url!
+            });
+        }
+
+        if (organisations.Count == 0)
+        {
+            var sourceUrl = packageConfig["MigrationPlatform:Source:Url"];
+            if (!string.IsNullOrWhiteSpace(sourceUrl))
+            {
+                organisations.Add(new OrganisationEndpoint
+                {
+                    Type = packageConfig["MigrationPlatform:Source:Type"] ?? "Unknown",
+                    ResolvedUrl = sourceUrl!
+                });
+            }
+        }
+
+        return organisations;
+    }
+
+    private static ISourceEndpointInfo BuildSourceEndpointInfo(IConfiguration packageConfig)
+        => new ConfigSourceEndpointInfo(
+            packageConfig["MigrationPlatform:Source:Url"] ?? string.Empty,
+            packageConfig["MigrationPlatform:Source:Project"] ?? string.Empty,
+            packageConfig["MigrationPlatform:Source:Type"] ?? string.Empty);
+
+    private static ITargetEndpointInfo BuildTargetEndpointInfo(IConfiguration packageConfig)
+        => new ConfigTargetEndpointInfo(
+            packageConfig["MigrationPlatform:Target:Url"] ?? string.Empty,
+            packageConfig["MigrationPlatform:Target:Project"] ?? string.Empty,
+            packageConfig["MigrationPlatform:Target:Type"] ?? string.Empty);
+
+    private sealed class ConfigSourceEndpointInfo(string url, string project, string connectorType) : ISourceEndpointInfo
+    {
+        public string Url { get; } = url;
+        public string Project { get; } = project;
+        public string ConnectorType { get; } = connectorType;
+        public OrganisationEndpoint ToOrganisationEndpoint() => new() { ResolvedUrl = Url, Type = ConnectorType };
+    }
+
+    private sealed class ConfigTargetEndpointInfo(string url, string project, string connectorType) : ITargetEndpointInfo
+    {
+        public string Url { get; } = url;
+        public string Project { get; } = project;
+        public string ConnectorType { get; } = connectorType;
+        public OrganisationEndpoint ToOrganisationEndpoint() => new() { ResolvedUrl = Url, Type = ConnectorType };
     }
 
     /// <summary>

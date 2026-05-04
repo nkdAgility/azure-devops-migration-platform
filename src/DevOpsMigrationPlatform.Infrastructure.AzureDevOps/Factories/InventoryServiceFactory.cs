@@ -39,19 +39,19 @@ internal sealed class InventoryServiceFactory : IInventoryServiceFactory
         IReadOnlyList<ScopedOrganisationEndpoint> organisations,
         JobPolicies policies)
     {
-        var options = BuildDiscoveryOptions(organisations, policies);
+        var options = BuildAnalyserOptions(organisations, policies);
         return new InventoryService(
-            new OptionsWrapper<DiscoveryOptions>(options),
+            new OptionsWrapper<AnalyserOptions>(options),
             _workItemDiscovery,
             _projectDiscovery,
             _repoDiscovery);
     }
 
-    private static DiscoveryOptions BuildDiscoveryOptions(
+    private static AnalyserOptions BuildAnalyserOptions(
         IReadOnlyList<ScopedOrganisationEndpoint> organisations,
         JobPolicies policies)
     {
-        return new DiscoveryOptions
+        return new AnalyserOptions
         {
             Policies = new MigrationPoliciesOptions
             {

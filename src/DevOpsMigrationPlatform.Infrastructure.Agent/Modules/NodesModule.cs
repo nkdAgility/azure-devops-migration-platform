@@ -14,6 +14,7 @@ using DevOpsMigrationPlatform.Abstractions.Agent.Export;
 using DevOpsMigrationPlatform.Abstractions.Agent.Import;
 using DevOpsMigrationPlatform.Abstractions.Agent.Modules;
 using DevOpsMigrationPlatform.Abstractions.Agent.Telemetry;
+using DevOpsMigrationPlatform.Abstractions.ControlPlaneApi;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Abstractions.Agent.Validation;
 using DevOpsMigrationPlatform.Abstractions.Validation;
@@ -113,7 +114,14 @@ public sealed class NodesModule : IModule
             Module = Name,
             Stage = "Inventoried",
             Message = $"{Name} inventory complete",
-            Timestamp = DateTimeOffset.UtcNow
+            Timestamp = DateTimeOffset.UtcNow,
+            Metrics = new JobMetrics
+            {
+                Discovery = new DiscoveryCounters
+                {
+                    Inventory = new InventoryCounters { RevisionsTotal = count }
+                }
+            }
         });
     }
 

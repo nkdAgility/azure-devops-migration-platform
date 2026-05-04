@@ -23,13 +23,13 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Discovery;
 /// </summary>
 public sealed class InventoryService : IInventoryService
 {
-    private readonly IOptions<DiscoveryOptions> _options;
+    private readonly IOptions<AnalyserOptions> _options;
     private readonly IWorkItemDiscoveryService _workItemDiscovery;
     private readonly IProjectDiscoveryService _projectDiscovery;
     private readonly IRepoDiscoveryService _repoDiscovery;
 
     public InventoryService(
-        IOptions<DiscoveryOptions> options,
+        IOptions<AnalyserOptions> options,
         IWorkItemDiscoveryService workItemDiscovery,
         IProjectDiscoveryService projectDiscovery,
         IRepoDiscoveryService repoDiscovery)

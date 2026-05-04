@@ -85,21 +85,21 @@ public static class MigrationPlatformServiceExtensions
     }
 
     /// <summary>
-    /// Registers a <see cref="IPostConfigureOptions{DiscoveryOptions}"/> that polymorphically
+    /// Registers a <see cref="IPostConfigureOptions{AnalyserOptions}"/> that polymorphically
     /// binds the <c>Organisations</c> array from <c>MigrationPlatform:Organisations</c>.
-    /// Call after <c>AddOptions&lt;DiscoveryOptions&gt;().Bind(...)</c> — the post-configure
+    /// Call after <c>AddOptions&lt;AnalyserOptions&gt;().Bind(...)</c> — the post-configure
     /// replaces the empty list left by <see cref="Microsoft.Extensions.Configuration.ConfigurationBinder.Bind"/>
     /// (which cannot instantiate abstract <see cref="OrganisationEntry"/>).
     /// Idempotent — multiple calls register only one binder.
     /// Also ensures the polymorphic serializers (including <see cref="EndpointOptionsTypeRegistry"/>)
     /// are registered.
     /// </summary>
-    public static IServiceCollection AddDiscoveryOptionsOrganisationsBinder(
+    public static IServiceCollection AddAnalyserOptionsOrganisationsBinder(
         this IServiceCollection services)
     {
         services.AddMigrationPlatformPolymorphicSerializers();
-        services.TryAddSingleton<IPostConfigureOptions<DiscoveryOptions>>(sp =>
-            new DiscoveryOptionsOrganisationsBinder(
+        services.TryAddSingleton<IPostConfigureOptions<AnalyserOptions>>(sp =>
+            new AnalyserOptionsOrganisationsBinder(
                 sp.GetRequiredService<IConfiguration>(),
                 sp.GetRequiredService<EndpointOptionsTypeRegistry>()));
         return services;

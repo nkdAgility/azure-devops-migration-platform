@@ -15,6 +15,7 @@ using DevOpsMigrationPlatform.Abstractions.Agent.Export;
 using DevOpsMigrationPlatform.Abstractions.Agent.Import;
 using DevOpsMigrationPlatform.Abstractions.Agent.Modules;
 using DevOpsMigrationPlatform.Abstractions.Agent.Telemetry;
+using DevOpsMigrationPlatform.Abstractions.ControlPlaneApi;
 using DevOpsMigrationPlatform.Abstractions.Agent.Teams;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Abstractions.Agent.Validation;
@@ -110,7 +111,20 @@ public sealed class TeamsModule : IModule
         if (count == 0)
             _logger.LogWarning("Zero items inventoried for {Module} in {Project}", Name, _sourceEndpointInfo.Project);
 
-        context.ProgressSink?.Emit(new ProgressEvent { Module = Name, Stage = "Inventoried", Message = $"{Name} inventory complete", Timestamp = DateTimeOffset.UtcNow });
+        context.ProgressSink?.Emit(new ProgressEvent
+        {
+            Module = Name,
+            Stage = "Inventoried",
+            Message = $"{Name} inventory complete",
+            Timestamp = DateTimeOffset.UtcNow,
+            Metrics = new JobMetrics
+            {
+                Discovery = new DiscoveryCounters
+                {
+                    Inventory = new InventoryCounters { RevisionsTotal = count }
+                }
+            }
+        });
     }
 
     public async Task PrepareAsync(PrepareContext context, CancellationToken ct)

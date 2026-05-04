@@ -8,14 +8,14 @@ using Microsoft.VisualStudio.TestTools.UnitTesting;
 namespace DevOpsMigrationPlatform.Infrastructure.Tests.Inventory;
 
 [TestClass]
-public class DiscoveryOptionsValidationTests
+public class AnalyserOptionsValidationTests
 {
     // ── Empty / missing organisations ─────────────────────────────────────────
 
     [TestMethod]
     public void Validate_DefaultOptions_Throws()
     {
-        var opts = new DiscoveryOptions();
+        var opts = new AnalyserOptions();
         var ex = Assert.ThrowsExactly<InvalidOperationException>(() => opts.Validate());
         StringAssert.Contains(ex.Message, "empty");
     }
@@ -23,7 +23,7 @@ public class DiscoveryOptionsValidationTests
     [TestMethod]
     public void Validate_EmptyOrganisationsList_Throws()
     {
-        var opts = new DiscoveryOptions { Organisations = new() };
+        var opts = new AnalyserOptions { Organisations = new() };
         var ex = Assert.ThrowsExactly<InvalidOperationException>(() => opts.Validate());
         StringAssert.Contains(ex.Message, "empty");
     }
@@ -33,7 +33,7 @@ public class DiscoveryOptionsValidationTests
     [TestMethod]
     public void Validate_EntryMissingType_Throws()
     {
-        var opts = new DiscoveryOptions
+        var opts = new AnalyserOptions
         {
             Organisations = new()
             {
@@ -47,7 +47,7 @@ public class DiscoveryOptionsValidationTests
     [TestMethod]
     public void Validate_EntryMissingUrl_Throws()
     {
-        var opts = new DiscoveryOptions
+        var opts = new AnalyserOptions
         {
             Organisations = new()
             {
@@ -61,7 +61,7 @@ public class DiscoveryOptionsValidationTests
     [TestMethod]
     public void Validate_PatTypeWithEmptyToken_Throws()
     {
-        var opts = new DiscoveryOptions
+        var opts = new AnalyserOptions
         {
             Organisations = new()
             {
@@ -80,7 +80,7 @@ public class DiscoveryOptionsValidationTests
     [TestMethod]
     public void Validate_PatTypeWithToken_DoesNotThrow()
     {
-        var opts = new DiscoveryOptions
+        var opts = new AnalyserOptions
         {
             Organisations = new()
             {
@@ -98,7 +98,7 @@ public class DiscoveryOptionsValidationTests
     [TestMethod]
     public void Validate_ValidEntry_DoesNotThrow()
     {
-        var opts = new DiscoveryOptions
+        var opts = new AnalyserOptions
         {
             Organisations = new()
             {
@@ -115,7 +115,7 @@ public class DiscoveryOptionsValidationTests
     [TestMethod]
     public void Validate_MultipleValidEntries_DoesNotThrow()
     {
-        var opts = new DiscoveryOptions
+        var opts = new AnalyserOptions
         {
             Organisations = new()
             {
@@ -139,8 +139,8 @@ public class DiscoveryOptionsValidationTests
     {
         // Regression: an entry without an explicit <authentication> block must not
         // trigger PAT validation. The default AuthenticationType.None sentinel
-        // ensures DiscoveryOptions.Validate skips PAT checks for Windows/anonymous TFS entries.
-        var opts = new DiscoveryOptions
+        // ensures AnalyserOptions.Validate skips PAT checks for Windows/anonymous TFS entries.
+        var opts = new AnalyserOptions
         {
             Organisations = new()
             {

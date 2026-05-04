@@ -22,3 +22,9 @@ Feature: Prepare phase writes per-module reports
     When the pipeline executes
     Then prepare runs before import
 
+  Scenario: Prepare_ModuleWithAnalyserDependsOn_HoistsAnalyseBeforePrepare
+    Given a prepare job where a module depends on an analyser artefact
+    When the prepare job is executed
+    Then analyse tasks run before prepare tasks
+    And the module can read analyser output during prepare
+

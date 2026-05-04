@@ -128,5 +128,5 @@ See `/scenarios/` for ready-to-run simulated configuration files:
 
 ### Known Limitations
 
-- **No mixed-mode discovery.** All organisations in a single `DiscoveryOptions` configuration must be the same source type. A discovery run cannot mix TFS (Team Foundation Server) and Azure DevOps Services entries. Each CLI host registers a single `IWorkItemDiscoveryService` and `IProjectDiscoveryService` implementation; the orchestrator uses whatever is injected. On-premises Azure DevOps Server instances that support the REST API should use source type `AzureDevOpsServices`.
+- **No mixed-mode discovery.** All organisations in a single `AnalyserOptions` configuration must be the same source type. A discovery run cannot mix TFS (Team Foundation Server) and Azure DevOps Services entries. Each CLI host registers a single `IWorkItemDiscoveryService` and `IProjectDiscoveryService` implementation; the orchestrator uses whatever is injected. On-premises Azure DevOps Server instances that support the REST API should use source type `AzureDevOpsServices`.
 - **Simulated source is not for production use.** It provides no guarantee of realistic data distribution beyond the configured parameters. Use it only for development, testing, and performance benchmarking.

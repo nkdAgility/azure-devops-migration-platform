@@ -37,7 +37,7 @@ public sealed class InventoryDiscoveryModule : IModule
     private readonly IInventoryServiceFactory _inventoryFactory;
     private readonly ILogger<InventoryDiscoveryModule> _logger;
     private readonly IDiscoveryMetrics? _metrics;
-    private readonly IOptions<DiscoveryOptions>? _discoveryOptions;
+    private readonly IOptions<AnalyserOptions>? _discoveryOptions;
     private readonly ISourceEndpointInfo? _sourceEndpointInfo;
     private readonly IServiceProvider _serviceProvider;
     private readonly IInventoryOrchestrator _orchestrator;
@@ -55,7 +55,7 @@ public sealed class InventoryDiscoveryModule : IModule
         ILogger<InventoryDiscoveryModule> logger,
         IInventoryOrchestrator orchestrator,
         IDiscoveryMetrics? metrics = null,
-        IOptions<DiscoveryOptions>? discoveryOptions = null,
+        IOptions<AnalyserOptions>? discoveryOptions = null,
         ISourceEndpointInfo? sourceEndpointInfo = null)
     {
         _inventoryFactory = inventoryFactory;

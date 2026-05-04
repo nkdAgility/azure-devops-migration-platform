@@ -11,7 +11,7 @@ using Microsoft.Extensions.Options;
 namespace DevOpsMigrationPlatform.Infrastructure.Config;
 
 /// <summary>
-/// Post-configures <see cref="DiscoveryOptions.Organisations"/> by reading
+/// Post-configures <see cref="AnalyserOptions.Organisations"/> by reading
 /// the <c>MigrationPlatform:Organisations</c> config section and constructing
 /// the correct concrete <see cref="OrganisationEntry"/> subtype for each element
 /// based on the <c>Type</c> discriminator field.
@@ -20,12 +20,12 @@ namespace DevOpsMigrationPlatform.Infrastructure.Config;
 /// replaces the default binding for the polymorphic <c>Organisations</c> list.
 /// </para>
 /// </summary>
-internal sealed class DiscoveryOptionsOrganisationsBinder : IPostConfigureOptions<DiscoveryOptions>
+internal sealed class AnalyserOptionsOrganisationsBinder : IPostConfigureOptions<AnalyserOptions>
 {
     private readonly IConfiguration _configuration;
     private readonly EndpointOptionsTypeRegistry _registry;
 
-    public DiscoveryOptionsOrganisationsBinder(
+    public AnalyserOptionsOrganisationsBinder(
         IConfiguration configuration,
         EndpointOptionsTypeRegistry registry)
     {
@@ -33,7 +33,7 @@ internal sealed class DiscoveryOptionsOrganisationsBinder : IPostConfigureOption
         _registry = registry;
     }
 
-    public void PostConfigure(string? name, DiscoveryOptions options)
+    public void PostConfigure(string? name, AnalyserOptions options)
     {
         if (options.Organisations.Count > 0)
             return; // already populated (e.g. by a test or manual setup)

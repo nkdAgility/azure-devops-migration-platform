@@ -14,7 +14,7 @@ namespace DevOpsMigrationPlatform.Abstractions.Options;
 /// Environment topology (Standalone / Hosted) is controlled by the separate
 /// <c>MigrationPlatform:Environment</c> section, which is bound independently by the host builder.
 /// </summary>
-public sealed class DiscoveryOptions
+public class AnalyserOptions
 {
     /// <summary>Retry, throttle, and checkpoint policies.</summary>
     public MigrationPoliciesOptions Policies { get; set; } = new();
@@ -55,4 +55,8 @@ public sealed class DiscoveryOptions
             entry.ValidateConnectorFields();
         }
     }
+}
+
+public sealed class DiscoveryOptions : AnalyserOptions
+{
 }

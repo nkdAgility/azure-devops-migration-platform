@@ -6,7 +6,7 @@ namespace DevOpsMigrationPlatform.Abstractions.Options;
 /// <summary>
 /// Lightweight root contract for the <c>MigrationPlatform</c> configuration section.
 /// Used only to anchor the root and allow version inspection if needed.
-/// Do NOT merge <c>DiscoveryOptions</c> or <c>MigrationOptions</c> into this type.
+/// Do NOT merge <c>AnalyserOptions</c> or <c>MigrationOptions</c> into this type.
 /// </summary>
 public sealed class MigrationPlatformRoot
 {

@@ -45,7 +45,7 @@ public class ExportContext
     /// <summary>
     /// Organisations scoped to this job. Populated by the agent from <c>migration-config.json</c>
     /// in the package. Modules must read from this property rather than injecting
-    /// <c>IOptions&lt;DiscoveryOptions&gt;</c> directly, so that per-job config is used.
+    /// <c>IOptions&lt;AnalyserOptions&gt;</c> directly, so that per-job config is used.
     /// Empty list when running in unit tests without a package.
     /// </summary>
     public IReadOnlyList<ScopedOrganisationEndpoint> Organisations { get; init; } = [];
