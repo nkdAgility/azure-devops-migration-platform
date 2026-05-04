@@ -51,7 +51,7 @@ These files establish the connector architecture and capability boundaries.
 | Connector | Runtime | API Surface | Notes |
 |---|---|---|---|
 | **Simulated** | .NET 10 | In-process, deterministic, no external connectivity | Used for testing and development. MUST implement the same `IModule` abstraction. |
-| **AzureDevOpsServices** | .NET 10 | Azure DevOps REST API | PAT or service principal auth. Pinned API version. |
+| **AzureDevOpsServices** | .NET 10 | Azure DevOps REST API | Access token or service principal auth. Pinned API version. |
 | **TeamFoundationServer** | .NET 4.8 agent process | TFS Object Model (`WorkItemStore`, etc.) | `IModule` dispatch in `TfsMigrationAgent`. Export only for now; Import returns `Task.CompletedTask` until implemented. |
 
 ### TFS Exemption Rule

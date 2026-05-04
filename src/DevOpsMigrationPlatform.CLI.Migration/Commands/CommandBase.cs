@@ -153,7 +153,7 @@ public abstract class CommandBase<TSettings> : AsyncCommand<TSettings>
             s_duration.Record(sw.Elapsed.TotalMilliseconds, tags);
             s_errors.Add(1, tags);
 
-            // Sanitize the exception message to mask any embedded credentials (PAT, API keys, etc.)
+            // Sanitize the exception message to mask any embedded credentials (access tokens, API keys, etc.)
             var sanitized = ExceptionSanitizer.SanitizeException(ex);
             AnsiConsole.MarkupLine($"[red]✗[/] Unhandled exception: {Markup.Escape(sanitized.Message)}");
 

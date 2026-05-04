@@ -10,7 +10,7 @@ public enum AuthenticationType
 {
     /// <summary>
     /// No authentication block was specified in the configuration.
-    /// No PAT resolution is performed; <c>accessToken</c> is ignored.
+    /// No access token resolution is performed; <c>accessToken</c> is ignored.
     /// Used for Windows-integrated auth entries that omit the <c>authentication</c> block entirely.
     /// </summary>
     None = 0,

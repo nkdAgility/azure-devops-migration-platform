@@ -92,7 +92,7 @@ public static class ExportServiceCollectionExtensions
 
         // Attachment binary download: named HTTP client with resilience (8 retries, exponential back-off,
         // transient 5xx/408/429). AzureDevOpsAttachmentBinarySource uses this named client.
-        // Note: IAttachmentBinarySource is not registered directly here because the PAT is only
+        // Note: IAttachmentBinarySource is not registered directly here because the access token is only
         // available at job execution time. The source is constructed by the revision source factory
         // and passed to WorkItemsModule/orchestrator at runtime.
         services.AddHttpClient("AttachmentDownload")

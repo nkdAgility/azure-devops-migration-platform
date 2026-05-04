@@ -18,7 +18,7 @@ The system supports two source types, controlled by `source.type` in the configu
 **Requirements:**
 
 - Uses the Azure DevOps REST API natively from .NET 10.
-- PAT or service principal authentication.
+- Access token authentication (PAT, service principal, or managed identity).
 - Must respect `policies.throttle.maxConcurrency` to avoid hitting rate limits.
 - `apiVersion` must be pinned; do not use auto-negotiation in production runs.
 - All REST responses must be validated against expected schema before being written to the package.
@@ -29,7 +29,7 @@ The `devopsmigration discovery inventory` command uses the REST API directly for
 
 - Date-windowed WIQL queries via `WorkItemTrackingHttpClient.QueryByWiqlAsync`.
 - Initial window: 120 days. Halves if result ≥ 20,000 items; grows by 1 day after narrow success.
-- PAT authentication via `VssBasicCredential`; configured by `source.authentication.accessToken` (supports `$ENV:VARNAME` resolution).
+- Access token authentication via `VssBasicCredential`; configured by `source.authentication.accessToken` (supports `$ENV:VARNAME` resolution).
 
 ### TeamFoundationServer
 
