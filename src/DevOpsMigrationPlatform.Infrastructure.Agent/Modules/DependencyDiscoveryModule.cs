@@ -41,6 +41,8 @@ public sealed class DependencyDiscoveryModule : IModule
     public string Name => "Dependencies";
     public IReadOnlyList<ModuleDependency> DependsOn => Array.Empty<ModuleDependency>();
     public bool SupportsExport => true;
+    public bool SupportsInventory => false;
+    public bool SupportsPrepare => false;
     public bool SupportsImport => false;
 
     public DependencyDiscoveryModule(
@@ -94,6 +96,12 @@ public sealed class DependencyDiscoveryModule : IModule
     {
         throw new NotSupportedException("Dependencies module does not support import operations. Dependencies runs only during the Export phase.");
     }
+
+    public Task InventoryAsync(InventoryContext context, CancellationToken ct)
+        => Task.CompletedTask;
+
+    public Task PrepareAsync(PrepareContext context, CancellationToken ct)
+        => Task.CompletedTask;
 
     /// <summary>
     /// Validation is not supported for the Dependencies module.

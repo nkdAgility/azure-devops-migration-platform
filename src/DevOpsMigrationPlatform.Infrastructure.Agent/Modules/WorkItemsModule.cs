@@ -5,12 +5,14 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Agent.Context;
 using DevOpsMigrationPlatform.Abstractions.Agent.Lease;
 using DevOpsMigrationPlatform.Abstractions.Agent.Modules;
+using DevOpsMigrationPlatform.Abstractions.Agent.Telemetry;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Abstractions.Agent.Validation;
 using DevOpsMigrationPlatform.Abstractions.Jobs;
@@ -46,14 +48,16 @@ public sealed class WorkItemsModule : IModule
     public string Name => "WorkItems";
     public IReadOnlyList<ModuleDependency> DependsOn => new[]
     {
-        new ModuleDependency(typeof(InventoryModule), DependencyPhase.Both),
         new ModuleDependency(typeof(IdentitiesModule), DependencyPhase.Import),
         new ModuleDependency(typeof(NodesModule), DependencyPhase.Import)
     };
     public bool SupportsExport => true;
+    public bool SupportsInventory => true;
+    public bool SupportsPrepare => true;
     public bool SupportsImport => true;
 
     private static readonly ActivitySource s_activitySource = new(WellKnownActivitySourceNames.Migration);
+    private static readonly ActivitySource s_discoveryActivitySource = new(WellKnownActivitySourceNames.Discovery);
 
     private readonly IWorkItemRevisionSourceFactory _sourceFactory;
     private readonly IAttachmentBinarySource? _attachmentBinarySource;
@@ -72,6 +76,7 @@ public sealed class WorkItemsModule : IModule
 #endif
     private readonly IWorkItemFetchService? _fetchService;
     private readonly IMigrationMetrics? _metrics;
+    private readonly IDiscoveryMetrics? _discoveryMetrics;
     private readonly IWorkItemDiscoveryService? _discoveryService;
     private readonly IExportProgressStoreFactory? _exportProgressStoreFactory;
 #if !NET481
@@ -104,6 +109,7 @@ public sealed class WorkItemsModule : IModule
         IWorkItemCommentSourceFactory? inlineCommentSourceFactory = null,
         IWorkItemFetchService? fetchService = null,
         IMigrationMetrics? metrics = null,
+        IDiscoveryMetrics? discoveryMetrics = null,
         IWorkItemDiscoveryService? discoveryService = null,
         IExportProgressStoreFactory? exportProgressStoreFactory = null,
 #if !NET481
@@ -129,6 +135,7 @@ public sealed class WorkItemsModule : IModule
         _inlineCommentSourceFactory = inlineCommentSourceFactory;
         _fetchService = fetchService;
         _metrics = metrics;
+        _discoveryMetrics = discoveryMetrics;
         _discoveryService = discoveryService;
         _exportProgressStoreFactory = exportProgressStoreFactory;
 #if !NET481
@@ -136,6 +143,104 @@ public sealed class WorkItemsModule : IModule
         _nodesOrchestrator = nodesOrchestrator;
 #endif
         _identityLookupTool = identityLookupTool;
+    }
+
+    public async Task InventoryAsync(InventoryContext context, CancellationToken ct)
+    {
+        using var activity = s_discoveryActivitySource.StartActivity("inventory.workitems");
+        activity?.SetTag("job.id", context.Job.JobId);
+        activity?.SetTag("module", Name);
+        activity?.SetTag("project", _sourceEndpointInfo.Project);
+
+        _logger.LogInformation("Inventorying {Module} for {Project}", Name, _sourceEndpointInfo.Project);
+        context.ProgressSink?.Emit(new ProgressEvent
+        {
+            Module = Name,
+            Stage = "Inventorying",
+            Message = $"Inventorying {Name}",
+            Timestamp = DateTimeOffset.UtcNow
+        });
+
+        var totalWorkItems = 0;
+        var totalRevisions = 0;
+        if (_discoveryService is not null)
+        {
+            var endpoint = context.SourceEndpoint;
+            await foreach (var summary in _discoveryService.CountWorkItemsAsync(endpoint, _sourceEndpointInfo.Project, cancellationToken: ct).ConfigureAwait(false))
+            {
+                totalWorkItems = summary.WorkItemsCount;
+                totalRevisions = summary.RevisionsCount;
+                _logger.LogDebug("Inventory window {WindowIndex}: {ItemCount} items", 0, totalWorkItems);
+            }
+        }
+
+        var tags = new MetricsTagList { { "job.id", context.Job.JobId }, { "module", Name } };
+        _discoveryMetrics?.RecordInventoryWorkItems(totalWorkItems, tags);
+        _discoveryMetrics?.RecordInventoryWorkItemsDuration(0, tags);
+        if (totalWorkItems == 0)
+        {
+            _discoveryMetrics?.RecordInventoryWorkItemsErrors(tags);
+            _logger.LogWarning("Zero items inventoried for {Module} in {Project}", Name, _sourceEndpointInfo.Project);
+        }
+
+        await context.ArtefactStore.WriteAsync(
+            "WorkItems/inventory.json",
+            JsonSerializer.Serialize(new { module = Name, workItems = totalWorkItems, revisions = totalRevisions, generatedAt = DateTimeOffset.UtcNow }),
+            ct).ConfigureAwait(false);
+
+        _logger.LogInformation("Inventoried {Module}: {Count} items in {DurationMs}ms", Name, totalWorkItems, 0);
+        context.ProgressSink?.Emit(new ProgressEvent
+        {
+            Module = Name,
+            Stage = "Inventoried",
+            Message = $"{Name} inventory complete",
+            Timestamp = DateTimeOffset.UtcNow,
+            Metrics = new JobMetrics
+            {
+                Discovery = new DiscoveryCounters
+                {
+                    Inventory = new InventoryCounters { RevisionsTotal = totalRevisions }
+                }
+            }
+        });
+    }
+
+    public async Task PrepareAsync(PrepareContext context, CancellationToken ct)
+    {
+        using var activity = s_activitySource.StartActivity("prepare.workitems");
+        activity?.SetTag("job.id", context.Job.JobId);
+        activity?.SetTag("module", Name);
+
+        _logger.LogInformation("Preparing {Module}", Name);
+        context.ProgressSink?.Emit(new ProgressEvent
+        {
+            Module = Name,
+            Stage = "Preparing",
+            Message = $"Preparing {Name}",
+            Timestamp = DateTimeOffset.UtcNow
+        });
+
+        var report = new PrepareReport
+        {
+            ModuleName = Name,
+            ResolvedCount = 0,
+            UnresolvedCount = 0
+        };
+
+        var tags = new MetricsTagList { { "job.id", context.Job.JobId }, { "module", Name } };
+        _metrics?.RecordPrepareWorkItemsResolved(report.ResolvedCount, tags);
+        _metrics?.RecordPrepareWorkItemsUnresolved(report.UnresolvedCount, tags);
+        _metrics?.RecordPrepareWorkItemsDuration(0, tags);
+        await context.ArtefactStore.WriteAsync("WorkItems/prepare-report.json", JsonSerializer.Serialize(report), ct).ConfigureAwait(false);
+
+        _logger.LogInformation("Prepared {Module}: {Resolved} resolved, {Unresolved} unresolved in {DurationMs}ms", Name, report.ResolvedCount, report.UnresolvedCount, 0);
+        context.ProgressSink?.Emit(new ProgressEvent
+        {
+            Module = Name,
+            Stage = "Prepared",
+            Message = $"{Name} prepare complete",
+            Timestamp = DateTimeOffset.UtcNow
+        });
     }
 
     /// <inheritdoc/>

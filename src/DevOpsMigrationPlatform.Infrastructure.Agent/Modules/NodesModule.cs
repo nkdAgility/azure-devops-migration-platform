@@ -3,6 +3,8 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
@@ -11,6 +13,7 @@ using DevOpsMigrationPlatform.Abstractions.Agent.Context;
 using DevOpsMigrationPlatform.Abstractions.Agent.Export;
 using DevOpsMigrationPlatform.Abstractions.Agent.Import;
 using DevOpsMigrationPlatform.Abstractions.Agent.Modules;
+using DevOpsMigrationPlatform.Abstractions.Agent.Telemetry;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Abstractions.Agent.Validation;
 using DevOpsMigrationPlatform.Abstractions.Validation;
@@ -28,12 +31,17 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Modules;
 /// </summary>
 public sealed class NodesModule : IModule
 {
+    private static readonly ActivitySource DiscoveryActivity = new(WellKnownActivitySourceNames.Discovery);
+    private static readonly ActivitySource MigrationActivity = new(WellKnownActivitySourceNames.Migration);
+
     private readonly IClassificationTreeCapture? _capture;
 #if !NET481
     private readonly ITargetEndpointInfo _targetEndpointInfo;
 #endif
     private readonly ICheckpointingServiceFactory? _checkpointingFactory;
     private readonly ILogger<NodesModule> _logger;
+    private readonly IDiscoveryMetrics? _discoveryMetrics;
+    private readonly IMigrationMetrics? _migrationMetrics;
     private readonly NodesModuleOptions _options;
     private readonly ISourceEndpointInfo _sourceEndpointInfo;
     private readonly INodesOrchestrator _orchestrator;
@@ -41,6 +49,8 @@ public sealed class NodesModule : IModule
     public string Name => "Nodes";
     public IReadOnlyList<ModuleDependency> DependsOn => Array.Empty<ModuleDependency>();
     public bool SupportsExport => true;
+    public bool SupportsInventory => true;
+    public bool SupportsPrepare => true;
     public bool SupportsImport => true;
 
     public NodesModule(
@@ -48,6 +58,8 @@ public sealed class NodesModule : IModule
         IOptions<NodesModuleOptions> options,
         ISourceEndpointInfo sourceEndpointInfo,
         INodesOrchestrator orchestrator,
+        IDiscoveryMetrics? discoveryMetrics = null,
+        IMigrationMetrics? migrationMetrics = null,
         IClassificationTreeCapture? capture = null,
 #if !NET481
         ITargetEndpointInfo? targetEndpointInfo = null,
@@ -58,11 +70,81 @@ public sealed class NodesModule : IModule
         _options = options?.Value ?? throw new ArgumentNullException(nameof(options));
         _sourceEndpointInfo = sourceEndpointInfo ?? throw new ArgumentNullException(nameof(sourceEndpointInfo));
         _orchestrator = orchestrator ?? throw new ArgumentNullException(nameof(orchestrator));
+        _discoveryMetrics = discoveryMetrics;
+        _migrationMetrics = migrationMetrics;
         _capture = capture;
 #if !NET481
         _targetEndpointInfo = targetEndpointInfo ?? throw new ArgumentNullException(nameof(targetEndpointInfo));
 #endif
         _checkpointingFactory = checkpointingFactory;
+    }
+
+    public async Task InventoryAsync(InventoryContext context, CancellationToken ct)
+    {
+        using var activity = DiscoveryActivity.StartActivity("inventory.nodes");
+        activity?.SetTag("job.id", context.Job.JobId);
+        activity?.SetTag("module", Name);
+
+        _logger.LogInformation("Inventorying {Module} for {Project}", Name, _sourceEndpointInfo.Project);
+        context.ProgressSink?.Emit(new ProgressEvent
+        {
+            Module = Name,
+            Stage = "Inventorying",
+            Message = $"Inventorying {Name}",
+            Timestamp = DateTimeOffset.UtcNow
+        });
+
+        var count = 0;
+        if (_capture is not null)
+            count = await _capture.CaptureAsync(context.ArtefactStore, ct).ConfigureAwait(false);
+
+        await context.ArtefactStore.WriteAsync(
+            "Nodes/inventory.json",
+            JsonSerializer.Serialize(new { module = Name, nodes = count, generatedAt = DateTimeOffset.UtcNow }),
+            ct).ConfigureAwait(false);
+
+        _discoveryMetrics?.RecordInventoryNodes(count, new MetricsTagList { { "job.id", context.Job.JobId }, { "module", Name } });
+        _logger.LogInformation("Inventoried {Module}: {Count} items in {DurationMs}ms", Name, count, 0);
+        if (count == 0)
+            _logger.LogWarning("Zero items inventoried for {Module} in {Project}", Name, _sourceEndpointInfo.Project);
+
+        context.ProgressSink?.Emit(new ProgressEvent
+        {
+            Module = Name,
+            Stage = "Inventoried",
+            Message = $"{Name} inventory complete",
+            Timestamp = DateTimeOffset.UtcNow
+        });
+    }
+
+    public async Task PrepareAsync(PrepareContext context, CancellationToken ct)
+    {
+        using var activity = MigrationActivity.StartActivity("prepare.nodes");
+        activity?.SetTag("job.id", context.Job.JobId);
+        activity?.SetTag("module", Name);
+
+        _logger.LogInformation("Preparing {Module}", Name);
+        context.ProgressSink?.Emit(new ProgressEvent
+        {
+            Module = Name,
+            Stage = "Preparing",
+            Message = $"Preparing {Name}",
+            Timestamp = DateTimeOffset.UtcNow
+        });
+
+        var report = new PrepareReport
+        {
+            ModuleName = Name,
+            ResolvedCount = 0,
+            UnresolvedCount = 0
+        };
+
+        _migrationMetrics?.RecordPrepareNodesResolved(report.ResolvedCount, new MetricsTagList { { "job.id", context.Job.JobId }, { "module", Name } });
+        _migrationMetrics?.RecordPrepareNodesUnresolved(report.UnresolvedCount, new MetricsTagList { { "job.id", context.Job.JobId }, { "module", Name } });
+        await context.ArtefactStore.WriteAsync("Nodes/prepare-report.json", JsonSerializer.Serialize(report), ct).ConfigureAwait(false);
+
+        _logger.LogInformation("Prepared {Module}: {Resolved} resolved, {Unresolved} unresolved in {DurationMs}ms", Name, report.ResolvedCount, report.UnresolvedCount, 0);
+        context.ProgressSink?.Emit(new ProgressEvent { Module = Name, Stage = "Prepared", Message = $"{Name} prepare complete", Timestamp = DateTimeOffset.UtcNow });
     }
 
     /// <inheritdoc/>

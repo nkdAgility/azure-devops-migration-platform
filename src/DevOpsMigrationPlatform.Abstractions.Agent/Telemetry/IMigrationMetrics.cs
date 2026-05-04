@@ -126,6 +126,17 @@ public interface IMigrationMetrics
     void RecordIdentityValidateCount(MetricsTagList tags);
     void RecordIdentityValidateError(MetricsTagList tags);
 
+    // --- Prepare ---
+    void RecordPrepareWorkItemsResolved(int count, MetricsTagList tags);
+    void RecordPrepareWorkItemsUnresolved(int count, MetricsTagList tags);
+    void RecordPrepareWorkItemsDuration(double milliseconds, MetricsTagList tags);
+    void RecordPrepareIdentitiesResolved(int count, MetricsTagList tags);
+    void RecordPrepareIdentitiesUnresolved(int count, MetricsTagList tags);
+    void RecordPrepareNodesResolved(int count, MetricsTagList tags);
+    void RecordPrepareNodesUnresolved(int count, MetricsTagList tags);
+    void RecordPrepareTeamsResolved(int count, MetricsTagList tags);
+    void RecordPrepareTeamsUnresolved(int count, MetricsTagList tags);
+
     // --- Package Config (feature 025-agent-config-package) ---
     void RecordConfigWriteCompleted(MetricsTagList tags);
     void RecordConfigWriteError(MetricsTagList tags);

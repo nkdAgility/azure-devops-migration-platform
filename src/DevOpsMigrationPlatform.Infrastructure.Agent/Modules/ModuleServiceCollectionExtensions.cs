@@ -4,6 +4,7 @@
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Agent.Discovery;
 using DevOpsMigrationPlatform.Abstractions.Agent.Modules;
+using DevOpsMigrationPlatform.Infrastructure.Agent.Analysis;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Discovery;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Identity;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Modules;
@@ -35,6 +36,8 @@ public static class ModuleServiceCollectionExtensions
         services.AddWorkItemsModule();
         services.AddInventoryModule();
         services.AddDependenciesModule();
+        services.AddInventoryAnalyserServices();
+        services.AddDependencyAnalyserServices();
         services.AddNodesModule(configuration);
         services.AddIdentitiesModule(configuration);
 #if !NET481

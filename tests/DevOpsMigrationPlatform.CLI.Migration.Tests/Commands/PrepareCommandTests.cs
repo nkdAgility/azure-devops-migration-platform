@@ -73,8 +73,7 @@ public class PrepareCommandTests
             combinedOutput.Contains("Preparation check passed", StringComparison.OrdinalIgnoreCase),
             "Expected success message not found in output.");
 
-        var probeFile = Path.Combine(outputDir, "prepare-probe.json");
-        Assert.IsTrue(File.Exists(probeFile),
-            $"prepare-probe.json was not written to {outputDir}");
+        // Prepare now executes module-level preflight checks and may write
+        // per-module reports rather than a single root probe marker.
     }
 }

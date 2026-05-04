@@ -11,6 +11,7 @@ using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Agent.Context;
 using DevOpsMigrationPlatform.Abstractions.Agent.Lease;
+using DevOpsMigrationPlatform.Abstractions.Agent.Modules;
 using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
 using DevOpsMigrationPlatform.Abstractions.ControlPlaneApi;
 using DevOpsMigrationPlatform.Infrastructure.Agent;
@@ -260,43 +261,6 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
         Job job, HttpClient controlPlane, string leaseId,
         IArtefactStore artefactStore, IStateStore stateStore, CancellationToken ct)
     {
-        // Prepare mode writes a probe file to validate connectivity.
-        if (job.Kind == JobKind.Prepare)
-        {
-            bool prepareFailed = false;
-            try
-            {
-                _logger.LogInformation("Prepare mode — writing probe file for job {JobId}.", job.JobId);
-                var probeContent = System.Text.Json.JsonSerializer.Serialize(new
-                {
-                    jobId = job.JobId,
-                    timestamp = DateTimeOffset.UtcNow,
-                    status = "ok"
-                });
-                await artefactStore.WriteAsync("prepare-probe.json", probeContent, ct).ConfigureAwait(false);
-
-                ProgressSink.Emit(new ProgressEvent
-                {
-                    Module = "Prepare",
-                    Stage = "Completed",
-                    Message = "Probe file written successfully.",
-                    Timestamp = DateTimeOffset.UtcNow
-                });
-                _logger.LogInformation("Prepare probe file written successfully for job {JobId}.", job.JobId);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Prepare probe failed for job {JobId}.", job.JobId);
-                prepareFailed = true;
-            }
-
-            foreach (var flushable in _flushables)
-                await flushable.FlushAsync().ConfigureAwait(false);
-
-            await SignalTerminalAsync(controlPlane, leaseId, prepareFailed ? "fail" : "complete", ct).ConfigureAwait(false);
-            return;
-        }
-
         // PackageConfig is already loaded by OnJobAsync — use it directly.
         var packageConfig = ActiveJobConfig.PackageConfig!;
 
@@ -412,6 +376,14 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
             StateStore = stateStore,
             ProgressSink = ProgressSink
         };
+        var prepareContext = new PrepareContext
+        {
+            Job = job,
+            ArtefactStore = artefactStore,
+            StateStore = stateStore,
+            ProgressSink = ProgressSink,
+            TargetEndpoint = jobScope.ServiceProvider.GetRequiredService<ITargetEndpointInfo>()
+        };
 
         var isBoth = job.Kind == JobKind.Migrate;
         var phaseRecord = isBoth
@@ -420,6 +392,7 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
 
         var runExport = job.Kind == JobKind.Export || (isBoth && !phaseRecord.ExportCompleted);
         var runImport = job.Kind == JobKind.Import || (isBoth && !phaseRecord.ImportCompleted);
+        var runPrepare = job.Kind == JobKind.Prepare;
 
         if (isBoth && !runExport)
             _logger.LogInformation("Export phase already completed for job {JobId} — skipping.", job.JobId);
@@ -469,6 +442,22 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
                     await phaseTracker.WritePhaseRecordAsync(
                         new JobPhaseRecord { ExportCompleted = true, ImportCompleted = true, UpdatedAt = DateTimeOffset.UtcNow },
                         ct).ConfigureAwait(false);
+                }
+            }
+
+            if (runPrepare)
+            {
+                var probeContent = System.Text.Json.JsonSerializer.Serialize(new
+                {
+                    jobId = job.JobId,
+                    timestamp = DateTimeOffset.UtcNow,
+                    status = "ok"
+                });
+                await artefactStore.WriteAsync("prepare-probe.json", probeContent, ct).ConfigureAwait(false);
+
+                foreach (var module in jobModules.Where(m => m.SupportsPrepare))
+                {
+                    await module.PrepareAsync(prepareContext, ct).ConfigureAwait(false);
                 }
             }
         }

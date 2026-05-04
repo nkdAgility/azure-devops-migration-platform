@@ -42,6 +42,8 @@ public sealed class InventoryModule : IModule
     public string Name => "Inventory";
     public IReadOnlyList<ModuleDependency> DependsOn => Array.Empty<ModuleDependency>();
     public bool SupportsExport => true;
+    public bool SupportsInventory => false;
+    public bool SupportsPrepare => false;
     public bool SupportsImport => false;
 
     public InventoryModule(
@@ -101,6 +103,12 @@ public sealed class InventoryModule : IModule
 
     public Task ImportAsync(ImportContext context, CancellationToken ct)
         => throw new NotSupportedException("InventoryModule does not support import.");
+
+    public Task InventoryAsync(InventoryContext context, CancellationToken ct)
+        => Task.CompletedTask;
+
+    public Task PrepareAsync(PrepareContext context, CancellationToken ct)
+        => Task.CompletedTask;
 
     public Task ValidateAsync(ValidationContext context, CancellationToken ct)
         => Task.CompletedTask;

@@ -126,6 +126,17 @@ internal sealed class MigrationMetrics : IMigrationMetrics, IDisposable
     private readonly Counter<long> _identityValidateCount;
     private readonly Counter<long> _identityValidateErrors;
 
+    // --- Prepare ---
+    private readonly Counter<long> _prepareWorkItemsResolved;
+    private readonly Counter<long> _prepareWorkItemsUnresolved;
+    private readonly Histogram<double> _prepareWorkItemsDuration;
+    private readonly Counter<long> _prepareIdentitiesResolved;
+    private readonly Counter<long> _prepareIdentitiesUnresolved;
+    private readonly Counter<long> _prepareNodesResolved;
+    private readonly Counter<long> _prepareNodesUnresolved;
+    private readonly Counter<long> _prepareTeamsResolved;
+    private readonly Counter<long> _prepareTeamsUnresolved;
+
     // --- Package Config ---
     private readonly Counter<long> _configWriteCount;
     private readonly Counter<long> _configWriteErrors;
@@ -243,6 +254,17 @@ internal sealed class MigrationMetrics : IMigrationMetrics, IDisposable
         // Identities Validate
         _identityValidateCount = _meter.CreateCounter<long>(WellKnownMetricNames.IdentitiesValidateCount, unit: "{identity}");
         _identityValidateErrors = _meter.CreateCounter<long>(WellKnownMetricNames.IdentitiesValidateErrors, unit: "{error}");
+
+        // Prepare
+        _prepareWorkItemsResolved = _meter.CreateCounter<long>(WellKnownMetricNames.WorkItemsPrepareResolved, unit: "{item}");
+        _prepareWorkItemsUnresolved = _meter.CreateCounter<long>(WellKnownMetricNames.WorkItemsPrepareUnresolved, unit: "{item}");
+        _prepareWorkItemsDuration = _meter.CreateHistogram<double>(WellKnownMetricNames.WorkItemsPrepareDurationMs, unit: "ms");
+        _prepareIdentitiesResolved = _meter.CreateCounter<long>(WellKnownMetricNames.IdentitiesPrepareResolved, unit: "{item}");
+        _prepareIdentitiesUnresolved = _meter.CreateCounter<long>(WellKnownMetricNames.IdentitiesPrepareUnresolved, unit: "{item}");
+        _prepareNodesResolved = _meter.CreateCounter<long>(WellKnownMetricNames.NodesPrepareResolved, unit: "{item}");
+        _prepareNodesUnresolved = _meter.CreateCounter<long>(WellKnownMetricNames.NodesPrepareUnresolved, unit: "{item}");
+        _prepareTeamsResolved = _meter.CreateCounter<long>(WellKnownMetricNames.TeamsPrepareResolved, unit: "{item}");
+        _prepareTeamsUnresolved = _meter.CreateCounter<long>(WellKnownMetricNames.TeamsPrepareUnresolved, unit: "{item}");
 
         // Package Config
         _configWriteCount = _meter.CreateCounter<long>(WellKnownMetricNames.ConfigWriteCount, unit: "{operation}");
@@ -377,6 +399,17 @@ internal sealed class MigrationMetrics : IMigrationMetrics, IDisposable
     // --- Identities Validate ---
     public void RecordIdentityValidateCount(MetricsTagList tags) => _identityValidateCount.Add(1, ToTagList(tags));
     public void RecordIdentityValidateError(MetricsTagList tags) => _identityValidateErrors.Add(1, ToTagList(tags));
+
+    // --- Prepare ---
+    public void RecordPrepareWorkItemsResolved(int count, MetricsTagList tags) => _prepareWorkItemsResolved.Add(count, ToTagList(tags));
+    public void RecordPrepareWorkItemsUnresolved(int count, MetricsTagList tags) => _prepareWorkItemsUnresolved.Add(count, ToTagList(tags));
+    public void RecordPrepareWorkItemsDuration(double milliseconds, MetricsTagList tags) => _prepareWorkItemsDuration.Record(milliseconds, ToTagList(tags));
+    public void RecordPrepareIdentitiesResolved(int count, MetricsTagList tags) => _prepareIdentitiesResolved.Add(count, ToTagList(tags));
+    public void RecordPrepareIdentitiesUnresolved(int count, MetricsTagList tags) => _prepareIdentitiesUnresolved.Add(count, ToTagList(tags));
+    public void RecordPrepareNodesResolved(int count, MetricsTagList tags) => _prepareNodesResolved.Add(count, ToTagList(tags));
+    public void RecordPrepareNodesUnresolved(int count, MetricsTagList tags) => _prepareNodesUnresolved.Add(count, ToTagList(tags));
+    public void RecordPrepareTeamsResolved(int count, MetricsTagList tags) => _prepareTeamsResolved.Add(count, ToTagList(tags));
+    public void RecordPrepareTeamsUnresolved(int count, MetricsTagList tags) => _prepareTeamsUnresolved.Add(count, ToTagList(tags));
 
     // --- Package Config ---
     public void RecordConfigWriteCompleted(MetricsTagList tags) => _configWriteCount.Add(1, ToTagList(tags));
