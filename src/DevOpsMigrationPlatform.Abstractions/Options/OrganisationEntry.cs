@@ -34,7 +34,7 @@ public abstract class OrganisationEntry
     /// Supported scope types: <c>wiql</c> (custom WIQL base query) and <c>filter</c> (regex field filter).
     /// When absent or empty, platform defaults are used for all operations.
     /// </summary>
-    public List<MigrationOptionsScope> Scopes { get; set; } = new();
+    public List<MigrationPlatformOptionsScope> Scopes { get; set; } = new();
 
     /// <summary>
     /// Creates the connector-specific <see cref="MigrationEndpointOptions"/> from this entry's fields.

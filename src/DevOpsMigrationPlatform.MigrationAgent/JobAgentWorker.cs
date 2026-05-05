@@ -693,7 +693,7 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
 
     private sealed class DiscoveryConfigWrapper
     {
-        public MigrationOptions? MigrationPlatform { get; set; }
+        public MigrationPlatformOptions? MigrationPlatform { get; set; }
     }
 
     private sealed class InlineMigrationEndpointOptions(OrganisationEndpoint endpoint) : MigrationEndpointOptions

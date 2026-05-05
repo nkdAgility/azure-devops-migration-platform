@@ -10,10 +10,10 @@ using Microsoft.Extensions.Options;
 namespace DevOpsMigrationPlatform.Infrastructure;
 
 /// <summary>
-/// Validates <see cref="MigrationOptions"/> at host startup via <c>ValidateOnStart()</c>.
+/// Validates <see cref="MigrationPlatformOptions"/> at host startup via <c>ValidateOnStart()</c>.
 /// Failures abort the process before any migration work begins.
 /// </summary>
-internal sealed class MigrationOptionsValidator : IValidateOptions<MigrationOptions>
+internal sealed class MigrationPlatformOptionsValidator : IValidateOptions<MigrationPlatformOptions>
 {
     private static readonly string[] ValidModes = ["Inventory", "Dependencies", "Export", "Prepare", "Import", "Migrate"];
 
@@ -23,7 +23,7 @@ internal sealed class MigrationOptionsValidator : IValidateOptions<MigrationOpti
     private static readonly string[] ValidSourceTypes = ["AzureDevOpsServices", "TeamFoundationServer", "Simulated"];
     private static readonly string[] ValidTargetTypes = ["AzureDevOpsServices", "Simulated"];
 
-    public ValidateOptionsResult Validate(string? name, MigrationOptions options)
+    public ValidateOptionsResult Validate(string? name, MigrationPlatformOptions options)
     {
         var errors = new List<string>();
 

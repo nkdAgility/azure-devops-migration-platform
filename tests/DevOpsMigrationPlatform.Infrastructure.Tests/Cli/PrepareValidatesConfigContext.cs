@@ -11,7 +11,7 @@ namespace DevOpsMigrationPlatform.Infrastructure.Tests.Cli;
 public class PrepareValidatesConfigContext
 {
     // Holds the resolved options after loading configuration layers.
-    public MigrationOptions? ResolvedOptions { get; set; }
+    public MigrationPlatformOptions? ResolvedOptions { get; set; }
 
     // Path to a temp directory used for test json files.
     private readonly string _tempDir = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
@@ -20,7 +20,7 @@ public class PrepareValidatesConfigContext
         => Directory.CreateDirectory(_tempDir);
 
     /// <summary>
-    /// Builds an <see cref="IOptions{MigrationOptions}"/> using only the bundled
+    /// Builds an <see cref="IOptions{MigrationPlatformOptions}"/> using only the bundled
     /// appsettings.json defaults — no user config file overlaid.
     /// </summary>
     public void LoadFromDefaultsOnly(string appsettingsJson)
@@ -33,7 +33,7 @@ public class PrepareValidatesConfigContext
     }
 
     /// <summary>
-    /// Builds an <see cref="IOptions{MigrationOptions}"/> with the given user JSON
+    /// Builds an <see cref="IOptions{MigrationPlatformOptions}"/> with the given user JSON
     /// overlaid on top of the given appsettings defaults.
     /// </summary>
     public void LoadWithUserConfig(string appsettingsJson, string userConfigJson)
@@ -46,12 +46,12 @@ public class PrepareValidatesConfigContext
         ResolvedOptions = BuildOptions(config);
     }
 
-    private static MigrationOptions BuildOptions(IConfiguration config)
+    private static MigrationPlatformOptions BuildOptions(IConfiguration config)
     {
         var services = new ServiceCollection();
-        services.AddOptions<MigrationOptions>().Bind(config.GetSection("MigrationPlatform"));
+        services.AddOptions<MigrationPlatformOptions>().Bind(config.GetSection("MigrationPlatform"));
         var provider = services.BuildServiceProvider();
-        return provider.GetRequiredService<IOptions<MigrationOptions>>().Value;
+        return provider.GetRequiredService<IOptions<MigrationPlatformOptions>>().Value;
     }
 
     private static Stream ToStream(string json)

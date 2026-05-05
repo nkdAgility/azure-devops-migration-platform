@@ -9,7 +9,7 @@ namespace DevOpsMigrationPlatform.Abstractions.Agent.Discovery;
 
 /// <summary>
 /// Orchestrates a full inventory run across all configured organisations.
-/// Reads its own <see cref="Options.MigrationOptions"/> via DI —
+/// Reads its own <see cref="Options.MigrationPlatformOptions"/> via DI —
 /// callers just stream the results.
 /// </summary>
 public interface IInventoryService
@@ -32,7 +32,7 @@ public interface IInventoryService
     /// <summary>
     /// Runs inventory against a single pre-resolved endpoint — the same mechanism other
     /// modules use when connecting via <see cref="ISourceEndpointInfo"/>. No factory or
-    /// <see cref="Options.MigrationOptions"/> required.
+    /// <see cref="Options.MigrationPlatformOptions"/> required.
     /// </summary>
     /// <param name="endpoint">Fully resolved endpoint with auth (e.g. from <c>ISourceEndpointInfo.ToOrganisationEndpoint()</c>).</param>
     /// <param name="projects">Optional explicit project list. Empty or null = discover all projects.</param>

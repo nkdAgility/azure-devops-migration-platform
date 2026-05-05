@@ -23,7 +23,7 @@ namespace DevOpsMigrationPlatform.Infrastructure.Tests.Dependencies;
 [TestClass]
 public class AzureDevOpsDependencyAnalysisServiceTests
 {
-    private Mock<IOptions<MigrationOptions>> _optionsMock = null!;
+    private Mock<IOptions<MigrationPlatformOptions>> _optionsMock = null!;
     private Mock<IAzureDevOpsClientFactory> _clientFactoryMock = null!;
     private Mock<IWorkItemFetchService> _fetchServiceMock = null!;
     private Mock<IWorkItemDiscoveryService> _discoveryServiceMock = null!;
@@ -33,8 +33,8 @@ public class AzureDevOpsDependencyAnalysisServiceTests
     [TestInitialize]
     public void Setup()
     {
-        _optionsMock = new Mock<IOptions<MigrationOptions>>();
-        _optionsMock.Setup(o => o.Value).Returns(new MigrationOptions { Policies = new() { Throttle = new() { MaxConcurrency = 4 } } });
+        _optionsMock = new Mock<IOptions<MigrationPlatformOptions>>();
+        _optionsMock.Setup(o => o.Value).Returns(new MigrationPlatformOptions { Policies = new() { Throttle = new() { MaxConcurrency = 4 } } });
 
         _clientFactoryMock = new Mock<IAzureDevOpsClientFactory>();
         _fetchServiceMock = new Mock<IWorkItemFetchService>();

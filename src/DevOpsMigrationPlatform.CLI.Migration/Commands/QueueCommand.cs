@@ -1751,7 +1751,7 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
         name.Length <= maxLen ? name : "…" + name[^(maxLen - 1)..];
 
     /// <summary>
-    /// Converts <see cref="MigrationOptions.Modules"/> into <see cref="JobModule"/> entries.
+    /// Converts <see cref="MigrationPlatformOptions.Modules"/> into <see cref="JobModule"/> entries.
     /// Reads from the typed static module configuration and builds the runtime job contract.
     /// </summary>
 }

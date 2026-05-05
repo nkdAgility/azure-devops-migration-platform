@@ -39,19 +39,19 @@ internal sealed class InventoryServiceFactory : IInventoryServiceFactory
         IReadOnlyList<ScopedOrganisationEndpoint> organisations,
         JobPolicies policies)
     {
-        var options = BuildMigrationOptions(organisations, policies);
+        var options = BuildMigrationPlatformOptions(organisations, policies);
         return new InventoryService(
-            new OptionsWrapper<MigrationOptions>(options),
+            new OptionsWrapper<MigrationPlatformOptions>(options),
             _workItemDiscovery,
             _projectDiscovery,
             _repoDiscovery);
     }
 
-    private static MigrationOptions BuildMigrationOptions(
+    private static MigrationPlatformOptions BuildMigrationPlatformOptions(
         IReadOnlyList<ScopedOrganisationEndpoint> organisations,
         JobPolicies policies)
     {
-        return new MigrationOptions
+        return new MigrationPlatformOptions
         {
             Policies = new MigrationPoliciesOptions
             {
@@ -70,7 +70,7 @@ internal sealed class InventoryServiceFactory : IInventoryServiceFactory
                     ApiVersion = ado?.ApiVersion,
                     Authentication = ado?.Authentication ?? new EndpointAuthenticationOptions(),
                     Enabled = true,
-                    Scopes = o.Scopes.Select(s => new MigrationOptionsScope
+                    Scopes = o.Scopes.Select(s => new MigrationPlatformOptionsScope
                     {
                         Type = s.Type,
                         Parameters = s.Parameters.ToDictionary(

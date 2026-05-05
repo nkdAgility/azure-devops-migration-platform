@@ -37,19 +37,19 @@ internal sealed class DependencyDiscoveryServiceFactory : IDependencyDiscoverySe
         IReadOnlyList<ScopedOrganisationEndpoint> organisations,
         JobPolicies policies)
     {
-        var options = BuildMigrationOptions(organisations, policies);
+        var options = BuildMigrationPlatformOptions(organisations, policies);
         return new DependencyDiscoveryService(
-            new OptionsWrapper<MigrationOptions>(options),
+            new OptionsWrapper<MigrationPlatformOptions>(options),
             _serviceProvider,
             _catalogService,
             _logger);
     }
 
-    private static MigrationOptions BuildMigrationOptions(
+    private static MigrationPlatformOptions BuildMigrationPlatformOptions(
         IReadOnlyList<ScopedOrganisationEndpoint> organisations,
         JobPolicies policies)
     {
-        return new MigrationOptions
+        return new MigrationPlatformOptions
         {
             Policies = new MigrationPoliciesOptions
             {

@@ -23,13 +23,13 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Discovery;
 /// </summary>
 public sealed class InventoryService : IInventoryService
 {
-    private readonly IOptions<MigrationOptions> _options;
+    private readonly IOptions<MigrationPlatformOptions> _options;
     private readonly IWorkItemDiscoveryService _workItemDiscovery;
     private readonly IProjectDiscoveryService _projectDiscovery;
     private readonly IRepoDiscoveryService _repoDiscovery;
 
     public InventoryService(
-        IOptions<MigrationOptions> options,
+        IOptions<MigrationPlatformOptions> options,
         IWorkItemDiscoveryService workItemDiscovery,
         IProjectDiscoveryService projectDiscovery,
         IRepoDiscoveryService repoDiscovery)
@@ -195,10 +195,10 @@ public sealed class InventoryService : IInventoryService
 
 #if !NET481
     /// <summary>
-    /// Builds a <see cref="WorkItemFetchScope"/> from org-level <see cref="MigrationOptionsScope"/> entries.
+    /// Builds a <see cref="WorkItemFetchScope"/> from org-level <see cref="MigrationPlatformOptionsScope"/> entries.
     /// Returns <see langword="null"/> when no relevant scopes are present (wiql or filter).
     /// </summary>
-    private static WorkItemFetchScope? BuildOrgFetchScope(List<MigrationOptionsScope> scopes)
+    private static WorkItemFetchScope? BuildOrgFetchScope(List<MigrationPlatformOptionsScope> scopes)
     {
         if (scopes is not { Count: > 0 })
             return null;

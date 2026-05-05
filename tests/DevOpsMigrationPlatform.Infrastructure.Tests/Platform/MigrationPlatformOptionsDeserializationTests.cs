@@ -11,11 +11,11 @@ using Microsoft.VisualStudio.TestTools.UnitTesting;
 namespace DevOpsMigrationPlatform.Infrastructure.Tests.Platform;
 
 /// <summary>
-/// Verifies that <see cref="MigrationOptions"/> correctly deserializes the typed
+/// Verifies that <see cref="MigrationPlatformOptions"/> correctly deserializes the typed
 /// <c>Modules</c> object from JSON and that defaults are applied when keys are absent.
 /// </summary>
 [TestClass]
-public class MigrationOptionsDeserializationTests
+public class MigrationPlatformOptionsDeserializationTests
 {
   private static readonly JsonSerializerOptions JsonOpts = new()
   {
@@ -36,7 +36,7 @@ public class MigrationOptionsDeserializationTests
             }
             """;
 
-    var opts = JsonSerializer.Deserialize<MigrationOptions>(json, JsonOpts);
+    var opts = JsonSerializer.Deserialize<MigrationPlatformOptions>(json, JsonOpts);
 
     Assert.IsNotNull(opts);
     Assert.IsNotNull(opts.Modules);
@@ -66,7 +66,7 @@ public class MigrationOptionsDeserializationTests
             }
             """;
 
-    var opts = JsonSerializer.Deserialize<MigrationOptions>(json, JsonOpts);
+    var opts = JsonSerializer.Deserialize<MigrationPlatformOptions>(json, JsonOpts);
 
     Assert.IsNotNull(opts);
     var wi = opts.Modules.WorkItems;
@@ -100,7 +100,7 @@ public class MigrationOptionsDeserializationTests
             }
             """;
 
-    var opts = JsonSerializer.Deserialize<MigrationOptions>(json, JsonOpts)!;
+    var opts = JsonSerializer.Deserialize<MigrationPlatformOptions>(json, JsonOpts)!;
     var wi = opts.Modules.WorkItems;
 
     Assert.AreEqual("SELECT [System.Id] FROM WorkItems WHERE [System.TeamProject] = @project",
@@ -131,7 +131,7 @@ public class MigrationOptionsDeserializationTests
             }
             """;
 
-    var opts = JsonSerializer.Deserialize<MigrationOptions>(json, JsonOpts)!;
+    var opts = JsonSerializer.Deserialize<MigrationPlatformOptions>(json, JsonOpts)!;
 
     Assert.IsFalse(opts.Modules.WorkItems.Enabled);
   }

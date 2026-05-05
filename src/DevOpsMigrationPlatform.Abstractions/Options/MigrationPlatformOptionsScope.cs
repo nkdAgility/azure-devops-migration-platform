@@ -9,7 +9,7 @@ namespace DevOpsMigrationPlatform.Abstractions.Options;
 /// A scope entry used by inventory/organisation-level configuration.
 /// Retained for backward compatibility with <see cref="OrganisationEntry.Scopes"/>.
 /// </summary>
-public sealed class MigrationOptionsScope
+public sealed class MigrationPlatformOptionsScope
 {
     /// <summary>Scope type identifier. Currently supported: <c>"wiql"</c>, <c>"filter"</c>.</summary>
     public string Type { get; init; } = string.Empty;

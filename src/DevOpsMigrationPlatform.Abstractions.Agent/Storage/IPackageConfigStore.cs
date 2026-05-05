@@ -10,7 +10,7 @@ namespace DevOpsMigrationPlatform.Abstractions.Agent.Storage;
 /// <summary>
 /// Reads and writes the per-job migration configuration file (<c>migration-config.json</c>)
 /// that the CLI writes to the package root before job submission.
-/// The agent reads this file to obtain the full <see cref="MigrationOptions"/> —
+/// The agent reads this file to obtain the full <see cref="MigrationPlatformOptions"/> —
 /// source, target, credentials, modules, policies, and tools — that is not carried
 /// in the minimal <see cref="DevOpsMigrationPlatform.Abstractions.Jobs.Job"/>.
 /// </summary>
@@ -31,7 +31,7 @@ public interface IPackageConfigStore
     /// to <c>migration-config.json</c> at the root of the package identified by
     /// <paramref name="packageUri"/>.
     /// No deserialization or re-serialization is performed — every byte is preserved exactly,
-    /// including Tools, Generator, and any future sections not present in <c>MigrationOptions</c>.</summary>
+    /// including Tools, Generator, and any future sections not present in <c>MigrationPlatformOptions</c>.</summary>
     /// <remarks>
     /// Throws <see cref="System.InvalidOperationException"/> if the file already exists
     /// and <paramref name="force"/> is <c>false</c>

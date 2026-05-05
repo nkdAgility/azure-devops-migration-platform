@@ -8,16 +8,16 @@ using Microsoft.VisualStudio.TestTools.UnitTesting;
 namespace DevOpsMigrationPlatform.Infrastructure.Tests.Platform;
 
 /// <summary>
-/// Unit tests for the internal branching paths in <see cref="MigrationOptionsValidator"/>.
+/// Unit tests for the internal branching paths in <see cref="MigrationPlatformOptionsValidator"/>.
 /// These complement the Reqnroll acceptance tests by covering each individual branch
 /// in isolation and providing pinned assertions on the failure message text.
 /// </summary>
 [TestClass]
-public class MigrationOptionsValidatorTests
+public class MigrationPlatformOptionsValidatorTests
 {
-    private static MigrationOptionsValidator Sut() => new();
+    private static MigrationPlatformOptionsValidator Sut() => new();
 
-    private static MigrationOptions ValidExport() => new()
+    private static MigrationPlatformOptions ValidExport() => new()
     {
         Mode = "Export",
         Source = new AzureDevOpsEndpointOptions
@@ -41,7 +41,7 @@ public class MigrationOptionsValidatorTests
     [TestMethod]
     public void Validate_ValidImportConfig_Succeeds()
     {
-        var opts = new MigrationOptions
+        var opts = new MigrationPlatformOptions
         {
             Mode = "Import",
             Target = new AzureDevOpsEndpointOptions
@@ -58,7 +58,7 @@ public class MigrationOptionsValidatorTests
     [TestMethod]
     public void Validate_ValidMigrateConfig_Succeeds()
     {
-        var opts = new MigrationOptions
+        var opts = new MigrationPlatformOptions
         {
             Mode = "Migrate",
             Source = new AzureDevOpsEndpointOptions { Type = "AzureDevOpsServices", Url = "https://dev.azure.com/myorg", Project = "P" },
@@ -127,7 +127,7 @@ public class MigrationOptionsValidatorTests
     [TestMethod]
     public void Validate_ImportModeWithoutTarget_FailsWithTargetInMessage()
     {
-        var opts = new MigrationOptions
+        var opts = new MigrationPlatformOptions
         {
             Mode = "Import",
             Target = null,
@@ -152,7 +152,7 @@ public class MigrationOptionsValidatorTests
     [TestMethod]
     public void Validate_InventoryModeWithoutOrganisations_FailsWithOrganisationsInMessage()
     {
-        var opts = new MigrationOptions
+        var opts = new MigrationPlatformOptions
         {
             Mode = "Inventory",
             Package = new MigrationPackageOptions { WorkingDirectory = "D:\\exports" }
@@ -189,7 +189,7 @@ public class MigrationOptionsValidatorTests
     [TestMethod]
     public void Validate_MultipleErrors_AllReportedInSingleResult()
     {
-        var opts = new MigrationOptions
+        var opts = new MigrationPlatformOptions
         {
             Mode = "",
             Package = new MigrationPackageOptions { WorkingDirectory = "" }
@@ -243,7 +243,7 @@ public class MigrationOptionsValidatorTests
     [TestMethod]
     public void Validate_TargetTypeAzureDevOpsServices_Succeeds()
     {
-        var opts = new MigrationOptions
+        var opts = new MigrationPlatformOptions
         {
             Mode = "Import",
             Target = new AzureDevOpsEndpointOptions
@@ -260,7 +260,7 @@ public class MigrationOptionsValidatorTests
     [TestMethod]
     public void Validate_TargetTypeTeamFoundationServer_FailsWithTargetTypeInMessage()
     {
-        var opts = new MigrationOptions
+        var opts = new MigrationPlatformOptions
         {
             Mode = "Import",
             Target = new AzureDevOpsEndpointOptions
@@ -280,7 +280,7 @@ public class MigrationOptionsValidatorTests
     [TestMethod]
     public void Validate_TargetTypeUnknown_FailsWithTargetTypeInMessage()
     {
-        var opts = new MigrationOptions
+        var opts = new MigrationPlatformOptions
         {
             Mode = "Import",
             Target = new AzureDevOpsEndpointOptions

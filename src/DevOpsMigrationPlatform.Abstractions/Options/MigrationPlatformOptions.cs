@@ -38,7 +38,7 @@ namespace DevOpsMigrationPlatform.Abstractions.Options;
 /// }
 /// </code>
 /// </summary>
-public sealed class MigrationOptions
+public sealed class MigrationPlatformOptions
 {
     /// <summary>Schema version of this configuration file (e.g. "2.0").</summary>
     public string ConfigVersion { get; set; } = string.Empty;

@@ -193,7 +193,7 @@ public abstract class CommandBase<TSettings> : AsyncCommand<TSettings>
 
     // ── Configuration helpers ──────────────────────────────────────────────
 
-    protected async Task<MigrationOptions?> LoadConfigurationAsync(TSettings settings, CancellationToken cancellationToken = default)
+    protected async Task<MigrationPlatformOptions?> LoadConfigurationAsync(TSettings settings, CancellationToken cancellationToken = default)
     {
         var configService = GetRequiredService<IConfigurationService>();
         var console = GetRequiredService<IAnsiConsole>();

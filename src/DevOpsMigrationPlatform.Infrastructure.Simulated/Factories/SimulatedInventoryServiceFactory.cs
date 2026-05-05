@@ -39,15 +39,15 @@ internal sealed class SimulatedInventoryServiceFactory : IInventoryServiceFactor
         IReadOnlyList<ScopedOrganisationEndpoint> organisations,
         JobPolicies policies)
     {
-        var options = BuildMigrationOptions(organisations, policies);
+        var options = BuildMigrationPlatformOptions(organisations, policies);
         return new InventoryService(
-            new OptionsWrapper<MigrationOptions>(options),
+            new OptionsWrapper<MigrationPlatformOptions>(options),
             _workItemDiscovery,
             _projectDiscovery,
             _repoDiscovery);
     }
 
-    private static MigrationOptions BuildMigrationOptions(
+    private static MigrationPlatformOptions BuildMigrationPlatformOptions(
         IReadOnlyList<ScopedOrganisationEndpoint> organisations,
         JobPolicies policies)
     {
@@ -68,7 +68,7 @@ internal sealed class SimulatedInventoryServiceFactory : IInventoryServiceFactor
                 new SimulatedOrganisationEntry { Type = "Simulated", Enabled = true }
             };
 
-        return new MigrationOptions
+        return new MigrationPlatformOptions
         {
             Package = new MigrationPackageOptions { WorkingDirectory = "(managed-by-agent)" },
             Policies = new MigrationPoliciesOptions

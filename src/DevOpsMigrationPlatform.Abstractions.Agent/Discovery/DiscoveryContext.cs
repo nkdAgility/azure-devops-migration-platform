@@ -47,7 +47,7 @@ public class DiscoveryContext
     /// <summary>
     /// Organisations scoped to this job. Populated by the agent from <c>migration-config.json</c>
     /// in the package. Modules must read from this property rather than injecting
-    /// <c>IOptions&lt;MigrationOptions&gt;</c> directly, so that per-job config is used.
+    /// <c>IOptions&lt;MigrationPlatformOptions&gt;</c> directly, so that per-job config is used.
     /// Empty list when running in unit tests without a package.
     /// </summary>
     public IReadOnlyList<ScopedOrganisationEndpoint> Organisations { get; init; } = [];

@@ -32,17 +32,17 @@ namespace DevOpsMigrationPlatform.Infrastructure;
 public static class MigrationPlatformServiceExtensions
 {
     /// <summary>
-    /// Registers <see cref="IOptions{MigrationOptions}"/> bound to the
+    /// Registers <see cref="IOptions{MigrationPlatformOptions}"/> bound to the
     /// <c>MigrationPlatform</c> section of <paramref name="configuration"/>.
-    /// Also registers the <see cref="MigrationOptionsValidator"/>.
+    /// Also registers the <see cref="MigrationPlatformOptionsValidator"/>.
     /// </summary>
     public static IServiceCollection AddMigrationPlatformOptions(
         this IServiceCollection services,
         IConfiguration configuration)
     {
-        services.AddSingleton<IValidateOptions<MigrationOptions>, MigrationOptionsValidator>();
+        services.AddSingleton<IValidateOptions<MigrationPlatformOptions>, MigrationPlatformOptionsValidator>();
 
-        services.AddOptions<MigrationOptions>()
+        services.AddOptions<MigrationPlatformOptions>()
             .Bind(configuration.GetSection("MigrationPlatform"))
             .ValidateOnStart();
 
@@ -57,7 +57,7 @@ public static class MigrationPlatformServiceExtensions
 #if !NET481
     /// <summary>
     /// Registers the polymorphic JSON serializers (registry + converters) without binding
-    /// <see cref="MigrationOptions"/>. Call this when the full
+    /// <see cref="MigrationPlatformOptions"/>. Call this when the full
     /// <see cref="AddMigrationPlatformOptions"/> is not available (e.g. the shared CLI host builder).
     /// Connector assemblies must register their own types with
     /// <see cref="AddEndpointOptionsType"/> before the registry singleton is first resolved.

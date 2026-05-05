@@ -24,7 +24,7 @@ internal sealed class ConfigureCommandRenderer
         console.WriteLine();
     }
 
-    public void ShowCompletionSummary(MigrationOptions options, string outputFile, IAnsiConsole console)
+    public void ShowCompletionSummary(MigrationPlatformOptions options, string outputFile, IAnsiConsole console)
     {
         console.WriteLine();
         console.Write(new Rule("[bold green]Configuration Complete![/]").RuleStyle("green"));

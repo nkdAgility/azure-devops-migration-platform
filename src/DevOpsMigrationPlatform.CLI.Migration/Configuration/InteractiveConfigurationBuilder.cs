@@ -8,15 +8,15 @@ using Spectre.Console;
 namespace DevOpsMigrationPlatform.CLI.Migration.Configuration;
 
 /// <summary>
-/// Drives the interactive terminal wizard that builds a <see cref="MigrationOptions"/> from
+/// Drives the interactive terminal wizard that builds a <see cref="MigrationPlatformOptions"/> from
 /// user input. Contains no I/O or file concerns — accepts <see cref="IAnsiConsole"/> for
 /// all output so the logic is testable independently of the CLI layer.
 /// </summary>
 internal sealed class InteractiveConfigurationBuilder : IInteractiveConfigurationBuilder
 {
-    public async Task<MigrationOptions> BuildAsync(IAnsiConsole console, CancellationToken cancellationToken)
+    public async Task<MigrationPlatformOptions> BuildAsync(IAnsiConsole console, CancellationToken cancellationToken)
     {
-        var options = new MigrationOptions();
+        var options = new MigrationPlatformOptions();
 
         // Step 1: Mode
         console.MarkupLine("[bold blue]Step 1: Migration Mode[/bold blue]");

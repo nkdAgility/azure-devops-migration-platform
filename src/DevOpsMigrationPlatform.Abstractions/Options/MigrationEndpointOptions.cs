@@ -8,7 +8,7 @@ namespace DevOpsMigrationPlatform.Abstractions.Options;
 
 /// <summary>
 /// Base class for source or target endpoint connection options.
-/// Used for both <c>MigrationOptions.Source</c> and <c>MigrationOptions.Target</c>.
+/// Used for both <c>MigrationPlatformOptions.Source</c> and <c>MigrationPlatformOptions.Target</c>.
 /// Concrete implementations (e.g. <c>AzureDevOpsEndpointOptions</c>) carry connector-specific fields.
 /// </summary>
 public abstract class MigrationEndpointOptions
@@ -20,7 +20,7 @@ public abstract class MigrationEndpointOptions
 
     /// <summary>
     /// Validates connector-specific fields and appends any errors to <paramref name="errors"/>.
-    /// Called by <c>MigrationOptionsValidator</c>; override in derived classes to add URL/auth checks.
+    /// Called by <c>MigrationPlatformOptionsValidator</c>; override in derived classes to add URL/auth checks.
     /// </summary>
     public virtual void ValidateEndpointFields(List<string> errors, string role) { }
 
