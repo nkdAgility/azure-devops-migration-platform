@@ -116,7 +116,11 @@ public sealed class WorkItemsModuleInventoryTests
                 It.IsAny<InventoryContext>(),
                 It.IsAny<int>(),
                 It.IsAny<CancellationToken>()))
-            .Returns(Task.CompletedTask);
+            .Returns<string, IAsyncEnumerable<InventoryProgressEvent>, InventoryContext, int, CancellationToken>(
+                async (_, stream, _, _, ct) =>
+                {
+                    await foreach (var _ in stream.WithCancellation(ct).ConfigureAwait(false)) { }
+                });
 
         var discovery = new Mock<IWorkItemDiscoveryService>(MockBehavior.Strict);
         discovery
