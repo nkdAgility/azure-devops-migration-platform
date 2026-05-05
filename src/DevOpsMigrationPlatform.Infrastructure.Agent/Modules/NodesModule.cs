@@ -4,6 +4,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Linq;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
@@ -37,6 +38,7 @@ public sealed class NodesModule : IModule
     private static readonly ActivitySource MigrationActivity = new(WellKnownActivitySourceNames.Migration);
 
     private readonly IClassificationTreeCapture? _capture;
+    private readonly IClassificationTreeReader? _reader;
 #if !NET481
     private readonly ITargetEndpointInfo _targetEndpointInfo;
 #endif
@@ -64,6 +66,7 @@ public sealed class NodesModule : IModule
         IDiscoveryMetrics? discoveryMetrics = null,
         IMigrationMetrics? migrationMetrics = null,
         IClassificationTreeCapture? capture = null,
+        IClassificationTreeReader? reader = null,
 #if !NET481
         ITargetEndpointInfo? targetEndpointInfo = null,
 #endif
@@ -76,6 +79,7 @@ public sealed class NodesModule : IModule
         _discoveryMetrics = discoveryMetrics;
         _migrationMetrics = migrationMetrics;
         _capture = capture;
+        _reader = reader;
 #if !NET481
         _targetEndpointInfo = targetEndpointInfo ?? throw new ArgumentNullException(nameof(targetEndpointInfo));
 #endif
@@ -84,12 +88,18 @@ public sealed class NodesModule : IModule
 
     public async Task InventoryAsync(InventoryContext context, CancellationToken ct)
     {
+        var projects = (context.Projects ?? Array.Empty<string>())
+            .Where(p => !string.IsNullOrWhiteSpace(p))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        if (projects.Count == 0 && !string.IsNullOrWhiteSpace(_sourceEndpointInfo.Project))
+            projects.Add(_sourceEndpointInfo.Project);
+
         using var activity = DiscoveryActivity.StartActivity("inventory.nodes");
         activity?.SetTag("job.id", context.Job.JobId);
         activity?.SetTag("module", Name);
 
-        using (_logger.BeginDataScope(DataClassification.Customer))
-            _logger.LogInformation("Inventorying {Module} for {Project}", Name, _sourceEndpointInfo.Project);
+        _logger.LogInformation("Inventorying {Module} for {ProjectCount} project(s)", Name, projects.Count);
         context.ProgressSink?.Emit(new ProgressEvent
         {
             Module = Name,
@@ -100,8 +110,21 @@ public sealed class NodesModule : IModule
 
         var stopwatch = Stopwatch.StartNew();
         var count = 0;
-        if (_capture is not null)
-            count = await _capture.CaptureAsync(context.ArtefactStore, ct).ConfigureAwait(false);
+        if (_reader is not null)
+        {
+            foreach (var project in projects)
+            {
+                try
+                {
+                    count += await _reader.CountNodesAsync(project, ct).ConfigureAwait(false);
+                }
+                catch (Exception ex)
+                {
+                    using (_logger.BeginDataScope(DataClassification.Customer))
+                        _logger.LogWarning(ex, "Failed to count nodes for project {Project}; skipping.", project);
+                }
+            }
+        }
         stopwatch.Stop();
 
         await context.ArtefactStore.WriteAsync(
@@ -112,10 +135,7 @@ public sealed class NodesModule : IModule
         _discoveryMetrics?.RecordInventoryNodes(count, new MetricsTagList { { "job.id", context.Job.JobId }, { "module", Name } });
         _logger.LogInformation("Inventoried {Module}: {Count} items in {DurationMs}ms", Name, count, stopwatch.ElapsedMilliseconds);
         if (count == 0)
-        {
-            using (_logger.BeginDataScope(DataClassification.Customer))
-                _logger.LogWarning("Zero items inventoried for {Module} in {Project}", Name, _sourceEndpointInfo.Project);
-        }
+            _logger.LogWarning("Zero items inventoried for {Module}", Name);
 
         context.ProgressSink?.Emit(new ProgressEvent
         {

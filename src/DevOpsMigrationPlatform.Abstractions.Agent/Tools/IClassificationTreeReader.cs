@@ -3,6 +3,7 @@
 
 using System.Collections.Generic;
 using System.Threading;
+using System.Threading.Tasks;
 
 namespace DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 
@@ -17,4 +18,12 @@ public interface IClassificationTreeReader
 
     /// <summary>Enumerates all iteration nodes (with dates) from the source project.</summary>
     IAsyncEnumerable<IterationNodeEntry> EnumerateIterationNodesAsync(CancellationToken ct);
+
+    /// <summary>
+    /// Returns the total count of area and iteration classification nodes for
+    /// <paramref name="project"/> without writing any files to the artefact store.
+    /// Used during inventory to obtain per-project node counts across multiple projects.
+    /// Returns <c>0</c> and logs a warning if the underlying API call fails.
+    /// </summary>
+    Task<int> CountNodesAsync(string project, CancellationToken ct);
 }

@@ -5,6 +5,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Linq;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
@@ -92,25 +93,43 @@ public sealed class TeamsModule : IModule
 
     public async Task InventoryAsync(InventoryContext context, CancellationToken ct)
     {
+        var projects = (context.Projects ?? Array.Empty<string>())
+            .Where(p => !string.IsNullOrWhiteSpace(p))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        if (projects.Count == 0 && !string.IsNullOrWhiteSpace(_sourceEndpointInfo.Project))
+            projects.Add(_sourceEndpointInfo.Project);
+
         using var activity = DiscoveryActivity.StartActivity("inventory.teams");
         activity?.SetTag("job.id", context.Job.JobId);
         activity?.SetTag("module", Name);
 
-        _logger.LogInformation("Inventorying {Module} for {Project}", Name, _sourceEndpointInfo.Project);
+        _logger.LogInformation("Inventorying {Module} for {ProjectCount} project(s)", Name, projects.Count);
         context.ProgressSink?.Emit(new ProgressEvent { Module = Name, Stage = "Inventorying", Message = $"Inventorying {Name}", Timestamp = DateTimeOffset.UtcNow });
 
         var count = 0;
         if (_teamSource is not null)
         {
-            await foreach (var _ in _teamSource.EnumerateTeamsAsync(_sourceEndpointInfo.Project, ct).ConfigureAwait(false))
-                count++;
+            foreach (var project in projects)
+            {
+                try
+                {
+                    await foreach (var _ in _teamSource.EnumerateTeamsAsync(project, ct).ConfigureAwait(false))
+                        count++;
+                }
+                catch (Exception ex)
+                {
+                    using (_logger.BeginDataScope(DataClassification.Customer))
+                        _logger.LogWarning(ex, "Failed to enumerate teams for project {Project}; skipping.", project);
+                }
+            }
         }
 
         await context.ArtefactStore.WriteAsync("Teams/inventory.json", JsonSerializer.Serialize(new { module = Name, teams = count, generatedAt = DateTimeOffset.UtcNow }), ct).ConfigureAwait(false);
         _discoveryMetrics?.RecordInventoryTeams(count, new MetricsTagList { { "job.id", context.Job.JobId }, { "module", Name } });
-        _logger.LogInformation("Inventoried {Module}: {Count} items in {DurationMs}ms", Name, count, 0);
+        _logger.LogInformation("Inventoried {Module}: {Count} items", Name, count);
         if (count == 0)
-            _logger.LogWarning("Zero items inventoried for {Module} in {Project}", Name, _sourceEndpointInfo.Project);
+            _logger.LogWarning("Zero items inventoried for {Module}", Name);
 
         context.ProgressSink?.Emit(new ProgressEvent
         {

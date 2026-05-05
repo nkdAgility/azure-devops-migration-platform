@@ -68,10 +68,10 @@ public sealed class IdentitiesModule : IModule
         )
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
-    _options = options?.Value ?? throw new ArgumentNullException(nameof(options));
-    _sourceEndpointInfo = sourceEndpointInfo ?? throw new ArgumentNullException(nameof(sourceEndpointInfo));
-    _orchestrator = orchestrator ?? throw new ArgumentNullException(nameof(orchestrator));
-    _discoveryMetrics = discoveryMetrics;
+        _options = options?.Value ?? throw new ArgumentNullException(nameof(options));
+        _sourceEndpointInfo = sourceEndpointInfo ?? throw new ArgumentNullException(nameof(sourceEndpointInfo));
+        _orchestrator = orchestrator ?? throw new ArgumentNullException(nameof(orchestrator));
+        _discoveryMetrics = discoveryMetrics;
         _migrationMetrics = migrationMetrics;
         _identitySource = identitySource;
         _checkpointingFactory = checkpointingFactory;
@@ -82,10 +82,17 @@ public sealed class IdentitiesModule : IModule
 
     public async Task InventoryAsync(InventoryContext context, CancellationToken ct)
     {
+        var projects = (context.Projects ?? Array.Empty<string>())
+            .Where(p => !string.IsNullOrWhiteSpace(p))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        if (projects.Count == 0 && !string.IsNullOrWhiteSpace(_sourceEndpointInfo.Project))
+            projects.Add(_sourceEndpointInfo.Project);
+
         using var activity = DiscoveryActivity.StartActivity("inventory.identities");
         activity?.SetTag("job.id", context.Job.JobId);
         activity?.SetTag("module", Name);
-        _logger.LogInformation("Inventorying {Module} for {Project}", Name, _sourceEndpointInfo.Project);
+        _logger.LogInformation("Inventorying {Module} for {ProjectCount} project(s)", Name, projects.Count);
 
         context.ProgressSink?.Emit(new ProgressEvent
         {
@@ -98,9 +105,18 @@ public sealed class IdentitiesModule : IModule
         var count = 0;
         if (_identitySource is not null)
         {
-            await foreach (var _ in _identitySource.EnumerateIdentitiesAsync(_sourceEndpointInfo.Project, ct).ConfigureAwait(false))
+            foreach (var project in projects)
             {
-                count++;
+                try
+                {
+                    await foreach (var _ in _identitySource.EnumerateIdentitiesAsync(project, ct).ConfigureAwait(false))
+                        count++;
+                }
+                catch (Exception ex)
+                {
+                    using (_logger.BeginDataScope(DataClassification.Customer))
+                        _logger.LogWarning(ex, "Failed to enumerate identities for project {Project}; skipping.", project);
+                }
             }
         }
 
@@ -114,9 +130,9 @@ public sealed class IdentitiesModule : IModule
         var payload = JsonSerializer.Serialize(new { module = Name, identities = count, generatedAt = DateTimeOffset.UtcNow });
         await context.ArtefactStore.WriteAsync("Identities/inventory.json", payload, ct).ConfigureAwait(false);
 
-        _logger.LogInformation("Inventoried {Module}: {Count} items in {DurationMs}ms", Name, count, 0);
+        _logger.LogInformation("Inventoried {Module}: {Count} items", Name, count);
         if (count == 0)
-            _logger.LogWarning("Zero items inventoried for {Module} in {Project}", Name, _sourceEndpointInfo.Project);
+            _logger.LogWarning("Zero items inventoried for {Module}", Name);
 
         context.ProgressSink?.Emit(new ProgressEvent
         {

@@ -64,4 +64,15 @@ public sealed class SimulatedClassificationTreeReader : IClassificationTreeReade
         yield return new IterationNodeEntry($"{project}\\Iteration 1", baseDate, baseDate.AddDays(14), false);
         yield return new IterationNodeEntry($"{project}\\Iteration 2", baseDate.AddDays(14), baseDate.AddDays(28), false);
     }
+
+    /// <inheritdoc/>
+    public Task<int> CountNodesAsync(string project, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(project))
+            return Task.FromResult(0);
+
+        // Matches the 4 area nodes + 3 iteration nodes yielded by the Enumerate methods above.
+        _logger.LogDebug("[NodeTranslation][Simulated] CountNodesAsync: returning 7 for {Project}.", project);
+        return Task.FromResult(7);
+    }
 }

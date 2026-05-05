@@ -88,6 +88,7 @@ public sealed class WorkItemsModule : IModule
 #endif
     private readonly IOptions<WorkItemsModuleOptions> _options;
     private readonly ISourceEndpointInfo _sourceEndpointInfo;
+    private readonly IRepoDiscoveryService? _repoDiscoveryService;
 #if !NET481
     private readonly ITargetEndpointInfo _targetEndpointInfo;
 #endif
@@ -120,7 +121,8 @@ public sealed class WorkItemsModule : IModule
         IReferencedPathTracker? referencedPathTracker = null,
         INodesOrchestrator? nodesOrchestrator = null,
 #endif
-        IIdentityLookupTool? identityLookupTool = null)
+        IIdentityLookupTool? identityLookupTool = null,
+        IRepoDiscoveryService? repoDiscoveryService = null)
     {
         _sourceFactory = sourceFactory ?? throw new ArgumentNullException(nameof(sourceFactory));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
@@ -148,6 +150,7 @@ public sealed class WorkItemsModule : IModule
         _nodesOrchestrator = nodesOrchestrator;
 #endif
         _identityLookupTool = identityLookupTool;
+        _repoDiscoveryService = repoDiscoveryService;
     }
 
     public async Task InventoryAsync(InventoryContext context, CancellationToken ct)
@@ -191,8 +194,26 @@ public sealed class WorkItemsModule : IModule
                 {
                     foreach (var project in projects)
                     {
+                        // Count repos before the first yield so we can populate ReposCount on
+                        // the final (IsComplete=true) event. Awaiting before the first yield in an
+                        // async iterator is valid C#.
+                        var reposForProject = 0;
+                        if (_repoDiscoveryService is not null)
+                        {
+                            try
+                            {
+                                reposForProject = await _repoDiscoveryService
+                                    .CountReposAsync(endpoint, project, streamCt)
+                                    .ConfigureAwait(false);
+                            }
+                            catch (Exception ex)
+                            {
+                                _logger.LogWarning(ex, "Failed to count repos for project {Project}; defaulting to 0.", project);
+                            }
+                        }
+
                         await foreach (var summary in _discoveryService
-                            .CountWorkItemsAsync(endpoint, project, cancellationToken: streamCt)
+                            .DiscoverWorkItemsAsync(endpoint, project, cancellationToken: streamCt)
                             .ConfigureAwait(false))
                         {
                             if (summary.IsWorkItemComplete)
@@ -207,6 +228,7 @@ public sealed class WorkItemsModule : IModule
                                 ProjectName = project,
                                 WorkItemsCount = summary.WorkItemsCount,
                                 RevisionsCount = summary.RevisionsCount,
+                                ReposCount = summary.IsWorkItemComplete ? reposForProject : 0,
                                 IsComplete = summary.IsWorkItemComplete,
                                 Error = summary.Error,
                             };
@@ -220,8 +242,23 @@ public sealed class WorkItemsModule : IModule
             {
                 foreach (var project in projects)
                 {
+                    var reposForProject = 0;
+                    if (_repoDiscoveryService is not null)
+                    {
+                        try
+                        {
+                            reposForProject = await _repoDiscoveryService
+                                .CountReposAsync(endpoint, project, ct)
+                                .ConfigureAwait(false);
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogWarning(ex, "Failed to count repos for project {Project}; defaulting to 0.", project);
+                        }
+                    }
+
                     await foreach (var summary in _discoveryService
-                        .CountWorkItemsAsync(endpoint, project, cancellationToken: ct)
+                        .DiscoverWorkItemsAsync(endpoint, project, cancellationToken: ct)
                         .ConfigureAwait(false))
                     {
                         if (summary.IsWorkItemComplete)
@@ -230,6 +267,8 @@ public sealed class WorkItemsModule : IModule
                             totalRevisions += summary.RevisionsCount;
                         }
                     }
+
+                    _ = reposForProject; // consumed in orchestrated path; suppress unused-variable warning in else path
                 }
 
                 await context.ArtefactStore.WriteAsync(

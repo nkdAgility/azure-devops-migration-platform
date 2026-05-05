@@ -3,6 +3,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
@@ -125,5 +126,31 @@ internal sealed class AzureDevOpsClassificationTreeReader : IClassificationTreeR
         foreach (var child in node.Children)
             foreach (var e in FlattenIterationNodes(child))
                 yield return e;
+    }
+
+    /// <inheritdoc/>
+    public async Task<int> CountNodesAsync(string project, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(project))
+            return 0;
+
+        var orgEndpoint = _sourceEndpointInfo.ToOrganisationEndpoint();
+        var client = await _clientFactory.CreateWorkItemClientAsync(orgEndpoint, ct).ConfigureAwait(false);
+
+        try
+        {
+            var areaRoot = await client.GetClassificationNodeAsync(
+                project, TreeStructureGroup.Areas, path: null, depth: int.MaxValue, cancellationToken: ct)
+                .ConfigureAwait(false);
+            var iterRoot = await client.GetClassificationNodeAsync(
+                project, TreeStructureGroup.Iterations, path: null, depth: int.MaxValue, cancellationToken: ct)
+                .ConfigureAwait(false);
+            return FlattenNodePaths(areaRoot).Count() + FlattenIterationNodes(iterRoot).Count();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "[NodeTranslation] Failed to count classification nodes for project {Project}; returning 0.", project);
+            return 0;
+        }
     }
 }

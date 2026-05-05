@@ -3,6 +3,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
@@ -138,6 +139,25 @@ public sealed class TfsClassificationTreeReader : IClassificationTreeReader
                 : null;
 
             yield return new IterationNodeEntry(path, startDate, finishDate, false);
+        }
+    }
+
+    /// <inheritdoc/>
+    public Task<int> CountNodesAsync(string project, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(project))
+            return Task.FromResult(0);
+
+        try
+        {
+            var count = EnumerateNodes(project, "Area").Count()
+                      + EnumerateIterationNodeInfos(project).Count();
+            return Task.FromResult(count);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "[NodeTranslation][TFS] Failed to count nodes for project {Project}; returning 0.", project);
+            return Task.FromResult(0);
         }
     }
 }
