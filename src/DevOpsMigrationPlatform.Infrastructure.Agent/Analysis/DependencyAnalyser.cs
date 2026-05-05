@@ -71,13 +71,7 @@ public sealed class DependencyAnalyser : IOrganisationsAnalyser
 
         context.ProgressSink?.Emit(new ProgressEvent { Module = Name, Stage = "Analysing", Message = "Running dependency analysis", Timestamp = DateTimeOffset.UtcNow });
 
-        var organisations = context.Organisations
-            .Select(o => new ScopedOrganisationEndpoint
-            {
-                Endpoint = new OrganisationMigrationEndpointOptions(o),
-                Projects = new List<string>()
-            })
-            .ToList();
+        var organisations = context.Organisations.ToList();
         var policies = new JobPolicies();
         var dependencyService = _dependencyFactory.Create(organisations, policies);
         await _orchestrator.AnalyseAsync(dependencyService, context, policies, 300, ct).ConfigureAwait(false);
@@ -167,11 +161,5 @@ public sealed class DependencyAnalyser : IOrganisationsAnalyser
 
     private static string Sanitize(string value)
         => string.Concat(value.Select(ch => char.IsLetterOrDigit(ch) ? ch : '_'));
-
-    private sealed class OrganisationMigrationEndpointOptions(OrganisationEndpoint endpoint) : MigrationEndpointOptions
-    {
-        public override OrganisationEndpoint ToOrganisationEndpoint() => endpoint;
-        public override string GetResolvedUrl() => endpoint.ResolvedUrl;
-    }
 }
 

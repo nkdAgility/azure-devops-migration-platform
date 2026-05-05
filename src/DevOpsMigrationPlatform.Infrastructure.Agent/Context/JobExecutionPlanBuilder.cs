@@ -13,6 +13,7 @@ using DevOpsMigrationPlatform.Abstractions.Agent.Context;
 using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
 using DevOpsMigrationPlatform.Abstractions.ControlPlaneApi;
 using DevOpsMigrationPlatform.Abstractions.Jobs;
+using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Abstractions.Organisations;
 using DevOpsMigrationPlatform.Abstractions.Streaming;
 using Microsoft.Extensions.Configuration;
@@ -543,9 +544,9 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
         return null;
     }
 
-    private static IReadOnlyList<OrganisationEndpoint> BuildOrganisationEndpoints(IConfiguration packageConfig)
+    private static IReadOnlyList<ScopedOrganisationEndpoint> BuildOrganisationEndpoints(IConfiguration packageConfig)
     {
-        var organisations = new List<OrganisationEndpoint>();
+        var organisations = new List<ScopedOrganisationEndpoint>();
         var configured = packageConfig.GetSection("MigrationPlatform:Organisations").GetChildren();
         foreach (var child in configured)
         {
@@ -553,10 +554,15 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
             if (string.IsNullOrWhiteSpace(url))
                 continue;
 
-            organisations.Add(new OrganisationEndpoint
+            var orgEndpoint = new OrganisationEndpoint
             {
                 Type = child["Type"] ?? "Unknown",
                 ResolvedUrl = url!
+            };
+            organisations.Add(new ScopedOrganisationEndpoint
+            {
+                Endpoint = new ConfigOrganisationEndpointOptions(orgEndpoint),
+                Projects = new List<string>()
             });
         }
 
@@ -565,15 +571,34 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
             var sourceUrl = packageConfig["MigrationPlatform:Source:Url"];
             if (!string.IsNullOrWhiteSpace(sourceUrl))
             {
-                organisations.Add(new OrganisationEndpoint
+                var orgEndpoint = new OrganisationEndpoint
                 {
                     Type = packageConfig["MigrationPlatform:Source:Type"] ?? "Unknown",
                     ResolvedUrl = sourceUrl!
+                };
+                organisations.Add(new ScopedOrganisationEndpoint
+                {
+                    Endpoint = new ConfigOrganisationEndpointOptions(orgEndpoint),
+                    Projects = new List<string>()
                 });
             }
         }
 
         return organisations;
+    }
+
+    private sealed class ConfigOrganisationEndpointOptions : MigrationEndpointOptions
+    {
+        private readonly OrganisationEndpoint _endpoint;
+
+        public ConfigOrganisationEndpointOptions(OrganisationEndpoint endpoint)
+        {
+            _endpoint = endpoint;
+            Type = endpoint.Type;
+        }
+
+        public override OrganisationEndpoint ToOrganisationEndpoint() => _endpoint;
+        public override string GetResolvedUrl() => _endpoint.ResolvedUrl;
     }
 
     private static ISourceEndpointInfo BuildSourceEndpointInfo(IConfiguration packageConfig)

@@ -8,6 +8,6 @@ namespace DevOpsMigrationPlatform.Abstractions.Agent.Analysis;
 
 public sealed record OrganisationsAnalyseContext : AnalyseContext
 {
-    public IReadOnlyList<OrganisationEndpoint> Organisations { get; init; } = [];
+    public IReadOnlyList<ScopedOrganisationEndpoint> Organisations { get; init; } = [];
 }
 

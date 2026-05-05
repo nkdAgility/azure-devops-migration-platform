@@ -85,6 +85,7 @@ public sealed class DependencyCommand : ControlPlaneCommandBase<DependencyComman
                 {
                     "TeamFoundationServer" => ConnectorType.TeamFoundationServer,
                     "AzureDevOpsServices" => ConnectorType.AzureDevOps,
+                    "Simulated" => ConnectorType.Simulated,
                     _ => (ConnectorType?)null
                 })
                 .Where(c => c.HasValue)

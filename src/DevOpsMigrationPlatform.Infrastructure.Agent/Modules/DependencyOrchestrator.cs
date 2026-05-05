@@ -63,13 +63,7 @@ internal sealed class DependencyOrchestrator : IDependencyOrchestrator
         int checkpointIntervalSeconds,
         CancellationToken ct)
     {
-        var organisations = context.Organisations
-            .Select(o => new ScopedOrganisationEndpoint
-            {
-                Endpoint = new OrganisationMigrationEndpointOptions(o),
-                Projects = new List<string>()
-            })
-            .ToList();
+        var organisations = context.Organisations.ToList();
 
         using var rootActivity = ActivitySource.StartActivity("discovery.dependencies", ActivityKind.Internal);
         rootActivity?.SetTag("job.id", context.Job.JobId);
@@ -212,7 +206,8 @@ internal sealed class DependencyOrchestrator : IDependencyOrchestrator
                     recordCount = rc.GetInt32();
 
                 // Parse per-project stats if present (added for resume display)
-                if (doc.RootElement.TryGetProperty("projectStats", out var statsObj))
+                if (doc.RootElement.TryGetProperty("projectStats", out var statsObj) &&
+                    statsObj.ValueKind == System.Text.Json.JsonValueKind.Object)
                 {
                     foreach (var prop in statsObj.EnumerateObject())
                     {
@@ -228,7 +223,8 @@ internal sealed class DependencyOrchestrator : IDependencyOrchestrator
                 }
 
                 // Parse in-progress project state for batch-level resume
-                if (doc.RootElement.TryGetProperty("inProgressProject", out var ipObj))
+                if (doc.RootElement.TryGetProperty("inProgressProject", out var ipObj) &&
+                    ipObj.ValueKind == System.Text.Json.JsonValueKind.Object)
                 {
                     if (ipObj.TryGetProperty("key", out var ipKey))
                         inProgressProjectKey = ipKey.GetString();
@@ -1587,10 +1583,18 @@ internal sealed class DependencyOrchestrator : IDependencyOrchestrator
         return fields;
     }
 
-    private sealed class OrganisationMigrationEndpointOptions(OrganisationEndpoint endpoint) : MigrationEndpointOptions
+    private sealed class OrganisationMigrationEndpointOptions : MigrationEndpointOptions
     {
-        public override OrganisationEndpoint ToOrganisationEndpoint() => endpoint;
-        public override string GetResolvedUrl() => endpoint.ResolvedUrl;
+        private readonly OrganisationEndpoint _endpoint;
+
+        public OrganisationMigrationEndpointOptions(OrganisationEndpoint endpoint)
+        {
+            _endpoint = endpoint;
+            Type = endpoint.Type;
+        }
+
+        public override OrganisationEndpoint ToOrganisationEndpoint() => _endpoint;
+        public override string GetResolvedUrl() => _endpoint.ResolvedUrl;
     }
 
     private sealed class NullProgressSink : IProgressSink

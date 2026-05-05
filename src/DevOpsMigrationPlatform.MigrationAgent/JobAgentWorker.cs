@@ -650,14 +650,22 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
             }
             else
             {
-                await dependencyAnalyser.AnalyseAsync(new OrganisationsAnalyseContext
+                try
                 {
-                    Job = job,
-                    ArtefactStore = artefactStore,
-                    StateStore = stateStore,
-                    ProgressSink = ProgressSink,
-                    Organisations = organisations.Select(o => o.Endpoint.ToOrganisationEndpoint()).ToList()
-                }, ct).ConfigureAwait(false);
+                    await dependencyAnalyser.AnalyseAsync(new OrganisationsAnalyseContext
+                    {
+                        Job = job,
+                        ArtefactStore = artefactStore,
+                        StateStore = stateStore,
+                        ProgressSink = ProgressSink,
+                        Organisations = organisations
+                    }, ct).ConfigureAwait(false);
+                }
+                catch (Exception ex) when (ex is not OperationCanceledException)
+                {
+                    _logger.LogError(ex, "Dependency analysis failed for job {JobId}.", job.JobId);
+                    failed = true;
+                }
             }
         }
 

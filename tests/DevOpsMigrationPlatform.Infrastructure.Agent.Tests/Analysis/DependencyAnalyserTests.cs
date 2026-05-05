@@ -15,7 +15,7 @@ using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
 using DevOpsMigrationPlatform.Abstractions.Agent.Telemetry;
 using DevOpsMigrationPlatform.Abstractions.Jobs;
 using DevOpsMigrationPlatform.Abstractions.Organisations;
-using DevOpsMigrationPlatform.Abstractions.Streaming;
+using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Abstractions.Telemetry;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Analysis;
 using Microsoft.Extensions.Logging;
@@ -147,7 +147,11 @@ public sealed class DependencyAnalyserTests
             ArtefactStore = artefactStore ?? new InMemoryArtefactStore(),
             StateStore = Mock.Of<IStateStore>(),
             ProgressSink = progressSink,
-            Organisations = [new OrganisationEndpoint { Type = "Simulated", ResolvedUrl = "https://org.example" }]
+            Organisations = [new ScopedOrganisationEndpoint
+            {
+                Endpoint = new SimulatedEndpointOptions { Type = "Simulated", Url = "https://org.example" },
+                Projects = []
+            }]
         };
 
     private sealed class InMemoryArtefactStore : IArtefactStore
