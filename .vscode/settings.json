@@ -63,6 +63,21 @@
         "editor.insertSpaces": true
     },
     
+    // Copilot chat prompt file recommendations for SpecKit agents
+    "chat.promptFilesRecommendations": {
+        "speckit.constitution": true,
+        "speckit.specify": true,
+        "speckit.plan": true,
+        "speckit.tasks": true,
+        "speckit.implement": true
+    },
+
+    // Auto-approve terminal commands for SpecKit scripts
+    "chat.tools.terminal.autoApprove": {
+        ".specify/scripts/bash/": true,
+        ".specify/scripts/powershell/": true
+    },
+
     // JSON schema mappings for migration configuration files
     "json.schemas": [
         {

@@ -29,10 +29,21 @@ public interface IDiscoveryMetrics
     void RecordWorkItemsCounted(int count, MetricsTagList tags);
     void RecordRevisionsCounted(int count, MetricsTagList tags);
     void RecordReposCounted(int count, MetricsTagList tags);
+    void RecordInventoryWorkItems(int count, MetricsTagList tags);
+    void RecordInventoryWorkItemsDuration(double milliseconds, MetricsTagList tags);
+    void RecordInventoryWorkItemsErrors(MetricsTagList tags);
+    void RecordInventoryIdentities(int count, MetricsTagList tags);
+    void RecordInventoryNodes(int count, MetricsTagList tags);
+    void RecordInventoryTeams(int count, MetricsTagList tags);
+    void RecordInventoryConsolidated(int count, MetricsTagList tags);
+    void RecordInventoryConsolidatedDuration(double milliseconds, MetricsTagList tags);
+    void RecordInventoryConsolidatedErrors(MetricsTagList tags);
 
     // --- Dependencies ---
     void RecordLinksFound(int count, MetricsTagList tags);
     void RecordWorkItemsAnalysed(int count, MetricsTagList tags);
+    void RecordDependenciesAnalyseDuration(double milliseconds, MetricsTagList tags);
+    void RecordDependenciesAnalyseErrors(MetricsTagList tags);
 
     // --- Operational ---
     void RecordCheckpointSaved(MetricsTagList tags);

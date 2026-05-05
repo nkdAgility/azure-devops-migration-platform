@@ -8,8 +8,8 @@ namespace DevOpsMigrationPlatform.CLI.Migration.Settings;
 
 /// <summary>
 /// Base settings for any command that contacts the control plane.
-/// Applies to: export, import, validate, migrate, prepare, manage *, tui.
-/// Does NOT apply to discovery or configure commands.
+/// Applies to: queue, prepare, manage *, and tui.
+/// Does NOT apply to config commands.
 ///
 /// Control plane URL is resolved from the <c>MigrationPlatform:Environment:ControlPlane:BaseUrl</c>
 /// configuration section via <see cref="Options.EnvironmentOptions"/>. The <c>--port</c> flag

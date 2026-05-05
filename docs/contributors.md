@@ -172,7 +172,7 @@ tests/
 ├─ DevOpsMigrationPlatform.CLI.Migration.Tests/
 │  ├─ Commands/
 │  │  ├─ Discovery/
-│  │  │  └─ InventoryCommandTests.cs    # Contains system tests
+│  │  │  └─ QueueCommandTests.cs        # Contains system tests
 │  │  └─ ...
 │  └─ TestUtilities/
 └─ ...

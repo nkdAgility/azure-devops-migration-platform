@@ -39,15 +39,15 @@ internal sealed class SimulatedInventoryServiceFactory : IInventoryServiceFactor
         IReadOnlyList<ScopedOrganisationEndpoint> organisations,
         JobPolicies policies)
     {
-        var options = BuildDiscoveryOptions(organisations, policies);
+        var options = BuildMigrationPlatformOptions(organisations, policies);
         return new InventoryService(
-            new OptionsWrapper<DiscoveryOptions>(options),
+            new OptionsWrapper<MigrationPlatformOptions>(options),
             _workItemDiscovery,
             _projectDiscovery,
             _repoDiscovery);
     }
 
-    private static DiscoveryOptions BuildDiscoveryOptions(
+    private static MigrationPlatformOptions BuildMigrationPlatformOptions(
         IReadOnlyList<ScopedOrganisationEndpoint> organisations,
         JobPolicies policies)
     {
@@ -68,10 +68,8 @@ internal sealed class SimulatedInventoryServiceFactory : IInventoryServiceFactor
                 new SimulatedOrganisationEntry { Type = "Simulated", Enabled = true }
             };
 
-        return new DiscoveryOptions
+        return new MigrationPlatformOptions
         {
-            // WorkingDirectory is required by DiscoveryOptions.Validate() but is not used
-            // by InventoryService at runtime — the agent writes output via IArtefactStore.
             Package = new MigrationPackageOptions { WorkingDirectory = "(managed-by-agent)" },
             Policies = new MigrationPoliciesOptions
             {

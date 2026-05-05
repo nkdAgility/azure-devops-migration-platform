@@ -116,6 +116,31 @@ public static class WellKnownMetricNames
     public const string IdentitiesValidateCount = "migration.identities.validate.count";
     public const string IdentitiesValidateErrors = "migration.identities.validate.errors";
 
+    // --- Prepare (WorkItems/Identities/Nodes/Teams) ---
+    public const string WorkItemsPrepareResolved = "migration.workitems.prepare.resolved";
+    public const string WorkItemsPrepareUnresolved = "migration.workitems.prepare.unresolved";
+    public const string WorkItemsPrepareErrors = "migration.workitems.prepare.errors";
+    public const string WorkItemsPrepareDurationMs = "migration.workitems.prepare.duration_ms";
+    public const string WorkItemsPrepareInFlight = "migration.workitems.prepare.in_flight";
+
+    public const string IdentitiesPrepareResolved = "migration.identities.prepare.resolved";
+    public const string IdentitiesPrepareUnresolved = "migration.identities.prepare.unresolved";
+    public const string IdentitiesPrepareErrors = "migration.identities.prepare.errors";
+    public const string IdentitiesPrepareDurationMs = "migration.identities.prepare.duration_ms";
+    public const string IdentitiesPrepareInFlight = "migration.identities.prepare.in_flight";
+
+    public const string NodesPrepareResolved = "migration.nodes.prepare.resolved";
+    public const string NodesPrepareUnresolved = "migration.nodes.prepare.unresolved";
+    public const string NodesPrepareErrors = "migration.nodes.prepare.errors";
+    public const string NodesPrepareDurationMs = "migration.nodes.prepare.duration_ms";
+    public const string NodesPrepareInFlight = "migration.nodes.prepare.in_flight";
+
+    public const string TeamsPrepareResolved = "migration.teams.prepare.resolved";
+    public const string TeamsPrepareUnresolved = "migration.teams.prepare.unresolved";
+    public const string TeamsPrepareErrors = "migration.teams.prepare.errors";
+    public const string TeamsPrepareDurationMs = "migration.teams.prepare.duration_ms";
+    public const string TeamsPrepareInFlight = "migration.teams.prepare.in_flight";
+
     // --- Package Config (migration-config.json) ---
     public const string ConfigWriteCount = "migration.config.write.count";
     public const string ConfigWriteErrors = "migration.config.write.errors";

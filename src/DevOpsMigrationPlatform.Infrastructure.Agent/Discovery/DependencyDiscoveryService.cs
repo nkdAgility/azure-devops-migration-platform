@@ -10,6 +10,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Agent.Discovery;
 using DevOpsMigrationPlatform.Abstractions.Options;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Agent.Discovery;
@@ -20,13 +21,13 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Discovery;
 /// </summary>
 public sealed class DependencyDiscoveryService : IDependencyDiscoveryService
 {
-    private readonly IOptions<DiscoveryOptions> _options;
+    private readonly IOptions<MigrationPlatformOptions> _options;
     private readonly IServiceProvider _serviceProvider;
     private readonly ILogger<DependencyDiscoveryService> _logger;
     private readonly ICatalogService _catalogService;
 
     public DependencyDiscoveryService(
-        IOptions<DiscoveryOptions> options,
+        IOptions<MigrationPlatformOptions> options,
         IServiceProvider serviceProvider,
         ICatalogService catalogService,
         ILogger<DependencyDiscoveryService> logger)
@@ -97,9 +98,21 @@ public sealed class DependencyDiscoveryService : IDependencyDiscoveryService
                 _logger.LogInformation("Projects list is empty, fetching all projects from {Url}", orgEndpoint.ResolvedUrl);
                 try
                 {
-                    projectsToAnalyse = (await _catalogService.GetProjectsAsync(
-                        orgEndpoint,
-                        cancellationToken)).ToList();
+                    // Use a keyed IProjectDiscoveryService if one is registered for this source type
+                    // (e.g. Simulated) to avoid calling the live ADO catalog service for non-ADO orgs.
+                    var keyedProjectDiscovery = _serviceProvider.GetKeyedService<IProjectDiscoveryService>(key);
+                    if (keyedProjectDiscovery is not null)
+                    {
+                        projectsToAnalyse = await keyedProjectDiscovery.DiscoverProjectsAsync(orgEndpoint, cancellationToken)
+                            .ConfigureAwait(false);
+                    }
+                    else
+                    {
+                        projectsToAnalyse = (await _catalogService.GetProjectsAsync(
+                            orgEndpoint,
+                            cancellationToken)).ToList();
+                    }
+
                     _logger.LogInformation("Found {ProjectCount} projects in {Url}", projectsToAnalyse.Count, orgEndpoint.ResolvedUrl);
                 }
                 catch (Exception ex)

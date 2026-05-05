@@ -25,6 +25,12 @@ public record MigrationCounters
     /// <summary>Identity export/import counters. Null when no identities module ran.</summary>
     public IdentitiesCounters? Identities { get; init; }
 
+    /// <summary>Inventory phase counters (module-level aggregate).</summary>
+    public ModulePhaseCounters? Inventory { get; init; }
+
+    /// <summary>Prepare phase counters (module-level aggregate).</summary>
+    public ModulePhaseCounters? Prepare { get; init; }
+
     /// <summary>
     /// OTel-derived diagnostic means and correctness counters.
     /// Populated only at aggregate scope (<see cref="JobMetrics"/>); null at per-project scope.

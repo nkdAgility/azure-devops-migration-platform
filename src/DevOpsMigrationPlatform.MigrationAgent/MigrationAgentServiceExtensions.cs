@@ -6,6 +6,7 @@ using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Infrastructure;
 using DevOpsMigrationPlatform.Infrastructure.AzureDevOps;
 using DevOpsMigrationPlatform.Infrastructure.Agent;
+using DevOpsMigrationPlatform.Infrastructure.Agent.Analysis;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Connectors;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Discovery;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Modules;
@@ -107,14 +108,14 @@ public static class MigrationAgentServiceExtensions
         // collects all connector types when it is first resolved.
         builder.Services.AddMigrationPlatformPolymorphicSerializers();
 
-        // Register discovery modules (Inventory, Dependencies) as IModule implementations.
-        // They run as part of the Export plan when needed, not via a separate DiscoveryAgentWorker.
+        // Register discovery services and analysers.
         // ICatalogService must be registered before AddAzureDevOpsDependencyAnalysis.
         builder.Services.AddSingleton<ICatalogService, CatalogService>();
         builder.Services.AddAzureDevOpsInventory(builder.Configuration);
         builder.Services.AddAzureDevOpsDependencyAnalysis(builder.Configuration);
-        builder.Services.AddInventoryModule();
-        builder.Services.AddDependenciesModule();
+        builder.Services.AddInventoryOrchestratorServices();
+        builder.Services.AddInventoryAnalyserServices();
+        builder.Services.AddDependencyAnalyserServices();
 
         // Unified worker — polls /agents/lease and dispatches to migration or discovery execution.
         builder.Services.AddHostedService<JobAgentWorker>();

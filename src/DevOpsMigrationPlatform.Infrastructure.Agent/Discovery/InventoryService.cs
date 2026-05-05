@@ -23,13 +23,13 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Discovery;
 /// </summary>
 public sealed class InventoryService : IInventoryService
 {
-    private readonly IOptions<DiscoveryOptions> _options;
+    private readonly IOptions<MigrationPlatformOptions> _options;
     private readonly IWorkItemDiscoveryService _workItemDiscovery;
     private readonly IProjectDiscoveryService _projectDiscovery;
     private readonly IRepoDiscoveryService _repoDiscovery;
 
     public InventoryService(
-        IOptions<DiscoveryOptions> options,
+        IOptions<MigrationPlatformOptions> options,
         IWorkItemDiscoveryService workItemDiscovery,
         IProjectDiscoveryService projectDiscovery,
         IRepoDiscoveryService repoDiscovery)
@@ -45,7 +45,6 @@ public sealed class InventoryService : IInventoryService
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         var opts = _options.Value;
-        opts.Validate();
 
         foreach (var entry in opts.Organisations.Where(e => e.Enabled))
         {
@@ -196,10 +195,10 @@ public sealed class InventoryService : IInventoryService
 
 #if !NET481
     /// <summary>
-    /// Builds a <see cref="WorkItemFetchScope"/> from org-level <see cref="MigrationOptionsScope"/> entries.
+    /// Builds a <see cref="WorkItemFetchScope"/> from org-level <see cref="MigrationPlatformOptionsScope"/> entries.
     /// Returns <see langword="null"/> when no relevant scopes are present (wiql or filter).
     /// </summary>
-    private static WorkItemFetchScope? BuildOrgFetchScope(List<MigrationOptionsScope> scopes)
+    private static WorkItemFetchScope? BuildOrgFetchScope(List<MigrationPlatformOptionsScope> scopes)
     {
         if (scopes is not { Count: > 0 })
             return null;

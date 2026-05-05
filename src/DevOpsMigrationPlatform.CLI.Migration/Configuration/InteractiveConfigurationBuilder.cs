@@ -8,28 +8,28 @@ using Spectre.Console;
 namespace DevOpsMigrationPlatform.CLI.Migration.Configuration;
 
 /// <summary>
-/// Drives the interactive terminal wizard that builds a <see cref="MigrationOptions"/> from
+/// Drives the interactive terminal wizard that builds a <see cref="MigrationPlatformOptions"/> from
 /// user input. Contains no I/O or file concerns — accepts <see cref="IAnsiConsole"/> for
 /// all output so the logic is testable independently of the CLI layer.
 /// </summary>
 internal sealed class InteractiveConfigurationBuilder : IInteractiveConfigurationBuilder
 {
-    public async Task<MigrationOptions> BuildAsync(IAnsiConsole console, CancellationToken cancellationToken)
+    public async Task<MigrationPlatformOptions> BuildAsync(IAnsiConsole console, CancellationToken cancellationToken)
     {
-        var options = new MigrationOptions();
+        var options = new MigrationPlatformOptions();
 
         // Step 1: Mode
         console.MarkupLine("[bold blue]Step 1: Migration Mode[/bold blue]");
         options.Mode = console.Prompt(
             new SelectionPrompt<string>()
                 .Title("Select migration mode:")
-                .AddChoices("Export", "Import", "Both"));
+                .AddChoices("Export", "Prepare", "Import", "Migrate"));
         console.WriteLine();
 
-        var isExport = options.Mode is "Export" or "Both";
-        var isImport = options.Mode is "Import" or "Both";
+        var isExport = options.Mode is "Export" or "Migrate";
+        var isImport = options.Mode is "Prepare" or "Import" or "Migrate";
 
-        // Step 2: Source (if Export or Both)
+        // Step 2: Source (if Export or Migrate)
         if (isExport)
         {
             console.MarkupLine("[bold blue]Step 2: Source System Configuration[/bold blue]");
@@ -37,7 +37,7 @@ internal sealed class InteractiveConfigurationBuilder : IInteractiveConfiguratio
             console.WriteLine();
         }
 
-        // Step 3: Target (if Import or Both)
+        // Step 3: Target (if Prepare, Import, or Migrate)
         if (isImport)
         {
             console.MarkupLine($"[bold blue]Step {(isExport ? 3 : 2)}: Target System Configuration[/bold blue]");

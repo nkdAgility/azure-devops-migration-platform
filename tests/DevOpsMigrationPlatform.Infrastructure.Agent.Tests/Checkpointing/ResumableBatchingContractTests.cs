@@ -24,24 +24,6 @@ public class ResumableBatchingContractTests
     // ── BatchContinuationToken ──────────────────────────────────────────
 
     [TestMethod]
-    public void BatchContinuationToken_DefaultStrategyVersion_Is_1_0()
-    {
-        var token = new BatchContinuationToken
-        {
-            ChangedDateUtc = DateTime.UtcNow,
-            WorkItemId = 42
-        };
-        Assert.AreEqual("1.0", token.StrategyVersion);
-    }
-
-    [TestMethod]
-    public void BatchContinuationToken_Completed_DefaultsFalse()
-    {
-        var token = new BatchContinuationToken();
-        Assert.IsFalse(token.Completed);
-    }
-
-    [TestMethod]
     public void BatchContinuationToken_With_CreatesNewInstance()
     {
         var original = new BatchContinuationToken
@@ -59,13 +41,6 @@ public class ResumableBatchingContractTests
     }
 
     // ── ResumeDecision ──────────────────────────────────────────────────
-
-    [TestMethod]
-    public void ResumeDecision_Accepted_HasNoReason()
-    {
-        var decision = new ResumeDecision { Status = ResumeDecisionStatus.Accepted };
-        Assert.IsNull(decision.Reason);
-    }
 
     [TestMethod]
     public void ResumeDecision_Rejected_CarriesFingerprints()

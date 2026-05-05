@@ -51,12 +51,12 @@ public class InventoryServiceTests
         }
     };
 
-    private static IOptions<DiscoveryOptions> BuildOptions(
+    private static IOptions<MigrationPlatformOptions> BuildOptions(
         string org = "https://dev.azure.com/testorg",
         string project = "TestProject",
         string pat = "test-pat")
     {
-        var opts = new DiscoveryOptions
+        var opts = new MigrationPlatformOptions
         {
             Organisations = new()
             {
@@ -134,7 +134,7 @@ public class InventoryServiceTests
 
     private static InventoryService BuildService(
         Mock<IWorkItemDiscoveryService> discoveryMock,
-        IOptions<DiscoveryOptions>? options = null,
+        IOptions<MigrationPlatformOptions>? options = null,
         Mock<IProjectDiscoveryService>? projectDiscovery = null,
         Mock<IRepoDiscoveryService>? repoDiscovery = null)
     {
@@ -617,7 +617,7 @@ public class InventoryServiceTests
     public async Task RunInventoryAsync_CompletedProjectKeys_SkipsThoseProjects()
     {
         // Arrange: two projects in the same org
-        var opts = new DiscoveryOptions
+        var opts = new MigrationPlatformOptions
         {
             Organisations = new()
             {
@@ -686,5 +686,100 @@ public class InventoryServiceTests
 
         // Assert: all events yielded
         Assert.AreEqual(2, events.Count, "Fresh run should yield all events");
+    }
+
+    [TestMethod]
+    public async Task RunInventoryAsync_AllConnectorTypes_ReturnAtLeastTwoItems()
+    {
+        var connectorCases = new[]
+        {
+            (ConnectorType: "Simulated", OrgUrl: "https://simulated.local/testorg"),
+            (ConnectorType: "AzureDevOpsServices", OrgUrl: "https://dev.azure.com/testorg"),
+            (ConnectorType: "TeamFoundationServer", OrgUrl: "http://tfs:8080/tfs/DefaultCollection"),
+        };
+
+        foreach (var (connectorType, orgUrl) in connectorCases)
+        {
+            var opts = new MigrationPlatformOptions
+            {
+                Organisations = new()
+                {
+                    new AzureDevOpsOrganisationEntry
+                    {
+                        Type = connectorType,
+                        Url = orgUrl,
+                        Projects = new() { "ProjectA" },
+                        Authentication = new EndpointAuthenticationOptions
+                        {
+                            Type = AuthenticationType.Pat,
+                            AccessToken = "test-pat"
+                        }
+                    }
+                }
+            };
+
+            var discoveryMock = BuildDiscoveryMock(workItemCount: 2, revisionCount: 2);
+            var repoMock = BuildRepoDiscoveryMock(repoCount: 1);
+            var sut = BuildService(discoveryMock, Options.Create(opts), repoDiscovery: repoMock);
+
+            var events = new List<InventoryProgressEvent>();
+            await foreach (var evt in sut.RunInventoryAsync(completedProjectKeys: null))
+                events.Add(evt);
+
+            var final = events.Last(e => e.IsComplete);
+            Assert.IsTrue(final.WorkItemsCount >= 2,
+                $"Expected connector {connectorType} to produce at least 2 inventory items, got {final.WorkItemsCount}.");
+        }
+    }
+
+    [TestMethod]
+    public async Task RunInventoryAsync_StreamsProgressWithoutMaterialisingAllResults()
+    {
+        var firstItemConsumed = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var discoveryMock = new Mock<IWorkItemDiscoveryService>(MockBehavior.Strict);
+        discoveryMock.Setup(s => s.DiscoverWorkItemsAsync(
+                It.IsAny<OrganisationEndpoint>(), It.IsAny<string>(),
+                It.IsAny<WorkItemFetchScope?>(), It.IsAny<CancellationToken>()))
+            .Returns<OrganisationEndpoint, string, WorkItemFetchScope?, CancellationToken>(
+                (endpoint, proj, scope, ct) => StreamingSummaries(proj, firstItemConsumed.Task, ct));
+
+        var sut = BuildService(discoveryMock);
+        await using var enumerator = sut.RunInventoryAsync().GetAsyncEnumerator();
+
+        Assert.IsTrue(await enumerator.MoveNextAsync(), "Expected first streamed event.");
+        var secondMove = enumerator.MoveNextAsync().AsTask();
+        await Task.Delay(100);
+        Assert.IsFalse(secondMove.IsCompleted,
+            "Second event completed before gate release, which indicates non-streaming behaviour.");
+
+        firstItemConsumed.SetResult(true);
+        Assert.IsTrue(await secondMove, "Expected second streamed event after releasing gate.");
+    }
+
+    private static async IAsyncEnumerable<ProjectDiscoverySummary> StreamingSummaries(
+        string project,
+        Task releaseSecondItem,
+        [EnumeratorCancellation] CancellationToken ct = default)
+    {
+        yield return new ProjectDiscoverySummary
+        {
+            ProjectName = project,
+            WorkItemsCount = 1,
+            RevisionsCount = 1,
+            IsWorkItemComplete = false,
+            LastUpdatedUtc = DateTime.UtcNow
+        };
+
+        await releaseSecondItem.ConfigureAwait(false);
+        ct.ThrowIfCancellationRequested();
+
+        yield return new ProjectDiscoverySummary
+        {
+            ProjectName = project,
+            WorkItemsCount = 2,
+            RevisionsCount = 2,
+            IsWorkItemComplete = true,
+            LastUpdatedUtc = DateTime.UtcNow
+        };
     }
 }

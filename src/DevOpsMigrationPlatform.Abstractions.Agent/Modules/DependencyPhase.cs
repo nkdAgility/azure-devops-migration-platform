@@ -9,6 +9,11 @@ namespace DevOpsMigrationPlatform.Abstractions.Agent.Modules;
 public enum DependencyPhase
 {
     /// <summary>
+    /// Dependency applies only during the Inventory phase.
+    /// </summary>
+    Inventory = 0,
+
+    /// <summary>
     /// Dependency applies only during the Export phase.
     /// The dependent module's export task will wait for the dependency's export task to complete.
     /// </summary>
@@ -24,5 +29,15 @@ public enum DependencyPhase
     /// Dependency applies during both Export and Import phases.
     /// Both export and import tasks will wait for the corresponding dependency tasks to complete.
     /// </summary>
-    Both = 3
+    Both = 3,
+
+    /// <summary>
+    /// Dependency applies only during the Prepare phase.
+    /// </summary>
+    Prepare = 4,
+
+    /// <summary>
+    /// Dependency applies only during the Analyse phase.
+    /// </summary>
+    Analyse = 5
 }

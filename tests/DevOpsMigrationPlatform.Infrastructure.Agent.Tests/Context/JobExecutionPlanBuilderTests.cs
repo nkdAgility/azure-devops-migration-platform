@@ -44,7 +44,7 @@ public sealed class JobExecutionPlanBuilderTests
             .Returns(phaseService.Object);
         var moduleList = modules?.ToList()
             ?? StandardModuleNames.Select(n => MockModule(n)).ToList();
-        return new JobExecutionPlanBuilder(moduleList, phaseFactory.Object, NullLogger<JobExecutionPlanBuilder>.Instance);
+        return new JobExecutionPlanBuilder(moduleList, [], phaseFactory.Object, NullLogger<JobExecutionPlanBuilder>.Instance);
     }
 
     private static IConfiguration AllEnabledConfig()

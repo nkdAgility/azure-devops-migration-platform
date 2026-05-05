@@ -4,6 +4,7 @@
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Agent.Discovery;
 using DevOpsMigrationPlatform.Abstractions.Agent.Modules;
+using DevOpsMigrationPlatform.Infrastructure.Agent.Analysis;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Discovery;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Identity;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Modules;
@@ -33,8 +34,9 @@ public static class ModuleServiceCollectionExtensions
         IConfiguration configuration)
     {
         services.AddWorkItemsModule();
-        services.AddInventoryModule();
-        services.AddDependenciesModule();
+        services.AddInventoryOrchestratorServices();
+        services.AddInventoryAnalyserServices();
+        services.AddDependencyAnalyserServices();
         services.AddNodesModule(configuration);
         services.AddIdentitiesModule(configuration);
 #if !NET481
@@ -59,28 +61,11 @@ public static class ModuleServiceCollectionExtensions
     }
 
     /// <summary>
-    /// Registers <see cref="InventoryModule"/> and <see cref="InventoryDiscoveryModule"/>
-    /// as <see cref="IModule"/> implementations. <c>InventoryModule</c> handles single-source
-    /// inventory during Export/Migrate (pulled by WorkItems dependency). <c>InventoryDiscoveryModule</c>
-    /// handles standalone multi-org inventory discovery jobs.
+    /// Registers inventory orchestration services used by module-level inventory operations.
     /// </summary>
-    public static IServiceCollection AddInventoryModule(this IServiceCollection services)
+    public static IServiceCollection AddInventoryOrchestratorServices(this IServiceCollection services)
     {
         services.AddSingleton<IInventoryOrchestrator, InventoryOrchestrator>();
-        services.AddTransient<IModule, InventoryModule>();
-        services.AddTransient<IModule, InventoryDiscoveryModule>();
-        return services;
-    }
-
-    /// <summary>
-    /// Registers <see cref="DependencyDiscoveryModule"/> as an <see cref="IModule"/>
-    /// implementation for dependency analysis operations. Runs during the Export phase
-    /// to analyze work item links across projects.
-    /// </summary>
-    public static IServiceCollection AddDependenciesModule(this IServiceCollection services)
-    {
-        services.AddSingleton<IDependencyOrchestrator, DependencyOrchestrator>();
-        services.AddTransient<IModule, DependencyDiscoveryModule>();
         return services;
     }
 

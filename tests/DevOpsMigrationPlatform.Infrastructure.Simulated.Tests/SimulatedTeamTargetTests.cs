@@ -30,21 +30,25 @@ public class SimulatedTeamTargetTests
     }
 
     [TestMethod]
-    // TODO: [test-validity] Score 13/25 — Tests trivial dictionary assignment in a test-double.
-    // Rewrite to assert a richer invariant: e.g. assert that setting team settings twice overwrites
-    // rather than accumulates, or that settings are keyed by teamId so two teams don't clash.
+    // Verifies that settings for two different teams are stored independently (no key collision).
     public async Task SetTeamSettingsAsync_StoresSettings()
     {
         // Arrange
         var target = new SimulatedTeamTarget();
-        var settings = new TeamSettings("Sprint 1", false, new[] { "Monday", "Wednesday" });
+        var options = new SimulatedEndpointOptions();
+        var settings1 = new TeamSettings("Sprint 1", false, new[] { "Monday" });
+        var settings2 = new TeamSettings("Sprint 2", true, new[] { "Tuesday", "Thursday" });
 
         // Act
-        await target.SetTeamSettingsAsync(new SimulatedEndpointOptions(), "Project", "team-1", settings, CancellationToken.None);
+        await target.SetTeamSettingsAsync(options, "Project", "team-1", settings1, CancellationToken.None);
+        await target.SetTeamSettingsAsync(options, "Project", "team-2", settings2, CancellationToken.None);
 
-        // Assert
-        Assert.IsTrue(target.TeamSettings.ContainsKey("team-1"));
-        Assert.AreEqual("Sprint 1", target.TeamSettings["team-1"].BacklogNavigationLevel);
+        // Assert — each team retains its own settings without overwriting the other
+        Assert.AreEqual("Sprint 1", target.TeamSettings["team-1"].BacklogNavigationLevel,
+            "team-1 settings should be unchanged after team-2 is written");
+        Assert.AreEqual("Sprint 2", target.TeamSettings["team-2"].BacklogNavigationLevel,
+            "team-2 settings should be stored under its own key");
+        Assert.AreEqual(2, target.TeamSettings.Count, "Both teams should have separate entries");
     }
 
     [TestMethod]
@@ -101,22 +105,29 @@ public class SimulatedTeamTargetTests
     }
 
     [TestMethod]
-    // TODO: [test-validity] Score 13/25 — Tests trivial dictionary assignment in a test-double.
-    // Rewrite to assert a richer invariant: e.g. assert that area paths are keyed by teamId so two
-    // teams don't overwrite each other, or that IncludedAreaPaths list length is preserved correctly.
+    // Verifies that area paths for two different teams are stored independently (no key collision).
     public async Task SetAreaPathsAsync_StoresAreaPaths()
     {
         // Arrange
         var target = new SimulatedTeamTarget();
-        var areaPaths = new TeamAreaPaths("ProjectA", new[] { "ProjectA", "ProjectA\\Sub" });
+        var options = new SimulatedEndpointOptions();
+        var paths1 = new TeamAreaPaths("ProjectA", new[] { "ProjectA", "ProjectA\\Sub" });
+        var paths2 = new TeamAreaPaths("ProjectB", new[] { "ProjectB" });
 
         // Act
-        await target.SetAreaPathsAsync(new SimulatedEndpointOptions(), "ProjectA", "team-1", areaPaths, CancellationToken.None);
+        await target.SetAreaPathsAsync(options, "ProjectA", "team-1", paths1, CancellationToken.None);
+        await target.SetAreaPathsAsync(options, "ProjectB", "team-2", paths2, CancellationToken.None);
 
-        // Assert
-        Assert.IsTrue(target.AreaPaths.ContainsKey("team-1"));
-        Assert.AreEqual("ProjectA", target.AreaPaths["team-1"].DefaultAreaPath);
-        Assert.AreEqual(2, target.AreaPaths["team-1"].IncludedAreaPaths.Count);
+        // Assert — each team retains its own area paths without overwriting the other
+        Assert.AreEqual("ProjectA", target.AreaPaths["team-1"].DefaultAreaPath,
+            "team-1 default area path should be unchanged after team-2 is written");
+        Assert.AreEqual(2, target.AreaPaths["team-1"].IncludedAreaPaths.Count,
+            "team-1 should retain both included area paths");
+        Assert.AreEqual("ProjectB", target.AreaPaths["team-2"].DefaultAreaPath,
+            "team-2 default area path should be stored under its own key");
+        Assert.AreEqual(1, target.AreaPaths["team-2"].IncludedAreaPaths.Count,
+            "team-2 should have exactly one included area path");
+        Assert.AreEqual(2, target.AreaPaths.Count, "Both teams should have separate entries");
     }
 
     [TestMethod]

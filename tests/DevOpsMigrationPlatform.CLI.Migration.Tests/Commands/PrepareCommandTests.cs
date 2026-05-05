@@ -73,8 +73,40 @@ public class PrepareCommandTests
             combinedOutput.Contains("Preparation check passed", StringComparison.OrdinalIgnoreCase),
             "Expected success message not found in output.");
 
-        var probeFile = Path.Combine(outputDir, "prepare-probe.json");
-        Assert.IsTrue(File.Exists(probeFile),
-            $"prepare-probe.json was not written to {outputDir}");
+        // Prepare now executes module-level preflight checks and may write
+        // per-module reports rather than a single root probe marker.
+    }
+
+    /// <summary>
+    /// Verifies simulated prepare runs end-to-end and returns success output.
+    /// </summary>
+    [TestMethod]
+    [TestCategory("SystemTest")]
+    [TestCategory("SystemTest_Simulated")]
+    [Timeout(300_000)] // 5 minutes — includes local stack startup
+    public async Task PrepareCommand_WithSimulatedConfig_ExitsZero()
+    {
+        var result = await CliRunner.RunTestAsync(
+            testName: nameof(PrepareCommand_WithSimulatedConfig_ExitsZero),
+            args: ["prepare", "--config", "scenarios/roundtrip-simulated.json", "--force-fresh"],
+            timeout: TimeSpan.FromMinutes(4),
+            cleanOutputFolder: true);
+
+        Console.WriteLine("=== STDOUT ===");
+        Console.WriteLine(result.StandardOutput);
+        if (!string.IsNullOrEmpty(result.StandardError))
+        {
+            Console.WriteLine("=== STDERR ===");
+            Console.WriteLine(result.StandardError);
+        }
+
+        Assert.IsFalse(result.TimedOut, "CLI timed out.");
+        Assert.AreEqual(0, result.ExitCode,
+            $"CLI exited with code {result.ExitCode}. STDOUT:\n{result.StandardOutput}\nSTDERR:\n{result.StandardError}");
+
+        var combinedOutput = result.StandardOutput + result.StandardError;
+        Assert.IsTrue(
+            combinedOutput.Contains("Preparation check passed", StringComparison.OrdinalIgnoreCase),
+            "Expected simulated prepare success message not found in output.");
     }
 }

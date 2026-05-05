@@ -8,10 +8,14 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions.Agent.Checkpointing;
+using DevOpsMigrationPlatform.Abstractions.Agent.Analysis;
 using DevOpsMigrationPlatform.Abstractions.Agent.Context;
 using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
 using DevOpsMigrationPlatform.Abstractions.ControlPlaneApi;
 using DevOpsMigrationPlatform.Abstractions.Jobs;
+using DevOpsMigrationPlatform.Abstractions.Options;
+using DevOpsMigrationPlatform.Abstractions.Organisations;
+using DevOpsMigrationPlatform.Abstractions.Streaming;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 
@@ -37,16 +41,21 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
 
     private readonly IEnumerable<IModule> _modules;
     private readonly Dictionary<string, IModule> _modulesByName;
+    private readonly IEnumerable<IAnalyser> _analysers;
+    private readonly Dictionary<string, IAnalyser> _analysersByName;
     private readonly IPhaseTrackingServiceFactory _phaseTrackingFactory;
     private readonly ILogger<JobExecutionPlanBuilder> _logger;
 
     public JobExecutionPlanBuilder(
         IEnumerable<IModule> modules,
+        IEnumerable<IAnalyser> analysers,
         IPhaseTrackingServiceFactory phaseTrackingFactory,
         ILogger<JobExecutionPlanBuilder> logger)
     {
         _modules = modules;
         _modulesByName = modules.ToDictionary(m => m.Name, StringComparer.OrdinalIgnoreCase);
+        _analysers = analysers;
+        _analysersByName = analysers.ToDictionary(a => a.Name, StringComparer.OrdinalIgnoreCase);
         _phaseTrackingFactory = phaseTrackingFactory;
         _logger = logger;
 
@@ -55,6 +64,10 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
             "JobExecutionPlanBuilder initialized with {Count} modules: {Modules}",
             _modules.Count(),
             string.Join(", ", _modules.Select(m => $"{m.Name}(Export:{m.SupportsExport},Import:{m.SupportsImport})")));
+        _logger.LogInformation(
+            "JobExecutionPlanBuilder initialized with {Count} analysers: {Analysers}",
+            _analysers.Count(),
+            string.Join(", ", _analysers.Select(a => a.Name)));
     }
 
     public async Task<JobTaskList> BuildPlanAsync(
@@ -67,8 +80,18 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
         var tasks = new List<JobTask>();
         int order = 0;
 
+        if (kind is JobKind.Inventory or JobKind.Dependencies)
+        {
+            return BuildDiscoveryPlan(packageConfig, kind);
+        }
+
+        if (kind == JobKind.Prepare)
+        {
+            return BuildPreparePlan(packageConfig);
+        }
+
         var includeExport = kind is JobKind.Export or JobKind.Migrate
-                            or JobKind.Inventory or JobKind.Dependencies;
+                            ;
         var includeImport = kind is JobKind.Import or JobKind.Migrate;
 
         // Read phase record once (only relevant for Migrate kind).
@@ -131,7 +154,7 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
         // Determine which modules are needed based on job kind.
         // For Inventory/Dependencies, only the specific module (+ transitive deps) is needed.
         // For Export/Migrate, modules listed in config (+ transitive deps) are needed.
-        var needed = ResolveNeededExportModules(config, kind, exportModules);
+        var needed = ResolveNeededExportModules(config, exportModules);
 
         // Pre-compute the set of export task IDs so we can resolve inter-module DependsOn.
         var exportTaskIds = new HashSet<string>(
@@ -248,6 +271,158 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
 
     // ── Helpers ───────────────────────────────────────────────────────────────
 
+    internal AnalyseContext ResolveAnalyseContextForAnalyser(
+        IAnalyser analyser,
+        Job job,
+        IConfiguration packageConfig,
+        IArtefactStore artefactStore,
+        IStateStore stateStore,
+        IProgressSink? progressSink)
+    {
+        if (analyser is IEndpointPairAnalyser)
+        {
+            return new EndpointPairAnalyseContext
+            {
+                Job = job,
+                ArtefactStore = artefactStore,
+                StateStore = stateStore,
+                ProgressSink = progressSink,
+                SourceEndpoint = BuildSourceEndpointInfo(packageConfig),
+                TargetEndpoint = BuildTargetEndpointInfo(packageConfig)
+            };
+        }
+
+        if (analyser is IOrganisationsAnalyser)
+        {
+            return new OrganisationsAnalyseContext
+            {
+                Job = job,
+                ArtefactStore = artefactStore,
+                StateStore = stateStore,
+                ProgressSink = progressSink,
+                Organisations = BuildOrganisationEndpoints(packageConfig)
+            };
+        }
+
+        return new AnalyseContext
+        {
+            Job = job,
+            ArtefactStore = artefactStore,
+            StateStore = stateStore,
+            ProgressSink = progressSink
+        };
+    }
+
+    private JobTaskList BuildDiscoveryPlan(IConfiguration config, JobKind kind)
+    {
+        var tasks = new List<JobTask>();
+        var order = 0;
+
+        if (kind == JobKind.Inventory)
+        {
+            var inventoryTasks = _modules
+                .Where(m => m.SupportsInventory && IsEnabled(config, m.Name))
+                .OrderBy(m => m.Name, StringComparer.OrdinalIgnoreCase)
+                .Select(m => MakeTask(
+                    $"inventory.{m.Name.ToLowerInvariant()}",
+                    $"{m.Name} Inventory",
+                    "inventory",
+                    enabled: true,
+                    phaseAlreadyDone: false,
+                    order: order++))
+                .ToList();
+
+            tasks.AddRange(inventoryTasks);
+
+            if (_analysersByName.TryGetValue("Inventory", out var inventoryAnalyser))
+            {
+                tasks.Add(MakeTask(
+                    "analyse.inventory",
+                    $"{inventoryAnalyser.Name} Analyse",
+                    "analyse",
+                    enabled: true,
+                    phaseAlreadyDone: false,
+                    order: order++,
+                    dependsOn: inventoryTasks.Select(t => t.Id).ToList().AsReadOnly()));
+            }
+        }
+        else if (kind == JobKind.Dependencies)
+        {
+            if (_analysersByName.TryGetValue("Dependencies", out var dependencyAnalyser))
+            {
+                tasks.Add(MakeTask(
+                    "analyse.dependencies",
+                    $"{dependencyAnalyser.Name} Analyse",
+                    "analyse",
+                    enabled: true,
+                    phaseAlreadyDone: false,
+                    order: order++));
+            }
+        }
+
+        return new JobTaskList
+        {
+            Tasks = tasks.AsReadOnly(),
+            PushedAt = DateTimeOffset.UtcNow
+        };
+    }
+
+    private JobTaskList BuildPreparePlan(IConfiguration config)
+    {
+        var tasks = new List<JobTask>();
+        var order = 0;
+        var queuedAnalysers = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        var prepareModules = _modules
+            .Where(m => m.SupportsPrepare && IsEnabled(config, m.Name))
+            .OrderBy(m => m.Name, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        foreach (var module in prepareModules)
+        {
+            foreach (var dependency in module.DependsOn.Where(d => d.AppliesToAnalyse))
+            {
+                if (!_analysersByName.TryGetValue(dependency.ModuleName, out var analyser))
+                    continue;
+
+                if (queuedAnalysers.Add(analyser.Name))
+                {
+                    tasks.Add(MakeTask(
+                        $"analyse.{analyser.Name.ToLowerInvariant()}",
+                        $"{analyser.Name} Analyse",
+                        "analyse",
+                        enabled: true,
+                        phaseAlreadyDone: false,
+                        order: order++));
+                }
+            }
+        }
+
+        foreach (var module in prepareModules)
+        {
+            var dependsOn = module.DependsOn
+                .Where(d => d.AppliesToAnalyse)
+                .Select(d => $"analyse.{d.ModuleName.ToLowerInvariant()}")
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            tasks.Add(MakeTask(
+                $"prepare.{module.Name.ToLowerInvariant()}",
+                $"{module.Name} Prepare",
+                "prepare",
+                enabled: true,
+                phaseAlreadyDone: false,
+                order: order++,
+                dependsOn: dependsOn.Count > 0 ? dependsOn.AsReadOnly() : null));
+        }
+
+        return new JobTaskList
+        {
+            Tasks = tasks.AsReadOnly(),
+            PushedAt = DateTimeOffset.UtcNow
+        };
+    }
+
     private static JobTask MakeTask(
         string id,
         string name,
@@ -286,42 +461,28 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
     }
 
     /// <summary>
-    /// Determines which export modules are needed for the given job kind.
-    /// <list type="bullet">
-    ///   <item><b>Inventory</b>: only InventoryDiscovery (+ transitive deps).</item>
-    ///   <item><b>Dependencies</b>: only DependencyDiscovery (+ transitive deps).</item>
-    ///   <item><b>Export / Migrate</b>: modules explicitly listed in config (+ transitive deps).</item>
-    /// </list>
-    /// Transitive deps are walked via export-phase <see cref="ModuleDependency"/> entries.
+    /// Determines which export modules are needed for Export/Migrate job kinds.
+    /// All registered export modules are included by default (matching the <see cref="IsEnabled"/>
+    /// semantics: enabled unless explicitly set to <c>false</c>). Transitive export-phase
+    /// <see cref="ModuleDependency"/> entries are then walked to pull in any additional
+    /// required modules that were themselves transitively depended upon.
     /// </summary>
     private HashSet<string> ResolveNeededExportModules(
         IConfiguration config,
-        JobKind kind,
         List<IModule> exportModules)
     {
-        // Seed the set based on job kind.
+        // Seed: every registered export module that is not explicitly disabled.
+        // IsEnabled defaults to true when no config section exists, preserving
+        // the "modules on by default" contract.
         var seeds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-
-        switch (kind)
+        foreach (var module in exportModules)
         {
-            case JobKind.Inventory:
-                seeds.Add("InventoryDiscovery");
-                break;
-
-            case JobKind.Dependencies:
-                seeds.Add("Dependencies");
-                break;
-
-            default: // Export, Migrate
-                foreach (var module in exportModules)
-                {
-                    if (IsExplicitlyEnabled(config, module.Name))
-                        seeds.Add(module.Name);
-                }
-                break;
+            if (IsEnabled(config, module.Name))
+                seeds.Add(module.Name);
         }
 
-        // Walk export-phase dependencies transitively.
+        // Walk export-phase dependencies transitively to pull in any module that
+        // an enabled module requires, even if it has no config section itself.
         var needed = new HashSet<string>(seeds, StringComparer.OrdinalIgnoreCase);
         var queue = new Queue<string>(seeds);
         while (queue.Count > 0)
@@ -337,28 +498,10 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
         }
 
         _logger.LogDebug(
-            "Export modules needed for {Kind} (seeds + transitive): {Modules}",
-            kind, string.Join(", ", needed));
+            "Export modules needed (seeds + transitive): {Modules}",
+            string.Join(", ", needed));
 
         return needed;
-    }
-
-    /// <summary>
-    /// Returns true if the module has a config section AND is not explicitly disabled.
-    /// A module with no config section at all is NOT considered explicitly enabled —
-    /// it can only appear in the plan if transitively required by another module's DependsOn.
-    /// This prevents discovery modules (Dependencies, Inventory) from appearing unless
-    /// pulled in by a dependency or explicitly listed in the config.
-    /// </summary>
-    private static bool IsExplicitlyEnabled(IConfiguration config, string moduleName)
-    {
-        var section = config.GetSection($"MigrationPlatform:Modules:{moduleName}");
-        if (!section.Exists())
-            return false; // not listed in config — not explicitly enabled
-        var raw = section["Enabled"];
-        if (raw is null)
-            return true; // section exists but no Enabled key — default on
-        return string.Equals(raw, "true", StringComparison.OrdinalIgnoreCase);
     }
 
 
@@ -386,6 +529,91 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
         }
 
         return null;
+    }
+
+    private static IReadOnlyList<ScopedOrganisationEndpoint> BuildOrganisationEndpoints(IConfiguration packageConfig)
+    {
+        var organisations = new List<ScopedOrganisationEndpoint>();
+        var configured = packageConfig.GetSection("MigrationPlatform:Organisations").GetChildren();
+        foreach (var child in configured)
+        {
+            var url = child["Url"] ?? child["Collection"];
+            if (string.IsNullOrWhiteSpace(url))
+                continue;
+
+            var orgEndpoint = new OrganisationEndpoint
+            {
+                Type = child["Type"] ?? "Unknown",
+                ResolvedUrl = url!
+            };
+            organisations.Add(new ScopedOrganisationEndpoint
+            {
+                Endpoint = new ConfigOrganisationEndpointOptions(orgEndpoint),
+                Projects = new List<string>()
+            });
+        }
+
+        if (organisations.Count == 0)
+        {
+            var sourceUrl = packageConfig["MigrationPlatform:Source:Url"];
+            if (!string.IsNullOrWhiteSpace(sourceUrl))
+            {
+                var orgEndpoint = new OrganisationEndpoint
+                {
+                    Type = packageConfig["MigrationPlatform:Source:Type"] ?? "Unknown",
+                    ResolvedUrl = sourceUrl!
+                };
+                organisations.Add(new ScopedOrganisationEndpoint
+                {
+                    Endpoint = new ConfigOrganisationEndpointOptions(orgEndpoint),
+                    Projects = new List<string>()
+                });
+            }
+        }
+
+        return organisations;
+    }
+
+    private sealed class ConfigOrganisationEndpointOptions : MigrationEndpointOptions
+    {
+        private readonly OrganisationEndpoint _endpoint;
+
+        public ConfigOrganisationEndpointOptions(OrganisationEndpoint endpoint)
+        {
+            _endpoint = endpoint;
+            Type = endpoint.Type;
+        }
+
+        public override OrganisationEndpoint ToOrganisationEndpoint() => _endpoint;
+        public override string GetResolvedUrl() => _endpoint.ResolvedUrl;
+    }
+
+    private static ISourceEndpointInfo BuildSourceEndpointInfo(IConfiguration packageConfig)
+        => new ConfigSourceEndpointInfo(
+            packageConfig["MigrationPlatform:Source:Url"] ?? string.Empty,
+            packageConfig["MigrationPlatform:Source:Project"] ?? string.Empty,
+            packageConfig["MigrationPlatform:Source:Type"] ?? string.Empty);
+
+    private static ITargetEndpointInfo BuildTargetEndpointInfo(IConfiguration packageConfig)
+        => new ConfigTargetEndpointInfo(
+            packageConfig["MigrationPlatform:Target:Url"] ?? string.Empty,
+            packageConfig["MigrationPlatform:Target:Project"] ?? string.Empty,
+            packageConfig["MigrationPlatform:Target:Type"] ?? string.Empty);
+
+    private sealed class ConfigSourceEndpointInfo(string url, string project, string connectorType) : ISourceEndpointInfo
+    {
+        public string Url { get; } = url;
+        public string Project { get; } = project;
+        public string ConnectorType { get; } = connectorType;
+        public OrganisationEndpoint ToOrganisationEndpoint() => new() { ResolvedUrl = Url, Type = ConnectorType };
+    }
+
+    private sealed class ConfigTargetEndpointInfo(string url, string project, string connectorType) : ITargetEndpointInfo
+    {
+        public string Url { get; } = url;
+        public string Project { get; } = project;
+        public string ConnectorType { get; } = connectorType;
+        public OrganisationEndpoint ToOrganisationEndpoint() => new() { ResolvedUrl = Url, Type = ConnectorType };
     }
 
     /// <summary>

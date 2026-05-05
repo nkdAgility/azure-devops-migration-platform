@@ -32,17 +32,17 @@ namespace DevOpsMigrationPlatform.Infrastructure;
 public static class MigrationPlatformServiceExtensions
 {
     /// <summary>
-    /// Registers <see cref="IOptions{MigrationOptions}"/> bound to the
+    /// Registers <see cref="IOptions{MigrationPlatformOptions}"/> bound to the
     /// <c>MigrationPlatform</c> section of <paramref name="configuration"/>.
-    /// Also registers the <see cref="MigrationOptionsValidator"/>.
+    /// Also registers the <see cref="MigrationPlatformOptionsValidator"/>.
     /// </summary>
     public static IServiceCollection AddMigrationPlatformOptions(
         this IServiceCollection services,
         IConfiguration configuration)
     {
-        services.AddSingleton<IValidateOptions<MigrationOptions>, MigrationOptionsValidator>();
+        services.AddSingleton<IValidateOptions<MigrationPlatformOptions>, MigrationPlatformOptionsValidator>();
 
-        services.AddOptions<MigrationOptions>()
+        services.AddOptions<MigrationPlatformOptions>()
             .Bind(configuration.GetSection("MigrationPlatform"))
             .ValidateOnStart();
 
@@ -57,7 +57,7 @@ public static class MigrationPlatformServiceExtensions
 #if !NET481
     /// <summary>
     /// Registers the polymorphic JSON serializers (registry + converters) without binding
-    /// <see cref="MigrationOptions"/>. Call this when the full
+    /// <see cref="MigrationPlatformOptions"/>. Call this when the full
     /// <see cref="AddMigrationPlatformOptions"/> is not available (e.g. the shared CLI host builder).
     /// Connector assemblies must register their own types with
     /// <see cref="AddEndpointOptionsType"/> before the registry singleton is first resolved.
@@ -84,26 +84,6 @@ public static class MigrationPlatformServiceExtensions
         return services;
     }
 
-    /// <summary>
-    /// Registers a <see cref="IPostConfigureOptions{DiscoveryOptions}"/> that polymorphically
-    /// binds the <c>Organisations</c> array from <c>MigrationPlatform:Organisations</c>.
-    /// Call after <c>AddOptions&lt;DiscoveryOptions&gt;().Bind(...)</c> — the post-configure
-    /// replaces the empty list left by <see cref="Microsoft.Extensions.Configuration.ConfigurationBinder.Bind"/>
-    /// (which cannot instantiate abstract <see cref="OrganisationEntry"/>).
-    /// Idempotent — multiple calls register only one binder.
-    /// Also ensures the polymorphic serializers (including <see cref="EndpointOptionsTypeRegistry"/>)
-    /// are registered.
-    /// </summary>
-    public static IServiceCollection AddDiscoveryOptionsOrganisationsBinder(
-        this IServiceCollection services)
-    {
-        services.AddMigrationPlatformPolymorphicSerializers();
-        services.TryAddSingleton<IPostConfigureOptions<DiscoveryOptions>>(sp =>
-            new DiscoveryOptionsOrganisationsBinder(
-                sp.GetRequiredService<IConfiguration>(),
-                sp.GetRequiredService<EndpointOptionsTypeRegistry>()));
-        return services;
-    }
 #endif
 
     /// <summary>

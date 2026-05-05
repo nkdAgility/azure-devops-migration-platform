@@ -5,6 +5,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Channels;
 using System.Threading.Tasks;
@@ -18,7 +19,6 @@ using DevOpsMigrationPlatform.CLI.Views;
 using DevOpsMigrationPlatform.Infrastructure.Config;
 using DevOpsMigrationPlatform.Abstractions.ControlPlaneApi;
 using DevOpsMigrationPlatform.Abstractions.Validation;
-using DevOpsMigrationPlatform.Abstractions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -50,8 +50,6 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
     {
         await CreateHost(Environment.GetCommandLineArgs(), (services, config) =>
         {
-            services.AddSingleton<IConfigurationService, ConfigurationService>();
-
             services.AddHttpClient<ControlPlaneClient>((sp, client) =>
             {
                 var opts = sp.GetRequiredService<IOptions<EnvironmentOptions>>().Value;
@@ -62,19 +60,20 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
 
             services.AddSingleton<IProgressSink, AnsiProgressSink>();
 
-            // T033: Register IConfigSchemaValidator with schema path
             services.AddSingleton<IOptions<JsonSchemaConfigValidatorOptions>>(sp =>
                 MsOptions.Create(new JsonSchemaConfigValidatorOptions
                 {
                     SchemaPath = Path.Combine(AppContext.BaseDirectory, "migration.schema.json")
                 }));
             services.AddSingleton<IConfigSchemaValidator, JsonSchemaConfigValidator>();
-
         });
 
-        // T034: Validate config against schema before loading
         var configPath = GetConfigurationPath(settings);
-        if (configPath != null)
+        var rawJson = configPath != null
+            ? await File.ReadAllTextAsync(Path.GetFullPath(configPath), cancellationToken)
+            : null;
+
+        if (rawJson is not null)
         {
             var schemaValidator = GetRequiredService<IConfigSchemaValidator>();
             var logger = GetRequiredService<ILogger<QueueCommand>>();
@@ -82,7 +81,6 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
 
             try
             {
-                var rawJson = await File.ReadAllTextAsync(Path.GetFullPath(configPath), cancellationToken);
                 var validationErrors = schemaValidator.Validate(rawJson);
 
                 if (validationErrors.Count > 0)
@@ -97,12 +95,11 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
                             configPath);
                         console.MarkupLine($"  [red]•[/] {error.JsonPath}: {error.Constraint}");
                     }
-                    return 1; // Non-zero exit
+                    return 1;
                 }
             }
             catch (FileNotFoundException ex) when (ex.Message.Contains("migration.schema.json"))
             {
-                // Schema file absent - log warning and proceed
                 var expectedSchemaPath = Path.Combine(AppContext.BaseDirectory, "migration.schema.json");
                 logger.LogWarning(
                     "Schema file not found at {ExpectedSchemaPath}. Validation skipped.",
@@ -111,67 +108,73 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
             }
         }
 
-        var config = await LoadConfigurationAsync(settings, cancellationToken);
-        if (config is null)
-            return 1;
-
-        // Route to the appropriate handler based on config mode.
-        return config.Mode switch
+        if (rawJson is null)
         {
-            "Export" => await ExecuteExportAsync(config, settings, cancellationToken),
-            "Prepare" => await ExecutePrepareAsync(config, settings, cancellationToken),
-            "Import" => await ExecuteImportAsync(config, settings, cancellationToken),
-            "Migrate" => await ExecuteMigrateAsync(config, settings, cancellationToken),
-            _ => ExecuteInvalidMode(config.Mode)
+            ShowError(GetRequiredService<IAnsiConsole>(), "No configuration file specified.");
+            return 1;
+        }
+
+        var mode = ExtractMode(rawJson);
+        return mode switch
+        {
+            "Export" => await ExecuteExportAsync(rawJson, settings, cancellationToken),
+            "Prepare" => await ExecutePrepareAsync(rawJson, settings, cancellationToken),
+            "Import" => await ExecuteImportAsync(rawJson, settings, cancellationToken),
+            "Migrate" => await ExecuteMigrateAsync(rawJson, settings, cancellationToken),
+            "Inventory" => await ExecuteDiscoveryJobAsync(JobKind.Inventory, rawJson, settings, cancellationToken),
+            "Dependencies" => await ExecuteDiscoveryJobAsync(JobKind.Dependencies, rawJson, settings, cancellationToken),
+            _ => ExecuteInvalidMode(mode ?? "(none)")
         };
     }
 
-    private async Task<int> ExecuteImportAsync(MigrationOptions config, QueueCommandSettings settings, CancellationToken cancellationToken)
+
+    private async Task<int> ExecuteImportAsync(string rawJson, QueueCommandSettings settings, CancellationToken cancellationToken)
     {
         var console = GetRequiredService<IAnsiConsole>();
+        using var doc = JsonDocument.Parse(rawJson);
+        var mp = doc.RootElement.GetProperty("MigrationPlatform");
 
-        var orgUrl = config.Target?.GetResolvedUrl();
-        var project = config.Target?.GetProject();
-        var packagePath = config.Package?.ExpandedPath;
+        var targetType = GetJsonString(mp, "Target", "Type") ?? string.Empty;
+        var isSimulated = string.Equals(targetType, "Simulated", StringComparison.Ordinal);
+        var orgUrl = GetJsonString(mp, "Target", "Url") ?? (isSimulated ? "https://simulated.example.com" : null);
+        var project = GetJsonString(mp, "Target", "Project") ?? (isSimulated ? "SimulatedProject" : null);
+        var packagePath = GetJsonString(mp, "Package", "WorkingDirectory") ?? string.Empty;
+        var createPackage = GetJsonBool(mp, false, "Package", "CreatePackage");
 
         if (string.IsNullOrWhiteSpace(orgUrl))
         {
-            ShowError(console, "Target.Url is required for import. Set it in the config file.");
+            ShowError(console, "Target.Url is required for import.");
             return 1;
         }
 
         if (string.IsNullOrWhiteSpace(project))
         {
-            ShowError(console, "Target.Project is required for import. Set it in the config file.");
+            ShowError(console, "Target.Project is required for import.");
             return 1;
         }
 
         if (string.IsNullOrWhiteSpace(packagePath))
         {
-            ShowError(console, "Package.WorkingDirectory is required for import. Set it in the config file.");
+            ShowError(console, "Package.WorkingDirectory is required for import.");
             return 1;
         }
 
-        var outputPath = Path.Combine(
-            Path.GetFullPath(packagePath),
-            PackagePathResolver.ExtractOrgFolderName(orgUrl),
-            project);
-        console.MarkupLine($"[blue]ℹ[/] Importing into [bold]{Markup.Escape(orgUrl)}[/] / [bold]{Markup.Escape(project)}[/]");
+        var outputPath = Path.Combine(Path.GetFullPath(ExpandPath(packagePath)), PackagePathResolver.ExtractOrgFolderName(orgUrl), project);
+        console.MarkupLine(isSimulated
+            ? "[blue]ℹ[/] Importing into [bold]Simulated[/] target"
+            : $"[blue]ℹ[/] Importing into [bold]{Markup.Escape(orgUrl)}[/] / [bold]{Markup.Escape(project)}[/]");
         console.MarkupLine($"[blue]ℹ[/] Package path   : [blue]{Markup.Escape(outputPath)}[/]");
-
-        var modules = BuildModules(config);
-        var configPayload = await File.ReadAllTextAsync(Path.GetFullPath(GetConfigurationPath(settings) ?? settings.ConfigFile!), cancellationToken);
 
         var job = new Job
         {
             JobId = Guid.NewGuid().ToString(),
             Kind = JobKind.Import,
-            ConfigPayload = configPayload,
-            Connectors = GetConnectors(config),
+            ConfigPayload = rawJson,
+            Connectors = GetConnectors(mp),
             Package = new JobPackage
             {
                 PackageUri = $"file:///{outputPath.Replace(Path.DirectorySeparatorChar, '/')}",
-                CreatePackage = config.Package!.CreatePackage
+                CreatePackage = createPackage
             },
             Diagnostics = new JobDiagnostics { MinimumLevel = settings.Level },
             Resume = settings.ForceFresh ? new JobResume { Mode = ResumeMode.ForceFresh } : null
@@ -248,9 +251,13 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
             ShowSuccess(console, $"Import complete — {importedCount} work items imported.");
         }
         else
+        {
             ShowSuccess(console, "Work item import complete.");
+        }
+
         return 0;
     }
+
 
     private int ExecuteImportStub()
     {
@@ -258,46 +265,47 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
         return 1;
     }
 
-    private async Task<int> ExecuteMigrateAsync(MigrationOptions config, QueueCommandSettings settings, CancellationToken cancellationToken)
+    private async Task<int> ExecuteMigrateAsync(string rawJson, QueueCommandSettings settings, CancellationToken cancellationToken)
     {
-        var exportResult = await ExecuteExportAsync(config, settings, cancellationToken);
+        var exportResult = await ExecuteExportAsync(rawJson, settings, cancellationToken);
         if (exportResult != 0)
             return exportResult;
 
-        var prepareResult = await ExecutePrepareAsync(config, settings, cancellationToken);
+        var prepareResult = await ExecutePrepareAsync(rawJson, settings, cancellationToken);
         if (prepareResult != 0)
             return prepareResult;
 
-        return await ExecuteImportAsync(config, settings, cancellationToken);
+        return await ExecuteImportAsync(rawJson, settings, cancellationToken);
     }
 
-    private async Task<int> ExecutePrepareAsync(MigrationOptions config, QueueCommandSettings settings, CancellationToken cancellationToken)
+
+    private async Task<int> ExecutePrepareAsync(string rawJson, QueueCommandSettings settings, CancellationToken cancellationToken)
     {
         var console = GetRequiredService<IAnsiConsole>();
+        using var doc = JsonDocument.Parse(rawJson);
+        var mp = doc.RootElement.GetProperty("MigrationPlatform");
 
-        var packagePath = config.Package?.ExpandedPath;
+        var packagePath = GetJsonString(mp, "Package", "WorkingDirectory") ?? string.Empty;
         if (string.IsNullOrWhiteSpace(packagePath))
         {
-            ShowError(console, "Package.WorkingDirectory is required for prepare. Set it in the config file.");
+            ShowError(console, "Package.WorkingDirectory is required for prepare.");
             return 1;
         }
 
-        var outputPath = Path.GetFullPath(packagePath);
+        var createPackage = GetJsonBool(mp, false, "Package", "CreatePackage");
+        var outputPath = Path.GetFullPath(ExpandPath(packagePath));
         console.MarkupLine($"[blue]ℹ[/] Preparing package at [blue]{Markup.Escape(outputPath)}[/]");
-
-        var modules = BuildModules(config);
-        var configPayload = await File.ReadAllTextAsync(Path.GetFullPath(GetConfigurationPath(settings) ?? settings.ConfigFile!), cancellationToken);
 
         var job = new Job
         {
             JobId = Guid.NewGuid().ToString(),
             Kind = JobKind.Prepare,
-            ConfigPayload = configPayload,
-            Connectors = GetConnectors(config),
+            ConfigPayload = rawJson,
+            Connectors = GetConnectors(mp),
             Package = new JobPackage
             {
                 PackageUri = $"file:///{outputPath.Replace(Path.DirectorySeparatorChar, '/')}",
-                CreatePackage = config.Package!.CreatePackage
+                CreatePackage = createPackage
             },
             Diagnostics = new JobDiagnostics { MinimumLevel = settings.Level },
             Resume = settings.ForceFresh ? new JobResume { Mode = ResumeMode.ForceFresh } : null
@@ -372,9 +380,54 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
         return 0;
     }
 
-    private static ConnectorType[] GetConnectors(MigrationOptions config)
+
+    private static string? ExtractMode(string rawJson)
     {
-        var connectors = new System.Collections.Generic.HashSet<ConnectorType>();
+        try
+        {
+            using var doc = JsonDocument.Parse(rawJson);
+            if (doc.RootElement.TryGetProperty("MigrationPlatform", out var mp) &&
+                mp.TryGetProperty("Mode", out var mode))
+                return mode.GetString();
+        }
+        catch
+        {
+        }
+
+        return null;
+    }
+
+    private static string? GetJsonString(JsonElement root, params string[] path)
+    {
+        var el = root;
+        foreach (var key in path)
+        {
+            if (!el.TryGetProperty(key, out el))
+                return null;
+        }
+
+        return el.ValueKind == JsonValueKind.String ? el.GetString() : null;
+    }
+
+    private static bool GetJsonBool(JsonElement root, bool defaultValue, params string[] path)
+    {
+        var el = root;
+        foreach (var key in path)
+        {
+            if (!el.TryGetProperty(key, out el))
+                return defaultValue;
+        }
+
+        return el.ValueKind == JsonValueKind.True;
+    }
+
+    private static string ExpandPath(string path) =>
+        Environment.ExpandEnvironmentVariables(path);
+
+    private static ConnectorType[] GetConnectors(JsonElement mp)
+    {
+        var connectors = new HashSet<ConnectorType>();
+
         void AddForType(string? type)
         {
             if (string.Equals(type, "TeamFoundationServer", StringComparison.OrdinalIgnoreCase))
@@ -382,59 +435,83 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
             else if (string.Equals(type, "AzureDevOpsServices", StringComparison.OrdinalIgnoreCase))
                 connectors.Add(ConnectorType.AzureDevOps);
         }
-        AddForType(config.Source?.Type);
-        AddForType(config.Target?.Type);
+
+        AddForType(GetJsonString(mp, "Source", "Type"));
+        AddForType(GetJsonString(mp, "Target", "Type"));
         return connectors.Count > 0 ? connectors.ToArray() : Array.Empty<ConnectorType>();
     }
 
+    private static ConnectorType[] GetDiscoveryConnectors(JsonElement mp)
+    {
+        var connectors = new HashSet<ConnectorType>();
+        if (!mp.TryGetProperty("Organisations", out var orgs) || orgs.ValueKind != JsonValueKind.Array)
+            return Array.Empty<ConnectorType>();
+
+        foreach (var org in orgs.EnumerateArray())
+        {
+            if (org.TryGetProperty("Enabled", out var enabled) && enabled.ValueKind == JsonValueKind.False)
+                continue;
+
+            var type = GetJsonString(org, "Type");
+            if (string.Equals(type, "TeamFoundationServer", StringComparison.OrdinalIgnoreCase))
+                connectors.Add(ConnectorType.TeamFoundationServer);
+            else if (string.Equals(type, "AzureDevOpsServices", StringComparison.OrdinalIgnoreCase))
+                connectors.Add(ConnectorType.AzureDevOps);
+        }
+
+        return connectors.Count > 0 ? connectors.ToArray() : Array.Empty<ConnectorType>();
+    }
+
+
     private int ExecuteInvalidMode(string mode)
     {
-        AnsiConsole.MarkupLine($"[red]Invalid mode '{Markup.Escape(mode)}'. Must be Export, Prepare, Import, or Migrate.[/]");
+        AnsiConsole.MarkupLine($"[red]Invalid mode '{Markup.Escape(mode)}'. Must be Export, Prepare, Import, Migrate, Inventory, or Dependencies.[/]");
         return 1;
     }
 
-    private async Task<int> ExecuteExportAsync(MigrationOptions config, QueueCommandSettings settings, CancellationToken cancellationToken)
-    {
-        // Simulated source: no WIQL, no discovery, no credentials — build a minimal job.
-        if (string.Equals(config.Source?.Type, "Simulated", StringComparison.Ordinal))
-            return await ExecuteSimulatedExportAsync(config, settings, cancellationToken);
 
-        // All other source types (AzureDevOpsServices, TeamFoundationServer) submit
-        // to the control plane. The appropriate agent (MigrationAgent or TfsMigrationAgent)
-        // picks up the job via capability routing.
-        return await ExecuteAdoExportAsync(config, settings, cancellationToken);
+    private async Task<int> ExecuteExportAsync(string rawJson, QueueCommandSettings settings, CancellationToken cancellationToken)
+    {
+        using var doc = JsonDocument.Parse(rawJson);
+        var mp = doc.RootElement.GetProperty("MigrationPlatform");
+        var sourceType = GetJsonString(mp, "Source", "Type") ?? string.Empty;
+
+        if (string.Equals(sourceType, "Simulated", StringComparison.Ordinal))
+            return await ExecuteSimulatedExportAsync(rawJson, settings, cancellationToken);
+
+        return await ExecuteAdoExportAsync(rawJson, settings, cancellationToken);
     }
 
-    private async Task<int> ExecuteSimulatedExportAsync(MigrationOptions config, QueueCommandSettings settings, CancellationToken cancellationToken)
+
+    private async Task<int> ExecuteSimulatedExportAsync(string rawJson, QueueCommandSettings settings, CancellationToken cancellationToken)
     {
         var console = GetRequiredService<IAnsiConsole>();
+        using var doc = JsonDocument.Parse(rawJson);
+        var mp = doc.RootElement.GetProperty("MigrationPlatform");
 
-        var orgUrl = config.Source?.GetResolvedUrl() ?? "https://simulated.example.com";
-        var project = config.Source?.GetProject() ?? "SimulatedProject";
+        var orgUrl = GetJsonString(mp, "Source", "Url") ?? "https://simulated.example.com";
+        var project = GetJsonString(mp, "Source", "Project") ?? "SimulatedProject";
+        var packagePath = GetJsonString(mp, "Package", "WorkingDirectory") ?? string.Empty;
+        var createPackage = GetJsonBool(mp, false, "Package", "CreatePackage");
 
         var outputPath = Path.Combine(
-            Path.GetFullPath(config.Package.ExpandedPath),
+            Path.GetFullPath(ExpandPath(packagePath)),
             PackagePathResolver.ExtractOrgFolderName(orgUrl),
             project);
 
-        console.MarkupLine($"[blue]ℹ[/] Exporting from [bold]Simulated[/] source");
+        console.MarkupLine("[blue]ℹ[/] Exporting from [bold]Simulated[/] source");
         console.MarkupLine($"[blue]ℹ[/] Package path  : [blue]{Markup.Escape(outputPath)}[/]");
-
-        var modules = BuildModules(config);
-
-        // Config payload is transported in the Job so the agent can write it to the package.
-        var configPayload = await File.ReadAllTextAsync(Path.GetFullPath(GetConfigurationPath(settings) ?? settings.ConfigFile!), cancellationToken);
 
         var job = new Job
         {
             JobId = Guid.NewGuid().ToString(),
             Kind = JobKind.Export,
-            ConfigPayload = configPayload,
-            Connectors = GetConnectors(config),
+            ConfigPayload = rawJson,
+            Connectors = Array.Empty<ConnectorType>(),
             Package = new JobPackage
             {
                 PackageUri = $"file:///{outputPath.Replace(Path.DirectorySeparatorChar, '/')}",
-                CreatePackage = config.Package.CreatePackage
+                CreatePackage = createPackage
             },
             Diagnostics = new JobDiagnostics { MinimumLevel = settings.Level },
             Resume = settings.ForceFresh ? new JobResume { Mode = ResumeMode.ForceFresh } : null
@@ -512,16 +589,24 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
             ShowSuccess(console, $"Export complete — {wiCount} work items / {revCount} revisions written to package.");
         }
         else
+        {
             ShowSuccess(console, "Simulated export complete.");
+        }
+
         return 0;
     }
 
-    private async Task<int> ExecuteAdoExportAsync(MigrationOptions config, QueueCommandSettings settings, CancellationToken cancellationToken)
+
+    private async Task<int> ExecuteAdoExportAsync(string rawJson, QueueCommandSettings settings, CancellationToken cancellationToken)
     {
         var console = GetRequiredService<IAnsiConsole>();
+        using var doc = JsonDocument.Parse(rawJson);
+        var mp = doc.RootElement.GetProperty("MigrationPlatform");
 
-        var orgUrl = config.Source?.GetResolvedUrl();
-        var project = config.Source?.GetProject();
+        var orgUrl = GetJsonString(mp, "Source", "Url");
+        var project = GetJsonString(mp, "Source", "Project");
+        var packagePath = GetJsonString(mp, "Package", "WorkingDirectory") ?? string.Empty;
+        var createPackage = GetJsonBool(mp, false, "Package", "CreatePackage");
 
         if (string.IsNullOrWhiteSpace(orgUrl))
         {
@@ -536,57 +621,34 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
         }
 
         var outputPath = Path.Combine(
-            Path.GetFullPath(config.Package.ExpandedPath),
+            Path.GetFullPath(ExpandPath(packagePath)),
             PackagePathResolver.ExtractOrgFolderName(orgUrl),
             project);
 
         console.MarkupLine($"[blue]ℹ[/] Exporting from [bold]{Markup.Escape(orgUrl)}[/] / [bold]{Markup.Escape(project)}[/]");
         console.MarkupLine($"[blue]ℹ[/] Package path  : [blue]{Markup.Escape(outputPath)}[/]");
 
-        var modules = BuildModules(config);
-
-        // Pre-flight: count work items so we can show a deterministic progress bar.
-        var pat = (config.Source as AzureDevOpsEndpointOptions)?.Authentication?.ResolvedAccessToken ?? string.Empty;
-        var baseQuery = config.Modules.WorkItems.Enabled
-            ? config.Modules.WorkItems.Scope.Query
-            : null;
-
-        // Validate WIQL query for safety and correctness before execution
-        var validationResult = WiqlValidator.Validate(baseQuery);
-        if (!validationResult.IsValid)
-        {
-            ShowError(console, $"Invalid WIQL query: {validationResult.ErrorMessage}");
-            return 1;
-        }
-
-        var totalWorkItems = 0;
-
-        var configPayload = await File.ReadAllTextAsync(Path.GetFullPath(GetConfigurationPath(settings) ?? settings.ConfigFile!), cancellationToken);
-
-        // Build Job — no migration logic here.
         var job = new Job
         {
             JobId = Guid.NewGuid().ToString(),
             Kind = JobKind.Export,
-            ConfigPayload = configPayload,
-            Connectors = GetConnectors(config),
+            ConfigPayload = rawJson,
+            Connectors = GetConnectors(mp),
             Package = new JobPackage
             {
                 PackageUri = $"file:///{outputPath.Replace(Path.DirectorySeparatorChar, '/')}",
-                CreatePackage = config.Package.CreatePackage
+                CreatePackage = createPackage
             },
             Diagnostics = new JobDiagnostics { MinimumLevel = settings.Level },
             Resume = settings.ForceFresh ? new JobResume { Mode = ResumeMode.ForceFresh } : null
         };
 
-        // Determine follow mode: explicit --follow, or implicit in standalone mode.
         var envOpts = GetRequiredService<IOptions<EnvironmentOptions>>().Value;
         var isStandaloneMode = envOpts.Type == EnvironmentType.Standalone;
         var shouldFollow = settings.Follow || isStandaloneMode;
 
         var client = GetRequiredService<ControlPlaneClient>();
 
-        // Non-follow remote mode: submit and exit immediately (FR-025).
         if (!shouldFollow)
         {
             var jobId = await client.SubmitAsync(job, cancellationToken);
@@ -595,26 +657,19 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
             return 0;
         }
 
-        // Follow mode: stream progress + diagnostics concurrently.
         var parsedJobId = Guid.Parse(job.JobId);
         var jobFailed = false;
 
-        // Use a linked CTS that we cancel on Ctrl+C to detach from diagnostics
-        // without cancelling the job.
         using var followCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-
-        // Guard against the handler firing after followCts has been disposed (e.g. a
-        // second Ctrl+C after the first already triggered detach and the using block exited).
         var followCtsDisposed = false;
         ConsoleCancelEventHandler ctrlCHandler = (_, e) =>
         {
-            e.Cancel = true; // Prevent process exit.
+            e.Cancel = true;
             if (!followCtsDisposed)
                 followCts.Cancel();
         };
         Console.CancelKeyPress += ctrlCHandler;
 
-        // Submit the job first.
         try
         {
             parsedJobId = await client.SubmitAsync(job, cancellationToken);
@@ -626,13 +681,8 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
             return 1;
         }
 
-        // Diagnostics records are buffered while the Progress() renderer owns the
-        // console, then flushed afterwards.  Writing directly to the console while
-        // Progress() is active causes rendering artefacts because Spectre's progress
-        // renderer is not thread-safe with concurrent console writers.
         var diagnosticsBuffer = new System.Collections.Concurrent.ConcurrentQueue<string>();
 
-        // Start diagnostics streaming as a background task — enqueue, don't print.
         var diagnosticsTask = Task.Run(async () =>
         {
             try
@@ -652,43 +702,28 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
             }
             catch (OperationCanceledException)
             {
-                // Detach — user cancelled follow.
             }
             catch (Exception)
             {
-                // Best-effort diagnostics streaming — don't propagate.
             }
         }, followCts.Token);
 
-        var progressStartTime = DateTimeOffset.UtcNow;
         var updates = Channel.CreateUnbounded<JobProgressUpdate>();
-        var state = JobProgressState.Initial(totalWorkItems);
+        var state = JobProgressState.Initial(0);
 
-        // Bootstrap trigger: fires when the agent emits Job.Ready on the SSE stream,
-        // which signals that the task list has been pushed and GET /jobs/{id}/bootstrap
-        // will return a non-null Tasks list. Using an event-driven trigger instead of
-        // a 1-second polling loop removes the latency between plan push and display.
         var bootstrapTrigger = new TaskCompletionSource<long>(TaskCreationOptions.RunContinuationsAsynchronously);
         var bootstrapTask = Task.Run(() => FetchBootstrapOnReady(client, parsedJobId, updates.Writer, bootstrapTrigger, followCts.Token));
 
-        // Channel 2: telemetry polling — pushes TelemetryPolled updates every 5 s.
-        // Channel 1: SSE stage stream — pushes StageAdvanced and JobTerminated updates.
-        // Both producers write into the same channel; the consumer applies each update
-        // via Apply() and re-renders, keeping all state in one immutable record.
         var telemetryTask = Task.Run(() => FetchLatestMetrics(client, parsedJobId, updates.Writer, followCts.Token));
         var progressTask = Task.Run(() => FollowJobProgress(client, parsedJobId, updates.Writer, bootstrapTrigger, followCts.Token));
 
         if (Console.IsOutputRedirected)
         {
-            // Non-interactive (redirected stdout — subprocess, CI, test runner): skip the
-            // Live renderer entirely.  Cursor-positioning ANSI sequences throw "The handle
-            // is invalid" on non-console handles; plain event iteration is sufficient.
             try
             {
                 await foreach (var update in updates.Reader.ReadAllAsync(followCts.Token).ConfigureAwait(false))
                 {
                     state = Apply(state, update);
-                    // In non-interactive mode emit task transitions as plain log lines.
                     if (update is TaskListReceived tlr && tlr.Tasks.Tasks.Count > 0)
                     {
                         console.MarkupLine("[grey]Execution plan:[/]");
@@ -727,14 +762,6 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
         }
         else
         {
-            // Interactive path: redirect Console.Out to prevent ILogger output from
-            // interleaving with the Live renderer, then render the progress bar.
-            //
-            // AnsiConsole.Console captured its TextWriter at creation time, so it always
-            // writes to the real terminal regardless of Console.SetOut().  The .NET ILogger
-            // ConsoleLogger calls Console.Out dynamically on each write — so redirecting
-            // Console.Out to a buffer prevents any logger output from interleaving with the
-            // Live renderer.  The buffer is flushed after Live() exits.
             var logBuffer = new StringWriter();
             var originalOut = Console.Out;
             var cancelled = false;
@@ -747,8 +774,6 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
                     .Overflow(VerticalOverflow.Ellipsis)
                     .StartAsync(async ctx =>
                     {
-                        // Spectre.Console Live does NOT render until the callback
-                        // calls Refresh/UpdateTarget. Force the initial render.
                         ctx.Refresh();
 
                         await foreach (var update in updates.Reader.ReadAllAsync(followCts.Token).ConfigureAwait(false))
@@ -769,7 +794,6 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
             }
             catch (InvalidOperationException ex) when (ex.Message.Contains("Job failed"))
             {
-                // Normally handled via JobTerminated message from FollowJobProgress — safety net only.
                 jobFailed = true;
                 ShowError(console, ex.Message);
                 ShowError(console, $"Last progress: {state.Completed} exported / {state.Skipped} skipped / {state.Revisions} revisions");
@@ -777,7 +801,6 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
             catch (OperationCanceledException)
             {
                 cancelled = true;
-                // Ctrl+C pressed — detach.
                 if (isStandaloneMode)
                 {
                     console.MarkupLine("[yellow]Cancelled. Job has been stopped.[/]");
@@ -791,13 +814,9 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
             }
             finally
             {
-                // Deregister Ctrl+C handler and mark CTS as disposed before the using block
-                // exits so a late-firing second Ctrl+C cannot call Cancel() on a disposed CTS.
                 Console.CancelKeyPress -= ctrlCHandler;
                 followCtsDisposed = true;
 
-                // Restore stdout. On cancellation, discard the buffer — flushing thousands
-                // of accumulated Information-level log lines would flood the terminal.
                 Console.SetOut(originalOut);
                 if (!cancelled)
                 {
@@ -809,14 +828,12 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
             }
         }
 
-        // Stop diagnostics stream, telemetry polling, and progress streaming.
         await followCts.CancelAsync();
         try { await diagnosticsTask; } catch (OperationCanceledException) { }
         try { await telemetryTask; } catch (OperationCanceledException) { }
         try { await progressTask; } catch (OperationCanceledException) { }
         try { await bootstrapTask; } catch (OperationCanceledException) { }
 
-        // Flush buffered diagnostics now that the Progress() renderer has released the console.
         while (diagnosticsBuffer.TryDequeue(out var line))
             console.MarkupLine(line);
 
@@ -827,6 +844,110 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
             ShowSuccess(console, $"Export complete — {state.Completed} exported / {state.Skipped} skipped / {state.Revisions} revisions written to package.");
         else
             ShowSuccess(console, "Work item export complete.");
+        return 0;
+    }
+
+
+
+    private async Task<int> ExecuteDiscoveryJobAsync(JobKind kind, string rawJson, QueueCommandSettings settings, CancellationToken cancellationToken)
+    {
+        var console = GetRequiredService<IAnsiConsole>();
+        using var doc = JsonDocument.Parse(rawJson);
+        var mp = doc.RootElement.GetProperty("MigrationPlatform");
+
+        var packagePath = GetJsonString(mp, "Package", "WorkingDirectory") ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(packagePath))
+        {
+            ShowError(console, "Package.WorkingDirectory is required. Set it in the config file.");
+            return 1;
+        }
+
+        var outputPath = Path.GetFullPath(ExpandPath(packagePath));
+        var packageUri = $"file:///{outputPath.Replace(Path.DirectorySeparatorChar, '/')}";
+
+        var orgCount = 0;
+        if (mp.TryGetProperty("Organisations", out var orgsEl) && orgsEl.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var org in orgsEl.EnumerateArray())
+            {
+                if (!org.TryGetProperty("Enabled", out var enabled) || enabled.ValueKind != JsonValueKind.False)
+                    orgCount++;
+            }
+        }
+
+        console.MarkupLine($"[blue]ℹ[/] Submitting {kind} job for [bold]{orgCount}[/] organisation(s).");
+        console.MarkupLine($"[blue]ℹ[/] Output path: [blue]{Markup.Escape(outputPath)}[/]");
+
+        var job = new Job
+        {
+            JobId = Guid.NewGuid().ToString(),
+            ConfigVersion = "2.0",
+            Kind = kind,
+            ConfigPayload = rawJson,
+            Connectors = GetDiscoveryConnectors(mp),
+            Package = new JobPackage { PackageUri = packageUri },
+            Diagnostics = new JobDiagnostics { MinimumLevel = settings.Level },
+            Resume = settings.ForceFresh ? new JobResume { Mode = ResumeMode.ForceFresh } : null
+        };
+
+        var envOpts = GetRequiredService<IOptions<EnvironmentOptions>>().Value;
+        var isStandalone = envOpts.Type == EnvironmentType.Standalone;
+        var client = GetRequiredService<ControlPlaneClient>();
+
+        Guid jobId;
+        try
+        {
+            jobId = await client.SubmitAsync(job, cancellationToken);
+            PrintJobSubmitted(console, jobId, GetControlPlaneUrl());
+        }
+        catch (Exception ex)
+        {
+            ShowError(console, $"Failed to submit job: {ex.Message}");
+            return 1;
+        }
+
+        if (!isStandalone && !settings.Follow)
+        {
+            console.MarkupLine($"[grey]Use [blue]manage status --job {jobId}[/] to check progress.[/]");
+            return 0;
+        }
+
+        using var followCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        var followCtsDisposed = false;
+        ConsoleCancelEventHandler ctrlCHandler = (_, e) =>
+        {
+            e.Cancel = true;
+            if (!followCtsDisposed)
+                followCts.Cancel();
+        };
+        Console.CancelKeyPress += ctrlCHandler;
+        var jobFailed = false;
+        try
+        {
+            await foreach (var evt in client.FollowLogsAsync(jobId, followCts.Token).ConfigureAwait(false))
+                console.MarkupLine($"[grey]{Markup.Escape(evt.Stage ?? string.Empty)}[/] {Markup.Escape(evt.Message ?? string.Empty)}");
+        }
+        catch (InvalidOperationException ex) when (ex.Message.Contains("Job failed"))
+        {
+            jobFailed = true;
+            ShowError(console, ex.Message);
+        }
+        catch (OperationCanceledException)
+        {
+            console.MarkupLine("[yellow]Detached from stream. Job continues running.[/]");
+            return 0;
+        }
+        finally
+        {
+            Console.CancelKeyPress -= ctrlCHandler;
+            followCtsDisposed = true;
+        }
+
+        await followCts.CancelAsync();
+        if (jobFailed)
+            return 1;
+
+        ShowSuccess(console, $"{kind} complete.");
         return 0;
     }
 
@@ -1601,7 +1722,8 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
             teamsRow = new Markup($"[bold]Teams[/]{tmCheck}  [{tmBarColor}]{Markup.Escape(tmBar)}[/]{tmCounts}");
         }
 
-        return new Rows(nodesRow, teamsRow, identitiesRow, wiRow, revRow, timingRow, attachmentRow, checkpointRow);
+        var dependenciesRow = new Markup("[bold]Dependencies[/]  [grey]─[/]");
+        return new Rows(dependenciesRow, nodesRow, teamsRow, identitiesRow, wiRow, revRow, timingRow, attachmentRow, checkpointRow);
     }
 
     private static string ComputeRevisionEta(int revisionsWritten, int estimatedTotalRevisions, double avgRevDurationMs)
@@ -1629,79 +1751,7 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
         name.Length <= maxLen ? name : "…" + name[^(maxLen - 1)..];
 
     /// <summary>
-    /// Converts <see cref="MigrationOptions.Modules"/> into <see cref="JobModule"/> entries.
+    /// Converts <see cref="MigrationPlatformOptions.Modules"/> into <see cref="JobModule"/> entries.
     /// Reads from the typed static module configuration and builds the runtime job contract.
     /// </summary>
-    private static List<JobModule> BuildModules(MigrationOptions config)
-    {
-        var modules = new List<JobModule>();
-        var wi = config.Modules.WorkItems;
-
-        if (wi.Enabled)
-        {
-            var scopes = new List<JobModuleScope>();
-
-            // WIQL query scope
-            scopes.Add(new JobModuleScope
-            {
-                Type = "wiql",
-                Parameters = new Dictionary<string, object?>
-                {
-                    ["query"] = wi.Scope.Query
-                }
-            });
-
-            // Filter scopes
-            foreach (var f in wi.Scope.Filters)
-            {
-                scopes.Add(new JobModuleScope
-                {
-                    Type = "filter",
-                    Parameters = new Dictionary<string, object?>
-                    {
-                        ["mode"] = f.Mode.ToString().ToLowerInvariant(),
-                        ["field"] = f.Field,
-                        ["pattern"] = f.Pattern,
-                    }
-                });
-            }
-
-            var ext = wi.Extensions;
-            var extensions = new List<JobModuleExtension>
-            {
-                new() { Type = "Revisions",      Enabled = ext.Revisions.Enabled },
-                new() { Type = "Links",          Enabled = ext.Links.Enabled },
-                new() { Type = "Attachments",    Enabled = ext.Attachments.Enabled },
-                new() { Type = "Comments",       Enabled = ext.Comments.Enabled,
-                    Parameters = new Dictionary<string, object?>
-                    {
-                        ["includeDeleted"] = ext.Comments.IncludeDeleted
-                    }
-                },
-                new() { Type = "EmbeddedImages", Enabled = ext.EmbeddedImages.Enabled,
-                    Parameters = new Dictionary<string, object?>
-                    {
-                        ["downloadTimeoutSeconds"] = ext.EmbeddedImages.DownloadTimeoutSeconds
-                    }
-                },
-                new() { Type = "WorkItemResolutionStrategy", Enabled = ext.WorkItemResolutionStrategy.Enabled,
-                    Parameters = new Dictionary<string, object?>
-                    {
-                        ["strategy"] = ext.WorkItemResolutionStrategy.Strategy,
-                        ["fieldName"] = ext.WorkItemResolutionStrategy.FieldName,
-                        ["urlPattern"] = ext.WorkItemResolutionStrategy.UrlPattern,
-                    }
-                },
-            };
-
-            modules.Add(new JobModule
-            {
-                Name = "WorkItems",
-                Scopes = scopes,
-                Extensions = extensions,
-            });
-        }
-
-        return modules;
-    }
 }

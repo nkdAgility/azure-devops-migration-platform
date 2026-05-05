@@ -48,6 +48,11 @@ internal sealed class SnapshotMetricExporter : BaseExporter<Metric>
 
         // Identities
         long identitiesExported = 0, identitiesResolved = 0, identitiesUnresolved = 0, identitiesFailed = 0;
+        long inventoryWorkItems = 0, inventoryIdentities = 0, inventoryNodes = 0, inventoryTeams = 0;
+        long prepareWorkItemsResolved = 0, prepareWorkItemsUnresolved = 0;
+        long prepareIdentitiesResolved = 0, prepareIdentitiesUnresolved = 0;
+        long prepareNodesResolved = 0, prepareNodesUnresolved = 0;
+        long prepareTeamsResolved = 0, prepareTeamsUnresolved = 0;
 
         foreach (var metric in batch)
         {
@@ -156,6 +161,42 @@ internal sealed class SnapshotMetricExporter : BaseExporter<Metric>
                 case WellKnownMetricNames.IdentitiesImportErrors:
                     identitiesFailed += ReadCounterSum(metric);
                     break;
+                case WellKnownDiscoveryMetricNames.InventoryWorkItems:
+                    inventoryWorkItems = ReadCounterSum(metric);
+                    break;
+                case WellKnownDiscoveryMetricNames.InventoryIdentities:
+                    inventoryIdentities = ReadCounterSum(metric);
+                    break;
+                case WellKnownDiscoveryMetricNames.InventoryNodes:
+                    inventoryNodes = ReadCounterSum(metric);
+                    break;
+                case WellKnownDiscoveryMetricNames.InventoryTeams:
+                    inventoryTeams = ReadCounterSum(metric);
+                    break;
+                case WellKnownMetricNames.WorkItemsPrepareResolved:
+                    prepareWorkItemsResolved = ReadCounterSum(metric);
+                    break;
+                case WellKnownMetricNames.WorkItemsPrepareUnresolved:
+                    prepareWorkItemsUnresolved = ReadCounterSum(metric);
+                    break;
+                case WellKnownMetricNames.IdentitiesPrepareResolved:
+                    prepareIdentitiesResolved = ReadCounterSum(metric);
+                    break;
+                case WellKnownMetricNames.IdentitiesPrepareUnresolved:
+                    prepareIdentitiesUnresolved = ReadCounterSum(metric);
+                    break;
+                case WellKnownMetricNames.NodesPrepareResolved:
+                    prepareNodesResolved = ReadCounterSum(metric);
+                    break;
+                case WellKnownMetricNames.NodesPrepareUnresolved:
+                    prepareNodesUnresolved = ReadCounterSum(metric);
+                    break;
+                case WellKnownMetricNames.TeamsPrepareResolved:
+                    prepareTeamsResolved = ReadCounterSum(metric);
+                    break;
+                case WellKnownMetricNames.TeamsPrepareUnresolved:
+                    prepareTeamsUnresolved = ReadCounterSum(metric);
+                    break;
             }
         }
 
@@ -204,6 +245,15 @@ internal sealed class SnapshotMetricExporter : BaseExporter<Metric>
                 Teams = teamsCounters,
                 Nodes = nodesCounters,
                 Identities = identitiesCounters,
+                Inventory = new ModulePhaseCounters
+                {
+                    Completed = inventoryWorkItems + inventoryIdentities + inventoryNodes + inventoryTeams
+                },
+                Prepare = new ModulePhaseCounters
+                {
+                    Completed = prepareWorkItemsResolved + prepareIdentitiesResolved + prepareNodesResolved + prepareTeamsResolved,
+                    Unresolved = prepareWorkItemsUnresolved + prepareIdentitiesUnresolved + prepareNodesUnresolved + prepareTeamsUnresolved
+                },
                 Diagnostics = new MigrationDiagnostics
                 {
                     WorkItemDurationMeanMs = durationMeanMs,

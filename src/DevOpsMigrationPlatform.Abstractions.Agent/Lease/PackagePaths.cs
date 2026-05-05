@@ -44,7 +44,7 @@ public static class PackagePaths
         => $"{Checkpoints}/{moduleName.ToLowerInvariant()}.continuation.json";
 
     /// <summary>
-    /// The phase-tracking file for Both-mode jobs:
+    /// The phase-tracking file for Migrate-mode jobs:
     /// <c>.migration/Checkpoints/job.phase.json</c>.
     /// </summary>
     public const string PhaseFile = $"{Checkpoints}/job.phase.json";
@@ -117,7 +117,7 @@ public static class PackagePaths
     /// <summary>
     /// Well-known path for the per-job migration configuration file at the package root.
     /// Written by the CLI before job submission; read by every agent at job start.
-    /// Contains the full serialised <c>MigrationOptions</c> (source, target, credentials,
+    /// Contains the full serialised <c>MigrationPlatformOptions</c> (source, target, credentials,
     /// modules, policies, and all tool options).
     /// </summary>
     public const string MigrationConfigFileName = "migration-config.json";

@@ -8,7 +8,7 @@ description: "Task list template for feature implementation"
 **Input**: Design documents from `/specs/[###-feature-name]/`
 **Prerequisites**: plan.md (required), spec.md (required for user stories), research.md, data-model.md, contracts/
 
-**Tests**: Test tasks for business logic are OPTIONAL — only include them if explicitly requested in the feature specification. Observability tests (O-1 through O-4) are MANDATORY in every user story phase, no exceptions.
+**Tests**: Test tasks for business logic are OPTIONAL — only include them if explicitly requested in the feature specification or if user requests TDD approach. **Observability tests (O-1, O-2, O-4) are MANDATORY in every user story phase — always generate them, no exceptions.**
 
 **Organization**: Tasks are grouped by user story to enable independent implementation and testing of each story.
 
@@ -95,25 +95,25 @@ Examples of foundational tasks (adjust based on your project):
 
 ### Implementation for User Story 1
 
-- [ ] T012 [P] [US1] Create [Entity1] model in src/models/[entity1].py
-- [ ] T013 [P] [US1] Create [Entity2] model in src/models/[entity2].py
-- [ ] T014 [US1] Implement [Service] in src/services/[service].py (depends on T012, T013)
-- [ ] T015 [US1] Implement [endpoint/feature] in src/[location]/[file].py
-- [ ] T016 [US1] Add validation and error handling
+- [ ] T013 [P] [US1] Create [Entity1] model in src/models/[entity1].py
+- [ ] T014 [P] [US1] Create [Entity2] model in src/models/[entity2].py
+- [ ] T015 [US1] Implement [Service] in src/services/[service].py (depends on T013, T014)
+- [ ] T016 [US1] Implement [endpoint/feature] in src/[location]/[file].py
+- [ ] T017 [US1] Add validation and error handling
 
 ### Observability for User Story 1 ⛔ MANDATORY — zero exceptions
 
 > These tasks are not optional. They are not "nice to have". Every item below MUST be implemented and verified before the checkpoint is reached. Reference the Operations Table in `plan.md ## Observability Contract` for the exact span names, metric instruments, log events, and ProgressEvent stages.
 
-- [ ] T017 [US1] **O-1 Traces** — Add `using var activity = ActivitySource.StartActivity("[span-name]")` to every operation in [Service/Module], with tags per `WellKnownTagNames` (jobId, module, connector at minimum)
-- [ ] T018 [US1] **O-2 Metrics** — Call `IMigrationMetrics.RecordAttempt(tags)`, `RecordCompleted(tags)`, `RecordError(tags)`, `RecordDuration(elapsed, tags)`, and `RecordInFlight(+1/-1, tags)` at every operation boundary in [Service/Module]
-- [ ] T019 [US1] **O-3 Logs** — Add `_logger.LogInformation("Starting [Operation] for {Count} items", count)` at operation start; `_logger.LogInformation("Completed [Operation]: {Processed} processed, {Skipped} skipped", ...)` at end; `_logger.LogWarning("Skipping {Id}: {Reason}", ...)` for skip paths; `_logger.LogDebug("Processing {Path}", ...)` per-item
-- [ ] T020 [US1] **O-4 ProgressEvents** — Inject `IProgressSink?` as optional constructor parameter; call `EmitAsync(new ProgressEvent { Module = Name, Stage = "Exporting", ... })` at start; call per-item (or per batch ≤50); call at completion with final counts; populate `Metrics.Migration.{ModuleName}` with `ModuleCounters`
-- [ ] T021 [US1] **O-4 CLI Visible** — Add/verify progress bar row for this module in `QueueCommand.BuildProgressRenderable` in correct execution order; verify row is visible when running a scenario config
-- [ ] T022 [US1] **DI Wiring** — Verify every new class implementing an interface has a `services.AddSingleton<IFoo, Foo>()` (or correct lifetime) in the feature's `Add*Services` extension method; verify that extension method is called from the host startup
-- [ ] T023 [P] [US1] **Test O-1** — Unit test: inject `TestActivityListener`; call [Service/Module] method; assert `StartActivity` was called with span name `"[span-name]"` and required tags
-- [ ] T024 [P] [US1] **Test O-2** — Unit test: inject `Mock<IMigrationMetrics>`; call [Service/Module] method; assert `RecordAttempt`, `RecordCompleted`, and `RecordDuration` called with correct `TagList`
-- [ ] T025 [P] [US1] **Test O-4** — Unit test: inject `Mock<IProgressSink>`; call [Service/Module] operation; assert `EmitAsync` called at start, once per item (or per batch ≤50), and at completion; assert `Metrics.Migration.{ModuleName}` is populated
+- [ ] T018 [US1] **O-1 Traces** — Add `using var activity = ActivitySource.StartActivity("[span-name]")` to every operation in [Service/Module], with tags per `WellKnownTagNames` (jobId, module, connector at minimum)
+- [ ] T019 [US1] **O-2 Metrics** — Call `IMigrationMetrics.RecordAttempt(tags)`, `RecordCompleted(tags)`, `RecordError(tags)`, `RecordDuration(elapsed, tags)`, and `RecordInFlight(+1/-1, tags)` at every operation boundary in [Service/Module]
+- [ ] T020 [US1] **O-3 Logs** — Add `_logger.LogInformation("Starting [Operation] for {Count} items", count)` at operation start; `_logger.LogInformation("Completed [Operation]: {Processed} processed, {Skipped} skipped", ...)` at end; `_logger.LogWarning("Skipping {Id}: {Reason}", ...)` for skip paths; `_logger.LogDebug("Processing {Path}", ...)` per-item
+- [ ] T021 [US1] **O-4 ProgressEvents** — Inject `IProgressSink?` as optional constructor parameter; call `EmitAsync(new ProgressEvent { Module = Name, Stage = "Exporting", ... })` at start; call per-item (or per batch ≤50); call at completion with final counts; populate `Metrics.Migration.{ModuleName}` with `ModuleCounters`
+- [ ] T022 [US1] **O-4 CLI Visible** — Add/verify progress bar row for this module in `QueueCommand.BuildProgressRenderable` in correct execution order; verify row is visible when running a scenario config
+- [ ] T023 [US1] **DI Wiring** — Verify every new class implementing an interface has a `services.AddSingleton<IFoo, Foo>()` (or correct lifetime) in the feature's `Add*Services` extension method; verify that extension method is called from the host startup
+- [ ] T024 [P] [US1] **Test O-1** — Unit test: inject `TestActivityListener`; call [Service/Module] method; assert `StartActivity` was called with span name `"[span-name]"` and required tags
+- [ ] T025 [P] [US1] **Test O-2** — Unit test: inject `Mock<IMigrationMetrics>`; call [Service/Module] method; assert `RecordAttempt`, `RecordCompleted`, and `RecordDuration` called with correct `TagList`
+- [ ] T026 [P] [US1] **Test O-4** — Unit test: inject `Mock<IProgressSink>`; call [Service/Module] operation; assert `EmitAsync` called at start, once per item (or per batch ≤50), and at completion; assert `Metrics.Migration.{ModuleName}` is populated
 
 **Checkpoint**: At this point, User Story 1 is fully functional, fully observable, and has passing tests for all four observability requirements. No placeholder calls, no null sinks, no missing CLI rows.
 
@@ -138,10 +138,10 @@ Examples of foundational tasks (adjust based on your project):
 
 ### Implementation for User Story 2
 
-- [ ] T020 [P] [US2] Create [Entity] model in src/models/[entity].py
-- [ ] T021 [US2] Implement [Service] in src/services/[service].py
-- [ ] T022 [US2] Implement [endpoint/feature] in src/[location]/[file].py
-- [ ] T023 [US2] Integrate with User Story 1 components (if needed)
+- [ ] T021 [P] [US2] Create [Entity] model in src/models/[entity].py
+- [ ] T022 [US2] Implement [Service] in src/services/[service].py
+- [ ] T023 [US2] Implement [endpoint/feature] in src/[location]/[file].py
+- [ ] T024 [US2] Integrate with User Story 1 components (if needed)
 
 ### Observability for User Story 2 ⛔ MANDATORY — zero exceptions
 
@@ -178,9 +178,9 @@ Examples of foundational tasks (adjust based on your project):
 
 ### Implementation for User Story 3
 
-- [ ] T026 [P] [US3] Create [Entity] model in src/models/[entity].py
-- [ ] T027 [US3] Implement [Service] in src/services/[service].py
-- [ ] T028 [US3] Implement [endpoint/feature] in src/[location]/[file].py
+- [ ] T027 [P] [US3] Create [Entity] model in src/models/[entity].py
+- [ ] T028 [US3] Implement [Service] in src/services/[service].py
+- [ ] T029 [US3] Implement [endpoint/feature] in src/[location]/[file].py
 
 ### Observability for User Story 3 ⛔ MANDATORY — zero exceptions
 

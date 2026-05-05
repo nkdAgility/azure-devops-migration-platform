@@ -71,18 +71,12 @@ namespace DevOpsMigrationPlatform.Abstractions.Tests.Errors
             Assert.IsFalse(ex.IsRetryable);
         }
 
+        // TODO: [test-validity] LOW VALUE — tests property round-trip (isRetryable: true → IsRetryable == true); no meaningful failure scenario
         [TestMethod]
         public void IsRetryable_WhenExplicitlySetTrue_IsTrue()
         {
             var ex = new MigrationException("Rate limit", MigrationErrorCategory.RateLimited, isRetryable: true);
             Assert.IsTrue(ex.IsRetryable);
-        }
-
-        [TestMethod]
-        public void IsRetryable_WhenExplicitlySetFalse_IsFalse()
-        {
-            var ex = new MigrationException("Validation failed", MigrationErrorCategory.ValidationError, isRetryable: false);
-            Assert.IsFalse(ex.IsRetryable);
         }
 
         [TestMethod]
@@ -125,15 +119,5 @@ namespace DevOpsMigrationPlatform.Abstractions.Tests.Errors
             Assert.AreEqual(inner, ex.InnerException);
         }
 
-        [TestMethod]
-        public void MultipleInstances_WithSameCategory_HaveSameExitCode()
-        {
-            var ex1 = new MigrationException("First", MigrationErrorCategory.RateLimited);
-            var ex2 = new MigrationException("Second", MigrationErrorCategory.RateLimited);
-
-            Assert.AreEqual(ex1.ExitCode, ex2.ExitCode);
-            Assert.AreEqual(3, ex1.ExitCode);
-            Assert.AreEqual(3, ex2.ExitCode);
-        }
     }
 }

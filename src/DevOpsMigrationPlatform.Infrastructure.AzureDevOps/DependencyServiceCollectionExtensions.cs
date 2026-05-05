@@ -22,7 +22,7 @@ public static class DependencyServiceCollectionExtensions
 {
     /// <summary>
     /// Registers Azure DevOps dependency analysis services.
-    /// Binds DiscoveryOptions from configuration, registers IDependencyDiscoveryService,
+    /// Binds MigrationPlatformOptions from configuration, registers IDependencyDiscoveryService,
     /// and registers keyed singletons for different source types.
     /// </summary>
     public static IServiceCollection AddAzureDevOpsDependencyAnalysis(
@@ -34,9 +34,8 @@ public static class DependencyServiceCollectionExtensions
         if (configuration == null)
             throw new ArgumentNullException(nameof(configuration));
 
-        // Bind DiscoveryOptions from the MigrationPlatform configuration section
-        services.Configure<DiscoveryOptions>(configuration.GetSection("MigrationPlatform"));
-        services.AddDiscoveryOptionsOrganisationsBinder();
+        // Bind MigrationPlatformOptions from the MigrationPlatform configuration section
+        services.Configure<MigrationPlatformOptions>(configuration.GetSection("MigrationPlatform"));
 
         // Register the Azure DevOps client factory (if not already registered)
         if (!services.Any(x => x.ServiceType == typeof(IAzureDevOpsClientFactory)))

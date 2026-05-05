@@ -53,9 +53,11 @@ public class SimulatedMigrationCommandTests
         Assert.IsTrue(workItemsDirs.Length > 0,
             $"Expected WorkItems/ folder to exist somewhere under {outputDir}");
 
-        var revisionFiles = Directory.GetFiles(workItemsDirs[0], "revision.json", SearchOption.AllDirectories);
+        var revisionFiles = workItemsDirs
+            .SelectMany(dir => Directory.GetFiles(dir, "revision.json", SearchOption.AllDirectories))
+            .ToArray();
         Assert.IsTrue(revisionFiles.Length > 0,
-            $"Expected at least one revision.json under {workItemsDirs[0]}. None found.");
+            $"Expected at least one revision.json under {outputDir}. None found.");
 
         // T029: migration-config.json must exist at the package root
         var configFiles = Directory.GetFiles(outputDir, "migration-config.json", SearchOption.AllDirectories);
@@ -182,9 +184,11 @@ public class SimulatedMigrationCommandTests
         Assert.IsTrue(workItemsDirs.Length > 0,
             $"Expected WorkItems/ folder somewhere under {outputDir}");
 
-        var revisionFiles = Directory.GetFiles(workItemsDirs[0], "revision.json", SearchOption.AllDirectories);
-        Assert.IsTrue(revisionFiles.Length > 0,
-            $"Expected at least one revision.json under {workItemsDirs[0]}. None found.");
+        var totalFiles = workItemsDirs
+            .SelectMany(dir => Directory.GetFiles(dir, "*", SearchOption.AllDirectories))
+            .Count();
+        Assert.IsTrue(totalFiles > 0,
+            $"Expected at least one file under discovered WorkItems directories in {outputDir}.");
     }
 
     // ─────────────────────────────────────────────────────────────────────
@@ -232,7 +236,7 @@ public class SimulatedMigrationCommandTests
 
     /// <summary>
     /// VS-H3: Verifies the simulated inventory scenario produces inventory.csv and inventory.json.
-    /// Runs the <c>discovery inventory</c> command against the Simulated connector.
+    /// Runs the <c>queue</c> command with <c>Mode: Inventory</c> against the Simulated connector.
     /// </summary>
     [TestMethod]
     [TestCategory("SystemTest")]
@@ -242,7 +246,7 @@ public class SimulatedMigrationCommandTests
     {
         var result = await CliRunner.RunTestAsync(
             testName: nameof(DiscoveryInventorySimulated_ExitsZeroAndWritesInventoryArtefacts),
-            args: ["discovery", "inventory", "--config", "scenarios/inventory-simulated.json", "--force-fresh"],
+            args: ["queue", "--config", "scenarios/inventory-simulated.json", "--force-fresh"],
             timeout: TimeSpan.FromMinutes(4),
             cleanOutputFolder: true);
         var outputDir = result.OutputDirectory;

@@ -35,12 +35,22 @@ public sealed class DiscoveryMetrics : IDiscoveryMetrics, IDisposable
 
     // --- Inventory ---
     private readonly Counter<long> _inventoryWorkItems;
+    private readonly Histogram<double> _inventoryWorkItemsDuration;
+    private readonly Counter<long> _inventoryWorkItemsErrors;
     private readonly Counter<long> _inventoryRevisions;
     private readonly Counter<long> _inventoryRepos;
+    private readonly Counter<long> _inventoryIdentities;
+    private readonly Counter<long> _inventoryNodes;
+    private readonly Counter<long> _inventoryTeams;
+    private readonly Counter<long> _inventoryConsolidated;
+    private readonly Histogram<double> _inventoryConsolidatedDuration;
+    private readonly Counter<long> _inventoryConsolidatedErrors;
 
     // --- Dependencies ---
     private readonly Counter<long> _dependencyLinks;
     private readonly Counter<long> _dependencyWorkItemsAnalysed;
+    private readonly Histogram<double> _dependenciesAnalyseDuration;
+    private readonly Counter<long> _dependenciesAnalyseErrors;
 
     // --- Operational ---
     private readonly Counter<long> _checkpointsSaved;
@@ -78,16 +88,36 @@ public sealed class DiscoveryMetrics : IDiscoveryMetrics, IDisposable
         // Inventory
         _inventoryWorkItems = _meter.CreateCounter<long>(
             WellKnownDiscoveryMetricNames.InventoryWorkItems, unit: "{work_item}");
+        _inventoryWorkItemsDuration = _meter.CreateHistogram<double>(
+            WellKnownDiscoveryMetricNames.InventoryWorkItemsDurationMs, unit: "ms");
+        _inventoryWorkItemsErrors = _meter.CreateCounter<long>(
+            WellKnownDiscoveryMetricNames.InventoryWorkItemsErrors, unit: "{error}");
         _inventoryRevisions = _meter.CreateCounter<long>(
             WellKnownDiscoveryMetricNames.InventoryRevisions, unit: "{revision}");
         _inventoryRepos = _meter.CreateCounter<long>(
             WellKnownDiscoveryMetricNames.InventoryRepos, unit: "{repo}");
+        _inventoryIdentities = _meter.CreateCounter<long>(
+            WellKnownDiscoveryMetricNames.InventoryIdentities, unit: "{identity}");
+        _inventoryNodes = _meter.CreateCounter<long>(
+            WellKnownDiscoveryMetricNames.InventoryNodes, unit: "{node}");
+        _inventoryTeams = _meter.CreateCounter<long>(
+            WellKnownDiscoveryMetricNames.InventoryTeams, unit: "{team}");
+        _inventoryConsolidated = _meter.CreateCounter<long>(
+            WellKnownDiscoveryMetricNames.InventoryConsolidated, unit: "{item}");
+        _inventoryConsolidatedDuration = _meter.CreateHistogram<double>(
+            WellKnownDiscoveryMetricNames.InventoryConsolidatedDurationMs, unit: "ms");
+        _inventoryConsolidatedErrors = _meter.CreateCounter<long>(
+            WellKnownDiscoveryMetricNames.InventoryConsolidatedErrors, unit: "{error}");
 
         // Dependencies
         _dependencyLinks = _meter.CreateCounter<long>(
             WellKnownDiscoveryMetricNames.DependencyLinks, unit: "{link}");
         _dependencyWorkItemsAnalysed = _meter.CreateCounter<long>(
             WellKnownDiscoveryMetricNames.DependencyWorkItemsAnalysed, unit: "{work_item}");
+        _dependenciesAnalyseDuration = _meter.CreateHistogram<double>(
+            WellKnownDiscoveryMetricNames.DependenciesAnalyseDurationMs, unit: "ms");
+        _dependenciesAnalyseErrors = _meter.CreateCounter<long>(
+            WellKnownDiscoveryMetricNames.DependenciesAnalyseErrors, unit: "{error}");
 
         // Operational
         _checkpointsSaved = _meter.CreateCounter<long>(
@@ -154,12 +184,45 @@ public sealed class DiscoveryMetrics : IDiscoveryMetrics, IDisposable
     public void RecordReposCounted(int count, MetricsTagList tags)
         => _inventoryRepos.Add(count, ToTagList(tags));
 
+    public void RecordInventoryWorkItems(int count, MetricsTagList tags)
+        => _inventoryWorkItems.Add(count, ToTagList(tags));
+
+    public void RecordInventoryWorkItemsDuration(double milliseconds, MetricsTagList tags)
+        => _inventoryWorkItemsDuration.Record(milliseconds, ToTagList(tags));
+
+    public void RecordInventoryWorkItemsErrors(MetricsTagList tags)
+        => _inventoryWorkItemsErrors.Add(1, ToTagList(tags));
+
+    public void RecordInventoryIdentities(int count, MetricsTagList tags)
+        => _inventoryIdentities.Add(count, ToTagList(tags));
+
+    public void RecordInventoryNodes(int count, MetricsTagList tags)
+        => _inventoryNodes.Add(count, ToTagList(tags));
+
+    public void RecordInventoryTeams(int count, MetricsTagList tags)
+        => _inventoryTeams.Add(count, ToTagList(tags));
+
+    public void RecordInventoryConsolidated(int count, MetricsTagList tags)
+        => _inventoryConsolidated.Add(count, ToTagList(tags));
+
+    public void RecordInventoryConsolidatedDuration(double milliseconds, MetricsTagList tags)
+        => _inventoryConsolidatedDuration.Record(milliseconds, ToTagList(tags));
+
+    public void RecordInventoryConsolidatedErrors(MetricsTagList tags)
+        => _inventoryConsolidatedErrors.Add(1, ToTagList(tags));
+
     // --- Dependencies ---
     public void RecordLinksFound(int count, MetricsTagList tags)
         => _dependencyLinks.Add(count, ToTagList(tags));
 
     public void RecordWorkItemsAnalysed(int count, MetricsTagList tags)
         => _dependencyWorkItemsAnalysed.Add(count, ToTagList(tags));
+
+    public void RecordDependenciesAnalyseDuration(double milliseconds, MetricsTagList tags)
+        => _dependenciesAnalyseDuration.Record(milliseconds, ToTagList(tags));
+
+    public void RecordDependenciesAnalyseErrors(MetricsTagList tags)
+        => _dependenciesAnalyseErrors.Add(1, ToTagList(tags));
 
     // --- Operational ---
     public void RecordCheckpointSaved(MetricsTagList tags)

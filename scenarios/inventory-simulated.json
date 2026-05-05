@@ -1,6 +1,7 @@
 {
   "MigrationPlatform": {
     "ConfigVersion": "1.0",
+    "Mode": "Inventory",
     "Policies": {
       "Retries": {
         "Max": 3

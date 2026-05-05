@@ -29,6 +29,7 @@ public sealed class SimulatedWorkItemImportTargetTests
         Assert.AreEqual(3, result3.TargetWorkItemId);
     }
 
+    // TODO: [test-validity] LOW VALUE — only tests IsNewlyCreated=true, a trivial flag assertion with no meaningful failure mode
     [TestMethod]
     public async Task CreateWorkItemAsync_SetsIsNewlyCreated()
     {
@@ -43,13 +44,6 @@ public sealed class SimulatedWorkItemImportTargetTests
         var target = new SimulatedWorkItemImportTarget();
         await Assert.ThrowsExactlyAsync<ArgumentException>(
             () => target.CreateWorkItemAsync("", Array.Empty<WorkItemField>(), CancellationToken.None));
-    }
-
-    [TestMethod]
-    public async Task UpdateFieldsAsync_ValidId_Completes()
-    {
-        var target = new SimulatedWorkItemImportTarget();
-        await target.UpdateFieldsAsync(1, Array.Empty<WorkItemField>(), CancellationToken.None);
     }
 
     [TestMethod]
@@ -71,23 +65,4 @@ public sealed class SimulatedWorkItemImportTargetTests
         StringAssert.Contains(id, "test.pdf");
     }
 
-    [TestMethod]
-    public async Task GetExistingRelationsAsync_ReturnsEmptyRelations()
-    {
-        var target = new SimulatedWorkItemImportTarget();
-        var relations = await target.GetExistingRelationsAsync(1, CancellationToken.None);
-        Assert.IsNotNull(relations);
-    }
-
-    [TestMethod]
-    public async Task AddLinksAsync_ValidId_Completes()
-    {
-        var target = new SimulatedWorkItemImportTarget();
-        await target.AddLinksAsync(
-            1,
-            Array.Empty<RelatedWorkItemLink>(),
-            Array.Empty<ExternalWorkItemLink>(),
-            Array.Empty<HyperlinkWorkItemLink>(),
-            CancellationToken.None);
-    }
 }

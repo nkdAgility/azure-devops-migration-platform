@@ -10,8 +10,14 @@ Each migration concern is implemented as a module conforming to the `IModule` co
 interface IModule
 {
     string Name { get; }
-    IReadOnlyList<string> DependsOn { get; }
+    IReadOnlyList<ModuleDependency> DependsOn { get; }
 
+    bool SupportsInventory { get; }
+    bool SupportsExport { get; }
+    bool SupportsPrepare { get; }
+    bool SupportsImport { get; }
+
+    Task InventoryAsync(InventoryContext context, CancellationToken ct);
     Task ExportAsync(ExportContext context, CancellationToken ct);
     Task PrepareAsync(PrepareContext context, CancellationToken ct);
     Task ImportAsync(ImportContext context, CancellationToken ct);
@@ -56,8 +62,8 @@ Orchestrator interfaces are declared in `DevOpsMigrationPlatform.Abstractions.Ag
 | `INodesOrchestrator` | `Abstractions.Agent/Modules/` | Classification-tree export, import, and validation |
 | `IIdentitiesOrchestrator` | `Abstractions.Agent/Modules/` | Identity descriptor export, import (lookup/resolution), and validation |
 | `ITeamsOrchestrator` | `Abstractions.Agent/Modules/` | Team export, import, and validation (net10.0 only) |
-| `IDependencyOrchestrator` | `Abstractions.Agent/Modules/` | Dependency discovery export |
-| `IInventoryOrchestrator` | `Abstractions.Agent/Discovery/` | Inventory collection (shared by `InventoryModule` and `InventoryDiscoveryModule`) |
+| `IDependencyOrchestrator` | `Abstractions.Agent/Modules/` | Dependency analysis orchestration (`DependencyAnalyser`) |
+| `IInventoryOrchestrator` | `Abstractions.Agent/Discovery/` | Inventory collection orchestration (retained, now injected into `WorkItemsModule.InventoryAsync`) |
 
 Orchestrator *implementations* are `internal sealed` classes in `Infrastructure.Agent`. They are registered in DI by the module's `ServiceCollectionExtensions` and constructor-injected into the module.
 
@@ -76,9 +82,8 @@ Orchestrator *implementations* are `internal sealed` classes in `Infrastructure.
 | `IdentitiesModule` | `IIdentitiesOrchestrator` | `IIdentitySource`, `IIdentityLookupTool` |
 | `TeamsModule` | `ITeamsOrchestrator` | `ITeamSource`, `ITeamTarget`, `TeamExportOrchestrator`, `TeamImportOrchestrator` |
 | `WorkItemsModule` | `WorkItemExportOrchestrator`, `WorkItemImportOrchestrator` | `IWorkItemRevisionSource`, `IAttachmentBinarySource` |
-| `DependencyDiscoveryModule` | `IDependencyOrchestrator` | `IDependencyDiscoveryService` |
-| `InventoryModule` | `IInventoryOrchestrator` | `IInventoryService` |
-| `InventoryDiscoveryModule` | `IInventoryOrchestrator` (shared) | `IInventoryService` |
+| `WorkItemsModule` (inventory phase) | `IInventoryOrchestrator` | `IInventoryService` |
+| `DependencyAnalyser` | `IDependencyOrchestrator` | `IDependencyDiscoveryService` |
 
 ### Dependency Graph Rules
 
@@ -87,6 +92,19 @@ Orchestrator *implementations* are `internal sealed` classes in `Infrastructure.
 - Modules with no declared dependencies may execute in any order (or in parallel, if the orchestrator supports it in a future version).
 - `IdentitiesModule` has no dependencies (`DependsOn` is empty) but must complete before any module that performs identity mapping. Any module that maps identities must include `"IdentitiesModule"` in its own `DependsOn` list. Failure to do so is a dependency graph error that the orchestrator must detect and reject at startup.
 - `TeamsModule` should be ordered after `IdentitiesModule` and `NodesModule`, and before `WorkItemsModule`. Module execution order is controlled by the operator via configuration — there is no `DependsOn` property on TeamsModule or NodesModule. The operator must ensure prerequisite modules complete before dependent modules run.
+
+### Module Dependencies and `DependencyPhase`
+
+`ModuleDependency` is phase-aware. The same dependency can apply only to specific execution phases.
+
+| `DependencyPhase` value | Meaning |
+|---|---|
+| `Inventory = 0` | Applies to `InventoryAsync` task ordering |
+| `Export = 1` | Applies to `ExportAsync` task ordering |
+| `Import = 2` | Applies to `ImportAsync` task ordering |
+| `Both = 3` | Applies to both export and import ordering |
+| `Prepare = 4` | Applies to `PrepareAsync` task ordering |
+| `Analyse = 5` | Applies to `IAnalyser.AnalyseAsync` task ordering |
 
 ### Storage Rule
 
@@ -102,7 +120,7 @@ Provides cross-cutting scalar values about the current job. Every module that ne
 ```csharp
 public interface IAgentJobContext
 {
-    string Mode { get; }          // "Export", "Import", "Prepare", or "Migrate"
+    string Mode { get; }          // "Inventory", "Export", "Prepare", "Import", "Validate", or "Migrate"
     string PackagePath { get; }   // Resolved absolute path to the package root
     string ConfigVersion { get; } // e.g. "2.0"
 }
@@ -138,7 +156,7 @@ public interface ISourceEndpointInfo
 | `BuildsModule` | _(Planned — not yet implemented)_ Export build pipeline definitions. |
 | `GitModule` | _(Planned — not yet implemented)_ Export Git repository structure and optionally pack contents. |
 
-**Execution order** (operator-controlled via config; recommended order): `IdentitiesModule` → `NodesModule` → `TeamsModule` → `WorkItemsModule`. Any module that maps identities must declare a dependency on `IdentitiesModule` via `DependsOn`.
+**Execution order** (operator-controlled via config; recommended order): `IdentitiesModule` → `NodesModule` → `TeamsModule` → `WorkItemsModule`. Export plans include `InventoryModule` before `WorkItemsModule` when WorkItems is enabled, so package-level `inventory.csv`/`inventory.json` is produced prior to work item export. Any module that maps identities must declare a dependency on `IdentitiesModule` via `DependsOn`.
 
 > **Field-projected fetching**: Inventory and dependency analysis modules use `IWorkItemFetchService` for streaming, field-projected work item retrieval. This abstraction handles WIQL windowing, batch API calls, and in-process filtering — modules should not call `GetWorkItemsAsync` directly.
 
@@ -229,17 +247,31 @@ See [.agents/guardrails/module-template.md](../.agents/guardrails/module-templat
 
 > **Naming convention**: modules are named by *domain* (`WorkItems`, `Identities`, `Teams`, `Git`), not by operation. One module handles both export and import for its domain. `Scopes` are mandatory selection criteria (e.g. a `wiql` scope for WorkItems). The `Extensions` array controls which sub-data is collected.
 
-### Discovery Modules
+### Analysers
 
-Discovery modules implement `IModule` and run pre-migration analysis. They follow the same Module → Orchestrator → Service pattern as all other modules:
+The platform also supports analysers as first-class extension points for cross-cutting package analysis.
 
-| Module | Orchestrator | Service | Responsibility |
-|---|---|---|---|
-| `InventoryModule` | `IInventoryOrchestrator` | `IInventoryService` | Counts work items and revisions for a single source project; writes `inventory.csv` and `inventory.json`. Pulled in as a dependency by `WorkItemsModule`. |
-| `InventoryDiscoveryModule` | `IInventoryOrchestrator` (shared) | `IInventoryService` | Standalone multi-org inventory discovery; writes the same artefacts as `InventoryModule` but for all configured organisations. |
-| `DependencyDiscoveryModule` | `IDependencyOrchestrator` | `IDependencyDiscoveryService` | Analyses cross-project and cross-organisation work item links; writes `dependencies.csv`. |
+```csharp
+interface IAnalyser
+{
+    string Name { get; }
+    IReadOnlyList<ModuleDependency> DependsOn { get; }
+    Task AnalyseAsync(AnalyseContext context, CancellationToken ct);
+}
+```
 
-`InventoryModule` and `InventoryDiscoveryModule` share the same `IInventoryOrchestrator` instance from DI. The orchestrator handles checkpointing, progress reporting, and artefact writing; the `IInventoryService` (created via `IInventoryServiceFactory`) performs the actual API calls.
+Analyser invariants:
+- Analysers never write to source or target systems; they read/write package artefacts only.
+- Analysers must declare ordering dependencies with `DependsOn`.
+- Analysers must produce at least one artefact per run; zero output must emit a structured warning.
+
+Current analyser implementation:
+
+| Analyser | Orchestrator | Responsibility |
+|---|---|---|
+| `DependencyAnalyser` | `IDependencyOrchestrator` | Analyses cross-project and cross-organisation work item links; writes dependency artefacts. |
+
+Inventory is now an intrinsic phase on each domain module (`InventoryAsync`) rather than standalone `InventoryModule` / `InventoryDiscoveryModule` classes.
 
 ### Tool Resolution
 

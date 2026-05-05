@@ -18,7 +18,7 @@ namespace DevOpsMigrationPlatform.Infrastructure.Config;
 
 /// <summary>
 /// JSON file-based implementation of <see cref="IConfigurationService"/>.
-/// Loads, validates, and saves <see cref="MigrationOptions"/> from/to migration.json files.
+/// Loads, validates, and saves <see cref="MigrationPlatformOptions"/> from/to migration.json files.
 /// Expects the JSON file to have a <c>MigrationPlatform</c> root section.
 /// </summary>
 public class ConfigurationService : IConfigurationService
@@ -26,7 +26,7 @@ public class ConfigurationService : IConfigurationService
     private readonly ILogger<ConfigurationService> _logger;
     private readonly JsonSerializerOptions _jsonOptions;
 
-    private readonly Dictionary<string, MigrationOptions> _configCache = new();
+    private readonly Dictionary<string, MigrationPlatformOptions> _configCache = new();
 
     private static readonly string[] DefaultConfigFileNames =
     {
@@ -57,14 +57,14 @@ public class ConfigurationService : IConfigurationService
         };
     }
 
-    public async Task<MigrationOptions> LoadConfigurationAsync(string? configPath = null, CancellationToken cancellationToken = default)
+    public async Task<MigrationPlatformOptions> LoadConfigurationAsync(string? configPath = null, CancellationToken cancellationToken = default)
     {
         var actualConfigPath = configPath ?? DiscoverDefaultConfigurationFile();
 
         if (actualConfigPath == null)
         {
             _logger.LogInformation("No configuration file specified or discovered. Using default configuration.");
-            return new MigrationOptions();
+            return new MigrationPlatformOptions();
         }
 
         var cacheKey = Path.GetFullPath(actualConfigPath);
@@ -98,7 +98,7 @@ public class ConfigurationService : IConfigurationService
                     $"Configuration error in '{actualConfigPath}': 'MigrationPlatform.ConfigVersion' is required.");
 
             var platformJson = platformElement.GetRawText();
-            var options = JsonSerializer.Deserialize<MigrationOptions>(platformJson, _jsonOptions);
+            var options = JsonSerializer.Deserialize<MigrationPlatformOptions>(platformJson, _jsonOptions);
 
             if (options == null)
                 throw new InvalidOperationException($"Failed to deserialize configuration from {actualConfigPath}");
@@ -119,25 +119,31 @@ public class ConfigurationService : IConfigurationService
         }
     }
 
-    public IEnumerable<string> ValidateConfiguration(MigrationOptions options)
+    public IEnumerable<string> ValidateConfiguration(MigrationPlatformOptions options)
     {
         _logger.LogDebug("Validating configuration");
         var errors = new List<string>();
 
         if (string.IsNullOrWhiteSpace(options.Mode))
-            errors.Add("Mode is required (Export, Import, or Both)");
+            errors.Add("Mode is required (Inventory, Dependencies, Export, Prepare, Import, or Migrate)");
 
         var mode = options.Mode?.Trim();
         var isExport = string.Equals(mode, "Export", StringComparison.OrdinalIgnoreCase)
-                    || string.Equals(mode, "Both", StringComparison.OrdinalIgnoreCase);
+                    || string.Equals(mode, "Migrate", StringComparison.OrdinalIgnoreCase);
         var isImport = string.Equals(mode, "Import", StringComparison.OrdinalIgnoreCase)
-                    || string.Equals(mode, "Both", StringComparison.OrdinalIgnoreCase);
+                    || string.Equals(mode, "Prepare", StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(mode, "Migrate", StringComparison.OrdinalIgnoreCase);
+        var isDiscovery = string.Equals(mode, "Inventory", StringComparison.OrdinalIgnoreCase)
+                       || string.Equals(mode, "Dependencies", StringComparison.OrdinalIgnoreCase);
 
         if (isExport && options.Source == null)
-            errors.Add("Source configuration is required when Mode is Export or Both");
+            errors.Add("Source configuration is required when Mode is Export or Migrate");
 
         if (isImport && options.Target == null)
-            errors.Add("Target configuration is required when Mode is Import or Both");
+            errors.Add("Target configuration is required when Mode is Prepare, Import, or Migrate");
+
+        if (isDiscovery && options.Organisations.Count == 0)
+            errors.Add("Organisations configuration is required when Mode is Inventory or Dependencies");
 
         if (options.Source != null)
         {
@@ -183,7 +189,7 @@ public class ConfigurationService : IConfigurationService
         string.Equals(type, "AzureDevOpsServices", StringComparison.Ordinal) ||
         string.Equals(type, "Simulated", StringComparison.Ordinal);
 
-    public async Task SaveConfigurationAsync(MigrationOptions options, string configPath, CancellationToken cancellationToken = default)
+    public async Task SaveConfigurationAsync(MigrationPlatformOptions options, string configPath, CancellationToken cancellationToken = default)
     {
         try
         {
@@ -193,7 +199,7 @@ public class ConfigurationService : IConfigurationService
             if (!string.IsNullOrEmpty(directory) && !Directory.Exists(directory))
                 Directory.CreateDirectory(directory);
 
-            // Serialize MigrationOptions and wrap in { "MigrationPlatform": { "ConfigVersion": "1.0", ... } }
+            // Serialize MigrationPlatformOptions and wrap in { "MigrationPlatform": { "ConfigVersion": "1.0", ... } }
             var optionsJson = JsonSerializer.Serialize(options, _jsonOptions);
             var optionsNode = System.Text.Json.Nodes.JsonNode.Parse(optionsJson)!.AsObject();
 

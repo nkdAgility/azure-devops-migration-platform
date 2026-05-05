@@ -9,25 +9,64 @@ See [docs/cli.md](cli.md) for how the CLI routes a job to the Job Engine. See [.
 ### Steps
 
 1. **Validate job** — Check `Job` schema, `configVersion` compatibility, and `kind` value.
-2. **Validate package** — Run each module's `ValidateAsync` (pre-execution pass). Fail fast on errors.
-3. **Build module dependency graph** — Topological sort of all enabled modules using `DependsOn` declarations. Fail fast on circular dependencies.
-4. **Execute modules in order** — Run each module's `ExportAsync`, `PrepareAsync`, `ImportAsync`, or a combination, depending on `mode`.
-5. **Maintain state via cursors** — Each module writes its cursor after each unit of work via `IStateStore`.
-6. **Emit progress events** — After each cursor write, emit a `ProgressEvent` to `IProgressSink`.
-6a. **Record metrics** — After each work item processing step, record OTel metrics via `IMigrationMetrics` (execution counters, payload histograms, duration).
-7. **Fail fast on module failure** — A non-recoverable error in any module halts the run. Cursor state allows resume.
+2. **Build execution plan** — Produce a `JobTaskList` containing one `JobTask` per enabled module per applicable phase. Each task has an `Id` (e.g. `inventory.workitems`, `export.workitems`, `prepare.identities`, `import.nodes`, `validate.workitems`), a `Phase` grouping, dependency edges, and an execution `Order`. The plan is pushed to the control plane so CLI and TUI can render progress before execution begins.
+3. **Validate package** — Run each module's `ValidateAsync` (pre-execution pass). Fail fast on errors.
+4. **Build module dependency graph** — Topological sort of all enabled modules using `DependsOn` declarations per phase. Fail fast on circular dependencies.
+5. **Execute tasks in order** — Walk the task list phase by phase. Within each phase, execute tasks in topological dependency order. Each task invokes one module method (`ExportAsync`, `PrepareAsync`, `ImportAsync`, or `ValidateAsync`) depending on the phase.
+6. **Maintain state via cursors** — Each module writes its cursor after each unit of work via `IStateStore`.
+7. **Emit progress events** — After each cursor write, emit a `ProgressEvent` to `IProgressSink`.
+7a. **Record metrics** — After each work item processing step, record OTel metrics via `IMigrationMetrics` (execution counters, payload histograms, duration).
+8. **Fail fast on module failure** — A non-recoverable error in any module halts the run. Cursor state allows resume.
+
+### Task Plan Structure
+
+The agent emits a `JobTaskList` — an ordered list of `JobTask` records — at job start. The plan contains **one task per module per phase**:
+
+| Phase | Task ID pattern | Module method | Example |
+|---|---|---|---|
+| **Inventory** | `inventory.{module}` | `ExportAsync` (inventory-capable modules) | `inventory.inventory`, `inventory.workitems` |
+| **Export** | `export.{module}` | `ExportAsync` | `export.identities`, `export.nodes`, `export.workitems` |
+| **Prepare** | `prepare.{module}` | `PrepareAsync` | `prepare.identities`, `prepare.nodes` |
+| **Import** | `import.{module}` | `ImportAsync` | `import.identities`, `import.nodes`, `import.workitems` |
+| **Validate** | `validate.{module}` | `ValidateAsync` | `validate.identities`, `validate.workitems` |
+
+Which phases appear depends on the job `mode`:
+
+| Mode | Phases included |
+|---|---|
+| `Inventory` | Inventory |
+| `Export` | Inventory (if gate missing) + Export |
+| `Prepare` | Prepare |
+| `Import` | Prepare (if gate missing) + Import |
+| `Validate` | Validate |
+| `Migrate` | Inventory + Export + Prepare + Import + Validate |
+
+Tasks within a phase are topologically sorted by `DependsOn`. Tasks across phases execute sequentially (all Inventory tasks complete before Export begins, etc.). Phase gates (Inventory before Export, Prepare before Import) are enforced by the plan builder — prerequisite phase tasks are injected automatically when the completion marker is absent.
 
 ### Mode Behaviour
+
+#### Inventory Mode
+
+```
+Validate job → Build graph → ExportAsync (inventory-capable modules only) → Done
+```
+
+- Only `source` connection is required.
+- `target` is ignored.
+- Enumerates and catalogues in-scope items (work items, revisions, artefacts) per project.
+- Results written to the package as inventory artefacts.
+- Writes `.migration/Checkpoints/inventory.complete.json` on completion.
 
 #### Export Mode
 
 ```
-Validate job → Build graph → ExportAsync (each module) → Done
+Validate job → Check Inventory gate → Build graph → ExportAsync (each module) → Done
 ```
 
 - Only `source` connection is required.
 - `target` is ignored.
 - Package is written to the URI in `artefacts.packageUri`.
+- **Inventory gate**: Before building the module graph, the orchestrator checks for `.migration/Checkpoints/inventory.complete.json`. If the marker is absent, the orchestrator **auto-runs Inventory** (runs inventory-capable modules). This ensures export always has inventory data available.
 
 #### Prepare Mode
 
@@ -54,22 +93,48 @@ Validate job → Check Prepare gate → Build graph → ImportAsync (each module
 - Package is read from the URI in `artefacts.packageUri`.
 - **Prepare gate**: Before building the module graph, the orchestrator checks for `.migration/Checkpoints/prepare.complete.json`. If the marker is absent, the orchestrator **auto-runs Prepare** (runs `PrepareAsync` for each module). If Prepare produces any blocking issues, the orchestrator **aborts** with a diagnostic report and does not proceed to Import. The operator must resolve the issues and re-run Import (or run `prepare` explicitly).
 
+#### Validate Mode
+
+```
+Validate job → Validate package → Build graph → ValidateAsync (each module) → Write validation-report.json → Done
+```
+
+- Only `target` connection and the package are required.
+- `source` is ignored.
+- Compares the import results against the exported package data.
+- Runs Tier 3 post-flight checks: work item count parity, link integrity, attachment integrity, identity resolution completeness.
+- Writes `.migration/Logs/validation-report.json` with comprehensive results.
+- Writes `.migration/Checkpoints/validate.complete.json` on completion.
+- Can be re-run independently at any time after import.
+
 #### Migrate Mode
 
 ```
-Validate job → Build graph → ExportAsync → Validate package → PrepareAsync (each module) → Check for blocking issues → ImportAsync (each module) → Done
+Validate job → Build graph → Inventory → ExportAsync → Validate package → PrepareAsync (each module) → Check for blocking issues → ImportAsync (each module) → ValidateAsync (each module) → Done
 ```
 
 - Both `source` and `target` connections are required.
-- Runs Export, then Prepare, then Import in a single orchestrated run.
+- Runs all five phases in a single orchestrated run: Inventory → Export → Prepare → Import → Validate.
 - If Prepare produces any blocking issues, the orchestrator **aborts** after Prepare and does not proceed to Import. The operator must resolve the issues and re-run (with `mode: Import` to skip re-export, or `mode: Migrate` to repeat the full cycle).
+
+### Phase Gates
+
+Each phase can be run independently, but downstream phases auto-run their prerequisites if the prerequisite's completion marker is absent:
+
+| Phase | Gate | Marker checked | Auto-runs |
+|---|---|---|---|
+| **Export** | Inventory gate | `.migration/Checkpoints/inventory.complete.json` | Inventory |
+| **Import** | Prepare gate | `.migration/Checkpoints/prepare.complete.json` | Prepare (aborts on blocking issues) |
+
+These gates ensure the pipeline is self-healing: running Export alone will also produce inventory data; running Import alone will also run Prepare first.
 
 ### Validate Step Placement
 
 - Config validation runs **before** any module executes (fail fast on bad config).
+- Inventory gate runs **before** Export in `Export` mode.
 - Package validation in `Migrate` mode runs **after** all exports complete and **before** Prepare begins.
-- Each module's `ValidateAsync` is called as part of the pre-execution validation pass.
-- Prepare validation (the Prepare gate) runs **before** any import in `Import` mode and **after** all Prepare modules complete in `Migrate` mode.
+- Each module's `ValidateAsync` is called as part of the Validate phase or the pre-execution validation pass.
+- Prepare gate runs **before** any import in `Import` mode and **after** all Prepare modules complete in `Migrate` mode.
 
 ### Fail-Fast Rules
 

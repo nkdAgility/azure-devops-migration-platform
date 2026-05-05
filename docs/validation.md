@@ -26,7 +26,7 @@ Runs entirely locally. No credentials are used. No network calls are made.
 | Config parses | The config file must be valid JSON. |
 | Schema version | `configVersion` must be a version supported by this CLI binary. |
 | Required fields | `mode`, `artefacts.path`, and `modules` must be present. |
-| Mode value | `mode` must be `Export`, `Prepare`, `Import`, or `Migrate`. |
+| Mode value | `mode` must be `Inventory`, `Export`, `Prepare`, `Import`, `Validate`, or `Migrate`. |
 | Module names | Every entry in `modules[].name` must match a module registered in the CLI binary. |
 | Module scope schema | Each module's `scopes[].parameters` must conform to the JSON Schema bundled with that module in the CLI binary. |
 | Policy ranges | Retry `max` and concurrency `maxConcurrency` must be positive integers within allowed bounds. |
@@ -48,13 +48,13 @@ Runs after Tier 0 passes. Verifies that the operator has the access needed to ex
 
 | Check | Applies to | Description |
 |---|---|---|
-| Source reachable | `Export`, `Migrate` | The source org/collection URL returns a successful response. |
-| Source project exists | `Export`, `Migrate` | The specified source project exists in the source org. |
-| Source read permissions | `Export`, `Migrate` | The source credentials have at minimum read access to work items in the source project. |
-| Target reachable | `Prepare`, `Import`, `Migrate` | The target org URL returns a successful response. |
-| Target project exists | `Prepare`, `Import`, `Migrate` | The specified target project exists in the target org. |
+| Source reachable | `Inventory`, `Export`, `Migrate` | The source org/collection URL returns a successful response. |
+| Source project exists | `Inventory`, `Export`, `Migrate` | The specified source project exists in the source org. |
+| Source read permissions | `Inventory`, `Export`, `Migrate` | The source credentials have at minimum read access to work items in the source project. |
+| Target reachable | `Prepare`, `Import`, `Validate`, `Migrate` | The target org URL returns a successful response. |
+| Target project exists | `Prepare`, `Import`, `Validate`, `Migrate` | The specified target project exists in the target org. |
 | Target write permissions | `Import`, `Migrate` | The target credentials have at minimum write access to work items in the target project. |
-| Target read permissions | `Prepare` | The target credentials have at minimum read access to the target project (Prepare only queries, does not write to the target). |
+| Target read permissions | `Prepare`, `Validate` | The target credentials have at minimum read access to the target project (Prepare and Validate only query, they do not write to the target). |
 | Package URI accessible | All | For `file:///`: the path exists (export) or is writable (import). For Azure Blob Storage URLs (`https://*.blob.core.windows.net/...`): the container exists and credentials are valid (SAS token or `DefaultAzureCredential`). |
 
 ### Failure Behaviour
@@ -114,7 +114,12 @@ Pre-flight validation runs:
 
 ## Tier 3 — Post-Flight Validation
 
-Post-flight validation runs after all `ImportAsync` calls complete.
+Post-flight validation runs after all `ImportAsync` calls complete. It also runs as the explicit **Validate** pipeline phase when `mode: Validate` is used.
+
+Tier 3 checks can be triggered in three ways:
+1. **Automatically** — at the end of Import or Migrate mode.
+2. **Explicitly** — by running `mode: Validate` as a standalone phase after import.
+3. **Re-run** — Validate is idempotent and can be re-run at any time to re-check the target.
 
 In addition to writing `validation-report.json`, the post-flight validation pass emits OTel metrics via `IMigrationMetrics` — count parity histograms (`migration.correctness.revision_source_count`, `migration.correctness.revision_target_count`, `migration.correctness.revision_delta`) and error counters (`migration.correctness.broken_links`, `migration.correctness.missing_workitems`). These metrics respect the `sampleRate` configuration and are recorded under the consolidated `DevOpsMigrationPlatform.Migration` meter.
 

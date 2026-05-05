@@ -159,3 +159,8 @@ Reject any suggestion that:
 - **Ships a module that silently completes with count=0 when enabled** — if `ExportAsync` or `ImportAsync` completes with an item count of zero and the module is enabled, the module MUST emit a structured `Warning` log. A silent zero-count completion is indistinguishable from a fake implementation and is forbidden.
 - **Ships an ADO connector method that never calls the SDK** — every method in an `AzureDevOps*` connector MUST invoke at least one method on a client obtained from `IAzureDevOpsClientFactory`. An implementation that only logs "connected" or returns a hard-coded result without calling the SDK is a fake.
 - **Uses `Assert.IsTrue(count >= 0)` or `Assert.IsTrue(true)` as the sole assertion in a test** — these patterns assert nothing about functional output. They are forbidden in any test for a module or connector.
+
+<!-- SPECKIT START -->
+For additional context about technologies to be used, project structure,
+shell commands, and other important information, read the current plan
+<!-- SPECKIT END -->

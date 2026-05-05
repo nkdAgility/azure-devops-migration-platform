@@ -68,10 +68,7 @@ public class SimulatedIdentitySourceTests
     }
 
     [TestMethod]
-    // TODO: [test-validity] Score 14/25 — Only verifies count equality across two project names.
-    // The Simulated source is project-agnostic by design; this assertion rarely fails except by
-    // intentional change. Rewrite to compare descriptor values (not just count) between runs,
-    // or replace with an XML doc on SimulatedIdentitySource noting project-agnostic behaviour.
+    // Verifies that project name has no effect on identity descriptors returned, not just count.
     public async Task EnumerateIdentitiesAsync_IgnoresProjectName_ReturnsSameSet()
     {
         // Arrange — verifies project name doesn't affect the result (simulated is project-agnostic)
@@ -80,7 +77,10 @@ public class SimulatedIdentitySourceTests
         var project1 = await CollectAsync(source, "ProjectA");
         var project2 = await CollectAsync(source, "ProjectB");
 
-        Assert.AreEqual(project1.Count, project2.Count);
+        Assert.AreEqual(project1.Count, project2.Count, "Same identity count for different project names");
+        for (var i = 0; i < project1.Count; i++)
+            Assert.AreEqual(project1[i].Descriptor, project2[i].Descriptor,
+                $"Descriptor mismatch at index {i} — project name should not affect the simulated identity set");
     }
 
     private static async Task<List<IdentityDescriptor>> CollectAsync(

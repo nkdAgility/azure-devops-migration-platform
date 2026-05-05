@@ -208,7 +208,7 @@ namespace DevOpsMigrationPlatform.Infrastructure.Tests.Features.Platform.Validat
         [Microsoft.VisualStudio.TestTools.UnitTesting.TestMethodAttribute()]
         [Microsoft.VisualStudio.TestTools.UnitTesting.DescriptionAttribute("Valid both configuration passes validation")]
         [Microsoft.VisualStudio.TestTools.UnitTesting.TestPropertyAttribute("FeatureTitle", "Migration Configuration Validation")]
-        public async global::System.Threading.Tasks.Task ValidBothConfigurationPassesValidation()
+        public async global::System.Threading.Tasks.Task ValidMigrateConfigurationPassesValidation()
         {
             string[] tagsOfScenario = ((string[])(null));
             global::System.Collections.Specialized.OrderedDictionary argumentsOfScenario = new global::System.Collections.Specialized.OrderedDictionary();
@@ -227,7 +227,7 @@ namespace DevOpsMigrationPlatform.Infrastructure.Tests.Features.Platform.Validat
   await this.FeatureBackgroundAsync();
 #line hidden
 #line 24
-    await testRunner.GivenAsync("a migration config with mode \"Both\"", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
+    await testRunner.GivenAsync("a migration config with mode \"Migrate\"", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
 #line hidden
 #line 25
     await testRunner.AndAsync("the config has a source endpoint of type \"AzureDevOpsServices\"", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");

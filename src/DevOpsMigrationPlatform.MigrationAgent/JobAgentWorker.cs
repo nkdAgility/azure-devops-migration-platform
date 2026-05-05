@@ -3,16 +3,22 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Net.Http;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Agent.Analysis;
 using DevOpsMigrationPlatform.Abstractions.Agent.Context;
 using DevOpsMigrationPlatform.Abstractions.Agent.Lease;
+using DevOpsMigrationPlatform.Abstractions.Agent.Modules;
 using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
 using DevOpsMigrationPlatform.Abstractions.ControlPlaneApi;
+using DevOpsMigrationPlatform.Abstractions.Options;
+using DevOpsMigrationPlatform.Abstractions.Organisations;
+using DevOpsMigrationPlatform.Abstractions.Telemetry;
 using DevOpsMigrationPlatform.Infrastructure.Agent;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Context;
 using DevOpsMigrationPlatform.Infrastructure.Serialization;
@@ -30,6 +36,7 @@ namespace DevOpsMigrationPlatform.MigrationAgent;
 /// </summary>
 public sealed class JobAgentWorker : ModulePipelineWorkerBase
 {
+    private static readonly ActivitySource s_discoveryActivity = new(WellKnownActivitySourceNames.Discovery);
     private readonly IJobMetricsStore _metricsStore;
     private readonly IJobSnapshotStore _snapshotStore;
     private readonly IEnumerable<IFlushable> _flushables;
@@ -260,43 +267,6 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
         Job job, HttpClient controlPlane, string leaseId,
         IArtefactStore artefactStore, IStateStore stateStore, CancellationToken ct)
     {
-        // Prepare mode writes a probe file to validate connectivity.
-        if (job.Kind == JobKind.Prepare)
-        {
-            bool prepareFailed = false;
-            try
-            {
-                _logger.LogInformation("Prepare mode — writing probe file for job {JobId}.", job.JobId);
-                var probeContent = System.Text.Json.JsonSerializer.Serialize(new
-                {
-                    jobId = job.JobId,
-                    timestamp = DateTimeOffset.UtcNow,
-                    status = "ok"
-                });
-                await artefactStore.WriteAsync("prepare-probe.json", probeContent, ct).ConfigureAwait(false);
-
-                ProgressSink.Emit(new ProgressEvent
-                {
-                    Module = "Prepare",
-                    Stage = "Completed",
-                    Message = "Probe file written successfully.",
-                    Timestamp = DateTimeOffset.UtcNow
-                });
-                _logger.LogInformation("Prepare probe file written successfully for job {JobId}.", job.JobId);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Prepare probe failed for job {JobId}.", job.JobId);
-                prepareFailed = true;
-            }
-
-            foreach (var flushable in _flushables)
-                await flushable.FlushAsync().ConfigureAwait(false);
-
-            await SignalTerminalAsync(controlPlane, leaseId, prepareFailed ? "fail" : "complete", ct).ConfigureAwait(false);
-            return;
-        }
-
         // PackageConfig is already loaded by OnJobAsync — use it directly.
         var packageConfig = ActiveJobConfig.PackageConfig!;
 
@@ -412,14 +382,24 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
             StateStore = stateStore,
             ProgressSink = ProgressSink
         };
+        var prepareContext = new PrepareContext
+        {
+            Job = job,
+            ArtefactStore = artefactStore,
+            StateStore = stateStore,
+            ProgressSink = ProgressSink,
+            TargetEndpoint = jobScope.ServiceProvider.GetRequiredService<ITargetEndpointInfo>()
+        };
 
         var isBoth = job.Kind == JobKind.Migrate;
-        var phaseRecord = isBoth
+        var needsPhaseRecord = isBoth || job.Kind == JobKind.Import;
+        var phaseRecord = needsPhaseRecord
             ? await phaseTracker.ReadPhaseRecordAsync(ct).ConfigureAwait(false)
             : new JobPhaseRecord();
 
         var runExport = job.Kind == JobKind.Export || (isBoth && !phaseRecord.ExportCompleted);
         var runImport = job.Kind == JobKind.Import || (isBoth && !phaseRecord.ImportCompleted);
+        var runPrepare = job.Kind == JobKind.Prepare || (runImport && !phaseRecord.PrepareCompleted);
 
         if (isBoth && !runExport)
             _logger.LogInformation("Export phase already completed for job {JobId} — skipping.", job.JobId);
@@ -471,6 +451,53 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
                         ct).ConfigureAwait(false);
                 }
             }
+
+            if (runPrepare)
+            {
+                var jobAnalysers = jobScope.ServiceProvider.GetServices<IAnalyser>().ToList();
+                var probeContent = System.Text.Json.JsonSerializer.Serialize(new
+                {
+                    jobId = job.JobId,
+                    timestamp = DateTimeOffset.UtcNow,
+                    status = "ok"
+                });
+                await artefactStore.WriteAsync("prepare-probe.json", probeContent, ct).ConfigureAwait(false);
+
+                var prepareModules = jobModules.Where(m => m.SupportsPrepare).ToList();
+                var requiredAnalyserNames = prepareModules
+                    .SelectMany(m => m.DependsOn.Where(d => d.AppliesToAnalyse).Select(d => d.ModuleName))
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .ToList();
+
+                foreach (var analyser in jobAnalysers.Where(a => requiredAnalyserNames.Contains(a.Name, StringComparer.OrdinalIgnoreCase)))
+                {
+                    await analyser.AnalyseAsync(new AnalyseContext
+                    {
+                        Job = job,
+                        ArtefactStore = artefactStore,
+                        StateStore = stateStore,
+                        ProgressSink = ProgressSink
+                    }, ct).ConfigureAwait(false);
+                }
+
+                foreach (var module in prepareModules)
+                {
+                    await module.PrepareAsync(prepareContext, ct).ConfigureAwait(false);
+                }
+
+                if (needsPhaseRecord)
+                {
+                    await phaseTracker.WritePhaseRecordAsync(
+                        new JobPhaseRecord
+                        {
+                            ExportCompleted = phaseRecord.ExportCompleted,
+                            PrepareCompleted = true,
+                            ImportCompleted = phaseRecord.ImportCompleted,
+                            UpdatedAt = DateTimeOffset.UtcNow
+                        },
+                        ct).ConfigureAwait(false);
+                }
+            }
         }
         catch (Exception ex)
         {
@@ -509,7 +536,7 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
             }
         }
 
-        // Read migration-config.json from the package and extract DiscoveryOptions.
+        // Read migration-config.json from the package and extract discovery settings.
         var organisations = new List<ScopedOrganisationEndpoint>();
         var policies = new JobPolicies();
         try
@@ -545,69 +572,115 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
                 job.JobId);
         }
 
-        // Route to the right modules by job kind.
-        // JobKind.Inventory maps to "InventoryDiscovery" (multi-org standalone module).
-        // Other kinds use name matching (e.g. "Dependencies" → DependencyDiscoveryModule).
-        var targetModuleName = job.Kind switch
+        if (organisations.Count == 0)
         {
-            JobKind.Inventory => "InventoryDiscovery",
-            _ => job.Kind.ToString()
-        };
-        var modulesToRun = MigrationModules
-            .Where(m => m.Name.Equals(targetModuleName, StringComparison.OrdinalIgnoreCase))
-            .ToList();
-
-        // When running dependency analysis, prepend InventoryDiscovery if inventory.json is missing.
-        if (job.Kind == JobKind.Dependencies)
-        {
-            var inventoryExists = await artefactStore.ExistsAsync("inventory.json", ct).ConfigureAwait(false);
-            if (!inventoryExists)
+            organisations.Add(new ScopedOrganisationEndpoint
             {
-                _logger.LogInformation(
-                    "No inventory.json found for dependency job {JobId} — prepending InventoryDiscovery module.", job.JobId);
-                var inventoryModules = MigrationModules
-                    .Where(m => m.Name.Equals("InventoryDiscovery", StringComparison.OrdinalIgnoreCase))
-                    .ToList();
-                modulesToRun = inventoryModules.Concat(modulesToRun).ToList();
-            }
+                Endpoint = new InlineMigrationEndpointOptions(new OrganisationEndpoint { Type = "Unknown", ResolvedUrl = string.Empty }),
+                Projects = []
+            });
         }
 
-        if (modulesToRun.Count == 0)
-        {
-            _logger.LogError(
-                "No module found for kind {JobKind} — failing job {JobId}.",
-                job.Kind, job.JobId);
-            await SignalTerminalAsync(controlPlane, leaseId, "fail", ct).ConfigureAwait(false);
-            return;
-        }
-
-        var context = new ExportContext
-        {
-            Job = job,
-            ArtefactStore = artefactStore,
-            StateStore = stateStore,
-            ProgressSink = ProgressSink,
-            MetricsStore = _metricsStore,
-            SnapshotStore = _snapshotStore,
-            Organisations = organisations
-        };
+        using var jobScope = _moduleScopeFactory.CreateScope();
+        var modulesToRun = jobScope.ServiceProvider.GetServices<IModule>().ToList();
+        var analysersToRun = jobScope.ServiceProvider.GetServices<IAnalyser>().ToList();
 
         bool failed = false;
-        foreach (var module in modulesToRun)
+        if (job.Kind == JobKind.Inventory)
         {
-            try
+            var inventoryModules = modulesToRun.Where(m => m.SupportsInventory).ToList();
+            _logger.LogInformation("Starting multi-org inventory: {OrgCount} organisations", organisations.Count);
+            long cumulativeInventoryOperations = 0;
+
+            foreach (var (org, index) in organisations.Select((value, idx) => (value, idx + 1)))
             {
-                _logger.LogInformation(
-                    "Running discovery module {Module} for job {JobId}.", module.Name, job.JobId);
-                await module.ExportAsync(context, ct).ConfigureAwait(false);
-                _logger.LogInformation(
-                    "Discovery module {Module} completed for job {JobId}.", module.Name, job.JobId);
+                var endpoint = org.Endpoint.ToOrganisationEndpoint();
+                using var orgActivity = s_discoveryActivity.StartActivity("inventory.workitems");
+                orgActivity?.SetTag("job.id", job.JobId);
+                orgActivity?.SetTag("org.url", endpoint.ResolvedUrl);
+                foreach (var module in inventoryModules)
+                {
+                    try
+                    {
+                        await module.InventoryAsync(new InventoryContext
+                        {
+                            Job = job,
+                            ArtefactStore = artefactStore,
+                            StateStore = stateStore,
+                            ProgressSink = ProgressSink,
+                            SourceEndpoint = endpoint,
+                            Projects = org.Projects
+                        }, ct).ConfigureAwait(false);
+                        cumulativeInventoryOperations++;
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(
+                            ex,
+                            "Organisation {OrgIndex}/{OrgCount} unreachable: {ErrorType}",
+                            index,
+                            organisations.Count,
+                            ex.GetType().Name);
+                        failed = true;
+                    }
+                }
+
+                ProgressSink.Emit(new ProgressEvent
+                {
+                    Module = "Inventory",
+                    Stage = "Inventory.OrgCompleted",
+                    Message = $"Completed organisation {index}/{organisations.Count}",
+                    Timestamp = DateTimeOffset.UtcNow,
+                    Metrics = new JobMetrics
+                    {
+                        Migration = new MigrationCounters
+                        {
+                            Inventory = new ModulePhaseCounters
+                            {
+                                Completed = cumulativeInventoryOperations
+                            }
+                        }
+                    }
+                });
             }
-            catch (Exception ex)
+
+            foreach (var analyser in analysersToRun.Where(a => a.Name.Equals("Inventory", StringComparison.OrdinalIgnoreCase)))
             {
-                _logger.LogError(ex, "Discovery module {Module} failed for job {JobId}.", module.Name, job.JobId);
+                await analyser.AnalyseAsync(new AnalyseContext
+                {
+                    Job = job,
+                    ArtefactStore = artefactStore,
+                    StateStore = stateStore,
+                    ProgressSink = ProgressSink
+                }, ct).ConfigureAwait(false);
+            }
+        }
+        else if (job.Kind == JobKind.Dependencies)
+        {
+            var dependencyAnalyser = analysersToRun.FirstOrDefault(a => a.Name.Equals("Dependencies", StringComparison.OrdinalIgnoreCase));
+            if (dependencyAnalyser is null)
+            {
+                _logger.LogError("No dependency analyser registered for job {JobId}.", job.JobId);
                 failed = true;
-                break;
+            }
+            else
+            {
+                try
+                {
+                    await dependencyAnalyser.AnalyseAsync(new OrganisationsAnalyseContext
+                    {
+                        Job = job,
+                        ArtefactStore = artefactStore,
+                        StateStore = stateStore,
+                        ProgressSink = ProgressSink,
+                        Organisations = organisations
+                    }, ct).ConfigureAwait(false);
+                }
+                catch (Exception ex) when (ex is not OperationCanceledException)
+                {
+                    _logger.LogError(ex, "Dependency analysis failed for job {JobId}.", job.JobId);
+                    failed = true;
+                }
             }
         }
 
@@ -620,6 +693,12 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
 
     private sealed class DiscoveryConfigWrapper
     {
-        public DiscoveryOptions? MigrationPlatform { get; set; }
+        public MigrationPlatformOptions? MigrationPlatform { get; set; }
+    }
+
+    private sealed class InlineMigrationEndpointOptions(OrganisationEndpoint endpoint) : MigrationEndpointOptions
+    {
+        public override OrganisationEndpoint ToOrganisationEndpoint() => endpoint;
+        public override string GetResolvedUrl() => endpoint.ResolvedUrl;
     }
 }

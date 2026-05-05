@@ -31,14 +31,22 @@
 
 - **Source doc**: `src/DevOpsMigrationPlatform.Infrastructure.Agent/Export/WorkItemExportOrchestrator.cs`
 - **Section**: Export loop (post-`revision.json` write)
-- **Issue**: `IEmbeddedImageExportService` (`EmbeddedImageExportService`) exists, is registered, and is fully implemented. `WorkItemRevision.EmbeddedImages` is the correct data structure to hold the `OriginalUrl → RelativePath` map in `revision.json`. However, **`WorkItemExportOrchestrator` never calls `IEmbeddedImageExportService.ProcessHtmlAsync/ProcessMarkdownAsync`**. As a result, `revision.json.EmbeddedImages` is always `[]` in every exported package. The import side (`RevisionFolderProcessor.RewriteEmbeddedImageUrlsAsync`) correctly consumes `EmbeddedImages` but silently does nothing when the list is empty. This means embedded image migration is broken end-to-end in the current implementation — even though both halves are individually implemented.
-- **Severity**: **Blocking** — FR-019, FR-028, FR-029 cannot be satisfied until this gap is closed.
+- **Issue**: `IEmbeddedImageExportService` (`EmbeddedImageExportService`) **is fully implemented** in `DevOpsMigrationPlatform.Infrastructure.Agent.Export`. `WorkItemRevision.EmbeddedImages` is the correct data structure to hold the `OriginalUrl → RelativePath` map in `revision.json`. However, **`WorkItemExportOrchestrator` never calls `IEmbeddedImageExportService.ProcessHtmlAsync/ProcessMarkdownAsync`**. As a result, `revision.json.EmbeddedImages` is always `[]` in every exported package. The import side (`RevisionFolderProcessor.RewriteEmbeddedImageUrlsAsync`) correctly consumes `EmbeddedImages` but silently does nothing when the list is empty. This means embedded image migration is broken end-to-end in the current implementation — even though both halves are individually implemented.
+- **Severity**: **Blocking** — FR-019, FR-028, FR-029 cannot be satisfied until this gap is closed. No new service implementation is required; the only change needed is wiring the existing `EmbeddedImageExportService` into `WorkItemExportOrchestrator`.
 - **Suggested fix**: In `WorkItemExportOrchestrator`, inject `IEmbeddedImageExportService` (created on-demand with the current `IArtefactStore` and `IEmbeddedImageDownloader`). After reading each revision's field values, process every HTML/Markdown field through `ProcessHtmlAsync`/`ProcessMarkdownAsync`. Collect `EmbeddedImageMetadata` entries (by comparing original vs rewritten `src` values) and assign them to `revision.EmbeddedImages` before serialising `revision.json`.
 
-### Field Mapping Tool not in scope — note for operators
+### Field Transform extension required for WorkItemsModule
 
-- **Source doc**: `analysis/proposed-features.md`
-- **Section**: M4 — WorkItemsModule planned options
-- **Issue**: The legacy `azure-devops-migration-tools` implements a `FieldMappingTool` with 10 field map types (`FieldToFieldMap`, `RegexFieldMap`, `FieldValueMap`, `FieldValuetoTagMap`, `FieldToTagFieldMap`, `FieldMergeMap`, `FieldLiteralMap`, `FieldClearMap`, `FieldSkipMap`, `FieldCalculationMap`, `TreeToTagFieldMap`, `MultiValueConditionalMap`). This capability is entirely absent from the current platform. Operators who need field-level transformations (e.g. renaming fields, value mapping, tag generation from field values) cannot perform these today.
-- **Severity**: **Not blocking for spec 029** — but represents a significant migration capability gap for complex migrations.
-- **Suggested update**: Create a separate spec (e.g. `030-field-mapping-tool`) to capture the full field mapping requirement. This spec should note `030` as a dependency for migrations requiring field transformation.
+- **Source doc**: `src/DevOpsMigrationPlatform.Abstractions.Agent/Modules/WorkItemsModuleExtensions.cs`
+- **Section**: `FromModule` extension switch
+- **Issue**: `FieldTransformTool` (`IFieldTransformTool`) is fully implemented. However, `WorkItemsModuleExtensions` does not recognise a `FieldTransform` extension type, so there is no way to enable it for a `WorkItemsModule` import run. Stage B (`AppliedFields`) has no hook for field transformation.
+- **Severity**: **Blocking for FR-041/FR-042/FR-043** — field transformation cannot be enabled for import without this wiring.
+- **Suggested fix**: Add `FieldTransformEnabled` (default `false`) to `WorkItemsModuleExtensions`. Add `case "FieldTransform":` to the switch in `FromModule` and a corresponding block in `FromOptions`. In `WorkItemsModule.ImportAsync`, inject `IFieldTransformTool?` (optional) and call `ApplyTransforms` on the field dictionary during Stage B when the extension is enabled.
+
+### PrepareAsync not present in IModule interface
+
+- **Source doc**: `src/DevOpsMigrationPlatform.Abstractions.Agent/Modules/IModule.cs`
+- **Section**: Interface declaration
+- **Issue**: `IModule` currently declares only `ExportAsync`, `ImportAsync`, and `ValidateAsync`. `PrepareAsync(PrepareContext context, CancellationToken ct)` is described in `docs/modules.md` but is absent from the actual C# interface. `PrepareContext` does not exist as a type. All module `PrepareAsync` implementations described in FR-P02 through FR-P09 cannot be built until this foundation is in place.
+- **Severity**: **Blocking for FR-P01 through FR-P09** — no Prepare phase FRs can be implemented without this interface extension.
+- **Suggested fix**: Add `Task PrepareAsync(PrepareContext context, CancellationToken ct)` to `IModule`. Create `PrepareContext` in `DevOpsMigrationPlatform.Abstractions.Agent.Context` (mirroring `ImportContext` / `ValidationContext` — should carry `IArtefactStore`, `Job`, `ITargetEndpointInfo`). Update all existing module implementations to provide a default `return Task.CompletedTask` body so they remain non-breaking. Add `SupportsPrepare` bool property to `IModule` (defaulting to `false`) following the pattern of `SupportsExport` / `SupportsImport`.

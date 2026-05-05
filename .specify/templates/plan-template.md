@@ -58,7 +58,7 @@ For each operation introduced or modified by this feature, fill in one row. A fe
 ### Operations Table
 
 | Operation | Class / Method | Span Name (O-1) | Metrics Instruments (O-2) | Log Events (O-3) | ProgressEvent Stage (O-4) |
-|-----------|---------------|-----------------|--------------------------|-----------------|--------------------------|
+|-----------|---------------|-----------------|--------------------------|-----------------|-----------------------------|
 | [e.g. Export work items] | [e.g. WorkItemsModule.ExportAsync] | `[e.g. export.workitems]` | `migration.workitems.attempts`, `migration.workitems.completed`, `migration.workitems.errors`, `migration.workitems.duration`, `migration.workitems.inflight` | `Information`: "Exporting {Count} work items"; `Warning`: "Skipping {Id}: {Reason}"; `Debug`: "Processing revision {Path}" | `Exporting`, `Exported`, `Failed` |
 | [add rows for every operation] | | | | | |
 

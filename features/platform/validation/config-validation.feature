@@ -21,7 +21,7 @@ Feature: Migration Configuration Validation
     Then the validation passes
 
   Scenario: Valid both configuration passes validation
-    Given a migration config with mode "Both"
+    Given a migration config with mode "Migrate"
     And the config has a source endpoint of type "AzureDevOpsServices"
     And the config has a target endpoint of type "AzureDevOpsServices"
     And the config has a package path of "D:\exports\run-001"

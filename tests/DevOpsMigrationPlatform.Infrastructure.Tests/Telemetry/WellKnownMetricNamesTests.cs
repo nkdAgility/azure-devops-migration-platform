@@ -43,6 +43,7 @@ public class WellKnownMetricNamesTests
         }
     }
 
+    // TODO: [test-validity] LOW VALUE — only asserts that no underscore appears as hierarchy separator; structural naming convention with low failure impact
     [TestMethod]
     public void AllConstants_DoNotUseUnderscoresAsHierarchySeparators()
     {
