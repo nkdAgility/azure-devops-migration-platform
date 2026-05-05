@@ -9,6 +9,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Text.Json;
 using System.Threading;
@@ -76,6 +77,9 @@ public class TreeCaptureContext
 
         public async IAsyncEnumerable<IterationNodeEntry> EnumerateIterationNodesAsync([EnumeratorCancellation] CancellationToken ct)
         { foreach (var n in _iter) yield return n; await Task.CompletedTask.ConfigureAwait(false); }
+
+        public Task<int> CountNodesAsync(string project, CancellationToken ct)
+            => Task.FromResult(_area.Count() + _iter.Count());
     }
 
     private sealed class ThrowingReader : IClassificationTreeReader
@@ -91,5 +95,8 @@ public class TreeCaptureContext
 
         public async IAsyncEnumerable<IterationNodeEntry> EnumerateIterationNodesAsync([EnumeratorCancellation] CancellationToken ct)
         { await Task.CompletedTask.ConfigureAwait(false); yield break; }
+
+        public Task<int> CountNodesAsync(string project, CancellationToken ct)
+            => Task.FromResult(0);
     }
 }

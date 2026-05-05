@@ -21,6 +21,7 @@ using DevOpsMigrationPlatform.Abstractions.Agent.Teams;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Abstractions.Agent.Validation;
 using DevOpsMigrationPlatform.Abstractions.Validation;
+using DevOpsMigrationPlatform.Infrastructure.Telemetry;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 

@@ -12,6 +12,7 @@ using DevOpsMigrationPlatform.Abstractions.Agent.Discovery;
 using DevOpsMigrationPlatform.Abstractions.Agent.Modules;
 using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
 using DevOpsMigrationPlatform.Abstractions.Agent.Telemetry;
+using DevOpsMigrationPlatform.Abstractions.Agent.WorkItems;
 using DevOpsMigrationPlatform.Abstractions.Jobs;
 using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Abstractions.Organisations;
@@ -124,10 +125,10 @@ public sealed class WorkItemsModuleInventoryTests
 
         var discovery = new Mock<IWorkItemDiscoveryService>(MockBehavior.Strict);
         discovery
-            .Setup(d => d.CountWorkItemsAsync(
+            .Setup(d => d.DiscoverWorkItemsAsync(
                 It.IsAny<OrganisationEndpoint>(),
                 "ProjectA",
-                It.IsAny<string?>(),
+                It.IsAny<WorkItemFetchScope?>(),
                 It.IsAny<CancellationToken>()))
             .Returns(CountSummaries(workItemCount, revisionCount));
 

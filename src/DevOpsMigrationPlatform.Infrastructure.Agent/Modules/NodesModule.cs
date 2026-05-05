@@ -66,10 +66,10 @@ public sealed class NodesModule : IModule
         IDiscoveryMetrics? discoveryMetrics = null,
         IMigrationMetrics? migrationMetrics = null,
         IClassificationTreeCapture? capture = null,
-        IClassificationTreeReader? reader = null,
 #if !NET481
         ITargetEndpointInfo? targetEndpointInfo = null,
 #endif
+        IClassificationTreeReader? reader = null,
         ICheckpointingServiceFactory? checkpointingFactory = null)
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
