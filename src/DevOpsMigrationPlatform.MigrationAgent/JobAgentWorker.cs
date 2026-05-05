@@ -598,31 +598,45 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
                 using var orgActivity = s_discoveryActivity.StartActivity("inventory.workitems");
                 orgActivity?.SetTag("job.id", job.JobId);
                 orgActivity?.SetTag("org.url", endpoint.ResolvedUrl);
-                foreach (var module in inventoryModules)
+
+                // Overlay the current org's source endpoint onto the active job config so that
+                // ActiveJobSourceEndpointInfo.ConnectorType (and Url/auth) resolves correctly
+                // for composite sources (Identities, Nodes, Teams). Orgs are processed
+                // sequentially so this volatile swap is safe.
+                var baseConfig = ActiveJobConfig.PackageConfig;
+                ActiveJobConfig.PackageConfig = BuildOrgSourceOverlay(baseConfig, endpoint);
+                try
                 {
-                    try
+                    foreach (var module in inventoryModules)
                     {
-                        await module.InventoryAsync(new InventoryContext
+                        try
                         {
-                            Job = job,
-                            ArtefactStore = artefactStore,
-                            StateStore = stateStore,
-                            ProgressSink = ProgressSink,
-                            SourceEndpoint = endpoint,
-                            Projects = org.Projects
-                        }, ct).ConfigureAwait(false);
-                        cumulativeInventoryOperations++;
+                            await module.InventoryAsync(new InventoryContext
+                            {
+                                Job = job,
+                                ArtefactStore = artefactStore,
+                                StateStore = stateStore,
+                                ProgressSink = ProgressSink,
+                                SourceEndpoint = endpoint,
+                                Projects = org.Projects
+                            }, ct).ConfigureAwait(false);
+                            cumulativeInventoryOperations++;
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogWarning(
+                                ex,
+                                "Organisation {OrgIndex}/{OrgCount} unreachable: {ErrorType}",
+                                index,
+                                organisations.Count,
+                                ex.GetType().Name);
+                            failed = true;
+                        }
                     }
-                    catch (Exception ex)
-                    {
-                        _logger.LogWarning(
-                            ex,
-                            "Organisation {OrgIndex}/{OrgCount} unreachable: {ErrorType}",
-                            index,
-                            organisations.Count,
-                            ex.GetType().Name);
-                        failed = true;
-                    }
+                }
+                finally
+                {
+                    ActiveJobConfig.PackageConfig = baseConfig;
                 }
 
                 ProgressSink.Emit(new ProgressEvent
@@ -689,6 +703,31 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
         foreach (var flushable in _flushables)
             await flushable.FlushAsync().ConfigureAwait(false);
         await SignalTerminalAsync(controlPlane, leaseId, terminal, ct).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Builds an <see cref="IConfiguration"/> that overlays the per-org source endpoint values
+    /// (<c>MigrationPlatform:Source:*</c>) on top of the existing package config so that
+    /// <see cref="ActiveJobSourceEndpointInfo"/> resolves the correct connector type, URL and
+    /// credentials for each organisation during multi-org inventory.
+    /// </summary>
+    private static IConfiguration BuildOrgSourceOverlay(IConfiguration? baseConfig, OrganisationEndpoint endpoint)
+    {
+        var builder = new ConfigurationBuilder();
+        if (baseConfig is not null)
+            builder.AddConfiguration(baseConfig);
+
+        var overlay = new Dictionary<string, string?>
+        {
+            ["MigrationPlatform:Source:Type"] = endpoint.Type,
+            ["MigrationPlatform:Source:Url"] = endpoint.ResolvedUrl,
+            ["MigrationPlatform:Source:Authentication:Type"] = endpoint.Authentication.Type.ToString(),
+            ["MigrationPlatform:Source:Authentication:AccessToken"] = endpoint.Authentication.ResolvedAccessToken,
+        };
+        if (endpoint.ApiVersion is not null)
+            overlay["MigrationPlatform:Source:ApiVersion"] = endpoint.ApiVersion;
+
+        return builder.AddInMemoryCollection(overlay).Build();
     }
 
     private sealed class DiscoveryConfigWrapper
