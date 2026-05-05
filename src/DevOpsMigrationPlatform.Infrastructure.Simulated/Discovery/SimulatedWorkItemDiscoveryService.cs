@@ -6,7 +6,9 @@ using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Threading;
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Agent.Context;
 using DevOpsMigrationPlatform.Abstractions.Options;
+using Microsoft.Extensions.Configuration;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Simulated.Discovery;
 
@@ -14,15 +16,31 @@ namespace DevOpsMigrationPlatform.Infrastructure.Simulated.Discovery;
 /// Simulated implementation of <see cref="IWorkItemDiscoveryService"/>.
 /// Returns a single final <see cref="ProjectDiscoverySummary"/> with counts
 /// derived from the <see cref="SimulatedGeneratorConfig"/> configuration.
+/// The config is read from <see cref="IJobConfiguration.PackageConfig"/> on every call
+/// so that per-job generator settings (including project definitions) are always current.
 /// No network calls are made.
 /// </summary>
 public sealed class SimulatedWorkItemDiscoveryService : IWorkItemDiscoveryService
 {
-    private readonly SimulatedGeneratorConfig _config;
+    private readonly IJobConfiguration? _jobConfig;
+    private readonly SimulatedGeneratorConfig? _staticConfig;
 
+    /// <summary>
+    /// Preferred constructor — reads the generator config from the active job's
+    /// <see cref="IJobConfiguration.PackageConfig"/> on every call.
+    /// </summary>
+    public SimulatedWorkItemDiscoveryService(IJobConfiguration jobConfig)
+    {
+        _jobConfig = jobConfig ?? throw new System.ArgumentNullException(nameof(jobConfig));
+    }
+
+    /// <summary>
+    /// Overload for factory-created instances where the generator config is
+    /// determined at factory call time (e.g. <see cref="Factories.SimulatedInventoryServiceFactory"/>).
+    /// </summary>
     public SimulatedWorkItemDiscoveryService(SimulatedGeneratorConfig config)
     {
-        _config = config ?? throw new System.ArgumentNullException(nameof(config));
+        _staticConfig = config ?? throw new System.ArgumentNullException(nameof(config));
     }
 
     /// <inheritdoc/>
@@ -77,7 +95,8 @@ public sealed class SimulatedWorkItemDiscoveryService : IWorkItemDiscoveryServic
 
     private (int WorkItems, int Revisions) ComputeCounts(string project)
     {
-        if (_config.Projects is { Count: > 0 } projects)
+        var config = ResolveConfig();
+        if (config.Projects is { Count: > 0 } projects)
         {
             var projectConfig = projects.FirstOrDefault(
                 p => string.Equals(p.Name, project, System.StringComparison.OrdinalIgnoreCase));
@@ -91,5 +110,17 @@ public sealed class SimulatedWorkItemDiscoveryService : IWorkItemDiscoveryServic
         }
 
         return (0, 0);
+    }
+
+    private SimulatedGeneratorConfig ResolveConfig()
+    {
+        if (_staticConfig is not null)
+            return _staticConfig;
+
+        var generator = new SimulatedGeneratorConfig();
+        _jobConfig?.PackageConfig?
+            .GetSection("MigrationPlatform:Source:Generator")
+            .Bind(generator);
+        return generator;
     }
 }

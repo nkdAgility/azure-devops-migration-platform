@@ -65,10 +65,7 @@ public static class ExportServiceCollectionExtensions
         // Work item discovery (count by WIQL query) — used by WorkItemExportOrchestrator
         // at job start to populate TotalWorkItems and emit a ScopeResolved event.
         // Registered here so the Agent has it available without the CLI needing it.
-        if (!services.Any(x => x.ServiceType == typeof(IWorkItemDiscoveryService)))
-        {
-            services.AddSingleton<IWorkItemDiscoveryService, AzureDevOpsWorkItemDiscoveryService>();
-        }
+        services.AddWorkItemDiscoveryService<AzureDevOpsWorkItemDiscoveryService>("AzureDevOpsServices");
 
         // Classification tree reader — enumerates area/iteration nodes from the source ADO project.
         services.AddClassificationTreeReader<AzureDevOpsClassificationTreeReader>("AzureDevOpsServices");

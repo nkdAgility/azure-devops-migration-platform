@@ -351,6 +351,13 @@ internal sealed class InventoryOrchestrator : IInventoryOrchestrator
         await store.WriteAsync(csvOutputPath, csvBuilder.ToString(), ct).ConfigureAwait(false);
         await WriteInventoryJsonAsync(store, jsonOutputPath, orgProjectData, ct).ConfigureAwait(false);
         await MergeAndWriteAggregateAsync(store, aggregateJsonPath, orgProjectData, ct).ConfigureAwait(false);
+
+        // Copy aggregate to the module-level path so InventoryAnalyser can read project data
+        // (e.g. "WorkItems/inventory.json") for consolidation into the root inventory.json.
+        var aggregateJson = await store.ReadAsync(aggregateJsonPath, ct).ConfigureAwait(false);
+        if (aggregateJson is not null)
+            await store.WriteAsync($"{moduleName}/inventory.json", aggregateJson, ct).ConfigureAwait(false);
+
         await state.DeleteAsync(CursorKeyFor(moduleName), ct).ConfigureAwait(false);
 
         // Final snapshot push.

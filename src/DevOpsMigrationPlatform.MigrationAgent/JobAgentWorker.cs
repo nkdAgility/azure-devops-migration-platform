@@ -525,17 +525,30 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
                 var wrapper = JsonSerializer.Deserialize<DiscoveryConfigWrapper>(rawJson, AgentJsonOptions);
                 if (wrapper?.MigrationPlatform?.Organisations is { Count: > 0 } orgs)
                 {
+                    // For Simulated orgs, the Generator lives in Source.Generator (not on each org entry).
+                    // Propagate it so the discovery service has project definitions to count from.
+                    var sourceGenerator = (wrapper.MigrationPlatform.Source as SimulatedEndpointOptions)?.Generator;
+
                     organisations = orgs
                         .Where(o => o.Enabled)
-                        .Select(o => new ScopedOrganisationEndpoint
+                        .Select(o =>
                         {
-                            Endpoint = o.ToEndpointOptions(),
-                            Projects = new List<string>(o.Projects),
-                            Scopes = o.Scopes.Select(s => new JobModuleScope
+                            if (o is SimulatedOrganisationEntry sim
+                                && sourceGenerator?.Projects is { Count: > 0 }
+                                && (sim.Generator?.Projects is null or { Count: 0 }))
                             {
-                                Type = s.Type,
-                                Parameters = s.Parameters.ToDictionary(kvp => kvp.Key, kvp => (object?)kvp.Value)
-                            }).ToList()
+                                sim.Generator = sourceGenerator;
+                            }
+                            return new ScopedOrganisationEndpoint
+                            {
+                                Endpoint = o.ToEndpointOptions(),
+                                Projects = new List<string>(o.Projects),
+                                Scopes = o.Scopes.Select(s => new JobModuleScope
+                                {
+                                    Type = s.Type,
+                                    Parameters = s.Parameters.ToDictionary(kvp => kvp.Key, kvp => (object?)kvp.Value)
+                                }).ToList()
+                            };
                         })
                         .ToList();
                 }
