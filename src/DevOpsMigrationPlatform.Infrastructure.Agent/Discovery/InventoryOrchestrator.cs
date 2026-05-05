@@ -60,13 +60,13 @@ internal sealed class InventoryOrchestrator : IInventoryOrchestrator
 
     private static string OrgCsvOutputPathFor(string moduleName, string orgSlug)
         => moduleName.Equals("WorkItems", StringComparison.OrdinalIgnoreCase)
-            ? $"WorkItems/{orgSlug}/inventory.csv"
-            : $"{moduleName}/{orgSlug}/inventory.csv";
+            ? $"{orgSlug}/WorkItems/inventory.csv"
+            : $"{orgSlug}/{moduleName}/inventory.csv";
 
     private static string OrgJsonOutputPathFor(string moduleName, string orgSlug)
         => moduleName.Equals("WorkItems", StringComparison.OrdinalIgnoreCase)
-            ? $"WorkItems/{orgSlug}/inventory.json"
-            : $"{moduleName}/{orgSlug}/inventory.json";
+            ? $"{orgSlug}/WorkItems/inventory.json"
+            : $"{orgSlug}/{moduleName}/inventory.json";
 
     // Legacy aggregate paths used by InventoryAnalyser and LoadCompletedKeysAsync.
     private static string CsvOutputPathFor(string moduleName)
