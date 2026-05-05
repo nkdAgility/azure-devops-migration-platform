@@ -10,6 +10,7 @@ using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions.Agent.Checkpointing;
 using DevOpsMigrationPlatform.Abstractions.Agent.Analysis;
 using DevOpsMigrationPlatform.Abstractions.Agent.Context;
+using DevOpsMigrationPlatform.Abstractions.Agent.Lease;
 using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
 using DevOpsMigrationPlatform.Abstractions.ControlPlaneApi;
 using DevOpsMigrationPlatform.Abstractions.Jobs;
@@ -131,6 +132,49 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
             Tasks = tasks.AsReadOnly(),
             PushedAt = DateTimeOffset.UtcNow
         };
+    }
+
+    /// <inheritdoc />
+    public async Task<JobTaskList> BuildAndSaveAsync(
+        IConfiguration packageConfig,
+        JobKind kind,
+        IArtefactStore artefactStore,
+        IStateStore stateStore,
+        CancellationToken ct)
+    {
+        // Resume: load persisted plan if present.
+        var loadedPlan = await JobPlanExecutor.LoadOrResetAsync(stateStore, ct).ConfigureAwait(false);
+        if (loadedPlan is not null)
+        {
+            _logger.LogInformation(
+                "Loaded execution plan from package: {TaskCount} task(s), {PendingCount} pending, {CompletedCount} completed.",
+                loadedPlan.Tasks.Count,
+                loadedPlan.Tasks.Count(t => t.Status == JobTaskStatus.Pending),
+                loadedPlan.Tasks.Count(t => t.Status == JobTaskStatus.Completed));
+            return loadedPlan;
+        }
+
+        // No persisted plan — build fresh.
+        var freshPlan = await BuildPlanAsync(packageConfig, kind, artefactStore, stateStore, ct)
+            .ConfigureAwait(false);
+
+        _logger.LogInformation("Built fresh execution plan: {TaskCount} task(s).", freshPlan.Tasks.Count);
+
+        // Persist immediately so resume is possible if the agent crashes before execution.
+        try
+        {
+            var json = JsonSerializer.Serialize(freshPlan, _jsonOptions);
+            await stateStore.WriteAsync(PackagePaths.PlanFile, json, ct).ConfigureAwait(false);
+            _logger.LogDebug("Persisted execution plan to {Path}.", PackagePaths.PlanFile);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex,
+                "Failed to persist execution plan to {Path}. Job will continue, but resume may be incomplete.",
+                PackagePaths.PlanFile);
+        }
+
+        return freshPlan;
     }
 
     // ── Export phase ─────────────────────────────────────────────────────────

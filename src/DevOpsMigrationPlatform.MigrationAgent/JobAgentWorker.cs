@@ -309,36 +309,10 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
                 }
             }
 
-            // Attempt to load persisted plan from package (resume scenario).
-            var loadedPlan = await JobPlanExecutor.LoadOrResetAsync(stateStore, ct)
+            // Load persisted plan (resume) or build and persist a fresh one.
+            executionPlan = await _planBuilder
+                .BuildAndSaveAsync(packageConfig, job.Kind, artefactStore, stateStore, ct)
                 .ConfigureAwait(false);
-
-            if (loadedPlan is not null)
-            {
-                _logger.LogInformation(
-                    "Loaded execution plan from package: {TaskCount} task(s), {PendingCount} pending, {CompletedCount} completed.",
-                    loadedPlan.Tasks.Count,
-                    loadedPlan.Tasks.Count(t => t.Status == JobTaskStatus.Pending),
-                    loadedPlan.Tasks.Count(t => t.Status == JobTaskStatus.Completed));
-                executionPlan = loadedPlan;
-            }
-            else
-            {
-                // No persisted plan — build fresh.
-                var freshPlan = await _planBuilder
-                    .BuildPlanAsync(packageConfig, job.Kind, artefactStore, stateStore, ct)
-                    .ConfigureAwait(false);
-
-                _logger.LogInformation(
-                    "Built fresh execution plan: {TaskCount} task(s).",
-                    freshPlan.Tasks.Count);
-
-                // Persist the fresh plan immediately.
-                var json = System.Text.Json.JsonSerializer.Serialize(freshPlan);
-                await stateStore.WriteAsync(PackagePaths.PlanFile, json, ct).ConfigureAwait(false);
-
-                executionPlan = freshPlan;
-            }
 
             // Push plan to the control plane for display.
             await _telemetryClient.PushTaskListAsync(leaseId, executionPlan, ct).ConfigureAwait(false);
@@ -534,6 +508,10 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
                     _logger.LogWarning(ex, "Could not delete cursor for discovery module {Module}.", module.Name);
                 }
             }
+
+            // Delete persisted plan so a fresh one is built.
+            try { await stateStore.DeleteAsync(PackagePaths.PlanFile, ct).ConfigureAwait(false); }
+            catch (System.IO.FileNotFoundException) { /* not an error */ }
         }
 
         // Read migration-config.json from the package and extract discovery settings.
@@ -584,6 +562,20 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
         using var jobScope = _moduleScopeFactory.CreateScope();
         var modulesToRun = jobScope.ServiceProvider.GetServices<IModule>().ToList();
         var analysersToRun = jobScope.ServiceProvider.GetServices<IAnalyser>().ToList();
+
+        // Build, persist and push the task list so clients can see planned steps immediately.
+        try
+        {
+            var planConfig = ActiveJobConfig.PackageConfig ?? new ConfigurationBuilder().Build();
+            var discoveryPlan = await _planBuilder
+                .BuildAndSaveAsync(planConfig, job.Kind, artefactStore, stateStore, ct)
+                .ConfigureAwait(false);
+            await _telemetryClient.PushTaskListAsync(leaseId, discoveryPlan, ct).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Could not build or persist task list for discovery job {JobId}.", job.JobId);
+        }
 
         bool failed = false;
         if (job.Kind == JobKind.Inventory)
