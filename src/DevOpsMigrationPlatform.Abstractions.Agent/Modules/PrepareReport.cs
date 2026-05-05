@@ -21,7 +21,7 @@ public sealed record PrepareReport
 {
     public string ModuleName { get; init; } = string.Empty;
     public int ResolvedCount { get; init; }
-    public int UnresolvedCount { get; init; }
+    public int UnresolvedCount => UnresolvedItems.Count;
     public IReadOnlyList<UnresolvedItem> UnresolvedItems { get; init; } = [];
     public DateTimeOffset GeneratedAt { get; init; } = DateTimeOffset.UtcNow;
 }

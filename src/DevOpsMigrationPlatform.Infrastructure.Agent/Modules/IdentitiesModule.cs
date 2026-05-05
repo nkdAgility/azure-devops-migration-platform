@@ -51,10 +51,11 @@ public sealed class IdentitiesModule : IModule
     public bool SupportsInventory => true;
     public bool SupportsPrepare => true;
     public bool SupportsImport => true;
+    public bool SupportsValidate => false;
 
     public IdentitiesModule(
         ILogger<IdentitiesModule> logger,
-        IOptions<IdentitiesModuleOptions> options,
+    IOptions<IdentitiesModuleOptions> options,
         ISourceEndpointInfo sourceEndpointInfo,
         IIdentitiesOrchestrator orchestrator,
         IDiscoveryMetrics? discoveryMetrics = null,
@@ -67,10 +68,10 @@ public sealed class IdentitiesModule : IModule
         )
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
-        _options = options?.Value ?? throw new ArgumentNullException(nameof(options));
-        _sourceEndpointInfo = sourceEndpointInfo ?? throw new ArgumentNullException(nameof(sourceEndpointInfo));
-        _orchestrator = orchestrator ?? throw new ArgumentNullException(nameof(orchestrator));
-        _discoveryMetrics = discoveryMetrics;
+    _options = options?.Value ?? throw new ArgumentNullException(nameof(options));
+    _sourceEndpointInfo = sourceEndpointInfo ?? throw new ArgumentNullException(nameof(sourceEndpointInfo));
+    _orchestrator = orchestrator ?? throw new ArgumentNullException(nameof(orchestrator));
+    _discoveryMetrics = discoveryMetrics;
         _migrationMetrics = migrationMetrics;
         _identitySource = identitySource;
         _checkpointingFactory = checkpointingFactory;
@@ -152,7 +153,6 @@ public sealed class IdentitiesModule : IModule
         {
             ModuleName = Name,
             ResolvedCount = 0,
-            UnresolvedCount = 0,
             UnresolvedItems = []
         };
 

@@ -389,7 +389,7 @@ Create a single generic `CompositeServiceDispatcher<TInterface>` base class or u
 
 **Note on net481 Compatibility:** This candidate requires a hybrid approach for .NET 4.8.1 support (TFS Migration Agent):
 - Option A: Generic dispatcher base class with conditional compilation for keyed service discovery
-- Option B: Source generators to auto-generate dispatcher boilerplate (works on any .NET version)
+- Option B: Source generators to auto-generate dispatcher boilerplate — **requires SDK-style `.csproj` projects**; the generator project must target `netstandard2.0`; minimum toolchain: `Microsoft.CodeAnalysis.CSharp >= 3.8.0` and Visual Studio 2019 v16.8+ (or equivalent MSBuild with Roslyn source-generator support). Verify build environment before choosing this option.
 
 ---
 
@@ -412,7 +412,7 @@ Every module is **essentially empty**. Typical flow:
 The module layer is a pass-through. To understand what a module does, you must skip the module entirely and read the orchestrator.
 
 **Solution:**
-Remove the module wrapper layer entirely or elevate orchestrator logic into the module. Modules would become lightweight orchestrator registrations rather than implementations of IModule, or orchestrator logic moves into the module.
+Preserve the formal `IModule` phase contract (`SupportsInventory`, `SupportsExport`, `SupportsPrepare`, `SupportsImport`, `SupportsValidate`) and reduce wrapper boilerplate by introducing a shared `ModuleBase` or composition helper that handles common orchestrator wiring. Alternatively, elevate reusable orchestrator pieces into the base class so the module layer remains thin but still exposes an explicit, navigable contract. Removing the `IModule` interface entirely is not recommended — it would eliminate the extensibility contract and break capability-flag routing.
 
 **Benefits:**
 - **Locality:** Module is the place where module logic lives

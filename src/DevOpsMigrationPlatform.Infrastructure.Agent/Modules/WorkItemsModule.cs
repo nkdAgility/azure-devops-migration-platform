@@ -56,6 +56,7 @@ public sealed class WorkItemsModule : IModule
     public bool SupportsInventory => true;
     public bool SupportsPrepare => true;
     public bool SupportsImport => true;
+    public bool SupportsValidate => false;
 
     private static readonly ActivitySource s_activitySource = new(WellKnownActivitySourceNames.Migration);
     private static readonly ActivitySource s_discoveryActivitySource = new(WellKnownActivitySourceNames.Discovery);
@@ -279,8 +280,7 @@ public sealed class WorkItemsModule : IModule
         var report = new PrepareReport
         {
             ModuleName = Name,
-            ResolvedCount = 0,
-            UnresolvedCount = 0
+            ResolvedCount = 0
         };
 
         var tags = new MetricsTagList { { "job.id", context.Job.JobId }, { "module", Name } };

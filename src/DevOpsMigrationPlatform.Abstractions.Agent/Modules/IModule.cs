@@ -55,6 +55,12 @@ public interface IModule
     /// </summary>
     bool SupportsImport { get; }
 
+    /// <summary>
+    /// Whether this module participates in the Validate phase.
+    /// Modules that return <c>false</c> are excluded from Validate-phase task plans.
+    /// </summary>
+    bool SupportsValidate { get; }
+
     /// <summary>Inventory data from the source system into module-scoped package artefacts.</summary>
     Task InventoryAsync(InventoryContext context, CancellationToken ct);
 

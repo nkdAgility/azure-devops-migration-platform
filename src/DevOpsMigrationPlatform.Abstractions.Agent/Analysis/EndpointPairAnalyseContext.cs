@@ -7,7 +7,7 @@ namespace DevOpsMigrationPlatform.Abstractions.Agent.Analysis;
 
 public sealed record EndpointPairAnalyseContext : AnalyseContext
 {
-    public ISourceEndpointInfo SourceEndpoint { get; init; } = null!;
-    public ITargetEndpointInfo TargetEndpoint { get; init; } = null!;
+    public required ISourceEndpointInfo SourceEndpoint { get; init; }
+    public required ITargetEndpointInfo TargetEndpoint { get; init; }
 }
 

@@ -250,7 +250,7 @@ Phase string values extended with:
 ```
 DependencyAnalyser : IAnalyser
   Name => "Dependencies"
-  DependsOn => [ ModuleDependency(typeof(WorkItemsModule), DependencyPhase.Inventory) ]
+  DependsOn => []
   AnalyseAsync(AnalyseContext, CancellationToken): Task
     → delegates to IDependencyOrchestrator (adapted to AnalyseContext)
     → reads ArtefactStore → "inventory.json"

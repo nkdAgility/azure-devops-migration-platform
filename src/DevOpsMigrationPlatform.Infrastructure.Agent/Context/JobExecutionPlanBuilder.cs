@@ -537,7 +537,7 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
         var configured = packageConfig.GetSection("MigrationPlatform:Organisations").GetChildren();
         foreach (var child in configured)
         {
-            var url = child["Url"];
+            var url = child["Url"] ?? child["Collection"];
             if (string.IsNullOrWhiteSpace(url))
                 continue;
 

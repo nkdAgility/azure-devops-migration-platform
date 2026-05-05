@@ -34,6 +34,7 @@ public sealed class InventoryAnalyser : IAnalyser
 
     public string Name => "Inventory";
 
+    // --- InventoryAnalyser depends on all inventory-capable modules (net481 has no TeamsModule) ---
     public IReadOnlyList<ModuleDependency> DependsOn => new[]
     {
         new ModuleDependency(typeof(WorkItemsModule), DependencyPhase.Inventory),
@@ -41,8 +42,6 @@ public sealed class InventoryAnalyser : IAnalyser
         new ModuleDependency(typeof(NodesModule), DependencyPhase.Inventory),
 #if !NET481
         new ModuleDependency(typeof(TeamsModule), DependencyPhase.Inventory)
-#else
-        new ModuleDependency(typeof(IdentitiesModule), DependencyPhase.Inventory)
 #endif
     };
 

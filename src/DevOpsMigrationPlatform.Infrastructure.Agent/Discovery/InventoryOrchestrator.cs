@@ -287,7 +287,7 @@ internal sealed class InventoryOrchestrator : IInventoryOrchestrator
             await store.WriteAsync(csvOutputPath, csvBuilder.ToString(), ct).ConfigureAwait(false);
             await WriteInventoryJsonAsync(store, jsonOutputPath, orgProjectData, ct).ConfigureAwait(false);
 
-            var snapshots = BuildScopedOrganisations(orgProjectData);
+            var snapshots = BuildScopedOrganisations(orgProjectData, context.SourceEndpoint?.ResolvedUrl);
             PushAggregateMetrics(metricsStore, orgProjectData, snapshots);
             PushSnapshot(snapshotStore, orgProjectData, snapshots);
 
@@ -323,7 +323,7 @@ internal sealed class InventoryOrchestrator : IInventoryOrchestrator
         await state.DeleteAsync(CursorKeyFor(moduleName), ct).ConfigureAwait(false);
 
         // Final snapshot push.
-        var finalSnapshots = BuildScopedOrganisations(orgProjectData);
+        var finalSnapshots = BuildScopedOrganisations(orgProjectData, context.SourceEndpoint?.ResolvedUrl);
         PushAggregateMetrics(metricsStore, orgProjectData, finalSnapshots);
         PushSnapshot(snapshotStore, orgProjectData, finalSnapshots);
 
@@ -437,12 +437,28 @@ internal sealed class InventoryOrchestrator : IInventoryOrchestrator
     }
 
     private static IReadOnlyList<ScopedOrganisationEndpoint> BuildScopedOrganisations(
-        Dictionary<string, List<(string Project, long WorkItems, long Revisions, int Repos, bool IsComplete, string? Error)>> orgProjectData)
-        => orgProjectData.Select(kvp => new ScopedOrganisationEndpoint
+        Dictionary<string, List<(string Project, long WorkItems, long Revisions, int Repos, bool IsComplete, string? Error)>> orgProjectData,
+        string? sourceOrgUrl = null)
+    {
+        var result = orgProjectData.Select(kvp => new ScopedOrganisationEndpoint
         {
             Endpoint = new DerivedMigrationEndpointOptions(kvp.Key),
             Projects = kvp.Value.Select(p => p.Project).ToList()
         }).ToList();
+
+        // Include org from source endpoint even if no projects were discovered.
+        if (!string.IsNullOrWhiteSpace(sourceOrgUrl) &&
+            !orgProjectData.ContainsKey(sourceOrgUrl!))
+        {
+            result.Add(new ScopedOrganisationEndpoint
+            {
+                Endpoint = new DerivedMigrationEndpointOptions(sourceOrgUrl!),
+                Projects = new List<string>()
+            });
+        }
+
+        return result;
+    }
 
     private sealed class NullProgressSink : IProgressSink
     {

@@ -144,6 +144,8 @@ public sealed class JobAgentWorkerInventoryTests
         public bool SupportsExport => false;
         public bool SupportsPrepare => false;
         public bool SupportsImport => false;
+        public bool SupportsValidate => false;
+
         public Task ExportAsync(ExportContext context, CancellationToken ct) => Task.CompletedTask;
         public Task PrepareAsync(PrepareContext context, CancellationToken ct) => Task.CompletedTask;
         public Task ImportAsync(ImportContext context, CancellationToken ct) => Task.CompletedTask;
@@ -173,6 +175,7 @@ public sealed class JobAgentWorkerInventoryTests
         public bool SupportsExport => false;
         public bool SupportsPrepare => false;
         public bool SupportsImport => false;
+        public bool SupportsValidate => false;
 
         public Task ExportAsync(ExportContext context, CancellationToken ct) => Task.CompletedTask;
         public Task ImportAsync(ImportContext context, CancellationToken ct) => Task.CompletedTask;

@@ -42,6 +42,7 @@ public sealed class TestModule : IModule
     public bool SupportsInventory { get; init; } = false;
     public bool SupportsPrepare { get; init; } = false;
     public bool SupportsImport { get; init; } = true;
+    public bool SupportsValidate { get; init; } = false;
     public bool ShouldThrow { get; set; }
     public bool ExportCalled { get; set; }
     public bool ImportCalled { get; set; }
@@ -80,6 +81,7 @@ public sealed class TestIdentitiesModule : IModule
     public bool SupportsInventory => false;
     public bool SupportsPrepare => false;
     public bool SupportsImport => true;
+    public bool SupportsValidate => false;
     public Task InventoryAsync(InventoryContext context, CancellationToken ct) => Task.CompletedTask;
     public Task ExportAsync(ExportContext context, CancellationToken ct) => Task.CompletedTask;
     public Task PrepareAsync(PrepareContext context, CancellationToken ct) => Task.CompletedTask;
@@ -95,6 +97,7 @@ public sealed class TestNodesModule : IModule
     public bool SupportsInventory => false;
     public bool SupportsPrepare => false;
     public bool SupportsImport => true;
+    public bool SupportsValidate => false;
     public Task InventoryAsync(InventoryContext context, CancellationToken ct) => Task.CompletedTask;
     public Task ExportAsync(ExportContext context, CancellationToken ct) => Task.CompletedTask;
     public Task PrepareAsync(PrepareContext context, CancellationToken ct) => Task.CompletedTask;
@@ -110,6 +113,7 @@ public sealed class TestWorkItemsModule : IModule
     public bool SupportsInventory => false;
     public bool SupportsPrepare => false;
     public bool SupportsImport => true;
+    public bool SupportsValidate => false;
     public Task InventoryAsync(InventoryContext context, CancellationToken ct) => Task.CompletedTask;
     public Task ExportAsync(ExportContext context, CancellationToken ct) => Task.CompletedTask;
     public Task PrepareAsync(PrepareContext context, CancellationToken ct) => Task.CompletedTask;

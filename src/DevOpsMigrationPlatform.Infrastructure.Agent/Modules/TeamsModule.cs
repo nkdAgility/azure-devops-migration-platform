@@ -64,6 +64,7 @@ public sealed class TeamsModule : IModule
     public bool SupportsInventory => true;
     public bool SupportsPrepare => true;
     public bool SupportsImport => true;
+    public bool SupportsValidate => false;
 
     public TeamsModule(
         ILogger<TeamsModule> logger,
@@ -135,7 +136,7 @@ public sealed class TeamsModule : IModule
         _logger.LogInformation("Preparing {Module}", Name);
 
         context.ProgressSink?.Emit(new ProgressEvent { Module = Name, Stage = "Preparing", Message = $"Preparing {Name}", Timestamp = DateTimeOffset.UtcNow });
-        var report = new PrepareReport { ModuleName = Name, ResolvedCount = 0, UnresolvedCount = 0 };
+        var report = new PrepareReport { ModuleName = Name, ResolvedCount = 0 };
         _migrationMetrics?.RecordPrepareTeamsResolved(report.ResolvedCount, new MetricsTagList { { "job.id", context.Job.JobId }, { "module", Name } });
         _migrationMetrics?.RecordPrepareTeamsUnresolved(report.UnresolvedCount, new MetricsTagList { { "job.id", context.Job.JobId }, { "module", Name } });
         await context.ArtefactStore.WriteAsync("Teams/prepare-report.json", JsonSerializer.Serialize(report), ct).ConfigureAwait(false);

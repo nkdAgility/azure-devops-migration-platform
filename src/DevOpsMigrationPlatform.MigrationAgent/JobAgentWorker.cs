@@ -392,13 +392,14 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
         };
 
         var isBoth = job.Kind == JobKind.Migrate;
-        var phaseRecord = isBoth
+        var needsPhaseRecord = isBoth || job.Kind == JobKind.Import;
+        var phaseRecord = needsPhaseRecord
             ? await phaseTracker.ReadPhaseRecordAsync(ct).ConfigureAwait(false)
             : new JobPhaseRecord();
 
         var runExport = job.Kind == JobKind.Export || (isBoth && !phaseRecord.ExportCompleted);
         var runImport = job.Kind == JobKind.Import || (isBoth && !phaseRecord.ImportCompleted);
-        var runPrepare = job.Kind == JobKind.Prepare;
+        var runPrepare = job.Kind == JobKind.Prepare || (runImport && !phaseRecord.PrepareCompleted);
 
         if (isBoth && !runExport)
             _logger.LogInformation("Export phase already completed for job {JobId} — skipping.", job.JobId);
@@ -482,6 +483,19 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
                 foreach (var module in prepareModules)
                 {
                     await module.PrepareAsync(prepareContext, ct).ConfigureAwait(false);
+                }
+
+                if (needsPhaseRecord)
+                {
+                    await phaseTracker.WritePhaseRecordAsync(
+                        new JobPhaseRecord
+                        {
+                            ExportCompleted = phaseRecord.ExportCompleted,
+                            PrepareCompleted = true,
+                            ImportCompleted = phaseRecord.ImportCompleted,
+                            UpdatedAt = DateTimeOffset.UtcNow
+                        },
+                        ct).ConfigureAwait(false);
                 }
             }
         }
@@ -607,6 +621,7 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
                             index,
                             organisations.Count,
                             ex.GetType().Name);
+                        failed = true;
                     }
                 }
 

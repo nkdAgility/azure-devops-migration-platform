@@ -144,12 +144,12 @@ public sealed class DependencyAnalyser : IOrganisationsAnalyser
         var graphLines = new List<string> { "graph TD" };
         foreach (var line in lines.Skip(1))
         {
-            var cols = line.Split(',');
-            if (cols.Length < 9)
+            var cols = ParseCsvLine(line);
+            if (cols.Count < 8)
                 continue;
 
             var sourceProject = cols[2].Trim();
-            var targetProject = cols[8].Trim();
+            var targetProject = cols[7].Trim();
             if (string.IsNullOrWhiteSpace(sourceProject) || string.IsNullOrWhiteSpace(targetProject))
                 continue;
 
@@ -157,6 +157,31 @@ public sealed class DependencyAnalyser : IOrganisationsAnalyser
         }
 
         return string.Join("\n", graphLines) + "\n";
+    }
+
+    private static System.Collections.Generic.List<string> ParseCsvLine(string line)
+    {
+        var result = new System.Collections.Generic.List<string>();
+        var current = new System.Text.StringBuilder();
+        bool inQuotes = false;
+        foreach (var ch in line)
+        {
+            if (ch == '"')
+            {
+                inQuotes = !inQuotes;
+            }
+            else if (ch == ',' && !inQuotes)
+            {
+                result.Add(current.ToString());
+                current.Clear();
+            }
+            else
+            {
+                current.Append(ch);
+            }
+        }
+        result.Add(current.ToString());
+        return result;
     }
 
     private static string Sanitize(string value)

@@ -26,6 +26,7 @@ public abstract class ModuleBase(ILogger logger) : IModule
     public virtual bool SupportsExport => false;
     public virtual bool SupportsPrepare => false;
     public virtual bool SupportsImport => false;
+    public virtual bool SupportsValidate => false;
 
     public virtual Task InventoryAsync(InventoryContext context, CancellationToken ct)
     {

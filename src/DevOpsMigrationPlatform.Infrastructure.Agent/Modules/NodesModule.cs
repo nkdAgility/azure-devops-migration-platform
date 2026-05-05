@@ -18,6 +18,7 @@ using DevOpsMigrationPlatform.Abstractions.ControlPlaneApi;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Abstractions.Agent.Validation;
 using DevOpsMigrationPlatform.Abstractions.Validation;
+using DevOpsMigrationPlatform.Infrastructure.Telemetry;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
@@ -53,6 +54,7 @@ public sealed class NodesModule : IModule
     public bool SupportsInventory => true;
     public bool SupportsPrepare => true;
     public bool SupportsImport => true;
+    public bool SupportsValidate => false;
 
     public NodesModule(
         ILogger<NodesModule> logger,
@@ -86,7 +88,8 @@ public sealed class NodesModule : IModule
         activity?.SetTag("job.id", context.Job.JobId);
         activity?.SetTag("module", Name);
 
-        _logger.LogInformation("Inventorying {Module} for {Project}", Name, _sourceEndpointInfo.Project);
+        using (_logger.BeginDataScope(DataClassification.Customer))
+            _logger.LogInformation("Inventorying {Module} for {Project}", Name, _sourceEndpointInfo.Project);
         context.ProgressSink?.Emit(new ProgressEvent
         {
             Module = Name,
@@ -95,9 +98,11 @@ public sealed class NodesModule : IModule
             Timestamp = DateTimeOffset.UtcNow
         });
 
+        var stopwatch = Stopwatch.StartNew();
         var count = 0;
         if (_capture is not null)
             count = await _capture.CaptureAsync(context.ArtefactStore, ct).ConfigureAwait(false);
+        stopwatch.Stop();
 
         await context.ArtefactStore.WriteAsync(
             "Nodes/inventory.json",
@@ -105,9 +110,12 @@ public sealed class NodesModule : IModule
             ct).ConfigureAwait(false);
 
         _discoveryMetrics?.RecordInventoryNodes(count, new MetricsTagList { { "job.id", context.Job.JobId }, { "module", Name } });
-        _logger.LogInformation("Inventoried {Module}: {Count} items in {DurationMs}ms", Name, count, 0);
+        _logger.LogInformation("Inventoried {Module}: {Count} items in {DurationMs}ms", Name, count, stopwatch.ElapsedMilliseconds);
         if (count == 0)
-            _logger.LogWarning("Zero items inventoried for {Module} in {Project}", Name, _sourceEndpointInfo.Project);
+        {
+            using (_logger.BeginDataScope(DataClassification.Customer))
+                _logger.LogWarning("Zero items inventoried for {Module} in {Project}", Name, _sourceEndpointInfo.Project);
+        }
 
         context.ProgressSink?.Emit(new ProgressEvent
         {
@@ -143,15 +151,16 @@ public sealed class NodesModule : IModule
         var report = new PrepareReport
         {
             ModuleName = Name,
-            ResolvedCount = 0,
-            UnresolvedCount = 0
+            ResolvedCount = 0
         };
 
+        var stopwatch = Stopwatch.StartNew();
         _migrationMetrics?.RecordPrepareNodesResolved(report.ResolvedCount, new MetricsTagList { { "job.id", context.Job.JobId }, { "module", Name } });
         _migrationMetrics?.RecordPrepareNodesUnresolved(report.UnresolvedCount, new MetricsTagList { { "job.id", context.Job.JobId }, { "module", Name } });
         await context.ArtefactStore.WriteAsync("Nodes/prepare-report.json", JsonSerializer.Serialize(report), ct).ConfigureAwait(false);
+        stopwatch.Stop();
 
-        _logger.LogInformation("Prepared {Module}: {Resolved} resolved, {Unresolved} unresolved in {DurationMs}ms", Name, report.ResolvedCount, report.UnresolvedCount, 0);
+        _logger.LogInformation("Prepared {Module}: {Resolved} resolved, {Unresolved} unresolved in {DurationMs}ms", Name, report.ResolvedCount, report.UnresolvedCount, stopwatch.ElapsedMilliseconds);
         context.ProgressSink?.Emit(new ProgressEvent { Module = Name, Stage = "Prepared", Message = $"{Name} prepare complete", Timestamp = DateTimeOffset.UtcNow });
     }
 
