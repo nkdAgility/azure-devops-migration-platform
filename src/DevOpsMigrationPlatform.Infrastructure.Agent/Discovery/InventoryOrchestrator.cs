@@ -59,21 +59,15 @@ internal sealed class InventoryOrchestrator : IInventoryOrchestrator
         Regex.Replace(input, @"[^a-zA-Z0-9_\-]", "-").Trim('-');
 
     private static string OrgCsvOutputPathFor(string moduleName, string orgSlug)
-        => moduleName.Equals("WorkItems", StringComparison.OrdinalIgnoreCase)
-            ? $"{orgSlug}/WorkItems/inventory.csv"
-            : $"{orgSlug}/{moduleName}/inventory.csv";
+        => $"{orgSlug}/inventory.csv";
 
     private static string OrgJsonOutputPathFor(string moduleName, string orgSlug)
-        => moduleName.Equals("WorkItems", StringComparison.OrdinalIgnoreCase)
-            ? $"{orgSlug}/WorkItems/inventory.json"
-            : $"{orgSlug}/{moduleName}/inventory.json";
+        => $"{orgSlug}/inventory.json";
 
-    // Legacy aggregate paths used by InventoryAnalyser and LoadCompletedKeysAsync.
-    private static string CsvOutputPathFor(string moduleName)
-        => moduleName.Equals("WorkItems", StringComparison.OrdinalIgnoreCase) ? "WorkItems/inventory.csv" : "inventory.csv";
+    // Aggregate paths (all orgs combined).
+    private static string CsvOutputPathFor(string moduleName) => "inventory.csv";
 
-    private static string JsonOutputPathFor(string moduleName)
-        => moduleName.Equals("WorkItems", StringComparison.OrdinalIgnoreCase) ? "WorkItems/inventory.json" : "inventory.json";
+    private static string JsonOutputPathFor(string moduleName) => "inventory.json";
 
     private readonly ILogger _logger;
     private readonly IDiscoveryMetrics? _metrics;
