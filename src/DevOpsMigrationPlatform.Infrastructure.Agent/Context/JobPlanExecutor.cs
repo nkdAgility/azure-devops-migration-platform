@@ -568,83 +568,83 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
                     switch (task.TaskKind)
                     {
                         case TaskKind.Capture:
-                        {
-                            if (baseInventoryContext is null)
-                                throw new InvalidOperationException($"Capture task {task.Id} requires a base InventoryContext.");
-
-                            var orgUrl = task.OrganisationUrl;
-                            var endpoint = (orgUrl is { Length: > 0 }
-                                && endpointsByUrl?.TryGetValue(orgUrl, out var ep) == true)
-                                ? ep
-                                : baseInventoryContext.SourceEndpoint;
-
-                            var scopedCtx = baseInventoryContext with
                             {
-                                Project = task.ProjectName ?? string.Empty,
-                                SourceEndpoint = endpoint
-                            };
+                                if (baseInventoryContext is null)
+                                    throw new InvalidOperationException($"Capture task {task.Id} requires a base InventoryContext.");
 
-                            // Apply per-org config overlay so IJobConfiguration.PackageConfig
-                            // carries the correct Source.Type/Url/Auth for this org.
-                            // Per-org semaphore: same-org tasks are serialised; different-org
-                            // tasks run concurrently.
-                            if (_jobConfig is not null && endpoint is not null)
-                            {
-                                var orgKey = orgUrl ?? string.Empty;
-                                var orgSem = _orgConfigLocks.GetOrAdd(orgKey, _ => new SemaphoreSlim(1, 1));
-                                await orgSem.WaitAsync(ct).ConfigureAwait(false);
-                                try
+                                var orgUrl = task.OrganisationUrl;
+                                var endpoint = (orgUrl is { Length: > 0 }
+                                    && endpointsByUrl?.TryGetValue(orgUrl, out var ep) == true)
+                                    ? ep
+                                    : baseInventoryContext.SourceEndpoint;
+
+                                var scopedCtx = baseInventoryContext with
                                 {
-                                    var prev = _jobConfig.PackageConfig;
-                                    _jobConfig.PackageConfig = BuildCaptureConfigOverlay(prev, endpoint);
+                                    Project = task.ProjectName ?? string.Empty,
+                                    SourceEndpoint = endpoint
+                                };
+
+                                // Apply per-org config overlay so IJobConfiguration.PackageConfig
+                                // carries the correct Source.Type/Url/Auth for this org.
+                                // Per-org semaphore: same-org tasks are serialised; different-org
+                                // tasks run concurrently.
+                                if (_jobConfig is not null && endpoint is not null)
+                                {
+                                    var orgKey = orgUrl ?? string.Empty;
+                                    var orgSem = _orgConfigLocks.GetOrAdd(orgKey, _ => new SemaphoreSlim(1, 1));
+                                    await orgSem.WaitAsync(ct).ConfigureAwait(false);
                                     try
                                     {
-                                        await module!.InventoryAsync(scopedCtx, ct).ConfigureAwait(false);
+                                        var prev = _jobConfig.PackageConfig;
+                                        _jobConfig.PackageConfig = BuildCaptureConfigOverlay(prev, endpoint);
+                                        try
+                                        {
+                                            await module!.InventoryAsync(scopedCtx, ct).ConfigureAwait(false);
+                                        }
+                                        finally
+                                        {
+                                            _jobConfig.PackageConfig = prev;
+                                        }
                                     }
                                     finally
                                     {
-                                        _jobConfig.PackageConfig = prev;
+                                        orgSem.Release();
                                     }
                                 }
-                                finally
+                                else
                                 {
-                                    orgSem.Release();
+                                    await module!.InventoryAsync(scopedCtx, ct).ConfigureAwait(false);
                                 }
+                                break;
                             }
-                            else
-                            {
-                                await module!.InventoryAsync(scopedCtx, ct).ConfigureAwait(false);
-                            }
-                            break;
-                        }
                         case TaskKind.Export:
-                        {
-                            if (exportContext is null)
-                                throw new InvalidOperationException($"Export task {task.Id} requires an ExportContext.");
-
-                            var scopedCtx = new ExportContext
                             {
-                                Job = exportContext.Job,
-                                ArtefactStore = exportContext.ArtefactStore,
-                                StateStore = exportContext.StateStore,
-                                ProgressSink = exportContext.ProgressSink,
-                                MetricsStore = exportContext.MetricsStore,
-                                SnapshotStore = exportContext.SnapshotStore,
-                                Organisations = exportContext.Organisations,
-                                Project = task.ProjectName ?? string.Empty
-                            };
+                                if (exportContext is null)
+                                    throw new InvalidOperationException($"Export task {task.Id} requires an ExportContext.");
 
-                            await module!.ExportAsync(scopedCtx, ct).ConfigureAwait(false);
-                            break;
-                        }
+                                var scopedCtx = new ExportContext
+                                {
+                                    Job = exportContext.Job,
+                                    ArtefactStore = exportContext.ArtefactStore,
+                                    StateStore = exportContext.StateStore,
+                                    ProgressSink = exportContext.ProgressSink,
+                                    MetricsStore = exportContext.MetricsStore,
+                                    SnapshotStore = exportContext.SnapshotStore,
+                                    Organisations = exportContext.Organisations,
+                                    Project = task.ProjectName ?? string.Empty
+                                };
+
+                                await module!.ExportAsync(scopedCtx, ct).ConfigureAwait(false);
+                                break;
+                            }
                         case TaskKind.Import:
-                        {
-                            if (importContext is null)
-                                throw new InvalidOperationException($"Import task {task.Id} requires an ImportContext.");
+                            {
+                                if (importContext is null)
+                                    throw new InvalidOperationException($"Import task {task.Id} requires an ImportContext.");
 
-                            await module!.ImportAsync(importContext, ct).ConfigureAwait(false);
-                            break;
-                        }
+                                await module!.ImportAsync(importContext, ct).ConfigureAwait(false);
+                                break;
+                            }
                         default:
                             _logger.LogWarning(
                                 "Task {TaskId} has unsupported TaskKind '{Kind}' — skipping execution.",
@@ -820,6 +820,11 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
         try
         {
             var json = await stateStore.ReadAsync(PackagePaths.PlanFile, ct).ConfigureAwait(false);
+
+            // Legacy fallback: try the pre-.migration/plan.json path for existing packages.
+            if (json is null)
+                json = await stateStore.ReadAsync(PackagePaths.LegacyPlanFile, ct).ConfigureAwait(false);
+
             if (json is null)
                 return null;
 
