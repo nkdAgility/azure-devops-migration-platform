@@ -174,7 +174,7 @@ public sealed class JobPlanExecutorTests
         Assert.IsFalse(result, "Import phase should fail");
 
         // Check that plan was persisted with correct statuses
-        var persistedJson = await stateStore.ReadAsync(".migration/Checkpoints/plan.json", CancellationToken.None);
+        var persistedJson = await stateStore.ReadAsync(".migration/plan.json", CancellationToken.None);
         Assert.IsNotNull(persistedJson, "Plan should be persisted");
 
         var persistedPlan = System.Text.Json.JsonSerializer.Deserialize<JobTaskList>(persistedJson);
@@ -218,7 +218,7 @@ public sealed class JobPlanExecutorTests
         // Since Identities is already Skipped at plan time, Nodes will be skipped during tier extraction
         Assert.IsTrue(result, "Import phase should succeed (no executed tasks failed)");
 
-        var persistedJson = await stateStore.ReadAsync(".migration/Checkpoints/plan.json", CancellationToken.None);
+        var persistedJson = await stateStore.ReadAsync(".migration/plan.json", CancellationToken.None);
         var persistedPlan = System.Text.Json.JsonSerializer.Deserialize<JobTaskList>(persistedJson!);
         var nodesTask = persistedPlan!.Tasks.First(t => t.Id == "import.nodes");
 
@@ -268,7 +268,7 @@ public sealed class JobPlanExecutorTests
         // Assert
         Assert.IsFalse(result, "Import phase should fail (Nodes failed)");
 
-        var persistedJson = await stateStore.ReadAsync(".migration/Checkpoints/plan.json", CancellationToken.None);
+        var persistedJson = await stateStore.ReadAsync(".migration/plan.json", CancellationToken.None);
         var persistedPlan = System.Text.Json.JsonSerializer.Deserialize<JobTaskList>(persistedJson!);
 
         var identitiesTask = persistedPlan!.Tasks.First(t => t.Id == "import.identities");
@@ -293,7 +293,7 @@ public sealed class JobPlanExecutorTests
         });
 
         var json = System.Text.Json.JsonSerializer.Serialize(plan);
-        await stateStore.WriteAsync(".migration/Checkpoints/plan.json", json, CancellationToken.None);
+        await stateStore.WriteAsync(".migration/plan.json", json, CancellationToken.None);
 
         // Act
         var loaded = await JobPlanExecutor.LoadOrResetAsync(stateStore, CancellationToken.None);
@@ -313,7 +313,7 @@ public sealed class JobPlanExecutorTests
     {
         // Arrange
         var stateStore = new InMemoryStateStore();
-        await stateStore.WriteAsync(".migration/Checkpoints/plan.json", "{ invalid json }", CancellationToken.None);
+        await stateStore.WriteAsync(".migration/plan.json", "{ invalid json }", CancellationToken.None);
 
         // Act
         var loaded = await JobPlanExecutor.LoadOrResetAsync(stateStore, CancellationToken.None);

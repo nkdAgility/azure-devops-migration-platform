@@ -248,7 +248,7 @@ public sealed class PlanDrivenExecutionSteps
         };
 
         var json = System.Text.Json.JsonSerializer.Serialize(plan);
-        _context.StateStore.WriteAsync(".migration/Checkpoints/plan.json", json, CancellationToken.None).Wait();
+        _context.StateStore.WriteAsync(".migration/plan.json", json, CancellationToken.None).Wait();
     }
 
     [Given(@"an Export job completed with all tasks Completed in the plan file")]
@@ -267,7 +267,7 @@ public sealed class PlanDrivenExecutionSteps
         };
 
         var json = System.Text.Json.JsonSerializer.Serialize(plan);
-        _context.StateStore.WriteAsync(".migration/Checkpoints/plan.json", json, CancellationToken.None).Wait();
+        _context.StateStore.WriteAsync(".migration/plan.json", json, CancellationToken.None).Wait();
     }
 
     [Given(@"an existing plan file with tasks Completed")]
@@ -373,7 +373,7 @@ public sealed class PlanDrivenExecutionSteps
     public void WhenTheAgentRunsWithForceFreshResumeMode()
     {
         // Delete plan file and cursors
-        _context.StateStore.DeleteAsync(".migration/Checkpoints/plan.json", CancellationToken.None).Wait();
+        _context.StateStore.DeleteAsync(".migration/plan.json", CancellationToken.None).Wait();
     }
 
     [Then(@"the Identities task completes before the WorkItems task starts")]
@@ -492,7 +492,7 @@ public sealed class PlanDrivenExecutionSteps
     [Then(@"the plan file is deleted before the first module executes")]
     public void ThenThePlanFileIsDeletedBeforeTheFirstModuleExecutes()
     {
-        var json = _context.StateStore.ReadAsync(".migration/Checkpoints/plan.json", CancellationToken.None).Result;
+        var json = _context.StateStore.ReadAsync(".migration/plan.json", CancellationToken.None).Result;
         Assert.IsNull(json, "Plan file should be deleted");
     }
 
