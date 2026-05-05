@@ -462,22 +462,27 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
 
     /// <summary>
     /// Determines which export modules are needed for Export/Migrate job kinds.
-    /// Modules explicitly enabled in config are selected, then transitive export
-    /// dependencies are added.
-    /// Transitive deps are walked via export-phase <see cref="ModuleDependency"/> entries.
+    /// All registered export modules are included by default (matching the <see cref="IsEnabled"/>
+    /// semantics: enabled unless explicitly set to <c>false</c>). Transitive export-phase
+    /// <see cref="ModuleDependency"/> entries are then walked to pull in any additional
+    /// required modules that were themselves transitively depended upon.
     /// </summary>
     private HashSet<string> ResolveNeededExportModules(
         IConfiguration config,
         List<IModule> exportModules)
     {
+        // Seed: every registered export module that is not explicitly disabled.
+        // IsEnabled defaults to true when no config section exists, preserving
+        // the "modules on by default" contract.
         var seeds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var module in exportModules)
         {
-            if (IsExplicitlyEnabled(config, module.Name))
+            if (IsEnabled(config, module.Name))
                 seeds.Add(module.Name);
         }
 
-        // Walk export-phase dependencies transitively.
+        // Walk export-phase dependencies transitively to pull in any module that
+        // an enabled module requires, even if it has no config section itself.
         var needed = new HashSet<string>(seeds, StringComparer.OrdinalIgnoreCase);
         var queue = new Queue<string>(seeds);
         while (queue.Count > 0)
@@ -497,24 +502,6 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
             string.Join(", ", needed));
 
         return needed;
-    }
-
-    /// <summary>
-    /// Returns true if the module has a config section AND is not explicitly disabled.
-    /// A module with no config section at all is NOT considered explicitly enabled —
-    /// it can only appear in the plan if transitively required by another module's DependsOn.
-    /// This prevents discovery modules (Dependencies, Inventory) from appearing unless
-    /// pulled in by a dependency or explicitly listed in the config.
-    /// </summary>
-    private static bool IsExplicitlyEnabled(IConfiguration config, string moduleName)
-    {
-        var section = config.GetSection($"MigrationPlatform:Modules:{moduleName}");
-        if (!section.Exists())
-            return false; // not listed in config — not explicitly enabled
-        var raw = section["Enabled"];
-        if (raw is null)
-            return true; // section exists but no Enabled key — default on
-        return string.Equals(raw, "true", StringComparison.OrdinalIgnoreCase);
     }
 
 
