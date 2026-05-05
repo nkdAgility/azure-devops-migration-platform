@@ -1921,6 +1921,18 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
         bool IsFailed,
         bool IsInProgress);
 
+    private sealed class OrgProjectKeyComparer : IEqualityComparer<(string Org, string Project)>
+    {
+        public bool Equals((string Org, string Project) x, (string Org, string Project) y) =>
+            string.Equals(x.Org.TrimEnd('/'), y.Org.TrimEnd('/'), StringComparison.OrdinalIgnoreCase) &&
+            string.Equals(x.Project, y.Project, StringComparison.OrdinalIgnoreCase);
+
+        public int GetHashCode((string Org, string Project) obj) =>
+            HashCode.Combine(
+                obj.Org.TrimEnd('/').ToUpperInvariant(),
+                obj.Project.ToUpperInvariant());
+    }
+
     private record DiscoveryProgressState(
         JobTaskList? Tasks,
         IReadOnlyList<InventoryProjectRow> Projects,
@@ -2006,16 +2018,15 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
     }
 
     /// <summary>
-    /// Renders the live discovery display.
-    /// Top section: compact task-status header (which module phase is running/complete).
-    /// Bottom section: data table — one row per org/project — updated per batch notification.
+    /// Renders the live discovery display as a single merged table.
+    /// Columns: Org | Project | module-status cells | Work Items | Revisions | Repos | Time
+    /// The task-status icons and the inventory data counts are merged per row.
     /// </summary>
     private static IRenderable BuildDiscoveryDisplay(DiscoveryProgressState s)
     {
         var spinnerFrame = s_spinnerFrames[(int)(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() / 80 % s_spinnerFrames.Length)];
         var rows = new List<IRenderable>();
 
-        // ── Section 1: capture-task matrix table ─────────────────────────────────────
         if (s.Tasks is null)
         {
             rows.Add(new Markup("[grey]⠋ Initialising — waiting for agent to start…[/]"));
@@ -2038,12 +2049,21 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
                     .Where(m => captureTasks.Any(t => GetDiscoveryTaskModule(t.Id) == m))
                     .ToArray();
 
+                // Build a lookup from (orgUrl, projectName) → InventoryProjectRow for count data.
+                var countsByKey = s.Projects.ToDictionary(
+                    p => (Org: p.OrgUrl, Project: p.ProjectName),
+                    p => p,
+                    new OrgProjectKeyComparer());
+
                 var table = new Table()
                     .BorderStyle(Style.Parse("grey"))
                     .AddColumn(new TableColumn("[grey]Organisation[/]"))
                     .AddColumn(new TableColumn("[grey]Project[/]"));
                 foreach (var mod in activeModules)
                     table.AddColumn(new TableColumn($"[grey]{DiscoveryCapFirst(mod)}[/]").Centered());
+                table.AddColumn(new TableColumn("[grey]Work Items[/]").RightAligned());
+                table.AddColumn(new TableColumn("[grey]Revisions[/]").RightAligned());
+                table.AddColumn(new TableColumn("[grey]Repos[/]").RightAligned());
                 table.AddColumn(new TableColumn("[grey]Time[/]").RightAligned());
 
                 var groups = captureTasks
@@ -2052,6 +2072,8 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
                     .ThenBy(g => g.Key.Project);
 
                 string? lastOrg = null;
+                long totalWi = 0, totalRev = 0;
+
                 foreach (var grp in groups)
                 {
                     var orgLabel = grp.Key.Org != lastOrg
@@ -2072,6 +2094,17 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
                         cells.Add(t is null ? new Markup("[grey]–[/]") : BuildDiscoveryTaskCell(t, spinnerFrame));
                     }
 
+                    // Merge count data from the InventoryProjectRow if available.
+                    countsByKey.TryGetValue((grp.Key.Org, grp.Key.Project), out var counts);
+                    var wi = counts?.WorkItems ?? 0;
+                    var rev = counts?.Revisions ?? 0;
+                    var repos = counts?.Repos ?? 0;
+                    totalWi += wi;
+                    totalRev += rev;
+                    cells.Add(new Markup(wi > 0 ? $"[bold]{wi:N0}[/]" : "[grey]–[/]"));
+                    cells.Add(new Markup(rev > 0 ? $"{rev:N0}" : "[grey]–[/]"));
+                    cells.Add(new Markup(repos > 0 ? $"{repos:N0}" : "[grey]–[/]"));
+
                     var anyRunning = grpList.Any(t => t.Status == JobTaskStatus.Running);
                     var allSettled = grpList.All(t =>
                         t.Status is JobTaskStatus.Completed or JobTaskStatus.Failed or JobTaskStatus.Skipped);
@@ -2089,7 +2122,25 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
                     table.AddRow(cells.ToArray());
                 }
 
-                // Analyse tasks as footer rows spanning the first two columns.
+                // Totals footer row (only when we have count data).
+                if (totalWi > 0)
+                {
+                    table.AddEmptyRow();
+                    var totalCells = new List<IRenderable>
+                    {
+                        new Markup("[bold]Total[/]"),
+                        new Markup(string.Empty)
+                    };
+                    foreach (var _ in activeModules)
+                        totalCells.Add(new Markup(string.Empty));
+                    totalCells.Add(new Markup($"[bold]{totalWi:N0}[/]"));
+                    totalCells.Add(new Markup(totalRev > 0 ? $"[bold]{totalRev:N0}[/]" : "[grey]–[/]"));
+                    totalCells.Add(new Markup(string.Empty));
+                    totalCells.Add(new Markup(string.Empty));
+                    table.AddRow(totalCells.ToArray());
+                }
+
+                // Analyse tasks as footer rows.
                 foreach (var at in analyseTasks)
                 {
                     var (icon, color) = at.Status switch
@@ -2105,9 +2156,9 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
                         new Markup($"[{color}]{icon}[/] [bold]{Markup.Escape(at.Name)}[/]"),
                         new Markup(string.Empty)
                     };
-                    foreach (var _ in activeModules)
+                    // Fill remaining columns: module cells + workitems + revisions + repos + time
+                    for (int i = 0; i < activeModules.Length + 4; i++)
                         atCells.Add(new Markup(string.Empty));
-                    atCells.Add(new Markup(string.Empty));
                     table.AddRow(atCells.ToArray());
                 }
 
@@ -2129,60 +2180,6 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
                     rows.Add(new Markup($"  [{iconColor}]{icon}[/]  [bold]{Markup.Escape(task.Name)}[/]"));
                 }
             }
-        }
-
-        // ── Section 2: per-project data table ────────────────────────────────────────
-        if (s.Projects.Count > 0)
-        {
-            rows.Add(new Text(string.Empty));
-
-            var table = new Table()
-                .BorderStyle(Style.Parse("grey"))
-                .AddColumn(new TableColumn("[grey]Organisation[/]"))
-                .AddColumn(new TableColumn("[grey]Project[/]"))
-                .AddColumn(new TableColumn("[grey]Work Items[/]").RightAligned())
-                .AddColumn(new TableColumn("[grey]Revisions[/]").RightAligned())
-                .AddColumn(new TableColumn("[grey]Repos[/]").RightAligned())
-                .AddColumn(new TableColumn("[grey]Status[/]").Centered());
-
-            foreach (var orgGroup in s.Projects.GroupBy(p => p.OrgUrl).OrderBy(g => g.Key))
-            {
-                var orgLabel = TruncateName(orgGroup.Key, 36);
-                var isFirstRow = true;
-                foreach (var p in orgGroup.OrderBy(p => p.ProjectName))
-                {
-                    var statusMarkup = p.IsFailed ? "[red]✗ Failed[/]"
-                        : p.IsComplete ? "[green]✓ Done[/]"
-                        : p.IsInProgress ? $"[blue]{spinnerFrame} Counting…[/]"
-                        : "[grey]· Pending[/]";
-
-                    table.AddRow(
-                        new Markup(isFirstRow ? $"[grey]{Markup.Escape(orgLabel)}[/]" : string.Empty),
-                        new Markup(Markup.Escape(p.ProjectName)),
-                        new Markup(p.WorkItems > 0 ? $"[bold]{p.WorkItems:N0}[/]" : "[grey]–[/]"),
-                        new Markup(p.Revisions > 0 ? $"{p.Revisions:N0}" : "[grey]–[/]"),
-                        new Markup(p.Repos > 0 ? $"{p.Repos:N0}" : "[grey]–[/]"),
-                        new Markup(statusMarkup));
-                    isFirstRow = false;
-                }
-            }
-
-            // Totals footer row.
-            var totalWi = s.Projects.Sum(p => p.WorkItems);
-            var totalRev = s.Projects.Sum(p => p.Revisions);
-            if (totalWi > 0)
-            {
-                table.AddEmptyRow();
-                table.AddRow(
-                    new Markup("[bold]Total[/]"),
-                    new Markup(string.Empty),
-                    new Markup($"[bold]{totalWi:N0}[/]"),
-                    new Markup(totalRev > 0 ? $"[bold]{totalRev:N0}[/]" : "[grey]–[/]"),
-                    new Markup(string.Empty),
-                    new Markup(string.Empty));
-            }
-
-            rows.Add(table);
         }
 
         return rows.Count > 0 ? (IRenderable)new Rows(rows) : new Markup("[grey]⠋ Running…[/]");
