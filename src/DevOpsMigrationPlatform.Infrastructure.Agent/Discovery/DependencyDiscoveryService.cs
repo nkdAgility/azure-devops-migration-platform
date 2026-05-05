@@ -21,13 +21,13 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Discovery;
 /// </summary>
 public sealed class DependencyDiscoveryService : IDependencyDiscoveryService
 {
-    private readonly IOptions<AnalyserOptions> _options;
+    private readonly IOptions<MigrationOptions> _options;
     private readonly IServiceProvider _serviceProvider;
     private readonly ILogger<DependencyDiscoveryService> _logger;
     private readonly ICatalogService _catalogService;
 
     public DependencyDiscoveryService(
-        IOptions<AnalyserOptions> options,
+        IOptions<MigrationOptions> options,
         IServiceProvider serviceProvider,
         ICatalogService catalogService,
         ILogger<DependencyDiscoveryService> logger)

@@ -85,17 +85,14 @@
             "stopAtEntry": false,
             "preLaunchTask": "build-migration-cli"
         },
-        // ── Migration CLI: discovery inventory ────────────────────────────────
-        // Options: [--output <PATH>] [-c|--config] [-v|--verbose]
-        //          [--disable-telemetry] [--dry-run]
+        // ── Migration CLI: queue inventory ───────────────────────────────────
         {
-            "name": "🔍 Migration CLI: Inventory (One Project)",
+            "name": "🔍 Migration CLI: Queue Inventory (One Project)",
             "type": "coreclr",
             "request": "launch",
             "program": "${workspaceFolder}/src/DevOpsMigrationPlatform.CLI.Migration/bin/Debug/net10.0/devopsmigration.exe",
             "args": [
-                "discovery",
-                "inventory",
+                "queue",
                 "--config",
                 "scenarios/inventory-ado-single-project.json"
             ],
@@ -110,13 +107,12 @@
             "preLaunchTask": "build-migration-cli"
         },
         {
-            "name": "🔍 Migration CLI: Inventory (All Projects)",
+            "name": "🔍 Migration CLI: Queue Inventory (All Projects)",
             "type": "coreclr",
             "request": "launch",
             "program": "${workspaceFolder}/src/DevOpsMigrationPlatform.CLI.Migration/bin/Debug/net10.0/devopsmigration.exe",
             "args": [
-                "discovery",
-                "inventory",
+                "queue",
                 "--config",
                 "scenarios/inventory-ado-multi-project.json"
             ],
@@ -131,33 +127,12 @@
             "preLaunchTask": "build-migration-cli"
         },
         {
-            "name": "🔍 Migration CLI: Inventory (CLIENT)",
+            "name": "🔍 Migration CLI: Queue Inventory (Verbose)",
             "type": "coreclr",
             "request": "launch",
             "program": "${workspaceFolder}/src/DevOpsMigrationPlatform.CLI.Migration/bin/Debug/net10.0/devopsmigration.exe",
             "args": [
-                "discovery",
-                "inventory",
-                "--config",
-                "scenarios/client/organisations.json"
-            ],
-            "env": {
-                "AZDEVOPS_SYSTEM_TEST_ORG": "${env:AZDEVOPS_SYSTEM_TEST_ORG}",
-                "AZDEVOPS_SYSTEM_TEST_PAT": "${env:AZDEVOPS_SYSTEM_TEST_PAT}"
-            },
-            "cwd": "${workspaceFolder}",
-            "console": "integratedTerminal",
-            "stopAtEntry": false,
-            "preLaunchTask": "build-migration-cli"
-        },
-        {
-            "name": "🔍 Migration CLI: Inventory (Verbose)",
-            "type": "coreclr",
-            "request": "launch",
-            "program": "${workspaceFolder}/src/DevOpsMigrationPlatform.CLI.Migration/bin/Debug/net10.0/devopsmigration.exe",
-            "args": [
-                "discovery",
-                "inventory",
+                "queue",
                 "--config",
                 "scenarios/inventory-tfs-windows-auth.json",
                 "--verbose"
@@ -171,16 +146,14 @@
             "preLaunchTask": "build-migration-cli"
         },
         {
-            "name": "🔍 Migration CLI: Inventory (Dry Run)",
+            "name": "🔍 Migration CLI: Queue Inventory (Multi Org)",
             "type": "coreclr",
             "request": "launch",
             "program": "${workspaceFolder}/src/DevOpsMigrationPlatform.CLI.Migration/bin/Debug/net10.0/devopsmigration.exe",
             "args": [
-                "discovery",
-                "inventory",
+                "queue",
                 "--config",
-                "scenarios/inventory-multi-org.json",
-                "--dry-run"
+                "scenarios/inventory-multi-org.json"
             ],
             "env": {
                 "AZDEVOPS_PAT_ORG1": "${env:AZDEVOPS_PAT_ORG1}",
@@ -192,61 +165,16 @@
             "stopAtEntry": false,
             "preLaunchTask": "build-migration-cli"
         },
-        // ── Migration CLI: discovery dependencies ──────────────────────────────
-        // Options: [--config] [--output] [--output-projects] [--output-diagram] [--wiql]
+        // ── Migration CLI: queue dependencies ─────────────────────────────────
         {
-            "name": "🔍 Migration CLI: Dependencies (Single Project)",
+            "name": "🔍 Migration CLI: Queue Dependencies (Single Project)",
             "type": "coreclr",
             "request": "launch",
             "program": "${workspaceFolder}/src/DevOpsMigrationPlatform.CLI.Migration/bin/Debug/net10.0/devopsmigration.exe",
             "args": [
-                "discovery",
-                "dependencies",
+                "queue",
                 "--config",
                 "scenarios/discovery-dependency-ado-single-project.json"
-            ],
-            "env": {
-                "AZDEVOPS_SYSTEM_TEST_ORG": "${env:AZDEVOPS_SYSTEM_TEST_ORG}",
-                "AZDEVOPS_SYSTEM_TEST_PAT": "${env:AZDEVOPS_SYSTEM_TEST_PAT}",
-                "DEVOPS_MIGRATION_TEST_STORAGE": "storage/discovery-dependency-ado-single-project"
-            },
-            "cwd": "${workspaceFolder}",
-            "console": "integratedTerminal",
-            "stopAtEntry": false,
-            "preLaunchTask": "build-migration-cli"
-        },
-         {
-            "name": "🔍 Migration CLI: Dependencies (CLIENT)",
-            "type": "coreclr",
-            "request": "launch",
-            "program": "${workspaceFolder}/src/DevOpsMigrationPlatform.CLI.Migration/bin/Debug/net10.0/devopsmigration.exe",
-            "args": [
-                "discovery",
-                "dependencies",
-                "--config",
-                "scenarios/client/organisations.json"
-            ],
-            "env": {
-                "AZDEVOPS_SYSTEM_TEST_ORG": "${env:AZDEVOPS_SYSTEM_TEST_ORG}",
-                "AZDEVOPS_SYSTEM_TEST_PAT": "${env:AZDEVOPS_SYSTEM_TEST_PAT}"
-            },
-            "cwd": "${workspaceFolder}",
-            "console": "integratedTerminal",
-            "stopAtEntry": false,
-            "preLaunchTask": "build-migration-cli"
-        },
-        {
-            "name": "🔍 Migration CLI: Dependencies (WIQL Filter)",
-            "type": "coreclr",
-            "request": "launch",
-            "program": "${workspaceFolder}/src/DevOpsMigrationPlatform.CLI.Migration/bin/Debug/net10.0/devopsmigration.exe",
-            "args": [
-                "discovery",
-                "dependencies",
-                "--config",
-                "scenarios/discovery-dependency-ado-single-project.json",
-                "--wiql",
-                "SELECT [System.Id] FROM WorkItems WHERE [System.WorkItemType] = 'User Story'"
             ],
             "env": {
                 "AZDEVOPS_SYSTEM_TEST_ORG": "${env:AZDEVOPS_SYSTEM_TEST_ORG}",
@@ -281,8 +209,8 @@
             "preLaunchTask": "build-migration-cli"
         },
         // ── Migration CLI: queue ──────────────────────────────────────────────
-        // Behaviour is determined by the 'mode' field in the config (Export, Import, or Both).
-        // Options: [-c|--config] [--follow] [--level] [--force-fresh] [-v|--verbose] [--disable-telemetry] [--dry-run]
+        // Behaviour is determined by the 'mode' field in the config (Inventory, Dependencies, Export, Prepare, Import, or Migrate).
+        // Options: [-c|--config] [--follow] [--level] [--force-fresh] [-v|--verbose] [--disable-telemetry]
         {
             "name": "📤 Migration CLI: Queue Export ADO WorkItems (Single Project)",
             "type": "coreclr",

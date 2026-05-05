@@ -1,11 +1,11 @@
 Feature: Simulated Export-Import Roundtrip
   As a migration developer
-  I want to run a full Both-mode migration with Simulated on both ends
+  I want to run a full Migrate-mode migration with Simulated on both ends
   So that I can validate the end-to-end pipeline without any external credentials
 
   @simulated @offline @roundtrip
-  Scenario: Both-mode job with Simulated source and target completes without error
-    Given a roundtrip scenario config with Mode Both and Simulated source and target
+  Scenario: Migrate-mode job with Simulated source and target completes without error
+    Given a roundtrip scenario config with Mode Migrate and Simulated source and target
     When the migration job is queued
     Then the export phase completes and writes revision folders to the package
     And the import phase reads from the package and completes without error
@@ -21,5 +21,5 @@ Feature: Simulated Export-Import Roundtrip
   @simulated @offline @roundtrip
   Scenario: Roundtrip is fully offline — no network calls
     Given a roundtrip scenario config
-    When the full Both-mode job runs
+    When the full Migrate-mode job runs
     Then no HTTP requests are made to any external host

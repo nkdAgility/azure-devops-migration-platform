@@ -522,7 +522,7 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
             }
         }
 
-        // Read migration-config.json from the package and extract AnalyserOptions.
+        // Read migration-config.json from the package and extract discovery settings.
         var organisations = new List<ScopedOrganisationEndpoint>();
         var policies = new JobPolicies();
         try
@@ -678,7 +678,7 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
 
     private sealed class DiscoveryConfigWrapper
     {
-        public AnalyserOptions? MigrationPlatform { get; set; }
+        public MigrationOptions? MigrationPlatform { get; set; }
     }
 
     private sealed class InlineMigrationEndpointOptions(OrganisationEndpoint endpoint) : MigrationEndpointOptions

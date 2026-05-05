@@ -36,13 +36,7 @@ internal sealed class ConfigureCommandRenderer
         console.WriteLine();
 
         console.MarkupLine("[bold]Next Steps:[/]");
-        console.MarkupLine($"• Run discovery: [cyan]devopsmigration discovery inventory --config {outputFile}[/]");
-
-        if (options.Mode is "Export" or "Both")
-            console.MarkupLine($"• Run export: [cyan]devopsmigration export --config {outputFile}[/]");
-
-        if (options.Mode is "Import" or "Both")
-            console.MarkupLine($"• Run import: [cyan]devopsmigration import --config {outputFile}[/]");
+        console.MarkupLine($"• Run queue: [cyan]devopsmigration queue --config {outputFile}[/]");
 
         console.WriteLine();
         console.MarkupLine("[dim]Tip: You can edit the configuration file directly to fine-tune settings.[/]");

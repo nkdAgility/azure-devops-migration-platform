@@ -661,8 +661,8 @@ Optional tuning knobs under `MigrationPlatform.Policies`:
 
 | Command | Purpose |
 |---------|---------|
-| `discovery inventory --config <path> [--output ./reports]` | Count work items and revisions per project |
-| `discovery dependencies --config <path> [--output ./reports]` | Analyse cross-project/cross-org work item links |
+| `queue --config <inventory-config.json>` | Submit an inventory job (`Mode: Inventory`) |
+| `queue --config <dependencies-config.json>` | Submit a dependency analysis job (`Mode: Dependencies`) |
 
 ### Configuration Commands
 

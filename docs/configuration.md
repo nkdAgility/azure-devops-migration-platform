@@ -180,7 +180,7 @@ All fields below are children of the `MigrationPlatform` root key. Keys are Pasc
 
 ### Organisation `enabled` Flag — Discovery Behaviour
 
-The `enabled` flag on each organisation entry has a precise and intentional meaning in the context of `discovery dependencies`:
+The `enabled` flag on each organisation entry has a precise and intentional meaning in the context of `Mode: Dependencies`:
 
 | Behaviour | `enabled: true` | `enabled: false` |
 |---|---|---|

@@ -39,15 +39,15 @@ internal sealed class SimulatedInventoryServiceFactory : IInventoryServiceFactor
         IReadOnlyList<ScopedOrganisationEndpoint> organisations,
         JobPolicies policies)
     {
-        var options = BuildAnalyserOptions(organisations, policies);
+        var options = BuildMigrationOptions(organisations, policies);
         return new InventoryService(
-            new OptionsWrapper<AnalyserOptions>(options),
+            new OptionsWrapper<MigrationOptions>(options),
             _workItemDiscovery,
             _projectDiscovery,
             _repoDiscovery);
     }
 
-    private static AnalyserOptions BuildAnalyserOptions(
+    private static MigrationOptions BuildMigrationOptions(
         IReadOnlyList<ScopedOrganisationEndpoint> organisations,
         JobPolicies policies)
     {
@@ -68,10 +68,8 @@ internal sealed class SimulatedInventoryServiceFactory : IInventoryServiceFactor
                 new SimulatedOrganisationEntry { Type = "Simulated", Enabled = true }
             };
 
-        return new AnalyserOptions
+        return new MigrationOptions
         {
-            // WorkingDirectory is required by AnalyserOptions.Validate() but is not used
-            // by InventoryService at runtime — the agent writes output via IArtefactStore.
             Package = new MigrationPackageOptions { WorkingDirectory = "(managed-by-agent)" },
             Policies = new MigrationPoliciesOptions
             {

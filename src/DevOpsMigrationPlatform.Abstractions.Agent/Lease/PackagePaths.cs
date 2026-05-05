@@ -44,7 +44,7 @@ public static class PackagePaths
         => $"{Checkpoints}/{moduleName.ToLowerInvariant()}.continuation.json";
 
     /// <summary>
-    /// The phase-tracking file for Both-mode jobs:
+    /// The phase-tracking file for Migrate-mode jobs:
     /// <c>.migration/Checkpoints/job.phase.json</c>.
     /// </summary>
     public const string PhaseFile = $"{Checkpoints}/job.phase.json";

@@ -25,7 +25,7 @@ The system supports two source types, controlled by `source.type` in the configu
 
 **Inventory:**
 
-The `devopsmigration discovery inventory` command uses the REST API directly for ADO Services:
+A `devopsmigration queue` run with `Mode: Inventory` uses the REST API directly for ADO Services:
 
 - Date-windowed WIQL queries via `WorkItemTrackingHttpClient.QueryByWiqlAsync`.
 - Initial window: 120 days. Halves if result ≥ 20,000 items; grows by 1 day after narrow success.
@@ -56,7 +56,7 @@ See [docs/migration-agent.md — TFS Migration Agent](migration-agent.md#tfs-mig
 
 **Inventory:**
 
-For TFS source types, the `devopsmigration discovery inventory` command submits a `Job` (with `Kind: Inventory` and `Connectors: [TeamFoundationServer]`) to the control plane. The TFS agent picks it up via capability matching (`GET /agents/lease?capabilities=tfs`) and runs the TFS inventory module. The TFS inventory module uses `WorkItemStoreExtensions.QueryCountAllByDateChunk` for date-windowed counting (same 120-day / 20k algorithm as the ADO Services path).
+For TFS source types, a `devopsmigration queue` run with `Mode: Inventory` submits a `Job` (with `Kind: Inventory` and `Connectors: [TeamFoundationServer]`) to the control plane. The TFS agent picks it up via capability matching (`GET /agents/lease?capabilities=tfs`) and runs the TFS inventory module. The TFS inventory module uses `WorkItemStoreExtensions.QueryCountAllByDateChunk` for date-windowed counting (same 120-day / 20k algorithm as the ADO Services path).
 
 ### Validation and Normalisation
 
@@ -115,7 +115,7 @@ The simulated target accepts all work items presented during import without writ
 
 **Inventory:**
 
-The `devopsmigration discovery inventory` command with `source.type: Simulated` returns per-project work item and revision counts derived directly from `generator.projects` configuration (no query windowing is needed). Output format is identical to the real ADO Services path.
+A `devopsmigration queue` run with `Mode: Inventory` and `source.type: Simulated` returns per-project work item and revision counts derived directly from `generator.projects` configuration (no query windowing is needed). Output format is identical to the real ADO Services path.
 
 **Scenario configs:**
 
@@ -128,5 +128,5 @@ See `/scenarios/` for ready-to-run simulated configuration files:
 
 ### Known Limitations
 
-- **No mixed-mode discovery.** All organisations in a single `AnalyserOptions` configuration must be the same source type. A discovery run cannot mix TFS (Team Foundation Server) and Azure DevOps Services entries. Each CLI host registers a single `IWorkItemDiscoveryService` and `IProjectDiscoveryService` implementation; the orchestrator uses whatever is injected. On-premises Azure DevOps Server instances that support the REST API should use source type `AzureDevOpsServices`.
+- **No mixed-mode discovery.** All organisations in a single `MigrationOptions` configuration must be the same source type. A discovery run cannot mix TFS (Team Foundation Server) and Azure DevOps Services entries. Each CLI host registers a single `IWorkItemDiscoveryService` and `IProjectDiscoveryService` implementation; the orchestrator uses whatever is injected. On-premises Azure DevOps Server instances that support the REST API should use source type `AzureDevOpsServices`.
 - **Simulated source is not for production use.** It provides no guarantee of realistic data distribution beyond the configured parameters. Use it only for development, testing, and performance benchmarking.

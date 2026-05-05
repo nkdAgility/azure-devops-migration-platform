@@ -23,13 +23,13 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Discovery;
 /// </summary>
 public sealed class InventoryService : IInventoryService
 {
-    private readonly IOptions<AnalyserOptions> _options;
+    private readonly IOptions<MigrationOptions> _options;
     private readonly IWorkItemDiscoveryService _workItemDiscovery;
     private readonly IProjectDiscoveryService _projectDiscovery;
     private readonly IRepoDiscoveryService _repoDiscovery;
 
     public InventoryService(
-        IOptions<AnalyserOptions> options,
+        IOptions<MigrationOptions> options,
         IWorkItemDiscoveryService workItemDiscovery,
         IProjectDiscoveryService projectDiscovery,
         IRepoDiscoveryService repoDiscovery)
@@ -45,7 +45,6 @@ public sealed class InventoryService : IInventoryService
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         var opts = _options.Value;
-        opts.Validate();
 
         foreach (var entry in opts.Organisations.Where(e => e.Enabled))
         {

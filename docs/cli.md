@@ -208,7 +208,7 @@ These commands submit jobs to the control plane via `ControlPlaneClient`.
 | Command | Description |
 |---|---|
 | `prepare` | Submit a Prepare job through the full pipeline (CLI → Control Plane → Agent). The agent reads the exported package, connects to the target, and runs each module's `PrepareAsync` to cross-validate before import. Produces validation artefacts (identity mapping reports, node validation, field mapping reports) in each module's package folder for operator review. Any unresolved issue is blocking unless the operator adds an explicit skip. Idempotent — re-running overwrites Prepare output but preserves operator-edited mapping files. Requires a completed Export (package with `manifest.json`). |
-| `queue` | Submit a migration job. Behaviour is determined by the `mode` field in the config (`Inventory`, `Export`, `Prepare`, `Import`, `Validate`, or `Migrate`). `--follow` streams diagnostic logs inline (implicit in standalone mode). `--level` sets the agent's diagnostic minimum level per job. `--force-fresh` deletes module cursor(s) before running so enumeration restarts from the beginning (identity map preserved). Phase gates apply automatically: Export auto-runs Inventory if missing; Import auto-runs Prepare if missing. |
+| `queue` | Submit a job. Behaviour is determined by the `mode` field in the config (`Inventory`, `Dependencies`, `Export`, `Prepare`, `Import`, `Validate`, or `Migrate`). `--follow` streams diagnostic logs inline (implicit in standalone mode). `--level` sets the agent's diagnostic minimum level per job. `--force-fresh` deletes module cursor(s) before running so enumeration restarts from the beginning (identity map preserved). Phase gates apply automatically: Export auto-runs Inventory if missing; Import auto-runs Prepare if missing. |
 
 ### Job Management Commands (`manage`)
 
@@ -225,15 +225,6 @@ All job management commands live under the `manage` sub-command.
 | `manage cancel` | Cancel a queued or running job. |
 | `manage login` | Authenticate with a control plane endpoint and store the session token. |
 | `manage logout` | Revoke the stored session token for a control plane endpoint. |
-
-### Discovery Commands (`discovery`)
-
-Discovery commands run **locally** and do **not** submit a `Job` to the control plane. Results are written directly to output files.
-
-| Command | Description |
-|---|---|
-| `discovery inventory` | Count work items and revisions per project. Read-only pre-flight operation. Results written to `inventory.csv` and `inventory.json` at the output root plus per-org/per-project subfolders. Accepts `--output <dir>` to override the config's `Artefacts.WorkingDirectory`. |
-| `discovery dependencies` | Analyse cross-project and cross-organisation work item links. Loads `inventory.json` (if present) for grand totals before analysis. Results written to `dependencies.csv` in the output directory. Accepts `--output <dir>` to override the config's `Artefacts.WorkingDirectory`. Output also includes `discovery-project-dependencies.md` (Mermaid flowchart of project dependency pairs). |
 
 ### Configuration Management (`config`)
 
@@ -287,11 +278,8 @@ devopsmigration manage cancel  --job 550e8400-e29b-41d4-a716-446655440000
 devopsmigration manage login   --url https://migration.example.com
 devopsmigration manage logout  --url https://migration.example.com
 
-devopsmigration discovery inventory --config migration.json
-devopsmigration discovery inventory --config migration.json --all-projects
-devopsmigration discovery inventory --config migration.json --output ./reports
-devopsmigration discovery dependencies --config migration.json
-devopsmigration discovery dependencies --config migration.json --output ./reports
+devopsmigration queue --config scenarios/inventory-ado-single-project.json
+devopsmigration queue --config scenarios/discovery-dependency-ado-single-project.json
 
 devopsmigration config new
 devopsmigration config new --output my-migration.json
@@ -304,7 +292,7 @@ devopsmigration controlplane start --port 5200
 devopsmigration tui
 ```
 
-> **Note**: `discovery *` commands run locally and read the config directly. They do not submit a `Job` to the control plane. Results are written to `inventory.csv` / `inventory.json` (inventory) and `dependencies.csv` / `discovery-project-dependencies.csv` / `discovery-project-dependencies.md` (dependencies) in the `--output` directory (default: current working directory).
+> **Note**: Inventory and dependency analysis are submitted through `queue` using `Mode: Inventory` or `Mode: Dependencies`. They run through the same CLI → Control Plane → Agent pipeline as export/import jobs and write their artefacts into the configured package working directory.
 
 ---
 
@@ -316,41 +304,6 @@ The CLI process instruments itself with OpenTelemetry. Each command that perform
 - **OTLP endpoint** — when `OTEL_EXPORTER_OTLP_ENDPOINT` is set (Aspire dashboard, local dev)
 
 The `TracerProvider` and `MeterProvider` are flushed and disposed before process exit to ensure all pending telemetry is delivered. No telemetry is emitted if no exporter is configured — the command runs normally.
-migrate pause    --job 550e8400-e29b-41d4-a716-446655440000
-migrate resume   --job 550e8400-e29b-41d4-a716-446655440000
-migrate cancel   --job 550e8400-e29b-41d4-a716-446655440000
-```
-
-### Auth Commands
-
-| Command | Description |
-|---|---|
-| `login` | Authenticate with the control plane using Entra ID (device-code flow). Caches the token locally. Not needed for Windows Integrated Auth. |
-| `logout` | Clear the cached credential. |
-
-```
-migrate login  [--url <control-plane-url>]
-migrate logout
-```
-
-For on-premises Active Directory deployments, Windows Integrated Auth is used automatically via Negotiate (Kerberos/NTLM). No `login` step is required.
-
----
-
-## Job Visibility
-
-When queuing a job to the control plane, the `--visibility` flag controls who can see it:
-
-| Value | Who can see the job |
-|---|---|
-| `user` (default) | Only the submitter and Control Plane Admins |
-| `tenant` | Any authenticated user in the same Entra tenant or AD domain (read-only), plus the submitter and admins |
-
-```
-migrate queue --config migration.json --visibility tenant
-```
-
-The visibility setting is immutable after the job is submitted. If omitted, `user` is applied. This is the safest default — it does not expose job configuration or progress to colleagues until the submitter explicitly opts in.
 
 ---
 

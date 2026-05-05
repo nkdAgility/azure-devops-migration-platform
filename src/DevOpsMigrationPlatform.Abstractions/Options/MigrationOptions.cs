@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (c) Naked Agility Limited
 
+using System.Collections.Generic;
 using DevOpsMigrationPlatform.Abstractions.Options;
 
 namespace DevOpsMigrationPlatform.Abstractions.Options;
@@ -42,13 +43,13 @@ public sealed class MigrationOptions
     /// <summary>Schema version of this configuration file (e.g. "2.0").</summary>
     public string ConfigVersion { get; set; } = string.Empty;
 
-    /// <summary>Export, Import, or Both.</summary>
+    /// <summary>Inventory, Dependencies, Export, Prepare, Import, or Migrate.</summary>
     public string Mode { get; set; } = string.Empty;
 
-    /// <summary>Source system connection. Required when Mode is Export or Both.</summary>
+    /// <summary>Source system connection. Required when Mode is Export or Migrate.</summary>
     public MigrationEndpointOptions? Source { get; set; }
 
-    /// <summary>Target system connection. Required when Mode is Import or Both.</summary>
+    /// <summary>Target system connection. Required when Mode is Prepare, Import, or Migrate.</summary>
     public MigrationEndpointOptions? Target { get; set; }
 
     /// <summary>Package location settings.</summary>
@@ -62,4 +63,7 @@ public sealed class MigrationOptions
     /// When no modules are configured, the job engine applies platform defaults.
     /// </summary>
     public MigrationModulesOptions Modules { get; set; } = new();
+
+    /// <summary>Organisations / collections to discover. Required when Mode is Inventory or Dependencies.</summary>
+    public List<OrganisationEntry> Organisations { get; set; } = new();
 }

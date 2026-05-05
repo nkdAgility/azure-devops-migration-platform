@@ -236,7 +236,7 @@ public class SimulatedMigrationCommandTests
 
     /// <summary>
     /// VS-H3: Verifies the simulated inventory scenario produces inventory.csv and inventory.json.
-    /// Runs the <c>discovery inventory</c> command against the Simulated connector.
+    /// Runs the <c>queue</c> command with <c>Mode: Inventory</c> against the Simulated connector.
     /// </summary>
     [TestMethod]
     [TestCategory("SystemTest")]
@@ -246,7 +246,7 @@ public class SimulatedMigrationCommandTests
     {
         var result = await CliRunner.RunTestAsync(
             testName: nameof(DiscoveryInventorySimulated_ExitsZeroAndWritesInventoryArtefacts),
-            args: ["discovery", "inventory", "--config", "scenarios/inventory-simulated.json", "--force-fresh"],
+            args: ["queue", "--config", "scenarios/inventory-simulated.json", "--force-fresh"],
             timeout: TimeSpan.FromMinutes(4),
             cleanOutputFolder: true);
         var outputDir = result.OutputDirectory;

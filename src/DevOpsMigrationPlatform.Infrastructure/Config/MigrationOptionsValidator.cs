@@ -15,13 +15,13 @@ namespace DevOpsMigrationPlatform.Infrastructure;
 /// </summary>
 internal sealed class MigrationOptionsValidator : IValidateOptions<MigrationOptions>
 {
-    private static readonly string[] ValidModes = ["Export", "Import", "Both"];
+    private static readonly string[] ValidModes = ["Inventory", "Dependencies", "Export", "Prepare", "Import", "Migrate"];
 
     // Only AzureDevOpsServices may be specified as a migration source or target.
     // TeamFoundationServer is a valid source type (TFS on-premises) but never a target —
     // the platform always migrates INTO Azure DevOps Services.
-    private static readonly string[] ValidSourceTypes = ["AzureDevOpsServices", "TeamFoundationServer"];
-    private static readonly string[] ValidTargetTypes = ["AzureDevOpsServices"];
+    private static readonly string[] ValidSourceTypes = ["AzureDevOpsServices", "TeamFoundationServer", "Simulated"];
+    private static readonly string[] ValidTargetTypes = ["AzureDevOpsServices", "Simulated"];
 
     public ValidateOptionsResult Validate(string? name, MigrationOptions options)
     {
@@ -33,15 +33,16 @@ internal sealed class MigrationOptionsValidator : IValidateOptions<MigrationOpti
 
         // Mode
         if (string.IsNullOrWhiteSpace(options.Mode))
-            errors.Add("Mode is required (Export | Import | Both).");
+            errors.Add("Mode is required (Inventory | Dependencies | Export | Prepare | Import | Migrate).");
         else if (!ValidModes.Contains(options.Mode, StringComparer.Ordinal))
             errors.Add($"Mode '{options.Mode}' is not valid. Must be one of: {string.Join(", ", ValidModes)}.");
 
-        // Source required for Export / Both
-        if (!string.IsNullOrEmpty(options.Mode) &&
-            (options.Mode == "Export" || options.Mode == "Both") &&
-            options.Source is null)
-            errors.Add("Source is required when Mode is Export or Both.");
+        var requiresSource = options.Mode is "Export" or "Migrate";
+        var requiresTarget = options.Mode is "Prepare" or "Import" or "Migrate";
+        var requiresOrganisations = options.Mode is "Inventory" or "Dependencies";
+
+        if (requiresSource && options.Source is null)
+            errors.Add("Source is required when Mode is Export or Migrate.");
 
         // Source type validation
         if (options.Source is not null)
@@ -55,11 +56,11 @@ internal sealed class MigrationOptionsValidator : IValidateOptions<MigrationOpti
             options.Source.ValidateEndpointFields(errors, "Source");
         }
 
-        // Target required for Import / Both
-        if (!string.IsNullOrEmpty(options.Mode) &&
-            (options.Mode == "Import" || options.Mode == "Both") &&
-            options.Target is null)
-            errors.Add("Target is required when Mode is Import or Both.");
+        if (requiresTarget && options.Target is null)
+            errors.Add("Target is required when Mode is Prepare, Import, or Migrate.");
+
+        if (requiresOrganisations && options.Organisations.Count == 0)
+            errors.Add("Organisations is required when Mode is Inventory or Dependencies.");
 
         // Target type validation — TeamFoundationServer is never a valid target
         if (options.Target is not null)

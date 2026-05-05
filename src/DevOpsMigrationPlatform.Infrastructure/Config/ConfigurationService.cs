@@ -125,19 +125,25 @@ public class ConfigurationService : IConfigurationService
         var errors = new List<string>();
 
         if (string.IsNullOrWhiteSpace(options.Mode))
-            errors.Add("Mode is required (Export, Import, or Both)");
+            errors.Add("Mode is required (Inventory, Dependencies, Export, Prepare, Import, or Migrate)");
 
         var mode = options.Mode?.Trim();
         var isExport = string.Equals(mode, "Export", StringComparison.OrdinalIgnoreCase)
-                    || string.Equals(mode, "Both", StringComparison.OrdinalIgnoreCase);
+                    || string.Equals(mode, "Migrate", StringComparison.OrdinalIgnoreCase);
         var isImport = string.Equals(mode, "Import", StringComparison.OrdinalIgnoreCase)
-                    || string.Equals(mode, "Both", StringComparison.OrdinalIgnoreCase);
+                    || string.Equals(mode, "Prepare", StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(mode, "Migrate", StringComparison.OrdinalIgnoreCase);
+        var isDiscovery = string.Equals(mode, "Inventory", StringComparison.OrdinalIgnoreCase)
+                       || string.Equals(mode, "Dependencies", StringComparison.OrdinalIgnoreCase);
 
         if (isExport && options.Source == null)
-            errors.Add("Source configuration is required when Mode is Export or Both");
+            errors.Add("Source configuration is required when Mode is Export or Migrate");
 
         if (isImport && options.Target == null)
-            errors.Add("Target configuration is required when Mode is Import or Both");
+            errors.Add("Target configuration is required when Mode is Prepare, Import, or Migrate");
+
+        if (isDiscovery && options.Organisations.Count == 0)
+            errors.Add("Organisations configuration is required when Mode is Inventory or Dependencies");
 
         if (options.Source != null)
         {

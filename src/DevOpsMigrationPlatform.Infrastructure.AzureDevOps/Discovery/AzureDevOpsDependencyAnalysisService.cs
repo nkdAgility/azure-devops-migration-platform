@@ -24,14 +24,14 @@ namespace DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Discovery;
 /// </summary>
 internal sealed class AzureDevOpsDependencyAnalysisService : IWorkItemLinkAnalysisService
 {
-    private readonly IOptions<AnalyserOptions> _options;
+    private readonly IOptions<MigrationOptions> _options;
     private readonly IAzureDevOpsClientFactory _clientFactory;
     private readonly IWorkItemFetchService _fetchService;
     private readonly IWorkItemDiscoveryService _discoveryService;
     private readonly ILogger<AzureDevOpsDependencyAnalysisService> _logger;
 
     public AzureDevOpsDependencyAnalysisService(
-        IOptions<AnalyserOptions> options,
+        IOptions<MigrationOptions> options,
         IAzureDevOpsClientFactory clientFactory,
         IWorkItemFetchService fetchService,
         IWorkItemDiscoveryService discoveryService,

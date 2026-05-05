@@ -198,13 +198,15 @@ public sealed class SchemaGeneratorHost
         {
             var platformSchema = platformProp.ActualSchema;
 
-            // Mode — string enum for the four operation modes
+            // Mode — string enum for the supported queue operations
             if (!platformSchema.Properties.ContainsKey("Mode"))
             {
                 var modeSchema = new JsonSchemaProperty { Type = JsonObjectType.String };
+                modeSchema.Enumeration.Add("Inventory");
+                modeSchema.Enumeration.Add("Dependencies");
                 modeSchema.Enumeration.Add("Export");
-                modeSchema.Enumeration.Add("Import");
                 modeSchema.Enumeration.Add("Prepare");
+                modeSchema.Enumeration.Add("Import");
                 modeSchema.Enumeration.Add("Migrate");
                 platformSchema.Properties["Mode"] = modeSchema;
             }
@@ -225,6 +227,8 @@ public sealed class SchemaGeneratorHost
         {
             await ApplyDiscriminatedUnionsAsync(rootSchema, registry, settings, cancellationToken);
         }
+
+        await ApplyOrganisationEntryUnionAsync(rootSchema, settings, cancellationToken);
 
         return rootSchema.ToJson();
     }
@@ -287,5 +291,43 @@ public sealed class SchemaGeneratorHost
         }
 
         return types;
+    }
+
+    private static async Task ApplyOrganisationEntryUnionAsync(
+        JsonSchema rootSchema,
+        JsonSchemaGeneratorSettings settings,
+        CancellationToken cancellationToken)
+    {
+        if (!rootSchema.Properties.TryGetValue("MigrationPlatform", out var platformProp))
+            return;
+
+        var platformSchema = platformProp.ActualSchema;
+        var organisationsSchema = new JsonSchemaProperty
+        {
+            Type = JsonObjectType.Array
+        };
+
+        var itemUnion = new JsonSchema();
+        var generator = new JsonSchemaGenerator(settings);
+        foreach (var (key, type) in new[]
+                 {
+                     ("Simulated", typeof(SimulatedOrganisationEntry)),
+                     ("AzureDevOpsServices", typeof(AzureDevOpsOrganisationEntry)),
+                     ("TeamFoundationServer", typeof(AzureDevOpsOrganisationEntry))
+                 })
+        {
+            var typeSchema = await Task.Run(() => generator.Generate(type), cancellationToken);
+            typeSchema.Properties["Type"] = new JsonSchemaProperty
+            {
+                Type = JsonObjectType.String,
+                IsRequired = true,
+                Enumeration = { key }
+            };
+
+            itemUnion.OneOf.Add(typeSchema);
+        }
+
+        organisationsSchema.Item = itemUnion;
+        platformSchema.Properties["Organisations"] = organisationsSchema;
     }
 }

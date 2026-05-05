@@ -51,12 +51,12 @@ public class InventoryServiceTests
         }
     };
 
-    private static IOptions<DiscoveryOptions> BuildOptions(
+    private static IOptions<MigrationOptions> BuildOptions(
         string org = "https://dev.azure.com/testorg",
         string project = "TestProject",
         string pat = "test-pat")
     {
-        var opts = new DiscoveryOptions
+        var opts = new MigrationOptions
         {
             Organisations = new()
             {
@@ -134,7 +134,7 @@ public class InventoryServiceTests
 
     private static InventoryService BuildService(
         Mock<IWorkItemDiscoveryService> discoveryMock,
-        IOptions<DiscoveryOptions>? options = null,
+        IOptions<MigrationOptions>? options = null,
         Mock<IProjectDiscoveryService>? projectDiscovery = null,
         Mock<IRepoDiscoveryService>? repoDiscovery = null)
     {
@@ -617,7 +617,7 @@ public class InventoryServiceTests
     public async Task RunInventoryAsync_CompletedProjectKeys_SkipsThoseProjects()
     {
         // Arrange: two projects in the same org
-        var opts = new DiscoveryOptions
+        var opts = new MigrationOptions
         {
             Organisations = new()
             {
@@ -700,7 +700,7 @@ public class InventoryServiceTests
 
         foreach (var (connectorType, orgUrl) in connectorCases)
         {
-            var opts = new DiscoveryOptions
+            var opts = new MigrationOptions
             {
                 Organisations = new()
                 {

@@ -3,7 +3,6 @@
 
 using DevOpsMigrationPlatform.CLI.Commands;
 using DevOpsMigrationPlatform.CLI.Commands.ControlPlane;
-using DevOpsMigrationPlatform.CLI.Commands.Discovery;
 using DevOpsMigrationPlatform.CLI.Commands.Manage;
 using DevOpsMigrationPlatform.CLI.Migration.Commands;
 using Spectre.Console;
@@ -65,7 +64,7 @@ internal class Program
                 .WithExample("prepare", "--config", "migration.json");
 
             config.AddChannelCommand<QueueCommand>("queue")
-                .WithDescription("Submit a migration job. Behaviour is determined by the 'mode' field in the config (Export, Import, or Both).")
+                .WithDescription("Submit a job. Behaviour is determined by the 'mode' field in the config (Inventory, Dependencies, Export, Prepare, Import, or Migrate).")
                 .WithExample("queue", "--config", "migration.json")
                 .WithExample("queue", "--config", "scenarios/queue-export-ado-workitems-single-project.json")
                 .WithExample("queue", "--config", "migration.json", "--force-fresh");
@@ -115,20 +114,6 @@ internal class Program
                 branch.AddChannelCommand<ManageLogoutCommand>("logout")
                     .WithDescription("Revoke the stored session token for a control plane endpoint.")
                     .WithExample("manage", "logout", "--url", "https://migration.example.com");
-            });
-
-            // ── Discovery commands (run locally, never submit a MigrationJob) ────────
-            config.AddBranch("discovery", branch =>
-            {
-                branch.SetDescription("Tools for finding out what we have and the implications of any migration.");
-
-                branch.AddCommand<InventoryCommand>("inventory")
-                    .WithDescription("Count work items and revisions per project. Results written to the Package path defined in the config.")
-                    .WithExample("discovery", "inventory", "--config", "scenarios/inventory-ado-single-project.json");
-
-                branch.AddCommand<DependencyCommand>("dependencies")
-                    .WithDescription("Analyse work items for cross-project and cross-organisation links. Results written to the Package path defined in the config.")
-                    .WithExample("discovery", "dependencies", "--config", "scenarios/discovery-dependency-ado-single-project.json");
             });
 
             // ── Control Plane management ─────────────────────────────────────────────

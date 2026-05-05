@@ -56,11 +56,11 @@ public class MigrationOptionsValidatorTests
     }
 
     [TestMethod]
-    public void Validate_ValidBothConfig_Succeeds()
+    public void Validate_ValidMigrateConfig_Succeeds()
     {
         var opts = new MigrationOptions
         {
-            Mode = "Both",
+            Mode = "Migrate",
             Source = new AzureDevOpsEndpointOptions { Type = "AzureDevOpsServices", Url = "https://dev.azure.com/myorg", Project = "P" },
             Target = new AzureDevOpsEndpointOptions { Type = "AzureDevOpsServices", Url = "https://dev.azure.com/targetorg", Project = "P" },
             Package = new MigrationPackageOptions { WorkingDirectory = "D:\\exports" }
@@ -113,10 +113,10 @@ public class MigrationOptionsValidatorTests
     }
 
     [TestMethod]
-    public void Validate_BothModeWithoutSource_FailsWithSourceInMessage()
+    public void Validate_MigrateModeWithoutSource_FailsWithSourceInMessage()
     {
         var opts = ValidExport();
-        opts.Mode = "Both";
+        opts.Mode = "Migrate";
         opts.Target = new AzureDevOpsEndpointOptions { Type = "AzureDevOpsServices", Url = "https://dev.azure.com/t", Project = "T" };
         opts.Source = null;
         var result = Sut().Validate(null, opts);
@@ -139,14 +139,27 @@ public class MigrationOptionsValidatorTests
     }
 
     [TestMethod]
-    public void Validate_BothModeWithoutTarget_FailsWithTargetInMessage()
+    public void Validate_MigrateModeWithoutTarget_FailsWithTargetInMessage()
     {
         var opts = ValidExport();
-        opts.Mode = "Both";
+        opts.Mode = "Migrate";
         opts.Target = null;
         var result = Sut().Validate(null, opts);
         Assert.IsFalse(result.Succeeded);
         StringAssert.Contains(result.FailureMessage, "Target");
+    }
+
+    [TestMethod]
+    public void Validate_InventoryModeWithoutOrganisations_FailsWithOrganisationsInMessage()
+    {
+        var opts = new MigrationOptions
+        {
+            Mode = "Inventory",
+            Package = new MigrationPackageOptions { WorkingDirectory = "D:\\exports" }
+        };
+        var result = Sut().Validate(null, opts);
+        Assert.IsFalse(result.Succeeded);
+        StringAssert.Contains(result.FailureMessage, "Organisations");
     }
 
     // ── Package ───────────────────────────────────────────────────────────────

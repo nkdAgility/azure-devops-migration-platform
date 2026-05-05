@@ -23,13 +23,13 @@ internal sealed class InteractiveConfigurationBuilder : IInteractiveConfiguratio
         options.Mode = console.Prompt(
             new SelectionPrompt<string>()
                 .Title("Select migration mode:")
-                .AddChoices("Export", "Import", "Both"));
+                .AddChoices("Export", "Prepare", "Import", "Migrate"));
         console.WriteLine();
 
-        var isExport = options.Mode is "Export" or "Both";
-        var isImport = options.Mode is "Import" or "Both";
+        var isExport = options.Mode is "Export" or "Migrate";
+        var isImport = options.Mode is "Prepare" or "Import" or "Migrate";
 
-        // Step 2: Source (if Export or Both)
+        // Step 2: Source (if Export or Migrate)
         if (isExport)
         {
             console.MarkupLine("[bold blue]Step 2: Source System Configuration[/bold blue]");
@@ -37,7 +37,7 @@ internal sealed class InteractiveConfigurationBuilder : IInteractiveConfiguratio
             console.WriteLine();
         }
 
-        // Step 3: Target (if Import or Both)
+        // Step 3: Target (if Prepare, Import, or Migrate)
         if (isImport)
         {
             console.MarkupLine($"[bold blue]Step {(isExport ? 3 : 2)}: Target System Configuration[/bold blue]");

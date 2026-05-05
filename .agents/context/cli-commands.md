@@ -22,7 +22,7 @@ Submit and drive migration jobs via the control plane. Each command creates or q
 | Command | Settings Key | Description |
 |---------|-------------|-------------|
 | `prepare` | `MigrationCommandSettings` | Submit a Prepare job through the full pipeline (CLI → Control Plane → Agent). The agent reads the exported package, connects to the target, and runs each module's `PrepareAsync` to cross-validate before import. Produces validation artefacts (identity mapping reports, node validation, field mapping reports) in each module's package folder for operator review. Any unresolved issue is blocking unless the operator adds an explicit skip. Idempotent — re-running overwrites Prepare output but preserves operator-edited mapping files. Requires a completed Export (package with `manifest.json`). |
-| `queue` | `QueueCommandSettings` | Submit a migration job. Behaviour is determined by the `mode` field in the config (`Inventory`, `Export`, `Prepare`, `Import`, `Validate`, or `Migrate`). `--follow` streams diagnostic logs inline. `--level` sets the agent's diagnostic minimum level. `--force-fresh` deletes module cursor(s) before running so enumeration restarts from the beginning (identity map preserved). Phase gates apply automatically: Export auto-runs Inventory if missing; Import auto-runs Prepare if missing. |
+| `queue` | `QueueCommandSettings` | Submit a job. Behaviour is determined by the `mode` field in the config (`Inventory`, `Dependencies`, `Export`, `Prepare`, `Import`, or `Migrate`). `--follow` streams diagnostic logs inline. `--level` sets the agent's diagnostic minimum level. `--force-fresh` deletes module cursor(s) before running so enumeration restarts from the beginning (identity map preserved). Phase gates apply automatically: Export auto-runs Inventory if missing; Import auto-runs Prepare if missing. |
 
 ### 2. Job Management Commands (`manage`)
 
@@ -40,16 +40,7 @@ Query and control existing jobs. Registered as a Spectre.Console branch named `m
 | `manage login` | `ManageLoginCommandSettings` | Authenticate with a control plane endpoint and cache the session token. Requires `--url`. |
 | `manage logout` | `ManageLogoutCommandSettings` | Revoke the cached session token for a control plane endpoint. Requires `--url`. |
 
-### 3. Discovery Commands (`discovery`)
-
-Run **locally**. Do **not** submit a `Job`. Registered as a Spectre.Console branch named `discovery`.
-
-| Command | Settings Key | Description |
-|---------|-------------|-------------|
-| `discovery inventory` | `InventoryCommand.Settings` | Count work items and revisions per project. Results written to `inventory.csv` and `inventory.json` at the output root plus per-org/per-project subfolders. Accepts `--output <dir>` to override `Artefacts.WorkingDirectory` from the config. |
-| `discovery dependencies` | `DependencyCommand.Settings` | Analyse cross-project and cross-organisation work item links. Loads `inventory.json` (if present) for grand totals before analysis. Results written to `dependencies.csv` (work-item level), `discovery-project-dependencies.csv` (project pairs), and `discovery-project-dependencies.md` (Mermaid flowchart) in the output directory. Accepts `--output <dir>` to override `Artefacts.WorkingDirectory` from the config. |
-
-### 4. Configuration Management (`config`)
+### 3. Configuration Management (`config`)
 
 Manage user preferences and create migration configuration files. Registered as a Spectre.Console branch named `config`.
 
@@ -65,13 +56,13 @@ Supported preference keys:
 |-----|------|-------------|
 | `scenario-folder` | path | Default folder scanned when `--config` is omitted. |
 
-### 5. Terminal UI
+### 4. Terminal UI
 
 | Command | Settings Key | Description |
 |---------|-------------|-------------|
 | `tui` | `TuiCommandSettings` | Open the interactive Terminal UI showing live job state. |
 
-### 6. Control Plane Management (`controlplane`)
+### 5. Control Plane Management (`controlplane`)
 
 Manage the local Control Plane host process. Registered as a Spectre.Console branch named `controlplane`.
 
@@ -154,11 +145,6 @@ config.AddBranch("manage", branch => {
     branch.AddCommand<ManageLogoutCommand>("logout");
 });
 
-// discovery branch
-config.AddBranch("discovery", branch => {
-    branch.AddCommand<InventoryCommand>("inventory");
-});
-
 // config branch
 config.AddBranch("config", branch => {
     branch.AddCommand<ConfigNewCommand>("new");
@@ -196,9 +182,8 @@ devopsmigration manage cancel  --job 550e8400-e29b-41d4-a716-446655440000
 devopsmigration manage login   --url https://migration.example.com
 devopsmigration manage logout  --url https://migration.example.com
 
-devopsmigration discovery inventory --config migration.json
-devopsmigration discovery inventory --config migration.json --all-projects
-devopsmigration discovery inventory --config migration.json --output ./reports
+devopsmigration queue    --config scenarios/inventory-ado-single-project.json
+devopsmigration queue    --config scenarios/discovery-dependency-ado-single-project.json
 
 devopsmigration config new
 devopsmigration config new --output my-migration.json
@@ -215,9 +200,8 @@ devopsmigration tui
 
 ## Constraints
 
-- The `manage`, `discovery`, `config`, and `controlplane` branches are registered as Spectre.Console `AddBranch` entries — they are not standalone commands.
+- The `manage`, `config`, and `controlplane` branches are registered as Spectre.Console `AddBranch` entries — they are not standalone commands.
 - `controlplane start` resolves the sibling binary by convention (`ControlPlane/` subdirectory of `AppContext.BaseDirectory`). Accepts `--port <port>` (default: `5100`); the value overrides the child process's listen address via the `ASPNETCORE_URLS` environment variable. Only available in the packaged zip distribution; in a dev/source build it prints an informative error and returns exit code 1.
-- `discovery *` commands must never submit a `Job` to the control plane.
 - `manage login` / `manage logout` store and revoke credentials only; they do not trigger any job operations.
 - `config set` / `config get` read and write user-level preferences only; they do not affect migration configuration files.
 - All commands inherit from `CommandBase<T>`, which injects `IServiceProvider`, `IHostApplicationLifetime`, `ILogger`, and `ActivitySource`.
