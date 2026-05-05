@@ -1872,6 +1872,40 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
     private static string TruncateName(string name, int maxLen) =>
         name.Length <= maxLen ? name : "…" + name[^(maxLen - 1)..];
 
+    // ── Discovery display helpers ─────────────────────────────────────────────────────────
+
+    /// <summary>Extracts the module segment (parts[1]) from a task ID like <c>capture.workitems.orgslug.project</c>.</summary>
+    private static string GetDiscoveryTaskModule(string taskId)
+    {
+        var parts = taskId.Split('.');
+        return parts.Length >= 2 ? parts[1] : string.Empty;
+    }
+
+    /// <summary>Derives a short organisation label from a URL (last path segment or host).</summary>
+    private static string DeriveDiscoveryOrgLabel(string orgUrl)
+    {
+        if (string.IsNullOrWhiteSpace(orgUrl)) return "(unknown)";
+        if (!Uri.TryCreate(orgUrl, UriKind.Absolute, out var uri)) return orgUrl;
+        var seg = uri.AbsolutePath.Trim('/').Split('/');
+        return seg.Length > 0 && !string.IsNullOrWhiteSpace(seg[^1]) ? seg[^1] : uri.Host;
+    }
+
+    private static string DiscoveryCapFirst(string s) =>
+        string.IsNullOrEmpty(s) ? s : char.ToUpperInvariant(s[0]) + s[1..];
+
+    private static IRenderable BuildDiscoveryTaskCell(JobTask task, string spinnerFrame)
+    {
+        var (icon, color) = task.Status switch
+        {
+            JobTaskStatus.Running => (spinnerFrame, "blue"),
+            JobTaskStatus.Completed => ("✓", "green"),
+            JobTaskStatus.Failed => ("✗", "red"),
+            JobTaskStatus.Skipped => ("→", "grey"),
+            _ => ("·", "grey"),
+        };
+        return new Markup($"[{color}]{icon}[/]");
+    }
+
     // ── Discovery progress state (MVU) ────────────────────────────────────────────────────
     // Analysis jobs (Inventory, Dependencies) render a data table — one row per org/project —
     // updated on every batch notification. This is distinct from migration jobs which render
@@ -1978,62 +2012,122 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
     /// </summary>
     private static IRenderable BuildDiscoveryDisplay(DiscoveryProgressState s)
     {
-        const int BarWidth = 28;
         var spinnerFrame = s_spinnerFrames[(int)(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() / 80 % s_spinnerFrames.Length)];
         var rows = new List<IRenderable>();
 
-        // ── Section 1: task status header ────────────────────────────────────────────
+        // ── Section 1: capture-task matrix table ─────────────────────────────────────
         if (s.Tasks is null)
         {
             rows.Add(new Markup("[grey]⠋ Initialising — waiting for agent to start…[/]"));
         }
         else if (s.Tasks.Tasks.Count > 0)
         {
-            string? currentPhase = null;
-            foreach (var task in s.Tasks.Tasks.OrderBy(t => t.Order))
+            var captureTasks = s.Tasks.Tasks
+                .Where(t => t.TaskKind == TaskKind.Capture)
+                .ToList();
+            var analyseTasks = s.Tasks.Tasks
+                .Where(t => t.TaskKind == TaskKind.Analyse)
+                .OrderBy(t => t.Order)
+                .ToList();
+
+            if (captureTasks.Count > 0)
             {
-                if (task.Phase != currentPhase)
+                // Determine which module columns are active in this job.
+                var moduleOrder = new[] { "identities", "nodes", "teams", "workitems", "repos" };
+                var activeModules = moduleOrder
+                    .Where(m => captureTasks.Any(t => GetDiscoveryTaskModule(t.Id) == m))
+                    .ToArray();
+
+                var table = new Table()
+                    .BorderStyle(Style.Parse("grey"))
+                    .AddColumn(new TableColumn("[grey]Organisation[/]"))
+                    .AddColumn(new TableColumn("[grey]Project[/]"));
+                foreach (var mod in activeModules)
+                    table.AddColumn(new TableColumn($"[grey]{DiscoveryCapFirst(mod)}[/]").Centered());
+                table.AddColumn(new TableColumn("[grey]Time[/]").RightAligned());
+
+                var groups = captureTasks
+                    .GroupBy(t => (Org: t.OrganisationUrl ?? string.Empty, Project: t.ProjectName ?? string.Empty))
+                    .OrderBy(g => g.Key.Org)
+                    .ThenBy(g => g.Key.Project);
+
+                string? lastOrg = null;
+                foreach (var grp in groups)
                 {
-                    currentPhase = task.Phase;
-                    if (!string.IsNullOrEmpty(currentPhase))
-                        rows.Add(new Markup($"[bold grey]{Markup.Escape(currentPhase)}[/]"));
+                    var orgLabel = grp.Key.Org != lastOrg
+                        ? TruncateName(DeriveDiscoveryOrgLabel(grp.Key.Org), 36)
+                        : string.Empty;
+                    lastOrg = grp.Key.Org;
+
+                    var grpList = grp.ToList();
+                    var cells = new List<IRenderable>
+                    {
+                        new Markup(string.IsNullOrEmpty(orgLabel) ? string.Empty : $"[grey]{Markup.Escape(orgLabel)}[/]"),
+                        new Markup(Markup.Escape(grp.Key.Project))
+                    };
+
+                    foreach (var mod in activeModules)
+                    {
+                        var t = grpList.FirstOrDefault(x => GetDiscoveryTaskModule(x.Id) == mod);
+                        cells.Add(t is null ? new Markup("[grey]–[/]") : BuildDiscoveryTaskCell(t, spinnerFrame));
+                    }
+
+                    var anyRunning = grpList.Any(t => t.Status == JobTaskStatus.Running);
+                    var allSettled = grpList.All(t =>
+                        t.Status is JobTaskStatus.Completed or JobTaskStatus.Failed or JobTaskStatus.Skipped);
+                    var maxSec = grpList
+                        .Where(t => t.StartedAt.HasValue && t.CompletedAt.HasValue)
+                        .Select(t => (t.CompletedAt!.Value - t.StartedAt!.Value).TotalSeconds)
+                        .DefaultIfEmpty(0).Max();
+                    string timeCell = anyRunning
+                        ? $"[blue]{spinnerFrame}[/]"
+                        : allSettled && maxSec > 0
+                            ? $"[grey]{maxSec:F0}s[/]"
+                            : string.Empty;
+                    cells.Add(new Markup(timeCell));
+
+                    table.AddRow(cells.ToArray());
                 }
 
-                var (icon, iconColor) = task.Status switch
+                // Analyse tasks as footer rows spanning the first two columns.
+                foreach (var at in analyseTasks)
                 {
-                    JobTaskStatus.Running => (spinnerFrame, "blue"),
-                    JobTaskStatus.Completed => ("✓", "green"),
-                    JobTaskStatus.Failed => ("✗", "red"),
-                    JobTaskStatus.Skipped => ("→", "grey"),
-                    _ => ("·", "grey"),
-                };
+                    var (icon, color) = at.Status switch
+                    {
+                        JobTaskStatus.Running => (spinnerFrame, "blue"),
+                        JobTaskStatus.Completed => ("✓", "green"),
+                        JobTaskStatus.Failed => ("✗", "red"),
+                        JobTaskStatus.Skipped => ("→", "grey"),
+                        _ => ("·", "grey"),
+                    };
+                    var atCells = new List<IRenderable>
+                    {
+                        new Markup($"[{color}]{icon}[/] [bold]{Markup.Escape(at.Name)}[/]"),
+                        new Markup(string.Empty)
+                    };
+                    foreach (var _ in activeModules)
+                        atCells.Add(new Markup(string.Empty));
+                    atCells.Add(new Markup(string.Empty));
+                    table.AddRow(atCells.ToArray());
+                }
 
-                string bar = task.Status switch
+                rows.Add(table);
+            }
+            else
+            {
+                // Non-capture job: render flat list (dependencies, etc.)
+                foreach (var task in s.Tasks.Tasks.OrderBy(t => t.Order))
                 {
-                    JobTaskStatus.Completed => new string('━', BarWidth),
-                    JobTaskStatus.Running =>
-                        new string('─', (int)(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() / 80) % BarWidth)
-                        + '━'
-                        + new string('─', BarWidth - (int)(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() / 80) % BarWidth - 1),
-                    _ => new string('─', BarWidth),
-                };
-                string barColor = task.Status switch
-                {
-                    JobTaskStatus.Completed => "green",
-                    JobTaskStatus.Running => "blue",
-                    _ => "grey",
-                };
-
-                string elapsed = task.Status switch
-                {
-                    JobTaskStatus.Completed when task.StartedAt.HasValue && task.CompletedAt.HasValue =>
-                        $"  [grey]done in {(task.CompletedAt.Value - task.StartedAt.Value).TotalSeconds:F0}s[/]",
-                    JobTaskStatus.Running when task.StartedAt.HasValue =>
-                        $"  [grey]{(DateTimeOffset.UtcNow - task.StartedAt.Value).TotalSeconds:F0}s[/]",
-                    _ => string.Empty
-                };
-
-                rows.Add(new Markup($"  [{iconColor}]{icon}[/]  [bold]{Markup.Escape(task.Name)}[/]  [{barColor}]{Markup.Escape(bar)}[/]{elapsed}"));
+                    var (icon, iconColor) = task.Status switch
+                    {
+                        JobTaskStatus.Running => (spinnerFrame, "blue"),
+                        JobTaskStatus.Completed => ("✓", "green"),
+                        JobTaskStatus.Failed => ("✗", "red"),
+                        JobTaskStatus.Skipped => ("→", "grey"),
+                        _ => ("·", "grey"),
+                    };
+                    rows.Add(new Markup($"  [{iconColor}]{icon}[/]  [bold]{Markup.Escape(task.Name)}[/]"));
+                }
             }
         }
 
