@@ -751,12 +751,13 @@ Runs after `ImportAsync` completes:
 ```
 <WorkingDirectory>/<org>/<project>/
   manifest.json                      ← Package metadata, source info, included types
-  migration-config.json              ← Config snapshot used for this run
   Identities/                        ← Identity descriptors and mappings
   Nodes/                             ← Classification tree snapshots
   Teams/                             ← Team definitions by slug
   WorkItems/                         ← Revision folders by date
   .migration/
+    migration-config.json            ← Config snapshot written by CLI before job submission
+    plan.json                        ← Execution plan persisted after every task transition
     Checkpoints/                     ← Cursor files, idmap.db, lock file
     Logs/                            ← Structured progress + diagnostic logs
 ```
