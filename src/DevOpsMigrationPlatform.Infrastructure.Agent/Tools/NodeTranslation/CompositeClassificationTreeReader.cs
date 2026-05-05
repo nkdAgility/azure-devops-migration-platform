@@ -6,6 +6,7 @@ using System;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using System.Threading;
+using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions.Agent.Context;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 
@@ -61,6 +62,10 @@ public sealed class CompositeClassificationTreeReader : IClassificationTreeReade
         await foreach (var node in Resolve().EnumerateIterationNodesAsync(ct))
             yield return node;
     }
+
+    /// <inheritdoc/>
+    public Task<int> CountNodesAsync(string project, CancellationToken ct)
+        => Resolve().CountNodesAsync(project, ct);
 }
 
 /// <summary>Registration descriptor for a keyed <see cref="IClassificationTreeReader"/>.</summary>
