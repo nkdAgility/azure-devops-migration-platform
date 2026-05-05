@@ -37,7 +37,7 @@ Poll /agents/lease
   └─ Receive leased job definition
        ├─ Extract credentials from job definition
        ├─ Connect to artefact store (packageUri)
-       ├─ Read migration-config.json from package root → bind MigrationOptions via IPackageConfigStore
+       ├─ Read .migration/migration-config.json from package → bind MigrationOptions via IPackageConfigStore
        │    └─ If absent → POST /agents/lease/{id}/fail  (PackageConfigNotFoundException)
        │    └─ Build per-job IConfiguration and IOptions<T> scope for tool modules
        ├─ Load cursor → determine resume position
