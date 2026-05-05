@@ -612,30 +612,39 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
                 ActiveJobConfig.PackageConfig = BuildOrgSourceOverlay(baseConfig, endpoint);
                 try
                 {
-                    foreach (var module in inventoryModules)
+                    var orgProjects = org.Projects
+                        .Where(p => !string.IsNullOrWhiteSpace(p))
+                        .Distinct(StringComparer.OrdinalIgnoreCase)
+                        .ToList();
+
+                    foreach (var project in orgProjects)
                     {
-                        try
+                        foreach (var module in inventoryModules)
                         {
-                            await module.InventoryAsync(new InventoryContext
+                            try
                             {
-                                Job = job,
-                                ArtefactStore = artefactStore,
-                                StateStore = stateStore,
-                                ProgressSink = ProgressSink,
-                                SourceEndpoint = endpoint,
-                                Projects = org.Projects
-                            }, ct).ConfigureAwait(false);
-                            cumulativeInventoryOperations++;
-                        }
-                        catch (Exception ex)
-                        {
-                            _logger.LogWarning(
-                                ex,
-                                "Organisation {OrgIndex}/{OrgCount} unreachable: {ErrorType}",
-                                index,
-                                organisations.Count,
-                                ex.GetType().Name);
-                            failed = true;
+                                await module.InventoryAsync(new InventoryContext
+                                {
+                                    Job = job,
+                                    ArtefactStore = artefactStore,
+                                    StateStore = stateStore,
+                                    ProgressSink = ProgressSink,
+                                    SourceEndpoint = endpoint,
+                                    Projects = [project]
+                                }, ct).ConfigureAwait(false);
+                                cumulativeInventoryOperations++;
+                            }
+                            catch (Exception ex)
+                            {
+                                _logger.LogWarning(
+                                    ex,
+                                    "Organisation {OrgIndex}/{OrgCount} project {Project} unreachable: {ErrorType}",
+                                    index,
+                                    organisations.Count,
+                                    project,
+                                    ex.GetType().Name);
+                                failed = true;
+                            }
                         }
                     }
                 }

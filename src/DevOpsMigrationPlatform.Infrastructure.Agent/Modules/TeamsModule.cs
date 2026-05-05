@@ -95,45 +95,38 @@ public sealed class TeamsModule : IModule
 
     public async Task InventoryAsync(InventoryContext context, CancellationToken ct)
     {
-        var projects = (context.Projects ?? Array.Empty<string>())
-            .Where(p => !string.IsNullOrWhiteSpace(p))
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .ToList();
-        if (projects.Count == 0 && !string.IsNullOrWhiteSpace(_sourceEndpointInfo.Project))
-            projects.Add(_sourceEndpointInfo.Project);
-
         using var activity = DiscoveryActivity.StartActivity("inventory.teams");
         activity?.SetTag("job.id", context.Job.JobId);
         activity?.SetTag("module", Name);
 
-        _logger.LogInformation("Inventorying {Module} for {ProjectCount} project(s)", Name, projects.Count);
+        _logger.LogInformation("Inventorying {Module}", Name);
         context.ProgressSink?.Emit(new ProgressEvent { Module = Name, Stage = "Inventorying", Message = $"Inventorying {Name}", Timestamp = DateTimeOffset.UtcNow });
 
         var count = 0;
         if (_teamSource is not null)
         {
-            var orgUrl = context.SourceEndpoint.ResolvedUrl;
+            var project = context.Projects?.FirstOrDefault() ?? _sourceEndpointInfo.Project;
+            var orgUrl = context.SourceEndpoint?.ResolvedUrl ?? _sourceEndpointInfo.Url;
             var orgSlug = PackagePathResolver.DeriveInventoryOrgSlug(orgUrl);
-            foreach (var project in projects)
+
+            if (!string.IsNullOrWhiteSpace(project))
             {
-                var projectCount = 0;
                 try
                 {
                     await foreach (var _ in _teamSource.EnumerateTeamsAsync(project, ct).ConfigureAwait(false))
-                        projectCount++;
+                        count++;
 
                     var projectPath = PackagePathResolver.ProjectInventoryPath(orgSlug, project);
                     await ProjectInventoryFile.MergeAsync(
                         context.ArtefactStore, projectPath,
                         orgUrl: orgUrl, project: project,
-                        teams: projectCount, ct: ct).ConfigureAwait(false);
+                        teams: count, ct: ct).ConfigureAwait(false);
                 }
                 catch (Exception ex)
                 {
                     using (_logger.BeginDataScope(DataClassification.Customer))
                         _logger.LogWarning(ex, "Failed to enumerate teams for project {Project}; skipping.", project);
                 }
-                count += projectCount;
             }
         }
 

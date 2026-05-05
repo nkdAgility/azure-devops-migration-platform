@@ -89,18 +89,11 @@ public sealed class NodesModule : IModule
 
     public async Task InventoryAsync(InventoryContext context, CancellationToken ct)
     {
-        var projects = (context.Projects ?? Array.Empty<string>())
-            .Where(p => !string.IsNullOrWhiteSpace(p))
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .ToList();
-        if (projects.Count == 0 && !string.IsNullOrWhiteSpace(_sourceEndpointInfo.Project))
-            projects.Add(_sourceEndpointInfo.Project);
-
         using var activity = DiscoveryActivity.StartActivity("inventory.nodes");
         activity?.SetTag("job.id", context.Job.JobId);
         activity?.SetTag("module", Name);
 
-        _logger.LogInformation("Inventorying {Module} for {ProjectCount} project(s)", Name, projects.Count);
+        _logger.LogInformation("Inventorying {Module}", Name);
         context.ProgressSink?.Emit(new ProgressEvent
         {
             Module = Name,
@@ -113,20 +106,21 @@ public sealed class NodesModule : IModule
         var count = 0;
         if (_reader is not null)
         {
-            var orgUrl = context.SourceEndpoint.ResolvedUrl;
+            var project = context.Projects?.FirstOrDefault() ?? _sourceEndpointInfo.Project;
+            var orgUrl = context.SourceEndpoint?.ResolvedUrl ?? _sourceEndpointInfo.Url;
             var orgSlug = PackagePathResolver.DeriveInventoryOrgSlug(orgUrl);
-            foreach (var project in projects)
+
+            if (!string.IsNullOrWhiteSpace(project))
             {
                 try
                 {
-                    var projectCount = await _reader.CountNodesAsync(project, ct).ConfigureAwait(false);
-                    count += projectCount;
+                    count = await _reader.CountNodesAsync(project, ct).ConfigureAwait(false);
 
                     var projectPath = PackagePathResolver.ProjectInventoryPath(orgSlug, project);
                     await ProjectInventoryFile.MergeAsync(
                         context.ArtefactStore, projectPath,
                         orgUrl: orgUrl, project: project,
-                        nodes: projectCount, ct: ct).ConfigureAwait(false);
+                        nodes: count, ct: ct).ConfigureAwait(false);
                 }
                 catch (Exception ex)
                 {
