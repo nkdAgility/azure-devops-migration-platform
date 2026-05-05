@@ -2,6 +2,7 @@
 // Copyright (c) Naked Agility Limited
 
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
@@ -19,6 +20,7 @@ using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
 using DevOpsMigrationPlatform.Abstractions.ControlPlaneApi;
 using DevOpsMigrationPlatform.Abstractions.Organisations;
 using DevOpsMigrationPlatform.Abstractions.Telemetry;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Agent.Context;
@@ -42,13 +44,21 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
 
     private readonly IProgressSink? _progressSink;
     private readonly ILogger<JobPlanExecutor> _logger;
+    private readonly IJobConfiguration? _jobConfig;
+
+    // Per-org semaphores ensure IJobConfiguration.PackageConfig is swapped exclusively
+    // for one org at a time. Capture tasks for different orgs still run concurrently.
+    private readonly ConcurrentDictionary<string, SemaphoreSlim> _orgConfigLocks =
+        new(StringComparer.OrdinalIgnoreCase);
 
     public JobPlanExecutor(
         IProgressSink? progressSink,
-        ILogger<JobPlanExecutor> logger)
+        ILogger<JobPlanExecutor> logger,
+        IJobConfiguration? jobConfig = null)
     {
         _progressSink = progressSink;
         _logger = logger;
+        _jobConfig = jobConfig;
     }
 
     public async Task<bool> ExecuteTasksAsync(
@@ -574,7 +584,37 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
                                 SourceEndpoint = endpoint
                             };
 
-                            await module!.InventoryAsync(scopedCtx, ct).ConfigureAwait(false);
+                            // Apply per-org config overlay so IJobConfiguration.PackageConfig
+                            // carries the correct Source.Type/Url/Auth for this org.
+                            // Per-org semaphore: same-org tasks are serialised; different-org
+                            // tasks run concurrently.
+                            if (_jobConfig is not null && endpoint is not null)
+                            {
+                                var orgKey = orgUrl ?? string.Empty;
+                                var orgSem = _orgConfigLocks.GetOrAdd(orgKey, _ => new SemaphoreSlim(1, 1));
+                                await orgSem.WaitAsync(ct).ConfigureAwait(false);
+                                try
+                                {
+                                    var prev = _jobConfig.PackageConfig;
+                                    _jobConfig.PackageConfig = BuildCaptureConfigOverlay(prev, endpoint);
+                                    try
+                                    {
+                                        await module!.InventoryAsync(scopedCtx, ct).ConfigureAwait(false);
+                                    }
+                                    finally
+                                    {
+                                        _jobConfig.PackageConfig = prev;
+                                    }
+                                }
+                                finally
+                                {
+                                    orgSem.Release();
+                                }
+                            }
+                            else
+                            {
+                                await module!.InventoryAsync(scopedCtx, ct).ConfigureAwait(false);
+                            }
                             break;
                         }
                         case TaskKind.Export:
@@ -741,6 +781,31 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
                 "Failed to persist execution plan to {Path}. Job will continue, but resume may be incomplete.",
                 PackagePaths.PlanFile);
         }
+    }
+
+    /// <summary>
+    /// Builds a configuration that overlays the per-org source endpoint settings on top of
+    /// <paramref name="baseConfig"/>.  Used before executing a Capture task so that
+    /// <c>ActiveJobSourceEndpointInfo</c> resolves the correct connector type, URL, and
+    /// credentials for each organisation.
+    /// </summary>
+    private static IConfiguration BuildCaptureConfigOverlay(IConfiguration? baseConfig, OrganisationEndpoint endpoint)
+    {
+        var builder = new ConfigurationBuilder();
+        if (baseConfig is not null)
+            builder.AddConfiguration(baseConfig);
+
+        var overlay = new Dictionary<string, string?>
+        {
+            ["MigrationPlatform:Source:Type"] = endpoint.Type,
+            ["MigrationPlatform:Source:Url"] = endpoint.ResolvedUrl,
+            ["MigrationPlatform:Source:Authentication:Type"] = endpoint.Authentication.Type.ToString(),
+            ["MigrationPlatform:Source:Authentication:AccessToken"] = endpoint.Authentication.ResolvedAccessToken,
+        };
+        if (endpoint.ApiVersion is not null)
+            overlay["MigrationPlatform:Source:ApiVersion"] = endpoint.ApiVersion;
+
+        return builder.AddInMemoryCollection(overlay).Build();
     }
 
     /// <summary>
