@@ -98,6 +98,14 @@ public sealed class TeamsModule : IModule
         using var activity = DiscoveryActivity.StartActivity("inventory.teams");
         activity?.SetTag("job.id", context.Job.JobId);
         activity?.SetTag("module", Name);
+        activity?.SetTag("org", context.SourceEndpoint?.ResolvedUrl ?? string.Empty);
+        activity?.SetTag("project", context.Project);
+
+        if (string.IsNullOrWhiteSpace(context.Project))
+        {
+            _logger.LogError("[Teams] InventoryAsync called with empty Project — executor contract violated. Skipping.");
+            return;
+        }
 
         _logger.LogInformation("Inventorying {Module}", Name);
         context.ProgressSink?.Emit(new ProgressEvent { Module = Name, Stage = "Inventorying", Message = $"Inventorying {Name}", Timestamp = DateTimeOffset.UtcNow });
@@ -105,28 +113,25 @@ public sealed class TeamsModule : IModule
         var count = 0;
         if (_teamSource is not null)
         {
-            var project = context.Projects?.FirstOrDefault() ?? _sourceEndpointInfo.Project;
+            var project = context.Project;
             var orgUrl = context.SourceEndpoint?.ResolvedUrl ?? _sourceEndpointInfo.Url;
             var orgSlug = PackagePathResolver.DeriveInventoryOrgSlug(orgUrl);
 
-            if (!string.IsNullOrWhiteSpace(project))
+            try
             {
-                try
-                {
-                    await foreach (var _ in _teamSource.EnumerateTeamsAsync(project, ct).ConfigureAwait(false))
-                        count++;
+                await foreach (var _ in _teamSource.EnumerateTeamsAsync(project, ct).ConfigureAwait(false))
+                    count++;
 
-                    var projectPath = PackagePathResolver.ProjectInventoryPath(orgSlug, project);
-                    await ProjectInventoryFile.MergeAsync(
-                        context.ArtefactStore, projectPath,
-                        orgUrl: orgUrl, project: project,
-                        teams: count, ct: ct).ConfigureAwait(false);
-                }
-                catch (Exception ex)
-                {
-                    using (_logger.BeginDataScope(DataClassification.Customer))
-                        _logger.LogWarning(ex, "Failed to enumerate teams for project {Project}; skipping.", project);
-                }
+                var projectPath = PackagePathResolver.ProjectInventoryPath(orgSlug, project);
+                await ProjectInventoryFile.MergeAsync(
+                    context.ArtefactStore, projectPath,
+                    orgUrl: orgUrl, project: project,
+                    teams: count, ct: ct).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                using (_logger.BeginDataScope(DataClassification.Customer))
+                    _logger.LogWarning(ex, "Failed to enumerate teams for project {Project}; skipping.", project);
             }
         }
 

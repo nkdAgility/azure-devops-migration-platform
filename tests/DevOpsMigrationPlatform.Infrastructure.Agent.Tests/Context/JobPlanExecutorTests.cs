@@ -348,11 +348,21 @@ public sealed class JobPlanExecutorTests
         IReadOnlyList<string>? dependsOn = null,
         DateTimeOffset? startedAt = null)
     {
+        var kind = phase.ToUpperInvariant() switch
+        {
+            "EXPORT" => TaskKind.Export,
+            "IMPORT" => TaskKind.Import,
+            "CAPTURE" => TaskKind.Capture,
+            "ANALYSE" => TaskKind.Analyse,
+            _ => TaskKind.Export // safe default for legacy test tasks
+        };
+
         return new JobTask
         {
             Id = id,
             Name = name,
             Phase = phase,
+            TaskKind = kind,
             Status = status,
             SkipReason = skipReason,
             DependsOn = dependsOn,

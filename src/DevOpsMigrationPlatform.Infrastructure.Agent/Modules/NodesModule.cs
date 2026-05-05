@@ -92,6 +92,14 @@ public sealed class NodesModule : IModule
         using var activity = DiscoveryActivity.StartActivity("inventory.nodes");
         activity?.SetTag("job.id", context.Job.JobId);
         activity?.SetTag("module", Name);
+        activity?.SetTag("org", context.SourceEndpoint?.ResolvedUrl ?? string.Empty);
+        activity?.SetTag("project", context.Project);
+
+        if (string.IsNullOrWhiteSpace(context.Project))
+        {
+            _logger.LogError("[Nodes] InventoryAsync called with empty Project — executor contract violated. Skipping.");
+            return;
+        }
 
         _logger.LogInformation("Inventorying {Module}", Name);
         context.ProgressSink?.Emit(new ProgressEvent
@@ -106,27 +114,24 @@ public sealed class NodesModule : IModule
         var count = 0;
         if (_reader is not null)
         {
-            var project = context.Projects?.FirstOrDefault() ?? _sourceEndpointInfo.Project;
+            var project = context.Project;
             var orgUrl = context.SourceEndpoint?.ResolvedUrl ?? _sourceEndpointInfo.Url;
             var orgSlug = PackagePathResolver.DeriveInventoryOrgSlug(orgUrl);
 
-            if (!string.IsNullOrWhiteSpace(project))
+            try
             {
-                try
-                {
-                    count = await _reader.CountNodesAsync(project, ct).ConfigureAwait(false);
+                count = await _reader.CountNodesAsync(project, ct).ConfigureAwait(false);
 
-                    var projectPath = PackagePathResolver.ProjectInventoryPath(orgSlug, project);
-                    await ProjectInventoryFile.MergeAsync(
-                        context.ArtefactStore, projectPath,
-                        orgUrl: orgUrl, project: project,
-                        nodes: count, ct: ct).ConfigureAwait(false);
-                }
-                catch (Exception ex)
-                {
-                    using (_logger.BeginDataScope(DataClassification.Customer))
-                        _logger.LogWarning(ex, "Failed to count nodes for project {Project}; skipping.", project);
-                }
+                var projectPath = PackagePathResolver.ProjectInventoryPath(orgSlug, project);
+                await ProjectInventoryFile.MergeAsync(
+                    context.ArtefactStore, projectPath,
+                    orgUrl: orgUrl, project: project,
+                    nodes: count, ct: ct).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                using (_logger.BeginDataScope(DataClassification.Customer))
+                    _logger.LogWarning(ex, "Failed to count nodes for project {Project}; skipping.", project);
             }
         }
         stopwatch.Stop();

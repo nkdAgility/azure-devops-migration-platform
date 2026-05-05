@@ -12,14 +12,39 @@ namespace DevOpsMigrationPlatform.Abstractions.ControlPlaneApi;
 /// </summary>
 public sealed record JobTask
 {
-    /// <summary>Unique task identifier within the job, e.g. "export.workitems".</summary>
+    /// <summary>
+    /// Unique task identifier within the job.
+    /// Format: <c>{taskkind}.{module}.{orgSlug}.{projectSlug}</c>,
+    /// e.g. <c>"capture.workitems.myorg.projecta"</c>.
+    /// </summary>
     public string Id { get; init; } = string.Empty;
 
     /// <summary>Human-readable task name, e.g. "WorkItems Export".</summary>
     public string Name { get; init; } = string.Empty;
 
-    /// <summary>Logical phase grouping, e.g. "Export" or "Import". Null for standalone tasks.</summary>
+    /// <summary>
+    /// The type of work this task performs. The executor dispatches on this value.
+    /// </summary>
+    public TaskKind TaskKind { get; init; }
+
+    /// <summary>
+    /// Display hint — the migration lifecycle segment this task belongs to (e.g. "export", "import").
+    /// <para><strong>Not used for execution dispatch.</strong> The executor dispatches on <see cref="TaskKind"/> only.</para>
+    /// Null for tasks that do not belong to a migration lifecycle phase (e.g. Capture, Analyse).
+    /// </summary>
     public string? Phase { get; init; }
+
+    /// <summary>
+    /// The organisation URL this task is scoped to, e.g. "https://dev.azure.com/myorg".
+    /// Set by the plan builder; null for tasks that are not org-scoped.
+    /// </summary>
+    public string? OrganisationUrl { get; init; }
+
+    /// <summary>
+    /// The project name this task is scoped to, e.g. "MyProject".
+    /// Set by the plan builder; null for fan-in tasks such as <see cref="TaskKind.Analyse"/>.
+    /// </summary>
+    public string? ProjectName { get; init; }
 
     /// <summary>Execution order within the plan (0-based ascending).</summary>
     public int Order { get; init; }

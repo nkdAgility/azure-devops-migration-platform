@@ -49,11 +49,11 @@ public sealed class JobExecutionPlanBuilderDependsOnTests
         var plan = await builder.BuildPlanAsync(config, JobKind.Import, store, stateStore, CancellationToken.None);
 
         // Assert
-        var workItemsTask = plan.Tasks.First(t => t.Id == "import.workitems");
+        var workItemsTask = plan.Tasks.First(t => t.Id.StartsWith("import.workitems"));
         Assert.IsNotNull(workItemsTask.DependsOn, "WorkItems task should have dependencies");
-        CollectionAssert.Contains(workItemsTask.DependsOn.ToList(), "import.identities",
+        Assert.IsTrue(workItemsTask.DependsOn.Any(d => d.StartsWith("import.identities")),
             "WorkItems should depend on Identities");
-        CollectionAssert.Contains(workItemsTask.DependsOn.ToList(), "import.nodes",
+        Assert.IsTrue(workItemsTask.DependsOn.Any(d => d.StartsWith("import.nodes")),
             "WorkItems should depend on Nodes");
     }
 
@@ -130,11 +130,11 @@ public sealed class JobExecutionPlanBuilderDependsOnTests
         var plan = await builder.BuildPlanAsync(config, JobKind.Import, store, stateStore, CancellationToken.None);
 
         // Assert
-        var taskB = plan.Tasks.FirstOrDefault(t => t.Id == "import.moduleb");
+        var taskB = plan.Tasks.FirstOrDefault(t => t.Id.StartsWith("import.moduleb"));
         Assert.IsNotNull(taskB, "ModuleB task should exist");
 
         // Since ModuleA is disabled, it won't have a task, so the dependency should be omitted
-        Assert.IsTrue(taskB.DependsOn == null || !taskB.DependsOn.Contains("import.modulea"),
+        Assert.IsTrue(taskB.DependsOn == null || !taskB.DependsOn.Any(d => d.StartsWith("import.modulea")),
             "ModuleB should not depend on disabled ModuleA");
     }
 
@@ -153,8 +153,8 @@ public sealed class JobExecutionPlanBuilderDependsOnTests
         var plan = await builder.BuildPlanAsync(config, JobKind.Import, store, stateStore, CancellationToken.None);
 
         // Assert
-        var taskA = plan.Tasks.First(t => t.Id == "import.modulea");
-        Assert.IsTrue(taskA.DependsOn == null || !taskA.DependsOn.Contains("import.nonexistentmodule"),
+        var taskA = plan.Tasks.First(t => t.Id.StartsWith("import.modulea"));
+        Assert.IsTrue(taskA.DependsOn == null || !taskA.DependsOn.Any(d => d.StartsWith("import.nonexistentmodule")),
             "Dependency on non-existent module should be omitted");
     }
 

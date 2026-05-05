@@ -9,6 +9,7 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Agent.Analysis;
 using DevOpsMigrationPlatform.Abstractions.Agent.Context;
 using DevOpsMigrationPlatform.Abstractions.Agent.Export;
 using DevOpsMigrationPlatform.Abstractions.Agent.Import;
@@ -16,6 +17,7 @@ using DevOpsMigrationPlatform.Abstractions.Agent.Lease;
 using DevOpsMigrationPlatform.Abstractions.Agent.Modules;
 using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
 using DevOpsMigrationPlatform.Abstractions.ControlPlaneApi;
+using DevOpsMigrationPlatform.Abstractions.Organisations;
 using DevOpsMigrationPlatform.Abstractions.Telemetry;
 using Microsoft.Extensions.Logging;
 
@@ -47,6 +49,115 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
     {
         _progressSink = progressSink;
         _logger = logger;
+    }
+
+    public async Task<bool> ExecuteTasksAsync(
+        JobTaskList plan,
+        IReadOnlyDictionary<string, IModule> modulesByName,
+        IReadOnlyDictionary<string, IAnalyser> analysersByName,
+        InventoryContext? baseInventoryContext,
+        ExportContext? baseExportContext,
+        ImportContext? importContext,
+        IReadOnlyDictionary<string, OrganisationEndpoint>? endpointsByUrl,
+        IStateStore stateStore,
+        CancellationToken ct)
+    {
+        var tasks = plan.Tasks
+            .Where(t => t.Status != JobTaskStatus.Skipped && t.Status != JobTaskStatus.Completed)
+            .ToList();
+
+        if (tasks.Count == 0)
+        {
+            _logger.LogInformation("ExecuteTasksAsync: no tasks to execute (all skipped or completed).");
+            return true;
+        }
+
+        var tiers = ExtractTiers(tasks);
+        _logger.LogInformation(
+            "ExecuteTasksAsync: {TaskCount} task(s) in {TierCount} tier(s).",
+            tasks.Count, tiers.Count);
+
+        bool anyFailed = false;
+        var failedTasks = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        for (int tierIndex = 0; tierIndex < tiers.Count; tierIndex++)
+        {
+            var tier = tiers[tierIndex];
+
+            using var activity = _activitySource.StartActivity("job.plan.execute.tier");
+            activity?.SetTag("job.tier_index", tierIndex);
+            activity?.SetTag("job.tier_task_count", tier.Count);
+
+            _logger.LogInformation(
+                "Executing tier {TierIndex} ({TaskCount} tasks): {TaskIds}",
+                tierIndex, tier.Count, string.Join(", ", tier.Select(t => t.Id)));
+
+            var result = await ExecuteTierAsync(
+                tier, modulesByName, analysersByName, baseInventoryContext,
+                baseExportContext, importContext, endpointsByUrl, stateStore, plan, ct)
+                .ConfigureAwait(false);
+
+            plan = result.UpdatedPlan;
+
+            if (result.FailedTaskIds.Count > 0)
+            {
+                anyFailed = true;
+                foreach (var id in result.FailedTaskIds)
+                    failedTasks.Add(id);
+
+                // Mark dependent tasks in subsequent tiers as Skipped.
+                for (int nextTierIdx = tierIndex + 1; nextTierIdx < tiers.Count; nextTierIdx++)
+                {
+                    foreach (var task in tiers[nextTierIdx])
+                    {
+                        if (task.DependsOn is not null && task.DependsOn.Any(dep => failedTasks.Contains(dep)))
+                        {
+                            var matchedDep = task.DependsOn.First(dep => failedTasks.Contains(dep));
+                            var skipped = task with
+                            {
+                                Status = JobTaskStatus.Skipped,
+                                SkipReason = $"Dependency '{matchedDep}' failed or was skipped."
+                            };
+
+                            var taskList = plan.Tasks.ToList();
+                            var idx = taskList.FindIndex(t => t.Id == task.Id);
+                            if (idx >= 0)
+                            {
+                                taskList[idx] = skipped;
+                                plan = plan with { Tasks = taskList.AsReadOnly() };
+                                await PersistPlanAsync(plan, stateStore, ct).ConfigureAwait(false);
+
+                                _progressSink?.Emit(new ProgressEvent
+                                {
+                                    Module = GetModuleName(task.Id, modulesByName.Keys),
+                                    Stage = $"{task.TaskKind}.Skipped",
+                                    Message = $"Skipped due to failed dependency: {matchedDep}",
+                                    Timestamp = DateTimeOffset.UtcNow,
+                                    TaskId = task.Id,
+                                    TaskStatus = JobTaskStatus.Skipped
+                                });
+
+                                _logger.LogWarning(
+                                    "Task {TaskId} skipped — dependency {Dependency} failed.",
+                                    task.Id, matchedDep);
+                            }
+                        }
+                    }
+                }
+            }
+
+            _logger.LogInformation(
+                "Tier {TierIndex} complete: {Succeeded} succeeded, {Failed} failed.",
+                tierIndex, tier.Count - result.FailedTaskIds.Count, result.FailedTaskIds.Count);
+        }
+
+        if (anyFailed)
+        {
+            _logger.LogWarning("ExecuteTasksAsync completed with {FailedCount} failed task(s).", failedTasks.Count);
+            return false;
+        }
+
+        return true;
     }
 
     public async Task<bool> ExecuteExportPhaseAsync(
@@ -90,7 +201,8 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
                 tierIndex, tier.Count, string.Join(", ", tier.Select(t => t.Id)));
 
             var result = await ExecuteTierAsync(
-                tier, modulesByName, exportContext, null, stateStore, plan, ct)
+                tier, modulesByName, analysersByName: null, baseInventoryContext: null,
+                exportContext, importContext: null, endpointsByUrl: null, stateStore, plan, ct)
                 .ConfigureAwait(false);
 
             plan = result.UpdatedPlan; // Propagate plan updates
@@ -242,7 +354,8 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
                 tierIndex, tier.Count, string.Join(", ", tier.Select(t => t.Id)));
 
             var failed = await ExecuteTierAsync(
-                tier, modulesByName, null, importContext, stateStore, plan, ct)
+                tier, modulesByName, analysersByName: null, baseInventoryContext: null,
+                exportContext: null, importContext, endpointsByUrl: null, stateStore, plan, ct)
                 .ConfigureAwait(false);
 
             plan = failed.UpdatedPlan; // Propagate plan updates from tier execution
@@ -319,8 +432,11 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
     private async Task<TierExecutionResult> ExecuteTierAsync(
         IReadOnlyList<JobTask> tier,
         IReadOnlyDictionary<string, IModule> modulesByName,
+        IReadOnlyDictionary<string, IAnalyser>? analysersByName,
+        InventoryContext? baseInventoryContext,
         ExportContext? exportContext,
         ImportContext? importContext,
+        IReadOnlyDictionary<string, OrganisationEndpoint>? endpointsByUrl,
         IStateStore stateStore,
         JobTaskList plan,
         CancellationToken ct)
@@ -339,13 +455,32 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
                 return;
             }
 
-            var moduleName = GetModuleName(task.Id, modulesByName.Keys);
-            if (!modulesByName.TryGetValue(moduleName, out var module))
+            // Resolve the handler: Analyse tasks go to IAnalyser; all others go to IModule.
+            string handlerName;
+            IModule? module = null;
+            IAnalyser? analyserForTask = null;
+
+            if (task.TaskKind == TaskKind.Analyse)
             {
-                _logger.LogError(
-                    "Task {TaskId} references module {Module}, but that module is not registered. Skipping.",
-                    task.Id, moduleName);
-                return;
+                handlerName = GetModuleName(task.Id, analysersByName?.Keys ?? Enumerable.Empty<string>());
+                if (analysersByName is null || !analysersByName.TryGetValue(handlerName, out analyserForTask))
+                {
+                    _logger.LogError(
+                        "Task {TaskId} references analyser '{Analyser}', but it is not registered. Skipping.",
+                        task.Id, handlerName);
+                    return;
+                }
+            }
+            else
+            {
+                handlerName = GetModuleName(task.Id, modulesByName.Keys);
+                if (!modulesByName.TryGetValue(handlerName, out module))
+                {
+                    _logger.LogError(
+                        "Task {TaskId} references module '{Module}', but that module is not registered. Skipping.",
+                        task.Id, handlerName);
+                    return;
+                }
             }
 
             // Transition to Running.
@@ -375,7 +510,6 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
             await persistLock.WaitAsync(ct).ConfigureAwait(false);
             try
             {
-                // Re-read plan under persist lock to avoid stale overwrites
                 lock (planLock) { updatedPlan = plan; }
                 await PersistPlanAsync(updatedPlan, stateStore, ct).ConfigureAwait(false);
             }
@@ -386,23 +520,98 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
 
             _progressSink?.Emit(new ProgressEvent
             {
-                Module = moduleName,
-                Stage = exportContext is not null ? "Export.Start" : "Import.Start",
-                Message = $"{moduleName} {(exportContext is not null ? "export" : "import")} starting.",
-                Timestamp = updated.StartedAt.Value,
+                Module = handlerName,
+                Stage = $"{task.TaskKind}.Start",
+                Message = $"{handlerName} {task.TaskKind} starting.",
+                Timestamp = updated.StartedAt!.Value,
                 TaskId = task.Id,
                 TaskStatus = JobTaskStatus.Running
             });
 
             try
             {
-                _logger.LogInformation("Running module {Module}.{Operation}Async", moduleName,
-                    exportContext is not null ? "Export" : "Import");
+                _logger.LogInformation("Running {Handler}.{Kind}Async for task {TaskId}",
+                    handlerName, task.TaskKind, task.Id);
 
-                if (exportContext is not null)
-                    await module.ExportAsync(exportContext, ct).ConfigureAwait(false);
-                else if (importContext is not null)
-                    await module.ImportAsync(importContext, ct).ConfigureAwait(false);
+                if (analyserForTask is not null)
+                {
+                    // Analyse task: build context from whichever base context is available.
+                    var job = (baseInventoryContext?.Job ?? exportContext?.Job ?? importContext?.Job)
+                        ?? throw new InvalidOperationException("No job context available to build AnalyseContext.");
+                    var artefactStore = (baseInventoryContext?.ArtefactStore ?? exportContext?.ArtefactStore ?? importContext?.ArtefactStore)
+                        ?? throw new InvalidOperationException("No ArtefactStore available.");
+                    var stateStoreForAnalyse = (baseInventoryContext?.StateStore ?? exportContext?.StateStore ?? importContext?.StateStore)
+                        ?? throw new InvalidOperationException("No StateStore available.");
+                    var progressSink = baseInventoryContext?.ProgressSink ?? exportContext?.ProgressSink ?? importContext?.ProgressSink;
+
+                    await analyserForTask.AnalyseAsync(new AnalyseContext
+                    {
+                        Job = job,
+                        ArtefactStore = artefactStore,
+                        StateStore = stateStoreForAnalyse,
+                        ProgressSink = progressSink
+                    }, ct).ConfigureAwait(false);
+                }
+                else
+                {
+                    // Module task: dispatch on TaskKind, scoping context per task.
+                    switch (task.TaskKind)
+                    {
+                        case TaskKind.Capture:
+                        {
+                            if (baseInventoryContext is null)
+                                throw new InvalidOperationException($"Capture task {task.Id} requires a base InventoryContext.");
+
+                            var orgUrl = task.OrganisationUrl;
+                            var endpoint = (orgUrl is { Length: > 0 }
+                                && endpointsByUrl?.TryGetValue(orgUrl, out var ep) == true)
+                                ? ep
+                                : baseInventoryContext.SourceEndpoint;
+
+                            var scopedCtx = baseInventoryContext with
+                            {
+                                Project = task.ProjectName ?? string.Empty,
+                                SourceEndpoint = endpoint
+                            };
+
+                            await module!.InventoryAsync(scopedCtx, ct).ConfigureAwait(false);
+                            break;
+                        }
+                        case TaskKind.Export:
+                        {
+                            if (exportContext is null)
+                                throw new InvalidOperationException($"Export task {task.Id} requires an ExportContext.");
+
+                            var scopedCtx = new ExportContext
+                            {
+                                Job = exportContext.Job,
+                                ArtefactStore = exportContext.ArtefactStore,
+                                StateStore = exportContext.StateStore,
+                                ProgressSink = exportContext.ProgressSink,
+                                MetricsStore = exportContext.MetricsStore,
+                                SnapshotStore = exportContext.SnapshotStore,
+                                Organisations = exportContext.Organisations,
+                                Project = task.ProjectName ?? string.Empty
+                            };
+
+                            await module!.ExportAsync(scopedCtx, ct).ConfigureAwait(false);
+                            break;
+                        }
+                        case TaskKind.Import:
+                        {
+                            if (importContext is null)
+                                throw new InvalidOperationException($"Import task {task.Id} requires an ImportContext.");
+
+                            await module!.ImportAsync(importContext, ct).ConfigureAwait(false);
+                            break;
+                        }
+                        default:
+                            _logger.LogWarning(
+                                "Task {TaskId} has unsupported TaskKind '{Kind}' — skipping execution.",
+                                task.Id, task.TaskKind);
+                            break;
+                    }
+                }
 
                 // Transition to Completed.
                 updated = updated with
@@ -430,7 +639,6 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
                 await persistLock.WaitAsync(ct).ConfigureAwait(false);
                 try
                 {
-                    // Re-read plan under persist lock to avoid stale overwrites
                     lock (planLock) { updatedPlan = plan; }
                     await PersistPlanAsync(updatedPlan, stateStore, ct).ConfigureAwait(false);
                 }
@@ -441,25 +649,23 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
 
                 _progressSink?.Emit(new ProgressEvent
                 {
-                    Module = moduleName,
-                    Stage = exportContext is not null ? "Export.Complete" : "Import.Complete",
-                    Message = $"{moduleName} {(exportContext is not null ? "export" : "import")} completed.",
-                    Timestamp = updated.CompletedAt.Value,
+                    Module = handlerName,
+                    Stage = $"{task.TaskKind}.Complete",
+                    Message = $"{handlerName} {task.TaskKind} completed.",
+                    Timestamp = updated.CompletedAt!.Value,
                     TaskId = task.Id,
                     TaskStatus = JobTaskStatus.Completed
                 });
             }
             catch (OperationCanceledException)
             {
-                // Cancellation is not a failure — rethrow.
                 throw;
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Module {Module}.{Operation}Async failed.", moduleName,
-                    exportContext is not null ? "Export" : "Import");
+                _logger.LogError(ex, "{Handler}.{Kind}Async failed for task {TaskId}.",
+                    handlerName, task.TaskKind, task.Id);
 
-                // Transition to Failed.
                 updated = updated with
                 {
                     Status = JobTaskStatus.Failed,
@@ -485,7 +691,6 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
                 await persistLock.WaitAsync(ct).ConfigureAwait(false);
                 try
                 {
-                    // Re-read plan under persist lock to avoid stale overwrites
                     lock (planLock) { updatedPlan = plan; }
                     await PersistPlanAsync(updatedPlan, stateStore, ct).ConfigureAwait(false);
                 }
@@ -496,10 +701,10 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
 
                 _progressSink?.Emit(new ProgressEvent
                 {
-                    Module = moduleName,
-                    Stage = exportContext is not null ? "Export.Failed" : "Import.Failed",
-                    Message = $"{moduleName} {(exportContext is not null ? "export" : "import")} failed: {ex.Message}",
-                    Timestamp = updated.CompletedAt.Value,
+                    Module = handlerName,
+                    Stage = $"{task.TaskKind}.Failed",
+                    Message = $"{handlerName} {task.TaskKind} failed: {ex.Message}",
+                    Timestamp = updated.CompletedAt!.Value,
                     TaskId = task.Id,
                     TaskStatus = JobTaskStatus.Failed
                 });
@@ -666,9 +871,11 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
     private static string GetModuleName(string taskId, IEnumerable<string> registeredModuleNames)
     {
         var parts = taskId.Split('.');
-        if (parts.Length != 2)
+        if (parts.Length < 2)
             return taskId; // Fallback if task ID doesn't follow convention.
 
+        // parts[0] = kind (capture/export/import/…), parts[1] = module name.
+        // Additional segments are org/project slugs — ignored here.
         var lowerName = parts[1];
         var match = registeredModuleNames.FirstOrDefault(
             name => name.Equals(lowerName, StringComparison.OrdinalIgnoreCase));

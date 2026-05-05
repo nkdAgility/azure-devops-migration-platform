@@ -112,7 +112,8 @@ public sealed class TeamsModuleInventoryTests
             Job = new Job { JobId = "job-1", Kind = JobKind.Inventory },
             ArtefactStore = Mock.Of<IArtefactStore>(),
             StateStore = Mock.Of<IStateStore>(),
-            ProgressSink = progressSink
+            ProgressSink = progressSink,
+            Project = "ProjectA"
         };
     }
 

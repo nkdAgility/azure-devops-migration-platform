@@ -87,7 +87,15 @@ public sealed class IdentitiesModule : IModule
         using var activity = DiscoveryActivity.StartActivity("inventory.identities");
         activity?.SetTag("job.id", context.Job.JobId);
         activity?.SetTag("module", Name);
+        activity?.SetTag("org", context.SourceEndpoint?.ResolvedUrl ?? string.Empty);
+        activity?.SetTag("project", context.Project);
         _logger.LogInformation("Inventorying {Module}", Name);
+
+        if (string.IsNullOrWhiteSpace(context.Project))
+        {
+            _logger.LogError("[Identities] InventoryAsync called with empty Project — executor contract violated. Skipping.");
+            return;
+        }
 
         context.ProgressSink?.Emit(new ProgressEvent
         {
@@ -100,28 +108,25 @@ public sealed class IdentitiesModule : IModule
         var count = 0;
         if (_identitySource is not null)
         {
-            var project = context.Projects?.FirstOrDefault() ?? _sourceEndpointInfo.Project;
+            var project = context.Project;
             var orgUrl = context.SourceEndpoint?.ResolvedUrl ?? _sourceEndpointInfo.Url;
             var orgSlug = PackagePathResolver.DeriveInventoryOrgSlug(orgUrl);
 
-            if (!string.IsNullOrWhiteSpace(project))
+            try
             {
-                try
-                {
-                    await foreach (var _ in _identitySource.EnumerateIdentitiesAsync(project, ct).ConfigureAwait(false))
-                        count++;
+                await foreach (var _ in _identitySource.EnumerateIdentitiesAsync(project, ct).ConfigureAwait(false))
+                    count++;
 
-                    var projectPath = PackagePathResolver.ProjectInventoryPath(orgSlug, project);
-                    await ProjectInventoryFile.MergeAsync(
-                        context.ArtefactStore, projectPath,
-                        orgUrl: orgUrl, project: project,
-                        identities: count, ct: ct).ConfigureAwait(false);
-                }
-                catch (Exception ex)
-                {
-                    using (_logger.BeginDataScope(DataClassification.Customer))
-                        _logger.LogWarning(ex, "Failed to enumerate identities for project {Project}; skipping.", project);
-                }
+                var projectPath = PackagePathResolver.ProjectInventoryPath(orgSlug, project);
+                await ProjectInventoryFile.MergeAsync(
+                    context.ArtefactStore, projectPath,
+                    orgUrl: orgUrl, project: project,
+                    identities: count, ct: ct).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                using (_logger.BeginDataScope(DataClassification.Customer))
+                    _logger.LogWarning(ex, "Failed to enumerate identities for project {Project}; skipping.", project);
             }
         }
 

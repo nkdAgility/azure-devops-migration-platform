@@ -49,5 +49,12 @@ public class ExportContext
     /// Empty list when running in unit tests without a package.
     /// </summary>
     public IReadOnlyList<ScopedOrganisationEndpoint> Organisations { get; init; } = [];
+
+    /// <summary>
+    /// The single project this export task targets.
+    /// Set by the executor from <c>JobTask.ProjectName</c>.
+    /// Modules should prefer this over <c>ISourceEndpointInfo.Project</c>.
+    /// </summary>
+    public string Project { get; init; } = string.Empty;
 }
 

@@ -157,7 +157,8 @@ public sealed class WorkItemsModuleInventoryTests
             ArtefactStore = Mock.Of<IArtefactStore>(),
             StateStore = Mock.Of<IStateStore>(),
             ProgressSink = progressSink,
-            SourceEndpoint = new OrganisationEndpoint { Type = "Simulated", ResolvedUrl = "https://source.example" }
+            SourceEndpoint = new OrganisationEndpoint { Type = "Simulated", ResolvedUrl = "https://source.example" },
+            Project = "ProjectA"
         };
 
     private static bool HasTag(MetricsTagList tags, string key, string value)

@@ -7,9 +7,11 @@ using System.Linq;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
-using DevOpsMigrationPlatform.Abstractions.Agent.Checkpointing;
+using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Agent.Analysis;
+using DevOpsMigrationPlatform.Abstractions.Agent.Checkpointing;
 using DevOpsMigrationPlatform.Abstractions.Agent.Context;
+using DevOpsMigrationPlatform.Abstractions.Agent.Discovery;
 using DevOpsMigrationPlatform.Abstractions.Agent.Lease;
 using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
 using DevOpsMigrationPlatform.Abstractions.ControlPlaneApi;
@@ -19,6 +21,7 @@ using DevOpsMigrationPlatform.Abstractions.Organisations;
 using DevOpsMigrationPlatform.Abstractions.Streaming;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Agent.Context;
 
@@ -45,19 +48,25 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
     private readonly IEnumerable<IAnalyser> _analysers;
     private readonly Dictionary<string, IAnalyser> _analysersByName;
     private readonly IPhaseTrackingServiceFactory _phaseTrackingFactory;
+    private readonly IProjectDiscoveryService? _projectDiscovery;
+    private readonly IOptions<MigrationPlatformOptions>? _migrationOptions;
     private readonly ILogger<JobExecutionPlanBuilder> _logger;
 
     public JobExecutionPlanBuilder(
         IEnumerable<IModule> modules,
         IEnumerable<IAnalyser> analysers,
         IPhaseTrackingServiceFactory phaseTrackingFactory,
-        ILogger<JobExecutionPlanBuilder> logger)
+        ILogger<JobExecutionPlanBuilder> logger,
+        IProjectDiscoveryService? projectDiscovery = null,
+        IOptions<MigrationPlatformOptions>? migrationOptions = null)
     {
         _modules = modules;
         _modulesByName = modules.ToDictionary(m => m.Name, StringComparer.OrdinalIgnoreCase);
         _analysers = analysers;
         _analysersByName = analysers.ToDictionary(a => a.Name, StringComparer.OrdinalIgnoreCase);
         _phaseTrackingFactory = phaseTrackingFactory;
+        _projectDiscovery = projectDiscovery;
+        _migrationOptions = migrationOptions;
         _logger = logger;
 
         // Diagnostic: log all discovered modules at startup
@@ -83,7 +92,7 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
 
         if (kind is JobKind.Inventory or JobKind.Dependencies)
         {
-            return BuildDiscoveryPlan(packageConfig, kind);
+            return await BuildCapturePlanAsync(packageConfig, kind, ct).ConfigureAwait(false);
         }
 
         if (kind == JobKind.Prepare)
@@ -196,15 +205,20 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
             string.Join(", ", exportModules.Select(m => m.Name)));
 
         // Determine which modules are needed based on job kind.
-        // For Inventory/Dependencies, only the specific module (+ transitive deps) is needed.
         // For Export/Migrate, modules listed in config (+ transitive deps) are needed.
         var needed = ResolveNeededExportModules(config, exportModules);
+
+        // Resolve org/project for task IDs from the Source config section.
+        var sourceUrl = config["MigrationPlatform:Source:Url"] ?? string.Empty;
+        var sourceProject = config["MigrationPlatform:Source:Project"] ?? string.Empty;
+        var orgSlug = PackagePathResolver.DeriveInventoryOrgSlug(sourceUrl);
+        var projectSlug = PackagePathResolver.Sanitise(sourceProject);
 
         // Pre-compute the set of export task IDs so we can resolve inter-module DependsOn.
         var exportTaskIds = new HashSet<string>(
             exportModules
                 .Where(m => needed.Contains(m.Name))
-                .Select(m => $"export.{m.Name.ToLowerInvariant()}"),
+                .Select(m => $"export.{m.Name.ToLowerInvariant()}.{orgSlug}.{projectSlug}"),
             StringComparer.OrdinalIgnoreCase);
 
         var tasks = new List<JobTask>();
@@ -223,7 +237,7 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
                 "Module {ModuleName}: Needed={Needed}, SupportsExport={SupportsExport}",
                 module.Name, needed.Contains(module.Name), module.SupportsExport);
 
-            var taskId = $"export.{module.Name.ToLowerInvariant()}";
+            var taskId = $"export.{module.Name.ToLowerInvariant()}.{orgSlug}.{projectSlug}";
             var knownTotal = module.Name.Equals("WorkItems", StringComparison.OrdinalIgnoreCase)
                 ? workItemKnownTotal
                 : null;
@@ -232,7 +246,7 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
             var exportDeps = new List<string>();
             foreach (var dep in module.DependsOn.Where(d => d.AppliesToExport))
             {
-                var depTaskId = $"export.{dep.ModuleName.ToLowerInvariant()}";
+                var depTaskId = $"export.{dep.ModuleName.ToLowerInvariant()}.{orgSlug}.{projectSlug}";
                 if (exportTaskIds.Contains(depTaskId) && !exportDeps.Contains(depTaskId, StringComparer.OrdinalIgnoreCase))
                     exportDeps.Add(depTaskId);
             }
@@ -243,6 +257,9 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
                 taskId,
                 $"{module.Name} Export",
                 "Export",
+                TaskKind.Export,
+                organisationUrl: sourceUrl,
+                projectName: sourceProject,
                 enabled: true,
                 exportAlreadyDone,
                 0, // placeholder — reassigned after topological sort
@@ -268,6 +285,12 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
     {
         bool importAlreadyDone = phaseRecord?.ImportCompleted == true;
 
+        // Resolve org/project for task IDs (import jobs target Target, not Source).
+        var targetUrl = config["MigrationPlatform:Target:Url"] ?? string.Empty;
+        var targetProject = config["MigrationPlatform:Target:Project"] ?? string.Empty;
+        var orgSlug = PackagePathResolver.DeriveInventoryOrgSlug(targetUrl);
+        var projectSlug = PackagePathResolver.Sanitise(targetProject);
+
         var tasks = new List<JobTask>();
 
         // Build task for each module that supports import AND is enabled.
@@ -279,13 +302,13 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
             if (!enabled)
                 continue;
 
-            var taskId = $"import.{module.Name.ToLowerInvariant()}";
+            var taskId = $"import.{module.Name.ToLowerInvariant()}.{orgSlug}.{projectSlug}";
 
             // Map module dependencies that apply to import phase to task IDs; skip dependencies that are not enabled or registered.
             var dependsOn = module.DependsOn
                 .Where(dep => dep.AppliesToImport)
                 .Where(dep => _modulesByName.ContainsKey(dep.ModuleName) && IsEnabled(config, dep.ModuleName))
-                .Select(dep => $"import.{dep.ModuleName.ToLowerInvariant()}")
+                .Select(dep => $"import.{dep.ModuleName.ToLowerInvariant()}.{orgSlug}.{projectSlug}")
                 .ToList();
 
             var importDeps = module.DependsOn.Where(d => d.AppliesToImport).ToList();
@@ -304,6 +327,9 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
                 taskId,
                 $"{module.Name} Import",
                 "Import",
+                TaskKind.Import,
+                organisationUrl: targetUrl,
+                projectName: targetProject,
                 enabled: true,  // Always true here since we skipped disabled modules above
                 importAlreadyDone,
                 order++,
@@ -357,37 +383,84 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
         };
     }
 
-    private JobTaskList BuildDiscoveryPlan(IConfiguration config, JobKind kind)
+    private async Task<JobTaskList> BuildCapturePlanAsync(
+        IConfiguration config,
+        JobKind kind,
+        CancellationToken ct)
     {
         var tasks = new List<JobTask>();
         var order = 0;
 
         if (kind == JobKind.Inventory)
         {
-            var inventoryTasks = _modules
+            var captureModules = _modules
                 .Where(m => m.SupportsInventory && IsEnabled(config, m.Name))
-                .OrderBy(m => m.Name, StringComparer.OrdinalIgnoreCase)
-                .Select(m => MakeTask(
-                    $"inventory.{m.Name.ToLowerInvariant()}",
-                    $"{m.Name} Inventory",
-                    "inventory",
-                    enabled: true,
-                    phaseAlreadyDone: false,
-                    order: order++))
                 .ToList();
 
-            tasks.AddRange(inventoryTasks);
+            var orgProjectScopes = await ResolveOrgProjectScopesAsync(config, ct).ConfigureAwait(false);
+            var allCaptureTaskIds = new List<string>();
 
+            foreach (var (endpoint, orgSlug, projects) in orgProjectScopes)
+            {
+                foreach (var project in projects)
+                {
+                    var projectSlug = PackagePathResolver.Sanitise(project);
+
+                    // Compute capture task IDs for this project scope for dependency resolution.
+                    var projectCaptureIds = captureModules
+                        .Select(m => $"capture.{m.Name.ToLowerInvariant()}.{orgSlug}.{projectSlug}")
+                        .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+                    foreach (var module in captureModules)
+                    {
+                        var taskId = $"capture.{module.Name.ToLowerInvariant()}.{orgSlug}.{projectSlug}";
+
+                        // Intra-project deps: only inventory-phase dependencies within the same project scope.
+                        var deps = new List<string>();
+                        foreach (var dep in module.DependsOn.Where(d => d.AppliesToInventory))
+                        {
+                            var depTaskId = $"capture.{dep.ModuleName.ToLowerInvariant()}.{orgSlug}.{projectSlug}";
+                            if (projectCaptureIds.Contains(depTaskId))
+                                deps.Add(depTaskId);
+                        }
+
+                        tasks.Add(MakeTask(
+                            taskId,
+                            $"{module.Name} Capture [{project}]",
+                            phase: null,
+                            TaskKind.Capture,
+                            organisationUrl: endpoint.ResolvedUrl,
+                            projectName: project,
+                            enabled: true,
+                            phaseAlreadyDone: false,
+                            order: 0, // reassigned by topological sort below
+                            dependsOn: deps.Count > 0 ? deps.AsReadOnly() : null));
+
+                        allCaptureTaskIds.Add(taskId);
+                    }
+                }
+            }
+
+            // Topological sort so order reflects intra-project dependency chains;
+            // cross-project tasks land in the same tier → parallel.
+            tasks = TopologicalSort(tasks);
+            for (int i = 0; i < tasks.Count; i++)
+                tasks[i] = tasks[i] with { Order = order++ };
+
+            // Fan-in: single analyse task depends on ALL capture tasks.
             if (_analysersByName.TryGetValue("Inventory", out var inventoryAnalyser))
             {
                 tasks.Add(MakeTask(
                     "analyse.inventory",
                     $"{inventoryAnalyser.Name} Analyse",
-                    "analyse",
+                    phase: null,
+                    TaskKind.Analyse,
+                    organisationUrl: null,
+                    projectName: null,
                     enabled: true,
                     phaseAlreadyDone: false,
                     order: order++,
-                    dependsOn: inventoryTasks.Select(t => t.Id).ToList().AsReadOnly()));
+                    dependsOn: allCaptureTaskIds.AsReadOnly()));
             }
         }
         else if (kind == JobKind.Dependencies)
@@ -397,18 +470,141 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
                 tasks.Add(MakeTask(
                     "analyse.dependencies",
                     $"{dependencyAnalyser.Name} Analyse",
-                    "analyse",
+                    phase: null,
+                    TaskKind.Analyse,
+                    organisationUrl: null,
+                    projectName: null,
                     enabled: true,
                     phaseAlreadyDone: false,
                     order: order++));
             }
         }
 
+        _logger.LogInformation(
+            "Built capture plan with {TaskCount} tasks for job kind {Kind}.",
+            tasks.Count, kind);
+
         return new JobTaskList
         {
             Tasks = tasks.AsReadOnly(),
             PushedAt = DateTimeOffset.UtcNow
         };
+    }
+
+    /// <summary>
+    /// Resolves the set of (endpoint, orgSlug, projects) scopes for Inventory/Dependencies jobs.
+    /// Uses fully-resolved <see cref="MigrationPlatformOptions"/> when available (to obtain auth
+    /// tokens required for runtime project discovery); falls back to URL-only config values when the
+    /// options are not registered in DI (e.g. the TFS agent, tests).
+    /// </summary>
+    private async Task<List<(OrganisationEndpoint Endpoint, string OrgSlug, List<string> Projects)>> ResolveOrgProjectScopesAsync(
+        IConfiguration config,
+        CancellationToken ct)
+    {
+        var result = new List<(OrganisationEndpoint, string, List<string>)>();
+
+        // Prefer fully-resolved options (has auth tokens) over raw config (URL-only).
+        if (_migrationOptions is not null && _migrationOptions.Value.Organisations.Count > 0)
+        {
+            foreach (var entry in _migrationOptions.Value.Organisations)
+            {
+                var endpoint = entry.ToEndpointOptions().ToOrganisationEndpoint();
+                var orgSlug = PackagePathResolver.DeriveInventoryOrgSlug(endpoint.ResolvedUrl);
+
+                List<string> projects;
+                if (entry.Projects.Count > 0)
+                {
+                    projects = entry.Projects.ToList();
+                }
+                else if (_projectDiscovery is not null)
+                {
+                    _logger.LogInformation(
+                        "No projects configured for org {OrgUrl}; discovering projects at plan time.",
+                        endpoint.ResolvedUrl);
+                    projects = await _projectDiscovery
+                        .DiscoverProjectsAsync(endpoint, ct)
+                        .ConfigureAwait(false);
+                }
+                else
+                {
+                    _logger.LogWarning(
+                        "No projects configured for org {OrgUrl} and no IProjectDiscoveryService available; org will produce no capture tasks.",
+                        endpoint.ResolvedUrl);
+                    projects = new List<string>();
+                }
+
+                if (projects.Count == 0)
+                {
+                    _logger.LogWarning(
+                        "Org {OrgUrl} has no projects; no capture tasks will be generated for it.",
+                        endpoint.ResolvedUrl);
+                    continue;
+                }
+
+                result.Add((endpoint, orgSlug, projects));
+            }
+
+            return result;
+        }
+
+        // Fallback: build URL-only endpoints from IConfiguration (no auth — discovery not possible).
+        var configured = config.GetSection("MigrationPlatform:Organisations").GetChildren().ToList();
+        if (configured.Count == 0)
+        {
+            // Single-org fallback from Source section.
+            var sourceUrl = config["MigrationPlatform:Source:Url"] ?? string.Empty;
+            var sourceProject = config["MigrationPlatform:Source:Project"] ?? string.Empty;
+            if (!string.IsNullOrWhiteSpace(sourceUrl) && !string.IsNullOrWhiteSpace(sourceProject))
+            {
+                var endpoint = new OrganisationEndpoint
+                {
+                    Type = config["MigrationPlatform:Source:Type"] ?? "Unknown",
+                    ResolvedUrl = sourceUrl
+                };
+                var orgSlug = PackagePathResolver.DeriveInventoryOrgSlug(sourceUrl);
+                result.Add((endpoint, orgSlug, new List<string> { sourceProject }));
+            }
+            return result;
+        }
+
+        foreach (var child in configured)
+        {
+            var orgType = child["Type"] ?? "Unknown";
+            var url = child["Url"] ?? child["Collection"] ?? string.Empty;
+            var enabled = child["Enabled"];
+            if (enabled?.Equals("false", StringComparison.OrdinalIgnoreCase) == true)
+                continue;
+
+            // Parse explicit project list from config.
+            var projectSection = child.GetSection("Projects");
+            var projects = projectSection.GetChildren()
+                .Select(p => p.Value)
+                .Where(v => !string.IsNullOrWhiteSpace(v))
+                .Select(v => v!)
+                .ToList();
+
+            if (projects.Count == 0)
+            {
+                _logger.LogWarning(
+                    "No projects configured for org {OrgType}/{OrgUrl} and IOptions<MigrationPlatformOptions> is not available for runtime discovery; org will produce no capture tasks.",
+                    orgType, url);
+                continue;
+            }
+
+            // Simulated orgs have no URL — use type as the slug root.
+            var endpoint = new OrganisationEndpoint
+            {
+                Type = orgType,
+                ResolvedUrl = url
+            };
+            var orgSlug = string.IsNullOrWhiteSpace(url)
+                ? PackagePathResolver.Sanitise(orgType.ToLowerInvariant())
+                : PackagePathResolver.DeriveInventoryOrgSlug(url);
+
+            result.Add((endpoint, orgSlug, projects));
+        }
+
+        return result;
     }
 
     private JobTaskList BuildPreparePlan(IConfiguration config)
@@ -434,7 +630,10 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
                     tasks.Add(MakeTask(
                         $"analyse.{analyser.Name.ToLowerInvariant()}",
                         $"{analyser.Name} Analyse",
-                        "analyse",
+                        phase: null,
+                        TaskKind.Analyse,
+                        organisationUrl: null,
+                        projectName: null,
                         enabled: true,
                         phaseAlreadyDone: false,
                         order: order++));
@@ -453,7 +652,10 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
             tasks.Add(MakeTask(
                 $"prepare.{module.Name.ToLowerInvariant()}",
                 $"{module.Name} Prepare",
-                "prepare",
+                phase: "prepare",
+                TaskKind.Prepare,
+                organisationUrl: null,
+                projectName: null,
                 enabled: true,
                 phaseAlreadyDone: false,
                 order: order++,
@@ -470,7 +672,10 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
     private static JobTask MakeTask(
         string id,
         string name,
-        string phase,
+        string? phase,
+        TaskKind taskKind,
+        string? organisationUrl,
+        string? projectName,
         bool enabled,
         bool phaseAlreadyDone,
         int order,
@@ -488,6 +693,9 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
             Id = id,
             Name = name,
             Phase = phase,
+            TaskKind = taskKind,
+            OrganisationUrl = organisationUrl,
+            ProjectName = projectName,
             Order = order,
             Status = status,
             KnownTotal = knownTotal,
