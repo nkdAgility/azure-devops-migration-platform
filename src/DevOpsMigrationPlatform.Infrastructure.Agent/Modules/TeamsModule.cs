@@ -22,6 +22,7 @@ using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Abstractions.Agent.Validation;
 using DevOpsMigrationPlatform.Abstractions.Validation;
 using DevOpsMigrationPlatform.Infrastructure.Telemetry;
+using DevOpsMigrationPlatform.Infrastructure.Agent.Discovery;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
@@ -111,22 +112,31 @@ public sealed class TeamsModule : IModule
         var count = 0;
         if (_teamSource is not null)
         {
+            var orgUrl = context.SourceEndpoint.ResolvedUrl;
+            var orgSlug = PackagePathResolver.DeriveInventoryOrgSlug(orgUrl);
             foreach (var project in projects)
             {
+                var projectCount = 0;
                 try
                 {
                     await foreach (var _ in _teamSource.EnumerateTeamsAsync(project, ct).ConfigureAwait(false))
-                        count++;
+                        projectCount++;
+
+                    var projectPath = PackagePathResolver.ProjectInventoryPath(orgSlug, project);
+                    await ProjectInventoryFile.MergeAsync(
+                        context.ArtefactStore, projectPath,
+                        orgUrl: orgUrl, project: project,
+                        teams: projectCount, ct: ct).ConfigureAwait(false);
                 }
                 catch (Exception ex)
                 {
                     using (_logger.BeginDataScope(DataClassification.Customer))
                         _logger.LogWarning(ex, "Failed to enumerate teams for project {Project}; skipping.", project);
                 }
+                count += projectCount;
             }
         }
 
-        await context.ArtefactStore.WriteAsync("Teams/inventory.json", JsonSerializer.Serialize(new { module = Name, teams = count, generatedAt = DateTimeOffset.UtcNow }), ct).ConfigureAwait(false);
         _discoveryMetrics?.RecordInventoryTeams(count, new MetricsTagList { { "job.id", context.Job.JobId }, { "module", Name } });
         _logger.LogInformation("Inventoried {Module}: {Count} items", Name, count);
         if (count == 0)

@@ -5,7 +5,6 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
-using System.Text;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
@@ -15,6 +14,7 @@ using DevOpsMigrationPlatform.Abstractions.Agent.Modules;
 using DevOpsMigrationPlatform.Abstractions.Agent.Telemetry;
 using DevOpsMigrationPlatform.Abstractions.ControlPlaneApi;
 using DevOpsMigrationPlatform.Abstractions.Telemetry;
+using DevOpsMigrationPlatform.Infrastructure.Agent.Discovery;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Modules;
 using Microsoft.Extensions.Logging;
 
@@ -56,72 +56,106 @@ public sealed class InventoryAnalyser : IAnalyser
 
         try
         {
-            var moduleFiles = new Dictionary<string, string>
-            {
-                ["WorkItems"] = "WorkItems/inventory.json",
-                ["Identities"] = "Identities/inventory.json",
-                ["Nodes"] = "Nodes/inventory.json",
-                ["Teams"] = "Teams/inventory.json"
-            };
+            // Read the InventoryReport written by InventoryOrchestrator (root inventory.json).
+            // It contains org/project structure with WorkItems/Revisions/Repos counts.
+            var rootJson = await context.ArtefactStore.ReadAsync(PackagePathResolver.RootInventoryPath, ct).ConfigureAwait(false);
 
-            var rows = new List<(string Module, long Count)>();
-            JsonElement? workItemsInventory = null;
-            foreach (var pair in moduleFiles)
+            InventoryReport? report = null;
+            if (!string.IsNullOrWhiteSpace(rootJson))
             {
-                var json = await context.ArtefactStore.ReadAsync(pair.Value, ct).ConfigureAwait(false);
-                if (string.IsNullOrWhiteSpace(json))
-                {
-                    _logger.LogWarning("Missing module inventory file for {Module}: {Path}", pair.Key, pair.Value);
-                    continue;
-                }
-
-                using var doc = JsonDocument.Parse(json!);
-                var root = doc.RootElement;
-                if (pair.Key == "WorkItems")
-                    workItemsInventory = root.Clone();
-                long count = 0;
-                // Simple modules (Identities, Nodes, Teams) write { "identities": N } etc. at root.
-                // WorkItems uses the InventoryReport format with totals.workItems nested.
-                if (root.TryGetProperty("workItems", out var wi)) count = wi.GetInt64();
-                else if (root.TryGetProperty("identities", out var id)) count = id.GetInt64();
-                else if (root.TryGetProperty("nodes", out var nodes)) count = nodes.GetInt64();
-                else if (root.TryGetProperty("teams", out var teams)) count = teams.GetInt64();
-                else if (root.TryGetProperty("totals", out var totals))
-                {
-                    if (totals.TryGetProperty("workItems", out var twi)) count = twi.GetInt64();
-                }
-                rows.Add((pair.Key, count));
+                try { report = JsonSerializer.Deserialize<InventoryReport>(rootJson!, new JsonSerializerOptions { PropertyNameCaseInsensitive = true }); }
+                catch (Exception ex) { _logger.LogWarning(ex, "Could not parse root inventory.json as InventoryReport; will re-aggregate from per-project files."); }
             }
 
-            var total = rows.Sum(r => r.Count);
-            if (total == 0)
-                _logger.LogWarning("Zero consolidated inventory total for {JobId}", context.Job.JobId);
+            var orgs = report?.Organisations ?? Array.Empty<OrganisationInventory>();
 
-            var workItemsCsv = await context.ArtefactStore.ReadAsync("WorkItems/inventory.csv", ct).ConfigureAwait(false);
-            var csv = !string.IsNullOrWhiteSpace(workItemsCsv)
-                ? workItemsCsv!
-                : BuildModuleSummaryCsv(rows);
-
-            var consolidated = new
+            var updatedOrgs = new List<OrganisationInventory>();
+            foreach (var org in orgs)
             {
-                generatedAt = DateTimeOffset.UtcNow,
-                totals = new { workItems = rows.Where(r => r.Module == "WorkItems").Sum(r => r.Count), all = total },
-                modules = rows.Select(r => new { name = r.Module, count = r.Count }).ToArray(),
-                workItems = workItemsInventory
+                var orgSlug = PackagePathResolver.DeriveInventoryOrgSlug(org.Url);
+                var updatedProjects = new List<ProjectInventory>();
+
+                foreach (var project in org.Projects)
+                {
+                    var projectPath = PackagePathResolver.ProjectInventoryPath(orgSlug, project.Name);
+                    var perProject = await ProjectInventoryFile.ReadAsync(context.ArtefactStore, projectPath, ct).ConfigureAwait(false);
+
+                    updatedProjects.Add(project with
+                    {
+                        Identities = perProject.Identities > 0 ? perProject.Identities : project.Identities,
+                        Nodes = perProject.Nodes > 0 ? perProject.Nodes : project.Nodes,
+                        Teams = perProject.Teams > 0 ? perProject.Teams : project.Teams,
+                        WorkItems = project.WorkItems == 0 && perProject.WorkItems > 0 ? perProject.WorkItems : project.WorkItems,
+                        Revisions = project.Revisions == 0 && perProject.Revisions > 0 ? perProject.Revisions : project.Revisions,
+                        Repos = project.Repos == 0 && perProject.Repos > 0 ? (int)perProject.Repos : project.Repos,
+                    });
+                }
+
+                var orgTotals = new InventoryTotals
+                {
+                    WorkItems = updatedProjects.Sum(p => p.WorkItems),
+                    Revisions = updatedProjects.Sum(p => p.Revisions),
+                    Repos = updatedProjects.Sum(p => p.Repos),
+                    Projects = updatedProjects.Count,
+                    Identities = updatedProjects.Sum(p => p.Identities),
+                    Nodes = updatedProjects.Sum(p => p.Nodes),
+                    Teams = updatedProjects.Sum(p => p.Teams),
+                };
+
+                var updatedOrg = org with { Totals = orgTotals, Projects = updatedProjects };
+                updatedOrgs.Add(updatedOrg);
+
+                // Write per-org inventory file.
+                var orgReport = new InventoryReport { GeneratedAt = DateTimeOffset.UtcNow, Totals = orgTotals, Organisations = new[] { updatedOrg } };
+                var orgPath = PackagePathResolver.OrgInventoryPath(orgSlug);
+                await context.ArtefactStore.WriteAsync(orgPath,
+                    JsonSerializer.Serialize(orgReport, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase }),
+                    ct).ConfigureAwait(false);
+            }
+
+            var rootTotals = new InventoryTotals
+            {
+                WorkItems = updatedOrgs.Sum(o => o.Totals.WorkItems),
+                Revisions = updatedOrgs.Sum(o => o.Totals.Revisions),
+                Repos = updatedOrgs.Sum(o => o.Totals.Repos),
+                Projects = updatedOrgs.Sum(o => o.Totals.Projects),
+                Identities = updatedOrgs.Sum(o => o.Totals.Identities),
+                Nodes = updatedOrgs.Sum(o => o.Totals.Nodes),
+                Teams = updatedOrgs.Sum(o => o.Totals.Teams),
             };
 
-            await context.ArtefactStore.WriteAsync("inventory.csv", csv, ct).ConfigureAwait(false);
-            await context.ArtefactStore.WriteAsync("inventory.json", JsonSerializer.Serialize(consolidated), ct).ConfigureAwait(false);
+            var finalReport = new InventoryReport
+            {
+                GeneratedAt = DateTimeOffset.UtcNow,
+                Organisations = updatedOrgs,
+                Totals = rootTotals
+            };
+
+            var finalJson = JsonSerializer.Serialize(finalReport, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase });
+            await context.ArtefactStore.WriteAsync(PackagePathResolver.RootInventoryPath, finalJson, ct).ConfigureAwait(false);
+
+            // Write root CSV summarising all orgs/projects.
+            var csvLines = new System.Text.StringBuilder();
+            csvLines.AppendLine("Url,ProjectName,WorkItemsCount,RevisionsCount,ReposCount,Identities,Nodes,Teams,IsComplete");
+            foreach (var org in updatedOrgs)
+                foreach (var p in org.Projects)
+                    csvLines.AppendLine($"{org.Url},{p.Name},{p.WorkItems},{p.Revisions},{p.Repos},{p.Identities},{p.Nodes},{p.Teams},{p.IsComplete}");
+
+            await context.ArtefactStore.WriteAsync("inventory.csv", csvLines.ToString(), ct).ConfigureAwait(false);
+
+            var total = rootTotals.WorkItems + rootTotals.Identities + rootTotals.Nodes + rootTotals.Teams;
+            if (total == 0)
+                _logger.LogWarning("Zero consolidated inventory total for {JobId}", context.Job.JobId);
 
             var elapsed = (DateTime.UtcNow - startedAt).TotalMilliseconds;
             _metrics?.RecordInventoryConsolidated((int)total, new MetricsTagList { { "job.id", context.Job.JobId }, { "module", Name } });
             _metrics?.RecordInventoryConsolidatedDuration(elapsed, new MetricsTagList { { "job.id", context.Job.JobId }, { "module", Name } });
 
             _logger.LogInformation(
-                "Completed inventory analysis for {JobId} with {ModuleCount} module rows and {Total} total items in {DurationMs}ms",
+                "Completed inventory analysis for {JobId}: workItems={WorkItems} revisions={Revisions} repos={Repos} identities={Identities} nodes={Nodes} teams={Teams} in {DurationMs}ms",
                 context.Job.JobId,
-                rows.Count,
-                total,
+                rootTotals.WorkItems, rootTotals.Revisions, rootTotals.Repos,
+                rootTotals.Identities, rootTotals.Nodes, rootTotals.Teams,
                 elapsed);
 
             context.ProgressSink?.Emit(new ProgressEvent
@@ -145,18 +179,4 @@ public sealed class InventoryAnalyser : IAnalyser
             throw;
         }
     }
-
-    private static string BuildModuleSummaryCsv(IEnumerable<(string Module, long Count)> rows)
-    {
-        var csv = new StringBuilder();
-        csv.AppendLine("Module,Count,WorkItemsCount");
-        foreach (var row in rows)
-        {
-            var workItemsCount = row.Module.Equals("WorkItems", StringComparison.OrdinalIgnoreCase) ? row.Count.ToString() : string.Empty;
-            csv.AppendLine($"{row.Module},{row.Count},{workItemsCount}");
-        }
-
-        return csv.ToString();
-    }
 }
-

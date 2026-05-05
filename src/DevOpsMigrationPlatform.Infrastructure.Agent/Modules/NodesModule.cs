@@ -20,6 +20,7 @@ using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Abstractions.Agent.Validation;
 using DevOpsMigrationPlatform.Abstractions.Validation;
 using DevOpsMigrationPlatform.Infrastructure.Telemetry;
+using DevOpsMigrationPlatform.Infrastructure.Agent.Discovery;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
@@ -112,11 +113,20 @@ public sealed class NodesModule : IModule
         var count = 0;
         if (_reader is not null)
         {
+            var orgUrl = context.SourceEndpoint.ResolvedUrl;
+            var orgSlug = PackagePathResolver.DeriveInventoryOrgSlug(orgUrl);
             foreach (var project in projects)
             {
                 try
                 {
-                    count += await _reader.CountNodesAsync(project, ct).ConfigureAwait(false);
+                    var projectCount = await _reader.CountNodesAsync(project, ct).ConfigureAwait(false);
+                    count += projectCount;
+
+                    var projectPath = PackagePathResolver.ProjectInventoryPath(orgSlug, project);
+                    await ProjectInventoryFile.MergeAsync(
+                        context.ArtefactStore, projectPath,
+                        orgUrl: orgUrl, project: project,
+                        nodes: projectCount, ct: ct).ConfigureAwait(false);
                 }
                 catch (Exception ex)
                 {
@@ -126,11 +136,6 @@ public sealed class NodesModule : IModule
             }
         }
         stopwatch.Stop();
-
-        await context.ArtefactStore.WriteAsync(
-            "Nodes/inventory.json",
-            JsonSerializer.Serialize(new { module = Name, nodes = count, generatedAt = DateTimeOffset.UtcNow }),
-            ct).ConfigureAwait(false);
 
         _discoveryMetrics?.RecordInventoryNodes(count, new MetricsTagList { { "job.id", context.Job.JobId }, { "module", Name } });
         _logger.LogInformation("Inventoried {Module}: {Count} items in {DurationMs}ms", Name, count, stopwatch.ElapsedMilliseconds);

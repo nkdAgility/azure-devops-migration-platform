@@ -19,6 +19,7 @@ using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Abstractions.Agent.Validation;
 using DevOpsMigrationPlatform.Abstractions.Validation;
 using DevOpsMigrationPlatform.Infrastructure.Telemetry;
+using DevOpsMigrationPlatform.Infrastructure.Agent.Discovery;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
@@ -106,18 +107,28 @@ public sealed class IdentitiesModule : IModule
         var count = 0;
         if (_identitySource is not null)
         {
+            var orgUrl = context.SourceEndpoint.ResolvedUrl;
+            var orgSlug = PackagePathResolver.DeriveInventoryOrgSlug(orgUrl);
             foreach (var project in projects)
             {
+                var projectCount = 0;
                 try
                 {
                     await foreach (var _ in _identitySource.EnumerateIdentitiesAsync(project, ct).ConfigureAwait(false))
-                        count++;
+                        projectCount++;
+
+                    var projectPath = PackagePathResolver.ProjectInventoryPath(orgSlug, project);
+                    await ProjectInventoryFile.MergeAsync(
+                        context.ArtefactStore, projectPath,
+                        orgUrl: orgUrl, project: project,
+                        identities: projectCount, ct: ct).ConfigureAwait(false);
                 }
                 catch (Exception ex)
                 {
                     using (_logger.BeginDataScope(DataClassification.Customer))
                         _logger.LogWarning(ex, "Failed to enumerate identities for project {Project}; skipping.", project);
                 }
+                count += projectCount;
             }
         }
 
@@ -127,9 +138,6 @@ public sealed class IdentitiesModule : IModule
             { "module", Name }
         };
         _discoveryMetrics?.RecordInventoryIdentities(count, tags);
-
-        var payload = JsonSerializer.Serialize(new { module = Name, identities = count, generatedAt = DateTimeOffset.UtcNow });
-        await context.ArtefactStore.WriteAsync("Identities/inventory.json", payload, ct).ConfigureAwait(false);
 
         _logger.LogInformation("Inventoried {Module}: {Count} items", Name, count);
         if (count == 0)

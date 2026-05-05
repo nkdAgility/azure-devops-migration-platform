@@ -20,6 +20,7 @@ using DevOpsMigrationPlatform.Abstractions.Jobs;
 using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Abstractions.Telemetry;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Export;
+using DevOpsMigrationPlatform.Infrastructure.Agent.Discovery;
 #if !NET481
 using DevOpsMigrationPlatform.Infrastructure.Agent.Import;
 #endif
@@ -240,6 +241,8 @@ public sealed class WorkItemsModule : IModule
             }
             else
             {
+                var orgUrl = endpoint.ResolvedUrl;
+                var orgSlug = PackagePathResolver.DeriveInventoryOrgSlug(orgUrl);
                 foreach (var project in projects)
                 {
                     var reposForProject = 0;
@@ -257,24 +260,31 @@ public sealed class WorkItemsModule : IModule
                         }
                     }
 
+                    long projectWorkItems = 0;
+                    long projectRevisions = 0;
                     await foreach (var summary in _discoveryService
                         .DiscoverWorkItemsAsync(endpoint, project, cancellationToken: ct)
                         .ConfigureAwait(false))
                     {
                         if (summary.IsWorkItemComplete)
                         {
+                            projectWorkItems += summary.WorkItemsCount;
+                            projectRevisions += summary.RevisionsCount;
                             totalWorkItems += summary.WorkItemsCount;
                             totalRevisions += summary.RevisionsCount;
                         }
                     }
 
-                    _ = reposForProject; // consumed in orchestrated path; suppress unused-variable warning in else path
+                    var projectPath = PackagePathResolver.ProjectInventoryPath(orgSlug, project);
+                    await ProjectInventoryFile.MergeAsync(
+                        context.ArtefactStore, projectPath,
+                        orgUrl: orgUrl, project: project,
+                        workItems: projectWorkItems,
+                        revisions: projectRevisions,
+                        repos: reposForProject,
+                        isComplete: true,
+                        ct: ct).ConfigureAwait(false);
                 }
-
-                await context.ArtefactStore.WriteAsync(
-                    "WorkItems/inventory.json",
-                    JsonSerializer.Serialize(new { module = Name, workItems = totalWorkItems, revisions = totalRevisions, generatedAt = DateTimeOffset.UtcNow }),
-                    ct).ConfigureAwait(false);
             }
         }
 

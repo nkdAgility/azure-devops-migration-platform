@@ -7,7 +7,6 @@ using System.Diagnostics;
 using System.Linq;
 using System.Text;
 using System.Text.Json;
-using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
@@ -39,35 +38,16 @@ internal sealed class InventoryOrchestrator : IInventoryOrchestrator
     /// </summary>
     private static string CursorKeyFor(string moduleName) => PackagePaths.CursorFile(moduleName);
 
-    /// <summary>
-    /// Derives a filesystem-safe slug from an org URL.
-    /// "https://dev.azure.com/slb1-swt" → "slb1-swt"
-    /// "http://tfs:8080/tfs/DefaultCollection" → "DefaultCollection"
-    /// </summary>
-    internal static string DeriveOrgSlug(string orgUrl)
-    {
-        if (string.IsNullOrWhiteSpace(orgUrl))
-            return "unknown";
-        if (!Uri.TryCreate(orgUrl.TrimEnd('/'), UriKind.Absolute, out var uri))
-            return SanitizeSlug(orgUrl);
-        var segments = uri.AbsolutePath.Split(new char[] { '/' }, StringSplitOptions.RemoveEmptyEntries);
-        var slug = segments.Length > 0 ? segments[segments.Length - 1] : uri.Host;
-        return SanitizeSlug(slug);
-    }
-
-    private static string SanitizeSlug(string input) =>
-        Regex.Replace(input, @"[^a-zA-Z0-9_\-]", "-").Trim('-');
-
-    private static string OrgCsvOutputPathFor(string moduleName, string orgSlug)
+    private static string OrgCsvOutputPathFor(string orgSlug)
         => $"{orgSlug}/inventory.csv";
 
-    private static string OrgJsonOutputPathFor(string moduleName, string orgSlug)
+    private static string OrgJsonOutputPathFor(string orgSlug)
         => $"{orgSlug}/inventory.json";
 
     // Aggregate paths (all orgs combined).
-    private static string CsvOutputPathFor(string moduleName) => "inventory.csv";
+    private static string CsvOutputPath => "inventory.csv";
 
-    private static string JsonOutputPathFor(string moduleName) => "inventory.json";
+    private static string JsonOutputPath => "inventory.json";
 
     private readonly ILogger _logger;
     private readonly IDiscoveryMetrics? _metrics;
@@ -98,10 +78,11 @@ internal sealed class InventoryOrchestrator : IInventoryOrchestrator
         var metricsStore = context.MetricsStore;
         var snapshotStore = context.SnapshotStore;
 
-        var orgSlug = DeriveOrgSlug(context.SourceEndpoint?.ResolvedUrl ?? "unknown");
-        var csvOutputPath = OrgCsvOutputPathFor(moduleName, orgSlug);
-        var jsonOutputPath = OrgJsonOutputPathFor(moduleName, orgSlug);
-        var aggregateJsonPath = JsonOutputPathFor(moduleName);
+        var orgSlug = PackagePathResolver.DeriveInventoryOrgSlug(context.SourceEndpoint?.ResolvedUrl ?? "unknown");
+        var orgUrl = context.SourceEndpoint?.ResolvedUrl ?? "unknown";
+        var csvOutputPath = OrgCsvOutputPathFor(orgSlug);
+        var jsonOutputPath = OrgJsonOutputPathFor(orgSlug);
+        var aggregateJsonPath = JsonOutputPath;
 
         _logger.LogInformation("Inventory orchestrator starting for job {JobId}, module {Module}.", job.JobId, moduleName);
 
@@ -268,6 +249,20 @@ internal sealed class InventoryOrchestrator : IInventoryOrchestrator
             }
             orgList.Add((evt.ProjectName, evt.WorkItemsCount, evt.RevisionsCount, evt.ReposCount, evt.Error is null, evt.Error));
 
+            // Write per-project inventory file: {orgSlug}/{project}/inventory.json
+            var evtOrgSlug = PackagePathResolver.DeriveInventoryOrgSlug(evt.Url);
+            var projectPath = PackagePathResolver.ProjectInventoryPath(evtOrgSlug, evt.ProjectName);
+            await ProjectInventoryFile.MergeAsync(
+                store, projectPath,
+                orgUrl: evt.Url,
+                project: evt.ProjectName,
+                workItems: evt.WorkItemsCount,
+                revisions: evt.RevisionsCount,
+                repos: evt.ReposCount,
+                isComplete: evt.Error is null,
+                error: evt.Error,
+                ct: ct).ConfigureAwait(false);
+
             projectSw.Stop();
             var projectTags = new MetricsTagList
             {
@@ -352,12 +347,6 @@ internal sealed class InventoryOrchestrator : IInventoryOrchestrator
         await WriteInventoryJsonAsync(store, jsonOutputPath, orgProjectData, ct).ConfigureAwait(false);
         await MergeAndWriteAggregateAsync(store, aggregateJsonPath, orgProjectData, ct).ConfigureAwait(false);
 
-        // Copy aggregate to the module-level path so InventoryAnalyser can read project data
-        // (e.g. "WorkItems/inventory.json") for consolidation into the root inventory.json.
-        var aggregateJson = await store.ReadAsync(aggregateJsonPath, ct).ConfigureAwait(false);
-        if (aggregateJson is not null)
-            await store.WriteAsync($"{moduleName}/inventory.json", aggregateJson, ct).ConfigureAwait(false);
-
         await state.DeleteAsync(CursorKeyFor(moduleName), ct).ConfigureAwait(false);
 
         // Final snapshot push.
@@ -398,7 +387,7 @@ internal sealed class InventoryOrchestrator : IInventoryOrchestrator
             return null;
 
         var completedKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        var existingCsv = await store.ReadAsync(CsvOutputPathFor(moduleName), ct).ConfigureAwait(false);
+        var existingCsv = await store.ReadAsync(CsvOutputPath, ct).ConfigureAwait(false);
         if (existingCsv is not null)
         {
             var lines = existingCsv.Split('\n');
