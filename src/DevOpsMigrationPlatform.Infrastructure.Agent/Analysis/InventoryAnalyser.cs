@@ -80,10 +80,16 @@ public sealed class InventoryAnalyser : IAnalyser
                 if (pair.Key == "WorkItems")
                     workItemsInventory = root.Clone();
                 long count = 0;
+                // Simple modules (Identities, Nodes, Teams) write { "identities": N } etc. at root.
+                // WorkItems uses the InventoryReport format with totals.workItems nested.
                 if (root.TryGetProperty("workItems", out var wi)) count = wi.GetInt64();
                 else if (root.TryGetProperty("identities", out var id)) count = id.GetInt64();
                 else if (root.TryGetProperty("nodes", out var nodes)) count = nodes.GetInt64();
                 else if (root.TryGetProperty("teams", out var teams)) count = teams.GetInt64();
+                else if (root.TryGetProperty("totals", out var totals))
+                {
+                    if (totals.TryGetProperty("workItems", out var twi)) count = twi.GetInt64();
+                }
                 rows.Add((pair.Key, count));
             }
 

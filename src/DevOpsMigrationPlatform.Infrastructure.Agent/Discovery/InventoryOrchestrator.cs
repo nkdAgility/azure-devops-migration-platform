@@ -7,6 +7,7 @@ using System.Diagnostics;
 using System.Linq;
 using System.Text;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
@@ -14,6 +15,7 @@ using DevOpsMigrationPlatform.Abstractions.Agent.Discovery;
 using DevOpsMigrationPlatform.Abstractions.Agent.Context;
 using DevOpsMigrationPlatform.Abstractions.Agent.Export;
 using DevOpsMigrationPlatform.Abstractions.Agent.Modules;
+using DevOpsMigrationPlatform.Abstractions.ControlPlaneApi;
 using DevOpsMigrationPlatform.Abstractions.Jobs;
 using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Abstractions.Organisations;
@@ -36,6 +38,37 @@ internal sealed class InventoryOrchestrator : IInventoryOrchestrator
     /// can checkpoint independently when running in the same job.
     /// </summary>
     private static string CursorKeyFor(string moduleName) => PackagePaths.CursorFile(moduleName);
+
+    /// <summary>
+    /// Derives a filesystem-safe slug from an org URL.
+    /// "https://dev.azure.com/slb1-swt" → "slb1-swt"
+    /// "http://tfs:8080/tfs/DefaultCollection" → "DefaultCollection"
+    /// </summary>
+    internal static string DeriveOrgSlug(string orgUrl)
+    {
+        if (string.IsNullOrWhiteSpace(orgUrl))
+            return "unknown";
+        if (!Uri.TryCreate(orgUrl.TrimEnd('/'), UriKind.Absolute, out var uri))
+            return SanitizeSlug(orgUrl);
+        var segments = uri.AbsolutePath.Split(new char[] { '/' }, StringSplitOptions.RemoveEmptyEntries);
+        var slug = segments.Length > 0 ? segments[segments.Length - 1] : uri.Host;
+        return SanitizeSlug(slug);
+    }
+
+    private static string SanitizeSlug(string input) =>
+        Regex.Replace(input, @"[^a-zA-Z0-9_\-]", "-").Trim('-');
+
+    private static string OrgCsvOutputPathFor(string moduleName, string orgSlug)
+        => moduleName.Equals("WorkItems", StringComparison.OrdinalIgnoreCase)
+            ? $"WorkItems/{orgSlug}/inventory.csv"
+            : $"{moduleName}/{orgSlug}/inventory.csv";
+
+    private static string OrgJsonOutputPathFor(string moduleName, string orgSlug)
+        => moduleName.Equals("WorkItems", StringComparison.OrdinalIgnoreCase)
+            ? $"WorkItems/{orgSlug}/inventory.json"
+            : $"{moduleName}/{orgSlug}/inventory.json";
+
+    // Legacy aggregate paths used by InventoryAnalyser and LoadCompletedKeysAsync.
     private static string CsvOutputPathFor(string moduleName)
         => moduleName.Equals("WorkItems", StringComparison.OrdinalIgnoreCase) ? "WorkItems/inventory.csv" : "inventory.csv";
 
@@ -70,8 +103,11 @@ internal sealed class InventoryOrchestrator : IInventoryOrchestrator
         var sink = context.ProgressSink ?? NullProgressSink.Instance;
         var metricsStore = context.MetricsStore;
         var snapshotStore = context.SnapshotStore;
-        var csvOutputPath = CsvOutputPathFor(moduleName);
-        var jsonOutputPath = JsonOutputPathFor(moduleName);
+
+        var orgSlug = DeriveOrgSlug(context.SourceEndpoint?.ResolvedUrl ?? "unknown");
+        var csvOutputPath = OrgCsvOutputPathFor(moduleName, orgSlug);
+        var jsonOutputPath = OrgJsonOutputPathFor(moduleName, orgSlug);
+        var aggregateJsonPath = JsonOutputPathFor(moduleName);
 
         _logger.LogInformation("Inventory orchestrator starting for job {JobId}, module {Module}.", job.JobId, moduleName);
 
@@ -317,9 +353,10 @@ internal sealed class InventoryOrchestrator : IInventoryOrchestrator
             metrics?.OrganisationCompleted(finalOrgTags);
         }
 
-        // Final write — CSV and JSON.
+        // Final write — per-org CSV/JSON and rolling aggregate.
         await store.WriteAsync(csvOutputPath, csvBuilder.ToString(), ct).ConfigureAwait(false);
         await WriteInventoryJsonAsync(store, jsonOutputPath, orgProjectData, ct).ConfigureAwait(false);
+        await MergeAndWriteAggregateAsync(store, aggregateJsonPath, orgProjectData, ct).ConfigureAwait(false);
         await state.DeleteAsync(CursorKeyFor(moduleName), ct).ConfigureAwait(false);
 
         // Final snapshot push.
@@ -379,6 +416,51 @@ internal sealed class InventoryOrchestrator : IInventoryOrchestrator
         }
 
         return completedKeys.Count > 0 ? completedKeys : null;
+    }
+
+    /// <summary>
+    /// Reads the existing aggregate inventory JSON (if any), removes the entry for the current
+    /// org (to support retries), merges the current run's data, and writes the result.
+    /// This ensures that a multi-org run accumulates all organisations in one file even though
+    /// the orchestrator is called once per org.
+    /// </summary>
+    private static async Task MergeAndWriteAggregateAsync(
+        IArtefactStore store,
+        string aggregatePath,
+        Dictionary<string, List<(string Project, long WorkItems, long Revisions, int Repos, bool IsComplete, string? Error)>> currentOrgData,
+        CancellationToken ct)
+    {
+        var mergedData = new Dictionary<string, List<(string, long, long, int, bool, string?)>>(StringComparer.OrdinalIgnoreCase);
+
+        // Load previously-written orgs so they are preserved in the aggregate.
+        var existingJson = await store.ReadAsync(aggregatePath, ct).ConfigureAwait(false);
+        if (existingJson is not null)
+        {
+            try
+            {
+                var opts = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+                var existing = JsonSerializer.Deserialize<InventoryReport>(existingJson, opts);
+                if (existing is not null)
+                {
+                    foreach (var org in existing.Organisations)
+                    {
+                        if (currentOrgData.ContainsKey(org.Url))
+                            continue; // will be replaced by the current run's fresh data
+                        mergedData[org.Url] = org.Projects.Select(p =>
+                            (p.Name, p.WorkItems, p.Revisions, p.Repos, p.IsComplete, p.Error)).ToList();
+                    }
+                }
+            }
+            catch
+            {
+                // Corrupted aggregate — start fresh with just the current org.
+            }
+        }
+
+        foreach (var kvp in currentOrgData)
+            mergedData[kvp.Key] = kvp.Value;
+
+        await WriteInventoryJsonAsync(store, aggregatePath, mergedData, ct).ConfigureAwait(false);
     }
 
     // ── Artefact writing helpers ──────────────────────────────────────────────

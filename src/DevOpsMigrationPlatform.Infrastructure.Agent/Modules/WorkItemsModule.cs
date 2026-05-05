@@ -176,64 +176,67 @@ public sealed class WorkItemsModule : IModule
 
         var totalWorkItems = 0;
         var totalRevisions = 0;
-        var projectSummaries = new List<InventoryProgressEvent>();
+
         if (_discoveryService is not null)
         {
             var endpoint = context.SourceEndpoint;
-            foreach (var project in projects)
-            {
-                var projectWorkItems = 0;
-                var projectRevisions = 0;
-                await foreach (var summary in _discoveryService.CountWorkItemsAsync(endpoint, project, cancellationToken: ct).ConfigureAwait(false))
-                {
-                    projectWorkItems = summary.WorkItemsCount;
-                    projectRevisions = summary.RevisionsCount;
-                    _logger.LogDebug("Inventory window {WindowIndex}: {ItemCount} items", 0, projectWorkItems);
-                }
 
-                totalWorkItems += projectWorkItems;
-                totalRevisions += projectRevisions;
-                projectSummaries.Add(new InventoryProgressEvent
-                {
-                    Url = context.SourceEndpoint.ResolvedUrl,
-                    ProjectName = project,
-                    WorkItemsCount = projectWorkItems,
-                    RevisionsCount = projectRevisions,
-                    IsComplete = true,
-                });
-            }
-        }
-
-        if (_inventoryOrchestrator is not null)
-        {
-            async IAsyncEnumerable<InventoryProgressEvent> BuildEventStream()
+            if (_inventoryOrchestrator is not null)
             {
-                if (projectSummaries.Count == 0)
+                // Stream every window event directly — both intermediate (IsComplete=false) heartbeats
+                // and the final (IsComplete=true) completion event per project. This restores the live
+                // progress updates visible in the CLI/TUI as work items are discovered.
+                async IAsyncEnumerable<InventoryProgressEvent> BuildEventStream(
+                    [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken streamCt = default)
                 {
-                    projectSummaries.Add(new InventoryProgressEvent
+                    foreach (var project in projects)
                     {
-                        Url = context.SourceEndpoint.ResolvedUrl,
-                        ProjectName = projects.FirstOrDefault() ?? string.Empty,
-                        WorkItemsCount = totalWorkItems,
-                        RevisionsCount = totalRevisions,
-                        IsComplete = true,
-                    });
+                        await foreach (var summary in _discoveryService
+                            .CountWorkItemsAsync(endpoint, project, cancellationToken: streamCt)
+                            .ConfigureAwait(false))
+                        {
+                            if (summary.IsWorkItemComplete)
+                            {
+                                totalWorkItems += summary.WorkItemsCount;
+                                totalRevisions += summary.RevisionsCount;
+                            }
+
+                            yield return new InventoryProgressEvent
+                            {
+                                Url = endpoint.ResolvedUrl,
+                                ProjectName = project,
+                                WorkItemsCount = summary.WorkItemsCount,
+                                RevisionsCount = summary.RevisionsCount,
+                                IsComplete = summary.IsWorkItemComplete,
+                                Error = summary.Error,
+                            };
+                        }
+                    }
                 }
 
-                foreach (var summary in projectSummaries)
-                    yield return summary;
-
-                await Task.CompletedTask;
+                await _inventoryOrchestrator.RunAsync(Name, BuildEventStream(), context, ct: ct).ConfigureAwait(false);
             }
+            else
+            {
+                foreach (var project in projects)
+                {
+                    await foreach (var summary in _discoveryService
+                        .CountWorkItemsAsync(endpoint, project, cancellationToken: ct)
+                        .ConfigureAwait(false))
+                    {
+                        if (summary.IsWorkItemComplete)
+                        {
+                            totalWorkItems += summary.WorkItemsCount;
+                            totalRevisions += summary.RevisionsCount;
+                        }
+                    }
+                }
 
-            await _inventoryOrchestrator.RunAsync(Name, BuildEventStream(), context, ct: ct).ConfigureAwait(false);
-        }
-        else
-        {
-            await context.ArtefactStore.WriteAsync(
-                "WorkItems/inventory.json",
-                JsonSerializer.Serialize(new { module = Name, workItems = totalWorkItems, revisions = totalRevisions, generatedAt = DateTimeOffset.UtcNow }),
-                ct).ConfigureAwait(false);
+                await context.ArtefactStore.WriteAsync(
+                    "WorkItems/inventory.json",
+                    JsonSerializer.Serialize(new { module = Name, workItems = totalWorkItems, revisions = totalRevisions, generatedAt = DateTimeOffset.UtcNow }),
+                    ct).ConfigureAwait(false);
+            }
         }
 
         var tags = new MetricsTagList { { "job.id", context.Job.JobId }, { "module", Name } };
