@@ -15,49 +15,65 @@ namespace DevOpsMigrationPlatform.Abstractions;
 /// </summary>
 public static class WellKnownTagNames
 {
-    // --- Job context ---
+    /// <summary>Tags related to the job context.</summary>
+    public static class Job
+    {
+        /// <summary>Unique job identifier. High cardinality — traces only, except via MigrationTagList for metrics.</summary>
+        public const string Id = "job.id";
 
-    /// <summary>Unique job identifier. High cardinality — traces only, except via MigrationTagList for metrics.</summary>
-    public const string JobId = "job.id";
+        /// <summary>Job type (e.g. "migration", "discovery"). Low cardinality.</summary>
+        public const string Type = "job.type";
 
-    /// <summary>Job type (e.g. "migration", "discovery"). Low cardinality.</summary>
-    public const string JobType = "job.type";
+        /// <summary>Job state (e.g. "queued", "running", "completed"). Low cardinality.</summary>
+        public const string State = "job.state";
+    }
 
-    /// <summary>Job state (e.g. "queued", "running", "completed"). Low cardinality.</summary>
-    public const string JobState = "job.state";
+    /// <summary>Tags related to operation context.</summary>
+    public static class Operation
+    {
+        /// <summary>Operation name: "export", "import", "validation". Low cardinality.</summary>
+        public const string Name = "operation";
 
-    // --- Operation context ---
+        /// <summary>Module name (e.g. "WorkItems", "Inventory"). Low cardinality.</summary>
+        public const string Module = "module";
 
-    /// <summary>Operation name: "export", "import", "validation". Low cardinality.</summary>
-    public const string Operation = "operation";
+        /// <summary>Source type (e.g. "AzureDevOps"). Low cardinality.</summary>
+        public const string SourceType = "source.type";
+    }
 
-    /// <summary>Module name (e.g. "WorkItems", "Inventory"). Low cardinality.</summary>
-    public const string Module = "module";
+    /// <summary>Tags related to work item entity context.</summary>
+    public static class WorkItem
+    {
+        /// <summary>Work item type name (e.g. "Bug", "User Story"). Medium cardinality.</summary>
+        public const string Type = "workitem.type";
 
-    /// <summary>Source type (e.g. "AzureDevOps"). Low cardinality.</summary>
-    public const string SourceType = "source.type";
+        /// <summary>
+        /// Work item integer ID. HIGH CARDINALITY — traces and logs only, never use as a metric tag.
+        /// </summary>
+        [System.Obsolete("WorkItemId is HIGH CARDINALITY and must not be used as a metric tag. Use in traces and logs only.")]
+        public const string Id = "workitem.id";
 
-    // --- Work item entity (high cardinality — traces and logs only) ---
+        /// <summary>
+        /// Revision index within a work item. HIGH CARDINALITY — traces and logs only, never use as a metric tag.
+        /// </summary>
+        [System.Obsolete("RevisionIndex is HIGH CARDINALITY and must not be used as a metric tag. Use in traces and logs only.")]
+        public const string RevisionIndex = "revision.index";
+    }
 
-    /// <summary>Work item integer ID. High cardinality — traces only.</summary>
-    public const string WorkItemId = "workitem.id";
+    /// <summary>Tags related to field transform context.</summary>
+    public static class Transform
+    {
+        /// <summary>Transform group name. Medium cardinality.</summary>
+        public const string GroupName = "group.name";
+    }
 
-    /// <summary>Work item type name (e.g. "Bug", "User Story"). Medium cardinality.</summary>
-    public const string WorkItemType = "workitem.type";
+    /// <summary>Tags related to CLI context.</summary>
+    public static class Cli
+    {
+        /// <summary>CLI command name (e.g. "queue", "prepare", "tui"). Low cardinality.</summary>
+        public const string Command = "command";
 
-    /// <summary>Revision index within a work item. Medium cardinality.</summary>
-    public const string RevisionIndex = "revision.index";
-
-    // --- Field transform (medium cardinality — traces only) ---
-
-    /// <summary>Transform group name. Medium cardinality.</summary>
-    public const string GroupName = "group.name";
-
-    // --- CLI context ---
-
-    /// <summary>CLI command name (e.g. "queue", "prepare", "tui"). Low cardinality.</summary>
-    public const string Command = "command";
-
-    /// <summary>Command exit code (0 = success). Low cardinality.</summary>
-    public const string ExitCode = "exit.code";
+        /// <summary>Command exit code (0 = success). Low cardinality.</summary>
+        public const string ExitCode = "exit.code";
+    }
 }

@@ -155,7 +155,7 @@ public static class MigrationPlatformHost
             services.AddSingleton<ITfsAttachmentDownloader, TfsAttachmentDownloader>();
             services.AddSingleton<IWorkItemExportMetrics, WorkItemExportMetrics>();
             services.AddSingleton<IAttachmentDownloadMetrics, AttachmentDownloadMetrics>();
-            services.AddSingleton<IDiscoveryMetrics, DiscoveryMetrics>();
+            services.AddSingleton<IPlatformMetrics, PlatformMetrics>();
             services.AddSingleton<TfsWorkItemQueryWindowStrategy>();
             services.AddSingleton<IWorkItemFetchService, TfsWorkItemFetchService>();
             services.AddSingleton<IWorkItemDiscoveryService, TfsObjectModelWorkItemDiscoveryService>();
@@ -215,8 +215,7 @@ public static class MigrationPlatformHost
                 })
                 .WithMetrics(mb =>
                 {
-                    mb.AddMeter(WellKnownMeterNames.Migration);
-                    mb.AddMeter(WellKnownMeterNames.Discovery);
+                    mb.AddMeter(WellKnownMeterNames.Agent);
                     if (hasOtlpEndpoint)
                         mb.AddOtlpExporter();
                     if (hasAzureMonitor)

@@ -60,7 +60,7 @@ public sealed class InventoryAnalyserTests
     [TestMethod]
     public async Task AnalyseAsync_RecordsConsolidatedInventoryMetrics()
     {
-        var metrics = new Mock<IDiscoveryMetrics>(MockBehavior.Strict);
+        var metrics = new Mock<IPlatformMetrics>(MockBehavior.Strict);
         metrics.Setup(m => m.RecordInventoryConsolidated(
                 14,
                 It.Is<MetricsTagList>(t => HasTag(t, "job.id", "job-1") && HasTag(t, "module", "Inventory"))))

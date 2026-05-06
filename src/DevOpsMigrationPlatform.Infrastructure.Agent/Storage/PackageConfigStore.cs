@@ -32,13 +32,13 @@ internal sealed class PackageConfigStore : IPackageConfigStore
 
     private readonly IPackageStoreFactory _packageStoreFactory;
     private readonly ILogger<PackageConfigStore> _logger;
-    private readonly IMigrationMetrics? _metrics;
+    private readonly IPlatformMetrics? _metrics;
     private readonly IActiveJobState? _activeJobState;
 
     public PackageConfigStore(
         IPackageStoreFactory packageStoreFactory,
         ILogger<PackageConfigStore> logger,
-        IMigrationMetrics? metrics = null,
+        IPlatformMetrics? metrics = null,
         IActiveJobState? activeJobState = null)
     {
         _packageStoreFactory = packageStoreFactory ?? throw new ArgumentNullException(nameof(packageStoreFactory));

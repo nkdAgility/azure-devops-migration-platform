@@ -28,13 +28,13 @@ public sealed class JobAgentWorkerInventoryTests
     [TestMethod]
     public async Task InventoryDispatch_WithTwoSourceEndpoints_RecordsWorkItemInventoryTwice()
     {
-        var discoveryMetrics = new Mock<IDiscoveryMetrics>(MockBehavior.Strict);
-        discoveryMetrics.Setup(m => m.RecordInventoryWorkItems(
+        var PlatformMetrics = new Mock<IPlatformMetrics>(MockBehavior.Strict);
+        PlatformMetrics.Setup(m => m.RecordInventoryWorkItems(
                 It.IsAny<int>(),
                 It.Is<MetricsTagList>(t => HasTag(t, "module", "WorkItems"))))
             .Verifiable();
 
-        var module = new FakeWorkItemsInventoryModule(discoveryMetrics.Object);
+        var module = new FakeWorkItemsInventoryModule(PlatformMetrics.Object);
         var baseContext = new InventoryContext
         {
             Job = new Job { JobId = "job-1", Kind = JobKind.Inventory },
@@ -52,7 +52,7 @@ public sealed class JobAgentWorkerInventoryTests
             await module.InventoryAsync(baseContext with { SourceEndpoint = endpoint }, CancellationToken.None);
         }
 
-        discoveryMetrics.Verify(
+        PlatformMetrics.Verify(
             m => m.RecordInventoryWorkItems(It.IsAny<int>(), It.IsAny<MetricsTagList>()),
             Times.Exactly(2));
     }
@@ -136,7 +136,7 @@ public sealed class JobAgentWorkerInventoryTests
     private static bool HasTag(MetricsTagList tags, string key, string value)
         => System.Linq.Enumerable.Any(tags, t => t.Key == key && string.Equals(t.Value?.ToString(), value, System.StringComparison.Ordinal));
 
-    private sealed class FakeWorkItemsInventoryModule(IDiscoveryMetrics discoveryMetrics) : IModule
+    private sealed class FakeWorkItemsInventoryModule(IPlatformMetrics PlatformMetrics) : IModule
     {
         public string Name => "WorkItems";
         public IReadOnlyList<ModuleDependency> DependsOn => [];
@@ -153,7 +153,7 @@ public sealed class JobAgentWorkerInventoryTests
 
         public Task InventoryAsync(InventoryContext context, CancellationToken ct)
         {
-            discoveryMetrics.RecordInventoryWorkItems(
+            PlatformMetrics.RecordInventoryWorkItems(
                 1,
                 new MetricsTagList
                 {

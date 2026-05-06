@@ -81,8 +81,7 @@ public static class Extensions
                 metrics.AddAspNetCoreInstrumentation()
                        .AddHttpClientInstrumentation()
                        .AddRuntimeInstrumentation()
-                       .AddMeter(DevOpsMigrationPlatform.Abstractions.WellKnownMeterNames.Migration)
-                       .AddMeter(DevOpsMigrationPlatform.Abstractions.WellKnownMeterNames.Discovery)
+                       .AddMeter(DevOpsMigrationPlatform.Abstractions.WellKnownMeterNames.Agent)
                        .AddMeter(DevOpsMigrationPlatform.Abstractions.WellKnownMeterNames.ControlPlane);
 
                 if (diagnosticsPath is not null)

@@ -79,8 +79,7 @@ namespace DevOpsMigrationPlatform.TfsMigrationAgent
             {
                 metrics.AddHttpClientInstrumentation()
                        .AddRuntimeInstrumentation()
-                       .AddMeter(WellKnownMeterNames.Migration)
-                       .AddMeter(WellKnownMeterNames.Discovery)
+                       .AddMeter(WellKnownMeterNames.Agent)
                        .AddMeter(WellKnownMeterNames.ControlPlane);
 
                 if (hasOtlpEndpoint)

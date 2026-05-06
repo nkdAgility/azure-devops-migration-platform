@@ -9,8 +9,8 @@ using DevOpsMigrationPlatform.Abstractions;
 namespace DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.Telemetry;
 
 /// <summary>
-/// Work item export metrics emitted under the consolidated <see cref="WellKnownMeterNames.Migration"/> meter.
-/// Used by the net481 TFS subprocess where <c>IMigrationMetrics</c> (which requires <c>TagList</c>) is unavailable.
+/// Work item export metrics emitted under the consolidated <see cref="WellKnownMeterNames.Agent"/> meter.
+/// Used by the net481 TFS subprocess where <c>IPlatformMetrics</c> (which requires <c>TagList</c>) is unavailable.
 /// </summary>
 public class WorkItemExportMetrics : IWorkItemExportMetrics
 {
@@ -25,7 +25,7 @@ public class WorkItemExportMetrics : IWorkItemExportMetrics
     private const string LinkDurationName = "link_export_duration_ms";
     private const string TotalDurationName = "export_total_duration_ms";
 
-    public const string MeterName = WellKnownMeterNames.Migration;
+    public const string MeterName = WellKnownMeterNames.Agent;
     public const string MeterVersion = "1.0";
 
     private static readonly Meter Meter = new Meter(MeterName, MeterVersion);

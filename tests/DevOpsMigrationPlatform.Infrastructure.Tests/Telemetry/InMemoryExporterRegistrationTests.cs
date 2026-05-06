@@ -92,11 +92,11 @@ public class InMemoryExporterRegistrationTests
         var exportedMetrics = new List<Metric>();
 
         using var meterProvider = Sdk.CreateMeterProviderBuilder()
-            .AddMeter(WellKnownMeterNames.Migration)
+            .AddMeter(WellKnownMeterNames.Agent)
             .AddInMemoryExporter(exportedMetrics)
             .Build();
 
-        using var meter = new Meter(WellKnownMeterNames.Migration);
+        using var meter = new Meter(WellKnownMeterNames.Agent);
         var counter = meter.CreateCounter<long>("test.migration.counter");
         counter.Add(42);
 
@@ -111,11 +111,11 @@ public class InMemoryExporterRegistrationTests
         var exportedMetrics = new List<Metric>();
 
         using var meterProvider = Sdk.CreateMeterProviderBuilder()
-            .AddMeter(WellKnownMeterNames.Discovery)
+            .AddMeter(WellKnownMeterNames.Agent)
             .AddInMemoryExporter(exportedMetrics)
             .Build();
 
-        using var meter = new Meter(WellKnownMeterNames.Discovery);
+        using var meter = new Meter(WellKnownMeterNames.Agent);
         var counter = meter.CreateCounter<long>("test.discovery.counter");
         counter.Add(10);
 

@@ -38,9 +38,9 @@ internal sealed class DependencyOrchestrator : IDependencyOrchestrator
     private static readonly ActivitySource ActivitySource = new(WellKnownActivitySourceNames.Discovery);
 
     private readonly ILogger _logger;
-    private readonly IDiscoveryMetrics? _metrics;
+    private readonly IPlatformMetrics? _metrics;
 
-    public DependencyOrchestrator(ILogger<DependencyOrchestrator> logger, IDiscoveryMetrics? metrics = null)
+    public DependencyOrchestrator(ILogger<DependencyOrchestrator> logger, IPlatformMetrics? metrics = null)
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _metrics = metrics;

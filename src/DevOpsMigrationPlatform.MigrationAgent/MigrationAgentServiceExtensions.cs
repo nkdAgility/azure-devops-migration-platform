@@ -47,8 +47,7 @@ public static class MigrationAgentServiceExtensions
         // Azure Monitor docs) so the subscription runs on the same MeterProvider
         // that UseAzureMonitor() exports from.
         builder.Services.ConfigureOpenTelemetryMeterProvider((sp, mb) => mb
-                .AddMeter(WellKnownMeterNames.Migration)
-                .AddMeter(WellKnownMeterNames.Discovery));
+                .AddMeter(WellKnownMeterNames.Agent));
 
         // Core shared services — ambient state, telemetry, HTTP clients, progress sinks,
         // store factories, diagnostics, and the telemetry push timer.

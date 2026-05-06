@@ -19,7 +19,7 @@ Do not duplicate them.
 There are **two independent pipelines**:
 
 1. Azure Monitor / App Insights  
-   IMigrationMetrics → OTel → exporter → Azure  
+   IPlatformMetrics → OTel → exporter → Azure  
    Used for cloud telemetry, traces, history
 
 2. CLI / TUI display  
@@ -144,14 +144,34 @@ Failure mode:
 
 ## Metric Implementation Flow
 
-1. Add constant (WellKnownMetricNames)
-2. Add interface method
-3. Implement instrument
+1. Add constant (`WellKnownAgentMetricNames` or `WellKnownControlPlaneMetricNames`)
+2. Add interface method to `IPlatformMetrics`
+3. Implement instrument in `PlatformMetrics`
 4. Record via TagList
-5. Register meter in hosts
+5. Register meter (`WellKnownMeterNames.Agent`) in hosts
 6. Map to JobMetrics if needed
 7. Emit ProgressEvent.Metrics for CLI/TUI
 8. Add tests
+
+---
+
+## Meter Name Reference
+
+| Scope | Meter constant | Value |
+|---|---|---|
+| Agent (discovery + migration) | `WellKnownMeterNames.Agent` | `DevOpsMigrationPlatform.Agent` |
+| Control Plane | `WellKnownMeterNames.ControlPlane` | `DevOpsMigrationPlatform.ControlPlane` |
+| CLI | `WellKnownMeterNames.Cli` | `DevOpsMigrationPlatform.Cli` |
+
+## Metric Name Reference
+
+All agent metric strings follow `platform.<domain>.<phase>.<measure>`.
+
+- Agent constants: `WellKnownAgentMetricNames`
+- Control Plane constants: `WellKnownControlPlaneMetricNames`
+- CLI constants: `WellKnownCliMetricNames`
+
+Old prefixes `discovery.*`, `migration.*`, `controlplane.*`, `cli.*` are **removed**. Update any OTel dashboards / relabelling rules accordingly.
 
 ---
 

@@ -52,7 +52,7 @@ public static class NodeTranslationToolServiceCollectionExtensions
         services.AddScoped<NodeTranslationTool>(sp => new NodeTranslationTool(
             sp.GetRequiredService<IOptionsSnapshot<NodeTranslationOptions>>(),
             sp.GetRequiredService<ILogger<NodeTranslationTool>>(),
-            sp.GetService<IMigrationMetrics>()));
+            sp.GetService<IPlatformMetrics>()));
         services.AddScoped<INodeTranslationTool>(sp => sp.GetRequiredService<NodeTranslationTool>());
         services.AddScoped<INodeTranslationValidator>(sp => new NodeTranslationValidator(
             sp.GetRequiredService<IOptionsSnapshot<NodeTranslationOptions>>(),

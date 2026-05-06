@@ -15,12 +15,12 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Import;
 public sealed class RevisionFolderProcessorFactory : IRevisionFolderProcessorFactory
 {
     private readonly ILoggerFactory _loggerFactory;
-    private readonly IMigrationMetrics? _metrics;
+    private readonly IPlatformMetrics? _metrics;
     private readonly INodeTranslationTool? _nodeStructureTool;
 
     public RevisionFolderProcessorFactory(
         ILoggerFactory loggerFactory,
-        IMigrationMetrics? metrics = null,
+        IPlatformMetrics? metrics = null,
         INodeTranslationTool? nodeStructureTool = null)
     {
         _loggerFactory = loggerFactory ?? throw new System.ArgumentNullException(nameof(loggerFactory));

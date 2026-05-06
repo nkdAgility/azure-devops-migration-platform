@@ -50,11 +50,11 @@ internal sealed class InventoryOrchestrator : IInventoryOrchestrator
     private static string JsonOutputPath => "inventory.json";
 
     private readonly ILogger _logger;
-    private readonly IDiscoveryMetrics? _metrics;
+    private readonly IPlatformMetrics? _metrics;
 
     public InventoryOrchestrator(
         ILogger<InventoryOrchestrator> logger,
-        IDiscoveryMetrics? metrics = null)
+        IPlatformMetrics? metrics = null)
     {
         _logger = logger;
         _metrics = metrics;

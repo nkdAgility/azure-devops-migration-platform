@@ -24,9 +24,9 @@ public sealed class InventoryAnalyser : IAnalyser
 {
     private static readonly ActivitySource ActivitySource = new(WellKnownActivitySourceNames.Discovery);
     private readonly ILogger<InventoryAnalyser> _logger;
-    private readonly IDiscoveryMetrics? _metrics;
+    private readonly IPlatformMetrics? _metrics;
 
-    public InventoryAnalyser(ILogger<InventoryAnalyser> logger, IDiscoveryMetrics? metrics = null)
+    public InventoryAnalyser(ILogger<InventoryAnalyser> logger, IPlatformMetrics? metrics = null)
     {
         _logger = logger;
         _metrics = metrics;

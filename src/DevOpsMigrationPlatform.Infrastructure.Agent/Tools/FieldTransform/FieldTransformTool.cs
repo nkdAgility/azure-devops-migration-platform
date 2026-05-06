@@ -23,7 +23,7 @@ public sealed class FieldTransformTool : IFieldTransformTool
     private readonly FieldTransformOptions _options;
     private readonly FieldTransformPipeline _pipeline;
     private readonly ILogger<FieldTransformTool> _logger;
-    private readonly IMigrationMetrics? _metrics;
+    private readonly IPlatformMetrics? _metrics;
 
     private static readonly ActivitySource s_activitySource =
         new(WellKnownActivitySourceNames.Migration);
@@ -32,7 +32,7 @@ public sealed class FieldTransformTool : IFieldTransformTool
         IOptions<FieldTransformOptions> options,
         IFieldTransformFactory factory,
         ILoggerFactory loggerFactory,
-        IMigrationMetrics? metrics = null)
+        IPlatformMetrics? metrics = null)
     {
         _options = options.Value;
         _logger = loggerFactory.CreateLogger<FieldTransformTool>();

@@ -96,14 +96,14 @@ public abstract class CommandBase<TSettings> : AsyncCommand<TSettings>
         var commandName = context.Name ?? GetType().Name.Replace("Command", "").ToLowerInvariant();
         var tags = new TagList
         {
-            { WellKnownTagNames.Command, commandName }
+            { WellKnownTagNames.Cli.Command, commandName }
         };
 
         s_invocations.Add(1, tags);
         var sw = Stopwatch.StartNew();
 
         using var activity = s_activitySource.StartActivity("cli.command", ActivityKind.Internal);
-        activity?.SetTag(WellKnownTagNames.Command, commandName);
+        activity?.SetTag(WellKnownTagNames.Cli.Command, commandName);
 
         // Link the Spectre.Console-provided token with the process-wide Ctrl+C signal
         // so that all downstream async operations honour both cancellation sources.
@@ -130,7 +130,7 @@ public abstract class CommandBase<TSettings> : AsyncCommand<TSettings>
         try
         {
             var exitCode = await ExecuteInternalAsync(context, settings, ct);
-            activity?.SetTag(WellKnownTagNames.ExitCode, exitCode);
+            activity?.SetTag(WellKnownTagNames.Cli.ExitCode, exitCode);
             activity?.SetStatus(exitCode == 0 ? ActivityStatusCode.Ok : ActivityStatusCode.Error);
             sw.Stop();
             s_duration.Record(sw.Elapsed.TotalMilliseconds, tags);
@@ -139,7 +139,7 @@ public abstract class CommandBase<TSettings> : AsyncCommand<TSettings>
         catch (OperationCanceledException)
         {
             activity?.SetStatus(ActivityStatusCode.Error, "Cancelled");
-            activity?.SetTag(WellKnownTagNames.ExitCode, 130);
+            activity?.SetTag(WellKnownTagNames.Cli.ExitCode, 130);
             sw.Stop();
             s_duration.Record(sw.Elapsed.TotalMilliseconds, tags);
             s_errors.Add(1, tags);
@@ -159,7 +159,7 @@ public abstract class CommandBase<TSettings> : AsyncCommand<TSettings>
 
             // Extract the categorized exit code if available, otherwise use default
             var exitCode = ex is MigrationException migrationEx ? migrationEx.ExitCode : 1;
-            activity?.SetTag(WellKnownTagNames.ExitCode, exitCode);
+            activity?.SetTag(WellKnownTagNames.Cli.ExitCode, exitCode);
             return exitCode;
         }
         finally

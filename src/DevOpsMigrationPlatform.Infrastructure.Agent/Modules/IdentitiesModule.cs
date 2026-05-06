@@ -41,8 +41,7 @@ public sealed class IdentitiesModule : IModule
 #endif
     private readonly ICheckpointingServiceFactory? _checkpointingFactory;
     private readonly ILogger<IdentitiesModule> _logger;
-    private readonly IDiscoveryMetrics? _discoveryMetrics;
-    private readonly IMigrationMetrics? _migrationMetrics;
+    private readonly IPlatformMetrics? _PlatformMetrics;
     private readonly IdentitiesModuleOptions _options;
     private readonly ISourceEndpointInfo _sourceEndpointInfo;
     private readonly IIdentitiesOrchestrator _orchestrator;
@@ -60,8 +59,7 @@ public sealed class IdentitiesModule : IModule
     IOptions<IdentitiesModuleOptions> options,
         ISourceEndpointInfo sourceEndpointInfo,
         IIdentitiesOrchestrator orchestrator,
-        IDiscoveryMetrics? discoveryMetrics = null,
-        IMigrationMetrics? migrationMetrics = null,
+        IPlatformMetrics? PlatformMetrics = null,
         IIdentitySource? identitySource = null,
         ICheckpointingServiceFactory? checkpointingFactory = null
 #if !NET481
@@ -73,8 +71,7 @@ public sealed class IdentitiesModule : IModule
         _options = options?.Value ?? throw new ArgumentNullException(nameof(options));
         _sourceEndpointInfo = sourceEndpointInfo ?? throw new ArgumentNullException(nameof(sourceEndpointInfo));
         _orchestrator = orchestrator ?? throw new ArgumentNullException(nameof(orchestrator));
-        _discoveryMetrics = discoveryMetrics;
-        _migrationMetrics = migrationMetrics;
+        _PlatformMetrics = PlatformMetrics;
         _identitySource = identitySource;
         _checkpointingFactory = checkpointingFactory;
 #if !NET481
@@ -135,7 +132,7 @@ public sealed class IdentitiesModule : IModule
             { "job.id", context.Job.JobId },
             { "module", Name }
         };
-        _discoveryMetrics?.RecordInventoryIdentities(count, tags);
+        _PlatformMetrics?.RecordInventoryIdentities(count, tags);
 
         _logger.LogInformation("Inventoried {Module}: {Count} items", Name, count);
         if (count == 0)
@@ -184,8 +181,8 @@ public sealed class IdentitiesModule : IModule
             { "job.id", context.Job.JobId },
             { "module", Name }
         };
-        _migrationMetrics?.RecordPrepareIdentitiesResolved(report.ResolvedCount, tags);
-        _migrationMetrics?.RecordPrepareIdentitiesUnresolved(report.UnresolvedCount, tags);
+        _PlatformMetrics?.RecordPrepareIdentitiesResolved(report.ResolvedCount, tags);
+        _PlatformMetrics?.RecordPrepareIdentitiesUnresolved(report.UnresolvedCount, tags);
 
         await context.ArtefactStore.WriteAsync("Identities/prepare-report.json", JsonSerializer.Serialize(report), ct).ConfigureAwait(false);
 

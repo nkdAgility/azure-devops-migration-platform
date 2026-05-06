@@ -51,7 +51,7 @@ public sealed class DependencyAnalyserTests
     [TestMethod]
     public async Task AnalyseAsync_RecordsDependencyMetrics()
     {
-        var metrics = new Mock<IDiscoveryMetrics>(MockBehavior.Strict);
+        var metrics = new Mock<IPlatformMetrics>(MockBehavior.Strict);
         metrics.Setup(m => m.RecordDependenciesAnalyseDuration(It.IsAny<double>(), It.IsAny<MetricsTagList>())).Verifiable();
         metrics.Setup(m => m.RecordLinksFound(2, It.IsAny<MetricsTagList>())).Verifiable();
         metrics.Setup(m => m.RecordWorkItemsAnalysed(2, It.IsAny<MetricsTagList>())).Verifiable();
@@ -106,7 +106,7 @@ public sealed class DependencyAnalyserTests
 
     private static DependencyAnalyser CreateAnalyser(
         ILogger<DependencyAnalyser>? logger = null,
-        IDiscoveryMetrics? metrics = null,
+        IPlatformMetrics? metrics = null,
         IArtefactStore? artefactStore = null,
         IReadOnlyList<string>? csvRows = null)
     {

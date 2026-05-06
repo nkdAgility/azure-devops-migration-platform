@@ -10,11 +10,8 @@ namespace DevOpsMigrationPlatform.Abstractions;
 /// </summary>
 public static class WellKnownMeterNames
 {
-    /// <summary>Consolidated meter for all migration work item metrics (v2.0).</summary>
-    public const string Migration = "DevOpsMigrationPlatform.Migration";
-
-    /// <summary>Consolidated meter for all discovery metrics (inventory + dependencies).</summary>
-    public const string Discovery = "DevOpsMigrationPlatform.Discovery";
+    /// <summary>Unified meter for all agent metric instruments (inventory, analysis, export, import, validate, prepare, config).</summary>
+    public const string Agent = "DevOpsMigrationPlatform.Agent";
 
     /// <summary>Meter for job lifecycle metrics (queue depth, in-progress, total runs).</summary>
     public const string ControlPlane = "DevOpsMigrationPlatform.ControlPlane";

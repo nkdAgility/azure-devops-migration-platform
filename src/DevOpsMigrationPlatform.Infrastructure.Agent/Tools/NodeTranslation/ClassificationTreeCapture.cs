@@ -54,7 +54,7 @@ public sealed class ClassificationTreeCapture : IClassificationTreeCapture
     public async Task<int> CaptureAsync(
         IArtefactStore artefactStore,
         CancellationToken ct,
-        IMigrationMetrics? metrics = null,
+        IPlatformMetrics? metrics = null,
         string? jobId = null,
         IProgressSink? sink = null,
         string moduleName = "Nodes")

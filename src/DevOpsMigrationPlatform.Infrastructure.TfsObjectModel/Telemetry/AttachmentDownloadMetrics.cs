@@ -8,8 +8,8 @@ using DevOpsMigrationPlatform.Abstractions;
 namespace DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.Telemetry;
 
 /// <summary>
-/// Attachment download metrics emitted under the consolidated <see cref="WellKnownMeterNames.Migration"/> meter.
-/// Used by the net481 TFS subprocess where <c>IMigrationMetrics</c> (which requires <c>TagList</c>) is unavailable.
+/// Attachment download metrics emitted under the consolidated <see cref="WellKnownMeterNames.Agent"/> meter.
+/// Used by the net481 TFS subprocess where <c>IPlatformMetrics</c> (which requires <c>TagList</c>) is unavailable.
 /// </summary>
 public class AttachmentDownloadMetrics : IAttachmentDownloadMetrics
 {
@@ -19,7 +19,7 @@ public class AttachmentDownloadMetrics : IAttachmentDownloadMetrics
     private const string AttachmentFailuresName = "attachment_download_failure_total";
     private const string AttachmentDurationName = "attachment_download_duration_ms";
 
-    public const string MeterName = WellKnownMeterNames.Migration;
+    public const string MeterName = WellKnownMeterNames.Agent;
     public const string MeterVersion = "1.0";
 
     private static readonly Meter _meter = new Meter(MeterName, MeterVersion);

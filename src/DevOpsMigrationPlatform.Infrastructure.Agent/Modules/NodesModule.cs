@@ -45,8 +45,7 @@ public sealed class NodesModule : IModule
 #endif
     private readonly ICheckpointingServiceFactory? _checkpointingFactory;
     private readonly ILogger<NodesModule> _logger;
-    private readonly IDiscoveryMetrics? _discoveryMetrics;
-    private readonly IMigrationMetrics? _migrationMetrics;
+    private readonly IPlatformMetrics? _PlatformMetrics;
     private readonly NodesModuleOptions _options;
     private readonly ISourceEndpointInfo _sourceEndpointInfo;
     private readonly INodesOrchestrator _orchestrator;
@@ -64,8 +63,7 @@ public sealed class NodesModule : IModule
         IOptions<NodesModuleOptions> options,
         ISourceEndpointInfo sourceEndpointInfo,
         INodesOrchestrator orchestrator,
-        IDiscoveryMetrics? discoveryMetrics = null,
-        IMigrationMetrics? migrationMetrics = null,
+        IPlatformMetrics? PlatformMetrics = null,
         IClassificationTreeCapture? capture = null,
 #if !NET481
         ITargetEndpointInfo? targetEndpointInfo = null,
@@ -77,8 +75,7 @@ public sealed class NodesModule : IModule
         _options = options?.Value ?? throw new ArgumentNullException(nameof(options));
         _sourceEndpointInfo = sourceEndpointInfo ?? throw new ArgumentNullException(nameof(sourceEndpointInfo));
         _orchestrator = orchestrator ?? throw new ArgumentNullException(nameof(orchestrator));
-        _discoveryMetrics = discoveryMetrics;
-        _migrationMetrics = migrationMetrics;
+        _PlatformMetrics = PlatformMetrics;
         _capture = capture;
         _reader = reader;
 #if !NET481
@@ -136,7 +133,7 @@ public sealed class NodesModule : IModule
         }
         stopwatch.Stop();
 
-        _discoveryMetrics?.RecordInventoryNodes(count, new MetricsTagList { { "job.id", context.Job.JobId }, { "module", Name } });
+        _PlatformMetrics?.RecordInventoryNodes(count, new MetricsTagList { { "job.id", context.Job.JobId }, { "module", Name } });
         _logger.LogInformation("Inventoried {Module}: {Count} items in {DurationMs}ms", Name, count, stopwatch.ElapsedMilliseconds);
         if (count == 0)
             _logger.LogWarning("Zero items inventoried for {Module}", Name);
@@ -179,8 +176,8 @@ public sealed class NodesModule : IModule
         };
 
         var stopwatch = Stopwatch.StartNew();
-        _migrationMetrics?.RecordPrepareNodesResolved(report.ResolvedCount, new MetricsTagList { { "job.id", context.Job.JobId }, { "module", Name } });
-        _migrationMetrics?.RecordPrepareNodesUnresolved(report.UnresolvedCount, new MetricsTagList { { "job.id", context.Job.JobId }, { "module", Name } });
+        _PlatformMetrics?.RecordPrepareNodesResolved(report.ResolvedCount, new MetricsTagList { { "job.id", context.Job.JobId }, { "module", Name } });
+        _PlatformMetrics?.RecordPrepareNodesUnresolved(report.UnresolvedCount, new MetricsTagList { { "job.id", context.Job.JobId }, { "module", Name } });
         await context.ArtefactStore.WriteAsync("Nodes/prepare-report.json", JsonSerializer.Serialize(report), ct).ConfigureAwait(false);
         stopwatch.Stop();
 
