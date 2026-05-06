@@ -214,7 +214,7 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
             var runId = _packageState?.CurrentRunId;
             if (!string.IsNullOrEmpty(runId))
             {
-                var runPlanPath = PackagePaths.RunPlanFile(runId);
+                var runPlanPath = PackagePaths.RunPlanFile(runId!);
                 await stateStore.WriteAsync(runPlanPath, json, ct).ConfigureAwait(false);
                 _logger.LogDebug("Persisted run plan snapshot to {Path}.", runPlanPath);
             }
