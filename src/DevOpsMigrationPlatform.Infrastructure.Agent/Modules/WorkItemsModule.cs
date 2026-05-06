@@ -154,20 +154,20 @@ public sealed class WorkItemsModule : IModule
         _repoDiscoveryService = repoDiscoveryService;
     }
 
-    public async Task InventoryAsync(InventoryContext context, CancellationToken ct)
+    public async Task CaptureAsync(InventoryContext context, CancellationToken ct)
     {
         var sw = Stopwatch.StartNew();
         var project = context.Project;
         if (string.IsNullOrWhiteSpace(project))
         {
-            _logger.LogError("[WorkItems] InventoryAsync called with empty Project — executor contract violated. Skipping.");
+            _logger.LogError("[WorkItems] CaptureAsync called with empty Project — executor contract violated. Skipping.");
             return;
         }
 
         var endpoint = context.SourceEndpoint;
         if (endpoint is null)
         {
-            _logger.LogError("[WorkItems] InventoryAsync called with null SourceEndpoint — executor contract violated. Skipping.");
+            _logger.LogError("[WorkItems] CaptureAsync called with null SourceEndpoint — executor contract violated. Skipping.");
             return;
         }
 

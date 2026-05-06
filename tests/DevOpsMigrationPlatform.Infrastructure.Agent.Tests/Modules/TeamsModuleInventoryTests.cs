@@ -29,7 +29,7 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Tests.Modules;
 public sealed class TeamsModuleInventoryTests
 {
     [TestMethod]
-    public async Task InventoryAsync_EmitsInventoryTeamsActivityWithJobAndModuleTags()
+    public async Task CaptureAsync_EmitsInventoryTeamsActivityWithJobAndModuleTags()
     {
         var activities = new List<Activity>();
         using var listener = new ActivityListener
@@ -41,7 +41,7 @@ public sealed class TeamsModuleInventoryTests
         ActivitySource.AddActivityListener(listener);
 
         var module = CreateModule();
-        await module.InventoryAsync(CreateContext(), CancellationToken.None);
+        await module.CaptureAsync(CreateContext(), CancellationToken.None);
 
         var activity = activities.Single(a => a.OperationName == "inventory.teams");
         Assert.AreEqual("job-1", activity.Tags.First(t => t.Key == "job.id").Value);
@@ -49,7 +49,7 @@ public sealed class TeamsModuleInventoryTests
     }
 
     [TestMethod]
-    public async Task InventoryAsync_RecordsTeamInventoryMetrics()
+    public async Task CaptureAsync_RecordsTeamInventoryMetrics()
     {
         var metrics = new Mock<IPlatformMetrics>(MockBehavior.Strict);
         metrics.Setup(m => m.RecordInventoryTeams(
@@ -58,20 +58,20 @@ public sealed class TeamsModuleInventoryTests
             .Verifiable();
 
         var module = CreateModule(metrics: metrics.Object);
-        await module.InventoryAsync(CreateContext(), CancellationToken.None);
+        await module.CaptureAsync(CreateContext(), CancellationToken.None);
 
         metrics.Verify();
     }
 
     [TestMethod]
-    public async Task InventoryAsync_EmitsStartAndCompletionProgressWithMetrics()
+    public async Task CaptureAsync_EmitsStartAndCompletionProgressWithMetrics()
     {
         var sink = new Mock<IProgressSink>(MockBehavior.Loose);
         var events = new List<ProgressEvent>();
         sink.Setup(s => s.Emit(It.IsAny<ProgressEvent>())).Callback<ProgressEvent>(events.Add);
 
         var module = CreateModule();
-        await module.InventoryAsync(CreateContext(progressSink: sink.Object), CancellationToken.None);
+        await module.CaptureAsync(CreateContext(progressSink: sink.Object), CancellationToken.None);
 
         Assert.IsTrue(events.Any(e => e.Stage == "Inventorying"));
         Assert.IsTrue(events.Any(e => e.Stage == "Inventoried" && e.Metrics is not null));

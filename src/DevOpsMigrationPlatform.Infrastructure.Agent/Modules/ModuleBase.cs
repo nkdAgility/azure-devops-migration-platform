@@ -28,9 +28,9 @@ public abstract class ModuleBase(ILogger logger) : IModule
     public virtual bool SupportsImport => false;
     public virtual bool SupportsValidate => false;
 
-    public virtual Task InventoryAsync(InventoryContext context, CancellationToken ct)
+    public virtual Task CaptureAsync(InventoryContext context, CancellationToken ct)
     {
-        _logger.LogWarning("Inventory phase is not supported by module {Module}.", Name);
+        _logger.LogWarning("Capture phase is not supported by module {Module}.", Name);
         return Task.CompletedTask;
     }
 

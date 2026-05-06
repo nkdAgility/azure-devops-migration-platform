@@ -63,7 +63,7 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
 
     public async Task<bool> ExecuteTasksAsync(
         JobTaskList plan,
-        IReadOnlyDictionary<string, IModule> modulesByName,
+        IReadOnlyDictionary<string, ICapture> captureHandlersByName,
         IReadOnlyDictionary<string, IAnalyser> analysersByName,
         InventoryContext? baseInventoryContext,
         ExportContext? baseExportContext,
@@ -103,7 +103,7 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
                 tierIndex, tier.Count, string.Join(", ", tier.Select(t => t.Id)));
 
             var result = await ExecuteTierAsync(
-                tier, modulesByName, analysersByName, baseInventoryContext,
+                tier, captureHandlersByName, analysersByName, baseInventoryContext,
                 baseExportContext, importContext, endpointsByUrl, stateStore, plan, ct)
                 .ConfigureAwait(false);
 
@@ -137,9 +137,9 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
                                 plan = plan with { Tasks = taskList.AsReadOnly() };
                                 await PersistPlanAsync(plan, stateStore, ct).ConfigureAwait(false);
 
-                                _progressSink?.Emit(new ProgressEvent
+                                 _progressSink?.Emit(new ProgressEvent
                                 {
-                                    Module = GetModuleName(task.Id, modulesByName.Keys),
+                                    Module = GetModuleName(task.Id, captureHandlersByName.Keys),
                                     Stage = $"{task.TaskKind}.Skipped",
                                     Message = $"Skipped due to failed dependency: {matchedDep}",
                                     Timestamp = DateTimeOffset.UtcNow,
@@ -211,7 +211,7 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
                 tierIndex, tier.Count, string.Join(", ", tier.Select(t => t.Id)));
 
             var result = await ExecuteTierAsync(
-                tier, modulesByName, analysersByName: null, baseInventoryContext: null,
+                tier, modulesByName.ToDictionary(kvp => kvp.Key, kvp => (ICapture)kvp.Value, StringComparer.OrdinalIgnoreCase), analysersByName: null, baseInventoryContext: null,
                 exportContext, importContext: null, endpointsByUrl: null, stateStore, plan, ct)
                 .ConfigureAwait(false);
 
@@ -364,7 +364,7 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
                 tierIndex, tier.Count, string.Join(", ", tier.Select(t => t.Id)));
 
             var failed = await ExecuteTierAsync(
-                tier, modulesByName, analysersByName: null, baseInventoryContext: null,
+                tier, modulesByName.ToDictionary(kvp => kvp.Key, kvp => (ICapture)kvp.Value, StringComparer.OrdinalIgnoreCase), analysersByName: null, baseInventoryContext: null,
                 exportContext: null, importContext, endpointsByUrl: null, stateStore, plan, ct)
                 .ConfigureAwait(false);
 
@@ -441,7 +441,7 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
 
     private async Task<TierExecutionResult> ExecuteTierAsync(
         IReadOnlyList<JobTask> tier,
-        IReadOnlyDictionary<string, IModule> modulesByName,
+        IReadOnlyDictionary<string, ICapture> captureHandlersByName,
         IReadOnlyDictionary<string, IAnalyser>? analysersByName,
         InventoryContext? baseInventoryContext,
         ExportContext? exportContext,
@@ -465,10 +465,11 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
                 return;
             }
 
-            // Resolve the handler: Analyse tasks go to IAnalyser; Capture tasks check IProjectAnalyser first then IModule; all others go to IModule.
+            // Resolve the handler: Analyse tasks go to IAnalyser; Capture tasks go to ICapture; all others go to IModule (cast from ICapture).
             string handlerName;
             IModule? module = null;
             IAnalyser? analyserForTask = null;
+            ICapture? captureHandler = null;
 
             if (task.TaskKind == TaskKind.Analyse)
             {
@@ -481,35 +482,28 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
                     return;
                 }
             }
-            else if (task.TaskKind == TaskKind.Capture && analysersByName is not null)
+            else if (task.TaskKind == TaskKind.Capture)
             {
-                // Capture tasks may be handled by an IProjectAnalyser (e.g. capture.dependencies.*)
-                // if no module with that name is registered.
-                handlerName = GetModuleName(task.Id, analysersByName.Keys.Concat(modulesByName.Keys));
-                if (analysersByName.TryGetValue(handlerName, out var candidateAnalyser)
-                    && candidateAnalyser is IProjectAnalyser
-                    && !modulesByName.ContainsKey(handlerName))
-                {
-                    analyserForTask = candidateAnalyser;
-                }
-                else if (!modulesByName.TryGetValue(handlerName, out module))
+                handlerName = GetModuleName(task.Id, captureHandlersByName.Keys);
+                if (!captureHandlersByName.TryGetValue(handlerName, out captureHandler))
                 {
                     _logger.LogError(
-                        "Task {TaskId} references module or project analyser '{Handler}', but neither is registered. Skipping.",
+                        "Task {TaskId} references capture handler '{HandlerName}', but it is not registered. Skipping.",
                         task.Id, handlerName);
                     return;
                 }
             }
             else
             {
-                handlerName = GetModuleName(task.Id, modulesByName.Keys);
-                if (!modulesByName.TryGetValue(handlerName, out module))
+                handlerName = GetModuleName(task.Id, captureHandlersByName.Keys);
+                if (!captureHandlersByName.TryGetValue(handlerName, out var handler) || handler is not IModule m)
                 {
                     _logger.LogError(
                         "Task {TaskId} references module '{Module}', but that module is not registered. Skipping.",
                         task.Id, handlerName);
                     return;
                 }
+                module = m;
             }
 
             // Transition to Running.
@@ -564,28 +558,6 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
 
                 if (analyserForTask is not null)
                 {
-                    // IProjectAnalyser Capture task: build scoped InventoryContext and call CaptureProjectAsync.
-                    if (task.TaskKind == TaskKind.Capture && analyserForTask is IProjectAnalyser projectAnalyser)
-                    {
-                        if (baseInventoryContext is null)
-                            throw new InvalidOperationException($"Capture task {task.Id} (IProjectAnalyser) requires a base InventoryContext.");
-
-                        var orgUrl = task.OrganisationUrl;
-                        var endpoint = (orgUrl is { Length: > 0 }
-                            && endpointsByUrl?.TryGetValue(orgUrl, out var ep) == true)
-                            ? ep
-                            : baseInventoryContext.SourceEndpoint;
-
-                        var scopedCtx = baseInventoryContext with
-                        {
-                            Project = task.ProjectName ?? string.Empty,
-                            SourceEndpoint = endpoint
-                        };
-
-                        await projectAnalyser.CaptureProjectAsync(scopedCtx, ct).ConfigureAwait(false);
-                    }
-                    else
-                    {
                     // Analyse task: build context from whichever base context is available.
                     var job = (baseInventoryContext?.Job ?? exportContext?.Job ?? importContext?.Job)
                         ?? throw new InvalidOperationException("No job context available to build AnalyseContext.");
@@ -617,63 +589,62 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
                             };
 
                     await analyserForTask.AnalyseAsync(analyseContext, ct).ConfigureAwait(false);
-                    } // end else (Analyse task)
+                }
+                else if (captureHandler is not null)
+                {
+                    // Capture task: dispatch to the unified ICapture handler.
+                    if (baseInventoryContext is null)
+                        throw new InvalidOperationException($"Capture task {task.Id} requires a base InventoryContext.");
+
+                    var orgUrl = task.OrganisationUrl;
+                    var endpoint = (orgUrl is { Length: > 0 }
+                        && endpointsByUrl?.TryGetValue(orgUrl, out var ep) == true)
+                        ? ep
+                        : baseInventoryContext.SourceEndpoint;
+
+                    var scopedCtx = baseInventoryContext with
+                    {
+                        Project = task.ProjectName ?? string.Empty,
+                        SourceEndpoint = endpoint
+                    };
+
+                    // Apply per-org config overlay so IJobConfiguration.PackageConfig
+                    // carries the correct Source.Type/Url/Auth for this org.
+                    // Per-org semaphore: same-org tasks are serialised; different-org
+                    // tasks run concurrently.
+                    if (_jobConfig is not null && endpoint is not null)
+                    {
+                        var orgKey = orgUrl ?? string.Empty;
+                        var orgSem = _orgConfigLocks.GetOrAdd(orgKey, _ => new SemaphoreSlim(1, 1));
+                        await orgSem.WaitAsync(ct).ConfigureAwait(false);
+                        try
+                        {
+                            var prev = _jobConfig.PackageConfig;
+                            _jobConfig.PackageConfig = BuildCaptureConfigOverlay(prev, endpoint);
+                            try
+                            {
+                                await captureHandler.CaptureAsync(scopedCtx, ct).ConfigureAwait(false);
+                            }
+                            finally
+                            {
+                                _jobConfig.PackageConfig = prev;
+                            }
+                        }
+                        finally
+                        {
+                            orgSem.Release();
+                        }
+                    }
+                    else
+                    {
+                        await captureHandler.CaptureAsync(scopedCtx, ct).ConfigureAwait(false);
+                    }
                 }
                 else
                 {
-                    // Module task: dispatch on TaskKind, scoping context per task.
+                    // Module task (Export, Import, etc.): dispatch on TaskKind.
                     switch (task.TaskKind)
                     {
-                        case TaskKind.Capture:
-                            {
-                                if (baseInventoryContext is null)
-                                    throw new InvalidOperationException($"Capture task {task.Id} requires a base InventoryContext.");
-
-                                var orgUrl = task.OrganisationUrl;
-                                var endpoint = (orgUrl is { Length: > 0 }
-                                    && endpointsByUrl?.TryGetValue(orgUrl, out var ep) == true)
-                                    ? ep
-                                    : baseInventoryContext.SourceEndpoint;
-
-                                var scopedCtx = baseInventoryContext with
-                                {
-                                    Project = task.ProjectName ?? string.Empty,
-                                    SourceEndpoint = endpoint
-                                };
-
-                                // Apply per-org config overlay so IJobConfiguration.PackageConfig
-                                // carries the correct Source.Type/Url/Auth for this org.
-                                // Per-org semaphore: same-org tasks are serialised; different-org
-                                // tasks run concurrently.
-                                if (_jobConfig is not null && endpoint is not null)
-                                {
-                                    var orgKey = orgUrl ?? string.Empty;
-                                    var orgSem = _orgConfigLocks.GetOrAdd(orgKey, _ => new SemaphoreSlim(1, 1));
-                                    await orgSem.WaitAsync(ct).ConfigureAwait(false);
-                                    try
-                                    {
-                                        var prev = _jobConfig.PackageConfig;
-                                        _jobConfig.PackageConfig = BuildCaptureConfigOverlay(prev, endpoint);
-                                        try
-                                        {
-                                            await module!.InventoryAsync(scopedCtx, ct).ConfigureAwait(false);
-                                        }
-                                        finally
-                                        {
-                                            _jobConfig.PackageConfig = prev;
-                                        }
-                                    }
-                                    finally
-                                    {
-                                        orgSem.Release();
-                                    }
-                                }
-                                else
-                                {
-                                    await module!.InventoryAsync(scopedCtx, ct).ConfigureAwait(false);
-                                }
-                                break;
-                            }
                         case TaskKind.Export:
                             {
                                 if (exportContext is null)

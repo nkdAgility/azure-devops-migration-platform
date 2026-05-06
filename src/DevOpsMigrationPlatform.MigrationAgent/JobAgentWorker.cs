@@ -465,12 +465,12 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
                     Project = string.Empty // set per-task by executor
                 };
 
-                var inventoryModuleMap = jobModules.ToDictionary(m => m.Name, m => (IModule)m, StringComparer.OrdinalIgnoreCase);
+                var captureHandlersByName = BuildCaptureHandlers(jobModules, jobScope.ServiceProvider);
                 var analysersByName = jobScope.ServiceProvider.GetServices<IAnalyser>()
                     .ToDictionary(a => a.Name, StringComparer.OrdinalIgnoreCase);
 
                 var inventoryOk = await _planExecutor.ExecuteTasksAsync(
-                    executionPlan, inventoryModuleMap, analysersByName,
+                    executionPlan, captureHandlersByName, analysersByName,
                     baseInventoryContext, baseExportContext: null, importContext: null,
                     endpointsByUrl, stateStore, ct).ConfigureAwait(false);
 
@@ -707,12 +707,12 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
                 };
 
                 var depAnalysersByName = analysersToRun.ToDictionary(a => a.Name, StringComparer.OrdinalIgnoreCase);
-                var depModuleMap = modulesToRun.ToDictionary(m => m.Name, m => (IModule)m, StringComparer.OrdinalIgnoreCase);
+                var captureHandlersByName = BuildCaptureHandlers(modulesToRun, jobScope.ServiceProvider);
 
                 try
                 {
                     var depsOk = await _planExecutor.ExecuteTasksAsync(
-                        discoveryPlan, modulesByName: depModuleMap, depAnalysersByName,
+                        discoveryPlan, captureHandlersByName, depAnalysersByName,
                         baseInventoryContext, baseExportContext: null, importContext: null,
                         endpointsByUrl, stateStore, ct).ConfigureAwait(false);
                     failed = !depsOk;
@@ -755,6 +755,43 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
             overlay["MigrationPlatform:Source:ApiVersion"] = endpoint.ApiVersion;
 
         return builder.AddInMemoryCollection(overlay).Build();
+    }
+
+    /// <summary>
+    /// Builds the unified <c>captureHandlersByName</c> dictionary used by
+    /// <see cref="IJobPlanExecutor.ExecuteTasksAsync"/> to dispatch <c>capture.*</c> tasks.
+    /// <para>
+    /// Step 1: Adds all <see cref="IModule"/> instances where <see cref="IModule.SupportsInventory"/> is <c>true</c>,
+    /// cast to <see cref="ICapture"/>.
+    /// </para>
+    /// <para>
+    /// Step 2: Unions with all pure <see cref="ICapture"/> registrations from DI (e.g. <c>DependencyCapture</c>),
+    /// de-duplicating by <see cref="ICapture.Name"/> using <see cref="StringComparer.OrdinalIgnoreCase"/>.
+    /// A module already registered in step 1 takes precedence over a same-named pure capture.
+    /// </para>
+    /// </summary>
+    private static IReadOnlyDictionary<string, ICapture> BuildCaptureHandlers(
+        IEnumerable<IModule> modules,
+        IServiceProvider serviceProvider)
+    {
+        var handlers = new Dictionary<string, ICapture>(StringComparer.OrdinalIgnoreCase);
+
+        // Step 1: Add all IModule instances where SupportsInventory = true.
+        foreach (var module in modules.Where(m => m.SupportsInventory))
+        {
+            handlers[module.Name] = module;
+        }
+
+        // Step 2: Union with pure ICapture registrations, de-duplicating by name.
+        foreach (var capture in serviceProvider.GetServices<ICapture>())
+        {
+            if (!handlers.ContainsKey(capture.Name))
+            {
+                handlers[capture.Name] = capture;
+            }
+        }
+
+        return handlers;
     }
 
     private sealed class DiscoveryConfigWrapper

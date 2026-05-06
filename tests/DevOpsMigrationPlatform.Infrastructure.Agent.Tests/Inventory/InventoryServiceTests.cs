@@ -148,7 +148,7 @@ public class InventoryServiceTests
     // ── T019: Basic — single project with known counts ────────────────────────
 
     [TestMethod]
-    public async Task RunInventoryAsync_SingleProject_YieldsProgressAndFinalEvent()
+    public async Task RunCaptureAsync_SingleProject_YieldsProgressAndFinalEvent()
     {
         // Arrange: discovery yields 2 events (progress + final)
         var discoveryMock = BuildDiscoveryMock(workItemCount: 5, revisionCount: 25);
@@ -169,7 +169,7 @@ public class InventoryServiceTests
     // ── T019: Zero-item project ───────────────────────────────────────────────
 
     [TestMethod]
-    public async Task RunInventoryAsync_EmptyProject_YieldsOnlyFinalEvent()
+    public async Task RunCaptureAsync_EmptyProject_YieldsOnlyFinalEvent()
     {
         // Arrange: discovery yields a single final event with zero counts
         var discoveryMock = new Mock<IWorkItemDiscoveryService>(MockBehavior.Strict);
@@ -254,7 +254,7 @@ public class InventoryServiceTests
     // ── T022: Empty window yields IsComplete = true immediately ───────────────
 
     [TestMethod]
-    public async Task RunInventoryAsync_Events_PopulateUrlFromEndpointConfiguration()
+    public async Task RunCaptureAsync_Events_PopulateUrlFromEndpointConfiguration()
     {
         // The URL field on every emitted event must be the resolved organisation URL
         // from the configuration — consumers use it to correlate events back to the
@@ -288,7 +288,7 @@ public class InventoryServiceTests
     // ── T024: Error event on WIQL failure ────────────────────────────────────
 
     [TestMethod]
-    public async Task RunInventoryAsync_DiscoveryReturnsError_FinalEventCarriesError()
+    public async Task RunCaptureAsync_DiscoveryReturnsError_FinalEventCarriesError()
     {
         // When DiscoverWorkItemsAsync yields a final summary that carries an error
         // (e.g. a WIQL failure mid-scan), InventoryService must propagate that error
@@ -363,7 +363,7 @@ public class InventoryServiceTests
     // ── Repo discovery ────────────────────────────────────────────────────────
 
     [TestMethod]
-    public async Task RunInventoryAsync_FinalEvent_IncludesRepoCount()
+    public async Task RunCaptureAsync_FinalEvent_IncludesRepoCount()
     {
         // Arrange: 3 repos in the project
         var discoveryMock = BuildDiscoveryMock(workItemCount: 5, revisionCount: 25);
@@ -380,7 +380,7 @@ public class InventoryServiceTests
     }
 
     [TestMethod]
-    public async Task RunInventoryAsync_IntermediateEvents_HaveZeroRepoCount()
+    public async Task RunCaptureAsync_IntermediateEvents_HaveZeroRepoCount()
     {
         // Arrange: 2 repos, but intermediate events should show 0
         var discoveryMock = BuildDiscoveryMock(workItemCount: 5, revisionCount: 25);
@@ -398,7 +398,7 @@ public class InventoryServiceTests
     }
 
     [TestMethod]
-    public async Task RunInventoryAsync_ProjectWithNoRepos_ReportsZero()
+    public async Task RunCaptureAsync_ProjectWithNoRepos_ReportsZero()
     {
         // Arrange: 0 repos
         var discoveryMock = BuildDiscoveryMock(workItemCount: 3, revisionCount: 9);
@@ -614,7 +614,7 @@ public class InventoryServiceTests
     // ── Resume: completed project keys are skipped ────────────────────────────
 
     [TestMethod]
-    public async Task RunInventoryAsync_CompletedProjectKeys_SkipsThoseProjects()
+    public async Task RunCaptureAsync_CompletedProjectKeys_SkipsThoseProjects()
     {
         // Arrange: two projects in the same org
         var opts = new MigrationPlatformOptions
@@ -673,7 +673,7 @@ public class InventoryServiceTests
     }
 
     [TestMethod]
-    public async Task RunInventoryAsync_NullCompletedKeys_ProcessesAllProjects()
+    public async Task RunCaptureAsync_NullCompletedKeys_ProcessesAllProjects()
     {
         // Arrange
         var discoveryMock = BuildDiscoveryMock(workItemCount: 5, revisionCount: 25);
@@ -689,7 +689,7 @@ public class InventoryServiceTests
     }
 
     [TestMethod]
-    public async Task RunInventoryAsync_AllConnectorTypes_ReturnAtLeastTwoItems()
+    public async Task RunCaptureAsync_AllConnectorTypes_ReturnAtLeastTwoItems()
     {
         var connectorCases = new[]
         {
@@ -733,7 +733,7 @@ public class InventoryServiceTests
     }
 
     [TestMethod]
-    public async Task RunInventoryAsync_StreamsProgressWithoutMaterialisingAllResults()
+    public async Task RunCaptureAsync_StreamsProgressWithoutMaterialisingAllResults()
     {
         var firstItemConsumed = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
         var discoveryMock = new Mock<IWorkItemDiscoveryService>(MockBehavior.Strict);

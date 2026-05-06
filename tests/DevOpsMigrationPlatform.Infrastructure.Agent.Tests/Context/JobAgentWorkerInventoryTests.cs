@@ -49,7 +49,7 @@ public sealed class JobAgentWorkerInventoryTests
             new OrganisationEndpoint { Type = "Simulated", ResolvedUrl = "https://org2.example" }
         })
         {
-            await module.InventoryAsync(baseContext with { SourceEndpoint = endpoint }, CancellationToken.None);
+            await module.CaptureAsync(baseContext with { SourceEndpoint = endpoint }, CancellationToken.None);
         }
 
         PlatformMetrics.Verify(
@@ -151,7 +151,7 @@ public sealed class JobAgentWorkerInventoryTests
         public Task ImportAsync(ImportContext context, CancellationToken ct) => Task.CompletedTask;
         public Task ValidateAsync(ValidationContext context, CancellationToken ct) => Task.CompletedTask;
 
-        public Task InventoryAsync(InventoryContext context, CancellationToken ct)
+        public Task CaptureAsync(InventoryContext context, CancellationToken ct)
         {
             PlatformMetrics.RecordInventoryWorkItems(
                 1,
@@ -182,7 +182,7 @@ public sealed class JobAgentWorkerInventoryTests
         public Task ValidateAsync(ValidationContext context, CancellationToken ct) => Task.CompletedTask;
         public Task PrepareAsync(PrepareContext context, CancellationToken ct) => Task.CompletedTask;
 
-        public Task InventoryAsync(InventoryContext context, CancellationToken ct)
+        public Task CaptureAsync(InventoryContext context, CancellationToken ct)
         {
             Calls++;
             if (Calls == throwOnCall)
@@ -213,7 +213,7 @@ public sealed class JobAgentWorkerInventoryTests
             {
                 try
                 {
-                    await module.InventoryAsync(context with { SourceEndpoint = endpoint }, CancellationToken.None);
+                    await module.CaptureAsync(context with { SourceEndpoint = endpoint }, CancellationToken.None);
                     cumulativeInventoryOperations++;
                 }
                 catch (System.Exception ex)

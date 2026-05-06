@@ -21,7 +21,7 @@ using Microsoft.Extensions.Logging;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Agent.Analysis;
 
-public sealed class DependencyAnalyser : IOrganisationsAnalyser, IProjectAnalyser
+public sealed class DependencyAnalyser : IOrganisationsAnalyser
 {
     private static readonly ActivitySource ActivitySource = new(WellKnownActivitySourceNames.Discovery);
     private readonly IDependencyDiscoveryServiceFactory _dependencyFactory;
@@ -170,23 +170,6 @@ public sealed class DependencyAnalyser : IOrganisationsAnalyser, IProjectAnalyse
                 }
             }
         });
-    }
-
-    /// <inheritdoc />
-    public async Task CaptureProjectAsync(InventoryContext context, CancellationToken ct)
-    {
-        using var activity = ActivitySource.StartActivity("capture.dependencies.project");
-        activity?.SetTag("job.id", context.Job.JobId);
-        activity?.SetTag("organisation.url", context.SourceEndpoint?.ResolvedUrl);
-        activity?.SetTag("project.name", context.Project);
-
-        var dependencyService = _dependencyFactory.CreateForProject(
-            context.Organisations,
-            context.SourceEndpoint?.ResolvedUrl ?? string.Empty,
-            context.Project,
-            context.Policies);
-
-        await _orchestrator.CaptureProjectAsync(dependencyService, context, context.Policies, ct).ConfigureAwait(false);
     }
 
     private static int CountRows(string? csv)

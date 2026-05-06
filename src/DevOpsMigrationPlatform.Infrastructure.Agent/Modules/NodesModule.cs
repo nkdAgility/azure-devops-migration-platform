@@ -84,7 +84,7 @@ public sealed class NodesModule : IModule
         _checkpointingFactory = checkpointingFactory;
     }
 
-    public async Task InventoryAsync(InventoryContext context, CancellationToken ct)
+    public async Task CaptureAsync(InventoryContext context, CancellationToken ct)
     {
         using var activity = DiscoveryActivity.StartActivity("inventory.nodes");
         activity?.SetTag("job.id", context.Job.JobId);
@@ -94,7 +94,7 @@ public sealed class NodesModule : IModule
 
         if (string.IsNullOrWhiteSpace(context.Project))
         {
-            _logger.LogError("[Nodes] InventoryAsync called with empty Project — executor contract violated. Skipping.");
+            _logger.LogError("[Nodes] CaptureAsync called with empty Project — executor contract violated. Skipping.");
             return;
         }
 

@@ -15,12 +15,13 @@ namespace DevOpsMigrationPlatform.Abstractions.Agent.Modules;
 /// Contract for a migration module. Modules are the only extension point for
 /// adding new capabilities to the migration platform.
 /// See docs/modules.md for the full module architecture.
+/// <para>
+/// All modules are also capture handlers via <see cref="ICapture"/>.
+/// <see cref="ICapture.CaptureAsync"/> replaces the former <c>InventoryAsync</c> method.
+/// </para>
 /// </summary>
-public interface IModule
+public interface IModule : ICapture
 {
-    /// <summary>Unique module name, e.g. "WorkItems". Must be unique across all registered modules.</summary>
-    string Name { get; }
-
     /// <summary>
     /// Modules this one depends on, with phase-specific applicability.
     /// The orchestrator performs a topological sort per phase before execution;
@@ -39,7 +40,9 @@ public interface IModule
     bool SupportsExport { get; }
 
     /// <summary>
-    /// Whether this module participates in the Inventory phase.
+    /// Whether this module participates in the Inventory/Capture phase.
+    /// Modules that return <c>true</c> are included in the <c>captureHandlersByName</c>
+    /// dictionary assembled by <c>JobAgentWorker.BuildCaptureHandlers</c>.
     /// </summary>
     bool SupportsInventory { get; }
 
@@ -60,9 +63,6 @@ public interface IModule
     /// Modules that return <c>false</c> are excluded from Validate-phase task plans.
     /// </summary>
     bool SupportsValidate { get; }
-
-    /// <summary>Inventory data from the source system into module-scoped package artefacts.</summary>
-    Task InventoryAsync(InventoryContext context, CancellationToken ct);
 
     /// <summary>Export data from the source system into the package via IArtefactStore.</summary>
     Task ExportAsync(ExportContext context, CancellationToken ct);

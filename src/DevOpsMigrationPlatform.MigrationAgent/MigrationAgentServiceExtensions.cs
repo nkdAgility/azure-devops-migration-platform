@@ -115,6 +115,7 @@ public static class MigrationAgentServiceExtensions
         builder.Services.AddInventoryOrchestratorServices();
         builder.Services.AddInventoryAnalyserServices();
         builder.Services.AddDependencyAnalyserServices();
+        builder.Services.AddDependencyCapture();
 
         // Unified worker — polls /agents/lease and dispatches to migration or discovery execution.
         builder.Services.AddHostedService<JobAgentWorker>();

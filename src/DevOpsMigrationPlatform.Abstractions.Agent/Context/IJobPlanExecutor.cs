@@ -35,7 +35,9 @@ public interface IJobPlanExecutor
     /// Returns <c>true</c> if all executed tasks succeeded; <c>false</c> if any failed.
     /// </summary>
     /// <param name="plan">The full execution plan.</param>
-    /// <param name="modulesByName">Module instances keyed by <see cref="IModule.Name"/> (case-insensitive).</param>
+    /// <param name="captureHandlersByName">Capture handler instances keyed by <see cref="ICapture.Name"/> (case-insensitive).
+    /// Includes all <see cref="IModule"/> instances where <see cref="IModule.SupportsInventory"/> is true,
+    /// plus pure <see cref="ICapture"/> registrations (e.g. <c>DependencyCapture</c>).</param>
     /// <param name="analysersByName">Analyser instances keyed by <see cref="IAnalyser.Name"/> (case-insensitive).</param>
     /// <param name="baseInventoryContext">Base context for <see cref="TaskKind.Capture"/> tasks. The executor scopes
     /// <c>Project</c> and <c>SourceEndpoint</c> per task from <paramref name="endpointsByUrl"/>.</param>
@@ -47,7 +49,7 @@ public interface IJobPlanExecutor
     /// <param name="ct">Cancellation token propagated to all running tasks.</param>
     Task<bool> ExecuteTasksAsync(
         JobTaskList plan,
-        IReadOnlyDictionary<string, IModule> modulesByName,
+        IReadOnlyDictionary<string, ICapture> captureHandlersByName,
         IReadOnlyDictionary<string, IAnalyser> analysersByName,
         InventoryContext? baseInventoryContext,
         ExportContext? baseExportContext,
