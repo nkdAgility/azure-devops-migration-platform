@@ -47,15 +47,19 @@ public sealed class ReferencedPathTracker : IReferencedPathTracker
     /// <summary>Loads existing artifact (for resume). Call once before discovery begins.</summary>
     public async Task InitializeAsync(IArtefactStore artefactStore, CancellationToken ct)
     {
-        var json = await artefactStore.ReadAsync(ArtifactPath, ct).ConfigureAwait(false);
-        if (json is null) return;
-
-        var existing = JsonSerializer.Deserialize<ReferencedPathsArtifact>(json, s_jsonOptions);
-        if (existing is null) return;
-
+        // Acquire the lock BEFORE reading: PersistAsync opens the file with FileShare.None
+        // (via File.WriteAllTextAsync on .NET 6+), so a concurrent read without the lock
+        // causes a sharing-violation IOException.  The read must be inside the same lock
+        // region that guards the write to prevent that race.
         await _lock.WaitAsync(ct).ConfigureAwait(false);
         try
         {
+            var json = await artefactStore.ReadAsync(ArtifactPath, ct).ConfigureAwait(false);
+            if (json is null) return;
+
+            var existing = JsonSerializer.Deserialize<ReferencedPathsArtifact>(json, s_jsonOptions);
+            if (existing is null) return;
+
             foreach (var p in existing.AreaPaths)
                 _areaPaths.Add(p);
             foreach (var p in existing.IterationPaths)
