@@ -125,7 +125,7 @@ ActivitySource: `WellKnownActivitySourceNames.Discovery` (`DevOpsMigrationPlatfo
 
 > Debug and Trace levels are disabled by default.
 
-> **Data classification**: `org` and `project` values are system identifiers (URLs and project names), not end-user personal data. They may appear in logs. Raw work item field values MUST NOT appear in any log event.
+> **Data classification**: `org` (URL), `project` (name), and attachment/output paths are customer-identifiable data per coding-standards.md O-3. All log fields containing `{Org}`, `{Project}`, or `{OutputPath}` MUST use `DataClassification.Customer` scope. Span tags `org.url` and `project.name` MUST carry `DataClassification.Customer` and MUST NOT be forwarded to Application Insights. Raw work item field values MUST NOT appear in any log event.
 
 ### Correlation
 
