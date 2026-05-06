@@ -7,8 +7,10 @@ description: Analyse repository documentation and propose restructuring, deepeni
 
 Surface documentation architecture friction and propose **documentation deepening opportunities**. The aim is to make the human documentation more valuable while keeping `.agents/context` and `.agents/guardrails` small, current, and useful for agent work.
 
-This skill covers only:
+This skill covers:
 
+- `agents.md`
+- `.github/copilot-instructions.md`
 - `.agents/guardrails`
 - `.agents/context`
 - `docs`
@@ -72,12 +74,14 @@ Key principles:
 
 Before proposing changes, inspect the current repository documentation in this order:
 
-1. `.agents/guardrails/README.md`, if present.
-2. `.agents/context/README.md`, if present.
-3. `docs/README.md`, if present.
-4. `docs/adr/README.md` and relevant ADRs, if present.
-5. Documentation files directly related to the requested area.
-6. Any referenced context or guardrail files that claim authority over the requested area.
+1. `agents.md` — mandatory pre-flight list and entry point for all agents.
+2. `.github/copilot-instructions.md` — Copilot-specific pre-flight; must mirror `agents.md`.
+3. `.agents/guardrails/README.md`, if present.
+4. `.agents/context/README.md`, if present.
+5. `docs/README.md`, if present.
+6. `docs/adr/README.md` and relevant ADRs, if present.
+7. Documentation files directly related to the requested area.
+8. Any referenced context or guardrail files that claim authority over the requested area.
 
 If the user provides specific files, inspect them before responding. Do not infer their contents.
 
@@ -99,6 +103,9 @@ Record:
 - where human guides contain agent-only constraints
 - where docs refer to missing or renamed files
 - where docs contradict ADRs, context, or guardrails
+- where `agents.md` or `copilot-instructions.md` contains inline rules that belong in a guardrail file
+- where `agents.md` or `copilot-instructions.md` repeats content already in a guardrail — verbatim duplication is a token waste
+- where `agents.md` and `copilot-instructions.md` have diverged from each other
 
 Use [DOCUMENTATION-MAP.md](DOCUMENTATION-MAP.md) as the target model, but do not force the target model blindly. Current product reality wins over an ideal tree.
 
@@ -122,6 +129,8 @@ A good opportunity usually does one or more of these:
 
 - moves operator explanation out of `.agents/context`
 - moves mandatory rules out of `/docs` into `.agents/guardrails`
+- moves inline rules out of `agents.md` or `copilot-instructions.md` into the appropriate guardrail file, replacing them with a reference
+- removes verbatim duplication between `agents.md` and a guardrail by keeping only the reference in `agents.md`
 - compresses long agent context into short concept summaries
 - splits mixed-audience docs into operator, advanced operator, and contributor material
 - creates a missing guide where users need workflow-level help
@@ -163,6 +172,17 @@ When implementing a selected candidate:
 8. Update indexes and related-document sections.
 9. Record open questions explicitly.
 10. Report what changed and why.
+
+#### Mandatory sync after any guardrail or context change
+
+Whenever a guardrail file is added, removed, or renamed — or a context file used in the agent pre-flight is added, removed, or renamed — you **must** update both of the following files in the same change:
+
+- **`agents.md`** — the mandatory pre-flight read list under `## 🔒 MANDATORY: Guardrails Validation`
+- **`.github/copilot-instructions.md`** — the matching pre-flight list injected into every Copilot session
+
+Both files must list exactly the same guardrail and context paths. If they diverge, agents in different runtimes operate under different constraints.
+
+Reject any restructuring change that adds or removes a guardrail or context file without updating both files atomically.
 
 ### 6. ADR and challenge protocol
 

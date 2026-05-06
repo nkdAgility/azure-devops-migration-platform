@@ -4,6 +4,45 @@ Use this file to keep agent-facing documentation small while allowing human docu
 
 These are guidance limits, not hard line-count rules. Break them only when safety or correctness requires it.
 
+## `agents.md` and `.github/copilot-instructions.md`
+
+These are **entry-point files**, not rule files. Every agent session reads them first.
+
+Token discipline is critical: every line in these files is read unconditionally, so bloat here costs tokens on every single task regardless of relevance.
+
+Target size: under 300 lines each.
+
+Maximum preferred size: 400 lines.
+
+These files should contain:
+
+- mandatory pre-flight read list (guardrail and context file paths only — no inline rules)
+- pointers to guardrail files
+- entry-point navigation for agents
+- the challenge protocol (brief, link to detail)
+- reject trigger summary table (brief — do not expand it)
+
+These files must not contain:
+
+- inline rules that already exist in a guardrail file
+- verbatim copies of guardrail reject conditions
+- tutorials, operator guidance, or contributor walkthroughs
+- long-form examples
+- content that changes frequently (keep stable; volatile content belongs in guardrails)
+
+When a rule in `agents.md` or `copilot-instructions.md` is also present in a guardrail:
+
+1. Keep only the guardrail version.
+2. Replace the inline text in `agents.md` / `copilot-instructions.md` with a one-line reference: `see <guardrail-file>`.
+3. Never delete the rule entirely — move it to the guardrail first, then remove from the entry-point file.
+
+When a rule exists only in `agents.md` or `copilot-instructions.md` and is enforceable:
+
+1. Move it to the appropriate guardrail file.
+2. Replace the inline text with a reference.
+
+Both files must always list the same guardrail and context paths. If they diverge, agents in different runtimes operate under different constraints.
+
 ## `.agents/guardrails`
 
 Target size per file: 300 to 900 words.

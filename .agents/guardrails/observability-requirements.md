@@ -48,59 +48,15 @@ Operations that produce items must emit `ProgressEvent` via `IProgressSink`:
 
 ## O-5 — Per-Batch Progress Callbacks on Fetch/Discovery Infrastructure
 
-Every caller of `IWorkItemFetchService.FetchAsync` and `IWorkItemDiscoveryService.DiscoverWorkItemsAsync` / `CountWorkItemsAsync` **must** wire a per-batch callback so that progress is emitted without manual heartbeat loops.
+Every caller of `IWorkItemFetchService.FetchAsync` must set `WorkItemFetchScope.Progress` to a non-null `IProgress<int>` wired to `IProgressSink.Emit`.
 
-### For `IWorkItemFetchService.FetchAsync`
+Every caller of `IWorkItemDiscoveryService.DiscoverWorkItemsAsync` or `CountWorkItemsAsync` must pass a non-null `progress` argument wired to `IProgressSink.Emit`.
 
-Set `WorkItemFetchScope.Progress` to a non-null `IProgress<int>` that calls `sink.Emit(new ProgressEvent {...})`:
+Passing `null` is only permitted for: `InventoryService` (already emits per-window events), `CatalogService` (no sink injected), `TfsJobAgentWorker` (counts come from the subprocess stream), and unit/integration tests. All other callers must not pass `null` without a documented rationale in an inline comment.
 
-```csharp
-var scope = new WorkItemFetchScope(
-    Fields: ...,
-    Progress: new Progress<int>(n => _progressSink?.Emit(new ProgressEvent
-    {
-        Module = Name,
-        Stage = "...",
-        Message = $"Fetched {n:N0} work items so far…",
-        Timestamp = DateTimeOffset.UtcNow
-    })));
-```
+Do not inject `IProgressSink` into infrastructure classes. Infrastructure reports a bare `int` count via `IProgress<T>`; the calling module wraps it in a `ProgressEvent`.
 
-### For `IWorkItemDiscoveryService.DiscoverWorkItemsAsync` / `CountWorkItemsAsync`
-
-Pass a non-null `progress` argument wired to `sink.Emit`:
-
-```csharp
-await foreach (var summary in _discoveryService.DiscoverWorkItemsAsync(
-    endpoint, project,
-    progress: new Progress<int>(n => _progressSink?.Emit(new ProgressEvent
-    {
-        Module = Name,
-        Stage = "Inventorying",
-        Message = $"Discovered {n:N0} work items…",
-        Timestamp = DateTimeOffset.UtcNow
-    })),
-    cancellationToken: ct))
-```
-
-### Exceptions (passing `null` is only permitted when)
-
-| Caller | Rationale |
-|--------|-----------|
-| `InventoryService` | Already yields one `InventoryProgressEvent` per query window; per-batch duplication adds noise |
-| `CatalogService` | No `IProgressSink` is injected at this layer |
-| `TfsJobAgentWorker` | Snapshots from the TFS subprocess stream already carry cumulative counts; duplicating them would double-report |
-| Unit / integration tests | No sink in test context |
-
-All other callers **must not** pass `null` without a documented rationale in an inline comment.
-
-### Implementation location
-
-The callback is infrastructure-level (`IProgress<T>`) not module-level (`IProgressSink`). Implementations in `DevOpsMigrationPlatform.Infrastructure.*` report a bare `int` count; the caller (module, orchestrator) wraps it in a `ProgressEvent` with module-specific context. Do **not** inject `IProgressSink` into infrastructure classes.
-
-
-
-The CLI progress display and TUI Metrics panel must read from the Control Plane API (`GET /jobs/{id}/telemetry`), not from an in-process progress sink. See [control-plane-rules.md](./control-plane-rules.md).
+## Separation of Channels
 
 ## Related
 
