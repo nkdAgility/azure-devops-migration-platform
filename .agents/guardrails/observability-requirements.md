@@ -58,6 +58,8 @@ Do not inject `IProgressSink` into infrastructure classes. Infrastructure report
 
 ## Separation of Channels
 
+The CLI progress display and TUI Metrics panel must read from the Control Plane API, not from an in-process progress sink. See `control-plane-rules.md`.
+
 ## Related
 
 - [.agents/context/telemetry-model.md](../context/telemetry-model.md) — telemetry model overview

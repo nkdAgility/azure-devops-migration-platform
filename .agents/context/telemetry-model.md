@@ -199,7 +199,13 @@ Logs:
 * Slow dependency, Retry
 * Debug detail
 
-All telemetry MUST correlate via:
+Progress:
+
+* `ProgressEvent` emitted at start, per-item/batch (≤50), and completion via `IProgressSink.Emit` (O-4)
+* Every `IWorkItemDiscoveryService` and `WorkItemFetchScope` call site passes a non-null `IProgress<int>` callback; the callback wraps the raw count in a `ProgressEvent` via `IProgressSink` (O-5)
+* Infrastructure classes report bare `int` via `IProgress<T>`; the calling module/orchestrator converts to `ProgressEvent`
+
+
 
 * traceId / operationId
 * job.id
