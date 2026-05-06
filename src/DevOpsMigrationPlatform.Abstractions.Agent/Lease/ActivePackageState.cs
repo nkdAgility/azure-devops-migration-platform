@@ -53,7 +53,7 @@ public sealed class ActivePackageState
             if (string.IsNullOrEmpty(jobId))
                 return null;
 
-            return _cachedRunId ??= PackagePaths.BuildRunId(DateTimeOffset.UtcNow.Ticks, jobId);
+            return _cachedRunId ??= PackagePaths.BuildRunId(DateTimeOffset.UtcNow.Ticks, jobId!);
         }
     }
 
