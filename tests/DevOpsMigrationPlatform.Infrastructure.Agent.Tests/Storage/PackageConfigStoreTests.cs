@@ -30,7 +30,7 @@ internal sealed class CapturingLogger<T> : ILogger<T>
 [TestClass]
 public class PackageConfigStoreTests
 {
-    private static readonly Mock<IMigrationMetrics> _metrics = new(MockBehavior.Loose);
+    private static readonly Mock<IPlatformMetrics> _metrics = new(MockBehavior.Loose);
     private static readonly ILogger<PackageConfigStore> _logger =
         NullLogger<PackageConfigStore>.Instance;
 
@@ -46,7 +46,7 @@ public class PackageConfigStoreTests
     }
 
     /// <summary>Creates a sut with a custom logger, wired to return <paramref name="artefactStore"/>.</summary>
-    private static PackageConfigStore CreateSut(Mock<IArtefactStore> artefactStore, ILogger<PackageConfigStore> logger, IMigrationMetrics? metrics = null)
+    private static PackageConfigStore CreateSut(Mock<IArtefactStore> artefactStore, ILogger<PackageConfigStore> logger, IPlatformMetrics? metrics = null)
     {
         var factory = new Mock<IPackageStoreFactory>(MockBehavior.Loose);
         factory.Setup(f => f.Create(It.IsAny<string>()))
@@ -125,7 +125,7 @@ public class PackageConfigStoreTests
         store.Setup(s => s.WriteAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
 
-        var metricsMock = new Mock<IMigrationMetrics>(MockBehavior.Loose);
+        var metricsMock = new Mock<IPlatformMetrics>(MockBehavior.Loose);
         var sut = CreateSut(store, _logger, metricsMock.Object);
         var configFile = CreateTempConfigFile();
         try
@@ -150,7 +150,7 @@ public class PackageConfigStoreTests
         store.Setup(s => s.WriteAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .ThrowsAsync(new IOException("disk full"));
 
-        var metricsMock = new Mock<IMigrationMetrics>(MockBehavior.Loose);
+        var metricsMock = new Mock<IPlatformMetrics>(MockBehavior.Loose);
         var sut = CreateSut(store, _logger, metricsMock.Object);
         var configFile = CreateTempConfigFile();
         try
@@ -362,7 +362,7 @@ public class PackageConfigStoreTests
         store.Setup(s => s.ExistsAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(false);
 
-        var metricsMock = new Mock<IMigrationMetrics>(MockBehavior.Loose);
+        var metricsMock = new Mock<IPlatformMetrics>(MockBehavior.Loose);
         var sut = CreateSut(store, _logger, metricsMock.Object);
 
         // Act

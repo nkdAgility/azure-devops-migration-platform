@@ -28,14 +28,6 @@ public sealed class ExportProgressStoreFactory : IExportProgressStoreFactory
 
         var newPath = PackagePaths.ExportProgressDbNative(localRoot);
 
-        // Legacy fallback: if the .migration path doesn't exist yet, check the old location.
-        if (!File.Exists(newPath))
-        {
-            var legacyPath = PackagePaths.LegacyExportProgressDbNative(localRoot);
-            if (File.Exists(legacyPath))
-                return new SqliteExportProgressStore(legacyPath);
-        }
-
         return new SqliteExportProgressStore(newPath);
     }
 }

@@ -24,13 +24,6 @@ public class CheckpointingService : ICheckpointingService
         var key = PackagePaths.CursorFile(moduleName);
         var json = await _stateStore.ReadAsync(key, cancellationToken).ConfigureAwait(false);
 
-        // Legacy fallback: try the pre-.migration path for existing packages.
-        if (json is null)
-        {
-            var legacyKey = PackagePaths.LegacyCursorFile(moduleName);
-            json = await _stateStore.ReadAsync(legacyKey, cancellationToken).ConfigureAwait(false);
-        }
-
         if (json is null)
             return null;
         return JsonSerializer.Deserialize<CursorEntry>(json);

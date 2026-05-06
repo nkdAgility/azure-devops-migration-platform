@@ -55,7 +55,7 @@ public static class FieldTransformToolServiceCollectionExtensions
             sp.GetRequiredService<IOptionsSnapshot<FieldTransformOptions>>(),
             sp.GetRequiredService<IFieldTransformFactory>(),
             sp.GetRequiredService<ILoggerFactory>(),
-            sp.GetService<IMigrationMetrics>()));
+            sp.GetService<IPlatformMetrics>()));
 
         // IFieldDefinitionProviderFactory is optional — connectors register it when available.
         services.AddScoped<IFieldTransformValidator>(sp =>

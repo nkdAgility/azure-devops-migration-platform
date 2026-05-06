@@ -54,7 +54,7 @@ public sealed class WorkItemsModuleInventoryTests
     [TestMethod]
     public async Task InventoryAsync_RecordsWorkItemInventoryMetrics()
     {
-        var metrics = new Mock<IDiscoveryMetrics>(MockBehavior.Strict);
+        var metrics = new Mock<IPlatformMetrics>(MockBehavior.Strict);
         metrics.Setup(m => m.RecordInventoryWorkItems(
                 2,
                 It.Is<MetricsTagList>(t => HasTag(t, "job.id", "job-1") && HasTag(t, "module", "WorkItems"))))
@@ -62,7 +62,7 @@ public sealed class WorkItemsModuleInventoryTests
         metrics.Setup(m => m.RecordInventoryWorkItemsDuration(It.IsAny<double>(), It.IsAny<MetricsTagList>()))
             .Verifiable();
 
-        var module = CreateModule(discoveryMetrics: metrics.Object);
+        var module = CreateModule(PlatformMetrics: metrics.Object);
         await module.InventoryAsync(CreateContext(), CancellationToken.None);
 
         metrics.Verify();
@@ -95,7 +95,7 @@ public sealed class WorkItemsModuleInventoryTests
 
     private static WorkItemsModule CreateModule(
         ILogger<WorkItemsModule>? logger = null,
-        IDiscoveryMetrics? discoveryMetrics = null,
+        IPlatformMetrics? PlatformMetrics = null,
         int workItemCount = 2,
         int revisionCount = 4)
     {
@@ -146,7 +146,7 @@ public sealed class WorkItemsModuleInventoryTests
             targetEndpoint.Object,
             fetchService: null,
             inventoryOrchestrator: orchestrator.Object,
-            discoveryMetrics: discoveryMetrics,
+            PlatformMetrics: PlatformMetrics,
             discoveryService: discovery.Object);
     }
 

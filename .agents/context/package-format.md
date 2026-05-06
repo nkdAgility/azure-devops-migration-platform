@@ -92,13 +92,17 @@ The `.migration/Logs/` folder contains structured observability records written 
 
 ```
 Logs/
-  <ticks>-<jobId>/
+  <yyyyMMdd-HHmmss>/
     progress.jsonl
     agent.jsonl
     agent-001.jsonl   ← rotated segment (when max size exceeded)
 ```
 
-The subfolder name uses `<ticks>-<jobId>` (e.g. `638807123456789012-a1b2c3d4`) so that folders sort chronologically and are traceable to the originating job.
+The subfolder name uses second-level UTC timestamp format `<yyyyMMdd-HHmmss>` (for example `20260506-143822`) so folders sort chronologically.
+
+Each run folder under `.migration/runs/<yyyyMMdd-HHmmss>/` also contains `job.json`, which stores the raw leased job payload for audit and troubleshooting.
+
+Each run folder also contains `plan.json`, a run-scoped snapshot of the active execution plan (`.migration/plan.json`) copied at plan persistence time.
 
 | File | Format | Description |
 |---|---|---|

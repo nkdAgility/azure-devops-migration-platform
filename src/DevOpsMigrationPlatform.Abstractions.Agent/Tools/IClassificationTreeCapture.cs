@@ -21,7 +21,7 @@ public interface IClassificationTreeCapture
     Task<int> CaptureAsync(
         IArtefactStore artefactStore,
         CancellationToken ct,
-        IMigrationMetrics? metrics = null,
+        IPlatformMetrics? metrics = null,
         string? jobId = null,
         IProgressSink? sink = null,
         string moduleName = "Nodes"

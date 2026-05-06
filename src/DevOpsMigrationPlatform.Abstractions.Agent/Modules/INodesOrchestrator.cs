@@ -44,7 +44,7 @@ public interface INodesOrchestrator
         ProjectMapping context,
         IArtefactStore artefactStore,
         CancellationToken ct,
-        IMigrationMetrics? metrics = null,
+        IPlatformMetrics? metrics = null,
         string? jobId = null);
 #endif
 

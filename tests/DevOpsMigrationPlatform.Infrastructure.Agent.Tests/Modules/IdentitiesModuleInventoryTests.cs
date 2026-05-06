@@ -51,7 +51,7 @@ public sealed class IdentitiesModuleInventoryTests
     [TestMethod]
     public async Task InventoryAsync_RecordsIdentityInventoryMetrics()
     {
-        var metrics = new Mock<IDiscoveryMetrics>(MockBehavior.Strict);
+        var metrics = new Mock<IPlatformMetrics>(MockBehavior.Strict);
         metrics.Setup(m => m.RecordInventoryIdentities(
                 2,
                 It.Is<MetricsTagList>(t => HasTag(t, "job.id", "job-1") && HasTag(t, "module", "Identities"))))
@@ -78,7 +78,7 @@ public sealed class IdentitiesModuleInventoryTests
     }
 
     private static IdentitiesModule CreateModule(
-        IDiscoveryMetrics? metrics = null)
+        IPlatformMetrics? metrics = null)
     {
         var sourceEndpoint = new Mock<ISourceEndpointInfo>();
         sourceEndpoint.SetupGet(s => s.Project).Returns("ProjectA");
@@ -91,7 +91,6 @@ public sealed class IdentitiesModuleInventoryTests
             sourceEndpoint.Object,
             new IdentitiesOrchestrator(NullLogger<IdentitiesOrchestrator>.Instance),
             metrics,
-            null,
             new StubIdentitySource());
     }
 

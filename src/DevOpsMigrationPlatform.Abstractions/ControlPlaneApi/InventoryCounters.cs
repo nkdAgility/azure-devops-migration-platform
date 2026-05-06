@@ -9,6 +9,9 @@ namespace DevOpsMigrationPlatform.Abstractions.ControlPlaneApi;
 /// </summary>
 public record InventoryCounters
 {
+    /// <summary>Total work items discovered.</summary>
+    public long WorkItemsTotal { get; init; }
+
     /// <summary>Total revisions discovered.</summary>
     public long RevisionsTotal { get; init; }
 

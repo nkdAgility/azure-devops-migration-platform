@@ -2,6 +2,8 @@
 // Copyright (c) Naked Agility Limited
 
 using System;
+using System.Globalization;
+using DevOpsMigrationPlatform.Abstractions.Jobs;
 
 namespace DevOpsMigrationPlatform.Abstractions.Agent.Lease;
 
@@ -25,8 +27,91 @@ public static class PackagePaths
     /// <summary>Checkpoint cursor folder: <c>.migration/Checkpoints</c>.</summary>
     public const string Checkpoints = $"{SystemRoot}/Checkpoints";
 
-    /// <summary>Log output folder: <c>.migration/Logs</c>.</summary>
+    /// <summary>
+    /// Fallback log folder used when no job is active: <c>.migration/Logs</c>.
+    /// Under normal operation all log writes go to <see cref="RunLogsFolder"/>.
+    /// </summary>
     public const string Logs = $"{SystemRoot}/Logs";
+
+    /// <summary>
+    /// Root folder for per-run subfolders: <c>.migration/runs</c>.
+    /// Each run creates a child folder named <c>yyyyMMdd-HHmmss</c> containing
+    /// <c>logs/</c> and <c>audit/</c> subdirectories.
+    /// </summary>
+    public const string RunsRoot = $"{SystemRoot}/runs";
+
+    /// <summary>
+    /// Builds the canonical run identifier string from the run start time and job:
+    /// <c>yyyyMMdd-HHmmss</c>, e.g. <c>20260506-143822</c>.
+    /// The <paramref name="job"/> parameter keeps the signature future-proof for
+    /// scenarios where additional job metadata influences the run ID.
+    /// </summary>
+    public static string BuildRunId(DateTimeOffset startedAtUtc, Job job)
+    {
+        if (job is null)
+        {
+            throw new ArgumentNullException(nameof(job));
+        }
+
+        return startedAtUtc.ToUniversalTime().ToString("yyyyMMdd-HHmmss", CultureInfo.InvariantCulture);
+    }
+
+    /// <summary>
+    /// Returns the root folder for a specific run,
+    /// e.g. <c>.migration/runs/20260506-143822</c>.
+    /// </summary>
+    /// <param name="runId">The run identifier — use <see cref="BuildRunId"/> to construct.</param>
+    public static string RunFolder(string runId)
+        => $"{RunsRoot}/{runId}";
+
+    /// <summary>
+    /// Returns the log folder for a run,
+    /// e.g. <c>.migration/runs/20260506-143822/logs</c>.
+    /// </summary>
+    public static string RunLogsFolder(string runId)
+        => $"{RunFolder(runId)}/logs";
+
+    /// <summary>
+    /// Returns the audit folder for a run,
+    /// e.g. <c>.migration/runs/20260506-143822/audit</c>.
+    /// </summary>
+    public static string RunAuditFolder(string runId)
+        => $"{RunFolder(runId)}/audit";
+
+    /// <summary>
+    /// Returns the audit plan file path for a run,
+    /// e.g. <c>.migration/runs/20260506-143822/audit/migration-plan.json</c>.
+    /// </summary>
+    public static string RunAuditPlanFile(string runId)
+        => $"{RunAuditFolder(runId)}/migration-plan.json";
+
+    /// <summary>
+    /// Returns the audit config file path for a run,
+    /// e.g. <c>.migration/runs/20260506-143822/audit/migration-config.json</c>.
+    /// </summary>
+    public static string RunAuditConfigFile(string runId)
+        => $"{RunAuditFolder(runId)}/migration-config.json";
+
+    /// <summary>
+    /// Returns the run-level job metadata path,
+    /// e.g. <c>.migration/runs/20260506-143822/job.json</c>.
+    /// </summary>
+    public static string RunJobFile(string runId)
+        => $"{RunFolder(runId)}/job.json";
+
+    /// <summary>
+    /// Returns the run-level plan snapshot path,
+    /// e.g. <c>.migration/runs/20260506-143822/plan.json</c>.
+    /// </summary>
+    public static string RunPlanFile(string runId)
+        => $"{RunFolder(runId)}/plan.json";
+
+    /// <summary>
+    /// Returns the run-level migration config snapshot path,
+    /// e.g. <c>.migration/runs/20260506-143822/migration-config.json</c>.
+    /// </summary>
+    public static string RunConfigFile(string runId)
+        => $"{RunFolder(runId)}/config.json";
 
     /// <summary>
     /// Returns the artefact-store key for a module's cursor file,
@@ -64,45 +149,12 @@ public static class PackagePaths
         => System.IO.Path.Combine(packageLocalRoot, SystemRoot, "Checkpoints", "idmap.db");
 
     /// <summary>
-    /// Returns a job-scoped log folder path,
-    /// e.g. <c>.migration/Logs/638807123456789012-a1b2c3d4</c>.
-    /// </summary>
-    public static string JobLogFolder(long ticks, string jobId)
-        => $"{Logs}/{ticks}-{jobId}";
-
-    /// <summary>
     /// Returns the artefact-store key for an identity-mapping warning file,
-    /// e.g. <c>.migration/Logs/identity-warnings/user%40example.com.log</c>.
+    /// e.g. <c>.migration/identity-warnings/user%40example.com.log</c>.
+    /// These are package-level (not run-scoped) so they accumulate across runs.
     /// </summary>
     public static string IdentityWarning(string identity)
-        => $"{Logs}/identity-warnings/{Uri.EscapeDataString(identity)}.log";
-
-    // ── Legacy path helpers (pre-.migration packages) ────────────────────
-
-    /// <summary>Legacy checkpoint prefix before the <c>.migration</c> layout was introduced.</summary>
-    public const string LegacyCheckpoints = "Checkpoints";
-
-    /// <summary>Legacy log prefix before the <c>.migration</c> layout was introduced.</summary>
-    public const string LegacyLogs = "Logs";
-
-    /// <summary>
-    /// Returns the legacy cursor file path for backward-compatible reads,
-    /// e.g. <c>Checkpoints/workitems.cursor.json</c>.
-    /// </summary>
-    public static string LegacyCursorFile(string moduleName)
-        => $"{LegacyCheckpoints}/{moduleName.ToLowerInvariant()}.cursor.json";
-
-    /// <summary>Legacy phase file: <c>Checkpoints/job.phase.json</c>.</summary>
-    public const string LegacyPhaseFile = $"{LegacyCheckpoints}/job.phase.json";
-
-    /// <summary>Legacy plan file: <c>Checkpoints/plan.json</c> (pre-.migration/ root layout).</summary>
-    public const string LegacyPlanFile = $"{LegacyCheckpoints}/plan.json";
-
-    /// <summary>
-    /// Returns the legacy OS-native path for the ID-map database.
-    /// </summary>
-    public static string LegacyIdMapDbNative(string packageLocalRoot)
-        => System.IO.Path.Combine(packageLocalRoot, "Checkpoints", "idmap.db");
+        => $"{SystemRoot}/identity-warnings/{Uri.EscapeDataString(identity)}.log";
 
     /// <summary>
     /// Returns the OS-native filesystem path for the export-progress database,
@@ -110,10 +162,6 @@ public static class PackagePaths
     /// </summary>
     public static string ExportProgressDbNative(string packageLocalRoot)
         => System.IO.Path.Combine(packageLocalRoot, SystemRoot, "Checkpoints", "export_progress.db");
-
-    /// <summary>Returns the legacy OS-native path for the export-progress database.</summary>
-    public static string LegacyExportProgressDbNative(string packageLocalRoot)
-        => System.IO.Path.Combine(packageLocalRoot, "Checkpoints", "export_progress.db");
 
     // ── Per-job configuration ─────────────────────────────────────────────
 

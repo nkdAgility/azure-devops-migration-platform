@@ -50,6 +50,7 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
     private readonly IPhaseTrackingServiceFactory _phaseTrackingFactory;
     private readonly IProjectDiscoveryService? _projectDiscovery;
     private readonly IOptions<MigrationPlatformOptions>? _migrationOptions;
+    private readonly ActivePackageState? _packageState;
     private readonly ILogger<JobExecutionPlanBuilder> _logger;
 
     public JobExecutionPlanBuilder(
@@ -58,7 +59,8 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
         IPhaseTrackingServiceFactory phaseTrackingFactory,
         ILogger<JobExecutionPlanBuilder> logger,
         IProjectDiscoveryService? projectDiscovery = null,
-        IOptions<MigrationPlatformOptions>? migrationOptions = null)
+        IOptions<MigrationPlatformOptions>? migrationOptions = null,
+        ActivePackageState? packageState = null)
     {
         _modules = modules;
         _modulesByName = modules.ToDictionary(m => m.Name, StringComparer.OrdinalIgnoreCase);
@@ -67,6 +69,7 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
         _phaseTrackingFactory = phaseTrackingFactory;
         _projectDiscovery = projectDiscovery;
         _migrationOptions = migrationOptions;
+        _packageState = packageState;
         _logger = logger;
 
         // Diagnostic: log all discovered modules at startup
@@ -155,6 +158,37 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
         var loadedPlan = await JobPlanExecutor.LoadOrResetAsync(stateStore, ct).ConfigureAwait(false);
         if (loadedPlan is not null)
         {
+            bool isComplete = loadedPlan.Tasks.Count > 0 &&
+                loadedPlan.Tasks.All(t =>
+                    t.Status == JobTaskStatus.Completed ||
+                    t.Status == JobTaskStatus.Skipped ||
+                    t.Status == JobTaskStatus.Failed);
+
+            bool isModeSwitch = loadedPlan.ForKind.HasValue &&
+                loadedPlan.ForKind.Value != kind;
+
+            if (isComplete && !isModeSwitch)
+            {
+                // All tasks are terminal: return the completed plan as-is.
+                // ExecuteTasksAsync will find 0 pending tasks and return true immediately,
+                // making the resume a no-op — the correct behaviour for a job that is already done.
+                _logger.LogInformation(
+                    "Existing plan is complete ({TaskCount} tasks all terminal). Returning completed plan — resume is a no-op.",
+                    loadedPlan.Tasks.Count);
+                return loadedPlan;
+            }
+            else if (isModeSwitch)
+            {
+                _logger.LogInformation(
+                    "Job kind changed from {OldKind} to {NewKind}. Deleting incompatible active plan and building fresh.",
+                    loadedPlan.ForKind!.Value, kind);
+                await stateStore.DeleteAsync(PackagePaths.PlanFile, ct).ConfigureAwait(false);
+                loadedPlan = null;
+            }
+        }
+
+        if (loadedPlan is not null)
+        {
             _logger.LogInformation(
                 "Loaded execution plan from package: {TaskCount} task(s), {PendingCount} pending, {CompletedCount} completed.",
                 loadedPlan.Tasks.Count,
@@ -163,9 +197,12 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
             return loadedPlan;
         }
 
-        // No persisted plan — build fresh.
+        // No persisted plan (or stale plan deleted) — build fresh.
         var freshPlan = await BuildPlanAsync(packageConfig, kind, artefactStore, stateStore, ct)
             .ConfigureAwait(false);
+
+        // Stamp the job kind so future resume can detect mode switches.
+        freshPlan = freshPlan with { ForKind = kind };
 
         _logger.LogInformation("Built fresh execution plan: {TaskCount} task(s).", freshPlan.Tasks.Count);
 
@@ -175,6 +212,14 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
             var json = JsonSerializer.Serialize(freshPlan, _jsonOptions);
             await stateStore.WriteAsync(PackagePaths.PlanFile, json, ct).ConfigureAwait(false);
             _logger.LogDebug("Persisted execution plan to {Path}.", PackagePaths.PlanFile);
+
+            var runId = _packageState?.CurrentRunId;
+            if (!string.IsNullOrEmpty(runId))
+            {
+                var runPlanPath = PackagePaths.RunPlanFile(runId!);
+                await stateStore.WriteAsync(runPlanPath, json, ct).ConfigureAwait(false);
+                _logger.LogDebug("Persisted run plan snapshot to {Path}.", runPlanPath);
+            }
         }
         catch (Exception ex)
         {

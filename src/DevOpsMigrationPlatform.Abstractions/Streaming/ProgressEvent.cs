@@ -74,7 +74,7 @@ public record ProgressEvent
     /// (controlled by <see cref="TelemetryOptions.SubprocessSnapshotRevisionInterval"/>; default 100).
     /// </para>
     /// <para>
-    /// <strong>Relationship to OTel instruments (<c>IMigrationMetrics</c>):</strong>
+    /// <strong>Relationship to OTel instruments (<c>IPlatformMetrics</c>):</strong>
     /// OTel instruments flow to Azure Monitor / Application Insights only — they do NOT
     /// reach the CLI/TUI display. Both must be called for complete observability.
     /// </para>

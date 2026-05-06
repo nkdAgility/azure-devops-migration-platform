@@ -50,11 +50,11 @@ internal sealed class InventoryOrchestrator : IInventoryOrchestrator
     private static string JsonOutputPath => "inventory.json";
 
     private readonly ILogger _logger;
-    private readonly IDiscoveryMetrics? _metrics;
+    private readonly IPlatformMetrics? _metrics;
 
     public InventoryOrchestrator(
         ILogger<InventoryOrchestrator> logger,
-        IDiscoveryMetrics? metrics = null)
+        IPlatformMetrics? metrics = null)
     {
         _logger = logger;
         _metrics = metrics;
@@ -154,6 +154,16 @@ internal sealed class InventoryOrchestrator : IInventoryOrchestrator
                 Message = $"Resuming — skipping previously-completed project(s).",
                 Timestamp = DateTimeOffset.UtcNow
             });
+
+            // Push snapshot and metrics immediately so late-joining clients (those that
+            // call GET /jobs/{id}/bootstrap after Job.Ready) see the previously-completed
+            // projects before the first new project completes.
+            if (orgProjectData.Count > 0)
+            {
+                var catchupSnapshots = BuildScopedOrganisations(orgProjectData, context.SourceEndpoint?.ResolvedUrl);
+                PushAggregateMetrics(metricsStore, orgProjectData, catchupSnapshots);
+                PushSnapshot(snapshotStore, orgProjectData, catchupSnapshots);
+            }
         }
 
         var checkpointInterval = TimeSpan.FromSeconds(checkpointIntervalSeconds);
@@ -638,6 +648,7 @@ internal sealed class InventoryOrchestrator : IInventoryOrchestrator
                         {
                             Inventory = new InventoryCounters
                             {
+                                WorkItemsTotal = p.WorkItems,
                                 RevisionsTotal = p.Revisions,
                                 RepositoriesTotal = p.Repos
                             }

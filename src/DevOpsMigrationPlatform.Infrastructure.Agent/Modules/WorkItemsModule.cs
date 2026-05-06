@@ -79,8 +79,8 @@ public sealed class WorkItemsModule : IModule
 #endif
     private readonly IWorkItemFetchService? _fetchService;
     private readonly IInventoryOrchestrator? _inventoryOrchestrator;
-    private readonly IMigrationMetrics? _metrics;
-    private readonly IDiscoveryMetrics? _discoveryMetrics;
+    private readonly IPlatformMetrics? _metrics;
+    private readonly IPlatformMetrics? _PlatformMetrics;
     private readonly IWorkItemDiscoveryService? _discoveryService;
     private readonly IExportProgressStoreFactory? _exportProgressStoreFactory;
 #if !NET481
@@ -114,8 +114,8 @@ public sealed class WorkItemsModule : IModule
         IWorkItemCommentSourceFactory? inlineCommentSourceFactory = null,
         IWorkItemFetchService? fetchService = null,
         IInventoryOrchestrator? inventoryOrchestrator = null,
-        IMigrationMetrics? metrics = null,
-        IDiscoveryMetrics? discoveryMetrics = null,
+        IPlatformMetrics? metrics = null,
+        IPlatformMetrics? PlatformMetrics = null,
         IWorkItemDiscoveryService? discoveryService = null,
         IExportProgressStoreFactory? exportProgressStoreFactory = null,
 #if !NET481
@@ -143,7 +143,7 @@ public sealed class WorkItemsModule : IModule
         _fetchService = fetchService;
         _inventoryOrchestrator = inventoryOrchestrator;
         _metrics = metrics;
-        _discoveryMetrics = discoveryMetrics;
+        _PlatformMetrics = PlatformMetrics;
         _discoveryService = discoveryService;
         _exportProgressStoreFactory = exportProgressStoreFactory;
 #if !NET481
@@ -291,12 +291,12 @@ public sealed class WorkItemsModule : IModule
         }
 
         var tags = new MetricsTagList { { "job.id", context.Job.JobId }, { "module", Name } };
-        _discoveryMetrics?.RecordInventoryWorkItems(totalWorkItems, tags);
+        _PlatformMetrics?.RecordInventoryWorkItems(totalWorkItems, tags);
         var durationMs = sw.Elapsed.TotalMilliseconds;
-        _discoveryMetrics?.RecordInventoryWorkItemsDuration(durationMs, tags);
+        _PlatformMetrics?.RecordInventoryWorkItemsDuration(durationMs, tags);
         if (totalWorkItems == 0)
         {
-            _discoveryMetrics?.RecordInventoryWorkItemsErrors(tags);
+            _PlatformMetrics?.RecordInventoryWorkItemsErrors(tags);
             _logger.LogWarning("Zero items inventoried for {Module} in {Project}", Name, project);
         }
         _logger.LogInformation("Inventoried {Module}: {Count} items in {DurationMs}ms", Name, totalWorkItems, durationMs);

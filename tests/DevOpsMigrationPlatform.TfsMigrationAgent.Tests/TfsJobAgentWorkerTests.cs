@@ -505,7 +505,7 @@ public class TfsJobAgentWorkerTests
         factory.Setup(f => f.Create(It.IsAny<string>()))
             .Returns((store.Object, new Mock<IStateStore>().Object));
 
-        var metrics = new Mock<IMigrationMetrics>(MockBehavior.Loose);
+        var metrics = new Mock<IPlatformMetrics>(MockBehavior.Loose);
         var sut = new DevOpsMigrationPlatform.Infrastructure.Agent.Storage.PackageConfigStore(
             factory.Object,
             Microsoft.Extensions.Logging.Abstractions.NullLogger<DevOpsMigrationPlatform.Infrastructure.Agent.Storage.PackageConfigStore>.Instance,
@@ -541,7 +541,7 @@ public class TfsJobAgentWorkerTests
         factory.Setup(f => f.Create(It.IsAny<string>()))
             .Returns((store.Object, new Mock<IStateStore>().Object));
 
-        var metrics = new Mock<IMigrationMetrics>(MockBehavior.Loose);
+        var metrics = new Mock<IPlatformMetrics>(MockBehavior.Loose);
         var sut = new DevOpsMigrationPlatform.Infrastructure.Agent.Storage.PackageConfigStore(
             factory.Object,
             Microsoft.Extensions.Logging.Abstractions.NullLogger<DevOpsMigrationPlatform.Infrastructure.Agent.Storage.PackageConfigStore>.Instance,

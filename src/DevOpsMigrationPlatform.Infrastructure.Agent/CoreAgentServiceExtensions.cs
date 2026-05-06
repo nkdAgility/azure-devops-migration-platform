@@ -30,7 +30,7 @@ public static class CoreAgentServiceExtensions
     /// Registers:
     /// <list type="bullet">
     ///   <item><see cref="ActiveLeaseState"/> and <see cref="ActivePackageState"/> ambient singletons.</item>
-    ///   <item>Agent telemetry — <c>IMigrationMetrics</c>, <c>IDiscoveryMetrics</c>, job metrics stores.</item>
+    ///   <item>Agent telemetry — <c>IPlatformMetrics</c>, <c>IPlatformMetrics</c>, job metrics stores.</item>
     ///   <item>Named <c>"ControlPlane"</c> <see cref="System.Net.Http.HttpClient"/> (optionally configured via <paramref name="configureControlPlane"/>).</item>
     ///   <item><see cref="ControlPlaneProgressSink"/>, <see cref="PackageProgressSink"/>, and <see cref="CompositeProgressSink"/> as <c>IProgressSink</c>.</item>
     ///   <item><see cref="IPhaseTrackingServiceFactory"/>, <see cref="IPackageStoreFactory"/>, <see cref="ICheckpointingServiceFactory"/>.</item>
@@ -63,7 +63,7 @@ public static class CoreAgentServiceExtensions
         // Execution plan executor — runs tasks in dependency-tier order with Task.WhenAll per tier.
         services.AddSingleton<IJobPlanExecutor, JobPlanExecutor>();
 
-        // Agent telemetry (IMigrationMetrics, IDiscoveryMetrics, TelemetryOptions).
+        // Agent telemetry (IPlatformMetrics, IPlatformMetrics, TelemetryOptions).
         services.AddAgentTelemetryServices(configuration);
 
         // In-memory stores for job metrics and snapshots (IJobMetricsStore, IJobSnapshotStore).

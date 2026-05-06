@@ -27,13 +27,13 @@ public sealed class DependencyAnalyser : IOrganisationsAnalyser
     private readonly IDependencyDiscoveryServiceFactory _dependencyFactory;
     private readonly IDependencyOrchestrator _orchestrator;
     private readonly ILogger<DependencyAnalyser> _logger;
-    private readonly IDiscoveryMetrics? _metrics;
+    private readonly IPlatformMetrics? _metrics;
 
     public DependencyAnalyser(
         IDependencyDiscoveryServiceFactory dependencyFactory,
         IDependencyOrchestrator orchestrator,
         ILogger<DependencyAnalyser> logger,
-        IDiscoveryMetrics? metrics = null)
+        IPlatformMetrics? metrics = null)
     {
         _dependencyFactory = dependencyFactory;
         _orchestrator = orchestrator;

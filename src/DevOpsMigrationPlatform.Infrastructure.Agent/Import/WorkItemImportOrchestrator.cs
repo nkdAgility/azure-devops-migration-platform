@@ -41,7 +41,7 @@ public sealed class WorkItemImportOrchestrator
     private readonly IWorkItemImportTarget _target;
     private readonly ILogger<WorkItemImportOrchestrator> _logger;
     private readonly IReadOnlyList<WorkItemFieldFilterOptions>? _filterOptions;
-    private readonly IMigrationMetrics? _metrics;
+    private readonly IPlatformMetrics? _metrics;
     private readonly string? _jobId;
 
     public WorkItemImportOrchestrator(
@@ -54,7 +54,7 @@ public sealed class WorkItemImportOrchestrator
         IWorkItemImportTarget target,
         ILogger<WorkItemImportOrchestrator> logger,
         IReadOnlyList<WorkItemFieldFilterOptions>? filterOptions = null,
-        IMigrationMetrics? metrics = null,
+        IPlatformMetrics? metrics = null,
         string? jobId = null)
     {
         _artefactStore = artefactStore ?? throw new ArgumentNullException(nameof(artefactStore));

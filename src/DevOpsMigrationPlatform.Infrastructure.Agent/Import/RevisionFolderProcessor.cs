@@ -37,7 +37,7 @@ public sealed class RevisionFolderProcessor : IRevisionFolderProcessor
     private readonly IIdentityLookupTool? _identityLookupTool;
     private readonly IArtefactStore _artefactStore;
     private readonly ILogger<RevisionFolderProcessor> _logger;
-    private readonly IMigrationMetrics? _metrics;
+    private readonly IPlatformMetrics? _metrics;
     private readonly string? _jobId;
     private readonly IFieldTransformTool? _fieldTransformTool;
     private readonly INodeTranslationTool? _nodeStructureTool;
@@ -58,7 +58,7 @@ public sealed class RevisionFolderProcessor : IRevisionFolderProcessor
         IIdentityLookupTool? identityLookupTool,
         IArtefactStore artefactStore,
         ILogger<RevisionFolderProcessor> logger,
-        IMigrationMetrics? metrics = null,
+        IPlatformMetrics? metrics = null,
         string? jobId = null,
         IFieldTransformTool? fieldTransformTool = null,
         INodeTranslationTool? nodeStructureTool = null,

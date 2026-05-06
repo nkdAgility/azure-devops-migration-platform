@@ -10,11 +10,11 @@ namespace DevOpsMigrationPlatform.Abstractions;
 public static class WellKnownCliMetricNames
 {
     /// <summary>Total CLI command invocations (counter).</summary>
-    public const string CommandInvocations = "cli.command.invocations";
+    public const string CommandInvocations = "platform.command.execute.invocations";
 
     /// <summary>CLI command duration in milliseconds (histogram).</summary>
-    public const string CommandDurationMs = "cli.command.duration_ms";
+    public const string CommandDurationMs = "platform.command.execute.duration_ms";
 
     /// <summary>CLI command errors (counter).</summary>
-    public const string CommandErrors = "cli.command.errors";
+    public const string CommandErrors = "platform.command.execute.errors";
 }

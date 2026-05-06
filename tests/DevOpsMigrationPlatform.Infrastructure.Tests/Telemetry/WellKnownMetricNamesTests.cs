@@ -12,20 +12,20 @@ namespace DevOpsMigrationPlatform.Infrastructure.Tests.Telemetry;
 [TestClass]
 public class WellKnownMetricNamesTests
 {
-    private static readonly FieldInfo[] AllConstants = typeof(WellKnownMetricNames)
+    private static readonly FieldInfo[] AllConstants = typeof(WellKnownAgentMetricNames)
         .GetFields(BindingFlags.Public | BindingFlags.Static | BindingFlags.DeclaredOnly)
         .Where(f => f.IsLiteral && !f.IsInitOnly && f.FieldType == typeof(string))
         .ToArray();
 
     [TestMethod]
-    public void AllConstants_StartWithMigrationPrefix()
+    public void AllConstants_StartWithPlatformPrefix()
     {
         foreach (var field in AllConstants)
         {
             var value = (string)field.GetValue(null)!;
             Assert.IsTrue(
-                value.StartsWith("migration.", StringComparison.Ordinal),
-                $"{field.Name} = \"{value}\" does not start with \"migration.\"");
+                value.StartsWith("platform.", StringComparison.Ordinal),
+                $"{field.Name} = \"{value}\" does not start with \"platform.\"");
         }
     }
 
@@ -35,7 +35,7 @@ public class WellKnownMetricNamesTests
         foreach (var field in AllConstants)
         {
             var value = (string)field.GetValue(null)!;
-            // Must contain at least two dots (migration.category.name)
+            // Must contain at least two dots (platform.category.name)
             var dotCount = value.Count(c => c == '.');
             Assert.IsTrue(
                 dotCount >= 2,
@@ -81,3 +81,5 @@ public class WellKnownMetricNamesTests
     }
 
 }
+
+

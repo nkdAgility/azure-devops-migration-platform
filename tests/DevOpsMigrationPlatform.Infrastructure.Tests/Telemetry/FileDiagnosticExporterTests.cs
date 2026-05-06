@@ -76,11 +76,11 @@ public class FileDiagnosticExporterTests
         var metricsFile = Path.Combine(_tempDir, "test-metrics.log");
 
         using (var meterProvider = Sdk.CreateMeterProviderBuilder()
-            .AddMeter(WellKnownMeterNames.Migration)
+            .AddMeter(WellKnownMeterNames.Agent)
             .AddReader(new PeriodicExportingMetricReader(new FileMetricExporter(metricsFile), exportIntervalMilliseconds: 1000))
             .Build())
         {
-            using var meter = new Meter(WellKnownMeterNames.Migration);
+            using var meter = new Meter(WellKnownMeterNames.Agent);
             var counter = meter.CreateCounter<long>("file.export.test.counter");
             counter.Add(99);
 
@@ -123,11 +123,11 @@ public class FileDiagnosticExporterTests
         var metricsFile = Path.Combine(_tempDir, "test-svc-metrics.log");
 
         using (var meterProvider = Sdk.CreateMeterProviderBuilder()
-            .AddMeter(WellKnownMeterNames.Discovery)
+            .AddMeter(WellKnownMeterNames.Agent)
             .AddFileExporter(_tempDir, "test-svc")
             .Build())
         {
-            using var meter = new Meter(WellKnownMeterNames.Discovery);
+            using var meter = new Meter(WellKnownMeterNames.Agent);
             var counter = meter.CreateCounter<long>("ext.test.counter");
             counter.Add(7);
 
@@ -315,11 +315,11 @@ public class FileDiagnosticExporterTests
 
         // Metrics
         using (var mp = Sdk.CreateMeterProviderBuilder()
-            .AddMeter(WellKnownMeterNames.Migration)
+            .AddMeter(WellKnownMeterNames.Agent)
             .AddFileExporter(_tempDir, serviceName)
             .Build())
         {
-            using var meter = new Meter(WellKnownMeterNames.Migration);
+            using var meter = new Meter(WellKnownMeterNames.Agent);
             var counter = meter.CreateCounter<long>($"test.{serviceName}.counter");
             counter.Add(42);
             mp!.ForceFlush();

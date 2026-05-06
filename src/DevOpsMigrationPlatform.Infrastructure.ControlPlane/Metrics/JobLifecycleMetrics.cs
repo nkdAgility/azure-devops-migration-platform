@@ -28,32 +28,32 @@ public sealed class JobLifecycleMetrics : IJobLifecycleMetrics
             "1.0");
 
         _total = meter.CreateCounter<long>(
-            Abstractions.WellKnownJobMetricNames.JobsTotal,
+            Abstractions.WellKnownControlPlaneMetricNames.JobsTotal,
             unit: "{job}",
             description: "Total jobs ever submitted.");
 
         _queued = meter.CreateUpDownCounter<int>(
-            Abstractions.WellKnownJobMetricNames.JobsQueued,
+            Abstractions.WellKnownControlPlaneMetricNames.JobsQueued,
             unit: "{job}",
             description: "Jobs currently waiting in the queue.");
 
         _inProgress = meter.CreateUpDownCounter<int>(
-            Abstractions.WellKnownJobMetricNames.JobsInProgress,
+            Abstractions.WellKnownControlPlaneMetricNames.JobsInProgress,
             unit: "{job}",
             description: "Jobs currently being executed by an agent.");
 
         _completed = meter.CreateCounter<long>(
-            Abstractions.WellKnownJobMetricNames.JobsCompleted,
+            Abstractions.WellKnownControlPlaneMetricNames.JobsCompleted,
             unit: "{job}",
             description: "Total jobs completed successfully.");
 
         _failed = meter.CreateCounter<long>(
-            Abstractions.WellKnownJobMetricNames.JobsFailed,
+            Abstractions.WellKnownControlPlaneMetricNames.JobsFailed,
             unit: "{job}",
             description: "Total jobs that failed.");
 
         _duration = meter.CreateHistogram<double>(
-            Abstractions.WellKnownJobMetricNames.JobDuration,
+            Abstractions.WellKnownControlPlaneMetricNames.JobDuration,
             unit: "ms",
             description: "Job execution duration in milliseconds.");
     }

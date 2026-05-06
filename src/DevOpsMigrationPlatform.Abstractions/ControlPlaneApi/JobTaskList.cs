@@ -3,6 +3,7 @@
 
 using System;
 using System.Collections.Generic;
+using DevOpsMigrationPlatform.Abstractions.Jobs;
 
 namespace DevOpsMigrationPlatform.Abstractions.ControlPlaneApi;
 
@@ -18,4 +19,11 @@ public sealed record JobTaskList
 
     /// <summary>UTC timestamp when the agent pushed this plan.</summary>
     public DateTimeOffset PushedAt { get; init; } = DateTimeOffset.UtcNow;
+
+    /// <summary>
+    /// The <see cref="Jobs.JobKind"/> this plan was built for.
+    /// Used to detect mode switches (e.g. a previous Export plan being resumed as an Import).
+    /// <c>null</c> for plans persisted before this property was introduced (treated as unknown).
+    /// </summary>
+    public JobKind? ForKind { get; init; }
 }

@@ -44,9 +44,9 @@ public sealed class TuiMetricsView : FrameView
             if (metrics is null)
                 _content.Text = "(no job selected)";
             else if (metrics.Discovery is not null)
-                _content.Text = FormatDiscoveryMetrics(metrics);
+                _content.Text = FormatScopeMetrics(metrics);
             else
-                _content.Text = FormatMigrationMetrics(metrics);
+                _content.Text = FormatWorkItemMetrics(metrics);
             SetNeedsDraw();
         });
     }
@@ -61,7 +61,7 @@ public sealed class TuiMetricsView : FrameView
         });
     }
 
-    private static string FormatMigrationMetrics(JobMetrics m)
+    private static string FormatWorkItemMetrics(JobMetrics m)
     {
         var wi = m.Migration?.WorkItems;
         var diag = m.Migration?.Diagnostics;
@@ -95,7 +95,7 @@ public sealed class TuiMetricsView : FrameView
             $"Rev Order Errors     : {diag?.RevisionOrderErrors ?? 0,8}";
     }
 
-    private static string FormatDiscoveryMetrics(JobMetrics m)
+    private static string FormatScopeMetrics(JobMetrics m)
     {
         var scope = m.Scope;
         var inv = m.Discovery?.Inventory;

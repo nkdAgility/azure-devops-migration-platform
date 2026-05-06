@@ -29,14 +29,6 @@ public sealed class IdMapStoreFactory : IIdMapStoreFactory
 
         var newPath = PackagePaths.IdMapDbNative(localRoot);
 
-        // Legacy fallback: if the .migration path doesn't exist yet, check the old location.
-        if (!File.Exists(newPath))
-        {
-            var legacyPath = PackagePaths.LegacyIdMapDbNative(localRoot);
-            if (File.Exists(legacyPath))
-                return new SqliteIdMapStore(legacyPath);
-        }
-
         return new SqliteIdMapStore(newPath);
     }
 }

@@ -190,9 +190,6 @@ public class CursorResumeSteps
         _ctx.MockStateStore
             .Setup(s => s.ReadAsync(PackagePaths.CursorFile("workitems"), It.IsAny<CancellationToken>()))
             .ReturnsAsync((string?)null);
-        _ctx.MockStateStore
-            .Setup(s => s.ReadAsync(PackagePaths.LegacyCursorFile("workitems"), It.IsAny<CancellationToken>()))
-            .ReturnsAsync((string?)null);
     }
 
     [When(@"the WorkItems module starts")]

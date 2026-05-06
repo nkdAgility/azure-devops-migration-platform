@@ -51,7 +51,7 @@ public sealed class TeamsModuleInventoryTests
     [TestMethod]
     public async Task InventoryAsync_RecordsTeamInventoryMetrics()
     {
-        var metrics = new Mock<IDiscoveryMetrics>(MockBehavior.Strict);
+        var metrics = new Mock<IPlatformMetrics>(MockBehavior.Strict);
         metrics.Setup(m => m.RecordInventoryTeams(
                 2,
                 It.Is<MetricsTagList>(t => HasTag(t, "job.id", "job-1") && HasTag(t, "module", "Teams"))))
@@ -77,7 +77,7 @@ public sealed class TeamsModuleInventoryTests
         Assert.IsTrue(events.Any(e => e.Stage == "Inventoried" && e.Metrics is not null));
     }
 
-    private static TeamsModule CreateModule(IDiscoveryMetrics? metrics = null)
+    private static TeamsModule CreateModule(IPlatformMetrics? metrics = null)
     {
         var sourceEndpoint = new Mock<ISourceEndpointInfo>();
         sourceEndpoint.SetupGet(s => s.Project).Returns("ProjectA");
@@ -100,7 +100,6 @@ public sealed class TeamsModuleInventoryTests
             targetEndpoint.Object,
             Mock.Of<ITeamsOrchestrator>(),
             metrics,
-            null,
             teamSource.Object,
             Mock.Of<ITeamTarget>());
     }

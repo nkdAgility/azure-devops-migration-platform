@@ -164,9 +164,6 @@ public class ImportCursorResumeSteps
             .Returns((string _, CancellationToken ct) =>
                 Task.FromResult<string?>(_ctx.CursorWasDeleted ? null : cursorJson));
         _ctx.MockStateStore
-            .Setup(s => s.ReadAsync(PackagePaths.LegacyCursorFile("workitems"), It.IsAny<CancellationToken>()))
-            .ReturnsAsync((string?)null);
-        _ctx.MockStateStore
             .Setup(s => s.WriteAsync(PackagePaths.CursorFile("workitems"), It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
         _ctx.MockStateStore

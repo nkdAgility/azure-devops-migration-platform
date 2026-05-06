@@ -58,7 +58,7 @@ public sealed class WorkItemExportOrchestrator
     private readonly string? _wiqlQuery;
     private readonly IWorkItemFetchService? _fetchService;
     private readonly IReadOnlyList<WorkItemFieldFilterOptions>? _filterOptions;
-    private readonly IMigrationMetrics? _metrics;
+    private readonly IPlatformMetrics? _metrics;
     private readonly string? _jobId;
     private readonly ILogger? _logger;
     private readonly IWorkItemDiscoveryService? _discoveryService;
@@ -78,7 +78,7 @@ public sealed class WorkItemExportOrchestrator
         IWorkItemCommentSourceFactory? inlineCommentSourceFactory = null,
         IWorkItemFetchService? fetchService = null,
         IReadOnlyList<WorkItemFieldFilterOptions>? filterOptions = null,
-        IMigrationMetrics? metrics = null,
+        IPlatformMetrics? metrics = null,
         string? jobId = null,
         ILogger? logger = null,
         string? wiqlQuery = null,

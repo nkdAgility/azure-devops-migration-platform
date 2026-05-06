@@ -20,8 +20,7 @@ public static class TelemetryServiceExtensions
     /// Registers:
     /// <list type="bullet">
     ///   <item><see cref="TelemetryOptions"/> bound from the "Telemetry" config section.</item>
-    ///   <item><see cref="IMigrationMetrics"/> as a singleton.</item>
-    ///   <item><see cref="IDiscoveryMetrics"/> as a singleton.</item>
+    ///   <item><see cref="IPlatformMetrics"/> as a singleton.</item>
     /// </list>
     /// ControlPlane-specific metrics (IJobMetricsStore, IJobSnapshotStore, IJobLifecycleMetrics)
     /// are registered separately via <c>AddControlPlaneTelemetryServices()</c> in Infrastructure.ControlPlane.
@@ -33,8 +32,7 @@ public static class TelemetryServiceExtensions
         services.AddOptions<TelemetryOptions>()
                 .BindConfiguration(TelemetryOptions.SectionName);
 
-        services.AddSingleton<IMigrationMetrics, MigrationMetrics>();
-        services.AddSingleton<IDiscoveryMetrics, DiscoveryMetrics>();
+        services.AddSingleton<IPlatformMetrics, PlatformMetrics>();
 
         return services;
     }

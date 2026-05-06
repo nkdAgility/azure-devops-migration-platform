@@ -51,7 +51,7 @@ public sealed class NodesModuleInventoryTests
     [TestMethod]
     public async Task InventoryAsync_RecordsNodeInventoryMetrics()
     {
-        var metrics = new Mock<IDiscoveryMetrics>(MockBehavior.Strict);
+        var metrics = new Mock<IPlatformMetrics>(MockBehavior.Strict);
         metrics.Setup(m => m.RecordInventoryNodes(
                 3,
                 It.Is<MetricsTagList>(t => HasTag(t, "job.id", "job-1") && HasTag(t, "module", "Nodes"))))
@@ -77,7 +77,7 @@ public sealed class NodesModuleInventoryTests
         Assert.IsTrue(events.Any(e => e.Stage == "Inventoried" && e.Metrics is not null));
     }
 
-    private static NodesModule CreateModule(IDiscoveryMetrics? metrics = null)
+    private static NodesModule CreateModule(IPlatformMetrics? metrics = null)
     {
         var sourceEndpoint = new Mock<ISourceEndpointInfo>();
         sourceEndpoint.SetupGet(s => s.Project).Returns("ProjectA");
@@ -98,7 +98,6 @@ public sealed class NodesModuleInventoryTests
                 Mock.Of<INodeCreator>(),
                 CreateNodeTranslationOptions()),
             metrics,
-            null,
             capture: null,
             Mock.Of<ITargetEndpointInfo>(),
             reader: reader.Object);

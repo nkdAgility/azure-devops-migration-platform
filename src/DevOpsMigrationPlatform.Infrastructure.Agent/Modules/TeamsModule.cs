@@ -50,8 +50,7 @@ public sealed class TeamsModule : IModule
     private readonly ITeamTarget? _teamTarget;
     private readonly ICheckpointingServiceFactory? _checkpointingFactory;
     private readonly ILogger<TeamsModule> _logger;
-    private readonly IDiscoveryMetrics? _discoveryMetrics;
-    private readonly IMigrationMetrics? _migrationMetrics;
+    private readonly IPlatformMetrics? _PlatformMetrics;
     private readonly TeamsModuleOptions _options;
     private readonly ISourceEndpointInfo _sourceEndpointInfo;
     private readonly ITargetEndpointInfo _targetEndpointInfo;
@@ -75,8 +74,7 @@ public sealed class TeamsModule : IModule
         ISourceEndpointInfo sourceEndpointInfo,
         ITargetEndpointInfo targetEndpointInfo,
         ITeamsOrchestrator orchestrator,
-        IDiscoveryMetrics? discoveryMetrics = null,
-        IMigrationMetrics? migrationMetrics = null,
+        IPlatformMetrics? PlatformMetrics = null,
         ITeamSource? teamSource = null,
         ITeamTarget? teamTarget = null,
         ICheckpointingServiceFactory? checkpointingFactory = null)
@@ -86,8 +84,7 @@ public sealed class TeamsModule : IModule
         _sourceEndpointInfo = sourceEndpointInfo ?? throw new ArgumentNullException(nameof(sourceEndpointInfo));
         _targetEndpointInfo = targetEndpointInfo ?? throw new ArgumentNullException(nameof(targetEndpointInfo));
         _orchestrator = orchestrator ?? throw new ArgumentNullException(nameof(orchestrator));
-        _discoveryMetrics = discoveryMetrics;
-        _migrationMetrics = migrationMetrics;
+        _PlatformMetrics = PlatformMetrics;
         _teamSource = teamSource;
         _teamTarget = teamTarget;
         _checkpointingFactory = checkpointingFactory;
@@ -135,7 +132,7 @@ public sealed class TeamsModule : IModule
             }
         }
 
-        _discoveryMetrics?.RecordInventoryTeams(count, new MetricsTagList { { "job.id", context.Job.JobId }, { "module", Name } });
+        _PlatformMetrics?.RecordInventoryTeams(count, new MetricsTagList { { "job.id", context.Job.JobId }, { "module", Name } });
         _logger.LogInformation("Inventoried {Module}: {Count} items", Name, count);
         if (count == 0)
             _logger.LogWarning("Zero items inventoried for {Module}", Name);
@@ -165,8 +162,8 @@ public sealed class TeamsModule : IModule
 
         context.ProgressSink?.Emit(new ProgressEvent { Module = Name, Stage = "Preparing", Message = $"Preparing {Name}", Timestamp = DateTimeOffset.UtcNow });
         var report = new PrepareReport { ModuleName = Name, ResolvedCount = 0 };
-        _migrationMetrics?.RecordPrepareTeamsResolved(report.ResolvedCount, new MetricsTagList { { "job.id", context.Job.JobId }, { "module", Name } });
-        _migrationMetrics?.RecordPrepareTeamsUnresolved(report.UnresolvedCount, new MetricsTagList { { "job.id", context.Job.JobId }, { "module", Name } });
+        _PlatformMetrics?.RecordPrepareTeamsResolved(report.ResolvedCount, new MetricsTagList { { "job.id", context.Job.JobId }, { "module", Name } });
+        _PlatformMetrics?.RecordPrepareTeamsUnresolved(report.UnresolvedCount, new MetricsTagList { { "job.id", context.Job.JobId }, { "module", Name } });
         await context.ArtefactStore.WriteAsync("Teams/prepare-report.json", JsonSerializer.Serialize(report), ct).ConfigureAwait(false);
         _logger.LogInformation("Prepared {Module}: {Resolved} resolved, {Unresolved} unresolved in {DurationMs}ms", Name, report.ResolvedCount, report.UnresolvedCount, 0);
         context.ProgressSink?.Emit(new ProgressEvent { Module = Name, Stage = "Prepared", Message = $"{Name} prepare complete", Timestamp = DateTimeOffset.UtcNow });

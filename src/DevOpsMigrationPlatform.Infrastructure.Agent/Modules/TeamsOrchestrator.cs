@@ -48,20 +48,20 @@ internal sealed class TeamsOrchestrator : ITeamsOrchestrator
     };
 
     private readonly ILogger _logger;
-    private readonly IMigrationMetrics? _migrationMetrics;
+    private readonly IPlatformMetrics? _PlatformMetrics;
     private readonly TeamExportOrchestrator? _exportOrchestrator;
     private readonly TeamImportOrchestrator? _importOrchestrator;
     private readonly TeamSlugGenerator? _slugGenerator;
 
     public TeamsOrchestrator(
         ILogger<TeamsOrchestrator> logger,
-        IMigrationMetrics? migrationMetrics = null,
+        IPlatformMetrics? PlatformMetrics = null,
         TeamExportOrchestrator? exportOrchestrator = null,
         TeamImportOrchestrator? importOrchestrator = null,
         TeamSlugGenerator? slugGenerator = null)
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
-        _migrationMetrics = migrationMetrics;
+        _PlatformMetrics = PlatformMetrics;
         _exportOrchestrator = exportOrchestrator;
         _importOrchestrator = importOrchestrator;
         _slugGenerator = slugGenerator;
@@ -143,7 +143,7 @@ internal sealed class TeamsOrchestrator : ITeamsOrchestrator
                 { "module", "Teams" },
                 { "operation", "teams.export" }
             };
-            _migrationMetrics?.IncrementTeamExportInFlight(exportTags);
+            _PlatformMetrics?.IncrementTeamExportInFlight(exportTags);
             var exportSw = Stopwatch.StartNew();
             try
             {
@@ -151,7 +151,7 @@ internal sealed class TeamsOrchestrator : ITeamsOrchestrator
                     projectName, team, slug, artefactStore, options.Extensions, ct).ConfigureAwait(false);
 
                 count++;
-                _migrationMetrics?.RecordTeamExportCount(exportTags);
+                _PlatformMetrics?.RecordTeamExportCount(exportTags);
                 sink?.Emit(new ProgressEvent
                 {
                     Module = ModuleName,
@@ -161,14 +161,14 @@ internal sealed class TeamsOrchestrator : ITeamsOrchestrator
             }
             catch
             {
-                _migrationMetrics?.RecordTeamExportError(exportTags);
+                _PlatformMetrics?.RecordTeamExportError(exportTags);
                 throw;
             }
             finally
             {
                 exportSw.Stop();
-                _migrationMetrics?.DecrementTeamExportInFlight(exportTags);
-                _migrationMetrics?.RecordTeamExportDuration(exportSw.Elapsed.TotalMilliseconds, exportTags);
+                _PlatformMetrics?.DecrementTeamExportInFlight(exportTags);
+                _PlatformMetrics?.RecordTeamExportDuration(exportSw.Elapsed.TotalMilliseconds, exportTags);
             }
         }
 
@@ -274,7 +274,7 @@ internal sealed class TeamsOrchestrator : ITeamsOrchestrator
                 { "module", "Teams" },
                 { "operation", "teams.import" }
             };
-            _migrationMetrics?.IncrementTeamImportInFlight(importTags);
+            _PlatformMetrics?.IncrementTeamImportInFlight(importTags);
             var importSw = Stopwatch.StartNew();
             try
             {
@@ -282,7 +282,7 @@ internal sealed class TeamsOrchestrator : ITeamsOrchestrator
                     projectName, sourceProjectName, teamPackage, options.Extensions, ct).ConfigureAwait(false);
 
                 count++;
-                _migrationMetrics?.RecordTeamImportCount(importTags);
+                _PlatformMetrics?.RecordTeamImportCount(importTags);
                 importSink?.Emit(new ProgressEvent
                 {
                     Module = ModuleName,
@@ -292,14 +292,14 @@ internal sealed class TeamsOrchestrator : ITeamsOrchestrator
             }
             catch
             {
-                _migrationMetrics?.RecordTeamImportError(importTags);
+                _PlatformMetrics?.RecordTeamImportError(importTags);
                 throw;
             }
             finally
             {
                 importSw.Stop();
-                _migrationMetrics?.DecrementTeamImportInFlight(importTags);
-                _migrationMetrics?.RecordTeamImportDuration(importSw.Elapsed.TotalMilliseconds, importTags);
+                _PlatformMetrics?.DecrementTeamImportInFlight(importTags);
+                _PlatformMetrics?.RecordTeamImportDuration(importSw.Elapsed.TotalMilliseconds, importTags);
             }
         }
 
@@ -356,7 +356,7 @@ internal sealed class TeamsOrchestrator : ITeamsOrchestrator
                     Path = teamPath,
                     Message = $"[Teams] Team file '{teamPath}' exists but could not be read."
                 });
-                _migrationMetrics?.RecordTeamValidateError(validateTags);
+                _PlatformMetrics?.RecordTeamValidateError(validateTags);
                 continue;
             }
 
@@ -371,11 +371,11 @@ internal sealed class TeamsOrchestrator : ITeamsOrchestrator
                         Path = teamPath,
                         Message = $"[Teams] Team file '{teamPath}' is missing required field 'definition'."
                     });
-                    _migrationMetrics?.RecordTeamValidateError(validateTags);
+                    _PlatformMetrics?.RecordTeamValidateError(validateTags);
                 }
                 else
                 {
-                    _migrationMetrics?.RecordTeamValidateCount(validateTags);
+                    _PlatformMetrics?.RecordTeamValidateCount(validateTags);
                 }
             }
             catch (JsonException ex)
@@ -385,7 +385,7 @@ internal sealed class TeamsOrchestrator : ITeamsOrchestrator
                     Path = teamPath,
                     Message = $"[Teams] Team file '{teamPath}' contains malformed JSON: {ex.Message}"
                 });
-                _migrationMetrics?.RecordTeamValidateError(validateTags);
+                _PlatformMetrics?.RecordTeamValidateError(validateTags);
             }
         }
 

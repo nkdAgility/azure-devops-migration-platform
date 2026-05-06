@@ -166,9 +166,6 @@ public class RerunDeltaImportSteps
             .Setup(s => s.ReadAsync(PackagePaths.CursorFile("workitems"), It.IsAny<CancellationToken>()))
             .Returns((string _, CancellationToken _) =>
                 Task.FromResult<string?>(_ctx.CursorWasDeleted ? null : cursorJson));
-        _ctx.MockStateStore
-            .Setup(s => s.ReadAsync(PackagePaths.LegacyCursorFile("workitems"), It.IsAny<CancellationToken>()))
-            .ReturnsAsync((string?)null);
         _ctx.CursorReadConfigured = true;
         _ctx.MockStateStore
             .Setup(s => s.DeleteAsync(PackagePaths.CursorFile("workitems"), It.IsAny<CancellationToken>()))
@@ -222,9 +219,6 @@ public class RerunDeltaImportSteps
         {
             _ctx.MockStateStore
                 .Setup(s => s.ReadAsync(PackagePaths.CursorFile("workitems"), It.IsAny<CancellationToken>()))
-                .ReturnsAsync((string?)null);
-            _ctx.MockStateStore
-                .Setup(s => s.ReadAsync(PackagePaths.LegacyCursorFile("workitems"), It.IsAny<CancellationToken>()))
                 .ReturnsAsync((string?)null);
         }
 

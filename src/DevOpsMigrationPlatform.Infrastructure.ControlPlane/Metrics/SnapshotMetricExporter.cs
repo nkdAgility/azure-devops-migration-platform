@@ -59,142 +59,142 @@ internal sealed class SnapshotMetricExporter : BaseExporter<Metric>
             switch (metric.Name)
             {
                 // --- Execution ---
-                case WellKnownMetricNames.WorkItemsAttempted:
+                case WellKnownAgentMetricNames.WorkItemsAttempted:
                     attempted = ReadCounterSum(metric);
                     break;
-                case WellKnownMetricNames.WorkItemsCompleted:
+                case WellKnownAgentMetricNames.WorkItemsCompleted:
                     completed = ReadCounterSum(metric);
                     break;
-                case WellKnownMetricNames.WorkItemsFailed:
+                case WellKnownAgentMetricNames.WorkItemsFailed:
                     failed = ReadCounterSum(metric);
                     break;
-                case WellKnownMetricNames.WorkItemDurationMs:
+                case WellKnownAgentMetricNames.WorkItemDurationMs:
                     durationMeanMs = ReadHistogramMean(metric);
                     break;
 
                 // --- Payload ---
-                case WellKnownMetricNames.FieldCount:
+                case WellKnownAgentMetricNames.FieldCount:
                     fieldCountMean = ReadHistogramMean(metric);
                     break;
-                case WellKnownMetricNames.AttachmentCount:
+                case WellKnownAgentMetricNames.AttachmentCount:
                     attachmentCountMean = ReadHistogramMean(metric);
                     break;
-                case WellKnownMetricNames.LinkCount:
+                case WellKnownAgentMetricNames.LinkCount:
                     linkCountMean = ReadHistogramMean(metric);
                     break;
-                case WellKnownMetricNames.RevisionCount:
+                case WellKnownAgentMetricNames.RevisionCount:
                     revisionCountMean = ReadHistogramMean(metric);
                     break;
-                case WellKnownMetricNames.PayloadBytes:
+                case WellKnownAgentMetricNames.PayloadBytes:
                     payloadBytesMean = ReadHistogramMean(metric);
                     break;
 
                 // --- Correctness ---
-                case WellKnownMetricNames.RevisionsMissing:
+                case WellKnownAgentMetricNames.RevisionsMissing:
                     revMissing = ReadCounterSum(metric);
                     break;
-                case WellKnownMetricNames.RevisionOrderErrors:
+                case WellKnownAgentMetricNames.RevisionOrderErrors:
                     revOrderErrors = ReadCounterSum(metric);
                     break;
-                case WellKnownMetricNames.BrokenLinks:
+                case WellKnownAgentMetricNames.BrokenLinks:
                     brokenLinks = ReadCounterSum(metric);
                     break;
-                case WellKnownMetricNames.MissingWorkItems:
+                case WellKnownAgentMetricNames.MissingWorkItems:
                     missingWI = ReadCounterSum(metric);
                     break;
 
                 // --- In-Flight ---
-                case WellKnownMetricNames.WorkItemsInFlight:
+                case WellKnownAgentMetricNames.WorkItemsInFlight:
                     inFlight = (int)ReadCounterSum(metric);
                     break;
-                case WellKnownMetricNames.QueueDepth:
+                case WellKnownAgentMetricNames.QueueDepth:
                     queueDepth = ReadGaugeLatest(metric);
                     break;
 
                 // --- Teams ---
-                case WellKnownMetricNames.TeamsExportCount:
+                case WellKnownAgentMetricNames.TeamsExportCount:
                     teamsExported = ReadCounterSum(metric);
                     break;
-                case WellKnownMetricNames.TeamsImportCount:
+                case WellKnownAgentMetricNames.TeamsImportCount:
                     teamsImported = ReadCounterSum(metric);
                     break;
-                case WellKnownMetricNames.TeamsExportErrors:
+                case WellKnownAgentMetricNames.TeamsExportErrors:
                     teamsFailed += ReadCounterSum(metric);
                     break;
-                case WellKnownMetricNames.TeamsImportErrors:
+                case WellKnownAgentMetricNames.TeamsImportErrors:
                     teamsFailed += ReadCounterSum(metric);
                     break;
-                case WellKnownMetricNames.TeamsImportMembersCount:
+                case WellKnownAgentMetricNames.TeamsImportMembersCount:
                     teamsMembers = ReadCounterSum(metric);
                     break;
-                case WellKnownMetricNames.TeamsImportIterationsCount:
+                case WellKnownAgentMetricNames.TeamsImportIterationsCount:
                     teamsIterations = ReadCounterSum(metric);
                     break;
 
                 // --- Nodes ---
-                case WellKnownMetricNames.NodeExportDiscoverCount:
+                case WellKnownAgentMetricNames.NodeExportDiscoverCount:
                     nodesExported = ReadCounterSum(metric);
                     break;
-                case WellKnownMetricNames.NodeImportReplicateAreaCount:
+                case WellKnownAgentMetricNames.NodeImportReplicateAreaCount:
                     nodesAreaReplicated = ReadCounterSum(metric);
                     break;
-                case WellKnownMetricNames.NodeImportReplicateIterationCount:
+                case WellKnownAgentMetricNames.NodeImportReplicateIterationCount:
                     nodesIterationReplicated = ReadCounterSum(metric);
                     break;
-                case WellKnownMetricNames.NodeImportReplicateErrors:
+                case WellKnownAgentMetricNames.NodeImportReplicateErrors:
                     nodesFailed = ReadCounterSum(metric);
                     break;
 
                 // --- Identities ---
-                case WellKnownMetricNames.IdentitiesExportCount:
+                case WellKnownAgentMetricNames.IdentitiesExportCount:
                     identitiesExported = ReadCounterSum(metric);
                     break;
-                case WellKnownMetricNames.IdentitiesImportResolved:
+                case WellKnownAgentMetricNames.IdentitiesImportResolved:
                     identitiesResolved = ReadCounterSum(metric);
                     break;
-                case WellKnownMetricNames.IdentitiesImportUnresolved:
+                case WellKnownAgentMetricNames.IdentitiesImportUnresolved:
                     identitiesUnresolved = ReadCounterSum(metric);
                     break;
-                case WellKnownMetricNames.IdentitiesExportErrors:
+                case WellKnownAgentMetricNames.IdentitiesExportErrors:
                     identitiesFailed += ReadCounterSum(metric);
                     break;
-                case WellKnownMetricNames.IdentitiesImportErrors:
+                case WellKnownAgentMetricNames.IdentitiesImportErrors:
                     identitiesFailed += ReadCounterSum(metric);
                     break;
-                case WellKnownDiscoveryMetricNames.InventoryWorkItems:
+                case WellKnownAgentMetricNames.InventoryWorkItems:
                     inventoryWorkItems = ReadCounterSum(metric);
                     break;
-                case WellKnownDiscoveryMetricNames.InventoryIdentities:
+                case WellKnownAgentMetricNames.InventoryIdentities:
                     inventoryIdentities = ReadCounterSum(metric);
                     break;
-                case WellKnownDiscoveryMetricNames.InventoryNodes:
+                case WellKnownAgentMetricNames.InventoryNodes:
                     inventoryNodes = ReadCounterSum(metric);
                     break;
-                case WellKnownDiscoveryMetricNames.InventoryTeams:
+                case WellKnownAgentMetricNames.InventoryTeams:
                     inventoryTeams = ReadCounterSum(metric);
                     break;
-                case WellKnownMetricNames.WorkItemsPrepareResolved:
+                case WellKnownAgentMetricNames.WorkItemsPrepareResolved:
                     prepareWorkItemsResolved = ReadCounterSum(metric);
                     break;
-                case WellKnownMetricNames.WorkItemsPrepareUnresolved:
+                case WellKnownAgentMetricNames.WorkItemsPrepareUnresolved:
                     prepareWorkItemsUnresolved = ReadCounterSum(metric);
                     break;
-                case WellKnownMetricNames.IdentitiesPrepareResolved:
+                case WellKnownAgentMetricNames.IdentitiesPrepareResolved:
                     prepareIdentitiesResolved = ReadCounterSum(metric);
                     break;
-                case WellKnownMetricNames.IdentitiesPrepareUnresolved:
+                case WellKnownAgentMetricNames.IdentitiesPrepareUnresolved:
                     prepareIdentitiesUnresolved = ReadCounterSum(metric);
                     break;
-                case WellKnownMetricNames.NodesPrepareResolved:
+                case WellKnownAgentMetricNames.NodesPrepareResolved:
                     prepareNodesResolved = ReadCounterSum(metric);
                     break;
-                case WellKnownMetricNames.NodesPrepareUnresolved:
+                case WellKnownAgentMetricNames.NodesPrepareUnresolved:
                     prepareNodesUnresolved = ReadCounterSum(metric);
                     break;
-                case WellKnownMetricNames.TeamsPrepareResolved:
+                case WellKnownAgentMetricNames.TeamsPrepareResolved:
                     prepareTeamsResolved = ReadCounterSum(metric);
                     break;
-                case WellKnownMetricNames.TeamsPrepareUnresolved:
+                case WellKnownAgentMetricNames.TeamsPrepareUnresolved:
                     prepareTeamsUnresolved = ReadCounterSum(metric);
                     break;
             }

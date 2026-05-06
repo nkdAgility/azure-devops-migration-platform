@@ -53,7 +53,7 @@ internal sealed class NodesOrchestrator : INodesOrchestrator
 
     private readonly ILogger _logger;
 #if !NET481
-    private readonly IMigrationMetrics? _migrationMetrics;
+    private readonly IPlatformMetrics? _PlatformMetrics;
     private readonly INodeTranslationTool _nodeTranslationTool;
     private readonly INodeCreator _nodeCreator;
     private readonly IOptionsMonitor<NodeTranslationOptions> _nodeTranslationOptions;
@@ -65,7 +65,7 @@ internal sealed class NodesOrchestrator : INodesOrchestrator
         , INodeTranslationTool nodeTranslationTool,
         INodeCreator nodeCreator,
         IOptionsMonitor<NodeTranslationOptions> nodeTranslationOptions,
-        IMigrationMetrics? migrationMetrics = null
+        IPlatformMetrics? PlatformMetrics = null
 #endif
     )
     {
@@ -74,7 +74,7 @@ internal sealed class NodesOrchestrator : INodesOrchestrator
         _nodeTranslationTool = nodeTranslationTool ?? throw new ArgumentNullException(nameof(nodeTranslationTool));
         _nodeCreator = nodeCreator ?? throw new ArgumentNullException(nameof(nodeCreator));
         _nodeTranslationOptions = nodeTranslationOptions ?? throw new ArgumentNullException(nameof(nodeTranslationOptions));
-        _migrationMetrics = migrationMetrics;
+        _PlatformMetrics = PlatformMetrics;
 #endif
     }
 
@@ -115,7 +115,7 @@ internal sealed class NodesOrchestrator : INodesOrchestrator
         var nodeCount = await capture.CaptureAsync(
             context.ArtefactStore, ct,
 #if !NET481
-            _migrationMetrics,
+            _PlatformMetrics,
 #else
             null,
 #endif
@@ -182,7 +182,7 @@ internal sealed class NodesOrchestrator : INodesOrchestrator
             await ReplicateSourceTreeAsync(
                 mapping,
                 context.ArtefactStore, context.StateStore,
-                ct, _migrationMetrics, context.Job.JobId).ConfigureAwait(false);
+                ct, _PlatformMetrics, context.Job.JobId).ConfigureAwait(false);
             importSink?.Emit(new ProgressEvent
             {
                 Module = ModuleName,
@@ -217,7 +217,7 @@ internal sealed class NodesOrchestrator : INodesOrchestrator
         ProjectMapping context,
         IArtefactStore artefactStore,
         CancellationToken ct,
-        IMigrationMetrics? metrics = null,
+        IPlatformMetrics? metrics = null,
         string? jobId = null)
     {
         var options = _nodeTranslationOptions.CurrentValue;
@@ -303,7 +303,7 @@ internal sealed class NodesOrchestrator : INodesOrchestrator
         IArtefactStore artefactStore,
         IStateStore stateStore,
         CancellationToken ct,
-        IMigrationMetrics? metrics = null,
+        IPlatformMetrics? metrics = null,
         string? jobId = null)
     {
         var json = await artefactStore.ReadAsync(SourceTreePath, ct).ConfigureAwait(false);

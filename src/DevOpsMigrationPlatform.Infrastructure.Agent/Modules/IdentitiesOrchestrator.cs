@@ -48,14 +48,14 @@ internal sealed class IdentitiesOrchestrator : IIdentitiesOrchestrator
     };
 
     private readonly ILogger _logger;
-    private readonly IMigrationMetrics? _migrationMetrics;
+    private readonly IPlatformMetrics? _PlatformMetrics;
 
     public IdentitiesOrchestrator(
         ILogger<IdentitiesOrchestrator> logger,
-        IMigrationMetrics? migrationMetrics = null)
+        IPlatformMetrics? PlatformMetrics = null)
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
-        _migrationMetrics = migrationMetrics;
+        _PlatformMetrics = PlatformMetrics;
     }
 
     /// <summary>
@@ -107,7 +107,7 @@ internal sealed class IdentitiesOrchestrator : IIdentitiesOrchestrator
             new("module", "Identities"),
             new("operation", "identities.export")
         };
-        _migrationMetrics?.IncrementIdentityExportInFlight(exportTags);
+        _PlatformMetrics?.IncrementIdentityExportInFlight(exportTags);
         var exportSw = Stopwatch.StartNew();
         try
         {
@@ -116,19 +116,19 @@ internal sealed class IdentitiesOrchestrator : IIdentitiesOrchestrator
                 var line = JsonSerializer.Serialize(descriptor, s_jsonOptions);
                 await artefactStore.AppendAsync(DescriptorsPath, line + "\n", ct).ConfigureAwait(false);
                 count++;
-                _migrationMetrics?.RecordIdentityExportCount(exportTags);
+                _PlatformMetrics?.RecordIdentityExportCount(exportTags);
             }
         }
         catch
         {
-            _migrationMetrics?.RecordIdentityExportError(exportTags);
+            _PlatformMetrics?.RecordIdentityExportError(exportTags);
             throw;
         }
         finally
         {
             exportSw.Stop();
-            _migrationMetrics?.DecrementIdentityExportInFlight(exportTags);
-            _migrationMetrics?.RecordIdentityExportDuration(exportSw.Elapsed.TotalMilliseconds, exportTags);
+            _PlatformMetrics?.DecrementIdentityExportInFlight(exportTags);
+            _PlatformMetrics?.RecordIdentityExportDuration(exportSw.Elapsed.TotalMilliseconds, exportTags);
         }
 
         activity?.SetTag("identities.count", count);
@@ -205,7 +205,7 @@ internal sealed class IdentitiesOrchestrator : IIdentitiesOrchestrator
 
         var resolvedCount = CountLines(descriptorsJson);
         for (int i = 0; i < resolvedCount; i++)
-            _migrationMetrics?.RecordIdentityImportResolved(importTags);
+            _PlatformMetrics?.RecordIdentityImportResolved(importTags);
 
         if (identityLookupTool is not null)
         {
@@ -213,7 +213,7 @@ internal sealed class IdentitiesOrchestrator : IIdentitiesOrchestrator
         }
 
         importSw.Stop();
-        _migrationMetrics?.RecordIdentityImportDuration(importSw.Elapsed.TotalMilliseconds, importTags);
+        _PlatformMetrics?.RecordIdentityImportDuration(importSw.Elapsed.TotalMilliseconds, importTags);
 
         var hasMapping = await artefactStore.ExistsAsync(MappingPath, ct).ConfigureAwait(false);
         _logger.LogInformation("[Identities] Identity import complete: {Resolved} resolved, mapping overrides: {HasMapping}.", resolvedCount, hasMapping);
@@ -252,7 +252,7 @@ internal sealed class IdentitiesOrchestrator : IIdentitiesOrchestrator
                 Path = DescriptorsPath,
                 Message = $"[Identities] Required file '{DescriptorsPath}' is missing from the package."
             });
-            _migrationMetrics?.RecordIdentityValidateError(validateTags);
+            _PlatformMetrics?.RecordIdentityValidateError(validateTags);
             return;
         }
 
@@ -264,7 +264,7 @@ internal sealed class IdentitiesOrchestrator : IIdentitiesOrchestrator
                 Path = DescriptorsPath,
                 Message = $"[Identities] File '{DescriptorsPath}' exists but could not be read."
             });
-            _migrationMetrics?.RecordIdentityValidateError(validateTags);
+            _PlatformMetrics?.RecordIdentityValidateError(validateTags);
             return;
         }
 
@@ -284,11 +284,11 @@ internal sealed class IdentitiesOrchestrator : IIdentitiesOrchestrator
                         Path = DescriptorsPath,
                         Message = $"[Identities] Line {lineNumber} in '{DescriptorsPath}' is missing required field 'descriptor'."
                     });
-                    _migrationMetrics?.RecordIdentityValidateError(validateTags);
+                    _PlatformMetrics?.RecordIdentityValidateError(validateTags);
                 }
                 else
                 {
-                    _migrationMetrics?.RecordIdentityValidateCount(validateTags);
+                    _PlatformMetrics?.RecordIdentityValidateCount(validateTags);
                 }
             }
             catch (JsonException ex)
@@ -298,7 +298,7 @@ internal sealed class IdentitiesOrchestrator : IIdentitiesOrchestrator
                     Path = DescriptorsPath,
                     Message = $"[Identities] Line {lineNumber} in '{DescriptorsPath}' is malformed JSON: {ex.Message}"
                 });
-                _migrationMetrics?.RecordIdentityValidateError(validateTags);
+                _PlatformMetrics?.RecordIdentityValidateError(validateTags);
             }
         }
     }

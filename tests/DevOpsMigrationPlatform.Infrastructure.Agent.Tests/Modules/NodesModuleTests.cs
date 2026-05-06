@@ -135,7 +135,7 @@ public class NodesModuleTests
             .Setup(c => c.CaptureAsync(
                 It.IsAny<IArtefactStore>(),
                 It.IsAny<CancellationToken>(),
-                It.IsAny<IMigrationMetrics?>(),
+                It.IsAny<IPlatformMetrics?>(),
                 It.IsAny<string?>(),
                 It.IsAny<IProgressSink?>(),
                 It.IsAny<string>()))
@@ -152,7 +152,7 @@ public class NodesModuleTests
         captureMock.Verify(c => c.CaptureAsync(
             It.IsAny<IArtefactStore>(),
             It.IsAny<CancellationToken>(),
-            It.IsAny<IMigrationMetrics?>(),
+            It.IsAny<IPlatformMetrics?>(),
             It.IsAny<string?>(),
             It.IsAny<IProgressSink?>(),
             It.IsAny<string>()), Times.Once);
