@@ -510,6 +510,31 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
         }
         else if (kind == JobKind.Dependencies)
         {
+            var orgProjectScopes = await ResolveOrgProjectScopesAsync(config, ct).ConfigureAwait(false);
+            var allCaptureTaskIds = new List<string>();
+
+            foreach (var (endpoint, orgSlug, projects) in orgProjectScopes)
+            {
+                foreach (var project in projects)
+                {
+                    var projectSlug = PackagePathResolver.Sanitise(project);
+                    var taskId = $"capture.dependencies.{orgSlug}.{projectSlug}";
+
+                    tasks.Add(MakeTask(
+                        taskId,
+                        $"Dependencies Capture [{project}]",
+                        phase: null,
+                        TaskKind.Capture,
+                        organisationUrl: endpoint.ResolvedUrl,
+                        projectName: project,
+                        enabled: true,
+                        phaseAlreadyDone: false,
+                        order: order++));
+
+                    allCaptureTaskIds.Add(taskId);
+                }
+            }
+
             if (_analysersByName.TryGetValue("Dependencies", out var dependencyAnalyser))
             {
                 tasks.Add(MakeTask(
@@ -521,7 +546,8 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
                     projectName: null,
                     enabled: true,
                     phaseAlreadyDone: false,
-                    order: order++));
+                    order: order++,
+                    dependsOn: allCaptureTaskIds.Count > 0 ? allCaptureTaskIds.AsReadOnly() : null));
             }
         }
 
