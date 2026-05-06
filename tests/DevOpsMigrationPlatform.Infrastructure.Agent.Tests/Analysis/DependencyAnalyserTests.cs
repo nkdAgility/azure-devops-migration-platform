@@ -154,6 +154,103 @@ public sealed class DependencyAnalyserTests
             }]
         };
 
+    [TestMethod]
+    public async Task AnalyseAsync_EC5_WhenPerProjectCsvAbsent_LogsErrorAndDoesNotThrow()
+    {
+        // Arrange: a store that enumerates paths but ReadAsync returns null for them (simulates
+        // a capture task that ran but did not write the CSV file).
+        var store = new MissingCsvArtefactStore("discovery/https_org/ProjectA/dependencies.csv",
+                                                 "discovery/https_org/ProjectB/dependencies.csv");
+
+        var logger = new Mock<ILogger<DependencyAnalyser>>(MockBehavior.Loose);
+
+        var factory = new Mock<IDependencyDiscoveryServiceFactory>(MockBehavior.Strict);
+        factory.Setup(f => f.Create(It.IsAny<IReadOnlyList<ScopedOrganisationEndpoint>>(), It.IsAny<JobPolicies>()))
+            .Returns(Mock.Of<IDependencyDiscoveryService>());
+
+        var orchestrator = new Mock<IDependencyOrchestrator>(MockBehavior.Strict);
+        orchestrator
+            .Setup(o => o.AnalyseAsync(
+                It.IsAny<IDependencyDiscoveryService>(),
+                It.IsAny<OrganisationsAnalyseContext>(),
+                It.IsAny<JobPolicies>(),
+                It.IsAny<int>(),
+                It.IsAny<CancellationToken>()))
+            .Returns<IDependencyDiscoveryService, OrganisationsAnalyseContext, JobPolicies, int, CancellationToken>(
+                async (_, context, _, _, ct) =>
+                {
+                    await context.ArtefactStore.WriteAsync("dependencies.csv", "header\n", ct);
+                });
+
+        var analyser = new DependencyAnalyser(factory.Object, orchestrator.Object, logger.Object);
+
+        // Act — must not throw
+        await analyser.AnalyseAsync(CreateContext(artefactStore: store), CancellationToken.None);
+
+        // Assert: LogError called once per missing file (2 paths, both null from ReadAsync)
+        logger.Verify(
+            x => x.Log(
+                LogLevel.Error,
+                It.IsAny<EventId>(),
+                It.Is<It.IsAnyType>((v, _) => v.ToString()!.Contains("dependencies.csv")),
+                It.IsAny<System.Exception?>(),
+                It.IsAny<System.Func<It.IsAnyType, System.Exception?, string>>()),
+            Times.Exactly(2));
+    }
+
+    /// <summary>
+    /// A store that enumerates pre-registered paths but returns null from ReadAsync for all of them.
+    /// Used to simulate EC-5: capture tasks ran but did not write their CSV files.
+    /// </summary>
+    private sealed class MissingCsvArtefactStore : IArtefactStore
+    {
+        private readonly string[] _paths;
+        private readonly Dictionary<string, string> _written = new(System.StringComparer.OrdinalIgnoreCase);
+
+        public MissingCsvArtefactStore(params string[] paths) => _paths = paths;
+
+        public Task<string?> ReadAsync(string path, CancellationToken cancellationToken)
+        {
+            // Return written content if it exists; null for pre-registered "missing" paths.
+            return Task.FromResult(_written.TryGetValue(path, out var val) ? val : (string?)null);
+        }
+
+        public Task WriteAsync(string path, string content, CancellationToken cancellationToken)
+        {
+            _written[path] = content;
+            return Task.CompletedTask;
+        }
+
+        public Task<bool> ExistsAsync(string path, CancellationToken cancellationToken)
+            => Task.FromResult(_written.ContainsKey(path));
+
+        public Task WriteBinaryAsync(string path, byte[] content, CancellationToken cancellationToken)
+            => Task.CompletedTask;
+
+        public Task<Stream?> ReadBinaryAsync(string path, CancellationToken cancellationToken)
+            => Task.FromResult<Stream?>(null);
+
+        public async IAsyncEnumerable<string> EnumerateAsync(string prefix, [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken)
+        {
+            // Enumerate the pre-registered paths (these simulate paths that "exist" in the store
+            // but whose content was never written due to a failed capture task).
+            foreach (var p in _paths.Where(p => p.StartsWith(prefix, System.StringComparison.OrdinalIgnoreCase)))
+            {
+                yield return p;
+                await Task.Yield();
+            }
+        }
+
+        public Task WriteStreamAsync(string path, Stream content, CancellationToken cancellationToken)
+            => Task.CompletedTask;
+
+        public Task AppendAsync(string path, string content, CancellationToken cancellationToken)
+        {
+            _written[path] = _written.TryGetValue(path, out var e) ? e + content : content;
+            return Task.CompletedTask;
+        }
+    }
+
     private sealed class InMemoryArtefactStore : IArtefactStore
     {
         private readonly Dictionary<string, string> _files = new(System.StringComparer.OrdinalIgnoreCase);

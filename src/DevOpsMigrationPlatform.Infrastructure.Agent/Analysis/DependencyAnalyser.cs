@@ -97,9 +97,18 @@ public sealed class DependencyAnalyser : IOrganisationsAnalyser
             foreach (var path in perProjectPaths) // already lexicographic per EnumerateAsync contract
             {
                 var content = await context.ArtefactStore.ReadAsync(path, ct).ConfigureAwait(false);
+                if (content is null)
+                {
+                    // Edge Case EC-5: capture task may have failed to write this file.
+                    // Log the missing file and continue processing remaining projects.
+                    _logger.LogError(
+                        "Required dependency CSV not found at {Path}. Skipping project.",
+                        path);
+                    continue;
+                }
                 if (string.IsNullOrWhiteSpace(content))
                     continue;
-                var lines = content!.Split(new[] { '\n' }, System.StringSplitOptions.RemoveEmptyEntries);
+                var lines = content.Split(new[] { '\n' }, System.StringSplitOptions.RemoveEmptyEntries);
                 foreach (var line in lines.Skip(1)) // skip each file's header
                     consolidated.AppendLine(line);
             }

@@ -196,6 +196,12 @@ public sealed class PlatformMetrics : IPlatformMetrics, IDisposable
     private readonly Counter<long> _configReadErrors;
     private readonly Counter<long> _configReadFallbacks;
 
+    // --- Dependencies Capture ---
+    private readonly Counter<long> _dependenciesCaptureCount;
+    private readonly Histogram<double> _dependenciesCaptureDuration;
+    private readonly Counter<long> _dependenciesCaptureErrors;
+    private readonly UpDownCounter<long> _dependenciesCaptureInFlight;
+
     public PlatformMetrics()
     {
         _meter = new Meter(WellKnownMeterNames.Agent, "4.0");
@@ -405,6 +411,12 @@ public sealed class PlatformMetrics : IPlatformMetrics, IDisposable
         _configReadCount = _meter.CreateCounter<long>(WellKnownAgentMetricNames.ConfigReadCount, unit: "{operation}");
         _configReadErrors = _meter.CreateCounter<long>(WellKnownAgentMetricNames.ConfigReadErrors, unit: "{error}");
         _configReadFallbacks = _meter.CreateCounter<long>(WellKnownAgentMetricNames.ConfigReadFallbacks, unit: "{fallback}");
+
+        // Dependencies Capture
+        _dependenciesCaptureCount = _meter.CreateCounter<long>(WellKnownAgentMetricNames.DependenciesCaptureCount, unit: "{project}");
+        _dependenciesCaptureDuration = _meter.CreateHistogram<double>(WellKnownAgentMetricNames.DependenciesCaptureDurationMs, unit: "ms");
+        _dependenciesCaptureErrors = _meter.CreateCounter<long>(WellKnownAgentMetricNames.DependenciesCaptureErrors, unit: "{project}");
+        _dependenciesCaptureInFlight = _meter.CreateUpDownCounter<long>(WellKnownAgentMetricNames.DependenciesCaptureInFlight, unit: "{project}");
     }
 
     private static TagList ToTagList(MetricsTagList tags)
@@ -671,6 +683,14 @@ public sealed class PlatformMetrics : IPlatformMetrics, IDisposable
     public void RecordConfigReadCompleted(MetricsTagList tags) => _configReadCount.Add(1, ToTagList(tags));
     public void RecordConfigReadError(MetricsTagList tags) => _configReadErrors.Add(1, ToTagList(tags));
     public void RecordConfigReadFallback(MetricsTagList tags) => _configReadFallbacks.Add(1, ToTagList(tags));
+
+    // --- Dependencies Capture ---
+    public void DependenciesCaptureStarted(MetricsTagList tags) => _dependenciesCaptureCount.Add(1, ToTagList(tags));
+    public void DependenciesCaptureCompleted(MetricsTagList tags) { /* count recorded at DependenciesCaptureStarted */ }
+    public void DependenciesCaptureFailed(MetricsTagList tags) => _dependenciesCaptureErrors.Add(1, ToTagList(tags));
+    public void RecordDependenciesCaptureDuration(double milliseconds, MetricsTagList tags) => _dependenciesCaptureDuration.Record(milliseconds, ToTagList(tags));
+    public void DependenciesCaptureInFlightIncrement(MetricsTagList tags) => _dependenciesCaptureInFlight.Add(1, ToTagList(tags));
+    public void DependenciesCaptureInFlightDecrement(MetricsTagList tags) => _dependenciesCaptureInFlight.Add(-1, ToTagList(tags));
 
     public void Dispose() => _meter.Dispose();
 }

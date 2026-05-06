@@ -32,6 +32,12 @@ public record MigrationCounters
     public ModulePhaseCounters? Prepare { get; init; }
 
     /// <summary>
+    /// Dependency capture counters (per-project link discovery).
+    /// Null when no <c>capture.dependencies.*</c> tasks ran for this job.
+    /// </summary>
+    public DependencyCounters? DependencyCapture { get; init; }
+
+    /// <summary>
     /// OTel-derived diagnostic means and correctness counters.
     /// Populated only at aggregate scope (<see cref="JobMetrics"/>); null at per-project scope.
     /// </summary>

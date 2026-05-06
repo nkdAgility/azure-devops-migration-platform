@@ -14,13 +14,38 @@ A module is a self-contained unit of migration logic for a single data type (e.g
 
 ## Execution Shape
 
-Every module implements `IModule`, which exposes:
+Every module implements `IModule : ICapture`, which exposes:
 
-- `InventoryAsync(context, cancellationToken)` — counts and catalogues
+- `CaptureAsync(context, cancellationToken)` — counts and catalogues (inherited from `ICapture`)
 - `ExportAsync(context, cancellationToken)` — writes to package
 - `PrepareAsync(context, cancellationToken)` — validates target
 - `ImportAsync(context, cancellationToken)` — reads from package and pushes to target
 - `ValidateAsync(context, cancellationToken)` — compares source and target
+
+## Capture Dispatch
+
+Capture tasks (`capture.*`) are dispatched via a unified `captureHandlersByName` dictionary of type `IReadOnlyDictionary<string, ICapture>`. This dictionary is assembled by `JobAgentWorker.BuildCaptureHandlers`:
+
+1. Step 1: all `IModule` instances where `SupportsInventory = true` are added (cast to `ICapture`).
+2. Step 2: pure `ICapture` registrations (not `IModule`) are unioned in, de-duplicating by name with `OrdinalIgnoreCase`.
+
+The `ICapture` interface is the unified capture contract:
+```csharp
+public interface ICapture
+{
+    string Name { get; }
+    Task CaptureAsync(InventoryContext context, CancellationToken ct);
+}
+```
+
+`Name` returns the second dot-segment of task IDs (e.g., `"workitems"` for `capture.workitems.org.project`).
+
+## Pure Capture Handlers
+
+A **pure capture handler** implements `ICapture` only — not `IModule`. Use this pattern when a data type needs per-project capture but has no export/import/validate lifecycle.
+
+Current pure capture handlers:
+- `DependencyCapture` — captures per-project dependency links via `IDependencyDiscoveryServiceFactory.CreateForProject` and `IDependencyOrchestrator.CaptureProjectAsync`. Registered as `ICapture` only via `AddDependencyCaptureServices()`. TFS agents must NOT register this.
 
 ## Telemetry Contract
 

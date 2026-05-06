@@ -10,20 +10,21 @@ using DevOpsMigrationPlatform.Abstractions.Agent.Discovery;
 using DevOpsMigrationPlatform.Abstractions.Agent.Modules;
 using DevOpsMigrationPlatform.Abstractions.Agent.Telemetry;
 using DevOpsMigrationPlatform.Abstractions.ControlPlaneApi;
+using DevOpsMigrationPlatform.Abstractions.Streaming;
+using DevOpsMigrationPlatform.Abstractions.Telemetry;
 using Microsoft.Extensions.Logging;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Agent.Analysis;
 
 /// <summary>
-/// Pure <see cref="ICapture"/> implementation for dependency discovery.
-/// Captures per-project dependency data (cross-project work item links) via
-/// <see cref="IDependencyOrchestrator.CaptureProjectAsync"/>, writing a per-project
-/// <c>discovery/{orgSlug}/{projectSlug}/dependencies.csv</c> artefact that the
+/// Pure <see cref="ICapture"/> implementation for per-project dependency discovery.
+/// Captures cross-project work item links via <see cref="IDependencyOrchestrator.CaptureProjectAsync"/>,
+/// writing a per-project <c>discovery/{org}/{project}/dependencies.csv</c> artefact that the
 /// <c>analyse.dependencies.*</c> fan-in task later consolidates.
 /// <para>
-/// This is NOT an <see cref="Abstractions.Agent.Modules.IModule"/>. It is registered directly as
-/// <c>ICapture</c> in DI and included in <c>captureHandlersByName</c> only for connectors that
-/// support dependency discovery (ADO and Simulated). TFS agents do NOT register this type.
+/// This is NOT an <see cref="IModule"/>. It is registered directly as <c>ICapture</c> in DI
+/// and included in <c>captureHandlersByName</c> only for connectors that support dependency
+/// discovery (ADO and Simulated). TFS agents must NOT register this type.
 /// </para>
 /// </summary>
 public sealed class DependencyCapture : ICapture
@@ -34,20 +35,26 @@ public sealed class DependencyCapture : ICapture
     private readonly IDependencyOrchestrator _orchestrator;
     private readonly ILogger<DependencyCapture> _logger;
     private readonly IPlatformMetrics? _metrics;
+    private readonly IProgressSink? _progressSink;
 
-    /// <summary>Name used to match <c>capture.dependencies.{org}.{project}</c> task IDs.</summary>
+    /// <summary>
+    /// The second dot-segment extracted from <c>capture.dependencies.{org}.{project}</c> task IDs.
+    /// Matches by <see cref="StringComparer.OrdinalIgnoreCase"/> in <c>captureHandlersByName</c>.
+    /// </summary>
     public string Name => "dependencies";
 
     public DependencyCapture(
         IDependencyDiscoveryServiceFactory dependencyFactory,
         IDependencyOrchestrator orchestrator,
         ILogger<DependencyCapture> logger,
-        IPlatformMetrics? metrics = null)
+        IPlatformMetrics? metrics = null,
+        IProgressSink? progressSink = null)
     {
         _dependencyFactory = dependencyFactory ?? throw new ArgumentNullException(nameof(dependencyFactory));
         _orchestrator = orchestrator ?? throw new ArgumentNullException(nameof(orchestrator));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _metrics = metrics;
+        _progressSink = progressSink;
     }
 
     /// <inheritdoc />
@@ -55,66 +62,145 @@ public sealed class DependencyCapture : ICapture
     {
         var orgUrl = context.SourceEndpoint?.ResolvedUrl ?? string.Empty;
         var project = context.Project;
+        var jobId = context.Job.JobId;
 
-        using var activity = s_activitySource.StartActivity("capture.dependencies.project");
-        activity?.SetTag("job.id", context.Job.JobId);
-        activity?.SetTag("organisation.url", orgUrl);
-        activity?.SetTag("project.name", project);
-        activity?.SetTag("module", Name);
+        var tags = new MetricsTagList
+        {
+            { "job.id", jobId },
+            { "org.url", orgUrl },
+            { "project.name", project }
+        };
 
+        // O-4: in-flight increment (decremented in finally)
+        _metrics?.DependenciesCaptureInFlightIncrement(tags);
+
+        var sw = Stopwatch.StartNew();
+
+        // O-1: root span
+        using var rootActivity = s_activitySource.StartActivity("dependency.capture");
+        rootActivity?.SetTag("job.id", jobId);
+        rootActivity?.SetTag("org.url", orgUrl);
+        rootActivity?.SetTag("project.name", project);
+        rootActivity?.SetTag("capture.handler", "dependencies");
+
+        // O-2: started
+        _metrics?.DependenciesCaptureStarted(tags);
+
+        // O-3: log start
         _logger.LogInformation(
-            "[Dependencies] CaptureAsync starting for project {Project} in org {OrgUrl}.",
-            project, orgUrl);
+            "Capture started for {Org}/{Project} via handler {Handler} (job {JobId})",
+            orgUrl, project, Name, jobId);
 
-        context.ProgressSink?.Emit(new ProgressEvent
+        // O-4: emit Capturing progress event
+        (context.ProgressSink ?? _progressSink)?.Emit(new ProgressEvent
         {
             Module = Name,
-            Stage = "Capture.Started",
+            Stage = "Capturing",
             Message = $"Capturing dependency links for {orgUrl}/{project}",
             Timestamp = DateTimeOffset.UtcNow
         });
 
         try
         {
-            var dependencyService = _dependencyFactory.CreateForProject(
-                context.Organisations,
-                orgUrl,
-                project,
-                context.Policies);
+            IDependencyDiscoveryService dependencyService;
 
-            await _orchestrator.CaptureProjectAsync(
-                dependencyService, context, context.Policies, ct).ConfigureAwait(false);
+            // O-1: child span — create_service
+            using (var createServiceActivity = s_activitySource.StartActivity("dependency.capture.create_service"))
+            {
+                createServiceActivity?.SetTag("org.url", orgUrl);
+                createServiceActivity?.SetTag("project.name", project);
 
+                dependencyService = _dependencyFactory.CreateForProject(
+                    context.Organisations,
+                    orgUrl,
+                    project,
+                    context.Policies);
+            }
+
+            // O-1: child span — execute
+            using (var executeActivity = s_activitySource.StartActivity("dependency.capture.execute"))
+            {
+                executeActivity?.SetTag("org.url", orgUrl);
+                executeActivity?.SetTag("project.name", project);
+
+                await _orchestrator.CaptureProjectAsync(
+                    dependencyService, context, context.Policies, ct).ConfigureAwait(false);
+            }
+
+            // O-1: child span — write_csv (confirm output path)
+            var outputPath = $"discovery/{orgUrl.TrimEnd('/').Replace("://", "_").Replace('/', '_')}/{project}/dependencies.csv";
+            using (var writeCsvActivity = s_activitySource.StartActivity("dependency.capture.write_csv"))
+            {
+                writeCsvActivity?.SetTag("org.url", orgUrl);
+                writeCsvActivity?.SetTag("project.name", project);
+                writeCsvActivity?.SetTag("output.path", outputPath);
+            }
+
+            sw.Stop();
+
+            // O-2: completed + duration
+            _metrics?.DependenciesCaptureCompleted(tags);
+            _metrics?.RecordDependenciesCaptureDuration(sw.Elapsed.TotalMilliseconds, tags);
+
+            // O-3: log completion
             _logger.LogInformation(
-                "[Dependencies] CaptureAsync complete for project {Project} in org {OrgUrl}.",
-                project, orgUrl);
+                "Capture completed for {Org}/{Project} in {DurationMs}ms → {OutputPath} (job {JobId})",
+                orgUrl, project, sw.Elapsed.TotalMilliseconds, outputPath, jobId);
 
-            context.ProgressSink?.Emit(new ProgressEvent
+            // O-4: emit Captured progress event
+            (context.ProgressSink ?? _progressSink)?.Emit(new ProgressEvent
             {
                 Module = Name,
-                Stage = "Capture.Complete",
+                Stage = "Captured",
                 Message = $"Dependency capture complete for {orgUrl}/{project}",
                 Timestamp = DateTimeOffset.UtcNow,
                 Metrics = new JobMetrics
                 {
                     Discovery = new DiscoveryCounters
                     {
-                        Dependencies = new DependencyCounters()
+                        Dependencies = new DependencyCounters
+                        {
+                            WorkItemsAnalysed = 0,
+                            ExternalLinksFound = 0
+                        }
                     }
                 }
             });
         }
         catch (OperationCanceledException)
         {
-            _logger.LogWarning("[Dependencies] CaptureAsync cancelled for project {Project}.", project);
+            sw.Stop();
+            _logger.LogWarning("[Dependencies] CaptureAsync cancelled for {Project} in {Org}.", project, orgUrl);
             throw;
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex,
-                "[Dependencies] CaptureAsync failed for project {Project} in org {OrgUrl}.",
-                project, orgUrl);
+            sw.Stop();
+
+            // O-2: failed + duration
+            _metrics?.DependenciesCaptureFailed(tags);
+            _metrics?.RecordDependenciesCaptureDuration(sw.Elapsed.TotalMilliseconds, tags);
+
+            // O-3: log error
+            _logger.LogError(
+                "Capture failed for {Org}/{Project}: {ErrorType} {ErrorMessage} (job {JobId})",
+                orgUrl, project, ex.GetType().Name, ex.Message, jobId);
+
+            // O-4: emit Failed progress event
+            (context.ProgressSink ?? _progressSink)?.Emit(new ProgressEvent
+            {
+                Module = Name,
+                Stage = "Failed",
+                Message = $"Dependency capture failed for {orgUrl}/{project}: {ex.Message}",
+                Timestamp = DateTimeOffset.UtcNow
+            });
+
             throw;
+        }
+        finally
+        {
+            // O-2: decrement in-flight (always)
+            _metrics?.DependenciesCaptureInFlightDecrement(tags);
         }
     }
 }

@@ -208,4 +208,10 @@ public static class WellKnownAgentMetricNames
     public const string ConfigReadCount = "platform.config.read.count";
     public const string ConfigReadErrors = "platform.config.read.errors";
     public const string ConfigReadFallbacks = "platform.config.read.fallbacks";
+
+    // --- Dependencies Capture ---
+    public const string DependenciesCaptureCount = "platform.dependencies.capture.count";
+    public const string DependenciesCaptureDurationMs = "platform.dependencies.capture.duration_ms";
+    public const string DependenciesCaptureErrors = "platform.dependencies.capture.errors";
+    public const string DependenciesCaptureInFlight = "platform.dependencies.capture.in_flight";
 }
