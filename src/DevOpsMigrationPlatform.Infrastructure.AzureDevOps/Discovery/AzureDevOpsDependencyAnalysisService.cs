@@ -147,12 +147,12 @@ internal sealed class AzureDevOpsDependencyAnalysisService : IWorkItemLinkAnalys
 
                 if (currentBatch.Count >= batchSize)
                 {
-                    // Emit counting heartbeat before processing the batch
+                    // Emit pre-batch analysis heartbeat (IsCounting: false — counting is complete)
                     yield return new DependencyHeartbeatEvent(
                         orgEndpoint.ResolvedUrl, project, counters.Processed,
                         counters.CrossProject + counters.CrossOrg,
                         counters.CrossProject, counters.CrossOrg, false,
-                        TotalWorkItems: projectTotal, IsCounting: true);
+                        TotalWorkItems: projectTotal, IsCounting: false);
 
                     await foreach (var evt in ProcessBatchAsync(
                         witClient, currentBatch, sourceOrgSegment, orgEndpoint.ResolvedUrl, project,
@@ -160,6 +160,14 @@ internal sealed class AzureDevOpsDependencyAnalysisService : IWorkItemLinkAnalys
                     {
                         yield return evt;
                     }
+
+                    // Post-batch heartbeat so the CLI sees the updated processed count immediately
+                    yield return new DependencyHeartbeatEvent(
+                        orgEndpoint.ResolvedUrl, project, counters.Processed,
+                        counters.CrossProject + counters.CrossOrg,
+                        counters.CrossProject, counters.CrossOrg, false,
+                        TotalWorkItems: projectTotal, IsCounting: false);
+
                     currentBatch.Clear();
                 }
             }
