@@ -1,0 +1,206 @@
+---
+name: improve-documentation-architecture
+description: Analyse repository documentation and propose restructuring, deepening, and broadening opportunities across docs, .agents/context, and .agents/guardrails. Use when the user wants documentation architecture, documentation audits, audience separation, agent token control, or documentation growth as features are added.
+---
+
+# Improve Documentation Architecture
+
+Surface documentation architecture friction and propose **documentation deepening opportunities**. The aim is to make the human documentation more valuable while keeping `.agents/context` and `.agents/guardrails` small, current, and useful for agent work.
+
+This skill covers only:
+
+- `.agents/guardrails`
+- `.agents/context`
+- `docs`
+
+It deliberately excludes:
+
+- `.agents/skills`
+- `.github/agents`
+- `.github/commands`
+- `.specify`
+- `features`
+- `specs`
+
+Those areas may provide supporting evidence, but they are not part of the documentation split unless the user explicitly extends the scope.
+
+## Core Principle
+
+Organise documentation by **audience** and **authority**.
+
+- `/docs` explains.
+- `.agents/context` compresses.
+- `.agents/guardrails` constrains.
+
+The same topic may appear in all three places, but with a different purpose:
+
+- `/docs/package-guide.md` explains the package to humans.
+- `.agents/context/migration-package-concept.md` gives agents enough context to reason.
+- `.agents/guardrails/package-rules.md` defines what agents must not violate.
+
+## Glossary
+
+Use these terms exactly in every suggestion. Full placement and authority rules are in [PLACEMENT-RULES.md](PLACEMENT-RULES.md). Full report structure is in [REPORT-FORMAT.md](REPORT-FORMAT.md).
+
+- **Audience**: the primary reader. Valid audiences are `Agents/AI`, `Operators`, `Advanced Operators`, and `Contributors`.
+- **Authority**: the role a file plays when content conflicts. Guardrails constrain, ADRs decide, docs explain, context compresses.
+- **Guide**: human-facing explanatory documentation that teaches operation, hosting, contribution, or diagnosis.
+- **Reference**: precise human-facing documentation that records exact schemas, formats, commands, endpoints, or contracts.
+- **ADR**: a permanent decision record under `docs/adr/`.
+- **Context**: compressed agent-facing system understanding under `.agents/context`.
+- **Guardrail**: mandatory agent-facing constraint under `.agents/guardrails`.
+- **Reject condition**: an explicit condition under which an agent must reject or rewrite a proposed change.
+- **Token surface**: the amount of text an agent must read to act safely.
+- **Canonical source**: the most authoritative place for a fact, rule, decision, or contract.
+- **Duplication**: repeated content with the same purpose in multiple places.
+- **Purposeful overlap**: repeated topic with different purpose across docs, context, and guardrails.
+- **Documentation seam**: a stable split where a reader can find the right level of detail without reading unrelated material.
+- **Deep documentation**: a file that gives a reader high value through clear structure, examples, decision context, and actionable guidance.
+- **Shallow documentation**: a file that mostly lists facts, repeats other files, mixes audiences, or fails to help the reader make decisions.
+
+Key principles:
+
+- **Audience test**: a file has one primary audience. Secondary audiences are allowed only when their needs do not dilute the file.
+- **Authority test**: a statement belongs where its authority matches its purpose.
+- **Token test**: agent context should contain only what an agent must know before changing code or docs.
+- **Rejection test**: if violation would make implementation unacceptable, the rule belongs in `.agents/guardrails`.
+- **Human value test**: if a human needs examples, workflows, troubleshooting, or explanation, the content belongs in `/docs`.
+- **Decision permanence test**: if future contributors need to know why a decision was made, record it as an ADR.
+- **Drift test**: if two files say the same thing with the same authority, nominate one canonical source and reduce the other to a link or summary.
+
+## Required Reading
+
+Before proposing changes, inspect the current repository documentation in this order:
+
+1. `.agents/guardrails/README.md`, if present.
+2. `.agents/context/README.md`, if present.
+3. `docs/README.md`, if present.
+4. `docs/adr/README.md` and relevant ADRs, if present.
+5. Documentation files directly related to the requested area.
+6. Any referenced context or guardrail files that claim authority over the requested area.
+
+If the user provides specific files, inspect them before responding. Do not infer their contents.
+
+## Process
+
+### 1. Explore the documentation structure
+
+Walk only the documentation scope unless instructed otherwise.
+
+Record:
+
+- which files exist
+- which expected files are missing
+- which files appear misplaced
+- which files mix audiences
+- which files mix guide, reference, guardrail, context, and ADR content
+- where long-form documentation has been placed in `.agents/context`
+- where enforceable rules are buried in `/docs`
+- where human guides contain agent-only constraints
+- where docs refer to missing or renamed files
+- where docs contradict ADRs, context, or guardrails
+
+Use [DOCUMENTATION-MAP.md](DOCUMENTATION-MAP.md) as the target model, but do not force the target model blindly. Current product reality wins over an ideal tree.
+
+### 2. Classify by audience and authority
+
+For each relevant file, classify:
+
+- **Primary audience**: Agents/AI, Operators, Advanced Operators, or Contributors.
+- **Secondary audience**, if any.
+- **Current authority**: guide, reference, ADR, context, guardrail, mixed, or unclear.
+- **Recommended authority**: where the content should live.
+- **Canonical source**: the file that should own the fact, rule, contract, or decision.
+
+Use [PLACEMENT-RULES.md](PLACEMENT-RULES.md) for placement decisions.
+
+### 3. Identify documentation deepening opportunities
+
+Look for opportunities that deepen and broaden the docs without expanding the agent token surface unnecessarily.
+
+A good opportunity usually does one or more of these:
+
+- moves operator explanation out of `.agents/context`
+- moves mandatory rules out of `/docs` into `.agents/guardrails`
+- compresses long agent context into short concept summaries
+- splits mixed-audience docs into operator, advanced operator, and contributor material
+- creates a missing guide where users need workflow-level help
+- creates a missing reference where contributors need exact schemas or contracts
+- turns implicit architecture decisions into ADRs
+- removes duplicated authority while preserving purposeful overlap
+- creates index pages that improve navigation without duplicating content
+- adds examples, diagnostics, failure modes, and verification steps to human docs
+
+### 4. Present candidates
+
+Present a numbered list of documentation deepening opportunities. For each candidate, use this exact structure:
+
+- **Files**: files involved.
+- **Current problem**: what is causing friction.
+- **Audience impact**: who is hurt by the current shape.
+- **Authority problem**: whether the content is explaining, compressing, constraining, or deciding in the wrong place.
+- **Proposed change**: plain English description of what would change.
+- **Token impact**: whether agent token surface increases, decreases, or stays stable.
+- **Human value impact**: how the human docs become more useful.
+- **Risk**: what could be lost or distorted.
+- **Confidence**: High, Medium, or Low.
+
+Do not edit files in this step unless the user explicitly asked for direct implementation.
+
+End by asking which candidate to implement first only when a choice is genuinely needed. If the user asked for implementation, proceed with the safest high-value changes.
+
+### 5. Restructure loop
+
+When implementing a selected candidate:
+
+1. Re-read the source files being changed.
+2. Preserve canonical content.
+3. Move full paragraphs rather than sentence fragments unless the user explicitly asks for surgical edits.
+4. Keep `.agents/context` concise.
+5. Keep `.agents/guardrails` imperative and testable.
+6. Keep `/docs` useful to humans with examples, workflows, troubleshooting, and references.
+7. Add links between layers instead of duplicating long content.
+8. Update indexes and related-document sections.
+9. Record open questions explicitly.
+10. Report what changed and why.
+
+### 6. ADR and challenge protocol
+
+When the analysis finds a stable architectural decision that is documented only as scattered guidance, propose an ADR using [ADR-FORMAT.md](ADR-FORMAT.md).
+
+When a requested change conflicts with an existing guardrail, ADR, or authoritative contract:
+
+- identify the conflict
+- quote or reference the authoritative source
+- explain the consequence
+- propose either a compliant alternative or a deliberate amendment
+- do not silently bypass the constraint
+
+## Output Rules
+
+When reporting, distinguish:
+
+- **Established from current docs**
+- **Synthesis**
+- **Recommended changes**
+- **Open questions**
+
+Never present inferred structure as if it already exists.
+
+Never claim a file exists unless it was inspected or found.
+
+Never treat `.agents/context` as a dumping ground for long documentation.
+
+Never treat `/docs` as lower authority than `.agents/context` for human explanation.
+
+Never move contributor-only content into operator guides.
+
+Never put client SDK, external API, pagination, retry, or connector implementation details in operator docs unless the operator needs them to run the tool.
+
+## Related Files
+
+- [DOCUMENTATION-MAP.md](DOCUMENTATION-MAP.md)
+- [PLACEMENT-RULES.md](PLACEMENT-RULES.md)
+- [TOKEN-BUDGETS.md](TOKEN-BUDGETS.md)
+- [REPORT-FORMAT.md](REPORT-FORMAT.md)
+- [ADR-FORMAT.md](ADR-FORMAT.md)
