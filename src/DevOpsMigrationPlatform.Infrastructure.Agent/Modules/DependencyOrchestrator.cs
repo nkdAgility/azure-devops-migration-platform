@@ -444,7 +444,7 @@ internal sealed class DependencyOrchestrator : IDependencyOrchestrator
         {
             csvBuilder.AppendLine(
                 "SourceWorkItemId,SourceWorkItemType,SourceProject,SourceOrganisationUrl," +
-                "LinkType,LinkScope,TargetWorkItemId,TargetProject,TargetOrganisation,TargetStatus,LinkChangedDate,SourceWorkItemStateCategory");
+                "LinkType,LinkScope,TargetWorkItemId,TargetProject,TargetOrganisation,TargetStatus,LinkChangedDate,SourceWorkItemChangedDate,SourceWorkItemStateCategory");
         }
 
         // ── Early completion: if all configured projects are already done, regenerate
@@ -580,9 +580,7 @@ internal sealed class DependencyOrchestrator : IDependencyOrchestrator
 
         const string CsvHeader =
             "SourceWorkItemId,SourceWorkItemType,SourceProject,SourceOrganisationUrl," +
-            "LinkType,LinkScope,TargetWorkItemId,TargetProject,TargetOrganisation,TargetStatus,LinkChangedDate,SourceWorkItemStateCategory";
-
-        // Track in-progress project state for checkpoint writes
+            "LinkType,LinkScope,TargetWorkItemId,TargetProject,TargetOrganisation,TargetStatus,LinkChangedDate,SourceWorkItemChangedDate,SourceWorkItemStateCategory";
         string? currentInProgressKey = inProgressProjectKey;
         BatchContinuationToken? currentInProgressToken = inProgressToken;
         int currentInProgressProcessed = inProgressProcessedWorkItems;
@@ -618,6 +616,7 @@ internal sealed class DependencyOrchestrator : IDependencyOrchestrator
                         $"{r.TargetWorkItemId},{EscapeCsv(r.TargetProject ?? "")}," +
                         $"{EscapeCsv(r.TargetOrganisation ?? "")},{r.TargetStatus}," +
                         $"{(r.LinkChangedDate.HasValue ? r.LinkChangedDate.Value.ToString("O") : "")}," +
+                        $"{(r.SourceWorkItemChangedDate.HasValue ? r.SourceWorkItemChangedDate.Value.ToString("O") : "")}," +
                         $"{EscapeCsv(r.SourceWorkItemStateCategory ?? "")}";
                     csvBuilder.AppendLine(csvLine);
                     recordCount++;
@@ -1300,7 +1299,7 @@ internal sealed class DependencyOrchestrator : IDependencyOrchestrator
     {
         const string CsvHeader =
             "SourceWorkItemId,SourceWorkItemType,SourceProject,SourceOrganisationUrl," +
-            "LinkType,LinkScope,TargetWorkItemId,TargetProject,TargetOrganisation,TargetStatus,LinkChangedDate,SourceWorkItemStateCategory";
+            "LinkType,LinkScope,TargetWorkItemId,TargetProject,TargetOrganisation,TargetStatus,LinkChangedDate,SourceWorkItemChangedDate,SourceWorkItemStateCategory";
 
         // Parse root CSV into per-org and per-project buckets
         var perOrg = new Dictionary<string, StringBuilder>(StringComparer.OrdinalIgnoreCase);

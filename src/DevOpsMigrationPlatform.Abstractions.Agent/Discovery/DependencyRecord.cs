@@ -66,14 +66,23 @@ public record DependencyRecord
 
     /// <summary>
     /// Gets the date the link was last changed, as reported by the source system.
-    /// <c>null</c> when the source system does not provide link-level timestamps.
+    /// Populated from the <c>changedDate</c> attribute on the work item relation.
+    /// <c>null</c> when the source system does not provide link-level timestamps (e.g. Remote cross-org links).
+    /// Use <see cref="SourceWorkItemChangedDate"/> as a reliable staleness fallback.
     /// </summary>
     public DateTimeOffset? LinkChangedDate { get; init; }
 
     /// <summary>
-    /// Gets the <c>System.StateCategory</c> of the source work item at the time of analysis.
-    /// Common values: <c>Proposed</c>, <c>InProgress</c>, <c>Resolved</c>, <c>Completed</c>, <c>Removed</c>.
-    /// <c>null</c> or empty when the source system does not return state category information.
+    /// Gets the <c>System.ChangedDate</c> of the source work item at the time of analysis.
+    /// This is always populated when the source system is Azure DevOps and provides a reliable
+    /// proxy for dependency staleness when <see cref="LinkChangedDate"/> is not available.
+    /// </summary>
+    public DateTimeOffset? SourceWorkItemChangedDate { get; init; }
+
+    /// <summary>
+    /// Gets the state of the source work item at the time of analysis (e.g. "Active", "Closed", "Resolved").
+    /// Populated from <c>System.State</c>; useful for filtering stale or already-resolved dependencies.
+    /// <c>null</c> or empty when the source system does not return state information.
     /// </summary>
     public string? SourceWorkItemStateCategory { get; init; }
 }

@@ -15,6 +15,8 @@ public static class DependencyAnalyserServiceCollectionExtensions
         services.AddSingleton<IDependencyOrchestrator, DependencyOrchestrator>();
         services.AddTransient<IOrganisationsAnalyser, DependencyAnalyser>();
         services.AddTransient<IAnalyser>(sp => sp.GetRequiredService<IOrganisationsAnalyser>());
+        // Per-project capture module — dispatched by the plan executor for capture.dependencies.* tasks.
+        services.AddTransient<IModule, DependenciesModule>();
         return services;
     }
 }

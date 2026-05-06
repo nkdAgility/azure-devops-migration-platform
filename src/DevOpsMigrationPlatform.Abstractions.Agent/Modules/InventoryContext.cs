@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (c) Naked Agility Limited
 
+using System.Collections.Generic;
 using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
 using DevOpsMigrationPlatform.Abstractions.Jobs;
 using DevOpsMigrationPlatform.Abstractions.Organisations;
@@ -34,5 +35,17 @@ public sealed record InventoryContext
     /// Modules must process this project only — no loops, no discovery, no fallback.
     /// </summary>
     public string Project { get; init; } = string.Empty;
+
+    /// <summary>
+    /// All organisation scopes for this job. Used by analysers that operate across all orgs
+    /// (e.g. <c>analyse.dependencies</c>). Set by the agent worker on the base context;
+    /// per-project capture tasks inherit it so modules can find their matching scope.
+    /// </summary>
+    public IReadOnlyList<ScopedOrganisationEndpoint> Organisations { get; init; } = [];
+
+    /// <summary>
+    /// Active job policies (retry, throttle, checkpoint interval) from the config.
+    /// </summary>
+    public JobPolicies Policies { get; init; } = new();
 }
 

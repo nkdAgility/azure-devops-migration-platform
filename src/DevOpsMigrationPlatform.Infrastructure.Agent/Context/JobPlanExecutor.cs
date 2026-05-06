@@ -554,13 +554,28 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
                         ?? throw new InvalidOperationException("No StateStore available.");
                     var progressSink = baseInventoryContext?.ProgressSink ?? exportContext?.ProgressSink ?? importContext?.ProgressSink;
 
-                    await analyserForTask.AnalyseAsync(new AnalyseContext
-                    {
-                        Job = job,
-                        ArtefactStore = artefactStore,
-                        StateStore = stateStoreForAnalyse,
-                        ProgressSink = progressSink
-                    }, ct).ConfigureAwait(false);
+                    // IOrganisationsAnalyser (e.g. DependencyAnalyser) needs the full organisations list
+                    // to run the final fan-in step across all captured projects.
+                    AnalyseContext analyseContext =
+                        analyserForTask is IOrganisationsAnalyser && baseInventoryContext?.Organisations is { Count: > 0 } orgs
+                            ? new OrganisationsAnalyseContext
+                            {
+                                Job = job,
+                                ArtefactStore = artefactStore,
+                                StateStore = stateStoreForAnalyse,
+                                ProgressSink = progressSink,
+                                Policies = baseInventoryContext.Policies,
+                                Organisations = orgs
+                            }
+                            : new AnalyseContext
+                            {
+                                Job = job,
+                                ArtefactStore = artefactStore,
+                                StateStore = stateStoreForAnalyse,
+                                ProgressSink = progressSink
+                            };
+
+                    await analyserForTask.AnalyseAsync(analyseContext, ct).ConfigureAwait(false);
                 }
                 else
                 {
