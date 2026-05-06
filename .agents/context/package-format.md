@@ -102,6 +102,8 @@ The subfolder name uses second-level UTC timestamp format `<yyyyMMdd-HHmmss>` (f
 
 Each run folder under `.migration/runs/<yyyyMMdd-HHmmss>/` also contains `job.json`, which stores the raw leased job payload for audit and troubleshooting.
 
+Each run folder also contains `plan.json`, a run-scoped snapshot of the active execution plan (`.migration/plan.json`) copied at plan persistence time.
+
 | File | Format | Description |
 |---|---|---|
 | `progress.jsonl` | NDJSON | One `ProgressEvent` record per line. Tracks module cursor state, stage transitions, and item counts. Written by `PackageProgressSink`. |

@@ -170,17 +170,17 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
             if (isComplete)
             {
                 _logger.LogInformation(
-                    "Existing plan is complete ({TaskCount} tasks all terminal). Archiving and building fresh plan for {Kind}.",
+                    "Existing plan is complete ({TaskCount} tasks all terminal). Deleting active plan and building fresh plan for {Kind}.",
                     loadedPlan.Tasks.Count, kind);
-                await ArchivePlanAsync(loadedPlan, stateStore, complete: true, ct).ConfigureAwait(false);
+                await stateStore.DeleteAsync(PackagePaths.PlanFile, ct).ConfigureAwait(false);
                 loadedPlan = null;
             }
             else if (isModeSwitch)
             {
                 _logger.LogInformation(
-                    "Job kind changed from {OldKind} to {NewKind}. Archiving incomplete plan and building fresh.",
+                    "Job kind changed from {OldKind} to {NewKind}. Deleting incompatible active plan and building fresh.",
                     loadedPlan.ForKind!.Value, kind);
-                await ArchivePlanAsync(loadedPlan, stateStore, complete: false, ct).ConfigureAwait(false);
+                await stateStore.DeleteAsync(PackagePaths.PlanFile, ct).ConfigureAwait(false);
                 loadedPlan = null;
             }
         }
@@ -195,7 +195,7 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
             return loadedPlan;
         }
 
-        // No persisted plan (or stale plan archived) — build fresh.
+        // No persisted plan (or stale plan deleted) — build fresh.
         var freshPlan = await BuildPlanAsync(packageConfig, kind, artefactStore, stateStore, ct)
             .ConfigureAwait(false);
 
@@ -210,6 +210,14 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
             var json = JsonSerializer.Serialize(freshPlan, _jsonOptions);
             await stateStore.WriteAsync(PackagePaths.PlanFile, json, ct).ConfigureAwait(false);
             _logger.LogDebug("Persisted execution plan to {Path}.", PackagePaths.PlanFile);
+
+            var runId = _packageState?.CurrentRunId;
+            if (!string.IsNullOrEmpty(runId))
+            {
+                var runPlanPath = PackagePaths.RunPlanFile(runId);
+                await stateStore.WriteAsync(runPlanPath, json, ct).ConfigureAwait(false);
+                _logger.LogDebug("Persisted run plan snapshot to {Path}.", runPlanPath);
+            }
         }
         catch (Exception ex)
         {
@@ -219,49 +227,6 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
         }
 
         return freshPlan;
-    }
-
-    /// <summary>
-    /// Archives the current plan to the run's audit folder and removes the active plan file.
-    /// The plan is written to <c>.migration/runs/{runId}/audit/migration-plan.json</c> when
-    /// a run is active, or skipped with a warning when no run ID is available.
-    /// Failures are swallowed with a warning to avoid blocking job execution.
-    /// </summary>
-    private async Task ArchivePlanAsync(
-        JobTaskList plan,
-        IStateStore stateStore,
-        bool complete,
-        CancellationToken ct)
-    {
-        try
-        {
-            var runId = _packageState?.CurrentRunId;
-            if (runId is null)
-            {
-                _logger.LogWarning(
-                    "No active run ID — skipping plan archive. Deleting plan file and building fresh.");
-                await stateStore.DeleteAsync(PackagePaths.PlanFile, ct).ConfigureAwait(false);
-                return;
-            }
-
-            var auditPath = PackagePaths.RunAuditPlanFile(runId);
-            var json = JsonSerializer.Serialize(plan, _jsonOptions);
-            await stateStore.WriteAsync(auditPath, json, ct).ConfigureAwait(false);
-
-            // Remove the active plan file so a fresh plan is written at the canonical path.
-            await stateStore.DeleteAsync(PackagePaths.PlanFile, ct).ConfigureAwait(false);
-
-            _logger.LogInformation(
-                "Archived {Status} plan ({TaskCount} tasks) to {Path}.",
-                complete ? "complete" : "incomplete",
-                plan.Tasks.Count,
-                auditPath);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex,
-                "Failed to archive plan to audit folder. Proceeding with fresh plan build.");
-        }
     }
 
     // ── Export phase ─────────────────────────────────────────────────────────
