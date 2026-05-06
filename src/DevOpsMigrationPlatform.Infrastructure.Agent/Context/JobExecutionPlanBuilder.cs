@@ -167,13 +167,15 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
             bool isModeSwitch = loadedPlan.ForKind.HasValue &&
                 loadedPlan.ForKind.Value != kind;
 
-            if (isComplete)
+            if (isComplete && !isModeSwitch)
             {
+                // All tasks are terminal: return the completed plan as-is.
+                // ExecuteTasksAsync will find 0 pending tasks and return true immediately,
+                // making the resume a no-op — the correct behaviour for a job that is already done.
                 _logger.LogInformation(
-                    "Existing plan is complete ({TaskCount} tasks all terminal). Deleting active plan and building fresh plan for {Kind}.",
-                    loadedPlan.Tasks.Count, kind);
-                await stateStore.DeleteAsync(PackagePaths.PlanFile, ct).ConfigureAwait(false);
-                loadedPlan = null;
+                    "Existing plan is complete ({TaskCount} tasks all terminal). Returning completed plan — resume is a no-op.",
+                    loadedPlan.Tasks.Count);
+                return loadedPlan;
             }
             else if (isModeSwitch)
             {

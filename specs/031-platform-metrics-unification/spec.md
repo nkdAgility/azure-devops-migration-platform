@@ -1,9 +1,10 @@
-# Draft Specification: Platform Metrics Unification
+# Specification: Platform Metrics Unification
 
-**Status**: Draft — design conversation captured; questions resolved; ready for promotion to `specs/`
+**Status**: ✅ Implemented — clean-break approach (no `[Obsolete]` tombstones per author decision; see § Implementation Notes)
 **Date**: 2026-05-04
+**Implemented**: 2026-05-06
 **Author**: MartinHinshelwoodNKD + Copilot
-**Suggested spec dir**: `specs/031-platform-metrics-unification`
+**Spec dir**: `specs/031-platform-metrics-unification`
 **Blocking**: Does NOT block spec-030; must be sequenced before spec-030 implementation begins (see § Sequencing)
 
 ---
@@ -35,20 +36,20 @@ This fragmented state means:
 
 ## Design Decisions
 
-| # | Decision | Rationale |
-|---|---|---|
-| D1 | Rename `Discovery` + `Migration` meters → `WellKnownMeterNames.Agent` (`DevOpsMigrationPlatform.Agent`) | Component-scoped meter; consistent with `.ControlPlane` + `.Cli` |
-| D2 | Unified metric string convention: `platform.<domain>.<phase>.<measure>` across ALL components | Single prefix enables cross-component dashboards; domain + phase encode "what" and "when" independently |
-| D3 | Merge `IDiscoveryMetrics` + `IMigrationMetrics` → single `IPlatformMetrics` (Agent) | Single injection point; no class needs two metrics interfaces |
-| D4 | Rename `WellKnownDiscoveryMetricNames` + `WellKnownMetricNames` → `WellKnownAgentMetricNames` | Per-component constants class; alphabetically browsable by domain |
-| D5 | Rename `DiscoveryMetrics` + `MigrationMetrics` → `PlatformMetrics` | Single concrete implementation wired at agent startup |
-| D6 | Rename `WellKnownJobMetricNames` → `WellKnownControlPlaneMetricNames` (strings: `controlplane.*` → `platform.job.*`) | Aligns ControlPlane to shared `platform.*` convention |
-| D7 | Rename `WellKnownCliMetricNames` strings: `cli.*` → `platform.command.*` | Aligns CLI to shared `platform.*` convention |
-| D8 | `WellKnownMeterNames.ControlPlane` and `.Cli` meter names are NOT changed | Meter names remain component-scoped; only the metric string values change |
-| D9 | Version bump: `DevOpsMigrationPlatform.Abstractions` → 4.0 | Metric names are the public contract; this is a breaking change across all components |
-| D10 | Old constants deprecated (not deleted) in 4.0 with `[Obsolete]` pointing to new name | Allows gradual migration; compile-time warnings surface un-migrated usages |
-| D11 | Restructure `WellKnownTagNames` into nested static classes (`Job`, `Operation`, `WorkItem`, `Transform`, `Cli`) | Provides IDE grouping and domain clarity while keeping a single file — correlation value requires the same string across all components | 
-| D12 | Remove `WorkItemId` and `RevisionIndex` from `WellKnownTagNames` entirely | High-cardinality identifiers must never appear as metric tags; they belong in span attributes and structured log fields only |
+| # | Decision | Rationale | Status |
+|---|---|---|---|
+| D1 | Rename `Discovery` + `Migration` meters → `WellKnownMeterNames.Agent` (`DevOpsMigrationPlatform.Agent`) | Component-scoped meter; consistent with `.ControlPlane` + `.Cli` | ✅ Done |
+| D2 | Unified metric string convention: `platform.<domain>.<phase>.<measure>` across ALL components | Single prefix enables cross-component dashboards; domain + phase encode "what" and "when" independently | ✅ Done |
+| D3 | Merge `IDiscoveryMetrics` + `IMigrationMetrics` → single `IPlatformMetrics` (Agent) | Single injection point; no class needs two metrics interfaces | ✅ Done |
+| D4 | Rename `WellKnownDiscoveryMetricNames` + `WellKnownMetricNames` → `WellKnownAgentMetricNames` | Per-component constants class; alphabetically browsable by domain | ✅ Done |
+| D5 | Rename `DiscoveryMetrics` + `MigrationMetrics` → `PlatformMetrics` | Single concrete implementation wired at agent startup | ✅ Done |
+| D6 | Rename `WellKnownJobMetricNames` → `WellKnownControlPlaneMetricNames` (strings: `controlplane.*` → `platform.job.*`) | Aligns ControlPlane to shared `platform.*` convention | ✅ Done |
+| D7 | Rename `WellKnownCliMetricNames` strings: `cli.*` → `platform.command.*` | Aligns CLI to shared `platform.*` convention | ✅ Done |
+| D8 | `WellKnownMeterNames.ControlPlane` and `.Cli` meter names are NOT changed | Meter names remain component-scoped; only the metric string values change | ✅ Done |
+| D9 | Version bump: `DevOpsMigrationPlatform.Abstractions` → 4.0 | Metric names are the public contract; this is a breaking change across all components | ⚠️ Deferred — no `Version` property set in csproj (version management policy TBD) |
+| D10 | Old constants deprecated (not deleted) in 4.0 with `[Obsolete]` pointing to new name | Allows gradual migration; compile-time warnings surface un-migrated usages | ❌ Superseded — author decision: clean break, old files deleted, no tombstones |
+| D11 | Restructure `WellKnownTagNames` into nested static classes (`Job`, `Operation`, `WorkItem`, `Transform`, `Cli`) | Provides IDE grouping and domain clarity while keeping a single file — correlation value requires the same string across all components | ✅ Done |
+| D12 | Remove `WorkItemId` and `RevisionIndex` from `WellKnownTagNames` entirely | High-cardinality identifiers must never appear as metric tags; they belong in span attributes and structured log fields only | ✅ Done |
 
 ---
 
@@ -362,57 +363,52 @@ public interface IPlatformMetrics
 
 ### Abstractions (breaking change layer)
 
-| File | Change |
-|---|---|
-| `WellKnownMeterNames.cs` | Add `Agent = "DevOpsMigrationPlatform.Agent"`. Mark `Discovery` + `Migration` `[Obsolete]`. `ControlPlane` and `Cli` unchanged. |
-| `WellKnownMetricNames.cs` | Mark all constants `[Obsolete("Use WellKnownAgentMetricNames.<Name>")]`. Do not delete. |
-| `WellKnownDiscoveryMetricNames.cs` | Mark all constants `[Obsolete("Use WellKnownAgentMetricNames.<Name>")]`. Do not delete. |
-| `WellKnownAgentMetricNames.cs` | **NEW** — all 84 renamed agent constants |
-| `WellKnownJobMetricNames.cs` | Mark all constants `[Obsolete("Use WellKnownControlPlaneMetricNames.<Name>")]`. Do not delete. |
-| `WellKnownControlPlaneMetricNames.cs` | **NEW** — 6 renamed ControlPlane constants (see §ControlPlane Mapping) |
-| `WellKnownCliMetricNames.cs` | Update string values from `cli.*` → `platform.command.*`. Mark old string values `[Obsolete]` via wrapper constants. |
-| `WellKnownTagNames.cs` | Restructure into nested classes (`Job`, `Operation`, `WorkItem`, `Transform`, `Cli`). Remove `WorkItemId` and `RevisionIndex`. |
-| `IDiscoveryMetrics.cs` (Abstractions.Agent) | Mark `[Obsolete("Use IPlatformMetrics")]`. Keep for one release cycle. |
-| `IMigrationMetrics.cs` (Abstractions.Agent) | Mark `[Obsolete("Use IPlatformMetrics")]`. Keep for one release cycle. |
-| `IPlatformMetrics.cs` (Abstractions.Agent) | **NEW** — unified agent interface (see § Interface above) |
+| File | Change | Status |
+|---|---|---|
+| `WellKnownMeterNames.cs` | Add `Agent = "DevOpsMigrationPlatform.Agent"`. Remove `Discovery` + `Migration`. `ControlPlane` and `Cli` unchanged. | ✅ Done (clean break — no `[Obsolete]`) |
+| `WellKnownMetricNames.cs` | ~~Mark all constants `[Obsolete]`~~ → **Deleted** (clean break) | ✅ Done |
+| `WellKnownDiscoveryMetricNames.cs` | ~~Mark all constants `[Obsolete]`~~ → **Deleted via `git rm`** (renamed to `WellKnownAgentMetricNames.cs`) | ✅ Done (`git mv`) |
+| `WellKnownAgentMetricNames.cs` | **RENAMED** from `WellKnownDiscoveryMetricNames.cs` — all 84 renamed agent constants | ✅ Done |
+| `WellKnownJobMetricNames.cs` | ~~Mark all constants `[Obsolete]`~~ → **Deleted via `git rm`** (renamed to `WellKnownControlPlaneMetricNames.cs`) | ✅ Done (`git mv`) |
+| `WellKnownControlPlaneMetricNames.cs` | **RENAMED** from `WellKnownJobMetricNames.cs` — 6 renamed ControlPlane constants | ✅ Done |
+| `WellKnownCliMetricNames.cs` | Update string values from `cli.*` → `platform.command.*` | ✅ Done |
+| `WellKnownTagNames.cs` | Restructure into nested classes (`Job`, `Operation`, `WorkItem`, `Transform`, `Cli`). Remove `WorkItemId` and `RevisionIndex`. | ✅ Done |
+| `IDiscoveryMetrics.cs` (Abstractions.Agent) | ~~Mark `[Obsolete]`~~ → **Deleted via `git rm`** (renamed to `IPlatformMetrics.cs`) | ✅ Done (`git mv`) |
+| `IMigrationMetrics.cs` (Abstractions.Agent) | ~~Mark `[Obsolete]`~~ → **Deleted** (clean break) | ✅ Done |
+| `IPlatformMetrics.cs` (Abstractions.Agent) | **RENAMED** from `IDiscoveryMetrics.cs` — unified agent interface | ✅ Done |
 
 ### Infrastructure (implementation layer)
 
-| File | Change |
-|---|---|
-| `DiscoveryMetrics.cs` | Mark `[Obsolete]`. Delegate to `PlatformMetrics` or delete once callers migrate. |
-| `MigrationMetrics.cs` | Mark `[Obsolete]`. Delegate to `PlatformMetrics` or delete once callers migrate. |
-| `PlatformMetrics.cs` | **NEW** — single `Meter(WellKnownMeterNames.Agent)` implementation of `IPlatformMetrics` |
-| `MigrationMetrics.cs` (TfsObjectModel) | Update to `WellKnownMeterNames.Agent` |
-| `AttachmentDownloadMetrics.cs` (TfsObjectModel) | Update to `WellKnownMeterNames.Agent` |
-| `WorkItemExportMetrics.cs` (TfsObjectModel) | Update to `WellKnownMeterNames.Agent` |
-| `JobLifecycleMetrics.cs` (ControlPlane) | Update string values to `platform.job.*` via `WellKnownControlPlaneMetricNames` |
-| `CliMetrics.cs` / equivalent (CLI) | Update string values to `platform.command.*` via `WellKnownCliMetricNames` |
+| File | Change | Status |
+|---|---|---|
+| `DiscoveryMetrics.cs` | ~~Mark `[Obsolete]`~~ → **Deleted via `git rm`** (renamed to `PlatformMetrics.cs`) | ✅ Done (`git mv`) |
+| `MigrationMetrics.cs` (Infrastructure.Agent) | ~~Mark `[Obsolete]`~~ → **Deleted** (clean break) | ✅ Done |
+| `PlatformMetrics.cs` | **RENAMED** from `DiscoveryMetrics.cs` — single `Meter(WellKnownMeterNames.Agent)` implementation | ✅ Done |
+| `MigrationMetrics.cs` (TfsObjectModel) | Update to `WellKnownMeterNames.Agent` | ✅ Done |
+| `AttachmentDownloadMetrics.cs` (TfsObjectModel) | Update to `WellKnownMeterNames.Agent` | ✅ Done |
+| `WorkItemExportMetrics.cs` (TfsObjectModel) | Update to `WellKnownMeterNames.Agent` | ✅ Done |
+| `JobLifecycleMetrics.cs` (ControlPlane) | Update string values to `platform.job.*` via `WellKnownControlPlaneMetricNames` | ✅ Done |
+| CLI metrics | Update string values to `platform.command.*` via `WellKnownCliMetricNames` | ✅ Done |
 
 ### OTel host registrations
 
-| File | Change |
-|---|---|
-| `AgentOtelExtensions.cs` | Replace `WellKnownMeterNames.Discovery` + `.Migration` with `.Agent` |
-| `MigrationAgentServiceExtensions.cs` | Same |
-| `ServiceDefaults/Extensions.cs` | Same |
-| `MigrationPlatformHost.cs` (TfsObjectModel) | Same |
-| `MigrationPlatformHost.cs` (CLI.Migration) | Update DI registration: remove `IDiscoveryMetrics`/`IMigrationMetrics`, add `IPlatformMetrics` → `PlatformMetrics` |
+| File | Change | Status |
+|---|---|---|
+| `AgentOtelExtensions.cs` | Replace `WellKnownMeterNames.Discovery` + `.Migration` with `.Agent` | ✅ Done |
+| `MigrationAgentServiceExtensions.cs` | Same | ✅ Done |
+| `ServiceDefaults/Extensions.cs` | Same | ✅ Done |
+| `MigrationPlatformHost.cs` (TfsObjectModel) | Same | ✅ Done |
+| `MigrationPlatformHost.cs` (CLI.Migration) | Update DI registration: remove `IDiscoveryMetrics`/`IMigrationMetrics`, add `IPlatformMetrics` → `PlatformMetrics` | ✅ Done |
 
 ### All callers (inject-site changes only)
 
-Any class that currently injects `IDiscoveryMetrics` or `IMigrationMetrics` will inject `IPlatformMetrics` instead. Method call sites do **not** change — the method signatures on the interface are preserved.
-
-Affected files (~15 call sites):
-- `InventoryModule.cs`, `InventoryDiscoveryModule.cs`, `DependencyDiscoveryModule.cs`
-- `NodesOrchestrator.cs`, `DependencyOrchestrator.cs`
-- All module classes that use `IMigrationMetrics`
+Any class that currently injected `IDiscoveryMetrics` or `IMigrationMetrics` now injects `IPlatformMetrics`. All ~52 call sites updated. ✅ Done
 
 ### Telemetry context doc
 
-| File | Change |
-|---|---|
-| `.agents/context/telemetry-architecture.md` | Replace `IDiscoveryMetrics`/`IMigrationMetrics` references with `IPlatformMetrics`; update meter name; add ControlPlane + CLI metric name mapping |
+| File | Change | Status |
+|---|---|---|
+| `.agents/context/telemetry-architecture.md` | Replace `IDiscoveryMetrics`/`IMigrationMetrics` references with `IPlatformMetrics`; update meter name; add meter name reference table | ✅ Done |
 
 ---
 
@@ -424,76 +420,76 @@ Per **Coding Standard §11** and the comment in `WellKnownMetricNames.cs`:
 
 This spec constitutes the version bump event. Required actions:
 
-1. `DevOpsMigrationPlatform.Abstractions` version → `4.0.0`
-2. `DevOpsMigrationPlatform.Abstractions.Agent` version → `4.0.0`
-3. Release notes document all 93 renamed metric strings and their replacements (84 agent + 6 ControlPlane + 3 CLI).
-4. Old metric names are `[Obsolete]` in 4.0, removed in 5.0.
-5. Any Azure Monitor alert rules, KQL queries, or dashboards using `discovery.*`, `migration.*`, `controlplane.*`, or `cli.*` must be updated. (Document in runbook.)
+1. `DevOpsMigrationPlatform.Abstractions` version → `4.0.0` — ⚠️ Deferred (no `<Version>` property in csproj; version management policy TBD)
+2. `DevOpsMigrationPlatform.Abstractions.Agent` version → `4.0.0` — ⚠️ Deferred (same reason)
+3. Release notes document all 93 renamed metric strings and their replacements (84 agent + 6 ControlPlane + 3 CLI). — ⚠️ Deferred
+4. ~~Old metric names are `[Obsolete]` in 4.0, removed in 5.0~~ — **Superseded** by clean-break approach (author decision)
+5. Any Azure Monitor alert rules, KQL queries, or dashboards using `discovery.*`, `migration.*`, `controlplane.*`, or `cli.*` must be updated. (Document in runbook.) — ⚠️ Ops task, out of scope for this implementation
+
+---
+
+## Implementation Notes
+
+> **Author decision (2026-05-06):** The `[Obsolete]` tombstone approach specified in D10 was **replaced** with a clean break.
+> - Old files (`WellKnownMetricNames.cs`, `IMigrationMetrics.cs`, `MigrationMetrics.cs`, `MigrationMetricsTests.cs`) were **deleted** — not kept with `[Obsolete]`.
+> - All renames were performed with `git mv` to preserve file history (all show as `R` in git status, not `D`+`A`).
+> - 978 tests pass. Build is clean (0 errors).
 
 ---
 
 ## Impact on spec-030
 
 Spec-030 (`IModule.InventoryAsync` / `IAnalyser`) introduces new metrics under:
-- Current: `discovery.inventory.workitems`, `migration.*.prepare.*`  
-- After this rename: `platform.workitems.inventory.*`, `platform.*.prepare.*`
+- ~~Current: `discovery.inventory.workitems`, `migration.*.prepare.*`~~
+- **Now available:** `platform.workitems.inventory.*`, `platform.*.prepare.*`
 
-**Recommended sequencing — Option C from design discussion:**
-
-1. Promote this draft to `specs/031-platform-metrics-unification`
-2. Run `/speckit.specify`, `/speckit.plan`, `/speckit.tasks` for spec-031
-3. **Implement spec-031 first** (pure rename, no behavioural change, low risk)
-4. Implement spec-030 against the already-renamed `platform.*` constants
-
-This avoids spec-030 shipping `discovery.*` names that are immediately obsoleted.
-
-If spec-031 is not ready before spec-030 implementation begins, spec-030 MUST use the current `discovery.*` / `migration.*` names and accept a follow-up rename pass when spec-031 lands.
+✅ **Sequencing complete** — spec-031 implemented first; spec-030 can use `platform.*` names from day one.
 
 ---
 
-## ControlPlane Metric Mapping
+## ControlPlane Metric Mapping — ✅ Done
 
 **From `WellKnownJobMetricNames` → `WellKnownControlPlaneMetricNames`**
 
 Meter: `WellKnownMeterNames.ControlPlane` (`DevOpsMigrationPlatform.ControlPlane`) — unchanged.
 
-| Old string (`controlplane.*`) | New string (`platform.job.*`) | C# constant name |
-|---|---|---|
-| `controlplane.jobs.total` | `platform.job.queue.total` | `JobQueueTotal` |
-| `controlplane.jobs.queued` | `platform.job.queue.depth` | `JobQueueDepth` |
-| `controlplane.jobs.in_progress` | `platform.job.execute.in_progress` | `JobExecuteInProgress` |
-| `controlplane.jobs.completed` | `platform.job.execute.completed` | `JobExecuteCompleted` |
-| `controlplane.jobs.failed` | `platform.job.execute.failed` | `JobExecuteFailed` |
-| `controlplane.job.duration.ms` | `platform.job.execute.duration_ms` | `JobExecuteDurationMs` |
+| Old string (`controlplane.*`) | New string (`platform.job.*`) | C# constant name | Status |
+|---|---|---|---|
+| `controlplane.jobs.total` | `platform.job.queue.total` | `JobQueueTotal` | ✅ |
+| `controlplane.jobs.queued` | `platform.job.queue.depth` | `JobQueueDepth` | ✅ |
+| `controlplane.jobs.in_progress` | `platform.job.execute.in_progress` | `JobExecuteInProgress` | ✅ |
+| `controlplane.jobs.completed` | `platform.job.execute.completed` | `JobExecuteCompleted` | ✅ |
+| `controlplane.jobs.failed` | `platform.job.execute.failed` | `JobExecuteFailed` | ✅ |
+| `controlplane.job.duration.ms` | `platform.job.execute.duration_ms` | `JobExecuteDurationMs` | ✅ |
 
 ---
 
-## CLI Metric Mapping
+## CLI Metric Mapping — ✅ Done
 
 **From `WellKnownCliMetricNames` (updated in-place — string values change, file persists)**
 
 Meter: `WellKnownMeterNames.Cli` (`DevOpsMigrationPlatform.CLI`) — unchanged.
 
-| Old string (`cli.*`) | New string (`platform.command.*`) | C# constant name |
-|---|---|---|
-| `cli.command.invocations` | `platform.command.execute.invocations` | `CommandInvocations` |
-| `cli.command.duration_ms` | `platform.command.execute.duration_ms` | `CommandDurationMs` |
-| `cli.command.errors` | `platform.command.execute.errors` | `CommandErrors` |
+| Old string (`cli.*`) | New string (`platform.command.*`) | C# constant name | Status |
+|---|---|---|---|
+| `cli.command.invocations` | `platform.command.execute.invocations` | `CommandInvocations` | ✅ |
+| `cli.command.duration_ms` | `platform.command.execute.duration_ms` | `CommandDurationMs` | ✅ |
+| `cli.command.errors` | `platform.command.execute.errors` | `CommandErrors` | ✅ |
 
 ---
 
 ## Out of Scope
 
-- `IWorkItemExportMetrics` / `IAttachmentDownloadMetrics` (TfsObjectModel) — these are implementation-layer interfaces that wrap the underlying `Meter`; they survive unchanged but their backing `Meter` name updates from `.Migration` to `.Agent`
-- `ProgressEvent.Metrics` / `JobMetrics` / `MigrationCounters` — these are the CLI/TUI channel (Channel 2); they are entirely separate from OTel and are not renamed
-- New metric names for modules added after spec-031 lands (e.g. spec-030 `InventoryAsync` metrics) — out of scope; those use the new `platform.*` convention from day one
+- `IWorkItemExportMetrics` / `IAttachmentDownloadMetrics` (TfsObjectModel) — ✅ Backing meter updated to `.Agent`; interfaces unchanged
+- `ProgressEvent.Metrics` / `JobMetrics` / `MigrationCounters` — CLI/TUI channel; entirely separate from OTel; not renamed
+- New metric names for modules added after spec-031 lands — use the new `platform.*` convention from day one
 
 ---
 
 ## Open Questions
 
-| # | Question | Owner |
+| # | Question | Status |
 |---|---|---|
-| Q1 | Should `IWorkItemExportMetrics` (TfsObjectModel) be merged into `IPlatformMetrics` or left as a TFS-specific sub-interface? | Architecture |
-| Q2 | Should spec-030 `InventoryAsync` metrics be added to this spec's mapping table, or left to spec-030? | Spec author |
-| Q3 | ~~Do we need a Prometheus/OTEL collector relabelling rule to bridge old → new metric names for existing dashboards during transition?~~ **Resolved:** Yes — the runbook must include relabelling rules for all four old prefixes (`discovery.*`, `migration.*`, `controlplane.*`, `cli.*`) until dashboards are updated. | Ops/infra |
+| Q1 | Should `IWorkItemExportMetrics` (TfsObjectModel) be merged into `IPlatformMetrics` or left as a TFS-specific sub-interface? | Open |
+| Q2 | Should spec-030 `InventoryAsync` metrics be added to this spec's mapping table, or left to spec-030? | Resolved — left to spec-030 |
+| Q3 | ~~Do we need a Prometheus/OTEL collector relabelling rule to bridge old → new metric names for existing dashboards during transition?~~ **Resolved:** Yes — the runbook must include relabelling rules for all four old prefixes (`discovery.*`, `migration.*`, `controlplane.*`, `cli.*`) until dashboards are updated. | Resolved |

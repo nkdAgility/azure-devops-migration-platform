@@ -61,9 +61,9 @@ public static class WellKnownAgentMetricNames
     public const string DependenciesAnalyseErrors = "platform.workitems.analysis.analyse.errors";
 
     // --- Operational ---
-    public const string CheckpointsSaved = "platform.checkpoints.saved";
+    public const string CheckpointsSaved = "platform.job.checkpoints.saved";
     public const string JobDurationMs = "platform.job.duration_ms";
-    public const string JobsActive = "platform.jobs.active";
+    public const string JobsActive = "platform.job.active";
 
     // --- WorkItems Export ---
     public const string WorkItemsAttempted = "platform.workitems.export.attempted";
@@ -73,34 +73,34 @@ public static class WellKnownAgentMetricNames
     public const string WorkItemDurationMs = "platform.workitems.export.duration_ms";
     public const string FieldCount = "platform.workitems.export.fields.count";
     public const string AttachmentCount = "platform.workitems.export.attachments.count";
-    public const string AttachmentDownloadDurationMs = "platform.workitems.export.attachment.download.duration_ms";
-    public const string AttachmentDownloadBytes = "platform.workitems.export.attachment.download.bytes";
+    public const string AttachmentDownloadDurationMs = "platform.attachments.export.duration_ms";
+    public const string AttachmentDownloadBytes = "platform.attachments.export.bytes";
     public const string LinkCount = "platform.workitems.export.links.count";
     public const string RevisionCount = "platform.workitems.export.revisions.count";
     public const string PayloadBytes = "platform.workitems.export.payload.bytes";
     public const string WorkItemsInFlight = "platform.workitems.export.in_flight";
-    public const string QueueDepth = "platform.workitems.export.queue.depth";
-    public const string Duplicated = "platform.workitems.export.duplicated";
-    public const string ChangedOnRerun = "platform.workitems.export.changed_on_rerun";
-    public const string ReprocessedAfterResume = "platform.workitems.export.reprocessed_after_resume";
-    public const string DuplicatedAfterResume = "platform.workitems.export.duplicated_after_resume";
-    public const string MissingAfterResume = "platform.workitems.export.missing_after_resume";
+    public const string QueueDepth = "platform.workitems.export.queue_depth";
+    public const string Duplicated = "platform.workitems.import.duplicated";
+    public const string ChangedOnRerun = "platform.workitems.import.changed_on_rerun";
+    public const string ReprocessedAfterResume = "platform.workitems.import.reprocessed_after_resume";
+    public const string DuplicatedAfterResume = "platform.workitems.import.duplicated_after_resume";
+    public const string MissingAfterResume = "platform.workitems.import.missing_after_resume";
 
     // --- WorkItems Validate ---
-    public const string RevisionSourceCount = "platform.workitems.validate.revision.source_count";
-    public const string RevisionTargetCount = "platform.workitems.validate.revision.target_count";
-    public const string RevisionDelta = "platform.workitems.validate.revision.delta";
+    public const string RevisionSourceCount = "platform.workitems.validate.revisions.source";
+    public const string RevisionTargetCount = "platform.workitems.validate.revisions.target";
+    public const string RevisionDelta = "platform.workitems.validate.revisions.delta";
     public const string RevisionsMissing = "platform.workitems.validate.revisions.missing";
-    public const string RevisionOrderErrors = "platform.workitems.validate.revision.order_errors";
+    public const string RevisionOrderErrors = "platform.workitems.validate.revision_order_errors";
     public const string BrokenLinks = "platform.workitems.validate.broken_links";
     public const string MissingWorkItems = "platform.workitems.validate.missing";
 
     // --- WorkItems Transform ---
-    public const string FieldTransformApplyCount = "platform.workitems.transform.field.apply.count";
-    public const string FieldTransformApplyDurationMs = "platform.workitems.transform.field.apply.duration_ms";
-    public const string FieldTransformApplyErrors = "platform.workitems.transform.field.apply.errors";
-    public const string FieldTransformApplyInFlight = "platform.workitems.transform.field.apply.in_flight";
-    public const string FieldTransformApplyFieldsModified = "platform.workitems.transform.field.apply.fields_modified";
+    public const string FieldTransformApplyCount = "platform.fieldtransform.apply.count";
+    public const string FieldTransformApplyDurationMs = "platform.fieldtransform.apply.duration_ms";
+    public const string FieldTransformApplyErrors = "platform.fieldtransform.apply.errors";
+    public const string FieldTransformApplyInFlight = "platform.fieldtransform.apply.in_flight";
+    public const string FieldTransformApplyFieldsModified = "platform.fieldtransform.apply.fields_modified";
 
     // --- Nodes Export ---
     public const string NodeExportDiscoverCount = "platform.nodes.export.discover.count";
@@ -109,11 +109,11 @@ public static class WellKnownAgentMetricNames
     public const string NodeExportTreeErrors = "platform.nodes.export.tree.errors";
 
     // --- Nodes Translate ---
-    public const string NodeTranslateCount = "platform.nodes.translate.count";
-    public const string NodeTranslateMapHit = "platform.nodes.translate.map_hit";
-    public const string NodeTranslateAutoSwapHit = "platform.nodes.translate.autoswap_hit";
-    public const string NodeTranslateExternal = "platform.nodes.translate.external";
-    public const string NodeTranslateUnresolvable = "platform.nodes.translate.unresolvable";
+    public const string NodeTranslateCount = "platform.nodes.import.translate.count";
+    public const string NodeTranslateMapHit = "platform.nodes.import.translate.map_hit";
+    public const string NodeTranslateAutoSwapHit = "platform.nodes.import.translate.autoswap_hit";
+    public const string NodeTranslateExternal = "platform.nodes.import.translate.external";
+    public const string NodeTranslateUnresolvable = "platform.nodes.import.translate.unresolvable";
 
     // --- Nodes Validate ---
     public const string NodeValidateDurationMs = "platform.nodes.validate.duration_ms";
