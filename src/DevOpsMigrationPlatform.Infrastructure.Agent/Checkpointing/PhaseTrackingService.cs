@@ -22,10 +22,6 @@ public class PhaseTrackingService : IPhaseTrackingService
     {
         var json = await _stateStore.ReadAsync(PackagePaths.PhaseFile, cancellationToken).ConfigureAwait(false);
 
-        // Legacy fallback: try the pre-.migration path for existing packages.
-        if (json is null)
-            json = await _stateStore.ReadAsync(PackagePaths.LegacyPhaseFile, cancellationToken).ConfigureAwait(false);
-
         if (json is null)
             return new JobPhaseRecord();
         return JsonSerializer.Deserialize<JobPhaseRecord>(json) ?? new JobPhaseRecord();

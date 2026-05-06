@@ -50,6 +50,7 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
     private readonly IPhaseTrackingServiceFactory _phaseTrackingFactory;
     private readonly IProjectDiscoveryService? _projectDiscovery;
     private readonly IOptions<MigrationPlatformOptions>? _migrationOptions;
+    private readonly ActivePackageState? _packageState;
     private readonly ILogger<JobExecutionPlanBuilder> _logger;
 
     public JobExecutionPlanBuilder(
@@ -58,7 +59,8 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
         IPhaseTrackingServiceFactory phaseTrackingFactory,
         ILogger<JobExecutionPlanBuilder> logger,
         IProjectDiscoveryService? projectDiscovery = null,
-        IOptions<MigrationPlatformOptions>? migrationOptions = null)
+        IOptions<MigrationPlatformOptions>? migrationOptions = null,
+        ActivePackageState? packageState = null)
     {
         _modules = modules;
         _modulesByName = modules.ToDictionary(m => m.Name, StringComparer.OrdinalIgnoreCase);
@@ -67,6 +69,7 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
         _phaseTrackingFactory = phaseTrackingFactory;
         _projectDiscovery = projectDiscovery;
         _migrationOptions = migrationOptions;
+        _packageState = packageState;
         _logger = logger;
 
         // Diagnostic: log all discovered modules at startup
@@ -155,6 +158,35 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
         var loadedPlan = await JobPlanExecutor.LoadOrResetAsync(stateStore, ct).ConfigureAwait(false);
         if (loadedPlan is not null)
         {
+            bool isComplete = loadedPlan.Tasks.Count > 0 &&
+                loadedPlan.Tasks.All(t =>
+                    t.Status == JobTaskStatus.Completed ||
+                    t.Status == JobTaskStatus.Skipped ||
+                    t.Status == JobTaskStatus.Failed);
+
+            bool isModeSwitch = loadedPlan.ForKind.HasValue &&
+                loadedPlan.ForKind.Value != kind;
+
+            if (isComplete)
+            {
+                _logger.LogInformation(
+                    "Existing plan is complete ({TaskCount} tasks all terminal). Archiving and building fresh plan for {Kind}.",
+                    loadedPlan.Tasks.Count, kind);
+                await ArchivePlanAsync(loadedPlan, stateStore, complete: true, ct).ConfigureAwait(false);
+                loadedPlan = null;
+            }
+            else if (isModeSwitch)
+            {
+                _logger.LogInformation(
+                    "Job kind changed from {OldKind} to {NewKind}. Archiving incomplete plan and building fresh.",
+                    loadedPlan.ForKind!.Value, kind);
+                await ArchivePlanAsync(loadedPlan, stateStore, complete: false, ct).ConfigureAwait(false);
+                loadedPlan = null;
+            }
+        }
+
+        if (loadedPlan is not null)
+        {
             _logger.LogInformation(
                 "Loaded execution plan from package: {TaskCount} task(s), {PendingCount} pending, {CompletedCount} completed.",
                 loadedPlan.Tasks.Count,
@@ -163,9 +195,12 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
             return loadedPlan;
         }
 
-        // No persisted plan — build fresh.
+        // No persisted plan (or stale plan archived) — build fresh.
         var freshPlan = await BuildPlanAsync(packageConfig, kind, artefactStore, stateStore, ct)
             .ConfigureAwait(false);
+
+        // Stamp the job kind so future resume can detect mode switches.
+        freshPlan = freshPlan with { ForKind = kind };
 
         _logger.LogInformation("Built fresh execution plan: {TaskCount} task(s).", freshPlan.Tasks.Count);
 
@@ -184,6 +219,49 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
         }
 
         return freshPlan;
+    }
+
+    /// <summary>
+    /// Archives the current plan to the run's audit folder and removes the active plan file.
+    /// The plan is written to <c>.migration/runs/{runId}/audit/migration-plan.json</c> when
+    /// a run is active, or skipped with a warning when no run ID is available.
+    /// Failures are swallowed with a warning to avoid blocking job execution.
+    /// </summary>
+    private async Task ArchivePlanAsync(
+        JobTaskList plan,
+        IStateStore stateStore,
+        bool complete,
+        CancellationToken ct)
+    {
+        try
+        {
+            var runId = _packageState?.CurrentRunId;
+            if (runId is null)
+            {
+                _logger.LogWarning(
+                    "No active run ID — skipping plan archive. Deleting plan file and building fresh.");
+                await stateStore.DeleteAsync(PackagePaths.PlanFile, ct).ConfigureAwait(false);
+                return;
+            }
+
+            var auditPath = PackagePaths.RunAuditPlanFile(runId);
+            var json = JsonSerializer.Serialize(plan, _jsonOptions);
+            await stateStore.WriteAsync(auditPath, json, ct).ConfigureAwait(false);
+
+            // Remove the active plan file so a fresh plan is written at the canonical path.
+            await stateStore.DeleteAsync(PackagePaths.PlanFile, ct).ConfigureAwait(false);
+
+            _logger.LogInformation(
+                "Archived {Status} plan ({TaskCount} tasks) to {Path}.",
+                complete ? "complete" : "incomplete",
+                plan.Tasks.Count,
+                auditPath);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex,
+                "Failed to archive plan to audit folder. Proceeding with fresh plan build.");
+        }
     }
 
     // ── Export phase ─────────────────────────────────────────────────────────

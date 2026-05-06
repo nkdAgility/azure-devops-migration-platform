@@ -821,10 +821,6 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
         {
             var json = await stateStore.ReadAsync(PackagePaths.PlanFile, ct).ConfigureAwait(false);
 
-            // Legacy fallback: try the pre-.migration/plan.json path for existing packages.
-            if (json is null)
-                json = await stateStore.ReadAsync(PackagePaths.LegacyPlanFile, ct).ConfigureAwait(false);
-
             if (json is null)
                 return null;
 

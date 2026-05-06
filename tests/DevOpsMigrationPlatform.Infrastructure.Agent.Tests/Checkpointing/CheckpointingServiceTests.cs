@@ -30,9 +30,6 @@ public class CheckpointingServiceTests
         _mockStateStore
             .Setup(s => s.ReadAsync(PackagePaths.CursorFile("workitems"), It.IsAny<CancellationToken>()))
             .ReturnsAsync((string?)null);
-        _mockStateStore
-            .Setup(s => s.ReadAsync(PackagePaths.LegacyCursorFile("workitems"), It.IsAny<CancellationToken>()))
-            .ReturnsAsync((string?)null);
 
         var result = await _sut.ReadCursorAsync("workitems", CancellationToken.None);
 
