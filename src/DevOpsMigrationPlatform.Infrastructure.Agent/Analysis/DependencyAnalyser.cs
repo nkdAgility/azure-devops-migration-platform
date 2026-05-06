@@ -99,7 +99,7 @@ public sealed class DependencyAnalyser : IOrganisationsAnalyser, IProjectAnalyse
                 var content = await context.ArtefactStore.ReadAsync(path, ct).ConfigureAwait(false);
                 if (string.IsNullOrWhiteSpace(content))
                     continue;
-                var lines = content.Split(new[] { '\n' }, System.StringSplitOptions.RemoveEmptyEntries);
+                var lines = content!.Split(new[] { '\n' }, System.StringSplitOptions.RemoveEmptyEntries);
                 foreach (var line in lines.Skip(1)) // skip each file's header
                     consolidated.AppendLine(line);
             }
