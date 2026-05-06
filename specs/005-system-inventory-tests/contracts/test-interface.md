@@ -47,12 +47,12 @@ dotnet test --filter "TestCategory!=SystemTest"
 // Environment configuration errors
 "System test skipped: Environment variables not configured. " +
 "Set AZDEVOPS_SYSTEM_TEST_ORG and AZDEVOPS_SYSTEM_TEST_PAT to run this test. " +
-"See docs/contributors.md for setup instructions."
+"See docs/contributor-guide.md for setup instructions."
 
 // Authentication errors
 "Authentication failed for organization '{org}'. " +
 "Verify AZDEVOPS_SYSTEM_TEST_PAT token has required permissions. " +
-"See docs/contributors.md troubleshooting section."
+"See docs/contributor-guide.md troubleshooting section."
 
 // Connectivity errors
 "Cannot connect to Azure DevOps organization '{org}': {error}. " +

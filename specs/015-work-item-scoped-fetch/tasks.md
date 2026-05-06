@@ -106,8 +106,8 @@
 
 **Purpose**: Ensure all canonical docs reflect what was implemented in this spec. Resolves all discrepancies from `discrepancies.md`.
 
-- [X] T022 Update `docs/work-item-iteration-pattern.md` — add rule 6 under "Mandatory Reuse Principle" section: "Use `IWorkItemFetchService` for field-projected, filtered work item fetching in inventory, dependency analysis, and catalog operations. Do not call `GetWorkItemsAsync` directly from these callers." Also add `IWorkItemFetchService` and `FetchedWorkItem` to the Overview section abstractions list (resolves D-001)
-- [X] T023 [P] Update `docs/modules.md` — add note to Module Responsibilities section referencing `IWorkItemFetchService` for inventory/dependency modules (resolves D-002)
+- [X] T022 Update `docs/work-item-iteration-guide.md` — add rule 6 under "Mandatory Reuse Principle" section: "Use `IWorkItemFetchService` for field-projected, filtered work item fetching in inventory, dependency analysis, and catalog operations. Do not call `GetWorkItemsAsync` directly from these callers." Also add `IWorkItemFetchService` and `FetchedWorkItem` to the Overview section abstractions list (resolves D-001)
+- [X] T023 [P] Update `docs/module-development-guide.md` — add note to Module Responsibilities section referencing `IWorkItemFetchService` for inventory/dependency modules (resolves D-002)
 - [X] T024 [P] Update `docs/architecture.md` — add `IWorkItemFetchService` to the OrganisationEndpoint section as a consumer of `OrganisationEndpoint` as connection context (resolves D-003)
 - [X] T025 Mark all items in `specs/015-work-item-scoped-fetch/discrepancies.md` as Resolved or N/A — D-001 (Resolved by T022), D-002 (Resolved by T023), D-003 (Resolved by T024), D-004 (N/A — deferred to future feature)
 - [X] T026 Review `analysis/pending-actions.md` — no items resolved by this spec

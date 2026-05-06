@@ -65,8 +65,8 @@ Items are grouped by feature spec and categorised as **Code**, **Tests**, or **D
 ### Docs
 
 - 🔴 `T027` Feature file `features/platform/documentation/contributor-onboarding-system-tests.feature` — Gherkin for US3 contributor onboarding scenarios.
-- 🔴 `T028` System test documentation section in `docs/contributors.md` (setup, secrets config, troubleshooting, cross-platform instructions).
-- 🔴 `T035` Validation commands and test setup verification procedures in `docs/contributors.md`.
+- 🔴 `T028` System test documentation section in `docs/contributor-guide.md` (setup, secrets config, troubleshooting, cross-platform instructions).
+- 🔴 `T035` Validation commands and test setup verification procedures in `docs/contributor-guide.md`.
 - 🔴 `T036` Validate system test execution time meets 30-second maximum requirement.
 
 ---
@@ -106,9 +106,9 @@ Items are grouped by feature spec and categorised as **Code**, **Tests**, or **D
 
 ### Docs
 
-- 🟢 `T033` Added `### WorkItemsModule — ADO Export` subsection to `docs/modules.md`.
+- 🟢 `T033` Added `### WorkItemsModule — ADO Export` subsection to `docs/module-development-guide.md`.
 - 🟢 `T034` Updated `docs/architecture.md` `Infrastructure.AzureDevOps` row with source connector and streaming attachment binary source notes.
-- 🟢 `T035` Added "Attachment Download Contract" section to `.agents/context/workitems-format.md`.
+- 🟢 `T035` Added "Attachment Download Contract" section to `.agents/context/workitems-format-summary.md`.
 
 ---
 
@@ -189,7 +189,7 @@ Items are grouped by feature spec and categorised as **Code**, **Tests**, or **D
 
 ### Docs
 
-- 🟢 `T033` — Import orchestrator and `IWorkItemImportTarget` fully documented in `docs/work-item-iteration-pattern.md` section 6 (added by spec 013).
+- 🟢 `T033` — Import orchestrator and `IWorkItemImportTarget` fully documented in `docs/work-item-iteration-guide.md` section 6 (added by spec 013).
 
 ---
 
@@ -266,5 +266,5 @@ Identified by architecture review (architecture-review skill, 2025):
 ### Docs/Features
 
 - 🟢 T010/T025/T032 Gherkin: config-applied-on-export.feature, config-audit-trail.feature, legacy-package-fail-fast.feature.
-- 🟢 T040 docs/migration-agent.md execution flow updated.
+- 🟢 T040 docs/agent-hosting.md execution flow updated.
 - 🟢 T042 discrepancies.md — 4 of 5 resolved; #5 (configVersion upgrader) marked partial pending T038/T039.

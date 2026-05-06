@@ -322,6 +322,133 @@ public sealed class JobPlanExecutorTests
         Assert.IsNull(loaded, "Corrupt plan file should return null");
     }
 
+    /// <summary>
+    /// Regression guard: if a previous Export run completed all tasks and the agent
+    /// resumes without ForceFresh, no module's ExportAsync should be invoked.
+    /// This covers the scenario "Completed tasks not re-executed on resume".
+    /// </summary>
+    [TestMethod]
+    public async Task ExecuteExportPhaseAsync_AllTasksAlreadyCompleted_NoModuleCalled()
+    {
+        // Arrange
+        var exportCalled = new List<string>();
+
+        var modules = new Dictionary<string, IModule>(StringComparer.OrdinalIgnoreCase);
+        foreach (var name in new[] { "Identities", "Nodes", "Teams", "WorkItems" })
+        {
+            var module = new Mock<IModule>(MockBehavior.Strict);
+            module.SetupGet(m => m.Name).Returns(name);
+            // ExportAsync must NOT be set up — Strict mock will throw if called
+            modules[name] = module.Object;
+        }
+
+        var plan = CreatePlan(new[]
+        {
+            CreateTask("export.identities", "Identities Export", "Export", status: JobTaskStatus.Completed),
+            CreateTask("export.nodes",      "Nodes Export",      "Export", status: JobTaskStatus.Completed),
+            CreateTask("export.teams",      "Teams Export",      "Export", status: JobTaskStatus.Completed),
+            CreateTask("export.workitems",  "WorkItems Export",  "Export", status: JobTaskStatus.Completed)
+        });
+
+        var executor = CreateExecutor();
+        var stateStore = new InMemoryStateStore();
+        var exportContext = new ExportContext();
+
+        // Act
+        var result = await executor.ExecuteExportPhaseAsync(plan, modules, exportContext, stateStore, CancellationToken.None);
+
+        // Assert
+        Assert.IsTrue(result, "Export phase should return true when all tasks are already completed");
+        Assert.AreEqual(0, exportCalled.Count, "No module should have been executed");
+    }
+
+    /// <summary>
+    /// Regression guard: same as the Export variant but for the Import path.
+    /// </summary>
+    [TestMethod]
+    public async Task ExecuteImportPhaseAsync_AllTasksAlreadyCompleted_NoModuleCalled()
+    {
+        // Arrange
+        var modules = new Dictionary<string, IModule>(StringComparer.OrdinalIgnoreCase);
+        foreach (var name in new[] { "Identities", "Nodes", "Teams", "WorkItems" })
+        {
+            var module = new Mock<IModule>(MockBehavior.Strict);
+            module.SetupGet(m => m.Name).Returns(name);
+            // ImportAsync must NOT be set up — Strict mock will throw if called
+            modules[name] = module.Object;
+        }
+
+        var plan = CreatePlan(new[]
+        {
+            CreateTask("import.identities", "Identities Import", "Import", status: JobTaskStatus.Completed),
+            CreateTask("import.nodes",      "Nodes Import",      "Import", status: JobTaskStatus.Completed),
+            CreateTask("import.teams",      "Teams Import",      "Import", status: JobTaskStatus.Completed),
+            CreateTask("import.workitems",  "WorkItems Import",  "Import", status: JobTaskStatus.Completed)
+        });
+
+        var executor = CreateExecutor();
+        var stateStore = new InMemoryStateStore();
+        var importContext = new ImportContext();
+
+        // Act
+        var result = await executor.ExecuteImportPhaseAsync(plan, modules, importContext, stateStore, CancellationToken.None);
+
+        // Assert
+        Assert.IsTrue(result, "Import phase should return true when all tasks are already completed");
+    }
+
+    /// <summary>
+    /// Regression guard: mixed plan where some tasks are Completed and one is still Pending.
+    /// Only the Pending task's module should execute; the completed ones must not.
+    /// </summary>
+    [TestMethod]
+    public async Task ExecuteExportPhaseAsync_PartialResume_OnlyPendingTaskExecuted()
+    {
+        // Arrange
+        var exportCalled = new List<string>();
+        var lockObj = new object();
+
+        var modules = new Dictionary<string, IModule>(StringComparer.OrdinalIgnoreCase);
+        foreach (var name in new[] { "Identities", "Nodes", "Teams" })
+        {
+            var module = new Mock<IModule>(MockBehavior.Strict);
+            module.SetupGet(m => m.Name).Returns(name);
+            // ExportAsync is NOT set up — Strict mock will throw if called
+            modules[name] = module.Object;
+        }
+
+        // WorkItems is the only pending task — its module MUST be called
+        var workItemsModule = new Mock<IModule>(MockBehavior.Loose);
+        workItemsModule.SetupGet(m => m.Name).Returns("WorkItems");
+        workItemsModule.Setup(m => m.ExportAsync(It.IsAny<ExportContext>(), It.IsAny<CancellationToken>()))
+            .Returns(() =>
+            {
+                lock (lockObj) { exportCalled.Add("WorkItems"); }
+                return Task.CompletedTask;
+            });
+        modules["WorkItems"] = workItemsModule.Object;
+
+        var plan = CreatePlan(new[]
+        {
+            CreateTask("export.identities", "Identities Export", "Export", status: JobTaskStatus.Completed),
+            CreateTask("export.nodes",      "Nodes Export",      "Export", status: JobTaskStatus.Completed),
+            CreateTask("export.teams",      "Teams Export",      "Export", status: JobTaskStatus.Completed),
+            CreateTask("export.workitems",  "WorkItems Export",  "Export", status: JobTaskStatus.Pending)
+        });
+
+        var executor = CreateExecutor();
+        var stateStore = new InMemoryStateStore();
+        var exportContext = new ExportContext();
+
+        // Act
+        var result = await executor.ExecuteExportPhaseAsync(plan, modules, exportContext, stateStore, CancellationToken.None);
+
+        // Assert
+        Assert.IsTrue(result, "Export phase should succeed");
+        Assert.AreEqual(1, exportCalled.Count, "Only the pending WorkItems task should execute");
+        Assert.AreEqual("WorkItems", exportCalled[0]);
+    }
+
     // ── Helpers ──────────────────────────────────────────────────────────────
 
     private static JobPlanExecutor CreateExecutor()

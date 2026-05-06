@@ -12,11 +12,11 @@
 ## Guardrail Alignment (Applies To All Phases)
 
 Applicable guardrails for this feature:
-- Deterministic ordering and streaming-only processing (`.agents/guardrails/system-architecture.md`, `.agents/guardrails/migration-rules.md`, `.agents/context/import-streaming.md`)
-- Cursor/checkpoint state in `.migration/Checkpoints/` with no hidden state (`.agents/guardrails/workitems-rules.md`, `.agents/context/checkpointing.md`)
-- Reuse existing work item iteration abstractions before introducing new patterns (`.agents/guardrails/system-architecture.md` rule 21, `docs/work-item-iteration-pattern.md`)
+- Deterministic ordering and streaming-only processing (`.agents/guardrails/architecture-boundaries.md`, `.agents/guardrails/migration-rules.md`, `.agents/context/import-streaming.md`)
+- Cursor/checkpoint state in `.migration/Checkpoints/` with no hidden state (`.agents/guardrails/workitems-rules.md`, `.agents/context/checkpointing-summary.md`)
+- Reuse existing work item iteration abstractions before introducing new patterns (`.agents/guardrails/architecture-boundaries.md` rule 21, `docs/work-item-iteration-guide.md`)
 - Async/cancellation propagation, immutable models, and DI boundaries (`.agents/guardrails/coding-standards.md`)
-- Tests-first ATDD workflow (`.agents/guardrails/testing-standards.md`, `.agents/guardrails/atdd-workflow.md`, `.agents/guardrails/acceptance-test-format.md`)
+- Tests-first ATDD workflow (`.agents/guardrails/testing-rules.md`, `.agents/guardrails/atdd-workflow.md`, `.agents/guardrails/acceptance-test-format.md`)
 
 Explicitly rejected approaches:
 - Any resume implementation that skips query fingerprint compatibility checks.
@@ -138,9 +138,9 @@ Explicitly rejected approaches:
 
 > **Note**: Initial doc sections were added during spec resolution (see discrepancies.md — all 3 items Resolved). Phase 6 tasks verify these sections are accurate against the final implementation.
 
-- [ ] T034 Verify `docs/work-item-iteration-pattern.md` section 11 (Resumable Batching Contract) matches implemented behavior — update if any contract details changed during implementation.
-- [ ] T035 [P] Verify `.agents/context/checkpointing.md` section (Query Fingerprint Compatibility) matches implemented behavior — update if mismatch decision flow or storage paths changed.
-- [ ] T036 [P] Verify `docs/configuration.md` section (Resumable Batching — Operational Responsibilities) matches implemented behavior — update persistence cadence or restart guidance if needed.
+- [ ] T034 Verify `docs/work-item-iteration-guide.md` section 11 (Resumable Batching Contract) matches implemented behavior — update if any contract details changed during implementation.
+- [ ] T035 [P] Verify `.agents/context/checkpointing-summary.md` section (Query Fingerprint Compatibility) matches implemented behavior — update if mismatch decision flow or storage paths changed.
+- [ ] T036 [P] Verify `docs/configuration-reference.md` section (Resumable Batching — Operational Responsibilities) matches implemented behavior — update persistence cadence or restart guidance if needed.
 - [ ] T037 Confirm all items in `specs/020-resumable-batching-cursor/discrepancies.md` remain `Resolved` — re-open and fix if implementation diverged from documented contract.
 - [ ] T038 Review and update `analysis/pending-actions.md` to remove entries satisfied by this spec.
 

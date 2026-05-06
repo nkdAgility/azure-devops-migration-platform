@@ -254,8 +254,8 @@
 
 **Purpose**: Ensure all canonical docs reflect what was implemented. Resolves discrepancies.md items 1–4.
 
-- [X] T086 Update `docs/configuration.md` — add `Tools` top-level section to Full Schema JSON example and Top-Level Fields table; add `FieldTransform` tool configuration reference with schema and example (discrepancy #1)
-- [X] T087 [P] Update `docs/modules.md` — add "Tool Resolution" subsection under Module Architecture explaining: tools declared in `MigrationPlatform.Tools.*`, extensions load tools by name, effective settings = singleton tool + phase from extension reference (discrepancy #2)
+- [X] T086 Update `docs/configuration-reference.md` — add `Tools` top-level section to Full Schema JSON example and Top-Level Fields table; add `FieldTransform` tool configuration reference with schema and example (discrepancy #1)
+- [X] T087 [P] Update `docs/module-development-guide.md` — add "Tool Resolution" subsection under Module Architecture explaining: tools declared in `MigrationPlatform.Tools.*`, extensions load tools by name, effective settings = singleton tool + phase from extension reference (discrepancy #2)
 - [X] T088 [P] Update `docs/architecture.md` — add Tool concept to Components and Responsibilities section: "A Tool is a shared, cross-cutting service declared once at the MigrationPlatform config root. Extensions load tools by reference and declare phase. Tools are pure transformations or lookup services — they perform no I/O." (discrepancy #3)
 - [X] T089 [P] Update `analysis/proposed-features.md` — rename `FieldMappingTool` → `FieldTransformTool`, `IFieldMappingTool` → `IFieldTransformTool`, and all 14 map type names to `*Transform` naming throughout M1 and T1 sections (discrepancy #4)
 - [X] T090 Mark all items in `specs/022-workitem-field-mapping/discrepancies.md` as `Resolved`

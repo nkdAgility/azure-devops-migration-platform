@@ -52,10 +52,12 @@ public sealed class SimulatedWorkItemDiscoveryService : IWorkItemDiscoveryServic
         OrganisationEndpoint endpoint,
         string project,
         WorkItemFetchScope? scope = null,
+        IProgress<int>? progress = null,
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
         var (workItems, revisions) = ComputeCounts(project);
+        progress?.Report(workItems);
 
         yield return new ProjectDiscoverySummary
         {
@@ -75,10 +77,12 @@ public sealed class SimulatedWorkItemDiscoveryService : IWorkItemDiscoveryServic
         OrganisationEndpoint endpoint,
         string project,
         string? baseQuery = null,
+        IProgress<int>? progress = null,
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
         var (workItems, revisions) = ComputeCounts(project);
+        progress?.Report(workItems);
 
         yield return new ProjectDiscoverySummary
         {

@@ -38,8 +38,8 @@ Affects:
 - `TeamsModule.ImportAsync` (enforces `DryRun\` area/iteration path assignments)
 - `QueueCommand` (copies `ImportType` from config to job contract)
 - `MigrationOptionsValidator` (emits structured `Warning` when `ProductionRun` is set)
-- `docs/configuration.md` (new top-level field documentation)
-- `.agents/context/job-contract.md` (new contract field)
+- `docs/configuration-reference.md` (new top-level field documentation)
+- `.agents/context/job-lifecycle.md` (new contract field)
 
 Does **not** affect:
 

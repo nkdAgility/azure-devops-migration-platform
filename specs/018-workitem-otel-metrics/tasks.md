@@ -154,13 +154,13 @@
 
 **Purpose**: Ensure all canonical docs reflect what was implemented in this spec. This phase is a blocking gate — no spec is complete without it.
 
-- [X] T038 Add a "Telemetry" or "Observability" section to `docs/configuration.md` — document the `migration.` dot-separated naming convention and mandatory dimension tags (`job.id`, `operation`, `module`) per `discrepancies.md` item 1
+- [X] T038 Add a "Telemetry" or "Observability" section to `docs/configuration-reference.md` — document the `migration.` dot-separated naming convention and mandatory dimension tags (`job.id`, `operation`, `module`) per `discrepancies.md` item 1
 - [X] T039 [P] Update `docs/architecture.md` Phase 2 item 20 — add reference to `migration.*` dot-separated metric convention defined in `WellKnownMetricNames` per `discrepancies.md` item 2
 - [X] T040 [P] Update `docs/control-plane.md` — add note to `GET /jobs/{jobId}/telemetry` endpoint that `MetricSnapshot` is a versioned DTO whose fields correspond to registered OTel instruments per `discrepancies.md` item 3
 - [X] T041 [P] Update `docs/validation.md` Tier 3 Post-Flight Validation section — add paragraph noting OTel metric emission (count parity histograms and error counters) alongside `validation-report.json`, respecting `sampleRate` per `discrepancies.md` item 4
-- [X] T042 [P] Update `docs/aspire-integration.md` ConfigureOpenTelemetry sample — register `DevOpsMigrationPlatform.Migration` meter instead of the two separate meter names per `discrepancies.md` item 5
-- [X] T043 [P] Update `docs/migration-agent.md` Responsibilities table — add "Record metrics" row for `IMigrationMetrics` during job execution per `discrepancies.md` item 6
-- [X] T044 [P] Update `docs/orchestration.md` Job Engine Steps — amend step 6 or add step 6a for OTel metric recording alongside progress event emission per `discrepancies.md` item 7
+- [X] T042 [P] Update `docs/development-setup.md` ConfigureOpenTelemetry sample — register `DevOpsMigrationPlatform.Migration` meter instead of the two separate meter names per `discrepancies.md` item 5
+- [X] T043 [P] Update `docs/agent-hosting.md` Responsibilities table — add "Record metrics" row for `IMigrationMetrics` during job execution per `discrepancies.md` item 6
+- [X] T044 [P] Update `docs/migration-process-guide.md` Job Engine Steps — amend step 6 or add step 6a for OTel metric recording alongside progress event emission per `discrepancies.md` item 7
 - [X] T045 Mark all items in `specs/018-workitem-otel-metrics/discrepancies.md` as `Resolved` or `N/A`
 - [X] T046 Review `analysis/pending-actions.md` and remove any items resolved by this spec
 - [X] T047 Run `dotnet clean && dotnet build --no-incremental` — MUST pass

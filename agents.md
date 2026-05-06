@@ -41,82 +41,30 @@ See:
 
 ---
 
-# 📚 Canonical Specification (Read First)
+# 📚 Canonical Docs
 
-Architecture:
-→ docs/architecture.md
-
-Package layout:
-→ .agents/context/package-format.md
-
-WorkItems layout:
-→ .agents/context/workitems-format.md
-
-Streaming import:
-→ .agents/context/import-streaming.md
-
-Checkpoint model:
-→ .agents/context/checkpointing.md
-
-Module contract:
-→ docs/modules.md
-
-Configuration:
-→ docs/configuration.md
-
-Artefact store abstraction:
-→ .agents/context/artefact-store.md
-
-Job contract:
-→ .agents/context/job-contract.md
-
-Telemetry architecture:
-→ .agents/context/telemetry-architecture.md
-
-Control plane:
-→ docs/control-plane.md
-
-Orchestration:
-→ docs/orchestration.md
-
-Migration Agent (worker):
-→ docs/migration-agent.md
-
-Module contract:
-→ docs/modules.md
-
-TUI:
-→ docs/tui.md
-
-CLI:
-→ docs/cli.md
-
-CLI command reference (canonical):
-→ .agents/context/cli-commands.md
-
-TFS Migration Agent and multi-targeting:
-→ docs/migration-agent.md
-
-Aspire orchestration:
-→ docs/aspire-integration.md
-
-Validation:
-→ docs/validation.md
-
-Identity and mapping:
-→ .agents/context/identity-and-mapping.md
-
-Configuration reference:
-→ docs/configuration.md
-
-Scenario configs:
-→ scenarios/
-
-Source types:
-→ docs/source-types.md
-
-Package zip/export:
-→ docs/packaging-zip.md
+| Topic | File |
+|-------|------|
+| Architecture | `docs/architecture.md` |
+| Package layout | `.agents/context/migration-package-concept.md` |
+| WorkItems layout | `.agents/context/workitems-format-summary.md` |
+| Streaming import | `.agents/context/import-streaming.md` |
+| Checkpointing | `.agents/context/checkpointing-summary.md` |
+| Module contract | `docs/module-development-guide.md` |
+| Configuration | `docs/configuration-reference.md` |
+| Artefact store | `.agents/context/artefact-store.md` |
+| Job lifecycle | `.agents/context/job-lifecycle.md` |
+| Telemetry | `.agents/context/telemetry-model.md` |
+| Control plane | `docs/control-plane.md` |
+| Orchestration | `docs/migration-process-guide.md` |
+| Agent hosting | `docs/agent-hosting.md` |
+| TUI | `docs/tui-guide.md` |
+| CLI guide | `docs/cli-guide.md` |
+| CLI commands | `.agents/context/cli-commands.md` |
+| Validation | `docs/validation.md` |
+| Identity/mapping | `.agents/context/identity-and-mapping.md` |
+| Package zip | `docs/package-format-reference.md` |
+| Scenarios | `scenarios/` |
 
 ---
 
@@ -131,25 +79,34 @@ Package zip/export:
 **Before proceeding with ANY code changes, generic agents MUST:**
 
 1. **Read ALL guardrail files** in `/.agents/guardrails/` — use `read_file` for each:
-   - [system-architecture.md](.agents/guardrails/system-architecture.md) — Core architecture constraints
-   - [workitems-rules.md](.agents/guardrails/workitems-rules.md) — WorkItems-specific rules  
-   - [migration-rules.md](.agents/guardrails/migration-rules.md) — Migration behavior constraints
+   - [architecture-boundaries.md](.agents/guardrails/architecture-boundaries.md) — Core architecture constraints
    - [coding-standards.md](.agents/guardrails/coding-standards.md) — SOLID principles + concrete examples
-   - [testing-standards.md](.agents/guardrails/testing-standards.md) — Reqnroll + MSTest conventions
-   - [definition-of-done.md](.agents/guardrails/definition-of-done.md) — Mandatory completion criteria for every unit of work
-   - [module-template.md](.agents/guardrails/module-template.md) — New module requirements
-   - [aspire-integration.md](.agents/guardrails/aspire-integration.md) — Aspire integration guardrails
+   - [coding-standards-examples.md](.agents/guardrails/coding-standards-examples.md) — Annotated code examples
+   - [testing-rules.md](.agents/guardrails/testing-rules.md) — Reqnroll + MSTest conventions
+   - [workitems-rules.md](.agents/guardrails/workitems-rules.md) — WorkItems-specific rules
+   - [migration-rules.md](.agents/guardrails/migration-rules.md) — Migration behavior constraints
+   - [module-rules.md](.agents/guardrails/module-rules.md) — New module requirements
+   - [connector-rules.md](.agents/guardrails/connector-rules.md) — Connector implementation rules
+   - [control-plane-rules.md](.agents/guardrails/control-plane-rules.md) — Control plane + Aspire guardrails
+   - [cli-tui-rules.md](.agents/guardrails/cli-tui-rules.md) — CLI and TUI rules
+   - [observability-requirements.md](.agents/guardrails/observability-requirements.md) — O-1 through O-5 requirements
+   - [security-rules.md](.agents/guardrails/security-rules.md) — Security by design rules
+   - [data-sovereignty-rules.md](.agents/guardrails/data-sovereignty-rules.md) — Data residency constraints
+   - [package-rules.md](.agents/guardrails/package-rules.md) — Package structure rules
+   - [configuration-rules.md](.agents/guardrails/configuration-rules.md) — Configuration rules
+   - [documentation-rules.md](.agents/guardrails/documentation-rules.md) — Doc structure, naming, and rename rules
+   - [definition-of-done.md](.agents/guardrails/definition-of-done.md) — Mandatory completion criteria
    - [atdd-workflow.md](.agents/guardrails/atdd-workflow.md) — ATDD session lifecycle rules
    - [acceptance-test-format.md](.agents/guardrails/acceptance-test-format.md) — Gherkin format rules
 
 2. **Read relevant context files** in `/.agents/context/`:
-   - [package-format.md](.agents/context/package-format.md) — Package layout specification
-   - [workitems-format.md](.agents/context/workitems-format.md) — WorkItems folder structure
+   - [migration-package-concept.md](.agents/context/migration-package-concept.md) — Package layout specification
+   - [workitems-format-summary.md](.agents/context/workitems-format-summary.md) — WorkItems folder structure
    - [import-streaming.md](.agents/context/import-streaming.md) — Streaming import requirements
-   - [checkpointing.md](.agents/context/checkpointing.md) — Cursor-based checkpointing
+   - [checkpointing-summary.md](.agents/context/checkpointing-summary.md) — Cursor-based checkpointing
    - [artefact-store.md](.agents/context/artefact-store.md) — IArtefactStore abstraction
-   - [job-contract.md](.agents/context/job-contract.md) — Job contract specification
-   - [telemetry-architecture.md](.agents/context/telemetry-architecture.md) — Telemetry layer model and metric addition guide
+   - [job-lifecycle.md](.agents/context/job-lifecycle.md) — Job contract specification
+   - [telemetry-model.md](.agents/context/telemetry-model.md) — Telemetry layer model and metric addition guide
    - [identity-and-mapping.md](.agents/context/identity-and-mapping.md) — Identity mapping service
 
 3. **State your understanding** of which guardrails apply to the current task
@@ -179,10 +136,10 @@ This protocol exists because guardrails are authored by humans and may contain e
 After completing any unit of work (a logical change, a file edit, a task), before marking it done:
 
 1. **Re-read the relevant docs** — use `read_file` on any doc file referenced by the guardrails that is relevant to what was just changed. Examples:
-   - CLI changes → re-read `docs/cli.md` and `.agents/context/cli-commands.md`
-   - Package/export/import changes → re-read `.agents/context/package-format.md`
-   - Job/agent changes → re-read `.agents/context/job-contract.md`
-   - Settings/config changes → re-read `docs/configuration.md`
+   - CLI changes → re-read `docs/cli-guide.md` and `.agents/context/cli-commands.md`
+   - Package/export/import changes → re-read `.agents/context/migration-package-concept.md`
+   - Job/agent changes → re-read `.agents/context/job-lifecycle.md`
+   - Settings/config changes → re-read `docs/configuration-reference.md`
 2. **Check each change against the docs line by line.** Ask:
    - Does the implementation match what the documentation specifies?
    - Does it add anything not documented (parameters, options, commands, behaviour)?
@@ -193,55 +150,11 @@ After completing any unit of work (a logical change, a file edit, a task), befor
 **This loop is mandatory. A task is not done until the compliance review passes with no findings.**
 **A change that adds undocumented parameters, options, commands, or behaviour = non-compliant. Fix before declaring done.**
 
-## Available SpecKit Agents
-→ .github/agents/speckit.specify.agent.md — Create feature specification
-→ .github/agents/speckit.clarify.agent.md — Reduce specification ambiguities  
-→ .github/agents/speckit.plan.agent.md — Create technical implementation plan
-→ .github/agents/speckit.analyze.agent.md — Cross-artifact consistency analysis
-→ .github/agents/speckit.tasks.agent.md — Break plan into dependency-ordered tasks
-→ .github/agents/speckit.checklist.agent.md — Generate custom requirement checklists
-→ .github/agents/speckit.implement.agent.md — Execute implementation plan
-→ .github/agents/speckit.constitution.agent.md — Manage project constitution
-→ .github/agents/speckit.taskstoissues.agent.md — Convert tasks to GitHub issues
+## Structured Workflows
 
-## Session Lifecycle Skills (ATDD/SpecKit Integration)
-→ .agents/skills/start-session/SKILL.md — assemble context and invoke Specification Agent
-→ .agents/skills/review/SKILL.md — invoke Reviewer Agent and record verdict  
-→ .agents/skills/end-session/SKILL.md — verify gates, finalise log, signal commit-ready
-→ .agents/skills/fix/SKILL.md — resume a failed or interrupted session
-→ .agents/skills/parse-criteria/SKILL.md — parse Gherkin feature files into a structured test plan
-→ .agents/skills/test-templates/SKILL.md — generate Reqnroll step definition files from a test plan
-→ .agents/skills/session-hooks/SKILL.md — manage session lifecycle events and phase transitions
-→ .agents/skills/refactor-patterns/SKILL.md — assess code quality and apply safe refactoring patterns
-→ .agents/skills/hexagonal-check/SKILL.md — scan for Hexagonal Architecture boundary violations (infrastructure leakage into domain/module code)
-→ .agents/skills/modular-monolith-check/SKILL.md — scan for Modular Monolith violations (cross-module coupling, missing module boundaries)
-→ .agents/skills/clean-architecture-check/SKILL.md — scan for Clean Architecture violations (dependency rule breaches, business logic in wrong layer)
-→ .agents/skills/vertical-slice-check/SKILL.md — scan for Vertical Slice violations (cross-slice coupling, missing end-to-end slice ownership)
-→ .agents/skills/screaming-architecture-check/SKILL.md — scan for Screaming Architecture violations (generic names, purpose-obscuring structure)
-→ .agents/skills/architecture-review/SKILL.md — run all five architecture perspective checks and produce a combined prioritised report
-→ .agents/skills/test-promotion/SKILL.md — analyse tests and promote to faster categories; retire redundant slower tests
-→ .agents/skills/update-docs/SKILL.md — update every affected canonical doc in /docs and /.agents/context after implementation; mark doc-tasks complete
+Use SpecKit agents (`.github/agents/speckit.*.agent.md`) for specification, planning, and implementation workflows. Use session skills (`.agents/skills/*/SKILL.md`) for ATDD lifecycle, architecture checks, and doc updates.
 
-## Session Commands (Slash-command aliases)
-→ .github/commands/start-session.md — /start-session
-→ .github/commands/review.md — /review
-→ .github/commands/end-session.md — /end-session
-→ .github/commands/fix.md — /fix
-
-## Acceptance Test Feature Files
-All Gherkin `.feature` files live under `/features`, organised by operation and module:
-
-```
-features/
-  cli/            ← CLI-triggered operations (export, inventory, …)
-  export/         ← Export module features
-  import/         ← Import module features
-  inventory/      ← Inventory module features
-  platform/       ← Cross-cutting platform concerns (checkpointing, validation)
-  services/       ← Shared services (identity-mapping, …)
-```
-
-If code conflicts with these, reject the change.
+All Gherkin `.feature` files live under `/features/` (organised by `cli/`, `export/`, `import/`, `inventory/`, `platform/`, `services/`). Code that conflicts with feature files must be rejected.
 
 ---
 
@@ -277,13 +190,13 @@ Reject any proposal that:
 - References a concrete artefact store implementation inside module code.
 - Sorts `EnumerateAsync` results in memory.
 - Creates agent rule files under `/docs` instead of `/.agents/guardrails`.
-- **Implements a custom work item export/import loop instead of using `WorkItemExportOrchestrator` and `IWorkItemRevisionSource`** (see [docs/work-item-iteration-pattern.md](docs/work-item-iteration-pattern.md)).
+- **Implements a custom work item export/import loop instead of using `WorkItemExportOrchestrator` and `IWorkItemRevisionSource`** (see [docs/work-item-iteration-guide.md](docs/work-item-iteration-guide.md)).
 - **Implements custom progress tracking instead of using `ICheckpointingService` with cursor-based state in `IStateStore`** (watermark tables, in-memory dictionaries, and progress databases are forbidden).
 - **Implements custom enumeration or sorting logic instead of using `IArtefactStore.EnumerateAsync()` in lexicographic order** (no in-memory result sets, no custom sorting).
 - **Buffers attachments or binary data in memory instead of streaming via `IArtefactStore.WriteBinaryAsync()` or `IAttachmentBinarySource`**.
-- **Invents a new abstraction for work item processing without extending an existing pattern or documenting why no existing abstraction could be reused** (motivated by rule 21 of [.agents/guardrails/system-architecture.md](.agents/guardrails/system-architecture.md)).
-- **Logs a field value, project name, org URL, or attachment path without a `DataClassification.Customer` scope** (see [docs/configuration.md — Data Classification](docs/configuration.md#data-classification)). Work item IDs are integer identifiers, not customer data.
-- **Writes to the working directory or package files from any component other than the Migration Agent or TFS Export Agent** — the CLI, TUI, Control Plane, and ControlPlaneHost have no write access to the package (data residency requirement; see [docs/architecture.md — Data Residency](docs/architecture.md#data-residency--agent-only-write-access) and rule 23 of [.agents/guardrails/system-architecture.md](.agents/guardrails/system-architecture.md)).
+- **Invents a new abstraction for work item processing without extending an existing pattern or documenting why no existing abstraction could be reused** (motivated by rule 21 of [.agents/guardrails/architecture-boundaries.md](.agents/guardrails/architecture-boundaries.md)).
+- **Logs a field value, project name, org URL, or attachment path without a `DataClassification.Customer` scope** (see [docs/configuration-reference.md — Data Classification](docs/configuration-reference.md#data-classification)). Work item IDs are integer identifiers, not customer data.
+- **Writes to the working directory or package files from any component other than the Migration Agent or TFS Export Agent** — the CLI, TUI, Control Plane, and ControlPlaneHost have no write access to the package (data residency requirement; see [docs/architecture.md — Data Residency](docs/architecture.md#data-residency--agent-only-write-access) and rule 23 of [.agents/guardrails/architecture-boundaries.md](.agents/guardrails/architecture-boundaries.md)).
 - Leaves any `throw new NotImplementedException()` or `throw new NotSupportedException("... not yet implemented")` in any reachable code path — ephemeral stubs are only permitted within a single session and must be replaced before the task is marked complete.
 - Leaves any `Assert.Inconclusive()` in a test — `Inconclusive` is treated as a build-breaking error. Either implement the assertion or delete the test.
 - Commits code containing `@ignore` (Gherkin) or `[Ignore]` (MSTest) — these markers may only be used temporarily within a session for isolation; they must be removed before done.
@@ -310,6 +223,7 @@ Reject any proposal that:
 - **Writes a module or tool without O-2 business metrics** — every operation MUST call `IMigrationMetrics` for attempt, completion, error, duration, and in-flight.
 - **Writes a module or tool without O-3 structured logging** — every operation MUST log at `Information` on start/end, `Warning` on skips/errors, `Debug` for per-item detail.
 - **Writes a module or tool without O-4 ProgressEvent emission** — `IProgressSink` MUST be injected (optional) and `ProgressEvent` MUST be emitted at start, per item (or per ≤50 batch), and completion with `Metrics.Migration.{ModuleName}` populated.
+- **Writes a module or tool without O-5 per-batch fetch progress** — every call to `DiscoverWorkItemsAsync`, `CountWorkItemsAsync`, or any `IWorkItemFetchService` method MUST pass a non-null `IProgress<int>` callback wired to `IProgressSink.Emit`. Passing `null` (except at documented exception call sites such as `InventoryService`) is a violation.
 - **Adds a module counter to `MigrationCounters` without a corresponding row in `QueueCommand.BuildProgressRenderable`** — every module counter added to the DTO MUST be rendered in the CLI progress display in correct execution order (Identities → Nodes → Teams → WorkItems).
 - **Wires `QueueCommand.BuildProgressRenderable` to an in-process `IProgressSink` or any source other than the ControlPlane API** — the CLI progress display MUST read aggregate counters from `GET /jobs/{id}/telemetry` (Channel 2 — `JobMetrics` polling) AND real-time stage/cursor updates from `GET /jobs/{id}/progress?follow=true` (Channel 1 — SSE). `ProgressEvent.Metrics` is populated only by the TFS subprocess (net481); for .NET 10 agents it is always null. CLI code that reads metrics from `ProgressEvent.Metrics` instead of the telemetry endpoint will silently display zeros for all .NET 10 jobs.
 - **Wires the TUI to an in-process `IProgressSink` or any source other than the ControlPlane API** — the TUI Metrics panel MUST poll `GET /jobs/{jobId}/telemetry`; the Progress table and Log panel MUST subscribe to `GET /jobs/{jobId}/progress?follow=true` and `GET /jobs/{jobId}/diagnostics?follow=true` respectively. No direct sink wiring is permitted in TUI code.

@@ -34,6 +34,7 @@ internal sealed class AzureDevOpsWorkItemDiscoveryService : IWorkItemDiscoverySe
         OrganisationEndpoint endpoint,
         string project,
         WorkItemFetchScope? scope = null,
+        IProgress<int>? progress = null,
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         var summary = new ProjectDiscoverySummary { ProjectName = project };
@@ -43,10 +44,13 @@ internal sealed class AzureDevOpsWorkItemDiscoveryService : IWorkItemDiscoverySe
             ? new[] { "System.Rev" }.Union(scope.Fields).ToArray()
             : new[] { "System.Rev" };
 
+        // Thread the caller's progress callback into the fetch scope so per-batch
+        // ProgressEvents are fired automatically without a manual counting loop here.
         var fetchScope = new WorkItemFetchScope(
             Fields: mergedFields,
             FilterOptions: scope?.FilterOptions,
-            BaseQuery: scope?.BaseQuery);
+            BaseQuery: scope?.BaseQuery,
+            Progress: progress);
 
         var itemsSinceLastYield = 0;
 
@@ -77,6 +81,7 @@ internal sealed class AzureDevOpsWorkItemDiscoveryService : IWorkItemDiscoverySe
         OrganisationEndpoint endpoint,
         string project,
         string? baseQuery = null,
+        IProgress<int>? progress = null,
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         var summary = new ProjectDiscoverySummary { ProjectName = project };
@@ -127,6 +132,7 @@ internal sealed class AzureDevOpsWorkItemDiscoveryService : IWorkItemDiscoverySe
 
                 summary.WorkItemsCount += window.WorkItemIds.Count;
                 summary.LastUpdatedUtc = DateTime.UtcNow;
+                progress?.Report(summary.WorkItemsCount);
                 yield return summary;
             }
         }

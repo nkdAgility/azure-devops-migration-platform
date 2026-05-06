@@ -267,6 +267,7 @@ public class TfsJobAgentWorkerTests
                 It.IsAny<OrganisationEndpoint>(),
                 It.IsAny<string>(),
                 It.IsAny<string>(),
+                It.IsAny<IProgress<int>?>(),
                 It.IsAny<CancellationToken>()))
             .Returns(EmptyAsyncEnumerable<ProjectDiscoverySummary>());
 
@@ -433,6 +434,7 @@ public class TfsJobAgentWorkerTests
                 It.IsAny<OrganisationEndpoint>(),
                 It.IsAny<string>(),
                 It.IsAny<string>(),
+                It.IsAny<IProgress<int>?>(),
                 It.IsAny<CancellationToken>()))
             .Returns(CreateDiscoverySummaryStream(
                 new ProjectDiscoverySummary { WorkItemsCount = 10, RevisionsCount = 50, IsWorkItemComplete = false },

@@ -94,7 +94,7 @@ public interface IInventoryOrchestrator
 
 - **Decision**: Retain `IInventoryOrchestrator` but update its signature to accept `InventoryContext` instead of `ExportContext`. It is injected into `WorkItemsModule` (the primary inventory producer).
 - **Rationale**: The orchestrator owns checkpoint management, progress events, and metric emission for inventory — these are non-trivial concerns that should not be inlined. Retaining the interface keeps the Module → Orchestrator → Service pattern intact.
-- **Alternatives considered**: Inline all orchestration into `WorkItemsModule.InventoryAsync`. Rejected — violates Module → Orchestrator → Service pattern (docs/modules.md).
+- **Alternatives considered**: Inline all orchestration into `WorkItemsModule.InventoryAsync`. Rejected — violates Module → Orchestrator → Service pattern (docs/module-development-guide.md).
 
 ### Decision 4: `IAnalyser` assembly placement
 
@@ -124,7 +124,7 @@ public interface IInventoryOrchestrator
 
 - **Decision**: `DependencyAnalyser` reuses `IDependencyOrchestrator` (retained, adapted to `AnalyseContext`).
 - **Rationale**: `DependencyDiscoveryModule` already delegates to `IDependencyOrchestrator`. Moving to `IAnalyser` doesn't change the orchestration concern. Retaining the orchestrator keeps the Module/Analyser → Orchestrator → Service pattern consistent.
-- **Alternatives considered**: Inline dependency logic in `DependencyAnalyser`. Rejected — Module → Orchestrator → Service pattern required (docs/modules.md).
+- **Alternatives considered**: Inline dependency logic in `DependencyAnalyser`. Rejected — Module → Orchestrator → Service pattern required (docs/module-development-guide.md).
 
 ### Decision 9: `ValidateAsync` — unchanged
 

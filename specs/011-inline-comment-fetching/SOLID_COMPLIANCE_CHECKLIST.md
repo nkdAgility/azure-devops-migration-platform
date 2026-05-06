@@ -244,7 +244,7 @@ High-level modules should not depend on low-level modules; both should depend on
 
 ## Alignment with Architectural Guardrails
 
-### System Architecture Rules (from `.agents/guardrails/system-architecture.md`)
+### System Architecture Rules (from `.agents/guardrails/architecture-boundaries.md`)
 
 #### ✅ Rule 1: WorkItems Chronological Layout
 - **Specification Design:** comment.json stored beside revision.json
@@ -336,7 +336,7 @@ High-level modules should not depend on low-level modules; both should depend on
 
 ---
 
-### Module Architecture Rules (from `docs/modules.md`)
+### Module Architecture Rules (from `docs/module-development-guide.md`)
 
 #### ✅ IDataTypeModule Contract
 - **Specification Design:** WorkItemsModule remains an `IDataTypeModule`
@@ -393,7 +393,7 @@ High-level modules should not depend on low-level modules; both should depend on
 
 **Specification Assessment:** ✅ **FULLY COMPLIANT WITH SOLID PRINCIPLES AND ARCHITECTURAL GUARDRAILS**
 
-The design for feature 011 (Inline Comment Fetching) adheres to all five SOLID principles and aligns with the mandatory guardrails defined in `.agents/guardrails/system-architecture.md`, `.agents/guardrails/coding-standards.md`, and `docs/modules.md`.
+The design for feature 011 (Inline Comment Fetching) adheres to all five SOLID principles and aligns with the mandatory guardrails defined in `.agents/guardrails/architecture-boundaries.md`, `.agents/guardrails/coding-standards.md`, and `docs/module-development-guide.md`.
 
 **Key Strengths:**
 - Clear separation of concerns (detection, fetching, storage, coordination)

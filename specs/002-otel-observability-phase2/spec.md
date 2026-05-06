@@ -10,12 +10,12 @@ This spec is grounded in and extends the following canonical documents. Where th
 
 | Document | Sections relevant to this feature |
 |---|---|
-| [docs/tui.md](../../docs/tui.md) | IProgressSink implementations; Status Display (SSE vs polling); ProgressEvent schema; TUI Disconnection |
+| [docs/tui-guide.md](../../docs/tui-guide.md) | IProgressSink implementations; Status Display (SSE vs polling); ProgressEvent schema; TUI Disconnection |
 | [docs/control-plane.md](../../docs/control-plane.md) | API surface — `GET /jobs/{jobId}/logs`, `GET /jobs/{jobId}/logs?follow=true`, `POST /agents/lease/{leaseId}/progress`; Progress Reporting; ring buffer |
-| [docs/migration-agent.md](../../docs/migration-agent.md) | Responsibilities — Report progress; Execution Flow — IProgressSink composite registration |
-| [docs/cli.md](../../docs/cli.md) | `migrate logs` command (`--follow`, NDJSON); CLI Observability section |
+| [docs/agent-hosting.md](../../docs/agent-hosting.md) | Responsibilities — Report progress; Execution Flow — IProgressSink composite registration |
+| [docs/cli-guide.md](../../docs/cli-guide.md) | `migrate logs` command (`--follow`, NDJSON); CLI Observability section |
 | [docs/architecture.md](../../docs/architecture.md) | Progress is Event-Driven; Phase 2 implementation list |
-| [docs/aspire-integration.md](../../docs/aspire-integration.md) | ServiceDefaults — OTel configuration shared by Control Plane and Migration Agent |
+| [docs/development-setup.md](../../docs/development-setup.md) | ServiceDefaults — OTel configuration shared by Control Plane and Migration Agent |
 
 ---
 
@@ -33,7 +33,7 @@ This spec is grounded in and extends the following canonical documents. Where th
 
 - Q: FR-008 names `ConsoleProgressSink` but data-model.md and tasks.md both use `AnsiProgressSink` — which is canonical? → A: `AnsiProgressSink` is canonical. FR-008 updated to match.
 - Q: `CompositeProgressSink` is defined in data-model.md but absent from the Key Entities section of this spec — should it be added? → A: Yes; added to Key Entities for traceability.
-- Q: `ProgressEvent` fields are referenced throughout but never defined in the spec — should the schema be inlined or cross-referenced? → A: Cross-reference only; the canonical schema lives in `docs/tui.md` (ProgressEvent schema section).
+- Q: `ProgressEvent` fields are referenced throughout but never defined in the spec — should the schema be inlined or cross-referenced? → A: Cross-reference only; the canonical schema lives in `docs/tui-guide.md` (ProgressEvent schema section).
 
 ---
 
@@ -168,7 +168,7 @@ An operator opens the TUI with `migrate tui --job <jobId>`. The TUI progress pan
 - **`CompositeProgressSink`**: `IProgressSink` implementation in `DevOpsMigrationPlatform.Infrastructure` that fans out every `ProgressEvent` to an ordered list of child sinks (`AnsiProgressSink`, `PackageProgressSink`, `ControlPlaneProgressSink`). A failing child sink is caught and logged at debug level; remaining sinks always execute.
 - **`AnsiProgressSink`** / **`PackageProgressSink`**: Pre-existing `IProgressSink` implementations in `DevOpsMigrationPlatform.Infrastructure`. No changes to these types are required by this feature; they are listed here for traceability as the sibling sinks in `CompositeProgressSink`.
 - **`TelemetryOptions`**: Pre-existing options class in `DevOpsMigrationPlatform.CLI.Migration` bound under `"Telemetry"` in `appsettings.json`. Provides `AzureMonitorConnectionString` used by FR-003.
-- **`ProgressEvent`**: Canonical schema defined in [`docs/tui.md`](../../docs/tui.md) (ProgressEvent schema section). All references to "compact JSON ProgressEvent" in this spec refer to that schema.
+- **`ProgressEvent`**: Canonical schema defined in [`docs/tui-guide.md`](../../docs/tui-guide.md) (ProgressEvent schema section). All references to "compact JSON ProgressEvent" in this spec refer to that schema.
 - **CLI `ActivitySource`**: Named `ActivitySource` registered in `Program.cs`. Pattern mirrors `ActivitySourceProvider` in the reference implementation.
 
 ---

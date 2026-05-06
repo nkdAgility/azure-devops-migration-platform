@@ -12,13 +12,13 @@ The following documents were read before drafting this specification.
 | Document | Status |
 |---|---|
 | `agents.md` | Confirmed accurate — binding entry point consulted first |
-| `docs/cli.md` | **Discrepancy** — no `inventory` command listed; needs addition |
-| `docs/source-types.md` | **Discrepancy** — only describes export; inventory mode not mentioned for either source type |
+| `docs/cli-guide.md` | **Discrepancy** — no `inventory` command listed; needs addition |
+| `docs/capabilities-guide.md` | **Discrepancy** — only describes export; inventory mode not mentioned for either source type |
 | `docs/tfs-exporter.md` | **Discrepancy** — only describes export agent; inventory capability via subprocess not yet specified |
-| `docs/configuration.md` | **Discrepancy** — `source` section omits authentication fields; needs update to include auth shape |
+| `docs/configuration-reference.md` | **Discrepancy** — `source` section omits authentication fields; needs update to include auth shape |
 | `docs/architecture.md` | Confirmed accurate — inventory is a read-only pre-flight operation; does not violate job-engine separation |
-| `docs/modules.md` | Confirmed accurate — no inventory module type yet; this feature introduces `IInventoryService` as a separate concern |
-| `.agents/guardrails/system-architecture.md` | Confirmed accurate — rules 16, 19 consulted; inventory is not migration logic; TFS still requires subprocess isolation |
+| `docs/module-development-guide.md` | Confirmed accurate — no inventory module type yet; this feature introduces `IInventoryService` as a separate concern |
+| `.agents/guardrails/architecture-boundaries.md` | Confirmed accurate — rules 16, 19 consulted; inventory is not migration logic; TFS still requires subprocess isolation |
 | `.agents/guardrails/coding-standards.md` | Confirmed — Spectre.Console.Cli for CLI; no bare credential args |
 | `.agents/guardrails/migration-rules.md` | Confirmed — inventory is not migration; no package, no checkpoint |
 
@@ -328,4 +328,4 @@ The `accessToken` field value is resolved in this order (highest precedence firs
 - Repos and Pipelines columns are displayed but left at zero for this feature; they will be populated by a future inventory scope extension.
 - The TFS inventory subprocess reuses the existing `DevOpsMigrationPlatform.CLI.TfsMigration` binary with a new `inventory` subcommand — no new binary is introduced.
 - `target` in the config file is silently ignored by the inventory command.
-- Architecture docs consulted: `docs/cli.md`, `docs/configuration.md`, `docs/source-types.md`, `docs/tfs-exporter.md`, `docs/architecture.md`. All gaps are filed in `discrepancies.md`.
+- Architecture docs consulted: `docs/cli-guide.md`, `docs/configuration-reference.md`, `docs/capabilities-guide.md`, `docs/tfs-exporter.md`, `docs/architecture.md`. All gaps are filed in `discrepancies.md`.

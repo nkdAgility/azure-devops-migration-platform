@@ -320,8 +320,8 @@ dotnet run --project src/DevOpsMigrationPlatform.CLI.Migration -- \
 - ✅ Error handling is graceful (non-fatal)
 
 ### 4.2 Documentation Updates
-- ✅ Add comment.json to package-format.md
-- ✅ Update workitems-format.md if needed
+- ✅ Add comment.json to migration-package-concept.md
+- ✅ Update workitems-format-summary.md if needed
 - ✅ Add XML doc-comments to public methods
 
 ### 4.3 Merge to Main

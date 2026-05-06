@@ -8,7 +8,7 @@
 
 ### `filter` scope type not documented for WorkItems module
 
-- **Source doc**: `docs/configuration.md`
+- **Source doc**: `docs/configuration-reference.md`
 - **Section**: WorkItems Module — Scopes and Extensions table
 - **Issue**: The spec introduces a `filter` scope type for the `WorkItems` module's `scopes` array. The doc currently lists only `scopes[wiql]` as the available scope type. The `filter` scope (`mode`, `field`, `pattern` parameters) is not documented.
 - **Suggested update**: Add a row block to the WorkItems Module table documenting `scopes[filter].parameters.mode`, `scopes[filter].parameters.field`, and `scopes[filter].parameters.pattern`. Add performance guidance: prefer short reference-data fields; minimise filter count.
@@ -19,7 +19,7 @@
 
 ### `scopes` array not present on `organisations[]` entries
 
-- **Source doc**: `docs/configuration.md`
+- **Source doc**: `docs/configuration-reference.md`
 - **Section**: Full Schema and Top-Level Fields table
 - **Issue**: The spec adds a `scopes` array to `OrganisationEntry` (supporting `wiql` and `filter` scope types). The doc's Full Schema and Top-Level Fields table describe `organisations[]` entries without a `scopes` property.
 - **Suggested update**: Add `scopes` to the organisation entry in the Full Schema example and add a row to the Top-Level Fields table documenting the `wiql` and `filter` scope types at the organisation level.
@@ -28,9 +28,9 @@
 
 ---
 
-### `docs/modules.md` module responsibility table incomplete for filter scopes
+### `docs/module-development-guide.md` module responsibility table incomplete for filter scopes
 
-- **Source doc**: `docs/modules.md`
+- **Source doc**: `docs/module-development-guide.md`
 - **Section**: Module Responsibilities table — `WorkItemsModule` row
 - **Issue**: The `WorkItemsModule` responsibility description mentions "Accepts a `wiql` scope" but does not mention the `filter` scope type added by this feature.
 - **Suggested update**: Extend the `WorkItemsModule` responsibility description to add: "Also accepts one or more `filter` scopes (with `mode`, `field`, and `pattern` parameters) to include or exclude work items by field value using a regex."

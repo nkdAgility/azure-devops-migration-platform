@@ -244,7 +244,7 @@ All Phase 1 tasks must be complete before any user story phase begins.
 
 - [ ] T031 Update `.agents/context/identity-and-mapping.md` — "ID Mapping (Work Item IDs)" section: change `idmap.db (PostgreSQL Portable binary ...)` to `idmap.db (SQLite — package-local indexed storage, not a control-plane database)`. Resolves **Discrepancy 1**.
 
-- [ ] T032 Update `.agents/context/checkpointing.md`:
+- [ ] T032 Update `.agents/context/checkpointing-summary.md`:
   1. In "Per-Module Cursors" / ID map section: change PostgreSQL reference to `idmap.db (SQLite — source workItemId → target workItemId mapping; package-local indexed storage)`. Resolves **Discrepancy 2**.
   2. In the ID Map section: add a note — `The work_item_map table also tracks last_revision_index per source work item, enabling revision-level skip logic during sync/rerun imports.` Resolves **Discrepancy 4**.
   3. Add a note about the package lock: `At import job startup, an exclusive Checkpoints/agent.lock (JSON, contains jobId + agentInstanceId GUID) is acquired via IPackageLockService. A second agent targeting the same package is hard-bounced (PackageLockConflictException) if the owning agent instance is confirmed active via ControlPlane status endpoint.`
@@ -255,7 +255,7 @@ All Phase 1 tasks must be complete before any user story phase begins.
   (c) How `idmap.db` `last_revision_index` enables per-work-item skip logic for already-applied revisions within a work item.
   Resolves **Discrepancy 5**.
 
-- [ ] T034 [P] Update `docs/cli.md` — add a note (or confirm existing note) that ID map rebuild and integrity check are implicit agent-side operations triggered at import job startup, NOT explicit CLI sub-commands. No `rebuild-idmap` or `check-idmap` command exists. Resolves **Discrepancy 3**.
+- [ ] T034 [P] Update `docs/cli-guide.md` — add a note (or confirm existing note) that ID map rebuild and integrity check are implicit agent-side operations triggered at import job startup, NOT explicit CLI sub-commands. No `rebuild-idmap` or `check-idmap` command exists. Resolves **Discrepancy 3**.
 
 - [ ] T035 Mark all 5 items in `specs/019-workitem-idmap-sync/discrepancies.md` as `Resolved`, referencing which task resolved each one (T031–T034).
 

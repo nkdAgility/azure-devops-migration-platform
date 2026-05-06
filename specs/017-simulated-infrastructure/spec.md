@@ -12,8 +12,8 @@ The following `docs/` and `.agents/` files were read before drafting this spec:
 | File | Status |
 |---|---|
 | `docs/architecture.md` | Confirmed accurate — Simulated is listed as a valid source/target mode |
-| `docs/modules.md` | Confirmed accurate — `WorkItemsModule` contract drives the connector pattern |
-| `.agents/guardrails/system-architecture.md` | Confirmed accurate — all rules applied |
+| `docs/module-development-guide.md` | Confirmed accurate — `WorkItemsModule` contract drives the connector pattern |
+| `.agents/guardrails/architecture-boundaries.md` | Confirmed accurate — all rules applied |
 | `analysis/Simulated.md` | **Design input** — full connector analysis; drives this spec |
 
 ## User Scenarios & Testing *(mandatory)*
@@ -199,5 +199,5 @@ After this feature, `AzureDevOpsWorkItemImportTargetFactory` no longer contains 
 - The `IWorkItemCommentSourceFactory` interface already exists or will be introduced as part of this work — the Simulated implementation ships in the same change.
 - `NullResolutionStrategy` remains in shared `Infrastructure` — it is a generic always-create-new strategy, not Simulated-specific.
 - The `wiql` query parameter on `IWorkItemRevisionSourceFactory.CreateAsync` is removed when the signature changes to accept `MigrationEndpointOptions`. The ADO connector internalises the WIQL query — it is not passed via endpoint options.
-- Architecture docs `docs/architecture.md` and `docs/modules.md` are confirmed accurate and consistent with this spec. No doc updates are required from the spec itself — the `speckit.implement` phase will update them as discrepancies are resolved.
+- Architecture docs `docs/architecture.md` and `docs/module-development-guide.md` are confirmed accurate and consistent with this spec. No doc updates are required from the spec itself — the `speckit.implement` phase will update them as discrepancies are resolved.
 - `analysis/Simulated.md` is the canonical design reference for the implementation phase and MUST be read by the implementing agent before writing any code.

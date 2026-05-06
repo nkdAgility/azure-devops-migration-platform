@@ -22,7 +22,7 @@ The FieldTransformTool must execute **within Stage B** (or immediately before it
 
 **Finding**: The current codebase has no existing "Tool" concept in the module/extension model. Extensions are named sub-data collections (`Revisions`, `Links`, `Attachments`, etc.) declared in `WorkItemsModuleExtensions`. The spec introduces the Tool concept as a cross-cutting service declared at `MigrationPlatform.Tools.*`.
 
-**Architecture gap**: `docs/architecture.md`, `docs/modules.md`, and `docs/configuration.md` do not yet describe the Tool concept. This is logged in `discrepancies.md` items 1–3. These docs must be updated during implementation.
+**Architecture gap**: `docs/architecture.md`, `docs/module-development-guide.md`, and `docs/configuration-reference.md` do not yet describe the Tool concept. This is logged in `discrepancies.md` items 1–3. These docs must be updated during implementation.
 
 **Design decision**: The Tool is registered as a singleton DI service (`IFieldTransformTool`). Extensions reference it by name in config (`tools.FieldTransform`) and declare the phase. At runtime, the revision processor checks whether the FieldTransform tool is enabled for the current phase and invokes it if so.
 

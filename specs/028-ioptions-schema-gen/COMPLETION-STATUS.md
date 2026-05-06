@@ -53,7 +53,7 @@ Test mocks/stubs need signature updates after interface refactoring:
 
 ### ❌ Documentation (T058)
 
-`docs/configuration.md` not updated with:
+`docs/configuration-reference.md` not updated with:
 - `SchemaOptionsEntry` registration pattern
 - `IConfigSection` interface usage
 - `IAgentJobContext` when-to-use guidance
@@ -115,7 +115,7 @@ Feature test step definitions exist but scenarios not run:
 
 **Next session priorities**:
 1. Fix 9 remaining test mock errors (~1 hour)
-2. Update `docs/configuration.md` (~30 min)
+2. Update `docs/configuration-reference.md` (~30 min)
 3. Run full test suite + scenario validation (~30 min)
 4. Execute feature tests (optional, ~30 min)
 

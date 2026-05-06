@@ -664,10 +664,11 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
         var analysersToRun = jobScope.ServiceProvider.GetServices<IAnalyser>().ToList();
 
         // Build, persist and push the task list so clients can see planned steps immediately.
+        JobTaskList? discoveryPlan = null;
         try
         {
             var planConfig = ActiveJobConfig.PackageConfig ?? new ConfigurationBuilder().Build();
-            var discoveryPlan = await _planBuilder
+            discoveryPlan = await _planBuilder
                 .BuildAndSaveAsync(planConfig, job.Kind, artefactStore, stateStore, ct)
                 .ConfigureAwait(false);
             await _telemetryClient.PushTaskListAsync(leaseId, discoveryPlan, ct).ConfigureAwait(false);
@@ -680,24 +681,41 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
         bool failed = false;
         if (job.Kind == JobKind.Dependencies)
         {
-            var dependencyAnalyser = analysersToRun.FirstOrDefault(a => a.Name.Equals("Dependencies", StringComparison.OrdinalIgnoreCase));
-            if (dependencyAnalyser is null)
+            if (discoveryPlan is null)
             {
-                _logger.LogError("No dependency analyser registered for job {JobId}.", job.JobId);
+                _logger.LogError("No execution plan available for Dependencies job {JobId} — cannot proceed.", job.JobId);
                 failed = true;
             }
             else
             {
+                // Build org endpoint map so per-project capture tasks can resolve the correct org endpoint.
+                var endpointsByUrl = organisations
+                    .Where(o => !string.IsNullOrEmpty(o.Endpoint.GetResolvedUrl()))
+                    .GroupBy(o => o.Endpoint.GetResolvedUrl(), StringComparer.OrdinalIgnoreCase)
+                    .ToDictionary(g => g.Key, g => g.First().Endpoint.ToOrganisationEndpoint(), StringComparer.OrdinalIgnoreCase);
+
+                var baseInventoryContext = new InventoryContext
+                {
+                    Job = job,
+                    ArtefactStore = artefactStore,
+                    StateStore = stateStore,
+                    ProgressSink = ProgressSink,
+                    SourceEndpoint = endpointsByUrl.Values.FirstOrDefault() ?? new OrganisationEndpoint(),
+                    Project = string.Empty,
+                    Organisations = organisations,
+                    Policies = policies
+                };
+
+                var depAnalysersByName = analysersToRun.ToDictionary(a => a.Name, StringComparer.OrdinalIgnoreCase);
+                var depModuleMap = modulesToRun.ToDictionary(m => m.Name, m => (IModule)m, StringComparer.OrdinalIgnoreCase);
+
                 try
                 {
-                    await dependencyAnalyser.AnalyseAsync(new OrganisationsAnalyseContext
-                    {
-                        Job = job,
-                        ArtefactStore = artefactStore,
-                        StateStore = stateStore,
-                        ProgressSink = ProgressSink,
-                        Organisations = organisations
-                    }, ct).ConfigureAwait(false);
+                    var depsOk = await _planExecutor.ExecuteTasksAsync(
+                        discoveryPlan, modulesByName: depModuleMap, depAnalysersByName,
+                        baseInventoryContext, baseExportContext: null, importContext: null,
+                        endpointsByUrl, stateStore, ct).ConfigureAwait(false);
+                    failed = !depsOk;
                 }
                 catch (Exception ex) when (ex is not OperationCanceledException)
                 {

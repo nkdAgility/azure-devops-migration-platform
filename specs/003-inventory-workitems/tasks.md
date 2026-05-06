@@ -100,9 +100,9 @@
 
 **Purpose**: Patch architecture doc gaps filed in `discrepancies.md`. No functional code changes.
 
-- [ ] T038 [P] Patch `docs/cli.md` — add `| discovery inventory | Count work items and revisions per project. Read-only pre-flight. |` to Commands table; add usage examples (`--config`, `--config --all-projects`, `--config --output`); add note that `discovery *` commands do not submit a `MigrationJob` to the control plane
-- [ ] T039 [P] Patch `docs/configuration.md` — add `authentication` block (`type`, `accessToken`) to `source` and `target` schema examples; add `organisations` array key to Full Schema and Top-Level Fields table; document Mode 1 / Mode 2 mutual exclusion rule; document three-layer token resolution order
-- [ ] T040 [P] Patch `docs/source-types.md` — fix `.NET 9` → `.NET 10` in AzureDevOpsServices requirements; add Inventory subsection to AzureDevOpsServices (date-window counting, PAT auth); add Inventory subsection to TeamFoundationServer (subprocess delegation, Windows auth, `WorkItemStoreExtensions`)
+- [ ] T038 [P] Patch `docs/cli-guide.md` — add `| discovery inventory | Count work items and revisions per project. Read-only pre-flight. |` to Commands table; add usage examples (`--config`, `--config --all-projects`, `--config --output`); add note that `discovery *` commands do not submit a `MigrationJob` to the control plane
+- [ ] T039 [P] Patch `docs/configuration-reference.md` — add `authentication` block (`type`, `accessToken`) to `source` and `target` schema examples; add `organisations` array key to Full Schema and Top-Level Fields table; document Mode 1 / Mode 2 mutual exclusion rule; document three-layer token resolution order
+- [ ] T040 [P] Patch `docs/capabilities-guide.md` — fix `.NET 9` → `.NET 10` in AzureDevOpsServices requirements; add Inventory subsection to AzureDevOpsServices (date-window counting, PAT auth); add Inventory subsection to TeamFoundationServer (subprocess delegation, Windows auth, `WorkItemStoreExtensions`)
 - [X] T041 [P] Patch `docs/tfs-exporter.md` — add Inventory Mode section: `inventory` subcommand accepted by `tfsmigration.exe`; date-windowed counting via `WorkItemStoreExtensions.QueryCountAllByDateChunk`; emits `InventoryProgressEvent` NDJSON on stdout; credentials via stdin JSON; exit codes 0–3
 
 ---

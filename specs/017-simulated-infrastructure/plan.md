@@ -28,7 +28,7 @@ This work has three interlocking parts:
 
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
-> **Context loaded:** guardrails files (`system-architecture.md`, `coding-standards.md`, `testing-standards.md`, `module-template.md`), context files (`package-format.md`, `job-contract.md`, `artefact-store.md`), and `docs/architecture.md`, `docs/modules.md`, `analysis/Simulated.md` all read.
+> **Context loaded:** guardrails files (`architecture-boundaries.md`, `coding-standards.md`, `testing-rules.md`, `module-rules.md`), context files (`migration-package-concept.md`, `job-lifecycle.md`, `artefact-store.md`), and `docs/architecture.md`, `docs/module-development-guide.md`, `analysis/Simulated.md` all read.
 
 - [x] **Package-First (I):** `SimulatedWorkItemRevisionSource` writes to `IArtefactStore` via the existing `WorkItemExportOrchestrator` path. `SimulatedWorkItemImportTarget` accepts calls from the existing `WorkItemImportOrchestrator`. No direct source-to-target.
 - [x] **Streaming (II):** `SimulatedWorkItemRevisionSource.GetRevisionsAsync()` uses `yield return` — one record at a time, never buffered. `EnumerateAsync` is not called for generated data (generator creates records on demand).

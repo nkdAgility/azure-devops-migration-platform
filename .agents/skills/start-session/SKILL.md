@@ -14,7 +14,7 @@ Use this skill at the beginning of every ATDD session. One session = one scenari
 
 2. **Assemble session context** by loading:
    - The project context: [.github/copilot-instructions.md](../../copilot-instructions.md)
-   - The architectural guardrails: [agents/system-architecture.md](../../.agents/guardrails/system-architecture.md)
+   - The architectural guardrails: [agents/architecture-boundaries.md](../../.agents/guardrails/architecture-boundaries.md)
    - The ATDD workflow: [agents/atdd-workflow.md](../../.agents/guardrails/atdd-workflow.md)
    - Relevant existing feature files in [features/](../../features/) for naming reference.
 

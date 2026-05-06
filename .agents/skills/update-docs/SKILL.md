@@ -48,26 +48,26 @@ Use this table to decide which docs to open and potentially update based on what
 
 | If the implementation added or changed… | Read and potentially update… |
 |----------------------------------------|------------------------------|
-| A CLI command or flag | `docs/cli.md`, `.agents/context/cli-commands.md` |
-| A configuration key or options class | `docs/configuration.md` |
-| A module (`IModule`) | `docs/modules.md` |
-| A job or worker | `docs/migration-agent.md`, `.agents/context/job-contract.md` |
-| A connector (Simulated/ADO/TFS) | `docs/source-types.md` |
-| Package layout or artefact paths | `.agents/context/package-format.md` |
-| WorkItems folder structure | `.agents/context/workitems-format.md` |
+| A CLI command or flag | `docs/cli-guide.md`, `.agents/context/cli-commands.md` |
+| A configuration key or options class | `docs/configuration-reference.md` |
+| A module (`IModule`) | `docs/module-development-guide.md` |
+| A job or worker | `docs/agent-hosting.md`, `.agents/context/job-lifecycle.md` |
+| A connector (Simulated/ADO/TFS) | `docs/capabilities-guide.md` |
+| Package layout or artefact paths | `.agents/context/migration-package-concept.md` |
+| WorkItems folder structure | `.agents/context/workitems-format-summary.md` |
 | Streaming import behaviour | `.agents/context/import-streaming.md` |
-| Checkpointing or cursor state | `.agents/context/checkpointing.md` |
+| Checkpointing or cursor state | `.agents/context/checkpointing-summary.md` |
 | `IArtefactStore` or `IStateStore` | `.agents/context/artefact-store.md` |
-| Telemetry, metrics, or OTel spans | `.agents/context/telemetry-architecture.md` |
+| Telemetry, metrics, or OTel spans | `.agents/context/telemetry-model.md` |
 | Identity mapping service | `.agents/context/identity-and-mapping.md` |
-| Aspire integration | `docs/aspire-integration.md` |
+| Aspire integration | `docs/development-setup.md` |
 | Control plane API | `docs/control-plane.md` |
-| Orchestration logic | `docs/orchestration.md` |
-| TUI panels | `docs/tui.md` |
+| Orchestration logic | `docs/migration-process-guide.md` |
+| TUI panels | `docs/tui-guide.md` |
 | Validation logic | `docs/validation.md` |
-| Packaging/zip | `docs/packaging-zip.md` |
+| Packaging/zip | `docs/package-format-reference.md` |
 | Architecture decisions | `docs/architecture.md` |
-| Schema generation | `docs/configuration.md` (schema section) |
+| Schema generation | `docs/configuration-reference.md` (schema section) |
 
 ---
 
@@ -86,7 +86,7 @@ git diff --name-only HEAD
 Categorise each changed file:
 - **Production code** (`.cs` in `src/`) → triggers doc updates based on the mapping table above
 - **Test code** (`.cs` in `tests/`) → no doc update required unless a new test fixture or scenario config was added
-- **Config/schema** (`.json`, `.yml`, `.props`) → may require `docs/configuration.md` or `.agents/context/` update
+- **Config/schema** (`.json`, `.yml`, `.props`) → may require `docs/configuration-reference.md` or `.agents/context/` update
 - **Feature files** (`.feature`) → no doc update required (features are self-documenting)
 - **Existing doc files** (`.md` in `docs/`, `.agents/`) → already updated; verify they are accurate
 
@@ -99,7 +99,7 @@ Do not use `git diff`. Instead, build the inventory by reading the codebase dire
 3. **Enumerate all options classes** — find every class implementing `IConfigSection` (grep for `: IConfigSection`). For each, note its `SectionName` and all `init`-only properties.
 4. **Enumerate all connectors** — find every class in `src/` matching `*Source`, `*Target`, `*Connector` or implementing `ISourceEndpointInfo`/`ITargetEndpointInfo`. Note the `ConnectorType` string.
 5. **Enumerate all interfaces in Abstractions** — find every `public interface` in `src/DevOpsMigrationPlatform.Abstractions*/`. Note new ones that may need docs.
-6. **Enumerate all telemetry metrics** — find every `IMigrationMetrics` method call site and every `ActivitySource.StartActivity` span name. Note any span names or metric names not present in `.agents/context/telemetry-architecture.md`.
+6. **Enumerate all telemetry metrics** — find every `IMigrationMetrics` method call site and every `ActivitySource.StartActivity` span name. Note any span names or metric names not present in `.agents/context/telemetry-model.md`.
 
 Then use this enumerated inventory as the change set for Steps 2–7, treating every item as "potentially underdocumented" and checking each against the canonical docs.
 
@@ -137,11 +137,11 @@ For each doc identified in Step 1 and Step 2:
    - Add new interface members, connector registrations, or DI patterns
    - Add new connector types, schema sections, or observability metric names
 5. **Do not rewrite prose** that is still accurate — only change what is wrong or missing.
-6. **Cross-link** rather than duplicate: if `docs/cli.md` already documents a flag, do not re-document it in `docs/configuration.md` — add a cross-reference.
+6. **Cross-link** rather than duplicate: if `docs/cli-guide.md` already documents a flag, do not re-document it in `docs/configuration-reference.md` — add a cross-reference.
 
 ### Step 4 — Verify `.agents/context/cli-commands.md`
 
-This file is the canonical machine-readable command reference. It is more frequently read by agents than `docs/cli.md`.
+This file is the canonical machine-readable command reference. It is more frequently read by agents than `docs/cli-guide.md`.
 
 For every CLI command added or changed in the implementation:
 1. Open `.agents/context/cli-commands.md`.
@@ -149,16 +149,16 @@ For every CLI command added or changed in the implementation:
    - **Entry exists** → verify all flags, types, defaults, and description match the implementation. Update stale fields.
    - **Entry missing** → add a full new entry: command name, all flags with types and defaults, description of behaviour, exit codes if non-zero behaviour is defined.
 3. If a new subcommand group was added (e.g. a new top-level verb), add the group header and all its commands.
-4. Do not leave a new command undocumented here, even if it is already in `docs/cli.md`.
+4. Do not leave a new command undocumented here, even if it is already in `docs/cli-guide.md`.
 
-### Step 5 — Verify `docs/configuration.md`
+### Step 5 — Verify `docs/configuration-reference.md`
 
 For every options class (`IConfigSection` implementor) added or changed:
-1. Open `docs/configuration.md`.
+1. Open `docs/configuration-reference.md`.
 2. Check whether a reference entry for the section exists:
    - **Entry exists** → verify all properties, types, defaults, allowed values, and required/optional status match the implementation.
    - **Entry missing** → add a new entry with: `SectionName` value (the JSON key path), a table of all properties with types, defaults, and allowed values, whether each property is required or optional, and a brief description of what the section controls.
-3. If a new registration pattern was introduced (e.g. a new DI extension method or `IConfigSection` base interface), document the pattern in the *Configuration Patterns* section of `docs/configuration.md` (create the section if absent).
+3. If a new registration pattern was introduced (e.g. a new DI extension method or `IConfigSection` base interface), document the pattern in the *Configuration Patterns* section of `docs/configuration-reference.md` (create the section if absent).
 4. Do not leave a new options class undocumented here.
 
 ### Step 6 — Produce an update report
@@ -168,10 +168,10 @@ Output a summary table of every doc that was checked:
 ```
 | Doc file | Status | Change summary |
 |----------|--------|----------------|
-| docs/cli.md | ✅ Updated | Added --schema-path flag to queue command |
-| docs/configuration.md | ✅ Updated | Added SchemaOptionsEntry pattern section |
+| docs/cli-guide.md | ✅ Updated | Added --schema-path flag to queue command |
+| docs/configuration-reference.md | ✅ Updated | Added SchemaOptionsEntry pattern section |
 | .agents/context/cli-commands.md | ✅ Updated | Added queue --schema-path entry |
-| docs/modules.md | ✅ No change needed | Module list already accurate |
+| docs/module-development-guide.md | ✅ No change needed | Module list already accurate |
 | docs/architecture.md | ⏭ Skipped | No architectural change detected |
 ```
 

@@ -12,15 +12,15 @@ The following documents were read before drafting this spec:
 | Document | Status |
 |---|---|
 | `docs/architecture.md` | Confirmed accurate — CLI is a thin shell; export logic lives in the Job Engine via `IDataTypeModule` |
-| `docs/modules.md` | Confirmed accurate — `WorkItemsModule` is the canonical module name; `IDataTypeModule` is the contract |
-| `docs/cli.md` | Confirmed accurate — `export` command submits a job via `ControlPlaneClient`; it contains no export logic |
-| `.agents/guardrails/system-architecture.md` | Confirmed — Rule 6 (no direct source→target), Rule 7 (`IArtefactStore` only), Rule 14 (lexicographic enumeration), Rule 16 (CLI contains no migration logic) |
+| `docs/module-development-guide.md` | Confirmed accurate — `WorkItemsModule` is the canonical module name; `IDataTypeModule` is the contract |
+| `docs/cli-guide.md` | Confirmed accurate — `export` command submits a job via `ControlPlaneClient`; it contains no export logic |
+| `.agents/guardrails/architecture-boundaries.md` | Confirmed — Rule 6 (no direct source→target), Rule 7 (`IArtefactStore` only), Rule 14 (lexicographic enumeration), Rule 16 (CLI contains no migration logic) |
 | `.agents/guardrails/workitems-rules.md` | Confirmed — canonical folder layout, cursor-based checkpointing, attachments beside `revision.json` |
-| `.agents/context/workitems-format.md` | Confirmed — `WorkItems/yyyy-MM-dd/<ticks>-<workItemId>-<revisionIndex>/revision.json` is canonical |
-| `.agents/context/checkpointing.md` | Confirmed — cursor file at `Checkpoints/workitems.cursor.json` |
+| `.agents/context/workitems-format-summary.md` | Confirmed — `WorkItems/yyyy-MM-dd/<ticks>-<workItemId>-<revisionIndex>/revision.json` is canonical |
+| `.agents/context/checkpointing-summary.md` | Confirmed — cursor file at `Checkpoints/workitems.cursor.json` |
 | `.agents/context/artefact-store.md` | Confirmed — `IArtefactStore` is the only permitted file abstraction |
-| `.agents/context/job-contract.md` | Confirmed — `MigrationJob.source.type = AzureDevOpsServices` with WIQL module scope |
-| `docs/configuration.md` | Confirmed — module scope config via `MigrationJobModule.scopes` |
+| `.agents/context/job-lifecycle.md` | Confirmed — `MigrationJob.source.type = AzureDevOpsServices` with WIQL module scope |
+| `docs/configuration-reference.md` | Confirmed — module scope config via `MigrationJobModule.scopes` |
 
 **No conflicts found.** This spec implements the first concrete realisation of `WorkItemsModule.ExportAsync` for the `AzureDevOpsServices` source type. Discrepancies (undocumented ADO-specific implementation details) are logged in `discrepancies.md`.
 

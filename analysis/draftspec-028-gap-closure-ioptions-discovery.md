@@ -19,7 +19,7 @@ following items were explicitly deferred and never landed:
 | Discovery services still inject `IOptions<MigrationPlatformOptions>` | T057c, T057d | 3 services + 3 factories + 2 DI extensions |
 | `MigrationPlatformOptionsValidator` still registered and active | T057d | Validates a type that should have no `IOptions<T>` wiring |
 | `MigrationModulesOptions` is dead code | T057d | Only referenced by `MigrationPlatformOptions.Modules` |
-| `docs/configuration.md` not updated | T058 | No documentation of new IOptions patterns |
+| `docs/configuration-reference.md` not updated | T058 | No documentation of new IOptions patterns |
 | `FINAL-STATUS.md` incorrect (marks Phase 8 complete) | — | Misleading state |
 
 **The goal of this spec** is to complete Phase 8: migrate the discovery path to self-discovered
@@ -59,7 +59,7 @@ across ~10 files.
 - Remove `AddMigrationPlatformOptions` from all callers (if any remain)
 - Delete `MigrationModulesOptions` (dead — only field in `MigrationPlatformOptions.Modules`)
 - Remove `MigrationPlatformOptions.Modules` property (dead — no longer injected, no longer used by modules)
-- Update `docs/configuration.md` (T058 from spec 028)
+- Update `docs/configuration-reference.md` (T058 from spec 028)
 - Correct `specs/028-ioptions-schema-gen/FINAL-STATUS.md`
 - Update `analysis/pending-actions.md`
 - Build clean (0 errors) and all tests pass
@@ -92,7 +92,7 @@ what config this service needs.
    schema entry.
 5. `dotnet clean && dotnet build DevOpsMigrationPlatform.slnx --no-incremental --nologo` produces 0 errors.
 6. `dotnet test DevOpsMigrationPlatform.slnx` — all tests pass, zero failures.
-7. `docs/configuration.md` documents: `SchemaOptionsEntry` self-registration pattern, `IAgentJobContext`
+7. `docs/configuration-reference.md` documents: `SchemaOptionsEntry` self-registration pattern, `IAgentJobContext`
    usage, `ISourceEndpointInfo`/`ITargetEndpointInfo` connector pattern, and a note that
    `MigrationPlatformOptions` is a serialisation-only DTO (not for DI injection).
 
@@ -214,7 +214,7 @@ to a discovery service under test — replace with `DiscoveryOrganisationsOption
 
 ### Phase 7 — Documentation (T058 from spec 028)
 
-**T015** `docs/configuration.md` — add or update sections covering:
+**T015** `docs/configuration-reference.md` — add or update sections covering:
 - `SchemaOptionsEntry` self-registration pattern: `SectionName` constant + `AddSchemaEntry<T>()` in `Add*Services()`
 - `IAgentJobContext` — what it is, what it exposes, when modules should use it (instead of navigating options)
 - `ISourceEndpointInfo` / `ITargetEndpointInfo` — connector-registered, injected into modules and tools
@@ -289,7 +289,7 @@ the `MigrationPlatformOptions`-level schema cover this before deleting the valid
 - [ ] `grep -r "MigrationPlatformOptionsValidator" src/` → 0 results
 - [ ] `dotnet clean && dotnet build DevOpsMigrationPlatform.slnx --no-incremental --nologo` → 0 errors
 - [ ] `dotnet test DevOpsMigrationPlatform.slnx` → 0 failures
-- [ ] `docs/configuration.md` updated with new IOptions patterns
+- [ ] `docs/configuration-reference.md` updated with new IOptions patterns
 - [ ] `specs/028-ioptions-schema-gen/FINAL-STATUS.md` corrected
 - [ ] `analysis/pending-actions.md` updated
 - [ ] Spec promoted to `specs/` and feature branch opened

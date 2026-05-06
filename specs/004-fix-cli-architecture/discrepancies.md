@@ -7,29 +7,29 @@
 ## Discrepancies
 
 ### CLI Architecture Implementation Pattern
-- **Source doc**: `docs/cli.md` (Line: "CLI is the operator's entry point to the migration platform. It is a **thin shell**")
+- **Source doc**: `docs/cli-guide.md` (Line: "CLI is the operator's entry point to the migration platform. It is a **thin shell**")
 - **Section**: Purpose / Architecture
 - **Issue**: Current Program.cs implementation violates the "thin shell" principle by containing 100+ lines of DI container setup, service registration, telemetry configuration, and infrastructure concerns. The spec requires a host builder pattern where commands manage their own hosting lifecycle.
-- **Suggested update**: Update docs/cli.md to include a detailed "Implementation Pattern" section describing the MigrationPlatformHost pattern, CommandBase inheritance model, and proper separation between Program.cs (bootstrapping only) and host builder (infrastructure setup).
+- **Suggested update**: Update docs/cli-guide.md to include a detailed "Implementation Pattern" section describing the MigrationPlatformHost pattern, CommandBase inheritance model, and proper separation between Program.cs (bootstrapping only) and host builder (infrastructure setup).
 - **Status**: ✓ Resolved in speckit.implement
 
 ### Command Testing Requirements
-- **Source doc**: `docs/cli.md` 
+- **Source doc**: `docs/cli-guide.md` 
 - **Section**: Commands table
 - **Issue**: Documentation describes CLI commands but does not specify testing requirements or patterns. The spec introduces comprehensive command testing using Spectre.Console.Cli.Testing which should be documented as a standard practice.
-- **Suggested update**: Add a "Testing" section to docs/cli.md describing the CommandAppTester pattern, automated command validation requirements, and integration test expectations for all CLI commands.
+- **Suggested update**: Add a "Testing" section to docs/cli-guide.md describing the CommandAppTester pattern, automated command validation requirements, and integration test expectations for all CLI commands.
 - **Status**: ✓ Resolved in speckit.implement
 
 ### DI Container Management Responsibility
-- **Source doc**: `.agents/guardrails/system-architecture.md` (Rule 16)
+- **Source doc**: `.agents/guardrails/architecture-boundaries.md` (Rule 16)
 - **Section**: "The CLI must not contain migration logic"  
 - **Issue**: While the rule correctly prohibits migration logic in CLI, it doesn't clarify the proper pattern for DI container management. The current Program.cs implementation aggregates infrastructure concerns that should be in a dedicated host builder.
 - **Suggested update**: Expand Rule 16 to specify that CLI infrastructure setup should follow the host builder pattern, with Program.cs limited to bootstrapping and commands managing their hosting lifecycle through dependency injection.
 - **Status**: ✓ Resolved in speckit.implement
 
 ### Configuration Flow Pattern
-- **Source doc**: `docs/cli.md`
+- **Source doc**: `docs/cli-guide.md`
 - **Section**: Commands description
 - **Issue**: Documentation doesn't describe how --config parameter should flow through the system architecture. The spec identifies specific flow requirements through host builder before DI container creation.
-- **Suggested update**: Add a "Configuration Flow" section to docs/cli.md describing the parameter extraction pattern, host builder integration, and IOptions binding requirements.
+- **Suggested update**: Add a "Configuration Flow" section to docs/cli-guide.md describing the parameter extraction pattern, host builder integration, and IOptions binding requirements.
 - **Status**: ✓ Resolved in speckit.implement

@@ -106,7 +106,7 @@ When this skill is active, inspect the target for observability completeness and
 
 Before executing, read the following context files:
 
-- `.agents/context/telemetry-architecture.md` — Three-layer model, metric naming, span inventory
+- `.agents/context/telemetry-model.md` — Three-layer model, metric naming, span inventory
 - `src/DevOpsMigrationPlatform.Abstractions/Telemetry/WellKnownMetricNames.cs` — Existing metric names
 - `src/DevOpsMigrationPlatform.Abstractions/Telemetry/WellKnownActivitySourceNames.cs` — Existing ActivitySource names
 - `src/DevOpsMigrationPlatform.Abstractions/Telemetry/WellKnownMeterNames.cs` — Existing meter names
@@ -267,7 +267,7 @@ For each operation, define the span hierarchy. Every operation MUST have a root 
 - Every dependency identified in Step 2 MUST appear as a child span.
 - Context propagation method MUST be stated (automatic via `Activity` hierarchy, or explicit `W3C TraceContext` header).
 - Span names MUST use lowercase dot-separated segments matching the metric domain.
-- Check the existing span inventory in `telemetry-architecture.md` — reuse existing spans where semantics match.
+- Check the existing span inventory in `telemetry-model.md` — reuse existing spans where semantics match.
 - Tags MUST include: `job.id`, `operation`, `module` at minimum for root spans.
 - Child spans MUST include the entity identifier (e.g. `wi.id`, `attachment.name`).
 

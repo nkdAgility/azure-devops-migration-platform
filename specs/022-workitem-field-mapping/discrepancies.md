@@ -7,17 +7,17 @@
 ## Discrepancies
 
 ### 1. Configuration schema missing `Tools` keyed object section
-- **Source doc**: `docs/configuration.md`
+- **Source doc**: `docs/configuration-reference.md`
 - **Section**: Full Schema (line ~10)
 - **Issue**: The spec requires a `Tools` keyed object at the `MigrationPlatform` config root for declaring shared tool singletons. The current config schema does not include this section.
 - **Suggested update**: Add a `Tools` keyed object to the Full Schema JSON example and a corresponding row to the Top-Level Fields table describing `Tools` as "Optional. Keyed object of shared tool declarations. Each key is the tool type name (e.g., `FieldTransform`), each value is tool-specific configuration. Extensions reference tools by key name."
 - **Status**: ✓ Resolved in speckit.implement
 
 ### 2. Module docs missing tool injection model
-- **Source doc**: `docs/modules.md`
+- **Source doc**: `docs/module-development-guide.md`
 - **Section**: WorkItemsModule — ADO Export (line ~54)
-- **Issue**: The spec defines a tool resolution model (tools declared at platform level as singletons, extensions reference tools by config key name and declare phase). This model is described in `analysis/proposed-features.md` but not yet in `docs/modules.md`.
-- **Suggested update**: Add a "Tool Resolution" subsection under Module Architecture explaining: tools are declared in `MigrationPlatform.Tools.*`, extensions load tools by name, effective settings = singleton tool config + phase from extension reference. Cross-reference `docs/configuration.md` for schema.
+- **Issue**: The spec defines a tool resolution model (tools declared at platform level as singletons, extensions reference tools by config key name and declare phase). This model is described in `analysis/proposed-features.md` but not yet in `docs/module-development-guide.md`.
+- **Suggested update**: Add a "Tool Resolution" subsection under Module Architecture explaining: tools are declared in `MigrationPlatform.Tools.*`, extensions load tools by name, effective settings = singleton tool config + phase from extension reference. Cross-reference `docs/configuration-reference.md` for schema.
 - **Status**: ✓ Resolved in speckit.implement
 
 ### 3. Architecture overview missing Tool concept

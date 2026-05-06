@@ -8,10 +8,10 @@
 
 ### 1. Factory interface signatures use decomposed scalars, not base endpoint options
 
-- **Source doc**: `docs/modules.md`
+- **Source doc**: `docs/module-development-guide.md`
 - **Section**: WorkItemsModule / Factory interfaces
 - **Issue**: `IWorkItemRevisionSourceFactory.CreateAsync` currently accepts `(OrganisationEndpoint endpoint, string project, string wiqlQuery, CancellationToken)` and `IWorkItemImportTargetFactory.CreateAsync` accepts `(string targetType, string orgUrl, string project, string accessToken, CancellationToken)`. The spec requires both to accept `MigrationEndpointOptions` (base type) + `CancellationToken`. The docs do not yet reflect this change.
-- **Suggested update**: Update the interface signatures in `docs/modules.md` to show `CreateAsync(MigrationEndpointOptions endpoint, CancellationToken ct)` for both factories.
+- **Suggested update**: Update the interface signatures in `docs/module-development-guide.md` to show `CreateAsync(MigrationEndpointOptions endpoint, CancellationToken ct)` for both factories.
 
 ### 2. `OrganisationEndpoint` is documented as an Abstractions type
 
@@ -22,10 +22,10 @@
 
 ### 3. Polymorphic endpoint config model is not documented anywhere
 
-- **Source doc**: `docs/configuration.md`
+- **Source doc**: `docs/configuration-reference.md`
 - **Section**: Job config / Source and Target sections
 - **Issue**: The docs describe `Source.Type` and `Source.Url` as flat scalars. There is no mention of the polymorphic options model, `EndpointOptionsTypeRegistry`, or `PolymorphicEndpointOptionsConverter`. Operators reading the docs have no guidance on how the config discriminator works.
-- **Suggested update**: Add a "Polymorphic Endpoint Config" section to `docs/configuration.md` explaining the `type` discriminator, how each connector extends the base config with its own fields, and the fact that unknown types produce a startup error.
+- **Suggested update**: Add a "Polymorphic Endpoint Config" section to `docs/configuration-reference.md` explaining the `type` discriminator, how each connector extends the base config with its own fields, and the fact that unknown types produce a startup error.
 
 ### 4. `CatalogService` is documented as part of ADO infrastructure
 

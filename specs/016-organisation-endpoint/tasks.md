@@ -124,8 +124,8 @@
 **Purpose**: Ensure all canonical docs reflect the OrganisationEndpoint refactor. Resolve all discrepancies flagged during planning.
 
 - [X] T019 Update `docs/architecture.md` — add `OrganisationEndpoint` as the canonical connection context type in the Abstractions section (see `discrepancies.md` item 1)
-- [X] T020 [P] Update `.agents/context/job-contract.md` — replace all `DiscoveryJobOrganisation` references with `ScopedOrganisationEndpoint` and `OrganisationEndpoint` (see `discrepancies.md` item 2)
-- [X] T021 [P] Update `docs/modules.md` and `docs/source-types.md` — document `OrganisationEndpoint` parameter convention for service interfaces (see `discrepancies.md` item 3)
+- [X] T020 [P] Update `.agents/context/job-lifecycle.md` — replace all `DiscoveryJobOrganisation` references with `ScopedOrganisationEndpoint` and `OrganisationEndpoint` (see `discrepancies.md` item 2)
+- [X] T021 [P] Update `docs/module-development-guide.md` and `docs/capabilities-guide.md` — document `OrganisationEndpoint` parameter convention for service interfaces (see `discrepancies.md` item 3)
 - [X] T022 Mark all items in `specs/016-organisation-endpoint/discrepancies.md` as `Resolved`
 - [X] T023 Review `analysis/pending-actions.md` and remove any items resolved by this spec
 - [X] T024 Run `dotnet clean && dotnet build --no-incremental` — MUST pass

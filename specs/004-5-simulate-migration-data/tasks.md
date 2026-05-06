@@ -142,10 +142,10 @@
 
 **Purpose**: Documentation rectification for the discrepancies identified in `discrepancies.md`, plus quickstart validation.
 
-- [ ] T035 [P] Update `docs/source-types.md` to add a `Simulated` section documenting valid `source.type: "Simulated"` usage, configuration fields, and the `[SIMULATED]`-prefix convention — resolves the discrepancy flagged in `specs/008-simulated-data-source/discrepancies.md`
-- [ ] T036 [P] Update `docs/configuration.md` to add `"Simulated"` to the `source.type` and `target.type` enum documentation with links to `SimulatedSourceOptions` and `SimulatedTargetOptions` — resolves config-schema discrepancy
+- [ ] T035 [P] Update `docs/capabilities-guide.md` to add a `Simulated` section documenting valid `source.type: "Simulated"` usage, configuration fields, and the `[SIMULATED]`-prefix convention — resolves the discrepancy flagged in `specs/008-simulated-data-source/discrepancies.md`
+- [ ] T036 [P] Update `docs/configuration-reference.md` to add `"Simulated"` to the `source.type` and `target.type` enum documentation with links to `SimulatedSourceOptions` and `SimulatedTargetOptions` — resolves config-schema discrepancy
 - [ ] T037 [P] Update `docs/architecture.md` to add `DevOpsMigrationPlatform.Infrastructure.Simulated` to the Components table with a note: "testing-only; must not be referenced by production projects"
-- [ ] T038 Update `docs/modules.md` to: (a) document `IWorkItemImportSink` and its role in the import path under "IDataTypeModule Contract", (b) update the `WorkItemsModule` row in the Module Responsibilities table to reflect that `ImportAsync` is fully implemented
+- [ ] T038 Update `docs/module-development-guide.md` to: (a) document `IWorkItemImportSink` and its role in the import path under "IDataTypeModule Contract", (b) update the `WorkItemsModule` row in the Module Responsibilities table to reflect that `ImportAsync` is fully implemented
 - [ ] T039 Validate the `quickstart.md` walkthrough end-to-end: run each numbered step in `specs/copilot/simulate-migration-data/quickstart.md` and confirm the expected output files and TUI behaviour match; update quickstart if any command or path changed during implementation
 
 ---

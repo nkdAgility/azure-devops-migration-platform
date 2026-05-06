@@ -94,7 +94,7 @@ This document provides a quick reference linking the design to each SOLID princi
 
 ## ✅ Architectural Guardrails Alignment
 
-### System Architecture ([.agents/guardrails/system-architecture.md](../../.agents/guardrails/system-architecture.md))
+### System Architecture ([.agents/guardrails/architecture-boundaries.md](../../.agents/guardrails/architecture-boundaries.md))
 
 | Rule | Specification Compliance | Status |
 |------|--------------------------|--------|
@@ -140,7 +140,7 @@ This document provides a quick reference linking the design to each SOLID princi
 
 ---
 
-### Module Architecture ([docs/modules.md](../../docs/modules.md))
+### Module Architecture ([docs/module-development-guide.md](../../docs/module-development-guide.md))
 
 | Rule | Specification Compliance | Status |
 |------|--------------------------|--------|
@@ -252,13 +252,13 @@ When the upstream SDK bug is fixed, use this checklist:
 - **SOLID Checklist:** [SOLID_COMPLIANCE_CHECKLIST.md](./SOLID_COMPLIANCE_CHECKLIST.md)
 
 **Guardrails Documents:**
-- [.agents/guardrails/system-architecture.md](../../.agents/guardrails/system-architecture.md)
+- [.agents/guardrails/architecture-boundaries.md](../../.agents/guardrails/architecture-boundaries.md)
 - [.agents/guardrails/coding-standards.md](../../.agents/guardrails/coding-standards.md)
 - [.agents/guardrails/workitems-rules.md](../../.agents/guardrails/workitems-rules.md)
 
 **Architecture Documents:**
 - [docs/architecture.md](../../docs/architecture.md)
-- [docs/modules.md](../../docs/modules.md)
+- [docs/module-development-guide.md](../../docs/module-development-guide.md)
 
 ---
 

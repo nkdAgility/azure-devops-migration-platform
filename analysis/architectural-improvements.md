@@ -603,7 +603,7 @@ Establish a single documented policy:
 - **Use `IOptions<T>` by default** (immutable snapshot; deterministic behavior)
 - **Use `IOptionsMonitor<T>` only if** the service needs to re-read config mid-execution
 
-Document in `/docs/configuration.md` or a new `/docs/options-lifetime-policy.md`.
+Document in `/docs/configuration-reference.md` or a new `/docs/options-lifetime-policy.md`.
 
 **Benefits:**
 - **Determinism:** Behavior is predictable

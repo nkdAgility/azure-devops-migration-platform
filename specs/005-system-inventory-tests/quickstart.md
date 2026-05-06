@@ -67,7 +67,7 @@ curl -H "Authorization: Basic $(echo -n ":$AZDEVOPS_SYSTEM_TEST_PAT" | base64)" 
 Test Outcome: Inconclusive
 Message: System test skipped: Environment variables not configured.
 Set AZDEVOPS_SYSTEM_TEST_ORG and AZDEVOPS_SYSTEM_TEST_PAT to run this test.
-See docs/contributors.md for setup instructions.
+See docs/contributor-guide.md for setup instructions.
 ```
 
 ### Authentication Failed
@@ -81,7 +81,7 @@ Verify AZDEVOPS_SYSTEM_TEST_PAT token has required permissions.
 
 - **Add New Tests**: Follow patterns in `InventoryCommandTests.cs` with `[TestCategory("SystemTest")]`
 - **CI Integration**: Configure repository secrets `AZDEVOPS_SYSTEM_TEST_ORG` and `AZDEVOPS_SYSTEM_TEST_PAT` 
-- **Troubleshooting**: See comprehensive guide in `docs/contributors.md`
+- **Troubleshooting**: See comprehensive guide in `docs/contributor-guide.md`
 - **Security**: Never commit tokens to source control, always use environment variables
 
 ## Test Categories

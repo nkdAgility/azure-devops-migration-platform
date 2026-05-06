@@ -19,25 +19,25 @@
 
 - `agents.md` - Confirmed for mission, guardrail binding, and reject conditions.
 - `docs/architecture.md` - Confirmed for determinism, package-first flow, and cursor-based resumability.
-- `docs/work-item-iteration-pattern.md` - Discrepancy logged (does not yet describe resumable batching token contract shared by callers).
-- `docs/modules.md` - Confirmed for module boundary and dependency rules.
-- `docs/configuration.md` - Discrepancy logged (does not yet define caller-level resume token persistence expectations for resumable batching).
-- `.agents/guardrails/system-architecture.md` - Confirmed as applicable (rules on determinism, checkpointing, reuse patterns, and no hidden state).
+- `docs/work-item-iteration-guide.md` - Discrepancy logged (does not yet describe resumable batching token contract shared by callers).
+- `docs/module-development-guide.md` - Confirmed for module boundary and dependency rules.
+- `docs/configuration-reference.md` - Discrepancy logged (does not yet define caller-level resume token persistence expectations for resumable batching).
+- `.agents/guardrails/architecture-boundaries.md` - Confirmed as applicable (rules on determinism, checkpointing, reuse patterns, and no hidden state).
 - `.agents/guardrails/workitems-rules.md` - Confirmed as applicable (cursor semantics and stage consistency).
 - `.agents/guardrails/migration-rules.md` - Confirmed as applicable (streaming, deterministic ordering, and checkpoint constraints).
 - `.agents/guardrails/coding-standards.md` - Confirmed as applicable (async/cancellation, immutability, and abstraction boundaries).
-- `.agents/guardrails/testing-standards.md` - Confirmed as applicable (system-test and deterministic test expectations).
-- `.agents/guardrails/module-template.md` - Confirmed as applicable (cursor schema and resume behavior requirements).
-- `.agents/guardrails/aspire-integration.md` - Confirmed as applicable for topology neutrality.
+- `.agents/guardrails/testing-rules.md` - Confirmed as applicable (system-test and deterministic test expectations).
+- `.agents/guardrails/module-rules.md` - Confirmed as applicable (cursor schema and resume behavior requirements).
+- `.agents/guardrails/control-plane-rules.md` - Confirmed as applicable for topology neutrality.
 - `.agents/guardrails/atdd-workflow.md` - Confirmed as applicable for downstream implementation workflow.
 - `.agents/guardrails/acceptance-test-format.md` - Confirmed as applicable for feature acceptance formatting.
 - `.agents/context/cli-commands.md` - Confirmed as applicable for CLI-level exposure boundaries.
-- `.agents/context/package-format.md` - Confirmed as applicable for checkpoint location and package invariants.
-- `.agents/context/job-contract.md` - Confirmed as applicable for durable job contract expectations.
-- `.agents/context/telemetry-architecture.md` - Confirmed as applicable for observable resume progress.
-- `.agents/context/workitems-format.md` - Confirmed as applicable for canonical ordering behavior.
+- `.agents/context/migration-package-concept.md` - Confirmed as applicable for checkpoint location and package invariants.
+- `.agents/context/job-lifecycle.md` - Confirmed as applicable for durable job contract expectations.
+- `.agents/context/telemetry-model.md` - Confirmed as applicable for observable resume progress.
+- `.agents/context/workitems-format-summary.md` - Confirmed as applicable for canonical ordering behavior.
 - `.agents/context/import-streaming.md` - Confirmed as applicable for streaming and idempotent stage processing.
-- `.agents/context/checkpointing.md` - Discrepancy logged (does not yet define resumable batching continuation token semantics).
+- `.agents/context/checkpointing-summary.md` - Discrepancy logged (does not yet define resumable batching continuation token semantics).
 - `.agents/context/artefact-store.md` - Confirmed as applicable for state and artifact boundary rules.
 - `.agents/context/identity-and-mapping.md` - Confirmed as applicable for idempotency and duplicate-safe import behavior.
 
@@ -170,25 +170,25 @@ As a module owner, I need deterministic ordering and explicit duplicate-tolerant
 - Files reviewed for this specification include:
   - `agents.md`
   - `docs/architecture.md`
-  - `docs/work-item-iteration-pattern.md`
-  - `docs/modules.md`
-  - `docs/configuration.md`
-  - `.agents/guardrails/system-architecture.md`
+  - `docs/work-item-iteration-guide.md`
+  - `docs/module-development-guide.md`
+  - `docs/configuration-reference.md`
+  - `.agents/guardrails/architecture-boundaries.md`
   - `.agents/guardrails/workitems-rules.md`
   - `.agents/guardrails/migration-rules.md`
   - `.agents/guardrails/coding-standards.md`
-  - `.agents/guardrails/testing-standards.md`
-  - `.agents/guardrails/module-template.md`
-  - `.agents/guardrails/aspire-integration.md`
+  - `.agents/guardrails/testing-rules.md`
+  - `.agents/guardrails/module-rules.md`
+  - `.agents/guardrails/control-plane-rules.md`
   - `.agents/guardrails/atdd-workflow.md`
   - `.agents/guardrails/acceptance-test-format.md`
   - `.agents/context/cli-commands.md`
-  - `.agents/context/package-format.md`
-  - `.agents/context/job-contract.md`
-  - `.agents/context/telemetry-architecture.md`
-  - `.agents/context/workitems-format.md`
+  - `.agents/context/migration-package-concept.md`
+  - `.agents/context/job-lifecycle.md`
+  - `.agents/context/telemetry-model.md`
+  - `.agents/context/workitems-format-summary.md`
   - `.agents/context/import-streaming.md`
-  - `.agents/context/checkpointing.md`
+  - `.agents/context/checkpointing-summary.md`
   - `.agents/context/artefact-store.md`
   - `.agents/context/identity-and-mapping.md`
 - Gaps identified and captured in discrepancies:

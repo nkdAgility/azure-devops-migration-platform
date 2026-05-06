@@ -371,13 +371,13 @@ Each acceptance scenario from the spec becomes one ATDD session (Specification â
 
 | # | Task | Target File |
 |---|------|------------|
-| 1 | Add IdentitiesModule detailed section | `docs/modules.md` |
-| 2 | Add NodeStructureModule detailed section | `docs/modules.md` |
-| 3 | Add TeamsModule detailed section | `docs/modules.md` |
-| 4 | Add module config schemas | `docs/configuration.md` |
-| 5 | Document `Teams/` folder internal structure | `.agents/context/package-format.md` |
-| 6 | Add NodeStructureModule cursor to checkpointing docs | `.agents/context/checkpointing.md` |
-| 7 | Add `Identities` and `Nodes` to `includedTypes` example in manifest | `.agents/context/package-format.md` |
+| 1 | Add IdentitiesModule detailed section | `docs/module-development-guide.md` |
+| 2 | Add NodeStructureModule detailed section | `docs/module-development-guide.md` |
+| 3 | Add TeamsModule detailed section | `docs/module-development-guide.md` |
+| 4 | Add module config schemas | `docs/configuration-reference.md` |
+| 5 | Document `Teams/` folder internal structure | `.agents/context/migration-package-concept.md` |
+| 6 | Add NodeStructureModule cursor to checkpointing docs | `.agents/context/checkpointing-summary.md` |
+| 7 | Add `Identities` and `Nodes` to `includedTypes` example in manifest | `.agents/context/migration-package-concept.md` |
 | 8 | Resolve all discrepancies in `specs/024-teams-module/discrepancies.md` | `discrepancies.md` |
 | 9 | Review and update `analysis/pending-actions.md` | `analysis/pending-actions.md` |
 

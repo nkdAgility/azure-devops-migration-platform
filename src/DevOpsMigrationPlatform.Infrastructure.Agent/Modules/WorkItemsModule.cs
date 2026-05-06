@@ -219,7 +219,15 @@ public sealed class WorkItemsModule : IModule
                     }
 
                     await foreach (var summary in _discoveryService
-                        .DiscoverWorkItemsAsync(nonNullEndpoint, project, cancellationToken: streamCt)
+                        .DiscoverWorkItemsAsync(nonNullEndpoint, project,
+                            progress: new Progress<int>(n => context.ProgressSink?.Emit(new ProgressEvent
+                            {
+                                Module = Name,
+                                Stage = "Inventorying",
+                                Message = $"[WorkItems] Discovered {n:N0} work items…",
+                                Timestamp = DateTimeOffset.UtcNow
+                            })),
+                            cancellationToken: streamCt)
                         .ConfigureAwait(false))
                     {
                         if (summary.IsWorkItemComplete)
@@ -266,7 +274,15 @@ public sealed class WorkItemsModule : IModule
                 long projectWorkItems = 0;
                 long projectRevisions = 0;
                 await foreach (var summary in _discoveryService
-                    .DiscoverWorkItemsAsync(nonNullEndpoint, project, cancellationToken: ct)
+                    .DiscoverWorkItemsAsync(nonNullEndpoint, project,
+                        progress: new Progress<int>(n => context.ProgressSink?.Emit(new ProgressEvent
+                        {
+                            Module = Name,
+                            Stage = "Inventorying",
+                            Message = $"[WorkItems] Discovered {n:N0} work items…",
+                            Timestamp = DateTimeOffset.UtcNow
+                        })),
+                        cancellationToken: ct)
                     .ConfigureAwait(false))
                 {
                     if (summary.IsWorkItemComplete)

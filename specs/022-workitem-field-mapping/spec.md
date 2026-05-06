@@ -10,11 +10,11 @@
 | File | Status |
 |------|--------|
 | `docs/architecture.md` | Confirmed accurate — tool resolution model not yet documented (discrepancy logged) |
-| `docs/modules.md` | Confirmed accurate — WorkItemsModule and extension model documented; no tool injection model yet (discrepancy logged) |
-| `docs/configuration.md` | Confirmed accurate — `Tools` top-level section not yet documented (discrepancy logged) |
-| `.agents/guardrails/system-architecture.md` | Confirmed accurate — rules 6 (no direct S→T), 7 (IArtefactStore only), 8 (identity cross-cutting), 14 (lexicographic enumeration), 21 (mandatory reuse) all apply |
-| `.agents/context/package-format.md` | Confirmed accurate — revision.json is the write target |
-| `.agents/context/workitems-format.md` | Confirmed accurate — field values stored in revision.json |
+| `docs/module-development-guide.md` | Confirmed accurate — WorkItemsModule and extension model documented; no tool injection model yet (discrepancy logged) |
+| `docs/configuration-reference.md` | Confirmed accurate — `Tools` top-level section not yet documented (discrepancy logged) |
+| `.agents/guardrails/architecture-boundaries.md` | Confirmed accurate — rules 6 (no direct S→T), 7 (IArtefactStore only), 8 (identity cross-cutting), 14 (lexicographic enumeration), 21 (mandatory reuse) all apply |
+| `.agents/context/migration-package-concept.md` | Confirmed accurate — revision.json is the write target |
+| `.agents/context/workitems-format-summary.md` | Confirmed accurate — field values stored in revision.json |
 | `analysis/proposed-features.md` | Source — M1 and T1 sections define the 14 map types and tool resolution model |
 
 ## Clarifications
@@ -401,7 +401,7 @@ As a migration operator, I want to merge multiple source fields into a single ta
 - Transforms operate during the import phase by default (reading from `revision.json` and transforming before applying to target). Each tool reference on an extension declares `phase: export | import | both` (default: `import`). Export captures raw source data for auditability — transforms at export time are opt-in. The configuration documentation MUST include guidance on recommended phase for each transform type.
 - Identity fields (`System.AssignedTo`, `System.CreatedBy`, `System.ChangedBy`) remain handled by `IIdentityMappingService` and are not transformed by this tool.
 - The `CalculateField` expression language will use a safe, sandboxed evaluator (the specific evaluator library is an implementation detail not specified here).
-- The `Tools` top-level configuration section is a keyed object (one entry per tool type). The `FieldTransform` tool is a singleton under `MigrationPlatform.Tools.FieldTransform`. This section will be added to `docs/configuration.md` as part of this feature.
+- The `Tools` top-level configuration section is a keyed object (one entry per tool type). The `FieldTransform` tool is a singleton under `MigrationPlatform.Tools.FieldTransform`. This section will be added to `docs/configuration-reference.md` as part of this feature.
 - The 14 transform types defined in `analysis/proposed-features.md` represent the complete set for this feature; additional types may be added in future features.
 - Node structure mapping (area/iteration paths) is handled by a separate `NodeStructureTool` (T2) and is out of scope for this feature.
 - Work item type remapping is handled by a separate `WorkItemTypeMappingTool` (T3) and is out of scope for this feature.

@@ -70,19 +70,36 @@ internal sealed class AzureDevOpsDependencyAnalysisService : IWorkItemLinkAnalys
 
             // ── Pre-count: discover total work items so progress shows N of M ────
             int projectTotal = 0;
+            var emittedCountingHeartbeat = false;
             await foreach (var snapshot in _discoveryService.CountWorkItemsAsync(
-                orgEndpoint, project, wiqlFilter, cancellationToken).ConfigureAwait(false))
+                orgEndpoint, project, wiqlFilter, cancellationToken: cancellationToken).ConfigureAwait(false))
             {
                 projectTotal = snapshot.WorkItemsCount;
+
+                yield return new DependencyHeartbeatEvent(
+                    orgEndpoint.ResolvedUrl,
+                    project,
+                    WorkItemsAnalysed: 0,
+                    ExternalLinksFound: 0,
+                    CrossProjectCount: 0,
+                    CrossOrgCount: 0,
+                    IsComplete: false,
+                    Error: snapshot.Error,
+                    TotalWorkItems: snapshot.WorkItemsCount,
+                    SkippedWorkItems: 0,
+                    IsCounting: !snapshot.IsWorkItemComplete);
+                emittedCountingHeartbeat = true;
             }
             _logger.LogInformation(
                 "Project {Project} has {TotalWorkItems} work items to analyse for dependencies.",
                 project, projectTotal);
 
-            // Emit initial heartbeat with the discovered total
-            yield return new DependencyHeartbeatEvent(
-                orgEndpoint.ResolvedUrl, project, 0, 0, 0, 0, false,
-                TotalWorkItems: projectTotal, IsCounting: true);
+            if (!emittedCountingHeartbeat)
+            {
+                yield return new DependencyHeartbeatEvent(
+                    orgEndpoint.ResolvedUrl, project, 0, 0, 0, 0, false,
+                    TotalWorkItems: projectTotal, IsCounting: true);
+            }
 
             var sourceOrgSegment = ExtractOrgSegment(orgEndpoint.ResolvedUrl);
             var counters = new LinkCounters();
@@ -130,12 +147,12 @@ internal sealed class AzureDevOpsDependencyAnalysisService : IWorkItemLinkAnalys
 
                 if (currentBatch.Count >= batchSize)
                 {
-                    // Emit counting heartbeat before processing the batch
+                    // Emit pre-batch analysis heartbeat (IsCounting: false — counting is complete)
                     yield return new DependencyHeartbeatEvent(
                         orgEndpoint.ResolvedUrl, project, counters.Processed,
                         counters.CrossProject + counters.CrossOrg,
                         counters.CrossProject, counters.CrossOrg, false,
-                        TotalWorkItems: projectTotal, IsCounting: true);
+                        TotalWorkItems: projectTotal, IsCounting: false);
 
                     await foreach (var evt in ProcessBatchAsync(
                         witClient, currentBatch, sourceOrgSegment, orgEndpoint.ResolvedUrl, project,
@@ -143,6 +160,14 @@ internal sealed class AzureDevOpsDependencyAnalysisService : IWorkItemLinkAnalys
                     {
                         yield return evt;
                     }
+
+                    // Post-batch heartbeat so the CLI sees the updated processed count immediately
+                    yield return new DependencyHeartbeatEvent(
+                        orgEndpoint.ResolvedUrl, project, counters.Processed,
+                        counters.CrossProject + counters.CrossOrg,
+                        counters.CrossProject, counters.CrossOrg, false,
+                        TotalWorkItems: projectTotal, IsCounting: false);
+
                     currentBatch.Clear();
                 }
             }
@@ -233,9 +258,15 @@ internal sealed class AzureDevOpsDependencyAnalysisService : IWorkItemLinkAnalys
                 ? typeObj.ToString() ?? "Unknown"
                 : "Unknown";
 
-            var sourceStateCategory = workItem.Fields.TryGetValue("System.StateCategory", out var stateCatObj)
-                ? stateCatObj?.ToString() ?? ""
-                : "";
+            // System.StateCategory is a WIQL-only computed field and is not returned by GetWorkItemsAsync.
+            // Fall back to System.State which is always a stored field.
+            var sourceStateCategory = workItem.Fields.TryGetValue("System.StateCategory", out var stateCatObj) && stateCatObj is not null
+                ? stateCatObj.ToString() ?? ""
+                : workItem.Fields.TryGetValue("System.State", out var stateObj) && stateObj is not null
+                    ? stateObj.ToString() ?? ""
+                    : "";
+
+            var sourceChangedDate = ExtractWorkItemChangedDate(workItem);
 
             foreach (var relation in workItem.Relations.Where(r =>
                 !string.IsNullOrEmpty(r.Rel) && r.Rel.StartsWith("System.LinkTypes.")))
@@ -290,6 +321,7 @@ internal sealed class AzureDevOpsDependencyAnalysisService : IWorkItemLinkAnalys
                             TargetOrganisation = targetOrgSegment,
                             TargetStatus = targetStatus,
                             LinkChangedDate = ExtractLinkChangedDate(relation),
+                            SourceWorkItemChangedDate = sourceChangedDate,
                             SourceWorkItemStateCategory = sourceStateCategory
                         });
                     }
@@ -313,6 +345,7 @@ internal sealed class AzureDevOpsDependencyAnalysisService : IWorkItemLinkAnalys
                                 TargetOrganisation = "",
                                 TargetStatus = TargetStatus.Reachable,
                                 LinkChangedDate = ExtractLinkChangedDate(relation),
+                                SourceWorkItemChangedDate = sourceChangedDate,
                                 SourceWorkItemStateCategory = sourceStateCategory
                             });
                         }
@@ -528,8 +561,10 @@ internal sealed class AzureDevOpsDependencyAnalysisService : IWorkItemLinkAnalys
 
     /// <summary>
     /// Extracts the <c>changedDate</c> attribute from a work item relation, if present.
-    /// The ADO REST API populates this attribute for link-type relations; it represents
+    /// The ADO REST API populates this attribute for standard link-type relations; it represents
     /// when the link was last modified (and equals the creation date when the link is new).
+    /// Remote cross-org links may not include this attribute — use <see cref="ExtractWorkItemChangedDate"/>
+    /// from the source work item as a staleness fallback.
     /// Returns <c>null</c> when the attribute is absent or cannot be parsed.
     /// </summary>
     private static DateTimeOffset? ExtractLinkChangedDate(WorkItemRelation relation)
@@ -537,15 +572,34 @@ internal sealed class AzureDevOpsDependencyAnalysisService : IWorkItemLinkAnalys
         if (relation.Attributes == null)
             return null;
 
-        if (!relation.Attributes.TryGetValue("changedDate", out var raw))
+        if (!relation.Attributes.TryGetValue("changedDate", out var raw) || raw is null)
             return null;
 
         return raw switch
         {
             DateTimeOffset dto => dto,
-            DateTime dt => new DateTimeOffset(dt, TimeSpan.Zero),
-            string s when DateTimeOffset.TryParse(s, out var parsed) => parsed,
-            _ => null
+            DateTime dt when dt.Kind == DateTimeKind.Unspecified => new DateTimeOffset(dt, TimeSpan.Zero),
+            DateTime dt => new DateTimeOffset(dt),
+            _ => DateTimeOffset.TryParse(raw.ToString(), out var parsed) ? parsed : null
+        };
+    }
+
+    /// <summary>
+    /// Extracts <c>System.ChangedDate</c> from a work item's fields dictionary.
+    /// Always available for work items returned by <see cref="FetchWorkItemsAsync"/>.
+    /// Provides a reliable staleness proxy when <see cref="ExtractLinkChangedDate"/> returns <c>null</c>.
+    /// </summary>
+    private static DateTimeOffset? ExtractWorkItemChangedDate(WorkItem workItem)
+    {
+        if (!workItem.Fields.TryGetValue("System.ChangedDate", out var raw) || raw is null)
+            return null;
+
+        return raw switch
+        {
+            DateTimeOffset dto => dto,
+            DateTime dt when dt.Kind == DateTimeKind.Unspecified => new DateTimeOffset(dt, TimeSpan.Zero),
+            DateTime dt => new DateTimeOffset(dt),
+            _ => DateTimeOffset.TryParse(raw.ToString(), out var parsed) ? parsed : null
         };
     }
 

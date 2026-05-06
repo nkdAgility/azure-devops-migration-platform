@@ -53,6 +53,7 @@ internal sealed class AzureDevOpsWorkItemFetchService : IWorkItemFetchService
         };
 
         int lastYieldedId = 0;
+        int totalYielded = 0;
         DateTime lastChangedDate = DateTime.MinValue;
 
         await foreach (var window in _windowStrategy.EnumerateWindowsAsync(
@@ -82,6 +83,7 @@ internal sealed class AzureDevOpsWorkItemFetchService : IWorkItemFetchService
                     if (PassesFilters(item, scope.FilterOptions))
                     {
                         lastYieldedId = item.Id;
+                        totalYielded++;
                         // Track ChangedDate for checkpoint if available
                         if (fields.TryGetValue("System.ChangedDate", out var cd) && cd is DateTime dt)
                             lastChangedDate = dt;
@@ -91,6 +93,10 @@ internal sealed class AzureDevOpsWorkItemFetchService : IWorkItemFetchService
                         yield return item;
                     }
                 }
+
+                // Fire progress callback after each batch so callers get
+                // per-batch ProgressEvents without manual counting loops.
+                scope.Progress?.Report(totalYielded);
 
                 // Emit per-batch checkpoint when resume is enabled
                 if (scope.ResumeEnabled && scope.ContinuationCheckpointWriter is not null && lastYieldedId > 0)

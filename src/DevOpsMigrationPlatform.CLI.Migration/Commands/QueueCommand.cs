@@ -779,7 +779,15 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
                         await foreach (var update in updates.Reader.ReadAllAsync(followCts.Token).ConfigureAwait(false))
                         {
                             state = Apply(state, update);
-                            ctx.UpdateTarget(BuildProgressDisplay(state));
+
+                            // While Tasks is null the display shows static "Initialising" text.
+                            // Every ctx.UpdateTarget call re-emits that line to terminals that
+                            // can't fully honour ANSI cursor-up, producing one appended
+                            // "Initialising" line per incoming SSE event (one per task).
+                            // The initial render from console.Live(...) already shows the text,
+                            // so skip all UpdateTarget calls until the task list has arrived.
+                            if (state.Tasks is not null)
+                                ctx.UpdateTarget(BuildProgressDisplay(state));
                             if (update is JobTerminated jt)
                             {
                                 if (jt.Failed)
@@ -929,6 +937,21 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
         var bootstrapTrigger = new TaskCompletionSource<long>(TaskCreationOptions.RunContinuationsAsynchronously);
         var bootstrapTask = Task.Run(() => FetchBootstrapOnReady(client, jobId, updates.Writer, bootstrapTrigger, followCts.Token));
         var progressTask = Task.Run(() => FollowJobProgress(client, jobId, updates.Writer, bootstrapTrigger, followCts.Token));
+        // Ticker: emits a TimerTick every 120 ms so the live spinner animates even when the
+        // agent is silent (e.g. during long WIQL queries between heartbeats).
+        var tickerTask = Task.Run(async () =>
+        {
+            try
+            {
+                while (!followCts.Token.IsCancellationRequested)
+                {
+                    await Task.Delay(120, followCts.Token).ConfigureAwait(false);
+                    if (!updates.Writer.TryWrite(new TimerTick()))
+                        break; // channel was completed by FollowJobProgress
+                }
+            }
+            catch (OperationCanceledException) { }
+        });
 
         if (Console.IsOutputRedirected)
         {
@@ -949,27 +972,41 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
                     {
                         var stage = sa.Event.Stage ?? string.Empty;
                         var message = sa.Event.Message ?? string.Empty;
-                        if ((stage == "Inventory" || stage == "Failed") && message.Contains('|'))
+                        if ((stage == "Inventory" || stage == "ProjectComplete" || stage == "Failed") && message.Contains('|'))
                         {
                             var sepIdx = message.IndexOf('|');
                             var projectName = message[(sepIdx + 1)..];
                             var wi = sa.Event.Metrics?.Scope?.WorkItemsTotal ?? 0;
+                            var links = sa.Event.Metrics?.Discovery?.Dependencies?.ExternalLinksFound ?? 0;
                             var statusIcon = stage == "Failed" ? "✗" : "✓";
                             var statusColor = stage == "Failed" ? "red" : "green";
-                            console.MarkupLine($"[{statusColor}]{statusIcon}[/] {Markup.Escape(projectName)}  [grey]{wi:N0} work items[/]");
+                            var summary = stage == "ProjectComplete"
+                                ? $"[grey]{wi:N0} work items, {links:N0} links[/]"
+                                : $"[grey]{wi:N0} work items[/]";
+                            console.MarkupLine($"[{statusColor}]{statusIcon}[/] {Markup.Escape(projectName)}  {summary}");
                         }
-                        else if (stage == "Progress" && message.Contains('|'))
+                        else if ((stage == "Progress" || stage == "Analysis" || stage == "Counting") && message.Contains('|'))
                         {
                             var sepIdx = message.IndexOf('|');
                             var projectName = message[(sepIdx + 1)..];
                             var wi = sa.Event.Metrics?.Scope?.WorkItemsTotal ?? 0;
+                            var label = stage == "Counting" ? "counting" : "analysing";
                             if (wi > 0)
-                                console.MarkupLine($"[blue]⠋[/] {Markup.Escape(projectName)}  [grey]{wi:N0} so far…[/]");
+                                console.MarkupLine($"[blue]⠋[/] {Markup.Escape(projectName)}  [grey]{wi:N0} {label}…[/]");
                         }
                     }
 
                     if (update is JobTerminated jt)
                     {
+                        // On fast jobs the SSE stream ends before the bootstrap HTTP call
+                        // completes, so TaskListReceived arrives after this break. Drain it
+                        // here so the final summary (if any) is accurate.
+                        try { await bootstrapTask.WaitAsync(TimeSpan.FromSeconds(5)).ConfigureAwait(false); }
+                        catch (OperationCanceledException) { }
+                        catch (Exception) { /* best-effort */ }
+                        while (updates.Reader.TryRead(out var pending))
+                            discoveryState = ApplyDiscovery(discoveryState, pending);
+
                         if (jt.Failed)
                         {
                             jobFailed = true;
@@ -1007,9 +1044,29 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
                         await foreach (var update in updates.Reader.ReadAllAsync(followCts.Token).ConfigureAwait(false))
                         {
                             discoveryState = ApplyDiscovery(discoveryState, update);
-                            ctx.UpdateTarget(BuildDiscoveryDisplay(discoveryState));
+
+                            // While Tasks is null the display shows static "Initialising" text.
+                            // Every ctx.UpdateTarget call re-emits that line to terminals that
+                            // can't fully honour ANSI cursor-up, producing one appended
+                            // "Initialising" line per incoming SSE event (one per task).
+                            // The initial render from console.Live(...) already shows the text,
+                            // so skip all UpdateTarget calls until the task list has arrived.
+                            if (discoveryState.Tasks is not null || discoveryState.Projects.Count > 0)
+                                ctx.UpdateTarget(BuildDiscoveryDisplay(discoveryState));
+
                             if (update is JobTerminated jt)
                             {
+                                // On fast jobs the SSE stream ends before the bootstrap HTTP
+                                // call completes, leaving the display stuck at "Initialising".
+                                // Await the bootstrap task then drain any pending updates so
+                                // the final render shows tasks rather than the spinner text.
+                                try { await bootstrapTask.WaitAsync(TimeSpan.FromSeconds(5)).ConfigureAwait(false); }
+                                catch (OperationCanceledException) { }
+                                catch (Exception) { /* best-effort */ }
+                                while (updates.Reader.TryRead(out var pending))
+                                    discoveryState = ApplyDiscovery(discoveryState, pending);
+                                ctx.UpdateTarget(BuildDiscoveryDisplay(discoveryState));
+
                                 if (jt.Failed)
                                 {
                                     jobFailed = true;
@@ -1125,6 +1182,8 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
     /// events may no longer be in the ring buffer.
     /// </summary>
     private record SnapshotLoaded(JobSnapshot Snapshot) : JobProgressUpdate;
+    /// <summary>No-op tick emitted every ~120 ms to keep the live spinner animating.</summary>
+    private record TimerTick : JobProgressUpdate;
 
     private static JobProgressState Apply(JobProgressState state, JobProgressUpdate update) => update switch
     {
@@ -1934,6 +1993,13 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
         long WorkItems,
         long Revisions,
         int Repos,
+        long ExternalLinks,
+        long CrossProjectLinks,
+        long CrossOrgLinks,
+        long WorkItemsAnalysed,
+        DateTimeOffset? StartedAt,
+        string? StageText,
+        bool IsCounting,
         bool IsComplete,
         bool IsFailed,
         bool IsInProgress);
@@ -1962,7 +2028,8 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
     private static DiscoveryProgressState ApplyDiscovery(DiscoveryProgressState state, JobProgressUpdate update) => update switch
     {
         TelemetryPolled => state,
-        TaskListReceived t => state with { Tasks = t.Tasks },
+        TimerTick => state,
+        TaskListReceived t => ApplyDiscoveryTaskListSeedProjects(state, t.Tasks),
         TaskUpdated t => ApplyDiscoveryTaskUpdate(state, t.TaskId, t.Status),
         StageAdvanced t => ApplyDiscoveryStageAdvance(state, t.Event),
         SnapshotLoaded s => ApplyDiscoverySnapshot(state, s.Snapshot),
@@ -1989,6 +2056,39 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
         return state with { Tasks = state.Tasks with { Tasks = updated } };
     }
 
+    /// <summary>
+    /// Handles <see cref="TaskListReceived"/> by updating <see cref="DiscoveryProgressState.Tasks"/>
+    /// and pre-seeding one pending project row per task that carries org/project info.
+    /// This ensures all configured projects appear immediately when the bootstrap response
+    /// arrives, even before any SSE events have been emitted for those projects.
+    /// Existing rows (already added by SSE events) are never overwritten.
+    /// </summary>
+    private static DiscoveryProgressState ApplyDiscoveryTaskListSeedProjects(
+        DiscoveryProgressState state, JobTaskList taskList)
+    {
+        var projects = new List<InventoryProjectRow>(state.Projects);
+        var comparer = new OrgProjectKeyComparer();
+
+        foreach (var task in taskList.Tasks)
+        {
+            if (task.OrganisationUrl is null || task.ProjectName is null) continue;
+
+            var key = (Org: task.OrganisationUrl, Project: task.ProjectName);
+            if (projects.Any(p => comparer.Equals((p.OrgUrl, p.ProjectName), key))) continue;
+
+            projects.Add(new InventoryProjectRow(
+                task.OrganisationUrl, task.ProjectName,
+                WorkItems: task.KnownTotal ?? 0,
+                Revisions: 0, Repos: 0,
+                ExternalLinks: 0, CrossProjectLinks: 0, CrossOrgLinks: 0,
+                WorkItemsAnalysed: 0, StartedAt: null,
+                StageText: "Pending",
+                IsCounting: false, IsComplete: false, IsFailed: false, IsInProgress: false));
+        }
+
+        return state with { Tasks = taskList, Projects = projects.AsReadOnly() };
+    }
+
     private static DiscoveryProgressState ApplyDiscoveryStageAdvance(
         DiscoveryProgressState state, ProgressEvent evt)
     {
@@ -1998,11 +2098,11 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
         if (evt.TaskId is not null && evt.TaskStatus.HasValue)
             newState = ApplyDiscoveryTaskUpdate(newState, evt.TaskId, evt.TaskStatus.Value);
 
-        // Parse inventory project data out of the progress message ("{url}|{projectName}").
+        // Parse discovery project data out of the progress message ("{url}|{projectName}").
         var message = evt.Message ?? string.Empty;
         var stage = evt.Stage ?? string.Empty;
 
-        if (!message.Contains('|') || stage is not ("Progress" or "Inventory" or "Failed"))
+        if (!message.Contains('|'))
             return newState;
 
         var sepIdx = message.IndexOf('|');
@@ -2011,26 +2111,57 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
         if (string.IsNullOrEmpty(orgUrl) || string.IsNullOrEmpty(projectName))
             return newState;
 
-        var workItems = evt.Metrics?.Scope?.WorkItemsTotal ?? 0;
-        var revisions = evt.Metrics?.Discovery?.Inventory?.RevisionsTotal ?? 0;
-        var repos = (int)(evt.Metrics?.Discovery?.Inventory?.RepositoriesTotal ?? 0);
-
-        var row = new InventoryProjectRow(
-            orgUrl, projectName,
-            workItems, revisions, repos,
-            IsComplete: stage == "Inventory",
-            IsFailed: stage == "Failed",
-            IsInProgress: stage == "Progress");
-
         var projects = new List<InventoryProjectRow>(newState.Projects);
         var idx = projects.FindIndex(p =>
             string.Equals(p.OrgUrl, orgUrl, StringComparison.OrdinalIgnoreCase) &&
             string.Equals(p.ProjectName, projectName, StringComparison.OrdinalIgnoreCase));
+        var existing = idx >= 0 ? projects[idx] : null;
+
+        var isInventoryStage = stage is "Progress" or "Inventory" or "InventorySeed";
+        var isDependencyStage = stage is "Counting" or "Analysis" or "ProjectComplete" or "Failed";
+
+        if (!isInventoryStage && !isDependencyStage)
+            return newState;
+
+        var workItems = evt.Metrics?.Scope?.WorkItemsTotal ?? existing?.WorkItems ?? 0;
+        var revisions = evt.Metrics?.Discovery?.Inventory?.RevisionsTotal ?? existing?.Revisions ?? 0;
+        var repos = (int)(evt.Metrics?.Discovery?.Inventory?.RepositoriesTotal ?? existing?.Repos ?? 0);
+        var externalLinks = evt.Metrics?.Discovery?.Dependencies?.ExternalLinksFound ?? existing?.ExternalLinks ?? 0;
+        var crossProjectLinks = evt.Metrics?.Discovery?.Dependencies?.CrossProjectLinks ?? existing?.CrossProjectLinks ?? 0;
+        var crossOrgLinks = evt.Metrics?.Discovery?.Dependencies?.CrossOrgLinks ?? existing?.CrossOrgLinks ?? 0;
+        var workItemsAnalysed = evt.Metrics?.Discovery?.Dependencies?.WorkItemsAnalysed ?? existing?.WorkItemsAnalysed ?? 0;
+
+        // Capture the wall-clock start the first time we enter analysis so ETA can be computed.
+        var isAnalysing = stage is "Analysis";
+        var startedAt = isAnalysing
+            ? existing?.StartedAt ?? DateTimeOffset.UtcNow
+            : existing?.StartedAt;
+
+        var row = new InventoryProjectRow(
+            orgUrl,
+            projectName,
+            workItems,
+            revisions,
+            repos,
+            externalLinks,
+            crossProjectLinks,
+            crossOrgLinks,
+            workItemsAnalysed,
+            startedAt,
+            StageText: stage,
+            IsCounting: stage == "Counting",
+            IsComplete: stage is "Inventory" or "ProjectComplete",
+            IsFailed: stage == "Failed",
+            IsInProgress: stage is "Progress" or "Analysis" or "Counting");
 
         if (idx >= 0)
+        {
             projects[idx] = row;
+        }
         else
+        {
             projects.Add(row);
+        }
 
         return newState with { Projects = projects.AsReadOnly() };
     }
@@ -2066,6 +2197,12 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
                 projects.Add(new InventoryProjectRow(
                     org.Url, project.Name,
                     workItems, revisions, repos,
+                    ExternalLinks: project.Discovery?.Dependencies?.ExternalLinksFound ?? 0,
+                    CrossProjectLinks: project.Discovery?.Dependencies?.CrossProjectLinks ?? 0,
+                    CrossOrgLinks: project.Discovery?.Dependencies?.CrossOrgLinks ?? 0,
+                    WorkItemsAnalysed: 0, StartedAt: null,
+                    StageText: project.Status == ProjectStatus.Completed ? "ProjectComplete" : project.Status.ToString(),
+                    IsCounting: false,
                     IsComplete: project.Status == ProjectStatus.Completed,
                     IsFailed: project.Status == ProjectStatus.Failed,
                     IsInProgress: project.Status == ProjectStatus.InProgress));
@@ -2084,11 +2221,11 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
         var spinnerFrame = s_spinnerFrames[(int)(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() / 80 % s_spinnerFrames.Length)];
         var rows = new List<IRenderable>();
 
-        if (s.Tasks is null)
+        if (s.Tasks is null && s.Projects.Count == 0)
         {
             rows.Add(new Markup("[grey]⠋ Initialising — waiting for agent to start…[/]"));
         }
-        else if (s.Tasks.Tasks.Count > 0)
+        else if (s.Tasks is not null && s.Tasks.Tasks.Count > 0)
         {
             var captureTasks = s.Tasks.Tasks
                 .Where(t => t.TaskKind == TaskKind.Capture)
@@ -2221,6 +2358,10 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
 
                 rows.Add(table);
             }
+            else if (s.Projects.Count > 0)
+            {
+                rows.Add(BuildDependenciesProjectTable(s.Projects, spinnerFrame));
+            }
             else
             {
                 // Non-capture job: render flat list (dependencies, etc.)
@@ -2238,8 +2379,96 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
                 }
             }
         }
+        else if (s.Projects.Count > 0)
+        {
+            rows.Add(BuildDependenciesProjectTable(s.Projects, spinnerFrame));
+        }
 
         return rows.Count > 0 ? (IRenderable)new Rows(rows) : new Markup("[grey]⠋ Running…[/]");
+    }
+
+    private static IRenderable BuildDependenciesProjectTable(
+        IReadOnlyList<InventoryProjectRow> projects,
+        string spinnerFrame)
+    {
+        var table = new Table()
+            .BorderStyle(Style.Parse("grey"))
+            .AddColumn(new TableColumn("[grey]Organisation[/]"))
+            .AddColumn(new TableColumn("[grey]Project[/]"))
+            .AddColumn(new TableColumn("[grey]Status[/]").Centered())
+            .AddColumn(new TableColumn("[grey]Work Items[/]").RightAligned())
+            .AddColumn(new TableColumn("[grey]Links[/]").RightAligned())
+            .AddColumn(new TableColumn("[grey]Cross Project[/]").RightAligned())
+            .AddColumn(new TableColumn("[grey]Cross Org[/]").RightAligned())
+            .AddColumn(new TableColumn("[grey]Remaining[/]").RightAligned());
+
+        string? lastOrg = null;
+        foreach (var project in projects
+                     .OrderBy(p => p.OrgUrl, StringComparer.OrdinalIgnoreCase)
+                     .ThenBy(p => p.ProjectName, StringComparer.OrdinalIgnoreCase))
+        {
+            var orgLabel = project.OrgUrl != lastOrg
+                ? TruncateName(DeriveDiscoveryOrgLabel(project.OrgUrl), 36)
+                : string.Empty;
+            lastOrg = project.OrgUrl;
+
+            var (icon, color, statusText) = project switch
+            {
+                { IsFailed: true } => ("✗", "red", "Failed"),
+                { IsComplete: true } => ("✓", "green", "Complete"),
+                { IsCounting: true } => (spinnerFrame, "blue", "Counting"),
+                { IsInProgress: true } => (spinnerFrame, "blue", "Analysing"),
+                _ => ("·", "grey", project.StageText ?? "Pending"),
+            };
+
+            // Work Items column: show progress during active phases
+            string wiCell;
+            if (project.IsCounting && project.WorkItems > 0)
+            {
+                wiCell = $"[blue]{project.WorkItems:N0}…[/]";
+            }
+            else if (project.IsInProgress && project.WorkItems > 0 && project.WorkItemsAnalysed > 0)
+            {
+                wiCell = $"[bold]{project.WorkItemsAnalysed:N0}[/][grey]/{project.WorkItems:N0}[/]";
+            }
+            else
+            {
+                wiCell = project.WorkItems > 0 ? $"[bold]{project.WorkItems:N0}[/]" : "[grey]–[/]";
+            }
+
+            // Remaining column: ETA based on elapsed time and rate
+            string etaCell = string.Empty;
+            if (project.IsInProgress && project.StartedAt.HasValue
+                && project.WorkItemsAnalysed > 0 && project.WorkItems > project.WorkItemsAnalysed)
+            {
+                var elapsed = (DateTimeOffset.UtcNow - project.StartedAt.Value).TotalSeconds;
+                if (elapsed > 0)
+                {
+                    var rate = project.WorkItemsAnalysed / elapsed;
+                    var remainingSec = (project.WorkItems - project.WorkItemsAnalysed) / rate;
+                    var span = TimeSpan.FromSeconds(remainingSec);
+                    etaCell = span.TotalHours >= 1
+                        ? $"[grey]{span:h\\:mm\\:ss}[/]"
+                        : $"[grey]{span:m\\:ss}[/]";
+                }
+            }
+            else if (project.IsCounting)
+            {
+                etaCell = "[grey]…[/]";
+            }
+
+            table.AddRow(
+                new Markup(string.IsNullOrEmpty(orgLabel) ? string.Empty : $"[grey]{Markup.Escape(orgLabel)}[/]"),
+                new Markup(Markup.Escape(project.ProjectName)),
+                new Markup($"[{color}]{icon}[/] [grey]{Markup.Escape(statusText)}[/]"),
+                new Markup(wiCell),
+                new Markup(project.ExternalLinks > 0 ? $"[bold]{project.ExternalLinks:N0}[/]" : "[grey]0[/]"),
+                new Markup(project.CrossProjectLinks > 0 ? $"{project.CrossProjectLinks:N0}" : "[grey]0[/]"),
+                new Markup(project.CrossOrgLinks > 0 ? $"{project.CrossOrgLinks:N0}" : "[grey]0[/]"),
+                new Markup(etaCell));
+        }
+
+        return table;
     }
 
     /// <summary>

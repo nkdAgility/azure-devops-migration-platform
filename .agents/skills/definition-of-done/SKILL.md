@@ -38,8 +38,8 @@ Before executing, read the following context files:
 
 - `.agents/guardrails/definition-of-done.md` — The canonical criteria
 - `.agents/guardrails/coding-standards.md` — Code quality rules and validation checklist
-- `.agents/guardrails/testing-standards.md` — Test framework rules
-- `.agents/guardrails/system-architecture.md` — Architecture constraints
+- `.agents/guardrails/testing-rules.md` — Test framework rules
+- `.agents/guardrails/architecture-boundaries.md` — Architecture constraints
 
 These files establish the redlines that must not be crossed.
 

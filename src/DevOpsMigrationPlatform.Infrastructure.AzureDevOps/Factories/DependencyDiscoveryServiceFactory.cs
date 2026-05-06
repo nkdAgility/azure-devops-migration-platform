@@ -45,6 +45,37 @@ internal sealed class DependencyDiscoveryServiceFactory : IDependencyDiscoverySe
             _logger);
     }
 
+    /// <inheritdoc/>
+    public IDependencyDiscoveryService CreateForProject(
+        IReadOnlyList<ScopedOrganisationEndpoint> allOrganisations,
+        string orgUrl,
+        string projectName,
+        JobPolicies policies)
+    {
+        var singleProjectOrgs = allOrganisations
+            .Where(o => string.Equals(o.Endpoint.GetResolvedUrl(), orgUrl, StringComparison.OrdinalIgnoreCase))
+            .Select(o => new ScopedOrganisationEndpoint
+            {
+                Endpoint = o.Endpoint,
+                Projects = new System.Collections.Generic.List<string> { projectName },
+                Scopes = o.Scopes
+            })
+            .ToList();
+
+        if (singleProjectOrgs.Count == 0)
+            singleProjectOrgs = allOrganisations
+                .Take(1)
+                .Select(o => new ScopedOrganisationEndpoint
+                {
+                    Endpoint = o.Endpoint,
+                    Projects = new System.Collections.Generic.List<string> { projectName },
+                    Scopes = o.Scopes
+                })
+                .ToList();
+
+        return Create(singleProjectOrgs, policies);
+    }
+
     private static MigrationPlatformOptions BuildMigrationPlatformOptions(
         IReadOnlyList<ScopedOrganisationEndpoint> organisations,
         JobPolicies policies)

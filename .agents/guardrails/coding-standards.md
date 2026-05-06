@@ -22,7 +22,7 @@ Code MUST be deterministic, testable, maintainable, and aligned with the defined
 - TfsMigrationAgent is Windows-only; spawned via `AgentLifecycleService` or run independently.
 - No other component may use .NET Framework.
 - Credentials pass via the job contract only — never via CLI arguments.
-- See [docs/migration-agent.md](../../docs/migration-agent.md#tfs-migration-agent).
+- See [docs/agent-hosting.md](../../docs/agent-hosting.md#tfs-migration-agent).
 
 ---
 
@@ -97,7 +97,7 @@ See [`coding-standards-examples.md`](coding-standards-examples.md) for C# exampl
 - MUST record per operation: attempt counter, completion counter, error counter, duration histogram (ms), in-flight gauge (+1/-1).
 - New metric constants → `WellKnownMetricNames`. New signatures → `IMigrationMetrics`. New instruments → `MigrationMetrics`.
 - Metric interfaces and concrete classes MUST NOT have `#if !NETFRAMEWORK` guards. Only pipeline-layer types (`SnapshotMetricExporter`, `TelemetryServiceExtensions`, `InMemoryMetricSnapshotStore`) may.
-- See `.agents/context/telemetry-architecture.md`.
+- See `.agents/context/telemetry-model.md`.
 
 ### O-3: Structured Logging
 - `Information` at start/end of every export/import/validate with counts.

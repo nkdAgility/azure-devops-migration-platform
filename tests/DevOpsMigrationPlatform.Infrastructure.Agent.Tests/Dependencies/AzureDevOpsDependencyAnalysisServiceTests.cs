@@ -74,7 +74,7 @@ public class AzureDevOpsDependencyAnalysisServiceTests
             .Returns(AsyncEnumerable.Empty<FetchedWorkItem>());
 
         _discoveryServiceMock
-            .Setup(d => d.CountWorkItemsAsync(It.IsAny<OrganisationEndpoint>(), "TestProject", null, It.IsAny<CancellationToken>()))
+            .Setup(d => d.CountWorkItemsAsync(It.IsAny<OrganisationEndpoint>(), "TestProject", null, It.IsAny<IProgress<int>?>(), It.IsAny<CancellationToken>()))
             .Returns(AsyncEnumerable.Empty<ProjectDiscoverySummary>());
 
         // Act: drain the stream
@@ -103,7 +103,7 @@ public class AzureDevOpsDependencyAnalysisServiceTests
             .Returns(AsyncEnumerable.Empty<FetchedWorkItem>());
 
         _discoveryServiceMock
-            .Setup(d => d.CountWorkItemsAsync(It.IsAny<OrganisationEndpoint>(), "TestProject", null, It.IsAny<CancellationToken>()))
+            .Setup(d => d.CountWorkItemsAsync(It.IsAny<OrganisationEndpoint>(), "TestProject", null, It.IsAny<IProgress<int>?>(), It.IsAny<CancellationToken>()))
             .Returns(AsyncEnumerable.Empty<ProjectDiscoverySummary>());
 
         // Act

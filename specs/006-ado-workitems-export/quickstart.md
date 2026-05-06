@@ -1,7 +1,7 @@
 # Quickstart: Work Items Export — Azure DevOps via REST API
 
 **Feature**: `006-ado-workitems-export`  
-**Prerequisite**: The platform is built and configured. See [docs/cli.md](../../docs/cli.md) and [docs/configuration.md](../../docs/configuration.md).
+**Prerequisite**: The platform is built and configured. See [docs/cli-guide.md](../../docs/cli-guide.md) and [docs/configuration-reference.md](../../docs/configuration-reference.md).
 
 ---
 

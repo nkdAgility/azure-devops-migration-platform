@@ -99,8 +99,8 @@
 
 ## Phase 6: Polish & Cross-Cutting Concerns
 
-- [X] T027 [P] Update `docs/configuration.md` — add `filter` scope type rows to WorkItems Module table; add `scopes` to org entry in Full Schema example; add performance guidance (prefer short fields, minimise filter count)
-- [X] T028 [P] Update `docs/modules.md` — extend `WorkItemsModule` responsibility description to mention `filter` scope type
+- [X] T027 [P] Update `docs/configuration-reference.md` — add `filter` scope type rows to WorkItems Module table; add `scopes` to org entry in Full Schema example; add performance guidance (prefer short fields, minimise filter count)
+- [X] T028 [P] Update `docs/module-development-guide.md` — extend `WorkItemsModule` responsibility description to mention `filter` scope type
 - [X] T029 Resolve all items in `specs/014-field-filter-scope/discrepancies.md` — mark each as `Resolved` after doc updates
 - [X] T030 [P] ~~Create `tests/.../Compatibility/BackwardCompatFilterTests.cs`~~ — deferred; not needed until go-live
 - [X] T031 [P] Create `scenarios/regression-no-filter-scopes.json` — mirrors `scenarios/queue-export-ado-workitems-single-project.json` exactly; confirms existing configs with no `scopes` property continue to function

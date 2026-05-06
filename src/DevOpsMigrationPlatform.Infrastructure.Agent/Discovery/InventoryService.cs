@@ -73,7 +73,7 @@ public sealed class InventoryService : IInventoryService
                 InventoryProgressEvent? pendingFinalEvent = null;
 
                 await foreach (var summary in _workItemDiscovery.DiscoverWorkItemsAsync(
-                    orgEndpoint, project, fetchScope, cancellationToken))
+                    orgEndpoint, project, fetchScope, cancellationToken: cancellationToken))
                 {
                     if (!summary.IsWorkItemComplete)
                     {
@@ -154,7 +154,7 @@ public sealed class InventoryService : IInventoryService
             InventoryProgressEvent? pendingFinalEvent = null;
 
             await foreach (var summary in _workItemDiscovery.DiscoverWorkItemsAsync(
-                orgEndpoint, project, fetchScope, cancellationToken))
+                orgEndpoint, project, fetchScope, cancellationToken: cancellationToken))
             {
                 if (!summary.IsWorkItemComplete)
                 {

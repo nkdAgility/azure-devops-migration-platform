@@ -43,7 +43,7 @@ await foreach (var item in _fetchService.FetchAsync(endpoint, "MyProject", scope
 5. Refactor `AzureDevOpsWorkItemDiscoveryService` to use `IWorkItemFetchService`
 6. Refactor `AzureDevOpsDependencyAnalysisService` to use `IWorkItemFetchService`
 7. Register `IWorkItemFetchService` in DI extension methods
-8. Update `docs/work-item-iteration-pattern.md` and `docs/modules.md`
+8. Update `docs/work-item-iteration-guide.md` and `docs/module-development-guide.md`
 
 ## Architecture Constraints
 

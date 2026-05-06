@@ -57,7 +57,7 @@ app.Run<JobListWindow>();
 - Top half: `Metrics Panel` (left ~40%) and `Progress Log Panel` (right ~60%) side by side
 - Bottom quarter: `Diagnostics Panel` full width
 
-This matches the layout described in `docs/tui.md` (Metrics panel | Progress table | Diagnostics panel).
+This matches the layout described in `docs/tui-guide.md` (Metrics panel | Progress table | Diagnostics panel).
 
 **Rationale**: Terminal.Gui v2 `FrameView` with `Pos`/`Dim` computed layout is the canonical approach for tiled panels. The split matches the relative informational density — progress log is the primary stream, diagnostics is secondary. Full-width diagnostics gives room for long log messages.  
 **Alternatives considered**: TabView (tab per panel) — simpler but hides concurrent data behind clicks; single scrolling list mixing both streams — loses the visual separation that motivates the feature.
@@ -77,7 +77,7 @@ This matches the layout described in `docs/tui.md` (Metrics panel | Progress tab
 
 **Decision**: Add a new `TuiCommandSettings` class extending `ControlPlaneBaseCommandSettings` with an optional `--job` string option (`Guid?` after parsing). Replace `TuiCommand`'s generic parameter from `ControlPlaneBaseCommandSettings` to `TuiCommandSettings`.
 
-**Rationale**: `docs/tui.md` explicitly specifies `--job <jobId>`. Keeping it in a dedicated settings class avoids polluting `ControlPlaneBaseCommandSettings` with a TUI-specific option.
+**Rationale**: `docs/tui-guide.md` explicitly specifies `--job <jobId>`. Keeping it in a dedicated settings class avoids polluting `ControlPlaneBaseCommandSettings` with a TUI-specific option.
 
 ---
 
@@ -93,7 +93,7 @@ This matches the layout described in `docs/tui.md` (Metrics panel | Progress tab
 
 **Decision**: `GET /jobs/{jobId}/telemetry` is implemented in `TelemetryController.cs` and used by `TelemetryPoller.cs`. The discrepancy was only in `docs/control-plane.md` not listing it. The plan will add it to the API surface table during the implementation compliance review loop.
 
-**Rationale**: The implementation and the spec in `docs/tui.md` are consistent with each other. Only the docs/control-plane.md API table was missing the entry. No code change needed — only a doc update.
+**Rationale**: The implementation and the spec in `docs/tui-guide.md` are consistent with each other. Only the docs/control-plane.md API table was missing the entry. No code change needed — only a doc update.
 
 ---
 

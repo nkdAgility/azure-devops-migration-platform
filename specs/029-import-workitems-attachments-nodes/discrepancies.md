@@ -13,12 +13,12 @@
 - **Issue**: The spec requires acceptance scenarios for attachment import (Stage D: UploadedAttachments), idempotency via `idmap.db`, embedded image rewriting, and the `maxSizeBytes` skip behaviour. No Gherkin feature file currently exists for these scenarios (only `features/export/work-items/attachments/export-attachments.feature` covers the export side).
 - **Suggested update**: Create `features/import/work-items/attachments/import-attachments.feature` covering the acceptance scenarios in User Story 3 of this spec.
 
-### `maxSizeBytes` attachment option not yet in docs/configuration.md
+### `maxSizeBytes` attachment option not yet in docs/configuration-reference.md
 
-- **Source doc**: `docs/configuration.md` (assumed)
+- **Source doc**: `docs/configuration-reference.md` (assumed)
 - **Section**: WorkItems module extensions configuration
 - **Issue**: `proposed-features.md` (M4) lists `extensions[Attachments].maxSizeBytes` as a planned option (❌ Not implemented). The spec includes FR-018 referencing this behaviour (skipping oversized attachments with a Warning). This option is not yet in the canonical configuration reference.
-- **Suggested update**: After implementation, add `extensions.Attachments.maxSizeBytes` to `docs/configuration.md` under the WorkItems module extensions section.
+- **Suggested update**: After implementation, add `extensions.Attachments.maxSizeBytes` to `docs/configuration-reference.md` under the WorkItems module extensions section.
 
 ### Embedded image import not covered by a dedicated feature file
 
@@ -47,6 +47,6 @@
 
 - **Source doc**: `src/DevOpsMigrationPlatform.Abstractions.Agent/Modules/IModule.cs`
 - **Section**: Interface declaration
-- **Issue**: `IModule` currently declares only `ExportAsync`, `ImportAsync`, and `ValidateAsync`. `PrepareAsync(PrepareContext context, CancellationToken ct)` is described in `docs/modules.md` but is absent from the actual C# interface. `PrepareContext` does not exist as a type. All module `PrepareAsync` implementations described in FR-P02 through FR-P09 cannot be built until this foundation is in place.
+- **Issue**: `IModule` currently declares only `ExportAsync`, `ImportAsync`, and `ValidateAsync`. `PrepareAsync(PrepareContext context, CancellationToken ct)` is described in `docs/module-development-guide.md` but is absent from the actual C# interface. `PrepareContext` does not exist as a type. All module `PrepareAsync` implementations described in FR-P02 through FR-P09 cannot be built until this foundation is in place.
 - **Severity**: **Blocking for FR-P01 through FR-P09** — no Prepare phase FRs can be implemented without this interface extension.
 - **Suggested fix**: Add `Task PrepareAsync(PrepareContext context, CancellationToken ct)` to `IModule`. Create `PrepareContext` in `DevOpsMigrationPlatform.Abstractions.Agent.Context` (mirroring `ImportContext` / `ValidationContext` — should carry `IArtefactStore`, `Job`, `ITargetEndpointInfo`). Update all existing module implementations to provide a default `return Task.CompletedTask` body so they remain non-breaking. Add `SupportsPrepare` bool property to `IModule` (defaulting to `false`) following the pattern of `SupportsExport` / `SupportsImport`.

@@ -49,7 +49,7 @@ public Task ImportAsync(ImportContext context, CancellationToken ct) =>
 
 `IArtefactStore.EnumerateAsync` exists and returns paths in lexicographic ascending order — the exact requirement for streaming chronological import.
 
-**Stage contract** (from `.agents/context/checkpointing.md` and `.agents/context/import-streaming.md`):
+**Stage contract** (from `.agents/context/checkpointing-summary.md` and `.agents/context/import-streaming.md`):
 
 | Stage | Label | Action |
 |---|---|---|
@@ -163,6 +163,6 @@ All required types (`IAsyncEnumerable<T>`, `System.Text.Json`, `Microsoft.Extens
 
 Three documentation gaps were identified during research. They will be rectified in task T17:
 
-1. `.agents/context/checkpointing.md` — Add export cursor behaviour description
-2. `.agents/context/job-contract.md` — Add `resume` block to schema
-3. `.agents/context/checkpointing.md` — Add Both-mode phase tracking section
+1. `.agents/context/checkpointing-summary.md` — Add export cursor behaviour description
+2. `.agents/context/job-lifecycle.md` — Add `resume` block to schema
+3. `.agents/context/checkpointing-summary.md` — Add Both-mode phase tracking section

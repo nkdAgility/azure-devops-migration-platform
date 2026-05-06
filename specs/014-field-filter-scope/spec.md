@@ -9,9 +9,9 @@
 
 | Document | Status |
 |---|---|
-| `docs/configuration.md` | ✅ Confirmed accurate — `organisations[].scopes` does not yet exist; discrepancy logged |
-| `docs/modules.md` | ✅ Confirmed accurate — `wiql` only scope documented; `filter` scope not yet documented; discrepancy logged |
-| `.agents/guardrails/system-architecture.md` | ✅ Confirmed — no conflicts; new scopes flow through the job contract |
+| `docs/configuration-reference.md` | ✅ Confirmed accurate — `organisations[].scopes` does not yet exist; discrepancy logged |
+| `docs/module-development-guide.md` | ✅ Confirmed accurate — `wiql` only scope documented; `filter` scope not yet documented; discrepancy logged |
+| `.agents/guardrails/architecture-boundaries.md` | ✅ Confirmed — no conflicts; new scopes flow through the job contract |
 
 ## Clarifications
 

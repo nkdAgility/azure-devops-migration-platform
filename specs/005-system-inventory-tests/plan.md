@@ -27,7 +27,7 @@ Add system test framework to validate inventory command functionality against li
 > `/.agents/guardrails/`, ALL files in `/.agents/context/`, and relevant `/docs/` files
 > have been read. Skipping either `.agents/` subdirectory is a constitution violation.
 
-✅ **Architecture files read**: `docs/cli.md`, `.agents/guardrails/system-architecture.md`, `.agents/guardrails/testing-standards.md`, `.agents/guardrails/acceptance-test-format.md`
+✅ **Architecture files read**: `docs/cli-guide.md`, `.agents/guardrails/architecture-boundaries.md`, `.agents/guardrails/testing-rules.md`, `.agents/guardrails/acceptance-test-format.md`
 
 - [x] **Package-First (I):** ✅ N/A - This is test code that validates CLI behavior, does not involve migration package operations
 - [x] **Streaming (II):** ✅ N/A - This is test code, does not involve WorkItems processing or import logic
@@ -81,7 +81,7 @@ src/DevOpsMigrationPlatform.Abstractions/
     └── InventoryOptions.cs               # ← USE: Existing configuration classes
 ```
 
-**Structure Decision**: Extend existing test project `DevOpsMigrationPlatform.CLI.Migration.Tests` with system test methods in the current `InventoryCommandTests.cs` class. Add comprehensive documentation to new `docs/contributors.md`. This minimizes structural changes while providing maximum value - leverages existing test infrastructure, follows established patterns, and centralizes system test documentation.
+**Structure Decision**: Extend existing test project `DevOpsMigrationPlatform.CLI.Migration.Tests` with system test methods in the current `InventoryCommandTests.cs` class. Add comprehensive documentation to new `docs/contributor-guide.md`. This minimizes structural changes while providing maximum value - leverages existing test infrastructure, follows established patterns, and centralizes system test documentation.
 
 ---
 

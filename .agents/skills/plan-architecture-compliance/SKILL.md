@@ -39,7 +39,7 @@ The skill requires these files to exist in the feature directory:
 | `plan.md` | Architecture choices, data model, phases, file paths, module placement, technical constraints |
 
 Additionally, the skill loads:
-- `/.agents/guardrails/system-architecture.md` — hard architectural rules
+- `/.agents/guardrails/architecture-boundaries.md` — hard architectural rules
 - `/.agents/guardrails/coding-standards.md` — engineering practice categories
 - `.specify/memory/constitution.md` — non-negotiable principles
 
@@ -172,7 +172,7 @@ Constitution violations are automatically **Critical**.
 
 ### Step 7 — Guardrail Alignment
 
-Check the proposed plan against `/.agents/guardrails/system-architecture.md`:
+Check the proposed plan against `/.agents/guardrails/architecture-boundaries.md`:
 
 Flag any proposed design that would violate the 23 absolute rules. Pay special attention to:
 - Rule 2 (streaming import) — does the plan load all revisions into memory?
@@ -313,7 +313,7 @@ State one of:
 - [ ] Feature `spec.md` loaded and reviewed.
 - [ ] Feature `plan.md` loaded and reviewed.
 - [ ] Constitution (`.specify/memory/constitution.md`) loaded and checked.
-- [ ] System architecture guardrails (`/.agents/guardrails/system-architecture.md`) loaded and checked.
+- [ ] System architecture guardrails (`/.agents/guardrails/architecture-boundaries.md`) loaded and checked.
 - [ ] **Modular Monolith** perspective checked and findings recorded.
 - [ ] **Clean Architecture** perspective checked and findings recorded.
 - [ ] **Hexagonal Architecture** perspective checked and findings recorded.

@@ -86,7 +86,7 @@
 - [ ] T022 [US2] Add system test method `InventoryCommand_SystemTest_MissingSecrets_ContinuesPipeline` to tests/DevOpsMigrationPlatform.CLI.Migration.Tests/Commands/Discovery/InventoryCommandTests.cs 
 - [ ] T023 [US2] Implement credential security validation ensuring no token values are exposed in test output or logs
 - [ ] T024 [US2] Add test execution timeout and retry logic for network resilience in CI environment
-- [ ] T025 [US2] Create documentation section for repository secrets configuration in docs/contributors.md
+- [ ] T025 [US2] Create documentation section for repository secrets configuration in docs/contributor-guide.md
 - [ ] T026 [US2] Implement conditional test execution logic based on environment context (local vs CI)
 
 **Checkpoint**: At this point, User Stories 1 AND 2 should both work independently - local development and CI pipeline execution both supported
@@ -107,7 +107,7 @@
 
 ### Implementation for User Story 3
 
-- [ ] T028 [P] [US3] Create comprehensive system test documentation in docs/contributors.md following contracts/documentation-contract.md requirements
+- [ ] T028 [P] [US3] Create comprehensive system test documentation in docs/contributor-guide.md following contracts/documentation-contract.md requirements
 - [ ] T029 [P] [US3] Add troubleshooting guide section with common error scenarios and solutions
 - [ ] T030 [P] [US3] Create step-by-step local development setup instructions for system tests
 - [ ] T031 [P] [US3] Add GitHub Actions integration examples and repository secrets configuration guide

@@ -163,11 +163,11 @@
 ## Phase 5: Polish & Cross-Cutting
 
 - [ ] T033 Rectify documentation discrepancies logged in [discrepancies.md](discrepancies.md) and update canonical docs for new flags:
-  - Add "Export Cursor Behaviour" subsection to `.agents/context/checkpointing.md`
-  - Add `resume` block to the MigrationJob schema in `.agents/context/job-contract.md`
-  - Add "Both-Mode Phase Tracking" section to `.agents/context/checkpointing.md`
+  - Add "Export Cursor Behaviour" subsection to `.agents/context/checkpointing-summary.md`
+  - Add `resume` block to the MigrationJob schema in `.agents/context/job-lifecycle.md`
+  - Add "Both-Mode Phase Tracking" section to `.agents/context/checkpointing-summary.md`
   - Add `--force-fresh` to the `export`, `import`, and `migrate` command descriptions in `.agents/context/cli-commands.md` (both the command table and a new "Resume Options" sub-section listing the flag, its default, and its semantics)
-  - Add `--force-fresh` to the `export`, `import`, and `migrate` command descriptions in `docs/cli.md` and add `--force-fresh` example invocations to the Examples section
+  - Add `--force-fresh` to the `export`, `import`, and `migrate` command descriptions in `docs/cli-guide.md` and add `--force-fresh` example invocations to the Examples section
 - [ ] T034 Run `dotnet clean && dotnet build --no-incremental` and `dotnet test` — confirm all pass; run `scenarios/export-ado-workitems-single-project.json` via `launch.json` profile and verify observable output shows resume behaviour
 
 ---

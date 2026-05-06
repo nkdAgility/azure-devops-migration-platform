@@ -5,7 +5,7 @@
 
 ## Summary
 
-The current `IModule` contract supports only `ExportAsync` and `ImportAsync`. Two additional operational phases — `Inventory` and `Prepare` — are abused via `ExportAsync` in standalone discovery modules (`InventoryModule`, `InventoryDiscoveryModule`, `DependencyDiscoveryModule`) that are semantically misaligned. Additionally, `PrepareAsync` is documented in `docs/modules.md` but absent from the actual interface.
+The current `IModule` contract supports only `ExportAsync` and `ImportAsync`. Two additional operational phases — `Inventory` and `Prepare` — are abused via `ExportAsync` in standalone discovery modules (`InventoryModule`, `InventoryDiscoveryModule`, `DependencyDiscoveryModule`) that are semantically misaligned. Additionally, `PrepareAsync` is documented in `docs/module-development-guide.md` but absent from the actual interface.
 
 This plan delivers five outcomes:
 
