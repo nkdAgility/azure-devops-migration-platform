@@ -3,6 +3,7 @@
 
 using System;
 using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
+using DevOpsMigrationPlatform.Abstractions.Jobs;
 
 namespace DevOpsMigrationPlatform.Abstractions.Agent.Lease;
 
@@ -16,7 +17,7 @@ namespace DevOpsMigrationPlatform.Abstractions.Agent.Lease;
 public sealed class ActivePackageState
 {
     private volatile IArtefactStore? _currentStore;
-    private volatile string? _currentJobId;
+    private volatile Job? _currentJob;
     private volatile string? _cachedRunId;
 
     /// <summary>
@@ -32,16 +33,16 @@ public sealed class ActivePackageState
     }
 
     /// <summary>
-    /// The job ID of the currently active job, or <c>null</c> if no job is active.
+    /// The currently active job, or <c>null</c> if no job is active.
     /// </summary>
-    public string? CurrentJobId
+    public Job? CurrentJob
     {
-        get => _currentJobId;
-        set => _currentJobId = value;
+        get => _currentJob;
+        set => _currentJob = value;
     }
 
     /// <summary>
-    /// Returns the unique run identifier for the current job: <c>{ticks}-{jobId}</c>.
+    /// Returns the unique run identifier for the current job: <c>yyyyMMdd-HHmmss</c>.
     /// Returns <c>null</c> when no job is active.
     /// The value is cached on first access so all services within a job share the same run folder.
     /// </summary>
@@ -49,11 +50,11 @@ public sealed class ActivePackageState
     {
         get
         {
-            var jobId = _currentJobId;
-            if (string.IsNullOrEmpty(jobId))
+            var job = _currentJob;
+            if (job is null)
                 return null;
 
-            return _cachedRunId ??= PackagePaths.BuildRunId(DateTimeOffset.UtcNow.Ticks, jobId!);
+            return _cachedRunId ??= PackagePaths.BuildRunId(DateTimeOffset.UtcNow, job);
         }
     }
 
@@ -79,7 +80,7 @@ public sealed class ActivePackageState
     public void Clear()
     {
         _currentStore = null;
-        _currentJobId = null;
+        _currentJob = null;
         _cachedRunId = null;
     }
 }

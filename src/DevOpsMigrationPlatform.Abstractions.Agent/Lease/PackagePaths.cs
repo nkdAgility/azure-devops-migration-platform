@@ -2,6 +2,8 @@
 // Copyright (c) Naked Agility Limited
 
 using System;
+using System.Globalization;
+using DevOpsMigrationPlatform.Abstractions.Jobs;
 
 namespace DevOpsMigrationPlatform.Abstractions.Agent.Lease;
 
@@ -33,22 +35,30 @@ public static class PackagePaths
 
     /// <summary>
     /// Root folder for per-run subfolders: <c>.migration/runs</c>.
-    /// Each run creates a child folder named <c>{ticks}-{jobId}</c> containing
+    /// Each run creates a child folder named <c>yyyyMMdd-HHmmss</c> containing
     /// <c>logs/</c> and <c>audit/</c> subdirectories.
     /// </summary>
     public const string RunsRoot = $"{SystemRoot}/runs";
 
     /// <summary>
-    /// Builds the canonical run identifier string from a tick count and a job ID:
-    /// <c>{ticks}-{jobId}</c>, e.g. <c>638807123456789012-a1b2c3d4</c>.
-    /// This is the single place that owns the run ID format.
+    /// Builds the canonical run identifier string from the run start time and job:
+    /// <c>yyyyMMdd-HHmmss</c>, e.g. <c>20260506-143822</c>.
+    /// The <paramref name="job"/> parameter keeps the signature future-proof for
+    /// scenarios where additional job metadata influences the run ID.
     /// </summary>
-    public static string BuildRunId(long ticks, string jobId)
-        => $"{ticks}-{jobId}";
+    public static string BuildRunId(DateTimeOffset startedAtUtc, Job job)
+    {
+        if (job is null)
+        {
+            throw new ArgumentNullException(nameof(job));
+        }
+
+        return startedAtUtc.ToUniversalTime().ToString("yyyyMMdd-HHmmss", CultureInfo.InvariantCulture);
+    }
 
     /// <summary>
     /// Returns the root folder for a specific run,
-    /// e.g. <c>.migration/runs/638807123456789012-a1b2c3d4</c>.
+    /// e.g. <c>.migration/runs/20260506-143822</c>.
     /// </summary>
     /// <param name="runId">The run identifier — use <see cref="BuildRunId"/> to construct.</param>
     public static string RunFolder(string runId)
@@ -56,31 +66,38 @@ public static class PackagePaths
 
     /// <summary>
     /// Returns the log folder for a run,
-    /// e.g. <c>.migration/runs/638807123456789012-a1b2c3d4/logs</c>.
+    /// e.g. <c>.migration/runs/20260506-143822/logs</c>.
     /// </summary>
     public static string RunLogsFolder(string runId)
         => $"{RunFolder(runId)}/logs";
 
     /// <summary>
     /// Returns the audit folder for a run,
-    /// e.g. <c>.migration/runs/638807123456789012-a1b2c3d4/audit</c>.
+    /// e.g. <c>.migration/runs/20260506-143822/audit</c>.
     /// </summary>
     public static string RunAuditFolder(string runId)
         => $"{RunFolder(runId)}/audit";
 
     /// <summary>
     /// Returns the audit plan file path for a run,
-    /// e.g. <c>.migration/runs/638807123456789012-a1b2c3d4/audit/migration-plan.json</c>.
+    /// e.g. <c>.migration/runs/20260506-143822/audit/migration-plan.json</c>.
     /// </summary>
     public static string RunAuditPlanFile(string runId)
         => $"{RunAuditFolder(runId)}/migration-plan.json";
 
     /// <summary>
     /// Returns the audit config file path for a run,
-    /// e.g. <c>.migration/runs/638807123456789012-a1b2c3d4/audit/migration-config.json</c>.
+    /// e.g. <c>.migration/runs/20260506-143822/audit/migration-config.json</c>.
     /// </summary>
     public static string RunAuditConfigFile(string runId)
         => $"{RunAuditFolder(runId)}/migration-config.json";
+
+    /// <summary>
+    /// Returns the run-level job metadata path,
+    /// e.g. <c>.migration/runs/20260506-143822/job.json</c>.
+    /// </summary>
+    public static string RunJobFile(string runId)
+        => $"{RunFolder(runId)}/job.json";
 
     /// <summary>
     /// Returns the artefact-store key for a module's cursor file,
@@ -124,7 +141,8 @@ public static class PackagePaths
     /// </summary>
     public static string IdentityWarning(string identity)
         => $"{SystemRoot}/identity-warnings/{Uri.EscapeDataString(identity)}.log";
-    /// <summary>
+
+    /// <summary>
     /// Returns the OS-native filesystem path for the export-progress database,
     /// e.g. <c>&lt;packageRoot&gt;\.migration\Checkpoints\export_progress.db</c>.
     /// </summary>

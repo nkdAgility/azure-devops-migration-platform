@@ -149,7 +149,7 @@ public abstract class AgentWorkerBase : BackgroundService
             lease.LeaseId, lease.Job.JobId, lease.Job.Kind);
 
         _leaseState.CurrentLeaseId = lease.LeaseId;
-        _packageState.CurrentJobId = lease.Job.JobId;
+        _packageState.CurrentJob = lease.Job;
 
         await OnJobAsync(lease.Job, controlPlane, lease.LeaseId, ct).ConfigureAwait(false);
 

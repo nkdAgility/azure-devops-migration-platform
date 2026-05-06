@@ -95,6 +95,10 @@ public sealed class TfsJobAgentWorker : ModulePipelineWorkerBase
     protected override async Task OnJobAsync(
         Job job, HttpClient controlPlane, string leaseId, CancellationToken ct)
     {
+        var (artefactStore, _) = PackageStoreFactory.Create(job.Package.PackageUri ?? ".");
+        PackageState.CurrentStore = artefactStore;
+        await WriteRunMetadataAsync(job, artefactStore, ct).ConfigureAwait(false);
+
         switch (job.Kind)
         {
             case JobKind.Export:
@@ -113,6 +117,19 @@ public sealed class TfsJobAgentWorker : ModulePipelineWorkerBase
                 await SignalTerminalAsync(controlPlane, leaseId, "fail", ct).ConfigureAwait(false);
                 break;
         }
+    }
+
+    private async Task WriteRunMetadataAsync(Job job, IArtefactStore artefactStore, CancellationToken ct)
+    {
+        var runId = PackageState.CurrentRunId;
+        if (string.IsNullOrEmpty(runId))
+        {
+            return;
+        }
+
+        var runJobPath = PackagePaths.RunJobFile(runId);
+        var jobJson = JsonSerializer.Serialize(job, AgentJsonOptions);
+        await artefactStore.WriteAsync(runJobPath, jobJson, ct).ConfigureAwait(false);
     }
 
     // ── Migration execution ───────────────────────────────────────────────────

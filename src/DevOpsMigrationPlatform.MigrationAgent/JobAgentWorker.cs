@@ -104,6 +104,8 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
 
         PackageState.CurrentStore = artefactStore;
 
+        await WriteRunMetadataAsync(job, artefactStore, ct).ConfigureAwait(false);
+
         // Write config payload from the Job into the package before any config reads.
         await WriteConfigPayloadAsync(job, artefactStore, ct).ConfigureAwait(false);
 
@@ -209,6 +211,23 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
         await artefactStore.WriteAsync(
             PackagePaths.MigrationConfigFileName, job.ConfigPayload, ct)
             .ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Persists the raw leased <see cref="Job"/> payload in the run folder as <c>job.json</c>
+    /// for audit and troubleshooting.
+    /// </summary>
+    private async Task WriteRunMetadataAsync(Job job, IArtefactStore artefactStore, CancellationToken ct)
+    {
+        var runId = PackageState.CurrentRunId;
+        if (string.IsNullOrEmpty(runId))
+        {
+            return;
+        }
+
+        var runJobPath = PackagePaths.RunJobFile(runId);
+        var jobJson = JsonSerializer.Serialize(job, AgentJsonOptions);
+        await artefactStore.WriteAsync(runJobPath, jobJson, ct).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -453,86 +472,86 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
             }
             else
             {
-            if (runExport)
-            {
-                // Execute export phase using the plan executor (includes Inventory if needed).
-                var moduleMap = jobModules.ToDictionary(m => m.Name, m => (IModule)m, StringComparer.OrdinalIgnoreCase);
-                var exportOk = await _planExecutor.ExecuteExportPhaseAsync(
-                    executionPlan, moduleMap, exportContext, stateStore, ct).ConfigureAwait(false);
-
-                failed = !exportOk;
-
-                if (isBoth && exportOk)
+                if (runExport)
                 {
-                    await phaseTracker.WritePhaseRecordAsync(
-                        new JobPhaseRecord { ExportCompleted = true, ImportCompleted = phaseRecord.ImportCompleted, UpdatedAt = DateTimeOffset.UtcNow },
-                        ct).ConfigureAwait(false);
-                }
-            }
+                    // Execute export phase using the plan executor (includes Inventory if needed).
+                    var moduleMap = jobModules.ToDictionary(m => m.Name, m => (IModule)m, StringComparer.OrdinalIgnoreCase);
+                    var exportOk = await _planExecutor.ExecuteExportPhaseAsync(
+                        executionPlan, moduleMap, exportContext, stateStore, ct).ConfigureAwait(false);
 
-            if (runImport)
-            {
-                // Execute import phase using the plan executor.
-                var moduleMap = jobModules.ToDictionary(m => m.Name, m => (IModule)m, StringComparer.OrdinalIgnoreCase);
-                var importOk = await _planExecutor.ExecuteImportPhaseAsync(
-                    executionPlan, moduleMap, importContext, stateStore, ct).ConfigureAwait(false);
+                    failed = !exportOk;
 
-                failed = !importOk;
-
-                if (isBoth && importOk)
-                {
-                    await phaseTracker.WritePhaseRecordAsync(
-                        new JobPhaseRecord { ExportCompleted = true, ImportCompleted = true, UpdatedAt = DateTimeOffset.UtcNow },
-                        ct).ConfigureAwait(false);
-                }
-            }
-
-            if (runPrepare)
-            {
-                var jobAnalysers = jobScope.ServiceProvider.GetServices<IAnalyser>().ToList();
-                var probeContent = System.Text.Json.JsonSerializer.Serialize(new
-                {
-                    jobId = job.JobId,
-                    timestamp = DateTimeOffset.UtcNow,
-                    status = "ok"
-                });
-                await artefactStore.WriteAsync("prepare-probe.json", probeContent, ct).ConfigureAwait(false);
-
-                var prepareModules = jobModules.Where(m => m.SupportsPrepare).ToList();
-                var requiredAnalyserNames = prepareModules
-                    .SelectMany(m => m.DependsOn.Where(d => d.AppliesToAnalyse).Select(d => d.ModuleName))
-                    .Distinct(StringComparer.OrdinalIgnoreCase)
-                    .ToList();
-
-                foreach (var analyser in jobAnalysers.Where(a => requiredAnalyserNames.Contains(a.Name, StringComparer.OrdinalIgnoreCase)))
-                {
-                    await analyser.AnalyseAsync(new AnalyseContext
+                    if (isBoth && exportOk)
                     {
-                        Job = job,
-                        ArtefactStore = artefactStore,
-                        StateStore = stateStore,
-                        ProgressSink = ProgressSink
-                    }, ct).ConfigureAwait(false);
+                        await phaseTracker.WritePhaseRecordAsync(
+                            new JobPhaseRecord { ExportCompleted = true, ImportCompleted = phaseRecord.ImportCompleted, UpdatedAt = DateTimeOffset.UtcNow },
+                            ct).ConfigureAwait(false);
+                    }
                 }
 
-                foreach (var module in prepareModules)
+                if (runImport)
                 {
-                    await module.PrepareAsync(prepareContext, ct).ConfigureAwait(false);
+                    // Execute import phase using the plan executor.
+                    var moduleMap = jobModules.ToDictionary(m => m.Name, m => (IModule)m, StringComparer.OrdinalIgnoreCase);
+                    var importOk = await _planExecutor.ExecuteImportPhaseAsync(
+                        executionPlan, moduleMap, importContext, stateStore, ct).ConfigureAwait(false);
+
+                    failed = !importOk;
+
+                    if (isBoth && importOk)
+                    {
+                        await phaseTracker.WritePhaseRecordAsync(
+                            new JobPhaseRecord { ExportCompleted = true, ImportCompleted = true, UpdatedAt = DateTimeOffset.UtcNow },
+                            ct).ConfigureAwait(false);
+                    }
                 }
 
-                if (needsPhaseRecord)
+                if (runPrepare)
                 {
-                    await phaseTracker.WritePhaseRecordAsync(
-                        new JobPhaseRecord
+                    var jobAnalysers = jobScope.ServiceProvider.GetServices<IAnalyser>().ToList();
+                    var probeContent = System.Text.Json.JsonSerializer.Serialize(new
+                    {
+                        jobId = job.JobId,
+                        timestamp = DateTimeOffset.UtcNow,
+                        status = "ok"
+                    });
+                    await artefactStore.WriteAsync("prepare-probe.json", probeContent, ct).ConfigureAwait(false);
+
+                    var prepareModules = jobModules.Where(m => m.SupportsPrepare).ToList();
+                    var requiredAnalyserNames = prepareModules
+                        .SelectMany(m => m.DependsOn.Where(d => d.AppliesToAnalyse).Select(d => d.ModuleName))
+                        .Distinct(StringComparer.OrdinalIgnoreCase)
+                        .ToList();
+
+                    foreach (var analyser in jobAnalysers.Where(a => requiredAnalyserNames.Contains(a.Name, StringComparer.OrdinalIgnoreCase)))
+                    {
+                        await analyser.AnalyseAsync(new AnalyseContext
                         {
-                            ExportCompleted = phaseRecord.ExportCompleted,
-                            PrepareCompleted = true,
-                            ImportCompleted = phaseRecord.ImportCompleted,
-                            UpdatedAt = DateTimeOffset.UtcNow
-                        },
-                        ct).ConfigureAwait(false);
+                            Job = job,
+                            ArtefactStore = artefactStore,
+                            StateStore = stateStore,
+                            ProgressSink = ProgressSink
+                        }, ct).ConfigureAwait(false);
+                    }
+
+                    foreach (var module in prepareModules)
+                    {
+                        await module.PrepareAsync(prepareContext, ct).ConfigureAwait(false);
+                    }
+
+                    if (needsPhaseRecord)
+                    {
+                        await phaseTracker.WritePhaseRecordAsync(
+                            new JobPhaseRecord
+                            {
+                                ExportCompleted = phaseRecord.ExportCompleted,
+                                PrepareCompleted = true,
+                                ImportCompleted = phaseRecord.ImportCompleted,
+                                UpdatedAt = DateTimeOffset.UtcNow
+                            },
+                            ct).ConfigureAwait(false);
+                    }
                 }
-            }
             } // end else (non-Inventory job kinds)
         }
         catch (Exception ex)
