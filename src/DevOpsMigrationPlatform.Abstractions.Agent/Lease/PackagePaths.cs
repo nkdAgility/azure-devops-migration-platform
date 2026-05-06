@@ -107,6 +107,13 @@ public static class PackagePaths
         => $"{RunFolder(runId)}/plan.json";
 
     /// <summary>
+    /// Returns the run-level migration config snapshot path,
+    /// e.g. <c>.migration/runs/20260506-143822/migration-config.json</c>.
+    /// </summary>
+    public static string RunConfigFile(string runId)
+        => $"{RunFolder(runId)}/config.json";
+
+    /// <summary>
     /// Returns the artefact-store key for a module's cursor file,
     /// e.g. <c>.migration/Checkpoints/workitems.cursor.json</c>.
     /// </summary>

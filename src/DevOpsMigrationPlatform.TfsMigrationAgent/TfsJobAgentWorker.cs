@@ -123,13 +123,17 @@ public sealed class TfsJobAgentWorker : ModulePipelineWorkerBase
     {
         var runId = PackageState.CurrentRunId;
         if (string.IsNullOrEmpty(runId))
-        {
             return;
-        }
 
-        var runJobPath = PackagePaths.RunJobFile(runId);
+        var runJobPath = PackagePaths.RunJobFile(runId!);
         var jobJson = JsonSerializer.Serialize(job, AgentJsonOptions);
         await artefactStore.WriteAsync(runJobPath, jobJson, ct).ConfigureAwait(false);
+
+        if (!string.IsNullOrWhiteSpace(job.ConfigPayload))
+        {
+            var runConfigPath = PackagePaths.RunConfigFile(runId!);
+            await artefactStore.WriteAsync(runConfigPath, job.ConfigPayload!, ct).ConfigureAwait(false);
+        }
     }
 
     // ── Migration execution ───────────────────────────────────────────────────
