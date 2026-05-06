@@ -15,6 +15,7 @@
     "Mode": "Export",
     "Source": {
       "Type": "Simulated",
+      "Project": "SimulatedProject",
       "Generator": {
         "Projects": [
           {

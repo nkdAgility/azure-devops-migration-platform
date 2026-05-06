@@ -37,6 +37,7 @@ public sealed class ReferencedPathTracker : IReferencedPathTracker
     private readonly ILogger<ReferencedPathTracker> _logger;
     private readonly HashSet<string> _areaPaths = new(StringComparer.OrdinalIgnoreCase);
     private readonly HashSet<string> _iterationPaths = new(StringComparer.OrdinalIgnoreCase);
+    private readonly SemaphoreSlim _lock = new(1, 1);
 
     public ReferencedPathTracker(ILogger<ReferencedPathTracker> logger)
     {
@@ -52,10 +53,18 @@ public sealed class ReferencedPathTracker : IReferencedPathTracker
         var existing = JsonSerializer.Deserialize<ReferencedPathsArtifact>(json, s_jsonOptions);
         if (existing is null) return;
 
-        foreach (var p in existing.AreaPaths)
-            _areaPaths.Add(p);
-        foreach (var p in existing.IterationPaths)
-            _iterationPaths.Add(p);
+        await _lock.WaitAsync(ct).ConfigureAwait(false);
+        try
+        {
+            foreach (var p in existing.AreaPaths)
+                _areaPaths.Add(p);
+            foreach (var p in existing.IterationPaths)
+                _iterationPaths.Add(p);
+        }
+        finally
+        {
+            _lock.Release();
+        }
 
         _logger.LogDebug("[NodeTranslation] Loaded {AreaCount} area paths and {IterCount} iteration paths from existing artifact.",
             _areaPaths.Count, _iterationPaths.Count);
@@ -64,7 +73,18 @@ public sealed class ReferencedPathTracker : IReferencedPathTracker
     /// <summary>Records a discovered area path. If new, persists the artifact.</summary>
     public async Task RecordAreaPathAsync(string path, IArtefactStore artefactStore, CancellationToken ct)
     {
-        if (!_areaPaths.Add(path)) return;
+        await _lock.WaitAsync(ct).ConfigureAwait(false);
+        bool added;
+        try
+        {
+            added = _areaPaths.Add(path);
+        }
+        finally
+        {
+            _lock.Release();
+        }
+
+        if (!added) return;
         await PersistAsync(artefactStore, ct).ConfigureAwait(false);
         _logger.LogDebug("[NodeTranslation] Area path discovered: {Path}", path);
     }
@@ -72,7 +92,18 @@ public sealed class ReferencedPathTracker : IReferencedPathTracker
     /// <summary>Records a discovered iteration path. If new, persists the artifact.</summary>
     public async Task RecordIterationPathAsync(string path, IArtefactStore artefactStore, CancellationToken ct)
     {
-        if (!_iterationPaths.Add(path)) return;
+        await _lock.WaitAsync(ct).ConfigureAwait(false);
+        bool added;
+        try
+        {
+            added = _iterationPaths.Add(path);
+        }
+        finally
+        {
+            _lock.Release();
+        }
+
+        if (!added) return;
         await PersistAsync(artefactStore, ct).ConfigureAwait(false);
         _logger.LogDebug("[NodeTranslation] Iteration path discovered: {Path}", path);
     }
@@ -80,11 +111,20 @@ public sealed class ReferencedPathTracker : IReferencedPathTracker
     private async Task PersistAsync(IArtefactStore artefactStore, CancellationToken ct)
     {
         using var activity = s_activitySource.StartActivity("nodes.export.discover");
-        var artifact = new ReferencedPathsArtifact(
-            new List<string>(_areaPaths),
-            new List<string>(_iterationPaths));
-        var json = JsonSerializer.Serialize(artifact, s_jsonOptions);
-        await artefactStore.WriteAsync(ArtifactPath, json, ct).ConfigureAwait(false);
+
+        await _lock.WaitAsync(ct).ConfigureAwait(false);
+        try
+        {
+            var artifact = new ReferencedPathsArtifact(
+                new List<string>(_areaPaths),
+                new List<string>(_iterationPaths));
+            var json = JsonSerializer.Serialize(artifact, s_jsonOptions);
+            await artefactStore.WriteAsync(ArtifactPath, json, ct).ConfigureAwait(false);
+        }
+        finally
+        {
+            _lock.Release();
+        }
     }
 
     /// <summary>Returns current area paths (for testing).</summary>

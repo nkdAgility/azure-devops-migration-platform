@@ -107,7 +107,10 @@ public sealed class TeamExportOrchestrator
                     await _referencedPathTracker.RecordAreaPathAsync(areaPaths.DefaultAreaPath, artefactStore, ct).ConfigureAwait(false);
 
                 foreach (var path in areaPaths.IncludedAreaPaths)
+                {
+                    if (string.IsNullOrEmpty(path)) continue;
                     await _referencedPathTracker.RecordAreaPathAsync(path, artefactStore, ct).ConfigureAwait(false);
+                }
             }
         }
 
