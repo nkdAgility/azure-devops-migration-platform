@@ -101,9 +101,13 @@ public sealed class DependencyAnalyser : IOrganisationsAnalyser
                 {
                     // Edge Case EC-5: capture task may have failed to write this file.
                     // Log the missing file and continue processing remaining projects.
-                    _logger.LogError(
-                        "Required dependency CSV not found at {Path}. Skipping project.",
-                        path);
+                    // Path contains org URL + project name — customer-data scope required.
+                    using (DataClassificationScope.Begin(DataClassification.Customer))
+                    {
+                        _logger.LogError(
+                            "Required dependency CSV not found at {Path}. Skipping project.",
+                            path);
+                    }
                     continue;
                 }
                 if (string.IsNullOrWhiteSpace(content))

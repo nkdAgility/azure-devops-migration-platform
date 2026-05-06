@@ -78,18 +78,21 @@ public sealed class DependencyCapture : ICapture
 
         // O-1: root span
         using var rootActivity = s_activitySource.StartActivity("dependency.capture");
-        rootActivity?.SetTag("job.id", jobId);
-        rootActivity?.SetTag("org.url", orgUrl);
-        rootActivity?.SetTag("project.name", project);
-        rootActivity?.SetTag("capture.handler", "dependencies");
+        rootActivity?.SetTag(WellKnownTagNames.Job.Id, jobId);
+        rootActivity?.SetTag(WellKnownTagNames.Organisation.Url, orgUrl);
+        rootActivity?.SetTag(WellKnownTagNames.Organisation.ProjectName, project);
+        rootActivity?.SetTag(WellKnownTagNames.Capture.HandlerName, "dependencies");
 
         // O-2: started
         _metrics?.DependenciesCaptureStarted(tags);
 
-        // O-3: log start
-        _logger.LogInformation(
-            "Capture started for {Org}/{Project} via handler {Handler} (job {JobId})",
-            orgUrl, project, Name, jobId);
+        // O-3: log start (customer-data scope: orgUrl, project)
+        using (DataClassificationScope.Begin(DataClassification.Customer))
+        {
+            _logger.LogInformation(
+                "Capture started for {Org}/{Project} via handler {Handler} (job {JobId})",
+                orgUrl, project, Name, jobId);
+        }
 
         // O-4: emit Capturing progress event
         (context.ProgressSink ?? _progressSink)?.Emit(new ProgressEvent
@@ -107,8 +110,8 @@ public sealed class DependencyCapture : ICapture
             // O-1: child span — create_service
             using (var createServiceActivity = s_activitySource.StartActivity("dependency.capture.create_service"))
             {
-                createServiceActivity?.SetTag("org.url", orgUrl);
-                createServiceActivity?.SetTag("project.name", project);
+                createServiceActivity?.SetTag(WellKnownTagNames.Organisation.Url, orgUrl);
+                createServiceActivity?.SetTag(WellKnownTagNames.Organisation.ProjectName, project);
 
                 dependencyService = _dependencyFactory.CreateForProject(
                     context.Organisations,
@@ -120,8 +123,8 @@ public sealed class DependencyCapture : ICapture
             // O-1: child span — execute
             using (var executeActivity = s_activitySource.StartActivity("dependency.capture.execute"))
             {
-                executeActivity?.SetTag("org.url", orgUrl);
-                executeActivity?.SetTag("project.name", project);
+                executeActivity?.SetTag(WellKnownTagNames.Organisation.Url, orgUrl);
+                executeActivity?.SetTag(WellKnownTagNames.Organisation.ProjectName, project);
 
                 await _orchestrator.CaptureProjectAsync(
                     dependencyService, context, context.Policies, ct).ConfigureAwait(false);
@@ -131,9 +134,9 @@ public sealed class DependencyCapture : ICapture
             var outputPath = $"discovery/{orgUrl.TrimEnd('/').Replace("://", "_").Replace('/', '_')}/{project}/dependencies.csv";
             using (var writeCsvActivity = s_activitySource.StartActivity("dependency.capture.write_csv"))
             {
-                writeCsvActivity?.SetTag("org.url", orgUrl);
-                writeCsvActivity?.SetTag("project.name", project);
-                writeCsvActivity?.SetTag("output.path", outputPath);
+                writeCsvActivity?.SetTag(WellKnownTagNames.Organisation.Url, orgUrl);
+                writeCsvActivity?.SetTag(WellKnownTagNames.Organisation.ProjectName, project);
+                writeCsvActivity?.SetTag(WellKnownTagNames.Capture.OutputPath, outputPath);
             }
 
             sw.Stop();
@@ -142,10 +145,13 @@ public sealed class DependencyCapture : ICapture
             _metrics?.DependenciesCaptureCompleted(tags);
             _metrics?.RecordDependenciesCaptureDuration(sw.Elapsed.TotalMilliseconds, tags);
 
-            // O-3: log completion
-            _logger.LogInformation(
-                "Capture completed for {Org}/{Project} in {DurationMs}ms → {OutputPath} (job {JobId})",
-                orgUrl, project, sw.Elapsed.TotalMilliseconds, outputPath, jobId);
+            // O-3: log completion (customer-data scope: orgUrl, project, outputPath)
+            using (DataClassificationScope.Begin(DataClassification.Customer))
+            {
+                _logger.LogInformation(
+                    "Capture completed for {Org}/{Project} in {DurationMs}ms → {OutputPath} (job {JobId})",
+                    orgUrl, project, sw.Elapsed.TotalMilliseconds, outputPath, jobId);
+            }
 
             // O-4: emit Captured progress event
             (context.ProgressSink ?? _progressSink)?.Emit(new ProgressEvent
@@ -170,7 +176,10 @@ public sealed class DependencyCapture : ICapture
         catch (OperationCanceledException)
         {
             sw.Stop();
-            _logger.LogWarning("[Dependencies] CaptureAsync cancelled for {Project} in {Org}.", project, orgUrl);
+            using (DataClassificationScope.Begin(DataClassification.Customer))
+            {
+                _logger.LogWarning("[Dependencies] CaptureAsync cancelled for {Project} in {Org}.", project, orgUrl);
+            }
             throw;
         }
         catch (Exception ex)
@@ -181,10 +190,13 @@ public sealed class DependencyCapture : ICapture
             _metrics?.DependenciesCaptureFailed(tags);
             _metrics?.RecordDependenciesCaptureDuration(sw.Elapsed.TotalMilliseconds, tags);
 
-            // O-3: log error
-            _logger.LogError(
-                "Capture failed for {Org}/{Project}: {ErrorType} {ErrorMessage} (job {JobId})",
-                orgUrl, project, ex.GetType().Name, ex.Message, jobId);
+            // O-3: log error (customer-data scope: orgUrl, project)
+            using (DataClassificationScope.Begin(DataClassification.Customer))
+            {
+                _logger.LogError(
+                    "Capture failed for {Org}/{Project}: {ErrorType} {ErrorMessage} (job {JobId})",
+                    orgUrl, project, ex.GetType().Name, ex.Message, jobId);
+            }
 
             // O-4: emit Failed progress event
             (context.ProgressSink ?? _progressSink)?.Emit(new ProgressEvent
