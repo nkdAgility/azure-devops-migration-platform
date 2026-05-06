@@ -779,7 +779,15 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
                         await foreach (var update in updates.Reader.ReadAllAsync(followCts.Token).ConfigureAwait(false))
                         {
                             state = Apply(state, update);
-                            ctx.UpdateTarget(BuildProgressDisplay(state));
+
+                            // While Tasks is null the display shows static "Initialising" text.
+                            // Every ctx.UpdateTarget call re-emits that line to terminals that
+                            // can't fully honour ANSI cursor-up, producing one appended
+                            // "Initialising" line per incoming SSE event (one per task).
+                            // The initial render from console.Live(...) already shows the text,
+                            // so skip all UpdateTarget calls until the task list has arrived.
+                            if (state.Tasks is not null)
+                                ctx.UpdateTarget(BuildProgressDisplay(state));
                             if (update is JobTerminated jt)
                             {
                                 if (jt.Failed)
@@ -990,6 +998,15 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
 
                     if (update is JobTerminated jt)
                     {
+                        // On fast jobs the SSE stream ends before the bootstrap HTTP call
+                        // completes, so TaskListReceived arrives after this break. Drain it
+                        // here so the final summary (if any) is accurate.
+                        try { await bootstrapTask.WaitAsync(TimeSpan.FromSeconds(5)).ConfigureAwait(false); }
+                        catch (OperationCanceledException) { }
+                        catch (Exception) { /* best-effort */ }
+                        while (updates.Reader.TryRead(out var pending))
+                            discoveryState = ApplyDiscovery(discoveryState, pending);
+
                         if (jt.Failed)
                         {
                             jobFailed = true;
@@ -1027,9 +1044,29 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
                         await foreach (var update in updates.Reader.ReadAllAsync(followCts.Token).ConfigureAwait(false))
                         {
                             discoveryState = ApplyDiscovery(discoveryState, update);
-                            ctx.UpdateTarget(BuildDiscoveryDisplay(discoveryState));
+
+                            // While Tasks is null the display shows static "Initialising" text.
+                            // Every ctx.UpdateTarget call re-emits that line to terminals that
+                            // can't fully honour ANSI cursor-up, producing one appended
+                            // "Initialising" line per incoming SSE event (one per task).
+                            // The initial render from console.Live(...) already shows the text,
+                            // so skip all UpdateTarget calls until the task list has arrived.
+                            if (discoveryState.Tasks is not null || discoveryState.Projects.Count > 0)
+                                ctx.UpdateTarget(BuildDiscoveryDisplay(discoveryState));
+
                             if (update is JobTerminated jt)
                             {
+                                // On fast jobs the SSE stream ends before the bootstrap HTTP
+                                // call completes, leaving the display stuck at "Initialising".
+                                // Await the bootstrap task then drain any pending updates so
+                                // the final render shows tasks rather than the spinner text.
+                                try { await bootstrapTask.WaitAsync(TimeSpan.FromSeconds(5)).ConfigureAwait(false); }
+                                catch (OperationCanceledException) { }
+                                catch (Exception) { /* best-effort */ }
+                                while (updates.Reader.TryRead(out var pending))
+                                    discoveryState = ApplyDiscovery(discoveryState, pending);
+                                ctx.UpdateTarget(BuildDiscoveryDisplay(discoveryState));
+
                                 if (jt.Failed)
                                 {
                                     jobFailed = true;

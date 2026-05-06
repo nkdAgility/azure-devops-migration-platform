@@ -465,7 +465,7 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
                 return;
             }
 
-            // Resolve the handler: Analyse tasks go to IAnalyser; all others go to IModule.
+            // Resolve the handler: Analyse tasks go to IAnalyser; Capture tasks check IProjectAnalyser first then IModule; all others go to IModule.
             string handlerName;
             IModule? module = null;
             IAnalyser? analyserForTask = null;
@@ -477,6 +477,25 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
                 {
                     _logger.LogError(
                         "Task {TaskId} references analyser '{Analyser}', but it is not registered. Skipping.",
+                        task.Id, handlerName);
+                    return;
+                }
+            }
+            else if (task.TaskKind == TaskKind.Capture && analysersByName is not null)
+            {
+                // Capture tasks may be handled by an IProjectAnalyser (e.g. capture.dependencies.*)
+                // if no module with that name is registered.
+                handlerName = GetModuleName(task.Id, analysersByName.Keys.Concat(modulesByName.Keys));
+                if (analysersByName.TryGetValue(handlerName, out var candidateAnalyser)
+                    && candidateAnalyser is IProjectAnalyser
+                    && !modulesByName.ContainsKey(handlerName))
+                {
+                    analyserForTask = candidateAnalyser;
+                }
+                else if (!modulesByName.TryGetValue(handlerName, out module))
+                {
+                    _logger.LogError(
+                        "Task {TaskId} references module or project analyser '{Handler}', but neither is registered. Skipping.",
                         task.Id, handlerName);
                     return;
                 }
@@ -545,6 +564,28 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
 
                 if (analyserForTask is not null)
                 {
+                    // IProjectAnalyser Capture task: build scoped InventoryContext and call CaptureProjectAsync.
+                    if (task.TaskKind == TaskKind.Capture && analyserForTask is IProjectAnalyser projectAnalyser)
+                    {
+                        if (baseInventoryContext is null)
+                            throw new InvalidOperationException($"Capture task {task.Id} (IProjectAnalyser) requires a base InventoryContext.");
+
+                        var orgUrl = task.OrganisationUrl;
+                        var endpoint = (orgUrl is { Length: > 0 }
+                            && endpointsByUrl?.TryGetValue(orgUrl, out var ep) == true)
+                            ? ep
+                            : baseInventoryContext.SourceEndpoint;
+
+                        var scopedCtx = baseInventoryContext with
+                        {
+                            Project = task.ProjectName ?? string.Empty,
+                            SourceEndpoint = endpoint
+                        };
+
+                        await projectAnalyser.CaptureProjectAsync(scopedCtx, ct).ConfigureAwait(false);
+                    }
+                    else
+                    {
                     // Analyse task: build context from whichever base context is available.
                     var job = (baseInventoryContext?.Job ?? exportContext?.Job ?? importContext?.Job)
                         ?? throw new InvalidOperationException("No job context available to build AnalyseContext.");
@@ -576,6 +617,7 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
                             };
 
                     await analyserForTask.AnalyseAsync(analyseContext, ct).ConfigureAwait(false);
+                    } // end else (Analyse task)
                 }
                 else
                 {

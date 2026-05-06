@@ -969,6 +969,159 @@ internal sealed class DependencyOrchestrator : IDependencyOrchestrator
             job.JobId, recordCount);
     }
 
+    /// <summary>
+    /// Captures dependency links for a single org+project pair.
+    /// Writes <c>discovery/{orgFolder}/{projectFolder}/dependencies.csv</c>.
+    /// No cursor management — the plan executor handles task-level resume.
+    /// </summary>
+    public async Task CaptureProjectAsync(
+        IDependencyDiscoveryService dependencyService,
+        InventoryContext context,
+        JobPolicies policies,
+        CancellationToken ct)
+    {
+        var orgUrl = context.SourceEndpoint?.ResolvedUrl ?? string.Empty;
+        var project = context.Project;
+        var store = context.ArtefactStore;
+        var sink = context.ProgressSink ?? NullProgressSink.Instance;
+        var job = context.Job;
+
+        var orgFolder = PackagePathResolver.ExtractOrgFolderName(orgUrl);
+        var projectFolder = $"{orgFolder}/{PackagePathResolver.Sanitise(project)}";
+        var outputPath = $"discovery/{projectFolder}/dependencies.csv";
+
+        using var activity = ActivitySource.StartActivity("capture.dependencies.project", ActivityKind.Internal);
+        activity?.SetTag("job.id", job.JobId);
+        activity?.SetTag("organisation.url", orgUrl);
+        activity?.SetTag("project.name", project);
+
+        _logger.LogInformation(
+            "Capturing dependencies for project {Project} in {OrgUrl}.",
+            project, orgUrl);
+
+        sink.Emit(new ProgressEvent
+        {
+            Module = ModuleName,
+            Stage = "Counting",
+            Message = $"{orgUrl}|{project}",
+            Timestamp = DateTimeOffset.UtcNow
+        });
+
+        const string CsvHeader =
+            "SourceWorkItemId,SourceWorkItemType,SourceProject,SourceOrganisationUrl," +
+            "LinkType,LinkScope,TargetWorkItemId,TargetProject,TargetOrganisation,TargetStatus,LinkChangedDate,SourceWorkItemChangedDate,SourceWorkItemStateCategory";
+
+        var csvBuilder = new StringBuilder();
+        csvBuilder.AppendLine(CsvHeader);
+
+        int linksFound = 0;
+        int crossProjectCount = 0;
+        int crossOrgCount = 0;
+        int workItemsAnalysed = 0;
+        int totalWorkItems = 0;
+
+        using var _dataScope = DataClassificationScope.Begin(DataClassification.Customer);
+
+        await foreach (var evt in dependencyService.DiscoverDependenciesAsync(cancellationToken: ct).ConfigureAwait(false))
+        {
+            switch (evt)
+            {
+                case DependencyFoundEvent found:
+                    var r = found.Record;
+                    var csvLine =
+                        $"{r.SourceWorkItemId},{EscapeCsv(r.SourceWorkItemType ?? "")}," +
+                        $"{EscapeCsv(r.SourceProject ?? "")},{EscapeCsv(r.SourceOrganisationUrl)}," +
+                        $"{EscapeCsv(r.LinkType ?? "")},{r.LinkScope}," +
+                        $"{r.TargetWorkItemId},{EscapeCsv(r.TargetProject ?? "")}," +
+                        $"{EscapeCsv(r.TargetOrganisation ?? "")},{r.TargetStatus}," +
+                        $"{(r.LinkChangedDate.HasValue ? r.LinkChangedDate.Value.ToString("O") : "")}," +
+                        $"{(r.SourceWorkItemChangedDate.HasValue ? r.SourceWorkItemChangedDate.Value.ToString("O") : "")}," +
+                        $"{EscapeCsv(r.SourceWorkItemStateCategory ?? "")}";
+                    csvBuilder.AppendLine(csvLine);
+                    linksFound++;
+                    if (r.LinkScope == LinkScope.CrossProject) crossProjectCount++;
+                    if (r.LinkScope == LinkScope.CrossOrganisation) crossOrgCount++;
+
+                    _metrics?.RecordLinksFound(1, new MetricsTagList
+                    {
+                        { "job.id", job.JobId },
+                        { "module", ModuleName },
+                        { "organisation.url", r.SourceOrganisationUrl },
+                        { "link.scope", r.LinkScope.ToString() }
+                    });
+                    break;
+
+                case DependencyHeartbeatEvent heartbeat:
+                    workItemsAnalysed = heartbeat.WorkItemsAnalysed;
+                    totalWorkItems = heartbeat.TotalWorkItems;
+
+                    sink.Emit(new ProgressEvent
+                    {
+                        Module = ModuleName,
+                        Stage = heartbeat.Error is not null
+                            ? "Failed"
+                            : heartbeat.IsComplete
+                                ? "ProjectComplete"
+                                : heartbeat.IsCounting
+                                    ? "Counting"
+                                    : "Analysis",
+                        Message = $"{orgUrl}|{project}",
+                        Timestamp = DateTimeOffset.UtcNow,
+                        Metrics = new JobMetrics
+                        {
+                            Scope = new JobScopeCounters { WorkItemsTotal = heartbeat.TotalWorkItems },
+                            Discovery = new DiscoveryCounters
+                            {
+                                Dependencies = new DependencyCounters
+                                {
+                                    WorkItemsAnalysed = heartbeat.WorkItemsAnalysed,
+                                    ExternalLinksFound = linksFound,
+                                    CrossProjectLinks = crossProjectCount,
+                                    CrossOrgLinks = crossOrgCount
+                                }
+                            }
+                        }
+                    });
+                    break;
+            }
+        }
+
+        await store.WriteAsync(outputPath, csvBuilder.ToString(), ct).ConfigureAwait(false);
+
+        if (linksFound == 0)
+        {
+            _logger.LogWarning(
+                "Zero dependency links captured for project {Project} in {OrgUrl} — verify the project is reachable and contains linked work items.",
+                project, orgUrl);
+        }
+
+        sink.Emit(new ProgressEvent
+        {
+            Module = ModuleName,
+            Stage = "ProjectComplete",
+            Message = $"{orgUrl}|{project}",
+            Timestamp = DateTimeOffset.UtcNow,
+            Metrics = new JobMetrics
+            {
+                Scope = new JobScopeCounters { WorkItemsTotal = totalWorkItems },
+                Discovery = new DiscoveryCounters
+                {
+                    Dependencies = new DependencyCounters
+                    {
+                        WorkItemsAnalysed = workItemsAnalysed,
+                        ExternalLinksFound = linksFound,
+                        CrossProjectLinks = crossProjectCount,
+                        CrossOrgLinks = crossOrgCount
+                    }
+                }
+            }
+        });
+
+        _logger.LogInformation(
+            "Captured {Links} dependency links for project {Project} in {OrgUrl}. Written to {Path}.",
+            linksFound, project, orgUrl, outputPath);
+    }
+
     private static Task WriteCursorAsync(
         IStateStore state,
         int recordCount,

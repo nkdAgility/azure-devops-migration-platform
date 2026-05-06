@@ -688,14 +688,11 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
             }
             else
             {
-                // Build an endpoint map so capture tasks can resolve per-org endpoints.
+                // Build org endpoint map so per-project capture tasks can resolve the correct org endpoint.
                 var endpointsByUrl = organisations
                     .Where(o => !string.IsNullOrEmpty(o.Endpoint.GetResolvedUrl()))
                     .GroupBy(o => o.Endpoint.GetResolvedUrl(), StringComparer.OrdinalIgnoreCase)
-                    .ToDictionary(
-                        g => g.Key,
-                        g => g.First().Endpoint.ToOrganisationEndpoint(),
-                        StringComparer.OrdinalIgnoreCase);
+                    .ToDictionary(g => g.Key, g => g.First().Endpoint.ToOrganisationEndpoint(), StringComparer.OrdinalIgnoreCase);
 
                 var baseInventoryContext = new InventoryContext
                 {
@@ -709,13 +706,13 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
                     Policies = policies
                 };
 
-                var depsModuleMap = modulesToRun.ToDictionary(m => m.Name, m => (IModule)m, StringComparer.OrdinalIgnoreCase);
                 var depAnalysersByName = analysersToRun.ToDictionary(a => a.Name, StringComparer.OrdinalIgnoreCase);
+                var depModuleMap = modulesToRun.ToDictionary(m => m.Name, m => (IModule)m, StringComparer.OrdinalIgnoreCase);
 
                 try
                 {
                     var depsOk = await _planExecutor.ExecuteTasksAsync(
-                        discoveryPlan, depsModuleMap, depAnalysersByName,
+                        discoveryPlan, modulesByName: depModuleMap, depAnalysersByName,
                         baseInventoryContext, baseExportContext: null, importContext: null,
                         endpointsByUrl, stateStore, ct).ConfigureAwait(false);
                     failed = !depsOk;

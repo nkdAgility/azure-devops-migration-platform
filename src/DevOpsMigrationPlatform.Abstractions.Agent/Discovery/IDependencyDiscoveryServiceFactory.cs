@@ -21,4 +21,14 @@ public interface IDependencyDiscoveryServiceFactory
     IDependencyDiscoveryService Create(
         IReadOnlyList<ScopedOrganisationEndpoint> organisations,
         JobPolicies policies);
+
+    /// <summary>
+    /// Creates an <see cref="IDependencyDiscoveryService"/> scoped to a single org+project pair.
+    /// Used by the per-project fan-out capture tasks.
+    /// </summary>
+    IDependencyDiscoveryService CreateForProject(
+        IReadOnlyList<ScopedOrganisationEndpoint> allOrganisations,
+        string orgUrl,
+        string projectName,
+        JobPolicies policies);
 }

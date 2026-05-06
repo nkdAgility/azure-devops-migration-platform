@@ -510,6 +510,10 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
         }
         else if (kind == JobKind.Dependencies)
         {
+            var captureModules = _modules
+                .Where(m => m.SupportsInventory && IsEnabled(config, m.Name))
+                .ToList();
+
             var orgProjectScopes = await ResolveOrgProjectScopesAsync(config, ct).ConfigureAwait(false);
             var allCaptureTaskIds = new List<string>();
 
@@ -518,25 +522,92 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
                 foreach (var project in projects)
                 {
                     var projectSlug = PackagePathResolver.Sanitise(project);
-                    var taskId = $"capture.dependencies.{orgSlug}.{projectSlug}";
 
-                    tasks.Add(MakeTask(
-                        taskId,
-                        $"Dependencies Capture [{project}]",
-                        phase: null,
-                        TaskKind.Capture,
-                        organisationUrl: endpoint.ResolvedUrl,
-                        projectName: project,
-                        enabled: true,
-                        phaseAlreadyDone: false,
-                        order: order++));
+                    var projectCaptureIds = captureModules
+                        .Select(m => $"capture.{m.Name.ToLowerInvariant()}.{orgSlug}.{projectSlug}")
+                        .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
-                    allCaptureTaskIds.Add(taskId);
+                    foreach (var module in captureModules)
+                    {
+                        var taskId = $"capture.{module.Name.ToLowerInvariant()}.{orgSlug}.{projectSlug}";
+
+                        var deps = new List<string>();
+                        foreach (var dep in module.DependsOn.Where(d => d.AppliesToInventory))
+                        {
+                            var depTaskId = $"capture.{dep.ModuleName.ToLowerInvariant()}.{orgSlug}.{projectSlug}";
+                            if (projectCaptureIds.Contains(depTaskId))
+                                deps.Add(depTaskId);
+                        }
+
+                        tasks.Add(MakeTask(
+                            taskId,
+                            $"{module.Name} Capture [{project}]",
+                            phase: null,
+                            TaskKind.Capture,
+                            organisationUrl: endpoint.ResolvedUrl,
+                            projectName: project,
+                            enabled: true,
+                            phaseAlreadyDone: false,
+                            order: 0,
+                            dependsOn: deps.Count > 0 ? deps.AsReadOnly() : null));
+
+                        allCaptureTaskIds.Add(taskId);
+                    }
+                }
+            }
+
+            tasks = TopologicalSort(tasks);
+            for (int i = 0; i < tasks.Count; i++)
+                tasks[i] = tasks[i] with { Order = order++ };
+
+            // Fan-in: analyse.inventory consolidates all captures, then analyse.dependencies runs on top.
+            if (_analysersByName.TryGetValue("Inventory", out var inventoryAnalyserForDeps))
+            {
+                tasks.Add(MakeTask(
+                    "analyse.inventory",
+                    $"{inventoryAnalyserForDeps.Name} Analyse",
+                    phase: null,
+                    TaskKind.Analyse,
+                    organisationUrl: null,
+                    projectName: null,
+                    enabled: true,
+                    phaseAlreadyDone: false,
+                    order: order++,
+                    dependsOn: allCaptureTaskIds.AsReadOnly()));
+            }
+
+            // Dependencies fan-out: one capture.dependencies.{org}.{project} task per project,
+            // each depending on analyse.inventory completing first.
+            var depCaptureTaskIds = new List<string>();
+            if (_analysersByName.ContainsKey("Dependencies"))
+            {
+                foreach (var (endpoint, orgSlug, projects) in orgProjectScopes)
+                {
+                    foreach (var project in projects)
+                    {
+                        var projectSlug = PackagePathResolver.Sanitise(project);
+                        var taskId = $"capture.dependencies.{orgSlug}.{projectSlug}";
+                        tasks.Add(MakeTask(
+                            taskId,
+                            $"Dependencies Capture [{project}]",
+                            phase: null,
+                            TaskKind.Capture,
+                            organisationUrl: endpoint.ResolvedUrl,
+                            projectName: project,
+                            enabled: true,
+                            phaseAlreadyDone: false,
+                            order: order++,
+                            dependsOn: Array.AsReadOnly(new[] { "analyse.inventory" })));
+                        depCaptureTaskIds.Add(taskId);
+                    }
                 }
             }
 
             if (_analysersByName.TryGetValue("Dependencies", out var dependencyAnalyser))
             {
+                var depAnalysisDeps = depCaptureTaskIds.Count > 0
+                    ? depCaptureTaskIds.AsReadOnly()
+                    : Array.AsReadOnly(new[] { "analyse.inventory" });
                 tasks.Add(MakeTask(
                     "analyse.dependencies",
                     $"{dependencyAnalyser.Name} Analyse",
@@ -547,7 +618,7 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
                     enabled: true,
                     phaseAlreadyDone: false,
                     order: order++,
-                    dependsOn: allCaptureTaskIds.Count > 0 ? allCaptureTaskIds.AsReadOnly() : null));
+                    dependsOn: depAnalysisDeps));
             }
         }
 
