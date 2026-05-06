@@ -227,7 +227,7 @@ union
 | `icapture.rename` | Simulated | US1 Scenario 1: simulated `capture.workitems.*` task plan calls `WorkItemsModule.CaptureAsync` ✅ |
 | `icapture.rename` | AzureDevOps | US1 Scenarios 1–3 cover the unified dispatch path ✅ |
 | `icapture.rename` | TFS | Carry-over — TFS module implementations rename `InventoryAsync` → `CaptureAsync` identically ✅ |
-| `dependency.capture` | Simulated | **MISSING** — No scenario exercises `DependencyCapture.CaptureAsync` with a Simulated source ⚠️ |
+| `dependency.capture` | Simulated | US2 Scenario 4: `SimulatedDependencyDiscoveryServiceFactory` resolves for Simulated-sourced plans, completing without external connectivity and writing per-project CSV ✅ |
 | `dependency.capture` | AzureDevOps | US2 Scenario 1: `capture.dependencies.{org}.{project}` tasks resolve to `DependencyCapture` ✅ |
 | `dependency.capture` | TFS | Exempt ✅ |
 
@@ -239,10 +239,12 @@ union
 
 ### Gaps
 
-| Feature | Connector | Gap | Required Action |
+All gaps from the initial Connector Coverage assessment have been resolved within this spec:
+
+| Feature | Connector | Gap (Original) | Resolution |
 |---|---|---|---|
-| `dependency.capture` | Simulated | No `IDependencyDiscoveryServiceFactory` implementation for Simulated connector exists. `AddSimulatedDependencyAnalysis` registers `IWorkItemLinkAnalysisService` (keyed "Simulated") but not the factory. `DependencyCapture` cannot be exercised by Simulated-sourced test plans. | Add FR-016: Create `SimulatedDependencyDiscoveryServiceFactory : IDependencyDiscoveryServiceFactory` in `Infrastructure.Simulated`, backed by `SimulatedWorkItemLinkAnalysisService`. Register via `AddSimulatedDependencyAnalysis`. Add US2 Scenario 4 covering Simulated end-to-end. |
-| `dependency.capture` | Simulated | No acceptance scenario in the spec exercises `DependencyCapture` with `source.type = Simulated`. | Add acceptance scenario to US2 (see FR-016 action above). |
+| `dependency.capture` | Simulated | No `IDependencyDiscoveryServiceFactory` implementation for Simulated connector | **Resolved** — FR-016 adds `SimulatedDependencyDiscoveryServiceFactory : IDependencyDiscoveryServiceFactory` (T020, T022) |
+| `dependency.capture` | Simulated | No acceptance scenario exercising `DependencyCapture` with `source.type = Simulated` | **Resolved** — US2 Scenario 4 added; covered by T016 feature file and T024 unit tests |
 
 ### Verdict
 
