@@ -20,6 +20,13 @@ Agents must read the relevant guardrails before making changes and must check co
 | `workitems-rules.md` | Work Items specific rules — chronological layout, attachment placement, orchestrator reuse |
 | `module-rules.md` | Module rules — isolation, required interfaces, telemetry and test expectations |
 | `control-plane-rules.md` | Control Plane rules — coordination only, no migration execution, no package writes |
+| `package-rules.md` | Package rules — IArtefactStore-only access, no direct filesystem writes, enumeration ordering |
+| `connector-rules.md` | Connector rules — full three-variant coverage, no empty Simulated, real SDK calls required |
+| `cli-tui-rules.md` | CLI and TUI rules — API-only progress display, no in-process sink wiring |
+| `configuration-rules.md` | Configuration rules — IOptions<T> only, schema versioning, no undocumented options |
+| `security-rules.md` | Security rules — no secrets in code, minimum privilege, safe logging |
+| `data-sovereignty-rules.md` | Data sovereignty rules — agent-only package writes, customer data boundaries |
+| `observability-requirements.md` | Observability requirements — O-1 through O-4 mandatory for every module operation |
 | `definition-of-done.md` | Completion criteria — build, tests, docs, no stubs, no ignored tests |
 | `atdd-workflow.md` | ATDD session lifecycle rules |
 | `acceptance-test-format.md` | Gherkin feature file format rules |
