@@ -41,82 +41,30 @@ See:
 
 ---
 
-# 📚 Canonical Specification (Read First)
+# 📚 Canonical Docs
 
-Architecture:
-→ docs/architecture.md
-
-Package layout:
-→ .agents/context/migration-package-concept.md
-
-WorkItems layout:
-→ .agents/context/workitems-format-summary.md
-
-Streaming import:
-→ .agents/context/import-streaming.md
-
-Checkpoint model:
-→ .agents/context/checkpointing-summary.md
-
-Module contract:
-→ docs/module-development-guide.md
-
-Configuration:
-→ docs/configuration-reference.md
-
-Artefact store abstraction:
-→ .agents/context/artefact-store.md
-
-Job contract:
-→ .agents/context/job-lifecycle.md
-
-Telemetry architecture:
-→ .agents/context/telemetry-model.md
-
-Control plane:
-→ docs/control-plane.md
-
-Orchestration:
-→ docs/migration-process-guide.md
-
-Migration Agent (worker):
-→ docs/agent-hosting.md
-
-Module contract:
-→ docs/module-development-guide.md
-
-TUI:
-→ docs/tui-guide.md
-
-CLI:
-→ docs/cli-guide.md
-
-CLI command reference (canonical):
-→ .agents/context/cli-commands.md
-
-TFS Migration Agent and multi-targeting:
-→ docs/agent-hosting.md
-
-Aspire orchestration:
-→ docs/development-setup.md
-
-Validation:
-→ docs/validation.md
-
-Identity and mapping:
-→ .agents/context/identity-and-mapping.md
-
-Configuration reference:
-→ docs/configuration-reference.md
-
-Scenario configs:
-→ scenarios/
-
-Source types:
-→ docs/capabilities-guide.md
-
-Package zip/export:
-→ docs/package-format-reference.md
+| Topic | File |
+|-------|------|
+| Architecture | `docs/architecture.md` |
+| Package layout | `.agents/context/migration-package-concept.md` |
+| WorkItems layout | `.agents/context/workitems-format-summary.md` |
+| Streaming import | `.agents/context/import-streaming.md` |
+| Checkpointing | `.agents/context/checkpointing-summary.md` |
+| Module contract | `docs/module-development-guide.md` |
+| Configuration | `docs/configuration-reference.md` |
+| Artefact store | `.agents/context/artefact-store.md` |
+| Job lifecycle | `.agents/context/job-lifecycle.md` |
+| Telemetry | `.agents/context/telemetry-model.md` |
+| Control plane | `docs/control-plane.md` |
+| Orchestration | `docs/migration-process-guide.md` |
+| Agent hosting | `docs/agent-hosting.md` |
+| TUI | `docs/tui-guide.md` |
+| CLI guide | `docs/cli-guide.md` |
+| CLI commands | `.agents/context/cli-commands.md` |
+| Validation | `docs/validation.md` |
+| Identity/mapping | `.agents/context/identity-and-mapping.md` |
+| Package zip | `docs/package-format-reference.md` |
+| Scenarios | `scenarios/` |
 
 ---
 
@@ -132,16 +80,24 @@ Package zip/export:
 
 1. **Read ALL guardrail files** in `/.agents/guardrails/` — use `read_file` for each:
    - [architecture-boundaries.md](.agents/guardrails/architecture-boundaries.md) — Core architecture constraints
-   - [workitems-rules.md](.agents/guardrails/workitems-rules.md) — WorkItems-specific rules  
-   - [migration-rules.md](.agents/guardrails/migration-rules.md) — Migration behavior constraints
    - [coding-standards.md](.agents/guardrails/coding-standards.md) — SOLID principles + concrete examples
+   - [coding-standards-examples.md](.agents/guardrails/coding-standards-examples.md) — Annotated code examples
    - [testing-rules.md](.agents/guardrails/testing-rules.md) — Reqnroll + MSTest conventions
-   - [definition-of-done.md](.agents/guardrails/definition-of-done.md) — Mandatory completion criteria for every unit of work
+   - [workitems-rules.md](.agents/guardrails/workitems-rules.md) — WorkItems-specific rules
+   - [migration-rules.md](.agents/guardrails/migration-rules.md) — Migration behavior constraints
    - [module-rules.md](.agents/guardrails/module-rules.md) — New module requirements
-   - [control-plane-rules.md](.agents/guardrails/control-plane-rules.md) — Aspire integration guardrails
+   - [connector-rules.md](.agents/guardrails/connector-rules.md) — Connector implementation rules
+   - [control-plane-rules.md](.agents/guardrails/control-plane-rules.md) — Control plane + Aspire guardrails
+   - [cli-tui-rules.md](.agents/guardrails/cli-tui-rules.md) — CLI and TUI rules
+   - [observability-requirements.md](.agents/guardrails/observability-requirements.md) — O-1 through O-5 requirements
+   - [security-rules.md](.agents/guardrails/security-rules.md) — Security by design rules
+   - [data-sovereignty-rules.md](.agents/guardrails/data-sovereignty-rules.md) — Data residency constraints
+   - [package-rules.md](.agents/guardrails/package-rules.md) — Package structure rules
+   - [configuration-rules.md](.agents/guardrails/configuration-rules.md) — Configuration rules
+   - [documentation-rules.md](.agents/guardrails/documentation-rules.md) — Doc structure, naming, and rename rules
+   - [definition-of-done.md](.agents/guardrails/definition-of-done.md) — Mandatory completion criteria
    - [atdd-workflow.md](.agents/guardrails/atdd-workflow.md) — ATDD session lifecycle rules
    - [acceptance-test-format.md](.agents/guardrails/acceptance-test-format.md) — Gherkin format rules
-   - [documentation-rules.md](.agents/guardrails/documentation-rules.md) — Doc structure, naming, and rename rules
 
 2. **Read relevant context files** in `/.agents/context/`:
    - [migration-package-concept.md](.agents/context/migration-package-concept.md) — Package layout specification
@@ -194,55 +150,11 @@ After completing any unit of work (a logical change, a file edit, a task), befor
 **This loop is mandatory. A task is not done until the compliance review passes with no findings.**
 **A change that adds undocumented parameters, options, commands, or behaviour = non-compliant. Fix before declaring done.**
 
-## Available SpecKit Agents
-→ .github/agents/speckit.specify.agent.md — Create feature specification
-→ .github/agents/speckit.clarify.agent.md — Reduce specification ambiguities  
-→ .github/agents/speckit.plan.agent.md — Create technical implementation plan
-→ .github/agents/speckit.analyze.agent.md — Cross-artifact consistency analysis
-→ .github/agents/speckit.tasks.agent.md — Break plan into dependency-ordered tasks
-→ .github/agents/speckit.checklist.agent.md — Generate custom requirement checklists
-→ .github/agents/speckit.implement.agent.md — Execute implementation plan
-→ .github/agents/speckit.constitution.agent.md — Manage project constitution
-→ .github/agents/speckit.taskstoissues.agent.md — Convert tasks to GitHub issues
+## Structured Workflows
 
-## Session Lifecycle Skills (ATDD/SpecKit Integration)
-→ .agents/skills/start-session/SKILL.md — assemble context and invoke Specification Agent
-→ .agents/skills/review/SKILL.md — invoke Reviewer Agent and record verdict  
-→ .agents/skills/end-session/SKILL.md — verify gates, finalise log, signal commit-ready
-→ .agents/skills/fix/SKILL.md — resume a failed or interrupted session
-→ .agents/skills/parse-criteria/SKILL.md — parse Gherkin feature files into a structured test plan
-→ .agents/skills/test-templates/SKILL.md — generate Reqnroll step definition files from a test plan
-→ .agents/skills/session-hooks/SKILL.md — manage session lifecycle events and phase transitions
-→ .agents/skills/refactor-patterns/SKILL.md — assess code quality and apply safe refactoring patterns
-→ .agents/skills/hexagonal-check/SKILL.md — scan for Hexagonal Architecture boundary violations (infrastructure leakage into domain/module code)
-→ .agents/skills/modular-monolith-check/SKILL.md — scan for Modular Monolith violations (cross-module coupling, missing module boundaries)
-→ .agents/skills/clean-architecture-check/SKILL.md — scan for Clean Architecture violations (dependency rule breaches, business logic in wrong layer)
-→ .agents/skills/vertical-slice-check/SKILL.md — scan for Vertical Slice violations (cross-slice coupling, missing end-to-end slice ownership)
-→ .agents/skills/screaming-architecture-check/SKILL.md — scan for Screaming Architecture violations (generic names, purpose-obscuring structure)
-→ .agents/skills/architecture-review/SKILL.md — run all five architecture perspective checks and produce a combined prioritised report
-→ .agents/skills/test-promotion/SKILL.md — analyse tests and promote to faster categories; retire redundant slower tests
-→ .agents/skills/update-docs/SKILL.md — update every affected canonical doc in /docs and /.agents/context after implementation; mark doc-tasks complete
+Use SpecKit agents (`.github/agents/speckit.*.agent.md`) for specification, planning, and implementation workflows. Use session skills (`.agents/skills/*/SKILL.md`) for ATDD lifecycle, architecture checks, and doc updates.
 
-## Session Commands (Slash-command aliases)
-→ .github/commands/start-session.md — /start-session
-→ .github/commands/review.md — /review
-→ .github/commands/end-session.md — /end-session
-→ .github/commands/fix.md — /fix
-
-## Acceptance Test Feature Files
-All Gherkin `.feature` files live under `/features`, organised by operation and module:
-
-```
-features/
-  cli/            ← CLI-triggered operations (export, inventory, …)
-  export/         ← Export module features
-  import/         ← Import module features
-  inventory/      ← Inventory module features
-  platform/       ← Cross-cutting platform concerns (checkpointing, validation)
-  services/       ← Shared services (identity-mapping, …)
-```
-
-If code conflicts with these, reject the change.
+All Gherkin `.feature` files live under `/features/` (organised by `cli/`, `export/`, `import/`, `inventory/`, `platform/`, `services/`). Code that conflicts with feature files must be rejected.
 
 ---
 
