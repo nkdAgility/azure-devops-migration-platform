@@ -1,3 +1,66 @@
+# Observability
+
+Audience: Advanced Operators, Contributors.
+
+This document covers how to observe, monitor, and interpret the health and progress of migrations.
+
+## Telemetry Channels
+
+The platform emits telemetry on three channels:
+
+| Channel | API | Consumer | Content |
+|---|---|---|---|
+| 1 — Progress (SSE) | `GET /jobs/{id}/progress?follow=true` | CLI, TUI | `ProgressEvent` objects — stage transitions, cursor position |
+| 2 — Metrics (polling) | `GET /jobs/{id}/telemetry` | CLI, TUI Metrics | `JobMetrics` snapshot — counts, durations |
+| 3 — Diagnostics (SSE) | `GET /jobs/{id}/diagnostics?follow=true` | TUI Logs | Structured log events from the agent |
+
+## Traces
+
+Distributed traces are emitted via OpenTelemetry `ActivitySource`. Each module operation creates a span tagged with `module` and relevant context. Traces can be exported to Application Insights (system data only — see [Data Classification](#data-classification)).
+
+## Metrics
+
+Business metrics (`IMigrationMetrics`) track per-module:
+
+- `attempt` — operations started
+- `completion` — operations completed successfully, with item count
+- `error` — operations failed
+- `duration` — elapsed time
+- `in_flight` — currently processing
+
+Metrics are exposed via `GET /jobs/{id}/telemetry` as aggregate counters.
+
+## Structured Logs
+
+All module code emits structured logs via `ILogger<T>`:
+
+- `Information` — start and end of operations
+- `Warning` — skipped items, zero-count completions
+- `Debug` — per-item detail
+- `Error` — failures with exception
+
+Logs from the running agent are accessible via `GET /jobs/{id}/diagnostics?follow=true` and are written to `.migration/Logs/progress.jsonl` in the package.
+
+## Progress Events
+
+`IProgressSink` emits `ProgressEvent` objects as items are processed. These flow through Channel 1. The TUI Progress table and CLI `--follow` display read from this channel.
+
+## Application Insights
+
+Application Insights receives only `System` and `Derived` classification data (work item IDs, counts, durations). Field values, project names, org URLs, and display names must not appear in Application Insights exports.
+
+## Local Logs
+
+| Location | Contents |
+|---|---|
+| `.migration/Logs/progress.jsonl` | Per-event progress log with full diagnostic detail |
+| `.migration/Logs/*.log` | Module log files |
+
+## Data Classification
+
+See [`security-and-data-sovereignty.md`](security-and-data-sovereignty.md#data-classification) for the full classification table.
+
+---
 # Resilience Patterns
 
 This document describes the three retry and resilience strategies used in the platform and when to reach for each one.
