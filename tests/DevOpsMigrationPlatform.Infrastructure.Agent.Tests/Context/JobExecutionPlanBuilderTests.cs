@@ -8,6 +8,8 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions.Agent.Context;
+using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
+using DevOpsMigrationPlatform.Abstractions.ControlPlaneApi;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Context;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -170,5 +172,163 @@ public sealed class JobExecutionPlanBuilderTests
 
         for (int i = 0; i < plan.Tasks.Count; i++)
             Assert.AreEqual(i, plan.Tasks[i].Order);
+    }
+
+    // ── BuildAndSaveAsync resume / completed-plan regression tests ───────────
+
+    /// <summary>
+    /// Regression guard: when all persisted tasks are Completed/Skipped/Failed,
+    /// BuildAndSaveAsync must return the existing plan unchanged — it must NOT archive
+    /// it or build a fresh plan. A fresh plan would reset task statuses to Pending,
+    /// causing every module to re-execute.
+    /// </summary>
+    [TestMethod]
+    public async Task BuildAndSaveAsync_AllTasksCompleted_ReturnsSamePlanWithoutRebuild()
+    {
+        // Arrange: a completed plan already in the state store
+        var completedPlan = new JobTaskList
+        {
+            ForKind = JobKind.Export,
+            Tasks = new[]
+            {
+                MakeTask("export.identities", JobTaskStatus.Completed),
+                MakeTask("export.nodes",      JobTaskStatus.Completed),
+                MakeTask("export.teams",      JobTaskStatus.Completed),
+                MakeTask("export.workitems",  JobTaskStatus.Completed)
+            }.ToList().AsReadOnly(),
+            PushedAt = DateTimeOffset.UtcNow
+        };
+
+        var stateStore = new InMemoryStateStore();
+        await stateStore.WriteAsync(
+            ".migration/plan.json",
+            JsonSerializer.Serialize(completedPlan),
+            CancellationToken.None);
+
+        var store = new Mock<IArtefactStore>(MockBehavior.Loose);
+        var builder = CreateBuilder();
+
+        // Act
+        var result = await builder.BuildAndSaveAsync(
+            AllEnabledConfig(), JobKind.Export, store.Object, stateStore, CancellationToken.None);
+
+        // Assert: task IDs and statuses must be exactly the completed plan's
+        Assert.AreEqual(4, result.Tasks.Count, "Task count must not change on resume of a completed plan");
+        Assert.IsTrue(result.Tasks.All(t => t.Status == JobTaskStatus.Completed),
+            "All tasks must remain Completed — the plan must not be rebuilt from scratch");
+    }
+
+    /// <summary>
+    /// Regression guard: if every task is Skipped, the plan is still terminal.
+    /// BuildAndSaveAsync must return it as-is, not rebuild.
+    /// </summary>
+    [TestMethod]
+    public async Task BuildAndSaveAsync_AllTasksSkipped_ReturnsSamePlanWithoutRebuild()
+    {
+        var skippedPlan = new JobTaskList
+        {
+            ForKind = JobKind.Export,
+            Tasks = new[]
+            {
+                MakeTask("export.identities", JobTaskStatus.Skipped),
+                MakeTask("export.nodes",      JobTaskStatus.Skipped),
+                MakeTask("export.teams",      JobTaskStatus.Skipped),
+                MakeTask("export.workitems",  JobTaskStatus.Skipped)
+            }.ToList().AsReadOnly(),
+            PushedAt = DateTimeOffset.UtcNow
+        };
+
+        var stateStore = new InMemoryStateStore();
+        await stateStore.WriteAsync(
+            ".migration/plan.json",
+            JsonSerializer.Serialize(skippedPlan),
+            CancellationToken.None);
+
+        var store = new Mock<IArtefactStore>(MockBehavior.Loose);
+        var builder = CreateBuilder();
+
+        var result = await builder.BuildAndSaveAsync(
+            AllEnabledConfig(), JobKind.Export, store.Object, stateStore, CancellationToken.None);
+
+        Assert.AreEqual(4, result.Tasks.Count, "Task count must not change");
+        Assert.IsTrue(result.Tasks.All(t => t.Status == JobTaskStatus.Skipped),
+            "All tasks must remain Skipped — plan must not be rebuilt");
+    }
+
+    /// <summary>
+    /// Regression guard: a partially-completed plan (some Pending tasks remain)
+    /// must be resumed, not rebuilt. The Pending tasks must keep their Pending status
+    /// and be re-executed; the Completed tasks must not be reset.
+    /// </summary>
+    [TestMethod]
+    public async Task BuildAndSaveAsync_PartiallyCompletedPlan_ReturnsExistingPlanWithMixedStatuses()
+    {
+        var partialPlan = new JobTaskList
+        {
+            ForKind = JobKind.Export,
+            Tasks = new[]
+            {
+                MakeTask("export.identities", JobTaskStatus.Completed),
+                MakeTask("export.nodes",      JobTaskStatus.Completed),
+                MakeTask("export.teams",      JobTaskStatus.Pending),   // not yet done
+                MakeTask("export.workitems",  JobTaskStatus.Pending)
+            }.ToList().AsReadOnly(),
+            PushedAt = DateTimeOffset.UtcNow
+        };
+
+        var stateStore = new InMemoryStateStore();
+        await stateStore.WriteAsync(
+            ".migration/plan.json",
+            JsonSerializer.Serialize(partialPlan),
+            CancellationToken.None);
+
+        var store = new Mock<IArtefactStore>(MockBehavior.Loose);
+        var builder = CreateBuilder();
+
+        var result = await builder.BuildAndSaveAsync(
+            AllEnabledConfig(), JobKind.Export, store.Object, stateStore, CancellationToken.None);
+
+        Assert.AreEqual(4, result.Tasks.Count);
+        Assert.AreEqual(JobTaskStatus.Completed, result.Tasks.First(t => t.Id == "export.identities").Status,
+            "Already-Completed task must stay Completed");
+        Assert.AreEqual(JobTaskStatus.Pending, result.Tasks.First(t => t.Id == "export.teams").Status,
+            "Pending task must remain Pending on resume");
+    }
+
+    // ── Helpers ──────────────────────────────────────────────────────────────
+
+    private static JobTask MakeTask(string id, JobTaskStatus status) => new()
+    {
+        Id = id,
+        Name = id,
+        Phase = "Export",
+        TaskKind = TaskKind.Export,
+        Status = status
+    };
+
+    private sealed class InMemoryStateStore : IStateStore
+    {
+        private readonly Dictionary<string, string> _data = new(StringComparer.OrdinalIgnoreCase);
+
+        public Task<string?> ReadAsync(string key, CancellationToken ct)
+        {
+            _data.TryGetValue(key, out var value);
+            return Task.FromResult(value);
+        }
+
+        public Task WriteAsync(string key, string content, CancellationToken ct)
+        {
+            _data[key] = content;
+            return Task.CompletedTask;
+        }
+
+        public Task<bool> ExistsAsync(string key, CancellationToken ct)
+            => Task.FromResult(_data.ContainsKey(key));
+
+        public Task DeleteAsync(string key, CancellationToken ct)
+        {
+            _data.Remove(key);
+            return Task.CompletedTask;
+        }
     }
 }
