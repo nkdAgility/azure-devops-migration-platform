@@ -173,6 +173,17 @@ All agent metric strings follow `platform.<domain>.<phase>.<measure>`.
 
 Old prefixes `discovery.*`, `migration.*`, `controlplane.*`, `cli.*` are **removed**. Update any OTel dashboards / relabelling rules accordingly.
 
+### Dependencies Capture Metrics (`WellKnownAgentMetricNames`)
+
+| Constant | Metric name | Instrument |
+|---|---|---|
+| `DependenciesCaptureCount` | `platform.dependencies.capture.count` | Counter |
+| `DependenciesCaptureDurationMs` | `platform.dependencies.capture.duration_ms` | Histogram |
+| `DependenciesCaptureErrors` | `platform.dependencies.capture.errors` | Counter |
+| `DependenciesCaptureInFlight` | `platform.dependencies.capture.in_flight` | UpDownCounter |
+
+All four instruments live on `WellKnownMeterNames.Agent` (`DevOpsMigrationPlatform.Agent`). Emitting `ProgressEvent.Metrics.Migration.DependencyCapture` (of type `DependencyCounters`) is ALSO required for CLI/TUI visibility — OTel metrics alone do not feed the TUI.
+
 ---
 
 ## Observability Contract

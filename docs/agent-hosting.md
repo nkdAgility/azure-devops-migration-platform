@@ -132,7 +132,7 @@ The TFS agent exists because the TFS Object Model is a .NET Framework 3.x/4.x SO
 
 ### Agent Symmetry
 
-The two agents use the same lease protocol, the same abstractions, and the same `IModule` dispatch pattern. The differences are runtime and capability constraints only:
+The two agents use the same lease protocol, the same abstractions, and the same `IModule` dispatch pattern for export/import phases. The differences are runtime, capability constraints, and capture dispatch:
 
 | Aspect | MigrationAgent | TfsMigrationAgent |
 |---|---|---|
@@ -141,7 +141,8 @@ The two agents use the same lease protocol, the same abstractions, and the same 
 | Package store | `FileSystemArtefactStore` or `AzureBlobArtefactStore` | `FileSystemArtefactStore` only |
 | Progress reporting | `ControlPlaneProgressSink` | `ControlPlaneProgressSink` (plain net481 `HttpClient`) |
 | Checkpoint | `IStateStore` | `IStateStore` |
-| Module dispatch | `IEnumerable<IModule>` | `IEnumerable<IModule>` |
+| Module dispatch (export/import) | `IEnumerable<IModule>` | `IEnumerable<IModule>` |
+| Capture dispatch | `captureHandlersByName` (via `BuildCaptureHandlers`) | `captureHandlersByName` (modules only; no `DependencyCapture`) |
 | Supported modes | Export, Prepare, Import, Migrate | Export only (for now) |
 | Container support | Yes | No — Windows process only |
 
@@ -153,6 +154,15 @@ The two agents use the same lease protocol, the same abstractions, and the same 
 - `PrepareAsync` — returns `Task.CompletedTask`. TFS is source-only; Prepare requires a target, which TFS is never used as.
 - `ImportAsync` — returns `Task.CompletedTask`. Not yet implemented; will be populated when TFS import is added to the TFS agent.
 - `ValidateAsync` — returns `Task.CompletedTask`. No-op until TFS import is implemented.
+
+### Capture Dispatch (`TaskKind.Capture`)
+
+All `capture.*` tasks (e.g. `capture.workitems.{org}.{project}`) are dispatched through a unified `captureHandlersByName: IReadOnlyDictionary<string, ICapture>` dictionary assembled by `BuildCaptureHandlers` in both agents:
+
+1. Step 1 — all `IModule` instances where `SupportsInventory = true` are cast to `ICapture` and added, keyed by `ICapture.Name`.
+2. Step 2 — pure `ICapture` registrations (not `IModule`) from DI are unioned in, with OrdinalIgnoreCase de-duplication by name.
+
+**TFS agent constraint:** `AddDependencyCaptureServices` is NOT called from `TfsMigrationAgentServiceExtensions`. The TFS plan builder emits no `capture.dependencies.*` tasks for TFS-sourced jobs. If an erroneous `capture.dependencies.*` task appears, the missing-handler log+skip path in `JobPlanExecutor` handles it gracefully — no exception is thrown.
 
 ### Multi-Targeting
 
