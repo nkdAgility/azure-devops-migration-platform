@@ -101,7 +101,7 @@ Every module feature MUST be implemented for:
 
 Stubs, placeholders, or deferral to follow-up PRs = reject.
 
-## 12. Observability (O-1 through O-4)
+## 12. Observability (O-1 through O-5)
 
 | ID | Requirement |
 |----|-------------|
@@ -109,6 +109,7 @@ Stubs, placeholders, or deferral to follow-up PRs = reject.
 | O-2 | `IMigrationMetrics` calls: attempt, completion, error, duration, in-flight |
 | O-3 | Structured logging: `Information` on start/end, `Warning` on skips/errors, `Debug` per-item |
 | O-4 | `IProgressSink` injected (optional), `ProgressEvent` emitted at start, per-item/batch (≤50), completion |
+| O-5 | `WorkItemFetchScope.Progress` and every `IWorkItemDiscoveryService` call wired to `IProgressSink.Emit` — `null` only for documented exceptions |
 
 Module counter added to `MigrationCounters` → MUST have row in `QueueCommand.BuildProgressRenderable`.
 
@@ -129,7 +130,7 @@ Reject module if:
 - Orchestrator interface missing from `Abstractions.Agent`.
 - Module contains business logic (checkpointing, enumeration, metrics) instead of delegating to orchestrator.
 - Orchestrator instantiated via `new` instead of DI injection.
-- Missing any of O-1..O-4.
+- Missing any of O-1..O-5.
 - Connector stub/placeholder remains.
 - Test asserts only "no exception" or `count >= 0`.
 - Raw filesystem instead of `IArtefactStore`.

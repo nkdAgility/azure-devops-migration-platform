@@ -27,12 +27,13 @@ Every module/tool must pass all four checks:
 | O-1 | `using var activity = ActivitySource.StartActivity(...)` with meaningful tags | Grep for `StartActivity` in every I/O/iteration method |
 | O-2 | `IMigrationMetrics` called for attempt, completion, error, duration, in-flight | 5 call sites per operation boundary |
 | O-3 | `Information` start/end; `Warning` skips; `Debug` per-item; structured params only (no `$"` in log calls) | Grep for `Log*` calls |
-| O-4 | `IProgressSink` injected optional; `EmitAsync` called at start, per-item/batch ≤50, completion; `Metrics.Migration.{Module}` populated | Grep for `EmitAsync` in 3+ places |
+| O-4 | `IProgressSink` injected optional; `Emit` called at start, per-item/batch ≤50, completion; `Metrics.Migration.{Module}` populated | Grep for `Emit` in 3+ places |
 | O-4 CLI | Progress row in `QueueCommand.BuildProgressRenderable` in correct order | Inspect `QueueCommand.cs` |
+| O-5 | Every `IWorkItemDiscoveryService` and `WorkItemFetchScope` call site passes a non-null `IProgress<int>` wired to `IProgressSink.Emit`; `null` only where the method signature documents a permitted exception | Grep for `DiscoverWorkItemsAsync`/`CountWorkItemsAsync`/`FetchAsync` callers |
 
 **Pipeline wiring:** Verify both paths are intact:
 - Metrics path: Module → `IMigrationMetrics` → OTel → `SnapshotMetricExporter` → `JobMetrics` → `POST /telemetry` → CLI polls `GET /jobs/{id}/telemetry` → `BuildProgressRenderable`
-- Progress path: Module → `IProgressSink.EmitAsync` → `ControlPlaneProgressSink` → `POST /progress` → SSE → CLI subscribes `GET /jobs/{id}/progress?follow=true`
+- Progress path: Module → `IProgressSink.Emit` → `ControlPlaneProgressSink` → `POST /progress` → SSE → CLI subscribes `GET /jobs/{id}/progress?follow=true`
 
 **FAIL conditions:** Any link missing; counter read from `ProgressEvent.Metrics` in CLI/TUI (null for .NET 10 = silent zeros); direct `IProgressSink` wiring in CLI/TUI.
 
@@ -99,8 +100,9 @@ Re-read every relevant doc. Check each change line by line. Fix any non-complian
 [ ] O-1: Traces verified
 [ ] O-2: Metrics verified (5 call sites per operation)
 [ ] O-3: Logs verified (structured, correct levels)
-[ ] O-4: ProgressEvents verified (3+ EmitAsync calls, Metrics populated)
+[ ] O-4: ProgressEvents verified (3+ Emit calls, Metrics populated)
 [ ] O-4: CLI progress row visible in BuildProgressRenderable
+[ ] O-5: Every discovery/fetch call site wired with IProgress<int> callback
 [ ] Pipeline wiring table all ✅
 [ ] CLI reads counters from telemetry endpoint, NOT ProgressEvent.Metrics
 [ ] No direct IProgressSink wiring in CLI or TUI
