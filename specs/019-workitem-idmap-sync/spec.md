@@ -10,15 +10,15 @@
 | File | Status |
 |------|--------|
 | `docs/architecture.md` | Confirmed accurate — package-first model, streaming import, cursor-based resume |
-| `docs/modules.md` | Confirmed accurate — IModule contract, WorkItemsModule with extensions |
-| `docs/configuration.md` | Confirmed accurate — WorkItemResolutionStrategy extension documented (TargetField, TargetHyperlink) |
-| `docs/work-item-iteration-pattern.md` | Confirmed accurate — mandatory reuse of WorkItemExportOrchestrator, ICheckpointingService |
-| `.agents/guardrails/system-architecture.md` | Confirmed accurate — streaming, cursor, IArtefactStore rules enforced; rule 4 (cursor-based checkpoints); rule 12 (agents stateless, all durable state in package) |
-| `.agents/context/package-format.md` | Confirmed accurate — Checkpoints/idmap.db documented |
+| `docs/module-development-guide.md` | Confirmed accurate — IModule contract, WorkItemsModule with extensions |
+| `docs/configuration-reference.md` | Confirmed accurate — WorkItemResolutionStrategy extension documented (TargetField, TargetHyperlink) |
+| `docs/work-item-iteration-guide.md` | Confirmed accurate — mandatory reuse of WorkItemExportOrchestrator, ICheckpointingService |
+| `.agents/guardrails/architecture-boundaries.md` | Confirmed accurate — streaming, cursor, IArtefactStore rules enforced; rule 4 (cursor-based checkpoints); rule 12 (agents stateless, all durable state in package) |
+| `.agents/context/migration-package-concept.md` | Confirmed accurate — Checkpoints/idmap.db documented |
 | `.agents/context/import-streaming.md` | Confirmed accurate — staged import (A→B→C→D), idempotency via idmap.db |
-| `.agents/context/checkpointing.md` | Confirmed accurate — idmap.db documented as source-to-target mapping store |
+| `.agents/context/checkpointing-summary.md` | Confirmed accurate — idmap.db documented as source-to-target mapping store |
 | `.agents/context/identity-and-mapping.md` | Discrepancy logged — idmap.db described as PostgreSQL Portable but implementation is SQLite; discrepancy in `discrepancies.md` |
-| `docs/cli.md` | Needs review — no rebuild-idmap command documented yet |
+| `docs/cli-guide.md` | Needs review — no rebuild-idmap command documented yet |
 
 ## Clarifications
 
@@ -170,4 +170,4 @@ As a migration operator, I want the ID map to track the last successfully migrat
 - The `idmap.db` file is package-local (inside `Checkpoints/`) and travels with the package. It is not a control-plane database.
 - Revision-level tracking (FR-009) requires a schema addition to the existing `work_item_map` table (adding a `last_revision_index` column).
 - The integrity check (FR-010) requires network access to the target system to verify work item existence.
-- Architecture docs read: `agents.md`, `docs/architecture.md`, `docs/modules.md`, `docs/configuration.md`, `docs/work-item-iteration-pattern.md`, `.agents/guardrails/system-architecture.md`, `.agents/context/package-format.md`, `.agents/context/import-streaming.md`, `.agents/context/checkpointing.md`, `.agents/context/identity-and-mapping.md`.
+- Architecture docs read: `agents.md`, `docs/architecture.md`, `docs/module-development-guide.md`, `docs/configuration-reference.md`, `docs/work-item-iteration-guide.md`, `.agents/guardrails/architecture-boundaries.md`, `.agents/context/migration-package-concept.md`, `.agents/context/import-streaming.md`, `.agents/context/checkpointing-summary.md`, `.agents/context/identity-and-mapping.md`.

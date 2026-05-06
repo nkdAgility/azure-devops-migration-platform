@@ -329,7 +329,7 @@ Each activity spans one work item's comment export; child activities span each c
 
 See `discrepancies.md`. Two docs must be updated as part of implementation:
 
-1. **`.agents/context/workitems-format.md`** — add `<ticks>-<workItemId>-c<commentId>/comment.json` sub-folder description
-2. **`.agents/context/package-format.md`** — add embedded image files beside documents; add `workitems-comments.cursor.json` cursor description
+1. **`.agents/context/workitems-format-summary.md`** — add `<ticks>-<workItemId>-c<commentId>/comment.json` sub-folder description
+2. **`.agents/context/migration-package-concept.md`** — add embedded image files beside documents; add `workitems-comments.cursor.json` cursor description
 
 These must be updated before the final task in `tasks.md` is marked complete.

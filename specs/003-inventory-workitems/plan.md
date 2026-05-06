@@ -111,9 +111,9 @@ tests/
 
 The following discrepancies between the spec and the current `docs/` files will be patched as part of this feature's implementation commits (per `discrepancies.md`):
 
-1. `docs/cli.md` — add `inventory work-items` to the Commands table and usage examples.
-2. `docs/configuration.md` — add `authentication` block to `source`/`target` schema; add `organisations` key; document two config modes and validation rules.
-3. `docs/source-types.md` — add inventory subsection to both AzureDevOpsServices and TeamFoundationServer sections.
+1. `docs/cli-guide.md` — add `inventory work-items` to the Commands table and usage examples.
+2. `docs/configuration-reference.md` — add `authentication` block to `source`/`target` schema; add `organisations` key; document two config modes and validation rules.
+3. `docs/capabilities-guide.md` — add inventory subsection to both AzureDevOpsServices and TeamFoundationServer sections.
 4. `docs/tfs-exporter.md` — add Inventory Mode section documenting the `inventory` subcommand and NDJSON protocol.
 
 ---

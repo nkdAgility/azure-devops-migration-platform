@@ -18,12 +18,12 @@ Use this skill after the Reviewer Agent has returned `"verdict": "Approved"` **a
      - [ ] All items in `specs/<feature>/discrepancies.md` are marked `Resolved` or `N/A`
      - [ ] Every doc-task (e.g. `T0xx`) in `specs/<feature>/tasks.md` that names a `/docs/*.md` file is marked `[X]`
      - [ ] Every doc-task that names a `.agents/context/*.md` file is marked `[X]`
-     - [ ] If a new CLI command was added: `docs/cli.md` Commands table updated; `.vscode/launch.json` entry exists
-     - [ ] If a new config field was added: `docs/configuration.md` updated
-     - [ ] If a new source/target type was added: `docs/source-types.md` updated; `.agents/context/job-contract.md` updated
-     - [ ] If package layout changed: `.agents/context/package-format.md` updated; `.agents/context/workitems-format.md` updated
-     - [ ] If a new module abstraction or interface was added: `docs/modules.md` updated; `docs/architecture.md` updated
-     - [ ] If checkpointing behaviour changed: `.agents/context/checkpointing.md` updated
+     - [ ] If a new CLI command was added: `docs/cli-guide.md` Commands table updated; `.vscode/launch.json` entry exists
+     - [ ] If a new config field was added: `docs/configuration-reference.md` updated
+     - [ ] If a new source/target type was added: `docs/capabilities-guide.md` updated; `.agents/context/job-lifecycle.md` updated
+     - [ ] If package layout changed: `.agents/context/migration-package-concept.md` updated; `.agents/context/workitems-format-summary.md` updated
+     - [ ] If a new module abstraction or interface was added: `docs/module-development-guide.md` updated; `docs/architecture.md` updated
+     - [ ] If checkpointing behaviour changed: `.agents/context/checkpointing-summary.md` updated
      - [ ] `analysis/pending-actions.md` reviewed: any newly completed items removed
 
    Any unchecked item MUST be resolved before the session can close. Return to Phase 5 if items remain open.

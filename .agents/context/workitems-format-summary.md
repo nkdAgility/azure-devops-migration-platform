@@ -85,7 +85,7 @@ Streaming import processes revision and comment sub-folders together in lexicogr
 
 ### No Global Attachments Module
 
-Attachments are scoped to their revision. There is no `Attachments/` root folder in the package. This is a hard rule; see [.agents/guardrails/system-architecture.md](../.agents/guardrails/system-architecture.md).
+Attachments are scoped to their revision. There is no `Attachments/` root folder in the package. This is a hard rule; see [.agents/guardrails/architecture-boundaries.md](../.agents/guardrails/architecture-boundaries.md).
 
 ### Attachment Download Contract
 

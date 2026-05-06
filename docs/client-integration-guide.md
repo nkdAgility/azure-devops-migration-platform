@@ -734,7 +734,7 @@ A client implementation MUST be rejected if it:
 | Document | Purpose |
 |---|---|
 | [docs/control-plane.md](control-plane.md) | Full API surface, authentication, data store, and authorisation rules |
-| [docs/cli.md](cli.md) | CLI implementation — reference client using this flow |
-| [docs/tui.md](tui.md) | TUI implementation — reference client using this flow |
-| [.agents/context/job-contract.md](../.agents/context/job-contract.md) | Job definition schema and field semantics |
-| [.agents/context/telemetry-architecture.md](../.agents/context/telemetry-architecture.md) | Three-channel model — agent-side contract |
+| [docs/cli-guide.md](cli.md) | CLI implementation — reference client using this flow |
+| [docs/tui-guide.md](tui.md) | TUI implementation — reference client using this flow |
+| [.agents/context/job-lifecycle.md](../.agents/context/job-lifecycle.md) | Job definition schema and field semantics |
+| [.agents/context/telemetry-model.md](../.agents/context/telemetry-model.md) | Three-channel model — agent-side contract |

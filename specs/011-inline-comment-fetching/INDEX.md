@@ -133,13 +133,13 @@ Quick reference linking design to SOLID + guardrails:
 ## 🔗 Cross-References to Guardrails
 
 ### Enforced Guidelines
-- [.agents/guardrails/system-architecture.md](../../.agents/guardrails/system-architecture.md) — 14 rules (all ✅ compliant)
+- [.agents/guardrails/architecture-boundaries.md](../../.agents/guardrails/architecture-boundaries.md) — 14 rules (all ✅ compliant)
 - [.agents/guardrails/coding-standards.md](../../.agents/guardrails/coding-standards.md) — 7 standards (all ✅ compliant)
 - [.agents/guardrails/workitems-rules.md](../../.agents/guardrails/workitems-rules.md) — 4 rules (all ✅ compliant)
 
 ### Architecture Documents
 - [docs/architecture.md](../../docs/architecture.md) — Foundational architecture
-- [docs/modules.md](../../docs/modules.md) — Module contract and patterns
+- [docs/module-development-guide.md](../../docs/module-development-guide.md) — Module contract and patterns
 
 ---
 

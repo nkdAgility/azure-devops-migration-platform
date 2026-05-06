@@ -1,4 +1,4 @@
-﻿# Configuration
+# Configuration
 
 ## 10. Configuration Model
 
@@ -681,7 +681,7 @@ The pipeline layer references OTel SDK types (`BaseExporter<Metric>`, `PeriodicE
 5. If the metric should appear in `MetricSnapshot`, add a property and update `SnapshotMetricExporter`.
 6. Add a unit test to the corresponding `*MetricsTests` class.
 
-See `.agents/context/telemetry-architecture.md` for the full guide including code examples and placement rules.
+See `.agents/context/telemetry-model.md` for the full guide including code examples and placement rules.
 
 ### Data Classification
 

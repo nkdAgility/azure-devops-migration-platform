@@ -11,10 +11,10 @@
 
 | Document | Status |
 |---|---|
-| `docs/modules.md` | ⚠️ Has discrepancies — `IModule` contract, discovery module descriptions, phase dispatch table all require update |
+| `docs/module-development-guide.md` | ⚠️ Has discrepancies — `IModule` contract, discovery module descriptions, phase dispatch table all require update |
 | `docs/architecture.md` | ✓ Confirmed accurate — phase gate rules already reference `Inventory` and `Prepare` phases |
-| `.agents/guardrails/system-architecture.md` | ✓ Confirmed — rule 10 (phase gates), rule 15 (job unit), rule 17 (execution plan) all apply |
-| `.agents/guardrails/module-template.md` | ⚠️ Has discrepancies — template describes only `ExportAsync`/`ImportAsync`; must be extended for `InventoryAsync`/`PrepareAsync` |
+| `.agents/guardrails/architecture-boundaries.md` | ✓ Confirmed — rule 10 (phase gates), rule 15 (job unit), rule 17 (execution plan) all apply |
+| `.agents/guardrails/module-rules.md` | ⚠️ Has discrepancies — template describes only `ExportAsync`/`ImportAsync`; must be extended for `InventoryAsync`/`PrepareAsync` |
 | `analysis/draftspec-Module-refactor-consolidation.md` | Source design document — grounded this spec |
 
 ---
@@ -57,7 +57,7 @@ An operator with multiple Azure DevOps organisations configured wants to run cro
 
 An operator who has completed an export wants to run `queue prepare` to check whether all referenced area/iteration paths, teams, and identities already exist on the target — and get a prepare report — before committing to a full import.
 
-**Why this priority**: `PrepareAsync` is documented in `docs/modules.md` but not implemented on `IModule`. Adding it closes the gap between documentation and reality and unlocks the `JobKind.Prepare` job kind.
+**Why this priority**: `PrepareAsync` is documented in `docs/module-development-guide.md` but not implemented on `IModule`. Adding it closes the gap between documentation and reality and unlocks the `JobKind.Prepare` job kind.
 
 **Independent Test**: Can be tested by submitting a `JobKind.Prepare` job against a package produced by export and asserting that `{Module}/prepare-report.json` files are written by each enabled module.
 
@@ -356,7 +356,7 @@ traces
 - **FR-019**: Both `IModule` and `IAnalyser` MUST be registered in DI and participate in the same `JobTaskList`; `DependsOn` references MUST work across the `IModule`/`IAnalyser` boundary.
 - **FR-020**: The existing `ValidateAsync` signature on `IModule` MUST remain unchanged.
 - **FR-021**: An `IModule` MAY declare a `DependsOn` entry referencing an `IAnalyser` with `DependencyPhase.Analyse` to express that its `PrepareAsync` reads that analyser's artefacts from `IArtefactStore`. When such a dependency is present, the plan builder MUST hoist the required `analyse` tasks before the `prepare` tasks in the `JobTaskList`, regardless of the `JobKind` being executed. Modules MUST NOT read analyser artefacts without a corresponding `DependsOn` declaration.
-- **FR-022**: `DiscoveryOptions` MUST be renamed to `AnalyserOptions` throughout the codebase to align with the `IAnalyser` vocabulary introduced in FR-008. All cascading renames MUST be applied: `DiscoveryOptionsOrganisationsBinder` → `AnalyserOptionsOrganisationsBinder`, `AddDiscoveryOptionsOrganisationsBinder` → `AddAnalyserOptionsOrganisationsBinder`, `BuildDiscoveryOptions` helper methods in factories → `BuildAnalyserOptions`, and `DiscoveryOptionsValidationTests` → `AnalyserOptionsValidationTests`. The reference in `docs/source-types.md` (Known Limitations) MUST also be updated.
+- **FR-022**: `DiscoveryOptions` MUST be renamed to `AnalyserOptions` throughout the codebase to align with the `IAnalyser` vocabulary introduced in FR-008. All cascading renames MUST be applied: `DiscoveryOptionsOrganisationsBinder` → `AnalyserOptionsOrganisationsBinder`, `AddDiscoveryOptionsOrganisationsBinder` → `AddAnalyserOptionsOrganisationsBinder`, `BuildDiscoveryOptions` helper methods in factories → `BuildAnalyserOptions`, and `DiscoveryOptionsValidationTests` → `AnalyserOptionsValidationTests`. The reference in `docs/capabilities-guide.md` (Known Limitations) MUST also be updated.
 - **FR-023**: The `IAnalyser` base interface MUST accept only `AnalyseContext` (artefact-only, no live endpoints). Analysers that require live endpoint access MUST extend one of two sub-interfaces — `IOrganisationsAnalyser` (receives a list of source organisations) or `IEndpointPairAnalyser` (receives a paired source + target endpoint) — rather than adding nullable endpoint fields to `AnalyseContext`. The plan builder MUST construct the appropriate context subtype based on the interface the analyser implements.
 - **FR-024**: `IOrganisationsAnalyser` MUST extend `IAnalyser` and override `AnalyseAsync` with `OrganisationsAnalyseContext`, which carries `Organisations: IReadOnlyList<OrganisationEndpoint>` in addition to all base `AnalyseContext` fields. This shape is used by analysers that iterate over source organisations (same pattern as the multi-org inventory loop).
 - **FR-025**: `IEndpointPairAnalyser` MUST extend `IAnalyser` and override `AnalyseAsync` with `EndpointPairAnalyseContext`, which carries `SourceEndpoint: ISourceEndpointInfo` and `TargetEndpoint: ITargetEndpointInfo` in addition to all base `AnalyseContext` fields. This shape is used by analysers that compare live source and target data (e.g., field mapping compatibility analysis).
@@ -398,12 +398,12 @@ traces
 
 ## Assumptions
 
-- The spec is grounded in `docs/modules.md`, `docs/architecture.md`, and `analysis/draftspec-Module-refactor-consolidation.md`. The draft spec was authored by the project owner and represents a finalised design decision.
-- `docs/modules.md` describes `PrepareAsync` as part of the `IModule` contract (line 17) but the actual interface does not implement it — this spec closes that gap.
+- The spec is grounded in `docs/module-development-guide.md`, `docs/architecture.md`, and `analysis/draftspec-Module-refactor-consolidation.md`. The draft spec was authored by the project owner and represents a finalised design decision.
+- `docs/module-development-guide.md` describes `PrepareAsync` as part of the `IModule` contract (line 17) but the actual interface does not implement it — this spec closes that gap.
 - The abstract base class (`ModuleBase`) pattern is preferred over pure interface-only to avoid forcing every module to implement all five methods; `Supports*` properties default to `false`.
 - Incremental migration is assumed: the refactor proceeds in five phases (add methods with defaults → move WorkItems inventory → multi-org orchestrator → implement PrepareAsync → clean up), maintaining backward compatibility at each step.
 - The `ValidateAsync` method signature remains unchanged; no `ValidateInventoryAsync` or `ValidateExportAsync` variants are introduced.
 - Each `IModule.InventoryAsync` writes its domain counts to a per-module file (`{Module}/inventory.json`); `InventoryAnalyser` reads all per-module files and produces the consolidated `inventory.json` and `inventory.csv` at the package root. No module writes to `inventory.json` directly.
 - The `IAnalyser` interface is placed in `DevOpsMigrationPlatform.Abstractions.Agent` (same assembly as `IModule`) per the project reference boundary rules (guardrail 20a).
 - `JobKind.Dependencies` remains a valid `JobKind` value and dispatches as `analyse (DependencyAnalyser only)`. No inventory phase runs as a prerequisite.
-- Docs read: `docs/modules.md`, `docs/architecture.md`, `.agents/guardrails/system-architecture.md`, `.agents/guardrails/module-template.md`. Gaps found — see `discrepancies.md`.
+- Docs read: `docs/module-development-guide.md`, `docs/architecture.md`, `.agents/guardrails/architecture-boundaries.md`, `.agents/guardrails/module-rules.md`. Gaps found — see `discrepancies.md`.

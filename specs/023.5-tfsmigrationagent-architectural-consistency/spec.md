@@ -446,10 +446,10 @@ The entire project is replaced by `TfsMigrationAgent`. All reusable code (TFS OM
 | `docs/tfs-exporter.md` | Major rewrite — subprocess protocol → agent protocol |
 | `docs/architecture.md` | Update TFS Export Agent description |
 | `docs/control-plane.md` | Add capability routing, multi-agent lifecycle |
-| `docs/migration-agent.md` | Note TFS agent as a peer |
-| `.agents/guardrails/system-architecture.md` | Update TFS isolation rules |
+| `docs/agent-hosting.md` | Note TFS agent as a peer |
+| `.agents/guardrails/architecture-boundaries.md` | Update TFS isolation rules |
 | `.agents/guardrails/coding-standards.md` | Update subprocess references |
-| `.agents/context/job-contract.md` | Add `source` to `DiscoveryJob` |
+| `.agents/context/job-lifecycle.md` | Add `source` to `DiscoveryJob` |
 
 ---
 

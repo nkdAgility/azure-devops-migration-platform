@@ -23,9 +23,9 @@ See [tasks.md](tasks.md) for per-task completion status.
 ## Architecture References
 
 - ✅ [docs/architecture.md](../../docs/architecture.md) — Confirmed: revision-centric model applies
-- ✅ [.agents/guardrails/system-architecture.md](../../.agents/guardrails/system-architecture.md) — Confirmed: no streaming violation
-- ✅ [.agents/context/package-format.md](../../.agents/context/package-format.md) — Confirmed: comment.json placement valid
-- ✅ [docs/modules.md](../../docs/modules.md) — Confirmed: module coordination pattern applies
+- ✅ [.agents/guardrails/architecture-boundaries.md](../../.agents/guardrails/architecture-boundaries.md) — Confirmed: no streaming violation
+- ✅ [.agents/context/migration-package-concept.md](../../.agents/context/migration-package-concept.md) — Confirmed: comment.json placement valid
+- ✅ [docs/module-development-guide.md](../../docs/module-development-guide.md) — Confirmed: module coordination pattern applies
 
 ---
 

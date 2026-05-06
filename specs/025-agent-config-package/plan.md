@@ -119,11 +119,11 @@ tests/
     └── Commands/QueueRoundtripSimulatedTests.cs ← MODIFY: assert migration-config.json present
 
 .agents/guardrails/
-└── system-architecture.md                 ← MODIFY: Rule 23 exception
+└── architecture-boundaries.md                 ← MODIFY: Rule 23 exception
 
 .agents/context/
-├── job-contract.md                        ← MODIFY: new minimal schema
-└── package-format.md                      ← MODIFY: add migration-config.json entry
+├── job-lifecycle.md                        ← MODIFY: new minimal schema
+└── migration-package-concept.md                      ← MODIFY: add migration-config.json entry
 
 docs/
 └── migration-agent.md                     ← MODIFY: add config read step to execution flow

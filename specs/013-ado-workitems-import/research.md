@@ -40,7 +40,7 @@
 - Cross-platform (Windows, Linux, macOS)
 
 **Alternatives considered**:
-- `Checkpoints/idmap.json` — rejected for scale. A 20k-entry JSON file requires full deserialization on every lookup (O(n)). Already documented as "fallback for small packages" in `.agents/context/checkpointing.md`.
+- `Checkpoints/idmap.json` — rejected for scale. A 20k-entry JSON file requires full deserialization on every lookup (O(n)). Already documented as "fallback for small packages" in `.agents/context/checkpointing-summary.md`.
 - LiteDB — rejected because it adds an additional dependency with no significant advantage over SQLite for this use case.
 - Dictionary in memory + periodic flush — rejected because it violates the streaming/memory-safety guardrail. The entire map would be in memory.
 
@@ -60,7 +60,7 @@ CREATE TABLE attachment_map (
 );
 ```
 
-**Note**: The SQLite prohibition in the guardrails applies to the control-plane data store (which must be PostgreSQL). Package-local indexed storage is explicitly permitted per the spec assumptions and `.agents/context/checkpointing.md`.
+**Note**: The SQLite prohibition in the guardrails applies to the control-plane data store (which must be PostgreSQL). Package-local indexed storage is explicitly permitted per the spec assumptions and `.agents/context/checkpointing-summary.md`.
 
 ---
 

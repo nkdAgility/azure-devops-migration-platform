@@ -39,7 +39,7 @@ When no path is given, default to the solution root and scan all `tests/` projec
 
 Before executing, read:
 
-- `.agents/guardrails/testing-standards.md` — Test priority hierarchy and anti-patterns
+- `.agents/guardrails/testing-rules.md` — Test priority hierarchy and anti-patterns
 - `.agents/guardrails/coding-standards.md` — Testability rules (category 6)
 
 ---
@@ -120,7 +120,7 @@ After confirmation (manual mode) or immediately (hook mode):
 
 1. **Promote tests:**
    - Extract the testable logic into a unit-testable shape if needed (extract method, inject dependency).
-   - Write the new faster test following naming conventions in `testing-standards.md`.
+   - Write the new faster test following naming conventions in `testing-rules.md`.
    - Remove or downgrade the old test marker (e.g., remove `[TestCategory("SystemTest_Simulated")]`).
 
 2. **Retire tests:**

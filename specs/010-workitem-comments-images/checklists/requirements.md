@@ -32,4 +32,4 @@
 ## Notes
 
 - All items pass. Spec is ready for `/speckit.clarify` or `/speckit.plan`.
-- Architecture discrepancies logged in `discrepancies.md` — `workitems-format.md` and `package-format.md` need updating to describe `comments.json` and embedded-image storage.
+- Architecture discrepancies logged in `discrepancies.md` — `workitems-format-summary.md` and `migration-package-concept.md` need updating to describe `comments.json` and embedded-image storage.

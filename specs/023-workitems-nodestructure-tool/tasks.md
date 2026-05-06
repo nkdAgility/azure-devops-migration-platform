@@ -225,9 +225,9 @@
 
 **Purpose**: Ensure all canonical docs reflect what was implemented. Blocking gate — spec is not complete without this.
 
-- [x] T053 Update `docs/configuration.md` — add `### NodeStructure Tool` subsection under `## Tools` with JSON schema, property table, and config example (resolves discrepancy #1 in `discrepancies.md`)
-- [x] T054 [P] Update `docs/modules.md` — add `NodeStructureTool` to Tool Resolution section; update `WorkItemsModule` responsibility row to note `Revisions` extension optionally consumes `INodeStructureTool` (resolves discrepancy #2)
-- [x] T055 [P] Update `.agents/context/package-format.md` — add `Nodes/` as a top-level package folder with `source-tree.json` and `referenced-paths.json` artifact descriptions (resolves discrepancy #3)
+- [x] T053 Update `docs/configuration-reference.md` — add `### NodeStructure Tool` subsection under `## Tools` with JSON schema, property table, and config example (resolves discrepancy #1 in `discrepancies.md`)
+- [x] T054 [P] Update `docs/module-development-guide.md` — add `NodeStructureTool` to Tool Resolution section; update `WorkItemsModule` responsibility row to note `Revisions` extension optionally consumes `INodeStructureTool` (resolves discrepancy #2)
+- [x] T055 [P] Update `.agents/context/migration-package-concept.md` — add `Nodes/` as a top-level package folder with `source-tree.json` and `referenced-paths.json` artifact descriptions (resolves discrepancy #3)
 - [x] T056 Mark all items in `specs/023-workitems-nodestructure-tool/discrepancies.md` as `Resolved` or `N/A`
 - [x] T057 Review `analysis/pending-actions.md` and remove any items resolved by this spec
 - [x] T058 Run `dotnet clean && dotnet build --no-incremental` — MUST pass

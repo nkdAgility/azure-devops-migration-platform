@@ -14,12 +14,12 @@ The following canonical documents were read before drafting this specification:
 | Document | Status |
 |---|---|
 | `agents.md` | Confirmed accurate |
-| `docs/modules.md` | Confirmed accurate — Tool Resolution section referenced; `NodeStructureTool` not yet described → **discrepancy logged** |
-| `docs/configuration.md` | Confirmed accurate — `Tools` section documents `FieldTransform`; `NodeStructure` tool not yet documented → **discrepancy logged** |
-| `.agents/guardrails/system-architecture.md` | Confirmed accurate |
+| `docs/module-development-guide.md` | Confirmed accurate — Tool Resolution section referenced; `NodeStructureTool` not yet described → **discrepancy logged** |
+| `docs/configuration-reference.md` | Confirmed accurate — `Tools` section documents `FieldTransform`; `NodeStructure` tool not yet documented → **discrepancy logged** |
+| `.agents/guardrails/architecture-boundaries.md` | Confirmed accurate |
 | `.agents/guardrails/workitems-rules.md` | Confirmed accurate |
 | `.agents/guardrails/migration-rules.md` | Confirmed accurate |
-| `.agents/context/workitems-format.md` | Confirmed accurate |
+| `.agents/context/workitems-format-summary.md` | Confirmed accurate |
 | `azure-devops-migration-tools` — `TfsNodeStructureTool.cs` | Cross-referenced for behavioural completeness — iteration dates, auto project-name swap, unanchored paths, bulk pre-collection |
 
 Discrepancies logged in: `specs/023-workitems-nodestructure-tool/discrepancies.md`

@@ -157,7 +157,7 @@ devopsmigration queue --config my-migration.json --follow
 | `config set / get` | User preference management. |
 | `tui` | Open the interactive Terminal UI. |
 
-See [docs/cli.md](docs/cli.md) for full command reference and options.
+See [docs/cli-guide.md](docs/cli-guide.md) for full command reference and options.
 
 ---
 
@@ -186,7 +186,7 @@ A single JSON file drives the entire run. Key sections:
 | `Tools` | Cross-cutting transforms — field mapping, node translation, identity lookup. |
 | `Policies` | Retry limits, throttle concurrency, checkpoint interval. |
 
-See [docs/configuration.md](docs/configuration.md) for the full schema reference.
+See [docs/configuration-reference.md](docs/configuration-reference.md) for the full schema reference.
 
 ---
 
@@ -205,18 +205,18 @@ See [docs/configuration.md](docs/configuration.md) for the full schema reference
 |---|---|
 | **Operator guide** (start here) | [docs/operator-guide.md](docs/operator-guide.md) |
 | Architecture & design decisions | [docs/architecture.md](docs/architecture.md) |
-| CLI commands & options | [docs/cli.md](docs/cli.md) |
-| Configuration schema | [docs/configuration.md](docs/configuration.md) |
-| Module architecture | [docs/modules.md](docs/modules.md) |
-| Source types & connectors | [docs/source-types.md](docs/source-types.md) |
-| Orchestration | [docs/orchestration.md](docs/orchestration.md) |
+| CLI commands & options | [docs/cli-guide.md](docs/cli-guide.md) |
+| Configuration schema | [docs/configuration-reference.md](docs/configuration-reference.md) |
+| Module architecture | [docs/module-development-guide.md](docs/module-development-guide.md) |
+| Source types & connectors | [docs/capabilities-guide.md](docs/capabilities-guide.md) |
+| Orchestration | [docs/migration-process-guide.md](docs/migration-process-guide.md) |
 | Control plane | [docs/control-plane.md](docs/control-plane.md) |
-| Migration agent | [docs/migration-agent.md](docs/migration-agent.md) |
-| Aspire integration | [docs/aspire-integration.md](docs/aspire-integration.md) |
-| Package format & manifest | [docs/packaging-zip.md](docs/packaging-zip.md) |
+| Migration agent | [docs/agent-hosting.md](docs/agent-hosting.md) |
+| Aspire integration | [docs/development-setup.md](docs/development-setup.md) |
+| Package format & manifest | [docs/package-format-reference.md](docs/package-format-reference.md) |
 | Validation | [docs/validation.md](docs/validation.md) |
-| Resilience patterns | [docs/resilience.md](docs/resilience.md) |
-| Terminal UI | [docs/tui.md](docs/tui.md) |
+| Resilience patterns | [docs/observability.md](docs/observability.md) |
+| Terminal UI | [docs/tui-guide.md](docs/tui-guide.md) |
 
 ---
 

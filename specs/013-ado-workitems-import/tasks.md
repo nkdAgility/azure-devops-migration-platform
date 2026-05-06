@@ -191,10 +191,10 @@
 
 **Purpose**: Update all canonical docs to reflect what was implemented. This phase is a blocking gate.
 
-- [X] T042 Update `docs/work-item-iteration-pattern.md` — add "Import Pattern: WorkItemImportOrchestrator" section with `IWorkItemImportTarget`, `IIdMapStore`, `RevisionFolderProcessor`, and streaming import flow (mirrors existing "Export Pattern" section). Resolves discrepancy #3 and #7.
-- [X] T043 [P] Update `docs/configuration.md` — add `WorkItemResolutionStrategy` extension type to the WorkItems Module Scopes and Extensions table with `strategy` (`TargetField` | `TargetHyperlink`), `fieldName`, and `urlPattern` parameters. Resolves discrepancy #6.
+- [X] T042 Update `docs/work-item-iteration-guide.md` — add "Import Pattern: WorkItemImportOrchestrator" section with `IWorkItemImportTarget`, `IIdMapStore`, `RevisionFolderProcessor`, and streaming import flow (mirrors existing "Export Pattern" section). Resolves discrepancy #3 and #7.
+- [X] T043 [P] Update `docs/configuration-reference.md` — add `WorkItemResolutionStrategy` extension type to the WorkItems Module Scopes and Extensions table with `strategy` (`TargetField` | `TargetHyperlink`), `fieldName`, and `urlPattern` parameters. Resolves discrepancy #6.
 - [X] T044 [P] Update `.agents/context/cli-commands.md` — confirm `queue` command documentation reflects that `Import` and `Both` modes are now functional (no longer stubbed). No new commands added.
-- [X] T045 [P] Update `docs/cli.md` — confirm import mode is documented as functional. No new commands.
+- [X] T045 [P] Update `docs/cli-guide.md` — confirm import mode is documented as functional. No new commands.
 - [X] T046 Mark all items in `specs/013-ado-workitems-import/discrepancies.md` as `Resolved` or `N/A`
 - [X] T047 Review `analysis/pending-actions.md` and remove any items resolved by this spec
 - [X] T048 Run `dotnet clean && dotnet build --no-incremental` — MUST pass

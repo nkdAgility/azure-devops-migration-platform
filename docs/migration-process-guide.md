@@ -4,7 +4,7 @@
 
 The **Job Engine** is the shared execution core used by Migration Agents in all hosting topologies. It receives a `Job`, resolves the execution plan, and runs modules in dependency order. It has no knowledge of the TUI, the console, or any progress renderer.
 
-See [docs/cli.md](cli.md) for how the CLI routes a job to the Job Engine. See [.agents/context/job-contract.md](../.agents/context/job-contract.md) for the `Job` wire format.
+See [docs/cli-guide.md](cli.md) for how the CLI routes a job to the Job Engine. See [.agents/context/job-lifecycle.md](../.agents/context/job-lifecycle.md) for the `Job` wire format.
 
 ### Steps
 
@@ -156,7 +156,7 @@ The orchestrator runs in the same way regardless of execution context. The conte
 - Progress is consumed by all three sinks simultaneously: `ConsoleProgressSink`, `PackageProgressSink`, and `ControlPlaneProgressSink` (enables live TUI streaming via the control plane).
 - Any machine with network access to the host can attach a TUI via the control plane HTTP endpoint.
 
-See [docs/cli.md](cli.md) for local and server command details.
+See [docs/cli-guide.md](cli.md) for local and server command details.
 
 ### Agent (Cloud)
 

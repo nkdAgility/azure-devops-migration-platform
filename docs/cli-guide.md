@@ -6,7 +6,7 @@ The CLI is the operator's entry point to the migration platform. It is a **thin 
 
 Migration logic lives exclusively in the **Job Engine**, which runs inside Migration Agents. CLI commands manage their own hosting lifecycle — starting or connecting to the required services as needed before submitting the job. The CLI always communicates with the control plane via `ControlPlaneClient`.
 
-See [docs/tui.md](tui.md) for how progress is rendered in the terminal.
+See [docs/tui-guide.md](tui.md) for how progress is rendered in the terminal.
 
 ---
 
@@ -250,7 +250,7 @@ Supported preference keys:
 
 | Command | Description |
 |---|---|
-| `tui` | Open the interactive Terminal UI showing live job state for jobs visible to the current user. See [docs/tui.md](tui.md). |
+| `tui` | Open the interactive Terminal UI showing live job state for jobs visible to the current user. See [docs/tui-guide.md](tui.md). |
 
 ### Control Plane Management (`controlplane`)
 
@@ -332,7 +332,7 @@ Before any execution, the CLI converts the local config file into a `Job` (dispa
 4. Normalise `artefacts.path` to a URI (`file:///` prefix if a bare filesystem path is given).
 5. Construct the `Job` — set `Kind` from `mode`, `Connectors` from the endpoint config, serialise the config JSON into `Job.ConfigPayload`.
 
-The local config file is never sent directly anywhere. The `Job` (with `ConfigPayload`) is the only artefact that crosses boundaries. See [.agents/context/job-contract.md](../.agents/context/job-contract.md).
+The local config file is never sent directly anywhere. The `Job` (with `ConfigPayload`) is the only artefact that crosses boundaries. See [.agents/context/job-lifecycle.md](../.agents/context/job-lifecycle.md).
 
 ---
 

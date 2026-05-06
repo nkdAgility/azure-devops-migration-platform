@@ -26,7 +26,7 @@ When no path is given, default to the solution root and scan all `tests/` projec
 
 Before executing, read:
 
-- `.agents/guardrails/testing-standards.md` — Test conventions and anti-patterns
+- `.agents/guardrails/testing-rules.md` — Test conventions and anti-patterns
 - `.agents/guardrails/coding-standards.md` — Testability rules (category 6)
 
 ---

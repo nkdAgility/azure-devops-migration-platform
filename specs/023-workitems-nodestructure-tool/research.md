@@ -8,7 +8,7 @@
 ## R-001: Tool Purity vs I/O — Architecture Tension
 
 ### Question
-`docs/modules.md` states tools are "pure transformations or lookup services — they perform no I/O and carry no mutable state." The NodeStructureTool needs to call the ADO Classification Nodes API (creating nodes) and write to `IStateStore` (node-creation checkpoint). This violates the stated tool contract.
+`docs/module-development-guide.md` states tools are "pure transformations or lookup services — they perform no I/O and carry no mutable state." The NodeStructureTool needs to call the ADO Classification Nodes API (creating nodes) and write to `IStateStore` (node-creation checkpoint). This violates the stated tool contract.
 
 ### Decision
 Split the NodeStructureTool into two concerns:
@@ -26,7 +26,7 @@ This split preserves the tool purity contract while enabling the I/O-heavy node 
 
 ### Alternatives Rejected
 - **Single fat interface**: Rejected because it conflates pure transformation with I/O, violates the documented tool contract, and makes the per-revision call path non-deterministic.
-- **Amend the tool contract in docs/modules.md**: Rejected because the purity constraint is architecturally sound — the problem is the impl approach, not the constraint.
+- **Amend the tool contract in docs/module-development-guide.md**: Rejected because the purity constraint is architecturally sound — the problem is the impl approach, not the constraint.
 
 ---
 

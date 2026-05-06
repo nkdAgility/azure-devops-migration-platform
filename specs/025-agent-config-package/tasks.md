@@ -10,9 +10,9 @@
 
 **Purpose**: Guardrail and canonical-doc updates that gate all implementation.
 
-- [x] T001 Amend `.agents/guardrails/system-architecture.md` — update Rule 23 to add the approved CLI exception: "The CLI MAY write `migration-config.json` to the package root as a pre-submission step before calling the control plane. This is the only package write permitted from the CLI."
-- [x] T002 [P] Update `.agents/context/package-format.md` — add `migration-config.json` to the canonical package root structure section, documenting its purpose, written-by (CLI), and read-by (agent)
-- [x] T003 [P] Update `.agents/context/job-contract.md` — document the new minimal `MigrationJob` schema (v2.0): fields retained (`jobId`, `mode`, `package`, `configVersion`, `guardrails`, `diagnostics`, `resume`) and fields removed (`source`, `target`, `modules`, `policies`, `configHash`)
+- [x] T001 Amend `.agents/guardrails/architecture-boundaries.md` — update Rule 23 to add the approved CLI exception: "The CLI MAY write `migration-config.json` to the package root as a pre-submission step before calling the control plane. This is the only package write permitted from the CLI."
+- [x] T002 [P] Update `.agents/context/migration-package-concept.md` — add `migration-config.json` to the canonical package root structure section, documenting its purpose, written-by (CLI), and read-by (agent)
+- [x] T003 [P] Update `.agents/context/job-lifecycle.md` — document the new minimal `MigrationJob` schema (v2.0): fields retained (`jobId`, `mode`, `package`, `configVersion`, `guardrails`, `diagnostics`, `resume`) and fields removed (`source`, `target`, `modules`, `policies`, `configHash`)
 
 ---
 
@@ -143,9 +143,9 @@
 
 **Purpose**: Update all canonical docs referenced in discrepancies.md and plan.md before the branch may close.
 
-- [x] T040 Update `docs/migration-agent.md` — add step 7a "Agent reads `migration-config.json` from package via `IPackageConfigStore.ReadAsync`" and step 7b "Agent builds per-job IOptions<T> scope from config" into the execution flow section
+- [x] T040 Update `docs/agent-hosting.md` — add step 7a "Agent reads `migration-config.json` from package via `IPackageConfigStore.ReadAsync`" and step 7b "Agent builds per-job IOptions<T> scope from config" into the execution flow section
 - [x] T041 [P] Review `analysis/pending-actions.md` — update or close any actions related to this feature; add entry for Rule 23 amendment if not already present
-- [x] T042 [P] Verify `specs/025-agent-config-package/discrepancies.md` — mark all 5 discrepancies as `Resolved`: (1) `migration-config.json` in `package-format.md` ✓ T002, (2) `migration-agent.md` execution flow ✓ T040, (3) `job-contract.md` schema ✓ T003, (4) Rule 23 guardrail ✓ T001, (5) `configVersion` upgrader ✓ T038
+- [x] T042 [P] Verify `specs/025-agent-config-package/discrepancies.md` — mark all 5 discrepancies as `Resolved`: (1) `migration-config.json` in `migration-package-concept.md` ✓ T002, (2) `migration-agent.md` execution flow ✓ T040, (3) `job-lifecycle.md` schema ✓ T003, (4) Rule 23 guardrail ✓ T001, (5) `configVersion` upgrader ✓ T038
 
 ---
 

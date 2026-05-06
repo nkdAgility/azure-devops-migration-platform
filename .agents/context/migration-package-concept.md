@@ -168,7 +168,7 @@ The manifest is **not required** for streaming import, but is **required** for:
 - `packageVersion` is incremented on breaking changes to the package layout.
 - `schemaVersions` tracks per-module schema independently.
 - An upgrader must be provided for each breaking schema change.
-- Config versioning is handled separately; see [docs/configuration.md](configuration.md).
+- Config versioning is handled separately; see [docs/configuration-reference.md](configuration.md).
 
 ### Manifest Fields
 

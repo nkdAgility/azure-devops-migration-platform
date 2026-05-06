@@ -8,9 +8,9 @@
 ## Architecture References
 
 **Files Read**:
-- `docs/cli.md` — confirmed accurate regarding CLI architecture and testing patterns
-- `.agents/guardrails/system-architecture.md` — confirmed accurate, no conflicts
-- `.agents/guardrails/testing-standards.md` — confirmed accurate for test framework requirements
+- `docs/cli-guide.md` — confirmed accurate regarding CLI architecture and testing patterns
+- `.agents/guardrails/architecture-boundaries.md` — confirmed accurate, no conflicts
+- `.agents/guardrails/testing-rules.md` — confirmed accurate for test framework requirements
 - `.agents/guardrails/acceptance-test-format.md` — confirmed accurate for test organization
 
 **Assessment**: No discrepancies found. The proposed system test framework aligns with existing CLI testing patterns and MSTest conventions.

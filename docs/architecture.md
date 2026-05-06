@@ -2,7 +2,7 @@
 
 > This document defines architectural intent and is the primary human reference.
 > In any conflict between this document and `/.agents/guardrails/*.md` guardrails, **the guardrails win**.
-> See [.agents/guardrails/system-architecture.md](../.agents/guardrails/system-architecture.md) for the enforced rules.
+> See [.agents/guardrails/architecture-boundaries.md](../.agents/guardrails/architecture-boundaries.md) for the enforced rules.
 > See [agents.md](../agents.md) for the agent entry point that binds docs to guardrails.
 
 ## 1. System Purpose
@@ -58,7 +58,7 @@ The platform separates **job coordination** (control plane) from **job execution
 | **ControlPlane** | Service library (`DevOpsMigrationPlatform.ControlPlane`). Contains the HTTP API controllers, job state machine, lease protocol, progress tracking, and EF Core data model. Has no entry point — it is referenced and hosted by `ControlPlaneHost`. |
 | **ControlPlaneHost** | Deployable ASP.NET Core host (`DevOpsMigrationPlatform.ControlPlaneHost`). References the `ControlPlane` service library and adds: process entry point, agent lifecycle management via `IAgentLauncher`, and Aspire resource integration. Always reachable over HTTP. `LocalProcessAgentLauncher` spawns agent processes on the same machine; `ContainerAgentLauncher` deploys and scales agent containers to a configurable target context — either the managed ACA environment co-located with the control plane, or a user-specified environment (for network zone isolation). The agent image source is configured separately from the target context. |
 | **Migration Agent** | (`DevOpsMigrationPlatform.MigrationAgent`) Stateless worker that executes migration jobs. Polls `ControlPlaneHost` for assigned jobs under a time-bounded lease, runs modules via the Job Engine, writes to the package, reports progress back. Lifecycle managed by `ControlPlaneHost` via `IAgentLauncher`. A single binary and container image supports all modes (`Inventory`, `Export`, `Prepare`, `Import`, `Validate`, `Migrate`). |
-| **TFS Migration Agent** | (`DevOpsMigrationPlatform.TfsMigrationAgent`) A .NET 4.8 polling agent — structural peer of the `MigrationAgent` — that handles jobs with `source.type: TeamFoundationServer`. Polls `GET /agents/lease?capabilities=tfs`, acquires TFS jobs, runs `IModule` dispatch (`TfsJobAgentWorker` accepts `IEnumerable<IModule>`), connects to TFS via the TFS Object Model, writes to the package via `IArtefactStore` (`FileSystemArtefactStore`), maintains checkpoints via `IStateStore`, and reports progress via `ControlPlaneProgressSink`. Currently supports Export mode only; Import support will be added to the same binary. Windows-only — TFS OM cannot run in containers. `AgentLifecycleService` spawns it on Windows and skips it elsewhere. See [docs/migration-agent.md — TFS Migration Agent](migration-agent.md#tfs-migration-agent). |
+| **TFS Migration Agent** | (`DevOpsMigrationPlatform.TfsMigrationAgent`) A .NET 4.8 polling agent — structural peer of the `MigrationAgent` — that handles jobs with `source.type: TeamFoundationServer`. Polls `GET /agents/lease?capabilities=tfs`, acquires TFS jobs, runs `IModule` dispatch (`TfsJobAgentWorker` accepts `IEnumerable<IModule>`), connects to TFS via the TFS Object Model, writes to the package via `IArtefactStore` (`FileSystemArtefactStore`), maintains checkpoints via `IStateStore`, and reports progress via `ControlPlaneProgressSink`. Currently supports Export mode only; Import support will be added to the same binary. Windows-only — TFS OM cannot run in containers. `AgentLifecycleService` spawns it on Windows and skips it elsewhere. See [docs/agent-hosting.md — TFS Migration Agent](migration-agent.md#tfs-migration-agent). |
 
 ### Tools
 
@@ -118,7 +118,7 @@ Package (file:/// or https://<account>.blob.core.windows.net/...)
 
 The `ControlPlaneHost` receives a `Job` from the CLI. It is the fully serialisable dispatch token that `ControlPlaneHost` passes to an Agent under a lease. The class was named `MigrationJob` until feature 025.1-fold-to-job unified the class hierarchy (replacing both `MigrationJob` and `DiscoveryJob`). All job kinds now use the same `Job` wire format with a `Kind` discriminator (`JobKind` enum). The config file is never sent to the Agent directly — it travels as `Job.ConfigPayload` (raw JSON) and the Agent writes it to `migration-config.json` at the package root before any module executes.
 
-See [.agents/context/job-contract.md](../.agents/context/job-contract.md).
+See [.agents/context/job-lifecycle.md](../.agents/context/job-lifecycle.md).
 
 ### ControlPlaneHost is Always an HTTP Service
 
@@ -160,7 +160,7 @@ Because the package is a first-class artefact identified by URI, export and impo
 | Cloud → Air-gapped | Cloud | Local CLI-hosted control plane | Operator downloads package or zip, resubmits import config pointing at `file:///` URI |
 | Migrate, same environment | Same control plane for both phases | — | Control plane chains export → prepare → import internally |
 
-The package format is identical in all cases. See [docs/packaging-zip.md](packaging-zip.md) for the zip transfer mechanism.
+The package format is identical in all cases. See [docs/package-format-reference.md](packaging-zip.md) for the zip transfer mechanism.
 
 ### Progress is Event-Driven
 
@@ -200,7 +200,7 @@ The filter applies **only** to the OTel log export pipeline. `PackageLoggerProvi
 
 Unclassified logs default to `System` — they are safe for Azure Monitor. This safe-by-default design allows gradual rollout: existing log statements work without change, and new customer-data log statements are wrapped in classification scopes as they are identified.
 
-See [docs/configuration.md — Data Classification](configuration.md#data-classification) for the usage pattern and classification table.
+See [docs/configuration-reference.md — Data Classification](configuration.md#data-classification) for the usage pattern and classification table.
 
 ### Data Residency — Agent-Only Write Access
 
@@ -237,7 +237,7 @@ In the Local and Dedicated Server topologies, the CLI drives Aspire programmatic
 
 In Cloud topologies, the CLI connects to a pre-existing HTTPS `ControlPlaneHost` endpoint. `ControlPlaneHost` uses `ContainerAgentLauncher` to deploy and scale agent containers. The target container environment is configurable — either the managed Azure Container Apps environment co-located with the control plane, or a user-specified environment for network zone isolation (different VNet, ACA environment, or AKS namespace).
 
-All topologies use the same orchestrator engine, the same modules, and the same cursor-based checkpoints. The package contract is identical. See [docs/cli.md](cli.md), [docs/tui.md](tui.md), [docs/control-plane.md](control-plane.md), and [docs/migration-agent.md](migration-agent.md).
+All topologies use the same orchestrator engine, the same modules, and the same cursor-based checkpoints. The package contract is identical. See [docs/cli-guide.md](cli.md), [docs/tui-guide.md](tui.md), [docs/control-plane.md](control-plane.md), and [docs/agent-hosting.md](migration-agent.md).
 
 Key properties:
 
@@ -311,30 +311,30 @@ Key properties:
 
 | Section | Document |
 |---|---|
-| 2. Package structure & manifest | [.agents/context/package-format.md](../.agents/context/package-format.md) |
-| 3. WorkItems on-disk layout | [.agents/context/workitems-format.md](../.agents/context/workitems-format.md) |
+| 2. Package structure & manifest | [.agents/context/migration-package-concept.md](../.agents/context/migration-package-concept.md) |
+| 3. WorkItems on-disk layout | [.agents/context/workitems-format-summary.md](../.agents/context/workitems-format-summary.md) |
 | 4. Streaming import model | [.agents/context/import-streaming.md](../.agents/context/import-streaming.md) |
-| 5. Cursor-based checkpointing | [.agents/context/checkpointing.md](../.agents/context/checkpointing.md) |
-| 6. Module architecture | [docs/modules.md](modules.md) |
+| 5. Cursor-based checkpointing | [.agents/context/checkpointing-summary.md](../.agents/context/checkpointing-summary.md) |
+| 6. Module architecture | [docs/module-development-guide.md](modules.md) |
 | 7. Identity & mapping | [.agents/context/identity-and-mapping.md](../.agents/context/identity-and-mapping.md) |
-| 8. Source types | [docs/source-types.md](source-types.md) |
-| 9. Configuration model | [docs/configuration.md](configuration.md) |
-| 10. Orchestration | [docs/orchestration.md](orchestration.md) |
-| 11. Zip packaging | [docs/packaging-zip.md](packaging-zip.md) |
+| 8. Source types | [docs/capabilities-guide.md](source-types.md) |
+| 9. Configuration model | [docs/configuration-reference.md](configuration.md) |
+| 10. Orchestration | [docs/migration-process-guide.md](orchestration.md) |
+| 11. Zip packaging | [docs/package-format-reference.md](packaging-zip.md) |
 | 12. Validation (pre-flight & post-flight) | [docs/validation.md](validation.md) |
 | 13. Artefact store abstraction | [.agents/context/artefact-store.md](../.agents/context/artefact-store.md) |
-| 14. Job contract | [.agents/context/job-contract.md](../.agents/context/job-contract.md) |
+| 14. Job contract | [.agents/context/job-lifecycle.md](../.agents/context/job-lifecycle.md) |
 | 15. Control plane | [docs/control-plane.md](control-plane.md) |
-| 16. Migration Agent (worker) | [docs/migration-agent.md](migration-agent.md) |
-| 17. CLI | [docs/cli.md](cli.md) |
-| 18. TUI (Terminal UI) | [docs/tui.md](tui.md) |
+| 16. Migration Agent (worker) | [docs/agent-hosting.md](migration-agent.md) |
+| 17. CLI | [docs/cli-guide.md](cli.md) |
+| 18. TUI (Terminal UI) | [docs/tui-guide.md](tui.md) |
 
 ## Agent Guardrails
 
 | Topic | Document |
 |---|---|
-| Hard architectural constraints (authoritative) | [.agents/guardrails/system-architecture.md](../.agents/guardrails/system-architecture.md) |
+| Hard architectural constraints (authoritative) | [.agents/guardrails/architecture-boundaries.md](../.agents/guardrails/architecture-boundaries.md) |
 | WorkItems-specific rules | [.agents/guardrails/workitems-rules.md](../.agents/guardrails/workitems-rules.md) |
 | Migration behaviour invariants | [.agents/guardrails/migration-rules.md](../.agents/guardrails/migration-rules.md) |
 | Coding standards | [.agents/guardrails/coding-standards.md](../.agents/guardrails/coding-standards.md) |
-| New module checklist | [.agents/guardrails/module-template.md](../.agents/guardrails/module-template.md) |
+| New module checklist | [.agents/guardrails/module-rules.md](../.agents/guardrails/module-rules.md) |

@@ -11,10 +11,10 @@ Documents read during spec creation:
 
 | Document | Status |
 |----------|--------|
-| `docs/tui.md` | Confirmed accurate — describes full desired TUI behaviour. Spec implements what is documented. |
-| `docs/cli.md` | Confirmed accurate — job submission output pattern described. |
-| `docs/control-plane.md` | Discrepancy logged — `/jobs/{jobId}/telemetry` referenced in `docs/tui.md` is absent from the API surface table here. |
-| `.agents/guardrails/system-architecture.md` | Guardrails 15, 16, 17, 18 apply directly to this feature. |
+| `docs/tui-guide.md` | Confirmed accurate — describes full desired TUI behaviour. Spec implements what is documented. |
+| `docs/cli-guide.md` | Confirmed accurate — job submission output pattern described. |
+| `docs/control-plane.md` | Discrepancy logged — `/jobs/{jobId}/telemetry` referenced in `docs/tui-guide.md` is absent from the API surface table here. |
+| `.agents/guardrails/architecture-boundaries.md` | Guardrails 15, 16, 17, 18 apply directly to this feature. |
 
 ---
 
@@ -93,7 +93,7 @@ As an operator who has just submitted a job I want to see the assigned Job ID an
 
 As an operator who already knows their job ID I want to run `devopsmigration tui --job <jobId>` to open the TUI directly on that job's detail view, bypassing the job list, so that I can quickly rejoin monitoring a known job.
 
-**Why this priority**: Documented in `docs/tui.md` and directly enabled by the job ID output in User Story 4. Independently testable once the detail view exists.
+**Why this priority**: Documented in `docs/tui-guide.md` and directly enabled by the job ID output in User Story 4. Independently testable once the detail view exists.
 
 **Independent Test**: Can be tested by running `devopsmigration tui --job <known-jobId>` and verifying the TUI opens directly on the detail view for that job without showing the job list first.
 

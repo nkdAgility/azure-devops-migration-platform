@@ -14,8 +14,8 @@ The following documents were read as part of the architecture check for this spe
 | Document | Status |
 | -------- | ------ |
 | `docs/architecture.md` | Confirmed accurate — no conflicts with this feature |
-| `docs/configuration.md` | **Has discrepancies** — see `discrepancies.md`. Does not describe SchemaOptionsEntry, IAgentJobContext, json.schemas integration, or the DI-driven schema generation pattern |
-| `.agents/guardrails/system-architecture.md` | Confirmed — rules 21 (mandatory reuse), 24 (module/tool identifier derivation), 25 (observability) apply. No conflicts. |
+| `docs/configuration-reference.md` | **Has discrepancies** — see `discrepancies.md`. Does not describe SchemaOptionsEntry, IAgentJobContext, json.schemas integration, or the DI-driven schema generation pattern |
+| `.agents/guardrails/architecture-boundaries.md` | Confirmed — rules 21 (mandatory reuse), 24 (module/tool identifier derivation), 25 (observability) apply. No conflicts. |
 | `agents.md` | Confirmed — binding entry point read |
 
 ---

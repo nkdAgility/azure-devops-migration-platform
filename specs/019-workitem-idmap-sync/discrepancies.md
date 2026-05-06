@@ -11,25 +11,25 @@
 - **Source doc**: `.agents/context/identity-and-mapping.md`
 - **Section**: "ID Mapping (Work Item IDs)" — `idmap.db (PostgreSQL Portable binary in Local/Dedicated Server topology, PostgreSQL Flexible Server in Cloud topologies; preferred for large datasets)`
 - **Issue**: The identity-and-mapping doc describes `idmap.db` as backed by PostgreSQL Portable, but the actual implementation (`SqliteIdMapStore.cs`) uses SQLite via `Microsoft.Data.Sqlite`. The checkpointing doc also references PostgreSQL for `idmap.db`.
-- **Suggested update**: Update `.agents/context/identity-and-mapping.md` and `.agents/context/checkpointing.md` to reflect the actual SQLite-backed implementation: `idmap.db (SQLite — package-local indexed storage, not a control-plane database)`.
+- **Suggested update**: Update `.agents/context/identity-and-mapping.md` and `.agents/context/checkpointing-summary.md` to reflect the actual SQLite-backed implementation: `idmap.db (SQLite — package-local indexed storage, not a control-plane database)`.
 
-### 2. checkpointing.md describes idmap.db as PostgreSQL-backed
+### 2. checkpointing-summary.md describes idmap.db as PostgreSQL-backed
 
-- **Source doc**: `.agents/context/checkpointing.md`
+- **Source doc**: `.agents/context/checkpointing-summary.md`
 - **Section**: "Per-Module Cursors" — `idmap.db (ID map — source workItemId → target workItemId; backed by PostgreSQL Portable binary in Local/Dedicated Server topology or PostgreSQL Flexible Server in Cloud topologies)`
 - **Issue**: Same as discrepancy 1 — the doc says PostgreSQL but the implementation is SQLite.
 - **Suggested update**: Change to `idmap.db (SQLite — source workItemId → target workItemId mapping; package-local indexed storage)`.
 
 ### 3. No CLI command for ID map rebuild or integrity check
 
-- **Source doc**: `docs/cli.md`
+- **Source doc**: `docs/cli-guide.md`
 - **Section**: (no existing section)
 - **Issue**: This spec introduces ID map rebuild and integrity check capabilities (FR-005, FR-010, FR-011) but no CLI command exists to trigger them explicitly. The rebuild currently happens implicitly at import startup via `IWorkItemResolutionStrategy.SeedAsync`. A future explicit `rebuild-idmap` or `check-idmap` CLI command may be needed.
-- **Suggested update**: Defer to planning phase — determine whether these should be explicit CLI commands or remain implicit import-startup behaviour. If CLI commands are added, document them in `docs/cli.md` and `.agents/context/cli-commands.md`.
+- **Suggested update**: Defer to planning phase — determine whether these should be explicit CLI commands or remain implicit import-startup behaviour. If CLI commands are added, document them in `docs/cli-guide.md` and `.agents/context/cli-commands.md`.
 
 ### 4. No documentation of revision-level tracking in ID map
 
-- **Source doc**: `.agents/context/checkpointing.md`
+- **Source doc**: `.agents/context/checkpointing-summary.md`
 - **Section**: "ID Map"
 - **Issue**: The spec introduces `last_revision_index` tracking per work item (FR-009). The current documentation only describes the ID map as storing `source_id → target_id` mappings and attachment mappings. Revision-level tracking is a new capability.
 - **Suggested update**: Add a note to the checkpointing doc's ID Map section: `The work_item_map table also tracks last_revision_index per source work item, enabling revision-level skip logic during sync/rerun imports.`

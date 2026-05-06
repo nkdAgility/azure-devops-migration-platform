@@ -5,7 +5,7 @@
 ## Testing Framework Contract
 
 **Required Testing Stack**:
-- MSTest as test runner (per testing-standards.md guardrails)
+- MSTest as test runner (per testing-rules.md guardrails)
 - Spectre.Console.Cli.Testing for CLI command testing
 - In-memory test doubles for all external dependencies
 - Moq for mocking interfaces with MockBehavior.Strict

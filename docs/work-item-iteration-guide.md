@@ -23,7 +23,7 @@ If an existing pattern does not fit your use case, you MUST:
 3. Ensure the new abstraction is used by at least two independent modules (no single-use abstractions).
 4. Get explicit approval from the architecture team before implementing.
 
-**Violations of the mandatory reuse principle are rejection triggers.** See [.agents/guardrails/system-architecture.md](../.agents/guardrails/system-architecture.md) rule 21 and [agents.md](../agents.md) reject conditions.
+**Violations of the mandatory reuse principle are rejection triggers.** See [.agents/guardrails/architecture-boundaries.md](../.agents/guardrails/architecture-boundaries.md) rule 21 and [agents.md](../agents.md) reject conditions.
 
 ---
 
@@ -560,6 +560,6 @@ Non-resume callers retain the existing traversal behavior.
 - `DevOpsMigrationPlatform.Infrastructure.Export.WorkItemExportOrchestrator` — the canonical export implementation
 - `DevOpsMigrationPlatform.Infrastructure.Modules.WorkItemsModule` — the module that uses the orchestrator
 - `DevOpsMigrationPlatform.Abstractions.Services.IWorkItemRevisionSource` — the source interface
-- [docs/modules.md](modules.md) — module architecture and module contract
-- [.agents/context/workitems-format.md](../.agents/context/workitems-format.md) — on-disk format specification
+- [docs/module-development-guide.md](modules.md) — module architecture and module contract
+- [.agents/context/workitems-format-summary.md](../.agents/context/workitems-format-summary.md) — on-disk format specification
 - [.agents/context/import-streaming.md](../.agents/context/import-streaming.md) — import streaming semantics (future)

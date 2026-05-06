@@ -238,7 +238,7 @@ Successfully implemented the core infrastructure for **Schema Generation from IO
    - Remove all 13 `ActiveJobConfigState` references in `src/`
    - Refactor `JobAgentWorker.StartJobAsync` to use `IConfiguration` directly (no `MigrationOptions` deserialisation)
    - Delete `ActiveJobConfigState`, `MigrationOptions`, `MigrationModulesOptions`
-   - Update `docs/configuration.md` with new patterns
+   - Update `docs/configuration-reference.md` with new patterns
    - Run full end-to-end scenario validation
 
 3. **Resolve Discrepancies** (from `discrepancies.md`):

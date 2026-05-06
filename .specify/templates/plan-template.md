@@ -50,7 +50,7 @@
 
 *GATE: Must be completed before task generation. Every operation enumerated here MUST appear as explicit tasks in `tasks.md`. This is not optional — a feature without a complete observability contract will not reach done.*
 
-> **Read `.agents/context/telemetry-architecture.md` before completing this section.**
+> **Read `.agents/context/telemetry-model.md` before completing this section.**
 > Read `WellKnownMetricNames.cs`, `WellKnownActivitySourceNames.cs`, and `WellKnownMeterNames.cs` to use correct existing names or define new ones following the established naming convention.
 
 For each operation introduced or modified by this feature, fill in one row. A feature with no operations (e.g. a pure refactor) must state "No operations — pure refactor" explicitly.

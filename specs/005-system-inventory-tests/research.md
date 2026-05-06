@@ -25,7 +25,7 @@
 **Alternatives considered**: Separate system test project, integration test framework, or in-memory testing. Rejected because separate project duplicates infrastructure, integration frameworks add complexity, and in-memory testing doesn't validate real Azure DevOps connectivity.
 
 ## Decision: Comprehensive Documentation with Troubleshooting Guide
-**Rationale**: System tests require environment setup knowledge. Comprehensive `docs/contributors.md` with step-by-step local dev setup, CI configuration, and troubleshooting guide reduces onboarding friction and support burden.
+**Rationale**: System tests require environment setup knowledge. Comprehensive `docs/contributor-guide.md` with step-by-step local dev setup, CI configuration, and troubleshooting guide reduces onboarding friction and support burden.
 **Alternatives considered**: Inline code comments, wiki documentation, or minimal README additions. Rejected because code comments aren't discoverable for setup, wikis get out of sync, and minimal docs leave gaps for new contributors.
 
 ## Decision: Test Categorization Hierarchy

@@ -152,7 +152,7 @@ features/
 
 **Rationale**: Tools called inside `RevisionFolderProcessor` must be fast and deterministic. ADO API calls in the per-revision hot path would be a reliability disaster. The pre-collection pattern (FR-024) naturally separates path discovery from node creation.
 
-**Alternatives rejected**: Single fat `INodeStructureTool` with embedded API calls — violates documented tool purity contract in `docs/modules.md`.
+**Alternatives rejected**: Single fat `INodeStructureTool` with embedded API calls — violates documented tool purity contract in `docs/module-development-guide.md`.
 
 ### AD-2: Export always captures source tree and discovered paths
 

@@ -47,58 +47,58 @@ Architecture:
 → docs/architecture.md
 
 Package layout:
-→ .agents/context/package-format.md
+→ .agents/context/migration-package-concept.md
 
 WorkItems layout:
-→ .agents/context/workitems-format.md
+→ .agents/context/workitems-format-summary.md
 
 Streaming import:
 → .agents/context/import-streaming.md
 
 Checkpoint model:
-→ .agents/context/checkpointing.md
+→ .agents/context/checkpointing-summary.md
 
 Module contract:
-→ docs/modules.md
+→ docs/module-development-guide.md
 
 Configuration:
-→ docs/configuration.md
+→ docs/configuration-reference.md
 
 Artefact store abstraction:
 → .agents/context/artefact-store.md
 
 Job contract:
-→ .agents/context/job-contract.md
+→ .agents/context/job-lifecycle.md
 
 Telemetry architecture:
-→ .agents/context/telemetry-architecture.md
+→ .agents/context/telemetry-model.md
 
 Control plane:
 → docs/control-plane.md
 
 Orchestration:
-→ docs/orchestration.md
+→ docs/migration-process-guide.md
 
 Migration Agent (worker):
-→ docs/migration-agent.md
+→ docs/agent-hosting.md
 
 Module contract:
-→ docs/modules.md
+→ docs/module-development-guide.md
 
 TUI:
-→ docs/tui.md
+→ docs/tui-guide.md
 
 CLI:
-→ docs/cli.md
+→ docs/cli-guide.md
 
 CLI command reference (canonical):
 → .agents/context/cli-commands.md
 
 TFS Migration Agent and multi-targeting:
-→ docs/migration-agent.md
+→ docs/agent-hosting.md
 
 Aspire orchestration:
-→ docs/aspire-integration.md
+→ docs/development-setup.md
 
 Validation:
 → docs/validation.md
@@ -107,16 +107,16 @@ Identity and mapping:
 → .agents/context/identity-and-mapping.md
 
 Configuration reference:
-→ docs/configuration.md
+→ docs/configuration-reference.md
 
 Scenario configs:
 → scenarios/
 
 Source types:
-→ docs/source-types.md
+→ docs/capabilities-guide.md
 
 Package zip/export:
-→ docs/packaging-zip.md
+→ docs/package-format-reference.md
 
 ---
 
@@ -131,25 +131,25 @@ Package zip/export:
 **Before proceeding with ANY code changes, generic agents MUST:**
 
 1. **Read ALL guardrail files** in `/.agents/guardrails/` — use `read_file` for each:
-   - [system-architecture.md](.agents/guardrails/system-architecture.md) — Core architecture constraints
+   - [architecture-boundaries.md](.agents/guardrails/architecture-boundaries.md) — Core architecture constraints
    - [workitems-rules.md](.agents/guardrails/workitems-rules.md) — WorkItems-specific rules  
    - [migration-rules.md](.agents/guardrails/migration-rules.md) — Migration behavior constraints
    - [coding-standards.md](.agents/guardrails/coding-standards.md) — SOLID principles + concrete examples
-   - [testing-standards.md](.agents/guardrails/testing-standards.md) — Reqnroll + MSTest conventions
+   - [testing-rules.md](.agents/guardrails/testing-rules.md) — Reqnroll + MSTest conventions
    - [definition-of-done.md](.agents/guardrails/definition-of-done.md) — Mandatory completion criteria for every unit of work
-   - [module-template.md](.agents/guardrails/module-template.md) — New module requirements
-   - [aspire-integration.md](.agents/guardrails/aspire-integration.md) — Aspire integration guardrails
+   - [module-rules.md](.agents/guardrails/module-rules.md) — New module requirements
+   - [control-plane-rules.md](.agents/guardrails/control-plane-rules.md) — Aspire integration guardrails
    - [atdd-workflow.md](.agents/guardrails/atdd-workflow.md) — ATDD session lifecycle rules
    - [acceptance-test-format.md](.agents/guardrails/acceptance-test-format.md) — Gherkin format rules
 
 2. **Read relevant context files** in `/.agents/context/`:
-   - [package-format.md](.agents/context/package-format.md) — Package layout specification
-   - [workitems-format.md](.agents/context/workitems-format.md) — WorkItems folder structure
+   - [migration-package-concept.md](.agents/context/migration-package-concept.md) — Package layout specification
+   - [workitems-format-summary.md](.agents/context/workitems-format-summary.md) — WorkItems folder structure
    - [import-streaming.md](.agents/context/import-streaming.md) — Streaming import requirements
-   - [checkpointing.md](.agents/context/checkpointing.md) — Cursor-based checkpointing
+   - [checkpointing-summary.md](.agents/context/checkpointing-summary.md) — Cursor-based checkpointing
    - [artefact-store.md](.agents/context/artefact-store.md) — IArtefactStore abstraction
-   - [job-contract.md](.agents/context/job-contract.md) — Job contract specification
-   - [telemetry-architecture.md](.agents/context/telemetry-architecture.md) — Telemetry layer model and metric addition guide
+   - [job-lifecycle.md](.agents/context/job-lifecycle.md) — Job contract specification
+   - [telemetry-model.md](.agents/context/telemetry-model.md) — Telemetry layer model and metric addition guide
    - [identity-and-mapping.md](.agents/context/identity-and-mapping.md) — Identity mapping service
 
 3. **State your understanding** of which guardrails apply to the current task
@@ -179,10 +179,10 @@ This protocol exists because guardrails are authored by humans and may contain e
 After completing any unit of work (a logical change, a file edit, a task), before marking it done:
 
 1. **Re-read the relevant docs** — use `read_file` on any doc file referenced by the guardrails that is relevant to what was just changed. Examples:
-   - CLI changes → re-read `docs/cli.md` and `.agents/context/cli-commands.md`
-   - Package/export/import changes → re-read `.agents/context/package-format.md`
-   - Job/agent changes → re-read `.agents/context/job-contract.md`
-   - Settings/config changes → re-read `docs/configuration.md`
+   - CLI changes → re-read `docs/cli-guide.md` and `.agents/context/cli-commands.md`
+   - Package/export/import changes → re-read `.agents/context/migration-package-concept.md`
+   - Job/agent changes → re-read `.agents/context/job-lifecycle.md`
+   - Settings/config changes → re-read `docs/configuration-reference.md`
 2. **Check each change against the docs line by line.** Ask:
    - Does the implementation match what the documentation specifies?
    - Does it add anything not documented (parameters, options, commands, behaviour)?
@@ -277,13 +277,13 @@ Reject any proposal that:
 - References a concrete artefact store implementation inside module code.
 - Sorts `EnumerateAsync` results in memory.
 - Creates agent rule files under `/docs` instead of `/.agents/guardrails`.
-- **Implements a custom work item export/import loop instead of using `WorkItemExportOrchestrator` and `IWorkItemRevisionSource`** (see [docs/work-item-iteration-pattern.md](docs/work-item-iteration-pattern.md)).
+- **Implements a custom work item export/import loop instead of using `WorkItemExportOrchestrator` and `IWorkItemRevisionSource`** (see [docs/work-item-iteration-guide.md](docs/work-item-iteration-guide.md)).
 - **Implements custom progress tracking instead of using `ICheckpointingService` with cursor-based state in `IStateStore`** (watermark tables, in-memory dictionaries, and progress databases are forbidden).
 - **Implements custom enumeration or sorting logic instead of using `IArtefactStore.EnumerateAsync()` in lexicographic order** (no in-memory result sets, no custom sorting).
 - **Buffers attachments or binary data in memory instead of streaming via `IArtefactStore.WriteBinaryAsync()` or `IAttachmentBinarySource`**.
-- **Invents a new abstraction for work item processing without extending an existing pattern or documenting why no existing abstraction could be reused** (motivated by rule 21 of [.agents/guardrails/system-architecture.md](.agents/guardrails/system-architecture.md)).
-- **Logs a field value, project name, org URL, or attachment path without a `DataClassification.Customer` scope** (see [docs/configuration.md — Data Classification](docs/configuration.md#data-classification)). Work item IDs are integer identifiers, not customer data.
-- **Writes to the working directory or package files from any component other than the Migration Agent or TFS Export Agent** — the CLI, TUI, Control Plane, and ControlPlaneHost have no write access to the package (data residency requirement; see [docs/architecture.md — Data Residency](docs/architecture.md#data-residency--agent-only-write-access) and rule 23 of [.agents/guardrails/system-architecture.md](.agents/guardrails/system-architecture.md)).
+- **Invents a new abstraction for work item processing without extending an existing pattern or documenting why no existing abstraction could be reused** (motivated by rule 21 of [.agents/guardrails/architecture-boundaries.md](.agents/guardrails/architecture-boundaries.md)).
+- **Logs a field value, project name, org URL, or attachment path without a `DataClassification.Customer` scope** (see [docs/configuration-reference.md — Data Classification](docs/configuration-reference.md#data-classification)). Work item IDs are integer identifiers, not customer data.
+- **Writes to the working directory or package files from any component other than the Migration Agent or TFS Export Agent** — the CLI, TUI, Control Plane, and ControlPlaneHost have no write access to the package (data residency requirement; see [docs/architecture.md — Data Residency](docs/architecture.md#data-residency--agent-only-write-access) and rule 23 of [.agents/guardrails/architecture-boundaries.md](.agents/guardrails/architecture-boundaries.md)).
 - Leaves any `throw new NotImplementedException()` or `throw new NotSupportedException("... not yet implemented")` in any reachable code path — ephemeral stubs are only permitted within a single session and must be replaced before the task is marked complete.
 - Leaves any `Assert.Inconclusive()` in a test — `Inconclusive` is treated as a build-breaking error. Either implement the assertion or delete the test.
 - Commits code containing `@ignore` (Gherkin) or `[Ignore]` (MSTest) — these markers may only be used temporarily within a session for isolation; they must be removed before done.

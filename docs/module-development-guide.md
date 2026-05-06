@@ -1,4 +1,4 @@
-﻿# Module Architecture
+# Module Architecture
 
 ## 7. Module Architecture
 
@@ -243,7 +243,7 @@ The package output is identical to an ADO export — the same `WorkItems/yyyy-MM
 
 ### Adding a New Module
 
-See [.agents/guardrails/module-template.md](../.agents/guardrails/module-template.md) for the full checklist.
+See [.agents/guardrails/module-rules.md](../.agents/guardrails/module-rules.md) for the full checklist.
 
 > **Naming convention**: modules are named by *domain* (`WorkItems`, `Identities`, `Teams`, `Git`), not by operation. One module handles both export and import for its domain. `Scopes` are mandatory selection criteria (e.g. a `wiql` scope for WorkItems). The `Extensions` array controls which sub-data is collected.
 
@@ -303,7 +303,7 @@ Available tools:
 | `RegexField` | Apply a regex find-and-replace to a field value |
 | `TreeToTag` | Flatten a hierarchical path (area/iteration) into tag values |
 
-For the full tool schema and available options, see [docs/configuration.md — Tools](configuration.md#fieldtransform-tool--available-transform-types).
+For the full tool schema and available options, see [docs/configuration-reference.md — Tools](configuration.md#fieldtransform-tool--available-transform-types).
 
 ### IdentitiesModule
 

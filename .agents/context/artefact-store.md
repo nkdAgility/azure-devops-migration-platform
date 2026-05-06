@@ -13,7 +13,7 @@ Three implementations exist:
 | `FileSystemArtefactStore` | `net481;net10.0` | Local / Dedicated Server topology (CLI drives Aspire, package at `file:///`) and `TfsExportAgent` subprocess |
 | `AzureBlobArtefactStore` | `net10.0` only | Cloud Self-Hosted and Cloud Managed topologies — `MigrationAgent` with Azure Blob Storage |
 
-Both implementations preserve the canonical package layout. The path conventions documented in [.agents/context/package-format.md](package-format.md) and [.agents/context/workitems-format.md](workitems-format.md) apply identically to both.
+Both implementations preserve the canonical package layout. The path conventions documented in [.agents/context/migration-package-concept.md](migration-package-concept.md) and [.agents/context/workitems-format-summary.md](workitems-format-summary.md) apply identically to both.
 
 ---
 
@@ -74,7 +74,7 @@ Used for cloud (Migration Agent) execution.
 
 ### Lexicographic Guarantee for Blob Listing
 
-Azure Blob Storage lists blobs in lexicographic order by name within a given prefix. Because the WorkItems folder naming (`yyyy-MM-dd/<ticks>-<workItemId>-<revisionIndex>/`) is designed to be lexicographically chronological (see [.agents/context/workitems-format.md](workitems-format.md)), `EnumerateAsync` over `WorkItems/` returns revision folders in chronological order without any in-memory sorting. This preserves the streaming import guarantee.
+Azure Blob Storage lists blobs in lexicographic order by name within a given prefix. Because the WorkItems folder naming (`yyyy-MM-dd/<ticks>-<workItemId>-<revisionIndex>/`) is designed to be lexicographically chronological (see [.agents/context/workitems-format-summary.md](workitems-format-summary.md)), `EnumerateAsync` over `WorkItems/` returns revision folders in chronological order without any in-memory sorting. This preserves the streaming import guarantee.
 
 ---
 
@@ -103,7 +103,7 @@ The orchestrator resolves the implementation at startup: URLs whose host contain
 
 `IStateStore` manages cursor files and the `idmap.db` (or `idmap.json`). Its Phase 1 implementation is `PackageCheckpointStateStore`, which writes checkpoint files into the `.migration/Checkpoints/` folder via `IArtefactStore` (i.e. the same blob container or filesystem path as the rest of the package).
 
-The Migration Agent may optionally mirror the latest cursor value to the control plane via the progress reporting API for display purposes, but the package's `.migration/Checkpoints/` folder remains the authoritative resume state. See [.agents/context/checkpointing.md](checkpointing.md).
+The Migration Agent may optionally mirror the latest cursor value to the control plane via the progress reporting API for display purposes, but the package's `.migration/Checkpoints/` folder remains the authoritative resume state. See [.agents/context/checkpointing-summary.md](checkpointing-summary.md).
 
 ---
 
@@ -124,4 +124,4 @@ Switching from local to cloud mode requires only a different `packageUri` in the
 
 The CLI may use read operations (`ReadAsync`, `ExistsAsync`, `EnumerateAsync`) on a completed package for post-job display (e.g. reading summary CSVs). Read-only access does not violate data residency.
 
-See [docs/architecture.md — Data Residency](../docs/architecture.md#data-residency--agent-only-write-access) for the full access matrix and [.agents/guardrails/system-architecture.md](..//.agents/guardrails/system-architecture.md) rule 23 for the enforced guardrail.
+See [docs/architecture.md — Data Residency](../docs/architecture.md#data-residency--agent-only-write-access) for the full access matrix and [.agents/guardrails/architecture-boundaries.md](..//.agents/guardrails/architecture-boundaries.md) rule 23 for the enforced guardrail.

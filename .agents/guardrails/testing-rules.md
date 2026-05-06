@@ -1,6 +1,6 @@
 # Testing Standards
 
-MSTest conventions, test naming, and organisation. See also: [coding-standards.md](./coding-standards.md), [module-template.md](./module-template.md).
+MSTest conventions, test naming, and organisation. See also: [coding-standards.md](./coding-standards.md), [module-rules.md](./module-rules.md).
 
 ---
 

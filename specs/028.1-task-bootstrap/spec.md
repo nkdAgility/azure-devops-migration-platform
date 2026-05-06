@@ -13,9 +13,9 @@
 | -------- | ------ |
 | `docs/architecture.md` | Confirmed — no conflicts |
 | `docs/control-plane.md` | **Has gap** — does not describe task-list push endpoint or `JobBootstrap.Tasks` field |
-| `docs/orchestration.md` | **Has gap** — does not describe `IJobExecutionPlanBuilder` or task-attribution in `ProgressEvent` |
-| `.agents/context/job-contract.md` | Confirmed — `ConfigPayload` carries all config; `JobKind` enum defines the six job types |
-| `.agents/guardrails/system-architecture.md` | Confirmed — rules 21 (mandatory reuse), 25 (observability) apply |
+| `docs/migration-process-guide.md` | **Has gap** — does not describe `IJobExecutionPlanBuilder` or task-attribution in `ProgressEvent` |
+| `.agents/context/job-lifecycle.md` | Confirmed — `ConfigPayload` carries all config; `JobKind` enum defines the six job types |
+| `.agents/guardrails/architecture-boundaries.md` | Confirmed — rules 21 (mandatory reuse), 25 (observability) apply |
 | `agents.md` | Confirmed — binding entry point read |
 
 ---

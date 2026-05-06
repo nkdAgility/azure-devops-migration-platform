@@ -268,7 +268,7 @@ Selecting a row populates Metrics + Log immediately. Tab within the Log Panel sw
 
 ## Architecture Alignment Check
 
-Changes cross-checked against `docs/tui.md`, `docs/cli.md`, `docs/control-plane.md`, and guardrails:
+Changes cross-checked against `docs/tui-guide.md`, `docs/cli-guide.md`, `docs/control-plane.md`, and guardrails:
 
 | Check | Result |
 |-------|--------|

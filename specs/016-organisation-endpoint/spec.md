@@ -11,9 +11,9 @@
 | Document | Status |
 |---|---|
 | `docs/architecture.md` | Confirmed — no structural changes required |
-| `.agents/guardrails/system-architecture.md` | Confirmed — new type must live in `DevOpsMigrationPlatform.Abstractions` |
-| `docs/modules.md` | Confirmed — no module-layer changes required |
-| `docs/source-types.md` | Confirmed — both ADO and TFS callers adopt the new type |
+| `.agents/guardrails/architecture-boundaries.md` | Confirmed — new type must live in `DevOpsMigrationPlatform.Abstractions` |
+| `docs/module-development-guide.md` | Confirmed — no module-layer changes required |
+| `docs/capabilities-guide.md` | Confirmed — both ADO and TFS callers adopt the new type |
 
 ## Current State — What Is Wrong
 

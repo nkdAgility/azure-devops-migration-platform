@@ -3,7 +3,7 @@
 This is the authoritative command list for the `devopsmigration` binary.
 All documentation, agent instructions, and implementation must reflect this list.
 
-Human-readable narrative: [docs/cli.md](../../docs/cli.md)
+Human-readable narrative: [docs/cli-guide.md](../../docs/cli-guide.md)
 
 ---
 
@@ -205,4 +205,4 @@ devopsmigration tui
 - `manage login` / `manage logout` store and revoke credentials only; they do not trigger any job operations.
 - `config set` / `config get` read and write user-level preferences only; they do not affect migration configuration files.
 - All commands inherit from `CommandBase<T>`, which injects `IServiceProvider`, `IHostApplicationLifetime`, `ILogger`, and `ActivitySource`.
-- No command may contain migration execution logic — see [system-architecture.md](../guardrails/system-architecture.md) Rule 16.
+- No command may contain migration execution logic — see [architecture-boundaries.md](../guardrails/architecture-boundaries.md) Rule 16.

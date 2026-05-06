@@ -72,7 +72,7 @@ The `package.packageUri` field must always be a URI, not a bare path. The CLI no
 
 ## Relationship to Configuration File
 
-The job contract and the local configuration file ([docs/configuration.md](../docs/configuration.md)) are separate concerns. The **CLI** converts between them (the TUI is a pure progress viewer and never builds jobs):
+The job contract and the local configuration file ([docs/configuration-reference.md](../docs/configuration-reference.md)) are separate concerns. The **CLI** converts between them (the TUI is a pure progress viewer and never builds jobs):
 
 | Aspect | Local config file (`migration.json`) | `Job` |
 |---|---|---|
@@ -87,7 +87,7 @@ The `source`, `target`, `modules`, `Tools`, and `organisations` sections of `mig
 
 ## Source/Target Endpoint Shapes
 
-Source and target endpoint shapes are defined in `migration-config.json` (at the package root), not in the `Job` dispatch token. See [docs/configuration.md](../docs/configuration.md) for the full config file schema including the polymorphic endpoint shapes.
+Source and target endpoint shapes are defined in `migration-config.json` (at the package root), not in the `Job` dispatch token. See [docs/configuration-reference.md](../docs/configuration-reference.md) for the full config file schema including the polymorphic endpoint shapes.
 
 ---
 
@@ -143,7 +143,7 @@ Job 3: mode=Import, artefacts.packageUri=https://<account>.blob.core.windows.net
 
 The package URI is the handoff point. The `manifest.json`, cursor state, `idmap.db`, and Prepare artefacts written by Jobs 1 and 2 are read by Job 3 without modification. If Prepare has not been run (no `.migration/Checkpoints/prepare.complete.json`), Import auto-runs Prepare and aborts on blocking issues.
 
-See [docs/migration-agent.md](migration-agent.md) for Migration Agent behaviour in each pattern.
+See [docs/agent-hosting.md](migration-agent.md) for Migration Agent behaviour in each pattern.
 
 ### Mode Semantics Summary
 

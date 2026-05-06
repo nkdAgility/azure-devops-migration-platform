@@ -26,11 +26,11 @@ The following architecture and guardrail documents were read before drafting thi
 |----------|--------|
 | `agents.md` | Confirmed accurate — discovery commands are local-only, no job submission |
 | `docs/architecture.md` | Confirmed accurate — no changes required |
-| `docs/cli.md` | **Discrepancy** — does not yet list `discovery dependencies` command |
-| `docs/modules.md` | Confirmed accurate — this feature is not a module |
-| `docs/source-types.md` | **Discrepancy** — inventory section per source type needs a corresponding dependencies section |
+| `docs/cli-guide.md` | **Discrepancy** — does not yet list `discovery dependencies` command |
+| `docs/module-development-guide.md` | Confirmed accurate — this feature is not a module |
+| `docs/capabilities-guide.md` | **Discrepancy** — inventory section per source type needs a corresponding dependencies section |
 | `docs/validation.md` | Confirmed accurate — does not apply to discovery commands |
-| `.agents/guardrails/system-architecture.md` | Confirmed accurate — Rules 16 (no migration logic in CLI) applies |
+| `.agents/guardrails/architecture-boundaries.md` | Confirmed accurate — Rules 16 (no migration logic in CLI) applies |
 | `.agents/context/cli-commands.md` | **Discrepancy** — `discovery dependencies` command is not yet registered here |
 
 ## User Scenarios & Testing *(mandatory)*

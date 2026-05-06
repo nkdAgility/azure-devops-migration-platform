@@ -408,7 +408,7 @@ Any class that currently injected `IDiscoveryMetrics` or `IMigrationMetrics` now
 
 | File | Change | Status |
 |---|---|---|
-| `.agents/context/telemetry-architecture.md` | Replace `IDiscoveryMetrics`/`IMigrationMetrics` references with `IPlatformMetrics`; update meter name; add meter name reference table | ✅ Done |
+| `.agents/context/telemetry-model.md` | Replace `IDiscoveryMetrics`/`IMigrationMetrics` references with `IPlatformMetrics`; update meter name; add meter name reference table | ✅ Done |
 
 ---
 

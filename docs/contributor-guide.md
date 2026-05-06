@@ -220,7 +220,7 @@ public async Task MyCommand_SystemTest_CanConnectToLiveSystem()
 
 For architectural information, see:
 - [Architecture Overview](architecture.md)
-- [System Architecture](../.agents/guardrails/system-architecture.md)
+- [System Architecture](../.agents/guardrails/architecture-boundaries.md)
 - [Coding Standards](../.agents/guardrails/coding-standards.md)
 
 ## Getting Started

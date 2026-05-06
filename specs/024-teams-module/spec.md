@@ -10,11 +10,11 @@
 | Document | Status |
 |----------|--------|
 | `docs/architecture.md` | ✅ Confirmed accurate — TeamsModule listed in Module Responsibilities table |
-| `docs/modules.md` | ⚠️ Discrepancy logged — TeamsModule listed but has no detailed section; config schema not documented |
-| `docs/configuration.md` | ⚠️ Discrepancy logged — no `Teams` module entry in the `modules` config schema example |
-| `.agents/guardrails/system-architecture.md` | ✅ Confirmed accurate — all rules apply (streaming, IArtefactStore, IStateStore, cursor-based checkpoints, identity mapping via IIdentityMappingService) |
-| `.agents/guardrails/module-template.md` | ✅ Confirmed accurate — full new module checklist applies |
-| `.agents/context/package-format.md` | ⚠️ Discrepancy logged — `Teams/` folder listed in package structure but contents not documented |
+| `docs/module-development-guide.md` | ⚠️ Discrepancy logged — TeamsModule listed but has no detailed section; config schema not documented |
+| `docs/configuration-reference.md` | ⚠️ Discrepancy logged — no `Teams` module entry in the `modules` config schema example |
+| `.agents/guardrails/architecture-boundaries.md` | ✅ Confirmed accurate — all rules apply (streaming, IArtefactStore, IStateStore, cursor-based checkpoints, identity mapping via IIdentityMappingService) |
+| `.agents/guardrails/module-rules.md` | ✅ Confirmed accurate — full new module checklist applies |
+| `.agents/context/migration-package-concept.md` | ⚠️ Discrepancy logged — `Teams/` folder listed in package structure but contents not documented |
 | `analysis/proposed-features.md` (M5, T2) | ✅ Confirmed — TeamsModule uses NodeTranslationTool for iteration path operations |
 
 ## Concepts: Extension → Tool → Module Promotion
@@ -625,13 +625,13 @@ This lifecycle ensures the operator has full visibility into potential issues (u
 - `IIdentityMappingService` is an existing interface in the codebase (in `Abstractions.Agent`). The IdentitiesModule provides the concrete implementation that builds the resolution index from package data.
 - The `Identities/` folder layout is defined by `.agents/context/identity-and-mapping.md` — this spec implements that specification.
 - The `NodeTranslationTool` is already implemented and supports both area and iteration path resolution/creation — no new tool development is needed. It is integrated into TeamsModule as the `NodeStructure` extension.
-- The `Teams/` folder in the package format is reserved (already listed in `package-format.md`) but its internal structure is to be defined by this module.
+- The `Teams/` folder in the package format is reserved (already listed in `migration-package-concept.md`) but its internal structure is to be defined by this module.
 - Team capacity import for past (closed) iterations is attempted for all iterations. Past iteration paths are translated via `NodeTranslationTool.TranslatePath()`. If the target rejects a capacity update (e.g., for closed iterations), the module logs a warning and skips that entry. If a past iteration path cannot be resolved, the module logs a warning and skips that capacity entry.
 - TFS Object Model supports team enumeration and settings retrieval via `TfsTeamService` and related APIs. If specific capabilities (e.g., capacity) are not available via the TFS OM, those extensions will log a structured warning and skip gracefully.
 - The module does not migrate team project-level permissions — that is the responsibility of `PermissionsModule`.
-- Module execution order is determined by operator configuration. The ordering mechanism is defined by the platform orchestration layer (see `docs/orchestration.md`). The operator controls which modules run and in what order.
+- Module execution order is determined by operator configuration. The ordering mechanism is defined by the platform orchestration layer (see `docs/migration-process-guide.md`). The operator controls which modules run and in what order.
 - Every ADO project has a default team that cannot be deleted. The module handles this by detecting and mapping the default team by role rather than by name.
-- Architecture documents read: `agents.md`, `docs/architecture.md`, `docs/modules.md`, `docs/configuration.md`, `.agents/guardrails/system-architecture.md`, `.agents/guardrails/module-template.md`, `.agents/context/package-format.md`, `analysis/proposed-features.md` (M5 and T2 sections), `.agents/context/identity-and-mapping.md`.
+- Architecture documents read: `agents.md`, `docs/architecture.md`, `docs/module-development-guide.md`, `docs/configuration-reference.md`, `.agents/guardrails/architecture-boundaries.md`, `.agents/guardrails/module-rules.md`, `.agents/context/migration-package-concept.md`, `analysis/proposed-features.md` (M5 and T2 sections), `.agents/context/identity-and-mapping.md`.
 
 ## Connector Coverage
 

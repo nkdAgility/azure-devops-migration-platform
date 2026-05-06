@@ -211,8 +211,8 @@
 **Purpose**: Resolve all discrepancies logged in `discrepancies.md` by updating canonical docs.
 
 - [X] T072 Update `docs/architecture.md` — remove `OrganisationEndpoint` from Abstractions type table (Discrepancy 2); move `CatalogService` from ADO to shared `Infrastructure` component list (Discrepancy 4); add `DevOpsMigrationPlatform.Infrastructure.Simulated` to assembly table (Discrepancy 5); remove `SimulatedWorkItemImportTarget` from shared `Infrastructure` list (Discrepancy 6)
-- [X] T073 Update `docs/modules.md` — update `IWorkItemRevisionSourceFactory` and `IWorkItemImportTargetFactory` interface signatures to `CreateAsync(MigrationEndpointOptions endpoint, CancellationToken ct)` (Discrepancy 1)
-- [X] T074 [P] Add "Polymorphic Endpoint Config" section to `docs/configuration.md` — explain `type` discriminator, connector-specific fields in derived types, unknown type error, `EndpointOptionsTypeRegistry` (Discrepancy 3)
+- [X] T073 Update `docs/module-development-guide.md` — update `IWorkItemRevisionSourceFactory` and `IWorkItemImportTargetFactory` interface signatures to `CreateAsync(MigrationEndpointOptions endpoint, CancellationToken ct)` (Discrepancy 1)
+- [X] T074 [P] Add "Polymorphic Endpoint Config" section to `docs/configuration-reference.md` — explain `type` discriminator, connector-specific fields in derived types, unknown type error, `EndpointOptionsTypeRegistry` (Discrepancy 3)
 - [X] T075 Mark all 6 discrepancies in `specs/017-simulated-infrastructure/discrepancies.md` as `Resolved`
 - [ ] T076 Review `analysis/pending-actions.md` — mark any actions completed by this feature as done; add new actions if outstanding work is identified
 

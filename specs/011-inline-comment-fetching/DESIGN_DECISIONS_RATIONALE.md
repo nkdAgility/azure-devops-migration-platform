@@ -167,7 +167,7 @@ await _artefactStore.WriteAsync($"{folderPath}comment.json", jsonStream, ct);
 - ✅ **Package Consistency:** Format enforcement at single point (store implementation)
 
 **Guardrail Reference:**
-- Rule #13 from `.agents/guardrails/system-architecture.md`: "IArtefactStore is the only permitted file abstraction"
+- Rule #13 from `.agents/guardrails/architecture-boundaries.md`: "IArtefactStore is the only permitted file abstraction"
 - Rule #7: "Modules only through IArtefactStore and IStateStore"
 
 ---

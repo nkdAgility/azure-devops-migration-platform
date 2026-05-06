@@ -38,9 +38,9 @@ Before executing, read the following context files:
 
 - `.agents/guardrails/coding-standards.md` — Full Connector Implementation Required section
 - `.agents/guardrails/migration-rules.md` — Connector-specific rules (AzureDevOps, TFS, Simulated)
-- `docs/source-types.md` — Source type capabilities and constraints
-- `docs/migration-agent.md` — TFS Migration Agent specification (for TFS capability assessment)
-- `.agents/guardrails/system-architecture.md` — Module isolation and abstraction rules
+- `docs/capabilities-guide.md` — Source type capabilities and constraints
+- `docs/agent-hosting.md` — TFS Migration Agent specification (for TFS capability assessment)
+- `.agents/guardrails/architecture-boundaries.md` — Module isolation and abstraction rules
 
 These files establish the connector architecture and capability boundaries.
 
@@ -131,7 +131,7 @@ For each feature, determine which connectors MUST implement it:
 
 1. **Simulated** — Always required. The simulated connector MUST implement every feature for testing.
 2. **AzureDevOpsServices** — Required unless the feature is TFS-only (which should never happen in practice).
-3. **TeamFoundationServer** — Required unless the TFS Object Model API does not support the capability. Check `docs/migration-agent.md#tfs-migration-agent` and `docs/source-types.md` for known limitations.
+3. **TeamFoundationServer** — Required unless the TFS Object Model API does not support the capability. Check `docs/agent-hosting.md#tfs-migration-agent` and `docs/capabilities-guide.md` for known limitations.
 
 For each connector-feature pair, assign one of:
 

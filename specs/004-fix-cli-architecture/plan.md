@@ -14,7 +14,7 @@ Refactor CLI Program.cs from a monolithic 150+ line god-object into a proper hos
 **Language/Version**: C# 10+, .NET 10 (per guardrails coding-standards.md)  
 **Primary Dependencies**: Spectre.Console.Cli 0.49.1, Microsoft.Extensions.DependencyInjection 10.*, OpenTelemetry.Extensions.Hosting 1.*  
 **Storage**: File-based configuration (appsettings.json, migration.json), PostgreSQL for ControlPlane data persistence  
-**Testing**: MSTest + Reqnroll.MSTest (per guardrails testing-standards.md), Spectre.Console.Cli.Testing for CLI command validation  
+**Testing**: MSTest + Reqnroll.MSTest (per guardrails testing-rules.md), Spectre.Console.Cli.Testing for CLI command validation  
 **Target Platform**: Cross-platform .NET 10 console application, supports Windows/Linux/macOS
 **Project Type**: Console CLI application with host builder pattern and DI container management  
 **Performance Goals**: CLI command startup < 2 seconds, DI container initialization within current baseline memory consumption  
@@ -27,7 +27,7 @@ Refactor CLI Program.cs from a monolithic 150+ line god-object into a proper hos
 
 > **Mandatory context loading:** Before completing this gate, confirmed that ALL files in
 > `/.agents/guardrails/`, ALL files in `/.agents/context/`, and relevant `/docs/` files
-> have been read: ✅ system-architecture.md, coding-standards.md, testing-standards.md, cli.md, architecture.md
+> have been read: ✅ architecture-boundaries.md, coding-standards.md, testing-rules.md, cli.md, architecture.md
 
 - [✅] **Package-First (I):** CLI delegates all package operations to ControlPlane/Agents. No direct package access in CLI refactor.
 - [✅] **Streaming (II):** CLI doesn't process revisions - delegates to Job Engine. Refactor maintains this separation.

@@ -188,7 +188,7 @@ The implementation went further than tasks specified:
 | T057b | Add `SectionName` to MigrationPoliciesOptions | ✅ Complete | ✅ Implemented |
 | T057c | Refactor JobAgentWorker to IConfiguration | ❌ Incomplete | ❌ Still uses MigrationOptions |
 | T057d | Delete MigrationOptions files | ❌ Incomplete | ❌ Files still exist |
-| T058 | Update docs/configuration.md | ❌ Incomplete | ❌ Not updated |
+| T058 | Update docs/configuration-reference.md | ❌ Incomplete | ❌ Not updated |
 | T059 | Verify `.vscode/settings.json` | ✅ Complete | ✅ Correct |
 | T060 | Full build validation | ❌ Incomplete | ⚠️ Build passes (production), test mocks fail |
 | T061 | Full test suite | ❌ Incomplete | ❌ Test mocks need updates |
@@ -198,7 +198,7 @@ The implementation went further than tasks specified:
 - ⚠️ **Partially delivered**: Some cleanup done, major items deferred
 - ❌ **ActiveJobConfigState not deleted**: Still used for `PackageConfig`
 - ❌ **MigrationOptions not deleted**: Still used by JobAgentWorker
-- ❌ **Documentation not updated**: docs/configuration.md still outdated
+- ❌ **Documentation not updated**: docs/configuration-reference.md still outdated
 - ❌ **Final validation not executed**: No build/test/scenario run
 - 📋 **Recommendation**: Phase 8 needs completion in follow-up PR
 
@@ -222,7 +222,7 @@ The implementation went further than tasks specified:
 
 ### 2. Documentation Gap
 
-**Spec Requirement**: Update `docs/configuration.md` with new patterns
+**Spec Requirement**: Update `docs/configuration-reference.md` with new patterns
 
 **Reality**:
 - ❌ No documentation of `SchemaOptionsEntry` registration pattern

@@ -2,7 +2,7 @@
 
 ## Contributors Guide Requirements
 
-The `docs/contributors.md` documentation must provide comprehensive guidance for system test usage:
+The `docs/contributor-guide.md` documentation must provide comprehensive guidance for system test usage:
 
 ### Required Sections
 

@@ -11,10 +11,10 @@
 | Document | Status |
 |---|---|
 | `docs/architecture.md` | Confirmed accurate — no changes required |
-| `docs/modules.md` | Confirmed accurate — abstraction lives outside module layer |
-| `docs/source-types.md` | Confirmed accurate — both ADO and TFS sources need implementations |
-| `docs/work-item-iteration-pattern.md` | **Discrepancy logged** — new abstraction must be registered in the mandatory reuse section |
-| `.agents/guardrails/system-architecture.md` | Confirmed accurate — new interface must live in `DevOpsMigrationPlatform.Abstractions` |
+| `docs/module-development-guide.md` | Confirmed accurate — abstraction lives outside module layer |
+| `docs/capabilities-guide.md` | Confirmed accurate — both ADO and TFS sources need implementations |
+| `docs/work-item-iteration-guide.md` | **Discrepancy logged** — new abstraction must be registered in the mandatory reuse section |
+| `.agents/guardrails/architecture-boundaries.md` | Confirmed accurate — new interface must live in `DevOpsMigrationPlatform.Abstractions` |
 
 ## User Scenarios & Testing *(mandatory)*
 

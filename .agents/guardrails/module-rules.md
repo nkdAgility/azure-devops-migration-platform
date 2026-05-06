@@ -89,7 +89,7 @@ Import tests MUST assert target received data (count > 0).
 ## 10. Documentation
 
 - XML doc-comments on public API surface.
-- Module listed in `docs/modules.md`.
+- Module listed in `docs/module-development-guide.md`.
 - ADR if design decisions non-obvious.
 
 ## 11. Connector Coverage

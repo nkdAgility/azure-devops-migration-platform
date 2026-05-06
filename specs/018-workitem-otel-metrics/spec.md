@@ -11,13 +11,13 @@
 | --- | --- |
 | `docs/architecture.md` | Confirmed accurate — telemetry described at Phase 1 item 14 (ServiceDefaults) and Phase 2 item 20 (CLI-level OTel) |
 | `docs/validation.md` | Confirmed accurate — Tier 3 post-flight validation with `sampleRate` config covers correctness check placement |
-| `docs/modules.md` | Confirmed accurate — `IModule` contract with `ExportAsync`, `ImportAsync`, `ValidateAsync` |
-| `docs/orchestration.md` | Confirmed accurate — Job Engine steps, progress event emission after each cursor write |
-| `docs/migration-agent.md` | Confirmed accurate — three progress sinks, heartbeat, stateless design |
-| `.agents/guardrails/system-architecture.md` | Confirmed accurate — `IArtefactStore`/`IStateStore` only, streaming, no in-memory sort |
+| `docs/module-development-guide.md` | Confirmed accurate — `IModule` contract with `ExportAsync`, `ImportAsync`, `ValidateAsync` |
+| `docs/migration-process-guide.md` | Confirmed accurate — Job Engine steps, progress event emission after each cursor write |
+| `docs/agent-hosting.md` | Confirmed accurate — three progress sinks, heartbeat, stateless design |
+| `.agents/guardrails/architecture-boundaries.md` | Confirmed accurate — `IArtefactStore`/`IStateStore` only, streaming, no in-memory sort |
 | `.agents/guardrails/coding-standards.md` | Confirmed accurate — OTel packages already in `Directory.Packages.props` |
-| `docs/configuration.md` | Discrepancy logged — no telemetry naming convention documented |
-| `.agents/context/checkpointing.md` | Confirmed accurate — cursor-based, forward-only |
+| `docs/configuration-reference.md` | Discrepancy logged — no telemetry naming convention documented |
+| `.agents/context/checkpointing-summary.md` | Confirmed accurate — cursor-based, forward-only |
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -202,4 +202,4 @@ After a crash-and-resume scenario, an operator needs signals indicating whether 
 - The work item identity mapping store (SourceId → TargetId) is a separate future spec. The deferred metric instruments will be wired to actual emission logic in that spec.
 - `migration.workitem.payload.bytes` measures the serialised `revision.json` size, not the raw API response size.
 - Queue depth (`migration.queue.workitems.depth`) reflects the agent's internal processing queue, not the control plane job queue.
-- Architecture docs read: `docs/architecture.md`, `docs/validation.md`, `docs/modules.md`, `docs/orchestration.md`, `docs/migration-agent.md`, `.agents/guardrails/system-architecture.md`, `.agents/guardrails/coding-standards.md`, `.agents/context/checkpointing.md`.
+- Architecture docs read: `docs/architecture.md`, `docs/validation.md`, `docs/module-development-guide.md`, `docs/migration-process-guide.md`, `docs/agent-hosting.md`, `.agents/guardrails/architecture-boundaries.md`, `.agents/guardrails/coding-standards.md`, `.agents/context/checkpointing-summary.md`.

@@ -10,13 +10,13 @@
 | Document | Status |
 |---|---|
 | `docs/architecture.md` | Discrepancy — conflates progress events with "logs" in naming and endpoints |
-| `docs/tui.md` | Discrepancy — references `GET /jobs/{jobId}/logs` for progress events; no diagnostics panel documented |
+| `docs/tui-guide.md` | Discrepancy — references `GET /jobs/{jobId}/logs` for progress events; no diagnostics panel documented |
 | `docs/control-plane.md` | Discrepancy — progress endpoint named `/logs`; no diagnostics endpoint; no download endpoint |
-| `docs/migration-agent.md` | Confirmed accurate — already documents three sinks and `Logs/` package writing |
-| `docs/cli.md` | Discrepancy — `manage logs` command conflates progress events with diagnostic logs |
-| `.agents/guardrails/system-architecture.md` | Confirmed accurate — guardrail #12 (agents stateless, durable state in package), #13 (IArtefactStore only), #18 (no UI coupling) all apply |
+| `docs/agent-hosting.md` | Confirmed accurate — already documents three sinks and `Logs/` package writing |
+| `docs/cli-guide.md` | Discrepancy — `manage logs` command conflates progress events with diagnostic logs |
+| `.agents/guardrails/architecture-boundaries.md` | Confirmed accurate — guardrail #12 (agents stateless, durable state in package), #13 (IArtefactStore only), #18 (no UI coupling) all apply |
 | `.agents/context/artefact-store.md` | Confirmed accurate — IArtefactStore is the only permitted file abstraction |
-| `.agents/context/package-format.md` | Discrepancy — `Logs/` folder listed but contents not specified |
+| `.agents/context/migration-package-concept.md` | Discrepancy — `Logs/` folder listed but contents not specified |
 
 ---
 
@@ -233,4 +233,4 @@ An operator running `devopsmigration export` needs to control diagnostic verbosi
 - The rename from `/logs` to `/progress` is a breaking API change to the control plane. Since the platform is pre-release, this is acceptable without a versioned upgrader.
 - The control plane diagnostics ring buffer uses the same bounded capacity as the progress ring buffer (default: 1000 records), configurable independently.
 - All live observation of running jobs (job list, events, metrics, diagnostic log stream) is primarily through the TUI. The CLI also provides live diagnostic streaming via `export --follow` (implicit in standalone mode). CLI `manage` commands provide snapshot/download access only — no `--follow` on any `manage` subcommand.
-- Architecture docs read: `docs/architecture.md`, `docs/tui.md`, `docs/control-plane.md`, `docs/migration-agent.md`, `docs/cli.md`, `docs/aspire-integration.md`, `.agents/guardrails/system-architecture.md`, `.agents/context/artefact-store.md`, `.agents/context/package-format.md`.
+- Architecture docs read: `docs/architecture.md`, `docs/tui-guide.md`, `docs/control-plane.md`, `docs/agent-hosting.md`, `docs/cli-guide.md`, `docs/development-setup.md`, `.agents/guardrails/architecture-boundaries.md`, `.agents/context/artefact-store.md`, `.agents/context/migration-package-concept.md`.

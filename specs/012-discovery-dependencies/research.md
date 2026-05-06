@@ -204,5 +204,5 @@ After the `await foreach` loop completes:
 | `Program.cs` | `CLI.Migration` | Register `DependencyCommand` in `discovery` branch |
 | `.vscode/launch.json` | — | Add `discovery dependencies` launch entries |
 | `.agents/context/cli-commands.md` | — | Add `discovery dependencies` row and examples (doc task for implement) |
-| `docs/cli.md` | — | Add `discovery dependencies` narrative (doc task for implement) |
-| `docs/source-types.md` | — | Add Dependency Analysis section per source type (doc task for implement) |
+| `docs/cli-guide.md` | — | Add `discovery dependencies` narrative (doc task for implement) |
+| `docs/capabilities-guide.md` | — | Add Dependency Analysis section per source type (doc task for implement) |
