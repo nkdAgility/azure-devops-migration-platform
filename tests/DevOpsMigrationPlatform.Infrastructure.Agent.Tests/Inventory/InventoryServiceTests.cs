@@ -85,9 +85,9 @@ public class InventoryServiceTests
         var mock = new Mock<IWorkItemDiscoveryService>(MockBehavior.Strict);
         mock.Setup(s => s.DiscoverWorkItemsAsync(
                 It.IsAny<OrganisationEndpoint>(), It.IsAny<string>(),
-                It.IsAny<WorkItemFetchScope?>(), It.IsAny<CancellationToken>()))
-            .Returns<OrganisationEndpoint, string, WorkItemFetchScope?, CancellationToken>(
-                (endpoint, proj, scope, ct) => MakeSummaries(proj, workItemCount, revisionCount));
+                It.IsAny<WorkItemFetchScope?>(), It.IsAny<IProgress<int>?>(), It.IsAny<CancellationToken>()))
+            .Returns<OrganisationEndpoint, string, WorkItemFetchScope?, IProgress<int>?, CancellationToken>(
+                (endpoint, proj, scope, progress, ct) => MakeSummaries(proj, workItemCount, revisionCount));
         return mock;
     }
 
@@ -175,9 +175,9 @@ public class InventoryServiceTests
         var discoveryMock = new Mock<IWorkItemDiscoveryService>(MockBehavior.Strict);
         discoveryMock.Setup(s => s.DiscoverWorkItemsAsync(
                 It.IsAny<OrganisationEndpoint>(), It.IsAny<string>(),
-                It.IsAny<WorkItemFetchScope?>(), It.IsAny<CancellationToken>()))
-            .Returns<OrganisationEndpoint, string, WorkItemFetchScope?, CancellationToken>(
-                (endpoint, proj, scope, ct) => EmptyDiscovery(proj));
+                It.IsAny<WorkItemFetchScope?>(), It.IsAny<IProgress<int>?>(), It.IsAny<CancellationToken>()))
+            .Returns<OrganisationEndpoint, string, WorkItemFetchScope?, IProgress<int>?, CancellationToken>(
+                (endpoint, proj, scope, progress, ct) => EmptyDiscovery(proj));
 
         var sut = BuildService(discoveryMock);
 
@@ -297,9 +297,9 @@ public class InventoryServiceTests
         errorDiscovery
             .Setup(s => s.DiscoverWorkItemsAsync(
                 It.IsAny<OrganisationEndpoint>(), It.IsAny<string>(),
-                It.IsAny<WorkItemFetchScope?>(), It.IsAny<CancellationToken>()))
-            .Returns<OrganisationEndpoint, string, WorkItemFetchScope?, CancellationToken>(
-                (_, proj, _, _) => DiscoveryWithError(proj, "WIQL query failed: TF50309"));
+                It.IsAny<WorkItemFetchScope?>(), It.IsAny<IProgress<int>?>(), It.IsAny<CancellationToken>()))
+            .Returns<OrganisationEndpoint, string, WorkItemFetchScope?, IProgress<int>?, CancellationToken>(
+                (_, proj, _, _, _) => DiscoveryWithError(proj, "WIQL query failed: TF50309"));
 
         var sut = BuildService(errorDiscovery);
         var events = await CollectEventsAsync(sut);
@@ -640,9 +640,9 @@ public class InventoryServiceTests
         var discoveryMock = new Mock<IWorkItemDiscoveryService>(MockBehavior.Strict);
         discoveryMock.Setup(s => s.DiscoverWorkItemsAsync(
                 It.IsAny<OrganisationEndpoint>(), It.IsAny<string>(),
-                It.IsAny<WorkItemFetchScope?>(), It.IsAny<CancellationToken>()))
-            .Returns<OrganisationEndpoint, string, WorkItemFetchScope?, CancellationToken>(
-                (endpoint, proj, scope, ct) =>
+                It.IsAny<WorkItemFetchScope?>(), It.IsAny<IProgress<int>?>(), It.IsAny<CancellationToken>()))
+            .Returns<OrganisationEndpoint, string, WorkItemFetchScope?, IProgress<int>?, CancellationToken>(
+                (endpoint, proj, scope, progress, ct) =>
                 {
                     discoveredProjects.Add(proj);
                     return MakeSummaries(proj, 10, 50);
@@ -739,9 +739,9 @@ public class InventoryServiceTests
         var discoveryMock = new Mock<IWorkItemDiscoveryService>(MockBehavior.Strict);
         discoveryMock.Setup(s => s.DiscoverWorkItemsAsync(
                 It.IsAny<OrganisationEndpoint>(), It.IsAny<string>(),
-                It.IsAny<WorkItemFetchScope?>(), It.IsAny<CancellationToken>()))
-            .Returns<OrganisationEndpoint, string, WorkItemFetchScope?, CancellationToken>(
-                (endpoint, proj, scope, ct) => StreamingSummaries(proj, firstItemConsumed.Task, ct));
+                It.IsAny<WorkItemFetchScope?>(), It.IsAny<IProgress<int>?>(), It.IsAny<CancellationToken>()))
+            .Returns<OrganisationEndpoint, string, WorkItemFetchScope?, IProgress<int>?, CancellationToken>(
+                (endpoint, proj, scope, progress, ct) => StreamingSummaries(proj, firstItemConsumed.Task, ct));
 
         var sut = BuildService(discoveryMock);
         await using var enumerator = sut.RunInventoryAsync().GetAsyncEnumerator();

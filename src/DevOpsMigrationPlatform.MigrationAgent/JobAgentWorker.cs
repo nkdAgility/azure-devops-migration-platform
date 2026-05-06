@@ -696,6 +696,7 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
                         ArtefactStore = artefactStore,
                         StateStore = stateStore,
                         ProgressSink = ProgressSink,
+                        Policies = policies,
                         Organisations = organisations
                     }, ct).ConfigureAwait(false);
                 }

@@ -246,7 +246,15 @@ public sealed class WorkItemExportOrchestrator
                 });
 
                 await foreach (var snapshot in _discoveryService.CountWorkItemsAsync(
-                    _endpoint.ToOrganisationEndpoint(), _project!, _wiqlQuery, cancellationToken)
+                    _endpoint.ToOrganisationEndpoint(), _project!, _wiqlQuery,
+                    progress: new Progress<int>(n => _progressSink?.Emit(new ProgressEvent
+                    {
+                        Module = "WorkItems",
+                        Stage = "Counting",
+                        Message = $"[WorkItems] Counted {n:N0} work items so far…",
+                        Timestamp = DateTimeOffset.UtcNow
+                    })),
+                    cancellationToken: cancellationToken)
                     .ConfigureAwait(false))
                 {
                     if (snapshot.IsWorkItemComplete)
@@ -929,28 +937,27 @@ public sealed class WorkItemExportOrchestrator
 
         // Fetch only the fields referenced by filter predicates — minimal payload.
         var filterFields = filterOptions.Select(f => f.FieldName).Distinct().ToArray();
-        var scope = new WorkItemFetchScope(Fields: filterFields, FilterOptions: filterOptions);
+        var scope = new WorkItemFetchScope(
+            Fields: filterFields,
+            FilterOptions: filterOptions,
+            Progress: new Progress<int>(n =>
+            {
+                _logger?.LogInformation("[WorkItems] Pre-filter pass: {Fetched} work items fetched so far…", n);
+                _progressSink?.Emit(new ProgressEvent
+                {
+                    Module = "WorkItems",
+                    Stage = "Filtering",
+                    Message = $"[WorkItems] Pre-filter pass: {n:N0} work items fetched so far…",
+                    Timestamp = DateTimeOffset.UtcNow
+                });
+            }));
 
         var orgEndpoint = _endpoint!.ToOrganisationEndpoint();
-        int fetched = 0;
 
         await foreach (var item in _fetchService!.FetchAsync(orgEndpoint, _project!, scope, cancellationToken)
             .ConfigureAwait(false))
         {
             ids.Add(item.Id);
-            fetched++;
-
-            // Emit progress every 100 items so the operator can see the fetch is alive.
-            if (fetched % 100 == 0)
-            {
-                _logger?.LogInformation("[WorkItems] Pre-filter pass: {Fetched} work items fetched so far…", fetched);
-                _progressSink?.Emit(new ProgressEvent
-                {
-                    Module = "WorkItems",
-                    Stage = "Filtering",
-                    Message = $"[WorkItems] Pre-filter pass: {fetched:N0} work items fetched so far…"
-                });
-            }
         }
 
         return ids;

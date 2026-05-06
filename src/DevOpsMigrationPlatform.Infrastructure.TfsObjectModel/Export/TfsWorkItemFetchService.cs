@@ -46,6 +46,9 @@ public sealed class TfsWorkItemFetchService : IWorkItemFetchService
             ? new WorkItemQueryWindowOptions { BaseQuery = scope.BaseQuery }
             : null;
 
+        int totalYielded = 0;
+        const int ProgressBatchSize = 200;
+
         await foreach (var window in _windowStrategy.EnumerateWindowsAsync(
             endpoint, project, windowOptions, cancellationToken).ConfigureAwait(false))
         {
@@ -69,9 +72,18 @@ public sealed class TfsWorkItemFetchService : IWorkItemFetchService
                 var item = new FetchedWorkItem(wi.Id, fields);
 
                 if (PassesFilters(item, scope.FilterOptions))
+                {
                     yield return item;
+                    totalYielded++;
+                    if (totalYielded % ProgressBatchSize == 0)
+                        scope.Progress?.Report(totalYielded);
+                }
             }
         }
+
+        // Final progress report for any remainder below the batch boundary.
+        if (totalYielded % ProgressBatchSize != 0)
+            scope.Progress?.Report(totalYielded);
     }
 
     internal static bool PassesFilters(FetchedWorkItem item, IReadOnlyList<WorkItemFieldFilterOptions>? filters) =>

@@ -13,5 +13,6 @@ public record AnalyseContext
     public required IArtefactStore ArtefactStore { get; init; }
     public required IStateStore StateStore { get; init; }
     public IProgressSink? ProgressSink { get; init; }
+    public JobPolicies Policies { get; init; } = new();
 }
 

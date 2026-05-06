@@ -678,7 +678,13 @@ internal sealed class DependencyOrchestrator : IDependencyOrchestrator
                     sink.Emit(new ProgressEvent
                     {
                         Module = ModuleName,
-                        Stage = heartbeat.Error is not null ? "Failed" : (heartbeat.IsComplete ? "ProjectComplete" : "Analysis"),
+                        Stage = heartbeat.Error is not null
+                            ? "Failed"
+                            : heartbeat.IsComplete
+                                ? "ProjectComplete"
+                                : heartbeat.IsCounting
+                                    ? "Counting"
+                                    : "Analysis",
                         Message = $"{heartbeat.OrganisationUrl}|{heartbeat.ProjectName}",
                         Timestamp = DateTimeOffset.UtcNow,
                         LastCheckpointAt = new DateTimeOffset(lastCheckpoint, TimeSpan.Zero),

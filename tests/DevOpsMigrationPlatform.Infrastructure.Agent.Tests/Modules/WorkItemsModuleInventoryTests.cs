@@ -129,6 +129,7 @@ public sealed class WorkItemsModuleInventoryTests
                 It.IsAny<OrganisationEndpoint>(),
                 "ProjectA",
                 It.IsAny<WorkItemFetchScope?>(),
+                It.IsAny<IProgress<int>?>(),
                 It.IsAny<CancellationToken>()))
             .Returns(CountSummaries(workItemCount, revisionCount));
 

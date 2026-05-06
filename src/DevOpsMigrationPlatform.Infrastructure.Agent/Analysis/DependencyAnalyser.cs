@@ -57,6 +57,7 @@ public sealed class DependencyAnalyser : IOrganisationsAnalyser
             ArtefactStore = context.ArtefactStore,
             StateStore = context.StateStore,
             ProgressSink = context.ProgressSink,
+            Policies = context.Policies,
             Organisations = []
         }, ct);
     }
@@ -72,9 +73,14 @@ public sealed class DependencyAnalyser : IOrganisationsAnalyser
         context.ProgressSink?.Emit(new ProgressEvent { Module = Name, Stage = "Analysing", Message = "Running dependency analysis", Timestamp = DateTimeOffset.UtcNow });
 
         var organisations = context.Organisations.ToList();
-        var policies = new JobPolicies();
+        var policies = context.Policies;
         var dependencyService = _dependencyFactory.Create(organisations, policies);
-        await _orchestrator.AnalyseAsync(dependencyService, context, policies, 300, ct).ConfigureAwait(false);
+        await _orchestrator.AnalyseAsync(
+            dependencyService,
+            context,
+            policies,
+            policies.CheckpointIntervalSeconds,
+            ct).ConfigureAwait(false);
 
         var csv = await context.ArtefactStore.ReadAsync("dependencies.csv", ct).ConfigureAwait(false);
         if (!string.IsNullOrWhiteSpace(csv))

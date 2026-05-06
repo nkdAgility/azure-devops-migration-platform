@@ -70,19 +70,36 @@ internal sealed class AzureDevOpsDependencyAnalysisService : IWorkItemLinkAnalys
 
             // ── Pre-count: discover total work items so progress shows N of M ────
             int projectTotal = 0;
+            var emittedCountingHeartbeat = false;
             await foreach (var snapshot in _discoveryService.CountWorkItemsAsync(
-                orgEndpoint, project, wiqlFilter, cancellationToken).ConfigureAwait(false))
+                orgEndpoint, project, wiqlFilter, cancellationToken: cancellationToken).ConfigureAwait(false))
             {
                 projectTotal = snapshot.WorkItemsCount;
+
+                yield return new DependencyHeartbeatEvent(
+                    orgEndpoint.ResolvedUrl,
+                    project,
+                    WorkItemsAnalysed: 0,
+                    ExternalLinksFound: 0,
+                    CrossProjectCount: 0,
+                    CrossOrgCount: 0,
+                    IsComplete: false,
+                    Error: snapshot.Error,
+                    TotalWorkItems: snapshot.WorkItemsCount,
+                    SkippedWorkItems: 0,
+                    IsCounting: !snapshot.IsWorkItemComplete);
+                emittedCountingHeartbeat = true;
             }
             _logger.LogInformation(
                 "Project {Project} has {TotalWorkItems} work items to analyse for dependencies.",
                 project, projectTotal);
 
-            // Emit initial heartbeat with the discovered total
-            yield return new DependencyHeartbeatEvent(
-                orgEndpoint.ResolvedUrl, project, 0, 0, 0, 0, false,
-                TotalWorkItems: projectTotal, IsCounting: true);
+            if (!emittedCountingHeartbeat)
+            {
+                yield return new DependencyHeartbeatEvent(
+                    orgEndpoint.ResolvedUrl, project, 0, 0, 0, 0, false,
+                    TotalWorkItems: projectTotal, IsCounting: true);
+            }
 
             var sourceOrgSegment = ExtractOrgSegment(orgEndpoint.ResolvedUrl);
             var counters = new LinkCounters();

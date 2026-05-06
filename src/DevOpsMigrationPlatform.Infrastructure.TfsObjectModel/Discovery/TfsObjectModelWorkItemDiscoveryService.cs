@@ -33,6 +33,7 @@ public sealed class TfsObjectModelWorkItemDiscoveryService : IWorkItemDiscoveryS
         OrganisationEndpoint endpoint,
         string project,
         WorkItemFetchScope? scope = null,
+        IProgress<int>? progress = null,
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         // TFS Object Model subprocess does not support field-level filter scopes.
@@ -55,6 +56,7 @@ public sealed class TfsObjectModelWorkItemDiscoveryService : IWorkItemDiscoveryS
             }
 
             summary.LastUpdatedUtc = DateTime.UtcNow;
+            progress?.Report(summary.WorkItemsCount);
             yield return summary;
         }
 
@@ -72,8 +74,9 @@ public sealed class TfsObjectModelWorkItemDiscoveryService : IWorkItemDiscoveryS
         OrganisationEndpoint endpoint,
         string project,
         string? baseQuery = null,
+        IProgress<int>? progress = null,
         CancellationToken cancellationToken = default)
-        => DiscoverWorkItemsAsync(endpoint, project, scope: null, cancellationToken);
+        => DiscoverWorkItemsAsync(endpoint, project, scope: null, progress: progress, cancellationToken: cancellationToken);
 
     private static string EscapeWiql(string value) => value.Replace("'", "''");
 }

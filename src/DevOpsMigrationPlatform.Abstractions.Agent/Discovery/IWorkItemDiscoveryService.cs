@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (c) Naked Agility Limited
 
+using System;
 using System.Collections.Generic;
 using System.Threading;
 using DevOpsMigrationPlatform.Abstractions.Agent.WorkItems;
@@ -29,10 +30,16 @@ public interface IWorkItemDiscoveryService
     /// are not included in the returned snapshots.
     /// </para>
     /// </summary>
+    /// <param name="progress">
+    /// Optional per-batch callback receiving the cumulative work item count after each intermediate
+    /// snapshot. Callers MUST wire this to <c>IProgressSink.Emit</c> in production code — passing
+    /// <see langword="null"/> is only permitted in unit tests.
+    /// </param>
     IAsyncEnumerable<ProjectDiscoverySummary> DiscoverWorkItemsAsync(
         OrganisationEndpoint endpoint,
         string project,
         WorkItemFetchScope? scope = null,
+        IProgress<int>? progress = null,
         CancellationToken cancellationToken = default);
 
     /// <summary>
@@ -43,9 +50,15 @@ public interface IWorkItemDiscoveryService
     /// Streams incremental snapshots; the final snapshot has
     /// <see cref="ProjectDiscoverySummary.IsWorkItemComplete"/> = <c>true</c>.
     /// </summary>
+    /// <param name="progress">
+    /// Optional per-window callback receiving the cumulative work item count after each window
+    /// completes. Callers MUST wire this to <c>IProgressSink.Emit</c> in production code — passing
+    /// <see langword="null"/> is only permitted in unit tests.
+    /// </param>
     IAsyncEnumerable<ProjectDiscoverySummary> CountWorkItemsAsync(
         OrganisationEndpoint endpoint,
         string project,
         string? baseQuery = null,
+        IProgress<int>? progress = null,
         CancellationToken cancellationToken = default);
 }

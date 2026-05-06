@@ -55,9 +55,10 @@ public sealed class CompositeWorkItemDiscoveryService : IWorkItemDiscoveryServic
         OrganisationEndpoint endpoint,
         string project,
         WorkItemFetchScope? scope = null,
+        IProgress<int>? progress = null,
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
-        await foreach (var summary in Resolve().DiscoverWorkItemsAsync(endpoint, project, scope, cancellationToken))
+        await foreach (var summary in Resolve().DiscoverWorkItemsAsync(endpoint, project, scope, progress, cancellationToken))
             yield return summary;
     }
 
@@ -66,9 +67,10 @@ public sealed class CompositeWorkItemDiscoveryService : IWorkItemDiscoveryServic
         OrganisationEndpoint endpoint,
         string project,
         string? baseQuery = null,
+        IProgress<int>? progress = null,
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
-        await foreach (var summary in Resolve().CountWorkItemsAsync(endpoint, project, baseQuery, cancellationToken))
+        await foreach (var summary in Resolve().CountWorkItemsAsync(endpoint, project, baseQuery, progress, cancellationToken))
             yield return summary;
     }
 }

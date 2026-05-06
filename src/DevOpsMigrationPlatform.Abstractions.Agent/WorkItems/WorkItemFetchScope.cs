@@ -36,10 +36,17 @@ namespace DevOpsMigrationPlatform.Abstractions.Agent.WorkItems;
 /// Callback invoked per-batch with the latest checkpoint. If null and ResumeEnabled is true,
 /// a warning log is emitted and checkpoints are silently skipped.
 /// </param>
+/// <param name="Progress">
+/// Optional per-batch progress callback. Receives the cumulative number of work items yielded
+/// so far after each batch completes. Callers use this to emit <c>ProgressEvent</c> without
+/// writing manual item-count loops. Must not be null in production code — pass
+/// <see cref="System.Progress{T}"/> wired to <c>IProgressSink.Emit</c>.
+/// </param>
 public sealed record WorkItemFetchScope(
     IReadOnlyList<string> Fields,
     IReadOnlyList<WorkItemFieldFilterOptions>? FilterOptions = null,
     string? BaseQuery = null,
     bool ResumeEnabled = false,
     BatchContinuationToken? SavedContinuationToken = null,
-    Func<BatchContinuationToken, CancellationToken, Task>? ContinuationCheckpointWriter = null);
+    Func<BatchContinuationToken, CancellationToken, Task>? ContinuationCheckpointWriter = null,
+    IProgress<int>? Progress = null);

@@ -949,22 +949,27 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
                     {
                         var stage = sa.Event.Stage ?? string.Empty;
                         var message = sa.Event.Message ?? string.Empty;
-                        if ((stage == "Inventory" || stage == "Failed") && message.Contains('|'))
+                        if ((stage == "Inventory" || stage == "ProjectComplete" || stage == "Failed") && message.Contains('|'))
                         {
                             var sepIdx = message.IndexOf('|');
                             var projectName = message[(sepIdx + 1)..];
                             var wi = sa.Event.Metrics?.Scope?.WorkItemsTotal ?? 0;
+                            var links = sa.Event.Metrics?.Discovery?.Dependencies?.ExternalLinksFound ?? 0;
                             var statusIcon = stage == "Failed" ? "✗" : "✓";
                             var statusColor = stage == "Failed" ? "red" : "green";
-                            console.MarkupLine($"[{statusColor}]{statusIcon}[/] {Markup.Escape(projectName)}  [grey]{wi:N0} work items[/]");
+                            var summary = stage == "ProjectComplete"
+                                ? $"[grey]{wi:N0} work items, {links:N0} links[/]"
+                                : $"[grey]{wi:N0} work items[/]";
+                            console.MarkupLine($"[{statusColor}]{statusIcon}[/] {Markup.Escape(projectName)}  {summary}");
                         }
-                        else if (stage == "Progress" && message.Contains('|'))
+                        else if ((stage == "Progress" || stage == "Analysis" || stage == "Counting") && message.Contains('|'))
                         {
                             var sepIdx = message.IndexOf('|');
                             var projectName = message[(sepIdx + 1)..];
                             var wi = sa.Event.Metrics?.Scope?.WorkItemsTotal ?? 0;
+                            var label = stage == "Counting" ? "counting" : "analysing";
                             if (wi > 0)
-                                console.MarkupLine($"[blue]⠋[/] {Markup.Escape(projectName)}  [grey]{wi:N0} so far…[/]");
+                                console.MarkupLine($"[blue]⠋[/] {Markup.Escape(projectName)}  [grey]{wi:N0} {label}…[/]");
                         }
                     }
 
@@ -1934,6 +1939,11 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
         long WorkItems,
         long Revisions,
         int Repos,
+        long ExternalLinks,
+        long CrossProjectLinks,
+        long CrossOrgLinks,
+        string? StageText,
+        bool IsCounting,
         bool IsComplete,
         bool IsFailed,
         bool IsInProgress);
@@ -1998,11 +2008,11 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
         if (evt.TaskId is not null && evt.TaskStatus.HasValue)
             newState = ApplyDiscoveryTaskUpdate(newState, evt.TaskId, evt.TaskStatus.Value);
 
-        // Parse inventory project data out of the progress message ("{url}|{projectName}").
+        // Parse discovery project data out of the progress message ("{url}|{projectName}").
         var message = evt.Message ?? string.Empty;
         var stage = evt.Stage ?? string.Empty;
 
-        if (!message.Contains('|') || stage is not ("Progress" or "Inventory" or "Failed"))
+        if (!message.Contains('|'))
             return newState;
 
         var sepIdx = message.IndexOf('|');
@@ -2011,26 +2021,48 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
         if (string.IsNullOrEmpty(orgUrl) || string.IsNullOrEmpty(projectName))
             return newState;
 
-        var workItems = evt.Metrics?.Scope?.WorkItemsTotal ?? 0;
-        var revisions = evt.Metrics?.Discovery?.Inventory?.RevisionsTotal ?? 0;
-        var repos = (int)(evt.Metrics?.Discovery?.Inventory?.RepositoriesTotal ?? 0);
-
-        var row = new InventoryProjectRow(
-            orgUrl, projectName,
-            workItems, revisions, repos,
-            IsComplete: stage == "Inventory",
-            IsFailed: stage == "Failed",
-            IsInProgress: stage == "Progress");
-
         var projects = new List<InventoryProjectRow>(newState.Projects);
         var idx = projects.FindIndex(p =>
             string.Equals(p.OrgUrl, orgUrl, StringComparison.OrdinalIgnoreCase) &&
             string.Equals(p.ProjectName, projectName, StringComparison.OrdinalIgnoreCase));
+        var existing = idx >= 0 ? projects[idx] : null;
+
+        var isInventoryStage = stage is "Progress" or "Inventory" or "InventorySeed";
+        var isDependencyStage = stage is "Counting" or "Analysis" or "ProjectComplete" or "Failed";
+
+        if (!isInventoryStage && !isDependencyStage)
+            return newState;
+
+        var workItems = evt.Metrics?.Scope?.WorkItemsTotal ?? existing?.WorkItems ?? 0;
+        var revisions = evt.Metrics?.Discovery?.Inventory?.RevisionsTotal ?? existing?.Revisions ?? 0;
+        var repos = (int)(evt.Metrics?.Discovery?.Inventory?.RepositoriesTotal ?? existing?.Repos ?? 0);
+        var externalLinks = evt.Metrics?.Discovery?.Dependencies?.ExternalLinksFound ?? existing?.ExternalLinks ?? 0;
+        var crossProjectLinks = evt.Metrics?.Discovery?.Dependencies?.CrossProjectLinks ?? existing?.CrossProjectLinks ?? 0;
+        var crossOrgLinks = evt.Metrics?.Discovery?.Dependencies?.CrossOrgLinks ?? existing?.CrossOrgLinks ?? 0;
+
+        var row = new InventoryProjectRow(
+            orgUrl,
+            projectName,
+            workItems,
+            revisions,
+            repos,
+            externalLinks,
+            crossProjectLinks,
+            crossOrgLinks,
+            StageText: stage,
+            IsCounting: stage == "Counting",
+            IsComplete: stage is "Inventory" or "ProjectComplete",
+            IsFailed: stage == "Failed",
+            IsInProgress: stage is "Progress" or "Analysis" or "Counting");
 
         if (idx >= 0)
+        {
             projects[idx] = row;
+        }
         else
+        {
             projects.Add(row);
+        }
 
         return newState with { Projects = projects.AsReadOnly() };
     }
@@ -2066,6 +2098,11 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
                 projects.Add(new InventoryProjectRow(
                     org.Url, project.Name,
                     workItems, revisions, repos,
+                    ExternalLinks: project.Discovery?.Dependencies?.ExternalLinksFound ?? 0,
+                    CrossProjectLinks: project.Discovery?.Dependencies?.CrossProjectLinks ?? 0,
+                    CrossOrgLinks: project.Discovery?.Dependencies?.CrossOrgLinks ?? 0,
+                    StageText: project.Status == ProjectStatus.Completed ? "ProjectComplete" : project.Status.ToString(),
+                    IsCounting: false,
                     IsComplete: project.Status == ProjectStatus.Completed,
                     IsFailed: project.Status == ProjectStatus.Failed,
                     IsInProgress: project.Status == ProjectStatus.InProgress));
@@ -2084,11 +2121,11 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
         var spinnerFrame = s_spinnerFrames[(int)(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() / 80 % s_spinnerFrames.Length)];
         var rows = new List<IRenderable>();
 
-        if (s.Tasks is null)
+        if (s.Tasks is null && s.Projects.Count == 0)
         {
             rows.Add(new Markup("[grey]⠋ Initialising — waiting for agent to start…[/]"));
         }
-        else if (s.Tasks.Tasks.Count > 0)
+        else if (s.Tasks is not null && s.Tasks.Tasks.Count > 0)
         {
             var captureTasks = s.Tasks.Tasks
                 .Where(t => t.TaskKind == TaskKind.Capture)
@@ -2221,6 +2258,10 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
 
                 rows.Add(table);
             }
+            else if (s.Projects.Count > 0)
+            {
+                rows.Add(BuildDependenciesProjectTable(s.Projects, spinnerFrame));
+            }
             else
             {
                 // Non-capture job: render flat list (dependencies, etc.)
@@ -2238,8 +2279,58 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
                 }
             }
         }
+        else if (s.Projects.Count > 0)
+        {
+            rows.Add(BuildDependenciesProjectTable(s.Projects, spinnerFrame));
+        }
 
         return rows.Count > 0 ? (IRenderable)new Rows(rows) : new Markup("[grey]⠋ Running…[/]");
+    }
+
+    private static IRenderable BuildDependenciesProjectTable(
+        IReadOnlyList<InventoryProjectRow> projects,
+        string spinnerFrame)
+    {
+        var table = new Table()
+            .BorderStyle(Style.Parse("grey"))
+            .AddColumn(new TableColumn("[grey]Organisation[/]"))
+            .AddColumn(new TableColumn("[grey]Project[/]"))
+            .AddColumn(new TableColumn("[grey]Status[/]").Centered())
+            .AddColumn(new TableColumn("[grey]Work Items[/]").RightAligned())
+            .AddColumn(new TableColumn("[grey]Links[/]").RightAligned())
+            .AddColumn(new TableColumn("[grey]Cross Project[/]").RightAligned())
+            .AddColumn(new TableColumn("[grey]Cross Org[/]").RightAligned());
+
+        string? lastOrg = null;
+        foreach (var project in projects
+                     .OrderBy(p => p.OrgUrl, StringComparer.OrdinalIgnoreCase)
+                     .ThenBy(p => p.ProjectName, StringComparer.OrdinalIgnoreCase))
+        {
+            var orgLabel = project.OrgUrl != lastOrg
+                ? TruncateName(DeriveDiscoveryOrgLabel(project.OrgUrl), 36)
+                : string.Empty;
+            lastOrg = project.OrgUrl;
+
+            var (icon, color, statusText) = project switch
+            {
+                { IsFailed: true } => ("✗", "red", "Failed"),
+                { IsComplete: true } => ("✓", "green", "Complete"),
+                { IsCounting: true } => (spinnerFrame, "blue", "Counting"),
+                { IsInProgress: true } => (spinnerFrame, "blue", "Analysing"),
+                _ => ("·", "grey", project.StageText ?? "Pending"),
+            };
+
+            table.AddRow(
+                new Markup(string.IsNullOrEmpty(orgLabel) ? string.Empty : $"[grey]{Markup.Escape(orgLabel)}[/]"),
+                new Markup(Markup.Escape(project.ProjectName)),
+                new Markup($"[{color}]{icon}[/] [grey]{Markup.Escape(statusText)}[/]"),
+                new Markup(project.WorkItems > 0 ? $"[bold]{project.WorkItems:N0}[/]" : "[grey]–[/]"),
+                new Markup(project.ExternalLinks > 0 ? $"[bold]{project.ExternalLinks:N0}[/]" : "[grey]0[/]"),
+                new Markup(project.CrossProjectLinks > 0 ? $"{project.CrossProjectLinks:N0}" : "[grey]0[/]"),
+                new Markup(project.CrossOrgLinks > 0 ? $"{project.CrossOrgLinks:N0}" : "[grey]0[/]"));
+        }
+
+        return table;
     }
 
     /// <summary>
