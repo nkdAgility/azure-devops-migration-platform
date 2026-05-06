@@ -4,6 +4,8 @@
 
 Accepted
 
+**Amendment (ADR-0010):** Cursor-based checkpointing handles item-level resume within a single module. [ADR-0010](0010-plan-driven-dag-execution.md) adds plan-level checkpointing at the task level across modules. Both mechanisms coexist and are complementary. The plan skips re-executing already-completed modules; the cursor skips already-processed items within a resumed module.
+
 ## Context
 
 Long-running migrations must be resumable after interruption. A progress tracking mechanism is needed that is durable, correct under retries, and does not require counting items.

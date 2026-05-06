@@ -4,6 +4,8 @@
 
 Accepted
 
+**Amendment (ADR-0008):** The CLI is permitted to write `migration-config.json` to the package root as a pre-submission step. This is the only CLI package write permitted. See [ADR-0008](0008-configuration-travels-in-package.md) for the full rationale.
+
 ## Context
 
 The migration package is the source of truth. Allowing multiple components to write to it risks corruption, non-determinism, and data residency violations.

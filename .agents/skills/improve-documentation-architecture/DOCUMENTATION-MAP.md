@@ -98,7 +98,15 @@ Excluded unless explicitly requested:
         ├── 0002-filesystem-package-as-source-of-truth.md
         ├── 0003-cursor-based-checkpointing.md
         ├── 0004-control-plane-does-not-execute-migrations.md
-        └── 0005-agent-only-package-write-access.md
+        ├── 0005-agent-only-package-write-access.md
+        ├── 0006-three-channel-observability.md
+        ├── 0007-compiler-enforced-project-boundaries.md
+        ├── 0008-configuration-travels-in-package.md
+        ├── 0009-single-job-kind-discriminator.md
+        ├── 0010-plan-driven-dag-execution.md
+        ├── 0011-unified-platform-metric-namespace.md
+        ├── 0012-imodule-five-phase-contract.md
+        └── 0013-simulated-connector-as-ci-infrastructure.md
 ```
 
 ## Operator Documentation
