@@ -1119,6 +1119,12 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
     private record TaskListReceived(JobTaskList Tasks, long LastEventSequence) : JobProgressUpdate;
     /// <summary>Fired per SSE event when <see cref="ProgressEvent.TaskId"/> is set.</summary>
     private record TaskUpdated(string TaskId, JobTaskStatus Status, long? CompletedCount) : JobProgressUpdate;
+    /// <summary>
+    /// Fired when the bootstrap poll returns a snapshot with org/project data.
+    /// Used to pre-populate the discovery table for resuming jobs where SSE catchup
+    /// events may no longer be in the ring buffer.
+    /// </summary>
+    private record SnapshotLoaded(JobSnapshot Snapshot) : JobProgressUpdate;
 
     private static JobProgressState Apply(JobProgressState state, JobProgressUpdate update) => update switch
     {
@@ -1558,6 +1564,17 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
                         await updates.WriteAsync(
                             new TaskListReceived(bootstrap.Tasks, bootstrap.LastEventSequence), ct)
                             .ConfigureAwait(false);
+
+                        // Pre-populate the discovery table from the snapshot so that
+                        // previously-completed projects appear immediately for late-joining
+                        // clients whose SSE ring buffer no longer holds the catchup events.
+                        if (bootstrap.Snapshot is { Organisations.Count: > 0 })
+                        {
+                            await updates.WriteAsync(
+                                new SnapshotLoaded(bootstrap.Snapshot), ct)
+                                .ConfigureAwait(false);
+                        }
+
                         return;
                     }
                 }
@@ -1948,6 +1965,7 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
         TaskListReceived t => state with { Tasks = t.Tasks },
         TaskUpdated t => ApplyDiscoveryTaskUpdate(state, t.TaskId, t.Status),
         StageAdvanced t => ApplyDiscoveryStageAdvance(state, t.Event),
+        SnapshotLoaded s => ApplyDiscoverySnapshot(state, s.Snapshot),
         _ => state
     };
 
@@ -2018,7 +2036,46 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
     }
 
     /// <summary>
-    /// Renders the live discovery display as a single merged table.
+    /// Pre-populates the discovery table from a <see cref="JobSnapshot"/> returned by the
+    /// bootstrap endpoint. Used for resuming jobs where SSE catchup events may have been
+    /// evicted from the ring buffer before the client connected. Existing rows (added by
+    /// live SSE events) take precedence — snapshot rows are only inserted, never updated.
+    /// </summary>
+    private static DiscoveryProgressState ApplyDiscoverySnapshot(DiscoveryProgressState state, JobSnapshot snapshot)
+    {
+        if (snapshot.Organisations.Count == 0)
+            return state;
+
+        var projects = new List<InventoryProjectRow>(state.Projects);
+
+        foreach (var org in snapshot.Organisations)
+        {
+            foreach (var project in org.Projects)
+            {
+                // Do not overwrite a row that was already added by a live SSE event.
+                var exists = projects.Any(p =>
+                    string.Equals(p.OrgUrl, org.Url, StringComparison.OrdinalIgnoreCase) &&
+                    string.Equals(p.ProjectName, project.Name, StringComparison.OrdinalIgnoreCase));
+
+                if (exists) continue;
+
+                var workItems = project.Discovery?.Inventory?.WorkItemsTotal ?? 0;
+                var revisions = project.Discovery?.Inventory?.RevisionsTotal ?? 0;
+                var repos = (int)(project.Discovery?.Inventory?.RepositoriesTotal ?? 0);
+
+                projects.Add(new InventoryProjectRow(
+                    org.Url, project.Name,
+                    workItems, revisions, repos,
+                    IsComplete: project.Status == ProjectStatus.Completed,
+                    IsFailed: project.Status == ProjectStatus.Failed,
+                    IsInProgress: project.Status == ProjectStatus.InProgress));
+            }
+        }
+
+        return state with { Projects = projects.AsReadOnly() };
+    }
+
+
     /// Columns: Org | Project | module-status cells | Work Items | Revisions | Repos | Time
     /// The task-status icons and the inventory data counts are merged per row.
     /// </summary>
