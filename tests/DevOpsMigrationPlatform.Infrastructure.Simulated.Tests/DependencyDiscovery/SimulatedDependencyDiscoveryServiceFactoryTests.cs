@@ -35,6 +35,9 @@ public sealed class SimulatedDependencyDiscoveryServiceFactoryTests
         };
 
     // ── T024: factory can be instantiated and Create returns a service ─────
+    // TODO: [test-validity] Score 8/25 — Rule 3 applied (sole coverage for Create() path).
+    // Rewrite to verify service.DiscoverDependenciesAsync actually delegates to the link service
+    // rather than just asserting non-null. E.g. inject a counting stub and assert it was called.
     [TestMethod]
     public void Create_WithSimulatedLinkService_ReturnsIDependencyDiscoveryService()
     {
@@ -44,17 +47,6 @@ public sealed class SimulatedDependencyDiscoveryServiceFactoryTests
         var service = factory.Create(OneOrg(), new JobPolicies());
 
         Assert.IsNotNull(service, "Create must return a non-null IDependencyDiscoveryService");
-    }
-
-    [TestMethod]
-    public void CreateForProject_WithSimulatedLinkService_ReturnsIDependencyDiscoveryService()
-    {
-        var linkService = new SimulatedWorkItemLinkAnalysisService();
-        var factory = new SimulatedDependencyDiscoveryServiceFactory(linkService);
-
-        var service = factory.CreateForProject(OneOrg(), SimOrgUrl, ProjectName, new JobPolicies());
-
-        Assert.IsNotNull(service, "CreateForProject must return a non-null IDependencyDiscoveryService");
     }
 
     // ── T024: service delegates to SimulatedWorkItemLinkAnalysisService ────
@@ -92,6 +84,10 @@ public sealed class SimulatedDependencyDiscoveryServiceFactoryTests
     }
 
     // ── T024: CreateForProject scopes to single project ───────────────────
+    // TODO: [test-validity] Score 9/25 — Assert.IsNotNull(events) is a tautology (new List<T>() is never null).
+    // Scoping behaviour (only 1 org's links discovered) is not actually verified.
+    // Rewrite: inject a stub IWorkItemLinkAnalysisService that records which projects were requested,
+    // then assert only "ProjectA" was requested (not ProjectB or ProjectC).
     [TestMethod]
     public async Task CreateForProject_ScopesDiscoveryToSingleProjectOnly()
     {

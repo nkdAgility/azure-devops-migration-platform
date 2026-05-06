@@ -334,6 +334,9 @@ public sealed class DependencyCaptureTests
     }
 
     // ── T044 — O-3 Log assertions ──────────────────────────────────────────
+    // TODO: [test-validity] Score 14/25 — Weak assertions: Times.AtLeast(2) with loose string-contains on OrgUrl.
+    // Rewrite: assert that structured log parameters include OrgUrl AND Project as named parameters,
+    // and that a second LogInformation call includes DurationMs as a parameter > 0.
     [TestMethod]
     public async Task CaptureAsync_O3_SuccessPath_LogsStartAndCompletion()
     {
@@ -379,6 +382,9 @@ public sealed class DependencyCaptureTests
             Times.AtLeast(2));
     }
 
+    // TODO: [test-validity] Score 13/25 — Times.AtLeastOnce only. Rewrite to assert:
+    // (1) LogLevel.Error called exactly once; (2) the structured log state contains ErrorType and ErrorMessage
+    // as named parameters so log aggregators can group by error type.
     [TestMethod]
     public async Task CaptureAsync_O3_FailurePath_LogsError()
     {
