@@ -36,9 +36,11 @@ public sealed class CompositeWorkItemDiscoveryService : IWorkItemDiscoveryServic
         _endpointInfo = endpointInfo ?? throw new ArgumentNullException(nameof(endpointInfo));
     }
 
-    private IWorkItemDiscoveryService Resolve()
+    private IWorkItemDiscoveryService Resolve(string? typeOverride = null)
     {
-        var typeKey = _endpointInfo.ConnectorType;
+        // Prefer the explicit type from the endpoint (e.g. when called from Dependencies job which
+        // has no Source section in config). Fall back to ISourceEndpointInfo for Export/Import jobs.
+        var typeKey = !string.IsNullOrWhiteSpace(typeOverride) ? typeOverride : _endpointInfo.ConnectorType;
         if (string.IsNullOrWhiteSpace(typeKey))
             throw new InvalidOperationException("ISourceEndpointInfo has no ConnectorType.");
 
@@ -58,7 +60,7 @@ public sealed class CompositeWorkItemDiscoveryService : IWorkItemDiscoveryServic
         IProgress<int>? progress = null,
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
-        await foreach (var summary in Resolve().DiscoverWorkItemsAsync(endpoint, project, scope, progress, cancellationToken))
+        await foreach (var summary in Resolve(endpoint.Type).DiscoverWorkItemsAsync(endpoint, project, scope, progress, cancellationToken))
             yield return summary;
     }
 
@@ -70,7 +72,7 @@ public sealed class CompositeWorkItemDiscoveryService : IWorkItemDiscoveryServic
         IProgress<int>? progress = null,
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
-        await foreach (var summary in Resolve().CountWorkItemsAsync(endpoint, project, baseQuery, progress, cancellationToken))
+        await foreach (var summary in Resolve(endpoint.Type).CountWorkItemsAsync(endpoint, project, baseQuery, progress, cancellationToken))
             yield return summary;
     }
 }
