@@ -30,6 +30,7 @@ Agents must read the relevant guardrails before making changes and must check co
 | `definition-of-done.md` | Completion criteria — build, tests, docs, no stubs, no ignored tests |
 | `atdd-workflow.md` | ATDD session lifecycle rules |
 | `acceptance-test-format.md` | Gherkin feature file format rules |
+| `documentation-rules.md` | Doc structure, naming conventions, and rename rules |
 
 ## Authority
 

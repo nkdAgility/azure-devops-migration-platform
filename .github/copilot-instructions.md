@@ -36,6 +36,7 @@ Before writing, editing, or suggesting any code, settings, config, or docs chang
    - `.agents/guardrails/control-plane-rules.md`
    - `.agents/guardrails/atdd-workflow.md`
    - `.agents/guardrails/acceptance-test-format.md`
+   - `.agents/guardrails/documentation-rules.md`
    - `.agents/guardrails/definition-of-done.md`
 2. Use `read_file` to open and read every relevant context file under `/.agents/context/` — at minimum:
    - `.agents/context/cli-commands.md` (for any CLI work)

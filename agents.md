@@ -141,6 +141,7 @@ Package zip/export:
    - [control-plane-rules.md](.agents/guardrails/control-plane-rules.md) — Aspire integration guardrails
    - [atdd-workflow.md](.agents/guardrails/atdd-workflow.md) — ATDD session lifecycle rules
    - [acceptance-test-format.md](.agents/guardrails/acceptance-test-format.md) — Gherkin format rules
+   - [documentation-rules.md](.agents/guardrails/documentation-rules.md) — Doc structure, naming, and rename rules
 
 2. **Read relevant context files** in `/.agents/context/`:
    - [migration-package-concept.md](.agents/context/migration-package-concept.md) — Package layout specification
